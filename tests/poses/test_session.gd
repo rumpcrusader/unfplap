@@ -4,9 +4,9 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_session.gd
 
-const SESSION := preload("res://mods/unfplap/poses/session.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SESSION := preload("res://mods/unfplap/poses/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 var failures := 0
 var checks := 0

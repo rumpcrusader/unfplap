@@ -6,8 +6,8 @@ extends SceneTree
 
 const BRIDGE := preload("res://mods/unfplap/anatomy/act_bridge.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2

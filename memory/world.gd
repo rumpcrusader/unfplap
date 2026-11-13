@@ -2,7 +2,7 @@ extends RefCounted
 ## Scene adapter: the only reader of `world_context` and `impressions`, and the only place that
 ## builds the private cue facts and the shared-memory hit. The facade passes plain values in.
 
-const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const STORE := preload("res://mods/unfplap/memory/store.gd")
 
 

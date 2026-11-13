@@ -2,7 +2,7 @@ extends SceneTree
 ## The act perf probe: gates, the window boundary, the header facts and the summary text.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/perf/test_perf.gd
 
-const PERF := preload("res://mods/unfplap/perf.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var failures := 0
 var checks := 0

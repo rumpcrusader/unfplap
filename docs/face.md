@@ -2,7 +2,7 @@
 
 ## Scope
 
-`face_session.gd` owns the act's one face: the beat table driven by the pure `act_face.gd`, the
+`face/service.gd` owns the act's one face: the beat table driven by the pure `shared/act_face.gd`, the
 line-face ownership rule, the stare release, the eyelids, the smile and its hold timer, the climax
 quality shape, the held post-act mood face node and the warm prompt note. It does not own the
 runtime state, the blush, the kiss, the HUD or the summary grade.
@@ -17,16 +17,16 @@ The runtime still:
 - calls `_eyes_tick()` late in the tick and `_set_face()`/`_clear_face()` at the transitions;
 - forwards the face values to `_act_presentation()`.
 
-`face_session.gd` is the facade and the only module another system calls. There is no private
-`face/` directory: `act_face.gd` stays pure and `mood_face.gd` stays the held-face node.
+`face/service.gd` is the facade and the only module another system calls. There is no private
+`face/` directory: `shared/act_face.gd` stays pure and `face/mood_face.gd` stays the held-face node.
 
 ## Architecture
 
 | Piece | Owns |
 |---|---|
-| `face_session.gd` | the act face, the line-face owner, the stare release, the lids and smile with their timer, the climax quality shape, the mood-face lifetime and the warm note |
-| `act_face.gd` | pure: beat plans, climax style, blush, summary faces, prompt hints |
-| `mood_face.gd` | the 300 s held base-game face, its own `finished` signal and its blush |
+| `face/service.gd` | the act face, the line-face owner, the stare release, the lids and smile with their timer, the climax quality shape, the mood-face lifetime and the warm note |
+| `shared/act_face.gd` | pure: beat plans, climax style, blush, summary faces, prompt hints |
+| `face/mood_face.gd` | the 300 s held base-game face, its own `finished` signal and its blush |
 | `runtime.gd` | the state, the scene reads, the blush, the kiss, the HUD and the summary grade |
 
 Host callbacks, all optional so a test can build the facade without a runtime:
@@ -99,7 +99,7 @@ calls `finish_dialogue(hold_s)`. A climax with `release_stare` sets `stare_relea
 active, then reasserts the state's lids: half-lidded through `POSING_IN`/`ACTIVE`, wide at
 `CLIMAX`, sleepier in `AFTERGLOW` and sleepier again when the close window was rewarded. The lid
 values are the facade's constants; the runtime passes the state and the flags. `_set_face()` and
-`_act_presentation()` own the smile and the blush; `blush_for()` is in `act_face.gd` and reads
+`_act_presentation()` own the smile and the blush; `blush_for()` is in `shared/act_face.gd` and reads
 `_act_phase()`.
 
 ## Post-act mood face
@@ -108,12 +108,31 @@ values are the facade's constants; the runtime passes the state and the flags. `
 tree. A positive or non-early neutral summary uses `ACT_FACE.face_for_summary_hold()` and a
 `0.35` blush when `summary.reward` is true and the final satisfaction is at least
 `aftercare_min`. A face with no summary uses `relaxed` when the satisfaction reaches the minimum.
-The mood face node is `mood_face.gd`; the facade owns its `finished` signal, the `warm_note` flag
+The mood face node is `face/mood_face.gd`; the facade owns its `finished` signal, the `warm_note` flag
 and the `_left`/`face`/`mood` reads for the debug row.
 
 `start_upset()` starts the same node with the refusal face and no blush. `end_mood_face()` calls
 `_finish("replaced")` and clears the warm note. A new act clears the held face. The node receives
 the main handle and the `log` callback from the facade; it never reads the runtime node.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | act_face | `shared/act_face.gd` | face beat data |
+| shared | preferences | `shared/preferences.gd` | profile math and defaults |
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `bind()`
+- End: `shutdown()`
+- Idempotent: yes
+
 
 ## Tests
 

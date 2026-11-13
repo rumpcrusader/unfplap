@@ -2,8 +2,8 @@ extends SceneTree
 ## The footstool facade's public arithmetic and setting read.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_stool_api.gd
 
-const STOOL := preload("res://mods/unfplap/stool.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var failures := 0
 var checks := 0

@@ -7,13 +7,13 @@ framework is `docs/settings.md`.
 
 ## Ownership
 
-`preferences.gd` is the pure profile module: defaults, validation, merge, intensity/rhythm and the
-talk keyword map. `character_preferences.gd` holds the display names, the selector order and every
-spawnable mare's built-in profile. `settings.gd` stores the per-mare overrides under
+`shared/preferences.gd` is the pure profile module: defaults, validation, merge, intensity/rhythm and the
+talk keyword map. `shared/character_preferences.gd` holds the display names, the selector order and every
+spawnable mare's built-in profile. `settings/service.gd` stores the per-mare overrides under
 `characters.<id>` and resolves the provider layer. `main.gd` builds the Characters form;
-`settings_ui.gd` owns the declaration rows for the global settings.
+`settings/ui.gd` owns the declaration rows for the global settings.
 
-A known mare's base is her template in `character_preferences.gd`, then any mod provider layer
+A known mare's base is her template in `shared/character_preferences.gd`, then any mod provider layer
 (`docs/api.md`), then the global `default`. Removing her saved override restores that chain rather
 than the global default. The file stores only the player's differences.
 
@@ -75,7 +75,7 @@ steady   otherwise
 | kiss | `kiss` |
 
 Touch shares one 4 s scoring cooldown across smack, caress and kiss. Talk has an 8 s scoring
-cooldown and uses the game's `T`/microphone turn plus the small keyword map in `preferences.gd`;
+cooldown and uses the game's `T`/microphone turn plus the small keyword map in `shared/preferences.gd`;
 the AI still writes her reply. The caress action and its five-second touch meter are in
 `docs/hands.md`.
 
@@ -117,7 +117,7 @@ block as the preference, consent, prompt and pose overrides.
 
 ## Character examples
 
-Every spawnable mare in the base game has an explicit profile in `character_preferences.gd`:
+Every spawnable mare in the base game has an explicit profile in `shared/character_preferences.gd`:
 103 mares, the original sixteen first in the selector and the rest alphabetical. This table is the
 main cast sample; the catalog carries the full roster. `twist` (written as a schoolfilly) and
 `fiddly_twang` (written as a stallion) are left out because their identity flags do not match their

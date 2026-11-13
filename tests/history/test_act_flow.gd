@@ -5,10 +5,10 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/history/test_act_flow.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-const TAIL_TUCK := preload("res://mods/unfplap/tail_tuck.gd")
-const MEMORY := preload("res://mods/unfplap/memory.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 var failures := 0
 var checks := 0

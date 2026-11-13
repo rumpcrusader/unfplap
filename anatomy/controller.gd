@@ -3,7 +3,7 @@ extends Node
 ## including mares added by other mods, persistent across acts. The mesh and textures are tracked
 ## assets; if they are missing the controller stays empty and every public method is a no-op.
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
@@ -15,7 +15,7 @@ const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
 const WINKING_PATH := ASSET_DIR + "winking.scn"

@@ -3,7 +3,7 @@ extends "res://mods/unfplap/hands/path_base.gd"
 ## the old procedural flank/rump point as the fallback and the backward-lean reach.
 
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const CARESS_UP_BIAS_M := 0.05
 ## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.

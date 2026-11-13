@@ -7,19 +7,19 @@ itself is `docs/kiss.md`; the hands are `docs/hands.md`.
 
 ## Ownership
 
-`act_camera.gd` is the act camera session. It owns the lean input and its smoothing, the
+`camera/service.gd` is the act camera session. It owns the lean input and its smoothing, the
 speed-driven surge/bob response and the afterglow back-off, the debug free look, the free-camera
 `controls_locked` lock, the standing eye override, the captured player look and every size/torso
 helper the shot and the hands read.
 
-`missionary_camera.gd` and `standing_camera.gd` stay the shot implementations;
-`standing_anon.gd` and `missionary_anon.gd` stay the Anon body wrappers. The runtime owns the tick
+`camera/missionary_camera.gd` and `camera/standing_camera.gd` stay the shot implementations;
+`poses/standing_anon.gd` and `poses/missionary_anon.gd` stay the Anon body wrappers. The runtime owns the tick
 order, the start sequence, the shot targets (stroke speed, climax wave) and the one teardown
 ledger; `_restore_camera()` is that ledger and calls the facade's leaves in the built order.
 
 ## Typed view
 
-Every camera, shot and body module reads `act_facts.gd` and never the runtime node. The runtime
+Every camera, shot and body module reads `shared/act_facts.gd` and never the runtime node. The runtime
 binds the view, refreshes it in `_sync_act_facts()` and before it hands a controller out, and the
 modules read the camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`,
 `look_*`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`, `missionary_body()`,
@@ -53,7 +53,7 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
   changing the leg pose.
 - The hip is **depth-driven**. `_hip_phase` is the mouse `depth` low-passed by
   `HIP_SMOOTH_S = 0.04 s`. The fixed rump point is the base HipsTarget plus
-  `THRUST_MAX_M = 0.045 × body_scale` toward her; `anon_hip_thrust.gd` moves only the Hips bone
+  `THRUST_MAX_M = 0.045 × body_scale` toward her; `poses/anon_hip_thrust.gd` moves only the Hips bone
   by `THRUST_MAX_M × (1 - thrust.travel × (1 - phase))`, so depth 0 is the full backset and
   depth 1 reaches the rump point. `thrust.travel` defaults to `0.5`. The modifier restores the
   Spine and both UpperLegs to their pre-offset global poses, so the torso, head and legs do not
@@ -69,12 +69,12 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
   move; the lower body does not. Off restores the game's stepping and lean foot motion; the
   capture clears at act end.
 - The camera is **speed-driven**, never an impulse. The physics tick filters the signed depth
-  speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `act_camera.gd` follows it with one critically damped
+  speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `camera/service.gd` follows it with one critically damped
   response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel; outward
   strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips toward her on
   the inward stroke and rises on the return.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
-- The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0` (`act_camera.gd`).
+- The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0` (`camera/service.gd`).
 - `Q`/`E` fire their pose action at `LEAN_FIRE = 0.75` and release at `LEAN_RELEASE = 0.60`. The
   action is latched while above release.
 - The lean always holds a released position. `_lean_step()` only ramps toward a pressed target;
@@ -99,7 +99,7 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
 ## Missionary camera
 
 `presentation.missionary.camera_mode` (debug) picks the eye. **Authored shots** is the default and
-uses the shot trajectory below. **Anon eyes** keeps the view at `missionary_anon.gd`'s
+uses the shot trajectory below. **Anon eyes** keeps the view at `poses/missionary_anon.gd`'s
 `eye_transform()` — his posed `Head` bone with the game's eye offset, read from the transform
 `apply()` caches for the frame before `HeadHide` collapses the head bone. The lean is one hinge at
 the **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his hips,
@@ -160,7 +160,7 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   his crotch — the same logic the standing act uses. The detached bed holder (`_track_bed`) is no
   longer used by the act.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
-  differs. `tail_lay.gd` is installed on the hair skeleton for the missionary act and turns
+  differs. `poses/tail_lay.gd` is installed on the hair skeleton for the missionary act and turns
   whichever `mTail1..6` bones exist onto the bed plane toward her rump, straightening the chain;
   the root stays where the rig put it. The chain's pre-act local poses are restored before the
   modifier is freed, so the game's own tail motion resumes from the normal pose.
@@ -179,7 +179,7 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   `presentation.lean_back_m` (default `0.08 m`) with the same downward pitch; side `0.18 m` /
   `8°` outward roll / `3°` yaw. All scale with pony size.
 - Standing has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
-- Palm scale is a shared caress setting; see `docs/hands.md`. `hands/scale.gd` runs after the pose's
+- Palm scale is a shared caress setting; see `docs/hands.md`. `shared/hands_scale.gd` runs after the pose's
   hand solve and restores the cached scales on every act exit.
 - A footstool may raise Anon's player root before the standing pose; the camera, feet and hips
   follow the raised floor. The rule, prop and supply are in `docs/stool.md`.
@@ -201,6 +201,25 @@ works, and `runtime._input` stops feeding mouse motion into thrust. The pose and
 Standing has no separate view, so the standing camera controller simply leaves the player camera
 alone. The setting is live through `apply_live_settings`; the settings page pauses the world, so it
 takes effect when the panel closes.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | act_motion | `shared/act_motion.gd` | lean and travel math |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `bind()`/`begin_session()`
+- End: act teardown
+- Idempotent: yes
+
 
 ## Tests
 

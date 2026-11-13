@@ -1,4 +1,4 @@
-# Lover bond (`sex_bond.gd`)
+# Lover bond (`bond/service.gd`)
 
 The mod-owned lover bond: per-world storage, the stored stage, the grant/clear service and the
 world-context event. The eligibility rules that decide when a bond may be granted or ended are in
@@ -6,7 +6,7 @@ world-context event. The eligibility rules that decide when a bond may be grante
 
 ## Ownership
 
-`sex_bond.gd` stores the bond in `Mods.state("unfplap").sex_bonds`. It is per-world save data and
+`bond/service.gd` stores the bond in `Mods.state("unfplap").sex_bonds`. It is per-world save data and
 survives a reload. It never expires. The static functions (`section`, `grant`, `clear`,
 `set_stage`, `row`, `bonded`, `save`) are the store the pure tests drive.
 
@@ -20,7 +20,7 @@ The per-pony service is one instance the runtime owns and binds with host callab
 | `refresh_bond()` | the stale-bond sweep: keep the stage current, clear after a break-up |
 
 The runtime's `grant_sex_bond()`, `end_sex_bond()` and `refresh_sex_bond()` are thin forwards;
-`dialogue_consent.gd` calls them after a spoken agreement or withdrawal, and the Debug actions call
+`bond/dialogue_consent.gd` calls them after a spoken agreement or withdrawal, and the Debug actions call
 them for the aimed or nearest mare. The runtime supplies `bond_facts` (the eligibility verdict's
 bond flag, stage and love level), so the service never reads the policy itself.
 
@@ -83,6 +83,22 @@ module.
   mare. It uses the eligibility service, so it fails outside the adult, Promiscuity and
   kiss-willingness gates.
 - **Clear lover bond** clears it and always works.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+
+## Lifecycle
+
+- Scope: process + per-pony
+- Constructed by: `main`/`runtime`
+- Begin: `bind()`
+- End: `end_bond()`
+- Idempotent: yes
+
 
 ## Tests
 

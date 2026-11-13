@@ -20,6 +20,10 @@ if ! python3 "$MOD_DIR/scripts/asset_pack.py" verify --root "$MOD_DIR"; then
 	printf 'Run scripts/fetch_assets.sh once in this checkout.\n' >&2
 	exit 1
 fi
+if ! python3 "$MOD_DIR/scripts/architecture.py" --check; then
+	printf 'ARCHITECTURE_FAIL\n' >&2
+	exit 1
+fi
 
 # Suites live in tests/ and tests/<system>/. The manual labs need a live world and are not part
 # of the headless gate.

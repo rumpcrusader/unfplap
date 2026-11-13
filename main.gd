@@ -4,28 +4,28 @@ extends Node
 ## game files; it only reads the game's pony, relationship, memory and bed APIs.
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
-const MEMORY := preload("res://mods/unfplap/memory.gd")
-const HUD := preload("res://mods/unfplap/hud.gd")
-const INPUT := preload("res://mods/unfplap/input.gd")
-const INITIATION := preload("res://mods/unfplap/initiation.gd")
-const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-const CLASSIFIER := preload("res://mods/unfplap/consent_classifier.gd")
-const DIALOGUE_CONSENT := preload("res://mods/unfplap/dialogue_consent.gd")
-const DEBUG_SKELETON := preload("res://mods/unfplap/debug_skeleton.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
-const STOOL := preload("res://mods/unfplap/stool.gd")
-const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
+const INPUT := preload("res://mods/unfplap/input/service.gd")
+const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
+const DIALOGUE_CONSENT := preload("res://mods/unfplap/bond/dialogue_consent.gd")
+const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
-const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
-const PARTICIPATION := preload("res://mods/unfplap/participation.gd")
-const CYCLE := preload("res://mods/unfplap/cycle.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
+const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
-const RUMP_CONE := preload("res://mods/unfplap/rump_cone.gd")
-const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
+const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
+const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
@@ -185,9 +185,9 @@ func _ready() -> void:
 	var source_mtime := 0
 	for path: String in [
 			"res://mods/unfplap/runtime.gd",
-			"res://mods/unfplap/thrust.gd",
-			"res://mods/unfplap/preferences.gd",
-			"res://mods/unfplap/utterance.gd",
+			"res://mods/unfplap/readiness/thrust.gd",
+			"res://mods/unfplap/shared/preferences.gd",
+			"res://mods/unfplap/lines/utterance.gd",
 			"res://mods/unfplap/poses/skeleton_pose.gd",
 			"res://mods/unfplap/poses/missionary_recipe.gd",
 			"res://mods/unfplap/poses/standing_recipe.gd",

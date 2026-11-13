@@ -2,7 +2,7 @@ extends SceneTree
 ## Pure preference/pattern/talk-classifier tests.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_preferences.gd
 
-const PREF := preload("res://mods/unfplap/preferences.gd")
+const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 var failures := 0
 var checks := 0
 

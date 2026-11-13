@@ -1,9 +1,9 @@
 # Settings: one declaration, one accessor
 
-Every global setting in the mod is declared **once**, in `settings.gd`, and read through a typed
+Every global setting in the mod is declared **once**, in `settings/service.gd`, and read through a typed
 accessor on that setting. There is no second schema, no path-keyed read and no default constant
 anywhere else. The General, Anatomy and World panels are drawn from the declarations by
-`settings_ui.gd` in the settings page's own menu style: row cards, `Faint` help, switch plus
+`settings/ui.gd` in the settings page's own menu style: row cards, `Faint` help, switch plus
 state, Segment pills for a few short choices and the `Tab` look for a collapsible section heading.
 The tab pills, sidebar row and the hand-built Characters preference tab are added by the injection
 in `main.gd`. The Characters form itself is in `docs/preferences.md`; the consent and participation
@@ -18,15 +18,15 @@ through `SETTINGS.preferences(id)`, `SETTINGS.pose(id, pose_id)` and the other p
 
 ## Ownership
 
-`settings.gd` owns the declaration registry, the JSON file, the typed accessors and the per-mare
-profiles. `settings_ui.gd` is the only file that draws the declaration rows. `main.gd` owns the
+`settings/service.gd` owns the declaration registry, the JSON file, the typed accessors and the per-mare
+profiles. `settings/ui.gd` is the only file that draws the declaration rows. `main.gd` owns the
 tab injection, the Characters form and the `_apply_settings_changed()` hook. The runtime owns the
 per-act snapshot (`_snapshot_settings()`); the settings file never reads a live act.
 
 ## Reading and writing
 
 ```gdscript
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 if SETTINGS.act_vocals.get_bool(): ...
 var raise_m: float = SETTINGS.raise_m.get_num()
@@ -101,7 +101,7 @@ list(n, path, default, options, label, help, tab, group)
 | `with_range` | the contract bounds; only applied when the setting is not debug |
 | `with_slider` | draw a themed HSlider instead of a spin box |
 | `as_debug` | show it in the tab's Debug block only, and never clamp it |
-| `as_hidden` | keep it out of the declaration rows; a hand-built `settings_ui.gd` control (the placement target pill) owns the widget |
+| `as_hidden` | keep it out of the declaration rows; a hand-built `settings/ui.gd` control (the placement target pill) owns the widget |
 
 Declarations render **in file order**, and a section is created where it first appears. Put a line
 where a player would look for it, next to the setting it belongs to; do not add a "misc" section.
@@ -144,7 +144,7 @@ prefixes pre-emptively.
 - The declaration's `path` **is** the `settings.json` path; the default is the declaration's value.
   Defaults are generated from the registry, so there is no second defaults table.
 - `anatomy.placement` is one block with `default.*` (ten debug declarations: anatomy 5, tail 3,
-  dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. `anatomy_placement.gd`
+  dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. `shared/anatomy_placement.gd`
   owns the shipped per-mare `MARE_DEFAULTS` (the tuned tail/dock rows) and resolves override,
   shipped default, then global default. The old `anatomy_place.json` and `anon_place.json` import
   once and are renamed `.migrated`. The old `anatomy.tail_seat.<id>` rows and the tail/dock
@@ -152,7 +152,7 @@ prefixes pre-emptively.
 - `anatomy.reseat_tails`, `anatomy.dock_color` and the tail/dock placement behavior are in
   `docs/anatomy.md`. The settings layer owns only their paths, defaults and the placement
   migration above.
-- `settings.gd` owns the file. It parses once per process into `_cache`, writes on save, and
+- `settings/service.gd` owns the file. It parses once per process into `_cache`, writes on save, and
   `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat reads are
   cached per generation, so a per-frame read is cheap.
 - **Migrations.** The file carries `version`. Add a step to `_migrate()` for a structural change
@@ -183,6 +183,15 @@ prefixes pre-emptively.
   `get`, `set`): a preloaded script constant resolves the built-in instead. `tests/test_settings.gd`
   guards this.
 
+## Lifecycle
+
+- Scope: world
+- Constructed by: `main._ready()`
+- Begin: registry load
+- End: process exit
+- Idempotent: yes
+
+
 ## Settings file shape
 
 `settings.json` path: `user://mods/data/unfplap/settings.json`
@@ -200,7 +209,7 @@ Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `features`
 ## The settings tab
 
 `Settings → Unfplap` has four sub-tabs: **General**, **Anatomy**, **World** and **Characters**.
-Every row comes from one declaration in `settings.gd` — label, help, section, bounds — and applies
+Every row comes from one declaration in `settings/service.gd` — label, help, section, bounds — and applies
 live.
 
 **General**
@@ -311,7 +320,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
 
 ## Settings authoring rules for agents
 
-- Add a setting with one declaration line in `settings.gd` and read it with its typed accessor;
+- Add a setting with one declaration line in `settings/service.gd` and read it with its typed accessor;
   never add a widget, a default constant, a path-keyed read or a save function anywhere else.
 - `SETTINGS.block(prefix)` is the only bulk read. Per-act snapshots stay in
   `runtime._snapshot_settings()`; do not add another cache.
@@ -319,7 +328,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   the only assertions are the ones in `tests/test_settings.gd`: registry integrity, defaults, the
   file round-trip, clamping versus debug bypass, validation, section state, the panel drawing every
   declaration, migration and the per-mare merge. Extend that file only for new API behaviour.
-- A retired setting is one `deprecated()` entry in `settings.gd` with its mapping; bump
+- A retired setting is one `deprecated()` entry in `settings/service.gd` with its mapping; bump
   `SCHEMA_VERSION` only for a structural change in `_migrate()`. Neither needs a manual file edit.
 - **A group needs at least three related settings.** Fewer, and the setting goes directly in the
   tab (or its Debug block) with `group` empty and no heading; a subgroup that small merges into its
@@ -328,7 +337,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
   block and `main.gd` keeps it to show or hide. Put new debug-only settings behind `.as_debug()`;
   the Actions buttons live inside the Debug block of the action's tab.
 - A debug action that belongs with others shares a `row` caption and a `short` label in
-  `debug_actions.gd`; consecutive entries with the same row render on one line.
+  `debug/service.gd`; consecutive entries with the same row render on one line.
 - The Anatomy Actions block starts with the **Placement target** pill (`Default` / `Pointed
   mare`), backed by the persisted hidden `anatomy.placement_target` setting. The Placement
   buttons then edit the selected target; Default stages a preview until Save, and Save writes the
@@ -341,7 +350,7 @@ rump blush. Unknown settings keys are ignored. Caress feature flags and debug va
 
 ## Debug actions and hotkeys
 
-Debug commands are entries in `debug_actions.gd`:
+Debug commands are entries in `debug/service.gd`:
 
 ```gdscript
 "bed_offer": {
@@ -356,17 +365,30 @@ The **Debug** block of the tab named by the entry's `tab` (`general` by default,
 drawn compactly on one line under that caption (`"short"` is the button text), so related actions
  stay together; adding an action is one entry plus one method. A hotkey (`"hotkey": KEY_X`) is the
 exception, only for an action that must fire while the world is unpaused and you are looking at the
-scene (the F10 skeleton overlay is the only one); use `"panel": false` for hotkey-only. `input.gd`
+scene (the F10 skeleton overlay is the only one); use `"panel": false` for hotkey-only. `input/service.gd`
 routes declared hotkeys only. The action list and per-service debug actions are in
 `docs/debug.md`.
 
 ## Perf probe
 
 **Print perf logs** (with **Enable debug**) turns on the act's probe. Timed chunks call
-`perf_note(chunk, usec)`; `perf.gd` holds the window, the chunk rows and the header facts, and
+`perf_note(chunk, usec)`; `shared/perf.gd` holds the window, the chunk rows and the header facts, and
 prints one `perf` summary a second. The probe is off and allocation-free when either switch is off,
 and its window resets outside an act. It is a debug tool, not a setting: no declaration, no
 persisted value. See `docs/perf.md`.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
+| shared | character_preferences | `shared/character_preferences.gd` | character templates |
+| shared | consent | `shared/consent.gd` | consent defaults |
+| shared | participation | `shared/participation.gd` | participation defaults |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+| shared | preferences | `shared/preferences.gd` | profile math and defaults |
 
 ## Tests
 
@@ -375,7 +397,7 @@ persisted value. See `docs/perf.md`.
   choice/list validation, section state, the panel drawing every declaration in its tab (and the
   Debug block only in debug mode), built-in name clashes, and the per-mare merge.
 - `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims and that no
-  settings widget is created outside `settings_ui.gd` (the Characters form in `main.gd` is the one
+  settings widget is created outside `settings/ui.gd` (the Characters form in `main.gd` is the one
   allowed exception).
 - Keep the feature-flag table in this file current when adding a flag, and update `README.md`
   CONTROLS or FEATURES only for player-facing changes.

@@ -5,9 +5,9 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/readiness/test_readiness_auto.gd
 
-const READINESS := preload("res://mods/unfplap/readiness.gd")
-const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
-const AUTO_PANEL := preload("res://mods/unfplap/auto_panel.gd")
+const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
+const AUTO_PANEL := preload("res://mods/unfplap/readiness/auto_panel.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2

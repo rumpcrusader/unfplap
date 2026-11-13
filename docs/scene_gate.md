@@ -5,7 +5,7 @@ adult mare *may*; this answers whether the *scene* is ready right now.
 
 ## Ownership
 
-`scene_gate.gd` (RefCounted) owns:
+`scene_gate/service.gd` (RefCounted) owns:
 
 - the scene-only gate rows: runtime state, paused tree, player conversation, sleep, an active act
   or aftercare, cuddle, affection, player readiness, navigator existence/reservation/owner/pose,
@@ -20,7 +20,7 @@ adult mare *may*; this answers whether the *scene* is ready right now.
   lost-trust hook and the refusal floor.
 
 `runtime.gd` keeps the policy and the live context: it supplies `policy_verdict` (the
-`eligibility.gd` verdict) and `debug_context` (the act values the status line reads) through
+`eligibility/service.gd` verdict) and `debug_context` (the act values the status line reads) through
 callbacks, and keeps the public forwards (`can_show_start`, `can_offer`, `offer_reasons`,
 `refuse_available`, `refuse`, `find_bed_under`, `free_of_affection`, `cuddle_active`). The runtime
 also owns the refusal face (`_start_upset("angry"|"annoyed")`); the facade calls back with the
@@ -91,6 +91,26 @@ the impression; the face is presentation. A strict partner stop also calls the s
 `scene_gate.debug_line()` owns the status string: it reads the live act values through the
 runtime's `debug_context` callback, the row/verdict assembly, and the policy row reads. The
 runtime's `debug_line()` is a thin forward. No scene row is recomputed twice in different ways.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | memory | `memory/service.gd` | act memory and witness pass |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+
+## Lifecycle
+
+- Scope: per-pony
+- Constructed by: `runtime._init()`
+- Begin: `bind()`/`configure()`
+- End: act teardown
+- Idempotent: yes
+
 
 ## Tests
 

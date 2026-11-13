@@ -6,7 +6,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##       --script res://mods/unfplap/tools/settings_migrate.gd
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 
 func _initialize() -> void:

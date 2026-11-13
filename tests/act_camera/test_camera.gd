@@ -4,10 +4,10 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_camera/test_camera.gd
 
-const CAMERA := preload("res://mods/unfplap/act_camera.gd")
-const FACTS := preload("res://mods/unfplap/act_facts.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const MOTION := preload("res://mods/unfplap/act_motion.gd")
+const CAMERA := preload("res://mods/unfplap/camera/service.gd")
+const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2

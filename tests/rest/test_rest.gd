@@ -3,8 +3,8 @@ extends SceneTree
 ## rejoin decision and note, the restore posture and the early rejoin exits.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/rest/test_rest.gd
 
-const REST := preload("res://mods/unfplap/rest_rejoin.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const REST := preload("res://mods/unfplap/rest/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 var failures := 0
 var checks := 0

@@ -2,8 +2,8 @@ extends SceneTree
 ## The readiness facade: heat, stroke scoring, touch/talk input, cues and the act counters.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_readiness.gd
 
-const READINESS := preload("res://mods/unfplap/readiness.gd")
-const PREF := preload("res://mods/unfplap/preferences.gd")
+const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 
 const ACTIVE := 2
 const CLIMAX := 3

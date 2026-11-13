@@ -4,10 +4,10 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_api.gd
 
 const API := preload("res://mods/unfplap/api.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const REGISTRY := preload("res://mods/unfplap/mare_registry.gd")
-const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
+const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
 ## The public v1 surface. An addition or rename must update this list and docs/api.md together.
 const METHODS := ["contract", "describe_mare", "register_mare", "supports", "unregister_mare"]

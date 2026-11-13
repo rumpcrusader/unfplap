@@ -3,7 +3,7 @@ extends RefCounted
 ## engine applies the oval, snaps it to the coat, smooths the contact and builds the palm frame.
 ## It never reads the pose, the input or the camera.
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")

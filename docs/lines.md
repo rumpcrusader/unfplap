@@ -26,17 +26,17 @@ face beats (`docs/face.md`).
 
 | File | Role |
 |---|---|
-| `act_lines.gd` | facade: scheduler state, cue admission, prompt assembly, reactions, bystander and recent-line reads |
-| `act_facts.gd` | the runtime's typed act view: state, ids, mood/cue, stroke and touch/talk values, preferences, prompts, features and the director clock |
-| `utterance_scheduler.gd` | pure admission policy: stability, gaps, demand budget, the one pending slot |
-| `utterance.gd` | pure prompt formatting and the private line seed |
-| `act_lines/prompts.gd` | pure normal-dialogue note assembly: warm, mid-act, afterglow, caress/lean |
-| `memory.gd` | the mod's line channel: queue, key, state, cancel and cancel-by-act |
+| `lines/service.gd` | facade: scheduler state, cue admission, prompt assembly, reactions, bystander and recent-line reads |
+| `shared/act_facts.gd` | the runtime's typed act view: state, ids, mood/cue, stroke and touch/talk values, preferences, prompts, features and the director clock |
+| `lines/utterance_scheduler.gd` | pure admission policy: stability, gaps, demand budget, the one pending slot |
+| `lines/utterance.gd` | pure prompt formatting and the private line seed |
+| `lines/prompts.gd` | pure normal-dialogue note assembly: warm, mid-act, afterglow, caress/lean |
+| `memory/service.gd` | the mod's line channel: queue, key, state, cancel and cancel-by-act |
 | `docs/lines.md` | this contract |
-| `tests/act_lines/` | the pure scheduler/formatting suites and the facade suite |
+| `tests/lines/` | the pure scheduler/formatting suites and the facade suite |
 
 The facade reads no runtime field and preloads neither `runtime.gd` nor `main.gd`. It receives
-`main` through `setup()` and every act value through `act_facts.gd`. The director is a callable
+`main` through `setup()` and every act value through `shared/act_facts.gd`. The director is a callable
 on the facts; the processed-time clock is a second callable, so line pacing freezes with a paused
 tree.
 
@@ -74,12 +74,12 @@ The prompt is formatted, then the face note, the code-owned context note, the cu
 the optional speech-feel note and the optional line-angle note are appended in that order. The
 shared-memory id is marked used only after the line was accepted.
 
-`readiness.gd` owns `mood`, `cue` and the override lifetime; the runtime forwards those values and
+`readiness/service.gd` owns `mood`, `cue` and the override lifetime; the runtime forwards those values and
 sets them on `act_facts` immediately before calling the facade.
 
 ## Prompt notes
 
-`act_lines/prompts.gd` is pure and owns the normal dialogue prompt, outside and during an act:
+`lines/prompts.gd` is pure and owns the normal dialogue prompt, outside and during an act:
 
 - outside the act states, the warm after-sex note (with the relationship line appended) or the
   history note;
@@ -112,7 +112,7 @@ the normal restore must not cancel it again.
 
 ## Pacing and context
 
-Cue lines are event-driven, not a timer. `utterance_scheduler.gd` owns admission, with the
+Cue lines are event-driven, not a timer. `lines/utterance_scheduler.gd` owns admission, with the
 **Talk & cues** debug settings as its pacing:
 
 - a base cue must stay unchanged for `cues.base_stable_seconds` (default `2 s`);
@@ -165,18 +165,38 @@ The HUD cue is shorthand, not the line. `UTTERANCE.line_seed()` turns the same f
 second-person seed (`{seed}`): it states the need or the moment, never “She wants…”, and ends with
 “This is private, not a script; you may show it, say it, or let it go unsaid.”
 
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | memory | `memory/service.gd` | act memory and witness pass |
+| shared | act_face | `shared/act_face.gd` | face beat data |
+| shared | preferences | `shared/preferences.gd` | profile math and defaults |
+| shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime`
+- Begin: `setup()`/`configure()`
+- End: `reset()`/act end
+- Idempotent: yes
+
+
 ## Tests
 
-- `tests/act_lines/test_utterance.gd`: pure formatting and the line seed.
-- `tests/act_lines/test_utterance_scheduler.gd`: stability, gaps, demand budget and the slot.
-- `tests/act_lines/test_act_lines.gd`: pacing configuration, cue admission, prompt assembly,
+- `tests/lines/test_utterance.gd`: pure formatting and the line seed.
+- `tests/lines/test_utterance_scheduler.gd`: stability, gaps, demand budget and the slot.
+- `tests/lines/test_act_lines.gd`: pacing configuration, cue admission, prompt assembly,
   the memory channel, reactions, the recent-line reads, busy state and act-end cancellation.
-- `tests/act_lines/test_prompt_notes.gd`: the warm, mid-act and afterglow notes, the
+- `tests/lines/test_prompt_notes.gd`: the warm, mid-act and afterglow notes, the
   caress/lean reads and the two facade forwarders.
 
 Run:
 
 ```bash
 godot --headless --xr-mode off --path <project> \
-  --script res://mods/unfplap/tests/act_lines/test_act_lines.gd
+  --script res://mods/unfplap/tests/lines/test_act_lines.gd
 ```

@@ -8,17 +8,17 @@ Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; th
 
 ## Ownership
 
-`history.gd` is the system facade. It owns the summary trigger and commit, the summary input and
+`history/service.gd` is the system facade. It owns the summary trigger and commit, the summary input and
 context shape the pure scorer reads (`summary_inputs()`, `summary_context()`), the peak-memory
 record, the per-mare row reads, the idle apology/reminder decisions and the pure
-`act_tolerance.gd` meter. The runtime keeps the act state machine, gathers the action counters and
+`history/tolerance.gd` meter. The runtime keeps the act state machine, gathers the action counters and
 the scene values into one dictionary, runs the scene stop executor (`_stop_with_her`: bed release,
-session end, space, buck, tail tuck) and owns the face and line presentation. `act_summary.gd` and
-`act_history.gd` remain the pure scoring and stored-row modules behind the facade.
+session end, space, buck, tail tuck) and owns the face and line presentation. `history/summary.gd` and
+`shared/act_history.gd` remain the pure scoring and stored-row modules behind the facade.
 
 ## Per-act score
 
-`act_summary.gd` is pure. It scores one act from the action counters the runtime collected:
+`history/summary.gd` is pure. It scores one act from the action counters the runtime collected:
 
 | Component | Weight | Passes when | Applies |
 |---|---:|---|---|
@@ -85,7 +85,7 @@ An intentional early end and a partner stop each record **one** event: the summa
 on and the summary is not skipped, otherwise the basic `cancel`/`stop` event as the fallback. The old
 flat `commit_climax` path is gone, so a bad act can no longer give `+2` romance.
 
-A completed act starts `mood_face.gd`: a good or non-early neutral act holds a relaxed face with
+A completed act starts `face/mood_face.gd`: a good or non-early neutral act holds a relaxed face with
 the warm prompt note, and a bad act holds `sad`/`annoyed` instead. The 10 s aftercare hold always
 runs, but its positive tail-up body language is only used after a good act. `stay_close_reward`
 gives its extra romance only on a good or non-early neutral act; after a bad act, staying close and
@@ -112,7 +112,7 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
 
 ## History points
 
-`act_history.gd` stores per mare in `Mods.state("unfplap").act_history`:
+`shared/act_history.gd` stores per mare in `Mods.state("unfplap").act_history`:
 
 ```gdscript
 {
@@ -169,7 +169,7 @@ calls `player_bonds.break_up()`.
 it as **Neglect tolerance**. The default is normal; Rarity is strict and Fluttershy is forgiving.
 The old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 
-A pure `act_tolerance.gd` meter runs only during `POSING_IN`/`ACTIVE`:
+A pure `history/tolerance.gd` meter runs only during `POSING_IN`/`ACTIVE`:
 
 - every actual disliked touch/talk adds `tolerance.dislike_amount` (1);
 - every actual liked touch/talk subtracts `tolerance.like_relief` (1);
@@ -220,7 +220,7 @@ The mod writes or keeps that note on the moments the base game does not see:
 - the refusal calls the game's own `bonds.unwanted_contact(id, "kiss")`, costing a little trust;
 - a normal tolerance stop holds `annoyed`; a strict stop holds `angry` (its summary impression).
 
-`mood_face.gd` displays the mood: it holds `annoyed`/`angry` on her face for the note's 300 s,
+`face/mood_face.gd` displays the mood: it holds `annoyed`/`angry` on her face for the note's 300 s,
 yields to any spoken line face, and ends early when her AI commits a different mood. It owns no
 navigator and blocks nothing; the gates above do that.
 
@@ -245,6 +245,15 @@ navigator and blocks nothing; the gates above do that.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act. The **Reset act history** debug action clears the row.
 
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `reset_act()`
+- End: act teardown
+- Idempotent: yes
+
+
 ## Settings
 
 `features.act_history` is the master switch (General › Controls, default on). With it off, no summary is
@@ -257,6 +266,18 @@ so stored values are never clamped. See `docs/settings.md`.
 The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in
 **Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug
 settings.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | memory | `memory/service.gd` | act memory and witness pass |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | preferences | `shared/preferences.gd` | profile math and defaults |
+| shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
+| store | act_history | `shared/act_history.gd` | stored history rows |
 
 ## Tests
 

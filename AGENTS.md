@@ -1,8 +1,9 @@
 # unfplap — mod-specific agent guide
 
 Read `res://mods/AGENTS.md` first and follow its general Home: Equestria mod rules. This file adds
-the working knowledge for `unfplap` only. It holds project-wide rules and the service index; the
-per-service contracts are under `docs/` and `docs/README.md` is their index.
+the working knowledge for `unfplap` only. It holds project-wide rules and the reading table; the
+concepts are in `ARCHITECTURE.md`, the service index is `docs/README.md`, and the per-service
+contracts are under `docs/`.
 
 ## Required reading by task
 
@@ -10,8 +11,8 @@ Do not start implementation until you have read the required files for the area 
 
 | Task | Read first |
 |---|---|
-| Any task | `res://mods/AGENTS.md`, then this file, then `WORKFLOW.md` |
-| Documentation or a service boundary | `docs/README.md`, the owning service doc |
+| Any task | `res://mods/AGENTS.md`, then this file, `ARCHITECTURE.md`, `WORKFLOW.md` |
+| Architecture, service boundary or dependency | `ARCHITECTURE.md`, `docs/README.md`, the owning contract |
 | Hands, caress or smack | `docs/hands.md` |
 | Eligibility, consent, offer or relationship level | `docs/eligibility.md` |
 | Scene gate, refusal, bed/player/navigator gate | `docs/scene_gate.md` |
@@ -31,7 +32,7 @@ Do not start implementation until you have read the required files for the area 
 | Controls or features | `README.md` (edit only CONTROLS and FEATURES) |
 | Setting, flag or debug control | `docs/settings.md` |
 | Character profiles or preference | `docs/preferences.md`, `docs/settings.md` |
-| Cross-mod API | `docs/api.md`, `api.gd`, `mare_registry.gd` |
+| Cross-mod API | `docs/api.md`, `api.gd`, `registry/service.gd` |
 | Act audio or sound assets | `docs/audio.md`, `AUDIO_CREDITS.md`, `assets/README.md`, `scripts/asset_pack.py` |
 | Act HUD text or `End` tint | `docs/hud.md` |
 | Debug actions, console or overlay | `docs/debug.md` |
@@ -59,84 +60,30 @@ Do not start implementation until you have read the required files for the area 
   anatomy master; desktop human Anon owns the free act camera.
 - The user-facing summary is `README.md`. The per-system contracts are under `docs/`.
 
-## Architecture: isolated systems
+## Architecture: services
 
-Unfplap is built from isolated systems. A system owns one responsibility and exposes it through
-one mod-internal API; other systems talk to it only through that API.
+Read `ARCHITECTURE.md` before changing a service boundary. It defines the layers, the
+`service_name/service.gd` layout, lifecycle ownership, typed boundaries, shared modules and the
+enforcement gate.
 
-| Part | Rule |
-|---|---|
-| `<system>.gd` | the facade: the only file another system may preload or call. It owns lifecycle and the system's stored state; in-system scene adapters are listed in the contract and only the facade calls them. |
-| `<system>/` | private implementation: pure modules, paths, data and resources. Nothing outside the system preloads these files. |
-| `docs/<system>.md` | the system's one technical contract. This file links to it and does not restate it. |
-| `tests/<system>/` | the system's suites: pure core tests and facade/API tests stay separate. |
+The service index, facades, contracts and test paths are in `docs/README.md`; this file does not
+duplicate the table. A service facade is the internal API. The stable external contract is `api.gd`
+and `docs/api.md`; internal APIs never go there by accident.
 
-The facade's public methods are the system's **internal API**. This is not the cross-mod API:
-`docs/api.md` and `api.gd` are the stable contract another mod may call. Internal APIs change
-freely with the mod and are never added to `docs/api.md` by accident.
+Key project rules that apply to every change:
 
-Rules:
+- one service owns one piece of mutable state and exposes it through `service_name/service.gd`;
+- nothing outside the service imports its private files;
+- a service never reads another service's private fields or calls its `_` helpers;
+- services depend on other facades or `shared/` modules, not on a host dictionary service locator;
+- `main.gd` and `runtime.gd` compose and order services; they do not implement their rules;
+- `runtime._end_session` remains the only act exit path and the one teardown ledger;
+- per-act services receive their values once per act and again on `apply_live_settings()`;
+- no per-frame allocation in a facade or read model;
+- no game-file edits and no JSON merges into game data.
 
-- One responsibility per system. If the description needs "and", split it.
-- The facade is the only scene adapter. It reads Nodes, `Settings`, the tree and the game, then
-  passes plain values to pure modules. A pure module has no `Node`, `Time`, `SceneTree`,
-  `FileAccess`, game scene preload or another system's facade.
-- A system never reads another system's private fields, `_` helpers, child nodes or raw scene
-  state. It calls the other facade, or receives the values it needs as arguments.
-- Exchange values, not Nodes. Use a typed `RefCounted` context, a plain dictionary or a
-  documented handle at the boundary. `runtime` is a caller, not a service locator.
-- Dependencies point one way: system -> shared pure data (`settings`, `poses/catalog`, `cycle`,
-  `preferences`) -> game. `main` and `runtime` compose systems and keep orchestration, state and
-  ordering; they never hold a system's implementation.
-- Every system ships its contract, its tests and its source-hygiene boundary in the same change
-  that introduces it.
-- Migrate one system at a time: extract the pure core, add the facade, route callers, move the
-  tests and the contract, then delete the old path. No mixed-state commits.
-
-A system is not the right unit for a tiny pure helper or a data table. `settings.gd`,
-`poses/catalog.gd`, `preferences.gd`, `cycle.gd`, `anatomy_placement.gd`, `act_facts.gd` and
-`perf.gd` stay shared pure modules; a system is for behavior with lifecycle, scene access or
-stored state. A shared module still gets its own doc when it is a stable contract
-(`docs/act_facts.md`, `docs/perf.md`).
-
-### Services
-
-The full table with facades, contracts and suites is `docs/README.md`. The quick index:
-
-| System | Entry | Contract |
-|---|---|---|
-| Eligibility and consent | `eligibility.gd` | `docs/eligibility.md` |
-| Scene gate and refusal | `scene_gate.gd` | `docs/scene_gate.md` |
-| Act scene hold | `scene_hold.gd` | `docs/scene_hold.md` |
-| Bed rest and cuddle rejoin | `rest_rejoin.gd` | `docs/rest.md` |
-| Hands | `hand_control.gd` | `docs/hands.md` |
-| Anatomy | `anatomy.gd` | `docs/anatomy.md` |
-| VR act | `vr_act.gd` | `docs/vr.md` |
-| Proactive requests | `initiation.gd` | `docs/initiation.md` |
-| Act memory | `memory.gd` | `docs/memory.md` |
-| Act lines and prompt notes | `act_lines.gd` | `docs/lines.md` |
-| Readiness, strength and auto | `readiness.gd` | `docs/readiness.md` |
-| Preferences | `preferences.gd`, `character_preferences.gd` | `docs/preferences.md` |
-| Poses and skeleton | `poses/session.gd` | `docs/poses.md` |
-| Act camera and shots | `act_camera.gd` | `docs/camera.md` |
-| Kiss | `kiss_control.gd` | `docs/kiss.md` |
-| History and tolerance | `history.gd` | `docs/history.md` |
-| Afterglow | `afterglow.gd` | `docs/afterglow.md` |
-| Face and mood | `face_session.gd` | `docs/face.md` |
-| Reactions | `act_reactions.gd` | `docs/reactions.md` |
-| Stool | `stool.gd` | `docs/stool.md` |
-| Audio and voice | `act_audio.gd` | `docs/audio.md` |
-| HUD | `hud.gd` | `docs/hud.md` |
-| Settings | `settings.gd` | `docs/settings.md` |
-| Lover bond | `sex_bond.gd` | `docs/bond.md` |
-| Typed act view | `act_facts.gd` | `docs/act_facts.md` |
-| Perf probe | `perf.gd` | `docs/perf.md` |
-| Debug tooling | `debug_actions.gd`, `debug_skeleton.gd` | `docs/debug.md` |
-
-`runtime.gd` is the per-pony act orchestrator: state machine, tick order, start sequence, the one
-teardown ledger and the composition of service calls. It is not a system and has no `runtime/`
-private directory. `main.gd` owns the mod entry, the per-pony runtimes, the settings tab injection
-and the top-level services.
+Use `scripts/architecture.py --check` before the full gate when a change touches a facade, a
+service directory, a shared module or a dependency edge.
 
 ## Workflow
 
@@ -237,12 +184,12 @@ scripts/check.sh
   changes. No per-frame `Settings` reads in new code. `SETTINGS.block(prefix)` is the only bulk
   read.
 - **No reach-ins.** A system must not preload `runtime.gd` or `main.gd`, and must not call
-  `runtime.get("_…")` / `runtime.call("_…")`. Presentation modules read `act_facts.gd` or the
+  `runtime.get("_…")` / `runtime.call("_…")`. Presentation modules read `shared/act_facts.gd` or the
   owning facade.
 - **No allocation churn.** Reuse `act_facts` and event dictionaries; do not allocate per frame in
   a facade.
 - **No game-file edits and no JSON merges.** Everything lives under `res://mods/unfplap/`.
-- **No new settings without a declaration.** One line in `settings.gd`, one typed read; see
+- **No new settings without a declaration.** One line in `settings/service.gd`, one typed read; see
   `docs/settings.md`.
 - **Tests move with the code.** A change is not done while its suite reads the old private path,
   unless it is explicitly retargeted to the facade.
@@ -276,13 +223,13 @@ This is mandatory.
 - A system contract lives only in its owning doc. Other docs link to it and do not restate its
   paths, contact, settings or debug controls.
 - A doc names settings and behaviour, not copied numeric defaults; the declaration in
-  `settings.gd` is the source for the default and bounds.
+  `settings/service.gd` is the source for the default and bounds.
 
 ## Settings authoring
 
 The full contract is `docs/settings.md`. The short version:
 
-- Add a setting with one declaration line in `settings.gd`, read it with its typed accessor, and
+- Add a setting with one declaration line in `settings/service.gd`, read it with its typed accessor, and
   run `scripts/test_all.sh`.
 - Never add a widget, a default constant, a path-keyed read or a save function anywhere else.
 - A group needs at least three related settings; otherwise leave `group` empty.
@@ -303,21 +250,23 @@ mods/unfplap/
   runtime.gd        per-pony act orchestrator: state machine, tick order, start,
                     teardown, service composition
   api.gd            stable cross-mod facade; docs/api.md
-  mare_registry.gd  in-memory provider layers for modded and base-game mares
-  settings.gd       every global setting declared once; docs/settings.md
-  settings_ui.gd    the only file that builds settings widgets
-  debug_actions.gd  Debug block actions and hotkeys; docs/debug.md
-  hud.gd            the act card; docs/hud.md
-  input.gd          Y start/end, smack routing, key consumption, action hotkeys
+  registry/service.gd  in-memory provider layers for modded and base-game mares
+  settings/service.gd       every global setting declared once; docs/settings.md
+  settings/ui.gd    the only file that builds settings widgets
+  debug/service.gd  Debug block actions and hotkeys; docs/debug.md
+  hud/service.gd            the act card; docs/hud.md
+  input/service.gd          Y start/end, smack routing, key consumption, action hotkeys
   docs/             one contract per service; docs/README.md is the index
   tests/            unit/source-hygiene tests and the manual labs
   scripts/          asset pack, build manifest, release checks, test runners
   assets/           fetched runtime assets and the asset-pack README
-  poses/            skeleton driver, rig cache, recipes, authored pose, catalog
+  shared/           pure modules, shared stores and read models
+  poses/            pose session, skeleton driver, rig cache, recipes, body adapters
   anatomy/          anatomy internals, act bridge, tail seat
   hands/            caress, reach and smack internals
   stool/            the per-act stool handle and supply
-  act_lines/        prompt formatting internals
+  lines/            line scheduler and prompt formatting internals
+  <service>/        the remaining service facades and private internals
   AUDIO_CREDITS.md  audio credits; ships
   README.md         player-facing CONTROLS and FEATURES
   WORKFLOW.md       commands, labs and release flow

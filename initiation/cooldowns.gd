@@ -1,10 +1,10 @@
 extends RefCounted
 ## The request cooldown store: one `Mods.state("unfplap").request_times` dictionary of
-## id -> unix time. It mirrors `act_history.gd` (a static section owner with no scene state of its
+## id -> unix time. It mirrors `shared/act_history.gd` (a static section owner with no scene state of its
 ## own) and composes the history offer cooldown with the heat shortening. See
 ## `docs/initiation.md` (`## Data ownership`).
 
-const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 
 const MOD_ID := "unfplap"

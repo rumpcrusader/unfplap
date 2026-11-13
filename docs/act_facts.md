@@ -1,4 +1,4 @@
-# Typed act view (`act_facts.gd`)
+# Typed act view (`shared/act_facts.gd`)
 
 The shared, scene-free view of one act. The runtime owns one object per pony and rewrites it as the
 state, camera and line values change; presentation modules read it instead of the runtime node.
@@ -7,16 +7,16 @@ orchestrator and the scene adapters.
 
 ## Ownership
 
-- `act_facts.gd` defines the fields and the no-op host callbacks.
+- `shared/act_facts.gd` defines the fields and the no-op host callbacks.
 - `runtime.gd` creates it, binds the callbacks in `_init()`, refreshes the live values in
   `_sync_act_facts()` at the head of each act tick, and refreshes them again in `_bind_act_view()`
   before it hands a presentation controller out. The second refresh exists because the idle
   standing invitation, the debug actions and the suites call the controllers outside the act tick.
-- The consumers are `missionary_anon.gd`, `missionary_camera.gd`, `standing_anon.gd`,
-  `standing_camera.gd`, `standing_presentation.gd`, `kiss_control.gd`, `hand_control.gd`, the
+- The consumers are `poses/missionary_anon.gd`, `camera/missionary_camera.gd`, `poses/standing_anon.gd`,
+  `camera/standing_camera.gd`, `poses/standing_presentation.gd`, `kiss/service.gd`, `hands/service.gd`, the
   hands internals (`hands/placement.gd`, `hands/surface.gd`, `hands/path_base.gd` and its paths)
   and the pose modifiers (`poses/skeleton_pose.gd` through its `perf`/`log` handles, plus
-  `tail_pose.gd`, `tail_lay.gd`, `body_sway.gd`, `prone_sway.gd`, `ear_twitch.gd`).
+  `poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`).
 - `anatomy/facts.gd` is the same pattern for the anatomy system.
 
 ## Fields
@@ -73,11 +73,11 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | Callback | Contract |
 |---|---|
 | `log` | write one debug line |
-| `perf_note` | record one timed chunk for `perf.gd` |
+| `perf_note` | record one timed chunk for `shared/perf.gd` |
 | `body_coat_smack` | the anatomy's stock-smack hook |
 | `on_touch` | one readiness touch event, by kind |
 | `on_smack` | one smack impact, by strength |
-| `kiss` | return the live `kiss_control.gd` controller |
+| `kiss` | return the live `kiss/service.gd` controller |
 | `neck_point` | her neck midpoint for the standing aim |
 | `set_look` | write back the captured player look |
 | `set_forced_glance` | set the forced over-shoulder glance |

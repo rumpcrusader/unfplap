@@ -25,7 +25,7 @@ writes the facts those systems read.
 
 | File | Role |
 |---|---|
-| `memory.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `main.game` and `main.eligibility` per call |
+| `memory/service.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `main.game` and `main.eligibility` per call |
 | `memory/facts.gd` | pure typed boundary data: `LineState`, `LineKind`, `Reaction`, `NoteKind`, `StopReason`, `ImpressionSlot`, `Sense`, and the `Impression`, `Peak`, `Witness`, `Observer`, `CueFacts`, `MemoryHit`, `Line`, `LineRequest` types |
 | `memory/text.gd` | pure wording and ids: the director key and its prefix, the keep-active rule, the impression/event suffixes, the event kinds, the stop names, the event texts, the witness texts |
 | `memory/world.gd` | scene adapter: the only reader of `world_context` and `impressions`, and the builder of the private cue facts and the shared-memory hit |
@@ -49,7 +49,7 @@ The purity boundary is deliberate:
   `PlayerForm.is_young`. The age rule comes from the eligibility capability answer
   (`eligibility.witness_age`), never from a local copy.
 - `store.gd` owns the `Mods` lookup and the save. No other memory file writes the section.
-- The facade is the only file that preloads `memory/*`; no file outside `memory.gd` and
+- The facade is the only file that preloads `memory/*`; no file outside `memory/service.gd` and
   `memory/` preloads `memory/*`.
 - `main.gd` creates the service (`setup(self)`) and exposes it as `main.memory`. The facade
   reads `main.game` and `main.eligibility` per call and stores nothing. It is a RefCounted, not a
@@ -204,6 +204,26 @@ the pure relationship and cue formatters.
 the story journal (a cue-word match, then the most recent player exchange), then the
 world-context events. The `used` ids are skipped. A hit with no text is `found()` false. The
 memory is marked used only after the caller queues the line.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | act_face | `shared/act_face.gd` | face beat data |
+| store | act_history | `shared/act_history.gd` | stored history rows |
+
+## Lifecycle
+
+- Scope: world
+- Constructed by: `main._ready()`
+- Begin: `setup()`
+- End: `clear()`
+- Idempotent: yes
+
 
 ## Tests
 

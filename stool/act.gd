@@ -3,7 +3,7 @@ extends RefCounted
 ## lift. The runtime creates one per act and keeps the standing placement decision; this handle
 ## owns the stack lifetime and the item return. Contract: `docs/stool.md`.
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
 ## The global stool facade (`main.stool`). It holds the settings reads and the pure/item calls.

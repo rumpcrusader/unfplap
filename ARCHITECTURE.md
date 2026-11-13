@@ -211,7 +211,7 @@ A module that needs a service, a Node or a lifecycle is not shared: it belongs t
 module that needs settings rules but is otherwise pure receives those rules as arguments; it does
 not become a shared store just to read `SETTINGS`.
 
-`act_history.gd` is the current shared store: eligibility, initiation, history and memory read the
+`shared/act_history.gd` is the current shared store: eligibility, initiation, history and memory read the
 same stored rows, and making it history-private would create
 `eligibility -> history -> memory -> eligibility`. A shared store is the deliberate cycle break.
 It owns its `Mods.state` key and its pure policy; it does not own scene behavior.

@@ -4,7 +4,7 @@ The eligibility system is the one gate for adult intimacy: adulthood, relationsh
 willingness, the lover bond, act history, the estrus cycle and per-mare action consent. This file
 is the single technical contract; other docs link here.
 
-The internal API is `eligibility.gd`. The typed surface is `eligible`, `witness_age`, `get_verdict`,
+The internal API is `eligibility/service.gd`. The typed surface is `eligible`, `witness_age`, `get_verdict`,
 `get_profile` and `set_profile`. Cross-mod exposure stays `docs/api.md`, which is not changed by
 this contract.
 
@@ -31,22 +31,22 @@ contract: `docs/scene_gate.md`.
 
 | File | Role |
 |---|---|
-| `eligibility.gd` | public API and the only scene adapter: builds the typed facts and verdict, reads the live relationship runtime, settings profile, lover bond, history, cycle and consent |
+| `eligibility/service.gd` | public API and the only scene adapter: builds the typed facts and verdict, reads the live relationship runtime, settings profile, lover bond, history, cycle and consent |
 | `eligibility/policy.gd` | pure truth table: facts dictionary plus mode -> verdict dictionary, capability targets and witness age |
 | `eligibility/facts.gd` | pure fact schema; the identity predicates stay private here |
-| `scene_gate.gd` | the live scene rows and the refusal executor; contract in `docs/scene_gate.md` |
+| `scene_gate/service.gd` | the live scene rows and the refusal executor; contract in `docs/scene_gate.md` |
 | `docs/eligibility.md` | this contract |
 
 The purity boundary is deliberate:
 
 - `policy.gd` has no `Node`, `Time`, `SceneTree`, `FileAccess`, `SETTINGS` preload or scene
   preload. It receives plain data and returns plain data.
-- `eligibility.gd` is read-only. It never saves settings, history or bonds.
-- Only `eligibility.gd` reads `bonds.welcomes`, `bonds.adults`,
+- `eligibility/service.gd` is read-only. It never saves settings, history or bonds.
+- Only `eligibility/service.gd` reads `bonds.welcomes`, `bonds.adults`,
   `bonds.eligible_for_romance`, `SETTINGS.promiscuity`, `SETTINGS.sex_start`,
   `SETTINGS.consent` for a gate, `SEX_BOND.bonded`, `ACT_HISTORY.blocks_start/blocks_offers/
   offer_weight` or `CYCLE.allows_sex`.
-- `sex_bond.gd`, `act_history.gd`, `cycle.gd` and `consent.gd` remain the authorities for their
+- `bond/service.gd`, `shared/act_history.gd`, `shared/cycle.gd` and `shared/consent.gd` remain the authorities for their
   own data. Eligibility only composes their resolved results.
 - No file outside `eligibility/` preloads the pure core. Another system calls the facade, which
   answers `eligible(pony, target)` or `witness_age(pony)`; it never inspects age, sex or the
@@ -59,30 +59,30 @@ the per-character profile.
 
 | Data | Stored where | Owner |
 |---|---|---|
-| Preference profile (intensity, pattern, warmth, tolerance, touch, talk, dislikes, notes) | `settings.json` -> `default.preferences` and `characters.<id>.preferences` (differences only) | `settings.gd`, `character_preferences.gd`, `preferences.gd` |
-| Per-mare consent (public, anal, oral) | `settings.json` -> `characters.<id>.consent` (differences only) | `settings.gd` plus the `consent.gd` resolver |
-| Per-mare participation (`acts`, `anatomy`, `tail`) | `characters.<id>.profile.participation` (differences only); a provider's `adult` is a provider layer | `settings.gd` plus the `participation.gd` resolver |
+| Preference profile (intensity, pattern, warmth, tolerance, touch, talk, dislikes, notes) | `settings.json` -> `default.preferences` and `characters.<id>.preferences` (differences only) | `settings/service.gd`, `shared/character_preferences.gd`, `shared/preferences.gd` |
+| Per-mare consent (public, anal, oral) | `settings.json` -> `characters.<id>.consent` (differences only) | `settings/service.gd` plus the `shared/consent.gd` resolver |
+| Per-mare participation (`acts`, `anatomy`, `tail`) | `characters.<id>.profile.participation` (differences only); a provider's `adult` is a provider layer | `settings/service.gd` plus the `shared/participation.gd` resolver |
 | Poses, prompts, `cue_gap`, `aftercare_min`, `smack_zone_radius` | `characters.<id>.*` | settings/profile modules |
-| Lover bond | `Mods.state("unfplap").sex_bonds` | `sex_bond.gd` |
-| Act history | `Mods.state("unfplap").act_history` | `act_history.gd` |
+| Lover bond | `Mods.state("unfplap").sex_bonds` | `bond/service.gd` |
+| Act history | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
 | Request cooldown | `Mods.state("unfplap").request_times` | `initiation/cooldowns.gd` (contract: `docs/initiation.md`) |
 | Relationship stage, love, friendship, willingness | game save (`player_bonds`, impressions) | base game |
-| Eligibility facts | nowhere | `eligibility.gd` per call |
+| Eligibility facts | nowhere | `eligibility/service.gd` per call |
 
 Rules:
 
 - No `characters.<id>.eligibility`, no eligibility block in `settings.json`, no eligibility block
   in `Mods.state("unfplap")`.
-- `eligibility.gd` never calls `SETTINGS.save_*`, `SEX_BOND.save`, `ACT_HISTORY.commit/save` or
+- `eligibility/service.gd` never calls `SETTINGS.save_*`, `SEX_BOND.save`, `ACT_HISTORY.commit/save` or
   `Mods.save_changed`.
 - `facts.consent` is a snapshot. `get_profile(id).consent` re-resolves live.
-- Preferences are not facts. Tolerance stays with `act_tolerance.gd`; eligibility never reads the
+- Preferences are not facts. Tolerance stays with `history/tolerance.gd`; eligibility never reads the
   preference profile.
 - `api.describe_mare()` keeps its static shape and is not extended with live eligibility.
 
 ## Public API
 
-`eligibility.gd` extends `RefCounted`. `main.gd` creates one instance and exposes it as
+`eligibility/service.gd` extends `RefCounted`. `main.gd` creates one instance and exposes it as
 `main.eligibility`. The types are declared in the facade, so a consumer names them
 `ELIGIBILITY.Verdict`, `ELIGIBILITY.Target`, and so on.
 
@@ -128,10 +128,10 @@ participation and consent. The pair is the cross-mod read/write side. The servic
 
 | Caller | API | Scene work it keeps |
 |---|---|---|
-| `runtime.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate.gd` rows |
-| `runtime.offer_verdict()` | `get_verdict(pony, Mode.OFFER)` | offer-safe `scene_gate.gd` rows |
+| `runtime.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate/service.gd` rows |
+| `runtime.offer_verdict()` | `get_verdict(pony, Mode.OFFER)` | offer-safe `scene_gate/service.gd` rows |
 | `runtime.start()` | `start_verdict()` | none |
-| `runtime.refuse_available()` / `refuse()` | `buck_refuse` | `scene_gate.gd` refusal executor |
+| `runtime.refuse_available()` / `refuse()` | `buck_refuse` | `scene_gate/service.gd` refusal executor |
 | `runtime.grant_sex_bond()` | `get_verdict(pony, Mode.BOND)` | IDLE, not sleeping |
 | `runtime._still_willing()` | `get_verdict(pony, Mode.MID_ACT)` | none |
 | `main._refresh_offer()` | `runtime.start_verdict().show` | candidate discovery |
@@ -149,7 +149,7 @@ participation and consent. The pair is the cross-mod read/write side. The servic
 | `api.describe_mare()` | `get_profile(id)` | provider metadata, settings shape |
 
 Only `runtime` combines policy rows with scene rows. The rows themselves are built by
-`scene_gate.gd` (`docs/scene_gate.md`). The pure policy never sees a bed, a navigator, a pose
+`scene_gate/service.gd` (`docs/scene_gate.md`). The pure policy never sees a bed, a navigator, a pose
 asset or the player body.
 
 ## Capability targets
@@ -182,7 +182,7 @@ cycle_phase, cycle_allows, heat, history, consent
 `cycle_phase` comes from `runtime.cycle_phase()`, so the debug heat/diestrus override applies. A
 pony that has only just spawned has no relationship runtime yet, so the read is a normal phase
 until one exists; the anatomy bridge asks for it during its own bind.
-`history` is resolved by `act_history.gd`; `consent` by `SETTINGS.consent(id)`.
+`history` is resolved by `shared/act_history.gd`; `consent` by `SETTINGS.consent(id)`.
 `adult` is the provider's tri-state assertion (`null` means the identity decides); `participation`
 is the resolved per-mare capability block (`acts`, `anatomy`, `tail`), both by
 `SETTINGS.profile_identity(id)`.
@@ -313,7 +313,7 @@ A refusal is a real mood beat. `runtime.refuse()` tries the buck/push, then `_no
 writes the game's impression (`main.memory.commit`, the `REFUSAL` slot): `annoyed` for a
 turn-away, `angry` when she
 bucked or knocked Anon down. It also calls `bonds.unwanted_contact(id, "kiss")` (trust -2,
-boundary) and holds the matching face in `mood_face.gd`. `angry` makes `bonds.welcomes()` false, so
+boundary) and holds the matching face in `face/mood_face.gd`. `angry` makes `bonds.welcomes()` false, so
 she refuses kisses and offers for the note's 300 s freshness.
 
 ## Lover bond and Starting Sex
@@ -334,7 +334,7 @@ The old labels that said Try Your Luck drops the stage are corrected to this rul
 
 ## History and cycle
 
-`act_history.gd` owns the point math and tiers (`docs/history.md`). `history.gd` owns the runtime-side
+`shared/act_history.gd` owns the point math and tiers (`docs/history.md`). `history/service.gd` owns the runtime-side
 summary/tolerance decisions and the refusal gate; the runtime still exposes
 `refuse_from_history()`. Eligibility consumes:
 
@@ -357,7 +357,7 @@ readiness, offer cooldown and the public-offer override.
 
 `settings.consent(id)` resolves:
 
-1. deterministic per-id defaults from `consent.gd`;
+1. deterministic per-id defaults from `shared/consent.gd`;
 2. a provider layer's `consent` block;
 3. the player's differences in `characters.<id>.consent`.
 
@@ -398,7 +398,7 @@ contract is `docs/initiation.md`.
 - estrus cycle allows sex.
 
 `runtime._still_willing()` checks this every quarter second. A real tolerance stop is separate:
-`act_tolerance.gd` owns disliked-touch distress and its warning/stop thresholds.
+`history/tolerance.gd` owns disliked-touch distress and its warning/stop thresholds.
 
 ## Debug
 
@@ -409,6 +409,27 @@ contract is `docs/initiation.md`.
   **Trigger standing offer** use the same service.
 - The Debug actions **Force heat** and **Force diestrus** feed `cycle_phase`; they do not bypass
   the gate.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | bond | `bond/service.gd` | lover bond |
+| service | registry | `registry/service.gd` | provider layers and stable ids |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | cycle | `shared/cycle.gd` | estrus cycle |
+| store | act_history | `shared/act_history.gd` | stored history rows |
+
+## Lifecycle
+
+- Scope: world
+- Constructed by: `main._ready()`
+- Begin: `setup()`
+- End: `clear()`
+- Idempotent: yes
+
 
 ## Tests
 

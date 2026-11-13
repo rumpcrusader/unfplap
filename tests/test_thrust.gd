@@ -2,8 +2,8 @@ extends SceneTree
 ## Pure depth/stroke tracker tests.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_thrust.gd
 
-const THRUST := preload("res://mods/unfplap/thrust.gd")
-const PREF := preload("res://mods/unfplap/preferences.gd")
+const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
+const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 var failures := 0
 var checks := 0
 

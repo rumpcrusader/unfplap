@@ -4,7 +4,7 @@ extends Node3D
 ## and pool on the ground before fading. Her body is an ellipsoid that rides her hips, so stuck
 ## drops move with her.
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MAX_DROPS := 220
 const GRAVITY := 3.4
 const DRAG := 0.5

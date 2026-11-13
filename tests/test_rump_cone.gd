@@ -2,7 +2,7 @@ extends SceneTree
 ## The standing offer zone: a 45 degree cone behind her rump within reach.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_rump_cone.gd
 
-const CONE := preload("res://mods/unfplap/rump_cone.gd")
+const CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 
 var failures := 0
 var checks := 0

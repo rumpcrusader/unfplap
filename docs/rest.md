@@ -5,7 +5,7 @@ floor beside the bed and the restore posture.
 
 ## Ownership
 
-`rest_rejoin.gd` (RefCounted) owns:
+`rest/service.gd` (RefCounted) owns:
 
 - `place_on_bed` / `place_on_start`: place her on the mattress, wait up to three physics frames
   for support, then request `stand`;
@@ -20,7 +20,7 @@ floor beside the bed and the restore posture.
 
 The runtime keeps the act state and the one teardown ledger: the cradle start call, the
 `_end_session` restore call, the deferred `_rejoin_bed_cuddle` trigger, `_serial`/`state` and the
-`aftercare_min`. It reads `_posture_owned` itself. `rest_control.gd` stays the small static
+`aftercare_min`. It reads `_posture_owned` itself. `rest/control.gd` stays the small static
 release helper for a managed bed/couch rest.
 
 The facade binds the scene (`main`, `pony`, the act bed) on every access, and reads the live act
@@ -74,6 +74,23 @@ bad act or an upset mare leaves her standing.
 | `log` | the one debug gate (`Enable debug`) |
 
 The facade never preloads `runtime.gd` or `main.gd` and never reads their private fields.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `bind()`
+- End: act teardown
+- Idempotent: yes
+
 
 ## Tests
 

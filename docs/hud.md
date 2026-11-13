@@ -1,20 +1,20 @@
 # Act HUD contract
 
 The act's text readouts: the cue/hearts line, the readiness/preference line, the auto readout, the
-`End` tint and the control card. The card itself is `hud.gd`; the style rules are this doc. The
+`End` tint and the control card. The card itself is `hud/service.gd`; the style rules are this doc. The
 readiness values are `docs/readiness.md`; the close window is `docs/afterglow.md`.
 
 ## Ownership
 
 | File | Role |
 |---|---|
-| `hud_lines.gd` | pure text and tint: `cue_line`, `readiness_line`, `auto_text`, `y_pink` |
-| `hud.gd` | the scene card: rows, key caps, prompt row, visibility and the act wiring |
+| `hud/lines.gd` | pure text and tint: `cue_line`, `readiness_line`, `auto_text`, `y_pink` |
+| `hud/service.gd` | the scene card: rows, key caps, prompt row, visibility and the act wiring |
 | `docs/hud.md` | this contract |
 
 The runtime gathers the live values (state, climax count and limit, cue, close hint, summary,
-preference axes, heat) and reads the auto values from `readiness.gd`; it then calls
-`hud_lines.gd`. The pure module has no Node,
+preference axes, heat) and reads the auto values from `readiness/service.gd`; it then calls
+`hud/lines.gd`. The pure module has no Node,
 tree, `Settings` or game access, so the formats are testable without a scene.
 
 ## Lines
@@ -92,7 +92,7 @@ caress. An unlimited limit uses the 3-climax reference.
 The card uses the game's own prompt row (`world/ui/interaction_hints.gd`) and its
 `player/cradle_controls.gd` style: the game's `prompts/<name>.png` icons where it has one, a dark
 drawn key cap for keys it does not (W/S/A/D/Z, `↕`), ink words in `#f4f1ff` with a `#1a1624`
-outline, and muted `#f4f1ff` at 60% for modifiers. `hud.gd` exposes `text_label()`, `keycap()`,
+outline, and muted `#f4f1ff` at 60% for modifiers. `hud/service.gd` exposes `text_label()`, `keycap()`,
 `button_icon()` and `prompt_row()` as the one style source. The offer hint is
 `OFFER_HINT = "Make love"` in the game's own prompt row: a `button_y` icon at the row's 52 px scale
 beside 30 px words, placed by `hud.prompt_row()` so it sits beside base prompts. Without that row
@@ -108,6 +108,23 @@ caption line.
 - The afterglow summary is independent of `hud_readouts` and is always shown.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`; the runtime restores it on every exit path.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+
+## Lifecycle
+
+- Scope: world
+- Constructed by: `main._ready()`
+- Begin: `_ready()`
+- End: freed with main
+- Idempotent: yes
+
 
 ## Tests
 

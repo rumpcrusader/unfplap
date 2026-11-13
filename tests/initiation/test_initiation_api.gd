@@ -4,9 +4,9 @@ extends SceneTree
 ## an observable effect. No private member is touched.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/initiation/test_initiation_api.gd
 
-const INIT := preload("res://mods/unfplap/initiation.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const INIT := preload("res://mods/unfplap/initiation/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 var failures := 0
 var checks := 0

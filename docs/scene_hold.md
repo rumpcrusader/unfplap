@@ -14,7 +14,7 @@ ownership is taken, which is held, and in which order it is released.
 
 ## Ownership and boundary
 
-`scene_hold.gd` is the facade. It owns the ownership flags and the per-flag release. The runtime
+`scene_hold/service.gd` is the facade. It owns the ownership flags and the per-flag release. The runtime
 owns the act state machine, the one `_end_session` ledger and the call order; the service is
 called from the ledger and the tick, and it never touches the runtime's state.
 
@@ -56,6 +56,15 @@ The carry and the cuddle are released, not flagged: both are idempotent and read
 runtime owns the act state, the pose, the serial and the teardown ledger. The service fields stay
 cleared on every act end, so a failed start releases the same ownership as a normal end.
 
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `bind()`/`claim_nav()`
+- End: act teardown
+- Idempotent: yes
+
+
 ## Settings
 
 No settings. The service is a control path, not a tuning surface.
@@ -71,7 +80,13 @@ No controls. The debug log reports the ownership state on the `debug_line` call 
 - `main` — the `interactor`, `player`, `game.kisser`.
 - `main.player` — the `kiss_hold` meta, `seat` and `_q_held`.
 - The runtime — the caller and the state.
-- `poses/catalog.gd` — the standing pose id for the face-turn gate.
+- `shared/pose_catalog.gd` — the standing pose id for the face-turn gate.
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Tests
 

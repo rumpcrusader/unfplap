@@ -5,7 +5,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/bond/test_bond_service.gd
 
-const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
+const SEX_BOND := preload("res://mods/unfplap/bond/service.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2

@@ -5,7 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/test_runtime_notes.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const REL := preload("res://mods/unfplap/relationship_cue.gd")
+const REL := preload("res://mods/unfplap/shared/relationship_cue.gd")
 var failures := 0
 var checks := 0
 

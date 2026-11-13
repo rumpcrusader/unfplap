@@ -1,57 +1,57 @@
 extends Node
 ## One per pony. Holds the act state machine and all per-act state. It never edits game files.
 
-const POSE_SESSION := preload("res://mods/unfplap/poses/session.gd")
-const REST_REJOIN := preload("res://mods/unfplap/rest_rejoin.gd")
-const ACT_CAMERA := preload("res://mods/unfplap/act_camera.gd")
-const SCENE_GATE := preload("res://mods/unfplap/scene_gate.gd")
-const HUD_LINES := preload("res://mods/unfplap/hud_lines.gd")
-const MEMORY := preload("res://mods/unfplap/memory.gd")
-const ACT_SUMMARY := preload("res://mods/unfplap/act_summary.gd")
-const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-const TAIL_TUCK := preload("res://mods/unfplap/tail_tuck.gd")
-const REST := preload("res://mods/unfplap/rest_control.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
-const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
-const SCENE_HOLD := preload("res://mods/unfplap/scene_hold.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const AFTERCARE := preload("res://mods/unfplap/aftercare.gd")
-const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
-const THRUST := preload("res://mods/unfplap/thrust.gd")
-const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust.gd")
-const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
-const CYCLE := preload("res://mods/unfplap/cycle.gd")
-const RELATIONSHIP_CUE := preload("res://mods/unfplap/relationship_cue.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
+const REST_REJOIN := preload("res://mods/unfplap/rest/service.gd")
+const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
+const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
+const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const ACT_SUMMARY := preload("res://mods/unfplap/history/summary.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
+const REST := preload("res://mods/unfplap/rest/control.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const SEX_BOND := preload("res://mods/unfplap/bond/service.gd")
+const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
+const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
+const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
+const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
+const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
+const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
-const HANDS := preload("res://mods/unfplap/hand_control.gd")
-const KISS := preload("res://mods/unfplap/kiss_control.gd")
-const MISSIONARY_CAMERA := preload("res://mods/unfplap/missionary_camera.gd")
-const STANDING_CAMERA := preload("res://mods/unfplap/standing_camera.gd")
-const STANDING_ANON := preload("res://mods/unfplap/standing_anon.gd")
-const STANDING_PRESENTATION := preload("res://mods/unfplap/standing_presentation.gd")
-const MOTION := preload("res://mods/unfplap/act_motion.gd")
-const WING := preload("res://mods/unfplap/wing_control.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
-const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
-const ACT_LINES := preload("res://mods/unfplap/act_lines.gd")
-const READINESS := preload("res://mods/unfplap/readiness.gd")
-const HISTORY := preload("res://mods/unfplap/history.gd")
-const AFTERGLOW := preload("res://mods/unfplap/afterglow.gd")
-const FACE := preload("res://mods/unfplap/face_session.gd")
-const REACTIONS := preload("res://mods/unfplap/act_reactions.gd")
-const PERF := preload("res://mods/unfplap/perf.gd")
-const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
-const VOICE := preload("res://mods/unfplap/voice_status.gd")
+const HANDS := preload("res://mods/unfplap/hands/service.gd")
+const KISS := preload("res://mods/unfplap/kiss/service.gd")
+const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.gd")
+const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
+const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
+const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
+const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
+const WING := preload("res://mods/unfplap/poses/wing_control.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const ACT_LINES := preload("res://mods/unfplap/lines/service.gd")
+const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const HISTORY := preload("res://mods/unfplap/history/service.gd")
+const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
+const FACE := preload("res://mods/unfplap/face/service.gd")
+const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
+const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
+const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
-const ACT_AUDIO_PATH := "res://mods/unfplap/act_audio.gd"
+const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
 
 enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, RESTORE }
 
 const READINESS_MAX := 100.0
 ## Visual impact = physical strength × this, so normal and fast thrusts keep their tuned
 ## reaction while slow or shallow strokes stay lighter. Readiness scoring lives in
-## `readiness.gd`.
+## `readiness/service.gd`.
 const THRUST_IMPACT_GAIN := 2.0
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
@@ -78,7 +78,7 @@ var state: int = State.IDLE
 var pose_id := ""
 var source := ""
 var bed: Node3D
-## The act's readiness system; see `readiness.gd`. The public act values below forward to it.
+## The act's readiness system; see `readiness/service.gd`. The public act values below forward to it.
 var _readiness: RefCounted = READINESS.new()
 ## Her arousal/readiness, 0..100. At 100 she climaxes; the player chooses afterglow.
 var satisfaction: float:
@@ -112,7 +112,7 @@ var penetration_m := 0.0
 var thrust_up := true
 
 ## The act's pose session: the pose modifier, the authored missionary base, the bed frame, the
-## extra modifiers, the bone snapshots and the pose diagnostics. See `poses/session.gd`.
+## extra modifiers, the bone snapshots and the pose diagnostics. See `poses/service.gd`.
 var _pose_session: RefCounted = POSE_SESSION.new()
 ## The live pose modifier. The session owns it; presentation modules still write its look and
 ## afterglow fields through this read view.
@@ -125,12 +125,12 @@ var _bed_pose_frame: Variant:
 	get:
 		return _pose_session.bed_frame
 ## The scene gate: the live state, navigator, bed, cuddle, player and pose rows plus the refusal
-## executor. See `scene_gate.gd` and `docs/scene_gate.md`.
+## executor. See `scene_gate/service.gd` and `docs/scene_gate.md`.
 var _scene: RefCounted = SCENE_GATE.new()
-## The bed/couch rest and cuddle rejoin. See `rest_rejoin.gd` and `docs/rest.md`.
+## The bed/couch rest and cuddle rejoin. See `rest/service.gd` and `docs/rest.md`.
 var _rest: RefCounted = REST_REJOIN.new()
 ## The act camera session: the lean, the shot smoothing, the free look, the free-camera lock, the
-## standing eye override and the captured player look. See `act_camera.gd` and `docs/camera.md`.
+## standing eye override and the captured player look. See `camera/service.gd` and `docs/camera.md`.
 ## The fields below are read views over it: the two pose cameras, the hands/kiss controllers, the
 ## test suites and `_sync_act_facts()` still read them by name.
 var _act_camera: RefCounted = ACT_CAMERA.new()
@@ -236,7 +236,7 @@ var _anatomy: Node:
 	set(value):
 		_anatomy_bridge.controller = value
 ## Reused typed act context. The runtime writes it; the presentation controllers read it instead of
-## reaching into this node. See `act_facts.gd`.
+## reaching into this node. See `shared/act_facts.gd`.
 var _act_facts: RefCounted = ACT_FACTS.new()
 ## The mod-owned lover bond service. The store is static; this instance owns the gate wrappers.
 var _sex_bond: RefCounted = SEX_BOND.new()
@@ -244,7 +244,7 @@ var _sex_bond: RefCounted = SEX_BOND.new()
 ## The act's line system: scheduler, prompt assembly, reactions and the bystander line.
 var _act_lines: RefCounted = ACT_LINES.new(_act_facts)
 var _act_lines_main: Node
-## Debug perf probe: timed chunks report here and one summary prints per window. See `perf.gd`.
+## Debug perf probe: timed chunks report here and one summary prints per window. See `shared/perf.gd`.
 var _perf_probe := PERF.new()
 ## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
@@ -253,7 +253,7 @@ var _climax_left := 0.0
 var _restore_left := 0.0
 var _check_clock := 0.0
 ## The act's afterglow phase: self-end roll, `[stay]` hold and the standing close window.
-## See `afterglow.gd` and `docs/afterglow.md`.
+## See `afterglow/service.gd` and `docs/afterglow.md`.
 var _afterglow: RefCounted = AFTERGLOW.new()
 var _afterglow_elapsed: float:
 	get:
@@ -300,7 +300,7 @@ var _close_caress_earned: bool:
 
 var _player_pony := false
 ## The act's scene ownership. The runtime keeps the act state and the teardown order; the service
-## owns the flags. See `scene_hold.gd`.
+## owns the flags. See `scene_hold/service.gd`.
 var _hold: RefCounted = SCENE_HOLD.new()
 var _had_kiss_hold: bool:
 	get:
@@ -526,7 +526,7 @@ var _talk_cooldown_s := 8.0
 var _receptive_seconds := 8.0
 var _act_spoken_at := -1e9
 var _act_ended_early := false
-## The act's summary, history and tolerance system; see `history.gd`. The act values below forward.
+## The act's summary, history and tolerance system; see `history/service.gd`. The act values below forward.
 var _history: RefCounted = HISTORY.new()
 var _summary: Dictionary:
 	get:
@@ -555,7 +555,7 @@ var _serial := 0
 var _event_id := ""
 var _started_at := 0.0
 
-## World-space hip sway published by `body_sway.gd`; the standing Anon controller adds it to its
+## World-space hip sway published by `poses/body_sway.gd`; the standing Anon controller adds it to its
 ## pinned hip so the two bodies rock together. A read view over the typed act view, which is the
 ## one owner: the sway modifier writes it during the skeleton pass.
 var _standing_sway_offset: Vector3:
@@ -581,7 +581,7 @@ var _act_seconds := 0.0
 var _clock_s := 0.0
 var _aftercare: Node
 ## The act's face owner: beats, line-face ownership, the stare release and the post-act mood
-## face. See `face_session.gd` and `docs/face.md`.
+## face. See `face/service.gd` and `docs/face.md`.
 var _face: RefCounted = FACE.new()
 var _mood_face: Node:
 	get:
@@ -604,7 +604,7 @@ var _stare_release_until: float:
 	set(value):
 		_face.stare_release_until = value
 ## Thrust and climax presentation: jiggle, smack reaction, rump blush and hearts. See
-## `act_reactions.gd` and `docs/reactions.md`.
+## `reactions/service.gd` and `docs/reactions.md`.
 var _reactions: RefCounted = REACTIONS.new()
 var _first_time := false
 var _act_climax_mode := "auto"
@@ -1012,7 +1012,7 @@ func _log(text: String) -> void:
 		main.call("debug", text)
 
 
-## Debug perf probe. Timed chunks report microseconds here; `perf_note()` forwards to `perf.gd`,
+## Debug perf probe. Timed chunks report microseconds here; `perf_note()` forwards to `shared/perf.gd`,
 ## which prints one summary a second so a pony-specific stall can be attributed to a modifier
 ## without a live profiler.
 func _perf_enabled() -> bool:
@@ -2356,7 +2356,7 @@ func auto_panel_open() -> bool:
 
 
 ## Hold X for the auto settings layer: a tap still toggles auto, a hold opens the four rows while
-## auto runs. The policy and every row nudge live in `readiness.gd`; the runtime supplies the key
+## auto runs. The policy and every row nudge live in `readiness/service.gd`; the runtime supplies the key
 ## states and carries out the one settings write.
 func _auto_layer_tick(delta: float) -> void:
 	var keys := [
@@ -2827,7 +2827,7 @@ func _speech_busy() -> bool:
 	return _lines_service().busy()
 
 
-## Free a delivered line and expire a queued one at its max age. See `act_lines.gd`.
+## Free a delivered line and expire a queued one at its max age. See `lines/service.gd`.
 func _utterance_tick() -> void:
 	_lines_service().tick()
 
@@ -2947,7 +2947,7 @@ func refuse_from_history(_pose: String, source: String, _bed: Variant = null) ->
 	return true
 
 
-## Idle-only history scan. The scene values are gathered here; `history.gd` owns the decisions.
+## Idle-only history scan. The scene values are gathered here; `history/service.gd` owns the decisions.
 func _history_tick(delta: float) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main) \
 			or not is_instance_valid(main.player):
@@ -3597,7 +3597,7 @@ func _finalize_session(real_act: bool) -> void:
 	if real_act:
 		_reset_after_act()
 
-## The bed/couch rest and cuddle rejoin. See `rest_rejoin.gd` and `docs/rest.md`.
+## The bed/couch rest and cuddle rejoin. See `rest/service.gd` and `docs/rest.md`.
 func _rest_service() -> RefCounted:
 	_rest.bind(main, pony, bed)
 	return _rest
@@ -3750,7 +3750,7 @@ func _read_first_time() -> bool:
 
 
 ## Live presentation score for the auto climax face. This never writes the summary or history:
-## the runtime gathers its counters and the facade owns the shape `act_face.gd` reads.
+## the runtime gathers its counters and the facade owns the shape `shared/act_face.gd` reads.
 func _climax_quality_inputs() -> Dictionary:
 	_bind_face()
 	return _face.climax_quality({
@@ -3886,7 +3886,7 @@ func _stop(reason: String) -> void:
 
 # --------------------------------------------------------------------------- camera
 
-## The act camera session. See `act_camera.gd` and `docs/camera.md`.
+## The act camera session. See `camera/service.gd` and `docs/camera.md`.
 func _size_name() -> String:
 	return str(_camera_service().call("size_name"))
 
@@ -3979,7 +3979,7 @@ func _standing_lean_scale() -> float:
 
 
 ## Standing torso angle: hinge Anon's upper body forward over her by moving the head/camera
-## forward and down by the spine arc, then countering the hip in `standing_anon.gd`.
+## forward and down by the spine arc, then countering the hip in `poses/standing_anon.gd`.
 func _anon_torso_forward() -> float:
 	return float(_camera_service().call("anon_torso_forward"))
 

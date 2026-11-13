@@ -2,8 +2,8 @@ extends SceneTree
 ## Pure estrus-cycle rules and the feature flag.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_cycle.gd
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CYCLE := preload("res://mods/unfplap/cycle.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 
 var failures := 0

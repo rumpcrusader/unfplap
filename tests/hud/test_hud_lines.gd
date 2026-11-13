@@ -2,7 +2,7 @@ extends SceneTree
 ## The pure HUD text: hearts/cue, readiness, auto and the End tint.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_hud_lines.gd
 
-const LINES := preload("res://mods/unfplap/hud_lines.gd")
+const LINES := preload("res://mods/unfplap/hud/lines.gd")
 
 var failures := 0
 var checks := 0

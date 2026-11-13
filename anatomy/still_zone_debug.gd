@@ -1,6 +1,6 @@
 extends Node3D
 ## Debug overlay for the two body-coat still zones. Four line rings: the outer ellipsoid and the
-## fully-still core of the vulva and visible anal cup zones. anatomy.gd places them each frame
+## fully-still core of the vulva and visible anal cup zones. anatomy/service.gd places them each frame
 ## through the pony_hips skinning transform; the rings are unshaded, no-depth-test overlays so
 ## they stay visible through the coat.
 

@@ -5,7 +5,7 @@ extends SceneTree
 
 const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
 const FACTS := preload("res://mods/unfplap/initiation/facts.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 var failures := 0
 var checks := 0

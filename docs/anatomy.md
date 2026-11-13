@@ -24,7 +24,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 
 | File | Role |
 |---|---|
-| `anatomy.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement editor |
+| `anatomy/service.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement editor |
 | `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat and appearance forwards, act lifecycle and the typed-facts boundary |
 | `anatomy/attach.gd` | persistent attachment: mesh/anchor/dock, visibility, dock restore, the fluid node and idle discharge |
 | `anatomy/facts.gd` | typed runtime context: state, pose, depth, bed frame, cycle phase and the host callbacks |
@@ -41,7 +41,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
 | `anatomy/player.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
-| `anatomy_placement.gd` | pure placement schema, shipped per-mare defaults, merge/sanitize/diff and the one-time legacy migration |
+| `shared/anatomy_placement.gd` | pure placement schema, shipped per-mare defaults, merge/sanitize/diff and the one-time legacy migration |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
 | `anatomy/tail/dock_attach.gd` | builds the dock's two-bind GPU skin on the hair skeleton |
 | `anatomy/tail/dock_seat.gd` | snaps the dock base ring to the rumen and measures the tail-cap seat |
@@ -53,23 +53,23 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/body_coat_patch.gd` | runtime patch of the game coat shader; swaps the jiggle include and call |
 | `anatomy/anatomy.gdshader` | the per-pony anatomy material |
 | `anatomy/body_coat_deform.gdshaderinc` | the coat deform include used by the patch |
-| `vr_act.gd` | optional VR standing act, gated by the anatomy master; not anatomy behavior |
+| `vr/service.gd` | optional VR standing act, gated by the anatomy master; not anatomy behavior |
 
 The internal entry points are:
 
 - `main.gd` creates `main.anatomy`. `_on_pony` binds the controller and tail seat, `_on_player`
   creates the player part, and the placement debug buttons forward to the service.
-- `anatomy.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
+- `anatomy/service.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
   placement editor. It supplies the typed facts, the service, consent, status and the dock
   refresh to each controller. Runtime and pose systems use its methods; no other system needs the
   player node or a controller handle.
 - `runtime.gd` resolves the controller through the service, passes the typed facts object,
   asks it to begin/end the act, ticks the act handle, and supplies the body-coat jiggle handoff.
-- `missionary_anon.gd` and `standing_anon.gd` use the service's player methods for the hip
+- `poses/missionary_anon.gd` and `poses/standing_anon.gd` use the service's player methods for the hip
   offset, root position and scale.
-- `input.gd` calls the runtime's anatomy action gates; `hud.gd` renders the matching rows and
+- `input/service.gd` calls the runtime's anatomy action gates; `hud/service.gd` renders the matching rows and
   hidden finish row.
-- `settings.gd` and `mare_registry.gd` use `anatomy_placement.gd` as the shared pure schema.
+- `settings/service.gd` and `registry/service.gd` use `shared/anatomy_placement.gd` as the shared pure schema.
 
 The controller reads the typed `anatomy/facts.gd` object and host callbacks; it never reads the
 runtime node. `anatomy/attach.gd` owns the mesh, dock, visibility and fluid, so the controller is
@@ -214,7 +214,7 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
 - The ten anatomy/tail keys are `offset_x`, `offset_y`, `offset_z`, `pitch_deg`, `scale`,
   `tail_y`, `tail_z`, `dock_y`, `dock_scale` and `tail_tilt_deg`. The player block uses the first
   five only.
-- `anatomy_placement.gd` owns the shipped `MARE_DEFAULTS` table and resolves the player override,
+- `shared/anatomy_placement.gd` owns the shipped `MARE_DEFAULTS` table and resolves the player override,
   then the shipped per-mare default, then the global default. Only keys that differ from the
   resolved default are stored; saving a row equal to the default removes the block.
 - The anatomy mesh is placed at the saved offset plus the calibrated `0.03 m` lift, pitched and
@@ -450,7 +450,7 @@ body's own deformation across the whole mesh.
   `hip_offset_applied` after the pose moves his pelvis. `reset_state()` clears the offset, aim,
   bend, squash, shader squish, throb, bed inset and the smoothed penetration, so a following act
   never inherits the previous transform.
-- `missionary_anon.gd` adds the act-only `bed_inset_m` to `part_front_m` for the bed pose. The
+- `poses/missionary_anon.gd` adds the act-only `bed_inset_m` to `part_front_m` for the bed pose. The
   part is fully reset by `encounter(false)` and `encounter(true)`.
 - `shaft_length_m()` is the visible placed length; the runtime's penetration reach is
   `shaft length - pelvis gap`. With the anatomy off the runtime uses `NOMINAL_SHAFT_M = 0.20`.
@@ -511,9 +511,18 @@ body's own deformation across the whole mesh.
   tail root to the hair `mPelvis`, and the hair link places `mPelvis` from the tail mount. Author a
   new tail only for shape or silhouette; the seat remains this controller's job.
 
+## Lifecycle
+
+- Scope: world + per-act bridge
+- Constructed by: `main._ready()`
+- Begin: `setup()`/`new_act()`
+- End: `shutdown()`
+- Idempotent: yes
+
+
 ## Settings
 
-The declarations are in `settings.gd`; this section is the anatomy-specific contract. The
+The declarations are in `settings/service.gd`; this section is the anatomy-specific contract. The
 settings page is built from the declarations, so the label, help, default and bounds are not
 restated here.
 
@@ -575,6 +584,19 @@ restated here.
   `body_outline_material()`, `is_attached()`) exist so the runtime can re-add the patched material
   to the game's jiggle target list.
 
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| service | vr | `vr/service.gd` | VR act controls |
+| shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
+| shared | cycle | `shared/cycle.gd` | estrus cycle |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+
 ## Tests
 
 Current suites:
@@ -631,7 +653,7 @@ split when the suite is next touched.
 
 The anatomy migration is complete:
 
-- `anatomy.gd` is the world facade owned by `main` as `main.anatomy`. It owns the per-pony
+- `anatomy/service.gd` is the world facade owned by `main` as `main.anatomy`. It owns the per-pony
   controllers, the player part and tail seating.
 - `anatomy/appearance.gd`, `shapes.gd`, `coat.gd`, `heat.gd`, `placement.gd` and `attach.gd` are
   split out. The controller is a thin shell; the attach module owns the mesh, dock, visibility,
@@ -644,7 +666,7 @@ The anatomy migration is complete:
   missionary Anon body, the VR controller, the action gates and the aim/gaze reads. The runtime
   binds a cached host dictionary and never preloads the bridge.
 - `anatomy/identity.gd`, `geometry.gd`, `act/state.gd` and `facts.gd` are pure.
-  `anatomy_placement.gd` stays a shared pure schema.
+  `shared/anatomy_placement.gd` stays a shared pure schema.
 - The player part and tail seating are under `anatomy/`; `main` keeps only thin debug/button
   forwards and the HUD status gateway. The player body, the dock refresh, the perf sink and the
   debug logger are injected into the anatomy modules.

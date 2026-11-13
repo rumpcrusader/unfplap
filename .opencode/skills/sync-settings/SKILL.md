@@ -11,7 +11,7 @@ Run from the mod repository root (`mods/unfplap`). This is a development tool fo
 profile, not a player feature. The player's `settings.json` and the anatomy placement are
 outside the repository and are never committed.
 
-`settings.gd` remains the one source of shipped defaults. The command only compares and then
+`settings/service.gd` remains the one source of shipped defaults. The command only compares and then
 either promotes a value into the matching source default or keeps the local value.
 
 ## 0. Preflight
@@ -38,8 +38,8 @@ XDG_DATA_HOME="$tmp/snapshot" godot --headless --xr-mode off --path ../.. \
 grep '^SETTINGS_SNAPSHOT ' "$tmp/snapshot.log" | sed 's/^SETTINGS_SNAPSHOT //' > "$tmp/snapshot.json"
 ```
 
-The snapshot is authoritative: it reads the current `settings.gd`, `PREFERENCES.DEFAULTS`,
-`poses/catalog.gd`, `character_preferences.gd`, `anatomy_placement.gd` and
+The snapshot is authoritative: it reads the current `settings/service.gd`, `PREFERENCES.DEFAULTS`,
+`shared/pose_catalog.gd`, `shared/character_preferences.gd`, `shared/anatomy_placement.gd` and
 `SETTINGS.DEFAULT_ACT_PROMPTS`.
 
 ## 2. Migrate and analyze
@@ -85,7 +85,7 @@ For a placement group:
 - `GLOBAL DEFAULT` (the largest group of three or more mares): Promote writes the group values
   into the ten `anatomy.placement.default.*` declarations.
 - `PER-MARE DEFAULTS`: Promote writes the group values into `MARE_DEFAULTS` in
-  `anatomy_placement.gd` as partial diffs.
+  `shared/anatomy_placement.gd` as partial diffs.
 
 Ask in one call when the list is small; chunk by area (General, Anatomy, World, default,
 characters, placement) when it is long. Every answer still belongs to one path or one group.
@@ -94,20 +94,20 @@ characters, placement) when it is long. Every answer still belongs to one path o
 
 ### Global settings
 
-Edit the declaration default in `settings.gd` at the reported line. Keep the declaration's style,
+Edit the declaration default in `settings/service.gd` at the reported line. Keep the declaration's style,
 units and bounds. Do not change the player value.
 
 ### `default.*`
 
-- `default.preferences.*` → `preferences.gd` `DEFAULTS`
-- `default.act_prompts.*` → `settings.gd` `DEFAULT_ACT_PROMPTS`
-- `default.poses.*` → `poses/catalog.gd` `POSE_DEFAULTS`
+- `default.preferences.*` → `shared/preferences.gd` `DEFAULTS`
+- `default.act_prompts.*` → `settings/service.gd` `DEFAULT_ACT_PROMPTS`
+- `default.poses.*` → `shared/pose_catalog.gd` `POSE_DEFAULTS`
 - `default.smack_zone_radius` / `aftercare_min` / `cue_gap` / `event_prompts` →
-  `settings.gd` `DEFAULT_TEMPLATE`
+  `settings/service.gd` `DEFAULT_TEMPLATE`
 
 ### `characters.<id>.*`
 
-Edit that mare's block in `character_preferences.gd` `TEMPLATES`. Preserve custom
+Edit that mare's block in `shared/character_preferences.gd` `TEMPLATES`. Preserve custom
 `event_prompts`, `poses`, `consent` and `act_prompts` keys. Do not reset the rest of the template.
 
 ### Placement
@@ -126,7 +126,7 @@ Edit that mare's block in `character_preferences.gd` `TEMPLATES`. Preserve custo
   would otherwise keep overriding the new source default.
 
 - **Per-mare group**: add or merge the group's partial `diff` into
-  `anatomy_placement.gd` `MARE_DEFAULTS`, then drop the player's rows:
+  `shared/anatomy_placement.gd` `MARE_DEFAULTS`, then drop the player's rows:
 
   ```bash
   python3 .opencode/skills/sync-settings/analyze.py --project-root ../.. \

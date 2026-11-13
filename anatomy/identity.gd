@@ -1,6 +1,6 @@
 extends RefCounted
 ## Pure anatomy helpers: the stable pony id, the princess body profile and the off-roster id
-## list. It reads no Node, scene or settings file; `anatomy.gd` supplies the live values.
+## list. It reads no Node, scene or settings file; `anatomy/service.gd` supplies the live values.
 ##
 ## The adult capability is not here: the eligibility facade owns it and the anatomy facade asks
 ## `eligible(pony, Target.ANATOMY)`.

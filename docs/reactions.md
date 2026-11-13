@@ -2,7 +2,7 @@
 
 ## Scope
 
-`act_reactions.gd` owns the scene reactions that ride the act's thrust and climax events:
+`reactions/service.gd` owns the scene reactions that ride the act's thrust and climax events:
 
 - the standing rump jiggle and its body-coat shader target;
 - the act smack reaction (the native cheek jiggle carried into the tail);
@@ -18,7 +18,7 @@ runtime's stock-smack callback.
 
 | Part | Rule |
 |---|---|
-| `act_reactions.gd` | the facade: scene handles, live blush/heart state and the per-act tuning |
+| `reactions/service.gd` | the facade: scene handles, live blush/heart state and the per-act tuning |
 | `runtime.gd` | binds the scene, snapshots the settings, calls the facade from the stroke/climax paths |
 
 The facade is a `RefCounted` scene adapter. It reads Nodes and the `body_coat_deform` setting; the
@@ -90,6 +90,24 @@ already set its own impulse before the facade scales it.
   their stored origin to `origin`; the standing afterglow close and the climax start both use it.
 - `dock_point()` is the hair `mTail1` base. It falls back to the body `pony_hips` plus her back
   axis and a small lift, then to her origin.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `bind_scene()`/`begin_act()`
+- End: `end_act()`
+- Idempotent: yes
+
 
 ## Tests
 

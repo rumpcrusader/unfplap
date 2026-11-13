@@ -1,6 +1,6 @@
 extends RefCounted
 ## Pure eligibility fact schema and identity predicates. This file has no scene access: the shell
-## `eligibility.gd` builds the dictionary and the policy reads it.
+## `eligibility/service.gd` builds the dictionary and the policy reads it.
 ##
 ## Facts are a per-call snapshot. They are never saved, cached across frames or added to the
 ## per-character profile. See `docs/eligibility.md`.

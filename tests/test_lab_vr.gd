@@ -12,7 +12,7 @@ extends "res://mods/unfplap/tests/test_lab.gd"
 ## tracker named for the waist, so vr_depth() runs the same path a body-tracked waist would. On a
 ## desktop run the tracker is inert and nothing else changes: the rig is only XR under Monado.
 
-const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
+const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 
 ## One full stroke of the fake waist, the same range vr_act maps to depth 1.
 const HIP_RANGE_M := VR_ACT.HIP_RANGE_M

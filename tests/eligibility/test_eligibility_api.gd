@@ -4,8 +4,8 @@ extends SceneTree
 ## test runner.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility_api.gd
 
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var failures := 0
 var checks := 0

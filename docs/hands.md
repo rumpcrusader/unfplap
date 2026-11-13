@@ -37,7 +37,7 @@ This contract covers:
 
 | File | Role |
 |---|---|
-| `hand_control.gd` | act hand coordinator: A/D/Z/C latches, five-second touch meter, shoulder reach, smack target selection and palm-holder/path wiring |
+| `hands/service.gd` | act hand coordinator: A/D/Z/C latches, five-second touch meter, shoulder reach, smack target selection and palm-holder/path wiring |
 | `hands/session.gd` | typed coordinator interface used by the smack action |
 | `hands/placement.gd` | pose-free placement engine: oval, exact/hull contact, smoothing, palm frame, last-good target |
 | `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
@@ -46,8 +46,8 @@ This contract covers:
 | `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, marked area chains, act-camera anchors, rest fallback |
 | `hands/surface.gd` | stable posed body/head patch and exact ray queries |
 | `hands/palm.gd` | single-point palm frame: basis, placement and normal turn |
-| `hands/scale.gd` | shared per-preset hand-bone scale |
-| `hands/reach_plan.gd` | pure two-bone reach plan for the missionary hand |
+| `shared/hands_scale.gd` | shared per-preset hand-bone scale |
+| `shared/hands_reach_plan.gd` | pure two-bone reach plan for the missionary hand |
 | `hands/contact.gd` | FlankSurface/PonyTouchBody hull queries and touch-hull sync |
 | `hands/smack.gd` | smack phases, impact audio and return to the live caress |
 | `hands/paths/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
@@ -56,7 +56,7 @@ This contract covers:
 
 The pose boundary is deliberately small:
 
-- `hand_control.gd` chooses the pose's path provider and palm holder, and supplies the
+- `hands/service.gd` chooses the pose's path provider and palm holder, and supplies the
   shared hover, oval and body scale.
 - `hands/placement.gd` never reads `pose_id`, `CATALOG`, the camera or the input. It receives a
   pony, a path and the palm side.
@@ -65,7 +65,7 @@ The pose boundary is deliberately small:
 
 ## Typed view
 
-`hand_control.gd` and every hands internal read `act_facts.gd`, never the runtime node. The
+`hands/service.gd` and every hands internal read `shared/act_facts.gd`, never the runtime node. The
 controller takes the view in `_init(facts)`, the engine and each path receive the same view, and
 they read `pose_id`, `state`, `lean_forward`, `lean_side`, `size_name`, `size_scale`,
 `same_height_scale`, `physics_delta`, `presentation_config`, `profile`, `camera` and `main`, plus
@@ -125,11 +125,11 @@ the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, 
 
 ## Palm holder
 
-- Missionary uses `missionary_anon.gd` as the palm holder. `set_hold_target()` /
+- Missionary uses `poses/missionary_anon.gd` as the palm holder. `set_hold_target()` /
   `clear_hold_target()` blend the hand off and back onto the mattress over 0.35 s. While held,
   the arm runs the game's regular desktop arm mode from the shoulder down.
 - Standing uses the game's desktop pose driver through `set_hold_target(..., "rub")`.
-- `hands/scale.gd` applies the shared per-preset hand scale in both poses and restores the cached
+- `shared/hands_scale.gd` applies the shared per-preset hand scale in both poses and restores the cached
   bone scales on every act exit.
 - Both holders expose `hand_frame()` for the debug overlay.
 
@@ -166,6 +166,15 @@ step and the same normal turn. The flank patch is skipped (its skinning and quer
 is outside its last posed bounds, so shoulder and neck points go straight to the hulls. The hull
 path keeps the last valid point on a miss. The missionary pose always takes the precise branch;
 the hull path there is only the fallback when the authored chain cannot build.
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime`
+- Begin: `bind()`/`begin()`
+- End: act teardown
+- Idempotent: yes
+
 
 ## Settings
 
@@ -232,7 +241,7 @@ no shoulder reach.
 
 ## Smack
 
-The smack action lives in `hands/smack.gd`; `hand_control.gd` keeps the pose-specific target
+The smack action lives in `hands/smack.gd`; `hands/service.gd` keeps the pose-specific target
 selection and starts the swing.
 
 - A live caress hand is used when possible; otherwise the lean chooses a cheek.
@@ -259,6 +268,15 @@ selection and starts the swing.
 - The standing afterglow close window counts active caress time. 2.5 s or more of caress grants
   the full reward; after a bad act it repairs one point of history hurt.
 
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+
 ## Tests
 
 - `tests/hands/test_caress.gd`: surface patch, authored paths, marked area path, side mapping,
@@ -280,7 +298,7 @@ selection and starts the swing.
   flank/rump point.
 - The area chain uses one representative point per group (the vertex nearest the group mean). It
   does not roam the whole marked region; the oval remains the local stroke.
-- `hand_control.gd` is the facade and the coordinator in one file. It still reads runtime
+- `hands/service.gd` is the facade and the coordinator in one file. It still reads runtime
   presentation fields (`_lean_forward`, `_presentation_cfg`, `_profile`, `_size_scale`) and
   calls runtime internals (`_on_touch`, `_log`, `perf_note`). New hand code uses the coordinator's
   methods; do not add another host read.

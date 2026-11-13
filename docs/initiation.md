@@ -27,7 +27,7 @@ dialogue cues and prompts.
 
 | File | Role |
 |---|---|
-| `initiation.gd` | facade: scan, admission, candidate assembly, the live episode, phase dispatch, cooldown IO and the typed `Episode`/`Candidate`/`ForceResult` |
+| `initiation/service.gd` | facade: scan, admission, candidate assembly, the live episode, phase dispatch, cooldown IO and the typed `Episode`/`Candidate`/`ForceResult` |
 | `initiation/facts.gd` | pure typed `Request`: the plain values the rules and wording read |
 | `initiation/policy.gd` | pure rules: timers, cooldowns, privacy, wording mode, prompt schedule, pose choice, weighted pick and the phase tables |
 | `initiation/consent.gd` | pure private-answer state machine: transcript, model step, one clarification, deadlines |
@@ -40,7 +40,7 @@ dialogue cues and prompts.
 
 The purity boundary is deliberate:
 
-- `facts.gd`, `policy.gd`, `prompts.gd` and `consent.gd` have no `Node`, tree, time, file,
+- `facts.gd`, `policy.gd`, `prompts.gd` and `shared/consent.gd` have no `Node`, tree, time, file,
   `Settings`, scene or game preload. They take plain values and return plain values or strings.
 - `conversation.gd` owns `director._player_text`, `_held_text`, `_now`, `characters`, `speech`,
   `player_approaches`, `group`, the `transcript` connection, the classifier client and
@@ -50,11 +50,11 @@ The purity boundary is deliberate:
   `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the
   bed rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`, `accept`), the player seat and
   `couch_sleeping`, the house lookup, the `couches` group and `WorldLayout`.
-- The facade is the only file that preloads `eligibility.gd`, `act_history.gd` (for the ask
-  notes), `cycle.gd`, `settings.gd`, `memory.gd` (`docs/memory.md`), `relationship_cue.gd`,
-  `act_face.gd` and
-  `rest_control.gd`; `cooldowns.gd` also preloads `act_history.gd` and the policy module.
-- No file outside `initiation.gd` and `initiation/` preloads `initiation/*`.
+- The facade is the only file that preloads `eligibility/service.gd`, `shared/act_history.gd` (for the ask
+  notes), `shared/cycle.gd`, `settings/service.gd`, `memory/service.gd` (`docs/memory.md`), `shared/relationship_cue.gd`,
+  `shared/act_face.gd` and
+  `rest/control.gd`; `cooldowns.gd` also preloads `shared/act_history.gd` and the policy module.
+- No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*`.
 - `main.gd` creates the service (`setup(self)`) and drives it: `tick`, `reset`, `cancel_for`,
   `force` and `offer_target()`. `runtime.gd` exposes `cuddle_active()` for the scan.
 
@@ -98,9 +98,9 @@ venue:        player, mares, pony_id, region_of, camera_forward, private_at_play
 |---|---|---|
 | Request cooldown (`request_times`) | `Mods.state("unfplap")` | `initiation/cooldowns.gd` |
 | Live episode, cuddle edge, one-ask-per-cuddle, retry deadlines | memory only | this facade |
-| Lover bond | `Mods.state("unfplap").sex_bonds` | `sex_bond.gd` |
-| Act history and its offer cooldown | `Mods.state("unfplap").act_history` | `act_history.gd` |
-| Cycle phase | runtime, derived from the day | `cycle.gd` |
+| Lover bond | `Mods.state("unfplap").sex_bonds` | `bond/service.gd` |
+| Act history and its offer cooldown | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
+| Cycle phase | runtime, derived from the day | `shared/cycle.gd` |
 | Per-mare consent and public-offer flag | resolved verdict | `docs/eligibility.md` |
 | Relationship, stage, love, willingness | game save | base game |
 
@@ -264,6 +264,30 @@ never suggest `[mood:...]`; the face hint is the only expression guidance.
   `request reminder ...`, `request invite ...` and `request end ... phase=... reason=...` are the
   debug log lines.
 - The lab runs with `ai_usage=talk`, so automatic offers do not fire; use the debug actions.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | memory | `memory/service.gd` | act memory and witness pass |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | act_face | `shared/act_face.gd` | face beat data |
+| shared | cycle | `shared/cycle.gd` | estrus cycle |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+| shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
+| store | act_history | `shared/act_history.gd` | stored history rows |
+
+## Lifecycle
+
+- Scope: world
+- Constructed by: `main._ready()`
+- Begin: `setup()`
+- End: `reset()`/world close
+- Idempotent: yes
+
 
 ## Tests
 

@@ -4,7 +4,7 @@ extends RefCounted
 ## and history notes as strings, so this file has no Settings, scene or game access.
 ## See `docs/initiation.md`.
 
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const FACTS := preload("res://mods/unfplap/initiation/facts.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 

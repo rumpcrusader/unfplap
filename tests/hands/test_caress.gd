@@ -4,11 +4,11 @@ extends SceneTree
 
 const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
-const ARM := preload("res://mods/unfplap/hands/reach_plan.gd")
+const ARM := preload("res://mods/unfplap/shared/hands_reach_plan.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SYSTEM := preload("res://mods/unfplap/hands/placement.gd")
 const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 class FlankPony extends Node3D:
 	var skeleton: Skeleton3D

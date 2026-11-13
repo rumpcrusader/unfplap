@@ -2,7 +2,7 @@ extends SceneTree
 ## The typed act context: defaults, host callbacks and the runtime write-backs.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_facts/test_act_facts.gd
 
-const FACTS := preload("res://mods/unfplap/act_facts.gd")
+const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 
 var failures := 0
 var checks := 0

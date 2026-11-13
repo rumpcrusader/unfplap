@@ -9,13 +9,13 @@ extends Node
 ## and scales the dock and tilts the tail about the body's rear axis. The controller caches every
 ## original before it writes, so turning the setting off restores the game's tail and dock exactly.
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
 const DOCK_ATTACH := preload("res://mods/unfplap/anatomy/tail/dock_attach.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
-const ANATOMY_PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
+const ANATOMY_PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 
 const DOCK_NAME := "OpenPonyDock"
 const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.json"

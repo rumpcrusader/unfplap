@@ -38,11 +38,13 @@ def runtime_source(path):
     name = parts[-1]
     if name.startswith("."):
         return False
-    if path.startswith(("assets/", "audio/", "poses/", "hands/")):
-        if "backups" in parts:
-            return False
-        return pathlib.PurePosixPath(path).suffix in ALLOWED_SUFFIXES
-    return len(parts) == 1 and pathlib.PurePosixPath(path).suffix in ALLOWED_SUFFIXES
+    if path.startswith(("docs/", "tests/", "tools/", "scripts/", "sources/",
+            "architecture/", "dist/", ".github/", ".opencode/")):
+        return False
+    if path in ("README.md", "AGENTS.md", "ARCHITECTURE.md", "WORKFLOW.md",
+            "PREFERENCES.md", "HISTORY.md", "ROTATION.md", "TUNING.md"):
+        return False
+    return pathlib.PurePosixPath(path).suffix in ALLOWED_SUFFIXES
 
 
 def main():

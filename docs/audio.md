@@ -7,13 +7,13 @@ climax, and the Ponese mute policy.
 
 | File | Role |
 |---|---|
-| `act_audio.gd` | the per-runtime audio facade: pack layers, base-game sound child, and the Ponese mute policy |
-| `act_sound.gd` | base-game breath and `squee_*` climax players and their timing |
+| `audio/service.gd` | the per-runtime audio facade: pack layers, base-game sound child, and the Ponese mute policy |
+| `audio/sound.gd` | base-game breath and `squee_*` climax players and their timing |
 | `audio/act/catalogue.gd` | the pure pack cue table (groups, variants, volume, cooldowns, pitch) |
 | `audio/act/smack/catalogue.gd` | the hand-smack variants used by the hands system |
 | `docs/audio.md` | this contract |
 
-`act_audio.gd` is one Node per runtime. The runtime creates it lazily and keeps it for the
+`audio/service.gd` is one Node per runtime. The runtime creates it lazily and keeps it for the
 process: `begin(features)` opens an act's layers, `end()` closes them. It never preloads
 `runtime.gd` or `main.gd`; the runtime passes the pony, the id, the feature snapshot and the
 classified voice info as arguments.
@@ -60,7 +60,7 @@ mutes only when the effective voice is Ponese (`effective_ponese`). A generated/
 left alone. The saved volume is restored by `restore_voice_policy()` at the act end or when the
 setting changes.
 
-The classification itself stays `voice_status.gd` (pure); the runtime's `voice_status_line()` is
+The classification itself stays `audio/voice_status.gd` (pure); the runtime's `voice_status_line()` is
 the debug read.
 
 ## Packs and settings
@@ -71,6 +71,24 @@ the debug read.
 - `features.act_climax` (default off) gates only the wet finish layer.
 - `features.mute_ponese_audio` (default on) gates the Ponese mute.
 - The base-game breath and squee are always on and are not gated by those flags.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+| shared | preferences | `shared/preferences.gd` | profile math and defaults |
+
+## Lifecycle
+
+- Scope: per-pony
+- Constructed by: `runtime`
+- Begin: `begin()`
+- End: `end()`
+- Idempotent: yes
+
 
 ## Tests
 

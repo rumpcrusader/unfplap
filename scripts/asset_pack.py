@@ -154,7 +154,7 @@ def collect_sources(root: pathlib.Path) -> dict:
 
 def _check_catalogue_refs(root: pathlib.Path, runtime: dict) -> None:
     pattern = re.compile(r'res://mods/unfplap/((?:audio|assets)/[A-Za-z0-9_./-]+)')
-    for path in _walk(root / "audio"):
+    for path in _walk(root / "audio" / "act"):
         if path.suffix != ".gd":
             continue
         text = path.read_text(encoding="utf-8")

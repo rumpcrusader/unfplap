@@ -1,4 +1,4 @@
-# Perf probe (`perf.gd`)
+# Perf probe (`shared/perf.gd`)
 
 The act's debug performance probe. Timed chunks report microseconds and one summary prints per
 one-second window, so a pony-specific stall can be attributed to a modifier or a service without a
@@ -6,7 +6,7 @@ live profiler.
 
 ## Ownership
 
-- `perf.gd` is a pure `RefCounted` module owned by the runtime. It holds the window, the chunk
+- `shared/perf.gd` is a pure `RefCounted` module owned by the runtime. It holds the window, the chunk
   rows and the summary formatting.
 - The runtime supplies the two gates (`enabled`, `active`), the header facts and the log callback.
 - Timed call sites in the runtime and the skeleton modifiers call `perf_note(key, usec)`.

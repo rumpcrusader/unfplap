@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/history/test_act_tolerance.gd
 
-const TOLERANCE := preload("res://mods/unfplap/act_tolerance.gd")
+const TOLERANCE := preload("res://mods/unfplap/history/tolerance.gd")
 
 var checks := 0
 var failures := 0

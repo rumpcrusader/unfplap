@@ -1,0 +1,709 @@
+{
+  "debt": [
+    {
+      "service": "afterglow",
+      "func": "begin",
+      "signature": "func begin(pose_id: String, summary: Dictionary) -> void:"
+    },
+    {
+      "service": "afterglow",
+      "func": "bind_action_executor",
+      "signature": "func bind_action_executor(director: Variant, pony_id: String) -> void:"
+    },
+    {
+      "service": "afterglow",
+      "func": "presentation",
+      "signature": "func presentation() -> Dictionary:"
+    },
+    {
+      "service": "afterglow",
+      "func": "receive_action",
+      "signature": "func receive_action(event: Dictionary) -> void:"
+    },
+    {
+      "service": "anatomy",
+      "func": "body_profile",
+      "signature": "static func body_profile(identity: Variant) -> Array:"
+    },
+    {
+      "service": "anatomy",
+      "func": "new_act",
+      "signature": "static func new_act(host: Dictionary) -> RefCounted:"
+    },
+    {
+      "service": "anatomy",
+      "func": "off_roster_ids",
+      "signature": "static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:"
+    },
+    {
+      "service": "anatomy",
+      "func": "placement_values",
+      "signature": "func placement_values(id: String) -> Dictionary:"
+    },
+    {
+      "service": "anatomy",
+      "func": "player_debug_scale",
+      "signature": "func player_debug_scale() -> Variant:"
+    },
+    {
+      "service": "audio",
+      "func": "apply_voice_policy",
+      "signature": "func apply_voice_policy(pony_node: Variant, id: String, mute: bool, info: Dictionary) -> void:"
+    },
+    {
+      "service": "audio",
+      "func": "begin",
+      "signature": "func begin(features: Dictionary) -> void:"
+    },
+    {
+      "service": "bond",
+      "func": "bind",
+      "signature": "func bind(host_in: Dictionary) -> void:"
+    },
+    {
+      "service": "bond",
+      "func": "bonded",
+      "signature": "static func bonded(section: Dictionary, id: String) -> bool:"
+    },
+    {
+      "service": "bond",
+      "func": "clear",
+      "signature": "static func clear(section: Dictionary, id: String, reason: String) -> bool:"
+    },
+    {
+      "service": "bond",
+      "func": "grant",
+      "signature": "static func grant(section: Dictionary, id: String, stage: String, love_level: int, source: String, line: String) -> bool:"
+    },
+    {
+      "service": "bond",
+      "func": "records",
+      "signature": "static func records(section: Dictionary) -> Dictionary:"
+    },
+    {
+      "service": "bond",
+      "func": "row",
+      "signature": "static func row(section: Dictionary, id: String) -> Dictionary:"
+    },
+    {
+      "service": "bond",
+      "func": "section",
+      "signature": "static func section() -> Dictionary:"
+    },
+    {
+      "service": "bond",
+      "func": "set_stage",
+      "signature": "static func set_stage(section: Dictionary, id: String, stage: String) -> bool:"
+    },
+    {
+      "service": "camera",
+      "func": "bind",
+      "signature": "func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant, standing_ctl: Variant, missionary_ctl: Variant) -> void:"
+    },
+    {
+      "service": "camera",
+      "func": "configure",
+      "signature": "func configure(camera_block: Dictionary) -> void:"
+    },
+    {
+      "service": "camera",
+      "func": "player_body",
+      "signature": "func player_body() -> Variant:"
+    },
+    {
+      "service": "eligibility",
+      "func": "set_profile",
+      "signature": "func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:"
+    },
+    {
+      "service": "face",
+      "func": "act_beat",
+      "signature": "func act_beat(moment: String, context: Dictionary, enabled: bool, debug: bool) -> void:"
+    },
+    {
+      "service": "face",
+      "func": "beat",
+      "signature": "func beat(moment: String, context: Dictionary) -> void:"
+    },
+    {
+      "service": "face",
+      "func": "bind",
+      "signature": "func bind(pony_in: Variant, host_in: Node) -> void:"
+    },
+    {
+      "service": "face",
+      "func": "climax_quality",
+      "signature": "func climax_quality(context: Dictionary) -> Dictionary:"
+    },
+    {
+      "service": "face",
+      "func": "eyes_tick",
+      "signature": "func eyes_tick(context: Dictionary) -> void:"
+    },
+    {
+      "service": "face",
+      "func": "rows",
+      "signature": "func rows(context: Dictionary) -> Array[String]:"
+    },
+    {
+      "service": "face",
+      "func": "start_post_act",
+      "signature": "func start_post_act(context: Dictionary) -> void:"
+    },
+    {
+      "service": "hands",
+      "func": "caress_profile_for",
+      "signature": "static func caress_profile_for(size_name: String) -> Dictionary:"
+    },
+    {
+      "service": "hands",
+      "func": "caress_touch_step",
+      "signature": "static func caress_touch_step(seconds: float, active: bool, delta: float) -> Array:"
+    },
+    {
+      "service": "hands",
+      "func": "closest_flank_hit",
+      "signature": "static func closest_flank_hit(faces: PackedVector3Array, normals: PackedVector3Array, point: Vector3) -> Dictionary:"
+    },
+    {
+      "service": "hands",
+      "func": "smack_pony",
+      "signature": "func smack_pony() -> Variant:"
+    },
+    {
+      "service": "hands",
+      "func": "smack_presentation",
+      "signature": "func smack_presentation() -> Dictionary:"
+    },
+    {
+      "service": "history",
+      "func": "blocks_start",
+      "signature": "func blocks_start(verdict: Variant) -> bool:"
+    },
+    {
+      "service": "history",
+      "func": "commit_summary",
+      "signature": "func commit_summary(real_act: bool, context: Dictionary) -> void:"
+    },
+    {
+      "service": "history",
+      "func": "observe_dislike",
+      "signature": "func observe_dislike(kind: String) -> Dictionary:"
+    },
+    {
+      "service": "history",
+      "func": "record_peak_memory",
+      "signature": "func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:"
+    },
+    {
+      "service": "history",
+      "func": "reset_act",
+      "signature": "func reset_act(profile: Dictionary) -> void:"
+    },
+    {
+      "service": "history",
+      "func": "row",
+      "signature": "func row(pony_id: String) -> Dictionary:"
+    },
+    {
+      "service": "history",
+      "func": "summary_context",
+      "signature": "func summary_context(context: Dictionary) -> Dictionary:"
+    },
+    {
+      "service": "history",
+      "func": "summary_inputs",
+      "signature": "func summary_inputs(context: Dictionary) -> Dictionary:"
+    },
+    {
+      "service": "history",
+      "func": "tick_idle",
+      "signature": "func tick_idle(delta: float, context: Dictionary) -> void:"
+    },
+    {
+      "service": "history",
+      "func": "tolerance_controller",
+      "signature": "func tolerance_controller():"
+    },
+    {
+      "service": "history",
+      "func": "tolerance_decision",
+      "signature": "func tolerance_decision(event: Dictionary) -> Dictionary:"
+    },
+    {
+      "service": "lines",
+      "func": "configure",
+      "signature": "func configure(pacing: Dictionary) -> void:"
+    },
+    {
+      "service": "lines",
+      "func": "prompt_note",
+      "signature": "func prompt_note(values: Dictionary) -> String:"
+    },
+    {
+      "service": "lines",
+      "func": "reaction_line",
+      "signature": "func reaction_line(reaction: int, event_id: String, fallback: String, valid: Callable) -> String:"
+    },
+    {
+      "service": "lines",
+      "func": "scheduler",
+      "signature": "func scheduler():"
+    },
+    {
+      "service": "memory",
+      "func": "shared_memory",
+      "signature": "func shared_memory(id: String, cue: String, event_id: String, used: Array) -> MemoryHit:"
+    },
+    {
+      "service": "poses",
+      "func": "authored",
+      "signature": "func authored() -> Variant:"
+    },
+    {
+      "service": "poses",
+      "func": "authored_asset",
+      "signature": "func authored_asset() -> Variant:"
+    },
+    {
+      "service": "poses",
+      "func": "base_info",
+      "signature": "func base_info() -> Dictionary:"
+    },
+    {
+      "service": "poses",
+      "func": "begin",
+      "signature": "func begin(context: Dictionary) -> void:"
+    },
+    {
+      "service": "poses",
+      "func": "bind",
+      "signature": "func bind(host_node: Variant, pony_node: Variant) -> void:"
+    },
+    {
+      "service": "poses",
+      "func": "diagnostics",
+      "signature": "func diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:"
+    },
+    {
+      "service": "poses",
+      "func": "head_skeleton",
+      "signature": "func head_skeleton(boop: Variant) -> Variant:"
+    },
+    {
+      "service": "poses",
+      "func": "log_settled",
+      "signature": "func log_settled(state: int, anon_diag: Callable) -> void:"
+    },
+    {
+      "service": "poses",
+      "func": "missionary_pose_frame",
+      "signature": "func missionary_pose_frame() -> Variant:"
+    },
+    {
+      "service": "poses",
+      "func": "pose",
+      "signature": "func pose() -> Variant:"
+    },
+    {
+      "service": "poses",
+      "func": "refresh_modifiers",
+      "signature": "func refresh_modifiers(pose: String, feature_flags: Dictionary) -> void:"
+    },
+    {
+      "service": "poses",
+      "func": "render_write",
+      "signature": "func render_write(context: Dictionary) -> void:"
+    },
+    {
+      "service": "poses",
+      "func": "rig_missing",
+      "signature": "func rig_missing() -> Array:"
+    },
+    {
+      "service": "poses",
+      "func": "rig_reason",
+      "signature": "func rig_reason(missing: Array) -> String:"
+    },
+    {
+      "service": "poses",
+      "func": "set_pose_config",
+      "signature": "func set_pose_config(config: Dictionary) -> void:"
+    },
+    {
+      "service": "poses",
+      "func": "state_rows",
+      "signature": "func state_rows(state: int) -> Array:"
+    },
+    {
+      "service": "poses",
+      "func": "sync_standing_config",
+      "signature": "func sync_standing_config(presentation: Dictionary) -> bool:"
+    },
+    {
+      "service": "reactions",
+      "func": "bind_scene",
+      "signature": "func bind_scene(pony_node: Variant, anatomy_ctl: Variant, flank_ctl: Variant = null) -> void:"
+    },
+    {
+      "service": "reactions",
+      "func": "bind_tail",
+      "signature": "func bind_tail(tail_ctl: Variant) -> void:"
+    },
+    {
+      "service": "reactions",
+      "func": "configure",
+      "signature": "func configure(context: Dictionary) -> void:"
+    },
+    {
+      "service": "readiness",
+      "func": "auto_panel_tick",
+      "signature": "func auto_panel_tick(delta: float, x_down: bool, keys: Array, current_depth: float) -> Array[String]:"
+    },
+    {
+      "service": "readiness",
+      "func": "configure",
+      "signature": "func configure(profile: Dictionary, override_s: float, overwhelmed_s: float, touch_cd: float, talk_cd: float, receptive_s: float) -> void:"
+    },
+    {
+      "service": "readiness",
+      "func": "reset",
+      "signature": "func reset(profile: Dictionary) -> void:"
+    },
+    {
+      "service": "readiness",
+      "func": "stroke",
+      "signature": "func stroke(event: Dictionary) -> void:"
+    },
+    {
+      "service": "registry",
+      "func": "placement",
+      "signature": "static func placement(id: String) -> Dictionary:"
+    },
+    {
+      "service": "registry",
+      "func": "register",
+      "signature": "static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:"
+    },
+    {
+      "service": "registry",
+      "func": "set_profile",
+      "signature": "static func set_profile(owner_id: int, source: String, id: String, identity: Dictionary) -> Dictionary:"
+    },
+    {
+      "service": "registry",
+      "func": "template_for",
+      "signature": "static func template_for(id: String) -> Dictionary:"
+    },
+    {
+      "service": "rest",
+      "func": "bed_rest_for",
+      "signature": "func bed_rest_for(bed_node: Node3D) -> Variant:"
+    },
+    {
+      "service": "rest",
+      "func": "bind",
+      "signature": "func bind(main_node: Variant, pony_node: Variant, bed_node: Variant) -> void:"
+    },
+    {
+      "service": "rest",
+      "func": "context_values",
+      "signature": "func context_values() -> Dictionary:"
+    },
+    {
+      "service": "rest",
+      "func": "player_node",
+      "signature": "func player_node() -> Variant:"
+    },
+    {
+      "service": "rest",
+      "func": "rejoin_wanted",
+      "signature": "func rejoin_wanted(values: Dictionary) -> bool:"
+    },
+    {
+      "service": "rest",
+      "func": "shared_bed_rest",
+      "signature": "func shared_bed_rest(bed_node: Node3D) -> Variant:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "bind",
+      "signature": "func bind(pony_node: Variant, main_node: Variant, session: Variant) -> void:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "configure",
+      "signature": "func configure(state_value: int, id_value: String, features_block: Dictionary) -> void:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "debug_line",
+      "signature": "func debug_line(pose: String, act_source: String, bed_in: Variant = null, distance := -1.0, dot := -1.0) -> String:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "offer_verdict",
+      "signature": "func offer_verdict(pose: String, act_source: String, bed_in: Variant = null, forced := false, verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "player_ready_for",
+      "signature": "func player_ready_for(pose: String, act_source: String, bed_in: Variant) -> bool:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "refuse",
+      "signature": "func refuse(pose: String, act_source: String, bed_in: Variant, gate: Dictionary) -> void:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "refuse_available",
+      "signature": "func refuse_available(pose: String, act_source: String, bed_in: Variant, gate: Dictionary) -> bool:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "report_reasons",
+      "signature": "func report_reasons(rows_in: Array) -> PackedStringArray:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "resolve_bed",
+      "signature": "func resolve_bed(pose: String, act_source: String, bed_in: Variant) -> Node3D:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "rig_missing",
+      "signature": "func rig_missing() -> Array:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "rig_reason",
+      "signature": "func rig_reason(missing: Array) -> String:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "rows",
+      "signature": "func rows(pose: String, act_source: String, bed_in: Variant, mode: String, forced: bool) -> Array:"
+    },
+    {
+      "service": "scene_gate",
+      "func": "start_verdict",
+      "signature": "func start_verdict(pose: String, act_source: String, bed_in: Variant = null, verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:"
+    },
+    {
+      "service": "scene_hold",
+      "func": "bind",
+      "signature": "func bind(host_in: Dictionary) -> void:"
+    },
+    {
+      "service": "settings",
+      "func": "all_settings",
+      "signature": "static func all_settings() -> Array:"
+    },
+    {
+      "service": "settings",
+      "func": "anatomy_placement",
+      "signature": "static func anatomy_placement(id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "anatomy_placement_default",
+      "signature": "static func anatomy_placement_default(id: String, use_draft := true) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "anatomy_placement_draft_values",
+      "signature": "static func anatomy_placement_draft_values() -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "anon_placement",
+      "signature": "static func anon_placement() -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "block",
+      "signature": "static func block(prefix: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "by_name",
+      "signature": "static func by_name(n: String) -> Variant:"
+    },
+    {
+      "service": "settings",
+      "func": "by_path",
+      "signature": "static func by_path(path: String) -> Variant:"
+    },
+    {
+      "service": "settings",
+      "func": "choice",
+      "signature": "static func choice(n: String, path: String, value: String, options: Array, labels: Array, label: String, help: String, tab: String, group: String) -> ChoiceSetting:"
+    },
+    {
+      "service": "settings",
+      "func": "consent",
+      "signature": "static func consent(id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "data",
+      "signature": "static func data() -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "default_block",
+      "signature": "static func default_block(prefix: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "default_participation",
+      "signature": "static func default_participation(id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "default_participation_for",
+      "signature": "static func default_participation_for(base: Dictionary, id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "default_preferences",
+      "signature": "static func default_preferences(id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "default_preferences_for",
+      "signature": "static func default_preferences_for(base: Dictionary, id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "deprecated",
+      "signature": "static func deprecated(path: String, map: Callable) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "entry_view",
+      "signature": "static func entry_view(s: Setting) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "list",
+      "signature": "static func list(n: String, path: String, value: Array, options: Array, label: String, help: String, tab: String, group: String) -> ListSetting:"
+    },
+    {
+      "service": "settings",
+      "func": "pose",
+      "signature": "static func pose(id: String, pose_id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "preferences",
+      "signature": "static func preferences(id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "preferences_match",
+      "signature": "static func preferences_match(a: Dictionary, b: Dictionary) -> bool:"
+    },
+    {
+      "service": "settings",
+      "func": "profile_adult",
+      "signature": "static func profile_adult(id: String) -> Variant:"
+    },
+    {
+      "service": "settings",
+      "func": "profile_for",
+      "signature": "static func profile_for(base: Dictionary, characters: Variant, id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "profile_identity",
+      "signature": "static func profile_identity(id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "profile_participation",
+      "signature": "static func profile_participation(id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "save_anatomy_placement",
+      "signature": "static func save_anatomy_placement(id: String, values: Dictionary) -> void:"
+    },
+    {
+      "service": "settings",
+      "func": "save_anatomy_placement_default",
+      "signature": "static func save_anatomy_placement_default(values: Dictionary) -> void:"
+    },
+    {
+      "service": "settings",
+      "func": "save_consent",
+      "signature": "static func save_consent(id: String, values: Dictionary) -> void:"
+    },
+    {
+      "service": "settings",
+      "func": "save_participation",
+      "signature": "static func save_participation(id: String, values: Dictionary) -> void:"
+    },
+    {
+      "service": "settings",
+      "func": "save_preferences",
+      "signature": "static func save_preferences(id: String, preferences: Dictionary) -> void:"
+    },
+    {
+      "service": "settings",
+      "func": "set_anatomy_placement_draft",
+      "signature": "static func set_anatomy_placement_draft(values: Dictionary) -> void:"
+    },
+    {
+      "service": "settings",
+      "func": "tab_settings",
+      "signature": "static func tab_settings(tab: String) -> Array:"
+    },
+    {
+      "service": "settings",
+      "func": "template_for",
+      "signature": "static func template_for(id: String) -> Dictionary:"
+    },
+    {
+      "service": "settings",
+      "func": "write_setting",
+      "signature": "static func write_setting(path: String, value: Variant) -> void:"
+    },
+    {
+      "service": "stool",
+      "func": "build_prop",
+      "signature": "func build_prop(host: Node, at: Vector3, yaw: float, count := 1, step_height := 0.20, ignore: PhysicsBody3D = null) -> Dictionary:"
+    },
+    {
+      "service": "stool",
+      "func": "case_count",
+      "signature": "func case_count(store: Variant) -> int:"
+    },
+    {
+      "service": "stool",
+      "func": "case_slot",
+      "signature": "func case_slot(store: Variant) -> int:"
+    },
+    {
+      "service": "stool",
+      "func": "free_prop",
+      "signature": "func free_prop(prop: Variant) -> void:"
+    },
+    {
+      "service": "stool",
+      "func": "free_slots",
+      "signature": "func free_slots(store: Variant) -> int:"
+    },
+    {
+      "service": "stool",
+      "func": "owned_count",
+      "signature": "func owned_count(store: Variant) -> int:"
+    },
+    {
+      "service": "stool",
+      "func": "writable",
+      "signature": "func writable(store: Variant) -> bool:"
+    }
+  ]
+}

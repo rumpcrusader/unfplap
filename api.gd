@@ -10,10 +10,10 @@ extends Node
 ## V1 is deliberately small: register a mare template, remove it, and read everything resolved
 ## for one mare. Signals, act events and live-state queries are additive later.
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
-const REGISTRY := preload("res://mods/unfplap/mare_registry.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const API_MAJOR := 1
 const API_MINOR := 1

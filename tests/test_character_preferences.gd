@@ -2,10 +2,10 @@ extends SceneTree
 ## Every romanceable base-game mare has a valid, explicit preference profile.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_character_preferences.gd
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const PROFILES := preload("res://mods/unfplap/character_preferences.gd")
-const PREFERENCES := preload("res://mods/unfplap/preferences.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const PROFILES := preload("res://mods/unfplap/shared/character_preferences.gd")
+const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 ## The base game's young ponies and the two adults whose identity resource does not match
 ## their written profile. They must stay out of the preference roster.

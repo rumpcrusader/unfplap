@@ -2,7 +2,7 @@ extends SceneTree
 ## Catalog identity/default tests. Run:
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_catalog.gd
 
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 var failures := 0
 var checks := 0

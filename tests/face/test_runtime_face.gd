@@ -5,7 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/face/test_runtime_face.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const FACE := preload("res://mods/unfplap/face_session.gd")
+const FACE := preload("res://mods/unfplap/face/service.gd")
 var checks := 0
 var failures := 0
 

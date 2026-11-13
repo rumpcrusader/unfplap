@@ -4,8 +4,8 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Act anatomy`).
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const PULLED_OUT_PHASE := 0.35
 const ANON_FLUID_COLOR := Color(0.98, 0.97, 0.93, 0.96)

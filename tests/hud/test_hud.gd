@@ -2,7 +2,7 @@ extends SceneTree
 ## HUD style and control rows.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_hud.gd
 
-const HUD := preload("res://mods/unfplap/hud.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
 
 var failures := 0
 var checks := 0

@@ -1,0 +1,92 @@
+{
+  "exceptions": [
+    {
+      "from": "afterglow/aftercare.gd",
+      "to": "poses/tail_pose.gd",
+      "kind": "service-private",
+      "owner": "afterglow",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "afterglow/service.gd",
+      "to": "history/summary.gd",
+      "kind": "service-private",
+      "owner": "afterglow",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "anatomy/act_bridge.gd",
+      "to": "poses/missionary_anon.gd",
+      "kind": "service-private",
+      "owner": "anatomy",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "bond/dialogue_consent.gd",
+      "to": "initiation/classifier.gd",
+      "kind": "service-private",
+      "owner": "bond",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "hands/smack.gd",
+      "to": "audio/act/smack/catalogue.gd",
+      "kind": "service-private",
+      "owner": "hands",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "initiation/service.gd",
+      "to": "rest/control.gd",
+      "kind": "service-private",
+      "owner": "initiation",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "kiss/legs.gd",
+      "to": "poses/pose_rig.gd",
+      "kind": "service-private",
+      "owner": "kiss",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "readiness/service.gd",
+      "to": "lines/utterance_scheduler.gd",
+      "kind": "service-private",
+      "owner": "readiness",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "scene_gate/service.gd",
+      "to": "rest/control.gd",
+      "kind": "service-private",
+      "owner": "scene_gate",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "settings/service.gd",
+      "to": "registry/service.gd",
+      "kind": "layer",
+      "owner": "settings",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    },
+    {
+      "from": "settings/ui.gd",
+      "to": "debug/service.gd",
+      "kind": "layer",
+      "owner": "settings",
+      "reason": "migration baseline; fix in the boundary-cleanup phase",
+      "expires": "phase-2"
+    }
+  ]
+}

@@ -5,8 +5,8 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Idle heat`).
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CYCLE := preload("res://mods/unfplap/cycle.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 
 const PHASE_POLL_S := 2.0
 

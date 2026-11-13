@@ -6,7 +6,7 @@ the log switches. The lab scripts are in `WORKFLOW.md`; the settings framework i
 
 ## Scope
 
-`debug_actions.gd` owns the Debug block's action buttons and their hotkeys. `debug_skeleton.gd`
+`debug/service.gd` owns the Debug block's action buttons and their hotkeys. `debug/skeleton.gd`
 owns the skeleton overlay. `main.gd` owns the console gate and the tab injection. The lab scripts
 are `lab.sh`, `lab-stress.sh` and `lab-vr.sh`; their keys are in `WORKFLOW.md`.
 
@@ -20,7 +20,7 @@ are `lab.sh`, `lab-stress.sh` and `lab-vr.sh`; their keys are in `WORKFLOW.md`.
 
 ## Actions
 
-Debug actions live in `debug_actions.gd` and render as buttons in the **Debug** block of the tab
+Debug actions live in `debug/service.gd` and render as buttons in the **Debug** block of the tab
 their `tab` names (`general` by default, `anatomy` or `world`). Adding an action is one entry; give
 it a `hotkey` only when it must fire while the world is unpaused and you are looking at the scene.
 A hotkey-less action is the default. `panel: false` keeps a hotkey-only action out of the button
@@ -100,6 +100,22 @@ body green, face amber, hair/tail pink. It updates at 30 Hz and covers 15 m.
 - `./lab.sh` uses the isolated `unfplap-test` world and writes `last-run.log`.
   `./lab-stress.sh` uses `unfplap-stress` and writes `last-run-stress.log`.
   `./lab-vr.sh` runs room-scale VR under Monado and writes `last-run-vr.log`.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+
+## Lifecycle
+
+- Scope: process
+- Constructed by: static initialization
+- Begin: none
+- End: none
+- Idempotent: yes
+
 
 ## Tests
 

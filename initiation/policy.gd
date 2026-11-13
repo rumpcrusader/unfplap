@@ -3,7 +3,7 @@ extends RefCounted
 ## and the closing-phase tables. No Node, tree, time, file, Settings or game access: the facade
 ## supplies plain values and keeps every timer. See `docs/initiation.md`.
 
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 ## Usual per-mare wait between offers.
 const COOLDOWN_S := 600.0

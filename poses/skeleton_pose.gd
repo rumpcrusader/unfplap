@@ -2,7 +2,7 @@ extends SkeletonModifier3D
 ## SkeletonModifier3D driver. Pose-specific numbers and bone steps live in
 ## `missionary_recipe.gd` / `standing_recipe.gd`; shared bone access lives in `pose_rig.gd`.
 
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")

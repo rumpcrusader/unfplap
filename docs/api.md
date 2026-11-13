@@ -1,8 +1,8 @@
 # Cross-mod API
 
 This is the contract between unfplap and other Home: Equestria mods. `api.gd` is the only
-unfplap script another mod may call. Everything else is private, including `settings.gd`,
-`runtime.gd`, `character_preferences.gd` and the runtime Nodes.
+unfplap script another mod may call. Everything else is private, including `settings/service.gd`,
+`runtime.gd`, `shared/character_preferences.gd` and the runtime Nodes.
 
 The API is deliberately small. It lets a mod register a character template for a custom mare or
 a base-game mare, remove it, and read everything unfplap resolves for one mare. It does not start
@@ -143,12 +143,12 @@ values, a reserved id, a missing `id` or `source`, and non-positive placement sc
 | `id` | yes | Stable identity/relationship id. Not `default` or `anon`; at most 64 characters; no `.` or `:`. |
 | `source` | yes | Provider mod id, for logs and `sources`. |
 | `name` | no | Settings label and `describe_mare().name` for an off-roster mare. A base-game name always wins. |
-| `preferences` | no | `preferences.gd` profile fields: `intensity`, `pattern`, `touch`, `dislikes`, `talk`, `warmth`, `tolerance`, `notes`. |
+| `preferences` | no | `shared/preferences.gd` profile fields: `intensity`, `pattern`, `touch`, `dislikes`, `talk`, `warmth`, `tolerance`, `notes`. |
 | `consent` | no | `public`, `anal`, `oral` booleans. Missing keys use the existing deterministic id defaults. |
 | `adult` | no | Provider-only tri-state: `true` or `false` asserts the pony's age; absent lets the game's identity decide. It is never written to the player's settings. |
 | `profile` | no | `participation` with `acts`, `anatomy` and `tail` booleans. Missing keys default to `true`. It is subtractive: `true` means "does not veto", never "grants". |
 | `placement` | no | Any subset of `offset_x`, `offset_y`, `offset_z`, `pitch_deg`, `scale`, `tail_y`, `tail_z`, `dock_y`, `dock_scale`, `tail_tilt_deg`. |
-| `poses` | no | Partial per-pose blocks, merged over `poses/catalog.gd` defaults. |
+| `poses` | no | Partial per-pose blocks, merged over `shared/pose_catalog.gd` defaults. |
 | `act_prompts` | no | `cue` and `utterance` prompt overrides. |
 | `event_prompts` | no | `climax` and `end_early` prompt overrides. |
 | `cue_gap` | no | Seconds; the existing 8–30 s clamp applies when read. |

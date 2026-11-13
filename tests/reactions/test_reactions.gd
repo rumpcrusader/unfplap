@@ -4,9 +4,9 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/reactions/test_reactions.gd
 
-const REACTIONS := preload("res://mods/unfplap/act_reactions.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 
 var failures := 0

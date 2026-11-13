@@ -4,8 +4,8 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Act anatomy`).
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const ORAL_TURN_S := 1.6
 const ORAL_MOUTH := "D"

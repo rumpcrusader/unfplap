@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Body coat deform`).
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const BODY_COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const STILL_ZONE_DEBUG := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")

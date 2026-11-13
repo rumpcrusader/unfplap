@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Act anatomy`).
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 
 const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)

@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/history/test_act_history.gd
 
-const HISTORY := preload("res://mods/unfplap/act_history.gd")
+const HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 
 var failures := 0
 var checks := 0

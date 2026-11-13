@@ -4,7 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/memory/test_memory_api.gd
 
-const MEMORY := preload("res://mods/unfplap/memory.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 var failures := 0
 var checks := 0

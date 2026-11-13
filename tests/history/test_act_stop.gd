@@ -6,9 +6,9 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/history/test_act_stop.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
-const MOOD_FACE := preload("res://mods/unfplap/mood_face.gd")
-const MEMORY := preload("res://mods/unfplap/memory.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 var checks := 0
 var failures := 0

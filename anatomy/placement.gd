@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Placement`).
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 
 const WINKING_REAR_Y := 0.541

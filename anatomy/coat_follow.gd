@@ -7,7 +7,7 @@ extends RefCounted
 ## custom0 RGBA8 channel, and blended in `anatomy.gdshader` by four pelvis-relative bone
 ## matrices. See `docs/anatomy.md` (`## Coat follow`).
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 
 const BODY_NAME := "MareBody"

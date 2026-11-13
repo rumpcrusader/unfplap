@@ -26,10 +26,10 @@ extends Node
 ##               despawned again, so only one extra is live.
 
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const ACT_HISTORY := preload("res://mods/unfplap/act_history.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const LAB_POPULATION := preload("res://world/population/pony_population_config.gd")
-const MOD_SETTINGS := preload("res://mods/unfplap/settings.gd")
+const MOD_SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "applejack",
 	"tempest_shadow", "lily_valley", "minuette"]
 ## Strangers start at friendship 0 (Stranger level), with no romance tier and no dating record.

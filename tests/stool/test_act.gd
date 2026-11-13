@@ -4,7 +4,7 @@ extends SceneTree
 
 const ACT := preload("res://mods/unfplap/stool/act.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
 
 var failures := 0

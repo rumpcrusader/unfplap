@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/test_lab.gd"
 ## Run with ./lab-stress.sh. Fillies are excluded.
 
 const POPULATION_CONFIG := preload("res://world/population/pony_population_config.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const LINE_SPACING_M := 0.80
 const LINE_FIRST_BACK_M := 0.80
 ## The base spawner needs 3 m between residents. The final line is tighter, so every non-live

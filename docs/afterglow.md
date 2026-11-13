@@ -2,7 +2,7 @@
 
 ## Scope
 
-`afterglow.gd` owns the held post-act phase: how long it lasts before she may end it, the game's
+`afterglow/service.gd` owns the held post-act phase: how long it lasts before she may end it, the game's
 `[stay: SECONDS]` hold, the standing close window with its caress reward, and the presentation
 row the phase asks for. It does not own the `AFTERGLOW` state value, the scene calls themselves or
 the memory commit.
@@ -19,14 +19,14 @@ The runtime still:
   content face, the heart burst and the cue clear;
 - calls `cancel_close()` from `end_afterglow()` and `_restore_begin()`.
 
-`afterglow.gd` is the facade and the only module another system calls. There is no private
+`afterglow/service.gd` is the facade and the only module another system calls. There is no private
 `afterglow/` directory: the phase has no pure sub-module that is useful on its own.
 
 ## Architecture
 
 | Piece | Owns |
 |---|---|
-| `afterglow.gd` | the phase timers, the self-end roll, the `[stay]` hold, the close window and its reward decision |
+| `afterglow/service.gd` | the phase timers, the self-end roll, the `[stay]` hold, the close window and its reward decision |
 | `runtime.gd` | the state transition, the scene presentation, the memory/history writes and the HUD refresh |
 
 Host callbacks, all optional so a test can build the facade without a runtime:
@@ -115,11 +115,28 @@ Hold `Y`:
   dialogue pauses the roll for that long. The live prompt note tells her whether Anon is caressing
   her or leaning in; leaning counts as staying close/hugging.
 
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `begin()`
+- End: `reset()`
+- Idempotent: yes
+
+
 ## Tests
 
 `tests/afterglow/test_afterglow.gd` builds the facade with fake callbacks and covers the self-end
 gates (minimum time, hold, speech), the `[stay]` extension, the close window's timing, caress
 count and single reward, the early cancel, the missionary skip, the presentation row and the
-runtime forwards for the HUD and prompt note. Wing folding lives in `wing_control.gd` and is covered in the same suite;
+runtime forwards for the HUD and prompt note. Wing folding lives in `poses/wing_control.gd` and is covered in the same suite;
 the wing controller reads the typed act view (`facts.pony`, `facts.clock()`) and a `log`
 callback, never the runtime node.

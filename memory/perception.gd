@@ -5,7 +5,7 @@ extends RefCounted
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AWARENESS := preload("res://world/ai/pony_awareness.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
 

@@ -3,7 +3,7 @@ extends SceneTree
 ## Promiscuity ladder and Starting Sex live in the eligibility policy tests.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/bond/test_sex_bond.gd
 
-const SEX_BOND := preload("res://mods/unfplap/sex_bond.gd")
+const SEX_BOND := preload("res://mods/unfplap/bond/service.gd")
 
 var failures := 0
 var checks := 0

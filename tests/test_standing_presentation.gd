@@ -3,9 +3,9 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_standing_presentation.gd
 
-const PRESENTATION := preload("res://mods/unfplap/standing_presentation.gd")
-const ACT_FACTS := preload("res://mods/unfplap/act_facts.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
+const PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
 var failures := 0
 var checks := 0

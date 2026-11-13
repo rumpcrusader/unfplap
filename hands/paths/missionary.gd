@@ -2,7 +2,7 @@ extends "res://mods/unfplap/hands/path_base.gd"
 ## Missionary caress path. The precise path is the authored surface chain in
 ## `hands/paths/anchors.gd`; the legacy hull path remains when the precise feature is off.
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")

@@ -78,7 +78,7 @@ controller flags), so a failed start runs the same function and restores only wh
 - `_restore_begin()` / `_restore_now()` are the ordered leaves; `_restore_camera()` is the camera
   ledger.
 - A forced stop never rejoins the missionary bed cuddle. A normal end of a bed-sourced act that did
-  not go badly re-seats Anon on the bed's player seat and re-invites her through `rest_rejoin.gd`;
+  not go badly re-seats Anon on the bed's player seat and re-invites her through `rest/service.gd`;
   the retry waits out aftercare and the guest cooldown, and every failure is logged before she is
   left standing.
 - The afterglow, close window and aftercare are `docs/afterglow.md`; the face and mood are
@@ -98,8 +98,8 @@ controller flags), so a failed start runs the same function and restores only wh
 
 ## Public surface
 
-The runtime keeps thin forwards for `main.gd`, `hud.gd`, `input.gd`, the labs, `initiation.gd`,
-`dialogue_consent.gd`, `anatomy.gd`, `standing_presentation.gd` and the tests. The stable
+The runtime keeps thin forwards for `main.gd`, `hud/service.gd`, `input/service.gd`, the labs, `initiation/service.gd`,
+`bond/dialogue_consent.gd`, `anatomy/service.gd`, `poses/standing_presentation.gd` and the tests. The stable
 cross-mod surface is `docs/api.md`; the internal reads the HUD/tests use (`state`, `pose_id`,
 `pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay
 callable.

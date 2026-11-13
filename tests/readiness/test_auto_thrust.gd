@@ -3,10 +3,10 @@ extends SceneTree
 ## reach every intensity and pattern class the preference system uses.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_auto_thrust.gd
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const AUTO := preload("res://mods/unfplap/auto_thrust.gd")
-const THRUST := preload("res://mods/unfplap/thrust.gd")
-const PREF := preload("res://mods/unfplap/preferences.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const AUTO := preload("res://mods/unfplap/readiness/auto_thrust.gd")
+const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
+const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 var failures := 0
 var checks := 0
 

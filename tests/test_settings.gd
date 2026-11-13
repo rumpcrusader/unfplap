@@ -7,9 +7,9 @@ extends SceneTree
 ##
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_settings.gd
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const SETTINGS_UI := preload("res://mods/unfplap/settings_ui.gd")
-const CONSENT := preload("res://mods/unfplap/consent.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
+const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 
 var failures := 0
 var checks := 0

@@ -5,7 +5,7 @@ extends Node
 
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const HIPS_REST := Vector3(0.0, 0.978635, 0.013361)
 const SKIN := Color(0.34, 0.66, 0.34)
 const SKIN_SHADE := Color(0.27, 0.54, 0.28)

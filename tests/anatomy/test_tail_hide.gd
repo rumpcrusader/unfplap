@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/anatomy/test_tail_hide.gd
 
 const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var failures := 0
 var checks := 0

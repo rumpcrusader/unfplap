@@ -4,8 +4,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/scene_hold/test_scene_hold.gd
 
-const HOLD := preload("res://mods/unfplap/scene_hold.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2

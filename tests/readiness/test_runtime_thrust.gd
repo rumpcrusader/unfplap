@@ -3,8 +3,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_runtime_thrust.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const THRUST := preload("res://mods/unfplap/thrust.gd")
-const PREF := preload("res://mods/unfplap/preferences.gd")
+const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
+const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 var failures := 0
 var checks := 0
 

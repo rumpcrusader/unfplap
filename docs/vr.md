@@ -6,7 +6,7 @@ deliberately not imported.
 
 ## Ownership
 
-`vr_act.gd` is the VR controller, created by the anatomy bridge's `vr_start()` (called from the
+`vr/service.gd` is the VR controller, created by the anatomy bridge's `vr_start()` (called from the
 runtime's `_start_vr_act()`) when the VR flag is on and a `XRCamera3D`/`XROrigin3D` pair exists
 under the player. It is a scene adapter with typed handles, never the runtime node: the bridge
 handle (`toggle_hole`, `toggle_finish`, `toggle_oral`, `vr_forward`, `vr_depth`), the `align`
@@ -59,6 +59,22 @@ controller.
   adult test mare. `--vr-lab-autostart` qualifies the nearest mare, starts the standing act and
   turns the stroke on for a scripted smoke run. The log prints state, thrust count, readiness and
   both preference axes once a second.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `anatomy` act bridge
+- Begin: act start
+- End: act end
+- Idempotent: yes
+
 
 ## Tests
 

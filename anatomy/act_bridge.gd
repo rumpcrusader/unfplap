@@ -4,13 +4,13 @@ extends RefCounted
 ## aim/gaze reads. The runtime creates one per act and keeps the orchestration. Contract:
 ## `docs/anatomy.md`.
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
-const MISSIONARY_ANON := preload("res://mods/unfplap/missionary_anon.gd")
-const VR_ACT := preload("res://mods/unfplap/vr_act.gd")
+const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
+const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3

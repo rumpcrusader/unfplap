@@ -7,7 +7,7 @@ the caress paths and palm holders are `docs/hands.md`.
 
 ## Ownership
 
-`poses/session.gd` is the pose session facade. It owns the skeleton pose modifier, the authored
+`poses/service.gd` is the pose session facade. It owns the skeleton pose modifier, the authored
 missionary base, the bed frame and its follow, the extra modifiers (tail, tail lay, body sway,
 prone sway, ear twitch, chin debug), the pony bone snapshots, the pose rig check and the pose
 diagnostics. The runtime owns the act state, the start ordering and the one teardown ledger; it
@@ -15,18 +15,18 @@ binds the session and calls the render-time write. `runtime._pose`, `runtime._po
 `runtime._bed_pose_frame` are read views over the session for presentation modules and tests.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads
-`poses/missionary_pose.json`. `poses/catalog.gd` holds the pose defaults; `poses/session.gd` owns
-the live pose. `act_motion.gd` is pure lean-travel and pose-action math; `act_camera.gd` owns the
+`poses/missionary_pose.json`. `shared/pose_catalog.gd` holds the pose defaults; `poses/service.gd` owns
+the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action math; `camera/service.gd` owns the
 camera and lean state.
 
 ## Typed view
 
-The body wrappers that move with the pose (`missionary_anon.gd`, `standing_anon.gd`,
-`standing_presentation.gd`) and the pose modifiers the session installs (`poses/skeleton_pose.gd`,
-`tail_pose.gd`, `tail_lay.gd`, `body_sway.gd`, `prone_sway.gd`, `ear_twitch.gd`) read
-`act_facts.gd`, never the runtime node. The view carries the pose config, the presentation config,
+The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/standing_anon.gd`,
+`poses/standing_presentation.gd`) and the pose modifiers the session installs (`poses/skeleton_pose.gd`,
+`poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`) read
+`shared/act_facts.gd`, never the runtime node. The view carries the pose config, the presentation config,
 the per-mare profile, the pose id and state, the live depth and bed frame, the scene handles, the
-lean and thrust values and the callbacks they call back through. `body_sway.gd` publishes its
+lean and thrust values and the callbacks they call back through. `poses/body_sway.gd` publishes its
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
 runtime's `_standing_sway_offset` is a read view over it. The session binds `facts`, `perf` and
 `log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module
@@ -58,7 +58,7 @@ Missionary is its own state, not the game's bed rest:
 - **Anon stands** before the act owns the camera (`force_stand_up()`, then the start snapshot and
   the player lock), and the game's desktop presentation is parked. His own `AnonBody` is placed
   from the asset's `anon` transform in bed space and posed from the `anon` bones by
-  `missionary_anon.gd`, at render time. His body IK and desktop pose driver are switched off for
+  `poses/missionary_anon.gd`, at render time. His body IK and desktop pose driver are switched off for
   the act.
 - **She stands.** The bed rest is released and she is asked to `stand`, so the solver and the clip
   tier hold a neutral pose instead of `lie_down`; the act poses her body from the asset.
@@ -203,13 +203,13 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   placed behind her.
 - A footstool may raise Anon's player root before the standing pose; the camera, feet and hips
   follow the raised floor. The rule, prop and supply are in `docs/stool.md`.
-- `body_sway.gd` translates `pony_hips` with an inverted damped spring: back on inward depth,
+- `poses/body_sway.gd` translates `pony_hips` with an inverted damped spring: back on inward depth,
   forward on outward depth. All four limb-root origins are preserved so the hooves stay planted.
   The same world offset is added to Anon's pinned hip so the contact rocks together.
   `BODY_SWAY_MAX_M = 0.035`.
 - Strong thrusts build a subtle rump blush decal up to `0.375` albedo mix (smack uses `0.8`).
   The reaction facade and the jiggle values are in `docs/reactions.md`.
-- `ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
+- `poses/ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.
 - Base pose adds `chin_up_deg = 30` on the head and `neck_down_deg = 15` total on neck1/neck2.
@@ -221,7 +221,7 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   tail with the thrust: sagittal `ROCK_PITCH = 0.12` and lateral `ROCK_YAW = 0.08`. Each thrust
   adds a short decaying wave (`JIGGLE_DECAY = 3.6`, `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`,
   `JIGGLE_YAW = 0.08`) at the same strength as the rump shader, strongest at the tail root and
-  lagging down the chain. A smack adds the same wave through `act_reactions.gd` at
+  lagging down the chain. A smack adds the same wave through `reactions/service.gd` at
   `1.0 × _jiggle_size_scale() × smack_intensity`; the thrust wave scales with `jiggle.intensity`.
   The `jiggle` radius, intensity and smack amount, the stock-mark clear and the body-coat target
   are in `docs/reactions.md`. Stock marks are hidden and aged at act start, so a mark from an
@@ -232,7 +232,7 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   move.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
-  A mod-owned `wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`
+  A mod-owned `poses/wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`
   in opposite directions, sweeping the spread wings slightly backwards. Entering afterglow
   releases the hold and drives the same `WingTuck` blend to a full fold over
   `WING_AFTERGLOW_RETURN_SECONDS = 6.0`; early afterglow exit lets the node finish immediately.
@@ -264,7 +264,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 ## Timing domains
 
 - `runtime._process`: view-depth travel, lean, climax wave, breath, look point, pose climax flag.
-  `_process_tick` calls `poses/session.gd`'s `render_write()`, which owns the render-time order:
+  `_process_tick` calls `poses/service.gd`'s `render_write()`, which owns the render-time order:
   park the game presentation and place the act's Anon body, write her pose, then the eye-shot
   camera tick.
 - `runtime._physics_process`: presentation, timers, facing lock, glances,
@@ -272,6 +272,28 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 - `main._process`: calls `active_runtime.apply_camera_motion()` every rendered frame.
   Keep this single owner.
 - Do not merge these timing domains blindly.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | act_motion | `shared/act_motion.gd` | lean and travel math |
+| shared | hands_reach_plan | `shared/hands_reach_plan.gd` | reach planning math |
+| shared | hands_scale | `shared/hands_scale.gd` | palm scale |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `bind()`/`begin()`
+- End: `release_pose()`
+- Idempotent: yes
+
 
 ## Tests
 

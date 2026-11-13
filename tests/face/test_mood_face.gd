@@ -3,8 +3,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/face/test_mood_face.gd
 
-const MOOD_FACE := preload("res://mods/unfplap/mood_face.gd")
-const ACT_FACE := preload("res://mods/unfplap/act_face.gd")
+const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
+const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 var checks := 0
 var failures := 0
 

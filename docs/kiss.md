@@ -7,11 +7,11 @@ camera shot is `docs/camera.md`; the face beats are `docs/face.md`; the hands ar
 
 ## Ownership
 
-`kiss_control.gd` is the act kiss controller. It owns the kiss state, the lean-in, the side latch,
+`kiss/service.gd` is the act kiss controller. It owns the kiss state, the lean-in, the side latch,
 the mouth target, the base-kiss bridge, the foreleg pin and the sound cadence. The runtime owns
 the state machine, the action latch (`F` held at a full lean), the camera and the teardown.
-`kiss_legs.gd` is the standing foreleg pin. `affection_pose.gd` is the game's kiss pose. The
-controller reads `act_facts.gd` (`pose_id`, `state`, `lean_*`, `anon_height_scale`,
+`kiss/legs.gd` is the standing foreleg pin. `affection_pose.gd` is the game's kiss pose. The
+controller reads `shared/act_facts.gd` (`pose_id`, `state`, `lean_*`, `anon_height_scale`,
 `standing_lean_scale`, `camera`, the scene handles and the `kiss_controller()`, `touch()`,
 `keep_chin_last()` and `write_forced_glance()` callbacks), never the runtime node; see
 `docs/act_facts.md`.
@@ -40,7 +40,7 @@ reach.
   `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound itself.
 - The excitement Beat timer is paused so the stock unicorn horn sparkle does not fire.
 - The game's `AffectionPose.kiss_settings()` `rear` and `hooves` values are saved and both set to
-  zero before the base kiss; `kiss_legs.gd` captures both foreleg tips before the kiss and runs last
+  zero before the base kiss; `kiss/legs.gd` captures both foreleg tips before the kiss and runs last
   to CCD them back to those positions, because the base kiss's chest flex would otherwise drag the
   legs after `body_sway`'s upper-arm pin.
 - The side is latched at the start from the input lean (`_lean_side`, falling back to
@@ -85,12 +85,30 @@ turns her head across the mattress. Missionary always uses the custom head-aim p
 - The `features.act_faces` flag gates the face beats; the kiss's own lid layer is not overridden by
   the act stare.
 
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime`
+- Begin: `bind()`
+- End: act teardown
+- Idempotent: yes
+
+
 ## Settings
 
 `presentation.standing.kiss` holds the live standing values: `mouth_right`, `mouth_drop`,
 `mouth_forward`, `camera_yaw_deg`, `lean_side`, `lean_forward` and `lean_drop`. The missionary
-constants are in `kiss_control.gd`. Heights scale with `Settings.anon_height_scale()`, matching
+constants are in `kiss/service.gd`. Heights scale with `Settings.anon_height_scale()`, matching
 `player/player_mouth.gd`. See `docs/settings.md` for the settings framework.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| shared | act_motion | `shared/act_motion.gd` | lean and travel math |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Tests
 

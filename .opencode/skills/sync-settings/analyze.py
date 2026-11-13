@@ -2,7 +2,7 @@
 """Compare the local Unfplap profile with the shipped settings defaults.
 
 The script is intentionally read-only unless one of the apply flags is passed. It prints a
-human report and can write a JSON plan for the agent. `settings.gd` remains the only source of
+human report and can write a JSON plan for the agent. `settings/service.gd` remains the only source of
 shipped defaults; this tool only compares and prepares the promote/keep questions.
 """
 
@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 MISSING = object()
-# Keep in sync with anatomy_placement.gd KEYS: the global default and every per-mare row carry all
+# Keep in sync with shared/anatomy_placement.gd KEYS: the global default and every per-mare row carry all
 # ten placement values, so a tail or dock change is a real override and a tail-only row is not
 # redundant.
 PLACEMENT_KEYS = ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale",
@@ -350,16 +350,16 @@ def is_known(path: str, exact: set[str], prefixes: set[str]) -> bool:
 
 
 def source_line(mod_root: Path, path: str) -> str:
-    source = mod_root / "settings.gd"
+    source = mod_root / "settings/service.gd"
     try:
         lines = source.read_text(encoding="utf-8").splitlines()
     except OSError:
-        return "settings.gd"
+        return "settings/service.gd"
     needle = f'"{path}"'
     for index, line in enumerate(lines, 1):
         if needle in line:
-            return f"settings.gd:{index}"
-    return "settings.gd"
+            return f"settings/service.gd:{index}"
+    return "settings/service.gd"
 
 
 def source_hint(mod_root: Path, kind: str, path: str) -> str:
@@ -368,18 +368,18 @@ def source_hint(mod_root: Path, kind: str, path: str) -> str:
     if kind == "default":
         rest = path[len("default."):]
         if rest.startswith("preferences."):
-            return "preferences.gd DEFAULTS." + rest.split(".", 1)[1]
+            return "shared/preferences.gd DEFAULTS." + rest.split(".", 1)[1]
         if rest.startswith("act_prompts."):
-            return "settings.gd DEFAULT_ACT_PROMPTS." + rest.split(".", 1)[1]
+            return "settings/service.gd DEFAULT_ACT_PROMPTS." + rest.split(".", 1)[1]
         if rest.startswith("poses."):
-            return "poses/catalog.gd POSE_DEFAULTS." + rest[len("poses."):]
-        return "settings.gd DEFAULT_TEMPLATE." + rest
+            return "shared/pose_catalog.gd POSE_DEFAULTS." + rest[len("poses."):]
+        return "settings/service.gd DEFAULT_TEMPLATE." + rest
     if kind == "character":
-        return "character_preferences.gd TEMPLATES." + path[len("characters."):]
+        return "shared/character_preferences.gd TEMPLATES." + path[len("characters."):]
     if kind in ("placement_global", "placement_anon"):
-        return "settings.gd anatomy.placement." + ("default.*" if kind == "placement_global" else "anon.*")
+        return "settings/service.gd anatomy.placement." + ("default.*" if kind == "placement_global" else "anon.*")
     if kind == "placement_group":
-        return "anatomy_placement.gd MARE_DEFAULTS"
+        return "shared/anatomy_placement.gd MARE_DEFAULTS"
     return ""
 
 

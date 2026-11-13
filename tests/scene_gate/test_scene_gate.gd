@@ -5,9 +5,9 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/scene_gate/test_scene_gate.gd
 
-const GATE := preload("res://mods/unfplap/scene_gate.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const GATE := preload("res://mods/unfplap/scene_gate/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2

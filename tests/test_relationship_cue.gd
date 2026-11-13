@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_relationship_cue.gd
 
-const REL := preload("res://mods/unfplap/relationship_cue.gd")
+const REL := preload("res://mods/unfplap/shared/relationship_cue.gd")
 var failures := 0
 var checks := 0
 

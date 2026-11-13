@@ -1,5 +1,5 @@
 extends RefCounted
-## Interface between `hand_control.gd` and the hand actions. `hand_control.gd` extends this and
+## Interface between `hands/service.gd` and the hand actions. `hands/service.gd` extends this and
 ## overrides every method it uses; `hands/smack.gd` is typed against it so a missing method or a
 ## renamed accessor fails at compile time instead of at runtime.
 

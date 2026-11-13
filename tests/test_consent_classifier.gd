@@ -4,7 +4,7 @@ extends SceneTree
 ## `tests/initiation/test_initiation_api.gd`.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_consent_classifier.gd
 
-const CONSENT := preload("res://mods/unfplap/consent_classifier.gd")
+const CONSENT := preload("res://mods/unfplap/initiation/classifier.gd")
 
 var failures := 0
 var checks := 0

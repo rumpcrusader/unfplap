@@ -2,15 +2,15 @@ extends SceneTree
 ## integration: anatomy consent, eligibility and placement checks.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/anatomy/test_anatomy.gd
 
-const CONSENT := preload("res://mods/unfplap/consent.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility.gd")
+const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
-const PLACEMENT := preload("res://mods/unfplap/anatomy_placement.gd")
+const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
-const CYCLE := preload("res://mods/unfplap/cycle.gd")
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const MARE_REGISTRY := preload("res://mods/unfplap/mare_registry.gd")
+const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
@@ -226,7 +226,7 @@ func run() -> void:
 		"VR body tracker API")
 	check(not ClassDB.class_has_method("XRBodyTracker", "get_have_tracking_data"),
 		"old VR tracker API absent")
-	check(not FileAccess.get_file_as_string("res://mods/unfplap/vr_act.gd").contains(
+	check(not FileAccess.get_file_as_string("res://mods/unfplap/vr/service.gd").contains(
 		"get_have_tracking_data"), "VR source uses the engine method")
 
 	# A profile keeps its custom prompts and poses when consent is merged.

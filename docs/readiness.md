@@ -7,14 +7,14 @@ are `docs/lines.md`; the HUD text is `docs/hud.md`; the camera response is `docs
 
 ## Ownership
 
-`readiness.gd` is the system facade. It owns the scoring state and the public act values
+`readiness/service.gd` is the system facade. It owns the scoring state and the public act values
 `satisfaction`, `mood`, `cue` and `pony_climaxes`; the runtime forwards them and keeps the act
 state machine, the climax transition, the face beats and the tolerance meter. The runtime calls
 `readiness.stroke()`, `touch()`, `talk()` and `tick()`; readiness owns the counters the summary
 reads and the one-second impact window. It also owns the auto-thrust generator, the hold-X panel
 policy and their defaults.
 
-`thrust.gd`, `auto_thrust.gd` and `auto_panel.gd` are pure modules behind the facade. The runtime
+`readiness/thrust.gd`, `readiness/auto_thrust.gd` and `readiness/auto_panel.gd` are pure modules behind the facade. The runtime
 keeps the input reads (`Input`, mouse motion, wheel, the shape key) and applies the depth through
 `_thrust_move` so audio, camera, jiggle and presentation keep one path.
 
@@ -37,7 +37,7 @@ The auto surface:
   direction; `"up"` (the default) means mouse up deepens. `thrust.pixels_per_cm` is the
   sensitivity, default `50` (20–400), so a full stroke is his shaft length and the `Back-out gap`
   sits below zero depth.
-- `X` toggles auto thrust in `ACTIVE`/`CLIMAX` on a tap. `auto_thrust.gd` drives
+- `X` toggles auto thrust in `ACTIVE`/`CLIMAX` on a tap. `readiness/auto_thrust.gd` drives
   `wave(shape, phase)` at `pace` thrusts per second between `min_depth` and `max_depth`, and the
   runtime feeds the same depth tracker the mouse feeds. It adds no separate score or heat path:
   intensity, pattern, readiness, audio and presentation are the manual ones. The wheel sets pace;
@@ -136,7 +136,7 @@ overwhelmed   a disliked touch/talk landed recently
   neutral talk sets `She listens.` The two assist-cap lines mean the touch/talk assist is already
   at `ASSIST_CAP = 60` and only real thrusting can add more.
 - `features.estrus_cycle` (default off) multiplies each real thrust chunk by `×1.6` while she is in
-  heat; `cycle.gd` derives the phase from the world day and her id. Diestrus blocks starting and
+  heat; `shared/cycle.gd` derives the phase from the world day and her id. Diestrus blocks starting and
   offers. `warmth` and the receptive window still stack on top. The gate is in
   `docs/eligibility.md`.
 
@@ -157,10 +157,10 @@ The afterglow phase and the standing close window are `docs/afterglow.md`.
 
 ## Auto thrust
 
-- `auto_thrust.gd` is a pure generator: `pace` (1.0–3.75/s), `min_depth` (0–0.82),
+- `readiness/auto_thrust.gd` is a pure generator: `pace` (1.0–3.75/s), `min_depth` (0–0.82),
   `max_depth` (0.20–1), `curve` (`cosine`, `thrust`, `tease`, `saw`, `hold`). Every shape starts
   at the bottom and returns to the bottom.
-- `auto_panel.gd` is the pure hold-X layer: tap/hold detection, the 0.28 s grace, key repeats and
+- `readiness/auto_panel.gd` is the pure hold-X layer: tap/hold detection, the 0.28 s grace, key repeats and
   the four live rows.
 - The runtime reads `Input` and passes the key states to readiness; readiness returns the actions
   and the generated depth. The mouse does nothing while auto is on. The wheel sets pace.
@@ -170,13 +170,30 @@ The afterglow phase and the standing close window are `docs/afterglow.md`.
   stop it, and `_reset_thrust_state()` restores the act-start defaults.
 - The auto readout is `Auto · 20–80% · 1.50/s · Normal` (see `docs/hud.md`).
 
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `configure()`
+- End: `reset()`
+- Idempotent: yes
+
+
 ## Settings
 
 Player-facing: `thrust.orientation`, `thrust.pixels_per_cm`, `thrust.travel`,
 `thrust.max_pony_climaxes`, `thrust.contact_gap_m`. Debug: `auto_thrust.pace`,
 `auto_thrust.min_depth`, `auto_thrust.max_depth`, `auto_thrust.curve`, the touch/talk cooldowns,
 the receptive window and the cue pacing under Talk & cues. See `docs/settings.md`; the values are
-declared once in `settings.gd`.
+declared once in `settings/service.gd`.
+
+## Dependencies
+
+### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
+| shared | preferences | `shared/preferences.gd` | profile math and defaults |
 
 ## Tests
 

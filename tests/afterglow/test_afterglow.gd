@@ -5,11 +5,11 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/afterglow/test_afterglow.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const HUD_LINES := preload("res://mods/unfplap/hud_lines.gd")
-const AFTERGLOW := preload("res://mods/unfplap/afterglow.gd")
-const THRUST := preload("res://mods/unfplap/thrust.gd")
-const WING := preload("res://mods/unfplap/wing_control.gd")
-const PREF := preload("res://mods/unfplap/preferences.gd")
+const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
+const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
+const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
+const WING := preload("res://mods/unfplap/poses/wing_control.gd")
+const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 var failures := 0
 var checks := 0
 

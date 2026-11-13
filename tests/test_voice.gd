@@ -2,7 +2,7 @@ extends SceneTree
 ## Pure voice-routing classification checks.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_voice.gd
 
-const VOICE := preload("res://mods/unfplap/voice_status.gd")
+const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 
 var failures := 0
 var checks := 0

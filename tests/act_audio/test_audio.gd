@@ -4,7 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_audio/test_audio.gd
 
-const AUDIO := preload("res://mods/unfplap/act_audio.gd")
+const AUDIO := preload("res://mods/unfplap/audio/service.gd")
 
 var failures := 0
 var checks := 0

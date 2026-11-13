@@ -3,10 +3,10 @@ extends Node
 ## current act depth and drives the anatomy meshes, the Anon part, the oral turn, the finish state
 ## and the fluid. It never touches thrust scoring, auto thrust or the camera.
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const CATALOG := preload("res://mods/unfplap/poses/catalog.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
 const FINISH := preload("res://mods/unfplap/anatomy/act/finish.gd")

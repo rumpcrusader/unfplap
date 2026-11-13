@@ -2,7 +2,7 @@ extends SceneTree
 ## Pure per-mare participation layer: defaults, the partial merge and the capability check.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_participation.gd
 
-const PARTICIPATION := preload("res://mods/unfplap/participation.gd")
+const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 
 var failures := 0
 var checks := 0

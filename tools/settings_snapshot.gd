@@ -6,8 +6,8 @@ extends SceneTree
 ##   XDG_DATA_HOME=<scratch> godot --headless --xr-mode off --path <project> \
 ##       --script res://mods/unfplap/tools/settings_snapshot.gd
 
-const SETTINGS := preload("res://mods/unfplap/settings.gd")
-const CONSENT := preload("res://mods/unfplap/consent.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 
 
 func _initialize() -> void:

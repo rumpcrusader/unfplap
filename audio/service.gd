@@ -7,7 +7,7 @@ extends Node
 ## climax moan. `climax` is the separate wet finish layer. The base-game breath, Ponese voice and
 ## `squee_*` climax are not gated by these flags. See `docs/audio.md`.
 
-const CATALOGUE := preload("res://mods/unfplap/audio/act/catalogue.gd")
+const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")

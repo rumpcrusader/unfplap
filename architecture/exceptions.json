@@ -26,7 +26,7 @@
     },
     {
       "from": "hands/smack.gd",
-      "to": "audio/act/smack/catalogue.gd",
+      "to": "audio/smack_cues.gd",
       "kind": "service-private",
       "owner": "hands",
       "reason": "migration baseline; fix in the boundary-cleanup phase",

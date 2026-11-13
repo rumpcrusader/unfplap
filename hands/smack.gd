@@ -2,7 +2,7 @@ extends RefCounted
 ## Smack action for the act hands. The coordinator supplies the target frame and mode; this
 ## controller owns the swing phases, native impact audio and the return to the live caress.
 
-const SMACK_AUDIO := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
+const SMACK_AUDIO := preload("res://mods/unfplap/audio/smack_cues.gd")
 const SESSION := preload("res://mods/unfplap/hands/session.gd")
 
 const SMACK_COOLDOWN_MS := 200

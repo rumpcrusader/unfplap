@@ -41,10 +41,3 @@ Thumbs.db
 *.py
 *.pyc
 release_notes.md
-
-# Local anatomy working files are not part of a release.
-assets/anatomy/*.blend
-assets/anatomy/*.blend1
-assets/anatomy/*.md
-assets/anatomy/backups
-assets/anatomy/winking_before_wink.scn

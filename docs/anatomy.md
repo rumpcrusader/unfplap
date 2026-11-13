@@ -437,7 +437,8 @@ body's own deformation across the whole mesh.
 
 ## Player part
 
-- `anatomy/player.gd` loads `assets/anatomy/anon_part.scn` and its albedo, AO and normal maps. It is
+- `anatomy/player.gd` loads `assets/anatomy/anon/anon_part.scn` and its albedo, AO and normal
+  maps. It is
   available only for the human player form; AnonPony and a young form never show it.
 - The part is attached to the player's Hips bone and placed from `anatomy.placement.anon.*`.
   `player_scale`, `part_base_scale`, `part_mid_scale`, `part_head_scale`, `part_length_scale` and

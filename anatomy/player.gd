@@ -47,10 +47,10 @@ const THROB_DEPTH := 0.018
 ## length. Full thrust fades the rise to nothing.
 const THROB_LIFT := 0.02
 
-const MESH_PATH := "res://mods/unfplap/assets/anatomy/anon_part.scn"
-const ALBEDO_PATH := "res://mods/unfplap/assets/anatomy/anon_part_albedo.png"
-const AO_PATH := "res://mods/unfplap/assets/anatomy/anon_part_ao.png"
-const NRM_PATH := "res://mods/unfplap/assets/anatomy/anon_part_nrm.png"
+const MESH_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part.scn"
+const ALBEDO_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part_albedo.png"
+const AO_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part_ao.png"
+const NRM_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part_nrm.png"
 
 ## The Anon body this part binds to. The facade resolves it; the part never reads the main node.
 var player_body: Node3D

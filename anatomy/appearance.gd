@@ -9,7 +9,7 @@ const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const TEAT_JIGGLE := preload("res://mods/unfplap/anatomy/teat_jiggle.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 
-const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
+const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
 

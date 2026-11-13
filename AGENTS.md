@@ -262,7 +262,8 @@ mods/unfplap/
   docs/             one contract per service; docs/README.md is the index
   tests/            unit/source-hygiene tests and the manual labs
   scripts/          asset pack, build manifest, release checks, test runners
-  assets/           fetched runtime assets and the asset-pack README
+  assets/           fetched runtime media (audio/, anatomy/) and the asset-pack README
+  sources/          editable originals; never tracked, never packed
   shared/           pure modules, shared stores and read models
   poses/            pose session, skeleton driver, rig cache, recipes, body adapters
   anatomy/          anatomy internals, act bridge, tail seat

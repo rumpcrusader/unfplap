@@ -105,7 +105,7 @@ def main():
             expected.add(path)
 
     for path in tracked:
-        if not path.endswith(".import") or not path.startswith(("assets/", "audio/", "poses/")):
+        if not path.endswith(".import") or not path.startswith(("assets/", "poses/")):
             continue
         source = path[:-len(".import")]
         if source not in tracked:

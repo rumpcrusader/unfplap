@@ -17,7 +17,7 @@ const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
-const ASSET_DIR := "res://mods/unfplap/assets/anatomy/"
+const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const WINKING_PATH := ASSET_DIR + "winking.scn"
 const MARE_BITS_V2_PATH := ASSET_DIR + "mare_bits_v2.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"

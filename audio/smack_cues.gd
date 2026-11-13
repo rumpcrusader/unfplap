@@ -6,6 +6,6 @@ extends RefCounted
 ## A smack picks a variant at random and never repeats the previous one.
 
 const PATHS := [
-	"res://mods/unfplap/audio/act/smack/hand_02.wav",
-	"res://mods/unfplap/audio/act/smack/hand_03.wav",
+	"res://mods/unfplap/assets/audio/smack/hand_02.wav",
+	"res://mods/unfplap/assets/audio/smack/hand_03.wav",
 ]

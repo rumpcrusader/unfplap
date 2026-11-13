@@ -1,6 +1,6 @@
 # Act audio credits
 
-The act foley and optional vocal layers in `audio/act/` come from the **OpenNSFW Sound
+The act foley and optional vocal layers in `assets/audio/` come from the **OpenNSFW Sound
 Pack**.
 
 ```text
@@ -13,7 +13,7 @@ License: CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
 
 The selected files were trimmed, mono-downmixed, resampled to 48 kHz and peak-normalised for
 this mod. The flank-smack variants are layered from the pack's flesh-impact and spank sources.
-The full source path for every shipped file is in `audio/act/sources.json`.
+The full source path for every shipped file is in `audio/cue_sources.json`.
 
 The pack is credited as a SFX pack. Do not contact the pack's contributors directly, and do not
 redistribute this subset as a standalone sound pack.

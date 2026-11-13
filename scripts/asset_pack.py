@@ -4,7 +4,7 @@
 The mod's audio and anatomy files are not tracked. They live in one zip on pone.rs. The archive
 has two trees:
 
-    runtime/    pulled into the repository and packed into the mod .pck
+    runtime/    extracted into assets/ and packed into the mod .pck
     sources/    editable originals, never packed
 
 `scripts/pack_assets.sh` builds and uploads the archive and writes the committed contract
@@ -38,22 +38,24 @@ ARCHIVE_PATTERN = re.compile(r"^https://u\.pone\.rs/[a-z0-9]+\.zip$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 CRITICAL_RUNTIME = [
-    "assets/anatomy/winking.scn",
-    "assets/anatomy/mare_bits_v2.scn",
-    "assets/anatomy/teats.scn",
-    "assets/anatomy/skin_bridge.scn",
-    "assets/anatomy/anon_part.scn",
-    "assets/anatomy/anon_part_albedo.png",
-    "assets/anatomy/anon_part_ao.png",
-    "assets/anatomy/anon_part_nrm.png",
+    "assets/anatomy/mare/winking.scn",
+    "assets/anatomy/mare/mare_bits_v2.scn",
+    "assets/anatomy/mare/teats.scn",
+    "assets/anatomy/mare/skin_bridge.scn",
+    "assets/anatomy/anon/anon_part.scn",
+    "assets/anatomy/anon/anon_part_albedo.png",
+    "assets/anatomy/anon/anon_part_ao.png",
+    "assets/anatomy/anon/anon_part_nrm.png",
 ]
-ANATOMY_SUFFIXES = {
-    ".scn", ".tscn", ".res", ".tres", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".import",
+RUNTIME_SUFFIXES = {
+    ".scn", ".tscn", ".res", ".tres", ".png", ".jpg", ".jpeg", ".webp", ".svg",
+    ".wav", ".ogg", ".mp3", ".import",
 }
-AUDIO_SUFFIXES = {".wav", ".ogg", ".mp3", ".import"}
 IMPORTED_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".wav", ".ogg", ".mp3"}
 JUNK_SUFFIXES = (".blend1", ".tmp", ".bak", ".orig")
-JUNK_NAMES = {".DS_Store", "Thumbs.db", "winking_before_wink.scn"}
+JUNK_NAMES = {".DS_Store", "Thumbs.db"}
+## Source trees never scanned for `assets/` literals: build output, VCS and the unpacked originals.
+SCAN_SKIP = {".git", ".godot", "dist", "build", "sources", "__pycache__"}
 
 
 class AssetError(Exception):
@@ -101,18 +103,10 @@ def _is_junk(path: pathlib.Path) -> bool:
 def collect_runtime(root: pathlib.Path) -> dict:
     """Return the repository-relative runtime files with their hashes."""
     files: dict[str, dict] = {}
-    anatomy = root / "assets" / "anatomy"
-    for path in _walk(anatomy):
-        if _is_junk(path) or "backups" in path.relative_to(root).parts:
+    for path in _walk(root / "assets"):
+        if _is_junk(path):
             continue
-        if path.suffix.lower() not in ANATOMY_SUFFIXES:
-            continue
-        rel = path.relative_to(root).as_posix()
-        files[rel] = entry_for(path, root)
-
-    audio = root / "audio"
-    for path in _walk(audio):
-        if _is_junk(path) or path.suffix.lower() not in AUDIO_SUFFIXES:
+        if path.suffix.lower() not in RUNTIME_SUFFIXES:
             continue
         rel = path.relative_to(root).as_posix()
         files[rel] = entry_for(path, root)
@@ -139,7 +133,7 @@ def collect_sources(root: pathlib.Path) -> dict:
     base = root / "sources"
     files: dict[str, dict] = {}
     for path in _walk(base):
-        if _is_junk(path):
+        if _is_junk(path) or "work" in path.relative_to(base).parts:
             continue
         files[path.relative_to(base).as_posix()] = entry_for(path, base)
     if not files:
@@ -153,15 +147,33 @@ def collect_sources(root: pathlib.Path) -> dict:
 
 
 def _check_catalogue_refs(root: pathlib.Path, runtime: dict) -> None:
-    pattern = re.compile(r'res://mods/unfplap/((?:audio|assets)/[A-Za-z0-9_./-]+)')
-    for path in _walk(root / "audio" / "act"):
-        if path.suffix != ".gd":
-            continue
+    """Every `assets/` literal in a script must name a runtime file.
+
+    A directory prefix (a trailing slash) is skipped, and so is a path built by concatenation:
+    those are not literals. The anatomy tests that load the meshes cover the concatenated ones.
+    """
+    pattern = re.compile(r'res://mods/unfplap/(assets/[A-Za-z0-9_./-]+)')
+    for path in _scripts(root):
         text = path.read_text(encoding="utf-8")
         for match in pattern.finditer(text):
             rel = match.group(1)
+            if rel.endswith("/"):
+                continue
             if rel not in runtime:
                 fail(f"{path.relative_to(root)} references an unlisted asset: {rel}")
+
+
+def _scripts(root: pathlib.Path):
+    """Yield every project script, skipping build output, VCS and the unpacked originals."""
+    for child in sorted(root.iterdir()):
+        if child.is_dir():
+            if child.name in SCAN_SKIP:
+                continue
+            for path in _walk(child):
+                if path.suffix == ".gd":
+                    yield path
+        elif child.suffix == ".gd":
+            yield child
 
 
 def validate_runtime(root: pathlib.Path, runtime: dict) -> None:

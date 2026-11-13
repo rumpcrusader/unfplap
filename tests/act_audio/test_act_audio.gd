@@ -3,8 +3,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_audio/test_act_audio.gd
 
 const ACT := preload("res://mods/unfplap/audio/service.gd")
-const CATALOGUE := preload("res://mods/unfplap/audio/act/catalogue.gd")
-const SMACK := preload("res://mods/unfplap/audio/act/smack/catalogue.gd")
+const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
+const SMACK := preload("res://mods/unfplap/audio/smack_cues.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")

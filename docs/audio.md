@@ -9,8 +9,8 @@ climax, and the Ponese mute policy.
 |---|---|
 | `audio/service.gd` | the per-runtime audio facade: pack layers, base-game sound child, and the Ponese mute policy |
 | `audio/sound.gd` | base-game breath and `squee_*` climax players and their timing |
-| `audio/act/catalogue.gd` | the pure pack cue table (groups, variants, volume, cooldowns, pitch) |
-| `audio/act/smack/catalogue.gd` | the hand-smack variants used by the hands system |
+| `audio/cues.gd` | the pure pack cue table (groups, variants, volume, cooldowns, pitch) |
+| `audio/smack_cues.gd` | the hand-smack variants used by the hands system |
 | `docs/audio.md` | this contract |
 
 `audio/service.gd` is one Node per runtime. The runtime creates it lazily and keeps it for the

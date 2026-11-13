@@ -5,7 +5,7 @@ compile-time resource archive on pone.rs. The release workflow fetches that arch
 `runtime/` tree into the mod `.pck`; players still install one file.
 
 ```bash
-scripts/fetch_assets.sh            # runtime files into audio/ and assets/anatomy/
+scripts/fetch_assets.sh            # runtime files into assets/
 scripts/fetch_assets.sh --sources  # also sources/ for editing
 scripts/fetch_assets.sh --force    # overwrite local changes
 ```
@@ -15,29 +15,44 @@ Run the fetch once in a fresh checkout, before `--mod-src`, `scripts/test_all.sh
 per-file manifest in `scripts/asset_pack.json`; a missing, stale or extra runtime file fails
 `build.sh` with the fetch hint.
 
+## Two roots
+
+- `assets/` is fetched data. It ships, and it is never edited in place.
+- `sources/` is editable originals. It is never tracked and never packed.
+
+The pack decides what ships by the tree alone: everything under `assets/` with a runtime suffix,
+nothing under `sources/` except what is archived. `sources/work/` is local scratch and is not
+archived either.
+
 ## Archive layout
 
 ```text
 unfplap-assets-<hash>.zip
   manifest.json
   runtime/
-    assets/anatomy/        meshes, textures and their .import sidecars
-    audio/act/             .wav files and their .import sidecars
+    assets/audio/<group>/  .wav files and their .import sidecars
+    assets/anatomy/mare/   mare meshes and textures, with .import sidecars
+    assets/anatomy/anon/   player mesh and textures, with .import sidecars
   sources/
     anatomy/mare_bits_v2.blend
+    voice/rarity/          46 archived wavs; not shipped
 ```
 
 - `runtime/` is the only tree packed into the mod. Paths are repository-relative.
 - `sources/` is editable material. `build.sh` and CI never stage or pack it.
-- `audio/act/catalogue.gd`, `audio/act/smack/catalogue.gd` and `audio/act/sources.json` stay in
-  git: they are code and credit metadata, not audio data.
-- The V2 Blender source is the only Blender file included in the archive. Winking iterations,
-  `.blend1` files and `backups/` stay local and out of the archive.
+- `audio/cues.gd`, `audio/smack_cues.gd` and `audio/cue_sources.json` stay in git: they are code
+  and credit metadata, not audio data.
+- `assets/audio/` is flat by cue group: `plap/`, `slide/`, `fabric/`, `mouth/`, `climax/`,
+  `vocals/` and `smack/`. The pool split (foley/vocals/climax) lives in `audio/cues.gd`, not in
+  the directory names.
+- The V2 Blender source is the only Blender file archived under `sources/anatomy/`. Winking
+  iterations, `.blend1` files, `backups/` and reference renders stay local under `sources/work/`
+  and out of the archive.
 
 ## Changing assets
 
-1. Edit the runtime files under `assets/anatomy/` and `audio/`.
-2. Put the V2 Blender source at `sources/anatomy/mare_bits_v2.blend`.
+1. Edit the original under `sources/` (or the archived `sources/anatomy/mare_bits_v2.blend`).
+2. Write the runtime file into `assets/`; the import pass writes its `.import` sidecar.
 3. Build and upload the archive:
 
    ```bash
@@ -51,18 +66,23 @@ unfplap-assets-<hash>.zip
 
 An unchanged asset set reuses the existing archive; do not re-upload it for every release.
 
+The import pass is `godot --headless --xr-mode off --path <project> --import`. The Blender
+importer's headless check aborts the whole pass when the project contains `.blend` files, so move
+`sources/` out of the project for the run and put it back afterwards. Never hand-edit an
+`.import` sidecar: it carries a source path, a UID and a destination hash derived from the path.
+
 ## Anatomy files
 
 ```text
-winking.scn          original PPP mare anatomy mesh (closed/stretch blend shapes)
-mare_bits_v2.scn     V2 mare genitals (closed/stretch/wink + anal_open/anal_stretch/
-                     anal_overstretch/anal_extreme/ponut_scale blend shapes)
-teats.scn            skinned teats (mid/full blend shapes, 191 binds)
-skin_bridge.scn      skinned midline strip
-anon_part.scn        player anatomy mesh (ready blend shape)
-anon_part_ao.png     2048^2 baked AO
-anon_part_nrm.png    2048^2 normal map
-anon_part_albedo.png 2048^2 albedo/detail
+mare/winking.scn          original PPP mare anatomy mesh (closed/stretch blend shapes)
+mare/mare_bits_v2.scn     V2 mare genitals (closed/stretch/wink + anal_open/anal_stretch/
+                          anal_overstretch/anal_extreme/ponut_scale blend shapes)
+mare/teats.scn            skinned teats (mid/full blend shapes, 191 binds)
+mare/skin_bridge.scn      skinned midline strip
+anon/anon_part.scn        player anatomy mesh (ready blend shape)
+anon/anon_part_ao.png     2048^2 baked AO
+anon/anon_part_nrm.png    2048^2 normal map
+anon/anon_part_albedo.png 2048^2 albedo/detail
 ```
 
 At runtime the V2 mesh is optional: the Mare bits setting falls back to `winking.scn` when it is

@@ -4,11 +4,11 @@ extends SceneTree
 ##     --script res://mods/unfplap/tools/winking_glb.gd -- export <out.glb>
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tools/winking_glb.gd -- import <in.glb>
-## Import writes res://mods/unfplap/assets/anatomy/winking.scn and keeps a
-## winking_before_wink.scn backup beside it on the first import.
+## Import writes res://mods/unfplap/assets/anatomy/mare/winking.scn and keeps a
+## winking_before_wink.scn backup under sources/work/ on the first import.
 
-const SCN := "res://mods/unfplap/assets/anatomy/winking.scn"
-const BACKUP := "res://mods/unfplap/assets/anatomy/winking_before_wink.scn"
+const SCN := "res://mods/unfplap/assets/anatomy/mare/winking.scn"
+const BACKUP := "res://mods/unfplap/sources/work/winking_before_wink.scn"
 
 
 func _initialize() -> void:

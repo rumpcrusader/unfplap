@@ -342,7 +342,10 @@ bridge only routes them.
 - Every fluid path is gated by `features.anatomy_fluid`. The persistent fluid node is reused by
   every act; idle heat discharge uses the same node.
 - The afterglow tracks the part at a resting share: `0.8` of reach when he stays in, `0` when he
-  finished out. The share moves toward its target at `1.6/s`.
+  finished out. The share moves toward its target at `1.6/s`. The held phase keeps the act's
+  attached alignment: the part stays on Anon's Hips and turns to the live opening normal. The
+  detached bed holder is not used, because it rolls the part to her anatomy mesh's own axes and
+  her mesh is inverted in the lying pose.
 - Act end animates the closed shape back to 1 over `1.5 s`, clears the part and the mouth viseme,
   and restores the oral facing.
 
@@ -647,6 +650,8 @@ Current suites:
   matrices.
 - `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive and the wink
   scheduler.
+- `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
+  live opening aim, and clears the missionary inset outside the bed pose.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
   idle heat, mesh refinement, act calls, player part, body coat, the vulva cut and still zones),

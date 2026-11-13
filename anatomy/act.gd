@@ -383,7 +383,7 @@ func on_finish() -> void:
 			_facts.fluid_ground_y)
 
 
-## integration: afterglow part tracking for the optional bed body.
+## integration: afterglow part tracking, on the act's attached alignment.
 func afterglow_tick(delta: float, facts: RefCounted) -> void:
 	_facts = facts if facts != null else FACTS.new()
 	if not is_instance_valid(anatomy) \
@@ -397,10 +397,22 @@ func afterglow_tick(delta: float, facts: RefCounted) -> void:
 	var rest_m := 0.0
 	if _finish != null:
 		rest_m = float(_finish.afterglow_step(delta, _facts.penetration_reach))
+	var opening := hole_point()
+	# Keep the act's attached alignment through the held phase. The detached bed holder aligns
+	# the part's roll to the anatomy mesh's own axes, and in the lying pose her mesh +Y points
+	# into the mattress, so the shaft would be rolled 180° there.
+	var normal := _compute_normal(part)
+	_normal = normal
+	part.set("aim_pitch_deg", 0.0)
+	part.set("aim_normal", normal)
+	part.set("aim_opening", opening)
+	# The missionary inset belongs to the whole bed act, not only to the thrusting states.
+	part.set("bed_inset_m", SETTINGS.part_inset_m.get_num()
+		if pose == CATALOG.MISSIONARY else 0.0)
 	if is_instance_valid(service):
-		service.call("player_track", hole_point(), hole_rear(),
-			(mesh as Node3D).global_transform.basis.y.normalized(), true, rest_m, delta,
-			(mesh as Node3D).get_parent())
+		service.call("player_track", opening, hole_rear(),
+			(mesh as Node3D).global_transform.basis.y.normalized(), false, rest_m, delta,
+			(mesh as Node3D).get_parent(), true)
 	_facts.perf("anatomy_afterglow", Time.get_ticks_usec() - started)
 
 

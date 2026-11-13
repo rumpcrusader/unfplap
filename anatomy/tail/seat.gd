@@ -8,6 +8,11 @@ extends Node
 ## `dock_tail_mounts.json`. The per-mare row under `anatomy.placement.<id>` moves the tail, trims
 ## and scales the dock and tilts the tail about the body's rear axis. The controller caches every
 ## original before it writes, so turning the setting off restores the game's tail and dock exactly.
+##
+## Nothing is measured or written while the setting is off: the row then holds only the mare's id,
+## so a disabled seat costs one dictionary entry per pony. A placement edit writes the tail at
+## once and the skinned dock follows it; the dock mesh is rebuilt once per settled edit, not once
+## per settings tick.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
@@ -25,6 +30,12 @@ const DOCK_VISIBILITY_FALLBACK := Vector3(0.0, 0.0, 0.04)
 ## The reference's cap sits just below and in front of the body's own tail root. This fallback is
 ## the current game relation; the JSON reference wins whenever it is available.
 const FALLBACK_TAIL_OFFSET := Vector3(0.0, -0.0044, -0.0235)
+## A placement edit writes the tail at once and the skinned dock follows it; the dock mesh is
+## rebuilt once this long after the last edit, because only the base-ring snap needs it.
+const DOCK_SETTLE_S := 0.12
+## The per-mare placement keys and their defaults, compared in `refresh_all()`.
+const PLACEMENT_KEYS := [["tail_y", 0.0], ["tail_z", 0.0], ["dock_y", 0.0],
+	["dock_scale", 1.0], ["tail_tilt_deg", 0.0]]
 
 var perf_on := Callable()
 var log := Callable()
@@ -39,10 +50,20 @@ static var _reference := Vector3.INF
 static var _reference_loaded := false
 static var _visibility: Dictionary = {}
 var _perf_window := 0.0
+## Rows whose dock mesh is stale after a placement edit; rebuilt when the settle timer fires.
+var _dirty: Array[Dictionary] = []
+var _settle: Timer
 
 
 func _ready() -> void:
 	_enabled = SETTINGS.reseat_tails.get_bool()
+	_settle = Timer.new()
+	_settle.name = "UnfplapTailSeatSettle"
+	_settle.one_shot = true
+	_settle.wait_time = DOCK_SETTLE_S
+	_settle.timeout.connect(_flush_dirty)
+	add_child(_settle)
+	set_process(_perf_on())
 
 
 func _process(delta: float) -> void:
@@ -160,13 +181,19 @@ static func _visibility_offset(pony: Node, fit: Dictionary) -> Vector3:
 func attach(pony: Node) -> void:
 	if not is_instance_valid(pony) or _rows.has(pony) or not _eligible(pony):
 		return
+	if not SETTINGS.reseat_tails.get_bool():
+		# Off writes nothing: remember her so turning the setting on can seat her without a
+		# respawn, but never measure her tail or rebuild her dock for a disabled feature.
+		_rows[pony] = {"pony": pony, "id": _id_for(pony), "seated": false}
+		pony.tree_exiting.connect(func() -> void: _forget(pony))
+		return
 	var started := Time.get_ticks_usec()
 	var row := _prepare(pony)
 	if row.is_empty():
 		return
 	var prepared := Time.get_ticks_usec()
 	_rows[pony] = row
-	pony.tree_exiting.connect(func() -> void: _rows.erase(pony))
+	pony.tree_exiting.connect(func() -> void: _forget(pony))
 	_apply(row)
 	var done := Time.get_ticks_usec()
 	if _perf_on():
@@ -184,37 +211,77 @@ func attach(pony: Node) -> void:
 		(row["applied"] as Vector3).y, (row["applied"] as Vector3).z])
 
 
-## Re-apply or restore every live pony. Called on every settings edit; only the toggle and a
-## changed saved exception cause a write.
+## Re-apply or restore every live pony. Called on every settings edit; only the toggle, a
+## changed saved exception or a changed placement causes a write.
 func refresh_all() -> void:
 	var enabled := SETTINGS.reseat_tails.get_bool()
 	var toggle_changed := enabled != _enabled
 	_enabled = enabled
+	set_process(_perf_on())
 	var started := Time.get_ticks_usec()
 	var checked := 0
 	var rebuilt := 0
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
-			_rows.erase(pony)
+			_forget(pony)
+			continue
+		var row: Dictionary = _rows[pony]
+		if not enabled:
+			# Only the toggle itself restores; a settings tick with the seat already off writes
+			# nothing, and the row keeps her id for the next toggle.
+			if toggle_changed and _seated(row):
+				_restore(row)
 			continue
 		if not _eligible(pony):
-			_restore(_rows[pony] as Dictionary)
-			_rows.erase(pony)
+			if _seated(row):
+				_restore(row)
+			_forget(pony)
+			continue
+		if not _seated(row):
+			# She arrived while the seat was off; measure her now that it is on.
+			var prepared := _prepare(pony)
+			if prepared.is_empty():
+				continue
+			_rows[pony] = prepared
+			_apply(prepared)
+			checked += 1
+			rebuilt += 1
 			continue
 		checked += 1
-		var row: Dictionary = _rows[pony]
-		var placement := SETTINGS.anatomy_placement(str(row["id"]))
-		var changed := toggle_changed
-		for pair: Array in [["tail_y", 0.0], ["tail_z", 0.0], ["dock_y", 0.0],
-				["dock_scale", 1.0], ["tail_tilt_deg", 0.0]]:
-			var key := str(pair[0])
-			var value := float(placement.get(key, pair[1]))
-			if not is_equal_approx(value, float(row.get(key, pair[1]))):
-				row[key] = value
-				changed = true
-		if changed:
+		if toggle_changed:
 			_apply(row)
 			rebuilt += 1
+			continue
+		var placement := SETTINGS.anatomy_placement(str(row["id"]))
+		var changed := false
+		var tail_moved := false
+		var dock_stale := false
+		for pair: Array in PLACEMENT_KEYS:
+			var key := str(pair[0])
+			var value := float(placement.get(key, pair[1]))
+			if is_equal_approx(value, float(row.get(key, pair[1]))):
+				continue
+			row[key] = value
+			changed = true
+			match key:
+				"dock_y":
+					# A post-skin lift on the dock instance transform: no mesh rebuild.
+					pass
+				"dock_scale":
+					dock_stale = true
+				_:
+					# The tail moved, and the base-ring snap follows it.
+					tail_moved = true
+					dock_stale = true
+		if not changed:
+			continue
+		if tail_moved:
+			_apply_tail(row)
+		if dock_stale:
+			_mark_dirty(row)
+		else:
+			_apply_lift(row)
+		rebuilt += 1
 	if _perf_on() and rebuilt > 0:
 		_log("tail perf refresh checked=%d rebuilt=%d usec=%d" % [
 			checked, rebuilt, Time.get_ticks_usec() - started])
@@ -226,9 +293,11 @@ func report_all() -> String:
 	var exceptions := 0
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
-			_rows.erase(pony)
+			_forget(pony)
 			continue
 		var row: Dictionary = _rows[pony]
+		if not _seated(row):
+			continue
 		var placement := SETTINGS.anatomy_placement(str(row["id"]))
 		var reference_anchor := reference(pony)
 		var target := reference_anchor + Vector3(0.0, float(placement.get("tail_y", 0.0)),
@@ -253,6 +322,21 @@ func _exit_tree() -> void:
 		if is_instance_valid(pony):
 			_restore(_rows[pony] as Dictionary)
 	_rows.clear()
+	_dirty.clear()
+
+
+## True for a row `_prepare()` measured. A row created while the setting is off holds only her id
+## and is prepared when the setting is turned back on.
+func _seated(row: Dictionary) -> bool:
+	return bool(row.get("seated", false))
+
+
+## Drop a pony from the row set and from the pending settle pass.
+func _forget(pony: Variant) -> void:
+	_rows.erase(pony)
+	for index in range(_dirty.size() - 1, -1, -1):
+		if _dirty[index].get("pony") == pony:
+			_dirty.remove_at(index)
 
 
 func _eligible(pony: Node) -> bool:
@@ -353,28 +437,39 @@ func _prepare(pony: Node) -> Dictionary:
 		"dock_y": float(placement.get("dock_y", 0.0)),
 		"dock_scale": float(placement.get("dock_scale", 1.0)),
 		"tail_tilt_deg": float(placement.get("tail_tilt_deg", 0.0)),
+		"seated": true,
 		"attached": false,
+		"drop": 0.0,
 		"builds": 0,
 		"applied": Vector3.ZERO,
 	}
 
 
+## Seat her and build the dock: the attach path and a settled placement edit.
 func _apply(row: Dictionary) -> void:
+	if not _apply_tail(row):
+		return
+	_apply_dock(row)
+
+
+## Write the seat to the hair link. The dock is skinned to the tail, so it follows this write
+## without a rebuild; only the base-ring snap needs `_apply_dock()`.
+func _apply_tail(row: Dictionary) -> bool:
 	var pony: Node = row.get("pony") as Node
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
-		return
+		return false
 	if not SETTINGS.reseat_tails.get_bool():
 		_restore(row)
-		return
+		return false
 	var reference_anchor := reference(pony)
 	if not reference_anchor.is_finite():
-		return
+		return false
 	var target := reference_anchor + Vector3(0.0, float(row.get("tail_y", 0.0)),
 		float(row.get("tail_z", 0.0)))
 	var delta := target - (row["anchor"] as Vector3)
 	var link: Node = row["link"]
 	if not is_instance_valid(link) or not link.is_inside_tree():
-		return
+		return false
 	var next: Transform3D = row["original_pelvis"]
 	next.origin += (row["hips_rest"] as Transform3D).basis.inverse() * delta
 	var tilt := deg_to_rad(float(row.get("tail_tilt_deg", 0.0)))
@@ -383,12 +478,61 @@ func _apply(row: Dictionary) -> void:
 	link.set("pelvis_offset", next)
 	if link.has_method("_body_updated"):
 		link.call("_body_updated")
-	_move_dock(row, delta)
 	row["applied"] = delta
 	_invalidate_far(pony)
+	return true
+
+
+## Rebuild the dock mesh for the current fit and seat delta. Expensive: attach, toggle and one
+## pass per settled placement edit only.
+func _apply_dock(row: Dictionary) -> void:
+	var pony: Node = row.get("pony") as Node
+	if not is_instance_valid(pony) or not pony.is_inside_tree():
+		return
+	if not SETTINGS.reseat_tails.get_bool():
+		_restore(row)
+		return
+	_move_dock(row, row.get("applied", Vector3.ZERO) as Vector3)
+
+
+## The dock offset is a post-skin lift on the instance transform, so a `dock_y` edit needs no
+## mesh rebuild.
+func _apply_lift(row: Dictionary) -> void:
+	if not bool(row.get("attached", false)):
+		return
+	var dock: MeshInstance3D = row.get("dock") as MeshInstance3D
+	var hair: Skeleton3D = row.get("hair_sk") as Skeleton3D
+	var body: Skeleton3D = row.get("body_sk") as Skeleton3D
+	if not is_instance_valid(dock) or not is_instance_valid(hair) or not is_instance_valid(body):
+		return
+	dock.transform = DOCK_ATTACH.lift_transform(body, hair,
+		float(row.get("drop", 0.0)) + float(row.get("dock_y", 0.0)))
+
+
+## Queue her dock for the settle pass. A slider drag rewrites the tail every tick; the dock mesh
+## is rebuilt once after the last edit.
+func _mark_dirty(row: Dictionary) -> void:
+	if not _dirty.has(row):
+		_dirty.append(row)
+	if is_instance_valid(_settle):
+		_settle.start()
+
+
+func _flush_dirty() -> void:
+	var rows: Array[Dictionary] = _dirty
+	_dirty = []
+	for row: Dictionary in rows:
+		var pony: Variant = row.get("pony")
+		if not is_instance_valid(pony) or not _rows.has(pony) or not is_same(_rows[pony], row):
+			continue
+		if not _seated(row) or not SETTINGS.reseat_tails.get_bool():
+			continue
+		_apply_dock(row)
 
 
 func _restore(row: Dictionary) -> void:
+	if not _seated(row):
+		return
 	var pony: Node = row.get("pony") as Node
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
 		return
@@ -426,6 +570,7 @@ func _restore(row: Dictionary) -> void:
 			dock.visible = false
 		dock.set_surface_override_material(0, row["original_material"])
 	row["applied"] = Vector3.ZERO
+	row["drop"] = 0.0
 	_invalidate_far(pony)
 
 
@@ -470,6 +615,8 @@ func _install_skin(row: Dictionary, mesh: ArrayMesh, delta: Vector3) -> void:
 	var drop := float(row.get("cap_centre", NAN)) - top
 	if not is_finite(drop):
 		drop = 0.0
+	# The lift is cached so a later `dock_y` edit can rewrite the instance transform alone.
+	row["drop"] = drop
 	var parts := DOCK_ATTACH.build(mesh, body, hair, drop + float(row.get("dock_y", 0.0)))
 	if parts.is_empty():
 		return
@@ -544,6 +691,8 @@ func refresh_dock_color(pony: Node) -> void:
 	if not is_instance_valid(pony) or not _rows.has(pony):
 		return
 	var row: Dictionary = _rows[pony]
+	if not _seated(row):
+		return
 	var dock: MeshInstance3D = row["dock"]
 	if not is_instance_valid(dock) or dock.is_queued_for_deletion():
 		return
@@ -582,8 +731,10 @@ func _log_perf() -> void:
 	for pony: Variant in _rows.keys():
 		if not is_instance_valid(pony):
 			continue
-		seats += 1
 		var row: Dictionary = _rows[pony]
+		if not _seated(row):
+			continue
+		seats += 1
 		if bool(row.get("attached", false)):
 			skinned += 1
 		builds += int(row.get("builds", 0))

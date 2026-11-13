@@ -142,6 +142,8 @@ func refresh_all() -> void:
 		var controller: Variant = _controllers[pony]
 		if is_instance_valid(controller) and controller.has_method("refresh"):
 			controller.call("refresh")
+	if is_instance_valid(tail_visibility):
+		tail_visibility.call("set_enabled", SETTINGS.debug_hide_tails.get_bool())
 
 
 func apply_live() -> void:

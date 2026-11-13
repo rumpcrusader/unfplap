@@ -49,6 +49,13 @@ static func weights_for(vertices: PackedVector3Array, ring: PackedInt32Array) ->
 	return weights
 
 
+## The dock's local transform under the hair skeleton for one lift. It depends only on the two
+## skeletons' global transforms, so a dock offset edit can rewrite it without rebuilding the mesh.
+static func lift_transform(body: Skeleton3D, hair: Skeleton3D, dock_lift: float) -> Transform3D:
+	var into_hair := hair.global_transform.affine_inverse() * body.global_transform
+	return Transform3D(Basis.IDENTITY, into_hair.basis * Vector3(0.0, dock_lift, 0.0))
+
+
 ## Build the skinned dock mesh and skin. Returns
 ## {"mesh": ArrayMesh, "skin": Skin, "transform": Transform3D} or {} when the cuff or rig cannot
 ## be skinned. The transform is the dock's local transform under the hair skeleton: it carries
@@ -96,5 +103,5 @@ static func build(mesh: ArrayMesh, body: Skeleton3D, hair: Skeleton3D,
 	skin.add_bind(tail1, hair.get_bone_global_pose(tail1).affine_inverse() * into_hair)
 	# The old follower added the lift after the blend, in body space. Apply it through the dock's
 	# local transform so it stays a post-skin body-space offset instead of rotating with the tail.
-	var lift := Transform3D(Basis.IDENTITY, into_hair.basis * Vector3(0.0, dock_lift, 0.0))
+	var lift := lift_transform(body, hair, dock_lift)
 	return {"mesh": skinned, "skin": skin, "transform": lift}

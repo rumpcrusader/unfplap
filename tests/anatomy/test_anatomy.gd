@@ -31,6 +31,13 @@ class FakeIdentity extends Resource:
 class FakePony extends Node3D:
 	var identity: Resource
 	var rig: Node
+	var skeleton: Skeleton3D
+	var hair_skeleton: Skeleton3D
+	var hair_link: Node
+
+
+class FakeHairLink extends Node:
+	var pelvis_offset := Transform3D.IDENTITY
 
 
 class FakeMain extends Node:
@@ -70,6 +77,23 @@ func _pony(id: String, filly := false, stallion := false) -> FakePony:
 	identity.stallion = stallion
 	pony.identity = identity
 	pony.set_meta("relationship_id", id)
+	return pony
+
+
+## A pony rigged enough for the tail seat's capability check: both skeletons, a hair link and a
+## dock. The seat never measures her while the setting is off, so no meshes are needed.
+func _rigged_pony(id: String) -> FakePony:
+	var pony := _pony(id)
+	pony.skeleton = Skeleton3D.new()
+	pony.add_child(pony.skeleton)
+	pony.hair_skeleton = Skeleton3D.new()
+	pony.add_child(pony.hair_skeleton)
+	pony.hair_link = FakeHairLink.new()
+	pony.add_child(pony.hair_link)
+	var dock := MeshInstance3D.new()
+	dock.name = "OpenPonyDock"
+	dock.mesh = BoxMesh.new()
+	pony.add_child(dock)
 	return pony
 
 
@@ -173,6 +197,34 @@ func run() -> void:
 			check(TAIL_SEAT._visibility_offset(off_roster, reference)
 				== TAIL_SEAT.DOCK_VISIBILITY_FALLBACK,
 				"an off-roster mare gets the fallback dock visibility")
+
+	# Tail seat: with Re-seat tails and docks off, attach only remembers her id. A disabled seat
+	# must not measure the tail or rebuild the dock, and a settings tick must not write either.
+	var seat := TAIL_SEAT.new()
+	root.add_child(seat)
+	seat.set("eligible", func(_node: Node) -> bool: return true)
+	var rigged := _rigged_pony("twilight_sparkle")
+	root.add_child(rigged)
+	var reseat_before := SETTINGS.reseat_tails.get_bool()
+	SETTINGS.reseat_tails.set_bool(false)
+	seat.call("attach", rigged)
+	var rows: Dictionary = seat.get("_rows")
+	var off_row: Dictionary = rows.get(rigged, {})
+	check(not off_row.is_empty(), "the seat remembers a pony while it is off")
+	check(not bool(off_row.get("seated", true)), "the off row is not measured")
+	check(not off_row.has("dock"), "the off row caches no dock")
+	check(bool(seat.call("can_seat", rigged)), "the seat still reports the pony as seatable")
+	seat.call("refresh_all")
+	check(rows.has(rigged), "a settings tick with the seat off keeps the remembered pony")
+	check((seat.get("_dirty") as Array).is_empty(), "no dock rebuild is queued while off")
+	# The settle queue drains without rebuilding a row that was never measured.
+	seat.call("_mark_dirty", off_row)
+	check((seat.get("_dirty") as Array).size() == 1, "a placement edit queues one dock rebuild")
+	seat.call("_flush_dirty")
+	check((seat.get("_dirty") as Array).is_empty(), "the settle pass drains the queue")
+	SETTINGS.reseat_tails.set_bool(reseat_before)
+	rigged.free()
+	seat.free()
 	var place_pos := Vector3(
 		float(default_place["offset_x"]),
 		float(default_place["offset_y"]),

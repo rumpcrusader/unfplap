@@ -4,6 +4,9 @@ extends Node
 ## Hiding only the rig tail mesh is not enough: the near and far LOD meshes merge the tail into a
 ## larger skinned mesh. Collapsing the hair tail bones hides all of it, and the native tail bones
 ## cover the far bake's skeleton.
+##
+## The anatomy facade pushes the switch through `set_enabled()`, so this node processes only while
+## the toggle is on and never reads Settings per frame.
 
 const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -14,22 +17,37 @@ const HAIR_BONES: Array[StringName] = [&"mTail1"]
 const BODY_BONES: Array[StringName] = [&"pony_tail_01"]
 
 var _clock := 0.0
+## True while the Debug switch is on. The anatomy facade pushes it, so nothing reads Settings
+## here per frame.
+var _on := false
 ## pony -> the modifiers installed on its hair and body skeletons.
 var _pairs: Dictionary = {}
 
 
-func _process(delta: float) -> void:
-	var on := SETTINGS.debug_hide_tails.get_bool()
-	if not on and _pairs.is_empty():
+func _ready() -> void:
+	set_process(false)
+	set_enabled(SETTINGS.debug_hide_tails.get_bool())
+
+
+## The Debug switch. Called by the anatomy facade on every settings refresh.
+func set_enabled(on: bool) -> void:
+	if on == _on:
 		return
-	_clock -= delta
-	if _clock > 0.0:
-		return
-	_clock = 0.25
+	_on = on
+	_clock = 0.0
 	if on:
 		_sync()
 	else:
 		_clear()
+	set_process(on)
+
+
+func _process(delta: float) -> void:
+	_clock -= delta
+	if _clock > 0.0:
+		return
+	_clock = 0.25
+	_sync()
 
 
 func _sync() -> void:

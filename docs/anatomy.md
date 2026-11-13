@@ -511,6 +511,16 @@ body's own deformation across the whole mesh.
   so turning the setting off restores the game's tail and dock exactly. The far-mesh identity
   cache is invalidated, and a currently shown far mesh is forced back to the near mesh for the
   next bake.
+- Nothing is measured or written while the setting is off. `attach()` then stores only the mare's
+  id, so a disabled seat costs one dictionary entry per pony instead of a tail measurement and a
+  dock rebuild. Turning the setting on measures and seats every remembered mare from
+  `refresh_all()`; turning it off restores them, and a settings tick with the seat already off
+  writes nothing.
+- A placement edit writes the tail immediately and the skinned dock follows it. The dock mesh is
+  rebuilt once `DOCK_SETTLE_S` after the last edit, because only the base-ring snap needs it, so a
+  slider drag rebuilds each mare once instead of once per tick. A `dock_y` edit needs no rebuild
+  at all: it is the post-skin lift on the dock instance transform. `dock_scale` rebuilds without
+  touching the tail.
 - `tail_y`/`tail_z` move the tail from the exact reference; the dock follows. `dock_y` trims the
   cuff and `dock_scale` scales it. `tail_tilt_deg` rotates the hair pelvis about the body's rear
   axis, origin fixed, so the whole tail and its dock tilt sideways without moving the base. All
@@ -582,7 +592,8 @@ restated here.
   override writes directly. **Placement file Show** logs every live mare's anchor, target,
   resolved placement, applied delta and source.
 - **Hide tails** is the persisted Debug toggle that collapses every loaded AI character's hair
-  and body tail roots through `anatomy/tail/hide.gd`; it touches no other body part.
+  and body tail roots through `anatomy/tail/hide.gd`; it touches no other body part. The facade
+  pushes the switch to `anatomy/tail/visibility.gd`, which processes only while it is on.
 - `anatomy.draw_still_zones` (**Draw still zones**) overlays the two still-zone ellipsoids and
   their fully-still cores on the body coat.
 - **Force heat**, **Force diestrus** and **Clear forced cycle** are cycle debug actions; their
@@ -592,7 +603,8 @@ restated here.
   `anatomy_afterglow` timings. Tail
   seating prints `tail perf attach`/`tail perf refresh` one-shot lines and a once-per-second
   `tail perf seats=… skinned=… builds=…/s` line; steady state is `builds=0/s` because the dock
-  blend runs on the GPU.
+  blend runs on the GPU. The seat's own `_process` is enabled only while **Print perf logs** is
+  on, so the probe costs nothing in a normal session.
 - The mesh and material debug helpers (`body_coat_mesh()`, `body_coat_material()`,
   `body_outline_material()`, `is_attached()`) exist so the runtime can re-add the patched material
   to the game's jiggle target list.

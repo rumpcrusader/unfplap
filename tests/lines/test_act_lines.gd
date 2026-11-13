@@ -118,7 +118,7 @@ func run() -> void:
 	facts.act_prompts = {"cue": "Cue: {cue}. {seed}"}
 	facts.features = {
 		"act_lines": true, "act_faces": true, "act_line_angles": true,
-		"act_speech_feel": false, "act_bystanders": true,
+		"act_speech_feel": false,
 	}
 	facts.director = Callable(host, "get_director")
 	facts.now = Callable(host, "clock_now")

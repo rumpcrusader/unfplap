@@ -179,8 +179,7 @@ func tick() -> void:
 
 ## integration: one adult observer may say a short line, using the modern witness perception.
 func bystander_tick(delta: float) -> void:
-	if facts == null or not _feature("act_bystanders", true) \
-			or facts.state != STATE_ACTIVE or not _game_ok():
+	if facts == null or facts.state != STATE_ACTIVE or not _game_ok():
 		return
 	if _bystander_event != facts.event_id:
 		_bystander_event = facts.event_id

@@ -240,7 +240,8 @@ moves the anatomy. The behavior behind these rows is in `docs/anatomy.md`.
 
 **World**
 
-No headings: **Promiscuity** and the **Estrus cycle** switch.
+No headings: **Promiscuity**, the **Estrus cycle** switch, **Allow public offers**,
+**Personalize lines during act** and **Add speech interjections**.
 
 **Characters**
 
@@ -257,9 +258,7 @@ tuning:
 - **Talk & cues**: override lifetime (default `10 s`), base/override stability, shared line gap,
   demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
   cooldowns plus receptive window.
-- **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**, plus the
-  ungrouped witness, public-offer and body-yaw switches and **Use line angles** /
-  **Add speech interjections**.
+- **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (anal ring, anal height, lip vertical share), plus the ungrouped
   cock forward, pelvis gap, skin-strip scale, aim points and **Hide tails**.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
@@ -305,10 +304,9 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `standing_stool` | `true` | a live reach gap over `stool_gap_m` needs enough `goods:footstool` stacks of `stool_height_m`; the shop or house drops supply them |
 | `act_ear_pin` | `false` | General debug rows: pin act ears |
 | `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
-| `act_bystanders` | `true` | adult witness lines using the modern perception |
-| `act_line_angles` | `true` | fresh cue-line angle and shared-history hint; widens recent-line recall to eight |
+| `act_line_angles` | `true` | personalizes cue lines with a fresh angle and shared-history hint; widens recent-line recall to eight |
 | `act_speech_feel` | `false` | thrust-paced interjection instruction in cue lines |
-| `act_public_offer` | `true` | per-mare public consent affects offers; see `docs/eligibility.md` |
+| `act_public_offer` | `false` | per-mare public consent affects offers; see `docs/eligibility.md` |
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_vocals` | `false` | pack climax moan only |

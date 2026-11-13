@@ -36,8 +36,9 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 
 - **Relationship-gated encounters** — Adult mares only, with a lover bond agreed in conversation
   and real refusals for both player forms (`docs/eligibility.md`).
-- **Relationship settings** — `Promiscuity` and `Starting Sex` control the relationship gate; the
-  exact rule is in `docs/eligibility.md`.
+- **Relationship settings** — `Promiscuity` and `Starting Sex` control the relationship gate;
+  `Allow public offers` lets a comfortable mare offer sex with others nearby and is off by default;
+  the exact rule is in `docs/eligibility.md`.
 - **Two poses** — Supports missionary on a bed or couch and standing.
 - **Footstool** — A mare much taller than Anon needs one or more footstools for the standing act; each covers a step of height, find them in houses or buy them at the shop, and Anon stacks enough to reach (`docs/stool.md`).
 - **Optional anatomy** — Adds hole, oral, finish and fluid controls, separate teats and skin-strip switches, genital tone plus Anon girth, head, length and throb tuning, and optional VR, each behind its own toggle. One Anatomy switch picks Never, only while an act runs, or Always. The PPP anatomy assets and act audio are included in the release (`docs/anatomy.md`).
@@ -52,7 +53,7 @@ Desktop first. The optional VR standing act is experimental and gated by the ana
 - **Auto thrust** — Press `X` to hand Anon the rhythm; the wheel sets pace, and holding `X` sets the bottom, peak, pace and stroke shape by hand.
 - **Per-mare preference** — Each mare has intensity, rhythm, touch, talk, warmth, and how much she tolerates before she warns or stops.
 - **Act settings** — `Settings → Unfplap` has General, Anatomy, World and Characters tabs; an **Enable debug** switch adds an extra Debug section at the bottom of General, Anatomy and World for pose, camera, cue and history tuning.
-- **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her; `Act lines` can be turned off while normal dialogue and the HUD cue stay.
+- **Reactive dialogue** — Her cues react to mood, rhythm, touch and what you say to her; `Personalize lines during act` and `Add speech interjections` shape her lines, and `Act lines` can be turned off while normal dialogue and the HUD cue stay.
 - **HUD** — Shows the act controls list, optional mood cues and climax count.
 - **Act camera** — Offers a controlled lean camera with speed-driven thrust surge and bob.
 - **Caress** — Rub her flank standing or her chest, neck and cheek in missionary with either hand; see `docs/hands.md`.

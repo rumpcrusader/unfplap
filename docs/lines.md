@@ -1,7 +1,7 @@
 # Act lines
 
 The line system owns what the mod makes the ponies say during an act: cue admission, the cue
-prompt, the shared utterance slot, reaction lines and the optional bystander line. The runtime
+prompt, the shared utterance slot, reaction lines and the bystander line. The runtime
 keeps the act state machine; this system decides whether and how a line is queued.
 
 ## Scope
@@ -98,9 +98,9 @@ a quiet channel, but `note_reaction()` resets the shared gap so a cue cannot fol
 The act's reactions are climax, intentional early end, history refusal and the tolerance
 warning/stop.
 
-The bystander pass uses `memory.observers()` and the modern witness perception. It starts after
-12 s, repeats every 20 s, has a 70 % roll and caps at three lines. Its validity closure checks the
-observer, the act event id and `ACTIVE`/`CLIMAX`. Indoors/outdoors wording comes from
+The bystander pass is always on. It uses `memory.observers()` and the modern witness perception.
+It starts after 12 s, repeats every 20 s, has a 70 % roll and caps at three lines. Its validity
+closure checks the observer, the act event id and `ACTIVE`/`CLIMAX`. Indoors/outdoors wording comes from
 `house_interior.gd`.
 
 ## Cancelling
@@ -156,10 +156,10 @@ Talk is scored when the player actually uses the game's talk turn. There is no a
 talk-invitation line or HUD hint.
 
 `features.act_lines` (default on) gates unprompted cue and reaction lines. Off keeps normal
-dialogue and the HUD cue. `features.act_line_angles` (default on) adds one fresh angle and the
-shared-day/history hint to a cue line, and widens the recent-line anti-repeat window to eight.
-`features.act_speech_feel` (default off) adds the thrust-paced interjection instruction. They are
-independent.
+dialogue and the HUD cue. `features.act_line_angles` (**Personalize lines during act**, default on)
+adds one fresh angle and the shared-day/history hint to a cue line, and widens the recent-line
+anti-repeat window to eight. `features.act_speech_feel` (**Add speech interjections**, default off)
+adds the thrust-paced interjection instruction. They are independent.
 
 The HUD cue is shorthand, not the line. `UTTERANCE.line_seed()` turns the same facts into a private
 second-person seed (`{seed}`): it states the need or the moment, never “She wants…”, and ends with

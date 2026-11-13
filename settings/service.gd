@@ -1485,27 +1485,15 @@ static var promiscuity := choice("promiscuity", "relationship.promiscuity", "any
 	"Promiscuity", "Lowest relationship level for a lover bond and sex.", WORLD, "")
 static var estrus_cycle := flag("estrus_cycle", "features.estrus_cycle", false, "Use estrus cycle",
 	"Give mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.", WORLD, "")
-
-# -- (ungrouped)  (debug)
-static var act_bystanders := flag("act_bystanders", "features.act_bystanders", true,
-	"Show bystander lines",
-	"Let an adult pony who can perceive the act say one short line. Uses the modern witness rules; young ponies never speak.", WORLD, "") \
-	.as_debug()
-static var act_public_offer := flag("act_public_offer", "features.act_public_offer", true,
+static var act_public_offer := flag("act_public_offer", "features.act_public_offer", false,
 	"Allow public offers",
-	"Let a mare who is comfortable with others around still offer sex in public.", WORLD, "") \
-	.as_debug()
-static var body_yaw_deg := num("body_yaw_deg", "player.body_yaw_deg", 0.0, "Body yaw",
-	"Rotate Anon's body left or right for testing; the camera and pose are unchanged.", WORLD, "") \
-	.with_unit("°").with_step(1.0).as_debug()
+	"Let a mare who is comfortable with others around still offer sex in public.", WORLD, "")
 static var act_line_angles := flag("act_line_angles", "features.act_line_angles", true,
-	"Use line angles",
-	"Give cue lines one fresh angle: something from your personality, your day with Anon, or a tender beat. Off keeps every line on the private moment alone.", WORLD, "") \
-	.as_debug()
+	"Personalize lines during act",
+	"Give cue lines one fresh angle: something from your personality, your day with Anon, or a tender beat. Off keeps every line on the private moment alone.", WORLD, "")
 static var act_speech_feel := flag("act_speech_feel", "features.act_speech_feel", false,
 	"Add speech interjections",
-	"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.", WORLD, "") \
-	.as_debug()
+	"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.", WORLD, "")
 
 # -- History › Points  (debug)
 static var apology_repair := num("apology_repair", "history.apology_repair", 1.0,
@@ -1790,6 +1778,9 @@ static var _deprecated := [
 		func(_value: Variant) -> Dictionary: return {}),
 	# Pack foley is always on; the switch is retired.
 	deprecated("features.act_foley", func(_value: Variant) -> Dictionary: return {}),
+	# Bystander lines are always on and the body-yaw debug aid is gone; both switches are retired.
+	deprecated("features.act_bystanders", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("player.body_yaw_deg", func(_value: Variant) -> Dictionary: return {}),
 	# Thrust sensitivity is now a physical scale: pixels per centimetre of hip travel. The old
 	# value was pixels for one full stroke; 20 cm is the reference shaft, so its feel is kept.
 	deprecated("thrust.pixels_per_full",

@@ -2079,9 +2079,9 @@ static func _profile_participation_raw(template: Dictionary) -> Variant:
 ## instead of rebuilding the whole template for every mare.
 static func profile_identity(id: String) -> Dictionary:
 	var data := _read()
-	if _identity_generation != generation or _identity_revision != placement_revision:
+	if _identity_generation != generation or _identity_revision != MARE_REGISTRY.revision:
 		_identity_generation = generation
-		_identity_revision = placement_revision
+		_identity_revision = MARE_REGISTRY.revision
 		_identity_cache.clear()
 	var cached: Variant = _identity_cache.get(id)
 	if cached is Dictionary:
@@ -2547,9 +2547,9 @@ static var _cache: Dictionary = {}
 static var _loaded := false
 ## Built once from the catalogs. Read-only: `profile_for()` copies it before merging.
 static var _filled_default_cache: Dictionary = {}
-## Resolved identity facts per mare, rebuilt when the settings generation or the provider revision
-## changes. Discovery scans ask for every adult; resolving the whole template per mare per scan was
-## the idle offer scan's largest cost.
+## Resolved identity facts per mare, rebuilt when the settings generation or the provider registry
+## revision changes. Discovery scans ask for every adult; resolving the whole template per mare per
+## scan was the idle offer scan's largest cost.
 static var _identity_cache: Dictionary = {}
 static var _identity_generation := -1
 static var _identity_revision := -1

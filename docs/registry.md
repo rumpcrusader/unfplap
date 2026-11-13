@@ -44,6 +44,9 @@ static func sources(id: String) -> Array[String]
 static func reset() -> void
 ```
 
+`revision` bumps on every layer change, so a derived cache (the resolved identity facts) can
+rebuild when a provider registers, updates or leaves.
+
 The descriptor schema and validation warnings are in `docs/api.md`. `reset()` is for tests and
 world teardown.
 

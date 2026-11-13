@@ -37,6 +37,9 @@ const TOP_KEYS := [
 ## {owner: int, source: String, name: String, template: Dictionary, order: int}.
 static var _layers: Dictionary = {}
 static var _next_order := 0
+## Bumps on every layer change. Derived caches (the resolved identity facts) rebuild when it
+## differs; a caller cannot change a provider layer without invalidating them.
+static var revision := 0
 
 
 ## Validate and add one provider layer. Re-registering the same owner + id replaces that layer
@@ -142,6 +145,7 @@ static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 		layer["order"] = _next_order
 		list.append(layer)
 	_layers[id] = list
+	revision += 1
 	result["ok"] = true
 	result["replaced"] = replaced
 	return result
@@ -203,6 +207,7 @@ static func set_profile(owner_id: int, source: String, id: String,
 		layer["order"] = _next_order
 		list.append(layer)
 	_layers[key] = list
+	revision += 1
 	result["ok"] = true
 	result["replaced"] = found
 	return result
@@ -220,6 +225,7 @@ static func unregister(owner_id: int, id: String) -> bool:
 				_layers.erase(key)
 			else:
 				_layers[key] = list
+			revision += 1
 			return true
 	return false
 
@@ -239,6 +245,8 @@ static func unregister_owner(owner_id: int) -> int:
 			_layers.erase(id)
 		else:
 			_layers[id] = list
+	if removed > 0:
+		revision += 1
 	return removed
 
 
@@ -313,6 +321,7 @@ static func sources(id: String) -> Array[String]:
 static func reset() -> void:
 	_layers.clear()
 	_next_order = 0
+	revision += 1
 
 
 static func _check_id(id: String, errors: Array) -> void:

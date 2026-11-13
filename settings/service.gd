@@ -72,10 +72,12 @@ const CHARACTER_NAMES := CHARACTERS.NAMES
 ## Cross-mod provider layers; see docs/api.md. Provider data is in memory only.
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
-## Tabs, in panel order. Characters is the hand-built per-mare form, not a settings tab.
+## Tabs, in panel order. Characters is the hand-built per-mare form; Integrations is the
+## catalog-driven supported-mod list whose switches are ordinary declarations.
 const GENERAL := "general"
 const ANATOMY := "anatomy"
 const WORLD := "world"
+const INTEGRATIONS := "integrations"
 
 
 # ---------------------------------------------------------------- settings
@@ -1756,6 +1758,14 @@ static var strict_stop := num("strict_stop", "tolerance.strict_stop", 3.0, "Stri
 static var strict_warning := num("strict_warning", "tolerance.strict_warning", 1.0,
 	"Strict warning", "Warning threshold for a strict mare.", WORLD, "Neglect tolerance") \
 	.with_step(1.0).as_debug()
+
+# ======================================================== Integrations
+
+# -- (ungrouped)
+static var kissing_reactions := flag("kissing_reactions", "features.kissing_reactions", true,
+	"Use Kissing reactions",
+	"Play the Kissing mod's horn, wing and earth-pony reactions during the act.",
+	INTEGRATIONS, "")
 
 const DEFAULT_ACT_PROMPTS := {
 	"utterance": "You are in the middle of sex with Anon, not kissing him. The private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory}{face_note} Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed], [surprised], [sad] or [fearful]. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",

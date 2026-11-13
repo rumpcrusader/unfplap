@@ -27,6 +27,7 @@ const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
+const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
 const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
@@ -241,12 +242,19 @@ var _climax_progress := 0.0
 var _debug_chin_deg := 0.0
 var _hands
 var _kiss
+var _integrations
 var _missionary_camera_ctl
 var _standing_camera_ctl
 var _standing_anon_ctl
 var _standing_presentation_ctl
 var _act_audio: Variant = null
 var _bed_soft := false
+## Shared act-level excitement Beat holds. The kiss controller holds "kiss" for a base kiss; an
+## integration holds its provider id while it runs. The last release restores the saved pause state.
+var _excitement_holders: Array[String] = []
+var _excitement_beat: Timer
+var _excitement_beat_saved := false
+var _excitement_beat_paused := false
 
 func _init() -> void:
 	_anatomy_bridge.bind(_anatomy_host())
@@ -315,6 +323,8 @@ func _init() -> void:
 	_act_facts.can_offer = Callable(self, "can_offer")
 	_act_facts.pause_face_turn = Callable(self, "_pause_face_turn")
 	_act_facts.restore_face_turn = Callable(self, "_restore_face_turn")
+	_act_facts.hold_excitement = Callable(self, "_hold_excitement")
+	_act_facts.release_excitement = Callable(self, "_release_excitement")
 	_act_facts.on_touch = Callable(self, "_on_touch")
 	_act_facts.on_smack = Callable(self, "_on_smack_impact")
 	_act_facts.pose_host = Callable(self, "_runtime")
@@ -739,6 +749,61 @@ func _kiss_controller():
 	_bind_act_view()
 	return _kiss
 
+## Lazily create the optional mod-integration bridge, including outside the tree in tests.
+func _integrations_controller():
+	if _integrations == null:
+		_integrations = INTEGRATIONS.new(_act_facts)
+	_bind_act_view()
+	return _integrations
+
+## Acquire a named hold on the game's excitement Beat. The first successful holder saves the
+## current pause state; every holder keeps the Beat paused. Repeating an owner is idempotent.
+func _hold_excitement(owner: String) -> void:
+	if owner.is_empty() or _excitement_holders.has(owner):
+		return
+	if not is_instance_valid(_excitement_beat):
+		_excitement_beat = null
+		_excitement_beat_saved = false
+	if not _excitement_beat_saved:
+		_resolve_excitement_beat()
+	_excitement_holders.append(owner)
+	if is_instance_valid(_excitement_beat):
+		_excitement_beat.paused = true
+
+## Release a named hold. The saved state comes back only when the last holder has released.
+func _release_excitement(owner: String) -> void:
+	var index := _excitement_holders.find(owner)
+	if index >= 0:
+		_excitement_holders.remove_at(index)
+	if not _excitement_holders.is_empty():
+		return
+	_restore_excitement_beat()
+
+func _resolve_excitement_beat() -> void:
+	if not is_instance_valid(pony):
+		return
+	var excitement: Variant = pony.get("excitement")
+	if not excitement is Node:
+		return
+	var beat: Variant = (excitement as Node).get_node_or_null("Beat")
+	if not beat is Timer:
+		return
+	_excitement_beat = beat as Timer
+	_excitement_beat_paused = _excitement_beat.paused
+	_excitement_beat_saved = true
+
+func _restore_excitement_beat() -> void:
+	if _excitement_beat_saved and is_instance_valid(_excitement_beat):
+		_excitement_beat.paused = _excitement_beat_paused
+	_excitement_beat = null
+	_excitement_beat_saved = false
+	_excitement_beat_paused = false
+
+## Act teardown fallback: drop every hold and restore the Beat once.
+func _reset_excitement_hold() -> void:
+	_excitement_holders.clear()
+	_restore_excitement_beat()
+
 ## Lazily create the missionary camera controller, including outside the tree in tests.
 func _missionary_camera_controller():
 	if _missionary_camera_ctl == null:
@@ -884,6 +949,8 @@ func apply_live_settings() -> void:
 	var previous_mute := bool(_features.get("mute_ponese_audio", false))
 	var previous_lines := bool(_features.get("act_lines", true))
 	_anatomy_refresh()
+	_sync_act_facts()
+	_integrations_controller().apply_live_settings()
 	if previous_lines and not bool(_features.get("act_lines", true)) and is_instance_valid(main) and is_instance_valid(main.game):
 		_end_act_lines(true)
 	var climax := _feature("act_climax")
@@ -1024,6 +1091,7 @@ func _act_presentation(delta: float) -> void:
 	var wings_started := Time.get_ticks_usec()
 	_wings_controller().tick(delta, pose_id, satisfaction, _act_seconds)
 	_timed("wings_tick", wings_started)
+	_integrations_controller().tick(delta)
 
 ## The act's smile and lids; the facade owns the write and the hold timer.
 func _set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
@@ -1647,6 +1715,9 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	if service != null and service.has_method("player_encounter"):
 		service.call("player_encounter", true)
 	state = State.POSING_IN
+	_integrations_controller()
+	_sync_act_facts()
+	_integrations_controller().begin()
 	_act_face_beat("start")
 	# integration: act-only visibility updates at the state change, not on the next poll.
 	_anatomy_bridge.apply_live()
@@ -1918,6 +1989,8 @@ func _free_pose() -> void:
 	_camera_service().call("end_lean_action")
 	_hand_controller().reset()
 	_kiss_controller().reset()
+	_integrations_controller().reset()
+	_reset_excitement_hold()
 	_camera_service().call("release_free_camera_lock")
 	_standing_anon_controller().remove()
 	_pose_service().remove_modifiers()
@@ -2911,6 +2984,8 @@ func _afterglow_begin() -> void:
 	_anatomy_bridge.on_finish()
 	_commit_afterglow()
 	state = State.AFTERGLOW
+	_sync_act_facts()
+	_integrations_controller().afterglow()
 	_afterglow.begin(pose_id, _summary_service.summary)
 	_bind_action_executor()
 	cue = ""

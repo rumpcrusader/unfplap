@@ -147,6 +147,10 @@ var free_of_affection := Callable()
 var can_offer := Callable()
 var pause_face_turn := Callable()
 var restore_face_turn := Callable()
+## Shared act-level ownership of the game's excitement Beat. A service acquires a named hold; the
+## runtime restores the Beat's original pause state when the last holder releases.
+var hold_excitement := Callable()
+var release_excitement := Callable()
 ## The node that answers the Anon pose-driver write-backs (`apply_anon_thrust`,
 ## `apply_anon_lean`, `apply_anon_align`). It is passed as an opaque host handle.
 var pose_host := Callable()
@@ -242,6 +246,18 @@ func pause_face(force := false) -> void:
 func restore_face() -> void:
 	if restore_face_turn.is_valid():
 		restore_face_turn.call()
+
+
+## Acquire the act-level excitement Beat hold for `owner`.
+func hold_beat(owner: String) -> void:
+	if hold_excitement.is_valid():
+		hold_excitement.call(owner)
+
+
+## Release `owner`'s excitement Beat hold; the runtime restores the Beat after the last release.
+func release_beat(owner: String) -> void:
+	if release_excitement.is_valid():
+		release_excitement.call(owner)
 
 
 ## A host value that may be missing: `null` outside a scene, so a caller tests it.

@@ -403,7 +403,7 @@ func live_character_ids() -> Array[String]:
 
 
 ## The settings page hook. No game-script extension is used. Opening the page re-reads
-## settings.json; the settings UI owns the deferred injection and the four sub-tabs.
+## settings.json; the settings UI owns the deferred injection and the sub-tabs.
 func _on_settings_page(page: Node) -> void:
 	SETTINGS_UI.inject(page, Callable(self, "_build_settings_actions"),
 		Callable(self, "live_character_ids"), Callable(self, "_character_participation"),

@@ -4,8 +4,9 @@ extends RefCounted
 ##
 ## This is the only file allowed to create the declaration-drawn settings widgets. Do not add a
 ## SpinBox, CheckButton or OptionButton control for a setting anywhere else: declare the setting
-## instead and it appears here. The Characters form is `settings/characters_ui.gd`; the Debug
-## action buttons are `debug/ui.gd`. See docs/settings.md.
+## instead and it appears here. The Characters form is `settings/characters_ui.gd`; the
+## catalog-driven Integrations tab reads `shared/integrations.gd`; the Debug action buttons are
+## `debug/ui.gd`. See docs/settings.md.
 ##
 ## Every section heading is a click-to-collapse button wearing the menu's open sidebar row (the
 ## `Tab` look: a pink accent while the section is open). Every setting is one of the settings
@@ -16,6 +17,7 @@ extends RefCounted
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
+const INTEGRATIONS_CATALOG := preload("res://mods/unfplap/shared/integrations.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
 
 ## Choices at most in a pill track, and the longest label one may hold: past either, the row keeps
@@ -71,6 +73,54 @@ static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 	if actions_builder.is_valid():
 		actions_builder.call(body, font_size, tab)
 	return debug_section
+
+
+## The catalog-driven Integrations tab. Every supported mod is listed even when it is not installed:
+## the header names the mod and the version this adapter was verified with, then each feature flag
+## follows as an ordinary declaration row. Integrations have no Debug block and no installed/mismatch
+## status.
+static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
+		changed: Callable) -> void:
+	var providers: Array[Dictionary] = INTEGRATIONS_CATALOG.all()
+	if providers.is_empty():
+		list.add_child(STYLE.label("No supported integrations in this build.", "Faint",
+			font_size - 5))
+	var drawn: Dictionary = {}
+	for provider: Dictionary in providers:
+		_add_integration_header(list, provider, font_size, page)
+		var features: Variant = provider.get("features", [])
+		if features is Array:
+			for raw: Variant in features as Array:
+				var name := str(raw)
+				var setting := SETTINGS.by_name(name)
+				if setting == null or drawn.has(name):
+					continue
+				drawn[name] = true
+				_add_row(list, setting, font_size, page, changed)
+	# A declaration without a catalog entry must never become an invisible setting.
+	for setting: SETTINGS.Setting in SETTINGS.tab_settings(SETTINGS.INTEGRATIONS):
+		if drawn.has(setting.name):
+			continue
+		drawn[setting.name] = true
+		_add_row(list, setting, font_size, page, changed)
+
+
+static func _add_integration_header(parent: VBoxContainer, provider: Dictionary, font_size: int,
+		page: Node) -> void:
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _row_box(page, false))
+	parent.add_child(card)
+	var block := VBoxContainer.new()
+	block.add_theme_constant_override("separation", 2)
+	card.add_child(block)
+	var title := STYLE.label("%s by %s" % [str(provider.get("mod_name", "")),
+		str(provider.get("author", ""))], "", font_size)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	block.add_child(title)
+	var hint := STYLE.label("Verified with version: %s" % str(provider.get("verified_version", "")),
+		"Faint", font_size - 5)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	block.add_child(hint)
 
 
 ## One section pass. `prefix` separates the Debug block's section state from the player sections.
@@ -314,6 +364,10 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	# hand-built Characters tab instead of a schema section.
 	var char_list := _settings_tab_list("Characters", tabs_box)
 	CHARACTERS_UI.build(char_list, font_size, live_character_ids, participation, changed, debug)
+	# Supported mods and their one-switch-per-integration list; always visible, even when the
+	# other mod is absent.
+	var integrations_list := _settings_tab_list("Integrations", tabs_box)
+	build_integrations(integrations_list, font_size, page, changed)
 	# Style the bar after it exists with its tabs: the container re-applies its theme to the
 	# internal TabBar when the tree changes, which would shadow overrides set before that.
 	_style_tabs(tabs_box, font_size)

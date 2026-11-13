@@ -35,6 +35,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Eligibility and consent | `eligibility/service.gd` | `docs/eligibility.md` | `tests/eligibility/` |
 | Scene gate and refusal | `scene_gate/service.gd` | `docs/scene_gate.md` | `tests/scene_gate/` |
 | Act scene hold | `scene_hold/service.gd` | `docs/scene_hold.md` | `tests/scene_hold/` |
+| Mod integrations | `integrations/service.gd` | `docs/integrations.md` | `tests/integrations/` |
 | Bed rest and rejoin | `rest/service.gd` | `docs/rest.md` | `tests/rest/` |
 | Hands | `hands/service.gd` | `docs/hands.md` | `tests/hands/` |
 | Anatomy | `anatomy/service.gd` | `docs/anatomy.md` | `tests/anatomy/` |
@@ -78,6 +79,7 @@ only stable external surface is `docs/api.md`.
 | Relationship cue | `shared/relationship_cue.gd` | `docs/lines.md` | `tests/test_relationship_cue.gd` |
 | Pose catalog | `shared/pose_catalog.gd` | `docs/poses.md` | `tests/test_catalog.gd` |
 | Anatomy placement | `shared/anatomy_placement.gd` | `docs/anatomy.md` | `tests/anatomy/` |
+| Mod integration catalog | `shared/integrations.gd` | `docs/integrations.md` | `tests/integrations/` |
 | Lean/travel math | `shared/act_motion.gd` | `docs/camera.md` | `tests/act_camera/` |
 | Palm scale | `shared/hands_scale.gd` | `docs/hands.md` | `tests/hands/` |
 | Reach plan | `shared/hands_reach_plan.gd` | `docs/hands.md` | `tests/hands/` |

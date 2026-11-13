@@ -36,7 +36,7 @@ sequence:
 7. release the cradle/cuddle/navigator/player ownership through `scene_hold`;
 8. snapshot the pony bones, mark the act active, build the anatomy act;
 9. place the bodies, build the pose, capture the look, lock the player and the navigator, start the
-   camera, the audio, the HUD and the act face.
+   camera, the audio, the HUD and the act face, then arm the act integrations.
 
 A failure in any step runs `_abort_start()` and the same teardown; it never leaves a partial act.
 
@@ -77,7 +77,9 @@ runs the same function and restores only what it took.
 - `_end_act_lines()` is deliberately outside the teardown: `cancel()` queues the early-stop reaction
   after `_restore_begin()`, and `_finish_restore()` must not cancel director rows.
 - `_restore_begin()` / `_restore_now()` are the ordered leaves; `_restore_camera()` is the camera
-  ledger.
+  ledger. `_free_pose()` resets the mod-integration bridge after the base kiss, releases the shared
+  excitement Beat hold, and leaves every property the act borrowed back in place before the pose is
+  released.
 - A forced stop never rejoins the missionary bed cuddle. A normal end of a bed-sourced act that did
   not go badly re-seats Anon on the bed's player seat and re-invites her through `rest/service.gd`;
   the retry waits out aftercare and the guest cooldown, and every failure is logged before she is
@@ -89,7 +91,7 @@ runs the same function and restores only what it took.
 
 - `_physics_process`: `_physics_tick(delta)` — the act timer, the readiness tick, the lines, the
   history scan, the tolerance, the scene keep-alives, the anatomy tick, the thrust tracker and the
-  presentation modules.
+  presentation modules (wings and mod integrations).
 - `_process`: `_process_tick(delta)` — the render-time pose write, the camera lean and motion, the
   climax wave, the breath, the face and the HUD.
 - `main._process` calls `active_runtime.apply_camera_motion()` every rendered frame. Keep this
@@ -131,4 +133,5 @@ reads that facade too.
 - `docs/README.md` — the service index.
 - `docs/eligibility.md`, `docs/scene_gate.md`, `docs/scene_hold.md` — the start gates and scene.
 - `docs/poses.md`, `docs/camera.md` — the tick-time pose and camera.
+- `docs/integrations.md` — optional mod reactions during the act.
 - `docs/afterglow.md`, `docs/face.md`, `docs/summary.md` — the post-act phases.

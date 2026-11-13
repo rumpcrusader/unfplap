@@ -38,7 +38,9 @@ reach.
   and soft-kiss audio.
 - `pony_kisser` physics is paused for the whole act. The runtime feeds a base kiss the live
   `target`/`eye`/`face` from Anon's real mouth camera and repeats the mouth kiss sound itself.
-- The excitement Beat timer is paused so the stock unicorn horn sparkle does not fire.
+- The shared act-level excitement Beat hold keeps the Beat paused so the stock unicorn horn
+  sparkle does not fire. The kiss service holds the `kiss` token; the mod-integration service holds
+  its own token, and the runtime restores the original state after the last release.
 - The game's `AffectionPose.kiss_settings()` `rear` and `hooves` values are saved and both set to
   zero before the base kiss; `kiss/legs.gd` captures both foreleg tips before the kiss and runs last
   to CCD them back to those positions, because the base kiss's chest flex would otherwise drag the

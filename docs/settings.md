@@ -5,9 +5,10 @@ accessor on that setting. There is no second schema, no path-keyed read and no d
 anywhere else. The General, Anatomy and World panels are drawn from the declarations by
 `settings/ui.gd` in the settings page's own menu style: row cards, `Faint` help, switch plus
 state, Segment pills for a few short choices and the `Tab` look for a collapsible section heading.
-The tab pills, sidebar row and the hand-built Characters preference tab are added by the injection
-in `settings/ui.gd`. The Characters form itself is in `settings/characters_ui.gd`; the consent and
-participation semantics are in `docs/eligibility.md`.
+The tab pills, sidebar row, the hand-built Characters preference tab and the catalog-driven
+Integrations tab are added by the injection in `settings/ui.gd`. The Characters form itself is in
+`settings/characters_ui.gd`; the consent and participation semantics are in
+`docs/eligibility.md`; the supported-mod catalog is `shared/integrations.gd`.
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a
 > restore/normalise function or a save function for a setting, stop. Declare the setting instead.
@@ -150,7 +151,8 @@ prefixes pre-emptively.
 ## Tabs, groups and debug
 
 - Tabs, in panel order: **General** (interface, audio, cycle, thrust, act tuning), **Anatomy**,
-  **World** (relationships, cycle, witnesses, pony behaviour), **Characters** (the per-mare form).
+  **World** (relationships, cycle, witnesses, pony behaviour), **Characters** (the per-mare form)
+  and **Integrations** (supported mods and their switches).
 - Player-facing settings come first in their tab. When **Enable debug** (General's last row) is
   on, the tab ends with one **Debug** section holding that tab's debug settings under the same
   group names. A section name draws one heading; interleaved declarations fold back into it.
@@ -229,9 +231,10 @@ Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `features`
 
 ## The settings tab
 
-`Settings → Unfplap` has four sub-tabs: **General**, **Anatomy**, **World** and **Characters**.
-Every row comes from one declaration in `settings/service.gd` — label, help, section, bounds — and applies
-live.
+`Settings → Unfplap` has five sub-tabs: **General**, **Anatomy**, **World**, **Characters** and
+**Integrations**.
+Every setting row comes from one declaration in `settings/service.gd` — label, help, section,
+bounds — and applies live.
 
 **General**
 
@@ -269,6 +272,13 @@ No headings: **Promiscuity**, the **Estrus cycle** switch, **Allow public offers
 
 - The hand-built per-mare preference form described in `docs/preferences.md`, with one pony
   selector (filtered by name) shared by every field.
+
+**Integrations**
+
+- Every supported mod in `shared/integrations.gd`, in catalog order, whether or not the other mod
+  is installed: `Mod by Author`, the Faint `Verified with version: ...` hint, then its switches. The
+  Kissing entry and `Use Kissing reactions` are always listed; the behavior is in
+  `docs/integrations.md`.
 
 **Debug sections**
 
@@ -331,6 +341,7 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `allow_act_during_cuddle` | `true` | allow starting an act while the stock cuddle session is active |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_climax` | `false` | pack wet finish layer |
+| `kissing_reactions` | `true` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
 
 Always on: act history and its per-act summary, standing afterglow stay-close window, lean-camera
 inertia smoothing and strong-thrust rump blush. Unknown settings keys are ignored. Caress feature
@@ -408,6 +419,7 @@ value. See `docs/perf.md`.
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | character_preferences | `shared/character_preferences.gd` | character templates |
 | shared | consent | `shared/consent.gd` | consent defaults |
+| shared | integrations | `shared/integrations.gd` | verified mod catalog and tab rows |
 | shared | participation | `shared/participation.gd` | participation defaults |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
@@ -420,6 +432,8 @@ value. See `docs/perf.md`.
   Debug block only in debug mode), built-in name clashes, and the per-mare merge.
 - `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims and that no
   settings widget is created outside `settings/ui.gd` and `settings/characters_ui.gd`.
+- `tests/integrations/` covers the catalog and reaction bridge; the Settings panel check includes
+  the Integrations tab.
 - Keep the feature-flag table in this file current when adding a flag.
 
 ## Related docs

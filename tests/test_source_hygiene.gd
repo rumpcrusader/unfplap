@@ -87,6 +87,8 @@ func run() -> void:
 	_check_act_camera()
 	_check_scene_gate()
 	_check_rest_rejoin()
+	_check_integrations_isolation(files)
+	_check_integrations_docs()
 	_check_act_audio()
 	_check_hud_lines()
 	_check_scene_hold()
@@ -673,6 +675,53 @@ func _check_hud_lines() -> void:
 	check(not runtime.contains("const Y_END_TINT_MAX"), "runtime has no HUD tint constant")
 
 
+## The integrations service is the only scene adapter; the providers and the catalog are pure.
+## Other systems import the facade only and never reach into the external mod's files.
+func _check_integrations_isolation(files: Array[String]) -> void:
+	var pure_files := [
+		"integrations/provider.gd", "integrations/context.gd", "integrations/action.gd",
+		"integrations/kissing.gd", "shared/integrations.gd",
+	]
+	for name: String in pure_files:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		for token: String in ["extends Node", "get_tree(", "Time.", "FileAccess", "SETTINGS",
+				"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
+				"preload(\"res://mods/unfplap/main.gd\")"]:
+			check(not text.contains(token), "%s stays pure: %s" % [name, token])
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		if relative.begins_with("integrations/"):
+			continue
+		var text := FileAccess.get_file_as_string(path)
+		var external := text.replace("mods/unfplap/integrations/service.gd", "")
+		check(not external.contains("mods/unfplap/integrations/"),
+			"%s uses the integrations facade only" % relative)
+		check(not text.contains("res://mods/kissing/"),
+			"%s does not import Kissing internals" % relative)
+		if relative == "runtime.gd":
+			continue
+		check(not text.contains("Beat.paused") and not text.contains("beat.paused"),
+			"%s uses the shared excitement hold instead of writing Beat.paused" % relative)
+
+
+## The integrations contract is linked from the docs that own the lifecycle, settings and tests.
+func _check_integrations_docs() -> void:
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/integrations.md"))
+	check(contract.contains("`integrations/service.gd`"),
+		"docs/integrations.md names the facade")
+	for heading: String in ["## Scope", "## Ownership", "## Lifecycle", "## Dependencies",
+			"## Tests"]:
+		check(contract.contains(heading), "docs/integrations.md has %s" % heading)
+	for name: String in ["AGENTS.md", "docs/README.md", "docs/settings.md", "docs/runtime.md"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(text.contains("docs/integrations.md"), "%s links to docs/integrations.md" % name)
+	for name: String in ["test_catalog.gd", "test_kissing.gd", "test_service.gd", "test_hold.gd"]:
+		check(FileAccess.file_exists(ROOT.path_join("tests/integrations/" + name)),
+			"tests/integrations/%s exists" % name)
+
+
 ## The docs are the single source of truth: every doc under docs/ is indexed by docs/README.md, and
 ## the root holds no service contract. The service doc names its facade and its tests.
 func _check_docs_index(files: Array[String]) -> void:
@@ -720,6 +769,7 @@ func _check_docs_index(files: Array[String]) -> void:
 		["docs/hud.md", "hud/service.gd", "tests/hud/"],
 		["docs/settings.md", "settings/service.gd", "tests/test_settings.gd"],
 		["docs/act_facts.md", "shared/act_facts.gd", "tests/act_facts/"],
+		["docs/integrations.md", "integrations/service.gd", "tests/integrations/"],
 		["docs/perf.md", "shared/perf.gd", "tests/perf/"],
 		["docs/perf.md", "shared/perf_idle.gd", "tests/perf/"],
 		["docs/debug.md", "debug/service.gd", "tests/"],

@@ -48,8 +48,6 @@ var _base_kiss_affection: Node
 var _base_kiss_pose: SkeletonModifier3D
 var _base_kiss_pose_index := -1
 var _base_kiss_excitement: Node
-var _base_kiss_beat: Timer
-var _base_kiss_beat_paused := false
 var _kiss_forelegs_planted := false
 var _kiss_saved_rear := 1.0
 var _kiss_saved_hooves := 1.0
@@ -196,8 +194,9 @@ func _restore_base_kiss_pose() -> void:
 	facts.call_value(facts.keep_chin_last)
 
 
-## A base kiss otherwise triggers the stock unicorn horn sparkle and flutter beat. Keep the beat
-## paused for the kiss so a kiss does not read as spellcasting.
+## A base kiss otherwise triggers the stock unicorn horn sparkle and flutter beat. Hold the shared
+## act-level Beat so the kiss does not read as spellcasting; the runtime restores it after the last
+## holder releases.
 func _suppress_base_kiss_excitement() -> void:
 	if is_instance_valid(_base_kiss_excitement) or not is_instance_valid(pony):
 		return
@@ -205,20 +204,15 @@ func _suppress_base_kiss_excitement() -> void:
 	if not excitement is Node:
 		return
 	_base_kiss_excitement = excitement as Node
-	var beat: Variant = _base_kiss_excitement.get_node_or_null("Beat")
-	if beat is Timer:
-		_base_kiss_beat = beat as Timer
-		_base_kiss_beat_paused = _base_kiss_beat.paused
-		_base_kiss_beat.paused = true
+	if facts != null and facts.has_method("hold_beat"):
+		facts.call("hold_beat", "kiss")
 	_base_kiss_excitement.set("_until", 0.0)
 
 
 func _restore_base_kiss_excitement() -> void:
-	if is_instance_valid(_base_kiss_beat):
-		_base_kiss_beat.paused = _base_kiss_beat_paused
-	_base_kiss_beat = null
+	if facts != null and facts.has_method("release_beat"):
+		facts.call("release_beat", "kiss")
 	_base_kiss_excitement = null
-	_base_kiss_beat_paused = false
 
 
 func _kiss_visible() -> bool:

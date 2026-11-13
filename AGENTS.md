@@ -18,6 +18,7 @@ restate a contract.
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
+| `shared/integrations.gd` | `docs/integrations.md` |
 | `shared/act_face.gd` | `docs/face.md` |
 | `shared/act_history.gd` | `docs/summary.md` |
 | `shared/act_motion.gd` | `docs/camera.md` |
@@ -39,6 +40,7 @@ restate a contract.
 | `hud/**` | `docs/hud.md` |
 | `initiation/**` | `docs/initiation.md` |
 | `input/**` | `docs/input.md` |
+| `integrations/**` | `docs/integrations.md` |
 | `kiss/**` | `docs/kiss.md` |
 | `lines/**` | `docs/lines.md` |
 | `memory/**` | `docs/memory.md` |

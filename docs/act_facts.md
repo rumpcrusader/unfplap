@@ -108,12 +108,13 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `pose_host` | the node that answers the Anon pose-driver write-backs |
 | `cuddle_active`, `free_of_affection`, `can_offer` | the start gates |
 | `pause_face_turn`, `restore_face_turn` | the scene hold |
+| `hold_excitement`, `release_excitement` | the act-level excitement Beat hold |
 
 Helper methods: `perf()`, `write_log()`, `smack_body_coat()`, `touch()`, `smack_hit()`,
 `kiss_controller()`, `neck_midpoint()`, `write_look()`, `write_forced_glance()`,
 `mark_camera_basis_ready()`, `clock()`, `call_value()`, `missionary_body()`, `feature()`,
 `standing_camera_controller()`, `pose_driver()`, `driver_host()`, `offer_allowed()`,
-`pause_face()`, `restore_face()`.
+`pause_face()`, `restore_face()`, `hold_beat()`, `release_beat()`.
 
 ## Rules
 

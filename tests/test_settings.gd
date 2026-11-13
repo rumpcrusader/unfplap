@@ -11,6 +11,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
+const INTEGRATIONS := preload("res://mods/unfplap/shared/integrations.gd")
 
 var failures := 0
 var checks := 0
@@ -44,6 +45,7 @@ func run() -> void:
 	_check_sections()
 	_check_groups()
 	_check_panels()
+	_check_integrations_panel()
 	_check_section_folding()
 	_check_migration()
 	_check_placement_migration()
@@ -73,11 +75,13 @@ func _check_registry() -> void:
 		# An empty group is legal: the setting then has no section heading.
 		if str(setting.label).is_empty() or str(setting.help).is_empty():
 			complete = false
-		if str(setting.tab) not in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
+		if str(setting.tab) not in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD,
+				SETTINGS.INTEGRATIONS]:
 			complete = false
 		tabs[setting.tab] = int(tabs.get(setting.tab, 0)) + 1
 	check(complete, "every setting has a unique name and path, a label, help and tab")
-	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
+	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD,
+			SETTINGS.INTEGRATIONS]:
 		check(int(tabs.get(tab, 0)) > 0, "%s tab has settings" % tab)
 	check(SETTINGS.by_name("hud_readouts") != null, "a setting is reachable by name")
 	check(SETTINGS.by_path("features.hud_readouts") != null, "a setting is reachable by path")
@@ -97,6 +101,8 @@ func _check_defaults() -> void:
 	check(near(float(SETTINGS.tail_tilt_deg.default), 0.0) and bool(SETTINGS.tail_tilt_deg.debug),
 		"the default tail tilt is a debug number at zero")
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
+	check(bool(SETTINGS.kissing_reactions.default),
+		"the Kissing reaction bridge defaults on")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
 		"auto pace keeps its contract bounds")
 
@@ -378,6 +384,28 @@ func _check_section_folding() -> void:
 	list.free()
 
 
+## The catalog-driven tab lists every supported mod, even one that is not installed, with the
+## version this adapter was verified with and every declared flag.
+func _check_integrations_panel() -> void:
+	var list := VBoxContainer.new()
+	SETTINGS_UI.build_integrations(list, 16, null, Callable())
+	var labels: Array = []
+	_collect_labels(list, labels)
+	var providers: Array[Dictionary] = INTEGRATIONS.all()
+	check(not providers.is_empty(), "the Integrations tab has a provider")
+	for provider: Dictionary in providers:
+		var title := "%s by %s" % [str(provider.get("mod_name", "")),
+			str(provider.get("author", ""))]
+		check(labels.has(title), "the Integrations tab names %s" % title)
+		var version := "Verified with version: %s" % str(provider.get("verified_version", ""))
+		check(labels.has(version), "the Integrations tab shows %s" % version)
+	for setting: SETTINGS.Setting in SETTINGS.tab_settings(SETTINGS.INTEGRATIONS):
+		check(labels.has(setting.label),
+			"the Integrations tab draws %s" % setting.name)
+	check(not labels.has("Debug"), "the Integrations tab has no Debug section")
+	list.free()
+
+
 func _check_panel_tab(tab: String, debug_on: bool) -> void:
 	var list := VBoxContainer.new()
 	var owner := Node.new()
@@ -563,7 +591,7 @@ func _check_api_names() -> void:
 		"section_open", "set_section_open", "flag", "num", "choice", "list", "data", "reload_file",
 		"preferences", "pose", "template_for", "get_bool", "set_bool",
 		"get_num", "set_num", "get_choice", "set_choice", "get_list", "set_list", "build",
-		"build_actions"]
+		"build_actions", "build_integrations"]
 	var clashes: Array = []
 	for name: String in names:
 		if ClassDB.class_has_method("GDScript", name):

@@ -206,11 +206,12 @@ prefixes pre-emptively.
   profile template, `ui.sections` and the shipped per-mare placement rows), detached and with no
   player values. `SETTINGS.data()` returns that base with the player's values merged on top,
   detached. These are the only two loaders; `_shipped()` is internal.
-- On load, the player file is migrated, merged over the defaults (the player wins, and an absent
-  player key is filled from the default) and written back. Every shipped default is therefore
-  materialised in the player file on first run. **A changed shipped default is a migration event
-  for an existing player**: their materialised value keeps winning. Promote a player value into the
-  shipped document with `scripts/settings_sync.py`; see `.opencode/skills/sync-settings/SKILL.md`.
+- On mod load, `main._ready()` calls `SETTINGS.load_settings()` before any getter: the player file
+  is parsed, migrated, merged over the defaults (the player wins, and an absent player key is
+  filled from the default) and written back once. Every shipped default is therefore materialised
+  in the player file on first run. **A changed shipped default is a migration event for an existing
+  player**: their materialised value keeps winning. Promote a player value into the shipped
+  document with `scripts/settings_sync.py`; see `.opencode/skills/sync-settings/SKILL.md`.
 - A player editing their own `settings.json` is never an error; the merge fills absent keys. A
   missing or malformed value in `settings/defaults.json` is a **shipped-data** error: `_shipped()`
   logs the first problem, `defaults()` and `data()` return an empty document, `_load()` refuses to
@@ -233,12 +234,20 @@ prefixes pre-emptively.
 - `anatomy.reseat_tails`, `anatomy.dock_style` and the tail/dock placement behavior are in
   `docs/anatomy.md`. The settings layer owns only their paths, defaults and the placement
   migration above.
-- `settings/service.gd` owns the player file. It parses once per process into `_cache`, writes on
-  save, and `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat
-  reads are cached per generation, so a per-frame read is cheap.
+- `settings/service.gd` owns the player file. `SETTINGS.load_settings()` parses it once per
+  process into `_cache` and writes the merged result; the typed getters only read the
+  generation-cached flat table, so a per-frame read never touches the disk. `SETTINGS.reload_file()`
+  re-reads the player file immediately; the settings page calls it when it opens.
+- A write goes `Setting.set_value()` → `_store()` → `_sanitize()` → `_write_path()` → `_write()` →
+  `_write_file()`. `_write_file()` writes a temporary file and renames it, falling back to a direct
+  write. When both routes fail it logs the path and both errors; `_write()` adds that the new value
+  is live in memory but was not saved. The live cache keeps the edit either way.
 - **Migrations.** The player file carries `version`. Add a step to `_migrate()` for a structural
   change and bump `SCHEMA_VERSION`; a current file skips the chain. The old normalisers (pose ids,
-  feature names, presentation split, tolerance tiers, prompts, anatomy keys) run inside it.
+  feature names, presentation split, tolerance tiers, prompts, anatomy keys) run inside it. When a
+  migration actually changes the player document, `_load()` logs the schema change and the concrete
+  changed, added and removed leaf paths; a fresh profile and a current file stay silent. The log
+  runs before the defaults merge, so materialising a default is not reported as a migration.
 - **Deprecations.** Declare a retired setting next to its replacement:
 
   ```gdscript
@@ -268,7 +277,7 @@ prefixes pre-emptively.
 
 - Scope: world
 - Constructed by: `main._ready()`
-- Begin: registry load
+- Begin: `SETTINGS.load_settings()` — registry, shipped defaults and the player file
 - End: process exit
 - Idempotent: yes
 
@@ -283,12 +292,13 @@ Player settings: `user://mods/data/unfplap/settings.json`
 plus `version`, `ui.sections`, the `default` template, `characters` overrides and the per-mare
 `anatomy.placement` rows.
 
-The player file is read once per process into memory (`SETTINGS._cache`) and written only when a
-value changes or the merged document differs from the file. A read shares that cached view and must
-not mutate it; every setter starts from a detached copy and ends at `_write()`, so a failed write
-never leaves a half-applied edit in the live cache. Opening the Unfplap settings tab calls
-`SETTINGS.reload_file()`, so a hand-edited player file applies when the tab opens; otherwise it
-needs a restart. The shipped document never reloads mid-process.
+The player file is loaded once at mod load (`SETTINGS.load_settings()`) and kept in memory
+(`SETTINGS._cache`); it is written when a value changes or the merged document differs from the
+file. A read shares that cached view and must not mutate it; every setter starts from a detached
+copy and ends at `_write()`, so a failed write never leaves a half-applied edit in the live cache
+and the failure is logged. Opening the Unfplap settings tab calls `SETTINGS.reload_file()`, which
+re-reads the player file immediately, so a hand-edited file applies when the tab opens; otherwise
+it needs a restart. The shipped document never reloads mid-process.
 
 Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `controls`, `features`,
 `relationship`, `thrust`, `auto_thrust`, `caress`, `jiggle`, `camera_thrust`, `presentation`,

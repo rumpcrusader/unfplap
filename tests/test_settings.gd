@@ -42,6 +42,7 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 
 func run() -> void:
+	_check_load()
 	_check_registry()
 	_check_shipped_defaults()
 	_check_bounds()
@@ -60,6 +61,7 @@ func run() -> void:
 	_check_integrations_panel()
 	_check_section_folding()
 	_check_migration()
+	_check_migration_diff()
 	_check_placement_migration()
 	_check_api_names()
 	_check_profiles()
@@ -700,6 +702,12 @@ func _check_debug_actions() -> void:
 	main.free()
 
 
+## The player file loads eagerly and reports the shipped document's health.
+func _check_load() -> void:
+	check(SETTINGS.load_settings(), "the shipped defaults document loads")
+	check(not SETTINGS.data().is_empty(), "the player file is merged at load")
+
+
 ## A save from an older build migrates once; a retired key maps or is erased.
 func _check_migration() -> void:
 	var old: Dictionary = SETTINGS._migrate({"version": 0, "anatomy": {
@@ -852,13 +860,30 @@ func _check_migration() -> void:
 		"a live neighbour of a retired key is kept")
 
 
+## The migration log is a leaf-path diff: changed, added and removed paths, with `version` ignored.
+func _check_migration_diff() -> void:
+	var before := {"version": 3, "controls": {"act_key": "o"}, "thrust": {"travel": 0.5},
+		"old": {"radius": 0.4}}
+	var after := {"version": 9, "controls": {"act_key": 54.0}, "thrust": {"travel": 0.5},
+		"jiggle": {"radius": 0.4}}
+	var diff := SETTINGS._migration_diff(before, after)
+	check(diff["changed"] == ["controls.act_key"], "the diff names a changed leaf")
+	check(diff["added"] == ["jiggle.radius"], "the diff names an added leaf")
+	check(diff["removed"] == ["old.radius"], "the diff names a removed leaf")
+	check(not (diff["changed"] as Array).has("version") and not (diff["added"] as Array).has("version"),
+		"the schema version is not a migration change")
+	var empty := SETTINGS._migration_diff({}, {})
+	check((empty["changed"] as Array).is_empty() and (empty["added"] as Array).is_empty()
+		and (empty["removed"] as Array).is_empty(), "an unchanged document has no changes")
+
+
 ## A script constant resolves a built-in before a same-named static function, so an API name that
 ## exists on Script/GDScript would silently call the built-in instead of ours.
 func _check_api_names() -> void:
 	var names := ["all_settings", "by_name", "by_path", "tab_settings", "groups", "act_snapshot",
 		"get_value_at", "set_value_at", "default_at",
 		"section_open", "set_section_open", "flag", "num", "choice", "list", "data", "defaults",
-		"reload_file",
+		"load_settings", "reload_file",
 		"preferences", "pose", "template_for", "get_bool", "set_bool",
 		"get_num", "set_num", "get_choice", "set_choice", "get_list", "set_list", "build",
 		"build_actions", "build_integrations"]

@@ -23,9 +23,8 @@ compares and then either promotes a value into that file or keeps the local valu
 - `python3` must be on `PATH`. No Godot process is needed.
 - If the command was given `--dry-run`, add it to the `promote` call and stop after the report.
 - If it was given `--settings PATH`, pass it to every call.
-- Never sync these paths: the list is `.opencode/skills/sync-settings/never_sync.json`
-  (`debug_mode`, `debug_perf`, `anatomy.anatomy_mode`). The tool prints the names and refuses to
-  promote them. The user can add paths.
+- Never sync these paths: the list is `.opencode/skills/sync-settings/never_sync.json`. The tool
+  prints the names and refuses to promote them. The user can add paths.
 
 ## 1. Diff
 

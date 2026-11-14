@@ -164,10 +164,10 @@ func _debug_block(title: String, rows: Array) -> void:
 func _ready() -> void:
 	process_priority = 100
 	set_process(true)
-	# The shipped defaults document is the only source of every declared default. A broken
-	# document is a build error: log it once and install no hooks so the mod cannot run on a
-	# partial profile. The settings module already named the first offending path.
-	if SETTINGS.defaults().is_empty():
+	# Load, migrate, merge and write the player file before any getter runs: the hot read path
+	# must never touch the disk. A broken shipped document is a build error, so log it once and
+	# install no hooks; the settings module already named the first offending path.
+	if not SETTINGS.load_settings():
 		push_error("unfplap: shipped settings defaults are invalid; the mod is not loading")
 		set_process(false)
 		return

@@ -326,7 +326,7 @@ static func _bind(s: Setting, n: String, path: String, label: String, help: Stri
 	# Not a per-instance module reference: an inner class cannot see the outer script's statics,
 	# so each setting carries the two calls it needs.
 	s._get = func() -> Variant: return _setting_value(s)
-	s._set = func(value: Variant) -> void: _setting_write(s, value)
+	s._set = func(value: Variant) -> void: _store(s, value)
 	if _by_path.has(path):
 		push_error("unfplap settings: duplicate path %s" % path)
 	_registry.append(s)
@@ -386,34 +386,34 @@ static func _default_block(prefix: String) -> Dictionary:
 ## `features`, `jiggle`, `camera_thrust` and `presentation` stay dictionaries for the presentation
 ## modules that already consume config dictionaries.
 class ActSnapshot:
-	var features: Dictionary = {}
-	var caress_quality := "precise"
-	var thrust_up := true
-	var thrust_pixels_per_cm := 100.0
-	var thrust_travel := 0.5
-	var max_pony_climaxes := 3
-	var auto_pace := 1.0
-	var auto_max_depth := 0.5
-	var auto_min_depth := 0.0
-	var auto_curve := "cosine"
-	var pelvis_gap_m := 0.025
-	var jiggle: Dictionary = {}
-	var camera_thrust: Dictionary = {}
-	var cue_override_seconds := 10.0
-	var cue_base_stable_s := 2.0
-	var cue_override_stable_s := 0.5
-	var cue_utterance_gap_s := 18.0
-	var cue_demand_gap_s := 28.0
-	var cue_demand_repeat_s := 45.0
-	var cue_max_age_s := 20.0
-	var cue_reaction_max_age_s := 30.0
-	var cue_release_hold_s := 1.0
-	var cue_overwhelmed_s := 1.2
-	var touch_cooldown_s := 4.0
-	var talk_cooldown_s := 8.0
-	var receptive_seconds := 8.0
-	var presentation: Dictionary = {}
-	var climax_mode := "wide"
+	var features: Dictionary
+	var caress_quality: String
+	var thrust_up: bool
+	var thrust_pixels_per_cm: float
+	var thrust_travel: float
+	var max_pony_climaxes: int
+	var auto_pace: float
+	var auto_max_depth: float
+	var auto_min_depth: float
+	var auto_curve: String
+	var pelvis_gap_m: float
+	var jiggle: Dictionary
+	var camera_thrust: Dictionary
+	var cue_override_seconds: float
+	var cue_base_stable_s: float
+	var cue_override_stable_s: float
+	var cue_utterance_gap_s: float
+	var cue_demand_gap_s: float
+	var cue_demand_repeat_s: float
+	var cue_max_age_s: float
+	var cue_reaction_max_age_s: float
+	var cue_release_hold_s: float
+	var cue_overwhelmed_s: float
+	var touch_cooldown_s: float
+	var talk_cooldown_s: float
+	var receptive_seconds: float
+	var presentation: Dictionary
+	var climax_mode: String
 
 
 ## Every act-tunable value in one typed snapshot. `pose_id` selects the presentation block.
@@ -661,13 +661,17 @@ static func _setting_value(s: Setting) -> Variant:
 	return _flat.get(s.path, s.default)
 
 
-static func _setting_write(s: Setting, value: Variant) -> void:
-	_write_setting(s.path, _coerce(s, value))
+## Validate one value against its declaration, then persist it under that declaration's path.
+## The only setter entry point: `Setting.set_value()` lands here.
+static func _store(s: Setting, value: Variant) -> void:
+	var data := _draft()
+	_write_path(data, s.path, _sanitize(s, value))
+	_write(data)
 
 
 ## Validate one value against its setting. Bools take the truthiness, numbers take the contract
 ## bounds unless debug, choices must be an option and lists are filtered to their options.
-static func _coerce(s: Setting, value: Variant) -> Variant:
+static func _sanitize(s: Setting, value: Variant) -> Variant:
 	if s is FlagSetting:
 		return bool(value)
 	if s is NumSetting:
@@ -2618,39 +2622,29 @@ static func bump_placement_revision() -> void:
 static var _placement_draft: Dictionary = {}
 
 
-## Drop the in-memory copy so the next read reloads the file. The settings page calls this when
-## it opens, so a hand-edited settings.json applies without restarting the game.
+## Parse, migrate, merge and write the player file once per process. `main._ready()` calls this
+## before any getter, so the hot read path never touches the disk. Returns false when the shipped
+## document is invalid; the caller then refuses to install the mod.
+static func load_settings() -> bool:
+	if not _loaded:
+		_load()
+	return _shipped_valid
+
+
+## Reload the player file now. The settings page calls this when it opens, so a hand-edited
+## settings.json applies without restarting the game. The shipped document is process-static and
+## is not re-read.
 ## Not named `reload`: `Script` already has `reload()`, and a preloaded script constant resolves
 ## the built-in instead of a same-named static function.
 static func reload_file() -> void:
 	_loaded = false
+	load_settings()
 
 
 ## The merged settings view, detached from the live cache. Public callers (the tools, the suites)
 ## own the copy; the mod's internal readers use `_read()`.
 static func data() -> Dictionary:
 	return _draft()
-
-
-## Write one dotted path (`presentation.standing.smack.raise_m`) and save the file. Private: the
-## public write path is `Setting.set_value()`, which validates against the declaration.
-## Not named `set_path`: `Script` already has `set_path(path)`, and a preloaded script constant
-## resolves the built-in instead of a same-named static function.
-static func _write_setting(path: String, value: Variant) -> void:
-	var data := _draft()
-	var parts := path.split(".", false)
-	if parts.is_empty():
-		return
-	var node: Dictionary = data
-	for index: int in parts.size() - 1:
-		var key := parts[index]
-		var child: Variant = node.get(key)
-		if not child is Dictionary:
-			child = {}
-			node[key] = child
-		node = child
-	node[parts[parts.size() - 1]] = value
-	_write(data)
 
 
 static func aftercare_min(id: String) -> int:
@@ -2734,24 +2728,116 @@ static func _load() -> void:
 		_cache = {}
 		return
 	var path := _path()
-	var data: Dictionary = {}
+	var raw: Dictionary = {}
 	if FileAccess.file_exists(path):
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
-			data = parsed
-	var file_version := int(data.get("version", 0))
-	data = _migrate(data, file_version)
+			raw = parsed
+	var before := raw.duplicate(true)
+	var file_version := int(raw.get("version", 0))
+	var data := _migrate(raw, file_version)
 	# A current file still imports a legacy placement file that appeared after the schema bump
 	# (for example a copied profile); the files are archived after the write below.
 	if file_version >= SCHEMA_VERSION:
 		data = _normalize_anatomy_placement(data)
-	data = _merge(base, data)
 	data = _normalize_act_key(data)
+	_log_migration(path, before, data, file_version)
+	data = _merge(base, data)
 	data["version"] = SCHEMA_VERSION
 	_cache = data
 	placement_revision += 1
 	if _write_file(data):
 		_finish_legacy_placement_import()
+
+
+## Report a migration only when it actually changed the player document. The merge below adds the
+## defaults, which is not a migration, so the diff runs on the migrated player data alone.
+static func _log_migration(path: String, before: Dictionary, after: Dictionary,
+		file_version: int) -> void:
+	var schema_changed := file_version != SCHEMA_VERSION
+	var diff := _migration_diff(before, after)
+	var changed: Array = diff["changed"]
+	var added: Array = diff["added"]
+	var removed: Array = diff["removed"]
+	var total := changed.size() + added.size() + removed.size()
+	if before.is_empty() and after.is_empty():
+		return
+	if not schema_changed and total == 0:
+		return
+	if schema_changed:
+		print("unfplap settings: migrated %s (schema %d -> %d)" % [
+			path, file_version, SCHEMA_VERSION])
+	if total == 0:
+		return
+	print("unfplap settings: %d migration change%s (%d changed, %d added, %d removed)" % [
+		total, "" if total == 1 else "s", changed.size(), added.size(), removed.size()])
+	var rows: Array = []
+	for key: Variant in changed:
+		rows.append("changed %s: %s -> %s" % [str(key), _short_leaf(before, str(key)),
+			_short_leaf(after, str(key))])
+	for key: Variant in added:
+		rows.append("added %s: %s" % [str(key), _short_leaf(after, str(key))])
+	for key: Variant in removed:
+		rows.append("removed %s: %s" % [str(key), _short_leaf(before, str(key))])
+	for index: int in mini(rows.size(), 12):
+		print("  " + str(rows[index]))
+	if rows.size() > 12:
+		print("  … %d more" % (rows.size() - 12))
+
+
+## A leaf-path diff between two settings documents, sorted and excluding the schema version.
+static func _migration_diff(before: Dictionary, after: Dictionary) -> Dictionary:
+	var old := {}
+	var fresh := {}
+	_collect_leaves(before, "", old)
+	_collect_leaves(after, "", fresh)
+	var changed: Array[String] = []
+	var added: Array[String] = []
+	var removed: Array[String] = []
+	for path: String in fresh:
+		if path == "version":
+			continue
+		if not old.has(path):
+			added.append(path)
+		elif not _same_leaf(old[path], fresh[path]):
+			changed.append(path)
+	for path: String in old:
+		if path == "version":
+			continue
+		if not fresh.has(path):
+			removed.append(path)
+	changed.sort()
+	added.sort()
+	removed.sort()
+	return {"changed": changed, "added": added, "removed": removed}
+
+
+static func _collect_leaves(value: Variant, prefix: String, out: Dictionary) -> void:
+	if value is Dictionary:
+		for key: Variant in (value as Dictionary).keys():
+			var name := str(key)
+			_collect_leaves((value as Dictionary)[key],
+				name if prefix.is_empty() else prefix + "." + name, out)
+		return
+	if not prefix.is_empty():
+		out[prefix] = value
+
+
+static func _same_leaf(a: Variant, b: Variant) -> bool:
+	if a is int or a is float:
+		if b is int or b is float:
+			return is_equal_approx(float(a), float(b))
+		return false
+	return a == b
+
+
+## One leaf value read back out of a document for the migration log.
+static func _short_leaf(data: Dictionary, path: String) -> String:
+	var value: Variant = _read_path(data, path, null)
+	if value == null:
+		return "null"
+	var text := JSON.stringify(value)
+	return text if text.length() <= 80 else text.substr(0, 79) + "…"
 
 
 ## The shipped defaults document with the code-owned blocks (the profile template, section state
@@ -3078,6 +3164,8 @@ static func _archive_legacy_placement(path: String) -> void:
 	var target_global := ProjectSettings.globalize_path(target)
 	if DirAccess.rename_absolute(source_global, target_global) != OK:
 		push_warning("unfplap settings: could not archive %s" % path)
+		return
+	print("unfplap settings: archived legacy placement file %s" % path)
 
 
 ## The anatomy used to be a master switch plus an "only during acts" switch; both fold into the
@@ -3217,17 +3305,21 @@ static func _write(data: Dictionary) -> void:
 	_cache = data
 	generation += 1
 	placement_revision += 1
-	_write_file(_cache)
+	if not _write_file(_cache):
+		push_error("unfplap settings: the new value is live in memory but was not saved")
 
 
 ## Write through a temporary file first, so a placement save cannot truncate the whole profile.
-## Returns false only when neither the rename nor the direct fallback could write.
+## Returns false only when neither the rename nor the direct fallback could write, and logs the
+## path with both errors in that case. A rename failure followed by a working direct write is the
+## normal Windows fallback and stays silent.
 static func _write_file(data: Dictionary) -> bool:
 	var path := _path()
 	var folder := path.get_base_dir()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
 	var text := JSON.stringify(data, "\t") + "\n"
 	var temp := path + ".tmp"
+	var temp_error := OK
 	var file := FileAccess.open(temp, FileAccess.WRITE)
 	if file != null:
 		file.store_string(text)
@@ -3237,10 +3329,12 @@ static func _write_file(data: Dictionary) -> bool:
 		if DirAccess.rename_absolute(source_global, target_global) == OK:
 			return true
 		DirAccess.remove_absolute(source_global)
-	# Windows can refuse to rename over an existing file. The direct write is the fallback, not
-	# the normal path.
+	else:
+		temp_error = FileAccess.get_open_error()
 	var direct := FileAccess.open(path, FileAccess.WRITE)
 	if direct == null:
+		push_error("unfplap settings: could not write %s (temp error %d, direct error %d)" % [
+			path, temp_error, FileAccess.get_open_error()])
 		return false
 	direct.store_string(text)
 	direct.close()

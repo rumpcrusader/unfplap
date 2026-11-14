@@ -447,9 +447,11 @@ func _check_summary() -> void:
 ## host callbacks and never the runtime node. Its contract is `docs/afterglow.md`.
 func _check_afterglow() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("afterglow/service.gd"))
-	check(facade.contains("func self_end_tick(") and facade.contains("func close_tick("),
+	check(facade.contains("func close_tick(") and facade.contains("func presentation("),
 		"afterglow facade is present")
-	check(facade.contains("func presentation("), "the afterglow facade owns the presentation row")
+	check(not facade.contains("self_end"), "the afterglow has no self-end roll")
+	check(not facade.contains("bind_action_executor"),
+		"the afterglow does not track the [stay] action")
 	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
@@ -457,8 +459,8 @@ func _check_afterglow() -> void:
 		check(not facade.contains(token), "afterglow has no host reach-in: %s" % token)
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/afterglow.md"))
 	check(not contract.is_empty(), "docs/afterglow.md exists")
-	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Self-end",
-			"## `[stay]` hold", "## Close window", "## Tests"]:
+	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Ending",
+			"## `[stay]` action", "## Close window", "## Tests"]:
 		check(contract.contains(heading), "docs/afterglow.md has %s" % heading)
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(agents.contains("docs/afterglow.md"), "docs/README.md links to docs/afterglow.md")

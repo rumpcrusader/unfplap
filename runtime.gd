@@ -151,7 +151,7 @@ var _cycle_heat := false
 var _climax_left := 0.0
 var _restore_left := 0.0
 var _check_clock := 0.0
-## The act's afterglow phase: self-end roll, `[stay]` hold and the standing close window.
+## The act's afterglow phase: the standing close window and the presentation it asks for.
 ## See `afterglow/service.gd` and `docs/afterglow.md`.
 var _afterglow: RefCounted = AFTERGLOW.new()
 var _player_pony := false
@@ -288,12 +288,7 @@ func _init() -> void:
 	_readiness.on_cue = Callable(self, "_readiness_cue")
 	_summary_service.log = Callable(self, "_log")
 	_afterglow.log = Callable(self, "_log")
-	_afterglow.clock = Callable(self, "_now_s")
-	_afterglow.in_phase = Callable(self, "_afterglow_active")
-	_afterglow.speech_busy = Callable(self, "_speech_busy")
-	_afterglow.player_close = Callable(self, "_player_is_close")
 	_afterglow.caress_active = Callable(self, "_afterglow_caressing")
-	_afterglow.on_end = Callable(self, "end_afterglow")
 	_afterglow.on_stay_close = Callable(self, "_on_stay_close")
 	_face.log = Callable(self, "_log")
 	_face.clock = Callable(self, "_now_s")
@@ -1869,7 +1864,6 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_pause_face_turn()
 	_begin_camera_mode()
 	_missionary_camera_controller().hide_avatar()
-	_bind_action_executor()
 	_start_audio()
 	_apply_voice_policy()
 	_set_inventory_hud_hidden(true)
@@ -3132,20 +3126,8 @@ func lover_prompt_note() -> String:
 	return _lines_service().lover_prompt_note(policy.relations.stage)
 
 
-func _player_is_close() -> bool:
-	return _hand_controller().any_active() or _act_camera.lean_forward >= 0.35 or _act_camera.lean_action_active or _kiss_controller().leaning_close()
-
-func _afterglow_active() -> bool:
-	return state == State.AFTERGLOW
-
 func _afterglow_caressing() -> bool:
 	return _hand_controller().any_active()
-
-## The game's action executor owns `[stay: SECONDS]`. A permitted stay during the afterglow is
-## her agreement to keep the moment going, so pause the self-end roll for that long. The
-## afterglow facade owns the hold; the runtime only finds the game's executor.
-func _bind_action_executor() -> void:
-	_afterglow.bind_action_executor(_director(), _id)
 
 func _enter_afterglow() -> void:
 	_afterglow_begin()
@@ -3174,7 +3156,6 @@ func _afterglow_begin() -> void:
 	_sync_act_facts()
 	_integrations_controller().afterglow()
 	_afterglow.begin(pose_id, _summary_service.summary)
-	_bind_action_executor()
 	cue = ""
 	_readiness.cue_override = ""
 	_readiness.cue_until = 0.0
@@ -3206,11 +3187,9 @@ func _apply_afterglow_presentation(row: Dictionary) -> void:
 func _afterglow_tick(delta: float) -> void:
 	if state != State.AFTERGLOW:
 		return
-	_afterglow.advance(delta)
 	# integration: keep the optional bed-body part tracking through afterglow.
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.afterglow_tick(delta)
-	_afterglow.self_end_tick(delta)
 	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
 		return
 	_afterglow.close_tick(delta)

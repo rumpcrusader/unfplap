@@ -1,6 +1,6 @@
 extends SceneTree
-## The afterglow facade (self-end roll, `[stay]` hold and the standing close window) plus the
-## runtime HUD surfaces that read it.
+## The afterglow facade (the standing close window and its reward) plus the runtime HUD surfaces
+## that read it.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/afterglow/test_afterglow.gd
 
@@ -15,31 +15,11 @@ var checks := 0
 
 
 class Host extends RefCounted:
-	var now := 100.0
-	var in_phase := true
-	var busy := false
-	var close := false
 	var caressing := false
-	var ended := 0
 	var rewards: Array = []
-
-	func clock_now() -> float:
-		return now
-
-	func is_in_phase() -> bool:
-		return in_phase
-
-	func is_busy() -> bool:
-		return busy
-
-	func is_close() -> bool:
-		return close
 
 	func is_caressing() -> bool:
 		return caressing
-
-	func end_phase() -> void:
-		ended += 1
 
 	func stay_close(caressed: bool, reward: bool) -> void:
 		rewards.append({"caressed": caressed, "reward": reward})
@@ -59,12 +39,7 @@ func check(ok: bool, text: String) -> void:
 func _facade(pose: String) -> Dictionary:
 	var host := Host.new()
 	var phase: RefCounted = AFTERGLOW.new()
-	phase.clock = Callable(host, "clock_now")
-	phase.in_phase = Callable(host, "is_in_phase")
-	phase.speech_busy = Callable(host, "is_busy")
-	phase.player_close = Callable(host, "is_close")
 	phase.caress_active = Callable(host, "is_caressing")
-	phase.on_end = Callable(host, "end_phase")
 	phase.on_stay_close = Callable(host, "stay_close")
 	phase.begin(pose, {"reward": true})
 	return {"phase": phase, "host": host}
@@ -112,35 +87,6 @@ func run() -> void:
 	check(near(pink_runtime.hud_y_pink(), HUD_LINES.Y_END_TINT_MAX),
 		"missionary keeps the capped climax shade")
 	pink_runtime.free()
-
-	check(AFTERGLOW.self_end_chance(true) < AFTERGLOW.self_end_chance(false),
-		"holding her lowers the self-end chance")
-
-	var held := _facade("standing")
-	var held_phase: RefCounted = held["phase"]
-	held_phase.elapsed = 100.0
-	held_phase.hold_until = 160.0
-	held_phase.self_end_tick(1.0)
-	check(int(held["host"].ended) == 0, "an accepted stay pauses the self-end roll")
-
-	var early_end := _facade("standing")
-	early_end["phase"].elapsed = 15.0
-	early_end["phase"].self_end_tick(1.0)
-	check(int(early_end["host"].ended) == 0, "no self-end before the minimum time")
-
-	var stayed := _facade("standing")
-	var stayed_phase: RefCounted = stayed["phase"]
-	stayed_phase.executor = FakeExecutor.new()
-	stayed_phase.receive_action({"type": "stay", "status": "accepted"})
-	check(stayed_phase.hold_until > 150.0, "an accepted stay extends the afterglow hold")
-	stayed_phase.executor.free()
-
-	var busy := _facade("standing")
-	busy["phase"].elapsed = 100.0
-	busy["host"].busy = true
-	for i in 50:
-		busy["phase"].self_end_tick(1.0)
-	check(int(busy["host"].ended) == 0, "a talking pony defers the self-end roll")
 
 	var active: Node = _runtime("standing")
 	active.state = 2 # ACTIVE
@@ -239,10 +185,6 @@ func run() -> void:
 	if failures == 0:
 		print("AFTERGLOW_PASS")
 	quit(0 if failures == 0 else 1)
-
-
-class FakeExecutor extends Node:
-	var movement := {"duration_s": 60.0}
 
 
 class FakeWings extends Node:

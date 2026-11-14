@@ -7,18 +7,8 @@
     },
     {
       "service": "afterglow",
-      "func": "bind_action_executor",
-      "signature": "func bind_action_executor(director: Variant, pony_id: String) -> void:"
-    },
-    {
-      "service": "afterglow",
       "func": "presentation",
       "signature": "func presentation() -> Dictionary:"
-    },
-    {
-      "service": "afterglow",
-      "func": "receive_action",
-      "signature": "func receive_action(event: Dictionary) -> void:"
     },
     {
       "service": "anatomy",

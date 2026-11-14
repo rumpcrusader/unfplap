@@ -257,10 +257,12 @@ The optional stretch is a standing pose style, not a new pose id. It is gated by
   `UnfplapPose` (or `UnfplapPresentPose`) runs after it and, in stretch mode, applies only the oral
   neck offset and the head-back lift; the bow, chin/neck, foreleg bend and stance spread are
   skipped. `UnfplapBodySway` runs after both. The debug chin modifier stays last.
-- The presentation attaches its full holder in `_attach_present_pose()`, after the stepping turn
-  away from Anon. It does not start during the ask or during the turn. `_process_tick`'s standing
-  render write calls `sync_stretch()`; the runtime also calls it once after the act integrations
-  begin, before body sway's first pass.
+- The presentation attaches its full holder in `_attach_present_pose()`, after the navigator's
+  `face_point` stepping turn away from Anon (the base-game conversation-circle turn). The turn
+  settles within 45 degrees of directly away and never snaps; once the pose attaches its yaw is
+  locked, so nothing rotates under the planted holder. It does not start during the ask or during
+  the turn. `_process_tick`'s standing render write calls `sync_stretch()`; the runtime also calls
+  it once after the act integrations begin, before body sway's first pass.
 - `poses/body_sway.gd` recaches the hips origin and limb roots through `reset_base()` whenever the
   holder is installed or removed, so sway rocks the stretched plant instead of undoing it.
 - The holder stays through the standing afterglow until `_end_session()` frees it. Teardown
@@ -333,8 +335,9 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
   standing stretch holder and the session API.
 - `tests/poses/test_stretch.gd` — the external script validation, episode choice, ask ramp,
   modifier order, fallback and cleanup.
-- `tests/test_standing_presentation.gd` — the offer gate and the ask-to-presentation stretch
-  handoff, including a live flag edit.
+- `tests/test_standing_presentation.gd` — the offer gate, the navigator stepping turn and its away
+  settle, a blocked turn aborting without a snap, the fallback rotation, and the
+  ask-to-presentation stretch handoff including a live flag edit.
 - `tests/poses/test_pose_asset.gd` — asset version, bone list and bed-space load.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — uniform scale and rest-scale ownership.

@@ -1735,6 +1735,12 @@ func start(pose: String, bed_in: Variant, act_source: String,
 			_log("start refused pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 			refuse(pose, act_source, bed_in, gate)
 		return false
+	# The accepted standing offer may still be stepping her away from Anon. The act start owns
+	# her body and would clear the presentation mid-turn, so wait for the settled pose.
+	if pose == CATALOG.STANDING and presentation_active() and not presentation_settled():
+		_log("start blocked presentation turn pose=%s source=%s pony=%s" % [
+			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		return false
 	_reset_stool_state()
 	_anatomy_refresh()
 	if pose == CATALOG.STANDING:

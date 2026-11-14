@@ -119,7 +119,7 @@ One episode at a time. Each phase waits on its own condition:
 | `ARRIVE` | `2 s` settle with Anon still in range | `ASK` |
 | `BED_APPROACH` | bed front within `1.4 m` or the navigator finishing its path; `25 s` cap | `ASK` |
 | `ASK` | the deadline, an answer, or a physical yes | `PRESENT`, `BED_LEAD`, `INVITE`, or closed |
-| `PRESENT` | the runtime's presentation and its settled check; `5 s` turn cap | `INVITE` |
+| `PRESENT` | the runtime's presentation and its settled check; a turn that never settles closes instead of inviting (`5 s` cap) | `INVITE` |
 | `BED_LEAD` | the bed front; `25 s` cap | `BED_WAIT` |
 | `BED_WAIT` | Anon reclined on the offered bed and the native rest accepting her | `INVITE` |
 | `INVITE` | `Y`, a lost presentation/bed, or `60 s` | closed, with a give-up line on timeout |
@@ -179,8 +179,8 @@ public-offer flag and the resolved result.
 The initial line uses `begin_player_greeting` when the director has it, otherwise one
 `queue_generated_intent` row keyed `unfplap:request:<id>:<serial>:ask`. It records the
 `situation` world-context event and, for a private standing offer, sets the request face. The ask
-itself stays in the normal standing pose: no stretch starts while she is still speaking or turning
-to face Anon. The stretch behavior is in `docs/poses.md`.
+itself stays in the normal standing pose: no stretch starts while she is still speaking or
+stepping away. The stretch behavior is in `docs/poses.md`.
 
 - Reminders are queued at `12 s` and `24 s`, one each, and never repeat a key.
 - The no-reply deadline is `60 s`; after an answer it is `45 s`; after a clarification `30 s`.
@@ -221,17 +221,27 @@ An accept records the accepted situation, then:
 
 The standing presentation is turned with `present_standing()`. It sets the game's
 `affection_active` hold so an AI `[approach]`/`[follow]` from her reply cannot break the pose, and
-`runtime._nav_pose_gate` exempts that hold while `_request_face` is true. The stretch starts only
-in the presentation's `_attach_present_pose()`, after the stepping turn: the variant and side are
-rolled then and stored for the act. Once presenting, her yaw is locked and conversation facing is
-paused, so she does not turn to face Anon while talking. The bed invite does not set the request
+`runtime._nav_pose_gate` exempts that hold while `_request_face` is true.
+
+The accepted turn is the game's own stepping turn: `present_standing()` gives the navigator a
+`face_point` along the away direction, the same turn the base-game conversation circle and idle
+fidget use, and keeps it set through physics and process. She settles once she is away enough
+(within 45 degrees of directly away), not only at an exact 180 degrees. The pose is never attached
+during the turn and the body is never snapped: on settle her current yaw is locked and
+`_attach_present_pose()` blends the pose in on the spot. The optional stretch rolls its variant and
+side at that attach and stores them for the act. A turn that makes no progress for 1.5 s, or runs
+past its 4 s timeout, aborts without a pose; the controller re-presents up to twice before closing
+an offer the player already accepted. Once presenting, her yaw is locked and conversation facing
+is paused, so she does not turn to face Anon while talking. The bed invite does not set the request
 face, because `SharedBedRest.eligible()` rejects `affection_active`.
 
-The standing invitation waits for `presentation_settled()` or the `5 s` cap. If movement breaks
-the present, the controller re-presents twice before ending an offer the player already accepted.
-The invitation is queued once and is valid only while the phase is still `present`, `invite` or
-`bed_wait`, the presentation/bed state holds and `can_show_start()` passes. A `60 s` invitation
-timeout queues one short give-up line and closes with the full cooldown.
+The standing invitation waits for `presentation_settled()`; the `5 s` presentation cap never
+queues an invitation while she is still turning. If movement breaks the present, the controller
+re-presents twice before ending an offer the player already accepted. The invitation is queued
+once and is valid only while the phase is still `present`, `invite` or `bed_wait`, the
+presentation/bed state holds and `can_show_start()` passes. A `60 s` invitation timeout queues one
+short give-up line and closes with the full cooldown. A standing act start is refused while the
+presentation is active and unsettled, so a `Y` press cannot take her body mid-turn.
 
 ## Cancellation
 
@@ -312,8 +322,11 @@ never suggest `[mood:...]`; the face hint is the only expression guidance.
   and the set/clear round trip.
 - `tests/initiation/test_initiation_api.gd`: the facade through `force()` and a fake director and
   runtime — the standing ask, the ask and invite keys, the local yes/no effects, the request
-  face, the deferred presentation after the offer line, the stretch clear, the privacy refusal,
-  the heat override and `cancel_for`/`reset`.
+  face, the deferred presentation after the offer line, the invite gate after the settled
+  presentation, the stretch clear, the privacy refusal, the heat override and `cancel_for`/`reset`.
+- `tests/test_standing_presentation.gd`: the accepted offer against a fake navigator — the
+  `face_point` stepping turn, the away settle, the no-snap abort, the fallback rotation and the
+  ask-to-presentation stretch handoff.
 - `tests/test_consent_classifier.gd`: the shared classifier's local and strict reply parsing.
 - `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the
   adapter private-access boundary and this contract's presence.

@@ -111,6 +111,7 @@ class FakeRuntime extends Node:
 	var face_on := false
 	var stretch_clears := 0
 	var phase := "normal"
+	var start_ok := true
 
 	func offer_verdict(_pose: String, _source: String, _bed: Variant, _forced: bool,
 			verdict: Variant) -> Dictionary:
@@ -120,7 +121,7 @@ class FakeRuntime extends Node:
 		return true
 
 	func can_show_start(_pose: String, _source: String, _bed: Variant) -> bool:
-		return true
+		return start_ok
 
 	func find_bed_under() -> Node3D:
 		return null
@@ -277,6 +278,23 @@ func run() -> void:
 	check(runtime.presented, "heat overrides the privacy reserve")
 	runtime.phase = "normal"
 	game.mares = [target]
+
+	# A closed start gate after the settled presentation closes the accepted offer instead of
+	# inviting her.
+	initiation.reset()
+	game.mares = [target]
+	runtime.phase = "normal"
+	runtime.presented = false
+	runtime.start_ok = false
+	director.state = "idle"
+	initiation.force(runtime, CATALOG.STANDING)
+	director.transcript.emit("yes")
+	initiation.tick(0.0)
+	check(runtime.presented, "the settled presentation starts with a closed start gate")
+	initiation.tick(0.0)
+	check(not runtime.presented and not runtime.face_on,
+		"the closed start gate closes the accepted offer before the invite")
+	runtime.start_ok = true
 
 	# The typed force result replaces the side-channel reason.
 	var missing: INIT.ForceResult = initiation.force(null)

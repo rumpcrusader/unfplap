@@ -1030,7 +1030,13 @@ func _tick_present() -> void:
 	var settled := true
 	if runtime.has_method("presentation_settled"):
 		settled = bool(runtime.call("presentation_settled"))
-	if not settled and now < _episode.present_until:
+	if not settled:
+		# Never invite mid-turn: the invitation waits for the settled pose. The runtime's own
+		# turn timeout aborts the presentation and `_represent_or_cancel()` retries; this cap is
+		# only a last resort against a turn that never settles.
+		if now < _episode.present_until:
+			return
+		_cancel_episode(false, "present turn cap")
 		return
 	if not _queue_invitation():
 		_cancel_episode(false, "invite queue failed")

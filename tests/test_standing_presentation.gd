@@ -1,5 +1,7 @@
 extends SceneTree
-## The standing invitation cannot present a pony whose offer gate has closed.
+## The standing invitation: the accepted offer presents even with the pre-turn offer gate closed,
+## the navigator's face_point owns the turn away, the pose attaches only after the away settle,
+## a blocked turn aborts without snapping, and the external stretch follows the turn.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_standing_presentation.gd
 
@@ -10,6 +12,8 @@ const STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const STRETCH_FAKE := "res://mods/unfplap/tests/fixtures/idle_stretch_fake.gd"
+const AWAY_YAW := PI
+const AWAY_EPSILON := deg_to_rad(45.0)
 
 var failures := 0
 var checks := 0
@@ -22,15 +26,36 @@ class FakeIdentity extends RefCounted:
 	var stallion := false
 
 
+class FakeNavigator extends Node:
+	var face_point := Vector3.INF
+	var conversation_target: Variant = null
+	var stays := 0
+
+	func stay() -> void:
+		stays += 1
+
+	func set_conversation_target(who: Variant, _hold := true) -> void:
+		conversation_target = who
+
+
 class FakePony extends Node3D:
 	var identity: Variant
 	var sleeping := false
 	var skeleton: Variant = null
 	var hair_skeleton: Variant = null
 	var body_scale := 0.66
+	var face_turn_rate := 0.45
+	var actual_speed := 0.0
+	var posture := "stand"
 
 	func is_held() -> bool:
 		return false
+
+	func grounded() -> bool:
+		return true
+
+	func posture_status() -> Dictionary:
+		return {"requested": posture}
 
 
 class FakeMain extends Node:
@@ -62,7 +87,15 @@ func run() -> void:
 
 	var pony := FakePony.new()
 	pony.identity = FakeIdentity.new()
+	pony.global_position = Vector3(0.0, 0.0, 2.0)
 	root.add_child(pony)
+	var body := Skeleton3D.new()
+	body.name = "Body"
+	pony.add_child(body)
+	pony.skeleton = body
+	var nav := FakeNavigator.new()
+	nav.name = "Navigator"
+	pony.add_child(nav)
 
 	var offer_ok := {"value": false}
 	var facts: RefCounted = ACT_FACTS.new()
@@ -78,16 +111,74 @@ func run() -> void:
 	facts.now = func() -> float: return 0.0
 
 	var presentation: Variant = PRESENTATION.new(facts)
-	check(not bool(presentation.call("present_standing")),
-		"a closed offer gate refuses to present")
-
-	offer_ok["value"] = true
 	check(bool(presentation.call("present_standing")),
-		"an open offer gate reaches the presentation path")
+		"an accepted offer presents even with the pre-turn offer gate closed")
+	check(bool(presentation.call("presentation_active"))
+		and not bool(presentation.call("presentation_settled")),
+		"the presentation is active but unsettled while she turns")
+	check(nav.stays == 1, "the turn takes the navigator with one stay")
+	check(nav.face_point.is_finite(), "the turn sets the navigator's face point")
+	check(is_equal_approx(nav.face_point.distance_to(pony.global_position), 4.0),
+		"the face point sits 4 m away")
+	check(nav.face_point.z > pony.global_position.z, "the face point lies along the away direction")
+	check(body.get_node_or_null("UnfplapPresentPose") == null,
+		"no presentation pose exists during the turn")
+	check(pony.face_turn_rate >= 1.5, "the stepping turn raises her face turn rate")
+
+	# The away threshold is reached: hold the reached yaw and attach the pose without snapping.
+	var held_yaw := AWAY_YAW - deg_to_rad(20.0)
+	pony.rotation.y = held_yaw
+	presentation.call("physics", 0.016)
+	check(body.get_node_or_null("UnfplapPresentPose") != null,
+		"the pose attaches once she is away enough")
+	check(bool(presentation.call("presentation_settled")), "the settled pose reports settled")
+	check(nav.face_point == Vector3.INF, "the settled turn releases its face point")
+	check(is_equal_approx(pony.rotation.y, held_yaw), "the settle never snaps her yaw")
+	check(is_equal_approx(pony.face_turn_rate, 0.45), "the settle restores her face turn rate")
 	presentation.call("clear_presentation")
 	check(not bool(presentation.call("presentation_active")),
 		"the fake presentation clears without leaving a pose")
-	await _check_presentation_stretch(presentation, pony, facts)
+	await process_frame
+	check(body.get_node_or_null("UnfplapPresentPose") == null,
+		"clearing frees the presentation pose")
+
+	# A blocked turn stalls: no pose, no snap, and no stale facing target.
+	pony.rotation.y = 0.0
+	var stalled_yaw := pony.rotation.y
+	check(bool(presentation.call("present_standing")), "a blocked turn still starts")
+	for i: int in 4:
+		presentation.call("physics", 0.5)
+	check(not bool(presentation.call("presentation_active")),
+		"a blocked turn aborts instead of waiting forever")
+	check(body.get_node_or_null("UnfplapPresentPose") == null,
+		"an aborted turn attaches no pose")
+	check(is_equal_approx(pony.rotation.y, stalled_yaw), "an aborted turn never snaps her yaw")
+	check(nav.face_point == Vector3.INF, "an aborted turn releases its face point")
+
+	# An unusual actor without navigator or locomotion turn rotates only before the pose attaches.
+	pony.remove_child(nav)
+	pony.rotation.y = 0.0
+	check(bool(presentation.call("present_standing")), "the fallback presents an unusual actor")
+	check(body.get_node_or_null("UnfplapPresentPose") == null,
+		"the fallback keeps the pose off while it turns")
+	var ticks := 0
+	while not bool(presentation.call("presentation_settled")) and ticks < 60:
+		presentation.call("physics", 0.1)
+		ticks += 1
+	check(bool(presentation.call("presentation_settled")),
+		"the fallback settles at the away threshold")
+	check(body.get_node_or_null("UnfplapPresentPose") != null,
+		"the fallback attaches the pose after the settle")
+	check(absf(wrapf(pony.rotation.y - AWAY_YAW, -PI, PI)) <= AWAY_EPSILON,
+		"the fallback stops away enough")
+	check(is_equal_approx(pony.face_turn_rate, 0.45), "the fallback leaves her face turn rate intact")
+	presentation.call("clear_presentation")
+	await process_frame
+
+	pony.add_child(nav)
+	await _check_presentation_stretch(presentation, pony, facts, body)
+	root.remove_child(body)
+	body.free()
 
 	print("STANDING_PRESENTATION_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -97,12 +188,9 @@ func run() -> void:
 
 ## The accepted presentation attaches the external stretch after its turn, survives a live flag
 ## edit, and preserves the episode choice for the act.
-func _check_presentation_stretch(presentation: Variant, pony: FakePony, facts: RefCounted) -> void:
+func _check_presentation_stretch(presentation: Variant, pony: FakePony, facts: RefCounted,
+		body: Skeleton3D) -> void:
 	var before := bool(SETTINGS.idle_life_stretch.get_bool())
-	var body := Skeleton3D.new()
-	body.name = "Body"
-	pony.add_child(body)
-	pony.skeleton = body
 	facts.pony_id = "rarity"
 	facts.mod_enabled = func(_id: String) -> bool: return true
 	facts.keep_chin_last = func() -> void: pass
@@ -111,6 +199,8 @@ func _check_presentation_stretch(presentation: Variant, pony: FakePony, facts: R
 	presentation.call("set_request_face", true)
 	check(bool(presentation.call("present_standing")),
 		"the accepted offer reaches the presentation")
+	pony.rotation.y = AWAY_YAW - deg_to_rad(10.0)
+	presentation.call("physics", 0.016)
 	await process_frame
 	var pose: Node = body.get_node_or_null("UnfplapPresentPose")
 	var holder := _active_holder(body)
@@ -142,8 +232,6 @@ func _check_presentation_stretch(presentation: Variant, pony: FakePony, facts: R
 	SETTINGS.idle_life_stretch.set_bool(before)
 	STRETCH.pose_path = STRETCH.POSE_PATH
 	await process_frame
-	root.remove_child(body)
-	body.free()
 
 
 func _active_holder(body: Skeleton3D) -> Node:

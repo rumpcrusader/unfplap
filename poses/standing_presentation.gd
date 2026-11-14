@@ -12,9 +12,16 @@ const IDLE_STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 
 const PRESENT_TURN_RATE := 2.4
 const PRESENT_FACE_TURN_RATE := 1.5
-const PRESENT_TURN_SETTLE_RAD := 0.06
 const PRESENT_TURN_TIMEOUT_S := 4.0
-const PRESENT_TURN_STALL_S := 0.75
+const PRESENT_TURN_STALL_S := 1.5
+## The navigator's face_point target, the same 4 m the base-game idle fidget uses.
+const PRESENT_TURN_POINT_M := 4.0
+## "Away enough": the stepping turn settles within this of directly away, rather than demanding
+## an exact 180-degree turn.
+const PRESENT_AWAY_RAD := deg_to_rad(45.0)
+const TURN_NAVIGATOR := "navigator"
+const TURN_FACE := "face"
+const TURN_YAW := "yaw"
 ## Safety cap: the invitation owns her body, so no missed end path may leave the pose on forever.
 ## Longer than the invite wait plus the turn.
 const PRESENT_MAX_SECONDS := 75.0
@@ -34,6 +41,9 @@ var _present_turn_last_yaw := 0.0
 var _present_turn_still := 0.0
 var _present_turn_rate_saved := -1.0
 var _present_turn_rate_owned := false
+var _present_turn_nav: Node = null
+var _present_turn_point := Vector3.INF
+var _present_turn_mode := ""
 var _present_pose
 var _present_glance_back := false
 var _present_glance_sign := 1.0
@@ -63,8 +73,9 @@ func present_standing() -> bool:
 	var service: ELIGIBILITY = main.get("eligibility") if is_instance_valid(main) else null
 	if service == null or not service.eligible(pony, ELIGIBILITY.Target.ACT):
 		return false
-	if not facts.offer_allowed(CATALOG.STANDING, ""):
-		return false
+	# No pre-turn offer gate here: she has faced Anon for the ask line, so the rump-sensitive
+	# gate can fail while she is still in front of him. The invite/start gate is rechecked after
+	# the turn, once she is in position.
 	if not _request_face:
 		set_request_face(true)
 	var player: Variant = main.player
@@ -89,16 +100,8 @@ func present_standing() -> bool:
 	_present_started = _present_turn_started
 	_present_turn_last_yaw = pony.rotation.y
 	_present_turn_still = 0.0
-	if pony.has_method("face_direction") and pony.get("face_turn_rate") != null:
-		_present_turning = true
-		_begin_present_turn()
-	else:
-		# Unusual actor without the locomotion turn: keep the old direct-rotation fallback.
-		_present_turning = false
-		_attach_present_pose()
-		facts.pause_face(true)
-	_log("present standing target_yaw=%.2f turn=%s" % [
-		_present_target_yaw, "stepping" if _present_turning else "direct"])
+	_begin_present_turn()
+	_log("present standing target_yaw=%.2f turn=%s" % [_present_target_yaw, _present_turn_mode])
 	return true
 
 
@@ -169,16 +172,54 @@ func _attach_present_pose() -> void:
 
 
 
+## Put the game's own stepping turn in charge of her body. The navigator's `face_point` walks
+## her legs round exactly as it does for the base-game conversation circle and idle fidget; a
+## direct `face_direction` call loses to the navigator's own facing every tick.
 func _begin_present_turn() -> void:
-	if not is_instance_valid(pony) or not pony.has_method("face_direction"):
+	_present_turning = true
+	_present_turn_nav = null
+	_present_turn_point = Vector3.INF
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav != null and "face_point" in nav:
+		_present_turn_mode = TURN_NAVIGATOR
+		_present_turn_nav = nav
+		_present_turn_point = pony.global_position + _present_face_direction * PRESENT_TURN_POINT_M
+		if nav.has_method("stay"):
+			# A pending route would keep the navigator out of its face_point branch.
+			nav.call("stay")
+		_set_turn_nav_facing()
+		_raise_present_turn_rate()
+		return
+	if pony.has_method("face_direction"):
+		_present_turn_mode = TURN_FACE
+		_raise_present_turn_rate()
+		pony.call("face_direction", _present_face_direction)
+		return
+	# Unusual actor without the game's locomotion turn: rotate before the pose attaches, never
+	# after it.
+	_present_turn_mode = TURN_YAW
+	_present_yaw = pony.rotation.y
+
+
+## Re-assert the navigator's face point and keep conversation facing from taking the body back.
+func _set_turn_nav_facing() -> void:
+	if not is_instance_valid(_present_turn_nav) or not _present_turn_point.is_finite():
+		return
+	if "face_point" in _present_turn_nav:
+		_present_turn_nav.set("face_point", _present_turn_point)
+	if _present_turn_nav.has_method("set_conversation_target"):
+		_present_turn_nav.call("set_conversation_target", null, false)
+
+
+func _raise_present_turn_rate() -> void:
+	if _present_turn_rate_owned or not is_instance_valid(pony):
 		return
 	var rate: Variant = pony.get("face_turn_rate")
-	if rate != null:
-		_present_turn_rate_saved = float(rate)
-		_present_turn_rate_owned = true
-		pony.set("face_turn_rate", maxf(_present_turn_rate_saved, PRESENT_FACE_TURN_RATE))
-	pony.call("face_direction", _present_face_direction)
-
+	if rate == null:
+		return
+	_present_turn_rate_saved = float(rate)
+	_present_turn_rate_owned = true
+	pony.set("face_turn_rate", maxf(_present_turn_rate_saved, PRESENT_FACE_TURN_RATE))
 
 
 func _restore_present_turn_rate() -> void:
@@ -188,30 +229,60 @@ func _restore_present_turn_rate() -> void:
 	_present_turn_rate_saved = -1.0
 
 
-
-func _finish_present_turn() -> void:
+## Release every facing request the turn owned. No stale face_point may survive a settle or a
+## cancel.
+func _end_present_turn() -> void:
+	if is_instance_valid(_present_turn_nav):
+		var face: Variant = _present_turn_nav.get("face_point") if "face_point" in _present_turn_nav else null
+		if face is Vector3 and _present_turn_point.is_finite() and (face as Vector3) == _present_turn_point:
+			_present_turn_nav.set("face_point", Vector3.INF)
+		if _present_turn_nav.has_method("set_conversation_target"):
+			_present_turn_nav.call("set_conversation_target", null, false)
+	_present_turn_nav = null
+	_present_turn_point = Vector3.INF
+	_present_turn_mode = ""
 	if is_instance_valid(pony) and pony.has_method("face_direction"):
 		pony.call("face_direction", Vector3.ZERO)
 	_restore_present_turn_rate()
 	_present_turning = false
+	_present_turn_still = 0.0
+
+
+## The away threshold is reached. Hold the yaw the stepping turn actually reached: never snap
+## the body, and attach the pose only now, so no turn happens under the planted pose.
+func _finish_present_turn() -> void:
+	var mode := _present_turn_mode
+	var target := _present_target_yaw
+	var elapsed: float = facts.clock() - _present_turn_started
+	var error := 0.0
 	if is_instance_valid(pony):
-		var error := absf(wrapf(pony.rotation.y - _present_target_yaw, -PI, PI))
-		if error > PRESENT_TURN_SETTLE_RAD:
-			# The stepping turn could not finish (blocked feet, touch, wall). Snap once here
-			# rather than letting the old static-lock path rotate the body under planted feet.
-			var t: Transform3D = pony.global_transform
-			var scale := t.basis.get_scale()
-			t.basis = Basis(Vector3.UP, _present_target_yaw).scaled(scale)
-			pony.global_transform = t
-			_present_yaw = _present_target_yaw
-			_log("present standing turn snap error=%.2f target=%.2f" % [error, _present_target_yaw])
-		else:
-			_present_yaw = pony.rotation.y
-			_present_target_yaw = _present_yaw
-			_log("present standing turn settled yaw=%.2f" % _present_yaw)
+		error = absf(wrapf(pony.rotation.y - target, -PI, PI))
+	_end_present_turn()
+	if is_instance_valid(pony):
+		_present_yaw = pony.rotation.y
+		_present_target_yaw = _present_yaw
+		_log("present standing turn settled mode=%s error=%.2f yaw=%.2f target=%.2f t=%.2f" % [
+			mode, error, _present_yaw, target, elapsed])
 	if not _presenting:
 		_attach_present_pose()
 	facts.pause_face(true)
+
+
+## No pose attaches on an abort: the service sees the presentation inactive and either
+## re-presents or closes the offer.
+func _abort_present_turn(reason: String) -> void:
+	var mode := _present_turn_mode
+	var target := _present_target_yaw
+	var elapsed: float = facts.clock() - _present_turn_started
+	var yaw := 0.0
+	var error := 0.0
+	if is_instance_valid(pony):
+		yaw = pony.rotation.y
+		error = absf(wrapf(yaw - target, -PI, PI))
+	_log("present standing turn aborted mode=%s error=%.2f yaw=%.2f target=%.2f t=%.2f reason=%s" % [
+		mode, error, yaw, target, elapsed, reason])
+	_end_present_turn()
+	clear_presentation()
 
 
 
@@ -235,10 +306,7 @@ func clear_presentation() -> void:
 	# and side. A cancel clears it through `clear_stretch_offer()` before this runs.
 	_finish_present_stretch(false)
 	if _present_turning:
-		if is_instance_valid(pony) and pony.has_method("face_direction"):
-			pony.call("face_direction", Vector3.ZERO)
-		_restore_present_turn_rate()
-		_present_turning = false
+		_end_present_turn()
 	if is_instance_valid(_present_pose):
 		_present_pose.queue_free()
 	_present_pose = null
@@ -298,21 +366,27 @@ func _presentation_physics(delta: float) -> void:
 	facts.pause_face(true)
 
 
-## Turn her with the game's supported standing turn, which steps the hooves. The direct
-## transform write used to rotate the body under planted feet and twisted her legs.
+## Turn her with the game's supported stepping turn, which steps the hooves. The navigator's
+## face_point owns the turn exactly as it does for the base-game conversation circle; the pose
+## attaches only after she is away enough, so nothing rotates under planted feet.
 
 func _presentation_turn_physics(delta: float) -> void:
 	if not _presentation_turn_valid():
-		clear_presentation()
+		_abort_present_turn("turn invalid")
 		return
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav != null:
-		if "face_point" in nav:
-			nav.set("face_point", Vector3.INF)
-		if nav.has_method("set_conversation_target"):
-			nav.call("set_conversation_target", null, false)
-	if is_instance_valid(pony) and pony.has_method("face_direction"):
-		pony.call("face_direction", _present_face_direction)
+	match _present_turn_mode:
+		TURN_NAVIGATOR:
+			_set_turn_nav_facing()
+		TURN_FACE:
+			if is_instance_valid(pony) and pony.has_method("face_direction"):
+				pony.call("face_direction", _present_face_direction)
+		TURN_YAW:
+			_present_yaw = rotate_toward(_present_yaw, _present_target_yaw,
+				PRESENT_TURN_RATE * delta)
+			var t: Transform3D = pony.global_transform
+			var scale := t.basis.get_scale()
+			t.basis = Basis(Vector3.UP, _present_yaw).scaled(scale)
+			pony.global_transform = t
 	var yaw: float = pony.rotation.y
 	if absf(wrapf(yaw - _present_turn_last_yaw, -PI, PI)) < 0.0005:
 		_present_turn_still += delta
@@ -320,10 +394,14 @@ func _presentation_turn_physics(delta: float) -> void:
 		_present_turn_still = 0.0
 		_present_turn_last_yaw = yaw
 	var error := absf(wrapf(yaw - _present_target_yaw, -PI, PI))
-	if error <= PRESENT_TURN_SETTLE_RAD \
-			or _present_turn_still >= PRESENT_TURN_STALL_S \
-			or facts.clock() - _present_turn_started >= PRESENT_TURN_TIMEOUT_S:
+	if error <= PRESENT_AWAY_RAD:
 		_finish_present_turn()
+		return
+	if _present_turn_still >= PRESENT_TURN_STALL_S:
+		_abort_present_turn("turn stalled error=%.2f" % error)
+		return
+	if facts.clock() - _present_turn_started >= PRESENT_TURN_TIMEOUT_S:
+		_abort_present_turn("turn timeout error=%.2f" % error)
 
 
 
@@ -443,9 +521,13 @@ func _present_turn_process() -> void:
 	if not _present_turning or not is_instance_valid(pony):
 		return
 	# Conversation facing can write a target in process after our late physics tick. Reassert
-	# the away direction in process so the next locomotion step keeps turning her back.
-	if pony.has_method("face_direction"):
-		pony.call("face_direction", _present_face_direction)
+	# the away facing so the next navigation step keeps turning her back.
+	match _present_turn_mode:
+		TURN_NAVIGATOR:
+			_set_turn_nav_facing()
+		TURN_FACE:
+			if pony.has_method("face_direction"):
+				pony.call("face_direction", _present_face_direction)
 
 
 

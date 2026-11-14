@@ -36,6 +36,10 @@ const LEGACY_PRESENTATION_KEYS := {
 	"pose1_pitch_deg": "pitch_deg",
 }
 const LEGACY_DROPPED_KEYS := ["pose1_camera", "pose1_side_lean"]
+## One-release migration for the act key, which was a choice string before it became a key
+## capture. The old shipped default `o` moves to the new default; an explicit `y` choice is kept.
+## The setting is new enough that the table can go after this window.
+const LEGACY_ACT_KEYS := {"o": KEY_6, "y": KEY_Y, "6": KEY_6, "7": KEY_7}
 ## One-release migration for the tolerance tier names and their setting paths.
 const LEGACY_TOLERANCE_KEYS := {
 	"timid_warning": "forgiving_warning",
@@ -159,6 +163,10 @@ class FlagSetting extends Setting:
 
 
 class NumSetting extends Setting:
+	func as_hidden() -> NumSetting:
+		hidden = true
+		return self
+
 	var unit := ""
 	var step := 0.0
 	var scale := 1.0
@@ -765,9 +773,9 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 # ======================================================== General
 
 # -- (ungrouped)
-static var act_key := choice("act_key", "controls.act_key", ACT_KEYS.DEFAULT,
-	ACT_KEYS.CHOICES, ACT_KEYS.LABELS, "Act Key",
-	"Key that starts and ends the act.", GENERAL, "")
+static var act_key := num("act_key", "controls.act_key", float(ACT_KEYS.DEFAULT_CODE),
+	"Act Key", "Key that starts and ends the act.", GENERAL, "") \
+	.with_range(1.0, float(ACT_KEYS.MAX_CODE - 1)).as_hidden()
 static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
 	["when_available", "try_luck"], ["When Available", "Try Your Luck"],
 	"Show start button",
@@ -2552,6 +2560,17 @@ static func _normalize_caress_reach(data: Dictionary) -> Dictionary:
 	return data
 
 
+## The act key was a choice string before it became a physical-key capture. Convert the old
+## shipped default `"o"` to the new default and keep an explicit `"y"` (and the short-lived
+## `"6"`/`"7"` choices) as keycodes.
+static func _normalize_act_key(data: Dictionary) -> Dictionary:
+	var value: Variant = _read_path(data, "controls.act_key", null)
+	if value is String:
+		var code := int(LEGACY_ACT_KEYS.get(str(value).to_lower(), ACT_KEYS.DEFAULT_CODE))
+		_write_path(data, "controls.act_key", float(code))
+	return data
+
+
 ## `balanced` folded into `precise`: the caress always snaps to the coat now, so the middle
 ## refresh had no meaning left. A stored `fast` keeps its cheaper refresh.
 static func _normalize_caress_quality(data: Dictionary) -> Dictionary:
@@ -2746,6 +2765,7 @@ static func _load() -> void:
 	if file_version >= SCHEMA_VERSION:
 		data = _normalize_anatomy_placement(data)
 	data = _merge(_defaults(), data)
+	data = _normalize_act_key(data)
 	data["version"] = SCHEMA_VERSION
 	_cache = data
 	placement_revision += 1

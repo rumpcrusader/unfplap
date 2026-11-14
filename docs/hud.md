@@ -27,7 +27,7 @@ without a scene.
 ❤ N/M | cue
 ❤ N/∞ | cue        (0 = unlimited)
 ❤ N/M              (readouts off; hearts stay)
-❤ N/M | Close: O   (afterglow keeps the close prompt with readouts off)
+❤ N/M | Close: 6   (afterglow keeps the close prompt with readouts off)
 ```
 
 An act outside `ACTIVE`/`CLIMAX`/`AFTERGLOW` has no line. The afterglow prefers the close prompt;
@@ -86,8 +86,8 @@ caress. An unlimited limit uses the 3-climax reference.
 - Afterglow shows `❤ N/limit | close hint` instead of `Wants`/`You`. Missionary keeps only the
   act-key row; standing keeps lean, reach, caress, caress movement, kiss and the act-key row;
   thrust, auto and smack are hidden.
-- `set_act_key(label)` swaps the act-key row's cap when the setting changes, so the glyph follows
-  `O`/`Y` without rebuilding the card.
+- `set_act_key(label)` swaps the act-key row's cap when the captured key changes, so the glyph
+  follows any key without rebuilding the card.
 - Captions move to the top of the screen only while an act is in `POSING_IN`, `ACTIVE` or `CLIMAX`
   and only when the game's speech setting is the explicit bottom caption; `captions_on_top`
   defaults to `true`, and afterglow returns them to the bottom. The mod owns this: `main.gd` finds
@@ -104,7 +104,7 @@ outline, and muted `#f4f1ff` at 60% for modifiers. `hud/service.gd` exposes `tex
 `button_icon()` and `prompt_row(icon, text, cap)` as the one style source. The offer hint is
 `OFFER_HINT = "Make love"` in the game's own prompt row: a drawn act-key cap at the row's 52 px
 scale beside 30 px words, placed by `hud.prompt_row()` so it sits beside base prompts. The game
-has no `key_o.png`, so the cap is drawn by `hud.keycap()` at the prompt-row scale. Without that row
+has no `key_6.png`, so the cap is drawn by `hud.keycap()` at the prompt-row scale. Without that row
 (VR or no `InteractionHints`) the same row is built into the HUD's own centered prompt above the
 caption line.
 

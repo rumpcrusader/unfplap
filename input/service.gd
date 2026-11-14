@@ -26,16 +26,16 @@ func _exit_tree() -> void:
 		InputMap.erase_action(ACT_KEYS.ACTION)
 
 
-## Rebuild the mod-owned act action from the `act_key` setting. The game's typing guard stashes
-## every non-`ui_` InputMap action while a text field has focus, so a real action keeps the act key
-## out of chat without a second focus check in the runtime.
+## Rebuild the mod-owned act action from the captured `act_key` keycode. The game's typing guard
+## stashes every non-`ui_` InputMap action while a text field has focus, so a real action keeps the
+## act key out of chat without a second focus check in the runtime.
 func apply_act_key() -> void:
 	if InputMap.has_action(ACT_KEYS.ACTION):
 		InputMap.action_erase_events(ACT_KEYS.ACTION)
 	else:
 		InputMap.add_action(ACT_KEYS.ACTION)
 	var event := InputEventKey.new()
-	event.physical_keycode = ACT_KEYS.key(SETTINGS.act_key.get_choice())
+	event.physical_keycode = ACT_KEYS.code(int(SETTINGS.act_key.get_num()))
 	InputMap.action_add_event(ACT_KEYS.ACTION, event)
 
 

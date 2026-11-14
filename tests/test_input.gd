@@ -1,6 +1,6 @@
 extends SceneTree
-## The act key: the O default, the Y compatibility choice, the mod-owned InputMap action, typing
-## protection and the start route through the input service.
+## The act key: the 6 default, any-key capture, the mod-owned InputMap action, typing protection
+## and the start route through the input service.
 ##
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_input.gd
 
@@ -48,22 +48,23 @@ func run() -> void:
 	quit(0 if failures == 0 else 1)
 
 
-## The pure module and the declaration agree on the two choices.
+## The pure module and the declaration agree on the default and the key label.
 func _check_choices() -> void:
-	check(ACT_KEYS.DEFAULT == "o", "the act key defaults to O")
-	check(ACT_KEYS.CHOICES == ["o", "y"], "the act key offers O and Y")
-	check(ACT_KEYS.label("o") == "O" and ACT_KEYS.label("y") == "Y", "the caps read their key")
-	check(ACT_KEYS.key("y") == KEY_Y, "Y maps to KEY_Y")
-	check(ACT_KEYS.key("sideways") == KEY_O, "an unknown choice falls back to O")
-	check(str(SETTINGS.act_key.default) == ACT_KEYS.DEFAULT, "the setting default is the module default")
-	check(SETTINGS.act_key.options == ACT_KEYS.CHOICES, "the setting options are the module choices")
-	check(SETTINGS.act_key.labels == ACT_KEYS.LABELS, "the setting labels are the module labels")
+	check(ACT_KEYS.DEFAULT_CODE == KEY_6, "the act key defaults to 6")
+	check(ACT_KEYS.label(KEY_6) == "6", "the cap reads its number")
+	check(ACT_KEYS.label(KEY_O) == "O" and ACT_KEYS.label(KEY_Y) == "Y",
+		"any captured key gets its label")
+	check(ACT_KEYS.code(KEY_F) == KEY_F, "a captured key is kept")
+	check(ACT_KEYS.code(0) == KEY_6, "an invalid code falls back to 6")
+	check(int(SETTINGS.act_key.default) == ACT_KEYS.DEFAULT_CODE,
+		"the setting default is the module default")
+	check(bool(SETTINGS.act_key.hidden), "the setting is drawn by the hand-built capture row")
 
 
 ## The action lives in the InputMap, follows the setting and starts the act once.
 func _check_action() -> void:
-	var before := SETTINGS.act_key.get_choice()
-	SETTINGS.act_key.set_choice("o")
+	var before := int(SETTINGS.act_key.get_num())
+	SETTINGS.act_key.set_num(float(KEY_6))
 	var main := FakeMain.new()
 	root.add_child(main)
 	var service := INPUT.new()
@@ -74,17 +75,20 @@ func _check_action() -> void:
 	check(InputMap.has_action(ACT_KEYS.ACTION), "the act action is installed")
 	check(not String(ACT_KEYS.ACTION).begins_with("ui_"),
 		"the act action is stashed by the game's typing guard")
-	check(_action_key() == KEY_O, "the default action is O")
+	check(_action_key() == KEY_6, "the default action is 6")
 
-	SETTINGS.act_key.set_choice("y")
+	SETTINGS.act_key.set_num(float(KEY_Y))
 	service.call("apply_act_key")
-	check(_action_key() == KEY_Y, "the Y choice rebinds the action")
-	SETTINGS.act_key.set_choice("o")
+	check(_action_key() == KEY_Y, "a captured Y rebinds the action")
+	SETTINGS.act_key.set_num(float(KEY_O))
 	service.call("apply_act_key")
-	check(_action_key() == KEY_O, "the O choice rebinds the action back")
+	check(_action_key() == KEY_O, "a captured O rebinds the action")
+	SETTINGS.act_key.set_num(float(KEY_6))
+	service.call("apply_act_key")
+	check(_action_key() == KEY_6, "a captured 6 restores the default")
 
 	var key := InputEventKey.new()
-	key.physical_keycode = KEY_O
+	key.physical_keycode = KEY_6
 	key.pressed = true
 	service.call("_input", key)
 	check(main.starts == 1, "an idle act-key press starts the hinted act")
@@ -110,7 +114,7 @@ func _check_action() -> void:
 	service.queue_free()
 	main.queue_free()
 	runtime.queue_free()
-	SETTINGS.act_key.set_choice(before)
+	SETTINGS.act_key.set_num(float(before))
 	await process_frame
 
 

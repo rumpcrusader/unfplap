@@ -46,7 +46,7 @@ A failure in any step runs `_abort_start()` and the same teardown; it never leav
 
 | Input | Action |
 |---|---|
-| act key (single press, idle) | start the hinted act; `O` by default, `Y` as the compatibility choice |
+| act key (single press, idle) | start the hinted act; `6` by default, captured in the General tab |
 | act key (hold `0.35 s`) | cancel/end early at 0 climaxes; afterglow at 1+; end afterglow |
 | `W` / `S` | lean forward / back |
 | `Q` / `E` | side lean; standing shoulder reach |

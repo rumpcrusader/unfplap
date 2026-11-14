@@ -36,7 +36,7 @@ var _hint_readiness: Label
 var _hint_auto: Label
 var _hint_gap: Control
 var _controls: VBoxContainer
-var _act_key := "O"
+var _act_key := "6"
 var _y_label: Label
 var _finish_label: Label
 var _auto_label: Label
@@ -292,7 +292,7 @@ func show_prompt(text: String, icon_name := "button_y", cap := "") -> void:
 
 ## Swap the act-key row's cap without rebuilding the card when the setting changes.
 func set_act_key(label: String) -> void:
-	var text := label if not label.is_empty() else "O"
+	var text := label if not label.is_empty() else "6"
 	if text == _act_key:
 		return
 	_act_key = text

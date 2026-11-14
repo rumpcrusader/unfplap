@@ -399,19 +399,19 @@ func _on_player(body: Node) -> void:
 		_dance_key_notice()
 
 
-## The bundled Dance Mod owns `Y`; one note when both mods are on and the act key is the default.
+## The bundled Dance Mod owns `Y`; one note when both mods are on and the act key is another key.
 func _dance_key_notice() -> void:
-	if SETTINGS.act_key.get_choice() != ACT_KEYS.DEFAULT:
+	if int(SETTINGS.act_key.get_num()) == KEY_Y:
 		return
 	if not Mods.is_active("dance_mod"):
 		return
 	if is_instance_valid(hud) and hud.has_method("toast"):
-		hud.call("toast", "Dance Mod uses Y; O starts the act.", 5.0)
+		hud.call("toast", "Dance Mod uses Y; %s starts the act." % _act_key_label(), 5.0)
 
 
-## The act key's key cap label, from the setting.
+## The act key's key cap label, from the captured keycode.
 func _act_key_label() -> String:
-	return ACT_KEYS.label(SETTINGS.act_key.get_choice())
+	return ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
 
 
 func _on_pony(pony: Node) -> void:

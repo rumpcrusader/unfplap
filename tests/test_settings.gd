@@ -104,17 +104,38 @@ func _check_registry() -> void:
 		check(SETTINGS.by_name(name) == null, "%s is retired" % name)
 
 
-## The act key is a two-choice setting; a hand-edited unknown value falls back to the default.
+## The act key is a hidden physical-key setting; the General row captures any key.
 func _check_act_key() -> void:
-	var before := SETTINGS.act_key.get_choice()
-	check(str(SETTINGS.act_key.default) == "o", "the act key defaults to O")
-	check(SETTINGS.act_key.options == ["o", "y"], "the act key offers O and Y")
-	SETTINGS.act_key.set_choice("y")
-	check(SETTINGS.act_key.get_choice() == "y", "the Y act key is stored")
-	SETTINGS.act_key.set_choice("sideways")
-	check(SETTINGS.act_key.get_choice() == "y", "an unknown act key is ignored")
-	SETTINGS.act_key.set_choice(before)
-	check(SETTINGS.act_key.get_choice() == before, "the original act key is restored")
+	var before := int(SETTINGS.act_key.get_num())
+	check(int(SETTINGS.act_key.default) == KEY_6, "the act key defaults to 6")
+	check(bool(SETTINGS.act_key.hidden), "the act key is drawn by the hand-built capture row")
+	SETTINGS.act_key.set_num(float(KEY_F))
+	check(int(SETTINGS.act_key.get_num()) == KEY_F, "a captured key is stored")
+	SETTINGS.reload_file()
+	check(int(SETTINGS.act_key.get_num()) == KEY_F, "a captured key survives a reload")
+	var list := VBoxContainer.new()
+	SETTINGS_UI.build(list, SETTINGS.GENERAL, 16, null, Callable())
+	root.add_child(list)
+	var capture := _find_capture(list)
+	check(capture != null, "the General tab has the Act Key capture")
+	if capture != null:
+		capture.call("start_capture")
+		var event := InputEventKey.new()
+		event.physical_keycode = KEY_G
+		event.pressed = true
+		capture.call("_input", event)
+		check(int(SETTINGS.act_key.get_num()) == KEY_G, "the capture stores any key")
+		check(capture.text == "G", "the capture label follows the key")
+	list.queue_free()
+	SETTINGS.act_key.set_num(float(before))
+	check(int(SETTINGS.act_key.get_num()) == before, "the original act key is restored")
+
+
+func _find_capture(node: Node) -> Button:
+	for child: Node in node.find_children("*", "Button", true, false):
+		if child is SETTINGS_UI.KeyCaptureButton:
+			return child as Button
+	return null
 
 
 ## The declared defaults are the values a fresh file would give.

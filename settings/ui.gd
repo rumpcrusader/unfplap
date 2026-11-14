@@ -16,6 +16,7 @@ extends RefCounted
 ## the panel layout.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
 const INTEGRATIONS_CATALOG := preload("res://mods/unfplap/shared/integrations.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
@@ -32,6 +33,47 @@ static var _debug_sections: Array = []
 ## Anatomy tab content that depends on the visibility pill, so Never can grey it out live.
 static var _anatomy_gates: Array = []
 static var _switch_guard := false
+
+
+## The game's own Controls capture, reduced to the one button the mod needs. It owns the key
+## events only while `capturing`; Escape cancels and puts the old label back.
+class KeyCaptureButton extends Button:
+	signal captured(code: int)
+
+	var capturing := false
+	var normal_text := ""
+
+	func _init() -> void:
+		theme_type_variation = "Key"
+		focus_mode = Control.FOCUS_ALL
+		clip_text = true
+		alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	func set_key_text(value: String) -> void:
+		normal_text = value
+		text = value
+
+	func start_capture() -> void:
+		capturing = true
+		text = "Press a key…"
+
+	func _input(event: InputEvent) -> void:
+		if not capturing or disabled or not is_visible_in_tree():
+			return
+		if not event is InputEventKey:
+			return
+		var key := event as InputEventKey
+		if not key.pressed or key.echo:
+			return
+		var code := key.physical_keycode if key.physical_keycode != 0 else key.keycode
+		if code == KEY_ESCAPE:
+			capturing = false
+			text = normal_text
+			get_viewport().set_input_as_handled()
+			return
+		capturing = false
+		captured.emit(code)
+		get_viewport().set_input_as_handled()
 
 
 ## Fill `list` with one tab's settings: the player-facing sections first, then one Debug section at
@@ -232,6 +274,10 @@ static func _add_integration_version(parent: VBoxContainer, provider: Dictionary
 ## One section pass. `prefix` separates the Debug block's section state from the player sections.
 static func _build_sections(list: VBoxContainer, tab: String, prefix: String, settings: Array,
 		font_size: int, page: Node, changed: Callable) -> void:
+	# The act key is a hidden numeric declaration because a capture is not one of the declaration
+	# widgets. It is still the first row of the General tab, with no section heading.
+	if tab == SETTINGS.GENERAL and prefix.is_empty():
+		_build_act_key_row(list, font_size, page, changed)
 	# Settings with no group are not a section: they sit at the top of the tab (or Debug block)
 	# without a heading. A group needs at least three related settings to earn one.
 	var loose: Array = []
@@ -314,6 +360,64 @@ static func _build_missionary_size(parent: VBoxContainer, font_size: int, page: 
 	_size_selector(parent, SETTINGS.size_group, font_size, page, on_size)
 	parent.add_child(values)
 	rebuild.call()
+
+
+## The Act Key row: the hidden `act_key` declaration is a physical keycode, so the generic number
+## widget is skipped and this hand-built capture takes its place.
+static func _build_act_key_row(list: VBoxContainer, font_size: int, page: Node,
+		changed: Callable) -> void:
+	if SETTINGS.act_key == null:
+		return
+	var card := PanelContainer.new()
+	var idle := _row_box(page, false)
+	var hover := _row_box(page, true)
+	card.add_theme_stylebox_override("panel", idle)
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
+	card.mouse_entered.connect(func() -> void:
+		card.add_theme_stylebox_override("panel", hover)
+		_redraw(page))
+	card.mouse_exited.connect(func() -> void:
+		card.add_theme_stylebox_override("panel", idle)
+		_redraw(page))
+	list.add_child(card)
+	var block := VBoxContainer.new()
+	block.add_theme_constant_override("separation", 4)
+	card.add_child(block)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	block.add_child(row)
+	var texts := VBoxContainer.new()
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.add_theme_constant_override("separation", 1)
+	row.add_child(texts)
+	var label := STYLE.label(SETTINGS.act_key.label, "", font_size)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	texts.add_child(label)
+	var help := STYLE.label(SETTINGS.act_key.help, "Faint", font_size - 5)
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	texts.add_child(help)
+	var button := KeyCaptureButton.new()
+	button.add_theme_font_size_override("font_size", font_size - 2)
+	button.custom_minimum_size = Vector2(font_size * 7.0, font_size * 2.0)
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.set_key_text(_act_key_label())
+	if is_instance_valid(page) and bool(page.get("xr")):
+		button.disabled = true
+	button.captured.connect(func(code: int) -> void:
+		SETTINGS.act_key.set_num(float(code))
+		button.set_key_text(_act_key_label())
+		if changed.is_valid():
+			changed.call()
+		_redraw(page))
+	button.pressed.connect(func() -> void:
+		button.start_capture()
+		_redraw(page))
+	row.add_child(button)
+
+
+static func _act_key_label() -> String:
+	return ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
 
 
 ## The dropdown above the per-size rows, drawn in the page's row card. It always uses a dropdown,

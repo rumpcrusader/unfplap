@@ -43,8 +43,9 @@ calls it. The action is a real `InputMap` action rather than a physical keycode 
 game's typing guard (`world/ui/typing_guard.gd`) stashes every non-`ui_` action while a text field
 has focus. A raw `Input.is_physical_key_pressed()` poll would keep firing in chat.
 
-The action has one `InputEventKey` with a `physical_keycode`; `shared/act_keys.gd` maps the setting
-choice to the key and its cap label, and the HUD and native prompt read the same label.
+The action has one `InputEventKey` with a `physical_keycode`; `shared/act_keys.gd` validates the
+captured keycode and turns it into its cap label, and the HUD and native prompt read the same
+label.
 
 ## Data ownership
 
@@ -61,9 +62,18 @@ and the viewport focus owner. It does not store runtime state.
 
 ## Settings
 
-- `act_key` (General, no section heading): the key that starts and ends the act. The default is
-  `O`; `Y` is the compatibility choice for players who turn the bundled Dance Mod off. The
-  declaration in `settings/service.gd` owns the path, default and labels.
+- `act_key` (General, top row, no section heading): the physical key that starts and ends the act.
+  The default is `6`. The declaration is a hidden numeric setting; `settings/ui.gd` draws its
+  hand-built **Act Key** capture row because a key capture is not one of the declaration widgets.
+  Press the row, then press any key; `Esc` cancels. The captured keycode is stored in
+  `settings.json` and `main._apply_settings_changed()` rebuilds the action.
+- `Y` is not special in the setting: it can be captured, but it is the bundled Dance Mod's key, so
+  the mod shows its one-time notice when the act key is not `Y`.
+
+The game's own **Settings → Controls** page is not used. Its `Settings.BINDABLE` and `Settings.TABS`
+are game consts, `Settings.bind_key()` saves and resets only `BINDABLE` actions, and the `Settings`
+autoload cannot be extended by a mod (`mods/README.md`). A mod-owned capture is the only safe path;
+a base-game `register_bindable` API would be needed to put the action on the game page.
 
 A debug action declares its own hotkey in `debug/service.gd` (none today); the action behavior
 belongs to the owning service.
@@ -81,9 +91,9 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 - The input service consumes a key only when an action declares it and the focus is not a text
   field.
 - The act key starts the hinted act with a tap (`main.try_start()`), and holding it during an act
-  is handled by `runtime.gd` (`docs/runtime.md`). The bundled Dance Mod still polls raw `Y`; `O`
-  removes the accidental collision, but a deliberate `Y` during an act is that mod's own check to
-  add.
+  is handled by `runtime.gd` (`docs/runtime.md`). The bundled Dance Mod still polls raw `Y`; the
+  default `6` removes the accidental collision, but a deliberate `Y` during an act is that mod's
+  own check to add.
 
 ## Dependencies
 
@@ -92,12 +102,12 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | debug | `debug/service.gd` | debug action registry |
-| service | settings | `settings/service.gd` | the `act_key` choice |
-| shared | act_keys | `shared/act_keys.gd` | action name, key map and cap labels |
+| service | settings | `settings/service.gd` | the `act_key` keycode |
+| shared | act_keys | `shared/act_keys.gd` | action name, default and cap labels |
 
 ## Tests
 
-- `tests/test_input.gd` — the choice map, the installed action, the live rebind, typing protection
+- `tests/test_input.gd` — the default, the installed action, a captured rebind, typing protection
   and the start route through `main.try_start()`.
 - The manual lab covers act start, end, smack, auto, chat and the seated-player guard.
 - The architecture checker covers the facade-only import rule.

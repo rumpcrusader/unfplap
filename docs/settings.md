@@ -41,7 +41,9 @@ file never reads a live act.
 3. Depend on `settings/service.gd` and use the typed handle.
 
 There is no `<service>/settings.gd` module, no registration call and no second layout list. The
-catalog order is the panel order.
+catalog order is the panel order. A setting whose value cannot be one of the generic widgets is
+declared hidden and drawn by hand in `settings/ui.gd`; `act_key` (a physical-key capture) is the
+player-facing example, and the anatomy placement target is the hidden debug one.
 
 ## Reading and writing
 
@@ -155,8 +157,9 @@ prefixes pre-emptively.
 - Tabs, in panel order: **General** (interface, audio, cycle, thrust, act tuning), **Anatomy**,
   **World** (relationships, cycle, witnesses, pony behaviour), **Characters** (the per-mare form)
   and **Integrations** (supported mods and their switches).
-- General opens with the ungrouped `Act Key` row. It is a normal choice declaration, so it sits at
-  the top of the tab without a section heading.
+- General opens with the **Act Key** capture row. Its `act_key` declaration is a hidden numeric
+  setting (a physical keycode) because a key capture is not one of the declaration widgets;
+  `settings/ui.gd` draws the row by hand. It still has no section heading.
 - Player-facing settings come first in their tab. When **Enable debug** (General's last row) is
   on, the tab ends with one **Debug** section holding that tab's debug settings under the same
   group names. A section name draws one heading; interleaved declarations fold back into it.
@@ -168,6 +171,8 @@ prefixes pre-emptively.
 
 - The declaration's `path` **is** the `settings.json` path; the default is the declaration's value.
   Defaults are generated from the registry, so there is no second defaults table.
+- The old `controls.act_key` choice strings (`o`, `y`) are converted to physical keycodes on load;
+  the old shipped default `o` becomes the new default, and an explicit `y` is kept.
 - `anatomy.placement` is one block with `default.*` (ten debug declarations: anatomy 5, tail 3,
   dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. `shared/anatomy_placement.gd`
   owns the shipped per-mare `MARE_DEFAULTS` (the tuned tail/dock rows) and resolves override,
@@ -443,7 +448,7 @@ value. See `docs/perf.md`.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | act_keys | `shared/act_keys.gd` | act-key choices, key map and labels |
+| shared | act_keys | `shared/act_keys.gd` | act-key default, key map and labels |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | character_preferences | `shared/character_preferences.gd` | character templates |
 | shared | consent | `shared/consent.gd` | consent defaults |

@@ -856,7 +856,7 @@ func _check_migration() -> void:
 ## exists on Script/GDScript would silently call the built-in instead of ours.
 func _check_api_names() -> void:
 	var names := ["all_settings", "by_name", "by_path", "tab_settings", "groups", "act_snapshot",
-		"get_value_at", "set_value_at", "default_at", "to_row",
+		"get_value_at", "set_value_at", "default_at",
 		"section_open", "set_section_open", "flag", "num", "choice", "list", "data", "defaults",
 		"reload_file",
 		"preferences", "pose", "template_for", "get_bool", "set_bool",

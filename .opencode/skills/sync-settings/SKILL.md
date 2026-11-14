@@ -8,175 +8,113 @@ metadata:
 # Unfplap sync settings
 
 Run from the mod repository root (`mods/unfplap`). This is a development tool for the local
-profile, not a player feature. The player's `settings.json` and the anatomy placement are
-outside the repository and are never committed.
+profile, not a player feature. The player's `settings.json` and the anatomy placement are outside
+the repository and are never committed.
 
-`settings/service.gd` remains the one source of shipped defaults. The command only compares and then
-either promotes a value into the matching source default or keeps the local value.
+`settings/defaults.json` is the one source of every declared setting's default. The command only
+compares and then either promotes a value into that file or keeps the local value.
 
 ## 0. Preflight
 
-- The game must be closed. The analyzer refuses to write while a Godot process has this project
-  open.
+- The game must be closed. The tool reads the player's profile and writes the tracked defaults;
+  a live game may be halfway through a save.
 - `git status --short` should be clean or contain only the files this run will touch. Stop and
   ask the user if unrelated work is present.
-- `godot` and `python3` must be on `PATH`.
-- If the command was given `--dry-run`, add it to every analyzer call and stop after the report.
-- If it was given `--settings PATH`, pass it to every analyzer call. Automatic migration needs the
-  standard profile path; with an override, launch the game once instead.
+- `python3` must be on `PATH`. No Godot process is needed.
+- If the command was given `--dry-run`, add it to the `promote` call and stop after the report.
+- If it was given `--settings PATH`, pass it to every call.
 - Never sync these paths: the list is `.opencode/skills/sync-settings/never_sync.json`
-  (`debug_mode`, `debug_perf`, `anatomy.anatomy_mode`). Print the names on every run. The user can
-  add paths; `version` and `ui.sections` are structural and always skipped.
+  (`debug_mode`, `debug_perf`, `anatomy.anatomy_mode`). The tool prints the names and refuses to
+  promote them. The user can add paths.
 
-## 1. Snapshot the shipped defaults
+## 1. Diff
+
+The game materialises the merged defaults into the player's file when it loads, so launch it once
+and close it before diffing; the tool does not run the migration itself.
 
 ```bash
 tmp=$(mktemp -d /tmp/opencode/unfplap-sync.XXXXXX)
-mkdir -p "$tmp/snapshot"
-XDG_DATA_HOME="$tmp/snapshot" godot --headless --xr-mode off --path ../.. \
-  --script res://mods/unfplap/tools/settings_snapshot.gd > "$tmp/snapshot.log" 2>&1
-grep '^SETTINGS_SNAPSHOT ' "$tmp/snapshot.log" | sed 's/^SETTINGS_SNAPSHOT //' > "$tmp/snapshot.json"
+python3 scripts/settings_sync.py diff --project-root ../.. --json "$tmp/plan.json"
 ```
 
-The snapshot is authoritative: it reads the current `settings/service.gd`, `PREFERENCES.DEFAULTS`,
-`shared/pose_catalog.gd`, `shared/character_preferences.gd`, `shared/anatomy_placement.gd` and
-`SETTINGS.DEFAULT_ACT_PROMPTS`.
+The report names the profile and the shipped document, then lists:
 
-## 2. Migrate and analyze
+- `differences`: a shipped path where the player's value differs;
+- `missing`: a shipped path the player's file does not have (the merge fills it; not a difference);
+- `player-only leaves in code-owned blocks`: `default.*`, `characters.*` and per-mare placement
+  rows. These are not in the shipped document yet and are not promotable;
+- `unknown player leaves`: keys with no declaration. Report them; do not promote them.
+
+## 2. Show the comparison
+
+Show the report. Do not dump raw `plan.json`; summarize it. Keep long prompt text truncated in the
+table and use the full value only in the question when needed.
+
+## 3. Ask one question per difference
+
+Use the OpenCode `question` API. One question object per `plan.json` `diffs` entry. Do not ask
+about missing paths, code-owned leaves, unknown leaves or never-sync paths.
+
+- Header: at most 30 characters, e.g. the path's last segment.
+- Question: the full path, the player value and the shipped value.
+- Options:
+  - **Promote** — write the player's value into `settings/defaults.json`.
+  - **Keep** — leave the shipped default and the player value alone.
+
+Ask in one call when the list is small; chunk by top-level block when it is long. Every answer
+still belongs to one path.
+
+## 4. Apply the answers
 
 ```bash
-python3 .opencode/skills/sync-settings/analyze.py --project-root ../.. \
-  --snapshot "$tmp/snapshot.json" --migrate --apply-dead --prune-redundant \
-  --json-out "$tmp/plan.json"
+python3 scripts/settings_sync.py promote <path> [<path> ...] --project-root ../..
 ```
 
-This step:
+- The tool writes the player's value into `settings/defaults.json` at each path and preserves the
+  document's order and tab indentation.
+- It never edits the player's profile: the player already has the value, and the merge keeps it.
+- It refuses a never-sync path, a path the shipped document does not declare, a block path and a
+  path the player does not have.
+- A promoted default applies to fresh profiles and to keys the player does not have. A player who
+  already has the old value keeps it; changing a materialised default is a migration, not a
+  retroactive edit.
 
-- backs up `settings.json`, `anatomy_place.json` and `anon_place.json` before writing;
-- runs the schema migration and the one-time placement import;
-- removes dead player keys and reports their names;
-- removes redundant placement rows that already resolve to the shipped default;
-- reports source dead keys separately (fix those in the template, not the player file);
-- prints `never synced: …`;
-- writes the machine-readable `plan.json`.
+Add `--dry-run` to print the intended writes without touching the file.
 
-If the user only wants to inspect, use `--dry-run`; it writes nothing.
+## 5. Docs
 
-## 3. Show the comparison
-
-Show the report: profile, schema, never-sync names, dead keys, source dead keys, every difference
-with player value, shipped value and source location, and the placement groups. Do not dump raw
-`plan.json`; summarize it. Keep long prompt text truncated in the table and use the full value
-only in the question when needed.
-
-## 4. Ask one question per difference
-
-Use the OpenCode `question` API. One question object per `plan.json` `diffs` entry and per
-`placement_groups` entry. Do not ask about dead keys, source dead keys or never-sync paths.
-
-- Header: at most 30 characters, e.g. the setting label or short path.
-- Question: the full path, the player value, the shipped value, and the source.
-- Options:
-  - **Promote** — write the player's value into the shipped default.
-  - **Keep** — leave the source and the player value alone.
-
-For a placement group:
-
-- `GLOBAL DEFAULT` (the largest group of three or more mares): Promote writes the group values
-  into the ten `anatomy.placement.default.*` declarations.
-- `PER-MARE DEFAULTS`: Promote writes the group values into `MARE_DEFAULTS` in
-  `shared/anatomy_placement.gd` as partial diffs.
-
-Ask in one call when the list is small; chunk by area (General, Anatomy, World, default,
-characters, placement) when it is long. Every answer still belongs to one path or one group.
-
-## 5. Apply the answers
-
-### Global settings
-
-Edit the declaration default in `settings/service.gd` at the reported line. Keep the declaration's style,
-units and bounds. Do not change the player value.
-
-### `default.*`
-
-- `default.preferences.*` → `shared/preferences.gd` `DEFAULTS`
-- `default.act_prompts.*` → `settings/service.gd` `DEFAULT_ACT_PROMPTS`
-- `default.poses.*` → `shared/pose_catalog.gd` `POSE_DEFAULTS`
-- `default.smack_zone_radius` / `aftercare_min` / `cue_gap` / `event_prompts` →
-  `settings/service.gd` `DEFAULT_TEMPLATE`
-
-### `characters.<id>.*`
-
-Edit that mare's block in `shared/character_preferences.gd` `TEMPLATES`. Preserve custom
-`event_prompts`, `poses`, `consent` and `act_prompts` keys. Do not reset the rest of the template.
-
-### Placement
-
-- **Global group**: first change the ten `anatomy.placement.default.*` declarations to the group
-  values, then update the local profile's global default and drop the now-redundant rows:
-
-  ```bash
-  python3 .opencode/skills/sync-settings/analyze.py --project-root ../.. \
-    --snapshot "$tmp/snapshot.json" \
-    --set-placement-default '<group values JSON>' \
-    --drop-placement-ids '<comma-separated ids>'
-  ```
-
-  This is the one promoted case that changes a live player value, because the old global default
-  would otherwise keep overriding the new source default.
-
-- **Per-mare group**: add or merge the group's partial `diff` into
-  `shared/anatomy_placement.gd` `MARE_DEFAULTS`, then drop the player's rows:
-
-  ```bash
-  python3 .opencode/skills/sync-settings/analyze.py --project-root ../.. \
-    --snapshot "$tmp/snapshot.json" --drop-placement-ids '<comma-separated ids>'
-  ```
-
-  If a global group was also promoted, compare the per-mare values against the new global
-  default, not the old one.
-
-- **Keep**: leave the source and the player rows alone.
-
-### Docs
-
-Update the matching contract text in `docs/settings.md` and the owning service doc
-(`docs/readiness.md`, `docs/summary.md`, `docs/poses.md`, `docs/camera.md`, ...). `AGENTS.md` only
-holds the service index. Do not leave an old default in the docs.
+Update the owning doc when the promotion changes a contract: `docs/settings.md` for a declared
+setting, and the service doc (`docs/readiness.md`, `docs/summary.md`, `docs/poses.md`,
+`docs/camera.md`, ...) when the setting belongs to that service. Docs name the setting and its
+bounds, never the shipped value; a default lives only in `settings/defaults.json`.
 
 ## 6. Verify
 
 ```bash
-# No --snapshot: run a fresh snapshot so the verification sees the promoted defaults.
-python3 .opencode/skills/sync-settings/analyze.py --project-root ../.. --dry-run
+python3 scripts/settings_sync.py diff --project-root ../..
 scripts/check.sh --all
-work=$(mktemp -d /tmp/opencode/unfplap-settings.XXXXXX)
-XDG_DATA_HOME="$work" godot --headless --xr-mode off --path ../.. \
-  --script res://mods/unfplap/tests/test_settings.gd
+scripts/test.sh test_settings test_source_hygiene
 scripts/test_all.sh
 ```
 
-The second analysis must show only kept differences and never-sync paths. Dead keys and
-redundant placement rows must be gone. If source dead keys remain, report them; do not silently
-edit a template.
+The second diff must show only kept differences, missing paths, code-owned leaves and never-sync
+names. Unknown player leaves must be gone or reported. If the schema test fails, the shipped
+document and the declarations disagree; fix the document, never the test's expectation.
 
 ## 7. Commit
 
-Stage only the files the run changed. Player profile files are outside the repository. Use one
-commit per area touched:
+Stage only the files the run changed: `settings/defaults.json` and the matching doc. Player
+profile files are outside the repository. Use one commit per area touched:
 
 - `settings: promote local defaults`
-- `settings: promote local character defaults`
-- `anatomy: promote local placement defaults`
+- `anatomy: promote local placement defaults` (phase 2, when placement rows move into the file)
 
-Include the contract docs in the matching commit. Do not push.
+Do not push.
 
 Finish with:
 
 - promoted paths;
 - kept paths;
-- dead keys removed;
-- source dead keys still present;
+- missing paths and unknown leaves still present;
 - never-sync names;
-- backup paths;
 - tests run.

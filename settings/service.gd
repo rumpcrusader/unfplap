@@ -117,32 +117,6 @@ class Setting:
 	func reset() -> void:
 		set_value(default)
 
-	## Tool-only serialization: the settings snapshot and `/sync-settings` consume this shape.
-	## Gameplay code reads the typed accessor instead.
-	func to_row() -> Dictionary:
-		var out: Dictionary = {
-			"kind": "bool" if self is FlagSetting else "num" if self is NumSetting else
-				"choice" if self is ChoiceSetting else "color" if self is ColorSetting else "list",
-			"default": default, "label": label, "help": help, "group": group,
-			"tab": tab, "debug": debug, "hidden": hidden,
-		}
-		if self is NumSetting:
-			var n := self as NumSetting
-			out["unit"] = n.unit
-			out["step"] = n.step
-			out["scale"] = n.scale
-			out["low"] = n.low
-			out["high"] = n.high
-			out["clamp"] = not n.debug
-			out["slider"] = n.slider
-		if self is ChoiceSetting:
-			var c := self as ChoiceSetting
-			out["options"] = c.options
-			out["labels"] = c.labels
-		if self is ListSetting:
-			out["options"] = (self as ListSetting).options
-		return out
-
 	## A debug setting is shown only behind debug mode and never clamps its own value.
 	func as_debug() -> Setting:
 		debug = true

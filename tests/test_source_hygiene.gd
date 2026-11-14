@@ -62,7 +62,6 @@ func run() -> void:
 			"no obsolete extension flag in %s" % path)
 	_check_preloads(files)
 	_check_settings_module(files)
-	_check_sync_snapshot()
 	_check_teardown()
 	_check_hands_isolation()
 	_check_hands_docs()
@@ -145,14 +144,6 @@ func _check_settings_module(files: Array[String]) -> void:
 					print("settings widget %s outside settings/ui.gd: %s" % [widget, path])
 	check(stale.is_empty(), "no file imports the removed tunable shims: %s" % str(stale))
 	check(widget_ok, "only settings/ui.gd and characters_ui.gd create settings widgets")
-
-
-## The sync-settings snapshot must keep the full shipped character templates even though the
-## player's settings file stores only differences.
-func _check_sync_snapshot() -> void:
-	var tool := FileAccess.get_file_as_string(ROOT.path_join("tools/settings_snapshot.gd"))
-	check(tool.contains("SETTINGS.CHARACTER_TEMPLATES"),
-		"the settings snapshot carries the shipped character templates")
 
 
 ## The hands engine must not know a pose. Pose geometry belongs in the path providers; the

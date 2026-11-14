@@ -8,6 +8,8 @@ const ARM := preload("res://mods/unfplap/shared/hands_reach_plan.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SYSTEM := preload("res://mods/unfplap/hands/placement.gd")
 const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
+const ORAL := preload("res://mods/unfplap/hands/paths/oral.gd")
+const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
@@ -542,6 +544,89 @@ func run() -> void:
 	check(not area_right_start.is_empty()
 		and (area_right_start["point"] as Vector3).x > 0.0,
 		"the right area path stays on her right side")
+	# Oral head path: one authored node per hand. The JSON is mare-PoV and Anon faces her, so
+	# his hands read the opposite side.
+	var head_side_left := _json_position(area_areas, "head_side", "left")
+	var head_side_right := _json_position(area_areas, "head_side", "right")
+	check(head_side_left.x < 0.0 and head_side_right.x > 0.0,
+		"the head side JSON is authored from the mare's point of view")
+	var single_path: Variant = PATH.new()
+	for side in ["left", "right"]:
+		check(bool(single_path.call("build_single_area", head_pony, side, "head_side")),
+			"the head side area builds one %s node" % side)
+		var single: Dictionary = single_path.call("single")
+		check(not single.is_empty()
+			and (single.get("position", Vector3.ZERO) as Vector3).distance_to(
+				_json_position(area_areas, "head_side", side)) < 0.005,
+			"the %s head node snaps to the authored vertex" % side)
+		check(str(single.get("region", "")) == "head",
+			"the %s head node uses the head region" % side)
+		check(str(single_path.get("single_mode")) == "palm",
+			"the head side area keeps its palm mode")
+	var oral_pony := NodePony.new()
+	oral_pony._model = head_model
+	oral_pony.skeleton = head_sk
+	oral_pony.head = fake_head
+	head_root.add_child(oral_pony)
+	var oral_path: Variant = ORAL.new()
+	oral_path.call("setup", oral_pony, null)
+	var oral_left: Array = oral_path.call("candidates", "left", {"lean": 0.0})
+	var oral_right: Array = oral_path.call("candidates", "right", {"lean": 0.0})
+	check(oral_left.size() == 1 and oral_right.size() == 1,
+		"the oral path returns one node per hand")
+	if oral_left.size() == 1 and oral_right.size() == 1:
+		var left_candidate: Dictionary = oral_left[0]
+		var right_candidate: Dictionary = oral_right[0]
+		var left_point: Vector3 = left_candidate["point"]
+		var right_point: Vector3 = right_candidate["point"]
+		check(left_point.x > 0.0 and left_point.distance_to(head_side_right) < 0.005,
+			"Anon's left hand holds her right head side")
+		check(right_point.x < 0.0 and right_point.distance_to(head_side_left) < 0.005,
+			"Anon's right hand holds her left head side")
+		check(str(left_candidate.get("region", "")) == "head",
+			"the oral candidate uses the head region")
+		check(str(left_candidate.get("mode", "")) == "palm",
+			"the oral candidate uses the area palm mode")
+		check(absf(float(left_candidate.get("roll", 0.0))) > 0.0
+			and signf(float(left_candidate.get("roll", 0.0)))
+				!= signf(float(right_candidate.get("roll", 0.0))),
+			"the oral palm roll mirrors the hand")
+		var oval_x: Vector3 = left_candidate["oval_x"]
+		var oval_y: Vector3 = left_candidate["oval_y"]
+		var oval_normal: Vector3 = left_candidate["normal"]
+		check(absf(oval_x.dot(oval_y)) < 0.001 and absf(oval_x.dot(oval_normal)) < 0.001,
+			"the oral oval axes are tangent and orthogonal")
+		var leaned: Array = oral_path.call("candidates", "left", {"lean": 1.0})
+		check(leaned.size() == 1
+			and (leaned[0]["point"] as Vector3).is_equal_approx(left_point),
+			"the oral head target ignores the lean")
+		var oral_debug: Array = oral_path.call("debug_world", "left")
+		check(oral_debug.size() == 1, "the oral debug path shows the single node")
+		var oral_engine: Variant = SYSTEM.new()
+		var oral_context := {
+			"oval": Vector2(0.02, 0.03), "phase": 0.0, "hover": 0.02,
+			"clearance": 0.02, "scale": 1.0, "delta": 0.016, "lean": 0.0,
+		}
+		var frame_zero: Transform3D = oral_engine.call("frame", oral_pony, oral_path,
+			"left", oral_context)
+		oral_context["phase"] = PI * 0.5
+		var frame_moved: Transform3D = oral_engine.call("frame", oral_pony, oral_path,
+			"left", oral_context)
+		check(frame_zero.is_finite() and frame_moved.is_finite()
+			and frame_zero.origin.distance_to(frame_moved.origin) > 0.005,
+			"the oral oval phase moves the intended point")
+	var blend_from := Transform3D(Basis(), Vector3.ZERO)
+	var blend_to := Transform3D(Basis(), Vector3(1.0, 0.0, 0.0))
+	check(near(HANDS.caress_oral_blend(blend_from, blend_to, 0.0).origin.x, 0.0),
+		"the oral contact blend starts at the captured frame")
+	check(near(HANDS.caress_oral_blend(blend_from, blend_to,
+		HANDS.CARESS_ORAL_BLEND_S * 0.5).origin.x, 0.5),
+		"the oral contact blend eases over 0.35 s")
+	check(near(HANDS.caress_oral_blend(blend_from, blend_to,
+		HANDS.CARESS_ORAL_BLEND_S).origin.x, 1.0),
+		"the oral contact blend reaches the target at the window end")
+	check(near(HANDS.caress_oral_blend(blend_from, blend_to, 1.0).origin.x, 1.0),
+		"the oral contact blend keeps the target after the window")
 	var stand_pony := NodePony.new()
 	stand_pony._model = body_scene as Node3D
 	stand_pony.skeleton = body_sk

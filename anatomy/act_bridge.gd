@@ -230,6 +230,12 @@ func oral_active() -> bool:
 	return is_instance_valid(act) and bool(act.call("oral_active"))
 
 
+## Re-assert the oral mouth shape after the base game stopped her speech.
+func hold_oral_mouth() -> void:
+	if is_instance_valid(act):
+		act.call("hold_oral_mouth")
+
+
 func finish_pull_out() -> bool:
 	return is_instance_valid(act) and bool(act.call("pull_out_selected"))
 

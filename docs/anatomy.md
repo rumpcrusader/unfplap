@@ -113,7 +113,7 @@ fluid(), idle_discharge(count)
 ```gdscript
 tick(delta, facts), pose_config(config), facing()
 toggle_hole(state), toggle_oral(state), toggle_finish(state)
-oral_active(), pull_out_selected(), finish_out(), finished_inside()
+oral_active(), hold_oral_mouth(), pull_out_selected(), finish_out(), finished_inside()
 opening_normal(), hole_point(), hole_rear()
 on_climax(), on_finish(), withdraw(), afterglow_tick(delta, facts)
 end(), teardown()
@@ -342,6 +342,15 @@ appearance, including the missionary-only fold hack, when the pose id changes.
   `oral_roll` on the live pose config every tick. Releasing the toggle eases her back and blends
   the part target back to the opening as the mix falls; the three pose keys are erased when the
   turn ends.
+- While the turn is live the segment is oral: the runtime keeps the slide, her impact vocal, the
+  wings, the rump blush and the ear twitch, but drops the body plap, the rump/tail jiggle and the
+  standing body sway. The lean is locked (`W`/`S`/`Q`/`E`, the shoulder reach and the `F` lean
+  kiss are inactive) and `A`/`D` caress targets the sides of her head; the hand and camera
+  contracts are `docs/hands.md` and `docs/camera.md`. Her own speech stops: the act line is
+  cancelled, her base-game voice is stopped and `hold_oral_mouth()` re-asserts the `D` viseme
+  after the stop, and her climax reaction line is skipped. The base game's soft kiss plays on a
+  `2.5–4.5 s` idle timer. Bystanders may still speak. Releasing the turn restores the regular
+  standing behaviour.
 - `B` toggles finish in/out in `ACTIVE`/`CLIMAX` when `features.anatomy_finish` is on. The row is
   built in the HUD but hidden until the finish has a visible effect.
 - The oral turn writes the pony's global position. Every exit restores the position the turn
@@ -684,7 +693,8 @@ Current suites:
 - `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive, the wink
   scheduler and the oral anchor step.
 - `tests/anatomy/test_oral_turn.gd`: the turn holds the captured opening, follows the live mouth
-  once settled, returns to the opening on release, and writes then erases the oral pose keys.
+  once settled, returns to the opening on release, writes then erases the oral pose keys and
+  re-asserts the `D` viseme only while the turn is active.
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
   live opening aim, stays on the mouth anchor through oral, and clears the missionary inset
   outside the bed pose.

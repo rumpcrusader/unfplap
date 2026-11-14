@@ -46,6 +46,10 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
   ```
 
 - `LEAN_RAMP_SECONDS = 0.5`, `LEAN_RETURN_SECONDS = 1.6`.
+- During standing oral (`facts.oral_active`) the lean is locked: `Q`/`E` and `W`/`S` are not
+  read, an active `Q`/`E` shoulder reach ends, an active `F` lean kiss releases, and
+  `lean_forward`, `lean_side`, the displayed lean and the sway return to rest. The caress hands
+  still tick and the standing look response still runs; the oral head path is `docs/hands.md`.
 - Camera mapping: forward `0.24 m`; backward `0.08 m` (half); side `0.18 m`; pitch is `6°`
   downward in **both** directions, plus `8°` outward side roll, `3°` side yaw and `1.5°` forward
   roll.
@@ -226,8 +230,8 @@ takes effect when the panel closes.
 
 ## Tests
 
-- `tests/act_camera/test_camera.gd` — lean ramp/return, shot targets, free camera, eye override,
-  look capture and restore, size scales and the afterglow back-off.
+- `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, shot targets, free
+  camera, eye override, look capture and restore, size scales and the afterglow back-off.
 - `tests/poses/test_session.gd` — the pose camera targets and the bed frame the shot reads.
 - `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.
 

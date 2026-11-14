@@ -47,6 +47,12 @@ func _apply(delta: float) -> void:
 	# the outward stroke. The spring gives it inertia instead of following mouse depth directly;
 	# keep the exaggerated amplitude for this review.
 	var target := -clampf(float(depth_value), 0.0, 1.0) * BODY_SWAY_MAX_M
+	# The oral segment keeps her body still: the spring rests at its base and publishes a zero
+	# offset, so Anon's pinned hip does not inherit a stale rock.
+	if bool(facts.oral_active):
+		target = 0.0
+		_offset = 0.0
+		_velocity = 0.0
 	var accel := -SWAY_STIFFNESS * (_offset - target) - SWAY_DAMPING * _velocity
 	_velocity += accel * delta
 	_offset += _velocity * delta

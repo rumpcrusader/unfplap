@@ -75,6 +75,10 @@ The prompt is formatted, then the face note, the code-owned context note, the cu
 the optional speech-feel note and the line-angle note are appended in that order. The
 shared-memory id is marked used only after the line was accepted.
 
+Entering oral ends the act's own lines with `keep_speaking = false`: a queued or already speaking
+act line is cancelled, the runtime stops her base-game voice and re-asserts the oral mouth shape,
+and `_queue_climax_reaction()` queues nothing while oral lasts. Bystanders keep their own turns.
+
 `readiness/service.gd` owns `mood`, `cue` and the override lifetime; the runtime forwards those values and
 sets them on `act_facts` immediately before calling the facade.
 

@@ -64,6 +64,11 @@ A failure in any step runs `_abort_start()` and the same teardown; it never leav
 | hold middle | the debug action wheel; release runs the highlighted action; see `docs/debug.md` |
 | any other key | consumed during an act; `Enter`, `T`, `Esc` and `F1`–`F12` stay live (`docs/input.md`) |
 
+During standing oral, `W`/`S`/`Q`/`E`, the `Q`/`E` shoulder reach and the `F` lean kiss are
+inactive, and `A`/`D` caress places the hands on her head sides. The oral rising edge ends a live
+reach and lean kiss immediately; the camera and hand contracts are `docs/camera.md` and
+`docs/hands.md`.
+
 The debug wheel is desktop-only and does not pause the tree. While it is open the runtime ignores
 mouse motion, so the wheel's virtual reticle cannot thrust or free-look the act. The wheel runs
 the highlighted action and closes when the middle button is released, and normal mouse input
@@ -99,8 +104,9 @@ failed start runs the same function and restores only what it took.
 ## Tick order
 
 - `_physics_process`: `_physics_tick(delta)` — the act timer, the readiness tick, the lines, the
-  history scan, the tolerance, the scene keep-alives, the anatomy tick, the thrust tracker and the
-  presentation modules (wings and mod integrations).
+  history scan, the tolerance, the scene keep-alives, the anatomy tick and its oral gate (speech
+  stop, `D` viseme hold, idle kiss, and the rising-edge reach/lean-kiss release), the thrust
+  tracker and the presentation modules (wings and mod integrations).
 - `_process`: `_process_tick(delta)` — the render-time pose write (which also watches the standing
   stretch toggle), the camera lean and motion, the climax wave, the breath, the face and the HUD.
 - `main._process` calls `active_runtime.apply_camera_motion()` every rendered frame. Keep this
@@ -128,6 +134,9 @@ reads that facade too.
 - `tests/test_runtime_notes.gd` — the prompt forwards.
 - `tests/test_runtime_offer_policy.gd` — the idle hint's policy snapshot, its invalidation keys
   and the fresh gate path.
+- `tests/readiness/test_oral_quiet.gd` — the oral gate: the plap and rump/tail jiggle skip, the
+  kept slide/vocal/wings/blush/ear, the speech stop and `D` viseme hold, the idle kiss timer, the
+  rising-edge reach/lean-kiss release, the climax-line skip and the regular-path regression.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions.
 - The service suites indexed in `docs/README.md`.

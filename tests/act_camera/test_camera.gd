@@ -147,6 +147,7 @@ func run() -> void:
 	_check_session()
 	_check_shot()
 	_check_lean()
+	_check_oral_lean()
 	_check_lock_and_eye()
 	_check_look()
 	_check_free_look()
@@ -289,6 +290,47 @@ func _check_lean() -> void:
 	check(hands.calls.has("reset") and kiss.calls.has("reset"),
 		"the lean reset drops the hands and the kiss")
 	check(near(camera.lean_forward, 0.0), "the lean reset returns to rest")
+
+
+## Oral locks the body: no lean, no Q/E reach and no F lean kiss, while the caress keeps running.
+func _check_oral_lean() -> void:
+	var made := _fixture()
+	var camera: Variant = made["camera"]
+	var facts: Variant = made["facts"]
+	var hands: FakeHands = made["hands"]
+	var kiss: FakeKiss = made["kiss"]
+	var standing: FakeStandingCamera = made["standing"]
+	facts.pose_id = CATALOG.STANDING
+	facts.oral_active = true
+	camera.lean_forward = 0.7
+	camera.lean_side = -0.6
+	camera.lean_view_forward = 0.7
+	camera.lean_view_side = -0.6
+	camera.lean_sway = 0.02
+	camera.side_return_armed = true
+	camera.lean_action_active = true
+	camera.lean_action_kind = "reach"
+	camera.lean_action_side = 0.8
+	hands.calls.clear()
+	kiss.calls.clear()
+	standing.calls.clear()
+	camera.call("oral_lean_tick", 0.1)
+	check(not camera.lean_action_active, "oral ends an active lean action")
+	check(hands.calls.has("end_reach"), "oral releases an active shoulder reach")
+	check(standing.calls.has("clear_glance"), "oral clears the reach glance")
+	check(camera.lean_forward < 0.7 and camera.lean_side > -0.6,
+		"oral returns the lean toward rest")
+	check(near(camera.lean_sway, 0.0), "oral zeroes the idle sway")
+	check(not camera.side_return_armed, "oral drops the side return latch")
+	check(kiss.calls.has("lean_kiss_tick"), "oral runs the lean kiss release")
+	check(hands.calls.has("tick"), "oral keeps ticking the caress hands")
+	check(not hands.calls.has("stop_inputs"), "oral never stops the caress input")
+	check(standing.calls.has("apply_lean_look"), "oral keeps the standing look response")
+	for _i in 200:
+		camera.call("oral_lean_tick", 0.05)
+	check(near(camera.lean_forward, 0.0) and near(camera.lean_side, 0.0)
+		and near(camera.lean_view_forward, 0.0) and near(camera.lean_view_side, 0.0),
+		"oral settles the lean at rest")
 
 
 func _check_lock_and_eye() -> void:

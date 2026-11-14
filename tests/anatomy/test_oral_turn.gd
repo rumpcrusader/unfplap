@@ -34,6 +34,21 @@ class FakeBoop extends Node:
 		return pony.to_global(Vector3(0.0, 1.3, 0.6))
 
 
+class FakeMouth extends Node:
+	var visemes: Array[String] = []
+	var clears := 0
+
+	func set_viseme(letter: String, _blend := -1.0) -> void:
+		visemes.append(letter)
+
+	func clear() -> void:
+		clears += 1
+
+
+class FakeHead extends Node:
+	var mouth: Variant = null
+
+
 class FakePony extends Node3D:
 	var boop_node: Variant
 	var head: Variant = null
@@ -61,15 +76,20 @@ func _rig() -> Array:
 	var boop := FakeBoop.new()
 	var skeleton := Skeleton3D.new()
 	skeleton.add_bone("mHead")
+	var head := FakeHead.new()
+	var mouth := FakeMouth.new()
+	head.mouth = mouth
+	pony.add_child(head)
 	pony.add_child(boop)
 	boop.add_child(skeleton)
 	boop.pony = pony
 	boop.head_skeleton = skeleton
 	pony.boop_node = boop
+	pony.head = head
 	var anatomy := FakeAnatomy.new()
 	root.add_child(pony)
 	root.add_child(anatomy)
-	return [pony, anatomy, boop]
+	return [pony, anatomy, boop, mouth]
 
 
 func _mouth(pony: FakePony, boop: FakeBoop) -> Vector3:
@@ -96,6 +116,7 @@ func run() -> void:
 	var pony: FakePony = rig[0]
 	var anatomy: FakeAnatomy = rig[1]
 	var boop: FakeBoop = rig[2]
+	var mouth_rig: FakeMouth = rig[3]
 	var oral: RefCounted = ORAL.new()
 	var status: Array[String] = []
 	oral.call("setup", pony, anatomy, CATALOG.STANDING,
@@ -110,6 +131,8 @@ func run() -> void:
 	check(is_zero_approx(float(oral.call("mix"))), "a fresh turn starts at zero mix")
 	check((oral.call("anchor") as Vector3).is_equal_approx(opening),
 		"a fresh turn anchors at the opening")
+	check(mouth_rig.visemes == ["D"], "the toggle writes the oral viseme once")
+	check(mouth_rig.clears == 0, "a live turn leaves the mouth open")
 
 	# Still turning: the anchor must not chase her rump around the arc.
 	for i in 3:
@@ -149,6 +172,11 @@ func run() -> void:
 	check(config.has("oral_yaw") and config.has("oral_roll"),
 		"a live turn writes all three oral keys")
 
+	# A speech stop restores the base game's rest viseme, so the live turn re-asserts D.
+	mouth_rig.visemes.clear()
+	oral.call("hold_viseme")
+	check(mouth_rig.visemes == ["D"], "a speech stop re-asserts the oral viseme")
+
 	check(not bool(oral.call("toggle", STATE_ACTIVE)), "the second toggle releases the turn")
 	for i in 5:
 		_step(oral, pony, TURN_STEP_S)
@@ -157,6 +185,10 @@ func run() -> void:
 		"the release returns the anchor to the opening")
 	check(pony.global_position.is_equal_approx(from),
 		"the release restores her position")
+	check(mouth_rig.clears == 1, "the release clears the mouth once")
+	mouth_rig.visemes.clear()
+	oral.call("hold_viseme")
+	check(mouth_rig.visemes.is_empty(), "a released turn does not re-assert the viseme")
 	oral.call("write_pose_delta", config)
 	check(not config.has("oral_pitch") and not config.has("oral_yaw") \
 		and not config.has("oral_roll"), "a finished release erases the oral keys")

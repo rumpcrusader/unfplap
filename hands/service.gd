@@ -8,12 +8,16 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
 const FLANK_PATH := preload("res://mods/unfplap/hands/paths/standing.gd")
 const MISSIONARY_PATH := preload("res://mods/unfplap/hands/paths/missionary.gd")
+const ORAL_PATH := preload("res://mods/unfplap/hands/paths/oral.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")
 const SMACK := preload("res://mods/unfplap/hands/smack.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
 const REACH_HAND_BLEND_S := 0.35
 const REACH_HAND_RELEASE_S := 0.35
+## The oral turn retargets a live caress from the flank to her head side (and back on release).
+## The hand keeps its pose and eases onto the new path over this window.
+const CARESS_ORAL_BLEND_S := 0.35
 ## Standing A/D caress: an oval rub on the flank surface. The oval is wider along the body
 ## than up/down, so the hand reads as stroking instead of drawing a perfect circle.
 const CARESS_SPEED_RAD_S := 3.6
@@ -82,6 +86,18 @@ static func caress_touch_step(seconds: float, active: bool, delta: float) -> Arr
 		left -= CAESS_TOUCH_SECONDS
 		events += 1
 	return [left, events]
+
+
+## Ease a live caress hand from its last contact to the new path target. The hand was already
+## moving, so the oral entry and release keep its pose instead of teleporting it.
+static func caress_oral_blend(from: Transform3D, target: Transform3D,
+		elapsed: float) -> Transform3D:
+	if elapsed <= 0.0:
+		return from
+	if elapsed >= CARESS_ORAL_BLEND_S:
+		return target
+	var t := smoothstep(0.0, 1.0, elapsed / CARESS_ORAL_BLEND_S)
+	return from.interpolate_with(target, t)
 
 
 ## 0 = left cheek, 1 = right cheek, -1 = centered (caller picks at random).
@@ -216,6 +232,10 @@ var _caress_engine: RefCounted
 var _smack_ctl: RefCounted
 var _flank_path: RefCounted
 var _missionary_path: RefCounted
+var _oral_path: RefCounted
+var _caress_oral_was_active := false
+var _caress_oral_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
+var _caress_oral_started := {"L": 0, "R": 0}
 var _debug_draw_mesh: MeshInstance3D = null
 var _debug_draw_depth_mesh: MeshInstance3D = null
 var _debug_immediate: ImmediateMesh = null
@@ -277,7 +297,9 @@ func _caress_tick(delta: float) -> void:
 	var pose := str(facts.pose_id)
 	if pose not in [CATALOG.STANDING, CATALOG.MISSIONARY]:
 		_end_caress()
+		_caress_oral_was_active = false
 		return
+	_caress_oral_tick()
 	# Hold-X auto settings owns A/D and Z/C, so the keys freeze while the layer is open. The
 	# hands keep their current state and the caress keeps scoring; only the input is ignored.
 	var frozen := bool(facts.call_value(facts.auto_panel_open, false))
@@ -328,6 +350,29 @@ func _caress_tick(delta: float) -> void:
 	_caress_touch_tick(delta)
 
 
+## Capture the live hand frame when the oral turn starts or ends, so the hand eases onto the
+## other path instead of snapping. Only a hand that is already caressing gets the blend; a fresh
+## caress start resets the hand through the normal path.
+func _caress_oral_tick() -> void:
+	if facts == null:
+		return
+	var oral := bool(facts.oral_active)
+	if oral == _caress_oral_was_active:
+		return
+	_caress_oral_was_active = oral
+	var driver := _hand_driver()
+	if not is_instance_valid(driver) or not driver.has_method("hand_frame"):
+		return
+	for side: String in ["L", "R"]:
+		if not bool(_caress_active.get(side, false)):
+			continue
+		var hand_side := "left" if side == "L" else "right"
+		var frame: Variant = driver.call("hand_frame", hand_side)
+		if frame is Transform3D and (frame as Transform3D).is_finite():
+			_caress_oral_from[side] = frame
+			_caress_oral_started[side] = Time.get_ticks_msec()
+
+
 ## Count a held caress as one touch per CAESS_TOUCH_SECONDS of contact instead of one per physics
 ## tick. Short taps score nothing; five seconds of rubbing score once.
 func _caress_touch_tick(delta: float) -> void:
@@ -351,6 +396,7 @@ func _end_caress_side(side: String) -> void:
 	_caress_phase[side] = 0.0
 	_caress_logged[side] = false
 	_caress_return_started[side] = 0
+	_caress_oral_started[side] = 0
 
 
 func _end_caress() -> void:
@@ -411,6 +457,13 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 			var t := smoothstep(0.0, 1.0, elapsed / CARESS_RETURN_SECONDS)
 			var from: Transform3D = _caress_return_from[side]
 			target = from.interpolate_with(target, t)
+	var oral_started := int(_caress_oral_started.get(side, 0))
+	if oral_started > 0:
+		var oral_elapsed := float(Time.get_ticks_msec() - oral_started) / 1000.0
+		if oral_elapsed >= CARESS_ORAL_BLEND_S:
+			_caress_oral_started[side] = 0
+		else:
+			target = caress_oral_blend(_caress_oral_from[side] as Transform3D, target, oral_elapsed)
 	if not bool(_caress_logged[side]):
 		_caress_logged[side] = true
 	var driver := _hand_driver()
@@ -460,6 +513,13 @@ func _path_for_pose() -> Variant:
 			_missionary_path.call("setup", pony, facts)
 			_missionary_path.call("reset")
 		return _missionary_path
+	if bool(facts.oral_active):
+		if _oral_path == null:
+			_oral_path = ORAL_PATH.new()
+		if _oral_path.get("pony") != pony:
+			_oral_path.call("setup", pony, facts)
+			_oral_path.call("reset")
+		return _oral_path
 	if _flank_path == null:
 		_flank_path = FLANK_PATH.new()
 	if _flank_path.get("pony") != pony:
@@ -998,6 +1058,11 @@ func reset() -> void:
 		_missionary_path.call("reset")
 	if _flank_path != null:
 		_flank_path.call("reset")
+	if _oral_path != null:
+		_oral_path.call("reset")
+	_caress_oral_was_active = false
+	_caress_oral_from = {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
+	_caress_oral_started = {"L": 0, "R": 0}
 	_clear_debug_draw()
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}

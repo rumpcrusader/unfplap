@@ -27,6 +27,7 @@ class FakeAct extends Node:
 	var afterglow_ticks := 0
 	var ends := 0
 	var teardowns := 0
+	var hold_mouths := 0
 	var facing_value: Variant = null
 	var normal: Variant = Vector3.ZERO
 	var point: Variant = Vector3.ZERO
@@ -47,6 +48,9 @@ class FakeAct extends Node:
 
 	func oral_active() -> bool:
 		return oral
+
+	func hold_oral_mouth() -> void:
+		hold_mouths += 1
 
 	func pull_out_selected() -> bool:
 		return pull_out
@@ -332,6 +336,8 @@ func _check_action_reads() -> void:
 	check(bridge.oral_active(), "oral active reads the act")
 	act.oral = false
 	check(not bridge.oral_active(), "oral inactive reads the act")
+	bridge.hold_oral_mouth()
+	check(act.hold_mouths == 1, "hold_oral_mouth reaches the act")
 	act.pull_out = true
 	check(bridge.finish_pull_out(), "pull out reads the act")
 	bridge.withdraw()

@@ -137,6 +137,13 @@ func run() -> void:
 	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.0)
 	check(float(ready_at.get("plap_rough", 0.0)) > 0.0,
 		"true contact at a zero epsilon plays the plap")
+	# The oral segment drops the body slap but keeps the slide.
+	ready_at["plap_rough"] = 0.0
+	ready_at["slide_in"] = 0.0
+	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false,
+		0.0, 0.02, false)
+	check(float(ready_at.get("plap_rough", 0.0)) == 0.0, "an oral impact skips the plap")
+	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "an oral impact keeps the slide")
 	check(act.play_plap("firm", 0.7, Vector3.ZERO), "foley plap starts a player")
 	check(not act.play_plap("firm", 0.7, Vector3.ZERO),
 		"cooldown blocks an immediate second plap")

@@ -236,6 +236,9 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 				str(paused), Input.mouse_mode])
 		lean_idle(delta)
 		return
+	if bool(facts.oral_active):
+		oral_lean_tick(delta)
+		return
 	if auto_open:
 		# Hold-X auto settings: hold the shot exactly where it is. Do not write `lean_view_*`
 		# here: the idle sway leaves it ahead of `lean_forward`, so copying the base value in
@@ -290,6 +293,27 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	if str(facts.pose_id) == CATALOG.STANDING or int(facts.state) != STATE_AFTERGLOW:
 		if kiss != null:
 			kiss.call("lean_kiss_tick")
+	var caress_started := Time.get_ticks_usec()
+	if hands != null:
+		hands.call("tick", delta)
+	if facts != null:
+		facts.perf("caress_tick", Time.get_ticks_usec() - caress_started)
+	apply_standing_lean_look()
+
+
+## Oral keeps Anon's body and the shot neutral: no Q/E reach, no lean and no F lean kiss. The
+## caress stays live, so the hands still tick and A/D, Z/C keep their own input.
+func oral_lean_tick(delta: float) -> void:
+	end_lean_action()
+	lean_forward = move_toward(lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
+	lean_side = move_toward(lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
+	lean_view_forward = lean_forward
+	lean_view_side = lean_side
+	lean_sway = 0.0
+	side_return_armed = false
+	lean_block_logged = false
+	if kiss != null:
+		kiss.call("lean_kiss_tick")
 	var caress_started := Time.get_ticks_usec()
 	if hands != null:
 		hands.call("tick", delta)

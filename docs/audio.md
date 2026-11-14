@@ -51,7 +51,8 @@ The runtime keeps the call sites, the director/vocal prepare and the feature sna
   set and the gap reaches true contact. A zero epsilon with a zero gap is full contact, not the
   quiet edge; the generic epsilon still lets the tests drive a wider contact window. Standing and
   missionary share the two plap bags; only the bed cues are pose-specific. The slide and the
-  fabric are never gated.
+  fabric are never gated. The defaulted `plap` argument lets the standing oral segment pass
+  `false`: it keeps the slide and the fabric but drops the body slap.
 - `climax(snout, dock)` plays the base-game squee at the snout and the optional wet layer at the
   dock.
 - `tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences it at
@@ -97,5 +98,6 @@ the debug read.
 ## Tests
 
 `tests/act_audio/test_audio.gd` covers the facade lifecycle, the sound child, the mute policy and
-the live layer switch. `tests/act_audio/test_act_audio.gd` covers the pure catalogue and the pack
-cue selection. `tests/test_runtime_teardown.gd` drives the runtime's audio forwards.
+the live layer switch. `tests/act_audio/test_act_audio.gd` covers the pure catalogue, the pack cue
+selection and the oral `plap = false` path. `tests/test_runtime_teardown.gd` drives the runtime's
+audio forwards.

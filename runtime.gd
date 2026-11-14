@@ -59,6 +59,10 @@ const READINESS_MAX := 100.0
 const THRUST_IMPACT_GAIN := 2.0
 ## The body slap fires only when his skin has actually reached her coat.
 const CONTACT_GAP_M := 0.0
+## The oral segment replaces her speech with the base game's soft kiss on an idle timer.
+const ORAL_KISS_IDLE_MIN_S := 2.5
+const ORAL_KISS_IDLE_MAX_S := 4.5
+const ORAL_KISS_DB := -22.0
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
@@ -194,6 +198,10 @@ var _max_pony_climaxes := 3
 var _pelvis_gap_m := 0.025
 var _cue_gap := 12.0
 var _vocal_cooldown := 0.0
+## The oral gate: the rising edge silences her speech once, and the idle timer owns the base
+## game's soft kiss while the segment lasts.
+var _oral_was_active := false
+var _oral_kiss_left := 0.0
 var _cue_override_seconds := 10.0
 var _cue_base_stable_s := 2.0
 var _cue_override_stable_s := 0.5
@@ -1286,6 +1294,7 @@ func _physics_tick(delta: float) -> void:
 			# what animates the neck and lets a released turn erase stale keys.
 			if pose_id == CATALOG.STANDING:
 				_anatomy_bridge.pose_config(_pose_session.pose_config)
+		_oral_tick(delta)
 		if state == State.ACTIVE:
 			var talk_started := Time.get_ticks_usec()
 			_readiness_tick(delta)
@@ -2185,6 +2194,8 @@ func _reset_thrust_state() -> void:
 	_lines_service().reset(_now_s(), _cue_gap)
 	_configure_utterance_scheduler()
 	_vocal_cooldown = 0.0
+	_oral_was_active = false
+	_oral_kiss_left = 0.0
 	_act_spoken_at = -1e9
 	_act_ended_early = false
 	if _thrust_tracker == null:
@@ -2536,7 +2547,8 @@ func _add_heat(amount: float) -> void:
 ## here, with the motion. Fired once per real thrust from the tracker's `impact` event. The body
 ## slap needs two physical facts: his skin has to reach her coat (`gap <= the contact epsilon`), and the
 ## bottom has to be fast enough to be a slap rather than a slow press. Tier comes from the speed
-## over the deepest part of the stroke, never from the readiness intensity band.
+## over the deepest part of the stroke, never from the readiness intensity band. The oral segment
+## keeps the slide, vocal, wings, blush and ear twitch but drops the plap and the rump/tail jiggle.
 func _on_impact(result: Dictionary) -> void:
 	if state not in [State.ACTIVE, State.CLIMAX]:
 		return
@@ -2548,10 +2560,12 @@ func _on_impact(result: Dictionary) -> void:
 	var impact_speed := float(result.get("impact_speed", 0.0))
 	var tier := THRUST.plap_tier(impact_speed)
 	var plap := THRUST.plap_touching(gap, CONTACT_GAP_M) and not tier.is_empty()
+	var oral := _oral_active()
 	var now := _now_s()
 	_wings_controller().on_thrust(impact)
-	_reactions.thrust(jiggle)
-	_reactions.tail_thrust(jiggle)
+	if not oral:
+		_reactions.thrust(jiggle)
+		_reactions.tail_thrust(jiggle)
 	if pose_id == CATALOG.STANDING:
 		_reactions.add_blush(impact)
 		_pose_service().trigger_ear_twitch(impact)
@@ -2562,11 +2576,11 @@ func _on_impact(result: Dictionary) -> void:
 	_play_vocal()
 	if is_instance_valid(_act_audio):
 		_act_audio.play_impact(pose_id, tier, strength, _reactions.rump_point(),
-			_bed_audio_point(), _bed_soft, gap, CONTACT_GAP_M)
-	_log("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
+			_bed_audio_point(), _bed_soft, gap, CONTACT_GAP_M, not oral)
+	_log("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d oral=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
 		gap, impact_speed, tier if not tier.is_empty() else "-", 1 if plap else 0,
-		satisfaction, _readiness.thrusts_per_second(), strength, impact, jiggle,
-		_readiness.last_intensity, _readiness.last_pattern])
+		1 if oral else 0, satisfaction, _readiness.thrusts_per_second(), strength, impact,
+		jiggle, _readiness.last_intensity, _readiness.last_pattern])
 
 func _play_vocal() -> void:
 	if _vocal_cooldown > 0.0:
@@ -2578,6 +2592,73 @@ func _play_vocal() -> void:
 	if vocal != null and vocal.has_method("play"):
 		if bool(vocal.call("play", _id, "m", pony, -34.0)):
 			_vocal_cooldown = 3.0
+
+
+## Live oral state from the anatomy bridge. `facts.oral_active` is one frame old for the
+## presentation modules; the act paths read this instead.
+func _oral_active() -> bool:
+	return _anatomy_bridge.oral_active()
+
+
+## The oral gate. On the rising edge her act line and base-game voice stop and the mouth returns
+## to the oral shape; while it lasts the stock soft kiss plays on an idle timer, never on entry or
+## on a stroke. Bystanders keep their own turns.
+func _oral_tick(delta: float) -> void:
+	var now := _oral_active()
+	if now and not _oral_was_active:
+		_end_act_lines(false)
+		_stop_oral_director()
+		_stop_pony_speech()
+		# Oral owns the body: a reach or lean kiss already running drops immediately instead of
+		# easing out with the lean.
+		_camera_service().call("end_lean_action")
+		_kiss_controller().end_lean_kiss()
+		# A cancelled authored line may already have cleared the viseme.
+		_anatomy_bridge.hold_oral_mouth()
+		_oral_kiss_left = randf_range(ORAL_KISS_IDLE_MIN_S, ORAL_KISS_IDLE_MAX_S)
+	elif now:
+		_stop_pony_speech()
+		_oral_kiss_left -= delta
+		if _oral_kiss_left <= 0.0:
+			_oral_kiss()
+			_oral_kiss_left = randf_range(ORAL_KISS_IDLE_MIN_S, ORAL_KISS_IDLE_MAX_S)
+	else:
+		_oral_kiss_left = 0.0
+	_oral_was_active = now
+
+
+## Interrupt the shared director only when it is driving this mare, so a bystander's turn is not
+## cut by her mouth being busy.
+func _stop_oral_director() -> void:
+	var director := _director()
+	if director == null or not director.has_method("interrupt"):
+		return
+	if str(director.get("state")) == "idle":
+		return
+	if str(director.get("_current")) != _id:
+		return
+	director.call("interrupt")
+
+
+## Stop her own voice. `stop_speaking()` restores the rest viseme, so the oral turn re-asserts its
+## mouth shape; the turn is the only owner of the open mouth.
+func _stop_pony_speech() -> void:
+	if not is_instance_valid(pony):
+		return
+	if pony.has_method("is_speaking") and bool(pony.call("is_speaking")):
+		if pony.has_method("stop_speaking"):
+			pony.call("stop_speaking")
+		_anatomy_bridge.hold_oral_mouth()
+
+
+## The base game's soft kiss at her snout: the same cue a stock kiss plays.
+func _oral_kiss() -> void:
+	if not is_instance_valid(pony):
+		return
+	var boop: Variant = pony.get("boop_node")
+	if boop != null and boop.has_method("play_kiss"):
+		boop.call("play_kiss", ORAL_KISS_DB, true)
+
 
 ## Readiness never decays on its own; the readiness system owns the values and counters.
 func _readiness_tick(delta: float) -> void:
@@ -3008,6 +3089,9 @@ func _climax() -> void:
 
 
 func _queue_climax_reaction() -> void:
+	# Her mouth is busy during oral; the climax line waits for a later act.
+	if _oral_active():
+		return
 	if not is_instance_valid(main):
 		return
 	var act_id := _event_id

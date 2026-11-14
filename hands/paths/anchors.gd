@@ -24,6 +24,7 @@ var anchors: Array = []
 var side := "right"
 var valid := false
 var area_mode := false
+var single_mode := "palm"
 var path_len := 0.0
 var belly_u := BELLY_U
 var debug_notes: Array = []
@@ -166,6 +167,62 @@ func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bo
 	path_len = path_length(skinned())
 	valid = true
 	return true
+
+
+## One fixed anchor from a marked area, for paths that hold a single node. Unlike
+## `build_areas()` there is no chain, no start and no lean sampling.
+func build_single_area(pony_node: Variant, hand_side: String, area_name: String) -> bool:
+	valid = false
+	anchors.clear()
+	area_mode = true
+	single_mode = "palm"
+	path_len = 0.0
+	belly_u = 0.0
+	debug_notes.clear()
+	side = hand_side
+	if not is_instance_valid(pony_node):
+		return false
+	var data := _areas()
+	var areas: Variant = data.get("areas", {})
+	if not areas is Dictionary:
+		return false
+	var entry: Variant = (areas as Dictionary).get(area_name, {})
+	if not entry is Dictionary:
+		debug_notes.append("area %s missing" % area_name)
+		return false
+	var side_entry: Variant = (entry as Dictionary).get(hand_side, {})
+	if not side_entry is Dictionary:
+		debug_notes.append("area %s has no %s side" % [area_name, hand_side])
+		return false
+	var position := _entry_position(side_entry)
+	if not position.is_finite():
+		debug_notes.append("area %s has no position" % area_name)
+		return false
+	var region := str((entry as Dictionary).get("region", "head"))
+	var roll := float((entry as Dictionary).get("roll", 1.0))
+	single_mode = str((entry as Dictionary).get("mode", "palm"))
+	var head_surface: Variant = SURFACE.new()
+	if not bool(head_surface.call("ensure", pony_node, "head")):
+		debug_notes.append("area %s: no head source" % area_name)
+		return false
+	var head_source: Dictionary = head_surface.get("source")
+	var head_sk: Skeleton3D = head_surface.get("skeleton")
+	var anchor := _nearest_source_anchor(head_source, head_sk, region, position,
+		AUTHORED_MAX_DISTANCE)
+	if anchor.is_empty():
+		debug_notes.append("area %s miss" % area_name)
+		return false
+	_anchor_meta(anchor, area_name, 1.0, roll, region)
+	anchors.append(anchor)
+	valid = true
+	return true
+
+
+## The only anchor of a `build_single_area()` path, or an empty dictionary.
+func single() -> Dictionary:
+	if anchors.is_empty():
+		return {}
+	return anchors[0]
 
 
 ## Skin the stored anchors and sample the path. `along_m` moves along the path in metres, and

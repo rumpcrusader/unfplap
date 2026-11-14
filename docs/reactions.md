@@ -14,6 +14,10 @@ the ear twitch or the HUD. The runtime dispatches its presentation events to thi
 same order as before. The anatomy features that need the patched coat call the facade through the
 runtime's stock-smack callback.
 
+The runtime skips `thrust()` and `tail_thrust()` while the standing oral segment is active. The
+same impact still runs the wings, the rump blush and the ear twitch; the body plap is owned by the
+audio facade (`docs/audio.md`).
+
 ## Architecture
 
 | Part | Rule |
@@ -114,4 +118,5 @@ already set its own impulse before the facade scales it.
 `tests/reactions/test_reactions.gd` covers the configuration defaults and overrides, the radius
 apply/restore, the body-coat target list, the smack scaling, the blush step/cap/decay and the
 heart pulses and dock shift. `tests/hands/test_actions.gd` keeps the smack/tail and stock-mark
-checks on the facade.
+checks on the facade. `tests/readiness/test_oral_quiet.gd` covers the runtime's oral gate, which
+skips `thrust()` and `tail_thrust()` but keeps the blush.

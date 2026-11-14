@@ -26,6 +26,8 @@ This contract covers:
 
 - Both hands can caress at once. Each press toggles that hand independently.
 - A tap that is released quickly still latches; the next tap stops it.
+- During standing oral, `A`/`D` keep their per-hand toggles and `Z`/`C` keep the oval, but the
+  target is the side of her head instead of the flank chain.
 - The hold-X auto panel owns A/D and Z/C while open: the hands keep their state and the caress
   keeps scoring, but the keys are ignored.
 - Lean and A/D caress stay live in `AFTERGLOW`. The standing afterglow counts active caress time
@@ -42,8 +44,9 @@ This contract covers:
 | `hands/placement.gd` | pose-free placement engine: oval, posed-coat snap, smoothing, palm frame, last-good target |
 | `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
 | `hands/paths/standing.gd` | standing path: marked area chain, procedural flank/rump fallback |
+| `hands/paths/oral.gd` | standing oral path: one authored head-side node per hand, mare-PoV lookup flipped for Anon |
 | `hands/paths/missionary.gd` | missionary path: authored one/two and reach filtering |
-| `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, marked area chains, act-camera anchors, rest fallback |
+| `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, marked area chains, single area nodes, act-camera anchors, rest fallback |
 | `hands/surface.gd` | stable posed body/head patch, local caress window and coat queries |
 | `hands/palm.gd` | single-point palm frame: basis, placement and normal turn |
 | `shared/hands_scale.gd` | shared per-preset hand-bone scale |
@@ -52,7 +55,7 @@ This contract covers:
 | `hands/smack.gd` | smack phases, impact audio and return to the live caress |
 | `hands/paths/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
 | `hands/paths/anchors2.json` | authored path two: per-hand flank/shoulder/neck |
-| `hands/areas/areas.json` | marked caress areas from the Blender vertex groups; standing chain |
+| `hands/areas/areas.json` | marked caress areas from the Blender vertex groups; standing chain and the single oral head-side node |
 
 The pose boundary is deliberately small:
 
@@ -117,6 +120,35 @@ the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, 
   still snapped to the posed coat by the placement engine.
 - The oval uses the standing radii and the old across/up axes. The palm fingers point forward
   (`-pony.global_basis.z`).
+
+### Standing oral
+
+- While `facts.oral_active` is true, `hands/service.gd` selects `hands/paths/oral.gd` instead of
+  the standing chain. `A`/`D` still toggle each hand, `Z`/`C` keep the oval and the five-second
+  caress meter keeps scoring.
+- The path holds one authored node per hand: the `head_side` area in `hands/areas/areas.json`,
+  region `head`, mode `palm`, roll `1.0`. `hands/paths/anchors.gd:build_single_area()` snaps the
+  authored point to the nearest head source vertex, so the node keeps the live head skin weights.
+- There is no lean sample or chain, and no flank fallback. A missing `head_side` side or a point
+  farther than `AUTHORED_MAX_DISTANCE` from the head source leaves that hand without a target and
+  logs the miss; a flank contact during oral would be the wrong target.
+- The oval travels fore/aft along the head tangent with the vertical as its other axis. The
+  fingers point forward and the palm roll is `ORAL_PALM_ROLL_DEG = 24°` with the hand sign,
+  mirroring the missionary roll convention.
+- A hand that is already caressing when the turn starts or ends eases from its live
+  `hand_frame()` onto the other path over `CARESS_ORAL_BLEND_S = 0.35 s`. A fresh `A`/`D` press
+  starts directly on the current path, because the normal caress start already resets the hand.
+- The side lookup is flipped: see the side convention below.
+
+The two authored files use different points of view. `hands/areas/areas.json` is authored from
+the mare's point of view (`left` is her left side), which the standing chain uses directly.
+`hands/paths/anchors.json` is authored from Anon's point of view (`left` is his left hand on her
+right side), and the missionary path uses it as exported. The oral path reads the opposite
+`head_side` key because Anon faces her; the palm still receives Anon's `hand_side`.
+
+`head_side` was authored in `sources/work/caress_paths.blend` (gitignored, not shipped or built)
+from the `caress_head_L` / `caress_head_R` groups on the `Head` mesh, one vertex each. Blender
+`(x, y, z)` maps to the game head rest space as `(-x, z, y)`.
 
 ## Palm holder
 
@@ -192,9 +224,9 @@ The three smoothing values apply to both poses. `0` restores the exact behaviour
 offsets are multiplied by `Settings.anon_height_scale()` for the Same Height preset; the other
 presets keep their authored values.
 
-The marked area JSON also stores `mode` and `roll`; the lean-driven standing provider uses
-`region`, but keeps its existing palm frame and roll. The `mode`/`roll` fields are data for the
-later discrete area pass.
+The marked area JSON also stores `mode` and `roll`. The lean-driven standing provider uses
+`region` and keeps its existing palm frame and roll; the oral head path reads `mode` and `roll`
+from `head_side`.
 
 Standing point profiles (`CARESS_PROFILES`, metres before body scale): Canon `up 0.08`,
 JRHNBR `up 0.16 / out 0.02`, Same Height `up 0.18 / out 0.03`, Hoers `up 0.20 / out 0.04`.
@@ -204,8 +236,8 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 
 - `features.caress_debug` logs one `precise caress` line per hand per act with `u`, target,
   normal, finger, roll, hover, surface and the ray hit/miss counts, and logs anchor builds/misses
-  and each anchor's world position/normal. The caress path line prints `path=areas`; the surface
-  field reports `faces=<window>/<patch>`.
+  and each anchor's world position/normal. The caress path line prints `path=areas` or `path=oral`;
+  the surface field reports `faces=<window>/<patch>`.
 - The debug overlay draws the path anchors, the exact contact, the palm target and the actual
   hand.
 - `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface`, `caress_ensure`,
@@ -275,7 +307,8 @@ selection and starts the swing.
 ## Tests
 
 - `tests/hands/test_caress.gd`: surface patch and its two quality levels, authored paths, marked
-  area path, side mapping, standing path, engine placement, smoothing and reach.
+  area path, side mapping, standing path, oral head node and side inversion, contact blend,
+  engine placement, smoothing and reach.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 
@@ -288,6 +321,9 @@ selection and starts the swing.
   keeps the full patch for that hand. `ray()` (the authored anchor build) always uses the full
   patch, because it maps a soup face back to a source vertex.
 - The path builders cache per hand and pony; changing `path_id` rebuilds the next caress path.
+- The oral head path has no fallback: a missing `head_side` side, an unbuilt head source or a
+  point beyond `AUTHORED_MAX_DISTANCE` leaves that hand without a caress target for the turn. A
+  flank contact during oral is deliberately not accepted.
 - The area chain is lean-driven: W/S still leans and the hand follows the JSON chain.
   It does not add a discrete area index, a one-sided pause or the slide/arc transition.
 - The area JSON is global for the shared body/head. A missing side or fewer than three buildable

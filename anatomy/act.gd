@@ -145,6 +145,13 @@ func oral_active() -> bool:
 	return _oral_turn != null and bool(_oral_turn.active())
 
 
+## Re-assert the oral turn's mouth shape after the base game stopped her speech. The turn owns the
+## open mouth only while it is active.
+func hold_oral_mouth() -> void:
+	if _oral_turn != null:
+		_oral_turn.hold_viseme()
+
+
 func finish_out() -> bool:
 	return _finish != null and bool(_finish.finish_out())
 

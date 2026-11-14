@@ -155,6 +155,16 @@ func toggle(state: int) -> bool:
 	return _active
 
 
+## Re-apply the oral mouth shape after a speech stop. The turn owns D only while it is active;
+## the release already clears the mouth, so this is a no-op then.
+func hold_viseme() -> void:
+	if not _active:
+		return
+	var mouth_rig: Variant = _pony_mouth()
+	if mouth_rig != null and mouth_rig.has_method("set_viseme"):
+		mouth_rig.call("set_viseme", ORAL_MOUTH)
+
+
 func tick(delta: float) -> void:
 	var mix := move_toward(_mix, 1.0 if _active else 0.0, delta / ORAL_TURN_S)
 	if mix != _mix:

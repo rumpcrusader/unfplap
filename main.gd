@@ -168,7 +168,7 @@ func _ready() -> void:
 	# must never touch the disk. A broken shipped document is a build error, so log it once and
 	# install no hooks; the settings module already named the first offending path.
 	if not SETTINGS.load_settings():
-		push_error("unfplap: shipped settings defaults are invalid; the mod is not loading")
+		push_error("unfplap: shipped settings data is invalid; the mod is not loading")
 		set_process(false)
 		return
 	add_to_group("pony_prompt_notes")

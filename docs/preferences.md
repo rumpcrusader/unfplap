@@ -7,17 +7,20 @@ framework is `docs/settings.md`.
 
 ## Ownership
 
-`shared/preferences.gd` is the pure profile module: defaults, validation, merge, intensity/rhythm and the
-talk keyword map. `shared/character_preferences.gd` holds the display names, the selector order and every
-spawnable mare's built-in profile. `settings/service.gd` stores the per-mare overrides under
-`characters.<id>` and resolves the provider layer. `settings/characters_ui.gd` builds the Characters
-form (interim home until a characters service owns it); `settings/ui.gd` owns the declaration rows
-for the global settings. `main.gd` supplies the live-mares list and the resolved participation
-block through host callbacks.
+`shared/preferences.gd` is the pure profile module: validation, merge, intensity/rhythm and the
+talk keyword map. The global profile default lives under `default.preferences` in
+`settings/defaults.json`; the per-mare templates live under `character_templates` in
+`settings/catalogs.json`. `shared/character_preferences.gd` holds the display names and the
+selector order and reads those templates once. `settings/service.gd` stores the per-mare overrides
+under `characters.<id>` and resolves the provider layer. `settings/characters_ui.gd` builds the
+Characters form (interim home until a characters service owns it); `settings/ui.gd` owns the
+declaration rows for the global settings. `main.gd` supplies the live-mares list and the resolved
+participation block through host callbacks.
 
-A known mare's base is her template in `shared/character_preferences.gd`, then any mod provider layer
-(`docs/api.md`), then the global `default`. Removing her saved override restores that chain rather
-than the global default. The file stores only the player's differences.
+A known mare's base is her catalog template, then any mod provider layer (`docs/api.md`), then the
+global `default`. Removing her saved override restores that chain rather than the global default.
+The file stores only the player's differences, so a catalog or provider update reaches every field
+the player did not edit.
 
 ## Profile schema
 

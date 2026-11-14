@@ -15,9 +15,10 @@ binds the session and reads its `pose()`, `pose_config` and `bed_frame` directly
 modules read the same values from `shared/act_facts.gd`.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads
-`poses/missionary_pose.json`. `shared/pose_catalog.gd` holds the pose defaults; `poses/service.gd` owns
-the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action math; `camera/service.gd` owns the
-camera and lean state.
+`poses/missionary_pose.json`. `shared/pose_catalog.gd` owns the pose ids and the `POSE_KEYS`
+schema; the shipped per-pose values live under `default.poses` in `settings/defaults.json`.
+`poses/service.gd` owns the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action
+math; `camera/service.gd` owns the camera and lean state.
 
 ## Typed view
 

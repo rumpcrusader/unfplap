@@ -197,8 +197,13 @@ genuine edit or an old template, and preserving it is safer.
 | Preferences, consent, poses, prompts, timing | player differences → provider layers (registration order) → built-in template → global default |
 | `eligible` | provider layers only (never a player value) |
 | `profile.participation` | player differences → provider layers (registration order) → built-in default |
-| Placement | player `anatomy.placement.<id>` → provider placement → shipped `MARE_DEFAULTS` → global default |
+| Placement | player `anatomy.placement.<id>` → provider placement → `settings/catalogs.json` `anatomy.placement.<id>` → global default |
 | Display name | built-in name → provider name → humanized id |
+
+The built-in template, the act prompts and the per-mare placement rows live in
+`settings/catalogs.json`. That file is provider-overridable content: it is read at run time and is
+never written into the player's `settings.json`. The player file holds only the differences the
+player made, so a catalog or provider update reaches every field the player did not edit.
 
 Provider layers stack in registration order: a later provider wins per field. Removing a layer
 reveals the one beneath it. Unregistering the last layer restores the built-in/global values.

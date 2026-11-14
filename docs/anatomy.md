@@ -41,7 +41,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
 | `anatomy/player.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
-| `shared/anatomy_placement.gd` | pure placement schema, shipped per-mare defaults, merge/sanitize/diff and the one-time legacy migration |
+| `shared/anatomy_placement.gd` | pure placement schema, merge/sanitize/diff and the one-time legacy migration |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
 | `anatomy/tail/dock_attach.gd` | builds the dock's two-bind GPU skin on the hair skeleton |
 | `anatomy/tail/dock_seat.gd` | snaps the dock base ring to the rumen and measures the tail-cap seat |
@@ -217,11 +217,12 @@ The controller's `consent` callback is bound to its pony and takes the key only
 - The ten anatomy/tail keys are `offset_x`, `offset_y`, `offset_z`, `pitch_deg`, `scale`,
   `tail_y`, `tail_z`, `dock_y`, `dock_scale` and `tail_tilt_deg`. The player block uses the first
   five only.
-- `shared/anatomy_placement.gd` owns the shipped `MARE_DEFAULTS` table and resolves the player
-  override, then a provider layer, then the shipped per-mare default, then the global default.
-  Only keys that differ from the resolved default are stored; saving a row equal to the default
-  removes the block. Schema 10 strips the rows an older build materialised for every mare, keeping
-  only real overrides, so a provider's placement wins wherever the player did not edit.
+- `shared/anatomy_placement.gd` owns the schema and the merge/sanitize/diff helpers. The shipped
+  per-mare rows live in `settings/catalogs.json` under `anatomy.placement`; resolution is the
+  player override, then a provider layer, then the catalog row, then the global default. Only keys
+  that differ from the resolved default are stored; saving a row equal to the default removes the
+  block. Schema 10 strips the rows an older build materialised for every mare, keeping only real
+  overrides, so a provider's placement wins wherever the player did not edit.
 - The anatomy mesh is placed at the saved offset plus the calibrated `0.03 m` lift, pitched and
   scaled, then mapped through the `pony_hips` bind. A princess profile scales the origin and basis
   about the body. `Dock style` is visibility/colour only and never moves the mesh.
@@ -529,9 +530,10 @@ body's own deformation across the whole mesh.
   `tail_seat_trims.json` row and marks her with the `tail_seated` meta. The pony build runs
   before `Mods.on_node`, so the mod's `attach()` measures the **already seated** tail: its delta
   is `anatomy.placement` minus the game trim, and the placement therefore replaces the game's
-  trim rather than stacking on it. `MARE_DEFAULTS` is the mod's tuned seat and may differ from the
-  stock `tail_seat_trims.json` table; `tail_tilt_deg` is mod-only. Turning `reseat_tails` off
-  restores the game-seated tail, which is the stock result.
+  trim rather than stacking on it. The catalog row (`settings/catalogs.json` →
+  `anatomy.placement.<id>`) is the mod's tuned seat and may differ from the stock
+  `tail_seat_trims.json` table; `tail_tilt_deg` is mod-only. Turning `reseat_tails` off restores
+  the game-seated tail, which is the stock result.
 - `profile.participation.tail` gates the seat. A `false` value skips the attach and restores the
   row if the seat was already applied; `refresh_all()` re-checks the row. A provider's `eligible`
   assertion applies to the tail seat too, so a provider can make a character an adult without

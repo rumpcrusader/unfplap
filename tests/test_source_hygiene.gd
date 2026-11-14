@@ -62,6 +62,7 @@ func run() -> void:
 			"no obsolete extension flag in %s" % path)
 	_check_preloads(files)
 	_check_settings_module(files)
+	_check_shipped_data()
 	_check_teardown()
 	_check_hands_isolation()
 	_check_hands_docs()
@@ -100,6 +101,28 @@ func run() -> void:
 
 ## The settings live in one module with one declaration per setting; settings widgets may only
 ## live in the declaration panel and the preference form.
+## The two shipped settings documents are tracked sources; provider-overridable content lives in
+## `settings/catalogs.json`, never in code or the player file.
+func _check_shipped_data() -> void:
+	for path: String in ["settings/defaults.json", "settings/catalogs.json"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(path))
+		check(not text.is_empty(), "%s exists" % path)
+		var parsed: Variant = JSON.parse_string(text)
+		check(parsed is Dictionary, "%s is a JSON object" % path)
+	var placement := FileAccess.get_file_as_string(ROOT.path_join("shared/anatomy_placement.gd"))
+	check(not placement.contains("const MARE_DEFAULTS"), "the placement table is not in code")
+	var characters := FileAccess.get_file_as_string(
+		ROOT.path_join("shared/character_preferences.gd"))
+	check(not characters.contains("const TEMPLATES"), "the character templates are not in code")
+	var service := FileAccess.get_file_as_string(ROOT.path_join("settings/service.gd"))
+	check(not service.contains("const DEFAULT_TEMPLATE"), "the profile template is not in code")
+	check(not service.contains("const DEFAULT_ACT_PROMPTS"), "the prompts are not in code")
+	var poses := FileAccess.get_file_as_string(ROOT.path_join("shared/pose_catalog.gd"))
+	check(not poses.contains("const POSE_DEFAULTS"), "the pose defaults are not in code")
+	var preferences := FileAccess.get_file_as_string(ROOT.path_join("shared/preferences.gd"))
+	check(not preferences.contains("const DEFAULTS :="), "the preference defaults are not in code")
+
+
 func _check_settings_module(files: Array[String]) -> void:
 	# The settings live in one central catalog. These checks keep that true as the mod grows.
 	var module := FileAccess.get_file_as_string(ROOT.path_join("settings/service.gd"))

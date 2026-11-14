@@ -45,6 +45,7 @@ func run() -> void:
 	_check_load()
 	_check_registry()
 	_check_shipped_defaults()
+	_check_catalog()
 	_check_player_document()
 	_check_bounds()
 	_check_act_key()
@@ -294,6 +295,87 @@ func _check_default_profile(profile: Variant) -> void:
 						"the standing gaps hold exactly the four sizes")
 
 
+## The catalog holds provider-overridable content. It is validated here and must never appear in
+## the defaults document, the merged view or the player file.
+func _check_catalog() -> void:
+	var catalog := SETTINGS.DEFAULTS.catalog()
+	check(not catalog.is_empty(), "the shipped catalog document exists")
+	check(SETTINGS.DEFAULTS.catalog_valid(), "the shipped catalog parses")
+	var defaults := SETTINGS.defaults()
+	check(not defaults.has("act_prompts"), "the defaults document has no prompt catalog")
+	check(not defaults.has("character_templates"),
+		"the defaults document has no template catalog")
+	check(not SETTINGS.data().has("character_templates"),
+		"the merged view has no template catalog")
+
+	var prompts: Variant = catalog.get("act_prompts")
+	check(prompts is Dictionary, "the catalog has an act_prompts block")
+	if prompts is Dictionary:
+		var prompt_keys: Array = (prompts as Dictionary).keys()
+		prompt_keys.sort()
+		var expected_prompts: Array = SETTINGS.MARE_REGISTRY.PROMPT_KEYS.duplicate()
+		expected_prompts.sort()
+		check(prompt_keys == expected_prompts, "act_prompts has exactly the prompt keys")
+		for key: Variant in prompt_keys:
+			check(not str((prompts as Dictionary)[key]).strip_edges().is_empty(),
+				"act_prompts.%s is not empty" % str(key))
+
+	var templates: Variant = catalog.get("character_templates")
+	check(templates is Dictionary, "the catalog has a character_templates block")
+	if templates is Dictionary:
+		var ids: Array = (templates as Dictionary).keys()
+		ids.sort()
+		var expected_ids: Array = SETTINGS.CHARACTER_ORDER.duplicate()
+		expected_ids.sort()
+		check(ids == expected_ids, "character_templates covers the whole roster")
+		for id: Variant in ids:
+			var entry: Variant = (templates as Dictionary)[id]
+			check(entry is Dictionary, "character_templates.%s is a block" % str(id))
+			if not entry is Dictionary:
+				continue
+			for key: Variant in (entry as Dictionary).keys():
+				check(str(key) in SETTINGS.MARE_REGISTRY.TEMPLATE_KEYS,
+					"character_templates.%s.%s is a template field" % [str(id), str(key)])
+			var preferences: Variant = (entry as Dictionary).get("preferences")
+			check(preferences is Dictionary, "character_templates.%s has preferences" % str(id))
+			if preferences is Dictionary:
+				for key: Variant in (preferences as Dictionary).keys():
+					check(str(key) in SETTINGS.PREFERENCES.KEYS,
+						"character_templates.%s.preferences.%s is a profile field"
+						% [str(id), str(key)])
+			var poses: Variant = (entry as Dictionary).get("poses", {})
+			check(poses is Dictionary, "character_templates.%s.poses is a block" % str(id))
+			if poses is Dictionary:
+				for pose_id: Variant in (poses as Dictionary).keys():
+					check(str(pose_id) in SETTINGS.CATALOG.all(),
+						"character_templates.%s.poses.%s is a pose" % [str(id), str(pose_id)])
+			var events: Variant = (entry as Dictionary).get("event_prompts", {})
+			if events is Dictionary:
+				for key: Variant in (events as Dictionary).keys():
+					check(str(key) in SETTINGS.MARE_REGISTRY.EVENT_PROMPT_KEYS,
+						"character_templates.%s.event_prompts.%s is an event"
+						% [str(id), str(key)])
+
+	var anatomy: Variant = catalog.get("anatomy", {})
+	var placement: Variant = (anatomy as Dictionary).get("placement") \
+		if anatomy is Dictionary else null
+	check(placement is Dictionary, "the catalog has a placement block")
+	if placement is Dictionary:
+		for id: Variant in (placement as Dictionary).keys():
+			check(not str(id) in SETTINGS.MARE_REGISTRY.RESERVED_IDS,
+				"placement.%s is not a reserved id" % str(id))
+			var row: Variant = (placement as Dictionary)[id]
+			check(row is Dictionary, "placement.%s is a block" % str(id))
+			if not row is Dictionary:
+				continue
+			for key: Variant in (row as Dictionary).keys():
+				check(str(key) in SETTINGS.PLACEMENT.KEYS,
+					"placement.%s.%s is a placement key" % [str(id), str(key)])
+				var value: Variant = (row as Dictionary)[key]
+				check(value is int or value is float,
+					"placement.%s.%s is a number" % [str(id), str(key)])
+
+
 ## The player file stores declared settings but only the `default` differences; an untouched
 ## profile has no `default` block at all.
 func _check_player_document() -> void:
@@ -532,7 +614,8 @@ func _check_placement_migration() -> void:
 ## Schema 10 removes the per-mare placement rows an older build materialised, keeping real
 ## overrides as differences so a provider layer can still win.
 func _check_placement_strip() -> void:
-	var shipped_row: Dictionary = SETTINGS.PLACEMENT.MARE_DEFAULTS["fluttershy"].duplicate(true)
+	var shipped_row: Dictionary = SETTINGS.DEFAULTS.catalog_block(
+		"anatomy.placement.fluttershy")
 	var base := SETTINGS._legacy_placement_default({}, "anatomy.placement.default")
 	var pitch := float(base["pitch_deg"]) + 4.0
 	var data := {"version": SETTINGS.SCHEMA_VERSION - 2, "anatomy": {"placement": {

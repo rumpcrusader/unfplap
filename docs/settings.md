@@ -202,9 +202,17 @@ prefixes pre-emptively.
   packed and read-only in a build. `_bind()` reads one value per declaration at static
   initialisation, so the shipped document is process-static: `SETTINGS.reload_file()` reloads only
   the player file.
+- `settings/catalogs.json` holds the provider-overridable content: the built-in act prompts, the
+  per-mare character templates and the per-mare placement rows. It is tracked and read-only too,
+  and it is never part of `defaults()`, `data()` or the player file. A release or provider update
+  therefore reaches every field the player did not override.
+- `shared/defaults_data.gd` is the one parser for both files. It preloads nothing, so the pure
+  modules (`preferences`, `pose_catalog`, `character_preferences`) and `settings/service.gd` read
+  it without a cycle; each call returns a detached block.
 - `SETTINGS.defaults()` returns the shipped document plus the one block that still lives in code
   (`ui.sections`), detached and with no player values. `SETTINGS.data()` returns that base with the
-  player's values merged on top, detached. These are the only two loaders; `_shipped()` is internal.
+  player's values merged on top, detached. These are the only two loaders; `_shipped()` and
+  `_catalog()` are internal.
 - On mod load, `main._ready()` calls `SETTINGS.load_settings()` before any getter: the player file
   is parsed, migrated, merged over the defaults (the player wins, and an absent player key is
   filled from the default) and written back once. Declared settings are therefore materialised in
@@ -221,10 +229,10 @@ prefixes pre-emptively.
   schema is preserved as `<path>.<timestamp>.invalid` (for example
   `settings.json.20261114-155724.invalid`), logged with the original and backup paths, and
   replaced by a fresh document built from the shipped defaults. Hand-editing is still unsupported;
-  the backup is the recovery path. A missing or malformed value in `settings/defaults.json` is a
-  **shipped-data** error: `_shipped()` logs the first problem, `defaults()` and `data()` return an
-  empty document, `_load()` refuses to write and `main.gd._ready()` logs one line and installs no
-  hooks. The game keeps running.
+  the backup is the recovery path. A missing or malformed value in `settings/defaults.json` or
+  `settings/catalogs.json` is a **shipped-data** error: `_shipped()`/`_catalog()` log the first
+  problem, `defaults()` and `data()` return an empty document, `_load()` refuses to write and
+  `main.gd._ready()` logs one line and installs no hooks. The game keeps running.
 - The schema test `_check_shipped_defaults()` enforces the exact path set (every declaration has a
   value, and there is no undeclared path), the exact JSON type per kind, a choice/list value inside
   its declared options, a colour in `rrggbb`/`rrggbbaa` form and a player-facing number inside its
@@ -274,8 +282,9 @@ prefixes pre-emptively.
 - `history.*` holds the act-history score weights, thresholds, decay and offer weighting; the
   contract is `docs/summary.md`. `tolerance.*` holds the mid-act warning/stop thresholds; the tier
   itself is a per-mare `preferences.tolerance`, not a global setting.
-- Built-in act prompts live in `SETTINGS.DEFAULT_ACT_PROMPTS`; `act_prompts` stores only overrides.
-  **Reset act prompts** (General › Enable debug › Debug › Actions) clears them.
+- Built-in act prompts live in `settings/catalogs.json` (`act_prompts`); a profile's `act_prompts`
+  stores only overrides. **Reset act prompts** (General › Enable debug › Debug › Actions) clears
+  them.
 - `characters.<id>.profile` is a sparse per-mare participation layer. `profile.participation` holds
   `acts`, `anatomy` and `tail`; only differences from the resolved default are stored. A provider's
   `eligible` assertion is top-level and never a player value. The `characters` block is the same
@@ -298,6 +307,9 @@ prefixes pre-emptively.
 
 Shipped defaults: `res://mods/unfplap/settings/defaults.json`. One nested block per dotted path,
 one value per declared setting, plus the global `default` profile; no `version`, no `ui`.
+
+Shipped catalog: `res://mods/unfplap/settings/catalogs.json`. `act_prompts`,
+`character_templates` and `anatomy.placement.<id>`; content only, never written to the player file.
 
 Player settings: `user://mods/data/unfplap/settings.json`
 (`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`). The same declared
@@ -538,14 +550,14 @@ value. See `docs/perf.md`.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | shared | act_keys | `shared/act_keys.gd` | act-key legacy fallback, key map and labels |
-| shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
-| shared | character_preferences | `shared/character_preferences.gd` | character templates |
+| shared | anatomy_placement | `shared/anatomy_placement.gd` | placement schema and merge |
+| shared | character_preferences | `shared/character_preferences.gd` | roster and catalog templates |
 | shared | consent | `shared/consent.gd` | consent defaults |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings document |
+| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog and tab rows |
 | shared | participation | `shared/participation.gd` | participation defaults |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
-| shared | preferences | `shared/preferences.gd` | profile math and defaults |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
+| shared | preferences | `shared/preferences.gd` | profile schema and math |
 
 ## Tests
 

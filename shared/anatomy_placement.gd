@@ -9,88 +9,12 @@ extends RefCounted
 ##
 ## `default` and `anon` are reserved; every other key is a pony id. A per-mare block stores only
 ## the keys that differ from the resolved default, so the file stays small and the shipped
-## defaults stay the single source of truth.
+## defaults stay the single source of truth. The shipped per-mare rows live in
+## `settings/catalogs.json` under `anatomy.placement`; this file owns only the schema and the
+## merge/sanitize/diff helpers.
 
 const KEYS := ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale",
 	"tail_y", "tail_z", "dock_y", "dock_scale", "tail_tilt_deg"]
-## Shipped per-mare defaults. Keep partial: a missing key falls back to the global default.
-## `/sync-settings` promotes a custom mare placement here when the user asks for it.
-const MARE_DEFAULTS := {
-	"amethyst_star": {"tail_y": -0.005},
-	"angel_wings": {"tail_y": 0.005},
-	"apple_bumpkin": {"tail_y": -0.005},
-	"applejack": {"tail_y": -0.035, "dock_y": 0.02},
-	"banana_fluff": {"tail_y": 0.015, "tail_z": -0.04},
-	"beauty_brass": {"tail_y": 0.005, "dock_y": 0.005},
-	"berry_punch": {"dock_y": -0.005},
-	"blossomforth": {"dock_y": 0.015},
-	"blue_bobbin": {"tail_y": -0.005, "tail_z": -0.015, "dock_y": 0.025},
-	"celestia": {"offset_y": 0.51, "offset_z": 0.289, "scale": 0.462},
-	"cheerilee": {"dock_y": 0.005},
-	"cherry_berry": {"dock_y": -0.005},
-	"cherry_spices": {"dock_y": -0.005},
-	"clear_skies": {"tail_y": -0.005},
-	"clear_sky": {"dock_y": 0.015},
-	"cloudchaser": {"tail_y": -0.005},
-	"cloudy_quartz": {"dock_y": 0.02},
-	"coloratura": {"tail_y": 0.015, "tail_z": -0.035, "dock_y": -0.04, "dock_scale": 1.3},
-	"daring_do": {"tail_y": -0.01, "dock_y": 0.015},
-	"derpy_hooves": {"tail_y": 0.005, "dock_y": 0.0, "dock_scale": 1.3},
-	"dr_fauna": {"tail_y": -0.005},
-	"flitter": {"dock_y": 0.005},
-	"florina_tart": {"tail_y": 0.005, "dock_y": 0.005},
-	"fluttershy": {"tail_y": 0.01, "dock_y": -0.015},
-	"lighthoof": {"dock_y": 0.015},
-	"lightning_dust": {"dock_y": 0.005},
-	"lilac_links": {"dock_y": 0.0},
-	"lily_lace": {"dock_y": 0.015},
-	"lily_valley": {"tail_y": -0.01, "dock_y": 0.02},
-	"limestone_pie": {"tail_y": 0.005},
-	"luna": {"offset_z": 0.289, "pitch_deg": 6.0, "scale": 0.562},
-	"luster_dawn": {"dock_y": 0.015},
-	"lyra_heartstrings": {"tail_y": -0.01, "dock_y": 0.015},
-	"mayor_mare": {"tail_y": 0.005},
-	"meadow_flower": {"tail_y": 0.005},
-	"merry_may": {"tail_y": -0.005},
-	"minuette": {"dock_y": 0.005},
-	"misty_fly": {"tail_y": -0.005},
-	"moon_dancer": {"tail_y": 0.005, "dock_y": 0.005},
-	"mrs_shy": {"tail_y": 0.01, "tail_z": -0.015, "dock_y": -0.01},
-	"ms_harshwhinny": {"dock_y": 0.015},
-	"nurse_redheart": {"dock_y": 0.005},
-	"peachy_sweet": {"dock_y": 0.015},
-	"photo_finish": {"tail_y": 0.005, "dock_y": 0.005},
-	"pinkie_pie": {"tail_y": -0.01},
-	"prim_hemline": {"dock_y": 0.015},
-	"rainbow_dash": {"tail_y": -0.03, "dock_y": 0.005},
-	"rainbowshine": {"tail_y": -0.005},
-	"rarity": {"tail_y": -0.015, "dock_y": 0.015},
-	"red_gala": {"dock_y": 0.005},
-	"roseluck": {"tail_y": -0.015, "tail_z": -0.015, "dock_y": 0.015},
-	"saffron_masala": {"tail_y": 0.005, "dock_y": 0.005},
-	"sassaflash": {"tail_y": -0.005},
-	"shimmy_shake": {"tail_y": 0.005, "dock_y": -0.005},
-	"silver_spanner": {"dock_y": 0.005},
-	"somnambula": {"dock_y": 0.02},
-	"spitfire": {"tail_y": 0.005, "dock_y": 0.005},
-	"sprinkle_medley": {"tail_y": -0.005},
-	"starlight_glimmer": {"dock_y": 0.015},
-	"stellar_flare": {"dock_y": 0.005},
-	"strawberry_sunrise": {"dock_y": 0.005},
-	"sunset_shimmer": {"tail_y": 0.005},
-	"sunshower": {"tail_y": 0.005},
-	"sunshower_raindrops": {"dock_y": 0.005},
-	"suri_polomare": {"tail_y": -0.01, "dock_y": 0.02},
-	"sweetie_drops": {"dock_y": 0.015},
-	"twilight_sparkle": {"tail_y": -0.01, "tail_z": 0.0},
-	"twilight_velvet": {"dock_y": 0.015},
-	"vapor_trail": {"dock_y": 0.015},
-	"vinyl_scratch": {"tail_y": -0.005, "dock_y": 0.0},
-	"white_lightning": {"dock_y": 0.005},
-	"wild_fire": {"dock_y": 0.015},
-	"windy_whistles": {"dock_y": 0.015},
-}
-
 ## One-time import of the old user://mods/data/unfplap/anatomy_place.json. The old file carried a
 ## version because the calibration moved twice; these shifts are the only place those offsets stay.
 const LEGACY_VERSION := 3

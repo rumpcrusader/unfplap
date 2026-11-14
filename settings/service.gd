@@ -494,7 +494,7 @@ static func anatomy_placement_default(id: String, use_draft := true) -> Dictiona
 	var base := _persisted_placement_default_values()
 	if use_draft:
 		base = _placement_default_values()
-	var shipped: Variant = PLACEMENT.MARE_DEFAULTS.get(id, {})
+	var shipped: Variant = DEFAULTS.catalog_block("anatomy.placement." + id)
 	var placed := PLACEMENT.merge(base, shipped)
 	var provided := MARE_REGISTRY.placement(id)
 	if provided.is_empty():
@@ -1746,13 +1746,13 @@ static var idle_life_stretch := flag("idle_life_stretch", "features.idle_life_st
 	"Offer and hold Idle Life's stretch during the standing offer and act. (currently broken)",
 	INTEGRATIONS, "").as_debug()
 
-const DEFAULT_ACT_PROMPTS := {
-	"utterance": "You are in the middle of sex with Anon, not kissing him. The private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory}{face_note} Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed], [surprised], [sad] or [fearful]. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",
-	"cue": "During sex with Anon, the private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory}{face_note} Say ONE short line in your own voice, at most 14 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Let the relationship and the memory color it without naming labels, levels, numbers, or the note. Do not invent a memory beyond the one given. Begin with [whispering] or [happy], or [calm], [surprised], [sad] or [fearful] if the moment calls for it. No narration, no stage directions, no anatomy. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",
-}
+## The built-in act prompts from `settings/catalogs.json`. The player file stores only overrides,
+## and `_fill_prompts()` supplies the current built-ins at read time so a release can update them.
+static var DEFAULT_ACT_PROMPTS: Dictionary = DEFAULTS.catalog_block("act_prompts")
 
-## Every spawnable adult mare's preference template lives in the same catalog.
-const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
+## Every spawnable adult mare's preference template lives in the same catalog. A provider layer is
+## applied by `profile_for()`, never written here.
+static var CHARACTER_TEMPLATES: Dictionary = DEFAULTS.catalog_block("character_templates")
 
 ## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
 ## file runs the step exactly once.
@@ -2646,7 +2646,7 @@ static var _placement_draft: Dictionary = {}
 
 ## Parse, migrate, merge and write the player file once per process. `main._ready()` calls this
 ## before any getter, so the hot read path never touches the disk. Returns false when the shipped
-## document is invalid; the caller then refuses to install the mod.
+## defaults or catalog document is invalid; the caller then refuses to install the mod.
 static func load_settings() -> bool:
 	if not _loaded:
 		_load()
@@ -2942,6 +2942,16 @@ static func _shipped_value(path: String) -> Variant:
 	return node
 
 
+## The shipped catalog document, parsed once by `shared/defaults_data.gd`. It holds the built-in
+## act prompts, the character templates and the per-mare placement rows; it is never part of
+## `defaults()`, `data()` or the player file.
+static func _catalog() -> Dictionary:
+	var document := DEFAULTS.catalog()
+	if not DEFAULTS.catalog_valid():
+		_shipped_fail(DEFAULTS.catalog_error())
+	return document
+
+
 ## The JSON value must match the declaration kind. The schema test checks the same rules; this
 ## keeps a hand-edited or stale document from silently coercing at run time.
 static func _shipped_type_ok(s: Setting, value: Variant) -> bool:
@@ -2991,6 +3001,8 @@ static func _code_defaults() -> Dictionary:
 
 static func _defaults() -> Dictionary:
 	var shipped := _shipped()
+	# The catalog is content, not settings, but the mod cannot resolve a mare without it.
+	_catalog()
 	if not _shipped_valid:
 		return {}
 	return _merge(_code_defaults(), shipped)
@@ -3163,7 +3175,8 @@ static func _normalize_anatomy_placement(data: Dictionary) -> Dictionary:
 				var row: Variant = legacy[id]
 				if not row is Dictionary:
 					continue
-				var expected := PLACEMENT.merge(base, PLACEMENT.MARE_DEFAULTS.get(name, {}))
+				var expected := PLACEMENT.merge(base,
+					DEFAULTS.catalog_block("anatomy.placement." + name))
 				var values := PLACEMENT.row_to_placement(row)
 				var over := PLACEMENT.diff(PLACEMENT.sanitize(values, expected), expected)
 				if over.is_empty():
@@ -3238,7 +3251,8 @@ static func _strip_materialized_placement_rows(data: Dictionary) -> Dictionary:
 			continue
 		if not raw is Dictionary:
 			continue
-		var expected := PLACEMENT.merge(global, PLACEMENT.MARE_DEFAULTS.get(id, {}))
+		var expected := PLACEMENT.merge(global,
+			DEFAULTS.catalog_block("anatomy.placement." + id))
 		var provided := MARE_REGISTRY.placement(id)
 		if not provided.is_empty():
 			expected = PLACEMENT.merge(expected, provided)

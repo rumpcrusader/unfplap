@@ -6,6 +6,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PROFILES := preload("res://mods/unfplap/shared/character_preferences.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const DEFAULTS := preload("res://mods/unfplap/shared/defaults_data.gd")
 
 ## The base game's young ponies and the two adults whose identity resource does not match
 ## their written profile. They must stay out of the preference roster.
@@ -44,6 +45,11 @@ func run() -> void:
 	check(PROFILES.ORDER.size() == 103, "one hundred and three adult mares")
 	check(PROFILES.ORDER.size() == PROFILES.NAMES.size(), "every mare has a display name")
 	check(PROFILES.ORDER.size() == PROFILES.TEMPLATES.size(), "every mare has a template")
+	var shipped: Dictionary = DEFAULTS.catalog_block("character_templates")
+	check(shipped.size() == PROFILES.TEMPLATES.size(),
+		"the roster reads the shipped character-template catalog")
+	for id: String in PROFILES.ORDER:
+		check(shipped.has(id), "the shipped catalog has a template for " + id)
 
 	var seen: Dictionary = {}
 	for id: String in PROFILES.ORDER:

@@ -219,6 +219,10 @@ prefixes pre-emptively.
   the player file on first run. **A changed shipped declared default is a migration event for an
   existing player**: their materialised value keeps winning. Promote a player value into the
   shipped document with `scripts/settings_sync.py`; see `.opencode/skills/sync-settings/SKILL.md`.
+- `scripts/settings_sync.py diff` compares the player file with `settings/defaults.json`
+  (including `default.*`); `diff --catalog` compares the player's per-mare overrides with
+  `settings/catalogs.json`. `promote` and `promote --catalog` write into the matching document and
+  never touch the player file.
 - The global `default` profile (`default.*` in `settings/defaults.json`: the template core, the
   preference profile and the pose defaults) is resolved at read time. The player file stores only
   the differences the player made, so a changed shipped template or a cross-mod provider layer
@@ -504,8 +508,9 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
   when the row needs a reason, a range or a warning. An empty help string draws no Faint line.
 - **Docs name settings and bounds, never shipped values.** A default lives only in
   `settings/defaults.json`; a doc that repeats it goes stale on the next promotion.
-- Promote a player value with `scripts/settings_sync.py promote`; never hand-edit the shipped
-  document to copy a local value.
+- Promote a player value with `scripts/settings_sync.py promote` (settings) or
+  `scripts/settings_sync.py promote --catalog` (a per-mare template, prompt or placement row);
+  never hand-edit the shipped document to copy a local value.
 
 ## Debug actions and hotkeys
 

@@ -3,11 +3,14 @@ extends RefCounted
 ## General tab; one mod-owned `InputMap` action is installed from that keycode, so the game's
 ## typing guard stashes it while a text field has focus.
 ##
-## `6` is the default because the base game's bundled Dance Mod owns `Y`; `6` is unused by the
-## game, every bundled pack and the source mods. `O` and `Y` are not a fixed list: the capture can
-## bind any key, including the old choices.
+## The shipped default lives in `settings/defaults.json`, not here. `DEFAULT_CODE` is only the
+## fallback for a legacy saved choice or a hand-edited invalid keycode; the base game's bundled
+## Dance Mod owns `Y`, and `6` is unused by the game, every bundled pack and the source mods.
+## The capture can bind any key, including the old choices.
 
 const ACTION := &"unfplap_act"
+## Legacy and invalid-code fallback. Not the shipped default; that is `controls.act_key` in
+## `settings/defaults.json`.
 const DEFAULT_CODE := KEY_6
 ## Same upper bound the game's own key loader accepts.
 const MAX_CODE := 0x2000000

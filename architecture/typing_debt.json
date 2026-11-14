@@ -452,6 +452,11 @@
     },
     {
       "service": "settings",
+      "func": "defaults",
+      "signature": "static func defaults() -> Dictionary:"
+    },
+    {
+      "service": "settings",
       "func": "deprecated",
       "signature": "static func deprecated(path: String, map: Callable) -> Dictionary:"
     },

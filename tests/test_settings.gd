@@ -43,7 +43,8 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 func run() -> void:
 	_check_registry()
-	_check_defaults()
+	_check_shipped_defaults()
+	_check_bounds()
 	_check_act_key()
 	_check_snapshot()
 	_check_placement()
@@ -107,7 +108,6 @@ func _check_registry() -> void:
 ## The act key is a hidden physical-key setting; the General row captures any key.
 func _check_act_key() -> void:
 	var before := int(SETTINGS.act_key.get_num())
-	check(int(SETTINGS.act_key.default) == KEY_6, "the act key defaults to 6")
 	check(bool(SETTINGS.act_key.hidden), "the act key is drawn by the hand-built capture row")
 	SETTINGS.act_key.set_num(float(KEY_F))
 	check(int(SETTINGS.act_key.get_num()) == KEY_F, "a captured key is stored")
@@ -138,34 +138,88 @@ func _find_capture(node: Node) -> Button:
 	return null
 
 
-## The declared defaults are the values a fresh file would give.
-func _check_defaults() -> void:
-	check(bool(SETTINGS.hud_readouts.default), "hud readouts default on")
-	check(near(float(SETTINGS.pace.default), 1.25), "auto pace default")
-	check(str(SETTINGS.orientation.default) == "up", "thrust orientation default")
-	check(not bool(SETTINGS.debug_mode.default), "debug mode is off by default")
-	check(bool(SETTINGS.reseat_tails.default), "re-seat tails defaults on")
-	check(near(float(SETTINGS.tail_y.default), 0.0) and bool(SETTINGS.tail_y.debug),
-		"the default tail Y is a debug number at zero")
-	check(near(float(SETTINGS.dock_scale.default), 1.2) and bool(SETTINGS.dock_scale.debug),
-		"the default dock scale is a debug number at 1.2")
-	check(near(float(SETTINGS.tail_tilt_deg.default), 0.0) and bool(SETTINGS.tail_tilt_deg.debug),
-		"the default tail tilt is a debug number at zero")
-	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
-	check(not bool(SETTINGS.skeleton_overlay.get_bool()), "the skeleton overlay is off by default")
-	check(bool(SETTINGS.skeleton_overlay.debug), "the skeleton overlay is a debug setting")
-	check(bool(SETTINGS.kissing_reactions.default),
-		"the Kissing reaction bridge defaults on")
-	check(not bool(SETTINGS.idle_life_stretch.default),
-		"the Idle Life stretch pose defaults off")
-	check(bool(SETTINGS.idle_life_stretch.debug),
-		"the Idle Life stretch pose is a debug setting")
-	check(bool(SETTINGS.kissing_full_fidgets.default)
-		and bool(SETTINGS.kissing_full_fidgets.debug),
-		"full Kissing fidgets are an on-by-default debug feature")
-	check(str(SETTINGS.dock_style.default) == "genitals", "dock style defaults to genitals")
-	check(near(float(SETTINGS.back_out_m.default), 0.0) and bool(SETTINGS.back_out_m.debug),
-		"back-out gap is a debug number at zero")
+## The shipped defaults document is the schema contract: exactly one value per declared setting,
+## of the declared kind, inside the declared bounds. The test never names a value, so changing a
+## shipped default does not touch this file.
+func _check_shipped_defaults() -> void:
+	var text := FileAccess.get_file_as_string(SETTINGS.DEFAULTS_FILE)
+	check(not text.is_empty(), "the shipped defaults document exists")
+	var parsed: Variant = JSON.parse_string(text)
+	check(parsed is Dictionary, "the shipped defaults document is a JSON object")
+	var leaves := _flatten_paths(parsed if parsed is Dictionary else {})
+	var declared := {}
+	for setting: Variant in SETTINGS.all_settings():
+		declared[str(setting.path)] = setting
+	var missing: Array = []
+	var dead: Array = []
+	for path: String in declared:
+		if not leaves.has(path):
+			missing.append(path)
+	for path: String in leaves:
+		if not declared.has(path):
+			dead.append(path)
+	check(missing.is_empty(), "every declared setting has a shipped default: %s" % str(missing))
+	check(dead.is_empty(), "the shipped defaults hold no undeclared path: %s" % str(dead))
+	for path: String in declared:
+		if not leaves.has(path):
+			continue
+		var setting: Variant = declared[path]
+		var value: Variant = leaves[path]
+		if setting is SETTINGS.FlagSetting:
+			check(value is bool, "%s is a flag" % path)
+		elif setting is SETTINGS.NumSetting:
+			check(value is int or value is float, "%s is a number" % path)
+			if (value is int or value is float) and not bool(setting.debug):
+				var n := setting as SETTINGS.NumSetting
+				check(float(value) >= n.low and float(value) <= n.high,
+					"%s is inside its declared bounds" % path)
+		elif setting is SETTINGS.ChoiceSetting:
+			check(value is String, "%s is a choice string" % path)
+			if value is String:
+				check((setting as SETTINGS.ChoiceSetting).options.has(value),
+					"%s is one of its declared options" % path)
+		elif setting is SETTINGS.ListSetting:
+			check(value is Array, "%s is a list" % path)
+			if value is Array:
+				for item: Variant in value:
+					check(item is String and (setting as SETTINGS.ListSetting).options.has(item),
+						"%s holds only its declared options" % path)
+		elif setting is SETTINGS.ColorSetting:
+			check(value is String and _is_hex_color(str(value)), "%s is a hex colour" % path)
+		else:
+			check(false, "%s has a known setting kind" % path)
+	check(_flatten_paths(SETTINGS._shipped()) == leaves,
+		"the settings loader reads the shipped defaults document")
+	var copy := SETTINGS.defaults()
+	check(not copy.is_empty(), "defaults() returns the shipped document")
+	if copy is Dictionary:
+		copy["debug_mode"] = not bool(copy.get("debug_mode", false))
+		check(bool(SETTINGS.defaults().get("debug_mode", false))
+			!= bool(copy.get("debug_mode", false)),
+			"defaults() is detached from the shipped document")
+
+
+## Every leaf path of a nested settings document.
+func _flatten_paths(value: Variant, prefix := "") -> Dictionary:
+	var out: Dictionary = {}
+	if value is Dictionary:
+		for key: Variant in (value as Dictionary).keys():
+			var name := str(key)
+			var path := name if prefix.is_empty() else prefix + "." + name
+			out.merge(_flatten_paths((value as Dictionary)[key], path))
+	else:
+		out[prefix] = value
+	return out
+
+
+func _is_hex_color(value: String) -> bool:
+	var re := RegEx.new()
+	re.compile("^[0-9a-f]{6}([0-9a-f]{2})?$")
+	return re.search(value) != null
+
+
+## Bounds are the player-facing contract, independent of any shipped value.
+func _check_bounds() -> void:
 	check(near(float(SETTINGS.back_out_m.low), -5.0)
 		and near(float(SETTINGS.back_out_m.high), 5.0),
 		"back-out gap keeps its signed range")
@@ -210,70 +264,71 @@ func _check_snapshot() -> void:
 ## Anatomy placement is one default block plus partial per-mare overrides.
 func _check_placement() -> void:
 	var base := SETTINGS.anatomy_placement_default("")
-	check(near(float(base["offset_y"]), 0.505), "placement default Y")
-	check(near(float(base["pitch_deg"]), 3.0), "placement default pitch")
-	check(near(float(base["tail_y"]), 0.0) and near(float(base["tail_z"]), -0.01),
-		"placement default tail")
-	check(near(float(base["dock_y"]), 0.01) and near(float(base["dock_scale"]), 1.2),
-		"placement default dock")
-	check(near(float(base["scale"]), 0.682), "placement default scale")
-	check(near(float(base["tail_tilt_deg"]), 0.0), "placement default tail tilt")
-
-	SETTINGS.save_anatomy_placement("octavia_melody",
-		{"offset_y": 0.51, "offset_z": 0.284, "scale": 0.762})
+	for key: String in SETTINGS.PLACEMENT.KEYS:
+		check(base.has(key), "the placement default carries %s" % key)
+	var values := base.duplicate(true)
+	values["offset_y"] = float(base["offset_y"]) + 0.005
+	values["offset_z"] = float(base["offset_z"]) + 0.02
+	values["scale"] = float(base["scale"]) + 0.08
+	SETTINGS.save_anatomy_placement("octavia_melody", values)
 	var over := SETTINGS.anatomy_placement("octavia_melody")
-	check(near(float(over["offset_y"]), 0.51), "per-mare override Y")
-	check(near(float(over["offset_x"]), 0.0), "an omitted override key falls back")
-	check(near(float(over["scale"]), 0.762), "per-mare override scale")
+	check(near(float(over["offset_y"]), float(values["offset_y"])), "per-mare override Y")
+	check(near(float(over["offset_x"]), float(base["offset_x"])),
+		"an omitted override key falls back")
+	check(near(float(over["scale"]), float(values["scale"])), "per-mare override scale")
 	check(SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"a differing per-mare block is an override")
 	SETTINGS.save_anatomy_placement("octavia_melody", base)
 	check(not SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"a block equal to the default is not an override")
-	check(near(float(SETTINGS.anatomy_placement("rarity")["tail_y"]), -0.015)
-		and near(float(SETTINGS.anatomy_placement("rarity")["tail_z"]), -0.01)
-		and near(float(SETTINGS.anatomy_placement("rarity")["dock_y"]), 0.015)
-		and near(float(SETTINGS.anatomy_placement("rarity")["tail_tilt_deg"]), 0.0),
-		"shipped per-mare defaults resolve")
+	var rarity := SETTINGS.anatomy_placement("rarity")
+	for key: String in SETTINGS.PLACEMENT.KEYS:
+		check(rarity.has(key), "a shipped per-mare default resolves %s" % key)
 
-	SETTINGS.set_anatomy_placement_draft({"offset_y": 0.6, "scale": 0.9})
-	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]), 0.6),
-		"the default draft previews")
-	check(near(float(SETTINGS.anatomy_placement_default("", false)["offset_y"]), 0.505),
-		"the persisted default stays while previewing")
+	var draft := base.duplicate(true)
+	draft["offset_y"] = float(base["offset_y"]) + 0.1
+	draft["scale"] = float(base["scale"]) + 0.1
+	SETTINGS.set_anatomy_placement_draft(draft)
+	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]),
+		float(draft["offset_y"])), "the default draft previews")
+	check(near(float(SETTINGS.anatomy_placement_default("", false)["offset_y"]),
+		float(base["offset_y"])), "the persisted default stays while previewing")
 	SETTINGS.clear_anatomy_placement_draft()
-	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]), 0.505),
-		"clearing the draft restores the default")
+	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]),
+		float(base["offset_y"])), "clearing the draft restores the default")
 
 	var anon := SETTINGS.anon_placement()
-	check(near(float(anon["offset_y"]), 0.74), "anon placement Y")
-	check(near(float(anon["scale"]), 0.2), "anon placement scale")
+	for key: String in ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale"]:
+		check(anon.has(key), "the anon placement carries %s" % key)
+	check(float(anon["scale"]) > 0.0, "the anon placement keeps a positive scale")
 
 
 ## Tail and dock placement share the anatomy block and disappear at the default.
 func _check_tail_seat() -> void:
 	var default := SETTINGS.anatomy_placement_default("octavia_melody")
-	check(near(float(default["tail_y"]), 0.0) and near(float(default["tail_z"]), -0.01),
-		"a mare with no override uses the default tail")
-	check(near(float(default["dock_y"]), 0.01) and near(float(default["dock_scale"]), 1.2),
-		"a mare with no override uses the default dock")
+	for key: String in SETTINGS.PLACEMENT.KEYS:
+		check(default.has(key), "a mare with no override resolves %s" % key)
+	var maud_before := SETTINGS.anatomy_placement("maud_pie")
 	var values := default.duplicate(true)
-	values["tail_y"] = 0.012
-	values["tail_z"] = -0.003
-	values["dock_y"] = -0.008
-	values["dock_scale"] = 1.06
-	values["tail_tilt_deg"] = 7.0
+	values["tail_y"] = float(default["tail_y"]) + 0.012
+	values["tail_z"] = float(default["tail_z"]) + 0.007
+	values["dock_y"] = float(default["dock_y"]) - 0.008
+	values["dock_scale"] = float(default["dock_scale"]) + 0.06
+	values["tail_tilt_deg"] = float(default["tail_tilt_deg"]) + 7.0
 	SETTINGS.save_anatomy_placement("octavia_melody", values)
 	var placed := SETTINGS.anatomy_placement("octavia_melody")
-	check(near(float(placed["tail_y"]), 0.012) and near(float(placed["tail_z"]), -0.003),
+	check(near(float(placed["tail_y"]), float(values["tail_y"]))
+		and near(float(placed["tail_z"]), float(values["tail_z"])),
 		"a tail placement override reads back")
-	check(near(float(placed["dock_y"]), -0.008) and near(float(placed["dock_scale"]), 1.06),
+	check(near(float(placed["dock_y"]), float(values["dock_y"]))
+		and near(float(placed["dock_scale"]), float(values["dock_scale"])),
 		"a dock placement override reads back")
-	check(near(float(placed["tail_tilt_deg"]), 7.0), "a tail tilt override reads back")
+	check(near(float(placed["tail_tilt_deg"]), float(values["tail_tilt_deg"])),
+		"a tail tilt override reads back")
 	check(SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"a non-default tail/dock placement is an override")
-	check(near(float(SETTINGS.anatomy_placement("maud_pie")["tail_y"]), 0.0),
-		"tail placement overrides are per mare")
+	check(near(float(SETTINGS.anatomy_placement("maud_pie")["tail_y"]),
+		float(maud_before["tail_y"])), "tail placement overrides are per mare")
 	SETTINGS.save_anatomy_placement("octavia_melody",
 		SETTINGS.anatomy_placement_default("octavia_melody", false))
 	check(not SETTINGS.anatomy_placement_has_override("octavia_melody"),
@@ -291,45 +346,64 @@ func _check_placement_migration() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
 	var mare_path := folder.path_join("anatomy_place.json")
 	var anon_path := folder.path_join("anon_place.json")
+	var fluttershy := SETTINGS.anatomy_placement_default("fluttershy", false)
+	fluttershy["offset_y"] = float(fluttershy["offset_y"]) + 0.005
+	var applejack := SETTINGS.anatomy_placement_default("applejack", false)
+	var dash := SETTINGS.anatomy_placement_default("rainbow_dash", false)
+	dash["pitch_deg"] = float(dash["pitch_deg"]) + 3.0
 	var mare := FileAccess.open(mare_path, FileAccess.WRITE)
-	mare.store_string(JSON.stringify({"version": 3,
-		"fluttershy": {"position": [0.0, 0.51, 0.284], "pitch": 6.0, "scale": 0.762},
-		"applejack": {"position": [0.0, 0.505, 0.284], "pitch": 3.0, "scale": 0.682},
-		"rainbow_dash": {"position": [0.0, 0.505, 0.284], "pitch": 6.0, "scale": 0.682},
+	mare.store_string(JSON.stringify({"version": SETTINGS.PLACEMENT.LEGACY_VERSION,
+		"fluttershy": _legacy_row(fluttershy),
+		"applejack": _legacy_row(applejack),
+		"rainbow_dash": _legacy_row(dash),
 	}, "\t"))
 	mare.close()
+	var anon_default := SETTINGS.anon_placement()
+	anon_default["scale"] = float(anon_default["scale"]) + 0.1
 	var anon := FileAccess.open(anon_path, FileAccess.WRITE)
-	anon.store_string(JSON.stringify(
-		{"position": [0.1, 0.2, 0.3], "pitch": 1.0, "scale": 0.5}, "\t"))
+	anon.store_string(JSON.stringify(_legacy_row(anon_default), "\t"))
 	anon.close()
 	var data := SETTINGS._migrate({}, SETTINGS.SCHEMA_VERSION - 1)
 	var placement: Dictionary = (data.get("anatomy", {}) as Dictionary).get("placement", {})
 	check(placement.has("fluttershy"), "a differing mare row imports")
 	check(not placement.has("applejack"), "a row equal to the default collapses")
 	check(placement.has("anon"), "the anon row imports")
-	check(near(float((placement["fluttershy"] as Dictionary).get("offset_y", 0.0)), 0.51),
-		"the imported mare row keeps its value")
-	check(near(float((placement["anon"] as Dictionary).get("scale", 0.0)), 0.5),
-		"the imported anon row keeps its value")
-	var dash: Dictionary = placement.get("rainbow_dash", {})
-	check(dash.size() == 1 and near(float(dash.get("pitch_deg", 0.0)), 6.0),
-		"a one-key legacy row stores only that key")
+	check(near(float((placement["fluttershy"] as Dictionary).get("offset_y", 0.0)),
+		float(fluttershy["offset_y"])), "the imported mare row keeps its value")
+	check(near(float((placement["anon"] as Dictionary).get("scale", 0.0)),
+		float(anon_default["scale"])), "the imported anon row keeps its value")
+	var dash_row: Dictionary = placement.get("rainbow_dash", {})
+	check(dash_row.size() == 1 and near(float(dash_row.get("pitch_deg", 0.0)),
+		float(dash["pitch_deg"])), "a one-key legacy row stores only that key")
 	SETTINGS._finish_legacy_placement_import()
 	check(not FileAccess.file_exists(mare_path), "the old mare file is archived")
 	check(not FileAccess.file_exists(anon_path), "the old anon file is archived")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(mare_path + ".migrated"))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(anon_path + ".migrated"))
 	# A current schema still imports a legacy file that appears after the bump.
+	var late_values := SETTINGS.anatomy_placement_default("rarity", false)
+	late_values["pitch_deg"] = float(late_values["pitch_deg"]) + 3.0
 	var late := FileAccess.open(mare_path, FileAccess.WRITE)
-	late.store_string(JSON.stringify({"version": 3, "rarity": {
-		"position": [0.0, 0.525, 0.289], "pitch": 6.0, "scale": 0.742}}, "\t"))
+	late.store_string(JSON.stringify({"version": SETTINGS.PLACEMENT.LEGACY_VERSION,
+		"rarity": _legacy_row(late_values)}, "\t"))
 	late.close()
 	SETTINGS.reload_file()
 	SETTINGS.data()
-	check(near(float(SETTINGS.anatomy_placement("rarity").get("pitch_deg", 0.0)), 6.0),
+	check(near(float(SETTINGS.anatomy_placement("rarity").get("pitch_deg", 0.0)),
+		float(late_values["pitch_deg"])),
 		"a current settings file still imports a late legacy placement")
 	check(not FileAccess.file_exists(mare_path), "the late legacy file is archived")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(mare_path + ".migrated"))
+
+
+## One row of the old placement file, from a resolved placement block.
+func _legacy_row(placement: Dictionary) -> Dictionary:
+	return {
+		"position": [float(placement["offset_x"]), float(placement["offset_y"]),
+			float(placement["offset_z"])],
+		"pitch": float(placement["pitch_deg"]),
+		"scale": float(placement["scale"]),
+	}
 
 
 ## A write persists through the file, and the flat cache rebuilds with it.
@@ -621,8 +695,8 @@ func _check_debug_actions() -> void:
 	check(not bool(DEBUG_ACTIONS.ACTIONS["bed_cuddle"].get("panel", true)),
 		"the bed cuddle stays off the settings blocks")
 	var overlay: SETTINGS.Setting = SETTINGS.by_path("anatomy.skeleton_overlay")
-	check(overlay != null and bool(overlay.debug) and not bool(overlay.default),
-		"the skeleton overlay is a debug flag, off by default")
+	check(overlay != null and bool(overlay.debug),
+		"the skeleton overlay is a debug flag")
 	main.free()
 
 
@@ -783,7 +857,8 @@ func _check_migration() -> void:
 func _check_api_names() -> void:
 	var names := ["all_settings", "by_name", "by_path", "tab_settings", "groups", "act_snapshot",
 		"get_value_at", "set_value_at", "default_at", "to_row",
-		"section_open", "set_section_open", "flag", "num", "choice", "list", "data", "reload_file",
+		"section_open", "set_section_open", "flag", "num", "choice", "list", "data", "defaults",
+		"reload_file",
 		"preferences", "pose", "template_for", "get_bool", "set_bool",
 		"get_num", "set_num", "get_choice", "set_choice", "get_list", "set_list", "build",
 		"build_actions", "build_integrations"]

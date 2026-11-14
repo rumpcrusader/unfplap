@@ -48,16 +48,14 @@ func run() -> void:
 	quit(0 if failures == 0 else 1)
 
 
-## The pure module and the declaration agree on the default and the key label.
+## The pure module labels and validates captured keys.
 func _check_choices() -> void:
-	check(ACT_KEYS.DEFAULT_CODE == KEY_6, "the act key defaults to 6")
+	check(ACT_KEYS.DEFAULT_CODE == KEY_6, "the legacy act-key fallback stays 6")
 	check(ACT_KEYS.label(KEY_6) == "6", "the cap reads its number")
 	check(ACT_KEYS.label(KEY_O) == "O" and ACT_KEYS.label(KEY_Y) == "Y",
 		"any captured key gets its label")
 	check(ACT_KEYS.code(KEY_F) == KEY_F, "a captured key is kept")
 	check(ACT_KEYS.code(0) == KEY_6, "an invalid code falls back to 6")
-	check(int(SETTINGS.act_key.default) == ACT_KEYS.DEFAULT_CODE,
-		"the setting default is the module default")
 	check(bool(SETTINGS.act_key.hidden), "the setting is drawn by the hand-built capture row")
 
 

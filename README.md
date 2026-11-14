@@ -6,7 +6,7 @@ Do your mares.
 
 Copy `.pck` from releases into your mod folder.
 
-Requires Home: Equestria `0.3.0-maredev`.
+Requires Home: Equestria `0.3.1-maredev`.
 
 Desktop first. The optional VR standing act is experimental and gated by the anatomy master.
 

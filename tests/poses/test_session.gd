@@ -40,6 +40,8 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 func run() -> void:
 	_check_config()
 	_check_begin()
+	_check_begin_refused()
+	_check_standing_begin()
 	_check_bed_frame()
 	_check_bones()
 	_check_chin()
@@ -135,12 +137,77 @@ func _check_begin() -> void:
 	check(session.tail_lay != null, "the missionary tail lay is installed")
 	check(session.pose_logged == false and session.pose_trace_frames == 0,
 		"a fresh session starts its logs clean")
+	var children := body.get_child_count()
+	check(not session.begin({
+		"pose_id": CATALOG.MISSIONARY,
+		"id": "twilight_sparkle",
+		"features": {},
+		"bed": null,
+		"presentation": {},
+		"pose_config": {},
+		"look_point": Vector3.ZERO,
+		"camera_position": Vector3.INF,
+	}), "a second begin is refused")
+	check(body.get_child_count() == children, "a refused begin adds no second pose")
 	session.release_start()
 	check(session.tail_lay == null, "the pose release frees the tail lay")
 	session.release_pose()
 	check(session.pose_node == null, "the pose release frees the modifier")
+	check(session.pose_id == "" and session.id == "",
+		"the pose release clears the act identity")
+	check(session.features.is_empty(), "the pose release clears the features")
+	check(session.pose_config.is_empty(), "the pose release clears the live config")
+	check(session.bed_frame == null, "the pose release clears the bed frame")
+	check(str(session.base_info().get("reason", "")) == "pose=",
+		"the released session names no pose")
 	body.free()
 	hair.free()
+	pony.free()
+
+
+## A refused begin installs nothing at all: no body skeleton means no pose and no tail lay.
+func _check_begin_refused() -> void:
+	var made := _session(CATALOG.MISSIONARY)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	check(not session.begin({
+		"pose_id": CATALOG.MISSIONARY,
+		"id": "twilight_sparkle",
+		"features": {},
+		"bed": null,
+		"presentation": {},
+	}), "a pony without a body skeleton is refused")
+	check(not session._started and session.pose_node == null and session.tail_lay == null,
+		"a refused begin installs nothing")
+	root.remove_child(pony)
+	pony.free()
+
+
+## A standing begin with a bed attached saves no bed frame source: only a missionary frame follows.
+func _check_standing_begin() -> void:
+	var made := _session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var body := Skeleton3D.new()
+	body.add_bone("pony_hips")
+	pony.skeleton = body
+	var bed := Node3D.new()
+	root.add_child(bed)
+	check(session.begin({
+		"pose_id": CATALOG.STANDING,
+		"id": "twilight_sparkle",
+		"features": {},
+		"bed": bed,
+		"presentation": {},
+		"look_point": Vector3.ZERO,
+		"camera_position": Vector3.INF,
+	}), "the standing begin succeeds")
+	check(not session.bed_frame_source_saved, "a standing begin saves no bed frame source")
+	session.release_pose()
+	root.remove_child(bed)
+	bed.free()
+	body.free()
+	root.remove_child(pony)
 	pony.free()
 
 
@@ -385,7 +452,7 @@ func _check_stretch_render() -> void:
 	var session: RefCounted = made["session"]
 	var body: Skeleton3D = made["body"]
 	session.pose_node.stretch = true
-	session.render_write({"pose_id": CATALOG.STANDING})
+	session.render_write({})
 	var holder := _stretch_node(body)
 	check(holder != null, "the render-time write watches the standing stretch toggle")
 	check(holder != null and holder.get_index() + 1 == session.pose_node.get_index(),
@@ -414,18 +481,20 @@ func _check_render_write() -> void:
 	var order: Array[String] = []
 	session.place_anon = func(_frame: Variant, _scale: float) -> void: order.append("anon")
 	session.eye_camera = func() -> void: order.append("eye")
-	session.render_write({"pose_id": CATALOG.MISSIONARY, "bed_frame": Transform3D.IDENTITY,
+	session.render_write({"bed_frame": Transform3D.IDENTITY,
 		"body_scale": 0.66, "eye_camera_active": false})
 	check(order == ["anon"], "the render write places the Anon body without the eye camera")
-	session.render_write({"pose_id": CATALOG.MISSIONARY, "bed_frame": Transform3D.IDENTITY,
+	session.render_write({"bed_frame": Transform3D.IDENTITY,
 		"body_scale": 0.66, "eye_camera_active": true})
 	check(order == ["anon", "anon", "eye"], "the eye camera runs after the pose write")
 	order.clear()
-	session.render_write({"pose_id": CATALOG.STANDING, "eye_camera_active": true})
+	session.pose_id = CATALOG.STANDING
+	session.render_write({"eye_camera_active": true})
 	check(order.is_empty(), "a standing render write places no Anon body or eye camera")
+	session.pose_id = CATALOG.MISSIONARY
 	session.place_anon = Callable()
 	session.eye_camera = Callable()
-	session.render_write({"pose_id": CATALOG.MISSIONARY, "eye_camera_active": true})
+	session.render_write({"eye_camera_active": true})
 	check(order.is_empty(), "absent render callbacks are no-ops")
 	root.remove_child(pony)
 	pony.free()

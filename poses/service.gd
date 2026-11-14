@@ -28,6 +28,8 @@ var pose_id := ""
 var id := ""
 var features: Dictionary = {}
 var bed_node: Variant = null
+## True between a successful `begin()` and `release_pose()`. The runtime keeps one session per pony.
+var _started := false
 ## Live pose config. The runtime reads it through `_pose_session.pose_config`.
 var pose_config: Dictionary = {}
 
@@ -84,8 +86,17 @@ func set_pose_config(config: Dictionary) -> void:
 
 
 ## Build the pose for a fresh act. `context` carries `pose_id`, `id`, `features`, `bed`,
-## `presentation`, `look_point` and `camera_position` from the runtime's start sequence.
-func begin(context: Dictionary) -> void:
+## `presentation`, `look_point` and `camera_position` from the runtime's start sequence. Returns
+## false, before installing anything, when a pose is already live or the pony has no body skeleton;
+## `_started` only follows a complete install.
+func begin(context: Dictionary) -> bool:
+	if _started:
+		_write_log("pose session: begin refused, a pose is already live")
+		return false
+	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
+	if not skeleton is Skeleton3D:
+		_write_log("pose session: no body skeleton to pose")
+		return false
 	# A holder left from the last act is dropped without clearing the choice: a new act after an
 	# offer reuses the variant and side the offer rolled.
 	_release_stretch(false)
@@ -95,45 +106,44 @@ func begin(context: Dictionary) -> void:
 	bed_node = context.get("bed")
 	pose_logged = false
 	pose_trace_frames = 0
-	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	if skeleton is Skeleton3D:
-		pose_node = POSE.new()
-		pose_node.name = "UnfplapPose"
-		pose_node.mare = pony
-		pose_node.log = log
-		pose_node.perf = perf
-		pose_node.mode = "standing" if pose_id == CATALOG.STANDING else "missionary"
-		# One live object: the sync merges the character's pose into `pose_config` in place, so the
-		# modifier, `facts.pose_config` and the runtime all read the same dictionary.
-		if pose_id == CATALOG.STANDING:
-			sync_standing_config(context.get("presentation", {}))
-		elif pose_id == CATALOG.MISSIONARY:
-			sync_missionary_config()
-		pose_node.pose_config = pose_config
-		var look: Variant = context.get("look_point")
-		pose_node.look_point = look if look is Vector3 else pony.global_position
-		pose_node.amount = 0.0
-		pose_node.target_amount = 1.0
-		if pose_id == CATALOG.MISSIONARY:
-			bed_frame = missionary_pose_frame()
-			bed_frame_source_saved = is_instance_valid(bed_node)
-			if bed_frame_source_saved:
-				bed_frame_source = (bed_node as Node3D).global_transform
-			pose_node.bed_frame = bed_frame
-			log_base()
-		(skeleton as Skeleton3D).add_child(pose_node)
-		if pose_id == CATALOG.STANDING:
-			if _feature("standing_body_sway"):
-				_install_body_sway(skeleton)
-			if _feature("thrust_ear_twitch"):
-				_install_ear_twitch()
-		elif _feature("missionary_body_motion"):
-			_install_prone_sway(skeleton)
-		keep_chin_last()
+	pose_node = POSE.new()
+	pose_node.name = "UnfplapPose"
+	pose_node.mare = pony
+	pose_node.log = log
+	pose_node.perf = perf
+	pose_node.mode = "standing" if pose_id == CATALOG.STANDING else "missionary"
+	# One live object: the sync merges the character's pose into `pose_config` in place, so the
+	# modifier, `facts.pose_config` and the runtime all read the same dictionary.
+	if pose_id == CATALOG.STANDING:
+		sync_standing_config(context.get("presentation", {}))
+	elif pose_id == CATALOG.MISSIONARY:
+		sync_missionary_config()
+	pose_node.pose_config = pose_config
+	var look: Variant = context.get("look_point")
+	pose_node.look_point = look if look is Vector3 else pony.global_position
+	pose_node.amount = 0.0
+	pose_node.target_amount = 1.0
+	if pose_id == CATALOG.MISSIONARY:
+		bed_frame = missionary_pose_frame()
+		bed_frame_source_saved = bed_frame is Transform3D and is_instance_valid(bed_node)
+		if bed_frame_source_saved:
+			bed_frame_source = (bed_node as Node3D).global_transform
+		pose_node.bed_frame = bed_frame
+		log_base()
+	(skeleton as Skeleton3D).add_child(pose_node)
+	if pose_id == CATALOG.STANDING:
+		if _feature("standing_body_sway"):
+			_install_body_sway(skeleton)
+		if _feature("thrust_ear_twitch"):
+			_install_ear_twitch()
+	elif _feature("missionary_body_motion"):
+		_install_prone_sway(skeleton)
+	_started = true
+	keep_chin_last()
 	if pose_id == CATALOG.MISSIONARY:
 		_install_tail_lay()
 	if pose_id != CATALOG.STANDING:
-		return
+		return true
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
 		tail = TAIL.new()
@@ -149,6 +159,7 @@ func begin(context: Dictionary) -> void:
 			side_anchor = Vector3.INF
 		tail.call("choose_side", side_anchor)
 		(hair as Skeleton3D).add_child(tail)
+	return true
 
 
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
@@ -328,7 +339,10 @@ func remove_modifiers() -> void:
 	ear_twitch = null
 
 
-## Free the pose modifier and the standing tail. The runtime calls this last in `_free_pose()`.
+## Free the pose modifier and the standing tail, and clear the act's state so `base_info()` and
+## `state_rows()` stop describing an act that ended and the next `begin()` starts clean. The
+## runtime calls this last in `_free_pose()`, then re-stamps its identity mirror on the next
+## access. Safe to repeat.
 func release_pose() -> void:
 	_release_stretch(false)
 	if is_instance_valid(pose_node):
@@ -338,6 +352,17 @@ func release_pose() -> void:
 		tail.call("restore_tail")
 		tail.queue_free()
 	tail = null
+	_started = false
+	pose_id = ""
+	id = ""
+	features = {}
+	pose_config.clear()
+	rig_checked = false
+	rig_skeleton = 0
+	rig_missing_bones = []
+	bed_frame = null
+	bed_frame_source_saved = false
+	bed_frame_source = Transform3D.IDENTITY
 
 
 ## Install, keep or remove the external Idle Life stretch holder for the live act pose. The
@@ -462,16 +487,16 @@ func apply_render(skeleton: Skeleton3D) -> void:
 ## The whole render-time step for one frame, in order: park the game presentation and place the
 ## act's own Anon body over it, write her pose last, then let the eye-shot camera read his posed
 ## head. The runtime owns the call site in `_process_tick`; this facade owns the sequence.
-## Context: `pose_id`, `bed_frame`, `body_scale`, `eye_camera_active`.
+## Context: `bed_frame`, `body_scale`, `eye_camera_active`. The pose id is the session's own; the
+## runtime refreshes it through `_pose_service()` before every call.
 func render_write(context: Dictionary) -> void:
 	if not is_instance_valid(pony):
 		return
-	var posed := str(context.get("pose_id", ""))
-	if posed == CATALOG.STANDING:
+	if pose_id == CATALOG.STANDING:
 		# The live stretch toggle is watched here, after every physics and process writer.
 		sync_stretch()
 		return
-	if posed != CATALOG.MISSIONARY:
+	if pose_id != CATALOG.MISSIONARY:
 		return
 	if place_anon.is_valid():
 		place_anon.call(context.get("bed_frame"), float(context.get("body_scale", 1.0)))

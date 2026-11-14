@@ -173,7 +173,7 @@
     {
       "service": "poses",
       "func": "begin",
-      "signature": "func begin(context: Dictionary) -> void:"
+      "signature": "func begin(context: Dictionary) -> bool:"
     },
     {
       "service": "poses",

@@ -3741,7 +3741,6 @@ func _neck_midpoint() -> Vector3:
 
 func _pose_render_write() -> void:
 	_pose_service().render_write({
-		"pose_id": pose_id,
 		"bed_frame": _pose_session.bed_frame,
 		"body_scale": _body_scale_value(),
 		"eye_camera_active": _act_camera.free_camera_active \

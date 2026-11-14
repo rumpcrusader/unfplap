@@ -130,7 +130,6 @@ var director := Callable()
 ## The act's processed-time clock, so line pacing freezes with the tree.
 var now := Callable()
 ## The presentation and input dispatch the runtime still owns.
-var keep_chin_last := Callable()
 var play_mouth_kiss := Callable()
 var act_actions_allowed := Callable()
 var auto_panel_open := Callable()

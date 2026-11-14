@@ -292,7 +292,6 @@ func _check_presentation_stretch(presentation: Variant, pony: FakePony, facts: R
 	SETTINGS.debug_mode.set_bool(true)
 	facts.pony_id = "rarity"
 	facts.mod_enabled = func(_id: String) -> bool: return true
-	facts.keep_chin_last = func() -> void: pass
 	STRETCH.pose_path = STRETCH_FAKE
 	SETTINGS.idle_life_stretch.set_bool(true)
 	presentation.call("set_request_face", true)

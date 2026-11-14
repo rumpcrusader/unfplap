@@ -1,8 +1,8 @@
 extends RefCounted
 ## The act's pose session: the skeleton pose modifier, the authored missionary base, the bed
-## frame, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch, chin debug),
-## the bone snapshots and the pose diagnostics. The runtime owns the act state, the start order
-## and the one teardown ledger; it binds this session and calls the render-time write.
+## frame, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the bone
+## snapshots and the pose diagnostics. The runtime owns the act state, the start order and the one
+## teardown ledger; it binds this session and calls the render-time write.
 ## Contract: docs/poses.md.
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
@@ -12,7 +12,6 @@ const TAIL_LAY := preload("res://mods/unfplap/poses/tail_lay.gd")
 const BODY_SWAY := preload("res://mods/unfplap/poses/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/poses/prone_sway.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
-const CHIN_DEBUG := preload("res://mods/unfplap/poses/chin_debug.gd")
 const IDLE_STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -40,7 +39,6 @@ var tail_lay: Node
 var body_sway: SkeletonModifier3D
 var prone_sway: SkeletonModifier3D
 var ear_twitch: SkeletonModifier3D
-var chin_modifier: SkeletonModifier3D
 ## The act's external Idle Life stretch holder, or null when the act pose has no stretch.
 var _stretch: Variant = null
 
@@ -141,7 +139,6 @@ func begin(context: Dictionary) -> bool:
 	elif _feature("missionary_body_motion"):
 		_install_prone_sway(skeleton)
 	_started = true
-	keep_chin_last()
 	if pose_id == CATALOG.MISSIONARY:
 		_install_tail_lay()
 	if pose_id != CATALOG.STANDING:
@@ -388,7 +385,6 @@ func sync_stretch() -> void:
 			return
 		_stretch = holder
 		holder.call("place_before", pose_node)
-		keep_chin_last()
 		_reset_sway_base()
 		return
 	if _stretch != null:
@@ -833,33 +829,6 @@ func log_settled(state: int, anon_diag: Callable) -> void:
 		var text := str(anon_diag.call())
 		if not text.is_empty():
 			_write_log("anon diag %s" % text)
-
-
-## Attach the debug chin modifier and set its pitch. The runtime's debug action owns the angle and
-## the log; this session owns the modifier that must stay after every pose modifier.
-func set_chin(degrees: float) -> void:
-	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	if not skeleton is Skeleton3D:
-		return
-	if not is_instance_valid(chin_modifier) or chin_modifier.get_parent() != skeleton:
-		if is_instance_valid(chin_modifier):
-			chin_modifier.queue_free()
-		chin_modifier = CHIN_DEBUG.new()
-		chin_modifier.name = "UnfplapChinDebug"
-		chin_modifier.set("mare", pony)
-		(skeleton as Skeleton3D).add_child(chin_modifier)
-	chin_modifier.set("chin_deg", degrees)
-	keep_chin_last()
-
-
-## Keep the debug chin modifier after every pose modifier, so an act cannot overwrite the debug
-## head pitch.
-func keep_chin_last() -> void:
-	if not is_instance_valid(chin_modifier):
-		return
-	var parent := chin_modifier.get_parent()
-	if parent is Skeleton3D:
-		(parent as Skeleton3D).move_child(chin_modifier, parent.get_child_count() - 1)
 
 
 ## Absolute body scale from the rig's own pivot, 1.0 when the pony is gone.

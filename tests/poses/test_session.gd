@@ -1,6 +1,6 @@
 extends SceneTree
 ## The pose session facade: the standing and missionary config sync, the bed frame follow, the
-## bone snapshots, the chin modifier and the pose diagnostics.
+## bone snapshots, the modifiers and the pose diagnostics.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_session.gd
 
@@ -50,7 +50,6 @@ func run() -> void:
 	_check_standing_begin()
 	_check_bed_frame()
 	_check_bones()
-	_check_chin()
 	_check_diagnostics()
 	_check_stretch()
 	_check_render_write()
@@ -285,27 +284,6 @@ func _check_bones() -> void:
 	body.free()
 	root.remove_child(hair)
 	hair.free()
-	root.remove_child(pony)
-	pony.free()
-
-
-func _check_chin() -> void:
-	var made := _session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
-	var pony: FakePony = made["pony"]
-	var body := Skeleton3D.new()
-	pony.skeleton = body
-	root.add_child(body)
-	session.set_chin(12.5)
-	check(is_instance_valid(session.chin_modifier), "the chin modifier is created")
-	check(near(float(session.chin_modifier.get("chin_deg")), 12.5), "the chin angle applies")
-	check(session.chin_modifier.get_parent() == body, "the chin modifier rides the body skeleton")
-	session.set_chin(-4.0)
-	check(near(float(session.chin_modifier.get("chin_deg")), -4.0), "the chin angle updates")
-	check(session.chin_modifier.get_index() == body.get_child_count() - 1,
-		"the chin modifier stays last")
-	root.remove_child(body)
-	body.free()
 	root.remove_child(pony)
 	pony.free()
 

@@ -19,7 +19,6 @@ const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
-const DEBUG := preload("res://mods/unfplap/debug/service.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -257,8 +256,6 @@ var _satisfaction_tween: Tween
 ## settings keeps her forehooves planted for the kiss and restores them when it ends.
 ## The act's stare is released once when a kiss starts so the regular kiss can drive the eyes.
 var _climax_progress := 0.0
-## Debug-only head pitch in degrees. Alt+7 raises, Alt+8 lowers; zero outside experimentation.
-var _debug_chin_deg := 0.0
 var _hands
 var _kiss
 var _integrations
@@ -319,7 +316,6 @@ func _init() -> void:
 		"state": Callable(self, "_state"),
 		"pose_id": Callable(self, "_pose_id"),
 	})
-	_act_facts.keep_chin_last = Callable(self, "_keep_chin_last")
 	_act_facts.play_mouth_kiss = Callable(self, "_play_mouth_kiss")
 	_act_facts.act_actions_allowed = Callable(self, "_act_actions_allowed")
 	_act_facts.auto_panel_open = Callable(self, "auto_panel_open")
@@ -2074,25 +2070,6 @@ func _standing_gap() -> float:
 	gap += SETTINGS.gap_offset_m.get_num()
 	_log("standing size=%s gap=%.2f" % [size, gap])
 	return gap
-
-func debug_chin(step_deg: float) -> void:
-	if not is_instance_valid(pony):
-		return
-	_debug_chin_deg = clampf(_debug_chin_deg + step_deg, -30.0, 30.0)
-	_pose_service().set_chin(_debug_chin_deg)
-	# Let the skeleton modifier apply this frame before sampling the head/chin positions.
-	call_deferred("_log_chin")
-
-## Keep the debug chin modifier after every pose modifier, so an act cannot overwrite the debug
-## head pitch.
-func _keep_chin_last() -> void:
-	_pose_service().keep_chin_last()
-
-func _log_chin() -> void:
-	var rows := DEBUG.chin_rows(pony, _debug_chin_deg)
-	if rows.is_empty() or not is_instance_valid(main) or not main.has_method("_debug_block"):
-		return
-	main.call("_debug_block", "CHIN", rows)
 
 
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose

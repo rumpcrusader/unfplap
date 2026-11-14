@@ -9,10 +9,10 @@ the caress paths and palm holders are `docs/hands.md`.
 
 `poses/service.gd` is the pose session facade. It owns the skeleton pose modifier, the authored
 missionary base, the bed frame and its follow, the extra modifiers (tail, tail lay, body sway,
-prone sway, ear twitch, chin debug), the pony bone snapshots, the pose rig check and the pose
-diagnostics. The runtime owns the act state, the start ordering and the one teardown ledger; it
-binds the session and reads its `pose()`, `pose_config` and `bed_frame` directly. Presentation
-modules read the same values from `shared/act_facts.gd`.
+prone sway, ear twitch), the pony bone snapshots, the pose rig check and the pose diagnostics.
+The runtime owns the act state, the start ordering and the one teardown ledger; it binds the
+session and reads its `pose()`, `pose_config` and `bed_frame` directly. Presentation modules read
+the same values from `shared/act_facts.gd`.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads
 `poses/missionary_pose.json`. `shared/pose_catalog.gd` owns the pose ids and the `POSE_KEYS`
@@ -265,7 +265,7 @@ undergo a transformation, so it must not be recommended.
 - The external holder owns the body, the stance, the ground plant and the wings. The act's
   `UnfplapPose` (or `UnfplapPresentPose`) runs after it and, in stretch mode, applies only the oral
   neck offset and the head-back lift; the bow, chin/neck, foreleg bend and stance spread are
-  skipped. `UnfplapBodySway` runs after both. The debug chin modifier stays last.
+  skipped. `UnfplapBodySway` runs after both.
 - The presentation attaches its full holder in `_attach_present_pose()`, after the navigator's
   `face_point` stepping turn away from Anon (the base-game conversation-circle turn). The turn
   settles within 60 degrees of directly away and never snaps; once the pose attaches its yaw is

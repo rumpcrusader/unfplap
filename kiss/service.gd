@@ -191,7 +191,6 @@ func _restore_base_kiss_pose() -> void:
 	_base_kiss_pose_index = -1
 	_base_kiss_affection = null
 	_restore_base_kiss_excitement()
-	facts.call_value(facts.keep_chin_last)
 
 
 ## A base kiss otherwise triggers the stock unicorn horn sparkle and flutter beat. Hold the shared

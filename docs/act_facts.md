@@ -95,7 +95,6 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `set_camera_basis_ready` | mark the camera basis ready |
 | `director` | the live conversation director |
 | `now` | the act's processed-time clock |
-| `keep_chin_last` | the chin overlay's last write |
 | `play_mouth_kiss` | the mouth kiss sound |
 | `act_actions_allowed` | the camera's action window |
 | `auto_panel_open` | the hold-X layer |

@@ -155,7 +155,6 @@ func _attach_present_pose() -> void:
 		if holder != null:
 			_present_stretch = holder
 			holder.call("place_before", _present_pose)
-		facts.call_value(facts.keep_chin_last)
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
 		_present_tail = TAIL.new()
@@ -511,7 +510,6 @@ func _attach_present_stretch() -> void:
 	_present_stretch = holder
 	_present_pose.set("stretch", true)
 	holder.call("place_before", _present_pose)
-	facts.call_value(facts.keep_chin_last)
 
 
 func _finish_present_stretch(clear: bool) -> void:

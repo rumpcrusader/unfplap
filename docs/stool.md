@@ -133,12 +133,12 @@ and again on `start()`.
   case footstools than Anon has.
 - `can_offer` uses the same row, so a tall mare does not proactively offer when Anon cannot reach.
 - `main._refresh_offer()` shows **Make love** when the start is possible and **Needs a footstool**
-  or **Needs N footstools** when the stack is the only missing thing. The blocked note has no Y
-  icon. A one-time toast points at houses.
+  or **Needs N footstools** when the stack is the only missing thing. The blocked note has no
+  act-key icon. A one-time toast points at houses.
 - The blocked hint reuses the gate the scan already built (`runtime.stool_blocks_verdict()`): it
   reads that gate's failed reasons and re-reads only the live need and case count. It never runs
   the full start gate a second time.
-- Pressing Y on the blocked note does not start an act.
+- Pressing the act key on the blocked note does not start an act.
 - The normal start path takes exactly the required number of case units. A short or unwritable
   case blocks the start.
 

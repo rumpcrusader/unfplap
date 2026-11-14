@@ -8,7 +8,7 @@ It does not own act behavior. It calls the active runtime's typed commands and `
 
 ## Scope
 
-- `Y` start/end and the act key consumption policy.
+- The act key: its `unfplap_act` `InputMap` action, start/end and the consumption policy.
 - Mouse capture while an act is live, including the menu/alt-tab recapture path.
 - The seated-player `Q` guard and the movement hold during an act.
 - The debug action wheel: the hold-middle trigger, and modal routing while it is open.
@@ -30,13 +30,21 @@ saved data. Its state is transient:
 
 The service is a Node; its contract is the Node lifecycle and the input callbacks:
 
-- `_ready()` — sets `PROCESS_MODE_ALWAYS` and the early physics priority;
+- `_ready()` — sets `PROCESS_MODE_ALWAYS`, the early physics priority and the initial act action;
 - `_physics_process(delta)` — keeps the mouse captured and the seated guard while an act is live;
 - `_input(event)` — routes the debug wheel first (a middle button press opens it and its release
   runs the hovered slot or closes it; while open it owns every event), then consumes act keys,
-  routes any declared debug hotkey, starts the hinted act and opens the act chat.
+  routes any declared debug hotkey, starts the hinted act and opens the act chat;
+- `apply_act_key()` — rebuilds the `unfplap_act` action from the `act_key` setting;
+- `_exit_tree()` — removes the action.
 
-There is no public method other than the Node callbacks.
+`apply_act_key()` is how a live setting change reaches the `InputMap`; `main._apply_settings_changed()`
+calls it. The action is a real `InputMap` action rather than a physical keycode check because the
+game's typing guard (`world/ui/typing_guard.gd`) stashes every non-`ui_` action while a text field
+has focus. A raw `Input.is_physical_key_pressed()` poll would keep firing in chat.
+
+The action has one `InputEventKey` with a `physical_keycode`; `shared/act_keys.gd` maps the setting
+choice to the key and its cap label, and the HUD and native prompt read the same label.
 
 ## Data ownership
 
@@ -53,8 +61,12 @@ and the viewport focus owner. It does not store runtime state.
 
 ## Settings
 
-No settings. A debug action declares its own hotkey in `debug/service.gd` (none today); the action
-behavior belongs to the owning service.
+- `act_key` (General, no section heading): the key that starts and ends the act. The default is
+  `O`; `Y` is the compatibility choice for players who turn the bundled Dance Mod off. The
+  declaration in `settings/service.gd` owns the path, default and labels.
+
+A debug action declares its own hotkey in `debug/service.gd` (none today); the action behavior
+belongs to the owning service.
 
 ## Controls and debug
 
@@ -68,6 +80,10 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
   and the skeleton click never see it.
 - The input service consumes a key only when an action declares it and the focus is not a text
   field.
+- The act key starts the hinted act with a tap (`main.try_start()`), and holding it during an act
+  is handled by `runtime.gd` (`docs/runtime.md`). The bundled Dance Mod still polls raw `Y`; `O`
+  removes the accidental collision, but a deliberate `Y` during an act is that mod's own check to
+  add.
 
 ## Dependencies
 
@@ -76,11 +92,15 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | debug | `debug/service.gd` | debug action registry |
+| service | settings | `settings/service.gd` | the `act_key` choice |
+| shared | act_keys | `shared/act_keys.gd` | action name, key map and cap labels |
 
 ## Tests
 
-No dedicated headless suite. The manual lab covers act start, end, smack, auto, chat and the
-seated-player guard. The architecture checker covers the facade-only import rule.
+- `tests/test_input.gd` — the choice map, the installed action, the live rebind, typing protection
+  and the start route through `main.try_start()`.
+- The manual lab covers act start, end, smack, auto, chat and the seated-player guard.
+- The architecture checker covers the facade-only import rule.
 
 ## Related docs
 

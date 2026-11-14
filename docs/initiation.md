@@ -1,7 +1,7 @@
 # Proactive requests
 
 The proactive-request service is the one controller that lets a mare ask Anon for sex. It never
-starts the act: `Y` remains the only act-start path. This file is the single technical contract;
+starts the act: the act key remains the only act-start path. This file is the single technical contract;
 other docs link here.
 
 ## Scope
@@ -122,7 +122,7 @@ One episode at a time. Each phase waits on its own condition:
 | `PRESENT` | the runtime's presentation and its settled check; a turn that never settles closes instead of inviting (`5 s` cap) | `INVITE` |
 | `BED_LEAD` | the bed front; `25 s` cap | `BED_WAIT` |
 | `BED_WAIT` | Anon reclined on the offered bed and the native rest accepting her | `INVITE` |
-| `INVITE` | `Y`, a lost presentation/bed, or `60 s` | closed, with a give-up line on timeout |
+| `INVITE` | the act key, a lost presentation/bed, or `60 s` | closed, with a give-up line on timeout |
 
 Timers come only from `initiation/policy.gd`; `tests/initiation/test_policy.gd` locks every value.
 
@@ -249,27 +249,27 @@ re-presents twice before ending an offer the player already accepted. The invita
 once and is valid only while the phase is still `present`, `invite` or `bed_wait`, the
 presentation/bed state holds and `can_show_start()` passes. A `60 s` invitation timeout queues one
 short give-up line and closes with the full cooldown. A standing act start is refused while the
-presentation is active and unsettled, so a `Y` press cannot take her body mid-turn.
+presentation is active and unsettled, so an act-key press cannot take her body mid-turn.
 
 ## Cancellation
 
 `_cancel_episode(set_cooldown, reason, keep_rest)` is the one close path:
 
 1. cancel the `offer:` classifier scope;
-2. clear the request face, the presentation and (outside the `Y`-start handoff) the stretch
+2. clear the request face, the presentation and (outside the act-key-start handoff) the stretch
    choice through `clear_stretch_offer()`; the handoff releases the holder but keeps the choice
    for the act;
-3. release the bed rest unless `keep_rest` (a `Y` start keeps it);
+3. release the bed rest unless `keep_rest` (an act-key start keeps it);
 4. hand the navigator back with its saved owner, wander, speed and pace;
 5. set the full cooldown or the `30 s` retry from the phase tables;
 6. cancel every queued director row for the episode;
 7. clear the episode.
 
-`cancel_for()` runs before a normal `Y` start and keeps the bed rest; `force()` closes any live
+`cancel_for()` runs before a normal act-key start and keeps the bed rest; `force()` closes any live
 episode first; `reset()` closes it and clears the session maps on a world close.
 
 The navigator lease is `unfplap:request:<id>` while the episode runs. The runtime's act gate
-accepts that owner while the runtime is `IDLE`, so `Y` stays valid; the runtime reads the
+accepts that owner while the runtime is `IDLE`, so the act key stays valid; the runtime reads the
 namespace string and never calls the service, which keeps the service's one-way dependency on the
 runtime.
 

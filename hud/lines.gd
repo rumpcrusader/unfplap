@@ -3,7 +3,7 @@ extends RefCounted
 ## `End` tint. `hud/service.gd` renders the card; the runtime gathers the live values and calls these.
 ## Contract: `docs/hud.md`.
 
-## The Y hint's `End` shade: one step per climax, capped below full so only the earned afterglow
+## The act-key hint's `End` shade: one step per climax, capped below full so only the earned afterglow
 ## caress turns it fully pink.
 const Y_END_TINT_MAX := 0.75
 

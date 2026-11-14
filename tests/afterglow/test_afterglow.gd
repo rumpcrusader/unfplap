@@ -73,7 +73,7 @@ func run() -> void:
 	check(note_runtime.prompt_note().contains("middle of sex"), "active prompt note")
 	note_runtime.free()
 
-	# The Y hint's End shade follows climaxes but only the earned caress reaches full pink.
+	# The act-key hint's End shade follows climaxes but only the earned caress reaches full pink.
 	var pink_runtime: Node = _runtime("standing")
 	check(near(pink_runtime.hud_y_pink(), 0.0), "End starts ink")
 	pink_runtime.pony_climaxes = 2

@@ -18,7 +18,7 @@ standing act state; the bridge owns the anatomy hooks the controller calls.
 
 | Input | Action |
 |---|---|
-| right `primary_click` | `Y` (the runtime's context start/end) |
+| right `primary_click` | the act key (the runtime's context start/end) |
 | right `ax_button` | toggle the anatomy hole |
 | left `primary_click` | toggle the finish |
 | left `by_button` | toggle oral |
@@ -36,7 +36,7 @@ controller.
 - Only the standing pose is supported. The mare stays in place, so the act never needs Anon's ground
   position from the rig root, which stays at the spawn anchor.
 - A headset session has no desktop pointer: `headset_view()` stands in for a captured mouse in the
-  start gate, the offer refresh, refusal and Y. A headset rig has neither a `controls_locked` nor a
+  start gate, the offer refresh, refusal and the act key. A headset rig has neither a `controls_locked` nor a
   `flying` property, so those reads compare against `true` rather than going through `bool()`.
 - Anatomy actions are additive and gated; they use the same `toggle_anatomy_*` runtime forwards as
   the desktop keys. `docs/anatomy.md` owns the behavior.

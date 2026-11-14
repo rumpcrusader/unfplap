@@ -37,6 +37,7 @@ const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_LINES := preload("res://mods/unfplap/lines/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
@@ -65,7 +66,7 @@ const RESTORE_SECONDS := 0.4
 ## feel is the same with the anatomy off. Close to the default part's visible length.
 const NOMINAL_SHAFT_M := 0.2
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
-const HOLD_Y_SECONDS := 0.35
+const HOLD_ACT_SECONDS := 0.35
 ## Presentation: how close the pony stands in front of the player for standing.
 const STANDING_GAP_M := 0.55
 ## Per-size standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
@@ -142,7 +143,8 @@ var _perf_probe := PERF.new()
 ## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
 ## no tick reads the entry node's flags.
 var idle_perf := false
-## Idle standing invitation. Kept separate from the act's pose/tail so Y can take over cleanly.
+## Idle standing invitation. Kept separate from the act's pose/tail so the act key can take over
+## cleanly.
 ## Idle request face: blush and lids while a private offer is being asked or presented.
 var _pose_in_left := 0.0
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
@@ -163,9 +165,9 @@ var _hold: RefCounted = SCENE_HOLD.new()
 ## camera flags live on `_act_camera`; the navigator and player flags on `_hold`.
 var _posture_owned := false
 var _session_finalized := false
-var _y_hold := 0.0
-var _y_hold_ready := false
-var _y_hold_fired := false
+var _act_hold := 0.0
+var _act_hold_ready := false
+var _act_hold_fired := false
 var _id := ""
 ## The idle offer hint's cached policy verdict. The scene rows still run on every scan; only the
 ## eligibility half is reused. A real start, refusal, debug line or initiation gate never reads it.
@@ -1177,27 +1179,27 @@ func _input(event: InputEvent) -> void:
 func _headset_view() -> bool:
 	return is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view"))
 
-## Y is a deliberate hold, matching the game's 0.35 s bridal-carry hold. A tap does nothing,
-## and the trigger latches until release so a held key cannot fire twice.
-func _hold_y_tick(delta: float) -> void:
+## The act key is a deliberate hold, matching the game's 0.35 s bridal-carry hold. A tap does
+## nothing, and the trigger latches until release so a held key cannot fire twice.
+func _hold_act_tick(delta: float) -> void:
 	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		_y_hold = 0.0
-		_y_hold_fired = false
+		_act_hold = 0.0
+		_act_hold_fired = false
 		return
-	var held: bool = Input.is_physical_key_pressed(KEY_Y) \
+	var held: bool = Input.is_action_pressed(ACT_KEYS.ACTION) \
 		or _anatomy_bridge.vr_y_held()
 	if not held:
-		_y_hold = 0.0
-		_y_hold_fired = false
-		_y_hold_ready = true
+		_act_hold = 0.0
+		_act_hold_fired = false
+		_act_hold_ready = true
 		return
-	if not _y_hold_ready:
+	if not _act_hold_ready:
 		return
-	_y_hold += delta
-	if _y_hold < HOLD_Y_SECONDS or _y_hold_fired:
+	_act_hold += delta
+	if _act_hold < HOLD_ACT_SECONDS or _act_hold_fired:
 		return
-	_y_hold_fired = true
-	_log("hold Y state=%d climaxes=%d" % [state, pony_climaxes])
+	_act_hold_fired = true
+	_log("hold act key state=%d climaxes=%d" % [state, pony_climaxes])
 	if state == State.AFTERGLOW:
 		end_afterglow()
 	elif state == State.ACTIVE:
@@ -1256,7 +1258,7 @@ func _physics_tick(delta: float) -> void:
 	_camera_service().call("tick_free_look")
 	_keep_act_attention()
 	_pause_face_turn()
-	_hold_y_tick(delta)
+	_hold_act_tick(delta)
 	_auto_layer_tick(delta)
 	_camera_service().call("tick_lean", delta, get_tree().paused, auto_panel_open())
 	facts_started = Time.get_ticks_usec()
@@ -1345,7 +1347,7 @@ func can_show_start(pose: String, act_source: String, bed_in: Variant = null) ->
 	return bool(start_verdict(pose, act_source, bed_in).get("show", false))
 
 
-## Offer eligibility before she is in position. Unlike the Y start gate, this does not require
+## Offer eligibility before she is in position. Unlike the act-key start gate, this does not require
 ## the pony to be lying or the player to be ready; those stay in the final gate. `forced` is the
 ## Debug -> Actions bypass: the settings page pauses the tree, and the episode advances after it
 ## closes, so the paused row must not reject a forced offer.
@@ -1788,9 +1790,9 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	satisfaction = 0.0
 	mood = "warming"
 	cue = ""
-	_y_hold = 0.0
-	_y_hold_ready = false
-	_y_hold_fired = false
+	_act_hold = 0.0
+	_act_hold_ready = false
+	_act_hold_fired = false
 	_reset_thrust_state()
 	_stopped_by_her = false
 	_tolerance_warning_key = ""
@@ -2697,8 +2699,8 @@ func _history_note() -> String:
 	return ACT_HISTORY.prompt_note(row)
 
 
-## Called by main before a normal Y start. A withdrawn mare still shows the offer; pressing Y
-## gives one gentle refusal instead of a silent no.
+## Called by main before a normal act-key start. A withdrawn mare still shows the offer; pressing
+## the act key gives one gentle refusal instead of a silent no.
 func history_blocks_start() -> bool:
 	if state != State.IDLE:
 		return false

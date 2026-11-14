@@ -56,7 +56,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | HUD | `hud/service.gd` | `docs/hud.md` | `tests/hud/` |
 | Settings | `settings/service.gd` | `docs/settings.md` | `tests/test_settings.gd` |
 | Mare registry | `registry/service.gd` | `docs/registry.md` | `tests/test_api.gd` |
-| Input | `input/service.gd` | `docs/input.md` | manual |
+| Input | `input/service.gd` | `docs/input.md` | `tests/test_input.gd` |
 | Debug tooling | `debug/service.gd` | `docs/debug.md` | `tests/test_debug_wheel.gd` |
 
 Scope and lifecycle are declared in each contract's `## Lifecycle`. A facade is internal API; the
@@ -66,6 +66,7 @@ only stable external surface is `docs/api.md`.
 
 | Module | Path | Contract | Tests |
 |---|---|---|---|
+| Act keys | `shared/act_keys.gd` | `docs/input.md` | `tests/test_input.gd` |
 | Typed act view | `shared/act_facts.gd` | `docs/act_facts.md` | `tests/act_facts/` |
 | Perf probes | `shared/perf.gd`, `shared/perf_idle.gd` | `docs/perf.md` | `tests/perf/` |
 | Preferences | `shared/preferences.gd` | `docs/preferences.md` | `tests/readiness/`, `tests/test_character_preferences.gd` |

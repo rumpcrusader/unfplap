@@ -202,10 +202,10 @@ first-time state, or request cooldowns.
 mode: Mode
 base: bool
 show: bool             # the Make love hint appears
-attempt: bool          # Y starts the act
+attempt: bool          # the act key starts the act
 offer: bool            # proactive offer allowed
-buck_refuse: bool      # Y triggers refuse()
-history_refuse: bool   # Y triggers refuse_from_history()
+buck_refuse: bool      # the act key triggers refuse()
+history_refuse: bool   # the act key triggers refuse_from_history()
 stop: bool             # mid-act withdrawal
 offer_weight: float
 facts: Facts
@@ -223,8 +223,8 @@ Rows and effects:
 | Effect | Meaning |
 |---|---|
 | `block` | no hint, no start, no offer |
-| `refuse` | hint may show; Y triggers the buck/push refusal |
-| `history_refuse` | hint shows; Y speaks the history refusal |
+| `refuse` | hint may show; the act key triggers the buck/push refusal |
+| `history_refuse` | hint shows; the act key speaks the history refusal |
 | `offer_block` | start may be allowed; no proactive offer |
 | `flag` | public/privacy flag; never a failure |
 
@@ -355,7 +355,7 @@ she refuses kisses and offers for the note's 300 s freshness.
 - **When Available** requires kiss willingness. A mare who does not welcome a kiss has no hint and
   no proactive offer.
 - **Try Your Luck** shows the hint before she welcomes the kiss. It **does not** drop the
-  Promiscuity level and it **does not** skip willingness at start. Pressing Y still refuses when
+  Promiscuity level and it **does not** skip willingness at start. Pressing the act key still refuses when
   she does not.
 
 Both modes use the same Promiscuity floor, the same base gate and the same willingness row.
@@ -375,7 +375,7 @@ Tiers: hurt 2–3 keeps normal offers but lowers their weight and may give a rar
 still allowed; hurt 6+ (withdrawn) makes no offers and keeps the start hint with a spoken refusal
 until repaired. An active `stop_until` blocks both the next start and proactive offers.
 
-A withdrawn mare still shows the hint; pressing Y speaks the refusal. A hurt mare still accepts a
+A withdrawn mare still shows the hint; pressing the act key speaks the refusal. A hurt mare still accepts a
 player-initiated start but makes no proactive offers.
 
 `cycle.allows_sex()` blocks start and offers in diestrus. Heat does not change the gate; it changes

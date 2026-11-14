@@ -10,6 +10,7 @@ const HUD := preload("res://mods/unfplap/hud/service.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
@@ -37,8 +38,9 @@ const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 const CAPTION_PATH := "res://world/ui/speech_caption.gd"
 ## The game's own bottom-caption margin; the mod keeps its card at this distance from the top.
 const CAPTION_TOP_MARGIN := 26.0
-## The offer hint beside the game's prompt row: a single Y press starts the act, so it reads like
-## the base game's tap prompts ("G · Carry"), not a hold. Only Y during an act is a hold.
+## The offer hint beside the game's prompt row: a single act-key press starts the act, so it reads
+## like the base game's tap prompts ("G · Carry"), not a hold. Only holding the act key during an
+## act is a hold.
 const OFFER_HINT := "Make love"
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
@@ -83,6 +85,7 @@ var _last_blocked_key := ""
 var _stool_hint_toast_shown := false
 var _native_hint_label: Control
 var _native_hint_text := ""
+var _dance_hint_shown := false
 var _debug_skeleton: Node3D
 var _debug_wheel: CanvasLayer
 var _debug_face_index := -1
@@ -228,6 +231,7 @@ func _ready() -> void:
 func _on_world(host: Node) -> void:
 	close_debug_wheel()
 	_clear_native_hint()
+	_dance_hint_shown = false
 	game = host
 	if not is_instance_valid(eligibility):
 		eligibility = ELIGIBILITY.new()
@@ -350,6 +354,13 @@ func _apply_settings_changed() -> void:
 	debug_perf = SETTINGS.debug_perf.get_bool()
 	if not debug_logs:
 		close_debug_wheel()
+	if is_instance_valid(input):
+		input.call("apply_act_key")
+	if is_instance_valid(hud):
+		hud.call("set_act_key", _act_key_label())
+	# The native offer row and the fallback prompt carry the key cap; rebuild them with the new
+	# label on the next frame.
+	_clear_native_hint()
 	_sync_skeleton_overlay()
 	SETTINGS_UI.refresh_debug_visibility()
 	_apply_caption_top()
@@ -382,6 +393,25 @@ func _on_player(body: Node) -> void:
 		input.name = "UnfplapInput"
 		input.main = self
 		add_child(input)
+	hud.call("set_act_key", _act_key_label())
+	if not _dance_hint_shown:
+		_dance_hint_shown = true
+		_dance_key_notice()
+
+
+## The bundled Dance Mod owns `Y`; one note when both mods are on and the act key is the default.
+func _dance_key_notice() -> void:
+	if SETTINGS.act_key.get_choice() != ACT_KEYS.DEFAULT:
+		return
+	if not Mods.is_active("dance_mod"):
+		return
+	if is_instance_valid(hud) and hud.has_method("toast"):
+		hud.call("toast", "Dance Mod uses Y; O starts the act.", 5.0)
+
+
+## The act key's key cap label, from the setting.
+func _act_key_label() -> String:
+	return ACT_KEYS.label(SETTINGS.act_key.get_choice())
 
 
 func _on_pony(pony: Node) -> void:
@@ -570,7 +600,7 @@ func _refresh_offer() -> void:
 
 
 ## The current offer's pony, for the request service's cuddle check. It refreshes the offer the
-## same way the prompt does, so Y and a proactive cuddle offer cannot disagree.
+## same way the prompt does, so the act key and a proactive cuddle offer cannot disagree.
 func offer_target() -> Node:
 	_refresh_offer()
 	if _offer.is_empty():
@@ -579,7 +609,7 @@ func offer_target() -> Node:
 	return target if is_instance_valid(target) else null
 
 
-## The standing Y zone: the nearest standing mare whose rear cone holds Anon. The cone alone
+## The standing act-key zone: the nearest standing mare whose rear cone holds Anon. The cone alone
 ## decides, so the crosshair can point anywhere as long as he stands behind her rump.
 func _rump_cone_target(view: Camera3D) -> Node:
 	if not is_instance_valid(view):
@@ -629,7 +659,7 @@ func _native_row() -> HBoxContainer:
 	var hints: Node = game.get_node_or_null("InteractionHints")
 	if hints == null:
 		return null
-	# VR uses the world-space prompt row; the Y hint falls back to the HUD prompt there.
+	# VR uses the world-space prompt row; the act-key hint falls back to the HUD prompt there.
 	if bool(hints.get("xr")):
 		return null
 	var row: Variant = hints.get("_prompt2d")
@@ -641,8 +671,8 @@ func _native_row() -> HBoxContainer:
 ## The offer hint is one more unit in the game's own prompt row, in that row's style and phrasing
 ## ("Hold G · Bridal carry" reads as "Hold: ..."), so it sits beside base prompts unnoticed.
 func _make_native_hint_label(text: String) -> Control:
-	var icon := "button_y" if text == OFFER_HINT else ""
-	return HUD.prompt_row(icon, text)
+	var cap := _act_key_label() if text == OFFER_HINT else ""
+	return HUD.prompt_row("", text, cap)
 
 
 func _remove_native_hint(row: HBoxContainer = null) -> void:
@@ -670,7 +700,7 @@ func _sync_native_hint(text: String) -> void:
 			if text.is_empty():
 				hud.hide_prompt()
 			else:
-				hud.show_prompt(text, "button_y" if text == OFFER_HINT else "")
+				hud.show_prompt(text, "", _act_key_label() if text == OFFER_HINT else "")
 		return
 	if text.is_empty():
 		_remove_native_hint(row)

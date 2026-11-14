@@ -306,7 +306,7 @@ func run() -> void:
 		"force reports the runtime state")
 	runtime.state = 0
 
-	# Cancelling a normal Y start keeps the bed rest and the stretch choice for the act, but gives
+	# Cancelling a normal act-key start keeps the bed rest and the stretch choice for the act, but gives
 	# the presentation back.
 	var clears_before_y := runtime.stretch_clears
 	initiation.force(runtime, CATALOG.STANDING)

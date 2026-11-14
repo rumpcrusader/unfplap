@@ -74,6 +74,14 @@ func _check_style() -> void:
 	check(action != null and action.text == "Make love", "prompt row reads the offer action")
 	check(action.get_theme_color("font_color") == HUD.ACCENT, "offer action is the pink accent")
 	check(row.get_child(0) is TextureRect, "prompt row starts with the game icon")
+	var capped: HBoxContainer = HUD.prompt_row("", "Make love", "O")
+	check(capped.get_child_count() == 2, "a capped prompt row is cap plus words")
+	var prompt_cap := capped.get_child(0) as PanelContainer
+	check(prompt_cap != null, "a key with no prompt icon draws a cap")
+	check(prompt_cap.custom_minimum_size.y >= HUD.PROMPT_ICON_EDGE,
+		"the prompt cap matches the game icon height")
+	var capped_text := capped.get_child(1) as Label
+	check(capped_text != null and capped_text.text == "Make love", "the capped row keeps its words")
 
 
 func _check_controls() -> void:
@@ -82,10 +90,10 @@ func _check_controls() -> void:
 	check(hud.get("_hint") != null, "HUD builds its hint stack")
 	check(hud.get("_hint_title") == null, "act card has no separate title")
 	var y_label := hud.get("_y_label") as Label
-	check(y_label != null and y_label.text.is_empty(), "Y description starts empty")
+	check(y_label != null and y_label.text.is_empty(), "the act-key description starts empty")
 	var view := _view()
 	hud.call("update_from", view)
-	check(y_label.text == "End early", "Y offers an early end before the first climax")
+	check(y_label.text == "End early", "the act key offers an early end before the first climax")
 	check(y_label.get_theme_color("font_color") == HUD.INK, "early end is ink")
 	var status := hud.get("_hint_status") as Label
 	check(status.text.begins_with("❤ 0/3"), "cue line reaches the HUD")
@@ -166,7 +174,7 @@ func _check_controls() -> void:
 	view.pony_climaxes = 1
 	view.y_pink = 0.25
 	hud.call("update_from", view)
-	check(y_label.text == "End", "Y offers the end after a climax")
+	check(y_label.text == "End", "the act key offers the end after a climax")
 	check(not y_label.get_theme_color("font_color").is_equal_approx(HUD.INK),
 		"End warms after a climax")
 	view.y_pink = 1.0
@@ -175,12 +183,17 @@ func _check_controls() -> void:
 		"an earned caress turns End fully pink")
 	view.state = 3
 	hud.call("update_from", view)
-	check(y_label.text == "End", "Y ends during a climax")
+	check(y_label.text == "End", "the act key ends during a climax")
 	view.state = 4
 	hud.call("update_from", view)
-	check(y_label.text == "End", "Y ends the afterglow")
+	check(y_label.text == "End", "the act key ends the afterglow")
 	check((rows.get("smack") as Control).visible == false, "standing afterglow hides the smack")
-	check((rows.get("y") as Control).visible, "afterglow keeps Y")
+	check((rows.get("y") as Control).visible, "afterglow keeps the act-key row")
+	check(_act_cap(rows).text == "O", "the act-key row starts on the default cap")
+	hud.call("set_act_key", "Y")
+	check(_act_cap(rows).text == "Y", "the act-key row follows the setting")
+	hud.call("set_act_key", "O")
+	check(_act_cap(rows).text == "O", "the act-key row returns to O")
 	view.pose_id = "missionary"
 	hud.call("update_from", view)
 	check((rows.get("lean") as Control).visible, "missionary afterglow keeps the lean")
@@ -202,3 +215,9 @@ func _check_controls() -> void:
 	hud.call("hide_prompt")
 	check(not (hud.get("_prompt") as Control).visible, "fallback prompt hides")
 	hud.queue_free()
+
+
+## The first child of the act-key row is its drawn cap.
+func _act_cap(rows: Dictionary) -> Label:
+	var row := rows.get("y") as HBoxContainer
+	return (row.get_child(0) as PanelContainer).get_child(0) as Label

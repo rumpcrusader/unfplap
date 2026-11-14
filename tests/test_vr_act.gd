@@ -141,13 +141,13 @@ func run() -> void:
 	check(act.get("_left") == controller_left, "left controller found under the rig")
 	check(act.get("_right") == controller_right, "right controller found under the rig")
 
-	# Y is the right hand's primary click.
+	# The act key is the right hand's primary click.
 	right.set_input(&"primary_click", true)
 	_tick(act)
-	check(bool(act.get("y_held")), "right primary click holds Y")
+	check(bool(act.get("y_held")), "right primary click holds the act key")
 	right.set_input(&"primary_click", false)
 	_tick(act)
-	check(not bool(act.get("y_held")), "releasing the right primary click drops Y")
+	check(not bool(act.get("y_held")), "releasing the right primary click drops the act key")
 
 	# The anatomy toggles fire on the press edge only.
 	right.set_input(&"ax_button", true)

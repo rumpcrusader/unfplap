@@ -44,6 +44,7 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 func run() -> void:
 	_check_registry()
 	_check_defaults()
+	_check_act_key()
 	_check_snapshot()
 	_check_placement()
 	_check_tail_seat()
@@ -101,6 +102,19 @@ func _check_registry() -> void:
 			"allow_act_during_cuddle", "contact_gap_m", "standing_plant_feet",
 			"plant_spread_m", "anatomy_vr", "show_dock", "dock_color"]:
 		check(SETTINGS.by_name(name) == null, "%s is retired" % name)
+
+
+## The act key is a two-choice setting; a hand-edited unknown value falls back to the default.
+func _check_act_key() -> void:
+	var before := SETTINGS.act_key.get_choice()
+	check(str(SETTINGS.act_key.default) == "o", "the act key defaults to O")
+	check(SETTINGS.act_key.options == ["o", "y"], "the act key offers O and Y")
+	SETTINGS.act_key.set_choice("y")
+	check(SETTINGS.act_key.get_choice() == "y", "the Y act key is stored")
+	SETTINGS.act_key.set_choice("sideways")
+	check(SETTINGS.act_key.get_choice() == "y", "an unknown act key is ignored")
+	SETTINGS.act_key.set_choice(before)
+	check(SETTINGS.act_key.get_choice() == before, "the original act key is restored")
 
 
 ## The declared defaults are the values a fresh file would give.

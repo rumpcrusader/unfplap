@@ -1,8 +1,8 @@
 extends Node
 ## Proactive sex requests. One episode at a time: she waits for a quiet moment, walks to Anon when
 ## needed, asks in character, reminds him twice, then gives up. A private standing offer is asked
-## while standing; after Anon accepts she presents, comments on the pose and waits for Y. Nothing
-## starts until the player presses Y.
+## while standing; after Anon accepts she presents, comments on the pose and waits for the act
+## key. Nothing starts until the player presses the act key.
 ##
 ## The facade owns the episode, admission and phase orchestration. Rules are
 ## `initiation/policy.gd`, wording is `initiation/prompts.gd`, and every scene read is behind
@@ -223,7 +223,7 @@ func force(runtime: Node, pose := "") -> ForceResult:
 	return out
 
 
-## Called before a normal Y start. The act owns the pony now.
+## Called before a normal act-key start. The act owns the pony now.
 func cancel_for(pony: Node) -> void:
 	if is_instance_valid(pony) and _episode != null and _episode.pony == pony:
 		# The act start owns the bed now; do not stand her up before runtime.start().
@@ -499,7 +499,7 @@ func _public_offer_ok(pony: Node) -> bool:
 	return service.get_verdict(pony, ELIGIBILITY.Mode.OFFER).actions.public_offer
 
 
-## The cuddle offer must be the same offer Y would start.
+## The cuddle offer must be the same offer the act key would start.
 func _offer_targets_pony(pony: Node) -> bool:
 	if not is_instance_valid(main) or not is_instance_valid(pony) or not main.has_method("offer_target"):
 		return false
@@ -1314,7 +1314,7 @@ func _cancel_episode(set_cooldown: bool, reason := "", keep_rest := false) -> vo
 	_conversation.cancel_scope()
 	if is_instance_valid(runtime) and runtime.has_method("set_request_face"):
 		runtime.call("set_request_face", false)
-	# A Y start keeps the choice for the act: `clear_presentation()` releases the holder without
+	# An act-key start keeps the choice for the act: `clear_presentation()` releases the holder without
 	# clearing it. Every other close path drops the choice and rerolls the next offer.
 	if not keep_rest and is_instance_valid(runtime) and runtime.has_method("clear_stretch_offer"):
 		runtime.call("clear_stretch_offer")

@@ -48,7 +48,7 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 
 ## Ending
 
-Only the player ends the afterglow: holding `Y` calls `runtime.end_afterglow()`, and a cancel on
+Only the player ends the afterglow: holding the act key calls `runtime.end_afterglow()`, and a cancel on
 the afterglow takes the same path. The pony never ends the phase herself and there is no end
 timer, so the held moment lasts until the player leaves it. Leaving early cancels the standing
 close window without its reward.
@@ -74,7 +74,7 @@ phase.
 
 ## Player afterglow
 
-Hold `Y`:
+Hold the act key:
 
 | State | Climaxes | Result |
 |---|---:|---|
@@ -95,7 +95,7 @@ Hold `Y`:
   (`ACT_SUMMARY.afterglow_beat()`, 40 % silence) and the private relationship note; the HUD and the
   impression keep the full summary. The note does not recite the summary or append a mechanical
   “next time” wish.
-- The afterglow lasts until the player holds `Y` to end it; she never ends it herself. The prompt
+- The afterglow lasts until the player holds the act key to end it; she never ends it herself. The prompt
   still offers `[stay: SECONDS]` as an ordinary stay, but it does not control the phase. The live
   prompt note tells her whether Anon is caressing her or leaning in; leaning counts as staying
   close/hugging.

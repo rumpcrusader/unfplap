@@ -36,6 +36,7 @@ var _hint_readiness: Label
 var _hint_auto: Label
 var _hint_gap: Control
 var _controls: VBoxContainer
+var _act_key := "O"
 var _y_label: Label
 var _finish_label: Label
 var _auto_label: Label
@@ -141,24 +142,26 @@ static func text_label(text: String, size: int, colour := INK, outline := 5) -> 
 	return label
 
 
-## A drawn key cap for a key the game has no icon for, like the G of "G · Carry".
-static func keycap(key: String) -> PanelContainer:
+## A drawn key cap for a key the game has no icon for, like the G of "G · Carry". `scale` enlarges
+## the whole cap for the 52 px prompt row.
+static func keycap(key: String, scale := 1.0) -> PanelContainer:
+	var size := maxf(scale, 0.1)
 	var cap := PanelContainer.new()
 	cap.custom_minimum_size = Vector2(
-		maxf(KEYCAP_SIZE.x, 20.0 + 8.0 * float(key.length())), KEYCAP_SIZE.y)
+		maxf(KEYCAP_SIZE.x, 20.0 + 8.0 * float(key.length())) * size, KEYCAP_SIZE.y * size)
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.bg_color = CAP_BG
 	style.border_color = CAP_EDGE
-	style.set_border_width_all(2)
-	style.border_width_bottom = 4
-	style.set_corner_radius_all(7)
-	style.content_margin_left = 4.0
-	style.content_margin_right = 4.0
+	style.set_border_width_all(maxi(1, roundi(2.0 * size)))
+	style.border_width_bottom = maxi(2, roundi(4.0 * size))
+	style.set_corner_radius_all(maxi(2, roundi(7.0 * size)))
+	style.content_margin_left = 4.0 * size
+	style.content_margin_right = 4.0 * size
 	style.content_margin_top = 0.0
 	style.content_margin_bottom = 0.0
 	cap.add_theme_stylebox_override("panel", style)
-	var letter := text_label(key, 15, INK, 4)
+	var letter := text_label(key, maxi(10, roundi(15.0 * size)), INK, maxi(2, roundi(4.0 * size)))
 	letter.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	letter.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	cap.add_child(letter)
@@ -185,14 +188,17 @@ static func button_icon(icon_name: String, edge: float) -> TextureRect:
 
 
 ## One "icon + words" unit at the game's prompt-row scale, for the row under the crosshair.
-## The action carries the mod's pink accent so the offer reads first.
-static func prompt_row(icon_name: String, text: String) -> HBoxContainer:
+## The action carries the mod's pink accent so the offer reads first. A `cap` draws a key cap when
+## the game has no icon for the key.
+static func prompt_row(icon_name: String, text: String, cap := "") -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon := button_icon(icon_name, PROMPT_ICON_EDGE)
 	if icon != null:
 		row.add_child(icon)
+	elif not cap.is_empty():
+		row.add_child(keycap(cap, PROMPT_ICON_EDGE / KEYCAP_SIZE.y))
 	var label := text_label(text, PROMPT_FONT, ACCENT, PROMPT_OUTLINE)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(label)
@@ -200,7 +206,7 @@ static func prompt_row(icon_name: String, text: String) -> HBoxContainer:
 
 
 ## One row per control: its key caps/icons, a muted modifier column, and one description.
-## Built once; the thrust, auto and Y rows change with act state.
+## Built once; the thrust, auto and act-key rows change with act state.
 func _build_controls() -> void:
 	_add_hint_row("thrust", [{"cap": "↕"}], "", "Thrust")
 	_auto_label = _add_hint_row("auto", [{"cap": "X"}], "", "Switch to auto")
@@ -219,8 +225,8 @@ func _build_controls() -> void:
 	# Finish control is hidden for now: it changes nothing the player can see yet. The B key still
 	# toggles the runtime state (`anatomy_finish_ready`), so re-showing this row is all it needs.
 	_finish_label = _add_hint_row("anatomy_finish", [{"cap": "B"}], "", "Finish: in")
-	# Y is the context control, so it stays at the bottom of the card.
-	_y_label = _add_hint_row("y", [{"cap": "Y"}], "Hold", "")
+	# The act key is the context control, so it stays at the bottom of the card.
+	_y_label = _add_hint_row("y", [{"cap": _act_key}], "Hold", "")
 	# Hold-X auto settings. Built here so the card swaps in place; hidden until the layer opens.
 	var layer_text := {
 		"layer_head": "Auto settings",
@@ -270,18 +276,35 @@ func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Labe
 	return label
 
 
-func show_prompt(text: String, icon_name := "button_y") -> void:
+func show_prompt(text: String, icon_name := "button_y", cap := "") -> void:
 	if _prompt == null:
 		return
-	var key := icon_name + "\u001f" + text
+	var key := icon_name + "\u001f" + cap + "\u001f" + text
 	if key != _prompt_key:
 		_prompt_key = key
 		if is_instance_valid(_prompt_row):
 			_prompt.remove_child(_prompt_row)
 			_prompt_row.queue_free()
-		_prompt_row = prompt_row(icon_name, text)
+		_prompt_row = prompt_row(icon_name, text, cap)
 		_prompt.add_child(_prompt_row)
 	_prompt.visible = true
+
+
+## Swap the act-key row's cap without rebuilding the card when the setting changes.
+func set_act_key(label: String) -> void:
+	var text := label if not label.is_empty() else "O"
+	if text == _act_key:
+		return
+	_act_key = text
+	var row := _control_rows.get("y") as HBoxContainer
+	if row == null or row.get_child_count() == 0:
+		return
+	var old := row.get_child(0)
+	row.remove_child(old)
+	old.queue_free()
+	var cap := keycap(text)
+	row.add_child(cap)
+	row.move_child(cap, 0)
 
 
 func hide_prompt() -> void:
@@ -444,7 +467,7 @@ func inventory_hidden() -> bool:
 
 
 ## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary
-## afterglow keeps lean, caress and Y; standing keeps lean, reach, caress, kiss and Y.
+## afterglow keeps lean, caress and the act key; standing keeps lean, reach, caress, kiss and it.
 func _apply_control_visibility(state: int, view: RefCounted) -> void:
 	var hints_on := bool(view.hud_controls)
 	if _controls != null:

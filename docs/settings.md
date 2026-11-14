@@ -155,6 +155,8 @@ prefixes pre-emptively.
 - Tabs, in panel order: **General** (interface, audio, cycle, thrust, act tuning), **Anatomy**,
   **World** (relationships, cycle, witnesses, pony behaviour), **Characters** (the per-mare form)
   and **Integrations** (supported mods and their switches).
+- General opens with the ungrouped `Act Key` row. It is a normal choice declaration, so it sits at
+  the top of the tab without a section heading.
 - Player-facing settings come first in their tab. When **Enable debug** (General's last row) is
   on, the tab ends with one **Debug** section holding that tab's debug settings under the same
   group names. A section name draws one heading; interleaved declarations fold back into it.
@@ -441,6 +443,7 @@ value. See `docs/perf.md`.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| shared | act_keys | `shared/act_keys.gd` | act-key choices, key map and labels |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | character_preferences | `shared/character_preferences.gd` | character templates |
 | shared | consent | `shared/consent.gd` | consent defaults |

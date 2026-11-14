@@ -293,7 +293,7 @@ func run() -> void:
 	check(not bool(runtime.call("anatomy_finish_ready")), "finish gate closed without an act")
 	check(not bool(runtime.call("anatomy_actions_ready")), "all anatomy gates closed without an act")
 	# The refresh binds the reactions facade to her node, which is what the standing offer's rump
-	# anchor reads. Without it the Y hint never appears.
+	# anchor reads. Without it the act-key hint never appears.
 	var rump_pony := Node3D.new()
 	get_root().add_child(rump_pony)
 	runtime.pony = rump_pony

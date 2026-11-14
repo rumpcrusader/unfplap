@@ -237,7 +237,7 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   releases the hold and drives the same `WingTuck` blend to a full fold over
   `WING_AFTERGLOW_RETURN_SECONDS = 6.0`; early afterglow exit lets the node finish immediately.
 - Standing enters a held `AFTERGLOW`: the tail lifts and flicks twice. Lean and A/D caress remain
-  live; hold Y ends it. The close-window caress time is in `docs/hands.md`.
+  live; holding the act key ends it. The close-window caress time is in `docs/hands.md`.
   Missionary afterglow stays passive.
 
 ### Stretch (Idle Life)
@@ -348,7 +348,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 ## Verification / lab
 
 - Missionary on the Golden Oak guest bed: start, pose, a moving bed, the **Reload posed base**
-  action, the **Show skeleton overlay** Anatomy Debug flag, hold-Y end and the bone restore on the
+  action, the **Show skeleton overlay** Anatomy Debug flag, hold-act-key end and the bone restore on the
   next animation frame.
 - Standing: stance, foreleg spread, ears, tail, wings, afterglow fold and the pose at both Canon
   and Same Height sizes.

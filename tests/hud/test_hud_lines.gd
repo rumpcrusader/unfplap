@@ -45,12 +45,12 @@ func _check_cue() -> void:
 	check(muted == "❤ 1/3", "readouts off keeps only the hearts")
 	var unlimited := LINES.cue_line(3, 2, 0, "", "", "", true)
 	check(unlimited == "❤ 2/∞ | —", "the unlimited hearts and the empty cue dash")
-	var closing := LINES.cue_line(4, 2, 3, "cue", "Close: Y", "", false)
-	check(closing == "❤ 2/3 | Close: Y", "the close prompt survives readouts off")
+	var closing := LINES.cue_line(4, 2, 3, "cue", "Close: O", "", false)
+	check(closing == "❤ 2/3 | Close: O", "the close prompt survives readouts off")
 	var summary := LINES.cue_line(4, 2, 3, "cue", "", "summary", false)
 	check(summary == "❤ 2/3 | summary", "the afterglow summary replaces the cue")
-	var close_wins := LINES.cue_line(4, 2, 3, "cue", "Close: Y", "summary", true)
-	check(close_wins.ends_with("Close: Y"), "the close prompt wins over the summary")
+	var close_wins := LINES.cue_line(4, 2, 3, "cue", "Close: O", "summary", true)
+	check(close_wins.ends_with("Close: O"), "the close prompt wins over the summary")
 
 
 func _check_readiness() -> void:

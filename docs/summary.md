@@ -106,7 +106,7 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
   `Mods.state("unfplap").peak_memories`. It requires a positive summary, no disliked touch/talk and
   either peak readiness >= 90 or six both-axis thrust matches. A later higher-scoring act replaces
   it. The text is the last player exchange, or a generic warm beat if he did not speak.
-- **Zero-climax Y:** the early-stop/cancel path commits an early summary but no romance. The summary
+- **Zero-climax act-key end:** the early-stop/cancel path commits an early summary but no romance. The summary
   can add hurt through this file; the early-stop reaction includes what she wanted.
 - Act lines that have not started speaking are cancelled at every climax/afterglow boundary and at
   every act end. A line already speaking may finish. The intentional early-stop line is queued
@@ -269,7 +269,7 @@ block. They are debug numbers, so stored values are never clamped. See `docs/set
 ## Verification / lab
 
 - One act per grade: summary log once, history row and tier, peak memory, mood face.
-- Early end (hold Y at 0 climaxes) and a forced stop (Debug → Force neglect stop).
+- Early end (holding the act key at 0 climaxes) and a forced stop (Debug → Force neglect stop).
 - Apology and time decay in the lab.
 
 ## Related docs

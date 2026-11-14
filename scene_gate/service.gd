@@ -311,7 +311,7 @@ func note_refusal(bucked: bool) -> void:
 		on_refusal_face.call(bucked)
 
 
-## The spoken refusal line is paced: one gentle refusal per 4 s, so a held or repeated Y press
+## The spoken refusal line is paced: one gentle refusal per 4 s, so a held or repeated act-key press
 ## does not queue a line per frame. The runtime owns the line itself.
 func refusal_ready(now: float) -> bool:
 	return now - _refusal_at >= 4.0
@@ -544,7 +544,7 @@ func nav_owner_allows(pose: String, act_source: String) -> bool:
 	var owner := str(nav.get("command_owner"))
 	if owner.is_empty():
 		return true
-	# The request controller holds her while she walks over, presents and waits for Y.
+	# The request controller holds her while she walks over, presents and waits for the act key.
 	if owner.begins_with("unfplap:request:"):
 		return state == STATE_IDLE
 	# NightRest's new [go_to_bed] owns her with a sleep: lease. While she is lying awake in a bed,

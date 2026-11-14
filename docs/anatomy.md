@@ -140,7 +140,7 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
   refusal shows the anatomy status line and changes nothing.
 - `B` only changes the finish selection and shows the status line. The finish is applied by the
   player's climax event.
-- `Y` owns the act; `V`/`N`/`B` never start or end it.
+- The act key owns the act; `V`/`N`/`B` never start or end it.
 
 ## Attachment and identity
 

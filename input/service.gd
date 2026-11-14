@@ -4,6 +4,8 @@ extends Node
 ## game's own stand_up poll from force-standing a seated player.
 
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
+const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var main: Node
 
@@ -16,6 +18,25 @@ var _mouse_recapture_logged := false
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	process_physics_priority = -100
+	apply_act_key()
+
+
+func _exit_tree() -> void:
+	if InputMap.has_action(ACT_KEYS.ACTION):
+		InputMap.erase_action(ACT_KEYS.ACTION)
+
+
+## Rebuild the mod-owned act action from the `act_key` setting. The game's typing guard stashes
+## every non-`ui_` InputMap action while a text field has focus, so a real action keeps the act key
+## out of chat without a second focus check in the runtime.
+func apply_act_key() -> void:
+	if InputMap.has_action(ACT_KEYS.ACTION):
+		InputMap.action_erase_events(ACT_KEYS.ACTION)
+	else:
+		InputMap.add_action(ACT_KEYS.ACTION)
+	var event := InputEventKey.new()
+	event.physical_keycode = ACT_KEYS.key(SETTINGS.act_key.get_choice())
+	InputMap.action_add_event(ACT_KEYS.ACTION, event)
 
 
 func _physics_process(_delta: float) -> void:
@@ -204,20 +225,22 @@ func _input(event: InputEvent) -> void:
 		if key.physical_keycode == KEY_H:
 			get_viewport().set_input_as_handled()
 			return
-		if state == 4: # AFTERGLOW: Y, lean, caress and the standing kiss are live
-			if key.is_action("stand_up") or key.physical_keycode in [
-					KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_T, KEY_Z, KEY_C]:
+		if state == 4: # AFTERGLOW: act key, lean, caress and the standing kiss are live
+			if key.is_action(ACT_KEYS.ACTION) or key.is_action("stand_up") \
+					or key.physical_keycode in [
+						KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_T, KEY_Z, KEY_C]:
 				get_viewport().set_input_as_handled()
 			return
 		if state in [3, 5]: # CLIMAX / RESTORE: only polled act actions
-			if key.is_action("stand_up") or key.physical_keycode in [
-					KEY_Y, KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_Z, KEY_C]:
+			if key.is_action(ACT_KEYS.ACTION) or key.is_action("stand_up") \
+					or key.physical_keycode in [
+						KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_Z, KEY_C]:
 				get_viewport().set_input_as_handled()
 			return
 		if key.is_action("stand_up"):
 			get_viewport().set_input_as_handled()
 			return
-		if key.physical_keycode == KEY_Y:
+		if key.is_action(ACT_KEYS.ACTION):
 			get_viewport().set_input_as_handled()
 			return
 		# Keep native world interactions from firing during the act. Z/C are the per-side
@@ -225,7 +248,7 @@ func _input(event: InputEvent) -> void:
 		if key.physical_keycode in [KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_G, KEY_K, KEY_Z, KEY_C]:
 			get_viewport().set_input_as_handled()
 		return
-	if key.physical_keycode == KEY_Y:
+	if key.is_action(ACT_KEYS.ACTION):
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not _headset():
 			return
 		if bool(main.call("try_start")):

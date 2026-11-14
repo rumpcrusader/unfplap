@@ -46,8 +46,8 @@ A failure in any step runs `_abort_start()` and the same teardown; it never leav
 
 | Input | Action |
 |---|---|
-| `Y` (single press, idle) | start the hinted act |
-| `Y` (hold `0.35 s`) | cancel/end early at 0 climaxes; afterglow at 1+; end afterglow |
+| act key (single press, idle) | start the hinted act; `O` by default, `Y` as the compatibility choice |
+| act key (hold `0.35 s`) | cancel/end early at 0 climaxes; afterglow at 1+; end afterglow |
 | `W` / `S` | lean forward / back |
 | `Q` / `E` | side lean; standing shoulder reach |
 | `A` / `D` | caress (standing flank; missionary chest/belly) |
@@ -133,10 +133,10 @@ reads that facade too.
 
 ## Verification / lab
 
-- A full missionary act: start, pose, thrust, climax, afterglow, hold-Y end, cuddle rejoin.
+- A full missionary act: start, pose, thrust, climax, afterglow, hold-act-key end, cuddle rejoin.
 - A full standing act: presentation, lean, reach, caress, movement, smack, kiss, afterglow close,
-  Y end.
-- Early end (hold Y at 0 climaxes) and a forced stop (Debug → Force neglect stop).
+  act-key end.
+- Early end (holding the act key at 0 climaxes) and a forced stop (Debug → Force neglect stop).
 - A failed start: no stuck navigator, kiss hold, inventory HUD or camera lock.
 
 ## Related docs

@@ -101,7 +101,7 @@ within 2.4 m; cradle: held and cradled; already lying: lying and Anon beside the
 the impression; the face is presentation. A strict partner stop also calls the same buck/push.
 
 `refusal_ready` / `mark_refusal` pace the spoken refusal line at one per 4 s, so a held or repeated
-Y press does not queue a line per frame. The runtime owns the refusal line and its validity.
+An act-key press does not queue a line per frame. The runtime owns the refusal line and its validity.
 
 ## Debug
 

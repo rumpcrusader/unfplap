@@ -18,6 +18,7 @@ restate a contract.
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
+| `shared/act_keys.gd` | `docs/input.md` |
 | `shared/integrations.gd` | `docs/integrations.md` |
 | `shared/act_face.gd` | `docs/face.md` |
 | `shared/act_history.gd` | `docs/summary.md` |

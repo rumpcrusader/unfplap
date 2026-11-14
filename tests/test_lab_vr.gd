@@ -263,7 +263,7 @@ func _stand_behind_target() -> Node3D:
 		rig.global_position = target
 		rig.reset_physics_interpolation()
 	_face_point((pony as Node3D).global_position)
-	print("[unfplap vr] F9: Anon behind %s at %s; press Y for the standing act" % [
+	print("[unfplap vr] F9: Anon behind %s at %s; press the act key (O) for the standing act" % [
 		_pony_id(pony), str(target)])
 	return pony as Node3D
 

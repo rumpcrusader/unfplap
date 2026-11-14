@@ -18,6 +18,7 @@ const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
+const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
@@ -764,6 +765,9 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 # ======================================================== General
 
 # -- (ungrouped)
+static var act_key := choice("act_key", "controls.act_key", ACT_KEYS.DEFAULT,
+	ACT_KEYS.CHOICES, ACT_KEYS.LABELS, "Act Key",
+	"Key that starts and ends the act.", GENERAL, "")
 static var sex_start := choice("sex_start", "relationship.sex_start", "try_luck",
 	["when_available", "try_luck"], ["When Available", "Try Your Luck"],
 	"Show start button",

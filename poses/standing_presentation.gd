@@ -466,7 +466,7 @@ func request_face_active() -> bool:
 	return _request_face
 
 
-## A cancel or close drops the presentation holder and the stored episode choice. The Y-start
+## A cancel or close drops the presentation holder and the stored episode choice. The act-key-start
 ## handoff does not call this, so the act reuses the presentation's variant and side.
 func clear_stretch_offer() -> void:
 	_sync()

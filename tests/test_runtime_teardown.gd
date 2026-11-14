@@ -17,6 +17,7 @@ class FakePony extends Node3D:
 	var posture: Variant = null
 	var expressions: Variant = null
 	var posture_requests: Array[String] = []
+	var reset_transforms: Array[Transform3D] = []
 
 	func posture_status() -> Dictionary:
 		return {"requested": "stand", "settled": true}
@@ -24,6 +25,10 @@ class FakePony extends Node3D:
 	func request_posture(name: String) -> bool:
 		posture_requests.append(name)
 		return true
+
+	func reset_motion(transform: Transform3D) -> void:
+		reset_transforms.append(transform)
+		global_transform = transform
 
 
 class FakeNav extends Node:
@@ -70,13 +75,14 @@ class FakeMain extends Node:
 	var hud: Variant = null
 	var game: Variant = null
 	var active_runtime: Variant = null
+	var view: Camera3D = null
 	var cleared: Array = []
 
 	func clear_active(runtime: Node) -> void:
 		cleared.append(runtime)
 
 	func camera() -> Camera3D:
-		return null
+		return view
 
 
 func _initialize() -> void:
@@ -291,7 +297,40 @@ func run() -> void:
 			left += 1
 	check(left == 0, "the pose teardown leaves no act modifier on the body skeleton")
 
-	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8]:
+	# AnonPony and headset/VR move her in front of the player; the player stays where he is.
+	var f9 := _fixture()
+	var runtime9: Node = f9["runtime"]
+	root.add_child(runtime9)
+	var pony9: FakePony = f9["pony"]
+	var player9: FakePlayer = f9["player"]
+	var main9: FakeMain = f9["main"]
+	main9.game.headset_view = true
+	var cam9 := Camera3D.new()
+	main9.add_child(cam9)
+	cam9.global_position = Vector3(5.0, 1.6, 6.0)
+	cam9.rotation.y = 1.1
+	main9.view = cam9
+	pony9.global_position = Vector3(3.0, 0.0, 4.0)
+	pony9.rotation.y = 0.7
+	player9.global_position = Vector3(5.0, 0.2, 6.0)
+	player9.rotation.y = 1.1
+	var player_start9: Transform3D = player9.global_transform
+	var headset9: Transform3D = runtime9.call("_begin_standing_placement")
+	var gap9: float = float(runtime9.call("_standing_gap"))
+	var forward9: Vector3 = -cam9.global_basis.z
+	forward9.y = 0.0
+	forward9 = forward9.normalized()
+	var expected9: Vector3 = player9.global_position + forward9 * gap9
+	expected9.y = player9.global_position.y
+	check(headset9.origin.is_equal_approx(expected9),
+		"headset start moves her in front of the player at the act gap")
+	check(pony9.reset_transforms.size() == 1
+		and pony9.reset_transforms[0].is_equal_approx(headset9),
+		"headset start applies the act transform to her")
+	check(player9.global_transform.is_equal_approx(player_start9),
+		"headset start leaves the player in place")
+
+	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9]:
 		(item["runtime"] as Node).free()
 	print("RUNTIME_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

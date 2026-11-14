@@ -1981,13 +1981,23 @@ func _abort_start() -> void:
 func _begin_standing_placement() -> Transform3D:
 	var forward: Vector3 = -pony.global_basis.z
 	forward.y = 0.0
-	if forward.length_squared() < 0.0001:
+	var has_player := is_instance_valid(main) and is_instance_valid(main.player) \
+		and main.player is Node3D
+	if forward.length_squared() < 0.0001 and has_player:
 		forward = -main.player.global_basis.z
 	forward = forward.normalized()
 	var standing := Transform3D(Basis.looking_at(forward, Vector3.UP), pony.global_position)
 	var stool: Variant = _stool_act()
-	if _player_pony or _headset_view() or not is_instance_valid(main) \
-			or not is_instance_valid(main.player) or not main.player is Node3D:
+	if _player_pony or _headset_view():
+		# Her rig is the camera rig (headset) or another body (AnonPony), so she goes in front of
+		# the player instead of the player going behind her.
+		if stool != null and bool(stool.get("active")):
+			stool.set("failed", true)
+		var placed: Transform3D = _standing_transform() if has_player else standing
+		pony.reset_motion(placed)
+		pony.reset_physics_interpolation()
+		return placed
+	if not has_player:
 		if stool != null and bool(stool.get("active")):
 			stool.set("failed", true)
 		pony.reset_motion(standing)

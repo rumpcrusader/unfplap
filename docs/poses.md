@@ -191,7 +191,8 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   act after a missionary restore does not inherit the old view. The 1.2 m Y cone keeps that
   correction small. The act end leaves him there and leaves his yaw/pitch at the last act aim; it
   does not snap the pre-act view back. AnonPony and headset/VR still move her in front of the
-  camera rig with `_standing_transform()`.
+  camera rig with `_standing_transform()`, because their rig is the camera or another body, and
+  the player is never moved for them.
 - `apply_anon_lean()` pins both foot targets at their live stepping pose while a lean moves the
   hip and camera/head forward, sideways or down, so the torso hinges over her instead of walking
   through the lean. With no lean the game's stepping feet are left alone; the capture clears on

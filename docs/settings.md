@@ -212,10 +212,15 @@ prefixes pre-emptively.
   in the player file on first run. **A changed shipped default is a migration event for an existing
   player**: their materialised value keeps winning. Promote a player value into the shipped
   document with `scripts/settings_sync.py`; see `.opencode/skills/sync-settings/SKILL.md`.
-- A player editing their own `settings.json` is never an error; the merge fills absent keys. A
-  missing or malformed value in `settings/defaults.json` is a **shipped-data** error: `_shipped()`
-  logs the first problem, `defaults()` and `data()` return an empty document, `_load()` refuses to
-  write and `main.gd._ready()` logs one line and installs no hooks. The game keeps running.
+- A player file with absent keys is filled from the defaults; the merge never requires every key.
+  A player file that cannot be read, is empty, is not a JSON object, or was written by a newer
+  schema is preserved as `<path>.<timestamp>.invalid` (for example
+  `settings.json.20261114-155724.invalid`), logged with the original and backup paths, and
+  replaced by a fresh document built from the shipped defaults. Hand-editing is still unsupported;
+  the backup is the recovery path. A missing or malformed value in `settings/defaults.json` is a
+  **shipped-data** error: `_shipped()` logs the first problem, `defaults()` and `data()` return an
+  empty document, `_load()` refuses to write and `main.gd._ready()` logs one line and installs no
+  hooks. The game keeps running.
 - The schema test `_check_shipped_defaults()` enforces the exact path set (every declaration has a
   value, and there is no undeclared path), the exact JSON type per kind, a choice/list value inside
   its declared options, a colour in `rrggbb`/`rrggbbaa` form and a player-facing number inside its

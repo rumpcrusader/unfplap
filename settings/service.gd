@@ -2729,10 +2729,36 @@ static func _load() -> void:
 		return
 	var path := _path()
 	var raw: Dictionary = {}
+	var problem := ""
 	if FileAccess.file_exists(path):
-		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
-		if parsed is Dictionary:
-			raw = parsed
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file == null:
+			problem = "cannot be read"
+		else:
+			var text := file.get_as_text()
+			var read_error := file.get_error()
+			file.close()
+			if read_error != OK:
+				problem = "cannot be read"
+			elif text.strip_edges().is_empty():
+				problem = "is empty"
+			else:
+				var parsed: Variant = JSON.parse_string(text)
+				if not parsed is Dictionary:
+					problem = "is not a valid JSON object"
+				else:
+					raw = parsed
+					var newer := int(raw.get("version", 0))
+					if newer > SCHEMA_VERSION:
+						problem = "has schema %d, newer than this build's %d" % [
+							newer, SCHEMA_VERSION]
+	# An unreadable, malformed or newer profile is preserved before the fresh write below. The
+	# backup is the player's recovery path; hand-editing is still unsupported.
+	if not problem.is_empty():
+		var backup := _preserve_settings_file(path)
+		push_error("unfplap settings: %s %s; preserved as %s and starting from defaults" % [
+			path, problem, backup if not backup.is_empty() else "(could not preserve)"])
+		raw = {}
 	var before := raw.duplicate(true)
 	var file_version := int(raw.get("version", 0))
 	var data := _migrate(raw, file_version)
@@ -2750,6 +2776,26 @@ static func _load() -> void:
 		_finish_legacy_placement_import()
 
 
+## Move an unreadable, malformed or newer player file aside so the fresh write cannot destroy it.
+## Returns the backup path, or "" when both the move and the copy failed.
+static func _preserve_settings_file(path: String) -> String:
+	var stamp := Time.get_datetime_string_from_system().replace("-", "") \
+		.replace(":", "").replace("T", "-")
+	var backup := "%s.%s.invalid" % [path, stamp]
+	var index := 1
+	while FileAccess.file_exists(backup):
+		backup = "%s.%s-%d.invalid" % [path, stamp, index]
+		index += 1
+	var source := ProjectSettings.globalize_path(path)
+	var target := ProjectSettings.globalize_path(backup)
+	if DirAccess.rename_absolute(source, target) == OK:
+		return backup
+	# A copy leaves the original for the fresh write to replace, but still preserves the bytes.
+	if DirAccess.copy_absolute(source, target) == OK:
+		return backup
+	return ""
+
+
 ## Report a migration only when it actually changed the player document. The merge below adds the
 ## defaults, which is not a migration, so the diff runs on the migrated player data alone.
 static func _log_migration(path: String, before: Dictionary, after: Dictionary,
@@ -2760,7 +2806,9 @@ static func _log_migration(path: String, before: Dictionary, after: Dictionary,
 	var added: Array = diff["added"]
 	var removed: Array = diff["removed"]
 	var total := changed.size() + added.size() + removed.size()
-	if before.is_empty() and after.is_empty():
+	# A fresh profile has no player data to migrate; the empty `anatomy` block the structural
+	# chain creates is not a migration.
+	if before.is_empty():
 		return
 	if not schema_changed and total == 0:
 		return

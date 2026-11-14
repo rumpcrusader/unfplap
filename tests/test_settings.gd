@@ -67,6 +67,7 @@ func run() -> void:
 	_check_profiles()
 	_check_character_overrides()
 	_check_participation()
+	_check_player_file_recovery()
 	print("SETTINGS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("SETTINGS_PASS")
@@ -1074,6 +1075,67 @@ func _check_participation() -> void:
 	check(not (after as Dictionary).has("fluttershy"), "reset removes the participation block")
 	var restored := SETTINGS.profile_participation("fluttershy")
 	check(bool(restored.get("acts", false)), "the memoized profile invalidates on a reset")
+
+
+## An unreadable, malformed or newer player file is preserved, logged and replaced by a fresh
+## document built from the shipped defaults.
+func _check_player_file_recovery() -> void:
+	var folder := "user://mods/data/unfplap"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
+	var path := folder.path_join("settings.json")
+	_clear_settings_backups(folder)
+
+	var broken := FileAccess.open(path, FileAccess.WRITE)
+	broken.store_string("{ broken")
+	broken.close()
+	SETTINGS.reload_file()
+	var backups := _settings_backups(folder)
+	check(backups.size() == 1, "a malformed player file is preserved once")
+	if backups.size() == 1:
+		check(FileAccess.get_file_as_string(backups[0]).contains("broken"),
+			"the malformed text is preserved")
+	check(not SETTINGS.data().is_empty(), "a malformed player file falls back to the defaults")
+	check(_settings_version(path) == SETTINGS.SCHEMA_VERSION,
+		"a malformed player file is replaced by a current document")
+	_clear_settings_backups(folder)
+
+	var newer := {"version": SETTINGS.SCHEMA_VERSION + 1, "debug_mode": true}
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(newer, "\t") + "\n")
+	file.close()
+	SETTINGS.reload_file()
+	backups = _settings_backups(folder)
+	check(backups.size() == 1, "a newer player file is preserved once")
+	if backups.size() == 1:
+		var backup_data: Variant = JSON.parse_string(
+			FileAccess.get_file_as_string(backups[0]))
+		check(backup_data is Dictionary
+			and int((backup_data as Dictionary).get("version", 0)) == SETTINGS.SCHEMA_VERSION + 1,
+			"the newer schema is preserved")
+	check(_settings_version(path) == SETTINGS.SCHEMA_VERSION,
+		"a newer player file is replaced by a current document")
+	_clear_settings_backups(folder)
+
+
+func _settings_backups(folder: String) -> Array:
+	var out: Array = []
+	for name: String in DirAccess.get_files_at(ProjectSettings.globalize_path(folder)):
+		if name.begins_with("settings.json.") and name.ends_with(".invalid"):
+			out.append(folder.path_join(name))
+	return out
+
+
+func _clear_settings_backups(folder: String) -> void:
+	for name: String in DirAccess.get_files_at(ProjectSettings.globalize_path(folder)):
+		if name.begins_with("settings.json.") and name.ends_with(".invalid"):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(folder.path_join(name)))
+
+
+func _settings_version(path: String) -> int:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if parsed is Dictionary:
+		return int((parsed as Dictionary).get("version", 0))
+	return -1
 
 
 func _collect_labels(node: Node, out: Array) -> void:

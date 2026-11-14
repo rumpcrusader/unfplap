@@ -201,9 +201,9 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
 - The skin strip is `skin_bridge.scn`, also skinned to the mare. Its span is measured from the
   dock AABB and the teat strip end; its gap is measured from the hip bind and the authored slit.
   `strip_scale` scales the strip in model-space X around the midline.
-- The default dock style is `genitals`: the dock copies the attached anatomy material with the
-  skin tones. `coat` keeps the game's coat material, and `hide` removes the dock. With anatomy
-  detached, the dock falls back to the coat.
+- The dock style setting chooses the dock material: `genitals` copies the attached anatomy material
+  with the skin tones, `coat` keeps the game's coat material, and `hide` removes the dock. With
+  anatomy detached, the dock falls back to the coat.
 
 ## Placement
 
@@ -368,10 +368,10 @@ appearance, including the missionary-only fold hack, when the pose id changes.
 - `POSING_IN`, `ACTIVE` and `CLIMAX` suppress the idle display because the act owns the mesh.
   `AFTERGLOW`, `RESTORE` and `IDLE` may display it.
 - The idle display requires the anatomy mesh to be shown and not a far mesh.
-- In heat she rests at `heat_rest_open` (default `0.15`) of the open shape. Each idle burst uses
+- In heat she rests at `heat_rest_open` of the open shape. Each idle burst uses
   `cycle.wink_burst_count()`: 70% single, 25% double, 5% triple. The gap is
-  `wink_min_s…wink_max_s` (default `17…34 s`).
-- Each beat opens to `wink_open_min…wink_open_max` (default 90% of the open shape) with an
+  `wink_min_s…wink_max_s`.
+- Each beat opens to the `wink_open_min…wink_open_max` range of the open shape with an
   accelerated open, a short hold and an accelerated close. `wink_timing` scales the three phase
   times.
 - The first beat's peak may discharge one or more droplets. `drip` scales the count (`0` turns it
@@ -383,7 +383,7 @@ appearance, including the missionary-only fold hack, when the pose id changes.
 
 ## Body coat deform
 
-- `features.body_coat_deform` (debug, default on) duplicates the rig coat material and patches its
+- `features.body_coat_deform` (debug) duplicates the rig coat material and patches its
   `Shader` at runtime. It replaces the `flank_jiggle.gdshaderinc` include with the mod include and
   `VERTEX += flank_jiggle(VERTEX);` with `VERTEX += body_coat_deform(VERTEX);`, then adds the
   vulva coat cut at the start of `fragment()`. The outline hull is patched the same way. No game
@@ -495,7 +495,7 @@ body's own deformation across the whole mesh.
 
 ## Tail seating
 
-- `anatomy.reseat_tails` (Anatomy → **Re-seat tails and docks**, default on) moves every adult
+- `anatomy.reseat_tails` (Anatomy → **Re-seat tails and docks**) moves every adult
   mare's hair tail base to the game's exact reference anchor from
   `res://world/characters/hybrid_mare/dock_tail_mounts.json`. The reference is the game's
   canonical dock seat, derived from the body's own tail root (`pony_tail_01`). Mares added by
@@ -576,24 +576,23 @@ body's own deformation across the whole mesh.
 
 ## Settings
 
-The declarations are in `settings/service.gd`; this section is the anatomy-specific contract. The
-settings page is built from the declarations, so the label, help, default and bounds are not
-restated here.
+The declarations are in `settings/service.gd` and their values in
+`settings/defaults.json`; this section is the anatomy-specific contract. The settings page is
+built from the declarations, so the label, help and bounds are not restated here.
 
-- `anatomy.anatomy_mode`: `never`, `act` or `always`; default `never`. It replaced the old master
+- `anatomy.anatomy_mode`: `never`, `act` or `always`. It replaced the old master
   switch and `act_only`, and drives `SETTINGS.anatomy_on()`. While `never` is selected the settings
   page dims and disables every Anatomy row below the pill.
-- `anatomy.dock_style`: `hide`, `coat` or `genitals`; default `genitals`. The old `show_dock` and
+- `anatomy.dock_style`: `hide`, `coat` or `genitals`. The old `show_dock` and
   `dock_color` keys migrate in that order, with a hidden dock winning over its colour.
-- `anatomy.teats`, `anatomy.skin_strip`: optional teats and the ventral midline strip; both off by
-  default.
-- `features.anatomy_fluid`: climax, finish and idle droplets; default on.
-- `features.body_coat_deform`: runtime coat patch; debug, default on.
-- `anatomy.coat_follow`: how far the anatomy follows the body coat's leg skinning; debug,
-  default `0.0` keeps it rigid, `1.0` follows fully.
+- `anatomy.teats`, `anatomy.skin_strip`: optional teats and the ventral midline strip.
+- `features.anatomy_fluid`: climax, finish and idle droplets.
+- `features.body_coat_deform`: runtime coat patch; debug.
+- `anatomy.coat_follow`: how far the anatomy follows the body coat's leg skinning; debug.
+  `0.0` keeps it rigid, `1.0` follows fully.
 - `anatomy.skin_tone`, `anatomy.vulva_height`, `anatomy.anal_scale`, `anatomy.vulva_inner_color`,
   `anatomy.clitoris_color`: material appearance.
-- `anatomy.reseat_tails`: dock/tail seat; on by default.
+- `anatomy.reseat_tails`: dock/tail seat.
 - `anatomy.placement.default.*`, `anatomy.placement.anon.*`, `anatomy.placement.<id>.*` and
   `anatomy.placement_target`: the placement block and editor target.
 - `anatomy.anal_aim_mm`, `anatomy.anal_hug_mm`, `anatomy.vulva_hug_mm`,
@@ -610,12 +609,12 @@ restated here.
 - `anatomy.player_scale`, `anatomy.part_base_scale`, `anatomy.part_mid_scale`,
   `anatomy.part_head_scale`, `anatomy.part_length_scale`, `anatomy.part_throb`: the **You** group.
 - `anatomy.back_out_m`, `anatomy.part_front_m`, `anatomy.pelvis_gap_m`: player-part standoff, in
-  the Anatomy Debug **You** group. Back-out is signed, `-5…5 cm`, default `0`.
+  the Anatomy Debug **You** group. Back-out is signed, `-5…5 cm`.
 - `presentation.missionary.part_inset_m`: missionary-only part inset, added to `part_front_m`.
 - `presentation.missionary.size.<preset>.vulva_shift_mm`, `vulva_pitch_deg`,
   `vulva_depth_shift_mm` and `vulva_hug_mm`: the missionary-only placement and grip trims.
 - `features.anatomy_holes`, `features.anatomy_oral`, `features.anatomy_finish`: the V/N/B
-  controls; hole on, oral off, finish off by default.
+  controls.
 - The VR standing act always starts on a headset; the old `features.anatomy_vr` switch is retired.
 - `features.debug_aim_points`: the three aim markers.
 

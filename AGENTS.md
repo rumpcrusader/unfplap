@@ -121,8 +121,8 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   dictionaries instead of allocating per frame. Presentation modules read `shared/act_facts.gd` or
   the owning facade.
 - **Settings snapshot.** Values arrive once per act and again on `apply_live_settings()`; no
-  per-frame `Settings` reads. One declaration in `settings/service.gd`, one typed read; the
-  framework is `docs/settings.md`.
+  per-frame `Settings` reads. One declaration in `settings/service.gd`, one shipped value in
+  `settings/defaults.json`, one typed read; the framework is `docs/settings.md`.
 - **No game-file edits and no JSON merges.** Everything lives under `res://mods/unfplap/`.
 - **No global debug hotkeys.** `debug/service.gd` declares none; a debug action is a button in its
   Debug block and the game's dev keys stay the game's.
@@ -138,8 +138,9 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   single source of truth for its purpose, ownership, API, state, settings, controls, debug actions,
   dependencies and tests; no other doc restates them. Update it in the same commit as the change,
   and remove obsolete claims instead of keeping historical notes.
-- A doc names settings and behaviour, not copied numeric defaults; the declaration in
-  `settings/service.gd` is the source for the default and the bounds.
+- A doc names settings and behaviour, not copied numeric defaults; the shipped
+  `settings/defaults.json` is the source for the default and the declaration in
+  `settings/service.gd` for the bounds.
 - `docs/api.md` is the only cross-mod API contract. `README.md` is human-owned: do not edit it;
   report the needed change with exact replacement text.
 

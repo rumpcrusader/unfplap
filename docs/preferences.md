@@ -144,7 +144,6 @@ character profiles.
 | Trixie | firm | steady | kiss | praise, playful | quick |
 | Zecora | firm | steady | caress | reassurance | slow |
 | Spitfire | rough | quick | smack | praise, playful | normal |
-| Default | firm | steady | none | none | normal |
 
 Dislikes are shown in the settings editor and stay in the `preferences` block. They are used only
 where the character's temperament supports them; the main cast uses `smack` and/or `dirty` for

@@ -169,7 +169,7 @@ public_offer   = heat or (features.act_public_offer and consent.public)
 
 "House alone" excludes the offering mare and counts every other mare in the house; outdoors,
 `others_near` counts every other mare within `30 m`. The public-offer part is the player's
-**Enable public offers** switch; it is off by default. A public offer is still an offer; the act
+**Enable public offers** switch; a public offer is still an offer; the act
 itself does not require privacy. The throttled `request privacy ...` log prints the player
 position, the house, every mare in the house, every mare within `30 m`, the target label, the
 public-offer flag and the resolved result.

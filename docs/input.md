@@ -63,8 +63,9 @@ and the viewport focus owner. It does not store runtime state.
 ## Settings
 
 - `act_key` (General, top row, no section heading): the physical key that starts and ends the act.
-  The default is `6`. The declaration is a hidden numeric setting; `settings/ui.gd` draws its
-  hand-built **Act Key** capture row because a key capture is not one of the declaration widgets.
+  The shipped default lives in `settings/defaults.json`. The declaration is a hidden numeric
+  setting; `settings/ui.gd` draws its hand-built **Act Key** capture row because a key capture is
+  not one of the declaration widgets.
   Press the row, then press any key; `Esc` cancels. The captured keycode is stored in
   `settings.json` and `main._apply_settings_changed()` rebuilds the action.
 - `Y` is not special in the setting: it can be captured, but it is the bundled Dance Mod's key, so
@@ -92,8 +93,8 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
   field.
 - The act key starts the hinted act with a tap (`main.try_start()`), and holding it during an act
   is handled by `runtime.gd` (`docs/runtime.md`). The bundled Dance Mod still polls raw `Y`; the
-  default `6` removes the accidental collision, but a deliberate `Y` during an act is that mod's
-  own check to add.
+  shipped default removes the accidental collision, but a deliberate `Y` during an act is that
+  mod's own check to add.
 
 ## Dependencies
 
@@ -103,11 +104,11 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 |---|---|---|---|
 | service | debug | `debug/service.gd` | debug action registry |
 | service | settings | `settings/service.gd` | the `act_key` keycode |
-| shared | act_keys | `shared/act_keys.gd` | action name, default and cap labels |
+| shared | act_keys | `shared/act_keys.gd` | action name, legacy fallback and cap labels |
 
 ## Tests
 
-- `tests/test_input.gd` — the default, the installed action, a captured rebind, typing protection
+- `tests/test_input.gd` — the legacy fallback, the installed action, a captured rebind, typing protection
   and the start route through `main.try_start()`.
 - The manual lab covers act start, end, smack, auto, chat and the seated-player guard.
 - The architecture checker covers the facade-only import rule.

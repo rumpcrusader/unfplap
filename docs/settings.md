@@ -1,17 +1,31 @@
-# Settings: one declaration, one accessor
+# Settings: one declaration, one shipped default, one accessor
 
-Every global setting in the mod is declared **once**, in `settings/service.gd`, and read through a typed
-accessor on that setting. There is no second schema, no path-keyed read and no default constant
-anywhere else. The General, Anatomy and World panels are drawn from the declarations by
-`settings/ui.gd` in the settings page's own menu style: row cards, `Faint` help, switch plus
-state, Segment pills for a few short choices and the `Tab` look for a collapsible section heading.
-The tab pills, sidebar row, the hand-built Characters preference tab and the catalog-driven
-Integrations tab are added by the injection in `settings/ui.gd`. The Characters form itself is in
-`settings/characters_ui.gd`; the consent and participation semantics are in
-`docs/eligibility.md`; the supported-mod catalog is `shared/integrations.gd`.
+Every global setting in the mod is declared **once**, in `settings/service.gd`, and read through a
+typed accessor on that setting. The declaration owns the JSON path, label, help, tab, group,
+bounds and options; the **default value lives in `settings/defaults.json`**, never in the
+declaration or in a second constant. There is no path-keyed read outside the settings service.
+
+Two documents share one shape:
+
+| Document | Path | Writer | Contents |
+|---|---|---|---|
+| Shipped defaults | `res://mods/unfplap/settings/defaults.json` | git, read-only | the default settings document |
+| Player settings | `user://mods/data/unfplap/settings.json` | the mod | the same document plus `version`, `ui.sections` and the player's edits |
+
+The shipped document is a valid settings document; the player document is that document with
+edits. Nothing else supplies a default.
+
+The General, Anatomy and World panels are drawn from the declarations by `settings/ui.gd` in the
+settings page's own menu style: row cards, `Faint` help, switch plus state, Segment pills for a few
+short choices and the `Tab` look for a collapsible section heading. The tab pills, sidebar row, the
+hand-built Characters preference tab and the catalog-driven Integrations tab are added by the
+injection in `settings/ui.gd`. The Characters form itself is in `settings/characters_ui.gd`; the
+consent and participation semantics are in `docs/eligibility.md`; the supported-mod catalog is
+`shared/integrations.gd`.
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a
-> restore/normalise function or a save function for a setting, stop. Declare the setting instead.
+> restore/normalise function or a save function for a setting, stop. Declare the setting and add
+> its one value to `settings/defaults.json` instead.
 
 Per-character profiles (`default`/`characters` templates, preferences, prompts, consent) and the
 pose catalog overrides (`poses.*`) are not global settings: they live in the same file but are read
@@ -23,22 +37,27 @@ detached copy, so an act gate pays a lookup instead of a template build.
 
 ## Ownership
 
-`settings/service.gd` owns the declaration catalog, the JSON file, the typed accessors and the
-per-mare profiles. The catalog is the settings service's internal public API: a service contributes
-a setting with a literal declaration there and then reads the typed handle.
+`settings/service.gd` owns the declaration catalog, the shipped-defaults loader, the player file,
+the merge, the typed accessors and the per-mare profiles. `settings/defaults.json` is shipped data,
+not code: it is tracked, packed, read-only in a build and parsed once per process. The catalog is
+the settings service's internal public API: a service contributes a setting with a literal
+declaration there, one value in the shipped document, and then reads the typed handle.
 
 `settings/ui.gd` is the only file that draws the declaration rows; it also owns the settings-page
 injection and the Debug block visibility. `settings/characters_ui.gd` is the interim home of the
-Characters form. `main.gd` keeps the `Mods` hook and the `_apply_settings_changed()` callback. The
-runtime takes the settings service's typed `ActSnapshot` in `_snapshot_settings()`; the settings
-file never reads a live act.
+Characters form. `main.gd` keeps the `Mods` hook, the `_apply_settings_changed()` callback and the
+one guard that refuses to install the mod when the shipped document is invalid. The runtime takes
+the settings service's typed `ActSnapshot` in `_snapshot_settings()`; the settings file never reads
+a live act.
 
 ## Contributing a setting
 
 1. Add the declaration in `settings/service.gd`, in the tab and group where the player should see
-   it. The declaration owns the path, default, label, help, bounds and debug flag.
-2. Document the behavior in the owning service's `## Settings` section.
-3. Depend on `settings/service.gd` and use the typed handle.
+   it. The declaration owns the path, label, help, bounds, options and debug flag — not the value.
+2. Add the same dotted path to `settings/defaults.json` with its default value. The schema test
+   fails when a declaration and the shipped document disagree.
+3. Document the behavior in the owning service's `## Settings` section.
+4. Depend on `settings/service.gd` and use the typed handle.
 
 There is no `<service>/settings.gd` module, no registration call and no second layout list. The
 catalog order is the panel order. A setting whose value cannot be one of the generic widgets is
@@ -67,9 +86,11 @@ SETTINGS.radius.reset()
 | number | `num(...)` | `get_num()`, `set_num(v)` |
 | choice | `choice(...)` | `get_choice()`, `set_choice(v)` |
 | list | `list(...)` | `get_list()`, `set_list(v)`, `toggle(item)` |
+| colour | `color(...)` | `get_color()`, `set_color(v)` |
 
 Every setting also has `get_value()`, `set_value(v)`, `reset()`, `name`, `path`, `label`, `help`,
-`tab`, `group`, `default` and `debug`.
+`tab`, `group`, `default` and `debug`. `default` is the shipped value the declaration bound at
+start-up; `reset()` writes it back.
 
 A wrong accessor does not compile: `SETTINGS.act_climax.get_num()` is a parse error, and so is a
 mistyped name. That is the main safety net; the tests only cover what the compiler cannot see.
@@ -80,37 +101,43 @@ pacing, jiggle, camera thrust, the pose presentation block and the climax face. 
 it in `_snapshot_settings()` and re-runs it in `apply_live_settings()`. There is no path-keyed read
 outside the settings service and no second cache.
 
-## Adding a setting: one line, then one read
+## Adding a setting: one declaration, one shipped value, one read
 
 1. **One declaration, where it should appear in the panel.**
 
    ```gdscript
-   static var raise_m := num("raise_m", "presentation.standing.smack.raise_m", 0.3, "Max raise",
+   static var raise_m := num("raise_m", "presentation.standing.smack.raise_m", "Max raise",
        "Hand lift at the top of the wind-up.", GENERAL, "Standing › Smack") \
        .with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
    ```
 
-2. **One typed read at the use site.**
+2. **One value in the shipped document.** Add `raise_m` under `presentation.standing.smack` in
+   `settings/defaults.json`. The nesting mirrors the dotted path; the value's JSON type must match
+   the declaration kind. Do not add a second copy anywhere.
+
+3. **One typed read at the use site.**
 
    ```gdscript
    var raise_m: float = SETTINGS.raise_m.get_num()
    ```
 
-3. **Run `scripts/test_all.sh`.** It checks the registry, the file round-trip, coercion and that the
-   panel draws every declaration. Update the owning service's `## Settings` section in the same
-   commit; a setting contributed by a service is documented there, not only here.
+4. **Run `scripts/test_all.sh`.** It checks the registry, the shipped document's schema, the file
+   round-trip, coercion and that the panel draws every declaration. Update the owning service's
+   `## Settings` section in the same commit; a setting contributed by a service is documented
+   there, not only here.
 
-Nothing else exists to update: the widget, unit, save, default, persistence and placement all come
-from the declaration.
+Nothing else exists to update: the widget, unit, save, persistence and placement all come from the
+declaration; the value comes from the shipped document.
 
 ## Declaration reference
 
 ```gdscript
-flag(n, path, default_on, label, help, tab, group)
-num(n, path, default, label, help, tab, group)
+flag(n, path, label, help, tab, group)
+num(n, path, label, help, tab, group)
     .with_unit("cm") .with_step(0.5) .with_scale(100.0) .with_range(low, high) .with_slider()
-choice(n, path, default, options, labels, label, help, tab, group)
-list(n, path, default, options, label, help, tab, group)
+choice(n, path, options, labels, label, help, tab, group)
+list(n, path, options, label, help, tab, group)
+color(n, path, label, help, tab, group)
     .as_debug() on any kind
     .as_hidden() on any kind
 ```
@@ -118,15 +145,17 @@ list(n, path, default, options, label, help, tab, group)
 | Argument | Meaning |
 |---|---|
 | `n` | the identifier, `SETTINGS.<n>` |
-| `path` | the `settings.json` path; the only string, and it lives here |
+| `path` | the path in both the shipped and the player document; the only string, and it lives here |
 | `label`, `help` | the row text and the line under it. A boolean label starts with a verb (Show, Allow, Use, Play, Print, Hide, Pin, Sway, Twitch, Remember, Mute); a choice or number keeps its noun |
 | `tab` | `GENERAL`, `ANATOMY` or `WORLD` |
 | `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing`. A group needs at least 3 related settings: fewer, and pass `""` so the setting sits in the tab with no heading (a small subgroup merges into its parent) |
+| `options`, `labels` | the accepted values and their display text for a choice or list |
 | `with_unit`, `with_step`, `with_scale` | display unit, spin step and display multiplier (`m` shown as `cm` = `100`) |
 | `with_range` | the contract bounds; only applied when the setting is not debug |
 | `with_slider` | draw a themed HSlider instead of a spin box |
 | `as_debug` | show it in the tab's Debug block only, and never clamp it |
 | `as_hidden` | keep it out of the declaration rows; a hand-built `settings/ui.gd` control (the placement target pill) owns the widget |
+
 Declarations render **in file order**, and a section is created where it first appears. Put a line
 where a player would look for it, next to the setting it belongs to; do not add a "misc" section.
 
@@ -150,7 +179,7 @@ prefixes pre-emptively.
 - Do not add a clamp in a consumer "to be safe". If a value must stay playable, give it
   `with_range` and say why in its help text.
 - `choice` ignores an unknown string and `list` drops unknown options. That is validation, not
-  clamping. A non-finite number falls back to the default.
+  clamping. A non-finite number falls back to the shipped default.
 
 ## Tabs, groups and debug
 
@@ -163,16 +192,38 @@ prefixes pre-emptively.
 - Player-facing settings come first in their tab. When **Enable debug** (General's last row) is
   on, the tab ends with one **Debug** section holding that tab's debug settings under the same
   group names. A section name draws one heading; interleaved declarations fold back into it.
-- Every section remembers whether it is open in `settings.json` under `ui.sections`, keyed
+- Every section remembers whether it is open in the player file under `ui.sections`, keyed
   `tab/group`; the Debug block and its subsections use the `Debug/` prefix. Read and write that
   state through `SETTINGS.section_open(tab, group)` and `SETTINGS.set_section_open(tab, group, open)`.
 
 ## Persistence, defaults and migration
 
-- The declaration's `path` **is** the `settings.json` path; the default is the declaration's value.
-  Defaults are generated from the registry, so there is no second defaults table.
+- `settings/defaults.json` is the only source of a declared setting's default. It is tracked,
+  packed and read-only in a build. `_bind()` reads one value per declaration at static
+  initialisation, so the shipped document is process-static: `SETTINGS.reload_file()` reloads only
+  the player file.
+- `SETTINGS.defaults()` returns the shipped document plus the blocks that still live in code (the
+  profile template, `ui.sections` and the shipped per-mare placement rows), detached and with no
+  player values. `SETTINGS.data()` returns that base with the player's values merged on top,
+  detached. These are the only two loaders; `_shipped()` is internal.
+- On load, the player file is migrated, merged over the defaults (the player wins, and an absent
+  player key is filled from the default) and written back. Every shipped default is therefore
+  materialised in the player file on first run. **A changed shipped default is a migration event
+  for an existing player**: their materialised value keeps winning. Promote a player value into the
+  shipped document with `scripts/settings_sync.py`; see `.opencode/skills/sync-settings/SKILL.md`.
+- A player editing their own `settings.json` is never an error; the merge fills absent keys. A
+  missing or malformed value in `settings/defaults.json` is a **shipped-data** error: `_shipped()`
+  logs the first problem, `defaults()` and `data()` return an empty document, `_load()` refuses to
+  write and `main.gd._ready()` logs one line and installs no hooks. The game keeps running.
+- The schema test `_check_shipped_defaults()` enforces the exact path set (every declaration has a
+  value, and there is no undeclared path), the exact JSON type per kind, a choice/list value inside
+  its declared options, a colour in `rrggbb`/`rrggbbaa` form and a player-facing number inside its
+  declared bounds. It never asserts a value, so changing a shipped default does not touch the test.
+- Phase 2 moves the remaining code-owned defaults into the same document: the per-mare placement
+  rows, the `default.*` template/prompts/poses/preferences and the `characters.*` templates.
+  `defaults()` and `data()` keep their shape; `_code_defaults()` shrinks.
 - The old `controls.act_key` choice strings (`o`, `y`) are converted to physical keycodes on load;
-  the old shipped default `o` becomes the new default, and an explicit `y` is kept.
+  `ACT_KEYS.DEFAULT_CODE` is only the legacy/invalid-code fallback, not the shipped default.
 - `anatomy.placement` is one block with `default.*` (ten debug declarations: anatomy 5, tail 3,
   dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. `shared/anatomy_placement.gd`
   owns the shipped per-mare `MARE_DEFAULTS` (the tuned tail/dock rows) and resolves override,
@@ -182,12 +233,12 @@ prefixes pre-emptively.
 - `anatomy.reseat_tails`, `anatomy.dock_style` and the tail/dock placement behavior are in
   `docs/anatomy.md`. The settings layer owns only their paths, defaults and the placement
   migration above.
-- `settings/service.gd` owns the file. It parses once per process into `_cache`, writes on save, and
-  `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat reads are
-  cached per generation, so a per-frame read is cheap.
-- **Migrations.** The file carries `version`. Add a step to `_migrate()` for a structural change
-  and bump `SCHEMA_VERSION`; a current file skips the chain. The old normalisers (pose ids, feature
-  names, presentation split, tolerance tiers, prompts, anatomy keys) run inside it.
+- `settings/service.gd` owns the player file. It parses once per process into `_cache`, writes on
+  save, and `SETTINGS.reload_file()` re-reads it; the settings page reloads when it opens. Flat
+  reads are cached per generation, so a per-frame read is cheap.
+- **Migrations.** The player file carries `version`. Add a step to `_migrate()` for a structural
+  change and bump `SCHEMA_VERSION`; a current file skips the chain. The old normalisers (pose ids,
+  feature names, presentation split, tolerance tiers, prompts, anatomy keys) run inside it.
 - **Deprecations.** Declare a retired setting next to its replacement:
 
   ```gdscript
@@ -224,19 +275,25 @@ prefixes pre-emptively.
 
 ## Settings file shape
 
-`settings.json` path: `user://mods/data/unfplap/settings.json`
-(`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`).
+Shipped defaults: `res://mods/unfplap/settings/defaults.json`. One nested block per dotted path,
+one value per declared setting; no `version`, no `ui`, no code-owned blocks in phase 1.
 
-The file is read once per process into memory (`SETTINGS._cache`) and written only when a value
-changes. A read shares that cached view and must not mutate it; every setter starts from a detached
-copy and ends at `_write()`, so a failed write never leaves a half-applied edit in the live cache.
-Opening the Unfplap settings tab calls `SETTINGS.reload_file()`, so a hand-edited file applies when
-the tab opens; otherwise it needs a restart.
+Player settings: `user://mods/data/unfplap/settings.json`
+(`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`). The same nested blocks,
+plus `version`, `ui.sections`, the `default` template, `characters` overrides and the per-mare
+`anatomy.placement` rows.
 
-Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `features`,
-`relationship`, `thrust`, `auto_thrust`, `jiggle`, `camera_thrust`, `presentation`, `history`,
-`tolerance`, `cues`, `talk`, `player`, `anatomy`, `ui` (section open state), `default` template,
-`characters` overrides.
+The player file is read once per process into memory (`SETTINGS._cache`) and written only when a
+value changes or the merged document differs from the file. A read shares that cached view and must
+not mutate it; every setter starts from a detached copy and ends at `_write()`, so a failed write
+never leaves a half-applied edit in the live cache. Opening the Unfplap settings tab calls
+`SETTINGS.reload_file()`, so a hand-edited player file applies when the tab opens; otherwise it
+needs a restart. The shipped document never reloads mid-process.
+
+Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `controls`, `features`,
+`relationship`, `thrust`, `auto_thrust`, `caress`, `jiggle`, `camera_thrust`, `presentation`,
+`history`, `tolerance`, `cues`, `talk`, `player`, `anatomy`, `ui` (section open state), `default`
+template, `characters` overrides.
 
 ## The settings tab
 
@@ -248,19 +305,18 @@ bounds — and applies live.
 **General**
 
 One ungrouped list, in this order: **Show start button**, **Show controls**, **Show HUD readouts**,
-**Move captions to top**, **Mute Ponese**, **Caress surface quality** (`Fast` / `Precise`, default
-`Precise`), **Climax limit** (`0…20`, default `3`; `0` is unlimited), **Mouse sensitivity** in
-pixels per centimetre of hip travel (`20…400`, default `50`), **Thrust direction** (which mouse
-direction deepens the stroke), **Enable footstool**, **Enable hole switch**, **Enable oral sex**,
-**Allow finish control** and **Enable debug** (the switch that reveals the Debug sections) at the
-bottom.
+**Move captions to top**, **Mute Ponese**, **Caress surface quality** (`Fast` / `Precise`),
+**Climax limit** (`0…20`; `0` is unlimited), **Mouse sensitivity** in pixels per centimetre of hip
+travel (`20…400`), **Thrust direction** (which mouse direction deepens the stroke), **Enable
+footstool**, **Enable hole switch**, **Enable oral sex**, **Allow finish control** and **Enable
+debug** (the switch that reveals the Debug sections) at the bottom.
 
 **Move captions to top** moves the explicit bottom dialogue caption only while an act is in
 `POSING_IN`, `ACTIVE` or `CLIMAX`; afterglow returns it to the bottom.
 
 The audio switches, auto-thrust pace/bottom/peak/shape (`1.0…3.75/s`, `0…0.82`, `0.20…1`, five
-waveforms), the hip back-off (`0.25…2.0×`, default `0.5×`) and the standing debug rows live in
-General's Debug block. The body slap fires at true contact; the old **Contact gap** row is retired.
+waveforms), the hip back-off (`0.25…2.0×`) and the standing debug rows live in General's Debug
+block. The body slap fires at true contact; the old **Contact gap** row is retired.
 
 **Show start button** chooses between When Available and Try Your Luck. The gate semantics —
 including what Try Your Luck does and does not lift — are in `docs/eligibility.md`. The setting
@@ -308,9 +364,9 @@ bottom of General, Anatomy, World and Integrations; each section keeps the group
 plus the **Actions** buttons at the end of the tab's own group, in compact rows. Its settings are
 mostly act tuning:
 
-- **Talk & cues**: override lifetime (default `10 s`), base/override stability, shared line gap,
-  demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
-  cooldowns plus receptive window.
+- **Talk & cues**: override lifetime, base/override stability, shared line gap, demand gap/repeat,
+  cue/reaction max age, release hold, overwhelmed duration, and the touch/talk cooldowns plus
+  receptive window.
 - **Kissing**: **Play full Kissing fidgets**, the optional weight shift and hoof taps at her
   climax; see `docs/integrations.md`.
 - **Integrations › Debug**: **Use the Idle Life stretch pose**, currently broken and off by
@@ -319,17 +375,17 @@ mostly act tuning:
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
   still zones), **You** (back-out gap, cock forward, pelvis gap), plus the ungrouped skin-strip
   scale, aim points, **Hide tails** and **Show skeleton overlay**.
-- **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, defaulting to Surge
-  `100%` and Bob `35%`. Surge is the forward camera travel, Bob the vertical dip; both follow the
-  filtered thrust **speed**, not depth, with one smooth critically damped response.
+- **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, Surge and Bob. Surge is
+  the forward camera travel, Bob the vertical dip; both follow the filtered thrust **speed**, not
+  depth, with one smooth critically damped response.
 - **Missionary**: body motion, **Anon size match**, a **Size** dropdown over the six per-size
   values (the three vulva trims, **Vulva hug**, head clearance, gaze height),
   **Disable fold coloring**, camera mode, free look and third-person views.
 - **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean.
 - **Standing → Kiss**: mouth right/down/forward, camera yaw, side/forward/drop lean.
 - **Standing → Caress**: see `docs/hands.md`.
-- **Standing → Smack**: max raise (`0.30 m`), hind offset (`0.10 m`), height (`-0.03 m`), palm
-  arc (`0.06 m`), palm pitch (`12°`), raise speed (`2.0 m/s`) and return speed (`6.0 m/s`).
+- **Standing → Smack**: max raise, hind offset, height, palm arc, palm pitch, raise speed and
+  return speed.
 - **Thrust jiggle**: radius, center height/back, thrust and smack intensity.
 
 The declaration-drawn pages have no Save buttons: each edit writes its value and applies to the
@@ -342,28 +398,29 @@ unbounded.
 
 Feature flags are ordinary settings under `features.*` and are read through their typed accessor.
 The runtime snapshots them with every other act value in `_snapshot_settings()` at act start, and
-`apply_live_settings()` re-runs that snapshot after any settings edit.
+`apply_live_settings()` re-runs that snapshot after any settings edit. Their default values live in
+`settings/defaults.json`.
 
-| Flag | Default | Gates |
-|---|---|---|
-| `hud_readouts` | `true` | mood cue and `Wants`/`You` segments; hearts and the close prompt stay |
-| `act_controls` | `true` | act control card; the cue and close prompt stay |
-| `blush_arc` | `true` | readiness-ramped act blush; off restores full blush from the first frame |
-| `face_debug` | `false` | print act face changes, the climax score and the mood-face start/end |
-| `idle_camera_sway` | `true` | slow idle breathing when not leaning; false removes the drift |
-| `captions_on_top` | `true` | move the explicit bottom caption to the top during an act; applies immediately |
-| `standing_body_sway` | `true` | standing body sway modifier; Anon's pinned hip follows the same offset |
-| `missionary_body_motion` | `true` | missionary torso slide and head nod on the thrust |
-| `thrust_ear_twitch` | `true` | standing thrust ear-twitch modifier |
-| `standing_stool` | `true` | a live reach gap over `stool_gap_m` needs enough `goods:footstool` stacks of `stool_height_m`; the shop or house drops supply them |
-| `estrus_cycle` | `false` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
-| `act_speech_feel` | `false` | thrust-paced interjection instruction in cue lines |
-| `act_public_offer` | `false` | per-mare public consent affects offers; see `docs/eligibility.md` |
-| `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
-| `act_climax` | `false` | pack wet finish layer |
-| `kissing_reactions` | `true` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
-| `kissing_full_fidgets` | `true` | debug-only: Kissing's weight shift and hoof taps during her climax; see `docs/integrations.md` |
-| `idle_life_stretch` | `false` | debug-only: Idle Life's stretch pose from the accepted standing presentation through the act; dormant unless Enable debug is on and currently broken; the ask stays normal; see `docs/integrations.md` and `docs/poses.md` |
+| Flag | Gates |
+|---|---|
+| `hud_readouts` | mood cue and `Wants`/`You` segments; hearts and the close prompt stay |
+| `act_controls` | act control card; the cue and close prompt stay |
+| `blush_arc` | readiness-ramped act blush; off restores full blush from the first frame |
+| `face_debug` | print act face changes, the climax score and the mood-face start/end |
+| `idle_camera_sway` | slow idle breathing when not leaning; false removes the drift |
+| `captions_on_top` | move the explicit bottom caption to the top during an act; applies immediately |
+| `standing_body_sway` | standing body sway modifier; Anon's pinned hip follows the same offset |
+| `missionary_body_motion` | missionary torso slide and head nod on the thrust |
+| `thrust_ear_twitch` | standing thrust ear-twitch modifier |
+| `standing_stool` | a live reach gap over `stool_gap_m` needs enough `goods:footstool` stacks of `stool_height_m`; the shop or house drops supply them |
+| `estrus_cycle` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
+| `act_speech_feel` | thrust-paced interjection instruction in cue lines |
+| `act_public_offer` | per-mare public consent affects offers; see `docs/eligibility.md` |
+| `mute_ponese_audio` | mute a Ponese-only act voice but keep its text |
+| `act_climax` | pack wet finish layer |
+| `kissing_reactions` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
+| `kissing_full_fidgets` | debug-only: Kissing's weight shift and hoof taps during her climax; see `docs/integrations.md` |
+| `idle_life_stretch` | debug-only: Idle Life's stretch pose from the accepted standing presentation through the act; dormant unless Enable debug is on and currently broken; the ask stays normal; see `docs/integrations.md` and `docs/poses.md` |
 
 Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,
 unprompted act lines with their fresh-angle wording, starting an act through an active cuddle,
@@ -374,16 +431,19 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
 
 ## Settings authoring rules for agents
 
-- Add a setting with one declaration line in `settings/service.gd` and read it with its typed accessor;
-  never add a widget, a default constant, a path-keyed read or a save function anywhere else.
-- Contribute the setting from its owning service: edit the catalog literally, document it in that
-  service's contract and depend on the settings facade. Do not add a private settings module.
+- Add a setting with one declaration line in `settings/service.gd`, one value in
+  `settings/defaults.json`, and read it with its typed accessor; never add a widget, a default
+  constant, a path-keyed read or a save function anywhere else.
+- Contribute the setting from its owning service: edit the catalog literally, add its shipped
+  value, document it in that service's contract and depend on the settings facade. Do not add a
+  private settings module.
 - `SETTINGS.act_snapshot(pose_id)` is the one bulk read. There is no path-keyed gameplay read and
   no second cache; a new per-act value belongs on `ActSnapshot`, not in a new `SETTINGS.block`.
 - **Do not add per-setting tests.** A declaration is compile-checked (name, accessor and kind), so
-  the only assertions are the ones in `tests/test_settings.gd`: registry integrity, defaults, the
-  file round-trip, clamping versus debug bypass, validation, section state, the panel drawing every
-  declaration, migration and the per-mare merge. Extend that file only for new API behaviour.
+  the only assertions are the ones in `tests/test_settings.gd`: registry integrity, the shipped
+  document's schema (key set, types, options and bounds — never values), the file round-trip,
+  clamping versus debug bypass, validation, section state, the panel drawing every declaration,
+  migration and the per-mare merge. Extend that file only for new API behaviour.
 - A retired setting is one `deprecated()` entry in `settings/service.gd` with its mapping; bump
   `SCHEMA_VERSION` only for a structural change in `_migrate()`. Neither needs a manual file edit.
 - **A group needs at least three related settings.** Fewer, and the setting goes directly in the
@@ -405,6 +465,10 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
   rather than forcing it.
 - **Help is optional.** The label carries the row when the action is self-explanatory; add help
   when the row needs a reason, a range or a warning. An empty help string draws no Faint line.
+- **Docs name settings and bounds, never shipped values.** A default lives only in
+  `settings/defaults.json`; a doc that repeats it goes stale on the next promotion.
+- Promote a player value with `scripts/settings_sync.py promote`; never hand-edit the shipped
+  document to copy a local value.
 
 ## Debug actions and hotkeys
 
@@ -448,7 +512,7 @@ value. See `docs/perf.md`.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | act_keys | `shared/act_keys.gd` | act-key default, key map and labels |
+| shared | act_keys | `shared/act_keys.gd` | act-key legacy fallback, key map and labels |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | character_preferences | `shared/character_preferences.gd` | character templates |
 | shared | consent | `shared/consent.gd` | consent defaults |
@@ -460,7 +524,8 @@ value. See `docs/perf.md`.
 ## Tests
 
 - `tests/test_settings.gd` is the API contract, tested once: unique names and paths, a tab/group/
-  label/help on every declaration, defaults, the file round-trip, clamping and debug bypass,
+  label/help on every declaration, the shipped document's schema (exact key set, types, options,
+  colour format and bounds; never values), the file round-trip, clamping and debug bypass,
   choice/list validation, section state, the panel drawing every declaration in its tab (and the
   Debug block only in debug mode), built-in name clashes, the per-mare merge and the consent
   cache's detached copy/invalidation.

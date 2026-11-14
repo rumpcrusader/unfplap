@@ -61,10 +61,10 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
   `HIP_SMOOTH_S = 0.04 s`. The fixed rump point is the base HipsTarget plus
   `THRUST_MAX_M = 0.045 × body_scale` toward her; `poses/anon_hip_thrust.gd` moves only the Hips bone
   by `THRUST_MAX_M × (1 - thrust.travel × (1 - phase))`, so depth 0 is the full backset and
-  depth 1 reaches the rump point. `thrust.travel` defaults to `0.5`. The modifier restores the
+  depth 1 reaches the rump point. `thrust.travel` scales the backset. The modifier restores the
   Spine and both UpperLegs to their pre-offset global poses, so the torso, head and legs do not
   follow. There is no speed/strength attack and no return spring.
-- `presentation.standing.torso_angle_deg` (default `5`, experimental/unbounded) hinges Anon's
+- `presentation.standing.torso_angle_deg` (experimental/unbounded) hinges Anon's
   upper body forward over her. `apply_anon_lean()` keeps the pelvis through the hinge;
   `apply_camera_motion()` moves the head/camera along the spine arc
   (`ANON_TORSO_LEN_M = 0.65`). It applies live.
@@ -83,7 +83,7 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
 - The lean always holds a released position. `_lean_step()` only ramps toward a pressed target;
   the explicit `S` shoulder recentre uses `return_to_zero`. The act end and paused paths still
   return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
-- With `idle_camera_sway` enabled (default on) the camera lean gets a small, slow forward rock
+- With `idle_camera_sway` enabled the camera lean gets a small, slow forward rock
   (`0.010`). It is a **separate offset** (`runtime.shot_lean_forward()`), never added into
   `lean_view_forward`: folded in, the inertia smoother amplified it about twelvefold and the shot
   crept while nobody was leaning. There is no side sway. Pressing `S` arms a gradual side return,
@@ -101,8 +101,8 @@ contract is `docs/act_facts.md`; a camera module that reaches into the runtime f
 
 ## Missionary camera
 
-`presentation.missionary.camera_mode` (debug) picks the eye. **Authored shots** is the default and
-uses the shot trajectory below. **Anon eyes** keeps the view at `poses/missionary_anon.gd`'s
+`presentation.missionary.camera_mode` (debug) picks the eye. **Authored shots** uses the shot
+trajectory below. **Anon eyes** keeps the view at `poses/missionary_anon.gd`'s
 `eye_transform()` — his posed `Head` bone with the game's eye offset, read from the transform
 `apply()` caches for the frame before `HeadHide` collapses the head bone. The lean is one hinge at
 the **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his hips,
@@ -136,7 +136,7 @@ The `KISS_CLEARANCE_M` lean-in applies only in **Anon eyes**. A missing shot fal
 bed-relative point aimed at her live face and is named in the log. There is no live offset, no
 frozen anchor and no framing nudge.
 
-**Third-person views** (`presentation.missionary.third_person`, debug, off by default) is the only
+**Third-person views** (`presentation.missionary.third_person`, debug) is the only
 way off the trajectory: with it on, the lean tilts the eye and the side-lean travel and kiss
 lateral/drop are added. Off, the authored transform plus the surge/bob is the whole shot.
 
@@ -179,7 +179,7 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
 - Canon lowers the standing eye line by `CANON_STANDING_CAMERA_DROP_M = 0.10 m` and multiplies lean
   travel by `0.8`; JRHNBR raises it by `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`.
 - Lean mapping: forward `0.24 m` / `6°` down / `1.5°` roll; backward
-  `presentation.lean_back_m` (default `0.08 m`) with the same downward pitch; side `0.18 m` /
+  `presentation.lean_back_m` with the same downward pitch; side `0.18 m` /
   `8°` outward roll / `3°` yaw. All scale with pony size.
 - Standing has no separate thrust rock spring; the shared speed-driven surge/bob handles it.
 - Palm scale is a shared caress setting; see `docs/hands.md`. `shared/hands_scale.gd` runs after the pose's
@@ -190,15 +190,15 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   `eye_motion.target_world` / `target_weight`. Look-back yaw clamps at
   `GLANCE_BACK_YAW = 1.62`; `glance_back_pitch` is multiplied by `1.2` (base `1.2`, boosted to
   `1.44`). The `head_back` ease uses `GLANCE_BACK_FADE / glance_back_speed`, with
-  `glance_back_speed` defaulting to `2.0` and live in the settings tab. A full forward `W` lean
+  `glance_back_speed` live in the settings tab. A full forward `W` lean
   with no side lean forces `head_back = 1.0` and an upward look at Anon.
-- Standing kiss camera: `presentation.standing.kiss` `camera_yaw_deg` (default `12°`) yaws the
+- Standing kiss camera: `presentation.standing.kiss` `camera_yaw_deg` yaws the
   camera toward her; the mouth target, lean distances and palm offsets are in `docs/kiss.md`.
 - Standing enters the same held `AFTERGLOW`; the camera back-off is in `docs/afterglow.md`.
 
 ## Free look (debug)
 
-`presentation.missionary.free_look` (default off) turns the act view where it stands — his head in
+`presentation.missionary.free_look` (debug) turns the act view where it stands — his head in
 **Anon eyes**, the authored shot otherwise — instead of holding the authored orientation: mouse look
 works, and `runtime._input` stops feeding mouse motion into thrust. The pose and act keep running.
 Standing has no separate view, so the standing camera controller simply leaves the player camera

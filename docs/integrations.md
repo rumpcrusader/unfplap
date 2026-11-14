@@ -125,7 +125,7 @@ action, `set_value("pose", "stretch", true)`, and has no tick, afterglow, reacti
 excitement-hold behavior. The facade saves the pre-act `stretch` value and restores it on stop,
 feature-off, missing binding, act end or `reset()`, so the normal standing recipe returns.
 
-The stretch switch is debug-only and default off, and the feature is currently broken: entering
+The stretch switch is debug-only, and the feature is currently broken: entering
 the act with it on makes Anon undergo a transformation. It stays dormant unless **Enable debug** is
 on; `act_snapshot()` forces the feature false and the standing presentation's `_stretch_enabled()`
 also requires debug mode. Do not recommend turning it on until the transformation is fixed.
@@ -137,11 +137,11 @@ the modifier order belong to `poses/idle_stretch.gd` (`docs/poses.md`).
 
 One declaration per supported integration, in `settings/service.gd`:
 
-| Setting | Default | Behavior |
-|---|---|---|
-| `features.kissing_reactions` | `true` | run the Kissing reaction bridge during the act |
-| `features.kissing_full_fidgets` | `true` | debug-only: restore Kissing's weight shift and hoof taps during the climax; the switch is in General's Debug block |
-| `features.idle_life_stretch` | `false` | debug-only: switch the accepted standing presentation and act to Idle Life's stretch pose while Idle Life is active; dormant unless Enable debug is on, currently broken, and the ask stays normal |
+| Setting | Behavior |
+|---|---|
+| `features.kissing_reactions` | run the Kissing reaction bridge during the act |
+| `features.kissing_full_fidgets` | debug-only: restore Kissing's weight shift and hoof taps during the climax; the switch is in General's Debug block |
+| `features.idle_life_stretch` | debug-only: switch the accepted standing presentation and act to Idle Life's stretch pose while Idle Life is active; dormant unless Enable debug is on, currently broken, and the ask stays normal |
 
 Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by
 default, under one blue **Experimental** notice at the top of the tab. The section body carries the hint `Verified with version: $verified_version`, then that

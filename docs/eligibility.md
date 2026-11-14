@@ -393,7 +393,7 @@ Eligibility reads the resolved result. It never writes it. `public`, `anal` and 
 independent:
 
 - **Public** is an offer privacy override, never an act gate and never a refusal. It only matters
-  while the **Enable public offers** switch is on (off by default).
+  while the **Enable public offers** switch is on.
 - **Anal** gates `V`; **oral** gates `N`.
 - Feature flags (`features.anatomy_holes`, `features.anatomy_oral`) are capability gates, not
   consent.

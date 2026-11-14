@@ -608,7 +608,7 @@ static func save_anatomy_placement_default(values: Dictionary) -> void:
 	placement_revision += 1
 
 
-## Preview the declaration defaults without saving them.
+## Preview the shipped placement defaults without saving them.
 static func reset_anatomy_placement_default() -> void:
 	_placement_draft = _declared_placement_defaults()
 	placement_revision += 1

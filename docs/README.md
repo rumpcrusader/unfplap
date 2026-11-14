@@ -156,7 +156,8 @@ Rules:
 
 - the doc is the single source of truth for the service;
 - no other doc restates its API, state, settings, controls, tests or debug actions;
-- settings are named and described here, but defaults and bounds stay in the owning declaration;
+- settings are named and described here, but defaults stay in `settings/defaults.json` and bounds
+  in the owning declaration;
 - tests are listed by path; do not copy pass counts;
 - lab checks are described as steps, not as historical results;
 - cross-system facts are links, not copies;

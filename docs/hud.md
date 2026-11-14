@@ -58,8 +58,8 @@ caress. An unlimited limit uses the 3-climax reference.
 
 ## Card
 
-- `hud_readouts` (default `true`) shows the cue and the separate `Wants`/`You` line.
-- `act_controls` (default `true`) shows the control card. Off hides only the card; the cue,
+- `hud_readouts` shows the cue and the separate `Wants`/`You` line.
+- `act_controls` shows the control card. Off hides only the card; the cue,
   readiness line and close prompt remain.
 - Top to bottom: cue line `❤ N/limit | cue` (or `❤ N/∞` when the climax limit is unlimited),
   readiness line `Wants: intensity & pattern | You: intensity & pattern`, auto readout
@@ -89,8 +89,8 @@ caress. An unlimited limit uses the 3-climax reference.
 - `set_act_key(label)` swaps the act-key row's cap when the captured key changes, so the glyph
   follows any key without rebuilding the card.
 - Captions move to the top of the screen only while an act is in `POSING_IN`, `ACTIVE` or `CLIMAX`
-  and only when the game's speech setting is the explicit bottom caption; `captions_on_top`
-  defaults to `true`, and afterglow returns them to the bottom. The mod owns this: `main.gd` finds
+  and only when the game's speech setting is the explicit bottom caption; `captions_on_top`,
+  and afterglow returns them to the bottom. The mod owns this: `main.gd` finds
   each `SpeechCaption` through `Mods.on_node`, then moves its private `_card` to the top margin
   after the caption's own layout pass (process priority 100), scaled by the caption's own `_scale`.
   It leaves the settings-page preview alone and does nothing if the card fields disappear.
@@ -110,9 +110,9 @@ caption line.
 
 ## Gates
 
-- `features.hud_readouts` (default on) hides the cue and readiness segments; the hearts and the
+- `features.hud_readouts` hides the cue and readiness segments; the hearts and the
   close prompt stay.
-- `features.act_controls` (default on) hides the whole control card; the cue, readiness and close
+- `features.act_controls` hides the whole control card; the cue, readiness and close
   prompt stay.
 - The afterglow summary is independent of `hud_readouts` and is always shown.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the

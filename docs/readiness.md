@@ -35,8 +35,8 @@ The auto surface:
 ## What the player does
 
 - Mouse vertical motion feeds the measured penetration in metres. `thrust.orientation` flips the
-  direction; `"up"` (the default) means mouse up deepens. `thrust.pixels_per_cm` is the
-  sensitivity, default `50` (20–400), so a full stroke is his shaft length and the signed
+  direction; `"up"` means mouse up deepens. `thrust.pixels_per_cm` is the
+  sensitivity (`20–400`), so a full stroke is his shaft length and the signed
   `Back-out gap` sets the resting depth (positive rests behind her, negative starts inside).
 - `X` toggles auto thrust in `ACTIVE`/`CLIMAX` on a tap. `readiness/auto_thrust.gd` drives
   `wave(shape, phase)` at `pace` thrusts per second between `min_depth` and `max_depth`, and the
@@ -102,7 +102,7 @@ steady   otherwise
 ## Readiness
 
 `satisfaction` is readiness. It starts at 0 and caps at 100. The optional HUD readouts
-(`hud_readouts`, default `true`) show `Wants: firm & steady | You: …`.
+(`hud_readouts`) show `Wants: firm & steady | You: …`.
 
 ```text
 both axes match       +1.4 per real thrust × warmth
@@ -139,14 +139,14 @@ overwhelmed   a disliked touch/talk landed recently
 - The base fallback cue is `She wants you to keep going.` A neutral touch sets no override; a
   neutral talk sets `She listens.` The two assist-cap lines mean the touch/talk assist is already
   at `ASSIST_CAP = 60` and only real thrusting can add more.
-- `features.estrus_cycle` (default off) multiplies each real thrust chunk by `×1.6` while she is in
+- `features.estrus_cycle` multiplies each real thrust chunk by `×1.6` while she is in
   heat; `shared/cycle.gd` derives the phase from the world day and her id. Diestrus blocks starting and
   offers. `warmth` and the receptive window still stack on top. The gate is in
   `docs/eligibility.md`.
 
 ## Pony climax
 
-- At 100 readiness she climaxes. The user-facing `thrust.max_pony_climaxes` setting (default `3`)
+- At 100 readiness she climaxes. The user-facing `thrust.max_pony_climaxes` setting
   sets the limit; `0` is unlimited.
 - The act enters `CLIMAX` for `CLIMAX_SECONDS = 5`.
 - The player can keep thrusting during those 5 s. The thrust is presentation only: it does not
@@ -162,7 +162,7 @@ The afterglow phase and the standing close window are `docs/afterglow.md`.
 ## Neglect tolerance
 
 `preferences.tolerance` is per mare: `forgiving`, `normal` or `strict`. The Characters sub-tab
-edits it as **Neglect tolerance**. The default is normal; Rarity is strict and Fluttershy is
+edits it as **Neglect tolerance**. Rarity is strict and Fluttershy is
 forgiving. The old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 
 `readiness/tolerance.gd` is a pure per-act meter. It runs only during `POSING_IN`/`ACTIVE`:

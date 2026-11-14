@@ -109,8 +109,8 @@ gap              = her_above_hooves - his_above_feet + floor_delta
 The floor term is zero when both stand on the same floor and makes a step between them explicit.
 The expression equals the world vertical gap `opening.y - part_root.y`.
 
-With `T = presentation.standing.stool_gap_m` (default `0.20 m`) and
-`S = presentation.standing.stool_height_m` (default `0.20 m`):
+With `T = presentation.standing.stool_gap_m` and
+`S = presentation.standing.stool_height_m`:
 
 ```text
 if gap <= T:
@@ -120,8 +120,8 @@ else:
 ```
 
 The first stool is required once the gap passes the threshold. Each stool then covers one step.
-With the defaults, 25 cm uses one stool, 40 cm uses two and 60 cm uses three. The remainder after
-the last stool is below the threshold, which the existing anatomy hip aim absorbs.
+The remainder after the last stool is below the threshold, which the existing anatomy hip aim
+absorbs.
 
 A missing anatomy controller, an unprepared player part, non-finite values, AnonPony or a headset
 rig makes the rule inapplicable, not required. The gate is evaluated at the standing offer/start
@@ -191,9 +191,9 @@ and again on `start()`.
 
 ## Settings and debug
 
-- `features.standing_stool`, default on, label **Enable footstool**.
-- `presentation.standing.stool_gap_m`, debug, default `0.20`, unit cm, Standing › Motion.
-- `presentation.standing.stool_height_m`, debug, default `0.20`, unit cm, Standing › Motion. Each
+- `features.standing_stool`, label **Enable footstool**.
+- `presentation.standing.stool_gap_m`, debug, unit cm, Standing › Motion.
+- `presentation.standing.stool_height_m`, debug, unit cm, Standing › Motion. Each
   placed stool adds this much height.
 - **Give footstool** adds one to the briefcase.
 - **Show data** prints the aimed mare's stool state in its STOOL section: opening, hoof

@@ -216,8 +216,8 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
 - `foreleg_spread = 0.172 rad` is the absolute outward half-angle; the recipe measures the
   current hoof line and rotates the upper arms only by the difference.
 - Tail aside/lift/flick on the hair skeleton; side randomized per act.
-  `presentation.standing.tail.yaw_deg` (aside, default `35°`) and `pitch_deg` (lift, default
-  `25°`) are the live amounts, in degrees. A damped spring driven by raw `depth` also rocks the
+  `presentation.standing.tail.yaw_deg` (aside) and `pitch_deg` (lift) are the live amounts, in
+  degrees. A damped spring driven by raw `depth` also rocks the
   tail with the thrust: sagittal `ROCK_PITCH = 0.12` and lateral `ROCK_YAW = 0.08`. Each thrust
   adds a short decaying wave (`JIGGLE_DECAY = 3.6`, `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`,
   `JIGGLE_YAW = 0.08`) at the same strength as the rump shader, strongest at the tail root and
@@ -245,7 +245,7 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
 The optional stretch is a standing pose style, not a new pose id. It is gated by the debug-only
 `features.idle_life_stretch`, only applies while Idle Life is active, and stays dormant unless
 **Enable debug** is on. It is currently broken: entering the act with it enabled makes Anon
-undergo a transformation, so it is off by default and must not be recommended.
+undergo a transformation, so it must not be recommended.
 
 - `poses/idle_stretch.gd` is the only file that names `res://mods/idle_life/idle_pose.gd`. It
   loads the installed script at call time, validates `mare`, `idle`, `side`, `time` and `fade`,

@@ -72,8 +72,8 @@ the debug read.
 
 - The pack foley and wet files are fetched from the resource archive and packed; see
   `assets/README.md`.
-- `features.act_climax` (default off) gates only the wet finish layer.
-- `features.mute_ponese_audio` (default on) gates the Ponese mute.
+- `features.act_climax` gates only the wet finish layer.
+- `features.mute_ponese_audio` gates the Ponese mute.
 - The base-game breath and squee are always on and are not gated by those flags.
 
 ## Dependencies

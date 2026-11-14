@@ -132,19 +132,19 @@ line is queued after that cancel, so the normal restore must not cancel it again
 Cue lines are event-driven, not a timer. `lines/utterance_scheduler.gd` owns admission, with the
 **Talk & cues** debug settings as its pacing:
 
-- a base cue must stay unchanged for `cues.base_stable_seconds` (default `2 s`);
-- a live touch/talk override only needs `cues.override_stable_seconds` (default `0.5 s`), so an
-  event cue can speak inside its `cues.override_seconds` lifetime (default `10 s`); if the
+- a base cue must stay unchanged for `cues.base_stable_seconds`;
+- a live touch/talk override only needs `cues.override_stable_seconds`, so an
+  event cue can speak inside its `cues.override_seconds` lifetime; if the
   override ends first, the queued line is dropped;
-- the per-mare `cue_gap` (default `12`, clamped `8..30`) and `cues.utterance_gap_seconds`
-  (default `18 s`) must both have elapsed;
+- the per-mare `cue_gap` (clamped `8..30`) and `cues.utterance_gap_seconds`
+  must both have elapsed;
 - demand cues (`She wants it…`, `She wants a…`, `She wants to be teased…`, `She needs…`) get
-  `cues.demand_gap_seconds` (default `28 s`) and `cues.demand_repeat_seconds` (default `45 s`)
+  `cues.demand_gap_seconds` and `cues.demand_repeat_seconds`
   for the same text;
 - the same text as the last queued cue is not repeated, but may return after another cue;
 - a cue or reaction owns one slot at a time. Reactions bypass the cue gates but reset the shared
-  gap. A queued or generating row is dropped at `cues.max_age_seconds` (default `20 s`, cue) or
-  `cues.reaction_max_age_seconds` (default `30 s`, reaction); a row already speaking is never cut.
+  gap. A queued or generating row is dropped at `cues.max_age_seconds` (cue) or
+  `cues.reaction_max_age_seconds` (reaction); a row already speaking is never cut.
   A quiet or unchanged act may produce no cue line.
 
 Every cue line gets a private relationship note and tone: friendship/love level, a human stage
@@ -174,7 +174,7 @@ talk-invitation line or HUD hint.
 
 Unprompted cue and reaction lines are always on. The line-angle note adds one fresh angle and the
 shared-day/history hint to a cue line, and the recent-line anti-repeat window is eight. The
-optional `features.act_speech_feel` (**Enable speech interjections**, default off) adds the
+optional `features.act_speech_feel` (**Enable speech interjections**) adds the
 thrust-paced interjection instruction; the two are independent.
 
 The HUD cue is shorthand, not the line. `UTTERANCE.line_seed()` turns the same facts into a private

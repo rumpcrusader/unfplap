@@ -172,21 +172,21 @@ With the flag off, both hands share the full region patch as before.
 
 ## Settings
 
-| Setting | Default | Effect |
-|---|---|---|
-| `caress.quality` | precise | player-facing caress surface level; `precise` snaps to the coat every tick, `fast` refreshes at 15 Hz with a 1-ring blur and accepts the intended point on a ray miss |
-| `features.caress_local` | on | debug: skin and raycast only the coat window around each caress hand; off restores the full region patch |
-| `features.caress_debug` | off | one precise contact line per hand per act, debug overlay |
-| `features.caress_reach_shoulder_m` | 0 m | missionary reach shoulder shift |
-| `presentation.missionary.caress.path_id` | two | authored chain `one` or `two` |
-| `caress.hover_m` | 1.5 cm | body-scaled palm-centre hover in both poses |
-| `caress.normal_blur_m` | 0.5 cm | coat-normal average radius; above 3 cm it averages the whole patch |
-| `caress.normal_deg_s` | 120 | palm normal turn limit |
-| `caress.contact_smooth` | 24/s | snap-correction low-pass |
-| `caress.ignore` | tail, wing | hull regions the smack contact query skips |
-| `caress.oval_across_m` | 1 cm | oval radius along the body |
-| `caress.oval_up_m` | 2 cm | oval radius vertically |
-| `caress.palm_scale.canon/mounting/same height/hoers` | .75/.9/1/1 | shared hand scale per body preset |
+| Setting | Effect |
+|---|---|
+| `caress.quality` | player-facing caress surface level; `precise` snaps to the coat every tick, `fast` refreshes at 15 Hz with a 1-ring blur and accepts the intended point on a ray miss |
+| `features.caress_local` | debug: skin and raycast only the coat window around each caress hand; off restores the full region patch |
+| `features.caress_debug` | one precise contact line per hand per act, debug overlay |
+| `features.caress_reach_shoulder_m` | missionary reach shoulder shift |
+| `presentation.missionary.caress.path_id` | authored chain `one` or `two` |
+| `caress.hover_m` | body-scaled palm-centre hover in both poses |
+| `caress.normal_blur_m` | coat-normal average radius; above 3 cm it averages the whole patch |
+| `caress.normal_deg_s` | palm normal turn limit |
+| `caress.contact_smooth` | snap-correction low-pass |
+| `caress.ignore` | hull regions the smack contact query skips |
+| `caress.oval_across_m` | oval radius along the body |
+| `caress.oval_up_m` | oval radius vertically |
+| `caress.palm_scale.canon/mounting/same height/hoers` | shared hand scale per body preset |
 
 The three smoothing values apply to both poses. `0` restores the exact behaviour. The caress
 offsets are multiplied by `Settings.anon_height_scale()` for the Same Height preset; the other
@@ -242,7 +242,7 @@ selection and starts the swing.
 - A live caress hand is used when possible; otherwise the lean chooses a cheek.
 - Standing targets the flank patch. The live caress point is used when that hand's contact
   source is `flank`; a free-hand smack queries the chosen cheek, offset by
-  `smack.height_m` (signed, default `0.05 m`) and `smack.hind_m` (default `0.09 m`), then snaps
+  `smack.height_m` (signed) and `smack.hind_m`, then snaps
   to the nearest `FlankSurface` point and jitters within `smack_zone_radius`.
 - Missionary keeps the decal-centre target shifted `0.08 m` up and `0.08 m` back.
 - Standing runs raise -> strike -> contact -> recover. A caress raise lifts off the coat; a

@@ -244,8 +244,12 @@ callback is a no-op only where the service doc says so.
 The settings service owns the catalog and the framework:
 
 - every declaration and its typed `Setting` handle in `settings/service.gd`;
-- `settings.json`, defaults, clamping, section state, migration and save;
+- the shipped `settings/defaults.json`, the player `settings.json`, the merge, clamping, section
+  state, migration and save;
 - the declaration-drawn settings panel and the tab injection in `settings/ui.gd`.
+
+The default value of every declared setting lives in `settings/defaults.json`; the declaration
+supplies the kind, path, label, help, bounds and options.
 
 The catalog is the settings service's **internal public API**. A service that needs a setting:
 

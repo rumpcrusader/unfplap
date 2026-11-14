@@ -65,7 +65,8 @@ func run() -> void:
 ## Isolation
 
 - Each suite gets its own `XDG_DATA_HOME` under the runner's temporary directory, so the player's
-  `user://` settings, saves and logs can never change a default-value assertion.
+  `user://` settings, saves and logs can never change a behaviour assertion or the shipped-defaults
+  schema check.
 - Never write a fixed path under `user://` and never depend on another suite having run first.
 - A suite must pass on a fresh checkout, with no settings file and no save.
 - Parallel runs are the default; two suites must never touch the same file.
@@ -99,8 +100,8 @@ environment, say so instead of claiming it passed. The lab roster, keys and paus
 
 ## What not to assert
 
-- Setting defaults and bounds belong to `tests/test_settings.gd`. A suite names a setting and its
-  behaviour, not a copied number.
+- The shipped defaults schema and the bounds belong to `tests/test_settings.gd`. A suite names a
+  setting and its behaviour, not a copied number.
 - Pass counts are never copied into a doc; the suite path is.
 - A regression test stays after the fix. Deleting it re-opens the bug.
 - A suite does not assert another service's private state; it calls that service's facade.

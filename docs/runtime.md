@@ -62,6 +62,7 @@ A failure in any step runs `_abort_start()` and the same teardown; it never leav
 | `V` / `N` / `B` | anatomy hole / oral / finish, gated by `docs/anatomy.md` |
 | Enter | the game chat during an act |
 | hold middle | the debug action wheel; release runs the highlighted action; see `docs/debug.md` |
+| any other key | consumed during an act; `Enter`, `T`, `Esc` and `F1`–`F12` stay live (`docs/input.md`) |
 
 The debug wheel is desktop-only and does not pause the tree. While it is open the runtime ignores
 mouse motion, so the wheel's virtual reticle cannot thrust or free-look the act. The wheel runs

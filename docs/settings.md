@@ -323,11 +323,13 @@ One ungrouped list, in this order: **Show start button**, **Show controls**, **S
 **Move captions to top**, **Mute Ponese**, **Caress surface quality** (`Fast` / `Precise`),
 **Climax limit** (`0…20`; `0` is unlimited), **Mouse sensitivity** in pixels per centimetre of hip
 travel (`20…400`), **Thrust direction** (which mouse direction deepens the stroke), **Enable
-footstool**, **Enable hole switch**, **Enable oral sex**, **Allow finish control** and **Enable
-debug** (the switch that reveals the Debug sections) at the bottom.
+footstool**, **Enable hole switch**, **Enable oral sex**, **Allow finish control**, **Block other
+mods' keys** and **Enable debug** (the switch that reveals the Debug sections) at the bottom.
 
 **Move captions to top** moves the explicit bottom dialogue caption only while an act is in
 `POSING_IN`, `ACTIVE` or `CLIMAX`; afterglow returns it to the bottom.
+
+**Block other mods' keys** shields an act's input; see the HACK note in `docs/input.md`.
 
 The audio switches, auto-thrust pace/bottom/peak/shape (`1.0…3.75/s`, `0…0.82`, `0.20…1`, five
 waveforms), the hip back-off (`0.25…2.0×`) and the standing debug rows live in General's Debug
@@ -420,6 +422,7 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 |---|---|
 | `hud_readouts` | mood cue and `Wants`/`You` segments; hearts and the close prompt stay |
 | `act_controls` | act control card; the cue and close prompt stay |
+| `act_input_shield` | during an act every key but the act's own, `Enter`, `T`, `Esc` and `F1`–`F12` is consumed and its pressed state cleared, so other mods (including raw-key pollers) see nothing; see `docs/input.md` |
 | `blush_arc` | readiness-ramped act blush; off restores full blush from the first frame |
 | `face_debug` | print act face changes, the climax score and the mood-face start/end |
 | `idle_camera_sway` | slow idle breathing when not leaning; false removes the drift |

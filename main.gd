@@ -362,7 +362,7 @@ func _apply_settings_changed() -> void:
 	if not debug_logs:
 		close_debug_wheel()
 	if is_instance_valid(input):
-		input.call("apply_act_key")
+		input.call("apply_settings")
 	if is_instance_valid(hud):
 		hud.call("set_act_key", _act_key_label())
 	# The native offer row and the fallback prompt carry the key cap; rebuild them with the new

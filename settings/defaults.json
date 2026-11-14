@@ -121,6 +121,7 @@
 	"features": {
 		"act_climax": false,
 		"act_controls": true,
+		"act_input_shield": true,
 		"act_public_offer": false,
 		"act_speech_feel": false,
 		"anatomy_finish": false,

@@ -808,6 +808,8 @@ static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", "Enable
 	"Let N turn her round for oral in the standing pose. (buggy)", GENERAL, "")
 static var anatomy_finish := flag("anatomy_finish", "features.anatomy_finish",
 	"Allow finish control", "Let B choose whether Anon finishes inside or pulls out.", GENERAL, "")
+static var act_input_shield := flag("act_input_shield", "features.act_input_shield",
+	"Block other mods' keys", "", GENERAL, "")
 static var debug_mode := flag("debug_mode", "debug_mode", "Enable debug",
 	"Enable the Debug section at the bottom of every tab and print the mod's diagnostics. Disabling it keeps the other settings as they are.", GENERAL, "")
 

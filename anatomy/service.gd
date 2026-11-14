@@ -109,7 +109,9 @@ func controller_for(pony: Node, runtime: Node) -> Node:
 	add_child(controller)
 	var eligible_anatomy := func(pony_node: Node) -> bool:
 		return _eligible_target(pony_node, ELIGIBILITY.Target.ANATOMY)
-	controller.call("setup", pony, facts, self, Callable(self, "consent"),
+	var consent_for := func(key: String) -> bool:
+		return consent(pony, key)
+	controller.call("setup", pony, facts, self, consent_for,
 		Callable(self, "status"), Callable(self, "refresh_dock_color"), eligible_anatomy)
 	_controllers[pony] = controller
 	pony.tree_exiting.connect(func() -> void: detach_controller(pony))

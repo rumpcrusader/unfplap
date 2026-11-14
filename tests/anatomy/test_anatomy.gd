@@ -5,6 +5,7 @@ extends SceneTree
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
+const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
@@ -152,6 +153,26 @@ func run() -> void:
 	check(not bool(host.eligibility.eligible(provider_filly, ELIGIBILITY.Target.ANATOMY)),
 		"a participation opt-out blocks the anatomy target")
 	MARE_REGISTRY.unregister(1, "provider_filly")
+
+	# The act calls its consent callback with the key alone, so the facade binds the pony before
+	# handing it down; the two-argument lookup stays the world-level API.
+	var consent_service: Node = ANATOMY_SERVICE.new()
+	root.add_child(consent_service)
+	consent_service.call("setup", host)
+	var consent_pony := _pony("fluttershy")
+	root.add_child(consent_pony)
+	var consent_controller: Node = consent_service.call("controller_for", consent_pony, null)
+	var consent_call: Callable = consent_controller.get("consent")
+	check(consent_call.get_argument_count() == 1,
+		"the act's consent callback takes the key alone")
+	check(bool(consent_call.call("anal")) == bool(SETTINGS.consent("fluttershy").get("anal", false)),
+		"the act's consent callback answers for its own pony")
+	check(not bool(consent_call.call("nope")), "an unknown consent key is refused")
+	consent_service.call("detach_controller", consent_pony)
+	root.remove_child(consent_pony)
+	consent_pony.free()
+	root.remove_child(consent_service)
+	consent_service.free()
 
 	# Placement and preferences use the relationship id first; the identity id is the fallback.
 	var meta_first := _pony("visual_id")

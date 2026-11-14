@@ -122,6 +122,9 @@ end(), teardown()
 `part()` is an anatomy-internal handle for the act; other systems use the service's `player_*`
 methods. The act and controller read `anatomy/facts.gd`; neither reads the runtime node.
 
+The controller's `consent` callback is bound to its pony and takes the key only
+(`consent(key)`); the facade's `consent(pony, key)` stays the world-level lookup.
+
 ## Controls
 
 | Input | Action |

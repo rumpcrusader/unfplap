@@ -139,16 +139,16 @@ func run() -> void:
 	check(not bool(host.eligibility.eligible(player, ELIGIBILITY.Target.ANATOMY)),
 		"player pony is excluded")
 
-	# A provider's `adult` assertion overrides the identity's age flag; the participation block
+	# A provider's `eligible` assertion overrides the identity's age flag; the participation block
 	# is the anatomy target's veto, and the character target keeps her editable.
 	var registered: Dictionary = MARE_REGISTRY.register(1, {
 		"id": "provider_filly", "source": "test",
-		"adult": true, "profile": {"participation": {"anatomy": false}},
+		"eligible": true, "profile": {"participation": {"anatomy": false}},
 	})
 	check(bool(registered.get("ok", false)), "the provider registers")
 	var provider_filly := _pony("provider_filly", true)
 	check(bool(host.eligibility.eligible(provider_filly, ELIGIBILITY.Target.CHARACTER)),
-		"a provider's adult assertion attaches a filly")
+		"a provider's eligible assertion attaches a filly")
 	check(not bool(host.eligibility.eligible(provider_filly, ELIGIBILITY.Target.ANATOMY)),
 		"a participation opt-out blocks the anatomy target")
 	MARE_REGISTRY.unregister(1, "provider_filly")

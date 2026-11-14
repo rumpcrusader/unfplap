@@ -13,7 +13,7 @@ removing the provider leaves the player's choices intact.
 - Registration, replacement and removal of a provider descriptor.
 - Validation of the descriptor schema and warnings for ignored fields.
 - The provider layers over the built-in character template.
-- The resolved name, preferences, consent, adult assertion, participation, placement and pose
+- The resolved name, preferences, consent, eligible assertion, participation, placement and pose
   overrides for one stable id.
 - The owner-scoped removal used when another mod unregisters or leaves the tree.
 
@@ -71,7 +71,7 @@ No provider value is saved. Removing a provider leaves the player's saved differ
 
 ## Settings
 
-No global settings. Provider `preferences`, `consent`, `adult`, `profile.participation`,
+No global settings. Provider `preferences`, `consent`, `eligible`, `profile.participation`,
 `placement`, `poses`, `act_prompts` and `event_prompts` are layers; the player's
 `characters.<id>` block is the sparse override. The settings framework is `docs/settings.md`.
 

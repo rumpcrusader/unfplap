@@ -38,13 +38,13 @@ static func hint_without_willingness(sex_start: String) -> bool:
 static func adult_pony(facts: Dictionary) -> bool:
 	return FACTS.adult_pony(bool(facts.get("has_identity", false)),
 		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),
-		facts.get("adult", null))
+		facts.get("eligible", null))
 
 
 static func adult_mare(facts: Dictionary) -> bool:
 	return FACTS.adult_mare(bool(facts.get("has_identity", false)),
 		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),
-		bool(facts.get("is_stallion", false)), facts.get("adult", null))
+		bool(facts.get("is_stallion", false)), facts.get("eligible", null))
 
 
 static func adult_player(facts: Dictionary) -> bool:
@@ -63,11 +63,11 @@ static func participates(facts: Dictionary, key := "") -> bool:
 
 
 ## The witness age category, or `FACTS.AgeKind.NONE` when she can be neither an adult nor a young
-## witness. A provider's `adult` assertion wins over the identity flag in both directions.
+## witness. A provider's `eligible` assertion wins over the identity flag in both directions.
 static func age_kind(facts: Dictionary) -> int:
 	return FACTS.age_kind(bool(facts.get("has_identity", false)),
 		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),
-		facts.get("adult", null))
+		facts.get("eligible", null))
 
 
 ## The shared base: an adult mare with a relationship runtime, a registered adult, an adult

@@ -109,14 +109,14 @@ func run() -> void:
 	check(not POLICY.participates(facts({"has_identity": false}), "acts"),
 		"no identity is no target")
 
-	# Witness age categories. A provider's `adult` assertion wins over the identity flag.
+	# Witness age categories. A provider's `eligible` assertion wins over the identity flag.
 	check(POLICY.age_kind(mare) == FACTS.AgeKind.ADULT,
 		"an adult mare witnesses as an adult")
 	check(POLICY.age_kind(facts({"is_filly": true})) == FACTS.AgeKind.YOUNG,
 		"a filly witnesses as young")
-	check(POLICY.age_kind(facts({"is_filly": true, "adult": true})) == FACTS.AgeKind.ADULT,
-		"a provider's adult assertion makes a filly an adult witness")
-	check(POLICY.age_kind(facts({"adult": false})) == FACTS.AgeKind.NONE,
+	check(POLICY.age_kind(facts({"is_filly": true, "eligible": true})) == FACTS.AgeKind.ADULT,
+		"a provider's eligible assertion makes a filly an adult witness")
+	check(POLICY.age_kind(facts({"eligible": false})) == FACTS.AgeKind.NONE,
 		"a vetoed adult is neither an adult nor a young witness")
 	check(POLICY.age_kind(facts({"is_player_pony": true})) == FACTS.AgeKind.NONE,
 		"the player pony is not a witness")
@@ -137,10 +137,10 @@ func run() -> void:
 	check(not bool(opt_out.buck_refuse), "a participation opt-out is not a refusal")
 	check(not bool(opt_out.history_refuse), "a participation opt-out is not a history refusal")
 	check(not bool(opt_out.stop), "a participation opt-out does not change the mid-act stop")
-	var adult_override := POLICY.evaluate(facts({"is_filly": true, "adult": true}), "start")
-	check(bool(adult_override.show), "a provider's adult assertion overrides the filly flag")
-	var adult_override_off := POLICY.evaluate(facts({"is_filly": false, "adult": false}), "start")
-	check(not bool(adult_override_off.show), "a provider's adult assertion can block a base adult")
+	var adult_override := POLICY.evaluate(facts({"is_filly": true, "eligible": true}), "start")
+	check(bool(adult_override.show), "a provider's eligible assertion overrides the filly flag")
+	var adult_override_off := POLICY.evaluate(facts({"is_filly": false, "eligible": false}), "start")
+	check(not bool(adult_override_off.show), "a provider's eligible assertion can block a base adult")
 
 	var filly := POLICY.evaluate(facts({"is_filly": true}), "start")
 	check(not bool(filly.show) and not bool(filly.buck_refuse), "a filly is not a target")

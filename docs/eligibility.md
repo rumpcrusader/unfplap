@@ -63,7 +63,7 @@ live scene rows.
 |---|---|---|
 | Preference profile (intensity, pattern, warmth, tolerance, touch, talk, dislikes, notes) | `settings.json` -> `default.preferences` and `characters.<id>.preferences` (differences only) | `settings/service.gd`, `shared/character_preferences.gd`, `shared/preferences.gd` |
 | Per-mare consent (public, anal, oral) | `settings.json` -> `characters.<id>.consent` (differences only) | `settings/service.gd` plus the `shared/consent.gd` resolver |
-| Per-mare participation (`acts`, `anatomy`, `tail`) | `characters.<id>.profile.participation` (differences only); a provider's `adult` is a provider layer | `settings/service.gd` plus the `shared/participation.gd` resolver || Poses, prompts, `cue_gap`, `aftercare_min`, `smack_zone_radius` | `characters.<id>.*` | settings/profile modules |
+| Per-mare participation (`acts`, `anatomy`, `tail`) | `characters.<id>.profile.participation` (differences only); a provider's `eligible` is a provider layer | `settings/service.gd` plus the `shared/participation.gd` resolver || Poses, prompts, `cue_gap`, `aftercare_min`, `smack_zone_radius` | `characters.<id>.*` | settings/profile modules |
 | Act history | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
 | Request cooldown | `Mods.state("unfplap").request_times` | `initiation/cooldowns.gd` (contract: `docs/initiation.md`) |
 | Relationship stage, love, friendship, willingness | game save (`player_bonds`, impressions) | base game |
@@ -95,14 +95,14 @@ enum Target { ACT, ANATOMY, TAIL, CHARACTER }
 enum Mode { START, OFFER, MID_ACT }
 enum Effect { NONE, BLOCK, REFUSE, HISTORY_REFUSE, OFFER_BLOCK, FLAG }
 enum Age { NONE, YOUNG, ADULT }
-enum AdultAssertion { IDENTITY, ADULT, NOT_ADULT }
+enum EligibilityAssertion { IDENTITY, ELIGIBLE, NOT_ELIGIBLE }
 
 class Participation: acts, anatomy, tail
 class Consent: public, anal, oral
-class Profile: adult, participation, consent
-               adult_value() -> Variant  # null, true or false; the cross-mod shape
+class Profile: eligible, participation, consent
+               eligible_value() -> Variant  # null, true or false; the cross-mod shape
 class History: tier, hurt, comfort, blocks_start, blocks_offers, offer_weight
-class Facts: id, adult, participation, has_relationship, ... (see `## Facts`)
+class Facts: id, eligible, participation, has_relationship, ... (see `## Facts`)
 class Actions: public, public_offer, anal, oral
 class Relations: id, stage, love_level, ... (see `## Verdict`)
 class Row: key, ok, reason, effect
@@ -125,7 +125,7 @@ func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary
 
 `eligible()` is the capability answer. `witness_age()` is the only age-shaped answer and only
 for witness wording. `get_verdict()` is the typed act gate. `get_profile()` reads the resolved
-provider/player profile for one id; `set_profile()` writes the provider layer's adult assertion,
+provider/player profile for one id; `set_profile()` writes the provider layer's eligible assertion,
 participation and consent. The pair is the cross-mod read/write side. The service stores nothing.
 
 ### Callers
@@ -167,7 +167,7 @@ A consumer asks about its own target and never inspects identity:
 
 `eligible()` is cheap by design: stable id, identity, provider assertion, `profile_identity` and
 participation. It never builds the full fact snapshot, because discovery calls it in per-frame
-loops. `witness_age()` returns `Age.YOUNG`, `Age.ADULT` or `Age.NONE`; a provider's `adult`
+loops. `witness_age()` returns `Age.YOUNG`, `Age.ADULT` or `Age.NONE`; a provider's `eligible`
 assertion wins over the identity flag in both directions.
 
 ## Facts
@@ -175,7 +175,7 @@ assertion wins over the identity flag in both directions.
 `Facts` is a typed object on `Verdict.facts`:
 
 ```text
-id, has_identity, is_player_pony, is_filly, is_stallion, adult, participation,
+id, has_identity, is_player_pony, is_filly, is_stallion, eligible, participation,
 has_relationship, registered_adult, romance_eligible, stage, love_level, willing,
 promiscuity, sex_start, public_feature, player_young, player_pony,
 cycle_phase, cycle_allows, heat, history, consent
@@ -185,7 +185,7 @@ cycle_phase, cycle_allows, heat, history, consent
 pony that has only just spawned has no relationship runtime yet, so the read is a normal phase
 until one exists; the anatomy bridge asks for it during its own bind.
 `history` is resolved by `shared/act_history.gd`; `consent` by `SETTINGS.consent(id)`.
-`adult` is the provider's tri-state assertion (`null` means the identity decides); `participation`
+`eligible` is the provider's tri-state assertion (`null` means the identity decides); `participation`
 is the resolved per-mare capability block (`acts`, `anatomy`, `tail`), both by
 `SETTINGS.profile_identity(id)`. `registered_adult` follows the same tri-state assertion when one
 is set, and otherwise reads the game's `bonds.adults` entry. `willing` and `romance_eligible`
@@ -291,7 +291,7 @@ rows for the blocked hint instead of running the gate a second time.
 - `eligible()` adds the stable id and the target's participation veto to the identity predicate.
   An adult identity with no stable id is not a target, and the capability never re-derives the
   predicate.
-- A provider's `adult` assertion is a tri-state override: `true` or `false` overrides the
+- A provider's `eligible` assertion is a tri-state override: `true` or `false` overrides the
   identity's age flag; `null` lets the identity decide. It changes age, not sex. It is
   provider-only and never written to the player's settings.
 - The same assertion resolves `registered_adult`: a provider can pass unfplap's relationship row
@@ -318,7 +318,7 @@ so the Characters selector can always re-enable an opted-out mare.
 
 A provider's `profile` is a layer; the player's `characters.<id>.profile` is a sparse difference
 layer. The player's `Reset to default` clears the player's participation and returns to the
-provider's default; it does not clear the provider's `adult` assertion.
+provider's default; it does not clear the provider's `eligible` assertion.
 
 ## Promiscuity
 
@@ -479,7 +479,7 @@ contract is `docs/initiation.md`.
 - `tests/initiation/test_policy.gd`, `test_prompts.gd` and `test_initiation_api.gd`: the offer
   rules, wording and facade; `tests/test_consent_classifier.gd` covers the classifier parsing.
   The request service's contract is `docs/initiation.md`.
-- `tests/anatomy/test_anatomy.gd`: the anatomy target, participation, the provider's `adult`
+- `tests/anatomy/test_anatomy.gd`: the anatomy target, participation, the provider's `eligible`
   assertion and the rig checks.
 - `tests/anatomy/test_identity.gd`: the princess body profile and the off-roster list.
 - `tests/memory/test_memory_api.gd`: the facade's impression and event writes, the refusal mood

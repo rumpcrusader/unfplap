@@ -145,7 +145,7 @@ values, a reserved id, a missing `id` or `source`, and non-positive placement sc
 | `name` | no | Settings label and `describe_mare().name` for an off-roster mare. A base-game name always wins. |
 | `preferences` | no | `shared/preferences.gd` profile fields: `intensity`, `pattern`, `touch`, `dislikes`, `talk`, `warmth`, `tolerance`, `notes`. |
 | `consent` | no | `public`, `anal`, `oral` booleans. Missing keys use the existing deterministic id defaults. |
-| `adult` | no | Provider-only tri-state: `true` or `false` asserts the pony's age; absent lets the game's identity decide. It is never written to the player's settings. |
+| `eligible` | no | Provider-only tri-state: `true` or `false` asserts the pony's age; absent lets the game's identity decide. It is never written to the player's settings. |
 | `profile` | no | `participation` with `acts`, `anatomy` and `tail` booleans. Missing keys default to `true`. It is subtractive: `true` means "does not veto", never "grants". |
 | `placement` | no | Any subset of `offset_x`, `offset_y`, `offset_z`, `pitch_deg`, `scale`, `tail_y`, `tail_z`, `dock_y`, `dock_scale`, `tail_tilt_deg`. |
 | `poses` | no | Partial per-pose blocks, merged over `shared/pose_catalog.gd` defaults. |
@@ -159,8 +159,8 @@ Provider data is never written to `settings.json`. It is an in-memory layer. The
 character block and placement override always win.
 
 Registration is metadata only. It does not spawn a pony, grant a relationship or start an act; the
-game's relationship runtime still decides the live relationship. A provider's `adult` assertion is
-unfplap's own view of the pony's age, not a base-game identity rewrite. It resolves unfplap's
+game's relationship runtime still decides the live relationship. A provider's `eligible` assertion
+is unfplap's own view of the pony's age, not a base-game identity rewrite. It resolves unfplap's
 act, anatomy and tail capability targets and its `registered_adult` fact, so a provider can make
 unfplap accept a pony the base game has not registered as an adult. The base game's own
 `pony_kisser`, `bonds.welcomes` and `bonds.eligible_for_romance` still read the game's identity
@@ -195,7 +195,7 @@ genuine edit or an old template, and preserving it is safer.
 | Data | Resolution order |
 |---|---|
 | Preferences, consent, poses, prompts, timing | player differences → provider layers (registration order) → built-in template → global default |
-| `adult` | provider layers only (never a player value) |
+| `eligible` | provider layers only (never a player value) |
 | `profile.participation` | player differences → provider layers (registration order) → built-in default |
 | Placement | player `anatomy.placement.<id>` → provider placement → shipped `MARE_DEFAULTS` → global default |
 | Display name | built-in name → provider name → humanized id |
@@ -219,7 +219,7 @@ dictionary, including for an unknown id.
 
 	"preferences": { ... }, # resolved, player override applied
 	"consent": {"public": false, "anal": true, "oral": true},
-	"adult": null,          # provider's tri-state assertion; null = the identity decides
+	"eligible": null,       # provider's tri-state assertion; null = the identity decides
 	"profile": {"participation": {"acts": true, "anatomy": true, "tail": true}},
 	"placement": { ... },   # all ten keys, player override applied
 	"poses": {"missionary": { ... }, "standing": { ... }},
@@ -243,12 +243,12 @@ Provider layers are defaults. The player's saved data remains authoritative:
 
 - `characters.<id>` stores only the preference, consent and participation keys that differ from
   the resolved default;
-- `adult` is provider-only and never appears in the player's block; a player cannot age a
+- `eligible` is provider-only and never appears in the player's block; a player cannot age a
   character up;
 - `anatomy.placement.<id>` stores only placement keys that differ from the resolved default;
 - **Reset to default** in the Characters form returns to the built-in template plus the provider
   layer; it clears the player's participation to the provider's default and leaves the provider's
-  `adult` assertion alone;
+  `eligible` assertion alone;
 - removing the provider leaves the player's saved differences in place and simply drops the
   provider layer from resolution.
 
@@ -271,4 +271,4 @@ Provider layers are defaults. The player's saved data remains authoritative:
 | API | Unfplap | Changes |
 |---|---|---|
 | 1.0 | 0.4.0 (next) | `contract`, `supports`, `register_mare`, `unregister_mare`, `describe_mare`; custom and base-game provider templates. |
-| 1.1 | 0.4.0 (next) | `adult` and `profile.participation` in the descriptor and `describe_mare`; `profile.mare` capability. |
+| 1.1 | 0.4.0 (next) | `eligible` and `profile.participation` in the descriptor and `describe_mare`; `profile.mare` capability. |

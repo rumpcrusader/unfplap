@@ -905,16 +905,16 @@ func _check_character_overrides() -> void:
 	SETTINGS.save_consent("fluttershy", consent)
 
 
-## A participation block is a subtractive capability layer. A player's `adult` assertion is never
-## stored, and only the player's real participation differences are saved.
+## A participation block is a subtractive capability layer. A player's `eligible` assertion is
+## never stored, and only the player's real participation differences are saved.
 func _check_participation() -> void:
 	var data := {"characters": {"fluttershy": {
-		"adult": true,
+		"eligible": true,
 		"profile": {"participation": {"acts": true, "anatomy": false, "tail": true}},
 	}}}
 	var normalized := SETTINGS._normalize_character_overrides(data)
 	var entry: Dictionary = (normalized.get("characters", {}) as Dictionary).get("fluttershy", {})
-	check(not entry.has("adult"), "a player's adult assertion is dropped")
+	check(not entry.has("eligible"), "a player's eligible assertion is dropped")
 	var participation: Dictionary = (entry.get("profile", {}) as Dictionary).get("participation", {})
 	check(not participation.has("acts"), "an unchanged participation is not stored")
 	check(not bool(participation.get("anatomy", true)), "a changed participation is kept")

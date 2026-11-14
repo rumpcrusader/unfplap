@@ -2094,8 +2094,8 @@ static func _profile_consent(base: Dictionary, id: String) -> Dictionary:
 
 
 ## The participation block a character gets from her built-in template plus provider layers,
-## before the player's saved differences. The provider's `adult` assertion is a separate top-level
-## key and is not part of this block.
+## before the player's saved differences. The provider's `eligible` assertion is a separate
+## top-level key and is not part of this block.
 static func _profile_participation(base: Dictionary, id: String) -> Dictionary:
 	var template := profile_for(base, {}, id)
 	return PARTICIPATION.resolve(_profile_participation_raw(template))
@@ -2108,7 +2108,7 @@ static func _profile_participation_raw(template: Dictionary) -> Variant:
 	return {}
 
 
-## The identity half of a mare's resolved profile in one pass: the provider-only `adult`
+## The identity half of a mare's resolved profile in one pass: the provider-only `eligible`
 ## assertion and the participation block. Discovery scans ask for both; the resolved result is
 ## memoized per settings generation and provider revision, so a scan pays a dictionary lookup
 ## instead of rebuilding the whole template for every mare.
@@ -2122,9 +2122,9 @@ static func profile_identity(id: String) -> Dictionary:
 	if cached is Dictionary:
 		return (cached as Dictionary).duplicate(true)
 	var template := profile_for(_profile_base(data), data.get("characters", {}), id)
-	var raw: Variant = template.get("adult", null)
+	var raw: Variant = template.get("eligible", null)
 	var resolved := {
-		"adult": raw if raw is bool else null,
+		"eligible": raw if raw is bool else null,
 		"participation": PARTICIPATION.resolve(_profile_participation_raw(template)),
 	}
 	_identity_cache[id] = resolved
@@ -2137,10 +2137,10 @@ static func profile_participation(id: String) -> Dictionary:
 	return profile_identity(id).get("participation", {})
 
 
-## The resolved provider-only `adult` assertion. `true`/`false` is a provider's assertion; `null`
-## means the pony's identity decides. The player's saved block never carries it.
-static func profile_adult(id: String) -> Variant:
-	return profile_identity(id).get("adult", null)
+## The resolved provider-only `eligible` assertion. `true`/`false` is a provider's assertion;
+## `null` means the pony's identity decides. The player's saved block never carries it.
+static func profile_eligible(id: String) -> Variant:
+	return profile_identity(id).get("eligible", null)
 
 
 ## Provider mod ids that registered a layer for one mare, in resolution order.
@@ -2438,9 +2438,9 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 			cleaned[id] = raw
 			continue
 		var entry: Dictionary = (raw as Dictionary).duplicate(true)
-		# A player cannot age a character up; the provider's `adult` assertion is not a player
+		# A player cannot age a character up; the provider's `eligible` assertion is not a player
 		# field, so it is never written into the player's block.
-		entry.erase("adult")
+		entry.erase("eligible")
 		# The profile block is a sparse capability layer; only the player's real differences
 		# from the provider's default are stored.
 		if entry.has("profile"):
@@ -2506,7 +2506,7 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 
 
 ## Reduce a saved profile block to the player's real participation differences. The provider's
-## `adult` assertion is never a player value and is dropped here.
+## `eligible` assertion is never a player value and is dropped here.
 static func _clean_profile(profile: Dictionary, base: Dictionary, id: String) -> Dictionary:
 	var defaults := _profile_participation(base, id)
 	var cleaned := PARTICIPATION.clean(profile.get("participation", {}))

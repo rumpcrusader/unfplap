@@ -472,8 +472,8 @@
     },
     {
       "service": "settings",
-      "func": "profile_adult",
-      "signature": "static func profile_adult(id: String) -> Variant:"
+      "func": "profile_eligible",
+      "signature": "static func profile_eligible(id: String) -> Variant:"
     },
     {
       "service": "settings",

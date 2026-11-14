@@ -147,11 +147,11 @@ methods. The act and controller read `anatomy/facts.gd`; neither reads the runti
 - Anatomy attaches to every adult identity with a `pony_hips` bone and a stable id, including
   mares added by other mods. The base-game roster is not a whitelist. Filly/colt and stallion
   identities are excluded, and the player's own AnonPony never receives anatomy.
-- A provider's `adult` assertion overrides the identity's age flag; `null` lets the identity
+- A provider's `eligible` assertion overrides the identity's age flag; `null` lets the identity
   decide. It changes age, not sex.
 - The eligibility facade owns the adult capability: anatomy calls
   `eligible(pony, Target.ANATOMY)` and tail seating calls `eligible(pony, Target.TAIL)`. Anatomy
-  never inspects the identity, filly/stallion flags or the provider's `adult` assertion itself.
+  never inspects the identity, filly/stallion flags or the provider's `eligible` assertion itself.
 - `profile.participation.anatomy` is part of the `Target.ANATOMY` answer. A `false` value detaches
   the anatomy and leaves the rest of the mare's profile alone. The Characters selector asks
   `Target.CHARACTER`, which has no participation veto, so an opted-out mare stays editable.
@@ -512,7 +512,7 @@ body's own deformation across the whole mesh.
   stock `tail_seat_trims.json` table; `tail_tilt_deg` is mod-only. Turning `reseat_tails` off
   restores the game-seated tail, which is the stock result.
 - `profile.participation.tail` gates the seat. A `false` value skips the attach and restores the
-  row if the seat was already applied; `refresh_all()` re-checks the row. A provider's `adult`
+  row if the seat was already applied; `refresh_all()` re-checks the row. A provider's `eligible`
   assertion applies to the tail seat too, so a provider can make a character an adult without
   giving her a tail seat.
 - The `OpenPonyDock` is rebuilt from the game reference fit, not from `effective_fit()`'s seat
@@ -679,7 +679,7 @@ Current suites:
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
   idle heat, mesh refinement, act calls, the player part's idempotent `prepare()`, body coat, the
-  vulva cut and still zones), plus the provider's `adult` assertion and the participation gate.
+  vulva cut and still zones), plus the provider's `eligible` assertion and the participation gate.
 - `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
   callbacks.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.

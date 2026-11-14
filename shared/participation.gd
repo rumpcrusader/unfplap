@@ -1,10 +1,10 @@
 extends RefCounted
 ## integration: per-mare participation. Which unfplap capabilities a mare takes part in.
 ##
-## It is subtractive: a `true` value means "does not veto", never "grants". A provider's `adult`
+## It is subtractive: a `true` value means "does not veto", never "grants". A provider's `eligible`
 ## assertion is a separate provider-only field in the same profile block. The `profile` block
 ## lives in the character template: `characters.<id>.profile.participation` and, for a provider,
-## `adult` at the top level. See `docs/eligibility.md`.
+## `eligible` at the top level. See `docs/eligibility.md`.
 
 ## The capability keys. One table drives validation, the Characters form and the API.
 const KEYS := ["acts", "anatomy", "tail"]

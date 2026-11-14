@@ -120,7 +120,7 @@ func describe_mare(id: String) -> Dictionary:
 	var service: ELIGIBILITY = _main.get("eligibility") if is_instance_valid(_main) else null
 	var profile: ELIGIBILITY.Profile = service.get_profile(mare_id) if service != null else null
 	var consent: Dictionary = profile.consent.to_dict() if profile != null else {}
-	var adult: Variant = profile.adult_value() if profile != null else null
+	var eligible: Variant = profile.eligible_value() if profile != null else null
 	var participation: Dictionary = profile.participation.to_dict() if profile != null else {}
 	return {
 		"schema": SCHEMA,
@@ -132,7 +132,7 @@ func describe_mare(id: String) -> Dictionary:
 		"sources": REGISTRY.sources(mare_id),
 		"preferences": SETTINGS.preferences(mare_id),
 		"consent": consent,
-		"adult": adult,
+		"eligible": eligible,
 		"profile": {"participation": participation},
 		"placement": SETTINGS.anatomy_placement(mare_id),
 		"poses": poses,

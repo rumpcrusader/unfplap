@@ -85,7 +85,7 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 	# One row of checks, the same widget the list settings (Ignore body parts) use.
 	var consent_buttons := _check_row(form, "Okay with", "consent", CONSENT.KEYS,
 		CONSENT.LABELS, font_size)
-	# integration: per-mare participation. A subtractive capability layer; a provider's `adult`
+	# integration: per-mare participation. A subtractive capability layer; a provider's `eligible`
 	# assertion is read-only and only shown when the provider overrides it.
 	var participation_buttons := _check_row(form, "Takes part in", "participation",
 		PARTICIPATION.KEYS, PARTICIPATION.LABELS, font_size)
@@ -342,7 +342,7 @@ static func _refresh_preference_form(refs: Dictionary) -> void:
 		(participation_hint as Label).visible = not sources.is_empty()
 		if not sources.is_empty():
 			(participation_hint as Label).text = "Overridden by %s" % ", ".join(sources)
-	var assertion: Variant = SETTINGS.profile_adult(id)
+	var assertion: Variant = SETTINGS.profile_eligible(id)
 	var assertion_label: Variant = refs.get("assertion_label")
 	var assertion_hint: Variant = refs.get("assertion_hint")
 	var show_assertion := assertion is bool
@@ -350,7 +350,7 @@ static func _refresh_preference_form(refs: Dictionary) -> void:
 		(assertion_label as Label).visible = show_assertion
 		if show_assertion:
 			(assertion_label as Label).text = "Provider assertion: %s" % (
-				"adult" if assertion else "not adult")
+				"eligible" if assertion else "not eligible")
 	if assertion_hint is Label:
 		(assertion_hint as Label).visible = show_assertion
 		if show_assertion:

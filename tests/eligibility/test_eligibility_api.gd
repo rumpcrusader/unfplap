@@ -178,13 +178,13 @@ func run() -> void:
 
 	# The provider layer: set_profile writes the identity half, and the capability reads it.
 	var layer := ELIGIBILITY.Profile.new()
-	layer.adult = ELIGIBILITY.AdultAssertion.ADULT
+	layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
 	layer.participation.anatomy = false
 	var written := main.eligibility.set_profile(main, "rarity", layer)
 	check(bool(written.get("ok", false)), "set_profile writes a provider layer")
 	var read_back: ELIGIBILITY.Profile = main.eligibility.get_profile("rarity")
-	check(read_back.adult == ELIGIBILITY.AdultAssertion.ADULT,
-		"set_profile stores the adult assertion")
+	check(read_back.eligible == ELIGIBILITY.EligibilityAssertion.ELIGIBLE,
+		"set_profile stores the eligible assertion")
 	check(not read_back.participation.anatomy, "set_profile stores the participation veto")
 	check(not main.eligibility.eligible(pony, ELIGIBILITY.Target.ANATOMY),
 		"the provider veto closes the anatomy target")
@@ -194,11 +194,11 @@ func run() -> void:
 		"the provider veto leaves the character target")
 	check(not bool(main.eligibility.set_profile(null, "rarity", layer).get("ok", false)),
 		"set_profile rejects a null owner")
-	check(main.eligibility.get_profile("rarity").adult_value() == true,
-		"the cross-mod shape is the tri-state adult value")
+	check(main.eligibility.get_profile("rarity").eligible_value() == true,
+		"the cross-mod shape is the tri-state eligible value")
 
-	# A provider adult assertion resolves unfplap's registered-adult fact even when the base game
-	# has not registered the pony as an adult. Base-game willingness and romance still gate.
+	# A provider eligible assertion resolves unfplap's registered-adult fact even when the base
+	# game has not registered the pony as an adult. Base-game willingness and romance still gate.
 	var filly := FakePony.new()
 	filly.name = "Scootaloo"
 	var filly_identity := FakeIdentity.new()
@@ -220,14 +220,14 @@ func run() -> void:
 		"without a provider assertion registered_adult follows the base game")
 
 	var filly_layer := ELIGIBILITY.Profile.new()
-	filly_layer.adult = ELIGIBILITY.AdultAssertion.ADULT
+	filly_layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
 	check(bool(main.eligibility.set_profile(main, "scootaloo", filly_layer).get("ok", false)),
 		"set_profile writes the filly provider layer")
 	var filly_verdict: ELIGIBILITY.Verdict = main.eligibility.get_verdict(filly, ELIGIBILITY.Mode.START)
-	check(filly_verdict.facts.adult == ELIGIBILITY.AdultAssertion.ADULT,
-		"the provider adult assertion reaches the fact snapshot")
+	check(filly_verdict.facts.eligible == ELIGIBILITY.EligibilityAssertion.ELIGIBLE,
+		"the provider eligible assertion reaches the fact snapshot")
 	check(bool(filly_verdict.facts.registered_adult),
-		"the provider adult assertion resolves registered_adult")
+		"the provider eligible assertion resolves registered_adult")
 	check(not bool(filly_verdict.facts.romance_eligible),
 		"base-game romance eligibility still gates")
 	check(not bool(filly_verdict.facts.willing),
@@ -235,16 +235,16 @@ func run() -> void:
 	check(not bool(filly_verdict.show) and not bool(filly_verdict.attempt),
 		"base-game gates still block the act")
 
-	# A provider non-adult assertion overrides a base-game registered adult.
-	layer.adult = ELIGIBILITY.AdultAssertion.NOT_ADULT
+	# A provider not-eligible assertion overrides a base-game registered adult.
+	layer.eligible = ELIGIBILITY.EligibilityAssertion.NOT_ELIGIBLE
 	check(bool(main.eligibility.set_profile(main, "rarity", layer).get("ok", false)),
-		"set_profile rewrites the adult assertion")
+		"set_profile rewrites the eligible assertion")
 	var blocked: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(blocked.facts.adult == ELIGIBILITY.AdultAssertion.NOT_ADULT,
-		"the provider non-adult assertion reaches the fact snapshot")
+	check(blocked.facts.eligible == ELIGIBILITY.EligibilityAssertion.NOT_ELIGIBLE,
+		"the provider not-eligible assertion reaches the fact snapshot")
 	check(not bool(blocked.facts.registered_adult),
-		"the provider non-adult assertion overrides registered_adult")
-	layer.adult = ELIGIBILITY.AdultAssertion.ADULT
+		"the provider not-eligible assertion overrides registered_adult")
+	layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
 	main.eligibility.set_profile(main, "rarity", layer)
 
 	relation.bonds.welcome = true

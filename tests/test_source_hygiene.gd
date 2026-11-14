@@ -258,7 +258,7 @@ func _check_eligibility_isolation(files: Array[String]) -> void:
 		"bonds.adults": ["eligibility/service.gd"],
 		"SETTINGS.promiscuity": ["eligibility/service.gd", "settings/service.gd"],
 		"SETTINGS.sex_start": ["eligibility/service.gd", "settings/service.gd"],
-		"SETTINGS.profile_adult": ["eligibility/service.gd", "settings/characters_ui.gd",
+		"SETTINGS.profile_eligible": ["eligibility/service.gd", "settings/characters_ui.gd",
 			"main.gd", "api.gd"],
 		"SETTINGS.profile_participation": ["eligibility/service.gd", "main.gd", "api.gd"],
 		"SETTINGS.profile_identity": ["eligibility/service.gd"],

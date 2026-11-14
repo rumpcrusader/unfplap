@@ -13,12 +13,12 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const METHODS := ["contract", "describe_mare", "register_mare", "supports", "unregister_mare"]
 const DESCRIPTOR_KEYS := [
 	"schema", "id", "source", "name",
-	"preferences", "consent", "adult", "profile", "placement", "poses",
+	"preferences", "consent", "eligible", "profile", "placement", "poses",
 	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 const DESCRIPTION_KEYS := [
 	"schema", "id", "name", "known", "registered", "sources",
-	"preferences", "consent", "adult", "profile", "placement", "poses",
+	"preferences", "consent", "eligible", "profile", "placement", "poses",
 	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 
@@ -149,7 +149,7 @@ func _check_base_description() -> void:
 	check(str((data.get("preferences", {}) as Dictionary).get("intensity", "")) == "firm",
 		"built-in preference resolves")
 	check((data.get("consent", {}) as Dictionary).has("public"), "consent resolves")
-	check(data.get("adult") == null, "a base mare has no adult assertion")
+	check(data.get("eligible") == null, "a base mare has no eligible assertion")
 	check(bool((data.get("profile", {}) as Dictionary).get("participation", {}).get("acts", false)),
 		"base participation resolves to all allowed")
 	check((data.get("placement", {}) as Dictionary).size() == PLACEMENT.KEYS.size(),
@@ -183,7 +183,7 @@ func _check_custom_mare() -> void:
 			"notes": "A test provider mare.",
 		},
 		"consent": {"public": true, "anal": true, "oral": false},
-		"adult": true,
+		"eligible": true,
 		"profile": {"participation": {"acts": false, "anatomy": false}},
 		"placement": {"tail_tilt_deg": 4.0, "dock_scale": 0.9},
 		"poses": {"missionary": {"nuzzle_scale": 0.5}},
@@ -214,7 +214,7 @@ func _check_custom_mare() -> void:
 	check(bool(consent.get("public", false)), "provider public consent")
 	check(bool(consent.get("anal", false)), "provider anal consent")
 	check(not bool(consent.get("oral", true)), "provider oral consent")
-	check(data.get("adult") == true, "provider adult assertion")
+	check(data.get("eligible") == true, "provider eligible assertion")
 	var profile: Dictionary = data.get("profile", {})
 	var participation: Dictionary = profile.get("participation", {})
 	check(not bool(participation.get("acts", true)), "provider participation acts")
@@ -340,8 +340,8 @@ func _check_validation() -> void:
 	bad = api.register_mare(null, {"id": "no_owner", "source": "test"})
 	check(not bool(bad.get("ok", true)), "a null owner is rejected")
 
-	bad = api.register_mare(owner, {"id": "bad_adult", "source": "test", "adult": "yes"})
-	check(not bool(bad.get("ok", true)), "a non-boolean adult is rejected")
+	bad = api.register_mare(owner, {"id": "bad_eligible", "source": "test", "eligible": "yes"})
+	check(not bool(bad.get("ok", true)), "a non-boolean eligible assertion is rejected")
 	bad = api.register_mare(owner, {"id": "bad_profile", "source": "test",
 		"profile": {"participation": {"acts": "yes"}}})
 	check(not bool(bad.get("ok", true)), "a non-boolean participation is rejected")
@@ -357,6 +357,16 @@ func _check_validation() -> void:
 	check(bool(warned.get("ok", false)), "an unknown key is a warning, not an error")
 	check(not (warned.get("warnings", []) as Array).is_empty(), "the unknown key is reported")
 	api.unregister_mare(owner, "warned_mare")
+
+	# `adult` is no longer a descriptor key: it warns as unknown and never sets the assertion.
+	var retired: Dictionary = api.register_mare(owner, {"id": "retired_adult", "source": "test",
+		"adult": true})
+	check(bool(retired.get("ok", false)), "the retired adult key is only a warning")
+	check(not (retired.get("warnings", []) as Array).is_empty(),
+		"the retired adult key is reported as unknown")
+	check(api.describe_mare("retired_adult").get("eligible") == null,
+		"the retired adult key does not set the assertion")
+	api.unregister_mare(owner, "retired_adult")
 
 
 func _check_deep_copies() -> void:

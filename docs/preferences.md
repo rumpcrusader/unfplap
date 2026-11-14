@@ -102,7 +102,7 @@ The form holds:
 - public, anal and oral consent (`docs/eligibility.md`);
 - private notes;
 - the **Takes part in** row (`Acts`, `Anatomy`, `Tail`);
-- a provider's `adult` assertion, shown only when a provider layer sets one.
+- a provider's `eligible` assertion, shown only when a provider layer sets one.
 
 Preset changes are staged in the form and written only by **Save preset**, then applied live during
 an act. If the form matches the character's own preference template, Save preset removes the saved
@@ -115,7 +115,7 @@ per pony.
 
 `characters.<id>.profile` is a sparse per-mare participation layer. `profile.participation` holds
 `acts`, `anatomy` and `tail`; only differences from the resolved default are stored. A provider's
-`adult` assertion is top-level and never a player value. The `characters` block is the same per-mare
+`eligible` assertion is top-level and never a player value. The `characters` block is the same per-mare
 block as the preference, consent, prompt and pose overrides.
 
 ## Character examples

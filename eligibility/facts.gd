@@ -13,7 +13,7 @@ enum AgeKind { NONE, YOUNG, ADULT }
 
 const KEYS := [
 	"id", "has_identity", "is_player_pony", "is_filly", "is_stallion",
-	"adult", "participation",
+	"eligible", "participation",
 	"has_relationship", "registered_adult", "romance_eligible",
 	"stage", "love_level", "willing",
 	"promiscuity", "sex_start", "public_feature",
@@ -31,7 +31,7 @@ static func empty() -> Dictionary:
 		"is_player_pony": false,
 		"is_filly": false,
 		"is_stallion": false,
-		"adult": null,
+		"eligible": null,
 		"participation": PARTICIPATION.defaults(),
 		"has_relationship": false,
 		"registered_adult": false,
@@ -82,37 +82,37 @@ static func normalize(raw: Variant) -> Dictionary:
 
 
 ## An adult pony is any identified pony that is not a filly or colt (the game's `filly` age flag)
-## and is not the player's own pony. A provider's `adult` assertion overrides the identity's age
+## and is not the player's own pony. A provider's `eligible` assertion overrides the identity's age
 ## flag; `null` means the identity decides. Stallions are adults here; use `adult_mare` for the
 ## act-target, anatomy and tail predicate.
 static func adult_pony(has_identity: bool, is_player_pony: bool, is_filly: bool,
-		adult: Variant) -> bool:
+		eligible: Variant) -> bool:
 	if not has_identity or is_player_pony:
 		return false
-	if adult is bool:
-		return adult
+	if eligible is bool:
+		return eligible
 	return not is_filly
 
 
 ## An adult mare is an adult pony that is not a stallion. This is the act target and the anatomy
-## and tail seat target. The `adult` override changes age, not sex.
+## and tail seat target. The `eligible` override changes age, not sex.
 static func adult_mare(has_identity: bool, is_player_pony: bool, is_filly: bool,
-		is_stallion: bool, adult: Variant) -> bool:
-	if not adult_pony(has_identity, is_player_pony, is_filly, adult):
+		is_stallion: bool, eligible: Variant) -> bool:
+	if not adult_pony(has_identity, is_player_pony, is_filly, eligible):
 		return false
 	return not is_stallion
 
 
 ## The witness age category, or `AgeKind.NONE` when she can be neither an adult nor a young
-## witness. A provider's `adult` assertion wins over the identity flag in both directions.
+## witness. A provider's `eligible` assertion wins over the identity flag in both directions.
 static func age_kind(has_identity: bool, is_player_pony: bool, is_filly: bool,
-		adult: Variant) -> int:
+		eligible: Variant) -> int:
 	if not has_identity or is_player_pony:
 		return AgeKind.NONE
-	if adult is bool and bool(adult):
+	if eligible is bool and bool(eligible):
 		return AgeKind.ADULT
 	if is_filly:
 		return AgeKind.YOUNG
-	if adult is bool:
+	if eligible is bool:
 		return AgeKind.NONE
 	return AgeKind.ADULT

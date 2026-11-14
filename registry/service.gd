@@ -24,12 +24,12 @@ const RESERVED_IDS := ["default", "anon"]
 const PROMPT_KEYS := ["cue", "utterance"]
 const EVENT_PROMPT_KEYS := ["climax", "end_early"]
 const TEMPLATE_KEYS := [
-	"preferences", "consent", "adult", "profile", "placement", "poses",
+	"preferences", "consent", "eligible", "profile", "placement", "poses",
 	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 const TOP_KEYS := [
 	"schema", "id", "source", "name",
-	"preferences", "consent", "adult", "profile", "placement", "poses",
+	"preferences", "consent", "eligible", "profile", "placement", "poses",
 	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 
@@ -93,8 +93,8 @@ static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 				var clean := _validate_consent(raw, warnings, errors)
 				if not clean.is_empty() or raw is Dictionary:
 					template[key] = clean
-			"adult":
-				var clean: Variant = _validate_adult(raw, errors)
+			"eligible":
+				var clean: Variant = _validate_eligible(raw, errors)
 				if clean != null:
 					template[key] = clean
 			"profile":
@@ -151,9 +151,9 @@ static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 	return result
 
 
-## Write the identity half of one owner's layer: the adult assertion, consent and participation.
+## Write the identity half of one owner's layer: the eligible assertion, consent and participation.
 ## The rest of that owner's template is preserved. A missing layer is created with only identity
-## keys. `adult` absent from `identity` clears any previous assertion. Returns the same result
+## keys. `eligible` absent from `identity` clears any previous assertion. Returns the same result
 ## shape as `register()`.
 static func set_profile(owner_id: int, source: String, id: String,
 		identity: Dictionary) -> Dictionary:
@@ -165,8 +165,8 @@ static func set_profile(owner_id: int, source: String, id: String,
 	if owner_id == 0:
 		errors.append("owner: must be a valid Node inside the scene tree")
 	var patch: Dictionary = {}
-	if identity.has("adult"):
-		patch["adult"] = _validate_adult(identity["adult"], errors)
+	if identity.has("eligible"):
+		patch["eligible"] = _validate_eligible(identity["eligible"], errors)
 	if identity.has("consent"):
 		patch["consent"] = _validate_consent(identity["consent"], warnings, errors)
 	if identity.has("profile"):
@@ -187,10 +187,10 @@ static func set_profile(owner_id: int, source: String, id: String,
 		if int(layer.get("owner", 0)) != owner_id:
 			continue
 		var template: Dictionary = (layer.get("template", {}) as Dictionary).duplicate(true)
-		if patch.has("adult"):
-			template["adult"] = patch["adult"]
+		if patch.has("eligible"):
+			template["eligible"] = patch["eligible"]
 		else:
-			template.erase("adult")
+			template.erase("eligible")
 		if patch.has("consent"):
 			template["consent"] = patch["consent"]
 		if patch.has("profile"):
@@ -398,12 +398,12 @@ static func _validate_consent(raw: Variant, warnings: Array, errors: Array) -> D
 	return out
 
 
-## A provider's `adult` assertion. It is a tri-state: `true`/`false` is a provider assertion, and
-## absent means the pony's identity decides. It is never a player field.
-static func _validate_adult(raw: Variant, errors: Array) -> Variant:
+## A provider's `eligible` assertion. It is a tri-state: `true`/`false` is a provider assertion,
+## and absent means the pony's identity decides. It is never a player field.
+static func _validate_eligible(raw: Variant, errors: Array) -> Variant:
 	if raw is bool:
 		return raw
-	errors.append("adult: expected true or false")
+	errors.append("eligible: expected true or false")
 	return null
 
 

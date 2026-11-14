@@ -33,8 +33,8 @@ enum Mode { START, OFFER, MID_ACT }
 enum Effect { NONE, BLOCK, REFUSE, HISTORY_REFUSE, OFFER_BLOCK, FLAG }
 ## Witness age categories.
 enum Age { NONE, YOUNG, ADULT }
-## The provider's tri-state `adult` assertion.
-enum AdultAssertion { IDENTITY, ADULT, NOT_ADULT }
+## The provider's tri-state `eligible` assertion.
+enum EligibilityAssertion { IDENTITY, ELIGIBLE, NOT_ELIGIBLE }
 
 ## Target -> the `profile.participation` veto it respects. An empty key means identity only.
 const TARGET_KEYS := {
@@ -75,25 +75,25 @@ class Consent extends RefCounted:
 		return out
 
 
-## One mare's resolved provider/player profile. `adult` is the provider-only tri-state assertion.
+## One mare's resolved provider/player profile. `eligible` is the provider-only tri-state assertion.
 class Profile extends RefCounted:
-	var adult: AdultAssertion = AdultAssertion.IDENTITY
+	var eligible: EligibilityAssertion = EligibilityAssertion.IDENTITY
 	var participation: Participation = Participation.new()
 	var consent: Consent = Consent.new()
 
 	## The cross-mod `describe_mare` shape: `null`, `true` or `false`.
-	func adult_value() -> Variant:
-		match adult:
-			AdultAssertion.ADULT:
+	func eligible_value() -> Variant:
+		match eligible:
+			EligibilityAssertion.ELIGIBLE:
 				return true
-			AdultAssertion.NOT_ADULT:
+			EligibilityAssertion.NOT_ELIGIBLE:
 				return false
 			_:
 				return null
 
 	func to_dict() -> Dictionary:
 		return {
-			"adult": adult_value(),
+			"eligible": eligible_value(),
 			"participation": participation.to_dict(),
 			"consent": consent.to_dict(),
 		}
@@ -115,7 +115,7 @@ class Facts extends RefCounted:
 	var is_player_pony := false
 	var is_filly := false
 	var is_stallion := false
-	var adult: AdultAssertion = AdultAssertion.IDENTITY
+	var eligible: EligibilityAssertion = EligibilityAssertion.IDENTITY
 	var participation: Participation = Participation.new()
 	var has_relationship := false
 	var registered_adult := false
@@ -266,19 +266,19 @@ func get_verdict(pony: Node, mode: Mode = Mode.START) -> Verdict:
 	return out
 
 
-## The resolved provider/player profile for one id: adult assertion, participation and consent.
+## The resolved provider/player profile for one id: eligible assertion, participation and consent.
 ## This is the cross-mod read side and the anatomy consent lookup.
 func get_profile(id: String) -> Profile:
 	var mare_id := id.strip_edges()
 	var resolved := SETTINGS.profile_identity(mare_id)
 	var out := Profile.new()
-	out.adult = _adult_from_value(resolved.get("adult", null))
+	out.eligible = _eligible_from_value(resolved.get("eligible", null))
 	out.participation = _typed_participation(resolved.get("participation", {}))
 	out.consent = _typed_consent(SETTINGS.consent(mare_id))
 	return out
 
 
-## Write the provider identity layer for one owner: the adult assertion, participation and
+## Write the provider identity layer for one owner: the eligible assertion, participation and
 ## consent. The layer lives in `mare_registry`; this service stores nothing. Returns the standard
 ## registration result.
 func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:
@@ -316,7 +316,7 @@ func _facts_data(pony: Node) -> Dictionary:
 ## The provider's tri-state assertion wins for unfplap's own registration fact; without one,
 ## the base game's adult table decides. Base-game willingness and romance still read the game.
 func _registered_adult(id: String, adults: Variant) -> bool:
-	var asserted: Variant = SETTINGS.profile_adult(id)
+	var asserted: Variant = SETTINGS.profile_eligible(id)
 	if asserted is bool:
 		return asserted
 	return adults is Dictionary and bool((adults as Dictionary).get(id, false))
@@ -394,7 +394,7 @@ func _identity_facts(pony: Node) -> Dictionary:
 	var profile := SETTINGS.profile_identity(id)
 	return {
 		"id": id,
-		"adult": profile.get("adult", null),
+		"eligible": profile.get("eligible", null),
 		"participation": profile.get("participation", {}),
 		"has_identity": identity != null,
 		"is_player_pony": _is_player_pony(pony),
@@ -410,7 +410,7 @@ func _typed_facts(data: Dictionary) -> Facts:
 	out.is_player_pony = bool(data.get("is_player_pony", false))
 	out.is_filly = bool(data.get("is_filly", false))
 	out.is_stallion = bool(data.get("is_stallion", false))
-	out.adult = _adult_from_value(data.get("adult", null))
+	out.eligible = _eligible_from_value(data.get("eligible", null))
 	out.participation = _typed_participation(data.get("participation", {}))
 	out.has_relationship = bool(data.get("has_relationship", false))
 	out.registered_adult = bool(data.get("registered_adult", false))
@@ -507,10 +507,10 @@ func _typed_consent(raw: Variant) -> Consent:
 	return out
 
 
-func _adult_from_value(raw: Variant) -> AdultAssertion:
+func _eligible_from_value(raw: Variant) -> EligibilityAssertion:
 	if raw is bool:
-		return AdultAssertion.ADULT if bool(raw) else AdultAssertion.NOT_ADULT
-	return AdultAssertion.IDENTITY
+		return EligibilityAssertion.ELIGIBLE if bool(raw) else EligibilityAssertion.NOT_ELIGIBLE
+	return EligibilityAssertion.IDENTITY
 
 
 func _effect_from_name(name: String) -> Effect:
@@ -538,11 +538,11 @@ func _profile_descriptor(profile: Profile) -> Dictionary:
 		"consent": profile.consent.to_dict(),
 		"profile": {"participation": profile.participation.to_dict()},
 	}
-	match profile.adult:
-		AdultAssertion.ADULT:
-			out["adult"] = true
-		AdultAssertion.NOT_ADULT:
-			out["adult"] = false
+	match profile.eligible:
+		EligibilityAssertion.ELIGIBLE:
+			out["eligible"] = true
+		EligibilityAssertion.NOT_ELIGIBLE:
+			out["eligible"] = false
 		_:
 			pass
 	return out

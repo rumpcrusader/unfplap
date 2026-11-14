@@ -51,9 +51,9 @@ static func observers(game: Node, service: ELIGIBILITY, partner: Node3D) -> Arra
 	return out
 
 
-## One event per observer, private to her (`witnesses = [observer_id]`). Adults are told what it
-## was; fillies and colts get a perception with the place they saw it from, and the game's story
-## summary infers a memory they could actually hold. Returns the recorded rows for the debug log.
+## One event per observer, private to her (`witnesses = [observer_id]`). Every witness gets a
+## perception, never a conclusion; the neutral impression replaces her old one, and the game's
+## per-pony story summary forms the memory she can hold. Returns the recorded rows for the debug log.
 static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String,
 		partner_name: String, serial: int, partner: Node3D) -> Array:
 	var out: Array = []
@@ -93,7 +93,8 @@ static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String,
 			continue
 		var indoors: bool = HOUSE.at(observer.get_tree(), observer.global_position) != null
 		var place := str(AWARENESS.place_at(observer.global_position).get("id", ""))
-		var text := TEXT.witness_text(partner_name, young, indoors, serial)
+		var sense := FACTS.Sense.SIGHT if seen else FACTS.Sense.SOUND
+		var text := TEXT.witness_text(partner_name, young, indoors, serial, sense)
 		var event_id := "witness_%s_%s_%d" % [observer_id, partner_id, serial]
 		var ctx: Variant = game.get("world_context")
 		if ctx is Node and is_instance_valid(ctx):
@@ -102,11 +103,12 @@ static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String,
 			var impressions: Variant = ctx.get("impressions")
 			if impressions is Node and is_instance_valid(impressions):
 				impressions.commit(observer_id,
-					TEXT.witness_impression(partner_name, young, indoors), event_id + ":gain")
+					TEXT.witness_impression(partner_name, young, indoors, sense),
+					event_id + ":gain")
 		var row := FACTS.Witness.new()
 		row.id = observer_id
 		row.young = young
-		row.sense = FACTS.Sense.SIGHT if seen else FACTS.Sense.SOUND
+		row.sense = sense
 		row.indoors = indoors
 		row.distance = observer.global_position.distance_to(partner.global_position)
 		row.place = place

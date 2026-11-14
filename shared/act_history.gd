@@ -14,10 +14,6 @@ const VERSION := 1
 const MAX_RECENT := 6
 const MAX_TEXT := 180
 const MAX_WANTS := 120
-## Stroke mechanics are not a comfort need. They are kept in the stored row for the summary, but
-## never repeated in a hurt, repair, offer or refusal line.
-const DROP_WANTS := ["take me softer", "take me harder", "take me firmer", "tease me more",
-	"keep it quicker", "keep a steadier rhythm", "keep doing what you did"]
 
 ## Bumped by every stored-row write, so a read-only policy snapshot can tell when its history
 ## facts are stale. Reads and decay never bump it.
@@ -357,17 +353,6 @@ static func offer_cooldown(row: Dictionary, base_seconds := -1.0) -> float:
 	return maxf(floor_s, base * (1.0 - float(int(row.get("comfort", 0))) * scale))
 
 
-## Keep a hurt/repair or offer line about comfort, not stroke mechanics.
-static func repair_wants(text: String) -> String:
-	var kept: PackedStringArray = []
-	for part: String in text.split(" and ", false):
-		var want := part.strip_edges()
-		if want.is_empty() or want in DROP_WANTS:
-			continue
-		kept.append(want)
-	return " and ".join(kept.slice(0, 2))
-
-
 ## The stored summary is for the HUD. A normal-dialogue note keeps the reason and drops the
 ## repeated "You and Anon made love ..." opening sentence.
 static func private_text(row: Dictionary) -> String:
@@ -385,70 +370,59 @@ static func prompt_note(row: Dictionary) -> String:
 	if tier <= 0:
 		return ""
 	var text := private_text(row)
-	var wants := repair_wants(str(row.get("last_wants", "")))
-	var note := ""
 	if tier >= 3:
-		note = "- You love Anon, but you are very reluctant to try again."
+		var note := "- You love Anon, but you are very reluctant to try again."
 		if not text.is_empty():
-			note += " You remember: " + text
-		if not wants.is_empty():
-			note += " You want to " + wants + "."
-		return note + " If he asks, say so gently and refuse."
+			note += " Privately, you remember: " + text
+			note += " Do not recite it or list what he did."
+		return note + " If he asks, refuse gently and let the feeling show without explaining it all."
 	if tier == 2:
-		note = "- You are still hurt about the last time."
+		var note := "- You are still hurt about the last time."
 		if not text.is_empty():
-			note += " You remember: " + text
-		if not wants.is_empty():
-			note += " You want to " + wants + "."
-		return note + " You do not want to ask him again; if he starts, tell him what you need."
+			note += " Privately, you remember: " + text
+			note += " Do not recite it or list what he did."
+		return note + " You do not want to ask him again; if he starts, let the hurt show in your " \
+			+ "tone and give him only a small piece of it, not a review."
 	if not tier_one_hint(row):
 		return ""
 	return "- Something about last time is still sitting with you. You are not ready to spell it out."
 
 
 static func ask_note(row: Dictionary) -> String:
-	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
-		return "You stopped Anon and are not ready to ask again yet."
 	if tier_index(row) <= 0:
 		return ""
 	var text := private_text(row)
-	var wants := repair_wants(str(row.get("last_wants", "")))
 	var note := "You still feel a little hurt from last time."
 	if not text.is_empty():
-		note += " " + text
-	if not wants.is_empty():
-		note += " You want to " + wants + "."
-	return note + " Ask him gently for what you need."
+		note += " Privately, you remember: " + text
+		note += " Do not recite it."
+	return note + " If you ask, keep it soft and indirect; do not turn it into a list of what he " \
+		+ "did wrong."
 
 
 static func line_purpose(row: Dictionary, kind: String) -> String:
+	if kind != "complaint":
+		return "Anon is close. Something about last time is still sitting with you. Say one " \
+			+ "short, in-character line that hints at it; do not summarize the act or list " \
+			+ "requests. One short sentence, at most 14 words. Do not narrate actions."
 	var text := private_text(row)
-	var wants := repair_wants(str(row.get("last_wants", "")))
-	if kind == "complaint":
-		var note := "You are still hurt about the last time with Anon."
-		if not text.is_empty():
-			note += " " + text
-		if not wants.is_empty():
-			note += " You want to " + wants + "."
-		return note + " Tell him gently but plainly what he did and what you need next time. " \
-			+ "One short sentence, at most 14 words, in your own voice. Do not narrate actions."
-	return "Anon is close. Something about last time is still sitting with you. Say one short, " \
-		+ "in-character line that hints at it; do not summarize the act or list requests. " \
-		+ "One short sentence, at most 14 words. Do not narrate actions."
+	var note := "You are still hurt about the last time with Anon."
+	if not text.is_empty():
+		note += " Privately, you remember: " + text
+	return note + " Say one short line in your own voice that hints at the hurt without naming " \
+		+ "what he did or listing what you need. At most 14 words. Do not narrate actions."
 
 
 static func refusal_purpose(row: Dictionary) -> String:
-	var text := private_text(row)
-	var wants := repair_wants(str(row.get("last_wants", "")))
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
 		return "Anon wants to try again. You stopped him and are not ready to try again yet. " \
 			+ "Refuse gently in your own voice, one short sentence, at most 14 words. " \
 			+ "Do not narrate actions."
+	var text := private_text(row)
 	var note := "Anon wants to try again. You love him, but you are very reluctant."
 	if not text.is_empty():
-		note += " You remember: " + text
-	if not wants.is_empty():
-		note += " You want to " + wants + "."
+		note += " Privately, you remember: " + text
+		note += " Do not recite it or list what he did."
 	return note + " Refuse gently in your own voice. One short sentence, at most 14 words. " \
 		+ "Do not narrate actions."
 

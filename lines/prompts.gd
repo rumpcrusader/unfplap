@@ -8,9 +8,8 @@ const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
 
 const WARM_NOTE := "- You are still warm and relaxed after making love with Anon. Keep an affectionate tone; do not act stiff or businesslike."
-const ACT_NOTE := "- You are in the middle of sex with Anon."
-const AFTERGLOW_NOTE := "- You are still in the afterglow with Anon; the act has ended, but the moment is not finished yet."
-const STAY_NOTE := "If Anon asks to stay longer, use [stay: 120] to hold the afterglow."
+const ACT_NOTE := "- You are having sex with Anon right now."
+const AFTERGLOW_NOTE := "- The act has ended, but you are still close with Anon in the afterglow."
 const CHEST := "your chest and belly"
 const FLANK := "your flank"
 
@@ -54,8 +53,4 @@ static func note(values: Dictionary) -> String:
 		parts.append("He is caressing " + where + ".")
 	elif leaning:
 		parts.append("He is leaning in close, holding you.")
-	else:
-		parts.append("He is close but not caressing or leaning in right now.")
-	if state == STATE_AFTERGLOW:
-		parts.append(STAY_NOTE)
 	return " ".join(parts)

@@ -151,7 +151,7 @@ func run() -> void:
 		"the refusal mood uses its own commit id")
 	check(str(context.events[-1].kind) == "intimacy", "a refusal is recorded as an intimacy event")
 	check(str(context.events[-1].id) == "refusal_1", "the refusal event keeps its bare id")
-	check(str(context.events[-1].text).contains("turned Anon away"),
+	check(str(context.events[-1].text).contains("refused him"),
 		"the refusal event says what happened")
 
 	var bucked := MEMORY.Impression.new()

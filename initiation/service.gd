@@ -1175,7 +1175,7 @@ func _start_consent_classification() -> void:
 		_resolve_consent(CONSENT_CORE.on_model(_episode.reply, CONSENT_CORE.UNCLEAR, "empty"))
 		return
 	var id := _episode.id
-	var offer := "The pony %s has just asked Anon directly to have sex with her. She is waiting for his answer." % id
+	var offer := "The pony has just asked Anon to have sex. She is waiting for his answer."
 	var key := "offer:%s:%d" % [id, _episode.serial]
 	_episode.reply.key = key
 	_episode.reply.started = true

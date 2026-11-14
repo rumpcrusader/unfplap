@@ -76,33 +76,21 @@ static func tone(facts: Dictionary) -> String:
 static func tone_line(tone_name: String) -> String:
 	match tone_name:
 		"guarded":
-			return "Guarded: you do not know him well; keep some distance and let trust be earned."
+			return "Guarded: you do not know him well; keep some distance."
 		"friendly":
-			return "Friendly: you are friends, not romantic partners; let the affection be easy and unromantic."
+			return "Friendly: you are friends, not lovers; keep the affection easy."
 		"tender":
-			return "Tender: this is new or uncertain; let the warmth be careful and do not assume more than you have."
+			return "Tender: this is new or uncertain; be careful with the warmth."
 		"warm":
-			return "Warm: you are together; let the fondness show without turning it into a performance."
+			return "Warm: you are together; let the fondness show."
 		"ardent":
-			return "Ardent: you are deeply in love; let your want and affection be plain."
+			return "Ardent: you are deeply in love; let your want show."
 		"open":
-			return "Open: you are settled and bonded; speak with the ease of long intimacy."
+			return "Open: you are settled and bonded; speak with easy intimacy."
 		"careful":
 			return "Careful: there is a little hurt; keep the warmth tentative."
 		_:
 			return "Warm: let the fondness show."
-
-
-## The mod's lover fact for normal dialogue. A relationship fact, not a permission or an
-## invitation: the act gates and the dialogue classifier still decide what can happen.
-static func lover_note(romantic: bool) -> String:
-	return "- You and Anon are lovers." if romantic else "- You are not Anon's lover."
-
-
-## True for the base game's romantic stages. The stage is the only source of the lovers fact;
-## the mod stores no bond.
-static func romantic_stage(stage: String) -> bool:
-	return stage in ["dating", "engaged", "married"]
 
 
 static func memory_line(text: String) -> String:
@@ -111,7 +99,7 @@ static func memory_line(text: String) -> String:
 		return ""
 	if cleaned.length() > 180:
 		cleaned = cleaned.left(177).strip_edges() + "..."
-	return "A shared memory you may let color the line: " + cleaned
+	return "A shared memory you may let colour the line: " + cleaned
 
 
 ## A peak act is clean and either very high or technically excellent. The player's climax alone

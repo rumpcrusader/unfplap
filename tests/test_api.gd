@@ -159,8 +159,8 @@ func _check_base_description() -> void:
 	check((data.get("poses", {}) as Dictionary).has("missionary"), "pose defaults resolve")
 	check(not str((data.get("act_prompts", {}) as Dictionary).get("cue", "")).is_empty(),
 		"act prompt defaults resolve")
-	check(not str((data.get("event_prompts", {}) as Dictionary).get("climax", "")).is_empty(),
-		"Fluttershy's event prompt resolves")
+	check(str((data.get("event_prompts", {}) as Dictionary).get("climax", "")).is_empty(),
+		"no built-in mare overrides the climax prompt")
 	check(near(float(data.get("cue_gap", 0.0)), 12.0), "cue gap resolves")
 	check(int(data.get("aftercare_min", 0)) == 10, "aftercare minimum resolves")
 	check(near(float(data.get("smack_zone_radius", 0.0)), 0.035), "smack radius resolves")

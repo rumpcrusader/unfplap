@@ -3104,7 +3104,7 @@ func _queue_climax_reaction() -> void:
 		if _now_s() <= expires:
 			return true
 		return main.memory.line_state(_climax_reaction_key) == MEMORY.LineState.SPEAKING
-	var key: String = _lines_service().reaction_line(MEMORY.Reaction.CLIMAX, climax_id, "You have just climaxed during intimacy with Anon. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine. Do not describe anatomy.", valid)
+	var key: String = _lines_service().reaction_line(MEMORY.Reaction.CLIMAX, climax_id, "You have just climaxed. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine.", valid)
 	_climax_reaction_key = key
 	if key.is_empty():
 		return
@@ -3203,17 +3203,6 @@ func prompt_note() -> String:
 		"leaning": _act_camera.lean_forward >= 0.35 or _act_camera.lean_action_active or _kiss_controller().leaning_close(),
 		"missionary": pose_id == CATALOG.MISSIONARY,
 	})
-
-
-## The lovers fact for the normal dialogue prompt. The base relationship stage owns it; empty
-## during an act, where prompt_note owns the line.
-func lover_prompt_note() -> String:
-	if not is_instance_valid(pony) or pony.sleeping:
-		return ""
-	var policy := _policy_verdict(ELIGIBILITY.Mode.START)
-	if policy == null or not policy.base:
-		return ""
-	return _lines_service().lover_prompt_note(policy.relations.stage)
 
 
 func _afterglow_caressing() -> bool:

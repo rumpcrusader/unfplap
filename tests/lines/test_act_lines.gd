@@ -146,7 +146,7 @@ func run() -> void:
 	check(not request.suffix.is_empty(), "the cue gets a unique suffix")
 	check(request.purpose.contains("Cue: She wants it firmer."),
 		"the prompt is formatted: %s" % request.purpose)
-	check(request.purpose.contains("private, not a script"),
+	check(request.purpose.contains("let it colour one short line"),
 		"the cue seed is included")
 	check(request.purpose.contains("[face:"), "the cue carries the face hint")
 	check(request.valid.is_valid() and request.finished.is_valid(),

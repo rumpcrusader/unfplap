@@ -16,7 +16,6 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 
-const CUE_REACTION_NOTE := "\nDo not turn the private moment into a repeated command; say it as your own reaction or preference."
 const RECENT_LINES := 8
 const ANGLES_REMEMBERED := 7
 const LINE_ANGLES := [
@@ -25,7 +24,6 @@ const LINE_ANGLES := [
 	"tell him exactly what you want next.",
 	"say his name, and little else.",
 	"mention where you are right now.",
-	"tell him something you have never said out loud.",
 	"sound surprised at yourself.",
 	"say something tender, in the middle of all this.",
 	"let him see how much you trust him.",
@@ -340,11 +338,10 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 				and not purpose.contains("[face"):
 			purpose += face_note
 		purpose += UTTERANCE.context_note(template, values)
-		purpose += CUE_REACTION_NOTE
 		# integration: optional speech feel, independent of the always-on line angles.
 		if _feature("act_speech_feel", false):
 			purpose += _speech_feel_note()
-		purpose += _line_variety(values.recent)
+		purpose += _line_variety()
 	_serial += 1
 	var suffix := "%s:%d" % [key_suffix, _serial]
 	var act_id: String = facts.event_id
@@ -450,12 +447,6 @@ func prompt_note(values: Dictionary) -> String:
 	return PROMPTS.note(values)
 
 
-## The lovers prompt note. The runtime keeps the act/sleep gates; the base relationship stage
-## decides the wording.
-func lover_prompt_note(stage: String) -> String:
-	return RELATIONSHIP_CUE.lover_note(RELATIONSHIP_CUE.romantic_stage(stage))
-
-
 func recent_lines() -> String:
 	var director := _director()
 	if director == null or facts == null or not is_instance_valid(facts.pony):
@@ -530,7 +521,7 @@ func _bystander_line(id: String, event_id: String, purpose: String,
 
 
 ## integration: without a fresh angle she answers the same prompt the same way.
-func _line_variety(recent: Variant) -> String:
+func _line_variety() -> String:
 	var open: Array = LINE_ANGLES.filter(func(angle: String) -> bool:
 		return not angle in _used_angles)
 	if open.is_empty():
@@ -540,10 +531,7 @@ func _line_variety(recent: Variant) -> String:
 	_used_angles.append(angle)
 	if _used_angles.size() > ANGLES_REMEMBERED:
 		_used_angles.remove_at(0)
-	var note := " This time, %s Bring in something you two actually said, did or know from today if it fits." % angle
-	if not str(recent).is_empty():
-		note += " Your recent lines were: %s. Do not reuse their wording, their opening word or their idea." % recent
-	return note
+	return " This time, %s Use something from today if it fits." % angle
 
 
 ## integration: tells the line how the current strokes break up her speech.
@@ -551,9 +539,6 @@ func _speech_feel_note() -> String:
 	if facts.last_intensity.is_empty():
 		return ""
 	var pace := maxf(float(facts.thrust_pace), 0.0)
-	var hole := ""
-	if bool(facts.anal_active):
-		hole = " Anon is in your ass right now, not your pussy."
 	var level := 0.5 * float(SPEECH_ROUGHNESS.get(facts.last_intensity, 0.5)) \
 		+ 0.5 * clampf(pace / SPEECH_FULL_PACE, 0.0, 1.0)
 	var frequency := "Put one after almost every word or two, so your speech keeps breaking apart."
@@ -563,7 +548,7 @@ func _speech_feel_note() -> String:
 		frequency = "Use one or two."
 	elif level < 0.75:
 		frequency = "Put one after every few words."
-	return hole + " Right now Anon's strokes are %s and %s, about %.1f a second. Break up your speech with exclamations between words, such as \"Ah!\", \"Hah!\", \"FUCK!\", \"Ah...\", \"Buck...\", \"Nngh...\" and similar ones in your own voice. %s They do not count toward your word limit." % [
+	return " Right now Anon's strokes are %s and %s, about %.1f a second. Break up your speech with exclamations between words, such as \"Ah!\", \"Hah!\", \"FUCK!\", \"Ah...\", \"Buck...\", \"Nngh...\" and similar ones in your own voice. %s They do not count toward your word limit." % [
 		facts.last_intensity, facts.last_pattern if not facts.last_pattern.is_empty() else "steady",
 		pace, frequency]
 

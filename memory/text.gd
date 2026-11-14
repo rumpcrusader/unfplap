@@ -2,7 +2,8 @@ extends RefCounted
 ## Pure memory wording and ids. No Node, tree, time, file or settings access.
 ## The event texts must read correctly after the profile rewrites a leading "You and Anon " to
 ## "You and <name>", so no event line uses second-person pronouns for the pony. The private
-## thoughts stay first-person.
+## thoughts stay first-person. An adult witness event is only what she perceived; the game's
+## per-pony story summary forms the personal memory.
 
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 
@@ -104,27 +105,27 @@ static func stop_name(reason: int) -> String:
 
 
 static func cancel_text() -> String:
-	return "Anon stopped before the act reached a climax."
+	return "Anon stopped before she climaxed."
 
 
 static func climax_text() -> String:
-	return "You and Anon made love, and she came."
+	return "You and Anon made love, and she climaxed."
 
 
 static func stop_text(reason: int) -> String:
 	match reason:
 		FACTS.StopReason.UNWILLING:
-			return "The act stopped because she no longer wanted it."
+			return "She did not want to keep going, so it stopped."
 		FACTS.StopReason.PICKED_UP:
-			return "Anon picked up, so the act stopped."
+			return "Anon picked her up, and the act ended."
 		FACTS.StopReason.INTERRUPTED:
-			return "The act was interrupted."
+			return "Something interrupted them, and the act ended."
 		FACTS.StopReason.FORM_CHANGE:
-			return "Anon changed form, so the act stopped."
+			return "Anon changed form, and the act ended."
 		FACTS.StopReason.WITHDREW:
-			return "Anon kept doing something she does not like, so the act stopped."
+			return "Anon kept doing something she did not like, so she stopped it."
 		_:
-			return "The act stopped."
+			return "The act ended."
 
 
 static func apology_text() -> String:
@@ -133,8 +134,8 @@ static func apology_text() -> String:
 
 static func refusal_text(bucked: bool) -> String:
 	if bucked:
-		return "She turned Anon away and bucked him when he would not stop."
-	return "She turned Anon away when he wanted more."
+		return "She refused him, and bucked when he would not stop."
+	return "She refused him when he wanted more."
 
 
 static func refusal_thought(bucked: bool) -> String:
@@ -153,24 +154,29 @@ static func witness_scene_prefix(partner_name: String, indoors: bool) -> String:
 	return "She saw Anon and %s out in the open." % partner_name
 
 
-static func witness_text(partner_name: String, young: bool, indoors: bool, serial: int) -> String:
+static func witness_text(partner_name: String, young: bool, indoors: bool, serial: int,
+		sense := FACTS.Sense.SIGHT) -> String:
 	if not young:
-		return "She saw Anon and %s having sex." % partner_name
+		if sense == FACTS.Sense.SOUND:
+			return "She heard Anon and %s together." % partner_name
+		return "She saw Anon and %s together, close and unguarded." % partner_name
 	var index := posmod(serial, WITNESS_TAILS.size())
 	return witness_scene_prefix(partner_name, indoors) + str(WITNESS_TAILS[index])
 
 
-static func witness_thought(partner_name: String, young: bool, indoors: bool) -> String:
+static func witness_thought(partner_name: String, young: bool, _indoors: bool,
+		sense := FACTS.Sense.SIGHT) -> String:
 	if young:
 		return ""
-	if indoors:
-		return "I walked in on Anon and %s having sex." % partner_name
-	return "I saw Anon and %s having sex out in the open." % partner_name
+	if sense == FACTS.Sense.SOUND:
+		return "I heard Anon and %s together." % partner_name
+	return "I saw Anon and %s together." % partner_name
 
 
-static func witness_impression(partner_name: String, young: bool, indoors: bool) -> Dictionary:
+static func witness_impression(partner_name: String, young: bool, indoors: bool,
+		sense := FACTS.Sense.SIGHT) -> Dictionary:
 	var out: Dictionary = {"mood": "amused"} if young else {"mood": "surprised"}
-	var thought := witness_thought(partner_name, young, indoors)
+	var thought := witness_thought(partner_name, young, indoors, sense)
 	if not thought.is_empty():
 		out["thought"] = thought
 	return out

@@ -55,9 +55,9 @@ close window without its reward.
 
 ## `[stay]` action
 
-The afterglow prompt still offers `[stay: SECONDS]` as the game's ordinary hold-position action.
-The afterglow facade does not bind the game's action executor and the action does not control the
-phase.
+The mod's afterglow note does not advertise `[stay: SECONDS]`. The base game's ordinary
+hold-position action is unchanged, and the afterglow facade does not bind the game's action
+executor, so that action does not control the phase.
 
 ## Close window
 
@@ -95,10 +95,9 @@ Hold the act key:
   (`ACT_SUMMARY.afterglow_beat()`, 40 % silence) and the private relationship note; the HUD and the
   impression keep the full summary. The note does not recite the summary or append a mechanical
   “next time” wish.
-- The afterglow lasts until the player holds the act key to end it; she never ends it herself. The prompt
-  still offers `[stay: SECONDS]` as an ordinary stay, but it does not control the phase. The live
-  prompt note tells her whether Anon is caressing her or leaning in; leaning counts as staying
-  close/hugging.
+- The afterglow lasts until the player holds the act key to end it; she never ends it herself. The
+  live prompt note tells her whether Anon is caressing her or leaning in; leaning counts as staying
+  close/hugging. A quiet moment adds no state sentence.
 
 ## Dependencies
 

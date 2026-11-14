@@ -118,16 +118,18 @@ func run() -> void:
 	check(not early_text.contains("ended it before you finished"),
 		"the early event does not repeat its opening sentence")
 	check(not early_thought.contains(" you "), "the early thought stays in first person")
-	check(early_text.contains("Anon did not speak when she needed to hear him"),
-		"the event says Anon did not speak")
-	check(early_thought.contains("He did not speak to me when I needed to hear him"),
-		"the thought says He did not speak to her")
+	check(early_text.contains("Something about it stayed with her"),
+		"the event keeps one vague reason")
+	check(not early_thought.contains("He did not speak"),
+		"the thought does not name a specific miss")
 	var bad_silent := evaluate({"talk_liked": 0, "player_lines": 0,
 		"touch_dislikes": {"smack": 2}})
 	check(not str(bad_silent.thought).contains(" you "),
 		"a bad thought stays in first person")
 	check(not str(clean.text).contains(" you "),
 		"a good event text has no second-person body")
+	check(not str(clean.text).contains("Something about it stayed"),
+		"a clean act has no vague reason appended")
 	check(not str(early_text).contains(" you "),
 		"an early event text has no second-person body")
 	check(not str(bad.text).contains(" you "),

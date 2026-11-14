@@ -245,7 +245,8 @@ static func moment_faces(moment: String, mood := "") -> Array:
 
 
 ## Short private prompt hint. Voice emotions stay in the prompt/fallback: they are a separate
-## vocabulary from face names.
+## vocabulary from face names. The face is momentary; the base game's feeling tag belongs after
+## the spoken words, where its impression parser reads it.
 static func prompt_note(moment: String, mood := "") -> String:
 	var names := moment_faces(moment, mood)
 	if names.is_empty():
@@ -253,7 +254,10 @@ static func prompt_note(moment: String, mood := "") -> String:
 	var tags: PackedStringArray = []
 	for name: String in names:
 		tags.append("[face:%s]" % name)
-	return " Face: you may start the line with one of %s if it fits; never use [mood:...] in an act line." % ", ".join(tags)
+	return " Face: you may start the line with one of %s if it fits. If the moment genuinely " \
+		% ", ".join(tags) \
+		+ "changes how you feel, you may add the game's feeling tag after your spoken words, " \
+		+ "such as [mood: annoyed]."
 
 
 ## One-shot face for debug previews and witness reactions. A spoken line owns the face.

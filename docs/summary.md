@@ -73,8 +73,9 @@ The summary carries the once-per-act impression:
 
 An event line starts with the pair, `You and Anon `, so the profile can replace that prefix with
 `You and <name>`; after that prefix it uses no second-person pronouns for the pony, so the
-**Recent activities** line stays correct. The event text is what the AI reads as context; the
-reason sentences in each voice keep that same rule.
+**Recent activities** line stays correct. The event text is what the AI reads as context; it
+carries at most one vague reason sentence (`Something about it stayed with her.`), never a
+specific miss, and the private thought names none.
 
 `main.memory.commit` writes this to the game's impressions once. It also records the summary text as
 a `relationship` world-context event. The two lines have separate voices: the recorded `text` is the
@@ -125,7 +126,7 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
   "last_grade": "good", "last_quality": 0.92,
   "last_reasons": ["silent_talk"],
   "last_text": "You and Anon made love...",
-  "last_wants": "talk to me while we move",
+  "last_wants": "feel heard",
   "last_at": 0.0, "last_day": 0.0,
   "last_apology_day": -1.0,
   "stop_until": 0.0, "last_stop_kind": "", "last_stop_at": 0.0,
@@ -134,6 +135,10 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
   "recent": [],
 }
 ```
+
+`last_wants` is an emotional phrase (`feel heard`, `feel safe`, `feel wanted`, `feel met`,
+`feel satisfied`), never a direct instruction or a stroke mechanic. It is kept for the summary
+and debug; no prompt sends it to the model.
 
 `shared/act_history.gd` also keeps a process-wide `revision`, bumped by every stored-row write
 (`commit`, `repair`, `apology_repair`, `reset` and `mark_announced`). Reads, sanitising and time
@@ -217,9 +222,9 @@ navigator and blocks nothing; the gates above do that.
 - `prompt_note()` carries the private history note while a hurt history is active, the 300 s
   warm note after a good or non-early neutral act (`_face.warm_note`), the relationship note during the
   act and afterglow, and one short random afterglow beat (or none). It does not recite the summary or her
-  first-person `thought`; the HUD and the impression keep those. Hurt/repair and offer prompts
-  filter `last_wants` through `ACT_HISTORY.repair_wants()` and pass `last_text` through
-  `ACT_HISTORY.private_text()`, which keeps the reason and drops the repeated act opening.
+  first-person `thought`; the HUD and the impression keep those. Hurt/repair and offer prompts pass
+  `last_text` through `ACT_HISTORY.private_text()`, which keeps the reason and drops the repeated
+  act opening; they keep it private and forbid reciting it, and they never send `last_wants`.
 - An intentional early end gives one short reaction 50% of the time and marks its pending history
   line announced, so the same act does not speak twice.
 - The pending reminder/complaint line and the apology repair run in the idle history scan owned by

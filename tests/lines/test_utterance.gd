@@ -59,9 +59,14 @@ func run() -> void:
 		"mood": "wanting", "intensity": "soft", "pattern": "steady",
 		"wanted_intensity": "firm", "wanted_pattern": "steady",
 	})
-	check(mismatch.contains("rather he be firmer"), "a soft stroke asks for firm")
+	check(mismatch.contains("too gentle"), "a soft stroke is felt as too gentle")
 	check(not mismatch.contains("She wants"), "a seed is second person, not a HUD cue")
-	check(mismatch.contains("private, not a script"), "a seed is explicitly private")
+	check(mismatch.contains("let it colour one short line"), "a seed is explicitly private")
+	var too_rough := UTTER.line_seed({
+		"mood": "wanting", "intensity": "rough", "pattern": "steady",
+		"wanted_intensity": "firm", "wanted_pattern": "steady",
+	})
+	check(too_rough.contains("too rough"), "a rough stroke is felt as too rough")
 	var match := UTTER.line_seed({
 		"mood": "wanting", "intensity": "firm", "pattern": "steady",
 		"wanted_intensity": "firm", "wanted_pattern": "steady",
@@ -71,7 +76,12 @@ func run() -> void:
 		"mood": "wanting", "intensity": "firm", "pattern": "steady",
 		"wanted_intensity": "firm", "wanted_pattern": "quick",
 	})
-	check(rhythm.contains("quicker"), "a rhythm mismatch asks for the wanted tempo")
+	check(rhythm.contains("want it faster"), "a slow rhythm is felt as too slow")
+	var too_fast := UTTER.line_seed({
+		"mood": "wanting", "intensity": "firm", "pattern": "quick",
+		"wanted_intensity": "firm", "wanted_pattern": "teasing",
+	})
+	check(too_fast.contains("too fast"), "a quick rhythm is felt as too fast")
 	var close := UTTER.line_seed({
 		"mood": "close", "intensity": "soft", "wanted_intensity": "firm",
 	})
@@ -92,7 +102,7 @@ func run() -> void:
 	check(line.contains("last touch=caress"), "state line touch")
 	check(line.contains("last talk=praise"), "state line talk")
 	check(line.contains("climaxes=2"), "state line climaxes")
-	check(line.contains("18s in"), "state line time")
+	check(not line.contains("18s in"), "state line drops the elapsed seconds")
 	check(not line.contains("/s"), "state line has no speed units")
 
 	var empty := UTTER.state_line("standing", "warming", "", "", "", "", 0.0)

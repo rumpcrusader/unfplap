@@ -207,7 +207,11 @@ Rules:
 - an unresolved answer gets exactly one clarification line, then gives up;
 - the ask deadline extends while an answer, a line or her own speech is in flight.
 
-A decline records the declined situation and closes with the full cooldown.
+A decline records the declined situation and closes with the full cooldown. The declined and
+ended situation texts state only what happened (`Anon declined your offer.`, `Your offer for sex
+is over for now. Anon did not take it up.`); they do not tell the model to stop pressing him, so
+she may choose to pressure after a no. The act gates still decide whether any later attempt can
+start.
 
 An accept records the accepted situation, then:
 
@@ -280,8 +284,9 @@ runtime.
 `act_history.ask_note`) and `face_note` (`act_face.prompt_note("ask"|"invite")`). Wording mode is
 decided once per builder by
 `policy.wording_mode(private)`: `free` speaks plainly and asks clearly, `indirect` hints while
-other ponies are around. The heat line is appended only in heat and is empty otherwise. Prompts
-never suggest `[mood:...]`; the face hint is the only expression guidance.
+other ponies are around. The heat line is appended only in heat and is empty otherwise. The face
+hint is the expression guidance: `[face:...]` at the start of the line, and the game's feeling tag
+after the spoken words only when the moment genuinely changes how she feels.
 
 ## Debug and lab
 

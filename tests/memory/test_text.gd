@@ -28,8 +28,11 @@ func run() -> void:
 	check(TEXT.witness_kind(true) == "witnessed_scene", "young event kind")
 
 	var adult := TEXT.witness_text("Fluttershy", false, true, 0)
-	check(adult == "She saw Anon and Fluttershy having sex.", "adult text is unchanged indoors")
+	check(adult == "She saw Anon and Fluttershy together, close and unguarded.",
+		"adult sight text is a perception")
 	check(TEXT.witness_text("Fluttershy", false, false, 7) == adult, "adult text ignores place and serial")
+	check(TEXT.witness_text("Fluttershy", false, true, 0, FACTS.Sense.SOUND)
+		== "She heard Anon and Fluttershy together.", "adult sound text is a perception")
 
 	for indoors: bool in [true, false]:
 		var prefix := TEXT.witness_scene_prefix("Fluttershy", indoors)
@@ -49,10 +52,10 @@ func run() -> void:
 
 	check(TEXT.witness_thought("Fluttershy", true, true) == "", "young witness has no thought")
 	check(TEXT.witness_thought("Fluttershy", true, false) == "", "young outdoor witness has no thought")
-	check(TEXT.witness_thought("Fluttershy", false, true).contains("having sex"),
-		"adult indoor thought says what it was")
-	check(TEXT.witness_thought("Fluttershy", false, false).contains("having sex"),
-		"adult outdoor thought says what it was")
+	check(TEXT.witness_thought("Fluttershy", false, true) == "I saw Anon and Fluttershy together.",
+		"adult sight thought is a perception")
+	check(TEXT.witness_thought("Fluttershy", false, false, FACTS.Sense.SOUND)
+		== "I heard Anon and Fluttershy together.", "adult sound thought is a perception")
 
 	var young: Dictionary = TEXT.witness_impression("Fluttershy", true, true)
 	check(young == {"mood": "amused"}, "young impression is mood only")
@@ -61,8 +64,8 @@ func run() -> void:
 
 	var grown: Dictionary = TEXT.witness_impression("Fluttershy", false, false)
 	check(str(grown.get("mood", "")) == "surprised", "adult impression mood")
-	check(str(grown.get("thought", "")) == "I saw Anon and Fluttershy having sex out in the open.",
-		"adult outdoors thought")
+	check(str(grown.get("thought", "")) == "I saw Anon and Fluttershy together.",
+		"adult thought is a neutral perception")
 	check(not grown.has("romance") and not grown.has("friendship"), "adult impression carries no score")
 
 	check(TEXT.key("act", "reply", "climax") == "unfplap:act:reply:climax",
@@ -97,15 +100,15 @@ func run() -> void:
 	check(TEXT.stay_close_thought(false, false).contains("hurt"),
 		"a bad stay-close reads as a repair beat")
 
-	check(TEXT.refusal_text(false).contains("turned Anon away"), "plain refusal wording")
+	check(TEXT.refusal_text(false).contains("refused him"), "plain refusal wording")
 	check(TEXT.refusal_text(true).contains("bucked"), "buck refusal wording")
 	check(TEXT.refusal_thought(false).contains("turned him away"), "plain refusal thought")
 	check(TEXT.refusal_thought(true).contains("bucked"), "buck refusal thought")
 
 	check(TEXT.stop_name(FACTS.StopReason.WITHDREW) == "withdrew", "withdrew stop name")
-	check(TEXT.stop_text(FACTS.StopReason.WITHDREW).contains("does not like"),
+	check(TEXT.stop_text(FACTS.StopReason.WITHDREW).contains("did not like"),
 		"withdrew stop wording")
-	check(TEXT.stop_text(FACTS.StopReason.UNWILLING).contains("no longer wanted"),
+	check(TEXT.stop_text(FACTS.StopReason.UNWILLING).contains("did not want to keep going"),
 		"unwilling stop wording")
 
 	check(TEXT.reaction_name(FACTS.Reaction.CLIMAX) == "climax", "climax reaction name")

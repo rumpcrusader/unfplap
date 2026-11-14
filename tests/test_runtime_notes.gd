@@ -1,11 +1,10 @@
 extends SceneTree
-## Normal-dialogue notes that are not act lines: the after-sex warm note and the neutral
-## lover wording. The live inspector print is covered by main/debug_actions, not here.
+## Normal-dialogue notes that are not act lines: the after-sex warm note. The live inspector
+## print is covered by main/debug_actions, not here.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_runtime_notes.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const REL := preload("res://mods/unfplap/shared/relationship_cue.gd")
 var failures := 0
 var checks := 0
 
@@ -63,13 +62,6 @@ func run() -> void:
 	check(not note.to_lower().contains("sex"), "the warm note has no bare sex word")
 	runtime._face.warm_note = false
 	runtime.free()
-
-	check(REL.lover_note(true) == "- You and Anon are lovers.", "romantic lover note")
-	check(REL.lover_note(false) == "- You are not Anon's lover.", "non-romantic lover note")
-	check(not REL.lover_note(true).to_lower().contains("sex"),
-		"the romantic lover note has no sex word")
-	check(not REL.lover_note(false).to_lower().contains("sex"),
-		"the non-romantic lover note has no sex word")
 
 	print("RUNTIME_NOTES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

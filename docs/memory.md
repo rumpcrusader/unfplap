@@ -141,8 +141,8 @@ chosen by the `angry` mood; the stay-close thought is chosen by the `romance` an
 
 | Kind | Event id | Text |
 |---|---|---|
-| `CANCELLED` | `:cancel` | `Anon stopped before the act reached a climax.` |
-| `CLIMAXED` | `:pony_climax` | `You and Anon made love, and she came.` |
+| `CANCELLED` | `:cancel` | `Anon stopped before she climaxed.` |
+| `CLIMAXED` | `:pony_climax` | `You and Anon made love, and she climaxed.` |
 | `STOPPED` | `:stop:<reason>` | the stop reason's text |
 | `APOLOGY` | `apology:<id>:<usec>` | `Anon apologized for last time.` |
 
@@ -161,9 +161,11 @@ runs the same test and writes one row per observer:
 - A young pony is never an observer; the `Age` split comes from `eligibility.witness_age`.
 - An adult is `SIGHT` when `PonyAwareness.visible(observer, partner)` (24 m, facing, clear line)
   or `SOUND` when `can_hear(observer, partner, HEARING_RANGE)` (12 m, clear line).
-- An adult gets `witnessed_intimacy` with the explicit text and the `surprised` thought; a young
-  pony gets `witnessed_scene`, a perception with an indoors/outdoors prefix and no conclusion, and
-  `amused` mood only. The game's per-pony story summary forms the memory from the perception.
+- Every observer gets a perception, never a conclusion. An adult gets `witnessed_intimacy` with
+  the sight/sound text and a neutral perception thought, so her old impression is replaced and
+  she does not inherit an unrelated one; a young pony gets `witnessed_scene`, a perception with an
+  indoors/outdoors prefix and no thought, and `amused` mood only. The game's per-pony story summary
+  forms the personal memory from the perception.
 - The event id is `witness_<observer>_<partner>_<serial>`; the impression is
   `...:gain`. The `serial` varies the young tail so repeated gossip does not read the same.
 - The `Witness` row carries the debug fields: `id`, `young`, `sense`, `indoors`, `distance`,
@@ -228,9 +230,9 @@ memory is marked used only after the caller queues the line.
 
 ## Tests
 
-- `tests/memory/test_text.gd`: the pure wording — the adult, the young and the scene texts, the
-  refusal and stop texts, the impression and event suffixes, the witness impression, and the
-  keep-active rule.
+- `tests/memory/test_text.gd`: the pure wording — the adult sight/sound perceptions, the young
+  scene texts, the refusal and stop texts, the impression and event suffixes, the witness
+  impression, and the keep-active rule.
 - `tests/memory/test_facts.gd`: the typed defaults, the `CueFacts` dictionary and the `MemoryHit`
   `found()` flag.
 - `tests/memory/test_store.gd`: the peak record, the higher-score replacement and the save.

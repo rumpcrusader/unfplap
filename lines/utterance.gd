@@ -5,6 +5,10 @@ extends RefCounted
 ## A demand cue asks Anon to change something. These get the longer repeat budget. The base
 ## fallback ("She wants you to keep going.") is a trend cue, not a demand, so it stays on the
 ## normal cue gap.
+const INTENSITY_ORDER := ["soft", "firm", "rough"]
+const PATTERN_ORDER := ["teasing", "steady", "quick"]
+
+
 static func is_demand(text: String) -> bool:
 	return text.begins_with("She wants it") or text.begins_with("She wants a ") \
 		or text.begins_with("She wants to be teased") or text.begins_with("She needs")
@@ -63,24 +67,19 @@ static func line_seed(facts: Dictionary) -> String:
 		var intensity := str(facts.get("intensity", ""))
 		var wanted_intensity := str(facts.get("wanted_intensity", "firm"))
 		if not intensity.is_empty() and intensity != wanted_intensity:
-			match wanted_intensity:
-				"soft":
-					need = "You would rather he be softer."
-				"rough":
-					need = "You would rather he be harder."
-				_:
-					need = "You would rather he be firmer."
+			if _intensity_rank(intensity) > _intensity_rank(wanted_intensity):
+				need = "He is being too rough with you, and it hurts."
+			else:
+				need = "He is being too gentle with you, and you barely feel anything."
 		else:
 			var pattern := str(facts.get("pattern", ""))
 			var wanted_pattern := str(facts.get("wanted_pattern", "steady"))
 			if not pattern.is_empty() and pattern != wanted_pattern:
-				match wanted_pattern:
-					"teasing":
-						need = "You want a slower, teasing rhythm."
-					"quick":
-						need = "You want it quicker."
-					_:
-						need = "You want a steadier rhythm."
+				if _pattern_rank(pattern) > _pattern_rank(wanted_pattern):
+					need = "He is going too fast for you to enjoy the build; you want him to slow " \
+						+ "down and tease."
+				else:
+					need = "He is taking his time, and you want it faster."
 			elif not intensity.is_empty() and not pattern.is_empty() \
 					and intensity == wanted_intensity and pattern == wanted_pattern:
 				need = "This is what you wanted; let yourself feel it."
@@ -99,13 +98,25 @@ static func line_seed(facts: Dictionary) -> String:
 			need = "What he said landed."
 	if need.is_empty():
 		need = "You are here with him; nothing needs fixing."
-	return need + " This is private, not a script; you may show it, say it, or let it go unsaid."
+	return need + " This is private; let it colour one short line, or let it pass unsaid."
+
+
+## The two felt intensity lines choose by direction, so there is no middle "firmer" line.
+static func _intensity_rank(value: String) -> int:
+	var index := INTENSITY_ORDER.find(value)
+	return index if index >= 0 else 1
+
+
+## Tempo order: teasing is slowest, then steady, then quick.
+static func _pattern_rank(value: String) -> int:
+	var index := PATTERN_ORDER.find(value)
+	return index if index >= 0 else 1
 
 
 ## Short private state line for the AI. No speed/depth units: the mood, the two preference axes
 ## and the last concrete input are what a partner would actually notice.
 static func state_line(pose_id: String, mood: String, intensity: String, pattern: String,
-		last_touch: String, last_talk: String, seconds: float, climaxes := 0) -> String:
+		last_touch: String, last_talk: String, _seconds: float, climaxes := 0) -> String:
 	var motion := "unknown"
 	if not intensity.is_empty() and not pattern.is_empty():
 		motion = "%s %s" % [intensity, pattern]
@@ -113,9 +124,9 @@ static func state_line(pose_id: String, mood: String, intensity: String, pattern
 		motion = intensity
 	elif not pattern.is_empty():
 		motion = pattern
-	return "pose=%s, mood=%s, he is %s, last touch=%s, last talk=%s, climaxes=%d, %.0fs in" % [
+	return "pose=%s, mood=%s, he is %s, last touch=%s, last talk=%s, climaxes=%d" % [
 		pose_id, mood, motion,
 		last_touch if not last_touch.is_empty() else "none",
 		last_talk if not last_talk.is_empty() else "none",
-		climaxes, maxf(0.0, seconds),
+		climaxes,
 	]

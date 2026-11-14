@@ -83,12 +83,12 @@ static func invite_give_up_purpose() -> String:
 
 static func reminder_purpose(private: bool) -> String:
 	if not private:
-		return "Anon has not reacted to your hint. Ask once more, indirectly and in character, as a question in one short sentence. Other ponies are around. Do not repeat your first line."
-	return "Anon has not answered your offer. Ask the question once more, short and in character; playful or plain is fine, but do not turn it into a demand. Do not repeat your first line."
+		return "Anon has not reacted to your hint. Ask once more, indirectly, as a question in one short sentence. Other ponies are around. Do not repeat your first line."
+	return "Anon has not answered your offer. Ask the question once more, short and in your own voice; playful or plain is fine, but do not turn it into a demand. Do not repeat your first line."
 
 
 static func give_up_purpose() -> String:
-	return "Your offer is over for now. Say one short, in-character line letting it go without pressure or anger. Do not ask again and do not narrate actions."
+	return "Your offer is over for now. Say one short line in your own voice, letting it go without pressure or anger. Do not ask again and do not narrate actions."
 
 
 ## The heat sentence appended to both ask forms. Empty outside heat.
@@ -116,13 +116,13 @@ static func situation_ask(request: FACTS.Request) -> String:
 static func situation_consent(accepted: bool) -> String:
 	if accepted:
 		return "Anon accepted your offer. You are alone together and taking the position he came for."
-	return "Anon declined your offer. Accept it gracefully and do not pressure him."
+	return "Anon declined your offer."
 
 
 ## World-context text: the offer is over without an answer. It replaces the open ask situation so
 ## the director's next line does not keep the offer alive after the controller gave up.
 static func situation_end() -> String:
-	return "Your offer for sex is over for now. Anon did not take it up; let it go without pressure and stop asking."
+	return "Your offer for sex is over for now. Anon did not take it up."
 
 
 ## The single free/indirect decision. Every builder above branches on this once.

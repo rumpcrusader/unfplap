@@ -1,11 +1,10 @@
 extends SceneTree
-## The pure prompt-note assembly and the act-lines facade's two forwarders: the warm note, the
-## act/afterglow note, the history and relationship lines and the caress/lean reads.
+## The pure prompt-note assembly: the warm note, the act/afterglow note, the history and
+## relationship lines and the caress/lean reads.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/lines/test_prompt_notes.gd
 
 const PROMPTS := preload("res://mods/unfplap/lines/prompts.gd")
-const ACT_LINES := preload("res://mods/unfplap/lines/service.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -31,10 +30,6 @@ func run() -> void:
 	_check_outside()
 	_check_act()
 	_check_afterglow()
-	check(ACT_LINES.new().lover_prompt_note("dating") == "- You and Anon are lovers.",
-		"the facade forwards the dating lover note")
-	check(ACT_LINES.new().lover_prompt_note("crush") == "- You are not Anon's lover.",
-		"the facade forwards the non-romantic lover note")
 	print("PROMPT_NOTES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("PROMPT_NOTES_PASS")
@@ -50,8 +45,8 @@ func _check_outside() -> void:
 	check(warm.contains("affectionate"), "the warm note asks for the tone")
 	check(not warm.to_lower().contains("sex"), "the warm note has no bare sex word")
 	var warm_relation := PROMPTS.note({"state": STATE_IDLE, "warm": true,
-		"relation": "- You are not Anon's lover."})
-	check(warm_relation.contains("after making love") and warm_relation.contains("not Anon's lover"),
+		"relation": "- You and Anon: you are dating."})
+	check(warm_relation.contains("after making love") and warm_relation.contains("you are dating"),
 		"the warm note appends the relationship line")
 	check(not PROMPTS.in_act(STATE_IDLE) and PROMPTS.in_act(STATE_ACTIVE)
 		and PROMPTS.in_act(STATE_AFTERGLOW), "the act states are recognised")
@@ -60,11 +55,11 @@ func _check_outside() -> void:
 func _check_act() -> void:
 	for state: int in [STATE_ACTIVE, STATE_CLIMAX]:
 		var note := PROMPTS.note({"state": state, "history": "- she is close"})
-		check(note.begins_with("- You are in the middle of sex with Anon."),
+		check(note.begins_with("- You are having sex with Anon right now."),
 			"the act note opens the mid-act note")
 		check(note.contains("- she is close"), "the history note rides with the act note")
-		check(note.ends_with("He is close but not caressing or leaning in right now."),
-			"the resting state is named")
+		check(note.ends_with("- she is close"),
+			"a quiet caress/lean read adds no mechanical resting sentence")
 	var chest := PROMPTS.note({"state": STATE_ACTIVE, "missionary": true, "caressing": true})
 	check(chest.contains("caressing your chest and belly"), "missionary caresses the chest")
 	var flank := PROMPTS.note({"state": STATE_ACTIVE, "caressing": true})
@@ -73,16 +68,16 @@ func _check_act() -> void:
 	check(lean.contains("leaning in close, holding you"), "a lean is named")
 	var both := PROMPTS.note({"state": STATE_ACTIVE, "leaning": true, "caressing": true})
 	check(both.contains("leaning in close against you and caressing"), "a lean and caress share a line")
-	var relation := PROMPTS.note({"state": STATE_ACTIVE, "relation": "- You and Anon are lovers."})
-	check(relation.contains("- You and Anon are lovers."), "the relationship line rides along")
+	var relation := PROMPTS.note({"state": STATE_ACTIVE, "relation": "- You and Anon: you are dating."})
+	check(relation.contains("- You and Anon: you are dating."), "the relationship line rides along")
 	check(not relation.contains("[stay:"), "an act does not offer the stay action")
 
 
 func _check_afterglow() -> void:
 	var note := PROMPTS.note({"state": STATE_AFTERGLOW})
-	check(note.contains("still in the afterglow with Anon"), "the afterglow note is present")
-	check(not note.contains("in the middle of sex"), "the afterglow drops the act note")
-	check(note.contains("[stay: 120]"), "the afterglow offers the stay action")
+	check(note.contains("still close with Anon in the afterglow"), "the afterglow note is present")
+	check(not note.contains("having sex"), "the afterglow drops the act note")
+	check(not note.contains("[stay:"), "the afterglow does not advertise the stay action")
 	var beat := PROMPTS.note({"state": STATE_AFTERGLOW, "beat": "She is catching her breath."})
 	check(beat.contains("- She is catching her breath."), "the afterglow beat rides along")
 	var quiet := PROMPTS.note({"state": STATE_AFTERGLOW, "beat": ""})

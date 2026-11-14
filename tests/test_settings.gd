@@ -1348,8 +1348,8 @@ func _check_character_overrides() -> void:
 
 	var base: Dictionary = SETTINGS._filled_default()
 	var fluttershy: Dictionary = SETTINGS.profile_for(base, {}, "fluttershy")
-	check(not (fluttershy.get("event_prompts", {}) as Dictionary).is_empty(),
-		"built-in event prompts seed without a saved block")
+	check(str((fluttershy.get("event_prompts", {}) as Dictionary).get("climax", "")).is_empty(),
+		"built-in mares use the generic climax fallback")
 	check(not (fluttershy.get("poses", {}) as Dictionary).is_empty(),
 		"built-in poses seed without a saved block")
 

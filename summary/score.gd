@@ -28,9 +28,6 @@ const DEFAULT_RULES := {
 }
 
 
-## Reason sentences for the private note: [profile-safe world event, private thought]. The event
-## text must read correctly after the profile's "You and Anon " -> "You and <name>" rewrite, so it
-## uses no second-person pronouns; the thought is her own voice (He/I).
 ## Short private beats for afterglow. The HUD and the impression keep the full summary; these
 ## only give the model a mood, never a review or a request list. 40% of rolls return nothing.
 const AFTERGLOW_BEATS := {
@@ -43,23 +40,6 @@ const AFTERGLOW_BEATS := {
 	"bad": ["You are quiet and a little raw.", "You need a moment before you talk.",
 		"You are hurt but not ready to explain."],
 }
-
-const REASON_LINES := {
-	"no_climax": ["She did not get there.", "I did not get there."],
-	"silent_talk": ["Anon did not speak when she needed to hear him.",
-		"He did not speak to me when I needed to hear him."],
-	"talk_miss": ["Anon did not say the kind of thing she needs to hear.",
-		"He did not say the kind of thing I need to hear."],
-	"no_liked_touch": ["Anon did not touch the way she likes.",
-		"He did not touch me the way I like."],
-	"intensity_mismatch": ["Anon did not use the pressure she wanted.",
-		"He did not use the pressure I wanted."],
-	"pattern_mismatch": ["Anon did not keep the rhythm she wanted.",
-		"He did not keep the rhythm I wanted."],
-	"too_many_dislikes": ["Anon kept doing things she does not like.",
-		"He kept doing things I do not like."],
-}
-
 
 ## The live setting behind each rule key, declared once so `rules()` needs no path strings.
 static var _RULES := {
@@ -124,7 +104,7 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 	if preference_value is Dictionary:
 		preferences = preference_value
 	if bool(snapshot.get("stopped_by_her", false)):
-		return _stopped(preferences, snapshot)
+		return _stopped(snapshot)
 	var seconds := float(snapshot.get("seconds", 0.0))
 	var thrusts := int(snapshot.get("thrusts", 0))
 	if seconds < float(rules.get("early_grace_s", 20.0)) \
@@ -260,7 +240,7 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 		mood = "annoyed" if severe else "sad"
 	elif grade == "good" or grade == "great":
 		mood = "happy"
-	var wants := _wants(preferences, reasons)
+	var wants := _wants(reasons)
 	var text := _text(grade, ended_early, reasons)
 	var thought := _thought(grade, ended_early, reasons)
 	return {
@@ -330,7 +310,7 @@ static func _skipped(reason: String) -> Dictionary:
 
 
 ## A stop is always a severe bad act, even if the surrounding action checklist would be clean.
-static func _stopped(preferences: Dictionary, snapshot: Dictionary) -> Dictionary:
+static func _stopped(snapshot: Dictionary) -> Dictionary:
 	var reasons: Array[String] = ["stopped_by_her"]
 	var touch_dislikes: Dictionary = {}
 	var touch_value: Variant = snapshot.get("touch_dislikes", {})
@@ -345,7 +325,7 @@ static func _stopped(preferences: Dictionary, snapshot: Dictionary) -> Dictionar
 			reasons.append("severe_" + str(kind))
 	if int(snapshot.get("talk_dislikes", 0)) > 0:
 		reasons.append("talk_miss")
-	var wants := _wants(preferences, reasons)
+	var wants := _wants(reasons)
 	var tolerance := str(snapshot.get("tolerance", "normal"))
 	var mood := "angry" if tolerance == "strict" else "annoyed"
 	return {
@@ -394,13 +374,12 @@ static func _text(grade: String, ended_early: bool, reasons: Array[String]) -> S
 		text = "You and Anon made love more than once, and she was ecstatic about it."
 	elif grade == "good":
 		text = "You and Anon made love, and she loved every moment."
-	var reason := _reason_sentence(reasons, false)
-	if not reason.is_empty():
-		text += " " + reason
+	if not reasons.is_empty():
+		text += " Something about it stayed with her."
 	return text
 
 
-static func _thought(grade: String, ended_early: bool, reasons: Array[String]) -> String:
+static func _thought(grade: String, ended_early: bool, _reasons: Array[String]) -> String:
 	var thought := "It was nice, but I wanted more."
 	if ended_early:
 		thought = "He stopped before I finished; I was left wanting."
@@ -410,62 +389,27 @@ static func _thought(grade: String, ended_early: bool, reasons: Array[String]) -
 		thought = "He gave me everything I needed; I felt adored."
 	elif grade == "good":
 		thought = "He gave me what I needed; I felt wanted."
-	var reason := _reason_sentence(reasons, true)
-	if not reason.is_empty():
-		thought += " " + reason
 	return thought.left(240)
 
 
-static func _reason_sentence(reasons: Array[String], first_person: bool) -> String:
-	var parts: PackedStringArray = []
-	for reason: String in reasons:
-		# The opening sentence already states an early end; repeating it here was the bug.
-		if reason == "ended_early":
-			continue
-		var pair: Variant = REASON_LINES.get(reason)
-		if pair is Array:
-			parts.append(str((pair as Array)[1 if first_person else 0]))
-		elif reason.begins_with("severe_") or reason.begins_with("disliked_"):
-			parts.append("He kept doing things I do not like." if first_person
-				else "Anon kept doing things she does not like.")
-	if parts.is_empty():
-		return ""
-	# Keep the note short and non-repetitive; one or two facts is enough.
-	var unique: PackedStringArray = []
-	for part: String in parts:
-		if not part in unique:
-			unique.append(part)
-	return " ".join(unique.slice(0, 2))
-
-
-static func _wants(preferences: Dictionary, reasons: Array[String]) -> String:
+## The stored need is an emotional phrase, never a direct instruction or a stroke mechanic. It is
+## kept for the summary and debug; no prompt sends it to the model.
+static func _wants(reasons: Array[String]) -> String:
 	var wants: PackedStringArray = []
-	if "silent_talk" in reasons or "talk_miss" in reasons:
-		wants.append("talk to me while we move")
-	if "severe_smack" in reasons or "disliked_smack" in reasons:
-		wants.append("be gentle with me")
-	if "no_liked_touch" in reasons:
-		wants.append("touch me the way I like")
-	if "intensity_mismatch" in reasons:
-		var intensity := str(preferences.get("intensity", "firm"))
-		match intensity:
-			"soft":
-				wants.append("take me softer")
-			"rough":
-				wants.append("take me harder")
-			_:
-				wants.append("take me firmer")
-	if "pattern_mismatch" in reasons:
-		var pattern := str(preferences.get("pattern", "steady"))
-		match pattern:
-			"teasing":
-				wants.append("tease me more")
-			"quick":
-				wants.append("keep it quicker")
-			_:
-				wants.append("keep a steadier rhythm")
-	if "ended_early" in reasons:
-		wants.append("let me finish")
+	for reason: String in reasons:
+		var need := ""
+		if reason in ["silent_talk", "talk_miss"]:
+			need = "feel heard"
+		elif reason.begins_with("severe_") or reason.begins_with("disliked_"):
+			need = "feel safe"
+		elif reason == "no_liked_touch":
+			need = "feel wanted"
+		elif reason in ["intensity_mismatch", "pattern_mismatch"]:
+			need = "feel met"
+		elif reason == "ended_early":
+			need = "feel satisfied"
+		if not need.is_empty() and not need in wants:
+			wants.append(need)
 	if wants.is_empty():
-		return "keep doing what you did"
+		wants.append("feel wanted")
 	return " and ".join(wants.slice(0, 2))

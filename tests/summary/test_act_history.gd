@@ -27,7 +27,7 @@ func outcome(grade: String, severe := false, text := "The act happened.") -> Dic
 		"severe": severe,
 		"reasons": ["test"],
 		"text": text,
-		"wants": "be gentle",
+		"wants": "feel safe",
 		"romance": 2 if grade == "good" else (-1 if grade == "bad" else 1),
 		"mood": "happy" if grade == "good" else ("sad" if grade == "bad" else "relaxed"),
 	}
@@ -62,12 +62,12 @@ func run() -> void:
 	check(int(row.get("hurt", 0)) == 0, "a good act does not add hurt")
 	check(int(row.get("good", 0)) == 1, "good acts are counted")
 	check(str(row.get("last_text", "")).contains("act happened"), "the last text is stored")
-	check(str(row.get("last_wants", "")) == "be gentle", "the last want is stored")
+	check(str(row.get("last_wants", "")) == "feel safe", "the stored need is emotional")
 	check((row.get("recent", []) as Array).size() == 1, "the recent list grows")
 
 	var great_row: Dictionary = HISTORY.commit(section, "rarity",
 		{"grade": "great", "quality": 0.98, "severe": false, "reasons": [], "text": "Great.",
-		"wants": "keep going", "romance": 2, "mood": "happy"}, 10.0).get("row", {})
+		"wants": "feel met", "romance": 2, "mood": "happy"}, 10.0).get("row", {})
 	check(int(great_row.get("comfort", 0)) == good_comfort + great_comfort,
 		"a great act adds more comfort")
 
@@ -131,7 +131,7 @@ func run() -> void:
 	var stop_row_data: Dictionary = {
 		"grade": "bad", "quality": 0.0, "stopped_by_her": true, "tolerance": "strict",
 		"severe": true, "reasons": ["stopped_by_her"], "text": "You stopped him.",
-		"wants": "be gentle", "romance": -1, "mood": "angry",
+		"wants": "feel safe", "romance": -1, "mood": "angry",
 	}
 	var stop_section: Dictionary = {}
 	var stop_row: Dictionary = HISTORY.commit(stop_section, "rarity", stop_row_data, 10.0).get("row", {})
@@ -150,7 +150,7 @@ func run() -> void:
 	var early_row: Dictionary = HISTORY.commit(early_section, "rarity", {
 		"grade": "neutral", "quality": 0.55, "severe": false, "early": true,
 		"reasons": ["ended_early"], "text": "You were left wanting.",
-		"wants": "let me finish", "romance": 0, "mood": "relaxed",
+		"wants": "feel satisfied", "romance": 0, "mood": "relaxed",
 	}, 10.0).get("row", {})
 	check(int(early_row.get("hurt", 0)) == 1, "a clean early end is a one-point hurt")
 	check(int(early_row.get("neutral", 0)) == 1, "the early end is still neutral")
@@ -229,38 +229,40 @@ func run() -> void:
 	var text := HISTORY.prompt_note(pending)
 	check(not text.is_empty(), "a hurt mare has a prompt note")
 	check(not text.contains("0."), "the prompt note carries no raw score")
-	check(not text.contains("You want be "), "a prompt note joins wants with to")
+	check(not text.contains("You want to"), "a prompt note carries no wants list")
 	var quiet_one := HISTORY.sanitize({"hurt": 2, "last_text": "You felt used.",
-		"last_wants": "be gentle", "last_at": 0.0})
+		"last_wants": "feel safe", "last_at": 0.0})
 	check(str(HISTORY.prompt_note(quiet_one)) == "", "the tier-1 hint is rare")
 	var tier_one := HISTORY.sanitize({"hurt": 2, "last_text": "You felt used.",
-		"last_wants": "be gentle", "last_at": 2.0})
+		"last_wants": "feel safe", "last_at": 2.0})
 	check(HISTORY.tier_one_hint(tier_one), "the tier-1 hint is deterministic")
 	var tier_one_note := str(HISTORY.prompt_note(tier_one))
 	check(tier_one_note.contains("still sitting with you"), "the tier-1 hint is vague")
 	check(not tier_one_note.contains("Next time"),
 		"the tier-1 hint carries no next-time list")
-	check(str(HISTORY.ask_note(tier_one)).contains("You want to be gentle"),
-		"the ask note joins wants with to")
-	check(str(HISTORY.line_purpose(tier_one, "complaint")).contains("You want to be gentle"),
-		"the complaint line joins wants with to")
+	var ask := str(HISTORY.ask_note(tier_one))
+	check(ask.contains("Privately, you remember: You felt used."),
+		"the ask note keeps the reason private")
+	check(ask.contains("keep it soft and indirect"), "the ask note forbids a review")
+	check(not ask.contains("You want to"), "the ask note carries no wants list")
+	var complaint := str(HISTORY.line_purpose(tier_one, "complaint"))
+	check(complaint.contains("Privately, you remember: You felt used."),
+		"the complaint keeps the reason private")
+	check(complaint.contains("without naming what he did"),
+		"the complaint forbids reciting what he did")
+	check(not complaint.contains("You want to"), "the complaint carries no wants list")
 	check(not str(HISTORY.line_purpose(tier_one, "reminder")).contains("Next time you want"),
 		"the reminder line carries no next-time list")
 	check(str(HISTORY.ask_note(HISTORY.sanitize({}))).is_empty(),
 		"a steady mare has no ask note")
-	check(HISTORY.repair_wants("take me firmer and be gentle with me") == "be gentle with me",
-		"repair wants keep the comfort need")
-	check(HISTORY.repair_wants("take me firmer") == "", "repair wants drop stroke mechanics")
-	check(HISTORY.repair_wants("keep doing what you did") == "",
-		"repair wants drop the no-change fallback")
 	var mechanical := HISTORY.sanitize({"hurt": 2, "last_text": "You felt used.",
 		"last_wants": "take me firmer"})
 	check(not str(HISTORY.ask_note(mechanical)).contains("take me firmer"),
-		"an offer note does not repeat stroke mechanics")
+		"an offer note never sends a stored need")
 	var sex_hurt_row := HISTORY.sanitize({
 		"hurt": 4,
 		"last_text": "You and Anon made love, but it did not give what was needed. Anon did not use the pressure she wanted.",
-		"last_wants": "be gentle",
+		"last_wants": "feel safe",
 	})
 	check(HISTORY.private_text(sex_hurt_row) == "Anon did not use the pressure she wanted.",
 		"private text drops the summary opening")

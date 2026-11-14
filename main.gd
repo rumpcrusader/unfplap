@@ -118,8 +118,6 @@ func prompt_note(pony: String) -> String:
 		if runtime_id != pony:
 			continue
 		var note := str(runtime.call("prompt_note"))
-		if note.is_empty():
-			note = str(runtime.call("lover_prompt_note"))
 		var cycle := str(runtime.call("cycle_note"))
 		if not cycle.is_empty():
 			note = cycle if note.is_empty() else note + " " + cycle
@@ -1192,7 +1190,6 @@ func _debug_prompt_rows(target: Node) -> Array[String]:
 		rows.append("no runtime")
 		return rows
 	rows.append("prompt_note: " + str(runtime.call("prompt_note")))
-	rows.append("lover_prompt_note: " + str(runtime.call("lover_prompt_note")))
 	rows.append("cycle_note: " + str(runtime.call("cycle_note")))
 	var history_row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
 	var history_note := ACT_HISTORY.prompt_note(history_row)

@@ -61,7 +61,7 @@ static func wink_burst_count(roll: float) -> int:
 static func prompt_note(phase_name: String) -> String:
 	match phase_name:
 		HEAT:
-			return "- You are in heat this week. You are restless and warm, it is hard to think about much else, and you want Anon more than usual. Let it colour how you act around him."
+			return "- You are in heat this week. You are restless and warm, it is hard to think about much else, and you want Anon more than usual. Let it colour how you behave around him."
 		DIESTRUS:
 			return "- Your heat has just ended and you are completely turned off for a couple of days. You feel irritable and touchy, and you turn down anything sexual, though you are still fond of Anon."
 	return ""

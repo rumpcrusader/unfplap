@@ -133,7 +133,8 @@ func run() -> void:
 			check(ACT_FACE.valid_face(face), "%s suggests a valid face" % moment)
 	var cue_note := ACT_FACE.prompt_note("cue", "overwhelmed")
 	check(cue_note.contains("[face:"), "cue note names a face tag")
-	check(cue_note.contains("never use [mood:"), "cue note forbids a mood tag")
+	check(cue_note.contains("feeling tag after your spoken words"),
+		"cue note allows the base-game feeling tag after speech")
 	check(ACT_FACE.prompt_note("unknown").is_empty(), "unknown moment has no note")
 
 	print("ACT_FACE_RESULT checks=%d failures=%d" % [checks, failures])

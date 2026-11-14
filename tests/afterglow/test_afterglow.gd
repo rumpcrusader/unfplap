@@ -59,9 +59,9 @@ func run() -> void:
 	var note_runtime: Node = _runtime("standing")
 	note_runtime._id = "fluttershy"
 	var idle_note: String = str(note_runtime.prompt_note())
-	check(idle_note.contains("afterglow") and idle_note.contains("not caressing"),
+	check(idle_note.contains("afterglow") and idle_note.contains("still close"),
 		"afterglow prompt note carries the live state")
-	check(idle_note.contains("[stay:"), "afterglow prompt note advertises the stay tag")
+	check(not idle_note.contains("[stay:"), "afterglow prompt note does not advertise a stay tag")
 	var note_caress: Variant = note_runtime.call("_hand_controller")
 	note_caress._caress_active = {"L": true, "R": false}
 	check(note_runtime.prompt_note().contains("caressing your flank"), "caress note")
@@ -70,7 +70,7 @@ func run() -> void:
 	check(note_runtime.prompt_note().contains("leaning in close"), "lean note")
 	note_runtime.state = 2 # ACTIVE
 	note_runtime._act_camera.lean_forward = 0.0
-	check(note_runtime.prompt_note().contains("middle of sex"), "active prompt note")
+	check(note_runtime.prompt_note().contains("having sex"), "active prompt note")
 	note_runtime.free()
 
 	# The act-key hint's End shade follows climaxes but only the earned caress reaches full pink.

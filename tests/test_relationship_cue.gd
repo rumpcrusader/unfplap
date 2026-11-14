@@ -47,16 +47,6 @@ func run() -> void:
 	var first := REL.note(facts({"first_time": true}))
 	check(first.contains("first time together"), "first-time note")
 	check(REL.note({}).is_empty(), "no facts gives no note")
-	check(REL.lover_note(true) == "- You and Anon are lovers.", "romantic lover note")
-	check(REL.lover_note(false) == "- You are not Anon's lover.", "non-romantic lover note")
-	check(not REL.lover_note(true).to_lower().contains("sex"),
-		"the lover note does not mention sex")
-	check(not REL.lover_note(false).to_lower().contains("sex"),
-		"the non-romantic lover note does not mention sex")
-	check(REL.romantic_stage("dating") and REL.romantic_stage("engaged")
-		and REL.romantic_stage("married"), "the romantic stages are lovers")
-	check(not REL.romantic_stage("crush") and not REL.romantic_stage("close_friend")
-		and not REL.romantic_stage(""), "every other stage is not")
 
 	check(REL.tone(facts({"first_time": true})) == "tender", "first time is tender")
 	check(REL.tone(facts()) == "warm", "marefriend is warm")
@@ -78,11 +68,13 @@ func run() -> void:
 	check(not REL.tone_line("warm").is_empty(), "tone line is present")
 	check(REL.tone_line("guarded").contains("do not know him well"),
 		"guarded tone line is present")
-	check(REL.tone_line("friendly").contains("not romantic partners"),
+	check(REL.tone_line("friendly").contains("not lovers"),
 		"friendly tone line is present")
 
 	check(REL.memory_line("").is_empty(), "empty memory is dropped")
 	check(REL.memory_line("a walk").contains("a walk"), "memory line carries text")
+	check(REL.memory_line("a walk").contains("colour"),
+		"the memory wrapper uses British spelling")
 	var long := "x".repeat(200)
 	var shortened := REL.memory_line(long)
 	check(shortened.length() < long.length() + 50, "long memory is shortened")

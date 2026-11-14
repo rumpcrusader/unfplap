@@ -58,7 +58,6 @@ tree.
 | `busy()` | the director or the pony is actually speaking |
 | `recent_lines()` / `last_spoken_line()` / `last_spoken_at()` | read the director's recent speech |
 | `prompt_note(values)` | the normal dialogue note: state, warm, history, beat, relation, caress/lean, pose |
-| `lover_prompt_note(stage)` | the neutral lovers wording, from the base relationship stage |
 | `scheduler()` | the pure scheduler, for the facade's own calls and the facade suite |
 
 ## Admission
@@ -71,9 +70,9 @@ tree.
 3. scheduler stability, repeat and gap → the scheduler's `last_reason`.
 
 A cue is queued only when the segment is not oral (`facts.oral_active`) and the act is `ACTIVE`.
-The prompt is formatted, then the face note, the code-owned context note, the cue-reaction note,
-the optional speech-feel note and the line-angle note are appended in that order. The
-shared-memory id is marked used only after the line was accepted.
+The prompt is formatted, then the face note, the code-owned context note, the optional
+speech-feel note and the line-angle note are appended in that order. The shared-memory id is
+marked used only after the line was accepted.
 
 Entering oral ends the act's own lines with `keep_speaking = false`: a queued or already speaking
 act line is cancelled, the runtime stops her base-game voice and re-asserts the oral mouth shape,
@@ -89,9 +88,9 @@ sets them on `act_facts` immediately before calling the facade.
 - outside the act states, the warm after-sex note (with the relationship line appended) or the
   history note;
 - mid-act, the act note plus the history note, the relationship line and one caress/lean sentence
-  (chest and belly in missionary, flank standing);
-- in afterglow, the afterglow note, one optional beat, the same relationship and caress reads and
-  the `[stay: 120]` instruction; the mid-act history note is not recited.
+  when one is active (chest and belly in missionary, flank standing); a quiet read adds nothing;
+- in afterglow, the afterglow note, one optional beat and the same relationship and caress reads;
+  the mid-act history note is not recited, and the note does not advertise a stay instruction.
 
 The runtime supplies plain values and keeps the history, relationship, caress, lean, pose and
 afterglow-beat reads, so the module has no scene access.
@@ -164,9 +163,11 @@ formatting. A legacy template cannot drop the relationship note.
 
 `{face_note}` is the base-game expression hint. The default `cue`/`utterance` prompts carry it;
 the facade fills it from `act_face.prompt_note("cue", mood)` and appends the same hint to a saved
-prompt that does not use the placeholder. It suggests one valid `[face:...]` tag and forbids
-`[mood:...]` in an act line. Voice emotions stay in the prompt text: `[whispering]` is the act
-default, with `[calm]`, `[happy]`, `[annoyed]`, `[surprised]`, `[sad]` or `[fearful]` by moment.
+prompt that does not use the placeholder. It suggests one valid `[face:...]` tag at the start of
+the line. If the moment genuinely changes how she feels, the same hint allows the game's feeling
+tag after the spoken words, such as `[mood: annoyed]`; the act summary may still overwrite the
+stored mood at act end. Voice emotions stay in the prompt text: `[whispering]` is the act default,
+with `[calm]`, `[happy]`, `[annoyed]`, `[surprised]`, `[sad]` or `[fearful]` by moment.
 
 One unused shared memory may ride with a cue. A stored peak memory is preferred; otherwise the
 story journal (a cue-word match, then the most recent player exchange), then older world-context
@@ -177,13 +178,16 @@ Talk is scored when the player actually uses the game's talk turn. There is no a
 talk-invitation line or HUD hint.
 
 Unprompted cue and reaction lines are always on. The line-angle note adds one fresh angle and the
-shared-day/history hint to a cue line, and the recent-line anti-repeat window is eight. The
-optional `features.act_speech_feel` (**Enable speech interjections**) adds the
-thrust-paced interjection instruction; the two are independent.
+“use something from today if it fits” hint to a cue line, and the recent-line anti-repeat window
+is eight; the template's `Do not repeat: {recent}` is the only copy of those lines. The optional
+`features.act_speech_feel` (**Enable speech interjections**) adds the thrust-paced interjection
+instruction; the two are independent.
 
 The HUD cue is shorthand, not the line. `UTTERANCE.line_seed()` turns the same facts into a private
-second-person seed (`{seed}`): it states the need or the moment, never “She wants…”, and ends with
-“This is private, not a script; you may show it, say it, or let it go unsaid.”
+second-person seed (`{seed}`): it states the felt need or the moment, never “She wants…”, and ends
+with “This is private; let it colour one short line, or let it pass unsaid.” A mismatched
+intensity has only the too-rough and too-gentle lines; a mismatched tempo has only too-fast and
+too-slow.
 
 ## Dependencies
 
@@ -212,8 +216,8 @@ second-person seed (`{seed}`): it states the need or the moment, never “She wa
 - `tests/lines/test_utterance_scheduler.gd`: stability, gaps, demand budget and the slot.
 - `tests/lines/test_act_lines.gd`: pacing configuration, cue admission, prompt assembly,
   the memory channel, reactions, the recent-line reads, busy state and act-end cancellation.
-- `tests/lines/test_prompt_notes.gd`: the warm, mid-act and afterglow notes, the
-  caress/lean reads and the two facade forwarders.
+- `tests/lines/test_prompt_notes.gd`: the warm, mid-act and afterglow notes and the
+  caress/lean reads.
 - `tests/lines/test_history_scan.gd`: the idle apology repair, the pending reminder line and the
   announced mark.
 

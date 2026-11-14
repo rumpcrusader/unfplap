@@ -140,7 +140,7 @@ func run() -> void:
 	check(is_equal_approx(float((poses.get(CATALOG.MISSIONARY, {}) as Dictionary).get(
 		"hind_spread", 0.0)), 0.45), "Fluttershy's pose override survives")
 	var prompts: Dictionary = fluttershy.get("event_prompts", {})
-	check(not str(prompts.get("climax", "")).is_empty(), "Fluttershy's event prompt survives")
+	check(str(prompts.get("climax", "")).is_empty(), "Fluttershy uses the generic climax fallback")
 	var aloe := SETTINGS.profile_for(base, PROFILES.TEMPLATES, "aloe")
 	check(str((aloe["preferences"] as Dictionary).get("notes", "")).begins_with("You "),
 		"a new mare merges through settings")

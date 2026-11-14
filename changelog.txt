@@ -1,3 +1,15 @@
+v0.5.0
+- New integrations tab for supported mods
+- Footstools now solve the standing reach gap
+- Reworked: settings are now five tabs
+- Standing offers turn and settle more naturally
+- Afterglow now lasts until you end it
+- Retired: the old mesh and voice clips
+- Fixed: moving beds carry the pose with them
+- Fixed: the coat no longer covers the opening
+- Fixed: quick slots stay hidden during acts
+- Fixed: less per-frame work in the act
+
 v0.4.0
 - Body slap — a plap now plays only when he actually reaches her coat, and the sample bag is firm or rough from how fast the stroke bottoms out; a slow press stays silent.
 - Modded mares: a provider's adult assertion now satisfies unfplap's own adult registration; base-game kissing, willingness and romance still use the game's identity.

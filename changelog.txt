@@ -1,3 +1,9 @@
+v0.5.1
+- Reworked: standing oral — she now turns to face you at her mouth, the act goes quiet and her voice stops, and your hands caress the sides of her head.
+- Fixed: other mods' keys no longer fire during an act; the new Block other mods' keys setting keeps the act's own keys live.
+- Fixed: V and N no longer refuse the hole and oral toggles.
+- Fixed: a settings file that cannot be read or comes from a newer version is backed up before a fresh one is written.
+
 v0.5.0
 - New integrations tab for supported mods
 - Footstools now solve the standing reach gap

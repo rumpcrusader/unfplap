@@ -6,6 +6,7 @@ extends RefCounted
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 
 const ORAL_TURN_S := 1.6
 const ORAL_MOUTH := "D"
@@ -38,6 +39,9 @@ var _speed := 1.0
 var _clock := 0.0
 var _side := 1.0
 var _anchor := Vector3.INF
+## The opening the current turn started from: the part holds here while she turns, and the
+## release blends back to it.
+var _opening := Vector3.INF
 var _from := Vector3.ZERO
 var _to := Vector3.ZERO
 var _from_basis := Basis.IDENTITY
@@ -67,6 +71,7 @@ func reset() -> void:
 	_clock = 0.0
 	_side = 1.0
 	_anchor = Vector3.INF
+	_opening = Vector3.INF
 	_from = Vector3.ZERO
 	_to = Vector3.ZERO
 	_from_basis = Basis.IDENTITY
@@ -91,6 +96,29 @@ func pose_delta() -> Dictionary:
 	return _pose_delta.duplicate()
 
 
+## The mouth anchor the act aims the player part at: the captured opening while she turns and the
+## release runs, the smoothed live mouth once the turn has settled.
+func anchor() -> Vector3:
+	if _anchor.is_finite():
+		return _anchor
+	if _opening.is_finite():
+		return _opening
+	return anatomy.call("hole_point", 0.0) if is_instance_valid(anatomy) else Vector3.ZERO
+
+
+## Write or erase the three oral pose keys on the live config in place, so a released turn cannot
+## leave stale neck/head keys behind and no dictionary copy is made per tick.
+func write_pose_delta(config: Dictionary) -> void:
+	if _pose_delta.is_empty():
+		config.erase("oral_pitch")
+		config.erase("oral_yaw")
+		config.erase("oral_roll")
+		return
+	config["oral_pitch"] = float(_pose_delta.get("oral_pitch", 0.0))
+	config["oral_yaw"] = float(_pose_delta.get("oral_yaw", 0.0))
+	config["oral_roll"] = float(_pose_delta.get("oral_roll", 0.0))
+
+
 func facing() -> Dictionary:
 	return _facing.duplicate()
 
@@ -112,6 +140,8 @@ func toggle(state: int) -> bool:
 		var turned := Basis(Vector3.UP, PI) * pony.global_transform.basis.orthonormalized()
 		var opening: Vector3 = anatomy.call("hole_point", 0.0)
 		var to: Vector3 = opening - turned * (mouth * scale)
+		_opening = opening
+		_anchor = opening
 		_from = pony.global_position
 		_to = Vector3(to.x, pony.global_position.y, to.z)
 		_from_basis = pony.global_transform.basis.orthonormalized()
@@ -148,6 +178,7 @@ func end() -> void:
 	_active = false
 	_mix = 0.0
 	_turn_started = false
+	_anchor = _opening
 	_pose_delta.clear()
 	_facing = {"basis": Basis.IDENTITY, "amount": 0.0}
 	var mouth_rig: Variant = _pony_mouth()
@@ -162,6 +193,7 @@ func teardown() -> void:
 	_pose_delta.clear()
 	_facing.clear()
 	_anchor = Vector3.INF
+	_opening = Vector3.INF
 
 
 func _motion_tick(delta: float) -> void:
@@ -178,8 +210,8 @@ func _motion_tick(delta: float) -> void:
 	var turn := TAU * _clock
 	var mix := smoothstep(0.0, 1.0, _mix)
 	var mouth := _mouth_point()
-	_anchor = mouth if _anchor == Vector3.INF \
-		else _anchor.lerp(mouth, 1.0 - exp(-delta * ORAL_ANCHOR_RATE))
+	_anchor = STATE.oral_anchor_step(_anchor, mouth, _opening, _mix, _active,
+		ORAL_ANCHOR_RATE, delta)
 	_pose_delta["oral_pitch"] = cos(turn) * _now.y * mix
 	_pose_delta["oral_yaw"] = (sin(turn * 0.5) * _now.z + _side * _now.z * 0.5) * mix
 	_pose_delta["oral_roll"] = sin(turn * 0.5 + 1.1) * _now.z * 0.6 * mix

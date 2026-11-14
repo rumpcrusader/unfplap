@@ -1282,6 +1282,10 @@ func _physics_tick(delta: float) -> void:
 		if _anatomy_bridge.act_available():
 			_anatomy_bridge.bind(_anatomy_host())
 			_anatomy_bridge.tick(delta)
+			# The oral styles rewrite these keys every tick; writing the live config in place is
+			# what animates the neck and lets a released turn erase stale keys.
+			if pose_id == CATALOG.STANDING:
+				_anatomy_bridge.pose_config(_pose_session.pose_config)
 		if state == State.ACTIVE:
 			var talk_started := Time.get_ticks_usec()
 			_readiness_tick(delta)

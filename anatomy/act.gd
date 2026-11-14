@@ -61,6 +61,11 @@ var _act_wink_next := 0.0
 var _act_wink_mode := 0
 ## Unit normal of the current opening, pointing out of her toward Anon.
 var _normal := Vector3.ZERO
+## The part target for this tick: her mouth while oral is engaged, her opening otherwise. Filled
+## in place so the per-frame path allocates nothing.
+var _contact_point := Vector3.ZERO
+var _contact_normal := Vector3.ZERO
+var _contact_rear := Vector3.ZERO
 var _debug: RefCounted
 
 
@@ -192,6 +197,24 @@ func _status(text: String) -> void:
 		status.call(text)
 
 
+## The point the part targets this tick. While oral is engaged it is the oral turn's anchor: the
+## opening the turn started from while she turns, her smoothed live mouth once settled. Otherwise
+## it is the vulva opening and its resolved normal. `_normal` must be set first.
+func _contact() -> void:
+	if _oral_turn != null and float(_oral_turn.mix()) > 0.0:
+		var point: Vector3 = _oral_turn.anchor()
+		if point.is_finite():
+			_contact_point = point
+			# A zero normal makes the part auto-aim from his crotch to the mouth instead of
+			# turning along the vulva plane.
+			_contact_normal = Vector3.ZERO
+			_contact_rear = Vector3.ZERO
+			return
+	_contact_point = hole_point()
+	_contact_normal = _normal
+	_contact_rear = hole_rear()
+
+
 func tick(delta: float, facts: RefCounted) -> void:
 	_facts = facts if facts != null else FACTS.new()
 	if not is_instance_valid(anatomy) or not is_instance_valid(pony):
@@ -245,6 +268,7 @@ func tick(delta: float, facts: RefCounted) -> void:
 		anatomy.call("set_anal_shape", anal * 1.4, anal)
 		anatomy.call("set_anal_grip", grip_world * _hole_mix * rearward)
 	_normal = _compute_normal(part)
+	_contact()
 	if is_instance_valid(part):
 		part.set("aim_pitch_deg", 0.0)
 		if bool(part.call("showing")):
@@ -257,8 +281,8 @@ func tick(delta: float, facts: RefCounted) -> void:
 					part.call("shaft_radii", 8))
 		else:
 			anatomy.call("clear_shaft")
-		part.set("aim_normal", _normal)
-		part.set("aim_opening", hole_point())
+		part.set("aim_normal", _contact_normal)
+		part.set("aim_opening", _contact_point)
 		# The bed pose needs the base pulled back into the pelvis: the authored pose puts it on
 		# the lower belly, which also leaves the hips farther from her than `Pelvis gap` implies.
 		part.set("bed_inset_m", SETTINGS.part_inset_m.get_num()
@@ -268,7 +292,7 @@ func tick(delta: float, facts: RefCounted) -> void:
 	# his pelvis follows the entrance instead of the shaft sliding out of his crotch.
 	var shown: float = _facts.penetration_m
 	if is_instance_valid(service):
-		service.call("player_track", hole_point(), hole_rear(),
+		service.call("player_track", _contact_point, _contact_rear,
 			frame.basis.y.normalized(), false, shown, delta, (mesh as Node3D).get_parent(),
 			true)
 	if _debug != null:
@@ -282,9 +306,7 @@ func pose_config(config: Dictionary) -> void:
 	# Missionary needs no pose overrides: the authored base pose already holds the pelvis and legs.
 	if pose != CATALOG.STANDING:
 		return
-	var delta: Dictionary = _oral_turn.pose_delta()
-	for key: String in delta:
-		config[key] = delta[key]
+	_oral_turn.write_pose_delta(config)
 
 
 ## Her own wink while the act runs: one quiet beat while the tip rests at her lips, and a
@@ -397,20 +419,20 @@ func afterglow_tick(delta: float, facts: RefCounted) -> void:
 	var rest_m := 0.0
 	if _finish != null:
 		rest_m = float(_finish.afterglow_step(delta, _facts.penetration_reach))
-	var opening := hole_point()
 	# Keep the act's attached alignment through the held phase. The detached bed holder aligns
 	# the part's roll to the anatomy mesh's own axes, and in the lying pose her mesh +Y points
 	# into the mattress, so the shaft would be rolled 180° there.
 	var normal := _compute_normal(part)
 	_normal = normal
+	_contact()
 	part.set("aim_pitch_deg", 0.0)
-	part.set("aim_normal", normal)
-	part.set("aim_opening", opening)
+	part.set("aim_normal", _contact_normal)
+	part.set("aim_opening", _contact_point)
 	# The missionary inset belongs to the whole bed act, not only to the thrusting states.
 	part.set("bed_inset_m", SETTINGS.part_inset_m.get_num()
 		if pose == CATALOG.MISSIONARY else 0.0)
 	if is_instance_valid(service):
-		service.call("player_track", opening, hole_rear(),
+		service.call("player_track", _contact_point, _contact_rear,
 			(mesh as Node3D).global_transform.basis.y.normalized(), false, rest_m, delta,
 			(mesh as Node3D).get_parent(), true)
 	_facts.perf("anatomy_afterglow", Time.get_ticks_usec() - started)

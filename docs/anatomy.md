@@ -246,8 +246,9 @@ The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `p
 `penetration_m`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`, `penetration_reach`,
 `bed_frame` and `cycle_phase`. The act and the persistent controller read that object and the
 host callbacks; neither reads the runtime node. It returns the oral pose keys through
-`pose_config()` and the oral turn's camera facing through `facing()`; the runtime applies both in
-the same frame.
+`pose_config()` and the oral turn's camera facing through `facing()`; the runtime writes the pose
+keys into the live config every `ACTIVE`/`CLIMAX` tick for standing, and applies the facing in the
+same frame.
 
 The bridge also writes `perf_on` from the host's `perf_enabled`, so the persistent controller takes
 no idle perf clock while the debug probe is off. See `docs/perf.md`.
@@ -278,7 +279,8 @@ The host is a plain dictionary of callables. The runtime supplies `main`, `pony`
 
 The bridge never reads `runtime` or `main` private fields and never preloads either host. The
 action keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the
-bridge only routes them.
+bridge only routes them. `pose_config()` is written every `ACTIVE`/`CLIMAX` tick for standing, so
+the oral style keys animate the neck live and a released turn erases the keys it no longer owns.
 
 `apply_live()` re-reads the host's `state`, `pose_id`, `depth`, `bed_frame` and `cycle_phase`
 before it refreshes the controller. The per-tick facts sync writes the same values, but it does
@@ -333,13 +335,18 @@ appearance, including the missionary-only fold hack, when the pose id changes.
   oral and the per-mare `anal` consent is true. The mix eases over `0.9 s`.
 - `N` turns her to oral in standing `ACTIVE` when `features.anatomy_oral` is on and the per-mare
   `oral` consent is true. She is turned about `UP` over `ORAL_TURN_S = 1.6 s`, her position eases
-  to the mirrored anchor, her mouth viseme becomes `D`, and the oral style sequence drives
-  `oral_pitch`, `oral_yaw` and `oral_roll` on the pose config. The head/mouth anchor is tracked
-  during the act. Releasing the toggle eases her back to `_oral_from`.
+  to the mirrored anchor, and her mouth viseme becomes `D`. The turn captures the opening it
+  starts from: the player part targets that captured opening while she rotates, so his pelvis
+  does not chase her rump around the arc. Once the turn settles, the anchor eases to her live
+  mouth under `ORAL_ANCHOR_RATE` and the oral style sequence drives `oral_pitch`, `oral_yaw` and
+  `oral_roll` on the live pose config every tick. Releasing the toggle eases her back and blends
+  the part target back to the opening as the mix falls; the three pose keys are erased when the
+  turn ends.
 - `B` toggles finish in/out in `ACTIVE`/`CLIMAX` when `features.anatomy_finish` is on. The row is
   built in the HUD but hidden until the finish has a visible effect.
-- The oral turn writes the pony's global position. Every exit restores `_oral_from` before the
-  navigator and posture resume; both a normal release and an act end use the same restore.
+- The oral turn writes the pony's global position. Every exit restores the position the turn
+  started from before the navigator and posture resume; both a normal release and an act end use
+  the same restore.
 
 ### Finish and fluid
 
@@ -674,10 +681,13 @@ Current suites:
 - `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
   radius, the V2 anal ring weights/centre, the coat weight grid/sampler and the coat-follow
   matrices.
-- `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive and the wink
-  scheduler.
+- `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive, the wink
+  scheduler and the oral anchor step.
+- `tests/anatomy/test_oral_turn.gd`: the turn holds the captured opening, follows the live mouth
+  once settled, returns to the opening on release, and writes then erases the oral pose keys.
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
-  live opening aim, and clears the missionary inset outside the bed pose.
+  live opening aim, stays on the mouth anchor through oral, and clears the missionary inset
+  outside the bed pose.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
   idle heat, mesh refinement, act calls, the player part's idempotent `prepare()`, body coat, the

@@ -65,5 +65,36 @@ func run() -> void:
 	check(STATE.wink_mode(STATE.PULLED_OUT_PHASE, false, 1) == 0,
 		"the pulled-out threshold is exclusive")
 
+	# The oral anchor: the opening holds through the turn, then eases to the live mouth, and the
+	# release blends back to the opening as the mix falls.
+	var opening := Vector3(1.0, 0.5, 2.0)
+	var mouth := Vector3(1.4, 0.5, 2.3)
+	check(STATE.oral_anchor_step(Vector3.INF, mouth, opening, 0.5, true, 0.8, 0.25) \
+		.is_equal_approx(opening),
+		"an unfinished turn holds the opening")
+	check(STATE.oral_anchor_step(Vector3.INF, mouth, opening, 1.0, true, 0.8, 0.25) \
+		.is_equal_approx(mouth),
+		"a settled first tick starts at the live mouth")
+	var eased: Vector3 = STATE.oral_anchor_step(opening, mouth, opening, 1.0, true, 0.8, 0.25)
+	check(eased.distance_to(mouth) < opening.distance_to(mouth),
+		"a settled turn eases toward the live mouth")
+	var settled: Vector3 = STATE.oral_anchor_step(opening, mouth, opening, 1.0, true, 0.8, 100.0)
+	check(settled.distance_to(mouth) < 0.001, "a long settled tick reaches the live mouth")
+	check(STATE.oral_anchor_step(mouth, mouth, opening, 1.0, false, 0.8, 0.25) \
+		.is_equal_approx(mouth),
+		"a full release mix keeps the last anchor")
+	check(STATE.oral_anchor_step(mouth, mouth, opening, 0.0, false, 0.8, 0.25) \
+		.is_equal_approx(opening),
+		"a finished release is exactly the opening")
+	check(STATE.oral_anchor_step(opening.lerp(mouth, 0.5), mouth, opening, 0.5, false, 0.8, 0.25) \
+		.is_equal_approx(opening.lerp(opening.lerp(mouth, 0.5), 0.5)),
+		"a half release mix halves the anchor's distance to the opening")
+	check(STATE.oral_anchor_step(opening, Vector3.INF, opening, 1.0, true, 0.8, 0.25) \
+		.is_equal_approx(opening),
+		"a non-finite mouth falls back to the opening")
+	check(STATE.oral_anchor_step(mouth, mouth, Vector3.INF, 1.0, true, 0.8, 0.25) \
+		.is_equal_approx(mouth),
+		"a non-finite opening leaves the anchor alone")
+
 	print("ANATOMY_ACT_STATE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

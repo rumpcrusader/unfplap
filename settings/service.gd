@@ -320,6 +320,9 @@ static func _bind(s: Setting, n: String, path: String, label: String, help: Stri
 	s.tab = tab
 	s.group = group
 	s.default = _shipped_value(path)
+	if s.default != null and not _shipped_type_ok(s, s.default):
+		_shipped_fail("wrong shipped default type for %s" % path)
+		s.default = null
 	# Not a per-instance module reference: an inner class cannot see the outer script's statics,
 	# so each setting carries the two calls it needs.
 	s._get = func() -> Variant: return _setting_value(s)
@@ -2791,6 +2794,33 @@ static func _shipped_value(path: String) -> Variant:
 			return null
 		node = (node as Dictionary)[part]
 	return node
+
+
+## The JSON value must match the declaration kind. The schema test checks the same rules; this
+## keeps a hand-edited or stale document from silently coercing at run time.
+static func _shipped_type_ok(s: Setting, value: Variant) -> bool:
+	if s is FlagSetting:
+		return value is bool
+	if s is NumSetting:
+		return value is int or value is float
+	if s is ChoiceSetting:
+		return value is String and (s as ChoiceSetting).options.has(value)
+	if s is ListSetting:
+		if not value is Array:
+			return false
+		for item: Variant in value:
+			if not item is String or not (s as ListSetting).options.has(item):
+				return false
+		return true
+	if s is ColorSetting:
+		return value is String and _is_hex_color(str(value))
+	return false
+
+
+static func _is_hex_color(value: String) -> bool:
+	var re := RegEx.new()
+	re.compile("^[0-9a-f]{6}([0-9a-f]{2})?$")
+	return re.search(value.strip_edges().lstrip("#").to_lower()) != null
 
 
 static func _shipped_fail(message: String) -> void:

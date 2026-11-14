@@ -1,0 +1,308 @@
+{
+	"anatomy": {
+		"anal_aim_mm": -20.0,
+		"anal_body_depth_mm": 20.0,
+		"anal_hug_mm": 2.0,
+		"anal_scale": 0.9,
+		"anal_still": 0.0,
+		"anatomy_mode": "never",
+		"back_out_m": 0.0,
+		"clitoris_color": "d87690ff",
+		"coat_follow": 0.0,
+		"coat_hole": 0.8,
+		"coat_hole_depth_mm": 25.0,
+		"coat_hole_height": 1.19,
+		"coat_spread": 2.0,
+		"dock_style": "genitals",
+		"draw_still_zones": false,
+		"drip": 0.1,
+		"fluid_alpha": 0.5,
+		"fluid_size": 0.01,
+		"fluid_y_speed": -0.03,
+		"heat_rest_open": 0.15,
+		"jiggle_still": 1.0,
+		"lip_vertical": 0.7,
+		"part_base_scale": 1.3,
+		"part_front_m": 0.02,
+		"part_head_scale": 1.3,
+		"part_length_scale": 1.0,
+		"part_mid_scale": 0.75,
+		"part_throb": 1.2,
+		"pelvis_gap_m": 0.025,
+		"placement": {
+			"anon": {
+				"offset_x": 0.0,
+				"offset_y": 0.74,
+				"offset_z": 0.085,
+				"pitch_deg": 0.0,
+				"scale": 0.2
+			},
+			"default": {
+				"dock_scale": 1.2,
+				"dock_y": 0.01,
+				"offset_x": 0.0,
+				"offset_y": 0.505,
+				"offset_z": 0.284,
+				"pitch_deg": 3.0,
+				"scale": 0.682,
+				"tail_tilt_deg": 0.0,
+				"tail_y": 0.0,
+				"tail_z": -0.01
+			}
+		},
+		"placement_target": "mare",
+		"player_scale": 1.4,
+		"reseat_tails": true,
+		"skeleton_overlay": false,
+		"skin_strip": false,
+		"skin_tone": 0.6,
+		"still_fade": 0.6,
+		"still_height_mm": 25.0,
+		"still_oval": 1.5,
+		"strip_scale": 1.0,
+		"teats": false,
+		"vulva_height": 0.75,
+		"vulva_hug_mm": 2.0,
+		"vulva_inner_color": "cf577dff",
+		"vulva_out_mm": 0.0,
+		"wink_max_s": 34.0,
+		"wink_min_s": 17.0,
+		"wink_open_max": 0.9,
+		"wink_open_min": 0.9,
+		"wink_timing": 1.2
+	},
+	"auto_thrust": {
+		"curve": "thrust",
+		"max_depth": 0.7,
+		"min_depth": 0.2,
+		"pace": 1.25
+	},
+	"camera_thrust": {
+		"bob": 0.35,
+		"surge": 1.0
+	},
+	"caress": {
+		"contact_smooth": 24.0,
+		"hover_m": 0.015,
+		"ignore": [
+			"tail",
+			"wing"
+		],
+		"normal_blur_m": 0.005,
+		"normal_deg_s": 120.0,
+		"oval_across_m": 0.01,
+		"oval_up_m": 0.02,
+		"palm_scale": {
+			"canon": 0.75,
+			"hoers": 1.0,
+			"mounting": 0.9,
+			"same height": 1.0
+		},
+		"quality": "precise"
+	},
+	"controls": {
+		"act_key": 54.0
+	},
+	"cues": {
+		"base_stable_seconds": 2.0,
+		"demand_gap_seconds": 28.0,
+		"demand_repeat_seconds": 45.0,
+		"max_age_seconds": 20.0,
+		"override_seconds": 10.0,
+		"override_stable_seconds": 0.5,
+		"overwhelmed_seconds": 1.2,
+		"reaction_max_age_seconds": 30.0,
+		"release_hold_seconds": 1.0,
+		"utterance_gap_seconds": 18.0
+	},
+	"debug_hide_tails": false,
+	"debug_mode": false,
+	"debug_perf": false,
+	"features": {
+		"act_climax": false,
+		"act_controls": true,
+		"act_public_offer": false,
+		"act_speech_feel": false,
+		"anatomy_finish": false,
+		"anatomy_fluid": true,
+		"anatomy_holes": true,
+		"anatomy_oral": false,
+		"blush_arc": true,
+		"body_coat_deform": true,
+		"captions_on_top": true,
+		"caress_debug": false,
+		"caress_local": true,
+		"caress_reach_shoulder_m": 0.0,
+		"debug_aim_points": false,
+		"estrus_cycle": false,
+		"face_debug": false,
+		"hud_readouts": true,
+		"idle_camera_sway": true,
+		"idle_life_stretch": false,
+		"kissing_full_fidgets": true,
+		"kissing_reactions": true,
+		"missionary_body_motion": true,
+		"mute_ponese_audio": true,
+		"standing_body_sway": true,
+		"standing_stool": true,
+		"thrust_ear_twitch": true
+	},
+	"history": {
+		"apology_repair": 1.0,
+		"bad_hurt": 1.0,
+		"bad_max": 0.2,
+		"decay_amount": 1.0,
+		"decay_days": 2.0,
+		"early_grace_s": 20.0,
+		"good_comfort": 1.0,
+		"good_min": 0.8,
+		"good_repair": 1.0,
+		"great_comfort": 2.0,
+		"great_repair": 2.0,
+		"max_comfort": 8.0,
+		"max_hurt": 8.0,
+		"mild_hurt": 1.0,
+		"min_thrusts": 2.0,
+		"offer_base_s": 600.0,
+		"offer_block_hurt": 4.0,
+		"offer_comfort_scale": 0.05,
+		"offer_min_s": 300.0,
+		"offer_weight_base": 0.7,
+		"offer_weight_comfort": 0.05,
+		"offer_weight_hurt": 0.12,
+		"p_dislike": 0.1,
+		"p_miss": 0.1,
+		"p_severe": 0.15,
+		"p_silence": 0.15,
+		"reminder_hurt": 2.0,
+		"severe_hurt": 2.0,
+		"w_climax": 0.3,
+		"w_motion": 0.15,
+		"w_not_early": 0.15,
+		"w_talk": 0.2,
+		"w_touch": 0.2,
+		"withdraw_hurt": 6.0
+	},
+	"jiggle": {
+		"center_back_m": 0.15,
+		"center_height_m": 0.1,
+		"intensity": 0.2,
+		"radius": 0.26,
+		"smack_intensity": 0.45
+	},
+	"presentation": {
+		"act": {
+			"climax_mode": "fluster"
+		},
+		"missionary": {
+			"anon_size_match": 0.5,
+			"camera_mode": "shots",
+			"caress": {
+				"path_id": "two"
+			},
+			"disable_fold_coloring": true,
+			"free_look": false,
+			"part_inset_m": 0.0,
+			"size": {
+				"canon": {
+					"gaze_offset_mm": -250.0,
+					"head_clearance_mm": 50.0,
+					"vulva_depth_shift_mm": 20.0,
+					"vulva_hug_mm": 0.0,
+					"vulva_pitch_deg": 20.0,
+					"vulva_shift_mm": 70.0
+				},
+				"hoers": {
+					"gaze_offset_mm": 0.0,
+					"head_clearance_mm": 100.0,
+					"vulva_depth_shift_mm": 20.0,
+					"vulva_hug_mm": -2.0,
+					"vulva_pitch_deg": 20.0,
+					"vulva_shift_mm": 70.0
+				},
+				"mounting": {
+					"gaze_offset_mm": -250.0,
+					"head_clearance_mm": 50.0,
+					"vulva_depth_shift_mm": 30.0,
+					"vulva_hug_mm": 0.0,
+					"vulva_pitch_deg": 30.0,
+					"vulva_shift_mm": 100.0
+				},
+				"same height": {
+					"gaze_offset_mm": 0.0,
+					"head_clearance_mm": 100.0,
+					"vulva_depth_shift_mm": 20.0,
+					"vulva_hug_mm": -2.0,
+					"vulva_pitch_deg": 20.0,
+					"vulva_shift_mm": 70.0
+				}
+			},
+			"size_group": "mounting",
+			"third_person": false
+		},
+		"standing": {
+			"camera_forward_m": 0.0,
+			"camera_pitch_deg": -6.0,
+			"chest_back_m": 0.0,
+			"chin_up_deg": 30.0,
+			"gap_offset_m": 0.15,
+			"glance_back_speed": 2.0,
+			"hip_drop_m": 0.0,
+			"kiss": {
+				"camera_yaw_deg": 12.0,
+				"lean_drop": 0.04,
+				"lean_forward": 0.25,
+				"lean_side": 0.46,
+				"mouth_drop": 0.0,
+				"mouth_forward": 0.0,
+				"mouth_right": 0.0
+			},
+			"neck_down_deg": 30.0,
+			"smack": {
+				"arc_m": 0.1,
+				"height_m": 0.05,
+				"hind_m": 0.09,
+				"pitch_deg": 0.0,
+				"raise_m": 0.3,
+				"raise_speed": 1.5,
+				"return_speed": 4.0
+			},
+			"stool_gap_m": 0.2,
+			"stool_height_m": 0.2,
+			"tail": {
+				"pitch_deg": 25.0,
+				"yaw_deg": 35.0
+			},
+			"torso_angle_deg": 5.0
+		}
+	},
+	"relationship": {
+		"promiscuity": "marefriend",
+		"sex_start": "try_luck"
+	},
+	"talk": {
+		"receptive_seconds": 8.0,
+		"talk_cooldown_seconds": 8.0,
+		"touch_cooldown_seconds": 4.0
+	},
+	"thrust": {
+		"max_pony_climaxes": 3.0,
+		"orientation": "up",
+		"pixels_per_cm": 50.0,
+		"travel": 1.0
+	},
+	"tolerance": {
+		"decay_amount": 1.0,
+		"decay_seconds": 25.0,
+		"dislike_amount": 1.0,
+		"forgiving_warning": 4.0,
+		"like_relief": 1.0,
+		"normal_cooldown_s": 300.0,
+		"normal_stop": 10.0,
+		"normal_warning_1": 1.0,
+		"normal_warning_2": 4.0,
+		"strict_cooldown_s": 600.0,
+		"strict_stop": 3.0,
+		"strict_warning": 1.0
+	}
+}

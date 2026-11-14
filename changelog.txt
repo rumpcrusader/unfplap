@@ -2,6 +2,7 @@ v0.5.0
 - New integrations tab for supported mods
 - Footstools now solve the standing reach gap
 - Reworked: settings are now five tabs
+- New Act Key setting with rebinding
 - Standing offers turn and settle more naturally
 - Afterglow now lasts until you end it
 - Retired: the old mesh and voice clips

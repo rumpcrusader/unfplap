@@ -315,7 +315,7 @@ func release_start() -> void:
 	rig_missing_bones = []
 	if is_instance_valid(tail_lay):
 		tail_lay.call("restore_tail")
-		tail_lay.queue_free()
+		_drop(tail_lay)
 	tail_lay = null
 	bed_frame = null
 	bed_frame_source_saved = false
@@ -329,13 +329,13 @@ func remove_modifiers() -> void:
 	# choice so the act reuses it. `_end_session()` clears it through `clear_stretch_choice()`.
 	_release_stretch(false)
 	if is_instance_valid(body_sway):
-		body_sway.queue_free()
+		_drop(body_sway)
 	body_sway = null
 	if is_instance_valid(prone_sway):
-		prone_sway.queue_free()
+		_drop(prone_sway)
 	prone_sway = null
 	if is_instance_valid(ear_twitch):
-		ear_twitch.queue_free()
+		_drop(ear_twitch)
 	ear_twitch = null
 
 
@@ -346,11 +346,11 @@ func remove_modifiers() -> void:
 func release_pose() -> void:
 	_release_stretch(false)
 	if is_instance_valid(pose_node):
-		pose_node.queue_free()
+		_drop(pose_node)
 	pose_node = null
 	if is_instance_valid(tail):
 		tail.call("restore_tail")
-		tail.queue_free()
+		_drop(tail)
 	tail = null
 	_started = false
 	pose_id = ""
@@ -406,21 +406,33 @@ func refresh_modifiers(pose: String, feature_flags: Dictionary) -> void:
 		if _feature("standing_body_sway") and not is_instance_valid(body_sway):
 			_install_body_sway(skeleton)
 		elif not _feature("standing_body_sway") and is_instance_valid(body_sway):
-			body_sway.queue_free()
+			_drop(body_sway)
 			body_sway = null
 		if _feature("thrust_ear_twitch") and not is_instance_valid(ear_twitch):
 			_install_ear_twitch()
 		elif not _feature("thrust_ear_twitch") and is_instance_valid(ear_twitch):
-			ear_twitch.queue_free()
+			_drop(ear_twitch)
 			ear_twitch = null
 	elif pose_id == CATALOG.MISSIONARY:
 		if _feature("missionary_body_motion") and not is_instance_valid(prone_sway):
 			_install_prone_sway(skeleton)
 		elif not _feature("missionary_body_motion") and is_instance_valid(prone_sway):
-			prone_sway.queue_free()
+			_drop(prone_sway)
 			prone_sway = null
 	if pose_id == CATALOG.STANDING:
 		sync_stretch()
+
+
+## Detach a released modifier before freeing it. `queue_free()` alone leaves it parented for the
+## rest of the frame, where it still gets a modification pass, and a new act built in the same
+## frame would run two. Callers restore their own bones before the detach.
+func _drop(node: Node) -> void:
+	if node == null or not is_instance_valid(node):
+		return
+	var parent := node.get_parent()
+	if parent != null:
+		parent.remove_child(node)
+	node.queue_free()
 
 
 func _install_tail_lay() -> void:

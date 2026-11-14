@@ -274,7 +274,9 @@ undergo a transformation, so it must not be recommended.
 - `poses/body_sway.gd` recaches the hips origin and limb roots through `reset_base()` whenever the
   holder is installed or removed, so sway rocks the stretched plant instead of undoing it.
 - The holder stays through the standing afterglow until `_end_session()` frees it. Teardown
-  restores the normal pose and drops the stored episode choice.
+  restores the normal pose and drops the stored episode choice. The external holder is the one
+  modifier the session does not detach: `poses/idle_stretch.gd` frees it through `finish()` and
+  renames a queued holder when a replacement is installed in the same frame.
 - The presentation holder is owned by `poses/standing_presentation.gd`; the act holder is owned
   by `poses/service.gd`. The runtime forwards `clear_stretch_offer()` to the presentation
   controller for a cancel or close. The launching rules are in `docs/initiation.md`; the switch is

@@ -13,6 +13,7 @@ class FakePony extends Node3D:
 	var face_turn_rate := 0.45
 	var sleeping := false
 	var body_scale := 1.0
+	var skeleton: Variant = null
 	var posture: Variant = null
 	var expressions: Variant = null
 	var posture_requests: Array[String] = []
@@ -268,7 +269,29 @@ func run() -> void:
 	check(not hud7.inventory_hidden(), "idle safety restores the HUD with no active runtime")
 	acting7.free()
 
-	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7]:
+	# The pose teardown detaches the act's modifiers before freeing them, so the skeleton has no
+	# live act child when `_free_pose()` returns.
+	var f8 := _fixture()
+	var runtime8: Node = f8["runtime"]
+	root.add_child(runtime8)
+	var pony8: FakePony = f8["pony"]
+	var body8 := Skeleton3D.new()
+	body8.add_bone("pony_hips")
+	pony8.skeleton = body8
+	runtime8.call("_build_pose")
+	var built := 0
+	for child: Node in body8.get_children():
+		if str(child.name).begins_with("Unfplap"):
+			built += 1
+	check(built == 1, "the act installs its pose modifier on the body skeleton")
+	runtime8.call("_free_pose")
+	var left := 0
+	for child: Node in body8.get_children():
+		if str(child.name).begins_with("Unfplap"):
+			left += 1
+	check(left == 0, "the pose teardown leaves no act modifier on the body skeleton")
+
+	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8]:
 		(item["runtime"] as Node).free()
 	print("RUNTIME_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

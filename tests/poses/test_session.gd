@@ -22,6 +22,11 @@ class FakePony extends Node3D:
 	var body_scale := 0.66
 
 
+## The one field `body_sway` publishes at detach.
+class FakeFacts extends RefCounted:
+	var standing_sway_offset := Vector3.ONE
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -137,6 +142,8 @@ func _check_begin() -> void:
 	check(session.tail_lay != null, "the missionary tail lay is installed")
 	check(session.pose_logged == false and session.pose_trace_frames == 0,
 		"a fresh session starts its logs clean")
+	var tail_lay: Node = session.tail_lay
+	var pose_modifier: Node = session.pose_node
 	var children := body.get_child_count()
 	check(not session.begin({
 		"pose_id": CATALOG.MISSIONARY,
@@ -151,8 +158,14 @@ func _check_begin() -> void:
 	check(body.get_child_count() == children, "a refused begin adds no second pose")
 	session.release_start()
 	check(session.tail_lay == null, "the pose release frees the tail lay")
+	check(tail_lay.get_parent() == null and tail_lay.is_queued_for_deletion(),
+		"the tail lay is detached before it is freed")
 	session.release_pose()
 	check(session.pose_node == null, "the pose release frees the modifier")
+	check(pose_modifier.get_parent() == null and pose_modifier.is_queued_for_deletion(),
+		"the pose modifier is detached before it is freed")
+	session.release_pose()
+	check(session.pose_node == null, "a second pose release is a no-op")
 	check(session.pose_id == "" and session.id == "",
 		"the pose release clears the act identity")
 	check(session.features.is_empty(), "the pose release clears the features")
@@ -417,7 +430,11 @@ func _check_stretch_removal() -> void:
 		"removing the holder resets body sway's cached hips origin")
 	check(pony.has_meta(STRETCH.META_IDLE),
 		"the act's own removal preserves the choice for the next holder")
+	var facts := FakeFacts.new()
+	session.body_sway.set("facts", facts)
 	session.remove_modifiers()
+	check(facts.standing_sway_offset == Vector3.ZERO,
+		"detaching body sway zeroes the published offset")
 	check(pony.has_meta(STRETCH.META_IDLE),
 		"the new-act prep preserves the episode choice")
 	session.clear_stretch_choice()

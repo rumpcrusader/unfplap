@@ -123,6 +123,8 @@ func _check_defaults() -> void:
 		"the Kissing reaction bridge defaults off")
 	check(not bool(SETTINGS.idle_life_stretch.default),
 		"the Idle Life stretch pose defaults off")
+	check(bool(SETTINGS.idle_life_stretch.debug),
+		"the Idle Life stretch pose is a debug setting")
 	check(not bool(SETTINGS.kissing_full_fidgets.default)
 		and bool(SETTINGS.kissing_full_fidgets.debug),
 		"full Kissing fidgets are an off-by-default debug feature")
@@ -148,6 +150,19 @@ func _check_snapshot() -> void:
 		"the act snapshot carries the Kissing debug feature")
 	check(snap.features.has("idle_life_stretch"),
 		"the act snapshot carries the Idle Life stretch feature")
+	var stretch_before := SETTINGS.idle_life_stretch.get_bool()
+	var debug_before := SETTINGS.debug_mode.get_bool()
+	SETTINGS.idle_life_stretch.set_bool(true)
+	SETTINGS.debug_mode.set_bool(false)
+	var dormant := SETTINGS.act_snapshot("missionary")
+	check(not bool(dormant.features.get("idle_life_stretch")),
+		"a saved stretch stays dormant without debug mode")
+	SETTINGS.debug_mode.set_bool(true)
+	var live := SETTINGS.act_snapshot("missionary")
+	check(bool(live.features.get("idle_life_stretch")),
+		"the stretch reaches the act snapshot with debug mode on")
+	SETTINGS.debug_mode.set_bool(debug_before)
+	SETTINGS.idle_life_stretch.set_bool(stretch_before)
 	check(snap.caress_quality == SETTINGS.quality.get_choice(),
 		"the act snapshot carries the caress quality")
 	check(snap.presentation.has("camera_mode"), "the act snapshot carries the pose presentation")
@@ -448,10 +463,11 @@ func _check_section_folding() -> void:
 
 
 ## The catalog-driven tab lists every supported mod, even one that is not installed, with the
-## version this adapter was verified with and every declared flag.
+## version this adapter was verified with and every declared flag. Debug-only switches sit in the
+## tab's Debug block.
 func _check_integrations_panel() -> void:
 	var list := VBoxContainer.new()
-	SETTINGS_UI.build_integrations(list, 16, null, Callable())
+	var debug_section: Control = SETTINGS_UI.build_integrations(list, 16, null, Callable())
 	var labels: Array = []
 	_collect_labels(list, labels)
 	var notice := _find_named(list, "IntegrationsExperimental")
@@ -469,7 +485,9 @@ func _check_integrations_panel() -> void:
 	for setting: SETTINGS.Setting in SETTINGS.tab_settings(SETTINGS.INTEGRATIONS):
 		check(labels.has(setting.label),
 			"the Integrations tab draws %s" % setting.name)
-	check(not labels.has("Debug"), "the Integrations tab has no Debug section")
+	check(debug_section is VBoxContainer and debug_section.name == "DebugSection",
+		"the Integrations tab has a Debug block")
+	check(labels.has("Debug"), "the Integrations Debug block is labelled")
 	list.free()
 
 

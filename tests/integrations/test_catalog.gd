@@ -99,5 +99,7 @@ func run() -> void:
 		"the stretch flag lives in the Integrations tab")
 	check(not bool(SETTINGS.idle_life_stretch.default),
 		"the stretch pose defaults off")
+	check(bool(SETTINGS.idle_life_stretch.debug),
+		"the stretch pose is a debug setting")
 	print("INTEGRATIONS_CATALOG_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

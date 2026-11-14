@@ -289,22 +289,25 @@ interjections**.
 - The tab opens with one blue **Experimental** box. Every supported mod in
   `shared/integrations.gd`, in catalog order, whether or not the other mod is installed, then gets
   its own collapsible section named `Mod by Author` and open by default. The section body carries
-  the Faint `Verified with version: ...` hint and its switches; its open state is stored under
-  `integrations/Mods/<mod id>`. The Kissing and Idle Life entries and their switches are always
-  listed; the behavior is in `docs/integrations.md`.
+  the Faint `Verified with version: ...` hint and its player-facing switches; its open state is
+  stored under `integrations/Mods/<mod id>`. The Kissing and Idle Life entries are always listed.
+  Debug-only integration switches sit in the tab's **Debug** block instead. The behavior is in
+  `docs/integrations.md`.
 
 **Debug sections**
 
 Turning on **Enable debug** (General's last row) adds one collapsed **Debug** section at the
-bottom of General, Anatomy and World; each section keeps the groups it belongs to, plus the
-**Actions** buttons at the end of the tab's own group, in compact rows. Its settings are mostly act
-tuning:
+bottom of General, Anatomy, World and Integrations; each section keeps the groups it belongs to,
+plus the **Actions** buttons at the end of the tab's own group, in compact rows. Its settings are
+mostly act tuning:
 
 - **Talk & cues**: override lifetime (default `10 s`), base/override stability, shared line gap,
   demand gap/repeat, cue/reaction max age, release hold, overwhelmed duration, and the touch/talk
   cooldowns plus receptive window.
 - **Kissing**: **Play full Kissing fidgets**, the optional weight shift and hoof taps at her
   climax; see `docs/integrations.md`.
+- **Integrations › Debug**: **Use the Idle Life stretch pose**, currently broken and off by
+  default; see `docs/integrations.md` and `docs/poses.md`.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
   still zones), **You** (back-out gap, cock forward, pelvis gap), plus the ungrouped skin-strip
@@ -353,7 +356,7 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `act_climax` | `false` | pack wet finish layer |
 | `kissing_reactions` | `false` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
 | `kissing_full_fidgets` | `false` | debug-only: Kissing's weight shift and hoof taps during her climax; see `docs/integrations.md` |
-| `idle_life_stretch` | `false` | Idle Life's stretch pose from the accepted standing presentation through the act; the ask stays normal; see `docs/integrations.md` and `docs/poses.md` |
+| `idle_life_stretch` | `false` | debug-only: Idle Life's stretch pose from the accepted standing presentation through the act; dormant unless Enable debug is on and currently broken; the ask stays normal; see `docs/integrations.md` and `docs/poses.md` |
 
 Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,
 unprompted act lines with their fresh-angle wording, starting an act through an active cuddle,

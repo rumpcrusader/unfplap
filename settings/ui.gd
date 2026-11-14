@@ -39,16 +39,19 @@ static var _switch_guard := false
 ##
 ## The Debug section is always built and its visibility follows `debug_mode`, so the toggle takes
 ## effect without rebuilding the panel. `actions_builder` is called with the Debug body, the font
-## size and the tab; `main` passes the `debug/ui.gd` builder. Returns the Debug section, or null
-## when the tab has no debug settings.
+## size and the tab; `main` passes the `debug/ui.gd` builder. `debug_only` keeps only the Debug
+## block, for a tab whose player-facing content another builder already drew. Returns the Debug
+## section, or null when the tab has no debug settings.
 static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
-		changed: Callable, actions_builder := Callable()) -> Control:
+		changed: Callable, actions_builder := Callable(), debug_only := false) -> Control:
 	var player: Array = []
 	var debug: Array = []
 	for setting: SETTINGS.Setting in SETTINGS.tab_settings(tab):
 		if setting.hidden:
 			continue
 		(debug if setting.debug else player).append(setting)
+	if debug_only:
+		player.clear()
 	var gate: VBoxContainer = null
 	var gate_note: Label = null
 	if tab == SETTINGS.ANATOMY:
@@ -157,9 +160,10 @@ static func _set_enabled_deep(root: Node, enabled: bool) -> void:
 
 ## The catalog-driven Integrations tab. Every supported mod gets its own collapsible section,
 ## named after the mod and open by default. The section body carries the verified version and that
-## provider's feature flags. Integrations have no Debug block and no installed/mismatch status.
+## provider's player-facing feature flags; debug-only switches sit in the tab's Debug block at the
+## bottom. There is no installed/mismatch status.
 static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
-		changed: Callable) -> void:
+		changed: Callable) -> Control:
 	_build_experimental_notice(list, font_size)
 	var providers: Array[Dictionary] = INTEGRATIONS_CATALOG.all()
 	if providers.is_empty():
@@ -190,16 +194,18 @@ static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 			for raw: Variant in features as Array:
 				var name := str(raw)
 				var setting := SETTINGS.by_name(name)
-				if setting == null or drawn.has(name):
+				if setting == null or setting.debug or drawn.has(name):
 					continue
 				drawn[name] = true
 				_add_row(body, setting, font_size, page, changed)
 	# A declaration without a catalog entry must never become an invisible setting.
 	for setting: SETTINGS.Setting in SETTINGS.tab_settings(SETTINGS.INTEGRATIONS):
-		if drawn.has(setting.name):
+		if setting.debug or drawn.has(setting.name):
 			continue
 		drawn[setting.name] = true
 		_add_row(list, setting, font_size, page, changed)
+	# Debug-only integration switches stay behind Enable debug, in the tab's one Debug block.
+	return build(list, SETTINGS.INTEGRATIONS, font_size, page, changed, Callable(), true)
 
 
 ## The Integrations tab opens with the blue Experimental banner. It is the tab's only status
@@ -467,7 +473,7 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	# Supported mods and their one-switch-per-integration list; always visible, even when the
 	# other mod is absent.
 	var integrations_list := _settings_tab_list("Integrations", tabs_box)
-	build_integrations(integrations_list, font_size, page, changed)
+	_collect_debug_section(build_integrations(integrations_list, font_size, page, changed))
 	# Style the bar after it exists with its tabs: the container re-applies its theme to the
 	# internal TabBar when the tree changes, which would shadow overrides set before that.
 	_style_tabs(tabs_box, font_size)

@@ -242,8 +242,10 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
 
 ### Stretch (Idle Life)
 
-The optional stretch is a standing pose style, not a new pose id. It is gated by
-`features.idle_life_stretch` and only applies while Idle Life is active.
+The optional stretch is a standing pose style, not a new pose id. It is gated by the debug-only
+`features.idle_life_stretch`, only applies while Idle Life is active, and stays dormant unless
+**Enable debug** is on. It is currently broken: entering the act with it enabled makes Anon
+undergo a transformation, so it is off by default and must not be recommended.
 
 - `poses/idle_stretch.gd` is the only file that names `res://mods/idle_life/idle_pose.gd`. It
   loads the installed script at call time, validates `mare`, `idle`, `side`, `time` and `fade`,

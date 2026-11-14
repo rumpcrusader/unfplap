@@ -474,9 +474,12 @@ func apply_live_settings() -> void:
 		_attach_present_stretch()
 
 
-## Whether the player turned the setting on and Idle Life is active in this launch. Read at the
-## presentation attach and on live settings edits, never per frame.
+## Whether debug mode, the player turned debug setting and Idle Life are all on. The stretch
+## integration is currently broken, so a saved true stays dormant until Enable debug is on. Read
+## at the presentation attach and on live settings edits, never per frame.
 func _stretch_enabled() -> bool:
+	if not SETTINGS.debug_mode.get_bool():
+		return false
 	if not bool(SETTINGS.idle_life_stretch.get_bool()):
 		return false
 	if facts == null:

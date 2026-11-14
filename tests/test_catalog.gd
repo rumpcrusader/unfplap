@@ -1,5 +1,5 @@
 extends SceneTree
-## Catalog identity/default tests. Run:
+## Catalog identity/schema tests. Run:
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_catalog.gd
 
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -27,13 +27,19 @@ func run() -> void:
 		ids[id] = true
 		var defaults := CATALOG.defaults(id)
 		check(not defaults.is_empty(), "defaults exist for " + id)
-	check(float(CATALOG.defaults(CATALOG.MISSIONARY).get("nuzzle_period", -1.0)) == 7.0,
-		"missionary nuzzle period default")
+		var keys: Array = defaults.keys()
+		keys.sort()
+		var expected: Array = CATALOG.POSE_KEYS[id].duplicate()
+		expected.sort()
+		check(keys == expected, "the shipped defaults match the pose schema for " + id)
 	check(not CATALOG.defaults(CATALOG.MISSIONARY).has("rump_drop_deg"),
 		"the retired correction-stack defaults are gone")
-	check(float(CATALOG.defaults(CATALOG.STANDING).get("hind_spread", -1.0)) == 0.32, "standing hind spread default")
 	var gaps: Variant = CATALOG.defaults(CATALOG.STANDING).get("gaps", {})
-	check(gaps is Dictionary and int((gaps as Dictionary).size()) == 4, "standing size gaps")
+	check(gaps is Dictionary and (gaps as Dictionary).size() == CATALOG.GAP_KEYS.size(),
+		"standing size gaps")
+	for key: String in CATALOG.GAP_KEYS:
+		check(gaps is Dictionary and (gaps as Dictionary).has(key), "standing gap " + key)
+	check(CATALOG.defaults("no_such_pose").is_empty(), "an unknown pose has no defaults")
 	print("CATALOG_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("CATALOG_PASS")

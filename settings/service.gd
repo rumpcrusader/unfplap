@@ -20,10 +20,11 @@ const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
+const DEFAULTS := preload("res://mods/unfplap/shared/defaults_data.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
-## The shipped defaults document. It holds one value per declared setting and is the only source
-## of a declared setting's default; see docs/settings.md.
+## The shipped defaults document. It holds one value per declared setting and the global `default`
+## profile, and is the only source of a declared setting's default; see docs/settings.md.
 const DEFAULTS_FILE := "res://mods/unfplap/settings/defaults.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
 ## the only place the legacy ids and keys are kept; remove them after the migration window.
@@ -259,11 +260,8 @@ class ColorSetting extends Setting:
 static var _registry: Array[Setting] = []
 static var _by_path: Dictionary = {}
 static var _by_name: Dictionary = {}
-## The shipped defaults document, parsed once per process. `_bind` reads it while the declaration
-## block initializes, so these statics must stay above that block.
-static var _shipped_cache: Dictionary = {}
-static var _shipped_loaded := false
-static var _shipped_parse_failed := false
+## The shipped defaults document is parsed once per process by `shared/defaults_data.gd`. `_bind`
+## reads it while the declaration block initializes, so these statics must stay above that block.
 static var _shipped_valid := true
 static var _shipped_error := ""
 static var _shipped_problems := 0
@@ -1753,24 +1751,12 @@ const DEFAULT_ACT_PROMPTS := {
 	"cue": "During sex with Anon, the private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory}{face_note} Say ONE short line in your own voice, at most 14 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Let the relationship and the memory color it without naming labels, levels, numbers, or the note. Do not invent a memory beyond the one given. Begin with [whispering] or [happy], or [calm], [surprised], [sad] or [fearful] if the moment calls for it. No narration, no stage directions, no anatomy. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",
 }
 
-const DEFAULT_TEMPLATE := {
-	"smack_zone_radius": 0.035,
-	"aftercare_min": 10,
-	"cue_gap": 12.0,
-	"event_prompts": {
-		"climax": "",
-		"end_early": "",
-	},
-	"act_prompts": {},
-	"preferences": {},
-}
-
 ## Every spawnable adult mare's preference template lives in the same catalog.
 const CHARACTER_TEMPLATES := CHARACTERS.TEMPLATES
 
 ## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
 ## file runs the step exactly once.
-const SCHEMA_VERSION := 9
+const SCHEMA_VERSION := 10
 
 ## Retired settings, declared where their replacement lives. `map` receives the stored value and
 ## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
@@ -2023,6 +2009,42 @@ static func _same_set(a: Variant, b: Variant) -> bool:
 		if not seen.has(str(item)):
 			return false
 	return true
+
+
+## The player's differences in the global `default` profile from the shipped one. Preferences keep
+## their list-as-set comparison; every other block is a recursive dictionary diff. An empty result
+## means the player never changed the profile, so the file stores no `default` block at all.
+static func _default_profile_diff(resolved: Dictionary, shipped: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key: Variant in resolved.keys():
+		var name := str(key)
+		var value: Variant = resolved[key]
+		if name == "preferences" and value is Dictionary:
+			var preference := _preferences_diff(value, shipped.get(name, {}))
+			if not preference.is_empty():
+				out[name] = preference
+			continue
+		var diff: Variant = _dict_diff(value, shipped.get(name, null))
+		if diff != null:
+			out[name] = diff
+	return out
+
+
+## The subset of `value` that differs from `reference`, or null when nothing does. Dictionaries
+## recurse and numbers compare approximately, so a round-tripped default is not a difference.
+static func _dict_diff(value: Variant, reference: Variant) -> Variant:
+	if value is Dictionary:
+		var base: Dictionary = reference if reference is Dictionary else {}
+		var out: Dictionary = {}
+		for key: Variant in (value as Dictionary).keys():
+			var name := str(key)
+			var diff: Variant = _dict_diff((value as Dictionary)[key], base.get(name, null))
+			if diff != null:
+				out[name] = diff
+		return out if not out.is_empty() else null
+	if reference == null:
+		return value
+	return null if _same_leaf(value, reference) else value
 
 
 ## integration: her consent for the optional anatomy actions. A per-character override wins;
@@ -2410,7 +2432,7 @@ static func _normalize_character_preferences(data: Dictionary) -> Dictionary:
 		var preferences: Variant = default_block.get("preferences")
 		if preferences is Dictionary \
 				and str((preferences as Dictionary).get("notes", "")).strip_edges().is_empty():
-			(preferences as Dictionary)["notes"] = PREFERENCES.DEFAULTS["notes"]
+			(preferences as Dictionary)["notes"] = str(PREFERENCES.defaults().get("notes", ""))
 	return data
 
 
@@ -2594,8 +2616,6 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 ## when a value changes or when the merged defaults differ from what is on disk.
 static var _cache: Dictionary = {}
 static var _loaded := false
-## Built once from the catalogs. Read-only: `profile_for()` copies it before merging.
-static var _filled_default_cache: Dictionary = {}
 ## Resolved identity facts per mare, rebuilt when the settings generation or the provider registry
 ## revision changes. Discovery scans ask for every adult; resolving the whole template per mare per
 ## scan was the idle offer scan's largest cost.
@@ -2890,8 +2910,8 @@ static func _short_leaf(data: Dictionary, path: String) -> String:
 	return text if text.length() <= 80 else text.substr(0, 79) + "…"
 
 
-## The shipped defaults document with the code-owned blocks (the profile template, section state
-## and the shipped per-mare placement rows). Detached, and empty when the document is invalid.
+## The shipped defaults document plus the code-owned section state. Detached, and empty when the
+## shipped document is invalid.
 static func defaults() -> Dictionary:
 	var base := _defaults()
 	if base.is_empty():
@@ -2899,29 +2919,19 @@ static func defaults() -> Dictionary:
 	return base.duplicate(true)
 
 
-## The shipped defaults document, parsed once. `{}` and one logged error per problem when the
-## file is missing or malformed; `_shipped_valid` stays the authority on whether it can be used.
+## The shipped defaults document, parsed once by `shared/defaults_data.gd`. `{}` and one logged
+## error per problem when the file is missing or malformed; `_shipped_valid` stays the authority on
+## whether it can be used.
 static func _shipped() -> Dictionary:
-	if _shipped_loaded:
-		return _shipped_cache
-	_shipped_loaded = true
-	var text := FileAccess.get_file_as_string(DEFAULTS_FILE)
-	if text.is_empty():
-		_shipped_parse_failed = true
-		_shipped_fail("cannot read %s" % DEFAULTS_FILE)
-		return _shipped_cache
-	var parsed: Variant = JSON.parse_string(text)
-	if not parsed is Dictionary:
-		_shipped_parse_failed = true
-		_shipped_fail("%s is not a JSON object" % DEFAULTS_FILE)
-		return _shipped_cache
-	_shipped_cache = parsed
-	return _shipped_cache
+	var document := DEFAULTS.document()
+	if not DEFAULTS.valid():
+		_shipped_fail(DEFAULTS.error())
+	return document
 
 
 static func _shipped_value(path: String) -> Variant:
 	var document := _shipped()
-	if _shipped_parse_failed:
+	if not DEFAULTS.valid():
 		return null
 	var node: Variant = document
 	for part: String in path.split(".", false):
@@ -2970,22 +2980,13 @@ static func _shipped_fail(message: String) -> void:
 		push_error("unfplap settings: further shipped-default problems suppressed")
 
 
-## The blocks that stay in code in phase 1: the profile template, the section state and the
-## shipped per-mare placement rows. Declared settings come from `_shipped()`.
+## The block that still lives in code: the section state. Declared settings and the global
+## `default` profile come from `settings/defaults.json`.
 static func _code_defaults() -> Dictionary:
 	# Built-in character templates are not materialized here: `profile_for()` seeds them, and the
 	# saved `characters` block holds only the player's real differences. That is what lets a
 	# provider pack update a default mare without overwriting a player's edits.
-	var out: Dictionary = {
-		"default": _filled_default().duplicate(true),
-		"ui": {"sections": {}},
-	}
-	for id: Variant in PLACEMENT.MARE_DEFAULTS:
-		var name := str(id)
-		if name == "default" or name == "anon":
-			continue
-		_write_path(out, "anatomy.placement." + name, PLACEMENT.MARE_DEFAULTS[id])
-	return out
+	return {"ui": {"sections": {}}}
 
 
 static func _defaults() -> Dictionary:
@@ -2995,19 +2996,10 @@ static func _defaults() -> Dictionary:
 	return _merge(_code_defaults(), shipped)
 
 
-## The default template plus catalog pose/preference/prompt defaults. Kept as a function so the
-## catalogs are read at run time instead of baked into a const expression. Built once and shared
-## read-only; `_defaults()` and `profile_for()` copy it before handing it out or mutating it.
+## The shipped global `default` profile, detached. Declared settings live at the document root;
+## the profile template, preferences and poses live under `default`.
 static func _filled_default() -> Dictionary:
-	if not _filled_default_cache.is_empty():
-		return _filled_default_cache
-	var out: Dictionary = DEFAULT_TEMPLATE.duplicate(true)
-	out["poses"] = CATALOG.POSE_DEFAULTS.duplicate(true)
-	out["preferences"] = PREFERENCES.defaults()
-	# Act prompts are code defaults; settings.json stores only overrides. `_fill_prompts()`
-	# supplies the current built-ins at read time so a release can update them.
-	_filled_default_cache = out
-	return _filled_default_cache
+	return DEFAULTS.block("default")
 
 
 ## The saved `default` template, or the built-in one when the file has none. The built-in fill is
@@ -3017,9 +3009,9 @@ static func _profile_base(data: Dictionary) -> Dictionary:
 	return value if value is Dictionary else _filled_default()
 
 
-## Retired settings, then the one-time structural steps. Add a step here for a renamed key and bump
-## `SCHEMA_VERSION`; a current file skips the structural chain. `deprecated()` entries always run,
-## whatever the version, so a retired key can never linger in the file.
+## Retired settings, then the version-gated structural steps. `deprecated()` entries always run,
+## whatever the version, so a retired key can never linger in the file. A file older than 9 runs
+## the renames; every file older than 10 also resolves the global profile and placement rows.
 static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	for entry: Variant in _deprecated:
 		var path := str((entry as Dictionary).get("path", ""))
@@ -3035,6 +3027,14 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 				_write_path(data, str(key), (mapped as Dictionary)[key])
 	if version >= SCHEMA_VERSION:
 		return data
+	if version < 9:
+		data = _migrate_to_9(data)
+	data = _migrate_to_10(data)
+	return data
+
+
+## The structural chain up to schema 9: renames, retired keys and the retired anatomy shape.
+static func _migrate_to_9(data: Dictionary) -> Dictionary:
 	data = _normalize_anatomy_visibility(data)
 	data = _normalize_pose_names(data)
 	data = _normalize_feature_names(data)
@@ -3047,8 +3047,17 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	data = _normalize_act_prompts(data)
 	data = _normalize_character_overrides(data)
 	data = _normalize_anatomy(data)
-	data = _normalize_anatomy_placement(data)
 	data = _normalize_retired_keys(data)
+	return data
+
+
+## Schema 10: the global `default` profile and the per-mare placement rows resolve at read time, so
+## a saved full copy is reduced to the player's real differences. The legacy placement import runs
+## here, so a file older than 9 imports it exactly once through this path.
+static func _migrate_to_10(data: Dictionary) -> Dictionary:
+	data = _normalize_anatomy_placement(data)
+	data = _normalize_default_profile(data)
+	data = _strip_materialized_placement_rows(data)
 	return data
 
 
@@ -3191,6 +3200,56 @@ static func _legacy_placement_default(data: Dictionary, path: String) -> Diction
 	if raw is Dictionary:
 		base = PLACEMENT.merge(base, raw)
 	return base
+
+
+## Reduce a saved full `default` block to the player's real differences from the shipped profile.
+## Older files materialised every shipped value; keeping those would pin a release update and hide
+## a provider layer. Idempotent.
+static func _normalize_default_profile(data: Dictionary) -> Dictionary:
+	var raw: Variant = data.get("default")
+	if not raw is Dictionary:
+		return data
+	var diff := _default_profile_diff(raw, DEFAULTS.block("default"))
+	if diff.is_empty():
+		data.erase("default")
+	else:
+		data["default"] = diff
+	return data
+
+
+## Remove the per-mare placement rows an older build materialised from the shipped table. A row
+## that matches the resolved default is dropped; a real override is kept as its difference, so a
+## provider layer still wins where the player did not edit.
+static func _strip_materialized_placement_rows(data: Dictionary) -> Dictionary:
+	var anatomy: Variant = data.get("anatomy")
+	if not anatomy is Dictionary:
+		return data
+	var placement: Variant = (anatomy as Dictionary).get("placement")
+	if not placement is Dictionary:
+		return data
+	var rows: Dictionary = placement
+	var global := _legacy_placement_default(data, "anatomy.placement.default")
+	var cleaned: Dictionary = {}
+	for key: Variant in rows.keys():
+		var id := str(key)
+		var raw: Variant = rows[key]
+		if id == "default" or id == "anon":
+			cleaned[id] = raw
+			continue
+		if not raw is Dictionary:
+			continue
+		var expected := PLACEMENT.merge(global, PLACEMENT.MARE_DEFAULTS.get(id, {}))
+		var provided := MARE_REGISTRY.placement(id)
+		if not provided.is_empty():
+			expected = PLACEMENT.merge(expected, provided)
+		var over := PLACEMENT.diff(PLACEMENT.merge(expected, raw), expected)
+		if not over.is_empty():
+			cleaned[id] = over
+	if cleaned.is_empty():
+		(anatomy as Dictionary).erase("placement")
+	else:
+		(anatomy as Dictionary)["placement"] = cleaned
+	return data
 
 
 static func _finish_legacy_placement_import() -> void:
@@ -3359,6 +3418,23 @@ static func _write(data: Dictionary) -> void:
 		push_error("unfplap settings: the new value is live in memory but was not saved")
 
 
+## The sparse player document. Declared settings stay materialised; the global `default` profile
+## keeps only the player's differences from the shipped one, and `characters`/placement rows are
+## already sparse. Shipped catalog content never reaches this file.
+static func _player_document(data: Dictionary) -> Dictionary:
+	var out := data.duplicate(true)
+	var resolved: Variant = out.get("default")
+	var diff: Dictionary = {}
+	if resolved is Dictionary:
+		diff = _default_profile_diff(resolved, DEFAULTS.block("default"))
+	if diff.is_empty():
+		out.erase("default")
+	else:
+		out["default"] = diff
+	out["version"] = SCHEMA_VERSION
+	return out
+
+
 ## Write through a temporary file first, so a placement save cannot truncate the whole profile.
 ## Returns false only when neither the rename nor the direct fallback could write, and logs the
 ## path with both errors in that case. A rename failure followed by a working direct write is the
@@ -3367,7 +3443,7 @@ static func _write_file(data: Dictionary) -> bool:
 	var path := _path()
 	var folder := path.get_base_dir()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
-	var text := JSON.stringify(data, "\t") + "\n"
+	var text := JSON.stringify(_player_document(data), "\t") + "\n"
 	var temp := path + ".tmp"
 	var temp_error := OK
 	var file := FileAccess.open(temp, FileAccess.WRITE)

@@ -6,23 +6,17 @@ extends RefCounted
 ## Readiness is accumulated by the runtime; this file only validates the profile and
 ## classifies the player's input.
 
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
+
 const INTENSITIES := ["soft", "firm", "rough"]
 const PATTERNS := ["steady", "teasing", "quick"]
 const TOUCHES := ["smack", "caress", "kiss"]
 const TALKS := ["praise", "reassurance", "dirty", "playful"]
 const WARMTHS := ["quick", "normal", "slow"]
 const TOLERANCES := ["forgiving", "normal", "strict"]
-
-const DEFAULTS := {
-	"intensity": "firm",
-	"pattern": "steady",
-	"touch": [],
-	"dislikes": [],
-	"talk": [],
-	"warmth": "normal",
-	"tolerance": "normal",
-	"notes": "Open to affection.",
-}
+## The profile fields, in display order. The shipped values live under `default.preferences` in
+## `settings/defaults.json`; this list is the schema, not a default.
+const KEYS := ["intensity", "pattern", "touch", "dislikes", "talk", "warmth", "tolerance", "notes"]
 
 ## Strength is travel x peak-speed factor from readiness/thrust.gd, clamped 0..1. This is the physical
 ## impact value used by the audio and the foley, not the preference axis.
@@ -42,13 +36,13 @@ const QUICK_DURATION := 0.30
 
 
 static func defaults() -> Dictionary:
-	return DEFAULTS.duplicate(true)
+	return DEFAULTS_DATA.block("default.preferences")
 
 
 ## Merge an arbitrary preferences block with the defaults and validate it. Unknown values fall back
 ## to the neutral default rather than failing an act.
 static func resolve(raw: Variant) -> Dictionary:
-	var out: Dictionary = DEFAULTS.duplicate(true)
+	var out: Dictionary = defaults()
 	if raw is Dictionary:
 		out = _merge(out, raw)
 	out["intensity"] = _enum(str(out.get("intensity", "firm")).to_lower(), INTENSITIES, "firm")

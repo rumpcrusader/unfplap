@@ -217,9 +217,11 @@ The controller's `consent` callback is bound to its pony and takes the key only
 - The ten anatomy/tail keys are `offset_x`, `offset_y`, `offset_z`, `pitch_deg`, `scale`,
   `tail_y`, `tail_z`, `dock_y`, `dock_scale` and `tail_tilt_deg`. The player block uses the first
   five only.
-- `shared/anatomy_placement.gd` owns the shipped `MARE_DEFAULTS` table and resolves the player override,
-  then the shipped per-mare default, then the global default. Only keys that differ from the
-  resolved default are stored; saving a row equal to the default removes the block.
+- `shared/anatomy_placement.gd` owns the shipped `MARE_DEFAULTS` table and resolves the player
+  override, then a provider layer, then the shipped per-mare default, then the global default.
+  Only keys that differ from the resolved default are stored; saving a row equal to the default
+  removes the block. Schema 10 strips the rows an older build materialised for every mare, keeping
+  only real overrides, so a provider's placement wins wherever the player did not edit.
 - The anatomy mesh is placed at the saved offset plus the calibrated `0.03 m` lift, pitched and
   scaled, then mapped through the `pony_hips` bind. A princess profile scales the origin and basis
   about the body. `Dock style` is visibility/colour only and never moves the mesh.

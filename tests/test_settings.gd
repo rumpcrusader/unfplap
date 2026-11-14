@@ -45,6 +45,7 @@ func run() -> void:
 	_check_load()
 	_check_registry()
 	_check_shipped_defaults()
+	_check_player_document()
 	_check_bounds()
 	_check_act_key()
 	_check_snapshot()
@@ -62,7 +63,9 @@ func run() -> void:
 	_check_section_folding()
 	_check_migration()
 	_check_migration_diff()
+	_check_default_profile_migration()
 	_check_placement_migration()
+	_check_placement_strip()
 	_check_api_names()
 	_check_profiles()
 	_check_character_overrides()
@@ -149,25 +152,31 @@ func _check_shipped_defaults() -> void:
 	check(not text.is_empty(), "the shipped defaults document exists")
 	var parsed: Variant = JSON.parse_string(text)
 	check(parsed is Dictionary, "the shipped defaults document is a JSON object")
-	var leaves := _flatten_paths(parsed if parsed is Dictionary else {})
+	var document: Dictionary = parsed if parsed is Dictionary else {}
+	var leaves := _flatten_paths(document)
 	var declared := {}
 	for setting: Variant in SETTINGS.all_settings():
 		declared[str(setting.path)] = setting
+	# The global profile is a block, not a declared setting; the schema test checks it separately.
+	var setting_leaves := {}
+	for path: String in leaves:
+		if path != "default" and not path.begins_with("default."):
+			setting_leaves[path] = leaves[path]
 	var missing: Array = []
 	var dead: Array = []
 	for path: String in declared:
-		if not leaves.has(path):
+		if not setting_leaves.has(path):
 			missing.append(path)
-	for path: String in leaves:
+	for path: String in setting_leaves:
 		if not declared.has(path):
 			dead.append(path)
 	check(missing.is_empty(), "every declared setting has a shipped default: %s" % str(missing))
 	check(dead.is_empty(), "the shipped defaults hold no undeclared path: %s" % str(dead))
 	for path: String in declared:
-		if not leaves.has(path):
+		if not setting_leaves.has(path):
 			continue
 		var setting: Variant = declared[path]
-		var value: Variant = leaves[path]
+		var value: Variant = setting_leaves[path]
 		if setting is SETTINGS.FlagSetting:
 			check(value is bool, "%s is a flag" % path)
 		elif setting is SETTINGS.NumSetting:
@@ -191,6 +200,7 @@ func _check_shipped_defaults() -> void:
 			check(value is String and _is_hex_color(str(value)), "%s is a hex colour" % path)
 		else:
 			check(false, "%s has a known setting kind" % path)
+	_check_default_profile(document.get("default"))
 	check(_flatten_paths(SETTINGS._shipped()) == leaves,
 		"the settings loader reads the shipped defaults document")
 	var copy := SETTINGS.defaults()
@@ -200,6 +210,126 @@ func _check_shipped_defaults() -> void:
 		check(bool(SETTINGS.defaults().get("debug_mode", false))
 			!= bool(copy.get("debug_mode", false)),
 			"defaults() is detached from the shipped document")
+
+
+## The global `default` profile: three timing numbers, event prompts, an empty prompt override
+## block, the preference schema and the pose schema. It never asserts a value.
+func _check_default_profile(profile: Variant) -> void:
+	check(profile is Dictionary, "the shipped document has a global default profile")
+	if not profile is Dictionary:
+		return
+	var block: Dictionary = profile
+	for key: String in ["smack_zone_radius", "aftercare_min", "cue_gap"]:
+		check(block.get(key) is int or block.get(key) is float,
+			"default.%s is a number" % key)
+	var events: Variant = block.get("event_prompts")
+	check(events is Dictionary, "default.event_prompts is a block")
+	if events is Dictionary:
+		var event_keys: Array = (events as Dictionary).keys()
+		event_keys.sort()
+		var expected_events := SETTINGS.MARE_REGISTRY.EVENT_PROMPT_KEYS.duplicate()
+		expected_events.sort()
+		check(event_keys == expected_events, "default.event_prompts has exactly the event keys")
+		for key: Variant in event_keys:
+			check((events as Dictionary)[key] is String,
+				"default.event_prompts.%s is text" % str(key))
+	var prompts: Variant = block.get("act_prompts")
+	check(prompts is Dictionary and (prompts as Dictionary).is_empty(),
+		"the built-in prompts stay out of the default profile")
+	var preferences: Variant = block.get("preferences")
+	check(preferences is Dictionary, "default.preferences is a block")
+	if preferences is Dictionary:
+		var preference_keys: Array = (preferences as Dictionary).keys()
+		preference_keys.sort()
+		var expected_preferences: Array = SETTINGS.PREFERENCES.KEYS.duplicate()
+		expected_preferences.sort()
+		check(preference_keys == expected_preferences,
+			"default.preferences has exactly the profile keys")
+		check(str((preferences as Dictionary).get("intensity", ""))
+			in SETTINGS.PREFERENCES.INTENSITIES, "default.preferences.intensity is an option")
+		check(str((preferences as Dictionary).get("pattern", ""))
+			in SETTINGS.PREFERENCES.PATTERNS, "default.preferences.pattern is an option")
+		check(str((preferences as Dictionary).get("warmth", ""))
+			in SETTINGS.PREFERENCES.WARMTHS, "default.preferences.warmth is an option")
+		check(str((preferences as Dictionary).get("tolerance", ""))
+			in SETTINGS.PREFERENCES.TOLERANCES, "default.preferences.tolerance is an option")
+		for key: String in ["touch", "dislikes", "talk"]:
+			check((preferences as Dictionary).get(key) is Array,
+				"default.preferences.%s is a list" % key)
+		check((preferences as Dictionary).get("notes") is String,
+			"default.preferences.notes is text")
+	var poses: Variant = block.get("poses")
+	check(poses is Dictionary, "default.poses is a block")
+	if poses is Dictionary:
+		var pose_ids: Array = (poses as Dictionary).keys()
+		pose_ids.sort()
+		var expected_poses: Array = SETTINGS.CATALOG.all().duplicate()
+		expected_poses.sort()
+		check(pose_ids == expected_poses, "default.poses has exactly the catalog poses")
+		for pose_id: String in SETTINGS.CATALOG.all():
+			var row: Variant = (poses as Dictionary).get(pose_id, {})
+			check(row is Dictionary, "default.poses.%s is a block" % pose_id)
+			if not row is Dictionary:
+				continue
+			var row_keys: Array = (row as Dictionary).keys()
+			row_keys.sort()
+			var expected_keys: Array = SETTINGS.CATALOG.POSE_KEYS[pose_id].duplicate()
+			expected_keys.sort()
+			check(row_keys == expected_keys, "default.poses.%s has the pose schema" % pose_id)
+			for key: Variant in (row as Dictionary).keys():
+				if str(key) == "gaps":
+					continue
+				var value: Variant = (row as Dictionary)[key]
+				check(value is int or value is float,
+					"default.poses.%s.%s is a number" % [pose_id, str(key)])
+			if pose_id == SETTINGS.CATALOG.STANDING:
+				var gaps: Variant = (row as Dictionary).get("gaps")
+				check(gaps is Dictionary, "default.poses.standing.gaps is a block")
+				if gaps is Dictionary:
+					var gap_keys: Array = (gaps as Dictionary).keys()
+					gap_keys.sort()
+					var expected_gaps: Array = SETTINGS.CATALOG.GAP_KEYS.duplicate()
+					expected_gaps.sort()
+					check(gap_keys == expected_gaps,
+						"the standing gaps hold exactly the four sizes")
+
+
+## The player file stores declared settings but only the `default` differences; an untouched
+## profile has no `default` block at all.
+func _check_player_document() -> void:
+	var shipped: Dictionary = SETTINGS.defaults()
+	var untouched := SETTINGS._player_document(shipped)
+	check(not untouched.has("default"), "an untouched profile stores no default block")
+	check(int(untouched.get("version", 0)) == SETTINGS.SCHEMA_VERSION,
+		"the player document carries the current schema")
+	check(untouched.has("debug_mode"), "declared settings stay materialised")
+	check(not untouched.has("act_prompts"), "the player document has no prompt catalog")
+	check(not untouched.has("character_templates"), "the player document has no template catalog")
+
+	var changed := shipped.duplicate(true)
+	var profile: Dictionary = changed["default"]
+	(profile["preferences"] as Dictionary)["intensity"] = "rough"
+	(profile["poses"]["standing"] as Dictionary)["bow"] = 3.5
+	(profile["event_prompts"] as Dictionary)["climax"] = "a custom climax"
+	var sparse := SETTINGS._player_document(changed)
+	var diff: Dictionary = sparse.get("default", {})
+	var preference: Dictionary = diff.get("preferences", {})
+	check(str(preference.get("intensity", "")) == "rough",
+		"a changed preference is stored")
+	check(not preference.has("notes"), "an untouched preference key is not pinned")
+	var standing: Dictionary = (diff.get("poses", {}) as Dictionary).get("standing", {})
+	check(near(float(standing.get("bow", 0.0)), 3.5), "a changed pose value is stored")
+	check(not standing.has("foreleg"), "an untouched pose key is not pinned")
+	check(str((diff.get("event_prompts", {}) as Dictionary).get("climax", ""))
+		== "a custom climax", "a changed event prompt is stored")
+	check(not diff.has("act_prompts"), "an empty prompt block is not written")
+
+	var resolved := SETTINGS._merge(shipped, sparse)
+	check(near(float((resolved["default"]["poses"]["standing"] as Dictionary)["bow"]), 3.5),
+		"the sparse default merges back to the resolved value")
+	check(str((resolved["default"]["preferences"] as Dictionary).get("notes", ""))
+		== str((shipped["default"]["preferences"] as Dictionary).get("notes", "")),
+		"the sparse default keeps the shipped preference it did not change")
 
 
 ## Every leaf path of a nested settings document.
@@ -366,7 +496,7 @@ func _check_placement_migration() -> void:
 	var anon := FileAccess.open(anon_path, FileAccess.WRITE)
 	anon.store_string(JSON.stringify(_legacy_row(anon_default), "\t"))
 	anon.close()
-	var data := SETTINGS._migrate({}, SETTINGS.SCHEMA_VERSION - 1)
+	var data := SETTINGS._migrate({}, SETTINGS.SCHEMA_VERSION - 2)
 	var placement: Dictionary = (data.get("anatomy", {}) as Dictionary).get("placement", {})
 	check(placement.has("fluttershy"), "a differing mare row imports")
 	check(not placement.has("applejack"), "a row equal to the default collapses")
@@ -397,6 +527,31 @@ func _check_placement_migration() -> void:
 		"a current settings file still imports a late legacy placement")
 	check(not FileAccess.file_exists(mare_path), "the late legacy file is archived")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(mare_path + ".migrated"))
+
+
+## Schema 10 removes the per-mare placement rows an older build materialised, keeping real
+## overrides as differences so a provider layer can still win.
+func _check_placement_strip() -> void:
+	var shipped_row: Dictionary = SETTINGS.PLACEMENT.MARE_DEFAULTS["fluttershy"].duplicate(true)
+	var base := SETTINGS._legacy_placement_default({}, "anatomy.placement.default")
+	var pitch := float(base["pitch_deg"]) + 4.0
+	var data := {"version": SETTINGS.SCHEMA_VERSION - 2, "anatomy": {"placement": {
+		"fluttershy": shipped_row,
+		"rarity": {"pitch_deg": pitch},
+		"anon": {"scale": 1.1},
+	}}}
+	var stripped := SETTINGS._migrate(data, SETTINGS.SCHEMA_VERSION - 2)
+	var placement: Dictionary = (stripped.get("anatomy", {}) as Dictionary).get("placement", {})
+	check(not placement.has("fluttershy"), "a materialised shipped row is stripped")
+	check(placement.has("anon"), "the anon row is not a mare row")
+	check(placement.has("rarity"), "a real placement override survives")
+	check(near(float((placement["rarity"] as Dictionary).get("pitch_deg", 0.0)), pitch),
+		"the surviving override keeps its value")
+
+	var untouched := {"anatomy": {"placement": {"fluttershy": shipped_row}}}
+	var cleared := SETTINGS._strip_materialized_placement_rows(untouched)
+	check(not (cleared.get("anatomy", {}) as Dictionary).has("placement"),
+		"a block that only held shipped rows is removed")
 
 
 ## One row of the old placement file, from a resolved placement block.
@@ -782,12 +937,12 @@ func _check_migration() -> void:
 		"no old dock keys leaves the genitals default")
 
 	# The old caress shoulder default detached the arm; migrate only the shipped 12 cm value.
-	var reach: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 1,
-		"features": {"caress_reach_shoulder_m": 0.12}}, SETTINGS.SCHEMA_VERSION - 1)
+	var reach: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 2,
+		"features": {"caress_reach_shoulder_m": 0.12}}, SETTINGS.SCHEMA_VERSION - 2)
 	check(near(float((reach.get("features", {}) as Dictionary).get(
 		"caress_reach_shoulder_m", 0.0)), 0.02), "the old caress reach default migrates")
-	var reach_tuned: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 1,
-		"features": {"caress_reach_shoulder_m": 0.05}}, SETTINGS.SCHEMA_VERSION - 1)
+	var reach_tuned: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 2,
+		"features": {"caress_reach_shoulder_m": 0.05}}, SETTINGS.SCHEMA_VERSION - 2)
 	check(near(float((reach_tuned.get("features", {}) as Dictionary).get(
 		"caress_reach_shoulder_m", 0.0)), 0.05), "a tuned caress reach survives migration")
 
@@ -811,15 +966,15 @@ func _check_migration() -> void:
 		"the retired caress tuning keys are erased")
 
 	# The precise switch is retired and `balanced` folds into `precise`; a stored `fast` survives.
-	var retired_caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 1,
+	var retired_caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 2,
 		"features": {"caress_surface": false},
-		"caress": {"quality": "balanced"}}, SETTINGS.SCHEMA_VERSION - 1)
+		"caress": {"quality": "balanced"}}, SETTINGS.SCHEMA_VERSION - 2)
 	check(not (retired_caress.get("features", {}) as Dictionary).has("caress_surface"),
 		"the retired precise caress switch is erased")
 	check(str((retired_caress.get("caress", {}) as Dictionary).get("quality", "")) == "precise",
 		"balanced caress quality folds into precise")
-	var fast_caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 1,
-		"caress": {"quality": "fast"}}, SETTINGS.SCHEMA_VERSION - 1)
+	var fast_caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 2,
+		"caress": {"quality": "fast"}}, SETTINGS.SCHEMA_VERSION - 2)
 	check(str((fast_caress.get("caress", {}) as Dictionary).get("quality", "")) == "fast",
 		"a stored fast caress quality survives migration")
 
@@ -876,6 +1031,42 @@ func _check_migration_diff() -> void:
 	var empty := SETTINGS._migration_diff({}, {})
 	check((empty["changed"] as Array).is_empty() and (empty["added"] as Array).is_empty()
 		and (empty["removed"] as Array).is_empty(), "an unchanged document has no changes")
+
+
+## Schema 10 reduces a saved full `default` block to the player's differences.
+func _check_default_profile_migration() -> void:
+	var full: Dictionary = SETTINGS.defaults()["default"].duplicate(true)
+	var untouched := {"version": SETTINGS.SCHEMA_VERSION - 2, "default": full}
+	var migrated := SETTINGS._migrate(untouched, SETTINGS.SCHEMA_VERSION - 2)
+	check(not migrated.has("default"), "a full shipped default normalizes away")
+
+	var edited: Dictionary = full.duplicate(true)
+	(edited["preferences"] as Dictionary)["intensity"] = "soft"
+	(edited["poses"]["missionary"] as Dictionary)["nuzzle_scale"] = 0.9
+	var changed := SETTINGS._migrate(
+		{"version": SETTINGS.SCHEMA_VERSION - 2, "default": edited},
+		SETTINGS.SCHEMA_VERSION - 2)
+	var diff: Dictionary = changed.get("default", {})
+	check(str((diff.get("preferences", {}) as Dictionary).get("intensity", "")) == "soft",
+		"a changed default preference survives")
+	check(not (diff.get("preferences", {}) as Dictionary).has("notes"),
+		"an unchanged default preference is dropped")
+	var pose: Dictionary = (diff.get("poses", {}) as Dictionary).get("missionary", {})
+	check(near(float(pose.get("nuzzle_scale", 0.0)), 0.9), "a changed default pose survives")
+
+	# A schema-9 file runs only the schema-10 steps.
+	var nine := SETTINGS._migrate(
+		{"version": 9, "default": full, "features": {"caress_reach_shoulder_m": 0.12}}, 9)
+	check(not nine.has("default"), "a schema-9 default block is reduced")
+	check(near(float((nine.get("features", {}) as Dictionary).get(
+		"caress_reach_shoulder_m", 0.0)), 0.12),
+		"a schema-9 file skips the schema-9 renames")
+
+	var current := SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"default": {"preferences": {"intensity": "soft"}}}, SETTINGS.SCHEMA_VERSION)
+	var kept: Dictionary = (current.get("default", {}) as Dictionary).get("preferences", {})
+	check(str(kept.get("intensity", "")) == "soft",
+		"a current file keeps its default differences")
 
 
 ## A script constant resolves a built-in before a same-named static function, so an API name that
@@ -950,8 +1141,8 @@ func _check_character_overrides() -> void:
 		or (normalized["characters"] as Dictionary).is_empty(),
 		"a materialized built-in template normalizes away")
 
-	var old := {"version": SETTINGS.SCHEMA_VERSION - 1, "characters": {"fluttershy": full}}
-	var migrated := SETTINGS._migrate(old, SETTINGS.SCHEMA_VERSION - 1)
+	var old := {"version": SETTINGS.SCHEMA_VERSION - 2, "characters": {"fluttershy": full}}
+	var migrated := SETTINGS._migrate(old, SETTINGS.SCHEMA_VERSION - 2)
 	check(not migrated.has("characters")
 		or (migrated["characters"] as Dictionary).is_empty(),
 		"an older full-template file normalizes once")
@@ -960,32 +1151,32 @@ func _check_character_overrides() -> void:
 	check((kept.get("characters", {}) as Dictionary).has("fluttershy"),
 		"a current file is not normalized twice")
 
-	var empty := {"version": SETTINGS.SCHEMA_VERSION - 1,
+	var empty := {"version": SETTINGS.SCHEMA_VERSION - 2,
 		"characters": {"fluttershy": {"preferences": {}}}}
-	var empty_migrated := SETTINGS._migrate(empty, SETTINGS.SCHEMA_VERSION - 1)
+	var empty_migrated := SETTINGS._migrate(empty, SETTINGS.SCHEMA_VERSION - 2)
 	check(not empty_migrated.has("characters"),
 		"an empty saved profile is not a player override")
 
 	var shipped_consent := CONSENT.defaults("fluttershy")
-	var consent_data := {"version": SETTINGS.SCHEMA_VERSION - 1,
+	var consent_data := {"version": SETTINGS.SCHEMA_VERSION - 2,
 		"characters": {"fluttershy": {"consent": shipped_consent}}}
-	var consent_migrated := SETTINGS._migrate(consent_data, SETTINGS.SCHEMA_VERSION - 1)
+	var consent_migrated := SETTINGS._migrate(consent_data, SETTINGS.SCHEMA_VERSION - 2)
 	check(not consent_migrated.has("characters"),
 		"unchanged consent normalizes away")
 	var changed_consent := shipped_consent.duplicate(true)
 	changed_consent["public"] = not bool(shipped_consent.get("public", false))
-	var changed_data := {"version": SETTINGS.SCHEMA_VERSION - 1,
+	var changed_data := {"version": SETTINGS.SCHEMA_VERSION - 2,
 		"characters": {"fluttershy": {"consent": changed_consent}}}
-	var changed_migrated := SETTINGS._migrate(changed_data, SETTINGS.SCHEMA_VERSION - 1)
+	var changed_migrated := SETTINGS._migrate(changed_data, SETTINGS.SCHEMA_VERSION - 2)
 	var stored_consent: Dictionary = ((changed_migrated.get("characters", {}) as Dictionary)
 		.get("fluttershy", {}) as Dictionary).get("consent", {})
 	check(stored_consent.has("public") and not stored_consent.has("anal")
 		and not stored_consent.has("oral"), "only changed consent is kept")
 	var custom_consent := CONSENT.defaults("a_modded_mare")
-	var custom_consent_data := {"version": SETTINGS.SCHEMA_VERSION - 1,
+	var custom_consent_data := {"version": SETTINGS.SCHEMA_VERSION - 2,
 		"characters": {"a_modded_mare": {"consent": custom_consent}}}
 	var custom_consent_migrated := SETTINGS._migrate(custom_consent_data,
-		SETTINGS.SCHEMA_VERSION - 1)
+		SETTINGS.SCHEMA_VERSION - 2)
 	check(not custom_consent_migrated.has("characters"),
 		"a custom mare's unchanged consent also normalizes away")
 

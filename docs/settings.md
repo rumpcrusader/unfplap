@@ -202,16 +202,20 @@ prefixes pre-emptively.
   packed and read-only in a build. `_bind()` reads one value per declaration at static
   initialisation, so the shipped document is process-static: `SETTINGS.reload_file()` reloads only
   the player file.
-- `SETTINGS.defaults()` returns the shipped document plus the blocks that still live in code (the
-  profile template, `ui.sections` and the shipped per-mare placement rows), detached and with no
-  player values. `SETTINGS.data()` returns that base with the player's values merged on top,
-  detached. These are the only two loaders; `_shipped()` is internal.
+- `SETTINGS.defaults()` returns the shipped document plus the one block that still lives in code
+  (`ui.sections`), detached and with no player values. `SETTINGS.data()` returns that base with the
+  player's values merged on top, detached. These are the only two loaders; `_shipped()` is internal.
 - On mod load, `main._ready()` calls `SETTINGS.load_settings()` before any getter: the player file
   is parsed, migrated, merged over the defaults (the player wins, and an absent player key is
-  filled from the default) and written back once. Every shipped default is therefore materialised
-  in the player file on first run. **A changed shipped default is a migration event for an existing
-  player**: their materialised value keeps winning. Promote a player value into the shipped
-  document with `scripts/settings_sync.py`; see `.opencode/skills/sync-settings/SKILL.md`.
+  filled from the default) and written back once. Declared settings are therefore materialised in
+  the player file on first run. **A changed shipped declared default is a migration event for an
+  existing player**: their materialised value keeps winning. Promote a player value into the
+  shipped document with `scripts/settings_sync.py`; see `.opencode/skills/sync-settings/SKILL.md`.
+- The global `default` profile (`default.*` in `settings/defaults.json`: the template core, the
+  preference profile and the pose defaults) is resolved at read time. The player file stores only
+  the differences the player made, so a changed shipped template or a cross-mod provider layer
+  reaches every player who did not override it. The per-mare `anatomy.placement` rows work the
+  same way: a row equal to the resolved default is never written.
 - A player file with absent keys is filled from the defaults; the merge never requires every key.
   A player file that cannot be read, is empty, is not a JSON object, or was written by a newer
   schema is preserved as `<path>.<timestamp>.invalid` (for example
@@ -225,17 +229,19 @@ prefixes pre-emptively.
   value, and there is no undeclared path), the exact JSON type per kind, a choice/list value inside
   its declared options, a colour in `rrggbb`/`rrggbbaa` form and a player-facing number inside its
   declared bounds. It never asserts a value, so changing a shipped default does not touch the test.
-- Phase 2 moves the remaining code-owned defaults into the same document: the per-mare placement
-  rows, the `default.*` template/prompts/poses/preferences and the `characters.*` templates.
-  `defaults()` and `data()` keep their shape; `_code_defaults()` shrinks.
+- `default.*` is not a declared setting. The schema test checks it as a block — its three numbers,
+  the event prompts, an empty prompt override block, the `PREFERENCES.KEYS` preference schema and
+  the `CATALOG.POSE_KEYS` pose schema — and excludes it from the declared path set.
 - The old `controls.act_key` choice strings (`o`, `y`) are converted to physical keycodes on load;
   `ACT_KEYS.DEFAULT_CODE` is only the legacy/invalid-code fallback, not the shipped default.
 - `anatomy.placement` is one block with `default.*` (ten debug declarations: anatomy 5, tail 3,
   dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. `shared/anatomy_placement.gd`
   owns the shipped per-mare `MARE_DEFAULTS` (the tuned tail/dock rows) and resolves override,
-  shipped default, then global default. The old `anatomy_place.json` and `anon_place.json` import
-  once and are renamed `.migrated`. The old `anatomy.tail_seat.<id>` rows and the tail/dock
-  millimetre globals migrate into the same block on load.
+  provider, shipped default, then global default. Only a row that differs from that resolved
+  default is stored; schema 10 strips the rows an older build materialised for every mare. The old
+  `anatomy_place.json` and `anon_place.json` import once and are renamed `.migrated`. The old
+  `anatomy.tail_seat.<id>` rows and the tail/dock millimetre globals migrate into the same block on
+  load.
 - `anatomy.reseat_tails`, `anatomy.dock_style` and the tail/dock placement behavior are in
   `docs/anatomy.md`. The settings layer owns only their paths, defaults and the placement
   migration above.
@@ -247,12 +253,13 @@ prefixes pre-emptively.
   `_write_file()`. `_write_file()` writes a temporary file and renames it, falling back to a direct
   write. When both routes fail it logs the path and both errors; `_write()` adds that the new value
   is live in memory but was not saved. The live cache keeps the edit either way.
-- **Migrations.** The player file carries `version`. Add a step to `_migrate()` for a structural
-  change and bump `SCHEMA_VERSION`; a current file skips the chain. The old normalisers (pose ids,
-  feature names, presentation split, tolerance tiers, prompts, anatomy keys) run inside it. When a
-  migration actually changes the player document, `_load()` logs the schema change and the concrete
-  changed, added and removed leaf paths; a fresh profile and a current file stay silent. The log
-  runs before the defaults merge, so materialising a default is not reported as a migration.
+- **Migrations.** The player file carries `version`. `_migrate()` runs the `deprecated()` entries on
+  every file, then a version-gated chain: `_migrate_to_9()` holds the renames and retired keys, and
+  `_migrate_to_10()` resolves the global profile and placement rows. A file at the current
+  `SCHEMA_VERSION` skips both. When a migration actually changes the player document, `_load()` logs
+  the schema change and the concrete changed, added and removed leaf paths; a fresh profile and a
+  current file stay silent. The log runs before the defaults merge, so materialising a default is
+  not reported as a migration.
 - **Deprecations.** Declare a retired setting next to its replacement:
 
   ```gdscript
@@ -290,12 +297,12 @@ prefixes pre-emptively.
 ## Settings file shape
 
 Shipped defaults: `res://mods/unfplap/settings/defaults.json`. One nested block per dotted path,
-one value per declared setting; no `version`, no `ui`, no code-owned blocks in phase 1.
+one value per declared setting, plus the global `default` profile; no `version`, no `ui`.
 
 Player settings: `user://mods/data/unfplap/settings.json`
-(`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`). The same nested blocks,
-plus `version`, `ui.sections`, the `default` template, `characters` overrides and the per-mare
-`anatomy.placement` rows.
+(`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`). The same declared
+blocks, plus `version`, `ui.sections`, the `default` differences, `characters` overrides and the
+sparse per-mare `anatomy.placement` rows.
 
 The player file is loaded once at mod load (`SETTINGS.load_settings()`) and kept in memory
 (`SETTINGS._cache`); it is written when a value changes or the merged document differs from the
@@ -308,7 +315,7 @@ it needs a restart. The shipped document never reloads mid-process.
 Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `controls`, `features`,
 `relationship`, `thrust`, `auto_thrust`, `caress`, `jiggle`, `camera_thrust`, `presentation`,
 `history`, `tolerance`, `cues`, `talk`, `player`, `anatomy`, `ui` (section open state), `default`
-template, `characters` overrides.
+(the player's differences from the shipped profile only) and `characters` overrides.
 
 ## The settings tab
 
@@ -534,6 +541,7 @@ value. See `docs/perf.md`.
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | character_preferences | `shared/character_preferences.gd` | character templates |
 | shared | consent | `shared/consent.gd` | consent defaults |
+| shared | defaults_data | `shared/defaults_data.gd` | shipped settings document |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog and tab rows |
 | shared | participation | `shared/participation.gd` | participation defaults |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |

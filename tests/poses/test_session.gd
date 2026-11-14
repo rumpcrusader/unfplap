@@ -70,12 +70,14 @@ func _check_config() -> void:
 	session.set_pose_config({"gaps": {"canon": 0.3}})
 	check(near(float(session.pose_config.get("gaps", {}).get("canon", 0.0)), 0.3),
 		"the session keeps the base pose config")
+	var live: Dictionary = session.pose_config
 	var applied: bool = session.sync_standing_config({
 		"chin_up_deg": 40.0,
 		"neck_down_deg": 20.0,
 		"tail": {"yaw_deg": 50.0, "pitch_deg": 30.0},
 	})
 	check(applied, "the standing config applies")
+	check(is_same(live, session.pose_config), "the sync keeps the live config object")
 	check(near(float(session.pose_config.get("chin_up_deg", 0.0)), 40.0),
 		"the presentation chin wins")
 	check(near(float(session.pose_config.get("neck_down_deg", 0.0)), 20.0),
@@ -86,6 +88,7 @@ func _check_config() -> void:
 		"the presentation tail pitch reaches the pose")
 	check(session.pose_config.has("gaps"), "the character pose overrides survive the sync")
 	session.sync_standing_config({})
+	check(is_same(live, session.pose_config), "an empty presentation keeps the live config object")
 	check(near(float(session.pose_config.get("chin_up_deg", 0.0)),
 		float(SETTINGS.chin_up_deg.default)), "an empty presentation falls back to the defaults")
 	session.pose_id = CATALOG.MISSIONARY
@@ -120,6 +123,15 @@ func _check_begin() -> void:
 	check(is_instance_valid(session.pose_node), "the pose modifier is built")
 	check(session.pose_node.get_parent() == body, "the pose modifier rides the body skeleton")
 	check(session.pose_node.mode == "missionary", "the posture mode is set")
+	var live: Dictionary = session.pose_config
+	check(is_same(live, session.pose_node.pose_config),
+		"the pose node shares the session's config object")
+	session.pose_config["oral_pitch"] = 0.4
+	check(near(float(session.pose_node.pose_config.get("oral_pitch", 0.0)), 0.4),
+		"an in-place anatomy key reaches the pose node")
+	session.sync_missionary_config()
+	check(is_same(live, session.pose_config) and is_same(live, session.pose_node.pose_config),
+		"a live sync keeps the same object on the node")
 	check(session.tail_lay != null, "the missionary tail lay is installed")
 	check(session.pose_logged == false and session.pose_trace_frames == 0,
 		"a fresh session starts its logs clean")

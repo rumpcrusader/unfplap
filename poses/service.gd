@@ -76,8 +76,11 @@ func bind(host_node: Variant, pony_node: Variant) -> void:
 	pony = pony_node
 
 
+## Stage the live pose config in place. The runtime calls this before the standing placement reads
+## its gaps, and everything that holds `pose_config` sees this same object for the act.
 func set_pose_config(config: Dictionary) -> void:
-	pose_config = config
+	pose_config.clear()
+	pose_config.merge(config, true)
 
 
 ## Build the pose for a fresh act. `context` carries `pose_id`, `id`, `features`, `bed`,
@@ -92,8 +95,6 @@ func begin(context: Dictionary) -> void:
 	bed_node = context.get("bed")
 	pose_logged = false
 	pose_trace_frames = 0
-	var base: Variant = context.get("pose_config")
-	pose_config = base if base is Dictionary else SETTINGS.pose(id, pose_id)
 	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if skeleton is Skeleton3D:
 		pose_node = POSE.new()
@@ -102,7 +103,13 @@ func begin(context: Dictionary) -> void:
 		pose_node.log = log
 		pose_node.perf = perf
 		pose_node.mode = "standing" if pose_id == CATALOG.STANDING else "missionary"
-		pose_node.pose_config = SETTINGS.pose(id, pose_id)
+		# One live object: the sync merges the character's pose into `pose_config` in place, so the
+		# modifier, `facts.pose_config` and the runtime all read the same dictionary.
+		if pose_id == CATALOG.STANDING:
+			sync_standing_config(context.get("presentation", {}))
+		elif pose_id == CATALOG.MISSIONARY:
+			sync_missionary_config()
+		pose_node.pose_config = pose_config
 		var look: Variant = context.get("look_point")
 		pose_node.look_point = look if look is Vector3 else pony.global_position
 		pose_node.amount = 0.0
@@ -112,7 +119,6 @@ func begin(context: Dictionary) -> void:
 			bed_frame_source_saved = is_instance_valid(bed_node)
 			if bed_frame_source_saved:
 				bed_frame_source = (bed_node as Node3D).global_transform
-			pose_node.authored = authored()
 			pose_node.bed_frame = bed_frame
 			log_base()
 		(skeleton as Skeleton3D).add_child(pose_node)
@@ -128,15 +134,14 @@ func begin(context: Dictionary) -> void:
 		_install_tail_lay()
 	if pose_id != CATALOG.STANDING:
 		return
-	sync_standing_config(context.get("presentation", {}))
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
 		tail = TAIL.new()
 		tail.name = "UnfplapTail"
 		tail.mare = pony
 		tail.facts = facts
-		tail.aside_angle = float(pose_config.get("tail_aside", 0.55))
-		tail.lift_angle = float(pose_config.get("tail_lift", 0.42))
+		tail.aside_angle = float(pose_config.get("tail_aside", 0.0))
+		tail.lift_angle = float(pose_config.get("tail_lift", 0.0))
 		tail.amount = 0.0
 		tail.target_amount = 1.0
 		var side_anchor: Variant = context.get("camera_position")
@@ -151,22 +156,24 @@ func begin(context: Dictionary) -> void:
 func sync_standing_config(presentation: Dictionary) -> bool:
 	if pose_id != CATALOG.STANDING or not is_instance_valid(pony):
 		return false
-	pose_config = SETTINGS.pose(id, CATALOG.STANDING)
+	pose_config.clear()
+	pose_config.merge(SETTINGS.pose(id, CATALOG.STANDING), true)
 	pose_config["chin_up_deg"] = float(presentation.get("chin_up_deg",
 		SETTINGS.chin_up_deg.default))
 	pose_config["neck_down_deg"] = float(presentation.get("neck_down_deg",
 		SETTINGS.neck_down_deg.default))
 	var tail_cfg: Variant = presentation.get("tail", {})
-	if tail_cfg is Dictionary:
-		pose_config["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg",
-			SETTINGS.yaw_deg.default)))
-		pose_config["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg",
-			SETTINGS.tail_pitch_deg.default)))
+	if not tail_cfg is Dictionary:
+		tail_cfg = {}
+	pose_config["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg",
+		SETTINGS.yaw_deg.default)))
+	pose_config["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg",
+		SETTINGS.tail_pitch_deg.default)))
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
 	if is_instance_valid(tail):
-		tail.aside_angle = float(pose_config.get("tail_aside", 0.55))
-		tail.lift_angle = float(pose_config.get("tail_lift", 0.42))
+		tail.aside_angle = float(pose_config.get("tail_aside", 0.0))
+		tail.lift_angle = float(pose_config.get("tail_lift", 0.0))
 	return true
 
 
@@ -175,7 +182,8 @@ func sync_standing_config(presentation: Dictionary) -> bool:
 func sync_missionary_config() -> bool:
 	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return false
-	pose_config = SETTINGS.pose(id, CATALOG.MISSIONARY)
+	pose_config.clear()
+	pose_config.merge(SETTINGS.pose(id, CATALOG.MISSIONARY), true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
 		# The asset instance is shared, so the reload action reaches the live act.

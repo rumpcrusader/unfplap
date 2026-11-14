@@ -27,7 +27,10 @@ The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/st
 `poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`) read
 `shared/act_facts.gd`, never the runtime node. The view carries the pose config, the presentation config,
 the per-mare profile, the pose id and state, the live depth and bed frame, the scene handles, the
-lean and thrust values and the callbacks they call back through. `poses/body_sway.gd` publishes its
+lean and thrust values and the callbacks they call back through. `pose_config` is one live
+dictionary for the session: `set_pose_config()`, `sync_standing_config()` and
+`sync_missionary_config()` merge into it in place, so the pose modifier, `facts.pose_config` and
+the standing camera's cached config all alias the same object. `poses/body_sway.gd` publishes its
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
 runtime reads it from there. The session binds `facts`, `perf` and
 `log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module

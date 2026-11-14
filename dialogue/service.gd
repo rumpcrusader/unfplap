@@ -4,11 +4,11 @@ extends RefCounted
 ## `shared/act_facts.gd` view; this system owns the scheduler, the recent-line memory and the line text.
 ##
 ## It reads the mod's own line channel through `main.memory` and the conversation director from
-## the act facts. See `docs/lines.md`.
+## the act facts. See `docs/dialogue.md`.
 
-const PROMPTS := preload("res://mods/unfplap/lines/prompts.gd")
-const UTTERANCE := preload("res://mods/unfplap/lines/utterance.gd")
-const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/lines/utterance_scheduler.gd")
+const PROMPTS := preload("res://mods/unfplap/dialogue/prompts.gd")
+const UTTERANCE := preload("res://mods/unfplap/dialogue/utterance.gd")
+const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")

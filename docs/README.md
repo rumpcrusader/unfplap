@@ -42,7 +42,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | VR act | `vr/service.gd` | `docs/vr.md` | `tests/test_vr_act.gd` |
 | Proactive requests | `initiation/service.gd` | `docs/initiation.md` | `tests/initiation/` |
 | Act memory | `memory/service.gd` | `docs/memory.md` | `tests/memory/` |
-| Act lines and prompt notes | `lines/service.gd` | `docs/lines.md` | `tests/lines/` |
+| Act dialogue and prompt notes | `dialogue/service.gd` | `docs/dialogue.md` | `tests/dialogue/` |
 | Readiness, strength, auto | `readiness/service.gd` | `docs/readiness.md` | `tests/readiness/` |
 | Poses and skeleton | `poses/service.gd` | `docs/poses.md` | `tests/poses/` |
 | Act camera and shots | `camera/service.gd` | `docs/camera.md` | `tests/act_camera/` |
@@ -77,7 +77,7 @@ only stable external surface is `docs/api.md`.
 | Pony id | `shared/pony_id.gd` | `docs/eligibility.md` | `tests/test_pony_id.gd` |
 | History store | `shared/act_history.gd` | `docs/summary.md` | `tests/summary/` |
 | Face data | `shared/act_face.gd` | `docs/face.md` | `tests/face/` |
-| Relationship cue | `shared/relationship_cue.gd` | `docs/lines.md` | `tests/test_relationship_cue.gd` |
+| Relationship cue | `shared/relationship_cue.gd` | `docs/dialogue.md` | `tests/test_relationship_cue.gd` |
 | Pose catalog | `shared/pose_catalog.gd` | `docs/poses.md` | `tests/test_catalog.gd` |
 | Anatomy placement | `shared/anatomy_placement.gd` | `docs/anatomy.md` | `tests/anatomy/` |
 | Mod integration catalog | `shared/integrations.gd` | `docs/integrations.md` | `tests/integrations/` |

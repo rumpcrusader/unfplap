@@ -14,7 +14,7 @@ const FEATURE := "kissing_reactions"
 const FULL_FIDGETS := "kissing_full_fidgets"
 const REQUIRED := ["feelings", "excitement", "beat"]
 
-## The act's "she is close" cue, matching lines/utterance_scheduler.gd `CLOSE_AT`.
+## The act's "she is close" cue, matching dialogue/utterance_scheduler.gd `CLOSE_AT`.
 const CLOSE_AT := 65.0
 const READINESS_MAX := 100.0
 ## A real stroke inside this window keeps the build going; it matches the act's stroke memory.

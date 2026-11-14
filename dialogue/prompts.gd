@@ -1,7 +1,7 @@
 extends RefCounted
 ## Pure prompt-note assembly for the normal dialogue prompt. The runtime supplies the act state,
 ## the history note, the relationship note, the afterglow beat and the live caress/lean reads;
-## this module owns the wording and the precedence. Contract: `docs/lines.md`.
+## this module owns the wording and the precedence. Contract: `docs/dialogue.md`.
 
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3

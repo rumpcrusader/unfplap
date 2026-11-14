@@ -33,7 +33,7 @@ sequence:
 4. snapshot the settings and preferences, build the thrust tracker and the pose config;
 5. resolve the bed (missionary) or the standing spot (standing), apply the eye override and the
    initial face;
-6. allocate the serial/event id, reset readiness, lines, history and the thrust state;
+6. allocate the serial/event id, reset readiness, dialogue, history and the thrust state;
 7. release the cradle/cuddle/navigator/player ownership through `scene_hold`;
 8. snapshot the pony bones, mark the act active, build the anatomy act;
 9. place the bodies, build the pose, capture the look, lock the player and the navigator, start the
@@ -103,8 +103,8 @@ failed start runs the same function and restores only what it took.
 
 ## Tick order
 
-- `_physics_process`: `_physics_tick(delta)` — the act timer, the readiness tick, the lines, the
-  history scan, the tolerance, the scene keep-alives, the anatomy tick and its oral gate (speech
+- `_physics_process`: `_physics_tick(delta)` — the act timer, the readiness tick, the dialogue
+  service, the history scan, the tolerance, the scene keep-alives, the anatomy tick and its oral gate (speech
   stop, `D` viseme hold, idle kiss, and the rising-edge reach/lean-kiss release), the thrust
   tracker and the presentation modules (wings and mod integrations).
 - `_process`: `_process_tick(delta)` — the render-time pose write (which also watches the standing

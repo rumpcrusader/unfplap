@@ -15,8 +15,8 @@ other consumer. The runtime keeps the act state machine, gathers the action coun
 values into one dictionary, runs the scene stop executor (`_stop_with_her`: bed release, session
 end, space, buck, tail tuck) and owns the face and line presentation. `summary/score.gd` and
 `shared/act_history.gd` remain the pure scoring and stored-row modules behind the facade. The
-neglect-tolerance meter is readiness and the idle history scan is lines; see `docs/readiness.md`
-and `docs/lines.md`.
+neglect-tolerance meter is readiness and the idle history scan is dialogue; see
+`docs/readiness.md` and `docs/dialogue.md`.
 
 ## Per-act score
 
@@ -228,7 +228,7 @@ navigator and blocks nothing; the gates above do that.
 - An intentional early end gives one short reaction 50% of the time and marks its pending history
   line announced, so the same act does not speak twice.
 - The pending reminder/complaint line and the apology repair run in the idle history scan owned by
-  lines; see `docs/lines.md`.
+  dialogue; see `docs/dialogue.md`.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act. The **Reset act history** debug action clears the row; **Show data**
   prints it in its HISTORY section.

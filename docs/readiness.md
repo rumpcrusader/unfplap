@@ -3,7 +3,7 @@
 This is the contract for the act's readiness loop: the measured stroke, the physical strength
 value, satisfaction/mood/cues, the pony climax count, the touch/talk assist and the automatic
 stroke. The long-term summary and history are `docs/summary.md`; cue admission and prompt assembly
-are `docs/lines.md`; the HUD text is `docs/hud.md`; the camera response is `docs/camera.md`.
+are `docs/dialogue.md`; the HUD text is `docs/hud.md`; the camera response is `docs/camera.md`.
 
 ## Ownership
 
@@ -134,7 +134,7 @@ overwhelmed   a disliked touch/talk landed recently
 
 - `CLOSE_AT = 65` is only the “she is close” cue.
 - `PONY_CLIMAX_AT = 100` triggers the pony's climax.
-- Cue admission, stability, the shared slot and the prompt are `docs/lines.md`. The HUD shorthand
+- Cue admission, stability, the shared slot and the prompt are `docs/dialogue.md`. The HUD shorthand
   is `docs/hud.md`.
 - The base fallback cue is `She wants you to keep going.` A neutral touch sets no override; a
   neutral talk sets `She listens.` The two assist-cap lines mean the touch/talk assist is already
@@ -261,7 +261,7 @@ settings.
 
 ## Related docs
 
-- `docs/lines.md` — cue admission, prompt assembly, reactions.
+- `docs/dialogue.md` — cue admission, prompt assembly, reactions.
 - `docs/hud.md` — cue, readiness and auto text.
 - `docs/preferences.md` — the per-mare profile and the two axes.
 - `docs/summary.md` — the act summary and the long-term history.

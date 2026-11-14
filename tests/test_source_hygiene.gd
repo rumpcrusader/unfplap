@@ -77,7 +77,7 @@ func run() -> void:
 	_check_memory_isolation(files)
 	_check_memory_docs()
 	_check_act_facts()
-	_check_act_lines()
+	_check_act_dialogue()
 	_check_readiness()
 	_check_summary()
 	_check_afterglow()
@@ -354,34 +354,34 @@ func _check_act_facts() -> void:
 				"%s has no runtime reach-in: %s" % [readers[name], token])
 
 
-## The act line facade reads the typed act context and the memory facade only. Its contract is
-## `docs/lines.md`, linked from the shared docs.
-func _check_act_lines() -> void:
-	var facade := FileAccess.get_file_as_string(ROOT.path_join("lines/service.gd"))
+## The act dialogue facade reads the typed act context and the memory facade only. Its contract is
+## `docs/dialogue.md`, linked from the shared docs.
+func _check_act_dialogue() -> void:
+	var facade := FileAccess.get_file_as_string(ROOT.path_join("dialogue/service.gd"))
 	check(facade.contains("func admit_cue("), "act line facade is present")
 	for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(\"",
 			"runtime.call(\"", "runtime.set(\""]:
-		check(not facade.contains(token), "act lines has no host reach-in: %s" % token)
-	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/lines.md"))
-	check(not contract.is_empty(), "docs/lines.md exists")
+		check(not facade.contains(token), "act dialogue has no host reach-in: %s" % token)
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/dialogue.md"))
+	check(not contract.is_empty(), "docs/dialogue.md exists")
 	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Admission",
 			"## Reactions and bystanders", "## Cancelling", "## Tests"]:
-		check(contract.contains(heading), "docs/lines.md has %s" % heading)
+		check(contract.contains(heading), "docs/dialogue.md has %s" % heading)
 	for name: String in ["docs/README.md", "docs/memory.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
-		check(text.contains("docs/lines.md"), "%s links to docs/lines.md" % name)
-	for name: String in ["test_act_lines.gd", "test_utterance.gd", "test_utterance_scheduler.gd",
+		check(text.contains("docs/dialogue.md"), "%s links to docs/dialogue.md" % name)
+	for name: String in ["test_act_dialogue.gd", "test_utterance.gd", "test_utterance_scheduler.gd",
 			"test_prompt_notes.gd"]:
-		check(FileAccess.file_exists(ROOT.path_join("tests/lines/" + name)),
-			"tests/lines/%s exists" % name)
-	var prompts := FileAccess.get_file_as_string(ROOT.path_join("lines/prompts.gd"))
-	check(prompts.contains("static func note("), "lines/prompts.gd is the pure note module")
+		check(FileAccess.file_exists(ROOT.path_join("tests/dialogue/" + name)),
+			"tests/dialogue/%s exists" % name)
+	var prompts := FileAccess.get_file_as_string(ROOT.path_join("dialogue/prompts.gd"))
+	check(prompts.contains("static func note("), "dialogue/prompts.gd is the pure note module")
 	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
 			"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")"]:
 		check(not prompts.contains(token), "prompt notes have no scene reference: %s" % token)
-	check(contract.contains("lines/prompts.gd"), "docs/lines.md names the prompt note module")
+	check(contract.contains("dialogue/prompts.gd"), "docs/dialogue.md names the prompt note module")
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	for token: String in ["after making love with Anon", "You are in the middle of sex with Anon",
 			"still in the afterglow with Anon", "stay: 120"]:
@@ -775,7 +775,7 @@ func _check_docs_index(files: Array[String]) -> void:
 		["docs/vr.md", "vr/service.gd", "tests/test_vr_act.gd"],
 		["docs/initiation.md", "initiation/service.gd", "tests/initiation/"],
 		["docs/memory.md", "memory/service.gd", "tests/memory/"],
-		["docs/lines.md", "lines/service.gd", "tests/lines/"],
+		["docs/dialogue.md", "dialogue/service.gd", "tests/dialogue/"],
 		["docs/readiness.md", "readiness/service.gd", "tests/readiness/"],
 		["docs/preferences.md", "shared/preferences.gd", "tests/readiness/"],
 		["docs/poses.md", "poses/service.gd", "tests/poses/"],

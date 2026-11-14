@@ -29,13 +29,14 @@ restate a contract.
 | `shared/hands_*.gd` | `docs/hands.md` |
 | `shared/perf.gd`, `shared/perf_idle.gd` | `docs/perf.md` |
 | `shared/pose_catalog.gd` | `docs/poses.md` |
-| `shared/relationship_cue.gd` | `docs/lines.md` |
+| `shared/relationship_cue.gd` | `docs/dialogue.md` |
 | `shared/rump_cone.gd` | `docs/scene_gate.md` |
 | `afterglow/**` | `docs/afterglow.md` |
 | `anatomy/**` | `docs/anatomy.md` |
 | `audio/**` | `docs/audio.md` |
 | `camera/**` | `docs/camera.md` |
 | `debug/**` | `docs/debug.md` |
+| `dialogue/**` | `docs/dialogue.md` |
 | `eligibility/**` | `docs/eligibility.md` |
 | `face/**` | `docs/face.md` |
 | `hands/**` | `docs/hands.md` |
@@ -44,7 +45,6 @@ restate a contract.
 | `input/**` | `docs/input.md` |
 | `integrations/**` | `docs/integrations.md` |
 | `kiss/**` | `docs/kiss.md` |
-| `lines/**` | `docs/lines.md` |
 | `memory/**` | `docs/memory.md` |
 | `poses/**` | `docs/poses.md` |
 | `reactions/**` | `docs/reactions.md` |

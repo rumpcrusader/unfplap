@@ -38,7 +38,7 @@ const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
-const ACT_LINES := preload("res://mods/unfplap/lines/service.gd")
+const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
@@ -139,9 +139,9 @@ var _anatomy_bridge: RefCounted = ANATOMY.new_act(_anatomy_host())
 ## reaching into this node. See `shared/act_facts.gd`.
 var _act_facts: RefCounted = ACT_FACTS.new()
 
-## The act's line system: scheduler, prompt assembly, reactions and the bystander line.
-var _act_lines: RefCounted = ACT_LINES.new(_act_facts)
-var _act_lines_main: Node
+## The act's dialogue service: scheduler, prompt assembly, reactions and the bystander line.
+var _act_dialogue: RefCounted = ACT_DIALOGUE.new(_act_facts)
+var _act_dialogue_main: Node
 ## Debug perf probe: timed chunks report here and one summary prints per window. See `shared/perf.gd`.
 var _perf_probe := PERF.new()
 ## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
@@ -862,12 +862,12 @@ func _feature(name: String) -> bool:
 	return bool(_features.get(name, false))
 
 
-func _lines_service() -> RefCounted:
-	if _act_lines_main != main:
-		_act_lines_main = main
-		_act_lines.setup(main)
+func _dialogue_service() -> RefCounted:
+	if _act_dialogue_main != main:
+		_act_dialogue_main = main
+		_act_dialogue.setup(main)
 	_act_facts.pony_id = _id
-	return _act_lines
+	return _act_dialogue
 
 
 ## The pose session, bound to this runtime and its pony. Suites build a runtime without entering
@@ -910,7 +910,7 @@ func _scene_gate() -> RefCounted:
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these
 ## fields, so `_reset_thrust_state()` only has to reset the act's timing state.
 func _configure_utterance_scheduler() -> void:
-	_lines_service().configure({
+	_dialogue_service().configure({
 		"base_stable": _cue_base_stable_s,
 		"override_stable": _cue_override_stable_s,
 		"utterance_gap": _cue_utterance_gap_s,
@@ -1815,7 +1815,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
 		_satisfaction_tween.kill()
 	_remember_talk_turn()
-	_act_spoken_at = _lines_service().last_spoken_at()
+	_act_spoken_at = _dialogue_service().last_spoken_at()
 	if source == "cradle":
 		if not _release_carry():
 			_abort_start()
@@ -2191,7 +2191,7 @@ func _reset_thrust_state() -> void:
 	_readiness.reset(_preferences)
 	_climax_left = 0.0
 	_afterglow.reset()
-	_lines_service().reset(_now_s(), _cue_gap)
+	_dialogue_service().reset(_now_s(), _cue_gap)
 	_configure_utterance_scheduler()
 	_vocal_cooldown = 0.0
 	_oral_was_active = false
@@ -2708,22 +2708,22 @@ func _readiness_cue(mood_value: String, cue_value: String, is_override: bool) ->
 	_act_facts.mood = mood_value
 	_act_facts.cue = cue_value
 	_act_facts.cue_override = is_override
-	_lines_service().admit_cue(_now_s())
+	_dialogue_service().admit_cue(_now_s())
 
 
 ## True while the director or the pony is actually speaking.
 func _speech_busy() -> bool:
-	return _lines_service().busy()
+	return _dialogue_service().busy()
 
 
-## Free a delivered line and expire a queued one at its max age. See `lines/service.gd`.
+## Free a delivered line and expire a queued one at its max age. See `dialogue/service.gd`.
 func _utterance_tick() -> void:
-	_lines_service().tick()
+	_dialogue_service().tick()
 
 
 ## integration: one adult observer may say a short line, using the modern witness perception.
 func _bystander_tick(delta: float) -> void:
-	_lines_service().bystander_tick(delta)
+	_dialogue_service().bystander_tick(delta)
 
 
 ## The typed stop reason for one `_stop()` reason string.
@@ -2744,7 +2744,7 @@ func _stop_reason(reason: String) -> int:
 
 
 func _end_act_lines(keep_speaking := true) -> void:
-	_lines_service().end_act(_event_id, keep_speaking)
+	_dialogue_service().end_act(_event_id, keep_speaking)
 
 
 func _commit_summary(real_act: bool) -> void:
@@ -2807,7 +2807,7 @@ func refuse_from_history(_pose_in: String, source: String, _bed_in: Variant = nu
 		var event_id := "history_refusal_%s_%d" % [_id, Time.get_ticks_usec()]
 		var valid := func() -> bool:
 			return is_instance_valid(pony) and state == State.IDLE
-		_lines_service().reaction_line(MEMORY.Reaction.HISTORY_REFUSAL, event_id, ACT_HISTORY.refusal_purpose(row), valid)
+		_dialogue_service().reaction_line(MEMORY.Reaction.HISTORY_REFUSAL, event_id, ACT_HISTORY.refusal_purpose(row), valid)
 		_log("history refusal id=%s tier=%s hurt=%d" % [
 			_id, ACT_HISTORY.tier_name(row), int(row.get("hurt", 0))])
 	if source == "cradle":
@@ -2817,7 +2817,7 @@ func refuse_from_history(_pose_in: String, source: String, _bed_in: Variant = nu
 	return true
 
 
-## Idle-only history scan. The scene values are gathered here; `lines/service.gd` owns the
+## Idle-only history scan. The scene values are gathered here; `dialogue/service.gd` owns the
 ## decisions and the line queueing.
 func _history_tick(delta: float) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main) \
@@ -2828,7 +2828,7 @@ func _history_tick(delta: float) -> void:
 		return
 	var target: Variant = pony.get("conversation_target")
 	var body: Variant = main.player_body()
-	_lines_service().history_tick(delta, {
+	_dialogue_service().history_tick(delta, {
 		"main": main,
 		"pony": pony,
 		"director": director,
@@ -2896,7 +2896,7 @@ func _queue_tolerance_warning(level: int) -> void:
 			and _event_id == act_id
 	var fallback := ("Don't do that." if level <= 1 else "I said stop that.") \
 		+ " Begin with [annoyed] or [calm]."
-	_tolerance_warning_key = _lines_service().reaction_line(MEMORY.Reaction.TOLERANCE_WARNING, event_id, fallback, valid)
+	_tolerance_warning_key = _dialogue_service().reaction_line(MEMORY.Reaction.TOLERANCE_WARNING, event_id, fallback, valid)
 
 
 func _cancel_tolerance_warning() -> void:
@@ -2958,7 +2958,7 @@ func _queue_stop_line(strict: bool) -> void:
 	var event_id := "tolerance_stop_%s_%d" % [_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and state == State.IDLE
-	_lines_service().reaction_line(MEMORY.Reaction.TOLERANCE_STOP, event_id, fallback, valid)
+	_dialogue_service().reaction_line(MEMORY.Reaction.TOLERANCE_STOP, event_id, fallback, valid)
 
 
 func _start_tail_tuck() -> void:
@@ -2999,8 +2999,8 @@ func _record_peak_memory() -> void:
 		"liked_touch": _readiness.act_liked_touch,
 		"liked_talk": _readiness.act_liked_talk,
 		"player_talk": _readiness.last_player_talk,
-		"her_at": _lines_service().last_spoken_at(),
-		"her_line": _lines_service().last_spoken_line(),
+		"her_at": _dialogue_service().last_spoken_at(),
+		"her_line": _dialogue_service().last_spoken_line(),
 	}, _act_spoken_at)
 
 
@@ -3038,11 +3038,11 @@ func cancel() -> void:
 				if _now_s() <= expires:
 					return true
 				return main.memory.line_state(_end_early_key) == MEMORY.LineState.SPEAKING
-			var key: String = _lines_service().reaction_line(MEMORY.Reaction.END_EARLY, act_id, ACT_SUMMARY.early_end_prompt(_summary_service.summary), valid)
+			var key: String = _dialogue_service().reaction_line(MEMORY.Reaction.END_EARLY, act_id, ACT_SUMMARY.early_end_prompt(_summary_service.summary), valid)
 			_end_early_key = key
 			if not key.is_empty():
 				var now := _now_s()
-				_lines_service().note_reaction(key, "", now + _cue_reaction_max_age_s)
+				_dialogue_service().note_reaction(key, "", now + _cue_reaction_max_age_s)
 				_log("utterance kind=reaction key=%s" % key)
 			# The stopped act gets one post-act beat at most: suppress the later history line
 			# for the same act, even when the roll chose silence. A skipped summary must not
@@ -3104,12 +3104,12 @@ func _queue_climax_reaction() -> void:
 		if _now_s() <= expires:
 			return true
 		return main.memory.line_state(_climax_reaction_key) == MEMORY.LineState.SPEAKING
-	var key: String = _lines_service().reaction_line(MEMORY.Reaction.CLIMAX, climax_id, "You have just climaxed. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine.", valid)
+	var key: String = _dialogue_service().reaction_line(MEMORY.Reaction.CLIMAX, climax_id, "You have just climaxed. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine.", valid)
 	_climax_reaction_key = key
 	if key.is_empty():
 		return
 	var now := _now_s()
-	_lines_service().note_reaction(key, cue, now + _cue_reaction_max_age_s)
+	_dialogue_service().note_reaction(key, cue, now + _cue_reaction_max_age_s)
 	_log("utterance kind=reaction key=%s" % key)
 
 ## The pony climax ends on its own. It returns to ACTIVE unless the configured limit was
@@ -3193,7 +3193,7 @@ func _relationship_note() -> String:
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.
 func prompt_note() -> String:
 	_read_id()
-	return _lines_service().prompt_note({
+	return _dialogue_service().prompt_note({
 		"state": state,
 		"warm": _face.warm_note,
 		"history": _history_note(),

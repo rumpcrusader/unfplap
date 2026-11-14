@@ -149,4 +149,4 @@ readout and the tint. `tests/hud/test_hud.gd` covers the card rows and the style
 - `docs/readiness.md` — the cue, readiness and auto values.
 - `docs/afterglow.md` — the close prompt and the summary.
 - `docs/settings.md` — `hud_readouts`, `act_controls`, `captions_on_top`.
-- `docs/lines.md` — the cue text the HUD shortens.
+- `docs/dialogue.md` — the cue text the HUD shortens.

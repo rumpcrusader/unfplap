@@ -1,8 +1,12 @@
-# Act lines
+# Act dialogue
 
-The line system owns what the mod makes the ponies say during an act: cue admission, the cue
-prompt, the shared utterance slot, reaction lines, the bystander line and the idle history scan.
-The runtime keeps the act state machine; this system decides whether and how a line is queued.
+The act dialogue system owns what the mod makes the ponies say during an act: cue admission, the
+cue prompt, the shared utterance slot, reaction lines, the bystander line and the idle history
+scan. The runtime keeps the act state machine; this system decides whether and how a line is queued.
+
+A **line** here is one spoken or generated dialogue line, not a source-code line. The authored-line
+channel and its `Line*` types are owned by `memory`; `memory/dialogue.gd` is that channel's scene
+adapter, not this service.
 
 ## Scope
 
@@ -27,14 +31,14 @@ face beats (`docs/face.md`).
 
 | File | Role |
 |---|---|
-| `lines/service.gd` | facade: scheduler state, cue admission, prompt assembly, reactions, the idle history scan, bystander and recent-line reads |
+| `dialogue/service.gd` | facade: scheduler state, cue admission, prompt assembly, reactions, the idle history scan, bystander and recent-line reads |
 | `shared/act_facts.gd` | the runtime's typed act view: state, ids, mood/cue, stroke and touch/talk values, preferences, prompts, features and the director clock |
-| `lines/utterance_scheduler.gd` | pure admission policy: stability, gaps, demand budget, the one pending slot |
-| `lines/utterance.gd` | pure prompt formatting and the private line seed |
-| `lines/prompts.gd` | pure normal-dialogue note assembly: warm, mid-act, afterglow, caress/lean |
+| `dialogue/utterance_scheduler.gd` | pure admission policy: stability, gaps, demand budget, the one pending slot |
+| `dialogue/utterance.gd` | pure prompt formatting and the private line seed |
+| `dialogue/prompts.gd` | pure normal-dialogue note assembly: warm, mid-act, afterglow, caress/lean |
 | `memory/service.gd` | the mod's line channel: queue, key, state, cancel and cancel-by-act |
-| `docs/lines.md` | this contract |
-| `tests/lines/` | the pure scheduler/formatting suites and the facade suite |
+| `docs/dialogue.md` | this contract |
+| `tests/dialogue/` | the pure scheduler/formatting suites and the facade suite |
 
 The facade reads no runtime field and preloads neither `runtime.gd` nor `main.gd`. It receives
 `main` through `setup()` and every act value through `shared/act_facts.gd`. The director is a callable
@@ -83,7 +87,7 @@ sets them on `act_facts` immediately before calling the facade.
 
 ## Prompt notes
 
-`lines/prompts.gd` is pure and owns the normal dialogue prompt, outside and during an act:
+`dialogue/prompts.gd` is pure and owns the normal dialogue prompt, outside and during an act:
 
 - outside the act states, the warm after-sex note (with the relationship line appended) or the
   history note;
@@ -132,7 +136,7 @@ line is queued after that cancel, so the normal restore must not cancel it again
 
 ## Pacing and context
 
-Cue lines are event-driven, not a timer. `lines/utterance_scheduler.gd` owns admission, with the
+Cue lines are event-driven, not a timer. `dialogue/utterance_scheduler.gd` owns admission, with the
 **Talk & cues** debug settings as its pacing:
 
 - a base cue must stay unchanged for `cues.base_stable_seconds`;
@@ -212,18 +216,18 @@ too-slow.
 
 ## Tests
 
-- `tests/lines/test_utterance.gd`: pure formatting and the line seed.
-- `tests/lines/test_utterance_scheduler.gd`: stability, gaps, demand budget and the slot.
-- `tests/lines/test_act_lines.gd`: pacing configuration, cue admission, prompt assembly,
+- `tests/dialogue/test_utterance.gd`: pure formatting and the line seed.
+- `tests/dialogue/test_utterance_scheduler.gd`: stability, gaps, demand budget and the slot.
+- `tests/dialogue/test_act_dialogue.gd`: pacing configuration, cue admission, prompt assembly,
   the memory channel, reactions, the recent-line reads, busy state and act-end cancellation.
-- `tests/lines/test_prompt_notes.gd`: the warm, mid-act and afterglow notes and the
+- `tests/dialogue/test_prompt_notes.gd`: the warm, mid-act and afterglow notes and the
   caress/lean reads.
-- `tests/lines/test_history_scan.gd`: the idle apology repair, the pending reminder line and the
+- `tests/dialogue/test_history_scan.gd`: the idle apology repair, the pending reminder line and the
   announced mark.
 
 Run:
 
 ```bash
 godot --headless --xr-mode off --path <project> \
-  --script res://mods/unfplap/tests/lines/test_act_lines.gd
+  --script res://mods/unfplap/tests/dialogue/test_act_dialogue.gd
 ```

@@ -2,9 +2,9 @@ extends SceneTree
 ## The pure prompt-note assembly: the warm note, the act/afterglow note, the history and
 ## relationship lines and the caress/lean reads.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/lines/test_prompt_notes.gd
+##     --script res://mods/unfplap/tests/dialogue/test_prompt_notes.gd
 
-const PROMPTS := preload("res://mods/unfplap/lines/prompts.gd")
+const PROMPTS := preload("res://mods/unfplap/dialogue/prompts.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2

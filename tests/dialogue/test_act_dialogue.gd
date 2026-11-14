@@ -1,9 +1,9 @@
 extends SceneTree
-## The act line facade: pacing configuration, cue admission, the memory line channel, reaction
+## The act dialogue facade: pacing configuration, cue admission, the memory line channel, reaction
 ## lines and the recent-line reads.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/lines/test_act_lines.gd
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/dialogue/test_act_dialogue.gd
 
-const LINES := preload("res://mods/unfplap/lines/service.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
@@ -122,22 +122,22 @@ func run() -> void:
 	facts.director = Callable(host, "get_director")
 	facts.now = Callable(host, "clock_now")
 
-	var lines := LINES.new(facts)
-	lines.setup(main)
-	check(lines.scheduler() != null, "the facade owns a scheduler")
-	lines.configure({
+	var dialogue := DIALOGUE.new(facts)
+	dialogue.setup(main)
+	check(dialogue.scheduler() != null, "the facade owns a scheduler")
+	dialogue.configure({
 		"base_stable": 2.0, "override_stable": 0.5, "utterance_gap": 18.0,
 		"demand_gap": 28.0, "demand_repeat": 45.0, "max_age": 20.0,
 		"release_hold": 1.0,
 	})
-	check(is_equal_approx(lines.scheduler().base_stable_s, 2.0),
+	check(is_equal_approx(dialogue.scheduler().base_stable_s, 2.0),
 		"configure pushes the base stability")
-	check(is_equal_approx(lines.scheduler().utterance_gap_s, 18.0),
+	check(is_equal_approx(dialogue.scheduler().utterance_gap_s, 18.0),
 		"configure pushes the shared gap")
 
-	lines.reset(0.0, 12.0)
-	check(lines.admit_cue(0.0) == "", "a fresh base cue waits for its stability")
-	check(lines.admit_cue(2.1) != "", "a stable base cue is admitted")
+	dialogue.reset(0.0, 12.0)
+	check(dialogue.admit_cue(0.0) == "", "a fresh base cue waits for its stability")
+	check(dialogue.admit_cue(2.1) != "", "a stable base cue is admitted")
 	check(main.memory.requests.size() == 1, "the cue reaches the memory line channel")
 	var request: MEMORY.LineRequest = main.memory.requests[0]
 	check(request.kind == MEMORY.LineKind.UTTERANCE, "the cue is an utterance")
@@ -152,32 +152,32 @@ func run() -> void:
 	check(request.valid.is_valid() and request.finished.is_valid(),
 		"the cue carries its validity and completion callbacks")
 
-	check(lines.recent_lines() == "I missed you. | Not so fast.",
+	check(dialogue.recent_lines() == "I missed you. | Not so fast.",
 		"the recent lines come from the director")
-	check(lines.last_spoken_line() == "Not so fast.", "the last line is the newest")
-	check(is_equal_approx(lines.last_spoken_at(), 12.5), "the last-spoken time is read")
-	check(not lines.busy(), "an idle director is not busy")
+	check(dialogue.last_spoken_line() == "Not so fast.", "the last line is the newest")
+	check(is_equal_approx(dialogue.last_spoken_at(), 12.5), "the last-spoken time is read")
+	check(not dialogue.busy(), "an idle director is not busy")
 	director.state = "speaking"
-	check(lines.busy(), "a speaking director owns the channel")
+	check(dialogue.busy(), "a speaking director owns the channel")
 	director.state = "idle"
 	pony.speaking = true
-	check(lines.busy(), "a speaking pony owns the channel")
+	check(dialogue.busy(), "a speaking pony owns the channel")
 	pony.speaking = false
 
-	var reaction := lines.reaction_line(MEMORY.Reaction.CLIMAX, "evt1:climax",
+	var reaction := dialogue.reaction_line(MEMORY.Reaction.CLIMAX, "evt1:climax",
 		"The climax line.", Callable())
 	check(reaction == "line:2", "a reaction line is queued through memory")
 	check(main.memory.requests[1].kind == MEMORY.LineKind.REACTION,
 		"the reaction carries its kind")
-	lines.note_reaction(reaction, "She is climaxing.", 30.0)
-	check(lines.scheduler().pending_key() == reaction,
+	dialogue.note_reaction(reaction, "She is climaxing.", 30.0)
+	check(dialogue.scheduler().pending_key() == reaction,
 		"the reaction takes the shared slot")
 
-	lines.end_act("evt1")
+	dialogue.end_act("evt1")
 	check(main.memory.cancel_act_calls == 1, "the act's lines are cancelled once")
-	check(lines.scheduler().pending_key() == "", "the pending slot is dropped")
+	check(dialogue.scheduler().pending_key() == "", "the pending slot is dropped")
 
-	print("ACT_LINES_RESULT checks=%d failures=%d" % [checks, failures])
+	print("ACT_DIALOGUE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
-		print("ACT_LINES_PASS")
+		print("ACT_DIALOGUE_PASS")
 	quit(0 if failures == 0 else 1)

@@ -18,7 +18,7 @@ This contract covers:
 
 It does not cover act scoring, the grade, history tiers or hurt repair (`docs/summary.md`), act
 eligibility and consent (`docs/eligibility.md`), proactive requests (`docs/initiation.md`), or the
-cue admission, prompt assembly and act-line reactions (`docs/lines.md`). The memory system only
+cue admission, prompt assembly and act-line reactions (`docs/dialogue.md`). The memory system only
 writes the facts those systems read.
 
 ## Architecture

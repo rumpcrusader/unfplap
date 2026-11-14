@@ -206,7 +206,7 @@ func _ready() -> void:
 			"res://mods/unfplap/runtime.gd",
 			"res://mods/unfplap/readiness/thrust.gd",
 			"res://mods/unfplap/shared/preferences.gd",
-			"res://mods/unfplap/lines/utterance.gd",
+			"res://mods/unfplap/dialogue/utterance.gd",
 			"res://mods/unfplap/poses/skeleton_pose.gd",
 			"res://mods/unfplap/poses/missionary_recipe.gd",
 			"res://mods/unfplap/poses/standing_recipe.gd",

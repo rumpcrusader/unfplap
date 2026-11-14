@@ -1,10 +1,10 @@
 extends SceneTree
-## The lines facade's idle history scan: a sincere apology repairs one point, and a pending
+## The dialogue facade's idle history scan: a sincere apology repairs one point, and a pending
 ## reminder or complaint becomes one short queued line and is marked announced.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/lines/test_history_scan.gd
+##     --script res://mods/unfplap/tests/dialogue/test_history_scan.gd
 
-const LINES := preload("res://mods/unfplap/lines/service.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
@@ -128,15 +128,15 @@ func run() -> void:
 	facts.director = Callable(host, "get_director")
 	facts.now = Callable(host, "clock_now")
 
-	var lines := LINES.new(facts)
-	lines.setup(main)
+	var dialogue := DIALOGUE.new(facts)
+	dialogue.setup(main)
 
 	# The first turn is the baseline; a later turn with an apology repairs one point.
 	mods.data["unfplap"]["act_history"] = {
 		"rarity": {"hurt": 3, "last_apology_day": -1.0, "reminder_pending": false},
 	}
-	lines.history_tick(0.0, _context(main, pony, director, 2, "", false))
-	lines.history_tick(1.1, _context(main, pony, director, 3, "I'm sorry", true))
+	dialogue.history_tick(0.0, _context(main, pony, director, 2, "", false))
+	dialogue.history_tick(1.1, _context(main, pony, director, 3, "I'm sorry", true))
 	var repair_row: Dictionary = (mods.data["unfplap"]["act_history"] as Dictionary)["rarity"]
 	check(int(repair_row.get("hurt", 3)) == 2, "a sincere apology repairs one point")
 	check(main.memory.notes.size() == 1, "the apology writes one note")
@@ -149,7 +149,7 @@ func run() -> void:
 		"rarity": {"hurt": 2, "last_at": 0.0, "reminder_pending": true,
 			"complaint_pending": false},
 	}
-	lines.history_tick(1.1, _context(main, pony, director, 3, "", false))
+	dialogue.history_tick(1.1, _context(main, pony, director, 3, "", false))
 	check(main.memory.requests.size() == 1, "a pending reminder queues one line")
 	var reminder_row: Dictionary = (mods.data["unfplap"]["act_history"] as Dictionary)["rarity"]
 	check(not bool(reminder_row.get("reminder_pending", true)),
@@ -161,7 +161,7 @@ func run() -> void:
 	}
 	var busy := _context(main, pony, director, 3, "", false)
 	busy["speech_busy"] = true
-	lines.history_tick(1.1, busy)
+	dialogue.history_tick(1.1, busy)
 	check(main.memory.requests.size() == 1, "a busy scene queues no reminder")
 
 	print("HISTORY_SCAN_RESULT checks=%d failures=%d" % [checks, failures])

@@ -158,7 +158,7 @@ class FakeDirector extends Node:
 		state = "idle"
 
 
-class FakeLines extends RefCounted:
+class FakeDialogue extends RefCounted:
 	var ends: Array = []
 	var reaction_calls := 0
 	var notes := 0
@@ -223,7 +223,7 @@ func _fixture() -> Dictionary:
 	var wings := FakeWings.new()
 	var pose := FakePose.new()
 	var audio := FakeAudio.new()
-	var lines := FakeLines.new()
+	var dialogue := FakeDialogue.new()
 	var act_camera := FakeCamera.new()
 	var kiss := FakeKiss.new()
 	runtime.pony = pony
@@ -246,8 +246,8 @@ func _fixture() -> Dictionary:
 	runtime._wings = wings
 	runtime._pose_session = pose
 	runtime._act_audio = audio
-	runtime._act_lines = lines
-	runtime._act_lines_main = main
+	runtime._act_dialogue = dialogue
+	runtime._act_dialogue_main = main
 	runtime._act_camera = act_camera
 	runtime._kiss = kiss
 	runtime._thrust_tracker = THRUST.new()
@@ -260,7 +260,7 @@ func _fixture() -> Dictionary:
 		"runtime": runtime, "pony": pony, "boop": boop, "main": main,
 		"director": director, "vocal": vocal, "bridge": bridge,
 		"reactions": reactions, "wings": wings, "pose": pose,
-		"audio": audio, "lines": lines, "camera": act_camera, "kiss": kiss,
+		"audio": audio, "dialogue": dialogue, "camera": act_camera, "kiss": kiss,
 	}
 
 
@@ -285,7 +285,7 @@ func run() -> void:
 	var wings: FakeWings = made["wings"]
 	var pose: FakePose = made["pose"]
 	var audio: FakeAudio = made["audio"]
-	var lines: FakeLines = made["lines"]
+	var dialogue: FakeDialogue = made["dialogue"]
 	var act_camera: FakeCamera = made["camera"]
 	var kiss: FakeKiss = made["kiss"]
 
@@ -322,7 +322,7 @@ func run() -> void:
 	pony.speaking = true
 	runtime._oral_was_active = false
 	runtime._oral_tick(0.1)
-	check(lines.ends.size() == 1 and not bool(lines.ends[0][1]),
+	check(dialogue.ends.size() == 1 and not bool(dialogue.ends[0][1]),
 		"oral entry cancels her act line without letting it finish")
 	check(director.interrupts == 1, "oral entry interrupts her own director turn")
 	check(pony.stops == 1 and not pony.speaking, "oral entry stops her base-game voice")
@@ -364,21 +364,21 @@ func run() -> void:
 	check(bridge.holds == holds_before + 1, "the repeated stop re-asserts the oral viseme")
 
 	# Her climax line is skipped while oral, and returns once she is released.
-	lines.reaction_calls = 0
+	dialogue.reaction_calls = 0
 	runtime.pony_climaxes = 1
 	runtime._queue_climax_reaction()
-	check(lines.reaction_calls == 0, "no climax line is queued while oral")
+	check(dialogue.reaction_calls == 0, "no climax line is queued while oral")
 	bridge.oral = false
 	runtime._queue_climax_reaction()
-	check(lines.reaction_calls == 1, "the climax line returns with oral off")
+	check(dialogue.reaction_calls == 1, "the climax line returns with oral off")
 
 	# The release leaves speech and the kiss alone, and a new act starts clean.
 	runtime._oral_tick(0.1)
-	var ends_after := lines.ends.size()
+	var ends_after := dialogue.ends.size()
 	var holds_after := bridge.holds
 	boop.kisses = 0
 	runtime._oral_tick(0.1)
-	check(lines.ends.size() == ends_after and bridge.holds == holds_after and boop.kisses == 0,
+	check(dialogue.ends.size() == ends_after and bridge.holds == holds_after and boop.kisses == 0,
 		"a released turn stops touching speech and the kiss")
 	runtime._oral_was_active = true
 	runtime._oral_kiss_left = 1.0

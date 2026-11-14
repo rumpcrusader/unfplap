@@ -61,6 +61,31 @@
       "signature": "func player_body() -> Variant:"
     },
     {
+      "service": "dialogue",
+      "func": "configure",
+      "signature": "func configure(pacing: Dictionary) -> void:"
+    },
+    {
+      "service": "dialogue",
+      "func": "history_tick",
+      "signature": "func history_tick(delta: float, context: Dictionary) -> void:"
+    },
+    {
+      "service": "dialogue",
+      "func": "prompt_note",
+      "signature": "func prompt_note(values: Dictionary) -> String:"
+    },
+    {
+      "service": "dialogue",
+      "func": "reaction_line",
+      "signature": "func reaction_line(reaction: int, event_id: String, fallback: String, valid: Callable) -> String:"
+    },
+    {
+      "service": "dialogue",
+      "func": "scheduler",
+      "signature": "func scheduler():"
+    },
+    {
       "service": "eligibility",
       "func": "set_profile",
       "signature": "func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:"
@@ -124,31 +149,6 @@
       "service": "hands",
       "func": "smack_presentation",
       "signature": "func smack_presentation() -> Dictionary:"
-    },
-    {
-      "service": "lines",
-      "func": "configure",
-      "signature": "func configure(pacing: Dictionary) -> void:"
-    },
-    {
-      "service": "lines",
-      "func": "history_tick",
-      "signature": "func history_tick(delta: float, context: Dictionary) -> void:"
-    },
-    {
-      "service": "lines",
-      "func": "prompt_note",
-      "signature": "func prompt_note(values: Dictionary) -> String:"
-    },
-    {
-      "service": "lines",
-      "func": "reaction_line",
-      "signature": "func reaction_line(reaction: int, event_id: String, fallback: String, valid: Callable) -> String:"
-    },
-    {
-      "service": "lines",
-      "func": "scheduler",
-      "signature": "func scheduler():"
     },
     {
       "service": "memory",

@@ -50,7 +50,7 @@
     },
     {
       "from": "readiness/service.gd",
-      "to": "lines/utterance_scheduler.gd",
+      "to": "dialogue/utterance_scheduler.gd",
       "kind": "service-private",
       "owner": "readiness",
       "reason": "migration baseline; fix in the boundary-cleanup phase",

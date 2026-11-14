@@ -5,7 +5,7 @@ extends RefCounted
 ## module owns the scoring and tolerance state. See docs/readiness.md.
 
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
-const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/lines/utterance_scheduler.gd")
+const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/readiness/auto_panel.gd")
 const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")

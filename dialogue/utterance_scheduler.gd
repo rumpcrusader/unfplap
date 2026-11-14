@@ -6,7 +6,7 @@ extends RefCounted
 ## single slot. Reaction lines take the same slot, bypassing the pacing gates but keeping the
 ## 18 s shared gap and the release hold.
 
-const UTTERANCE := preload("res://mods/unfplap/lines/utterance.gd")
+const UTTERANCE := preload("res://mods/unfplap/dialogue/utterance.gd")
 
 const CLOSE_AT := 65.0
 const WANTING_AT := 40.0

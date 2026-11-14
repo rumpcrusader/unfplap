@@ -17,8 +17,13 @@ const PRESENT_TURN_STALL_S := 1.5
 ## The navigator's face_point target, the same 4 m the base-game idle fidget uses.
 const PRESENT_TURN_POINT_M := 4.0
 ## "Away enough": the stepping turn settles within this of directly away, rather than demanding
-## an exact 180-degree turn.
-const PRESENT_AWAY_RAD := deg_to_rad(45.0)
+## an exact 180-degree turn. She ends about 120 degrees from Anon, leaving the head room for an
+## over-the-shoulder glance.
+const PRESENT_AWAY_RAD := deg_to_rad(60.0)
+## One stronger look-back right after the pose settles, then the softer over-the-shoulder hold.
+const PRESENT_GLANCE_BACK_S := 1.5
+## The base game's approved bedroom face: heavy lids, dilated pupils, full blush and hearts.
+const PRESENT_FACE := "affectionate"
 const TURN_NAVIGATOR := "navigator"
 const TURN_FACE := "face"
 const TURN_YAW := "yaw"
@@ -46,8 +51,11 @@ var _present_turn_point := Vector3.INF
 var _present_turn_mode := ""
 var _present_pose
 var _present_glance_back := false
+var _present_glance_until := 0.0
 var _present_glance_sign := 1.0
 var _present_glance_sign_set := false
+## Set when this controller applied `PRESENT_FACE`, so close only clears its own face.
+var _present_face_owned := false
 var _present_tail
 var _present_started := 0.0
 var _present_yaw := 0.0
@@ -168,7 +176,11 @@ func _attach_present_pose() -> void:
 		(hair as Skeleton3D).add_child(_present_tail)
 	_presenting = true
 	_present_glance_back = true
+	_present_glance_until = facts.clock() + PRESENT_GLANCE_BACK_S
 	_present_glance_sign_set = false
+	# The ask and turn half-lid gives way to the affectionate face's own sculpted lids.
+	_release_request_stare()
+	_apply_present_face()
 
 
 
@@ -315,7 +327,9 @@ func clear_presentation() -> void:
 	_present_tail = null
 	_presenting = false
 	_present_glance_back = false
+	_present_glance_until = 0.0
 	_present_glance_sign_set = false
+	_clear_present_face()
 	facts.restore_face()
 
 
@@ -514,9 +528,46 @@ func _request_face_process() -> void:
 	var boop: Variant = pony.get("boop_node")
 	if boop != null and boop.has_method("sustain_blush"):
 		boop.call("sustain_blush", REQUEST_BLUSH)
+	# The ask and turn hold the request half-lid. Once she presents, the affectionate face's
+	# sculpted lids own the eyes.
+	if _presenting:
+		return
 	var expressions: Variant = pony.get("expressions")
 	if expressions != null and expressions.has_method("stare"):
 		expressions.call("stare", true, REQUEST_LIDS)
+
+
+## Release the ask/turn half-lid before the held face's own lids take over.
+func _release_request_stare() -> void:
+	var expressions: Variant = pony.get("expressions") if is_instance_valid(pony) else null
+	if expressions != null and expressions.has_method("stare"):
+		expressions.call("stare", false)
+
+
+## Hold the approved affectionate face after the turn. A spoken line's own face wins while it
+## owns the expression; the held face returns once the line clears.
+func _apply_present_face() -> void:
+	if not is_instance_valid(pony):
+		return
+	var expressions: Variant = pony.get("expressions")
+	if expressions == null or not expressions.has_method("set_dialogue"):
+		return
+	if not str(expressions.get("dialogue_face")).is_empty():
+		return
+	expressions.call("set_dialogue", PRESENT_FACE)
+	_present_face_owned = true
+
+
+## Clear only the face this controller applied; never another system's spoken line face.
+func _clear_present_face() -> void:
+	if not _present_face_owned:
+		return
+	_present_face_owned = false
+	var expressions: Variant = pony.get("expressions") if is_instance_valid(pony) else null
+	if expressions == null or not expressions.has_method("clear_dialogue"):
+		return
+	if str(expressions.get("dialogue_face")) == PRESENT_FACE:
+		expressions.call("clear_dialogue")
 
 
 
@@ -542,11 +593,13 @@ func _presentation_process() -> void:
 	if is_instance_valid(_present_pose) and is_instance_valid(view):
 		_present_pose.look_point = view.global_position
 		_present_pose.head_back = 0.0
-	_present_glance_back = true
+	if _present_glance_back and facts.clock() >= _present_glance_until:
+		_present_glance_back = false
 	var secondary: Variant = pony.get("secondary")
 	if secondary != null and is_instance_valid(secondary) and secondary.has_method("look_toward"):
 		secondary.call("look_toward", _present_glance_angles(), 0.45)
 	_present_aim_eyes()
+	_apply_present_face()
 
 
 

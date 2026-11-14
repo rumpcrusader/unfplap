@@ -226,14 +226,22 @@ The standing presentation is turned with `present_standing()`. It sets the game'
 The accepted turn is the game's own stepping turn: `present_standing()` gives the navigator a
 `face_point` along the away direction, the same turn the base-game conversation circle and idle
 fidget use, and keeps it set through physics and process. She settles once she is away enough
-(within 45 degrees of directly away), not only at an exact 180 degrees. The pose is never attached
-during the turn and the body is never snapped: on settle her current yaw is locked and
-`_attach_present_pose()` blends the pose in on the spot. The optional stretch rolls its variant and
-side at that attach and stores them for the act. A turn that makes no progress for 1.5 s, or runs
-past its 4 s timeout, aborts without a pose; the controller re-presents up to twice before closing
-an offer the player already accepted. Once presenting, her yaw is locked and conversation facing
-is paused, so she does not turn to face Anon while talking. The bed invite does not set the request
-face, because `SharedBedRest.eligible()` rejects `affection_active`.
+(within 60 degrees of directly away, about 120 degrees from Anon), not only at an exact 180
+degrees. The pose is never attached during the turn and the body is never snapped: on settle her
+current yaw is locked and `_attach_present_pose()` blends the pose in on the spot. The optional
+stretch rolls its variant and side at that attach and stores them for the act. A turn that makes
+no progress for 1.5 s, or runs past its 4 s timeout, aborts without a pose; the controller
+re-presents up to twice before closing an offer the player already accepted. Once presenting, her
+yaw is locked and conversation facing is paused, so she does not turn to face Anon while talking.
+The bed invite does not set the request face, because `SharedBedRest.eligible()` rejects
+`affection_active`.
+
+At the settle she releases the request half-lid and holds the base game's `affectionate` face —
+heavy lids, dilated pupils, full blush and heart shines — while the sustained nose blush stays at
+full. For `1.5 s` she gives one stronger over-the-shoulder glance back at Anon; after that the
+head eases into a softer over-the-shoulder hold. Her eyes stay aimed at Anon through both. A
+spoken line's own face wins while it owns the expression, and the affectionate face returns when
+the line clears; closing clears only the face this controller applied.
 
 The standing invitation waits for `presentation_settled()`; the `5 s` presentation cap never
 queues an invitation while she is still turning. If movement breaks the present, the controller
@@ -325,8 +333,9 @@ never suggest `[mood:...]`; the face hint is the only expression guidance.
   face, the deferred presentation after the offer line, the invite gate after the settled
   presentation, the stretch clear, the privacy refusal, the heat override and `cancel_for`/`reset`.
 - `tests/test_standing_presentation.gd`: the accepted offer against a fake navigator — the
-  `face_point` stepping turn, the away settle, the no-snap abort, the fallback rotation and the
-  ask-to-presentation stretch handoff.
+  `face_point` stepping turn, the 60-degree away settle and its 61-degree non-settle, the no-snap
+  abort, the fallback rotation, the one-shot glance and soft hold, the affectionate face and
+  blush, the line-face priority and the ask-to-presentation stretch handoff.
 - `tests/test_consent_classifier.gd`: the shared classifier's local and strict reply parsing.
 - `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the
   adapter private-access boundary and this contract's presence.

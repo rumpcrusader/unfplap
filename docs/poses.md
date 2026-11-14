@@ -261,7 +261,7 @@ undergo a transformation, so it is off by default and must not be recommended.
   skipped. `UnfplapBodySway` runs after both. The debug chin modifier stays last.
 - The presentation attaches its full holder in `_attach_present_pose()`, after the navigator's
   `face_point` stepping turn away from Anon (the base-game conversation-circle turn). The turn
-  settles within 45 degrees of directly away and never snaps; once the pose attaches its yaw is
+  settles within 60 degrees of directly away and never snaps; once the pose attaches its yaw is
   locked, so nothing rotates under the planted holder. It does not start during the ask or during
   the turn. `_process_tick`'s standing render write calls `sync_stretch()`; the runtime also calls
   it once after the act integrations begin, before body sway's first pass.

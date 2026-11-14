@@ -1,7 +1,8 @@
 extends SceneTree
 ## The standing invitation: the accepted offer presents even with the pre-turn offer gate closed,
-## the navigator's face_point owns the turn away, the pose attaches only after the away settle,
-## a blocked turn aborts without snapping, and the external stretch follows the turn.
+## the navigator's face_point owns the turn away, the pose attaches only after the 60-degree away
+## settle, a blocked turn aborts without snapping, the settled pose holds the affectionate face
+## and one stronger glance before the soft hold, and the external stretch follows the turn.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_standing_presentation.gd
 
@@ -13,10 +14,12 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const STRETCH_FAKE := "res://mods/unfplap/tests/fixtures/idle_stretch_fake.gd"
 const AWAY_YAW := PI
-const AWAY_EPSILON := deg_to_rad(45.0)
+const AWAY_EPSILON := deg_to_rad(60.0)
+const PRESENT_FACE := "affectionate"
 
 var failures := 0
 var checks := 0
+var clock := {"now": 0.0}
 
 
 class FakeIdentity extends RefCounted:
@@ -38,6 +41,41 @@ class FakeNavigator extends Node:
 		conversation_target = who
 
 
+class FakeExpressions extends RefCounted:
+	var dialogue_face := ""
+	var stares: Array = []
+
+	func set_dialogue(value: String) -> void:
+		dialogue_face = value
+
+	func clear_dialogue() -> void:
+		dialogue_face = ""
+
+	func stare(on: bool, lids := 0.5) -> void:
+		stares.append([on, lids])
+
+
+class FakeBoop extends RefCounted:
+	var blushes: Array = []
+
+	func sustain_blush(level := 1.0) -> void:
+		blushes.append(level)
+
+
+class FakeSecondary extends RefCounted:
+	var last_angles := Vector3.ZERO
+	var looks := 0
+
+	func look_toward(angles: Vector3, _duration: float) -> void:
+		last_angles = angles
+		looks += 1
+
+
+class FakeEyeMotion extends RefCounted:
+	var target_world := Vector3.ZERO
+	var target_weight := 0.0
+
+
 class FakePony extends Node3D:
 	var identity: Variant
 	var sleeping := false
@@ -47,6 +85,10 @@ class FakePony extends Node3D:
 	var face_turn_rate := 0.45
 	var actual_speed := 0.0
 	var posture := "stand"
+	var expressions: Variant = null
+	var boop_node: Variant = null
+	var secondary: Variant = null
+	var eye_motion: Variant = null
 
 	func is_held() -> bool:
 		return false
@@ -61,9 +103,10 @@ class FakePony extends Node3D:
 class FakeMain extends Node:
 	var eligibility: Variant
 	var player: Node3D
+	var view: Camera3D = null
 
 	func camera() -> Camera3D:
-		return null
+		return view
 
 
 func _initialize() -> void:
@@ -75,6 +118,10 @@ func check(ok: bool, text: String) -> void:
 	if not ok:
 		failures += 1
 		print("FAIL ", text)
+
+
+func near(a: float, b: float, eps := 0.0001) -> bool:
+	return absf(a - b) <= eps
 
 
 func run() -> void:
@@ -89,6 +136,14 @@ func run() -> void:
 	pony.identity = FakeIdentity.new()
 	pony.global_position = Vector3(0.0, 0.0, 2.0)
 	root.add_child(pony)
+	var expressions := FakeExpressions.new()
+	var boop := FakeBoop.new()
+	var secondary := FakeSecondary.new()
+	var eye_motion := FakeEyeMotion.new()
+	pony.expressions = expressions
+	pony.boop_node = boop
+	pony.secondary = secondary
+	pony.eye_motion = eye_motion
 	var body := Skeleton3D.new()
 	body.name = "Body"
 	pony.add_child(body)
@@ -96,6 +151,9 @@ func run() -> void:
 	var nav := FakeNavigator.new()
 	nav.name = "Navigator"
 	pony.add_child(nav)
+	main.view = Camera3D.new()
+	main.add_child(main.view)
+	main.view.global_position = Vector3.ZERO
 
 	var offer_ok := {"value": false}
 	var facts: RefCounted = ACT_FACTS.new()
@@ -108,7 +166,7 @@ func run() -> void:
 		return bool(offer_ok["value"])
 	facts.pause_face_turn = func(_force: bool) -> void: pass
 	facts.restore_face_turn = func() -> void: pass
-	facts.now = func() -> float: return 0.0
+	facts.now = func() -> float: return float(clock["now"])
 
 	var presentation: Variant = PRESENTATION.new(facts)
 	check(bool(presentation.call("present_standing")),
@@ -125,8 +183,16 @@ func run() -> void:
 		"no presentation pose exists during the turn")
 	check(pony.face_turn_rate >= 1.5, "the stepping turn raises her face turn rate")
 
+	# A 61-degree error is outside the away threshold: one tick keeps turning without stalling.
+	pony.rotation.y = AWAY_YAW - deg_to_rad(61.0)
+	presentation.call("physics", 0.016)
+	check(body.get_node_or_null("UnfplapPresentPose") == null,
+		"a 61-degree error keeps the turn going")
+	check(bool(presentation.call("presentation_active")),
+		"one short tick does not abort the turn")
+
 	# The away threshold is reached: hold the reached yaw and attach the pose without snapping.
-	var held_yaw := AWAY_YAW - deg_to_rad(20.0)
+	var held_yaw := AWAY_YAW - deg_to_rad(50.0)
 	pony.rotation.y = held_yaw
 	presentation.call("physics", 0.016)
 	check(body.get_node_or_null("UnfplapPresentPose") != null,
@@ -135,7 +201,38 @@ func run() -> void:
 	check(nav.face_point == Vector3.INF, "the settled turn releases its face point")
 	check(is_equal_approx(pony.rotation.y, held_yaw), "the settle never snaps her yaw")
 	check(is_equal_approx(pony.face_turn_rate, 0.45), "the settle restores her face turn rate")
+
+	# The settled presentation holds the bedroom face, the blush and one stronger glance.
+	presentation.call("process")
+	check(expressions.dialogue_face == PRESENT_FACE,
+		"the settled presentation holds the affectionate face")
+	check(not boop.blushes.is_empty() and near(float(boop.blushes[-1]), 1.0),
+		"the presentation sustains the full blush")
+	check(not expressions.stares.is_empty() and not bool(expressions.stares[-1][0]),
+		"the settle releases the request stare")
+	check(secondary.looks > 0 and secondary.last_angles.x > 0.5,
+		"the first look is the stronger over-the-shoulder glance")
+	check(near(eye_motion.target_weight, 1.0)
+		and eye_motion.target_world == main.view.global_position,
+		"the eyes stay aimed at Anon through the glance")
+
+	clock["now"] = float(PRESENTATION.PRESENT_GLANCE_BACK_S) + 0.1
+	presentation.call("process")
+	check(secondary.last_angles.x < 0.0,
+		"the glance relaxes into the softer over-the-shoulder hold")
+
+	# A spoken line's face wins while it owns the expression, then the held face returns.
+	expressions.dialogue_face = "shy"
+	presentation.call("process")
+	check(expressions.dialogue_face == "shy", "a spoken line face wins over the held face")
+	expressions.dialogue_face = ""
+	presentation.call("process")
+	check(expressions.dialogue_face == PRESENT_FACE,
+		"the affectionate face returns after the line clears")
+
 	presentation.call("clear_presentation")
+	check(expressions.dialogue_face.is_empty(),
+		"closing clears only the presentation's own face")
 	check(not bool(presentation.call("presentation_active")),
 		"the fake presentation clears without leaving a pose")
 	await process_frame
@@ -176,7 +273,7 @@ func run() -> void:
 	await process_frame
 
 	pony.add_child(nav)
-	await _check_presentation_stretch(presentation, pony, facts, body)
+	await _check_presentation_stretch(presentation, pony, facts, body, expressions)
 	root.remove_child(body)
 	body.free()
 
@@ -189,8 +286,10 @@ func run() -> void:
 ## The accepted presentation attaches the external stretch after its turn, survives a live flag
 ## edit, and preserves the episode choice for the act.
 func _check_presentation_stretch(presentation: Variant, pony: FakePony, facts: RefCounted,
-		body: Skeleton3D) -> void:
+		body: Skeleton3D, expressions: FakeExpressions) -> void:
 	var before := bool(SETTINGS.idle_life_stretch.get_bool())
+	var debug_before := SETTINGS.debug_mode.get_bool()
+	SETTINGS.debug_mode.set_bool(true)
 	facts.pony_id = "rarity"
 	facts.mod_enabled = func(_id: String) -> bool: return true
 	facts.keep_chin_last = func() -> void: pass
@@ -223,13 +322,20 @@ func _check_presentation_stretch(presentation: Variant, pony: FakePony, facts: R
 	var again := _active_holder(body)
 	check(again != null and pose != null and again.get_index() + 1 == pose.get_index(),
 		"the live-on holder keeps the presentation order")
+	check(expressions.dialogue_face == PRESENT_FACE,
+		"the stretch presentation also holds the affectionate face")
+	expressions.dialogue_face = "shy"
 	presentation.call("clear_presentation")
+	check(expressions.dialogue_face == "shy",
+		"closing leaves a foreign line face alone")
+	expressions.dialogue_face = ""
 	check(pony.has_meta(STRETCH.META_IDLE) and pony.has_meta(STRETCH.META_SIDE),
 		"clearing the presentation keeps the choice for the act")
 	presentation.call("clear_stretch_offer")
 	check(not pony.has_meta(STRETCH.META_IDLE) and not pony.has_meta(STRETCH.META_SIDE),
 		"a cancelled offer drops the choice")
 	SETTINGS.idle_life_stretch.set_bool(before)
+	SETTINGS.debug_mode.set_bool(debug_before)
 	STRETCH.pose_path = STRETCH.POSE_PATH
 	await process_frame
 

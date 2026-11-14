@@ -69,6 +69,7 @@ func run() -> void:
 	_check_placement_strip()
 	_check_api_names()
 	_check_profiles()
+	_check_provider_precedence()
 	_check_character_overrides()
 	_check_participation()
 	_check_player_file_recovery()
@@ -1212,6 +1213,73 @@ func _check_profiles() -> void:
 	var custom := SETTINGS._normalize_act_prompts(custom_data)
 	check(str(((custom["default"] as Dictionary)["act_prompts"] as Dictionary)["cue"]) == "custom",
 		"a custom cue prompt survives")
+
+
+## A cross-mod provider layer wins over the catalog and the global default, and the player's sparse
+## override wins per field. Unregistering restores the catalog/global values.
+func _check_provider_precedence() -> void:
+	var id := "provider_precedence_mare"
+	SETTINGS.MARE_REGISTRY.reset()
+	var base: Dictionary = SETTINGS._filled_default()
+	var registered: Dictionary = SETTINGS.MARE_REGISTRY.register(1, {
+		"id": id,
+		"source": "precedence_test",
+		"preferences": {"intensity": "rough", "notes": "Provider note."},
+		"poses": {"standing": {"bow": 9.0}},
+		"act_prompts": {"cue": "Provider cue."},
+		"placement": {"tail_y": 0.09},
+	})
+	check(bool(registered.get("ok", false)), "the precedence provider registers")
+
+	var profile := SETTINGS.profile_for(base, {}, id)
+	check(str((profile["preferences"] as Dictionary).get("intensity", "")) == "rough",
+		"the provider preference beats the global default")
+	check(str((profile["act_prompts"] as Dictionary).get("cue", "")) == "Provider cue.",
+		"the provider act prompt beats the catalog prompt")
+	var standing: Dictionary = (profile["poses"] as Dictionary).get("standing", {})
+	check(near(float(standing.get("bow", 0.0)), 9.0),
+		"the provider pose beats the catalog pose")
+	check(near(float(SETTINGS.anatomy_placement(id).get("tail_y", 0.0)), 0.09),
+		"the provider placement beats the global default")
+
+	# The player's edit wins for the field it changed, and only that field.
+	SETTINGS.save_preferences(id, {"intensity": "soft", "warmth": "slow"})
+	var player := SETTINGS.profile_for(base, SETTINGS.data().get("characters", {}), id)
+	check(str((player["preferences"] as Dictionary).get("intensity", "")) == "soft",
+		"a player preference beats the provider")
+	check(str((player["preferences"] as Dictionary).get("notes", "")) == "Provider note.",
+		"the provider preference survives the player's edit")
+	check(str((player["act_prompts"] as Dictionary).get("cue", "")) == "Provider cue.",
+		"the provider prompt still wins without a player override")
+
+	var placed := SETTINGS.anatomy_placement(id)
+	placed["tail_y"] = 0.11
+	SETTINGS.save_anatomy_placement(id, placed)
+	check(near(float(SETTINGS.anatomy_placement(id).get("tail_y", 0.0)), 0.11),
+		"a player placement beats the provider")
+
+	SETTINGS.MARE_REGISTRY.unregister(1, id)
+	check(near(float(SETTINGS.anatomy_placement(id).get("tail_y", 0.0)), 0.11),
+		"the player placement survives the provider leaving")
+	SETTINGS.save_anatomy_placement(id, SETTINGS.anatomy_placement_default(id, false))
+	check(not SETTINGS.anatomy_placement_has_override(id),
+		"removing the player placement returns to the global default")
+	var restored := SETTINGS.profile_for(base, SETTINGS.data().get("characters", {}), id)
+	check(str((restored["preferences"] as Dictionary).get("intensity", "")) == "soft",
+		"the player preference survives the provider leaving")
+	check(str((restored["preferences"] as Dictionary).get("notes", ""))
+		== str((base["preferences"] as Dictionary).get("notes", "")),
+		"the provider note falls back to the global default")
+	check(str((restored["act_prompts"] as Dictionary).get("cue", ""))
+		== str(SETTINGS.DEFAULT_ACT_PROMPTS.get("cue", "")),
+		"the provider prompt falls back to the catalog")
+	var restored_standing: Dictionary = (restored["poses"] as Dictionary).get("standing", {})
+	var base_standing: Dictionary = (base["poses"] as Dictionary).get("standing", {})
+	check(near(float(restored_standing.get("bow", 0.0)), float(base_standing.get("bow", 0.0))),
+		"the provider pose falls back to the catalog")
+
+	SETTINGS.reset_preferences(id)
+	SETTINGS.MARE_REGISTRY.reset()
 
 
 ## A saved character block holds only real differences from the built-in template, so a provider

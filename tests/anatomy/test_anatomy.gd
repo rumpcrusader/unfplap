@@ -211,6 +211,25 @@ func run() -> void:
 	var modded_place := SETTINGS.anatomy_placement_default("not_a_base_mare")
 	check(modded_place == default_place, "an off-roster mare uses the global anatomy placement")
 
+	# A provider placement wins over the catalog/global default; a player's sparse row still wins.
+	var placed_id := "provider_placement_mare"
+	MARE_REGISTRY.register(2, {"id": placed_id, "source": "anatomy_test",
+		"placement": {"tail_y": 0.09}})
+	check(near(float(SETTINGS.anatomy_placement(placed_id)["tail_y"]), 0.09),
+		"a provider placement beats the global default")
+	var placement_override := SETTINGS.anatomy_placement(placed_id)
+	placement_override["tail_y"] = 0.11
+	SETTINGS.save_anatomy_placement(placed_id, placement_override)
+	check(near(float(SETTINGS.anatomy_placement(placed_id)["tail_y"]), 0.11),
+		"a player placement beats the provider")
+	MARE_REGISTRY.unregister(2, placed_id)
+	check(near(float(SETTINGS.anatomy_placement(placed_id)["tail_y"]), 0.11),
+		"the player placement survives the provider leaving")
+	SETTINGS.save_anatomy_placement(placed_id,
+		SETTINGS.anatomy_placement_default(placed_id, false))
+	check(not SETTINGS.anatomy_placement_has_override(placed_id),
+		"clearing the player placement returns to the global default")
+
 	# Tail seat: with Re-seat tails and docks off, attach only remembers her id. A disabled seat
 	# must not measure the tail or rebuild the dock, and a settings tick must not write either.
 	var seat := TAIL_SEAT.new()

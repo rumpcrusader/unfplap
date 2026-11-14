@@ -1583,7 +1583,7 @@ static var fluid_alpha := num("fluid_alpha", "anatomy.fluid_alpha", 0.5, "Fluid 
 # ======================================================== World
 
 # -- (ungrouped)
-static var promiscuity := choice("promiscuity", "relationship.promiscuity", "any",
+static var promiscuity := choice("promiscuity", "relationship.promiscuity", "marefriend",
 	["soulmates", "head_over_hooves", "marefriend", "new_couple", "crush", "any"],
 	["Soulmates", "Head Over Hooves", "Marefriend / Coltfriend", "New Couple", "Crush", "Any Adult"],
 	"Promiscuity", "Lowest relationship level for sex.", WORLD, "")

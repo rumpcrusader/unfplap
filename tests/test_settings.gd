@@ -106,7 +106,7 @@ func _check_registry() -> void:
 ## The declared defaults are the values a fresh file would give.
 func _check_defaults() -> void:
 	check(bool(SETTINGS.hud_readouts.default), "hud readouts default on")
-	check(near(float(SETTINGS.pace.default), 1.0), "auto pace default")
+	check(near(float(SETTINGS.pace.default), 1.25), "auto pace default")
 	check(str(SETTINGS.orientation.default) == "up", "thrust orientation default")
 	check(not bool(SETTINGS.debug_mode.default), "debug mode is off by default")
 	check(bool(SETTINGS.reseat_tails.default), "re-seat tails defaults on")
@@ -119,15 +119,15 @@ func _check_defaults() -> void:
 	check(bool(SETTINGS.radius.debug), "the jiggle radius is a debug setting")
 	check(not bool(SETTINGS.skeleton_overlay.get_bool()), "the skeleton overlay is off by default")
 	check(bool(SETTINGS.skeleton_overlay.debug), "the skeleton overlay is a debug setting")
-	check(not bool(SETTINGS.kissing_reactions.default),
-		"the Kissing reaction bridge defaults off")
+	check(bool(SETTINGS.kissing_reactions.default),
+		"the Kissing reaction bridge defaults on")
 	check(not bool(SETTINGS.idle_life_stretch.default),
 		"the Idle Life stretch pose defaults off")
 	check(bool(SETTINGS.idle_life_stretch.debug),
 		"the Idle Life stretch pose is a debug setting")
-	check(not bool(SETTINGS.kissing_full_fidgets.default)
+	check(bool(SETTINGS.kissing_full_fidgets.default)
 		and bool(SETTINGS.kissing_full_fidgets.debug),
-		"full Kissing fidgets are an off-by-default debug feature")
+		"full Kissing fidgets are an on-by-default debug feature")
 	check(str(SETTINGS.dock_style.default) == "genitals", "dock style defaults to genitals")
 	check(near(float(SETTINGS.back_out_m.default), 0.0) and bool(SETTINGS.back_out_m.debug),
 		"back-out gap is a debug number at zero")

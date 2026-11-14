@@ -368,7 +368,7 @@ appearance, including the missionary-only fold hack, when the pose id changes.
 - `POSING_IN`, `ACTIVE` and `CLIMAX` suppress the idle display because the act owns the mesh.
   `AFTERGLOW`, `RESTORE` and `IDLE` may display it.
 - The idle display requires the anatomy mesh to be shown and not a far mesh.
-- In heat she rests at `heat_rest_open` (default `0.3`) of the open shape. Each idle burst uses
+- In heat she rests at `heat_rest_open` (default `0.15`) of the open shape. Each idle burst uses
   `cycle.wink_burst_count()`: 70% single, 25% double, 5% triple. The gap is
   `wink_min_s…wink_max_s` (default `17…34 s`).
 - Each beat opens to `wink_open_min…wink_open_max` (default 90% of the open shape) with an
@@ -590,7 +590,7 @@ restated here.
 - `features.anatomy_fluid`: climax, finish and idle droplets; default on.
 - `features.body_coat_deform`: runtime coat patch; debug, default on.
 - `anatomy.coat_follow`: how far the anatomy follows the body coat's leg skinning; debug,
-  default `1.0`, `0` keeps it rigid.
+  default `0.0` keeps it rigid, `1.0` follows fully.
 - `anatomy.skin_tone`, `anatomy.vulva_height`, `anatomy.anal_scale`, `anatomy.vulva_inner_color`,
   `anatomy.clitoris_color`: material appearance.
 - `anatomy.reseat_tails`: dock/tail seat; on by default.

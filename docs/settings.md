@@ -354,8 +354,8 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `act_public_offer` | `false` | per-mare public consent affects offers; see `docs/eligibility.md` |
 | `mute_ponese_audio` | `true` | mute a Ponese-only act voice but keep its text |
 | `act_climax` | `false` | pack wet finish layer |
-| `kissing_reactions` | `false` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
-| `kissing_full_fidgets` | `false` | debug-only: Kissing's weight shift and hoof taps during her climax; see `docs/integrations.md` |
+| `kissing_reactions` | `true` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
+| `kissing_full_fidgets` | `true` | debug-only: Kissing's weight shift and hoof taps during her climax; see `docs/integrations.md` |
 | `idle_life_stretch` | `false` | debug-only: Idle Life's stretch pose from the accepted standing presentation through the act; dormant unless Enable debug is on and currently broken; the ask stays normal; see `docs/integrations.md` and `docs/poses.md` |
 
 Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,

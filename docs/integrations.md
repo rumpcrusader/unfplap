@@ -139,8 +139,8 @@ One declaration per supported integration, in `settings/service.gd`:
 
 | Setting | Default | Behavior |
 |---|---|---|
-| `features.kissing_reactions` | `false` | run the Kissing reaction bridge during the act |
-| `features.kissing_full_fidgets` | `false` | debug-only: restore Kissing's weight shift and hoof taps during the climax; the switch is in General's Debug block |
+| `features.kissing_reactions` | `true` | run the Kissing reaction bridge during the act |
+| `features.kissing_full_fidgets` | `true` | debug-only: restore Kissing's weight shift and hoof taps during the climax; the switch is in General's Debug block |
 | `features.idle_life_stretch` | `false` | debug-only: switch the accepted standing presentation and act to Idle Life's stretch pose while Idle Life is active; dormant unless Enable debug is on, currently broken, and the ask stays normal |
 
 Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by

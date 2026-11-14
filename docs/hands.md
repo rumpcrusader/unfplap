@@ -180,7 +180,7 @@ With the flag off, both hands share the full region patch as before.
 | `features.caress_reach_shoulder_m` | 0 m | missionary reach shoulder shift |
 | `presentation.missionary.caress.path_id` | two | authored chain `one` or `two` |
 | `caress.hover_m` | 1.5 cm | body-scaled palm-centre hover in both poses |
-| `caress.normal_blur_m` | 2 cm | coat-normal average radius; above 3 cm it averages the whole patch |
+| `caress.normal_blur_m` | 0.5 cm | coat-normal average radius; above 3 cm it averages the whole patch |
 | `caress.normal_deg_s` | 120 | palm normal turn limit |
 | `caress.contact_smooth` | 24/s | snap-correction low-pass |
 | `caress.ignore` | tail, wing | hull regions the smack contact query skips |

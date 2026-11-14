@@ -811,12 +811,12 @@ static var debug_perf := flag("debug_perf", "debug_perf", false, "Print perf log
 	"Print the per-second performance block: per-pony rows during an act, one aggregated block while idle. Requires Enable debug.", GENERAL, "") \
 	.as_debug()
 static var kissing_full_fidgets := flag("kissing_full_fidgets",
-	"features.kissing_full_fidgets", false, "Play full Kissing fidgets",
+	"features.kissing_full_fidgets", true, "Play full Kissing fidgets",
 	"At her climax, also run Kissing's weight shift and hoof taps. Requires Use Kissing reactions; they can move the skeleton root or lift a planted hoof.", GENERAL, "") \
 	.as_debug()
 
 # -- Act face  (debug)
-static var climax_mode := choice("climax_mode", "presentation.act.climax_mode", "wide",
+static var climax_mode := choice("climax_mode", "presentation.act.climax_mode", "fluster",
 	["auto", "fluster", "ooo", "wide"],
 	["Act quality", "Flustered", "Round mouth", "Wide-eyed"],
 	"Climax face",
@@ -828,14 +828,14 @@ static var blush_arc := flag("blush_arc", "features.blush_arc", true, "Ramp act 
 static var face_debug := flag("face_debug", "features.face_debug", false, "Print face changes",
 	"Print every act face change, the climax quality score and the blush/fluster values. Requires Enable debug.",
 	GENERAL, "Act face").as_debug()
-static var max_depth := num("max_depth", "auto_thrust.max_depth", 0.5, "Auto depth",
+static var max_depth := num("max_depth", "auto_thrust.max_depth", 0.7, "Auto depth",
 	"Starting auto-thrust peak depth. Mouse up/down sets it during an act.", GENERAL, "") \
 	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.2, 1.0).as_debug()
-static var min_depth := num("min_depth", "auto_thrust.min_depth", 0.0, "Auto min depth",
+static var min_depth := num("min_depth", "auto_thrust.min_depth", 0.2, "Auto min depth",
 	"Starting auto-thrust bottom depth. Hold X then Q/A sets it during an act; the band stays at "
 	+ "least 18 % wide so every stroke still counts.", GENERAL, "") \
 	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.0, 0.82).as_debug()
-static var pace := num("pace", "auto_thrust.pace", 1.0, "Auto pace",
+static var pace := num("pace", "auto_thrust.pace", 1.25, "Auto pace",
 	"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
 	GENERAL, "") \
 	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75).as_debug()
@@ -875,7 +875,7 @@ static var ignore := list("ignore", "caress.ignore", ["tail", "wing"],
 	["tail", "mane", "wing", "leg"], "Ignore body parts",
 	"Regions the smack's hull contact query skips. The caress always uses the fixed torso/head coat surface.",
 	GENERAL, "Caress").as_debug()
-static var normal_blur_m := num("normal_blur_m", "caress.normal_blur_m", 0.02,
+static var normal_blur_m := num("normal_blur_m", "caress.normal_blur_m", 0.005,
 	"Normal blur",
 	"Average the coat normal over this radius so mesh creases do not snap the palm. 0 keeps the exact hit normal.",
 	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
@@ -978,7 +978,7 @@ static var missionary_body_motion := flag("missionary_body_motion",
 	"Slide her body along the bed and nod her head on the thrust.", GENERAL, "Missionary") \
 	.as_debug()
 static var anon_size_match := num("anon_size_match",
-	"presentation.missionary.anon_size_match", 0.0,
+	"presentation.missionary.anon_size_match", 0.5,
 	"Anon size match",
 	"How much Anon's body scales with the pony in missionary. 0 keeps him human-sized; 1 scales him with her.",
 	GENERAL, "Missionary").with_range(0.0, 1.0).with_step(0.01).with_slider().as_debug()
@@ -999,7 +999,7 @@ static var free_look := flag("free_look", "presentation.missionary.free_look", f
 	"Use free look",
 	"Turn the act shot where it stands, so the pose can be inspected. The mouse stops driving thrust.",
 	GENERAL, "Missionary").as_debug()
-static var part_inset_m := num("part_inset_m", "presentation.missionary.part_inset_m", -0.08,
+static var part_inset_m := num("part_inset_m", "presentation.missionary.part_inset_m", 0.0,
 	"Cock base inset",
 	"Slide the cock base back toward Anon in missionary, in centimetres. Negative moves it into the pelvis; use it to hide the base and close the hip gap.",
 	GENERAL, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
@@ -1013,7 +1013,7 @@ const MISSIONARY_SIZE_LABELS: Array[String] = ["Canon", "JRHNBR", "Same height",
 const MISSIONARY_SIZE_BASES: Array[String] = ["vulva_shift_mm", "vulva_pitch_deg",
 	"vulva_depth_shift_mm", "vulva_hug_mm", "head_clearance_mm", "gaze_offset_mm"]
 const MISSIONARY_SIZE_GROUP := "Missionary › Size"
-static var size_group := choice("size_group", "presentation.missionary.size_group", "canon",
+static var size_group := choice("size_group", "presentation.missionary.size_group", "mounting",
 	MISSIONARY_SIZES, MISSIONARY_SIZE_LABELS, "Size",
 	"The pony size these missionary values are for.", GENERAL, MISSIONARY_SIZE_GROUP).as_debug()
 static var vulva_shift_mm_canon := num("vulva_shift_mm_canon",
@@ -1037,7 +1037,7 @@ static var vulva_pitch_deg_canon := num("vulva_pitch_deg_canon",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
 static var vulva_pitch_deg_mounting := num("vulva_pitch_deg_mounting",
-	"presentation.missionary.size.mounting.vulva_pitch_deg", 20.0, "Vulva pitch",
+	"presentation.missionary.size.mounting.vulva_pitch_deg", 30.0, "Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
 static var vulva_pitch_deg_same_height := num("vulva_pitch_deg_same_height",
@@ -1053,7 +1053,7 @@ static var vulva_depth_shift_mm_canon := num("vulva_depth_shift_mm_canon",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var vulva_depth_shift_mm_mounting := num("vulva_depth_shift_mm_mounting",
-	"presentation.missionary.size.mounting.vulva_depth_shift_mm", 20.0, "Vulva depth shift",
+	"presentation.missionary.size.mounting.vulva_depth_shift_mm", 30.0, "Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var vulva_depth_shift_mm_same_height := num("vulva_depth_shift_mm_same_height",
@@ -1101,7 +1101,7 @@ static var gaze_offset_mm_canon := num("gaze_offset_mm_canon",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm_mounting := num("gaze_offset_mm_mounting",
-	"presentation.missionary.size.mounting.gaze_offset_mm", 0.0, "Gaze height",
+	"presentation.missionary.size.mounting.gaze_offset_mm", -250.0, "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm_same_height := num("gaze_offset_mm_same_height",
@@ -1351,7 +1351,7 @@ static var body_coat_deform := flag("body_coat_deform", "features.body_coat_defo
 	"Body coat deform",
 	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
 	ANATOMY, "").as_debug()
-static var coat_follow := num("coat_follow", "anatomy.coat_follow", 1.0,
+static var coat_follow := num("coat_follow", "anatomy.coat_follow", 0.0,
 	"Coat follow",
 	"How far the anatomy follows the body coat when the hind legs move. 0 keeps it rigid; 1 follows fully.",
 	ANATOMY, "").with_range(0.0, 1.0).as_debug()
@@ -1484,7 +1484,7 @@ static var coat_spread := num("coat_spread", "anatomy.coat_spread", 2.0,
 	"Multiplier for the body coat stretching around the vulva as the opening widens.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
 	.as_debug()
-static var coat_hole := num("coat_hole", "anatomy.coat_hole", 0.95,
+static var coat_hole := num("coat_hole", "anatomy.coat_hole", 0.8,
 	"Coat hole width",
 	"Lateral radius of the ellipse cut out of the body coat behind the vulva opening, as a share of the measured lip radius. Keep it at or below 1 so the cut stays under the lips; 0 turns the cut off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01).with_range(0.0, 1.2) \
@@ -1499,7 +1499,7 @@ static var coat_hole_depth_mm := num("coat_hole_depth_mm", "anatomy.coat_hole_de
 	"How far behind the vulva opening the coat cut reaches. Keep it shorter than the anatomy's inner cavity.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(1.0).with_range(0.0, 50.0) \
 	.as_debug()
-static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still", 1.5,
+static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still", 1.0,
 	"Jiggle still zone",
 	"Multiplier for the no-jiggle zone around the vulva. 0 turns the still zone off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
@@ -1545,7 +1545,7 @@ static var wink_min_s := num("wink_min_s", "anatomy.wink_min_s", 17.0, "Wink min
 static var wink_max_s := num("wink_max_s", "anatomy.wink_max_s", 34.0, "Wink max gap",
 	"Longest gap between idle heat winks, in seconds.", ANATOMY, "Heat") \
 	.with_unit("s").with_step(0.5).with_range(1.0, 120.0).as_debug()
-static var heat_rest_open := num("heat_rest_open", "anatomy.heat_rest_open", 0.3, "Rest open",
+static var heat_rest_open := num("heat_rest_open", "anatomy.heat_rest_open", 0.15, "Rest open",
 	"How open she rests between winks, as a share of the authored open shape. 0 is fully closed.",
 	ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
@@ -1746,7 +1746,7 @@ static var strict_warning := num("strict_warning", "tolerance.strict_warning", 1
 # ======================================================== Integrations
 
 # -- (ungrouped)
-static var kissing_reactions := flag("kissing_reactions", "features.kissing_reactions", false,
+static var kissing_reactions := flag("kissing_reactions", "features.kissing_reactions", true,
 	"Use Kissing reactions",
 	"Play the Kissing mod's horn, wing and earth-pony reactions during the act.",
 	INTEGRATIONS, "")

@@ -54,6 +54,8 @@ var pose_logged := false
 var pose_trace_frames := 0
 var rig_checked := false
 var rig_skeleton := 0
+## The authored asset revision the rig verdict was computed against.
+var rig_revision := -1
 var rig_missing_bones: Array = []
 
 ## The pony's pre-act bone snapshot.
@@ -312,6 +314,7 @@ func restore_bones() -> void:
 func release_start() -> void:
 	rig_checked = false
 	rig_skeleton = 0
+	rig_revision = -1
 	rig_missing_bones = []
 	if is_instance_valid(tail_lay):
 		tail_lay.call("restore_tail")
@@ -359,6 +362,7 @@ func release_pose() -> void:
 	pose_config.clear()
 	rig_checked = false
 	rig_skeleton = 0
+	rig_revision = -1
 	rig_missing_bones = []
 	bed_frame = null
 	bed_frame_source_saved = false
@@ -571,17 +575,19 @@ func base_info() -> Dictionary:
 
 ## The authored body bones the live rig lacks. The pose writes only the bones it holds, so a missing
 ## one leaves the game's pose on that link and the chain above it reads broken; the act refuses to
-## start. Cached per skeleton instance, because the gate polls every frame.
+## start. Cached per skeleton instance and asset revision, because the gate polls every frame and a
+## posed-base reload must re-check the new asset.
 func rig_missing() -> Array:
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return []
 	var skeleton := sk as Skeleton3D
 	var instance := skeleton.get_instance_id()
-	if rig_checked and instance == rig_skeleton:
+	if rig_checked and instance == rig_skeleton and rig_revision == AUTHORED.revision:
 		return rig_missing_bones
 	rig_checked = true
 	rig_skeleton = instance
+	rig_revision = AUTHORED.revision
 	var missing: Variant = authored().call("missing_bones", skeleton)
 	rig_missing_bones = missing if missing is Array else []
 	return rig_missing_bones

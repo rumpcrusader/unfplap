@@ -24,6 +24,9 @@ const MIN_VERSION := 6
 var available := false
 var error := ""
 var version := 0
+## Bumped by every `load_file()`, including a failed reload. The pose session caches the rig gate
+## against it, so "Reload posed base" re-checks the bones against the new asset in the same act.
+static var revision := 0
 var bed_size := Vector3.ZERO
 ## Skeleton root placement in bed space, and the bed-relative Anon rig placement.
 var pony_frame := Transform3D.IDENTITY
@@ -56,21 +59,28 @@ static func reload_file() -> String:
 	return str(shared().call("load_file"))
 
 
-func load_file() -> String:
+## Re-reads a pose file in place, so a live pose modifier sees the new pose at once. `path` is a
+## test seam; the shipped asset always uses `PATH`. Returns "" or the reason the file was unusable.
+func load_file(path := PATH) -> String:
+	revision += 1
 	available = false
 	error = ""
+	version = 0
+	bed_size = Vector3.ZERO
+	pony_frame = Transform3D.IDENTITY
+	anon_frame = Transform3D.IDENTITY
 	shots.clear()
 	has_shots = false
 	pony_bones.clear()
 	anon_bones.clear()
 	_indices.clear()
 	_index_skeleton = 0
-	if not FileAccess.file_exists(PATH):
-		error = "no pose at %s" % PATH
+	if not FileAccess.file_exists(path):
+		error = "no pose at %s" % path
 		return error
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PATH))
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if not parsed is Dictionary:
-		error = "bad JSON in %s" % PATH
+		error = "bad JSON in %s" % path
 		return error
 	var data: Dictionary = parsed
 	version = int(data.get("version", 0))

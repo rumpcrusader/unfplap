@@ -7,6 +7,7 @@ extends SceneTree
 const SESSION := preload("res://mods/unfplap/poses/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 
 const STRETCH_FAKE := "res://mods/unfplap/tests/fixtures/idle_stretch_fake.gd"
@@ -328,6 +329,20 @@ func _check_diagnostics() -> void:
 	check(str(session.rig_reason(missing)).begins_with("pose_rig: missing"),
 		"the rig reason names the missing bones")
 	check(session.rig_missing() == missing, "the rig check is cached per skeleton")
+	session.rig_missing_bones = ["poison"]
+	var before: int = AUTHORED.revision
+	check(AUTHORED.reload_file().is_empty(), "the posed base reloads")
+	check(AUTHORED.revision == before + 1, "a reload bumps the asset revision")
+	var refreshed: Array = session.rig_missing()
+	check(not refreshed.has("poison"), "a reload re-runs the rig check")
+	check(int(session.rig_revision) == AUTHORED.revision, "the rig cache records the revision")
+	var spare: RefCounted = AUTHORED.new()
+	check(str(spare.call("load_file", AUTHORED.PATH)).is_empty(), "a spare asset loads")
+	check(int(spare.get("version")) > 0, "the spare asset carries its version")
+	check(not str(spare.call("load_file",
+		"res://mods/unfplap/tests/fixtures/not_a_pose.txt")).is_empty(),
+		"a missing path fails the load")
+	check(int(spare.get("version")) == 0, "a failed load reports version 0")
 	session.release_start()
 	check(not session.rig_checked, "the pose release clears the rig cache")
 	root.remove_child(body)

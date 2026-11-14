@@ -587,6 +587,8 @@ func run() -> void:
 			"the oral candidate uses the head region")
 		check(str(left_candidate.get("mode", "")) == "palm",
 			"the oral candidate uses the area palm mode")
+		check(bool(left_candidate.get("exact", false)),
+			"the oral node is exact and skips the surface snap")
 		check(absf(float(left_candidate.get("roll", 0.0))) > 0.0
 			and signf(float(left_candidate.get("roll", 0.0)))
 				!= signf(float(right_candidate.get("roll", 0.0))),
@@ -615,6 +617,22 @@ func run() -> void:
 		check(frame_zero.is_finite() and frame_moved.is_finite()
 			and frame_zero.origin.distance_to(frame_moved.origin) > 0.005,
 			"the oral oval phase moves the intended point")
+		# The exact node must not need the head patch: break the head handle after the path
+		# built and confirm the engine still frames the palm at the skinned vertex.
+		var head_keep: Variant = oral_pony.head
+		oral_pony.head = null
+		var exact_engine: Variant = SYSTEM.new()
+		var exact_context := {
+			"oval": Vector2.ZERO, "phase": 0.0, "hover": 0.02,
+			"clearance": 0.02, "scale": 1.0, "delta": 0.016, "lean": 0.0,
+		}
+		var exact_frame: Transform3D = exact_engine.call("frame", oral_pony, oral_path,
+			"left", exact_context)
+		check(exact_frame.is_finite(), "the exact oral node frames without the head surface")
+		check(exact_frame.is_finite()
+			and exact_frame.origin.distance_to(left_point + oval_normal * 0.02) < 0.001,
+			"the exact oral palm sits on the skinned vertex with the hover")
+		oral_pony.head = head_keep
 	var blend_from := Transform3D(Basis(), Vector3.ZERO)
 	var blend_to := Transform3D(Basis(), Vector3(1.0, 0.0, 0.0))
 	check(near(HANDS.caress_oral_blend(blend_from, blend_to, 0.0).origin.x, 0.0),

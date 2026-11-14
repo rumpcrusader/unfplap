@@ -129,6 +129,10 @@ the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, 
 - The path holds one authored node per hand: the `head_side` area in `hands/areas/areas.json`,
   region `head`, mode `palm`, roll `1.0`. `hands/paths/anchors.gd:build_single_area()` snaps the
   authored point to the nearest head source vertex, so the node keeps the live head skin weights.
+- The candidate is `exact`: the path's skinned vertex already is the coat contact, so the
+  placement engine skips the posed-coat snap, normal blur and surface smoothing. The head patch
+  is never skinned or BVH-rebuilt for this path, which matters because the oral turn keeps the
+  head moving.
 - There is no lean sample or chain, and no flank fallback. A missing `head_side` side or a point
   farther than `AUTHORED_MAX_DISTANCE` from the head source leaves that hand without a target and
   logs the miss; a flank contact during oral would be the wrong target.
@@ -168,6 +172,7 @@ A path returns ordered candidates, preferred first. Each candidate carries:
 point, normal, oval_x, oval_y
 finger, mode, roll
 region                 torso or head
+exact                  the point is already on the coat; skip the surface snap
 u                      optional debug parameter
 ```
 
@@ -175,16 +180,18 @@ For one hand the engine:
 
 1. applies the oval offset
    `point + oval_x * cos(phase) * across + oval_y * sin(phase) * up`;
-2. snaps the point to the exact body/head coat patch with one `nearest` ray on the candidate's
+2. an `exact` candidate skips the next four steps and builds the palm frame directly, because
+   its point already is the skinned coat vertex;
+3. snaps the point to the exact body/head coat patch with one `nearest` ray on the candidate's
    region only; a ray miss uses the exact `closest()` point at `precise` quality and keeps the
    intended oval point with the path normal at `fast`;
-3. applies the distance-weighted normal blur around a ray hit; a miss keeps the exact `closest()`
+4. applies the distance-weighted normal blur around a ray hit; a miss keeps the exact `closest()`
    normal at `precise` or the path normal at `fast`;
-4. clamps the temporal normal turn;
-5. low-passes the **surface snap correction**, not the intended point, so the intended oval
+5. clamps the temporal normal turn;
+6. low-passes the **surface snap correction**, not the intended point, so the intended oval
    motion is never delayed or shrunk;
-6. builds the single-point palm frame with `hands/palm.gd`;
-7. falls back to the last good target when the path or surface is unavailable.
+7. builds the single-point palm frame with `hands/palm.gd`;
+8. falls back to the last good target when the path or surface is unavailable.
 
 With `features.caress_local` on, the stable region patch stays the source, but each hand skins and
 raycasts only a rest-space window of its intended point. The window re-centres when the point
@@ -234,10 +241,11 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 
 ## Debug and performance
 
-- `features.caress_debug` logs one `precise caress` line per hand per act with `u`, target,
-  normal, finger, roll, hover, surface and the ray hit/miss counts, and logs anchor builds/misses
-  and each anchor's world position/normal. The caress path line prints `path=areas` or `path=oral`;
-  the surface field reports `faces=<window>/<patch>`.
+- `features.caress_debug` logs one `precise caress` line per hand per act for the surface-snapped
+  paths, with `u`, target, normal, finger, roll, hover, surface and the ray hit/miss counts. It
+  also logs anchor builds/misses and each anchor's world position/normal. The caress path line
+  prints `path=areas` or `path=oral`; the exact oral node logs its path build and anchor instead
+  of a surface line. The surface field reports `faces=<window>/<patch>`.
 - The debug overlay draws the path anchors, the exact contact, the palm target and the actual
   hand.
 - `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface`, `caress_ensure`,
@@ -307,8 +315,8 @@ selection and starts the swing.
 ## Tests
 
 - `tests/hands/test_caress.gd`: surface patch and its two quality levels, authored paths, marked
-  area path, side mapping, standing path, oral head node and side inversion, contact blend,
-  engine placement, smoothing and reach.
+  area path, side mapping, standing path, oral head node and side inversion, the exact node
+  without a head patch, contact blend, engine placement, smoothing and reach.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 
@@ -324,6 +332,8 @@ selection and starts the swing.
 - The oral head path has no fallback: a missing `head_side` side, an unbuilt head source or a
   point beyond `AUTHORED_MAX_DISTANCE` leaves that hand without a caress target for the turn. A
   flank contact during oral is deliberately not accepted.
+- The exact oral node uses the authored vertex normal directly, without the coat normal blur.
+  The head-side vertex sits on a smooth part of the head; the snap and blur are unnecessary there.
 - The area chain is lean-driven: W/S still leans and the hand follows the JSON chain.
   It does not add a discrete area index, a one-sided pause or the slide/arc transition.
 - The area JSON is global for the shared body/head. A missing side or fewer than three buildable

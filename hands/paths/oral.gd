@@ -52,6 +52,7 @@ func candidates(hand_side: String, _context: Dictionary) -> Array:
 		"mode": str(path.get("single_mode")),
 		"roll": oral_palm_roll_deg(hand_side) * float(anchor.get("roll", 1.0)),
 		"region": str(anchor.get("region", "head")),
+		"exact": true,
 		"u": 0.0,
 	}]
 

@@ -7,6 +7,7 @@ extends RefCounted
 ##   point, normal, oval_x, oval_y   centre and tangent axes before the oval offset
 ##   finger, mode, roll              palm orientation (`palm` or `fingertip`)
 ##   region                          `torso` or `head`: the coat patch the engine snaps to
+##   exact                           optional: the point is already on the coat, skip the snap
 ##   u                               optional path parameter for debug logging
 ##
 ## The contact is always on the posed coat surface. The engine never reads the pose; how a path

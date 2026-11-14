@@ -1,7 +1,7 @@
 extends RefCounted
 ## Pose-free palm placement. A path supplies where the hand should be on the body; this
-## engine applies the oval, snaps it to the coat, smooths the contact and builds the palm frame.
-## It never reads the pose, the input or the camera.
+## engine applies the oval, snaps it to the coat unless the candidate is exact, smooths the
+## contact and builds the palm frame. It never reads the pose, the input or the camera.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
@@ -131,6 +131,20 @@ func _place_candidate(pony: Variant, hand_side: String, candidate: Dictionary,
 	var roll := float(candidate.get("roll", 0.0))
 	var region := str(candidate.get("region", "torso"))
 	var hover := float(context.get("hover", 0.0))
+	# A single published vertex is already on the coat: its skinned point is the contact, so the
+	# posed-coat snap, normal blur and correction smoothing are redundant. This keeps a moving
+	# head path out of the surface rebuild cost.
+	if bool(candidate.get("exact", false)):
+		var exact_target := HAND.place(intended, normal, finger, hand_side, mode, roll, hover)
+		_debug[hand_side] = {
+			"candidate": candidate,
+			"intended": intended,
+			"contact": intended,
+			"normal": normal,
+			"target": exact_target,
+			"surface": null,
+		}
+		return exact_target
 	return _place_precise(pony, hand_side, candidate, context, intended, normal,
 		finger, mode, roll, region, hover)
 

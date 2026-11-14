@@ -194,7 +194,7 @@ genuine edit or an old template, and preserving it is safer.
 
 | Data | Resolution order |
 |---|---|
-| Preferences, consent, poses, prompts, timing | player differences → provider layers (registration order) → built-in template → global default |
+| Preferences, consent, poses, prompts, timing | player differences → provider layers (registration order) → catalog/built-in template → global default |
 | `eligible` | provider layers only (never a player value) |
 | `profile.participation` | player differences → provider layers (registration order) → built-in default |
 | Placement | player `anatomy.placement.<id>` → provider placement → `settings/catalogs.json` `anatomy.placement.<id>` → global default |

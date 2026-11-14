@@ -237,23 +237,26 @@ prefixes pre-emptively.
   `settings/catalogs.json` is a **shipped-data** error: `_shipped()`/`_catalog()` log the first
   problem, `defaults()` and `data()` return an empty document, `_load()` refuses to write and
   `main.gd._ready()` logs one line and installs no hooks. The game keeps running.
-- The schema test `_check_shipped_defaults()` enforces the exact path set (every declaration has a
-  value, and there is no undeclared path), the exact JSON type per kind, a choice/list value inside
-  its declared options, a colour in `rrggbb`/`rrggbbaa` form and a player-facing number inside its
-  declared bounds. It never asserts a value, so changing a shipped default does not touch the test.
+- The schema test `_check_shipped_defaults()` enforces the exact declared path set (every
+  declaration has a value, and there is no undeclared path outside `default.*`), the exact JSON
+  type per kind, a choice/list value inside its declared options, a colour in `rrggbb`/`rrggbbaa`
+  form and a player-facing number inside its declared bounds. It never asserts a value, so
+  changing a shipped default does not touch the test. `_check_catalog()` does the same for
+  `settings/catalogs.json`: the prompt keys, the full roster, the template fields and the
+  placement keys.
 - `default.*` is not a declared setting. The schema test checks it as a block — its three numbers,
   the event prompts, an empty prompt override block, the `PREFERENCES.KEYS` preference schema and
   the `CATALOG.POSE_KEYS` pose schema — and excludes it from the declared path set.
 - The old `controls.act_key` choice strings (`o`, `y`) are converted to physical keycodes on load;
   `ACT_KEYS.DEFAULT_CODE` is only the legacy/invalid-code fallback, not the shipped default.
 - `anatomy.placement` is one block with `default.*` (ten debug declarations: anatomy 5, tail 3,
-  dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. `shared/anatomy_placement.gd`
-  owns the shipped per-mare `MARE_DEFAULTS` (the tuned tail/dock rows) and resolves override,
-  provider, shipped default, then global default. Only a row that differs from that resolved
-  default is stored; schema 10 strips the rows an older build materialised for every mare. The old
-  `anatomy_place.json` and `anon_place.json` import once and are renamed `.migrated`. The old
-  `anatomy.tail_seat.<id>` rows and the tail/dock millimetre globals migrate into the same block on
-  load.
+  dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. The shipped per-mare
+  rows (the tuned tail/dock values) live in `settings/catalogs.json` under `anatomy.placement`;
+  `shared/anatomy_placement.gd` owns the schema and resolves override, provider, catalog row, then
+  global default. Only a row that differs from that resolved default is stored; schema 10 strips
+  the rows an older build materialised for every mare. The old `anatomy_place.json` and
+  `anon_place.json` import once and are renamed `.migrated`. The old `anatomy.tail_seat.<id>` rows
+  and the tail/dock millimetre globals migrate into the same block on load.
 - `anatomy.reseat_tails`, `anatomy.dock_style` and the tail/dock placement behavior are in
   `docs/anatomy.md`. The settings layer owns only their paths, defaults and the placement
   migration above.
@@ -568,12 +571,14 @@ value. See `docs/perf.md`.
 
 - `tests/test_settings.gd` is the API contract, tested once: unique names and paths, a tab/group/
   label/help on every declaration, the shipped document's schema (exact key set, types, options,
-  colour format and bounds; never values), the file round-trip, clamping and debug bypass,
-  choice/list validation, section state, the panel drawing every declaration in its tab (and the
-  Debug block only in debug mode), built-in name clashes, the per-mare merge and the consent
-  cache's detached copy/invalidation.
-- `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims and that no
-  settings widget is created outside `settings/ui.gd` and `settings/characters_ui.gd`.
+  colour format and bounds; never values), the catalog's schema, the sparse player document, the
+  file round-trip, clamping and debug bypass, choice/list validation, section state, the panel
+  drawing every declaration in its tab (and the Debug block only in debug mode), built-in name
+  clashes, the per-mare merge, provider precedence for preferences/poses/prompts/placement and the
+  consent cache's detached copy/invalidation.
+- `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims, that the
+  shipped defaults and catalog are present and the code constants are gone, and that no settings
+  widget is created outside `settings/ui.gd` and `settings/characters_ui.gd`.
 - `tests/integrations/` covers the catalog and reaction bridge; the Settings panel check includes
   the Integrations tab.
 - Keep the feature-flag table in this file current when adding a flag.

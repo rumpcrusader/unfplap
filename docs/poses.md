@@ -323,7 +323,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
 | shared | hands_reach_plan | `shared/hands_reach_plan.gd` | reach planning math |
 | shared | hands_scale | `shared/hands_scale.gd` | palm scale |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
 
 ## Lifecycle
 

@@ -123,7 +123,8 @@ block as the preference, consent, prompt and pose overrides.
 
 ## Character examples
 
-Every spawnable mare in the base game has an explicit profile in `shared/character_preferences.gd`:
+Every spawnable mare in the base game has an explicit profile in `settings/catalogs.json`
+(`character_templates`), read by `shared/character_preferences.gd`:
 103 mares, the original sixteen first in the selector and the rest alphabetical. This table is the
 main cast sample; the catalog carries the full roster. `twist` (written as a schoolfilly) and
 `fiddly_twang` (written as a stallion) are left out because their identity flags do not match their
@@ -158,8 +159,10 @@ Rarity, Octavia, Maud and Zecora, and the wider roster follows the same rule.
 - The debug `Show data` action prints the resolved prompt note, relationship line, cycle note,
   history note and recent events in its PROMPT section.
 - `tests/readiness/test_preferences.gd` covers profile merge, likes/dislikes and classification.
-- `tests/test_character_preferences.gd` covers the roster, display names and templates.
-- `tests/test_settings.gd` covers the per-mare merge and the Characters form contract.
+- `tests/test_character_preferences.gd` covers the roster, display names and the shipped catalog
+  templates.
+- `tests/test_settings.gd` covers the per-mare merge, provider precedence and the Characters form
+  contract.
 
 ## Related docs
 

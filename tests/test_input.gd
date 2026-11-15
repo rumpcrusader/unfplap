@@ -5,6 +5,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_input.gd
 
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
+const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
@@ -42,16 +43,24 @@ class FakeRuntime extends Node:
 	var orals := 0
 	var finishes := 0
 	var smacks := 0
+	var commands: Array[String] = []
+	var action_ready := true
+	var command_ok := true
 
 	func anatomy_hole_ready() -> bool:
-		return true
+		return action_ready
 
 	func anatomy_oral_ready() -> bool:
-		return true
+		return action_ready
 
 	func anatomy_finish_ready() -> bool:
-		return true
+		return action_ready
 
+	func command(command_id: String) -> bool:
+		commands.append(command_id)
+		return command_ok
+
+	# The legacy anatomy path stays for the callers that still own it directly.
 	func toggle_anatomy_hole() -> void:
 		holes += 1
 
@@ -84,6 +93,7 @@ func run() -> void:
 	await _check_injection()
 	await _check_action()
 	await _check_shield()
+	await _check_act_commands()
 	print("INPUT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("INPUT_PASS")
@@ -274,13 +284,68 @@ func _check_shield() -> void:
 	check(Input.is_physical_key_pressed(KEY_X), "an act-polled key keeps its state")
 	await _release(KEY_X)
 
-	# The anatomy action keeps firing and its raw state is cleared too.
+	# The anatomy action dispatches its command and its raw state is cleared too.
 	await _hold(service, KEY_N)
 	service.call("_input", _key(KEY_N))
-	check(runtime.orals == 1, "N still toggles oral")
+	check(runtime.commands == [ACT_COMMANDS.ORAL], "N dispatches the oral command")
 	check(root.is_input_handled(), "N is consumed")
 	await physics_frame
 	check(not Input.is_physical_key_pressed(KEY_N), "N's raw state is cleared")
+
+	service.queue_free()
+	main.queue_free()
+	runtime.queue_free()
+	SETTINGS.act_input_shield.set_bool(before)
+	await process_frame
+
+
+## V/N/B emit their command ids through the runtime; a non-ready or refused command does not
+## dispatch, and the key is consumed either way.
+func _check_act_commands() -> void:
+	var before := SETTINGS.act_input_shield.get_bool()
+	SETTINGS.act_input_shield.set_bool(true)
+	var main := FakeMain.new()
+	root.add_child(main)
+	var service := INPUT.new()
+	service.main = main
+	main.add_child(service)
+	var runtime := FakeRuntime.new()
+	runtime.state = 2
+	main.active_runtime = runtime
+	await process_frame
+
+	for case: Array in [[KEY_V, ACT_COMMANDS.HOLE], [KEY_N, ACT_COMMANDS.ORAL],
+			[KEY_B, ACT_COMMANDS.FINISH]]:
+		var code := int(case[0])
+		var command_id := str(case[1])
+		runtime.commands.clear()
+		await _hold(service, code)
+		_reset_handled()
+		service.call("_input", _key(code))
+		check(runtime.commands == [command_id], "%s dispatches once" % command_id)
+		check(root.is_input_handled(), "the %s key is consumed" % command_id)
+		await _release(code)
+
+	# A closed readiness gate leaves the command undispatched.
+	runtime.action_ready = false
+	runtime.commands.clear()
+	await _hold(service, KEY_N)
+	_reset_handled()
+	service.call("_input", _key(KEY_N))
+	check(runtime.commands.is_empty(), "a non-ready command does not dispatch")
+	check(root.is_input_handled(), "a non-ready key is still consumed")
+	await _release(KEY_N)
+	runtime.action_ready = true
+
+	# A refused command was attempted once and the key is still consumed.
+	runtime.command_ok = false
+	runtime.commands.clear()
+	await _hold(service, KEY_V)
+	_reset_handled()
+	service.call("_input", _key(KEY_V))
+	check(runtime.commands == [ACT_COMMANDS.HOLE], "a refused command is attempted once")
+	check(root.is_input_handled(), "a refused key is still consumed")
+	await _release(KEY_V)
 
 	service.queue_free()
 	main.queue_free()

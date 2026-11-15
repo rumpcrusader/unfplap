@@ -212,12 +212,22 @@ target snapshot into the live `pose_config`, points both sides of the config and
 it, clears the edge fields and drops the target. The steady tick allocates nothing: no duplicate,
 no settings read and no file access, and a tick after completion is a no-op.
 
-`request_command(command_id)` reports whether the active control set and the live edge lock allow a
-command. `end` is reserved and always allowed. The set is the view's `controls.set` and the allowed
-list is `shared/pose_specs.gd`'s `CONTROL_SETS`; a missing set allows only `end`. A lock channel's
-`block` list denies its commands and a non-empty `allow` list denies anything outside it. The
-minimal sets (`thrust`/`end` for standing and missionary, `end` only for `standing_test`) are the
-shipped sets, and the existing input path stays.
+`shared/act_commands.gd` is the command vocabulary, and `shared/pose_specs.gd`'s `CONTROL_SETS`
+maps each pose's `controls.set` profile to its allowed ids:
+
+| Pose | Allowed ids |
+|---|---|
+| `missionary` | `thrust`, `lean`, `caress`, `kiss`, `hole`, `finish`, `end` |
+| `standing` | `thrust`, `lean`, `caress`, `kiss`, `oral`, `hole`, `finish`, `pose_back`, `pose_forward`, `end` |
+| `standing_test` | `end` |
+
+`request_command(command_id)` is the one allow check: an empty or unknown id is refused, `end` is
+reserved and always allowed, and otherwise the id must be in the active view's `controls.set`
+profile. A missing set allows only `end`. A lock channel's `block` list denies its commands and a
+non-empty `allow` list denies anything outside it; the lock is checked only inside the profile and
+cannot deny `end`. `pose_back`/`pose_forward` are reserved for pose navigation and no key emits them
+yet. The `oral` command currently runs the standing anatomy toggle; the standing oral pose request
+replaces that implementation once its rows exist, without changing the input path.
 
 `apply_live_settings()` refreshes the target snapshot in place on a live settings edit: the same
 `to_config` object is re-merged from the target's settings group, and the presentation block is
@@ -680,8 +690,8 @@ unchanged.
 - `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
   standing stretch holder, the session API, the effective driver/base paths, the state machine,
   the request/refusal codes, the target snapshot with the presentation, the requested evaluator
-  pair, the target adoption, the tick/switch/status path, the control sets, the pose-change hook
-  and the service-owned act-body release.
+  pair, the target adoption, the tick/switch/status path, the real control profiles, the pose-change
+  hook and the service-owned act-body release.
 - `tests/poses/test_modifier_profile.gd` — the synthetic profile reconcile: the shared owner keeps
   its node, the source-only owner is removed, the target-only owners install behind their feature
   gates, the act-exit leave still removes all and the synthetic profile stays out of the shipped

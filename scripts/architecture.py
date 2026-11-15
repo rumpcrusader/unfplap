@@ -324,6 +324,7 @@ PURPOSE = {
     "shared/act_history.gd": "stored history rows",
     "shared/act_face.gd": "face beat data",
     "shared/act_facts.gd": "typed act read model",
+    "shared/act_commands.gd": "act command vocabulary",
     "shared/act_motion.gd": "lean and travel math",
     "shared/anatomy_placement.gd": "placement schema and merge",
     "shared/defaults_data.gd": "shipped settings and catalog documents",

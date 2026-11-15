@@ -36,6 +36,7 @@ const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
+const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
@@ -914,9 +915,31 @@ func request_pose(target_id: String, trigger := "", context: Dictionary = {}) ->
 	return _pose_service().request_pose(target_id, trigger, request)
 
 
-## One command check. The existing input path stays.
+## One command check: the pose's control profile and the live edge lock. `end` is reserved.
 func request_command(command_id: String) -> bool:
 	return _pose_service().request_command(command_id)
+
+
+## Run one discrete command after the pose's control set and the live edge lock allow it.
+## Returns true only when a command was dispatched. `end` is reserved; the act-key hold owns it.
+func command(command_id: String) -> bool:
+	if not request_command(command_id):
+		return false
+	match command_id:
+		ACT_COMMANDS.HOLE:
+			toggle_anatomy_hole()
+			return true
+		ACT_COMMANDS.ORAL:
+			toggle_anatomy_oral()
+			return true
+		ACT_COMMANDS.FINISH:
+			toggle_anatomy_finish()
+			return true
+		ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD:
+			return false
+		ACT_COMMANDS.END:
+			return true
+	return false
 
 
 ## The fixed-order pose-change fan-out. The pose service reconciles its modifier profile and the
@@ -2341,6 +2364,8 @@ func toggle_anatomy_hole() -> void:
 	_anatomy_bridge.toggle_hole()
 
 
+## The `oral` command's current implementation; the standing oral pose request replaces it once
+## those rows exist, and the input path does not change.
 func toggle_anatomy_oral() -> void:
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.toggle_oral()

@@ -7,6 +7,7 @@ extends SceneTree
 const SESSION := preload("res://mods/unfplap/poses/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
@@ -821,20 +822,39 @@ func _check_refusals() -> void:
 	_free_live(missing_made)
 
 
-## The control sets, the reserved `end`, the edge lock and the standing_test block.
+## The real control profiles, the reserved `end`, the edge lock and the standing_test block.
 func _check_commands() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: RefCounted = made["session"]
-	check(session.request_command("thrust"), "the standing set allows thrust")
-	check(session.request_command("end"), "end is always allowed")
+	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
+			ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH,
+			ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD, ACT_COMMANDS.END]:
+		check(session.request_command(command_id),
+			"the standing profile allows %s" % command_id)
+	check(session.request_command(ACT_COMMANDS.END), "end is always allowed")
 	check(not session.request_command("nonsense"), "an unknown command is refused")
 	check(not session.request_command(""), "an empty command is refused")
 	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
 	check(str(result.get("code", "")) == "ok", "the command check starts the debug edge")
-	check(not session.request_command("thrust"),
-		"the standing_test set blocks thrust")
-	check(session.request_command("end"), "end stays allowed in standing_test")
+	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
+			ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH,
+			ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD]:
+		check(not session.request_command(command_id),
+			"the standing_test profile blocks %s" % command_id)
+	check(session.request_command(ACT_COMMANDS.END), "end stays allowed in standing_test")
 	_free_live(made)
+
+	var missionary_made := _live_session(CATALOG.MISSIONARY)
+	var missionary: RefCounted = missionary_made["session"]
+	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
+			ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH, ACT_COMMANDS.END]:
+		check(missionary.request_command(command_id),
+			"the missionary profile allows %s" % command_id)
+	for command_id: String in [ACT_COMMANDS.ORAL, ACT_COMMANDS.POSE_BACK,
+			ACT_COMMANDS.POSE_FORWARD]:
+		check(not missionary.request_command(command_id),
+			"the missionary profile blocks %s" % command_id)
+	_free_live(missionary_made)
 
 	var lock_made := _live_session(CATALOG.STANDING)
 	var lock_session: RefCounted = lock_made["session"]
@@ -844,8 +864,10 @@ func _check_commands() -> void:
 	var lock_result: Dictionary = lock_session.request_pose("synthetic_lock", "test",
 		{"act_state": 2})
 	check(str(lock_result.get("code", "")) == "ok", "the lock edge starts")
-	check(not lock_session.request_command("thrust"), "the lock block denies thrust")
-	check(lock_session.request_command("end"), "the lock leaves end allowed")
+	check(not lock_session.request_command(ACT_COMMANDS.THRUST), "the lock block denies thrust")
+	check(lock_session.request_command(ACT_COMMANDS.LEAN),
+		"the lock leaves a command outside its block allowed")
+	check(lock_session.request_command(ACT_COMMANDS.END), "the lock leaves end allowed")
 	_free_live(lock_made)
 
 

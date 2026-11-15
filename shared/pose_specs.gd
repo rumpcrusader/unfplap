@@ -6,6 +6,8 @@ extends RefCounted
 ## The profile vocabulary is fixed. Add keys, never rename one; `poses/pose_spec.gd` owns the
 ## required-key list a new profile key must extend.
 
+const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
+
 const MISSIONARY := "missionary"
 const STANDING := "standing"
 ## An internal debug pose: it inherits `standing`'s geometry, driver and profiles, and is not a
@@ -125,11 +127,20 @@ const MODIFIER_PROFILES := {
 }
 
 
-## A3.3's command sets; A4 replaces them with the real vocabulary. `end` is reserved.
+## The commands each pose's `controls.set` profile allows. `end` is reserved and always allowed,
+## and `request_command()` also allows it before the profile lookup, so an edge lock cannot deny
+## it. `pose_back`/`pose_forward` are reserved for pose navigation and no key emits them.
 const CONTROL_SETS := {
-	MISSIONARY: ["thrust", "end"],
-	STANDING: ["thrust", "end"],
-	STANDING_TEST: ["end"],
+	MISSIONARY: [
+		ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS, ACT_COMMANDS.KISS,
+		ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH, ACT_COMMANDS.END,
+	],
+	STANDING: [
+		ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS, ACT_COMMANDS.KISS,
+		ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH, ACT_COMMANDS.POSE_BACK,
+		ACT_COMMANDS.POSE_FORWARD, ACT_COMMANDS.END,
+	],
+	STANDING_TEST: [ACT_COMMANDS.END],
 }
 
 

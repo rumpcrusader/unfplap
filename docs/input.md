@@ -10,6 +10,7 @@ It does not own act behavior. It calls the active runtime's typed commands and `
 ## Scope
 
 - The act key: its `unfplap_act` `InputMap` action, start/end and the consumption policy.
+- The discrete act keys (`V`/`N`/`B`) and the command ids they emit.
 - The act input shield: the pass list, the raw-key exclusions and the release injection (a
   documented HACK, below).
 - Mouse capture while an act is live, including the menu/alt-tab recapture path.
@@ -42,7 +43,8 @@ The service is a Node; its contract is the Node lifecycle and the input callback
   live it hands every key press to `_act_key()`;
 - `apply_settings()` — rebuilds the `unfplap_act` action from the `act_key` setting and caches the
   shield flag;
-- `_act_key(runtime, key, state)` — the act's own keys, then the shield's catch-all;
+- `_act_key(runtime, key, state)` — the act's own keys (the anatomy keys emit their command ids),
+  then the shield's catch-all;
 - `_consume(key)` — marks the key handled and, with the shield on, clears its polled state unless
   it is the act action or one of `RAW_KEYS`;
 - `_suppress_raw(key)` — the HACK: injects a matching release event;
@@ -118,6 +120,23 @@ real state. This is a deliberate, global lie about key state, kept only for the 
   while typing, keys pass, so a raw poller can still see typed letters; a key the player rebinds
   the act key onto is not cleared, because the hold needs it.
 
+## Act commands
+
+`shared/act_commands.gd` is the act's command vocabulary: `thrust`, `lean`, `caress`, `kiss`,
+`oral`, `finish`, `hole`, `pose_back`, `pose_forward` and `end`. `thrust`, `lean`, `caress` and
+`kiss` are the continuous ids; the rest are discrete. `end` is reserved and always allowed, and
+`pose_back`/`pose_forward` are reserved for pose navigation with no key emitting them.
+
+The discrete act keys emit a command id through the active runtime instead of calling an anatomy
+toggle directly: `V` emits `hole`, `N` emits `oral` and `B` emits `finish`, each only when its
+`anatomy_*_ready()` gate is true. `runtime.command(id)` then checks the active pose's control
+profile and the live edge lock before dispatching, so a pose that does not allow the id does
+nothing. The key is consumed whether the command is allowed or refused.
+
+The continuous `thrust`, `lean`, `caress` and `kiss` inputs stay on their polled `RAW_KEYS`/mouse
+path, and the act-key hold owns `end`. Smack, auto-thrust and the debug wheel are body/camera
+actions outside the pose command set and keep their direct runtime methods.
+
 ## Controls and debug
 
 The controls table is `docs/runtime.md`. Debug actions and the wheel are in `docs/debug.md`.
@@ -145,13 +164,17 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 | service | debug | `debug/service.gd` | debug action registry |
 | service | settings | `settings/service.gd` | the `act_key` keycode and the shield flag |
 | shared | act_keys | `shared/act_keys.gd` | action name, legacy fallback and cap labels |
+| shared | act_commands | `shared/act_commands.gd` | the ids `V`/`N`/`B` emit |
 
 ## Tests
 
 - `tests/test_input.gd` — the legacy fallback, the installed action, a captured rebind, typing
-  protection, the start route through `main.try_start()`, the release-injection spike and the
-  shield: a foreign key consumed and cleared, an act-polled key kept, `N` still toggling, the
-  pass list, typing, a paused tree, an open panel and the setting off.
+  protection, the start route through `main.try_start()`, the release-injection spike, the shield
+  (a foreign key consumed and cleared, an act-polled key kept, the pass list, typing, a paused
+  tree, an open panel and the setting off) and the `V`/`N`/`B` dispatch: each emits its command id
+  once when ready, a non-ready or refused command does not dispatch, and the key is consumed.
+- `tests/test_act_commands.gd` — the pure vocabulary: unique `lower_snake_case` ids, the
+  continuous/discrete partition, the helpers and the reserved `end`.
 - The manual lab covers act start, end, smack, auto, chat and the seated-player guard.
 - The architecture checker covers the facade-only import rule.
 

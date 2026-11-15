@@ -143,12 +143,19 @@ The runtime does not mirror a service's act state. It reads it through the ownin
 at the call site, so a suite that needs `act_thrusts`, `camera_owned`, `close_left` or `summary`
 reads that facade too.
 
-The pose surface is `pose_view()`, `request_pose(target_id, trigger, context)` and
-`request_command(command_id)`. The runtime supplies its state, features and stretch; the session
-refuses or starts the edge. The runtime's `pose_id` stays the act's start pose (start, gate and
-teardown), while the session view is the active pose and `facts.pose_id` follows the live view id.
-`_end_session()` aborts a live edge through the one pose teardown. `apply_live_settings()` also
-refreshes a running edge's target snapshot after the start pose's own config sync.
+The pose surface is `pose_view()`, `request_pose(target_id, trigger, context)`,
+`request_command(command_id)` and `command(command_id)`. The runtime supplies its state, features
+and stretch; the session refuses or starts the edge. `request_command(id)` is the pure allow check:
+`end` is reserved and always allowed, otherwise the id must be in the active pose's control profile
+and the live edge lock must not deny it. `command(id)` runs that check first, then dispatches the
+discrete `hole`/`oral`/`finish` ids to the anatomy entry points; the reserved `pose_back`/
+`pose_forward` return false, and `end` returns true without an act exit. The act-key hold still
+owns the one exit path.
+
+The runtime's `pose_id` stays the act's start pose (start, gate and teardown), while the session
+view is the active pose and `facts.pose_id` follows the live view id. `_end_session()` aborts a
+live edge through the one pose teardown. `apply_live_settings()` also refreshes a running edge's
+target snapshot after the start pose's own config sync.
 
 ## Tests
 

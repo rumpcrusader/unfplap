@@ -145,6 +145,12 @@ The controller's `consent` callback is bound to its pony and takes the key only
   player's climax event.
 - The act key owns the act; `V`/`N`/`B` never start or end it.
 
+The keys reach the controller through the runtime's `hole`, `oral` and `finish` commands
+(`shared/act_commands.gd`); the active pose's control profile and live edge lock must allow the id
+first. The `oral` command's current implementation is this controller's `toggle_oral`; the standing
+oral pose request replaces that implementation once its rows exist, and the input path does not
+change.
+
 ## Attachment and identity
 
 - Anatomy attaches to every adult identity with a `pony_hips` bone and a stable id, including

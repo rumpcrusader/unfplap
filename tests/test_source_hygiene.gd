@@ -4,6 +4,8 @@ extends SceneTree
 
 const ROOT := "res://mods/unfplap"
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
+const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
+const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 ## Files allowed to create settings widgets. The declaration panel is settings/ui.gd; the
 ## character preference form is settings/characters_ui.gd. The tools are never shipped and are not
 ## settings UI.
@@ -124,6 +126,7 @@ func run() -> void:
 	_check_pose_edges()
 	_check_pose_docs()
 	_check_pose_capability_census(files)
+	_check_act_commands()
 	_check_act_camera()
 	_check_scene_gate()
 	_check_rest_rejoin()
@@ -687,7 +690,7 @@ func _check_pose_session() -> void:
 			check(not body.contains(call), "%s does not call %s" % [name, call])
 	var specs := FileAccess.get_file_as_string(ROOT.path_join("shared/pose_specs.gd"))
 	check(specs.contains("CONTROL_SETS") and specs.contains("standing_test"),
-		"the spec table carries the minimal control sets and the internal pose")
+		"the spec table carries the control profiles and the internal pose")
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/poses.md"))
 	check(contract.contains("## Ownership"), "docs/poses.md documents the pose owner")
 	check(contract.contains("`poses/service.gd`"), "docs/poses.md names poses/service.gd")
@@ -908,6 +911,51 @@ func _check_token_budget(files: Array[String], token: String, budget: Dictionary
 	check(total <= allowed_total,
 		"%s total grew (now %d, census %d, delta +%d)" % [
 			token, total, allowed_total, total - allowed_total])
+
+
+## The act command vocabulary is pure and closed: every profile lists known ids and contains the
+## reserved `end`, the input service emits the discrete ids through the runtime, and the runtime
+## dispatches them without a second act exit. Contract: `docs/input.md`, `docs/poses.md`.
+func _check_act_commands() -> void:
+	var commands := FileAccess.get_file_as_string(ROOT.path_join("shared/act_commands.gd"))
+	for token: String in ["func is_command(", "func is_continuous(", "func is_reserved(",
+			"const ALL", "const CONTINUOUS", "const DISCRETE"]:
+		check(commands.contains(token), "act_commands.gd exposes %s" % token)
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "DirAccess", "SETTINGS",
+			"preload(\"res://world/", "preload(\"res://mods/unfplap/", "Time.", "OS."]:
+		check(not commands.contains(token), "act_commands.gd has no host access: %s" % token)
+	for pose_value: Variant in POSE_SPECS.CONTROL_SETS:
+		var pose_id := str(pose_value)
+		var allowed: Array = POSE_SPECS.CONTROL_SETS[pose_value]
+		check(ACT_COMMANDS.END in allowed, "the %s profile contains end" % pose_id)
+		for command_value: Variant in allowed:
+			var command_id := str(command_value)
+			check(ACT_COMMANDS.is_command(command_id),
+				"the %s profile only lists known commands: %s" % [pose_id, command_id])
+	var specs := FileAccess.get_file_as_string(ROOT.path_join("shared/pose_specs.gd"))
+	check(specs.contains("ACT_COMMANDS") and specs.contains("CONTROL_SETS"),
+		"the control profiles use the command vocabulary")
+	var input := FileAccess.get_file_as_string(ROOT.path_join("input/service.gd"))
+	check(input.contains("preload(\"res://mods/unfplap/shared/act_commands.gd\")"),
+		"the input service preloads the command vocabulary")
+	for command_name: String in ["HOLE", "ORAL", "FINISH"]:
+		check(input.contains("runtime.call(\"command\", ACT_COMMANDS.%s)" % command_name),
+			"the input service dispatches the %s command" % command_name)
+	for toggle: String in ["toggle_anatomy_hole", "toggle_anatomy_oral", "toggle_anatomy_finish"]:
+		check(not input.contains(toggle), "the input service does not call %s" % toggle)
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(runtime.contains("func command(command_id: String) -> bool"),
+		"the runtime owns the discrete command dispatcher")
+	var body := _func_body(runtime, "command")
+	check(body.contains("request_command(command_id)"),
+		"the dispatcher checks the profile and the live edge lock first")
+	for toggle: String in ["toggle_anatomy_hole()", "toggle_anatomy_oral()",
+			"toggle_anatomy_finish()"]:
+		check(body.contains(toggle), "the dispatcher runs %s" % toggle)
+	check(body.contains("ACT_COMMANDS.POSE_BACK") and body.contains("ACT_COMMANDS.POSE_FORWARD"),
+		"the dispatcher keeps pose navigation reserved")
+	check(body.contains("ACT_COMMANDS.END"), "the dispatcher reserves end")
+	check(not body.contains("_end_session("), "no command bypasses the one act exit")
 
 
 ## The act camera owns the lean, the shot smoothing, the free look, the free-camera lock, the eye

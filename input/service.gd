@@ -5,6 +5,7 @@ extends Node
 
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
+const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 ## Keys the act samples every frame: the lean (Q/E/W/S), the auto layer (Q A W S E D Z, X), the
@@ -216,17 +217,18 @@ func _input(event: InputEvent) -> void:
 ## Route one key press while an act is live. The act's own keys act here; with the shield on,
 ## every other key is taken from the game and from other mods (`docs/input.md`).
 func _act_key(runtime: Variant, key: InputEventKey, state: int) -> void:
-	# integration: optional anatomy actions, only when their act is live.
+	# integration: optional anatomy actions, only when their act is live. The runtime checks the
+	# pose's control profile and the live edge lock; the key is consumed whether or not it allows.
 	if key.physical_keycode == KEY_V and bool(runtime.call("anatomy_hole_ready")):
-		runtime.call("toggle_anatomy_hole")
+		runtime.call("command", ACT_COMMANDS.HOLE)
 		_consume(key)
 		return
 	if key.physical_keycode == KEY_N and bool(runtime.call("anatomy_oral_ready")):
-		runtime.call("toggle_anatomy_oral")
+		runtime.call("command", ACT_COMMANDS.ORAL)
 		_consume(key)
 		return
 	if key.physical_keycode == KEY_B and bool(runtime.call("anatomy_finish_ready")):
-		runtime.call("toggle_anatomy_finish")
+		runtime.call("command", ACT_COMMANDS.FINISH)
 		_consume(key)
 		return
 	# Enter opens the act chat and then hands the keyboard to the text field.

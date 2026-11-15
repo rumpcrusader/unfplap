@@ -10,7 +10,7 @@ const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
 
-## The act pose this afterglow belongs to, for the presentation row.
+## The act's start pose, kept as the view-less fallback for the presentation row.
 var pose := ""
 ## The pose view the runtime carries into the next `begin()`; its `afterglow` profile owns the
 ## close-window decision.
@@ -56,10 +56,11 @@ func begin(pose_id: String, summary: Dictionary) -> void:
 
 ## The presentation the runtime applies when the act enters the held afterglow. The facade owns
 ## the phase decisions; the runtime applies the row in this order and owns the scene calls the
-## row cannot make (the wings, the face beat, the summary commit). The held pose is the act's
-## current pose: the row names no pose mode and no afterglow pose.
+## row cannot make (the wings, the face beat, the summary commit). The tail targets follow the
+## active view family, not the act's start pose. The held pose is the act's current pose: the row
+## names no pose mode and no afterglow pose.
 func presentation() -> Dictionary:
-	var standing := pose == "standing"
+	var standing := str(view.family) == "standing" if view != null else pose == "standing"
 	return {
 		"tail_target": 0.55 if standing else 0.35,
 		"tail_flicks": 2 if standing else 0,

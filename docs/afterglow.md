@@ -24,7 +24,7 @@ The runtime still:
 
 | Piece | Owns |
 |---|---|
-| `afterglow/service.gd` | the private beat, the close-window timer and its reward decision |
+| `afterglow/service.gd` | the private beat, the close-window timer and its reward decision, the presentation row |
 | `runtime.gd` | the state transition, the phase end, the scene presentation, the memory/history writes and the HUD refresh |
 
 Host callbacks, all optional so a test can build the facade without a runtime:
@@ -41,7 +41,7 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 |---|---|
 | `begin(pose_id, summary)` | start the phase, roll the private beat and open the close window the pose profile declares |
 | `bind_view(view)` | carry the pose view whose `afterglow.close_window` decides that window |
-| `presentation()` | the afterglow presentation row: tail target and flicks, HUD state and the wings flag; the act's current pose holds |
+| `presentation()` | the afterglow presentation row: tail target and flicks from the active `view.family`, HUD state and the wings flag; the act's current pose holds |
 | `reset()` | clear every per-act value; the callbacks stay |
 | `close_tick(delta)` | count caress time and run the window down |
 | `cancel_close()` | drop the window without a reward |
@@ -62,6 +62,11 @@ carries no pose mode and no afterglow pose id, and `_apply_afterglow_presentatio
 driver/delta pair and config; nothing rebuilds, releases or re-poses the body at the phase change.
 The close window comes from the view's `afterglow.close_window`. The phase has no `pose_changed`
 hook. The runtime and facade source must not name a pose mode.
+
+The tail target and flick count follow the active `view.family`: `standing` lifts the tail and
+flicks it, `bed` lowers it and keeps it still. `view.family` is `standing` for `standing` and
+`standing_test`, `bed` for missionary. The act's start `pose` is only the fallback when no view is
+bound, so a stale start id cannot choose the tail behaviour.
 
 ## `[stay]` action
 
@@ -129,7 +134,8 @@ Hold the act key:
 
 `tests/afterglow/test_afterglow.gd` builds the facade with fake callbacks and covers the close
 window's timing, caress count and single reward, the early cancel, the missionary skip, the
-presentation row (no pose mode/afterglow pose, the held pose and the re-asserted weight) and the
-runtime forwards for the HUD and prompt note. Wing folding lives in
+presentation row (no pose mode/afterglow pose, the tail row following the view family when the
+start pose differs, the held pose and the re-asserted weight) and the runtime forwards for the HUD
+and prompt note. Wing folding lives in
 `poses/wing_control.gd` and is covered in the same suite; the wing controller reads the typed act
 view (`facts.pony`, `facts.clock()`) and a `log` callback, never the runtime node.

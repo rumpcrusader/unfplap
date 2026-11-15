@@ -430,7 +430,8 @@ func _affection_kind() -> String:
 func _sync_context(provider: ProviderState) -> void:
 	var context: Variant = provider.context
 	context.state = int(_facts.get("state")) if _facts != null else 0
-	context.pose_id = str(_facts.get("pose_id")) if _facts != null else ""
+	var view: Variant = _facts.get("pose_view") if _facts != null else null
+	context.pose_family = str(view.family) if view != null else ""
 	context.satisfaction = float(_facts.get("satisfaction")) if _facts != null else 0.0
 	context.mood = str(_facts.get("mood")) if _facts != null else ""
 	context.seconds_since_stroke = float(_facts.get("seconds_since_stroke")) \

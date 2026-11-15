@@ -26,12 +26,12 @@ runtime's.
 
 ## Public API
 
-- `bind(host)` — the host context: `pony`, `main`, `pose_id`, `state`.
+- `bind(host)` — the host context: `pony`, `main`, `pose_family`, `state`.
 - `claim_nav(owner_id)` — takes the navigator, records the old wander flag, builds the
   `unfplap:<id>` token and returns whether the lease is owned.
 - `keep_nav()` — re-asserts the lease if the owner changed.
 - `release_nav()` — gives the owner back and restores the wander flag.
-- `pause_face_turn(force)` — holds the standing face-turn rate at zero.
+- `pause_face_turn(force)` — holds the standing family face-turn rate at zero.
 - `restore_face_turn()` — restores the saved rate.
 - `keep_attention()` — clears the conversation target while the act runs.
 - `lock_player()` — takes the movement hold and pauses the kisser.
@@ -79,14 +79,12 @@ No controls. The debug log reports the ownership state on the `debug_line` call 
 - `pony` — the `Navigator`, `face_turn_rate`, `CuddleSession`, `set_conversation_target`.
 - `main` — the `interactor`, `player`, `game.kisser`.
 - `main.player` — the `kiss_hold` meta, `seat` and `_q_held`.
-- The runtime — the caller and the state.
-- `shared/pose_catalog.gd` — the standing pose id for the face-turn gate.
+- The runtime — the caller, the state and the live pose family.
 
 ### Uses
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Tests
 

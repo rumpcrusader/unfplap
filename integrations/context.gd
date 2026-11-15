@@ -2,9 +2,9 @@ extends RefCounted
 ## The plain values a pure provider may read. The facade refreshes one context per provider in
 ## place; nothing here is a node handle or a scene reach-in.
 
-## Runtime state enum, pose id and the act clock.
+## Runtime state enum, pose family and the act clock.
 var state := 0
-var pose_id := ""
+var pose_family := ""
 var satisfaction := 0.0
 ## The act's mood band: warming, wanting, close, climax or overwhelmed.
 var mood := ""

@@ -6,7 +6,6 @@ extends SceneTree
 
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 
 var failures := 0
@@ -109,7 +108,7 @@ func _check_defaults() -> void:
 	check(near(reactions.jiggle_smack_intensity, 0.45), "smack intensity starts at the shipped default")
 	check(near(reactions.climax_seconds, 5.0), "climax length starts at the shipped default")
 	reactions.configure({
-		"pose_id": CATALOG.STANDING,
+		"pose_family": "standing",
 		"size_scale": 0.66,
 		"climax_seconds": 4.0,
 		"jiggle": {
@@ -120,7 +119,7 @@ func _check_defaults() -> void:
 			"smack_intensity": 0.6,
 		},
 	})
-	check(reactions.pose_id == CATALOG.STANDING, "configure takes the pose")
+	check(reactions.pose_family == "standing", "configure takes the pose family")
 	check(near(reactions.size_scale, 0.66), "configure takes the size scale")
 	check(near(reactions.climax_seconds, 4.0), "configure takes the climax length")
 	check(near(reactions.jiggle_radius_m, 0.31), "configure takes the radius")
@@ -202,7 +201,7 @@ func _check_thrust() -> void:
 	flank.add_child(second_mark)
 	var reactions := REACTIONS.new()
 	reactions.bind_scene(pony, null, flank)
-	reactions.configure({"pose_id": CATALOG.STANDING, "size_scale": 0.66,
+	reactions.configure({"pose_family": "standing", "size_scale": 0.66,
 		"jiggle": {"intensity": 0.2, "radius": 0.26}})
 	reactions.thrust(0.8)
 	check(flank.jiggle_calls == 1, "a thrust starts one jiggle")
@@ -229,17 +228,17 @@ func _check_smack() -> void:
 	var reactions := REACTIONS.new()
 	reactions.bind_scene(pony, null, flank)
 	reactions.bind_tail(tail)
-	reactions.configure({"pose_id": CATALOG.STANDING, "size_scale": 1.0,
+	reactions.configure({"pose_family": "standing", "size_scale": 1.0,
 		"jiggle": {"smack_intensity": 0.5}})
 	reactions.smack(0.8)
 	check(near(flank._jiggle_amount, 0.04), "the act smack scales the resolved jiggle")
 	check(near(tail.last_strength, 0.5), "the standing smack carries the tail jiggle")
-	reactions.configure({"pose_id": CATALOG.MISSIONARY, "size_scale": 0.66,
+	reactions.configure({"pose_family": "bed", "size_scale": 0.66,
 		"jiggle": {"smack_intensity": 0.5}})
 	tail.last_strength = 0.0
 	reactions.smack(0.8)
 	check(near(tail.last_strength, 0.0), "the missionary smack does not move the tail")
-	reactions.configure({"pose_id": CATALOG.STANDING, "size_scale": 0.66,
+	reactions.configure({"pose_family": "standing", "size_scale": 0.66,
 		"jiggle": {"intensity": 0.2}})
 	reactions.tail_thrust(0.4)
 	check(near(tail.last_strength, 0.4 * 0.66 * 0.2),
@@ -259,10 +258,10 @@ func _check_blush() -> void:
 	root.add_child(pony)
 	var reactions := REACTIONS.new()
 	reactions.bind_scene(pony, null)
-	reactions.configure({"pose_id": CATALOG.MISSIONARY})
+	reactions.configure({"pose_family": "bed"})
 	reactions.add_blush(1.0)
 	check(near(reactions.rump_blush, 0.0), "the missionary act has no rump blush")
-	reactions.configure({"pose_id": CATALOG.STANDING})
+	reactions.configure({"pose_family": "standing"})
 	reactions.add_blush(0.4)
 	check(near(reactions.rump_blush, 0.0), "a soft thrust does not start the blush")
 	reactions.add_blush(0.9)

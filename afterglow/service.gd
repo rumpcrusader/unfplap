@@ -10,10 +10,8 @@ const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
 
-## The act's start pose, kept as the view-less fallback for the presentation row.
-var pose := ""
 ## The pose view the runtime carries into the next `begin()`; its `afterglow` profile owns the
-## close-window decision.
+## close-window decision and its family the presentation row.
 var view: RefCounted = null
 ## Whether this pose's afterglow profile opens a close window.
 var close_window := false
@@ -39,10 +37,9 @@ func bind_view(view_in: RefCounted) -> void:
 	view = view_in
 
 
-## Start a fresh afterglow for this pose. The row's `afterglow.close_window` opens the close
+## Start a fresh afterglow for the live view. The row's `afterglow.close_window` opens the close
 ## window immediately.
-func begin(pose_id: String, summary: Dictionary) -> void:
-	pose = pose_id
+func begin(summary: Dictionary) -> void:
 	var afterglow: Variant = view.afterglow if view != null else null
 	close_window = bool((afterglow as Dictionary).get("close_window", false)) \
 		if afterglow is Dictionary else false
@@ -60,7 +57,7 @@ func begin(pose_id: String, summary: Dictionary) -> void:
 ## active view family, not the act's start pose. The held pose is the act's current pose: the row
 ## names no pose mode and no afterglow pose.
 func presentation() -> Dictionary:
-	var standing := str(view.family) == "standing" if view != null else pose == "standing"
+	var standing := view != null and str(view.family) == "standing"
 	return {
 		"tail_target": 0.55 if standing else 0.35,
 		"tail_flicks": 2 if standing else 0,
@@ -71,7 +68,6 @@ func presentation() -> Dictionary:
 
 ## Clear every value for the next act. The callbacks stay.
 func reset() -> void:
-	pose = ""
 	close_window = false
 	beat = ""
 	close_left = 0.0

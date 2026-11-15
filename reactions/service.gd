@@ -4,7 +4,6 @@ extends RefCounted
 ## and the stroke events; this facade owns the scene reactions and the per-act tuning it needs.
 ## Contract: `docs/reactions.md`.
 
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
@@ -27,7 +26,7 @@ var anatomy: Variant = null
 var tail: Variant = null
 
 ## Per-act configuration. `configure()` receives the runtime's act snapshot.
-var pose_id := ""
+var pose_family := ""
 var size_scale := 1.0
 var jiggle_radius_m := 0.26
 var jiggle_center_height_m := 0.1
@@ -66,7 +65,7 @@ func bind_tail(tail_ctl: Variant) -> void:
 
 ## Take the act's reaction tuning from the runtime's settings snapshot.
 func configure(context: Dictionary) -> void:
-	pose_id = str(context.get("pose_id", ""))
+	pose_family = str(context.get("pose_family", ""))
 	size_scale = float(context.get("size_scale", 1.0))
 	climax_seconds = float(context.get("climax_seconds", 5.0))
 	var block: Variant = context.get("jiggle")
@@ -218,7 +217,7 @@ func thrust(weight: float) -> void:
 
 ## The tail impulse that rides the same thrust wave. Standing only.
 func tail_thrust(weight: float) -> void:
-	if pose_id != CATALOG.STANDING or not is_instance_valid(tail):
+	if pose_family != "standing" or not is_instance_valid(tail):
 		return
 	tail.call("thrust", weight * size_scale * jiggle_intensity)
 
@@ -234,7 +233,7 @@ func smack(_strength: float) -> void:
 		if amount != null:
 			flank.set("_jiggle_amount", float(amount) * jiggle_smack_intensity)
 	apply_radius()
-	if pose_id == CATALOG.STANDING and is_instance_valid(tail):
+	if pose_family == "standing" and is_instance_valid(tail):
 		tail.call("thrust", size_scale * jiggle_smack_intensity)
 
 
@@ -290,7 +289,7 @@ func clear_stock_marks() -> void:
 
 ## A strong thrust builds the standing rump blush. The decal is created on the first step.
 func add_blush(impact: float) -> void:
-	if pose_id != CATALOG.STANDING:
+	if pose_family != "standing":
 		return
 	if impact < RUMP_BLUSH_MIN_STRENGTH:
 		return
@@ -300,7 +299,7 @@ func add_blush(impact: float) -> void:
 
 ## Decay and place the standing rump blush decal.
 func blush_tick(delta: float) -> void:
-	if pose_id != CATALOG.STANDING:
+	if pose_family != "standing":
 		return
 	if rump_blush > 0.0:
 		rump_blush = maxf(0.0, rump_blush - RUMP_BLUSH_DECAY * delta)

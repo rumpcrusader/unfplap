@@ -4,7 +4,6 @@ extends RefCounted
 ## the act state and the one teardown ledger; this facade owns the scene work.
 ## Contract: `docs/rest.md`.
 
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")
 
@@ -278,12 +277,12 @@ func rejoin_wanted(values: Dictionary) -> bool:
 
 ## Give the bed back: restore the pre-act scene and stand her. A bed missionary act that ended well
 ## is re-seated and re-invited by `rejoin_bed_cuddle()` after the session is fully back to IDLE.
-func restore_posture(pose_id: String, _rejoin_cuddle: bool) -> void:
+func restore_posture(frame: String, _rejoin_cuddle: bool) -> void:
 	if not is_instance_valid(pony):
 		return
 	# The act's own snapshot puts the player, the pony and the camera back, so the rejoin starts
 	# from the same standing spot the act began at.
-	if pose_id == CATALOG.MISSIONARY and restore_scene.is_valid():
+	if frame == "bed" and restore_scene.is_valid():
 		restore_scene.call()
 	if pony.get("posture") != null:
 		pony.request_posture("stand")

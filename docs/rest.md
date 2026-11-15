@@ -16,7 +16,7 @@ floor beside the bed and the restore posture.
 - `stand_beside_bed`: the safe floor beside the bed via `exit_space.gd`;
 - `rejoin_note`: the timeout diagnostic;
 - `rejoin_wanted`: the desktop-human, good-act decision;
-- `restore_posture`: the missionary scene restore and the `stand` request.
+- `restore_posture`: the bed-frame scene restore and the `stand` request.
 
 The runtime keeps the act state and the one teardown ledger: the cradle start call, the
 `_end_session` restore call, the deferred `_rejoin_bed_cuddle` trigger, `_serial`/`state` and the
@@ -47,9 +47,9 @@ therefore calls `invite(pony, seats[1])` explicitly.
 - `place_on_start()` is the cradle start: reset her onto the anchor, wait up to three physics
   frames while the state is not `IDLE`, stop on `grounded()`, then request `stand`. The act poses
   her body itself; the placement only puts her in bed space.
-- A normal end calls `restore_posture()`. For missionary it restores the pre-act player, pony and
-  camera snapshot (`runtime._rest_restore_scene`), then requests `stand`. Standing acts do not
-  restore the scene; they keep Anon where the act ended.
+- A normal end calls `restore_posture(frame)`. For a `bed` frame it restores the pre-act player,
+  pony and camera snapshot (`runtime._rest_restore_scene`), then requests `stand`. A `ground`
+  frame does not restore the scene; it keeps Anon where the act ended.
 - A forced stop never reaches the rejoin. `_end_session()` only captures the bed when the act was
   a normal bed-sourced end that did not go badly and `rejoin_wanted()` is true.
 
@@ -88,7 +88,6 @@ The facade never preloads `runtime.gd` or `main.gd` and never reads their privat
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Lifecycle
 

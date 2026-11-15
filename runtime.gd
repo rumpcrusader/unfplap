@@ -16,6 +16,7 @@ const REST := preload("res://mods/unfplap/rest/control.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
@@ -310,7 +311,7 @@ func _init() -> void:
 		"pony": Callable(self, "_pony"),
 		"main": Callable(self, "_main"),
 		"state": Callable(self, "_state"),
-		"pose_id": Callable(self, "_pose_id"),
+		"pose_family": Callable(self, "_pose_family"),
 	})
 	_act_facts.play_mouth_kiss = Callable(self, "_play_mouth_kiss")
 	_act_facts.act_actions_allowed = Callable(self, "_act_actions_allowed")
@@ -425,6 +426,25 @@ func _state() -> int:
 
 func _pose_id() -> String:
 	return pose_id
+
+
+## The live pose family, or the start spec's family before the first view fill.
+func _pose_family() -> String:
+	var view: Variant = _pose_session.view()
+	var family := str(view.family) if view != null else ""
+	return family if not family.is_empty() else _start_family()
+
+
+## The start spec's family. Start-time decisions read this before the view exists.
+func _start_family() -> String:
+	return str(POSE_SPECS.spec(pose_id).get("family", ""))
+
+
+## The live pose frame, or the start spec's frame before the first view fill.
+func _start_frame() -> String:
+	var view: Variant = _pose_session.view()
+	var frame := str(view.frame) if view != null else ""
+	return frame if not frame.is_empty() else str(POSE_SPECS.spec(pose_id).get("frame", ""))
 
 
 ## The pose read model the anatomy context mirrors; the session owns the one object.
@@ -1011,7 +1031,7 @@ func _snapshot_settings() -> void:
 		snap.auto_min_depth)
 	_reactions.configure({
 		"jiggle": snap.jiggle,
-		"pose_id": pose_id,
+		"pose_family": _start_family(),
 		"size_scale": _camera_service().call("jiggle_size_scale"),
 		"climax_seconds": CLIMAX_SECONDS,
 	})
@@ -1124,7 +1144,7 @@ func _sync_hud_facts() -> void:
 	facts.close_hint = close_hint()
 	facts.summary_hud = str(_summary_service.summary.get("hud", ""))
 	facts.cycle_heat = _cycle_heat
-	facts.y_pink = HUD_LINES.y_pink(pose_id == CATALOG.STANDING, state == State.AFTERGLOW,
+	facts.y_pink = HUD_LINES.y_pink(_pose_family() == "standing", state == State.AFTERGLOW,
 		_afterglow.close_caress_earned, pony_climaxes, _max_pony_climaxes)
 	facts.hud_readouts = hud_readouts()
 	facts.hud_controls = hud_controls()
@@ -3298,7 +3318,7 @@ func prompt_note() -> String:
 		"relation": _relationship_note(),
 		"caressing": _hand_controller().any_active(),
 		"leaning": _act_camera.lean_forward >= 0.35 or _act_camera.lean_action_active or _kiss_controller().leaning_close(),
-		"missionary": pose_id == CATALOG.MISSIONARY,
+		"missionary": _pose_family() == "bed",
 	})
 
 
@@ -3335,7 +3355,7 @@ func _afterglow_begin() -> void:
 	_pose_service().release_mouth_contact()
 	_integrations_controller().afterglow()
 	_afterglow.bind_view(_pose_session.view())
-	_afterglow.begin(pose_id, _summary_service.summary)
+	_afterglow.begin(_summary_service.summary)
 	cue = ""
 	_readiness.cue_override = ""
 	_readiness.cue_until = 0.0
@@ -3460,7 +3480,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	if _act_camera.look_captured:
 		_restore_look()
 	if _posture_owned:
-		_restore_posture(pose_id, rejoin_cuddle)
+		_restore_posture(_start_frame(), rejoin_cuddle)
 	_free_pose()
 	_pose_service().clear_stretch_choice()
 	_restore_pony_bones()
@@ -3516,9 +3536,9 @@ func _rest_restore_scene() -> void:
 ## Give the bed back: restore the pre-act scene and stand her. A bed missionary act that ended well
 ## is re-seated and re-invited by `_rejoin_bed_cuddle()` after the session is fully back to IDLE.
 ## A forced stop never reaches it; the world is going away or the pony is already invalid.
-func _restore_posture(restore_pose: String, rejoin_cuddle: bool) -> void:
+func _restore_posture(frame: String, rejoin_cuddle: bool) -> void:
 	_posture_owned = false
-	_rest_service().call("restore_posture", restore_pose, rejoin_cuddle)
+	_rest_service().call("restore_posture", frame, rejoin_cuddle)
 
 
 func _rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:

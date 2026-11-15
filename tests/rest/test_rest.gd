@@ -4,7 +4,6 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/rest/test_rest.gd
 
 const REST := preload("res://mods/unfplap/rest/service.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 var failures := 0
 var checks := 0
@@ -294,11 +293,11 @@ func _check_restore() -> void:
 	var pony: FakePony = made["pony"]
 	var calls := [0]
 	facade.restore_scene = func() -> void: calls[0] += 1
-	facade.call("restore_posture", CATALOG.MISSIONARY, true)
+	facade.call("restore_posture", "bed", true)
 	check(calls[0] == 1, "the missionary restore restores the scene")
 	check((pony.posture as FakePosture).requested.has("stand"),
 		"the restore stands her")
-	facade.call("restore_posture", CATALOG.STANDING, true)
+	facade.call("restore_posture", "ground", true)
 	check(calls[0] == 1, "the standing restore leaves the scene alone")
 	_free(made)
 

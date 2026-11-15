@@ -4,8 +4,6 @@ extends RefCounted
 ## the act state and the one teardown ledger; this object owns the flags and the release order.
 ## Contract: `docs/scene_hold.md`.
 
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-
 const STATE_IDLE := 0
 const STATE_AFTERGLOW := 4
 const STATE_RESTORE := 5
@@ -85,7 +83,7 @@ func release_nav() -> void:
 ## also pauses it in a non-standing pose, for the failed-start report.
 func pause_face_turn(force := false) -> void:
 	var pony: Variant = _host("pony")
-	if (not force and str(_host("pose_id", "")) != CATALOG.STANDING) \
+	if (not force and str(_host("pose_family", "")) != "standing") \
 			or not is_instance_valid(pony):
 		return
 	if face_turn_rate_owned:

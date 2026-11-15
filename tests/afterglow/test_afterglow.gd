@@ -45,13 +45,13 @@ func _view(pose: String) -> RefCounted:
 	return view
 
 
-func _facade(pose: String, view_pose := "") -> Dictionary:
+func _facade(pose: String) -> Dictionary:
 	var host := Host.new()
 	var phase: RefCounted = AFTERGLOW.new()
 	phase.caress_active = Callable(host, "is_caressing")
 	phase.on_stay_close = Callable(host, "stay_close")
-	phase.bind_view(_view(view_pose if view_pose != "" else pose))
-	phase.begin(pose, {"reward": true})
+	phase.bind_view(_view(pose))
+	phase.begin({"reward": true})
 	return {"phase": phase, "host": host}
 
 
@@ -153,7 +153,7 @@ func run() -> void:
 
 	var runtime_hint: Node = _runtime("standing")
 	runtime_hint._afterglow.bind_view(_view("standing"))
-	runtime_hint._afterglow.begin("standing", {})
+	runtime_hint._afterglow.begin({})
 	check(str(runtime_hint.call("close_hint")).contains("Stay close"),
 		"the runtime forwards the close cue")
 	runtime_hint.pose_id = "missionary"
@@ -178,19 +178,14 @@ func run() -> void:
 	check(int(missionary_row.get("tail_flicks", 1)) == 0,
 		"a missionary afterglow does not flick the tail")
 
-	# The row follows the active view family, even when the act's start pose is the other family.
-	var stale_start_standing := _facade("standing", "missionary")
-	var stale_standing_row: Dictionary = stale_start_standing["phase"].presentation()
-	check(near(float(stale_standing_row.get("tail_target", 0.0)), 0.35),
-		"a bed view lowers the tail although the start pose was standing")
-	check(int(stale_standing_row.get("tail_flicks", 1)) == 0,
-		"a bed view does not flick although the start pose was standing")
-	var stale_start_bed := _facade("missionary", "standing")
-	var stale_bed_row: Dictionary = stale_start_bed["phase"].presentation()
-	check(near(float(stale_bed_row.get("tail_target", 0.0)), 0.55),
-		"a standing view lifts the tail although the start pose was missionary")
-	check(int(stale_bed_row.get("tail_flicks", 0)) == 2,
-		"a standing view flicks although the start pose was missionary")
+	# The row follows the active view family only; without a view it falls back to the bed row.
+	var no_view := AFTERGLOW.new()
+	no_view.begin({"reward": true})
+	var no_view_row: Dictionary = no_view.presentation()
+	check(near(float(no_view_row.get("tail_target", 0.0)), 0.35),
+		"an absent view lowers the tail")
+	check(int(no_view_row.get("tail_flicks", 1)) == 0,
+		"an absent view does not flick the tail")
 
 	# The runtime writes no pose mode: the evaluator pair holds and only the weight is re-asserted.
 	var held: Node = _runtime("standing")

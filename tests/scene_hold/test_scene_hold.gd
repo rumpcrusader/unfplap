@@ -5,7 +5,6 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/scene_hold/test_scene_hold.gd
 
 const HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -103,7 +102,7 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
-func _fixture(pose := CATALOG.STANDING, state := STATE_ACTIVE) -> Dictionary:
+func _fixture(pose_family := "standing", state := STATE_ACTIVE) -> Dictionary:
 	var pony := FakePony.new()
 	var nav := FakeNav.new()
 	nav.name = "Navigator"
@@ -124,7 +123,7 @@ func _fixture(pose := CATALOG.STANDING, state := STATE_ACTIVE) -> Dictionary:
 		"pony": Callable(_value, "make").bind(pony),
 		"main": Callable(_value, "make").bind(main),
 		"state": Callable(_value, "make").bind(state),
-		"pose_id": Callable(_value, "make").bind(pose),
+		"pose_family": Callable(_value, "make").bind(pose_family),
 	})
 	return {"hold": hold, "pony": pony, "nav": nav, "session": session, "body": body,
 		"game": game, "reach": reach, "main": main}
@@ -184,7 +183,7 @@ func _check_nav() -> void:
 
 
 func _check_face_turn() -> void:
-	var made := _fixture(CATALOG.STANDING)
+	var made := _fixture()
 	var hold: RefCounted = made["hold"]
 	var pony: FakePony = made["pony"]
 	pony.face_turn_rate = 0.45
@@ -195,7 +194,7 @@ func _check_face_turn() -> void:
 	hold.restore_face_turn()
 	check(is_equal_approx(pony.face_turn_rate, 0.45), "the restore puts the rate back")
 	check(not hold.face_turn_rate_owned, "the restore clears ownership")
-	var idle := _fixture(CATALOG.MISSIONARY)
+	var idle := _fixture("bed")
 	var idle_hold: RefCounted = idle["hold"]
 	var idle_pony: FakePony = idle["pony"]
 	idle_hold.pause_face_turn()
@@ -209,17 +208,17 @@ func _check_face_turn() -> void:
 
 
 func _check_attention() -> void:
-	var made := _fixture(CATALOG.STANDING, STATE_ACTIVE)
+	var made := _fixture("standing", STATE_ACTIVE)
 	var hold: RefCounted = made["hold"]
 	var pony: FakePony = made["pony"]
 	hold.keep_attention()
 	check(pony.conversation_target == null, "an act clears the conversation target")
 	pony.conversation_target = "someone"
-	var idle := _fixture(CATALOG.STANDING, STATE_IDLE)
+	var idle := _fixture("standing", STATE_IDLE)
 	(idle["hold"] as RefCounted).keep_attention()
 	check((idle["pony"] as FakePony).conversation_target == "someone",
 		"an idle pony keeps her conversation target")
-	var after := _fixture(CATALOG.STANDING, STATE_AFTERGLOW)
+	var after := _fixture("standing", STATE_AFTERGLOW)
 	(after["hold"] as RefCounted).keep_attention()
 	check((after["pony"] as FakePony).conversation_target == "someone",
 		"afterglow keeps normal conversation attention")

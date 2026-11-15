@@ -9,9 +9,13 @@ var failures := 0
 var checks := 0
 
 
+class FakeView extends RefCounted:
+	var family := "standing"
+
+
 class FakeFacts extends RefCounted:
 	var state := 2
-	var pose_id := "standing"
+	var pose_view: Variant = FakeView.new()
 	var satisfaction := 75.0
 	var mood := "close"
 	var seconds_since_stroke := 0.0
@@ -402,13 +406,13 @@ func _check_idle_life_gates() -> void:
 	check(not pose.stretch, "an inactive Idle Life does not stretch")
 	service.reset()
 	facts.mods_active = {"idle_life": true}
-	facts.pose_id = "missionary"
+	facts.pose_view.family = "bed"
 	service.begin()
 	check(not service.active_ids().has("idle_life"),
 		"a missionary act does not use the standing stretch")
 	check(not pose.stretch, "a missionary act does not stretch")
 	service.reset()
-	facts.pose_id = "standing"
+	facts.pose_view.family = "standing"
 	pose.free()
 	service.begin()
 	check(not service.active_ids().has("idle_life"),

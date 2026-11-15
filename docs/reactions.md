@@ -40,7 +40,7 @@ every slap, so the body and outline materials are re-added after every `_start_j
 |---|---|
 | `bind_scene(pony, anatomy, flank = null)` | set the act's pony, anatomy controller and (optional) flank |
 | `bind_tail(tail)` | set the standing tail modifier, or null outside standing |
-| `configure(context)` | take `jiggle`, `pose_id`, `size_scale` and `climax_seconds` from the act snapshot |
+| `configure(context)` | take `jiggle`, `pose_family`, `size_scale` and `climax_seconds` from the act snapshot |
 | `begin_act()` | clear the per-act blush, jiggle log and heart pulses |
 | `end_act()` | free the blush decal, drop the tail and restore the stock shader radius |
 | `body_coat_target()` | re-add the patched body and outline to the jiggle targets |
@@ -78,7 +78,7 @@ already set its own impulse before the facade scales it.
 
 ## Rump blush
 
-- Standing only. A thrust at `RUMP_BLUSH_MIN_STRENGTH` or above adds `RUMP_BLUSH_STEP`, capped at
+- The `standing` family only. A thrust at `RUMP_BLUSH_MIN_STRENGTH` or above adds `RUMP_BLUSH_STEP`, capped at
   `RUMP_BLUSH_MAX`. It decays at `RUMP_BLUSH_DECAY` per second.
 - The decal is created lazily from `FlankTouch.texture` on the first step and freed at act end.
 - The decal rides the live hind-femur midpoint, so it follows the body sway.
@@ -102,7 +102,6 @@ already set its own impulse before the facade scales it.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Lifecycle
 

@@ -3,7 +3,7 @@
     {
       "service": "afterglow",
       "func": "begin",
-      "signature": "func begin(pose_id: String, summary: Dictionary) -> void:"
+      "signature": "func begin(summary: Dictionary) -> void:"
     },
     {
       "service": "afterglow",

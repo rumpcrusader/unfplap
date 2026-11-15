@@ -75,7 +75,7 @@ provider runs. The runtime refcounts named owners, so the kiss service and a pro
 Beat at the same time; only the last release restores the original pause state. A provider never
 writes `Beat.paused` itself.
 
-`integrations/context.gd` carries the state, pose id, satisfaction, mood, seconds since the last
+`integrations/context.gd` carries the state, pose family, satisfaction, mood, seconds since the last
 real stroke, act seconds, afterglow flag, Affection kind, the provider's reaction cap, whether the
 provider's external mod is active this launch, the runtime feature snapshot and binding presence.
 The external-mod flag comes from the runtime's `shared/act_facts.gd` `mod_active(id)` callback; a
@@ -119,7 +119,7 @@ in scope. The act's own wing controller creates the open-wing node the shiver ne
 
 ## Idle Life provider
 
-`integrations/idle_life.gd` runs when `features.idle_life_stretch` is on, the pose id is
+`integrations/idle_life.gd` runs when `features.idle_life_stretch` is on, the pose family is
 `standing`, the `pose` binding resolves and Idle Life is active this launch. It appends one start
 action, `set_value("pose", "stretch", true)`, and has no tick, afterglow, reaction-cap or
 excitement-hold behavior. The facade saves the pre-act `stretch` value and restores it on stop,

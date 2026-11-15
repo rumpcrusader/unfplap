@@ -24,7 +24,7 @@ func check(ok: bool, text: String) -> void:
 
 func _context() -> RefCounted:
 	var context: RefCounted = CONTEXT.new()
-	context.pose_id = "standing"
+	context.pose_family = "standing"
 	context.mod_active = true
 	context.features = {"idle_life_stretch": true}
 	context.bindings = {"pose": true}
@@ -38,9 +38,9 @@ func run() -> void:
 	context.features = {"idle_life_stretch": false}
 	check(not provider.call("available", context), "the act feature gates the provider")
 	context.features = {"idle_life_stretch": true}
-	context.pose_id = "missionary"
+	context.pose_family = "bed"
 	check(not provider.call("available", context), "only the standing pose stretches")
-	context.pose_id = "standing"
+	context.pose_family = "standing"
 	context.mod_active = false
 	check(not provider.call("available", context), "the external mod must be active")
 	context.mod_active = true

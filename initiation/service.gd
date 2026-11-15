@@ -401,7 +401,7 @@ func _log_scan_skip(runtime: Node, reasons: Array) -> void:
 	_debug("request scan skip id=%s reasons=%s" % [id, reason])
 
 
-## The request state for Show data's REQUEST section. Store and memory reads only; no scene write.
+## The request state for Show data's REQUEST section. Live-state reads only; no scene write.
 func debug_rows(pony: Node) -> Array[String]:
 	var rows: Array[String] = []
 	var id := _venue.pony_id(pony) if is_instance_valid(pony) else ""
@@ -1371,7 +1371,6 @@ func _answer_public_offer(text: String) -> void:
 		return
 	_episode.private = _private_at_player(pony)
 	if _episode.private:
-		_episode.private = true
 		_log_privacy_once(pony)
 		if _is_private_standing():
 			var runtime: Node = _episode.runtime

@@ -61,9 +61,13 @@ physics_delta (the physics tick delta the hand and reach easing uses)
 `pose_view` is the pose read model (`shared/pose_view.gd`): the pose identity, the spec profiles,
 the live config alias and the live contact and facing mirrors. It is the read path for the
 presentation modules migrating off `pose_id` and `oral_active`; those compatibility fields (and
-`pose_config`) stay in this object until the last reader moves. The view stays filled for the whole
-act: the pose-scope leave steps (`leave_pose_start()`, `leave_pose_body()`) keep it, and only
-`release_pose()` clears it.
+`pose_config`) stay in this object until the last reader moves. During an authored transition,
+`pose_state` is `TRANSITIONING` and `from_id`/`to_id`, `edge_id`, `edge_t`, `weight`,
+`from_config` and `to_config` carry the two sides; the view's identity and profiles are the target.
+The view stays filled for the whole act: the pose-scope leave steps (`leave_pose_start()`,
+`leave_pose_body()`) keep it, and only `release_pose()` clears it. In A3.3 the runtime and session
+`pose_id` and `facts.pose_config` stay the act-start aliases while the view is the active machine;
+A3.5 flips the mirrors.
 
 HUD card (the runtime fills these once per rendered frame; `hud/service.gd` reads them instead of
 calling back into the runtime):

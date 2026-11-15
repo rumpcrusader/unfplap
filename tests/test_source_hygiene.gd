@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_source_hygiene.gd
 
 const ROOT := "res://mods/unfplap"
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 ## Files allowed to create settings widgets. The declaration panel is settings/ui.gd; the
 ## character preference form is settings/characters_ui.gd. The tools are never shipped and are not
 ## settings UI.
@@ -296,6 +297,28 @@ func _check_teardown(files: Array[String]) -> void:
 	check(_count(runtime, "_pose_service().release_pose()") == 1
 		and free.contains("_pose_service().release_pose()"),
 		"release_pose is called only from the pose ledger")
+	# The pose tick runs before the first facts sync; the fixed-order fan-out runs after it. Neither
+	# reaches an act exit: the seam is a hook fan-out, not a second teardown.
+	var tick := _func_body(runtime, "_physics_tick")
+	var tick_at := tick.find("_pose_service().tick(delta)")
+	var facts_at := tick.find("_sync_act_facts()")
+	check(tick_at >= 0 and facts_at >= 0 and tick_at < facts_at,
+		"_physics_tick ticks the pose before the first facts sync")
+	check(facts_at >= 0 and tick.find("_pose_fanout()", facts_at) > facts_at,
+		"_physics_tick fans the pose change out after the facts sync")
+	var fanout := _func_body(runtime, "_pose_fanout")
+	var fanout_cursor := 0
+	for owner: String in ["_camera_service()", "_hand_controller()", "_kiss_controller()",
+			"_anatomy_bridge", "_act_audio"]:
+		var at := fanout.find(owner, fanout_cursor)
+		check(at >= 0, "_pose_fanout names %s in order" % owner)
+		if at < 0:
+			break
+		fanout_cursor = at + owner.length()
+	for call: String in ["_end_session(", "_free_pose(", "release_pose(", "_unlock_player(",
+			"_restore_pony_bones(", "_restore_camera(", "_restore_look(", "_release_nav("]:
+		check(not tick.contains(call), "_physics_tick does not call %s" % call)
+		check(not fanout.contains(call), "_pose_fanout does not call %s" % call)
 	# The pose service never reaches an act exit; its scope is the live pose only.
 	for path: String in files:
 		if not path.ends_with(".gd") or not path.begins_with(ROOT.path_join("poses/")):
@@ -636,14 +659,42 @@ func _check_pose_session() -> void:
 	var facade := FileAccess.get_file_as_string(ROOT.path_join("poses/service.gd"))
 	check(facade.contains("func begin(") and facade.contains("func sync_standing_config("),
 		"pose session facade is present")
+	for token: String in ["func request_pose(", "func request_command(", "func tick(",
+			"func apply_live_settings("]:
+		check(facade.contains(token), "the pose session facade carries %s" % token)
+	check(facade.contains("preload(\"res://mods/unfplap/poses/pose_state.gd\")"),
+		"the pose session preloads the pure pose state")
 	for token: String in ["extends Node", "FileAccess",
 			"preload(\"res://mods/unfplap/runtime.gd\")",
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
 			"main.get(", "main.call(\""]:
 		check(not facade.contains(token), "pose session has no host reach-in: %s" % token)
+	# The transition path keeps the pose alive: only `release_pose()` in the one ledger tears it
+	# down, and the request/tick functions never reach an act exit.
+	for name: String in ["request_pose", "tick", "_fill_transition_view", "_absorb_switches",
+			"_absorb_events"]:
+		var body := _func_body(facade, name)
+		check(not body.is_empty(), "poses/service.gd exposes %s()" % name)
+		for call: String in ["release_pose(", "leave_pose_start(", "leave_pose_body(",
+				"_end_session(", "_unlock_player(", "_free_pose("]:
+			check(not body.contains(call), "%s does not call %s" % [name, call])
+	var specs := FileAccess.get_file_as_string(ROOT.path_join("shared/pose_specs.gd"))
+	check(specs.contains("CONTROL_SETS") and specs.contains("standing_test"),
+		"the spec table carries the minimal control sets and the internal pose")
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/poses.md"))
 	check(contract.contains("## Ownership"), "docs/poses.md documents the pose owner")
 	check(contract.contains("`poses/service.gd`"), "docs/poses.md names poses/service.gd")
+	check(contract.contains("## Session requests and ticks"),
+		"docs/poses.md documents the session requests and ticks")
+	var runtime_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/runtime.md"))
+	check(runtime_doc.contains("_pose_service().tick(delta)") and runtime_doc.contains("_pose_fanout()"),
+		"docs/runtime.md documents the pose tick and fan-out")
+	var debug_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/debug.md"))
+	check(debug_doc.contains("Pose: test variant"),
+		"docs/debug.md lists the pose test variant action")
+	check(DEBUG_ACTIONS.ACTIONS.has("pose_test_variant")
+		and not (DEBUG_ACTIONS.ACTIONS["pose_test_variant"] as Dictionary).has("hotkey"),
+		"the pose test variant action has no hotkey")
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(agents.contains("`poses/service.gd`"), "docs/README.md names poses/service.gd")
 	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",

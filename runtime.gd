@@ -899,6 +899,47 @@ func _pose_service() -> RefCounted:
 	return _pose_session
 
 
+## The pose read model, for the debug action and the suites.
+func pose_view() -> RefCounted:
+	return _pose_service().view()
+
+
+## One pose request. The runtime supplies the act values; the session refuses or starts the edge.
+func request_pose(target_id: String, trigger := "", context: Dictionary = {}) -> Dictionary:
+	var request := context.duplicate()
+	if not request.has("act_state"):
+		request["act_state"] = state
+	if not request.has("features"):
+		request["features"] = _features
+	if not request.has("stretch"):
+		request["stretch"] = _pose_service().stretch_active()
+	return _pose_service().request_pose(target_id, trigger, request)
+
+
+## One command check. The existing input path stays until A4.
+func request_command(command_id: String) -> bool:
+	return _pose_service().request_command(command_id)
+
+
+## The fixed-order pose-change fan-out. A3.5 gives each owner its `pose_changed(view)`; until then
+## an owner without the method is a no-op. The face, dialogue and HUD read the view through the act
+## facts and have no hook.
+func _pose_fanout() -> void:
+	var view: Variant = _pose_service().view()
+	_call_pose_changed(_camera_service(), view)
+	_call_pose_changed(_hand_controller(), view)
+	_call_pose_changed(_kiss_controller(), view)
+	_anatomy_bridge.bind(_anatomy_host())
+	_call_pose_changed(_anatomy_bridge, view)
+	if is_instance_valid(_act_audio):
+		_call_pose_changed(_act_audio, view)
+
+
+static func _call_pose_changed(owner: Variant, view: Variant) -> void:
+	if owner != null and owner.has_method("pose_changed"):
+		owner.call("pose_changed", view)
+
+
 ## The act camera session, bound to this runtime's typed act view and controllers. Suites build a
 ## runtime without entering the tree, so the binding is refreshed on every access and the live
 ## values it reads are written here rather than waiting for the next facts sync.
@@ -1004,6 +1045,9 @@ func apply_live_settings() -> void:
 		_standing_presentation_controller().apply_live_settings()
 	elif pose_id == CATALOG.MISSIONARY:
 		_sync_missionary_pose_config()
+	# A running edge's target snapshot follows the same edit; the start pose's config sync above
+	# stays for the compatibility readers.
+	_pose_service().apply_live_settings()
 	# Nudge the frozen missionary anchor only when the framing control actually changed, so a preference
 	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
 	# has settled since the start anchor was taken and the bed reference may be gone.
@@ -1254,9 +1298,15 @@ func _physics_process(delta: float) -> void:
 
 func _physics_tick(delta: float) -> void:
 	_clock_s += maxf(0.0, delta)
+	# The pose edge advances before the facts sync reads the view; the fan-out runs after that read
+	# and before any presentation tick. An edge keeps ticking through CLIMAX and AFTERGLOW.
+	if state != State.IDLE:
+		_pose_service().tick(delta)
 	var facts_started := Time.get_ticks_usec()
 	_sync_act_facts()
 	_timed("runtime_facts", facts_started)
+	if state != State.IDLE:
+		_pose_fanout()
 	if state == State.IDLE:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
 		_restore_stray_inventory_hud()

@@ -46,16 +46,18 @@ that reaches into the runtime fails `tests/test_source_hygiene.gd`.
 `shared/pose_view.gd` is the pose read model the session fills and clears. It holds the identity
 and support fields from the registry, the ten spec profiles by reference, the live config (the same
 object as `facts.pose_config`) and the per-tick contact and facing values. `pose_state` is `STEADY`
-while the session is live and `IDLE` after `release_pose()`; the pose-scope leave steps keep it
-`STEADY`. The compatibility `pose_id`, `oral_active` and `anal_active` fields mirror the old facts
-until the last reader migrates.
+while the pose is live, `TRANSITIONING` while an edge runs, and `EXITING`/`IDLE` on release; the
+pose-scope leave steps keep it `STEADY`. During an edge, `from_id`/`to_id`, `edge_id`, `edge_t`,
+`weight`, `from_config` and `to_config` carry the transition: `from_config` is the live config, the
+to side is the session's target snapshot. The compatibility `pose_id`, `oral_active` and
+`anal_active` fields mirror the old facts until the last reader migrates.
 
 ## State machine and edge math
 
 `poses/pose_state.gd` is the pure state and edge module. It is not a service: it holds no scene,
 reads no settings or files and preloads only `shared/pose_view.gd` for the state constants. It
-supplies the transition table and the edge clock for the session's request and tick paths (wired in
-A3.3).
+supplies the transition table and the edge clock the session's request and tick paths use (wired in
+the session).
 
 The transition table is:
 
@@ -163,9 +165,74 @@ templates. The spec base rule allows an empty `driver` only when a base owns the
 must not be the row itself; when the table is supplied it must exist in the same family, and its
 chain must not revisit a row.
 
-The spec table and the edges are data. The session still builds only `missionary` and `standing` in
-`begin()`; it does not request or tick an edge until A3.3, and the first player-visible proof is
-A3.3's Debug **Pose: test variant** action.
+The spec table and the edges are data. The session builds `missionary` and `standing` in `begin()`
+and starts an authored edge only on a request; the debug pair's first player-visible proof is the
+Debug **Pose: test variant** action.
+
+## Session requests and ticks
+
+`poses/service.gd` owns the live state machine, one running `Run` and the target snapshot.
+`begin()` enters `ENTERING`, fills the start view and settles `STEADY`; `release_pose()` exits
+through `EXITING` to `IDLE`; the pose-scope leave steps keep `STEADY`. A failed `begin()` leaves the
+state unchanged.
+
+`request_pose(target_id, trigger, context)` returns the `PoseResult` `{ok, code, edge, reason}`. It
+checks the target against the act phase, the player's form/view, the edge requirements and the edge
+lock in the state module's order: `same`, `bad_phase`, `busy`, `not_steady`, `no_edge`,
+`unsupported_form`, `unsupported_view`, `refused`, `missing_asset`, `locked`, `ok`. A refused
+request changes nothing. The request context supplies `act_state` (the runtime passes its state),
+`features`, `consent`, `stretch`, `forms`, `views` and `locked`; absent values default to the act's
+live facts and the player's form/display. `stretch_active()` reports the external Idle Life holder,
+so an edge requiring `stretch: inactive` refuses while it runs.
+
+The checks, against the target spec and the edge:
+
+| Key | Rule |
+|---|---|
+| `form_ok` | the target's `forms` intersects the player's forms; a non-empty `requires.forms` also must |
+| `view_ok` | the same for `views` |
+| `features_ok` | every `requires.features` entry is on in the request features |
+| `consent_ok` | `requires.consent` is empty, or the request consent equals it |
+| `stretch_ok` | `requires.stretch` is not `inactive`, or the request stretch is off |
+| `asset_ok` | the target spec exists and at least one of `base`/`delta`/`driver` is non-empty |
+| `locked` | the request `locked` flag (the pose request lock arrives in A4/A5) |
+
+On an accepted request the session caches the target spec and its settings snapshot by the spec's
+`settings_group` (`standing_test` uses the standing pose and presentation blocks and must never be
+passed to the settings read as a group of its own), starts the edge, enters `TRANSITIONING` and
+fills the view: `fill()` carries the target identity and profiles, then `from_id`/`to_id`,
+`edge_id`, `edge_t`, `weight`, `from_config` (the live config) and `to_config` (the target snapshot)
+make the transition explicit. `view.pose_id` follows the filled target; the session's `pose_id`,
+`pose_config` and the runtime's act facts stay the act-start aliases.
+
+`tick(delta)` advances the run, writes `edge_t`/`weight`, logs each fired switch and each `status`
+event, and on completion returns to `STEADY`, points both sides of the config at the live
+`pose_config`, clears the edge fields and drops the target. The live config is not blended or
+swapped; A3.4 owns that. The steady tick allocates nothing: no duplicate, no settings read and no
+file access, and a tick after completion is a no-op.
+
+`request_command(command_id)` reports whether the active control set and the live edge lock allow a
+command. `end` is reserved and always allowed. The set is the view's `controls.set` and the allowed
+list is `shared/pose_specs.gd`'s `CONTROL_SETS`; a missing set allows only `end`. A lock channel's
+`block` list denies its commands and a non-empty `allow` list denies anything outside it. The
+minimal sets (`thrust`/`end` for standing and missionary, `end` only for `standing_test`) are an
+A3.3 stub: A4 owns the real vocabulary and the input migration, and the existing input path stays.
+
+`apply_live_settings()` refreshes the target snapshot in place on a live settings edit: the same
+`to_config` object is re-merged from the target's settings group, and the presentation block is
+re-read. The session reads settings only on a request and on this call, never per frame.
+
+The compatibility mirrors stay at the act's start pose in A3.3: the runtime's `pose_id`, the
+session's `pose_id`/`pose_config` and `facts.pose_id`/`facts.pose_config` keep the old readers
+(`poses/standing_anon.gd`, `poses/wing_control.gd`, the camera and kiss config reads) behaving as
+before, while the view is the active machine. A3.5 flips the mirrors to the active view and
+migrates those adapters.
+
+The debug pair holds `base`, `anon`, `contact`, `camera` and `audio`, and switches `controls` and
+`presentation` at the start, so a request never rebuilds the pose, releases the pose or restores
+bones and the body does not move. The Debug **Pose: test variant** action is the proof; A3.4/A5 own
+the first moving edge. A transition never calls `_free_pose()`, `release_pose()`, `_end_session()`
+or any act exit; `runtime._end_session()` aborts a live edge through the one pose teardown.
 
 ## Spaces and axes
 
@@ -468,10 +535,13 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 - Scope: per runtime, one per pony; the session is not rebuilt for each act
 - Constructed by: `runtime._init()`; `bind()` points it at the runtime and its pony
-- Begin: `begin(context)` builds the act's pose once, fills the pose view, and returns `false`,
-  before installing anything, when a pose is already live or the pony has no body skeleton
-- End: `release_pose()` frees the pose and the standing tail, then clears the act identity, the
-  features, the live config, the view and the bed frame
+- Begin: `begin(context)` builds the act's pose once, enters `ENTERING`, fills the pose view and
+  settles `STEADY`, and returns `false`, before installing anything, when a pose is already live or
+  the pony has no body skeleton
+- Request: `request_pose()` starts one authored edge without rebuilding the pose, `tick()` advances
+  it and `release_pose()` aborts it
+- End: `release_pose()` exits through `EXITING`, frees the pose and the standing tail, then clears
+  the act identity, the features, the live config, the view and the bed frame
 - Idempotent: the teardown phases are safe to repeat; `begin()` is not
 
 ### Teardown scope
@@ -516,10 +586,11 @@ unchanged.
 ## Tests
 
 - `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
-  standing stretch holder and the session API.
+  standing stretch holder, the session API, the state machine, the request/refusal codes, the
+  target snapshot, the tick/switch/status path, the control sets and the release abort.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split: the leave steps keep the
-  pose node, the config and the view, the final release clears them, and no pose-scope step reaches
-  an act exit.
+  pose node, the config and the view, the final release clears them, the transition path keeps the
+  pose alive, and no pose-scope or transition function reaches an act exit.
 - `tests/poses/test_pose_state.gd` — the pure transition table, the request codes and their order,
   the requirement check, the edge start/validation, the duration and `after` constraints, the
   channel weights and switches, the edge events, completion, the interrupt fields and the reused
@@ -540,8 +611,8 @@ unchanged.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — uniform scale and rest-scale ownership.
 - `tests/poses/test_rotation.gd` — body-relative axes and the rotation helpers.
-- `tests/poses/test_pose_view.gd` — defaults, the filled view, the live mirrors and the reused
-  clear.
+- `tests/poses/test_pose_view.gd` — defaults, the filled view, the transition fields, the live
+  mirrors and the reused clear.
 
 ## Verification / lab
 

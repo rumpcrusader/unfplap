@@ -116,6 +116,14 @@ const SPECS := {
 }
 
 
+## A3.3's command sets; A4 replaces them with the real vocabulary. `end` is reserved.
+const CONTROL_SETS := {
+	MISSIONARY: ["thrust", "end"],
+	STANDING: ["thrust", "end"],
+	STANDING_TEST: ["end"],
+}
+
+
 ## The shipped spec ids, in table order.
 static func ids() -> Array[String]:
 	return [MISSIONARY, STANDING, STANDING_TEST]

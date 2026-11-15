@@ -32,6 +32,7 @@ func run() -> void:
 	var view: RefCounted = VIEW.new()
 	_check_defaults(view)
 	_check_fill(view, spec, config)
+	_check_transition(view, spec, config)
 	_check_clear(view, spec, config)
 	_check_reuse(view, spec, config)
 	print("POSE_VIEW_RESULT checks=%d failures=%d" % [checks, failures])
@@ -82,6 +83,33 @@ func _check_fill(view: RefCounted, spec: Variant, config: Dictionary) -> void:
 	view.contact_kind = "mouth"
 	check(view.oral_active and view.anal_active, "the live mirrors are writable")
 	check(view.contact_kind == "mouth", "the contact kind is writable")
+
+
+## The transition fields the session writes: writable on a filled view and reset by `clear()`.
+func _check_transition(view: RefCounted, spec: Variant, config: Dictionary) -> void:
+	var target: Dictionary = {"gaps": {"canon": 0.4}}
+	view.pose_state = VIEW.TRANSITIONING
+	view.from_id = CATALOG.STANDING
+	view.to_id = CATALOG.STANDING_TEST
+	view.edge_id = "standing__standing_test"
+	view.edge_t = 0.25
+	view.weight = 0.5
+	view.from_config = config
+	view.to_config = target
+	check(view.pose_state == VIEW.TRANSITIONING, "the transition state is writable")
+	check(view.from_id == CATALOG.STANDING and view.to_id == CATALOG.STANDING_TEST,
+		"the transition ids are writable")
+	check(view.edge_id == "standing__standing_test" and view.edge_t == 0.25,
+		"the edge id and clock are writable")
+	check(view.weight == 0.5, "the transition weight is writable")
+	check(is_same(view.from_config, config) and is_same(view.to_config, target),
+		"both transition configs are writable")
+	view.clear()
+	check(view.pose_state == VIEW.IDLE and view.from_id == "" and view.to_id == ""
+		and view.edge_id == "" and view.edge_t == 0.0 and view.weight == 0.0,
+		"clear resets the transition fields")
+	check(not is_same(view.from_config, config) and not is_same(view.to_config, target),
+		"clear drops both transition configs")
 
 
 func _check_clear(view: RefCounted, spec: Variant, config: Dictionary) -> void:

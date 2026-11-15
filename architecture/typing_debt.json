@@ -217,6 +217,11 @@
     },
     {
       "service": "poses",
+      "func": "request_pose",
+      "signature": "func request_pose(target_id: String, trigger: String, context: Dictionary = {}) -> Dictionary:"
+    },
+    {
+      "service": "poses",
       "func": "rig_missing",
       "signature": "func rig_missing() -> Array:"
     },

@@ -36,6 +36,7 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Action | Settings block | Wheel page |
 |---|---|---|
 | Reload posed base | General | — |
+| Pose: test variant | General | — |
 | Trigger bed offer | — | Mare |
 | Trigger standing offer | — | Mare |
 | Show data | — | Mare and Act |
@@ -70,6 +71,10 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 - **Reset act history** clears the stored row; **Force neglect warning/stop** act on the live act
   and are consumed on the next unpaused frame.
 - **Force act face** cycles the base-game faces; see `docs/face.md`.
+- **Pose: test variant** toggles the internal `standing_test` pose in a live standing act, runs the
+  authored `standing ↔ standing_test` edge and logs the request code and the status event. It never
+  ends the act, releases the pose or restores bones; in a missionary act it refuses with "Only in a
+  standing act." See `docs/poses.md`.
 - **Reset act prompts** clears the per-mare prompt overrides; see `docs/settings.md`.
 
 ## Action wheel
@@ -143,6 +148,10 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 - Hold middle to open the action wheel; use **Bed cuddle** for the treebrary bed.
 - Reload the posed base from General's Debug block; the skeleton overlay is the Anatomy Debug
   flag.
+- Pose test variant: in a live standing act, press **Pose: test variant** and read the
+  `pose request standing -> standing_test (debug): ok` and `pose status standing_test: test` log
+  lines; press again to return to `standing`. The act, the pose node and the bones stay alive, so
+  the body does not move.
 - Backtick toggles the debug console with a temporary control-lock release.
 - `./lab.sh` uses the isolated `unfplap-test` world and writes `last-run.log`.
   `./lab-stress.sh` uses `unfplap-stress` and writes `last-run-stress.log`.

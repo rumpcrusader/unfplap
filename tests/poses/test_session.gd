@@ -7,6 +7,9 @@ extends SceneTree
 const SESSION := preload("res://mods/unfplap/poses/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
+const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
+const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -24,9 +27,13 @@ class FakePony extends Node3D:
 	var body_scale := 0.66
 
 
-## The one field `body_sway` publishes at detach.
+## The one field `body_sway` publishes at detach, plus the values a pose request reads.
 class FakeFacts extends RefCounted:
 	var standing_sway_offset := Vector3.ONE
+	var state := 2
+	var player_pony := false
+	var headset_view := false
+	var features: Dictionary = {}
 
 
 func _initialize() -> void:
@@ -54,6 +61,12 @@ func run() -> void:
 	_check_diagnostics()
 	_check_stretch()
 	_check_render_write()
+	_check_state_machine()
+	_check_refusals()
+	_check_commands()
+	_check_target_snapshot()
+	_check_release_abort()
+	_check_no_act_exit()
 
 	print("POSE_SESSION_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -524,3 +537,338 @@ func _check_render_write() -> void:
 	check(order.is_empty(), "absent render callbacks are no-ops")
 	root.remove_child(pony)
 	pony.free()
+
+
+## One live session over a fake pony with a body skeleton and typed facts.
+func _live_session(pose: String) -> Dictionary:
+	var made := _session(pose)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var body := Skeleton3D.new()
+	body.add_bone("pony_hips")
+	pony.skeleton = body
+	session.facts = FakeFacts.new()
+	check(session.begin({
+		"pose_id": pose,
+		"id": "twilight_sparkle",
+		"features": {},
+		"bed": null,
+		"presentation": {},
+		"pose_config": {},
+		"look_point": Vector3.ZERO,
+		"camera_position": Vector3.INF,
+	}), "the %s pose begins for the request suite" % pose)
+	return {"session": session, "pony": pony, "body": body}
+
+
+func _free_live(made: Dictionary) -> void:
+	var session: RefCounted = made["session"]
+	session.release_pose()
+	var body: Skeleton3D = made["body"]
+	if is_instance_valid(body):
+		body.free()
+	var pony: FakePony = made["pony"]
+	if is_instance_valid(pony):
+		root.remove_child(pony)
+		pony.free()
+
+
+## The begin state and the forward/reverse debug edge: the request codes, the transition view, the
+## status/switch log, completion and the settled target.
+func _check_state_machine() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	check(view.pose_state == VIEW.STEADY and session._state == VIEW.STEADY,
+		"the begin settles the session and the view steady")
+	check(view.id == CATALOG.STANDING and view.from_id == CATALOG.STANDING
+		and view.to_id == CATALOG.STANDING,
+		"the begin fills the start pose on both sides")
+	check(view.edge_id == "" and view.weight == 1.0 and session._run == null,
+		"the begin starts no edge")
+	var live_config: Dictionary = session.pose_config
+	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
+	check(bool(result.get("ok", false)) and str(result.get("code", "")) == "ok",
+		"the forward debug request is accepted")
+	check(str(result.get("edge", "")) == "standing__standing_test",
+		"the forward request names the authored edge")
+	check(view.pose_state == VIEW.TRANSITIONING and session._state == VIEW.TRANSITIONING,
+		"the request enters the transition state")
+	check(view.id == CATALOG.STANDING_TEST, "the view follows the requested target")
+	check(view.from_id == CATALOG.STANDING and view.to_id == CATALOG.STANDING_TEST,
+		"the view carries both transition sides")
+	check(view.edge_id == "standing__standing_test" and near(view.edge_t, 0.0),
+		"the view carries the live edge and its clock")
+	check(near(view.weight, 1.0), "the held base keeps the view fully weighted")
+	check(is_same(view.from_config, live_config), "the from side is the live config")
+	check(not is_same(view.to_config, live_config), "the to side is a separate target snapshot")
+	check(is_same(view.to_config, session._target_config),
+		"the view shares the session target snapshot")
+	check(view.to_config.has("gaps") and view.to_config.has("chin_up_deg"),
+		"the target snapshot uses the standing settings block")
+	check(str(view.presentation.get("profile", "")) == "standing_test",
+		"the view carries the target presentation profile")
+	check(str(view.controls.get("set", "")) == "standing_test",
+		"the view carries the target control set")
+
+	var before_id := str(view.id)
+	var before_edge := str(view.edge_id)
+	var same_result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
+	check(str(same_result.get("code", "")) == "same", "a second identical request is same")
+	var busy_result: Dictionary = session.request_pose(CATALOG.STANDING, "test", {"act_state": 2})
+	check(str(busy_result.get("code", "")) == "busy", "a request during an edge is busy")
+	check(view.id == before_id and view.edge_id == before_edge,
+		"a refused request leaves the view alone")
+
+	var logs: Array[String] = []
+	session.log = func(text: String) -> void: logs.append(text)
+	session.tick(0.0)
+	check(near(view.edge_t, 0.0), "the first tick reads the edge at zero")
+	var status_logged := false
+	var controls_switch := false
+	var presentation_switch := false
+	for text: String in logs:
+		if text.contains("pose status %s: test" % CATALOG.STANDING_TEST):
+			status_logged = true
+		if text.contains("pose switch controls: %s" % CATALOG.STANDING_TEST):
+			controls_switch = true
+		if text.contains("pose switch presentation: %s" % CATALOG.STANDING_TEST):
+			presentation_switch = true
+	check(status_logged, "the status event is logged")
+	check(controls_switch and presentation_switch, "both authored switches are logged")
+	session.tick(0.6)
+	check(view.pose_state == VIEW.STEADY and session._state == VIEW.STEADY,
+		"the completed edge settles the state steady")
+	check(view.id == CATALOG.STANDING_TEST and view.from_id == CATALOG.STANDING_TEST
+		and view.to_id == CATALOG.STANDING_TEST,
+		"the completed edge keeps the target pose")
+	check(view.edge_id == "" and near(view.edge_t, 0.0) and near(view.weight, 1.0),
+		"the completed edge clears the clock and restores the weight")
+	check(is_same(view.from_config, live_config) and is_same(view.to_config, live_config),
+		"the completed edge points both sides at the live config")
+	check(is_same(session.pose_config, live_config) and session.pose_id == CATALOG.STANDING,
+		"the live config and the session start pose are untouched")
+	check(session._run == null and session._target_id == "",
+		"the completed edge drops the run and the target")
+	var before_tick_id := str(view.id)
+	session.tick(0.6)
+	check(view.id == before_tick_id, "a tick after completion is a no-op")
+
+	var reverse: Dictionary = session.request_pose(CATALOG.STANDING, "test", {"act_state": 2})
+	check(str(reverse.get("code", "")) == "ok", "the reverse debug request is accepted")
+	check(str(reverse.get("edge", "")) == "standing_test__standing",
+		"the reverse request names the reverse edge")
+	session.tick(0.0)
+	session.tick(0.6)
+	check(view.id == CATALOG.STANDING and view.pose_state == VIEW.STEADY,
+		"the reverse edge settles back on standing")
+	check(session.request_command("thrust"), "the standing control set allows thrust again")
+	_free_live(made)
+
+
+## Every refusal code, in the order the state module reports it, plus the synthetic asset and
+## requirement cases the shipped debug pair does not carry.
+func _check_refusals() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var same: Dictionary = session.request_pose(CATALOG.STANDING, "test", {"act_state": 2})
+	check(str(same.get("code", "")) == "same", "the start pose is same")
+	for phase: int in [1, 3, 4, 5]:
+		var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test",
+			{"act_state": phase})
+		check(str(result.get("code", "")) == "bad_phase",
+			"act state %d is bad_phase" % phase)
+	var no_edge: Dictionary = session.request_pose(CATALOG.MISSIONARY, "test", {"act_state": 2})
+	check(str(no_edge.get("code", "")) == "no_edge", "a pair without an edge is no_edge")
+	var form: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test",
+		{"act_state": 2, "forms": ["unicorn"]})
+	check(str(form.get("code", "")) == "unsupported_form", "an unsupported form refuses")
+	var view_result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test",
+		{"act_state": 2, "views": ["seat"]})
+	check(str(view_result.get("code", "")) == "unsupported_view", "an unsupported view refuses")
+	var locked: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test",
+		{"act_state": 2, "locked": true})
+	check(str(locked.get("code", "")) == "locked", "a locked request refuses")
+	check(view.id == CATALOG.STANDING and view.pose_state == VIEW.STEADY,
+		"every refusal leaves the view steady on the start pose")
+	_free_live(made)
+
+	var fresh_made := _session(CATALOG.STANDING)
+	var fresh: RefCounted = fresh_made["session"]
+	var fresh_pony: FakePony = fresh_made["pony"]
+	fresh.facts = FakeFacts.new()
+	var not_steady: Dictionary = fresh.request_pose(CATALOG.STANDING_TEST, "test",
+		{"act_state": 2})
+	check(str(not_steady.get("code", "")) == "not_steady",
+		"a session that has not begun is not_steady")
+	root.remove_child(fresh_pony)
+	fresh_pony.free()
+
+	var refused_made := _live_session(CATALOG.STANDING)
+	var refused: RefCounted = refused_made["session"]
+	var refused_view: RefCounted = refused.view()
+	for case: Array in [
+		["synthetic_feature", {"features": ["missing_feature"]}, {}],
+		["synthetic_consent", {"consent": "needed"}, {}],
+		["synthetic_stretch", {"stretch": "inactive"}, {"stretch": true}],
+	]:
+		var target := str(case[0])
+		_synthetic_spec(refused, target)
+		_synthetic_edge(refused, CATALOG.STANDING, target, case[1] as Dictionary)
+		var request: Dictionary = case[2] as Dictionary
+		request["act_state"] = 2
+		var result: Dictionary = refused.request_pose(target, "test", request)
+		check(str(result.get("code", "")) == "refused",
+			"the %s requirement refuses" % target)
+	check(refused_view.id == CATALOG.STANDING and refused_view.pose_state == VIEW.STEADY,
+		"a refused requirement leaves the view steady")
+	_free_live(refused_made)
+
+	var missing_made := _live_session(CATALOG.STANDING)
+	var missing: RefCounted = missing_made["session"]
+	var missing_view: RefCounted = missing.view()
+	var missing_spec: Variant = _synthetic_spec(missing, "synthetic_missing")
+	missing_spec.base = ""
+	missing_spec.delta = ""
+	missing_spec.driver = ""
+	_synthetic_edge(missing, CATALOG.STANDING, "synthetic_missing", {})
+	var missing_result: Dictionary = missing.request_pose("synthetic_missing", "test",
+		{"act_state": 2})
+	check(str(missing_result.get("code", "")) == "missing_asset",
+		"a target without an asset is missing_asset")
+	check(missing_view.id == CATALOG.STANDING and missing_view.pose_state == VIEW.STEADY,
+		"a missing asset leaves the view steady")
+	_free_live(missing_made)
+
+
+## The control sets, the reserved `end`, the edge lock and the standing_test block.
+func _check_commands() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	check(session.request_command("thrust"), "the standing set allows thrust")
+	check(session.request_command("end"), "end is always allowed")
+	check(not session.request_command("nonsense"), "an unknown command is refused")
+	check(not session.request_command(""), "an empty command is refused")
+	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
+	check(str(result.get("code", "")) == "ok", "the command check starts the debug edge")
+	check(not session.request_command("thrust"),
+		"the standing_test set blocks thrust")
+	check(session.request_command("end"), "end stays allowed in standing_test")
+	_free_live(made)
+
+	var lock_made := _live_session(CATALOG.STANDING)
+	var lock_session: RefCounted = lock_made["session"]
+	_synthetic_spec(lock_session, "synthetic_lock", "standing")
+	_synthetic_edge(lock_session, CATALOG.STANDING, "synthetic_lock", {},
+		{"kind": "lock", "block": ["thrust"]})
+	var lock_result: Dictionary = lock_session.request_pose("synthetic_lock", "test",
+		{"act_state": 2})
+	check(str(lock_result.get("code", "")) == "ok", "the lock edge starts")
+	check(not lock_session.request_command("thrust"), "the lock block denies thrust")
+	check(lock_session.request_command("end"), "the lock leaves end allowed")
+	_free_live(lock_made)
+
+
+## A live settings edit refreshes the target snapshot in place; `standing_test` never reads a
+## settings group of its own.
+func _check_target_snapshot() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
+	check(str(result.get("code", "")) == "ok", "the snapshot check starts the debug edge")
+	var target: Dictionary = view.to_config
+	check(target.has("gaps"), "the target snapshot starts on the standing block")
+	session.apply_live_settings()
+	check(is_same(view.to_config, target), "a live edit keeps the target snapshot object")
+	check(target.has("gaps") and target.has("chin_up_deg"),
+		"the refreshed target still carries the standing pose keys")
+	check(is_same(session._target_config, target),
+		"the session keeps the same target snapshot")
+	_free_live(made)
+
+
+## A release aborts a live edge; the view goes idle and a second release is a no-op.
+func _check_release_abort() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
+	check(str(result.get("code", "")) == "ok", "the abort check starts the debug edge")
+	check(session._run != null, "the edge is running")
+	session.release_pose()
+	check(session._run == null, "the release aborts the edge")
+	check(session._state == VIEW.IDLE and view.pose_state == VIEW.IDLE,
+		"the release returns the session and the view to idle")
+	check(view.id == "" and view.edge_id == "" and view.from_id == "" and view.to_id == "",
+		"the release clears the view identity and transition")
+	check(not session._started and session.pose_node == null, "the release frees the pose")
+	session.release_pose()
+	check(view.pose_state == VIEW.IDLE and session._run == null,
+		"a second release is a no-op")
+	_free_live(made)
+
+
+## The request and tick path never releases the pose node, the live config or the act identity.
+func _check_no_act_exit() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var pose_node: Node = session.pose_node
+	var config: Dictionary = session.pose_config
+	var forward: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
+	check(str(forward.get("code", "")) == "ok", "the no-exit check starts the debug edge")
+	session.tick(0.0)
+	session.tick(0.6)
+	var reverse: Dictionary = session.request_pose(CATALOG.STANDING, "test", {"act_state": 2})
+	check(str(reverse.get("code", "")) == "ok", "the no-exit check returns to standing")
+	session.tick(0.0)
+	session.tick(0.6)
+	check(session.pose_node == pose_node and pose_node.get_parent() != null,
+		"the transition path keeps the pose node")
+	check(is_same(session.pose_config, config) and not config.is_empty(),
+		"the transition path keeps the live config")
+	check(session._started, "the transition path keeps the session started")
+	check(view.id == CATALOG.STANDING and view.pose_state == VIEW.STEADY,
+		"the transition path leaves a filled view")
+	_free_live(made)
+
+
+## A synthetic valid spec row for a target the shipped table does not carry.
+func _synthetic_spec(session: RefCounted, spec_id: String, controls_set := "standing") -> Variant:
+	var row: Dictionary = SPECS.SPECS[CATALOG.STANDING].duplicate(true)
+	row["id"] = spec_id
+	row["display_name"] = "Synthetic"
+	row["base"] = CATALOG.STANDING
+	row["delta"] = ""
+	row["driver"] = ""
+	row["controls"] = {"set": controls_set}
+	row["public"] = false
+	row["offerable"] = false
+	var spec: Variant = POSE_SPEC.from_dict(spec_id, row, {})
+	check(spec != null, "the synthetic spec %s builds" % spec_id)
+	session._registry._specs[spec_id] = spec
+	return spec
+
+
+## A synthetic validated edge into a synthetic target.
+func _synthetic_edge(session: RefCounted, from_id: String, to_id: String, requires: Dictionary,
+		controls: Dictionary = {"kind": "switch", "at": 0.0, "set": "standing"}) -> Variant:
+	var edge_id := from_id + "__" + to_id
+	var document := {
+		"version": 1,
+		"id": edge_id,
+		"from": from_id,
+		"to": to_id,
+		"phases": ["active"],
+		"requires": requires,
+		"duration": 0.6,
+		"channels": {"base": {"kind": "hold"}, "controls": controls},
+		"events": [],
+		"interrupt": {"climax": "hold", "teardown": "abort"},
+	}
+	var edge: Variant = TRANSITION_SPEC.from_dict(edge_id, document, {})
+	check(edge != null, "the synthetic edge %s builds" % edge_id)
+	session._registry._edges[edge_id] = edge
+	return edge

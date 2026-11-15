@@ -19,6 +19,11 @@ const ACTIONS := {
 		"help": "Re-read poses/missionary_pose.json without restarting the game. A running act picks it up.",
 		"method": "action_reload_pose",
 	},
+	"pose_test_variant": {
+		"label": "Pose: test variant",
+		"help": "Toggle the internal standing_test pose in a live standing act. Logs the edge result; never ends the act.",
+		"method": "action_pose_test_variant",
+	},
 	"bed_offer": {
 		"label": "Trigger bed offer",
 		"help": "Force a missionary offer for the aimed mare.",

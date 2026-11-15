@@ -5,6 +5,7 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const CATALOG_STANDING := "standing"
+const CATALOG_STANDING_TEST := "standing_test"
 var failures := 0
 var checks := 0
 
@@ -323,6 +324,22 @@ func run() -> void:
 			after_exit += 1
 	check(runtime8._pose_session.view().pose_state == 0 and after_exit == 0,
 		"a second act exit is safe with no pose left behind")
+
+	# An edge aborted by the one act exit: the run is dropped, the view returns to IDLE and the
+	# pose node is freed, with no second exit path.
+	runtime8.pose_id = CATALOG_STANDING
+	runtime8.state = 2
+	runtime8.call("_build_pose")
+	var edge: Dictionary = runtime8.call("request_pose", CATALOG_STANDING_TEST, "test")
+	check(str(edge.get("code", "")) == "ok", "the runtime starts the debug edge")
+	check(runtime8._pose_session.view().pose_state == 3,
+		"the running edge puts the view in the transition state")
+	runtime8._end_session(false)
+	check(runtime8._pose_session._run == null, "the act exit aborts the running edge")
+	check(runtime8._pose_session.view().id == ""
+		and runtime8._pose_session.view().pose_state == 0,
+		"the act exit leaves the transition view idle")
+	check(runtime8._pose_session.pose_node == null, "the act exit frees the edge's pose node")
 
 	# AnonPony and headset/VR move her in front of the player; the player stays where he is.
 	var f9 := _fixture()

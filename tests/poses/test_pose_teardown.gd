@@ -40,6 +40,7 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	_check_missionary_scope()
 	_check_standing_scope()
+	_check_transition_path()
 	_check_no_act_exit()
 	print("POSE_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -227,6 +228,38 @@ func _check_standing_scope() -> void:
 		"the standing final release clears the config and the view")
 	_free_fixture(made)
 	STRETCH.pose_path = STRETCH.POSE_PATH
+
+
+## The live debug edge: the request and tick path keeps the pose node, the config and the view, and
+## every transition function stays clear of an act exit.
+func _check_transition_path() -> void:
+	var made := _fixture(CATALOG.STANDING, {})
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var config: Dictionary = session.pose_config
+	var pose_node: Node = session.pose_node
+	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
+	check(str(result.get("code", "")) == "ok", "the transition path starts the debug edge")
+	check(view.pose_state == VIEW.TRANSITIONING and session._state == VIEW.TRANSITIONING,
+		"the transition path enters the transition state")
+	session.tick(0.0)
+	check(session.pose_node == pose_node and is_same(session.pose_config, config),
+		"the transition tick keeps the pose and the live config")
+	check(view.id == CATALOG.STANDING_TEST and view.pose_state == VIEW.TRANSITIONING,
+		"the transition tick keeps the target view")
+	session.tick(0.6)
+	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.STANDING_TEST,
+		"the transition completes steady on the target")
+	check(session._started and is_same(session.pose_config, config),
+		"the transition completion keeps the session and the live config")
+	var text := FileAccess.get_file_as_string(SERVICE_PATH)
+	for name: String in ["request_pose", "tick", "_fill_transition_view", "_absorb_switches",
+			"_absorb_events"]:
+		var body := _func_body(text, name)
+		check(not body.is_empty(), "poses/service.gd exposes %s()" % name)
+		for call: String in ACT_EXIT:
+			check(not body.contains(call), "%s does not call %s" % [name, call])
+	_free_fixture(made)
 
 
 ## The pose-scope steps are the seam a transition calls: they must not reach an act exit.

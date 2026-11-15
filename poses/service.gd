@@ -18,6 +18,8 @@ const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
 const IDLE_STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
+const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
@@ -39,6 +41,18 @@ var pose_config: Dictionary = {}
 ## The one pose read model for the act, and the registry that validates the static spec table.
 var _view: RefCounted
 var _registry: RefCounted
+
+## The live state-machine value; the view mirrors it. `begin()` enters `ENTERING`, settles `STEADY`,
+## a request enters `TRANSITIONING` and `release_pose()` exits through `EXITING` to `IDLE`.
+var _state := POSE_VIEW.IDLE
+## The running edge, or null. A release aborts it without an act exit.
+var _run: Variant = null
+var _from_id := ""
+var _target_id := ""
+var _target_spec: Variant = null
+## The target's settings snapshot, by reference from the view's `to_config`.
+var _target_config: Dictionary = {}
+var _target_presentation: Dictionary = {}
 
 ## The pose modifier and the extra scene modifiers the act installs.
 var pose_node: Node
@@ -116,6 +130,9 @@ func begin(context: Dictionary) -> bool:
 	if not skeleton is Skeleton3D:
 		_write_log("pose session: no body skeleton to pose")
 		return false
+	# A fresh act starts with no edge and no target snapshot; a failed begin never gets here.
+	_abort_target()
+	_state = POSE_STATE.next(_state, "begin")
 	# A holder left from the last act is dropped without clearing the choice: a new act after an
 	# offer reuses the variant and side the offer rolled.
 	_release_stretch(false)
@@ -161,6 +178,8 @@ func begin(context: Dictionary) -> bool:
 	_started = true
 	if pose_id == CATALOG.MISSIONARY:
 		_install_tail_lay()
+	_state = POSE_STATE.next(_state, "entered")
+	_view.pose_state = _state
 	if pose_id != CATALOG.STANDING:
 		return true
 	var hair: Variant = pony.get("hair_skeleton")
@@ -188,6 +207,293 @@ func _fill_view() -> void:
 		_write_log("pose view: no spec for %s" % pose_id)
 		return
 	_view.fill(spec, pose_config)
+
+
+## Request one authored edge. Returns the A3.1 `PoseResult`: `{ok, code, edge, reason}`. It never
+## ends the act, releases the pose or restores bones.
+func request_pose(target_id: String, trigger: String, context: Dictionary = {}) -> Dictionary:
+	var from_id := str(_view.id)
+	var target_spec: Variant = _registry.spec(target_id)
+	var edge_id := from_id + "__" + target_id
+	var edge: Variant = _registry.edge(edge_id)
+	var act_state := int(context.get("act_state", facts.state if facts != null else 0))
+	var forms := _request_forms(context)
+	var views := _request_views(context)
+	var features := _request_features(context)
+	var stretch := bool(context.get("stretch", stretch_active()))
+	var checks := _request_checks(target_spec, edge, context, forms, views, features, stretch)
+	var code := POSE_STATE.request_code(_state, act_state, from_id, target_id,
+		edge != null, checks)
+	if code != "ok":
+		return POSE_STATE.result(code, edge_id, _reason(code, target_id))
+	var run: Variant = POSE_STATE.start_edge(edge.data, from_id, target_id)
+	if run == null:
+		return POSE_STATE.result("missing_asset", edge_id, "the edge did not start")
+	# Cache the target by settings group: `standing_test` uses the standing pose and presentation
+	# blocks and has no block of its own.
+	_from_id = from_id
+	_target_id = target_id
+	_target_spec = target_spec
+	_target_config = SETTINGS.pose(id, str(target_spec.settings_group))
+	_target_presentation = SETTINGS.act_snapshot(str(target_spec.settings_group)).presentation
+	_run = run
+	_state = POSE_STATE.next(_state, "request")
+	_fill_transition_view()
+	_write_log("pose request %s -> %s (%s): ok" % [from_id, target_id, trigger])
+	return POSE_STATE.result("ok", edge_id, "")
+
+
+## The request's form list: the context's own list, or the player's live form.
+func _request_forms(context: Dictionary) -> Array:
+	var value: Variant = context.get("forms")
+	if value is Array and not (value as Array).is_empty():
+		return value as Array
+	return ["pony"] if _player_pony() else ["human"]
+
+
+## The request's view list: the context's own list, or the live display.
+func _request_views(context: Dictionary) -> Array:
+	var value: Variant = context.get("views")
+	if value is Array and not (value as Array).is_empty():
+		return value as Array
+	return ["vr"] if _headset_view() else ["desktop"]
+
+
+func _request_features(context: Dictionary) -> Dictionary:
+	var value: Variant = context.get("features")
+	if value is Dictionary:
+		return value as Dictionary
+	return _facts_features()
+
+
+func _player_pony() -> bool:
+	return facts != null and bool(facts.player_pony)
+
+
+func _headset_view() -> bool:
+	return facts != null and bool(facts.headset_view)
+
+
+func _facts_features() -> Dictionary:
+	if facts == null:
+		return {}
+	var value: Variant = facts.features
+	return value as Dictionary if value is Dictionary else {}
+
+
+## The target spec and the edge requirements against the live request values, in the order
+## `pose_state.request_code()` reports them. A missing flag passes.
+func _request_checks(target_spec: Variant, edge: Variant, context: Dictionary, forms: Array,
+		views: Array, features: Dictionary, stretch: bool) -> Dictionary:
+	var requires: Dictionary = {}
+	if edge != null:
+		var requires_value: Variant = edge.requires
+		if requires_value is Dictionary:
+			requires = requires_value
+	var form_ok := false
+	var view_ok := false
+	var asset_ok := false
+	if target_spec != null:
+		form_ok = _intersects(target_spec.forms, forms)
+		view_ok = _intersects(target_spec.views, views)
+		asset_ok = not str(target_spec.base).is_empty() \
+				or not str(target_spec.delta).is_empty() \
+				or not str(target_spec.driver).is_empty()
+	var wanted_forms: Variant = requires.get("forms", [])
+	if form_ok and wanted_forms is Array and not (wanted_forms as Array).is_empty():
+		form_ok = _intersects(wanted_forms as Array, forms)
+	var wanted_views: Variant = requires.get("views", [])
+	if view_ok and wanted_views is Array and not (wanted_views as Array).is_empty():
+		view_ok = _intersects(wanted_views as Array, views)
+	var features_ok := true
+	var wanted_features: Variant = requires.get("features", [])
+	if wanted_features is Array:
+		for name_value: Variant in wanted_features as Array:
+			if not bool(features.get(str(name_value), false)):
+				features_ok = false
+				break
+	var wanted_consent := str(requires.get("consent", ""))
+	var consent := str(context.get("consent", ""))
+	var consent_ok := wanted_consent.is_empty() or consent == wanted_consent
+	var wanted_stretch := str(requires.get("stretch", ""))
+	var stretch_ok := wanted_stretch != "inactive" or not stretch
+	return {
+		"form_ok": form_ok,
+		"view_ok": view_ok,
+		"features_ok": features_ok,
+		"consent_ok": consent_ok,
+		"stretch_ok": stretch_ok,
+		"asset_ok": asset_ok,
+		"locked": bool(context.get("locked", false)),
+	}
+
+
+func _intersects(declared: Array, live: Array) -> bool:
+	for value: Variant in declared:
+		if value in live:
+			return true
+	return false
+
+
+func _reason(code: String, target_id: String) -> String:
+	match code:
+		"same":
+			return "already %s" % target_id
+		"bad_phase":
+			return "the act is not active"
+		"busy":
+			return "a transition is running"
+		"not_steady":
+			return "the pose is not steady"
+		"no_edge":
+			return "no edge to %s" % target_id
+		"unsupported_form":
+			return "the form is not supported"
+		"unsupported_view":
+			return "the view is not supported"
+		"refused":
+			return "a requirement is not met"
+		"missing_asset":
+			return "the target has no pose asset"
+		"locked":
+			return "the pose is locked"
+	return ""
+
+
+## The transition view: the target identity and profiles from `fill()`, the from/to sides and the
+## live edge clock filled explicitly. The live `pose_config` is the from side; the target snapshot
+## is the to side.
+func _fill_transition_view() -> void:
+	_view.fill(_target_spec, pose_config)
+	_view.from_id = _from_id
+	_view.to_id = _target_id
+	_view.from_config = pose_config
+	_view.to_config = _target_config
+	_view.edge_id = _run.id
+	_view.edge_t = _run.t
+	_view.weight = _run.weight
+	_view.pose_state = _state
+
+
+## Advance the live edge, apply its switches/events and settle the view. No-op outside an edge.
+func tick(delta: float) -> void:
+	if _run == null:
+		return
+	_run.tick(maxf(delta, 0.0))
+	_view.edge_t = _run.t
+	_view.weight = _run.weight
+	_absorb_switches()
+	_absorb_events()
+	if not _run.complete():
+		return
+	_state = POSE_STATE.next(_state, "complete")
+	_view.pose_state = _state
+	_view.from_id = _view.id
+	_view.to_id = _view.id
+	_view.from_config = pose_config
+	_view.to_config = pose_config
+	_view.edge_id = ""
+	_view.edge_t = 0.0
+	_view.weight = 1.0
+	_abort_target()
+
+
+## Drain the switches that fired since the last tick. The target spec's profile is already in the
+## view; the log names the authored payload for the lab.
+func _absorb_switches() -> void:
+	for name_value: Variant in _run.switches():
+		var name := str(name_value)
+		_write_log("pose switch %s: %s" % [name, _switch_target(name)])
+
+
+func _switch_target(channel: String) -> String:
+	var channels_value: Variant = _run.edge.get("channels", {})
+	if not channels_value is Dictionary:
+		return ""
+	var channel_value: Variant = (channels_value as Dictionary).get(channel)
+	if not channel_value is Dictionary:
+		return ""
+	var channel_data := channel_value as Dictionary
+	for key: String in ["set", "profile", "to"]:
+		var value := str(channel_data.get(key, ""))
+		if not value.is_empty():
+			return value
+	return ""
+
+
+## Drain the edge events that fired since the last tick. `speech_stop` and `viseme` are reserved
+## for the act audio and face; only `status` is logged here.
+func _absorb_events() -> void:
+	for event_value: Variant in _run.events():
+		if not event_value is Dictionary:
+			continue
+		var event := event_value as Dictionary
+		if str(event.get("kind", "")) == "status":
+			_write_log("pose status %s: %s" % [_target_id, str(event.get("value", ""))])
+
+
+## Whether the active control set and the live edge lock allow this command. `end` is reserved and
+## always allowed. It reports; it does not execute the command.
+func request_command(command_id: String) -> bool:
+	if command_id.is_empty():
+		return false
+	if command_id == "end":
+		return true
+	var set_id := str(_view.controls.get("set", ""))
+	var allowed_value: Variant = SPECS.CONTROL_SETS.get(set_id, [])
+	if not allowed_value is Array or not (command_id in (allowed_value as Array)):
+		return false
+	if _run != null and _lock_denies(command_id):
+		return false
+	return true
+
+
+## A live edge whose `controls` channel is a `lock` denies its `block` list and anything outside a
+## non-empty `allow` list.
+func _lock_denies(command_id: String) -> bool:
+	var channels_value: Variant = _run.edge.get("channels", {})
+	if not channels_value is Dictionary:
+		return false
+	var controls_value: Variant = (channels_value as Dictionary).get("controls")
+	if not controls_value is Dictionary:
+		return false
+	var controls := controls_value as Dictionary
+	if str(controls.get("kind", "")) != "lock":
+		return false
+	var block: Variant = controls.get("block", [])
+	if block is Array and command_id in (block as Array):
+		return true
+	var allow: Variant = controls.get("allow", [])
+	if allow is Array and not (allow as Array).is_empty():
+		return not (command_id in (allow as Array))
+	return false
+
+
+## Refresh the target snapshot mid-edge. The active pose's config refresh stays in the runtime's
+## existing `_sync_standing_pose_config()`/`_sync_missionary_pose_config()` path.
+func apply_live_settings() -> void:
+	if _target_spec == null:
+		return
+	var fresh := SETTINGS.pose(id, str(_target_spec.settings_group))
+	_target_config.clear()
+	_target_config.merge(fresh, true)
+	_target_presentation = SETTINGS.act_snapshot(str(_target_spec.settings_group)).presentation
+
+
+## True while the external Idle Life holder owns the body; an edge that requires `stretch:
+## inactive` refuses then.
+func stretch_active() -> bool:
+	return _stretch != null and bool(_stretch.call("active"))
+
+
+## Drop the target snapshot and the running edge without touching the live pose or the view.
+func _abort_target() -> void:
+	_run = null
+	_from_id = ""
+	_target_id = ""
+	_target_spec = null
+	_target_config.clear()
+	_target_presentation.clear()
 
 
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
@@ -374,6 +680,9 @@ func leave_pose_body() -> void:
 ## clean. The runtime calls this last in the one pose teardown, then re-stamps its identity mirror
 ## on the next access. A pose change never calls it. Safe to repeat.
 func release_pose() -> void:
+	# A release aborts a live edge; it never runs a second act exit.
+	_abort_target()
+	_state = POSE_STATE.next(_state, "exit")
 	_release_stretch(false)
 	if is_instance_valid(pose_node):
 		_drop(pose_node)
@@ -395,6 +704,7 @@ func release_pose() -> void:
 	bed_frame_source_saved = false
 	bed_frame_source = Transform3D.IDENTITY
 	_view.clear()
+	_state = POSE_STATE.next(_state, "released")
 
 
 ## Install, keep or remove the external Idle Life stretch holder for the live act pose. The

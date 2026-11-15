@@ -975,6 +975,26 @@ func action_reload_pose() -> String:
 	return "Reloaded the missionary posed base."
 
 
+## Debug: toggle the internal standing_test pose in a live standing act. The edge holds the body;
+## the reverse edge returns to standing. Never ends the act.
+func action_pose_test_variant() -> String:
+	if not is_instance_valid(active_runtime):
+		return "No act."
+	var view: Variant = active_runtime.call("pose_view")
+	var active := str(view.id) if view != null else ""
+	if active.is_empty():
+		return "No act."
+	if active != CATALOG.STANDING and active != CATALOG.STANDING_TEST:
+		return "Only in a standing act."
+	var target := CATALOG.STANDING_TEST if active == CATALOG.STANDING else CATALOG.STANDING
+	var result: Variant = active_runtime.call("request_pose", target, "debug")
+	if result is Dictionary:
+		var code := str((result as Dictionary).get("code", ""))
+		_debug("pose test variant %s -> %s: %s" % [active, target, code])
+		return "Pose %s: %s." % [target, code]
+	return "Pose request failed."
+
+
 ## Debug: one structured dump for the aimed mare. Show data, and a future always-on overlay, can
 ## render the same sections: TARGET, CYCLE, GATE, ACT, STOOL, HISTORY, PROMPT, BED.
 func action_show_data() -> String:

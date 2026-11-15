@@ -1,10 +1,8 @@
 extends SceneTree
 ## Dev-only bake tool: turns the game's standing reference capture (the fixture, or a provisional
 ## `body.glb` rest pose when no live capture exists) into the shipped v7 `poses/standing_pose.json`,
-## and compares a baked asset with the reference recipe. The capture can be a live mid-step frame,
-## so the paired limb chains are mirror-averaged about the sagittal plane before the recipe; that
-## is what makes the baked stance symmetric. It never ships: `tools/` is outside the pack, and no
-## shipped runtime script preloads it.
+## and compares a baked asset with the reference recipe. It never ships: `tools/` is outside the
+## pack, and no shipped runtime script preloads it.
 ##
 ##   godot --headless --xr-mode off --path . --script res://mods/unfplap/tools/pose_bake.gd
 ##   ... -- --write   # bake and write the shipped asset
@@ -20,26 +18,6 @@ const BODY := preload("res://world/characters/hybrid_mare/body.glb")
 const STANDING_PATH := "res://mods/unfplap/poses/standing_pose.json"
 const FIXTURE_PATH := "res://mods/unfplap/tests/poses/fixtures/standing_reference.json"
 const PONY_BONES := AUTHORED.PONY_BONES
-
-## The paired limb chains, in parent-to-child order. Centerline bones (`hips`, `spine1-3`,
-## `neck1-2`) are deliberately absent: they are the mirror plane, not an average of two sides.
-const MIRROR_PAIRS := [
-	["pony_flank_L", "pony_flank_R"],
-	["pony_femur_L", "pony_femur_R"],
-	["pony_tibia_L", "pony_tibia_R"],
-	["pony_legLower_L", "pony_legLower_R"],
-	["pony_tarsal_L", "pony_tarsal_R"],
-	["pony_hoof_L", "pony_hoof_R"],
-	["pony_shoulder_L", "pony_shoulder_R"],
-	["pony_upperArm_L", "pony_upperArm_R"],
-	["pony_lowerArm_L", "pony_lowerArm_R"],
-	["pony_wrist_L", "pony_wrist_R"],
-	["pony_hand_L", "pony_hand_R"],
-	["pony_finger_L", "pony_finger_R"],
-]
-
-## The reflection about the skeleton-space sagittal plane.
-const MIRROR := Basis(Vector3(-1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1))
 
 
 ## Records the current pose as a v7 asset. `world_frame` is the live bed or ground frame, and
@@ -87,8 +65,7 @@ static func capture_pose(skeleton: Skeleton3D, world_frame: Transform3D, contact
 
 
 ## The reference recipe applied at `config`, then captured. This is the one bake path: the bake
-## tool, the standing bake button and the lab's bake button all use it. The reference is
-## mirror-averaged first, so a live capture caught mid-step cannot freeze an asymmetric stance.
+## tool, the standing bake button and the lab's bake button all use it.
 static func capture_asset(skeleton: Skeleton3D, world_frame: Transform3D, config: Dictionary,
 		size_name: String, contact_point: Vector3, body_scale: float = 1.0,
 		pose_id: String = "standing", frame_kind: String = "ground") -> Dictionary:
@@ -97,58 +74,11 @@ static func capture_asset(skeleton: Skeleton3D, world_frame: Transform3D, config
 	var rig: Variant = RIG.new()
 	var mare := skeleton.get_parent() as Node3D
 	rig.call("cache", mare if mare != null else skeleton, skeleton)
-	symmetrise_stance(skeleton)
 	var recipe: Variant = RECIPE.new()
 	recipe.call("apply_reference", rig, skeleton, 1.0, config)
 	skeleton.force_update_all_bone_transforms()
 	return capture_pose(skeleton, world_frame, contact_point, config, size_name, body_scale,
 		pose_id, frame_kind)
-
-
-## Reflects a skeleton-space transform across the sagittal plane. A reflection matrix would flip
-## the basis determinant, so the basis is conjugated (`M * basis * M`) to stay a proper rotation.
-static func mirror_x(t: Transform3D) -> Transform3D:
-	return Transform3D(MIRROR * t.basis * MIRROR, MIRROR * t.origin)
-
-
-## The midpoint of a transform and its mirrored partner: averaged origin and slerped rotation.
-static func mirror_mid(a: Transform3D, b: Transform3D) -> Transform3D:
-	var qa := a.basis.orthonormalized().get_rotation_quaternion().normalized()
-	var qb := b.basis.orthonormalized().get_rotation_quaternion().normalized()
-	return Transform3D(Basis(qa.slerp(qb, 0.5)), a.origin.lerp(b.origin, 0.5))
-
-
-## Mirror-averages every paired limb chain about the skeleton-space sagittal plane, leaving the
-## centerline bones untouched. The original globals are sampled once, before any write, so each
-## pair averages the captured pose rather than a half-written one. Returns the pairs written; a
-## rig without some pairs is symmetrised partially, never refused.
-static func symmetrise_stance(skeleton: Skeleton3D) -> int:
-	if skeleton == null:
-		return 0
-	skeleton.force_update_all_bone_transforms()
-	var captured := {}
-	for pair: Array in MIRROR_PAIRS:
-		for name: String in pair:
-			var bone := skeleton.find_bone(name)
-			if bone >= 0:
-				captured[name] = skeleton.get_bone_global_pose(bone)
-	var written := 0
-	for pair: Array in MIRROR_PAIRS:
-		var left_name := str(pair[0])
-		var right_name := str(pair[1])
-		if not captured.has(left_name) or not captured.has(right_name):
-			continue
-		var left := skeleton.find_bone(left_name)
-		var right := skeleton.find_bone(right_name)
-		if left < 0 or right < 0:
-			continue
-		var left_pose := mirror_mid(captured[left_name], mirror_x(captured[right_name]))
-		skeleton.set_bone_global_pose(left, left_pose)
-		skeleton.set_bone_global_pose(right, mirror_x(left_pose))
-		# The next pair in the chain hangs from this one and must read the written parents.
-		skeleton.force_update_all_bone_transforms()
-		written += 1
-	return written
 
 
 ## One bone's local-rest delta: `rest.affine_inverse() * pose`. Rotation and position only; the
@@ -200,9 +130,9 @@ static func compare(asset: Dictionary, skeleton: Skeleton3D, world_frame: Transf
 	var rig: Variant = RIG.new()
 	var mare := skeleton.get_parent() as Node3D
 	rig.call("cache", mare if mare != null else skeleton, skeleton)
-	# The reference is the recipe applied to the same symmetrised capture the bake used (the
-	# fixture's stance, a rest rig in the synthetic test); `capture_asset` applied the same pose.
-	symmetrise_stance(skeleton)
+	# The reference is the recipe applied to the rig as given (the fixture's settled stance for the
+	# bake, a rest rig in the synthetic test); capture_asset used the same pose.
+	skeleton.force_update_all_bone_transforms()
 	var recipe: Variant = RECIPE.new()
 	recipe.call("apply_reference", rig, skeleton, 1.0, config)
 	skeleton.force_update_all_bone_transforms()

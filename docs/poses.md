@@ -88,11 +88,9 @@ asset, `--check` leaves the shipped file alone and `--pose <id>` selects another
 (`missionary` is the default).
 
 `tools/pose_bake.gd` is the standing bake. `capture_pose()` records the current pose as a v7
-document, `capture_asset()` mirror-averages the captured reference's paired limb chains about the
-sagittal plane in skeleton space and then applies `apply_reference()` at the reference config,
+document, `capture_asset()` applies `apply_reference()` at the reference config first,
 `write_asset()` writes the deterministic JSON (test and fixture paths are refused), and
-`compare()` symmetrises and applies the same reference before reporting the worst error against the
-recipe.
+`compare()` applies the baked asset and reports the worst error against the recipe.
 
 `tools/pose_runtime_check.gd` runs the missionary recipe on the real body rig against one shipped
 asset in a moved bed frame and checks that the overlays preserve the authored joints; `--pose <id>`
@@ -114,16 +112,13 @@ flag. The asset's `--pose bed_facesit --check` round-trip and the `pose_runtime_
 case are the automated proof; the arrangement is authored through `tools/pose_lab.gd` and saved
 as this asset.
 
-- The bake input is the game's standing reference capture: the 30 local poses, the frame, the
+- The bake input is the game's **standing reference capture**: the 30 local poses, the frame, the
   size and the rig captured by the session at `begin()` for a ground pose. The Debug **Bake standing
-  base** action re-serialises that `begin()` capture to `user://unfplap/standing_reference.json`;
-  the developer copies that file to `tests/poses/fixtures/standing_reference.json`. The capture can
-  be a mid-step frame — it is taken at `begin()`, not after a settle — so the bake symmetrises it
-  rather than trusting it. The fixture is test data, not a runtime asset; the loader never reads it.
-- The bake **symmetrises the reference** before the recipe: the paired hind and fore chains are
-  mirror-averaged about the body plane in skeleton space, so a live capture caught mid-step cannot
-  freeze a staggered stance. The foreleg spread is measured at `pony_finger_<side>`, a bone the
-  asset owns, because the `_end` leaf is outside the asset and is not a mirror pair.
+  base** action writes it to `user://unfplap/standing_reference.json`; the developer copies that
+  file to `tests/poses/fixtures/standing_reference.json`. The capture is a real stance, taken before
+  the act settles, and is baked as it stands; the stance is never averaged or mirrored into shape,
+  because the pairs' global origins are not interchangeable. The fixture is test data, not a
+  runtime asset; the loader never reads it.
 - Without a live capture, the bake tool falls back to a **provisional** reference built from the
   `body.glb` rest pose plus `apply_reference()` and prints `[pose_bake] PROVISIONAL reference=rest`.
   A provisional asset is not the final stance; replace the fixture with a live capture and re-run
@@ -773,10 +768,10 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.
 - The standing base is the v7 asset `poses/standing_pose.json`, baked from the game's standing
-  reference with the paired chains symmetrised and `apply_reference()` at the effective reference
-  config. The live recipe applies only the difference from that reference; the default stance is
-  the baked pose. The asset carries the 30 body bones, not `pony_head`, so the live base applies
-  the head's full reference bow and chin itself; the neck bones are the baked difference.
+  reference capture with `apply_reference()` at the effective reference config. The live recipe
+  applies only the difference from that reference; the default stance is the baked pose. The asset
+  carries the 30 body bones, not `pony_head`, so the live base applies the head's full reference
+  bow and chin itself; the neck bones are the baked difference.
 - `standing_oral` runs the procedural delta on that baked base, after it and before the overlay,
   in both the single and two-base forms. The neck/head and the mouth anchor match the reference
   recipe plus the same delta at all four sizes (the oral parity in `test_pose_bake`).
@@ -998,10 +993,11 @@ unchanged.
 - `tests/poses/test_pose_asset_v7.gd` — the v7 schema and its refusals, `local_rest` bone math, the
   anchor/contact placement at four sizes, variants and the spec `asset` resolution; the v6 fixture
   and the v6 ground refusal.
-- `tests/poses/test_pose_bake.gd` — the bake capture/compare math and the symmetrise pass on a
-  synthetic rig, the deterministic writer and its fixture-path refusal, the shipped standing
-  asset's freshness, its stance-mirror gate, four-size body parity, contact, anchor, reference
-  config, and the four-size oral neck/head parity against the reference recipe plus the same delta.
+- `tests/poses/test_pose_bake.gd` — the bake capture/compare math on a synthetic rig, the
+  deterministic writer and its fixture-path refusal, the shipped standing asset's freshness and
+  stance guard (rotation-only base, a real hind width, opposite sides), four-size body parity,
+  contact, anchor, reference config, and the four-size oral neck/head parity against the reference
+  recipe plus the same delta.
 - `tests/poses/test_body_sway.gd` — the regular depth sway, the zeroed oral hold and the release.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — the v6 uniform scale, the v7 anchor/contact placement at four

@@ -31,7 +31,9 @@ modules read the camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `f
 `look_*`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`, `missionary_body()`,
 `authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. `authored_pose_asset()` returns
 the live rendered asset, so the bed camera holds the source shots through an edge and reads the
-target's shots after completion. The pose family, the contact kind
+target's shots after completion. The internal bed face-sit declares the same `missionary_shots`
+profile and its own five authored shots; the camera cuts to them when its edge settles. The pose
+family, the contact kind
 (`view.contact_kind`) and the presentation lean profile come from `facts.pose_view`; the camera
 does not read a start pose id or a contact mirror. The field and callback contract is
 `docs/act_facts.md`; a camera module that reaches into the runtime fails

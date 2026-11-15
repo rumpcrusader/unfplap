@@ -74,6 +74,7 @@ tree.
 3. scheduler stability, repeat and gap → the scheduler's `last_reason`.
 
 A cue is queued only when the pose view's `contact_kind` is not `mouth` and the act is `ACTIVE`.
+The bed face-sit's `face` contact is not a mouth contact: it queues and speaks normally.
 The prompt is formatted, then the face note, the code-owned context note, the optional
 speech-feel note and the line-angle note are appended in that order. The shared-memory id is
 marked used only after the line was accepted.

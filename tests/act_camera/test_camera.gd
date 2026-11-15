@@ -177,6 +177,7 @@ func run() -> void:
 	_check_session()
 	_check_shot()
 	_check_missionary_shot_anchor()
+	_check_facesit_shot_anchor()
 	_check_lean()
 	_check_oral_lean()
 	_check_retarget()
@@ -265,8 +266,18 @@ func _check_shot() -> void:
 ## The authored missionary shot follows the asset's hips anchor and contact lift at every size;
 ## canon is the authored transform within 0.1 mm.
 func _check_missionary_shot_anchor() -> void:
-	var pose: Variant = AUTHORED.shared("poses/missionary_pose.json")
-	check(bool(pose.get("available")), "the missionary asset is available for the shot")
+	_check_shot_anchor("poses/missionary_pose.json", "missionary")
+
+
+## The face-sit asset uses the same bed camera and the same anchor/contact rule; its five shots
+## are the ones the camera cuts to when the edge settles.
+func _check_facesit_shot_anchor() -> void:
+	_check_shot_anchor("poses/bed_facesit_pose.json", "face-sit")
+
+
+func _check_shot_anchor(asset_path: String, label: String) -> void:
+	var pose: Variant = AUTHORED.shared(asset_path)
+	check(bool(pose.get("available")), "the %s asset is available for the shot" % label)
 	if not bool(pose.get("available")):
 		return
 	var facts := FakeShotFacts.new()
@@ -283,10 +294,10 @@ func _check_missionary_shot_anchor() -> void:
 			var expected := here + (canon_world - here) * size + Vector3.UP * lift
 			var got: Transform3D = camera.call("_shot_transform", shot_id, size)
 			check(got.origin.distance_to(expected) <= 0.0001,
-				"%s shot origin at %.2f follows the anchor" % [shot_id, size])
+				"%s %s shot origin at %.2f follows the anchor" % [label, shot_id, size])
 			check(got.basis.orthonormalized().is_equal_approx(
 				(frame.basis * authored.basis).orthonormalized()),
-				"%s shot keeps the authored basis" % shot_id)
+				"%s %s shot keeps the authored basis" % [label, shot_id])
 
 
 func _check_lean() -> void:

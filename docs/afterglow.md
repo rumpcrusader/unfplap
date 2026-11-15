@@ -71,7 +71,8 @@ runs implicitly, and the pose row's passive afterglow opens no close window.
 The tail target and flick count follow the active `view.family`: `standing` lifts the tail and
 flicks it, `bed` lowers it and keeps it still. `view.family` is `standing` for `standing`,
 `standing_test` and `standing_oral`, `bed` for missionary. Without a bound view the row reads the
-bed values; there is no start-pose fallback.
+bed values; there is no start-pose fallback. The bed face-sit uses the `passive` row, opens no
+close window and keeps the live pose and its face contact until the one act exit.
 
 ## `[stay]` action
 
@@ -139,7 +140,8 @@ Hold the act key:
 ## Tests
 
 `tests/afterglow/test_afterglow.gd` builds the facade with fake callbacks and covers the close
-window's timing, caress count and single reward, the early cancel, the missionary and oral skips,
+window's timing, caress count and single reward, the early cancel, the missionary, oral and
+face-sit holds,
 the presentation row (no pose mode/afterglow pose, the tail row following the view family, the
 held pose, the re-asserted weight and the view-less bed fallback) and the runtime forwards for the HUD
 and prompt note. Wing folding lives in

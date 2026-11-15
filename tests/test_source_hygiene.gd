@@ -705,13 +705,18 @@ func _check_pose_session() -> void:
 	check(DEBUG_ACTIONS.ACTIONS.has("pose_test_variant")
 		and not (DEBUG_ACTIONS.ACTIONS["pose_test_variant"] as Dictionary).has("hotkey"),
 		"the pose test variant action has no hotkey")
+	check(debug_doc.contains("Pose: face-sit"),
+		"docs/debug.md lists the pose face-sit action")
+	check(DEBUG_ACTIONS.ACTIONS.has("facesit_variant")
+		and not (DEBUG_ACTIONS.ACTIONS["facesit_variant"] as Dictionary).has("hotkey"),
+		"the pose face-sit action has no hotkey")
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(agents.contains("`poses/service.gd`"), "docs/README.md names poses/service.gd")
 	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",
 			"test_pose_asset_v7.gd", "test_pose_bake.gd", "test_pose_rig.gd", "test_pose_scale.gd",
 			"test_rotation.gd", "test_stretch.gd", "test_pose_spec.gd", "test_pose_registry.gd",
 			"test_pose_view.gd", "test_pose_state.gd", "test_pose_edge.gd", "test_pose_blend.gd",
-			"test_modifier_profile.gd"]:
+			"test_modifier_profile.gd", "test_face_contact.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
 			"tests/poses/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))

@@ -148,6 +148,12 @@ neither chunk: the `IDLE` path returns before both.
 The runtime also prints one-shot `tail perf attach`/`tail perf refresh` lines and a
 once-per-second `tail perf seats=… skinned=… builds=…/s` line when the probe is on.
 
+The bed face-sit edge adds the same two-asset base/Anon blend as the oral pair and a face driver
+that reads one anchor and eases a frame-space vector per tick; it allocates nothing in the steady
+tick. A face-sit perf pass compares a steady missionary window, a steady face-sit window and one
+window that loops the forward/reverse edge; the edge is bounded by its 1.6 s / 1.2 s durations.
+The face-sit lab is unavailable in this session, so no face-sit perf numbers are claimed.
+
 The standing family now pays the render-time pose write as well: `render_write()` runs
 `sync_stretch()`, `sync_ground_frame()` and `apply_render()` after every physics and process writer,
 the same order as the bed family. In a standing lab, compare `runtime_process` and `pose_recipe` at

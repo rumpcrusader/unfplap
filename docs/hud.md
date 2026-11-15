@@ -84,6 +84,8 @@ caress. An unlimited limit uses the 3-climax reference.
   space.
 - The control card stays at full opacity while Anon leans or leans in for a kiss and returns after
   it; the cue and readiness readouts stay at full opacity.
+- The pose title is the spec's `presentation.hud_label`; the internal bed face-sit says `Face-sit`
+  with the same missionary presentation profile.
 - Afterglow shows `❤ N/limit | close hint` instead of `Wants`/`You`. Missionary keeps only the
   act-key row; standing keeps lean, reach, caress, caress movement, kiss and the act-key row;
   thrust, auto and smack are hidden.

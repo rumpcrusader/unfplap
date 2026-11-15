@@ -411,6 +411,28 @@ func run() -> void:
 	runtime._thrust_move(0.4, 0.2)
 	check(audio.withdraws > oral_withdraws, "the regular withdrawal slide is unchanged")
 
+	# The bed face-sit contact uses the same quiet branch: no plap, no rump/tail jiggle, no
+	# withdrawal cue; the wings and the vocal stay.
+	var face_thrusts := reactions.thrusts
+	var face_tails := reactions.tails
+	var face_wings := wings.thrusts
+	var face_vocal := vocal.plays
+	view.contact_kind = "face"
+	runtime._vocal_cooldown = 0.0
+	runtime._on_impact(_impact())
+	check(audio.impacts.size() == 3 and not bool(audio.impacts[2]["plap"]),
+		"a face-sit impact drops the plap")
+	check(reactions.thrusts == face_thrusts and reactions.tails == face_tails,
+		"a face-sit impact skips the rump and tail jiggle")
+	check(wings.thrusts == face_wings + 1 and vocal.plays == face_vocal + 1,
+		"a face-sit impact keeps the wings and the vocal")
+	var face_withdraws := audio.withdraws
+	runtime._thrust_move(-0.4, 0.3)
+	check(audio.withdraws == face_withdraws, "a face-sit withdraw plays no withdrawal cue")
+	view.contact_kind = "opening"
+	runtime._thrust_move(0.4, 0.4)
+	check(audio.withdraws > face_withdraws, "the regular withdrawal cue returns after the face-sit")
+
 	root.remove_child(runtime)
 	runtime.free()
 	root.remove_child(director)

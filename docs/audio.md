@@ -50,6 +50,8 @@ The runtime keeps the call sites, the director/vocal prepare and the feature sna
 - The impact profile follows the pose view's `audio.impact`, cached by `pose_changed(view)`:
   `missionary` keeps the bed/fabric layer; `standing`, `standing_test` and `standing_oral` play
   none. The oral edge's `audio` switch is the speech profile, not a second impact or bed profile.
+  The bed face-sit keeps the `missionary` impact profile; the runtime's face contact suppresses the
+  plap, the rump/tail jiggle and the withdraw cue while the slide, vocal, wings and bed layer stay.
   `begin()` clears the cache and the first fan-out of the act fills it, so the impact and withdraw
   calls no longer take the act's start `pose_id`.
 - The body slap is decided from two physical facts. `play_impact` receives the impact tier

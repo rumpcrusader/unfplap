@@ -45,7 +45,7 @@ This contract covers:
 | `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
 | `hands/paths/standing.gd` | standing path: marked area chain, procedural flank/rump fallback |
 | `hands/paths/oral.gd` | standing oral path: one authored head-side node per hand, mare-PoV lookup flipped for Anon |
-| `hands/paths/missionary.gd` | missionary path: authored one/two and reach filtering |
+| `hands/paths/missionary.gd` | missionary and bed face-sit path: authored one/two and reach filtering |
 | `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, marked area chains, single area nodes, act-camera anchors, rest fallback |
 | `hands/surface.gd` | stable posed body/head patch, local caress window and coat queries |
 | `hands/palm.gd` | single-point palm frame: basis, placement and normal turn |
@@ -86,7 +86,8 @@ smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
 The hands' `pose_changed(view)` hook retargets the contact path: it caches `view.hands.path` and
 `view.contact_kind`; a path change ends the live caress holds but keeps the controller, and a
 contact switch (opening -> mouth) keeps them so the oral blend captures the hand frames on the next
-tick. The standing ↔ oral path change is the one exception: the pair is one contact-driven path, so
+tick. The bed face-sit reuses `hands.path = "missionary"`; a four-size reach failure is a focused
+path fix, never a pose-id branch. The standing ↔ oral path change is the one exception: the pair is one contact-driven path, so
 the holds survive the request and the mouth switch does the retarget. A path change to or from
 missionary still ends them. `tests/hands/test_caress.gd` and `tests/hands/test_actions.gd` pin both
 seams.

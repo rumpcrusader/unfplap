@@ -58,6 +58,7 @@ func run() -> void:
 	_check_coercion()
 	_check_sections()
 	_check_groups()
+	_check_general_tail()
 	_check_panels()
 	_check_pose_tab_visibility()
 	_check_anatomy_gate()
@@ -106,19 +107,39 @@ func _check_registry() -> void:
 	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.POSES, SETTINGS.WORLD,
 			SETTINGS.INTEGRATIONS]:
 		check(int(tabs.get(tab, 0)) > 0, "%s tab has settings" % tab)
-	# The Poses tab is exactly the presentation blocks; features flags and the climax face stay in
-	# General even when their group name is Missionary or Standing.
+	# Poses holds every pose row: the two player switches at the top and the debug tuning blocks.
+	# A feature flag that belongs to a pose section follows that section into Poses.
 	for setting: Variant in all:
 		var path := str(setting.path)
 		var pose_row := path.begins_with("presentation.missionary.") \
 			or path.begins_with("presentation.standing.")
-		check((str(setting.tab) == SETTINGS.POSES) == pose_row,
-			"%s follows the Poses tab split" % path)
 		if pose_row:
+			check(str(setting.tab) == SETTINGS.POSES, "%s is a Poses row" % path)
 			check(bool(setting.debug), "%s is debug-only in Poses" % path)
 		elif path.begins_with("features.") and (str(setting.group) == "Missionary"
 				or str(setting.group).begins_with("Standing")):
-			check(str(setting.tab) == SETTINGS.GENERAL, "%s stays in General" % path)
+			check(str(setting.tab) == SETTINGS.POSES,
+				"%s follows its pose section to Poses" % path)
+	var pose_players: Array[String] = []
+	for setting: Variant in SETTINGS.tab_settings(SETTINGS.POSES):
+		if not bool(setting.debug) and not bool(setting.hidden):
+			pose_players.append(str(setting.name))
+	check(pose_players == ["anatomy_oral", "anatomy_holes"],
+		"the Poses player rows are Enable Oral and Enable Anal")
+	check(str(SETTINGS.anatomy_oral.label) == "Enable Oral"
+		and str(SETTINGS.anatomy_holes.label) == "Enable Anal",
+		"the two pose switches are labelled for the player")
+	# Auto Thrust is a player section, not part of the Debug block.
+	for name: String in ["min_depth", "max_depth", "pace", "curve"]:
+		var row: Variant = SETTINGS.by_name(name)
+		check(row != null and str(row.tab) == SETTINGS.GENERAL
+			and str(row.group) == "Auto Thrust" and not bool(row.debug),
+			"%s is a player row in the Auto Thrust section" % name)
+	check(str(SETTINGS.max_depth.label) == "Auto max depth",
+		"the auto peak depth reads Auto max depth")
+	check(str(SETTINGS.act_input_shield.label) == "Block other mods' hotkeys during act",
+		"the act input shield names the hotkeys it blocks")
+	check(str(SETTINGS.debug_mode.help).is_empty(), "Enable debug carries no hint")
 	var climax: Variant = SETTINGS.by_path("presentation.act.climax_mode")
 	check(climax != null and str(climax.tab) == SETTINGS.GENERAL,
 		"the climax face stays in General")
@@ -774,15 +795,12 @@ func _check_sections() -> void:
 
 ## A group needs at least three related settings. Fewer, and the setting belongs directly in the
 ## tab (or its Debug block) with no heading; a subgroup that small merges into its parent. A pose
-## feature flag left in General keeps its old pose group even when that section is then under
-## three; see docs/settings.md.
+## feature flag moved to Poses keeps its pose section; see docs/settings.md.
 func _check_groups() -> void:
 	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.POSES, SETTINGS.WORLD]:
 		for debug: bool in [false, true]:
 			var sections := {}
 			var subs := {}
-			var section_rows := {}
-			var sub_rows := {}
 			for setting: Variant in SETTINGS.tab_settings(tab):
 				if bool(setting.hidden) or bool(setting.debug) != debug:
 					continue
@@ -792,20 +810,14 @@ func _check_groups() -> void:
 				var parts := group.split("›", true, 1)
 				var top := parts[0].strip_edges()
 				sections[top] = int(sections.get(top, 0)) + 1
-				if not section_rows.has(top):
-					section_rows[top] = []
-				(section_rows[top] as Array).append(setting)
 				if parts.size() > 1:
 					subs[group] = int(subs.get(group, 0)) + 1
-					if not sub_rows.has(group):
-						sub_rows[group] = []
-					(sub_rows[group] as Array).append(setting)
 			for name: String in sections:
-				check(int(sections[name]) >= 3 or _pose_feature_section(tab, section_rows[name]),
+				check(int(sections[name]) >= 3,
 					"%s %s section %s has at least 3 settings (%d)" % [
 						tab, "debug" if debug else "player", name, int(sections[name])])
 			for name: String in subs:
-				check(int(subs[name]) >= 3 or _pose_feature_section(tab, sub_rows[name]),
+				check(int(subs[name]) >= 3,
 					"%s %s subgroup %s has at least 3 settings (%d)" % [
 						tab, "debug" if debug else "player", name, int(subs[name])])
 	var path_id := SETTINGS.by_name("path_id")
@@ -813,19 +825,21 @@ func _check_groups() -> void:
 		"the missionary caress path folds into the Missionary section")
 
 
-## A pose feature flag stays in General when its presentation rows move to Poses, even when its
-## old section is then under three rows. The group keeps the flag's context; see docs/settings.md.
-func _pose_feature_section(tab: String, rows: Array) -> bool:
-	if tab != SETTINGS.GENERAL or rows.is_empty():
-		return false
-	for raw: Variant in rows:
-		var setting := raw as SETTINGS.Setting
-		if setting == null or not str(setting.path).begins_with("features."):
-			return false
-		var group := str(setting.group)
-		if group != "Missionary" and not group.begins_with("Standing"):
-			return false
-	return true
+## Enable debug is the last player row of General: it governs the Debug block every section ends
+## with, so it is drawn under the sections rather than at the top of the tab.
+func _check_general_tail() -> void:
+	var list := VBoxContainer.new()
+	root.add_child(list)
+	SETTINGS_UI.build(list, SETTINGS.GENERAL, 16, null, Callable())
+	var labels: Array = []
+	_collect_labels(list, labels)
+	var thrust := labels.find("Auto Thrust")
+	var largest := labels.find("Auto max depth")
+	var debug := labels.find("Enable debug")
+	check(thrust >= 0 and largest >= 0, "General draws the Auto Thrust section")
+	check(debug > thrust and debug > largest,
+		"Enable debug is drawn after the Auto Thrust section")
+	list.free()
 
 
 ## The panel draws every declaration in its tab, and the Debug block follows debug mode.
@@ -869,16 +883,16 @@ func _check_anatomy_gate() -> void:
 	list.free()
 
 
-## The Poses tab is injected after Anatomy and only exists while debug mode is on. A TabContainer
-## keeps an invisible child's title, so the title itself is hidden, not only the page.
+## The Poses tab is always in the bar, injected after Anatomy. Only its Debug block follows debug
+## mode; the two pose switches must stay reachable with debug off.
 func _check_pose_tab_visibility() -> void:
 	var before := SETTINGS.debug_mode.get_bool()
-	SETTINGS_UI._debug_tabs.clear()
 	var tabs := TabContainer.new()
 	root.add_child(tabs)
 	SETTINGS_UI._settings_tab_list("General", tabs)
 	SETTINGS_UI._settings_tab_list("Anatomy", tabs)
-	var poses_list := SETTINGS_UI._settings_tab_list("Poses", tabs, true)
+	var poses_list := SETTINGS_UI._settings_tab_list("Poses", tabs)
+	SETTINGS_UI.build(poses_list, SETTINGS.POSES, 16, null, Callable())
 	SETTINGS_UI._settings_tab_list("World", tabs)
 	var poses := poses_list.get_parent().get_parent() as ScrollContainer
 	check(poses != null, "the Poses tab has its scroll page")
@@ -886,29 +900,19 @@ func _check_pose_tab_visibility() -> void:
 		var index := poses.get_index()
 		check(index == 2, "the Poses tab sits after Anatomy")
 		SETTINGS.debug_mode.set_bool(false)
-		SETTINGS_UI._refresh_debug_tabs(false)
-		check(tabs.is_tab_hidden(index), "the Poses title is hidden with debug off")
-		check(not poses.visible, "the Poses page is hidden with debug off")
-		check(tabs.current_tab == 0, "the bar falls back to General with debug off")
-		SETTINGS.debug_mode.set_bool(true)
-		SETTINGS_UI._refresh_debug_tabs(true)
-		check(not tabs.is_tab_hidden(index), "the Poses title returns with debug on")
-		check(poses.visible, "the Poses page returns with debug on")
-		check(tabs.current_tab == 0, "showing Poses keeps the current tab")
+		SETTINGS_UI.refresh_debug_visibility()
+		check(not tabs.is_tab_hidden(index), "the Poses title stays with debug off")
+		check(tabs.current_tab == 0, "the bar starts on General")
 		tabs.current_tab = index
-		check(tabs.current_tab == index, "the Poses tab can be selected")
-		SETTINGS.debug_mode.set_bool(false)
-		SETTINGS_UI._refresh_debug_tabs(false)
-		check(tabs.is_tab_hidden(index), "the selected Poses title hides with debug off")
-		check(tabs.current_tab == 0, "hiding the current Poses tab returns to General")
-		SETTINGS.debug_mode.set_bool(true)
-		SETTINGS_UI._refresh_debug_tabs(true)
-		check(not tabs.is_tab_hidden(index) and poses.visible,
-			"Poses returns after the fallback")
-		check(tabs.current_tab == 0, "the bar stays on General after Poses returns")
-	SETTINGS.debug_mode.set_bool(before)
-	SETTINGS_UI._refresh_debug_tabs(SETTINGS.debug_mode.get_bool())
-	SETTINGS_UI._debug_tabs.clear()
+		check(tabs.current_tab == index, "the Poses tab can be selected with debug off")
+		check(tabs.get_current_tab_control() == poses,
+			"the Poses page is the selected page with debug off")
+		var labels: Array = []
+		_collect_labels(poses_list, labels)
+		check(labels.has("Enable Oral") and labels.has("Enable Anal"),
+			"the pose switches draw without debug mode")
+		SETTINGS.debug_mode.set_bool(before)
+		SETTINGS_UI.refresh_debug_visibility()
 	tabs.free()
 
 

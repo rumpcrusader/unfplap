@@ -71,6 +71,9 @@ quick    mean duration < 0.30 s
 steady   otherwise
 ```
 
+The form's three pattern pills read **Teasing**, **Steady**, **Quick**, in that order. The order is
+display only; validation and the `steady` default do not depend on it.
+
 ## Touch and talk classification
 
 | Action | Event |
@@ -89,12 +92,13 @@ phrasing, and keep `talk` empty for mares who should not score it.
 
 ## Settings editor
 
-The **Characters** tab exposes one name-filtered pony selector, a **Save preset** button and a
-**Reset to default** button in one row under the selector, and one form. The selector lists the
-103 base-game mares first, then any live adult mare from another mod under **Other mares**; an
-off-roster mare uses her registered provider template and placement when one exists
-(`docs/api.md`), otherwise the global default profile and placement, until a preset or per-mare
-override is saved.
+The **Characters** tab exposes one in-page pony selector with its own search, a **Save preset**
+button and a **Reset to default** button in one row under the selector, and one form. The selector
+is the game's `world/ui/menu_picker.gd` dropdown: it unfolds inside the page and scrolls there, so
+its list never runs past the settings window. It lists the 103 base-game mares first, then any live
+adult mare from another mod under an **Other mares** header; an off-roster mare uses her registered
+provider template and placement when one exists (`docs/api.md`), otherwise the global default
+profile and placement, until a preset or per-mare override is saved.
 
 The form holds:
 

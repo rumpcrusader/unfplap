@@ -4,8 +4,9 @@ This is the contract for the act's pose system: the pose document and its static
 the live session state machine, the authored edges and their per-channel tracks, the v7 authored
 assets and their placement, the per-pose settings and the post-act posture. The act camera and shot
 are `docs/camera.md`; the anatomy part is `docs/anatomy.md`;
-the caress paths and palm holders are `docs/hands.md`. The pose tuning rows are in the debug-only
-**Poses** settings tab; see `docs/settings.md`.
+the caress paths and palm holders are `docs/hands.md`. The pose tuning rows are the **Poses**
+settings tab's Debug block; its two player rows are **Enable Oral** and **Enable Anal**; see
+`docs/settings.md`.
 
 ## Ownership
 

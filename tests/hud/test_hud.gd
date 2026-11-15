@@ -45,6 +45,7 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	_check_style()
+	_check_anatomy_rows()
 	_check_controls()
 	print("HUD_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -85,6 +86,29 @@ func _check_style() -> void:
 		"the prompt cap matches the game icon height")
 	var capped_text := capped.get_child(1) as Label
 	check(capped_text != null and capped_text.text == "Make love", "the capped row keeps its words")
+
+
+func _check_anatomy_rows() -> void:
+	var hud: CanvasLayer = HUD.new()
+	root.add_child(hud)
+	var rows: Dictionary = hud.get("_control_rows")
+	var hole := rows.get("anatomy_hole") as Control
+	var oral := rows.get("anatomy_oral") as Control
+	check(hole != null and oral != null, "the control card builds the anatomy rows")
+	var view := _view()
+	hud.call("update_from", view)
+	check(hole != null and not hole.visible, "the anal row hides with Enable Anal off")
+	check(oral != null and not oral.visible, "the oral row hides with Enable Oral off")
+	view.hole_ready = true
+	view.oral_ready = true
+	hud.call("update_from", view)
+	check(hole != null and hole.visible, "the anal row shows while Enable Anal is on")
+	check(oral != null and oral.visible, "the oral row shows while Enable Oral is on")
+	view.state = 4
+	hud.call("update_from", view)
+	check(hole != null and not hole.visible and oral != null and not oral.visible,
+		"afterglow hides both anatomy rows")
+	hud.queue_free()
 
 
 func _check_controls() -> void:

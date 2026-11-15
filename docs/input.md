@@ -83,7 +83,7 @@ settings. It does not store runtime state.
   `settings.json` and `main._apply_settings_changed()` rebuilds the action.
 - `Y` is not special in the setting: it can be captured, but it is the bundled Dance Mod's key, so
   the mod shows its one-time notice when the act key is not `Y`.
-- `act_input_shield` (General, **Block other mods' keys**, no hint, on by default): the act input
+- `act_input_shield` (General, **Block other mods' hotkeys during act**, no hint, on by default): the act input
   shield. `apply_settings()` caches it; the mechanism and its HACK note are below.
 
 The game's own **Settings → Controls** page is not used. Its `Settings.BINDABLE` and `Settings.TABS`

@@ -9,7 +9,8 @@ extends RefCounted
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 
 const INTENSITIES := ["soft", "firm", "rough"]
-const PATTERNS := ["steady", "teasing", "quick"]
+## The pattern pills in display order. Validation and the `steady` default are order-independent.
+const PATTERNS := ["teasing", "steady", "quick"]
 const TOUCHES := ["smack", "caress", "kiss"]
 const TALKS := ["praise", "reassurance", "dirty", "playful"]
 const WARMTHS := ["quick", "normal", "slow"]

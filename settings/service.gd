@@ -2,7 +2,7 @@ extends RefCounted
 ## The one settings module: every global setting, the settings file, and the per-mare profiles.
 ##
 ##   const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-##   if SETTINGS.act_climax.get_bool(): ...
+##   if SETTINGS.hud_readouts.get_bool(): ...
 ##   SETTINGS.smack_raise.set(0.25)
 ##
 ## Every setting is declared once in the declarations block below: name, JSON path, label, help,
@@ -82,10 +82,10 @@ const CHARACTER_NAMES := CHARACTERS.NAMES
 ## Cross-mod provider layers; see docs/api.md. Provider data is in memory only.
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
-## Tabs, in panel order. Poses holds the `presentation.missionary.*` and
-## `presentation.standing.*` tuning rows and is injected only while debug mode is on. Characters
-## is the hand-built per-mare form; Integrations is the catalog-driven supported-mod list whose
-## switches are ordinary declarations.
+## Tabs, in panel order. Poses holds the pose family switches plus the `presentation.missionary.*`
+## and `presentation.standing.*` tuning rows; the tuning rows stay behind debug mode, the pose
+## switches do not. Characters is the hand-built per-mare form; Integrations is the catalog-driven
+## supported-mod list whose switches are ordinary declarations.
 const GENERAL := "general"
 const ANATOMY := "anatomy"
 const POSES := "poses"
@@ -95,7 +95,7 @@ const INTEGRATIONS := "integrations"
 
 # ---------------------------------------------------------------- settings
 ## One setting, declared once below. Call sites use the typed accessor on the named setting:
-## `SETTINGS.act_climax.get_bool()`; the JSON path appears only in the declaration.
+## `SETTINGS.hud_readouts.get_bool()`; the JSON path appears only in the declaration.
 class Setting:
 	var name: String
 	var path: String
@@ -802,17 +802,34 @@ static var orientation := choice("orientation", "thrust.orientation", ["up", "do
 static var standing_stool := flag("standing_stool", "features.standing_stool",
 	"Enable footstool",
 	"A mare much taller than Anon needs a footstool for the standing act. Find one in a house or buy one at the shop.", GENERAL, "")
-static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes",
-	"Enable hole switch",
-	"Let V switch between the front and the anal cup.", GENERAL, "")
-static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", "Enable oral sex",
-	"Let N turn her round for oral in the standing pose. (buggy)", GENERAL, "")
 static var anatomy_finish := flag("anatomy_finish", "features.anatomy_finish",
 	"Allow finish control", "Let B choose whether Anon finishes inside or pulls out.", GENERAL, "")
 static var act_input_shield := flag("act_input_shield", "features.act_input_shield",
-	"Block other mods' keys", "", GENERAL, "")
-static var debug_mode := flag("debug_mode", "debug_mode", "Enable debug",
-	"Enable the Debug section at the bottom of every tab and print the mod's diagnostics. Disabling it keeps the other settings as they are.", GENERAL, "")
+	"Block other mods' hotkeys during act", "", GENERAL, "")
+static var debug_mode := flag("debug_mode", "debug_mode", "Enable debug", "", GENERAL, "")
+
+# -- Auto Thrust
+## The auto-thrust defaults the act's X layer edits live. They are player settings: the band and
+## the pace are what the act starts with, and the X layer's own reads clamp them the same way.
+static var max_depth := num("max_depth", "auto_thrust.max_depth", "Auto max depth",
+	"Starting auto-thrust peak depth. Mouse up/down sets it during an act.",
+	GENERAL, "Auto Thrust") \
+	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.2, 1.0)
+static var min_depth := num("min_depth", "auto_thrust.min_depth", "Auto min depth",
+	"Starting auto-thrust bottom depth. Hold X then Q/A sets it during an act; the band stays at "
+	+ "least 18 % wide so every stroke still counts.", GENERAL, "Auto Thrust") \
+	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.0, 0.82)
+static var pace := num("pace", "auto_thrust.pace", "Auto pace",
+	"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
+	GENERAL, "Auto Thrust") \
+	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75)
+static var curve := choice("curve", "auto_thrust.curve",
+	["cosine", "thrust", "tease", "saw", "hold"],
+	["Normal", "Thrust", "Tease", "Saw", "Hold"],
+	"Auto shape",
+	"Shape of every automatic stroke. Normal is the symmetric ease; Thrust drives in fast and out "
+	+ "slow, Tease the other way; Saw has no easing; Hold pauses at full depth.",
+	GENERAL, "Auto Thrust")
 
 # -- (ungrouped)  (debug)
 static var debug_perf := flag("debug_perf", "debug_perf", "Print perf logs",
@@ -836,24 +853,6 @@ static var blush_arc := flag("blush_arc", "features.blush_arc", "Ramp act blush"
 static var face_debug := flag("face_debug", "features.face_debug", "Print face changes",
 	"Print every act face change, the climax quality score and the blush/fluster values. Requires Enable debug.",
 	GENERAL, "Act face").as_debug()
-static var max_depth := num("max_depth", "auto_thrust.max_depth", "Auto depth",
-	"Starting auto-thrust peak depth. Mouse up/down sets it during an act.", GENERAL, "") \
-	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.2, 1.0).as_debug()
-static var min_depth := num("min_depth", "auto_thrust.min_depth", "Auto min depth",
-	"Starting auto-thrust bottom depth. Hold X then Q/A sets it during an act; the band stays at "
-	+ "least 18 % wide so every stroke still counts.", GENERAL, "") \
-	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.0, 0.82).as_debug()
-static var pace := num("pace", "auto_thrust.pace", "Auto pace",
-	"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
-	GENERAL, "") \
-	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75).as_debug()
-static var curve := choice("curve", "auto_thrust.curve",
-	["cosine", "thrust", "tease", "saw", "hold"],
-	["Normal", "Thrust", "Tease", "Saw", "Hold"],
-	"Auto shape",
-	"Shape of every automatic stroke. Normal is the symmetric ease; Thrust drives in fast and out "
-	+ "slow, Tease the other way; Saw has no easing; Hold pauses at full depth.", GENERAL, "") \
-	.as_debug()
 static var travel := num("travel", "thrust.travel", "Hip back-off",
 	"How far the hips retreat between thrusts.", GENERAL, "") \
 	.with_unit("\u00d7").with_step(0.05).with_range(0.25, 2.0).as_debug()
@@ -875,7 +874,7 @@ static var caress_debug := flag("caress_debug", "features.caress_debug",
 static var caress_reach_shoulder_m := num("caress_reach_shoulder_m",
 	"features.caress_reach_shoulder_m", "Missionary reach shoulder",
 	"Maximum shoulder shift used to reach a caress target in missionary. 0 keeps the shoulder fixed; the path stops at the reachable point either way.",
-	GENERAL, "Caress").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
+	POSES, "Missionary").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
 static var hover_m := num("hover_m", "caress.hover_m", "Palm hover",
 	"Palm-centre distance from her coat in both poses, in centimetres. Positive raises it, negative presses it into the coat.",
 	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
@@ -977,10 +976,18 @@ static var touch_cooldown_seconds := num("touch_cooldown_seconds",
 	"Minimum time between touch readiness chunks.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.1).as_debug()
 
+# -- Pose switches
+## The two pose-family switches. They are player rows at the top of the Poses tab; the act reads
+## them from its feature snapshot and the controls HUD hides a row whose switch is off.
+static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", "Enable Oral",
+	"Let N turn her round for oral in the standing pose. (buggy)", POSES, "")
+static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", "Enable Anal",
+	"Let V switch between the front and the anal cup.", POSES, "")
+
 # -- Missionary  (debug)
 static var missionary_body_motion := flag("missionary_body_motion",
 	"features.missionary_body_motion", "Missionary body motion",
-	"Slide her body along the bed and nod her head on the thrust.", GENERAL, "Missionary") \
+	"Slide her body along the bed and nod her head on the thrust.", POSES, "Missionary") \
 	.as_debug()
 static var anon_size_match := num("anon_size_match",
 	"presentation.missionary.anon_size_match",
@@ -1200,10 +1207,10 @@ static var yaw_deg := num("yaw_deg", "presentation.standing.tail.yaw_deg",
 static var standing_body_sway := flag("standing_body_sway", "features.standing_body_sway",
 	"Sway her body",
 	"Move her body with the thrust while the hooves stay planted; Anon's hips follow so the contact rocks with her.",
-	GENERAL, "Standing › Motion") \
+	POSES, "Standing › Motion") \
 	.as_debug()
 static var thrust_ear_twitch := flag("thrust_ear_twitch", "features.thrust_ear_twitch",
-	"Twitch her ears", "Flick both ears on some thrusts.", GENERAL, "Standing › Motion") \
+	"Twitch her ears", "Flick both ears on some thrusts.", POSES, "Standing › Motion") \
 	.as_debug()
 static var camera_forward_m := num("camera_forward_m", "presentation.standing.camera_forward_m", "Camera forward",
 	"Slide Anon's view forward relative to his chest so his own body sits behind the camera.",

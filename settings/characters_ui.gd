@@ -11,6 +11,13 @@ const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
+## The game's in-page dropdown (`world/ui/menu_picker.gd`). An OptionButton's popup is a bare
+## desktop window and cannot be reached in a headset; its list also runs past the settings window.
+const PICKER := preload("res://world/ui/menu_picker.gd")
+## Height cap of the unfolded pony list; the page scrolls the rest.
+const PICKER_LIST_HEIGHT := 260.0
+## The picker groups its entries on a "group/name" text, so off-roster mares share one header.
+const OTHER_MARES := "Other mares"
 
 ## The tri-state preference row: one pill per state.
 const PREFERENCE_STATES: Array[String] = ["dislike", "none", "like"]
@@ -32,13 +39,10 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 	var intro := STYLE.label("Saved preset changes apply live during an act.", "Faint", font_size - 5)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(intro)
-	var filter := LineEdit.new()
-	filter.placeholder_text = "Find a pony"
-	filter.clear_button_enabled = true
-	filter.add_theme_font_size_override("font_size", font_size - 2)
-	stack.add_child(filter)
-	var selector := OptionButton.new()
-	selector.add_theme_font_size_override("font_size", font_size - 2)
+	var selector: Control = PICKER.new()
+	selector.placeholder = "Choose a pony"
+	selector.font_size = font_size - 2
+	selector.list_height = PICKER_LIST_HEIGHT
 	stack.add_child(selector)
 	var last_id := ""
 
@@ -132,7 +136,8 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 	refs.merge(participation_buttons)
 	selector.item_selected.connect(func(index: int) -> void:
 		last_id = str(selector.get_item_metadata(index))
-		_refresh_preference_form(refs))
+		_refresh_preference_form(refs)
+		_show_selector_name(selector))
 	for pills: HBoxContainer in [intensity, pattern, warmth, tolerance]:
 		for pill: Node in pills.get_children():
 			(pill as Button).pressed.connect(_choose_preference_pill.bind(
@@ -152,53 +157,53 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 	notes.focus_exited.connect(func() -> void: _mark_preference_dirty(refs))
 	save.pressed.connect(func() -> void: _save_preference_form(refs))
 	reset.pressed.connect(func() -> void: _reset_preference_form(refs))
-	var fill_selector := func(query: String) -> void:
+	var fill_selector := func() -> void:
 		var current := _selected_preference_id(refs)
 		if current.is_empty():
 			current = last_id
 		selector.clear()
-		var matches := func(id: String) -> bool:
-			var display := SETTINGS.character_name(id)
-			return query.is_empty() or display.to_lower().contains(query) or id.contains(query)
 		for id: String in SETTINGS.CHARACTER_ORDER:
-			if matches.call(id):
-				_add_character_selector_item(selector, id, current)
-		var others: Array[String] = []
+			_add_character_selector_item(selector, id, current)
 		var live := refs["live_character_ids"] as Callable
 		if live.is_valid():
 			var ids: Variant = live.call()
 			if ids is Array:
 				for raw: Variant in ids:
-					var id := str(raw)
-					if matches.call(id):
-						others.append(id)
-		if not others.is_empty():
-			selector.add_separator("Other mares")
-			for id: String in others:
-				_add_character_selector_item(selector, id, current)
-		if selector.selected < 0:
-			for index in selector.get_item_count():
-				if not selector.is_item_separator(index):
-					selector.select(index)
-					break
-		if selector.get_item_count() == 0:
+					_add_character_selector_item(selector, str(raw), current, OTHER_MARES)
+		if selector.selected < 0 and selector.item_count > 0:
+			selector.select(0)
+		if selector.item_count == 0:
 			if status is Label:
-				(status as Label).text = "No pony matches that name."
+				(status as Label).text = "No pony is available."
 			_update_preference_reset(refs)
 		else:
 			_refresh_preference_form(refs)
-	filter.text_changed.connect(func(text: String) -> void:
-		fill_selector.call(text.to_lower().strip_edges()))
-	fill_selector.call("")
+	fill_selector.call()
 
 
-## One selector row. The metadata carries the stable pony id, so an off-roster mare can be edited
-## with the same form as a base-game mare.
-static func _add_character_selector_item(selector: OptionButton, id: String, current: String) -> void:
-	selector.add_item(SETTINGS.character_name(id))
-	selector.set_item_metadata(selector.get_item_count() - 1, id)
+## One selector entry. The metadata carries the stable pony id, so an off-roster mare can be edited
+## with the same form as a base-game mare. `group` becomes the picker's section header; the row
+## itself still shows only her name.
+static func _add_character_selector_item(selector: Control, id: String, current: String,
+		group := "") -> void:
+	var display := SETTINGS.character_name(id)
+	selector.add_item(display if group.is_empty() else "%s/%s" % [group, display])
+	var index := int(selector.item_count) - 1
+	selector.set_item_metadata(index, id)
 	if id == current:
-		selector.select(selector.get_item_count() - 1)
+		selector.select(index)
+		_show_selector_name(selector)
+
+
+## The picker's head shows the whole entry text, which carries the group prefix. Put the plain
+## pony name back on the closed row.
+static func _show_selector_name(selector: Control) -> void:
+	var index := int(selector.selected)
+	if index < 0:
+		return
+	var text := str(selector.get_item_text(index))
+	var named := text.get_slice("/", 1) if text.contains("/") else text
+	(selector.head() as Button).text = named
 
 
 ## A form row's name, in the same type as a setting row's name. It takes the row's spare width so
@@ -298,9 +303,13 @@ static func _set_preference_actions(control: Variant, likes: Variant, values: Ar
 
 static func _selected_preference_id(refs: Dictionary) -> String:
 	var selector: Variant = refs.get("selector")
-	if not selector is OptionButton or (selector as OptionButton).selected < 0:
+	if not selector is Control:
 		return ""
-	return str((selector as OptionButton).get_item_metadata((selector as OptionButton).selected))
+	var picker := selector as Control
+	var index := int(picker.selected)
+	if index < 0:
+		return ""
+	return str(picker.get_item_metadata(index))
 
 
 static func _refresh_preference_form(refs: Dictionary) -> void:

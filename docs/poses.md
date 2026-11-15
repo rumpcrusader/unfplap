@@ -64,6 +64,37 @@ and the `support` height), the armature `root`, the body bone deltas, and option
   body_scale)` placement. It is read for one release and is refused for a ground pose; nothing new
   is authored in it.
 
+## Authoring and the bake
+
+`tools/pose_lab.gd` is the authoring scene. `pose_id` derives the shipped `poses/<id>_pose.json`
+path, `frame_kind` selects a bed or ground pose, and `anon_mode` selects whether the Anon act body
+is exported. Ground mode adds a floor and a `Contact` marker, hides the bed and the shot nodes and
+derives the frame from the pony root. **Save pose** exports the hand-posed scene as v7;
+**Bake v7** applies the reference recipe at the effective reference config and writes the standing
+asset; **Compare baked vs recipe** prints the worst joint error. A preview other than 1.0 refuses
+to save.
+
+`tools/pose_export.gd` is the command-line twin: it round-trips the shipped asset, runs the moved
+bed-frame apply and the four-size body check, and prints PASS/FAIL. `--out <path>` writes a scratch
+asset and `--check` leaves the shipped file alone.
+
+`tools/pose_bake.gd` is the standing bake. `capture_pose()` records the current pose as a v7
+document, `capture_asset()` applies `apply_reference()` at the reference config first,
+`write_asset()` writes the deterministic JSON (test and fixture paths are refused), and
+`compare()` applies the baked asset and reports the worst error against the recipe.
+
+- The bake input is the game's **settled standing reference**: the 30 local poses, the frame, the
+  size and the rig captured by the session at `begin()` for a ground pose. The Debug **Bake standing
+  base** action writes it to `user://unfplap/standing_reference.json`; the developer copies that
+  file to `tests/poses/fixtures/standing_reference.json`. The fixture is test data, not a runtime
+  asset; the loader never reads it.
+- Without a live capture, the bake tool falls back to a **provisional** reference built from the
+  `body.glb` rest pose plus `apply_reference()` and prints `[pose_bake] PROVISIONAL reference=rest`.
+  A provisional asset is not the final stance; replace the fixture with a live capture and re-run
+  `--write`/`--check`.
+- `--write` writes `poses/standing_pose.json`; `--check` re-bakes in memory and fails when the
+  checked-in asset is stale. Both the fixture and the asset are tracked.
+
 ## Typed view
 
 The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/standing_anon.gd`,
@@ -828,6 +859,9 @@ unchanged.
 - `tests/poses/test_pose_asset_v7.gd` — the v7 schema and its refusals, `local_rest` bone math, the
   anchor/contact placement at four sizes, variants and the spec `asset` resolution; the v6 fixture
   and the v6 ground refusal.
+- `tests/poses/test_pose_bake.gd` — the bake capture/compare math on a synthetic rig, the
+  deterministic writer and its fixture-path refusal; the shipped asset freshness and four-size
+  parity once it exists.
 - `tests/poses/test_body_sway.gd` — the regular depth sway, the zeroed oral hold and the release.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — uniform scale and rest-scale ownership.

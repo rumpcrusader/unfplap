@@ -121,6 +121,45 @@ static func reload_file(path := PATH) -> String:
 func load_file(path_in := PATH) -> String:
 	revision += 1
 	path = path_in
+	_reset()
+	if not FileAccess.file_exists(path):
+		error = "no pose at %s" % path
+		return error
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not parsed is Dictionary:
+		error = "bad JSON in %s" % path
+		return error
+	return _parse_data(parsed as Dictionary)
+
+
+## Parses an already decoded asset document. Dev tools use it to compare a captured asset without
+## writing a file; the runtime only reads files.
+func load_data(data: Dictionary) -> String:
+	path = ""
+	_reset()
+	return _parse_data(data)
+
+
+func _parse_data(data: Dictionary) -> String:
+	version = int(data.get("version", 0))
+	if version < MIN_VERSION:
+		error = "pose version %d is older than %d" % [version, MIN_VERSION]
+		return error
+	if version > CURRENT_VERSION:
+		error = "pose version %d is newer than %d" % [version, CURRENT_VERSION]
+		return error
+	if version < CURRENT_VERSION:
+		_load_v6(data)
+	else:
+		_load_v7(data)
+	if not error.is_empty():
+		available = false
+		return error
+	available = true
+	return ""
+
+
+func _reset() -> void:
 	available = false
 	error = ""
 	version = 0
@@ -151,30 +190,6 @@ func load_file(path_in := PATH) -> String:
 	_selected_name = ""
 	_selected = {}
 	_parse_bad = ""
-	if not FileAccess.file_exists(path):
-		error = "no pose at %s" % path
-		return error
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
-	if not parsed is Dictionary:
-		error = "bad JSON in %s" % path
-		return error
-	var data: Dictionary = parsed
-	version = int(data.get("version", 0))
-	if version < MIN_VERSION:
-		error = "pose version %d is older than %d" % [version, MIN_VERSION]
-		return error
-	if version > CURRENT_VERSION:
-		error = "pose version %d is newer than %d" % [version, CURRENT_VERSION]
-		return error
-	if version < CURRENT_VERSION:
-		_load_v6(data)
-	else:
-		_load_v7(data)
-	if not error.is_empty():
-		available = false
-		return error
-	available = true
-	return ""
 
 
 ## True when this asset may drive a pose whose own frame is `frame_kind`. Version 6 is bed space

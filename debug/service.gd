@@ -19,6 +19,11 @@ const ACTIONS := {
 		"help": "Re-read poses/missionary_pose.json without restarting the game. A running act picks it up.",
 		"method": "action_reload_pose",
 	},
+	"bake_standing": {
+		"label": "Bake standing base",
+		"help": "Write the settled standing reference to user://unfplap/standing_reference.json for the pose bake. Only in a settled standing act.",
+		"method": "action_bake_standing",
+	},
 	"pose_test_variant": {
 		"label": "Pose: test variant",
 		"help": "Toggle the internal standing_test pose in a live standing act. Logs the edge result; never ends the act.",

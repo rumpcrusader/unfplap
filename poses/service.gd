@@ -104,6 +104,8 @@ var rig_asset_path := ""
 var rig_missing_bones: Array = []
 ## A shared unavailable asset instance for a pose whose row supplies no asset.
 var _empty_asset: Variant = null
+## The settled ground reference captured at `begin()`, for the debug bake action.
+var _standing_reference: Dictionary = {}
 
 ## The pony's pre-act bone snapshot.
 var saved_bones: Array[Transform3D] = []
@@ -215,7 +217,17 @@ func begin(context: Dictionary) -> bool:
 		if bed_frame_source_saved:
 			bed_frame_source = (bed_node as Node3D).global_transform
 		pose_node.bed_frame = bed_frame
-		log_base()
+	else:
+		ground_frame = ground_pose_frame()
+		ground_frame_source_saved = ground_frame is Transform3D and is_instance_valid(pony)
+		if ground_frame_source_saved:
+			ground_frame_source = (pony as Node3D).global_transform
+		pose_node.ground_frame = ground_frame
+		# The reference is the game's settled standing pose before the act's recipe, captured
+		# before the pose modifier can write to the rig.
+		_standing_reference = _capture_standing_reference(start_spec, skeleton)
+		pose_node.size_name = _size_name()
+	log_base()
 	(skeleton as Skeleton3D).add_child(pose_node)
 	var family := str(_view.family)
 	if family == "bed":
@@ -786,6 +798,68 @@ func authored_asset(candidate := "") -> Variant:
 	return authored(candidate)
 
 
+## The game's settled standing reference captured at `begin()` for a ground pose: the 30 local
+## bone poses, the frame, the size and the rig. The debug bake action serializes it to the tracked
+## fixture; the runtime never ships it and never reads it as an asset.
+func standing_reference() -> Dictionary:
+	return _standing_reference
+
+
+## The fixture JSON for the current reference, or "" before a ground pose captured one.
+func reference_json() -> String:
+	if _standing_reference.is_empty():
+		return ""
+	return JSON.stringify(_standing_reference, "\t")
+
+
+## Ground space for an authored ground pose: the pony root's orthonormal basis and position at
+## pose start. The frame follows the root each tick, like the bed frame follows its bed.
+func ground_pose_frame() -> Variant:
+	if not is_instance_valid(pony):
+		return null
+	return Transform3D(pony.global_basis.orthonormalized(), pony.global_position)
+
+
+## The captured reference for a ground pose, before the pose modifier is installed. Returns `{}`
+## for a bed pose or when there is no live frame.
+func _capture_standing_reference(spec: Variant, skeleton: Skeleton3D) -> Dictionary:
+	if spec == null or str(spec.frame) != "ground" or not ground_frame is Transform3D:
+		return {}
+	var frame := ground_frame as Transform3D
+	var frame_inv := frame.affine_inverse()
+	var root := AUTHORED.root_bone(skeleton)
+	var hips := skeleton.find_bone("pony_hips")
+	var data := {
+		"pose": str(spec.id),
+		"frame": var_to_str(frame),
+		"size_name": _size_name(),
+		"body_scale": body_scale(),
+		"rig": {
+			"name": AUTHORED.RIG_NAME,
+			"version": AUTHORED.RIG_VERSION,
+			"bones": AUTHORED.RIG_BONES,
+		},
+		"root": var_to_str(frame_inv * (skeleton.global_transform
+			* skeleton.get_bone_global_pose(root))) if root >= 0 else "",
+		"hips": var_to_str(frame_inv * (skeleton.global_transform
+			* skeleton.get_bone_global_pose(hips))) if hips >= 0 else "",
+		"bones": {},
+	}
+	var bones := {}
+	for name: String in AUTHORED.PONY_BONES:
+		var bone := skeleton.find_bone(name)
+		if bone >= 0:
+			bones[name] = var_to_str(skeleton.get_bone_pose(bone))
+	data["bones"] = bones
+	return data
+
+
+## The live size name from the facts, or "" when no act context is bound.
+func _size_name() -> String:
+	var value: Variant = facts.get("size_name") if facts != null else null
+	return str(value) if value != null else ""
+
+
 ## True when the candidate's own asset loaded and is usable for its frame. A row with no asset is
 ## never ready, even though `authored()` falls back for diagnostics.
 func authored_ready(candidate := "") -> bool:
@@ -908,6 +982,10 @@ func leave_pose_start() -> void:
 	bed_frame = null
 	bed_frame_source_saved = false
 	bed_frame_source = Transform3D.IDENTITY
+	ground_frame = null
+	ground_frame_source_saved = false
+	ground_frame_source = Transform3D.IDENTITY
+	_standing_reference.clear()
 
 
 ## The pose-scope body state: release the external stretch holder and drop the live-installed extra
@@ -958,6 +1036,10 @@ func release_pose() -> void:
 	bed_frame = null
 	bed_frame_source_saved = false
 	bed_frame_source = Transform3D.IDENTITY
+	ground_frame = null
+	ground_frame_source_saved = false
+	ground_frame_source = Transform3D.IDENTITY
+	_standing_reference.clear()
 	_tail_anchor = Vector3.INF
 	_view.clear()
 	_oral_turn.reset()
@@ -1612,8 +1694,6 @@ func state_rows(state: int) -> Array:
 
 ## The base line written once when the act builds its pose.
 func log_base() -> void:
-	if str(_view.frame) != "bed":
-		return
 	var info := base_info()
 	var frame: Variant = info["frame"]
 	var missing := rig_missing()

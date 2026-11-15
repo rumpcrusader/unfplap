@@ -975,6 +975,31 @@ func action_reload_pose() -> String:
 	return "Reloaded the missionary posed base."
 
 
+## Debug: write the settled standing reference for the pose bake. The service serializes the small
+## fixture; this owns only the file. It refuses outside a live standing act, before the capture,
+## during an edge or after the afterglow, and while the game's `stand` posture is not settled.
+func action_bake_standing() -> String:
+	if not is_instance_valid(active_runtime):
+		return "No act."
+	var error := str(active_runtime.call("standing_reference_error"))
+	if not error.is_empty():
+		_debug("bake standing refused: %s" % error)
+		return "Bake refused: %s." % error
+	var payload := str(active_runtime.call("standing_reference_json"))
+	if payload.is_empty():
+		return "The standing reference is empty."
+	var dir := "user://unfplap"
+	DirAccess.make_dir_recursive_absolute(dir)
+	var out := dir.path_join("standing_reference.json")
+	var file := FileAccess.open(out, FileAccess.WRITE)
+	if file == null:
+		return "Cannot write %s." % out
+	file.store_string(payload)
+	file.close()
+	_debug("standing reference written to %s" % out)
+	return "Baked the standing base to %s." % out
+
+
 ## Debug: toggle the internal standing_test pose in a live standing act. The edge holds the body;
 ## the reverse edge returns to standing. Never ends the act.
 func action_pose_test_variant() -> String:

@@ -11,6 +11,27 @@ const STANDING_NECK_DOWN_DEG := 30.0
 var _config: Dictionary = {}
 
 
+## The effective reference config the standing base is baked at: the act defaults, not the
+## `default.poses.standing` block (the presentation overrides its neck values). The bake writes
+## this into the asset and the bake test pins it.
+static func reference_config() -> Dictionary:
+	return {
+		"bow": STANDING_BOW,
+		"foreleg": STANDING_FORELEG,
+		"foreleg_spread": STANDING_FORELEG_SPREAD,
+		"hind_spread": STANDING_HIND_SPREAD,
+		"chin_up_deg": STANDING_CHIN_UP_DEG,
+		"neck_down_deg": STANDING_NECK_DOWN_DEG,
+	}
+
+
+## The full reference recipe: the bake and the parity baseline. It is stretch-independent and is
+## never called by the shipped runtime, which uses the baked base plus the live-setting difference.
+func apply_reference(rig, sk: Skeleton3D, weight: float, config: Dictionary) -> void:
+	_config = config
+	_stance(rig, sk, weight)
+
+
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
 	if bool(state.get("stretch", false)):
@@ -28,6 +49,12 @@ func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	_config = state.get("config", {})
 	if bool(state.get("stretch", false)):
 		return false
+	_stance(rig, sk, weight)
+	return true
+
+
+## The full stance: the bow, foreleg bend and spread, hind spread and the neck/chin curve.
+func _stance(rig, sk: Skeleton3D, weight: float) -> void:
 	_bow(rig, sk, weight, _value("bow", STANDING_BOW))
 	_bend_forelegs(rig, sk, weight, _value("foreleg", STANDING_FORELEG))
 	_spread_fore(rig, sk, weight, _value("foreleg_spread", STANDING_FORELEG_SPREAD))
@@ -35,7 +62,6 @@ func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	_chin_neck(rig, sk, weight,
 		_value("chin_up_deg", STANDING_CHIN_UP_DEG),
 		_value("neck_down_deg", STANDING_NECK_DOWN_DEG))
-	return true
 
 
 ## The moveable neck overlay: the head-back lift. The oral neck swing is the oral row's procedural

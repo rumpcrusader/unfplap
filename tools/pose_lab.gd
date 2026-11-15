@@ -1,24 +1,31 @@
 @tool
 extends Node3D
-## Missionary pose lab. Dev tool only; it never ships.
+## The pose lab. Dev tool only; it never ships.
 ##
 ## The **scene** is the authoring source: `Pony`, `Bed` and one Anon rig are saved in it and you
-## pose the skeletons with the editor's Skeleton3D bone gizmo. **Save pose** exports the pose to
-## `poses/missionary_pose.json`, bed-relative, and that JSON is the only thing the game reads.
-## Never edit the JSON by hand; export it again instead.
+## pose the skeletons with the editor's Skeleton3D bone gizmo. **Save pose** exports the pose as a
+## v7 authored document under `poses/<id>_pose.json`, and that JSON is the only thing the game
+## reads. Never edit the JSON by hand; export it again instead.
 ##
-## A scene that has no rigs yet builds a fresh set once (pony, stand-in bed, camera and `Anon3`)
-## and seeds it from the JSON, so the lab also works from an empty scene.
+## `Frame kind` selects a bed pose or a ground pose. Ground mode adds a floor and a `Contact`
+## marker, hides the bed and the shot cameras and derives the frame from the pony root. `Anon mode`
+## selects whether an Anon rig is exported with the pose (`act_body`), skipped (`player_body`) or
+## ignored (`none`).
+##
+## A scene that has no rigs yet builds a fresh set once (pony, stand-in bed or floor, camera and
+## `Anon3`) and seeds it from the JSON, so the lab also works from an empty scene.
 ##
 ## The JSON is the source of truth for the runtime. The runtime never reads this script.
 
 const PONY_MESH := preload("res://world/characters/hybrid_mare/body.glb")
 const ANON_RIG := preload("res://player/anon_body.tscn")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const BAKE := preload("res://mods/unfplap/tools/pose_bake.gd")
+const RECIPE := preload("res://mods/unfplap/poses/standing_recipe.gd")
 
-const DEFAULT_POSE_PATH := "res://mods/unfplap/poses/missionary_pose.json"
-## 6 stores every body bone, including those left at rest. A 5 file skipped them, and the runtime
-## only writes what it holds, so those bones stayed on the game's pose.
-const POSE_VERSION := 6
+const DEFAULT_POSE_ID := "missionary"
+## 7 stores local-rest deltas plus the anchor/contact placement. 6 is read for the migration.
+const POSE_VERSION := 7
 ## 4 is the first bed-space version: transforms are relative to the bed frame. Reading that space is
 ## tied to this floor, never to the current version, or an older file would be applied as lab world.
 const BED_SPACE_VERSION := 4
@@ -56,8 +63,13 @@ const PONY_BONES := [
 	"pony_finger_R",
 ]
 
-@export var pose_path := DEFAULT_POSE_PATH
-## Used only when a fresh stand-in bed is built; an adopted scene bed keeps its own box.
+@export var pose_id := DEFAULT_POSE_ID
+## The authored pose's frame. Missionary is bed; a standing pose is ground.
+@export_enum("bed", "ground") var frame_kind := "bed"
+## `act_body` exports the saved Anon rig with the pose; `player_body` and `none` skip it.
+@export_enum("act_body", "player_body", "none") var anon_mode := "act_body"
+## Empty derives `poses/<pose_id>_pose.json`. The exporter sets it to a scratch path for `--out`.
+@export var pose_path_override := ""
 @export var mattress_top := 0.65
 @export var bed_size := Vector3(1.6, 0.55, 2.2)
 @export var show_colliders := false
@@ -74,6 +86,8 @@ const PONY_BONES := [
 
 @export_tool_button("Save pose") var save_pose: Callable = _save_pose
 @export_tool_button("Load pose") var load_pose: Callable = _load_pose
+@export_tool_button("Bake v7") var bake_v7: Callable = _bake_v7
+@export_tool_button("Compare baked vs recipe") var compare_bake: Callable = _compare_baked
 @export_tool_button("Reset") var reset: Callable = _reset
 @export_tool_button("Capture") var capture: Callable = _capture
 @export_tool_button("Show colliders") var toggle_colliders: Callable = _toggle_colliders
@@ -156,6 +170,7 @@ func _adopt_or_build() -> bool:
 		_hold_anon(rig)
 	_built = true
 	if _pony != null and _bed != null:
+		_prepare_frame_nodes()
 		print("[poselab] adopted scene rigs: pony=%s anons=%d" % [
 			str(_pony_skel), _anons.size()])
 		return false
@@ -177,7 +192,7 @@ func _build_fresh() -> void:
 		add_child(rig)
 		_own(rig)
 		_hold_anon(rig)
-	if _bed == null:
+	if _bed == null and frame_kind == "bed":
 		_bed = _make_bed()
 		add_child(_bed)
 		_own(_bed)
@@ -187,9 +202,41 @@ func _build_fresh() -> void:
 		add_child(_camera)
 		_own(_camera)
 		_camera.position = Vector3(0.0, 1.6, 3.0)
-	print("[poselab] built fresh pony=%s bones=%d anons=%d" % [
+	_prepare_frame_nodes()
+	print("[poselab] built fresh pony=%s bones=%d anons=%d frame=%s" % [
 		str(_pony_skel), _pony_skel.get_bone_count() if _pony_skel != null else -1,
-		_anons.size()])
+		_anons.size(), frame_kind])
+
+
+## Shows the nodes the selected frame uses: the bed and the shot cameras in bed mode, the floor and
+## the contact marker in ground mode.
+func _prepare_frame_nodes() -> void:
+	if _bed != null:
+		_bed.visible = frame_kind == "bed"
+	for entry: Array in SHOT_NODES:
+		var node := get_node_or_null(str(entry[0])) as Node3D
+		if node != null:
+			node.visible = frame_kind == "bed"
+	if frame_kind != "ground":
+		return
+	if get_node_or_null("Floor") == null:
+		var floor_body := StaticBody3D.new()
+		floor_body.name = "Floor"
+		var mesh := MeshInstance3D.new()
+		mesh.name = "FloorMesh"
+		var box := BoxMesh.new()
+		box.size = Vector3(8.0, 0.05, 8.0)
+		mesh.mesh = box
+		mesh.position = Vector3(0.0, -0.025, 0.0)
+		floor_body.add_child(mesh)
+		add_child(floor_body)
+		_own(floor_body)
+	if get_node_or_null("Contact") == null:
+		var contact := Marker3D.new()
+		contact.name = "Contact"
+		add_child(contact)
+		_own(contact)
+		contact.global_position = _contact_point()
 
 
 ## Registers one Anon rig. Its own controller rewrites the IK targets every frame, which would
@@ -371,9 +418,19 @@ func _mattress_y() -> float:
 	return (_global_of(_bed) * Vector3(0.0, size.y * 0.5, 0.0)).y
 
 
-## The pose space every exported transform is written in: origin at the middle of the mattress
-## top, axes the bed's own, `+Z` her head direction. The runtime maps it onto the real bed.
+## The pose space every exported transform is written in. Bed mode: origin at the middle of the
+## mattress top, axes the bed's own, `+Z` her head direction. Ground mode: the pony root's own
+## orthonormal basis and position, with the floor as the support.
 func _pose_frame() -> Transform3D:
+	return _ground_frame() if frame_kind == "ground" else _bed_frame()
+
+
+## The live frame kind. Missionary is a bed pose by definition; the standing family is ground.
+func _frame_kind() -> String:
+	return "ground" if pose_id != "missionary" and frame_kind == "ground" else "bed"
+
+
+func _bed_frame() -> Transform3D:
 	if _bed == null:
 		return Transform3D(Basis.IDENTITY, Vector3(0.0, mattress_top, 0.0))
 	var bed_xform := _global_of(_bed)
@@ -381,11 +438,37 @@ func _pose_frame() -> Transform3D:
 	return Transform3D(bed_xform.basis.orthonormalized(), Vector3(at.x, _mattress_y(), at.z))
 
 
-## Dev preview: scale the pony, the Anons and the shot cameras about the mattress centre, the way
-## the runtime scales the body and the pose. The originals are captured once, so returning to 1.0
-## restores the authored scene exactly. **Save pose** refuses while a preview is active.
+func _ground_frame() -> Transform3D:
+	if _pony == null:
+		return Transform3D.IDENTITY
+	var at := _global_of(_pony)
+	return Transform3D(at.basis.orthonormalized(), at.origin)
+
+
+## The support contact in world space: the `Contact` marker when the scene has one, else the lowest
+## body mesh AABB point.
+func _contact_point() -> Vector3:
+	var marker := get_node_or_null("Contact") as Node3D
+	if marker != null:
+		return _global_of(marker).origin
+	if _pony == null:
+		return Vector3.ZERO
+	return BAKE.body_contact(_pony)
+
+
+## The derived `poses/<id>_pose.json` path, or the exporter's scratch override.
+func pose_path() -> String:
+	if not pose_path_override.is_empty():
+		return pose_path_override
+	return "res://mods/unfplap/poses/%s_pose.json" % pose_id
+
+
+## Dev preview: move the pony, the Anons and the shot cameras by the v7 anchor/contact rule — their
+## origins scale about the hips anchor and ride the contact lift; the authored basis is untouched.
+## The originals are captured once, so returning to 1.0 restores the authored scene exactly.
+## **Save pose** refuses while a preview is active.
 func _apply_preview() -> void:
-	if _pony == null or _bed == null:
+	if _pony == null or (_bed == null and frame_kind == "bed"):
 		return
 	if _preview_originals.is_empty():
 		_preview_originals["pony"] = _pony.transform
@@ -398,20 +481,32 @@ func _apply_preview() -> void:
 			if node != null:
 				_preview_originals["shots"][node] = node.transform
 	var frame := _pose_frame()
-	_pony.transform = _scale_about(frame, _preview_originals["pony"], preview_size)
+	var s := preview_size
+	var here := frame.origin
+	var lift := 0.0
+	var anchor_origin := here
+	if _pony_skel != null:
+		var hips := _pony_skel.find_bone("pony_hips")
+		if hips >= 0:
+			_pony_skel.force_update_all_bone_transforms()
+			var hips_world: Transform3D = _pony_skel.global_transform \
+				* _pony_skel.get_bone_global_pose(hips)
+			anchor_origin = hips_world.origin
+			var contact_world := _contact_point()
+			var contact_scaled := anchor_origin + (contact_world - anchor_origin) * s
+			lift = here.y - contact_scaled.y
+	for key in _preview_originals["shots"]:
+		var node: Node3D = key
+		var original: Transform3D = _preview_originals["shots"][node]
+		_set_global(node, Transform3D(original.basis,
+			anchor_origin + (original.origin - anchor_origin) * s + Vector3.UP * lift))
+	_set_global(_pony, Transform3D((_preview_originals["pony"] as Transform3D).basis,
+		anchor_origin + ((_preview_originals["pony"] as Transform3D).origin - anchor_origin) * s
+		+ Vector3.UP * lift))
 	for rig in _anons:
-		rig.transform = _scale_about(frame, _preview_originals["anons"][rig], preview_size)
-	for node: Node3D in _preview_originals["shots"]:
-		node.transform = _scale_about(frame, _preview_originals["shots"][node], preview_size)
-
-
-## A transform scaled by `s` about `frame`: origin and basis both, the same rule the runtime's
-## `_scaled` uses, so the preview matches the act's body.
-static func _scale_about(frame: Transform3D, value: Transform3D, s: float) -> Transform3D:
-	var local := frame.affine_inverse() * value
-	local.origin *= s
-	local.basis = local.basis * Basis.from_scale(Vector3.ONE * s)
-	return frame * local
+		var original: Transform3D = _preview_originals["anons"][rig]
+		_set_global(rig, Transform3D(original.basis,
+			anchor_origin + (original.origin - anchor_origin) * s + Vector3.UP * lift))
 
 
 ## Creates any missing shot cameras at a first guess worked out from the pose: start over her
@@ -484,55 +579,99 @@ func _save_pose() -> void:
 		print("[poselab] refusing to save while the preview is %.2f; set Preview size to 1" % preview_size)
 		return
 	var frame := _pose_frame()
-	var size := _bed_world_size()
-	var data := {
-		"version": POSE_VERSION,
-		"frame": {
-			"origin": "middle of the mattress top",
-			"axes": "bed axes; +Z is the direction her head points",
-		},
-		"bed": {
-			"size": _vec_to_str(size),
-			"mattress_top": _mattress_y(),
-		},
-		"pony": {
-			"transform": _transform_to_str(frame.affine_inverse() * _global_of(_pony)),
-			"bones": _save_bones(_pony_skel, PONY_BONES),
-		},
-	}
-	var rig := _export_anon()
-	if rig != null:
-		var index := _anons.find(rig)
-		data["anon"] = {
-			"rig": str(rig.name),
-			"transform": _transform_to_str(frame.affine_inverse() * _global_of(rig)),
-			"bones": _save_bones(_anon_skels[index], []),
-		}
-	var shots := {}
-	for entry: Array in SHOT_NODES:
-		var node := get_node_or_null(str(entry[0])) as Node3D
-		if node != null:
-			shots[str(entry[1])] = _transform_to_str(frame.affine_inverse() * _global_of(node))
-	if shots.is_empty():
-		print("[poselab] no shot cameras in the scene; the act shot stays pose-derived")
-	else:
-		data["shots"] = shots
+	var data := BAKE.capture_pose(_pony_skel, frame, _contact_point(), {}, "canon", 1.0,
+		pose_id, _frame_kind())
+	_attach_scene_blocks(data, frame)
 	if (data["pony"]["bones"] as Dictionary).is_empty():
 		push_error("PoseLab: the rig is at rest; load the pose before saving it")
 		print("[poselab] refusing to save an empty pose (the scene rig is at its rest pose)")
 		return
-	var text := JSON.stringify(data, "\t")
-	var file := FileAccess.open(pose_path, FileAccess.WRITE)
-	if file == null:
-		push_error("PoseLab: cannot write %s" % pose_path)
+	var write_error := BAKE.write_asset(data, pose_path())
+	if not write_error.is_empty():
+		push_error("PoseLab: %s" % write_error)
 		return
-	file.store_string(text)
-	print("[poselab] saved %s (pony bones=%d)" % [
-		pose_path, (data["pony"]["bones"] as Dictionary).size()])
+	print("[poselab] saved %s (v%d frame=%s pony bones=%d anon=%s shots=%s)" % [
+		pose_path(), int(data.get("version", 0)), str(data.get("frame", "")),
+		(data["pony"]["bones"] as Dictionary).size(),
+		"yes" if data.has("anon") else "no", "yes" if data.has("shots") else "no"])
 
 
-## The rig exported under `anon`. Defaults to ANON_EXPORT_NAME, then the first rig present.
+## Bakes the v7 standing asset from the reference recipe, or saves the hand-authored pose for
+## another id. The standing bake applies `apply_reference()` at the effective reference config; the
+## game never uses this path.
+func _bake_v7() -> void:
+	if _pony == null or _pony_skel == null:
+		push_error("PoseLab: nothing to bake")
+		return
+	if preview_size != 1.0:
+		print("[poselab] refusing to bake while the preview is %.2f" % preview_size)
+		return
+	var frame := _pose_frame()
+	var data: Dictionary
+	if pose_id == "standing":
+		data = BAKE.capture_asset(_pony_skel, frame, RECIPE.reference_config(), "canon",
+			_contact_point(), 1.0, pose_id, _frame_kind())
+	else:
+		data = BAKE.capture_pose(_pony_skel, frame, _contact_point(), {}, "canon", 1.0,
+			pose_id, _frame_kind())
+	_attach_scene_blocks(data, frame)
+	var write_error := BAKE.write_asset(data, pose_path())
+	if write_error.is_empty():
+		print("[poselab] baked %s (v7 frame=%s bones=%d)" % [pose_path(), _frame_kind(),
+			(data["pony"]["bones"] as Dictionary).size()])
+	else:
+		print("[poselab] bake failed: %s" % write_error)
+
+
+## Compares the saved asset with the reference recipe on the current rig and prints the worst
+## joint error.
+func _compare_baked() -> void:
+	if _pony_skel == null:
+		print("[poselab] nothing to compare")
+		return
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(pose_path()))
+	if not parsed is Dictionary:
+		print("[poselab] no readable asset at %s" % pose_path())
+		return
+	var result := BAKE.compare(parsed as Dictionary, _pony_skel, _pose_frame(),
+		RECIPE.reference_config(), "canon", 1.0)
+	if bool(result.get("ok", false)):
+		print("[poselab] compare PASS bones=%d worst=%.5f m / %.4f deg" % [
+			int(result.get("bones", 0)), float(result.get("worst_m", 0.0)),
+			float(result.get("worst_deg", 0.0))])
+	else:
+		print("[poselab] compare FAIL %s" % str(result))
+
+
+## The scene blocks a saved pose carries besides the anchor/root/body: the bed metadata, the Anon
+## act body and the authored shots.
+func _attach_scene_blocks(data: Dictionary, frame: Transform3D) -> void:
+	var kind := _frame_kind()
+	if kind == "bed":
+		data["bed"] = {"size": var_to_str(_bed_world_size()), "mattress_top": _mattress_y()}
+		var shots := {}
+		for entry: Array in SHOT_NODES:
+			var node := get_node_or_null(str(entry[0])) as Node3D
+			if node != null:
+				shots[str(entry[1])] = var_to_str(frame.affine_inverse() * _global_of(node))
+		if not shots.is_empty():
+			data["shots"] = shots
+	var rig := _export_anon()
+	if rig != null:
+		var index := _anons.find(rig)
+		data["anon"] = {
+			"mode": "act_body",
+			"rig": str(rig.name),
+			"transform": var_to_str(frame.affine_inverse() * _global_of(rig)),
+			"bones": _save_bones(_anon_skels[index], []),
+		}
+
+
+## The rig exported under `anon`. Defaults to ANON_EXPORT_NAME, then the first rig present. A
+## `player_body`/`none` pose exports no Anon block.
 func _export_anon() -> Node3D:
+	if anon_mode != "act_body":
+		return null
 	for rig in _anons:
 		if rig.name == ANON_EXPORT_NAME:
 			return rig
@@ -540,23 +679,39 @@ func _export_anon() -> Node3D:
 
 
 func _load_pose() -> void:
-	if not FileAccess.file_exists(pose_path):
-		print("[poselab] no pose at %s" % pose_path)
+	var source := pose_path()
+	if not FileAccess.file_exists(source):
+		print("[poselab] no pose at %s" % source)
 		return
-	var text := FileAccess.get_file_as_string(pose_path)
+	var text := FileAccess.get_file_as_string(source)
 	var parsed: Variant = JSON.parse_string(text)
 	if not parsed is Dictionary:
-		push_error("PoseLab: bad JSON in %s" % pose_path)
+		push_error("PoseLab: bad JSON in %s" % source)
 		return
 	var data: Dictionary = parsed as Dictionary
 	var version := int(data.get("version", 3))
+	if version >= POSE_VERSION:
+		_load_pose_v7(data)
+	else:
+		_load_pose_v6(data)
+	_prepare_frame_nodes()
+	# The preview works from the authored transforms, so a fresh load is always the 1.0 baseline.
+	_preview_originals.clear()
+	_apply_preview()
+	print("[poselab] loaded %s (version %d frame %s)" % [source, version, _frame_kind()])
+
+
+## Version 6: bed space with the absolute body poses and the `pony.transform` placement.
+func _load_pose_v6(data: Dictionary) -> void:
+	frame_kind = "bed"
 	var frame := _pose_frame()
+	var version := int(data.get("version", 3))
 	# Version 3 stored world transforms; version 4 stores them in the bed frame.
 	var space := frame if version >= BED_SPACE_VERSION else Transform3D.IDENTITY
 	if _pony != null and data.get("pony") is Dictionary:
 		var pony: Dictionary = data["pony"]
 		_set_global(_pony, space * _str_to_transform(str(pony.get("transform", ""))))
-		_load_bones(_pony_skel, pony.get("bones", {}))
+		_load_bones(_pony_skel, pony.get("bones", {}), false)
 	var rig := _export_anon()
 	if rig != null:
 		var block: Dictionary = {}
@@ -570,23 +725,65 @@ func _load_pose() -> void:
 			var index := _anons.find(rig)
 			_set_global(rig, space * _str_to_transform(str(block.get("transform", ""))))
 			_load_targets(rig, block.get("targets", {}))
-			_load_bones(_anon_skels[index], block.get("bones", {}))
+			_load_bones(_anon_skels[index], block.get("bones", {}), false)
 	var shot_data: Variant = data.get("shots")
 	if shot_data is Dictionary:
 		for entry: Array in SHOT_NODES:
-			var node := get_node_or_null(str(entry[0])) as Node3D
 			var key := str(entry[1])
-			if node == null or not (shot_data as Dictionary).has(key):
+			if not (shot_data as Dictionary).has(key):
 				continue
+			var node := _ensure_shot_node(str(entry[0]))
 			_set_global(node, space * _str_to_transform(str((shot_data as Dictionary)[key])))
 	if _camera != null and data.get("camera") is Dictionary and version < BED_SPACE_VERSION:
 		var cam: Dictionary = data["camera"]
 		_set_global(_camera, _str_to_transform(str(cam.get("transform", ""))))
 		_camera.fov = float(cam.get("fov", _camera.fov))
-	# The preview works from the authored transforms, so a fresh load is always the 1.0 baseline.
-	_preview_originals.clear()
-	_apply_preview()
-	print("[poselab] loaded %s (version %d)" % [pose_path, version])
+
+
+## Version 7: the frame named by the asset, the anchor/contact placement and the local-rest deltas.
+func _load_pose_v7(data: Dictionary) -> void:
+	var asset: Variant = AUTHORED.new()
+	var load_error := str(asset.call("load_data", data))
+	if not load_error.is_empty():
+		print("[poselab] refusing %s: %s" % [pose_path(), load_error])
+		return
+	pose_id = str(asset.get("id"))
+	frame_kind = str(asset.get("frame"))
+	if frame_kind == "ground" and _bed != null:
+		_bed.visible = false
+	var frame := _pose_frame()
+	if _pony != null:
+		var root_pose: Transform3D = frame * (asset.call("active_root") as Transform3D)
+		_set_global(_pony, root_pose)
+		_load_bones(_pony_skel, asset.call("active_bones") as Dictionary, true)
+	var rig := _export_anon()
+	if rig != null and not str(asset.call("active_anon_mode")).is_empty():
+		var anon_pose: Transform3D = frame * (asset.call("active_anon_transform") as Transform3D)
+		_set_global(rig, anon_pose)
+		var index := _anons.find(rig)
+		_load_bones(_anon_skels[index], asset.call("active_anon_bones") as Dictionary, true)
+	if frame_kind == "bed":
+		var shot_data: Dictionary = asset.call("active_shots") as Dictionary
+		for entry: Array in SHOT_NODES:
+			var key := str(entry[1])
+			if not shot_data.has(key):
+				continue
+			var node := _ensure_shot_node(str(entry[0]))
+			_set_global(node, frame * (shot_data[key] as Transform3D))
+
+
+## The shot camera node, created on first load when the scene had none. A load from an authored
+## asset must keep its shot block, or a conversion would drop the act camera.
+func _ensure_shot_node(node_name: String) -> Node3D:
+	var node := get_node_or_null(node_name) as Node3D
+	if node != null:
+		return node
+	var shot := Camera3D.new()
+	shot.name = node_name
+	shot.fov = 75.0
+	add_child(shot)
+	_own(shot)
+	return shot
 
 
 func _reset() -> void:
@@ -615,7 +812,7 @@ func _capture() -> void:
 	var out := dir.path_join("pose_%s.json" % stamp)
 	var file := FileAccess.open(out, FileAccess.WRITE)
 	if file != null:
-		file.store_string(FileAccess.get_file_as_string(pose_path))
+		file.store_string(FileAccess.get_file_as_string(pose_path()))
 	print("[poselab] capture saved to %s" % out)
 
 
@@ -681,10 +878,10 @@ func _select_anon3_skeleton() -> void:
 	_select_anon_by_name("Anon3")
 
 
-## Saves every allowed bone, including one left at rest. `allowed` limits the export to the body
-## bones the runtime bakes; empty means every bone (the Anon rig). A rest bone must still be stored:
-## the runtime writes only the bones the file holds and never resets the rest, so a skipped bone
-## would keep the game's own pose and break the chain it hangs from.
+## Saves every allowed bone as a `local_rest` delta: `rest.affine_inverse() * pose`, the v7 shape.
+## `allowed` limits the export to the body bones the runtime bakes; empty means every bone (the
+## Anon rig). A rest bone is stored with an identity delta, never skipped: the runtime writes only
+## the bones the file holds and never resets the rest.
 func _save_bones(sk: Skeleton3D, allowed: Array) -> Dictionary:
 	var out := {}
 	if sk == null:
@@ -693,14 +890,16 @@ func _save_bones(sk: Skeleton3D, allowed: Array) -> Dictionary:
 		var name := sk.get_bone_name(i)
 		if not allowed.is_empty() and not allowed.has(name):
 			continue
+		var delta := sk.get_bone_rest(i).affine_inverse() * sk.get_bone_pose(i)
 		out[name] = {
-			"rotation": _quat_to_str(sk.get_bone_pose_rotation(i)),
-			"position": _vec_to_str(sk.get_bone_pose_position(i)),
+			"rotation": _quat_to_str(delta.basis.get_rotation_quaternion().normalized()),
+			"position": _vec_to_str(delta.origin),
 		}
 	return out
 
 
-func _load_bones(sk: Skeleton3D, bones: Variant) -> void:
+## Loads a v7 delta block onto the rig (`rest * delta`) or a v6 absolute local pose block.
+func _load_bones(sk: Skeleton3D, bones: Variant, delta: bool) -> void:
 	if sk == null:
 		return
 	sk.reset_bone_poses()
@@ -711,8 +910,20 @@ func _load_bones(sk: Skeleton3D, bones: Variant) -> void:
 		if i < 0:
 			continue
 		var entry: Dictionary = (bones as Dictionary)[bone]
-		sk.set_bone_pose_rotation(i, _str_to_quat(str(entry.get("rotation", ""))))
-		sk.set_bone_pose_position(i, _str_to_vec(str(entry.get("position", ""))))
+		var rotation_value: Variant = entry.get("rotation")
+		var position_value: Variant = entry.get("position")
+		# The v7 loader hands typed values; a raw JSON document hands its string form.
+		var rotation: Quaternion = rotation_value if rotation_value is Quaternion \
+			else _str_to_quat(str(rotation_value))
+		var position: Vector3 = position_value if position_value is Vector3 \
+			else _str_to_vec(str(position_value))
+		if delta:
+			var rest := sk.get_bone_rest(i)
+			position = rest.basis * position + rest.origin
+			rotation = (rest.basis * Basis(rotation)).get_rotation_quaternion().normalized()
+		sk.set_bone_pose_rotation(i, rotation)
+		sk.set_bone_pose_position(i, position)
+		sk.set_bone_pose_scale(i, sk.get_bone_rest(i).basis.get_scale())
 	sk.force_update_all_bone_transforms()
 
 

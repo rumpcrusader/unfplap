@@ -207,6 +207,11 @@
     },
     {
       "service": "poses",
+      "func": "ground_pose_frame",
+      "signature": "func ground_pose_frame() -> Variant:"
+    },
+    {
+      "service": "poses",
       "func": "head_skeleton",
       "signature": "func head_skeleton(boop: Variant) -> Variant:"
     },
@@ -264,6 +269,11 @@
       "service": "poses",
       "func": "set_pose_config",
       "signature": "func set_pose_config(config: Dictionary) -> void:"
+    },
+    {
+      "service": "poses",
+      "func": "standing_reference",
+      "signature": "func standing_reference() -> Dictionary:"
     },
     {
       "service": "poses",

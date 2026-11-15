@@ -17,6 +17,7 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
@@ -905,6 +906,35 @@ func _pose_service() -> RefCounted:
 ## The pose read model, for the debug action and the suites.
 func pose_view() -> RefCounted:
 	return _pose_service().view()
+
+
+## Why the standing reference cannot be baked right now, or "" when it is ready: an active
+## standing act, a steady pose (no edge, no afterglow), a captured reference and a settled game
+## `stand` posture.
+func standing_reference_error() -> String:
+	if state != State.ACTIVE:
+		return "no active act"
+	var view := pose_view()
+	if view == null or str(view.family) != "standing" or str(view.id) != CATALOG.STANDING:
+		return "only in a settled standing act"
+	if int(view.pose_state) != POSE_VIEW.STEADY:
+		return "the pose is changing"
+	if _pose_service().standing_reference().is_empty():
+		return "the standing reference was not captured"
+	if is_instance_valid(pony) and pony.has_method("posture_status"):
+		var status: Dictionary = pony.posture_status()
+		if str(status.get("requested", "")) != "stand":
+			return "the standing posture is not settled"
+		var ready: Variant = status.get("ready")
+		if ready is bool and not (ready as bool):
+			return "the standing posture is not settled"
+	return ""
+
+
+## The captured standing fixture JSON. The bake action writes it to `user://`; the shipped runtime
+## never reads it as a pose.
+func standing_reference_json() -> String:
+	return _pose_service().reference_json()
 
 
 ## One pose request. The runtime supplies the act values; the session refuses or starts the edge.

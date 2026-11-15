@@ -21,7 +21,9 @@ lifecycle; this doc owns their shape and their runner.
 | `tests/test_<topic>.gd` | a root suite that crosses services, or a shared/pure module's suite |
 
 One suite per file, and the directory mirrors the facade it exercises. The suite-to-service map is
-the `Tests` column of `docs/README.md`.
+the `Tests` column of `docs/README.md`. A pure module's suite uses plain values: for example
+`tests/poses/test_pose_state.gd` pins the pose transition table and the edge math with dictionaries
+and no scene, node or autoload.
 
 ## Writing a suite
 

@@ -120,6 +120,7 @@ func run() -> void:
 	_check_face()
 	_check_reactions()
 	_check_pose_session()
+	_check_pose_state()
 	_check_pose_capability_census(files)
 	_check_act_camera()
 	_check_scene_gate()
@@ -646,7 +647,8 @@ func _check_pose_session() -> void:
 	check(agents.contains("`poses/service.gd`"), "docs/README.md names poses/service.gd")
 	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",
 			"test_pose_rig.gd", "test_pose_scale.gd", "test_rotation.gd", "test_stretch.gd",
-			"test_pose_spec.gd", "test_pose_registry.gd", "test_pose_view.gd"]:
+			"test_pose_spec.gd", "test_pose_registry.gd", "test_pose_view.gd",
+			"test_pose_state.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
 			"tests/poses/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
@@ -656,6 +658,34 @@ func _check_pose_session() -> void:
 	for token: String in ["_pony_saved_bones", "_tail_lay", "_pose_rig_checked",
 			"_attach_body_coat_jiggle_target"]:
 		check(not runtime.contains(token), "runtime has no pose internals: %s" % token)
+
+
+## The pure pose state/edge module: no scene, no settings, no file, no service and no act exit.
+## Contract: `docs/poses.md`; suite: `tests/poses/test_pose_state.gd`.
+func _check_pose_state() -> void:
+	var source := FileAccess.get_file_as_string(ROOT.path_join("poses/pose_state.gd"))
+	check(not source.is_empty(), "poses/pose_state.gd exists")
+	check(source.contains("func next(") and source.contains("func request_code("),
+		"the pose state module owns the transition table and the request codes")
+	check(source.contains("static func start_edge(") and source.contains("func tick("),
+		"the pose state module owns one edge run")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/",
+			"preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")",
+			"preload(\"res://mods/unfplap/settings/service.gd\")",
+			"preload(\"res://mods/unfplap/poses/service.gd\")",
+			"_end_session", "release_pose", "leave_pose_start", "leave_pose_body",
+			"_unlock_player"]:
+		check(not source.contains(token), "pose state is pure: %s" % token)
+	var stray_preloads := 0
+	for line: String in source.split("\n"):
+		if line.contains("preload(") and not line.contains("shared/pose_view.gd"):
+			stray_preloads += 1
+	check(stray_preloads == 0, "pose state preloads only the shared pose view")
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/poses.md"))
+	check(contract.contains("## State machine and edge math"),
+		"docs/poses.md documents the pose state machine and edge math")
 
 
 ## The raw pose reads ratchet down as the typed pose view takes over. A file may drop below its

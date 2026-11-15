@@ -49,6 +49,51 @@ while the session is live and `IDLE` after `release_pose()`; the pose-scope leav
 `STEADY`. The compatibility `pose_id`, `oral_active` and `anal_active` fields mirror the old facts
 until the last reader migrates.
 
+## State machine and edge math
+
+`poses/pose_state.gd` is the pure state and edge module. It is not a service: it holds no scene,
+reads no settings or files and preloads only `shared/pose_view.gd` for the state constants. It
+supplies the transition table and the edge clock for the session's request and tick paths (wired in
+A3.3).
+
+The transition table is:
+
+| From | Event | To |
+|---|---|---|
+| `IDLE` | `begin` | `ENTERING` |
+| `ENTERING` | `entered` | `STEADY` |
+| `STEADY` | `request` | `TRANSITIONING` |
+| `TRANSITIONING` | `complete` | `STEADY` |
+| `ENTERING`, `STEADY`, `TRANSITIONING` | `exit` | `EXITING` |
+| `EXITING` | `released` | `IDLE` |
+
+Every other pair is a no-op: `begin` outside `IDLE`, `entered` outside `ENTERING`, `request`
+outside `STEADY`, `complete` outside `TRANSITIONING`, `exit` in `IDLE`/`EXITING`, `released` outside
+`EXITING`, and any unknown event. The service reports the refusal; the table only owns the state.
+
+A request returns the first refusal in this exact order: `same`, `bad_phase` (the act is not
+`ACTIVE`), `busy` (a transition is running), `not_steady`, `no_edge`, `unsupported_form`,
+`unsupported_view`, `refused` (features, consent or stretch), `missing_asset`, `locked`, then `ok`.
+`same` is checked before the phase, so a no-op target is never reported as `busy`.
+
+One edge is a `Run`: per-channel tracks, one clock and the interrupt policy. A channel is `hold`
+(weight 1, settled), `blend`/`delta` (eased 0→1 over its own window, or the edge duration),
+`switch` (fires once at its `at`, reported by name) or `lock` (a policy signal, weight 1). `path` is
+accepted as `blend` until an edge authors it. The `base` channel owns the view weight; an absent or
+held base is 1.0. A constraint `"channel after other@seconds"` is a floor on the channel's start
+(`other.start + seconds`), never a shift of the other channel; a cycle refuses the edge. The edge
+duration is the base and a longer channel or switch extends it.
+
+`Run.tick()` reuses the `events` and `switches` arrays and the channel records: the caller drains
+them after a tick and before the next one. The `at: 0` events and switches fire on `tick(0.0)`.
+Each event fires once, in authored order. `complete()` is true only after every channel settles and
+the clock reaches the duration; a tick after completion does not fire anything again. The module
+copies `interrupt.climax`/`interrupt.teardown` (`hold`/`abort` by default) but never acts on them.
+
+`start_edge()`/`Run.start()` accept only an edge whose `id`, `from`, `to` and `channels` are
+present, whose endpoints match the requested pair, whose channel kinds and constraint references
+are known, and whose timing resolves; anything else returns null.
+
 ## Spaces and axes
 
 - Bone writes use `Skeleton3D` skeleton space via `get_bone_global_pose` /
@@ -402,6 +447,10 @@ unchanged.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split: the leave steps keep the
   pose node, the config and the view, the final release clears them, and no pose-scope step reaches
   an act exit.
+- `tests/poses/test_pose_state.gd` — the pure transition table, the request codes and their order,
+  the requirement check, the edge start/validation, the duration and `after` constraints, the
+  channel weights and switches, the edge events, completion, the interrupt fields and the reused
+  arrays. Plain dictionaries only.
 - `tests/poses/test_pose_spec.gd` — the field wrapper, the shared validator and the pure source.
 - `tests/poses/test_pose_registry.gd` — the two shipped specs, the unchanged public catalog and the
   table rules.

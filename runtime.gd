@@ -1084,6 +1084,10 @@ func apply_live_settings() -> void:
 	# Snapshot before the IDLE early return too, so mouse sensitivity and the other act tunables
 	# apply as soon as they are edited rather than only at the next act start.
 	idle_perf = _perf_enabled()
+	# Read the pre-edit mute before the snapshot replaces `_features`: a live Ponese mute edit is
+	# only visible as a change against the value the act started with, and that change is what
+	# pushes the new policy into the voice player below.
+	var previous_mute := bool(_features.get("mute_ponese_audio", false))
 	_snapshot_settings()
 	if state == State.IDLE:
 		# The idle standing presentation owns its own stretch holder, so a live settings edit has
@@ -1093,7 +1097,6 @@ func apply_live_settings() -> void:
 		# integration: the anatomy feature is live outside acts too.
 		_anatomy_refresh()
 		return
-	var previous_mute := bool(_features.get("mute_ponese_audio", false))
 	_anatomy_refresh()
 	_sync_act_facts()
 	_integrations_controller().apply_live_settings()

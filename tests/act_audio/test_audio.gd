@@ -6,6 +6,8 @@ extends SceneTree
 
 const AUDIO := preload("res://mods/unfplap/audio/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var failures := 0
 var checks := 0
@@ -125,7 +127,36 @@ func run() -> void:
 	root.remove_child(audio)
 	audio.free()
 
+	_check_live_mute()
+
 	print("AUDIO_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("AUDIO_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+## A live Ponese mute edit has to reach the voice policy during an act. `apply_live_settings()`
+## reads the pre-edit mute before it snapshots the new features; a snapshot-first order makes the
+## comparison always equal and the edit never lands.
+func _check_live_mute() -> void:
+	var runtime: Node = RUNTIME.new()
+	root.add_child(runtime)
+	runtime.state = 2 # ACTIVE
+	runtime.pose_id = CATALOG.STANDING
+	var before := SETTINGS.mute_ponese_audio.get_bool()
+	SETTINGS.mute_ponese_audio.set_bool(false)
+	runtime.call("apply_live_settings")
+	var voice_audio: Node = runtime.call("_audio_service")
+	check(is_instance_valid(voice_audio) and not bool(voice_audio.call("voice_text_only")),
+		"the act opens with the Ponese voice live")
+	SETTINGS.mute_ponese_audio.set_bool(true)
+	runtime.call("apply_live_settings")
+	check(is_instance_valid(voice_audio) and bool(voice_audio.call("voice_text_only")),
+		"muting Ponese mid-act reaches the voice policy")
+	SETTINGS.mute_ponese_audio.set_bool(false)
+	runtime.call("apply_live_settings")
+	check(is_instance_valid(voice_audio) and not bool(voice_audio.call("voice_text_only")),
+		"unmuting Ponese mid-act restores the voice")
+	SETTINGS.mute_ponese_audio.set_bool(before)
+	root.remove_child(runtime)
+	runtime.free()

@@ -74,6 +74,11 @@ mutes only when the effective voice is Ponese (`effective_ponese`). A generated/
 left alone. The saved volume is restored by `restore_voice_policy()` at the act end or when the
 setting changes.
 
+The setting is live: `runtime.apply_live_settings()` reads the pre-edit
+`mute_ponese_audio` **before** it snapshots the new feature flags, and re-applies the policy only
+when the two differ. The order matters — a snapshot read first would compare the new value with
+itself, and a mid-act edit would never reach the voice player.
+
 The classification itself stays `audio/voice_status.gd` (pure); the runtime's `voice_status_line()` is
 the debug read.
 
@@ -104,7 +109,8 @@ the debug read.
 
 ## Tests
 
-`tests/act_audio/test_audio.gd` covers the facade lifecycle, the sound child, the mute policy and
-the live layer switch. `tests/act_audio/test_act_audio.gd` covers the pure catalogue, the pack cue
+`tests/act_audio/test_audio.gd` covers the facade lifecycle, the sound child, the mute policy, the
+mid-act mute edit through `apply_live_settings()` and the live layer switch.
+`tests/act_audio/test_act_audio.gd` covers the pure catalogue, the pack cue
 selection, the profile-based `uses_bed`, the cached `pose_changed` impact and the oral
 `plap = false` path. `tests/test_runtime_teardown.gd` drives the runtime's audio forwards.

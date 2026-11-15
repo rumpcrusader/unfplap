@@ -563,6 +563,16 @@ func _check_standing_cache() -> void:
 	view.family = "standing"
 	check(standing.call("_pose_family") == "standing",
 		"the standing family still gates the controller")
+	view.facing = Basis(Vector3.UP, 1.0)
+	view.facing_amount = 0.75
+	standing.call("sync_view_facing")
+	check(standing._facing_override_on
+		and standing._facing_override.is_equal_approx(Basis(Vector3.UP, 1.0)),
+		"the standing camera follows the pose view's facing")
+	view.facing_amount = 0.0
+	standing.call("sync_view_facing")
+	check(not standing._facing_override_on,
+		"a zero facing amount returns the normal facing lock")
 
 
 func _check_neck() -> void:

@@ -46,7 +46,7 @@ var _display_name := ""
 var _facts: RefCounted = FACTS.new()
 var _anal := false
 var _hole_mix := 0.0
-var _oral_turn: RefCounted
+var _oral: RefCounted
 var _fill := 0.0
 var _wide := 0.0
 var _finish: RefCounted
@@ -84,8 +84,8 @@ func setup(service_node: Node, pony_node: Node3D, anatomy_node: Node, pose_id: S
 		_display_name = str(pony.name)
 	_finish = FINISH.new()
 	_finish.setup(anatomy, pony, service, pose, status)
-	_oral_turn = ORAL.new()
-	_oral_turn.setup(pony, anatomy, pose, consent, status)
+	_oral = ORAL.new()
+	_oral.call("setup", pony, anatomy)
 	reset()
 	_debug = DEBUG.new()
 	_debug.setup(anatomy, anatomy)
@@ -97,8 +97,8 @@ func reset() -> void:
 	_hole_mix = 0.0
 	_fill = 0.0
 	_wide = 0.0
-	if _oral_turn != null:
-		_oral_turn.reset()
+	if _oral != null:
+		_oral.call("reset")
 	if _finish != null:
 		_finish.reset()
 	_wink_left = 0.0
@@ -118,22 +118,25 @@ func _depth() -> float:
 	return clampf(float(_facts.depth), 0.0, 1.0) if _facts != null else 0.0
 
 
-## The oral facing the runtime applies after the tick. Empty when no turn is active.
-func facing() -> Dictionary:
-	return _oral_turn.facing() if _oral_turn != null else {}
+## The per-act contact view the runtime refreshed this tick.
+func _pose_view() -> Variant:
+	return _facts.pose_view if _facts != null else null
 
 
-## Write the oral turn's facing into the pose view without copying the dictionary.
-func write_facing(view: Variant) -> void:
-	if view == null:
-		return
-	if _oral_turn != null:
-		_oral_turn.write_facing(view)
-		return
-	view.facing = Basis.IDENTITY
-	view.facing_amount = 0.0
+## True while the pose view names the mouth contact. The pose service owns the contact switch;
+## the act only reads it.
+func _mouth_contact() -> bool:
+	var view: Variant = _pose_view()
+	return view != null and str(view.contact_kind) == "mouth"
 
 
+## The compatibility read of the live mouth contact. No act path branches on it; the pose view is
+## the one contact source.
+func oral_active() -> bool:
+	return _mouth_contact()
+
+
+## Her vulva opening at the live hole mix.
 func hole_point() -> Vector3:
 	if not is_instance_valid(anatomy):
 		return Vector3.ZERO
@@ -152,15 +155,28 @@ func hole_rear() -> Vector3:
 	return anatomy.call("hole_rear", _hole_mix)
 
 
-func oral_active() -> bool:
-	return _oral_turn != null and bool(_oral_turn.active())
-
-
-## Re-assert the oral turn's mouth shape after the base game stopped her speech. The turn owns the
-## open mouth only while it is active.
+## Re-assert the oral provider's mouth shape after the base game stopped her speech.
 func hold_oral_mouth() -> void:
-	if _oral_turn != null:
-		_oral_turn.hold_viseme()
+	if _oral != null:
+		_oral.call("hold_viseme")
+
+
+## The edge's `viseme` event: set the open mouth, or clear it on the contact release.
+func set_oral_viseme(letter: String) -> void:
+	if _oral == null:
+		return
+	if letter.is_empty():
+		_oral.call("clear")
+	else:
+		_oral.call("set_viseme", letter)
+
+
+## The mouth point the pose turn aims at once settled.
+func oral_mouth_point() -> Vector3:
+	if _oral == null:
+		return Vector3.ZERO
+	var point: Variant = _oral.call("mouth_point")
+	return point if point is Vector3 and (point as Vector3).is_finite() else Vector3.ZERO
 
 
 func finish_out() -> bool:
@@ -177,7 +193,7 @@ func finished_inside() -> bool:
 
 func toggle_hole(state: int) -> void:
 	if not SETTINGS.anatomy_holes.get_bool() or state not in [2, 3] \
-			or (_oral_turn != null and bool(_oral_turn.active())):
+			or _mouth_contact():
 		return
 	if not is_instance_valid(anatomy) or not is_instance_valid(anatomy.call("anal_mesh")):
 		return
@@ -185,14 +201,6 @@ func toggle_hole(state: int) -> void:
 		_status("%s is not into that" % _display_name)
 		return
 	_anal = not _anal
-
-
-func toggle_oral(state: int) -> void:
-	if _oral_turn == null:
-		return
-	if bool(_oral_turn.toggle(state)):
-		_anal = false
-		_hole_mix = 0.0
 
 
 func toggle_finish(state: int) -> void:
@@ -215,19 +223,22 @@ func _status(text: String) -> void:
 		status.call(text)
 
 
-## The point the part targets this tick. While oral is engaged it is the oral turn's anchor: the
-## opening the turn started from while she turns, her smoothed live mouth once settled. Otherwise
-## it is the vulva opening and its resolved normal. `_normal` must be set first.
+## The point the part targets this tick. In mouth contact it is the pose turn's anchor (the
+## captured opening while the turn runs, the live mouth once settled); otherwise the vulva opening
+## and its resolved normal. `_normal` must be set first.
 func _contact() -> void:
-	if _oral_turn != null and float(_oral_turn.mix()) > 0.0:
-		var point: Vector3 = _oral_turn.anchor()
-		if point.is_finite():
-			_contact_point = point
-			# A zero normal makes the part auto-aim from his crotch to the mouth instead of
-			# turning along the vulva plane.
-			_contact_normal = Vector3.ZERO
-			_contact_rear = Vector3.ZERO
-			return
+	if _mouth_contact():
+		var view: Variant = _pose_view()
+		var point: Vector3 = (view.contact_target as Vector3) if view != null \
+			else Vector3.INF
+		if not point.is_finite():
+			point = hole_point()
+		_contact_point = point
+		# A zero normal makes the part auto-aim from his crotch to the mouth instead of
+		# turning along the vulva plane.
+		_contact_normal = Vector3.ZERO
+		_contact_rear = Vector3.ZERO
+		return
 	_contact_point = hole_point()
 	_contact_normal = _normal
 	_contact_rear = hole_rear()
@@ -256,10 +267,9 @@ func tick(delta: float, facts: RefCounted) -> void:
 	_fill = lerpf(_fill, smoothstep(0.0, WINKING_OPEN_AT, wide),
 		1.0 - exp(-delta * WINKING_FILL_RATE))
 	_hole_mix = STATE.hole_mix_step(_hole_mix, _anal, HOLE_SWAP_S, delta)
-	if _oral_turn != null:
-		_oral_turn.set_facts(_facts)
-		_oral_turn.tick(delta)
-	var oral_mix := float(_oral_turn.mix()) if _oral_turn != null else 0.0
+	if _oral != null:
+		_oral.call("set_scale", _facts.size_scale)
+	var oral_mix := 1.0 if _mouth_contact() else 0.0
 	var rearward := 1.0 - oral_mix
 	var front := STATE.front(_hole_mix, oral_mix)
 	_act_wink_tick(delta, part)
@@ -318,21 +328,11 @@ func tick(delta: float, facts: RefCounted) -> void:
 	_facts.perf("anatomy_tick", Time.get_ticks_usec() - started)
 
 
-func pose_config(config: Dictionary) -> void:
-	if not is_instance_valid(anatomy) or _oral_turn == null:
-		return
-	# Missionary needs no pose overrides: the authored base pose already holds the pelvis and legs.
-	if pose != CATALOG.STANDING:
-		return
-	_oral_turn.write_pose_delta(config)
-
-
 ## Her own wink while the act runs: one quiet beat while the tip rests at her lips, and a
 ## frequent beat once a climax has been pulled out of her. Only the vulva, and never on top of a
 ## climax pulse, because both share the one countdown.
 func _act_wink_tick(delta: float, part: Variant) -> void:
-	if _state() != 2 or _hole_mix >= 0.5 or _oral_turn == null \
-			or bool(_oral_turn.active()) or _wink_left > 0.0:
+	if _state() != 2 or _hole_mix >= 0.5 or _mouth_contact() or _wink_left > 0.0:
 		return
 	var touching := false
 	if is_instance_valid(part) and bool(part.call("showing")):
@@ -419,8 +419,7 @@ func on_climax() -> void:
 
 func on_finish() -> void:
 	if _finish != null:
-		_finish.on_finish(_depth(), _oral_turn != null and bool(_oral_turn.active()),
-			_facts.fluid_ground_y)
+		_finish.on_finish(_depth(), _mouth_contact(), _facts.fluid_ground_y)
 
 
 ## integration: afterglow part tracking, on the act's attached alignment.
@@ -465,8 +464,8 @@ func end() -> void:
 	if is_instance_valid(anatomy):
 		anatomy.call("animate", 1.0, 1.5)
 		anatomy.call("_clear_part")
-	if _oral_turn != null:
-		_oral_turn.end()
+	if _oral != null:
+		_oral.call("clear")
 
 
 func teardown() -> void:
@@ -474,8 +473,8 @@ func teardown() -> void:
 		_debug.clear()
 		_debug = null
 	_facts = null
-	if _oral_turn != null:
-		_oral_turn.teardown()
+	if _oral != null:
+		_oral.call("teardown")
 	_anal = false
 	_hole_mix = 0.0
 	if _finish != null:

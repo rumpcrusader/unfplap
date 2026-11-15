@@ -26,23 +26,9 @@ static func closed_for(fill: float, hole_mix: float, oral_mix: float, rest_open:
 		* front(hole_mix, oral_mix)
 
 
-## The mouth anchor after one tick. Inactive: the anchor blends back from the last mouth point to
-## the opening the turn started from as `mix` falls, so the part returns with her. Active but still
-## turning: the opening holds, so the part does not chase her rump through the arc. Active and
-## settled: the anchor eases to the live mouth under `rate`.
-static func oral_anchor_step(anchor: Vector3, mouth: Vector3, opening: Vector3, mix: float,
-		active: bool, rate: float, delta: float) -> Vector3:
-	if not opening.is_finite():
-		return anchor
-	if not active:
-		if not anchor.is_finite():
-			return opening
-		return opening.lerp(anchor, clampf(mix, 0.0, 1.0))
-	if mix < 1.0 or not mouth.is_finite():
-		return opening
-	if not anchor.is_finite():
-		return mouth
-	return anchor.lerp(mouth, 1.0 - exp(-maxf(rate, 0.0) * delta))
+## The mouth anchor after one tick lives in the pose turn (`poses/oral_turn.gd`); the anatomy
+## controller only reads the pose view's contact. This module keeps the hole/oral mix, the shared
+## shape drive and the wink scheduler.
 
 
 ## One open/close pulse layered on the live shape drive, from the remaining seconds of the beat.

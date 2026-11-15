@@ -550,7 +550,7 @@ func _path_for_pose() -> Variant:
 			_missionary_path.call("setup", pony, facts)
 			_missionary_path.call("reset")
 		return _missionary_path
-	if path != "standing":
+	if path not in ["standing", "oral"]:
 		return null
 	if _mouth_contact():
 		if _oral_path == null:

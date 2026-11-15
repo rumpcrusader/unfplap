@@ -9,6 +9,7 @@ const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
 var checks := 0
@@ -66,34 +67,6 @@ class FakeAnatomy extends Node:
 
 class FakePony extends Node3D:
 	pass
-
-
-## A minimal oral turn: the act reads only the mix, the anchor and the pose delta.
-class FakeOral extends RefCounted:
-	var oral_mix := 0.0
-	var point := Vector3(0.0, 0.4, 0.9)
-	var delta: Dictionary = {}
-
-	func mix() -> float:
-		return oral_mix
-
-	func anchor() -> Vector3:
-		return point
-
-	func write_pose_delta(config: Dictionary) -> void:
-		if delta.is_empty():
-			config.erase("oral_pitch")
-			config.erase("oral_yaw")
-			config.erase("oral_roll")
-			return
-		for key: String in delta:
-			config[key] = delta[key]
-
-	func reset() -> void:
-		pass
-
-	func teardown() -> void:
-		pass
 
 
 func _initialize() -> void:
@@ -171,37 +144,41 @@ func run() -> void:
 	standing_act.call("teardown")
 	standing_act.free()
 
-	# Oral afterglow: the part stays on the mouth anchor instead of snapping to the vulva, and
-	# the oral pose delta is written and erased through the same call.
+	# The oral afterglow keeps the mouth anchor only while the pose view still holds the mouth
+	# contact; the runtime releases it on the afterglow entry, and the part returns to the opening.
 	var oral_rig := _afterglow_tick(CATALOG.STANDING)
 	var oral_act: Node = oral_rig[0]
 	var oral_service: FakeService = oral_rig[1]
 	var oral_part: FakePart = oral_rig[2]
-	var oral := FakeOral.new()
-	oral.oral_mix = 1.0
-	oral_act.set("_oral_turn", oral)
+	var oral_facts := FACTS.new()
+	oral_facts.penetration_reach = 0.2
+	var oral_view: Variant = VIEW.new()
+	oral_view.family = "standing"
+	oral_view.contact_kind = "mouth"
+	oral_view.contact_target = Vector3(0.3, 0.9, 1.1)
+	oral_facts.pose_view = oral_view
 	oral_service.tracks.clear()
-	oral_act.call("afterglow_tick", 0.25, FACTS.new())
+	oral_act.call("afterglow_tick", 0.25, oral_facts)
 	check(oral_service.tracks.size() == 1, "the oral afterglow tracks the part once")
 	if oral_service.tracks.size() == 1:
 		var oral_track: Dictionary = oral_service.tracks[0]
-		check((oral_track["target"] as Vector3).is_equal_approx(oral.point),
-			"the oral afterglow tracks the mouth anchor, not the vulva")
+		check((oral_track["target"] as Vector3).is_equal_approx(oral_view.contact_target),
+			"the oral afterglow tracks the pose view's mouth anchor")
 		check((oral_track["rear"] as Vector3).is_zero_approx(),
 			"the mouth anchor drops the vulva rear axis")
-		check(oral_part.aim_opening.is_equal_approx(oral.point),
+		check(oral_part.aim_opening.is_equal_approx(oral_view.contact_target),
 			"the oral part aims at the mouth anchor")
 		check(oral_part.aim_normal.is_zero_approx(),
 			"the mouth anchor uses the auto aim")
-	var config := {"oral_pitch": 2.0}
-	oral.delta = {"oral_pitch": 0.5, "oral_yaw": 0.25, "oral_roll": 0.1}
-	oral_act.call("pose_config", config)
-	check(near(float(config.get("oral_pitch", 0.0)), 0.5) and config.has("oral_roll"),
-		"the act writes a live oral pose delta")
-	oral.delta = {}
-	oral_act.call("pose_config", config)
-	check(not config.has("oral_pitch") and not config.has("oral_yaw") \
-		and not config.has("oral_roll"), "the act erases a released oral pose delta")
+	oral_view.contact_kind = "opening"
+	oral_view.contact_target = Vector3.INF
+	oral_service.tracks.clear()
+	oral_act.call("afterglow_tick", 0.25, oral_facts)
+	check(oral_service.tracks.size() == 1, "the released afterglow tracks the part once")
+	if oral_service.tracks.size() == 1:
+		var released: Dictionary = oral_service.tracks[0]
+		check((released["target"] as Vector3).is_equal_approx(Vector3(0.0, 0.5, 1.0)),
+			"the released afterglow returns to the opening")
 	oral_act.call("teardown")
 	oral_act.free()
 	oral_service.free()

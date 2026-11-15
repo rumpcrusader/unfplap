@@ -77,6 +77,7 @@ class FakeMain extends Node:
 	var game: Variant = null
 	var active_runtime: Variant = null
 	var view: Camera3D = null
+	var anatomy: Variant = null
 	var cleared: Array = []
 
 	func clear_active(runtime: Node) -> void:
@@ -84,6 +85,15 @@ class FakeMain extends Node:
 
 	func camera() -> Camera3D:
 		return view
+
+
+class FakeAnatomyService extends RefCounted:
+	var consents: Array[String] = []
+	var allow := true
+
+	func consent(_pony: Variant, key: String) -> bool:
+		consents.append(key)
+		return allow
 
 
 func _initialize() -> void:
@@ -349,6 +359,54 @@ func run() -> void:
 	check(runtime8._pose_session.body_sway == null and runtime8._pose_session.act_body == null,
 		"the act exit frees the extra modifier and the act body once")
 	check(act_body8.is_queued_for_deletion(), "the act body is detached before it is freed")
+
+	# The oral command requests the authored edge with the per-mare consent, and the one act exit
+	# aborts it: the root and the facing come back once and the view is idle.
+	runtime8.pose_id = CATALOG_STANDING
+	runtime8.state = 2
+	runtime8._features = {"anatomy_oral": true}
+	var anatomy8 := FakeAnatomyService.new()
+	(f8["main"] as FakeMain).anatomy = anatomy8
+	pony8.global_position = Vector3(2.0, 0.0, 3.0)
+	var oral_from: Vector3 = pony8.global_position
+	runtime8.call("_build_pose")
+	runtime8.call("toggle_anatomy_oral")
+	check(anatomy8.consents == ["oral"], "the oral command asks the anatomy service for consent")
+	check(runtime8._pose_session.view().pose_state == 3
+		and runtime8._pose_session.view().edge_id == "standing__standing_oral",
+		"the oral command starts the authored forward edge")
+	runtime8._pose_session.tick(0.8)
+	check(pony8.global_position.distance_to(oral_from) > 0.001,
+		"the oral turn moves her during the edge")
+	runtime8._end_session(false)
+	check(runtime8._pose_session._run == null, "the act exit aborts the oral edge")
+	check(pony8.global_position.is_equal_approx(oral_from),
+		"the act exit restores the captured oral root once")
+	check(runtime8._pose_session.view().id == ""
+		and runtime8._pose_session.view().pose_state == 0,
+		"the act exit leaves the oral view idle")
+	check(not runtime8._pose_session.pose_config.has("oral_pitch"),
+		"the act exit erases the oral keys")
+
+	# A missing consent or feature refuses before the edge starts and leaves her where she is.
+	runtime8.pose_id = CATALOG_STANDING
+	runtime8.state = 2
+	runtime8._features = {"anatomy_oral": true}
+	runtime8.call("_build_pose")
+	anatomy8.allow = false
+	var refused_from: Vector3 = pony8.global_position
+	runtime8.call("toggle_anatomy_oral")
+	check(runtime8._pose_session._run == null
+		and runtime8._pose_session.view().id == CATALOG_STANDING,
+		"the missing oral consent starts no edge")
+	check(pony8.global_position.is_equal_approx(refused_from),
+		"the missing oral consent moves nothing")
+	anatomy8.allow = true
+	runtime8._features = {}
+	runtime8.call("toggle_anatomy_oral")
+	check(runtime8._pose_session._run == null,
+		"the oral feature gate refuses before the edge starts")
+	runtime8._end_session(false)
 
 	# AnonPony and headset/VR move her in front of the player; the player stays where he is.
 	var f9 := _fixture()

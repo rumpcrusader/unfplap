@@ -20,8 +20,8 @@ const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "Colo
 ## hands, kiss, anatomy, afterglow, dialogue, HUD and body sway to the view; A3.5 moved the two
 ## standing adapters: 141 and 19 are allowed.
 const POSE_ID_BUDGET := {
-	"runtime.gd": 62,
-	"poses/service.gd": 31,
+	"runtime.gd": 55,
+	"poses/service.gd": 18,
 	"settings/service.gd": 11,
 	"anatomy/act_bridge.gd": 2,
 	"reactions/service.gd": 7,
@@ -31,7 +31,6 @@ const POSE_ID_BUDGET := {
 	"anatomy/act.gd": 2,
 	"rest/service.gd": 2,
 	"integrations/service.gd": 2,
-	"anatomy/act/oral.gd": 2,
 	"anatomy/act/finish.gd": 2,
 	"shared/act_facts.gd": 2,
 	"scene_hold/service.gd": 1,
@@ -41,8 +40,8 @@ const POSE_ID_BUDGET := {
 	"shared/pose_view.gd": 4,
 }
 const ORAL_ACTIVE_BUDGET := {
-	"runtime.gd": 11,
-	"anatomy/act_bridge.gd": 3,
+	"runtime.gd": 4,
+	"anatomy/act_bridge.gd": 1,
 	"shared/act_facts.gd": 1,
 	"anatomy/act.gd": 1,
 	"shared/pose_view.gd": 3,
@@ -126,6 +125,7 @@ func run() -> void:
 	_check_pose_edges()
 	_check_pose_docs()
 	_check_pose_capability_census(files)
+	_check_oral_contact(files)
 	_check_act_commands()
 	_check_act_camera()
 	_check_scene_gate()
@@ -735,9 +735,10 @@ func _check_pose_session() -> void:
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	check(runtime.contains("func _pose_service()"), "runtime reaches the pose through the session")
 	var sync := _func_body(runtime, "_sync_act_facts")
-	check(sync.contains("write_facing("), "_sync_act_facts writes the facing into the view")
-	check(not sync.contains("turn_facing("),
-		"_sync_act_facts copies no per-tick facing dictionary")
+	check(sync.contains("contact_kind") and sync.contains("oral_active"),
+		"_sync_act_facts mirrors the pose view's contact")
+	check(not sync.contains("write_facing("),
+		"_sync_act_facts writes no facing into the view")
 	check(not runtime.contains("turn_facing("),
 		"the runtime has no per-tick facing copy")
 	check(facade.contains("func render_write("), "the pose session owns the render-time order")
@@ -883,6 +884,30 @@ func _check_pose_docs() -> void:
 func _check_pose_capability_census(files: Array[String]) -> void:
 	_check_token_budget(files, "pose_id", POSE_ID_BUDGET)
 	_check_token_budget(files, "oral_active", ORAL_ACTIVE_BUDGET)
+
+
+## The mouth contact is one view read: the pose turn writes it, the anatomy provider and the
+## compatibility mirrors read it, and the runtime never asks the bridge for an old active flag.
+func _check_oral_contact(files: Array[String]) -> void:
+	var allowed := ["anatomy/act.gd", "anatomy/act_bridge.gd"]
+	for path: String in files:
+		if not path.ends_with(".gd"):
+			continue
+		if path.begins_with(ROOT.path_join("tests/")) or path.begins_with(ROOT.path_join("tools/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		var text := FileAccess.get_file_as_string(path)
+		if text.contains(".oral_active("):
+			check(relative in allowed,
+				"only the contact provider calls oral_active(): %s" % relative)
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	check(not runtime.contains("_anatomy_bridge.oral_active"),
+		"the runtime reads the mouth contact from the pose view")
+	var toggle := _func_body(runtime, "toggle_anatomy_oral")
+	check(toggle.contains("request_pose(") and toggle.contains("CATALOG.STANDING_ORAL"),
+		"the oral command requests the authored oral edge")
+	check(not toggle.contains("toggle_oral"),
+		"the oral command never calls the removed anatomy toggle")
 
 
 func _check_token_budget(files: Array[String], token: String, budget: Dictionary) -> void:

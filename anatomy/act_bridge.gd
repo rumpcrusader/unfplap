@@ -107,11 +107,10 @@ func anal_active() -> bool:
 	return is_instance_valid(act) and bool(act.get("_anal"))
 
 
-## The pose config the per-act handle adjusts with the oral turn's delta. The runtime owns the
-## live config; the persistent controller has no pose override outside an act.
-func pose_config(cfg: Dictionary) -> void:
-	if is_instance_valid(act):
-		act.call("pose_config", cfg)
+## The pose view the act reads for the mouth contact.
+func _mouth_contact() -> bool:
+	var view: Variant = _host("pose_view")
+	return view != null and str(view.contact_kind) == "mouth"
 
 
 ## The per-act handle. The controller's `begin_act` creates it; the bridge resets the facts first.
@@ -171,26 +170,11 @@ func context() -> RefCounted:
 	return facts
 
 
-## Tick the act and apply the oral turn's facing inside the same physics frame.
+## Tick the act with this tick's typed context.
 func tick(delta: float) -> void:
 	if not is_instance_valid(act):
 		return
 	act.call("tick", delta, context())
-	apply_facing()
-
-
-## Apply the oral turn's facing after the act tick. The standing camera owns the facing override.
-func apply_facing() -> void:
-	if not is_instance_valid(act) or pose_family() != "standing":
-		return
-	var facing: Variant = act.call("facing")
-	if not facing is Dictionary or (facing as Dictionary).is_empty():
-		return
-	var value: Dictionary = facing
-	var basis: Basis = value.get("basis", Basis.IDENTITY)
-	var facing_cb: Callable = _callback("anatomy_facing")
-	if facing_cb.is_valid():
-		facing_cb.call(basis, float(value.get("amount", 0.0)))
 
 
 ## The act's end. The controller owns the act; the bridge owns the bodies and the VR handle. The
@@ -232,10 +216,11 @@ func detach() -> void:
 ## The action gates. The host supplies the state; the bridge reads the settings.
 func hole_ready() -> bool:
 	return is_instance_valid(act) and _host("state", 0) in [STATE_ACTIVE, STATE_CLIMAX] \
-		and SETTINGS.anatomy_holes.get_bool() \
-		and not bool(act.call("oral_active"))
+		and SETTINGS.anatomy_holes.get_bool() and not _mouth_contact()
 
 
+## The oral command's gate: the feature, the standing pose family and an active act. It stays
+## open in either direction so N can request the return.
 func oral_ready() -> bool:
 	return is_instance_valid(act) and _host("state", 0) == STATE_ACTIVE \
 		and pose_family() == "standing" and SETTINGS.anatomy_oral.get_bool()
@@ -250,14 +235,29 @@ func actions_ready() -> bool:
 	return hole_ready() or oral_ready() or finish_ready()
 
 
+## The compatibility read of the live mouth contact. The pose view is the one contact source.
 func oral_active() -> bool:
-	return is_instance_valid(act) and bool(act.call("oral_active"))
+	return _mouth_contact()
 
 
 ## Re-assert the oral mouth shape after the base game stopped her speech.
 func hold_oral_mouth() -> void:
 	if is_instance_valid(act):
 		act.call("hold_oral_mouth")
+
+
+## The edge's viseme event: the D shape, or the clear on contact release.
+func set_oral_viseme(letter: String) -> void:
+	if is_instance_valid(act):
+		act.call("set_oral_viseme", letter)
+
+
+## The mouth point the pose turn follows once it has settled.
+func mouth_point() -> Vector3:
+	if not is_instance_valid(act):
+		return Vector3.ZERO
+	var value: Variant = act.call("oral_mouth_point")
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.ZERO
 
 
 func finish_pull_out() -> bool:
@@ -267,11 +267,6 @@ func finish_pull_out() -> bool:
 func toggle_hole() -> void:
 	if is_instance_valid(act):
 		act.call("toggle_hole", _host("state", 0))
-
-
-func toggle_oral() -> void:
-	if is_instance_valid(act):
-		act.call("toggle_oral", _host("state", 0))
 
 
 func toggle_finish() -> void:
@@ -334,36 +329,8 @@ func rear() -> Vector3:
 	return Vector3.ZERO
 
 
-## The standing camera's facing override. The host's `anatomy_facing` owns the call.
-func facing(basis: Basis, amount: float) -> void:
-	var facing_cb: Callable = _callback("anatomy_facing")
-	if facing_cb.is_valid():
-		facing_cb.call(basis, amount)
-
-
-## The per-act oral turn's live facing as a copy, or `{}` when no turn is active. The suites use
-## this; the runtime's per-tick path is `write_facing(view)`.
-func turn_facing() -> Dictionary:
-	if not is_instance_valid(act):
-		return {}
-	var value: Variant = act.call("facing")
-	return value if value is Dictionary else {}
-
-
-## Write the oral turn's live facing into the pose view without copying the dictionary. This is
-## the per-tick path; `turn_facing()` stays the copy accessor the suites use. With no act it writes
-## the identity and zero amount.
-func write_facing(view: Variant) -> void:
-	if view == null:
-		return
-	if act_available():
-		act.call("write_facing", view)
-		return
-	view.facing = Basis.IDENTITY
-	view.facing_amount = 0.0
-
-
-## The status label. The host's `anatomy_status` owns the label.
+## The standing camera's facing override used to live here. It now reads the pose view's
+## `facing`/`facing_amount` directly, so the bridge no longer carries a facing path.
 func status(text: String, seconds := 2.0) -> void:
 	var status_cb: Callable = _callback("status")
 	if status_cb.is_valid():
@@ -491,6 +458,7 @@ func vr_start() -> void:
 	vr_act.set("align", _callback("align"))
 	vr_act.set("touch", _callback("touch"))
 	vr_act.set("pony_source", _callback("pony"))
+	vr_act.set("command", _callback("command"))
 	vr_act.set("player", main.player)
 	vr_act.set("hip_target", avatar.get("_hip_target"))
 	vr_act.set("camera", cameras[0])

@@ -38,8 +38,8 @@ class FakeBridge extends RefCounted:
 	func toggle_finish() -> void:
 		calls.append("finish")
 
-	func toggle_oral() -> void:
-		calls.append("oral")
+	func command(id: String) -> void:
+		calls.append("command:" + id)
 
 	func on_touch(kind: String) -> void:
 		calls.append("touch:" + kind)
@@ -129,6 +129,7 @@ func run() -> void:
 	act.set("align", Callable(bridge, "apply_anon_align"))
 	act.set("touch", Callable(bridge, "on_touch"))
 	act.set("pony_source", Callable(bridge, "pony_node"))
+	act.set("command", Callable(bridge, "command"))
 	act.set("player", player)
 	act.set("hip_target", hip)
 	act.set("camera", camera)
@@ -168,7 +169,7 @@ func run() -> void:
 
 	left.set_input(&"by_button", true)
 	_tick(act, 2)
-	check(_count(bridge, "oral") == 1, "left by button turns her for oral once")
+	check(_count(bridge, "command:oral") == 1, "left by button emits the oral command once")
 	left.set_input(&"by_button", false)
 	_tick(act)
 

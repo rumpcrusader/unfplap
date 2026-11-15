@@ -3,16 +3,20 @@ extends Node
 ## do not create it. It drives the same depth and anatomy actions as the desktop keys; the
 ## auto-speed/stroke-depth controls from the fork are deliberately not imported.
 
+const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
+
 const HIP_RANGE_M := 0.16
 const STICK_DEAD := 0.5
 const STICK_REPEAT_S := 0.18
 
 ## Host boundary. The bridge owns the anatomy actions and the headset depth; the typed act view
-## supplies her node and the readiness touch. Missing callbacks are no-ops.
+## supplies her node and the readiness touch; `command` is the runtime's discrete command
+## dispatcher. Missing callbacks are no-ops.
 var bridge: Variant = null
 var align := Callable()
 var touch := Callable()
 var pony_source := Callable()
+var command := Callable()
 var player: Node3D
 var hip_target: Node3D
 var camera: XRCamera3D
@@ -56,8 +60,8 @@ func _physics_process(delta: float) -> void:
 		bridge.toggle_finish()
 	_finish_held = finish
 	var oral := is_instance_valid(_left) and _left.is_button_pressed("by_button")
-	if oral and not _oral_held and bridge != null:
-		bridge.toggle_oral()
+	if oral and not _oral_held and command.is_valid():
+		command.call(ACT_COMMANDS.ORAL)
 	_oral_held = oral
 
 

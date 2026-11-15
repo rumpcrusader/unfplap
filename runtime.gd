@@ -58,9 +58,8 @@ const READINESS_MAX := 100.0
 const THRUST_IMPACT_GAIN := 2.0
 ## The body slap fires only when his skin has actually reached her coat.
 const CONTACT_GAP_M := 0.0
-## The oral segment replaces her speech with the base game's soft kiss on an idle timer.
-const ORAL_KISS_IDLE_MIN_S := 2.5
-const ORAL_KISS_IDLE_MAX_S := 4.5
+## The oral segment replaces her speech with the base game's soft kiss on an idle timer owned by
+## the pose turn; the runtime supplies only the cue level.
 const ORAL_KISS_DB := -22.0
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
@@ -197,10 +196,7 @@ var _max_pony_climaxes := 3
 var _pelvis_gap_m := 0.025
 var _cue_gap := 12.0
 var _vocal_cooldown := 0.0
-## The oral gate: the rising edge silences her speech once, and the idle timer owns the base
-## game's soft kiss while the segment lasts.
-var _oral_was_active := false
-var _oral_kiss_left := 0.0
+## The cue/utterance pacing and the oral soft-kiss cue. The oral turn owns its idle timer.
 var _cue_override_seconds := 10.0
 var _cue_base_stable_s := 2.0
 var _cue_override_stable_s := 0.5
@@ -377,7 +373,7 @@ func _anatomy_host() -> Dictionary:
 		"perf_enabled": Callable(self, "_perf_enabled"),
 		"body_coat_smack": Callable(self, "body_coat_jiggle_target"),
 		"status": Callable(self, "_anatomy_status"),
-		"anatomy_facing": Callable(self, "anatomy_facing"),
+		"command": Callable(self, "command"),
 		"missionary_camera": Callable(self, "_missionary_camera_controller"),
 		"kiss_controller": Callable(self, "_kiss_controller"),
 		"pose": Callable(self, "_pose_service"),
@@ -567,14 +563,13 @@ func _sync_act_facts() -> void:
 	facts.last_talk = _readiness.last_talk
 	facts.cue_override = not _readiness.cue_override.is_empty()
 	facts.thrust_pace = _readiness.thrusts_per_second()
-	facts.oral_active = _anatomy_bridge.oral_active()
-	facts.anal_active = _anatomy_bridge.anal_active()
-	# The pose view mirrors the live anatomy state; the producers stay in the anatomy owner.
+	# The pose view is the one contact source. `facts.oral_active` and the view's compatibility
+	# mirror are derived from it for the remaining readers; nothing writes the contact back.
 	var pose_view: Variant = facts.pose_view
+	facts.oral_active = str(pose_view.contact_kind) == "mouth"
+	facts.anal_active = _anatomy_bridge.anal_active()
 	pose_view.oral_active = facts.oral_active
 	pose_view.anal_active = facts.anal_active
-	pose_view.contact_kind = "mouth" if facts.oral_active else "opening"
-	_anatomy_bridge.write_facing(pose_view)
 	facts.penetration_reach = penetration_reach()
 	var cam: RefCounted = _camera_service()
 	facts.size_name = cam.call("size_name")
@@ -653,13 +648,6 @@ func _anatomy_fluid_ground_y() -> float:
 		if top is float and is_finite(top):
 			return top
 	return ground
-
-
-## Apply the oral turn's facing after the anatomy tick, inside the same physics frame. The bridge
-## owns the act handle and the facing read.
-func _apply_anatomy_facing() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.apply_facing()
 
 
 func _log(text: String) -> void:
@@ -895,6 +883,12 @@ func _pose_service() -> RefCounted:
 	_pose_session.eye_camera = Callable(self, "_missionary_eye_tick")
 	_pose_session.perf = Callable(self, "perf_note")
 	_pose_session.facts = _act_facts
+	_pose_session.mouth_point = Callable(self, "_oral_mouth_point")
+	_pose_session.opening_point = Callable(self, "_oral_opening_point")
+	_pose_session.oral_kiss = Callable(self, "_oral_kiss")
+	_pose_session.oral_speech_stop = Callable(self, "_oral_speech_stop")
+	_pose_session.oral_viseme = Callable(self, "_oral_viseme")
+	_pose_session.oral_status = Callable(self, "_anatomy_status")
 	return _pose_session
 
 
@@ -1384,11 +1378,6 @@ func _physics_tick(delta: float) -> void:
 		if _anatomy_bridge.act_available():
 			_anatomy_bridge.bind(_anatomy_host())
 			_anatomy_bridge.tick(delta)
-			# The oral styles rewrite these keys every tick; writing the live config in place is
-			# what animates the neck and lets a released turn erase stale keys.
-			if pose_id == CATALOG.STANDING:
-				_anatomy_bridge.pose_config(_pose_session.pose_config)
-		_oral_tick(delta)
 		if state == State.ACTIVE:
 			var talk_started := Time.get_ticks_usec()
 			_readiness_tick(delta)
@@ -2176,19 +2165,13 @@ func _standing_gap() -> float:
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
 ## first keeps the other pose overrides, then the presentation neck/head controls win.
 func _sync_standing_pose_config() -> void:
-	if not _pose_service().sync_standing_config(_presentation_cfg):
-		return
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.pose_config(_pose_session.pose_config)
+	_pose_service().sync_standing_config(_presentation_cfg)
 
 
 ## The missionary recipe reads these from pose_config every frame. Re-reading the character's
 ## pose keeps its nuzzle overrides live.
 func _sync_missionary_pose_config() -> void:
-	if not _pose_service().sync_missionary_config():
-		return
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.pose_config(_pose_session.pose_config)
+	_pose_service().sync_missionary_config()
 
 
 ## The parsed authored missionary pose, for the shot camera and the debug action.
@@ -2285,8 +2268,6 @@ func _reset_thrust_state() -> void:
 	_dialogue_service().reset(_now_s(), _cue_gap)
 	_configure_utterance_scheduler()
 	_vocal_cooldown = 0.0
-	_oral_was_active = false
-	_oral_kiss_left = 0.0
 	_act_spoken_at = -1e9
 	_act_ended_early = false
 	if _thrust_tracker == null:
@@ -2364,11 +2345,56 @@ func toggle_anatomy_hole() -> void:
 	_anatomy_bridge.toggle_hole()
 
 
-## The `oral` command's current implementation; the standing oral pose request replaces it once
-## those rows exist, and the input path does not change.
+## The `oral` command: request the standing oral pose, or the return edge when it is already
+## active. The per-mare consent string is passed only when the anatomy service says yes; the
+## feature and the stretch holder are checked by the edge requirements, not here.
 func toggle_anatomy_oral() -> void:
+	var view: RefCounted = _pose_service().view()
+	var from_id := str(view.id)
+	var target := CATALOG.STANDING_ORAL if from_id == CATALOG.STANDING else CATALOG.STANDING
+	var request := {}
+	var consent := false
+	var service: Variant = _anatomy_service()
+	if service != null and service.has_method("consent") and target == CATALOG.STANDING_ORAL:
+		consent = bool(service.call("consent", pony, "oral"))
+		if consent:
+			request["consent"] = "oral"
+	var result: Dictionary = request_pose(target, "oral", request)
+	if bool(result.get("ok", false)):
+		_log("oral pose %s -> %s: ok" % [from_id, target])
+		return
+	_log("oral pose %s -> %s refused: %s (%s)" % [
+		from_id, target, str(result.get("code", "")), str(result.get("reason", ""))])
+	if target == CATALOG.STANDING_ORAL and not consent:
+		_anatomy_status("%s is not into that" % _display_name)
+	elif service != null:
+		_anatomy_status(str(result.get("reason", "")))
+
+
+## The mouth point the pose turn aims at once it has settled.
+func _oral_mouth_point() -> Vector3:
 	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.toggle_oral()
+	return _anatomy_bridge.mouth_point()
+
+
+## The opening the pose turn captures before the turn.
+func _oral_opening_point() -> Vector3:
+	_anatomy_bridge.bind(_anatomy_host())
+	return _anatomy_bridge.opening()
+
+
+## The edge viseme event: the D shape, or the clear on contact release.
+func _oral_viseme(value: String) -> void:
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.set_oral_viseme(value)
+
+
+## The edge's speech stop: her authored line, the shared director turn and her own voice end once
+## when the oral edge starts. The mouth shape follows through the separate `viseme` event.
+func _oral_speech_stop() -> void:
+	_end_act_lines(false)
+	_stop_oral_director()
+	_stop_pony_speech()
 
 
 func toggle_anatomy_finish() -> void:
@@ -2442,12 +2468,6 @@ func anatomy_normal() -> Vector3:
 ## integration: her entrance point during an anatomy act, in world space.
 func anatomy_opening() -> Vector3:
 	return _anatomy_bridge.opening()
-
-
-func anatomy_facing(basis: Basis, amount: float) -> void:
-	var camera: Variant = _standing_camera_controller()
-	if camera != null and camera.has_method("set_facing_override"):
-		camera.call("set_facing_override", basis, amount)
 
 
 ## integration: the standing part aims itself in `player.gd`'s track; only the optional bed body
@@ -2653,7 +2673,7 @@ func _on_impact(result: Dictionary) -> void:
 	var impact_speed := float(result.get("impact_speed", 0.0))
 	var tier := THRUST.plap_tier(impact_speed)
 	var plap := THRUST.plap_touching(gap, CONTACT_GAP_M) and not tier.is_empty()
-	var oral := _oral_active()
+	var oral := _mouth_contact()
 	var now := _now_s()
 	_wings_controller().on_thrust(impact)
 	if not oral:
@@ -2687,37 +2707,11 @@ func _play_vocal() -> void:
 			_vocal_cooldown = 3.0
 
 
-## Live oral state from the anatomy bridge. `facts.oral_active` is one frame old for the
-## presentation modules; the act paths read this instead.
-func _oral_active() -> bool:
-	return _anatomy_bridge.oral_active()
-
-
-## The oral gate. On the rising edge her act line and base-game voice stop and the mouth returns
-## to the oral shape; while it lasts the stock soft kiss plays on an idle timer, never on entry or
-## on a stroke. Bystanders keep their own turns.
-func _oral_tick(delta: float) -> void:
-	var now := _oral_active()
-	if now and not _oral_was_active:
-		_end_act_lines(false)
-		_stop_oral_director()
-		_stop_pony_speech()
-		# Oral owns the body: a reach or lean kiss already running drops immediately instead of
-		# easing out with the lean.
-		_camera_service().call("end_lean_action")
-		_kiss_controller().end_lean_kiss()
-		# A cancelled authored line may already have cleared the viseme.
-		_anatomy_bridge.hold_oral_mouth()
-		_oral_kiss_left = randf_range(ORAL_KISS_IDLE_MIN_S, ORAL_KISS_IDLE_MAX_S)
-	elif now:
-		_stop_pony_speech()
-		_oral_kiss_left -= delta
-		if _oral_kiss_left <= 0.0:
-			_oral_kiss()
-			_oral_kiss_left = randf_range(ORAL_KISS_IDLE_MIN_S, ORAL_KISS_IDLE_MAX_S)
-	else:
-		_oral_kiss_left = 0.0
-	_oral_was_active = now
+## Live mouth contact from the pose view. The pose service owns the contact switch; the runtime
+## reads it for the plap/vocal guards and the climax line.
+func _mouth_contact() -> bool:
+	var view: Variant = _pose_service().view()
+	return view != null and str(view.contact_kind) == "mouth"
 
 
 ## Interrupt the shared director only when it is driving this mare, so a bystander's turn is not
@@ -3183,7 +3177,7 @@ func _climax() -> void:
 
 func _queue_climax_reaction() -> void:
 	# Her mouth is busy during oral; the climax line waits for a later act.
-	if _oral_active():
+	if _mouth_contact():
 		return
 	if not is_instance_valid(main):
 		return
@@ -3326,6 +3320,9 @@ func _afterglow_begin() -> void:
 	_commit_afterglow()
 	state = State.AFTERGLOW
 	_sync_act_facts()
+	# The oral afterglow releases the mouth contact and keeps the turned pose. The pose row's
+	# afterglow profile is passive, so no standing close window opens.
+	_pose_service().release_mouth_contact()
 	_integrations_controller().afterglow()
 	_afterglow.bind_view(_pose_session.view())
 	_afterglow.begin(pose_id, _summary_service.summary)
@@ -3426,11 +3423,8 @@ func _end_session(rejoin_cuddle: bool) -> void:
 			and bool(_rest_service().call("rejoin_wanted", _rest_context())):
 		rejoin_bed = bed
 	# integration: close the anatomy act once, before the pose is freed.
-	var was_standing := pose_id == CATALOG.STANDING
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.end()
-	if was_standing:
-		anatomy_facing(Basis.IDENTITY, 0.0)
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
 	_kiss_controller().restore_forelegs()
@@ -4041,10 +4035,7 @@ func _exit_tree() -> void:
 	_release_stool()
 	_end_tail_tuck()
 	# integration: never leave the anatomy nodes or the per-act controller behind.
-	var was_standing := pose_id == CATALOG.STANDING
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.end()
-	if was_standing:
-		anatomy_facing(Basis.IDENTITY, 0.0)
 	_anatomy_bridge.detach()
 	_face.shutdown()

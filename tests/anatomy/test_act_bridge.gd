@@ -19,7 +19,6 @@ var checks := 0
 
 
 class FakeAct extends Node:
-	var oral := false
 	var pull_out := false
 	var toggles: Array[String] = []
 	var withdraws := 0
@@ -29,30 +28,26 @@ class FakeAct extends Node:
 	var ends := 0
 	var teardowns := 0
 	var hold_mouths := 0
-	var facing_value: Variant = null
-	var facing_writes := 0
 	var normal: Variant = Vector3.ZERO
 	var point: Variant = Vector3.ZERO
 	var rear: Variant = Vector3.ZERO
-	var pose_configs: Array = []
-
-	func pose_config(cfg: Dictionary) -> void:
-		pose_configs.append(cfg)
+	var mouth: Variant = Vector3(0.0, 1.2, 0.4)
+	var visemes: Array[String] = []
 
 	func toggle_hole(_state: int) -> void:
 		toggles.append("hole")
 
-	func toggle_oral(_state: int) -> void:
-		toggles.append("oral")
-
 	func toggle_finish(_state: int) -> void:
 		toggles.append("finish")
 
-	func oral_active() -> bool:
-		return oral
-
 	func hold_oral_mouth() -> void:
 		hold_mouths += 1
+
+	func set_oral_viseme(letter: String) -> void:
+		visemes.append(letter)
+
+	func oral_mouth_point() -> Variant:
+		return mouth
 
 	func pull_out_selected() -> bool:
 		return pull_out
@@ -68,14 +63,6 @@ class FakeAct extends Node:
 
 	func afterglow_tick(_delta: float, _facts: Variant) -> void:
 		afterglow_ticks += 1
-
-	func facing() -> Variant:
-		return facing_value
-
-	func write_facing(view: Variant) -> void:
-		facing_writes += 1
-		view.facing = Basis(Vector3.UP, 0.5)
-		view.facing_amount = 0.75
 
 	func opening_normal() -> Variant:
 		return normal
@@ -332,22 +319,21 @@ func _check_gates() -> void:
 	SETTINGS.anatomy_holes.set_bool(true)
 	SETTINGS.anatomy_oral.set_bool(true)
 	SETTINGS.anatomy_finish.set_bool(true)
-	act.oral = false
+	host.pose_view = _view("standing")
 	check(bridge.oral_ready(), "oral is ready in standing active")
 	check(bridge.hole_ready(), "hole is ready in standing active")
 	check(bridge.finish_ready(), "finish is ready in active")
 	check(bridge.actions_ready(), "any live gate opens the action set")
-	act.oral = true
-	check(not bridge.hole_ready(), "oral blocks the hole gate")
+	host.pose_view.contact_kind = "mouth"
+	check(not bridge.hole_ready(), "the mouth contact blocks the hole gate")
+	host.pose_view.contact_kind = "opening"
 	host.state = STATE_IDLE
 	check(not bridge.oral_ready(), "oral is not ready outside active")
 	check(not bridge.finish_ready(), "finish is not ready outside active")
 	check(not bridge.actions_ready(), "no live gate closes the action set")
-	act.oral = false
 	bridge.toggle_hole()
-	bridge.toggle_oral()
 	bridge.toggle_finish()
-	check(act.toggles == ["hole", "oral", "finish"], "the toggles reach the act")
+	check(act.toggles == ["hole", "finish"], "the toggles reach the act")
 	SETTINGS.anatomy_holes.set_bool(holes_on)
 	SETTINGS.anatomy_oral.set_bool(oral_on)
 	SETTINGS.anatomy_finish.set_bool(finish_on)
@@ -362,12 +348,19 @@ func _check_action_reads() -> void:
 	bridge.bind(_host(host))
 	var act := FakeAct.new()
 	bridge.act = act
-	act.oral = true
-	check(bridge.oral_active(), "oral active reads the act")
-	act.oral = false
-	check(not bridge.oral_active(), "oral inactive reads the act")
+	var mouth_view: Variant = _view("standing")
+	mouth_view.contact_kind = "mouth"
+	host.pose_view = mouth_view
+	check(bridge.oral_active(), "oral active reads the pose view")
+	host.pose_view = _view("standing")
+	check(not bridge.oral_active(), "the opening contact reads as inactive")
 	bridge.hold_oral_mouth()
 	check(act.hold_mouths == 1, "hold_oral_mouth reaches the act")
+	bridge.set_oral_viseme("D")
+	bridge.set_oral_viseme("")
+	check(act.visemes == ["D", ""], "the viseme event reaches the act")
+	check(bridge.mouth_point().is_equal_approx(Vector3(0.0, 1.2, 0.4)),
+		"the bridge exposes the provider's mouth point")
 	act.pull_out = true
 	check(bridge.finish_pull_out(), "pull out reads the act")
 	bridge.withdraw()
@@ -378,21 +371,8 @@ func _check_action_reads() -> void:
 	check(act.climaxes == 1, "on_climax reaches the act")
 	check(act.finishes == 1, "on_finish reaches the act")
 	check(act.afterglow_ticks == 1, "afterglow_tick reaches the act")
-	var facing_view: Variant = _view("standing")
-	facing_view.facing = Basis(Vector3.UP, 1.0)
-	facing_view.facing_amount = 0.9
-	bridge.write_facing(facing_view)
-	check(act.facing_writes == 1 and is_equal_approx(facing_view.facing_amount, 0.75),
-		"write_facing forwards to the act without a copy")
-	check(facing_view.facing.is_equal_approx(Basis(Vector3.UP, 0.5)),
-		"the act writes the live facing into the view")
 	bridge.act = null
-	facing_view.facing = Basis(Vector3.UP, 1.0)
-	facing_view.facing_amount = 0.9
-	bridge.write_facing(facing_view)
-	check(facing_view.facing.is_equal_approx(Basis.IDENTITY)
-		and is_zero_approx(facing_view.facing_amount),
-		"no act writes identity and zero amount")
+	check(bridge.mouth_point() == Vector3.ZERO, "no act returns no mouth point")
 	act.free()
 
 
@@ -438,12 +418,6 @@ func _check_lifecycle() -> void:
 	bridge.react()
 	check(controller.reacts == 1, "react reaches the controller")
 	var act := FakeAct.new()
-	bridge.act = act
-	bridge.pose_config({"a": 1})
-	check(act.pose_configs.size() == 1, "pose_config reaches the per-act handle")
-	bridge.act = null
-	bridge.pose_config({"b": 2})
-	check(act.pose_configs.size() == 1, "pose_config without an act is a no-op")
 	bridge.act = act
 	bridge.end()
 	check(controller.ends == 1, "end closes the controller act")

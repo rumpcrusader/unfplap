@@ -375,7 +375,7 @@ func begin_facing(transform: Transform3D) -> void:
 		float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
 
 
-## integration: the oral turn owns the facing while it is active. Amount 0 clears it.
+## integration: the pose view owns the oral facing while its turn runs. Amount 0 clears it.
 func set_facing_override(basis: Basis, amount: float) -> void:
 	if amount <= 0.001:
 		_facing_override_on = false
@@ -383,6 +383,19 @@ func set_facing_override(basis: Basis, amount: float) -> void:
 		return
 	_facing_override_on = true
 	_facing_override = basis.orthonormalized()
+
+
+## Read the pose view's live facing each physics tick. The oral turn writes it every tick; a
+## cleared view or amount 0 returns the normal facing lock.
+func sync_view_facing() -> void:
+	if facts == null:
+		return
+	var view: Variant = facts.pose_view
+	if view == null:
+		set_facing_override(Basis.IDENTITY, 0.0)
+		return
+	set_facing_override(view.facing, view.facing_amount)
+
 
 func reset() -> void:
 	_applied_bob = 0.0
@@ -423,6 +436,7 @@ func apply_lean_look() -> void:
 	_apply_standing_lean_look()
 
 func lock_facing() -> void:
+	sync_view_facing()
 	_lock_body_facing()
 
 func drive_glance(delta: float) -> void:

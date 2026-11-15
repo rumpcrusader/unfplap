@@ -110,6 +110,16 @@ func run() -> void:
 	check(active.hud_readiness_line(false) == "", "readiness line hidden with readouts off")
 	active.free()
 
+	# The oral afterglow holds the turned pose but opens no standing close window.
+	var oral := _facade("standing_oral")
+	var oral_phase: RefCounted = oral["phase"]
+	check(not oral_phase.close_window, "the oral afterglow opens no close window")
+	check(is_zero_approx(oral_phase.close_left), "the oral close window never starts")
+	check(oral_phase.hint().is_empty(), "the oral afterglow shows no stay-close cue")
+	var oral_row: Dictionary = oral_phase.presentation()
+	check(near(float(oral_row.get("tail_target", 0.0)), 0.55),
+		"the oral afterglow keeps the standing tail row")
+
 	var standing := _facade("standing")
 	var standing_phase: RefCounted = standing["phase"]
 	check(near(standing_phase.close_left, AFTERGLOW.STAY_CLOSE_SECONDS),

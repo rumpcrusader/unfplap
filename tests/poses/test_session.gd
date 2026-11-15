@@ -84,6 +84,8 @@ func run() -> void:
 	_check_commands()
 	_check_target_snapshot()
 	_check_settings_group_edge()
+	_check_asset_adoption()
+	_check_asset_reload()
 	_check_release_abort()
 	_check_pose_changed()
 	_check_no_act_exit()
@@ -1178,6 +1180,93 @@ func _check_settings_group_edge() -> void:
 	_free_live(made)
 
 
+## The target asset is adopted even when the two settings groups are equal, and the camera keeps
+## the source asset through the edge. The target is a synthetic bed row on the standing asset and
+## the missionary settings group, the shape a future face-sit uses.
+func _check_asset_adoption() -> void:
+	var made := _live_session(CATALOG.MISSIONARY)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var missionary: Variant = AUTHORED.shared("poses/missionary_pose.json")
+	var standing: Variant = AUTHORED.shared("poses/standing_pose.json")
+	check(is_same(session.pose_node.authored, missionary),
+		"the missionary begin owns the missionary asset")
+	check(is_same(session.authored_asset(), missionary),
+		"the published asset is the live rendered asset")
+	var target := "synthetic_face_bed"
+	_synthetic_bed_spec(session, target)
+	_synthetic_edge(session, CATALOG.MISSIONARY, target, {})
+	var result: Dictionary = session.request_pose(target, "test", {"act_state": 2})
+	check(str(result.get("code", "")) == "ok", "the synthetic bed edge starts")
+	check(session.pose_node.mode == POSE.MODE_BLEND,
+		"two different authored assets take the blend even with the same driver")
+	check(is_same(session.pose_node.from_authored, missionary),
+		"the from side is the live missionary asset")
+	check(is_same(session.pose_node.to_authored, standing),
+		"the to side is the target standing asset")
+	check(is_same(session.authored_asset(), missionary),
+		"the camera holds the source asset through the edge")
+	check(str(view.id) == target, "the view follows the target")
+	var info: Dictionary = session.base_info()
+	check(str(info.get("live_path", "")) == "poses/missionary_pose.json",
+		"the base info names the live missionary path")
+	check(str(info.get("target_path", "")) == "poses/standing_pose.json",
+		"the base info names the target standing path")
+	session.tick(0.0)
+	session.tick(0.7)
+	check(view.pose_state == VIEW.STEADY, "the synthetic bed edge settles")
+	check(session.pose_node.mode == POSE.MODE_SINGLE,
+		"the settled pose is single on the target driver")
+	check(session.pose_node.from_driver == POSE.STANDING_PATH
+		and session.pose_node.to_driver == POSE.STANDING_PATH,
+		"the settled pair is the target driver")
+	check(is_same(session.pose_node.authored, standing),
+		"completion adopts the target asset")
+	check(is_same(session.pose_node.from_authored, standing)
+		and is_same(session.pose_node.to_authored, standing),
+		"completion points both sides at the target asset")
+	check(is_same(session._from_asset, standing), "the live side adopts the target asset")
+	check(session._target_asset == null, "completion drops the target asset cache")
+	check(is_same(session.authored_asset(), standing),
+		"the published asset is the target after completion")
+	check(session.sync_missionary_config(),
+		"the target's settings group still syncs after completion")
+	check(is_same(session.pose_node.authored, standing),
+		"a live missionary sync does not reset the target asset")
+	_free_live(made)
+
+
+## A reload re-reads the live asset and the running edge's target; outside an edge it re-reads the
+## live path once. The shared wrappers keep their identity and their own paths.
+func _check_asset_reload() -> void:
+	var made := _live_session(CATALOG.MISSIONARY)
+	var session: RefCounted = made["session"]
+	var target := "synthetic_face_reload"
+	_synthetic_bed_spec(session, target)
+	_synthetic_edge(session, CATALOG.MISSIONARY, target, {})
+	var result: Dictionary = session.request_pose(target, "test", {"act_state": 2})
+	check(str(result.get("code", "")) == "ok", "the reload edge starts")
+	var source: Variant = session.pose_node.authored
+	var wanted: Variant = session.pose_node.to_authored
+	var source_path := str(source.get("path"))
+	var target_path := str(wanted.get("path"))
+	var before: int = AUTHORED.revision
+	check(session.reload_authored().is_empty(), "a live edge reloads both assets")
+	check(AUTHORED.revision == before + 2, "the live and target paths both advance the revision")
+	check(str(source.get("path")) == source_path and str(wanted.get("path")) == target_path,
+		"each wrapper still owns its own path")
+	check(is_same(session.pose_node.authored, source),
+		"the reload keeps the live asset")
+	check(is_same(session.pose_node.to_authored, wanted),
+		"the reload keeps the target asset on the to side")
+	session.tick(0.0)
+	session.tick(0.7)
+	before = AUTHORED.revision
+	check(session.reload_authored().is_empty(), "the settled pose reloads its live asset")
+	check(AUTHORED.revision == before + 1, "outside an edge the live path reloads once")
+	_free_live(made)
+
+
 ## A release aborts a live edge; the view goes idle and a second release is a no-op.
 func _check_release_abort() -> void:
 	var made := _live_session(CATALOG.STANDING)
@@ -1279,6 +1368,30 @@ func _synthetic_spec(session: RefCounted, spec_id: String, controls_set := "stan
 	row["offerable"] = false
 	var spec: Variant = POSE_SPEC.from_dict(spec_id, row, {})
 	check(spec != null, "the synthetic spec %s builds" % spec_id)
+	session._registry._specs[spec_id] = spec
+	return spec
+
+
+## A synthetic bed row on the standing driver and asset with the missionary settings group: the
+## shape a future face-sit uses. Its scene block is a valid bed block, and it is not offered.
+func _synthetic_bed_spec(session: RefCounted, spec_id: String) -> Variant:
+	var row: Dictionary = SPECS.SPECS[CATALOG.STANDING].duplicate(true)
+	row["id"] = spec_id
+	row["display_name"] = "Synthetic bed"
+	row["family"] = "bed"
+	row["frame"] = "bed"
+	row["base"] = ""
+	row["asset"] = "poses/standing_pose.json"
+	row["delta"] = ""
+	row["driver"] = POSE.STANDING_PATH
+	row["settings_group"] = CATALOG.MISSIONARY
+	var scene: Dictionary = (row["scene"] as Dictionary).duplicate(true)
+	scene["frame"] = "bed"
+	row["scene"] = scene
+	row["public"] = false
+	row["offerable"] = false
+	var spec: Variant = POSE_SPEC.from_dict(spec_id, row, {})
+	check(spec != null, "the synthetic bed spec %s builds" % spec_id)
 	session._registry._specs[spec_id] = spec
 	return spec
 

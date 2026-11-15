@@ -384,8 +384,10 @@ procedural delta). A missing method is a no-op. The shipped recipes implement `a
 `apply_base` and `apply_overlay`; `apply_delta` is optional, for a pose that carries a procedural
 delta.
 
-The single fast path is the same effective driver and delta with equal configs. It calls the
-driver's `apply()` with the pose ramp (`smoothstep(amount)`), exactly as the one-recipe node did, so
+The single fast path is the same effective driver and delta with equal configs and the same
+authored asset on both sides (two null assets count as the same, and the presentation node carries
+none). It calls the driver's `apply()` with the pose ramp (`smoothstep(amount)`), exactly as the
+one-recipe node did, so
 the begin ramp, the normal missionary and standing acts, the stretch early return and the
 diagnostics are unchanged. A standing `apply_base()` reads `authored` and `ground_frame` from the
 state and returns false without them; the shipped act never falls back to the procedural stance. A pose that carries a delta uses `apply_base()` → `apply_delta()` →
@@ -396,7 +398,15 @@ the standing group with the same presentation, so the body holds. The oral pair 
 `MODE_BLEND` in both directions because only one side carries the delta; it is a real two-base
 edge, not the fast path. The pair is the current proof of the state machine's single path. The
 offer presentation pose (`poses/standing_presentation.gd`) is the same evaluator with the standing
-pair and its own config.
+pair and its own config. The single path is the compatibility path: the shipped poses keep their
+own asset on both sides.
+
+The evaluator also holds the authored pair: `set_pose()` takes optional trailing `from_authored`
+and `to_authored` assets, and a pair of different assets is a blend even when the drivers, the
+deltas and the configs are equal. A null side falls back to the node's live `authored`. During the
+two-base form, `_write_blend()` sets `state["authored"]` to each side's asset before that side's
+base runs, so each recipe reads its own document; the overlay pass runs with the state on the to
+side, and the live asset is restored after it for the post-write diagnostics.
 
 The two-base form captures the game's pre-pose, evaluates the from side at full base weight,
 captures it, restores the pre-pose, evaluates the to side the same way, restores again, and blends
@@ -410,6 +420,13 @@ the modifier pass call the same evaluator with the same pair and weight.
 
 The session owns the configs. `begin()` sets the start pair, `request_pose()` the edge pair and the
 completing tick the target pair; each also calls `set_weight()` (1.0, the run weight, 1.0).
+`begin()`, the request, the completion, `reload_authored()` and `release_pose()` are the only
+owners of the authored asset: `begin()` resolves the start asset, the request caches `_from_asset`
+(the live wrapper) and `_target_asset`, and completion adopts the target asset on both sides. The
+settings syncs (`sync_standing_config()`, `sync_missionary_config()`) and `_adopt_target_config()`
+only merge the config, so a live settings edit cannot reset the live asset to a file named by the
+settings group. `live_authored()` and `authored_asset()` return the live rendered wrapper, so the
+shot camera holds the source asset through an edge and reads the target's after completion.
 `_config_for_group(group, presentation)` builds the target: the standing group plus the
 presentation chin/neck/tail values (the values `sync_standing_config()` writes), the missionary
 block, or `SETTINGS.pose()` for another group. The group comes from the target spec, never from
@@ -861,7 +878,8 @@ unchanged.
 - `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
   standing stretch holder, the session API, the effective driver/base paths, the state machine, the
   request/refusal codes, the target snapshot with the presentation, the requested evaluator pair,
-  the target adoption, the tick/switch/status path, the real control profiles, the pose-change hook
+  the target adoption, the live/target asset pair and its completion and reload, the tick/switch/
+  status path, the real control profiles, the pose-change hook
   and the service-owned act-body release. The oral case pins the turn, the contact switch at 0.9,
   the control lock, the speech/viseme events, the settled delta, the afterglow release and the
   reverse restore.
@@ -874,8 +892,9 @@ unchanged.
   table.
 - `tests/poses/test_pose_blend.gd` — the typed single/blend modes, the single fast path and its
   pose ramp, the base+delta order, the oral delta forcing the blend pair and settling into the
-  single delta path, the two-base capture/blend/overlay math and weights, the reused capture
-  buffers, the non-finite guard, the render order and the shipped standing driver.
+  single delta path, the two-base capture/blend/overlay math and weights, the two-asset pair where
+  each side reads its own document, the reused capture buffers, the non-finite guard, the render
+  order and the shipped standing driver.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split: the leave steps keep the
   pose node, the config and the view, the final release clears them, the transition path keeps the
   pose alive, and no pose-scope or transition function reaches an act exit.

@@ -60,6 +60,10 @@ var _target_spec: Variant = null
 ## The target's settings snapshot, by reference from the view's `to_config`.
 var _target_config: Dictionary = {}
 var _target_presentation: Dictionary = {}
+## The authored asset of each side of the live edge, or the live pose's asset outside an edge.
+## `_target_asset` is cached at request and adopted on completion.
+var _from_asset: Variant = null
+var _target_asset: Variant = null
 
 ## The pose modifier and the extra scene modifiers the act installs.
 var pose_node: Node
@@ -202,13 +206,18 @@ func begin(context: Dictionary) -> bool:
 	elif group == CATALOG.MISSIONARY:
 		sync_missionary_config()
 	pose_node.pose_config = pose_config
-	pose_node.call("set_pose", _effective_driver(start_spec), _effective_driver(start_spec),
-		_effective_delta(start_spec), _effective_delta(start_spec), pose_config, pose_config)
-	pose_node.call("set_weight", 1.0)
+	# Resolve the start asset before the evaluator pair: the same instance is the live rendered
+	# asset and both sides of a pose that starts settled.
 	var start_asset: Variant = _asset_for_spec(start_spec)
 	if start_asset != null and bool(start_asset.get("available")) \
 			and bool(start_asset.call("usable", str(_view.frame))):
 		pose_node.authored = start_asset
+	_from_asset = pose_node.authored
+	_target_asset = _from_asset
+	pose_node.call("set_pose", _effective_driver(start_spec), _effective_driver(start_spec),
+		_effective_delta(start_spec), _effective_delta(start_spec), pose_config, pose_config,
+		_from_asset, _target_asset)
+	pose_node.call("set_weight", 1.0)
 	var look: Variant = context.get("look_point")
 	pose_node.look_point = look if look is Vector3 else pony.global_position
 	pose_node.amount = 0.0
@@ -361,6 +370,13 @@ func _asset_path_for(candidate := "") -> String:
 	return _effective_asset(spec) if spec != null else ""
 
 
+## The pose id of the live rendered side: the source while an edge runs, the view's pose otherwise.
+func _live_spec_id() -> String:
+	if _run != null and not _from_id.is_empty():
+		return _from_id
+	return str(_view.id)
+
+
 ## Request one authored edge. Returns the A3.1 `PoseResult`: `{ok, code, edge, reason}`. It never
 ## ends the act, releases the pose or restores bones.
 func request_pose(target_id: String, trigger: String, context: Dictionary = {}) -> Dictionary:
@@ -389,13 +405,17 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 	var group := str(target_spec.settings_group)
 	_target_presentation = SETTINGS.act_snapshot(group).presentation
 	_target_config = _config_for_group(group, _target_presentation)
+	_target_asset = _asset_for_spec(target_spec)
+	_from_asset = live_authored()
+	if _from_asset == null:
+		_from_asset = _asset_for_spec(_registry.spec(from_id))
 	_run = run
 	_state = POSE_STATE.next(_state, "request")
 	_fill_transition_view()
 	var from_spec: Variant = _registry.spec(_from_id)
 	pose_node.call("set_pose", _effective_driver(from_spec), _effective_driver(_target_spec),
 		_effective_delta(from_spec), _effective_delta(_target_spec),
-		pose_config, _target_config)
+		pose_config, _target_config, _from_asset, _target_asset)
 	pose_node.call("set_weight", _run.weight)
 	_bind_oral()
 	if _oral_pair(from_id, target_id):
@@ -558,16 +578,21 @@ func tick(delta: float) -> void:
 	if not _run.complete():
 		return
 	# Capture the target pair before `_abort_target()` drops the target snapshot, adopt its config
-	# into the live object, then settle the evaluator on that one pose.
+	# into the live object, then settle the evaluator on that one pose and its authored asset.
 	var completed_target := _target_id
 	var completed_driver := _effective_driver(_target_spec)
 	var completed_delta := _effective_delta(_target_spec)
+	var completed_asset: Variant = _target_asset
 	_adopt_target_config()
 	if is_instance_valid(pose_node):
+		pose_node.authored = completed_asset
+		pose_node.from_authored = completed_asset
+		pose_node.to_authored = completed_asset
 		pose_node.call("set_pose", completed_driver, completed_driver, completed_delta,
-			completed_delta, pose_config, pose_config)
+			completed_delta, pose_config, pose_config, completed_asset, completed_asset)
 		pose_node.call("set_weight", 1.0)
 		pose_node.pose_config = pose_config
+	_from_asset = completed_asset
 	_state = POSE_STATE.next(_state, "complete")
 	_view.pose_state = _state
 	_view.contact_kind = _spec_contact_kind(_target_spec)
@@ -714,6 +739,7 @@ func _abort_target() -> void:
 	_target_spec = null
 	_target_config.clear()
 	_target_presentation.clear()
+	_target_asset = null
 
 
 ## Adopt the target's settings into the live config in place. The alias object and every consumer
@@ -726,7 +752,6 @@ func _adopt_target_config() -> void:
 	pose_config.merge(_target_config, true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
-		pose_node.authored = _asset_for(_target_id)
 
 
 ## The pose block for a settings group plus that group's presentation values. Standing applies the
@@ -759,7 +784,6 @@ func sync_standing_config(presentation: Dictionary) -> bool:
 	pose_config.merge(_config_for_group(CATALOG.STANDING, presentation), true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
-		pose_node.authored = _asset_for(CATALOG.STANDING)
 	if is_instance_valid(tail):
 		tail.aside_angle = float(pose_config.get("tail_aside", 0.0))
 		tail.lift_angle = float(pose_config.get("tail_lift", 0.0))
@@ -767,7 +791,9 @@ func sync_standing_config(presentation: Dictionary) -> bool:
 
 
 ## The missionary recipe reads these from pose_config every frame. Re-reading the character's
-## pose keeps its nuzzle overrides live.
+## pose keeps its nuzzle overrides live. The authored asset is owned by the session's begin,
+## request, completion, reload and release, so a missionary-group sync cannot reset a live pose
+## whose asset differs from the missionary file.
 func sync_missionary_config() -> bool:
 	if str(_view.settings_group) != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return false
@@ -775,8 +801,6 @@ func sync_missionary_config() -> bool:
 	pose_config.merge(_config_for_group(CATALOG.MISSIONARY, {}), true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
-		# The asset instance is shared, so the reload action reaches the live act.
-		pose_node.authored = _asset_for(CATALOG.MISSIONARY)
 	return true
 
 
@@ -795,8 +819,18 @@ func authored(candidate := "") -> Variant:
 	return _empty_asset
 
 
-## The parsed authored pose, for the shot camera and the debug action.
+## The asset the live rig is rendering: the source through an edge, the target once it settles.
+func live_authored() -> RefCounted:
+	if is_instance_valid(pose_node) and pose_node.authored is RefCounted:
+		return pose_node.authored as RefCounted
+	return authored("") as RefCounted
+
+
+## The parsed authored pose for the shot camera and the debug action. With no candidate this is
+## the live rendered asset, not the target of a running edge.
 func authored_asset(candidate := "") -> Variant:
+	if str(candidate).is_empty():
+		return live_authored()
 	return authored(candidate)
 
 
@@ -891,20 +925,39 @@ func authored_reason(candidate := "") -> String:
 	return ""
 
 
-## Re-read the active pose's asset in place, or the default missionary asset when no pose is live.
-## A running act picks the new pose up on its next frame.
+## Re-read the live pose's asset in place, plus the running edge's target, or the default
+## missionary asset when no pose is live. A running act picks the new pose up on its next frame.
 func reload_authored(candidate := "") -> String:
-	var path := _asset_path_for(candidate)
-	if path.is_empty():
-		path = AUTHORED.PATH
-	var load_error := AUTHORED.reload_file(path)
-	if not load_error.is_empty():
-		return load_error
+	var paths: Array[String] = []
+	var seen: Dictionary = {}
+	_add_reload_path(paths, seen, _asset_path_for(candidate))
+	if is_instance_valid(pose_node) and pose_node.authored != null:
+		_add_reload_path(paths, seen, str(pose_node.authored.get("path")))
+	if paths.is_empty():
+		_add_reload_path(paths, seen, AUTHORED.PATH)
+	for path: String in paths:
+		var load_error := AUTHORED.reload_file(path)
+		if not load_error.is_empty():
+			return load_error
 	if is_instance_valid(pose_node):
-		var asset: Variant = _asset_for(candidate)
-		if asset != null:
-			pose_node.authored = asset
+		# The wrappers were reloaded in place; the pair keeps the same instances.
+		pose_node.authored = live_authored()
+		if _target_spec != null:
+			_target_asset = _asset_for_spec(_target_spec)
+			pose_node.to_authored = _target_asset
 	return ""
+
+
+## Add one unique non-empty asset path to the reload list. The resolved path is the key, so a
+## relative row path and the wrapper's `res://` path are the same file.
+func _add_reload_path(paths: Array[String], seen: Dictionary, path: String) -> void:
+	if path.is_empty():
+		return
+	var resolved := AUTHORED.resolve(path)
+	if seen.has(resolved):
+		return
+	seen[resolved] = true
+	paths.append(resolved)
 
 
 ## The middle of the missionary bed's mattress top: the authored pose's origin in world space.
@@ -1056,6 +1109,8 @@ func release_pose() -> void:
 	if is_instance_valid(pose_node):
 		_drop(pose_node)
 	pose_node = null
+	_from_asset = null
+	_target_asset = null
 	if is_instance_valid(tail):
 		tail.call("restore_tail")
 		_drop(tail)
@@ -1472,11 +1527,15 @@ func basis_amount() -> float:
 
 
 ## Which missionary base is in charge and why. One dictionary so the log, the settled line and the
-## debug action cannot drift apart.
+## debug action cannot drift apart. The live side is the rendered asset while an edge runs; the
+## target path names where the edge is going.
 func base_info() -> Dictionary:
-	var asset: Variant = authored(_view.id)
+	var live_id := _live_spec_id()
+	var asset: Variant = authored_asset()
 	var bones: Variant = asset.get("pony_bones")
 	var live: Variant = pose_frame()
+	var live_path := _asset_path_for(live_id)
+	var target_path := _asset_path_for(_target_id) if _target_spec != null else live_path
 	var info := {
 		"base": "none",
 		"reason": "",
@@ -1488,20 +1547,22 @@ func base_info() -> Dictionary:
 		"frame_kind": str(_view.frame),
 		"shots": bool(asset.get("has_shots")),
 		"asset": asset,
-		"asset_path": _asset_path_for(_view.id),
+		"asset_path": live_path,
+		"live_path": live_path,
+		"target_path": target_path,
 		"asset_frame": str(asset.get("frame")),
 		"variant": str(asset.get("variant")),
 	}
-	if str(_view.id).is_empty():
+	if live_id.is_empty():
 		info["reason"] = "pose="
-	elif _asset_path_for(_view.id).is_empty():
-		info["reason"] = "pose=%s" % str(_view.id)
+	elif live_path.is_empty():
+		info["reason"] = "pose=%s" % live_id
 	elif not bool(asset.get("available")):
-		info["reason"] = authored_reason(_view.id)
+		info["reason"] = authored_reason(live_id)
 	elif not live is Transform3D:
 		info["reason"] = "no %s frame" % str(_view.frame)
 	elif not bool(asset.call("usable", str(_view.frame))):
-		info["reason"] = authored_reason(_view.id)
+		info["reason"] = authored_reason(live_id)
 	else:
 		info["base"] = "authored"
 	return info
@@ -1710,6 +1771,9 @@ func state_rows(state: int) -> Array:
 		int(info["version"]), "ok" if bool(info["available"]) else "error",
 		str(info["asset_path"]), str(info["asset_frame"]), str(info["variant"]), int(info["bones"]),
 		str(rig_missing()), "yes" if bool(info["shots"]) else "no", str(info["error"])])
+	var target_path := str(info.get("target_path", ""))
+	if not target_path.is_empty() and target_path != str(info["asset_path"]):
+		rows.append("target=%s" % target_path)
 	rows.append("frame=%s kind=%s scale=%.2f" % [
 		str(frame) if frame is Transform3D else "null", str(info["frame_kind"]), body_scale()])
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null

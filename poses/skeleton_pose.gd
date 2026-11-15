@@ -53,6 +53,11 @@ var pose_config: Dictionary = {}
 ## Hand-authored base pose (poses/authored_pose.gd) and the space it is placed in. A null asset or
 ## a missing frame leaves the recipe's correction stack as the fallback.
 var authored: Variant = null
+## The authored assets of the two sides. `authored` stays the live rendered asset; a pair with
+## different assets takes the two-base blend even when the driver and config match. A null side
+## falls back to the live asset (the presentation node has no authored base).
+var from_authored: Variant = null
+var to_authored: Variant = null
 var bed_frame: Variant = null
 ## The ground frame for a ground pose: the pony root's basis and position at pose start.
 var ground_frame: Variant = null
@@ -114,21 +119,25 @@ func _init() -> void:
 
 ## The service's resolved pair. Paths are the effective driver/delta paths; configs are by
 ## reference. A second call with the same pair keeps the same objects, and the buffers are sized
-## for the skeleton when it is already available.
+## for the skeleton when it is already available. The trailing assets are the authored documents
+## of the two sides; a different pair is a blend even with equal drivers and configs.
 func set_pose(from_path: String, to_path: String, from_delta_path: String, to_delta_path: String,
-		from_config: Dictionary, to_config: Dictionary) -> void:
+		from_config: Dictionary, to_config: Dictionary,
+		from_asset: Variant = null, to_asset: Variant = null) -> void:
 	from_driver = from_path
 	to_driver = to_path
 	from_delta = from_delta_path
 	to_delta = to_delta_path
 	_from_config = from_config
 	_to_config = to_config
+	from_authored = from_asset
+	to_authored = to_asset
 	_from_driver_obj = _driver(from_driver)
 	_to_driver_obj = _driver(to_driver)
 	_from_delta_obj = _driver(from_delta)
 	_to_delta_obj = _driver(to_delta)
 	_single = from_driver == to_driver and from_delta == to_delta \
-		and _configs_equal(from_config, to_config)
+		and _configs_equal(from_config, to_config) and is_same(from_authored, to_authored)
 	mode = MODE_SINGLE if _single else MODE_BLEND
 	_blend_weight = 1.0
 	var sk := get_skeleton()
@@ -310,19 +319,24 @@ func _write_blend(sk: Skeleton3D, state: Dictionary) -> void:
 	_resize_buffers(sk)
 	_capture(sk, _pre)
 	state["config"] = _from_config
+	state["authored"] = from_authored if from_authored != null else authored
 	_apply_base_side(_from_driver_obj, _from_delta_obj, sk, state)
 	_capture(sk, _from_pose)
 	_restore(sk, _pre)
 	state["config"] = _to_config
+	state["authored"] = to_authored if to_authored != null else authored
 	_apply_base_side(_to_driver_obj, _to_delta_obj, sk, state)
 	_capture(sk, _to_pose)
 	_restore(sk, _pre)
 	var blend := clampf(_blend_weight, 0.0, 1.0)
 	_blend_bones(sk, blend)
+	# The overlays read the config, not the asset; the state stays on the to side until the blend
+	# pass is over, then the post-write diagnostics see the live asset again.
 	state["config"] = _from_config
 	_apply_overlay_side(_from_driver_obj, 1.0 - blend, sk, state)
 	state["config"] = _to_config
 	_apply_overlay_side(_to_driver_obj, blend, sk, state)
+	state["authored"] = authored
 
 
 func _apply_base_side(driver: Variant, delta: Variant, sk: Skeleton3D, state: Dictionary) -> void:

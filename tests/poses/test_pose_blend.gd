@@ -32,29 +32,42 @@ class FakeDriver extends RefCounted:
 	var origin := Vector3.ZERO
 	var base_ok := true
 	var non_finite := false
+	var use_authored := false
 	var seen_configs: Array[String] = []
 
 	func apply(_rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
-		log.append("apply:%s:%.3f" % [tag, weight])
-		write(sk, weight)
+		var pose := asset(state)
+		log.append("apply:%s:%.3f" % [str(pose["tag"]), weight])
+		write(sk, weight, pose)
 		seen_configs.append(config_tag(state))
 
 	func apply_base(_rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
-		log.append("base:%s:%.3f" % [tag, weight])
-		write(sk, weight)
+		var pose := asset(state)
+		log.append("base:%s:%.3f" % [str(pose["tag"]), weight])
+		write(sk, weight, pose)
 		seen_configs.append(config_tag(state))
 		return base_ok
 
 	func apply_overlay(_rig, _sk: Skeleton3D, weight: float, state: Dictionary) -> void:
-		log.append("overlay:%s:%.3f" % [tag, weight])
+		var pose := asset(state)
+		log.append("overlay:%s:%.3f" % [str(pose["tag"]), weight])
 		seen_configs.append(config_tag(state))
 
-	func write(sk: Skeleton3D, weight: float) -> void:
+	func write(sk: Skeleton3D, weight: float, pose: Dictionary = {}) -> void:
 		var index := sk.find_bone(bone)
 		if index < 0:
 			return
-		var position := Vector3(INF, 0.0, 0.0) if non_finite else origin
-		sk.set_bone_pose(index, Transform3D(Basis(Vector3.RIGHT, angle * weight), position))
+		var at: Vector3 = pose.get("origin", origin)
+		var turn: float = float(pose.get("angle", angle))
+		var position := Vector3(INF, 0.0, 0.0) if non_finite else at
+		sk.set_bone_pose(index, Transform3D(Basis(Vector3.RIGHT, turn * weight), position))
+
+	## The authored asset of the side this driver is evaluating, when the test binds one; otherwise
+	## the driver's own constants. The two-asset case proves each recipe sees its own document.
+	func asset(state: Dictionary) -> Dictionary:
+		if use_authored and state.get("authored") is Dictionary:
+			return state["authored"] as Dictionary
+		return {"tag": tag, "angle": angle, "origin": origin}
 
 	func config_tag(state: Dictionary) -> String:
 		var config: Variant = state.get("config", {})
@@ -96,6 +109,7 @@ func run() -> void:
 	_check_modes()
 	_check_base_delta()
 	_check_two_base()
+	_check_two_assets()
 	_check_buffers()
 	_check_non_finite()
 	_check_render_order()
@@ -174,8 +188,8 @@ func _check_single() -> void:
 	_free_graph(made)
 
 
-## The typed mode: the same driver and configs are single; a different driver, a delta or another
-## config makes it a blend. The mode is an int, never a string.
+## The typed mode: the same driver and configs are single; a different driver, a delta, another
+## config or a different authored asset makes it a blend. The mode is an int, never a string.
 func _check_modes() -> void:
 	var made := _graph()
 	var pose_node: Node = made["pose_node"]
@@ -183,6 +197,8 @@ func _check_modes() -> void:
 	_fake(FAKE_B, made, "b", -0.1, Vector3.ZERO)
 	var a: Dictionary = {"tag": "a"}
 	var b: Dictionary = {"tag": "b"}
+	var asset_a: Dictionary = {"tag": "asset_a"}
+	var asset_b: Dictionary = {"tag": "asset_b"}
 	pose_node.call("set_pose", FAKE_A, FAKE_A, "", "", a, a)
 	check(pose_node.mode == POSE.MODE_SINGLE, "one driver and equal configs are single")
 	pose_node.call("set_pose", FAKE_A, FAKE_B, "", "", a, a)
@@ -191,6 +207,15 @@ func _check_modes() -> void:
 	check(pose_node.mode == POSE.MODE_BLEND, "a delta is a blend")
 	pose_node.call("set_pose", FAKE_A, FAKE_A, "", "", a, b)
 	check(pose_node.mode == POSE.MODE_BLEND, "different configs are a blend")
+	pose_node.call("set_pose", FAKE_A, FAKE_A, "", "", a, a, asset_a, asset_b)
+	check(pose_node.mode == POSE.MODE_BLEND,
+		"two different authored assets are a blend with equal drivers and configs")
+	check(not is_same(pose_node.from_authored, pose_node.to_authored),
+		"the evaluator keeps the two authored sides apart")
+	pose_node.call("set_pose", FAKE_A, FAKE_A, "", "", a, a, asset_a, asset_a)
+	check(pose_node.mode == POSE.MODE_SINGLE, "the same authored asset instance is single")
+	pose_node.call("set_pose", FAKE_A, FAKE_A, "", "", a, a, null, null)
+	check(pose_node.mode == POSE.MODE_SINGLE, "a null asset pair is the presentation single path")
 	check(typeof(POSE.MODE_SINGLE) == TYPE_INT and typeof(POSE.MODE_BLEND) == TYPE_INT,
 		"the mode is typed")
 	_free_graph(made)
@@ -286,6 +311,72 @@ func _check_two_base() -> void:
 		"weight one lands on the to base")
 	check(sk.get_bone_pose(index).origin.is_equal_approx(Vector3(0.0, 0.3, 0.0)),
 		"weight one keeps the to origin")
+	_free_graph(made)
+
+
+## Two authored assets with the same driver and configs: each side's recipe sees its own asset,
+## and the blend carries the captured bone between them. The buffers are reused across weights.
+func _check_two_assets() -> void:
+	var made := _graph()
+	var sk: Skeleton3D = made["sk"]
+	var pose_node: Node = made["pose_node"]
+	var from_driver := _fake(FAKE_A, made, "driver_a", 0.0, Vector3.ZERO)
+	var to_driver := _fake(FAKE_B, made, "driver_b", 0.0, Vector3.ZERO)
+	from_driver.use_authored = true
+	to_driver.use_authored = true
+	var shared: Array[String] = []
+	from_driver.log = shared
+	to_driver.log = shared
+	var asset_a: Dictionary = {"tag": "a", "angle": 0.4, "origin": Vector3(0.0, 0.1, 0.0)}
+	var asset_b: Dictionary = {"tag": "b", "angle": -0.3, "origin": Vector3(0.0, 0.3, 0.0)}
+	var same: Dictionary = {"tag": "same"}
+	pose_node.call("set_pose", FAKE_A, FAKE_A, "", "", same, same, asset_a, asset_b)
+	check(pose_node.mode == POSE.MODE_BLEND, "two authored assets take the two-base blend")
+	check(pose_node.from_authored == asset_a and pose_node.to_authored == asset_b,
+		"the evaluator stores the authored pair")
+	pose_node.amount = 1.0
+	pose_node.target_amount = 1.0
+	var index := sk.find_bone(BONE)
+	pose_node.call("set_weight", 0.0)
+	shared.clear()
+	pose_node.call("apply_render", sk)
+	check(_angle_to(sk.get_bone_pose(index), 0.4) < 0.01,
+		"weight zero lands on the from asset")
+	check(sk.get_bone_pose(index).origin.is_equal_approx(asset_a["origin"] as Vector3),
+		"weight zero keeps the from asset origin")
+	check(shared.has("base:a:1.000") and shared.has("base:b:1.000"),
+		"each side's recipe sees its own authored asset")
+	var overlays: Array[String] = []
+	for line: String in shared:
+		if line.begins_with("overlay:"):
+			overlays.append(line)
+	check(overlays.size() == 2 and overlays[0].ends_with(":1.000")
+		and overlays[1].ends_with(":0.000"),
+		"the overlay pass runs once per side with the side weights")
+	var pre: Array = pose_node._pre
+	var from_pose: Array = pose_node._from_pose
+	pose_node.call("set_weight", 0.5)
+	shared.clear()
+	pose_node.call("apply_render", sk)
+	check(_angle_to(sk.get_bone_pose(index), 0.05) < 0.01,
+		"weight half slerps the two authored rotations")
+	check(sk.get_bone_pose(index).origin.is_equal_approx(Vector3(0.0, 0.2, 0.0)),
+		"weight half lerps the two authored origins")
+	check(shared.has("base:a:1.000") and shared.has("base:b:1.000"),
+		"both authored tags appear at the midpoint")
+	check(is_same(pre, pose_node._pre) and is_same(from_pose, pose_node._from_pose),
+		"a second asset blend reuses the capture buffers")
+	pose_node.call("set_weight", 1.0)
+	pose_node.call("apply_render", sk)
+	check(_angle_to(sk.get_bone_pose(index), -0.3) < 0.01,
+		"weight one lands on the to asset")
+	check(sk.get_bone_pose(index).origin.is_equal_approx(asset_b["origin"] as Vector3),
+		"weight one keeps the to asset origin")
+	asset_b["origin"] = Vector3(INF, 0.0, 0.0)
+	pose_node.call("apply_render", sk)
+	check(sk.get_bone_pose(index).origin.is_finite()
+		and sk.get_bone_pose(index).basis.x.is_finite(),
+		"a non-finite authored side is skipped")
 	_free_graph(made)
 
 

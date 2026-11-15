@@ -13,9 +13,9 @@ the caress paths and palm holders are `docs/hands.md`. The pose tuning rows are 
 `STEADY`/`TRANSITIONING`/`EXITING`), the active edge and its clock, the per-pose configs and the
 target snapshot, the skeleton pose modifier, the authored bases, the bed and ground frames and their
 follow, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the pony bone
-snapshots, the pose rig check, the pose diagnostics, the standing reference capture, the retarget
-hook and the pose-scope teardown steps. The runtime owns the act state, the start ordering and the
-one teardown ledger; it binds the session and reads its `pose()`, `pose_config` and `bed_frame` for
+snapshots, the pose rig check, the pose diagnostics, the retarget hook and the pose-scope teardown
+steps. The runtime owns the act state, the start ordering and the one teardown ledger; it binds the
+session and reads its `pose()`, `pose_config` and `bed_frame` for
 the start/teardown and the standing gap, not as the consumer contract. Presentation modules read
 the pose view through `shared/act_facts.gd`.
 
@@ -88,8 +88,8 @@ asset, `--check` leaves the shipped file alone and `--pose <id>` selects another
 (`missionary` is the default).
 
 `tools/pose_bake.gd` is the standing bake. `capture_pose()` records the current pose as a v7
-document, `capture_asset()` applies `apply_reference()` at the reference config first,
-`write_asset()` writes the deterministic JSON (test and fixture paths are refused), and
+document, `capture_asset()` applies `apply_reference()` at the reference config to the rig's rest
+pose first, `write_asset()` writes the deterministic JSON (test and fixture paths are refused), and
 `compare()` applies the baked asset and reports the worst error against the recipe.
 
 `tools/pose_runtime_check.gd` runs the missionary recipe on the real body rig against one shipped
@@ -113,22 +113,13 @@ and no `provisional` flag. The asset's `--pose bed_facesit --check` round-trip a
 `pose_runtime_check` face-sit case are the automated proof; the arrangement is authored through
 `tools/pose_lab.gd` and saved as this asset.
 
-- The bake input is the game's **standing reference capture**: the 30 local poses, the frame, the
-  size and the rig captured by the session at `begin()` for a ground pose. The Debug **Bake standing
-  base** action writes it to `user://unfplap/standing_reference.json`; the developer copies that
-  file to `tests/poses/fixtures/standing_reference.json`. The capture is a real stance, taken before
-  the act settles, and is baked as it stands; the stance is never averaged or mirrored into shape,
-  because the pairs' global origins are not interchangeable. The fixture is test data, not a
-  runtime asset; the loader never reads it.
-- Without a live capture, the bake tool falls back to a **provisional** reference built from the
-  `body.glb` rest pose plus `apply_reference()` and prints `[pose_bake] PROVISIONAL reference=rest`.
-  A provisional asset is not the final stance; replace the fixture with a live capture and re-run
-  `--write`/`--check`.
-- The shipped fixture is the **live Canon capture** and `pose_bake.gd -- --check` prints no
-  `PROVISIONAL`. The fallback above is only for a checkout that has no fixture; it is not the
-  shipped state.
+- The bake input is the **body rig's rest pose**, plus `apply_reference()` at the reference config.
+  The game's own settled standing pose is `pony_gait_profile.gd`'s `standing`, bound from the same
+  rest (`standing = rest.duplicate()`, returned at zero gait blend), so this is exactly the pose the
+  act's old procedural recipe was applied to. The bake never reads a live capture: at `begin()` the
+  gait is still blending, and a mid-step frame would be frozen into the base.
 - `--write` writes `poses/standing_pose.json`; `--check` re-bakes in memory and fails when the
-  checked-in asset is stale. Both the fixture and the asset are tracked.
+  checked-in asset is stale. The asset is tracked; there is no fixture.
 
 ## Typed view
 
@@ -316,9 +307,9 @@ and starts an authored edge only on a request; the debug pair's player-visible p
 `poses/service.gd` owns the live state machine, one running `Run` and the target snapshot.
 `begin()` enters `ENTERING`, fills the start view and settles `STEADY`; `release_pose()` exits
 through `EXITING` to `IDLE`; the pose-scope leave steps keep `STEADY`. A failed `begin()` leaves the
-state unchanged. For a ground view, `begin()` captures the pony root's ground frame and the
-standing reference before it installs the modifier; `leave_pose_start()` and `release_pose()` clear
-both. `sync_ground_frame()` follows the root's position and rotation each tick.
+state unchanged. For a ground view, `begin()` captures the pony root's ground frame before it
+installs the modifier; `leave_pose_start()` and `release_pose()` clear it. `sync_ground_frame()`
+follows the root's position and rotation each tick.
 
 `request_pose(target_id, trigger, context)` returns the `PoseResult` `{ok, code, edge, reason}`. It
 checks the target against the act phase, the player's form/view, the edge requirements and the edge
@@ -768,11 +759,12 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
 - `poses/ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.
-- The standing base is the v7 asset `poses/standing_pose.json`, baked from the game's standing
-  reference capture with `apply_reference()` at the effective reference config. The live recipe
-  applies only the difference from that reference; the default stance is the baked pose. The asset
-  carries the 30 body bones, not `pony_head`, so the live base applies the head's full reference
-  bow and chin itself; the neck bones are the baked difference.
+- The standing base is the v7 asset `poses/standing_pose.json`, baked from the body rig's rest pose
+  with `apply_reference()` at the effective reference config. The live recipe applies only the
+  difference from that reference; the default stance is the baked pose and matches the old
+  procedural stance on every owned bone. The asset carries the 30 body bones, not `pony_head`, so
+  the live base applies the head's full reference bow and chin itself; the neck bones are the baked
+  difference.
 - `standing_oral` runs the procedural delta on that baked base, after it and before the overlay,
   in both the single and two-base forms. The neck/head and the mouth anchor match the reference
   recipe plus the same delta at all four sizes (the oral parity in `test_pose_bake`).
@@ -917,7 +909,7 @@ teardown to `_free_pose()`.
 
 | Step | Scope | Owner |
 |---|---|---|
-| `leave_pose_start()` | pose: rig-check cache, tail lay, bed/ground frame, standing reference | the session |
+| `leave_pose_start()` | pose: rig-check cache, tail lay, bed/ground frame | the session |
 | `clear_presentation()` | act | the runtime |
 | `end_lean_action` | act service, pose-local sub-state | the camera |
 | `hands.reset()` | act service, pose-local sub-state | the hands |
@@ -931,14 +923,14 @@ teardown to `_free_pose()`.
 | `reactions.end_act()` | act | the reactions |
 | `release_pose()` | pose: final clear, act body | the session |
 
-- `leave_pose_start()` — the rig-check cache, `tail_lay`, the bed frame, the ground frame and the
-  standing reference. It keeps the pose node, the modifiers, `pose_config` and the view.
+- `leave_pose_start()` — the rig-check cache, `tail_lay`, the bed frame and the ground frame. It
+  keeps the pose node, the modifiers, `pose_config` and the view.
 - `leave_pose_body()` — the external Idle Life stretch holder and the extra modifiers
   (`body_sway`, `prone_sway`, `ear_twitch`). It keeps the pose node, the standing tail,
   `pose_config` and the view.
 - `release_pose()` — the final clear: the act body (after the anatomy handle is cleared), the pose
   node and the standing tail, the act identity, the features, the live config, the rig caches, the
-  bed and ground frames, the standing reference and the view. Safe to repeat.
+  bed and ground frames and the view. Safe to repeat.
 
 The runtime calls the two leave steps and the final release at their table positions, with the
 act-scope resets between them. `release_pose()` is called only from `_free_pose()`. `_end_session()`
@@ -995,10 +987,11 @@ teardown; it stays unchanged.
   anchor/contact placement at four sizes, variants and the spec `asset` resolution; the v6 fixture
   and the v6 ground refusal.
 - `tests/poses/test_pose_bake.gd` — the bake capture/compare math on a synthetic rig, the
-  deterministic writer and its fixture-path refusal, the shipped standing asset's freshness and
-  stance guard (rotation-only base, a real hind width, opposite sides), four-size body parity,
-  contact, anchor, reference config, and the four-size oral neck/head parity against the reference
-  recipe plus the same delta.
+  deterministic writer and its fixture-path refusal, the shipped standing asset's freshness, its
+  stance guard (rotation-only base, a real hind width, opposite sides), the live base's parity with
+  the old procedural pose on every owned bone including `pony_head`, four-size body parity, contact,
+  anchor, reference config, and the four-size oral neck/head parity against the reference recipe
+  plus the same delta.
 - `tests/poses/test_body_sway.gd` — the regular depth sway, the zeroed oral hold and the release.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — the v6 uniform scale, the v7 anchor/contact placement at four

@@ -1,7 +1,7 @@
 extends SceneTree
 ## The bake tool's capture/compare math on a synthetic rig, the deterministic writer and its test
-## path refusal. The shipped standing asset's freshness and the four-size parity are pinned once
-## the asset exists (C2).
+## path refusal. The shipped standing asset is the rig's rest pose plus the reference recipe, and
+## the live base is proven equal to the old procedural pose on every owned bone (head included).
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_bake.gd
 
@@ -13,7 +13,6 @@ const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const BODY := preload("res://world/characters/hybrid_mare/body.glb")
 
 const STANDING_PATH := "res://mods/unfplap/poses/standing_pose.json"
-const FIXTURE_PATH := "res://mods/unfplap/tests/poses/fixtures/standing_reference.json"
 const MISSIONARY_PATH := "res://mods/unfplap/poses/missionary_pose.json"
 const MISSIONARY_V6 := "res://mods/unfplap/tests/poses/fixtures/missionary_pose_v6.json"
 const SIZES := [1.0, 1.35, 1.7, 2.3]
@@ -111,13 +110,9 @@ func _check_writer() -> void:
 	_free(sk)
 
 
-## The shipped standing asset is exactly the fixture plus the reference recipe, and the body pose
-## is size-invariant while the hips stay over the anchor and the contact on the ground.
+## The shipped standing asset is exactly the rig's rest pose plus the reference recipe, and the
+## body pose is size-invariant while the hips stay over the anchor and the contact on the ground.
 func _check_shipped_standing() -> void:
-	var fixture: Variant = JSON.parse_string(FileAccess.get_file_as_string(FIXTURE_PATH))
-	check(fixture is Dictionary, "the standing fixture loads")
-	if not fixture is Dictionary:
-		return
 	var pony: Node3D = BODY.instantiate()
 	root.add_child(pony)
 	await process_frame
@@ -125,28 +120,24 @@ func _check_shipped_standing() -> void:
 	check(sk != null, "the reference rig has a skeleton")
 	if sk == null:
 		return
-	_load_fixture(sk, fixture as Dictionary)
-	var frame_value: Variant = str_to_var(str((fixture as Dictionary).get("frame", "")))
-	var frame: Transform3D = frame_value if frame_value is Transform3D else Transform3D.IDENTITY
+	sk.reset_bone_poses()
+	sk.force_update_all_bone_transforms()
+	var frame := Transform3D.IDENTITY
 	var config := RECIPE.reference_config()
-	var size_name := str((fixture as Dictionary).get("size_name", "canon"))
-	var body_scale := float((fixture as Dictionary).get("body_scale", 1.0))
-	# The bake tool stands the fixture body in the fixture's live ground frame; mirror that here.
-	pony.global_transform = frame
 	var contact := BAKE.body_contact(pony)
 	if not contact.is_finite():
 		contact = frame.origin
-	var asset := BAKE.capture_asset(sk, frame, config, size_name, contact, body_scale,
+	var asset := BAKE.capture_asset(sk, frame, config, "canon", contact, 1.0,
 		"standing", "ground")
 	check(BAKE.serialize(asset) == FileAccess.get_file_as_string(STANDING_PATH),
-		"the shipped standing asset is the fixture + reference recipe")
+		"the shipped standing asset is the rest pose + reference recipe")
 	var asset_root: Transform3D = str_to_var(str(asset.get("root", "")))
 	check(asset_root.origin.length() < 2.0,
-		"the baked root is frame-local, not the fixture world position")
+		"the baked root is frame-local, not a world position")
 	var anchor_transform: Transform3D = str_to_var(str(
 		(asset.get("anchor") as Dictionary).get("transform", "")))
 	check(anchor_transform.origin.length() < 2.0,
-		"the baked anchor is frame-local, not the fixture world position")
+		"the baked anchor is frame-local, not a world position")
 	var loader: Variant = AUTHORED.new()
 	check(str(loader.call("load_file", STANDING_PATH)).is_empty(), "the shipped asset loads")
 	check(bool(loader.call("usable", "ground")), "the shipped asset is a ground pose")
@@ -221,21 +212,79 @@ func _check_shipped_standing() -> void:
 	var width := absf(hoof_l.x - hoof_r.x)
 	check(width >= 0.1, "the hind stance keeps its width: %.3f m" % width)
 	check(hoof_l.x * hoof_r.x < 0.0, "the hind hooves stay on opposite sides")
-	_check_oral_parity(pony, sk, fixture as Dictionary, frame, config)
+	_check_old_pose_parity(pony, sk, frame, config)
+	_check_oral_parity(pony, sk, frame, config)
 
 	root.remove_child(pony)
 	pony.free()
 
 
+## The live base and the old procedural recipe produce the same pose, head included. This is the
+## "100% corresponds" proof: `apply_reference()` is the pre-bake path (rest + the full recipe), and
+## the live path is the baked asset plus `_apply_difference()` at the reference config.
+func _check_old_pose_parity(pony: Node3D, sk: Skeleton3D, frame: Transform3D,
+		config: Dictionary) -> void:
+	var rig: Variant = RIG.new()
+	rig.call("cache", pony, sk)
+	sk.reset_bone_poses()
+	sk.force_update_all_bone_transforms()
+	var recipe: Variant = RECIPE.new()
+	recipe.call("apply_reference", rig, sk, 1.0, config)
+	sk.force_update_all_bone_transforms()
+	var old := _owned_poses(sk)
+	var loader: Variant = AUTHORED.new()
+	loader.call("load_file", STANDING_PATH)
+	sk.reset_bone_poses()
+	sk.force_update_all_bone_transforms()
+	var state := {
+		"config": config, "authored": loader, "ground_frame": frame,
+		"body_scale": 1.0, "size_name": "canon", "stretch": false,
+	}
+	check(bool(recipe.call("apply_base", rig, sk, 1.0, state)),
+		"the live standing base applies for the old-pose parity")
+	sk.force_update_all_bone_transforms()
+	var live := _owned_poses(sk)
+	var worst_pos := 0.0
+	var worst_deg := 0.0
+	var worst_name := ""
+	for name: String in old:
+		var a: Transform3D = old[name]
+		var b: Transform3D = live[name]
+		var gap := a.origin.distance_to(b.origin)
+		var qa := a.basis.orthonormalized().get_rotation_quaternion().normalized()
+		var qb := b.basis.orthonormalized().get_rotation_quaternion().normalized()
+		var angle := rad_to_deg(qa.angle_to(qb))
+		if angle > worst_deg:
+			worst_deg = angle
+			worst_name = name
+		worst_pos = maxf(worst_pos, gap)
+	check(worst_deg <= 0.1 and worst_pos <= 0.001,
+		"the live base matches the old procedural pose (worst %s: %.5f m / %.4f deg)"
+		% [worst_name, worst_pos, worst_deg])
+
+
+## Every bone the standing act owns, plus the head it applies separately.
+func _owned_poses(sk: Skeleton3D) -> Dictionary:
+	var out := {}
+	for name: String in PONY_BONES:
+		var bone := sk.find_bone(name)
+		if bone >= 0:
+			out[name] = sk.get_bone_pose(bone)
+	var head := sk.find_bone("pony_head")
+	if head >= 0:
+		out["pony_head"] = sk.get_bone_pose(head)
+	return out
+
+
 ## The oral delta on the baked base matches the reference recipe plus the same delta at four sizes:
 ## the neck/head rotations and the head anchor relative to the hips.
-func _check_oral_parity(pony: Node3D, sk: Skeleton3D, fixture: Dictionary, frame: Transform3D,
+func _check_oral_parity(pony: Node3D, sk: Skeleton3D, frame: Transform3D,
 		config: Dictionary) -> void:
 	var rig: Variant = RIG.new()
 	rig.call("cache", pony, sk)
 	var keys := {"oral_pitch": 0.25, "oral_yaw": -0.12, "oral_roll": 0.15}
 	var oral: Variant = ORAL.new()
-	_load_fixture(sk, fixture)
+	sk.reset_bone_poses()
 	var recipe: Variant = RECIPE.new()
 	recipe.call("apply_reference", rig, sk, 1.0, config)
 	sk.force_update_all_bone_transforms()
@@ -424,19 +473,6 @@ func _find_skeleton(node: Node) -> Skeleton3D:
 	for child: Node in node.find_children("*", "Skeleton3D", true, false):
 		return child as Skeleton3D
 	return null
-
-
-## Puts the fixture's settled local poses on the rig.
-func _load_fixture(sk: Skeleton3D, fixture: Dictionary) -> void:
-	sk.reset_bone_poses()
-	var bones: Variant = fixture.get("bones", {})
-	if bones is Dictionary:
-		for name: Variant in (bones as Dictionary):
-			var bone := sk.find_bone(str(name))
-			var pose_value: Variant = str_to_var(str((bones as Dictionary)[name]))
-			if bone >= 0 and pose_value is Transform3D:
-				sk.set_bone_pose(bone, pose_value)
-	sk.force_update_all_bone_transforms()
 
 
 ## A bare rig with the 30 body bones and the joints the standing recipe needs.

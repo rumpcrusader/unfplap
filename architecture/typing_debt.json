@@ -272,11 +272,6 @@
     },
     {
       "service": "poses",
-      "func": "standing_reference",
-      "signature": "func standing_reference() -> Dictionary:"
-    },
-    {
-      "service": "poses",
       "func": "state_rows",
       "signature": "func state_rows(state: int) -> Array:"
     },

@@ -615,9 +615,9 @@ func _save_pose() -> void:
 		"yes" if data.has("anon") else "no", "yes" if data.has("shots") else "no"])
 
 
-## Bakes the v7 standing asset from the reference recipe, or saves the hand-authored pose for
-## another id. The standing bake applies `apply_reference()` at the effective reference config; the
-## game never uses this path.
+## Bakes the v7 standing asset from the rig's rest pose plus the reference recipe, or saves the
+## hand-authored pose for another id. The standing bake applies `apply_reference()` at the
+## effective reference config; the game never uses this path.
 func _bake_v7() -> void:
 	if _pony == null or _pony_skel == null:
 		push_error("PoseLab: nothing to bake")
@@ -628,8 +628,12 @@ func _bake_v7() -> void:
 	var frame := _pose_frame()
 	var data: Dictionary
 	if pose_id == "standing":
+		var saved := _saved_bone_poses()
+		_pony_skel.reset_bone_poses()
+		_pony_skel.force_update_all_bone_transforms()
 		data = BAKE.capture_asset(_pony_skel, frame, RECIPE.reference_config(), "canon",
 			_contact_point(), 1.0, pose_id, _frame_kind())
+		_restore_bone_poses(saved)
 	else:
 		data = BAKE.capture_pose(_pony_skel, frame, _contact_point(), {}, "canon", 1.0,
 			pose_id, _frame_kind())
@@ -642,7 +646,7 @@ func _bake_v7() -> void:
 		print("[poselab] bake failed: %s" % write_error)
 
 
-## Compares the saved asset with the reference recipe on the current rig and prints the worst
+## Compares the saved asset with the reference recipe on the rig's rest pose and prints the worst
 ## joint error.
 func _compare_baked() -> void:
 	if _pony_skel == null:
@@ -652,14 +656,32 @@ func _compare_baked() -> void:
 	if not parsed is Dictionary:
 		print("[poselab] no readable asset at %s" % pose_path())
 		return
+	var saved := _saved_bone_poses()
+	_pony_skel.reset_bone_poses()
+	_pony_skel.force_update_all_bone_transforms()
 	var result := BAKE.compare(parsed as Dictionary, _pony_skel, _pose_frame(),
 		RECIPE.reference_config(), "canon", 1.0)
+	_restore_bone_poses(saved)
 	if bool(result.get("ok", false)):
 		print("[poselab] compare PASS bones=%d worst=%.5f m / %.4f deg" % [
 			int(result.get("bones", 0)), float(result.get("worst_m", 0.0)),
 			float(result.get("worst_deg", 0.0))])
 	else:
 		print("[poselab] compare FAIL %s" % str(result))
+
+
+## The live local poses, saved and put back around a rest-based bake or compare.
+func _saved_bone_poses() -> Array[Transform3D]:
+	var out: Array[Transform3D] = []
+	for bone in _pony_skel.get_bone_count():
+		out.append(_pony_skel.get_bone_pose(bone))
+	return out
+
+
+func _restore_bone_poses(saved: Array[Transform3D]) -> void:
+	for bone in mini(saved.size(), _pony_skel.get_bone_count()):
+		_pony_skel.set_bone_pose(bone, saved[bone])
+	_pony_skel.force_update_all_bone_transforms()
 
 
 ## The scene blocks a saved pose carries besides the anchor/root/body: the bed metadata, the Anon

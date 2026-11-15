@@ -36,7 +36,6 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Action | Settings block | Wheel page |
 |---|---|---|
 | Reload posed base | General | — |
-| Bake standing base | General | — |
 | Pose: test variant | General | — |
 | Pose: face-sit | General | — |
 | Trigger bed offer | — | Mare |
@@ -80,10 +79,6 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 - **Reload posed base** re-reads the active pose's authored JSON in place; a running act picks it
   up on its next frame. With no live act it re-reads the default missionary asset. See
   `docs/poses.md`.
-- **Bake standing base** is a Debug-block button with no hotkey: it writes the settled standing
-  reference captured at `begin()` to `user://unfplap/standing_reference.json` for
-  `tools/pose_bake.gd`. It refuses outside a live standing act, before the capture, during an edge
-  or after the afterglow, and while the game's `stand` posture is not settled. See `docs/poses.md`.
 - **Pose: test variant** is a Debug-block button with no hotkey: it toggles the internal
   `standing_test` pose in a live standing act, runs the authored `standing ↔ standing_test` edge
   and logs the request code and the status event. It never ends the act, releases the pose or

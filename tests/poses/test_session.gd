@@ -307,12 +307,6 @@ func _check_standing_begin() -> void:
 		"the standing begin installs the standing asset")
 	check(session.pose_node.size_name == "canon",
 		"the begin carries the supplied size name to the pose node")
-	check(not session.standing_reference().is_empty(),
-		"the standing begin captures the reference")
-	check(str(session.standing_reference().get("size_name")) == "canon",
-		"the reference carries the supplied size name")
-	check((session.standing_reference().get("bones") as Dictionary).size() >= 1,
-		"the reference carries the local bone poses")
 	check(session.view().family == "standing" and session.view().pose_state == VIEW.STEADY,
 		"the standing begin fills the view")
 	session.release_pose()
@@ -374,7 +368,6 @@ func _check_ground_frame() -> void:
 		"a still root leaves the frame alone")
 	session.release_pose()
 	check(session.ground_frame == null, "the release clears the ground frame")
-	check(session.standing_reference().is_empty(), "the release clears the reference")
 	_free_live(made)
 
 

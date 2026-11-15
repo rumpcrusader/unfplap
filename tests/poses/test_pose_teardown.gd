@@ -216,14 +216,14 @@ func _check_standing_scope() -> void:
 	check(session._stretch != null, "the stretch holder is owned by the session")
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.STANDING,
 		"the standing begin fills the view")
-	check(session.ground_frame is Transform3D and not session.standing_reference().is_empty(),
-		"the standing begin captures the ground frame and the reference")
+	check(session.ground_frame is Transform3D,
+		"the standing begin captures the ground frame")
 
 	session.leave_pose_start()
 	check(holder != null and holder.get_parent() == body,
 		"the pose-start leave keeps the stretch holder")
-	check(session.ground_frame == null and session.standing_reference().is_empty(),
-		"the pose-start leave clears the ground frame and the reference")
+	check(session.ground_frame == null,
+		"the pose-start leave clears the ground frame")
 	check(session.body_sway == body_sway and body_sway.get_parent() == body,
 		"the pose-start leave keeps the extra modifiers")
 	check(session.tail == tail and tail.get_parent() != null,
@@ -255,8 +255,8 @@ func _check_standing_scope() -> void:
 		"the standing final release frees the tail")
 	check(session.pose_config.is_empty() and view.pose_state == VIEW.IDLE and view.id == "",
 		"the standing final release clears the config and the view")
-	check(session.ground_frame == null and session.standing_reference().is_empty(),
-		"the standing final release clears the ground frame and the reference")
+	check(session.ground_frame == null,
+		"the standing final release clears the ground frame")
 	_free_fixture(made)
 	STRETCH.pose_path = STRETCH.POSE_PATH
 

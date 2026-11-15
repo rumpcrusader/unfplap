@@ -1,7 +1,7 @@
 extends RefCounted
 ## Standing skeleton recipe and the baked-base delta. Contract: `docs/poses.md`.
 ##
-## The v7 standing asset carries the game's settled standing reference with this recipe applied at
+## The v7 standing asset carries the body rig's rest pose with this recipe applied at
 ## `reference_config()`. In the act the asset is the base; the recipe applies only the live-setting
 ## difference from the reference, so the default stance is exactly the baked pose and a changed
 ## setting adds only its delta. `apply_reference()` stays the full recipe for the bake and the

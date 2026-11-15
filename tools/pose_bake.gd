@@ -1,8 +1,10 @@
 extends SceneTree
-## Dev-only bake tool: turns the game's standing reference capture (the fixture, or a provisional
-## `body.glb` rest pose when no live capture exists) into the shipped v7 `poses/standing_pose.json`,
-## and compares a baked asset with the reference recipe. It never ships: `tools/` is outside the
-## pack, and no shipped runtime script preloads it.
+## Dev-only bake tool: turns the body rig's rest pose into the shipped v7 `poses/standing_pose.json`
+## with the reference recipe, and compares a baked asset with that recipe. The game's own settled
+## standing pose is `pony_gait_profile.gd`'s `standing`, bound from the same rest, so rest plus the
+## recipe is the act's old procedural stance. A live capture is never the input: at `begin()` the
+## gait is still blending and a mid-step frame would be frozen into the base. It never ships:
+## `tools/` is outside the pack, and no shipped runtime script preloads it.
 ##
 ##   godot --headless --xr-mode off --path . --script res://mods/unfplap/tools/pose_bake.gd
 ##   ... -- --write   # bake and write the shipped asset
@@ -16,7 +18,6 @@ const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const BODY := preload("res://world/characters/hybrid_mare/body.glb")
 
 const STANDING_PATH := "res://mods/unfplap/poses/standing_pose.json"
-const FIXTURE_PATH := "res://mods/unfplap/tests/poses/fixtures/standing_reference.json"
 const PONY_BONES := AUTHORED.PONY_BONES
 
 
@@ -65,7 +66,7 @@ static func capture_pose(skeleton: Skeleton3D, world_frame: Transform3D, contact
 
 
 ## The reference recipe applied at `config`, then captured. This is the one bake path: the bake
-## tool, the standing bake button and the lab's bake button all use it.
+## tool and the lab's bake button both use it.
 static func capture_asset(skeleton: Skeleton3D, world_frame: Transform3D, config: Dictionary,
 		size_name: String, contact_point: Vector3, body_scale: float = 1.0,
 		pose_id: String = "standing", frame_kind: String = "ground") -> Dictionary:
@@ -210,34 +211,15 @@ func run() -> void:
 		print("[pose_bake] FAIL no body skeleton")
 		quit(1)
 		return
-	var provisional := not FileAccess.file_exists(FIXTURE_PATH)
+	# The bake input is the rig's rest pose. It is the game's own settled standing pose
+	# (`pony_gait_profile.gd`: `standing = rest.duplicate()`, returned at zero gait blend), so
+	# this is the stance the act's procedural recipe used to be applied to.
+	skeleton.reset_bone_poses()
+	skeleton.force_update_all_bone_transforms()
 	var frame := Transform3D.IDENTITY
 	var config: Dictionary = RECIPE.reference_config()
 	var size_name := "canon"
 	var body_scale := 1.0
-	var fixture_data: Dictionary = {}
-	if provisional:
-		print("[pose_bake] PROVISIONAL reference=rest")
-		skeleton.reset_bone_poses()
-		skeleton.force_update_all_bone_transforms()
-	else:
-		var fixture: Variant = JSON.parse_string(FileAccess.get_file_as_string(FIXTURE_PATH))
-		if not fixture is Dictionary:
-			print("[pose_bake] FAIL bad fixture JSON")
-			quit(1)
-			return
-		fixture_data = fixture
-		provisional = bool(fixture_data.get("provisional", false))
-		if provisional:
-			print("[pose_bake] PROVISIONAL reference=fixture")
-		var frame_value: Variant = str_to_var(str(fixture_data.get("frame", "")))
-		frame = frame_value if frame_value is Transform3D else Transform3D.IDENTITY
-		size_name = str(fixture_data.get("size_name", "canon"))
-		body_scale = float(fixture_data.get("body_scale", 1.0))
-		_load_reference(skeleton, fixture_data)
-		# The fixture's frame is the live ground frame. Stand the instantiated body in it, so the
-		# captured anchor/root are frame-space values and not the fixture's world position.
-		pony.global_transform = frame
 	var contact := body_contact(pony)
 	var asset := capture_asset(skeleton, frame, config, size_name, contact, body_scale,
 		"standing", "ground")
@@ -247,10 +229,9 @@ func run() -> void:
 			print("[pose_bake] FAIL %s" % write_error)
 			quit(1)
 			return
-		print("[pose_bake] wrote %s bones=%d provisional=%s" % [
+		print("[pose_bake] wrote %s bones=%d" % [
 			STANDING_PATH,
-			((asset.get("pony") as Dictionary).get("bones") as Dictionary).size(),
-			str(provisional)])
+			((asset.get("pony") as Dictionary).get("bones") as Dictionary).size()])
 	if mode != "write":
 		var check_error := ""
 		if not FileAccess.file_exists(STANDING_PATH):
@@ -261,11 +242,8 @@ func run() -> void:
 				check_error = "the shipped asset is stale; run --write"
 		if check_error.is_empty():
 			# `capture_asset` left the recipe on the rig; compare needs the reference pose again.
-			if fixture_data.is_empty():
-				skeleton.reset_bone_poses()
-				skeleton.force_update_all_bone_transforms()
-			else:
-				_load_reference(skeleton, fixture_data)
+			skeleton.reset_bone_poses()
+			skeleton.force_update_all_bone_transforms()
 			var result := compare(asset, skeleton, frame, config, size_name, body_scale)
 			if not bool(result.get("ok", false)):
 				check_error = "compare failed: %s" % str(result)
@@ -295,16 +273,3 @@ func _skeleton(node: Node) -> Skeleton3D:
 	for child: Node in node.find_children("*", "Skeleton3D", true, false):
 		return child as Skeleton3D
 	return null
-
-
-## Puts the fixture's settled local poses back on the rig (the reference before the recipe).
-func _load_reference(skeleton: Skeleton3D, fixture: Dictionary) -> void:
-	skeleton.reset_bone_poses()
-	var bones: Variant = fixture.get("bones", {})
-	if bones is Dictionary:
-		for name: Variant in (bones as Dictionary):
-			var bone := skeleton.find_bone(str(name))
-			var pose_value: Variant = str_to_var(str((bones as Dictionary)[name]))
-			if bone >= 0 and pose_value is Transform3D:
-				skeleton.set_bone_pose(bone, pose_value)
-	skeleton.force_update_all_bone_transforms()

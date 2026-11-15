@@ -909,35 +909,6 @@ func pose_view() -> RefCounted:
 	return _pose_service().view()
 
 
-## Why the standing reference cannot be baked right now, or "" when it is ready: an active
-## standing act, a steady pose (no edge, no afterglow), a captured reference and a settled game
-## `stand` posture.
-func standing_reference_error() -> String:
-	if state != State.ACTIVE:
-		return "no active act"
-	var view := pose_view()
-	if view == null or str(view.family) != "standing" or str(view.id) != CATALOG.STANDING:
-		return "only in a settled standing act"
-	if int(view.pose_state) != POSE_VIEW.STEADY:
-		return "the pose is changing"
-	if _pose_service().standing_reference().is_empty():
-		return "the standing reference was not captured"
-	if is_instance_valid(pony) and pony.has_method("posture_status"):
-		var status: Dictionary = pony.posture_status()
-		if str(status.get("requested", "")) != "stand":
-			return "the standing posture is not settled"
-		var ready: Variant = status.get("ready")
-		if ready is bool and not (ready as bool):
-			return "the standing posture is not settled"
-	return ""
-
-
-## The captured standing fixture JSON. The bake action writes it to `user://`; the shipped runtime
-## never reads it as a pose.
-func standing_reference_json() -> String:
-	return _pose_service().reference_json()
-
-
 ## Why the face-sit debug action cannot toggle right now, or "" when it is ready: an active act, a
 ## live missionary or face-sit view, a steady pose, no running kiss and the anatomy's act body.
 func face_sit_error() -> String:
@@ -2283,8 +2254,8 @@ func _build_pose() -> void:
 		look = (view as Camera3D).global_position
 		camera_at = look
 	# The act facts only carry the derived size inside an act, and the session starts before the
-	# state leaves IDLE; supply the live size so the standing reference and the variant selection
-	# do not capture an empty name.
+	# state leaves IDLE; supply the live size so the variant selection does not capture an empty
+	# name.
 	var size_name := str(_camera_service().call("size_name"))
 	session.begin({
 		"pose_id": pose_id,

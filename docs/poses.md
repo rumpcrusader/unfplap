@@ -129,7 +129,9 @@ pose-scope leave steps keep it `STEADY`. During an edge, `from_id`/`to_id`, `edg
 `weight`, `from_config` and `to_config` carry the transition: `from_config` is the live config, the
 to side is the session's target snapshot. `contact_kind` is the one contact source (`opening`,
 `mouth`, `face` or `none`); it starts at the spec's base kind, moves on an edge's `contact` switch
-and settles on the target's kind. `contact_target` is the pose turn's live anchor, and
+and settles on the target's kind. The `face` kind's provider is the act body's `mouth_point()` on
+the anatomy bridge; its driver is D5 and the anatomy act parks her part. `contact_target` is the
+pose turn's live anchor, and
 `facing`/`facing_amount` its live frame; the standing camera reads both every physics tick. The
 view carries no compatibility fields: `id`, `family`, `frame`, `settings_group`, the profiles, the
 live config and `contact_kind` are the whole pose source.
@@ -457,7 +459,10 @@ The `contact` channel is the one contact change: the forward oral edge switches 
 `mouth` at `0.9`, the reverse switches back at `0.0`, and completion settles the target row's base
 kind. The hands read `view.contact_kind` for the mouth path and the oral caress blend; the anatomy
 act reads it for the part target and the hole gate; the camera reads it for the oral lean lock; the
-dialogue and HUD read it through the facts. The standing camera reads `view.facing`/
+dialogue and HUD read it through the facts. The `face` kind has no shipped edge yet: the view can
+name it, the anatomy act parks the part and reports a zero hip offset, the anatomy bridge refuses
+`hole_ready`/`finish_ready`, and the future face driver reads the bridge's
+`face_point()`. The standing camera reads `view.facing`/
 `facing_amount` directly each physics tick; the pose turn writes them, so no service carries a
 facing copy. The running lean kiss is ended by the oral lean tick; the kiss release still advances
 through its own `tick`, so no second kiss state exists.

@@ -132,6 +132,9 @@ var eye_camera := Callable()
 ## actions the edge events fire. A missing callback is a no-op.
 var mouth_point := Callable()
 var opening_point := Callable()
+## The face contact's real anchor on the act body. The face driver (D5) reads it; a missing
+## callback is a no-op.
+var face_point := Callable()
 var oral_kiss := Callable()
 var oral_speech_stop := Callable()
 var oral_viseme := Callable()

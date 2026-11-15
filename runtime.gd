@@ -896,6 +896,7 @@ func _pose_service() -> RefCounted:
 	_pose_session.facts = _act_facts
 	_pose_session.mouth_point = Callable(self, "_oral_mouth_point")
 	_pose_session.opening_point = Callable(self, "_oral_opening_point")
+	_pose_session.face_point = Callable(self, "_anatomy_face_point")
 	_pose_session.oral_kiss = Callable(self, "_oral_kiss")
 	_pose_session.oral_speech_stop = Callable(self, "_oral_speech_stop")
 	_pose_session.oral_viseme = Callable(self, "_oral_viseme")
@@ -2448,6 +2449,14 @@ func _oral_mouth_point() -> Vector3:
 func _oral_opening_point() -> Vector3:
 	_anatomy_bridge.bind(_anatomy_host())
 	return _anatomy_bridge.opening()
+
+
+## The face contact's real anchor on the act body. The pose service's face driver uses it; a
+## missing or inactive body is Vector3.INF.
+func _anatomy_face_point() -> Vector3:
+	_anatomy_bridge.bind(_anatomy_host())
+	var point: Variant = _anatomy_bridge.face_point()
+	return point if point is Vector3 else Vector3.INF
 
 
 ## The edge viseme event: the D shape, or the clear on contact release.

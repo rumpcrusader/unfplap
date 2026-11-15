@@ -108,6 +108,13 @@ func _mouth_contact() -> bool:
 	return view != null and str(view.contact_kind) == "mouth"
 
 
+## True while the view names the face contact. The pose service's future face driver reads the
+## view; the geometry owner reads this helper.
+func _face_contact() -> bool:
+	var view: Variant = _host("pose_view")
+	return view != null and str(view.contact_kind) == "face"
+
+
 ## The per-act handle. The controller's `begin_act` creates it; the bridge resets the facts first.
 func begin_act() -> void:
 	facts.penetration_m = 0.0
@@ -211,7 +218,7 @@ func detach() -> void:
 ## The action gates. The host supplies the state; the bridge reads the settings.
 func hole_ready() -> bool:
 	return is_instance_valid(act) and _host("state", 0) in [STATE_ACTIVE, STATE_CLIMAX] \
-		and SETTINGS.anatomy_holes.get_bool() and not _mouth_contact()
+		and SETTINGS.anatomy_holes.get_bool() and not _mouth_contact() and not _face_contact()
 
 
 ## The oral command's gate: the feature, the standing pose family and an active act. It stays
@@ -223,7 +230,7 @@ func oral_ready() -> bool:
 
 func finish_ready() -> bool:
 	return is_instance_valid(act) and _host("state", 0) in [STATE_ACTIVE, STATE_CLIMAX] \
-		and SETTINGS.anatomy_finish.get_bool()
+		and SETTINGS.anatomy_finish.get_bool() and not _face_contact()
 
 
 func actions_ready() -> bool:
@@ -248,6 +255,21 @@ func mouth_point() -> Vector3:
 		return Vector3.ZERO
 	var value: Variant = act.call("oral_mouth_point")
 	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.ZERO
+
+
+## The real face/mouth anchor on the act body: his authored `Head` plus the game's eye-to-mouth
+## offset. A missing or inactive body, or a non-finite value, is Vector3.INF.
+func face_point() -> Vector3:
+	if not is_instance_valid(missionary_anon) or not bool(missionary_anon.get("active")):
+		return Vector3.INF
+	var value: Variant = missionary_anon.call("mouth_point")
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
+
+
+## True when the face contact has a live provider: an active act, the view's face contact and the
+## act body's mouth anchor.
+func face_ready() -> bool:
+	return is_instance_valid(act) and _face_contact() and bed_active()
 
 
 func finish_pull_out() -> bool:

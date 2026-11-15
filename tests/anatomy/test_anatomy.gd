@@ -19,6 +19,7 @@ const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
 var checks := 0
@@ -55,6 +56,110 @@ class FakeAnatomy extends Node:
 		return null
 
 
+## The face-mode anatomy: records the shape drive and returns a live winking mesh. The opening is
+## fixed, so the normal opening path's aim and track calls are observable.
+class FakeFaceAnatomy extends Node:
+	var calls: Array = []
+	var mesh: MeshInstance3D
+	var opening := Vector3(0.1, 0.2, 0.3)
+
+	func animate(_closed: float, _seconds: float) -> void:
+		calls.append(["animate"])
+
+	func winking_mesh() -> Variant:
+		return mesh
+
+	func set_fill(value: float) -> void:
+		calls.append(["fill", value])
+
+	func set_grip(value: float) -> void:
+		calls.append(["grip", value])
+
+	func set_anal_shape(first: float, second: float) -> void:
+		calls.append(["anal_shape", first, second])
+
+	func set_anal_grip(value: float) -> void:
+		calls.append(["anal_grip", value])
+
+	func set_shaft(_pivot: Vector3, _axis: Vector3, _length: float, _radii: Array) -> void:
+		calls.append(["shaft"])
+
+	func clear_shaft() -> void:
+		calls.append(["clear_shaft"])
+
+	func drive(value: float) -> void:
+		calls.append(["drive", value])
+
+	func hole_point(_mix: float) -> Vector3:
+		return opening
+
+	func hole_rear(_mix: float) -> Vector3:
+		return Vector3(0.0, 0.0, 1.0)
+
+	func anal_mesh() -> Variant:
+		return mesh
+
+	func fluid() -> Node3D:
+		return null
+
+
+## The player part in the face-mode test: the encounter calls are the park/restore proof, and the
+## aim/inset setters count any write the parked path must never make.
+class FakeFacePart extends Node:
+	var encounters: Array[bool] = []
+	var showing_state := false
+	var aim_normal_writes := 0
+	var aim_opening_writes := 0
+	var inset_writes := 0
+	var aim_pitch_deg := 0.0
+	var aim_normal: Vector3 = Vector3.ZERO:
+		set(value):
+			aim_normal = value
+			aim_normal_writes += 1
+	var aim_opening: Vector3 = Vector3.ZERO:
+		set(value):
+			aim_opening = value
+			aim_opening_writes += 1
+	var bed_inset_m := 0.0:
+		set(value):
+			bed_inset_m = value
+			inset_writes += 1
+
+	func encounter(on: bool) -> void:
+		encounters.append(on)
+		showing_state = on
+
+	func showing() -> bool:
+		return showing_state
+
+	func girth_at(_point: Vector3) -> float:
+		return 0.01
+
+	func root_now() -> Vector3:
+		return Vector3.INF
+
+	func tip_world() -> Vector3:
+		return Vector3.INF
+
+	func tip_center() -> Vector3:
+		return Vector3.INF
+
+	func shaft_radii(_count: int) -> Array:
+		return []
+
+
+class FakeFaceService extends Node:
+	var tracks := 0
+	var part_node: Variant = null
+
+	func part() -> Variant:
+		return part_node
+
+	func player_track(_point: Vector3, _rear: Vector3, _up: Vector3, _detached: bool,
+			_shown: float, _delta: float, _parent: Variant, _attached: bool) -> void:
+		tracks += 1
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -68,6 +173,118 @@ func check(ok: bool, text: String) -> void:
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
+
+
+## The face contact parks the part and the vulva: no player track, no aim/inset write, neutral
+## fill/grip/anal and a neutral drive. The first opening tick restores the part once and resumes
+## the normal shape and aim path; the hole toggle refuses while the face owns the contact.
+func _check_face_contact() -> void:
+	var anatomy := FakeFaceAnatomy.new()
+	root.add_child(anatomy)
+	var host := Node3D.new()
+	root.add_child(host)
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = BoxMesh.new()
+	host.add_child(mesh)
+	anatomy.mesh = mesh
+	var pony := _pony("twilight_sparkle")
+	root.add_child(pony)
+	var sk := Skeleton3D.new()
+	sk.add_bone("pony_hips")
+	pony.add_child(sk)
+	pony.skeleton = sk
+	var part := FakeFacePart.new()
+	root.add_child(part)
+	var service := FakeFaceService.new()
+	service.part_node = part
+	root.add_child(service)
+	var act: Node = ANATOMY_ACT.new()
+	root.add_child(act)
+	act.setup(service, pony, anatomy)
+	var view: RefCounted = VIEW.new()
+	view.family = "bed"
+	view.frame = "bed"
+	view.contact_kind = "face"
+	view.contact_target = Vector3(0.4, 0.5, 0.6)
+	var facts: RefCounted = FACTS.new()
+	facts.state = 2
+	facts.pose_view = view
+	facts.depth = 0.2
+	facts.size_scale = 1.0
+	facts.penetration_m = 0.1
+	facts.penetration_reach = 0.2
+	facts.bed_frame = Transform3D.IDENTITY
+
+	act.tick(0.016, facts)
+	check(service.tracks == 0, "the face contact never tracks the part")
+	check(part.encounters == [false], "the first face tick parts the part once")
+	check(part.aim_normal_writes == 0 and part.aim_opening_writes == 0,
+		"the face contact writes no aim")
+	check(part.inset_writes == 0 and is_zero_approx(part.bed_inset_m),
+		"the face contact writes no bed inset")
+	var fill := _last_call(anatomy.calls, "fill")
+	var grip := _last_call(anatomy.calls, "grip")
+	var anal := _last_call(anatomy.calls, "anal_shape")
+	var drive := _last_call(anatomy.calls, "drive")
+	check(not fill.is_empty() and is_zero_approx(float(fill[1])),
+		"the face contact zeroes the fill")
+	check(not grip.is_empty() and is_zero_approx(float(grip[1])),
+		"the face contact zeroes the grip")
+	check(anal.size() == 3 and is_zero_approx(float(anal[1]))
+		and is_zero_approx(float(anal[2])), "the face contact zeroes the anal shape")
+	check(not _last_call(anatomy.calls, "clear_shaft").is_empty(),
+		"the face contact clears the shaft")
+	check(not drive.is_empty()
+		and is_equal_approx(float(drive[1]), ANATOMY_ACT.WINKING_REST_OPEN),
+		"the face contact holds the neutral closed shape")
+	check((act.get("_contact_point") as Vector3).is_equal_approx(view.contact_target),
+		"the face contact point is the view's target")
+	check((act.get("_contact_normal") as Vector3).is_zero_approx(),
+		"the face contact carries no normal")
+
+	act.tick(0.016, facts)
+	check(part.encounters == [false], "a second face tick does not part the part again")
+	check(service.tracks == 0, "the face contact still never tracks the part")
+	var holes_on := SETTINGS.anatomy_holes.get_bool()
+	SETTINGS.anatomy_holes.set_bool(true)
+	act.call("toggle_hole", 2)
+	check(not bool(act.get("_anal")), "the hole toggle refuses in the face contact")
+	SETTINGS.anatomy_holes.set_bool(holes_on)
+
+	view.contact_kind = "opening"
+	view.contact_target = Vector3.INF
+	act.tick(0.016, facts)
+	check(part.encounters == [false, true], "the first opening tick restores the part once")
+	check(not bool(act.get("_face_parted")), "the face flag clears on the opening contact")
+	check(service.tracks == 1, "the opening contact resumes the player track")
+	check(part.aim_opening_writes >= 1 and part.aim_normal_writes >= 1,
+		"the opening contact resumes the aim writes")
+	check(part.inset_writes >= 1, "the bed opening contact restores the bed inset")
+	fill = _last_call(anatomy.calls, "fill")
+	check(not fill.is_empty() and float(fill[1]) > 0.0,
+		"the opening contact resumes the fill drive")
+
+	act.call("teardown")
+	act.free()
+	root.remove_child(service)
+	service.free()
+	root.remove_child(part)
+	part.free()
+	root.remove_child(pony)
+	pony.free()
+	root.remove_child(anatomy)
+	anatomy.free()
+	root.remove_child(host)
+	host.free()
+
+
+## The last call recorded for a shape/aim name, or an empty array.
+func _last_call(calls: Array, name: String) -> Array:
+	for i: int in range(calls.size() - 1, -1, -1):
+		var row: Variant = calls[i]
+		if row is Array and not (row as Array).is_empty() and str((row as Array)[0]) == name:
+			return row as Array
+	return []
 
 
 func _pony(id: String, filly := false, stallion := false) -> FakePony:
@@ -712,6 +929,8 @@ func run() -> void:
 	var unpatched := Shader.new()
 	unpatched.code = "shader_type spatial;"
 	check(COAT_PATCH.patched(unpatched) == null, "a shader without the hooks is left alone")
+
+	_check_face_contact()
 
 	for pony: Node in [twilight, filly, stallion, off_roster, no_id, no_identity, player,
 			meta_first]:

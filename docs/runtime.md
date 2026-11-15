@@ -149,7 +149,10 @@ reads that facade too.
 
 The pose surface is `pose_view()`, `request_pose(target_id, trigger, context)`,
 `request_command(command_id)` and `command(command_id)`. The runtime supplies its state, features
-and stretch; the session refuses or starts the edge. `request_command(id)` is the pure allow check:
+and stretch; the session refuses or starts the edge. It also binds the session's pose host
+callbacks: `mouth_point` and `opening_point` for the oral turn and `face_point` for the face
+contact, plus the oral kiss/speech/viseme/status callbacks. `face_point` is the anatomy bridge's
+real face anchor on the act body; a missing or inactive body is `Vector3.INF`. `request_command(id)` is the pure allow check:
 `end` is reserved and always allowed, otherwise the id must be in the active pose's control profile
 and the live edge lock must not deny it. `command(id)` runs that check first, then dispatches the
 discrete `hole`/`finish` ids to the anatomy entry points and `oral` to `toggle_anatomy_oral()`,

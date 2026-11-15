@@ -45,6 +45,9 @@ var _facts: RefCounted = FACTS.new()
 var _anal := false
 var _hole_mix := 0.0
 var _oral: RefCounted
+## True while the face contact has parked the part: his body owns the contact placement and her
+## opening is left neutral. The first face tick parts it; the first opening tick restores it.
+var _face_parted := false
 var _fill := 0.0
 var _wide := 0.0
 var _finish: RefCounted
@@ -94,6 +97,7 @@ func reset() -> void:
 	_hole_mix = 0.0
 	_fill = 0.0
 	_wide = 0.0
+	_face_parted = false
 	if _oral != null:
 		_oral.call("reset")
 	if _finish != null:
@@ -132,6 +136,13 @@ func _bed_pose() -> bool:
 func _mouth_contact() -> bool:
 	var view: Variant = _pose_view()
 	return view != null and str(view.contact_kind) == "mouth"
+
+
+## True while the pose view names the face contact. The act parks the part; the pose's face driver
+## owns the contact placement.
+func _face_contact() -> bool:
+	var view: Variant = _pose_view()
+	return view != null and str(view.contact_kind) == "face"
 
 
 ## Her vulva opening at the live hole mix.
@@ -191,7 +202,7 @@ func finished_inside() -> bool:
 
 func toggle_hole(state: int) -> void:
 	if not SETTINGS.anatomy_holes.get_bool() or state not in [2, 3] \
-			or _mouth_contact():
+			or _mouth_contact() or _face_contact():
 		return
 	if not is_instance_valid(anatomy) or not is_instance_valid(anatomy.call("anal_mesh")):
 		return
@@ -246,13 +257,23 @@ func tick(delta: float, facts: RefCounted) -> void:
 	_facts = facts if facts != null else FACTS.new()
 	if not is_instance_valid(anatomy) or not is_instance_valid(pony):
 		return
-	var started := Time.get_ticks_usec()
 	var mesh: Variant = anatomy.call("winking_mesh")
 	if not is_instance_valid(mesh):
 		return
+	var part: Variant = _part()
+	# The face contact owns his authored mouth and parks her part: no opening shape drive, no
+	# shaft, no player track, no aim writes. The hip offset the act body reads is zero because a
+	# parted part reports none.
+	if _face_contact():
+		_face_tick(delta, part)
+		return
+	if _face_parted:
+		_face_parted = false
+		if is_instance_valid(part):
+			part.call("encounter", true)
+	var started := Time.get_ticks_usec()
 	var frame: Transform3D = (mesh as Node3D).global_transform
 	var mesh_scale := maxf(frame.basis.get_scale().x, 0.001)
-	var part: Variant = _part()
 	var width: float = -1.0
 	if is_instance_valid(part):
 		width = float(part.call("girth_at", hole_point()))
@@ -323,6 +344,33 @@ func tick(delta: float, facts: RefCounted) -> void:
 			true)
 	if _debug != null:
 		_debug.tick(part)
+	_facts.perf("anatomy_tick", Time.get_ticks_usec() - started)
+
+
+## The face contact: part once, then hold her shapes at the neutral closed value and point the
+## contact at his authored mouth. The part is parked, so the shaft-hug beat and the act wink have
+## nothing to close on and are not driven; the emphasis stays on her body and the pose's press.
+func _face_tick(_delta: float, part: Variant) -> void:
+	var started := Time.get_ticks_usec()
+	if not _face_parted:
+		_face_parted = true
+		if is_instance_valid(part):
+			part.call("encounter", false)
+	if is_instance_valid(anatomy):
+		anatomy.call("set_fill", 0.0)
+		anatomy.call("set_grip", 0.0)
+		anatomy.call("set_anal_shape", 0.0, 0.0)
+		anatomy.call("clear_shaft")
+		anatomy.call("drive", WINKING_REST_OPEN)
+	var point := hole_point()
+	var view: Variant = _pose_view()
+	if view != null:
+		var target: Variant = view.contact_target
+		if target is Vector3 and (target as Vector3).is_finite():
+			point = target
+	_contact_point = point
+	_contact_normal = Vector3.ZERO
+	_contact_rear = Vector3.ZERO
 	_facts.perf("anatomy_tick", Time.get_ticks_usec() - started)
 
 
@@ -475,6 +523,7 @@ func teardown() -> void:
 		_oral.call("teardown")
 	_anal = false
 	_hole_mix = 0.0
+	_face_parted = false
 	if _finish != null:
 		_finish.teardown()
 

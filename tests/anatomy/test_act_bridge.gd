@@ -128,6 +128,8 @@ class FakeMissionaryAnon extends Node:
 	var applied := 0
 	var refreshes := 0
 	var removed := 0
+	var active := true
+	var mouth: Variant = Vector3(0.0, 1.1, 0.2)
 
 	func install(context: Variant) -> bool:
 		installed = context
@@ -138,6 +140,9 @@ class FakeMissionaryAnon extends Node:
 
 	func refresh_palm() -> void:
 		refreshes += 1
+
+	func mouth_point() -> Variant:
+		return mouth
 
 	func diag_row(_face: Vector3, _vulva: Vector3) -> String:
 		return "body"
@@ -257,6 +262,7 @@ func run() -> void:
 	_check_bind_and_facts()
 	_check_gates()
 	_check_action_reads()
+	_check_face()
 	_check_vectors()
 	_check_lifecycle()
 	_check_host_callbacks()
@@ -370,6 +376,52 @@ func _check_action_reads() -> void:
 	act.free()
 
 
+## The face contact's provider and gates: the act body's authored mouth is the anchor, and a face
+## view refuses the hole and finish actions until the contact returns to the opening.
+func _check_face() -> void:
+	var host := FakeHost.new()
+	var bridge: RefCounted = BRIDGE.new()
+	bridge.bind(_host(host))
+	check(bridge.face_point() == Vector3.INF, "no body has no face point")
+	var body := FakeMissionaryAnon.new()
+	bridge.set_missionary_anon(body)
+	check(bridge.face_point().is_equal_approx(body.mouth as Vector3),
+		"the face point is the act body's mouth")
+	body.active = false
+	check(bridge.face_point() == Vector3.INF, "an inactive body has no face point")
+	body.active = true
+	body.mouth = Vector3(INF, 0.0, 0.0)
+	check(bridge.face_point() == Vector3.INF, "a non-finite face point is INF")
+	body.mouth = Vector3(0.0, 1.1, 0.2)
+	host.state = STATE_ACTIVE
+	host.pose_view = _view("bed")
+	var act := FakeAct.new()
+	bridge.act = act
+	host.pose_view.contact_kind = "opening"
+	check(not bridge.face_ready(), "the opening contact is not face ready")
+	host.pose_view.contact_kind = "mouth"
+	check(not bridge.face_ready(), "the mouth contact is not face ready")
+	host.pose_view.contact_kind = "face"
+	check(bridge.face_ready(), "the face contact with a live body is face ready")
+	var holes_on := SETTINGS.anatomy_holes.get_bool()
+	var finish_on := SETTINGS.anatomy_finish.get_bool()
+	SETTINGS.anatomy_holes.set_bool(true)
+	SETTINGS.anatomy_finish.set_bool(true)
+	check(not bridge.hole_ready(), "the face contact blocks the hole gate")
+	check(not bridge.finish_ready(), "the face contact blocks the finish gate")
+	host.pose_view.contact_kind = "opening"
+	check(bridge.hole_ready(), "the opening contact restores the hole gate")
+	check(bridge.finish_ready(), "the opening contact restores the finish gate")
+	SETTINGS.anatomy_holes.set_bool(holes_on)
+	SETTINGS.anatomy_finish.set_bool(finish_on)
+	bridge.act = null
+	check(not bridge.face_ready(), "no act is not face ready")
+	bridge.set_missionary_anon(null)
+	check(bridge.face_point() == Vector3.INF, "a cleared body has no face point")
+	act.free()
+	body.free()
+
+
 func _check_vectors() -> void:
 	var host := FakeHost.new()
 	var bridge: RefCounted = BRIDGE.new()
@@ -455,11 +507,6 @@ func _check_host_callbacks() -> void:
 	check(reactions.bindings.size() == 1, "the refresh binds the reactions scene")
 	if not reactions.bindings.is_empty():
 		check(reactions.bindings[0][0] == pony, "the reactions facade receives her node")
-	bridge.facing(Basis.IDENTITY, 0.5)
-	check(host.facing_calls.size() == 1, "the standing facing override reaches the host")
-	if not host.facing_calls.is_empty():
-		check(is_equal_approx(float(host.facing_calls[0][1]), 0.5),
-			"the facing override carries its amount")
 	bridge.status("Anatomy", 1.5)
 	check(host.statuses.size() == 1, "the status label reaches the host")
 	if not host.statuses.is_empty():

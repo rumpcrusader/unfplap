@@ -276,7 +276,8 @@ the orchestration. It owns:
 - the reused `anatomy/facts.gd` context;
 - the service-owned missionary Anon body as an opaque handle, and the VR standing controller;
 - the action gates (`hole_ready`, `oral_ready`, `finish_ready`, `actions_ready`), the toggles,
-  the oral/finish reads, the mouth point and the viseme write, and the placement controls;
+  the oral/finish reads, the mouth point and the viseme write, the face point and its ready gate,
+  and the placement controls;
 - the aim/gaze reads (`gaze_point`, `aim_eyes`, `normal`, `opening`, `rear`);
 - the act hooks (`tick`, `withdraw`, `on_climax`, `on_finish`, `afterglow_tick`, `end`,
   `apply_live`, `detach`);
@@ -292,8 +293,19 @@ The host is a plain dictionary of callables. The runtime supplies `main`, `pony`
 The bridge never reads `runtime` or `main` private fields and never preloads either host. The
 action keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the
 bridge only routes them. `oral_ready()` is the feature, the standing pose family and an active act;
-`hole_ready()` reads the pose view's mouth contact so V is refused while the mouth is busy. The VR
-left `by_button` emits the `oral` command through the host's `command` callback.
+`hole_ready()` reads the pose view's mouth and face contacts so V is refused while either owns the
+contact, and `finish_ready()` refuses the face contact too. The VR left `by_button` emits the `oral`
+command through the host's `command` callback.
+
+The face contact has a real provider. `face_point()` is the act body's `mouth_point()` — his
+authored `Head` plus the game's eye-to-mouth offset — and `face_ready()` is an active act, the
+view's face contact and a live bed body. The act handles the `opening`, `mouth`, `face` and `none`
+contact kinds. In face contact the per-act handle parts the part once (`encounter(false)`), zeroes
+the fill, the grip and the anal shape, clears the shaft and drives the neutral closed vulva; it
+never calls `player_track` or writes the part's aim or bed inset. The parked part reports a zero
+`hip_offset_wanted`, so the act body holds its authored pose while the pose's face driver owns the
+contact placement. The first opening tick restores the part once (`encounter(true)`) and the
+normal track resumes. The `mouth_point()` oral provider is unchanged.
 
 The missionary Anon body is owned by `poses/service.gd`, not the bridge. It is the `act_body`
 spec's body, so the adapter is generalized over the future `bed_facesit` row and keeps the one
@@ -721,14 +733,16 @@ Current suites:
   base opening, follows the player's size scale, holds and clears the `D` viseme, and carries no
   turn, mix, facing or pose-key state.
 - `tests/anatomy/test_act_bridge.gd`: the host callbacks, the facts sync, the action gates, the
-  mouth point and viseme routing, the aim/gaze reads and the pose-change contact carry.
+  mouth point and viseme routing, the face point and its ready gate, the aim/gaze reads and the
+  pose-change contact carry.
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
   live opening aim, follows the pose view's mouth anchor while the contact holds, returns to the
   opening once it is released, and clears the missionary inset outside the bed pose.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
   idle heat, mesh refinement, act calls, the player part's idempotent `prepare()`, body coat, the
-  vulva cut and still zones), plus the provider's `eligible` assertion and the participation gate.
+  vulva cut and still zones, the face contact's parked part and restored opening, plus the
+  provider's `eligible` assertion and the participation gate).
 - `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
   callbacks.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.

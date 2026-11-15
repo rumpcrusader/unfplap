@@ -700,7 +700,7 @@ func _check_pose_session() -> void:
 	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",
 			"test_pose_rig.gd", "test_pose_scale.gd", "test_rotation.gd", "test_stretch.gd",
 			"test_pose_spec.gd", "test_pose_registry.gd", "test_pose_view.gd",
-			"test_pose_state.gd", "test_pose_edge.gd"]:
+			"test_pose_state.gd", "test_pose_edge.gd", "test_pose_blend.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
 			"tests/poses/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
@@ -710,6 +710,33 @@ func _check_pose_session() -> void:
 	for token: String in ["_pony_saved_bones", "_tail_lay", "_pose_rig_checked",
 			"_attach_body_coat_jiggle_target"]:
 		check(not runtime.contains(token), "runtime has no pose internals: %s" % token)
+	# The evaluator: the typed mode, the resolved pair and the two configs. No pose-mode string
+	# survives, and the afterglow holds the current pose.
+	var evaluator := FileAccess.get_file_as_string(ROOT.path_join("poses/skeleton_pose.gd"))
+	check(evaluator.contains("func set_pose(") and evaluator.contains("func set_weight("),
+		"the pose evaluator exposes the pair and the weight")
+	for token: String in ["MODE_SINGLE", "MODE_BLEND", "DRIVERS"]:
+		check(evaluator.contains(token), "the pose evaluator carries %s" % token)
+	for token: String in ["afterglow_pose", "mode == \"afterglow\""]:
+		check(not evaluator.contains(token), "the pose evaluator has no %s" % token)
+	check(evaluator.contains("_capture(") and evaluator.contains("_blend_bones("),
+		"the pose evaluator owns the capture and blend")
+	var afterglow_source := FileAccess.get_file_as_string(ROOT.path_join("afterglow/service.gd"))
+	check(not afterglow_source.contains("pose_mode") and not afterglow_source.contains("afterglow_pose"),
+		"the afterglow row names no pose mode")
+	check(not runtime.contains("pose_mode") and not runtime.contains("afterglow_pose"),
+		"the runtime writes no afterglow pose mode")
+	var standing_camera := FileAccess.get_file_as_string(ROOT.path_join("camera/standing_camera.gd"))
+	check(standing_camera.contains("_pose_cfg_group") and standing_camera.contains("_pose_cfg_key"),
+		"the standing camera caches the config by group and pose")
+	check(contract.contains("## Pose evaluator and per-pose configs"),
+		"docs/poses.md documents the pose evaluator")
+	var afterglow_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/afterglow.md"))
+	check(afterglow_doc.contains("holds the current pose"),
+		"docs/afterglow.md documents the held pose")
+	var camera_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/camera.md"))
+	check(camera_doc.contains("settings group") and camera_doc.contains("pose id"),
+		"docs/camera.md documents the standing config cache")
 
 
 ## The pure pose state/edge module: no scene, no settings, no file, no service and no act exit.

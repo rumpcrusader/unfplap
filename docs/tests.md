@@ -23,7 +23,9 @@ lifecycle; this doc owns their shape and their runner.
 One suite per file, and the directory mirrors the facade it exercises. The suite-to-service map is
 the `Tests` column of `docs/README.md`. A pure module's suite uses plain values: for example
 `tests/poses/test_pose_state.gd` pins the pose transition table and the edge math with dictionaries
-and no scene, node or autoload.
+and no scene, node or autoload. `tests/poses/test_pose_blend.gd` builds a bare `Skeleton3D` and fake
+drivers, so the pose evaluator's single/blend paths, capture buffers and non-finite guard are
+pinned without a game file.
 
 ## Writing a suite
 

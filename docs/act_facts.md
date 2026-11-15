@@ -64,10 +64,13 @@ presentation modules migrating off `pose_id` and `oral_active`; those compatibil
 `pose_config`) stay in this object until the last reader moves. During an authored transition,
 `pose_state` is `TRANSITIONING` and `from_id`/`to_id`, `edge_id`, `edge_t`, `weight`,
 `from_config` and `to_config` carry the two sides; the view's identity and profiles are the target.
-The view stays filled for the whole act: the pose-scope leave steps (`leave_pose_start()`,
-`leave_pose_body()`) keep it, and only `release_pose()` clears it. In A3.3 the runtime and session
-`pose_id` and `facts.pose_config` stay the act-start aliases while the view is the active machine;
-A3.5 flips the mirrors.
+On completion the session adopts the target into the live `pose_config`, and both sides point at
+that same object again; the live object is the one `facts.pose_config`, the pose node and the
+standing camera alias. The standing camera re-reads it only when the view's settings group or pose
+id changes. The view stays filled for the whole act: the pose-scope leave steps
+(`leave_pose_start()`, `leave_pose_body()`) keep it, and only `release_pose()` clears it. In A3.3
+the runtime and session `pose_id` and `facts.pose_config` stay the act-start aliases while the view
+is the active machine; A3.5 flips the mirrors.
 
 HUD card (the runtime fills these once per rendered frame; `hud/service.gd` reads them instead of
 calling back into the runtime):

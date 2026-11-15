@@ -199,17 +199,18 @@ The checks, against the target spec and the edge:
 
 On an accepted request the session caches the target spec and its settings snapshot by the spec's
 `settings_group` (`standing_test` uses the standing pose and presentation blocks and must never be
-passed to the settings read as a group of its own), starts the edge, enters `TRANSITIONING` and
-fills the view: `fill()` carries the target identity and profiles, then `from_id`/`to_id`,
-`edge_id`, `edge_t`, `weight`, `from_config` (the live config) and `to_config` (the target snapshot)
-make the transition explicit. `view.pose_id` follows the filled target; the session's `pose_id`,
-`pose_config` and the runtime's act facts stay the act-start aliases.
+passed to the settings read as a group of its own), builds the target config from that group plus
+the presentation, starts the edge, enters `TRANSITIONING` and fills the view: `fill()` carries the
+target identity and profiles, then `from_id`/`to_id`, `edge_id`, `edge_t`, `weight`, `from_config`
+(the live config) and `to_config` (the target snapshot) make the transition explicit.
+`view.pose_id` follows the filled target; the session's `pose_id`, `pose_config` and the runtime's
+act facts stay the act-start aliases.
 
-`tick(delta)` advances the run, writes `edge_t`/`weight`, logs each fired switch and each `status`
-event, and on completion returns to `STEADY`, points both sides of the config at the live
-`pose_config`, clears the edge fields and drops the target. The live config is not blended or
-swapped; A3.4 owns that. The steady tick allocates nothing: no duplicate, no settings read and no
-file access, and a tick after completion is a no-op.
+`tick(delta)` advances the run, writes `edge_t`/`weight`, hands the weight to the pose evaluator,
+logs each fired switch and each `status` event, and on completion returns to `STEADY`, adopts the
+target snapshot into the live `pose_config`, points both sides of the config and the pose node at
+it, clears the edge fields and drops the target. The steady tick allocates nothing: no duplicate,
+no settings read and no file access, and a tick after completion is a no-op.
 
 `request_command(command_id)` reports whether the active control set and the live edge lock allow a
 command. `end` is reserved and always allowed. The set is the view's `controls.set` and the allowed
@@ -230,9 +231,59 @@ migrates those adapters.
 
 The debug pair holds `base`, `anon`, `contact`, `camera` and `audio`, and switches `controls` and
 `presentation` at the start, so a request never rebuilds the pose, releases the pose or restores
-bones and the body does not move. The Debug **Pose: test variant** action is the proof; A3.4/A5 own
-the first moving edge. A transition never calls `_free_pose()`, `release_pose()`, `_end_session()`
-or any act exit; `runtime._end_session()` aborts a live edge through the one pose teardown.
+bones and the body does not move. The Debug **Pose: test variant** action is the proof; the pair is
+the evaluator's single path, and A5 owns the first moving edge. A transition never calls
+`_free_pose()`, `release_pose()`, `_end_session()` or any act exit; `runtime._end_session()` aborts
+a live edge through the one pose teardown.
+
+## Pose evaluator and per-pose configs
+
+`poses/skeleton_pose.gd` is the one `SkeletonModifier3D` the session installs. It evaluates one
+pose pair rather than one string mode: `mode` is `MODE_SINGLE` or `MODE_BLEND`, and
+`set_pose(from_driver, to_driver, from_delta, to_delta, from_config, to_config)` stores the pair
+while `set_weight(weight)` carries the live edge weight. The session resolves the effective driver
+and delta from the spec: `driver` when the row has one, else the base chain's driver
+(`standing_test` resolves to `standing`), and `delta` for the procedural delta. A driver is a
+`RefCounted` with optional `apply()` (whole pose), `apply_base()` (base only; false when the pose
+owns no base on this rig), `apply_overlay()` (the moveable head/neck) and `apply_delta()` (the
+procedural delta). A missing method is a no-op. The shipped recipes implement `apply`,
+`apply_base` and `apply_overlay`; A5's oral delta is the first `apply_delta` driver.
+
+The single fast path is the same effective driver and delta with equal configs. It calls the
+driver's `apply()` with the pose ramp (`smoothstep(amount)`), exactly as the one-recipe node did, so
+the begin ramp, the normal missionary and standing acts, the stretch early return and the
+diagnostics are unchanged. A pose that carries a delta uses `apply_base()` → `apply_delta()` →
+`apply_overlay()` in that order. The debug `standing ↔ standing_test` pair takes this path: both
+effective drivers are the standing driver, both deltas are empty and the target snapshot is the
+standing group with the same presentation, so the body holds. A5's oral edge is the first real
+delta. The offer presentation pose (`poses/standing_presentation.gd`) is the same evaluator with
+the standing pair and its own config.
+
+The two-base form captures the game's pre-pose, evaluates the from side at full base weight,
+captures it, restores the pre-pose, evaluates the to side the same way, restores again, and blends
+the two captured local transforms at the edge weight: rotation by `Basis.slerp`, scale and origin by
+`lerp`. A non-finite result is skipped rather than written. The overlays run after the blend, from
+then to, with `1 - weight` and `weight`. A false base skips that side's delta; the overlay still
+runs and the recipe guards its own base/stretch precondition. The three capture buffers are resized
+once per bone count and reused, the node is the only modifier and it allocates nothing per frame.
+The blend sets `diag_last_base = "blend"` and skips the authored-asset trace. `apply_render()` and
+the modifier pass call the same evaluator with the same pair and weight.
+
+The session owns the configs. `begin()` sets the start pair, `request_pose()` the edge pair and the
+completing tick the target pair; each also calls `set_weight()` (1.0, the run weight, 1.0).
+`_config_for_group(group, presentation)` builds the target: the standing group plus the
+presentation chin/neck/tail values (the values `sync_standing_config()` writes), the missionary
+block, or `SETTINGS.pose()` for another group. `request_pose()` caches it as `_target_config`,
+`apply_live_settings()` re-merges it in place, and the complete tick adopts it into the live
+`pose_config` with `_adopt_target_config()` before it drops the target. The live object survives:
+`facts.pose_config`, `view.pose_config`, the pose node and the standing camera see the same
+dictionary. During an edge `view.from_config` is the live config and `view.to_config` the
+target; at rest both point at the live config.
+
+The standing camera caches its pose config by the view's settings group and pose id, so the debug
+pair keeps the standing config when the target settles and the glance/tail values do not snap. The
+afterglow holds the current pose: its presentation row has no pose mode and no afterglow pose id,
+and the runtime only re-asserts the pose weight, the tail, the HUD state and the wings.
 
 ## Spaces and axes
 
@@ -586,8 +637,12 @@ unchanged.
 ## Tests
 
 - `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
-  standing stretch holder, the session API, the state machine, the request/refusal codes, the
-  target snapshot, the tick/switch/status path, the control sets and the release abort.
+  standing stretch holder, the session API, the effective driver/base paths, the state machine,
+  the request/refusal codes, the target snapshot with the presentation, the requested evaluator
+  pair, the target adoption, the tick/switch/status path, the control sets and the release abort.
+- `tests/poses/test_pose_blend.gd` — the typed single/blend modes, the single fast path and its
+  pose ramp, the base+delta order, the two-base capture/blend/overlay math and weights, the reused
+  capture buffers, the non-finite guard, the render order and the shipped standing driver.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split: the leave steps keep the
   pose node, the config and the view, the final release clears them, the transition path keeps the
   pose alive, and no pose-scope or transition function reaches an act exit.

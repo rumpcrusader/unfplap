@@ -9,6 +9,7 @@ const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
+const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -166,6 +167,7 @@ func run() -> void:
 	_check_free_look()
 	_check_motion()
 	_check_neck()
+	_check_standing_cache()
 
 	print("ACT_CAMERA_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -480,6 +482,46 @@ func _check_motion() -> void:
 	_pose(facts, "standing")
 	camera.call("apply_motion")
 	check(standing.calls.has("tick"), "standing dispatches the player-camera shot")
+
+
+## The standing camera re-reads the live pose config only on a settings-group or pose-id change,
+## so the standing debug edge holds the live config and its glance/tail values do not snap.
+func _check_standing_cache() -> void:
+	var facts: RefCounted = FACTS.new()
+	var view: RefCounted = VIEW.new()
+	view.id = CATALOG.STANDING
+	view.family = "standing"
+	view.settings_group = "standing"
+	facts.pose_view = view
+	var config_a: Dictionary = {"glance_min": 5.0}
+	var config_b: Dictionary = {"glance_min": 7.0}
+	var config_c: Dictionary = {"glance_min": 9.0}
+	facts.pose_config = config_a
+	var standing: RefCounted = STANDING_CAMERA.new(facts)
+	standing.call("_sync")
+	check(is_same(standing._pose_cfg, config_a), "the standing camera reads the live config")
+	facts.pose_config = config_b
+	standing.call("_sync")
+	check(is_same(standing._pose_cfg, config_a),
+		"an unchanged group and pose keep the cached config")
+	facts.pose_config = config_c
+	view.id = CATALOG.STANDING_TEST
+	standing.call("_sync")
+	check(is_same(standing._pose_cfg, config_c), "a pose change re-reads the config")
+	facts.pose_config = config_a
+	standing.call("_sync")
+	check(is_same(standing._pose_cfg, config_c),
+		"a second sync with the new pose keeps the cached config")
+	facts.pose_config = config_b
+	view.settings_group = "missionary"
+	standing.call("_sync")
+	check(is_same(standing._pose_cfg, config_b), "a group change re-reads the config")
+	view.family = "bed"
+	check(standing.call("_pose_family") == "bed",
+		"a bed view is outside the standing controller")
+	view.family = "standing"
+	check(standing.call("_pose_family") == "standing",
+		"the standing family still gates the controller")
 
 
 func _check_neck() -> void:

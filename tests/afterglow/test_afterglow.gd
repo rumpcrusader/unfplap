@@ -150,26 +150,39 @@ func run() -> void:
 	check(str(runtime_hint.call("close_hint")) == "", "the runtime hides the missionary cue")
 	runtime_hint.free()
 
-	# The facade owns the presentation row; the runtime only applies it.
+	# The facade owns the presentation row; the runtime only applies it. The row names no pose:
+	# the act's current pose holds through the afterglow.
 	var standing_row: Dictionary = _facade("standing")["phase"].presentation()
-	check(str(standing_row.get("pose_mode", "")) == "standing",
-		"a standing afterglow keeps the standing pose")
-	check(str(standing_row.get("afterglow_pose", "x")).is_empty(),
-		"a standing afterglow carries no afterglow pose id")
+	check(not standing_row.has("pose_mode") and not standing_row.has("afterglow_pose"),
+		"a standing afterglow row names no pose mode")
 	check(near(float(standing_row.get("tail_target", 0.0)), 0.55),
 		"a standing afterglow lifts the tail")
 	check(int(standing_row.get("tail_flicks", 0)) == 2, "a standing afterglow flicks the tail")
 	check(str(standing_row.get("hud_state", "")) == "AFTERGLOW", "the row carries the HUD state")
 	check(bool(standing_row.get("wings", false)), "the row asks for the wing return")
 	var missionary_row: Dictionary = _facade("missionary")["phase"].presentation()
-	check(str(missionary_row.get("pose_mode", "")) == "afterglow",
-		"a missionary afterglow uses the afterglow pose")
-	check(str(missionary_row.get("afterglow_pose", "")) == "missionary",
-		"the afterglow pose id is the act's pose")
+	check(not missionary_row.has("pose_mode") and not missionary_row.has("afterglow_pose"),
+		"a missionary afterglow row names no pose mode")
 	check(near(float(missionary_row.get("tail_target", 0.0)), 0.35),
 		"a missionary afterglow lowers the tail")
 	check(int(missionary_row.get("tail_flicks", 1)) == 0,
 		"a missionary afterglow does not flick the tail")
+
+	# The runtime writes no pose mode: the evaluator pair holds and only the weight is re-asserted.
+	var held: Node = _runtime("standing")
+	var fake_pose := FakePose.new()
+	held._pose_session.pose_node = fake_pose
+	held._pose_session.view().id = "standing"
+	held._pose_session.view().pose_state = VIEW.STEADY
+	held.call("_apply_afterglow_presentation", standing_row)
+	check(fake_pose.written.is_empty(), "the afterglow runtime writes no pose mode")
+	check(near(fake_pose.amount, 1.0) and near(fake_pose.target_amount, 1.0),
+		"the afterglow runtime re-asserts the pose weight")
+	check(held._pose_session.view().id == "standing"
+		and held._pose_session.view().pose_state == VIEW.STEADY,
+		"the pose view stays on the current pose")
+	fake_pose.free()
+	held.free()
 
 	var wings := FakeWings.new()
 	root.add_child(wings)
@@ -196,6 +209,18 @@ func run() -> void:
 	if failures == 0:
 		print("AFTERGLOW_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+## A pose node with the weight fields and no pose mode: a write to `mode`/`afterglow_pose` lands
+## in `written` instead of succeeding.
+class FakePose extends Node:
+	var target_amount := 0.0
+	var amount := 0.0
+	var written: Array[String] = []
+
+	func _set(property: StringName, _value: Variant) -> bool:
+		written.append(str(property))
+		return false
 
 
 class FakeWings extends Node:

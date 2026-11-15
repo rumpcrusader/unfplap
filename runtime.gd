@@ -3305,14 +3305,10 @@ func _afterglow_begin() -> void:
 	_apply_afterglow_presentation(_afterglow.presentation())
 
 
-## Apply the afterglow facade's presentation row in the built order: the pose mode and weight,
-## the tail, the HUD state, then the wings.
+## Apply the afterglow facade's presentation row in the built order: the pose weight, the tail,
+## the HUD state, then the wings. The evaluator keeps its current pair, so the pose holds.
 func _apply_afterglow_presentation(row: Dictionary) -> void:
 	if is_instance_valid(_pose_session.pose()):
-		_pose_session.pose().mode = str(row.get("pose_mode", "afterglow"))
-		var afterglow_pose := str(row.get("afterglow_pose", ""))
-		if not afterglow_pose.is_empty():
-			_pose_session.pose().afterglow_pose = afterglow_pose
 		_pose_session.pose().target_amount = 1.0
 		_pose_session.pose().amount = 1.0
 	_pose_service().set_tail_target(float(row.get("tail_target", 0.35)))

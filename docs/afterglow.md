@@ -10,9 +10,9 @@ The runtime still:
 
 - sets `State.AFTERGLOW` and calls `begin()`;
 - calls `close_tick()` from `_afterglow_tick()` after the anatomy afterglow tick;
-- applies `presentation()` in the built order through `_apply_afterglow_presentation()`: pose mode
-  and weight, tail target and flicks, HUD state, wings; then `_set_face`, `_act_face_beat` and the
-  act summary;
+- applies `presentation()` in the built order through `_apply_afterglow_presentation()`: the pose
+  weight, tail target and flicks, HUD state, wings; then `_set_face`, `_act_face_beat` and the act
+  summary;
 - carries out the close reward: the `STAY_CLOSE` memory impression, the history repair, the
   content face, the heart burst and the cue clear;
 - calls `cancel_close()` from `end_afterglow()` and `_restore_begin()`.
@@ -41,7 +41,7 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 |---|---|
 | `begin(pose_id, summary)` | start the phase, roll the private beat and open the close window the pose profile declares |
 | `bind_view(view)` | carry the pose view whose `afterglow.close_window` decides that window |
-| `presentation()` | the afterglow presentation row: pose mode, tail target and flicks, HUD state and the wings flag |
+| `presentation()` | the afterglow presentation row: tail target and flicks, HUD state and the wings flag; the act's current pose holds |
 | `reset()` | clear every per-act value; the callbacks stay |
 | `close_tick(delta)` | count caress time and run the window down |
 | `cancel_close()` | drop the window without a reward |
@@ -53,6 +53,14 @@ Only the player ends the afterglow: holding the act key calls `runtime.end_after
 the afterglow takes the same path. The pony never ends the phase herself and there is no end
 timer, so the held moment lasts until the player leaves it. Leaving early cancels the standing
 close window without its reward.
+
+## Held pose
+
+The afterglow holds the current pose: the pose the act ended in, unchanged. The presentation row
+carries no pose mode and no afterglow pose id, and `_apply_afterglow_presentation()` only re-asserts
+`target_amount`/`amount` alongside the tail, HUD and wings. The pose evaluator keeps its current
+driver/delta pair and config; nothing rebuilds, releases or re-poses the body at the phase change.
+The runtime and facade source must not name a pose mode.
 
 ## `[stay]` action
 
@@ -120,6 +128,7 @@ Hold the act key:
 
 `tests/afterglow/test_afterglow.gd` builds the facade with fake callbacks and covers the close
 window's timing, caress count and single reward, the early cancel, the missionary skip, the
-presentation row and the runtime forwards for the HUD and prompt note. Wing folding lives in
+presentation row (no pose mode/afterglow pose, the held pose and the re-asserted weight) and the
+runtime forwards for the HUD and prompt note. Wing folding lives in
 `poses/wing_control.gd` and is covered in the same suite; the wing controller reads the typed act
 view (`facts.pony`, `facts.clock()`) and a `log` callback, never the runtime node.

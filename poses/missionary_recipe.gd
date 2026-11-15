@@ -15,12 +15,28 @@ var _config: Dictionary = {}
 
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
+	if not apply_base(rig, sk, weight, state):
+		return
+	apply_overlay(rig, sk, weight, state)
+
+
+## The authored base: the bed-space body and the neutral head. False when the asset or the frame is
+## unavailable; the overlay is then skipped too, exactly as the whole-pose path returns.
+func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
+	_config = state.get("config", {})
 	var authored: Variant = state.get("authored")
 	var frame: Variant = state.get("bed_frame")
 	if authored == null or not frame is Transform3D or not bool(authored.get("available")):
-		return
+		return false
 	authored.call("apply_pony", sk, weight, frame, float(state.get("body_scale", 1.0)))
 	_neutral_head(sk, weight)
+	return true
+
+
+## The moveable overlays: the nuzzle pulse, the gaze aim and the head level. The two-base form
+## calls this after the blended base; the single path calls it from `apply()`.
+func apply_overlay(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
+	_config = state.get("config", {})
 	var pulse := 1.0 if bool(state.get("climaxing", false)) else _nuzzle_pulse(float(state.get("clock", 0.0)))
 	if bool(state.get("climaxing", false)):
 		pulse = 0.75 + 0.25 * sin(float(state.get("clock", 0.0)) * 4.0)

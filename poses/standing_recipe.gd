@@ -18,11 +18,18 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	if bool(state.get("stretch", false)):
 		# The external Idle Life holder owns the body, the stance and the ground plant. The act
 		# keeps only its oral overlay and its head-back lift on top.
-		_oral_neck(rig, sk, weight)
-		var stretch_back := float(state.get("head_back", 0.0))
-		if stretch_back > 0.001:
-			_raise_head(rig, sk, weight * stretch_back)
+		apply_overlay(rig, sk, weight, state)
 		return
+	apply_base(rig, sk, weight, state)
+	apply_overlay(rig, sk, weight, state)
+
+
+## The stance: the bow, the foreleg bend and spread, the hind spread and the neck/chin curve. False
+## while the external stretch holder owns the body; the two-base form then skips this side's delta.
+func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
+	_config = state.get("config", {})
+	if bool(state.get("stretch", false)):
+		return false
 	_bow(rig, sk, weight, _value("bow", STANDING_BOW))
 	_bend_forelegs(rig, sk, weight, _value("foreleg", STANDING_FORELEG))
 	_spread_fore(rig, sk, weight, _value("foreleg_spread", STANDING_FORELEG_SPREAD))
@@ -30,6 +37,13 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_chin_neck(rig, sk, weight,
 		_value("chin_up_deg", STANDING_CHIN_UP_DEG),
 		_value("neck_down_deg", STANDING_NECK_DOWN_DEG))
+	return true
+
+
+## The moveable neck overlay: the oral swing and counter-rotation plus the head-back lift. The
+## two-base form crossfades this after the blended base.
+func apply_overlay(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
+	_config = state.get("config", {})
 	_oral_neck(rig, sk, weight)
 	var head_back := float(state.get("head_back", 0.0))
 	if head_back > 0.001:

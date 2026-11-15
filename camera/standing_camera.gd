@@ -25,6 +25,10 @@ var pony: Variant
 var camera: Camera3D
 var _presentation_cfg: Dictionary = {}
 var _pose_cfg: Dictionary = {}
+## The pose config is re-read only when the view's settings group or pose id changes, so the
+## standing debug pair holds the live config instead of re-reading the target every tick.
+var _pose_cfg_group := ""
+var _pose_cfg_key := ""
 
 var _applied_bob := 0.0
 var _applied_lean := 0.0
@@ -329,8 +333,14 @@ func _sync() -> void:
 	camera = facts.camera if facts != null else null
 	var cfg: Variant = facts.presentation_config if facts != null else null
 	_presentation_cfg = cfg if cfg is Dictionary else {}
-	var pose_cfg: Variant = facts.pose_config if facts != null else null
-	_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
+	var view: Variant = facts.pose_view if facts != null else null
+	var group := str(view.settings_group) if view != null else ""
+	var key := str(view.id) if view != null else ""
+	if group != _pose_cfg_group or key != _pose_cfg_key:
+		var pose_cfg: Variant = facts.pose_config if facts != null else null
+		_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
+		_pose_cfg_group = group
+		_pose_cfg_key = key
 
 
 ## The pose family from the pose view: `standing` is the only act this controller serves.

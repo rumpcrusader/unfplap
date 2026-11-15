@@ -56,12 +56,11 @@ func begin(pose_id: String, summary: Dictionary) -> void:
 
 ## The presentation the runtime applies when the act enters the held afterglow. The facade owns
 ## the phase decisions; the runtime applies the row in this order and owns the scene calls the
-## row cannot make (the wings, the face beat, the summary commit).
+## row cannot make (the wings, the face beat, the summary commit). The held pose is the act's
+## current pose: the row names no pose mode and no afterglow pose.
 func presentation() -> Dictionary:
 	var standing := pose == "standing"
 	return {
-		"pose_mode": "standing" if standing else "afterglow",
-		"afterglow_pose": "" if standing else pose,
 		"tail_target": 0.55 if standing else 0.35,
 		"tail_flicks": 2 if standing else 0,
 		"hud_state": "AFTERGLOW",

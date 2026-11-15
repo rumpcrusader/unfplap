@@ -13,6 +13,7 @@ const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 
 const STRETCH_FAKE := "res://mods/unfplap/tests/fixtures/idle_stretch_fake.gd"
 const STRETCH_MISSING := "res://mods/idle_life/not_a_real_stretch.gd"
@@ -61,6 +62,7 @@ func run() -> void:
 	_check_diagnostics()
 	_check_stretch()
 	_check_render_write()
+	_check_effective_paths()
 	_check_state_machine()
 	_check_refusals()
 	_check_commands()
@@ -150,7 +152,9 @@ func _check_begin() -> void:
 	check(view.pose_state == VIEW.STEADY, "the begin marks the view steady")
 	check(is_same(view.pose_config, session.pose_config),
 		"the view shares the session's live config")
-	check(session.pose_node.mode == "missionary", "the posture mode is set")
+	check(session.pose_node.mode == POSE.MODE_SINGLE
+		and session.pose_node.from_driver == POSE.MISSIONARY_PATH,
+		"the begin takes the single missionary path")
 	var live: Dictionary = session.pose_config
 	check(is_same(live, session.pose_node.pose_config),
 		"the pose node shares the session's config object")
@@ -573,6 +577,34 @@ func _free_live(made: Dictionary) -> void:
 		pony.free()
 
 
+## The effective driver/delta paths: a row's own driver, its base chain (`standing_test`) and a
+## missing row or empty chain.
+func _check_effective_paths() -> void:
+	var made := _session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var registry: RefCounted = session._registry
+	check(session._effective_driver(registry.spec(CATALOG.STANDING)) == POSE.STANDING_PATH,
+		"the standing row resolves its driver")
+	check(session._effective_driver(registry.spec(CATALOG.STANDING_TEST)) == POSE.STANDING_PATH,
+		"standing_test resolves its base's driver")
+	check(session._effective_driver(registry.spec(CATALOG.MISSIONARY)) == POSE.MISSIONARY_PATH,
+		"the missionary row resolves its driver")
+	check(session._effective_driver(null) == "", "a missing spec resolves no driver")
+	check(session._effective_delta(registry.spec(CATALOG.STANDING_TEST)) == "",
+		"standing_test carries no delta")
+	var chained: Variant = _synthetic_spec(session, "synthetic_chain")
+	chained.base = CATALOG.STANDING_TEST
+	check(session._effective_driver(chained) == POSE.STANDING_PATH,
+		"a base chain resolves the standing driver")
+	var orphan: Variant = _synthetic_spec(session, "synthetic_orphan")
+	orphan.base = ""
+	check(session._effective_driver(orphan) == "",
+		"a row without a driver or base resolves empty")
+	root.remove_child(pony)
+	pony.free()
+
+
 ## The begin state and the forward/reverse debug edge: the request codes, the transition view, the
 ## status/switch log, completion and the settled target.
 func _check_state_machine() -> void:
@@ -586,6 +618,11 @@ func _check_state_machine() -> void:
 		"the begin fills the start pose on both sides")
 	check(view.edge_id == "" and view.weight == 1.0 and session._run == null,
 		"the begin starts no edge")
+	var pose_node: Node = session.pose_node
+	check(pose_node.mode == POSE.MODE_SINGLE
+		and pose_node.from_driver == POSE.STANDING_PATH
+		and pose_node.to_driver == POSE.STANDING_PATH,
+		"the begin resolves both sides to the standing driver")
 	var live_config: Dictionary = session.pose_config
 	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
 	check(bool(result.get("ok", false)) and str(result.get("code", "")) == "ok",
@@ -606,6 +643,18 @@ func _check_state_machine() -> void:
 		"the view shares the session target snapshot")
 	check(view.to_config.has("gaps") and view.to_config.has("chin_up_deg"),
 		"the target snapshot uses the standing settings block")
+	check(view.to_config.has("neck_down_deg") and view.to_config.has("tail_aside")
+		and view.to_config.has("tail_lift"),
+		"the target snapshot carries the standing presentation")
+	check(_same_config(view.to_config, live_config),
+		"the debug target config equals the live standing config")
+	check(pose_node.mode == POSE.MODE_SINGLE
+		and pose_node.from_driver == POSE.STANDING_PATH
+		and pose_node.to_driver == POSE.STANDING_PATH,
+		"the debug pair holds the single standing path")
+	check(is_same(pose_node._from_config, live_config)
+		and is_same(pose_node._to_config, view.to_config),
+		"the evaluator keeps the live from config and the target to config")
 	check(str(view.presentation.get("profile", "")) == "standing_test",
 		"the view carries the target presentation profile")
 	check(str(view.controls.get("set", "")) == "standing_test",
@@ -636,6 +685,7 @@ func _check_state_machine() -> void:
 			presentation_switch = true
 	check(status_logged, "the status event is logged")
 	check(controls_switch and presentation_switch, "both authored switches are logged")
+	view.to_config["adopt_marker"] = 17
 	session.tick(0.6)
 	check(view.pose_state == VIEW.STEADY and session._state == VIEW.STEADY,
 		"the completed edge settles the state steady")
@@ -646,8 +696,16 @@ func _check_state_machine() -> void:
 		"the completed edge clears the clock and restores the weight")
 	check(is_same(view.from_config, live_config) and is_same(view.to_config, live_config),
 		"the completed edge points both sides at the live config")
+	check(int(live_config.get("adopt_marker", 0)) == 17,
+		"the complete adopts the target into the live config object")
+	check(is_same(session.pose_node.pose_config, live_config),
+		"the complete keeps the live config on the pose node")
+	check(session.pose_node.mode == POSE.MODE_SINGLE
+		and session.pose_node.from_driver == POSE.STANDING_PATH,
+		"the completed edge settles the evaluator on the target")
 	check(is_same(session.pose_config, live_config) and session.pose_id == CATALOG.STANDING,
 		"the live config and the session start pose are untouched")
+	live_config.erase("adopt_marker")
 	check(session._run == null and session._target_id == "",
 		"the completed edge drops the run and the target")
 	var before_tick_id := str(view.id)
@@ -780,9 +838,11 @@ func _check_target_snapshot() -> void:
 	check(str(result.get("code", "")) == "ok", "the snapshot check starts the debug edge")
 	var target: Dictionary = view.to_config
 	check(target.has("gaps"), "the target snapshot starts on the standing block")
+	check(_same_config(target, session.pose_config),
+		"the debug target matches the live standing config")
 	session.apply_live_settings()
 	check(is_same(view.to_config, target), "a live edit keeps the target snapshot object")
-	check(target.has("gaps") and target.has("chin_up_deg"),
+	check(target.has("gaps") and target.has("chin_up_deg") and target.has("neck_down_deg"),
 		"the refreshed target still carries the standing pose keys")
 	check(is_same(session._target_config, target),
 		"the session keeps the same target snapshot")
@@ -833,6 +893,21 @@ func _check_no_act_exit() -> void:
 	check(view.id == CATALOG.STANDING and view.pose_state == VIEW.STEADY,
 		"the transition path leaves a filled view")
 	_free_live(made)
+
+
+## Deep config equality for the live and target snapshots.
+func _same_config(a: Dictionary, b: Dictionary) -> bool:
+	if a.size() != b.size():
+		return false
+	for key: Variant in a:
+		if not b.has(key):
+			return false
+		if a[key] is Dictionary and b[key] is Dictionary:
+			if not _same_config(a[key] as Dictionary, b[key] as Dictionary):
+				return false
+		elif a[key] != b[key]:
+			return false
+	return true
 
 
 ## A synthetic valid spec row for a target the shipped table does not carry.

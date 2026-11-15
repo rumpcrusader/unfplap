@@ -147,7 +147,6 @@ func begin(context: Dictionary) -> bool:
 	pose_node.mare = pony
 	pose_node.log = log
 	pose_node.perf = perf
-	pose_node.mode = "standing" if pose_id == CATALOG.STANDING else "missionary"
 	# One live object: the sync merges the character's pose into `pose_config` in place, so the
 	# modifier, `facts.pose_config` and the runtime all read the same dictionary.
 	if pose_id == CATALOG.STANDING:
@@ -156,6 +155,10 @@ func begin(context: Dictionary) -> bool:
 		sync_missionary_config()
 	pose_node.pose_config = pose_config
 	_fill_view()
+	var spec: Variant = _registry.spec(pose_id)
+	pose_node.call("set_pose", _effective_driver(spec), _effective_driver(spec),
+		_effective_delta(spec), _effective_delta(spec), pose_config, pose_config)
+	pose_node.call("set_weight", 1.0)
 	var look: Variant = context.get("look_point")
 	pose_node.look_point = look if look is Vector3 else pony.global_position
 	pose_node.amount = 0.0
@@ -209,6 +212,28 @@ func _fill_view() -> void:
 	_view.fill(spec, pose_config)
 
 
+## The spec's own driver, or its base chain's driver; `standing_test` resolves to `standing`. A
+## missing row, an empty chain or a repeat is empty.
+func _effective_driver(spec: Variant) -> String:
+	var cursor: Variant = spec
+	var seen: Dictionary = {}
+	while cursor != null:
+		var path := str(cursor.driver)
+		if not path.is_empty():
+			return path
+		var base := str(cursor.base)
+		if base.is_empty() or seen.has(base):
+			return ""
+		seen[base] = true
+		cursor = _registry.spec(base)
+	return ""
+
+
+## The procedural delta path; empty for every A3.4 pose. A5's oral delta is the first real one.
+func _effective_delta(spec: Variant) -> String:
+	return str(spec.delta) if spec != null else ""
+
+
 ## Request one authored edge. Returns the A3.1 `PoseResult`: `{ok, code, edge, reason}`. It never
 ## ends the act, releases the pose or restores bones.
 func request_pose(target_id: String, trigger: String, context: Dictionary = {}) -> Dictionary:
@@ -234,11 +259,17 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 	_from_id = from_id
 	_target_id = target_id
 	_target_spec = target_spec
-	_target_config = SETTINGS.pose(id, str(target_spec.settings_group))
-	_target_presentation = SETTINGS.act_snapshot(str(target_spec.settings_group)).presentation
+	var group := str(target_spec.settings_group)
+	_target_presentation = SETTINGS.act_snapshot(group).presentation
+	_target_config = _config_for_group(group, _target_presentation)
 	_run = run
 	_state = POSE_STATE.next(_state, "request")
 	_fill_transition_view()
+	var from_spec: Variant = _registry.spec(_from_id)
+	pose_node.call("set_pose", _effective_driver(from_spec), _effective_driver(_target_spec),
+		_effective_delta(from_spec), _effective_delta(_target_spec),
+		pose_config, _target_config)
+	pose_node.call("set_weight", _run.weight)
 	_write_log("pose request %s -> %s (%s): ok" % [from_id, target_id, trigger])
 	return POSE_STATE.result("ok", edge_id, "")
 
@@ -382,10 +413,22 @@ func tick(delta: float) -> void:
 	_run.tick(maxf(delta, 0.0))
 	_view.edge_t = _run.t
 	_view.weight = _run.weight
+	if is_instance_valid(pose_node):
+		pose_node.call("set_weight", _view.weight)
 	_absorb_switches()
 	_absorb_events()
 	if not _run.complete():
 		return
+	# Capture the target pair before `_abort_target()` drops the target snapshot, adopt its config
+	# into the live object, then settle the evaluator on that one pose.
+	var completed_driver := _effective_driver(_target_spec)
+	var completed_delta := _effective_delta(_target_spec)
+	_adopt_target_config()
+	if is_instance_valid(pose_node):
+		pose_node.call("set_pose", completed_driver, completed_driver, completed_delta,
+			completed_delta, pose_config, pose_config)
+		pose_node.call("set_weight", 1.0)
+		pose_node.pose_config = pose_config
 	_state = POSE_STATE.next(_state, "complete")
 	_view.pose_state = _state
 	_view.from_id = _view.id
@@ -474,10 +517,12 @@ func _lock_denies(command_id: String) -> bool:
 func apply_live_settings() -> void:
 	if _target_spec == null:
 		return
-	var fresh := SETTINGS.pose(id, str(_target_spec.settings_group))
+	var group := str(_target_spec.settings_group)
+	var presentation: Dictionary = SETTINGS.act_snapshot(group).presentation
+	_target_presentation = presentation
+	var fresh := _config_for_group(group, presentation)
 	_target_config.clear()
 	_target_config.merge(fresh, true)
-	_target_presentation = SETTINGS.act_snapshot(str(_target_spec.settings_group)).presentation
 
 
 ## True while the external Idle Life holder owns the body; an edge that requires `stretch:
@@ -496,24 +541,48 @@ func _abort_target() -> void:
 	_target_presentation.clear()
 
 
+## Adopt the target's settings into the live config in place. The alias object and every consumer
+## that holds it (`facts.pose_config`, the pose node, the view) see the target; the caller then
+## drops the target snapshot.
+func _adopt_target_config() -> void:
+	if _target_spec == null or is_same(_target_config, pose_config):
+		return
+	pose_config.clear()
+	pose_config.merge(_target_config, true)
+	if is_instance_valid(pose_node):
+		pose_node.pose_config = pose_config
+		if str(_target_spec.settings_group) == CATALOG.MISSIONARY:
+			pose_node.authored = authored()
+
+
+## The pose block for a settings group plus that group's presentation values. Standing applies the
+## presentation chin/neck/tail the same way `sync_standing_config()` does; missionary and an unknown
+## group use the live settings block unchanged.
+func _config_for_group(group: String, presentation: Dictionary) -> Dictionary:
+	var config := SETTINGS.pose(id, group)
+	if group != CATALOG.STANDING:
+		return config
+	config["chin_up_deg"] = float(presentation.get("chin_up_deg",
+		SETTINGS.chin_up_deg.default))
+	config["neck_down_deg"] = float(presentation.get("neck_down_deg",
+		SETTINGS.neck_down_deg.default))
+	var tail_cfg: Variant = presentation.get("tail", {})
+	if not tail_cfg is Dictionary:
+		tail_cfg = {}
+	config["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg",
+		SETTINGS.yaw_deg.default)))
+	config["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg",
+		SETTINGS.tail_pitch_deg.default)))
+	return config
+
+
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
 ## first keeps the other pose overrides, then the presentation neck/head controls win.
 func sync_standing_config(presentation: Dictionary) -> bool:
 	if pose_id != CATALOG.STANDING or not is_instance_valid(pony):
 		return false
 	pose_config.clear()
-	pose_config.merge(SETTINGS.pose(id, CATALOG.STANDING), true)
-	pose_config["chin_up_deg"] = float(presentation.get("chin_up_deg",
-		SETTINGS.chin_up_deg.default))
-	pose_config["neck_down_deg"] = float(presentation.get("neck_down_deg",
-		SETTINGS.neck_down_deg.default))
-	var tail_cfg: Variant = presentation.get("tail", {})
-	if not tail_cfg is Dictionary:
-		tail_cfg = {}
-	pose_config["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg",
-		SETTINGS.yaw_deg.default)))
-	pose_config["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg",
-		SETTINGS.tail_pitch_deg.default)))
+	pose_config.merge(_config_for_group(CATALOG.STANDING, presentation), true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
 	if is_instance_valid(tail):
@@ -528,7 +597,7 @@ func sync_missionary_config() -> bool:
 	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return false
 	pose_config.clear()
-	pose_config.merge(SETTINGS.pose(id, CATALOG.MISSIONARY), true)
+	pose_config.merge(_config_for_group(CATALOG.MISSIONARY, {}), true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
 		# The asset instance is shared, so the reload action reaches the live act.

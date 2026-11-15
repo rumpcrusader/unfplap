@@ -1,19 +1,42 @@
 extends SkeletonModifier3D
-## SkeletonModifier3D driver. Pose-specific numbers and bone steps live in
-## `missionary_recipe.gd` / `standing_recipe.gd`; shared bone access lives in `pose_rig.gd`.
+## SkeletonModifier3D evaluator. The session resolves the effective driver/delta paths and the two
+## per-pose configs, then `set_pose()` stores the pair and `set_weight()` the live edge weight.
+## Pose-specific numbers and bone steps live in `missionary_recipe.gd` / `standing_recipe.gd`;
+## shared bone access lives in `pose_rig.gd`. Contract: `docs/poses.md`.
 
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
+
+## The typed live mode. `MODE_SINGLE` runs the one-driver fast path; `MODE_BLEND` evaluates both
+## bases, blends the captured transforms and applies the overlays once.
+const MODE_SINGLE := 0
+const MODE_BLEND := 1
+
+const MISSIONARY_PATH := "poses/missionary_recipe.gd"
+const STANDING_PATH := "poses/standing_recipe.gd"
+## The shipped procedural drivers, by the spec's `driver` path. A suite may inject fakes through
+## `driver_objects`.
+const DRIVERS := {
+	MISSIONARY_PATH: MISSIONARY,
+	STANDING_PATH: STANDING,
+}
 
 var mare: Node3D
 ## Host boundary: the pose writes no scene value back; it only reports a timed chunk and a
 ## debug line. A pose built without a context is silent.
 var perf := Callable()
 var log := Callable()
-var mode := "missionary"
-var afterglow_pose := CATALOG.MISSIONARY
+## The live effective mode: typed, with no "afterglow" value.
+var mode := MODE_SINGLE
+## The resolved pair. Paths are the service's effective driver/delta paths, configs are by
+## reference, and a second `set_pose()` with the same pair keeps the same objects.
+var from_driver := ""
+var to_driver := ""
+var from_delta := ""
+var to_delta := ""
+## Path -> driver object. Seeded with the two shipped drivers; the suite may inject fakes.
+var driver_objects: Dictionary = {}
 var look_point := Vector3.ZERO
 var head_back := 0.0
 var kiss := 0.0
@@ -32,6 +55,20 @@ var bed_frame: Variant = null
 var _rig = RIG.new()
 var _missionary = MISSIONARY.new()
 var _standing = STANDING.new()
+## The resolved pair: the driver/delta objects for each side and the two config references.
+var _from_driver_obj: Variant = null
+var _to_driver_obj: Variant = null
+var _from_delta_obj: Variant = null
+var _to_delta_obj: Variant = null
+var _from_config: Dictionary = {}
+var _to_config: Dictionary = {}
+var _blend_weight := 1.0
+var _single := true
+## The capture buffers for the two-base blend. Resized once per bone count and reused, so a blend
+## allocates nothing per frame.
+var _pre: Array[Transform3D] = []
+var _from_pose: Array[Transform3D] = []
+var _to_pose: Array[Transform3D] = []
 var _debug_dumped := false
 var _clock := 0.0
 ## Act diagnostics (Show pose state / the settled log): frames this modifier ran, the last weight
@@ -61,6 +98,79 @@ var diag_last_weight := 0.0
 var diag_last_base := ""
 var _diag_wrote := false
 var _diag_wrote_hips := Quaternion.IDENTITY
+
+
+func _init() -> void:
+	driver_objects[MISSIONARY_PATH] = _missionary
+	driver_objects[STANDING_PATH] = _standing
+
+
+## The service's resolved pair. Paths are the effective driver/delta paths; configs are by
+## reference. A second call with the same pair keeps the same objects, and the buffers are sized
+## for the skeleton when it is already available.
+func set_pose(from_path: String, to_path: String, from_delta_path: String, to_delta_path: String,
+		from_config: Dictionary, to_config: Dictionary) -> void:
+	from_driver = from_path
+	to_driver = to_path
+	from_delta = from_delta_path
+	to_delta = to_delta_path
+	_from_config = from_config
+	_to_config = to_config
+	_from_driver_obj = _driver(from_driver)
+	_to_driver_obj = _driver(to_driver)
+	_from_delta_obj = _driver(from_delta)
+	_to_delta_obj = _driver(to_delta)
+	_single = from_driver == to_driver and from_delta == to_delta \
+		and _configs_equal(from_config, to_config)
+	mode = MODE_SINGLE if _single else MODE_BLEND
+	_blend_weight = 1.0
+	var sk := get_skeleton()
+	if sk != null:
+		_resize_buffers(sk)
+
+
+## The live edge weight, 0..1. The single path keeps its pose ramp (`amount`); the blend reads
+## this value from the render pass.
+func set_weight(weight: float) -> void:
+	_blend_weight = clampf(weight, 0.0, 1.0)
+
+
+## The driver object for one effective path. The two shipped drivers are seeded in `_init()`;
+## another path is instantiated once from `DRIVERS` and cached. An unknown or empty path is null.
+func _driver(path: String) -> Variant:
+	if path.is_empty():
+		return null
+	if driver_objects.has(path):
+		return driver_objects[path]
+	var script: Variant = DRIVERS.get(path)
+	if script == null:
+		return null
+	var made: Variant = (script as GDScript).new()
+	driver_objects[path] = made
+	return made
+
+
+## The two flat pose configs, compared by keys, values and the nested `gaps` dictionary. Equal
+## configs are what makes the debug pair's move a single-path hold.
+func _configs_equal(a: Dictionary, b: Dictionary) -> bool:
+	if a.size() != b.size():
+		return false
+	for key: Variant in a:
+		if not b.has(key):
+			return false
+		if not _values_equal(a[key], b[key]):
+			return false
+	return true
+
+
+func _values_equal(a: Variant, b: Variant) -> bool:
+	if a is Dictionary and b is Dictionary:
+		return _configs_equal(a as Dictionary, b as Dictionary)
+	if (a is float or a is int) and (b is float or b is int):
+		return float(a) == float(b)
+	if typeof(a) != typeof(b):
+		return false
+	return a == b
 
 
 func _ready() -> void:
@@ -124,25 +234,24 @@ func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 		"climaxing": climaxing,
 		"stretch": stretch,
 		"clock": _clock,
-		"config": pose_config,
+		"config": _from_config,
 		"authored": authored,
 		"bed_frame": bed_frame,
 		"body_scale": float(mare_scale) if mare_scale != null else 1.0,
 	}
-	diag_last_base = "authored" if authored != null and bed_frame is Transform3D \
-		and bool(authored.get("available")) else "none"
-	var tracing := trace and diag_trace < 3 and weight > 0.9 and authored != null \
-		and bool(authored.get("available")) and bed_frame is Transform3D
+	if mode == MODE_SINGLE:
+		diag_last_base = "authored" if authored != null and bed_frame is Transform3D \
+			and bool(authored.get("available")) else "none"
+	else:
+		diag_last_base = "blend"
+	var tracing := mode == MODE_SINGLE and trace and diag_trace < 3 and weight > 0.9 \
+		and authored != null and bool(authored.get("available")) and bed_frame is Transform3D
 	if tracing:
 		_trace_before(sk, state)
-	if mode == "standing":
-		_standing.apply(_rig, sk, weight, state)
-	elif mode == "afterglow" and afterglow_pose == CATALOG.MISSIONARY:
-		_missionary.apply(_rig, sk, weight, state)
-		_dump_if_needed(sk, weight)
+	if mode == MODE_SINGLE:
+		_write_single(sk, weight, state)
 	else:
-		_missionary.apply(_rig, sk, weight, state)
-		_dump_if_needed(sk, weight)
+		_write_blend(sk, state)
 	if _rig.hips >= 0:
 		_diag_wrote_hips = sk.get_bone_pose_rotation(_rig.hips)
 		_diag_wrote = true
@@ -159,6 +268,121 @@ func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 		if _rig.hips >= 0:
 			diag_hips_after = g * sk.get_bone_global_pose(_rig.hips)
 		diag_trace += 1
+
+
+## The one-driver fast path: the recipe's whole-pose `apply()` with the pose ramp, unless the pose
+## carries a delta, in which case the base, the procedural delta and the overlay run in that order.
+func _write_single(sk: Skeleton3D, weight: float, state: Dictionary) -> void:
+	state["config"] = _from_config
+	var driver: Variant = _from_driver_obj
+	if driver == null:
+		return
+	if from_delta.is_empty():
+		if driver.has_method("apply"):
+			driver.call("apply", _rig, sk, weight, state)
+	else:
+		var applied := true
+		if driver.has_method("apply_base"):
+			applied = bool(driver.call("apply_base", _rig, sk, weight, state))
+		elif driver.has_method("apply"):
+			driver.call("apply", _rig, sk, weight, state)
+		if applied:
+			_apply_delta(_from_delta_obj, sk, weight, state)
+		if driver.has_method("apply_overlay"):
+			driver.call("apply_overlay", _rig, sk, weight, state)
+	if from_driver == MISSIONARY_PATH:
+		_dump_if_needed(sk, weight)
+
+
+## The two-base form: capture the game's pre-pose, evaluate each side at full base weight, restore
+## between the sides, blend the captured local transforms, then apply the overlays once. A false
+## base skips that side's delta; the overlay still runs with the recipe's own guard.
+func _write_blend(sk: Skeleton3D, state: Dictionary) -> void:
+	_resize_buffers(sk)
+	_capture(sk, _pre)
+	state["config"] = _from_config
+	_apply_base_side(_from_driver_obj, _from_delta_obj, sk, state)
+	_capture(sk, _from_pose)
+	_restore(sk, _pre)
+	state["config"] = _to_config
+	_apply_base_side(_to_driver_obj, _to_delta_obj, sk, state)
+	_capture(sk, _to_pose)
+	_restore(sk, _pre)
+	var blend := clampf(_blend_weight, 0.0, 1.0)
+	_blend_bones(sk, blend)
+	state["config"] = _from_config
+	_apply_overlay_side(_from_driver_obj, 1.0 - blend, sk, state)
+	state["config"] = _to_config
+	_apply_overlay_side(_to_driver_obj, blend, sk, state)
+
+
+func _apply_base_side(driver: Variant, delta: Variant, sk: Skeleton3D, state: Dictionary) -> void:
+	if driver == null:
+		return
+	var applied := true
+	if driver.has_method("apply_base"):
+		applied = bool(driver.call("apply_base", _rig, sk, 1.0, state))
+	elif driver.has_method("apply"):
+		driver.call("apply", _rig, sk, 1.0, state)
+	if applied:
+		_apply_delta(delta, sk, 1.0, state)
+
+
+func _apply_overlay_side(driver: Variant, weight: float, sk: Skeleton3D,
+		state: Dictionary) -> void:
+	if driver == null or not driver.has_method("apply_overlay"):
+		return
+	driver.call("apply_overlay", _rig, sk, weight, state)
+
+
+func _apply_delta(delta: Variant, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
+	if delta == null or not delta.has_method("apply_delta"):
+		return
+	delta.call("apply_delta", _rig, sk, weight, state)
+
+
+## Blend the two captured local poses at the edge weight. Rotation slerps, scale and origin lerp;
+## a non-finite result is skipped rather than written to the rig.
+func _blend_bones(sk: Skeleton3D, weight: float) -> void:
+	var count := mini(_from_pose.size(), _to_pose.size())
+	count = mini(count, sk.get_bone_count())
+	for i: int in count:
+		var from: Transform3D = _from_pose[i]
+		var to: Transform3D = _to_pose[i]
+		var rotation: Basis = from.basis.orthonormalized().slerp(to.basis.orthonormalized(), weight)
+		var scale := from.basis.get_scale().lerp(to.basis.get_scale(), weight)
+		var blended := Transform3D(rotation.scaled(scale), from.origin.lerp(to.origin, weight))
+		if not _finite_transform(blended):
+			continue
+		sk.set_bone_pose(i, blended)
+
+
+func _finite_transform(value: Transform3D) -> bool:
+	return value.origin.is_finite() and value.basis.x.is_finite() \
+		and value.basis.y.is_finite() and value.basis.z.is_finite()
+
+
+func _resize_buffers(sk: Skeleton3D) -> void:
+	var count := sk.get_bone_count()
+	if _pre.size() == count and _from_pose.size() == count and _to_pose.size() == count:
+		return
+	_pre.resize(count)
+	_from_pose.resize(count)
+	_to_pose.resize(count)
+
+
+func _capture(sk: Skeleton3D, into: Array[Transform3D]) -> void:
+	var count := sk.get_bone_count()
+	if into.size() != count:
+		into.resize(count)
+	for i: int in count:
+		into[i] = sk.get_bone_pose(i)
+
+
+func _restore(sk: Skeleton3D, from: Array[Transform3D]) -> void:
+	var count := mini(sk.get_bone_count(), from.size())
+	for i: int in count:
+		sk.set_bone_pose(i, from[i])
 
 
 ## The armature bone: the top of the chain `pony_hips` hangs from. Worked out here as well as through

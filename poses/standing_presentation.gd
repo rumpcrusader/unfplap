@@ -145,8 +145,9 @@ func _attach_present_pose() -> void:
 		_present_pose = POSE.new()
 		_present_pose.name = "UnfplapPresentPose"
 		_present_pose.mare = pony
-		_present_pose.mode = "standing"
 		_present_pose.pose_config = _pose_cfg
+		_present_pose.set_pose(POSE.STANDING_PATH, POSE.STANDING_PATH, "", "", _pose_cfg, _pose_cfg)
+		_present_pose.set_weight(1.0)
 		_present_pose.look_point = _present_look_point
 		_present_pose.amount = 0.0
 		_present_pose.target_amount = 1.0

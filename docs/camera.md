@@ -199,6 +199,10 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   with no side lean forces `head_back = 1.0` and an upward look at Anon.
 - Standing kiss camera: `presentation.standing.kiss` `camera_yaw_deg` yaws the
   camera toward her; the mouth target, lean distances and palm offsets are in `docs/kiss.md`.
+- The standing controller caches `facts.pose_config` by the pose view's settings group and pose id:
+  it re-reads the dictionary only when the group or the pose changes, so the debug
+  `standing ↔ standing_test` edge keeps the standing config and the glance/tail values do not snap.
+  `facts.presentation_config` is still read on every sync.
 - Standing enters the same held `AFTERGLOW`; the camera back-off is in `docs/afterglow.md`.
 
 ## Free look (debug)

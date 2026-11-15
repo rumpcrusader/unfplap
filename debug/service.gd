@@ -112,6 +112,14 @@ const ACTIONS := {
 		"row": "Act history",
 		"short": "Reset",
 	},
+	"clear_cooldown": {
+		"label": "Clear offer cooldown",
+		"help": "Clear the aimed mare's proactive-offer cooldown and short retry.",
+		"method": "action_clear_cooldown",
+		"tab": "world",
+		"row": "Offers",
+		"short": "Clear cooldown",
+	},
 	"force_tolerance_warning": {
 		"label": "Force neglect warning",
 		"help": "Trigger the active act's next neglect warning.",

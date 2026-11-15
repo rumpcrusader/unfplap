@@ -1011,7 +1011,7 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 				SETTINGS.ANATOMY:
 					expected = ["Pitch +", "Up", "Pointed mare", "Show skeleton overlay"]
 				SETTINGS.WORLD:
-					expected = ["Resume auto", "Reset"]
+					expected = ["Resume auto", "Reset", "Clear cooldown"]
 			for action: String in expected:
 				check(labels.has(action), "%s Debug block has the %s action" % [tab, action])
 			check(not labels.has("Bed cuddle"),

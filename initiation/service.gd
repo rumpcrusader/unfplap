@@ -287,6 +287,17 @@ func start_offer() -> StartOffer:
 	return _start_offer
 
 
+## Debug: drop one mare's offer cooldown, short retry and last skip reason. False without an id.
+func clear_cooldown(pony: Node) -> bool:
+	var id := _venue.pony_id(pony) if is_instance_valid(pony) else ""
+	if id.is_empty():
+		return false
+	COOLDOWNS.clear(id)
+	_retry_at.erase(id)
+	_scan_reason.erase(id)
+	return true
+
+
 # --------------------------------------------------------------------------- cuddle edge and cooldown
 
 func _tick_cuddle_edges() -> void:

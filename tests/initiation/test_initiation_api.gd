@@ -579,6 +579,25 @@ func run() -> void:
 	check("\n".join(initiation.debug_rows(target)).contains("episode=none"),
 		"the request rows clear with no episode")
 
+	# The clear-cooldown action drops the store, retry and skip reason.
+	check(not initiation.clear_cooldown(null), "clear_cooldown rejects a missing mare")
+	if mods != null:
+		previous_game = mods.get("game")
+		fake_world = FakeGame.new()
+		fake_world.world_context = context
+		root.add_child(fake_world)
+		mods.set("game", fake_world)
+		COOLDOWNS.set_last("rarity")
+		check(not COOLDOWNS.ready(COOLDOWNS.section(), "rarity",
+			Time.get_unix_time_from_system(), false), "the stamped cooldown blocks")
+		check(initiation.clear_cooldown(target), "clear_cooldown accepts a known mare")
+		check(COOLDOWNS.ready(COOLDOWNS.section(), "rarity",
+			Time.get_unix_time_from_system(), false), "the action clears the offer cooldown")
+		mods.set("game", previous_game)
+		fake_world.free()
+	else:
+		check(initiation.clear_cooldown(target), "clear_cooldown accepts a known mare")
+
 	initiation.free()
 	fake_main.free()
 	game.free()

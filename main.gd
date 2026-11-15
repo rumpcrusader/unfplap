@@ -1264,6 +1264,18 @@ func action_force_act_face() -> String:
 		"" if shown else " (a spoken line owns the face)"]
 
 
+## Debug: clear the aimed mare's proactive-offer cooldown and short retry.
+func action_clear_cooldown() -> String:
+	var target := _debug_history_target()
+	if not is_instance_valid(target):
+		return "No mare under the crosshair."
+	var name := str(target.name)
+	if not is_instance_valid(initiation) or not bool(initiation.call("clear_cooldown", target)):
+		return "No request state for %s." % name
+	_debug("request cooldown cleared %s" % name)
+	return "Offer cooldown cleared for %s." % name
+
+
 ## Debug: clear the aimed mare's long-term act history.
 func action_reset_act_history() -> String:
 	if not is_instance_valid(player):

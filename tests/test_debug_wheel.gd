@@ -102,7 +102,7 @@ func _check_registry() -> void:
 		check(not DEBUG_ACTIONS.ACTIONS.has(removed), "the retired action %s is gone" % removed)
 		check(not _wheel_has(removed), "the wheel does not carry %s" % removed)
 	for settings_only: String in ["reset_act_history", "reload_pose", "give_stool",
-			"reset_act_prompts", "cycle_auto", "facesit_variant"]:
+			"reset_act_prompts", "cycle_auto", "facesit_variant", "clear_cooldown"]:
 		check(DEBUG_ACTIONS.ACTIONS.has(settings_only),
 			"the settings-only action %s stays registered" % settings_only)
 		check(not _wheel_has(settings_only), "the wheel leaves %s to settings" % settings_only)

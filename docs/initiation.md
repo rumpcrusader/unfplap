@@ -362,6 +362,8 @@ after the spoken words only when the moment genuinely changes how she feels.
 - **Show data** adds the `REQUEST` section: the id, the cooldown readiness, the last request time,
   the effective wait, the retry left, the live episode phase/pose/privacy/invite state, whether the
   accepted offer is startable, and the last scan skip.
+- **Clear offer cooldown** clears the aimed mare's stored cooldown, short retry and last skip, so
+  the next scan can offer again immediately.
 - The lab runs with `ai_usage=talk`, so automatic offers do not fire; use the debug actions.
 
 ## Dependencies

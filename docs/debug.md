@@ -49,6 +49,7 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Force/Clear diestrus | — | Mare |
 | Resume automatic cycle | World | — |
 | Reset act history | World | — |
+| Clear offer cooldown | World | — |
 | Force neglect warning | — | Act |
 | Force neglect stop | — | Act |
 | Force act face | — | Act |
@@ -72,6 +73,9 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   `docs/eligibility.md`.
 - **Reset act history** clears the stored row; **Force neglect warning/stop** act on the live act
   and are consumed on the next unpaused frame.
+- **Clear offer cooldown** clears the aimed mare's proactive-offer cooldown, short retry and last
+  scan skip, so she can be offered again immediately. It is a settings-only World action; the
+  wheel keeps its six slots. See `docs/initiation.md`.
 - **Force act face** cycles the base-game faces; see `docs/face.md`.
 - **Reload posed base** re-reads the active pose's authored JSON in place; a running act picks it
   up on its next frame. With no live act it re-reads the default missionary asset. See

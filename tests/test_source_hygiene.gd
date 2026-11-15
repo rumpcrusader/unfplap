@@ -17,7 +17,7 @@ const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "Colo
 ## its entry in the same commit. The remaining reads are the runtime's start identity, the pose
 ## session's begin key, the settings data API and the debug display line.
 const POSE_ID_BUDGET := {
-	"runtime.gd": 13,
+	"runtime.gd": 12,
 	"poses/service.gd": 1,
 	"settings/service.gd": 11,
 	"main.gd": 1,

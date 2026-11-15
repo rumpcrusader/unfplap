@@ -885,6 +885,29 @@ func _check_pose_retarget() -> void:
 	check(str(hands._hook_contact) == "mouth", "a contact switch is carried for the oral blend")
 	check(not hands.caress_active("L"), "a contact switch does not restore a released hold")
 
+	# The standing ↔ oral pair keeps the live caress: the contact switch, not the request path,
+	# moves the hand, so the blend can capture its live frame.
+	view.hands = {"path": "standing"}
+	view.contact_kind = "opening"
+	hands.pose_changed(view)
+	hands._caress_active["L"] = true
+	hands._caress_latched["L"] = true
+	view.hands = {"path": "oral"}
+	view.contact_kind = "opening"
+	hands.pose_changed(view)
+	check(hands.caress_active("L"),
+		"the standing to oral path keeps the caress for the contact blend")
+	view.contact_kind = "mouth"
+	hands.pose_changed(view)
+	check(str(hands._hook_contact) == "mouth", "the oral contact switch is carried")
+	check(hands.caress_active("L"), "the oral contact switch keeps the caress")
+	view.hands = {"path": "standing"}
+	view.contact_kind = "opening"
+	hands.pose_changed(view)
+	check(str(hands._hook_path) == "standing", "the return path is carried")
+	check(hands.caress_active("L"),
+		"the oral to standing path keeps the caress for the return blend")
+
 
 ## The standing pose read model the body wrappers gate on.
 func _standing_view() -> RefCounted:

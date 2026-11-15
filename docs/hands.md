@@ -86,7 +86,10 @@ smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
 The hands' `pose_changed(view)` hook retargets the contact path: it caches `view.hands.path` and
 `view.contact_kind`; a path change ends the live caress holds but keeps the controller, and a
 contact switch (opening -> mouth) keeps them so the oral blend captures the hand frames on the next
-tick. `tests/hands/test_caress.gd` and `tests/hands/test_actions.gd` pin both seams.
+tick. The standing ↔ oral path change is the one exception: the pair is one contact-driven path, so
+the holds survive the request and the mouth switch does the retarget. A path change to or from
+missionary still ends them. `tests/hands/test_caress.gd` and `tests/hands/test_actions.gd` pin both
+seams.
 
 ## Pose paths
 

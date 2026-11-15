@@ -319,11 +319,17 @@ func pose_changed(view: Variant) -> void:
 	var contact := str(view.contact_kind)
 	if _hook_seen and path == _hook_path and contact == _hook_contact:
 		return
+	var old_path := _hook_path
 	var path_changed := _hook_seen and path != _hook_path
 	_hook_seen = true
 	_hook_path = path
 	_hook_contact = contact
-	if path_changed:
+	# The standing ↔ oral pair is one contact-driven path: the mouth switch, not the request,
+	# retargets the caress so the blend can capture the live hand frames. Any other path change
+	# ends the holds.
+	var contact_pair := (path == "oral" and old_path == "standing") \
+			or (path == "standing" and old_path == "oral")
+	if path_changed and not contact_pair:
 		_end_caress()
 
 

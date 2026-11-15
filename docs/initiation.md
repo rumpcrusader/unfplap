@@ -157,7 +157,7 @@ gates.
 | Candidate | Requires |
 |---|---|
 | Cuddle | an active cuddle, an offerable bed pose, the bed under her, the offer gate, and `main.offer_target()` naming her |
-| Bed | an offerable bed pose, a free bed within `10 m` on the same floor and region, a finite front spot, the offer gate |
+| Bed | an offerable bed pose, a free bed within `7 m` on the same floor and region, a finite front spot, the offer gate |
 | Standing | an offerable standing pose, the offer gate, a free navigator in Anon's region, and Anon within `24 m` |
 
 Only `shared/pose_specs.gd` rows with `offerable` are candidates. The row's `forms`/`views` must
@@ -168,7 +168,8 @@ to another pose.
 
 Weight is `verdict.offer_weight` from act history. Cuddle candidates are preferred outright;
 otherwise the pick is weighted. When both base poses fit a non-cuddle offer, the pose is a coin flip;
-one fitting pose is used. A bed invite walks to the bed front, not to Anon.
+one fitting pose is used. A bed invite walks to the bed front, not to Anon. The bed search stays
+below the `8 m` ask cancel range, so she cannot be sent to a bed outside the ask's own reach.
 
 ## Privacy
 

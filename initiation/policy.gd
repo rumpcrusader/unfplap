@@ -38,7 +38,8 @@ const PRESENT_TURN_TIMEOUT_S := 5.0
 const ACCEPT_LINE_TIMEOUT_S := 12.0
 const RETRY_S := 30.0
 ## A bed invite only considers beds this close to Anon, so she can join without a long detour.
-const BED_SEARCH_M := 10.0
+## It must stay below the ask cancel range with a margin for the bed front and the body positions.
+const BED_SEARCH_M := 7.0
 ## Walking to the bed front and waiting for Anon to lie down.
 const BED_LEAD_TIMEOUT_S := 25.0
 const BED_WAIT_TIMEOUT_S := 90.0

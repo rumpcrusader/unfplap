@@ -45,7 +45,9 @@ func run() -> void:
 	check(POLICY.PRESENT_TURN_TIMEOUT_S == 5.0, "the present turn has a 5 s cap")
 	check(POLICY.ACCEPT_LINE_TIMEOUT_S == 12.0, "an accepted offer lets the ask line finish")
 	check(POLICY.RETRY_S == 30.0, "a failed walk-over retries after 30 s")
-	check(POLICY.BED_SEARCH_M == 10.0, "beds are searched within 10 m")
+	check(POLICY.BED_SEARCH_M == 7.0, "beds are searched within 7 m")
+	check(POLICY.BED_SEARCH_M < POLICY.ASK_RANGE_CANCEL_M,
+		"the bed search stays inside the ask cancel range")
 	check(POLICY.BED_LEAD_TIMEOUT_S == 25.0, "the bed walk has 25 s")
 	check(POLICY.BED_WAIT_TIMEOUT_S == 90.0, "the bed wait has 90 s")
 	check(POLICY.PHYSICAL_ACCEPT_GRACE_S == 2.5, "lying down counts after 2.5 s")

@@ -19,6 +19,13 @@ var pony: Variant
 var facts: Variant
 
 
+## Report a one-time path/anchor build to the act probe. The first caress of an act pays it, so
+## the row is a max-frame risk rather than a steady chunk. See `docs/perf.md`.
+func report_path_build(started_usec: int) -> void:
+	if facts != null:
+		facts.perf("caress_path", Time.get_ticks_usec() - started_usec)
+
+
 func setup(pony_node: Variant, facts_context: Variant = null) -> void:
 	pony = pony_node
 	facts = facts_context

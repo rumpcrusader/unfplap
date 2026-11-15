@@ -270,10 +270,11 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
   of a surface line. The surface field reports `faces=<window>/<patch>`.
 - The debug overlay draws the path anchors, the exact contact, the palm target and the actual
   hand.
-- `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_surface`, `caress_ensure`,
-  `caress_select`, `caress_skin`, `caress_tri`, `caress_ray`, `caress_blur`, `caress_closest` and
-  `caress_arm` chunks.
+- `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_path`, `caress_surface`,
+  `caress_ensure`, `caress_select`, `caress_skin`, `caress_tri`, `caress_ray`, `caress_blur`,
+  `caress_closest` and `caress_arm` chunks.
 - `caress_tick` covers the controller; `caress_precise` covers the path plus engine for one hand;
+  `caress_path` covers a one-time path/anchor build and appears only on the tick that builds it;
   `caress_surface` covers the whole caress hand, `caress_ensure` the mesh/anchor cache check,
   `caress_select` the window re-centre, `caress_skin` the patch update (skinning plus the face and
   normal arrays), `caress_tri` the `TriangleMesh` rebuild, `caress_ray` the segment query (it also
@@ -340,8 +341,8 @@ selection and starts the swing.
 
 - `tests/hands/test_caress.gd`: surface patch and its two quality levels, authored paths, marked
   area path, side mapping, standing path, oral head node and side inversion, the exact node
-  without a head patch, contact blend, engine placement, smoothing, reach, the one-hand-per-tick
-  path warm and the packed source-position anchor scan.
+  without a head patch, contact blend, engine placement, smoothing and reach, the one-hand-per-tick
+  path warm, the packed source-position anchor scan and the `caress_path` row.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 

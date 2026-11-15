@@ -132,7 +132,9 @@ camera reads its facing each physics tick, and the mouth/contact provider reads 
 `contact_kind`. The skeleton modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone`
 (`UnfplapProneSway`); `runtime_process` covers the render-time pose write. Chunks nest:
 `runtime_presentation` contains `wings_tick`, and `caress_tick` contains `caress_precise` →
-`caress_surface` → `caress_skin`/`caress_tri`/`caress_ray`.
+`caress_path` (the one-time path/anchor build) and `caress_surface` → `caress_skin`/`caress_tri`/
+`caress_ray`. `caress_path` only reports on a build tick; a large max there with every other chunk
+steady is the first caress path, not the per-tick contact.
 
 ### Pose edge comparison
 

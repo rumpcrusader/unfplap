@@ -63,6 +63,12 @@ class FakePony extends RefCounted:
 	var skeleton: Skeleton3D
 	var head: Variant = null
 
+class PerfSink extends RefCounted:
+	var chunks: Array = []
+
+	func note(chunk: String, _usec: int) -> void:
+		chunks.append(chunk)
+
 var checks := 0
 var failures := 0
 
@@ -780,6 +786,8 @@ func run() -> void:
 	warm_view.hands = {"path": "standing"}
 	warm_view.contact_kind = "opening"
 	warm_facts.pose_view = warm_view
+	var sink := PerfSink.new()
+	warm_facts.perf_note = Callable(sink, "note")
 	var warm_hands := HANDS.new(warm_facts)
 	check(warm_hands.warm_contact_paths(), "the first warm tick leaves the other hand for the next")
 	var warm_provider: Variant = warm_hands.get("_flank_path")
@@ -792,6 +800,10 @@ func run() -> void:
 		"the second warm tick builds the other hand's path")
 	check(not warm_hands.caress_active("L") and not warm_hands.caress_active("R"),
 		"warming never latches a caress")
+	check(sink.chunks.count("caress_path") == 2,
+		"each warm build reports one caress_path chunk")
+	check(sink.chunks.count("caress_precise") == 2,
+		"each warm build reports one caress_precise chunk")
 	check(not warm_hands.warm_contact_paths(), "a third warm tick does no work")
 	standing_path.call("reset")
 	head_root.free()

@@ -83,7 +83,9 @@ func _path_for(anchor_side: String) -> Variant:
 		return path
 	var started := Time.get_ticks_usec()
 	path = PATH.new()
-	if not bool(path.call("build_single_area", pony, anchor_side, "head_side")):
+	var built := bool(path.call("build_single_area", pony, anchor_side, "head_side"))
+	report_path_build(started)
+	if not built:
 		_failed[anchor_side] = true
 		_log("caress oral head_side missing side=%s" % anchor_side)
 		for note: Variant in (path.get("debug_notes") as Array):

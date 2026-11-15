@@ -162,7 +162,9 @@ func _path_for(hand_side: String) -> Variant:
 		return path
 	var started := Time.get_ticks_usec()
 	path = PATH.new()
-	if not bool(path.call("build_areas", pony, hand_side, "standing")):
+	var built := bool(path.call("build_areas", pony, hand_side, "standing"))
+	report_path_build(started)
+	if not built:
 		_path_failed[key] = true
 		return null
 	_paths[key] = path

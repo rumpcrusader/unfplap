@@ -131,6 +131,8 @@ func _check_shipped_standing() -> void:
 	var config := RECIPE.reference_config()
 	var size_name := str((fixture as Dictionary).get("size_name", "canon"))
 	var body_scale := float((fixture as Dictionary).get("body_scale", 1.0))
+	# The bake tool stands the fixture body in the fixture's live ground frame; mirror that here.
+	pony.global_transform = frame
 	var contact := BAKE.body_contact(pony)
 	if not contact.is_finite():
 		contact = frame.origin
@@ -138,6 +140,13 @@ func _check_shipped_standing() -> void:
 		"standing", "ground")
 	check(BAKE.serialize(asset) == FileAccess.get_file_as_string(STANDING_PATH),
 		"the shipped standing asset is the fixture + reference recipe")
+	var asset_root: Transform3D = str_to_var(str(asset.get("root", "")))
+	check(asset_root.origin.length() < 2.0,
+		"the baked root is frame-local, not the fixture world position")
+	var anchor_transform: Transform3D = str_to_var(str(
+		(asset.get("anchor") as Dictionary).get("transform", "")))
+	check(anchor_transform.origin.length() < 2.0,
+		"the baked anchor is frame-local, not the fixture world position")
 	var loader: Variant = AUTHORED.new()
 	check(str(loader.call("load_file", STANDING_PATH)).is_empty(), "the shipped asset loads")
 	check(bool(loader.call("usable", "ground")), "the shipped asset is a ground pose")

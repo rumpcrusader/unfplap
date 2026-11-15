@@ -235,6 +235,9 @@ func run() -> void:
 		size_name = str(fixture_data.get("size_name", "canon"))
 		body_scale = float(fixture_data.get("body_scale", 1.0))
 		_load_reference(skeleton, fixture_data)
+		# The fixture's frame is the live ground frame. Stand the instantiated body in it, so the
+		# captured anchor/root are frame-space values and not the fixture's world position.
+		pony.global_transform = frame
 	var contact := body_contact(pony)
 	var asset := capture_asset(skeleton, frame, config, size_name, contact, body_scale,
 		"standing", "ground")

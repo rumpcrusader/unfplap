@@ -1,7 +1,7 @@
 extends Node
 ## integration: per-act anatomy behaviour. It reads the
-## current act depth and drives the anatomy meshes, the Anon part, the oral turn, the finish state
-## and the fluid. It never touches thrust scoring, auto thrust or the camera.
+## current act depth, the pose view's contact and drives the anatomy meshes, the Anon part, the
+## finish state and the fluid. It never touches thrust scoring, auto thrust or the camera.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -61,8 +61,8 @@ var _act_wink_next := 0.0
 var _act_wink_mode := 0
 ## Unit normal of the current opening, pointing out of her toward Anon.
 var _normal := Vector3.ZERO
-## The part target for this tick: her mouth while oral is engaged, her opening otherwise. Filled
-## in place so the per-frame path allocates nothing.
+## The part target for this tick: her mouth while the pose view names the mouth contact, her
+## opening otherwise. Filled in place so the per-frame path allocates nothing.
 var _contact_point := Vector3.ZERO
 var _contact_normal := Vector3.ZERO
 var _contact_rear := Vector3.ZERO

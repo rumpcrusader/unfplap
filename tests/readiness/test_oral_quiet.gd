@@ -112,6 +112,7 @@ class FakePose extends RefCounted:
 	var log := Callable()
 	var mouth_point := Callable()
 	var opening_point := Callable()
+	var face_point := Callable()
 	var oral_kiss := Callable()
 	var oral_speech_stop := Callable()
 	var oral_viseme := Callable()

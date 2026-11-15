@@ -32,6 +32,9 @@ class FakeActBody extends RefCounted:
 	func set_weight(value: float) -> void:
 		weight = value
 
+	func set_pose_assets(_from_value: Variant, _to_value: Variant, _weight: float) -> void:
+		pass
+
 
 class FakeRun extends RefCounted:
 	var edge: Dictionary = {}

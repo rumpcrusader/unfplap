@@ -102,7 +102,7 @@ venue:        player, mares, pony_id, region_of, camera_forward, private_at_play
 | Data | Stored where | Owner |
 |---|---|---|
 | Request cooldown (`request_times`) | `Mods.state("unfplap")` | `initiation/cooldowns.gd` |
-| Live episode, cuddle edge, one-ask-per-cuddle, retry deadlines | memory only | this facade |
+| Live episode, start-offer handoff, cuddle edge, one-ask-per-cuddle, retry deadlines and scan skip reasons | memory only | this facade |
 | Act history and its offer cooldown | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
 | Cycle phase | runtime, derived from the day | `shared/cycle.gd` |
 | Per-mare consent and public-offer flag | resolved verdict | `docs/eligibility.md` |
@@ -395,7 +395,8 @@ after the spoken words only when the moment genuinely changes how she feels.
 ## Tests
 
 - `tests/initiation/test_policy.gd`: the timer lock, cooldowns, heat, retry, privacy, wording
-  mode, prompt schedule, pose choice, weighted picks and the phase tables.
+  mode, prompt schedule, pose choice, weighted picks, the phase tables, the accepted-offer start
+  range and the bed search inside the ask range.
 - `tests/initiation/test_facts.gd`: the typed request defaults and independence.
 - `tests/initiation/test_prompts.gd`: ask, public/private wording, heat, notes, face hint,
   invitation, reminders, give-up lines and the situation texts.
@@ -404,9 +405,14 @@ after the spoken words only when the moment genuinely changes how she feels.
 - `tests/initiation/test_cooldowns.gd`: the stored clock, the history wait, the heat shortening
   and the set/clear round trip.
 - `tests/initiation/test_initiation_api.gd`: the facade through `force()` and a fake director and
-  runtime — the standing ask, the ask and invite keys, the local yes/no effects, the request
-  face, the deferred presentation after the offer line, the invite gate after the settled
-  presentation, the stretch clear, the privacy refusal, the heat override and `cancel_for`/`reset`.
+  runtime — the distant walk and the arrival settle, the ask's navigator lease, the ask and invite
+  keys, the live `start_offer()` range and phase, the local yes/no effects, the request face, the
+  deferred presentation after the offer line, the sticky invitation after a closed start gate, the
+  presentation retry, the stale-line baseline, the public answer that becomes private, the public
+  no, the `REQUEST` debug rows, the cooldown clear, `cancel_for`/`reset` and the scan quiet/skip
+  logs.
+- `tests/test_rump_cone.gd`: the 90 degree half-angle / 2 m free-standing fan, including the exact
+  side and exact reach boundaries.
 - `tests/test_standing_presentation.gd`: the accepted offer against a fake navigator — the
   `face_point` stepping turn, the 60-degree away settle and its 61-degree non-settle, the no-snap
   abort, the fallback rotation, the one-shot glance and soft hold, the affectionate face and
@@ -428,3 +434,10 @@ after the spoken words only when the moment genuinely changes how she feels.
 - Automatic offers need AI usage Full; the lab's debug actions are the supported way to see one.
 - The standing offer requires an adult mare who is an eligibility target and a free navigator;
   another pony's task or lease is a reason to skip her, not to wait.
+- The free-standing hint is a 90 degree / 2 m rear fan; an accepted standing offer can start from
+  up to `3 m`, and the start sequence places Anon at the standing gap, so the correction is
+  bounded but visible.
+- A permanently blocked start gate holds an accepted invitation for up to `60 s`. The give-up line
+  and the act key's failed-row log explain it; the offer itself stays until then.
+- A public offer that becomes private accepts only through a new answer. The earlier public yes is
+  a hint for the act key, not a stored consent.

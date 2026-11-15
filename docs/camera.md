@@ -106,8 +106,8 @@ id, so a held debug pair does not snap. `tests/act_camera/test_camera.gd` pins t
   crept while nobody was leaning. There is no side sway. Pressing `S` arms a gradual side return,
   so the shoulder roll decays to neutral without leaning the other way.
 - Lean and actions are available in both `ACTIVE` and `CLIMAX`; every other state ends them.
-- The lean camera owns `player.controls_locked = true` for both poses. Save and restore the prior
-  value at act end.
+- The lean camera owns `player.controls_locked = true` for the two base poses. Save and restore
+  the prior value at act end.
 - `F` is not an act control in missionary. In standing, holding `F` at a full side lean
   (`abs(side) >= STANDING_KISS_LEAN = 0.90`) starts the same base-game kiss; outside an act it
   remains the game's flight key.
@@ -176,7 +176,7 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   thrust. He is a human, so only his placement follows her size; the debug
   `presentation.missionary.anon_size_match` (0…1) blends his body scale toward hers, 0 human and 1
   a uniform scale with her.
-- **Both poses use the attached alignment.** `anon_part.gd`'s `_aim_attached()` turns the shaft
+- **The two base poses use the attached alignment.** `anon_part.gd`'s `_aim_attached()` turns the shaft
   about its base along her opening's normal and asks for `hip_offset_wanted`; the body that carries
   him applies that offset, so his pelvis follows the entrance and the shaft can never slide out of
   his crotch — the same logic the standing act uses. The detached bed holder (`_track_bed`) is no

@@ -162,7 +162,7 @@ are internal, never offered, and a forced request naming them is rejected rather
 to another pose.
 
 Weight is `verdict.offer_weight` from act history. Cuddle candidates are preferred outright;
-otherwise the pick is weighted. When both poses fit a non-cuddle offer, the pose is a coin flip;
+otherwise the pick is weighted. When both base poses fit a non-cuddle offer, the pose is a coin flip;
 one fitting pose is used. A bed invite walks to the bed front, not to Anon.
 
 ## Privacy

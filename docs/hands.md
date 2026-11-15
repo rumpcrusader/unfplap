@@ -1,13 +1,13 @@
 # Hands system
 
-The hands system is the act's hand layer for both poses: caress, shoulder reach, smack and hand
+The hands system is the act's hand layer for the two base poses: caress, shoulder reach, smack and hand
 scale. This file is the single technical contract; other docs link here.
 
 ## Scope
 
 This contract covers:
 
-- caress input and state in both poses;
+- caress input and state in the two base poses;
 - the pose-specific paths and authored anchors;
 - the surface contact, smoothing and palm frame;
 - the five-second touch meter and the caress scoring hooks;
@@ -67,7 +67,7 @@ The pose boundary is deliberately small:
 - `hands/contact.gd` is generic; only its comments mention the poses.
 
 **The caress service and placement engine never read the pose; only the path does.** The caress
-always ends on the posed coat surface in both poses, at either quality level. Hull contact is not
+always ends on the posed coat surface in the two base poses, at either quality level. Hull contact is not
 a caress: only the shoulder reach and the smack use `coat_frame()` / `hands/contact.gd`.
 
 ## Typed view
@@ -176,7 +176,7 @@ from the `caress_head_L` / `caress_head_R` groups on the `Head` mesh, one vertex
   `clear_hold_target()` blend the hand off and back onto the mattress over 0.35 s. While held,
   the arm runs the game's regular desktop arm mode from the shoulder down.
 - Standing uses the game's desktop pose driver through `set_hold_target(..., "rub")`.
-- `shared/hands_scale.gd` applies the shared per-preset hand scale in both poses and restores the cached
+- `shared/hands_scale.gd` applies the shared per-preset hand scale in the two base poses and restores the cached
   bone scales on every act exit.
 - Both holders expose `hand_frame()` for the debug overlay.
 
@@ -234,7 +234,7 @@ With the flag off, both hands share the full region patch as before.
 | `features.caress_debug` | one precise contact line per hand per act, debug overlay |
 | `features.caress_reach_shoulder_m` | missionary reach shoulder shift |
 | `presentation.missionary.caress.path_id` | authored chain `one` or `two` |
-| `caress.hover_m` | body-scaled palm-centre hover in both poses |
+| `caress.hover_m` | body-scaled palm-centre hover in the two base poses |
 | `caress.normal_blur_m` | coat-normal average radius; above 3 cm it averages the whole patch |
 | `caress.normal_deg_s` | palm normal turn limit |
 | `caress.contact_smooth` | snap-correction low-pass |
@@ -243,7 +243,7 @@ With the flag off, both hands share the full region patch as before.
 | `caress.oval_up_m` | oval radius vertically |
 | `caress.palm_scale.canon/mounting/same height/hoers` | shared hand scale per body preset |
 
-The three smoothing values apply to both poses. `0` restores the exact behaviour. The caress
+The three smoothing values apply to the two base poses. `0` restores the exact behaviour. The caress
 offsets are multiplied by `Settings.anon_height_scale()` for the Same Height preset; the other
 presets keep their authored values.
 

@@ -141,8 +141,10 @@ dropdown.
 With the authored base pose in charge the shot is a **blend of the five authored camera transforms**
 from the pose lab: `shots.start` (neutral), `shots.back` (S), `shots.front` (W, the kiss framing),
 `shots.left`/`shots.right` (Q/E; the asset names are from her side, so Q reads `right` and E reads
-`left` to match the screen). Both position and direction are used; the origin scales with
-`body_scale`. The weights are `max(0, 1 - |forward| - |side|)` for start, `|forward|` for the
+`left` to match the screen). Both position and direction are used; the origin is
+`shot_origin()`: the authored point scaled about the hips anchor and lifted so it stays on the
+mattress at the live body size. The authored basis is unchanged at every size. The weights are
+`max(0, 1 - |forward| - |side|)` for start, `|forward|` for the
 forward/back shot and `|side|` for the side shot, normalised. A pure axis lean has a single weight
 of one, so with no stroke speed the eye meets the authored transform exactly; everything between is
 a position average and a quaternion average. The speed-driven surge/bob from standing is added on
@@ -150,8 +152,8 @@ top (along the camera forward and world up) and settles to zero at rest. A kiss 
 authored shot — the `front` transform is the framing.
 
 The `KISS_CLEARANCE_M` lean-in applies only in **Anon eyes**. A missing shot falls back to a fixed
-bed-relative point aimed at her live face and is named in the log. There is no live offset, no
-frozen anchor and no framing nudge.
+frame-space point placed by the same anchor/lift rule and aimed at her live face, and is named in
+the log. There is no live offset, no frozen anchor and no framing nudge.
 
 **Third-person views** (`presentation.missionary.third_person`, debug) is the only
 way off the trajectory: with it on, the lean tilts the eye and the side-lean travel and kiss

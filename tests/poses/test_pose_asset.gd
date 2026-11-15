@@ -47,7 +47,12 @@ func run() -> void:
 		_finish()
 		return
 	check(bool(pose.get("available")), "asset available: %s" % str(pose.get("error")))
-	check(int(pose.get("version")) >= int(AUTHORED.MIN_VERSION), "version %d" % int(pose.get("version")))
+	check(int(pose.get("version")) == AUTHORED.CURRENT_VERSION,
+		"version %d" % int(pose.get("version")))
+	check(str(pose.get("space")) == AUTHORED.SPACE_LOCAL_REST, "local_rest space")
+	check(str(pose.get("frame")) == "bed", "the missionary asset is a bed pose")
+	check(int(pose.get("rig_version")) == AUTHORED.RIG_VERSION, "rig version")
+	check(int(pose.get("rig_bones")) == AUTHORED.RIG_BONES, "rig bone count")
 	var bones: Dictionary = pose.get("pony_bones")
 	var banned: Array[String] = []
 	for name: String in bones:
@@ -75,20 +80,34 @@ func run() -> void:
 	check(bad_rotation.is_empty(), "unit bone rotations: %s" % str(bad_rotation))
 	check(bad_position.is_empty(), "finite bone positions: %s" % str(bad_position))
 
-	var frame: Transform3D = pose.get("pony_frame")
-	check(frame.origin.is_finite(), "pony placement is finite")
-	# Bed space: her root sits above the mattress, roughly on the bed centreline, inside the length.
-	check(frame.origin.y > 0.2 and frame.origin.y < 1.2, "placement height %.3f" % frame.origin.y)
-	check(absf(frame.origin.x) <= 0.6, "placement across the bed %.3f" % frame.origin.x)
-	check(absf(frame.origin.z) <= 1.4, "placement along the bed %.3f" % frame.origin.z)
-	check(absf(frame.basis.determinant() - 1.0) < 0.001, "placement basis is a rotation")
+	var anchor: Dictionary = pose.get("anchor")
+	check(str(anchor.get("bone", "")) == "pony_hips", "the anchor is the hips")
+	var anchor_pose: Transform3D = anchor.get("transform", Transform3D.IDENTITY)
+	check(anchor_pose.origin.is_finite(), "the anchor is finite")
+	# Bed space: her anchor sits above the mattress, roughly on the bed centreline, inside the length.
+	check(anchor_pose.origin.y > 0.02 and anchor_pose.origin.y < 0.4,
+		"anchor height %.3f" % anchor_pose.origin.y)
+	check(absf(anchor_pose.origin.x) <= 0.6, "anchor across the bed %.3f" % anchor_pose.origin.x)
+	check(absf(anchor_pose.origin.z) <= 1.4, "anchor along the bed %.3f" % anchor_pose.origin.z)
+	check(absf(anchor_pose.basis.determinant() - 1.0) < 0.001, "anchor basis is a rotation")
+	var contact: Vector3 = anchor.get("contact", Vector3.INF)
+	check(contact.is_finite(), "the contact is finite")
+	check(not contact.is_zero_approx(), "the contact is authored")
+	var root: Transform3D = pose.get("root")
+	check(root.origin.is_finite(), "the root placement is finite")
+	check(absf(root.basis.determinant() - 1.0) < 0.001, "root basis is a rotation")
 
 	var anon_bones: Dictionary = pose.get("anon_bones")
 	check(str(pose.get("anon_rig")) == "Anon3", "anon rig is Anon3: %s" % str(pose.get("anon_rig")))
+	check(str(pose.get("anon_mode")) == "act_body", "anon mode is act_body")
 	check(anon_bones.size() >= 10, "anon pose bones %d" % anon_bones.size())
-	check((pose.get("anon_frame") as Transform3D).origin.is_finite(), "anon placement is finite")
+	check((pose.get("anon_transform") as Transform3D).origin.is_finite(),
+		"anon placement is finite")
 	var bed_size: Vector3 = pose.get("bed_size")
 	check(bed_size.x > 0.5 and bed_size.z > 1.0, "bed reference size %s" % str(bed_size))
+	check((pose.get("variants") as Dictionary).is_empty(), "v1 ships no variants")
+	var reference: Dictionary = pose.get("reference")
+	check(float(reference.get("body_scale", 0.0)) == 1.0, "the reference is canon")
 
 	# The authored shot positions are optional until they are placed in the lab, but every entry
 	# present must be a usable bed-space camera.

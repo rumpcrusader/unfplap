@@ -240,9 +240,24 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	var pose: Variant = AUTHORED.shared()
 	if not bool(pose.get("available")):
 		return
-	var placement: Transform3D = pose.get("anon_frame")
-	placement.origin *= body_scale
-	var placed: Transform3D = bed_frame * placement
+	var v7 := int(pose.get("version")) >= 7
+	var placement: Transform3D
+	if v7:
+		if str(pose.call("active_anon_mode")) != "act_body":
+			return
+		placement = pose.call("active_anon_transform")
+	else:
+		placement = pose.get("anon_frame")
+	var placed: Transform3D
+	if v7:
+		# The anchor/contact rule: the Anon origin scales about her hips anchor and rides the
+		# contact lift; his basis is unchanged.
+		var world := bed_frame * placement
+		placed = Transform3D(world.basis,
+			pose.call("place_origin", world.origin, bed_frame, body_scale))
+	else:
+		placement.origin *= body_scale
+		placed = bed_frame * placement
 	# He is a human, so only his placement follows her size: his body keeps its own scale. The debug
 	# `Anon size match` blends his body toward hers: 0 human, 1 a uniform scale with her.
 	var body := _scale
@@ -257,20 +272,23 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	if avatar.process_mode != Node.PROCESS_MODE_INHERIT:
 		avatar.process_mode = Node.PROCESS_MODE_INHERIT
 	var plants := {}
-	var bones: Dictionary = pose.get("anon_bones")
+	var bones: Dictionary = pose.call("active_anon_bones") if v7 else pose.get("anon_bones")
 	if not bones.is_empty():
 		_cache_indices(bones)
-		for key: Variant in _indices:
-			var entry: Variant = bones.get(key)
-			if not (entry is Dictionary):
-				continue
-			var bone := int(_indices[key])
-			skeleton.set_bone_pose_rotation(bone, (entry as Dictionary)["rotation"])
-			skeleton.set_bone_pose_position(bone, (entry as Dictionary)["position"])
-			# Own the scale too: the stock hiders multiply/overwrite it each modifier pass and rely
-			# on the animation to reset it. Without this the factor compounds and the body stretches
-			# or collapses. Parts they hide stay hidden by their own bones, not by ours.
-			skeleton.set_bone_pose_scale(bone, skeleton.get_bone_rest(bone).basis.get_scale())
+		if v7:
+			pose.call("apply_bones", skeleton, bones, 1.0)
+		else:
+			for key: Variant in _indices:
+				var entry: Variant = bones.get(key)
+				if not (entry is Dictionary):
+					continue
+				var bone := int(_indices[key])
+				skeleton.set_bone_pose_rotation(bone, (entry as Dictionary)["rotation"])
+				skeleton.set_bone_pose_position(bone, (entry as Dictionary)["position"])
+				# Own the scale too: the stock hiders multiply/overwrite it each modifier pass and rely
+				# on the animation to reset it. Without this the factor compounds and the body stretches
+				# or collapses. Parts they hide stay hidden by their own bones, not by ours.
+				skeleton.set_bone_pose_scale(bone, skeleton.get_bone_rest(bone).basis.get_scale())
 	# The authored hand frames, before the lean moves them: the plant keeps their height and lets
 	# only X/Z slide.
 	for side: String in ["Left", "Right"]:

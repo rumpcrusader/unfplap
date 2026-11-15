@@ -10,6 +10,8 @@ const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
+const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -25,6 +27,17 @@ class FakeMain extends Node:
 
 	func camera() -> Camera3D:
 		return view
+
+
+## The two values the authored-shot path reads: the live bed frame and the pose asset callable.
+class FakeShotFacts extends RefCounted:
+	var bed_frame: Variant = null
+	var authored_pose_asset := Callable()
+
+	func call_value(callback: Callable, fallback: Variant = null) -> Variant:
+		if callback.is_valid():
+			return callback.call()
+		return fallback
 
 
 class FakePlayer extends Node:
@@ -163,6 +176,7 @@ func _pose(facts: RefCounted, family: String) -> void:
 func run() -> void:
 	_check_session()
 	_check_shot()
+	_check_missionary_shot_anchor()
 	_check_lean()
 	_check_oral_lean()
 	_check_retarget()
@@ -246,6 +260,32 @@ func _check_shot() -> void:
 	camera.lean_view_forward = 1.0
 	camera.lean_sway = 0.5
 	check(near(camera.call("shot_lean_forward"), 1.0), "the shot lean clamps at one")
+
+
+## The authored missionary shot follows the asset's hips anchor and contact lift at every size;
+## canon is the authored transform within 0.1 mm.
+func _check_missionary_shot_anchor() -> void:
+	var pose: Variant = AUTHORED.shared("poses/missionary_pose.json")
+	check(bool(pose.get("available")), "the missionary asset is available for the shot")
+	if not bool(pose.get("available")):
+		return
+	var facts := FakeShotFacts.new()
+	var frame := Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 0.65, -2.0))
+	facts.bed_frame = frame
+	facts.authored_pose_asset = func() -> Variant: return pose
+	var camera: Variant = MISSIONARY_CAMERA.new(facts)
+	var here: Vector3 = pose.call("anchor_world", frame).origin
+	for shot_id: String in MISSIONARY_CAMERA.SHOT_IDS:
+		var authored: Transform3D = (pose.get("shots") as Dictionary)[shot_id]
+		var canon_world: Vector3 = (frame * authored).origin
+		for size: float in [1.0, 1.7]:
+			var lift := float(pose.call("body_lift", frame, size))
+			var expected := here + (canon_world - here) * size + Vector3.UP * lift
+			var got: Transform3D = camera.call("_shot_transform", shot_id, size)
+			check(got.origin.distance_to(expected) <= 0.0001,
+				"%s shot origin at %.2f follows the anchor" % [shot_id, size])
+			check(got.basis.orthonormalized().is_equal_approx(authored.basis.orthonormalized()),
+				"%s shot keeps the authored basis" % shot_id)
 
 
 func _check_lean() -> void:

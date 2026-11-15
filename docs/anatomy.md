@@ -66,7 +66,8 @@ The internal entry points are:
 - `runtime.gd` resolves the controller through the service, passes the typed facts object,
   asks it to begin/end the act, ticks the act handle, and supplies the body-coat jiggle handoff.
 - `poses/missionary_anon.gd` and `poses/standing_anon.gd` use the service's player methods for the hip
-  offset, root position and scale.
+  offset, root position and scale. The missionary act body is placed from the v7 hips anchor and
+  mattress contact (`place_origin`), so a non-canon pony keeps him on the mattress at her size.
 - `input/service.gd` calls the runtime's anatomy action gates; `hud/service.gd` renders the matching rows and
   hidden finish row.
 - `settings/service.gd` and `registry/service.gd` use `shared/anatomy_placement.gd` as the shared pure schema.

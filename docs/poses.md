@@ -494,8 +494,9 @@ Missionary is its own state, not the game's bed rest:
 
 - **Anon stands** before the act owns the camera (`force_stand_up()`, then the start snapshot and
   the player lock), and the game's desktop presentation is parked. His own `AnonBody` is placed
-  from the asset's `anon` transform in bed space and posed from the `anon` bones by
-  `poses/missionary_anon.gd`, at render time. His body IK and desktop pose driver are switched off for
+  from the asset's `anon` transform about her hips anchor and the mattress contact, and posed from
+  the `anon` local-rest deltas by `poses/missionary_anon.gd`, at render time. His body IK and
+  desktop pose driver are switched off for
   the act.
 - **She stands.** The bed rest is released and she is asked to `stand`, so the solver and the clip
   tier hold a neutral pose instead of `lie_down`; the act poses her body from the asset.
@@ -516,11 +517,12 @@ Missionary is its own state, not the game's bed rest:
 
 ### Base pose
 
-- **Asset.** `poses/authored_pose.gd` reads version 6 of the JSON once per process and caches it.
+- **Asset.** `poses/authored_pose.gd` reads version 7 of the JSON once per process and caches it.
   Every transform is in **bed space**: origin at the middle of the mattress top, the bed's own
   axes, `+Z` the direction her head points. The runtime maps it onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`,
-  so the pillow end (the shared bed frame's `-Z`) is where her head points.
+  so the pillow end (the shared bed frame's `-Z`) is where her head points. Version 6 remains the
+  one-release read path.
 - **The act owns the render.** The game re-poses the rig after our modifier pass (the clip tier's
   `enter`/`leave`, the posture and the terrain solver), so the modifier's write is not what the
   renderer sees. The runtime therefore applies the same recipe once more from `_process`, after
@@ -535,9 +537,10 @@ Missionary is its own state, not the game's bed rest:
   own them.
 - **The file carries every one of those bones, including the ones left at rest.** The runtime
   writes only what the file holds and never resets the rig, so a bone missing from the file keeps
-  the game's own pose and breaks the chain it hangs from. Version 5 skipped rest bones; version 6
-  stores them, and `MIN_VERSION` is 6. The lab reads bed-space transforms for every version from
-  `BED_SPACE_VERSION` 4 on, so an older file is never applied as lab world.
+  the game's own pose and breaks the chain it hangs from. Version 7 stores every bone as a
+  `local_rest` delta, including the ones left at rest; the loader applies `rest * delta`. The lab
+  reads bed-space transforms for every version from `BED_SPACE_VERSION` 4 on, so an older file is
+  never applied as lab world.
 - **Own the scale too.** `FillyProportions` and the part hiders *multiply* a bone's pose scale
   every modifier pass (`set_bone_pose_scale(..., get_bone_pose_scale(...) * factor)`) and rely on
   the animation resetting it to rest each frame. The act replaces the animation, so every bone it
@@ -581,10 +584,17 @@ Missionary is its own state, not the game's bed rest:
 - **Positions are authored too.** A body bone stores a position next to its rotation, and it is
   applied: a lengthened neck or a displaced flank root is a deliberate part of the pose. Only the
   skeleton root carries the absolute placement; every other position is relative to its parent.
-- **Placement** is `bed_frame * (pony_frame × body_scale)`, with the origin and the basis both
-  scaled by `body_scale`. The rig's pivot already scales her body, so the authored pose becomes a
-  uniform scale about the mattress centre: Canon, JRHNBR, Same Height and the stallion multiplier
-  all render at their own size. The pose is authored at canon size; Hoers is untested.
+- **Placement** is the anchor/contact rule: the hips land at the asset's anchor, the root is scaled
+  about it by `body_scale`, and the whole base is lifted so the contact stays on the mattress. The
+  live body scale is applied once at the world root; the asset's bone translations are never
+  multiplied. Canon is unchanged; Canon, JRHNBR, Same Height and the stallion multiplier render at
+  their own size, and the four-size lab covers Hoers.
+- **The Anon and the shots** use the same rule (`place_origin`): their origins scale about the hips
+  anchor and follow the contact lift; their authored bases are unchanged. At canon both are the v6
+  transform within 0.1 mm.
+- **The shots** are authored frame-space transforms; `camera/missionary_camera.gd` reads only their
+  origins through `shot_origin()` and aims them at her live face and vulva. A missing shot falls
+  back to a fixed bed-relative point placed by the same anchor/lift rule.
 - **Weight** comes from the pose modifier's `amount` ramp: each bone slerps from whatever the game's
   `lie_down` settle left to the authored rotation, and the root blends with `interpolate_with`, so
   POSING_IN still eases her in.

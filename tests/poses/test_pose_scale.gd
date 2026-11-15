@@ -4,6 +4,10 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/poses/test_pose_scale.gd
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const BODY := preload("res://world/characters/hybrid_mare/body.glb")
+
+const MISSIONARY_PATH := "res://mods/unfplap/poses/missionary_pose.json"
+const SIZES := [1.0, 1.35, 1.7, 2.3]
 
 ## The 30 body bones the runtime writes, in the pose lab's order.
 const PONY_BONES := [
@@ -42,6 +46,7 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 func run() -> void:
 	_check_v6()
 	_check_v7()
+	await _check_shipped_missionary()
 	print("POSE_SCALE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_SCALE_PASS")
@@ -118,6 +123,71 @@ func _check_v7() -> void:
 		var root := AUTHORED.root_bone(sk)
 		check(near(sk.get_bone_global_pose(root).basis.determinant(), 1.0, 0.0001),
 			"the v7 root pose is orthonormal at %.2f" % scale)
+
+
+## The shipped missionary v7 asset on the real body: the hips stay at the anchor, the contact on
+## the mattress and the body pose is size-invariant at the four shipped sizes.
+func _check_shipped_missionary() -> void:
+	var pony: Node3D = BODY.instantiate()
+	root.add_child(pony)
+	await process_frame
+	var sk: Skeleton3D = null
+	for node: Node in pony.find_children("*", "Skeleton3D", true, false):
+		sk = node as Skeleton3D
+		break
+	check(sk != null, "the body rig has a skeleton")
+	if sk == null:
+		return
+	var asset: Variant = AUTHORED.new()
+	check(str(asset.call("load_file", MISSIONARY_PATH)).is_empty(), "the missionary asset loads")
+	check(bool(asset.call("usable", "bed")), "the missionary asset is a bed pose")
+	var frame := Transform3D(Basis(Vector3.UP, 0.3), Vector3(0.0, 0.65, 0.0))
+	var anchor: Transform3D = asset.call("anchor_world", frame)
+	var original := pony.transform
+	var canon := {}
+	var worst_pos := 0.0
+	var worst_deg := 0.0
+	for size: float in SIZES:
+		pony.transform.basis = original.basis * Basis.from_scale(Vector3.ONE * size)
+		sk.reset_bone_poses()
+		sk.force_update_all_bone_transforms()
+		check(bool(asset.call("apply_pony", sk, 1.0, frame, size, "canon")),
+			"the missionary asset applies at %.2f" % size)
+		sk.force_update_all_bone_transforms()
+		var top := AUTHORED.root_bone(sk)
+		check(near(sk.get_bone_global_pose(top).basis.determinant(), 1.0, 0.001),
+			"the missionary root is orthonormal at %.2f" % size)
+		var hips := sk.find_bone("pony_hips")
+		var hips_world: Vector3 = sk.global_transform * sk.get_bone_global_pose(hips).origin
+		var lift := float(asset.call("body_lift", frame, size))
+		check(near(hips_world.x, anchor.origin.x) and near(hips_world.z, anchor.origin.z),
+			"the missionary hips stay over the anchor at %.2f" % size)
+		check(near(hips_world.y, anchor.origin.y + lift),
+			"the missionary hips ride the lift at %.2f" % size)
+		var contact: Vector3 = asset.call("place_origin",
+			asset.call("contact_world", frame), frame, size)
+		check(near(contact.y, frame.origin.y),
+			"the missionary contact stays on the mattress at %.2f" % size)
+		var local := {}
+		for name: String in PONY_BONES:
+			var bone := sk.find_bone(name)
+			if bone >= 0:
+				local[name] = sk.get_bone_pose(bone)
+		if canon.is_empty():
+			canon = local
+			continue
+		for name: String in canon:
+			var a: Transform3D = canon[name]
+			var b: Transform3D = local[name]
+			worst_pos = maxf(worst_pos, a.origin.distance_to(b.origin))
+			var qa := a.basis.orthonormalized().get_rotation_quaternion().normalized()
+			var qb := b.basis.orthonormalized().get_rotation_quaternion().normalized()
+			worst_deg = maxf(worst_deg, rad_to_deg(qa.angle_to(qb)))
+	check(worst_pos <= 0.002, "the missionary body positions are size-invariant: %.5f m" % worst_pos)
+	check(worst_deg <= 0.5, "the missionary body rotations are size-invariant: %.4f deg" % worst_deg)
+	pony.transform = original
+	root.remove_child(pony)
+	pony.free()
 
 
 func _skeleton(scale: float) -> Skeleton3D:

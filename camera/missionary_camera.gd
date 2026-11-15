@@ -246,6 +246,10 @@ func _shot_transform(id: String, scale: float) -> Transform3D:
 	var frame: Variant = _bed_frame()
 	if asset != null and frame is Transform3D and bool(asset.call("has_shot", id)):
 		var shot: Transform3D = (asset.get("shots") as Dictionary)[id]
+		if int(asset.get("version")) >= 7:
+			var origin: Vector3 = asset.call("shot_origin", id, frame, scale)
+			if origin.is_finite():
+				return Transform3D(shot.basis, origin)
 		shot.origin *= scale
 		return (frame as Transform3D) * shot
 	var pos := _shot_position(id, scale)
@@ -306,6 +310,10 @@ func _shot_position(id: String, scale: float) -> Vector3:
 	var asset: Variant = facts.call_value(facts.authored_pose_asset) if facts != null else null
 	var frame: Variant = _bed_frame()
 	if asset != null and frame is Transform3D and bool(asset.call("has_shot", id)):
+		if int(asset.get("version")) >= 7:
+			var origin: Vector3 = asset.call("shot_origin", id, frame, scale)
+			if origin.is_finite():
+				return origin
 		var shot: Transform3D = (asset.get("shots") as Dictionary)[id]
 		shot.origin *= scale
 		return (frame as Transform3D) * shot.origin
@@ -317,23 +325,31 @@ func _shot_position(id: String, scale: float) -> Vector3:
 		_log("missionary camera: shot '%s' is not authored; using the fixed bed-relative fallback" % id)
 	var back := _bed_back_direction()
 	var side := _bed_side_direction()
+	var at: Vector3
 	match id:
 		"back":
-			return start + back * -0.45 * scale + Vector3.DOWN * 0.18 * scale
+			at = start + back * -0.45 * scale + Vector3.DOWN * 0.18 * scale
 		"front":
-			return start - back * 1.60 * scale + Vector3.DOWN * 0.10 * scale
+			at = start - back * 1.60 * scale + Vector3.DOWN * 0.10 * scale
 		"left":
-			return start - side * 0.60 * scale
+			at = start - side * 0.60 * scale
 		"right":
-			return start + side * 0.60 * scale
-	return start
+			at = start + side * 0.60 * scale
+		_:
+			at = start
+	if asset != null and frame is Transform3D and int(asset.get("version")) >= 7:
+		return asset.call("place_origin", at, frame, scale)
+	return at
 
 
 ## The neutral end when the asset has none: a fixed point over the mattress, behind her rump.
-func _fallback_start(_asset: Variant, frame: Variant, scale: float) -> Vector3:
-	if frame is Transform3D:
-		return (frame as Transform3D) * Vector3(0.0, 0.62 * scale, -0.85 * scale)
-	return Vector3.INF
+func _fallback_start(asset: Variant, frame: Variant, scale: float) -> Vector3:
+	if not frame is Transform3D:
+		return Vector3.INF
+	var canon: Vector3 = (frame as Transform3D) * Vector3(0.0, 0.62, -0.85)
+	if asset != null and int(asset.get("version")) >= 7:
+		return asset.call("place_origin", canon, frame, scale)
+	return (frame as Transform3D) * Vector3(0.0, 0.62 * scale, -0.85 * scale)
 
 
 func _bed_frame() -> Variant:

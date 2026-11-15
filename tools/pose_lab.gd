@@ -111,6 +111,8 @@ var _camera: Camera3D
 var _built := false
 ## The rig transforms the preview scaled from, so returning to 1.0 restores them exactly.
 var _preview_originals: Dictionary = {}
+## True when the lab created the Contact marker itself, so a pose load may move it.
+var _contact_generated := false
 
 
 func _ready() -> void:
@@ -217,9 +219,7 @@ func _prepare_frame_nodes() -> void:
 		var node := get_node_or_null(str(entry[0])) as Node3D
 		if node != null:
 			node.visible = frame_kind == "bed"
-	if frame_kind != "ground":
-		return
-	if get_node_or_null("Floor") == null:
+	if frame_kind == "ground" and get_node_or_null("Floor") == null:
 		var floor_body := StaticBody3D.new()
 		floor_body.name = "Floor"
 		var mesh := MeshInstance3D.new()
@@ -236,7 +236,11 @@ func _prepare_frame_nodes() -> void:
 		contact.name = "Contact"
 		add_child(contact)
 		_own(contact)
-		contact.global_position = _contact_point()
+		_contact_generated = true
+		contact.global_position = _computed_contact()
+	elif _contact_generated:
+		var marker := get_node_or_null("Contact") as Node3D
+		marker.global_position = _computed_contact()
 
 
 ## Registers one Anon rig. Its own controller rewrites the IK targets every frame, which would
@@ -445,14 +449,29 @@ func _ground_frame() -> Transform3D:
 	return Transform3D(at.basis.orthonormalized(), at.origin)
 
 
-## The support contact in world space: the `Contact` marker when the scene has one, else the lowest
-## body mesh AABB point.
+## The support contact in world space: the `Contact` marker when the scene has one, else the pose
+## space's computed contact.
 func _contact_point() -> Vector3:
 	var marker := get_node_or_null("Contact") as Node3D
 	if marker != null:
 		return _global_of(marker).origin
+	return _computed_contact()
+
+
+## The contact the frame implies without a marker: a bed pose uses the mattress point directly
+## below the hips (her back on the mattress); a ground pose uses the lowest body mesh AABB point.
+func _computed_contact() -> Vector3:
 	if _pony == null:
 		return Vector3.ZERO
+	if _frame_kind() == "bed":
+		var frame := _bed_frame()
+		var hips := _pony_skel.find_bone("pony_hips") if _pony_skel != null else -1
+		if hips >= 0:
+			_pony_skel.force_update_all_bone_transforms()
+			var hips_world: Vector3 = _pony_skel.global_transform \
+				* _pony_skel.get_bone_global_pose(hips).origin
+			return Vector3(hips_world.x, frame.origin.y, hips_world.z)
+		return frame.origin
 	return BAKE.body_contact(_pony)
 
 

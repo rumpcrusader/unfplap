@@ -156,7 +156,7 @@ func run() -> void:
 	_check_live_toggle()
 	_check_two_owners()
 	_check_missing_mid_act()
-	_check_full_fidgets()
+	_check_climax_fidgets()
 	_check_idle_life()
 	_check_idle_life_gates()
 	_check_coexist()
@@ -331,8 +331,8 @@ func _check_missing_mid_act() -> void:
 	_free_scene(scene)
 
 
-## The debug feature restores Kissing's root sway and hoof taps for the climax only.
-func _check_full_fidgets() -> void:
+## Her climax restores Kissing's root sway and hoof taps; the rest of the act suppresses them.
+func _check_climax_fidgets() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
 	var service := SERVICE.new(facts)
@@ -341,7 +341,7 @@ func _check_full_fidgets() -> void:
 	facts.state = 3
 	facts.mood = "climax"
 	facts.satisfaction = 100.0
-	facts.features = {"kissing_reactions": true, "kissing_full_fidgets": true}
+	facts.features = {"kissing_reactions": true}
 	service.begin()
 	service.tick(0.1)
 	check(int(fidgets._root) == 7, "the climax restores the root sway")
@@ -355,7 +355,7 @@ func _check_full_fidgets() -> void:
 	facts.mood = "climax"
 	service.tick(0.1)
 	service.afterglow()
-	check(int(fidgets._root) == -1, "afterglow suppresses the full fidgets")
+	check(int(fidgets._root) == -1, "afterglow suppresses the climax fidgets")
 	check(near(float(fidgets._tap_next), 1.0e9), "afterglow restores the tap clock")
 	service.reset()
 	check(int(fidgets._root) == 7, "reset restores the act-start root")

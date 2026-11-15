@@ -110,9 +110,9 @@ a permanent cause:
 - Climax: `state == CLIMAX` pins the target to `reaction_cap` at the climax rate, so the reaction is
   fully active for her bond even if the player keeps thrusting through it.
 - An Affection kiss keeps its own cause and build-up; the provider resumes act control after it.
-- Optional `KissingFidgets`: the two suppressed fields stay off through the act. The debug feature
-  `features.kissing_full_fidgets` restores them for the climax only, then suppresses them again when
-  the climax ends or afterglow starts.
+- Optional `KissingFidgets`: the weight-shift root and the hoof-tap clock stay suppressed through
+  the act, because they move the skeleton root or lift a planted hoof. Her climax restores them for
+  its duration, then suppresses them again when the climax ends or afterglow starts.
 
 Kissing's horn aura/hum, wing shiver and earth-pony tail/ear fidgets are the three reaction families
 in scope. The act's own wing controller creates the open-wing node the shiver needs.
@@ -140,7 +140,6 @@ One declaration per supported integration, in `settings/service.gd`:
 | Setting | Behavior |
 |---|---|
 | `features.kissing_reactions` | run the Kissing reaction bridge during the act |
-| `features.kissing_full_fidgets` | debug-only: restore Kissing's weight shift and hoof taps during the climax; the switch is in General's Debug block |
 | `features.idle_life_stretch` | debug-only: switch the accepted standing presentation and act to Idle Life's stretch pose while Idle Life is active; dormant unless Enable debug is on, currently broken, and the ask stays normal |
 
 Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by
@@ -208,8 +207,8 @@ stops the provider live through `apply_live_settings()`.
 - Toggle `Use Kissing reactions` off and on during an act, including during a base kiss: the
   provider stops and restores (including `level`), then starts again, and the Beat hold follows the
   last owner.
-- Enable `Play full Kissing fidgets` in General's Debug block: the root sway and hoof taps return
-  only during the climax and are suppressed again when it ends or afterglow begins.
+- At her climax the root sway and hoof taps return, and are suppressed again when it ends or
+  afterglow begins.
 - End the act and force-stop one: `_until`, `level`, the fidget fields and the shared Beat hold are
   restored.
 - Remove Kissing: the tab still shows `Kissing by modChad` and `Verified with version: 1.2.9`; the

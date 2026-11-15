@@ -1,6 +1,6 @@
 extends SceneTree
 ## The pure Kissing 1.2.9 policy: availability, the readiness-driven level, the bond cap, the
-## activity fade, the climax boost and the optional full fidgets.
+## activity fade, the climax boost and the climax-only fidget set.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_kissing.gd
 
 const KISSING := preload("res://mods/unfplap/integrations/kissing.gd")
@@ -22,10 +22,10 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
-func _context(feature := true, full := false) -> RefCounted:
+func _context(feature := true) -> RefCounted:
 	var context := CONTEXT.new()
 	context.state = 2
-	context.features = {"kissing_reactions": feature, "kissing_full_fidgets": full}
+	context.features = {"kissing_reactions": feature}
 	context.bindings = {
 		"feelings": true,
 		"excitement": true,
@@ -152,8 +152,8 @@ func run() -> void:
 	check(fade != null and near(float(fade.get("value")), 0.0),
 		"afterglow lets Kissing's own hold and fade run")
 
-	# The debug feature restores the root sway and hoof taps only inside the climax.
-	var full := _context(true, true)
+	# Her climax restores the root sway and hoof taps; no switch gates them.
+	var full := _context()
 	full.state = 3
 	full.satisfaction = 100.0
 	full.mood = "climax"
@@ -162,9 +162,9 @@ func run() -> void:
 	var climax: Array = []
 	policy.tick_actions(full, 0.1, climax)
 	check(_find(climax, "fidgets", "_root").get("kind") == ACTION.RESTORE,
-		"the debug feature restores the root sway at climax")
+		"the climax restores the root sway")
 	check(_find(climax, "fidgets", "_tap_next").get("kind") == ACTION.RESTORE,
-		"the debug feature restores the hoof taps at climax")
+		"the climax restores the hoof taps")
 	full.state = 2
 	full.mood = "close"
 	var leaving: Array = []
@@ -184,7 +184,7 @@ func run() -> void:
 	after.clear()
 	policy.afterglow_actions(full, after)
 	check(_find(after, "fidgets", "_root").get("value") == -1,
-		"afterglow suppresses a climax's full fidgets")
+		"afterglow suppresses a climax's fidgets")
 
 	print("INTEGRATIONS_KISSING_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

@@ -833,10 +833,6 @@ static var curve := choice("curve", "auto_thrust.curve",
 static var debug_perf := flag("debug_perf", "debug_perf", "Print perf logs",
 	"Print the per-second performance block: per-pony rows during an act, one aggregated block while idle. Requires Enable debug.", GENERAL, "") \
 	.as_debug()
-static var kissing_full_fidgets := flag("kissing_full_fidgets",
-	"features.kissing_full_fidgets", "Play full Kissing fidgets",
-	"At her climax, also run Kissing's weight shift and hoof taps. Requires Use Kissing reactions; they can move the skeleton root or lift a planted hoof.", GENERAL, "") \
-	.as_debug()
 
 # -- Act face  (debug)
 static var climax_mode := choice("climax_mode", "presentation.act.climax_mode",
@@ -1823,6 +1819,8 @@ static var _deprecated := [
 	deprecated("features.anatomy_finish", func(_value: Variant) -> Dictionary: return {}),
 	# Only the base-game squee plays at her climax; the pack wet layer is retired.
 	deprecated("features.act_climax", func(_value: Variant) -> Dictionary: return {}),
+	# Her climax always runs the full Kissing fidget set; the switch is retired.
+	deprecated("features.kissing_full_fidgets", func(_value: Variant) -> Dictionary: return {}),
 	# Standing Anon always keeps the game's stepping feet; the planted-body switches are retired.
 	deprecated("features.standing_plant_feet", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.standing.plant_spread_m",

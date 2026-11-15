@@ -447,8 +447,8 @@ tuning:
 - **Talk & cues**: override lifetime, base/override stability, shared line gap, demand gap/repeat,
   cue/reaction max age, release hold, overwhelmed duration, and the touch/talk cooldowns plus
   receptive window.
-- **Kissing**: **Play full Kissing fidgets**, the optional weight shift and hoof taps at her
-  climax; see `docs/integrations.md`.
+- **Kissing**: the reaction bridge's level and cap are `docs/integrations.md`; it has no debug
+  switch of its own.
 - **Integrations › Debug**: **Use the Idle Life stretch pose**, currently broken and off by
   default; see `docs/integrations.md` and `docs/poses.md`.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
@@ -503,7 +503,6 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `act_public_offer` | per-mare public consent affects offers; see `docs/eligibility.md` |
 | `mute_ponese_audio` | mute a Ponese-only act voice but keep its text |
 | `kissing_reactions` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
-| `kissing_full_fidgets` | debug-only: Kissing's weight shift and hoof taps during her climax; see `docs/integrations.md` |
 | `idle_life_stretch` | debug-only: Idle Life's stretch pose from the accepted standing presentation through the act; dormant unless Enable debug is on and currently broken; the ask stays normal; see `docs/integrations.md` and `docs/poses.md` |
 
 Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,

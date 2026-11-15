@@ -5,13 +5,13 @@ extends "res://mods/unfplap/integrations/provider.gd"
 ## hands the fade back to Kissing. Her horn aura/hum (unicorn and alicorn), wing shiver (pegasus and
 ## alicorn) and earth-pony tail/ear fidgets all read that level.
 ##
-## Kissing's weight shift and hoof taps are suppressed by default: they move the skeleton root or
-## lift a planted hoof. The debug feature `kissing_full_fidgets` restores them for the climax only.
-## Its own kiss driver, guard, rear, reach and memory recorder are out of scope.
+## Kissing's weight shift and hoof taps are suppressed except at her climax: they move the skeleton
+## root or lift a planted hoof, which the act's pinned hips cannot follow. The climax restores them
+## so her whole fidget set runs with the reaction. Its own kiss driver, guard, rear, reach and
+## memory recorder are out of scope.
 
 const ACTION := preload("res://mods/unfplap/integrations/action.gd")
 const FEATURE := "kissing_reactions"
-const FULL_FIDGETS := "kissing_full_fidgets"
 const REQUIRED := ["feelings", "excitement", "beat"]
 
 ## The act's "she is close" cue, matching dialogue/utterance_scheduler.gd `CLOSE_AT`.
@@ -39,7 +39,7 @@ var _afterglow_until := ACTION.set_value("excitement", "_until", 0.0)
 ## The level the act is currently asking for, eased toward the target so steps in readiness do not
 ## snap the horn or wings.
 var _level := 0.0
-## Whether the debug flag currently has the full fidget set restored in the climax.
+## Whether the climax currently has the full fidget set restored.
 var _full_fidgets := false
 
 
@@ -88,7 +88,7 @@ func tick_actions(context: RefCounted, delta: float, out: Array) -> void:
 	# own hold/fade from the level the act left. At rest it releases the cause entirely.
 	_tick_until.value = 0.5 if _level > 0.001 else 0.0
 	out.append(_tick_until)
-	_sync_full_fidgets(context, out)
+	_sync_climax_fidgets(context, out)
 
 
 ## The level the act asks for, capped by her bond. Before close, or once the player has stopped
@@ -109,12 +109,10 @@ func _target(context: RefCounted, cap: float) -> float:
 	return cap * eased
 
 
-## Restore the weight-shift root and hoof-tap clock only while the debug flag is on and she is
-## climaxing. Every other time the bridge keeps them suppressed.
-func _sync_full_fidgets(context: RefCounted, out: Array) -> void:
-	var features: Variant = context.get("features")
-	var full: bool = int(context.get("state")) == STATE_CLIMAX \
-		and features is Dictionary and bool((features as Dictionary).get(FULL_FIDGETS, false))
+## Restore the weight-shift root and hoof-tap clock while she is climaxing. Every other time the
+## bridge keeps them suppressed.
+func _sync_climax_fidgets(context: RefCounted, out: Array) -> void:
+	var full := int(context.get("state")) == STATE_CLIMAX
 	if full:
 		# Re-emit while the binding is optional: if the fidget node appears mid-climax, the next
 		# tick restores it. A restore with no saved value is a no-op in the facade.

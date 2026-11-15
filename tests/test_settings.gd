@@ -509,8 +509,8 @@ func _check_snapshot() -> void:
 	check(snap.thrust_up == (SETTINGS.orientation.get_choice() == "up"),
 		"the act snapshot carries the thrust direction")
 	check(bool(snap.features.get("hud_readouts", false)), "the act snapshot carries features")
-	check(snap.features.has("kissing_full_fidgets"),
-		"the act snapshot carries the Kissing debug feature")
+	check(not snap.features.has("kissing_full_fidgets"),
+		"the Kissing climax fidgets are not a feature")
 	check(snap.features.has("idle_life_stretch"),
 		"the act snapshot carries the Idle Life stretch feature")
 	var stretch_before := SETTINGS.idle_life_stretch.get_bool()

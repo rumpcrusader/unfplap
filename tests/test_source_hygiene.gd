@@ -9,6 +9,52 @@ const ROOT := "res://mods/unfplap"
 const WIDGET_FILES := ["res://mods/unfplap/settings/ui.gd",
 	"res://mods/unfplap/settings/characters_ui.gd"]
 const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "ColorPickerButton.new("]
+## The pose capability census: every raw `pose_id` and `oral_active` occurrence in a shipped `.gd`
+## file, per file. It ratchets down: a migrated consumer must not gain a reference, and a file that
+## drops lowers its entry in the same commit. Producer mirrors may raise a producer's entry in the
+## commit that adds them, with the total held flat. The hard allowlist is Phase B5/E.
+## A0 census: 183 `pose_id`, 17 `oral_active` (tests and tools excluded).
+const POSE_ID_BUDGET := {
+	"runtime.gd": 62,
+	"poses/service.gd": 29,
+	"settings/service.gd": 11,
+	"camera/service.gd": 8,
+	"kiss/service.gd": 8,
+	"anatomy/act_bridge.gd": 7,
+	"reactions/service.gd": 7,
+	"camera/standing_camera.gd": 6,
+	"hands/service.gd": 5,
+	"poses/wing_control.gd": 5,
+	"poses/standing_anon.gd": 5,
+	"anatomy/controller.gd": 4,
+	"api.gd": 3,
+	"afterglow/service.gd": 3,
+	"anatomy/act.gd": 2,
+	"rest/service.gd": 2,
+	"integrations/service.gd": 2,
+	"hud/service.gd": 2,
+	"dialogue/utterance.gd": 2,
+	"anatomy/act/oral.gd": 2,
+	"anatomy/act/finish.gd": 2,
+	"shared/act_facts.gd": 1,
+	"dialogue/service.gd": 1,
+	"scene_hold/service.gd": 1,
+	"main.gd": 1,
+	"integrations/idle_life.gd": 1,
+	"integrations/context.gd": 1,
+	"camera/missionary_camera.gd": 1,
+	"anatomy/facts.gd": 1,
+}
+const ORAL_ACTIVE_BUDGET := {
+	"runtime.gd": 8,
+	"anatomy/act_bridge.gd": 3,
+	"hands/service.gd": 2,
+	"camera/service.gd": 1,
+	"shared/act_facts.gd": 1,
+	"dialogue/service.gd": 1,
+	"anatomy/act.gd": 1,
+	"poses/body_sway.gd": 1,
+}
 var failures := 0
 var checks := 0
 
@@ -84,6 +130,7 @@ func run() -> void:
 	_check_face()
 	_check_reactions()
 	_check_pose_session()
+	_check_pose_capability_census(files)
 	_check_act_camera()
 	_check_scene_gate()
 	_check_rest_rejoin()
@@ -563,6 +610,42 @@ func _check_pose_session() -> void:
 	for token: String in ["_pony_saved_bones", "_tail_lay", "_pose_rig_checked",
 			"_attach_body_coat_jiggle_target"]:
 		check(not runtime.contains(token), "runtime has no pose internals: %s" % token)
+
+
+## The raw pose reads ratchet down as the typed pose view takes over. A file may drop below its
+## entry at any time; it must lower the entry in the same commit. An increase fails here, naming
+## the file and the delta, so a migrated consumer cannot quietly go back to `pose_id`.
+func _check_pose_capability_census(files: Array[String]) -> void:
+	_check_token_budget(files, "pose_id", POSE_ID_BUDGET)
+	_check_token_budget(files, "oral_active", ORAL_ACTIVE_BUDGET)
+
+
+func _check_token_budget(files: Array[String], token: String, budget: Dictionary) -> void:
+	var allowed_total := 0
+	for value: Variant in budget.values():
+		allowed_total += int(value)
+	var total := 0
+	var seen: Dictionary = {}
+	for path: String in files:
+		if not path.ends_with(".gd"):
+			continue
+		if path.begins_with(ROOT.path_join("tests/")) or path.begins_with(ROOT.path_join("tools/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		var count := _count(FileAccess.get_file_as_string(path), token)
+		if count == 0:
+			continue
+		seen[relative] = true
+		total += count
+		var allowed := int(budget.get(relative, 0))
+		check(count <= allowed,
+			"%s adds a raw %s read (now %d, budget %d, delta +%d)" % [
+				relative, token, count, allowed, count - allowed])
+	for relative: String in budget.keys():
+		check(seen.has(relative), "the %s budget names an absent read: %s" % [token, relative])
+	check(total <= allowed_total,
+		"%s total grew (now %d, census %d, delta +%d)" % [
+			token, total, allowed_total, total - allowed_total])
 
 
 ## The act camera owns the lean, the shot smoothing, the free look, the free-camera lock, the eye

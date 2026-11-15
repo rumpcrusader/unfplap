@@ -2259,6 +2259,10 @@ func _build_pose() -> void:
 	if view is Camera3D:
 		look = (view as Camera3D).global_position
 		camera_at = look
+	# The act facts only carry the derived size inside an act, and the session starts before the
+	# state leaves IDLE; supply the live size so the standing reference and the variant selection
+	# do not capture an empty name.
+	var size_name := str(_camera_service().call("size_name"))
 	session.begin({
 		"pose_id": pose_id,
 		"id": _id,
@@ -2268,6 +2272,7 @@ func _build_pose() -> void:
 		"pose_config": _pose_session.pose_config,
 		"look_point": look,
 		"camera_position": camera_at,
+		"size_name": size_name,
 	})
 	_reactions.bind_tail(session.tail)
 

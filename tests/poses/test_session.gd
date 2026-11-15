@@ -270,14 +270,19 @@ func _check_standing_begin() -> void:
 		"presentation": {},
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
+		"size_name": "canon",
 	}), "the standing begin succeeds")
 	check(not session.bed_frame_source_saved, "a standing begin saves no bed frame source")
 	check(session.ground_frame is Transform3D, "the standing begin captures the ground frame")
 	check(session.ground_frame_source_saved, "the standing begin saves the ground frame source")
 	check(session.pose_node.authored != null and bool(session.pose_node.authored.get("available")),
 		"the standing begin installs the standing asset")
+	check(session.pose_node.size_name == "canon",
+		"the begin carries the supplied size name to the pose node")
 	check(not session.standing_reference().is_empty(),
 		"the standing begin captures the reference")
+	check(str(session.standing_reference().get("size_name")) == "canon",
+		"the reference carries the supplied size name")
 	check((session.standing_reference().get("bones") as Dictionary).size() >= 1,
 		"the reference carries the local bone poses")
 	check(session.view().family == "standing" and session.view().pose_state == VIEW.STEADY,

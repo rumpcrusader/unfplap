@@ -180,6 +180,8 @@ func begin(context: Dictionary) -> bool:
 	var start_id := str(context.get("pose_id", ""))
 	id = str(context.get("id", ""))
 	features = context.get("features", {})
+	# The runtime supplies the live size name; a suite may omit it and fall back to the facts.
+	var size_name := str(context.get("size_name", _size_name()))
 	bed_node = context.get("bed")
 	pose_logged = false
 	pose_trace_frames = 0
@@ -225,8 +227,8 @@ func begin(context: Dictionary) -> bool:
 		pose_node.ground_frame = ground_frame
 		# The reference is the game's settled standing pose before the act's recipe, captured
 		# before the pose modifier can write to the rig.
-		_standing_reference = _capture_standing_reference(start_spec, skeleton)
-		pose_node.size_name = _size_name()
+		_standing_reference = _capture_standing_reference(start_spec, skeleton, size_name)
+		pose_node.size_name = size_name
 	log_base()
 	(skeleton as Skeleton3D).add_child(pose_node)
 	var family := str(_view.family)
@@ -822,7 +824,8 @@ func ground_pose_frame() -> Variant:
 
 ## The captured reference for a ground pose, before the pose modifier is installed. Returns `{}`
 ## for a bed pose or when there is no live frame.
-func _capture_standing_reference(spec: Variant, skeleton: Skeleton3D) -> Dictionary:
+func _capture_standing_reference(spec: Variant, skeleton: Skeleton3D,
+		size_name := "") -> Dictionary:
 	if spec == null or str(spec.frame) != "ground" or not ground_frame is Transform3D:
 		return {}
 	var frame := ground_frame as Transform3D
@@ -832,7 +835,7 @@ func _capture_standing_reference(spec: Variant, skeleton: Skeleton3D) -> Diction
 	var data := {
 		"pose": str(spec.id),
 		"frame": var_to_str(frame),
-		"size_name": _size_name(),
+		"size_name": size_name,
 		"body_scale": body_scale(),
 		"rig": {
 			"name": AUTHORED.RIG_NAME,

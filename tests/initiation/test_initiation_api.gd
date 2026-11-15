@@ -561,6 +561,24 @@ func run() -> void:
 		mods.set("game", previous_game)
 		fake_world.free()
 
+	# Show data's REQUEST rows cover cooldown, retry, phase and the live startable handoff.
+	initiation.reset()
+	game.mares = [target]
+	runtime.presented = false
+	director.greet_ok = true
+	director._player_text = ""
+	initiation.force(runtime, CATALOG.STANDING)
+	director.transcript.emit("yes")
+	initiation.tick(0.0)
+	var request_text := "\n".join(initiation.debug_rows(target))
+	check(request_text.contains("cooldown ready="), "the request rows name the cooldown")
+	check(request_text.contains("retry left="), "the request rows name the retry")
+	check(request_text.contains("episode phase=invite")
+		and request_text.contains("startable=true"), "the request rows name the live invite")
+	initiation.reset()
+	check("\n".join(initiation.debug_rows(target)).contains("episode=none"),
+		"the request rows clear with no episode")
+
 	initiation.free()
 	fake_main.free()
 	game.free()

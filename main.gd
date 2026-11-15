@@ -1125,7 +1125,7 @@ func action_facesit_variant() -> String:
 
 
 ## Debug: one structured dump for the aimed mare. Show data, and a future always-on overlay, can
-## render the same sections: TARGET, CYCLE, GATE, ACT, STOOL, HISTORY, PROMPT, BED.
+## render the same sections: TARGET, CYCLE, GATE, REQUEST, ACT, STOOL, HISTORY, PROMPT, BED.
 func action_show_data() -> String:
 	if not is_instance_valid(player):
 		return "Player not ready."
@@ -1156,6 +1156,10 @@ func debug_data(target: Node) -> Dictionary:
 	sections.append(_debug_section("TARGET", _debug_target_rows(target, runtime, id)))
 	sections.append(_debug_section("CYCLE", _debug_cycle_rows(runtime)))
 	sections.append(_debug_section("GATE", _debug_gate_rows(target, runtime)))
+	if is_instance_valid(initiation):
+		sections.append(_debug_section("REQUEST", initiation.debug_rows(target)))
+	else:
+		sections.append(_debug_section("REQUEST", ["request service unavailable"]))
 	if is_instance_valid(active_runtime) and runtime == active_runtime:
 		sections.append(_debug_section("ACT", _debug_act_rows(runtime)))
 	sections.append(_debug_section("STOOL", _debug_stool_rows(runtime)))

@@ -390,6 +390,37 @@ func _log_scan_skip(runtime: Node, reasons: Array) -> void:
 	_debug("request scan skip id=%s reasons=%s" % [id, reason])
 
 
+## The request state for Show data's REQUEST section. Store and memory reads only; no scene write.
+func debug_rows(pony: Node) -> Array[String]:
+	var rows: Array[String] = []
+	var id := _venue.pony_id(pony) if is_instance_valid(pony) else ""
+	if id.is_empty():
+		rows.append("no relationship id")
+		return rows
+	var runtime: Variant = main.call("runtime_for", pony) if is_instance_valid(main) else null
+	var section := COOLDOWNS.section()
+	var heat := _in_heat(runtime)
+	var wait := COOLDOWNS.wait_seconds(section, id, heat)
+	var last := COOLDOWNS.last(section, id)
+	rows.append("id=%s" % id)
+	rows.append("cooldown ready=%s" % str(COOLDOWNS.ready(section, id,
+		Time.get_unix_time_from_system(), heat)))
+	rows.append("last request=%s" % (
+		Time.get_datetime_string_from_unix_time(int(last), true) if last > 0.0 else "never"))
+	rows.append("wait seconds=%.0f" % wait)
+	var retry_left := float(_retry_at.get(id, -100000.0)) - _now()
+	rows.append("retry left=%s" % ("none" if retry_left <= 0.0 else "%.0fs" % retry_left))
+	if _episode != null and _episode.pony == pony:
+		rows.append("episode phase=%s pose=%s private=%s invite=%s" % [
+			_phase_name(_episode.phase), _episode.pose, str(_episode.private),
+			str(_episode.invite_queued)])
+		rows.append("startable=%s" % str(start_offer() != null))
+	else:
+		rows.append("episode=none")
+	rows.append("last scan skip=%s" % str(_scan_reason.get(id, "none")))
+	return rows
+
+
 func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 		reasons: Array = []) -> Candidate:
 	if not is_instance_valid(main) or not is_instance_valid(runtime):

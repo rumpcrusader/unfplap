@@ -31,11 +31,17 @@ static func last(section_data: Dictionary, id: String) -> float:
 
 ## True when the per-mare wait has passed. `wait` is the history cooldown, quartered in heat.
 static func ready(section_data: Dictionary, id: String, now: float, in_heat: bool) -> bool:
+	return POLICY.cooldown_ready(now, last(section_data, id),
+		wait_seconds(section_data, id, in_heat))
+
+
+## The effective per-mare wait: the history offer cooldown, quartered in heat.
+static func wait_seconds(section_data: Dictionary, id: String, in_heat: bool) -> float:
 	var history := ACT_HISTORY.effective_row(section_data, id, ACT_HISTORY.day_now())
 	var wait := ACT_HISTORY.offer_cooldown(history)
 	if in_heat:
 		wait = POLICY.heat_cooldown(wait)
-	return POLICY.cooldown_ready(now, last(section_data, id), wait)
+	return wait
 
 
 ## Stamp the cooldown for one mare in the live section and save.

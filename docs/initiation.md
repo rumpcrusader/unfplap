@@ -359,6 +359,9 @@ after the spoken words only when the moment genuinely changes how she feels.
 - `request scan quiet reason=<reason>` names one blocked quiet gate per reason change;
   `request scan skip id=<id> reasons=<...>` names one rejected mare per reason change or every
   `10 s`.
+- **Show data** adds the `REQUEST` section: the id, the cooldown readiness, the last request time,
+  the effective wait, the retry left, the live episode phase/pose/privacy/invite state, whether the
+  accepted offer is startable, and the last scan skip.
 - The lab runs with `ai_usage=talk`, so automatic offers do not fire; use the debug actions.
 
 ## Dependencies

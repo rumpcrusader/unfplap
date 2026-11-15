@@ -157,7 +157,9 @@ func _bend_forelegs(rig, sk: Skeleton3D, weight: float, scale: float) -> void:
 
 ## `target` is the absolute outward half-angle from the body centreline. Measuring the current hoof
 ## line first keeps the baked placement unchanged while still allowing wider/narrower stance
-## values: the reference value adds zero, a changed value adds only the difference.
+## values: the reference value adds zero, a changed value adds only the difference. The tip must be
+## a bone the asset owns (`pony_finger_<side>`; its `_end` leaf is outside the 30-bone asset), so
+## the bake and the live `_apply_difference` measure the same line.
 func _spread_fore(rig, sk: Skeleton3D, weight: float, target: float) -> void:
 	if rig.fore.size() < 2:
 		return
@@ -172,7 +174,9 @@ func _spread_fore(rig, sk: Skeleton3D, weight: float, target: float) -> void:
 		if upper < 0:
 			continue
 		var side := str(leg.get("side", ""))
-		var tip := sk.find_bone("pony_finger_%s_end" % side)
+		var tip := sk.find_bone("pony_finger_%s" % side)
+		if tip < 0:
+			tip = sk.find_bone("pony_finger_%s_end" % side)
 		if tip < 0:
 			tip = sk.find_bone("pony_wrist_%s" % side)
 		if tip < 0:

@@ -37,6 +37,7 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	_check_capture()
+	_check_symmetrise()
 	_check_compare()
 	_check_writer()
 	await _check_shipped_standing()
@@ -65,6 +66,38 @@ func _check_capture() -> void:
 	check(contact_local.is_finite(), "the captured contact is finite")
 	var root: Transform3D = str_to_var(str(pose.get("root", "")))
 	check(root.origin.is_finite(), "the captured root is finite")
+	_free(sk)
+
+
+## The symmetrise pass: one limb posed off-centre is averaged back to the sagittal plane, every
+## pair becomes an exact mirror and a centerline bone is untouched.
+func _check_symmetrise() -> void:
+	var sk := _skeleton()
+	var femur := sk.find_bone("pony_femur_L")
+	var pose := sk.get_bone_pose(femur)
+	pose.basis = Basis(Vector3.UP, 0.3) * pose.basis
+	sk.set_bone_pose(femur, pose)
+	sk.force_update_all_bone_transforms()
+	var hips := sk.find_bone("pony_hips")
+	var hips_before := sk.get_bone_global_pose(hips)
+	var written := BAKE.symmetrise_stance(sk)
+	sk.force_update_all_bone_transforms()
+	check(written == BAKE.MIRROR_PAIRS.size(),
+		"symmetrise writes every pair: %d" % written)
+	var hips_after := sk.get_bone_global_pose(hips)
+	check(hips_after.origin.distance_to(hips_before.origin) <= 0.0001
+		and hips_after.basis.get_rotation_quaternion().angle_to(
+			hips_before.basis.get_rotation_quaternion()) <= 0.0001,
+		"symmetrise leaves the centerline hips unchanged")
+	for pair: Array in BAKE.MIRROR_PAIRS:
+		var left := sk.get_bone_global_pose(sk.find_bone(str(pair[0])))
+		var right := sk.get_bone_global_pose(sk.find_bone(str(pair[1])))
+		var mirrored := BAKE.mirror_x(right)
+		var basis_delta := maxf(mirrored.basis.x.distance_to(left.basis.x),
+			maxf(mirrored.basis.y.distance_to(left.basis.y),
+				mirrored.basis.z.distance_to(left.basis.z)))
+		var residual := maxf(left.origin.distance_to(mirrored.origin), basis_delta)
+		check(residual <= 0.0001, "%s mirrors %s: %.6f" % [pair[0], pair[1], residual])
 	_free(sk)
 
 
@@ -201,6 +234,18 @@ func _check_shipped_standing() -> void:
 	check(worst_pos <= 0.002, "the body positions are size-invariant: %.5f m" % worst_pos)
 	check(worst_deg <= 0.5, "the body rotations are size-invariant: %.4f deg" % worst_deg)
 	pony.transform = original
+	# The baked stance is mirror-symmetric: the hind and fore pairs sit at mirrored offsets.
+	sk.reset_bone_poses()
+	sk.force_update_all_bone_transforms()
+	check(bool(loader.call("apply_pony", sk, 1.0, frame, 1.0, "canon")),
+		"the asset applies at canon for the stance mirror")
+	sk.force_update_all_bone_transforms()
+	for pair: Array in [["pony_hoof_L", "pony_hoof_R"], ["pony_finger_L", "pony_finger_R"]]:
+		var left := sk.get_bone_global_pose(sk.find_bone(str(pair[0]))).origin
+		var right := sk.get_bone_global_pose(sk.find_bone(str(pair[1]))).origin
+		var residual := maxf(absf(left.x + right.x), maxf(absf(left.y - right.y),
+			absf(left.z - right.z)))
+		check(residual <= 0.001, "%s/%s stance mirror: %.6f m" % [pair[0], pair[1], residual])
 	_check_oral_parity(pony, sk, fixture as Dictionary, frame, config)
 
 	root.remove_child(pony)
@@ -216,6 +261,7 @@ func _check_oral_parity(pony: Node3D, sk: Skeleton3D, fixture: Dictionary, frame
 	var keys := {"oral_pitch": 0.25, "oral_yaw": -0.12, "oral_roll": 0.15}
 	var oral: Variant = ORAL.new()
 	_load_fixture(sk, fixture)
+	BAKE.symmetrise_stance(sk)
 	var recipe: Variant = RECIPE.new()
 	recipe.call("apply_reference", rig, sk, 1.0, config)
 	sk.force_update_all_bone_transforms()

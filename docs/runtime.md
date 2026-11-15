@@ -65,9 +65,10 @@ A failure in any step runs `_abort_start()` and the same teardown; it never leav
 | any other key | consumed during an act; `Enter`, `T`, `Esc` and `F1`–`F12` stay live (`docs/input.md`) |
 
 During standing oral, `W`/`S`/`Q`/`E`, the `Q`/`E` shoulder reach and the `F` lean kiss are
-inactive, and `A`/`D` caress places the hands on her head sides. The oral rising edge ends a live
-reach and lean kiss immediately; the camera and hand contracts are `docs/camera.md` and
-`docs/hands.md`.
+inactive, and `A`/`D` caress places the hands on her head sides. `N` requests the authored
+`standing → standing_oral` edge and then its reverse; the edge owns the 1.6 s turn, the contact
+switch to the mouth at 0.9 s, the speech stop, the `D` viseme and the soft-kiss cue timer on the
+pose side. The camera and hand contracts are `docs/camera.md` and `docs/hands.md`.
 
 The debug wheel is desktop-only and does not pause the tree. While it is open the runtime ignores
 mouse motion, so the wheel's virtual reticle cannot thrust or free-look the act. The wheel runs
@@ -113,9 +114,9 @@ failed start runs the same function and restores only what it took.
 
 - `_physics_process`: `_physics_tick(delta)` — the pose tick, the facts sync, the pose fan-out, the
   act timer, the readiness tick, the dialogue service, the history scan, the tolerance, the scene
-  keep-alives, the anatomy tick and its oral gate (speech stop, `D` viseme hold, idle kiss, and the
-  rising-edge reach/lean-kiss release), the thrust tracker and the presentation modules (wings and
-  mod integrations).
+  keep-alives, the anatomy tick, the thrust tracker and the presentation modules (wings and mod
+  integrations). The pose tick advances the oral turn and the edge's switches and events; the
+  anatomy tick only reads the resulting contact.
 - `_physics_tick` times `_pose_service().tick(delta)` as the `pose_tick` chunk before the first
   `_sync_act_facts()` in every phase above `IDLE`, then times the fixed-order `_pose_fanout()` as
   the `pose_fanout` chunk after that sync: the pose service first (modifier reconcile and the
@@ -148,7 +149,8 @@ The pose surface is `pose_view()`, `request_pose(target_id, trigger, context)`,
 and stretch; the session refuses or starts the edge. `request_command(id)` is the pure allow check:
 `end` is reserved and always allowed, otherwise the id must be in the active pose's control profile
 and the live edge lock must not deny it. `command(id)` runs that check first, then dispatches the
-discrete `hole`/`oral`/`finish` ids to the anatomy entry points; the reserved `pose_back`/
+discrete `hole`/`finish` ids to the anatomy entry points and `oral` to `toggle_anatomy_oral()`,
+which requests the target pose with the per-mare consent string; the reserved `pose_back`/
 `pose_forward` return false, and `end` returns true without an act exit. The act-key hold still
 owns the one exit path.
 
@@ -159,15 +161,15 @@ target snapshot after the start pose's own config sync.
 
 ## Tests
 
-- `tests/test_runtime_teardown.gd` — the one exit path and the ownership flags.
+- `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags and the oral edge's
+  consent/feature refusals plus its abort through `_end_session`.
 - `tests/test_runtime_notes.gd` — the prompt forwards.
 - `tests/test_runtime_offer_policy.gd` — the idle hint's policy snapshot, its invalidation keys
   and the fresh gate path.
-- `tests/readiness/test_oral_quiet.gd` — the oral gate: the plap and rump/tail jiggle skip, the
-  kept slide/vocal/wings/blush/ear, the speech stop and `D` viseme hold, the idle kiss timer, the
-  rising-edge reach/lean-kiss release, the climax-line skip and the regular-path regression.
+- `tests/readiness/test_oral_quiet.gd` — the oral contact: the plap and rump/tail jiggle skip, the
+  kept slide/vocal/wings/blush/ear, the climax-line skip and the regular-path regression.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
-- `tests/afterglow/test_afterglow.gd` — the phase decisions.
+- `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
 - The service suites indexed in `docs/README.md`.
 
 ## Verification / lab

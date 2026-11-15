@@ -15,8 +15,10 @@ ledger; it binds the session and reads its `pose()`, `pose_config` and `bed_fram
 Presentation modules read the same values from `shared/act_facts.gd`.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads
-`poses/missionary_pose.json`. `shared/pose_catalog.gd` owns the pose ids and the `POSE_KEYS`
-schema; the shipped per-pose values live under `default.poses` in `settings/defaults.json`.
+`poses/missionary_pose.json`. `poses/oral_turn.gd` is the pose-owned standing oral actor/frame turn
+and `poses/standing_oral_recipe.gd` its procedural delta. `shared/pose_catalog.gd` owns the pose ids
+and the `POSE_KEYS` schema; the shipped per-pose values live under `default.poses` in
+`settings/defaults.json`.
 `poses/service.gd` owns the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action
 math; `camera/service.gd` owns the camera and lean state.
 
@@ -49,8 +51,12 @@ object as `facts.pose_config`) and the per-tick contact and facing values. `pose
 while the pose is live, `TRANSITIONING` while an edge runs, and `EXITING`/`IDLE` on release; the
 pose-scope leave steps keep it `STEADY`. During an edge, `from_id`/`to_id`, `edge_id`, `edge_t`,
 `weight`, `from_config` and `to_config` carry the transition: `from_config` is the live config, the
-to side is the session's target snapshot. The compatibility `pose_id`, `oral_active` and
-`anal_active` fields mirror the old facts until the last reader migrates.
+to side is the session's target snapshot. `contact_kind` is the one contact source (`opening`,
+`mouth`, `face` or `none`); it starts at the spec's base kind, moves on an edge's `contact` switch
+and settles on the target's kind. `contact_target` is the pose turn's live anchor, and
+`facing`/`facing_amount` its live frame; the standing camera reads both every physics tick. The
+compatibility `pose_id`, `oral_active` and `anal_active` fields mirror the old facts until the last
+reader migrates.
 
 ## State machine and edge math
 
@@ -158,7 +164,24 @@ start, and fire one `status` event (`test` forward, `standing` back). Both switc
 is the current proof of the state machine, the channel records, the switch firing and the
 no-full-teardown rule, and no channel moves the body.
 
-`standing_test` is the matching internal spec row. It inherits `standing` (a base, no driver of its
+The oral pair is `standing__standing_oral.json` and `standing_oral__standing.json`. The forward
+edge requires the `anatomy_oral` feature, `consent: "oral"`, both forms and views, and
+`stretch: "inactive"`; it runs for `1.6 s` with the base delta easing over the whole edge, switches
+`contact` to `mouth` at `0.9` (floored by `contact after base@0.55`), switches `audio` to `oral` at
+`0.0`, locks `controls` to `oral`/`pose_back`/`end`, and fires `speech_stop`, `viseme D` and a final
+`status oral`. The reverse edge requires only the feature, both forms and both views, returns
+`contact` to `opening` at `0.0` and `audio` to `standing`, allows only `end` during the lock, and
+fires `status standing` at its end. The reverse edge has no consent and `stretch: "any"`: a holder
+can always return. Neither edge calls an act exit; the interrupt policy is `climax: hold` and
+`teardown: abort`.
+
+`standing_oral` is the matching internal spec row. It inherits `standing` (a base, no driver of its
+own), carries the procedural delta `poses/standing_oral_recipe.gd`, uses the standing settings
+group and presentation, is `public: false` and `offerable: false`, and has no `default.poses` block.
+The session starts the oral turn on the forward request, keeps it through the settled pose, and
+restores the captured root and facing on the reverse completion or the one act exit.
+
+`standing_test` is the other internal spec row. It inherits `standing` (a base, no driver of its
 own, no delta asset), is `public: false` and `offerable: false`, has no `default.poses` block, and
 appears in `CATALOG.every()` only: it is not in `CATALOG.all()`, the API, the offers or the settings
 templates. The spec base rule allows an empty `driver` only when a base owns the geometry. A base
@@ -198,19 +221,21 @@ The checks, against the target spec and the edge:
 | `locked` | the request's `locked` flag |
 
 On an accepted request the session caches the target spec and its settings snapshot by the spec's
-`settings_group` (`standing_test` uses the standing pose and presentation blocks and must never be
-passed to the settings read as a group of its own), builds the target config from that group plus
-the presentation, starts the edge, enters `TRANSITIONING` and fills the view: `fill()` carries the
-target identity and profiles, then `from_id`/`to_id`, `edge_id`, `edge_t`, `weight`, `from_config`
-(the live config) and `to_config` (the target snapshot) make the transition explicit.
-`view.pose_id` follows the filled target; the session's `pose_id` stays the act's start pose for the
-act identity, while `facts.pose_id` is the live view id (see the retarget section).
+`settings_group` (`standing_test` and `standing_oral` use the standing pose and presentation blocks
+and must never be passed to the settings read as a group of their own), builds the target config
+from that group plus the presentation, starts the edge, enters `TRANSITIONING` and fills the view:
+`fill()` carries the target identity and profiles, then `from_id`/`to_id`, `edge_id`, `edge_t`,
+`weight`, `from_config` (the live config) and `to_config` (the target snapshot) make the transition
+explicit. `view.pose_id` follows the filled target; the session's `pose_id` stays the act's start
+pose for the act identity, while `facts.pose_id` is the live view id (see the retarget section).
 
-`tick(delta)` advances the run, writes `edge_t`/`weight`, hands the weight to the pose evaluator,
-logs each fired switch and each `status` event, and on completion returns to `STEADY`, adopts the
-target snapshot into the live `pose_config`, points both sides of the config and the pose node at
-it, clears the edge fields and drops the target. The steady tick allocates nothing: no duplicate,
-no settings read and no file access, and a tick after completion is a no-op.
+`tick(delta)` advances the run, writes `edge_t`/`weight`, drives the oral turn from the same weight,
+hands the weight to the pose evaluator, applies each fired `contact` switch and each `speech_stop`/
+`viseme`/`status` event, and on completion returns to `STEADY`, sets the target's base contact kind,
+adopts the target snapshot into the live `pose_config`, points both sides of the config and the pose
+node at it, clears the edge fields and drops the target. The steady tick allocates nothing: no
+duplicate, no settings read and no file access, and a tick after completion is a no-op. The oral
+turn's steady tick also allocates nothing: it reuses its vectors and writes fields.
 
 `shared/act_commands.gd` is the command vocabulary, and `shared/pose_specs.gd`'s `CONTROL_SETS`
 maps each pose's `controls.set` profile to its allowed ids:
@@ -220,14 +245,16 @@ maps each pose's `controls.set` profile to its allowed ids:
 | `missionary` | `thrust`, `lean`, `caress`, `kiss`, `hole`, `finish`, `end` |
 | `standing` | `thrust`, `lean`, `caress`, `kiss`, `oral`, `hole`, `finish`, `pose_back`, `pose_forward`, `end` |
 | `standing_test` | `end` |
+| `standing_oral` | `oral`, `pose_back`, `end` |
 
 `request_command(command_id)` is the one allow check: an empty or unknown id is refused, `end` is
 reserved and always allowed, and otherwise the id must be in the active view's `controls.set`
 profile. A missing set allows only `end`. A lock channel's `block` list denies its commands and a
 non-empty `allow` list denies anything outside it; the lock is checked only inside the profile and
 cannot deny `end`. `pose_back`/`pose_forward` are reserved for pose navigation and no key emits them
-yet. The `oral` command currently runs the standing anatomy toggle; the standing oral pose request
-replaces that implementation once its rows exist, without changing the input path.
+yet. `runtime.command("oral")` requests `standing_oral` from `standing` and the reverse edge from
+`standing_oral` through `request_pose`; it passes `consent: "oral"` only when the anatomy service's
+per-mare consent is true, and its refusal reason reaches the anatomy status label.
 
 `apply_live_settings()` refreshes the target snapshot in place on a live settings edit: the same
 `to_config` object is re-merged from the target's settings group, and the presentation block is
@@ -242,6 +269,31 @@ bones and the body does not move. The Debug **Pose: test variant** action is the
 the evaluator's single path. A transition never calls
 `_free_pose()`, `release_pose()`, `_end_session()` or any act exit; `runtime._end_session()` aborts
 a live edge through the one pose teardown.
+
+### The standing oral turn
+
+`poses/oral_turn.gd` is the session-owned actor/frame driver for the oral pair. It preloads
+nothing; the session binds the pony and the host callbacks `mouth_point`, `opening_point`,
+`oral_kiss`, `oral_speech_stop`, `oral_viseme` and `oral_status`.
+
+- **Capture.** The first forward request reads her root position, her orthonormal facing, the live
+  opening and the mouth point. The target is the old mirrored anchor: the mouth point in her local
+  frame, scaled, turned 180° about UP and subtracted from the opening, with her current Y kept.
+- **Tick.** The base weight is the whole clock: forward maps `0 → 1`, reverse maps the same weight
+  to `1 → 0` in its own direction. The module writes `pony.global_position` between the captured
+  root and the mirrored target, and `view.facing`/`facing_amount` as the UP turn of the captured
+  basis. It never rotates the physics capsule and never moves the player.
+- **Contact target.** While she turns the `contact_target` is the captured opening, so the part
+  does not chase her rump through the arc. Once settled and in mouth contact it eases to the live
+  mouth at `ORAL_ANCHOR_RATE`. A released contact points back at the opening.
+- **Style and voice.** The style sequence writes `oral_pitch`, `oral_yaw` and `oral_roll` into the
+  live config and, during an edge, the target snapshot, so the delta's to side sees them. The
+  soft-kiss timer calls the host cue on an idle interval. `speech_stop` and `viseme` come from the
+  edge events, not from the turn.
+- **Release.** Reverse completion and the one act exit call `restore()` once: the captured root and
+  facing go back, the oral keys are erased from both config sides, and the turn clears. The
+  afterglow calls `release_mouth_contact()` instead, which keeps the turned frame and the neck
+  pose, clears the viseme and points the contact back at the opening.
 
 ## Pose evaluator and per-pose configs
 
@@ -261,11 +313,14 @@ The single fast path is the same effective driver and delta with equal configs. 
 driver's `apply()` with the pose ramp (`smoothstep(amount)`), exactly as the one-recipe node did, so
 the begin ramp, the normal missionary and standing acts, the stretch early return and the
 diagnostics are unchanged. A pose that carries a delta uses `apply_base()` → `apply_delta()` →
-`apply_overlay()` in that order. The debug `standing ↔ standing_test` pair takes this path: both
-effective drivers are the standing driver, both deltas are empty and the target snapshot is the
-standing group with the same presentation, so the body holds. The pair is the current proof of the
-single fast path. The offer presentation pose (`poses/standing_presentation.gd`) is the same
-evaluator with the standing pair and its own config.
+`apply_overlay()` in that order; `standing_oral`'s settled pose runs that form with the standing
+driver and the oral recipe. The debug `standing ↔ standing_test` pair takes the single fast path:
+both effective drivers are the standing driver, both deltas are empty and the target snapshot is
+the standing group with the same presentation, so the body holds. The oral pair takes
+`MODE_BLEND` in both directions because only one side carries the delta; it is a real two-base
+edge, not the fast path. The pair is the current proof of the state machine's single path. The
+offer presentation pose (`poses/standing_presentation.gd`) is the same evaluator with the standing
+pair and its own config.
 
 The two-base form captures the game's pre-pose, evaluates the from side at full base weight,
 captures it, restores the pre-pose, evaluates the to side the same way, restores again, and blends
@@ -303,6 +358,15 @@ family/contact, so an unchanged view is a cheap no-op. The face, dialogue and HU
 through the facts and have no hook. The fan-out is a retarget seam, not a second teardown: it never
 calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `_end_session()`, `_free_pose()`
 or any act-scope restore. The eye-camera tick stays on the render write, after the pose write.
+
+The `contact` channel is the one contact change: the forward oral edge switches `opening` to
+`mouth` at `0.9`, the reverse switches back at `0.0`, and completion settles the target row's base
+kind. The hands read `view.contact_kind` for the mouth path and the oral caress blend; the anatomy
+act reads it for the part target and the hole gate; the camera reads it for the oral lean lock; the
+dialogue and HUD read it through the facts. The standing camera reads `view.facing`/
+`facing_amount` directly each physics tick; the pose turn writes them, so no service carries a
+facing copy. The running lean kiss ends when `oral_lean_tick` stops wanting it, not from a second
+kiss state.
 
 The modifier profile table is `shared/pose_specs.gd`'s `MODIFIER_PROFILES`: `missionary` owns
 `prone_sway` and `tail_lay`; `standing` owns `body_sway`, `ear_twitch` and the standing tail. An
@@ -495,10 +559,13 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   hip and camera/head forward, sideways or down, so the torso hinges over her instead of walking
   through the lean. With no lean the game's stepping feet are left alone; the capture clears on
   the next non-leaning frame.
-- With `features.anatomy_oral` on and oral active, `oral_pitch`, `oral_yaw` and `oral_roll` swing
-  the two neck bones and counter-rotate the head so her muzzle stays along the shaft. The keys are
-  absent otherwise. `standing_camera.set_facing_override()` owns her turn while oral is active and
-  clears when it ends; the normal facing lock resumes.
+- `standing_oral` is the standing frame's oral arrangement: the same stance and ground placement,
+  turned about UP by the pose-owned oral turn, with `poses/standing_oral_recipe.gd` as its
+  procedural delta. The delta swings the two neck bones with `oral_pitch`/`oral_yaw` and rolls the
+  head, counter-rotating it so her muzzle stays along the shaft. The three keys are written by the
+  turn and absent otherwise. The normal standing base never owns an oral overlay. The standing
+  camera reads the view's facing while the turn runs; the normal facing lock resumes when the
+  reverse edge or the act exit restores the capture.
 - Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`. The game's
   Same Height preset follows Anon's `player/height_cm`, so that gap, the lean scale and the
   caress offsets follow `Settings.anon_height_scale()` as described in `docs/hands.md`.
@@ -543,7 +610,9 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   `WING_AFTERGLOW_RETURN_SECONDS = 6.0`; early afterglow exit lets the node finish immediately.
 - Standing enters a held `AFTERGLOW`: the tail lifts and flicks twice. Lean and A/D caress remain
   live; holding the act key ends it. The close-window caress time is in `docs/hands.md`.
-  Missionary afterglow stays passive.
+  Missionary afterglow stays passive. `standing_oral` uses the passive afterglow row: the turned
+  frame, the facing and the neck keys stay, the mouth contact and viseme are released, and no
+  standing close window opens.
 
 ### Stretch (Idle Life)
 
@@ -688,17 +757,23 @@ unchanged.
 ## Tests
 
 - `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
-  standing stretch holder, the session API, the effective driver/base paths, the state machine,
-  the request/refusal codes, the target snapshot with the presentation, the requested evaluator
-  pair, the target adoption, the tick/switch/status path, the real control profiles, the pose-change
-  hook and the service-owned act-body release.
+  standing stretch holder, the session API, the effective driver/base paths, the state machine, the
+  request/refusal codes, the target snapshot with the presentation, the requested evaluator pair,
+  the target adoption, the tick/switch/status path, the real control profiles, the pose-change hook
+  and the service-owned act-body release. The oral case pins the turn, the contact switch at 0.9,
+  the control lock, the speech/viseme events, the settled delta, the afterglow release and the
+  reverse restore.
+- `tests/poses/test_oral_turn.gd` — the pose-owned oral turn: the captured root/facing/opening,
+  the forward and reverse weight mapping, the opening anchor while turning, the live mouth once
+  settled, the soft-kiss timer and the one restore.
 - `tests/poses/test_modifier_profile.gd` — the synthetic profile reconcile: the shared owner keeps
   its node, the source-only owner is removed, the target-only owners install behind their feature
   gates, the act-exit leave still removes all and the synthetic profile stays out of the shipped
   table.
 - `tests/poses/test_pose_blend.gd` — the typed single/blend modes, the single fast path and its
-  pose ramp, the base+delta order, the two-base capture/blend/overlay math and weights, the reused
-  capture buffers, the non-finite guard, the render order and the shipped standing driver.
+  pose ramp, the base+delta order, the oral delta forcing the blend pair and settling into the
+  single delta path, the two-base capture/blend/overlay math and weights, the reused capture
+  buffers, the non-finite guard, the render order and the shipped standing driver.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split: the leave steps keep the
   pose node, the config and the view, the final release clears them, the transition path keeps the
   pose alive, and no pose-scope or transition function reaches an act exit.
@@ -708,10 +783,10 @@ unchanged.
   arrays. Plain dictionaries only.
 - `tests/poses/test_pose_spec.gd` — the field wrapper, the shared validator, the base/driver rule
   and the pure source.
-- `tests/poses/test_pose_registry.gd` — the three shipped specs, the two authored edges, the
+- `tests/poses/test_pose_registry.gd` — the four shipped specs, the two authored pairs, the
   unchanged public catalog and the table rules.
 - `tests/poses/test_pose_edge.gd` — the edge documents, the typed wrapper and validator, the
-  registry load and the forward/reverse run proof.
+  registry load and the debug and oral forward/reverse run proofs.
 - `tests/poses/test_stretch.gd` — the external script validation, episode choice, ask ramp,
   modifier order, fallback and cleanup.
 - `tests/test_standing_presentation.gd` — the offer gate, the navigator stepping turn and its away

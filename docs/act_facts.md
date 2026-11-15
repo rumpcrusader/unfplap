@@ -71,8 +71,9 @@ id changes. The view stays filled for the whole act: the pose-scope leave steps
 (`leave_pose_start()`, `leave_pose_body()`) keep it, and only `release_pose()` clears it.
 `facts.pose_id` is the active `view.id` (the live target during a transition), while the runtime's
 and the session's `pose_id` stay the act's start pose for start/gate/teardown; `facts.pose_config`
-remains the live alias. The anatomy bridge writes the live `facing` and `facing_amount` into the
-view each tick without copying a dictionary.
+remains the live alias. The pose-owned oral turn writes the live `facing` and `facing_amount` into
+the view each tick without copying a dictionary, and the view's `contact_kind` is the one contact
+source; `facts.oral_active` is a derived compatibility mirror.
 
 HUD card (the runtime fills these once per rendered frame; `hud/service.gd` reads them instead of
 calling back into the runtime):

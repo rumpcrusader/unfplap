@@ -125,10 +125,11 @@ no idle block prints.
 The act probe's own chunks, in call order inside one physics tick: `pose_tick`, `runtime_facts`,
 `pose_fanout`, `caress_tick` (inside the lean), `runtime_presentation`, `kiss_tick`, `runtime_ai`,
 `anatomy_tick`, `runtime_talk`, `runtime_camera`, `runtime_face`, all inside `runtime_physics`.
-`pose_tick` is the pose edge clock, the channel records and the switches/events; `pose_fanout` is
-the modifier reconcile, the `act_body`/`anon` channel and the camera/hands/kiss/anatomy/audio
-hooks. The facts sync's `write_facing(view)` writes the oral facing into the pose view without a
-dictionary copy. The skeleton modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone`
+`pose_tick` is the pose edge clock, the channel records, the switches/events and the oral turn;
+`pose_fanout` is the modifier reconcile, the `act_body`/`anon` channel and the
+camera/hands/kiss/anatomy/audio hooks. The facts sync mirrors `view.contact_kind` into the
+compatibility `oral_active` field without a dictionary copy; the standing camera reads the view's
+facing each physics tick. The skeleton modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone`
 (`UnfplapProneSway`); `runtime_process` covers the render-time pose write. Chunks nest:
 `runtime_presentation` contains `wings_tick`, and `caress_tick` contains `caress_precise` →
 `caress_surface` → `caress_skin`/`caress_tri`/`caress_ray`.
@@ -137,9 +138,11 @@ dictionary copy. The skeleton modifiers report `pose_recipe` (`UnfplapPose`) and
 
 With **Enable debug** + **Print perf logs** on, record three `perf` windows in a standing act: one
 steady window, one while the Debug **Pose: test variant** edge runs (`standing ↔ standing_test`),
-and one after it returns. Compare `pose_tick` and `pose_fanout` with the steady window and the
-act's `runtime_physics` total; both chunks stay in the noise, and an edge window costs no
-per-frame allocation and no settings or file read. One idle window with the probe on must show
+and one after it returns. Then repeat in a standing act with the oral edge: one steady standing
+window, one forward edge window, one settled oral window with its soft-kiss timer, and one reverse
+edge window. Compare `pose_tick` and `pose_fanout` with the steady window and the act's
+`runtime_physics` total; both chunks stay in the noise, the oral turn allocates nothing per frame,
+and an edge window costs no settings or file read. One idle window with the probe on must show
 neither chunk: the `IDLE` path returns before both.
 
 The runtime also prints one-shot `tail perf attach`/`tail perf refresh` lines and a

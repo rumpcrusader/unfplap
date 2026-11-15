@@ -77,7 +77,7 @@ controller takes the view in `_init(facts)`, the engine and each path receive th
 they read `state`, `lean_forward`, `lean_side`, `size_name`, `size_scale`,
 `same_height_scale`, `physics_delta`, `presentation_config`, `profile`, `camera` and `main`, plus
 the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, `touch()` and
-`smack_hit()` callbacks. The pose path and the oral contact come from `facts.pose_view`: the
+`smack_hit()` callbacks. The pose path and the contact come from `facts.pose_view`: the
 controller reads `view.hands.path` and `view.contact_kind`, not `pose_id` or `oral_active`. The
 smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
 `hands/session.gd`, so `hands/smack.gd` needs no host node. The field and callback contract is
@@ -91,8 +91,9 @@ tick. `tests/hands/test_caress.gd` and `tests/hands/test_actions.gd` pin both se
 ## Pose paths
 
 `_path_for_pose()` selects from `facts.pose_view.hands.path`: `missionary` is the chest/neck/cheek
-path, `standing` is the head path while `view.contact_kind == "mouth"` and the flank path
-otherwise.
+path; `standing` and `oral` use the mouth contact (`view.contact_kind == "mouth"`) for the head
+path and the flank path otherwise. The contact is the switch, so the head path starts at the
+edge's contact time, not at the request.
 
 ### Missionary
 
@@ -134,7 +135,7 @@ otherwise.
 
 ### Standing oral
 
-- While `facts.oral_active` is true, `hands/service.gd` selects `hands/paths/oral.gd` instead of
+- While `view.contact_kind == "mouth"`, `hands/service.gd` selects `hands/paths/oral.gd` instead of
   the standing chain. `A`/`D` still toggle each hand, `Z`/`C` keep the oval and the five-second
   caress meter keeps scoring.
 - The path holds one authored node per hand: the `head_side` area in `hands/areas/areas.json`,
@@ -150,9 +151,10 @@ otherwise.
 - The oval travels fore/aft along the head tangent with the vertical as its other axis. The
   fingers point forward and the palm roll is `ORAL_PALM_ROLL_DEG = 24°` with the hand sign,
   mirroring the missionary roll convention.
-- A hand that is already caressing when the turn starts or ends eases from its live
-  `hand_frame()` onto the other path over `CARESS_ORAL_BLEND_S = 0.35 s`. A fresh `A`/`D` press
-  starts directly on the current path, because the normal caress start already resets the hand.
+- A hand that is already caressing when the contact switches to or from the mouth eases from its
+  live `hand_frame()` onto the other path over `CARESS_ORAL_BLEND_S = 0.35 s`. A fresh `A`/`D`
+  press starts directly on the current path, because the normal caress start already resets the
+  hand.
 - The side lookup is flipped: see the side convention below.
 
 The two authored files use different points of view. `hands/areas/areas.json` is authored from

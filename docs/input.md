@@ -133,6 +133,12 @@ toggle directly: `V` emits `hole`, `N` emits `oral` and `B` emits `finish`, each
 profile and the live edge lock before dispatching, so a pose that does not allow the id does
 nothing. The key is consumed whether the command is allowed or refused.
 
+`N` is the standing oral request: `runtime.toggle_anatomy_oral()` requests `standing_oral` from
+`standing` with the per-mare `oral` consent, and the reverse edge from `standing_oral`. The oral
+forward lock allows `oral`/`pose_back`/`end`, so `N` can return; the reverse lock allows only
+`end`. `V`/`B` are denied while the oral lock is live even when their feature gate is on. The VR
+left `by_button` emits the same `oral` command through the bridge's host callback.
+
 The continuous `thrust`, `lean`, `caress` and `kiss` inputs stay on their polled `RAW_KEYS`/mouse
 path, and the act-key hold owns `end`. Smack, auto-thrust and the debug wheel are body/camera
 actions outside the pose command set and keep their direct runtime methods.

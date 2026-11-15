@@ -29,10 +29,11 @@ Every camera, shot and body module reads `shared/act_facts.gd` and never the run
 binds the view, refreshes it in `_sync_act_facts()` and before it hands a controller out, and the
 modules read the camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`,
 `look_*`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`, `missionary_body()`,
-`authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The pose family, the oral contact
-kind and the presentation lean profile come from `facts.pose_view`; the camera does not read
-`pose_id` or `oral_active`. The field and callback contract is `docs/act_facts.md`; a camera module
-that reaches into the runtime fails `tests/test_source_hygiene.gd`.
+`authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The pose family, the contact kind
+(`view.contact_kind`) and the presentation lean profile come from `facts.pose_view`; the camera
+does not read `pose_id` or `oral_active`. The field and callback contract is
+`docs/act_facts.md`; a camera module that reaches into the runtime fails
+`tests/test_source_hygiene.gd`.
 
 The camera's `pose_changed(view)` hook is the retarget seam: it caches the last family, shot
 profile and presentation lean, and only on a change retires the pose-local lean action and re-aims
@@ -55,10 +56,13 @@ id, so a held debug pair does not snap. `tests/act_camera/test_camera.gd` pins t
   ```
 
 - `LEAN_RAMP_SECONDS = 0.5`, `LEAN_RETURN_SECONDS = 1.6`.
-- During standing oral (`facts.oral_active`) the lean is locked: `Q`/`E` and `W`/`S` are not
-  read, an active `Q`/`E` shoulder reach ends, an active `F` lean kiss releases, and
+- During standing oral (`view.contact_kind == "mouth"`) the lean is locked: `Q`/`E` and `W`/`S`
+  are not read, an active `Q`/`E` shoulder reach ends, an active `F` lean kiss releases, and
   `lean_forward`, `lean_side`, the displayed lean and the sway return to rest. The caress hands
   still tick and the standing look response still runs; the oral head path is `docs/hands.md`.
+- The standing facing lock reads `view.facing`/`facing_amount` every physics tick. The pose-owned
+  oral turn writes them; amount 0 clears the override and the normal `_facing_basis` resumes. The
+  camera keeps one facing path and no service carries a facing copy.
 - Camera mapping: forward `0.24 m`; backward `0.08 m` (half); side `0.18 m`; pitch is `6°`
   downward in **both** directions, plus `8°` outward side roll, `3°` side yaw and `1.5°` forward
   roll.
@@ -244,8 +248,9 @@ takes effect when the panel closes.
 
 ## Tests
 
-- `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, shot targets, free
-  camera, eye override, look capture and restore, size scales and the afterglow back-off.
+- `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, the pose-view facing
+  override, shot targets, free camera, eye override, look capture and restore, size scales and the
+  afterglow back-off.
 - `tests/poses/test_session.gd` — the pose camera targets and the bed frame the shot reads.
 - `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.
 

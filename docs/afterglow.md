@@ -63,10 +63,15 @@ driver/delta pair and config; nothing rebuilds, releases or re-poses the body at
 The close window comes from the view's `afterglow.close_window`. The phase has no `pose_changed`
 hook. The runtime and facade source must not name a pose mode.
 
+For `standing_oral` the held pose is the turned frame and the neck keys. On entry the runtime calls
+`release_mouth_contact()`: the contact returns to the opening, the viseme clears, the soft-kiss
+timer stops, and the turned root/facing stay until the one act exit restores them. No reverse edge
+runs implicitly, and the pose row's passive afterglow opens no close window.
+
 The tail target and flick count follow the active `view.family`: `standing` lifts the tail and
-flicks it, `bed` lowers it and keeps it still. `view.family` is `standing` for `standing` and
-`standing_test`, `bed` for missionary. The act's start `pose` is only the fallback when no view is
-bound, so a stale start id cannot choose the tail behaviour.
+flicks it, `bed` lowers it and keeps it still. `view.family` is `standing` for `standing`,
+`standing_test` and `standing_oral`, `bed` for missionary. The act's start `pose` is only the
+fallback when no view is bound, so a stale start id cannot choose the tail behaviour.
 
 ## `[stay]` action
 
@@ -76,8 +81,9 @@ executor, so that action does not control the phase.
 
 ## Close window
 
-- The pose row's `afterglow.close_window` opens it: standing declares it, missionary does not.
-  `begin()` sets `close_left = STAY_CLOSE_SECONDS` (8 s) when the profile opens the window.
+- The pose row's `afterglow.close_window` opens it: standing declares it; missionary and
+  `standing_oral` do not. `begin()` sets `close_left = STAY_CLOSE_SECONDS` (8 s) when the profile
+  opens the window.
 - `close_tick()` adds to `close_caress_seconds` while the hand controller has an active caress and
   subtracts the same delta from `close_left`.
 - At zero the window grants exactly one reward. `close_caress_earned` is true only with at least
@@ -133,8 +139,8 @@ Hold the act key:
 ## Tests
 
 `tests/afterglow/test_afterglow.gd` builds the facade with fake callbacks and covers the close
-window's timing, caress count and single reward, the early cancel, the missionary skip, the
-presentation row (no pose mode/afterglow pose, the tail row following the view family when the
+window's timing, caress count and single reward, the early cancel, the missionary and oral skips,
+the presentation row (no pose mode/afterglow pose, the tail row following the view family when the
 start pose differs, the held pose and the re-asserted weight) and the runtime forwards for the HUD
 and prompt note. Wing folding lives in
 `poses/wing_control.gd` and is covered in the same suite; the wing controller reads the typed act

@@ -75,6 +75,8 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   `standing_test` pose in a live standing act, runs the authored `standing ↔ standing_test` edge
   and logs the request code and the status event. It never ends the act, releases the pose or
   restores bones; in a missionary act it refuses with "Only in a standing act." See `docs/poses.md`.
+  The real oral edge has no debug action: `N` is its only trigger, and the forward/reverse status
+  and switch lines are in the same log.
 - **Reset act prompts** clears the per-mare prompt overrides; see `docs/settings.md`.
 
 ## Action wheel

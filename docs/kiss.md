@@ -27,6 +27,7 @@ stay unchanged.
 | Pose | Control | Start |
 |---|---|---|
 | Standing | hold `F` at `abs(lean_side) >= STANDING_KISS_LEAN = 0.90` | the game's own kiss path |
+| Standing oral | the mouth contact owns the head | no kiss starts; a running lean kiss releases through the oral lean tick |
 | Missionary | hold `F` at `lean_forward >= MISSIONARY_KISS_LEAN = 0.90` **and** `W` held | the custom head-aim path |
 | Both | release `F` or drop the lean | ends the kiss |
 | Both | `H` | consumed; a stock hug/deep kiss cannot end the act's kiss |

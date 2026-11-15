@@ -15,13 +15,13 @@ Two documents share one shape:
 The shipped document is a valid settings document; the player document is that document with
 edits. Nothing else supplies a default.
 
-The General, Anatomy and World panels are drawn from the declarations by `settings/ui.gd` in the
-settings page's own menu style: row cards, `Faint` help, switch plus state, Segment pills for a few
-short choices and the `Tab` look for a collapsible section heading. The tab pills, sidebar row, the
-hand-built Characters preference tab and the catalog-driven Integrations tab are added by the
-injection in `settings/ui.gd`. The Characters form itself is in `settings/characters_ui.gd`; the
-consent and participation semantics are in `docs/eligibility.md`; the supported-mod catalog is
-`shared/integrations.gd`.
+The General, Anatomy, Poses and World panels are drawn from the declarations by `settings/ui.gd` in
+the settings page's own menu style: row cards, `Faint` help, switch plus state, Segment pills for a
+few short choices and the `Tab` look for a collapsible section heading. The tab pills, sidebar row,
+the hand-built Characters preference tab, the catalog-driven Integrations tab and the debug-only
+Poses tab are added by the injection in `settings/ui.gd`. The Characters form itself is in
+`settings/characters_ui.gd`; the consent and participation semantics are in
+`docs/eligibility.md`; the supported-mod catalog is `shared/integrations.gd`.
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a
 > restore/normalise function or a save function for a setting, stop. Declare the setting and add
@@ -107,7 +107,7 @@ outside the settings service and no second cache.
 
    ```gdscript
    static var raise_m := num("raise_m", "presentation.standing.smack.raise_m", "Max raise",
-       "Hand lift at the top of the wind-up.", GENERAL, "Standing › Smack") \
+       "Hand lift at the top of the wind-up.", POSES, "Standing › Smack") \
        .with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
    ```
 
@@ -147,8 +147,8 @@ color(n, path, label, help, tab, group)
 | `n` | the identifier, `SETTINGS.<n>` |
 | `path` | the path in both the shipped and the player document; the only string, and it lives here |
 | `label`, `help` | the row text and the line under it. A boolean label starts with a verb (Show, Allow, Use, Play, Print, Hide, Pin, Sway, Twitch, Remember, Mute); a choice or number keeps its noun |
-| `tab` | `GENERAL`, `ANATOMY` or `WORLD` |
-| `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing`. A group needs at least 3 related settings: fewer, and pass `""` so the setting sits in the tab with no heading (a small subgroup merges into its parent) |
+| `tab` | `GENERAL`, `ANATOMY`, `POSES` or `WORLD` |
+| `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing`. A group needs at least 3 related settings: fewer, and pass `""` so the setting sits in the tab with no heading (a small subgroup merges into its parent). A pose feature flag left in General keeps its old pose group even when Poses took the rest of the section |
 | `options`, `labels` | the accepted values and their display text for a choice or list |
 | `with_unit`, `with_step`, `with_scale` | display unit, spin step and display multiplier (`m` shown as `cm` = `100`) |
 | `with_range` | the contract bounds; only applied when the setting is not debug |
@@ -184,14 +184,20 @@ prefixes pre-emptively.
 ## Tabs, groups and debug
 
 - Tabs, in panel order: **General** (interface, audio, cycle, thrust, act tuning), **Anatomy**,
-  **World** (relationships, cycle, witnesses, pony behaviour), **Characters** (the per-mare form)
-  and **Integrations** (supported mods and their switches).
+  **Poses** (the debug-only pose tuning page), **World** (relationships, cycle, witnesses, pony
+  behaviour), **Characters** (the per-mare form) and **Integrations** (supported mods and their
+  switches).
+- **Poses** is injected after Anatomy and exists only while **Enable debug** is on. Its tab title
+  and page are hidden together, and the page is that tab's one Debug block. The
+  `presentation.missionary.*` and `presentation.standing.*` rows live there; the JSON paths and
+  values do not move. General keeps the `features.*` pose flags and `presentation.act.climax_mode`.
 - General opens with the **Act Key** capture row. Its `act_key` declaration is a hidden numeric
   setting (a physical keycode) because a key capture is not one of the declaration widgets;
   `settings/ui.gd` draws the row by hand. It still has no section heading.
 - Player-facing settings come first in their tab. When **Enable debug** (General's last row) is
   on, the tab ends with one **Debug** section holding that tab's debug settings under the same
-  group names. A section name draws one heading; interleaved declarations fold back into it.
+  group names. A section name draws one heading; interleaved declarations fold back into it. The
+  Poses tab has only debug settings, so its whole page is that block.
 - Every section remembers whether it is open in the player file under `ui.sections`, keyed
   `tab/group`; the Debug block and its subsections use the `Debug/` prefix. Read and write that
   state through `SETTINGS.section_open(tab, group)` and `SETTINGS.set_section_open(tab, group, open)`.
@@ -338,8 +344,9 @@ Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `controls`
 
 ## The settings tab
 
-`Settings → Unfplap` has five sub-tabs: **General**, **Anatomy**, **World**, **Characters** and
-**Integrations**.
+`Settings → Unfplap` has six sub-tabs: **General**, **Anatomy**, **Poses**, **World**,
+**Characters** and **Integrations**. **Poses** appears after Anatomy only while **Enable debug** is
+on.
 Every setting row comes from one declaration in `settings/service.gd` — label, help, section,
 bounds — and applies live.
 
@@ -358,8 +365,9 @@ mods' keys** and **Enable debug** (the switch that reveals the Debug sections) a
 **Block other mods' keys** shields an act's input; see the HACK note in `docs/input.md`.
 
 The audio switches, auto-thrust pace/bottom/peak/shape (`1.0…3.75/s`, `0…0.82`, `0.20…1`, five
-waveforms), the hip back-off (`0.25…2.0×`) and the standing debug rows live in General's Debug
-block. The body slap fires at true contact; the old **Contact gap** row is retired.
+waveforms) and the hip back-off (`0.25…2.0×`) live in General's Debug block. Its pose feature flags
+keep their **Missionary** and **Standing › Motion** group names there even though the pose tuning
+rows moved to Poses. The body slap fires at true contact; the old **Contact gap** row is retired.
 
 **Show start button** chooses between When Available and Try Your Luck. The gate semantics —
 including what Try Your Luck does and does not lift — are in `docs/eligibility.md`. The setting
@@ -379,6 +387,28 @@ applies to the controls. Choosing Act or Always restores the rows.
 - **You** (renamed from Anon): size, length, base/mid/head radius and throb.
 
 The dock and appearance behavior is in `docs/anatomy.md`.
+
+**Poses**
+
+Poses appears after Anatomy only while **Enable debug** is on; with debug off its tab title and page
+are absent. The page holds the pose tuning rows from `presentation.missionary.*` and
+`presentation.standing.*`; their JSON paths and values are unchanged, so a player file carries over
+without a migration. The page is the tab's one Debug block.
+
+- **Missionary**: **Anon size match**, **Missionary path** (the authored caress chain), **Disable
+  fold coloring**, Camera (Anon eyes or authored shots), **Third-person views**, **Use free look**
+  and **Cock base inset**.
+- **Missionary › Size**: the **Size** dropdown over the six per-size values — the three vulva trims,
+  **Vulva hug**, head clearance and gaze height — for the selected pony size.
+- **Standing**: **Chin up**, **Neck down**, **Tail lift (pitch)** and **Tail aside (yaw)**.
+- **Standing › Motion**: camera forward/pitch, chest back, gap offset, stool gap and height,
+  glance-back speed, hip drop and Anon torso lean.
+- **Standing › Kiss**: mouth right/down/forward, camera yaw and side/forward/drop lean.
+- **Standing › Smack**: max raise, hind offset, height, palm arc, palm pitch, raise speed and
+  return speed.
+
+The behavior behind the rows is in `docs/camera.md`, `docs/hands.md`, `docs/kiss.md` and
+`docs/stool.md`.
 
 **World**
 
@@ -404,8 +434,8 @@ interjections**.
 
 Turning on **Enable debug** (General's last row) adds one collapsed **Debug** section at the
 bottom of General, Anatomy, World and Integrations; each section keeps the groups it belongs to,
-plus the **Actions** buttons at the end of the tab's own group, in compact rows. Its settings are
-mostly act tuning:
+plus the **Actions** buttons at the end of the tab's own group, in compact rows. The Poses tab is
+itself debug-only, so its whole page is that tab's Debug block. Its settings are mostly act tuning:
 
 - **Talk & cues**: override lifetime, base/override stability, shared line gap, demand gap/repeat,
   cue/reaction max age, release hold, overwhelmed duration, and the touch/talk cooldowns plus
@@ -421,14 +451,18 @@ mostly act tuning:
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, Surge and Bob. Surge is
   the forward camera travel, Bob the vertical dip; both follow the filtered thrust **speed**, not
   depth, with one smooth critically damped response.
-- **Missionary**: body motion, **Anon size match**, a **Size** dropdown over the six per-size
-  values (the three vulva trims, **Vulva hug**, head clearance, gaze height),
+- **Missionary** (Poses): **Anon size match**, a **Size** dropdown over the six per-size values
+  (the three vulva trims, **Vulva hug**, head clearance, gaze height), **Missionary path**,
   **Disable fold coloring**, camera mode, free look and third-person views.
-- **Standing → Motion**: glance-back speed (`0.25…3.0×`), Anon torso lean.
-- **Standing → Kiss**: mouth right/down/forward, camera yaw, side/forward/drop lean.
-- **Standing → Caress**: see `docs/hands.md`.
-- **Standing → Smack**: max raise, hind offset, height, palm arc, palm pitch, raise speed and
-  return speed.
+- **Standing** (Poses): chin up, neck down, tail lift and tail aside.
+- **Standing → Motion** (Poses): camera forward/pitch, chest back, gap offset, stool gap and
+  height, glance-back speed (`0.25…3.0×`), hip drop and Anon torso lean.
+- **Standing → Kiss** (Poses): mouth right/down/forward, camera yaw, side/forward/drop lean.
+- **Standing → Smack** (Poses): max raise, hind offset, height, palm arc, palm pitch, raise speed
+  and return speed.
+- **Missionary body motion**, **Sway her body** and **Twitch her ears** (General): the three pose
+  feature flags stay in General's Debug block under their old group names.
+- **Caress** (General): see `docs/hands.md`.
 - **Thrust jiggle**: radius, center height/back, thrust and smack intensity.
 
 The declaration-drawn pages have no Save buttons: each edit writes its value and applies to the
@@ -487,15 +521,18 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
   the only assertions are the ones in `tests/test_settings.gd`: registry integrity, the shipped
   document's schema (key set, types, options and bounds — never values), the file round-trip,
   clamping versus debug bypass, validation, section state, the panel drawing every declaration,
-  migration and the per-mare merge. Extend that file only for new API behaviour.
+  the Poses tab's debug-only visibility, migration and the per-mare merge. Extend that file only for
+  new API behaviour.
 - A retired setting is one `deprecated()` entry in `settings/service.gd` with its mapping; bump
   `SCHEMA_VERSION` only for a structural change in `_migrate()`. Neither needs a manual file edit.
 - **A group needs at least three related settings.** Fewer, and the setting goes directly in the
   tab (or its Debug block) with `group` empty and no heading; a subgroup that small merges into its
-  parent section. `tests/test_settings.gd` enforces the rule.
+  parent section. A pose feature flag left in General keeps its old pose group even when Poses took
+  the rest of the section; that is the one exception. `tests/test_settings.gd` enforces the rule.
 - The Debug block is gated by `debug_mode` and toggles live: `settings/ui.gd` keeps the block and
   shows or hides it. Put new debug-only settings behind `.as_debug()`; the Actions buttons live
-  inside the Debug block of the action's tab.
+  inside the Debug block of the action's tab. The Poses tab itself is injected only behind
+  `debug_mode`: its title and page are hidden together.
 - A debug action that belongs with others shares a `row` caption and a `short` label in
   `debug/service.gd`; consecutive entries with the same row render on one line.
 - The Anatomy Actions block starts with the **Placement target** pill (`Default` / `Pointed
@@ -528,7 +565,8 @@ Debug commands are entries in `debug/service.gd`:
 ```
 
 The **Debug** block of the tab named by the entry's `tab` (`general` by default, or `anatomy`/
-`world`) draws a button for it and calls `method` on the entry node. An action on a wheel page sets
+`world`; the debug-only Poses tab carries no action) draws a button for it and calls `method` on the
+entry node. An action on a wheel page sets
 `"panel": false`; the Debug block skips it, so the settings blocks draw only the settings-only
 actions. Entries that share `"row"` are drawn compactly on one line under that caption (`"short"`
 is the button text), so related settings-only actions stay together; adding an action is one entry

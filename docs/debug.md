@@ -23,10 +23,10 @@ each Debug block. `main.gd` owns the console gate, the wheel gate and the skelet
 ## Debug actions
 
 Debug actions live in `debug/service.gd` and render as buttons in the **Debug** block of the tab
-their `tab` names (`general` by default, `anatomy` or `world`). Adding an action is one entry plus
-one method. An action on a wheel page sets `panel: false`, so the settings blocks draw only the
-settings-only actions and the wheel is the only trigger for the rest; those wheel-backed actions
-are desktop-only.
+their `tab` names (`general` by default, `anatomy` or `world`); the debug-only Poses tab has no
+action. Adding an action is one entry plus one method. An action on a wheel page sets
+`panel: false`, so the settings blocks draw only the settings-only actions and the wheel is the
+only trigger for the rest; those wheel-backed actions are desktop-only.
 
 The registry declares no global hotkeys: the game's own dev keys (`F4` render breakdown, `F9`
 trace, `F10` FPS overlay, `F11` free camera) must stay usable while the mod is loaded, so a Debug

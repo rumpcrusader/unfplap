@@ -82,10 +82,13 @@ const CHARACTER_NAMES := CHARACTERS.NAMES
 ## Cross-mod provider layers; see docs/api.md. Provider data is in memory only.
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
-## Tabs, in panel order. Characters is the hand-built per-mare form; Integrations is the
-## catalog-driven supported-mod list whose switches are ordinary declarations.
+## Tabs, in panel order. Poses holds the `presentation.missionary.*` and
+## `presentation.standing.*` tuning rows and is injected only while debug mode is on. Characters
+## is the hand-built per-mare form; Integrations is the catalog-driven supported-mod list whose
+## switches are ordinary declarations.
 const GENERAL := "general"
 const ANATOMY := "anatomy"
+const POSES := "poses"
 const WORLD := "world"
 const INTEGRATIONS := "integrations"
 
@@ -864,7 +867,7 @@ static var path_id := choice("path_id", "presentation.missionary.caress.path_id"
 	["one", "two"], ["Path one: belly/chest/neck/cheek", "Path two: flank/shoulder/neck"],
 	"Missionary path",
 	"Switch between the two authored missionary caress paths. Path one is belly/chest/neck/cheek; path two is flank/shoulder/neck.",
-	GENERAL, "Caress").as_debug()
+	POSES, "Missionary").as_debug()
 static var caress_debug := flag("caress_debug", "features.caress_debug",
 	"Print caress contact",
 	"Log the caress path, surface source, hand mode and contact once per hand per act.", GENERAL,
@@ -983,28 +986,28 @@ static var anon_size_match := num("anon_size_match",
 	"presentation.missionary.anon_size_match",
 	"Anon size match",
 	"How much Anon's body scales with the pony in missionary. 0 keeps him human-sized; 1 scales him with her.",
-	GENERAL, "Missionary").with_range(0.0, 1.0).with_step(0.01).with_slider().as_debug()
+	POSES, "Missionary").with_range(0.0, 1.0).with_step(0.01).with_slider().as_debug()
 static var disable_fold_coloring := flag("disable_fold_coloring",
 	"presentation.missionary.disable_fold_coloring",
 	"Hack: Disable fold coloring",
 	"Draw the whole vulva in her outer skin color during the missionary act; the pink folds and clitoris colors are off.",
-	GENERAL, "Missionary").as_debug()
+	POSES, "Missionary").as_debug()
 static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode",
 	["eye", "shots"], ["Anon eyes", "Authored shots"], "Camera",
 	"Anon eyes: the view is his posed head, and leaning hinges his upper body at the spine. Authored shots: the eye follows the pose lab's camera positions.",
-	GENERAL, "Missionary").as_debug()
+	POSES, "Missionary").as_debug()
 static var third_person := flag("third_person", "presentation.missionary.third_person",
 	"Third-person views",
 	"Let the missionary shot lean and surge off the authored camera positions, so the eye drifts around the two bodies. Off keeps the camera on the authored trajectory.",
-	GENERAL, "Missionary").as_debug()
+	POSES, "Missionary").as_debug()
 static var free_look := flag("free_look", "presentation.missionary.free_look",
 	"Use free look",
 	"Turn the act shot where it stands, so the pose can be inspected. The mouse stops driving thrust.",
-	GENERAL, "Missionary").as_debug()
+	POSES, "Missionary").as_debug()
 static var part_inset_m := num("part_inset_m", "presentation.missionary.part_inset_m",
 	"Cock base inset",
 	"Slide the cock base back toward Anon in missionary, in centimetres. Negative moves it into the pelvis; use it to hide the base and close the hip gap.",
-	GENERAL, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+	POSES, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 
 # -- Missionary size  (debug)
 ## The six geometry values are tuned per pony size. The dropdown above them picks which size is
@@ -1017,103 +1020,103 @@ const MISSIONARY_SIZE_BASES: Array[String] = ["vulva_shift_mm", "vulva_pitch_deg
 const MISSIONARY_SIZE_GROUP := "Missionary › Size"
 static var size_group := choice("size_group", "presentation.missionary.size_group",
 	MISSIONARY_SIZES, MISSIONARY_SIZE_LABELS, "Size",
-	"The pony size these missionary values are for.", GENERAL, MISSIONARY_SIZE_GROUP).as_debug()
+	"The pony size these missionary values are for.", POSES, MISSIONARY_SIZE_GROUP).as_debug()
 static var vulva_shift_mm_canon := num("vulva_shift_mm_canon",
 	"presentation.missionary.size.canon.vulva_shift_mm", "Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var vulva_shift_mm_mounting := num("vulva_shift_mm_mounting",
 	"presentation.missionary.size.mounting.vulva_shift_mm", "Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var vulva_shift_mm_same_height := num("vulva_shift_mm_same_height",
 	"presentation.missionary.size.same height.vulva_shift_mm", "Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var vulva_shift_mm_hoers := num("vulva_shift_mm_hoers",
 	"presentation.missionary.size.hoers.vulva_shift_mm", "Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var vulva_pitch_deg_canon := num("vulva_pitch_deg_canon",
 	"presentation.missionary.size.canon.vulva_pitch_deg", "Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
 static var vulva_pitch_deg_mounting := num("vulva_pitch_deg_mounting",
 	"presentation.missionary.size.mounting.vulva_pitch_deg", "Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
 static var vulva_pitch_deg_same_height := num("vulva_pitch_deg_same_height",
 	"presentation.missionary.size.same height.vulva_pitch_deg", "Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
 static var vulva_pitch_deg_hoers := num("vulva_pitch_deg_hoers",
 	"presentation.missionary.size.hoers.vulva_pitch_deg", "Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
 static var vulva_depth_shift_mm_canon := num("vulva_depth_shift_mm_canon",
 	"presentation.missionary.size.canon.vulva_depth_shift_mm", "Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var vulva_depth_shift_mm_mounting := num("vulva_depth_shift_mm_mounting",
 	"presentation.missionary.size.mounting.vulva_depth_shift_mm", "Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var vulva_depth_shift_mm_same_height := num("vulva_depth_shift_mm_same_height",
 	"presentation.missionary.size.same height.vulva_depth_shift_mm", "Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var vulva_depth_shift_mm_hoers := num("vulva_depth_shift_mm_hoers",
 	"presentation.missionary.size.hoers.vulva_depth_shift_mm", "Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var missionary_vulva_hug_mm_canon := num("missionary_vulva_hug_mm_canon",
 	"presentation.missionary.size.canon.vulva_hug_mm", "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var missionary_vulva_hug_mm_mounting := num("missionary_vulva_hug_mm_mounting",
 	"presentation.missionary.size.mounting.vulva_hug_mm", "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var missionary_vulva_hug_mm_same_height := num("missionary_vulva_hug_mm_same_height",
 	"presentation.missionary.size.same height.vulva_hug_mm", "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var missionary_vulva_hug_mm_hoers := num("missionary_vulva_hug_mm_hoers",
 	"presentation.missionary.size.hoers.vulva_hug_mm", "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
 static var head_clearance_mm_canon := num("head_clearance_mm_canon",
 	"presentation.missionary.size.canon.head_clearance_mm", "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var head_clearance_mm_mounting := num("head_clearance_mm_mounting",
 	"presentation.missionary.size.mounting.head_clearance_mm", "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var head_clearance_mm_same_height := num("head_clearance_mm_same_height",
 	"presentation.missionary.size.same height.head_clearance_mm", "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var head_clearance_mm_hoers := num("head_clearance_mm_hoers",
 	"presentation.missionary.size.hoers.head_clearance_mm", "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm_canon := num("gaze_offset_mm_canon",
 	"presentation.missionary.size.canon.gaze_offset_mm", "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm_mounting := num("gaze_offset_mm_mounting",
 	"presentation.missionary.size.mounting.gaze_offset_mm", "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm_same_height := num("gaze_offset_mm_same_height",
 	"presentation.missionary.size.same height.gaze_offset_mm", "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 static var gaze_offset_mm_hoers := num("gaze_offset_mm_hoers",
 	"presentation.missionary.size.hoers.gaze_offset_mm", "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
-	GENERAL, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
 
 ## The size preset the game is currently set to. The game's Settings autoload is cached; the preset
 ## is the same for every pony of that size (a stallion is 1.2x the preset, not a preset of its own).
@@ -1181,16 +1184,16 @@ static func palm_scale_for(size: String) -> float:
 
 # -- Standing  (debug)
 static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg",
-	"Chin up", "Standing head lift at the chin.", GENERAL, "Standing") \
+	"Chin up", "Standing head lift at the chin.", POSES, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()
 static var neck_down_deg := num("neck_down_deg", "presentation.standing.neck_down_deg",
-	"Neck down", "Standing neck reach down/forward.", GENERAL, "Standing") \
+	"Neck down", "Standing neck reach down/forward.", POSES, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()
 static var tail_pitch_deg := num("tail_pitch_deg", "presentation.standing.tail.pitch_deg",
-	"Tail lift (pitch)", "How far the standing tail lifts up. Pairs with Tail aside.", GENERAL, "Standing") \
+	"Tail lift (pitch)", "How far the standing tail lifts up. Pairs with Tail aside.", POSES, "Standing") \
 	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
 static var yaw_deg := num("yaw_deg", "presentation.standing.tail.yaw_deg",
-	"Tail aside (yaw)", "How far the standing tail sweeps aside from her centreline.", GENERAL, "Standing") \
+	"Tail aside (yaw)", "How far the standing tail sweeps aside from her centreline.", POSES, "Standing") \
 	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
 
 # -- Standing › Motion  (debug)
@@ -1204,86 +1207,86 @@ static var thrust_ear_twitch := flag("thrust_ear_twitch", "features.thrust_ear_t
 	.as_debug()
 static var camera_forward_m := num("camera_forward_m", "presentation.standing.camera_forward_m", "Camera forward",
 	"Slide Anon's view forward relative to his chest so his own body sits behind the camera.",
-	GENERAL, "Standing › Motion") \
+	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var camera_pitch_deg := num("camera_pitch_deg", "presentation.standing.camera_pitch_deg", "Camera pitch", "Tilt Anon's standing view up or down; positive looks up.", GENERAL,
+static var camera_pitch_deg := num("camera_pitch_deg", "presentation.standing.camera_pitch_deg", "Camera pitch", "Tilt Anon's standing view up or down; positive looks up.", POSES,
 	"Standing › Motion") \
 	.with_unit("°").with_step(0.5).as_debug()
 static var chest_back_m := num("chest_back_m", "presentation.standing.chest_back_m",
 	"Chest back", "Push Anon's chest back from the camera in the standing act. 0 is off.",
-	GENERAL, "Standing › Motion") \
+	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var gap_offset_m := num("gap_offset_m", "presentation.standing.gap_offset_m",
 	"Gap offset", "Move Anon closer (negative) or farther (positive) when a standing act starts.",
-	GENERAL, "Standing › Motion") \
+	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var stool_gap_m := num("stool_gap_m", "presentation.standing.stool_gap_m",
 	"Stool gap",
 	"Vertical gap between her bits and Anon's that needs a footstool. 20 cm by default.",
-	GENERAL, "Standing › Motion") \
+	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(5.0).with_scale(100.0).as_debug()
 static var stool_height_m := num("stool_height_m", "presentation.standing.stool_height_m",
 	"Stool height",
 	"Height each placed footstool adds. The act stacks enough footstools to cover the gap.",
-	GENERAL, "Standing › Motion") \
+	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(5.0).with_scale(100.0).as_debug()
 static var glance_back_speed := num("glance_back_speed",
 	"presentation.standing.glance_back_speed", "Glance-back speed",
-	"How fast a look-back glance eases in and out.", GENERAL, "Standing › Motion") \
+	"How fast a look-back glance eases in and out.", POSES, "Standing › Motion") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 3.0).as_debug()
 static var hip_drop_m := num("hip_drop_m", "presentation.standing.hip_drop_m", "Hip drop",
-	"Lower Anon's standing hips; use this when his body sits too high. 0 is off.", GENERAL,
+	"Lower Anon's standing hips; use this when his body sits too high. 0 is off.", POSES,
 	"Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.torso_angle_deg", "Anon torso lean",
-	"Hinge Anon's upper body forward over her; the lower body stays planted.", GENERAL,
+	"Hinge Anon's upper body forward over her; the lower body stays planted.", POSES,
 	"Standing › Motion") \
 	.with_unit("°").with_step(1.0).as_debug()
 
 # -- Standing › Kiss  (debug)
-static var camera_yaw_deg := num("camera_yaw_deg", "presentation.standing.kiss.camera_yaw_deg", "Kiss camera yaw", "Over-the-shoulder yaw toward her at the kiss.", GENERAL,
+static var camera_yaw_deg := num("camera_yaw_deg", "presentation.standing.kiss.camera_yaw_deg", "Kiss camera yaw", "Over-the-shoulder yaw toward her at the kiss.", POSES,
 	"Standing › Kiss") \
 	.with_unit("°").with_step(1.0).as_debug()
 static var lean_drop := num("lean_drop", "presentation.standing.kiss.lean_drop",
-	"Kiss lean drop", "How far he drops over her at the kiss.", GENERAL, "Standing › Kiss") \
+	"Kiss lean drop", "How far he drops over her at the kiss.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var lean_forward := num("lean_forward", "presentation.standing.kiss.lean_forward",
-	"Kiss forward lean", "Forward kiss lean.", GENERAL, "Standing › Kiss") \
+	"Kiss forward lean", "Forward kiss lean.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var lean_side := num("lean_side", "presentation.standing.kiss.lean_side",
-	"Kiss side lean", "Sideways kiss lean toward the shoulder side.", GENERAL, "Standing › Kiss") \
+	"Kiss side lean", "Sideways kiss lean toward the shoulder side.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var mouth_drop := num("mouth_drop", "presentation.standing.kiss.mouth_drop",
-	"Kiss mouth down", "Anon's mouth target drop at the kiss.", GENERAL, "Standing › Kiss") \
+	"Kiss mouth down", "Anon's mouth target drop at the kiss.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var mouth_forward := num("mouth_forward", "presentation.standing.kiss.mouth_forward", "Kiss mouth forward", "Anon's mouth target forward at the kiss.", GENERAL,
+static var mouth_forward := num("mouth_forward", "presentation.standing.kiss.mouth_forward", "Kiss mouth forward", "Anon's mouth target forward at the kiss.", POSES,
 	"Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var mouth_right := num("mouth_right", "presentation.standing.kiss.mouth_right",
-	"Kiss mouth right", "Anon's mouth target sideways at the kiss.", GENERAL, "Standing › Kiss") \
+	"Kiss mouth right", "Anon's mouth target sideways at the kiss.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 
 # -- Standing › Smack  (debug)
 static var arc_m := num("arc_m", "presentation.standing.smack.arc_m", "Palm arc",
-	"Bow of the lift path toward her rump.", GENERAL, "Standing › Smack") \
+	"Bow of the lift path toward her rump.", POSES, "Standing › Smack") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var height_m := num("height_m", "presentation.standing.smack.height_m", "Height",
-	"Move the target up or down the cheek.", GENERAL, "Standing › Smack") \
+	"Move the target up or down the cheek.", POSES, "Standing › Smack") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var hind_m := num("hind_m", "presentation.standing.smack.hind_m", "Hind offset",
-	"Move the target toward her rump.", GENERAL, "Standing › Smack") \
+	"Move the target toward her rump.", POSES, "Standing › Smack") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-static var smack_pitch_deg := num("smack_pitch_deg", "presentation.standing.smack.pitch_deg", "Palm pitch", "Pitch the raised palm down from the contact basis.", GENERAL,
+static var smack_pitch_deg := num("smack_pitch_deg", "presentation.standing.smack.pitch_deg", "Palm pitch", "Pitch the raised palm down from the contact basis.", POSES,
 	"Standing › Smack") \
 	.with_unit("°").with_step(1.0).as_debug()
 static var raise_m := num("raise_m", "presentation.standing.smack.raise_m", "Max raise",
-	"Hand lift at the top of the wind-up.", GENERAL, "Standing › Smack") \
+	"Hand lift at the top of the wind-up.", POSES, "Standing › Smack") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 static var raise_speed := num("raise_speed", "presentation.standing.smack.raise_speed",
-	"Raise speed", "Wind-up speed in metres per second.", GENERAL, "Standing › Smack") \
+	"Raise speed", "Wind-up speed in metres per second.", POSES, "Standing › Smack") \
 	.with_unit("m/s").with_step(0.1).as_debug()
 static var return_speed := num("return_speed", "presentation.standing.smack.return_speed",
-	"Return speed", "Strike speed in metres per second.", GENERAL, "Standing › Smack") \
+	"Return speed", "Strike speed in metres per second.", POSES, "Standing › Smack") \
 	.with_unit("m/s").with_step(0.1).as_debug()
 
 # -- Thrust jiggle  (debug)

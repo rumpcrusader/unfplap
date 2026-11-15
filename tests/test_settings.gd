@@ -47,6 +47,7 @@ func run() -> void:
 	_check_shipped_defaults()
 	_check_catalog()
 	_check_player_document()
+	_check_poses_defaults()
 	_check_bounds()
 	_check_act_key()
 	_check_snapshot()
@@ -58,6 +59,7 @@ func run() -> void:
 	_check_sections()
 	_check_groups()
 	_check_panels()
+	_check_pose_tab_visibility()
 	_check_anatomy_gate()
 	_check_debug_actions()
 	_check_integrations_panel()
@@ -96,14 +98,31 @@ func _check_registry() -> void:
 		# legal too: the label alone can say what the row does.
 		if str(setting.label).is_empty():
 			complete = false
-		if str(setting.tab) not in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD,
-				SETTINGS.INTEGRATIONS]:
+		if str(setting.tab) not in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.POSES,
+				SETTINGS.WORLD, SETTINGS.INTEGRATIONS]:
 			complete = false
 		tabs[setting.tab] = int(tabs.get(setting.tab, 0)) + 1
 	check(complete, "every setting has a unique name and path, a label and tab")
-	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD,
+	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.POSES, SETTINGS.WORLD,
 			SETTINGS.INTEGRATIONS]:
 		check(int(tabs.get(tab, 0)) > 0, "%s tab has settings" % tab)
+	# The Poses tab is exactly the presentation blocks; features flags and the climax face stay in
+	# General even when their group name is Missionary or Standing.
+	for setting: Variant in all:
+		var path := str(setting.path)
+		var pose_row := path.begins_with("presentation.missionary.") \
+			or path.begins_with("presentation.standing.")
+		check((str(setting.tab) == SETTINGS.POSES) == pose_row,
+			"%s follows the Poses tab split" % path)
+		if pose_row:
+			check(bool(setting.debug), "%s is debug-only in Poses" % path)
+		elif path.begins_with("features.") and (str(setting.group) == "Missionary"
+				or str(setting.group).begins_with("Standing")):
+			check(str(setting.tab) == SETTINGS.GENERAL, "%s stays in General" % path)
+	var climax: Variant = SETTINGS.by_path("presentation.act.climax_mode")
+	check(climax != null and str(climax.tab) == SETTINGS.GENERAL,
+		"the climax face stays in General")
+	check(int(tabs.get(SETTINGS.POSES, 0)) > 50, "the Poses tab holds the pose tuning")
 	check(SETTINGS.by_name("hud_readouts") != null, "a setting is reachable by name")
 	check(SETTINGS.by_path("features.hud_readouts") != null, "a setting is reachable by path")
 	check(SETTINGS.by_path("features.act_faces") == null, "act faces are not a setting")
@@ -413,6 +432,27 @@ func _check_player_document() -> void:
 	check(str((resolved["default"]["preferences"] as Dictionary).get("notes", ""))
 		== str((shipped["default"]["preferences"] as Dictionary).get("notes", "")),
 		"the sparse default keeps the shipped preference it did not change")
+
+
+## The Poses move is a UI move: every path and shipped value stays where it was, and the player
+## document still carries the same `presentation` block.
+func _check_poses_defaults() -> void:
+	var text := FileAccess.get_file_as_string(SETTINGS.DEFAULTS_FILE)
+	var parsed: Variant = JSON.parse_string(text)
+	var shipped: Dictionary = parsed if parsed is Dictionary else {}
+	var count := 0
+	for setting: Variant in SETTINGS.tab_settings(SETTINGS.POSES):
+		var row := setting as SETTINGS.Setting
+		count += 1
+		var value: Variant = SETTINGS._read_path(shipped, row.path, null)
+		check(value != null, "%s keeps its shipped value" % row.path)
+		check(value == row.default, "%s keeps its shipped default" % row.path)
+		check(SETTINGS.by_path(row.path) == row, "%s keeps its JSON path" % row.path)
+	check(count > 50, "the Poses tab is the complete pose tuning set")
+	var player := SETTINGS._player_document(SETTINGS.defaults())
+	check(JSON.stringify(player.get("presentation", {}))
+		== JSON.stringify(SETTINGS.defaults().get("presentation", {})),
+		"the Poses values round-trip through the player document")
 
 
 ## Every leaf path of a nested settings document.
@@ -726,12 +766,16 @@ func _check_sections() -> void:
 
 
 ## A group needs at least three related settings. Fewer, and the setting belongs directly in the
-## tab (or its Debug block) with no heading; a subgroup that small merges into its parent.
+## tab (or its Debug block) with no heading; a subgroup that small merges into its parent. A pose
+## feature flag left in General keeps its old pose group even when that section is then under
+## three; see docs/settings.md.
 func _check_groups() -> void:
-	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
+	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.POSES, SETTINGS.WORLD]:
 		for debug: bool in [false, true]:
 			var sections := {}
 			var subs := {}
+			var section_rows := {}
+			var sub_rows := {}
 			for setting: Variant in SETTINGS.tab_settings(tab):
 				if bool(setting.hidden) or bool(setting.debug) != debug:
 					continue
@@ -741,26 +785,50 @@ func _check_groups() -> void:
 				var parts := group.split("›", true, 1)
 				var top := parts[0].strip_edges()
 				sections[top] = int(sections.get(top, 0)) + 1
+				if not section_rows.has(top):
+					section_rows[top] = []
+				(section_rows[top] as Array).append(setting)
 				if parts.size() > 1:
 					subs[group] = int(subs.get(group, 0)) + 1
+					if not sub_rows.has(group):
+						sub_rows[group] = []
+					(sub_rows[group] as Array).append(setting)
 			for name: String in sections:
-				check(int(sections[name]) >= 3,
+				check(int(sections[name]) >= 3 or _pose_feature_section(tab, section_rows[name]),
 					"%s %s section %s has at least 3 settings (%d)" % [
 						tab, "debug" if debug else "player", name, int(sections[name])])
 			for name: String in subs:
-				check(int(subs[name]) >= 3,
+				check(int(subs[name]) >= 3 or _pose_feature_section(tab, sub_rows[name]),
 					"%s %s subgroup %s has at least 3 settings (%d)" % [
 						tab, "debug" if debug else "player", name, int(subs[name])])
+	var path_id := SETTINGS.by_name("path_id")
+	check(path_id != null and str(path_id.group) == "Missionary",
+		"the missionary caress path folds into the Missionary section")
+
+
+## A pose feature flag stays in General when its presentation rows move to Poses, even when its
+## old section is then under three rows. The group keeps the flag's context; see docs/settings.md.
+func _pose_feature_section(tab: String, rows: Array) -> bool:
+	if tab != SETTINGS.GENERAL or rows.is_empty():
+		return false
+	for raw: Variant in rows:
+		var setting := raw as SETTINGS.Setting
+		if setting == null or not str(setting.path).begins_with("features."):
+			return false
+		var group := str(setting.group)
+		if group != "Missionary" and not group.begins_with("Standing"):
+			return false
+	return true
 
 
 ## The panel draws every declaration in its tab, and the Debug block follows debug mode.
 func _check_panels() -> void:
 	var debug_before := SETTINGS.debug_mode.get_bool()
 	SETTINGS.debug_mode.set_bool(false)
-	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
+	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.POSES, SETTINGS.WORLD]:
 		_check_panel_tab(tab, false)
 	SETTINGS.debug_mode.set_bool(true)
-	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.WORLD]:
+	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.POSES, SETTINGS.WORLD]:
 		_check_panel_tab(tab, true)
 	SETTINGS.debug_mode.set_bool(debug_before)
 
@@ -794,23 +862,73 @@ func _check_anatomy_gate() -> void:
 	list.free()
 
 
+## The Poses tab is injected after Anatomy and only exists while debug mode is on. A TabContainer
+## keeps an invisible child's title, so the title itself is hidden, not only the page.
+func _check_pose_tab_visibility() -> void:
+	var before := SETTINGS.debug_mode.get_bool()
+	SETTINGS_UI._debug_tabs.clear()
+	var tabs := TabContainer.new()
+	root.add_child(tabs)
+	SETTINGS_UI._settings_tab_list("General", tabs)
+	SETTINGS_UI._settings_tab_list("Anatomy", tabs)
+	var poses_list := SETTINGS_UI._settings_tab_list("Poses", tabs, true)
+	SETTINGS_UI._settings_tab_list("World", tabs)
+	var poses := poses_list.get_parent().get_parent() as ScrollContainer
+	check(poses != null, "the Poses tab has its scroll page")
+	if poses != null:
+		var index := poses.get_index()
+		check(index == 2, "the Poses tab sits after Anatomy")
+		SETTINGS.debug_mode.set_bool(false)
+		SETTINGS_UI._refresh_debug_tabs(false)
+		check(tabs.is_tab_hidden(index), "the Poses title is hidden with debug off")
+		check(not poses.visible, "the Poses page is hidden with debug off")
+		check(tabs.current_tab == 0, "the bar falls back to General with debug off")
+		SETTINGS.debug_mode.set_bool(true)
+		SETTINGS_UI._refresh_debug_tabs(true)
+		check(not tabs.is_tab_hidden(index), "the Poses title returns with debug on")
+		check(poses.visible, "the Poses page returns with debug on")
+		check(tabs.current_tab == 0, "showing Poses keeps the current tab")
+		tabs.current_tab = index
+		check(tabs.current_tab == index, "the Poses tab can be selected")
+		SETTINGS.debug_mode.set_bool(false)
+		SETTINGS_UI._refresh_debug_tabs(false)
+		check(tabs.is_tab_hidden(index), "the selected Poses title hides with debug off")
+		check(tabs.current_tab == 0, "hiding the current Poses tab returns to General")
+		SETTINGS.debug_mode.set_bool(true)
+		SETTINGS_UI._refresh_debug_tabs(true)
+		check(not tabs.is_tab_hidden(index) and poses.visible,
+			"Poses returns after the fallback")
+		check(tabs.current_tab == 0, "the bar stays on General after Poses returns")
+	SETTINGS.debug_mode.set_bool(before)
+	SETTINGS_UI._refresh_debug_tabs(SETTINGS.debug_mode.get_bool())
+	SETTINGS_UI._debug_tabs.clear()
+	tabs.free()
+
+
 ## A section heading is drawn once, even when its declarations interleave another group.
 func _check_section_folding() -> void:
 	var list := VBoxContainer.new()
 	var fold: Array = [
 		SETTINGS.by_path("presentation.missionary.size.canon.gaze_offset_mm"),
-		SETTINGS.by_path("camera_thrust.bob"),
 		SETTINGS.by_path("presentation.missionary.camera_mode"),
 	]
-	SETTINGS_UI._build_sections(list, SETTINGS.GENERAL, "", fold, 16, null, Callable())
+	SETTINGS_UI._build_sections(list, SETTINGS.POSES, "", fold, 16, null, Callable())
 	var labels: Array = []
 	_collect_labels(list, labels)
 	check(labels.count("Missionary") == 1, "an interleaved section draws one heading")
 	check(labels.has("Gaze height") and labels.has("Camera"),
 		"an interleaved section keeps every row")
 	check(labels.has("Size"), "the per-size section draws its dropdown")
-	check(labels.has("Bob"), "the interleaved section still draws the other group")
+	check(not labels.has("Bob"), "the Poses sections draw no General camera row")
 	list.free()
+	var general := VBoxContainer.new()
+	SETTINGS_UI._build_sections(general, SETTINGS.GENERAL, "",
+		[SETTINGS.by_path("camera_thrust.bob")], 16, null, Callable())
+	var general_labels: Array = []
+	_collect_labels(general, general_labels)
+	check(general_labels.has("Bob"), "the General camera row stays in General")
+	check(not general_labels.has("Missionary"), "the General camera row draws no pose heading")
+	general.free()
 
 
 ## The catalog-driven tab lists every supported mod, even one that is not installed, with the

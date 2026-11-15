@@ -3,7 +3,8 @@
 This is the contract for the act's body pose: the skeleton driver, the authored missionary base,
 the bed-frame placement, the standing body pose, the post-act posture and the timing domains that
 write them. The act camera and shot are `docs/camera.md`; the anatomy part is `docs/anatomy.md`;
-the caress paths and palm holders are `docs/hands.md`.
+the caress paths and palm holders are `docs/hands.md`. The pose tuning rows are in the debug-only
+**Poses** settings tab; see `docs/settings.md`.
 
 ## Ownership
 

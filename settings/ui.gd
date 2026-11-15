@@ -26,10 +26,11 @@ const STYLE := preload("res://world/ui/menu_style.gd")
 const MOST_PILLS := 4
 const PILL_LABEL_CHARS := 18
 
-## Injected pages, the Debug block of each tab (toggled live by `debug_mode`) and the guard that
-## keeps the game's own sidebar buttons from fighting the injected tab.
+## Injected pages, the Debug block of each tab, the tabs that only exist behind `debug_mode`, and
+## the guard that keeps the game's own sidebar buttons from fighting the injected tab.
 static var _injected: Array = []
 static var _debug_sections: Array = []
+static var _debug_tabs: Array = []
 ## Anatomy tab content that depends on the visibility pill, so Never can grey it out live.
 static var _anatomy_gates: Array = []
 static var _switch_guard := false
@@ -567,6 +568,9 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	var anatomy_list := _settings_tab_list("Anatomy", tabs_box)
 	_collect_debug_section(build(anatomy_list, SETTINGS.ANATOMY, font_size, page, changed,
 		actions_builder))
+	var poses_list := _settings_tab_list("Poses", tabs_box, true)
+	_collect_debug_section(build(poses_list, SETTINGS.POSES, font_size, page, changed,
+		actions_builder))
 	var world_list := _settings_tab_list("World", tabs_box)
 	_collect_debug_section(build(world_list, SETTINGS.WORLD, font_size, page, changed,
 		actions_builder))
@@ -581,6 +585,7 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	# Style the bar after it exists with its tabs: the container re-applies its theme to the
 	# internal TabBar when the tree changes, which would shadow overrides set before that.
 	_style_tabs(tabs_box, font_size)
+	_refresh_debug_tabs(SETTINGS.debug_mode.get_bool())
 	for tab: Variant in tabs:
 		if tab is Button:
 			(tab as Button).pressed.connect(func() -> void: _hide_settings_tab(page))
@@ -602,16 +607,43 @@ static func _collect_debug_section(control: Variant) -> void:
 		_debug_sections.append(control)
 
 
-## Show or hide every Debug block after `debug_mode` changed.
+## Show or hide every Debug block after `debug_mode` changed. The Poses tab is debug-only too, so
+## its tab title and page follow the same switch.
 static func refresh_debug_visibility() -> void:
 	var on := SETTINGS.debug_mode.get_bool()
 	for section: Variant in _debug_sections:
 		if is_instance_valid(section):
 			(section as Control).visible = on
+	_refresh_debug_tabs(on)
 	_refresh_anatomy_gates()
 
 
-static func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxContainer:
+## Show or hide the tabs that only exist behind debug mode. A TabContainer keeps an invisible
+## child's title, so the title is hidden through `set_tab_hidden`; a Poses tab that was current
+## falls back to General before it leaves the bar.
+static func _refresh_debug_tabs(on: bool) -> void:
+	var live: Array = []
+	for entry: Variant in _debug_tabs:
+		var scroll := entry as Control
+		if not is_instance_valid(scroll):
+			continue
+		live.append(scroll)
+		var tabs_box := scroll.get_parent() as TabContainer
+		if tabs_box == null:
+			continue
+		var index := scroll.get_index()
+		var target := tabs_box.current_tab
+		if not on and target == index:
+			target = 0
+		tabs_box.set_tab_hidden(index, not on)
+		scroll.visible = on
+		if tabs_box.current_tab != target:
+			tabs_box.current_tab = target
+	_debug_tabs = live
+
+
+static func _settings_tab_list(title: String, tabs_box: TabContainer,
+		debug_only := false) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
 	scroll.name = title
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -619,6 +651,8 @@ static func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxCon
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tabs_box.add_child(scroll)
+	if debug_only:
+		_debug_tabs.append(scroll)
 	# Room for a hovered row card's border inside the scroll's clip, as the page does for its rows.
 	var holder := MarginContainer.new()
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -744,6 +778,7 @@ static func clear_pages() -> void:
 			(page as Node).remove_meta("unfplap_button")
 	_injected.clear()
 	_debug_sections.clear()
+	_debug_tabs.clear()
 	_anatomy_gates.clear()
 
 

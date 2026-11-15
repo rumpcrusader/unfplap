@@ -2132,6 +2132,8 @@ func _sync_bed_pose_frame() -> void:
 	_pose_service().sync_bed_frame()
 
 
+## The new-act prep: run the one pose teardown first so a pose left from the offer cannot stack,
+## then build the act's pose.
 func _build_pose() -> void:
 	_free_pose()
 	var session := _pose_service()
@@ -2165,10 +2167,11 @@ func _restore_pony_bones() -> void:
 	_pose_service().restore_bones()
 
 
-## The one pose teardown: the pose-owned start state, the cross-system releases in their order,
-## the live modifiers, then the pose and the standing tail.
+## The one pose teardown ledger: the pose-scope start and body steps at their current positions,
+## the act-scope releases between them, then the session's final pose clear. A later pose
+## transition calls only the pose-scope steps; it never calls this function.
 func _free_pose() -> void:
-	_pose_service().release_start()
+	_pose_service().leave_pose_start()
 	clear_presentation()
 	_camera_service().call("end_lean_action")
 	_hand_controller().reset()
@@ -2177,7 +2180,7 @@ func _free_pose() -> void:
 	_reset_excitement_hold()
 	_camera_service().call("release_free_camera_lock")
 	_standing_anon_controller().remove()
-	_pose_service().remove_modifiers()
+	_pose_service().leave_pose_body()
 	_restore_voice_volume()
 	_reactions.end_act()
 	_pose_service().release_pose()

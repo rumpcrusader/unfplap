@@ -9,10 +9,10 @@ the caress paths and palm holders are `docs/hands.md`.
 
 `poses/service.gd` is the pose session facade. It owns the skeleton pose modifier, the authored
 missionary base, the bed frame and its follow, the extra modifiers (tail, tail lay, body sway,
-prone sway, ear twitch), the pony bone snapshots, the pose rig check and the pose diagnostics.
-The runtime owns the act state, the start ordering and the one teardown ledger; it binds the
-session and reads its `pose()`, `pose_config` and `bed_frame` directly. Presentation modules read
-the same values from `shared/act_facts.gd`.
+prone sway, ear twitch), the pony bone snapshots, the pose rig check, the pose diagnostics and the
+pose-scope teardown steps. The runtime owns the act state, the start ordering and the one teardown
+ledger; it binds the session and reads its `pose()`, `pose_config` and `bed_frame` directly.
+Presentation modules read the same values from `shared/act_facts.gd`.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads
 `poses/missionary_pose.json`. `shared/pose_catalog.gd` owns the pose ids and the `POSE_KEYS`
@@ -45,8 +45,9 @@ that reaches into the runtime fails `tests/test_source_hygiene.gd`.
 `shared/pose_view.gd` is the pose read model the session fills and clears. It holds the identity
 and support fields from the registry, the ten spec profiles by reference, the live config (the same
 object as `facts.pose_config`) and the per-tick contact and facing values. `pose_state` is `STEADY`
-while the session is live and `IDLE` after `release_pose()`. The compatibility `pose_id`,
-`oral_active` and `anal_active` fields mirror the old facts until the last reader migrates.
+while the session is live and `IDLE` after `release_pose()`; the pose-scope leave steps keep it
+`STEADY`. The compatibility `pose_id`, `oral_active` and `anal_active` fields mirror the old facts
+until the last reader migrates.
 
 ## Spaces and axes
 
@@ -355,11 +356,54 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
   features, the live config, the view and the bed frame
 - Idempotent: the teardown phases are safe to repeat; `begin()` is not
 
+### Teardown scope
+
+`runtime._free_pose()` is the one pose teardown ledger. It mixes two lifetimes: the pose scope the
+session owns and the act scope the runtime owns. A pose transition calls the pose-scope steps only;
+it never calls `_free_pose()`, `_end_session()` or `release_pose()`.
+
+| Step | Scope | Owner |
+|---|---|---|
+| `leave_pose_start()` | pose: rig-check cache, tail lay, bed frame | the session |
+| `clear_presentation()` | act | the runtime |
+| `end_lean_action` | act service, pose-local sub-state | the camera |
+| `hands.reset()` | act service, pose-local sub-state | the hands |
+| `kiss.reset()` | act service, pose-local sub-state | the kiss |
+| `integrations.reset()` | act | the integrations |
+| `_reset_excitement_hold()` | act | the runtime |
+| `release_free_camera_lock` | act | the camera |
+| `standing_anon.remove()` | pose: the act's Anon body | the runtime until the Anon adapter owns it |
+| `leave_pose_body()` | pose: stretch holder, extra modifiers | the session |
+| `_restore_voice_volume()` | act | the runtime |
+| `reactions.end_act()` | act | the reactions |
+| `release_pose()` | pose: final clear | the session |
+
+- `leave_pose_start()` — the rig-check cache, `tail_lay` and the bed frame. It keeps the pose node,
+  the modifiers, `pose_config` and the view.
+- `leave_pose_body()` — the external Idle Life stretch holder and the extra modifiers
+  (`body_sway`, `prone_sway`, `ear_twitch`). It keeps the pose node, the standing tail,
+  `pose_config` and the view.
+- `release_pose()` — the final clear: the pose node and the standing tail, the act identity, the
+  features, the live config, the rig caches, the bed frame and the view. Safe to repeat.
+
+The runtime calls the two leave steps and the final release at their table positions, with the
+act-scope resets between them. `release_pose()` is called only from `_free_pose()`. `_end_session()`
+(the one act exit) and `_build_pose()` (the new-act prep) are the only `_free_pose()` callers. A
+second `release_pose()` is a no-op.
+
+`_restore_camera()` also ends the lean action, resets the hands, releases the free-camera lock and
+removes the act's Anon body. That is the act's camera restore path, not the pose teardown; it stays
+unchanged.
+
+
 
 ## Tests
 
 - `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
   standing stretch holder and the session API.
+- `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split: the leave steps keep the
+  pose node, the config and the view, the final release clears them, and no pose-scope step reaches
+  an act exit.
 - `tests/poses/test_pose_spec.gd` — the field wrapper, the shared validator and the pure source.
 - `tests/poses/test_pose_registry.gd` — the two shipped specs, the unchanged public catalog and the
   table rules.

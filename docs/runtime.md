@@ -87,13 +87,21 @@ step checks the ownership flag it restores (`_act_camera.camera_owned`, `_act_ca
 runtime's own `_posture_owned` and the HUD's borrowed quick-slot state, the controller flags), so a
 failed start runs the same function and restores only what it took.
 
-- `_finalize_session(real_act)` runs the post-act bookkeeping once and is idempotent.
+`_finalize_session(real_act)` runs the post-act bookkeeping once and is idempotent.
 - `_end_act_lines()` is deliberately outside the teardown: `cancel()` queues the early-stop reaction
   after `_restore_begin()`, and `_finish_restore()` must not cancel director rows.
-- `_restore_begin()` / `_restore_now()` are the ordered leaves; `_restore_camera()` is the camera
-  ledger. `_free_pose()` resets the mod-integration bridge after the base kiss, releases the shared
-  excitement Beat hold, drops the standing stretch holder and its stored episode choice, and
-  leaves every property the act borrowed back in place before the pose is released.
+- `_restore_begin()` / `_restore_now()` are the ordered leaves.
+- The pose part is one ledger: `_end_session()` calls `_free_pose()` and then
+  `_restore_pony_bones()`. `_free_pose()` runs the session's pose-scope steps
+  (`leave_pose_start()`, `leave_pose_body()` and the final `release_pose()`) with the act-scope
+  resets between them at their positions, resets the mod-integration bridge after the base kiss,
+  releases the shared excitement Beat hold, drops the standing stretch holder and leaves every
+  property the act borrowed back in place. `_end_session()` clears the stored stretch episode
+  choice after the pose is released. `_build_pose()` calls the same ledger as the new-act prep
+  before it builds the pose, so a pose left from the offer cannot stack. The step table and the
+  scope split are `docs/poses.md`.
+- `_restore_camera()` is the act's camera ledger: a separate act-level path, not part of the pose
+  teardown.
 - A forced stop never rejoins the missionary bed cuddle. A normal end of a bed-sourced act that did
   not go badly re-seats Anon on the bed's player seat and re-invites her through `rest/service.gd`;
   the retry waits out aftercare and the guest cooldown, and every failure is logged before she is

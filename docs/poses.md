@@ -100,17 +100,18 @@ shins down and her head over his chest.
 
 ## Bed face-sit
 
-`poses/bed_facesit_pose.json` is the internal bed face-sit asset. It is authored in bed space and
-kept out of offers, settings and `CATALOG.all()`; the debug **Pose: face-sit** action is its only
-trigger. The arrangement is Anon on his back with his head under her hips; she kneels astride his
-head with her knees and shins on the mattress and her vulva on his mouth, and leans forward over
-his chest. The `anchor` is her `pony_hips` pose, its `contact` is the shin/knee support on the
-mattress, and `support` is the mattress top, so the v7 anchor/contact rule carries the four cutie
-sizes. The `anon` block is the full `Anon3` rig in bed space; the five authored shots frame Anon's
-eye under her and are read by the existing bed camera. There are no variants and no `provisional`
-flag. The asset's `--pose bed_facesit --check` round-trip and the `pose_runtime_check` face-sit
-case are the automated proof; the arrangement is authored through `tools/pose_lab.gd` and saved
-as this asset.
+`poses/bed_facesit_pose.json` is the internal bed face-sit asset. It is authored in the bed frame;
+its bone entries are v7 `local_rest` deltas. It is kept out of offers, settings and
+`CATALOG.all()`; the debug **Pose: face-sit** action is its only trigger. The arrangement is Anon
+on his back with his head under her hips; she kneels astride his head with her knees and shins on
+the mattress and her vulva on his mouth, and leans forward over his chest. The `anchor` is her
+`pony_hips` pose, its `contact` is the shin/knee support on the mattress, and `support` is the
+mattress top, so the v7 anchor/contact rule carries the four Pony size presets. The `anon` block is
+the full `Anon3` block: the bed-frame placement and the v7 local-rest bones; the five authored
+shots frame Anon's eye under her and are read by the existing bed camera. There are no variants
+and no `provisional` flag. The asset's `--pose bed_facesit --check` round-trip and the
+`pose_runtime_check` face-sit case are the automated proof; the arrangement is authored through
+`tools/pose_lab.gd` and saved as this asset.
 
 - The bake input is the game's **standing reference capture**: the 30 local poses, the frame, the
   size and the rig captured by the session at `begin()` for a ground pose. The Debug **Bake standing
@@ -299,7 +300,7 @@ audio and camera profiles, has its own `facesit` control set (`thrust`, `lean`, 
 contacts `face`, is `public: false` and `offerable: false`, and has no `default.poses` block. Its
 HUD label is `Face-sit`; it appears in `CATALOG.every()` only.
 
-`standing_test` is the other internal spec row. It inherits `standing` (a base, no driver of its
+`standing_test` is the debug internal spec row. It inherits `standing` (a base, no driver of its
 own, no delta asset), is `public: false` and `offerable: false`, has no `default.poses` block, and
 appears in `CATALOG.every()` only: it is not in `CATALOG.all()`, the API, the offers or the settings
 templates. The spec base rule allows an empty `driver` only when a base owns the geometry. A base
@@ -945,8 +946,8 @@ act-scope resets between them. `release_pose()` is called only from `_free_pose(
 second `release_pose()` is a no-op.
 
 `_restore_camera()` also ends the lean action, resets the hands, releases the free-camera lock and
-removes the act's Anon body. That is the act's camera restore path, not the pose teardown; it stays
-unchanged.
+removes the standing player-body Anon wrapper. That is the act's camera restore path, not the pose
+teardown; it stays unchanged.
 
 ## Tests
 
@@ -979,10 +980,10 @@ unchanged.
   arrays. Plain dictionaries only.
 - `tests/poses/test_pose_spec.gd` — the field wrapper, the shared validator, the base/driver rule
   and the pure source.
-- `tests/poses/test_pose_registry.gd` — the four shipped specs, the two authored pairs, the
+- `tests/poses/test_pose_registry.gd` — the five shipped specs, the three authored pairs, the
   unchanged public catalog and the table rules.
 - `tests/poses/test_pose_edge.gd` — the edge documents, the typed wrapper and validator, the
-  registry load and the debug and oral forward/reverse run proofs.
+  registry load and the debug, oral and face-sit forward/reverse run proofs.
 - `tests/poses/test_stretch.gd` — the external script validation, episode choice, ask ramp,
   modifier order, fallback and cleanup.
 - `tests/test_standing_presentation.gd` — the offer gate, the navigator stepping turn and its away
@@ -1006,6 +1007,7 @@ unchanged.
 - `tests/poses/test_face_contact.gd` — the bed face-sit contact driver: the begin capture, the
   mouth follow, the depth press, the moving-bed carry, the missing-provider hold and the one
   restore.
+- `tests/test_face_sit_action.gd` — the Debug face-sit action and its refusal helper.
 - `tests/poses/test_pose_view.gd` — defaults, the filled view, the transition fields, the live
   mirrors and the reused clear.
 
@@ -1014,6 +1016,10 @@ unchanged.
 - Missionary on the Golden Oak guest bed: start, pose, a moving bed, the **Reload posed base**
   action (which re-reads the asset and re-evaluates the `pose_rig` gate), the **Show skeleton
   overlay** Anatomy Debug flag, hold-act-key end and the bone restore on the next animation frame.
+- Bed face-sit: from Missionary, **Pose: face-sit** and back; the face contact, the source-shot
+  hold/cut, the press/rock with depth, the four sizes, a climax mid-edge, the afterglow hold and
+  the one act exit. The automated `pose_export --pose bed_facesit --check` and
+  `pose_runtime_check --pose bed_facesit` are the non-interactive proof.
 - Standing: stance, foreleg spread, ears, tail, wings, afterglow fold and the pose at both Canon
   and Same Height sizes.
 - Four sizes: repeat the missionary and standing lab at Canon, JRHNBR, Same Height and Hoers. The

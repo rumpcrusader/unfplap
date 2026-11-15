@@ -152,7 +152,9 @@ The bed face-sit edge adds the same two-asset base/Anon blend as the oral pair a
 that reads one anchor and eases a frame-space vector per tick; it allocates nothing in the steady
 tick. A face-sit perf pass compares a steady missionary window, a steady face-sit window and one
 window that loops the forward/reverse edge; the edge is bounded by its 1.6 s / 1.2 s durations.
-The face-sit lab is unavailable in this session, so no face-sit perf numbers are claimed.
+The face-sit perf window is not yet measured; the D closeout recorded it unavailable. Run the
+steady missionary, steady face-sit and looping-edge windows when the live lab is available; do not
+claim numbers before then.
 
 The standing family now pays the render-time pose write as well: `render_write()` runs
 `sync_stretch()`, `sync_ground_frame()` and `apply_render()` after every physics and process writer,

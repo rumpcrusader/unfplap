@@ -300,7 +300,7 @@ command through the host's `command` callback.
 The face contact has a real provider. `face_point()` is the act body's `mouth_point()` — his
 authored `Head` plus the game's eye-to-mouth offset — and `face_ready()` is an active act, the
 view's face contact and a live bed body. The act handles the `opening`, `mouth`, `face` and `none`
-contact kinds. In face contact the per-act handle parts the part once (`encounter(false)`), zeroes
+contact kinds. In face contact the per-act handle parks the part once (`encounter(false)`), zeroes
 the fill, the grip and the anal shape, clears the shaft and drives the neutral closed vulva; it
 never calls `player_track` or writes the part's aim or bed inset. The parked part reports a zero
 `hip_offset_wanted`, so the act body holds its authored pose while the pose's face driver owns the
@@ -308,7 +308,7 @@ contact placement. The first opening tick restores the part once (`encounter(tru
 normal track resumes. The `mouth_point()` oral provider is unchanged.
 
 The missionary Anon body is owned by `poses/service.gd`, not the bridge. It is the `act_body`
-spec's body, so the adapter is generalized over the future `bed_facesit` row and keeps the one
+spec's body, so the adapter is generalized over the `bed_facesit` row and keeps the one
 node, handle and act-scope ownership. The service binds the live pose's authored asset pair to it;
 outside an edge both sides are the live asset, and on an `anon` blend the adapter mixes the two
 authored placements and bone blocks. The bridge receives the node as an opaque handle through
@@ -319,7 +319,7 @@ applies it from `render_write()` and frees the node once in its own `release_pos
 `pose_changed(view)` carries the view family and contact kind without rebuilding the controller or
 the act. The hip offset still comes from the part; a parked part reports a zero
 `hip_offset_wanted`, so the act body holds the authored pose while the face contact owns the
-placement (D3).
+placement.
 
 `apply_live()` re-reads the host's `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`
 before it refreshes the controller. The per-tick facts sync writes the same values, but it does

@@ -997,6 +997,8 @@ func _issue_initial() -> void:
 	if not started:
 		_cancel_episode(false)
 		return
+	# Only a line that arrives after this ask counts as Anon's answer.
+	_conversation.begin_turn()
 	_episode.phase = Phase.ASK
 	_episode.ask_started = _now()
 	_episode.deadline_at = _now() + POLICY.GIVE_UP_S
@@ -1082,7 +1084,11 @@ func _tick_ask(_delta: float) -> void:
 		if _episode.reacted:
 			return
 		if bool(_conversation.player_reacted()):
-			_episode.reacted = true
+			var public_text: String = _conversation.last_player_text()
+			if public_text.is_empty():
+				_episode.reacted = true
+			else:
+				_on_player_transcript(public_text)
 			return
 	var sent := _episode.prompts_sent
 	var next_at := POLICY.next_prompt_time(sent)
@@ -1254,8 +1260,14 @@ func _invite_valid(serial: int) -> bool:
 func _on_player_transcript(text: String) -> void:
 	if _episode == null or _episode.phase != Phase.ASK:
 		return
-	if not _episode.private:
+	if _episode.private:
+		_take_private_answer(text)
 		return
+	_answer_public_offer(text)
+
+
+## Take Anon's answer to a private offer.
+func _take_private_answer(text: String) -> void:
 	var decision := CONSENT_CORE.on_text(_episode.reply, text,
 		CONSENT.local_intent(text.strip_edges(), _player_name()))
 	if decision.cancel_pending:
@@ -1271,6 +1283,33 @@ func _on_player_transcript(text: String) -> void:
 		_debug("request consent waiting %s" % _episode.id)
 		return
 	_resolve_consent(decision)
+
+
+## A public offer still listens. If the third pony left, the same answer becomes private and is
+## taken normally; a clear no closes the offer, and any other answer leaves the hint for the act
+## key.
+func _answer_public_offer(text: String) -> void:
+	var pony: Node3D = _episode.pony
+	if not is_instance_valid(pony):
+		return
+	_episode.private = _private_at_player(pony)
+	if _episode.private:
+		_episode.private = true
+		_log_privacy_once(pony)
+		if _is_private_standing():
+			var runtime: Node = _episode.runtime
+			if is_instance_valid(runtime) and runtime.has_method("set_request_face"):
+				runtime.call("set_request_face", true)
+		_take_private_answer(text)
+		return
+	var intent := CONSENT.local_intent(text.strip_edges(), _player_name())
+	if intent == "decline":
+		_record_consent_situation(false)
+		_debug("request public decline %s" % _episode.id)
+		_cancel_episode(true, "declined public")
+		return
+	_episode.reacted = true
+	_debug("request public answer %s intent=%s" % [_episode.id, intent])
 
 
 func _on_consent_result(intent: String, detail: String, serial: int, _text: String) -> void:

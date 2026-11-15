@@ -384,6 +384,54 @@ func run() -> void:
 	check(director.queued.size() > 0 and director.queued[-1].ends_with(":invite"),
 		"the retried presentation queues the invitation")
 
+	# A stale director line from an earlier chat is not the answer to a new ask.
+	initiation.reset()
+	game.mares = [target]
+	runtime.presented = false
+	runtime.present_ok = true
+	director.state = "idle"
+	director.greet_ok = false
+	director.queued.clear()
+	director._player_text = "old line"
+	initiation.force(runtime, CATALOG.STANDING)
+	check(director.queued.size() == 1 and director.queued[0].ends_with(":ask"),
+		"the fallback ask still queues")
+	initiation.tick(0.0)
+	check(director.queued.size() == 1, "the stale line does not queue a clarification")
+	check(runtime.face_on, "the stale line keeps the private request face")
+	check(context.keys[-1].ends_with(":situation"), "the stale-line ask records its situation")
+	director._player_text = ""
+	director.greet_ok = true
+
+	# A public answer stays a hint; once the third pony leaves, the next yes is private.
+	initiation.reset()
+	game.mares = [target, other]
+	runtime.presented = false
+	runtime.face_on = false
+	initiation.force(runtime, CATALOG.STANDING)
+	director.transcript.emit("yes")
+	check(not runtime.presented and not runtime.face_on, "a public yes does not present")
+	check(initiation.start_offer() == null, "a public yes is not a private accepted offer")
+	game.mares = [target]
+	director.transcript.emit("yes")
+	check(runtime.face_on, "the now-private yes arms the request face")
+	initiation.tick(0.0)
+	check(runtime.presented, "the now-private yes presents")
+	check(initiation.start_offer() != null, "the now-private offer is startable")
+	initiation.reset()
+
+	# A public no closes the offer and records the declined situation.
+	game.mares = [target, other]
+	runtime.presented = false
+	initiation.force(runtime, CATALOG.STANDING)
+	director.transcript.emit("no")
+	check(not runtime.face_on, "a public no clears the request face")
+	check(context.keys[-1].ends_with(":declined"),
+		"a public no records the declined situation")
+	check(initiation.start_offer() == null, "a public no closes the offer")
+	initiation.reset()
+	game.mares = [target]
+
 	# The typed force result replaces the side-channel reason.
 	var missing: INIT.ForceResult = initiation.force(null)
 	check(not missing.ok and missing.reject == "no_runtime",

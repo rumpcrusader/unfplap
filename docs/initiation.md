@@ -44,8 +44,9 @@ The purity boundary is deliberate:
   `Settings`, scene or game preload. They take plain values and return plain values or strings.
 - `conversation.gd` owns `director._player_text`, `_held_text`, `_now`, `characters`, `speech`,
   `player_approaches`, `group`, the `transcript` connection, the classifier client and
-  `world_context.record`. The facade still parses a local yes/no with the shared
-  `consent_classifier.local_intent()` static and hands the intent to the consent core.
+  `world_context.record`. It keeps the ask turn's baseline of the two player-line fields. The
+  facade still parses a local yes/no with the shared `consent_classifier.local_intent()` static and
+  hands the intent to the consent core.
 - `venue.gd` owns `Navigator` fields (`command_owner`, `wander_enabled`, `command_speed_limit`,
   `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the
   bed rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`, `accept`), the player seat and
@@ -87,7 +88,7 @@ the caller reads it immediately.
 Adapters (internal, called by the facade):
 
 ```gdscript
-conversation: hook, unhook, quiet, idle, player_reacted, last_player_text, player_name,
+conversation: hook, unhook, quiet, idle, begin_turn, player_reacted, last_player_text, player_name,
               pony_speaking, begin_greeting, queue, cancel_keys, classify_offer,
               cancel_key, cancel_scope, record_situation
 venue:        player, mares, pony_id, region_of, camera_forward, private_at_player,
@@ -214,6 +215,9 @@ in, performs the returned action and owns every effect.
 
 Rules:
 
+- the answer is the first new line after the ask: the director's `transcript` signal, or a changed
+  `_player_text`/`_held_text` since the ask baseline. A line left over from an earlier chat is
+  ignored, and a queued fallback ask baselines the stale text before it waits;
 - one clear answer ends the wait; a second answer is ignored until the one clarification has
   happened, and the same text after it is ignored while a different one can still resolve it;
 - a new answer replaces one still waiting for the model and cancels its classifier key;
@@ -228,6 +232,11 @@ ended situation texts state only what happened (`Anon declined your offer.`, `Yo
 is over for now. Anon did not take it up.`); they do not tell the model to stop pressing him, so
 she may choose to pressure after a no. The act gates still decide whether any later attempt can
 start.
+
+A public offer also listens. If the third pony has left by the time Anon answers, the offer becomes
+private and the same answer is taken normally; if he is still there, a clear no records the
+declined situation and closes with the full cooldown, and any other answer marks the ask answered
+but keeps the hint for the act key without presenting.
 
 An accept records the accepted situation, then:
 

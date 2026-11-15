@@ -8,6 +8,12 @@ const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 
 var main: Node
 var _on_player_text := Callable()
+## The director's player-line fields when this offer's ask line was issued, and the newest line
+## seen since. An old line left in `_player_text` is not an answer to this offer.
+var _baseline_text := ""
+var _baseline_held := ""
+var _last_text := ""
+var _seen := false
 
 
 func bind(main_node: Node, on_player_text: Callable) -> void:
@@ -38,6 +44,8 @@ func unhook() -> void:
 
 
 func _relay_transcript(text: String) -> void:
+	_last_text = text.strip_edges()
+	_seen = true
 	if _on_player_text.is_valid():
 		_on_player_text.call(text)
 
@@ -90,26 +98,51 @@ func quiet() -> bool:
 	return true
 
 
-## True once the director holds a player line, a held line or a hearing turn.
-func player_reacted() -> bool:
+## Baseline the director's player-line fields when the ask line is issued. The fallback queue path
+## leaves an old `_player_text` in place, and it must not be read as the answer to this offer.
+func begin_turn() -> void:
+	_baseline_text = ""
+	_baseline_held = ""
+	_last_text = ""
+	_seen = false
 	var node := director()
 	if node == null:
-		return false
-	var said: Variant = node.get("_player_text")
-	if said != null and str(said) != "":
+		return
+	_baseline_text = str(node.get("_player_text")).strip_edges()
+	_baseline_held = str(node.get("_held_text")).strip_edges()
+
+
+## True once a new player line has arrived: the transcript signal, or a changed director field
+## since the turn baseline. The old polling fields alone are not an answer.
+func player_reacted() -> bool:
+	if _seen:
 		return true
-	var held: Variant = node.get("_held_text")
-	if held != null and str(held) != "":
-		return true
-	var speech: Variant = node.get("speech")
-	return speech != null and is_instance_valid(speech) and str(speech.get("state")) == "hearing"
+	return not _changed_text().is_empty() or not _changed_held().is_empty()
 
 
 func last_player_text() -> String:
+	if not _last_text.is_empty():
+		return _last_text
+	var changed := _changed_text()
+	if not changed.is_empty():
+		return changed
+	return _changed_held()
+
+
+func _changed_text() -> String:
 	var node := director()
 	if node == null:
 		return ""
-	return str(node.get("_player_text")).strip_edges()
+	var text := str(node.get("_player_text")).strip_edges()
+	return "" if text == _baseline_text else text
+
+
+func _changed_held() -> String:
+	var node := director()
+	if node == null:
+		return ""
+	var text := str(node.get("_held_text")).strip_edges()
+	return "" if text == _baseline_held else text
 
 
 func player_name() -> String:

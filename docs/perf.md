@@ -148,6 +148,12 @@ neither chunk: the `IDLE` path returns before both.
 The runtime also prints one-shot `tail perf attach`/`tail perf refresh` lines and a
 once-per-second `tail perf seats=… skinned=… builds=…/s` line when the probe is on.
 
+The standing family now pays the render-time pose write as well: `render_write()` runs
+`sync_stretch()`, `sync_ground_frame()` and `apply_render()` after every physics and process writer,
+the same order as the bed family. In a standing lab, compare `runtime_process` and `pose_recipe` at
+Canon and one non-canon size against the pre-C build; the ground frame sync is one transform compare
+per tick and allocates nothing, and the pose write is the only new per-frame cost.
+
 ## Tests
 
 - `tests/perf/test_perf.gd` — the act probe's on/active gates, window reset, row aggregation and

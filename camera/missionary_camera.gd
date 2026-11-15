@@ -249,7 +249,7 @@ func _shot_transform(id: String, scale: float) -> Transform3D:
 		if int(asset.get("version")) >= 7:
 			var origin: Vector3 = asset.call("shot_origin", id, frame, scale)
 			if origin.is_finite():
-				return Transform3D(shot.basis, origin)
+				return Transform3D((frame as Transform3D).basis * shot.basis, origin)
 		shot.origin *= scale
 		return (frame as Transform3D) * shot
 	var pos := _shot_position(id, scale)

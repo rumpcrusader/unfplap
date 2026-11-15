@@ -708,9 +708,9 @@ func _check_pose_session() -> void:
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(agents.contains("`poses/service.gd`"), "docs/README.md names poses/service.gd")
 	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",
-			"test_pose_rig.gd", "test_pose_scale.gd", "test_rotation.gd", "test_stretch.gd",
-			"test_pose_spec.gd", "test_pose_registry.gd", "test_pose_view.gd",
-			"test_pose_state.gd", "test_pose_edge.gd", "test_pose_blend.gd",
+			"test_pose_asset_v7.gd", "test_pose_bake.gd", "test_pose_rig.gd", "test_pose_scale.gd",
+			"test_rotation.gd", "test_stretch.gd", "test_pose_spec.gd", "test_pose_registry.gd",
+			"test_pose_view.gd", "test_pose_state.gd", "test_pose_edge.gd", "test_pose_blend.gd",
 			"test_modifier_profile.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
 			"tests/poses/%s exists" % name)
@@ -730,6 +730,11 @@ func _check_pose_session() -> void:
 	check(facade.contains("func sync_stretch("), "the pose session owns the stretch holder")
 	check(facade.contains("UnfplapMissionaryAnon") and facade.contains("func _install_act_body("),
 		"the pose session owns the act body adapter")
+	var loader := FileAccess.get_file_as_string(ROOT.path_join("poses/authored_pose.gd"))
+	check(not loader.contains("_scaled("), "the v7 loader has no uniform _scaled")
+	check(loader.contains("SPACE_LOCAL_REST") and loader.contains("placed_root"),
+		"the v7 loader names local_rest and the anchor/contact placement")
+	check(loader.contains("_v6_place("), "the v6 placement path is isolated")
 	check(not runtime.contains("MISSIONARY_ANON") and not runtime.contains("_place_missionary_anon"),
 		"the runtime creates and places no act body")
 	for token: String in ["_pony_saved_bones", "_tail_lay", "_pose_rig_checked",

@@ -284,7 +284,8 @@ func _check_missionary_shot_anchor() -> void:
 			var got: Transform3D = camera.call("_shot_transform", shot_id, size)
 			check(got.origin.distance_to(expected) <= 0.0001,
 				"%s shot origin at %.2f follows the anchor" % [shot_id, size])
-			check(got.basis.orthonormalized().is_equal_approx(authored.basis.orthonormalized()),
+			check(got.basis.orthonormalized().is_equal_approx(
+				(frame.basis * authored.basis).orthonormalized()),
 				"%s shot keeps the authored basis" % shot_id)
 
 

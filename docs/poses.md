@@ -670,9 +670,9 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   applies only the difference from that reference; the default stance is the baked pose. The asset
   carries the 30 body bones, not `pony_head`, so the live base applies the head's full reference
   bow and chin itself; the neck bones are the baked difference.
-- `standing_oral` runs the B2 procedural delta on that baked base, after it and before the
-  overlay, in both the single and two-base forms. The neck/head and the mouth anchor match the
-  reference recipe plus the same delta at all four sizes (the oral parity in `test_pose_bake`).
+- `standing_oral` runs the procedural delta on that baked base, after it and before the overlay,
+  in both the single and two-base forms. The neck/head and the mouth anchor match the reference
+  recipe plus the same delta at all four sizes (the oral parity in `test_pose_bake`).
 - `chin_up_deg` and `neck_down_deg` come from the presentation block, and their effective defaults
   are the presentation values. `foreleg_spread` is the absolute outward half-angle; the recipe
   measures the **baked** hoof line, so the reference value adds zero and a changed value adds only
@@ -906,6 +906,11 @@ unchanged.
   overlay** Anatomy Debug flag, hold-act-key end and the bone restore on the next animation frame.
 - Standing: stance, foreleg spread, ears, tail, wings, afterglow fold and the pose at both Canon
   and Same Height sizes.
+- Four sizes: repeat the missionary and standing lab at Canon, JRHNBR, Same Height and Hoers. The
+  body, the Anon, the authored shot and the anatomy contact must stay framed at every size; the
+  contact stays on the mattress or the ground and the hips stay at the anchor. The bake/check
+  commands are `godot --headless --xr-mode off --path . --script res://mods/unfplap/tools/pose_bake.gd
+  -- --check` and the same with `--write`; the exporter round-trip is `pose_export.gd --check`.
 - Idle Life stretch: a private standing offer, the accept turn, the presentation, the act, a live
   flag toggle, a cancelled offer, a direct act, Idle Life removed, and both integrations at once.
   Check the forehooves stay planted through body sway, the oral/head-back overlays, anatomy and

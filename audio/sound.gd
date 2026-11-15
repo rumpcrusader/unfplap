@@ -1,6 +1,6 @@
 extends Node
-## Base-game act sounds: breath and the climax squeak. `audio/service.gd` owns this node and the pack
-## foley, vocal and wet layers.
+## Base-game act sounds: breath and the climax squeak. `audio/service.gd` owns this node and the
+## pack foley layer.
 
 const BREATH_BASE_INTERVAL_S := 0.9
 const BREATH_MIN_INTERVAL_S := 0.2

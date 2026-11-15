@@ -65,7 +65,7 @@ func run() -> void:
 	var expected := {
 		"plap_firm": 7, "plap_rough": 7,
 		"slide_in": 6, "slide_out": 6,
-		"fabric": 8, "mouth_kiss": 8, "climax_wet": 4,
+		"fabric": 8, "mouth_kiss": 8,
 	}
 	check(CATALOGUE.CUES.size() == expected.size(), "cue count")
 	for cue: String in expected:
@@ -81,30 +81,17 @@ func run() -> void:
 				check((stream as AudioStream).get_length() > 0.02, "stream length: " + cue)
 
 	var act: Node = ACT.new()
-	act.set_enabled(false)
-	check(not act.climax_enabled(), "the optional layer is off")
-	act.pose_changed({"audio": {"impact": CATALOG.MISSIONARY}})
 	var pools: Dictionary = act.get("_pools")
-	check(pools.has("plap_firm"), "foley pool is always built")
-	check(not pools.has("climax_wet"), "wet pool not built")
-
-	act.set_enabled(true)
-	pools = act.get("_pools")
-	check(act.climax_enabled(), "the wet layer is on")
-	check(pools.has("plap_firm"), "foley pool stays built")
-	check(pools.has("climax_wet"), "wet pool built after the switch")
-	act.set_enabled(false)
-	check(not (act.get("_pools") as Dictionary).has("climax_wet"),
-		"a live settings edit clears the wet layer")
-
-	act.set_enabled(false)
-	check(not (act.get("_pools") as Dictionary).is_empty(),
-		"foley stays after the optional layer clears")
+	check(pools.is_empty(), "a fresh facade has no pool before the act")
 
 	var parent := Node3D.new()
 	root.add_child(parent)
 	parent.add_child(act)
-	act.set_enabled(false)
+	act.begin()
+	act.pose_changed({"audio": {"impact": CATALOG.MISSIONARY}})
+	pools = act.get("_pools")
+	check(pools.has("plap_firm"), "begin opens the foley layer")
+	check(not pools.has("climax_wet"), "there is no wet climax pool")
 	# A slow bottom that touches still stays silent: the tier is the impact speed.
 	act.play_impact("", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
 	var ready_at: Dictionary = act.get("_ready_at")
@@ -113,7 +100,6 @@ func run() -> void:
 	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "a slow impact keeps the slide")
 	check(float(ready_at.get("fabric", 0.0)) == 0.0, "a wood bed has no bed cue")
 	check(not act.play_plap("", 0.2, Vector3.ZERO), "a plap call without a tier is refused")
-	act.set_enabled(false)
 	ready_at = act.get("_ready_at")
 	ready_at["plap_rough"] = 0.0
 	ready_at["slide_in"] = 0.0
@@ -159,30 +145,21 @@ func run() -> void:
 		if smack_stream is AudioStream:
 			var seconds := (smack_stream as AudioStream).get_length()
 			check(seconds > 0.05 and seconds < 1.0, "smack stream length: " + path)
-	act.set_enabled(true)
-	act.play_climax_wet(Vector3.ZERO)
-	check(act.climax_enabled(), "the wet layer is accepted after a live toggle")
 	ready_at = act.get("_ready_at")
 	ready_at["plap_rough"] = 0.0
-	check(act.play_plap("rough", 0.9, Vector3.ZERO),
-		"foley plap stays on after a live toggle")
+	check(act.play_plap("rough", 0.9, Vector3.ZERO), "a rough plap starts a player")
 	act.stop()
 	parent.remove_child(act)
 	act.free()
 	parent.free()
 
-	# Runtime integration: the pack node is created for every act; the wet layer is optional.
+	# Runtime integration: the pack node is created for every act.
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime.bed = Node3D.new()
-	runtime._features = {"act_climax": false}
 	root.add_child(runtime)
 	runtime._start_audio()
-	check(runtime.has_node("UnfplapActAudio"), "foley starts the pack audio node")
-	runtime._stop_audio()
-	runtime._features = {"act_climax": true}
-	runtime._start_audio()
-	check(runtime.has_node("UnfplapActAudio"), "climax on keeps the pack audio node")
+	check(runtime.has_node("UnfplapActAudio"), "the act starts the pack audio node")
 	runtime._stop_audio()
 	root.remove_child(runtime)
 	runtime.free()

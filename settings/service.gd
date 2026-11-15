@@ -911,12 +911,6 @@ static var same_height := num("same_height", "caress.palm_scale.same height",
 	"Palm scale (Same height)", "Caress hand scale at Anon's own height.", GENERAL, "Caress") \
 	.with_unit("×").with_step(0.01).as_debug()
 
-# -- Audio  (debug)
-static var act_climax := flag("act_climax", "features.act_climax", "Play wet climax",
-	"Add the pack wet finish sound at her climax. Off keeps only the current climax squeak.",
-	GENERAL, "") \
-	.as_debug()
-
 # -- Camera  (debug)
 static var bob := num("bob", "camera_thrust.bob", "Bob",
 	"Vertical camera dip on the inward stroke.", GENERAL, "Camera") \
@@ -1827,6 +1821,8 @@ static var _deprecated := [
 	deprecated("anatomy.back_out_m", func(_value: Variant) -> Dictionary: return {}),
 	# A climax has no inside/outside finish choice; the finish selection is retired.
 	deprecated("features.anatomy_finish", func(_value: Variant) -> Dictionary: return {}),
+	# Only the base-game squee plays at her climax; the pack wet layer is retired.
+	deprecated("features.act_climax", func(_value: Variant) -> Dictionary: return {}),
 	# Standing Anon always keeps the game's stepping feet; the planted-body switches are retired.
 	deprecated("features.standing_plant_feet", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.standing.plant_spread_m",

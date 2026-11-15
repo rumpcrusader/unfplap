@@ -69,7 +69,7 @@ player-facing example, and the anatomy placement target is the hidden debug one.
 ```gdscript
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-if SETTINGS.act_climax.get_bool(): ...
+if SETTINGS.mute_ponese_audio.get_bool(): ...
 var raise_m: float = SETTINGS.raise_m.get_num()
 var orientation: String = SETTINGS.orientation.get_choice()
 var ignored: Array = SETTINGS.ignore.get_list()
@@ -92,7 +92,7 @@ Every setting also has `get_value()`, `set_value(v)`, `reset()`, `name`, `path`,
 `tab`, `group`, `default` and `debug`. `default` is the shipped value the declaration bound at
 start-up; `reset()` writes it back.
 
-A wrong accessor does not compile: `SETTINGS.act_climax.get_num()` is a parse error, and so is a
+A wrong accessor does not compile: `SETTINGS.mute_ponese_audio.get_num()` is a parse error, and so is a
 mistyped name. That is the main safety net; the tests only cover what the compiler cannot see.
 
 **Per-act snapshot.** `SETTINGS.act_snapshot(group)` returns one typed `ActSnapshot` with every
@@ -164,7 +164,7 @@ where a player would look for it, next to the setting it belongs to; do not add 
 ## Naming
 
 The identifier is the JSON path's last segment: `thrust.travel` → `travel`,
-`features.act_climax` → `act_climax`. Only on a collision with another setting does it gain the parent
+`features.mute_ponese_audio` → `mute_ponese_audio`. Only on a collision with another setting does it gain the parent
 segment as a prefix (`jiggle.intensity` → `intensity`; a second `intensity` would become
 `jiggle_intensity`). Keep names short; the panel group carries the context. Do not add group
 prefixes pre-emptively.
@@ -502,7 +502,6 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `act_speech_feel` | thrust-paced interjection instruction in cue lines |
 | `act_public_offer` | per-mare public consent affects offers; see `docs/eligibility.md` |
 | `mute_ponese_audio` | mute a Ponese-only act voice but keep its text |
-| `act_climax` | pack wet finish layer |
 | `kissing_reactions` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
 | `kissing_full_fidgets` | debug-only: Kissing's weight shift and hoof taps during her climax; see `docs/integrations.md` |
 | `idle_life_stretch` | debug-only: Idle Life's stretch pose from the accepted standing presentation through the act; dormant unless Enable debug is on and currently broken; the ask stays normal; see `docs/integrations.md` and `docs/poses.md` |

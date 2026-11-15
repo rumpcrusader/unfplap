@@ -42,11 +42,6 @@
     },
     {
       "service": "audio",
-      "func": "begin",
-      "signature": "func begin(features: Dictionary) -> void:"
-    },
-    {
-      "service": "audio",
       "func": "pose_changed",
       "signature": "func pose_changed(view: Variant) -> void:"
     },

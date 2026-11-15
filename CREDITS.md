@@ -15,7 +15,7 @@ Runtime: `assets/anatomy/mare/`, `assets/anatomy/anon/`
 
 ## Act audio
 
-**OpenNSFW Sound Pack** — the act foley and wet layers.
+**OpenNSFW Sound Pack** — the act foley.
 
 ```text
 SFX: OpenNSFW Sound Pack | @OpenNSFWSP

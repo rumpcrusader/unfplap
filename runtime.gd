@@ -1097,8 +1097,6 @@ func apply_live_settings() -> void:
 	_anatomy_refresh()
 	_sync_act_facts()
 	_integrations_controller().apply_live_settings()
-	var climax := _feature("act_climax")
-	_ensure_act_audio(climax)
 	_reactions.apply_radius()
 	if _pose_family() == "standing":
 		_kiss_controller().apply_live_settings()
@@ -4027,12 +4025,6 @@ func _audio_service() -> Node:
 	return _act_audio
 
 
-## Rebuild the optional pack layer after a settings edit. The node is never created outside an act.
-func _ensure_act_audio(climax: bool) -> void:
-	if is_instance_valid(_act_audio):
-		_act_audio.set_enabled(climax)
-
-
 func _start_audio() -> void:
 	_stop_audio()
 	_bed_soft = is_instance_valid(bed) \
@@ -4040,7 +4032,7 @@ func _start_audio() -> void:
 			or "cloth" in bed.name.to_lower())
 	var audio: Variant = _audio_service()
 	if audio != null:
-		audio.begin(_features)
+		audio.begin()
 
 
 func _stop_audio() -> void:
@@ -4055,7 +4047,7 @@ func _stop_breath() -> void:
 
 func _play_climax() -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.climax(_snout(), _reactions.dock_point())
+		_act_audio.climax(_snout())
 
 
 func _breath_tick(delta: float) -> void:

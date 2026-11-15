@@ -1,11 +1,10 @@
 extends Node
-## The act audio facade: the pack foley and wet layers, the base-game breath and squee
-## climax, and the Ponese mute policy. The runtime creates one node and keeps it for the process;
-## `begin()` opens the layers for an act and `end()` closes them.
+## The act audio facade: the pack foley layer, the base-game breath and squee climax, and the
+## Ponese mute policy. The runtime creates one node and keeps it for the process; `begin()` opens
+## the layer for an act and `end()` closes it.
 ##
-## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. `climax` is the separate wet
-## finish layer. The base-game breath, Ponese voice and `squee_*` climax are not gated by these
-## flags. See `docs/audio.md`.
+## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. The base-game breath, Ponese
+## voice and `squee_*` climax are separate and always on. See `docs/audio.md`.
 
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -19,7 +18,6 @@ const WITHDRAW_DEPTH := 0.22
 ## Full-strength cue level is lowered by this much at strength 0.
 const STRENGTH_GAIN_DB := 10.0
 
-var _climax := false
 ## The active impact profile, from the pose view's `audio.impact` (`missionary` or `standing`).
 ## `pose_changed()` caches it; the impact and withdraw calls use the cache instead of the start id.
 var _impact_profile := ""
@@ -40,12 +38,12 @@ var _text_only_voice := false
 var log := Callable()
 
 
-## Open the act's layers. The foley group is always built; the wet climax is optional. The impact
-## profile is cleared here and set by the first pose fan-out of the act.
-func begin(features: Dictionary) -> void:
+## Open the act's layer. The impact profile is cleared here and set by the first pose fan-out of
+## the act.
+func begin() -> void:
 	_rng.randomize()
 	_impact_profile = ""
-	set_enabled(bool(features.get("act_climax", false)))
+	_build_group("foley")
 	if not is_instance_valid(_sound):
 		_sound = SOUND.new()
 		_sound.name = "UnfplapActSound"
@@ -77,11 +75,10 @@ func stop_breath() -> void:
 		_sound.call("stop_breath")
 
 
-## The squee climax plus the pack wet layer.
-func climax(snout: Vector3, dock: Vector3) -> void:
+## The base-game squee climax.
+func climax(snout: Vector3) -> void:
 	if is_instance_valid(_sound):
 		_sound.call("play_climax", snout)
-	play_climax_wet(dock)
 
 
 ## Breath follows the plap rate and the act phase. `phase` is empty outside the act.
@@ -129,23 +126,6 @@ func _find_voice_player(pony_node: Variant) -> AudioStreamPlayer3D:
 	return found as AudioStreamPlayer3D if found is AudioStreamPlayer3D else null
 
 
-func climax_enabled() -> bool:
-	return _climax
-
-
-## Rebuild the optional layer when it changed. The foley group is always built. Called at
-## start and from apply_live_settings().
-func set_enabled(climax: bool) -> void:
-	if climax == _climax and not _pools.is_empty():
-		return
-	if _climax and not climax:
-		_clear_group("climax")
-	_climax = climax
-	_build_group("foley")
-	if _climax:
-		_build_group("climax")
-
-
 func _build_group(group: String) -> void:
 	for cue: String in CATALOGUE.CUES:
 		var spec: Variant = CATALOGUE.CUES[cue]
@@ -172,21 +152,6 @@ func _build_cue(cue: String, spec: Dictionary) -> void:
 	_next[cue] = 0
 	_last[cue] = -1
 	_ready_at[cue] = 0.0
-
-
-func _clear_group(group: String) -> void:
-	for cue: String in _pools.keys():
-		var spec: Variant = CATALOGUE.CUES.get(cue, {})
-		if not spec is Dictionary or str((spec as Dictionary).get("group", "")) != group:
-			continue
-		for player: AudioStreamPlayer3D in _pools[cue]:
-			if is_instance_valid(player):
-				player.stop()
-				player.queue_free()
-		_pools.erase(cue)
-		_next.erase(cue)
-		_last.erase(cue)
-		_ready_at.erase(cue)
 
 
 ## Play one cue at a world position. Returns false when the cue is disabled, cooling down or
@@ -287,11 +252,6 @@ func play_slide(direction: String, strength: float, at: Vector3, extra_db := -6.
 
 func play_mouth_kiss(at: Vector3) -> bool:
 	return play("mouth_kiss", at, 0.55)
-
-
-func play_climax_wet(at: Vector3) -> void:
-	if _climax:
-		play("climax_wet", at, 1.0)
 
 
 ## True only on the frames that will fire the withdraw layer. The caller uses this before asking

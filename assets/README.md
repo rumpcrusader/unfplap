@@ -44,8 +44,8 @@ unfplap-assets-<hash>.zip
 - `sources/` is editable material. `build.sh` and CI never stage or pack it.
 - `audio/cues.gd`, `audio/smack_cues.gd` and `audio/cue_sources.json` stay in git: they are code
   and credit metadata, not audio data.
-- `assets/audio/` is flat by cue group: `plap/`, `slide/`, `fabric/`, `mouth/`, `climax/` and
-  `smack/`. The pool split (foley/climax) lives in `audio/cues.gd`, not in the directory names.
+- `assets/audio/` is flat by cue group: `plap/`, `slide/`, `fabric/`, `mouth/` and `smack/`. The
+  cue table and its groups live in `audio/cues.gd`, not in the directory names.
 - The V2 Blender source is the only Blender file archived under `sources/anatomy/`. Winking
   iterations, `.blend1` files, `backups/` and reference renders stay local under `sources/work/`
   and out of the archive.

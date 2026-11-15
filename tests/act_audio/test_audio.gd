@@ -1,5 +1,5 @@
 extends SceneTree
-## The act audio facade: the pack layers plus the base-game breath/climax and the Ponese mute
+## The act audio facade: the pack foley layer plus the base-game breath/climax and the Ponese mute
 ## policy. The pure pack catalogue is covered by `test_act_audio.gd`.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_audio/test_audio.gd
@@ -40,7 +40,7 @@ func run() -> void:
 	var audio: Node = AUDIO.new()
 	root.add_child(audio)
 
-	audio.begin({"act_climax": false})
+	audio.begin()
 	var view := FakeView.new()
 	view.audio = {"impact": CATALOG.MISSIONARY}
 	audio.pose_changed(view)
@@ -48,7 +48,7 @@ func run() -> void:
 		"the pose hook caches the bed impact profile")
 	var pools: Dictionary = audio.get("_pools")
 	check(pools.has("plap_firm"), "the foley layer opens with the act")
-	check(not pools.has("climax_wet"), "the optional wet layer stays off")
+	check(not pools.has("climax_wet"), "there is no wet climax layer")
 	var sound: Variant = audio.get("_sound")
 	check(is_instance_valid(sound), "the base-game sound node is created")
 	check(sound.get_parent() == audio, "the sound node rides the audio facade")
@@ -59,7 +59,7 @@ func run() -> void:
 
 	audio.tick(0.1, "active", 2.0, Vector3.ZERO)
 	audio.tick(0.1, "", 0.0, Vector3.ZERO)
-	audio.climax(Vector3.ZERO, Vector3.ZERO)
+	audio.climax(Vector3.ZERO)
 	audio.call("stop_breath")
 
 	# The body slap gates on contact and takes its tier from the impact speed.
@@ -114,12 +114,10 @@ func run() -> void:
 	audio.call("apply_voice_policy", pony, "rarity", true, {"effective_ponese": false})
 	check(not audio.call("voice_text_only"), "a generated-voice pony is not muted")
 
-	audio.begin({"act_climax": true})
+	audio.begin()
 	pools = audio.get("_pools")
-	check(pools.has("climax_wet"), "the optional layer rebuilds on a new act")
-	audio.call("set_enabled", false)
-	check(not (audio.get("_pools") as Dictionary).has("climax_wet"),
-		"a live settings edit clears the optional layer")
+	check(pools.has("plap_firm"), "a new act rebuilds the foley layer")
+	check(not pools.has("climax_wet"), "a new act still has no wet layer")
 	audio.end()
 
 	root.remove_child(pony)

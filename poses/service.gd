@@ -593,6 +593,8 @@ func tick(delta: float) -> void:
 		pose_node.call("set_weight", 1.0)
 		pose_node.pose_config = pose_config
 	_from_asset = completed_asset
+	if is_instance_valid(act_body):
+		act_body.call("set_pose_assets", completed_asset, completed_asset, 1.0)
 	_state = POSE_STATE.next(_state, "complete")
 	_view.pose_state = _state
 	_view.contact_kind = _spec_contact_kind(_target_spec)
@@ -1292,7 +1294,9 @@ func _anon_channel() -> Dictionary:
 
 
 ## Apply the `act_body` specs' Anon channel: `hold` keeps the adapter, `blend` carries the edge
-## weight and `switch` names the authored profile. The player-body specs never install the adapter.
+## weight and `switch` names the authored profile. The service also binds the authored asset pair:
+## both sides of the live asset outside an edge, the source and target on a blend, and the target
+## twice on a switch. The player-body specs never install the adapter.
 func _apply_anon_channel(view: Variant) -> void:
 	var anon_value: Variant = view.anon
 	if not anon_value is Dictionary:
@@ -1304,12 +1308,16 @@ func _apply_anon_channel(view: Variant) -> void:
 	if not is_instance_valid(act_body):
 		return
 	if _run == null:
-		# Outside an edge the spec's profile is the hold.
+		# Outside an edge the spec's profile is the hold and both assets are the live one.
+		var live: Variant = live_authored()
+		act_body.call("set_pose_assets", live, live, 1.0)
 		act_body.call("pose_changed", str(anon.get("profile", "")), 1.0)
 		return
 	var channel := _anon_channel()
 	match str(channel.get("kind", "hold")):
 		"blend":
+			act_body.call("set_pose_assets", _from_asset, _target_asset,
+				clampf(float(view.weight), 0.0, 1.0))
 			act_body.call("set_weight", clampf(float(view.weight), 0.0, 1.0))
 		"switch":
 			var switched := str(channel.get("profile", ""))
@@ -1317,9 +1325,10 @@ func _apply_anon_channel(view: Variant) -> void:
 				switched = str(channel.get("set", ""))
 			if switched.is_empty():
 				switched = str(anon.get("profile", ""))
+			act_body.call("set_pose_assets", _target_asset, _target_asset, 1.0)
 			act_body.call("pose_changed", switched, 1.0)
 		_:
-			# A hold keeps the adapter's current profile and weight.
+			# A hold keeps the adapter's current profile, weight and asset pair.
 			pass
 
 
@@ -1350,6 +1359,7 @@ func _install_act_body() -> void:
 		parent.remove_child(body)
 		body.queue_free()
 		return
+	body.call("set_pose_assets", live_authored(), live_authored(), 1.0)
 	act_body = body
 	if set_act_body.is_valid():
 		set_act_body.call(body)

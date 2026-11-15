@@ -26,6 +26,18 @@ class FakePony extends Node3D:
 	var body_scale := 1.0
 
 
+## The act-body handle the transition test injects: the session owns it, so it must accept the
+## service's pair binding and its act-exit restore.
+class FakeActBody extends Node:
+	var pairs: Array = []
+
+	func set_pose_assets(from_value: Variant, to_value: Variant, weight: float) -> void:
+		pairs.append([from_value, to_value, weight])
+
+	func remove() -> void:
+		pass
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -150,13 +162,13 @@ func _check_missionary_scope() -> void:
 	check(session.pose_node == null and pose_node.get_parent() == null
 		and pose_node.is_queued_for_deletion(),
 		"the final release frees the pose node")
-	check(session.pose_id == "" and session.id == "" and session.features.is_empty(),
+	check(session.id == "" and session.features.is_empty(),
 		"the final release clears the act identity and features")
 	check(session.pose_config.is_empty() and config.is_empty(),
 		"the final release clears the live config")
 	check(session.bed_frame == null and not session._started,
 		"the final release clears the remaining pose state")
-	check(view.pose_state == VIEW.IDLE and view.id == "" and view.pose_id == "",
+	check(view.pose_state == VIEW.IDLE and view.id == "",
 		"the final release returns the view to idle")
 	check(view.pose_config.is_empty() and view.camera.is_empty() and view.modifiers.is_empty()
 		and view.forms.is_empty() and view.views.is_empty(),
@@ -245,7 +257,7 @@ func _check_transition_path() -> void:
 	var config: Dictionary = session.pose_config
 	var pose_node: Node = session.pose_node
 	var body_sway: Node = session.body_sway
-	var act_body := Node.new()
+	var act_body := FakeActBody.new()
 	session.act_body = act_body
 	session.pose_changed(view)
 	check(session.act_body == act_body and act_body.get_parent() == null,

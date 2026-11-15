@@ -31,12 +31,24 @@ class FakePony extends Node3D:
 
 class FakeActBody extends Node:
 	var sink: Array = []
+	var assets: Array = []
+	var profiles: Array = []
+	var weights: Array = []
 
 	func apply(_frame: Transform3D, _scale: float) -> void:
 		sink.append("anon")
 
 	func remove() -> void:
 		sink.append("remove")
+
+	func set_pose_assets(from_value: Variant, to_value: Variant, weight: float) -> void:
+		assets.append([from_value, to_value, weight])
+
+	func pose_changed(profile := "", weight := 1.0) -> void:
+		profiles.append([profile, weight])
+
+	func set_weight(weight: float) -> void:
+		weights.append(weight)
 
 
 ## The one field `body_sway` publishes at detach, plus the values a pose request reads.
@@ -88,6 +100,7 @@ func run() -> void:
 	_check_asset_reload()
 	_check_release_abort()
 	_check_pose_changed()
+	_check_anon_pair()
 	_check_no_act_exit()
 
 	print("POSE_SESSION_RESULT checks=%d failures=%d" % [checks, failures])
@@ -1312,6 +1325,81 @@ func _check_pose_changed() -> void:
 	_free_live(made)
 
 
+## The act-body adapter reads the session's authored pair: the live asset twice outside an edge,
+## the source/target pair at the edge weight on a blend, and the target twice on a switch. The
+## profile stays the adapter's own.
+func _check_anon_pair() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var body := FakeActBody.new()
+	session.act_body = body
+	view.anon = {"mode": "act_body", "profile": "missionary"}
+	var live: Variant = session.pose_node.authored
+	session.pose_changed(view)
+	check(body.assets.size() == 1, "the outside-edge fan-out binds the pair once")
+	check(is_same(body.assets[0][0], live) and is_same(body.assets[0][1], live)
+		and is_equal_approx(float(body.assets[0][2]), 1.0),
+		"the outside-edge pair is the live asset twice at full weight")
+	check(body.profiles.size() == 1 and str(body.profiles[0][0]) == "missionary",
+		"the outside-edge profile is the spec's own")
+	check(body.get_parent() == null and not body.is_queued_for_deletion(),
+		"a bound adapter is kept, not reinstalled or freed")
+
+	var target := "synthetic_anon_blend"
+	_synthetic_spec(session, target)
+	_synthetic_edge(session, CATALOG.STANDING, target, {},
+		{"kind": "switch", "at": 0.0, "set": "standing"},
+		{"anon": {"kind": "blend"}})
+	var result: Dictionary = session.request_pose(target, "test", {"act_state": 2})
+	check(str(result.get("code", "")) == "ok", "the anon blend edge starts")
+	view.anon = {"mode": "act_body", "profile": "missionary"}
+	session._from_asset = "source"
+	session._target_asset = "target"
+	var before_profiles := body.profiles.size()
+	for weight: float in [0.0, 0.5, 1.0]:
+		view.weight = weight
+		session.pose_changed(view)
+	var last := body.assets.size() - 1
+	check(last >= 2, "the anon blend binds the pair on every weight")
+	check(str(body.assets[last - 2][0]) == "source" and str(body.assets[last - 2][1]) == "target"
+		and is_zero_approx(float(body.assets[last - 2][2])),
+		"the blend's source/target pair starts at weight zero")
+	check(str(body.assets[last][0]) == "source" and str(body.assets[last][1]) == "target"
+		and is_equal_approx(float(body.assets[last][2]), 1.0),
+		"the blend's source/target pair reaches weight one")
+	check(body.weights.size() >= 3 and is_equal_approx(float(body.weights[-1]), 1.0),
+		"the blend hands the weight to the adapter")
+	check(body.profiles.size() == before_profiles, "a blend never changes the profile")
+	_free_live(made)
+
+	var switch_made := _live_session(CATALOG.STANDING)
+	var switch_session: RefCounted = switch_made["session"]
+	var switch_view: RefCounted = switch_session.view()
+	var switch_body := FakeActBody.new()
+	switch_session.act_body = switch_body
+	var switch_target := "synthetic_anon_switch"
+	_synthetic_spec(switch_session, switch_target)
+	_synthetic_edge(switch_session, CATALOG.STANDING, switch_target, {},
+		{"kind": "switch", "at": 0.0, "set": "standing"},
+		{"anon": {"kind": "switch", "at": 0.0, "profile": "missionary_switch"}})
+	var switch_result: Dictionary = switch_session.request_pose(switch_target, "test",
+		{"act_state": 2})
+	check(str(switch_result.get("code", "")) == "ok", "the anon switch edge starts")
+	switch_view.anon = {"mode": "act_body", "profile": "missionary"}
+	switch_session._target_asset = "target"
+	switch_session.pose_changed(switch_view)
+	check(switch_body.assets.size() == 1
+		and str(switch_body.assets[0][0]) == "target"
+		and str(switch_body.assets[0][1]) == "target"
+		and is_equal_approx(float(switch_body.assets[0][2]), 1.0),
+		"an anon switch binds the target asset twice at full weight")
+	check(switch_body.profiles.size() == 1
+		and str(switch_body.profiles[0][0]) == "missionary_switch",
+		"an anon switch names the switched profile")
+	_free_live(switch_made)
+
+
 ## A live edge aborted by `_end_session` frees the act body once and never calls an act exit from
 ## the fan-out. The edge request and the pose-change seam keep the session alive.
 func _check_no_act_exit() -> void:
@@ -1396,10 +1484,14 @@ func _synthetic_bed_spec(session: RefCounted, spec_id: String) -> Variant:
 	return spec
 
 
-## A synthetic validated edge into a synthetic target.
+## A synthetic validated edge into a synthetic target. `channels` adds or overrides a channel
+## record on top of the held base and the controls switch.
 func _synthetic_edge(session: RefCounted, from_id: String, to_id: String, requires: Dictionary,
-		controls: Dictionary = {"kind": "switch", "at": 0.0, "set": "standing"}) -> Variant:
+		controls: Dictionary = {"kind": "switch", "at": 0.0, "set": "standing"},
+		channels: Dictionary = {}) -> Variant:
 	var edge_id := from_id + "__" + to_id
+	var block: Dictionary = {"base": {"kind": "hold"}, "controls": controls}
+	block.merge(channels, true)
 	var document := {
 		"version": 1,
 		"id": edge_id,
@@ -1408,7 +1500,7 @@ func _synthetic_edge(session: RefCounted, from_id: String, to_id: String, requir
 		"phases": ["active"],
 		"requires": requires,
 		"duration": 0.6,
-		"channels": {"base": {"kind": "hold"}, "controls": controls},
+		"channels": block,
 		"events": [],
 		"interrupt": {"climax": "hold", "teardown": "abort"},
 	}

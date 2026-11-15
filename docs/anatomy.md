@@ -295,13 +295,19 @@ bridge only routes them. `oral_ready()` is the feature, the standing pose family
 `hole_ready()` reads the pose view's mouth contact so V is refused while the mouth is busy. The VR
 left `by_button` emits the `oral` command through the host's `command` callback.
 
-The missionary Anon body is owned by `poses/service.gd`, not the bridge. The bridge receives the
-node as an opaque handle through `set_missionary_anon()` and uses its `refresh_palm`/`diag_row` and
-eye reads; it never creates, installs, applies, frees or re-parents it. `end()` only calls the
+The missionary Anon body is owned by `poses/service.gd`, not the bridge. It is the `act_body`
+spec's body, so the adapter is generalized over the future `bed_facesit` row and keeps the one
+node, handle and act-scope ownership. The service binds the live pose's authored asset pair to it;
+outside an edge both sides are the live asset, and on an `anon` blend the adapter mixes the two
+authored placements and bone blocks. The bridge receives
+the node as an opaque handle through `set_missionary_anon()` and uses its `refresh_palm`/`diag_row`
+and eye reads; it never creates, installs, applies, frees or re-parents it. `end()` only calls the
 body's `remove()` to hand the avatar back; the pose session installs it through its `anon` channel,
 applies it from `render_write()` and frees the node once in its own `release_pose()`. The bridge's
 `pose_changed(view)` carries the view family and contact kind without rebuilding the controller or
-the act.
+the act. The hip offset still comes from the part; a parked part reports a zero
+`hip_offset_wanted`, so the act body holds the authored pose while the face contact owns the
+placement (D3).
 
 `apply_live()` re-reads the host's `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`
 before it refreshes the controller. The per-tick facts sync writes the same values, but it does

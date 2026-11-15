@@ -473,13 +473,19 @@ it.
 
 The pose service owns the missionary `act_body` adapter (`poses/missionary_anon.gd`): it creates the
 node on the runtime host as `UnfplapMissionaryAnon`, installs it through the `anon` channel,
-applies it from `render_write()` and frees it once in `release_pose()`. The anatomy bridge receives
+binds the service's authored asset pair, applies it from `render_write()` and frees it once in
+`release_pose()`. The anatomy bridge receives
 only an opaque handle: it uses the body's `refresh_palm`/`diag_row` and eye reads and calls
 `remove()` at the act end; it never creates, installs, applies, frees or re-parents it. The adapter
 exists only for a view whose `anon.mode` is `act_body` and desktop human Anon; the `player_body`
 specs (`standing`, `standing_test`) keep the runtime's standing Anon controller. The `anon` channel
 accepts `hold` (keep the adapter), `blend` (carry the live edge weight) and `switch` (name an
-authored profile); the adapter caches the last profile and weight. A pose change never frees the
+authored profile); the adapter caches the last profile and weight. Outside an edge the service
+binds the live asset on both sides, so the adapter keeps its single placement and bone-block path.
+On a blend it evaluates both authored placements and both v7 local-rest bone blocks and mixes
+them at the edge weight; a v6 or mixed pair keeps the live side's single path. A switch binds the
+target asset twice. The completion tick also binds the adopted asset before the next fan-out, so
+there is no one-frame source pose. A pose change never frees the
 adapter; the one act exit does.
 
 The audio impact profile follows the view's `audio.impact`: `missionary` keeps the bed/fabric layer,

@@ -311,8 +311,8 @@ The missionary Anon body is owned by `poses/service.gd`, not the bridge. It is t
 spec's body, so the adapter is generalized over the future `bed_facesit` row and keeps the one
 node, handle and act-scope ownership. The service binds the live pose's authored asset pair to it;
 outside an edge both sides are the live asset, and on an `anon` blend the adapter mixes the two
-authored placements and bone blocks. The bridge receives
-the node as an opaque handle through `set_missionary_anon()` and uses its `refresh_palm`/`diag_row`
+authored placements and bone blocks. The bridge receives the node as an opaque handle through
+`set_missionary_anon()` and uses its `refresh_palm`/`diag_row`
 and eye reads; it never creates, installs, applies, frees or re-parents it. `end()` only calls the
 body's `remove()` to hand the avatar back; the pose session installs it through its `anon` channel,
 applies it from `render_write()` and frees the node once in its own `release_pose()`. The bridge's

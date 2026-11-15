@@ -131,8 +131,8 @@ to side is the session's target snapshot. `contact_kind` is the one contact sour
 `mouth`, `face` or `none`); it starts at the spec's base kind, moves on an edge's `contact` switch
 and settles on the target's kind. The `face` kind's provider is the act body's `mouth_point()` on
 the anatomy bridge; its driver is D5 and the anatomy act parks her part. `contact_target` is the
-pose turn's live anchor, and
-`facing`/`facing_amount` its live frame; the standing camera reads both every physics tick. The
+pose turn's live anchor, and `facing`/`facing_amount` its live frame; the standing camera reads
+both every physics tick. The
 view carries no compatibility fields: `id`, `family`, `frame`, `settings_group`, the profiles, the
 live config and `contact_kind` are the whole pose source.
 

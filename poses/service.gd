@@ -461,6 +461,9 @@ func _fill_transition_view() -> void:
 ## are one frame; a steady oral pose keeps the turn and the live mouth anchor.
 func tick(delta: float) -> void:
 	_bind_oral()
+	if facts != null:
+		var pace_value: Variant = facts.get("auto_pace")
+		_oral_turn.pace = float(pace_value) if pace_value != null else 1.0
 	if _run == null:
 		_oral_turn.tick(maxf(delta, 0.0), _view, 1.0)
 		return

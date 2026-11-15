@@ -286,10 +286,10 @@ nothing; the session binds the pony and the host callbacks `mouth_point`, `openi
 - **Contact target.** While she turns the `contact_target` is the captured opening, so the part
   does not chase her rump through the arc. Once settled and in mouth contact it eases to the live
   mouth at `ORAL_ANCHOR_RATE`. A released contact points back at the opening.
-- **Style and voice.** The style sequence writes `oral_pitch`, `oral_yaw` and `oral_roll` into the
-  live config and, during an edge, the target snapshot, so the delta's to side sees them. The
-  soft-kiss timer calls the host cue on an idle interval. `speech_stop` and `viseme` come from the
-  edge events, not from the turn.
+- **Style and voice.** The style sequence follows the auto pace and writes `oral_pitch`,
+  `oral_yaw` and `oral_roll` into the live config and, during an edge, the target snapshot, so the
+  delta's to side sees them. The soft-kiss timer calls the host cue on an idle interval.
+  `speech_stop` and `viseme` come from the edge events, not from the turn.
 - **Release.** Reverse completion and the one act exit call `restore()` once: the captured root and
   facing go back, the oral keys are erased from both config sides, and the turn clears. The
   afterglow calls `release_mouth_contact()` instead, which keeps the turned frame and the neck
@@ -365,8 +365,8 @@ kind. The hands read `view.contact_kind` for the mouth path and the oral caress 
 act reads it for the part target and the hole gate; the camera reads it for the oral lean lock; the
 dialogue and HUD read it through the facts. The standing camera reads `view.facing`/
 `facing_amount` directly each physics tick; the pose turn writes them, so no service carries a
-facing copy. The running lean kiss ends when `oral_lean_tick` stops wanting it, not from a second
-kiss state.
+facing copy. The running lean kiss is ended by the oral lean tick; the kiss release still advances
+through its own `tick`, so no second kiss state exists.
 
 The modifier profile table is `shared/pose_specs.gd`'s `MODIFIER_PROFILES`: `missionary` owns
 `prone_sway` and `tail_lay`; `standing` owns `body_sway`, `ear_twitch` and the standing tail. An

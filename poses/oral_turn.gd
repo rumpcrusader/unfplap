@@ -32,6 +32,8 @@ var contact_target := Vector3.INF
 var mouth_point := Callable()
 var opening_point := Callable()
 var oral_kiss := Callable()
+## The auto-thrust pace the style sequence follows, written by the service from the live facts.
+var pace := 1.0
 
 var _captured := false
 var _from := Vector3.ZERO
@@ -227,7 +229,7 @@ func _motion_tick(delta: float) -> void:
 	var blend := 1.0 - exp(-delta * ORAL_STYLE_BLEND)
 	_now = _now.lerp(_style[0], blend)
 	_speed = lerpf(_speed, float(_style[1]), blend)
-	_clock = fposmod(_clock + delta * _speed, 16.0)
+	_clock = fposmod(_clock + delta * maxf(0.8, pace) * _speed, 16.0)
 	var turn := TAU * _clock
 	_pose_delta["oral_pitch"] = cos(turn) * _now.y
 	_pose_delta["oral_yaw"] = sin(turn * 0.5) * _now.z + _side * _now.z * 0.5

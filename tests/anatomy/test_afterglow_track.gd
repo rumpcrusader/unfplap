@@ -170,6 +170,12 @@ func run() -> void:
 			"the oral part aims at the mouth anchor")
 		check(oral_part.aim_normal.is_zero_approx(),
 			"the mouth anchor uses the auto aim")
+	var holes_on := SETTINGS.anatomy_holes.get_bool()
+	SETTINGS.anatomy_holes.set_bool(true)
+	oral_act.call("toggle_hole", 2)
+	check(not bool(oral_act.get("_anal")),
+		"the mouth contact refuses the hole")
+	SETTINGS.anatomy_holes.set_bool(holes_on)
 	oral_view.contact_kind = "opening"
 	oral_view.contact_target = Vector3.INF
 	oral_service.tracks.clear()

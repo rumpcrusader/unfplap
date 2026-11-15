@@ -357,7 +357,8 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 
 
 ## Oral keeps Anon's body and the shot neutral: no Q/E reach, no lean and no F lean kiss. The
-## caress stays live, so the hands still tick and A/D, Z/C keep their own input.
+## caress stays live, so the hands still tick and A/D, Z/C keep their own input. A running lean kiss
+## is ended here; its release still advances through the `kiss.tick` call.
 func oral_lean_tick(delta: float) -> void:
 	end_lean_action()
 	lean_forward = move_toward(lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
@@ -368,7 +369,7 @@ func oral_lean_tick(delta: float) -> void:
 	side_return_armed = false
 	lean_block_logged = false
 	if kiss != null:
-		kiss.call("lean_kiss_tick")
+		kiss.call("end_lean_kiss")
 	var caress_started := Time.get_ticks_usec()
 	if hands != null:
 		hands.call("tick", delta)

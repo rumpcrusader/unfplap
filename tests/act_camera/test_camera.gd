@@ -70,6 +70,9 @@ class FakeKiss extends RefCounted:
 	func lean_kiss_tick() -> void:
 		calls.append("lean_kiss_tick")
 
+	func end_lean_kiss() -> void:
+		calls.append("end_lean_kiss")
+
 	func reset() -> void:
 		calls.append("reset")
 
@@ -338,7 +341,8 @@ func _check_oral_lean() -> void:
 		"oral returns the lean toward rest")
 	check(near(camera.lean_sway, 0.0), "oral zeroes the idle sway")
 	check(not camera.side_return_armed, "oral drops the side return latch")
-	check(kiss.calls.has("lean_kiss_tick"), "oral runs the lean kiss release")
+	check(kiss.calls.has("end_lean_kiss"), "oral ends a running lean kiss")
+	check(not kiss.calls.has("lean_kiss_tick"), "oral never restarts the lean kiss")
 	check(hands.calls.has("tick"), "oral keeps ticking the caress hands")
 	check(not hands.calls.has("stop_inputs"), "oral never stops the caress input")
 	check(standing.calls.has("apply_lean_look"), "oral keeps the standing look response")

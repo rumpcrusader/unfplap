@@ -2366,9 +2366,19 @@ func toggle_anatomy_oral() -> void:
 	_log("oral pose %s -> %s refused: %s (%s)" % [
 		from_id, target, str(result.get("code", "")), str(result.get("reason", ""))])
 	if target == CATALOG.STANDING_ORAL and not consent:
-		_anatomy_status("%s is not into that" % _display_name)
+		_oral_status("%s is not into that" % _display_name)
 	elif service != null:
-		_anatomy_status(str(result.get("reason", "")))
+		_oral_status(str(result.get("reason", "")))
+
+
+## The oral refusal line through the pose service's host callback, or the anatomy status when the
+## callback is absent.
+func _oral_status(text: String) -> void:
+	var session: RefCounted = _pose_service()
+	if session.oral_status.is_valid():
+		session.oral_status.call(text)
+	else:
+		_anatomy_status(text)
 
 
 ## The mouth point the pose turn aims at once it has settled.

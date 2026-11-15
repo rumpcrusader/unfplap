@@ -1,7 +1,8 @@
 extends SceneTree
 ## The request service through its public path: `force()` builds a standing ask against a fake
 ## director and runtime, the director's transcript drives the consent flow, and every assertion is
-## an observable effect. No private member is touched.
+## an observable effect. No private member is touched. The distant-walk case uses two real 2.1 s
+## waits, so this suite is one of the slow ones for the parallel runner.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/initiation/test_initiation_api.gd
 
 const INIT := preload("res://mods/unfplap/initiation/service.gd")
@@ -65,6 +66,7 @@ class FakeNavigator extends Node:
 	var command_speed_limit: Variant = INF
 	var command_pace_target: Variant = -1.0
 	var _has_target := false
+	var goal: Variant = null
 
 	func stay() -> void:
 		_has_target = false
@@ -72,7 +74,9 @@ class FakeNavigator extends Node:
 	func command_support(point: Vector3) -> Vector3:
 		return point
 
-	func command_destination(_point: Vector3, _gait: String) -> bool:
+	func command_destination(point: Vector3, _gait: String) -> bool:
+		goal = point
+		_has_target = true
 		return true
 
 
@@ -283,6 +287,38 @@ func run() -> void:
 	check(runtime.presented, "heat overrides the privacy reserve")
 	runtime.phase = "normal"
 	game.mares = [target]
+
+	# A distant walk enters APPROACH, keeps its navigator lease past the old two-second window,
+	# then settles in ARRIVE before the ask. This case is the suite's only real-time wait.
+	initiation.reset()
+	director.greet_ok = false
+	director.queued.clear()
+	director._player_text = ""
+	runtime.presented = false
+	target.global_position = Vector3(10.0, 0.0, 0.0)
+	var walking: INIT.ForceResult = initiation.force(runtime, CATALOG.STANDING)
+	check(walking.ok, "force starts a distant walk")
+	check(nav.command_owner.begins_with("unfplap:request:rarity"),
+		"the walk owns the navigator")
+	check(not nav.wander_enabled and nav._has_target, "the walk stops her wander")
+	OS.delay_msec(2100)
+	initiation.tick(0.0)
+	check(nav.command_owner.begins_with("unfplap:request:rarity"),
+		"the walk keeps the navigator past two seconds")
+	check(director.queued.is_empty(), "a distant walk has not asked yet")
+	target.global_position = Vector3(2.0, 0.0, 0.0)
+	initiation.tick(0.0)
+	check(not nav._has_target, "arriving stops the walk")
+	check(director.queued.is_empty(), "the arrival still settles for two seconds")
+	OS.delay_msec(2100)
+	initiation.tick(0.0)
+	check(director.queued.size() == 1 and director.queued[0].ends_with(":ask"),
+		"the ask starts after the arrival settle")
+	check(not context.keys.is_empty() and context.keys[-1].ends_with(":situation"),
+		"the settled ask records its situation")
+	initiation.reset()
+	target.global_position = Vector3.ZERO
+	director.greet_ok = true
 
 	# A closed start gate after the settled presentation closes the accepted offer instead of
 	# inviting her.

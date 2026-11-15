@@ -588,7 +588,7 @@ func _start_approach(candidate: Candidate) -> void:
 		return
 	var episode := Episode.new()
 	episode.serial = _serial
-	episode.phase = Phase.ARRIVE
+	episode.phase = Phase.APPROACH
 	episode.pony = pony
 	episode.runtime = runtime
 	episode.id = candidate.id
@@ -681,6 +681,8 @@ func _tick_arrive() -> void:
 			> POLICY.ARRIVE_RANGE_M + 0.75:
 		if _now() >= _episode.arrive_until:
 			_cancel_episode(false, "arrive target moved")
+		return
+	if _now() < _episode.arrive_until:
 		return
 	_episode.private = _private_at_player(pony)
 	_log_privacy_once(pony)

@@ -317,6 +317,15 @@ func facing(basis: Basis, amount: float) -> void:
 		facing_cb.call(basis, amount)
 
 
+## The per-act oral turn's live facing, or `{}` when no turn is active. The runtime mirrors this
+## into the pose view; the turn itself stays in `anatomy/act/oral.gd` until A5.
+func turn_facing() -> Dictionary:
+	if not is_instance_valid(act):
+		return {}
+	var value: Variant = act.call("facing")
+	return value if value is Dictionary else {}
+
+
 ## The status label. The host's `anatomy_status` owns the label.
 func status(text: String, seconds := 2.0) -> void:
 	var status_cb: Callable = _callback("status")

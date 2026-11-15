@@ -13,11 +13,12 @@ const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "Colo
 ## file, per file. It ratchets down: a migrated consumer must not gain a reference, and a file that
 ## drops lowers its entry in the same commit. Producer mirrors may raise a producer's entry in the
 ## commit that adds them, with the total held flat. The hard allowlist is Phase B5/E.
-## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). The A0.2 view adds its
-## four `pose_id` compatibility mirrors and three `oral_active` fields; a refill does not grow them.
+## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). A0.2 adds the view's
+## four `pose_id` mirrors and three `oral_active` fields; A1.1 fills the view (+2 in the session)
+## and mirrors the live oral state (+3 in the runtime). A refill does not grow them.
 const POSE_ID_BUDGET := {
 	"runtime.gd": 62,
-	"poses/service.gd": 29,
+	"poses/service.gd": 31,
 	"settings/service.gd": 11,
 	"camera/service.gd": 8,
 	"kiss/service.gd": 8,
@@ -37,7 +38,7 @@ const POSE_ID_BUDGET := {
 	"dialogue/utterance.gd": 2,
 	"anatomy/act/oral.gd": 2,
 	"anatomy/act/finish.gd": 2,
-	"shared/act_facts.gd": 1,
+	"shared/act_facts.gd": 2,
 	"dialogue/service.gd": 1,
 	"scene_hold/service.gd": 1,
 	"main.gd": 1,
@@ -48,7 +49,7 @@ const POSE_ID_BUDGET := {
 	"shared/pose_view.gd": 4,
 }
 const ORAL_ACTIVE_BUDGET := {
-	"runtime.gd": 8,
+	"runtime.gd": 11,
 	"anatomy/act_bridge.gd": 3,
 	"hands/service.gd": 2,
 	"camera/service.gd": 1,

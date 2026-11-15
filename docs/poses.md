@@ -343,15 +343,16 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 | shared | hands_scale | `shared/hands_scale.gd` | palm scale |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
 | shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
+| shared | pose_view | `shared/pose_view.gd` | pose read model |
 
 ## Lifecycle
 
 - Scope: per runtime, one per pony; the session is not rebuilt for each act
 - Constructed by: `runtime._init()`; `bind()` points it at the runtime and its pony
-- Begin: `begin(context)` builds the act's pose once and returns `false`, before installing
-  anything, when a pose is already live or the pony has no body skeleton
+- Begin: `begin(context)` builds the act's pose once, fills the pose view, and returns `false`,
+  before installing anything, when a pose is already live or the pony has no body skeleton
 - End: `release_pose()` frees the pose and the standing tail, then clears the act identity, the
-  features, the live config and the bed frame
+  features, the live config, the view and the bed frame
 - Idempotent: the teardown phases are safe to repeat; `begin()` is not
 
 

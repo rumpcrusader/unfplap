@@ -290,7 +290,13 @@ func run() -> void:
 		if str(child.name).begins_with("Unfplap"):
 			built += 1
 	check(built == 1, "the act installs its pose modifier on the body skeleton")
+	check(runtime8._pose_session.view().id == CATALOG_STANDING
+		and runtime8._pose_session.view().pose_state == 2,
+		"the act fills the pose view")
 	runtime8.call("_free_pose")
+	check(runtime8._pose_session.view().id == ""
+		and runtime8._pose_session.view().pose_state == 0,
+		"the act teardown clears the pose view")
 	var left := 0
 	for child: Node in body8.get_children():
 		if str(child.name).begins_with("Unfplap"):

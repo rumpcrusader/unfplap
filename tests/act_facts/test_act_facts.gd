@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_facts/test_act_facts.gd
 
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
 var checks := 0
@@ -97,6 +98,7 @@ func run() -> void:
 	var facts := FACTS.new()
 	check(facts.state == 0, "state starts idle")
 	check(facts.pose_id == "", "pose starts empty")
+	check(facts.pose_view == null, "the pose view starts absent")
 	check(facts.source == "", "source starts empty")
 	check(is_zero_approx(facts.satisfaction), "satisfaction starts at zero")
 	check(is_zero_approx(facts.seconds_since_stroke), "time since the last stroke starts at zero")
@@ -198,6 +200,12 @@ func run() -> void:
 	check(facts.mod_active("idle_life"), "the mod gate reports an active mod")
 	check(facts.driver_host() == sink, "the pose host callback returns the host")
 	check(is_equal_approx(facts.physics_delta, 0.016), "the physics delta starts at 60 Hz")
+
+	var view: RefCounted = VIEW.new()
+	facts.pose_view = view
+	check(is_same(facts.pose_view, view), "the pose view is carried as one object")
+	facts.pose_view = null
+	check(facts.pose_view == null, "the pose view clears")
 
 	print("ACT_FACTS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

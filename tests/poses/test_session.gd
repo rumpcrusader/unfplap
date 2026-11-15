@@ -9,6 +9,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 const STRETCH_FAKE := "res://mods/unfplap/tests/fixtures/idle_stretch_fake.gd"
 const STRETCH_MISSING := "res://mods/idle_life/not_a_real_stretch.gd"
@@ -129,6 +130,13 @@ func _check_begin() -> void:
 	})
 	check(is_instance_valid(session.pose_node), "the pose modifier is built")
 	check(session.pose_node.get_parent() == body, "the pose modifier rides the body skeleton")
+	var view: RefCounted = session.view()
+	check(view != null and is_same(view, session.view()), "the session owns one pose view")
+	check(view.id == CATALOG.MISSIONARY, "the begin fills the view pose")
+	check(view.family == "bed", "the begin fills the view family")
+	check(view.pose_state == VIEW.STEADY, "the begin marks the view steady")
+	check(is_same(view.pose_config, session.pose_config),
+		"the view shares the session's live config")
 	check(session.pose_node.mode == "missionary", "the posture mode is set")
 	var live: Dictionary = session.pose_config
 	check(is_same(live, session.pose_node.pose_config),
@@ -171,6 +179,10 @@ func _check_begin() -> void:
 	check(session.features.is_empty(), "the pose release clears the features")
 	check(session.pose_config.is_empty(), "the pose release clears the live config")
 	check(session.bed_frame == null, "the pose release clears the bed frame")
+	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
+		"the pose release clears the view")
+	check(session.view().pose_config.is_empty(), "the pose release drops the view config")
+	check(session.view().pose_id == "", "the pose release clears the compatibility id")
 	check(str(session.base_info().get("reason", "")) == "pose=",
 		"the released session names no pose")
 	body.free()
@@ -192,6 +204,8 @@ func _check_begin_refused() -> void:
 	}), "a pony without a body skeleton is refused")
 	check(not session._started and session.pose_node == null and session.tail_lay == null,
 		"a refused begin installs nothing")
+	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
+		"a refused begin leaves the view empty")
 	root.remove_child(pony)
 	pony.free()
 
@@ -216,6 +230,8 @@ func _check_standing_begin() -> void:
 		"camera_position": Vector3.INF,
 	}), "the standing begin succeeds")
 	check(not session.bed_frame_source_saved, "a standing begin saves no bed frame source")
+	check(session.view().family == "standing" and session.view().pose_state == VIEW.STEADY,
+		"the standing begin fills the view")
 	session.release_pose()
 	root.remove_child(bed)
 	bed.free()

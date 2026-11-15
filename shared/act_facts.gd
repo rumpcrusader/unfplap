@@ -68,6 +68,9 @@ var bob := 0.0
 var back := 0.0
 var back_target := 0.0
 var forced_glance := ""
+## The pose read model `poses/service.gd` fills and clears. `pose_id` and `pose_config` below stay
+## as compatibility fields for the readers that have not migrated yet.
+var pose_view: Variant = null
 var pose_config: Dictionary = {}
 var presentation_config: Dictionary = {}
 var kiss_amount := 0.0

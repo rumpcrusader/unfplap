@@ -528,6 +528,7 @@ func _sync_act_facts() -> void:
 	var facts := _act_facts
 	facts.state = state
 	facts.pose_id = pose_id
+	facts.pose_view = _pose_service().view()
 	facts.source = source
 	facts.satisfaction = satisfaction
 	facts.mood = mood
@@ -561,6 +562,18 @@ func _sync_act_facts() -> void:
 	facts.thrust_pace = _readiness.thrusts_per_second()
 	facts.oral_active = _anatomy_bridge.oral_active()
 	facts.anal_active = _anatomy_bridge.anal_active()
+	# The pose view mirrors the live anatomy state; the producers stay where they are until A5.
+	var view: Variant = facts.pose_view
+	view.oral_active = facts.oral_active
+	view.anal_active = facts.anal_active
+	view.contact_kind = "mouth" if facts.oral_active else "opening"
+	var turn: Variant = _anatomy_bridge.turn_facing()
+	if turn is Dictionary and not (turn as Dictionary).is_empty():
+		view.facing = (turn as Dictionary).get("basis", Basis.IDENTITY)
+		view.facing_amount = float((turn as Dictionary).get("amount", 0.0))
+	else:
+		view.facing = Basis.IDENTITY
+		view.facing_amount = 0.0
 	facts.penetration_reach = penetration_reach()
 	var cam: RefCounted = _camera_service()
 	facts.size_name = cam.call("size_name")
@@ -736,6 +749,7 @@ func _bind_act_view() -> void:
 	facts.pony = pony
 	facts.state = state
 	facts.pose_id = pose_id
+	facts.pose_view = _pose_session.view()
 	facts.pony_id = _id
 	facts.camera = _act_camera.camera
 	facts.viewport = get_viewport()

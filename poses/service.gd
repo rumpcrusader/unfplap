@@ -14,6 +14,8 @@ const PRONE_SWAY := preload("res://mods/unfplap/poses/prone_sway.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
 const IDLE_STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 
@@ -31,6 +33,9 @@ var bed_node: Variant = null
 var _started := false
 ## Live pose config. The runtime reads it through `_pose_session.pose_config`.
 var pose_config: Dictionary = {}
+## The one pose read model for the act, and the registry that validates the static spec table.
+var _view: RefCounted
+var _registry: RefCounted
 
 ## The pose modifier and the extra scene modifiers the act installs.
 var pose_node: Node
@@ -78,6 +83,17 @@ func bind(host_node: Variant, pony_node: Variant) -> void:
 	pony = pony_node
 
 
+func _init() -> void:
+	_view = POSE_VIEW.new()
+	_registry = REGISTRY.new()
+
+
+## The one pose read model the act view carries. `begin()` fills it and `release_pose()` clears it;
+## the object is never re-created, so a consumer can keep the reference for the act.
+func view() -> RefCounted:
+	return _view
+
+
 ## Stage the live pose config in place. The runtime calls this before the standing placement reads
 ## its gaps, and everything that holds `pose_config` sees this same object for the act.
 func set_pose_config(config: Dictionary) -> void:
@@ -119,6 +135,7 @@ func begin(context: Dictionary) -> bool:
 	elif pose_id == CATALOG.MISSIONARY:
 		sync_missionary_config()
 	pose_node.pose_config = pose_config
+	_fill_view()
 	var look: Variant = context.get("look_point")
 	pose_node.look_point = look if look is Vector3 else pony.global_position
 	pose_node.amount = 0.0
@@ -159,6 +176,15 @@ func begin(context: Dictionary) -> bool:
 		tail.call("choose_side", side_anchor)
 		(hair as Skeleton3D).add_child(tail)
 	return true
+
+
+func _fill_view() -> void:
+	var spec: Variant = _registry.spec(pose_id)
+	if spec == null:
+		_view.clear()
+		_write_log("pose view: no spec for %s" % pose_id)
+		return
+	_view.fill(spec, pose_config)
 
 
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
@@ -364,6 +390,7 @@ func release_pose() -> void:
 	bed_frame = null
 	bed_frame_source_saved = false
 	bed_frame_source = Transform3D.IDENTITY
+	_view.clear()
 
 
 ## Install, keep or remove the external Idle Life stretch holder for the live act pose. The

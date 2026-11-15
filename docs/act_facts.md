@@ -50,13 +50,18 @@ camera_owned, look_captured, look_yaw, look_pitch
 lean_forward, lean_side, lean_action_side, lean_view_forward, lean_view_side, lean_sway
 lean, shot_lean_forward
 bob, back, back_target
-forced_glance, pose_config, presentation_config
+forced_glance, pose_view, pose_config, presentation_config
 kiss_amount, kiss_active, kiss_side
 thrust_travel, same_height_scale, anon_height_scale, palm_scale_factor
 standing_sway_offset
 bed_frame (the live missionary bed frame, or null), bed, profile
 physics_delta (the physics tick delta the hand and reach easing uses)
 ```
+
+`pose_view` is the pose read model (`shared/pose_view.gd`): the pose identity, the spec profiles,
+the live config alias and the live contact and facing mirrors. It is the read path for the
+presentation modules migrating off `pose_id` and `oral_active`; those compatibility fields (and
+`pose_config`) stay in this object until the last reader moves.
 
 HUD card (the runtime fills these once per rendered frame; `hud/service.gd` reads them instead of
 calling back into the runtime):

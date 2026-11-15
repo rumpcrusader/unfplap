@@ -44,6 +44,7 @@ func run() -> void:
 	_check_variants()
 	_check_resolution()
 	_check_v6()
+	_check_facesit_asset()
 	print("POSE_ASSET_V7_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_ASSET_V7_PASS")
@@ -370,3 +371,51 @@ func _free_skeleton(sk: Skeleton3D) -> void:
 		parent.queue_free()
 	else:
 		sk.queue_free()
+
+
+## The shipped bed face-sit: the shape the D4 asset must carry, its v7 placement and the optional
+## Anon/shot blocks. The numbers belong to the D4 lab, not to this suite.
+func _check_facesit_asset() -> void:
+	var path := "res://mods/unfplap/poses/bed_facesit_pose.json"
+	var pose: Variant = AUTHORED.shared(path)
+	check(bool(pose.get("available")), "the face-sit asset loads: %s" % str(pose.get("error")))
+	if not bool(pose.get("available")):
+		return
+	check(int(pose.get("version")) == 7, "the face-sit asset is v7")
+	check(str(pose.get("id")) == "bed_facesit", "the face-sit id")
+	check(str(pose.get("space")) == AUTHORED.SPACE_LOCAL_REST, "the face-sit is local_rest")
+	check(str(pose.get("frame")) == "bed", "the face-sit is a bed pose")
+	check(bool(pose.call("usable", "bed")), "the face-sit is usable in bed space")
+	check(not bool(pose.call("usable", "ground")), "the face-sit is refused for a ground view")
+	check(str(pose.get("rig_name")) == AUTHORED.RIG_NAME, "the face-sit rig name")
+	check(int(pose.get("rig_version")) == AUTHORED.RIG_VERSION, "the face-sit rig version")
+	check(int(pose.get("rig_bones")) == AUTHORED.RIG_BONES, "the face-sit rig bone count")
+	check((pose.get("pony_bones") as Dictionary).size() == PONY_BONES.size(),
+		"the face-sit carries every body bone")
+	var anchor: Dictionary = pose.get("anchor")
+	check(str(anchor.get("bone", "")) == "pony_hips", "the face-sit anchor is the hips")
+	check((anchor.get("contact", Vector3.INF) as Vector3).is_finite(),
+		"the face-sit contact is finite")
+	check(near(float(anchor.get("support", -1.0)), 0.0), "the face-sit support is the mattress top")
+	check((pose.get("root") as Transform3D).origin.is_finite(), "the face-sit root is finite")
+	check(str(pose.call("active_anon_mode")) == "act_body", "the face-sit Anon mode is act_body")
+	check(str(pose.call("active_anon_rig")) == AUTHORED.ANON_RIG, "the face-sit Anon rig")
+	var anon_transform: Transform3D = pose.call("active_anon_transform")
+	check(anon_transform.origin.is_finite() and anon_transform.basis.determinant() > 0.0,
+		"the face-sit Anon placement is finite and right-handed")
+	var anon_bones: Dictionary = pose.call("active_anon_bones")
+	check(anon_bones.size() == 52, "the face-sit carries the full 52-bone Anon rig")
+	for bone: String in ["Hips", "Spine", "Head", "LeftHand", "RightHand", "LeftFoot", "RightFoot"]:
+		check(anon_bones.has(bone), "the face-sit Anon block carries %s" % bone)
+	var shots: Dictionary = pose.get("shots")
+	check(shots.size() == 5, "the face-sit carries five shots")
+	for shot: String in ["start", "front", "back", "left", "right"]:
+		check(pose.call("has_shot", shot), "the face-sit carries the %s shot" % shot)
+	check((pose.get("variants") as Dictionary).is_empty(), "the face-sit ships no variants")
+	check(not FileAccess.get_file_as_string(path).contains("\"provisional\""),
+		"the face-sit is not provisional")
+	var frame := Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 0.7, -2.0))
+	for size: float in SIZES:
+		var placed: Vector3 = pose.call("place_origin", pose.call("contact_world", frame), frame, size)
+		check(near(placed.y, frame.origin.y, 0.00001),
+			"the face-sit contact sits on the mattress at %.2f" % size)

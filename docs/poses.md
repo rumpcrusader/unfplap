@@ -22,8 +22,9 @@ the pose view through `shared/act_facts.gd`.
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads a
 pose spec row's `asset` document (version 7 with the version 6 migration path); the missionary and
 standing rows own their files and a base row supplies the asset to its internal inheritors.
-`poses/oral_turn.gd` is the pose-owned standing oral actor/frame turn
-and `poses/standing_oral_recipe.gd` its procedural delta. `shared/pose_catalog.gd` owns the pose ids
+`poses/oral_turn.gd` is the pose-owned standing oral actor/frame turn,
+`poses/standing_oral_recipe.gd` its procedural delta and `poses/face_contact.gd` the bed face-sit
+contact driver. `shared/pose_catalog.gd` owns the pose ids
 and the `POSE_KEYS` schema; the shipped per-pose values live under `default.poses` in
 `settings/defaults.json`.
 `poses/service.gd` owns the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action
@@ -83,12 +84,33 @@ to save.
 
 `tools/pose_export.gd` is the command-line twin: it round-trips the shipped asset, runs the moved
 bed-frame apply and the four-size body check, and prints PASS/FAIL. `--out <path>` writes a scratch
-asset and `--check` leaves the shipped file alone.
+asset, `--check` leaves the shipped file alone and `--pose <id>` selects another shipped pose
+(`missionary` is the default).
 
 `tools/pose_bake.gd` is the standing bake. `capture_pose()` records the current pose as a v7
 document, `capture_asset()` applies `apply_reference()` at the reference config first,
 `write_asset()` writes the deterministic JSON (test and fixture paths are refused), and
 `compare()` applies the baked asset and reports the worst error against the recipe.
+
+`tools/pose_runtime_check.gd` runs the missionary recipe on the real body rig against one shipped
+asset in a moved bed frame and checks that the overlays preserve the authored joints; `--pose <id>`
+selects the asset and `missionary` is the default. Its shape checks are per pose: the missionary
+rests low with her head toward the pillow, and the bed face-sit rides above the mattress with her
+shins down and her head over his chest.
+
+## Bed face-sit
+
+`poses/bed_facesit_pose.json` is the internal bed face-sit asset. It is authored in bed space and
+kept out of offers, settings and `CATALOG.all()`; the debug **Pose: face-sit** action is its only
+trigger. The arrangement is Anon on his back with his head under her hips; she kneels astride his
+head with her knees and shins on the mattress and her vulva on his mouth, and leans forward over
+his chest. The `anchor` is her `pony_hips` pose, its `contact` is the shin/knee support on the
+mattress, and `support` is the mattress top, so the v7 anchor/contact rule carries the four cutie
+sizes. The `anon` block is the full `Anon3` rig in bed space; the five authored shots frame Anon's
+eye under her and are read by the existing bed camera. There are no variants and no `provisional`
+flag. The asset's `--pose bed_facesit --check` round-trip and the `pose_runtime_check` face-sit
+case are the automated proof; the arrangement is authored through `tools/pose_lab.gd` and saved
+as this asset.
 
 - The bake input is the game's **settled standing reference**: the 30 local poses, the frame, the
   size and the rig captured by the session at `begin()` for a ground pose. The Debug **Bake standing
@@ -130,7 +152,7 @@ pose-scope leave steps keep it `STEADY`. During an edge, `from_id`/`to_id`, `edg
 to side is the session's target snapshot. `contact_kind` is the one contact source (`opening`,
 `mouth`, `face` or `none`); it starts at the spec's base kind, moves on an edge's `contact` switch
 and settles on the target's kind. The `face` kind's provider is the act body's `mouth_point()` on
-the anatomy bridge; its driver is D5 and the anatomy act parks her part. `contact_target` is the
+the anatomy bridge; its driver is `poses/face_contact.gd` and the anatomy act parks her part. `contact_target` is the
 pose turn's live anchor, and `facing`/`facing_amount` its live frame; the standing camera reads
 both every physics tick. The
 view carries no compatibility fields: `id`, `family`, `frame`, `settings_group`, the profiles, the
@@ -259,6 +281,22 @@ group and presentation, is `public: false` and `offerable: false`, and has no `d
 The session starts the oral turn on the forward request, keeps it through the settled pose, and
 restores the captured root and facing on the reverse completion or the one act exit.
 
+The bed face-sit pair is `missionary__bed_facesit.json` and `bed_facesit__missionary.json`. The
+forward edge requires human and desktop, allows any stretch, runs for `1.6 s`, blends the base and
+the authored Anon block over the whole edge, switches `contact` to `face` at `0.9` (floored by
+`contact after base@0.55`), holds the source camera shots, locks `controls` to `end`, keeps the
+missionary presentation and fires one final `status facesit`. The reverse edge runs for `1.2 s`,
+returns `contact` to `opening` and `presentation` to `missionary` at `0.0`, locks `controls` to
+`end` and fires `status missionary` at its end. It requires only human and desktop, so the return is
+always available. Neither edge calls an act exit; the interrupt policy is `climax: hold` and
+`teardown: abort`.
+
+`bed_facesit` is the third internal spec row. It owns `poses/bed_facesit_pose.json`, reuses
+`poses/missionary_recipe.gd` and the missionary settings group, presentation, modifier, hands,
+audio and camera profiles, has its own `facesit` control set (`thrust`, `lean`, `caress`, `end`),
+contacts `face`, is `public: false` and `offerable: false`, and has no `default.poses` block. Its
+HUD label is `Face-sit`; it appears in `CATALOG.every()` only.
+
 `standing_test` is the other internal spec row. It inherits `standing` (a base, no driver of its
 own, no delta asset), is `public: false` and `offerable: false`, has no `default.poses` block, and
 appears in `CATALOG.every()` only: it is not in `CATALOG.all()`, the API, the offers or the settings
@@ -326,6 +364,7 @@ maps each pose's `controls.set` profile to its allowed ids:
 | `standing` | `thrust`, `lean`, `caress`, `kiss`, `oral`, `hole`, `finish`, `pose_back`, `pose_forward`, `end` |
 | `standing_test` | `end` |
 | `standing_oral` | `oral`, `pose_back`, `end` |
+| `bed_facesit` | `thrust`, `lean`, `caress`, `end` |
 
 `request_command(command_id)` is the one allow check: an empty or unknown id is refused, `end` is
 reserved and always allowed, and otherwise the id must be in the active view's `controls.set`
@@ -371,6 +410,28 @@ nothing; the session binds the pony and the host callbacks `mouth_point`, `openi
   facing go back, the oral keys are erased from both config sides, and the turn clears. The
   afterglow calls `release_mouth_contact()` instead, which keeps the turned frame and the neck
   pose, clears the viseme and points the contact back at the opening.
+
+### The face contact driver
+
+`poses/face_contact.gd` is the session-owned contact driver for the bed face-sit. It preloads
+nothing; the session binds the pony, the act body's `face_point()`, her `opening_point()` and the
+log. It never calls the camera, hands, anatomy or kiss.
+
+- **Begin.** On the contact switch to `face` (or a pose row whose base contact is `face`) it
+  captures the live bed frame, his mouth and her opening. It stores the frame-space `mouth -
+  opening` residual and the captured opening-to-mouth direction. A missing frame or point leaves
+  the driver active but uncaptured, so a later tick can recover.
+- **Tick.** In face contact only, it reads the live mouth into the current bed frame and eases
+  `base_offset + (mouth_frame - captured_mouth) + press + rock` at a fixed rate. The press points
+  from her opening toward his mouth, the rock is a small lateral sway, and both scale by the live
+  `depth`. It writes the world-space offset to the pose node's `contact_offset` and the live mouth
+  to the view's `contact_target`. The offset is frame-space, so a moving bed carries it. The depth
+  comes from the act facts; the driver reads no settings and allocates nothing per tick. A missing
+  or non-finite provider holds the last valid offset and logs one diagnostic line.
+- **Restore.** The reverse contact switch, the reverse completion and the one act exit zero the
+  pose node's offset and clear the view target once. The afterglow keeps the contact until that one
+  exit. `poses/missionary_recipe.gd` applies the offset to her armature root after the authored
+  base, scaled by the recipe weight; the missionary offset is zero, so the recipe stays generic.
 
 ## Pose evaluator and per-pose configs
 
@@ -459,10 +520,11 @@ The `contact` channel is the one contact change: the forward oral edge switches 
 `mouth` at `0.9`, the reverse switches back at `0.0`, and completion settles the target row's base
 kind. The hands read `view.contact_kind` for the mouth path and the oral caress blend; the anatomy
 act reads it for the part target and the hole gate; the camera reads it for the oral lean lock; the
-dialogue and HUD read it through the facts. The `face` kind has no shipped edge yet: the view can
-name it, the anatomy act parks the part and reports a zero hip offset, the anatomy bridge refuses
-`hole_ready`/`finish_ready`, and the future face driver reads the bridge's
-`face_point()`. The standing camera reads `view.facing`/
+dialogue and HUD read it through the facts. The `face` kind is the bed face-sit edge: the forward
+missionary edge switches to it at `0.9` and the reverse returns to `opening` at `0.0`. The anatomy
+act parks the part and reports a zero hip offset, the anatomy bridge refuses
+`hole_ready`/`finish_ready`, and `poses/face_contact.gd` follows the bridge's `face_point()`.
+The standing camera reads `view.facing`/
 `facing_amount` directly each physics tick; the pose turn writes them, so no service carries a
 facing copy. The running lean kiss is ended by the oral lean tick; the kiss release still advances
 through its own `tick`, so no second kiss state exists.
@@ -938,6 +1000,9 @@ unchanged.
 - `tests/poses/test_pose_scale.gd` — the v6 uniform scale, the v7 anchor/contact placement at four
   sizes and the rest-scale ownership.
 - `tests/poses/test_rotation.gd` — body-relative axes and the rotation helpers.
+- `tests/poses/test_face_contact.gd` — the bed face-sit contact driver: the begin capture, the
+  mouth follow, the depth press, the moving-bed carry, the missing-provider hold and the one
+  restore.
 - `tests/poses/test_pose_view.gd` — defaults, the filled view, the transition fields, the live
   mirrors and the reused clear.
 

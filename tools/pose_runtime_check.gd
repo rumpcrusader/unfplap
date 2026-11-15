@@ -4,6 +4,7 @@ extends SceneTree
 ## arbitrary bed frame. This is the headless half of the in-game pose check.
 ##
 ##   godot --headless --xr-mode off --path . --script res://mods/unfplap/tools/pose_runtime_check.gd
+##   ... -- --pose bed_facesit
 ##
 ## It never ships: `tools/` is outside the pack.
 
@@ -36,6 +37,7 @@ class FakeMare:
 
 
 func _initialize() -> void:
+	var pose_id := _pose_id()
 	var host := Node3D.new()
 	root.add_child(host)
 	var pony: Node3D = BODY.instantiate()
@@ -55,7 +57,8 @@ func _initialize() -> void:
 	host.add_child(mare)
 	var rig = RIG.new()
 	rig.cache(mare, skeleton)
-	var pose: Variant = AUTHORED.shared()
+	var asset_path := "res://mods/unfplap/poses/%s_pose.json" % pose_id
+	var pose: Variant = AUTHORED.shared(asset_path)
 	if not bool(pose.get("available")):
 		print("[pose_runtime] FAIL asset: %s" % str(pose.get("error")))
 		quit(1)
@@ -96,7 +99,7 @@ func _initialize() -> void:
 		if delta > worst:
 			worst = delta
 			worst_name = name
-	print("[pose_runtime] base through recipe worst=%.5f m %s" % [worst, worst_name])
+	print("[pose_runtime] %s base through recipe worst=%.5f m %s" % [pose_id, worst, worst_name])
 
 	# The runtime never resets the rig: it writes only the bones the file holds. Perturb every bone
 	# first, apply the bare asset again and require the same joints, which proves the file carries
@@ -122,21 +125,38 @@ func _initialize() -> void:
 		if delta > worst_resume:
 			worst_resume = delta
 			resume_name = name
-	print("[pose_runtime] apply over a posed rig worst=%.5f m %s" % [worst_resume, resume_name])
+	print("[pose_runtime] %s apply over a posed rig worst=%.5f m %s" % [
+		pose_id, worst_resume, resume_name])
 
-	# Shape checks in bed space: she rests on the mattress, her head is toward the head end, and
-	# her hind hooves are lifted around him.
-	var hips: Vector3 = frame.affine_inverse() * (baked["pony_hips"] as Vector3)
-	var head: Vector3 = frame.affine_inverse() * (baked["pony_head"] as Vector3)
-	var hoof: Vector3 = frame.affine_inverse() * (baked["pony_hoof_L"] as Vector3)
-	var hips_up := hips.y
-	var head_forward := head.z
-	var hoof_up := hoof.y - hips.y
-	print("[pose_runtime] bed space hips=%.3f head=%.3f hoof=%.3f" % [hips_up, head_forward, hoof_up])
-	var ok := worst <= 0.001 and worst_resume <= 0.001 \
-		and hips_up > 0.0 and hips_up < 0.15 and head_forward > 0.2 and hoof_up > 0.2
+	var space: Transform3D = frame.affine_inverse()
+	var hips: Vector3 = space * (baked["pony_hips"] as Vector3)
+	var head: Vector3 = space * (baked["pony_head"] as Vector3)
+	var hoof: Vector3 = space * (baked["pony_hoof_L"] as Vector3)
+	print("[pose_runtime] %s bed space hips=%.3f head=%.3f hoof=%.3f" % [
+		pose_id, hips.y, head.z, hoof.y])
+	var shape_ok := false
+	if pose_id == "missionary":
+		# She rests on the mattress, her head is toward the head end, and her hind hooves are lifted.
+		var hips_up := hips.y
+		var head_forward := head.z
+		var hoof_up := hoof.y - hips.y
+		shape_ok = hips_up > 0.0 and hips_up < 0.15 and head_forward > 0.2 and hoof_up > 0.2
+	else:
+		# A face-sit: her hips ride above the mattress, her head leans over his chest (toward -Z)
+		# and her hind hooves/shins stay on the mattress.
+		shape_ok = hips.y > 0.2 and head.z < hips.z and hoof.y < 0.15
+	var ok := worst <= 0.001 and worst_resume <= 0.001 and shape_ok
 	print("[pose_runtime] %s" % ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
+
+
+## The requested shipped pose id; the missionary gate is the default.
+func _pose_id() -> String:
+	var args := OS.get_cmdline_user_args()
+	for i: int in args.size():
+		if args[i] == "--pose" and i + 1 < args.size():
+			return str(args[i + 1])
+	return "missionary"
 
 
 func _joints(skeleton: Skeleton3D) -> Dictionary:

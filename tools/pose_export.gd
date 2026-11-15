@@ -5,6 +5,7 @@ extends SceneTree
 ##
 ##   godot --headless --xr-mode off --path . --script res://mods/unfplap/tools/pose_export.gd
 ##   ... -- --out user://pose_export_check.json --check   # scratch file, do not touch the asset
+##   ... -- --pose bed_facesit --check                    # check another shipped pose
 ##
 ## The shipped `poses/missionary_pose.json` is only overwritten by the C4 conversion commit; the
 ## gate runs with `--out`/`--check`. It never ships: `tools/` is outside the pack.
@@ -21,9 +22,13 @@ func _initialize() -> void:
 
 func run() -> void:
 	var args := _args()
+	var pose_id := str(args.get("pose", "missionary"))
+	var pose_path := "res://mods/unfplap/poses/%s_pose.json" % pose_id
 	var lab: Node = LAB.instantiate()
 	root.add_child(lab)
 	await process_frame
+	lab.set("pose_id", pose_id)
+	lab.set("pose_path_override", pose_path)
 	lab.call("_adopt_or_build")
 	var source := str(lab.call("pose_path"))
 	lab.call("_load_pose")
@@ -33,7 +38,7 @@ func run() -> void:
 	if args.has("out"):
 		out_path = str(args["out"])
 	elif args.has("check"):
-		out_path = "user://pose_export_check.json"
+		out_path = "user://pose_export_%s_check.json" % pose_id
 	lab.set("pose_path_override", out_path)
 	lab.call("_save_pose")
 
@@ -195,4 +200,6 @@ func _args() -> Dictionary:
 			out["check"] = true
 		elif arg == "--out" and i + 1 < args.size():
 			out["out"] = args[i + 1]
+		elif arg == "--pose" and i + 1 < args.size():
+			out["pose"] = args[i + 1]
 	return out

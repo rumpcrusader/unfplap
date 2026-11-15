@@ -1,0 +1,378 @@
+{
+	"anchor": {
+		"bone": "pony_hips",
+		"contact": "Vector3(0.13635683, 0.29088834, -1.2502915e-07)",
+		"support": 0.0,
+		"transform": "Transform3D(-2.137667e-07, 3.6353944e-07, 1.0000038, -0.34259498, -0.93948346, 2.9802433e-07, 0.9394832, -0.342595, 2.7178447e-07, 0, 0.32, 0.45)"
+	},
+	"anon": {
+		"bones": {
+			"Chest": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(8.881784e-16, -8.881784e-16, -1.8626449e-09, 1)"
+			},
+			"Head": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(1.4654944e-14, -4.268253e-22, -1.4901165e-08, 1)"
+			},
+			"Hips": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(1.6543612e-24, 1.8626451e-09, 8.881784e-16, 1)"
+			},
+			"LeftFoot": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-9.313226e-10, 1.8626451e-09, 1.7636921e-08, 1)"
+			},
+			"LeftHand": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-1.2400562e-18, 6.657501e-10, 0, 1)"
+			},
+			"LeftIndexDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(2.5181631e-11, 1.1641531e-10, -2.4824434e-08, 1)"
+			},
+			"LeftIndexIntermediate": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-1.1641532e-10, 4.980554e-19, 2.1391318e-09, 1)"
+			},
+			"LeftIndexProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-7.4505815e-09, -6.1118044e-10, -1.4392754e-09, 1)"
+			},
+			"LeftLittleDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-6.3664577e-12, 6.9849193e-10, -2.5902989e-09, 1)"
+			},
+			"LeftLittleIntermediate": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(1.140784e-17, 9.313226e-10, 2.1029336e-08, 1)"
+			},
+			"LeftLittleProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(6.505212e-19, 9.313225e-10, 2.3283062e-10, 1)"
+			},
+			"LeftLowerArm": {
+				"position": "Vector3(-2.9802322e-08, 1.3969839e-08, 5.5879354e-09)",
+				"rotation": "Quaternion(0.00040589168, -0.7599471, 0.3944018, 0.5166504)"
+			},
+			"LeftLowerLeg": {
+				"position": "Vector3(-2.9802322e-08, 2.7939677e-09, -1.6007107e-09)",
+				"rotation": "Quaternion(4.2618855e-09, 0.074275576, -0.021124156, 0.997014)"
+			},
+			"LeftMiddleDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(3.8880902e-11, 1.7583302e-18, -3.318978e-08, 1)"
+			},
+			"LeftMiddleIntermediate": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(4.6566123e-10, 2.7939675e-09, -8.760252e-09, 1)"
+			},
+			"LeftMiddleProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(3.7252903e-09, 1.8626451e-09, -8.265488e-09, 1)"
+			},
+			"LeftRingDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-1.29603e-11, 5.3754523e-19, -2.6789215e-09, 1)"
+			},
+			"LeftRingIntermediate": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(9.313226e-10, -4.656613e-10, -4.3655746e-10, 1)"
+			},
+			"LeftRingProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-7.450581e-09, -1.8626451e-09, -7.450581e-09, 1)"
+			},
+			"LeftShoulder": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(2.9103828e-10, 2.4286125e-17, -1.4901159e-08, 1)"
+			},
+			"LeftThumbDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(4.1495726e-12, -1.1641532e-10, 1.2369085e-08, 1)"
+			},
+			"LeftThumbMetacarpal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-1.0430813e-07, -5.2154064e-08, -5.3290705e-15, 1)"
+			},
+			"LeftThumbProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(3.751666e-12, -3.9203928e-19, -1.805452e-08, 1)"
+			},
+			"LeftToes": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(6.984919e-10, -2.3283064e-10, -6.87578e-10, 1)"
+			},
+			"LeftUpperArm": {
+				"position": "Vector3(4.4703484e-08, 3.7252903e-09, 9.313226e-08)",
+				"rotation": "Quaternion(3.086414e-07, 0.15911768, 0.6837804, 0.7121278)"
+			},
+			"LeftUpperLeg": {
+				"position": "Vector3(-4.7148205e-09, 1.70985e-10, -7.450581e-09)",
+				"rotation": "Quaternion(-1.8632272e-07, -0.07168703, -0.021825595, 0.9971884)"
+			},
+			"Neck": {
+				"position": "Vector3(2.9802322e-08, 1.4901161e-08, 8.193979e-11)",
+				"rotation": "Quaternion(7.872848e-09, -0.014706399, 0.5140361, 0.8576426)"
+			},
+			"RightFoot": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(1.8626451e-09, -1.2121379e-16, -3.2538082e-08, 1)"
+			},
+			"RightHand": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(2.0532079e-18, -7.348717e-10, -2.7939677e-09, 1)"
+			},
+			"RightIndexDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(4.5361055e-11, -2.3283064e-10, -6.563056e-09, 1)"
+			},
+			"RightIndexIntermediate": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-2.7939675e-09, 2.3283064e-10, -2.044544e-09, 1)"
+			},
+			"RightIndexProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-3.7252903e-09, -1.1641532e-10, 2.8412614e-09, 1)"
+			},
+			"RightLittleDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-6.1930905e-11, 2.3283064e-10, 1.2195598e-09, 1)"
+			},
+			"RightLittleIntermediate": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(3.0791345e-17, -7.4505815e-09, 2.5611373e-09, 1)"
+			},
+			"RightLittleProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-1.4901161e-08, -1.8626451e-09, -9.313226e-10, 1)"
+			},
+			"RightLowerArm": {
+				"position": "Vector3(-2.9802322e-08, -1.8626451e-09, 8.381903e-08)",
+				"rotation": "Quaternion(6.5932823e-06, 0.7864981, 0.3808592, 0.4861759)"
+			},
+			"RightLowerLeg": {
+				"position": "Vector3(1.1920929e-07, -4.656613e-09, -9.662465e-09)",
+				"rotation": "Quaternion(9.6317425e-09, -0.07429442, -0.013343247, 0.9971471)"
+			},
+			"RightMiddleDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(9.038104e-12, -1.1186888e-18, -1.2315509e-08, 1)"
+			},
+			"RightMiddleIntermediate": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(0, 0, -1.5133994e-09, 1)"
+			},
+			"RightMiddleProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(2.9802326e-08, -2.3283069e-09, -1.3271347e-08, 1)"
+			},
+			"RightRingDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(1.51374e-10, -9.3132246e-10, -2.216351e-08, 1)"
+			},
+			"RightRingIntermediate": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-9.3132246e-10, 2.3039292e-18, -1.2369128e-09, 1)"
+			},
+			"RightRingProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(2.9273467e-18, -9.313227e-10, -5.1222746e-09, 1)"
+			},
+			"RightShoulder": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(3.236346e-08, 3.911554e-08, -8.940697e-08, 1)"
+			},
+			"RightThumbDistal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-1.2948931e-10, -1.2557772e-18, 9.6979225e-09, 1)"
+			},
+			"RightThumbMetacarpal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(5.2154064e-08, -1.4901161e-08, 7.771561e-16, 1)"
+			},
+			"RightThumbProximal": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-5.229593e-11, 2.3283067e-10, 6.2655383e-09, 1)"
+			},
+			"RightToes": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(3.7252903e-09, -1.9790602e-09, 4.985486e-08, 1)"
+			},
+			"RightUpperArm": {
+				"position": "Vector3(-4.4703484e-08, 3.7252903e-09, 1.1175871e-08)",
+				"rotation": "Quaternion(-8.882778e-07, -0.16162694, 0.6454538, 0.7465026)"
+			},
+			"RightUpperLeg": {
+				"position": "Vector3(-4.831236e-09, 1.5807018e-09, 0)",
+				"rotation": "Quaternion(1.2330614e-07, 0.07170162, -0.029606573, 0.9969866)"
+			},
+			"Spine": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-2.842171e-14, -7.17032e-15, -3.7252903e-09, 1)"
+			},
+			"UpperChest": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-2.273737e-13, -5.506707e-14, 7.4504913e-09, 1)"
+			}
+		},
+		"mode": "act_body",
+		"rig": "Anon3",
+		"transform": "Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0.120000005, -1.15)"
+	},
+	"bed": {
+		"mattress_top": 0.649999976158142,
+		"size": "Vector3(1.6, 0.55, 2.2)"
+	},
+	"frame": "bed",
+	"id": "bed_facesit",
+	"pony": {
+		"bones": {
+			"pony_femur_L": {
+				"position": "Vector3(1.4901161e-08, -6.0535967e-09, -1.1175871e-08)",
+				"rotation": "Quaternion(6.70303e-08, 0.058313947, -0.052850015, 0.9968985)"
+			},
+			"pony_femur_R": {
+				"position": "Vector3(-4.4703484e-08, 5.5879354e-09, -1.4901161e-08)",
+				"rotation": "Quaternion(2.1136733e-08, -0.058313724, -0.052850038, 0.9968985)"
+			},
+			"pony_finger_L": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-6.548362e-11, 6.4520094e-20, -3.4106054e-10, 1)"
+			},
+			"pony_finger_R": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(1.2005333e-10, -1.4901161e-08, 1.36788e-09, 1)"
+			},
+			"pony_flank_L": {
+				"position": "Vector3(-5.9604645e-08, -1.1175871e-08, -7.450581e-09)",
+				"rotation": "Quaternion(2.0153996e-07, 0.08694884, -0.18085545, 0.9796587)"
+			},
+			"pony_flank_R": {
+				"position": "Vector3(-6.7055225e-08, -1.1175871e-08, 0)",
+				"rotation": "Quaternion(-1.5210563e-08, -0.08694797, -0.18085603, 0.9796587)"
+			},
+			"pony_hand_L": {
+				"position": "Vector3(5.2154064e-08, -2.0256266e-08, -3.7252903e-08)",
+				"rotation": "Quaternion(1.6217817e-07, -0.08305483, 0.020251237, 0.9963392)"
+			},
+			"pony_hand_R": {
+				"position": "Vector3(-2.9802322e-08, 1.1641532e-09, -5.5879354e-09)",
+				"rotation": "Quaternion(-1.06385606e-07, 0.08305492, 0.020251166, 0.9963392)"
+			},
+			"pony_hips": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(6.5492523e-09, 1.4386522e-07, 0.06975646, 0.9975641)"
+			},
+			"pony_hoof_L": {
+				"position": "Vector3(8.940697e-08, -2.7939677e-09, -1.4901161e-08)",
+				"rotation": "Quaternion(2.2998773e-07, 0.16453004, 0.06814997, 0.984015)"
+			},
+			"pony_hoof_R": {
+				"position": "Vector3(7.450581e-09, -2.3283064e-08, -1.4901161e-08)",
+				"rotation": "Quaternion(-1.5900386e-07, -0.16453408, 0.06813988, 0.984015)"
+			},
+			"pony_legLower_L": {
+				"position": "Vector3(-4.656613e-09, 7.450581e-09, 1.5366822e-08)",
+				"rotation": "Quaternion(3.659902e-07, 0.31246486, 0.89572227, 0.31630275)"
+			},
+			"pony_legLower_R": {
+				"position": "Vector3(1.8626451e-08, -1.4901161e-08, 2.7939677e-09)",
+				"rotation": "Quaternion(4.075799e-07, -0.3124645, 0.89572245, 0.31630248)"
+			},
+			"pony_lowerArm_L": {
+				"position": "Vector3(1.4901161e-08, 6.519258e-09, 2.9802322e-08)",
+				"rotation": "Quaternion(1.1693999e-07, -0.06919875, 0.04670744, 0.9965089)"
+			},
+			"pony_lowerArm_R": {
+				"position": "Vector3(0, 2.4214387e-08, -4.656613e-09)",
+				"rotation": "Quaternion(-8.411268e-09, 0.069198795, 0.04670768, 0.9965089)"
+			},
+			"pony_neck1": {
+				"position": "Vector3(-2.6077032e-08, -1.4901161e-08, -1.0658141e-14)",
+				"rotation": "Quaternion(-1.8278219e-07, -4.9208133e-08, 0.53423774, 0.8453343)"
+			},
+			"pony_neck2": {
+				"position": "Vector3(3.7252903e-08, 1.4901161e-08, -1.7763568e-14)",
+				"rotation": "Quaternion(8.182256e-14, -6.101114e-08, 0.25820932, 0.966089)"
+			},
+			"pony_shoulder_L": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-2.2351742e-08, 1.3038518e-08, 1.4901165e-08, 1)"
+			},
+			"pony_shoulder_R": {
+				"position": "Vector3(0, 0, 0)",
+				"rotation": "Quaternion(-2.980233e-08, -5.2154064e-08, -1.7763568e-15, 1)"
+			},
+			"pony_spine1": {
+				"position": "Vector3(7.450581e-09, -2.2351742e-08, -2.3980817e-14)",
+				"rotation": "Quaternion(-1.4960001e-07, 1.0809564e-07, -0.6889047, 0.72485197)"
+			},
+			"pony_spine2": {
+				"position": "Vector3(-4.4703484e-08, 2.0954758e-08, 1.4210855e-14)",
+				"rotation": "Quaternion(-1.3696904e-08, -2.622538e-09, -0.02667154, 0.9996443)"
+			},
+			"pony_spine3": {
+				"position": "Vector3(-2.9802322e-08, 0, -7.1054274e-15)",
+				"rotation": "Quaternion(-5.8278957e-08, -9.385243e-08, 0.3786113, 0.92555577)"
+			},
+			"pony_tarsal_L": {
+				"position": "Vector3(-1.4901161e-08, -1.6763806e-08, -2.2417225e-08)",
+				"rotation": "Quaternion(-1.6956884e-08, 0.03598855, 0.08789961, 0.99547905)"
+			},
+			"pony_tarsal_R": {
+				"position": "Vector3(1.4901161e-08, -3.7252903e-09, 2.1864253e-08)",
+				"rotation": "Quaternion(2.6897122e-09, -0.035988368, 0.08789936, 0.9954791)"
+			},
+			"pony_tibia_L": {
+				"position": "Vector3(1.4901161e-08, 7.450581e-09, -2.514571e-08)",
+				"rotation": "Quaternion(-3.9951547e-07, -0.18048243, -0.5561714, 0.8112333)"
+			},
+			"pony_tibia_R": {
+				"position": "Vector3(5.5879354e-09, -3.7252903e-08, -2.142042e-08)",
+				"rotation": "Quaternion(0, 0.18048267, -0.5561711, 0.8112334)"
+			},
+			"pony_upperArm_L": {
+				"position": "Vector3(7.450581e-09, 3.3527613e-08, -1.8626451e-08)",
+				"rotation": "Quaternion(-1.5857735e-07, 0.23850362, 0.06381527, 0.96904266)"
+			},
+			"pony_upperArm_R": {
+				"position": "Vector3(-7.450581e-09, 4.656613e-09, 9.313226e-09)",
+				"rotation": "Quaternion(3.8250784e-07, -0.23850387, 0.06381504, 0.9690426)"
+			},
+			"pony_wrist_L": {
+				"position": "Vector3(0, -9.313226e-09, 3.678724e-08)",
+				"rotation": "Quaternion(1.15514975e-08, -0.03235295, 0.059290174, 0.9977165)"
+			},
+			"pony_wrist_R": {
+				"position": "Vector3(1.4901161e-08, 1.8626451e-09, 2.7939677e-09)",
+				"rotation": "Quaternion(6.9425665e-09, 0.032352813, 0.059290092, 0.9977165)"
+			}
+		}
+	},
+	"reference": {
+		"body_scale": 1.0,
+		"config": {
+
+		},
+		"size": "canon"
+	},
+	"rig": {
+		"bones": 30,
+		"name": "hybrid_mare",
+		"version": 1
+	},
+	"root": "Transform3D(1, -8.0556e-16, 2.623983e-08, 4.1323523e-15, 1, -1.2678407e-07, -2.623983e-08, 1.2678407e-07, 1, -3.907985e-14, -0.2658791, 0.15725073)",
+	"shots": {
+		"back": "Transform3D(1, 0, 0, 0, 0.9360211, 0.35194397, 0, -0.35194397, 0.9360211, 0, 0.62, 1.55)",
+		"front": "Transform3D(-1, 2.6277368e-08, -8.338011e-08, 0, 0.9537572, 0.30057806, 8.742278e-08, 0.30057806, -0.9537572, 0, 0.72, -1.55)",
+		"left": "Transform3D(-0.32852066, 0.327426, -0.8859269, 0, 0.9379882, 0.3466671, 0.9444968, 0.11388731, -0.3081485, -1.15, 0.6, -0.25)",
+		"right": "Transform3D(-0.32852066, -0.327426, 0.8859269, 0, 0.9379882, 0.3466671, -0.9444968, 0.11388731, -0.3081485, 1.15, 0.6, -0.25)",
+		"start": "Transform3D(0.28408837, -0.30358365, 0.9094673, 0, 0.94854933, 0.31662938, -0.9587981, -0.089950725, 0.26947182, 1.35, 0.62, 0.55)"
+	},
+	"space": "local_rest",
+	"variants": {
+
+	},
+	"version": 7
+}

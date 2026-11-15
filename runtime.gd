@@ -3435,6 +3435,8 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	# integration: close the anatomy act once, before the pose is freed.
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.end()
+	# The oral turn's facing override must not outlive the act, even on a direct forced stop.
+	_standing_camera_controller().reset_facing()
 	_set_inventory_hud_hidden(false)
 	set_request_face(false)
 	_kiss_controller().restore_forelegs()

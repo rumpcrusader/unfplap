@@ -359,7 +359,7 @@ One ungrouped list, in this order: **Show start button**, **Show controls**, **S
 **Climax limit** (`0…20`; `0` is unlimited), **Mouse sensitivity** in pixels per centimetre of hip
 travel (`20…400`), **Thrust direction** (which mouse direction deepens the stroke) and **Enable
 footstool**. The **Auto Thrust** section follows. The tab's last two player rows are drawn under
-it: **I just want to plap!** sits directly above **Enable debug** (the switch that reveals the
+it: **I just wanna plap!** sits directly above **Enable debug** (the switch that reveals the
 Debug sections). The bypass opens every relationship gate; its behavior is
 `docs/eligibility.md` (`## Relationship bypass`).
 

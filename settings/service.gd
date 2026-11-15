@@ -771,7 +771,7 @@ static var sex_start := choice("sex_start", "relationship.sex_start",
 	"Show start button",
 	"When to show \"Make love\" button.", GENERAL, "")
 static var ignore_gates := flag("ignore_gates", "relationship.ignore_gates",
-	"I just want to plap!",
+	"I just wanna plap!",
 	"Disable all programmatic relationship checks. LLM can still refuse you.", GENERAL, "")
 static var act_controls := flag("act_controls", "features.act_controls", "Show controls",
 	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "")

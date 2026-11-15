@@ -338,7 +338,7 @@ relationship runtime and romance eligibility still apply.
 
 ## Relationship bypass
 
-`relationship.ignore_gates` (**I just want to plap!**, General) is the one switch that opens every
+`relationship.ignore_gates` (**I just wanna plap!**, General) is the one switch that opens every
 relationship-based row. `eligibility/service.gd` reads it once per snapshot into
 `facts.ignore_gates`; the policy then treats these four rows as passed:
 

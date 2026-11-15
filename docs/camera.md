@@ -29,9 +29,10 @@ Every camera, shot and body module reads `shared/act_facts.gd` and never the run
 binds the view, refreshes it in `_sync_act_facts()` and before it hands a controller out, and the
 modules read the camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`,
 `look_*`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`, `missionary_body()`,
-`authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The field and callback
-contract is `docs/act_facts.md`; a camera module that reaches into the runtime fails
-`tests/test_source_hygiene.gd`.
+`authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The pose family, the oral contact
+kind and the presentation lean profile come from `facts.pose_view`; the camera does not read
+`pose_id` or `oral_active`. The field and callback contract is `docs/act_facts.md`; a camera module
+that reaches into the runtime fails `tests/test_source_hygiene.gd`.
 
 ## Modes and lean
 

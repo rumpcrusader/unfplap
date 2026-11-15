@@ -556,11 +556,17 @@ func _snapshot_missionary_start() -> void:
 		_missionary_start_saved = true
 
 
+## The pose family from the pose view; this camera only serves `bed`.
+func _pose_family() -> String:
+	var view: Variant = facts.pose_view if facts != null else null
+	return str(view.family) if view != null else ""
+
+
 ## Change the player's own eye height for the act instead of writing camera.position.y.
 ## Park the game's desktop presentation, which would otherwise show and drive his body from the
 ## player rig. The act's own body (`poses/missionary_anon.gd`) is placed and posed over it after this.
 func _hide_anon_avatar_for_missionary() -> void:
-	if str(facts.pose_id) != "missionary" or not is_instance_valid(main) \
+	if _pose_family() != "bed" or not is_instance_valid(main) \
 			or not is_instance_valid(main.player):
 		return
 	if not is_instance_valid(_desktop_presentation) and is_instance_valid(main.game):

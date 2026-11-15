@@ -6,6 +6,7 @@ extends SceneTree
 
 const CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 
@@ -129,8 +130,8 @@ func _fixture() -> Dictionary:
 	facts.main = main
 	facts.player_pony = false
 	facts.state = STATE_ACTIVE
-	facts.pose_id = CATALOG.MISSIONARY
 	facts.features = {"idle_camera_sway": false}
+	_pose(facts, "bed")
 	var camera: RefCounted = CAMERA.new()
 	var hands := FakeHands.new()
 	var kiss := FakeKiss.new()
@@ -141,6 +142,15 @@ func _fixture() -> Dictionary:
 		"camera": camera, "facts": facts, "main": main, "player": player,
 		"hands": hands, "kiss": kiss, "standing": standing, "missionary": missionary,
 	}
+
+
+## Fill the pose read model the camera reads instead of the old raw facts.
+func _pose(facts: RefCounted, family: String) -> void:
+	var view: RefCounted = VIEW.new()
+	view.family = family
+	view.contact_kind = "opening"
+	view.presentation = {"lean": "missionary" if family == "bed" else "standing"}
+	facts.pose_view = view
 
 
 func run() -> void:
@@ -251,7 +261,7 @@ func _check_lean() -> void:
 
 	# The pose action latch: 75 percent fires, 60 percent releases.
 	facts.state = STATE_ACTIVE
-	facts.pose_id = CATALOG.MISSIONARY
+	_pose(facts, "bed")
 	camera.lean_side = 0.74
 	camera.call("tick_lean_action")
 	check(not camera.lean_action_active, "below 75 percent fires no action")
@@ -267,7 +277,7 @@ func _check_lean() -> void:
 	check(not camera.lean_action_active, "the action releases at 60 percent")
 
 	# Standing fires the shoulder reach with the glance hold and the hand.
-	facts.pose_id = CATALOG.STANDING
+	_pose(facts, "standing")
 	hands.calls.clear()
 	var standing: FakeStandingCamera = made["standing"]
 	standing.calls.clear()
@@ -300,8 +310,8 @@ func _check_oral_lean() -> void:
 	var hands: FakeHands = made["hands"]
 	var kiss: FakeKiss = made["kiss"]
 	var standing: FakeStandingCamera = made["standing"]
-	facts.pose_id = CATALOG.STANDING
-	facts.oral_active = true
+	_pose(facts, "standing")
+	facts.pose_view.contact_kind = "mouth"
 	camera.lean_forward = 0.7
 	camera.lean_side = -0.6
 	camera.lean_view_forward = 0.7
@@ -461,10 +471,10 @@ func _check_motion() -> void:
 	facts.headset_view = true
 	check(not bool(camera.call("motion_ready")), "a headset keeps the stock camera")
 	facts.headset_view = false
-	facts.pose_id = CATALOG.MISSIONARY
+	_pose(facts, "bed")
 	camera.call("apply_motion")
 	check(missionary.calls.has("tick"), "missionary dispatches its own camera")
-	facts.pose_id = CATALOG.STANDING
+	_pose(facts, "standing")
 	camera.call("apply_motion")
 	check(standing.calls.has("tick"), "standing dispatches the player-camera shot")
 

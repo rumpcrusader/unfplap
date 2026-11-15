@@ -6,6 +6,7 @@ extends SceneTree
 
 const BRIDGE := preload("res://mods/unfplap/anatomy/act_bridge.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
@@ -144,7 +145,7 @@ class FakeMissionaryAnon extends Node:
 class FakeHost extends RefCounted:
 	var values: Dictionary = {}
 	var state := STATE_IDLE
-	var pose_id := ""
+	var pose_view: Variant = null
 	var depth := 0.0
 	var penetration := 0.0
 	var reach := 0.2
@@ -164,8 +165,8 @@ class FakeHost extends RefCounted:
 		match key:
 			"state":
 				return state
-			"pose_id":
-				return pose_id
+			"pose_view":
+				return pose_view
 			"depth":
 				return depth
 			"penetration_m":
@@ -217,10 +218,17 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+## The pose read model the anatomy context mirrors.
+func _view(family: String) -> RefCounted:
+	var view: RefCounted = VIEW.new()
+	view.family = family
+	return view
+
+
 func _host(host: FakeHost, extra: Dictionary = {}) -> Dictionary:
 	var out: Dictionary = {
 		"state": Callable(host, "call_host").bind("state"),
-		"pose_id": Callable(host, "call_host").bind("pose_id"),
+		"pose_view": Callable(host, "call_host").bind("pose_view"),
 		"depth": Callable(host, "call_host").bind("depth"),
 		"penetration_m": Callable(host, "call_host").bind("penetration_m"),
 		"penetration_reach": Callable(host, "call_host").bind("penetration_reach"),
@@ -263,7 +271,7 @@ func _check_bind_and_facts() -> void:
 	check(bridge.available() == false, "no controller starts unavailable")
 	check(bridge.act_available() == false, "no act starts unavailable")
 	host.state = STATE_ACTIVE
-	host.pose_id = CATALOG.STANDING
+	host.pose_view = _view("standing")
 	host.depth = 0.5
 	host.penetration = 0.1
 	host.climaxes = 2
@@ -274,7 +282,7 @@ func _check_bind_and_facts() -> void:
 	host.bed = "bed"
 	var facts: RefCounted = bridge.context()
 	check(facts.state == STATE_ACTIVE, "context writes the state")
-	check(facts.pose_id == CATALOG.STANDING, "context writes the pose")
+	check(is_same(facts.pose_view, host.pose_view), "context writes the pose view")
 	check(is_equal_approx(facts.depth, 0.5), "context writes the depth")
 	check(is_equal_approx(facts.penetration_m, 0.1), "context writes the penetration")
 	check(facts.climaxes == 2, "context writes the climax count")
@@ -290,7 +298,7 @@ func _check_gates() -> void:
 	var bridge: RefCounted = BRIDGE.new()
 	bridge.bind(_host(host))
 	host.state = STATE_ACTIVE
-	host.pose_id = CATALOG.STANDING
+	host.pose_view = _view("standing")
 	var act := FakeAct.new()
 	bridge.act = act
 	check(bridge.act_available(), "an assigned act is available")
@@ -381,16 +389,16 @@ func _check_lifecycle() -> void:
 	bridge.bind(_host(host, {"reactions": Callable()}))
 	bridge.controller = controller
 	check(bridge.available(), "a controller is available")
-	host.pose_id = CATALOG.MISSIONARY
+	host.pose_view = _view("bed")
 	bridge.apply_live()
 	check(controller.live == 1, "apply_live reaches the controller")
-	check(bridge.facts.pose_id == CATALOG.MISSIONARY,
-		"apply_live refreshes the pose facts before the controller reads them")
-	host.pose_id = ""
+	check(bridge.facts.pose_view != null and bridge.facts.pose_view.family == "bed",
+		"apply_live refreshes the pose view before the controller reads it")
+	host.pose_view = null
 	bridge.apply_live()
 	check(controller.live == 2, "apply_live reaches the controller again")
-	check(bridge.facts.pose_id.is_empty(),
-		"the end-of-act refresh clears the pose the controller sees")
+	check(bridge.facts.pose_view == null,
+		"the end-of-act refresh clears the pose view the controller sees")
 	bridge.react()
 	check(controller.reacts == 1, "react reaches the controller")
 	var act := FakeAct.new()

@@ -3,7 +3,6 @@ extends "res://mods/unfplap/hands/session.gd"
 ## owns scoring and the act state; this controller drives the palms and contact frames. Standing
 ## rubs the flank; missionary rubs her chest, neck and cheek.
 
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
 const FLANK_PATH := preload("res://mods/unfplap/hands/paths/standing.gd")
@@ -293,9 +292,20 @@ func _set_reach_hand() -> void:
 	driver.call("set_hold_target", side, frame, "rub")
 
 
+## The pose family from the pose view: `bed` for missionary, `standing` for standing.
+func _pose_family() -> String:
+	var view: Variant = facts.pose_view if facts != null else null
+	return str(view.family) if view != null else ""
+
+
+## True while the oral turn is the contact; the hand eases to the head path.
+func _mouth_contact() -> bool:
+	var view: Variant = facts.pose_view if facts != null else null
+	return view != null and str(view.contact_kind) == "mouth"
+
+
 func _caress_tick(delta: float) -> void:
-	var pose := str(facts.pose_id)
-	if pose not in [CATALOG.STANDING, CATALOG.MISSIONARY]:
+	if _pose_family() not in ["bed", "standing"]:
 		_end_caress()
 		_caress_oral_was_active = false
 		return
@@ -356,7 +366,7 @@ func _caress_tick(delta: float) -> void:
 func _caress_oral_tick() -> void:
 	if facts == null:
 		return
-	var oral := bool(facts.oral_active)
+	var oral := _mouth_contact()
 	if oral == _caress_oral_was_active:
 		return
 	_caress_oral_was_active = oral
@@ -506,14 +516,20 @@ func _engine() -> RefCounted:
 func _path_for_pose() -> Variant:
 	if facts == null or not is_instance_valid(pony):
 		return null
-	if str(facts.pose_id) == CATALOG.MISSIONARY:
+	var view: Variant = facts.pose_view
+	if view == null:
+		return null
+	var path := str((view.hands as Dictionary).get("path", ""))
+	if path == "missionary":
 		if _missionary_path == null:
 			_missionary_path = MISSIONARY_PATH.new()
 		if _missionary_path.get("pony") != pony:
 			_missionary_path.call("setup", pony, facts)
 			_missionary_path.call("reset")
 		return _missionary_path
-	if bool(facts.oral_active):
+	if path != "standing":
+		return null
+	if _mouth_contact():
 		if _oral_path == null:
 			_oral_path = ORAL_PATH.new()
 		if _oral_path.get("pony") != pony:
@@ -659,7 +675,7 @@ func _clear_debug_draw() -> void:
 func _hand_driver() -> Node:
 	if facts == null:
 		return null
-	if str(facts.pose_id) == CATALOG.MISSIONARY:
+	if _pose_family() == "bed":
 		var body: Variant = facts.missionary_body()
 		if is_instance_valid(body) and body is Node:
 			return body as Node
@@ -937,7 +953,7 @@ func _smack() -> void:
 				normal = -normal
 	# Standing targets the live caress point or the bottom of the chosen cheek, not the decal
 	# centre. The cheek-centre target above remains the fallback when the patch is unavailable.
-	if str(facts.pose_id) == CATALOG.STANDING and from_frame.is_finite():
+	if _pose_family() == "standing" and from_frame.is_finite():
 		var standing_target := _standing_smack_target(hand_side, from_frame.origin, caressing)
 		if not standing_target.is_empty():
 			at = standing_target.get("local", at)
@@ -948,7 +964,7 @@ func _smack() -> void:
 			var target: Transform3D = _engine().coat_frame(pony, hand_side, world_centre, normal,
 				_smack_finger_hint(caressing), _palm_clearance(), false, 0.0, [], true, [],
 				0.0, "smack:" + hand_side)
-			var standing := str(facts.pose_id) == CATALOG.STANDING
+			var standing := _pose_family() == "standing"
 			_smack_controller().begin(hand_side, index, at, from_frame, target, normal,
 				caressing, standing, now)
 			return

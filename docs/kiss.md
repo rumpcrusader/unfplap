@@ -11,10 +11,10 @@ camera shot is `docs/camera.md`; the face beats are `docs/face.md`; the hands ar
 the mouth target, the base-kiss bridge, the foreleg pin and the sound cadence. The runtime owns
 the state machine, the action latch (`F` held at a full lean), the camera and the teardown.
 `kiss/legs.gd` is the standing foreleg pin. `affection_pose.gd` is the game's kiss pose. The
-controller reads `shared/act_facts.gd` (`pose_id`, `state`, `lean_*`, `anon_height_scale`,
-`standing_lean_scale`, `camera`, the scene handles and the `kiss_controller()`, `touch()` and
-`write_forced_glance()` callbacks), never the runtime node; see
-`docs/act_facts.md`.
+controller reads `shared/act_facts.gd` (`pose_view` for the family and the presentation kiss
+profile, `state`, `lean_*`, `anon_height_scale`, `standing_lean_scale`, `camera`, the scene handles
+and the `kiss_controller()`, `touch()` and `write_forced_glance()` callbacks), never the runtime
+node; see `docs/act_facts.md`.
 
 ## Controls
 
@@ -109,7 +109,6 @@ constants are in `kiss/service.gd`. Heights scale with `Settings.anon_height_sca
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Tests
 

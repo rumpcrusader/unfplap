@@ -7,7 +7,9 @@ extends RefCounted
 ## See `docs/anatomy.md` (`## Architecture`).
 
 var state := 0
-var pose_id := ""
+## The runtime's pose read model for this act, or null outside one. The controller reads the pose
+## family from it instead of a copied id.
+var pose_view: Variant = null
 var depth := 0.0
 var penetration_m := 0.0
 var climaxes := 0

@@ -15,7 +15,6 @@ const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const MARE_BITS_PATH := ASSET_DIR + "mare_bits_v2.scn"
@@ -270,7 +269,8 @@ func _tail_lift() -> float:
 ## The act-only placement trim. The lying missionary pose tilts her pelvis, so the rigged vulva can
 ## sit a little high/low or face the wrong way; these values move only the anatomy mesh.
 func _missionary_pose() -> bool:
-	return facts.pose_id == CATALOG.MISSIONARY
+	var view: Variant = facts.pose_view
+	return view != null and str(view.family) == "bed"
 
 
 func _pose_depth() -> float:

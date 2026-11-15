@@ -3,7 +3,6 @@ extends RefCounted
 ## the typed `shared/act_facts.gd` context; this controller owns the look cone and framing state.
 
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const STANDING_HEAD_NECK_HEIGHT_M := 1.0
 const CANON_STANDING_CAMERA_DROP_M := 0.10
@@ -57,7 +56,7 @@ func _depth_speed_tick(delta: float) -> void:
 
 func _apply_standing_lean_look() -> void:
 	var kiss: Variant = facts.kiss_controller()
-	if not bool(facts.free_camera_active) or str(facts.pose_id) != CATALOG.STANDING \
+	if not bool(facts.free_camera_active) or _pose_family() != "standing" \
 			or bool(facts.player_pony) or bool(facts.headset_view):
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player) or kiss == null:
@@ -125,7 +124,7 @@ func _apply_standing_base_look() -> void:
 	facts.write_look(yaw, pitch)
 	facts.mark_camera_basis_ready()
 	_standing_base_look = target
-	if str(facts.pose_id) == CATALOG.STANDING and _has_facing \
+	if _pose_family() == "standing" and _has_facing \
 			and not _facing_override_on:
 		_facing_basis = Basis(Vector3.UP, yaw)
 	_apply_standing_lean_look()
@@ -173,7 +172,7 @@ func _standing_eye_height() -> float:
 	return height
 
 func _lock_body_facing() -> void:
-	if not _has_facing or str(facts.pose_id) != CATALOG.STANDING or not is_instance_valid(pony):
+	if not _has_facing or _pose_family() != "standing" or not is_instance_valid(pony):
 		return
 	if int(facts.state) in [STATE_IDLE, STATE_RESTORE]:
 		return
@@ -199,7 +198,7 @@ func _glance_back_fade() -> float:
 
 func _drive_glance(delta: float) -> void:
 	var kiss: Variant = facts.kiss_controller()
-	if not _has_facing or str(facts.pose_id) != CATALOG.STANDING or not is_instance_valid(pony):
+	if not _has_facing or _pose_family() != "standing" or not is_instance_valid(pony):
 		return
 	if kiss == null:
 		return
@@ -298,7 +297,7 @@ func _glance_angles() -> Vector3:
 ## held by kiss_hold; this only limits where the camera can turn.
 
 func _clamp_look() -> void:
-	if str(facts.pose_id) == CATALOG.MISSIONARY:
+	if _pose_family() == "bed":
 		# Missionary uses the mod-owned view; the player's body look is left alone.
 		return
 	if not is_instance_valid(main) or not is_instance_valid(main.player):
@@ -332,6 +331,12 @@ func _sync() -> void:
 	_presentation_cfg = cfg if cfg is Dictionary else {}
 	var pose_cfg: Variant = facts.pose_config if facts != null else null
 	_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
+
+
+## The pose family from the pose view: `standing` is the only act this controller serves.
+func _pose_family() -> String:
+	var view: Variant = facts.pose_view if facts != null else null
+	return str(view.family) if view != null else ""
 
 func _init(facts_context: Variant = null) -> void:
 	facts = facts_context
@@ -436,7 +441,7 @@ func tick() -> void:
 			float(facts.lean_view_forward), lean_scale)
 		+ kiss.lean_distance() + float(facts.anon_torso_forward)
 		+ float(_presentation_cfg.get("camera_forward_m", 0.0)), kiss.lateral_offset(lean_scale))
-	if str(facts.pose_id) == CATALOG.STANDING and bool(facts.free_camera_active) and is_instance_valid(camera):
+	if _pose_family() == "standing" and bool(facts.free_camera_active) and is_instance_valid(camera):
 		camera.rotation.z = (-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * float(facts.lean_view_side) \
 			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * float(facts.lean_view_forward)) * lean_scale
 		camera.rotation.x = clampf(

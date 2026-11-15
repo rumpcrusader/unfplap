@@ -3,7 +3,6 @@ extends RefCounted
 ## AffectionPose bridge, the custom mouth aim, the foreleg pin and the kiss lean.
 
 const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const KISS_LEGS := preload("res://mods/unfplap/kiss/legs.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 
@@ -53,8 +52,21 @@ var _kiss_saved_rear := 1.0
 var _kiss_saved_hooves := 1.0
 var _kiss_leg_pin: Node
 
+
+## The pose family from the pose view: `bed` for missionary, `standing` for standing.
+func _pose_family() -> String:
+	var view: Variant = facts.pose_view if facts != null else null
+	return str(view.family) if view != null else ""
+
+
+## The presentation kiss profile, `missionary` or `standing`.
+func _kiss_profile() -> String:
+	var view: Variant = facts.pose_view if facts != null else null
+	return str((view.presentation as Dictionary).get("kiss", "")) if view != null else ""
+
+
 func _apply_kiss_forelegs() -> void:
-	if str(facts.pose_id) != CATALOG.STANDING:
+	if _pose_family() != "standing":
 		return
 	if _kiss_forelegs_planted:
 		return
@@ -79,7 +91,7 @@ func _restore_kiss_forelegs() -> void:
 ## The base kiss's chest flex runs after body_sway's upper-arm pin. This extra modifier runs
 ## last and brings the visible hoof tips back to where they were before the kiss.
 func _start_kiss_leg_pin() -> void:
-	if str(facts.pose_id) != CATALOG.STANDING:
+	if _pose_family() != "standing":
 		return
 	if is_instance_valid(_kiss_leg_pin) or not is_instance_valid(pony):
 		return
@@ -110,7 +122,7 @@ func _start_base_kiss() -> bool:
 	# The stock kiss pose is authored for a standing pony. On the bed its chest/neck give lifts
 	# the lying body off the mattress and turns her head across it, so missionary uses the act's own
 	# head aim instead.
-	if str(facts.pose_id) == CATALOG.MISSIONARY:
+	if _pose_family() == "bed":
 		return false
 	if not is_instance_valid(pony) or not is_instance_valid(main) \
 			or not is_instance_valid(main.player) or not is_instance_valid(main.game):
@@ -222,7 +234,7 @@ func _kiss_visible() -> bool:
 
 ## Standing kiss controls. Missionary keeps the fixed constants.
 func _kiss_controls() -> Dictionary:
-	if str(facts.pose_id) != CATALOG.STANDING:
+	if _pose_family() != "standing":
 		return {}
 	var kiss: Variant = _presentation_cfg.get("kiss", {})
 	return kiss if kiss is Dictionary else {}
@@ -450,7 +462,7 @@ func _kiss_diag() -> void:
 		float(affection.get("amount")), _kiss_lean, _kiss_camera_side, _kiss_pony_side,
 		pose_side, cam_roll, head_roll, skull_lateral, mouth_gap,
 		limited, miss, cleared,
-		lateral_offset(float(facts.standing_lean_scale)) if str(facts.pose_id) == CATALOG.STANDING else 0.0])
+		lateral_offset(float(facts.standing_lean_scale)) if _pose_family() == "standing" else 0.0])
 
 
 func _target(view: Camera3D) -> Vector3:
@@ -458,7 +470,7 @@ func _target(view: Camera3D) -> Vector3:
 		return Vector3.INF
 	# Missionary's Anon is the authored body on the bed, not the standing player rig the game camera
 	# still belongs to: aim her at his posed mouth, never at that camera.
-	if str(facts.pose_id) == CATALOG.MISSIONARY:
+	if _pose_family() == "bed":
 		var body: Variant = facts.missionary_body()
 		if body != null and bool(body.get("active")):
 			var mouth: Variant = body.call("mouth_point")
@@ -466,7 +478,7 @@ func _target(view: Camera3D) -> Vector3:
 				return mouth
 	var point: Vector3 = view.global_position + view.global_basis \
 		* (Vector3(0.0, -0.07, -0.02) * float(facts.anon_height_scale))
-	if str(facts.pose_id) == CATALOG.STANDING:
+	if _pose_family() == "standing":
 		point = view.global_position + view.global_basis * _kiss_mouth_offset()
 	return point
 
@@ -629,16 +641,16 @@ func restore_forelegs() -> void:
 ## every physics tick by the runtime for both poses.
 func lean_kiss_tick() -> void:
 	_sync()
-	var phase := str(facts.pose_id)
+	var phase := _kiss_profile()
 	if not bool(facts.call_value(facts.act_actions_allowed, false)) \
-			or phase not in [CATALOG.STANDING, CATALOG.MISSIONARY]:
+			or _pose_family() not in ["bed", "standing"]:
 		_lean_kiss_used = false
 		end_lean_kiss()
 		return
 	var f_held := Input.is_physical_key_pressed(KEY_F) \
 		and not bool(facts.call_value(facts.auto_panel_open, false))
 	var want := false
-	if phase == CATALOG.STANDING:
+	if phase == "standing":
 		want = standing_kiss_wanted(f_held, float(facts.lean_side))
 	else:
 		want = f_held and Input.is_action_pressed("move_forward") \

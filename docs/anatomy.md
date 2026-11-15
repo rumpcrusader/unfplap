@@ -245,7 +245,7 @@ The controller's `consent` callback is bound to its pony and takes the key only
 
 ## Act anatomy
 
-The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `pose_id`, `depth`,
+The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `pose_view`, `depth`,
 `penetration_m`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`, `penetration_reach`,
 `bed_frame` and `cycle_phase`. The act and the persistent controller read that object and the
 host callbacks; neither reads the runtime node. It returns the oral pose keys through
@@ -273,7 +273,7 @@ the orchestration. It owns:
 - the VR hooks (`vr_start`, `vr_stop`, `vr_y_held`, `vr_forward`, `vr_depth`).
 
 The host is a plain dictionary of callables. The runtime supplies `main`, `pony`, `runtime`,
-`reactions`, `anatomy_service`, `eligibility_service`, the live state (`state`, `pose_id`, `depth`,
+`reactions`, `anatomy_service`, `eligibility_service`, the live state (`state`, `pose_view`, `depth`,
 `penetration_m`, `penetration_reach`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`,
 `cycle_phase`, `bed_frame`), the callbacks (`log`, `perf_note`, `perf_enabled`, `body_coat_smack`,
 `status`,
@@ -285,10 +285,10 @@ action keys, consent gates and shape behavior are `anatomy/act.gd` and the parag
 bridge only routes them. `pose_config()` is written every `ACTIVE`/`CLIMAX` tick for standing, so
 the oral style keys animate the neck live and a released turn erases the keys it no longer owns.
 
-`apply_live()` re-reads the host's `state`, `pose_id`, `depth`, `bed_frame` and `cycle_phase`
+`apply_live()` re-reads the host's `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`
 before it refreshes the controller. The per-tick facts sync writes the same values, but it does
 not rebuild the anatomy material; the explicit refresh is what restores the pose-specific
-appearance, including the missionary-only fold hack, when the pose id changes.
+appearance, including the missionary-only fold hack, when the pose family changes.
 
 ### Shape drive
 

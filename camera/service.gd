@@ -109,6 +109,29 @@ func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant,
 	missionary_camera = missionary_ctl
 
 
+## The pose read model. A missing view reads as no family outside an act.
+func _pose_view() -> Variant:
+	return facts.pose_view if facts != null else null
+
+
+## The pose family: `bed` for missionary, `standing` for standing, empty outside an act.
+func pose_family() -> String:
+	var view: Variant = _pose_view()
+	return str(view.family) if view != null else ""
+
+
+## True while the oral turn is the contact. The producer stays in the anatomy until A5.
+func mouth_contact() -> bool:
+	var view: Variant = _pose_view()
+	return view != null and str(view.contact_kind) == "mouth"
+
+
+## The presentation lean profile, the value the pure action math maps.
+func lean_profile() -> String:
+	var view: Variant = _pose_view()
+	return str((view.presentation as Dictionary).get("lean", "")) if view != null else ""
+
+
 ## Write the pose's look target for this rendered frame: the missionary gaze versus the kissing
 ## mouth, the authored-Anon fallback and the pose's kiss/climax weights. The runtime calls this
 ## after the pose session's render write and before the shot tick, so the head solves against
@@ -119,14 +142,14 @@ func write_look_target(pose: Node) -> void:
 	if not is_instance_valid(kiss):
 		return
 	var view: Camera3D = facts.main.camera()
-	if facts.pose_id == CATALOG.MISSIONARY and is_instance_valid(missionary_camera) \
+	if pose_family() == "bed" and is_instance_valid(missionary_camera) \
 			and is_instance_valid(missionary_camera.view()):
 		view = missionary_camera.view()
 	var custom_kiss: bool = kiss.custom_visible()
 	var kiss_view: Camera3D = kiss.mouth_view()
 	if is_instance_valid(view):
 		if custom_kiss and is_instance_valid(kiss_view):
-			if facts.pose_id == CATALOG.MISSIONARY:
+			if pose_family() == "bed":
 				# Best-effort lean: blend from his eyes to his mouth with the kiss's own 0.35 s
 				# fade, so the head leans in with the kiss instead of snapping to the mouth on
 				# the first frame. The pose solve still aims at the moving point every frame.
@@ -138,7 +161,7 @@ func write_look_target(pose: Node) -> void:
 					pose.set("look_point", gaze)
 			else:
 				pose.set("look_point", kiss.target(kiss_view))
-		elif facts.pose_id == CATALOG.MISSIONARY:
+		elif pose_family() == "bed":
 			# Look at the authored Anon, not at the game camera: his body is placed by the act,
 			# and the player rig the camera belongs to is standing off the bed.
 			pose.set("look_point", gaze_point())
@@ -236,7 +259,7 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 				str(paused), Input.mouse_mode])
 		lean_idle(delta)
 		return
-	if bool(facts.oral_active):
+	if mouth_contact():
 		oral_lean_tick(delta)
 		return
 	if auto_open:
@@ -290,7 +313,7 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	tick_lean_action()
 	# Missionary afterglow keeps lean and caress live but not the kiss; standing afterglow keeps
 	# its kiss. `_afterglow_begin()` releases a missionary kiss when the state changes.
-	if str(facts.pose_id) == CATALOG.STANDING or int(facts.state) != STATE_AFTERGLOW:
+	if pose_family() == "standing" or int(facts.state) != STATE_AFTERGLOW:
 		if kiss != null:
 			kiss.call("lean_kiss_tick")
 	var caress_started := Time.get_ticks_usec()
@@ -417,7 +440,7 @@ func tick_lean_action() -> void:
 func start_lean_action(side: float) -> void:
 	lean_action_active = true
 	lean_action_side = side
-	lean_action_kind = MOTION.lean_action_kind(str(facts.pose_id), side)
+	lean_action_kind = MOTION.lean_action_kind(lean_profile(), side)
 	var shoulder := ""
 	if lean_action_kind == "reach":
 		shoulder = "L" if side < 0.0 else "R"
@@ -427,8 +450,8 @@ func start_lean_action(side: float) -> void:
 			standing_camera.call("hold_glance")
 		if hands != null:
 			hands.call("start_reach", shoulder)
-	write_log("action fire pose=%s side=%.2f kind=%s shoulder=%s" % [
-		str(facts.pose_id), side, lean_action_kind, shoulder])
+	write_log("action fire lean=%s side=%.2f kind=%s shoulder=%s" % [
+		lean_profile(), side, lean_action_kind, shoulder])
 
 
 func end_lean_action() -> void:
@@ -505,7 +528,7 @@ func neck_midpoint() -> Vector3:
 ## Dispatch the act shot. Missionary owns its own view; standing applies the player-camera
 ## offsets. Debug free look leaves the stock player camera alone.
 func apply_motion() -> void:
-	if str(facts.pose_id) == CATALOG.MISSIONARY:
+	if pose_family() == "bed":
 		if missionary_camera != null:
 			missionary_camera.call("tick")
 		return
@@ -721,7 +744,7 @@ func main_camera() -> Camera3D:
 
 
 func apply_standing_lean_look() -> void:
-	if str(facts.pose_id) == CATALOG.STANDING and standing_camera != null:
+	if pose_family() == "standing" and standing_camera != null:
 		standing_camera.call("apply_lean_look")
 
 

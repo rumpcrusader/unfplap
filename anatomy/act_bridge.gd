@@ -5,7 +5,6 @@ extends RefCounted
 ## `docs/anatomy.md`.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
@@ -125,13 +124,19 @@ func begin_act(pose_id: String) -> void:
 
 
 ## Write the live act state the persistent controller polls outside the act. The host supplies
-## `state`, `pose_id`, `depth`, `bed_frame` and `cycle_phase`.
+## `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`.
 func sync_facts() -> void:
 	facts.state = _host("state", 0)
-	facts.pose_id = _host("pose_id", "")
+	facts.pose_view = _host("pose_view")
 	facts.depth = _host("depth", 0.0)
 	facts.bed_frame = _host("bed_frame", null)
 	facts.cycle_phase = _host("cycle_phase", "normal")
+
+
+## The pose family from the runtime's pose view: `bed` for missionary, `standing` for standing.
+func pose_family() -> String:
+	var view: Variant = _host("pose_view")
+	return str(view.family) if view != null else ""
 
 
 ## The live context the act reads. The host writes the extra fields; the bridge writes the
@@ -157,7 +162,7 @@ func tick(delta: float) -> void:
 
 ## Apply the oral turn's facing after the act tick. The standing camera owns the facing override.
 func apply_facing() -> void:
-	if not is_instance_valid(act) or _host("pose_id", "") != CATALOG.STANDING:
+	if not is_instance_valid(act) or pose_family() != "standing":
 		return
 	var facing: Variant = act.call("facing")
 	if not facing is Dictionary or (facing as Dictionary).is_empty():
@@ -214,7 +219,7 @@ func hole_ready() -> bool:
 
 func oral_ready() -> bool:
 	return is_instance_valid(act) and _host("state", 0) == STATE_ACTIVE \
-		and _host("pose_id", "") == CATALOG.STANDING and SETTINGS.anatomy_oral.get_bool()
+		and pose_family() == "standing" and SETTINGS.anatomy_oral.get_bool()
 
 
 func finish_ready() -> bool:

@@ -41,7 +41,7 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	var facts := FACTS.new()
 	check(facts.state == 0, "state starts idle")
-	check(facts.pose_id == "", "pose starts empty")
+	check(facts.pose_view == null, "pose view starts absent")
 	check(is_zero_approx(facts.depth), "depth starts at zero")
 	check(is_zero_approx(facts.penetration_m), "penetration starts at zero")
 	check(facts.climaxes == 0, "climaxes start at zero")

@@ -74,14 +74,20 @@ a caress: only the shoulder reach and the smack use `coat_frame()` / `hands/cont
 
 `hands/service.gd` and every hands internal read `shared/act_facts.gd`, never the runtime node. The
 controller takes the view in `_init(facts)`, the engine and each path receive the same view, and
-they read `pose_id`, `state`, `lean_forward`, `lean_side`, `size_name`, `size_scale`,
+they read `state`, `lean_forward`, `lean_side`, `size_name`, `size_scale`,
 `same_height_scale`, `physics_delta`, `presentation_config`, `profile`, `camera` and `main`, plus
 the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, `touch()` and
-`smack_hit()` callbacks. The smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
+`smack_hit()` callbacks. The pose path and the oral contact come from `facts.pose_view`: the
+controller reads `view.hands.path` and `view.contact_kind`, not `pose_id` or `oral_active`. The
+smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
 `hands/session.gd`, so `hands/smack.gd` needs no host node. The field and callback contract is
 `docs/act_facts.md`; `tests/test_source_hygiene.gd` fails on a runtime reach-in.
 
 ## Pose paths
+
+`_path_for_pose()` selects from `facts.pose_view.hands.path`: `missionary` is the chest/neck/cheek
+path, `standing` is the head path while `view.contact_kind == "mouth"` and the flank path
+otherwise.
 
 ### Missionary
 
@@ -310,7 +316,6 @@ selection and starts the swing.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Tests
 

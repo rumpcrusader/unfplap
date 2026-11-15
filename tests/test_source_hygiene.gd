@@ -13,22 +13,17 @@ const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "Colo
 ## file, per file. It ratchets down: a migrated consumer must not gain a reference, and a file that
 ## drops lowers its entry in the same commit. Producer mirrors may raise a producer's entry in the
 ## commit that adds them, with the total held flat. The hard allowlist is Phase B5/E.
-## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). A0.2 adds the view's
-## four `pose_id` mirrors and three `oral_active` fields; A1.1 fills the view (+2 in the session)
-## and mirrors the live oral state (+3 in the runtime). A refill does not grow them.
+## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). A1.2 has moved the
+## camera, hands and kiss to the view and the anatomy context to the view: 157 and 21 remain.
 const POSE_ID_BUDGET := {
 	"runtime.gd": 62,
 	"poses/service.gd": 31,
 	"settings/service.gd": 11,
-	"camera/service.gd": 8,
-	"kiss/service.gd": 8,
-	"anatomy/act_bridge.gd": 7,
+	"anatomy/act_bridge.gd": 2,
 	"reactions/service.gd": 7,
-	"camera/standing_camera.gd": 6,
-	"hands/service.gd": 5,
 	"poses/wing_control.gd": 5,
 	"poses/standing_anon.gd": 5,
-	"anatomy/controller.gd": 4,
+	"anatomy/controller.gd": 3,
 	"api.gd": 3,
 	"afterglow/service.gd": 3,
 	"anatomy/act.gd": 2,
@@ -44,15 +39,11 @@ const POSE_ID_BUDGET := {
 	"main.gd": 1,
 	"integrations/idle_life.gd": 1,
 	"integrations/context.gd": 1,
-	"camera/missionary_camera.gd": 1,
-	"anatomy/facts.gd": 1,
 	"shared/pose_view.gd": 4,
 }
 const ORAL_ACTIVE_BUDGET := {
 	"runtime.gd": 11,
 	"anatomy/act_bridge.gd": 3,
-	"hands/service.gd": 2,
-	"camera/service.gd": 1,
 	"shared/act_facts.gd": 1,
 	"dialogue/service.gd": 1,
 	"anatomy/act.gd": 1,

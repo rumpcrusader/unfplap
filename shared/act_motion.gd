@@ -52,10 +52,10 @@ static func lean_step(current: float, target: float, delta: float,
 
 
 ## Pose support for the threshold-triggered side action.
-## The side-lean action a pose fires at full lean. Kissing is no longer a lean action: both poses
-## use the front/shoulder lean with F held (see kiss_control.lean_kiss_tick).
-static func lean_action_kind(pose: String, _side: float) -> String:
-	if pose == CATALOG.STANDING:
+## The side-lean action a pose profile fires at full lean. Kissing is no longer a lean action: both
+## poses use the front/shoulder lean with F held (see kiss_control.lean_kiss_tick).
+static func lean_action_kind(profile: String, _side: float) -> String:
+	if profile == CATALOG.STANDING:
 		return "reach"
 	return ""
 

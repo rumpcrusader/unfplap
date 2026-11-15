@@ -362,6 +362,7 @@ func _anatomy_host() -> Dictionary:
 		"eligibility_service": Callable(self, "_eligibility_service"),
 		"state": Callable(self, "_state"),
 		"pose_id": Callable(self, "_pose_id"),
+		"pose_view": Callable(self, "_pose_view_value"),
 		"depth": Callable(self, "_depth"),
 		"penetration_m": Callable(self, "_penetration_m"),
 		"penetration_reach": Callable(self, "penetration_reach"),
@@ -428,6 +429,11 @@ func _state() -> int:
 
 func _pose_id() -> String:
 	return pose_id
+
+
+## The pose read model the anatomy context mirrors; the session owns the one object.
+func _pose_view_value() -> Variant:
+	return _pose_session.view()
 
 
 func _depth() -> float:

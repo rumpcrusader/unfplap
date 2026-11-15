@@ -8,9 +8,11 @@ overlay and the log switches. The lab scripts are in `WORKFLOW.md`; the settings
 
 `debug/service.gd` owns the action registry and the wheel page order. `debug/ui.gd` draws the
 Debug block buttons. `debug/wheel.gd` is the hold-middle wheel. `debug/bed.gd` is the stock bed
-cuddle helper behind the wheel's Bed cuddle action and Show data's BED section. `debug/skeleton.gd`
-draws the skeleton overlay. `settings/ui.gd` injects the Unfplap tab and calls `debug/ui.gd` for
-each Debug block. `main.gd` owns the console gate, the wheel gate and the skeleton-flag sync.
+cuddle helper behind the wheel's Bed cuddle action and Show data's BED section. `debug/pony.gd` is
+the debug pony-preparation helper shared by the bed cuddle and the wheel's Sex ready action.
+`debug/skeleton.gd` draws the skeleton overlay. `settings/ui.gd` injects the Unfplap tab and calls
+`debug/ui.gd` for each Debug block. `main.gd` owns the console gate, the wheel gate and the
+skeleton-flag sync.
 
 ## Console
 

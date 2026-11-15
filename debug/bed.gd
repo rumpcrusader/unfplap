@@ -5,6 +5,7 @@ extends RefCounted
 
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
+const PONY := preload("res://mods/unfplap/debug/pony.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 
 ## A mare farther than this from the bed, or on another floor, is moved to the bed approach first.
@@ -81,7 +82,7 @@ static func invite(main: Node, target: Node) -> String:
 		return "The bed has no stock rest."
 	rest.call("refresh")
 	var notes: Array[String] = []
-	notes.append("idle=" + _idle_pony(pony))
+	notes.append("idle=" + PONY.idle(pony))
 	if _needs_transport(pony, bed):
 		notes.append("transport=" + _bring_to_bed(pony, rest))
 		await main.get_tree().create_timer(0.7).timeout
@@ -89,7 +90,7 @@ static func invite(main: Node, target: Node) -> String:
 			return "Bed cuddle interrupted."
 		# Recompute once she is inside: the first pass ran outside the house, where the
 		# bed-front height test cannot match her floor.
-		notes.append("grounded=" + _idle_pony(pony))
+		notes.append("grounded=" + PONY.idle(pony))
 		notes.append("front=" + _bring_to_bed(pony, rest))
 	notes.append("player=" + _ensure_player_lying(main, rest))
 	if _player_lying(main):
@@ -167,47 +168,6 @@ static func _ensure_player_lying(main: Node, rest: Node3D) -> String:
 	return "Anon sat and lay down"
 
 
-## A saved test-world actor can carry a non-yaw transform from an old throw or cuddle. Reset the
-## tilt while keeping the facing yaw, or support recovery fights the tilted collider every tick.
-static func _upright(pony: Node3D) -> void:
-	if not is_instance_valid(pony):
-		return
-	var transform := pony.global_transform
-	var euler := transform.basis.get_euler()
-	if absf(euler.x) < 0.01 and absf(euler.z) < 0.01:
-		return
-	var scale := transform.basis.get_scale()
-	transform.basis = Basis(Vector3.UP, euler.y) * Basis.from_scale(scale)
-	pony.global_transform = transform
-	if pony.get("velocity") != null:
-		pony.set("velocity", Vector3.ZERO)
-	pony.reset_physics_interpolation()
-
-
-static func _idle_pony(pony: Node3D) -> String:
-	var notes := PackedStringArray()
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav != null:
-		nav.call("stay")
-		if str(nav.get("command_owner")) != "":
-			notes.append("owner " + str(nav.get("command_owner")))
-			nav.set("command_owner", "")
-		nav.set("wander_enabled", false)
-		if str(nav.get("reserved_by")) != "":
-			notes.append("reserved " + str(nav.get("reserved_by")))
-			nav.set("reserved_by", "")
-	if pony.has_meta("active_follow"):
-		pony.remove_meta("active_follow")
-	if pony.get("motion_paused") == true:
-		pony.set("motion_paused", false)
-	var status: Dictionary = pony.call("posture_status") if pony.has_method("posture_status") else {}
-	if str(status.get("requested", "")) != "stand" and pony.has_method("request_posture"):
-		pony.call("request_posture", "stand")
-		notes.append("stand requested")
-	_upright(pony)
-	return "none" if notes.is_empty() else ", ".join(notes)
-
-
 static func _needs_transport(pony: Node3D, bed: Node3D) -> bool:
 	var to_bed := pony.global_position - bed.global_position
 	return Vector2(to_bed.x, to_bed.z).length() > TRANSPORT_RANGE_M \
@@ -232,7 +192,7 @@ static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 		pony.set("velocity", Vector3.ZERO)
 	if pony.get("motion_paused") != null:
 		pony.set("motion_paused", false)
-	_upright(pony)
+	PONY.upright(pony)
 	pony.reset_physics_interpolation()
 	var nav: Node = pony.get_node_or_null("Navigator")
 	if nav != null:

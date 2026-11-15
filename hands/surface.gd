@@ -745,6 +745,8 @@ func _gather(mesh: MeshInstance3D, region: String, center: Vector3,
 	if skin == null or mesh.mesh == null or not is_instance_valid(skeleton):
 		return {}
 	var vertices: Array = []
+	# The same rest positions as `vertices`, packed for the anchor builders' nearest scans.
+	var positions := PackedVector3Array()
 	var indices := PackedInt32Array()
 	var bindings := {}
 	var role := "body"
@@ -804,8 +806,10 @@ func _gather(mesh: MeshInstance3D, region: String, center: Vector3,
 						"normal": ns[id] if id < ns.size() else Vector3.UP,
 						"influence": influence,
 					})
+					positions.append(vs[id])
 				indices.append(mapped[id])
-	return {"vertices": vertices, "indices": indices, "bindings": bindings.values()}
+	return {"vertices": vertices, "positions": positions, "indices": indices,
+		"bindings": bindings.values()}
 
 
 func _dominant_bone(id: int, ab: PackedInt32Array, aw: PackedFloat32Array,

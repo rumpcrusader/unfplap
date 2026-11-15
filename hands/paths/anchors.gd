@@ -492,14 +492,24 @@ static func _entry_position(entry: Variant) -> Vector3:
 func _nearest_source_anchor(source: Dictionary, skeleton: Skeleton3D, region: String,
 		position: Vector3, max_distance: float) -> Dictionary:
 	var vertices: Array = source.get("vertices", [])
+	var positions: PackedVector3Array = source.get("positions", PackedVector3Array())
 	var best := -1
 	var best_distance := max_distance * max_distance
-	for i in vertices.size():
-		var point: Vector3 = vertices[i]["position"]
-		var distance := point.distance_squared_to(position)
-		if distance < best_distance:
-			best_distance = distance
-			best = i
+	if positions.size() == vertices.size():
+		# The packed rest positions are the same order as `vertices`; scanning them avoids one
+		# dictionary lookup per vertex for every marked area. See `docs/hands.md`.
+		for i in positions.size():
+			var distance := positions[i].distance_squared_to(position)
+			if distance < best_distance:
+				best_distance = distance
+				best = i
+	else:
+		for i in vertices.size():
+			var point: Vector3 = vertices[i]["position"]
+			var distance := point.distance_squared_to(position)
+			if distance < best_distance:
+				best_distance = distance
+				best = i
 	if best < 0:
 		return {}
 	return _anchor_from_source_vertex(source, best, skeleton, region)

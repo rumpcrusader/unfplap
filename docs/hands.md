@@ -280,6 +280,9 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
   contains the lazy `TriangleMesh` rebuild on a refresh), `caress_blur` the normal average,
   `caress_closest` the full-triangle fallback when the ray misses; `caress_arm` covers the
   missionary reach plan.
+- The anchor scans read the source's packed rest positions, so a marked-area build pays one
+  `PackedVector3Array` compare per vertex instead of a vertex-dictionary lookup. A source without
+  the packed array still builds through the dictionary fallback.
 - The patch is skinned and re-BVHed at most once per `caress.quality` refresh (33 ms precise,
   66 ms fast) and at most once per physics tick per hand; a window re-centre forces one update
   regardless of the refresh. A refresh is also skipped while every bound bone is within
@@ -337,8 +340,8 @@ selection and starts the swing.
 
 - `tests/hands/test_caress.gd`: surface patch and its two quality levels, authored paths, marked
   area path, side mapping, standing path, oral head node and side inversion, the exact node
-  without a head patch, contact blend, engine placement, smoothing, reach and the
-  one-hand-per-tick path warm.
+  without a head patch, contact blend, engine placement, smoothing, reach, the one-hand-per-tick
+  path warm and the packed source-position anchor scan.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 

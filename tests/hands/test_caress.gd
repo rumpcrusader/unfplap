@@ -434,6 +434,12 @@ func run() -> void:
 	var local_surface: Variant = SURFACE.new()
 	check(bool(local_surface.call("ensure", body_pony, "torso")),
 		"the local caress window source builds")
+	var coat_source: Dictionary = local_surface.get("source")
+	var packed_positions: Variant = coat_source.get("positions", null)
+	check(packed_positions is PackedVector3Array
+		and (packed_positions as PackedVector3Array).size()
+			== (coat_source.get("vertices", []) as Array).size(),
+		"the coat source caches the packed rest positions for the anchor scans")
 	local_surface.call("set_quality", "precise")
 	local_surface.call("set_local", true)
 	var flank_centre := _json_position(area_areas, "flank_side", "left")
@@ -545,6 +551,30 @@ func run() -> void:
 	check(not area_right_start.is_empty()
 		and (area_right_start["point"] as Vector3).x > 0.0,
 		"the right area path stays on her right side")
+	# The nearest-anchor scan reads the packed rest positions when the source has them and
+	# falls back to the vertex dictionaries for a source that does not.
+	var scan_source := {
+		"vertices": [
+			{"position": Vector3(0.0, 0.0, 0.0), "normal": Vector3.UP, "influence": []},
+			{"position": Vector3(1.0, 0.0, 0.0), "normal": Vector3.UP, "influence": []},
+		],
+		"indices": PackedInt32Array([0, 1, 0]),
+		"bindings": [],
+	}
+	var scan_path: Variant = PATH.new()
+	var scan_fallback: Dictionary = scan_path.call("_nearest_source_anchor", scan_source, null,
+		"torso", Vector3(0.9, 0.0, 0.0), 2.0)
+	check(not scan_fallback.is_empty()
+		and (scan_fallback.get("position", Vector3.ZERO) as Vector3).x > 0.5,
+		"the nearest anchor scan falls back to the vertex dictionaries")
+	scan_source["positions"] = PackedVector3Array([
+		Vector3(0.0, 0.0, 0.0), Vector3(1.0, 0.0, 0.0),
+	])
+	var scan_packed: Dictionary = scan_path.call("_nearest_source_anchor", scan_source, null,
+		"torso", Vector3(0.1, 0.0, 0.0), 2.0)
+	check(not scan_packed.is_empty()
+		and (scan_packed.get("position", Vector3.ZERO) as Vector3).x < 0.5,
+		"the nearest anchor scan reads the packed rest positions")
 	# Oral head path: one authored node per hand. The JSON is mare-PoV and Anon faces her, so
 	# his hands read the opposite side.
 	var head_side_left := _json_position(area_areas, "head_side", "left")

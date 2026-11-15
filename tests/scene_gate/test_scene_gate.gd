@@ -564,6 +564,12 @@ func _check_profiles() -> void:
 	check(not _row_ok(internal_offer, "pose"), "an internal pose fails an offer")
 	check(not _row_ok(internal_offer, "pose_profile"),
 		"an internal pose fails the offer profile too")
+	var facesit_start: Array = gate.call("rows", "bed_facesit", "bed_side", bed, "start", false)
+	check(not _row_ok(facesit_start, "pose_profile"), "the internal face-sit fails a start")
+	var facesit_offer: Array = gate.call("rows", "bed_facesit", "", null, "offer", true)
+	check(not _row_ok(facesit_offer, "pose"), "the internal face-sit fails an offer")
+	check(not _row_ok(facesit_offer, "pose_profile"),
+		"the internal face-sit fails the offer profile too")
 	var unknown: Array = gate.call("rows", "no_such_pose", "", null, "offer", true)
 	check(not _row_ok(unknown, "pose_profile") and not _row_ok(unknown, "pose"),
 		"an unknown pose fails closed")

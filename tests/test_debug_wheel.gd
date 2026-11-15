@@ -102,12 +102,20 @@ func _check_registry() -> void:
 		check(not DEBUG_ACTIONS.ACTIONS.has(removed), "the retired action %s is gone" % removed)
 		check(not _wheel_has(removed), "the wheel does not carry %s" % removed)
 	for settings_only: String in ["reset_act_history", "reload_pose", "give_stool",
-			"reset_act_prompts", "cycle_auto"]:
+			"reset_act_prompts", "cycle_auto", "facesit_variant"]:
 		check(DEBUG_ACTIONS.ACTIONS.has(settings_only),
 			"the settings-only action %s stays registered" % settings_only)
 		check(not _wheel_has(settings_only), "the wheel leaves %s to settings" % settings_only)
 		check(bool(DEBUG_ACTIONS.ACTIONS[settings_only].get("panel", true)),
 			"the settings-only action %s stays on the panel" % settings_only)
+	check(str(DEBUG_ACTIONS.ACTIONS["facesit_variant"].get("label", "")) == "Pose: face-sit",
+		"the face-sit action label")
+	check(str(DEBUG_ACTIONS.ACTIONS["facesit_variant"].get("method", "")) == "action_facesit_variant",
+		"the face-sit action method")
+	check(str(DEBUG_ACTIONS.ACTIONS["facesit_variant"].get("help", "")).contains("face-sit"),
+		"the face-sit action help names the pose")
+	check(not (DEBUG_ACTIONS.ACTIONS["facesit_variant"] as Dictionary).has("hotkey"),
+		"the face-sit action has no hotkey")
 	for page: String in DEBUG_ACTIONS.WHEEL_PAGES:
 		for name: String in DEBUG_ACTIONS.wheel_actions(page):
 			check(not bool(DEBUG_ACTIONS.ACTIONS[name].get("panel", true)),

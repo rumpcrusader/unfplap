@@ -938,6 +938,28 @@ func standing_reference_json() -> String:
 	return _pose_service().reference_json()
 
 
+## Why the face-sit debug action cannot toggle right now, or "" when it is ready: an active act, a
+## live missionary or face-sit view, a steady pose, no running kiss and the anatomy's act body.
+func face_sit_error() -> String:
+	if state == State.IDLE or state == State.RESTORE:
+		return "no active act"
+	var view := pose_view()
+	if view == null:
+		return "no active act"
+	if str(view.id) != CATALOG.MISSIONARY and str(view.id) != CATALOG.BED_FACESIT:
+		return "only in a missionary act"
+	if state != State.ACTIVE:
+		return "the act is not active"
+	if int(view.pose_state) != POSE_VIEW.STEADY:
+		return "the pose is changing"
+	if _act_facts.kiss_active:
+		return "a kiss is running"
+	if not SETTINGS.anatomy_on() or not is_instance_valid(_pose_service().act_body) \
+			or not is_instance_valid(_anatomy_bridge.missionary_anon):
+		return "the anatomy is not available"
+	return ""
+
+
 ## Re-read the active pose's authored asset in place. The debug action uses this; a running act
 ## sees the new file on its next frame.
 func reload_pose_asset() -> String:
@@ -2694,7 +2716,7 @@ func _thrust_move(amount: float, now: float) -> void:
 	var events: Array = _thrust_tracker.move(amount, now)
 	depth = _thrust_tracker.depth
 	if is_instance_valid(_act_audio) and state in [State.ACTIVE, State.CLIMAX] \
-			and _act_audio.crossed(before, depth):
+			and not _face_contact() and _act_audio.crossed(before, depth):
 		_act_audio.withdraw_crossed(before, depth, _thrust_tracker.live_strength(now),
 			_reactions.rump_point(), _bed_audio_point(), _bed_soft)
 	for event: Dictionary in events:
@@ -2750,9 +2772,11 @@ func _on_impact(result: Dictionary) -> void:
 	var tier := THRUST.plap_tier(impact_speed)
 	var plap := THRUST.plap_touching(gap, CONTACT_GAP_M) and not tier.is_empty()
 	var oral := _mouth_contact()
+	var face := _face_contact()
+	var quiet := oral or face
 	var now := _now_s()
 	_wings_controller().on_thrust(impact)
-	if not oral:
+	if not quiet:
 		_reactions.thrust(jiggle)
 		_reactions.tail_thrust(jiggle)
 	if _pose_family() == "standing":
@@ -2765,11 +2789,11 @@ func _on_impact(result: Dictionary) -> void:
 	_play_vocal()
 	if is_instance_valid(_act_audio):
 		_act_audio.play_impact(tier, strength, _reactions.rump_point(),
-			_bed_audio_point(), _bed_soft, gap, CONTACT_GAP_M, not oral)
-	_log("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d oral=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
+			_bed_audio_point(), _bed_soft, gap, CONTACT_GAP_M, not quiet)
+	_log("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d oral=%d face=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
 		gap, impact_speed, tier if not tier.is_empty() else "-", 1 if plap else 0,
-		1 if oral else 0, satisfaction, _readiness.thrusts_per_second(), strength, impact,
-		jiggle, _readiness.last_intensity, _readiness.last_pattern])
+		1 if oral else 0, 1 if face else 0, satisfaction, _readiness.thrusts_per_second(),
+		strength, impact, jiggle, _readiness.last_intensity, _readiness.last_pattern])
 
 func _play_vocal() -> void:
 	if _vocal_cooldown > 0.0:
@@ -2788,6 +2812,13 @@ func _play_vocal() -> void:
 func _mouth_contact() -> bool:
 	var view: Variant = _pose_service().view()
 	return view != null and str(view.contact_kind) == "mouth"
+
+
+## The bed face-sit contact: his mouth, not her opening. The impact fan-out and the withdraw cue
+## use it like the oral branch; the anatomy act parks the part.
+func _face_contact() -> bool:
+	var view: Variant = _pose_service().view()
+	return view != null and str(view.contact_kind) == "face"
 
 
 ## Interrupt the shared director only when it is driving this mare, so a bystander's turn is not

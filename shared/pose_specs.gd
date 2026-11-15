@@ -16,6 +16,9 @@ const STANDING_TEST := "standing_test"
 ## The standing oral pose: an internal procedural delta on `standing`. It is reached only by the
 ## authored oral edges, is not an offer and has no settings template of its own.
 const STANDING_ORAL := "standing_oral"
+## The internal bed face-sit: its own authored bed asset, reached only by the debug pair edge. It
+## shares the missionary settings block and has no row of its own.
+const BED_FACESIT := "bed_facesit"
 
 ## `asset` is the row's authored pose document under `poses/`; a base chain supplies it to an
 ## internal row. `driver` is the procedural recipe, `base` an inherited pose id and `delta` an
@@ -156,6 +159,39 @@ const SPECS := {
 		"public": false,
 		"offerable": false,
 	},
+	BED_FACESIT: {
+		"id": BED_FACESIT,
+		"display_name": "Face-sit",
+		"family": "bed",
+		"frame": "bed",
+		"base": "",
+		"asset": "poses/bed_facesit_pose.json",
+		"delta": "",
+		"driver": "poses/missionary_recipe.gd",
+		"settings_group": "missionary",
+		"game_posture": "stand",
+		"drive_policy": "missionary",
+		"anon": {"mode": "act_body", "profile": "facesit"},
+		"contact": {"kind": "face", "aim": "part", "trims": "missionary"},
+		"camera": {"profile": "missionary_shots", "facing": "anon_eye", "eye": "anon"},
+		"hands": {"path": "missionary"},
+		"controls": {"set": "facesit"},
+		"audio": {"impact": "missionary", "speech": "act"},
+		"afterglow": {"profile": "passive", "close_window": false},
+		"presentation": {
+			"profile": "missionary", "hud_label": "Face-sit", "tail": "lay",
+			"wings": "stock", "kiss": "missionary", "lean": "missionary",
+		},
+		"scene": {
+			"frame": "bed", "requires_bed": true, "sources": [],
+			"managed_bed": true, "stool": false, "standing_free": false,
+		},
+		"modifiers": {"profile": "missionary"},
+		"forms": ["human"],
+		"views": ["desktop"],
+		"public": false,
+		"offerable": false,
+	},
 }
 
 
@@ -183,6 +219,8 @@ const CONTROL_SETS := {
 	],
 	STANDING_TEST: [ACT_COMMANDS.END],
 	STANDING_ORAL: [ACT_COMMANDS.ORAL, ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.END],
+	"facesit": [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
+		ACT_COMMANDS.END],
 }
 
 
@@ -196,7 +234,7 @@ const NO_SCENE := {
 
 ## The shipped spec ids, in table order.
 static func ids() -> Array[String]:
-	return [MISSIONARY, STANDING, STANDING_TEST, STANDING_ORAL]
+	return [MISSIONARY, STANDING, STANDING_TEST, STANDING_ORAL, BED_FACESIT]
 
 
 ## The raw spec dictionary for `id`, or `{}` when the table has no row.

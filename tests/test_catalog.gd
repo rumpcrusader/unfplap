@@ -23,8 +23,8 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	check(CATALOG.all() == [CATALOG.MISSIONARY, CATALOG.STANDING], "pose ids")
 	check(CATALOG.every() == [CATALOG.MISSIONARY, CATALOG.STANDING, CATALOG.STANDING_TEST,
-		CATALOG.STANDING_ORAL],
-		"every pose includes both internal poses")
+		CATALOG.STANDING_ORAL, CATALOG.BED_FACESIT],
+		"every pose includes the three internal poses")
 	check(not CATALOG.POSE_KEYS.has(CATALOG.STANDING_TEST),
 		"the internal test pose has no settings schema")
 	check(CATALOG.defaults(CATALOG.STANDING_TEST).is_empty(),
@@ -51,7 +51,7 @@ func run() -> void:
 	for id: String in CATALOG.all():
 		check(POSE_SPECS.is_public(id) and POSE_SPECS.is_offerable(id),
 			"the public poses are offerable: " + id)
-	for id: String in [CATALOG.STANDING_TEST, CATALOG.STANDING_ORAL]:
+	for id: String in [CATALOG.STANDING_TEST, CATALOG.STANDING_ORAL, CATALOG.BED_FACESIT]:
 		check(not POSE_SPECS.is_public(id) and not POSE_SPECS.is_offerable(id),
 			"the internal pose stays internal: " + id)
 		check(CATALOG.defaults(id).is_empty() and not CATALOG.POSE_KEYS.has(id),
@@ -73,6 +73,17 @@ func run() -> void:
 		"missionary rejects AnonPony")
 	check(not POSE_SPECS.supports(CATALOG.MISSIONARY, "human", "vr"),
 		"missionary rejects the headset view")
+	var facesit_scene := POSE_SPECS.scene(CATALOG.BED_FACESIT)
+	check(bool(facesit_scene.get("requires_bed", false))
+		and bool(facesit_scene.get("managed_bed", false))
+		and not bool(facesit_scene.get("stool", false))
+		and not bool(facesit_scene.get("standing_free", false)),
+		"the face-sit is a managed bed scene with no stool")
+	check(POSE_SPECS.supports(CATALOG.BED_FACESIT, "human", "desktop"),
+		"the face-sit supports human desktop")
+	check(not POSE_SPECS.supports(CATALOG.BED_FACESIT, "pony", "desktop")
+		and not POSE_SPECS.supports(CATALOG.BED_FACESIT, "human", "vr"),
+		"the face-sit rejects AnonPony and the headset view")
 	for form: String in ["human", "pony"]:
 		for view: String in ["desktop", "vr"]:
 			check(POSE_SPECS.supports(CATALOG.STANDING, form, view),

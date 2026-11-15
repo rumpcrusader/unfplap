@@ -1024,6 +1024,27 @@ func action_pose_test_variant() -> String:
 	return "Pose request failed."
 
 
+## Debug: toggle the internal bed face-sit in a live missionary act. The face-sit has no offer and
+## no key; this button is its only trigger. The edge changes the arrangement and the contact and
+## never ends the act.
+func action_facesit_variant() -> String:
+	if not is_instance_valid(active_runtime):
+		return "No act."
+	var error := str(active_runtime.call("face_sit_error"))
+	if not error.is_empty():
+		_debug("face-sit refused: %s" % error)
+		return "Face-sit refused: %s." % error
+	var view: Variant = active_runtime.call("pose_view")
+	var active := str(view.id) if view != null else ""
+	var target := CATALOG.BED_FACESIT if active == CATALOG.MISSIONARY else CATALOG.MISSIONARY
+	var result: Variant = active_runtime.call("request_pose", target, "facesit")
+	if result is Dictionary:
+		var code := str((result as Dictionary).get("code", ""))
+		_debug("pose face-sit %s -> %s: %s" % [active, target, code])
+		return "Pose %s: %s." % [target, code]
+	return "Pose request failed."
+
+
 ## Debug: one structured dump for the aimed mare. Show data, and a future always-on overlay, can
 ## render the same sections: TARGET, CYCLE, GATE, ACT, STOOL, HISTORY, PROMPT, BED.
 func action_show_data() -> String:

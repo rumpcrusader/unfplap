@@ -13,6 +13,8 @@ const FORWARD := "standing__standing_test"
 const REVERSE := "standing_test__standing"
 const ORAL_FORWARD := "standing__standing_oral"
 const ORAL_REVERSE := "standing_oral__standing"
+const FACESIT_FORWARD := "missionary__bed_facesit"
+const FACESIT_REVERSE := "bed_facesit__missionary"
 
 var failures := 0
 var checks := 0
@@ -44,9 +46,9 @@ func _check_shipped() -> void:
 	var registry: RefCounted = REGISTRY.new()
 	var ids: Array = registry.ids()
 	check(ids == [CATALOG.MISSIONARY, CATALOG.STANDING, CATALOG.STANDING_TEST,
-		CATALOG.STANDING_ORAL],
-		"the registry has the two public poses and the two internal poses")
-	check(registry.all().size() == 4, "the registry builds all four typed specs")
+		CATALOG.STANDING_ORAL, CATALOG.BED_FACESIT],
+		"the registry has the two public poses and the three internal poses")
+	check(registry.all().size() == 5, "the registry builds all five typed specs")
 	var found: Array = registry.validate()
 	check(found.is_empty(), "the shipped table and edges validate: %s" % str(found))
 	var standing: Variant = registry.spec(CATALOG.STANDING)
@@ -80,6 +82,32 @@ func _check_shipped() -> void:
 			"the oral pose uses its own control set")
 		check(not bool(oral.afterglow.get("close_window", true)),
 			"the oral afterglow opens no close window")
+	var facesit: Variant = registry.spec(CATALOG.BED_FACESIT)
+	check(facesit != null and facesit.id == CATALOG.BED_FACESIT, "the face-sit spec keeps its id")
+	if facesit != null:
+		check(not facesit.public_pose, "the face-sit pose is internal")
+		check(not facesit.offerable, "the face-sit pose is not offerable")
+		check(facesit.base.is_empty(), "the face-sit owns its geometry")
+		check(facesit.asset == "poses/bed_facesit_pose.json",
+			"the face-sit carries its authored asset")
+		check(facesit.driver == "poses/missionary_recipe.gd",
+			"the face-sit reuses the missionary recipe")
+		check(facesit.settings_group == "missionary",
+			"the face-sit uses the missionary settings group")
+		check(str(facesit.contact.get("kind", "")) == "face", "the face-sit contacts the face")
+		check(str(facesit.hands.get("path", "")) == "missionary",
+			"the face-sit reuses the missionary hand path")
+		check(str(facesit.controls.get("set", "")) == "facesit",
+			"the face-sit uses its own control set")
+		check(facesit.forms == ["human"] and facesit.views == ["desktop"],
+			"the face-sit is authored for human desktop")
+		check(str(facesit.scene.get("frame", "")) == "bed" \
+				and bool(facesit.scene.get("requires_bed", false)),
+			"the face-sit requires a bed")
+		check(not bool(facesit.afterglow.get("close_window", true)),
+			"the face-sit afterglow opens no close window")
+		check(str(facesit.presentation.get("hud_label", "")) == "Face-sit",
+			"the face-sit HUD label")
 	check(registry.spec("not_a_pose") == null, "an unknown id has no spec")
 	check(is_same(registry.spec(CATALOG.MISSIONARY), registry.spec(CATALOG.MISSIONARY)),
 		"the registry caches one spec per id")
@@ -88,13 +116,14 @@ func _check_shipped() -> void:
 func _check_edges() -> void:
 	var registry: RefCounted = REGISTRY.new()
 	var edges: Array = registry.edges()
-	check(edges.size() == 4, "the registry loads both authored edges and the oral pair")
+	check(edges.size() == 6, "the registry loads the two debug edges, the oral pair and the face-sit pair")
 	var ids: Array = []
 	for edge: Variant in edges:
 		ids.append(str(edge.id))
-	check(ids == [ORAL_FORWARD, FORWARD, ORAL_REVERSE, REVERSE],
+	check(ids == [FACESIT_REVERSE, FACESIT_FORWARD, ORAL_FORWARD, FORWARD, ORAL_REVERSE, REVERSE],
 		"the edges load in sorted id order")
-	for edge_id: String in [FORWARD, REVERSE, ORAL_FORWARD, ORAL_REVERSE]:
+	for edge_id: String in [FORWARD, REVERSE, ORAL_FORWARD, ORAL_REVERSE,
+			FACESIT_FORWARD, FACESIT_REVERSE]:
 		var edge: Variant = registry.edge(edge_id)
 		check(edge != null, "%s is cached" % edge_id)
 		check(is_same(edge, registry.edge(edge_id)), "%s lookup is the same instance" % edge_id)
@@ -106,8 +135,8 @@ func _check_catalog() -> void:
 	check(CATALOG.all() == [CATALOG.MISSIONARY, CATALOG.STANDING],
 		"CATALOG.all() is unchanged")
 	check(CATALOG.every() == [CATALOG.MISSIONARY, CATALOG.STANDING, CATALOG.STANDING_TEST,
-		CATALOG.STANDING_ORAL],
-		"CATALOG.every() carries both internal poses")
+		CATALOG.STANDING_ORAL, CATALOG.BED_FACESIT],
+		"CATALOG.every() carries the three internal poses")
 	var public_ids: Array = CATALOG.all().duplicate()
 	public_ids.sort()
 	var blocks: Array = DEFAULTS.block("default.poses").keys()
@@ -120,6 +149,8 @@ func _check_catalog() -> void:
 		"the internal test pose has no default.poses block")
 	check(CATALOG.defaults(CATALOG.STANDING_ORAL).is_empty(),
 		"the internal oral pose has no default.poses block")
+	check(CATALOG.defaults(CATALOG.BED_FACESIT).is_empty(),
+		"the internal face-sit pose has no default.poses block")
 	for id: String in CATALOG.all():
 		check(not CATALOG.defaults(id).is_empty(), "%s has shipped defaults" % id)
 

@@ -12,6 +12,8 @@ const STANDING := "standing"
 const STANDING_TEST := "standing_test"
 ## The internal standing oral pose: a procedural delta on `standing`, reached only by its edge.
 const STANDING_ORAL := "standing_oral"
+## The internal bed face-sit: its own authored bed asset, reached only by the debug pair edge.
+const BED_FACESIT := "bed_facesit"
 
 const POSE_KEYS := {
 	MISSIONARY: ["nuzzle_scale", "nuzzle_period", "nuzzle_duration"],
@@ -31,7 +33,7 @@ static func all() -> Array:
 ## Every pose the registry knows, public or internal. `all()` stays the public list the API,
 ## offers and settings use.
 static func every() -> Array:
-	return [MISSIONARY, STANDING, STANDING_TEST, STANDING_ORAL]
+	return [MISSIONARY, STANDING, STANDING_TEST, STANDING_ORAL, BED_FACESIT]
 
 
 ## The shipped defaults for one pose, or `{}` when the pose has none.

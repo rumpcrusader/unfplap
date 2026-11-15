@@ -21,6 +21,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 const ORAL_TURN := preload("res://mods/unfplap/poses/oral_turn.gd")
+const FACE_CONTACT := preload("res://mods/unfplap/poses/face_contact.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -75,6 +76,9 @@ var ear_twitch: SkeletonModifier3D
 ## The standing oral actor/frame turn the session owns. It preloads no scene and reads the host
 ## callables below; the edge weight drives it.
 var _oral_turn: RefCounted = null
+## The bed face-sit contact driver. The contact switch to `face` begins it and the reverse switch
+## or the one act exit restores it; it never ends the act.
+var _face_driver: RefCounted = null
 ## The act's own Anon body on the `act_body` specs, or null on the player-body specs. The session
 ## creates, installs and frees it; the anatomy bridge only receives the opaque handle.
 var act_body: Variant = null
@@ -150,6 +154,7 @@ func _init() -> void:
 	_view = POSE_VIEW.new()
 	_registry = REGISTRY.new()
 	_oral_turn = ORAL_TURN.new()
+	_face_driver = FACE_CONTACT.new()
 
 
 ## The one pose read model the act view carries. `begin()` fills it and `release_pose()` clears it;
@@ -180,6 +185,8 @@ func begin(context: Dictionary) -> bool:
 	# A fresh act starts with no edge and no target snapshot; a failed begin never gets here.
 	_abort_target()
 	_oral_turn.reset()
+	_bind_face()
+	_face_driver.reset()
 	_state = POSE_STATE.next(_state, "begin")
 	# A holder left from the last act is dropped without clearing the choice: a new act after an
 	# offer reuses the variant and side the offer rolled.
@@ -261,6 +268,11 @@ func begin(context: Dictionary) -> bool:
 		var anchor: Variant = context.get("camera_position")
 		_tail_anchor = anchor if anchor is Vector3 else Vector3.INF
 		_install_tail()
+	# A pose row whose base contact is already `face` begins the live mouth follow here; the
+	# authored asset is already placed, so this only captures the residual.
+	if str(_view.contact_kind) == "face":
+		_face_driver.begin(_view, bed_frame)
+		_face_tick(0.0)
 	return true
 
 
@@ -287,6 +299,14 @@ func _bind_oral() -> void:
 	if _oral_turn == null:
 		_oral_turn = ORAL_TURN.new()
 	_oral_turn.bind(pony, mouth_point, opening_point, oral_kiss)
+
+
+## Bind the face driver's host reads. The driver is the session's own; the anatomy bridge stays
+## behind `face_point` and is never preloaded here.
+func _bind_face() -> void:
+	if _face_driver == null:
+		_face_driver = FACE_CONTACT.new()
+	_face_driver.bind(pony, face_point, opening_point, log)
 
 
 ## True for the authored oral pair in either direction.
@@ -421,6 +441,7 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 		pose_config, _target_config, _from_asset, _target_asset)
 	pose_node.call("set_weight", _run.weight)
 	_bind_oral()
+	_bind_face()
 	if _oral_pair(from_id, target_id):
 		_oral_turn.begin(target_id == CATALOG.STANDING_ORAL, _view)
 	_write_log("pose request %s -> %s (%s): ok" % [from_id, target_id, trigger])
@@ -564,11 +585,13 @@ func _fill_transition_view() -> void:
 ## are one frame; a steady oral pose keeps the turn and the live mouth anchor.
 func tick(delta: float) -> void:
 	_bind_oral()
+	_bind_face()
 	if facts != null:
 		var pace_value: Variant = facts.get("auto_pace")
 		_oral_turn.pace = float(pace_value) if pace_value != null else 1.0
 	if _run == null:
 		_oral_turn.tick(maxf(delta, 0.0), _view, 1.0)
+		_face_tick(delta)
 		return
 	_run.tick(maxf(delta, 0.0))
 	_view.edge_t = _run.t
@@ -577,6 +600,7 @@ func tick(delta: float) -> void:
 		pose_node.call("set_weight", _view.weight)
 	_oral_turn.tick(maxf(delta, 0.0), _view, _view.weight)
 	_absorb_switches()
+	_face_tick(delta)
 	_absorb_events()
 	if not _run.complete():
 		return
@@ -631,7 +655,14 @@ func _absorb_switches() -> void:
 func _apply_contact_switch(kind: String) -> void:
 	if kind.is_empty():
 		return
+	var previous := str(_view.contact_kind)
 	_view.contact_kind = kind
+	if kind == "face":
+		_bind_face()
+		_face_driver.begin(_view, bed_frame)
+	elif previous == "face":
+		_bind_face()
+		_face_driver.restore(_view, pose_node)
 	if kind != "mouth" and oral_viseme.is_valid():
 		oral_viseme.call("")
 
@@ -643,6 +674,20 @@ func release_mouth_contact() -> void:
 		return
 	_apply_contact_switch(str(_spec_contact_kind(_registry.spec(CATALOG.STANDING))))
 	_oral_turn.release_contact(_view)
+
+
+## Advance the face driver from the live depth. It writes the pose node's frame-space offset and
+## the view's contact target; outside a face contact it is a no-op. No allocation in the steady
+## tick.
+func _face_tick(delta: float) -> void:
+	if _face_driver == null or str(_view.contact_kind) != "face":
+		return
+	var level := 0.0
+	if facts != null:
+		var value: Variant = facts.get("depth")
+		if value is float or value is int:
+			level = clampf(float(value), 0.0, 1.0)
+	_face_driver.tick(maxf(delta, 0.0), _view, level, bed_frame, pose_node)
 
 
 func _switch_target(channel: String) -> String:
@@ -1068,6 +1113,8 @@ func leave_pose_start() -> void:
 	rig_skeleton = 0
 	rig_revision = -1
 	rig_missing_bones = []
+	if _face_driver != null and bool(_face_driver.get("active")):
+		_face_driver.restore(_view, pose_node)
 	if is_instance_valid(tail_lay):
 		tail_lay.call("restore_tail")
 		_drop(tail_lay)
@@ -1107,6 +1154,9 @@ func release_pose() -> void:
 	# runs a second act exit.
 	_bind_oral()
 	_oral_turn.restore(_view)
+	_bind_face()
+	_face_driver.restore(_view, pose_node)
+	_face_driver.reset()
 	_abort_target()
 	_state = POSE_STATE.next(_state, "exit")
 	_release_stretch(false)

@@ -53,6 +53,9 @@ var pose_config: Dictionary = {}
 ## Hand-authored base pose (poses/authored_pose.gd) and the space it is placed in. A null asset or
 ## a missing frame leaves the recipe's correction stack as the fallback.
 var authored: Variant = null
+## The face contact's world-space correction, written by the session's face driver and applied by
+## the recipe to the armature root. Zero on every other contact.
+var contact_offset := Vector3.ZERO
 ## The authored assets of the two sides. `authored` stays the live rendered asset; a pair with
 ## different assets takes the two-base blend even when the driver and config match. A null side
 ## falls back to the live asset (the presentation node has no authored base).
@@ -252,6 +255,7 @@ func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 		"clock": _clock,
 		"config": _from_config,
 		"authored": authored,
+		"contact_offset": contact_offset,
 		"bed_frame": bed_frame,
 		"ground_frame": ground_frame,
 		"size_name": size_name,

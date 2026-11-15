@@ -60,6 +60,18 @@ class FakeFacts extends RefCounted:
 	var features: Dictionary = {}
 
 
+## The face provider pair for the session edge: his mouth and her opening, mutable per tick.
+class FakeFacePoints:
+	var mouth := Vector3.ZERO
+	var opening := Vector3.ZERO
+
+	func mouth_point() -> Vector3:
+		return mouth
+
+	func opening_point() -> Vector3:
+		return opening
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -92,6 +104,7 @@ func run() -> void:
 	_check_effective_paths()
 	_check_state_machine()
 	_check_oral_edge()
+	_check_facesit_edge()
 	_check_refusals()
 	_check_commands()
 	_check_target_snapshot()
@@ -1005,6 +1018,102 @@ func _check_oral_edge() -> void:
 	check(refused._run == null and refused_view.contact_kind == "opening",
 		"a refused oral request starts no edge and keeps the opening contact")
 	_free_live(refused_made)
+
+
+## The bed face-sit pair: the forward edge from missionary, the contact switch starting the face
+## driver, the control set, the settled asset/config, the reverse restore and the act exit.
+func _check_facesit_edge() -> void:
+	var made := _live_session(CATALOG.MISSIONARY)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var points := FakeFacePoints.new()
+	points.mouth = Vector3(0.0, 0.82, 0.65)
+	points.opening = Vector3(0.0, 0.34, 0.45)
+	session.bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.65, 0.0))
+	session.face_point = Callable(points, "mouth_point")
+	session.opening_point = Callable(points, "opening_point")
+	var forward: Dictionary = session.request_pose(CATALOG.BED_FACESIT, "facesit",
+		{"act_state": 2})
+	check(bool(forward.get("ok", false)), "the face-sit forward request is accepted")
+	check(str(forward.get("edge", "")) == "missionary__bed_facesit",
+		"the face-sit forward request names its edge")
+	check(view.id == CATALOG.BED_FACESIT and view.pose_state == VIEW.TRANSITIONING,
+		"the face-sit forward fills the target and enters the transition")
+	check(view.contact_kind == "opening", "the face-sit forward keeps the opening before 0.9")
+	check(str(view.presentation.get("hud_label", "")) == "Face-sit",
+		"the face-sit target carries its HUD label")
+	check(session.pose_node.mode == POSE.MODE_BLEND,
+		"the two different authored bed assets take the two-base blend")
+	check(str(session.pose_node.from_authored.get("path")).ends_with("missionary_pose.json"),
+		"the from side is the missionary asset")
+	check(str(session.pose_node.to_authored.get("path")).ends_with("bed_facesit_pose.json"),
+		"the to side is the face-sit asset")
+
+	var busy: Dictionary = session.request_pose(CATALOG.MISSIONARY, "facesit", {"act_state": 2})
+	check(str(busy.get("code", "")) == "busy",
+		"a request while the face-sit edge runs is busy")
+	session.tick(0.0)
+	check(view.contact_kind == "opening", "the face-sit contact waits for 0.9")
+	session.tick(0.45)
+	check(view.contact_kind == "opening", "the face-sit contact has not switched before 0.9")
+	session.tick(0.45)
+	check(view.contact_kind == "face", "the face-sit contact switches at 0.9")
+	check(session._face_driver != null and bool(session._face_driver.get("active")),
+		"the contact switch begins the face driver")
+	var held: Vector3 = session.pose_node.contact_offset
+	check(held.is_finite(), "the face driver writes a finite pose offset")
+	points.mouth += Vector3(0.02, 0.0, 0.0)
+	session.tick(0.5)
+	check(not session.pose_node.contact_offset.is_equal_approx(held),
+		"the face driver follows the moved mouth")
+	check(near(view.contact_target.distance_to(points.mouth), 0.0),
+		"the view's contact target is the live mouth")
+	session.tick(0.7)
+	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.BED_FACESIT,
+		"the face-sit forward settles on the target")
+	check(view.contact_kind == "face", "the settled face-sit keeps the face contact")
+	check(session.pose_node.mode == POSE.MODE_SINGLE
+		and str(session.pose_node.authored.get("path")).ends_with("bed_facesit_pose.json"),
+		"the settled face-sit runs its own asset in the single path")
+	check(is_same(session.pose_node.authored, session.authored_asset()),
+		"the camera reads the adopted face-sit asset")
+	check(str(view.controls.get("set", "")) == "facesit",
+		"the settled view uses the face-sit control set")
+	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
+			ACT_COMMANDS.END]:
+		check(session.request_command(command_id),
+			"the face-sit control set allows %s" % command_id)
+	for command_id: String in [ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH,
+			ACT_COMMANDS.ORAL, ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD]:
+		check(not session.request_command(command_id),
+			"the face-sit control set denies %s" % command_id)
+	var same: Dictionary = session.request_pose(CATALOG.BED_FACESIT, "facesit", {"act_state": 2})
+	check(str(same.get("code", "")) == "same", "a same-pose request is reported as same")
+	var bad_phase: Dictionary = session.request_pose(CATALOG.MISSIONARY, "facesit",
+		{"act_state": 1})
+	check(str(bad_phase.get("code", "")) == "bad_phase",
+		"a face-sit request outside ACTIVE is refused")
+
+	var reverse: Dictionary = session.request_pose(CATALOG.MISSIONARY, "facesit",
+		{"act_state": 2})
+	check(bool(reverse.get("ok", false)), "the face-sit reverse request is accepted")
+	check(str(reverse.get("edge", "")) == "bed_facesit__missionary",
+		"the face-sit reverse request names its edge")
+	session.tick(0.0)
+	check(view.contact_kind == "opening", "the reverse contact is restored at zero")
+	check(not bool(session._face_driver.get("active")),
+		"the reverse contact switch deactivates the face driver")
+	check(session.pose_node.contact_offset.is_zero_approx(),
+		"the reverse contact switch zeroes the pose offset")
+	session.tick(1.2)
+	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.MISSIONARY,
+		"the face-sit reverse settles back on missionary")
+	check(session.pose_node.mode == POSE.MODE_SINGLE
+		and str(session.pose_node.authored.get("path")).ends_with("missionary_pose.json"),
+		"the settled reverse runs the missionary asset")
+	check(session.request_command(ACT_COMMANDS.KISS),
+		"the missionary control set returns after the face-sit")
+	_free_live(made)
 
 
 ## Every refusal code, in the order the state module reports it, plus the synthetic asset and

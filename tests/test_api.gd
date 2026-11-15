@@ -161,7 +161,8 @@ func _check_base_description() -> void:
 	expected_poses.sort()
 	check(pose_keys == expected_poses, "the API's poses block is the public snapshot")
 	check(pose_keys == CATALOG.all(), "the API's poses block is exactly CATALOG.all()")
-	for internal_id: String in [CATALOG.STANDING_TEST, CATALOG.STANDING_ORAL]:
+	for internal_id: String in [CATALOG.STANDING_TEST, CATALOG.STANDING_ORAL,
+			CATALOG.BED_FACESIT]:
 		check(not public_poses.has(internal_id),
 			"the API never exposes the internal pose " + internal_id)
 		check(not POSE_SPECS.is_public(internal_id),

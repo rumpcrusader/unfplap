@@ -516,6 +516,8 @@ func _check_snapshot() -> void:
 		"the standing group carries its presentation block")
 	check(SETTINGS.pose("", "standing_oral").is_empty(),
 		"the internal oral pose has no settings block of its own")
+	check(SETTINGS.pose("", "bed_facesit").is_empty(),
+		"the internal face-sit pose has no settings block of its own")
 	check(snap.climax_mode == SETTINGS.climax_mode.get_choice(),
 		"the act snapshot carries the climax face")
 	check(near(SETTINGS.palm_scale_for("canon"), SETTINGS.canon.get_num()),

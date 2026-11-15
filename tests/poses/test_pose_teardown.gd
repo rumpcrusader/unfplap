@@ -38,6 +38,18 @@ class FakeActBody extends Node:
 		pass
 
 
+## The face provider pair for the transition: his mouth and her opening, mutable.
+class FakeFacePoints:
+	var mouth := Vector3.ZERO
+	var opening := Vector3.ZERO
+
+	func mouth_point() -> Vector3:
+		return mouth
+
+	func opening_point() -> Vector3:
+		return opening
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -53,6 +65,7 @@ func run() -> void:
 	_check_missionary_scope()
 	_check_standing_scope()
 	_check_transition_path()
+	_check_facesit_transition()
 	_check_no_act_exit()
 	print("POSE_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -288,6 +301,63 @@ func _check_transition_path() -> void:
 			check(not body.contains(call), "%s does not call %s" % [name, call])
 	_free_fixture(made)
 	check(act_body.is_queued_for_deletion(), "the act exit frees the act body once")
+
+
+## The face-sit pair: both edges keep the pose node, the live config and the view; the contact
+## switch begins and restores the face driver; the one act exit restores and frees once.
+func _check_facesit_transition() -> void:
+	var made := _fixture(CATALOG.MISSIONARY, {})
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var config: Dictionary = session.pose_config
+	var pose_node: Node = session.pose_node
+	var points := FakeFacePoints.new()
+	points.mouth = Vector3(0.0, 0.82, 0.65)
+	points.opening = Vector3(0.0, 0.34, 0.45)
+	session.face_point = Callable(points, "mouth_point")
+	session.opening_point = Callable(points, "opening_point")
+	var act_body := FakeActBody.new()
+	session.act_body = act_body
+	var forward: Dictionary = session.request_pose(CATALOG.BED_FACESIT, "facesit",
+		{"act_state": 2})
+	check(str(forward.get("code", "")) == "ok", "the face-sit transition starts")
+	check(view.pose_state == VIEW.TRANSITIONING and view.id == CATALOG.BED_FACESIT,
+		"the face-sit transition enters the target view")
+	session.tick(0.0)
+	session.tick(0.45)
+	session.tick(0.45)
+	check(view.contact_kind == "face", "the face-sit transition switches the contact")
+	check(session._face_driver != null and bool(session._face_driver.get("active")),
+		"the face-sit contact begins the driver")
+	session.tick(0.7)
+	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.BED_FACESIT,
+		"the face-sit transition completes steady")
+	check(session.pose_node == pose_node and is_same(session.pose_config, config),
+		"the face-sit forward keeps the pose node and the live config")
+	check(session._started, "the face-sit forward keeps the session")
+	var held: Vector3 = pose_node.contact_offset
+	check(held.is_finite(), "the face-sit pose node carries the live offset")
+	var reverse: Dictionary = session.request_pose(CATALOG.MISSIONARY, "facesit",
+		{"act_state": 2})
+	check(str(reverse.get("code", "")) == "ok", "the face-sit reverse starts")
+	session.tick(0.0)
+	check(view.contact_kind == "opening", "the reverse restores the opening contact")
+	check(not bool(session._face_driver.get("active")),
+		"the reverse restores the face driver")
+	check(pose_node.contact_offset.is_zero_approx(),
+		"the reverse zeroes the pose node's offset")
+	session.tick(1.2)
+	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.MISSIONARY,
+		"the face-sit reverse completes steady")
+	check(session.pose_node == pose_node and is_same(session.pose_config, config),
+		"the face-sit reverse keeps the pose node and the live config")
+	session.release_pose()
+	check(session.pose_node == null and pose_node.is_queued_for_deletion(),
+		"the face-sit act exit frees the pose node once")
+	check(session._face_driver != null and not bool(session._face_driver.get("active")),
+		"the face-sit act exit leaves the driver inactive")
+	check(act_body.is_queued_for_deletion(), "the face-sit act exit frees the act body once")
+	_free_fixture(made)
 
 
 ## The pose-scope steps are the seam a transition calls: they must not reach an act exit.

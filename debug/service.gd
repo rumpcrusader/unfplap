@@ -29,6 +29,11 @@ const ACTIONS := {
 		"help": "Toggle the internal standing_test pose in a live standing act. Logs the edge result; never ends the act.",
 		"method": "action_pose_test_variant",
 	},
+	"facesit_variant": {
+		"label": "Pose: face-sit",
+		"help": "Toggle the internal bed face-sit in a live missionary act. Refuses while the pose changes, a kiss runs or the anatomy body is unavailable; never ends the act.",
+		"method": "action_facesit_variant",
+	},
 	"bed_offer": {
 		"label": "Trigger bed offer",
 		"help": "Force a missionary offer for the aimed mare.",

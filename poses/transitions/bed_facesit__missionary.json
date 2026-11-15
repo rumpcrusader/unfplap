@@ -1,0 +1,23 @@
+{
+	"version": 1,
+	"id": "bed_facesit__missionary",
+	"from": "bed_facesit",
+	"to": "missionary",
+	"phases": ["active"],
+	"requires": {"forms": ["human"], "views": ["desktop"], "stretch": "any"},
+	"duration": 1.2,
+	"easing": "smoothstep",
+	"channels": {
+		"base": {"kind": "blend", "duration": 1.2},
+		"anon": {"kind": "blend", "duration": 1.2, "profile": "missionary"},
+		"contact": {"kind": "switch", "at": 0.0, "to": "opening"},
+		"camera": {"kind": "hold"},
+		"controls": {"kind": "lock", "allow": ["end"]},
+		"audio": {"kind": "hold"},
+		"presentation": {"kind": "switch", "at": 0.0, "to": "missionary"}
+	},
+	"events": [
+		{"at": 1.2, "kind": "status", "value": "missionary"}
+	],
+	"interrupt": {"climax": "hold", "teardown": "abort"}
+}

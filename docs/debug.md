@@ -38,6 +38,7 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Reload posed base | General | — |
 | Bake standing base | General | — |
 | Pose: test variant | General | — |
+| Pose: face-sit | General | — |
 | Trigger bed offer | — | Mare |
 | Trigger standing offer | — | Mare |
 | Show data | — | Mare and Act |
@@ -85,6 +86,11 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   restores bones; in a missionary act it refuses with "Only in a standing act." See `docs/poses.md`.
   The real oral edge has no debug action: `N` is its only trigger, and the forward/reverse status
   and switch lines are in the same log.
+- **Pose: face-sit** is a Debug-block button with no hotkey: in a live missionary or face-sit act
+  it requests the other id of the internal `missionary ↔ bed_facesit` pair and logs the request
+  code. It refuses with a reason when no act is active, the view is not missionary or face-sit, the
+  act is not `ACTIVE`, the pose is changing, a kiss is running or the anatomy act body is
+  unavailable. It never ends the act. See `docs/poses.md`.
 - **Reset act prompts** clears the per-mare prompt overrides; see `docs/settings.md`.
 
 ## Action wheel

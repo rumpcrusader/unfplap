@@ -99,6 +99,18 @@ func _check_shipped() -> void:
 			check(spec.asset.is_empty(), "the oral pose has no asset of its own")
 			check(spec.delta == "poses/standing_oral_recipe.gd",
 				"the oral pose declares the procedural delta")
+		if id == SPECS.BED_FACESIT:
+			check(not spec.public_pose and not spec.offerable, "the face-sit pose is internal")
+			check(spec.settings_group == SPECS.MISSIONARY,
+				"the face-sit pose uses the missionary group")
+			check(spec.asset == "poses/bed_facesit_pose.json",
+				"the face-sit pose declares its asset")
+			check(spec.driver == "poses/missionary_recipe.gd",
+				"the face-sit pose reuses the missionary recipe")
+			check(str(spec.contact.get("kind", "")) == "face",
+				"the face-sit pose contacts the face")
+			check(str(spec.controls.get("set", "")) == "facesit",
+				"the face-sit pose uses its own control set")
 
 
 ## The driver/base rule: a driver may be empty only when an inherited base owns it, and a base must

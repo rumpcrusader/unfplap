@@ -30,8 +30,33 @@ func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 		return false
 	authored.call("apply_pony", sk, weight, frame, float(state.get("body_scale", 1.0)),
 		str(state.get("size_name", "")))
+	_apply_contact_offset(sk, weight, state)
 	_neutral_head(sk, weight)
 	return true
+
+
+## The face contact's residual correction: the pose driver writes a world-space offset and this
+## moves her armature root by it. The v7 placement already put the authored pose on the bed, so the
+## offset is only the live mouth/opening residual. Scaled by the recipe weight, so POSING_IN and an
+## edge blend it in instead of snapping.
+func _apply_contact_offset(sk: Skeleton3D, weight: float, state: Dictionary) -> void:
+	var value: Variant = state.get("contact_offset", Vector3.ZERO)
+	if not value is Vector3:
+		return
+	var offset: Vector3 = value
+	if not offset.is_finite() or offset.length_squared() < 0.0000001:
+		return
+	var root := sk.find_bone("pony_hips")
+	while root >= 0:
+		var parent := sk.get_bone_parent(root)
+		if parent < 0:
+			break
+		root = parent
+	if root < 0:
+		return
+	var pose := sk.get_bone_global_pose(root)
+	pose.origin += sk.global_basis.inverse() * (offset * clampf(weight, 0.0, 1.0))
+	sk.set_bone_global_pose(root, pose)
 
 
 ## The moveable overlays: the nuzzle pulse, the gaze aim and the head level. The two-base form

@@ -319,6 +319,9 @@ func run() -> void:
 	var test_pose: INIT.ForceResult = initiation.force(runtime, CATALOG.STANDING_TEST)
 	check(not test_pose.ok and test_pose.reject.contains("pose:standing_test"),
 		"the internal test pose is never offered")
+	var facesit_pose: INIT.ForceResult = initiation.force(runtime, CATALOG.BED_FACESIT)
+	check(not facesit_pose.ok and facesit_pose.reject.contains("pose:bed_facesit"),
+		"the internal face-sit pose is never offered")
 	var form_driver := FakeForm.new()
 	form_driver.form = {"kind": "pony"}
 	form_driver.add_to_group("player_pony_form")

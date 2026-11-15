@@ -13,10 +13,14 @@ const FORWARD := "standing__standing_test"
 const REVERSE := "standing_test__standing"
 const ORAL_FORWARD := "standing__standing_oral"
 const ORAL_REVERSE := "standing_oral__standing"
+const FACESIT_FORWARD := "missionary__bed_facesit"
+const FACESIT_REVERSE := "bed_facesit__missionary"
 const FORWARD_PATH := "res://mods/unfplap/poses/transitions/standing__standing_test.json"
 const REVERSE_PATH := "res://mods/unfplap/poses/transitions/standing_test__standing.json"
 const ORAL_FORWARD_PATH := "res://mods/unfplap/poses/transitions/standing__standing_oral.json"
 const ORAL_REVERSE_PATH := "res://mods/unfplap/poses/transitions/standing_oral__standing.json"
+const FACESIT_FORWARD_PATH := "res://mods/unfplap/poses/transitions/missionary__bed_facesit.json"
+const FACESIT_REVERSE_PATH := "res://mods/unfplap/poses/transitions/bed_facesit__missionary.json"
 const SOURCE := "res://mods/unfplap/poses/transition_spec.gd"
 
 var failures := 0
@@ -44,6 +48,8 @@ func run() -> void:
 	_check_runs()
 	_check_oral_documents()
 	_check_oral_runs()
+	_check_facesit_documents()
+	_check_facesit_runs()
 	_check_rejections()
 	_check_shapes()
 	_check_registry()
@@ -310,6 +316,122 @@ func _check_oral_runs() -> void:
 	check(allowed == ["end"], "the oral reverse lock allows only end")
 
 
+func _check_facesit_documents() -> void:
+	check(FileAccess.file_exists(FACESIT_FORWARD_PATH), "the face-sit forward edge file exists")
+	check(FileAccess.file_exists(FACESIT_REVERSE_PATH), "the face-sit reverse edge file exists")
+	var forward := _read(FACESIT_FORWARD_PATH)
+	var reverse := _read(FACESIT_REVERSE_PATH)
+	check(not forward.is_empty(), "the face-sit forward edge parses")
+	check(not reverse.is_empty(), "the face-sit reverse edge parses")
+	check(str(forward.get("id", "")) == FACESIT_FORWARD, "the face-sit forward edge id")
+	check(str(forward.get("from", "")) == SPECS.MISSIONARY, "the face-sit forward edge from")
+	check(str(forward.get("to", "")) == SPECS.BED_FACESIT, "the face-sit forward edge to")
+	check(str(reverse.get("id", "")) == FACESIT_REVERSE, "the face-sit reverse edge id")
+	check(str(reverse.get("from", "")) == SPECS.BED_FACESIT, "the face-sit reverse edge from")
+	check(str(reverse.get("to", "")) == SPECS.MISSIONARY, "the face-sit reverse edge to")
+	var forward_errors := TRANSITION_SPEC.errors(FACESIT_FORWARD, forward, SPECS.SPECS)
+	var reverse_errors := TRANSITION_SPEC.errors(FACESIT_REVERSE, reverse, SPECS.SPECS)
+	check(forward_errors.is_empty(), "the face-sit forward edge validates: %s" % str(forward_errors))
+	check(reverse_errors.is_empty(), "the face-sit reverse edge validates: %s" % str(reverse_errors))
+	var requires: Dictionary = forward.get("requires", {})
+	check(requires.get("forms") == ["human"], "the face-sit forward edge needs human Anon")
+	check(requires.get("views") == ["desktop"], "the face-sit forward edge needs a desktop view")
+	check(str(requires.get("stretch", "")) == "any",
+		"the face-sit forward edge allows the external stretch holder")
+	check(not requires.has("features") and not requires.has("consent"),
+		"the face-sit forward edge has no feature or consent row")
+	check(near(float(forward.get("duration", 0.0)), 1.6),
+		"the face-sit forward edge runs for 1.6 s")
+	var channels: Dictionary = forward.get("channels", {})
+	check(str((channels.get("base", {}) as Dictionary).get("kind", "")) == "blend",
+		"the face-sit forward base is a blend")
+	check(str((channels.get("anon", {}) as Dictionary).get("profile", "")) == "facesit",
+		"the face-sit forward anon profile")
+	check(near(float((channels.get("contact", {}) as Dictionary).get("at", 0.0)), 0.9),
+		"the face-sit forward contact switches at 0.9")
+	check(str((channels.get("contact", {}) as Dictionary).get("to", "")) == "face",
+		"the face-sit forward contact switches to the face")
+	check(str((channels.get("camera", {}) as Dictionary).get("kind", "")) == "hold",
+		"the face-sit forward camera holds the source shots")
+	var lock: Dictionary = channels.get("controls", {})
+	check(str(lock.get("kind", "")) == "lock", "the face-sit forward controls are a lock")
+	check(lock.get("allow") == ["end"], "the face-sit forward lock allows only end")
+	check(str((channels.get("presentation", {}) as Dictionary).get("to", "")) == "missionary",
+		"the face-sit forward presentation stays missionary")
+	check(forward.get("constraints") == ["contact after base@0.55"],
+		"the face-sit forward contact is floored after the base")
+	var events: Array = forward.get("events", [])
+	check(events.size() == 1 and str(events[0].get("kind", "")) == "status"
+		and str(events[0].get("value", "")) == "facesit",
+		"the face-sit forward reports one facesit status")
+	check(str((forward.get("interrupt", {}) as Dictionary).get("climax", "")) == "hold"
+		and str((forward.get("interrupt", {}) as Dictionary).get("teardown", "")) == "abort",
+		"the face-sit forward interrupt policy")
+	var reverse_requires: Dictionary = reverse.get("requires", {})
+	check(reverse_requires.get("forms") == ["human"] and reverse_requires.get("views") == ["desktop"],
+		"the face-sit reverse edge asks for both forms and views")
+	check(not reverse_requires.has("features") and not reverse_requires.has("consent"),
+		"the face-sit reverse edge has no feature or consent row")
+	check(near(float(reverse.get("duration", 0.0)), 1.2),
+		"the face-sit reverse edge runs for 1.2 s")
+	var reverse_channels: Dictionary = reverse.get("channels", {})
+	check(str((reverse_channels.get("contact", {}) as Dictionary).get("to", "")) == "opening",
+		"the face-sit reverse contact returns to the opening")
+	check(near(float((reverse_channels.get("contact", {}) as Dictionary).get("at", -1.0)), 0.0),
+		"the face-sit reverse contact switches at zero")
+	check((reverse_channels.get("controls", {}) as Dictionary).get("allow") == ["end"],
+		"the face-sit reverse lock allows only end")
+	check(str((reverse_channels.get("presentation", {}) as Dictionary).get("to", "")) == "missionary",
+		"the face-sit reverse presentation switches back at zero")
+	var reverse_events: Array = reverse.get("events", [])
+	check(reverse_events.size() == 1 and str(reverse_events[0].get("kind", "")) == "status"
+		and str(reverse_events[0].get("value", "")) == "missionary",
+		"the face-sit reverse reports one missionary status")
+
+
+func _check_facesit_runs() -> void:
+	var forward := _read(FACESIT_FORWARD_PATH)
+	var run: Variant = STATE.start_edge(forward, SPECS.MISSIONARY, SPECS.BED_FACESIT)
+	check(run != null, "the face-sit forward edge starts")
+	if run == null:
+		return
+	check(near(run.duration, 1.6), "the face-sit forward clock is 1.6 s")
+	check(near(run.weight, 0.0), "the face-sit forward base starts at zero")
+	run.tick(0.0)
+	check(run.switches() == ["presentation"],
+		"the face-sit forward presentation switches at zero")
+	check(not run.switches().has("contact"), "the face-sit forward contact waits for its switch")
+	run.tick(0.45)
+	check(run.switches().is_empty(), "the face-sit contact has not switched before 0.9")
+	check(run.channel_weight("base") > 0.0 and run.channel_weight("base") < 1.0,
+		"the face-sit forward base eases through the edge")
+	run.tick(0.45)
+	check(run.switches() == ["contact"], "the face-sit forward contact switches at 0.9")
+	run.tick(0.7)
+	check(run.complete(), "the face-sit forward completes at its duration")
+	check(run.events().size() == 1 and str(run.events()[0].get("kind", "")) == "status"
+		and str(run.events()[0].get("value", "")) == "facesit",
+		"the face-sit forward reports its status on the completing tick")
+	run.tick(0.1)
+	check(run.events().is_empty(), "a completed face-sit edge fires no second event")
+
+	var reverse := _read(FACESIT_REVERSE_PATH)
+	var back: Variant = STATE.start_edge(reverse, SPECS.BED_FACESIT, SPECS.MISSIONARY)
+	check(back != null, "the face-sit reverse edge starts")
+	if back == null:
+		return
+	back.tick(0.0)
+	check(back.switches().has("contact"), "the face-sit reverse restores the opening at zero")
+	check(back.switches().has("presentation"), "the face-sit reverse presentation returns at zero")
+	check(back.events().is_empty(), "the face-sit reverse has no zero event")
+	back.tick(1.2)
+	check(back.complete(), "the face-sit reverse completes at its duration")
+	var late: Array = back.events()
+	check(late.size() == 1 and str(late[0].get("kind", "")) == "status"
+		and str(late[0].get("value", "")) == "missionary",
+		"the face-sit reverse reports the missionary status at the end")
+
+
 func _check_rejections() -> void:
 	_rejects(_mutated({"version": 2}), "a wrong version is rejected")
 	check(not TRANSITION_SPEC.errors("other", _forward(), SPECS.SPECS).is_empty(),
@@ -448,11 +570,11 @@ func _check_shapes() -> void:
 func _check_registry() -> void:
 	var registry: RefCounted = REGISTRY.new()
 	var edges: Array = registry.edges()
-	check(edges.size() == 4, "the registry loads both debug edges and the oral pair")
+	check(edges.size() == 6, "the registry loads the two debug edges, the oral pair and the face-sit pair")
 	var ids: Array = []
 	for edge: Variant in edges:
 		ids.append(str(edge.id))
-	check(ids == [ORAL_FORWARD, FORWARD, ORAL_REVERSE, REVERSE],
+	check(ids == [FACESIT_REVERSE, FACESIT_FORWARD, ORAL_FORWARD, FORWARD, ORAL_REVERSE, REVERSE],
 		"the edges load in sorted id order")
 	var forward: Variant = registry.edge(FORWARD)
 	var reverse: Variant = registry.edge(REVERSE)
@@ -460,12 +582,14 @@ func _check_registry() -> void:
 	check(reverse != null and reverse.id == REVERSE, "the reverse edge is cached")
 	check(registry.edge(ORAL_FORWARD) != null, "the oral forward edge is cached")
 	check(registry.edge(ORAL_REVERSE) != null, "the oral reverse edge is cached")
+	check(registry.edge(FACESIT_FORWARD) != null, "the face-sit forward edge is cached")
+	check(registry.edge(FACESIT_REVERSE) != null, "the face-sit reverse edge is cached")
 	check(is_same(forward, registry.edge(FORWARD)), "a second edge lookup is the same instance")
 	check(is_same(reverse, registry.edge(REVERSE)), "the reverse lookup is the same instance")
 	check(registry.edge("standing") == null, "a pose id is not an edge id")
 	check(registry.edge("no_such_edge") == null, "an unknown edge is null")
 	var found: Array = registry.validate()
-	check(found.is_empty(), "the registry validates the table and both edges: %s" % str(found))
+	check(found.is_empty(), "the registry validates the table and all edges: %s" % str(found))
 
 
 ## The wrapper is data: no scene, no settings, no file, no service and no act exit.

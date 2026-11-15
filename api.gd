@@ -104,9 +104,9 @@ func describe_mare(id: String) -> Dictionary:
 		event_prompts[key] = str(value)
 	var poses: Dictionary = {}
 	var raw_poses: Variant = template.get("poses", {})
-	for pose_id: String in CATALOG.all():
-		var value: Variant = (raw_poses as Dictionary).get(pose_id, {}) if raw_poses is Dictionary else {}
-		poses[pose_id] = (value as Dictionary).duplicate(true) if value is Dictionary else {}
+	for pose_key: String in CATALOG.all():
+		var value: Variant = (raw_poses as Dictionary).get(pose_key, {}) if raw_poses is Dictionary else {}
+		poses[pose_key] = (value as Dictionary).duplicate(true) if value is Dictionary else {}
 	var act_prompts: Dictionary = {}
 	var raw_act: Variant = template.get("act_prompts", {})
 	if raw_act is Dictionary:

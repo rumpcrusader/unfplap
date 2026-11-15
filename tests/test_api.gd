@@ -9,6 +9,7 @@ const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 
 ## The public v1 surface. An addition or rename must update this list and docs/api.md together.
 const METHODS := ["contract", "describe_mare", "register_mare", "supports", "unregister_mare"]
@@ -153,11 +154,18 @@ func _check_base_description() -> void:
 	check(data.get("eligible") == null, "a base mare has no eligible assertion")
 	check(bool((data.get("profile", {}) as Dictionary).get("participation", {}).get("acts", false)),
 		"base participation resolves to all allowed")
-	var pose_keys: Array = (data.get("poses", {}) as Dictionary).keys()
+	var public_poses := data.get("poses", {}) as Dictionary
+	var pose_keys: Array = public_poses.keys()
 	pose_keys.sort()
-	var expected_poses: Array = CATALOG.all().duplicate()
+	var expected_poses: Array = ["missionary", "standing"]
 	expected_poses.sort()
-	check(pose_keys == expected_poses, "the API's poses block is exactly CATALOG.all()")
+	check(pose_keys == expected_poses, "the API's poses block is the public snapshot")
+	check(pose_keys == CATALOG.all(), "the API's poses block is exactly CATALOG.all()")
+	for internal_id: String in [CATALOG.STANDING_TEST, CATALOG.STANDING_ORAL]:
+		check(not public_poses.has(internal_id),
+			"the API never exposes the internal pose " + internal_id)
+		check(not POSE_SPECS.is_public(internal_id),
+			"the internal pose stays out of the public spec table: " + internal_id)
 	check((data.get("placement", {}) as Dictionary).size() == PLACEMENT.KEYS.size(),
 		"placement has every key")
 	check(near(float((data.get("placement", {}) as Dictionary).get("tail_tilt_deg", -1.0)), 0.0),

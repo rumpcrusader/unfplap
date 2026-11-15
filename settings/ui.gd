@@ -541,14 +541,8 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	var font_size := int(page.get("font_size"))
 	if font_size <= 0:
 		font_size = 20
-	# The page captions its GROUPS sections; the injected row gets one too, so it does not float
-	# under the last sidebar group.
-	var gap := Control.new()
-	gap.custom_minimum_size.y = 6
-	side.add_child(gap)
-	var caption := STYLE.label("Add-ons".to_upper(), "Faint", maxi(12, font_size - 7))
-	caption.add_theme_constant_override("line_spacing", 0)
-	side.add_child(caption)
+	# Appended at the foot of the sidebar like the other mod tabs: below the game's own "More"
+	# group (Updates, and Debug once unlocked), with no caption of its own.
 	var button: Button = page.call("_button", side, "Unfplap",
 		func() -> void: _show_settings_tab(page))
 	button.theme_type_variation = "Tab"
@@ -558,7 +552,7 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	button.add_theme_font_size_override("font_size", font_size - 2)
 	button.expand_icon = false
 	if page.has_method("_icon_texture"):
-		button.icon = page.call("_icon_texture", "gem")
+		button.icon = page.call("_icon_texture", "heart")
 	var ui := VBoxContainer.new()
 	ui.name = "UnfplapSettings"
 	ui.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -566,7 +560,7 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	ui.add_theme_constant_override("separation", 10)
 	ui.visible = false
 	content.add_child(ui)
-	# The page's title row already reads "Unfplap" with its gem icon, so the panel starts with
+	# The page's title row already reads "Unfplap" with its heart icon, so the panel starts with
 	# the sub-tabs instead of a second heading or intro card.
 	var tabs_box := TabContainer.new()
 	tabs_box.name = "UnfplapTabs"
@@ -607,7 +601,7 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	page.set_meta("unfplap_tab", true)
 	page.set_meta("unfplap_ui", ui)
 	page.set_meta("unfplap_button", button)
-	_injected.append({"page": page, "button": button, "ui": ui, "sidebar": [gap, caption]})
+	_injected.append({"page": page, "button": button, "ui": ui})
 	_debug(debug, "settings tab injected")
 
 
@@ -696,7 +690,7 @@ static func _show_settings_tab(page: Node) -> void:
 		(title as Label).text = "Unfplap"
 	var icon: Variant = page.get("_tab_icon")
 	if icon is Control:
-		(icon as Control).set("kind", "gem")
+		(icon as Control).set("kind", "heart")
 	var tabs: Variant = page.get("_tabs")
 	if tabs is Array:
 		for tab: Variant in tabs:
@@ -748,11 +742,6 @@ static func clear_pages() -> void:
 			(ui as Node).queue_free()
 		if is_instance_valid(button) and (button as Node).get_parent() != null:
 			(button as Node).queue_free()
-		var sidebar: Variant = entry.get("sidebar", [])
-		if sidebar is Array:
-			for node: Variant in sidebar:
-				if is_instance_valid(node) and (node as Node).get_parent() != null:
-					(node as Node).queue_free()
 		if is_instance_valid(page):
 			(page as Node).remove_meta("unfplap_tab")
 			(page as Node).remove_meta("unfplap_ui")

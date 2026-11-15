@@ -19,8 +19,9 @@ The General, Anatomy, Poses and World panels are drawn from the declarations by 
 the settings page's own menu style: row cards, `Faint` help, switch plus state, Segment pills for a
 few short choices and the `Tab` look for a collapsible section heading. The tab pills, sidebar row,
 the hand-built Characters preference tab, the catalog-driven Integrations tab and the debug-only
-Poses tab are added by the injection in `settings/ui.gd`. The Characters form itself is in
-`settings/characters_ui.gd`; the consent and participation semantics are in
+Poses tab are added by the injection in `settings/ui.gd`. The sidebar row is appended at the foot
+of the sidebar, below the game's **More** group, with a heart icon. The Characters form itself is
+in `settings/characters_ui.gd`; the consent and participation semantics are in
 `docs/eligibility.md`; the supported-mod catalog is `shared/integrations.gd`.
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a

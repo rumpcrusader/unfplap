@@ -229,7 +229,7 @@ func _stand_behind_target() -> Node3D:
 	if back.length_squared() < 0.0001:
 		print("[unfplap vr] F9: %s has no usable facing" % _pony_id(pony))
 		return null
-	# The offer cone measures from her rump anchor to the eye and is 1.2 m wide, so sit inside it
+	# The offer fan measures from her rump anchor to the eye and reaches 2 m, so sit inside it
 	# with room to spare instead of the 0.9 m that a body origin would need.
 	var anchor: Vector3 = (pony as Node3D).global_position
 	var runtime: Node = (pony as Node).get_node_or_null("UnfplapRuntime")

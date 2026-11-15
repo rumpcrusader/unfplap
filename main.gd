@@ -644,7 +644,7 @@ func _rump_cone_target(view: Camera3D) -> Node:
 			continue
 		var flat := Vector3(eye.x - rump.x, 0.0, eye.z - rump.z)
 		var distance := flat.length()
-		if distance >= RUMP_CONE.REACH_M:
+		if distance > RUMP_CONE.REACH_M:
 			continue
 		candidates.append([distance, actor])
 	if candidates.is_empty():

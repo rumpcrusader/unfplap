@@ -731,8 +731,8 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
 - Act start keeps her where she stands. For desktop human Anon, `_begin_standing_placement()`
   builds the act transform from her current facing and places him at
   `pony_position - forward * _standing_gap()`, then sets his yaw along her forward so a standing
-  act after a missionary restore does not inherit the old view. The 1.2 m Y cone keeps that
-  correction small. The act end leaves him there and leaves his yaw/pitch at the last act aim; it
+  act after a missionary restore does not inherit the old view. The 2 m Y cone bounds that
+  correction. The act end leaves him there and leaves his yaw/pitch at the last act aim; it
   does not snap the pre-act view back. AnonPony and headset/VR still move her in front of the
   camera rig with `_standing_transform()`, because their rig is the camera or another body, and
   the player is never moved for them.

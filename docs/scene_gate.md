@@ -100,6 +100,12 @@ rows report it.
 | `life:`, `day:` | free only with no active route |
 | `bond:`, `player:`, `rest_after_command` | free |
 
+## Standing offer hint
+
+The free-standing act-key hint is discovered by `shared/rump_cone.gd`: a 90 degree half-angle fan
+to each side of her backward axis, within 2 m of her rump anchor. It is a discovery rule for the
+idle hint, not a scene-gate row, and the start gate is unchanged.
+
 ## Refusal
 
 `refuse_available` requires the policy's `buck_refuse` plus a live scene: idle runtime, valid

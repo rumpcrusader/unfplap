@@ -15,8 +15,10 @@ pose-scope teardown steps. The runtime owns the act state, the start ordering an
 ledger; it binds the session and reads its `pose()`, `pose_config` and `bed_frame` directly.
 Presentation modules read the same values from `shared/act_facts.gd`.
 
-`poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads
-`poses/missionary_pose.json`. `poses/oral_turn.gd` is the pose-owned standing oral actor/frame turn
+`poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads a
+pose spec row's `asset` document (version 7 with the version 6 migration path); the missionary row
+owns `poses/missionary_pose.json` and a base row supplies the asset to its internal inheritors.
+`poses/oral_turn.gd` is the pose-owned standing oral actor/frame turn
 and `poses/standing_oral_recipe.gd` its procedural delta. `shared/pose_catalog.gd` owns the pose ids
 and the `POSE_KEYS` schema; the shipped per-pose values live under `default.poses` in
 `settings/defaults.json`.
@@ -32,6 +34,35 @@ wrapper and validator,
 the cache and catalog check for both; all three are private to `poses/`. `shared/pose_view.gd`
 is the scene-free read model for one pose: the identity, the spec profiles, the live config and the
 contact and facing mirrors.
+
+## Pose assets
+
+A pose row's `asset` names its authored document under `poses/`; an internal row leaves it empty and
+inherits it through its `base` chain. The scene gate's `pose_asset`/`pose_rig` rows read the resolved
+document. `poses/authored_pose.gd` is the one loader; it reads version 7 and the version 6 bed-space
+migration path, and never converts a pose per frame.
+
+Version 7 stores `space: "local_rest"`, the pose's `frame` (`bed` or `ground`), the `rig` name,
+version and bone count, the bake `reference` (`size`, `body_scale`, the config the base was authored
+at), one `anchor` (the `pony_hips` global pose in frame space, a `contact` point in the hips frame
+and the `support` height), the armature `root`, the body bone deltas, and optional `anon`, `shots`,
+`bed` and `variants` blocks.
+
+- **`local_rest` bones.** A bone entry is a delta from the bone's rest local transform:
+  `delta = rest.affine_inverse() * pose`, and the runtime writes `pose = rest * delta`. At rest the
+  delta is identity, and every body bone is present in the file, including the ones left at rest.
+- **Placement.** The frame is placed from the hips anchor and the contact, not from a scaled asset
+  origin. At body scale `s` the root is scaled about the anchor and lifted so the contact stays on
+  the support; the live body scale is applied once at the world root, so the skeleton-space root
+  pose stays orthonormal. `place_origin()` is the same rule for the Anon act body and the authored
+  shots.
+- **Variants.** A variant is keyed by `size_name` with its own `body_scale`; an unknown name snaps to
+  the nearest variant scale. It replaces `anchor`, `root`, `anon` and `shots` and merges
+  `pony.bones` per bone. `space`, `frame`, `rig` and `reference` belong to the base and may not be
+  changed by a variant. v1 ships no variants.
+- **Version 6.** Bed space with absolute local bone poses and the uniform `bed_frame * (pony_frame ×
+  body_scale)` placement. It is read for one release and is refused for a ground pose; nothing new
+  is authored in it.
 
 ## Typed view
 
@@ -794,6 +825,9 @@ unchanged.
   settle, a blocked turn aborting without a snap, the fallback rotation, and the
   ask-to-presentation stretch handoff including a live flag edit.
 - `tests/poses/test_pose_asset.gd` — asset version, bone list and bed-space load.
+- `tests/poses/test_pose_asset_v7.gd` — the v7 schema and its refusals, `local_rest` bone math, the
+  anchor/contact placement at four sizes, variants and the spec `asset` resolution; the v6 fixture
+  and the v6 ground refusal.
 - `tests/poses/test_body_sway.gd` — the regular depth sway, the zeroed oral hold and the release.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — uniform scale and rest-scale ownership.

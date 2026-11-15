@@ -86,6 +86,11 @@ var _tail_anchor := Vector3.INF
 var bed_frame: Variant = null
 var bed_frame_source := Transform3D.IDENTITY
 var bed_frame_source_saved := false
+## Ground space for a ground pose: the pony root's basis and position at pose start. It follows the
+## root's position and yaw each tick; the runtime reads it through `_pose_session.ground_frame`.
+var ground_frame: Variant = null
+var ground_frame_source := Transform3D.IDENTITY
+var ground_frame_source_saved := false
 
 ## Per-act log and rig-check caches.
 var pose_logged := false
@@ -94,7 +99,11 @@ var rig_checked := false
 var rig_skeleton := 0
 ## The authored asset revision the rig verdict was computed against.
 var rig_revision := -1
+## The asset path the rig verdict was computed against.
+var rig_asset_path := ""
 var rig_missing_bones: Array = []
+## A shared unavailable asset instance for a pose whose row supplies no asset.
+var _empty_asset: Variant = null
 
 ## The pony's pre-act bone snapshot.
 var saved_bones: Array[Transform3D] = []
@@ -192,6 +201,10 @@ func begin(context: Dictionary) -> bool:
 	pose_node.call("set_pose", _effective_driver(start_spec), _effective_driver(start_spec),
 		_effective_delta(start_spec), _effective_delta(start_spec), pose_config, pose_config)
 	pose_node.call("set_weight", 1.0)
+	var start_asset: Variant = _asset_for_spec(start_spec)
+	if start_asset != null and bool(start_asset.get("available")) \
+			and bool(start_asset.call("usable", str(_view.frame))):
+		pose_node.authored = start_asset
 	var look: Variant = context.get("look_point")
 	pose_node.look_point = look if look is Vector3 else pony.global_position
 	pose_node.amount = 0.0
@@ -277,6 +290,61 @@ func _effective_driver(spec: Variant) -> String:
 ## first shipped row with one.
 func _effective_delta(spec: Variant) -> String:
 	return str(spec.delta) if spec != null else ""
+
+
+## The authored pose document of a spec row, or the nearest base that supplies one. An internal row
+## with no asset of its own inherits it from its base chain.
+func _effective_asset(spec: Variant) -> String:
+	var cursor: Variant = spec
+	var seen: Dictionary = {}
+	while cursor != null:
+		var path := str(cursor.asset)
+		if not path.is_empty():
+			return path
+		var base := str(cursor.base)
+		if base.is_empty() or seen.has(base):
+			return ""
+		seen[base] = true
+		cursor = _registry.spec(base)
+	return ""
+
+
+## The effective authored asset path for a spec id; empty when the row and its chain have none.
+func asset_for(spec_id: String) -> String:
+	return _effective_asset(_registry.spec(spec_id))
+
+
+## The spec a candidate names: the id's row, or the live view's row when the candidate is empty.
+func _candidate_spec(candidate := "") -> Variant:
+	var spec_id := str(candidate)
+	if spec_id.is_empty() and _view != null:
+		spec_id = str(_view.id)
+	if spec_id.is_empty():
+		return null
+	return _registry.spec(spec_id)
+
+
+## The parsed asset for a candidate spec, or null when the row and its chain supply none.
+func _asset_for(candidate := "") -> Variant:
+	var spec: Variant = _candidate_spec(candidate)
+	if spec == null:
+		return null
+	var path := _effective_asset(spec)
+	if path.is_empty():
+		return null
+	return AUTHORED.shared(path)
+
+
+## The parsed asset for an already resolved spec.
+func _asset_for_spec(spec: Variant) -> Variant:
+	var path := _effective_asset(spec)
+	return AUTHORED.shared(path) if not path.is_empty() else null
+
+
+## The path the rig gate and diagnostics name for a candidate.
+func _asset_path_for(candidate := "") -> String:
+	var spec: Variant = _candidate_spec(candidate)
+	return _effective_asset(spec) if spec != null else ""
 
 
 ## Request one authored edge. Returns the A3.1 `PoseResult`: `{ok, code, edge, reason}`. It never
@@ -644,8 +712,7 @@ func _adopt_target_config() -> void:
 	pose_config.merge(_target_config, true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
-		if str(_target_spec.settings_group) == CATALOG.MISSIONARY:
-			pose_node.authored = authored()
+		pose_node.authored = _asset_for(_target_id)
 
 
 ## The pose block for a settings group plus that group's presentation values. Standing applies the
@@ -678,6 +745,7 @@ func sync_standing_config(presentation: Dictionary) -> bool:
 	pose_config.merge(_config_for_group(CATALOG.STANDING, presentation), true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
+		pose_node.authored = _asset_for(CATALOG.STANDING)
 	if is_instance_valid(tail):
 		tail.aside_angle = float(pose_config.get("tail_aside", 0.0))
 		tail.lift_angle = float(pose_config.get("tail_lift", 0.0))
@@ -694,34 +762,56 @@ func sync_missionary_config() -> bool:
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
 		# The asset instance is shared, so the reload action reaches the live act.
-		pose_node.authored = authored()
+		pose_node.authored = _asset_for(CATALOG.MISSIONARY)
 	return true
 
 
-## The hand-authored missionary base pose. Parsed once for the process; the debug action rewrites
-## the same instance in place, so a live act picks the new pose up on its next frame.
-func authored() -> Variant:
-	return AUTHORED.shared()
+## The authored base pose for a candidate spec, the live view's pose, or the default missionary
+## asset. Parsed once per path; the debug action rewrites the same instance in place, so a live act
+## picks the new pose up on its next frame. A row with no asset of its own reads the default so the
+## diagnostics still have a rig to describe; `authored_ready()` is the gate.
+func authored(candidate := "") -> Variant:
+	var asset: Variant = _asset_for(candidate)
+	if asset != null:
+		return asset
+	# A row with no asset of its own reads the default missionary asset so diagnostics still have a
+	# rig to describe; `authored_ready()` is the gate and stays false for such a row.
+	if _empty_asset == null:
+		_empty_asset = AUTHORED.shared(AUTHORED.PATH)
+	return _empty_asset
 
 
 ## The parsed authored pose, for the shot camera and the debug action.
-func authored_asset() -> Variant:
-	return authored()
+func authored_asset(candidate := "") -> Variant:
+	return authored(candidate)
 
 
-## True when the missionary asset loaded. The act refuses to start otherwise: there is no fallback
-## missionary pose any more.
-func authored_ready() -> bool:
-	return bool(authored().get("available"))
+## True when the candidate's own asset loaded and is usable for its frame. A row with no asset is
+## never ready, even though `authored()` falls back for diagnostics.
+func authored_ready(candidate := "") -> bool:
+	var spec: Variant = _candidate_spec(candidate)
+	if spec == null:
+		return false
+	var asset: Variant = _asset_for_spec(spec)
+	if asset == null or not bool(asset.get("available")):
+		return false
+	return bool(asset.call("usable", str(spec.frame)))
 
 
-## Why the missionary pose asset is unusable, for the gate row and the start log.
-func authored_reason() -> String:
-	var asset: Variant = authored()
-	if bool(asset.get("available")):
-		return ""
-	var why := str(asset.get("error"))
-	return "pose_asset: %s" % (why if not why.is_empty() else "not loaded")
+## Why the candidate's pose asset is unusable, for the gate row and the start log.
+func authored_reason(candidate := "") -> String:
+	var spec: Variant = _candidate_spec(candidate)
+	if spec == null:
+		return "pose_asset: no pose"
+	var asset: Variant = _asset_for_spec(spec)
+	if asset == null:
+		return "pose_asset: no asset for %s" % str(spec.id)
+	if not bool(asset.get("available")):
+		var why := str(asset.get("error"))
+		return "pose_asset: %s" % (why if not why.is_empty() else "not loaded")
+	if not bool(asset.call("usable", str(spec.frame))):
+		return "pose_asset: %s asset in a %s pose" % [str(asset.get("frame")), str(spec.frame)]
+	return ""
 
 
 ## The middle of the missionary bed's mattress top: the authored pose's origin in world space.
@@ -1262,8 +1352,9 @@ func basis_amount() -> float:
 ## Which missionary base is in charge and why. One dictionary so the log, the settled line and the
 ## debug action cannot drift apart.
 func base_info() -> Dictionary:
-	var asset: Variant = authored()
+	var asset: Variant = authored(_view.id)
 	var bones: Variant = asset.get("pony_bones")
+	var live: Variant = pose_frame()
 	var info := {
 		"base": "none",
 		"reason": "",
@@ -1271,37 +1362,59 @@ func base_info() -> Dictionary:
 		"bones": (bones as Dictionary).size() if bones is Dictionary else 0,
 		"available": bool(asset.get("available")),
 		"error": str(asset.get("error")),
-		"frame": bed_frame,
+		"frame": live,
+		"frame_kind": str(_view.frame),
 		"shots": bool(asset.get("has_shots")),
 		"asset": asset,
+		"asset_path": _asset_path_for(_view.id),
+		"asset_frame": str(asset.get("frame")),
+		"variant": str(asset.get("variant")),
 	}
-	if str(_view.frame) != "bed":
+	if str(_view.id).is_empty():
+		info["reason"] = "pose="
+	elif _asset_path_for(_view.id).is_empty():
 		info["reason"] = "pose=%s" % str(_view.id)
-	elif not bool(info["available"]):
-		info["reason"] = authored_reason()
-	elif not bed_frame is Transform3D:
-		info["reason"] = "no bed frame"
+	elif not bool(asset.get("available")):
+		info["reason"] = authored_reason(_view.id)
+	elif not live is Transform3D:
+		info["reason"] = "no %s frame" % str(_view.frame)
+	elif not bool(asset.call("usable", str(_view.frame))):
+		info["reason"] = authored_reason(_view.id)
 	else:
 		info["base"] = "authored"
 	return info
+
+
+## The live pose frame: the bed's mattress space or the pony root's ground space.
+func pose_frame() -> Variant:
+	if str(_view.frame) == "ground":
+		return ground_frame
+	if str(_view.frame) == "bed":
+		return bed_frame
+	return null
 
 
 ## The authored body bones the live rig lacks. The pose writes only the bones it holds, so a missing
 ## one leaves the game's pose on that link and the chain above it reads broken; the act refuses to
 ## start. Cached per skeleton instance and asset revision, because the gate polls every frame and a
 ## posed-base reload must re-check the new asset.
-func rig_missing() -> Array:
+func rig_missing(candidate := "") -> Array:
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return []
 	var skeleton := sk as Skeleton3D
 	var instance := skeleton.get_instance_id()
-	if rig_checked and instance == rig_skeleton and rig_revision == AUTHORED.revision:
+	var asset_path := _asset_path_for(candidate)
+	if asset_path.is_empty():
+		asset_path = AUTHORED.PATH
+	if rig_checked and instance == rig_skeleton and rig_revision == AUTHORED.revision \
+			and rig_asset_path == asset_path:
 		return rig_missing_bones
 	rig_checked = true
 	rig_skeleton = instance
 	rig_revision = AUTHORED.revision
-	var missing: Variant = authored().call("missing_bones", skeleton)
+	rig_asset_path = asset_path
+	var missing: Variant = authored(candidate).call("missing_bones", skeleton)
 	rig_missing_bones = missing if missing is Array else []
 	return rig_missing_bones
 
@@ -1470,12 +1583,13 @@ func state_rows(state: int) -> Array:
 	var rows: Array = []
 	rows.append("pony=%s pose=%s state=%d weight=%.2f" % [
 		str(pony.name) if is_instance_valid(pony) else "?", str(_view.id), state, basis_amount()])
-	rows.append("base=%s reason=%s asset=v%d %s bones=%d missing=%s shots=%s error=%s" % [
+	rows.append("base=%s reason=%s asset=v%d %s path=%s frame=%s variant=%s bones=%d missing=%s shots=%s error=%s" % [
 		str(info["base"]), str(info["reason"]),
-		int(info["version"]), "ok" if bool(info["available"]) else "error", int(info["bones"]),
+		int(info["version"]), "ok" if bool(info["available"]) else "error",
+		str(info["asset_path"]), str(info["asset_frame"]), str(info["variant"]), int(info["bones"]),
 		str(rig_missing()), "yes" if bool(info["shots"]) else "no", str(info["error"])])
-	rows.append("bed_frame=%s scale=%.2f" % [
-		str(frame) if frame is Transform3D else "null", body_scale()])
+	rows.append("frame=%s kind=%s scale=%.2f" % [
+		str(frame) if frame is Transform3D else "null", str(info["frame_kind"]), body_scale()])
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return rows
@@ -1503,13 +1617,14 @@ func log_base() -> void:
 	var info := base_info()
 	var frame: Variant = info["frame"]
 	var missing := rig_missing()
-	_write_log("missionary base=%s reason=%s asset=v%d %s bones=%d missing=%d shots=%s frame=%s scale=%.2f" % [
+	_write_log("pose base=%s reason=%s asset=v%d %s path=%s frame=%s variant=%s bones=%d missing=%d shots=%s frame_pose=%s scale=%.2f" % [
 		str(info["base"]), str(info["reason"]), int(info["version"]),
-		"ok" if bool(info["available"]) else "error", int(info["bones"]),
+		"ok" if bool(info["available"]) else "error", str(info["asset_path"]),
+		str(info["asset_frame"]), str(info["variant"]), int(info["bones"]),
 		missing.size(), "yes" if bool(info["shots"]) else "no",
 		str(frame) if frame is Transform3D else "null", body_scale()])
 	if not missing.is_empty():
-		_write_log("missionary rig %s" % rig_reason(missing))
+		_write_log("pose rig %s" % rig_reason(missing))
 
 
 ## One line with where the pose actually put her, in world and bed space, once the weight settles.

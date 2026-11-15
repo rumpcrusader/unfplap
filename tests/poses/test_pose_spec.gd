@@ -67,6 +67,7 @@ func _check_shipped() -> void:
 		check(spec.id == id, "%s keeps its id" % id)
 		check(not spec.display_name.is_empty(), "%s has a display name" % id)
 		check(spec.base == str(row.get("base", "")), "%s keeps its base" % id)
+		check(spec.asset == str(row.get("asset", "")), "%s keeps its asset" % id)
 		check(spec.delta == str(row.get("delta", "")), "%s keeps its delta" % id)
 		check(spec.driver == str(row.get("driver", "")), "%s keeps its driver" % id)
 		check(spec.public_pose == bool(row.get("public", false)),
@@ -87,11 +88,15 @@ func _check_shipped() -> void:
 			check(spec.settings_group == SPECS.STANDING, "the test pose uses the standing group")
 			check(spec.base == SPECS.STANDING, "the test pose inherits standing")
 			check(spec.driver.is_empty(), "the test pose has no driver of its own")
+			check(spec.asset.is_empty(), "the test pose has no asset of its own")
+		if id == SPECS.MISSIONARY:
+			check(spec.asset == "poses/missionary_pose.json", "missionary declares its asset")
 		if id == SPECS.STANDING_ORAL:
 			check(not spec.public_pose and not spec.offerable, "the oral pose is internal")
 			check(spec.settings_group == SPECS.STANDING, "the oral pose uses the standing group")
 			check(spec.base == SPECS.STANDING, "the oral pose inherits standing")
 			check(spec.driver.is_empty(), "the oral pose has no driver of its own")
+			check(spec.asset.is_empty(), "the oral pose has no asset of its own")
 			check(spec.delta == "poses/standing_oral_recipe.gd",
 				"the oral pose declares the procedural delta")
 
@@ -177,6 +182,11 @@ func _check_errors() -> void:
 	check(not _mutated({"game_posture": ""}).is_empty(),
 		"an empty game posture is rejected")
 	check(not _mutated({"drive_policy": ""}).is_empty(), "an empty drive policy is rejected")
+	check(not _mutated({"asset": "missions/pose.json"}).is_empty(),
+		"an asset outside poses/ is rejected")
+	check(not _mutated({"asset": "poses/pose.txt"}).is_empty(),
+		"a non-JSON asset is rejected")
+	check(_mutated({"asset": ""}).is_empty(), "an empty asset is valid")
 	check(not _without("camera", "profile").is_empty(), "a missing profile key is rejected")
 	check(not _without("afterglow", "close_window").is_empty(),
 		"a missing close window flag is rejected")

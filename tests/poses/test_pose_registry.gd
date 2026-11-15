@@ -52,6 +52,9 @@ func _check_shipped() -> void:
 	var standing: Variant = registry.spec(CATALOG.STANDING)
 	check(standing != null and standing.family == "standing", "the standing spec is typed")
 	check(standing != null and standing.id == CATALOG.STANDING, "the standing spec keeps its id")
+	var missionary: Variant = registry.spec(CATALOG.MISSIONARY)
+	check(missionary != null and missionary.asset == "poses/missionary_pose.json",
+		"missionary carries its authored asset")
 	var test: Variant = registry.spec(CATALOG.STANDING_TEST)
 	check(test != null and test.id == CATALOG.STANDING_TEST, "the test spec keeps its id")
 	if test != null:
@@ -59,6 +62,7 @@ func _check_shipped() -> void:
 		check(not test.offerable, "the test pose is not offerable")
 		check(test.base == CATALOG.STANDING, "the test pose inherits standing")
 		check(test.driver.is_empty(), "the test pose has no driver of its own")
+		check(test.asset.is_empty(), "the test pose inherits its asset")
 	var oral: Variant = registry.spec(CATALOG.STANDING_ORAL)
 	check(oral != null and oral.id == CATALOG.STANDING_ORAL, "the oral spec keeps its id")
 	if oral != null:
@@ -66,6 +70,7 @@ func _check_shipped() -> void:
 		check(not oral.offerable, "the oral pose is not offerable")
 		check(oral.base == CATALOG.STANDING, "the oral pose inherits standing")
 		check(oral.driver.is_empty(), "the oral pose has no driver of its own")
+		check(oral.asset.is_empty(), "the oral pose inherits its asset")
 		check(oral.delta == "poses/standing_oral_recipe.gd",
 			"the oral pose carries the procedural delta")
 		check(oral.settings_group == "standing", "the oral pose uses the standing settings group")

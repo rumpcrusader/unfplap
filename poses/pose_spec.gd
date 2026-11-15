@@ -32,6 +32,7 @@ var display_name := ""
 var family := ""
 var frame := ""
 var base := ""
+var asset := ""
 var delta := ""
 var driver := ""
 var settings_group := ""
@@ -82,6 +83,7 @@ static func errors(spec_id: String, data: Dictionary, table: Dictionary = {}) ->
 		if str(data.get(name, "")).is_empty():
 			out.append("%s is empty" % name)
 	_check_base(out, spec_id, data, table)
+	_check_asset(out, data)
 	_check_list(out, data, "forms", FORMS)
 	_check_list(out, data, "views", VIEWS)
 	var is_public: Variant = data.get("public")
@@ -148,6 +150,21 @@ static func _check_base(out: Array[String], spec_id: String, data: Dictionary,
 		cursor = str((row as Dictionary).get("base", ""))
 
 
+## A pose asset is a `poses/`-relative JSON document. The shape is checked here; whether the file
+## exists is the loader's job (and the scene gate's `pose_asset` row).
+static func _check_asset(out: Array[String], data: Dictionary) -> void:
+	var value: Variant = data.get("asset", "")
+	if not (value is String):
+		out.append("asset is not a string")
+		return
+	var path := str(value)
+	if path.is_empty():
+		return
+	if not path.begins_with("poses/") or not path.ends_with(".json") \
+			or path.contains("..") or path.contains("\\"):
+		out.append("asset %s is not a poses/*.json path" % path)
+
+
 static func _check_list(out: Array[String], data: Dictionary, key: String, known: Array) -> void:
 	var value: Variant = data.get(key)
 	if not (value is Array):
@@ -191,6 +208,7 @@ func _fill(spec_id: String, data: Dictionary) -> void:
 	family = str(data.get("family", ""))
 	frame = str(data.get("frame", ""))
 	base = str(data.get("base", ""))
+	asset = str(data.get("asset", ""))
 	delta = str(data.get("delta", ""))
 	driver = str(data.get("driver", ""))
 	settings_group = str(data.get("settings_group", ""))

@@ -178,12 +178,12 @@
     {
       "service": "poses",
       "func": "authored",
-      "signature": "func authored() -> Variant:"
+      "signature": "func authored(candidate := \"\") -> Variant:"
     },
     {
       "service": "poses",
       "func": "authored_asset",
-      "signature": "func authored_asset() -> Variant:"
+      "signature": "func authored_asset(candidate := \"\") -> Variant:"
     },
     {
       "service": "poses",
@@ -232,6 +232,11 @@
     },
     {
       "service": "poses",
+      "func": "pose_frame",
+      "signature": "func pose_frame() -> Variant:"
+    },
+    {
+      "service": "poses",
       "func": "refresh_modifiers",
       "signature": "func refresh_modifiers(_pose: String, feature_flags: Dictionary) -> void:"
     },
@@ -248,7 +253,7 @@
     {
       "service": "poses",
       "func": "rig_missing",
-      "signature": "func rig_missing() -> Array:"
+      "signature": "func rig_missing(candidate := \"\") -> Array:"
     },
     {
       "service": "poses",

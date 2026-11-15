@@ -120,9 +120,9 @@ only names the gate.
 The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
 `test_pose_registry.gd`, `test_pose_spec.gd`, `test_pose_view.gd`, `test_session.gd`,
 `test_pose_blend.gd`, `test_pose_teardown.gd`, `test_oral_turn.gd`,
-`test_modifier_profile.gd`, `test_pose_asset.gd`, `test_pose_rig.gd`, `test_pose_scale.gd`,
-`test_rotation.gd`, `test_body_sway.gd` and `test_stretch.gd`; `docs/poses.md` says what each
-pins. `tests/test_act_commands.gd` pins the pure command vocabulary: unique lower_snake_case ids,
+`test_modifier_profile.gd`, `test_pose_asset.gd`, `test_pose_asset_v7.gd`, `test_pose_rig.gd`,
+`test_pose_scale.gd`, `test_rotation.gd`, `test_body_sway.gd` and `test_stretch.gd`;
+`docs/poses.md` says what each pins. `tests/test_act_commands.gd` pins the pure command vocabulary: unique lower_snake_case ids,
 the continuous/discrete partition of `ALL`, the helpers and the reserved `end`.
 `tests/poses/test_session.gd` reads those ids against the real `CONTROL_SETS` profiles, and
 `tests/test_input.gd` pins the `V`/`N`/`B` dispatch through `runtime.command()` (ready, refused and

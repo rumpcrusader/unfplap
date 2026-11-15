@@ -17,10 +17,11 @@ const STANDING_TEST := "standing_test"
 ## authored oral edges, is not an offer and has no settings template of its own.
 const STANDING_ORAL := "standing_oral"
 
-## A pose's own asset is `poses/<id>_pose.json` when the row has no delta; `driver` is the
-## procedural recipe, `base` an inherited pose id and `delta` an authored delta asset. `forms`
-## are the game's `human`/`pony` identifiers and `views` the `desktop`/`vr` configurations the
-## pose is authored for; A0/A1 declare them and the scene gate enforces them in Phase B1.
+## `asset` is the row's authored pose document under `poses/`; a base chain supplies it to an
+## internal row. `driver` is the procedural recipe, `base` an inherited pose id and `delta` an
+## authored delta asset. `forms` are the game's `human`/`pony` identifiers and `views` the
+## `desktop`/`vr` configurations the pose is authored for; A0/A1 declare them and the scene gate
+## enforces them in Phase B1.
 const SPECS := {
 	MISSIONARY: {
 		"id": MISSIONARY,
@@ -28,6 +29,7 @@ const SPECS := {
 		"family": "bed",
 		"frame": "bed",
 		"base": "",
+		"asset": "poses/missionary_pose.json",
 		"delta": "",
 		"driver": "poses/missionary_recipe.gd",
 		"settings_group": "missionary",
@@ -61,6 +63,7 @@ const SPECS := {
 		"family": "standing",
 		"frame": "ground",
 		"base": "",
+		"asset": "",
 		"delta": "",
 		"driver": "poses/standing_recipe.gd",
 		"settings_group": "standing",
@@ -93,6 +96,7 @@ const SPECS := {
 		"family": "standing",
 		"frame": "ground",
 		"base": STANDING,
+		"asset": "",
 		"delta": "",
 		"driver": "",
 		"settings_group": "standing",
@@ -125,6 +129,7 @@ const SPECS := {
 		"family": "standing",
 		"frame": "ground",
 		"base": STANDING,
+		"asset": "",
 		"delta": "poses/standing_oral_recipe.gd",
 		"driver": "",
 		"settings_group": "standing",

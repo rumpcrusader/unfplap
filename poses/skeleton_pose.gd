@@ -50,10 +50,14 @@ var climaxing := false
 ## ground plant belong to that holder, so the act writes only the oral and head-back offsets.
 var stretch := false
 var pose_config: Dictionary = {}
-## Hand-authored base pose (poses/authored_pose.gd) and the bed space it is placed in. A null
-## asset or a missing frame leaves the recipe's correction stack as the fallback.
+## Hand-authored base pose (poses/authored_pose.gd) and the space it is placed in. A null asset or
+## a missing frame leaves the recipe's correction stack as the fallback.
 var authored: Variant = null
 var bed_frame: Variant = null
+## The ground frame for a ground pose: the pony root's basis and position at pose start.
+var ground_frame: Variant = null
+## The live size name, for the asset's variant selection.
+var size_name := ""
 
 var _rig = RIG.new()
 var _missionary = MISSIONARY.new()
@@ -240,15 +244,17 @@ func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 		"config": _from_config,
 		"authored": authored,
 		"bed_frame": bed_frame,
+		"ground_frame": ground_frame,
+		"size_name": size_name,
 		"body_scale": float(mare_scale) if mare_scale != null else 1.0,
 	}
 	if mode == MODE_SINGLE:
-		diag_last_base = "authored" if authored != null and bed_frame is Transform3D \
+		diag_last_base = "authored" if authored != null and _frame() is Transform3D \
 			and bool(authored.get("available")) else "none"
 	else:
 		diag_last_base = "blend"
 	var tracing := mode == MODE_SINGLE and trace and diag_trace < 3 and weight > 0.9 \
-		and authored != null and bool(authored.get("available")) and bed_frame is Transform3D
+		and authored != null and bool(authored.get("available")) and _frame() is Transform3D
 	if tracing:
 		_trace_before(sk, state)
 	if mode == MODE_SINGLE:
@@ -411,17 +417,31 @@ func _trace_before(sk: Skeleton3D, state: Dictionary) -> void:
 		diag_root_start = g * sk.get_bone_global_pose(diag_root)
 	if _rig.hips >= 0:
 		diag_hips_start = g * sk.get_bone_global_pose(_rig.hips)
-	var frame: Transform3D = bed_frame
-	var placement: Variant = authored.get("pony_frame")
-	if placement is Transform3D:
-		var scaled: Transform3D = placement
-		scaled.origin *= float(state.get("body_scale", 1.0))
-		diag_root_wanted = frame * scaled
+	var frame: Transform3D = _frame()
+	var body_scale := float(state.get("body_scale", 1.0))
+	if int(authored.get("version")) >= 7 and authored.has_method("placed_root"):
+		diag_root_wanted = authored.call("placed_root", frame, body_scale)
+	else:
+		var placement: Variant = authored.get("pony_frame")
+		if placement is Transform3D:
+			var scaled: Transform3D = placement
+			scaled.origin *= body_scale
+			scaled.basis = scaled.basis * Basis.from_scale(Vector3.ONE * body_scale)
+			diag_root_wanted = frame * scaled
 	var entries: Variant = authored.get("pony_bones")
 	var entry: Variant = (entries as Dictionary).get("pony_hips") if entries is Dictionary else null
 	if entry is Dictionary:
-		diag_hips_wanted = diag_root_wanted * Transform3D(
-			Basis((entry as Dictionary)["rotation"]), (entry as Dictionary)["position"])
+		var local := Transform3D(Basis((entry as Dictionary)["rotation"]), (entry as Dictionary)["position"])
+		if int(authored.get("version")) >= 7 and _rig.hips >= 0:
+			local = sk.get_bone_rest(_rig.hips) * local
+		diag_hips_wanted = diag_root_wanted * local
+
+
+## The live pose space: the bed frame when it is set, otherwise the ground frame.
+func _frame() -> Variant:
+	if bed_frame is Transform3D:
+		return bed_frame
+	return ground_frame
 
 
 ## Degrees between her pelvis up and the world up.

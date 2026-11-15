@@ -28,7 +28,8 @@ func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	var frame: Variant = state.get("bed_frame")
 	if authored == null or not frame is Transform3D or not bool(authored.get("available")):
 		return false
-	authored.call("apply_pony", sk, weight, frame, float(state.get("body_scale", 1.0)))
+	authored.call("apply_pony", sk, weight, frame, float(state.get("body_scale", 1.0)),
+		str(state.get("size_name", "")))
 	_neutral_head(sk, weight)
 	return true
 

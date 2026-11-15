@@ -147,16 +147,18 @@ preloaded private file. The same applies to `runtime.gd` and `main.gd` from a se
 shared/
   preferences.gd   # pure profile math and schema
   act_history.gd   # shared store
-  act_view.gd      # read model
+  act_facts.gd     # typed act read model
   pose_specs.gd    # pose capability table (pure)
   pose_view.gd     # pose read model
   ...
 ```
 
-`poses/pose_spec.gd`, `poses/transition_spec.gd` and `poses/registry.gd` are private to the pose
-service; the capability table is `shared/pose_specs.gd`, the authored edges are the data documents
-under `poses/transitions/*.json`, and the read model the session refreshes is
-`shared/pose_view.gd`.
+`poses/pose_state.gd` is the pure state and edge module. `poses/pose_spec.gd`,
+`poses/transition_spec.gd` and `poses/registry.gd` are private to the pose service; the capability
+table is `shared/pose_specs.gd`, the read model the session refreshes is `shared/pose_view.gd`, and
+the authored edges are the data documents under `poses/transitions/*.json`. The session owns the
+live pose state and the `act_body`; the runtime owns the tick/fan-out order and the one teardown. A
+pose change retargets through `pose_changed(view)` and never calls a pose-scope or act-exit step.
 
 Every service has exactly one facade. A second entry point is either merged into the facade or
 moved to `shared/` with its own contract. There are no root-level forwarding shims: a shim would
@@ -178,8 +180,9 @@ act must release every node and subscription it created.
 The pose service is the worked example of the scope split: the session owns the pose-scope
 teardown steps (`leave_pose_start()`, `leave_pose_body()` and the final `release_pose()`), while
 `runtime._end_session()` owns the act exit and calls them through `_free_pose()` between the
-cross-system resets before `_restore_pony_bones()`. A pose transition calls the pose-scope steps
-only; it never calls the act exit. The order is `docs/poses.md`.
+cross-system resets before `_restore_pony_bones()`. A pose transition calls none of the pose-scope
+steps or the act exit; it retargets through `pose_changed(view)` and leaves the teardown to
+`_free_pose()`. The order is `docs/poses.md`.
 
 ## Composition
 

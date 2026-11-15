@@ -122,13 +122,25 @@ contains `offer_cone`, `offer_gate` and `offer_stool`; `offer_gate` contains `of
 prints one `perf idle` block a second. During an act the per-pony `perf` lines print instead and
 no idle block prints.
 
-The act probe's own chunks, in call order inside one physics tick: `runtime_facts`, `caress_tick`
-(inside the lean), `runtime_presentation`, `kiss_tick`, `runtime_ai`, `anatomy_tick`,
-`runtime_talk`, `runtime_camera`, `runtime_face`, all inside `runtime_physics`. The skeleton
-modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone` (`UnfplapProneSway`);
-`runtime_process` covers the render-time pose write. Chunks nest: `runtime_presentation` contains
-`wings_tick`, and `caress_tick` contains `caress_precise` → `caress_surface` →
-`caress_skin`/`caress_tri`/`caress_ray`.
+The act probe's own chunks, in call order inside one physics tick: `pose_tick`, `runtime_facts`,
+`pose_fanout`, `caress_tick` (inside the lean), `runtime_presentation`, `kiss_tick`, `runtime_ai`,
+`anatomy_tick`, `runtime_talk`, `runtime_camera`, `runtime_face`, all inside `runtime_physics`.
+`pose_tick` is the pose edge clock, the channel records and the switches/events; `pose_fanout` is
+the modifier reconcile, the `act_body`/`anon` channel and the camera/hands/kiss/anatomy/audio
+hooks. The facts sync's `write_facing(view)` writes the oral facing into the pose view without a
+dictionary copy. The skeleton modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone`
+(`UnfplapProneSway`); `runtime_process` covers the render-time pose write. Chunks nest:
+`runtime_presentation` contains `wings_tick`, and `caress_tick` contains `caress_precise` →
+`caress_surface` → `caress_skin`/`caress_tri`/`caress_ray`.
+
+### Pose edge comparison
+
+With **Enable debug** + **Print perf logs** on, record three `perf` windows in a standing act: one
+steady window, one while the Debug **Pose: test variant** edge runs (`standing ↔ standing_test`),
+and one after it returns. Compare `pose_tick` and `pose_fanout` with the steady window and the
+act's `runtime_physics` total; both chunks stay in the noise, and an edge window costs no
+per-frame allocation and no settings or file read. One idle window with the probe on must show
+neither chunk: the `IDLE` path returns before both.
 
 The runtime also prints one-shot `tail perf attach`/`tail perf refresh` lines and a
 once-per-second `tail perf seats=… skinned=… builds=…/s` line when the probe is on.

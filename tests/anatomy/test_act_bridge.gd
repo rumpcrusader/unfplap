@@ -30,6 +30,7 @@ class FakeAct extends Node:
 	var teardowns := 0
 	var hold_mouths := 0
 	var facing_value: Variant = null
+	var facing_writes := 0
 	var normal: Variant = Vector3.ZERO
 	var point: Variant = Vector3.ZERO
 	var rear: Variant = Vector3.ZERO
@@ -70,6 +71,11 @@ class FakeAct extends Node:
 
 	func facing() -> Variant:
 		return facing_value
+
+	func write_facing(view: Variant) -> void:
+		facing_writes += 1
+		view.facing = Basis(Vector3.UP, 0.5)
+		view.facing_amount = 0.75
 
 	func opening_normal() -> Variant:
 		return normal
@@ -372,8 +378,22 @@ func _check_action_reads() -> void:
 	check(act.climaxes == 1, "on_climax reaches the act")
 	check(act.finishes == 1, "on_finish reaches the act")
 	check(act.afterglow_ticks == 1, "afterglow_tick reaches the act")
-	act.free()
+	var facing_view: Variant = _view("standing")
+	facing_view.facing = Basis(Vector3.UP, 1.0)
+	facing_view.facing_amount = 0.9
+	bridge.write_facing(facing_view)
+	check(act.facing_writes == 1 and is_equal_approx(facing_view.facing_amount, 0.75),
+		"write_facing forwards to the act without a copy")
+	check(facing_view.facing.is_equal_approx(Basis(Vector3.UP, 0.5)),
+		"the act writes the live facing into the view")
 	bridge.act = null
+	facing_view.facing = Basis(Vector3.UP, 1.0)
+	facing_view.facing_amount = 0.9
+	bridge.write_facing(facing_view)
+	check(facing_view.facing.is_equal_approx(Basis.IDENTITY)
+		and is_zero_approx(facing_view.facing_amount),
+		"no act writes identity and zero amount")
+	act.free()
 
 
 func _check_vectors() -> void:

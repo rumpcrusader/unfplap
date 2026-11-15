@@ -512,8 +512,9 @@ func _check_motion() -> void:
 	check(standing.calls.has("tick"), "standing dispatches the player-camera shot")
 
 
-## The standing camera re-reads the live pose config only on a settings-group or pose-id change,
-## so the standing debug edge holds the live config and its glance/tail values do not snap.
+## The standing camera re-reads the view's config only on a settings-group or pose-id change, so the
+## standing debug edge holds the live config and its glance/tail values do not snap. The stale
+## `facts.pose_config` alias must never win.
 func _check_standing_cache() -> void:
 	var facts: RefCounted = FACTS.new()
 	var view: RefCounted = VIEW.new()
@@ -521,29 +522,41 @@ func _check_standing_cache() -> void:
 	view.family = "standing"
 	view.settings_group = "standing"
 	facts.pose_view = view
+	var stale: Dictionary = {"glance_min": 1.0}
 	var config_a: Dictionary = {"glance_min": 5.0}
 	var config_b: Dictionary = {"glance_min": 7.0}
 	var config_c: Dictionary = {"glance_min": 9.0}
-	facts.pose_config = config_a
+	facts.pose_config = stale
+	view.from_config = config_a
+	view.pose_config = config_a
 	var standing: RefCounted = STANDING_CAMERA.new(facts)
 	standing.call("_sync")
-	check(is_same(standing._pose_cfg, config_a), "the standing camera reads the live config")
-	facts.pose_config = config_b
+	check(is_same(standing._pose_cfg, config_a), "the standing camera reads the view config")
+	check(not is_same(standing._pose_cfg, stale),
+		"a stale facts.pose_config alias never wins")
+	view.from_config = config_b
+	view.pose_config = config_b
 	standing.call("_sync")
 	check(is_same(standing._pose_cfg, config_a),
 		"an unchanged group and pose keep the cached config")
-	facts.pose_config = config_c
+	view.from_config = config_c
+	view.pose_config = config_c
 	view.id = CATALOG.STANDING_TEST
 	standing.call("_sync")
-	check(is_same(standing._pose_cfg, config_c), "a pose change re-reads the config")
-	facts.pose_config = config_a
+	check(is_same(standing._pose_cfg, config_c), "a pose change re-reads the view config")
+	view.from_config = config_a
+	view.pose_config = config_a
 	standing.call("_sync")
 	check(is_same(standing._pose_cfg, config_c),
 		"a second sync with the new pose keeps the cached config")
-	facts.pose_config = config_b
+	view.from_config = {}
+	view.pose_config = config_b
 	view.settings_group = "missionary"
 	standing.call("_sync")
-	check(is_same(standing._pose_cfg, config_b), "a group change re-reads the config")
+	check(is_same(standing._pose_cfg, config_b),
+		"an empty from_config falls back to the view's pose_config, not the alias")
+	check(not is_same(standing._pose_cfg, stale),
+		"the fallback never reads facts.pose_config")
 	view.family = "bed"
 	check(standing.call("_pose_family") == "bed",
 		"a bed view is outside the standing controller")

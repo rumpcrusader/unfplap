@@ -339,7 +339,7 @@ func _sync() -> void:
 	if group != _pose_cfg_group or key != _pose_cfg_key:
 		var pose_cfg: Variant = view.from_config if view != null else null
 		if not pose_cfg is Dictionary or (pose_cfg as Dictionary).is_empty():
-			pose_cfg = facts.pose_config if facts != null else null
+			pose_cfg = view.pose_config if view != null else null
 		_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
 		_pose_cfg_group = group
 		_pose_cfg_key = key

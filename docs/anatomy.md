@@ -111,7 +111,7 @@ fluid(), idle_discharge(count)
 `controller.begin_act(pose_id)` (per-act handle):
 
 ```gdscript
-tick(delta, facts), pose_config(config), facing()
+tick(delta, facts), pose_config(config), facing(), write_facing(view)
 toggle_hole(state), toggle_oral(state), toggle_finish(state)
 oral_active(), hold_oral_mouth(), pull_out_selected(), finish_out(), finished_inside()
 opening_normal(), hole_point(), hole_rear()
@@ -249,9 +249,10 @@ The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `p
 `penetration_m`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`, `penetration_reach`,
 `bed_frame` and `cycle_phase`. The act and the persistent controller read that object and the
 host callbacks; neither reads the runtime node. It returns the oral pose keys through
-`pose_config()` and the oral turn's camera facing through `facing()`; the runtime writes the pose
-keys into the live config every `ACTIVE`/`CLIMAX` tick for standing, and applies the facing in the
-same frame.
+`pose_config()`; the runtime writes the pose keys into the live config every `ACTIVE`/`CLIMAX` tick
+for standing. The oral turn's camera facing goes through the bridge's no-copy `write_facing(view)`,
+which writes `facing`/`facing_amount` into the pose view in the same frame; `facing()` stays the
+copy accessor the suites use.
 
 The bridge also writes `perf_on` from the host's `perf_enabled`, so the persistent controller takes
 no idle perf clock while the debug probe is off. See `docs/perf.md`.
@@ -286,11 +287,12 @@ bridge only routes them. `pose_config()` is written every `ACTIVE`/`CLIMAX` tick
 the oral style keys animate the neck live and a released turn erases the keys it no longer owns.
 
 The missionary Anon body is owned by `poses/service.gd`, not the bridge. The bridge receives the
-node as an opaque handle through `set_missionary_anon()` and calls its `install`, `apply`,
-`refresh_palm`, `diag_row` and eye reads; it never creates, frees or re-parents it. `end()` only
-calls the body's `remove()` to hand the avatar back; the pose session clears the handle and frees
-the node once in its own `release_pose()`. The bridge's `pose_changed(view)` carries the view family
-and contact kind for A5's contact switch without rebuilding the controller or the act.
+node as an opaque handle through `set_missionary_anon()` and uses its `refresh_palm`/`diag_row` and
+eye reads; it never creates, installs, applies, frees or re-parents it. `end()` only calls the
+body's `remove()` to hand the avatar back; the pose session installs it through its `anon` channel,
+applies it from `render_write()` and frees the node once in its own `release_pose()`. The bridge's
+`pose_changed(view)` carries the view family and contact kind without rebuilding the controller or
+the act.
 
 `apply_live()` re-reads the host's `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`
 before it refreshes the controller. The per-tick facts sync writes the same values, but it does
@@ -704,8 +706,11 @@ Current suites:
 - `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive, the wink
   scheduler and the oral anchor step.
 - `tests/anatomy/test_oral_turn.gd`: the turn holds the captured opening, follows the live mouth
-  once settled, returns to the opening on release, writes then erases the oral pose keys and
-  re-asserts the `D` viseme only while the turn is active.
+  once settled, returns to the opening on release, writes then erases the oral pose keys, writes
+  the live facing into the view without a copy and re-asserts the `D` viseme only while the turn
+  is active.
+- `tests/anatomy/test_act_bridge.gd`: the host callbacks, the facts sync, the action gates, the
+  aim/gaze reads, the pose-change contact carry and the no-copy facing forward.
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
   live opening aim, stays on the mouth anchor through oral, and clears the missionary inset
   outside the bed pose.

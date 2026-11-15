@@ -122,6 +122,7 @@ func run() -> void:
 	_check_pose_session()
 	_check_pose_state()
 	_check_pose_edges()
+	_check_pose_docs()
 	_check_pose_capability_census(files)
 	_check_act_camera()
 	_check_scene_gate()
@@ -305,6 +306,12 @@ func _check_teardown(files: Array[String]) -> void:
 		"_physics_tick ticks the pose before the first facts sync")
 	check(facts_at >= 0 and tick.find("_pose_fanout()", facts_at) > facts_at,
 		"_physics_tick fans the pose change out after the facts sync")
+	var pose_tick_at := tick.find("_timed(\"pose_tick\"")
+	check(pose_tick_at >= 0 and pose_tick_at < facts_at,
+		"_physics_tick times the pose tick before the facts sync")
+	var pose_fanout_at := tick.find("_timed(\"pose_fanout\"")
+	check(pose_fanout_at > facts_at,
+		"_physics_tick times the pose fan-out after the facts sync")
 	var fanout := _func_body(runtime, "_pose_fanout")
 	var fanout_cursor := 0
 	for owner: String in ["_pose_service()", "_camera_service()", "_hand_controller()",
@@ -724,6 +731,12 @@ func _check_pose_session() -> void:
 			"tests/poses/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	check(runtime.contains("func _pose_service()"), "runtime reaches the pose through the session")
+	var sync := _func_body(runtime, "_sync_act_facts")
+	check(sync.contains("write_facing("), "_sync_act_facts writes the facing into the view")
+	check(not sync.contains("turn_facing("),
+		"_sync_act_facts copies no per-tick facing dictionary")
+	check(not runtime.contains("turn_facing("),
+		"the runtime has no per-tick facing copy")
 	check(facade.contains("func render_write("), "the pose session owns the render-time order")
 	check(facade.contains("func sync_stretch("), "the pose session owns the stretch holder")
 	check(facade.contains("UnfplapMissionaryAnon") and facade.contains("func _install_act_body("),
@@ -828,6 +841,37 @@ func _check_pose_edges() -> void:
 	var catalog := FileAccess.get_file_as_string(ROOT.path_join("shared/pose_catalog.gd"))
 	check(catalog.contains("STANDING_TEST") and catalog.contains("func every("),
 		"the catalog carries the internal pose and `every()`")
+
+
+## The shipped pose docs describe the current machine: the state/edge/registry boundary, the
+## session requests and ticks, the evaluator, the retarget/act-body seam and the debug pair. The
+## checked docs and `ARCHITECTURE.md` carry no migration label. Contract: `docs/poses.md`.
+func _check_pose_docs() -> void:
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/poses.md"))
+	for heading: String in ["## Ownership", "## Typed view",
+			"## State machine and edge math", "## Typed edges and the registry",
+			"## Session requests and ticks", "## Pose evaluator and per-pose configs",
+			"## Retarget hooks and the pose change"]:
+		check(contract.contains(heading), "docs/poses.md has %s" % heading)
+	check(contract.contains("standing ↔ standing_test") and contract.contains("current proof"),
+		"docs/poses.md documents the debug pair as the current proof")
+	check(contract.contains("opaque handle"), "docs/poses.md documents the act_body ownership")
+	var architecture := FileAccess.get_file_as_string(ROOT.path_join("ARCHITECTURE.md"))
+	for token: String in ["poses/pose_state.gd", "shared/pose_view.gd",
+			"poses/transitions/*.json"]:
+		check(architecture.contains(token), "ARCHITECTURE.md names %s" % token)
+	var perf_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/perf.md"))
+	check(perf_doc.contains("pose_tick") and perf_doc.contains("pose_fanout"),
+		"docs/perf.md names the pose tick and fan-out chunks")
+	var checked: Array[String] = ["ARCHITECTURE.md", "docs/poses.md", "docs/runtime.md",
+		"docs/act_facts.md", "docs/camera.md", "docs/hands.md", "docs/kiss.md",
+		"docs/anatomy.md", "docs/afterglow.md", "docs/debug.md", "docs/tests.md",
+		"docs/perf.md"]
+	for name: String in checked:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(not text.is_empty(), "%s exists" % name)
+		for token: String in ["A3.", "A4", "A5", "Phase B", "B2"]:
+			check(not text.contains(token), "%s has no phase label %s" % [name, token])
 
 
 ## The raw pose reads ratchet down as the typed pose view takes over. A file may drop below its

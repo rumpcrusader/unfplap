@@ -71,10 +71,10 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 - **Reset act history** clears the stored row; **Force neglect warning/stop** act on the live act
   and are consumed on the next unpaused frame.
 - **Force act face** cycles the base-game faces; see `docs/face.md`.
-- **Pose: test variant** toggles the internal `standing_test` pose in a live standing act, runs the
-  authored `standing ↔ standing_test` edge and logs the request code and the status event. It never
-  ends the act, releases the pose or restores bones; in a missionary act it refuses with "Only in a
-  standing act." See `docs/poses.md`.
+- **Pose: test variant** is a Debug-block button with no hotkey: it toggles the internal
+  `standing_test` pose in a live standing act, runs the authored `standing ↔ standing_test` edge
+  and logs the request code and the status event. It never ends the act, releases the pose or
+  restores bones; in a missionary act it refuses with "Only in a standing act." See `docs/poses.md`.
 - **Reset act prompts** clears the per-mare prompt overrides; see `docs/settings.md`.
 
 ## Action wheel

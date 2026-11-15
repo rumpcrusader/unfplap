@@ -155,8 +155,8 @@ The shipped debug pair is `standing__standing_test.json` and `standing_test__sta
 hold `base`, `anon`, `contact`, `camera` and `audio`, switch `controls` and `presentation` at the
 start, and fire one `status` event (`test` forward, `standing` back). Both switches spell out
 `at: 0`; `pose_state.gd` refuses a switch without `at`. The held channels are deliberate: the pair
-proves the state machine, the channel records, the switch firing and the no-full-teardown rule
-without moving the body. The first real base/contact/audio edge is A5.
+is the current proof of the state machine, the channel records, the switch firing and the
+no-full-teardown rule, and no channel moves the body.
 
 `standing_test` is the matching internal spec row. It inherits `standing` (a base, no driver of its
 own, no delta asset), is `public: false` and `offerable: false`, has no `default.poses` block, and
@@ -166,8 +166,8 @@ must not be the row itself; when the table is supplied it must exist in the same
 chain must not revisit a row.
 
 The spec table and the edges are data. The session builds `missionary` and `standing` in `begin()`
-and starts an authored edge only on a request; the debug pair's first player-visible proof is the
-Debug **Pose: test variant** action.
+and starts an authored edge only on a request; the debug pair's player-visible proof is the Debug
+**Pose: test variant** action.
 
 ## Session requests and ticks
 
@@ -195,7 +195,7 @@ The checks, against the target spec and the edge:
 | `consent_ok` | `requires.consent` is empty, or the request consent equals it |
 | `stretch_ok` | `requires.stretch` is not `inactive`, or the request stretch is off |
 | `asset_ok` | the target spec exists and at least one of `base`/`delta`/`driver` is non-empty |
-| `locked` | the request `locked` flag (the pose request lock arrives in A4/A5) |
+| `locked` | the request's `locked` flag |
 
 On an accepted request the session caches the target spec and its settings snapshot by the spec's
 `settings_group` (`standing_test` uses the standing pose and presentation blocks and must never be
@@ -216,23 +216,20 @@ no settings read and no file access, and a tick after completion is a no-op.
 command. `end` is reserved and always allowed. The set is the view's `controls.set` and the allowed
 list is `shared/pose_specs.gd`'s `CONTROL_SETS`; a missing set allows only `end`. A lock channel's
 `block` list denies its commands and a non-empty `allow` list denies anything outside it. The
-minimal sets (`thrust`/`end` for standing and missionary, `end` only for `standing_test`) are an
-A3.3 stub: A4 owns the real vocabulary and the input migration, and the existing input path stays.
+minimal sets (`thrust`/`end` for standing and missionary, `end` only for `standing_test`) are the
+shipped sets, and the existing input path stays.
 
 `apply_live_settings()` refreshes the target snapshot in place on a live settings edit: the same
 `to_config` object is re-merged from the target's settings group, and the presentation block is
 re-read. The session reads settings only on a request and on this call, never per frame.
 
-The compatibility mirrors follow the active view: the runtime's `pose_id` and the session's
-`pose_id` keep the act's start pose for the act identity, while `facts.pose_id` is the live
-`view.id` and `facts.pose_config` remains the live config alias. The view is the active machine;
-`poses/standing_anon.gd`, `poses/wing_control.gd`, the standing camera and the kiss read its
-family, profile and config. Phase B removes the remaining aliases.
+The compatibility mirrors (`pose_id`, `pose_config`) are stated once in **Retarget hooks and the
+pose change**.
 
 The debug pair holds `base`, `anon`, `contact`, `camera` and `audio`, and switches `controls` and
 `presentation` at the start, so a request never rebuilds the pose, releases the pose or restores
 bones and the body does not move. The Debug **Pose: test variant** action is the proof; the pair is
-the evaluator's single path, and A5 owns the first moving edge. A transition never calls
+the evaluator's single path. A transition never calls
 `_free_pose()`, `release_pose()`, `_end_session()` or any act exit; `runtime._end_session()` aborts
 a live edge through the one pose teardown.
 
@@ -247,7 +244,8 @@ and delta from the spec: `driver` when the row has one, else the base chain's dr
 `RefCounted` with optional `apply()` (whole pose), `apply_base()` (base only; false when the pose
 owns no base on this rig), `apply_overlay()` (the moveable head/neck) and `apply_delta()` (the
 procedural delta). A missing method is a no-op. The shipped recipes implement `apply`,
-`apply_base` and `apply_overlay`; A5's oral delta is the first `apply_delta` driver.
+`apply_base` and `apply_overlay`; `apply_delta` is optional, for a pose that carries a procedural
+delta.
 
 The single fast path is the same effective driver and delta with equal configs. It calls the
 driver's `apply()` with the pose ramp (`smoothstep(amount)`), exactly as the one-recipe node did, so
@@ -255,9 +253,9 @@ the begin ramp, the normal missionary and standing acts, the stretch early retur
 diagnostics are unchanged. A pose that carries a delta uses `apply_base()` → `apply_delta()` →
 `apply_overlay()` in that order. The debug `standing ↔ standing_test` pair takes this path: both
 effective drivers are the standing driver, both deltas are empty and the target snapshot is the
-standing group with the same presentation, so the body holds. A5's oral edge is the first real
-delta. The offer presentation pose (`poses/standing_presentation.gd`) is the same evaluator with
-the standing pair and its own config.
+standing group with the same presentation, so the body holds. The pair is the current proof of the
+single fast path. The offer presentation pose (`poses/standing_presentation.gd`) is the same
+evaluator with the standing pair and its own config.
 
 The two-base form captures the game's pre-pose, evaluates the from side at full base weight,
 captures it, restores the pre-pose, evaluates the to side the same way, restores again, and blends
@@ -306,25 +304,25 @@ uses the standing profile, so the debug pair shares every owner and the body doe
 it.
 
 The pose service owns the missionary `act_body` adapter (`poses/missionary_anon.gd`): it creates the
-node on the runtime host as `UnfplapMissionaryAnon`, installs it with the typed act view and frees
-it once in `release_pose()`. The anatomy bridge receives only an opaque handle: it calls the body's
-`install`/`apply`/`refresh_palm`/`diag_row` reads and never creates or frees it. The adapter exists
-only for a view whose `anon.mode` is `act_body` and desktop human Anon; the `player_body` specs
-(`standing`, `standing_test`) keep the runtime's standing Anon controller. The `anon` channel
+node on the runtime host as `UnfplapMissionaryAnon`, installs it through the `anon` channel,
+applies it from `render_write()` and frees it once in `release_pose()`. The anatomy bridge receives
+only an opaque handle: it uses the body's `refresh_palm`/`diag_row` and eye reads and calls
+`remove()` at the act end; it never creates, installs, applies, frees or re-parents it. The adapter
+exists only for a view whose `anon.mode` is `act_body` and desktop human Anon; the `player_body`
+specs (`standing`, `standing_test`) keep the runtime's standing Anon controller. The `anon` channel
 accepts `hold` (keep the adapter), `blend` (carry the live edge weight) and `switch` (name an
-authored profile); A3.5 caches the profile/weight and A5's oral edge is the first real switch. A
-pose change never frees the adapter; the one act exit does.
+authored profile); the adapter caches the last profile and weight. A pose change never frees the
+adapter; the one act exit does.
 
 The audio impact profile follows the view's `audio.impact`: `missionary` keeps the bed/fabric layer,
-`standing` and `standing_test` play none. The runtime no longer passes the act's start `pose_id` to
-the impact or withdraw call.
+`standing` and `standing_test` play none. The impact and withdraw calls read the view, not the
+act's start `pose_id`.
 
-The compatibility mirrors follow the active view after A3.5: `facts.pose_id` is the live
-`view.id`, `facts.pose_config` remains the live config alias, and `poses/standing_anon.gd`,
+The compatibility mirrors follow the active view: `facts.pose_id` is the live `view.id`,
+`facts.pose_config` remains the live config alias, and `poses/standing_anon.gd`,
 `poses/wing_control.gd`, the standing camera and the kiss read the view's family/profile/config.
 The runtime's `pose_id` field and the session's `pose_id` stay the act's start pose for `start()`,
-the gate and the teardown. Phase B removes the remaining `pose_id`/`pose_config` aliases once the
-last reader migrates.
+the gate and the teardown. The aliases are temporary and leave once the last reader migrates.
 
 ## Spaces and axes
 
@@ -639,8 +637,9 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 ### Teardown scope
 
 `runtime._free_pose()` is the one pose teardown ledger. It mixes two lifetimes: the pose scope the
-session owns and the act scope the runtime owns. A pose transition calls the pose-scope steps only;
-it never calls `_free_pose()`, `_end_session()` or `release_pose()`.
+session owns and the act scope the runtime owns. A pose transition calls none of the pose-scope
+steps or the act exit; it retargets through `pose_changed(view)` and leaves the teardown to
+`_free_pose()`.
 
 | Step | Scope | Owner |
 |---|---|---|

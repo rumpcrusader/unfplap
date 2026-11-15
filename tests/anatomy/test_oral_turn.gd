@@ -8,6 +8,7 @@ extends SceneTree
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 const STATE_ACTIVE := 2
 const TURN_STEP_S := 0.4
@@ -142,6 +143,16 @@ func run() -> void:
 		"the anchor holds the opening while she turns")
 	var facing: Dictionary = oral.call("facing")
 	check(float(facing.get("amount", 0.0)) > 0.0, "the turn publishes its facing")
+	var view: RefCounted = VIEW.new()
+	view.facing = Basis(Vector3.UP, 1.0)
+	view.facing_amount = 0.9
+	oral.call("write_facing", view)
+	check(view.facing.is_equal_approx(facing.get("basis", Basis.IDENTITY)),
+		"write_facing writes the turn's basis into the view")
+	check(near(view.facing_amount, float(facing.get("amount", 0.0))),
+		"write_facing writes the turn's amount into the view")
+	check(not view.facing.is_equal_approx(Basis(Vector3.UP, 1.0)),
+		"write_facing replaces the stale view basis")
 
 	# Settled: her mouth arrives at the old opening in XZ, and the anchor starts to follow it.
 	_step(oral, pony, TURN_STEP_S)
@@ -192,6 +203,11 @@ func run() -> void:
 	oral.call("write_pose_delta", config)
 	check(not config.has("oral_pitch") and not config.has("oral_yaw") \
 		and not config.has("oral_roll"), "a finished release erases the oral keys")
+	view.facing = Basis(Vector3.UP, 1.0)
+	view.facing_amount = 0.9
+	oral.call("write_facing", view)
+	check(view.facing.is_equal_approx(Basis.IDENTITY) and is_zero_approx(view.facing_amount),
+		"a released turn writes identity and zero amount")
 
 	oral.call("teardown")
 	check((oral.call("anchor") as Vector3).is_equal_approx(opening),

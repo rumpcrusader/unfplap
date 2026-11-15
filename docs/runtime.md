@@ -116,11 +116,12 @@ failed start runs the same function and restores only what it took.
   keep-alives, the anatomy tick and its oral gate (speech stop, `D` viseme hold, idle kiss, and the
   rising-edge reach/lean-kiss release), the thrust tracker and the presentation modules (wings and
   mod integrations).
-- `_physics_tick` calls `_pose_service().tick(delta)` before the first `_sync_act_facts()` in every
-  phase above `IDLE`, then runs the fixed-order `_pose_fanout()` after that sync: the pose service
-  first (modifier reconcile and the `act_body`/`anon` channel), then camera, hands, kiss, anatomy
-  and audio. An edge keeps ticking through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still
-  follows the first facts sync and runs no pose tick or fan-out.
+- `_physics_tick` times `_pose_service().tick(delta)` as the `pose_tick` chunk before the first
+  `_sync_act_facts()` in every phase above `IDLE`, then times the fixed-order `_pose_fanout()` as
+  the `pose_fanout` chunk after that sync: the pose service first (modifier reconcile and the
+  `act_body`/`anon` channel), then camera, hands, kiss, anatomy and audio. An edge keeps ticking
+  through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still follows the first facts sync and runs
+  no pose tick or fan-out.
 - `_process`: `_process_tick(delta)` — the render-time pose write (which also watches the standing
   stretch toggle), the camera lean and motion, the climax wave, the breath, the face and the HUD.
 - `main._process` calls `active_runtime.apply_camera_motion()` every rendered frame. Keep this

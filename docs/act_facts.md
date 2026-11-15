@@ -61,17 +61,18 @@ physics_delta (the physics tick delta the hand and reach easing uses)
 `pose_view` is the pose read model (`shared/pose_view.gd`): the pose identity, the spec profiles,
 the live config alias and the live contact and facing mirrors. It is the read path for the
 presentation modules migrating off `pose_id` and `oral_active`; those compatibility fields (and
-`pose_config`) stay in this object until the last reader moves. During an authored transition,
+`pose_config`) remain in this object until the last reader migrates. During an authored transition,
 `pose_state` is `TRANSITIONING` and `from_id`/`to_id`, `edge_id`, `edge_t`, `weight`,
 `from_config` and `to_config` carry the two sides; the view's identity and profiles are the target.
 On completion the session adopts the target into the live `pose_config`, and both sides point at
 that same object again; the live object is the one `facts.pose_config`, the pose node and the
 standing camera alias. The standing camera re-reads it only when the view's settings group or pose
 id changes. The view stays filled for the whole act: the pose-scope leave steps
-(`leave_pose_start()`, `leave_pose_body()`) keep it, and only `release_pose()` clears it. After A3.5
+(`leave_pose_start()`, `leave_pose_body()`) keep it, and only `release_pose()` clears it.
 `facts.pose_id` is the active `view.id` (the live target during a transition), while the runtime's
 and the session's `pose_id` stay the act's start pose for start/gate/teardown; `facts.pose_config`
-remains the live alias until Phase B removes the remaining compatibility fields.
+remains the live alias. The anatomy bridge writes the live `facing` and `facing_amount` into the
+view each tick without copying a dictionary.
 
 HUD card (the runtime fills these once per rendered frame; `hud/service.gd` reads them instead of
 calling back into the runtime):

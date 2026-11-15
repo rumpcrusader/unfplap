@@ -17,9 +17,10 @@ and the `kiss_controller()`, `touch()` and `write_forced_glance()` callbacks), n
 node; see `docs/act_facts.md`.
 
 The kiss's `pose_changed(view)` hook follows the view's family, presentation kiss profile and live
-`from_config`/`pose_config` without ending a running kiss or releasing its foreleg pin. A shared
-keep is a cheap no-op; `_sync()` reads the same live config per tick. The hook is pinned by
-`tests/act_camera/test_kiss.gd`; the face and mouth suites stay unchanged.
+`from_config`/`pose_config` without ending a running kiss or releasing its foreleg pin; it never
+reads the `facts.pose_config` alias. A shared keep is a cheap no-op; `_sync()` reads the same view
+config per tick. The hook is pinned by `tests/act_camera/test_kiss.gd`; the face and mouth suites
+stay unchanged.
 
 ## Controls
 
@@ -117,6 +118,8 @@ constants are in `kiss/service.gd`. Heights scale with `Settings.anon_height_sca
 
 ## Tests
 
+- `tests/act_camera/test_kiss.gd` — the view config, the hook and a running kiss surviving a pose
+  change.
 - `tests/act_camera/test_camera.gd` — the kiss lean, camera yaw and the release hold.
 - `tests/face/test_runtime_face.gd` — the stare release while a kiss runs.
 - `tests/hands/test_actions.gd` — the `F` latch and the lean values the kiss shares with the hands.

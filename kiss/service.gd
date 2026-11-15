@@ -572,7 +572,7 @@ func _sync() -> void:
 	var view: Variant = facts.pose_view
 	var pose_cfg: Variant = view.from_config if view != null else null
 	if not pose_cfg is Dictionary or (pose_cfg as Dictionary).is_empty():
-		pose_cfg = facts.pose_config
+		pose_cfg = view.pose_config if view != null else null
 	_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
 
 

@@ -123,6 +123,17 @@ func facing() -> Dictionary:
 	return _oral_turn.facing() if _oral_turn != null else {}
 
 
+## Write the oral turn's facing into the pose view without copying the dictionary.
+func write_facing(view: Variant) -> void:
+	if view == null:
+		return
+	if _oral_turn != null:
+		_oral_turn.write_facing(view)
+		return
+	view.facing = Basis.IDENTITY
+	view.facing_amount = 0.0
+
+
 func hole_point() -> Vector3:
 	if not is_instance_valid(anatomy):
 		return Vector3.ZERO

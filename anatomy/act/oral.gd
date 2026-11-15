@@ -123,6 +123,15 @@ func facing() -> Dictionary:
 	return _facing.duplicate()
 
 
+## Write the facing the runtime publishes into the view, without copying the dictionary.
+## `facing()` stays the copy accessor the suites use.
+func write_facing(view: Variant) -> void:
+	if view == null:
+		return
+	view.facing = _facing.get("basis", Basis.IDENTITY)
+	view.facing_amount = float(_facing.get("amount", 0.0))
+
+
 ## Start or stop the oral turn. Returns true when this call started it.
 func toggle(state: int) -> bool:
 	if not SETTINGS.anatomy_oral.get_bool() or state != 2 or pose != CATALOG.STANDING:

@@ -60,7 +60,8 @@ The afterglow holds the current pose: the pose the act ended in, unchanged. The 
 carries no pose mode and no afterglow pose id, and `_apply_afterglow_presentation()` only re-asserts
 `target_amount`/`amount` alongside the tail, HUD and wings. The pose evaluator keeps its current
 driver/delta pair and config; nothing rebuilds, releases or re-poses the body at the phase change.
-The runtime and facade source must not name a pose mode.
+The close window comes from the view's `afterglow.close_window`. The phase has no `pose_changed`
+hook. The runtime and facade source must not name a pose mode.
 
 ## `[stay]` action
 

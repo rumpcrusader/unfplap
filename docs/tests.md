@@ -117,6 +117,15 @@ profile lives only in the session's test seam. The hook suites are
 two callers, and keeps the act-exit names out of `poses/`. The contract is `docs/poses.md`; this doc
 only names the gate.
 
+The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
+`test_pose_registry.gd`, `test_pose_spec.gd`, `test_pose_view.gd`, `test_session.gd`,
+`test_pose_blend.gd`, `test_pose_teardown.gd`, `test_modifier_profile.gd`, `test_pose_asset.gd`,
+`test_pose_rig.gd`, `test_pose_scale.gd`, `test_rotation.gd`, `test_body_sway.gd` and
+`test_stretch.gd`; `docs/poses.md` says what each pins. The hook suites
+`tests/act_camera/test_camera.gd` and `tests/act_camera/test_kiss.gd` pin the view-only config;
+`tests/test_source_hygiene.gd` pins the no-copy `write_facing()` and the `pose_tick`/`pose_fanout`
+chunks around the facts sync in `_physics_tick`.
+
 ## What not to assert
 
 - The shipped defaults schema and the bounds belong to `tests/test_settings.gd`. A suite names a
@@ -126,8 +135,8 @@ only names the gate.
 - A suite does not assert another service's private state; it calls that service's facade.
 - `tests/test_source_hygiene.gd` carries the raw pose-read census. Its per-file `pose_id` and
   `oral_active` budget ratchets down with the pose view migration: a migrated consumer may not
-  raise its entry, and a file that drops lowers it in the same commit. A3.5 removed the two
-  standing adapters from the map.
+  raise its entry, and a file that drops lowers it in the same commit. The map excludes the two
+  standing adapters, which read the view.
 
 ## Related docs
 

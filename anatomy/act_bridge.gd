@@ -24,7 +24,7 @@ var act: Node
 ## creates or frees it.
 var missionary_anon: Node
 var vr_act: Node
-## The contact family the last pose change carried. A3.5 caches it; A5's oral contact switch reads it.
+## The contact family the last pose change carried. The oral contact switch reads it.
 var contact_family := ""
 var contact_kind := ""
 var _contact_seen := false
@@ -144,7 +144,7 @@ func pose_family() -> String:
 	return str(view.family) if view != null else ""
 
 
-## One pose-change hook: carry the view family and contact for the A5 contact switch, without
+## One pose-change hook: carry the view family and contact for the contact switch, without
 ## rebuilding the controller, the act or the bodies. A shared keep is a cheap no-op.
 func pose_changed(view: Variant) -> void:
 	if view == null:
@@ -341,13 +341,26 @@ func facing(basis: Basis, amount: float) -> void:
 		facing_cb.call(basis, amount)
 
 
-## The per-act oral turn's live facing, or `{}` when no turn is active. The runtime mirrors this
-## into the pose view; the turn itself stays in `anatomy/act/oral.gd` until A5.
+## The per-act oral turn's live facing as a copy, or `{}` when no turn is active. The suites use
+## this; the runtime's per-tick path is `write_facing(view)`.
 func turn_facing() -> Dictionary:
 	if not is_instance_valid(act):
 		return {}
 	var value: Variant = act.call("facing")
 	return value if value is Dictionary else {}
+
+
+## Write the oral turn's live facing into the pose view without copying the dictionary. This is
+## the per-tick path; `turn_facing()` stays the copy accessor the suites use. With no act it writes
+## the identity and zero amount.
+func write_facing(view: Variant) -> void:
+	if view == null:
+		return
+	if act_available():
+		act.call("write_facing", view)
+		return
+	view.facing = Basis.IDENTITY
+	view.facing_amount = 0.0
 
 
 ## The status label. The host's `anatomy_status` owns the label.

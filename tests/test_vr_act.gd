@@ -28,9 +28,13 @@ class FakeBridge extends RefCounted:
 	var forward := Vector3(0.0, 0.0, -1.0)
 	var depth := -1.0
 	var pony: Variant = null
+	var oral_gate := true
 
 	func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
 		calls.append("align")
+
+	func oral_ready() -> bool:
+		return oral_gate
 
 	func toggle_hole() -> void:
 		calls.append("hole")
@@ -172,6 +176,14 @@ func run() -> void:
 	check(_count(bridge, "command:oral") == 1, "left by button emits the oral command once")
 	left.set_input(&"by_button", false)
 	_tick(act)
+	bridge.oral_gate = false
+	left.set_input(&"by_button", true)
+	_tick(act, 2)
+	check(_count(bridge, "command:oral") == 1,
+		"the closed anatomy gate blocks the VR oral command")
+	left.set_input(&"by_button", false)
+	_tick(act)
+	bridge.oral_gate = true
 
 	# The waist tracker drives depth exactly like a body-tracked waist.
 	_tick(act)

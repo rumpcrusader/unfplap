@@ -9,10 +9,11 @@ deliberately not imported.
 `vr/service.gd` is the VR controller, created by the anatomy bridge's `vr_start()` (called from the
 runtime's `_start_vr_act()`) when a headset is active and a `XRCamera3D`/`XROrigin3D` pair exists
 under the player. It is a scene adapter with typed handles, never the runtime node: the bridge
-handle (`toggle_hole`, `toggle_finish`, `toggle_oral`, `vr_forward`, `vr_depth`), the `align`
-write-back, the `touch` readiness event and a `pony_source` read. It also receives `player`,
-`hip_target`, `camera` and `origin`, and queues itself free in `vr_stop()`. The runtime owns the
-standing act state; the bridge owns the anatomy hooks the controller calls.
+handle (`toggle_hole`, `toggle_finish`, `oral_ready`, `vr_forward`, `vr_depth`), the `command`
+dispatcher for the oral id, the `align` write-back, the `touch` readiness event and a
+`pony_source` read. It also receives `player`, `hip_target`, `camera` and `origin`, and queues
+itself free in `vr_stop()`. The runtime owns the standing act state; the bridge owns the anatomy
+hooks the controller calls.
 
 ## Controls
 
@@ -21,7 +22,7 @@ standing act state; the bridge owns the anatomy hooks the controller calls.
 | right `primary_click` | the act key (the runtime's context start/end) |
 | right `ax_button` | toggle the anatomy hole |
 | left `primary_click` | toggle the finish |
-| left `by_button` | toggle oral |
+| left `by_button` | the `oral` command while the anatomy gate is open |
 | waist/hip tracker | depth: the hip delta along `vr_forward()`, mapped over `HIP_RANGE_M = 0.16 m` |
 | real hand petting | `on_touch("caress")` |
 | left/right stick | reserved for the act's lean and turn |
@@ -38,8 +39,9 @@ controller.
 - A headset session has no desktop pointer: `headset_view()` stands in for a captured mouse in the
   start gate, the offer refresh, refusal and the act key. A headset rig has neither a `controls_locked` nor a
   `flying` property, so those reads compare against `true` rather than going through `bool()`.
-- Anatomy actions are additive and gated; they use the same `toggle_anatomy_*` runtime forwards as
-  the desktop keys. `docs/anatomy.md` owns the behavior.
+- Anatomy actions are additive and gated; the hole and finish use the same `toggle_anatomy_*`
+  runtime forwards as the desktop keys, and the oral button emits the `oral` command only while
+  `oral_ready()` is open. `docs/anatomy.md` owns the behavior.
 - VR is behind the anatomy master. Desktop human Anon owns the free act camera.
 
 ## Lab

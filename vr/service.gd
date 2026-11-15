@@ -60,9 +60,16 @@ func _physics_process(delta: float) -> void:
 		bridge.toggle_finish()
 	_finish_held = finish
 	var oral := is_instance_valid(_left) and _left.is_button_pressed("by_button")
-	if oral and not _oral_held and command.is_valid():
+	if oral and not _oral_held and command.is_valid() and _oral_ready():
 		command.call(ACT_COMMANDS.ORAL)
 	_oral_held = oral
+
+
+## The anatomy side of the oral gate, the same one the desktop `N` key reads.
+func _oral_ready() -> bool:
+	if bridge == null:
+		return false
+	return bool(bridge.call("oral_ready")) if bridge.has_method("oral_ready") else false
 
 
 ## integration: her body tracker's hips, or a positional tracker named for the waist.

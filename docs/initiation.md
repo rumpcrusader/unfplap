@@ -192,6 +192,12 @@ The initial line uses `begin_player_greeting` when the director has it, otherwis
 itself stays in the normal standing pose: no stretch starts while she is still speaking or
 stepping away. The stretch behavior is in `docs/poses.md`.
 
+A non-cuddle ask claims the navigator (`unfplap:request:<id>`, wander off, no route) and asks her
+to stand before the line is queued, so a wander or a bumped navigator cannot close the ask while
+Anon answers. A cuddle keeps the managed rest owner; a bed ask hands the navigator to the bed for
+the join. The lease lasts through the ask, the presentation and the invitation and is released by
+the one close path.
+
 - Reminders are queued at `12 s` and `24 s`, one each, and never repeat a key.
 - The no-reply deadline is `60 s`; after an answer it is `45 s`; after a clarification `30 s`.
   A pending classifier or a speaking mare extends it by `5 s` instead of closing.

@@ -971,6 +971,16 @@ func _start_ask(candidate: Candidate) -> void:
 	episode.token = KEY_PREFIX + ":" + candidate.id
 	_episode = episode
 	_conversation.hook()
+	if not candidate.cuddle:
+		# Hold her still for the ask, the presentation and the invitation. A wandering or bumped
+		# navigator would close the offer before Anon answers; a cuddle keeps its managed rest.
+		var claim: Dictionary = _venue.claim_nav(episode.pony, episode.token, true)
+		if claim.is_empty():
+			_cancel_episode(false, "ask nav claim")
+			return
+		_apply_claim(claim)
+		if episode.pose == CATALOG.STANDING:
+			_venue.ensure_stand(episode.pony)
 	_issue_initial()
 
 

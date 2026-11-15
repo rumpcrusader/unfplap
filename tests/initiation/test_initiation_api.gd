@@ -214,6 +214,9 @@ func run() -> void:
 	check(forced.id == "rarity" and forced.pose == CATALOG.STANDING,
 		"the force result names the mare and the pose")
 	check(runtime.face_on, "the private standing ask arms the request face")
+	check(nav.command_owner.begins_with("unfplap:request:rarity"),
+		"the standing ask owns the navigator")
+	check(not nav.wander_enabled and not nav._has_target, "the standing ask holds her still")
 	check(context.keys.size() == 1 and context.keys[0].ends_with(":situation"),
 		"the ask records one situation")
 	check(initiation.start_offer() == null, "an ask is not startable before it is accepted")
@@ -249,6 +252,8 @@ func run() -> void:
 
 	# The queued ask key uses the same shape when the greeting cannot open the line.
 	initiation.reset()
+	check(nav.command_owner.is_empty() and nav.wander_enabled,
+		"reset releases the ask's navigator lease")
 	check(runtime.stretch_clears == 1, "reset closes the accepted offer's stretch choice")
 	director.greet_ok = false
 	director.queued.clear()

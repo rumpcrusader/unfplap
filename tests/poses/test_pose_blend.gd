@@ -6,6 +6,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/poses/test_pose_blend.gd
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 const FAKE_A := "fake_a"
 const FAKE_B := "fake_b"
@@ -362,11 +363,34 @@ func _check_render_order() -> void:
 	_free_graph(made)
 
 
+## A synthetic v7 base for the standing driver: one observable bone and a ground frame. The
+## shipped asset's numbers belong to `test_pose_bake`; this suite only needs a base to exist.
+func _standing_base(made: Dictionary, bone := "pony_spine1", angle := 0.2) -> Variant:
+	var asset: Variant = AUTHORED.new()
+	asset.available = true
+	asset.version = 7
+	asset.space = "local_rest"
+	asset.frame = "ground"
+	asset.root = Transform3D.IDENTITY
+	asset.anchor = {
+		"bone": "pony_hips", "transform": Transform3D.IDENTITY,
+		"contact": Vector3.ZERO, "support": 0.0,
+	}
+	asset.pony_bones = {bone: {"rotation": Quaternion(Vector3.RIGHT, angle),
+		"position": Vector3.ZERO}}
+	var pose_node: Node = made["pose_node"]
+	pose_node.authored = asset
+	pose_node.ground_frame = Transform3D.IDENTITY
+	pose_node.size_name = "canon"
+	return asset
+
+
 ## The shipped standing driver resolves through the driver table and writes the stance.
 func _check_shipped_driver() -> void:
 	var made := _graph()
 	var sk: Skeleton3D = made["sk"]
 	var pose_node: Node = made["pose_node"]
+	_standing_base(made)
 	pose_node.call("set_pose", POSE.STANDING_PATH, POSE.STANDING_PATH, "", "", {}, {})
 	check(pose_node.mode == POSE.MODE_SINGLE, "the standing pair is single")
 	check(pose_node.from_driver == POSE.STANDING_PATH, "the pair names the standing driver")
@@ -378,7 +402,7 @@ func _check_shipped_driver() -> void:
 	pose_node.call("apply_render", sk)
 	var index := sk.find_bone("pony_spine1")
 	check(_angle_to(sk.get_bone_pose(index), 0.0) > 0.001,
-		"the shipped standing driver writes the stance")
+		"the shipped standing driver writes the baked base")
 	_free_graph(made)
 
 
@@ -389,6 +413,7 @@ func _check_oral_delta() -> void:
 	var made := _graph()
 	var sk: Skeleton3D = made["sk"]
 	var pose_node: Node = made["pose_node"]
+	_standing_base(made)
 	var config_a: Dictionary = {"tag": "standing"}
 	var config_b: Dictionary = {"oral_pitch": 0.4, "oral_yaw": 0.25, "oral_roll": 0.1}
 	pose_node.call("set_pose", POSE.STANDING_PATH, POSE.STANDING_PATH, "",

@@ -63,7 +63,7 @@ const SPECS := {
 		"family": "standing",
 		"frame": "ground",
 		"base": "",
-		"asset": "",
+		"asset": "poses/standing_pose.json",
 		"delta": "",
 		"driver": "poses/standing_recipe.gd",
 		"settings_group": "standing",

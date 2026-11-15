@@ -93,12 +93,13 @@ func rows(pose: String, act_source: String, bed_in: Variant, mode: String,
 	if bool(scene.get("stool", false)):
 		var need := needed_stool()
 		_row(rows_out, "stool", need <= 0 or owned_stools() >= need, "needs_stool")
-	if _is_bed_pose(pose):
-		var pose_ready := authored_ready()
-		_row(rows_out, "pose_asset", pose_ready, authored_reason())
+	if _is_bed_pose(pose) or str(_scene(pose).get("frame", "")) == "ground":
+		var pose_ready := authored_ready(pose)
+		_row(rows_out, "pose_asset", pose_ready, authored_reason(pose))
 		if pose_ready:
-			var missing := rig_missing()
+			var missing := rig_missing(pose)
 			_row(rows_out, "pose_rig", missing.is_empty(), rig_reason(missing))
+	if _is_bed_pose(pose):
 		var found: Node3D = resolve_bed(pose, act_source, bed_in)
 		_row(rows_out, "bed", found != null, "no_bed")
 		if found != null:
@@ -287,16 +288,16 @@ func owned_stools() -> int:
 	return int(stool_count.call()) if stool_count.is_valid() else 0
 
 
-func authored_ready() -> bool:
-	return pose_session != null and bool(pose_session.call("authored_ready"))
+func authored_ready(pose := "") -> bool:
+	return pose_session != null and bool(pose_session.call("authored_ready", pose))
 
 
-func authored_reason() -> String:
-	return str(pose_session.call("authored_reason")) if pose_session != null else "pose_asset"
+func authored_reason(pose := "") -> String:
+	return str(pose_session.call("authored_reason", pose)) if pose_session != null else "pose_asset"
 
 
-func rig_missing() -> Array:
-	var missing: Variant = pose_session.call("rig_missing") if pose_session != null else []
+func rig_missing(pose := "") -> Array:
+	var missing: Variant = pose_session.call("rig_missing", pose) if pose_session != null else []
 	return missing if missing is Array else []
 
 

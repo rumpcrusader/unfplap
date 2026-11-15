@@ -16,7 +16,7 @@ extends RefCounted
 const ACTIONS := {
 	"reload_pose": {
 		"label": "Reload posed base",
-		"help": "Re-read poses/missionary_pose.json without restarting the game. A running act picks it up.",
+		"help": "Re-read the active pose's authored JSON without restarting the game. A running act picks it up.",
 		"method": "action_reload_pose",
 	},
 	"bake_standing": {

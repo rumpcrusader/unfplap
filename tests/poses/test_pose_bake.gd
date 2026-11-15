@@ -8,6 +8,11 @@ extends SceneTree
 const BAKE := preload("res://mods/unfplap/tools/pose_bake.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const RECIPE := preload("res://mods/unfplap/poses/standing_recipe.gd")
+const BODY := preload("res://world/characters/hybrid_mare/body.glb")
+
+const STANDING_PATH := "res://mods/unfplap/poses/standing_pose.json"
+const FIXTURE_PATH := "res://mods/unfplap/tests/poses/fixtures/standing_reference.json"
+const SIZES := [1.0, 1.35, 1.7, 2.3]
 
 const PONY_BONES := AUTHORED.PONY_BONES
 
@@ -30,6 +35,7 @@ func run() -> void:
 	_check_capture()
 	_check_compare()
 	_check_writer()
+	await _check_shipped_standing()
 	print("POSE_BAKE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_BAKE_PASS")
@@ -98,6 +104,110 @@ func _check_writer() -> void:
 		"res://mods/unfplap/tests/poses/fixtures/missionary_pose_v6.json")).is_empty(),
 		"the writer refuses a fixture path")
 	_free(sk)
+
+
+## The shipped standing asset is exactly the fixture plus the reference recipe, and the body pose
+## is size-invariant while the hips stay over the anchor and the contact on the ground.
+func _check_shipped_standing() -> void:
+	var fixture: Variant = JSON.parse_string(FileAccess.get_file_as_string(FIXTURE_PATH))
+	check(fixture is Dictionary, "the standing fixture loads")
+	if not fixture is Dictionary:
+		return
+	var pony: Node3D = BODY.instantiate()
+	root.add_child(pony)
+	await process_frame
+	var sk := _find_skeleton(pony)
+	check(sk != null, "the reference rig has a skeleton")
+	if sk == null:
+		return
+	_load_fixture(sk, fixture as Dictionary)
+	var frame_value: Variant = str_to_var(str((fixture as Dictionary).get("frame", "")))
+	var frame: Transform3D = frame_value if frame_value is Transform3D else Transform3D.IDENTITY
+	var config := RECIPE.reference_config()
+	var size_name := str((fixture as Dictionary).get("size_name", "canon"))
+	var body_scale := float((fixture as Dictionary).get("body_scale", 1.0))
+	var contact := BAKE.body_contact(pony)
+	if not contact.is_finite():
+		contact = frame.origin
+	var asset := BAKE.capture_asset(sk, frame, config, size_name, contact, body_scale,
+		"standing", "ground")
+	check(BAKE.serialize(asset) == FileAccess.get_file_as_string(STANDING_PATH),
+		"the shipped standing asset is the fixture + reference recipe")
+	var loader: Variant = AUTHORED.new()
+	check(str(loader.call("load_file", STANDING_PATH)).is_empty(), "the shipped asset loads")
+	check(bool(loader.call("usable", "ground")), "the shipped asset is a ground pose")
+	var reference: Dictionary = loader.get("reference")
+	var reference_config: Variant = reference.get("config", {})
+	check(reference_config == config, "the asset reference config equals the recipe")
+	check((loader.get("variants") as Dictionary).is_empty(), "the standing asset ships no variants")
+
+	var original := pony.transform
+	var anchor_world: Transform3D = loader.call("anchor_world", frame)
+	var support := float(loader.call("support"))
+	var canon := {}
+	var worst_pos := 0.0
+	var worst_deg := 0.0
+	for size: float in SIZES:
+		pony.transform.basis = original.basis * Basis.from_scale(Vector3.ONE * size)
+		sk.reset_bone_poses()
+		sk.force_update_all_bone_transforms()
+		check(bool(loader.call("apply_pony", sk, 1.0, frame, size, "canon")),
+			"the asset applies at %.2f" % size)
+		sk.force_update_all_bone_transforms()
+		var root := AUTHORED.root_bone(sk)
+		check(absf(sk.get_bone_global_pose(root).basis.determinant() - 1.0) <= 0.001,
+			"the skeleton-space root stays orthonormal at %.2f" % size)
+		var hips := sk.find_bone("pony_hips")
+		var hips_world: Vector3 = sk.global_transform * sk.get_bone_global_pose(hips).origin
+		var lift := float(loader.call("body_lift", frame, size))
+		check(absf(hips_world.x - anchor_world.origin.x) <= 0.0001
+			and absf(hips_world.z - anchor_world.origin.z) <= 0.0001,
+			"the hips stay over the anchor at %.2f" % size)
+		check(absf(hips_world.y - (anchor_world.origin.y + lift)) <= 0.0001,
+			"the hips ride the contact lift at %.2f" % size)
+		var placed_contact: Vector3 = loader.call("place_origin",
+			loader.call("contact_world", frame), frame, size)
+		check(absf(placed_contact.y - (frame.origin.y + support)) <= 0.0001,
+			"the contact stays on the support at %.2f" % size)
+		var local := {}
+		for name: String in PONY_BONES:
+			var bone := sk.find_bone(name)
+			if bone >= 0:
+				local[name] = sk.get_bone_pose(bone)
+		if canon.is_empty():
+			canon = local
+			continue
+		for name: String in canon:
+			var a: Transform3D = canon[name]
+			var b: Transform3D = local[name]
+			worst_pos = maxf(worst_pos, a.origin.distance_to(b.origin))
+			var qa := a.basis.orthonormalized().get_rotation_quaternion().normalized()
+			var qb := b.basis.orthonormalized().get_rotation_quaternion().normalized()
+			worst_deg = maxf(worst_deg, rad_to_deg(qa.angle_to(qb)))
+	check(worst_pos <= 0.002, "the body positions are size-invariant: %.5f m" % worst_pos)
+	check(worst_deg <= 0.5, "the body rotations are size-invariant: %.4f deg" % worst_deg)
+	pony.transform = original
+	root.remove_child(pony)
+	pony.free()
+
+
+func _find_skeleton(node: Node) -> Skeleton3D:
+	for child: Node in node.find_children("*", "Skeleton3D", true, false):
+		return child as Skeleton3D
+	return null
+
+
+## Puts the fixture's settled local poses on the rig.
+func _load_fixture(sk: Skeleton3D, fixture: Dictionary) -> void:
+	sk.reset_bone_poses()
+	var bones: Variant = fixture.get("bones", {})
+	if bones is Dictionary:
+		for name: Variant in (bones as Dictionary):
+			var bone := sk.find_bone(str(name))
+			var pose_value: Variant = str_to_var(str((bones as Dictionary)[name]))
+			if bone >= 0 and pose_value is Transform3D:
+				sk.set_bone_pose(bone, pose_value)
+	sk.force_update_all_bone_transforms()
 
 
 ## A bare rig with the 30 body bones and the joints the standing recipe needs.

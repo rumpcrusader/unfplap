@@ -69,10 +69,14 @@ func run() -> void:
 	_check_begin_refused()
 	_check_standing_begin()
 	_check_bed_frame()
+	_check_ground_frame()
 	_check_bones()
 	_check_diagnostics()
+	_check_standing_asset()
+	_check_missing_standing_asset()
 	_check_stretch()
 	_check_render_write()
+	_check_standing_render_write()
 	_check_effective_paths()
 	_check_state_machine()
 	_check_oral_edge()
@@ -268,6 +272,14 @@ func _check_standing_begin() -> void:
 		"camera_position": Vector3.INF,
 	}), "the standing begin succeeds")
 	check(not session.bed_frame_source_saved, "a standing begin saves no bed frame source")
+	check(session.ground_frame is Transform3D, "the standing begin captures the ground frame")
+	check(session.ground_frame_source_saved, "the standing begin saves the ground frame source")
+	check(session.pose_node.authored != null and bool(session.pose_node.authored.get("available")),
+		"the standing begin installs the standing asset")
+	check(not session.standing_reference().is_empty(),
+		"the standing begin captures the reference")
+	check((session.standing_reference().get("bones") as Dictionary).size() >= 1,
+		"the reference carries the local bone poses")
 	check(session.view().family == "standing" and session.view().pose_state == VIEW.STEADY,
 		"the standing begin fills the view")
 	session.release_pose()
@@ -307,6 +319,74 @@ func _check_bed_frame() -> void:
 	bed.free()
 	root.remove_child(pony)
 	pony.free()
+
+
+func _check_ground_frame() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var start: Transform3D = session.ground_frame
+	var basis_before := start.basis
+	pony.global_position += Vector3(1.0, 0.0, -0.5)
+	session.sync_ground_frame()
+	check((session.ground_frame as Transform3D).origin.is_equal_approx(
+		start.origin + Vector3(1.0, 0.0, -0.5)), "the ground frame follows the root")
+	pony.rotate_y(0.5)
+	session.sync_ground_frame()
+	check(not (session.ground_frame as Transform3D).basis.is_equal_approx(basis_before),
+		"the ground frame follows the root yaw")
+	var still: Transform3D = session.ground_frame
+	session.sync_ground_frame()
+	check((session.ground_frame as Transform3D).is_equal_approx(still),
+		"a still root leaves the frame alone")
+	session.release_pose()
+	check(session.ground_frame == null, "the release clears the ground frame")
+	check(session.standing_reference().is_empty(), "the release clears the reference")
+	_free_live(made)
+
+
+## The standing session resolves its own asset and reports the authored base.
+func _check_standing_asset() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	check(str(session.base_info().get("asset_path", "")) == "poses/standing_pose.json",
+		"the standing session names the standing asset")
+	check(session.authored_ready(), "the standing asset is ready")
+	check(str(session.base_info().get("base", "")) == "authored",
+		"the standing base is the authored asset")
+	_free_live(made)
+
+
+## A missing standing asset is refused, and the shared cache is put back for the other suites.
+func _check_missing_standing_asset() -> void:
+	var made := _session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var key := AUTHORED.resolve("poses/standing_pose.json")
+	var saved: Variant = AUTHORED._shared.get(key)
+	var broken: Variant = AUTHORED.new()
+	AUTHORED._shared[key] = broken
+	check(not session.authored_ready(), "a missing standing asset is not ready")
+	check(str(session.authored_reason()).begins_with("pose_asset: "),
+		"the reason names the missing asset")
+	if saved != null:
+		AUTHORED._shared[key] = saved
+	else:
+		AUTHORED._shared.erase(key)
+	root.remove_child(pony)
+	pony.free()
+
+
+## The standing render write reaches the pose evaluator after the stretch and frame syncs.
+func _check_standing_render_write() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	session.pose_node.amount = 1.0
+	session.pose_node.target_amount = 1.0
+	session.render_write({"eye_camera_active": true})
+	check(str(session.pose_node.get("diag_last_base")) == "authored",
+		"the standing render write reaches apply_render")
+	_free_live(made)
 
 
 func _check_bones() -> void:
@@ -349,7 +429,8 @@ func _check_diagnostics() -> void:
 	check(near(session.basis_amount(), 0.0), "a missing pose has no weight")
 	var info: Dictionary = session.base_info()
 	check(str(info.get("base", "")) == "none", "the base is none outside a missionary act")
-	check(str(info.get("reason", "")).begins_with("pose="), "the reason names the pose")
+	check(str(info.get("reason", "")) == "no ground frame",
+		"the reason names the missing ground frame")
 	var rows: Array = session.state_rows(0)
 	check(rows.size() >= 3, "the state rows carry the base, frame and scale")
 	check(str(rows[0]).contains("pose=standing"), "the state row names the pose")
@@ -773,6 +854,7 @@ func _check_oral_edge() -> void:
 	session.oral_kiss = func() -> void: kisses.append(true)
 	var from: Vector3 = pony.global_position
 	var from_basis: Basis = pony.global_transform.basis.orthonormalized()
+	var frame_start: Transform3D = session.ground_frame
 	var forward: Dictionary = session.request_pose(CATALOG.STANDING_ORAL, "oral",
 		{"act_state": 2, "consent": "oral", "features": {"anatomy_oral": true}})
 	check(bool(forward.get("ok", false)), "the oral forward request is accepted")
@@ -803,6 +885,9 @@ func _check_oral_edge() -> void:
 		"the oral turn moves her toward the mirrored anchor")
 	check(view.facing_amount > 0.0 and view.facing_amount < 1.0,
 		"the oral turn publishes its eased facing")
+	session.sync_ground_frame()
+	check(not (session.ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
+		"the oral turn moves the ground frame")
 	session.tick(0.45)
 	check(view.contact_kind == "mouth", "the contact switches to the mouth at 0.9")
 	check(session.request_command(ACT_COMMANDS.ORAL), "the oral lock allows oral")
@@ -864,6 +949,9 @@ func _check_oral_edge() -> void:
 		"the reverse clears the facing amount")
 	check(pony.global_transform.basis.orthonormalized().is_equal_approx(from_basis),
 		"the reverse restores the captured facing")
+	session.sync_ground_frame()
+	check((session.ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
+		"the reverse returns the ground frame")
 	check(not session.pose_config.has("oral_pitch") and not view.to_config.has("oral_pitch"),
 		"the reverse erases the oral keys")
 	check(session.pose_node.mode == POSE.MODE_SINGLE

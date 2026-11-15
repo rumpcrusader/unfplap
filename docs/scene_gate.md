@@ -66,14 +66,16 @@ A `start` gate adds the final scene rows; an `offer` gate uses the offer-safe su
 | `nav_owner` | both | the navigator owner is compatible with the pose/source |
 | `nav_pose` | start | the pose is standable (standing) or the lying/cradle path is allowed |
 | `stool` | both | a `scene.stool` pose has enough footstools (provider callbacks) |
-| `pose_asset` / `pose_rig` | both, bed pose | the authored pose loaded and the rig has its bones |
+| `pose_asset` / `pose_rig` | both, bed or ground pose | the authored pose loaded and the rig has its bones |
 | `bed` / `bed_occupied` / `bed_gate` | both / both / start | a `scene.requires_bed` pose resolves a free bed and the bed-side/cradle conditions hold |
 | `standing_free` | offer, standing | she is not held and not seated |
 | `pose` | offer, not offerable | the pose is internal or unknown, so it cannot be offered |
 
 The footstool rule lives in the per-act handle `stool/act.gd` (`docs/stool.md`); the rows reach it
 through the runtime's `stool_needed_count` / `stool_case_count` forwards. The pose rows reach the
-pose session facade.
+pose session facade. `pose_asset`/`pose_rig` are emitted for a bed pose and for a ground pose: the
+candidate's own `asset` is resolved through its `base` chain, and a missing or frame-mismatched
+asset refuses the start. The ground family has no procedural fallback.
 
 ### Bed size
 

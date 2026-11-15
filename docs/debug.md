@@ -72,6 +72,9 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 - **Reset act history** clears the stored row; **Force neglect warning/stop** act on the live act
   and are consumed on the next unpaused frame.
 - **Force act face** cycles the base-game faces; see `docs/face.md`.
+- **Reload posed base** re-reads the active pose's authored JSON in place; a running act picks it
+  up on its next frame. With no live act it re-reads the default missionary asset. See
+  `docs/poses.md`.
 - **Bake standing base** is a Debug-block button with no hotkey: it writes the settled standing
   reference captured at `begin()` to `user://unfplap/standing_reference.json` for
   `tools/pose_bake.gd`. It refuses outside a live standing act, before the capture, during an edge

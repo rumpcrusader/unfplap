@@ -307,8 +307,26 @@ func _check_resolution() -> void:
 	check(str(service.call("_effective_asset", child)) == "poses/missionary_pose.json",
 		"a base-chain row inherits the asset")
 	var standing_asset := str(service.call("asset_for", SPECS.STANDING))
-	check(standing_asset.is_empty() or standing_asset.ends_with("standing_pose.json"),
-		"the standing row has its own asset or none yet")
+	check(standing_asset == "poses/standing_pose.json", "the standing row declares its asset")
+	check(str(service.call("asset_for", SPECS.STANDING_TEST)) == standing_asset,
+		"standing_test inherits the standing asset")
+	check(str(service.call("asset_for", SPECS.STANDING_ORAL)) == standing_asset,
+		"standing_oral inherits the standing asset")
+	var shipped: Variant = AUTHORED.shared(standing_asset)
+	check(bool(shipped.get("available")), "the standing asset loads: %s" % str(shipped.get("error")))
+	check(int(shipped.get("version")) == 7, "the standing asset is v7")
+	check(str(shipped.get("space")) == AUTHORED.SPACE_LOCAL_REST, "local_rest space")
+	check(str(shipped.get("frame")) == "ground", "the standing asset is a ground pose")
+	check(int(shipped.get("rig_bones")) == 30, "the standing rig is 30 bones")
+	check((shipped.get("pony_bones") as Dictionary).size() == 30, "30 body deltas")
+	var anchor: Dictionary = shipped.get("anchor")
+	check(str(anchor.get("bone", "")) == "pony_hips", "the anchor is the hips")
+	check((anchor.get("contact", Vector3.INF) as Vector3).is_finite(), "the contact is finite")
+	check(near(float(anchor.get("support", -1.0)), 0.0), "the ground support is zero")
+	check((shipped.get("variants") as Dictionary).is_empty(), "v1 ships no variants")
+	var reference: Dictionary = shipped.get("reference")
+	var ref_config: Dictionary = reference.get("config", {})
+	check(ref_config.size() == 6, "the reference config has the six keys")
 
 
 ## The version 6 migration fixture: it loads, applies, and is refused for a ground view.

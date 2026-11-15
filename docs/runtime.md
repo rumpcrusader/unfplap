@@ -115,7 +115,8 @@ failed start runs the same function and restores only what it took.
 - `_physics_process`: `_physics_tick(delta)` — the pose tick, the facts sync, the pose fan-out, the
   act timer, the readiness tick, the dialogue service, the history scan, the tolerance, the scene
   keep-alives, the anatomy tick, the thrust tracker and the presentation modules (wings and mod
-  integrations). The pose tick advances the oral turn and the edge's switches and events; the
+  integrations). `_sync_pose_frame()` follows the bed or the pony root ground frame before the
+  render write. The pose tick advances the oral turn and the edge's switches and events; the
   anatomy tick only reads the resulting contact.
 - `_physics_tick` times `_pose_service().tick(delta)` as the `pose_tick` chunk before the first
   `_sync_act_facts()` in every phase above `IDLE`, then times the fixed-order `_pose_fanout()` as
@@ -123,8 +124,10 @@ failed start runs the same function and restores only what it took.
   `act_body`/`anon` channel), then camera, hands, kiss, anatomy and audio. An edge keeps ticking
   through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still follows the first facts sync and runs
   no pose tick or fan-out.
-- `_process`: `_process_tick(delta)` — the render-time pose write (which also watches the standing
-  stretch toggle), the camera lean and motion, the climax wave, the breath, the face and the HUD.
+- `_process`: `_process_tick(delta)` — the render-time pose write after every game writer (the bed
+  family places its Anon body and eye camera; the standing family syncs its stretch holder and
+  ground frame and writes the same pose), the camera lean and motion, the climax wave, the breath,
+  the face and the HUD.
 - `main._process` calls `active_runtime.apply_camera_motion()` every rendered frame. Keep this
   single owner.
 - Do not merge these timing domains blindly. The pose/camera timing is in `docs/poses.md` and

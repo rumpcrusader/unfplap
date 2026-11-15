@@ -1,5 +1,11 @@
 extends RefCounted
-## Standing (Standing) skeleton recipe.
+## Standing skeleton recipe and the baked-base delta. Contract: `docs/poses.md`.
+##
+## The v7 standing asset carries the game's settled standing reference with this recipe applied at
+## `reference_config()`. In the act the asset is the base; the recipe applies only the live-setting
+## difference from the reference, so the default stance is exactly the baked pose and a changed
+## setting adds only its delta. `apply_reference()` stays the full recipe for the bake and the
+## parity baseline and is never called by the shipped runtime.
 
 const STANDING_BOW := 2.4
 const STANDING_FORELEG := 2.0
@@ -43,25 +49,38 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	apply_overlay(rig, sk, weight, state)
 
 
-## The stance: the bow, the foreleg bend and spread, the hind spread and the neck/chin curve. False
-## while the external stretch holder owns the body; the two-base form then skips this side's delta.
+## The baked base: the v7 asset plus the live-setting difference from its reference. False when the
+## asset or the ground frame is unavailable, or while the external stretch holder owns the body;
+## the shipped act never falls back to the procedural stance.
 func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	_config = state.get("config", {})
 	if bool(state.get("stretch", false)):
 		return false
-	_stance(rig, sk, weight)
+	var authored: Variant = state.get("authored")
+	var frame: Variant = state.get("ground_frame")
+	if authored == null or not frame is Transform3D or not bool(authored.get("available")):
+		return false
+	authored.call("apply_pony", sk, weight, frame, float(state.get("body_scale", 1.0)),
+		str(state.get("size_name", "")))
+	_apply_difference(rig, sk, weight)
 	return true
 
 
-## The full stance: the bow, foreleg bend and spread, hind spread and the neck/chin curve.
-func _stance(rig, sk: Skeleton3D, weight: float) -> void:
-	_bow(rig, sk, weight, _value("bow", STANDING_BOW))
-	_bend_forelegs(rig, sk, weight, _value("foreleg", STANDING_FORELEG))
-	_spread_fore(rig, sk, weight, _value("foreleg_spread", STANDING_FORELEG_SPREAD))
-	_spread_hind(rig, sk, weight, _value("hind_spread", STANDING_HIND_SPREAD))
+## The live settings as deltas from the reference. At defaults every delta is zero and the baked
+## pose is untouched.
+func _apply_difference(rig, sk: Skeleton3D, weight: float) -> void:
+	var reference := reference_config()
+	_bow(rig, sk, weight, _value("bow", float(reference["bow"])) - float(reference["bow"]))
+	_bend_forelegs(rig, sk, weight,
+		_value("foreleg", float(reference["foreleg"])) - float(reference["foreleg"]))
+	_spread_hind(rig, sk, weight,
+		_value("hind_spread", float(reference["hind_spread"])) - float(reference["hind_spread"]))
 	_chin_neck(rig, sk, weight,
-		_value("chin_up_deg", STANDING_CHIN_UP_DEG),
-		_value("neck_down_deg", STANDING_NECK_DOWN_DEG))
+		_value("chin_up_deg", float(reference["chin_up_deg"])) - float(reference["chin_up_deg"]),
+		_value("neck_down_deg", float(reference["neck_down_deg"]))
+			- float(reference["neck_down_deg"]))
+	_spread_fore(rig, sk, weight,
+		_value("foreleg_spread", float(reference["foreleg_spread"])))
 
 
 ## The moveable neck overlay: the head-back lift. The oral neck swing is the oral row's procedural
@@ -72,6 +91,18 @@ func apply_overlay(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> voi
 	var head_back := float(state.get("head_back", 0.0))
 	if head_back > 0.001:
 		_raise_head(rig, sk, weight * head_back)
+
+
+## The full stance: the bow, foreleg bend and spread, hind spread and the neck/chin curve. Bake and
+## parity only; the live path applies the reference recipe once at capture time.
+func _stance(rig, sk: Skeleton3D, weight: float) -> void:
+	_bow(rig, sk, weight, _value("bow", STANDING_BOW))
+	_bend_forelegs(rig, sk, weight, _value("foreleg", STANDING_FORELEG))
+	_spread_fore(rig, sk, weight, _value("foreleg_spread", STANDING_FORELEG_SPREAD))
+	_spread_hind(rig, sk, weight, _value("hind_spread", STANDING_HIND_SPREAD))
+	_chin_neck(rig, sk, weight,
+		_value("chin_up_deg", STANDING_CHIN_UP_DEG),
+		_value("neck_down_deg", STANDING_NECK_DOWN_DEG))
 
 
 func _value(key: String, fallback: float) -> float:
@@ -101,9 +132,9 @@ func _bend_forelegs(rig, sk: Skeleton3D, weight: float, scale: float) -> void:
 		rig.rotate(sk, int(leg.lower), axis, 0.10 * weight * scale)
 
 
-## `target` is the absolute outward half-angle from the body centreline. Measuring the current
-## hoof line first keeps the default placement unchanged while still allowing wider/narrower
-## stance values.
+## `target` is the absolute outward half-angle from the body centreline. Measuring the current hoof
+## line first keeps the baked placement unchanged while still allowing wider/narrower stance
+## values: the reference value adds zero, a changed value adds only the difference.
 func _spread_fore(rig, sk: Skeleton3D, weight: float, target: float) -> void:
 	if rig.fore.size() < 2:
 		return

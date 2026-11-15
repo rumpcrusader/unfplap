@@ -98,29 +98,39 @@ var _selected: Dictionary = {}
 var _parse_bad := ""
 
 
-## The one parsed instance for a path.
+## The one parsed instance for a path. A pose row's `poses/...` path is resolved against the mod.
 static func shared(path := PATH) -> Variant:
-	if not _shared.has(path):
+	var resolved := resolve(path)
+	if not _shared.has(resolved):
 		var made: Variant = load("res://mods/unfplap/poses/authored_pose.gd").new()
-		made.call("load_file", path)
-		_shared[path] = made
-	return _shared[path]
+		made.call("load_file", resolved)
+		_shared[resolved] = made
+	return _shared[resolved]
 
 
 ## Re-reads a pose file in place, so a live pose modifier sees the new pose at once. Returns "" or
 ## the reason the file could not be used.
 static func reload_file(path := PATH) -> String:
-	if not _shared.has(path):
-		var made: Variant = shared(path)
+	var resolved := resolve(path)
+	if not _shared.has(resolved):
+		var made: Variant = shared(resolved)
 		return "" if bool(made.get("available")) else str(made.get("error"))
-	return str(_shared[path].call("load_file", path))
+	return str(_shared[resolved].call("load_file", resolved))
+
+
+## Resolves a spec row's `poses/...` asset path against the mod root; a `res://` or `user://` path
+## is used as given.
+static func resolve(path: String) -> String:
+	if path.begins_with("res://") or path.begins_with("user://"):
+		return path
+	return "res://mods/unfplap/" + path.lstrip("/")
 
 
 ## Re-reads a pose file in place. `path` is the asset path; the shipped assets are under `poses/`.
 ## Returns "" or the reason the file was unusable.
 func load_file(path_in := PATH) -> String:
 	revision += 1
-	path = path_in
+	path = resolve(path_in)
 	_reset()
 	if not FileAccess.file_exists(path):
 		error = "no pose at %s" % path

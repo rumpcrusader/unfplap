@@ -888,6 +888,22 @@ func authored_reason(candidate := "") -> String:
 	return ""
 
 
+## Re-read the active pose's asset in place, or the default missionary asset when no pose is live.
+## A running act picks the new pose up on its next frame.
+func reload_authored(candidate := "") -> String:
+	var path := _asset_path_for(candidate)
+	if path.is_empty():
+		path = AUTHORED.PATH
+	var load_error := AUTHORED.reload_file(path)
+	if not load_error.is_empty():
+		return load_error
+	if is_instance_valid(pose_node):
+		var asset: Variant = _asset_for(candidate)
+		if asset != null:
+			pose_node.authored = asset
+	return ""
+
+
 ## The middle of the missionary bed's mattress top: the authored pose's origin in world space.
 func missionary_origin() -> Vector3:
 	if bed_frame is Transform3D:
@@ -928,6 +944,22 @@ func sync_bed_frame() -> void:
 	bed_frame_source = now
 	if is_instance_valid(pose_node):
 		pose_node.bed_frame = bed_frame
+
+
+## The ground frame follows the pony root's position and rotation each tick, the way the bed frame
+## follows its bed. The oral turn moves the root, so the frame turns with her exactly once.
+func sync_ground_frame() -> void:
+	if str(_view.frame) != "ground" or not is_instance_valid(pony) \
+			or not ground_frame_source_saved or not ground_frame is Transform3D:
+		return
+	var now: Transform3D = (pony as Node3D).global_transform
+	if now.is_equal_approx(ground_frame_source):
+		return
+	var delta: Transform3D = now * ground_frame_source.affine_inverse()
+	ground_frame = delta * (ground_frame as Transform3D)
+	ground_frame_source = now
+	if is_instance_valid(pose_node):
+		pose_node.ground_frame = ground_frame
 
 
 ## Snapshot before the act changes her posture or the pose writes bones.
@@ -1391,8 +1423,13 @@ func render_write(context: Dictionary) -> void:
 		return
 	var family := str(_view.family)
 	if family == "standing":
-		# The live stretch toggle is watched here, after every physics and process writer.
+		# Same order as the bed family: the live stretch toggle, the ground frame, then the pose
+		# write after every physics and process writer of the frame.
 		sync_stretch()
+		sync_ground_frame()
+		var standing_sk: Variant = pony.get("skeleton")
+		if is_instance_valid(pose_node) and standing_sk is Skeleton3D:
+			apply_render(standing_sk as Skeleton3D)
 		return
 	if family != "bed":
 		return

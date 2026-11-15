@@ -124,13 +124,13 @@ class FakePose extends RefCounted:
 	var reason := ""
 	var missing: Array = []
 
-	func authored_ready() -> bool:
+	func authored_ready(_pose := "") -> bool:
 		return ready
 
-	func authored_reason() -> String:
+	func authored_reason(_pose := "") -> String:
 		return reason if not reason.is_empty() else "pose_asset"
 
-	func rig_missing() -> Array:
+	func rig_missing(_pose := "") -> Array:
 		return missing
 
 	func rig_reason(_miss: Array) -> String:
@@ -544,6 +544,8 @@ func _check_profiles() -> void:
 	var bed: Node3D = made["bed"]
 	var standing: Array = gate.call("rows", "standing", "", null, "start", false)
 	check(_row_ok(standing, "pose_profile"), "the public standing profile passes")
+	check(_row_ok(standing, "pose_asset") and _row_ok(standing, "pose_rig"),
+		"the ground pose carries the asset and rig rows")
 	check(_row_ok(standing, "pose_form") and _row_ok(standing, "pose_view"),
 		"standing supports the default human desktop")
 	check(_has_row(standing, "stool"), "the standing scene block carries the stool row")

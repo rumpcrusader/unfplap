@@ -937,6 +937,14 @@ func standing_reference_json() -> String:
 	return _pose_service().reference_json()
 
 
+## Re-read the active pose's authored asset in place. The debug action uses this; a running act
+## sees the new file on its next frame.
+func reload_pose_asset() -> String:
+	var view := pose_view()
+	var candidate := str(view.id) if view != null else ""
+	return _pose_service().reload_authored(candidate)
+
+
 ## One pose request. The runtime supplies the act values; the session refuses or starts the edge.
 func request_pose(target_id: String, trigger := "", context: Dictionary = {}) -> Dictionary:
 	var request := context.duplicate()
@@ -1263,7 +1271,7 @@ func _process_tick(delta: float) -> void:
 		_standing_presentation_controller().process()
 		return
 	_sync_act_facts()
-	_sync_bed_pose_frame()
+	_sync_pose_frame()
 	_pose_render_write()
 	_idle_pose_sample()
 	_standing_camera_controller().clamp_look()
@@ -1387,7 +1395,7 @@ func _physics_tick(delta: float) -> void:
 		force_stop()
 		return
 	_cycle_heat = cycle_phase() == CYCLE.HEAT
-	_sync_bed_pose_frame()
+	_sync_pose_frame()
 	if pony.sleeping:
 		pony.sleeping = false
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
@@ -2233,8 +2241,11 @@ func free_look_rotation() -> Vector3:
 	return rotation if rotation is Vector3 else Vector3.ZERO
 
 
-func _sync_bed_pose_frame() -> void:
-	_pose_service().sync_bed_frame()
+func _sync_pose_frame() -> void:
+	if _pose_family() == "bed":
+		_pose_service().sync_bed_frame()
+	else:
+		_pose_service().sync_ground_frame()
 
 
 ## The new-act prep: run the one pose teardown first so a pose left from the offer cannot stack,
@@ -3872,6 +3883,7 @@ func _pose_render_write() -> void:
 	_pose_service().render_write({
 		"bed_frame": _pose_session.bed_frame,
 		"body_scale": _body_scale_value(),
+		"size_name": _act_facts.size_name,
 		"eye_camera_active": _act_camera.free_camera_active \
 			and str(SETTINGS.camera_mode.get_value()) == "eye",
 	})

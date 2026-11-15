@@ -423,7 +423,7 @@
     {
       "service": "scene_gate",
       "func": "rig_missing",
-      "signature": "func rig_missing() -> Array:"
+      "signature": "func rig_missing(pose := \"\") -> Array:"
     },
     {
       "service": "scene_gate",

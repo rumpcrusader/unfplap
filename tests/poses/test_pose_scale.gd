@@ -40,6 +40,15 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 
 func run() -> void:
+	_check_v6()
+	_check_v7()
+	print("POSE_SCALE_RESULT checks=%d failures=%d" % [checks, failures])
+	if failures == 0:
+		print("POSE_SCALE_PASS")
+	quit(0 if failures == 0 else 1)
+
+
+func _check_v6() -> void:
 	# Hand-built pose, so the test does not depend on the shipped file's numbers.
 	var pose := AUTHORED.new()
 	pose.available = true
@@ -70,7 +79,45 @@ func run() -> void:
 	check(near(root_pose.basis.determinant(), 1.0),
 		"root basis is orthonormal: %.4f" % root_pose.basis.determinant())
 
-	_finish()
+
+## A synthetic v7 asset: the hips anchor and the contact place the root at every size, the contact
+## stays on the support and the skeleton-space root pose stays orthonormal.
+func _check_v7() -> void:
+	var pose := AUTHORED.new()
+	pose.available = true
+	pose.version = 7
+	pose.space = AUTHORED.SPACE_LOCAL_REST
+	pose.frame = "ground"
+	pose.anchor = {
+		"bone": "pony_hips",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.5, 0.0)),
+		"contact": Vector3(0.0, -0.5, 0.0),
+		"support": 0.0,
+	}
+	pose.root = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.5, 0.0))
+	pose.pony_bones = {}
+	for name: String in PONY_BONES:
+		pose.pony_bones[name] = {"rotation": Quaternion.IDENTITY, "position": Vector3.ZERO}
+	var frame := Transform3D(Basis(Vector3.UP, 0.8), Vector3(2.0, 0.0, -1.0))
+	var anchor_local: Transform3D = pose.anchor["transform"]
+	var anchor := (frame * anchor_local).origin
+	for scale: float in [1.0, 1.35, 1.7, 2.3]:
+		var sk := _skeleton(scale)
+		check(bool(pose.call("apply_pony", sk, 1.0, frame, scale, "canon")),
+			"the v7 asset applies at %.2f" % scale)
+		var hips := sk.find_bone("pony_hips")
+		var hips_world: Vector3 = sk.global_transform * sk.get_bone_global_pose(hips).origin
+		var lift := float(pose.call("body_lift", frame, scale))
+		check(near(hips_world.x, anchor.x) and near(hips_world.z, anchor.z),
+			"the hips stay over the anchor at %.2f" % scale)
+		check(near(hips_world.y, anchor.y + lift),
+			"the hips ride the lift at %.2f" % scale)
+		var contact: Vector3 = pose.call("place_origin", pose.call("contact_world", frame),
+			frame, scale)
+		check(near(contact.y, frame.origin.y), "the contact stays on the support at %.2f" % scale)
+		var root := AUTHORED.root_bone(sk)
+		check(near(sk.get_bone_global_pose(root).basis.determinant(), 1.0, 0.0001),
+			"the v7 root pose is orthonormal at %.2f" % scale)
 
 
 func _skeleton(scale: float) -> Skeleton3D:
@@ -93,10 +140,3 @@ func _apply(pose: Variant, sk: Skeleton3D) -> Vector3:
 		sk.global_transform.basis.get_scale().x)), "apply_pony")
 	var hips := sk.find_bone("pony_hips")
 	return sk.global_transform * sk.get_bone_global_pose(hips).origin
-
-
-func _finish() -> void:
-	print("POSE_SCALE_RESULT checks=%d failures=%d" % [checks, failures])
-	if failures == 0:
-		print("POSE_SCALE_PASS")
-	quit(0 if failures == 0 else 1)

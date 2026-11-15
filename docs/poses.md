@@ -9,15 +9,15 @@ the caress paths and palm holders are `docs/hands.md`. The pose tuning rows are 
 ## Ownership
 
 `poses/service.gd` is the pose session facade. It owns the skeleton pose modifier, the authored
-missionary base, the bed frame and its follow, the extra modifiers (tail, tail lay, body sway,
-prone sway, ear twitch), the pony bone snapshots, the pose rig check, the pose diagnostics and the
-pose-scope teardown steps. The runtime owns the act state, the start ordering and the one teardown
+bases, the bed and ground frames and their follow, the extra modifiers (tail, tail lay, body sway,
+prone sway, ear twitch), the pony bone snapshots, the pose rig check, the pose diagnostics, the
+standing reference capture and the pose-scope teardown steps. The runtime owns the act state, the start ordering and the one teardown
 ledger; it binds the session and reads its `pose()`, `pose_config` and `bed_frame` directly.
 Presentation modules read the same values from `shared/act_facts.gd`.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads a
-pose spec row's `asset` document (version 7 with the version 6 migration path); the missionary row
-owns `poses/missionary_pose.json` and a base row supplies the asset to its internal inheritors.
+pose spec row's `asset` document (version 7 with the version 6 migration path); the missionary and
+standing rows own their files and a base row supplies the asset to its internal inheritors.
 `poses/oral_turn.gd` is the pose-owned standing oral actor/frame turn
 and `poses/standing_oral_recipe.gd` its procedural delta. `shared/pose_catalog.gd` owns the pose ids
 and the `POSE_KEYS` schema; the shipped per-pose values live under `default.poses` in
@@ -263,7 +263,9 @@ and starts an authored edge only on a request; the debug pair's player-visible p
 `poses/service.gd` owns the live state machine, one running `Run` and the target snapshot.
 `begin()` enters `ENTERING`, fills the start view and settles `STEADY`; `release_pose()` exits
 through `EXITING` to `IDLE`; the pose-scope leave steps keep `STEADY`. A failed `begin()` leaves the
-state unchanged.
+state unchanged. For a ground view, `begin()` captures the pony root's ground frame and the
+standing reference before it installs the modifier; `leave_pose_start()` and `release_pose()` clear
+both. `sync_ground_frame()` follows the root's position and rotation each tick.
 
 `request_pose(target_id, trigger, context)` returns the `PoseResult` `{ok, code, edge, reason}`. It
 checks the target against the act phase, the player's form/view, the edge requirements and the edge
@@ -375,7 +377,8 @@ delta.
 The single fast path is the same effective driver and delta with equal configs. It calls the
 driver's `apply()` with the pose ramp (`smoothstep(amount)`), exactly as the one-recipe node did, so
 the begin ramp, the normal missionary and standing acts, the stretch early return and the
-diagnostics are unchanged. A pose that carries a delta uses `apply_base()` → `apply_delta()` →
+diagnostics are unchanged. A standing `apply_base()` reads `authored` and `ground_frame` from the
+state and returns false without them; the shipped act never falls back to the procedural stance. A pose that carries a delta uses `apply_base()` → `apply_delta()` →
 `apply_overlay()` in that order; `standing_oral`'s settled pose runs that form with the standing
 driver and the oral recipe. The debug `standing ↔ standing_test` pair takes the single fast path:
 both effective drivers are the standing driver, both deltas are empty and the target snapshot is
@@ -470,6 +473,10 @@ keeps no start id of its own.
   - `up = sk.global_basis.inverse() * pony.global_basis.y`
   - `forward = sk.global_basis.inverse() * -pony.global_basis.z`
 - `up` is world gravity, not the pony's rolled dorsal axis.
+- `bed_frame` is the live mattress top and the bed's axes; it follows a moving bed. `ground_frame`
+  is the pony root's orthonormal basis and position at pose start, and it follows the root's
+  position and yaw each physics tick. A ground asset is authored in that frame; the bed and the
+  ground never mix.
 - Never use raw world axes for bone posing.
 - `pony_head.basis.z` is **not** the face axis. The head must not be rotated by straight-chain
   alignment; keep it in the bone list only as a direction target for `pony_neck2`. The head
@@ -647,9 +654,13 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
 - `poses/ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.
-- Base pose adds `chin_up_deg = 30` on the head and `neck_down_deg = 15` total on neck1/neck2.
-- `foreleg_spread = 0.172 rad` is the absolute outward half-angle; the recipe measures the
-  current hoof line and rotates the upper arms only by the difference.
+- The standing base is the v7 asset `poses/standing_pose.json`, baked from the game's settled
+  standing reference with `apply_reference()` at the effective reference config. The live recipe
+  applies only the difference from that reference; the default stance is the baked pose.
+- `chin_up_deg` and `neck_down_deg` come from the presentation block, and their effective defaults
+  are the presentation values. `foreleg_spread` is the absolute outward half-angle; the recipe
+  measures the **baked** hoof line, so the reference value adds zero and a changed value adds only
+  the difference.
 - Tail aside/lift/flick on the hair skeleton; side randomized per act.
   `presentation.standing.tail.yaw_deg` (aside) and `pitch_deg` (lift) are the live amounts, in
   degrees. A damped spring driven by raw `depth` also rocks the
@@ -738,10 +749,11 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 - `runtime._process`: view-depth travel, lean, climax wave, breath, look point, pose climax flag.
   `_process_tick` calls `poses/service.gd`'s `render_write()`, which owns the render-time order:
-  park the game presentation and place the act's Anon body, write her pose, then the eye-shot
-  camera tick. It then calls `camera/service.gd`'s `write_look_target()`, which owns the look
-  point (the missionary gaze, the kissing-mouth blend and the authored-Anon fallback) and the
-  pose's kiss and climax weights.
+  for the bed family, park the game presentation and place the act's Anon body, write her pose, then
+  the eye-shot camera tick; for the standing family, watch the stretch holder, sync the ground
+  frame and write her pose after every game writer. It then calls `camera/service.gd`'s
+  `write_look_target()`, which owns the look point (the missionary gaze, the kissing-mouth blend and
+  the authored-Anon fallback) and the pose's kiss and climax weights.
 - `runtime._physics_process`: presentation, timers, facing lock, glances,
   auto-cuddle suppression.
 - `main._process`: calls `active_runtime.apply_camera_motion()` every rendered frame.
@@ -785,7 +797,7 @@ steps or the act exit; it retargets through `pose_changed(view)` and leaves the 
 
 | Step | Scope | Owner |
 |---|---|---|
-| `leave_pose_start()` | pose: rig-check cache, tail lay, bed frame | the session |
+| `leave_pose_start()` | pose: rig-check cache, tail lay, bed/ground frame, standing reference | the session |
 | `clear_presentation()` | act | the runtime |
 | `end_lean_action` | act service, pose-local sub-state | the camera |
 | `hands.reset()` | act service, pose-local sub-state | the hands |
@@ -799,14 +811,14 @@ steps or the act exit; it retargets through `pose_changed(view)` and leaves the 
 | `reactions.end_act()` | act | the reactions |
 | `release_pose()` | pose: final clear, act body | the session |
 
-- `leave_pose_start()` — the rig-check cache, `tail_lay` and the bed frame. It keeps the pose node,
-  the modifiers, `pose_config` and the view.
+- `leave_pose_start()` — the rig-check cache, `tail_lay`, the bed frame, the ground frame and the
+  standing reference. It keeps the pose node, the modifiers, `pose_config` and the view.
 - `leave_pose_body()` — the external Idle Life stretch holder and the extra modifiers
   (`body_sway`, `prone_sway`, `ear_twitch`). It keeps the pose node, the standing tail,
   `pose_config` and the view.
 - `release_pose()` — the final clear: the act body (after the anatomy handle is cleared), the pose
   node and the standing tail, the act identity, the features, the live config, the rig caches, the
-  bed frame and the view. Safe to repeat.
+  bed and ground frames, the standing reference and the view. Safe to repeat.
 
 The runtime calls the two leave steps and the final release at their table positions, with the
 act-scope resets between them. `release_pose()` is called only from `_free_pose()`. `_end_session()`
@@ -860,11 +872,12 @@ unchanged.
   anchor/contact placement at four sizes, variants and the spec `asset` resolution; the v6 fixture
   and the v6 ground refusal.
 - `tests/poses/test_pose_bake.gd` — the bake capture/compare math on a synthetic rig, the
-  deterministic writer and its fixture-path refusal; the shipped asset freshness and four-size
-  parity once it exists.
+  deterministic writer and its fixture-path refusal, and the shipped standing asset's freshness,
+  four-size body parity, contact, anchor and reference config.
 - `tests/poses/test_body_sway.gd` — the regular depth sway, the zeroed oral hold and the release.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
-- `tests/poses/test_pose_scale.gd` — uniform scale and rest-scale ownership.
+- `tests/poses/test_pose_scale.gd` — the v6 uniform scale, the v7 anchor/contact placement at four
+  sizes and the rest-scale ownership.
 - `tests/poses/test_rotation.gd` — body-relative axes and the rotation helpers.
 - `tests/poses/test_pose_view.gd` — defaults, the filled view, the transition fields, the live
   mirrors and the reused clear.

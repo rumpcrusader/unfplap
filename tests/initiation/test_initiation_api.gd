@@ -116,6 +116,7 @@ class FakeDirector extends Node:
 class FakeRuntime extends Node:
 	var pony: Node3D
 	var state := 0
+	var present_ok := true
 	var presented := false
 	var face_on := false
 	var stretch_clears := 0
@@ -142,6 +143,8 @@ class FakeRuntime extends Node:
 		return phase
 
 	func present_standing() -> bool:
+		if not present_ok:
+			return false
 		presented = true
 		return true
 
@@ -340,8 +343,8 @@ func run() -> void:
 	target.global_position = Vector3.ZERO
 	director.greet_ok = true
 
-	# A closed start gate after the settled presentation closes the accepted offer instead of
-	# inviting her.
+	# A closed start gate after the settled presentation no longer closes the accepted offer: the
+	# act key runs the detailed gate and the invitation waits for its own timeout.
 	initiation.reset()
 	game.mares = [target]
 	runtime.phase = "normal"
@@ -353,9 +356,33 @@ func run() -> void:
 	initiation.tick(0.0)
 	check(runtime.presented, "the settled presentation starts with a closed start gate")
 	initiation.tick(0.0)
-	check(not runtime.presented and not runtime.face_on,
-		"the closed start gate closes the accepted offer before the invite")
+	check(runtime.presented and runtime.face_on,
+		"the closed start gate keeps the accepted offer alive")
+	check(initiation.start_offer() != null,
+		"the blocked start gate still hands the live offer to the act key")
+	initiation.tick(0.0)
+	check(runtime.presented, "the sticky invitation keeps waiting")
 	runtime.start_ok = true
+	initiation.tick(0.0)
+	check(runtime.presented and initiation.start_offer() != null,
+		"a reopened start gate keeps the same accepted offer")
+
+	# One failed presentation attempt retries inside the accept window instead of closing.
+	initiation.reset()
+	game.mares = [target]
+	runtime.presented = false
+	runtime.present_ok = false
+	director.state = "idle"
+	initiation.force(runtime, CATALOG.STANDING)
+	director.transcript.emit("yes")
+	initiation.tick(0.0)
+	check(not runtime.presented, "a failed presentation attempt does not present")
+	check(initiation.start_offer() == null, "a pending presentation is not startable")
+	runtime.present_ok = true
+	initiation.tick(0.0)
+	check(runtime.presented, "the presentation retries after a transient failure")
+	check(director.queued.size() > 0 and director.queued[-1].ends_with(":invite"),
+		"the retried presentation queues the invitation")
 
 	# The typed force result replaces the side-channel reason.
 	var missing: INIT.ForceResult = initiation.force(null)

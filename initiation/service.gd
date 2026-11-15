@@ -109,6 +109,8 @@ class Episode extends RefCounted:
 	var line_until := 0.0
 	var invite_started := 0.0
 	var invite_queued := false
+	## The last logged start-gate readiness of the invitation. A false value never closes it.
+	var invite_start_ok := true
 	var accepted_at := 0.0
 	var represent_count := 0
 	var bed_approach_started := 0.0
@@ -1112,12 +1114,18 @@ func _tick_present() -> void:
 		var line_done := _ask_line_done(pony)
 		if not line_done and _now() < _episode.line_until:
 			return
-		_episode.present_pending = false
-		_episode.present_until = _now() + POLICY.PRESENT_TURN_TIMEOUT_S
-		if not runtime.has_method("present_standing") or not bool(runtime.call("present_standing")):
+		var present_now := _now()
+		if not runtime.has_method("present_standing") \
+				or not bool(runtime.call("present_standing")):
+			if present_now < _episode.line_until:
+				# A transient affection, cuddle or eligibility blip: retry while the accept
+				# window lasts instead of losing an offer the player already accepted.
+				return
 			_debug("request accept present failed %s" % _episode.id)
 			_cancel_episode(false, "accept present failed")
 			return
+		_episode.present_pending = false
+		_episode.present_until = present_now + POLICY.PRESENT_TURN_TIMEOUT_S
 		_debug("request present %s line_done=%s" % [_episode.id, str(line_done)])
 	if not bool(runtime.call("presentation_active")):
 		if _represent_or_cancel("presentation lost"):
@@ -1162,10 +1170,8 @@ func _tick_invite() -> void:
 		if not _player_in_bed(_episode.bed):
 			_cancel_episode(false, "invite left bed")
 			return
-		if not bool(runtime.call("can_show_start", CATALOG.MISSIONARY, _episode.source,
-				_episode.bed)):
-			_cancel_episode(true, "invite can_show_start false")
-			return
+		_note_invite_start(bool(runtime.call("can_show_start", CATALOG.MISSIONARY,
+			_episode.source, _episode.bed)))
 		if _now() - _episode.invite_started >= POLICY.INVITE_TIMEOUT_S:
 			_invite_give_up()
 		return
@@ -1183,11 +1189,21 @@ func _tick_invite() -> void:
 			> POLICY.ASK_RANGE_CANCEL_M:
 		_cancel_episode(false, "invite player moved")
 		return
-	if not bool(runtime.call("can_show_start", CATALOG.STANDING, "", null)):
-		_cancel_episode(true, "invite can_show_start false")
-		return
+	_note_invite_start(bool(runtime.call("can_show_start", CATALOG.STANDING, "", null)))
 	if _now() - _episode.invite_started >= POLICY.INVITE_TIMEOUT_S:
 		_invite_give_up()
+
+
+## A transient start-gate failure must not close an accepted offer. The readiness change is
+## logged once; the act key's own failed-row log names the detailed reasons.
+func _note_invite_start(ready: bool) -> void:
+	if _episode == null or _episode.invite_start_ok == ready:
+		return
+	_episode.invite_start_ok = ready
+	if ready:
+		_debug("request invite ready %s" % _episode.id)
+	else:
+		_debug("request invite blocked %s" % _episode.id)
 
 
 ## A movement or other action can still break the idle pose. Re-present twice before ending
@@ -1221,18 +1237,14 @@ func _invite_valid(serial: int) -> bool:
 	if not is_instance_valid(pony) or not is_instance_valid(runtime):
 		return false
 	if _episode.pose == CATALOG.MISSIONARY:
-		if not _player_in_bed(_episode.bed):
-			return false
-		return bool(runtime.call("can_show_start", CATALOG.MISSIONARY, _episode.source,
-			_episode.bed))
+		return _player_in_bed(_episode.bed)
 	if not bool(runtime.call("presentation_active")):
 		return false
 	var player: Node3D = _venue.player()
 	if not is_instance_valid(player):
 		return false
-	if player.global_position.distance_to(pony.global_position) > POLICY.ASK_RANGE_CANCEL_M:
-		return false
-	return bool(runtime.call("can_show_start", CATALOG.STANDING, "", null))
+	return player.global_position.distance_to(pony.global_position) \
+		<= POLICY.ASK_RANGE_CANCEL_M
 
 
 # --------------------------------------------------------------------------- consent

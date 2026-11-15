@@ -126,7 +126,7 @@ One episode at a time. Each phase waits on its own condition:
 | `PRESENT` | the runtime's presentation and its settled check; a turn that never settles closes instead of inviting (`5 s` cap) | `INVITE` |
 | `BED_LEAD` | the bed front; `25 s` cap | `BED_WAIT` |
 | `BED_WAIT` | Anon reclined on the offered bed and the native rest accepting her | `INVITE` |
-| `INVITE` | the act key, a lost presentation/bed, or `60 s` | closed, with a give-up line on timeout |
+| `INVITE` | the act key, a lost presentation/bed, or `60 s`; a transient start gate waits | closed, with a give-up line on timeout |
 
 Timers come only from `initiation/policy.gd`; `tests/initiation/test_policy.gd` locks every value.
 
@@ -267,9 +267,16 @@ The standing invitation waits for `presentation_settled()`; the `5 s` presentati
 queues an invitation while she is still turning. If movement breaks the present, the controller
 re-presents twice before ending an offer the player already accepted. The invitation is queued
 once and is valid only while the phase is still `present`, `invite` or `bed_wait`, the
-presentation/bed state holds and `can_show_start()` passes. A `60 s` invitation timeout queues one
-short give-up line and closes with the full cooldown. A standing act start is refused while the
-presentation is active and unsettled, so an act-key press cannot take her body mid-turn.
+presentation/bed state holds and Anon is in range; the start gate is not part of the line's
+validity. A `60 s` invitation timeout queues one short give-up line and closes with the full
+cooldown. A standing act start is refused while the presentation is active and unsettled, so an
+act-key press cannot take her body mid-turn.
+
+An accepted offer is a promise, so a transient start-gate failure never closes it. Readiness
+changes are logged once (`request invite blocked ...` / `request invite ready ...`), the act key's
+failed-row log names the reasons, and the `60 s` timeout is the bound. A standing presentation
+attempt that fails once is retried inside the `ACCEPT_LINE_TIMEOUT_S` window; only a presentation
+still failing at the window's end closes the offer.
 
 ### Accepted offer handoff
 

@@ -1,6 +1,6 @@
 extends SceneTree
-## Pure eligibility policy: adults, Promiscuity, willingness, the start button mode, history, cycle and
-## per-mare consent. No world or user:// file is touched.
+## Pure eligibility policy: adults, Promiscuity, willingness, the start button mode, history, cycle,
+## the relationship bypass and per-mare consent. No world or user:// file is touched.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility.gd
 
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
@@ -192,6 +192,45 @@ func run() -> void:
 		facts({"willing": false, "history": {"blocks_start": true}}), "start")
 	check(bool(both_refusals.history_refuse) and bool(both_refusals.buck_refuse),
 		"a withdrawn and unwilling mare keeps both refusal routes; history is checked first")
+
+	# The relationship bypass opens all four relationship gates: the Promiscuity floor, romance
+	# eligibility, kiss willingness and act history. Structural and consent gates stay closed.
+	var bypass := POLICY.evaluate(facts({
+		"ignore_gates": true, "promiscuity": "soulmates", "love_level": 0,
+		"romance_eligible": false, "willing": false,
+		"history": {"blocks_start": true, "blocks_offers": true, "hurt": 6},
+	}), "start")
+	check(bool(bypass.base), "the bypass opens the base relationship rows")
+	check(bool(bypass.show) and bool(bypass.attempt),
+		"the bypass shows and starts for any adult mare")
+	check(bool(bypass.offer), "the bypass lets a blocked history offer")
+	check(not bool(bypass.buck_refuse) and not bool(bypass.history_refuse),
+		"the bypass removes both refusal routes")
+	check(not bool(bypass.stop), "the bypass keeps a mid-act check going")
+	check(POLICY.base_ok(facts({"ignore_gates": true, "romance_eligible": false,
+		"promiscuity": "soulmates", "love_level": 0})), "base_ok honors the bypass")
+	var bypass_row: Dictionary = {}
+	for row: Variant in bypass.rows:
+		if row is Dictionary and str((row as Dictionary).get("key", "")) == "bypass":
+			bypass_row = row
+	check(bool(bypass_row.get("ok", false)) and str(bypass_row.get("effect", "")) == "flag",
+		"the bypass row is a passing flag")
+	var bypass_unregistered := POLICY.evaluate(
+		facts({"ignore_gates": true, "registered_adult": false}), "start")
+	check(not bool(bypass_unregistered.show), "the bypass keeps the adult registration row")
+	var bypass_no_relationship := POLICY.evaluate(
+		facts({"ignore_gates": true, "has_relationship": false}), "start")
+	check(not bool(bypass_no_relationship.show), "the bypass needs a relationship runtime")
+	var bypass_opt_out := POLICY.evaluate(
+		facts({"ignore_gates": true, "participation": {"acts": false}}), "start")
+	check(not bool(bypass_opt_out.show) and not bool(bypass_opt_out.offer),
+		"the bypass keeps the participation veto")
+	var bypass_cold := POLICY.evaluate(
+		facts({"ignore_gates": true, "cycle_allows": false, "cycle_phase": "diestrus"}), "start")
+	check(not bool(bypass_cold.show) and not bool(bypass_cold.offer) and bool(bypass_cold.stop),
+		"the bypass keeps the estrus cycle")
+	var bypass_filly := POLICY.evaluate(facts({"ignore_gates": true, "is_filly": true}), "start")
+	check(not bool(bypass_filly.show), "the bypass never makes a filly a target")
 
 	var cold := POLICY.evaluate(facts({"cycle_allows": false, "cycle_phase": "diestrus"}), "start")
 	check(not bool(cold.show), "diestrus hides the hint")

@@ -320,6 +320,7 @@
 		}
 	},
 	"relationship": {
+		"ignore_gates": false,
 		"promiscuity": "marefriend",
 		"sex_start": "try_luck"
 	},

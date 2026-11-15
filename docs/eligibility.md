@@ -17,6 +17,7 @@ This contract covers:
 - base-game kiss willingness (`bonds.welcomes(id, "kiss")`);
 - history withdrawal and offer blocks;
 - the estrus cycle sex gate;
+- the relationship bypass;
 - per-mare public, anal and oral consent;
 - the start hint, start attempt, buck refusal and history refusal;
 - proactive offer eligibility and offer weight;
@@ -43,8 +44,8 @@ The purity boundary is deliberate:
 - `eligibility/service.gd` is read-only. It never saves settings, history or consent.
 - Only `eligibility/service.gd` reads `bonds.welcomes`, `bonds.adults`,
   `bonds.eligible_for_romance`, `SETTINGS.promiscuity`, `SETTINGS.sex_start`,
-  `SETTINGS.consent` for a gate, `ACT_HISTORY.blocks_start/blocks_offers/
-  offer_weight` or `CYCLE.allows_sex`.
+  `SETTINGS.ignore_gates`, `SETTINGS.consent` for a gate, `ACT_HISTORY.blocks_start`,
+  `ACT_HISTORY.blocks_offers`, `ACT_HISTORY.offer_weight` or `CYCLE.allows_sex`.
 - `shared/act_history.gd`, `shared/cycle.gd`, `shared/consent.gd` and
   `shared/participation.gd` remain the authorities for their own data. Eligibility only composes
   their resolved results.
@@ -177,7 +178,7 @@ assertion wins over the identity flag in both directions.
 ```text
 id, has_identity, is_player_pony, is_filly, is_stallion, eligible, participation,
 has_relationship, registered_adult, romance_eligible, stage, love_level, willing,
-promiscuity, sex_start, public_feature, player_young, player_pony,
+ignore_gates, promiscuity, sex_start, public_feature, player_young, player_pony,
 cycle_phase, cycle_allows, heat, history, consent
 ```
 
@@ -211,7 +212,7 @@ offer_weight: float
 facts: Facts
 actions: Actions       # public, public_offer, anal, oral
 relations: Relations   # id, stage, love_level, willing,
-                       # promiscuity, sex_start, cycle_phase, heat, base
+                       # promiscuity, sex_start, cycle_phase, heat, ignore_gates, base
 rows: Array[Row]       # key, ok, reason, effect
 ```
 
@@ -228,8 +229,8 @@ Rows and effects:
 | `offer_block` | start may be allowed; no proactive offer |
 | `flag` | public/privacy flag; never a failure |
 
-Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`, `participation`,
-`relation`, `cycle`, `history`, `history_offers`, `public`.
+Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`, `bypass`,
+`participation`, `relation`, `cycle`, `history`, `history_offers`, `public`.
 
 ## Modes and truth table
 
@@ -255,6 +256,9 @@ Rules:
 - `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a
   buck, a history refusal or a mood note. It is a boundary, not a mood beat.
 - `show` and `attempt` are separate. Try Your Luck shows the hint while `attempt` is false.
+- With the relationship bypass on, the four relationship rows (`promiscuity`, `romance`, `relation`,
+  `history`) are passed and `buck_refuse`/`history_refuse` are false; `show`, `attempt` and `offer`
+  still need the remaining rows.
 
 ## Offer hint snapshot
 
@@ -331,6 +335,29 @@ Soulmates 4, Head Over Hooves 3, Marefriend/Coltfriend 2, New Couple 1, Crush 0,
 
 An unknown value falls back to Marefriend. `Any Adult` skips only this floor; adulthood,
 relationship runtime and romance eligibility still apply.
+
+## Relationship bypass
+
+`relationship.ignore_gates` (**I just want to plap!**, General) is the one switch that opens every
+relationship-based row. `eligibility/service.gd` reads it once per snapshot into
+`facts.ignore_gates`; the policy then treats these four rows as passed:
+
+- `promiscuity`: the Promiscuity floor;
+- `romance`: `bonds.eligible_for_romance`;
+- `relation`: `bonds.welcomes(id, "kiss")`, which also removes `buck_refuse`;
+- `history`: `blocks_start` and `blocks_offers`, which also removes `history_refuse` and lets a
+  blocked history offer. The offer weight falls back to the rule's base weight with the row's
+  comfort credit kept; the stored history is never written.
+
+`stop` follows the same rows, so a mid-act relationship change no longer withdraws her. The
+verdict gains a passing `bypass` flag row while the switch is on.
+
+It never opens the structural or boundary rows: adulthood and the provider assertion,
+`has_relationship`, `registered_adult`, the adult player, `participation.acts`, per-mare consent,
+the estrus cycle, privacy and every live scene row still decide. A bypassed mare keeps her stored
+history, so summaries and prompt wording may still mention it, and a Strict tolerance stop still
+ends the act and bucks (`docs/readiness.md`). The LLM has no gate either way: a generated line can
+say no, but nothing parses act lines for consent.
 
 ## Kiss willingness
 
@@ -430,8 +457,8 @@ contract is `docs/initiation.md`.
 
 ## Debug
 
-- `runtime.debug_line()` prints `show`, `attempt`, `offer`, `buck`, `history`, the policy rows and
-  the relation facts. It does not re-derive the gate.
+- `runtime.debug_line()` prints `show`, `attempt`, `offer`, `buck`, `history`, `ignore`, the policy
+  rows and the relation facts. It does not re-derive the gate.
 - `Verdict.rows_text()` returns the same policy view without scene rows.
 - The Debug actions **Trigger bed offer** and **Trigger standing offer** use the same service.
 - The Debug actions **Force/Clear heat** and **Force/Clear diestrus** feed `cycle_phase`; Clear
@@ -465,10 +492,11 @@ contract is `docs/initiation.md`.
 
 - `tests/eligibility/test_eligibility.gd`: the pure truth table, the one adulthood predicate,
   capability targets, witness age, Promiscuity, willingness, Show start button, history, cycle,
-  public/anal/oral, participation and row effects.
+  public/anal/oral, participation, the relationship bypass and row effects.
 - `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `witness_age()`, typed
   facts and verdict, capability targets, the no-stable-id boundary, the profile consent, the
-  provider layer through `set_profile()`/`get_profile()` and clear/setup lifecycle.
+  provider layer through `set_profile()`/`get_profile()`, the settings flag and clear/setup
+  lifecycle.
 - `tests/test_pony_id.gd`: the stable-id rule (metadata wins, identity fallback, no identity).
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
 - `tests/test_source_hygiene.gd`: purity, the facade-only preload rule, the single-reader rule and
@@ -491,6 +519,9 @@ contract is `docs/initiation.md`.
 - The base game changes `bonds.welcomes()` over time; a mid-act mood swing can stop the act through
   the willingness row.
 - Public consent is not a general exhibitionism gate; it is an offer privacy override.
+- The relationship bypass never writes the game's bonds, so a mare's own dialogue and the base
+  game's kiss and cuddle systems still read her real relationship. A Strict tolerance stop still
+  ends the act, bucks and calls the game's `request_space` (`docs/readiness.md`).
 - The internal API is not part of `docs/api.md`; the cross-mod `profile.mare` capability reads
   `get_profile(id)` and writes `set_profile(owner, id, profile)`. A live eligibility verdict is
   not part of the API.

@@ -175,9 +175,11 @@ are internal, never offered, and a forced request naming them is rejected rather
 to another pose.
 
 Weight is `verdict.offer_weight` from act history. Cuddle candidates are preferred outright;
-otherwise the pick is weighted. When both base poses fit a non-cuddle offer, the pose is a coin flip;
-one fitting pose is used. A bed invite walks to the bed front, not to Anon. The bed search stays
-below the `8 m` ask cancel range, so she cannot be sent to a bed outside the ask's own reach.
+otherwise the pick is weighted. A blocked history has weight `0` unless the relationship bypass is
+on, which restores the base weight (`docs/eligibility.md`, `## Relationship bypass`). When both base
+poses fit a non-cuddle offer, the pose is a coin flip; one fitting pose is used. A bed invite walks
+to the bed front, not to Anon. The bed search stays below the `8 m` ask cancel range, so she cannot
+be sent to a bed outside the ask's own reach.
 
 ## Privacy
 

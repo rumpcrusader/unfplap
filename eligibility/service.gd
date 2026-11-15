@@ -123,6 +123,7 @@ class Facts extends RefCounted:
 	var stage := ""
 	var love_level := -1
 	var willing := false
+	var ignore_gates := false
 	var promiscuity := "any"
 	var sex_start := "try_luck"
 	var public_feature := true
@@ -151,6 +152,7 @@ class Relations extends RefCounted:
 	var sex_start := ""
 	var cycle_phase := "normal"
 	var heat := false
+	var ignore_gates := false
 	var base := false
 
 
@@ -351,6 +353,7 @@ func _read_settings(out: Dictionary) -> void:
 	out["promiscuity"] = SETTINGS.promiscuity.get_choice()
 	out["sex_start"] = SETTINGS.sex_start.get_choice()
 	out["public_feature"] = SETTINGS.act_public_offer.get_bool()
+	out["ignore_gates"] = SETTINGS.ignore_gates.get_bool()
 
 
 func _read_player(out: Dictionary) -> void:
@@ -376,14 +379,24 @@ func _read_history(id: String, out: Dictionary) -> void:
 		return
 	var row: Dictionary = ACT_HISTORY.effective_row(ACT_HISTORY.section(), id,
 		ACT_HISTORY.day_now())
+	var bypass := bool(out.get("ignore_gates", false))
 	out["history"] = {
 		"tier": ACT_HISTORY.tier_name(row),
 		"hurt": int(row.get("hurt", 0)),
 		"comfort": int(row.get("comfort", 0)),
-		"blocks_start": ACT_HISTORY.blocks_start(row),
-		"blocks_offers": ACT_HISTORY.blocks_offers(row),
-		"offer_weight": ACT_HISTORY.offer_weight(row),
+		"blocks_start": not bypass and ACT_HISTORY.blocks_start(row),
+		"blocks_offers": not bypass and ACT_HISTORY.blocks_offers(row),
+		"offer_weight": _history_offer_weight(row, bypass),
 	}
+
+
+## History's block flags are a relationship gate. The bypass ignores them, and a blocked row
+## offers at the rule's own base weight with its comfort credit kept; the stored row is untouched.
+## See `docs/eligibility.md` (`## Relationship bypass`).
+func _history_offer_weight(row: Dictionary, bypass: bool) -> float:
+	if not bypass:
+		return ACT_HISTORY.offer_weight(row)
+	return ACT_HISTORY.offer_weight({"hurt": 0, "comfort": int(row.get("comfort", 0))})
 
 
 ## The identity half of the snapshot. `eligible()` and `witness_age()` build only this block, so a
@@ -418,6 +431,7 @@ func _typed_facts(data: Dictionary) -> Facts:
 	out.stage = str(data.get("stage", ""))
 	out.love_level = int(data.get("love_level", -1))
 	out.willing = bool(data.get("willing", false))
+	out.ignore_gates = bool(data.get("ignore_gates", false))
 	out.promiscuity = str(data.get("promiscuity", "any"))
 	out.sex_start = str(data.get("sex_start", "try_luck"))
 	out.public_feature = bool(data.get("public_feature", true))
@@ -452,6 +466,7 @@ func _typed_relations(policy: Dictionary) -> Relations:
 	out.sex_start = str(data.get("sex_start", ""))
 	out.cycle_phase = str(data.get("cycle_phase", "normal"))
 	out.heat = bool(data.get("heat", false))
+	out.ignore_gates = bool(data.get("ignore_gates", false))
 	out.base = bool(data.get("base", false))
 	return out
 

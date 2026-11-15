@@ -25,6 +25,9 @@ const STYLE := preload("res://world/ui/menu_style.gd")
 ## a dropdown, which cannot overflow the card.
 const MOST_PILLS := 4
 const PILL_LABEL_CHARS := 18
+## General's last player rows, in draw order: the relationship bypass sits directly above
+## Enable debug, which governs the Debug blocks. Both are drawn after the tab's sections.
+const GENERAL_TAIL := ["ignore_gates", "debug_mode"]
 
 ## Injected pages, the Debug block of each tab, and the guard that keeps the game's own sidebar
 ## buttons from fighting the injected tab.
@@ -286,13 +289,15 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, se
 		if setting != null and setting.group.is_empty():
 			loose.append(setting)
 	# Enable debug is the last player row of General: it governs the Debug block every section
-	# ends with. Hold it out of the top run and draw it after the sections below.
+	# ends with, and the relationship bypass sits just above it. Hold both out of the top run and
+	# draw them after the sections below, in `GENERAL_TAIL` order.
 	var tail: Array = []
 	if tab == SETTINGS.GENERAL and prefix.is_empty():
-		for index: int in range(loose.size() - 1, -1, -1):
-			if (loose[index] as SETTINGS.Setting).name == "debug_mode":
-				tail.append(loose[index])
-				loose.remove_at(index)
+		for name: String in GENERAL_TAIL:
+			for index: int in range(loose.size() - 1, -1, -1):
+				if (loose[index] as SETTINGS.Setting).name == name:
+					tail.append(loose[index])
+					loose.remove_at(index)
 	if not loose.is_empty():
 		var loose_rows := VBoxContainer.new()
 		loose_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -342,10 +347,10 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, se
 		else:
 			for raw: Variant in _settings_in(settings, group):
 				_add_row(rows, raw as SETTINGS.Setting, font_size, page, changed)
-	for raw: Variant in tail:
-		if list.get_child_count() > 0:
+	for index: int in tail.size():
+		if index == 0 and list.get_child_count() > 0:
 			list.add_child(HSeparator.new())
-		_add_row(list, raw as SETTINGS.Setting, font_size, page, changed)
+		_add_row(list, tail[index] as SETTINGS.Setting, font_size, page, changed)
 
 
 ## The six missionary geometry settings are per pony size. One dropdown picks which size is edited;

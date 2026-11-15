@@ -39,7 +39,9 @@ against `PLAYER_FORM.active()` and the headset view. An unknown or internal pose
 `start_verdict()` and `offer_verdict()` accept a `verdict_in` policy snapshot. The idle hint
 supplies the runtime's cached `Mode.START` verdict this way (`docs/eligibility.md`); the gate still
 builds and evaluates every live scene row on every call. The stool-blocked hint reuses that same
-gate result through `runtime.stool_blocks_verdict()` instead of running the start gate twice.
+gate result through `runtime.stool_blocks_verdict()` instead of running the start gate twice. An
+accepted proactive offer still calls the same `start_verdict()` and does not bypass a scene row;
+the request handoff only changes hint discovery (`docs/initiation.md`).
 
 ## Row sets
 

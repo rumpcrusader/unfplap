@@ -34,6 +34,7 @@ func run() -> void:
 	check(POLICY.APPROACH_TIMEOUT_S == 35.0, "the walk has 35 s")
 	check(POLICY.PLAYER_MOVE_CANCEL_M == 5.0, "Anon moving 5 m cancels the walk")
 	check(POLICY.ASK_RANGE_CANCEL_M == 8.0, "the ask cancels past 8 m")
+	check(POLICY.PENDING_START_RANGE_M == 3.0, "an accepted offer starts within 3 m")
 	check(POLICY.PRIVACY_RADIUS_M == 30.0, "privacy looks 30 m out")
 	check(POLICY.PROMPT_1_S == 12.0, "the first reminder is at twelve seconds")
 	check(POLICY.PROMPT_2_S == 24.0, "the second reminder is at twenty-four seconds")

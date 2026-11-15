@@ -545,6 +545,27 @@ func _refresh_offer() -> void:
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var pony_form: bool = PLAYER_FORM.is_pony(form)
 
+	# The request service's accepted offer owns the hint while it lives. It is already a yes, so
+	# the rump fan must not be needed to rediscover it; the live gate still decides the hint.
+	var live := _live_request_offer()
+	if not live.is_empty():
+		var live_runtime: Variant = live.get("runtime")
+		if not is_instance_valid(live_runtime):
+			return
+		var live_gate: Dictionary = live_runtime.call("hint_start_verdict",
+			str(live.get("pose", "")), str(live.get("source", "")), live.get("bed"))
+		if bool(live_gate.get("show", false)):
+			_offer = live
+			_log_offer()
+			return
+		if bool(live_runtime.call("stool_blocks_verdict", live_gate)):
+			var live_need := maxi(1, int(live_runtime.call("stool_needed_count")))
+			var live_hint := _stool_hint_for(live_need)
+			_offer_blocked = {"runtime": live_runtime, "pony": live.get("pony"),
+				"need": live_need, "hint": live_hint}
+			_log_blocked_offer(live_runtime, live.get("pony"), live_need)
+		return
+
 	# Missionary now requires Anon to be seated/lying on the bed with a pony lying there. A
 	# standing or cradling Anon has no valid missionary camera, so that entry is not offered.
 	if not pony_form and is_instance_valid(player) and player.get("seat") != null:
@@ -751,19 +772,36 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 			hud.call("toast", _stool_find_hint(need), 4.0)
 
 
+## The request service's live accepted offer, in the idle hint's `_offer` shape. Empty when none.
+func _live_request_offer() -> Dictionary:
+	if not is_instance_valid(initiation) or not initiation.has_method("start_offer"):
+		return {}
+	var live: Variant = initiation.call("start_offer")
+	if live == null:
+		return {}
+	var pony: Variant = live.get("pony")
+	var runtime: Variant = live.get("runtime")
+	if not is_instance_valid(pony) or not is_instance_valid(runtime):
+		return {}
+	return {"runtime": runtime, "pony": pony, "pose": str(live.get("pose", "")),
+		"source": str(live.get("source", "")), "bed": live.get("bed"), "pending": true}
+
+
 func _log_offer() -> void:
 	if _offer.is_empty():
 		return
 	var target: Variant = _offer.get("pony")
-	var key := "%s:%s:%s" % [
+	var pending := bool(_offer.get("pending", false))
+	var key := "%s:%s:%s:%s" % [
 		str(target.name) if is_instance_valid(target) else "?",
-		str(_offer.get("pose", "")), str(_offer.get("source", ""))]
+		str(_offer.get("pose", "")), str(_offer.get("source", "")), str(pending)]
 	if key == _last_offer_key:
 		return
 	_last_offer_key = key
-	_debug("OFFER pony=%s pose=%s source=%s bed=%s" % [
+	_debug("OFFER pony=%s pose=%s source=%s bed=%s pending=%s" % [
 		str(target.name) if is_instance_valid(target) else "?",
-		str(_offer.get("pose", "")), str(_offer.get("source", "")), str(_offer.get("bed"))])
+		str(_offer.get("pose", "")), str(_offer.get("source", "")), str(_offer.get("bed")),
+		str(pending)])
 
 
 func debug_target(view: Camera3D) -> Node:
@@ -809,6 +847,12 @@ func try_start() -> bool:
 	if is_instance_valid(active_runtime):
 		return false
 	_refresh_offer()
+	if _offer.is_empty() and _offer_blocked.is_empty():
+		# A stale policy snapshot can hide the accepted offer. Use the live episode anyway; the
+		# fresh start gate below still decides whether the act may start.
+		var live := _live_request_offer()
+		if not live.is_empty():
+			_offer = live
 	if _offer.is_empty():
 		if not _offer_blocked.is_empty():
 			if is_instance_valid(hud) and hud.has_method("toast"):
@@ -823,23 +867,58 @@ func try_start() -> bool:
 	var source := str(_offer.get("source", ""))
 	var pose := str(_offer.get("pose", ""))
 	var bed = _offer.get("bed")
-	if is_instance_valid(initiation) and is_instance_valid(target):
-		initiation.cancel_for(target)
+	# The gate runs before the request handoff: a transient refusal must leave the accepted offer
+	# and its hint intact, because the player can fix the condition and press again.
 	var gate: Dictionary = runtime.call("start_verdict", pose, source, bed)
 	if bool(gate.get("history_refuse", false)):
+		_cancel_request_offer(target)
 		runtime.call("refuse_from_history", pose, source, bed)
-		_offer = {}
-		if is_instance_valid(hud):
-			hud.hide_prompt()
+		_clear_offer_hint()
 		return true
+	if not bool(gate.get("attempt", false)):
+		if bool(gate.get("buck_refuse", false)):
+			_cancel_request_offer(target)
+			runtime.call("start", pose, bed, source, gate)
+			_clear_offer_hint()
+			return false
+		_log_start_blocked(gate, pose, source, target)
+		return false
+	_cancel_request_offer(target)
 	var started: bool = bool(runtime.call("start", pose, bed, source, gate))
 	if started:
 		if is_instance_valid(classifier):
 			classifier.call("cancel_scope", "dialogue:")
-		_offer = {}
-		if is_instance_valid(hud):
-			hud.hide_prompt()
+	else:
+		_debug("start failed pose=%s source=%s pony=%s" % [
+			pose, source, str(target.name) if is_instance_valid(target) else "?"])
+	_clear_offer_hint()
 	return started
+
+
+## Close the live request episode before a start or refusal that owns the pony. A missing target
+## or service is a no-op.
+func _cancel_request_offer(target: Variant) -> void:
+	if is_instance_valid(initiation) and is_instance_valid(target):
+		initiation.cancel_for(target)
+
+
+func _clear_offer_hint() -> void:
+	_offer = {}
+	if is_instance_valid(hud):
+		hud.hide_prompt()
+
+
+## Name the failed start-gate rows for a press that keeps the accepted offer alive.
+func _log_start_blocked(gate: Dictionary, pose: String, source: String, target: Variant) -> void:
+	var failed: PackedStringArray = []
+	var rows: Variant = gate.get("rows", [])
+	if rows is Array:
+		for row: Variant in rows:
+			if row is ELIGIBILITY.Row and not (row as ELIGIBILITY.Row).ok:
+				failed.append((row as ELIGIBILITY.Row).reason)
+	_debug("start blocked pose=%s source=%s pony=%s reasons=%s" % [
+		pose, source, str(target.name) if is_instance_valid(target) else "?",
+		",".join(failed) if not failed.is_empty() else "none"])
 
 
 ## Debug Actions entries (`DEBUG_ACTIONS.ACTIONS`). The offer helper forces a proactive request for

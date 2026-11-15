@@ -216,6 +216,7 @@ func run() -> void:
 	check(runtime.face_on, "the private standing ask arms the request face")
 	check(context.keys.size() == 1 and context.keys[0].ends_with(":situation"),
 		"the ask records one situation")
+	check(initiation.start_offer() == null, "an ask is not startable before it is accepted")
 
 	# A local yes waits for the ask line to finish, then presents and queues the invitation.
 	director.state = "speaking"
@@ -223,6 +224,8 @@ func run() -> void:
 	check(not runtime.presented, "a private yes waits for the offer line")
 	initiation.tick(0.0)
 	check(not runtime.presented, "a speaking offer still waits")
+	check(initiation.start_offer() == null,
+		"the accepted offer is not startable before the presentation")
 	check(context.keys.size() == 2 and context.keys[1].ends_with(":accepted"),
 		"an accepted situation is recorded")
 	director.state = "idle"
@@ -231,6 +234,18 @@ func run() -> void:
 	check(director.queued.size() == 1, "the presentation queues one invitation")
 	check(director.queued[0].begins_with("unfplap:request:rarity:")
 		and director.queued[0].ends_with(":invite"), "the invitation key names the request")
+
+	# The accepted offer hands its live shape to the act key, independent of the rump fan.
+	var live: INIT.StartOffer = initiation.start_offer()
+	check(live != null and live.pose == CATALOG.STANDING and live.source.is_empty(),
+		"the accepted standing offer is startable")
+	check(live != null and live.pony == target, "the start offer names the mare")
+	target.global_position = Vector3(4.0, 0.0, 0.0)
+	check(initiation.start_offer() == null, "an accepted offer past 3 m is not startable")
+	target.global_position = Vector3(1.732, 0.0, 1.0)
+	check(initiation.start_offer() != null,
+		"the live offer does not need the rump fan or its angle")
+	target.global_position = Vector3.ZERO
 
 	# The queued ask key uses the same shape when the greeting cannot open the line.
 	initiation.reset()

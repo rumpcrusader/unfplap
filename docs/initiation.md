@@ -68,6 +68,7 @@ enum Phase { NONE, APPROACH, ARRIVE, ASK, PRESENT, INVITE, BED_APPROACH, BED_LEA
 class Candidate:   id, runtime, pony, pose, source, bed, rest, front, private, cuddle,
                    bed_invite, weight, forced
 class Episode:     serial, phase, candidate fields, timers, consent/reply/nav blocks
+class StartOffer:  runtime, pony, pose, source, bed
 class ForceResult: ok, id, pose, reject
 
 func setup(main_node: Node) -> void
@@ -75,10 +76,13 @@ func tick(delta: float) -> void
 func reset() -> void
 func cancel_for(pony: Node) -> void
 func force(runtime: Node, pose := "") -> ForceResult
+func start_offer() -> StartOffer
 ```
 
 `force()` is the debug/lab entry: it keeps the paused-tree bypass and the eligibility and scene
-gates, and returns the comma-joined reject reason in `ForceResult.reject`.
+gates, and returns the comma-joined reject reason in `ForceResult.reject`. `start_offer()` is the
+accepted-offer handoff `main` reads on every idle hint scan; it reuses one `StartOffer` object, so
+the caller reads it immediately.
 
 Adapters (internal, called by the facade):
 
@@ -260,6 +264,26 @@ once and is valid only while the phase is still `present`, `invite` or `bed_wait
 presentation/bed state holds and `can_show_start()` passes. A `60 s` invitation timeout queues one
 short give-up line and closes with the full cooldown. A standing act start is refused while the
 presentation is active and unsettled, so an act-key press cannot take her body mid-turn.
+
+### Accepted offer handoff
+
+An accepted private offer is handed to the act key by `start_offer()`. It answers only in
+`INVITE` and only when the presentation is settled (standing) or Anon is on the offered bed
+(missionary). The standing range is `policy.PENDING_START_RANGE_M`, not the free-standing fan.
+`main._refresh_offer()` prefers this live offer over the bed and rump-fan discovery, so the hint
+cannot name another pony while the episode lives.
+
+The handoff changes discovery only: `runtime.start_verdict()` and `runtime.start()` still run the
+full gate and start sequence, and an accepted offer cannot bypass a scene row. A failed gate
+keeps the offer:
+
+| Gate result | Action |
+|---|---|
+| history refusal | the request closes, the history line speaks, the hint clears |
+| no attempt, buck refusal | the request closes, the buck/push runs, the hint clears |
+| no attempt, no refusal | the request and hint stay; the log names the failed rows |
+| attempt | the request closes and `runtime.start()` runs |
+| attempt, start fails | the start logs it and the hint clears; the request was handed off |
 
 ## Cancellation
 

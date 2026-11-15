@@ -22,10 +22,13 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
 
 ## Start
 
-`main.try_start()` is the only act-start path. It composes the eligibility policy verdict with the
-scene rows (`docs/eligibility.md`, `docs/scene_gate.md`) and calls `runtime.start()`. The idle hint
-may reuse a per-runtime policy snapshot, but this path always builds a fresh verdict. The start
-sequence:
+`main.try_start()` is the only act-start path. It prefers the request service's live accepted offer
+(`initiation.start_offer()`) and otherwise rediscovers the free-standing fan or the bed side. It
+composes the eligibility policy verdict with the scene rows (`docs/eligibility.md`,
+`docs/scene_gate.md`) and calls `runtime.start()`. The start gate runs before the request handoff:
+a transient failed gate leaves the accepted offer and its hint alive, while a history or buck
+refusal closes them. The idle hint may reuse a per-runtime policy snapshot, but this path always
+builds a fresh verdict. The start sequence:
 
 1. re-read the identity, gate and refusal;
 2. reset the stool handle and refresh the anatomy bridge;

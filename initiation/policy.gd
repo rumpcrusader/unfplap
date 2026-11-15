@@ -18,6 +18,10 @@ const ARRIVE_WAIT_S := 2.0
 const APPROACH_TIMEOUT_S := 35.0
 const PLAYER_MOVE_CANCEL_M := 5.0
 const ASK_RANGE_CANCEL_M := 8.0
+## The accepted offer's start range, not the free-standing rump fan. It is larger than the 2 m
+## free-standing reach so the 2.8 m ask edge still starts, but small enough that the act-start
+## placement is a nudge, not a cross-room teleport.
+const PENDING_START_RANGE_M := 3.0
 const PRIVACY_RADIUS_M := 30.0
 const PROMPT_1_S := 12.0
 const PROMPT_2_S := 24.0

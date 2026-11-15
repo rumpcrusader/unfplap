@@ -67,6 +67,16 @@ class Candidate extends RefCounted:
 	var forced := false
 
 
+## The live accepted offer `main` may start with the act key. Memory only, one per episode.
+## `start_offer()` reuses one object; read it immediately and do not store it across calls.
+class StartOffer extends RefCounted:
+	var runtime: Node
+	var pony: Node3D
+	var pose := ""
+	var source := ""
+	var bed: Node
+
+
 ## One live request episode. The facade owns it and clears it on every exit; it is never stored
 ## across a world.
 class Episode extends RefCounted:
@@ -137,6 +147,7 @@ class ForceResult extends RefCounted:
 
 var main: Node
 var _episode: Episode = null
+var _start_offer := StartOffer.new()
 var _scan_clock := 0.0
 var _serial := 0
 ## id -> whether she was cuddling on the last scan.
@@ -234,6 +245,35 @@ func cancel_for(pony: Node) -> void:
 		var runtime: Variant = main.call("runtime_for", pony) if is_instance_valid(main) else null
 		if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):
 			runtime.call("clear_presentation")
+
+
+## The accepted offer the act key may start, or null. Only a private invitation whose
+## presentation (or bed) is ready is handed over; the caller runs the full start gate.
+func start_offer() -> StartOffer:
+	if _episode == null or _episode.phase != Phase.INVITE or not _episode.private:
+		return null
+	var runtime: Node = _episode.runtime
+	var pony: Node3D = _episode.pony
+	if not is_instance_valid(main) or not is_instance_valid(runtime) \
+			or not is_instance_valid(pony) or int(runtime.get("state")) != 0:
+		return null
+	if _episode.pose == CATALOG.STANDING:
+		if not bool(runtime.call("presentation_active")) \
+				or not bool(runtime.call("presentation_settled")):
+			return null
+		var player: Node3D = _venue.player()
+		if not is_instance_valid(player) \
+				or player.global_position.distance_to(pony.global_position) \
+				> POLICY.PENDING_START_RANGE_M:
+			return null
+	elif not _player_in_bed(_episode.bed):
+		return null
+	_start_offer.runtime = runtime
+	_start_offer.pony = pony
+	_start_offer.pose = _episode.pose
+	_start_offer.source = _episode.source
+	_start_offer.bed = _episode.bed
+	return _start_offer
 
 
 # --------------------------------------------------------------------------- cuddle edge and cooldown

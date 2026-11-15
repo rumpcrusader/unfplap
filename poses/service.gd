@@ -20,6 +20,7 @@ const IDLE_STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
+const ORAL_TURN := preload("res://mods/unfplap/poses/oral_turn.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -68,6 +69,9 @@ var tail_lay: Node
 var body_sway: SkeletonModifier3D
 var prone_sway: SkeletonModifier3D
 var ear_twitch: SkeletonModifier3D
+## The standing oral actor/frame turn the session owns. It preloads no scene and reads the host
+## callables below; the edge weight drives it.
+var _oral_turn: RefCounted = null
 ## The act's own Anon body on the `act_body` specs, or null on the player-body specs. The session
 ## creates, installs and frees it; the anatomy bridge only receives the opaque handle.
 var act_body: Variant = null
@@ -110,6 +114,14 @@ var hide_avatar := Callable()
 var set_act_body := Callable()
 ## The eye-shot camera tick, which must run after the render write.
 var eye_camera := Callable()
+## The oral host boundary: the mouth and opening points, the soft kiss and the speech/viseme
+## actions the edge events fire. A missing callback is a no-op.
+var mouth_point := Callable()
+var opening_point := Callable()
+var oral_kiss := Callable()
+var oral_speech_stop := Callable()
+var oral_viseme := Callable()
+var oral_status := Callable()
 
 
 func bind(host_node: Variant, pony_node: Variant) -> void:
@@ -120,6 +132,7 @@ func bind(host_node: Variant, pony_node: Variant) -> void:
 func _init() -> void:
 	_view = POSE_VIEW.new()
 	_registry = REGISTRY.new()
+	_oral_turn = ORAL_TURN.new()
 
 
 ## The one pose read model the act view carries. `begin()` fills it and `release_pose()` clears it;
@@ -149,6 +162,7 @@ func begin(context: Dictionary) -> bool:
 		return false
 	# A fresh act starts with no edge and no target snapshot; a failed begin never gets here.
 	_abort_target()
+	_oral_turn.reset()
 	_state = POSE_STATE.next(_state, "begin")
 	# A holder left from the last act is dropped without clearing the choice: a new act after an
 	# offer reuses the variant and side the offer rolled.
@@ -168,6 +182,7 @@ func begin(context: Dictionary) -> bool:
 	# act's start id. One live object: the sync merges the character's pose into `pose_config` in
 	# place, so the modifier, `facts.pose_config`, the view and the runtime share it.
 	_fill_view()
+	_view.contact_kind = _spec_contact_kind(_registry.spec(pose_id))
 	var group := str(_view.settings_group)
 	if group == CATALOG.STANDING:
 		sync_standing_config(context.get("presentation", {}))
@@ -220,6 +235,29 @@ func _fill_view() -> void:
 	_view.fill(spec, pose_config)
 
 
+## The spec row's base contact kind (`opening` for standing and missionary, `mouth` for the
+## internal oral pose). An edge switch overrides it while it runs; completion settles it here.
+func _spec_contact_kind(spec: Variant) -> String:
+	if spec == null:
+		return "none"
+	var value: Variant = spec.contact
+	return str((value as Dictionary).get("kind", "none")) if value is Dictionary else "none"
+
+
+## Point the turn at this pony and the host callbacks. Cheap field writes; the runtime re-binds
+## the session on every access, so a suite can set the callbacks after construction.
+func _bind_oral() -> void:
+	if _oral_turn == null:
+		_oral_turn = ORAL_TURN.new()
+	_oral_turn.bind(pony, mouth_point, opening_point, oral_kiss)
+
+
+## True for the authored oral pair in either direction.
+func _oral_pair(from_id: String, to_id: String) -> bool:
+	return (from_id == CATALOG.STANDING and to_id == CATALOG.STANDING_ORAL) \
+		or (from_id == CATALOG.STANDING_ORAL and to_id == CATALOG.STANDING)
+
+
 ## The spec's own driver, or its base chain's driver; `standing_test` resolves to `standing`. A
 ## missing row, an empty chain or a repeat is empty.
 func _effective_driver(spec: Variant) -> String:
@@ -237,7 +275,8 @@ func _effective_driver(spec: Variant) -> String:
 	return ""
 
 
-## The procedural delta path; empty for every A3.4 pose. A5's oral delta is the first real one.
+## The procedural delta path; empty for a pose whose row carries no delta. `standing_oral` is the
+## first shipped row with one.
 func _effective_delta(spec: Variant) -> String:
 	return str(spec.delta) if spec != null else ""
 
@@ -278,6 +317,9 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 		_effective_delta(from_spec), _effective_delta(_target_spec),
 		pose_config, _target_config)
 	pose_node.call("set_weight", _run.weight)
+	_bind_oral()
+	if _oral_pair(from_id, target_id):
+		_oral_turn.begin(target_id == CATALOG.STANDING_ORAL, _view)
 	_write_log("pose request %s -> %s (%s): ok" % [from_id, target_id, trigger])
 	return POSE_STATE.result("ok", edge_id, "")
 
@@ -415,20 +457,26 @@ func _fill_transition_view() -> void:
 
 
 ## Advance the live edge, apply its switches/events and settle the view. No-op outside an edge.
+## The oral turn follows the edge weight from the same tick, so the frame write and the pose blend
+## are one frame; a steady oral pose keeps the turn and the live mouth anchor.
 func tick(delta: float) -> void:
+	_bind_oral()
 	if _run == null:
+		_oral_turn.tick(maxf(delta, 0.0), _view, 1.0)
 		return
 	_run.tick(maxf(delta, 0.0))
 	_view.edge_t = _run.t
 	_view.weight = _run.weight
 	if is_instance_valid(pose_node):
 		pose_node.call("set_weight", _view.weight)
+	_oral_turn.tick(maxf(delta, 0.0), _view, _view.weight)
 	_absorb_switches()
 	_absorb_events()
 	if not _run.complete():
 		return
 	# Capture the target pair before `_abort_target()` drops the target snapshot, adopt its config
 	# into the live object, then settle the evaluator on that one pose.
+	var completed_target := _target_id
 	var completed_driver := _effective_driver(_target_spec)
 	var completed_delta := _effective_delta(_target_spec)
 	_adopt_target_config()
@@ -439,6 +487,7 @@ func tick(delta: float) -> void:
 		pose_node.pose_config = pose_config
 	_state = POSE_STATE.next(_state, "complete")
 	_view.pose_state = _state
+	_view.contact_kind = _spec_contact_kind(_target_spec)
 	_view.from_id = _view.id
 	_view.to_id = _view.id
 	_view.from_config = pose_config
@@ -446,15 +495,41 @@ func tick(delta: float) -> void:
 	_view.edge_id = ""
 	_view.edge_t = 0.0
 	_view.weight = 1.0
+	# The forward edge keeps the turn; the reverse edge returns the captured root and facing and
+	# erases the oral keys once. Both run before the target snapshot is dropped.
+	if completed_target == CATALOG.STANDING:
+		_oral_turn.restore(_view)
 	_abort_target()
 
 
-## Drain the switches that fired since the last tick. The target spec's profile is already in the
-## view; the log names the authored payload for the lab.
+## Drain the switches that fired since the last tick. The contact switch moves the view's contact
+## and the audio switch is the authored speech profile; the log names the payload for the lab.
 func _absorb_switches() -> void:
 	for name_value: Variant in _run.switches():
 		var name := str(name_value)
-		_write_log("pose switch %s: %s" % [name, _switch_target(name)])
+		var target := _switch_target(name)
+		if name == "contact":
+			_apply_contact_switch(target)
+		_write_log("pose switch %s: %s" % [name, target])
+
+
+## Point the view's contact at the authored kind. Leaving the mouth releases the viseme through
+## the host, so a reverse edge cannot leave the open mouth behind while the body eases back.
+func _apply_contact_switch(kind: String) -> void:
+	if kind.is_empty():
+		return
+	_view.contact_kind = kind
+	if kind != "mouth" and oral_viseme.is_valid():
+		oral_viseme.call("")
+
+
+## Release the mouth contact without ending the turn. The afterglow calls this to keep the turned
+## frame and the neck pose while the part returns to the opening and no close window opens.
+func release_mouth_contact() -> void:
+	if str(_view.contact_kind) != "mouth":
+		return
+	_apply_contact_switch(str(_spec_contact_kind(_registry.spec(CATALOG.STANDING))))
+	_oral_turn.release_contact(_view)
 
 
 func _switch_target(channel: String) -> String:
@@ -472,15 +547,23 @@ func _switch_target(channel: String) -> String:
 	return ""
 
 
-## Drain the edge events that fired since the last tick. `speech_stop` and `viseme` are reserved
-## for the act audio and face; only `status` is logged here.
+## Drain the edge events that fired since the last tick. `speech_stop` and `viseme` are the oral
+## host actions; `status` is logged. The arrays are the run's own and are not copied.
 func _absorb_events() -> void:
 	for event_value: Variant in _run.events():
 		if not event_value is Dictionary:
 			continue
 		var event := event_value as Dictionary
-		if str(event.get("kind", "")) == "status":
-			_write_log("pose status %s: %s" % [_target_id, str(event.get("value", ""))])
+		var kind := str(event.get("kind", ""))
+		match kind:
+			"status":
+				_write_log("pose status %s: %s" % [_target_id, str(event.get("value", ""))])
+			"speech_stop":
+				if oral_speech_stop.is_valid():
+					oral_speech_stop.call()
+			"viseme":
+				if oral_viseme.is_valid():
+					oral_viseme.call(str(event.get("value", "")))
 
 
 ## Whether the active control set and the live edge lock allow this command. `end` is reserved and
@@ -531,6 +614,7 @@ func apply_live_settings() -> void:
 	var fresh := _config_for_group(group, presentation)
 	_target_config.clear()
 	_target_config.merge(fresh, true)
+	_oral_turn.write_config(_view)
 
 
 ## True while the external Idle Life holder owns the body; an edge that requires `stretch:
@@ -757,7 +841,10 @@ func leave_pose_body() -> void:
 ## clean. The runtime calls this last in the one pose teardown, then re-stamps its identity mirror
 ## on the next access. A pose change never calls it. Safe to repeat.
 func release_pose() -> void:
-	# A release aborts a live edge; it never runs a second act exit.
+	# A release aborts a live edge and returns the oral frame before the view is cleared; it never
+	# runs a second act exit.
+	_bind_oral()
+	_oral_turn.restore(_view)
 	_abort_target()
 	_state = POSE_STATE.next(_state, "exit")
 	_release_stretch(false)
@@ -783,6 +870,7 @@ func release_pose() -> void:
 	bed_frame_source = Transform3D.IDENTITY
 	_tail_anchor = Vector3.INF
 	_view.clear()
+	_oral_turn.reset()
 	_state = POSE_STATE.next(_state, "released")
 
 

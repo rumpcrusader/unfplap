@@ -75,6 +75,7 @@ func run() -> void:
 	_check_render_write()
 	_check_effective_paths()
 	_check_state_machine()
+	_check_oral_edge()
 	_check_refusals()
 	_check_commands()
 	_check_target_snapshot()
@@ -744,6 +745,154 @@ func _check_state_machine() -> void:
 		"the reverse edge settles back on standing")
 	check(session.request_command("thrust"), "the standing control set allows thrust again")
 	_free_live(made)
+
+
+## The standing oral pair: the forward turn, the contact switch at 0.9, the control lock, the
+## speech/viseme events, the settled delta, the afterglow contact release and the reverse restore.
+func _check_oral_edge() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var pony: FakePony = made["pony"]
+	var view: RefCounted = session.view()
+	var logs: Array[String] = []
+	var speech_stops: Array = []
+	var visemes: Array[String] = []
+	var kisses: Array = []
+	session.log = func(text: String) -> void: logs.append(text)
+	session.mouth_point = func() -> Vector3: return pony.to_global(Vector3(0.0, 1.3, 0.5))
+	session.opening_point = func() -> Vector3: return Vector3(0.8, 0.0, 1.2)
+	session.oral_speech_stop = func() -> void: speech_stops.append(true)
+	session.oral_viseme = func(value: String) -> void: visemes.append(value)
+	session.oral_kiss = func() -> void: kisses.append(true)
+	var from: Vector3 = pony.global_position
+	var from_basis: Basis = pony.global_transform.basis.orthonormalized()
+	var forward: Dictionary = session.request_pose(CATALOG.STANDING_ORAL, "oral",
+		{"act_state": 2, "consent": "oral", "features": {"anatomy_oral": true}})
+	check(bool(forward.get("ok", false)), "the oral forward request is accepted")
+	check(str(forward.get("edge", "")) == "standing__standing_oral",
+		"the oral forward request names its edge")
+	check(view.id == CATALOG.STANDING_ORAL and view.pose_state == VIEW.TRANSITIONING,
+		"the oral forward fills the target and enters the transition")
+	check(view.contact_kind == "opening", "the oral forward keeps the opening before 0.9")
+	check(is_same(view.to_config, session._target_config),
+		"the oral target is the standing settings snapshot")
+	check(session.pose_node.mode == POSE.MODE_BLEND,
+		"the oral delta pair takes the two-base blend")
+	check(session.pose_node.from_delta == "" and session.pose_node.to_delta
+		== "poses/standing_oral_recipe.gd",
+		"the forward edge blends standing into the oral delta")
+
+	session.tick(0.0)
+	check(speech_stops.size() == 1, "the speech stop fires once at the start")
+	check(visemes == ["D"], "the D viseme opens at the start")
+	check(near(view.weight, 0.0) and pony.global_position.is_equal_approx(from),
+		"the zero-weight oral turn has not moved her")
+	check(view.to_config.has("oral_pitch") and view.to_config.has("oral_roll"),
+		"the turn writes its keys into the target snapshot")
+	session.tick(0.45)
+	check(view.weight > 0.0 and view.weight < 1.0, "the oral blend eases through the edge")
+	check(view.contact_kind == "opening", "the contact waits for 0.9")
+	check(pony.global_position.distance_to(from) > 0.001,
+		"the oral turn moves her toward the mirrored anchor")
+	check(view.facing_amount > 0.0 and view.facing_amount < 1.0,
+		"the oral turn publishes its eased facing")
+	session.tick(0.45)
+	check(view.contact_kind == "mouth", "the contact switches to the mouth at 0.9")
+	check(session.request_command(ACT_COMMANDS.ORAL), "the oral lock allows oral")
+	check(session.request_command(ACT_COMMANDS.POSE_BACK), "the oral lock allows pose_back")
+	check(session.request_command(ACT_COMMANDS.END), "the oral lock allows end")
+	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
+			ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH,
+			ACT_COMMANDS.POSE_FORWARD]:
+		check(not session.request_command(command_id),
+			"the oral lock denies %s" % command_id)
+	session.tick(0.7)
+	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.STANDING_ORAL,
+		"the oral forward settles on the target")
+	check(view.contact_kind == "mouth", "the settled oral pose keeps the mouth contact")
+	check(is_equal_approx(view.facing_amount, 1.0),
+		"the oral turn holds its full facing")
+	check(session.pose_node.mode == POSE.MODE_SINGLE
+		and session.pose_node.from_delta == "poses/standing_oral_recipe.gd",
+		"the settled oral pose runs the delta in the single path")
+	check(session.pose_config.has("oral_pitch") and session.pose_config.has("oral_roll"),
+		"the settled live config keeps the oral keys")
+	check(str(view.controls.get("set", "")) == "standing_oral",
+		"the settled view uses the oral control set")
+	check(view.pose_id == CATALOG.STANDING_ORAL, "the compatibility id mirrors the oral pose")
+	check(session.pose_id == CATALOG.STANDING,
+		"the act's start pose stays standing")
+	var turned_position: Vector3 = pony.global_position
+	session.tick(0.5)
+	check(session._run == null and view.id == CATALOG.STANDING_ORAL,
+		"a steady oral tick keeps the pose")
+	check(pony.global_position.is_equal_approx(turned_position),
+		"a steady oral tick holds her turned position")
+	check(kisses.is_empty(), "no soft kiss fires before the idle timer")
+	session.tick(4.6)
+	check(kisses.size() == 1, "the soft kiss fires on the idle timer")
+
+	# The afterglow releases the mouth contact but holds the turned frame and the neck keys.
+	session.release_mouth_contact()
+	check(view.contact_kind == "opening", "the afterglow releases the mouth contact")
+	check(visemes.has(""), "the contact release clears the viseme")
+	check(pony.global_position.is_equal_approx(turned_position) \
+		and is_equal_approx(view.facing_amount, 1.0),
+		"the afterglow keeps the turned frame")
+	check(session.pose_config.has("oral_pitch"), "the afterglow keeps the neck keys")
+
+	var reverse: Dictionary = session.request_pose(CATALOG.STANDING, "oral",
+		{"act_state": 2, "features": {"anatomy_oral": true}})
+	check(bool(reverse.get("ok", false)), "the oral reverse request is accepted")
+	check(str(reverse.get("edge", "")) == "standing_oral__standing",
+		"the oral reverse request names its edge")
+	session.tick(0.0)
+	check(view.contact_kind == "opening", "the reverse contact is released at zero")
+	check(not session.request_command(ACT_COMMANDS.ORAL),
+		"the reverse lock denies oral")
+	check(session.request_command(ACT_COMMANDS.END), "the reverse lock keeps end")
+	session.tick(1.6)
+	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.STANDING,
+		"the oral reverse settles back on standing")
+	check(pony.global_position.is_equal_approx(from),
+		"the reverse restores the captured root")
+	check(is_zero_approx(view.facing_amount),
+		"the reverse clears the facing amount")
+	check(pony.global_transform.basis.orthonormalized().is_equal_approx(from_basis),
+		"the reverse restores the captured facing")
+	check(not session.pose_config.has("oral_pitch") and not view.to_config.has("oral_pitch"),
+		"the reverse erases the oral keys")
+	check(session.pose_node.mode == POSE.MODE_SINGLE
+		and session.pose_node.from_delta == "",
+		"the settled standing pose drops the delta")
+	check(session.request_command(ACT_COMMANDS.THRUST),
+		"the standing control set returns after the oral turn")
+	_free_live(made)
+
+	# A refusal leaves the root and the view steady.
+	var refused_made := _live_session(CATALOG.STANDING)
+	var refused: RefCounted = refused_made["session"]
+	var refused_pony: FakePony = refused_made["pony"]
+	var refused_view: RefCounted = refused.view()
+	refused.mouth_point = func() -> Vector3: return refused_pony.to_global(Vector3.UP)
+	refused.opening_point = func() -> Vector3: return Vector3(1.0, 0.0, 1.0)
+	var before: Vector3 = refused_pony.global_position
+	for case: Dictionary in [
+		{"act_state": 2, "consent": "oral", "features": {}},
+		{"act_state": 2, "features": {"anatomy_oral": true}},
+		{"act_state": 2, "consent": "oral", "features": {"anatomy_oral": true},
+			"stretch": true},
+	]:
+		var result: Dictionary = refused.request_pose(CATALOG.STANDING_ORAL, "oral", case)
+		check(str(result.get("code", "")) == "refused",
+			"the oral requirement refuses %s" % str(case))
+	check(refused_view.id == CATALOG.STANDING and refused_view.pose_state == VIEW.STEADY,
+		"a refused oral request leaves the view steady")
+	check(refused_pony.global_position.is_equal_approx(before),
+		"a refused oral request leaves the root alone")
+	check(refused._run == null and refused_view.contact_kind == "opening",
+		"a refused oral request starts no edge and keeps the opening contact")
+	_free_live(refused_made)
 
 
 ## Every refusal code, in the order the state module reports it, plus the synthetic asset and

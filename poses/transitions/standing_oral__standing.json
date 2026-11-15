@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "id": "standing_oral__standing",
+  "from": "standing_oral",
+  "to": "standing",
+  "phases": ["active"],
+  "requires": {
+    "features": ["anatomy_oral"],
+    "forms": ["human", "pony"],
+    "views": ["desktop", "vr"],
+    "stretch": "any"
+  },
+  "duration": 1.6,
+  "easing": "smoothstep",
+  "channels": {
+    "base": {"kind": "delta", "duration": 1.6, "easing": "smoothstep"},
+    "anon": {"kind": "hold"},
+    "contact": {"kind": "switch", "at": 0.0, "to": "opening"},
+    "camera": {"kind": "hold"},
+    "controls": {"kind": "lock", "allow": ["end"]},
+    "audio": {"kind": "switch", "at": 0.0, "profile": "standing"},
+    "presentation": {"kind": "hold"}
+  },
+  "constraints": [],
+  "events": [
+    {"at": 1.6, "kind": "status", "value": "standing"}
+  ],
+  "interrupt": {"climax": "hold", "teardown": "abort"}
+}

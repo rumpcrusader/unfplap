@@ -84,6 +84,12 @@ func _check_shipped() -> void:
 			check(not spec.public_pose and not spec.offerable, "the test pose is internal")
 			check(spec.base == SPECS.STANDING, "the test pose inherits standing")
 			check(spec.driver.is_empty(), "the test pose has no driver of its own")
+		if id == SPECS.STANDING_ORAL:
+			check(not spec.public_pose and not spec.offerable, "the oral pose is internal")
+			check(spec.base == SPECS.STANDING, "the oral pose inherits standing")
+			check(spec.driver.is_empty(), "the oral pose has no driver of its own")
+			check(spec.delta == "poses/standing_oral_recipe.gd",
+				"the oral pose declares the procedural delta")
 
 
 ## The driver/base rule: a driver may be empty only when an inherited base owns it, and a base must
@@ -106,6 +112,11 @@ func _check_base_driver() -> void:
 	with_driver["driver"] = "poses/standing_recipe.gd"
 	check(POSE_SPEC.errors(SPECS.STANDING_TEST, with_driver, SPECS.SPECS).is_empty(),
 		"a base plus a driver is valid")
+	var with_delta := _copy(SPECS.STANDING_ORAL)
+	check(POSE_SPEC.errors(SPECS.STANDING_ORAL, with_delta, SPECS.SPECS).is_empty(),
+		"a base plus a procedural delta is valid")
+	check(POSE_SPEC.from_dict(SPECS.STANDING_ORAL, with_delta, SPECS.SPECS) != null,
+		"a base plus a delta builds a typed spec")
 	var self_base := _copy(SPECS.STANDING_TEST)
 	self_base["base"] = SPECS.STANDING_TEST
 	check(not POSE_SPEC.errors(SPECS.STANDING_TEST, self_base, SPECS.SPECS).is_empty(),

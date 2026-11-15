@@ -13,6 +13,9 @@ const STANDING := "standing"
 ## An internal debug pose: it inherits `standing`'s geometry, driver and profiles, and is not a
 ## public pose, an offer or a settings template. `CATALOG.every()` alone carries it.
 const STANDING_TEST := "standing_test"
+## The standing oral pose: an internal procedural delta on `standing`. It is reached only by the
+## authored oral edges, is not an offer and has no settings template of its own.
+const STANDING_ORAL := "standing_oral"
 
 ## A pose's own asset is `poses/<id>_pose.json` when the row has no delta; `driver` is the
 ## procedural recipe, `base` an inherited pose id and `delta` an authored delta asset. `forms`
@@ -115,6 +118,38 @@ const SPECS := {
 		"public": false,
 		"offerable": false,
 	},
+	STANDING_ORAL: {
+		"id": STANDING_ORAL,
+		"display_name": "Standing oral",
+		"family": "standing",
+		"frame": "ground",
+		"base": STANDING,
+		"delta": "poses/standing_oral_recipe.gd",
+		"driver": "",
+		"settings_group": "standing",
+		"game_posture": "stand",
+		"drive_policy": "standing",
+		"anon": {"mode": "player_body", "profile": "standing"},
+		"contact": {"kind": "mouth", "aim": "part", "trims": "standing"},
+		"camera": {"profile": "standing_procedural", "facing": "standing", "eye": "player"},
+		"hands": {"path": "oral"},
+		"controls": {"set": "standing_oral"},
+		"audio": {"impact": "standing", "speech": "oral"},
+		"afterglow": {"profile": "passive", "close_window": false},
+		"presentation": {
+			"profile": "standing_oral", "hud_label": "Oral", "tail": "pose",
+			"wings": "hold", "kiss": "standing", "lean": "standing",
+		},
+		"scene": {
+			"frame": "ground", "requires_bed": false, "sources": [],
+			"managed_bed": false, "stool": true, "standing_free": true,
+		},
+		"modifiers": {"profile": "standing"},
+		"forms": ["human", "pony"],
+		"views": ["desktop", "vr"],
+		"public": false,
+		"offerable": false,
+	},
 }
 
 
@@ -141,12 +176,13 @@ const CONTROL_SETS := {
 		ACT_COMMANDS.POSE_FORWARD, ACT_COMMANDS.END,
 	],
 	STANDING_TEST: [ACT_COMMANDS.END],
+	STANDING_ORAL: [ACT_COMMANDS.ORAL, ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.END],
 }
 
 
 ## The shipped spec ids, in table order.
 static func ids() -> Array[String]:
-	return [MISSIONARY, STANDING, STANDING_TEST]
+	return [MISSIONARY, STANDING, STANDING_TEST, STANDING_ORAL]
 
 
 ## The raw spec dictionary for `id`, or `{}` when the table has no row.

@@ -8,8 +8,6 @@ const STANDING_HIND_SPREAD := 0.32
 const STANDING_CHIN_UP_DEG := 30.0
 const STANDING_NECK_DOWN_DEG := 30.0
 
-## integration: oral keeps her muzzle pointed along the shaft while her neck swings.
-const ORAL_HEAD_COUNTER := 0.75
 var _config: Dictionary = {}
 
 
@@ -17,7 +15,7 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
 	if bool(state.get("stretch", false)):
 		# The external Idle Life holder owns the body, the stance and the ground plant. The act
-		# keeps only its oral overlay and its head-back lift on top.
+		# keeps only its head-back lift on top.
 		apply_overlay(rig, sk, weight, state)
 		return
 	apply_base(rig, sk, weight, state)
@@ -40,11 +38,11 @@ func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	return true
 
 
-## The moveable neck overlay: the oral swing and counter-rotation plus the head-back lift. The
-## two-base form crossfades this after the blended base.
+## The moveable neck overlay: the head-back lift. The oral neck swing is the oral row's procedural
+## delta (`poses/standing_oral_recipe.gd`), not part of this base pose. The two-base form crossfades
+## this overlay after the blended base.
 func apply_overlay(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
-	_oral_neck(rig, sk, weight)
 	var head_back := float(state.get("head_back", 0.0))
 	if head_back > 0.001:
 		_raise_head(rig, sk, weight * head_back)
@@ -53,28 +51,6 @@ func apply_overlay(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> voi
 func _value(key: String, fallback: float) -> float:
 	var value: Variant = _config.get(key)
 	return float(value) if value != null else fallback
-
-
-## integration: swing the neck through the oral bob and counter-rotate the head so her muzzle
-## stays pointed along the shaft. Zero keys leave the normal standing pose untouched.
-func _oral_neck(rig, sk: Skeleton3D, weight: float) -> void:
-	if rig.neck.size() < 3:
-		return
-	var pitch := _value("oral_pitch", 0.0) * weight
-	var yaw := _value("oral_yaw", 0.0) * weight
-	var roll := _value("oral_roll", 0.0) * weight
-	if absf(pitch) + absf(yaw) + absf(roll) < 0.0001:
-		return
-	var right: Vector3 = rig.right_axis(sk)
-	var up: Vector3 = rig.up_axis(sk)
-	var forward: Vector3 = rig.forward_axis(sk)
-	for i: int in 2:
-		rig.rotate(sk, rig.neck[i], right, pitch * 0.5)
-		rig.rotate(sk, rig.neck[i], up, yaw * 0.5)
-	var head: int = rig.neck[2]
-	rig.rotate(sk, head, right, -pitch * ORAL_HEAD_COUNTER)
-	rig.rotate(sk, head, up, -yaw * ORAL_HEAD_COUNTER)
-	rig.rotate(sk, head, forward, roll)
 
 
 func _bow(rig, sk: Skeleton3D, weight: float, scale: float) -> void:

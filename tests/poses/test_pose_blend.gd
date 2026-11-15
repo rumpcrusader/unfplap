@@ -99,6 +99,7 @@ func run() -> void:
 	_check_non_finite()
 	_check_render_order()
 	_check_shipped_driver()
+	_check_oral_delta()
 	print("POSE_BLEND_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_BLEND_PASS")
@@ -378,6 +379,49 @@ func _check_shipped_driver() -> void:
 	var index := sk.find_bone("pony_spine1")
 	check(_angle_to(sk.get_bone_pose(index), 0.0) > 0.001,
 		"the shipped standing driver writes the stance")
+	_free_graph(made)
+
+
+## The oral row's procedural delta: it forces the two-base blend in both edge directions, the
+## shipped delta object is loaded from the driver table, and it writes the neck swing on the to
+## side while the standing from side has none.
+func _check_oral_delta() -> void:
+	var made := _graph()
+	var sk: Skeleton3D = made["sk"]
+	var pose_node: Node = made["pose_node"]
+	var config_a: Dictionary = {"tag": "standing"}
+	var config_b: Dictionary = {"oral_pitch": 0.4, "oral_yaw": 0.25, "oral_roll": 0.1}
+	pose_node.call("set_pose", POSE.STANDING_PATH, POSE.STANDING_PATH, "",
+		POSE.STANDING_ORAL_PATH, config_a, config_b)
+	check(pose_node.mode == POSE.MODE_BLEND,
+		"the standing to oral delta pair takes the blend path")
+	check(pose_node.from_delta == "" and pose_node.to_delta == POSE.STANDING_ORAL_PATH,
+		"the pair carries the oral delta on the to side")
+	var delta: Variant = pose_node.driver_objects.get(POSE.STANDING_ORAL_PATH)
+	check(delta != null and delta.has_method("apply_delta"),
+		"the shipped oral recipe is loaded from the delta table")
+	pose_node.amount = 1.0
+	pose_node.target_amount = 1.0
+	pose_node.call("set_weight", 0.0)
+	pose_node.call("apply_render", sk)
+	var neck := sk.find_bone("pony_neck2")
+	var head := sk.find_bone("pony_head")
+	var at_from := sk.get_bone_pose(neck)
+	var head_from := sk.get_bone_pose(head)
+	pose_node.call("set_weight", 1.0)
+	pose_node.call("apply_render", sk)
+	check(not sk.get_bone_pose(neck).is_equal_approx(at_from),
+		"the oral delta turns the neck at the to side")
+	check(not sk.get_bone_pose(head).is_equal_approx(head_from),
+		"the oral delta counters the head at the to side")
+	pose_node.call("set_pose", POSE.STANDING_PATH, POSE.STANDING_PATH,
+		POSE.STANDING_ORAL_PATH, "", config_b, config_a)
+	check(pose_node.mode == POSE.MODE_BLEND,
+		"the oral to standing pair takes the blend path")
+	pose_node.call("set_pose", POSE.STANDING_PATH, POSE.STANDING_PATH,
+		POSE.STANDING_ORAL_PATH, POSE.STANDING_ORAL_PATH, config_b, config_b)
+	check(pose_node.mode == POSE.MODE_SINGLE,
+		"the settled oral pose keeps the single delta path")
 	_free_graph(made)
 
 

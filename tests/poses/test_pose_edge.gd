@@ -11,8 +11,12 @@ const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 
 const FORWARD := "standing__standing_test"
 const REVERSE := "standing_test__standing"
+const ORAL_FORWARD := "standing__standing_oral"
+const ORAL_REVERSE := "standing_oral__standing"
 const FORWARD_PATH := "res://mods/unfplap/poses/transitions/standing__standing_test.json"
 const REVERSE_PATH := "res://mods/unfplap/poses/transitions/standing_test__standing.json"
+const ORAL_FORWARD_PATH := "res://mods/unfplap/poses/transitions/standing__standing_oral.json"
+const ORAL_REVERSE_PATH := "res://mods/unfplap/poses/transitions/standing_oral__standing.json"
 const SOURCE := "res://mods/unfplap/poses/transition_spec.gd"
 
 var failures := 0
@@ -38,6 +42,8 @@ func run() -> void:
 	_check_documents()
 	_check_wrapper()
 	_check_runs()
+	_check_oral_documents()
+	_check_oral_runs()
 	_check_rejections()
 	_check_shapes()
 	_check_registry()
@@ -208,6 +214,102 @@ func _check_runs() -> void:
 		check(backward.complete(), "the reverse edge completes at its duration")
 
 
+func _check_oral_documents() -> void:
+	check(FileAccess.file_exists(ORAL_FORWARD_PATH), "the oral forward edge file exists")
+	check(FileAccess.file_exists(ORAL_REVERSE_PATH), "the oral reverse edge file exists")
+	var forward := _read(ORAL_FORWARD_PATH)
+	var reverse := _read(ORAL_REVERSE_PATH)
+	check(not forward.is_empty(), "the oral forward edge parses")
+	check(not reverse.is_empty(), "the oral reverse edge parses")
+	check(str(forward.get("id", "")) == ORAL_FORWARD, "the oral forward edge id")
+	check(str(forward.get("from", "")) == SPECS.STANDING, "the oral forward edge from")
+	check(str(forward.get("to", "")) == SPECS.STANDING_ORAL, "the oral forward edge to")
+	check(str(reverse.get("id", "")) == ORAL_REVERSE, "the oral reverse edge id")
+	check(str(reverse.get("from", "")) == SPECS.STANDING_ORAL, "the oral reverse edge from")
+	check(str(reverse.get("to", "")) == SPECS.STANDING, "the oral reverse edge to")
+	var forward_errors := TRANSITION_SPEC.errors(ORAL_FORWARD, forward, SPECS.SPECS)
+	var reverse_errors := TRANSITION_SPEC.errors(ORAL_REVERSE, reverse, SPECS.SPECS)
+	check(forward_errors.is_empty(), "the oral forward edge validates: %s" % str(forward_errors))
+	check(reverse_errors.is_empty(), "the oral reverse edge validates: %s" % str(reverse_errors))
+	var requires: Dictionary = forward.get("requires", {})
+	check(requires.get("features") == ["anatomy_oral"],
+		"the oral forward edge needs the anatomy feature")
+	check(str(requires.get("consent", "")) == "oral", "the oral forward edge needs consent")
+	check(str(requires.get("stretch", "")) == "inactive",
+		"the oral forward edge refuses while the stretch holder runs")
+	var reverse_requires: Dictionary = reverse.get("requires", {})
+	check(not reverse_requires.has("consent"),
+		"the oral reverse edge never asks for consent again")
+	check(str(reverse_requires.get("stretch", "")) == "any",
+		"the oral reverse edge returns through a live stretch holder")
+	var channels: Dictionary = forward.get("channels", {})
+	check(str((channels.get("base", {}) as Dictionary).get("kind", "")) == "delta",
+		"the oral forward base is a delta")
+	check(near(float((channels.get("contact", {}) as Dictionary).get("at", 0.0)), 0.9),
+		"the oral forward contact switches at 0.9")
+	check(str((channels.get("contact", {}) as Dictionary).get("to", "")) == "mouth",
+		"the oral forward contact switches to the mouth")
+	var lock: Dictionary = channels.get("controls", {})
+	check(str(lock.get("kind", "")) == "lock", "the oral forward controls are a lock")
+	check(lock.get("allow") == ["oral", "pose_back", "end"],
+		"the oral lock allows oral, pose_back and end")
+	var reverse_channels: Dictionary = reverse.get("channels", {})
+	check(str((reverse_channels.get("contact", {}) as Dictionary).get("to", "")) == "opening",
+		"the oral reverse contact returns to the opening")
+	check(str((reverse_channels.get("audio", {}) as Dictionary).get("profile", "")) == "standing",
+		"the oral reverse audio returns to the standing speech profile")
+
+
+func _check_oral_runs() -> void:
+	var forward := _read(ORAL_FORWARD_PATH)
+	var run: Variant = STATE.start_edge(forward, SPECS.STANDING, SPECS.STANDING_ORAL)
+	check(run != null, "the oral forward edge starts")
+	if run == null:
+		return
+	check(near(run.duration, 1.6), "the oral forward clock is 1.6 s")
+	check(near(run.weight, 0.0), "the oral forward base starts at zero")
+	run.tick(0.0)
+	var events: Array = run.events()
+	check(events.size() == 2, "the oral forward fires the speech stop and the viseme at zero")
+	if events.size() == 2:
+		check(str(events[0].get("kind", "")) == "speech_stop",
+			"the oral forward stops speech first")
+		check(str(events[1].get("kind", "")) == "viseme"
+			and str(events[1].get("value", "")) == "D",
+			"the oral forward opens the D viseme second")
+	check(not run.switches().has("contact"), "the oral forward contact waits for its switch")
+	run.tick(0.45)
+	check(run.switches().is_empty(), "the contact has not switched before 0.9")
+	check(run.channel_weight("base") > 0.0 and run.channel_weight("base") < 1.0,
+		"the oral forward base eases through the edge")
+	run.tick(0.45)
+	check(run.switches() == ["contact"], "the oral forward contact switches at 0.9")
+	check(run.channel_weight("contact") == 1.0, "the contact switch reports its weight")
+	run.tick(0.7)
+	check(run.complete(), "the oral forward completes at its duration")
+	check(run.events().size() == 1 and str(run.events()[0].get("kind", "")) == "status",
+		"the oral forward reports its status on the completing tick")
+	run.tick(0.1)
+	check(run.events().is_empty(), "a completed oral edge fires no second event")
+
+	var reverse := _read(ORAL_REVERSE_PATH)
+	var back: Variant = STATE.start_edge(reverse, SPECS.STANDING_ORAL, SPECS.STANDING)
+	check(back != null, "the oral reverse edge starts")
+	if back == null:
+		return
+	back.tick(0.0)
+	check(back.switches().has("contact"),
+		"the oral reverse releases the mouth contact at zero")
+	check(back.events().is_empty(), "the oral reverse has no zero event")
+	back.tick(1.6)
+	check(back.complete(), "the oral reverse completes at its duration")
+	var late: Array = back.events()
+	check(late.size() == 1 and str(late[0].get("kind", "")) == "status",
+		"the oral reverse reports the standing status at the end")
+	var allowed: Array = (reverse["channels"] as Dictionary)["controls"]["allow"]
+	check(allowed == ["end"], "the oral reverse lock allows only end")
+
+
 func _check_rejections() -> void:
 	_rejects(_mutated({"version": 2}), "a wrong version is rejected")
 	check(not TRANSITION_SPEC.errors("other", _forward(), SPECS.SPECS).is_empty(),
@@ -346,15 +448,18 @@ func _check_shapes() -> void:
 func _check_registry() -> void:
 	var registry: RefCounted = REGISTRY.new()
 	var edges: Array = registry.edges()
-	check(edges.size() == 2, "the registry loads both edges")
+	check(edges.size() == 4, "the registry loads both debug edges and the oral pair")
 	var ids: Array = []
 	for edge: Variant in edges:
 		ids.append(str(edge.id))
-	check(ids == [FORWARD, REVERSE], "the edges load in sorted id order")
+	check(ids == [ORAL_FORWARD, FORWARD, ORAL_REVERSE, REVERSE],
+		"the edges load in sorted id order")
 	var forward: Variant = registry.edge(FORWARD)
 	var reverse: Variant = registry.edge(REVERSE)
 	check(forward != null and forward.id == FORWARD, "the forward edge is cached")
 	check(reverse != null and reverse.id == REVERSE, "the reverse edge is cached")
+	check(registry.edge(ORAL_FORWARD) != null, "the oral forward edge is cached")
+	check(registry.edge(ORAL_REVERSE) != null, "the oral reverse edge is cached")
 	check(is_same(forward, registry.edge(FORWARD)), "a second edge lookup is the same instance")
 	check(is_same(reverse, registry.edge(REVERSE)), "the reverse lookup is the same instance")
 	check(registry.edge("standing") == null, "a pose id is not an edge id")

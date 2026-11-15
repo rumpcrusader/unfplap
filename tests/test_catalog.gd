@@ -21,8 +21,9 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	check(CATALOG.all() == [CATALOG.MISSIONARY, CATALOG.STANDING], "pose ids")
-	check(CATALOG.every() == [CATALOG.MISSIONARY, CATALOG.STANDING, CATALOG.STANDING_TEST],
-		"every pose includes the internal test pose")
+	check(CATALOG.every() == [CATALOG.MISSIONARY, CATALOG.STANDING, CATALOG.STANDING_TEST,
+		CATALOG.STANDING_ORAL],
+		"every pose includes both internal poses")
 	check(not CATALOG.POSE_KEYS.has(CATALOG.STANDING_TEST),
 		"the internal test pose has no settings schema")
 	check(CATALOG.defaults(CATALOG.STANDING_TEST).is_empty(),

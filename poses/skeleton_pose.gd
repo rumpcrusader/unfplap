@@ -7,6 +7,7 @@ extends SkeletonModifier3D
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
+const STANDING_ORAL := preload("res://mods/unfplap/poses/standing_oral_recipe.gd")
 
 ## The typed live mode. `MODE_SINGLE` runs the one-driver fast path; `MODE_BLEND` evaluates both
 ## bases, blends the captured transforms and applies the overlays once.
@@ -15,11 +16,13 @@ const MODE_BLEND := 1
 
 const MISSIONARY_PATH := "poses/missionary_recipe.gd"
 const STANDING_PATH := "poses/standing_recipe.gd"
-## The shipped procedural drivers, by the spec's `driver` path. A suite may inject fakes through
-## `driver_objects`.
+const STANDING_ORAL_PATH := "poses/standing_oral_recipe.gd"
+## The shipped procedural drivers, by the spec's `driver`/`delta` path. A suite may inject fakes
+## through `driver_objects`.
 const DRIVERS := {
 	MISSIONARY_PATH: MISSIONARY,
 	STANDING_PATH: STANDING,
+	STANDING_ORAL_PATH: STANDING_ORAL,
 }
 
 var mare: Node3D

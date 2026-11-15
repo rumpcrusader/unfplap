@@ -140,6 +140,11 @@ An automatic scan runs every `0.5 s` and needs a quiet moment:
   allowed (`AI_CONFIG.background_allowed`, i.e. AI usage Full);
 - no character chat in the last `45 s`.
 
+A blocked quiet gate logs one `request scan quiet reason=<reason>` line when its reason changes.
+The reason names are `unavailable`, `paused`, `mouse`, `menu`, `no_player`, `controls`, `flying`,
+`knocked`, `director_missing`, `director_api`, `director_state`, `approach`, `group`, `hearing`,
+`ai_usage` and `chat`.
+
 Per mare, the scan then requires:
 
 - the runtime idle (`state == 0`) and a stable id;
@@ -147,6 +152,9 @@ Per mare, the scan then requires:
 - the cooldown: the history offer cooldown since `request_times[id]`, quartered in heat (the
   cooldown store owns it);
 - the `30 s` retry deadline left by a failed walk-over or an unavailable ask.
+
+A rejected mare logs `request scan skip id=<id> reasons=<...>` when her reason set changes or
+after `10 s`, so a steady cooldown does not fill the log.
 
 A cuddle rising edge clears that mare's cooldown and permits one ask per cuddle. The debug
 actions bypass the quiet, cooldown, retry and AI-usage checks but keep the eligibility and scene
@@ -348,6 +356,9 @@ after the spoken words only when the moment genuinely changes how she feels.
 - `request force ...`, `request ask ...`, `request privacy ...`, `request consent ...`,
   `request reminder ...`, `request invite ...` and `request end ... phase=... reason=...` are the
   debug log lines.
+- `request scan quiet reason=<reason>` names one blocked quiet gate per reason change;
+  `request scan skip id=<id> reasons=<...>` names one rejected mare per reason change or every
+  `10 s`.
 - The lab runs with `ai_usage=talk`, so automatic offers do not fire; use the debug actions.
 
 ## Dependencies

@@ -58,44 +58,56 @@ func idle() -> bool:
 ## The scan's quiet gate: not paused, no menu, captured input, a free player, an idle director
 ## with no group exchange or hearing, background AI allowed and no recent chat.
 func quiet() -> bool:
-	if not is_instance_valid(main) or not is_inside_tree() or get_tree().paused:
-		return false
+	return quiet_reason() == ""
+
+
+## Why the automatic scan may not begin now, or "" when it may. The strings are the debug log's
+## stable reason names and follow the same order as the gate itself.
+func quiet_reason() -> String:
+	if not is_instance_valid(main) or not is_inside_tree():
+		return "unavailable"
+	if get_tree().paused:
+		return "paused"
 	if DisplayServer.get_name() != "headless" and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return false
+		return "mouse"
 	if main.call("menu_open"):
-		return false
+		return "menu"
 	var player: Variant = main.get("player")
 	if not is_instance_valid(player):
-		return false
-	if player.get("controls_locked") == true or player.get("flying") == true:
-		return false
+		return "no_player"
+	if player.get("controls_locked") == true:
+		return "controls"
+	if player.get("flying") == true:
+		return "flying"
 	if bool(player.get_meta("knocked_down", false)):
-		return false
+		return "knocked"
 	var node := director()
-	if node == null or not node.has_method("begin_player_greeting"):
-		return false
+	if node == null:
+		return "director_missing"
+	if not node.has_method("begin_player_greeting"):
+		return "director_api"
 	if str(node.get("state")) != "idle":
-		return false
+		return "director_state"
 	var approaches: Variant = node.get("player_approaches")
 	if approaches != null and approaches.has_method("active") and bool(approaches.call("active")):
-		return false
+		return "approach"
 	var group: Variant = node.get("group")
 	if group != null and group.has_method("active") and bool(group.call("active")):
-		return false
+		return "group"
 	var speech: Variant = node.get("speech")
 	if speech != null and is_instance_valid(speech) and str(speech.get("state")) == "hearing":
-		return false
+		return "hearing"
 	var config: Variant = node.get("config")
 	if config != null and not AI_CONFIG.background_allowed(config):
-		return false
+		return "ai_usage"
 	var now := float(node.call("_now"))
 	var characters: Variant = node.get("characters")
 	if characters is Dictionary:
 		for entry: Variant in (characters as Dictionary).values():
 			if entry is Dictionary \
 					and now - float((entry as Dictionary).get("chat_last", -1e9)) < POLICY.QUIET_CHAT_GAP_S:
-				return false
-	return true
+				return "chat"
+	return ""
 
 
 ## Baseline the director's player-line fields when the ask line is issued. The fallback queue path

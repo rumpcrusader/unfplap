@@ -7,6 +7,7 @@ extends SceneTree
 
 const INIT := preload("res://mods/unfplap/initiation/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const COOLDOWNS := preload("res://mods/unfplap/initiation/cooldowns.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 var failures := 0
@@ -22,6 +23,8 @@ class FakeMain extends Node:
 	var game: Node
 	var runtimes: Dictionary = {}
 	var eligibility: Variant
+	var memory: Node
+	var debug_lines: Array[String] = []
 
 	func runtime_for(pony: Node) -> Node:
 		var runtime: Variant = runtimes.get(pony)
@@ -36,8 +39,8 @@ class FakeMain extends Node:
 	func bed_occupied(_bed: Node3D, _target: Node) -> bool:
 		return false
 
-	func debug(_text: String) -> void:
-		pass
+	func debug(text: String) -> void:
+		debug_lines.append(text)
 
 
 class FakeGame extends Node:
@@ -50,13 +53,36 @@ class FakeForm extends Node:
 	var form: Dictionary = {}
 
 
+class FakePony extends Node3D:
+	var identity: Dictionary = {"filly": false, "stallion": false}
+
+
+class FakeMemory extends Node:
+	const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+
+	func cue_facts(_id: String, _note: String) -> Variant:
+		return MEMORY.CueFacts.new()
+
+
 class FakeWorldContext extends Node:
 	var keys: Array[String] = []
 	var texts: Array[String] = []
+	var state: Dictionary = {}
 
 	func record(_kind: String, text: String, _ids: Array, _witnesses: Array, key: String) -> void:
 		keys.append(key)
 		texts.append(text)
+
+	func _changed() -> void:
+		pass
+
+
+class FakeEligibility extends Node:
+	func eligible(_pony: Node, _target: int) -> bool:
+		return true
+
+	func get_verdict(_pony: Node, _mode: int) -> Variant:
+		return null
 
 
 class FakeNavigator extends Node:
@@ -171,6 +197,16 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+func debug_count(main: Node, text: String) -> int:
+	var count := 0
+	var lines: Variant = main.get("debug_lines")
+	if lines is Array:
+		for line: Variant in lines:
+			if str(line) == text:
+				count += 1
+	return count
+
+
 func run() -> void:
 	var fake_main := FakeMain.new()
 	root.add_child(fake_main)
@@ -178,7 +214,7 @@ func run() -> void:
 	root.add_child(game)
 	var player := Node3D.new()
 	root.add_child(player)
-	var target := Node3D.new()
+	var target := FakePony.new()
 	target.name = "Rarity"
 	target.set_meta("relationship_id", "rarity")
 	root.add_child(target)
@@ -197,11 +233,14 @@ func run() -> void:
 	var runtime := FakeRuntime.new()
 	runtime.pony = target
 	root.add_child(runtime)
+	var memory := FakeMemory.new()
+	root.add_child(memory)
 
 	game.world_context = context
 	game.mares = [target]
 	fake_main.player = player
 	fake_main.game = game
+	fake_main.memory = memory
 	fake_main.runtimes[target] = runtime
 	fake_main.eligibility = ELIGIBILITY.new()
 	fake_main.eligibility.setup(fake_main)
@@ -482,6 +521,46 @@ func run() -> void:
 	check(runtime.presented == false and runtime.face_on == false,
 		"reset leaves the runtime clean")
 
+	# The scan names why it is blocked, once per reason change.
+	initiation.reset()
+	fake_main.debug_lines.clear()
+	game.mares = [target]
+	director.greet_ok = true
+	director.state = "idle"
+	director.characters = {"rarity": {"chat_last": 0.0}}
+	initiation.tick(0.5)
+	check(debug_count(fake_main, "request scan quiet reason=chat") == 1,
+		"a recent chat logs one quiet reason")
+	initiation.tick(0.5)
+	check(debug_count(fake_main, "request scan quiet reason=chat") == 1,
+		"the same quiet reason logs once")
+
+	# A cooling mare names the cooldown. The fake world gives the cooldown store a save section.
+	director.characters = {}
+	var mods := root.get_node_or_null("Mods")
+	var previous_game: Variant = null
+	var fake_world: FakeGame = null
+	if mods != null:
+		previous_game = mods.get("game")
+		fake_world = FakeGame.new()
+		fake_world.world_context = context
+		root.add_child(fake_world)
+		mods.set("game", fake_world)
+		COOLDOWNS.set_last("rarity")
+	else:
+		check(false, "the test world has a Mods autoload for the cooldown scan")
+	initiation.reset()
+	fake_main.debug_lines.clear()
+	initiation.tick(0.5)
+	check(debug_count(fake_main, "request scan skip id=rarity reasons=cooldown") == 1,
+		"a cooling mare logs one scan skip")
+	initiation.tick(0.5)
+	check(debug_count(fake_main, "request scan skip id=rarity reasons=cooldown") == 1,
+		"the same scan skip logs once")
+	if mods != null:
+		mods.set("game", previous_game)
+		fake_world.free()
+
 	initiation.free()
 	fake_main.free()
 	game.free()
@@ -491,6 +570,7 @@ func run() -> void:
 	player.free()
 	target.free()
 	other.free()
+	memory.free()
 
 	print("INITIATION_API_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

@@ -158,6 +158,12 @@ var _cuddle_seen: Dictionary = {}
 var _cuddle_asked: Dictionary = {}
 ## id -> the short retry deadline after a failed walk-over or unavailable ask.
 var _retry_at: Dictionary = {}
+## The last quiet reason the scan logged, so one blocked stretch logs once.
+var _quiet_reason := ""
+## id -> the last candidate reject reasons, for the throttled skip log and Show data.
+var _scan_reason: Dictionary = {}
+## id -> the last skip log time.
+var _scan_log_at: Dictionary = {}
 var _conversation: CONVERSATION
 var _venue: VENUE
 
@@ -198,6 +204,9 @@ func reset() -> void:
 	_cuddle_seen.clear()
 	_cuddle_asked.clear()
 	_retry_at.clear()
+	_quiet_reason = ""
+	_scan_reason.clear()
+	_scan_log_at.clear()
 	_scan_clock = 0.0
 
 
@@ -304,8 +313,13 @@ func _tick_cuddle_edges() -> void:
 # --------------------------------------------------------------------------- candidate
 
 func _consider_start() -> void:
-	if not bool(_conversation.quiet()):
+	var quiet := str(_conversation.quiet_reason())
+	if not quiet.is_empty():
+		if quiet != _quiet_reason:
+			_quiet_reason = quiet
+			_debug("request scan quiet reason=%s" % quiet)
 		return
+	_quiet_reason = ""
 	var player: Node3D = _venue.player()
 	if not is_instance_valid(player):
 		return
@@ -320,8 +334,10 @@ func _consider_start() -> void:
 		var runtime: Variant = main.call("runtime_for", node)
 		if not is_instance_valid(runtime):
 			continue
-		var candidate := _candidate_for(runtime, false)
+		var reasons: Array = []
+		var candidate := _candidate_for(runtime, false, "", reasons)
 		if candidate == null:
+			_log_scan_skip(runtime, reasons)
 			continue
 		if candidate.cuddle:
 			cuddles.append(candidate)
@@ -353,6 +369,25 @@ func _pick_weighted(items: Array) -> Candidate:
 	if index < 0:
 		return null
 	return items[index]
+
+
+## One mare's failed scan candidate. The reason text is logged when it changes or after 10 s, so a
+## steady cooldown or a closed gate does not fill the log every half second.
+func _log_scan_skip(runtime: Node, reasons: Array) -> void:
+	var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
+	var id := str(_venue.pony_id(pony)) if is_instance_valid(pony) else ""
+	if id.is_empty():
+		id = "?"
+	var reason := ",".join(PackedStringArray(reasons))
+	if reason.is_empty():
+		reason = "no_candidate"
+	var now := _now()
+	if str(_scan_reason.get(id, "")) == reason \
+			and now - float(_scan_log_at.get(id, -10000.0)) < 10.0:
+		return
+	_scan_reason[id] = reason
+	_scan_log_at[id] = now
+	_debug("request scan skip id=%s reasons=%s" % [id, reason])
 
 
 func _candidate_for(runtime: Node, forced: bool, pose_request := "",

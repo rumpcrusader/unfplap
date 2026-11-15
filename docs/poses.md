@@ -647,7 +647,7 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   turn and absent otherwise. The normal standing base never owns an oral overlay. The standing
   camera reads the view's facing while the turn runs; the normal facing lock resumes when the
   reverse edge or the act exit restores the capture.
-- Standing gaps: Same Height `0.55`, JRHNBR `0.45`, Canon `0.25`, Hoers `0.55`. The game's
+- Standing gaps: the per-size `default.poses.standing.gaps` values, keyed by size name. The game's
   Same Height preset follows Anon's `player/height_cm`, so that gap, the lean scale and the
   caress offsets follow `Settings.anon_height_scale()` as described in `docs/hands.md`.
   For desktop human Anon the gap is measured from her root along her backward axis after he is

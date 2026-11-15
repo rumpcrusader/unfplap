@@ -453,8 +453,8 @@ tuning:
   default; see `docs/integrations.md` and `docs/poses.md`.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
-  still zones), **You** (back-out gap, cock forward, pelvis gap), plus the ungrouped skin-strip
-  scale, aim points, **Hide tails** and **Show skeleton overlay**.
+  still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points,
+  **Hide tails** and **Show skeleton overlay**.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, Surge and Bob. Surge is
   the forward camera travel, Bob the vertical dip; both follow the filtered thrust **speed**, not
   depth, with one smooth critically damped response.

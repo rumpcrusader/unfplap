@@ -116,8 +116,8 @@ var pony_climaxes: int:
 		_readiness.pony_climaxes = value
 ## Public: penetration 0..1 and the same orientation flag used by mouse input.
 var depth := 0.0
-## Public: how far the tip has passed her lips, in metres. Negative is the `back_out` standoff
-## behind them, and the depth stays at zero for all of it.
+## Public: how far the tip has passed her lips, in metres. It never goes behind them: the tip rests
+## at her entrance and the depth stays at zero there.
 var penetration_m := 0.0
 var thrust_up := true
 
@@ -2311,7 +2311,7 @@ func _now_s() -> float:
 
 func _reset_thrust_state() -> void:
 	depth = 0.0
-	penetration_m = -_back_out_m()
+	penetration_m = 0.0
 	_readiness.reset_auto()
 	_standing_anon_controller().reset_phase()
 	_standing_camera_controller().reset_depth()
@@ -2669,17 +2669,11 @@ func penetration_reach() -> float:
 	return maxf(length, 0.02)
 
 
-## How far the tip rests past (positive) or inside (negative) her lips when pulled all the way
-## out.
-func _back_out_m() -> float:
-	return SETTINGS.back_out_m.get_num()
-
-
-## Move the physical penetration and mirror it into the public 0..1 depth. Travel behind the lips
-## moves the cock but leaves the depth at zero, so the standoff never eats a stroke.
+## Move the physical penetration and mirror it into the public 0..1 depth. The tip rests at her
+## entrance when it is out, and the depth stays at zero there, so no standoff eats a stroke.
 func _set_penetration(target_m: float, now: float) -> void:
 	var reach := penetration_reach()
-	penetration_m = clampf(target_m, -_back_out_m(), reach)
+	penetration_m = clampf(target_m, 0.0, reach)
 	_thrust_move(THRUST.penetration_to_depth(penetration_m, reach) - depth, now)
 
 

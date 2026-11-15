@@ -382,7 +382,7 @@ func _act_wink_tick(delta: float, part: Variant) -> void:
 		return
 	var touching := false
 	if is_instance_valid(part) and bool(part.call("showing")):
-		var reach := TOUCH_MARGIN_M + absf(SETTINGS.back_out_m.get_num())
+		var reach := TOUCH_MARGIN_M
 		var tip: Vector3 = part.call("tip_center")
 		touching = tip.is_finite() and tip.distance_to(hole_point()) <= reach
 	var mode := STATE.wink_mode(_depth(), touching, _facts.climaxes,

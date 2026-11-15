@@ -4,7 +4,6 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 var failures := 0
 var checks := 0
@@ -160,29 +159,18 @@ func run() -> void:
 	check(not runtime.auto_active(), "stopping auto clears the mode")
 	runtime._reset_thrust_state()
 	check(not runtime.auto_active(), "thrust reset clears auto for the next act")
-	# The depth scale is physical: his shaft length decides a full stroke, and the back-out
-	# standoff sits below zero depth so it can never eat into the stroke.
+	# The depth scale is physical: his shaft length decides a full stroke, and the tip rests at her
+	# entrance so the resting contact sits at zero depth.
 	check(near(runtime.penetration_reach(), runtime.NOMINAL_SHAFT_M),
 		"the nominal shaft sets the depth scale with no part")
-	check(near(runtime.penetration_m, -float(runtime.call("_back_out_m"))),
-		"the reset rests at the back-out standoff")
+	check(near(runtime.penetration_m, 0.0), "the reset rests the tip at her entrance")
 	runtime._set_penetration(-1.0, 0.0)
-	check(near(runtime.depth, 0.0), "pulling through the standoff leaves depth at zero")
+	check(near(runtime.penetration_m, 0.0) and near(runtime.depth, 0.0),
+		"pulling out never moves the tip behind her lips")
 	runtime._set_penetration(0.1, 0.2)
 	check(near(runtime.depth, 0.5), "half the reach reads as half depth")
 	runtime._set_penetration(1.0, 0.4)
 	check(near(runtime.penetration_m, runtime.NOMINAL_SHAFT_M), "full depth stops at the reach")
-	# Back-out is signed: a negative value rests the tip inside her and clamps the pull-out there.
-	var back_out_before := SETTINGS.back_out_m.get_num()
-	SETTINGS.back_out_m.set_num(-0.03)
-	check(near(float(runtime.call("_back_out_m")), -0.03),
-		"the back-out gap keeps its sign")
-	runtime._reset_thrust_state()
-	check(near(runtime.penetration_m, 0.03), "a negative back-out rests inside her")
-	runtime._set_penetration(-1.0, 0.0)
-	check(near(runtime.penetration_m, 0.03),
-		"a negative back-out clamps the pull-out inside her")
-	SETTINGS.back_out_m.set_num(back_out_before)
 	runtime._reset_thrust_state()
 	runtime.free()
 

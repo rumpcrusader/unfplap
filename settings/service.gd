@@ -1435,16 +1435,14 @@ static var part_throb := num("part_throb", "anatomy.part_throb", "Throb",
 	.with_unit("×").with_step(0.05).with_range(0.0, 3.0)
 
 # -- You  (debug)
-static var back_out_m := num("back_out_m", "anatomy.back_out_m", "Back-out gap",
-	"How far the tip rests behind her lips before the first thrust. Negative starts it inside her; 0 keeps it at her entrance.",
-	ANATOMY, "You") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(-5.0, 5.0).as_debug()
+## These two sit ungrouped in the Debug block: the player-facing **You** group above has the rest,
+## and a two-row section would not earn a heading.
 static var part_front_m := num("part_front_m", "anatomy.part_front_m", "Cock forward",
-	"Slide the cock's base forward from the hips so it sits on the front of the pelvis.", ANATOMY, "You") \
+	"Slide the cock's base forward from the hips so it sits on the front of the pelvis.", ANATOMY, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(-20.0, 20.0) \
 	.as_debug()
 static var pelvis_gap_m := num("pelvis_gap_m", "anatomy.pelvis_gap_m", "Pelvis gap",
-	"Keep the pelvis at least this far behind her rear surface; the depth gives way instead.", ANATOMY, "You") \
+	"Keep the pelvis at least this far behind her rear surface; the depth gives way instead.", ANATOMY, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 10.0) \
 	.as_debug()
 static var strip_scale := num("strip_scale", "anatomy.strip_scale", "Skin strip scale",
@@ -1827,6 +1825,8 @@ static var _deprecated := [
 		func(_value: Variant) -> Dictionary: return {}),
 	# The body slap only fires at true contact; the gap epsilon is retired.
 	deprecated("thrust.contact_gap_m", func(_value: Variant) -> Dictionary: return {}),
+	# The tip rests at her entrance before the first thrust; the standoff is fixed at zero.
+	deprecated("anatomy.back_out_m", func(_value: Variant) -> Dictionary: return {}),
 	# Standing Anon always keeps the game's stepping feet; the planted-body switches are retired.
 	deprecated("features.standing_plant_feet", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.standing.plant_spread_m",

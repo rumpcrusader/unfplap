@@ -75,8 +75,8 @@ static func pixels_to_metres(dy_pixels: float, pixels_per_cm: float, up_is_deep:
 	return sign * dy_pixels / (maxf(1.0, pixels_per_cm) * 100.0)
 
 
-## The public 0..1 depth from the measured penetration. Anything behind her lips — the `back_out`
-## standoff included — is zero depth, so the standoff never dilutes the stroke scale.
+## The public 0..1 depth from the measured penetration. Anything at or behind her lips is zero
+## depth, so the resting contact never dilutes the stroke scale.
 static func penetration_to_depth(penetration_m: float, reach_m: float) -> float:
 	if reach_m <= 0.0:
 		return 0.0

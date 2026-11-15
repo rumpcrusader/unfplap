@@ -528,9 +528,9 @@ body's own deformation across the whole mesh.
   the same guard.
 - `part_throb` scales a two-lobe heartbeat. It also lifts the visible shaft while it is outside
   her; the lift fades to nothing at full depth.
-- `back_out_m` is how far the tip rests past (positive) or inside (negative) her lips when pulled
-  all the way out. It is negative penetration, so the depth scale never counts a positive standoff;
-  the signed value still clamps the pull-out.
+- The tip rests at her entrance when it is all the way out: the runtime clamps penetration at zero,
+  so the depth scale never counts a standoff behind her lips. The old `anatomy.back_out_m` row is
+  retired and fixed at zero.
 - `track()` takes measured penetration in metres and places the tip exactly that far past her
   lips. The attached aim pulls his pelvis to `opening - normal × (shaft - penetration)`; the
   sliding aim puts the tip there; the bed holder sits `shaft - penetration` behind her. The
@@ -665,8 +665,8 @@ built from the declarations, so the label, help and bounds are not restated here
   discharge.
 - `anatomy.player_scale`, `anatomy.part_base_scale`, `anatomy.part_mid_scale`,
   `anatomy.part_head_scale`, `anatomy.part_length_scale`, `anatomy.part_throb`: the **You** group.
-- `anatomy.back_out_m`, `anatomy.part_front_m`, `anatomy.pelvis_gap_m`: player-part standoff, in
-  the Anatomy Debug **You** group. Back-out is signed, `-5…5 cm`.
+- `anatomy.part_front_m`, `anatomy.pelvis_gap_m`: player-part standoff, ungrouped in the Anatomy
+  Debug block.
 - `presentation.missionary.part_inset_m`: missionary-only part inset, added to `part_front_m`.
 - `presentation.missionary.size.<preset>.vulva_shift_mm`, `vulva_pitch_deg`,
   `vulva_depth_shift_mm` and `vulva_hug_mm`: the missionary-only placement and grip trims.

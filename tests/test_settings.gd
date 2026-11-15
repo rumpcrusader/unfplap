@@ -149,7 +149,7 @@ func _check_registry() -> void:
 	check(SETTINGS.by_path("features.act_faces") == null, "act faces are not a setting")
 	for name: String in ["act_lines", "act_line_angles", "caress_areas",
 			"allow_act_during_cuddle", "contact_gap_m", "standing_plant_feet",
-			"plant_spread_m", "anatomy_vr", "show_dock", "dock_color"]:
+			"plant_spread_m", "anatomy_vr", "show_dock", "dock_color", "back_out_m"]:
 		check(SETTINGS.by_name(name) == null, "%s is retired" % name)
 
 
@@ -497,9 +497,6 @@ func _is_hex_color(value: String) -> bool:
 
 ## Bounds are the player-facing contract, independent of any shipped value.
 func _check_bounds() -> void:
-	check(near(float(SETTINGS.back_out_m.low), -5.0)
-		and near(float(SETTINGS.back_out_m.high), 5.0),
-		"back-out gap keeps its signed range")
 	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
 		"auto pace keeps its contract bounds")
 

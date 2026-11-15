@@ -5,7 +5,6 @@ extends RefCounted
 ## See `docs/anatomy.md` (`## Act anatomy`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const PULLED_OUT_PHASE := 0.35
 const ANON_FLUID_COLOR := Color(0.98, 0.97, 0.93, 0.96)
@@ -13,8 +12,9 @@ const ANON_FLUID_COLOR := Color(0.98, 0.97, 0.93, 0.96)
 var anatomy: Node
 var pony: Node3D
 var service: Node
-var pose := ""
 var status := Callable()
+## Whether the live pose is the bed frame; the act supplies this from its pose view.
+var bed_pose := Callable()
 
 var _pull_out := false
 var _finish_out := false
@@ -22,13 +22,13 @@ var _finished_inside := false
 var _bed_rest := 0.8
 
 
-func setup(anatomy_node: Node, pony_node: Node3D, service_node: Node, pose_id: String,
-		status_callable := Callable()) -> void:
+func setup(anatomy_node: Node, pony_node: Node3D, service_node: Node,
+		status_callable := Callable(), bed_pose_callable := Callable()) -> void:
 	anatomy = anatomy_node
 	pony = pony_node
 	service = service_node
-	pose = pose_id
 	status = status_callable
+	bed_pose = bed_pose_callable
 	reset()
 
 
@@ -115,7 +115,7 @@ func _spurts_on_her(pulse: int) -> void:
 		return
 	var rear := _hole_rear()
 	var up_and_over := -Vector3(rear.x, 0.0, rear.z).normalized() + Vector3.UP * 0.55
-	if pose == CATALOG.MISSIONARY:
+	if bed_pose.is_valid() and bool(bed_pose.call()):
 		var mesh: Variant = anatomy.call("winking_mesh")
 		if is_instance_valid(mesh):
 			up_and_over = (mesh as Node3D).global_basis.y.normalized() + Vector3.UP * 0.45

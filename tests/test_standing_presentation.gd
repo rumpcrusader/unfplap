@@ -159,7 +159,6 @@ func run() -> void:
 	var facts: RefCounted = ACT_FACTS.new()
 	facts.main = main
 	facts.pony = pony
-	facts.pose_id = "standing"
 	facts.cuddle_active = func() -> bool: return false
 	facts.free_of_affection = func() -> bool: return true
 	facts.can_offer = func(_pose: String, _source: String, _bed: Variant) -> bool:

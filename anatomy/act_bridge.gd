@@ -102,11 +102,6 @@ func act_available() -> bool:
 	return is_instance_valid(act)
 
 
-## The act's oral state. The controller's act handle owns it.
-func anal_active() -> bool:
-	return is_instance_valid(act) and bool(act.get("_anal"))
-
-
 ## The pose view the act reads for the mouth contact.
 func _mouth_contact() -> bool:
 	var view: Variant = _host("pose_view")
@@ -114,7 +109,7 @@ func _mouth_contact() -> bool:
 
 
 ## The per-act handle. The controller's `begin_act` creates it; the bridge resets the facts first.
-func begin_act(pose_id: String) -> void:
+func begin_act() -> void:
 	facts.penetration_m = 0.0
 	facts.climaxes = 0
 	facts.auto_pace = 1.0
@@ -124,7 +119,7 @@ func begin_act(pose_id: String) -> void:
 	act = null
 	if not is_instance_valid(controller):
 		return
-	act = controller.call("begin_act", pose_id)
+	act = controller.call("begin_act")
 
 
 ## Write the live act state the persistent controller polls outside the act. The host supplies
@@ -233,11 +228,6 @@ func finish_ready() -> bool:
 
 func actions_ready() -> bool:
 	return hole_ready() or oral_ready() or finish_ready()
-
-
-## The compatibility read of the live mouth contact. The pose view is the one contact source.
-func oral_active() -> bool:
-	return _mouth_contact()
 
 
 ## Re-assert the oral mouth shape after the base game stopped her speech.

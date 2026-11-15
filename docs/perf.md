@@ -127,9 +127,9 @@ The act probe's own chunks, in call order inside one physics tick: `pose_tick`, 
 `anatomy_tick`, `runtime_talk`, `runtime_camera`, `runtime_face`, all inside `runtime_physics`.
 `pose_tick` is the pose edge clock, the channel records, the switches/events and the oral turn;
 `pose_fanout` is the modifier reconcile, the `act_body`/`anon` channel and the
-camera/hands/kiss/anatomy/audio hooks. The facts sync mirrors `view.contact_kind` into the
-compatibility `oral_active` field without a dictionary copy; the standing camera reads the view's
-facing each physics tick. The skeleton modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone`
+camera/hands/kiss/anatomy/audio hooks. The facts sync carries the one `pose_view`; the standing
+camera reads its facing each physics tick, and the mouth/contact provider reads its
+`contact_kind`. The skeleton modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone`
 (`UnfplapProneSway`); `runtime_process` covers the render-time pose write. Chunks nest:
 `runtime_presentation` contains `wings_tick`, and `caress_tick` contains `caress_precise` →
 `caress_surface` → `caress_skin`/`caress_tri`/`caress_ray`.

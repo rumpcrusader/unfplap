@@ -154,10 +154,10 @@ which requests the target pose with the per-mare consent string; the reserved `p
 `pose_forward` return false, and `end` returns true without an act exit. The act-key hold still
 owns the one exit path.
 
-The runtime's `pose_id` stays the act's start pose (start, gate and teardown), while the session
-view is the active pose and `facts.pose_id` follows the live view id. `_end_session()` aborts a
-live edge through the one pose teardown. `apply_live_settings()` also refreshes a running edge's
-target snapshot after the start pose's own config sync.
+The runtime's `pose_id` is the act's start identity for the start sequence, the scene gate and
+the teardown; the pose view is the active pose. `_end_session()` aborts a live edge through the
+one pose teardown. `apply_live_settings()` also refreshes a running edge's target snapshot after
+the start pose's own config sync.
 
 ## Tests
 

@@ -368,7 +368,6 @@ func run() -> void:
 	var hip := Node3D.new()
 	root.add_child(hip)
 	var lean_facts: RefCounted = ACT_FACTS.new()
-	lean_facts.pose_id = CATALOG.STANDING
 	lean_facts.pose_view = _standing_view()
 	lean_facts.free_camera_active = true
 	lean_facts.lean_view_forward = 1.0
@@ -545,7 +544,7 @@ func run() -> void:
 	live_runtime.free()
 
 	var smack := REACTIONS.new()
-	smack.configure({"pose_id": CATALOG.STANDING, "size_scale": 1.0,
+	smack.configure({"pose_family": "standing", "size_scale": 1.0,
 		"jiggle": {"smack_intensity": 0.5}})
 	var jiggle_pony := Node3D.new()
 	root.add_child(jiggle_pony)
@@ -617,7 +616,6 @@ func run() -> void:
 		"hip reach scales with pony size")
 
 	var hip_facts: RefCounted = ACT_FACTS.new()
-	hip_facts.pose_id = CATALOG.STANDING
 	hip_facts.pose_view = _standing_view()
 	hip_facts.thrust_travel = 2.0
 	var hip_pony := Node3D.new()
@@ -768,7 +766,6 @@ func run() -> void:
 	var plant_hip := Node3D.new()
 	plant_skeleton.add_child(plant_hip)
 	var plant_facts: RefCounted = ACT_FACTS.new()
-	plant_facts.pose_id = CATALOG.STANDING
 	plant_facts.pose_view = _standing_view()
 	plant_facts.free_camera_active = true
 	plant_facts.features = {}

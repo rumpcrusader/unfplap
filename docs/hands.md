@@ -78,7 +78,7 @@ they read `state`, `lean_forward`, `lean_side`, `size_name`, `size_scale`,
 `same_height_scale`, `physics_delta`, `presentation_config`, `profile`, `camera` and `main`, plus
 the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, `touch()` and
 `smack_hit()` callbacks. The pose path and the contact come from `facts.pose_view`: the
-controller reads `view.hands.path` and `view.contact_kind`, not `pose_id` or `oral_active`. The
+controller reads `view.hands.path` and `view.contact_kind`, not a start pose id or a contact mirror. The
 smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
 `hands/session.gd`, so `hands/smack.gd` needs no host node. The field and callback contract is
 `docs/act_facts.md`; `tests/test_source_hygiene.gd` fails on a runtime reach-in.

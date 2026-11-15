@@ -358,7 +358,6 @@ func _anatomy_host() -> Dictionary:
 		"anatomy_service": Callable(self, "_anatomy_service"),
 		"eligibility_service": Callable(self, "_eligibility_service"),
 		"state": Callable(self, "_state"),
-		"pose_id": Callable(self, "_pose_id"),
 		"pose_view": Callable(self, "_pose_view_value"),
 		"depth": Callable(self, "_depth"),
 		"penetration_m": Callable(self, "_penetration_m"),
@@ -424,10 +423,6 @@ func _state() -> int:
 	return state
 
 
-func _pose_id() -> String:
-	return pose_id
-
-
 ## The live pose family, or the start spec's family before the first view fill.
 func _pose_family() -> String:
 	var view: Variant = _pose_session.view()
@@ -443,6 +438,7 @@ func _start_family() -> String:
 ## The start spec's settings group. The internal poses share the standing group.
 func _start_group() -> String:
 	return str(POSE_SPECS.spec(pose_id).get("settings_group", ""))
+
 
 
 ## The live pose frame, or the start spec's frame before the first view fill.
@@ -524,9 +520,9 @@ func body_coat_jiggle_target() -> void:
 	_reactions.body_coat_target()
 
 
-func _anatomy_act_refresh(pose_id: String) -> void:
+func _anatomy_act_refresh() -> void:
 	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.begin_act(pose_id)
+	_anatomy_bridge.begin_act()
 
 
 func _anatomy_service() -> Variant:
@@ -555,7 +551,6 @@ func _sync_act_facts() -> void:
 	var facts := _act_facts
 	var view: Variant = _pose_service().view()
 	facts.state = state
-	facts.pose_id = str(view.id) if view != null else pose_id
 	facts.pose_view = view
 	facts.source = source
 	facts.satisfaction = satisfaction
@@ -588,13 +583,7 @@ func _sync_act_facts() -> void:
 	facts.last_talk = _readiness.last_talk
 	facts.cue_override = not _readiness.cue_override.is_empty()
 	facts.thrust_pace = _readiness.thrusts_per_second()
-	# The pose view is the one contact source. `facts.oral_active` and the view's compatibility
-	# mirror are derived from it for the remaining readers; nothing writes the contact back.
-	var pose_view: Variant = facts.pose_view
-	facts.oral_active = str(pose_view.contact_kind) == "mouth"
-	facts.anal_active = _anatomy_bridge.anal_active()
-	pose_view.oral_active = facts.oral_active
-	pose_view.anal_active = facts.anal_active
+	# The pose view is the one contact source; the mouth/contact provider reads `contact_kind`.
 	facts.penetration_reach = penetration_reach()
 	var cam: RefCounted = _camera_service()
 	facts.size_name = cam.call("size_name")
@@ -630,7 +619,6 @@ func _sync_act_facts() -> void:
 	facts.back = cam.back
 	facts.back_target = cam.back_target
 	facts.forced_glance = _forced_glance
-	facts.pose_config = _pose_session.pose_config
 	facts.presentation_config = _presentation_cfg
 	facts.bed_frame = _pose_session.bed_frame
 	facts.physics_delta = get_physics_process_delta_time()
@@ -665,7 +653,7 @@ func _act_set_camera_basis_ready() -> void:
 
 func _anatomy_fluid_ground_y() -> float:
 	var ground: float = pony.global_position.y if is_instance_valid(pony) else 0.0
-	if pose_id != CATALOG.MISSIONARY:
+	if _pose_family() != "bed":
 		return ground
 	var camera: Variant = _missionary_camera_controller()
 	if camera != null and camera.has_method("bed_surface_top"):
@@ -765,7 +753,6 @@ func _bind_act_view() -> void:
 	facts.main = main
 	facts.pony = pony
 	facts.state = state
-	facts.pose_id = str(view.id) if view != null else pose_id
 	facts.pose_view = view
 	facts.pony_id = _id
 	facts.camera = _act_camera.camera
@@ -773,7 +760,6 @@ func _bind_act_view() -> void:
 	facts.pose = _pose_session.pose()
 	facts.player_pony = _player_pony
 	facts.bed = bed
-	facts.pose_config = _pose_session.pose_config
 	facts.presentation_config = _presentation_cfg
 	facts.profile = _profile
 	facts.features = _features
@@ -901,7 +887,6 @@ func _dialogue_service() -> RefCounted:
 ## the tree, so the binding is refreshed on every access instead of only in `_ready()`.
 func _pose_service() -> RefCounted:
 	_pose_session.bind(self, pony)
-	_pose_session.pose_id = pose_id
 	_pose_session.id = _id
 	_pose_session.hide_avatar = Callable(self, "_hide_act_avatar")
 	_pose_session.set_act_body = Callable(self, "_set_missionary_anon_handle")
@@ -990,7 +975,6 @@ func _camera_service() -> RefCounted:
 	_act_facts.main = main
 	_act_facts.pony = pony
 	_act_facts.state = state
-	_act_facts.pose_id = str(view.id) if view != null else pose_id
 	_act_facts.player_pony = _player_pony
 	_act_camera.bind(_act_facts, _hand_controller(), _kiss_controller(),
 		_standing_camera_controller(), _missionary_camera_controller())
@@ -1084,11 +1068,11 @@ func apply_live_settings() -> void:
 	var climax := _feature("act_climax")
 	_ensure_act_audio(climax)
 	_reactions.apply_radius()
-	if pose_id == CATALOG.STANDING:
+	if _pose_family() == "standing":
 		_kiss_controller().apply_live_settings()
 		_sync_standing_pose_config()
 		_standing_presentation_controller().apply_live_settings()
-	elif pose_id == CATALOG.MISSIONARY:
+	elif _pose_family() == "bed":
 		_sync_missionary_pose_config()
 	# A running edge's target snapshot follows the same edit; the start pose's config sync above
 	# stays for the compatibility readers.
@@ -1112,10 +1096,10 @@ func _refresh_live_modifiers() -> void:
 	var skeleton_value: Variant = pony.get("skeleton")
 	if not skeleton_value is Skeleton3D:
 		return
-	_pose_service().refresh_modifiers(pose_id, _features)
-	if pose_id == CATALOG.STANDING:
+	_pose_service().refresh_modifiers(_features)
+	if _pose_family() == "standing":
 		_standing_anon_controller().refresh_palm()
-	elif pose_id == CATALOG.MISSIONARY:
+	elif _pose_family() == "bed":
 		_anatomy_bridge.bind(_anatomy_host())
 		_anatomy_bridge.refresh_palm()
 
@@ -1213,7 +1197,7 @@ func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
 		return
 	_act_seconds += delta
-	if pose_id == CATALOG.MISSIONARY:
+	if _pose_family() == "bed":
 		_missionary_camera_controller().hide_avatar()
 		_aim_missionary_eyes()
 	var boop: Variant = pony.get("boop_node")
@@ -1251,7 +1235,7 @@ func _process_tick(delta: float) -> void:
 	_sync_act_facts()
 	_sync_bed_pose_frame()
 	_pose_render_write()
-	_pose_idle_sample()
+	_idle_pose_sample()
 	_standing_camera_controller().clamp_look()
 	_camera_service().call("write_look_target", _pose_session.pose())
 	if state == State.CLIMAX:
@@ -1422,7 +1406,7 @@ func _physics_tick(delta: float) -> void:
 			state = State.ACTIVE
 			# The start snapshot caught Anon mid stand-up, so his eye height was the reclined one; the
 			# scene is settled now, and restoring to this is what puts the camera back correctly.
-			if pose_id == CATALOG.MISSIONARY:
+			if _pose_family() == "bed":
 				_missionary_camera_controller().resnapshot()
 	elif state == State.CLIMAX:
 		_climax_left -= delta
@@ -1870,7 +1854,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 				_log("start blocked stool pose=%s pony=%s need=%d" % [
 					pose, str(pony.name) if is_instance_valid(pony) else "?", stool_need])
 				return false
-	_camera_service().call("begin_session", pose)
+	_camera_service().call("begin_session", _start_family())
 	_posture_owned = false
 	_session_finalized = false
 	# Remove the idle standing invitation and its request face before the act builds its own pose.
@@ -1881,7 +1865,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	pose_id = pose
 	source = act_source
 	_profile = SETTINGS.template_for(_id)
-	_pose_service().set_pose_config(SETTINGS.pose(_id, pose_id))
+	_pose_service().set_pose_config(SETTINGS.pose(_id, _start_group()))
 	_preferences = SETTINGS.preferences(_id)
 	_act_prompts = _profile.get("act_prompts", {})
 	_snapshot_settings()
@@ -1899,7 +1883,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 		bed = null
 		return false
 	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	_camera_service().call("apply_eye_override", pose_id, _player_pony)
+	_camera_service().call("apply_eye_override", _start_family(), _player_pony)
 	_wings_controller().reset()
 	_act_seconds = 0.0
 	_reactions.begin_act()
@@ -1953,7 +1937,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	pony.set_meta("sex_active", true)
 	# integration: build the per-act anatomy controller before the pose reads its config.
 	_anatomy_refresh()
-	_anatomy_act_refresh(pose)
+	_anatomy_act_refresh()
 
 	# The act is its own state for both of them: Anon stands up before the snapshot and the lock, and
 	# she leaves the game's lying state. The bed only supplies the frame their bodies are placed in.
@@ -2629,7 +2613,7 @@ func _shaft_length_m() -> float:
 ## by the shaft alone.
 func penetration_reach() -> float:
 	var length := _shaft_length_m()
-	if pose_id in [CATALOG.STANDING, CATALOG.MISSIONARY]:
+	if _pose_family() in ["standing", "bed"]:
 		return maxf(length - _pelvis_gap_m, 0.02)
 	return maxf(length, 0.02)
 
@@ -2716,7 +2700,7 @@ func _on_impact(result: Dictionary) -> void:
 	if not oral:
 		_reactions.thrust(jiggle)
 		_reactions.tail_thrust(jiggle)
-	if pose_id == CATALOG.STANDING:
+	if _pose_family() == "standing":
 		_reactions.add_blush(impact)
 		_pose_service().trigger_ear_twitch(impact)
 	_readiness.thrust_times.append(now)
@@ -3044,7 +3028,7 @@ func _stop_with_her(reason: String) -> void:
 	# skipped, so one partner stop is never two memories.
 	if _summary_service.summary.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
 		main.memory.note(MEMORY.NoteKind.STOPPED, _id, _event_id, MEMORY.StopReason.WITHDREW)
-	if pose_id == CATALOG.MISSIONARY:
+	if _pose_family() == "bed":
 		REST.release_managed(pony)
 	_end_act_lines(true)
 	_end_session(false)
@@ -3349,8 +3333,8 @@ func _afterglow_begin() -> void:
 	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
 	_stop_auto()
 	_end_act_lines(true)
-	# Missionary afterglow keeps only lean and caress; standing keeps its kiss.
-	if pose_id != CATALOG.STANDING:
+	# Bed afterglow keeps only lean and caress; standing keeps its kiss.
+	if _pose_family() != "standing":
 		_kiss_controller().end_lean_kiss()
 	# integration: decide and show the finish before the summary is written.
 	_anatomy_bridge.on_finish()
@@ -3393,7 +3377,7 @@ func _afterglow_tick(delta: float) -> void:
 	# integration: keep the optional bed-body part tracking through afterglow.
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.afterglow_tick(delta)
-	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
+	if state != State.AFTERGLOW or _pose_family() != "standing":
 		return
 	_afterglow.close_tick(delta)
 
@@ -3415,7 +3399,7 @@ func _on_stay_close(caressed: bool, reward: bool) -> void:
 	cue = ""
 
 func close_hint() -> String:
-	if state != State.AFTERGLOW or pose_id != CATALOG.STANDING:
+	if state != State.AFTERGLOW or _pose_family() != "standing":
 		return ""
 	return _afterglow.hint()
 
@@ -3455,7 +3439,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	# returns Anon and her to it, but only when it did not go badly.
 	var rejoin_bed: Node3D = null
 	var rejoin_serial := _serial
-	if rejoin_cuddle and pose_id == CATALOG.MISSIONARY \
+	if rejoin_cuddle and _start_frame() == "bed" \
 			and source in ["bed_side", "already_lying"] and not _stopped_by_her \
 			and bool(_rest_service().call("rejoin_wanted", _rest_context())):
 		rejoin_bed = bed
@@ -3778,7 +3762,7 @@ func _check_running() -> void:
 	if _hold.nav != null and is_instance_valid(_hold.nav) and str(_hold.nav.get("reserved_by")) != "":
 		_stop("interrupted")
 		return
-	if pose_id == CATALOG.MISSIONARY and bed != null and main.bed_occupied(bed, pony):
+	if _pose_family() == "bed" and bed != null and main.bed_occupied(bed, pony):
 		_stop("interrupted")
 		return
 	if _player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
@@ -3808,7 +3792,7 @@ func _begin_camera_mode() -> void:
 	# The act's own Anon body is created by the pose session on its first pose change (desktop human
 	# only; AnonPony and VR have their own bodies).
 	# integration: the VR standing act; it uses the headset rig and no desktop camera.
-	if _headset_view() and not _player_pony and pose_id == CATALOG.STANDING:
+	if _headset_view() and not _player_pony and _pose_family() == "standing":
 		_start_vr_act()
 	if _player_pony or _headset_view():
 		return
@@ -3816,7 +3800,7 @@ func _begin_camera_mode() -> void:
 		return
 	_camera_service().call("begin_free")
 	_sync_act_facts()
-	if pose_id == CATALOG.STANDING and is_instance_valid(_act_camera.camera):
+	if _pose_family() == "standing" and is_instance_valid(_act_camera.camera):
 		_standing_camera_controller().prepare()
 		_standing_anon_controller().install()
 	_camera_service().call("apply_free_camera_lock")
@@ -3883,7 +3867,7 @@ func _missionary_eye_tick() -> void:
 
 
 ## The render-time placement trace, driven by the pose session.
-func _pose_idle_sample() -> void:
+func _idle_pose_sample() -> void:
 	_pose_service().idle_sample(state)
 
 
@@ -3972,7 +3956,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 
 
 func _restore_look() -> void:
-	_camera_service().call("restore_look", pose_id)
+	_camera_service().call("restore_look", _start_family())
 
 
 ## Give the camera back in the order the shot was built. The facade owns the leaves; the runtime

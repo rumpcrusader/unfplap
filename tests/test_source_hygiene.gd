@@ -12,33 +12,19 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const WIDGET_FILES := ["res://mods/unfplap/settings/ui.gd",
 	"res://mods/unfplap/settings/characters_ui.gd"]
 const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "ColorPickerButton.new("]
-## The pose capability census: every raw `pose_id` and `oral_active` occurrence in a shipped `.gd`
-## file, per file. It ratchets down: a migrated consumer must not gain a reference, and a file that
-## drops lowers its entry in the same commit. Producer mirrors may raise a producer's entry in the
-## commit that adds them, with the total held flat. The hard allowlist is Phase B5/E.
-## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). A1 moved the camera,
-## hands, kiss, anatomy, afterglow, dialogue, HUD and body sway to the view; A3.5 moved the two
-## standing adapters: 141 and 19 are allowed.
+## The pose capability census: every raw `pose_id` occurrence in a shipped `.gd` file, per file.
+## It ratchets down: a migrated consumer must not gain a reference, and a file that drops lowers
+## its entry in the same commit. The remaining reads are the runtime's start identity, the pose
+## session's begin key, the settings data API and the debug display line.
 const POSE_ID_BUDGET := {
-	"runtime.gd": 55,
-	"poses/service.gd": 18,
+	"runtime.gd": 13,
+	"poses/service.gd": 1,
 	"settings/service.gd": 11,
-	"anatomy/act_bridge.gd": 2,
-	"anatomy/controller.gd": 3,
-	"api.gd": 3,
-	"anatomy/act.gd": 2,
-	"anatomy/act/finish.gd": 2,
-	"shared/act_facts.gd": 2,
 	"main.gd": 1,
-	"shared/pose_view.gd": 4,
 }
-const ORAL_ACTIVE_BUDGET := {
-	"runtime.gd": 4,
-	"anatomy/act_bridge.gd": 1,
-	"shared/act_facts.gd": 1,
-	"anatomy/act.gd": 1,
-	"shared/pose_view.gd": 3,
-}
+## The compatibility `oral_active`/`anal_active` mirrors are gone; the view's contact kind is the
+## one mouth source. Any occurrence outside a test is a regression.
+const ORAL_ACTIVE_BUDGET := {}
 var failures := 0
 var checks := 0
 
@@ -118,7 +104,9 @@ func run() -> void:
 	_check_pose_edges()
 	_check_pose_docs()
 	_check_pose_capability_census(files)
+	_check_pose_id_comparisons(files)
 	_check_oral_contact(files)
+	_check_pose_aliases()
 	_check_act_commands()
 	_check_act_camera()
 	_check_scene_gate()
@@ -702,8 +690,9 @@ func _check_pose_session() -> void:
 		check(hook_doc.contains("pose_changed"),
 			"docs/%s documents the pose_changed hook" % doc_name)
 	var facts_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/act_facts.md"))
-	check(facts_doc.contains("`facts.pose_id` is the active `view.id`"),
-		"docs/act_facts.md documents the active pose id")
+	check(facts_doc.contains("`view.id` is the active pose")
+		and not facts_doc.contains("facts.pose_id"),
+		"docs/act_facts.md documents the one active pose source")
 	var tests_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/tests.md"))
 	check(tests_doc.contains("test_modifier_profile"),
 		"docs/tests.md names the synthetic profile suite")
@@ -728,8 +717,11 @@ func _check_pose_session() -> void:
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	check(runtime.contains("func _pose_service()"), "runtime reaches the pose through the session")
 	var sync := _func_body(runtime, "_sync_act_facts")
-	check(sync.contains("contact_kind") and sync.contains("oral_active"),
-		"_sync_act_facts mirrors the pose view's contact")
+	check(sync.contains("facts.pose_view = view"),
+		"_sync_act_facts carries the one pose view")
+	check(not sync.contains("oral_active") and not sync.contains("anal_active")
+		and not sync.contains("facts.pose_id") and not sync.contains("facts.pose_config"),
+		"_sync_act_facts writes no compatibility alias")
 	check(not sync.contains("write_facing("),
 		"_sync_act_facts writes no facing into the view")
 	check(not runtime.contains("turn_facing("),
@@ -879,10 +871,9 @@ func _check_pose_capability_census(files: Array[String]) -> void:
 	_check_token_budget(files, "oral_active", ORAL_ACTIVE_BUDGET)
 
 
-## The mouth contact is one view read: the pose turn writes it, the anatomy provider and the
-## compatibility mirrors read it, and the runtime never asks the bridge for an old active flag.
+## The mouth contact is one view read: the pose turn writes it, the anatomy act reads
+## `view.contact_kind`, and no `oral_active` mirror or call survives anywhere.
 func _check_oral_contact(files: Array[String]) -> void:
-	var allowed := ["anatomy/act.gd", "anatomy/act_bridge.gd"]
 	for path: String in files:
 		if not path.ends_with(".gd"):
 			continue
@@ -890,9 +881,8 @@ func _check_oral_contact(files: Array[String]) -> void:
 			continue
 		var relative := path.trim_prefix(ROOT.path_join(""))
 		var text := FileAccess.get_file_as_string(path)
-		if text.contains(".oral_active("):
-			check(relative in allowed,
-				"only the contact provider calls oral_active(): %s" % relative)
+		check(not text.contains("oral_active") and not text.contains("anal_active"),
+			"no oral/anal compatibility mirror: %s" % relative)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	check(not runtime.contains("_anatomy_bridge.oral_active"),
 		"the runtime reads the mouth contact from the pose view")
@@ -901,6 +891,35 @@ func _check_oral_contact(files: Array[String]) -> void:
 		"the oral command requests the authored oral edge")
 	check(not toggle.contains("toggle_oral"),
 		"the oral command never calls the removed anatomy toggle")
+
+
+## No start-pose comparison outside the pose data modules and the settings data API. The
+## orchestrator keeps `pose_id` only as the start identity passed to the session and the logs.
+func _check_pose_id_comparisons(files: Array[String]) -> void:
+	var data_owners := ["shared/pose_catalog.gd", "shared/pose_specs.gd", "settings/service.gd"]
+	for path: String in files:
+		if not path.ends_with(".gd"):
+			continue
+		if path.begins_with(ROOT.path_join("tests/")) or path.begins_with(ROOT.path_join("tools/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		if relative.begins_with("poses/") or relative in data_owners:
+			continue
+		var text := FileAccess.get_file_as_string(path)
+		for token: String in ["pose_id ==", "pose_id !=", "pose_id in [", "pose_id not in "]:
+			check(not text.contains(token),
+				"%s keeps no start-pose branch: %s" % [relative, token])
+
+
+## The typed view and the act facts carry the live values only; the compatibility aliases are
+## gone, and `pose_config` lives only on the view/session that owns it.
+func _check_pose_aliases() -> void:
+	var facts := FileAccess.get_file_as_string(ROOT.path_join("shared/act_facts.gd"))
+	for token: String in ["pose_id", "oral_active", "anal_active", "pose_config"]:
+		check(not facts.contains(token), "shared/act_facts.gd drops the %s alias" % token)
+	var view := FileAccess.get_file_as_string(ROOT.path_join("shared/pose_view.gd"))
+	for token: String in ["var pose_id", "var oral_active", "var anal_active"]:
+		check(not view.contains(token), "shared/pose_view.gd drops the %s alias" % token)
 
 
 func _check_token_budget(files: Array[String], token: String, budget: Dictionary) -> void:

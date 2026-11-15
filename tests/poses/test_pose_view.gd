@@ -54,8 +54,6 @@ func _check_defaults(view: RefCounted) -> void:
 		"a fresh view has no facing")
 	check(view.forms.is_empty() and view.views.is_empty(), "a fresh view declares no support")
 	check(not view.public_pose and not view.offerable, "a fresh view is not offered")
-	check(view.pose_id == "" and not view.oral_active and not view.anal_active,
-		"a fresh view mirrors nothing")
 
 
 func _check_fill(view: RefCounted, spec: Variant, config: Dictionary) -> void:
@@ -77,11 +75,7 @@ func _check_fill(view: RefCounted, spec: Variant, config: Dictionary) -> void:
 	check(view.forms is Array[String] and view.forms == spec.forms, "the view keeps the forms")
 	check(view.views is Array[String] and view.views == spec.views, "the view keeps the views")
 	check(view.public_pose and view.offerable, "the view carries the support flags")
-	check(view.pose_id == view.id, "the compatibility id mirrors the pose")
-	view.oral_active = true
-	view.anal_active = true
 	view.contact_kind = "mouth"
-	check(view.oral_active and view.anal_active, "the live mirrors are writable")
 	check(view.contact_kind == "mouth", "the contact kind is writable")
 
 
@@ -127,8 +121,6 @@ func _check_clear(view: RefCounted, spec: Variant, config: Dictionary) -> void:
 	check(view.facing == Basis.IDENTITY and view.facing_amount == 0.0, "clear drops the facing")
 	check(view.forms.is_empty() and view.views.is_empty(), "clear empties the support lists")
 	check(not view.public_pose and not view.offerable, "clear drops the support flags")
-	check(view.pose_id == "" and not view.oral_active and not view.anal_active,
-		"clear drops the compatibility mirrors")
 	for profile: String in PROFILES:
 		check(view.get(profile).is_empty(), "clear empties the %s profile" % profile)
 

@@ -651,7 +651,8 @@ func _sync() -> void:
 		return
 	main = facts.main
 	pony = facts.pony
-	var cfg: Variant = facts.pose_config
+	var view: Variant = facts.pose_view
+	var cfg: Variant = view.pose_config if view != null else null
 	_pose_cfg = cfg if cfg is Dictionary else {}
 
 

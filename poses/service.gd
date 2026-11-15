@@ -37,8 +37,7 @@ const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_
 var host: Variant = null
 var pony: Variant = null
 
-## The act's pose and identity.
-var pose_id := ""
+## The act's identity and the live view's fields.
 var id := ""
 var features: Dictionary = {}
 var bed_node: Variant = null
@@ -148,7 +147,7 @@ func set_pose_config(config: Dictionary) -> void:
 	pose_config.merge(config, true)
 
 
-## Build the pose for a fresh act. `context` carries `pose_id`, `id`, `features`, `bed`,
+## Build the pose for a fresh act. `context` carries the start spec id, `id`, `features`, `bed`,
 ## `presentation`, `look_point` and `camera_position` from the runtime's start sequence. Returns
 ## false, before installing anything, when a pose is already live or the pony has no body skeleton;
 ## `_started` only follows a complete install.
@@ -167,7 +166,7 @@ func begin(context: Dictionary) -> bool:
 	# A holder left from the last act is dropped without clearing the choice: a new act after an
 	# offer reuses the variant and side the offer rolled.
 	_release_stretch(false)
-	pose_id = str(context.get("pose_id", ""))
+	var start_id := str(context.get("pose_id", ""))
 	id = str(context.get("id", ""))
 	features = context.get("features", {})
 	bed_node = context.get("bed")
@@ -180,24 +179,24 @@ func begin(context: Dictionary) -> bool:
 	pose_node.perf = perf
 	# Fill the view first: the active settings group and family drive the start config sync, not the
 	# act's start id. One live object: the sync merges the character's pose into `pose_config` in
-	# place, so the modifier, `facts.pose_config`, the view and the runtime share it.
-	_fill_view()
-	_view.contact_kind = _spec_contact_kind(_registry.spec(pose_id))
+	# place, so the modifier, the view and the runtime share it.
+	var start_spec: Variant = _registry.spec(start_id)
+	_fill_view(start_spec)
+	_view.contact_kind = _spec_contact_kind(start_spec)
 	var group := str(_view.settings_group)
 	if group == CATALOG.STANDING:
 		sync_standing_config(context.get("presentation", {}))
 	elif group == CATALOG.MISSIONARY:
 		sync_missionary_config()
 	pose_node.pose_config = pose_config
-	var spec: Variant = _registry.spec(pose_id)
-	pose_node.call("set_pose", _effective_driver(spec), _effective_driver(spec),
-		_effective_delta(spec), _effective_delta(spec), pose_config, pose_config)
+	pose_node.call("set_pose", _effective_driver(start_spec), _effective_driver(start_spec),
+		_effective_delta(start_spec), _effective_delta(start_spec), pose_config, pose_config)
 	pose_node.call("set_weight", 1.0)
 	var look: Variant = context.get("look_point")
 	pose_node.look_point = look if look is Vector3 else pony.global_position
 	pose_node.amount = 0.0
 	pose_node.target_amount = 1.0
-	if pose_id == CATALOG.MISSIONARY:
+	if str(_view.frame) == "bed":
 		bed_frame = missionary_pose_frame()
 		bed_frame_source_saved = bed_frame is Transform3D and is_instance_valid(bed_node)
 		if bed_frame_source_saved:
@@ -226,11 +225,10 @@ func begin(context: Dictionary) -> bool:
 	return true
 
 
-func _fill_view() -> void:
-	var spec: Variant = _registry.spec(pose_id)
+func _fill_view(spec: Variant) -> void:
 	if spec == null:
 		_view.clear()
-		_write_log("pose view: no spec for %s" % pose_id)
+		_write_log("pose view: no spec for the start pose")
 		return
 	_view.fill(spec, pose_config)
 
@@ -637,7 +635,7 @@ func _abort_target() -> void:
 
 
 ## Adopt the target's settings into the live config in place. The alias object and every consumer
-## that holds it (`facts.pose_config`, the pose node, the view) see the target; the caller then
+## that holds it (the view, the pose node, the evaluator) see the target; the caller then
 ## drops the target snapshot.
 func _adopt_target_config() -> void:
 	if _target_spec == null or is_same(_target_config, pose_config):
@@ -738,7 +736,7 @@ func missionary_origin() -> Vector3:
 ## pose is stored relative to this frame, so any bed size or yaw works; `null` leaves the
 ## correction stack in charge.
 func missionary_pose_frame() -> Variant:
-	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(bed_node):
+	if str(_view.frame) != "bed" or not is_instance_valid(bed_node):
 		return null
 	var fallback: float = float(bed_node.get_meta("mattress_top", 0.6)) + float(bed_node.global_position.y)
 	var points: Array[Vector3] = [bed_node.global_position]
@@ -755,7 +753,7 @@ func missionary_pose_frame() -> Variant:
 ## placement are all bed-space, so carry them with the bed instead of leaving them at the world
 ## transform where the act started. The delta is rigid; the mattress top is not re-measured.
 func sync_bed_frame() -> void:
-	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(bed_node) \
+	if str(_view.frame) != "bed" or not is_instance_valid(bed_node) \
 			or not bed_frame_source_saved or not bed_frame is Transform3D:
 		return
 	var now: Transform3D = bed_node.global_transform
@@ -860,7 +858,6 @@ func release_pose() -> void:
 		_drop(tail)
 	tail = null
 	_started = false
-	pose_id = ""
 	id = ""
 	features = {}
 	pose_config.clear()
@@ -1278,8 +1275,8 @@ func base_info() -> Dictionary:
 		"shots": bool(asset.get("has_shots")),
 		"asset": asset,
 	}
-	if pose_id != CATALOG.MISSIONARY:
-		info["reason"] = "pose=%s" % pose_id
+	if str(_view.frame) != "bed":
+		info["reason"] = "pose=%s" % str(_view.id)
 	elif not bool(info["available"]):
 		info["reason"] = authored_reason()
 	elif not bed_frame is Transform3D:
@@ -1326,7 +1323,7 @@ func rig_reason(missing: Array) -> String:
 ## writer, so it reads the pose the renderer is about to use. `root` is the armature bone the authored
 ## placement is written to; `wanted` is that pose carried into the live bed frame.
 func idle_sample(state: int) -> void:
-	if pose_trace_frames >= 2 or pose_id != CATALOG.MISSIONARY or state == 0:
+	if pose_trace_frames >= 2 or str(_view.frame) != "bed" or state == 0:
 		return
 	if not is_instance_valid(pose_node) or basis_amount() < 0.9:
 		return
@@ -1472,7 +1469,7 @@ func state_rows(state: int) -> Array:
 	var frame: Variant = info["frame"]
 	var rows: Array = []
 	rows.append("pony=%s pose=%s state=%d weight=%.2f" % [
-		str(pony.name) if is_instance_valid(pony) else "?", pose_id, state, basis_amount()])
+		str(pony.name) if is_instance_valid(pony) else "?", str(_view.id), state, basis_amount()])
 	rows.append("base=%s reason=%s asset=v%d %s bones=%d missing=%s shots=%s error=%s" % [
 		str(info["base"]), str(info["reason"]),
 		int(info["version"]), "ok" if bool(info["available"]) else "error", int(info["bones"]),
@@ -1501,7 +1498,7 @@ func state_rows(state: int) -> Array:
 
 ## The base line written once when the act builds its pose.
 func log_base() -> void:
-	if pose_id != CATALOG.MISSIONARY:
+	if str(_view.frame) != "bed":
 		return
 	var info := base_info()
 	var frame: Variant = info["frame"]
@@ -1517,7 +1514,7 @@ func log_base() -> void:
 
 ## One line with where the pose actually put her, in world and bed space, once the weight settles.
 func log_settled(state: int, anon_diag: Callable) -> void:
-	if pose_logged or pose_id != CATALOG.MISSIONARY or state == 0:
+	if pose_logged or str(_view.frame) != "bed" or state == 0:
 		return
 	if basis_amount() < 0.9:
 		return

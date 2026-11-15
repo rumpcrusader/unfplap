@@ -8,7 +8,6 @@ extends RefCounted
 
 # Session values.
 var state := 0
-var pose_id := ""
 var source := ""
 var satisfaction := 0.0
 var mood := ""
@@ -30,8 +29,6 @@ var last_pattern := ""
 var last_touch := ""
 var last_talk := ""
 var thrust_pace := 0.0
-var oral_active := false
-var anal_active := false
 var cue_override := false
 var preferences: Dictionary = {}
 var act_prompts: Dictionary = {}
@@ -68,10 +65,9 @@ var bob := 0.0
 var back := 0.0
 var back_target := 0.0
 var forced_glance := ""
-## The pose read model `poses/service.gd` fills and clears. `pose_id` and `pose_config` below stay
-## as compatibility fields for the readers that have not migrated yet.
+## The pose read model `poses/service.gd` fills and clears. Its `id`, profiles, live config and
+## contact are the one pose source for the presentation modules.
 var pose_view: Variant = null
-var pose_config: Dictionary = {}
 var presentation_config: Dictionary = {}
 var kiss_amount := 0.0
 var kiss_active := false

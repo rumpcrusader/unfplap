@@ -29,8 +29,6 @@ func run() -> void:
 	view.family = "bed"
 	view.presentation = {"kiss": "missionary"}
 	var live := {"kiss_speed": 1.0}
-	var stale := {"kiss_speed": 9.0}
-	facts.pose_config = stale
 	view.from_config = live
 	view.pose_config = live
 	facts.pose_view = view
@@ -40,8 +38,6 @@ func run() -> void:
 	kiss.pose_changed(view)
 	check(str(kiss._hook_profile) == "missionary", "the hook caches the missionary kiss profile")
 	check(is_same(kiss._pose_cfg, live), "the hook follows the view's live config")
-	check(not is_same(kiss._pose_cfg, stale),
-		"the stale facts.pose_config alias never wins in the hook")
 	check(kiss.amount() > 0.3 and kiss.base_active(),
 		"a pose change does not end the running kiss")
 
@@ -53,8 +49,6 @@ func run() -> void:
 	kiss.pose_changed(view)
 	check(str(kiss._hook_profile) == "standing", "the hook retargets the standing profile")
 	check(is_same(kiss._pose_cfg, target), "the hook retargets the live config")
-	check(not is_same(kiss._pose_cfg, stale),
-		"the stale facts.pose_config alias never wins the retarget")
 	check(kiss.amount() > 0.3 and kiss.base_active(),
 		"the retarget keeps the kiss state")
 
@@ -63,8 +57,6 @@ func run() -> void:
 	view.pose_config = live
 	kiss._sync()
 	check(is_same(kiss._pose_cfg, live), "the kiss sync follows the view's live config")
-	check(not is_same(kiss._pose_cfg, stale),
-		"the stale facts.pose_config alias never wins in the sync")
 	check(str(kiss._kiss_profile()) == "standing", "the kiss profile is the view's presentation")
 
 	# An empty from_config falls back to the view's other config field, not the old alias.
@@ -73,8 +65,6 @@ func run() -> void:
 	kiss._sync()
 	check(is_same(kiss._pose_cfg, target),
 		"the sync falls back to the view's pose_config")
-	check(not is_same(kiss._pose_cfg, stale),
-		"the sync fallback never reads facts.pose_config")
 	kiss.pose_changed(view)
 	check(is_same(kiss._pose_cfg, target),
 		"the hook falls back to the view's pose_config")

@@ -31,7 +31,7 @@ modules read the camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `f
 `look_*`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`, `missionary_body()`,
 `authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The pose family, the contact kind
 (`view.contact_kind`) and the presentation lean profile come from `facts.pose_view`; the camera
-does not read `pose_id` or `oral_active`. The field and callback contract is
+does not read a start pose id or a contact mirror. The field and callback contract is
 `docs/act_facts.md`; a camera module that reaches into the runtime fails
 `tests/test_source_hygiene.gd`.
 
@@ -213,7 +213,7 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   camera toward her; the mouth target, lean distances and palm offsets are in `docs/kiss.md`.
 - The standing controller caches the view's `from_config` (falling back to its `pose_config` when
   that is empty) by the pose view's settings group and pose id: it re-reads the dictionary only
-  when the group or the pose changes and never reads the `facts.pose_config` alias, so the debug
+  when the group or the pose changes and never reads a facts config alias, so the debug
   `standing ↔ standing_test` edge keeps the standing config and the glance/tail values do not
   snap. `facts.presentation_config` is still read on every sync.
 - Standing enters the same held `AFTERGLOW`; the camera back-off is in `docs/afterglow.md`.
@@ -235,13 +235,12 @@ takes effect when the panel closes.
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Lifecycle
 
 - Scope: per-act
 - Constructed by: `runtime._init()`
-- Begin: `bind()`/`begin_session()`
+- Begin: `bind()`/`begin_session(family)`
 - End: act teardown
 - Idempotent: yes
 

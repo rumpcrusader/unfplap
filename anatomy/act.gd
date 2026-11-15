@@ -6,7 +6,6 @@ extends Node
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
 const FINISH := preload("res://mods/unfplap/anatomy/act/finish.gd")
@@ -38,7 +37,6 @@ const PONY_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 var service: Node
 var pony: Node3D
 var anatomy: Node
-var pose := ""
 var consent := Callable()
 var status := Callable()
 var _display_name := ""
@@ -69,12 +67,11 @@ var _contact_rear := Vector3.ZERO
 var _debug: RefCounted
 
 
-func setup(service_node: Node, pony_node: Node3D, anatomy_node: Node, pose_id: String,
+func setup(service_node: Node, pony_node: Node3D, anatomy_node: Node,
 		consent_callable := Callable(), status_callable := Callable()) -> void:
 	service = service_node
 	pony = pony_node
 	anatomy = anatomy_node
-	pose = pose_id
 	consent = consent_callable
 	status = status_callable
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
@@ -83,7 +80,7 @@ func setup(service_node: Node, pony_node: Node3D, anatomy_node: Node, pose_id: S
 	elif is_instance_valid(pony):
 		_display_name = str(pony.name)
 	_finish = FINISH.new()
-	_finish.setup(anatomy, pony, service, pose, status)
+	_finish.setup(anatomy, pony, service, status, Callable(self, "_bed_pose"))
 	_oral = ORAL.new()
 	_oral.call("setup", pony, anatomy)
 	reset()
@@ -123,17 +120,18 @@ func _pose_view() -> Variant:
 	return _facts.pose_view if _facts != null else null
 
 
+## Whether the live pose is the bed frame. The finish fluid direction reads this through a
+## callable, so the per-act handle owns no start pose id.
+func _bed_pose() -> bool:
+	var view: Variant = _pose_view()
+	return view != null and str(view.frame) == "bed"
+
+
 ## True while the pose view names the mouth contact. The pose service owns the contact switch;
 ## the act only reads it.
 func _mouth_contact() -> bool:
 	var view: Variant = _pose_view()
 	return view != null and str(view.contact_kind) == "mouth"
-
-
-## The compatibility read of the live mouth contact. No act path branches on it; the pose view is
-## the one contact source.
-func oral_active() -> bool:
-	return _mouth_contact()
 
 
 ## Her vulva opening at the live hole mix.
@@ -314,7 +312,7 @@ func tick(delta: float, facts: RefCounted) -> void:
 		# The bed pose needs the base pulled back into the pelvis: the authored pose puts it on
 		# the lower belly, which also leaves the hips farther from her than `Pelvis gap` implies.
 		part.set("bed_inset_m", SETTINGS.part_inset_m.get_num()
-			if pose == CATALOG.MISSIONARY else 0.0)
+			if _bed_pose() else 0.0)
 	# Both poses use the attached alignment: the part is a child of his Hips bone, it turns about its
 	# base to her opening's normal, and the pose that carries his body applies `hip_offset_wanted`, so
 	# his pelvis follows the entrance instead of the shaft sliding out of his crotch.
@@ -447,7 +445,7 @@ func afterglow_tick(delta: float, facts: RefCounted) -> void:
 	part.set("aim_opening", _contact_point)
 	# The missionary inset belongs to the whole bed act, not only to the thrusting states.
 	part.set("bed_inset_m", SETTINGS.part_inset_m.get_num()
-		if pose == CATALOG.MISSIONARY else 0.0)
+		if _bed_pose() else 0.0)
 	if is_instance_valid(service):
 		service.call("player_track", _contact_point, _contact_rear,
 			(mesh as Node3D).global_transform.basis.y.normalized(), false, rest_m, delta,

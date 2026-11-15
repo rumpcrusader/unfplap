@@ -97,7 +97,6 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	var facts := FACTS.new()
 	check(facts.state == 0, "state starts idle")
-	check(facts.pose_id == "", "pose starts empty")
 	check(facts.pose_view == null, "the pose view starts absent")
 	check(facts.source == "", "source starts empty")
 	check(is_zero_approx(facts.satisfaction), "satisfaction starts at zero")

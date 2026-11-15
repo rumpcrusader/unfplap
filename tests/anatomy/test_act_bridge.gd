@@ -348,12 +348,6 @@ func _check_action_reads() -> void:
 	bridge.bind(_host(host))
 	var act := FakeAct.new()
 	bridge.act = act
-	var mouth_view: Variant = _view("standing")
-	mouth_view.contact_kind = "mouth"
-	host.pose_view = mouth_view
-	check(bridge.oral_active(), "oral active reads the pose view")
-	host.pose_view = _view("standing")
-	check(not bridge.oral_active(), "the opening contact reads as inactive")
 	bridge.hold_oral_mouth()
 	check(act.hold_mouths == 1, "hold_oral_mouth reaches the act")
 	bridge.set_oral_viseme("D")

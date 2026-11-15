@@ -18,7 +18,7 @@ node; see `docs/act_facts.md`.
 
 The kiss's `pose_changed(view)` hook follows the view's family, presentation kiss profile and live
 `from_config`/`pose_config` without ending a running kiss or releasing its foreleg pin; it never
-reads the `facts.pose_config` alias. A shared keep is a cheap no-op; `_sync()` reads the same view
+reads a facts config alias. A shared keep is a cheap no-op; `_sync()` reads the same view
 config per tick. The hook is pinned by `tests/act_camera/test_kiss.gd`; the face and mouth suites
 stay unchanged.
 

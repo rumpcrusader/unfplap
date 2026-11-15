@@ -101,14 +101,14 @@ player_hip_offset(), player_note_hip_offset(offset), player_debug_scale()
 setup(pony, facts, service, consent, status, dock_refresh)
 set_facts(facts)
 refresh(), detach(), apply_live()
-begin_act(pose_id) -> Node, end_act(), act()
+begin_act() -> Node, end_act(), act()
 apply_part_visibility(show, teats_on, strip_on)
 is_attached(), body_coat_refresh()
 body_coat_mesh(), body_coat_material(), body_outline_material()
 fluid(), idle_discharge(count)
 ```
 
-`controller.begin_act(pose_id)` (per-act handle):
+`controller.begin_act()` (per-act handle):
 
 ```gdscript
 tick(delta, facts)
@@ -258,7 +258,8 @@ The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `p
 `bed_frame` and `cycle_phase`. The act and the persistent controller read that object and the
 host callbacks; neither reads the runtime node. The act no longer writes pose keys or a facing: the
 pose-owned oral turn owns the frame, the facing and the neck keys, and the act reads the pose
-view's contact for its part target and shape drive. It returns the mouth point and opening through
+view's contact for its part target and shape drive and its `frame` for the bed-only inset and
+finish direction. The per-act handle is created without a start pose id. It returns the mouth point and opening through
 `oral_mouth_point()`/`hole_point()` for the runtime's pose host callbacks.
 
 The bridge also writes `perf_on` from the host's `perf_enabled`, so the persistent controller takes
@@ -696,7 +697,6 @@ built from the declarations, so the label, help and bounds are not restated here
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Tests
 
@@ -767,7 +767,7 @@ The anatomy migration is complete:
 - `anatomy/appearance.gd`, `shapes.gd`, `coat.gd`, `heat.gd`, `placement.gd` and `attach.gd` are
   split out. The controller is a thin shell; the attach module owns the mesh, dock, visibility,
   fluid and idle discharge.
-- `anatomy/act.gd` is the per-act handle returned by `controller.begin_act(pose_id)`;
+- `anatomy/act.gd` is the per-act handle returned by `controller.begin_act()`;
   `anatomy/act/state.gd` is pure, and `act/oral.gd`, `act/finish.gd` and `act/debug.gd` own the
   three behaviors.
 - `anatomy/act_bridge.gd` is the per-act bridge the runtime owns: created by

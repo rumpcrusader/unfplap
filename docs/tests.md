@@ -138,10 +138,11 @@ in `_physics_tick`.
 - Pass counts are never copied into a doc; the suite path is.
 - A regression test stays after the fix. Deleting it re-opens the bug.
 - A suite does not assert another service's private state; it calls that service's facade.
-- `tests/test_source_hygiene.gd` carries the raw pose-read census. Its per-file `pose_id` and
-  `oral_active` budget ratchets down with the pose view migration: a migrated consumer may not
-  raise its entry, and a file that drops lowers it in the same commit. The map excludes the two
-  standing adapters, which read the view.
+- `tests/test_source_hygiene.gd` carries the raw `pose_id` census. Its per-file budget ratchets
+  down: a migrated consumer may not raise its entry, and a file that drops lowers it in the same
+  commit. The remaining reads are the runtime's start identity, the pose session's begin key, the
+  settings data API and the debug display line. No start-pose comparison or `oral_active` mirror
+  survives outside the data modules.
 
 ## Related docs
 

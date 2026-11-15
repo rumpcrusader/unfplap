@@ -123,13 +123,14 @@ func set_facts(facts_node: RefCounted) -> void:
 		appearance.set_perf(facts.perf_note)
 
 
-## Create the per-act controller for `pose_id`. The controller owns it until `end_act()`.
-func begin_act(pose_id: String) -> Node:
+## Create the per-act controller. The controller owns it until `end_act()`; its behaviour
+## follows the live pose view, so the runtime needs no start pose id here.
+func begin_act() -> Node:
 	end_act()
 	_act = ACT.new()
 	_act.name = "UnfplapAnatomyAct"
 	add_child(_act)
-	_act.call("setup", service, pony, self, pose_id, consent, status)
+	_act.call("setup", service, pony, self, consent, status)
 	return _act
 
 

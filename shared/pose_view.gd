@@ -1,8 +1,7 @@
 extends RefCounted
 ## The pose read model: one scene-free mutable object per pose session, filled by
-## `poses/service.gd` and carried by `shared/act_facts.gd`. Presentation modules read this instead
-## of `pose_id` and `oral_active`; it mirrors the session, it is not a second authority.
-## Contract: `docs/poses.md`.
+## `poses/service.gd` and carried by `shared/act_facts.gd`. Presentation modules read this; it
+## mirrors the session, it is not a second authority. Contract: `docs/poses.md`.
 
 ## The pose state values. A3 owns the transitions; A1 fills a live session with `STEADY` and
 ## resets to `IDLE` when it is released.
@@ -55,19 +54,13 @@ var contact_target := Vector3.INF
 var facing := Basis.IDENTITY
 var facing_amount := 0.0
 
-# Compatibility mirrors for the consumers that still read the old facts. They are not the source
-# of truth and disappear once the last reader migrates.
-var pose_id := ""
-var oral_active := false
-var anal_active := false
-
 ## The empty values `clear()` points at, allocated once so a release never allocates another.
 var _empty_config: Dictionary = {}
 var _empty_profile: Dictionary = {}
 
 
 ## Fill from one `poses/pose_spec.gd` wrapper and the session's live config. The profiles and the
-## config are references; nothing is copied and the config stays `act_facts.pose_config`.
+## config are references; nothing is copied and the view aliases the session's live object.
 func fill(spec: Variant, config: Dictionary) -> void:
 	id = str(spec.id)
 	family = str(spec.family)
@@ -96,7 +89,6 @@ func fill(spec: Variant, config: Dictionary) -> void:
 	edge_id = ""
 	edge_t = 0.0
 	pose_state = STEADY
-	pose_id = id
 
 
 ## Reset every field without allocating a new dictionary and without touching the live config's
@@ -133,6 +125,3 @@ func clear() -> void:
 	contact_target = Vector3.INF
 	facing = Basis.IDENTITY
 	facing_amount = 0.0
-	pose_id = ""
-	oral_active = false
-	anal_active = false

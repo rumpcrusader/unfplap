@@ -101,9 +101,14 @@ func _afterglow_tick(pose_id: String) -> Array:
 	anatomy.mesh = mesh
 	service.part_node = part
 	var act: Node = ACT.new()
-	act.call("setup", service, pony, anatomy, pose_id, Callable(), Callable())
+	act.call("setup", service, pony, anatomy, Callable(), Callable())
 	var facts := FACTS.new()
 	facts.penetration_reach = 0.2
+	var view: Variant = VIEW.new()
+	view.id = pose_id
+	view.family = "bed" if pose_id == CATALOG.MISSIONARY else "standing"
+	view.frame = "bed" if pose_id == CATALOG.MISSIONARY else "ground"
+	facts.pose_view = view
 	act.call("afterglow_tick", 0.25, facts)
 	return [act, service, part]
 

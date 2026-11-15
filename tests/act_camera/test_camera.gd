@@ -191,12 +191,12 @@ func _check_session() -> void:
 	camera.lean = 0.2
 	camera.bob = 0.2
 	camera.back = 0.2
-	camera.call("begin_session", CATALOG.MISSIONARY)
+	camera.call("begin_session", "bed")
 	check(not camera.camera_owned and not camera.look_captured, "a fresh session owns nothing")
 	check(camera.look_restore_yaw, "missionary restores the captured yaw")
 	check(near(camera.lean, 0.0) and near(camera.bob, 0.0) and near(camera.back, 0.0),
 		"a fresh session starts the shot from rest")
-	camera.call("begin_session", CATALOG.STANDING)
+	camera.call("begin_session", "standing")
 	check(not camera.look_restore_yaw, "standing leaves Anon facing where the act ends")
 	camera.call("open_shot")
 	check(camera.camera_owned and not camera.free_camera_active,
@@ -398,7 +398,7 @@ func _check_lock_and_eye() -> void:
 	player._eye_height = 2.4
 	var base: float = camera.call("player_eye_height")
 	var scale: float = camera.call("size_scale")
-	camera.call("apply_eye_override", CATALOG.STANDING, false)
+	camera.call("apply_eye_override", "standing", false)
 	check(near(camera.camera_target_eye, base * scale),
 		"the standing eye target scales with the body preset")
 	if near(base * scale, base):
@@ -407,7 +407,7 @@ func _check_lock_and_eye() -> void:
 		check(camera.eye_override, "a size change owns the eye override")
 		camera.call("restore_eye_override")
 	check(near(player._stand_eye, 2.4), "the restored player keeps her own eye height")
-	camera.call("apply_eye_override", CATALOG.MISSIONARY, false)
+	camera.call("apply_eye_override", "bed", false)
 	check(near(camera.camera_target_eye, 0.0), "missionary never edits the eye")
 	check(not camera.eye_override, "missionary never owns the eye override")
 
@@ -422,11 +422,11 @@ func _check_lock_and_eye() -> void:
 		"the eye override restores both saved heights")
 	check(not camera.eye_override, "the restore drops the ownership flag")
 
-	camera.call("apply_eye_override", CATALOG.STANDING, true)
+	camera.call("apply_eye_override", "standing", true)
 	check(near(camera.camera_target_eye, 0.0) and not camera.eye_override,
 		"AnonPony keeps her own eye height")
 	player.seat = Node3D.new()
-	camera.call("apply_eye_override", CATALOG.STANDING, false)
+	camera.call("apply_eye_override", "standing", false)
 	check(not camera.eye_override, "a seated player keeps the seat camera")
 	(player.seat as Node3D).free()
 	player.seat = null
@@ -450,20 +450,20 @@ func _check_look() -> void:
 		"the snapshot keeps the yaw and pitch")
 	player.rotation.y = 0.9
 	player._pitch = 0.8
-	camera.call("begin_session", CATALOG.MISSIONARY)
+	camera.call("begin_session", "bed")
 	camera.call("capture_look")
 	player.rotation.y = 0.9
 	player._pitch = 0.8
-	camera.call("restore_look", CATALOG.MISSIONARY)
+	camera.call("restore_look", "bed")
 	check(not camera.look_captured, "the restore consumes the snapshot")
 	check(near(player.rotation.y, 0.9), "missionary restores the captured yaw")
 	check(near(float(player._pitch), 0.8), "missionary restores the captured pitch")
 
 	# Standing leaves the act's final facing alone.
-	camera.call("begin_session", CATALOG.STANDING)
+	camera.call("begin_session", "standing")
 	camera.call("capture_look")
 	player.rotation.y = 1.4
-	camera.call("restore_look", CATALOG.STANDING)
+	camera.call("restore_look", "standing")
 	check(near(player.rotation.y, 1.4), "standing leaves Anon facing the act's end")
 	main.remove_child(player)
 	player.free()

@@ -7,7 +7,6 @@ extends RefCounted
 
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 ## The thrust camera: both channels are velocity-driven metres with one critically damped
 ## response, so the shot eases through the stroke instead of being kicked at its close.
@@ -219,10 +218,10 @@ func configure(camera_block: Dictionary) -> void:
 
 ## A fresh act: the previous session is dropped and the shot starts from rest. The runtime captures
 ## the player look and creates the act's Anon body around this call.
-func begin_session(pose: String) -> void:
+func begin_session(family: String) -> void:
 	camera_owned = false
 	look_captured = false
-	look_restore_yaw = pose != CATALOG.STANDING
+	look_restore_yaw = family != "standing"
 	camera = null
 	free_camera_active = false
 	camera_basis_ready = false
@@ -615,9 +614,9 @@ func tick_free_look() -> void:
 
 ## Standing eye height follows the body preset; missionary is owned by the game's bed rest/seat
 ## camera and AnonPony has its own eye height. The previous values are restored at act end.
-func apply_eye_override(pose: String, player_pony: bool) -> void:
+func apply_eye_override(family: String, player_pony: bool) -> void:
 	camera_target_eye = 0.0
-	if pose == CATALOG.MISSIONARY or player_pony:
+	if family == "bed" or player_pony:
 		return
 	var body: Variant = player_body()
 	if not is_instance_valid(body):
@@ -671,7 +670,7 @@ func capture_look() -> void:
 ## Restore the player's yaw/pitch captured at act start. Missionary restores exactly; standing
 ## leaves Anon facing where the act left him, because snapping the pre-act view back looks worse.
 ## The lean/caress/kiss state is reset either way.
-func restore_look(pose: String) -> void:
+func restore_look(family: String) -> void:
 	if not look_captured:
 		return
 	look_captured = false
@@ -682,7 +681,7 @@ func restore_look(pose: String) -> void:
 	if look_restore_yaw:
 		# Missionary restores the exact start snapshot; use its rig yaw rather than the later
 		# capture.
-		if pose == CATALOG.MISSIONARY and missionary_camera != null:
+		if family == "bed" and missionary_camera != null:
 			var saved_yaw: float = missionary_camera.call("snapshot_yaw")
 			if not is_nan(saved_yaw):
 				yaw = saved_yaw

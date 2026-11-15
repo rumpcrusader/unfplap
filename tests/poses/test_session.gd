@@ -95,8 +95,14 @@ func _session(pose: String) -> Dictionary:
 	root.add_child(pony)
 	var session: RefCounted = SESSION.new()
 	session.bind(null, pony)
-	session.pose_id = pose
 	session.id = "twilight_sparkle"
+	# A start identity for the diagnostics and bed-frame checks; `begin()` still fills the view.
+	var spec: Dictionary = SPECS.spec(pose)
+	var view: RefCounted = session.view()
+	view.id = pose
+	view.family = str(spec.get("family", ""))
+	view.frame = str(spec.get("frame", ""))
+	view.settings_group = str(spec.get("settings_group", ""))
 	return {"session": session, "pony": pony}
 
 
@@ -206,7 +212,7 @@ func _check_begin() -> void:
 		"the pose modifier is detached before it is freed")
 	session.release_pose()
 	check(session.pose_node == null, "a second pose release is a no-op")
-	check(session.pose_id == "" and session.id == "",
+	check(session.id == "",
 		"the pose release clears the act identity")
 	check(session.features.is_empty(), "the pose release clears the features")
 	check(session.pose_config.is_empty(), "the pose release clears the live config")
@@ -214,7 +220,6 @@ func _check_begin() -> void:
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"the pose release clears the view")
 	check(session.view().pose_config.is_empty(), "the pose release drops the view config")
-	check(session.view().pose_id == "", "the pose release clears the compatibility id")
 	check(str(session.base_info().get("reason", "")) == "pose=",
 		"the released session names no pose")
 	body.free()
@@ -227,6 +232,7 @@ func _check_begin_refused() -> void:
 	var made := _session(CATALOG.MISSIONARY)
 	var session: RefCounted = made["session"]
 	var pony: FakePony = made["pony"]
+	session.view().clear()
 	check(not session.begin({
 		"pose_id": CATALOG.MISSIONARY,
 		"id": "twilight_sparkle",
@@ -727,8 +733,8 @@ func _check_state_machine() -> void:
 	check(session.pose_node.mode == POSE.MODE_SINGLE
 		and session.pose_node.from_driver == POSE.STANDING_PATH,
 		"the completed edge settles the evaluator on the target")
-	check(is_same(session.pose_config, live_config) and session.pose_id == CATALOG.STANDING,
-		"the live config and the session start pose are untouched")
+	check(is_same(session.pose_config, live_config) and view.id == CATALOG.STANDING_TEST,
+		"the live config and the view target are untouched")
 	live_config.erase("adopt_marker")
 	check(session._run == null and session._target_id == "",
 		"the completed edge drops the run and the target")
@@ -820,9 +826,6 @@ func _check_oral_edge() -> void:
 		"the settled live config keeps the oral keys")
 	check(str(view.controls.get("set", "")) == "standing_oral",
 		"the settled view uses the oral control set")
-	check(view.pose_id == CATALOG.STANDING_ORAL, "the compatibility id mirrors the oral pose")
-	check(session.pose_id == CATALOG.STANDING,
-		"the act's start pose stays standing")
 	var turned_position: Vector3 = pony.global_position
 	session.tick(0.5)
 	check(session._run == null and view.id == CATALOG.STANDING_ORAL,

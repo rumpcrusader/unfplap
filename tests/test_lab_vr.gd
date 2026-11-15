@@ -287,8 +287,9 @@ func _face_point(point: Vector3) -> void:
 	origin.transform = origin.transform * around
 
 
-## Make a chosen test mare sex-ready the same way the lab's Mouse5 does. F9/autostart cannot rely
-## on the crosshair (a headset session has no captured cursor), so the target is passed in.
+## Make a chosen test mare sex-ready the same way the wheel's Sex ready action does. F9/autostart
+## cannot rely on the crosshair (a headset session has no captured cursor), so the target is
+## passed in.
 func _qualify(pony: Node3D) -> void:
 	var rows := PackedStringArray()
 	rows.append("idle=" + _make_idle(pony, true))

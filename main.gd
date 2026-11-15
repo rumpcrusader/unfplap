@@ -17,6 +17,7 @@ const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
+const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
@@ -949,6 +950,15 @@ func action_bed_cuddle() -> String:
 func _bed_cuddle_sequence(target: Node) -> void:
 	var result: String = await DEBUG_BED.invite(self, target)
 	_debug("bed cuddle: " + result)
+
+
+## Wheel-only: qualify the aimed adult mare for the act gate. The helper clears her busy state,
+## writes the game's bond record and a neutral mood; her romance tier is untouched.
+func action_sex_ready() -> String:
+	var target := _debug_history_target()
+	if not is_instance_valid(target) or not target is Node3D or not _is_act_target(target):
+		return "No adult mare under the crosshair."
+	return DEBUG_PONY.sex_ready(self, target as Node3D)
 
 
 ## Debug-only estrus phase controls. The override is session-only and per pony; `cycle_auto`

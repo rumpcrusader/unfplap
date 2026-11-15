@@ -44,6 +44,7 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Trigger standing offer | — | Mare |
 | Show data | — | Mare and Act |
 | Bed cuddle | — | Mare |
+| Make sex-ready | — | Mare |
 | Give footstool | General | — |
 | Reset act prompts | General | — |
 | Force/Clear heat | — | Mare |
@@ -68,6 +69,13 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 - **Bed cuddle** is the stock bed invite migrated from the lab's Mouse4 key. It sits on the wheel
   only; `debug/bed.gd` finds the player's bed, reclines Anon, moves a far mare to the bed approach
   and calls the stock `accept()` path. The detailed result goes to the debug log.
+- **Make sex-ready** is the lab's Mouse5 qualification migrated to the Mare page. It clears the
+  aimed adult mare's busy state, writes the game's own bond record (dating only when she is below
+  it; engaged and married stay), clears her pending plan/offer and the boundary and dating
+  cooldowns, and commits a neutral mood. Her romance tier is untouched. A missing relationship
+  runtime or bond save path refuses before anything changes. The record is written through the
+  game's `player_bonds._save`, so the action is a debug cheat like Reset act history; the detailed
+  rows go to the debug log and the toast names the mare.
 - **Force/Clear heat** and **Force/Clear diestrus** are one slot each. The label follows the
   aimed mare's current phase; Clear sets the session phase to **normal**. **Resume automatic
   cycle** clears the override and is settings-only. See the cycle section of
@@ -76,7 +84,7 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   and are consumed on the next unpaused frame.
 - **Clear offer cooldown** clears the aimed mare's proactive-offer cooldown, short retry and last
   scan skip, so she can be offered again immediately. It is a settings-only World action; the
-  wheel keeps its six slots. See `docs/initiation.md`.
+  wheel keeps its seven slots. See `docs/initiation.md`.
 - **Force act face** cycles the base-game faces; see `docs/face.md`.
 - **Reload posed base** re-reads the active pose's authored JSON in place; a running act picks it
   up on its next frame. With no live act it re-reads the default missionary asset. See
@@ -103,7 +111,7 @@ wheel is drawn at 75% opacity.
 
 | Page | Slots, clockwise from the top |
 |---|---|
-| **Mare** | Show data · Bed offer · Bed cuddle · Standing offer · Force/Clear heat · Force/Clear diestrus |
+| **Mare** | Show data · Bed offer · Bed cuddle · Standing offer · Force/Clear heat · Force/Clear diestrus · Sex ready |
 | **Act** | Show data · Neglect warning · Neglect stop · Next face |
 
 - The page is chosen by the live act: **Act** while an act runs, **Mare** otherwise. There are no
@@ -161,8 +169,9 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 - `Shift+[` / `Shift+]` cycles every adult mare the population catalogue can spawn. The eight
   starters stay live; a non-starter is spawned through the population streamer on demand and the
   previous extra is despawned.
-- `-`/`=` romance tier; `9`/`0` anger mood; Mouse5 sex-ready.
-- Hold middle to open the action wheel; use **Bed cuddle** for the treebrary bed.
+- `-`/`=` romance tier; `9`/`0` anger mood.
+- Hold middle to open the action wheel; use **Sex ready** to qualify the aimed adult mare and
+  **Bed cuddle** for the treebrary bed.
 - Reload the posed base from General's Debug block; the skeleton overlay is the Anatomy Debug
   flag.
 - Pose test variant: in a live standing act, press **Pose: test variant** and read the
@@ -186,7 +195,7 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 
 ## Lifecycle
 
-- Scope: process (registry), world (wheel node), pure static (bed helper)
+- Scope: process (registry), world (wheel node), pure static (bed and pony helpers)
 - Constructed by: static initialization; `main` creates the wheel lazily and the skeleton on the
   first enabled sync
 - Begin: none for the registry; Node `_ready()` for the wheel
@@ -195,12 +204,14 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 
 ## Tests
 
-`tests/test_debug_wheel.gd` pins the wheel page order, the six-slot cap, the settings-only split
+`tests/test_debug_wheel.gd` pins the wheel page order, the seven-slot cap, the settings-only split
 (wheel actions are `panel: false`, settings-only actions stay on the panel), the retired action
 ids, the dynamic cycle labels and the hold-middle input contract (middle press opens, release over
-a slot runs it, release in the centre only closes). `tests/test_settings.gd` covers the skeleton
-flag, the Debug block labels that remain and the absence of every wheel action from the blocks.
-The overlay, the hover cue and the lab pass are manual.
+a slot runs it, release in the centre only closes). `tests/test_debug_pony.gd` pins the shared
+preparation helper: upright and idle, busy clearing, the raise-only sex-ready record, its floors
+and cleared fields, the refusal paths and the log/toast text. `tests/test_settings.gd` covers the
+skeleton flag, the Debug block labels that remain and the absence of every wheel action from the
+blocks. The overlay, the hover cue and the lab pass are manual.
 
 ## Related docs
 

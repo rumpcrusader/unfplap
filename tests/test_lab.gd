@@ -16,15 +16,13 @@ extends Node
 ## Lab hotkeys (mouse must be captured, like normal play):
 ##   - / =       lower / raise the pointed mare's romance tier (all test mares when not aiming)
 ##   9 / 0       lower / raise the pointed mare's anger mood (all test mares when not aiming)
-##   Mouse 5     make the pointed adult mare idle and qualify for sex
-##               without changing her romance tier
-##   Hold middle  the mod's action wheel; use Bed cuddle for the treebrary bed
+##   Hold middle  the mod's action wheel; use Sex ready to qualify the pointed adult mare
+##               (without changing her romance tier) and Bed cuddle for the treebrary bed
 ##   Shift+[ / ]  move the previous/next mare in front of Anon in a 3/4 rear view, standing idle.
 ##               The eight starters stay loaded and the previous starter returns to her saved
 ##               spot; any other mare is spawned on demand and the previous non-starter is
 ##               despawned again, so only one extra is live.
 
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LAB_POPULATION := preload("res://world/population/pony_population_config.gd")
@@ -149,7 +147,7 @@ func run() -> void:
 	print("[unfplap test] bed=none spawned; treebrary guest bed=%s" % (
 		str(bed.global_position) if is_instance_valid(bed) else "missing"))
 	print("[unfplap test] E sit, Ctrl lie back; test ponies placed on their saved standing spots")
-	print("[unfplap test] -/= romance tier, 9/0 anger mood, Mouse5 sex-ready, wheel Bed cuddle, Shift+[ / ] cycle mares")
+	print("[unfplap test] -/= romance tier, 9/0 anger mood, wheel Sex ready / Bed cuddle, Shift+[ / ] cycle mares")
 	print("[unfplap test] background AI, population and time paused; the dialogue director still answers")
 
 
@@ -552,16 +550,6 @@ func _log_action(title: String, rows: PackedStringArray) -> void:
 	print(text)
 
 
-## Split the runtime's `a | b | c` report into indented rows, optionally prefixed.
-func _report_rows(text: String, prefix := "") -> PackedStringArray:
-	var rows := PackedStringArray()
-	for part: String in text.split(" | "):
-		if part.is_empty():
-			continue
-		rows.append(part if prefix.is_empty() else prefix + part)
-	return rows
-
-
 func _input(event: InputEvent) -> void:
 	if not is_instance_valid(game) or game.get("title_active") == true:
 		return
@@ -615,13 +603,6 @@ func _input(event: InputEvent) -> void:
 				_toggle_console()
 				get_viewport().set_input_as_handled()
 		return
-	if event is InputEventMouseButton:
-		var mouse := event as InputEventMouseButton
-		if not mouse.pressed:
-			return
-		if mouse.button_index == MOUSE_BUTTON_XBUTTON2:
-			_qualify_target()
-			get_viewport().set_input_as_handled()
 
 
 ## One cycle step, or 0. Shift+[ / ] is the documented control; Ctrl+[ / ] still works where the
@@ -1056,61 +1037,6 @@ func _set_anger(pony: Node3D, step: int) -> String:
 		anger = float(rel.get("bonds").call("anger", id))
 	return "%s mood %s -> %s (level %d/%d) anger=%.0f" % [
 		id, before, after, next, ANGER_MOODS.size() - 1, anger]
-
-
-func _qualify_target() -> void:
-	var target := _target_under_aim()
-	if not is_instance_valid(target):
-		print("[unfplap test] Mouse5: no test pony under the crosshair")
-		return
-	var id := _pony_id(target)
-	if _is_young(target):
-		print("[unfplap test] Mouse5: %s is the filly witness; no romance or sex-ready" % id)
-		return
-	var rows := PackedStringArray()
-	rows.append("idle=" + _make_idle(target, true))
-	rows.append("cleared=" + _clear_busy(target))
-	rows.append("record=" + _set_dating_record(target))
-	rows.append("mood=" + _set_mood(target, "neutral"))
-	rows.append("romance untouched")
-	_log_action("Mouse5 " + id, rows)
-	_report_after_delay(target, "Mouse5 " + id)
-
-
-func _report_after_delay(pony: Node3D, label: String) -> void:
-	if not is_instance_valid(pony) or not is_inside_tree():
-		return
-	await get_tree().create_timer(1.5).timeout
-	if not is_instance_valid(pony) or not is_instance_valid(game) or not is_inside_tree():
-		return
-	_report_line(pony, label)
-
-
-func _report_line(pony: Node3D, label: String) -> void:
-	var runtime: Node = pony.get_node_or_null("UnfplapRuntime")
-	if runtime == null:
-		print("[unfplap test] %s report: no UnfplapRuntime" % label)
-		return
-	var view := _view_camera()
-	var dist := -1.0
-	var dot := -1.0
-	if view != null:
-		var delta: Vector3 = pony.global_position + Vector3.UP * 0.9 - view.global_position
-		dist = delta.length()
-		if dist > 0.001:
-			dot = (-view.global_basis.z).dot(delta.normalized())
-	# Match the runtime debug_line pose choice: a standing mare reports the standing gate; one
-	# already lying reports the bed path so the report explains the pose the player would get.
-	var pose := CATALOG.STANDING
-	var source := ""
-	var bed: Variant = null
-	var status: Dictionary = pony.call("posture_status") if pony.has_method("posture_status") else {}
-	if str(status.get("requested", "")) == "lie_down":
-		pose = CATALOG.MISSIONARY
-		source = "already_lying"
-		bed = runtime.call("find_bed_under")
-	var line := str(runtime.call("debug_line", pose, source, bed, dist, dot))
-	_log_action(label + " report", _report_rows(line, "report "))
 
 
 func _test_ponies() -> Array:

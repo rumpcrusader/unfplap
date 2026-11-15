@@ -64,13 +64,13 @@ func _check_roots() -> void:
 	check(DEBUG_ACTIONS.wheel_root(true) == "act", "a live act opens the Act page")
 	check(DEBUG_ACTIONS.wheel_title("mare") == "Mare", "the Mare page is titled")
 	check(DEBUG_ACTIONS.wheel_title("act") == "Act", "the Act page is titled")
-	check(DEBUG_ACTIONS.WHEEL_MAX_SLOTS == 6, "the wheel is capped at six slots")
+	check(DEBUG_ACTIONS.WHEEL_MAX_SLOTS == 7, "the wheel is capped at seven slots")
 
 
 func _check_pages() -> void:
 	check(DEBUG_ACTIONS.wheel_actions("mare") == [
 		"show_data", "bed_offer", "bed_cuddle", "standing_offer", "cycle_heat",
-		"cycle_diestrus"], "the Mare page order is stable")
+		"cycle_diestrus", "sex_ready"], "the Mare page order is stable")
 	check(DEBUG_ACTIONS.wheel_actions("act") == [
 		"show_data", "force_tolerance_warning", "force_tolerance_stop", "force_act_face"],
 		"the Act page order is stable")
@@ -136,6 +136,10 @@ func _check_registry() -> void:
 		"the bed cuddle is wheel-only")
 	check(str(DEBUG_ACTIONS.ACTIONS["bed_cuddle"].get("short", "")) == "Bed cuddle",
 		"the bed cuddle has its wheel label")
+	check(not bool(DEBUG_ACTIONS.ACTIONS["sex_ready"].get("panel", true)),
+		"the sex-ready action is wheel-only")
+	check(str(DEBUG_ACTIONS.ACTIONS["sex_ready"].get("short", "")) == "Sex ready",
+		"the sex-ready action has its wheel label")
 	check(not bool(DEBUG_ACTIONS.ACTIONS["force_act_face"].get("panel", true)),
 		"the face action is wheel-only")
 

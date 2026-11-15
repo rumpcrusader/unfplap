@@ -57,6 +57,13 @@ const ACTIONS := {
 		"panel": false,
 		"short": "Bed cuddle",
 	},
+	"sex_ready": {
+		"label": "Make sex-ready",
+		"help": "Clear the aimed mare's busy state, give her a dating record and a neutral mood so the act gate opens. Her romance tier is untouched.",
+		"method": "action_sex_ready",
+		"panel": false,
+		"short": "Sex ready",
+	},
 	"give_stool": {
 		"label": "Give footstool",
 		"help": "Add a footstool to Anon's briefcase.",
@@ -214,7 +221,7 @@ const WHEEL_PAGES := {
 	"mare": {
 		"title": "Mare",
 		"actions": ["show_data", "bed_offer", "bed_cuddle", "standing_offer", "cycle_heat",
-			"cycle_diestrus"],
+			"cycle_diestrus", "sex_ready"],
 	},
 	"act": {
 		"title": "Act",
@@ -222,7 +229,7 @@ const WHEEL_PAGES := {
 			"force_act_face"],
 	},
 }
-const WHEEL_MAX_SLOTS := 6
+const WHEEL_MAX_SLOTS := 7
 
 
 ## The wheel's root page for the current act state.

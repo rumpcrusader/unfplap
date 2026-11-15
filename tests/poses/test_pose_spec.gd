@@ -1,5 +1,6 @@
 extends SceneTree
-## The typed pose spec: the field wrapper, the shared validator and the pure source.
+## The typed pose spec: the field wrapper, the shared validator, the base/driver rule and the pure
+## source.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_spec.gd
 
@@ -23,6 +24,7 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	_check_shipped()
+	_check_base_driver()
 	_check_errors()
 	_check_sources()
 	print("POSE_SPEC_RESULT checks=%d failures=%d" % [checks, failures])
@@ -56,12 +58,17 @@ func _check_shipped() -> void:
 		check(not row.is_empty(), "%s has a raw row" % id)
 		var found := POSE_SPEC.errors(id, row)
 		check(found.is_empty(), "%s validates: %s" % [id, str(found)])
+		var table_found := POSE_SPEC.errors(id, row, SPECS.SPECS)
+		check(table_found.is_empty(), "%s validates against the table: %s" % [id, str(table_found)])
 		var spec: Variant = POSE_SPEC.from_dict(id, row)
 		check(spec != null, "%s builds a typed spec" % id)
 		if spec == null:
 			continue
 		check(spec.id == id, "%s keeps its id" % id)
 		check(not spec.display_name.is_empty(), "%s has a display name" % id)
+		check(spec.base == str(row.get("base", "")), "%s keeps its base" % id)
+		check(spec.delta == str(row.get("delta", "")), "%s keeps its delta" % id)
+		check(spec.driver == str(row.get("driver", "")), "%s keeps its driver" % id)
 		check(spec.public_pose == bool(row.get("public", false)),
 			"%s reads public into public_pose" % id)
 		check(spec.offerable == bool(row.get("offerable", false)), "%s reads offerable" % id)
@@ -73,6 +80,66 @@ func _check_shipped() -> void:
 			check(is_same(spec.get(profile), row.get(profile)),
 				"%s shares the %s profile dictionary" % [id, profile])
 		check(is_same(spec.camera, row["camera"]), "%s does not copy its camera profile" % id)
+		if id == SPECS.STANDING_TEST:
+			check(not spec.public_pose and not spec.offerable, "the test pose is internal")
+			check(spec.base == SPECS.STANDING, "the test pose inherits standing")
+			check(spec.driver.is_empty(), "the test pose has no driver of its own")
+
+
+## The driver/base rule: a driver may be empty only when an inherited base owns it, and a base must
+## be the same family and acyclic.
+func _check_base_driver() -> void:
+	var no_driver := _copy(SPECS.STANDING)
+	no_driver["driver"] = ""
+	check(not POSE_SPEC.errors(SPECS.STANDING, no_driver).is_empty(),
+		"an empty driver without a base is rejected")
+	check(not POSE_SPEC.errors(SPECS.STANDING, no_driver, SPECS.SPECS).is_empty(),
+		"the table still rejects an empty driver without a base")
+	var inherited := _copy(SPECS.STANDING_TEST)
+	check(POSE_SPEC.errors(SPECS.STANDING_TEST, inherited).is_empty(),
+		"an inherited base validates without the table")
+	check(POSE_SPEC.errors(SPECS.STANDING_TEST, inherited, SPECS.SPECS).is_empty(),
+		"an inherited base validates with the table")
+	check(POSE_SPEC.from_dict(SPECS.STANDING_TEST, inherited) != null,
+		"an inherited base builds a typed spec")
+	var with_driver := _copy(SPECS.STANDING_TEST)
+	with_driver["driver"] = "poses/standing_recipe.gd"
+	check(POSE_SPEC.errors(SPECS.STANDING_TEST, with_driver, SPECS.SPECS).is_empty(),
+		"a base plus a driver is valid")
+	var self_base := _copy(SPECS.STANDING_TEST)
+	self_base["base"] = SPECS.STANDING_TEST
+	check(not POSE_SPEC.errors(SPECS.STANDING_TEST, self_base, SPECS.SPECS).is_empty(),
+		"a base equal to the id is rejected")
+	var missing := _copy(SPECS.STANDING_TEST)
+	missing["base"] = "missing_base"
+	check(not POSE_SPEC.errors(SPECS.STANDING_TEST, missing, SPECS.SPECS).is_empty(),
+		"a missing base is rejected with the table")
+	check(POSE_SPEC.errors(SPECS.STANDING_TEST, missing).is_empty(),
+		"a missing base needs the table to be seen")
+	var cross := _copy(SPECS.STANDING_TEST)
+	cross["base"] = SPECS.MISSIONARY
+	check(not POSE_SPEC.errors(SPECS.STANDING_TEST, cross, SPECS.SPECS).is_empty(),
+		"a cross-family base is rejected")
+	var a := _copy(SPECS.STANDING)
+	a["id"] = "a"
+	a["base"] = "b"
+	a["driver"] = ""
+	var b := _copy(SPECS.STANDING)
+	b["id"] = "b"
+	b["base"] = "a"
+	b["driver"] = ""
+	check(not POSE_SPEC.errors("a", a, {"a": a, "b": b}).is_empty(),
+		"a base cycle is rejected")
+	var chain_a := _copy(SPECS.STANDING)
+	chain_a["id"] = "a"
+	chain_a["base"] = "b"
+	chain_a["driver"] = ""
+	var chain_b := _copy(SPECS.STANDING)
+	chain_b["id"] = "b"
+	chain_b["base"] = ""
+	chain_b["driver"] = "poses/standing_recipe.gd"
+	check(POSE_SPEC.errors("a", chain_a, {"a": chain_a, "b": chain_b}).is_empty(),
+		"a base chain that ends at a driver is valid")
 
 
 func _check_errors() -> void:
@@ -90,7 +157,11 @@ func _check_errors() -> void:
 	check(not _mutated({"views": ["desktop", "desktop"]}).is_empty(),
 		"a repeated view is rejected")
 	check(not _mutated({"display_name": ""}).is_empty(), "an empty display name is rejected")
-	check(not _mutated({"driver": ""}).is_empty(), "an empty driver is rejected")
+	check(not _mutated({"driver": ""}).is_empty(),
+		"an empty driver without a base is rejected")
+	check(not _mutated({"game_posture": ""}).is_empty(),
+		"an empty game posture is rejected")
+	check(not _mutated({"drive_policy": ""}).is_empty(), "an empty drive policy is rejected")
 	check(not _without("camera", "profile").is_empty(), "a missing profile key is rejected")
 	check(not _without("afterglow", "close_window").is_empty(),
 		"a missing close window flag is rejected")

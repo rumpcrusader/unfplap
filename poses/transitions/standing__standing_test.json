@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "id": "standing__standing_test",
+  "from": "standing",
+  "to": "standing_test",
+  "phases": ["active"],
+  "requires": {
+    "features": [],
+    "consent": "",
+    "forms": ["human", "pony"],
+    "views": ["desktop", "vr"],
+    "stretch": "inactive"
+  },
+  "duration": 0.6,
+  "easing": "smoothstep",
+  "channels": {
+    "base": {"kind": "hold"},
+    "anon": {"kind": "hold"},
+    "contact": {"kind": "hold"},
+    "camera": {"kind": "hold"},
+    "controls": {"kind": "switch", "at": 0.0, "set": "standing_test"},
+    "audio": {"kind": "hold"},
+    "presentation": {"kind": "switch", "at": 0.0, "profile": "standing_test"}
+  },
+  "constraints": [],
+  "events": [{"at": 0.0, "kind": "status", "value": "test"}],
+  "interrupt": {"climax": "hold", "teardown": "abort"}
+}

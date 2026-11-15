@@ -21,8 +21,9 @@ schema; the shipped per-pose values live under `default.poses` in `settings/defa
 math; `camera/service.gd` owns the camera and lean state.
 
 `shared/pose_specs.gd` is the static pose capability table: family, frame, driver, settings group,
-the ten profiles, forms and views. `poses/pose_spec.gd` is its typed wrapper and validator, and
-`poses/registry.gd` the cache and catalog check; both are private to `poses/`. `shared/pose_view.gd`
+the ten profiles, forms and views. `poses/pose_spec.gd` is its typed wrapper and validator,
+`poses/transition_spec.gd` the typed edge wrapper and its one validator, and `poses/registry.gd`
+the cache and catalog check for both; all three are private to `poses/`. `shared/pose_view.gd`
 is the scene-free read model for one pose: the identity, the spec profiles, the live config and the
 contact and facing mirrors.
 
@@ -93,6 +94,78 @@ copies `interrupt.climax`/`interrupt.teardown` (`hold`/`abort` by default) but n
 `start_edge()`/`Run.start()` accept only an edge whose `id`, `from`, `to` and `channels` are
 present, whose endpoints match the requested pair, whose channel kinds and constraint references
 are known, and whose timing resolves; anything else returns null.
+
+## Typed edges and the registry
+
+A pose transition is an authored document at `poses/transitions/<from>__<to>.json`, imported only
+through `poses/transition_spec.gd` and cached by `poses/registry.gd`. The filename stem is the edge
+id and must equal the document's `id`, which is exactly `<from>__<to>`; both endpoints name spec
+rows in the same family and `from` and `to` differ. The document's `version` is 1.
+
+Top-level fields: `id`, `from`, `to`, `phases` (the act phases the edge may start in: `active`,
+`climax`, `afterglow`), optional `requires`, optional `duration`, optional `easing` (`linear` or
+`smoothstep`), `channels`, optional `constraints`, optional `events` and optional `interrupt`.
+Unknown top-level keys are additive and ignored.
+
+`requires` holds only `features`, `consent`, `forms`, `views` and `stretch`. `features` is a list of
+non-empty strings; the session checks them when the state machine is wired. `consent` is a string,
+and an empty string means none. `forms` and `views` are lists of the spec table's values, each
+supported by both endpoints when the endpoint rows declare those lists. `stretch` is empty, `any`
+or `inactive`. There is no settings or eligibility vocabulary check here: the validator never reads
+`Settings`.
+
+`channels` is non-empty, and its names are `base`, `anon`, `contact`, `camera`, `controls`, `audio`
+and `presentation`. Each channel has a `kind`:
+
+- `hold` settles at weight 1 from the start.
+- `blend`, `delta` and `path` ease from 0 to 1 over their own duration or the edge duration. `path`
+  is accepted as `blend` until an edge authors it.
+- `switch` fires once at its required `at` and reports its channel name. Its optional `set`,
+  `profile` and `to` payload strings are data for the consumer.
+- `lock` is a policy signal at weight 1, with optional `allow`/`block` string lists and `set`.
+
+An absent channel means `hold`. Unknown extra payload keys are additive and ignored.
+
+`constraints` are `"channel after other@seconds"` start floors: the channel may not start before
+the other channel's start plus the delay. A reference outside the edge or a cycle refuses it.
+
+`events` are dictionaries with `at`, `kind` (`status`, `speech_stop`, `viseme`) and, for `status`
+and `viseme`, a non-empty `value`. They are sorted by `at`, because `Run.tick()` stops at the first
+future event and an out-of-order list would hide the later events.
+
+`interrupt.climax` is `hold`; `interrupt.teardown` is `abort` or `finish`. The module exposes the
+policy and never acts on it.
+
+`poses/transition_spec.gd` is the one edge validator. It checks the filename/id rule, the endpoints
+and their family, the phases, the `requires` block, the duration and each channel payload, the
+constraints, the events and the interrupt policy, and it collects every problem instead of stopping
+at the first. Only after every structural check passes does it ask `pose_state.gd` to start the
+document; a null start is one generic error that the channel timing or an `after` constraint does
+not resolve.
+
+`poses/registry.gd` reads the directory once, on the first `spec()`, `edge()` or `validate()` call,
+and never on a tick: sorted `DirAccess` listing, one `FileAccess` read and one `JSON` parse per
+document, the validator, then one cached wrapper per edge id. A bad document stays out of the cache;
+`validate()` returns its filename-prefixed errors after the spec/table errors. The registry is
+private to `poses/`, and the session facade has no file access.
+
+The shipped debug pair is `standing__standing_test.json` and `standing_test__standing.json`. Both
+hold `base`, `anon`, `contact`, `camera` and `audio`, switch `controls` and `presentation` at the
+start, and fire one `status` event (`test` forward, `standing` back). Both switches spell out
+`at: 0`; `pose_state.gd` refuses a switch without `at`. The held channels are deliberate: the pair
+proves the state machine, the channel records, the switch firing and the no-full-teardown rule
+without moving the body. The first real base/contact/audio edge is A5.
+
+`standing_test` is the matching internal spec row. It inherits `standing` (a base, no driver of its
+own, no delta asset), is `public: false` and `offerable: false`, has no `default.poses` block, and
+appears in `CATALOG.every()` only: it is not in `CATALOG.all()`, the API, the offers or the settings
+templates. The spec base rule allows an empty `driver` only when a base owns the geometry. A base
+must not be the row itself; when the table is supplied it must exist in the same family, and its
+chain must not revisit a row.
+
+The spec table and the edges are data. The session still builds only `missionary` and `standing` in
+`begin()`; it does not request or tick an edge until A3.3, and the first player-visible proof is
+A3.3's Debug **Pose: test variant** action.
 
 ## Spaces and axes
 
@@ -451,9 +524,12 @@ unchanged.
   the requirement check, the edge start/validation, the duration and `after` constraints, the
   channel weights and switches, the edge events, completion, the interrupt fields and the reused
   arrays. Plain dictionaries only.
-- `tests/poses/test_pose_spec.gd` — the field wrapper, the shared validator and the pure source.
-- `tests/poses/test_pose_registry.gd` — the two shipped specs, the unchanged public catalog and the
-  table rules.
+- `tests/poses/test_pose_spec.gd` — the field wrapper, the shared validator, the base/driver rule
+  and the pure source.
+- `tests/poses/test_pose_registry.gd` — the three shipped specs, the two authored edges, the
+  unchanged public catalog and the table rules.
+- `tests/poses/test_pose_edge.gd` — the edge documents, the typed wrapper and validator, the
+  registry load and the forward/reverse run proof.
 - `tests/poses/test_stretch.gd` — the external script validation, episode choice, ask ramp,
   modifier order, fallback and cleanup.
 - `tests/test_standing_presentation.gd` — the offer gate, the navigator stepping turn and its away

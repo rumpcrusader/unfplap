@@ -8,6 +8,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 ## The public v1 surface. An addition or rename must update this list and docs/api.md together.
 const METHODS := ["contract", "describe_mare", "register_mare", "supports", "unregister_mare"]
@@ -152,6 +153,11 @@ func _check_base_description() -> void:
 	check(data.get("eligible") == null, "a base mare has no eligible assertion")
 	check(bool((data.get("profile", {}) as Dictionary).get("participation", {}).get("acts", false)),
 		"base participation resolves to all allowed")
+	var pose_keys: Array = (data.get("poses", {}) as Dictionary).keys()
+	pose_keys.sort()
+	var expected_poses: Array = CATALOG.all().duplicate()
+	expected_poses.sort()
+	check(pose_keys == expected_poses, "the API's poses block is exactly CATALOG.all()")
 	check((data.get("placement", {}) as Dictionary).size() == PLACEMENT.KEYS.size(),
 		"placement has every key")
 	check(near(float((data.get("placement", {}) as Dictionary).get("tail_tilt_deg", -1.0)), 0.0),

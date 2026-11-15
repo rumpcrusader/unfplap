@@ -8,6 +8,9 @@ extends RefCounted
 
 const MISSIONARY := "missionary"
 const STANDING := "standing"
+## An internal debug pose: it inherits `standing`'s geometry, driver and profiles, and is not a
+## public pose, an offer or a settings template. `CATALOG.every()` alone carries it.
+const STANDING_TEST := "standing_test"
 
 ## A pose's own asset is `poses/<id>_pose.json` when the row has no delta; `driver` is the
 ## procedural recipe, `base` an inherited pose id and `delta` an authored delta asset. `forms`
@@ -78,12 +81,44 @@ const SPECS := {
 		"public": true,
 		"offerable": true,
 	},
+	STANDING_TEST: {
+		"id": STANDING_TEST,
+		"display_name": "Standing test",
+		"family": "standing",
+		"frame": "ground",
+		"base": STANDING,
+		"delta": "",
+		"driver": "",
+		"settings_group": "standing",
+		"game_posture": "stand",
+		"drive_policy": "standing",
+		"anon": {"mode": "player_body", "profile": "standing"},
+		"contact": {"kind": "opening", "aim": "part", "trims": "standing"},
+		"camera": {"profile": "standing_procedural", "facing": "standing", "eye": "player"},
+		"hands": {"path": "standing"},
+		"controls": {"set": "standing_test"},
+		"audio": {"impact": "standing", "speech": "act"},
+		"afterglow": {"profile": "standing", "close_window": true},
+		"presentation": {
+			"profile": "standing_test", "hud_label": "Test", "tail": "pose",
+			"wings": "hold", "kiss": "standing", "lean": "standing",
+		},
+		"scene": {
+			"frame": "ground", "requires_bed": false, "sources": [],
+			"managed_bed": false, "stool": true, "standing_free": true,
+		},
+		"modifiers": {"profile": "standing"},
+		"forms": ["human", "pony"],
+		"views": ["desktop", "vr"],
+		"public": false,
+		"offerable": false,
+	},
 }
 
 
 ## The shipped spec ids, in table order.
 static func ids() -> Array[String]:
-	return [MISSIONARY, STANDING]
+	return [MISSIONARY, STANDING, STANDING_TEST]
 
 
 ## The raw spec dictionary for `id`, or `{}` when the table has no row.

@@ -121,6 +121,7 @@ func run() -> void:
 	_check_reactions()
 	_check_pose_session()
 	_check_pose_state()
+	_check_pose_edges()
 	_check_pose_capability_census(files)
 	_check_act_camera()
 	_check_scene_gate()
@@ -648,7 +649,7 @@ func _check_pose_session() -> void:
 	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",
 			"test_pose_rig.gd", "test_pose_scale.gd", "test_rotation.gd", "test_stretch.gd",
 			"test_pose_spec.gd", "test_pose_registry.gd", "test_pose_view.gd",
-			"test_pose_state.gd"]:
+			"test_pose_state.gd", "test_pose_edge.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
 			"tests/poses/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
@@ -686,6 +687,46 @@ func _check_pose_state() -> void:
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/poses.md"))
 	check(contract.contains("## State machine and edge math"),
 		"docs/poses.md documents the pose state machine and edge math")
+
+
+## The typed pose edges: the private wrapper stays pure, the registry owns the one file load, and
+## the documents are shipped data. Contract: `docs/poses.md`; suite: `tests/poses/test_pose_edge.gd`.
+func _check_pose_edges() -> void:
+	var source := FileAccess.get_file_as_string(ROOT.path_join("poses/transition_spec.gd"))
+	check(not source.is_empty(), "poses/transition_spec.gd exists")
+	check(source.contains("static func from_dict(") and source.contains("static func errors("),
+		"the edge wrapper owns the validation entry points")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/",
+			"preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")",
+			"preload(\"res://mods/unfplap/settings/service.gd\")",
+			"preload(\"res://mods/unfplap/poses/service.gd\")",
+			"_end_session", "release_pose", "leave_pose_start", "leave_pose_body",
+			"_unlock_player"]:
+		check(not source.contains(token), "the edge wrapper stays pure: %s" % token)
+	var stray_preloads := 0
+	for line: String in source.split("\n"):
+		if line.contains("preload(") and not (line.contains("poses/pose_spec.gd")
+				or line.contains("poses/pose_state.gd")):
+			stray_preloads += 1
+	check(stray_preloads == 0,
+		"the edge wrapper preloads only the pose spec and the pose state")
+	var registry := FileAccess.get_file_as_string(ROOT.path_join("poses/registry.gd"))
+	check(registry.contains("poses/transitions"), "the registry owns the edge directory")
+	check(registry.contains("func edges(") and registry.contains("func edge("),
+		"the registry exposes the edge table")
+	check(registry.contains("TRANSITION_SPEC"), "the registry uses the typed edge wrapper")
+	check(FileAccess.file_exists(ROOT.path_join("poses/transitions/standing__standing_test.json")),
+		"the forward debug edge exists")
+	check(FileAccess.file_exists(ROOT.path_join("poses/transitions/standing_test__standing.json")),
+		"the reverse debug edge exists")
+	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/poses.md"))
+	check(contract.contains("## Typed edges and the registry"),
+		"docs/poses.md documents the typed edges and the registry")
+	var catalog := FileAccess.get_file_as_string(ROOT.path_join("shared/pose_catalog.gd"))
+	check(catalog.contains("STANDING_TEST") and catalog.contains("func every("),
+		"the catalog carries the internal pose and `every()`")
 
 
 ## The raw pose reads ratchet down as the typed pose view takes over. A file may drop below its

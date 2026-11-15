@@ -21,6 +21,12 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	check(CATALOG.all() == [CATALOG.MISSIONARY, CATALOG.STANDING], "pose ids")
+	check(CATALOG.every() == [CATALOG.MISSIONARY, CATALOG.STANDING, CATALOG.STANDING_TEST],
+		"every pose includes the internal test pose")
+	check(not CATALOG.POSE_KEYS.has(CATALOG.STANDING_TEST),
+		"the internal test pose has no settings schema")
+	check(CATALOG.defaults(CATALOG.STANDING_TEST).is_empty(),
+		"the internal test pose has no defaults")
 	var ids := {}
 	for id: String in CATALOG.all():
 		check(not ids.has(id), "unique pose id " + id)

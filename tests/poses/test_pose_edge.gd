@@ -1,0 +1,386 @@
+extends SceneTree
+## The authored pose edges: the documents, the typed wrapper and validator, the registry load and
+## the edge run. Plain dictionaries and `FileAccess` only: no scene, no node, no autoload.
+##   godot --headless --xr-mode off --path <project> \
+##     --script res://mods/unfplap/tests/poses/test_pose_edge.gd
+
+const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
+const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
+const STATE := preload("res://mods/unfplap/poses/pose_state.gd")
+const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
+
+const FORWARD := "standing__standing_test"
+const REVERSE := "standing_test__standing"
+const FORWARD_PATH := "res://mods/unfplap/poses/transitions/standing__standing_test.json"
+const REVERSE_PATH := "res://mods/unfplap/poses/transitions/standing_test__standing.json"
+const SOURCE := "res://mods/unfplap/poses/transition_spec.gd"
+
+var failures := 0
+var checks := 0
+
+
+func _initialize() -> void:
+	run.call_deferred()
+
+
+func check(ok: bool, text: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		print("FAIL ", text)
+
+
+func near(a: float, b: float, eps := 0.0001) -> bool:
+	return absf(a - b) <= eps
+
+
+func run() -> void:
+	_check_documents()
+	_check_wrapper()
+	_check_runs()
+	_check_rejections()
+	_check_shapes()
+	_check_registry()
+	_check_pure_source()
+	print("POSE_EDGE_RESULT checks=%d failures=%d" % [checks, failures])
+	if failures == 0:
+		print("POSE_EDGE_PASS")
+	quit(0 if failures == 0 else 1)
+
+
+func _read(path: String) -> Dictionary:
+	var text := FileAccess.get_file_as_string(path)
+	if text.is_empty():
+		return {}
+	var parser := JSON.new()
+	if parser.parse(text) != OK:
+		return {}
+	var data: Variant = parser.data
+	return data as Dictionary if data is Dictionary else {}
+
+
+func _document(edge_id: String) -> Dictionary:
+	return _read(FORWARD_PATH) if edge_id == FORWARD else _read(REVERSE_PATH)
+
+
+func _forward() -> Dictionary:
+	return _read(FORWARD_PATH)
+
+
+func _mutated(changes: Dictionary) -> Dictionary:
+	var data := _forward()
+	for key: String in changes.keys():
+		data[key] = changes[key]
+	return data
+
+
+func _without(key: String) -> Dictionary:
+	var data := _forward()
+	data.erase(key)
+	return data
+
+
+func _with_requires(key: String, value: Variant) -> Dictionary:
+	var data := _forward()
+	var requires: Dictionary = data.get("requires", {})
+	requires[key] = value
+	return data
+
+
+func _with_channel(name: String, value: Variant) -> Dictionary:
+	var data := _forward()
+	var channels: Dictionary = data.get("channels", {})
+	channels[name] = value
+	return data
+
+
+func _errors(data: Dictionary, edge_id := FORWARD) -> Array[String]:
+	return TRANSITION_SPEC.errors(edge_id, data, SPECS.SPECS)
+
+
+func _rejects(data: Dictionary, text: String, edge_id := FORWARD) -> void:
+	check(not _errors(data, edge_id).is_empty(), text)
+
+
+## One synthetic raw spec row for the endpoint-table checks.
+func _row(name: String, template: String, forms: Array, views: Array) -> Dictionary:
+	var row: Dictionary = SPECS.spec(template).duplicate(true)
+	row["id"] = name
+	row["forms"] = forms
+	row["views"] = views
+	return row
+
+
+func _check_documents() -> void:
+	check(FileAccess.file_exists(FORWARD_PATH), "the forward edge file exists")
+	check(FileAccess.file_exists(REVERSE_PATH), "the reverse edge file exists")
+	var forward := _forward()
+	var reverse := _read(REVERSE_PATH)
+	check(not forward.is_empty(), "the forward edge parses")
+	check(not reverse.is_empty(), "the reverse edge parses")
+	check(str(forward.get("id", "")) == FORWARD, "the forward edge id")
+	check(str(forward.get("from", "")) == SPECS.STANDING, "the forward edge from")
+	check(str(forward.get("to", "")) == SPECS.STANDING_TEST, "the forward edge to")
+	check(str(reverse.get("id", "")) == REVERSE, "the reverse edge id")
+	check(str(reverse.get("from", "")) == SPECS.STANDING_TEST, "the reverse edge from")
+	check(str(reverse.get("to", "")) == SPECS.STANDING, "the reverse edge to")
+	var forward_errors := _errors(forward)
+	var reverse_errors := TRANSITION_SPEC.errors(REVERSE, reverse, SPECS.SPECS)
+	check(forward_errors.is_empty(), "the forward edge validates: %s" % str(forward_errors))
+	check(reverse_errors.is_empty(), "the reverse edge validates: %s" % str(reverse_errors))
+
+
+func _check_wrapper() -> void:
+	for edge_id: String in [FORWARD, REVERSE]:
+		var document := _document(edge_id)
+		var edge: Variant = TRANSITION_SPEC.from_dict(edge_id, document, SPECS.SPECS)
+		check(edge != null, "%s builds a wrapper" % edge_id)
+		if edge == null:
+			continue
+		check(edge.id == edge_id, "%s keeps its id" % edge_id)
+		check(edge.version == TRANSITION_SPEC.VERSION, "%s keeps its version" % edge_id)
+		check(edge.from_id == str(document.get("from", "")), "%s keeps from" % edge_id)
+		check(edge.to_id == str(document.get("to", "")), "%s keeps to" % edge_id)
+		check(edge.phases == document.get("phases"), "%s keeps its phases" % edge_id)
+		check(is_same(edge.requires, document.get("requires")),
+			"%s shares the requires block" % edge_id)
+		check(near(edge.duration, float(document.get("duration", 0.0))),
+			"%s keeps its duration" % edge_id)
+		check(edge.easing == str(document.get("easing", "")), "%s keeps its easing" % edge_id)
+		check(is_same(edge.channels, document.get("channels")),
+			"%s shares the channel table" % edge_id)
+		check(edge.constraints == document.get("constraints"), "%s keeps its constraints" % edge_id)
+		check(is_same(edge.events, document.get("events")),
+			"%s shares the event list" % edge_id)
+		check(is_same(edge.interrupt, document.get("interrupt")),
+			"%s shares the interrupt policy" % edge_id)
+		check(is_same(edge.data, document), "%s holds the document by reference" % edge_id)
+
+
+func _check_runs() -> void:
+	var forward := _forward()
+	var run: Variant = STATE.start_edge(forward, SPECS.STANDING, SPECS.STANDING_TEST)
+	check(run != null, "the forward edge starts")
+	if run != null:
+		check(near(run.duration, 0.6), "the forward clock is the edge duration")
+		check(near(run.weight, 1.0), "the held base is fully weighted")
+		check(near(run.channel_weight("base"), 1.0), "the base channel holds")
+		check(near(run.channel_weight("anon"), 1.0), "the anon channel holds")
+		check(near(run.channel_weight("controls"), 0.0), "the controls switch waits")
+		run.tick(0.0)
+		check(run.events().size() == 1, "the forward status event fires at zero")
+		if run.events().size() == 1:
+			var event: Dictionary = run.events()[0]
+			check(str(event.get("kind", "")) == "status", "the forward event is a status")
+			check(str(event.get("value", "")) == "test", "the forward status value is test")
+		var names: Array = run.switches().duplicate()
+		names.sort()
+		check(names == ["controls", "presentation"], "the forward switches fire together")
+		check(near(run.channel_weight("controls"), 1.0), "the controls switch has weight")
+		check(near(run.channel_weight("presentation"), 1.0), "the presentation switch has weight")
+		run.tick(0.6)
+		check(run.complete(), "the forward edge completes at its duration")
+		check(near(run.t, 0.6), "the forward clock stops at its duration")
+		run.tick(0.6)
+		check(run.events().is_empty(), "a completed forward edge fires no event")
+		check(run.switches().is_empty(), "a completed forward edge fires no switch")
+	var reverse := _document(REVERSE)
+	var reverse_channels: Dictionary = reverse.get("channels", {})
+	var controls: Dictionary = reverse_channels.get("controls", {})
+	var presentation: Dictionary = reverse_channels.get("presentation", {})
+	check(str(controls.get("set", "")) == SPECS.STANDING,
+		"the reverse controls switch points at standing")
+	check(str(presentation.get("profile", "")) == SPECS.STANDING,
+		"the reverse presentation switch points at standing")
+	var backward: Variant = STATE.start_edge(reverse, SPECS.STANDING_TEST, SPECS.STANDING)
+	check(backward != null, "the reverse edge starts")
+	if backward != null:
+		backward.tick(0.0)
+		check(backward.events().size() == 1, "the reverse status event fires at zero")
+		if backward.events().size() == 1:
+			var event: Dictionary = backward.events()[0]
+			check(str(event.get("kind", "")) == "status", "the reverse event is a status")
+			check(str(event.get("value", "")) == "standing", "the reverse status value is standing")
+		var reverse_names: Array = backward.switches().duplicate()
+		reverse_names.sort()
+		check(reverse_names == ["controls", "presentation"], "the reverse switches fire together")
+		backward.tick(0.6)
+		check(backward.complete(), "the reverse edge completes at its duration")
+
+
+func _check_rejections() -> void:
+	_rejects(_mutated({"version": 2}), "a wrong version is rejected")
+	check(not TRANSITION_SPEC.errors("other", _forward(), SPECS.SPECS).is_empty(),
+		"a filename/id mismatch is rejected")
+	_rejects(_without("from"), "a missing from is rejected")
+	_rejects(_mutated({"from": ""}), "an empty from is rejected")
+	_rejects(_without("to"), "a missing to is rejected")
+	_rejects(_mutated({"to": ""}), "an empty to is rejected")
+	_rejects(_without("channels"), "missing channels are rejected")
+	_rejects(_mutated({"channels": {}}), "empty channels are rejected")
+	var wrong_pair := _mutated({"id": "standing__other"})
+	_rejects(wrong_pair, "an id that is not from__to is rejected", "standing__other")
+	var same_pose := _mutated({"id": "standing__standing", "to": SPECS.STANDING})
+	_rejects(same_pose, "from equal to to is rejected", "standing__standing")
+	var table := {
+		"a": _row("a", SPECS.STANDING, ["human"], ["desktop"]),
+		"b": _row("b", SPECS.MISSIONARY, ["human"], ["desktop"]),
+	}
+	var unknown := _mutated({"id": "a__missing", "from": "a", "to": "missing"})
+	check(not TRANSITION_SPEC.errors("a__missing", unknown, table).is_empty(),
+		"an unknown endpoint is rejected")
+	var cross := _mutated({"id": "a__b", "from": "a", "to": "b"})
+	check(not TRANSITION_SPEC.errors("a__b", cross, table).is_empty(),
+		"a cross-family endpoint is rejected")
+	_rejects(_without("phases"), "missing phases are rejected")
+	_rejects(_mutated({"phases": []}), "an empty phases list is rejected")
+	_rejects(_mutated({"phases": ["idle"]}), "an unknown phase is rejected")
+	_rejects(_mutated({"phases": ["active", "active"]}), "a duplicate phase is rejected")
+	_rejects(_with_requires("unknown", true), "an unknown requires key is rejected")
+	_rejects(_with_requires("forms", ["unicorn"]), "an unknown form is rejected")
+	_rejects(_with_requires("views", ["phone"]), "an unknown view is rejected")
+	_rejects(_with_requires("forms", ["human", "human"]), "a duplicate form is rejected")
+	_rejects(_with_requires("views", ["desktop", "desktop"]), "a duplicate view is rejected")
+	_rejects(_with_requires("features", ["", "anatomy"]), "an empty feature is rejected")
+	_rejects(_with_requires("consent", 3), "a non-string consent is rejected")
+	_rejects(_with_requires("stretch", "always"), "an unknown stretch policy is rejected")
+	var support_table := {
+		"a": _row("a", SPECS.STANDING, ["human"], ["desktop"]),
+		"b": _row("b", SPECS.STANDING, ["pony"], ["vr"]),
+	}
+	var form_doc := _mutated({"id": "a__b", "from": "a", "to": "b"})
+	(form_doc["requires"] as Dictionary)["forms"] = ["human"]
+	check(not TRANSITION_SPEC.errors("a__b", form_doc, support_table).is_empty(),
+		"a form an endpoint does not support is rejected")
+	var view_doc := _mutated({"id": "a__b", "from": "a", "to": "b"})
+	(view_doc["requires"] as Dictionary)["views"] = ["vr"]
+	check(not TRANSITION_SPEC.errors("a__b", view_doc, support_table).is_empty(),
+		"a view an endpoint does not support is rejected")
+	_rejects(_mutated({"duration": -1.0}), "a negative duration is rejected")
+	_rejects(_mutated({"duration": "long"}), "a non-number duration is rejected")
+	_rejects(_mutated({"easing": "bounce"}), "an unknown easing is rejected")
+	_rejects(_with_channel("warp", {"kind": "hold"}), "an unknown channel is rejected")
+	_rejects(_with_channel("base", {"kind": "warp"}), "an unknown channel kind is rejected")
+	_rejects(_with_channel("controls", {"kind": "switch"}), "a switch without at is rejected")
+	_rejects(_with_channel("controls", {"kind": "switch", "at": -1.0}),
+		"a negative switch at is rejected")
+	_rejects(_with_channel("controls", {"kind": "switch", "at": 0.0, "set": 4}),
+		"a non-string switch payload is rejected")
+	_rejects(_with_channel("base", {"kind": "blend", "start": -1.0}),
+		"a negative blend start is rejected")
+	_rejects(_with_channel("base", {"kind": "blend", "start": 0.0, "duration": -1.0}),
+		"a negative blend duration is rejected")
+	_rejects(_with_channel("base", {"kind": "blend", "easing": "bounce"}),
+		"an unknown channel easing is rejected")
+	_rejects(_with_channel("base", {"kind": "lock", "allow": "thrust"}),
+		"a non-array lock allow is rejected")
+	_rejects(_with_channel("base", {"kind": "lock", "block": [3]}),
+		"a non-string lock block entry is rejected")
+	_rejects(_with_channel("base", {"kind": "lock", "set": 3}),
+		"a non-string lock set is rejected")
+	var no_duration := _mutated({"events": [], "constraints": [],
+		"channels": {"base": {"kind": "blend"}}})
+	no_duration.erase("duration")
+	_rejects(no_duration, "a blend without a duration is rejected")
+	_rejects(_mutated({"constraints": ["warp after base@1"]}),
+		"an unknown constraint channel is rejected")
+	_rejects(_mutated({"constraints": [3]}), "a non-string constraint is rejected")
+	var cycle := _mutated({"duration": 1.0, "events": [], "constraints": [
+		"controls after presentation@1", "presentation after controls@1"],
+		"channels": {
+			"controls": {"kind": "blend", "duration": 1.0},
+			"presentation": {"kind": "blend", "duration": 1.0},
+		}})
+	_rejects(cycle, "a constraint cycle is rejected")
+	_rejects(_mutated({"events": [
+		{"at": 0.5, "kind": "status", "value": "late"},
+		{"at": 0.0, "kind": "status", "value": "early"},
+	]}), "unsorted events are rejected")
+	_rejects(_mutated({"events": [{"at": 0.0, "kind": "sound"}]}),
+		"an unknown event kind is rejected")
+	_rejects(_mutated({"events": [{"at": 0.0, "kind": "status"}]}),
+		"a status without a value is rejected")
+	_rejects(_mutated({"events": [{"at": 0.0, "kind": "viseme", "value": ""}]}),
+		"a viseme without a value is rejected")
+	_rejects(_mutated({"events": [{"at": -1.0, "kind": "speech_stop"}]}),
+		"a negative event at is rejected")
+	_rejects(_mutated({"interrupt": {"climax": "cut"}}),
+		"an unknown climax policy is rejected")
+	_rejects(_mutated({"interrupt": {"teardown": "hold"}}),
+		"an unknown teardown policy is rejected")
+	check(TRANSITION_SPEC.from_dict(FORWARD, _mutated({"version": 2}), SPECS.SPECS) == null,
+		"from_dict refuses an invalid document")
+
+
+func _check_shapes() -> void:
+	var path_edge := _mutated({"duration": 0.5, "events": [], "constraints": [],
+		"channels": {"base": {"kind": "path"}}})
+	var path_errors := _errors(path_edge)
+	check(path_errors.is_empty(), "a path edge with a duration is valid: %s" % str(path_errors))
+	var path_run: Variant = STATE.start_edge(path_edge, SPECS.STANDING, SPECS.STANDING_TEST)
+	check(path_run != null, "a path edge starts")
+	if path_run != null:
+		path_run.tick(0.25)
+		check(near(path_run.channel_weight("base"), 0.5), "a path follows the blend math")
+	var hold_edge := _mutated({"duration": 0.1, "events": [], "constraints": [],
+		"channels": {"base": {"kind": "hold"}}})
+	check(_errors(hold_edge).is_empty(), "a hold-only edge with a duration is valid")
+	var no_duration := hold_edge.duplicate(true)
+	no_duration.erase("duration")
+	check(not _errors(no_duration).is_empty(), "a hold-only edge without a duration is rejected")
+	var timed := _mutated({"events": [], "constraints": [],
+		"channels": {"base": {"kind": "blend", "duration": 0.4},
+			"controls": {"kind": "switch", "at": 0.2}}})
+	timed.erase("duration")
+	check(_errors(timed).is_empty(), "per-channel timings resolve without an edge duration")
+	check(_errors(_without("requires")).is_empty(), "a missing requires block is valid")
+	check(_errors(_without("events")).is_empty(), "a missing events block is valid")
+	check(_errors(_without("constraints")).is_empty(), "a missing constraints block is valid")
+	check(_errors(_without("interrupt")).is_empty(), "a missing interrupt block is valid")
+	check(_errors(_mutated({"comment": "additive"})).is_empty(),
+		"an unknown top-level key is additive")
+	check(_errors(_with_channel("base", {"kind": "hold", "note": "additive"})).is_empty(),
+		"an unknown channel payload key is additive")
+
+
+func _check_registry() -> void:
+	var registry: RefCounted = REGISTRY.new()
+	var edges: Array = registry.edges()
+	check(edges.size() == 2, "the registry loads both edges")
+	var ids: Array = []
+	for edge: Variant in edges:
+		ids.append(str(edge.id))
+	check(ids == [FORWARD, REVERSE], "the edges load in sorted id order")
+	var forward: Variant = registry.edge(FORWARD)
+	var reverse: Variant = registry.edge(REVERSE)
+	check(forward != null and forward.id == FORWARD, "the forward edge is cached")
+	check(reverse != null and reverse.id == REVERSE, "the reverse edge is cached")
+	check(is_same(forward, registry.edge(FORWARD)), "a second edge lookup is the same instance")
+	check(is_same(reverse, registry.edge(REVERSE)), "the reverse lookup is the same instance")
+	check(registry.edge("standing") == null, "a pose id is not an edge id")
+	check(registry.edge("no_such_edge") == null, "an unknown edge is null")
+	var found: Array = registry.validate()
+	check(found.is_empty(), "the registry validates the table and both edges: %s" % str(found))
+
+
+## The wrapper is data: no scene, no settings, no file, no service and no act exit.
+func _check_pure_source() -> void:
+	var source := FileAccess.get_file_as_string(SOURCE)
+	check(not source.is_empty(), "poses/transition_spec.gd exists")
+	check(source.begins_with("extends RefCounted"), "the edge wrapper is a RefCounted")
+	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
+			"preload(\"res://world/",
+			"preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")",
+			"preload(\"res://mods/unfplap/settings/service.gd\")",
+			"preload(\"res://mods/unfplap/poses/service.gd\")",
+			"_end_session", "release_pose", "leave_pose_start", "leave_pose_body",
+			"_unlock_player"]:
+		check(not source.contains(token), "the edge wrapper stays pure: %s" % token)
+	var stray_preloads := 0
+	for line: String in source.split("\n"):
+		if line.contains("preload(") and not (line.contains("poses/pose_spec.gd")
+				or line.contains("poses/pose_state.gd")):
+			stray_preloads += 1
+	check(stray_preloads == 0,
+		"the only direct preloads are the pose spec and the pose state")

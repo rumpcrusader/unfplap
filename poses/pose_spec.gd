@@ -54,8 +54,8 @@ var offerable := false
 
 
 ## A filled wrapper, or null when `errors()` is non-empty. The registry logs the errors.
-static func from_dict(spec_id: String, data: Dictionary) -> Variant:
-	var found := errors(spec_id, data)
+static func from_dict(spec_id: String, data: Dictionary, table: Dictionary = {}) -> Variant:
+	var found := errors(spec_id, data, table)
 	if not found.is_empty():
 		return null
 	var spec: Variant = load(PATH).new()
@@ -63,8 +63,9 @@ static func from_dict(spec_id: String, data: Dictionary) -> Variant:
 	return spec
 
 
-## The shared validator: the registry and the suites both call this one.
-static func errors(spec_id: String, data: Dictionary) -> Array[String]:
+## The shared validator: the registry and the suites both call this one. `table` is the raw
+## id -> row table; an empty table skips the base row, family and cycle checks.
+static func errors(spec_id: String, data: Dictionary, table: Dictionary = {}) -> Array[String]:
 	var out: Array[String] = []
 	var pattern := RegEx.new()
 	pattern.compile(ID_PATTERN)
@@ -77,9 +78,10 @@ static func errors(spec_id: String, data: Dictionary) -> Array[String]:
 	_check_choice(out, data, "family", FAMILIES)
 	_check_choice(out, data, "frame", FRAMES)
 	_check_choice(out, data, "settings_group", SETTINGS_GROUPS)
-	for name: String in ["driver", "game_posture", "drive_policy"]:
+	for name: String in ["game_posture", "drive_policy"]:
 		if str(data.get(name, "")).is_empty():
 			out.append("%s is empty" % name)
+	_check_base(out, spec_id, data, table)
 	_check_list(out, data, "forms", FORMS)
 	_check_list(out, data, "views", VIEWS)
 	var is_public: Variant = data.get("public")
@@ -110,6 +112,40 @@ static func _check_choice(out: Array[String], data: Dictionary, key: String, kno
 	var value: Variant = data.get(key)
 	if not (value is String) or not (value in known):
 		out.append("%s %s is unknown" % [key, str(value)])
+
+
+## The driver/base rule: a row needs a driver unless it inherits an authored base. A declared base
+## must not be the row itself and, with a table, must exist in the same family and reach a row
+## without a cycle.
+static func _check_base(out: Array[String], spec_id: String, data: Dictionary,
+		table: Dictionary) -> void:
+	var base := str(data.get("base", ""))
+	var driver := str(data.get("driver", ""))
+	if driver.is_empty() and base.is_empty():
+		out.append("driver and base are both empty")
+	if base.is_empty():
+		return
+	if base == spec_id:
+		out.append("base %s is the row itself" % base)
+		return
+	if table.is_empty():
+		return
+	var family := str(data.get("family", ""))
+	var seen: Dictionary = {spec_id: true}
+	var cursor := base
+	while not cursor.is_empty():
+		if seen.has(cursor):
+			out.append("base chain revisits %s" % cursor)
+			return
+		seen[cursor] = true
+		var row: Variant = table.get(cursor)
+		if not (row is Dictionary):
+			out.append("base %s has no spec row" % cursor)
+			return
+		if str((row as Dictionary).get("family", "")) != family:
+			out.append("base %s is in another family" % cursor)
+			return
+		cursor = str((row as Dictionary).get("base", ""))
 
 
 static func _check_list(out: Array[String], data: Dictionary, key: String, known: Array) -> void:

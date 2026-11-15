@@ -8,6 +8,8 @@ const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 
 const MISSIONARY := "missionary"
 const STANDING := "standing"
+## An internal debug pose: known to the registry and to `every()`, never public.
+const STANDING_TEST := "standing_test"
 
 const POSE_KEYS := {
 	MISSIONARY: ["nuzzle_scale", "nuzzle_period", "nuzzle_duration"],
@@ -24,10 +26,10 @@ static func all() -> Array:
 	return [MISSIONARY, STANDING]
 
 
-## Every pose the registry knows, public or internal. Until internal poses exist this is the
-## public list; `all()` stays the public/base list the API and offers use.
+## Every pose the registry knows, public or internal. `all()` stays the public list the API,
+## offers and settings use.
 static func every() -> Array:
-	return all()
+	return [MISSIONARY, STANDING, STANDING_TEST]
 
 
 ## The shipped defaults for one pose, or `{}` when the pose has none.

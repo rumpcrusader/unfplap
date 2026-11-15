@@ -87,7 +87,7 @@ step checks the ownership flag it restores (`_act_camera.camera_owned`, `_act_ca
 runtime's own `_posture_owned` and the HUD's borrowed quick-slot state, the controller flags), so a
 failed start runs the same function and restores only what it took.
 
-`_finalize_session(real_act)` runs the post-act bookkeeping once and is idempotent.
+- `_finalize_session(real_act)` runs the post-act bookkeeping once and is idempotent.
 - `_end_act_lines()` is deliberately outside the teardown: `cancel()` queues the early-stop reaction
   after `_restore_begin()`, and `_finish_restore()` must not cancel director rows.
 - `_restore_begin()` / `_restore_now()` are the ordered leaves.

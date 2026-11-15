@@ -303,6 +303,27 @@ func run() -> void:
 			left += 1
 	check(left == 0, "the pose teardown leaves no act modifier on the body skeleton")
 
+	# The one act exit runs the same pose ledger: the view returns to IDLE and a second exit is
+	# safe with no pose left behind.
+	runtime8.call("_build_pose")
+	check(runtime8._pose_session.view().pose_state == 2, "a new act fills the pose view again")
+	runtime8._end_session(false)
+	var after_exit := 0
+	for child: Node in body8.get_children():
+		if str(child.name).begins_with("Unfplap"):
+			after_exit += 1
+	check(runtime8._pose_session.view().id == ""
+		and runtime8._pose_session.view().pose_state == 0,
+		"the act exit leaves the pose view idle")
+	check(after_exit == 0, "the act exit leaves no act modifier on the body skeleton")
+	runtime8._end_session(false)
+	after_exit = 0
+	for child: Node in body8.get_children():
+		if str(child.name).begins_with("Unfplap"):
+			after_exit += 1
+	check(runtime8._pose_session.view().pose_state == 0 and after_exit == 0,
+		"a second act exit is safe with no pose left behind")
+
 	# AnonPony and headset/VR move her in front of the player; the player stays where he is.
 	var f9 := _fixture()
 	var runtime9: Node = f9["runtime"]

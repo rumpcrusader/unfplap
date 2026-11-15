@@ -372,7 +372,7 @@ it never calls `_free_pose()`, `_end_session()` or `release_pose()`.
 | `integrations.reset()` | act | the integrations |
 | `_reset_excitement_hold()` | act | the runtime |
 | `release_free_camera_lock` | act | the camera |
-| `standing_anon.remove()` | pose: the act's Anon body | the runtime until the Anon adapter owns it |
+| `standing_anon.remove()` | pose: the act's Anon body | the runtime |
 | `leave_pose_body()` | pose: stretch holder, extra modifiers | the session |
 | `_restore_voice_volume()` | act | the runtime |
 | `reactions.end_act()` | act | the reactions |
@@ -394,8 +394,6 @@ second `release_pose()` is a no-op.
 `_restore_camera()` also ends the lean action, resets the hands, releases the free-camera lock and
 removes the act's Anon body. That is the act's camera restore path, not the pose teardown; it stays
 unchanged.
-
-
 
 ## Tests
 

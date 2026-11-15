@@ -98,6 +98,14 @@ Run the phase's lab and record the result in the phase notes; if the lab cannot 
 environment, say so instead of claiming it passed. The lab roster, keys and pause rules are in
 `docs/debug.md`, and the commands are in `WORKFLOW.md`.
 
+## Teardown pins
+
+`tests/poses/test_pose_teardown.gd` pins the pose-scope/act-scope split: the two leave steps keep
+the pose node, the live config and the view, the final release clears them and repeats safely, and
+no pose-scope step reaches an act exit. `tests/test_source_hygiene.gd` pins the `_free_pose()` order
+and its two callers, and keeps the act-exit names out of `poses/`. The contract is `docs/poses.md`;
+this doc only names the gate.
+
 ## What not to assert
 
 - The shipped defaults schema and the bounds belong to `tests/test_settings.gd`. A suite names a

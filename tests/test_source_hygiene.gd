@@ -99,7 +99,7 @@ func run() -> void:
 	_check_preloads(files)
 	_check_settings_module(files)
 	_check_shipped_data()
-	_check_teardown()
+	_check_teardown(files)
 	_check_hands_isolation()
 	_check_hands_docs()
 	_check_eligibility_isolation(files)
@@ -241,9 +241,11 @@ func _check_hands_docs() -> void:
 		check(text.contains("docs/hands.md"), "%s links to docs/hands.md" % name)
 
 
-## One ordered teardown owns act exit. If a new exit path or a copied restore sequence appears,
-## this fails before a leak reaches a save.
-func _check_teardown() -> void:
+## One act exit owns the teardown. `_free_pose` is the one pose ledger: the session's pose-scope
+## steps stay at their positions with the act-scope resets between them, and only `_end_session`
+## and `_build_pose` reach it. `poses/` never calls an act exit. If a new exit path or a copied
+## restore sequence appears, this fails before a leak reaches a save.
+func _check_teardown(files: Array[String]) -> void:
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	check(_count(runtime, "func _end_session(") == 1, "one act teardown")
 	for name: String in ["_abort_start", "_finish_restore", "_restore_now"]:
@@ -257,6 +259,59 @@ func _check_teardown() -> void:
 		for call: String in ["_restore_camera(", "_restore_look(", "_release_nav(",
 				"_free_pose(", "_unlock_player("]:
 			check(not body.contains(call), "%s does not call %s directly" % [name, call])
+	# The pose ledger keeps every call at its current position: the pose-scope leave steps, the
+	# act-scope resets between them, then the final pose clear.
+	var free := _func_body(runtime, "_free_pose")
+	var order: Array[String] = [
+		"_pose_service().leave_pose_start()",
+		"clear_presentation()",
+		"_camera_service().call(\"end_lean_action\")",
+		"_hand_controller().reset()",
+		"_kiss_controller().reset()",
+		"_integrations_controller().reset()",
+		"_reset_excitement_hold()",
+		"_camera_service().call(\"release_free_camera_lock\")",
+		"_standing_anon_controller().remove()",
+		"_pose_service().leave_pose_body()",
+		"_restore_voice_volume()",
+		"_reactions.end_act()",
+		"_pose_service().release_pose()",
+	]
+	var cursor := 0
+	for call: String in order:
+		var at := free.find(call, cursor)
+		check(at >= 0, "_free_pose keeps %s at its position" % call)
+		if at < 0:
+			break
+		cursor = at + call.length()
+	# Only the act exit and the new-act prep reach the pose ledger, and only the ledger releases
+	# the pose. A pose transition calls the pose-scope steps, never the ledger.
+	check(_count(runtime, "_free_pose()") == 3, "the pose ledger has two callers")
+	check(_func_body(runtime, "_end_session").contains("_free_pose()"),
+		"_end_session calls the pose ledger")
+	check(_func_body(runtime, "_build_pose").contains("_free_pose()"),
+		"_build_pose calls the pose ledger as its prep")
+	check(_count(runtime, "_pose_service().release_pose()") == 1
+		and free.contains("_pose_service().release_pose()"),
+		"release_pose is called only from the pose ledger")
+	# The pose service never reaches an act exit; its scope is the live pose only.
+	for path: String in files:
+		if not path.ends_with(".gd") or not path.begins_with(ROOT.path_join("poses/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		var text := FileAccess.get_file_as_string(path)
+		for token: String in ["_end_session(", "_unlock_player(", "_restore_pony_bones(",
+				"_restore_camera(", "_restore_look(", "_release_nav(", "_free_pose("]:
+			check(not text.contains(token), "%s has no act-exit reach-in: %s" % [relative, token])
+	# The old pose-scope names are gone from the shipped code; keep the rename finished.
+	for path: String in files:
+		if not path.ends_with(".gd") or path.begins_with(ROOT.path_join("tests/")) \
+				or path.begins_with(ROOT.path_join("tools/")):
+			continue
+		var relative := path.trim_prefix(ROOT.path_join(""))
+		var text := FileAccess.get_file_as_string(path)
+		for token: String in ["release_start(", "remove_modifiers("]:
+			check(not text.contains(token), "%s keeps no old pose name: %s" % [relative, token])
 	# `cancel()` queues the early-stop reaction after `_restore_begin()`; the timed finish must
 	# not cancel director rows or that line never speaks.
 	var finish := _func_body(runtime, "_finish_restore")
@@ -589,9 +644,9 @@ func _check_pose_session() -> void:
 	check(contract.contains("`poses/service.gd`"), "docs/poses.md names poses/service.gd")
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(agents.contains("`poses/service.gd`"), "docs/README.md names poses/service.gd")
-	for name: String in ["test_session.gd", "test_pose_asset.gd", "test_pose_rig.gd",
-			"test_pose_scale.gd", "test_rotation.gd", "test_stretch.gd", "test_pose_spec.gd",
-			"test_pose_registry.gd", "test_pose_view.gd"]:
+	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",
+			"test_pose_rig.gd", "test_pose_scale.gd", "test_rotation.gd", "test_stretch.gd",
+			"test_pose_spec.gd", "test_pose_registry.gd", "test_pose_view.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
 			"tests/poses/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))

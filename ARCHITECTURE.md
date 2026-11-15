@@ -175,9 +175,9 @@ act must release every node and subscription it created.
 
 The pose service is the worked example of the scope split: the session owns the pose-scope
 teardown steps (`leave_pose_start()`, `leave_pose_body()` and the final `release_pose()`), while
-`runtime._free_pose()` owns the act exit that calls them between the cross-system resets and then
-runs `_restore_pony_bones()`. A pose transition calls the pose-scope steps only; it never calls the
-act exit. The order is `docs/poses.md`.
+`runtime._end_session()` owns the act exit and calls them through `_free_pose()` between the
+cross-system resets before `_restore_pony_bones()`. A pose transition calls the pose-scope steps
+only; it never calls the act exit. The order is `docs/poses.md`.
 
 ## Composition
 

@@ -440,6 +440,11 @@ func _start_family() -> String:
 	return str(POSE_SPECS.spec(pose_id).get("family", ""))
 
 
+## The start spec's settings group. The internal poses share the standing group.
+func _start_group() -> String:
+	return str(POSE_SPECS.spec(pose_id).get("settings_group", ""))
+
+
 ## The live pose frame, or the start spec's frame before the first view fill.
 func _start_frame() -> String:
 	var view: Variant = _pose_session.view()
@@ -1019,7 +1024,9 @@ func _configure_utterance_scheduler() -> void:
 ## Snapshot every tunable the act reads per stroke or per frame. `apply_live_settings()` re-runs
 ## it so a settings edit applies without a new act.
 func _snapshot_settings() -> void:
-	var snap := SETTINGS.act_snapshot(pose_id)
+	# The start spec's settings group selects the pose presentation block; an internal pose
+	# (`standing_test`, `standing_oral`) has no block of its own and must never be passed here.
+	var snap := SETTINGS.act_snapshot(_start_group())
 	_features = snap.features
 	_caress_quality = snap.caress_quality
 	thrust_up = snap.thrust_up

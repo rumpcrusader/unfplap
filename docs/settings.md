@@ -95,11 +95,13 @@ start-up; `reset()` writes it back.
 A wrong accessor does not compile: `SETTINGS.act_climax.get_num()` is a parse error, and so is a
 mistyped name. That is the main safety net; the tests only cover what the compiler cannot see.
 
-**Per-act snapshot.** `SETTINGS.act_snapshot(pose_id)` returns one typed `ActSnapshot` with every
+**Per-act snapshot.** `SETTINGS.act_snapshot(group)` returns one typed `ActSnapshot` with every
 value an act reads per stroke or per frame: the feature dictionary, thrust, auto stroke, cue/talk
-pacing, jiggle, camera thrust, the pose presentation block and the climax face. The runtime takes
-it in `_snapshot_settings()` and re-runs it in `apply_live_settings()`. There is no path-keyed read
-outside the settings service and no second cache.
+pacing, jiggle, camera thrust, the presentation block for that settings group and the climax face.
+The runtime takes it in `_snapshot_settings()` with the start spec's `settings_group` and re-runs
+it in `apply_live_settings()`. An internal pose (`standing_test`, `standing_oral`) shares the
+standing group and has no `presentation` block or `default.poses` row of its own. There is no
+path-keyed read outside the settings service and no second cache.
 
 ## Adding a setting: one declaration, one shipped value, one read
 
@@ -515,7 +517,7 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
 - Contribute the setting from its owning service: edit the catalog literally, add its shipped
   value, document it in that service's contract and depend on the settings facade. Do not add a
   private settings module.
-- `SETTINGS.act_snapshot(pose_id)` is the one bulk read. There is no path-keyed gameplay read and
+- `SETTINGS.act_snapshot(group)` is the one bulk read. There is no path-keyed gameplay read and
   no second cache; a new per-act value belongs on `ActSnapshot`, not in a new `SETTINGS.block`.
 - **Do not add per-setting tests.** A declaration is compile-checked (name, accessor and kind), so
   the only assertions are the ones in `tests/test_settings.gd`: registry integrity, the shipped

@@ -79,6 +79,7 @@ func run() -> void:
 	_check_refusals()
 	_check_commands()
 	_check_target_snapshot()
+	_check_settings_group_edge()
 	_check_release_abort()
 	_check_pose_changed()
 	_check_no_act_exit()
@@ -1041,6 +1042,46 @@ func _check_target_snapshot() -> void:
 	_free_live(made)
 
 
+## The target snapshot follows the target spec's settings_group, not its pose id: a synthetic
+## edge into a different group rebuilds the target config from that group, re-merges it in place
+## on `apply_live_settings()` and adopts it into the live object on completion.
+func _check_settings_group_edge() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	_synthetic_spec(session, "synthetic_other_group", "standing", CATALOG.MISSIONARY)
+	_synthetic_edge(session, CATALOG.STANDING, "synthetic_other_group", {},
+		{"kind": "switch", "at": 0.0, "set": "standing"})
+	var live: Dictionary = session.pose_config
+	var result: Dictionary = session.request_pose("synthetic_other_group", "test",
+		{"act_state": 2})
+	check(str(result.get("code", "")) == "ok", "the other-group edge starts")
+	var target: Dictionary = view.to_config
+	check(is_same(view.from_config, live), "the from side stays the live standing config")
+	check(not is_same(target, live), "the to side is a separate target snapshot")
+	check(target.has("nuzzle_scale"), "the target snapshot uses the missionary settings block")
+	check(not target.has("gaps") and not target.has("chin_up_deg"),
+		"the target snapshot does not use the standing block")
+	check(_same_config(target, SETTINGS.pose("twilight_sparkle", CATALOG.MISSIONARY)),
+		"the target snapshot is the target group's pose config")
+	target["stale_marker"] = 1
+	session.apply_live_settings()
+	check(is_same(view.to_config, target), "a live edit keeps the same target object")
+	check(not target.has("stale_marker"),
+		"the live edit re-merges the target group in place")
+	check(target.has("nuzzle_scale"),
+		"the refreshed target keeps the target group's keys")
+	session.tick(0.0)
+	session.tick(0.6)
+	check(view.pose_state == VIEW.STEADY, "the other-group edge settles")
+	check(is_same(view.pose_config, live) and is_same(view.from_config, live)
+		and is_same(view.to_config, live),
+		"completion adopts the target group into the one live config object")
+	check(live.has("nuzzle_scale") and not live.has("gaps"),
+		"the live config now carries the target group")
+	_free_live(made)
+
+
 ## A release aborts a live edge; the view goes idle and a second release is a no-op.
 func _check_release_abort() -> void:
 	var made := _live_session(CATALOG.STANDING)
@@ -1128,7 +1169,8 @@ func _same_config(a: Dictionary, b: Dictionary) -> bool:
 
 
 ## A synthetic valid spec row for a target the shipped table does not carry.
-func _synthetic_spec(session: RefCounted, spec_id: String, controls_set := "standing") -> Variant:
+func _synthetic_spec(session: RefCounted, spec_id: String, controls_set := "standing",
+		settings_group := "standing") -> Variant:
 	var row: Dictionary = SPECS.SPECS[CATALOG.STANDING].duplicate(true)
 	row["id"] = spec_id
 	row["display_name"] = "Synthetic"
@@ -1136,6 +1178,7 @@ func _synthetic_spec(session: RefCounted, spec_id: String, controls_set := "stan
 	row["delta"] = ""
 	row["driver"] = ""
 	row["controls"] = {"set": controls_set}
+	row["settings_group"] = settings_group
 	row["public"] = false
 	row["offerable"] = false
 	var spec: Variant = POSE_SPEC.from_dict(spec_id, row, {})

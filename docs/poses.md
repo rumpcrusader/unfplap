@@ -24,7 +24,10 @@ and the `POSE_KEYS` schema; the shipped per-pose values live under `default.pose
 math; `camera/service.gd` owns the camera and lean state.
 
 `shared/pose_specs.gd` is the static pose capability table: family, frame, driver, settings group,
-the ten profiles, forms and views. `poses/pose_spec.gd` is its typed wrapper and validator,
+the ten profiles, forms, views, the scene block and the public/offerable flags. The scene gate and
+the request service enforce those rows; a pose is offered only when `offerable`, supported by the
+live form and view, and its `scene.sources` allows the act source. `poses/pose_spec.gd` is its typed
+wrapper and validator,
 `poses/transition_spec.gd` the typed edge wrapper and its one validator, and `poses/registry.gd`
 the cache and catalog check for both; all three are private to `poses/`. `shared/pose_view.gd`
 is the scene-free read model for one pose: the identity, the spec profiles, the live config and the
@@ -39,7 +42,7 @@ The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/st
 the per-mare profile, the pose id and state, the live depth and bed frame, the scene handles, the
 lean and thrust values and the callbacks they call back through. `pose_config` is one live
 dictionary for the session: `set_pose_config()`, `sync_standing_config()` and
-`sync_missionary_config()` merge into it in place, so the pose modifier, `facts.pose_config` and
+`sync_missionary_config()` merge into it in place, so the pose modifier, `view.pose_config` and
 the standing camera's cached config all alias the same object. `poses/body_sway.gd` publishes its
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
 runtime reads it from there. The session binds `facts`, `perf` and
@@ -48,7 +51,7 @@ that reaches into the runtime fails `tests/test_source_hygiene.gd`.
 
 `shared/pose_view.gd` is the pose read model the session fills and clears. It holds the identity
 and support fields from the registry, the ten spec profiles by reference, the live config (the same
-object as `facts.pose_config`) and the per-tick contact and facing values. `pose_state` is `STEADY`
+object as `view.pose_config`) and the per-tick contact and facing values. `pose_state` is `STEADY`
 while the pose is live, `TRANSITIONING` while an edge runs, and `EXITING`/`IDLE` on release; the
 pose-scope leave steps keep it `STEADY`. During an edge, `from_id`/`to_id`, `edge_id`, `edge_t`,
 `weight`, `from_config` and `to_config` carry the transition: `from_config` is the live config, the
@@ -56,8 +59,8 @@ to side is the session's target snapshot. `contact_kind` is the one contact sour
 `mouth`, `face` or `none`); it starts at the spec's base kind, moves on an edge's `contact` switch
 and settles on the target's kind. `contact_target` is the pose turn's live anchor, and
 `facing`/`facing_amount` its live frame; the standing camera reads both every physics tick. The
-compatibility `pose_id`, `oral_active` and `anal_active` fields mirror the old facts until the last
-reader migrates.
+view carries no compatibility fields: `id`, `family`, `frame`, `settings_group`, the profiles, the
+live config and `contact_kind` are the whole pose source.
 
 ## State machine and edge math
 
@@ -227,8 +230,8 @@ and must never be passed to the settings read as a group of their own), builds t
 from that group plus the presentation, starts the edge, enters `TRANSITIONING` and fills the view:
 `fill()` carries the target identity and profiles, then `from_id`/`to_id`, `edge_id`, `edge_t`,
 `weight`, `from_config` (the live config) and `to_config` (the target snapshot) make the transition
-explicit. `view.pose_id` follows the filled target; the session's `pose_id` stays the act's start
-pose for the act identity, while `facts.pose_id` is the live view id (see the retarget section).
+explicit. `view.id` follows the filled target; the runtime's `pose_id` is only the act's start
+identity for the start sequence, logs and teardown.
 
 `tick(delta)` advances the run, writes `edge_t`/`weight`, drives the oral turn from the same weight,
 hands the weight to the pose evaluator, applies each fired `contact` switch and each `speech_stop`/
@@ -260,9 +263,6 @@ per-mare consent is true, and its refusal reason reaches the anatomy status labe
 `apply_live_settings()` refreshes the target snapshot in place on a live settings edit: the same
 `to_config` object is re-merged from the target's settings group, and the presentation block is
 re-read. The session reads settings only on a request and on this call, never per frame.
-
-The compatibility mirrors (`pose_id`, `pose_config`) are stated once in **Retarget hooks and the
-pose change**.
 
 The debug pair holds `base`, `anon`, `contact`, `camera` and `audio`, and switches `controls` and
 `presentation` at the start, so a request never rebuilds the pose, releases the pose or restores
@@ -337,11 +337,12 @@ The session owns the configs. `begin()` sets the start pair, `request_pose()` th
 completing tick the target pair; each also calls `set_weight()` (1.0, the run weight, 1.0).
 `_config_for_group(group, presentation)` builds the target: the standing group plus the
 presentation chin/neck/tail values (the values `sync_standing_config()` writes), the missionary
-block, or `SETTINGS.pose()` for another group. `request_pose()` caches it as `_target_config`,
+block, or `SETTINGS.pose()` for another group. The group comes from the target spec, never from
+its id: `standing_test` and `standing_oral` use the standing block and have no `default.poses` row
+or `POSE_KEYS` schema of their own. `request_pose()` caches it as `_target_config`,
 `apply_live_settings()` re-merges it in place, and the complete tick adopts it into the live
 `pose_config` with `_adopt_target_config()` before it drops the target. The live object survives:
-`facts.pose_config`, `view.pose_config`, the pose node and the standing camera see the same
-dictionary. During an edge `view.from_config` is the live config and `view.to_config` the
+`view.pose_config`, the pose node and the standing camera see the same dictionary. During an edge `view.from_config` is the live config and `view.to_config` the
 target; at rest both point at the live config.
 
 The standing camera caches its pose config by the view's settings group and pose id, so the debug
@@ -393,11 +394,10 @@ The audio impact profile follows the view's `audio.impact`: `missionary` keeps t
 `standing` and `standing_test` play none. The impact and withdraw calls read the view, not the
 act's start `pose_id`.
 
-The compatibility mirrors follow the active view: `facts.pose_id` is the live `view.id`,
-`facts.pose_config` remains the live config alias, and `poses/standing_anon.gd`,
-`poses/wing_control.gd`, the standing camera and the kiss read the view's family/profile/config.
-The runtime's `pose_id` field and the session's `pose_id` stay the act's start pose for `start()`,
-the gate and the teardown. The aliases are temporary and leave once the last reader migrates.
+The presentation wrappers (`poses/standing_anon.gd`, `poses/wing_control.gd`, the standing camera
+and the kiss) read the view's family, profiles and config. The runtime's `pose_id` is the act's
+start identity for `start()`, the gate and the teardown; `view.id` is the live pose. The session
+keeps no start id of its own.
 
 ## Spaces and axes
 

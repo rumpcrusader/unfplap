@@ -72,6 +72,8 @@ func _check_shipped() -> void:
 		check(spec.public_pose == bool(row.get("public", false)),
 			"%s reads public into public_pose" % id)
 		check(spec.offerable == bool(row.get("offerable", false)), "%s reads offerable" % id)
+		check(spec.settings_group == str(row.get("settings_group", "")),
+			"%s keeps its settings group" % id)
 		check(spec.forms is Array[String], "%s types its forms" % id)
 		check(spec.views is Array[String], "%s types its views" % id)
 		check(spec.forms == row.get("forms"), "%s keeps its forms" % id)
@@ -82,10 +84,12 @@ func _check_shipped() -> void:
 		check(is_same(spec.camera, row["camera"]), "%s does not copy its camera profile" % id)
 		if id == SPECS.STANDING_TEST:
 			check(not spec.public_pose and not spec.offerable, "the test pose is internal")
+			check(spec.settings_group == SPECS.STANDING, "the test pose uses the standing group")
 			check(spec.base == SPECS.STANDING, "the test pose inherits standing")
 			check(spec.driver.is_empty(), "the test pose has no driver of its own")
 		if id == SPECS.STANDING_ORAL:
 			check(not spec.public_pose and not spec.offerable, "the oral pose is internal")
+			check(spec.settings_group == SPECS.STANDING, "the oral pose uses the standing group")
 			check(spec.base == SPECS.STANDING, "the oral pose inherits standing")
 			check(spec.driver.is_empty(), "the oral pose has no driver of its own")
 			check(spec.delta == "poses/standing_oral_recipe.gd",

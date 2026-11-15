@@ -511,6 +511,11 @@ func _check_snapshot() -> void:
 	check(snap.caress_quality == SETTINGS.quality.get_choice(),
 		"the act snapshot carries the caress quality")
 	check(snap.presentation.has("camera_mode"), "the act snapshot carries the pose presentation")
+	var standing := SETTINGS.act_snapshot("standing")
+	check(standing.presentation.has("chin_up_deg") and standing.presentation.has("neck_down_deg"),
+		"the standing group carries its presentation block")
+	check(SETTINGS.pose("", "standing_oral").is_empty(),
+		"the internal oral pose has no settings block of its own")
 	check(snap.climax_mode == SETTINGS.climax_mode.get_choice(),
 		"the act snapshot carries the climax face")
 	check(near(SETTINGS.palm_scale_for("canon"), SETTINGS.canon.get_num()),

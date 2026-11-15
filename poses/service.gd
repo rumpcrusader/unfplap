@@ -3,7 +3,10 @@ extends RefCounted
 ## frame, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the bone
 ## snapshots and the pose diagnostics. The runtime owns the act state, the start order and the one
 ## teardown ledger; it binds this session and calls the render-time write.
-## Contract: docs/poses.md.
+##
+## The teardown is split by lifetime: the session owns the pose-scope steps
+## (`leave_pose_start()`, `leave_pose_body()` and the final `release_pose()`), while the act-scope
+## resets between them stay in the runtime's one pose ledger. Contract: docs/poses.md.
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
@@ -332,9 +335,10 @@ func restore_bones() -> void:
 	saved_hair_skeleton = null
 
 
-## The pose-owned state released before the runtime's cross-system teardown steps: the rig cache,
-## the tail lay and the bed frame.
-func release_start() -> void:
+## The pose-scope start state: clear the rig-check cache and release the tail lay and the bed frame.
+## A pose change that keeps the act alive calls this first and keeps the pose node, the modifiers,
+## `pose_config` and the view.
+func leave_pose_start() -> void:
 	rig_checked = false
 	rig_skeleton = 0
 	rig_revision = -1
@@ -348,11 +352,11 @@ func release_start() -> void:
 	bed_frame_source = Transform3D.IDENTITY
 
 
-## Drop the live-installed extra modifiers. The runtime calls this where it used to call
-## `_remove_extra_modifiers()`.
-func remove_modifiers() -> void:
-	# `_build_pose()` runs this at the start of a new act too: preserve the offer's episode
-	# choice so the act reuses it. `_end_session()` clears it through `clear_stretch_choice()`.
+## The pose-scope body state: release the external stretch holder and drop the live-installed extra
+## modifiers. It keeps the pose node, the standing tail, `pose_config` and the view.
+func leave_pose_body() -> void:
+	# The runtime's new-act prep runs this too: preserve the offer's episode choice so the act
+	# reuses it. The one act teardown clears it through `clear_stretch_choice()`.
 	_release_stretch(false)
 	if is_instance_valid(body_sway):
 		_drop(body_sway)
@@ -365,10 +369,10 @@ func remove_modifiers() -> void:
 	ear_twitch = null
 
 
-## Free the pose modifier and the standing tail, and clear the act's state so `base_info()` and
-## `state_rows()` stop describing an act that ended and the next `begin()` starts clean. The
-## runtime calls this last in `_free_pose()`, then re-stamps its identity mirror on the next
-## access. Safe to repeat.
+## The final pose clear: free the pose modifier and the standing tail, and clear the act's state so
+## `base_info()` and `state_rows()` stop describing an act that ended and the next `begin()` starts
+## clean. The runtime calls this last in the one pose teardown, then re-stamps its identity mirror
+## on the next access. A pose change never calls it. Safe to repeat.
 func release_pose() -> void:
 	_release_stretch(false)
 	if is_instance_valid(pose_node):

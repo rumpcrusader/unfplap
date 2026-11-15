@@ -164,8 +164,8 @@ func _check_begin() -> void:
 		"camera_position": Vector3.INF,
 	}), "a second begin is refused")
 	check(body.get_child_count() == children, "a refused begin adds no second pose")
-	session.release_start()
-	check(session.tail_lay == null, "the pose release frees the tail lay")
+	session.leave_pose_start()
+	check(session.tail_lay == null, "the pose-start leave frees the tail lay")
 	check(tail_lay.get_parent() == null and tail_lay.is_queued_for_deletion(),
 		"the tail lay is detached before it is freed")
 	session.release_pose()
@@ -178,7 +178,7 @@ func _check_begin() -> void:
 		"the pose release clears the act identity")
 	check(session.features.is_empty(), "the pose release clears the features")
 	check(session.pose_config.is_empty(), "the pose release clears the live config")
-	check(session.bed_frame == null, "the pose release clears the bed frame")
+	check(session.bed_frame == null, "the pose-start leave clears the bed frame")
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"the pose release clears the view")
 	check(session.view().pose_config.is_empty(), "the pose release drops the view config")
@@ -263,8 +263,8 @@ func _check_bed_frame() -> void:
 	session.sync_bed_frame()
 	check((session.bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"an unsaved bed source skips the follow")
-	session.release_start()
-	check(session.bed_frame == null, "the pose release clears the bed frame")
+	session.leave_pose_start()
+	check(session.bed_frame == null, "the pose-start leave clears the bed frame")
 	root.remove_child(bed)
 	bed.free()
 	root.remove_child(pony)
@@ -337,8 +337,8 @@ func _check_diagnostics() -> void:
 		"res://mods/unfplap/tests/fixtures/not_a_pose.txt")).is_empty(),
 		"a missing path fails the load")
 	check(int(spare.get("version")) == 0, "a failed load reports version 0")
-	session.release_start()
-	check(not session.rig_checked, "the pose release clears the rig cache")
+	session.leave_pose_start()
+	check(not session.rig_checked, "the pose-start leave clears the rig cache")
 	root.remove_child(body)
 	body.free()
 	root.remove_child(pony)
@@ -377,7 +377,7 @@ func _free_stretch_scene(made: Dictionary) -> void:
 	var session: RefCounted = made["session"]
 	var pony: FakePony = made["pony"]
 	var body: Skeleton3D = made["body"]
-	session.remove_modifiers()
+	session.leave_pose_body()
 	session.release_pose()
 	if is_instance_valid(body):
 		root.remove_child(body)
@@ -441,7 +441,7 @@ func _check_stretch_removal() -> void:
 		"the act's own removal preserves the choice for the next holder")
 	var facts := FakeFacts.new()
 	session.body_sway.set("facts", facts)
-	session.remove_modifiers()
+	session.leave_pose_body()
 	check(facts.standing_sway_offset == Vector3.ZERO,
 		"detaching body sway zeroes the published offset")
 	check(pony.has_meta(STRETCH.META_IDLE),

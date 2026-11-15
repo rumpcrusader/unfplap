@@ -133,6 +133,8 @@ class FakeService extends RefCounted:
 class FakeMissionaryAnon extends Node:
 	var installed: Variant = null
 	var applied := 0
+	var refreshes := 0
+	var removed := 0
 
 	func install(context: Variant) -> bool:
 		installed = context
@@ -140,6 +142,15 @@ class FakeMissionaryAnon extends Node:
 
 	func apply(_frame: Transform3D, _body_scale: float) -> void:
 		applied += 1
+
+	func refresh_palm() -> void:
+		refreshes += 1
+
+	func diag_row(_face: Vector3, _vulva: Vector3) -> String:
+		return "body"
+
+	func remove() -> void:
+		removed += 1
 
 
 class FakeHost extends RefCounted:
@@ -291,6 +302,11 @@ func _check_bind_and_facts() -> void:
 	check(is_equal_approx(facts.fluid_ground_y, 0.3), "context writes the fluid ground")
 	check(facts.cycle_phase == "heat", "context writes the cycle phase")
 	check(facts.bed_frame == "bed", "context writes the bed frame")
+	var contact: Variant = _view("standing")
+	contact.contact_kind = "mouth"
+	bridge.pose_changed(contact)
+	check(bridge.contact_family == "standing" and bridge.contact_kind == "mouth",
+		"the pose change carries the contact family and kind")
 
 
 func _check_gates() -> void:
@@ -463,6 +479,17 @@ func _check_host_callbacks() -> void:
 	bridge.set_missionary_anon(missionary)
 	check(bridge.install_missionary_anon(), "the missionary body installs")
 	check(missionary.installed == act_facts, "the missionary body receives the typed act view")
+	bridge.apply_missionary_anon(Transform3D.IDENTITY, 1.0)
+	check(missionary.applied == 1, "the bridge applies the opaque body")
+	bridge.refresh_palm()
+	check(missionary.refreshes == 1, "the bridge refreshes the opaque palm scale")
+	check(bridge.diag_row(Vector3.ZERO, Vector3.ZERO) == "body",
+		"the bridge reads the opaque diagnostic row")
+	check(bridge.missionary_anon_body() == missionary, "the bridge exposes the opaque handle")
+	bridge.end()
+	check(missionary.removed == 1, "the bridge restores the service-owned body")
+	check(is_instance_valid(missionary) and missionary.get_parent() == null,
+		"the bridge never frees the handle it was given")
 	bridge.set_missionary_anon(null)
 	missionary.free()
 	root.remove_child(pony)

@@ -30,6 +30,29 @@ var _side_ratio := 0.45
 var _left_gain := 1.0
 var _right_gain := 1.0
 var _cooldown := 0.0
+var _hook_family := ""
+var _hook_profile := ""
+var _hook_seen := false
+
+
+## The pose-change hook: a family or profile change clears the running twitch and the bone cache;
+## a shared keep is a cheap no-op.
+func pose_changed(view: Variant) -> void:
+	if view == null:
+		return
+	var family := str(view.family)
+	var modifiers_value: Variant = view.modifiers
+	var profile := ""
+	if modifiers_value is Dictionary:
+		profile = str((modifiers_value as Dictionary).get("profile", ""))
+	if _hook_seen and family == _hook_family and profile == _hook_profile:
+		return
+	_hook_seen = true
+	_hook_family = family
+	_hook_profile = profile
+	_time = -1.0
+	_cooldown = 0.0
+	_cached = false
 
 
 func try_trigger(strength: float) -> void:

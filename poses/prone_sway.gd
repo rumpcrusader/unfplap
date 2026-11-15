@@ -25,6 +25,31 @@ var _slide := 0.0
 var _slide_velocity := 0.0
 var _nod := 0.0
 var _nod_velocity := 0.0
+var _hook_family := ""
+var _hook_profile := ""
+var _hook_seen := false
+
+
+## The pose-change hook: a family or profile change drops the cached local origin and the springs,
+## so the next pose does not inherit the previous slide or nod. A shared keep is a cheap no-op.
+func pose_changed(view: Variant) -> void:
+	if view == null:
+		return
+	var family := str(view.family)
+	var modifiers_value: Variant = view.modifiers
+	var profile := ""
+	if modifiers_value is Dictionary:
+		profile = str((modifiers_value as Dictionary).get("profile", ""))
+	if _hook_seen and family == _hook_family and profile == _hook_profile:
+		return
+	_hook_seen = true
+	_hook_family = family
+	_hook_profile = profile
+	_cached = false
+	_slide = 0.0
+	_slide_velocity = 0.0
+	_nod = 0.0
+	_nod_velocity = 0.0
 
 
 func _process_modification_with_delta(delta: float) -> void:

@@ -32,6 +32,7 @@ The runtime calls one typed bridge, never a private field or a raw player:
 | `restore_voice_policy()` | the act end and a mute-policy change |
 | `stop_breath()` | the restore begin |
 | `set_enabled(climax)` | `apply_live_settings()` |
+| `pose_changed(view)` | the fixed-order pose fan-out |
 | `play_impact`, `play_plap`, `play_bed`, `play_slide`, `crossed`, `withdraw_crossed`, `play_mouth_kiss` | the impact and kiss paths |
 
 The runtime keeps the call sites, the director/vocal prepare and the feature snapshot.
@@ -46,13 +47,17 @@ The runtime keeps the call sites, the director/vocal prepare and the feature sna
   so the mute policy can still give the voice player its volume back on a later settings edit.
 - `play_impact`/`play_plap`/`play_bed`/`play_slide`/`withdraw_crossed`/`crossed`/`play_mouth_kiss`
   are the pack cues the runtime drives from the impact and kiss paths.
+- The impact profile follows the pose view's `audio.impact`, cached by `pose_changed(view)`:
+  `missionary` keeps the bed/fabric layer; `standing` and the internal `standing_test` play none.
+  `begin()` clears the cache and the first fan-out of the act fills it, so the impact and withdraw
+  calls no longer take the act's start `pose_id`.
 - The body slap is decided from two physical facts. `play_impact` receives the impact tier
   (`firm`, `rough` or empty) and the skin gap in metres, and plays the plap only when the tier is
   set and the gap reaches true contact. A zero epsilon with a zero gap is full contact, not the
   quiet edge; the generic epsilon still lets the tests drive a wider contact window. Standing and
-  missionary share the two plap bags; only the bed cues are pose-specific. The slide and the
-  fabric are never gated. The defaulted `plap` argument lets the standing oral segment pass
-  `false`: it keeps the slide and the fabric but drops the body slap.
+  missionary share the two plap bags; only the bed cues follow the impact profile. The slide is
+  never gated. The defaulted `plap` argument lets the standing oral segment pass `false`: it keeps
+  the slide but drops the body slap.
 - `climax(snout, dock)` plays the base-game squee at the snout and the optional wet layer at the
   dock.
 - `tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences it at
@@ -83,7 +88,6 @@ the debug read.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 
 ## Lifecycle
@@ -99,5 +103,5 @@ the debug read.
 
 `tests/act_audio/test_audio.gd` covers the facade lifecycle, the sound child, the mute policy and
 the live layer switch. `tests/act_audio/test_act_audio.gd` covers the pure catalogue, the pack cue
-selection and the oral `plap = false` path. `tests/test_runtime_teardown.gd` drives the runtime's
-audio forwards.
+selection, the profile-based `uses_bed`, the cached `pose_changed` impact and the oral
+`plap = false` path. `tests/test_runtime_teardown.gd` drives the runtime's audio forwards.

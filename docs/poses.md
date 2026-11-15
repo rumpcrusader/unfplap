@@ -203,8 +203,8 @@ passed to the settings read as a group of its own), builds the target config fro
 the presentation, starts the edge, enters `TRANSITIONING` and fills the view: `fill()` carries the
 target identity and profiles, then `from_id`/`to_id`, `edge_id`, `edge_t`, `weight`, `from_config`
 (the live config) and `to_config` (the target snapshot) make the transition explicit.
-`view.pose_id` follows the filled target; the session's `pose_id`, `pose_config` and the runtime's
-act facts stay the act-start aliases.
+`view.pose_id` follows the filled target; the session's `pose_id` stays the act's start pose for the
+act identity, while `facts.pose_id` is the live view id (see the retarget section).
 
 `tick(delta)` advances the run, writes `edge_t`/`weight`, hands the weight to the pose evaluator,
 logs each fired switch and each `status` event, and on completion returns to `STEADY`, adopts the
@@ -223,11 +223,11 @@ A3.3 stub: A4 owns the real vocabulary and the input migration, and the existing
 `to_config` object is re-merged from the target's settings group, and the presentation block is
 re-read. The session reads settings only on a request and on this call, never per frame.
 
-The compatibility mirrors stay at the act's start pose in A3.3: the runtime's `pose_id`, the
-session's `pose_id`/`pose_config` and `facts.pose_id`/`facts.pose_config` keep the old readers
-(`poses/standing_anon.gd`, `poses/wing_control.gd`, the camera and kiss config reads) behaving as
-before, while the view is the active machine. A3.5 flips the mirrors to the active view and
-migrates those adapters.
+The compatibility mirrors follow the active view: the runtime's `pose_id` and the session's
+`pose_id` keep the act's start pose for the act identity, while `facts.pose_id` is the live
+`view.id` and `facts.pose_config` remains the live config alias. The view is the active machine;
+`poses/standing_anon.gd`, `poses/wing_control.gd`, the standing camera and the kiss read its
+family, profile and config. Phase B removes the remaining aliases.
 
 The debug pair holds `base`, `anon`, `contact`, `camera` and `audio`, and switches `controls` and
 `presentation` at the start, so a request never rebuilds the pose, releases the pose or restores
@@ -284,6 +284,47 @@ The standing camera caches its pose config by the view's settings group and pose
 pair keeps the standing config when the target settles and the glance/tail values do not snap. The
 afterglow holds the current pose: its presentation row has no pose mode and no afterglow pose id,
 and the runtime only re-asserts the pose weight, the tail, the HUD state and the wings.
+
+## Retarget hooks and the pose change
+
+`runtime._pose_fanout()` runs after the pose tick and the facts sync in every act phase above
+`IDLE`, in one fixed order: the pose service, the camera, the hands, the kiss, the anatomy bridge
+and the audio. The pose service reconciles its modifier profile and applies the `act_body`/`anon`
+channel; each following owner implements `pose_changed(view)` and caches the last id/profile/
+family/contact, so an unchanged view is a cheap no-op. The face, dialogue and HUD read the view
+through the facts and have no hook. The fan-out is a retarget seam, not a second teardown: it never
+calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `_end_session()`, `_free_pose()`
+or any act-scope restore. The eye-camera tick stays on the render write, after the pose write.
+
+The modifier profile table is `shared/pose_specs.gd`'s `MODIFIER_PROFILES`: `missionary` owns
+`prone_sway` and `tail_lay`; `standing` owns `body_sway`, `ear_twitch` and the standing tail. An
+unknown or missing profile is the empty set. On a pose change the session keeps the owners shared
+by the from/to profiles and calls their `pose_changed(view)`, installs the target-only owners behind
+their feature gates and removes the source-only owners after restoring their bones. `standing_test`
+uses the standing profile, so the debug pair shares every owner and the body does not move. The
+`leave_pose_body()` act-exit step remains the full extra-modifier removal; the reconcile never calls
+it.
+
+The pose service owns the missionary `act_body` adapter (`poses/missionary_anon.gd`): it creates the
+node on the runtime host as `UnfplapMissionaryAnon`, installs it with the typed act view and frees
+it once in `release_pose()`. The anatomy bridge receives only an opaque handle: it calls the body's
+`install`/`apply`/`refresh_palm`/`diag_row` reads and never creates or frees it. The adapter exists
+only for a view whose `anon.mode` is `act_body` and desktop human Anon; the `player_body` specs
+(`standing`, `standing_test`) keep the runtime's standing Anon controller. The `anon` channel
+accepts `hold` (keep the adapter), `blend` (carry the live edge weight) and `switch` (name an
+authored profile); A3.5 caches the profile/weight and A5's oral edge is the first real switch. A
+pose change never frees the adapter; the one act exit does.
+
+The audio impact profile follows the view's `audio.impact`: `missionary` keeps the bed/fabric layer,
+`standing` and `standing_test` play none. The runtime no longer passes the act's start `pose_id` to
+the impact or withdraw call.
+
+The compatibility mirrors follow the active view after A3.5: `facts.pose_id` is the live
+`view.id`, `facts.pose_config` remains the live config alias, and `poses/standing_anon.gd`,
+`poses/wing_control.gd`, the standing camera and the kiss read the view's family/profile/config.
+The runtime's `pose_id` field and the session's `pose_id` stay the act's start pose for `start()`,
+the gate and the teardown. Phase B removes the remaining `pose_id`/`pose_config` aliases once the
+last reader migrates.
 
 ## Spaces and axes
 
@@ -615,15 +656,16 @@ it never calls `_free_pose()`, `_end_session()` or `release_pose()`.
 | `leave_pose_body()` | pose: stretch holder, extra modifiers | the session |
 | `_restore_voice_volume()` | act | the runtime |
 | `reactions.end_act()` | act | the reactions |
-| `release_pose()` | pose: final clear | the session |
+| `release_pose()` | pose: final clear, act body | the session |
 
 - `leave_pose_start()` — the rig-check cache, `tail_lay` and the bed frame. It keeps the pose node,
   the modifiers, `pose_config` and the view.
 - `leave_pose_body()` — the external Idle Life stretch holder and the extra modifiers
   (`body_sway`, `prone_sway`, `ear_twitch`). It keeps the pose node, the standing tail,
   `pose_config` and the view.
-- `release_pose()` — the final clear: the pose node and the standing tail, the act identity, the
-  features, the live config, the rig caches, the bed frame and the view. Safe to repeat.
+- `release_pose()` — the final clear: the act body (after the anatomy handle is cleared), the pose
+  node and the standing tail, the act identity, the features, the live config, the rig caches, the
+  bed frame and the view. Safe to repeat.
 
 The runtime calls the two leave steps and the final release at their table positions, with the
 act-scope resets between them. `release_pose()` is called only from `_free_pose()`. `_end_session()`
@@ -639,7 +681,12 @@ unchanged.
 - `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
   standing stretch holder, the session API, the effective driver/base paths, the state machine,
   the request/refusal codes, the target snapshot with the presentation, the requested evaluator
-  pair, the target adoption, the tick/switch/status path, the control sets and the release abort.
+  pair, the target adoption, the tick/switch/status path, the control sets, the pose-change hook
+  and the service-owned act-body release.
+- `tests/poses/test_modifier_profile.gd` — the synthetic profile reconcile: the shared owner keeps
+  its node, the source-only owner is removed, the target-only owners install behind their feature
+  gates, the act-exit leave still removes all and the synthetic profile stays out of the shipped
+  table.
 - `tests/poses/test_pose_blend.gd` — the typed single/blend modes, the single fast path and its
   pose ramp, the base+delta order, the two-base capture/blend/overlay math and weights, the reused
   capture buffers, the non-finite guard, the render order and the shipped standing driver.

@@ -116,6 +116,15 @@ const SPECS := {
 }
 
 
+## The modifier owners each authored profile installs. The session keeps the shared owners on a
+## pose change, installs the target-only ones and removes the source-only ones. The act-exit
+## `leave_pose_body()` still removes every extra modifier.
+const MODIFIER_PROFILES := {
+	"missionary": ["prone_sway", "tail_lay"],
+	"standing": ["body_sway", "ear_twitch", "tail"],
+}
+
+
 ## A3.3's command sets; A4 replaces them with the real vocabulary. `end` is reserved.
 const CONTROL_SETS := {
 	MISSIONARY: ["thrust", "end"],

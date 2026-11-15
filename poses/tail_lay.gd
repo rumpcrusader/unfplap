@@ -19,6 +19,26 @@ var target_amount := 1.0
 var _bones: Array[int] = []
 var _saved: Dictionary = {}
 var _cached := false
+var _hook_family := ""
+var _hook_profile := ""
+var _hook_seen := false
+
+
+## The pose-change hook: a shared keep leaves the chain, the saved bones and the fade alone. A
+## family/profile change only resets the hook cache; the service restores the bones before a remove.
+func pose_changed(view: Variant) -> void:
+	if view == null:
+		return
+	var family := str(view.family)
+	var modifiers_value: Variant = view.modifiers
+	var profile := ""
+	if modifiers_value is Dictionary:
+		profile = str((modifiers_value as Dictionary).get("profile", ""))
+	if _hook_seen and family == _hook_family and profile == _hook_profile:
+		return
+	_hook_seen = true
+	_hook_family = family
+	_hook_profile = profile
 
 
 func _ready() -> void:

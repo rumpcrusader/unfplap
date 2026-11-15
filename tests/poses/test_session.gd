@@ -28,6 +28,16 @@ class FakePony extends Node3D:
 	var body_scale := 0.66
 
 
+class FakeActBody extends Node:
+	var sink: Array = []
+
+	func apply(_frame: Transform3D, _scale: float) -> void:
+		sink.append("anon")
+
+	func remove() -> void:
+		sink.append("remove")
+
+
 ## The one field `body_sway` publishes at detach, plus the values a pose request reads.
 class FakeFacts extends RefCounted:
 	var standing_sway_offset := Vector3.ONE
@@ -68,6 +78,7 @@ func run() -> void:
 	_check_commands()
 	_check_target_snapshot()
 	_check_release_abort()
+	_check_pose_changed()
 	_check_no_act_exit()
 
 	print("POSE_SESSION_RESULT checks=%d failures=%d" % [checks, failures])
@@ -94,6 +105,7 @@ func _check_config() -> void:
 	check(near(float(session.pose_config.get("gaps", {}).get("canon", 0.0)), 0.3),
 		"the session keeps the base pose config")
 	var live: Dictionary = session.pose_config
+	session._view.settings_group = CATALOG.STANDING
 	var applied: bool = session.sync_standing_config({
 		"chin_up_deg": 40.0,
 		"neck_down_deg": 20.0,
@@ -114,7 +126,7 @@ func _check_config() -> void:
 	check(is_same(live, session.pose_config), "an empty presentation keeps the live config object")
 	check(near(float(session.pose_config.get("chin_up_deg", 0.0)),
 		float(SETTINGS.chin_up_deg.default)), "an empty presentation falls back to the defaults")
-	session.pose_id = CATALOG.MISSIONARY
+	session._view.settings_group = CATALOG.MISSIONARY
 	check(not session.sync_standing_config({}), "the missionary pose does not apply standing config")
 	var applied_missionary: bool = session.sync_missionary_config()
 	check(applied_missionary, "the missionary config applies")
@@ -508,37 +520,46 @@ func _check_stretch_pose_gate() -> void:
 	var made := _standing_stretch_scene(logs)
 	var session: RefCounted = made["session"]
 	var body: Skeleton3D = made["body"]
-	session.pose_id = CATALOG.MISSIONARY
+	session._view.family = "bed"
 	session.pose_node.stretch = true
 	session.sync_stretch()
 	check(_stretch_node(body) == null, "a non-standing pose never installs the stretch")
 	_free_stretch_scene(made)
 
 
-## The render-time step: the Anon placement, her pose write and the eye camera, in that order,
-## and nothing outside a missionary act.
+## The render-time step: the avatar park, the Anon placement, her pose write and the eye camera, in
+## that order, and nothing outside the bed family.
 func _check_render_write() -> void:
 	var made := _session(CATALOG.MISSIONARY)
 	var session: RefCounted = made["session"]
 	var pony: FakePony = made["pony"]
 	var order: Array[String] = []
-	session.place_anon = func(_frame: Variant, _scale: float) -> void: order.append("anon")
+	var body := FakeActBody.new()
+	body.sink = order
+	root.add_child(body)
+	session.act_body = body
+	session._view.family = "bed"
+	session.hide_avatar = func() -> void: order.append("hide")
 	session.eye_camera = func() -> void: order.append("eye")
 	session.render_write({"bed_frame": Transform3D.IDENTITY,
 		"body_scale": 0.66, "eye_camera_active": false})
-	check(order == ["anon"], "the render write places the Anon body without the eye camera")
+	check(order == ["hide", "anon"], "the render write parks the avatar and places the Anon body")
 	session.render_write({"bed_frame": Transform3D.IDENTITY,
 		"body_scale": 0.66, "eye_camera_active": true})
-	check(order == ["anon", "anon", "eye"], "the eye camera runs after the pose write")
+	check(order == ["hide", "anon", "hide", "anon", "eye"],
+		"the eye camera runs after the pose write")
 	order.clear()
-	session.pose_id = CATALOG.STANDING
+	session._view.family = "standing"
 	session.render_write({"eye_camera_active": true})
 	check(order.is_empty(), "a standing render write places no Anon body or eye camera")
-	session.pose_id = CATALOG.MISSIONARY
-	session.place_anon = Callable()
+	session._view.family = "bed"
+	session.act_body = null
+	session.hide_avatar = Callable()
 	session.eye_camera = Callable()
 	session.render_write({"eye_camera_active": true})
 	check(order.is_empty(), "absent render callbacks are no-ops")
+	root.remove_child(body)
+	body.free()
 	root.remove_child(pony)
 	pony.free()
 
@@ -870,7 +891,32 @@ func _check_release_abort() -> void:
 	_free_live(made)
 
 
-## The request and tick path never releases the pose node, the live config or the act identity.
+## The pose-change hook: a player-body spec leaves the adapter absent, and the act exit clears the
+## anatomy handle before it frees the service-owned body.
+func _check_pose_changed() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var view: RefCounted = session.view()
+	var body := FakeActBody.new()
+	session.act_body = body
+	var handles: Array = []
+	session.set_act_body = func(value: Variant) -> void:
+		handles.append(value)
+	session.pose_changed(view)
+	check(session.act_body == body, "a player-body spec keeps the service-owned body handle")
+	check(str(view.anon.get("mode", "")) == "player_body",
+		"the standing spec is the player body")
+	session.release_pose()
+	check(session.act_body == null and body.is_queued_for_deletion(),
+		"the final release frees the act body once")
+	check(body.sink.has("remove"), "the released body restores the avatar")
+	check(handles.size() == 1 and handles[0] == null,
+		"the release clears the anatomy handle before the free")
+	_free_live(made)
+
+
+## A live edge aborted by `_end_session` frees the act body once and never calls an act exit from
+## the fan-out. The edge request and the pose-change seam keep the session alive.
 func _check_no_act_exit() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: RefCounted = made["session"]

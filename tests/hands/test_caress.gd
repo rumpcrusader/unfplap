@@ -11,6 +11,7 @@ const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
 const ORAL := preload("res://mods/unfplap/hands/paths/oral.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 class FlankPony extends Node3D:
@@ -872,6 +873,25 @@ func run() -> void:
 		1.0, 0.05, 0.15)
 	check(near(float(body_plan.get("body_shift", 0.0)), 0.15),
 		"the body cap is used after the shoulder cap")
+
+	# The pose hook retargets the contact path without resetting the controller: a mouth switch
+	# keeps a live caress (the oral blend captures it), a path change ends the holds.
+	var hook_facts: RefCounted = ACT_FACTS.new()
+	var hook_view: RefCounted = VIEW.new()
+	hook_view.family = "standing"
+	hook_view.hands = {"path": "standing"}
+	hook_view.contact_kind = "opening"
+	hook_facts.pose_view = hook_view
+	var hook_hands := HANDS.new(hook_facts)
+	hook_hands.pose_changed(hook_view)
+	hook_hands._caress_active["R"] = true
+	hook_view.contact_kind = "mouth"
+	hook_hands.pose_changed(hook_view)
+	check(str(hook_hands._hook_contact) == "mouth", "the contact switch is carried")
+	check(hook_hands.caress_active("R"), "the mouth switch keeps the caress for the oral blend")
+	hook_view.hands = {"path": "missionary"}
+	hook_hands.pose_changed(hook_view)
+	check(not hook_hands.caress_active("R"), "a hands path change ends the live holds")
 
 	print("HANDS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

@@ -83,6 +83,11 @@ smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
 `hands/session.gd`, so `hands/smack.gd` needs no host node. The field and callback contract is
 `docs/act_facts.md`; `tests/test_source_hygiene.gd` fails on a runtime reach-in.
 
+The hands' `pose_changed(view)` hook retargets the contact path: it caches `view.hands.path` and
+`view.contact_kind`; a path change ends the live caress holds but keeps the controller, and a
+contact switch (opening -> mouth) keeps them so the oral blend captures the hand frames on the next
+tick. `tests/hands/test_caress.gd` and `tests/hands/test_actions.gd` pin both seams.
+
 ## Pose paths
 
 `_path_for_pose()` selects from `facts.pose_view.hands.path`: `missionary` is the chest/neck/cheek

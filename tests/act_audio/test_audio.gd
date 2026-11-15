@@ -19,6 +19,10 @@ class FakeHead extends Node3D:
 	var voice: Variant = null
 
 
+class FakeView extends RefCounted:
+	var audio: Dictionary = {}
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -35,6 +39,11 @@ func run() -> void:
 	root.add_child(audio)
 
 	audio.begin({"act_climax": false})
+	var view := FakeView.new()
+	view.audio = {"impact": CATALOG.MISSIONARY}
+	audio.pose_changed(view)
+	check(audio.get("_impact_profile") == "missionary",
+		"the pose hook caches the bed impact profile")
 	var pools: Dictionary = audio.get("_pools")
 	check(pools.has("plap_firm"), "the foley layer opens with the act")
 	check(not pools.has("climax_wet"), "the optional wet layer stays off")
@@ -53,18 +62,29 @@ func run() -> void:
 
 	# The body slap gates on contact and takes its tier from the impact speed.
 	var ready: Dictionary = audio.get("_ready_at")
-	audio.play_impact(CATALOG.MISSIONARY, "", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
+	audio.play_impact("", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
 	check(float(ready.get("plap_firm", 0.0)) == 0.0, "a slow bottom stays silent")
 	ready["plap_rough"] = 0.0
-	audio.play_impact(CATALOG.MISSIONARY, "rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.03, 0.02)
+	audio.play_impact("rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.03, 0.02)
 	check(float(ready.get("plap_rough", 0.0)) == 0.0,
 		"a stroke 3 cm short is silent at a 2 cm contact gap")
-	audio.play_impact(CATALOG.MISSIONARY, "rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
+	audio.play_impact("rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
 	check(float(ready.get("plap_rough", 0.0)) > 0.0, "a bottomed-out rough stroke plaps")
 	ready["plap_rough"] = 0.0
-	audio.play_impact(CATALOG.MISSIONARY, "rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.0)
+	audio.play_impact("rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.0)
 	check(float(ready.get("plap_rough", 0.0)) > 0.0,
 		"true contact at a zero epsilon plays the plap")
+	# The cached impact profile gates the soft-bed fabric: standing and standing_test play none.
+	view.audio = {"impact": CATALOG.STANDING}
+	audio.pose_changed(view)
+	ready["fabric"] = 0.0
+	audio.play_impact("rough", 0.9, Vector3.ZERO, Vector3.ZERO, true, 0.0, 0.02)
+	check(float(ready.get("fabric", 0.0)) == 0.0, "the standing profile plays no bed fabric")
+	view.audio = {"impact": CATALOG.MISSIONARY}
+	audio.pose_changed(view)
+	ready["fabric"] = 0.0
+	audio.play_impact("rough", 0.9, Vector3.ZERO, Vector3.ZERO, true, 0.0, 0.02)
+	check(float(ready.get("fabric", 0.0)) > 0.0, "the missionary profile plays soft-bed fabric")
 
 	audio.end()
 	check((audio.get("_pools") as Dictionary).is_empty(), "stopping the act clears every pool")

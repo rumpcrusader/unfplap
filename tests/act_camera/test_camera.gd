@@ -162,6 +162,7 @@ func run() -> void:
 	_check_shot()
 	_check_lean()
 	_check_oral_lean()
+	_check_retarget()
 	_check_lock_and_eye()
 	_check_look()
 	_check_free_look()
@@ -346,6 +347,33 @@ func _check_oral_lean() -> void:
 	check(near(camera.lean_forward, 0.0) and near(camera.lean_side, 0.0)
 		and near(camera.lean_view_forward, 0.0) and near(camera.lean_view_side, 0.0),
 		"oral settles the lean at rest")
+
+
+## A pose change retargets the shot family and retires the old lean action, while the camera session
+## itself and the captured look stay. A steady repeat is a no-op.
+func _check_retarget() -> void:
+	var made := _fixture()
+	var camera: Variant = made["camera"]
+	var facts: RefCounted = made["facts"]
+	var view: RefCounted = facts.pose_view
+	camera.call("pose_changed", view)
+	check(str(camera._hook_family) == "bed" and str(camera._hook_camera) == "missionary_shots",
+		"the hook caches the bed shot profile")
+	camera.lean_action_kind = "reach"
+	camera.camera_basis_ready = true
+	camera.call("begin_free")
+	_pose(facts, "standing")
+	camera.call("pose_changed", facts.pose_view)
+	check(camera.lean_action_kind == "", "a family change retires the old lean action")
+	check(not camera.camera_basis_ready, "a family change re-aims the next shot")
+	check(camera.free_camera_active and camera.camera != null,
+		"the camera keeps its session through the retarget")
+	camera.lean_action_kind = "reach"
+	camera.call("pose_changed", facts.pose_view)
+	check(camera.lean_action_kind == "reach", "a steady repeat does not retarget again")
+	check(not is_same(facts.pose_view, view) and str(camera._hook_family) == "standing",
+		"the hook follows the live view")
+	camera.call("close_shot")
 
 
 func _check_lock_and_eye() -> void:

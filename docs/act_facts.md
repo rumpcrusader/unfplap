@@ -68,9 +68,10 @@ On completion the session adopts the target into the live `pose_config`, and bot
 that same object again; the live object is the one `facts.pose_config`, the pose node and the
 standing camera alias. The standing camera re-reads it only when the view's settings group or pose
 id changes. The view stays filled for the whole act: the pose-scope leave steps
-(`leave_pose_start()`, `leave_pose_body()`) keep it, and only `release_pose()` clears it. In A3.3
-the runtime and session `pose_id` and `facts.pose_config` stay the act-start aliases while the view
-is the active machine; A3.5 flips the mirrors.
+(`leave_pose_start()`, `leave_pose_body()`) keep it, and only `release_pose()` clears it. After A3.5
+`facts.pose_id` is the active `view.id` (the live target during a transition), while the runtime's
+and the session's `pose_id` stay the act's start pose for start/gate/teardown; `facts.pose_config`
+remains the live alias until Phase B removes the remaining compatibility fields.
 
 HUD card (the runtime fills these once per rendered frame; `hud/service.gd` reads them instead of
 calling back into the runtime):

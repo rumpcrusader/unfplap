@@ -326,10 +326,16 @@ func run() -> void:
 		"a second act exit is safe with no pose left behind")
 
 	# An edge aborted by the one act exit: the run is dropped, the view returns to IDLE and the
-	# pose node is freed, with no second exit path.
+	# pose node, the extra modifiers and the service-owned act body are freed, with no second exit
+	# path.
 	runtime8.pose_id = CATALOG_STANDING
 	runtime8.state = 2
+	runtime8._features = {"standing_body_sway": true}
 	runtime8.call("_build_pose")
+	var act_body8 := Node.new()
+	runtime8._pose_session.act_body = act_body8
+	check(runtime8._pose_session.body_sway != null,
+		"the act body test installs the standing body sway")
 	var edge: Dictionary = runtime8.call("request_pose", CATALOG_STANDING_TEST, "test")
 	check(str(edge.get("code", "")) == "ok", "the runtime starts the debug edge")
 	check(runtime8._pose_session.view().pose_state == 3,
@@ -340,6 +346,9 @@ func run() -> void:
 		and runtime8._pose_session.view().pose_state == 0,
 		"the act exit leaves the transition view idle")
 	check(runtime8._pose_session.pose_node == null, "the act exit frees the edge's pose node")
+	check(runtime8._pose_session.body_sway == null and runtime8._pose_session.act_body == null,
+		"the act exit frees the extra modifier and the act body once")
+	check(act_body8.is_queued_for_deletion(), "the act body is detached before it is freed")
 
 	# AnonPony and headset/VR move her in front of the player; the player stays where he is.
 	var f9 := _fixture()

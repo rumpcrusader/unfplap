@@ -205,6 +205,10 @@ var pony: Variant
 var _presentation_cfg: Dictionary = {}
 var _profile: Dictionary = {}
 var _flank: Node
+## The last pose-change path and contact the hook saw, so a steady tick does nothing.
+var _hook_path := ""
+var _hook_contact := ""
+var _hook_seen := false
 
 var _reach_shoulder := ""
 var _reach_holding := false
@@ -302,6 +306,25 @@ func _pose_family() -> String:
 func _mouth_contact() -> bool:
 	var view: Variant = facts.pose_view if facts != null else null
 	return view != null and str(view.contact_kind) == "mouth"
+
+
+## The pose-change hook: a new `hands.path` retargets the contact path without resetting the
+## controller. A live caress ends its holds; a contact switch (opening -> mouth) keeps them and the
+## oral blend captures the hand frames on the next tick.
+func pose_changed(view: Variant) -> void:
+	if view == null:
+		return
+	var hands_value: Variant = view.hands
+	var path := str((hands_value as Dictionary).get("path", "")) if hands_value is Dictionary else ""
+	var contact := str(view.contact_kind)
+	if _hook_seen and path == _hook_path and contact == _hook_contact:
+		return
+	var path_changed := _hook_seen and path != _hook_path
+	_hook_seen = true
+	_hook_path = path
+	_hook_contact = contact
+	if path_changed:
+		_end_caress()
 
 
 func _caress_tick(delta: float) -> void:
@@ -1086,6 +1109,9 @@ func reset() -> void:
 	_caress_move_key_down = {"L": false, "R": false}
 	_caress_phase = {"L": 0.0, "R": 0.0}
 	_caress_touch_seconds = 0.0
+	_hook_seen = false
+	_hook_path = ""
+	_hook_contact = ""
 
 
 func any_active() -> bool:

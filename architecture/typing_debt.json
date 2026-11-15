@@ -46,6 +46,11 @@
       "signature": "func begin(features: Dictionary) -> void:"
     },
     {
+      "service": "audio",
+      "func": "pose_changed",
+      "signature": "func pose_changed(view: Variant) -> void:"
+    },
+    {
       "service": "camera",
       "func": "bind",
       "signature": "func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant, standing_ctl: Variant, missionary_ctl: Variant) -> void:"
@@ -59,6 +64,11 @@
       "service": "camera",
       "func": "player_body",
       "signature": "func player_body() -> Variant:"
+    },
+    {
+      "service": "camera",
+      "func": "pose_changed",
+      "signature": "func pose_changed(view: Variant) -> void:"
     },
     {
       "service": "dialogue",
@@ -142,6 +152,11 @@
     },
     {
       "service": "hands",
+      "func": "pose_changed",
+      "signature": "func pose_changed(view: Variant) -> void:"
+    },
+    {
+      "service": "hands",
       "func": "smack_pony",
       "signature": "func smack_pony() -> Variant:"
     },
@@ -149,6 +164,11 @@
       "service": "hands",
       "func": "smack_presentation",
       "signature": "func smack_presentation() -> Dictionary:"
+    },
+    {
+      "service": "kiss",
+      "func": "pose_changed",
+      "signature": "func pose_changed(view: Variant) -> void:"
     },
     {
       "service": "memory",
@@ -207,8 +227,13 @@
     },
     {
       "service": "poses",
+      "func": "pose_changed",
+      "signature": "func pose_changed(view: Variant) -> void:"
+    },
+    {
+      "service": "poses",
       "func": "refresh_modifiers",
-      "signature": "func refresh_modifiers(pose: String, feature_flags: Dictionary) -> void:"
+      "signature": "func refresh_modifiers(_pose: String, feature_flags: Dictionary) -> void:"
     },
     {
       "service": "poses",

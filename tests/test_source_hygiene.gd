@@ -14,16 +14,15 @@ const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "Colo
 ## file, per file. It ratchets down: a migrated consumer must not gain a reference, and a file that
 ## drops lowers its entry in the same commit. Producer mirrors may raise a producer's entry in the
 ## commit that adds them, with the total held flat. The hard allowlist is Phase B5/E.
-## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). A1 has moved the camera,
-## hands, kiss, anatomy, afterglow, dialogue, HUD and body sway to the view: 151 and 19 remain.
+## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). A1 moved the camera,
+## hands, kiss, anatomy, afterglow, dialogue, HUD and body sway to the view; A3.5 moved the two
+## standing adapters: 141 and 19 are allowed.
 const POSE_ID_BUDGET := {
 	"runtime.gd": 62,
 	"poses/service.gd": 31,
 	"settings/service.gd": 11,
 	"anatomy/act_bridge.gd": 2,
 	"reactions/service.gd": 7,
-	"poses/wing_control.gd": 5,
-	"poses/standing_anon.gd": 5,
 	"anatomy/controller.gd": 3,
 	"api.gd": 3,
 	"afterglow/service.gd": 2,
@@ -308,8 +307,8 @@ func _check_teardown(files: Array[String]) -> void:
 		"_physics_tick fans the pose change out after the facts sync")
 	var fanout := _func_body(runtime, "_pose_fanout")
 	var fanout_cursor := 0
-	for owner: String in ["_camera_service()", "_hand_controller()", "_kiss_controller()",
-			"_anatomy_bridge", "_act_audio"]:
+	for owner: String in ["_pose_service()", "_camera_service()", "_hand_controller()",
+			"_kiss_controller()", "_anatomy_bridge", "_act_audio"]:
 		var at := fanout.find(owner, fanout_cursor)
 		check(at >= 0, "_pose_fanout names %s in order" % owner)
 		if at < 0:
@@ -660,7 +659,7 @@ func _check_pose_session() -> void:
 	check(facade.contains("func begin(") and facade.contains("func sync_standing_config("),
 		"pose session facade is present")
 	for token: String in ["func request_pose(", "func request_command(", "func tick(",
-			"func apply_live_settings("]:
+			"func apply_live_settings(", "func pose_changed("]:
 		check(facade.contains(token), "the pose session facade carries %s" % token)
 	check(facade.contains("preload(\"res://mods/unfplap/poses/pose_state.gd\")"),
 		"the pose session preloads the pure pose state")
@@ -670,9 +669,10 @@ func _check_pose_session() -> void:
 			"main.get(", "main.call(\""]:
 		check(not facade.contains(token), "pose session has no host reach-in: %s" % token)
 	# The transition path keeps the pose alive: only `release_pose()` in the one ledger tears it
-	# down, and the request/tick functions never reach an act exit.
+	# down, and the request/tick/reconcile functions never reach an act exit.
 	for name: String in ["request_pose", "tick", "_fill_transition_view", "_absorb_switches",
-			"_absorb_events"]:
+			"_absorb_events", "pose_changed", "_reconcile_modifiers", "_sync_owner",
+			"_apply_anon_channel", "_install_act_body", "refresh_modifiers"]:
 		var body := _func_body(facade, name)
 		check(not body.is_empty(), "poses/service.gd exposes %s()" % name)
 		for call: String in ["release_pose(", "leave_pose_start(", "leave_pose_body(",
@@ -686,6 +686,24 @@ func _check_pose_session() -> void:
 	check(contract.contains("`poses/service.gd`"), "docs/poses.md names poses/service.gd")
 	check(contract.contains("## Session requests and ticks"),
 		"docs/poses.md documents the session requests and ticks")
+	check(contract.contains("## Retarget hooks and the pose change"),
+		"docs/poses.md documents the retarget hooks")
+	check(contract.contains("MODIFIER_PROFILES") and contract.contains("act_body")
+		and contract.contains("`anon` channel"),
+		"docs/poses.md documents the modifier profile and the act body")
+	var audio_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/audio.md"))
+	check(audio_doc.contains("pose_changed") and audio_doc.contains("audio.impact"),
+		"docs/audio.md documents the impact profile")
+	for doc_name: String in ["camera.md", "hands.md", "kiss.md", "anatomy.md"]:
+		var hook_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/" + doc_name))
+		check(hook_doc.contains("pose_changed"),
+			"docs/%s documents the pose_changed hook" % doc_name)
+	var facts_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/act_facts.md"))
+	check(facts_doc.contains("`facts.pose_id` is the active `view.id`"),
+		"docs/act_facts.md documents the active pose id")
+	var tests_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/tests.md"))
+	check(tests_doc.contains("test_modifier_profile"),
+		"docs/tests.md names the synthetic profile suite")
 	var runtime_doc := FileAccess.get_file_as_string(ROOT.path_join("docs/runtime.md"))
 	check(runtime_doc.contains("_pose_service().tick(delta)") and runtime_doc.contains("_pose_fanout()"),
 		"docs/runtime.md documents the pose tick and fan-out")
@@ -700,13 +718,18 @@ func _check_pose_session() -> void:
 	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",
 			"test_pose_rig.gd", "test_pose_scale.gd", "test_rotation.gd", "test_stretch.gd",
 			"test_pose_spec.gd", "test_pose_registry.gd", "test_pose_view.gd",
-			"test_pose_state.gd", "test_pose_edge.gd", "test_pose_blend.gd"]:
+			"test_pose_state.gd", "test_pose_edge.gd", "test_pose_blend.gd",
+			"test_modifier_profile.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
 			"tests/poses/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	check(runtime.contains("func _pose_service()"), "runtime reaches the pose through the session")
 	check(facade.contains("func render_write("), "the pose session owns the render-time order")
 	check(facade.contains("func sync_stretch("), "the pose session owns the stretch holder")
+	check(facade.contains("UnfplapMissionaryAnon") and facade.contains("func _install_act_body("),
+		"the pose session owns the act body adapter")
+	check(not runtime.contains("MISSIONARY_ANON") and not runtime.contains("_place_missionary_anon"),
+		"the runtime creates and places no act body")
 	for token: String in ["_pony_saved_bones", "_tail_lay", "_pose_rig_checked",
 			"_attach_body_coat_jiggle_target"]:
 		check(not runtime.contains(token), "runtime has no pose internals: %s" % token)

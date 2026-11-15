@@ -9,7 +9,6 @@ extends Node
 
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
 const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 
@@ -21,6 +20,9 @@ const WITHDRAW_DEPTH := 0.22
 const STRENGTH_GAIN_DB := 10.0
 
 var _climax := false
+## The active impact profile, from the pose view's `audio.impact` (`missionary` or `standing`).
+## `pose_changed()` caches it; the impact and withdraw calls use the cache instead of the start id.
+var _impact_profile := ""
 var _pools: Dictionary = {}
 var _next: Dictionary = {}
 var _last: Dictionary = {}
@@ -38,15 +40,27 @@ var _text_only_voice := false
 var log := Callable()
 
 
-## Open the act's layers. The foley group is always built; the wet climax is optional.
+## Open the act's layers. The foley group is always built; the wet climax is optional. The impact
+## profile is cleared here and set by the first pose fan-out of the act.
 func begin(features: Dictionary) -> void:
 	_rng.randomize()
+	_impact_profile = ""
 	set_enabled(bool(features.get("act_climax", false)))
 	if not is_instance_valid(_sound):
 		_sound = SOUND.new()
 		_sound.name = "UnfplapActSound"
 		add_child(_sound)
 	_sound.call("start")
+
+
+## One pose-change hook: the impact profile follows the live view, so an internal pose (`standing_test`)
+## or a later oral edge never inherits the act's start pose. A missing profile falls back to the bed
+## profile; standing and standing_test carry `audio.impact = "standing"`.
+func pose_changed(view: Variant) -> void:
+	var audio: Variant = view.audio if view != null else null
+	_impact_profile = str((audio as Dictionary).get("impact", "")) if audio is Dictionary else ""
+	if _impact_profile.is_empty():
+		_impact_profile = "missionary"
 
 
 ## Close the act's layers but keep the facade (and the voice policy state) alive for the process.
@@ -244,7 +258,7 @@ func play_plap(tier: String, strength: float, at: Vector3, extra_db := 0.0) -> b
 ## and `gap` is how far his skin still is from her coat in metres; `eps` is the contact epsilon.
 ## A stroke outside it gets no plap, while the bed fabric and the slide still play. `plap` is
 ## false for the oral segment, which keeps the slide and the bed but has no body slap.
-func play_impact(pose: String, tier: String, strength: float, rump: Vector3,
+func play_impact(tier: String, strength: float, rump: Vector3,
 		bed_at: Vector3, soft_bed: bool, gap: float, eps: float, plap := true) -> void:
 	var level := clampf(strength, 0.0, 1.0)
 	var limit := maxf(eps, 0.0)
@@ -254,7 +268,7 @@ func play_impact(pose: String, tier: String, strength: float, rump: Vector3,
 		var contact := 1.0 if limit <= 0.0 and gap <= 0.0 \
 			else 1.0 - clampf(gap / maxf(limit, 0.001), 0.0, 1.0)
 		play_plap(tier, level, rump, plap_volume_db(level) + plap_contact_db(contact))
-	if uses_bed(pose):
+	if uses_bed(_impact_profile):
 		play_bed(level, bed_at, soft_bed)
 	play_slide("in", level, rump, -12.0)
 
@@ -287,13 +301,13 @@ func crossed(before: float, after: float) -> bool:
 
 
 ## Withdraw only. The impact layer is fired from play_impact() on the tracker's impact event.
-func withdraw_crossed(before: float, after: float, strength: float, pose: String,
+func withdraw_crossed(before: float, after: float, strength: float,
 		rump: Vector3, bed_at: Vector3, soft_bed: bool) -> void:
 	if not (before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH):
 		return
 	var level := clampf(strength, 0.0, 1.0)
 	play_slide("out", level, rump, -4.0)
-	if uses_bed(pose):
+	if uses_bed(_impact_profile):
 		play_bed(level, bed_at, soft_bed)
 
 
@@ -315,9 +329,10 @@ static func cue_for_plap(tier: String) -> String:
 	return "plap_" + tier
 
 
-## Bed and fabric only belong to the missionary shot. The standing pose has no bed under her.
-static func uses_bed(pose: String) -> bool:
-	return pose != CATALOG.STANDING
+## Bed and fabric only belong to the bed profile. The standing pose and the internal standing_test
+## carry `audio.impact = "standing"` and play no bed/fabric.
+static func uses_bed(profile: String) -> bool:
+	return profile == "missionary"
 
 
 static func tier_for(strength: float) -> String:

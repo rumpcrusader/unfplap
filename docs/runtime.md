@@ -117,9 +117,10 @@ failed start runs the same function and restores only what it took.
   rising-edge reach/lean-kiss release), the thrust tracker and the presentation modules (wings and
   mod integrations).
 - `_physics_tick` calls `_pose_service().tick(delta)` before the first `_sync_act_facts()` in every
-  phase above `IDLE`, then runs the fixed-order `_pose_fanout()` after that sync: camera, hands,
-  kiss, anatomy, audio. An edge keeps ticking through `CLIMAX`/`AFTERGLOW`. The `IDLE` early
-  return still follows the first facts sync and runs no pose tick or fan-out.
+  phase above `IDLE`, then runs the fixed-order `_pose_fanout()` after that sync: the pose service
+  first (modifier reconcile and the `act_body`/`anon` channel), then camera, hands, kiss, anatomy
+  and audio. An edge keeps ticking through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still
+  follows the first facts sync and runs no pose tick or fan-out.
 - `_process`: `_process_tick(delta)` — the render-time pose write (which also watches the standing
   stretch toggle), the camera lean and motion, the climax wave, the breath, the face and the HUD.
 - `main._process` calls `active_runtime.apply_camera_motion()` every rendered frame. Keep this
@@ -144,9 +145,9 @@ reads that facade too.
 The pose surface is `pose_view()`, `request_pose(target_id, trigger, context)` and
 `request_command(command_id)`. The runtime supplies its state, features and stretch; the session
 refuses or starts the edge. The runtime's `pose_id` stays the act's start pose (start, gate and
-teardown), while the session view is the active pose. `_end_session()` aborts a live edge through
-the one pose teardown. `apply_live_settings()` also refreshes a running edge's target snapshot
-after the start pose's own config sync.
+teardown), while the session view is the active pose and `facts.pose_id` follows the live view id.
+`_end_session()` aborts a live edge through the one pose teardown. `apply_live_settings()` also
+refreshes a running edge's target snapshot after the start pose's own config sync.
 
 ## Tests
 

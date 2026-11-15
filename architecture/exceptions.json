@@ -17,14 +17,6 @@
       "expires": "phase-2"
     },
     {
-      "from": "anatomy/act_bridge.gd",
-      "to": "poses/missionary_anon.gd",
-      "kind": "service-private",
-      "owner": "anatomy",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
-    },
-    {
       "from": "hands/smack.gd",
       "to": "audio/smack_cues.gd",
       "kind": "service-private",

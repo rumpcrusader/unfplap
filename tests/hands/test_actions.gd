@@ -4,6 +4,7 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -120,6 +121,7 @@ func _check_tail_tuning() -> void:
 	tail_runtime.set("pony", tail_pony)
 	tail_runtime.set("_id", "twilight_sparkle")
 	tail_runtime.set("pose_id", CATALOG.STANDING)
+	tail_runtime._pose_session._view.settings_group = CATALOG.STANDING
 	tail_runtime.set("_presentation_cfg", {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}})
 	tail_runtime.call("_sync_standing_pose_config")
 	var cfg: Dictionary = tail_runtime._pose_session.pose_config
@@ -367,6 +369,7 @@ func run() -> void:
 	root.add_child(hip)
 	var lean_facts: RefCounted = ACT_FACTS.new()
 	lean_facts.pose_id = CATALOG.STANDING
+	lean_facts.pose_view = _standing_view()
 	lean_facts.free_camera_active = true
 	lean_facts.lean_view_forward = 1.0
 	lean_facts.lean_view_side = 0.0
@@ -615,6 +618,7 @@ func run() -> void:
 
 	var hip_facts: RefCounted = ACT_FACTS.new()
 	hip_facts.pose_id = CATALOG.STANDING
+	hip_facts.pose_view = _standing_view()
 	hip_facts.thrust_travel = 2.0
 	var hip_pony := Node3D.new()
 	root.add_child(hip_pony)
@@ -765,6 +769,7 @@ func run() -> void:
 	plant_skeleton.add_child(plant_hip)
 	var plant_facts: RefCounted = ACT_FACTS.new()
 	plant_facts.pose_id = CATALOG.STANDING
+	plant_facts.pose_view = _standing_view()
 	plant_facts.free_camera_active = true
 	plant_facts.features = {}
 	var plant_kiss: RefCounted = KISS.new(plant_facts)
@@ -850,8 +855,40 @@ func run() -> void:
 	_check_tail_tuning()
 	_check_perf_probe()
 	_check_missionary_hand_hold()
+	_check_pose_retarget()
 
 	print("ACTIONS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACTIONS_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+## The pose hook retargets the hands contact path without resetting the controller.
+func _check_pose_retarget() -> void:
+	var facts: RefCounted = ACT_FACTS.new()
+	var view: RefCounted = VIEW.new()
+	view.family = "standing"
+	view.contact_kind = "opening"
+	view.hands = {"path": "standing"}
+	facts.pose_view = view
+	var hands := HANDS.new(facts)
+	hands.pose_changed(view)
+	check(str(hands._hook_path) == "standing", "the hands hook caches the standing path")
+	hands._caress_active["L"] = true
+	hands._caress_latched["L"] = true
+	view.hands = {"path": "missionary"}
+	hands.pose_changed(view)
+	check(str(hands._hook_path) == "missionary", "the path change is carried")
+	check(not hands.caress_active("L"), "a path change ends the live holds")
+	view.contact_kind = "mouth"
+	hands.pose_changed(view)
+	check(str(hands._hook_contact) == "mouth", "a contact switch is carried for the oral blend")
+	check(not hands.caress_active("L"), "a contact switch does not restore a released hold")
+
+
+## The standing pose read model the body wrappers gate on.
+func _standing_view() -> RefCounted:
+	var view: RefCounted = VIEW.new()
+	view.family = "standing"
+	view.settings_group = "standing"
+	return view

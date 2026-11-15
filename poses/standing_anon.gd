@@ -6,7 +6,6 @@ const ANON_THRUST := preload("res://mods/unfplap/poses/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
 const PALM_SCALE := preload("res://mods/unfplap/shared/hands_scale.gd")
 const CHEST_BACK := preload("res://mods/unfplap/poses/chest_back.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const THRUST_MAX_M := 0.045
@@ -28,8 +27,14 @@ var _lower_captured := false
 ## so walking up from the hip target must skip the skeleton and find the body node.
 var _lower_body: Node
 
+## The view family check: `standing` covers the public pose and the internal standing_test.
+func _standing_family() -> bool:
+	var view: Variant = facts.pose_view if facts != null else null
+	return view != null and str(view.family) == "standing"
+
+
 func _hip_phase_tick(delta: float) -> void:
-	if str(facts.pose_id) != CATALOG.STANDING or int(facts.state) not in [2, 3, 4]:
+	if not _standing_family() or int(facts.state) not in [2, 3, 4]:
 		_hip_phase = 0.0
 		return
 	_hip_phase = MOTION.hip_phase_step(_hip_phase, float(facts.depth), delta)
@@ -46,7 +51,7 @@ static func hip_offset(phase: float, scale: float, travel: float) -> float:
 func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	# integration: the optional alignment pins the hip target but keeps this old hip-bone
 	# backset, so large depths cannot drive his crotch into her.
-	if str(facts.pose_id) != CATALOG.STANDING or not is_instance_valid(_hip_thrust):
+	if not _standing_family() or not is_instance_valid(_hip_thrust):
 		return
 	if not facing.is_finite() or facing.z.length_squared() < 0.0001:
 		return
@@ -75,7 +80,7 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 ## are pinned so the legs keep their pose while the pelvis travels.
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var kiss: Variant = facts.kiss_controller()
-	if str(facts.pose_id) != CATALOG.STANDING or not bool(facts.free_camera_active) or not is_instance_valid(hip):
+	if not _standing_family() or not bool(facts.free_camera_active) or not is_instance_valid(hip):
 		return
 	var forward := -facing.z.normalized()
 	var side := facing.x.normalized()
@@ -145,7 +150,7 @@ func _lower_body_of(hip: Node3D) -> Node:
 
 func _install_anon_thrust() -> void:
 	_remove_anon_thrust()
-	if str(facts.pose_id) != CATALOG.STANDING or bool(facts.player_pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not _standing_family() or bool(facts.player_pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
 		return
 	var avatar := main.player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
@@ -199,7 +204,7 @@ func _install_palm_scale(avatar: Node3D) -> void:
 
 
 func _refresh_palm_scale() -> void:
-	if str(facts.pose_id) != CATALOG.STANDING or not is_instance_valid(_anon_thrust_avatar):
+	if not _standing_family() or not is_instance_valid(_anon_thrust_avatar):
 		return
 	var factor: float = float(facts.palm_scale_factor)
 	if is_equal_approx(factor, 1.0):

@@ -39,6 +39,7 @@ func run() -> void:
 	check(ACT.cue_for_plap("rough") == "plap_rough", "rough cue")
 	check(ACT.uses_bed(CATALOG.MISSIONARY), "missionary uses bed cues")
 	check(not ACT.uses_bed(CATALOG.STANDING), "standing skips bed cues")
+	check(not ACT.uses_bed(""), "an empty profile skips bed cues")
 	check(ACT.pitch_for(0.0) < ACT.pitch_for(1.0), "pitch rises with strength")
 	check(ACT.pitch_for(0.0) >= 0.9 and ACT.pitch_for(1.0) <= 1.1, "pitch stays bounded")
 	check(ACT.gain_db(0.0) < ACT.gain_db(0.5) and ACT.gain_db(0.5) < ACT.gain_db(1.0),
@@ -82,6 +83,7 @@ func run() -> void:
 	var act: Node = ACT.new()
 	act.set_enabled(false)
 	check(not act.climax_enabled(), "the optional layer is off")
+	act.pose_changed({"audio": {"impact": CATALOG.MISSIONARY}})
 	var pools: Dictionary = act.get("_pools")
 	check(pools.has("plap_firm"), "foley pool is always built")
 	check(not pools.has("climax_wet"), "wet pool not built")
@@ -104,7 +106,7 @@ func run() -> void:
 	parent.add_child(act)
 	act.set_enabled(false)
 	# A slow bottom that touches still stays silent: the tier is the impact speed.
-	act.play_impact(CATALOG.MISSIONARY, "", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
+	act.play_impact("", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
 	var ready_at: Dictionary = act.get("_ready_at")
 	check(float(ready_at.get("plap_firm", 0.0)) == 0.0, "a slow bottom emits no plap")
 	check(float(ready_at.get("plap_rough", 0.0)) == 0.0, "a slow bottom emits no rough plap")
@@ -115,7 +117,7 @@ func run() -> void:
 	ready_at = act.get("_ready_at")
 	ready_at["plap_rough"] = 0.0
 	ready_at["slide_in"] = 0.0
-	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
+	act.play_impact("rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
 	check(float(ready_at.get("plap_rough", 0.0)) > 0.0, "a bottomed-out rough impact plays the plap")
 	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "a rough impact keeps the slide")
 	check(act.play_bed(0.7, Vector3.ZERO, true), "soft-bed fabric plays")
@@ -124,23 +126,23 @@ func run() -> void:
 	# while a stroke at the epsilon edge still plays. The slide and the bed are never gated.
 	ready_at["plap_rough"] = 0.0
 	ready_at["slide_in"] = 0.0
-	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.03, 0.02)
+	act.play_impact("rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.03, 0.02)
 	check(float(ready_at.get("plap_rough", 0.0)) == 0.0,
 		"a stroke past the contact gap has no plap")
 	check(float(ready_at.get("slide_in", 0.0)) > 0.0,
 		"a stroke past the contact gap keeps the slide")
 	ready_at["plap_rough"] = 0.0
-	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.02, 0.02)
+	act.play_impact("rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.02, 0.02)
 	check(float(ready_at.get("plap_rough", 0.0)) > 0.0,
 		"a stroke at the contact edge plays the plap")
 	ready_at["plap_rough"] = 0.0
-	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.0)
+	act.play_impact("rough", 0.7, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.0)
 	check(float(ready_at.get("plap_rough", 0.0)) > 0.0,
 		"true contact at a zero epsilon plays the plap")
 	# The oral segment drops the body slap but keeps the slide.
 	ready_at["plap_rough"] = 0.0
 	ready_at["slide_in"] = 0.0
-	act.play_impact(CATALOG.MISSIONARY, "rough", 0.7, Vector3.ZERO, Vector3.ZERO, false,
+	act.play_impact("rough", 0.7, Vector3.ZERO, Vector3.ZERO, false,
 		0.0, 0.02, false)
 	check(float(ready_at.get("plap_rough", 0.0)) == 0.0, "an oral impact skips the plap")
 	check(float(ready_at.get("slide_in", 0.0)) > 0.0, "an oral impact keeps the slide")

@@ -2,7 +2,6 @@ extends RefCounted
 ## Wing hold, spread, flutter and afterglow fold. The runtime owns the act state; this controller
 ## only drives the pony's wing node and the wing-sweep skeleton modifier.
 
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const WING_SWEEP := preload("res://mods/unfplap/poses/wing_sweep.gd")
 
 const READINESS_MAX := 100.0
@@ -75,8 +74,9 @@ func reset() -> void:
 	_wings_node = null
 
 
-## Per-tick wing presentation. The runtime still owns the blush, face and act clock.
-func tick(delta: float, pose_id: String, satisfaction: float, act_seconds: float) -> void:
+## Per-tick wing presentation. The runtime still owns the blush, face and act clock. `family` is the
+## pose view's family: `bed` keeps the stock spread progression, standing holds the half-open pose.
+func tick(delta: float, family: String, satisfaction: float, act_seconds: float) -> void:
 	if not _winged:
 		return
 	var pony: Variant = facts.pony if facts != null else null
@@ -98,7 +98,7 @@ func tick(delta: float, pose_id: String, satisfaction: float, act_seconds: float
 		var level := sqrt(clampf(satisfaction / READINESS_MAX, 0.0, 1.0))
 		var spread_t := smoothstep(0.0, 1.0, clampf(act_seconds / WING_SPREAD_SECONDS, 0.0, 1.0))
 		var base_target := 1.0 - spread_t
-		if pose_id != CATALOG.MISSIONARY:
+		if family != "bed":
 			base_target = clampf(WING_STANDING_HOLD - level * spread_t * WING_STANDING_SPREAD,
 				0.0, 1.0)
 		var droop := clampf(act_seconds / WING_DROOP_SECONDS, 0.0, 1.0) * WING_DROOP_AMOUNT
@@ -113,7 +113,7 @@ func tick(delta: float, pose_id: String, satisfaction: float, act_seconds: float
 			_wing_hold_started = true
 		_wing_hold_value = move_toward(_wing_hold_value, target_hold, delta / WING_FADE_SECONDS)
 		_wings_node.call("hold_at", "unfplap", _wing_hold_value)
-		_ensure_wing_sweep(pose_id)
+		_ensure_wing_sweep(family)
 		return
 	# Fallback when the half-open wing pose is unavailable.
 	if satisfaction >= READINESS_MAX * 0.75:
@@ -216,9 +216,9 @@ func _wing_return_tick(delta: float) -> void:
 		_log("wing afterglow return complete")
 
 
-func _ensure_wing_sweep(pose_id: String) -> void:
+func _ensure_wing_sweep(family: String) -> void:
 	var pony: Variant = facts.pony if facts != null else null
-	if pose_id != CATALOG.STANDING or not _wing_hold or not is_instance_valid(pony):
+	if family != "standing" or not _wing_hold or not is_instance_valid(pony):
 		_clear_wing_sweep()
 		return
 	var sk: Variant = pony.get("skeleton")

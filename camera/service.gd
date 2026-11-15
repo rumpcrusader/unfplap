@@ -78,6 +78,11 @@ var lean := 0.0
 var lean_velocity := 0.0
 var back := 0.0
 var back_target := 0.0
+## The last pose-change profile the hook saw, so a steady tick does nothing.
+var _hook_family := ""
+var _hook_camera := ""
+var _hook_lean := ""
+var _hook_seen := false
 var camera_surge := 0.0
 var camera_bob := 0.0
 
@@ -136,6 +141,27 @@ func lean_profile() -> String:
 func camera_profile() -> String:
 	var view: Variant = _pose_view()
 	return str((view.camera as Dictionary).get("profile", "")) if view != null else ""
+
+
+## The pose-change hook: a new shot family or profile retires the pose-local lean action and
+## re-aims the next shot. The camera session, the eye override and the captured look stay put, and
+## the eye-camera tick remains the runtime's render-time callback.
+func pose_changed(view: Variant) -> void:
+	if view == null:
+		return
+	var family := str(view.family)
+	var profile := str((view.camera as Dictionary).get("profile", ""))
+	var lean := str((view.presentation as Dictionary).get("lean", ""))
+	if _hook_seen and family == _hook_family and profile == _hook_camera and lean == _hook_lean:
+		return
+	var family_changed := _hook_seen and family != _hook_family
+	_hook_seen = true
+	_hook_family = family
+	_hook_camera = profile
+	_hook_lean = lean
+	if family_changed:
+		end_lean_action()
+		camera_basis_ready = false
 
 
 ## Write the pose's look target for this rendered frame: the missionary gaze versus the kissing

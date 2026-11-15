@@ -264,7 +264,7 @@ the orchestration. It owns:
 
 - the persistent controller handle and the per-act `anatomy/act.gd` handle;
 - the reused `anatomy/facts.gd` context;
-- the missionary Anon body handle and the VR standing controller;
+- the service-owned missionary Anon body as an opaque handle, and the VR standing controller;
 - the action gates (`hole_ready`, `oral_ready`, `finish_ready`, `actions_ready`), the toggles,
   the oral/finish reads and the placement controls;
 - the aim/gaze reads (`gaze_point`, `aim_eyes`, `normal`, `opening`, `rear`);
@@ -284,6 +284,13 @@ The bridge never reads `runtime` or `main` private fields and never preloads eit
 action keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the
 bridge only routes them. `pose_config()` is written every `ACTIVE`/`CLIMAX` tick for standing, so
 the oral style keys animate the neck live and a released turn erases the keys it no longer owns.
+
+The missionary Anon body is owned by `poses/service.gd`, not the bridge. The bridge receives the
+node as an opaque handle through `set_missionary_anon()` and calls its `install`, `apply`,
+`refresh_palm`, `diag_row` and eye reads; it never creates, frees or re-parents it. `end()` only
+calls the body's `remove()` to hand the avatar back; the pose session clears the handle and frees
+the node once in its own `release_pose()`. The bridge's `pose_changed(view)` carries the view family
+and contact kind for A5's contact switch without rebuilding the controller or the act.
 
 `apply_live()` re-reads the host's `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`
 before it refreshes the controller. The per-tick facts sync writes the same values, but it does

@@ -16,6 +16,11 @@ profile, `state`, `lean_*`, `anon_height_scale`, `standing_lean_scale`, `camera`
 and the `kiss_controller()`, `touch()` and `write_forced_glance()` callbacks), never the runtime
 node; see `docs/act_facts.md`.
 
+The kiss's `pose_changed(view)` hook follows the view's family, presentation kiss profile and live
+`from_config`/`pose_config` without ending a running kiss or releasing its foreleg pin. A shared
+keep is a cheap no-op; `_sync()` reads the same live config per tick. The hook is pinned by
+`tests/act_camera/test_kiss.gd`; the face and mouth suites stay unchanged.
+
 ## Controls
 
 | Pose | Control | Start |

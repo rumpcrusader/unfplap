@@ -35,6 +35,7 @@ class FakeBridge extends RefCounted:
 
 class FakeCamera extends RefCounted:
 	var ends := 0
+	var camera: Variant = null
 
 	func bind(_facts: Variant, _hands: Variant, _kiss: Variant, _standing: Variant,
 			_missionary: Variant) -> void:
@@ -49,6 +50,9 @@ class FakeKiss extends RefCounted:
 
 	func end_lean_kiss() -> void:
 		ends += 1
+
+	func restore_forelegs() -> void:
+		pass
 
 
 class FakeReactions extends RefCounted:
@@ -83,13 +87,20 @@ class FakePose extends RefCounted:
 	var ear_checks := 0
 	var pose_id := ""
 	var id := ""
-	var place_anon := Callable()
+	var hide_avatar := Callable()
+	var set_act_body := Callable()
 	var eye_camera := Callable()
 	var perf := Callable()
 	var facts: Variant = null
 	var pose_config: Dictionary = {}
 
 	func bind(_runtime: Variant, _pony_node: Variant) -> void:
+		pass
+
+	func view() -> Variant:
+		return facts.pose_view if facts != null else null
+
+	func pose_changed(_view: Variant) -> void:
 		pass
 
 	func pose() -> Variant:
@@ -103,15 +114,18 @@ class FakeAudio extends RefCounted:
 	var impacts: Array = []
 	var withdraws := 0
 
-	func play_impact(pose: String, tier: String, strength: float, _rump: Vector3,
+	func pose_changed(_view: Variant) -> void:
+		pass
+
+	func play_impact(tier: String, strength: float, _rump: Vector3,
 			_bed_at: Vector3, _soft_bed: bool, _gap: float, _eps: float, plap := true) -> void:
-		impacts.append({"pose": pose, "tier": tier, "strength": strength, "plap": plap})
+		impacts.append({"tier": tier, "strength": strength, "plap": plap})
 
 	func crossed(_before: float, _after: float) -> bool:
 		return true
 
 	func withdraw_crossed(_before: float, _after: float, _strength: float,
-			_pose: String, _rump: Vector3, _bed_at: Vector3, _soft_bed: bool) -> void:
+			_rump: Vector3, _bed_at: Vector3, _soft_bed: bool) -> void:
 		withdraws += 1
 
 

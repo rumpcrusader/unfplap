@@ -38,6 +38,10 @@ var avatar: Node3D
 var skeleton: Skeleton3D
 ## True once a body was found and is being driven by this controller.
 var active := false
+## The `anon` channel retarget state. A3.5 accepts `hold`/`blend`/`switch`; the authored Anon pose
+## switch is A5's first real moving edge, so the weight and profile are cached without moving him.
+var anon_profile := ""
+var anon_weight := 1.0
 
 var _body_ik: SkeletonModifier3D
 var _body_ik_was_active := true
@@ -205,6 +209,27 @@ func remove() -> void:
 	_hand_offsets.clear()
 	_arm_poles.clear()
 	_arm_axes.clear()
+	anon_profile = ""
+	anon_weight = 1.0
+
+
+## The `anon` channel's retarget hook. A held channel keeps the body; a switch names the authored
+## profile and a blend carries the live edge weight. A3.5 caches them; A5's authored pose reads them.
+func pose_changed(profile := "", weight := 1.0) -> void:
+	var next_profile := str(profile)
+	var next_weight := clampf(weight, 0.0, 1.0)
+	if next_profile == anon_profile and is_equal_approx(next_weight, anon_weight):
+		return
+	anon_profile = next_profile
+	anon_weight = next_weight
+
+
+## The base channel drives the same weight the edge view carries. It never changes the profile.
+func set_weight(weight: float) -> void:
+	var next_weight := clampf(weight, 0.0, 1.0)
+	if is_equal_approx(next_weight, anon_weight):
+		return
+	anon_weight = next_weight
 
 
 ## Place and pose him from the asset, once per displayed frame. The authored bones are written

@@ -233,15 +233,24 @@ func _check_standing_scope() -> void:
 ## The live debug edge: the request and tick path keeps the pose node, the config and the view, and
 ## every transition function stays clear of an act exit.
 func _check_transition_path() -> void:
-	var made := _fixture(CATALOG.STANDING, {})
+	var made := _fixture(CATALOG.STANDING, {"standing_body_sway": true})
 	var session: RefCounted = made["session"]
 	var view: RefCounted = session.view()
 	var config: Dictionary = session.pose_config
 	var pose_node: Node = session.pose_node
+	var body_sway: Node = session.body_sway
+	var act_body := Node.new()
+	session.act_body = act_body
+	session.pose_changed(view)
+	check(session.act_body == act_body and act_body.get_parent() == null,
+		"a pose change keeps the act body")
 	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
 	check(str(result.get("code", "")) == "ok", "the transition path starts the debug edge")
 	check(view.pose_state == VIEW.TRANSITIONING and session._state == VIEW.TRANSITIONING,
 		"the transition path enters the transition state")
+	session.pose_changed(view)
+	check(session.body_sway == body_sway and body_sway.get_parent() == made["body"],
+		"the transition reconcile keeps the shared modifier")
 	session.tick(0.0)
 	check(session.pose_node == pose_node and is_same(session.pose_config, config),
 		"the transition tick keeps the pose and the live config")
@@ -260,6 +269,7 @@ func _check_transition_path() -> void:
 		for call: String in ACT_EXIT:
 			check(not body.contains(call), "%s does not call %s" % [name, call])
 	_free_fixture(made)
+	check(act_body.is_queued_for_deletion(), "the act exit frees the act body once")
 
 
 ## The pose-scope steps are the seam a transition calls: they must not reach an act exit.

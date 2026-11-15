@@ -7,7 +7,6 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
-const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 
 const STATE_ACTIVE := 2
@@ -21,8 +20,14 @@ var facts: RefCounted = FACTS.new()
 ## The persistent anatomy controller, the per-act handle and the act's own bodies.
 var controller: Node
 var act: Node
+## The service-owned missionary Anon body. It is an opaque handle: the bridge calls it and never
+## creates or frees it.
 var missionary_anon: Node
 var vr_act: Node
+## The contact family the last pose change carried. A3.5 caches it; A5's oral contact switch reads it.
+var contact_family := ""
+var contact_kind := ""
+var _contact_seen := false
 
 
 ## Bind the host callbacks. The bridge is created once per act; the runtime re-binds it on every
@@ -139,6 +144,20 @@ func pose_family() -> String:
 	return str(view.family) if view != null else ""
 
 
+## One pose-change hook: carry the view family and contact for the A5 contact switch, without
+## rebuilding the controller, the act or the bodies. A shared keep is a cheap no-op.
+func pose_changed(view: Variant) -> void:
+	if view == null:
+		return
+	var family := str(view.family)
+	var kind := str(view.contact_kind)
+	if _contact_seen and family == contact_family and kind == contact_kind:
+		return
+	_contact_seen = true
+	contact_family = family
+	contact_kind = kind
+
+
 ## The live context the act reads. The host writes the extra fields; the bridge writes the
 ## penetration, climax, size and auto values.
 func context() -> RefCounted:
@@ -174,7 +193,9 @@ func apply_facing() -> void:
 		facing_cb.call(basis, float(value.get("amount", 0.0)))
 
 
-## The act's end. The controller owns the act; the bridge owns the bodies and the VR handle.
+## The act's end. The controller owns the act; the bridge owns the bodies and the VR handle. The
+## service-owned missionary body is only restored here: the pose session clears the handle and frees
+## the node in its own release, so the bridge never frees it.
 func end() -> void:
 	if is_instance_valid(controller) and controller.has_method("end_act"):
 		controller.call("end_act")
@@ -185,8 +206,6 @@ func end() -> void:
 	act = null
 	if is_instance_valid(missionary_anon):
 		missionary_anon.call("remove")
-		missionary_anon.queue_free()
-		missionary_anon = null
 	vr_stop()
 
 

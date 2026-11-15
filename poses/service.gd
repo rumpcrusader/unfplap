@@ -10,6 +10,7 @@ extends RefCounted
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 const TAIL_LAY := preload("res://mods/unfplap/poses/tail_lay.gd")
 const BODY_SWAY := preload("res://mods/unfplap/poses/body_sway.gd")
@@ -23,6 +24,12 @@ const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
+
+## The empty sets the reconcile and the anon channel read, so a steady tick allocates nothing.
+const NO_OWNERS := []
+const NO_CHANNEL := {}
+## The owner names in install order, matching `shared/pose_specs.gd`'s profile table.
+const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_lay"]
 
 ## The runtime node that parents the debug nodes and receives their `runtime` field. It is the
 ## host boundary; the session never reads the runtime's fields.
@@ -61,8 +68,16 @@ var tail_lay: Node
 var body_sway: SkeletonModifier3D
 var prone_sway: SkeletonModifier3D
 var ear_twitch: SkeletonModifier3D
+## The act's own Anon body on the `act_body` specs, or null on the player-body specs. The session
+## creates, installs and frees it; the anatomy bridge only receives the opaque handle.
+var act_body: Variant = null
+## The authored profile table with a test seam: a synthetic profile can be added without touching
+## the shipped const.
+var modifier_profiles: Dictionary = SPECS.MODIFIER_PROFILES.duplicate()
 ## The act's external Idle Life stretch holder, or null when the act pose has no stretch.
 var _stretch: Variant = null
+## The camera position the standing tail chooses its side against, from the begin context.
+var _tail_anchor := Vector3.INF
 
 ## Bed space for the authored pose. The runtime reads it through `_pose_session.bed_frame`.
 var bed_frame: Variant = null
@@ -89,8 +104,10 @@ var log := Callable()
 var perf := Callable()
 ## The typed act view the pose modifiers read for the live depth, state and bed frame.
 var facts: Variant = null
-## Park the game presentation and place the act's own Anon body, for `render_write()`.
-var place_anon := Callable()
+## Park the game presentation for the bed family, for `render_write()`.
+var hide_avatar := Callable()
+## Publish or clear the opaque Anon handle on the anatomy bridge. The service owns the body.
+var set_act_body := Callable()
 ## The eye-shot camera tick, which must run after the render write.
 var eye_camera := Callable()
 
@@ -147,14 +164,16 @@ func begin(context: Dictionary) -> bool:
 	pose_node.mare = pony
 	pose_node.log = log
 	pose_node.perf = perf
-	# One live object: the sync merges the character's pose into `pose_config` in place, so the
-	# modifier, `facts.pose_config` and the runtime all read the same dictionary.
-	if pose_id == CATALOG.STANDING:
+	# Fill the view first: the active settings group and family drive the start config sync, not the
+	# act's start id. One live object: the sync merges the character's pose into `pose_config` in
+	# place, so the modifier, `facts.pose_config`, the view and the runtime share it.
+	_fill_view()
+	var group := str(_view.settings_group)
+	if group == CATALOG.STANDING:
 		sync_standing_config(context.get("presentation", {}))
-	elif pose_id == CATALOG.MISSIONARY:
+	elif group == CATALOG.MISSIONARY:
 		sync_missionary_config()
 	pose_node.pose_config = pose_config
-	_fill_view()
 	var spec: Variant = _registry.spec(pose_id)
 	pose_node.call("set_pose", _effective_driver(spec), _effective_driver(spec),
 		_effective_delta(spec), _effective_delta(spec), pose_config, pose_config)
@@ -171,35 +190,24 @@ func begin(context: Dictionary) -> bool:
 		pose_node.bed_frame = bed_frame
 		log_base()
 	(skeleton as Skeleton3D).add_child(pose_node)
-	if pose_id == CATALOG.STANDING:
+	var family := str(_view.family)
+	if family == "bed":
+		if _feature("missionary_body_motion"):
+			_install_prone_sway(skeleton)
+	elif family == "standing":
 		if _feature("standing_body_sway"):
 			_install_body_sway(skeleton)
 		if _feature("thrust_ear_twitch"):
 			_install_ear_twitch()
-	elif _feature("missionary_body_motion"):
-		_install_prone_sway(skeleton)
 	_started = true
-	if pose_id == CATALOG.MISSIONARY:
+	if family == "bed":
 		_install_tail_lay()
 	_state = POSE_STATE.next(_state, "entered")
 	_view.pose_state = _state
-	if pose_id != CATALOG.STANDING:
-		return true
-	var hair: Variant = pony.get("hair_skeleton")
-	if hair is Skeleton3D:
-		tail = TAIL.new()
-		tail.name = "UnfplapTail"
-		tail.mare = pony
-		tail.facts = facts
-		tail.aside_angle = float(pose_config.get("tail_aside", 0.0))
-		tail.lift_angle = float(pose_config.get("tail_lift", 0.0))
-		tail.amount = 0.0
-		tail.target_amount = 1.0
-		var side_anchor: Variant = context.get("camera_position")
-		if not side_anchor is Vector3:
-			side_anchor = Vector3.INF
-		tail.call("choose_side", side_anchor)
-		(hair as Skeleton3D).add_child(tail)
+	if family == "standing":
+		var anchor: Variant = context.get("camera_position")
+		_tail_anchor = anchor if anchor is Vector3 else Vector3.INF
+		_install_tail()
 	return true
 
 
@@ -579,7 +587,7 @@ func _config_for_group(group: String, presentation: Dictionary) -> Dictionary:
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
 ## first keeps the other pose overrides, then the presentation neck/head controls win.
 func sync_standing_config(presentation: Dictionary) -> bool:
-	if pose_id != CATALOG.STANDING or not is_instance_valid(pony):
+	if str(_view.settings_group) != CATALOG.STANDING or not is_instance_valid(pony):
 		return false
 	pose_config.clear()
 	pose_config.merge(_config_for_group(CATALOG.STANDING, presentation), true)
@@ -594,7 +602,7 @@ func sync_standing_config(presentation: Dictionary) -> bool:
 ## The missionary recipe reads these from pose_config every frame. Re-reading the character's
 ## pose keeps its nuzzle overrides live.
 func sync_missionary_config() -> bool:
-	if pose_id != CATALOG.MISSIONARY or not is_instance_valid(pony):
+	if str(_view.settings_group) != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return false
 	pose_config.clear()
 	pose_config.merge(_config_for_group(CATALOG.MISSIONARY, {}), true)
@@ -753,6 +761,7 @@ func release_pose() -> void:
 	_abort_target()
 	_state = POSE_STATE.next(_state, "exit")
 	_release_stretch(false)
+	_release_act_body()
 	if is_instance_valid(pose_node):
 		_drop(pose_node)
 	pose_node = null
@@ -772,6 +781,7 @@ func release_pose() -> void:
 	bed_frame = null
 	bed_frame_source_saved = false
 	bed_frame_source = Transform3D.IDENTITY
+	_tail_anchor = Vector3.INF
 	_view.clear()
 	_state = POSE_STATE.next(_state, "released")
 
@@ -780,8 +790,13 @@ func release_pose() -> void:
 ## integration provider writes `pose_node.stretch`; this owns the node, its modifier order and
 ## the body-sway base that must follow the stretched hips.
 func sync_stretch() -> void:
-	if pose_id != CATALOG.STANDING or not is_instance_valid(pose_node) \
-			or not is_instance_valid(pony):
+	if str(_view.family) != "standing":
+		# A pose change away from standing drops the external holder; the act choice is kept.
+		if _stretch != null:
+			_release_stretch(false)
+			_reset_sway_base()
+		return
+	if not is_instance_valid(pose_node) or not is_instance_valid(pony):
 		return
 	if bool(pose_node.get("stretch")):
 		if _stretch != null and bool(_stretch.call("active")):
@@ -802,35 +817,215 @@ func sync_stretch() -> void:
 		_reset_sway_base()
 
 
-## Install or remove the live-editable extra modifiers after a settings edit.
-func refresh_modifiers(pose: String, feature_flags: Dictionary) -> void:
-	pose_id = pose
-	features = feature_flags
-	if not is_instance_valid(pony):
+## One pose-change fan-out. Reconciles the modifier profile and applies the `act_body`/`anon`
+## channel; the pose evaluator pair was already set by `begin`/`request_pose`/`tick`. Cheap and
+## idempotent: every owner compares against its own cache, so a steady tick installs nothing.
+func pose_changed(view: Variant) -> void:
+	if not _started or view == null:
 		return
-	var skeleton_value: Variant = pony.get("skeleton")
-	if not skeleton_value is Skeleton3D:
-		return
+	var to_spec: Variant = _registry.spec(str(view.to_id))
+	if to_spec == null:
+		to_spec = _registry.spec(str(view.id))
+	var from_spec: Variant = _registry.spec(str(view.from_id))
+	if from_spec == null:
+		from_spec = to_spec
+	_reconcile_modifiers(_profile_of(from_spec), _profile_of(to_spec), view)
+	_apply_anon_channel(view)
+	sync_stretch()
+
+
+## The spec's modifier profile name, or empty when the row has no block.
+func _profile_of(spec: Variant) -> String:
+	if spec == null:
+		return ""
+	var value: Variant = spec.modifiers
+	return str((value as Dictionary).get("profile", "")) if value is Dictionary else ""
+
+
+## The owner list of an authored profile. An unknown profile is the empty set.
+func _profile_owners(profile: String) -> Array:
+	var value: Variant = modifier_profiles.get(profile, NO_OWNERS)
+	return value as Array if value is Array else NO_OWNERS
+
+
+## Keep the shared owners, install the target-only ones and remove the source-only ones. The act
+## exit's `leave_pose_body()` is still the full removal; this never calls it.
+func _reconcile_modifiers(from_profile: String, to_profile: String, view: Variant) -> void:
+	var from_owners := _profile_owners(from_profile)
+	var to_owners := _profile_owners(to_profile)
+	var skeleton_value: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	var skeleton := skeleton_value as Skeleton3D
-	if pose_id == CATALOG.STANDING:
-		if _feature("standing_body_sway") and not is_instance_valid(body_sway):
-			_install_body_sway(skeleton)
-		elif not _feature("standing_body_sway") and is_instance_valid(body_sway):
-			_drop(body_sway)
-			body_sway = null
-		if _feature("thrust_ear_twitch") and not is_instance_valid(ear_twitch):
-			_install_ear_twitch()
-		elif not _feature("thrust_ear_twitch") and is_instance_valid(ear_twitch):
-			_drop(ear_twitch)
-			ear_twitch = null
-	elif pose_id == CATALOG.MISSIONARY:
-		if _feature("missionary_body_motion") and not is_instance_valid(prone_sway):
-			_install_prone_sway(skeleton)
-		elif not _feature("missionary_body_motion") and is_instance_valid(prone_sway):
-			_drop(prone_sway)
-			prone_sway = null
-	if pose_id == CATALOG.STANDING:
-		sync_stretch()
+	for owner: String in MODIFIER_ORDER:
+		var wanted: bool = owner in to_owners
+		var shared: bool = wanted and owner in from_owners
+		_sync_owner(owner, wanted, shared, view, skeleton)
+
+
+## Install, keep and retarget, or remove one owner. A shared keep calls the owner's own idempotent
+## `pose_changed(view)`; a feature edit that turns the owner off removes it even on a shared keep.
+func _sync_owner(owner: String, wanted: bool, retarget: bool, view: Variant,
+		skeleton: Skeleton3D) -> void:
+	var keep := wanted and _owner_feature(owner)
+	match owner:
+		"body_sway":
+			if keep:
+				if not is_instance_valid(body_sway):
+					if skeleton != null:
+						_install_body_sway(skeleton)
+				elif retarget:
+					body_sway.call("pose_changed", view)
+			elif is_instance_valid(body_sway):
+				_drop(body_sway)
+				body_sway = null
+		"prone_sway":
+			if keep:
+				if not is_instance_valid(prone_sway):
+					if skeleton != null:
+						_install_prone_sway(skeleton)
+				elif retarget:
+					prone_sway.call("pose_changed", view)
+			elif is_instance_valid(prone_sway):
+				_drop(prone_sway)
+				prone_sway = null
+		"ear_twitch":
+			if keep:
+				if not is_instance_valid(ear_twitch):
+					_install_ear_twitch()
+				elif retarget:
+					ear_twitch.call("pose_changed", view)
+			elif is_instance_valid(ear_twitch):
+				_drop(ear_twitch)
+				ear_twitch = null
+		"tail":
+			if keep:
+				if not is_instance_valid(tail):
+					_install_tail()
+				elif retarget:
+					tail.call("pose_changed", view)
+			elif is_instance_valid(tail):
+				tail.call("restore_tail")
+				_drop(tail)
+				tail = null
+		"tail_lay":
+			if keep:
+				if not is_instance_valid(tail_lay):
+					_install_tail_lay()
+				elif retarget:
+					tail_lay.call("pose_changed", view)
+			elif is_instance_valid(tail_lay):
+				tail_lay.call("restore_tail")
+				_drop(tail_lay)
+				tail_lay = null
+
+
+## The feature gate an owner installs behind. The tails have none.
+func _owner_feature(owner: String) -> bool:
+	match owner:
+		"body_sway":
+			return _feature("standing_body_sway")
+		"prone_sway":
+			return _feature("missionary_body_motion")
+		"ear_twitch":
+			return _feature("thrust_ear_twitch")
+	return true
+
+
+## The live edge's `anon` channel, or the empty hold. Outside an edge the spec's profile holds.
+func _anon_channel() -> Dictionary:
+	if _run == null:
+		return NO_CHANNEL
+	var channels_value: Variant = _run.edge.get("channels", {})
+	if not channels_value is Dictionary:
+		return NO_CHANNEL
+	var value: Variant = (channels_value as Dictionary).get("anon")
+	return value as Dictionary if value is Dictionary else NO_CHANNEL
+
+
+## Apply the `act_body` specs' Anon channel: `hold` keeps the adapter, `blend` carries the edge
+## weight and `switch` names the authored profile. The player-body specs never install the adapter.
+func _apply_anon_channel(view: Variant) -> void:
+	var anon_value: Variant = view.anon
+	if not anon_value is Dictionary:
+		return
+	var anon := anon_value as Dictionary
+	if str(anon.get("mode", "")) != "act_body":
+		return
+	_install_act_body()
+	if not is_instance_valid(act_body):
+		return
+	if _run == null:
+		# Outside an edge the spec's profile is the hold.
+		act_body.call("pose_changed", str(anon.get("profile", "")), 1.0)
+		return
+	var channel := _anon_channel()
+	match str(channel.get("kind", "hold")):
+		"blend":
+			act_body.call("set_weight", clampf(float(view.weight), 0.0, 1.0))
+		"switch":
+			var switched := str(channel.get("profile", ""))
+			if switched.is_empty():
+				switched = str(channel.get("set", ""))
+			if switched.is_empty():
+				switched = str(anon.get("profile", ""))
+			act_body.call("pose_changed", switched, 1.0)
+		_:
+			# A hold keeps the adapter's current profile and weight.
+			pass
+
+
+## The act body exists only on a bed spec's `act_body` mode for desktop human Anon.
+func _act_body_wanted(view: Variant) -> bool:
+	if facts == null:
+		return false
+	var anon_value: Variant = view.anon
+	if not anon_value is Dictionary:
+		return false
+	if str((anon_value as Dictionary).get("mode", "")) != "act_body":
+		return false
+	return not bool(facts.player_pony) and not bool(facts.headset_view)
+
+
+## The act's own Anon body, created on the runtime host and handed to the anatomy bridge as an
+## opaque handle. The bridge never creates or frees it.
+func _install_act_body() -> void:
+	if is_instance_valid(act_body):
+		return
+	var parent := host as Node
+	if parent == null or not _act_body_wanted(_view):
+		return
+	var body: Node = MISSIONARY_ANON.new()
+	body.name = "UnfplapMissionaryAnon"
+	parent.add_child(body)
+	if not bool(body.call("install", facts)):
+		parent.remove_child(body)
+		body.queue_free()
+		return
+	act_body = body
+	if set_act_body.is_valid():
+		set_act_body.call(body)
+
+
+## Clear the bridge handle first, then restore and free the act body once. A transition never
+## reaches this.
+func _release_act_body() -> void:
+	if set_act_body.is_valid():
+		set_act_body.call(null)
+	if not is_instance_valid(act_body):
+		act_body = null
+		return
+	var body := act_body as Node
+	if body != null:
+		if body.has_method("remove"):
+			body.call("remove")
+		_drop(body)
+	act_body = null
+
+
+## Install or remove the live-editable extra modifiers after a settings edit. The view carries the
+## active profile, so this is the same reconcile the pose tick runs.
+func refresh_modifiers(_pose: String, feature_flags: Dictionary) -> void:
+	features = feature_flags
+	pose_changed(_view)
 
 
 ## Detach a released modifier before freeing it. `queue_free()` alone leaves it parented for the
@@ -843,6 +1038,27 @@ func _drop(node: Node) -> void:
 	if parent != null:
 		parent.remove_child(node)
 	node.queue_free()
+
+
+func _install_tail() -> void:
+	if is_instance_valid(tail) or not is_instance_valid(pony):
+		return
+	var hair: Variant = pony.get("hair_skeleton")
+	if not hair is Skeleton3D:
+		return
+	tail = TAIL.new()
+	tail.name = "UnfplapTail"
+	tail.mare = pony
+	tail.facts = facts
+	tail.aside_angle = float(pose_config.get("tail_aside", 0.0))
+	tail.lift_angle = float(pose_config.get("tail_lift", 0.0))
+	tail.amount = 0.0
+	tail.target_amount = 1.0
+	var side_anchor: Variant = _tail_anchor
+	if not side_anchor is Vector3:
+		side_anchor = Vector3.INF
+	tail.call("choose_side", side_anchor)
+	(hair as Skeleton3D).add_child(tail)
 
 
 func _install_tail_lay() -> void:
@@ -909,19 +1125,22 @@ func apply_render(skeleton: Skeleton3D) -> void:
 ## The whole render-time step for one frame, in order: park the game presentation and place the
 ## act's own Anon body over it, write her pose last, then let the eye-shot camera read his posed
 ## head. The runtime owns the call site in `_process_tick`; this facade owns the sequence.
-## Context: `bed_frame`, `body_scale`, `eye_camera_active`. The pose id is the session's own; the
-## runtime refreshes it through `_pose_service()` before every call.
+## Context: `bed_frame`, `body_scale`, `eye_camera_active`. The view family is the active pose's.
 func render_write(context: Dictionary) -> void:
 	if not is_instance_valid(pony):
 		return
-	if pose_id == CATALOG.STANDING:
+	var family := str(_view.family)
+	if family == "standing":
 		# The live stretch toggle is watched here, after every physics and process writer.
 		sync_stretch()
 		return
-	if pose_id != CATALOG.MISSIONARY:
+	if family != "bed":
 		return
-	if place_anon.is_valid():
-		place_anon.call(context.get("bed_frame"), float(context.get("body_scale", 1.0)))
+	if hide_avatar.is_valid():
+		hide_avatar.call()
+	var frame: Variant = context.get("bed_frame")
+	if is_instance_valid(act_body) and frame is Transform3D:
+		act_body.call("apply", frame as Transform3D, float(context.get("body_scale", 1.0)))
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(pose_node) and sk is Skeleton3D:
 		apply_render(sk as Skeleton3D)

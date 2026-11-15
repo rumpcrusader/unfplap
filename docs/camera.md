@@ -34,6 +34,14 @@ kind and the presentation lean profile come from `facts.pose_view`; the camera d
 `pose_id` or `oral_active`. The field and callback contract is `docs/act_facts.md`; a camera module
 that reaches into the runtime fails `tests/test_source_hygiene.gd`.
 
+The camera's `pose_changed(view)` hook is the retarget seam: it caches the last family, shot
+profile and presentation lean, and only on a change retires the pose-local lean action and re-aims
+the next shot. It keeps the act camera session, the eye override and the captured look; the
+eye-camera tick stays the runtime's render-time callback. The standing camera re-reads its glance/
+tail config from the view's `from_config`/`pose_config` and caches it by settings group and pose
+id, so a held debug pair does not snap. `tests/act_camera/test_camera.gd` pins the hook and
+`tests/act_camera/test_kiss.gd` the kiss side.
+
 ## Modes and lean
 
 - Desktop human Anon always uses the mod-controlled act camera.

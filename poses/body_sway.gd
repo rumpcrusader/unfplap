@@ -19,6 +19,9 @@ var _cached := false
 var _base_local_origin := Vector3.ZERO
 var _offset := 0.0
 var _velocity := 0.0
+var _hook_family := ""
+var _hook_profile := ""
+var _hook_seen := false
 
 
 func _process_modification_with_delta(delta: float) -> void:
@@ -37,6 +40,24 @@ func _exit_tree() -> void:
 ## planted body, so the sway must cache from the stretched pose instead of undoing its plant.
 func reset_base() -> void:
 	_cached = false
+
+
+## The pose-change hook: a family or modifier-profile change invalidates the cached plant, so the
+## sway never inherits a stale base from the previous pose. A shared keep is a cheap no-op.
+func pose_changed(view: Variant) -> void:
+	if view == null:
+		return
+	var family := str(view.family)
+	var modifiers_value: Variant = view.modifiers
+	var profile := ""
+	if modifiers_value is Dictionary:
+		profile = str((modifiers_value as Dictionary).get("profile", ""))
+	if _hook_seen and family == _hook_family and profile == _hook_profile:
+		return
+	_hook_seen = true
+	_hook_family = family
+	_hook_profile = profile
+	reset_base()
 
 
 func _apply(delta: float) -> void:

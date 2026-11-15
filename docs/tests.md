@@ -106,9 +106,16 @@ environment, say so instead of claiming it passed. The lab roster, keys and paus
 
 `tests/poses/test_pose_teardown.gd` pins the pose-scope/act-scope split: the two leave steps keep
 the pose node, the live config and the view, the final release clears them and repeats safely, and
-no pose-scope step reaches an act exit. `tests/test_source_hygiene.gd` pins the `_free_pose()` order
-and its two callers, and keeps the act-exit names out of `poses/`. The contract is `docs/poses.md`;
-this doc only names the gate.
+no pose-scope step reaches an act exit. `tests/poses/test_modifier_profile.gd` is the synthetic
+profile suite: a pose change keeps the shared modifier, installs the target-only owners and removes
+the source-only ones, while `leave_pose_body()` keeps the act-exit full removal; its synthetic
+profile lives only in the session's test seam. The hook suites are
+`tests/act_camera/test_camera.gd`, `tests/act_camera/test_kiss.gd`, `tests/hands/test_caress.gd`,
+`tests/hands/test_actions.gd`, `tests/anatomy/test_act_bridge.gd` and
+`tests/act_audio/test_audio.gd`. `tests/test_source_hygiene.gd` pins the `_pose_fanout()` order
+(pose service first, then camera, hands, kiss, anatomy and audio), the `_free_pose()` order and its
+two callers, and keeps the act-exit names out of `poses/`. The contract is `docs/poses.md`; this doc
+only names the gate.
 
 ## What not to assert
 
@@ -119,7 +126,8 @@ this doc only names the gate.
 - A suite does not assert another service's private state; it calls that service's facade.
 - `tests/test_source_hygiene.gd` carries the raw pose-read census. Its per-file `pose_id` and
   `oral_active` budget ratchets down with the pose view migration: a migrated consumer may not
-  raise its entry, and a file that drops lowers it in the same commit.
+  raise its entry, and a file that drops lowers it in the same commit. A3.5 removed the two
+  standing adapters from the map.
 
 ## Related docs
 

@@ -29,6 +29,10 @@ var pony: Variant
 var main: Variant
 var _presentation_cfg: Dictionary = {}
 var _pose_cfg: Dictionary = {}
+## The last pose-change profile the hook saw, so a steady tick does nothing.
+var _hook_family := ""
+var _hook_profile := ""
+var _hook_seen := false
 
 var _kiss_amount := 0.0
 var _kiss_lean := 0.0
@@ -63,6 +67,25 @@ func _pose_family() -> String:
 func _kiss_profile() -> String:
 	var view: Variant = facts.pose_view if facts != null else null
 	return str((view.presentation as Dictionary).get("kiss", "")) if view != null else ""
+
+
+## The pose-change hook: the live config and the base kiss profile follow the view, but a running
+## kiss is never ended by the change itself. A shared keep is a cheap no-op.
+func pose_changed(view: Variant) -> void:
+	if view == null:
+		return
+	var family := str(view.family)
+	var profile := str((view.presentation as Dictionary).get("kiss", ""))
+	var cfg_value: Variant = view.from_config
+	if not cfg_value is Dictionary or (cfg_value as Dictionary).is_empty():
+		cfg_value = view.pose_config
+	if _hook_seen and family == _hook_family and profile == _hook_profile \
+			and is_same(cfg_value, _pose_cfg):
+		return
+	_hook_seen = true
+	_hook_family = family
+	_hook_profile = profile
+	_pose_cfg = cfg_value as Dictionary if cfg_value is Dictionary else {}
 
 
 func _apply_kiss_forelegs() -> void:
@@ -546,7 +569,10 @@ func _sync() -> void:
 	main = facts.main
 	var cfg: Variant = facts.presentation_config
 	_presentation_cfg = cfg if cfg is Dictionary else {}
-	var pose_cfg: Variant = facts.pose_config
+	var view: Variant = facts.pose_view
+	var pose_cfg: Variant = view.from_config if view != null else null
+	if not pose_cfg is Dictionary or (pose_cfg as Dictionary).is_empty():
+		pose_cfg = facts.pose_config
 	_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
 
 

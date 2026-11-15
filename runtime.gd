@@ -13,7 +13,6 @@ const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -44,7 +43,7 @@ const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
-const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
 const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
@@ -532,9 +531,10 @@ func _sync_anatomy_facts() -> void:
 ## and again by `apply_camera_motion()`, because `main.gd` drives the camera after the act tick.
 func _sync_act_facts() -> void:
 	var facts := _act_facts
+	var view: Variant = _pose_service().view()
 	facts.state = state
-	facts.pose_id = pose_id
-	facts.pose_view = _pose_service().view()
+	facts.pose_id = str(view.id) if view != null else pose_id
+	facts.pose_view = view
 	facts.source = source
 	facts.satisfaction = satisfaction
 	facts.mood = mood
@@ -569,17 +569,17 @@ func _sync_act_facts() -> void:
 	facts.oral_active = _anatomy_bridge.oral_active()
 	facts.anal_active = _anatomy_bridge.anal_active()
 	# The pose view mirrors the live anatomy state; the producers stay where they are until A5.
-	var view: Variant = facts.pose_view
-	view.oral_active = facts.oral_active
-	view.anal_active = facts.anal_active
-	view.contact_kind = "mouth" if facts.oral_active else "opening"
+	var pose_view: Variant = facts.pose_view
+	pose_view.oral_active = facts.oral_active
+	pose_view.anal_active = facts.anal_active
+	pose_view.contact_kind = "mouth" if facts.oral_active else "opening"
 	var turn: Variant = _anatomy_bridge.turn_facing()
 	if turn is Dictionary and not (turn as Dictionary).is_empty():
-		view.facing = (turn as Dictionary).get("basis", Basis.IDENTITY)
-		view.facing_amount = float((turn as Dictionary).get("amount", 0.0))
+		pose_view.facing = (turn as Dictionary).get("basis", Basis.IDENTITY)
+		pose_view.facing_amount = float((turn as Dictionary).get("amount", 0.0))
 	else:
-		view.facing = Basis.IDENTITY
-		view.facing_amount = 0.0
+		pose_view.facing = Basis.IDENTITY
+		pose_view.facing_amount = 0.0
 	facts.penetration_reach = penetration_reach()
 	var cam: RefCounted = _camera_service()
 	facts.size_name = cam.call("size_name")
@@ -751,11 +751,12 @@ func _perf_header() -> Dictionary:
 ## `_sync_act_facts()` carries the rest. Cheap on purpose; it writes fields, never allocates.
 func _bind_act_view() -> void:
 	var facts := _act_facts
+	var view: Variant = _pose_session.view()
 	facts.main = main
 	facts.pony = pony
 	facts.state = state
-	facts.pose_id = pose_id
-	facts.pose_view = _pose_session.view()
+	facts.pose_id = str(view.id) if view != null else pose_id
+	facts.pose_view = view
 	facts.pony_id = _id
 	facts.camera = _act_camera.camera
 	facts.viewport = get_viewport()
@@ -892,7 +893,8 @@ func _pose_service() -> RefCounted:
 	_pose_session.bind(self, pony)
 	_pose_session.pose_id = pose_id
 	_pose_session.id = _id
-	_pose_session.place_anon = Callable(self, "_place_missionary_anon")
+	_pose_session.hide_avatar = Callable(self, "_hide_act_avatar")
+	_pose_session.set_act_body = Callable(self, "_set_missionary_anon_handle")
 	_pose_session.eye_camera = Callable(self, "_missionary_eye_tick")
 	_pose_session.perf = Callable(self, "perf_note")
 	_pose_session.facts = _act_facts
@@ -921,11 +923,13 @@ func request_command(command_id: String) -> bool:
 	return _pose_service().request_command(command_id)
 
 
-## The fixed-order pose-change fan-out. A3.5 gives each owner its `pose_changed(view)`; until then
-## an owner without the method is a no-op. The face, dialogue and HUD read the view through the act
-## facts and have no hook.
+## The fixed-order pose-change fan-out. The pose service reconciles its modifier profile and the
+## act body first, then the camera, hands, kiss, anatomy and audio retarget in that order. Each
+## owner's `pose_changed(view)` is cheap and idempotent. The face, dialogue and HUD read the view
+## through the act facts and have no hook.
 func _pose_fanout() -> void:
 	var view: Variant = _pose_service().view()
+	_pose_service().pose_changed(view)
 	_call_pose_changed(_camera_service(), view)
 	_call_pose_changed(_hand_controller(), view)
 	_call_pose_changed(_kiss_controller(), view)
@@ -944,10 +948,11 @@ static func _call_pose_changed(owner: Variant, view: Variant) -> void:
 ## runtime without entering the tree, so the binding is refreshed on every access and the live
 ## values it reads are written here rather than waiting for the next facts sync.
 func _camera_service() -> RefCounted:
+	var view: Variant = _pose_session.view()
 	_act_facts.main = main
 	_act_facts.pony = pony
 	_act_facts.state = state
-	_act_facts.pose_id = pose_id
+	_act_facts.pose_id = str(view.id) if view != null else pose_id
 	_act_facts.player_pony = _player_pony
 	_act_camera.bind(_act_facts, _hand_controller(), _kiss_controller(),
 		_standing_camera_controller(), _missionary_camera_controller())
@@ -1176,7 +1181,7 @@ func _act_presentation(delta: float) -> void:
 		boop.call("sustain_blush", ACT_FACE.blush_for(_act_phase(), satisfaction,
 			_feature("blush_arc")))
 	var wings_started := Time.get_ticks_usec()
-	_wings_controller().tick(delta, pose_id, satisfaction, _act_seconds)
+	_wings_controller().tick(delta, str(_pose_service().view().family), satisfaction, _act_seconds)
 	_timed("wings_tick", wings_started)
 	_integrations_controller().tick(delta)
 
@@ -1955,6 +1960,9 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	state = State.POSING_IN
 	_integrations_controller()
 	_sync_act_facts()
+	# The pose session installs the act body and reconciles the modifiers for the start view, before
+	# the first rendered frame; every later change arrives through `_pose_fanout()`.
+	_pose_service().pose_changed(_pose_service().view())
 	_integrations_controller().begin()
 	# Install the stretch holder before body sway's first modification pass caches the hips.
 	_pose_service().sync_stretch()
@@ -2567,7 +2575,7 @@ func _thrust_move(amount: float, now: float) -> void:
 	if is_instance_valid(_act_audio) and state in [State.ACTIVE, State.CLIMAX] \
 			and _act_audio.crossed(before, depth):
 		_act_audio.withdraw_crossed(before, depth, _thrust_tracker.live_strength(now),
-			pose_id, _reactions.rump_point(), _bed_audio_point(), _bed_soft)
+			_reactions.rump_point(), _bed_audio_point(), _bed_soft)
 	for event: Dictionary in events:
 		_dispatch_stroke_event(event)
 
@@ -2635,7 +2643,7 @@ func _on_impact(result: Dictionary) -> void:
 		_readiness.thrust_times.pop_front()
 	_play_vocal()
 	if is_instance_valid(_act_audio):
-		_act_audio.play_impact(pose_id, tier, strength, _reactions.rump_point(),
+		_act_audio.play_impact(tier, strength, _reactions.rump_point(),
 			_bed_audio_point(), _bed_soft, gap, CONTACT_GAP_M, not oral)
 	_log("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d oral=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
 		gap, impact_speed, tier if not tier.is_empty() else "-", 1 if plap else 0,
@@ -3739,16 +3747,8 @@ func _begin_camera_mode() -> void:
 	_camera_service().call("open_shot")
 	_standing_anon_controller().reset_phase()
 	_missionary_camera_controller().reset_look()
-	# The act shows and poses Anon's body itself (desktop human only; AnonPony and VR have their own).
-	if pose_id == CATALOG.MISSIONARY and not _player_pony and not _headset_view():
-		_anatomy_bridge.bind(_anatomy_host())
-		var body: Node = MISSIONARY_ANON.new()
-		body.name = "UnfplapMissionaryAnon"
-		add_child(body)
-		_anatomy_bridge.set_missionary_anon(body)
-		if not _anatomy_bridge.install_missionary_anon():
-			_anatomy_bridge.set_missionary_anon(null)
-			body.queue_free()
+	# The act's own Anon body is created by the pose session on its first pose change (desktop human
+	# only; AnonPony and VR have their own bodies).
 	# integration: the VR standing act; it uses the headset rig and no desktop camera.
 	if _headset_view() and not _player_pony and pose_id == CATALOG.STANDING:
 		_start_vr_act()
@@ -3805,12 +3805,17 @@ func _pose_render_write() -> void:
 	})
 
 
-## The pose session's render step, first half: park the game's desktop presentation (it
-## re-enables itself) and place and pose the act's own Anon body over it.
-func _place_missionary_anon(frame: Variant, body_scale: float) -> void:
+## Park the game's desktop presentation (it re-enables itself) for the bed family. The pose
+## session owns the render-time sequence and calls this before it writes the pose.
+func _hide_act_avatar() -> void:
 	_missionary_camera_controller().hide_avatar()
-	if frame is Transform3D:
-		_anatomy_bridge.apply_missionary_anon(frame, body_scale)
+
+
+## Publish or clear the pose session's opaque Anon body handle on the anatomy bridge. The session
+## owns the body; the bridge only reads it.
+func _set_missionary_anon_handle(body: Variant) -> void:
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.set_missionary_anon(body)
 
 
 ## The eye camera reads his posed head, so it has to run after the render write, not from the

@@ -105,6 +105,20 @@ func run() -> void:
 	check(tail != null and tail.get_parent() == hair, "the target-only standing tail is installed")
 	check(session.ear_twitch == null, "the disabled feature keeps its owner out")
 
+	# The live settings edit enters the same reconcile with the new feature flags; this is the
+	# runtime's `refresh_modifiers()` path. A changed gate removes or installs its owner against
+	# the unchanged view, even on a shared keep.
+	_fill(view, CATALOG.STANDING, CATALOG.STANDING, CATALOG.STANDING, "standing", "standing")
+	session.refresh_modifiers({"standing_body_sway": false})
+	check(session.body_sway == null and sway.is_queued_for_deletion(),
+		"the live feature refresh removes the disabled owner")
+	check(not bool(session.features.get("standing_body_sway", true)),
+		"the live feature refresh swaps the session's flags")
+	session.refresh_modifiers({"standing_body_sway": true})
+	sway = session.body_sway
+	check(sway != null and sway.get_parent() == body,
+		"the live feature refresh installs the enabled owner")
+
 	session.leave_pose_body()
 	check(session.body_sway == null and sway.is_queued_for_deletion(),
 		"the act-exit leave still removes the extra modifier")

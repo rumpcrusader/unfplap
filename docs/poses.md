@@ -510,6 +510,12 @@ through the facts and have no hook. The fan-out is a retarget seam, not a second
 calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `_end_session()`, `_free_pose()`
 or any act-scope restore. The eye-camera tick stays on the render write, after the pose write.
 
+`refresh_modifiers(feature_flags)` is the live settings edit's entry into the session's reconcile:
+it replaces the session's feature flags and runs the same `pose_changed(view)` pass with the
+unchanged view, so a live `standing_body_sway`, `missionary_body_motion` or `thrust_ear_twitch`
+change installs or removes its owner. The view supplies the profile; the call carries no pose id.
+The runtime calls it from its own live settings path.
+
 The `contact` channel is the one contact change: the forward oral edge switches `opening` to
 `mouth` at `0.9`, the reverse switches back at `0.0`, and completion settles the target row's base
 kind. The hands read `view.contact_kind` for the mouth path and the oral caress blend; the anatomy

@@ -1378,9 +1378,10 @@ func _release_act_body() -> void:
 	act_body = null
 
 
-## Install or remove the live-editable extra modifiers after a settings edit. The view carries the
-## active profile, so this is the same reconcile the pose tick runs.
-func refresh_modifiers(_pose: String, feature_flags: Dictionary) -> void:
+## The live settings edit's entry: swap the session's feature flags and run the same
+## `pose_changed(view)` pass the tick does. The view carries the active profile, so no pose id is
+## needed.
+func refresh_modifiers(feature_flags: Dictionary) -> void:
 	features = feature_flags
 	pose_changed(_view)
 

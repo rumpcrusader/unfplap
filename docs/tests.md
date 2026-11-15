@@ -109,7 +109,8 @@ the pose node, the live config and the view, the final release clears them and r
 no pose-scope step reaches an act exit. `tests/poses/test_modifier_profile.gd` is the synthetic
 profile suite: a pose change keeps the shared modifier, installs the target-only owners and removes
 the source-only ones, while `leave_pose_body()` keeps the act-exit full removal; its synthetic
-profile lives only in the session's test seam. The hook suites are
+profile lives only in the session's test seam, and the live `refresh_modifiers()` edit swaps the
+feature flags into the same reconcile. The hook suites are
 `tests/act_camera/test_camera.gd`, `tests/act_camera/test_kiss.gd`, `tests/hands/test_caress.gd`,
 `tests/hands/test_actions.gd`, `tests/anatomy/test_act_bridge.gd` and
 `tests/act_audio/test_audio.gd`. `tests/test_source_hygiene.gd` pins the `_pose_fanout()` order

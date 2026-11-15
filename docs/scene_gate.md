@@ -8,8 +8,9 @@ adult mare *may*; this answers whether the *scene* is ready right now.
 `scene_gate/service.gd` (RefCounted) owns:
 
 - the scene-only gate rows: runtime state, paused tree, player conversation, sleep, an active act
-  or aftercare, cuddle, affection, player readiness, navigator existence/reservation/owner/pose,
-  the footstool supply for standing, the missionary pose asset and rig, and the bed rows;
+  or aftercare, cuddle, affection, the pose profile/form/view/source, player readiness, navigator
+  existence/reservation/owner/pose, the footstool supply for a `scene.stool` pose, the bed pose
+  asset and rig, and the bed rows;
 - the bed search (`find_bed_under`, `resolve_bed`) and the bed gate;
 - the player predicate: controls, flight, wing flight, knockdown, swimming, mouse capture, held
   item/case, seat and bed-side recline;
@@ -28,6 +29,12 @@ buck flag.
 
 The rows carry `ELIGIBILITY.Row` objects with the policy's own keys and reasons. The pure policy
 never sees a bed, a navigator, a pose asset or the player body.
+
+The pose half reads `shared/pose_specs.gd`, never a pose-id comparison: `scene()` gives the frame,
+`requires_bed`, `stool`, `standing_free` and the authored act sources; `is_public()` and
+`is_offerable()` decide whether the mode may see the pose at all; `forms`/`views` are checked
+against `PLAYER_FORM.active()` and the headset view. An unknown or internal pose fails
+`pose_profile`; an offer of a non-offerable pose also fails `pose`. The gate fails closed.
 
 `start_verdict()` and `offer_verdict()` accept a `verdict_in` policy snapshot. The idle hint
 supplies the runtime's cached `Mode.START` verdict this way (`docs/eligibility.md`); the gate still
@@ -49,16 +56,20 @@ A `start` gate adds the final scene rows; an `offer` gate uses the offer-safe su
 | `aftercare` | both | no `sex_aftercare` meta |
 | `cuddle` | both | no active cuddle session, or the act starts through it |
 | `affection` | both | no live `Affection.kind` and no active hoof hold |
+| `pose_profile` | both | the pose has a public spec row with a scene frame |
+| `pose_form` | both | the player's live form is in the pose's `forms` |
+| `pose_view` | both | the live display is in the pose's `views` |
+| `pose_source` | both | the act source is in the pose's authored `scene.sources` (or the list is empty) |
 | `player` | start | Anon is free, unseated where the pose requires, and beside the bed when seated |
 | `navigator` | start | she has a `Navigator` |
 | `navigator_reserved` | start | no `reserved_by` lease |
 | `nav_owner` | both | the navigator owner is compatible with the pose/source |
 | `nav_pose` | start | the pose is standable (standing) or the lying/cradle path is allowed |
-| `stool` | both | the standing reach gap has enough footstools (provider callbacks) |
-| `pose_asset` / `pose_rig` | both, missionary | the authored pose loaded and the rig has its bones |
-| `bed` / `bed_occupied` / `bed_gate` | both / both / start | the bed resolves, is free, and the bed-side/cradle conditions hold |
+| `stool` | both | a `scene.stool` pose has enough footstools (provider callbacks) |
+| `pose_asset` / `pose_rig` | both, bed pose | the authored pose loaded and the rig has its bones |
+| `bed` / `bed_occupied` / `bed_gate` | both / both / start | a `scene.requires_bed` pose resolves a free bed and the bed-side/cradle conditions hold |
 | `standing_free` | offer, standing | she is not held and not seated |
-| `pose` | offer, not standing | the pose is unsupported for an offer |
+| `pose` | offer, not offerable | the pose is internal or unknown, so it cannot be offered |
 
 The footstool rule lives in the per-act handle `stool/act.gd` (`docs/stool.md`); the rows reach it
 through the runtime's `stool_needed_count` / `stool_case_count` forwards. The pose rows reach the
@@ -82,7 +93,7 @@ rows report it.
 | `sleep:` | only an awake `lie_down` pony in a bed, for `bed_side`/`already_lying` |
 | `unfplap:` (other) | blocked |
 | `weather:`, `show:` | blocked |
-| `cuddle:`, `leisure:` | only a missionary bed-side/already-lying act |
+| `cuddle:`, `leisure:` | only a bed pose with an authored bed source |
 | `social:` | only `social:talk` with a free player conversation |
 | `life:`, `day:` | free only with no active route |
 | `bond:`, `player:`, `rest_after_command` | free |
@@ -92,8 +103,9 @@ rows report it.
 `refuse_available` requires the policy's `buck_refuse` plus a live scene: idle runtime, valid
 pony/main/player/game, not sleeping/active/aftercare, free conversation and affection, an
 unreserved navigator compatible with the pose, Anon not locked/flying/knocked down/cursor-lost,
-an `Affection` with `buck()`, and the pose context (standing: free, grounded, standing and settled
-within 2.4 m; cradle: held and cradled; already lying: lying and Anon beside the bed).
+an `Affection` with `buck()`, and the pose context (a `scene.standing_free` pose: free, grounded,
+standing and settled within 2.4 m; a `scene.requires_bed` pose: the authored source, then cradle
+held and cradled, or already lying and Anon beside the bed).
 
 `refuse` runs the buck/push (or releases the carry/bed rest first), then `note_refusal`: one
 `REFUSAL` impression with `angry` for a buck and `annoyed` for a turn-away, the game's
@@ -118,7 +130,7 @@ runtime's `debug_line()` is a thin forward. No scene row is recomputed twice in 
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | memory | `memory/service.gd` | act memory and witness pass |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+| shared | pose_specs | `shared/pose_specs.gd` | scene block, support lists and offerability |
 
 ## Lifecycle
 

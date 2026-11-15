@@ -180,6 +180,10 @@ class FakeContext extends RefCounted:
 		return values
 
 
+class FakeForm extends Node:
+	var form: Dictionary = {}
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -260,6 +264,7 @@ func run() -> void:
 	_check_player()
 	_check_bed()
 	_check_rows()
+	_check_profiles()
 	_check_verdicts()
 	_check_refusal()
 	_check_suppress()
@@ -511,6 +516,82 @@ func _check_rows() -> void:
 	var offer_rows: Array = gate.call("rows", "standing", "", null, "offer", true)
 	for row: ELIGIBILITY.Row in offer_rows:
 		check(row.key != "player", "the offer rows skip the player row")
+	_free(made)
+
+
+## One row's pass value, or false when the key is absent.
+func _row_ok(rows: Array, key: String) -> bool:
+	for row: ELIGIBILITY.Row in rows:
+		if row.key == key:
+			return row.ok
+	return false
+
+
+func _has_row(rows: Array, key: String) -> bool:
+	for row: ELIGIBILITY.Row in rows:
+		if row.key == key:
+			return true
+	return false
+
+
+## The pose spec drives the rows: public/offerable, form/view support, the authored source and the
+## scene block's stool/bed/stem choices. An internal pose fails the offer.
+func _check_profiles() -> void:
+	var made := _fixture()
+	var gate: RefCounted = made["gate"]
+	var pony: FakePony = made["pony"]
+	var main: FakeMain = made["main"]
+	var bed: Node3D = made["bed"]
+	var standing: Array = gate.call("rows", "standing", "", null, "start", false)
+	check(_row_ok(standing, "pose_profile"), "the public standing profile passes")
+	check(_row_ok(standing, "pose_form") and _row_ok(standing, "pose_view"),
+		"standing supports the default human desktop")
+	check(_has_row(standing, "stool"), "the standing scene block carries the stool row")
+	check(not _has_row(standing, "bed"), "the standing scene block has no bed row")
+	var missionary: Array = gate.call("rows", "missionary", "bed_side", bed, "start", false)
+	check(_row_ok(missionary, "pose_profile"), "the public missionary profile passes")
+	check(_row_ok(missionary, "pose_source"), "the bed-side source is authored")
+	check(not _has_row(missionary, "stool"), "the bed scene block has no stool row")
+	var cradle: Array = gate.call("rows", "missionary", "cradle", bed, "start", false)
+	check(_row_ok(cradle, "pose_source"), "the cradle source is authored")
+	var unnamed: Array = gate.call("rows", "missionary", "", null, "start", false)
+	check(not _row_ok(unnamed, "pose_source"), "an unauthored source fails")
+	var internal_start: Array = gate.call("rows", "standing_oral", "", null, "start", false)
+	check(not _row_ok(internal_start, "pose_profile"), "an internal pose fails a start")
+	var internal_offer: Array = gate.call("rows", "standing_oral", "", null, "offer", true)
+	check(not _row_ok(internal_offer, "pose"), "an internal pose fails an offer")
+	check(not _row_ok(internal_offer, "pose_profile"),
+		"an internal pose fails the offer profile too")
+	var unknown: Array = gate.call("rows", "no_such_pose", "", null, "offer", true)
+	check(not _row_ok(unknown, "pose_profile") and not _row_ok(unknown, "pose"),
+		"an unknown pose fails closed")
+
+	var driver := FakeForm.new()
+	driver.form = {"kind": "pony"}
+	driver.add_to_group("player_pony_form")
+	root.add_child(driver)
+	var pony_form: Array = gate.call("rows", "missionary", "bed_side", bed, "start", false)
+	check(not _row_ok(pony_form, "pose_form"), "missionary rejects AnonPony")
+	var pony_standing: Array = gate.call("rows", "standing", "", null, "start", false)
+	check(_row_ok(pony_standing, "pose_form"), "standing supports AnonPony")
+	root.remove_child(driver)
+	driver.free()
+
+	(made["game"] as FakeGame).headset_view = true
+	var vr_missionary: Array = gate.call("rows", "missionary", "bed_side", bed, "start", false)
+	check(not _row_ok(vr_missionary, "pose_view"), "missionary rejects the headset view")
+	var vr_standing: Array = gate.call("rows", "standing", "", null, "start", false)
+	check(_row_ok(vr_standing, "pose_view"), "standing supports the headset view")
+	(made["game"] as FakeGame).headset_view = false
+
+	check(gate.call("resolve_bed", "standing_oral", "cradle", null) == null,
+		"a non-bed pose resolves no bed")
+	check(bool(gate.call("player_ready_for", "standing_oral", "", null)) == false,
+		"a non-public pose is never start-ready")
+	check(bool(gate.call("player_ready_for", "missionary", "standing", null)) == false,
+		"a non-authored source is never start-ready")
+	check(bool(gate.call("player_ready_for", "standing", "", null)),
+		"a public standing start stays ready")
 	_free(made)
 
 

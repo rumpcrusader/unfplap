@@ -45,7 +45,8 @@ const SPECS := {
 			"wings": "stock", "kiss": "missionary", "lean": "missionary",
 		},
 		"scene": {
-			"frame": "bed", "requires_bed": true, "sources": ["bed_side", "already_lying"],
+			"frame": "bed", "requires_bed": true,
+			"sources": ["bed_side", "already_lying", "cradle"],
 			"managed_bed": true, "stool": false, "standing_free": false,
 		},
 		"modifiers": {"profile": "missionary"},
@@ -180,6 +181,14 @@ const CONTROL_SETS := {
 }
 
 
+## The scene block a missing or malformed row reads as. The scene gate fails closed by reading
+## `frame` empty and every capability false.
+const NO_SCENE := {
+	"frame": "", "requires_bed": false, "sources": [], "managed_bed": false,
+	"stool": false, "standing_free": false,
+}
+
+
 ## The shipped spec ids, in table order.
 static func ids() -> Array[String]:
 	return [MISSIONARY, STANDING, STANDING_TEST, STANDING_ORAL]
@@ -188,3 +197,37 @@ static func ids() -> Array[String]:
 ## The raw spec dictionary for `id`, or `{}` when the table has no row.
 static func spec(id: String) -> Dictionary:
 	return SPECS.get(id, {})
+
+
+## The scene block for `id`, or the fail-closed default. The returned dictionary is the table's own
+## row (or `NO_SCENE`); callers read it and never write it.
+static func scene(id: String) -> Dictionary:
+	var row: Variant = SPECS.get(id)
+	if not row is Dictionary:
+		return NO_SCENE
+	var block: Variant = (row as Dictionary).get("scene")
+	return block if block is Dictionary else NO_SCENE
+
+
+## Whether `id` is a public pose. An internal pose is reachable only through its authored edge.
+static func is_public(id: String) -> bool:
+	var row: Variant = SPECS.get(id)
+	return row is Dictionary and bool((row as Dictionary).get("public", false))
+
+
+## Whether `id` may be offered by the request service. An offerable pose is always public.
+static func is_offerable(id: String) -> bool:
+	var row: Variant = SPECS.get(id)
+	return row is Dictionary and bool((row as Dictionary).get("offerable", false))
+
+
+## Whether the pose is authored for the player form (`human`/`pony`) and the live view
+## (`desktop`/`vr`). A missing row supports nothing.
+static func supports(id: String, form: String, view: String) -> bool:
+	var row: Variant = SPECS.get(id)
+	if not row is Dictionary:
+		return false
+	var forms_value: Variant = (row as Dictionary).get("forms")
+	var views_value: Variant = (row as Dictionary).get("views")
+	return forms_value is Array and form in (forms_value as Array) \
+		and views_value is Array and view in (views_value as Array)

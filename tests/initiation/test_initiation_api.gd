@@ -42,6 +42,11 @@ class FakeMain extends Node:
 class FakeGame extends Node:
 	var mares: Array = []
 	var world_context: Node
+	var headset_view := false
+
+
+class FakeForm extends Node:
+	var form: Dictionary = {}
 
 
 class FakeWorldContext extends Node:
@@ -305,6 +310,29 @@ func run() -> void:
 	check(not busy.ok and busy.reject.contains("state=1"),
 		"force reports the runtime state")
 	runtime.state = 0
+
+	# Internal poses are never offer candidates, and the spec's form/view support refuses them
+	# before the scene gate runs.
+	var internal_pose: INIT.ForceResult = initiation.force(runtime, CATALOG.STANDING_ORAL)
+	check(not internal_pose.ok and internal_pose.reject.contains("pose:standing_oral"),
+		"an internal pose is never offered")
+	var test_pose: INIT.ForceResult = initiation.force(runtime, CATALOG.STANDING_TEST)
+	check(not test_pose.ok and test_pose.reject.contains("pose:standing_test"),
+		"the internal test pose is never offered")
+	var form_driver := FakeForm.new()
+	form_driver.form = {"kind": "pony"}
+	form_driver.add_to_group("player_pony_form")
+	root.add_child(form_driver)
+	var pony_form: INIT.ForceResult = initiation.force(runtime, CATALOG.MISSIONARY)
+	check(not pony_form.ok and pony_form.reject.contains("pose:missionary"),
+		"a pose whose forms exclude AnonPony is never offered")
+	root.remove_child(form_driver)
+	form_driver.free()
+	game.headset_view = true
+	var vr_bed: INIT.ForceResult = initiation.force(runtime, CATALOG.MISSIONARY)
+	check(not vr_bed.ok and vr_bed.reject.contains("pose:missionary"),
+		"a desktop-only pose is never offered in the headset view")
+	game.headset_view = false
 
 	# Cancelling a normal act-key start keeps the bed rest and the stretch choice for the act, but gives
 	# the presentation back.

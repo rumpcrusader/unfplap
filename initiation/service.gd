@@ -18,6 +18,7 @@ const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
 const CONVERSATION := preload("res://mods/unfplap/initiation/conversation.gd")
 const VENUE := preload("res://mods/unfplap/initiation/venue.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const CONSENT := preload("res://mods/unfplap/initiation/classifier.gd")
 const CONSENT_CORE := preload("res://mods/unfplap/initiation/consent.gd")
 const COOLDOWNS := preload("res://mods/unfplap/initiation/cooldowns.gd")
@@ -328,6 +329,12 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	if id.is_empty():
 		reasons.append("no_id")
 		return null
+	var form: Dictionary = PLAYER_FORM.active(get_tree())
+	var form_id := "pony" if PLAYER_FORM.is_pony(form) else "human"
+	var view_id := "vr" if _headset_view() else "desktop"
+	if not pose_request.is_empty() and not _pose_supported(pose_request, form_id, view_id):
+		reasons.append("pose:%s" % pose_request)
+		return null
 	var verdict: ELIGIBILITY.Verdict = null
 	var service := _eligibility()
 	if service != null:
@@ -373,14 +380,20 @@ func _cuddle_candidate(runtime: Node, forced: bool, reasons: Array = [],
 	if id.is_empty():
 		reasons.append("cuddle:no_id")
 		return null
+	var form: Dictionary = PLAYER_FORM.active(get_tree())
+	if not _pose_supported(CATALOG.MISSIONARY, _form_id(form), _view_id()):
+		reasons.append("cuddle:pose")
+		return null
 	if not forced and bool(_cuddle_asked.get(id, false)):
 		reasons.append("cuddle:asked")
 		return null
 	if not _cuddle_privacy_ok(pony):
 		reasons.append("cuddle:privacy")
 		return null
-	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
+	if not _pose_source_ok(CATALOG.MISSIONARY, source):
+		reasons.append("cuddle:source")
+		return null
 	var bed: Variant = runtime.call("find_bed_under")
 	if not is_instance_valid(bed):
 		reasons.append("cuddle:no_bed_under")
@@ -414,13 +427,19 @@ func _bed_candidate(runtime: Node, forced: bool, reasons: Array = [],
 	if not is_instance_valid(pony):
 		reasons.append("bed:no_pony")
 		return null
+	var form: Dictionary = PLAYER_FORM.active(get_tree())
+	if not _pose_supported(CATALOG.MISSIONARY, _form_id(form), _view_id()):
+		reasons.append("bed:pose")
+		return null
 	var found: Dictionary = _venue.find_bed_for(pony)
 	if found.is_empty():
 		reasons.append("bed:no_free_bed")
 		return null
 	var bed: Node3D = found.get("bed")
-	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var source := "already_lying" if PLAYER_FORM.is_pony(form) else "bed_side"
+	if not _pose_source_ok(CATALOG.MISSIONARY, source):
+		reasons.append("bed:source")
+		return null
 	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.MISSIONARY, source, bed, forced,
 		verdict_in)
 	if not bool(gate.get("ok", false)):
@@ -449,6 +468,11 @@ func _standing_candidate(runtime: Node, forced: bool, reasons: Array = [],
 	if not is_instance_valid(pony):
 		reasons.append("standing:no_pony")
 		return null
+	var form: Dictionary = PLAYER_FORM.active(get_tree())
+	if not _pose_supported(CATALOG.STANDING, _form_id(form), _view_id()) \
+			or not _pose_source_ok(CATALOG.STANDING, ""):
+		reasons.append("standing:pose")
+		return null
 	var gate: Dictionary = runtime.call("offer_verdict", CATALOG.STANDING, "", null, forced,
 		verdict_in)
 	if not bool(gate.get("ok", false)):
@@ -466,6 +490,35 @@ func _standing_candidate(runtime: Node, forced: bool, reasons: Array = [],
 	out.forced = forced
 	out.weight = policy.offer_weight if policy != null else 0.0
 	return out
+
+
+## The player's game form id.
+func _form_id(form: Dictionary) -> String:
+	return "pony" if PLAYER_FORM.is_pony(form) else "human"
+
+
+## The live display id for the pose support check.
+func _view_id() -> String:
+	return "vr" if _headset_view() else "desktop"
+
+
+func _headset_view() -> bool:
+	return is_instance_valid(main) and is_instance_valid(main.game) \
+		and bool(main.game.get("headset_view"))
+
+
+## Whether a pose may be offered to this player form and display. Internal poses are never
+## offerable, even when a forced request names them.
+func _pose_supported(pose: String, form: String, view: String) -> bool:
+	return POSE_SPECS.is_offerable(pose) and POSE_SPECS.supports(pose, form, view)
+
+
+## Whether the pose's authored scene accepts this act source. An empty source list places no
+## constraint.
+func _pose_source_ok(pose: String, act_source: String) -> bool:
+	var sources: Variant = POSE_SPECS.scene(pose).get("sources", [])
+	return not (sources is Array) or (sources as Array).is_empty() \
+		or act_source in (sources as Array)
 
 
 func _append_gate_reasons(reasons: Array, label: String, gate: Dictionary) -> void:

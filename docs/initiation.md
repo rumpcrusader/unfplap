@@ -151,9 +151,15 @@ gates.
 
 | Candidate | Requires |
 |---|---|
-| Cuddle | an active cuddle, the bed under her, the offer gate, and `main.offer_target()` naming her |
-| Bed | a free bed within `10 m` on the same floor and region, a finite front spot, the offer gate |
-| Standing | the offer gate, a free navigator in Anon's region, and Anon within `24 m` |
+| Cuddle | an active cuddle, an offerable bed pose, the bed under her, the offer gate, and `main.offer_target()` naming her |
+| Bed | an offerable bed pose, a free bed within `10 m` on the same floor and region, a finite front spot, the offer gate |
+| Standing | an offerable standing pose, the offer gate, a free navigator in Anon's region, and Anon within `24 m` |
+
+Only `shared/pose_specs.gd` rows with `offerable` are candidates. The row's `forms`/`views` must
+contain the player's live form and display, and the candidate's act source must be in its
+`scene.sources` (an empty list places no source constraint). `standing_test` and `standing_oral`
+are internal, never offered, and a forced request naming them is rejected rather than falling back
+to another pose.
 
 Weight is `verdict.offer_weight` from act history. Cuddle candidates are preferred outright;
 otherwise the pick is weighted. When both poses fit a non-cuddle offer, the pose is a coin flip;
@@ -310,6 +316,7 @@ after the spoken words only when the moment genuinely changes how she feels.
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+| shared | pose_specs | `shared/pose_specs.gd` | offerable poses and form/view support |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
 | store | act_history | `shared/act_history.gd` | stored history rows |
 

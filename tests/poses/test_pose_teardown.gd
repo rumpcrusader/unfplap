@@ -8,10 +8,8 @@ extends SceneTree
 const SESSION := preload("res://mods/unfplap/poses/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
-const STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 
 const SERVICE_PATH := "res://mods/unfplap/poses/service.gd"
-const STRETCH_FAKE := "res://mods/unfplap/tests/fixtures/idle_stretch_fake.gd"
 ## The runtime's act-exit names a pose-scope step must never call.
 const ACT_EXIT := ["release_pose(", "_end_session(", "_unlock_player(", "_restore_pony_bones(",
 	"_restore_camera(", "_restore_look(", "_release_nav(", "_free_pose("]
@@ -194,10 +192,9 @@ func _check_missionary_scope() -> void:
 	_free_fixture(made)
 
 
-## The standing pose keeps its modifiers, its tail and the stretch holder through both leave steps;
-## only the final release frees the pose node and the tail.
+## The standing pose keeps its modifiers and its tail through both leave steps; only the final
+## release frees the pose node and the tail.
 func _check_standing_scope() -> void:
-	STRETCH.pose_path = STRETCH_FAKE
 	var made := _fixture(CATALOG.STANDING, {"standing_body_sway": true})
 	var session: RefCounted = made["session"]
 	var body: Skeleton3D = made["body"]
@@ -209,19 +206,12 @@ func _check_standing_scope() -> void:
 	check(body_sway != null and body_sway.get_parent() == body,
 		"the standing begin installs body sway")
 	check(tail != null and tail.get_parent() != null, "the standing begin installs the tail")
-	session.pose_node.set("stretch", true)
-	session.sync_stretch()
-	var holder: Node = body.get_node_or_null("UnfplapIdleStretch")
-	check(holder != null, "the standing begin can install the stretch holder")
-	check(session._stretch != null, "the stretch holder is owned by the session")
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.STANDING,
 		"the standing begin fills the view")
 	check(session.ground_frame is Transform3D,
 		"the standing begin captures the ground frame")
 
 	session.leave_pose_start()
-	check(holder != null and holder.get_parent() == body,
-		"the pose-start leave keeps the stretch holder")
 	check(session.ground_frame == null,
 		"the pose-start leave clears the ground frame")
 	check(session.body_sway == body_sway and body_sway.get_parent() == body,
@@ -234,8 +224,6 @@ func _check_standing_scope() -> void:
 		"the pose-start leave keeps the config and the view")
 
 	session.leave_pose_body()
-	check(session._stretch == null and holder.is_queued_for_deletion(),
-		"the pose-body leave frees the stretch holder")
 	check(session.body_sway == null and body_sway.get_parent() == null
 		and body_sway.is_queued_for_deletion(),
 		"the pose-body leave frees the extra modifiers")
@@ -258,7 +246,6 @@ func _check_standing_scope() -> void:
 	check(session.ground_frame == null,
 		"the standing final release clears the ground frame")
 	_free_fixture(made)
-	STRETCH.pose_path = STRETCH.POSE_PATH
 
 
 ## The live debug edge: the request and tick path keeps the pose node, the config and the view, and

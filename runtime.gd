@@ -946,8 +946,6 @@ func request_pose(target_id: String, trigger := "", context: Dictionary = {}) ->
 		request["act_state"] = state
 	if not request.has("features"):
 		request["features"] = _features
-	if not request.has("stretch"):
-		request["stretch"] = _pose_service().stretch_active()
 	return _pose_service().request_pose(target_id, trigger, request)
 
 
@@ -1087,8 +1085,8 @@ func apply_live_settings() -> void:
 	var previous_mute := bool(_features.get("mute_ponese_audio", false))
 	_snapshot_settings()
 	if state == State.IDLE:
-		# The idle standing presentation owns its own stretch holder, so a live settings edit has
-		# to reach it before the act-only work is skipped.
+		# The idle standing presentation has its own live values, so a settings edit reaches it
+		# before the act-only work is skipped.
 		_bind_act_view()
 		_standing_presentation_controller().apply_live_settings()
 		# integration: the anatomy feature is live outside acts too.
@@ -2015,8 +2013,6 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	# the first rendered frame; every later change arrives through `_pose_fanout()`.
 	_pose_service().pose_changed(_pose_service().view())
 	_integrations_controller().begin()
-	# Install the stretch holder before body sway's first modification pass caches the hips.
-	_pose_service().sync_stretch()
 	_act_face_beat("start")
 	# integration: act-only visibility updates at the state change, not on the next poll.
 	_anatomy_bridge.apply_live()
@@ -2066,9 +2062,6 @@ func presentation_settled() -> bool:
 
 func clear_presentation() -> void:
 	_standing_presentation_controller().clear_presentation()
-
-func clear_stretch_offer() -> void:
-	_standing_presentation_controller().clear_stretch_offer()
 
 func set_request_face(on: bool) -> void:
 	_standing_presentation_controller().set_request_face(on)
@@ -2394,7 +2387,7 @@ func toggle_anatomy_hole() -> void:
 
 ## The `oral` command: request the standing oral pose, or the return edge when it is already
 ## active. The per-mare consent string is passed only when the anatomy service says yes; the
-## feature and the stretch holder are checked by the edge requirements, not here.
+## feature is checked by the edge requirements, not here.
 func toggle_anatomy_oral() -> void:
 	var view: RefCounted = _pose_service().view()
 	var from_id := str(view.id)
@@ -3503,7 +3496,6 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	if _posture_owned:
 		_restore_posture(_start_frame(), rejoin_cuddle)
 	_free_pose()
-	_pose_service().clear_stretch_choice()
 	_restore_pony_bones()
 	_stop_audio()
 	if is_instance_valid(main):

@@ -58,8 +58,7 @@ func _edge() -> Dictionary:
 		"from": "standing",
 		"to": "standing_test",
 		"phases": ["active"],
-		"requires": {"features": [], "consent": "", "forms": [], "views": [],
-			"stretch": "inactive"},
+		"requires": {"features": [], "consent": "", "forms": [], "views": []},
 		"duration": 0.6,
 		"easing": "smoothstep",
 		"channels": {
@@ -134,8 +133,6 @@ func _check_request_code() -> void:
 	check(STATE.request_code(VIEW.STEADY, 2, "standing", "standing_test", true,
 		{"consent_ok": false}) == "refused", "a missing consent refuses")
 	check(STATE.request_code(VIEW.STEADY, 2, "standing", "standing_test", true,
-		{"stretch_ok": false}) == "refused", "an unsupported stretch refuses")
-	check(STATE.request_code(VIEW.STEADY, 2, "standing", "standing_test", true,
 		{"asset_ok": false}) == "missing_asset", "a missing asset refuses")
 	check(STATE.request_code(VIEW.STEADY, 2, "standing", "standing_test", true,
 		{"locked": true}) == "locked", "a locked request refuses")
@@ -143,7 +140,7 @@ func _check_request_code() -> void:
 		"the default checks accept")
 	check(STATE.request_code(VIEW.STEADY, 2, "standing", "standing_test", true,
 		{"form_ok": true, "view_ok": true, "features_ok": true, "consent_ok": true,
-			"stretch_ok": true, "asset_ok": true, "locked": false}) == "ok",
+			"asset_ok": true, "locked": false}) == "ok",
 		"all explicit checks accept")
 	check(STATE.request_code(VIEW.STEADY, 2, "standing", "standing_test", true,
 		{"form_ok": false, "view_ok": false}) == "unsupported_form",
@@ -183,14 +180,12 @@ func _check_requirement_code() -> void:
 		{"features_ok": false}) == "refused", "a feature requirement refuses")
 	check(STATE.requirement_code({"requires": {"consent": "bond"}},
 		{"consent_ok": false}) == "refused", "a consent requirement refuses")
-	check(STATE.requirement_code({"requires": {"stretch": "inactive"}},
-		{"stretch_ok": false}) == "refused", "a stretch requirement refuses")
 	check(STATE.requirement_code({"requires": {"features": ["anatomy"]}},
-		{"consent_ok": false, "stretch_ok": false}) == "ok",
+		{"consent_ok": false}) == "ok",
 		"a feature requirement does not read the other flags")
-	check(STATE.requirement_code({"requires": {"features": [], "consent": "", "stretch": ""}},
-		{"features_ok": false, "consent_ok": false, "stretch_ok": false}) == "ok",
-		"empty feature/consent/stretch requirements pass")
+	check(STATE.requirement_code({"requires": {"features": [], "consent": ""}},
+		{"features_ok": false, "consent_ok": false}) == "ok",
+		"empty feature and consent requirements pass")
 
 
 func _check_result() -> void:

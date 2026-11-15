@@ -511,21 +511,8 @@ func _check_snapshot() -> void:
 	check(bool(snap.features.get("hud_readouts", false)), "the act snapshot carries features")
 	check(not snap.features.has("kissing_full_fidgets"),
 		"the Kissing climax fidgets are not a feature")
-	check(snap.features.has("idle_life_stretch"),
-		"the act snapshot carries the Idle Life stretch feature")
-	var stretch_before := SETTINGS.idle_life_stretch.get_bool()
-	var debug_before := SETTINGS.debug_mode.get_bool()
-	SETTINGS.idle_life_stretch.set_bool(true)
-	SETTINGS.debug_mode.set_bool(false)
-	var dormant := SETTINGS.act_snapshot("missionary")
-	check(not bool(dormant.features.get("idle_life_stretch")),
-		"a saved stretch stays dormant without debug mode")
-	SETTINGS.debug_mode.set_bool(true)
-	var live := SETTINGS.act_snapshot("missionary")
-	check(bool(live.features.get("idle_life_stretch")),
-		"the stretch reaches the act snapshot with debug mode on")
-	SETTINGS.debug_mode.set_bool(debug_before)
-	SETTINGS.idle_life_stretch.set_bool(stretch_before)
+	check(not snap.features.has("idle_life_stretch"),
+		"the retired Idle Life stretch is not a feature")
 	check(snap.caress_quality == SETTINGS.quality.get_choice(),
 		"the act snapshot carries the caress quality")
 	check(snap.presentation.has("camera_mode"), "the act snapshot carries the pose presentation")
@@ -962,9 +949,8 @@ func _check_integrations_panel() -> void:
 	for setting: SETTINGS.Setting in SETTINGS.tab_settings(SETTINGS.INTEGRATIONS):
 		check(labels.has(setting.label),
 			"the Integrations tab draws %s" % setting.name)
-	check(debug_section is VBoxContainer and debug_section.name == "DebugSection",
-		"the Integrations tab has a Debug block")
-	check(labels.has("Debug"), "the Integrations Debug block is labelled")
+	check(debug_section == null, "the Integrations tab has no Debug block of its own")
+	check(not labels.has("Debug"), "the Integrations tab has no Debug heading")
 	list.free()
 
 

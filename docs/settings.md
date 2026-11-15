@@ -432,9 +432,8 @@ interjections**.
   `shared/integrations.gd`, in catalog order, whether or not the other mod is installed, then gets
   its own collapsible section named `Mod by Author` and open by default. The section body carries
   the Faint `Verified with version: ...` hint and its player-facing switches; its open state is
-  stored under `integrations/Mods/<mod id>`. The Kissing and Idle Life entries are always listed.
-  Debug-only integration switches sit in the tab's **Debug** block instead. The behavior is in
-  `docs/integrations.md`.
+  stored under `integrations/Mods/<mod id>`. The Kissing entry is always listed, whether or not
+  Kissing is installed. The behavior is in `docs/integrations.md`.
 
 **Debug sections**
 
@@ -449,8 +448,6 @@ tuning:
   receptive window.
 - **Kissing**: the reaction bridge's level and cap are `docs/integrations.md`; it has no debug
   switch of its own.
-- **Integrations › Debug**: **Use the Idle Life stretch pose**, currently broken and off by
-  default; see `docs/integrations.md` and `docs/poses.md`.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
   still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points,
@@ -503,7 +500,6 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `act_public_offer` | per-mare public consent affects offers; see `docs/eligibility.md` |
 | `mute_ponese_audio` | mute a Ponese-only act voice but keep its text |
 | `kissing_reactions` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
-| `idle_life_stretch` | debug-only: Idle Life's stretch pose from the accepted standing presentation through the act; dormant unless Enable debug is on and currently broken; the ask stays normal; see `docs/integrations.md` and `docs/poses.md` |
 
 Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,
 unprompted act lines with their fresh-angle wording, starting an act through an active cuddle,

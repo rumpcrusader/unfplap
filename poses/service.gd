@@ -16,7 +16,6 @@ const TAIL_LAY := preload("res://mods/unfplap/poses/tail_lay.gd")
 const BODY_SWAY := preload("res://mods/unfplap/poses/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/poses/prone_sway.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
-const IDLE_STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
@@ -85,8 +84,6 @@ var act_body: Variant = null
 ## The authored profile table with a test seam: a synthetic profile can be added without touching
 ## the shipped const.
 var modifier_profiles: Dictionary = SPECS.MODIFIER_PROFILES.duplicate()
-## The act's external Idle Life stretch holder, or null when the act pose has no stretch.
-var _stretch: Variant = null
 ## The camera position the standing tail chooses its side against, from the begin context.
 var _tail_anchor := Vector3.INF
 
@@ -186,9 +183,6 @@ func begin(context: Dictionary) -> bool:
 	_bind_face()
 	_face_driver.reset()
 	_state = POSE_STATE.next(_state, "begin")
-	# A holder left from the last act is dropped without clearing the choice: a new act after an
-	# offer reuses the variant and side the offer rolled.
-	_release_stretch(false)
 	var start_id := str(context.get("pose_id", ""))
 	id = str(context.get("id", ""))
 	features = context.get("features", {})
@@ -406,8 +400,7 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 	var forms := _request_forms(context)
 	var views := _request_views(context)
 	var features := _request_features(context)
-	var stretch := bool(context.get("stretch", stretch_active()))
-	var checks := _request_checks(target_spec, edge, context, forms, views, features, stretch)
+	var checks := _request_checks(target_spec, edge, context, forms, views, features)
 	var code := POSE_STATE.request_code(_state, act_state, from_id, target_id,
 		edge != null, checks)
 	if code != "ok":
@@ -484,7 +477,7 @@ func _facts_features() -> Dictionary:
 ## The target spec and the edge requirements against the live request values, in the order
 ## `pose_state.request_code()` reports them. A missing flag passes.
 func _request_checks(target_spec: Variant, edge: Variant, context: Dictionary, forms: Array,
-		views: Array, features: Dictionary, stretch: bool) -> Dictionary:
+		views: Array, features: Dictionary) -> Dictionary:
 	var requires: Dictionary = {}
 	if edge != null:
 		var requires_value: Variant = edge.requires
@@ -515,14 +508,11 @@ func _request_checks(target_spec: Variant, edge: Variant, context: Dictionary, f
 	var wanted_consent := str(requires.get("consent", ""))
 	var consent := str(context.get("consent", ""))
 	var consent_ok := wanted_consent.is_empty() or consent == wanted_consent
-	var wanted_stretch := str(requires.get("stretch", ""))
-	var stretch_ok := wanted_stretch != "inactive" or not stretch
 	return {
 		"form_ok": form_ok,
 		"view_ok": view_ok,
 		"features_ok": features_ok,
 		"consent_ok": consent_ok,
-		"stretch_ok": stretch_ok,
 		"asset_ok": asset_ok,
 		"locked": bool(context.get("locked", false)),
 	}
@@ -768,12 +758,6 @@ func apply_live_settings() -> void:
 	_target_config.clear()
 	_target_config.merge(fresh, true)
 	_oral_turn.write_config(_view)
-
-
-## True while the external Idle Life holder owns the body; an edge that requires `stretch:
-## inactive` refuses then.
-func stretch_active() -> bool:
-	return _stretch != null and bool(_stretch.call("active"))
 
 
 ## Drop the target snapshot and the running edge without touching the live pose or the view.
@@ -1073,12 +1057,9 @@ func leave_pose_start() -> void:
 	ground_frame_source = Transform3D.IDENTITY
 
 
-## The pose-scope body state: release the external stretch holder and drop the live-installed extra
-## modifiers. It keeps the pose node, the standing tail, `pose_config` and the view.
+## The pose-scope body state: drop the live-installed extra modifiers. It keeps the pose node, the
+## standing tail, `pose_config` and the view.
 func leave_pose_body() -> void:
-	# The runtime's new-act prep runs this too: preserve the offer's episode choice so the act
-	# reuses it. The one act teardown clears it through `clear_stretch_choice()`.
-	_release_stretch(false)
 	if is_instance_valid(body_sway):
 		_drop(body_sway)
 	body_sway = null
@@ -1104,7 +1085,6 @@ func release_pose() -> void:
 	_face_driver.reset()
 	_abort_target()
 	_state = POSE_STATE.next(_state, "exit")
-	_release_stretch(false)
 	_release_act_body()
 	if is_instance_valid(pose_node):
 		_drop(pose_node)
@@ -1135,37 +1115,6 @@ func release_pose() -> void:
 	_state = POSE_STATE.next(_state, "released")
 
 
-## Install, keep or remove the external Idle Life stretch holder for the live act pose. The
-## integration provider writes `pose_node.stretch`; this owns the node, its modifier order and
-## the body-sway base that must follow the stretched hips.
-func sync_stretch() -> void:
-	if str(_view.family) != "standing":
-		# A pose change away from standing drops the external holder; the act choice is kept.
-		if _stretch != null:
-			_release_stretch(false)
-			_reset_sway_base()
-		return
-	if not is_instance_valid(pose_node) or not is_instance_valid(pony):
-		return
-	if bool(pose_node.get("stretch")):
-		if _stretch != null and bool(_stretch.call("active")):
-			return
-		_release_stretch(false)
-		var holder: Variant = IDLE_STRETCH.new()
-		if not bool(holder.call("begin", pony, true)):
-			pose_node.set("stretch", false)
-			_write_log("stretch pose unavailable: idle_life")
-			_reset_sway_base()
-			return
-		_stretch = holder
-		holder.call("place_before", pose_node)
-		_reset_sway_base()
-		return
-	if _stretch != null:
-		_release_stretch(false)
-		_reset_sway_base()
-
-
 ## One pose-change fan-out. Reconciles the modifier profile and applies the `act_body`/`anon`
 ## channel; the pose evaluator pair was already set by `begin`/`request_pose`/`tick`. Cheap and
 ## idempotent: every owner compares against its own cache, so a steady tick installs nothing.
@@ -1180,7 +1129,6 @@ func pose_changed(view: Variant) -> void:
 		from_spec = to_spec
 	_reconcile_modifiers(_profile_of(from_spec), _profile_of(to_spec), view)
 	_apply_anon_channel(view)
-	sync_stretch()
 
 
 ## The spec's modifier profile name, or empty when the row has no block.
@@ -1489,9 +1437,8 @@ func render_write(context: Dictionary) -> void:
 		return
 	var family := str(_view.family)
 	if family == "standing":
-		# Same order as the bed family: the live stretch toggle, the ground frame, then the pose
-		# write after every physics and process writer of the frame.
-		sync_stretch()
+		# Same order as the bed family: the ground frame, then the pose write after every physics
+		# and process writer of the frame.
 		sync_ground_frame()
 		var standing_sk: Variant = pony.get("skeleton")
 		if is_instance_valid(pose_node) and standing_sk is Skeleton3D:
@@ -1859,20 +1806,6 @@ func log_settled(state: int, anon_diag: Callable) -> void:
 func body_scale() -> float:
 	var value: Variant = pony.get("body_scale") if is_instance_valid(pony) else null
 	return float(value) if value != null else 1.0
-
-
-## End the act episode: the runtime calls this from the one teardown path after the pose is
-## released, never from the new-act prep (which must reuse the offer's stored choice).
-func clear_stretch_choice() -> void:
-	_release_stretch(true)
-
-
-func _release_stretch(clear: bool) -> void:
-	if _stretch != null:
-		_stretch.call("finish", clear)
-		_stretch = null
-	elif clear and is_instance_valid(pony):
-		IDLE_STRETCH.clear_choice(pony)
 
 
 func _reset_sway_base() -> void:

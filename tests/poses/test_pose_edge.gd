@@ -241,13 +241,9 @@ func _check_oral_documents() -> void:
 	check(requires.get("features") == ["anatomy_oral"],
 		"the oral forward edge needs the anatomy feature")
 	check(str(requires.get("consent", "")) == "oral", "the oral forward edge needs consent")
-	check(str(requires.get("stretch", "")) == "inactive",
-		"the oral forward edge refuses while the stretch holder runs")
 	var reverse_requires: Dictionary = reverse.get("requires", {})
 	check(not reverse_requires.has("consent"),
 		"the oral reverse edge never asks for consent again")
-	check(str(reverse_requires.get("stretch", "")) == "any",
-		"the oral reverse edge returns through a live stretch holder")
 	var channels: Dictionary = forward.get("channels", {})
 	check(str((channels.get("base", {}) as Dictionary).get("kind", "")) == "delta",
 		"the oral forward base is a delta")
@@ -336,8 +332,6 @@ func _check_facesit_documents() -> void:
 	var requires: Dictionary = forward.get("requires", {})
 	check(requires.get("forms") == ["human"], "the face-sit forward edge needs human Anon")
 	check(requires.get("views") == ["desktop"], "the face-sit forward edge needs a desktop view")
-	check(str(requires.get("stretch", "")) == "any",
-		"the face-sit forward edge allows the external stretch holder")
 	check(not requires.has("features") and not requires.has("consent"),
 		"the face-sit forward edge has no feature or consent row")
 	check(near(float(forward.get("duration", 0.0)), 1.6),
@@ -467,7 +461,7 @@ func _check_rejections() -> void:
 	_rejects(_with_requires("views", ["desktop", "desktop"]), "a duplicate view is rejected")
 	_rejects(_with_requires("features", ["", "anatomy"]), "an empty feature is rejected")
 	_rejects(_with_requires("consent", 3), "a non-string consent is rejected")
-	_rejects(_with_requires("stretch", "always"), "an unknown stretch policy is rejected")
+	_rejects(_with_requires("mood", "always"), "an unknown requires key is rejected")
 	var support_table := {
 		"a": _row("a", SPECS.STANDING, ["human"], ["desktop"]),
 		"b": _row("b", SPECS.STANDING, ["pony"], ["vr"]),

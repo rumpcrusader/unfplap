@@ -4,7 +4,7 @@
 	"from": "bed_facesit",
 	"to": "missionary",
 	"phases": ["active"],
-	"requires": {"forms": ["human"], "views": ["desktop"], "stretch": "any"},
+	"requires": {"forms": ["human"], "views": ["desktop"]},
 	"duration": 1.2,
 	"easing": "smoothstep",
 	"channels": {

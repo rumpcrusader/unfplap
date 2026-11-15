@@ -8,7 +8,6 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
-const IDLE_STRETCH := preload("res://mods/unfplap/poses/idle_stretch.gd")
 
 const PRESENT_TURN_RATE := 2.4
 const PRESENT_FACE_TURN_RATE := 1.5
@@ -64,10 +63,8 @@ var _present_look_point := Vector3.ZERO
 var _present_face_direction := Vector3.ZERO
 var _request_face := false
 var _request_claimed_affection := false
-## The full presentation hold. The ask is always the normal standing pose; the stretch starts
-## once she has accepted and turned. The stored variant and side carry into the act.
-var _present_stretch: Variant = null
-
+## Bring her into the presentation hold: the ask is always the normal standing pose, and the
+## stored variant and side carry into the act once she has accepted and turned.
 func present_standing() -> bool:
 	_sync()
 	if _presenting or _present_turning:
@@ -119,7 +116,6 @@ func present_standing() -> bool:
 func _attach_present_pose() -> void:
 	if not is_instance_valid(pony):
 		return
-	_finish_present_stretch(false)
 	_pose_cfg = SETTINGS.pose(str(facts.pony_id), CATALOG.STANDING)
 	# The act stance bows and bends the forelegs for the thrust; seen from behind it reads as her
 	# front legs tucked between her hind. The invitation is a natural stand with the rump
@@ -137,11 +133,6 @@ func _attach_present_pose() -> void:
 		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg", 24.1)))
 	var skeleton: Variant = pony.get("skeleton")
 	if skeleton is Skeleton3D:
-		var holder: Variant = null
-		if _stretch_enabled():
-			holder = IDLE_STRETCH.new()
-			if not bool(holder.call("begin", pony, true)):
-				holder = null
 		_present_pose = POSE.new()
 		_present_pose.name = "UnfplapPresentPose"
 		_present_pose.mare = pony
@@ -151,11 +142,7 @@ func _attach_present_pose() -> void:
 		_present_pose.look_point = _present_look_point
 		_present_pose.amount = 0.0
 		_present_pose.target_amount = 1.0
-		_present_pose.stretch = holder != null
 		(skeleton as Skeleton3D).add_child(_present_pose)
-		if holder != null:
-			_present_stretch = holder
-			holder.call("place_before", _present_pose)
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
 		_present_tail = TAIL.new()
@@ -315,8 +302,7 @@ func presentation_settled() -> bool:
 func clear_presentation() -> void:
 	_sync()
 	# Preserve the episode choice: an act started from this presentation reuses the same variant
-	# and side. A cancel clears it through `clear_stretch_offer()` before this runs.
-	_finish_present_stretch(false)
+	# and side.
 	if _present_turning:
 		_end_present_turn()
 	if is_instance_valid(_present_pose):
@@ -466,59 +452,10 @@ func request_face_active() -> bool:
 	return _request_face
 
 
-## A cancel or close drops the presentation holder and the stored episode choice. The act-key-start
-## handoff does not call this, so the act reuses the presentation's variant and side.
-func clear_stretch_offer() -> void:
-	_sync()
-	_finish_present_stretch(true)
-
-
-## Re-read the setting and the external mod after a settings edit. Only a live presentation is
-## touched; the act's holder is the pose session's, and the ask is never stretched.
+## Re-read the live settings after an edit. The presentation has no act-time values of its own;
+## the pose config is read when the hold starts.
 func apply_live_settings() -> void:
 	_sync()
-	var enabled := _stretch_enabled()
-	if _present_stretch != null and not enabled:
-		_finish_present_stretch(false)
-		if is_instance_valid(_present_pose):
-			_present_pose.set("stretch", false)
-	if not enabled:
-		return
-	if _presenting and not _present_turning and _present_stretch == null:
-		_attach_present_stretch()
-
-
-## Whether debug mode, the player turned debug setting and Idle Life are all on. The stretch
-## integration is currently broken, so a saved true stays dormant until Enable debug is on. Read
-## at the presentation attach and on live settings edits, never per frame.
-func _stretch_enabled() -> bool:
-	if not SETTINGS.debug_mode.get_bool():
-		return false
-	if not bool(SETTINGS.idle_life_stretch.get_bool()):
-		return false
-	if facts == null:
-		return false
-	return bool(facts.mod_active("idle_life"))
-
-
-func _attach_present_stretch() -> void:
-	if _present_stretch != null or not is_instance_valid(pony) \
-			or not is_instance_valid(_present_pose):
-		return
-	var holder: Variant = IDLE_STRETCH.new()
-	if not bool(holder.call("begin", pony, true)):
-		return
-	_present_stretch = holder
-	_present_pose.set("stretch", true)
-	holder.call("place_before", _present_pose)
-
-
-func _finish_present_stretch(clear: bool) -> void:
-	if _present_stretch != null:
-		_present_stretch.call("finish", clear)
-		_present_stretch = null
-	elif clear and is_instance_valid(pony):
-		IDLE_STRETCH.clear_choice(pony)
 
 
 func _request_face_process() -> void:

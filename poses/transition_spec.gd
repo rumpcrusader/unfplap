@@ -16,8 +16,7 @@ const EASINGS := ["linear", "smoothstep"]
 const EVENT_KINDS := ["status", "speech_stop", "viseme"]
 const CLIMAX_POLICIES := ["hold"]
 const TEARDOWN_POLICIES := ["abort", "finish"]
-const STRETCH_POLICIES := ["", "any", "inactive"]
-const REQUIRES_KEYS := ["features", "consent", "forms", "views", "stretch"]
+const REQUIRES_KEYS := ["features", "consent", "forms", "views"]
 
 var id := ""
 var version := 0
@@ -174,10 +173,6 @@ static func _check_requires(out: Array[String], requires: Dictionary, from_row: 
 			out.append("requires.consent is not a string")
 	_check_requires_list(out, requires, "forms", POSE_SPEC.FORMS, from_row, to_row)
 	_check_requires_list(out, requires, "views", POSE_SPEC.VIEWS, from_row, to_row)
-	if requires.has("stretch"):
-		var stretch_value: Variant = requires.get("stretch")
-		if not (stretch_value is String) or not (stretch_value in STRETCH_POLICIES):
-			out.append("requires.stretch %s is unknown" % str(stretch_value))
 
 
 static func _check_requires_list(out: Array[String], requires: Dictionary, key: String,

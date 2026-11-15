@@ -145,7 +145,6 @@ class FakeRuntime extends Node:
 	var present_ok := true
 	var presented := false
 	var face_on := false
-	var stretch_clears := 0
 	var phase := "normal"
 	var start_ok := true
 
@@ -185,9 +184,6 @@ class FakeRuntime extends Node:
 
 	func set_request_face(on: bool) -> void:
 		face_on = on
-
-	func clear_stretch_offer() -> void:
-		stretch_clears += 1
 
 
 func check(ok: bool, text: String) -> void:
@@ -296,7 +292,6 @@ func run() -> void:
 	initiation.reset()
 	check(nav.command_owner.is_empty() and nav.wander_enabled,
 		"reset releases the ask's navigator lease")
-	check(runtime.stretch_clears == 1, "reset closes the accepted offer's stretch choice")
 	director.greet_ok = false
 	director.queued.clear()
 	var asked: INIT.ForceResult = initiation.force(runtime, CATALOG.STANDING)
@@ -307,12 +302,9 @@ func run() -> void:
 	# A local no closes the offer and hands the presentation and face back.
 	runtime.presented = false
 	runtime.face_on = true
-	var clears_before_no := runtime.stretch_clears
 	director.transcript.emit("no")
 	check(not runtime.presented, "a private no does not present")
 	check(not runtime.face_on, "a private no clears the request face")
-	check(runtime.stretch_clears == clears_before_no + 1,
-		"a private no clears the offer's stretch choice")
 	check(context.keys.size() == 4 and context.keys[3].ends_with(":declined"),
 		"a declined situation is recorded")
 
@@ -330,13 +322,10 @@ func run() -> void:
 	runtime.presented = false
 	initiation.force(runtime, CATALOG.STANDING)
 	check(runtime.face_on, "the private ask arms the face before the answer")
-	var clears_before_refuse := runtime.stretch_clears
 	game.mares = [target, other]
 	director.transcript.emit("yes")
 	check(not runtime.presented, "a private yes is refused when a third pony arrived")
 	check(not runtime.face_on, "the refused accept clears the request face")
-	check(runtime.stretch_clears == clears_before_refuse + 1,
-		"the refused accept clears the offer's stretch choice")
 
 	# Heat opens the public override, so the same crowded offer is accepted.
 	initiation.reset()
@@ -507,15 +496,12 @@ func run() -> void:
 		"a desktop-only pose is never offered in the headset view")
 	game.headset_view = false
 
-	# Cancelling a normal act-key start keeps the bed rest and the stretch choice for the act, but gives
-	# the presentation back.
-	var clears_before_y := runtime.stretch_clears
+	# Cancelling a normal act-key start keeps the bed rest for the act, but gives the presentation
+	# back.
 	initiation.force(runtime, CATALOG.STANDING)
 	runtime.presented = true
 	initiation.cancel_for(target)
 	check(not runtime.presented, "cancel_for clears the presentation")
-	check(runtime.stretch_clears == clears_before_y,
-		"cancel_for keeps the stretch choice for the act")
 
 	initiation.reset()
 	check(runtime.presented == false and runtime.face_on == false,

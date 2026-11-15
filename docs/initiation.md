@@ -199,8 +199,8 @@ public-offer flag and the resolved result.
 The initial line uses `begin_player_greeting` when the director has it, otherwise one
 `queue_generated_intent` row keyed `unfplap:request:<id>:<serial>:ask`. It records the
 `situation` world-context event and, for a private standing offer, sets the request face. The ask
-itself stays in the normal standing pose: no stretch starts while she is still speaking or
-stepping away. The stretch behavior is in `docs/poses.md`.
+itself stays in the normal standing pose: the presentation starts only once she has settled, and
+its behavior is in `docs/poses.md`.
 
 A non-cuddle ask claims the navigator (`unfplap:request:<id>`, wander off, no route) and asks her
 to stand before the line is queued, so a wander or a bumped navigator cannot close the ask while
@@ -266,8 +266,8 @@ The accepted turn is the game's own stepping turn: `present_standing()` gives th
 fidget use, and keeps it set through physics and process. She settles once she is away enough
 (within 60 degrees of directly away, about 120 degrees from Anon), not only at an exact 180
 degrees. The pose is never attached during the turn and the body is never snapped: on settle her
-current yaw is locked and `_attach_present_pose()` blends the pose in on the spot. The optional
-stretch rolls its variant and side at that attach and stores them for the act. A turn that makes
+current yaw is locked and `_attach_present_pose()` blends the pose in on the spot. A turn that
+makes
 no progress for 1.5 s, or runs past its 4 s timeout, aborts without a pose; the controller
 re-presents up to twice before closing an offer the player already accepted. Once presenting, her
 yaw is locked and conversation facing is paused, so she does not turn to face Anon while talking.
@@ -321,9 +321,8 @@ keeps the offer:
 `_cancel_episode(set_cooldown, reason, keep_rest)` is the one close path:
 
 1. cancel the `offer:` classifier scope;
-2. clear the request face, the presentation and (outside the act-key-start handoff) the stretch
-   choice through `clear_stretch_offer()`; the handoff releases the holder but keeps the choice
-   for the act;
+2. clear the request face and the presentation; the act-key-start handoff releases the holder
+   and keeps the act's own state;
 3. release the bed rest unless `keep_rest` (an act-key start keeps it);
 4. hand the navigator back with its saved owner, wander, speed and pace;
 5. set the full cooldown or the `30 s` retry from the phase tables;
@@ -416,7 +415,7 @@ after the spoken words only when the moment genuinely changes how she feels.
 - `tests/test_standing_presentation.gd`: the accepted offer against a fake navigator — the
   `face_point` stepping turn, the 60-degree away settle and its 61-degree non-settle, the no-snap
   abort, the fallback rotation, the one-shot glance and soft hold, the affectionate face and
-  blush, the line-face priority and the ask-to-presentation stretch handoff.
+  blush and the line-face priority.
 - `tests/test_consent_classifier.gd`: the shared classifier's local and strict reply parsing.
 - `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the
   adapter private-access boundary and this contract's presence.

@@ -177,7 +177,7 @@ outside `STEADY`, `complete` outside `TRANSITIONING`, `exit` in `IDLE`/`EXITING`
 
 A request returns the first refusal in this exact order: `same`, `bad_phase` (the act is not
 `ACTIVE`), `busy` (a transition is running), `not_steady`, `no_edge`, `unsupported_form`,
-`unsupported_view`, `refused` (features, consent or stretch), `missing_asset`, `locked`, then `ok`.
+`unsupported_view`, `refused` (features or consent), `missing_asset`, `locked`, then `ok`.
 `same` is checked before the phase, so a no-op target is never reported as `busy`.
 
 One edge is a `Run`: per-channel tracks, one clock and the interrupt policy. A channel is `hold`
@@ -210,12 +210,11 @@ Top-level fields: `id`, `from`, `to`, `phases` (the act phases the edge may star
 `smoothstep`), `channels`, optional `constraints`, optional `events` and optional `interrupt`.
 Unknown top-level keys are additive and ignored.
 
-`requires` holds only `features`, `consent`, `forms`, `views` and `stretch`. `features` is a list of
+`requires` holds only `features`, `consent`, `forms` and `views`. `features` is a list of
 non-empty strings; the session checks them when the state machine is wired. `consent` is a string,
 and an empty string means none. `forms` and `views` are lists of the spec table's values, each
-supported by both endpoints when the endpoint rows declare those lists. `stretch` is empty, `any`
-or `inactive`. There is no settings or eligibility vocabulary check here: the validator never reads
-`Settings`.
+supported by both endpoints when the endpoint rows declare those lists. There is no settings or
+eligibility vocabulary check here: the validator never reads `Settings`.
 
 `channels` is non-empty, and its names are `base`, `anon`, `contact`, `camera`, `controls`, `audio`
 and `presentation`. Each channel has a `kind`:
@@ -260,14 +259,14 @@ is the current proof of the state machine, the channel records, the switch firin
 no-full-teardown rule, and no channel moves the body.
 
 The oral pair is `standing__standing_oral.json` and `standing_oral__standing.json`. The forward
-edge requires the `anatomy_oral` feature, `consent: "oral"`, both forms and views, and
-`stretch: "inactive"`; it runs for `1.6 s` with the base delta easing over the whole edge, switches
+edge requires the `anatomy_oral` feature, `consent: "oral"`, both forms and views; it runs for
+`1.6 s` with the base delta easing over the whole edge, switches
 `contact` to `mouth` at `0.9` (floored by `contact after base@0.55`), switches `audio` to `oral` at
 `0.0`, locks `controls` to `oral`/`pose_back`/`end`, and fires `speech_stop`, `viseme D` and a final
 `status oral`. The reverse edge requires only the feature, both forms and both views, returns
 `contact` to `opening` at `0.0` and `audio` to `standing`, allows only `end` during the lock, and
-fires `status standing` at its end. The reverse edge has no consent and `stretch: "any"`: a holder
-can always return. Neither edge calls an act exit; the interrupt policy is `climax: hold` and
+fires `status standing` at its end. The reverse edge has no consent, so a return is always
+allowed. Neither edge calls an act exit; the interrupt policy is `climax: hold` and
 `teardown: abort`.
 
 `standing_oral` is the matching internal spec row. It inherits `standing` (a base, no driver of its
@@ -277,7 +276,7 @@ The session starts the oral turn on the forward request, keeps it through the se
 restores the captured root and facing on the reverse completion or the one act exit.
 
 The bed face-sit pair is `missionary__bed_facesit.json` and `bed_facesit__missionary.json`. The
-forward edge requires human and desktop, allows any stretch, runs for `1.6 s`, blends the base and
+forward edge requires human and desktop, runs for `1.6 s`, blends the base and
 the authored Anon block over the whole edge, switches `contact` to `face` at `0.9` (floored by
 `contact after base@0.55`), holds the source camera shots, locks `controls` to `end`, keeps the
 missionary presentation and fires one final `status facesit`. The reverse edge runs for `1.2 s`,
@@ -317,9 +316,8 @@ checks the target against the act phase, the player's form/view, the edge requir
 lock in the state module's order: `same`, `bad_phase`, `busy`, `not_steady`, `no_edge`,
 `unsupported_form`, `unsupported_view`, `refused`, `missing_asset`, `locked`, `ok`. A refused
 request changes nothing. The request context supplies `act_state` (the runtime passes its state),
-`features`, `consent`, `stretch`, `forms`, `views` and `locked`; absent values default to the act's
-live facts and the player's form/display. `stretch_active()` reports the external Idle Life holder,
-so an edge requiring `stretch: inactive` refuses while it runs.
+`features`, `consent`, `forms`, `views` and `locked`; absent values default to the act's live facts
+and the player's form/display.
 
 The checks, against the target spec and the edge:
 
@@ -329,7 +327,6 @@ The checks, against the target spec and the edge:
 | `view_ok` | the same for `views` |
 | `features_ok` | every `requires.features` entry is on in the request features |
 | `consent_ok` | `requires.consent` is empty, or the request consent equals it |
-| `stretch_ok` | `requires.stretch` is not `inactive`, or the request stretch is off |
 | `asset_ok` | the target spec exists and at least one of `base`/`delta`/`driver` is non-empty |
 | `locked` | the request's `locked` flag |
 
@@ -446,8 +443,7 @@ The single fast path is the same effective driver and delta with equal configs a
 authored asset on both sides (two null assets count as the same, and the presentation node carries
 none). It calls the driver's `apply()` with the pose ramp (`smoothstep(amount)`), exactly as the
 one-recipe node did, so
-the begin ramp, the normal missionary and standing acts, the stretch early return and the
-diagnostics are unchanged. A standing `apply_base()` reads `authored` and `ground_frame` from the
+the begin ramp, the normal missionary and standing acts and the diagnostics are unchanged. A standing `apply_base()` reads `authored` and `ground_frame` from the
 state and returns false without them; the shipped act never falls back to the procedural stance. A pose that carries a delta uses `apply_base()` → `apply_delta()` →
 `apply_overlay()` in that order; `standing_oral`'s settled pose runs that form with the standing
 driver and the oral recipe. The debug `standing ↔ standing_test` pair takes the single fast path:
@@ -471,7 +467,7 @@ captures it, restores the pre-pose, evaluates the to side the same way, restores
 the two captured local transforms at the edge weight: rotation by `Basis.slerp`, scale and origin by
 `lerp`. A non-finite result is skipped rather than written. The overlays run after the blend, from
 then to, with `1 - weight` and `weight`. A false base skips that side's delta; the overlay still
-runs and the recipe guards its own base/stretch precondition. The three capture buffers are resized
+runs and the recipe guards its own base precondition. The three capture buffers are resized
 once per bone count and reused, the node is the only modifier and it allocates nothing per frame.
 The blend sets `diag_last_base = "blend"` and skips the authored-asset trace. `apply_render()` and
 the modifier pass call the same evaluator with the same pair and weight.
@@ -806,42 +802,6 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   frame, the facing and the neck keys stay, the mouth contact and viseme are released, and no
   standing close window opens.
 
-### Stretch (Idle Life)
-
-The optional stretch is a standing pose style, not a new pose id. It is gated by the debug-only
-`features.idle_life_stretch`, only applies while Idle Life is active, and stays dormant unless
-**Enable debug** is on. It is currently broken: entering the act with it enabled makes Anon
-undergo a transformation, so it must not be recommended.
-
-- `poses/idle_stretch.gd` is the only file that names `res://mods/idle_life/idle_pose.gd`. It
-  loads the installed script at call time, validates `mare`, `idle`, `side`, `time` and `fade`,
-  and adds a `UnfplapIdleStretch` modifier to the body skeleton. Missing scripts or fields fail
-  quietly; the act logs `stretch pose unavailable: idle_life` and keeps the normal recipe.
-- One episode rolls `stretch` or `stretch_deep` and a side once, when the accepted presentation
-  attaches. The choice lives on the pony's metadata, so the presentation and the act share it. A
-  cancel or teardown clears it; a direct act rolls fresh. The ask itself is always the normal
-  standing pose, so she can keep turning and talking to Anon while she asks.
-- The external holder owns the body, the stance, the ground plant and the wings. The act's
-  `UnfplapPose` (or `UnfplapPresentPose`) runs after it and, in stretch mode, applies only the oral
-  neck offset and the head-back lift; the bow, chin/neck, foreleg bend and stance spread are
-  skipped. `UnfplapBodySway` runs after both.
-- The presentation attaches its full holder in `_attach_present_pose()`, after the navigator's
-  `face_point` stepping turn away from Anon (the base-game conversation-circle turn). The turn
-  settles within 60 degrees of directly away and never snaps; once the pose attaches its yaw is
-  locked, so nothing rotates under the planted holder. It does not start during the ask or during
-  the turn. `_process_tick`'s standing render write calls `sync_stretch()`; the runtime also calls
-  it once after the act integrations begin, before body sway's first pass.
-- `poses/body_sway.gd` recaches the hips origin and limb roots through `reset_base()` whenever the
-  holder is installed or removed, so sway rocks the stretched plant instead of undoing it.
-- The holder stays through the standing afterglow until `_end_session()` frees it. Teardown
-  restores the normal pose and drops the stored episode choice. The external holder is the one
-  modifier the session does not detach: `poses/idle_stretch.gd` frees it through `finish()` and
-  renames a queued holder when a replacement is installed in the same frame.
-- The presentation holder is owned by `poses/standing_presentation.gd`; the act holder is owned
-  by `poses/service.gd`. The runtime forwards `clear_stretch_offer()` to the presentation
-  controller for a cancel or close. The launching rules are in `docs/initiation.md`; the switch is
-  in `docs/integrations.md`.
-
 ### Missionary kiss
 
 `kiss_control.lean_kiss_tick()` runs for the two base poses, missionary and standing. Missionary
@@ -869,8 +829,8 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 - `runtime._process`: view-depth travel, lean, climax wave, breath, look point, pose climax flag.
   `_process_tick` calls `poses/service.gd`'s `render_write()`, which owns the render-time order:
   for the bed family, park the game presentation and place the act's Anon body, write her pose, then
-  the eye-shot camera tick; for the standing family, watch the stretch holder, sync the ground
-  frame and write her pose after every game writer. It then calls `camera/service.gd`'s
+  the eye-shot camera tick; for the standing family, sync the ground frame and write her pose
+  after every game writer. It then calls `camera/service.gd`'s
   `write_look_target()`, which owns the look point (the missionary gaze, the kissing-mouth blend and
   the authored-Anon fallback) and the pose's kiss and climax weights.
 - `runtime._physics_process`: presentation, timers, facing lock, glances,
@@ -925,16 +885,15 @@ teardown to `_free_pose()`.
 | `_reset_excitement_hold()` | act | the runtime |
 | `release_free_camera_lock` | act | the camera |
 | `standing_anon.remove()` | pose: the standing player-body Anon wrapper | the runtime |
-| `leave_pose_body()` | pose: stretch holder, extra modifiers | the session |
+| `leave_pose_body()` | pose: extra modifiers | the session |
 | `_restore_voice_volume()` | act | the runtime |
 | `reactions.end_act()` | act | the reactions |
 | `release_pose()` | pose: final clear, act body | the session |
 
 - `leave_pose_start()` — the rig-check cache, `tail_lay`, the bed frame and the ground frame. It
   keeps the pose node, the modifiers, `pose_config` and the view.
-- `leave_pose_body()` — the external Idle Life stretch holder and the extra modifiers
-  (`body_sway`, `prone_sway`, `ear_twitch`). It keeps the pose node, the standing tail,
-  `pose_config` and the view.
+- `leave_pose_body()` — the extra modifiers (`body_sway`, `prone_sway`, `ear_twitch`). It keeps
+  the pose node, the standing tail, `pose_config` and the view.
 - `release_pose()` — the final clear: the act body (after the anatomy handle is cleared), the pose
   node and the standing tail, the act identity, the features, the live config, the rig caches, the
   bed and ground frames and the view. Safe to repeat.
@@ -950,8 +909,8 @@ teardown; it stays unchanged.
 
 ## Tests
 
-- `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
-  standing stretch holder, the session API, the effective driver/base paths, the state machine, the
+- `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs,
+  the session API, the effective driver/base paths, the state machine, the
   request/refusal codes, the target snapshot with the presentation, the requested evaluator pair,
   the target adoption, the live/target asset pair and its completion and reload, the tick/switch/
   status path, the real control profiles, the pose-change hook
@@ -983,11 +942,9 @@ teardown; it stays unchanged.
   unchanged public catalog and the table rules.
 - `tests/poses/test_pose_edge.gd` — the edge documents, the typed wrapper and validator, the
   registry load and the debug, oral and face-sit forward/reverse run proofs.
-- `tests/poses/test_stretch.gd` — the external script validation, episode choice, ask ramp,
-  modifier order, fallback and cleanup.
 - `tests/test_standing_presentation.gd` — the offer gate, the navigator stepping turn and its away
-  settle, a blocked turn aborting without a snap, the fallback rotation, and the
-  ask-to-presentation stretch handoff including a live flag edit.
+  settle, a blocked turn aborting without a snap, the fallback rotation and the presentation's
+  affectionate face.
 - `tests/poses/test_pose_asset.gd` — the missionary asset's v7 version/space/frame, body and Anon
   bone lists, anchor/contact/root and bed reference.
 - `tests/poses/test_pose_asset_v7.gd` — the v7 schema and its refusals, `local_rest` bone math, the
@@ -1027,10 +984,6 @@ teardown; it stays unchanged.
   contact stays on the mattress or the ground and the hips stay at the anchor. The bake/check
   commands are `godot --headless --xr-mode off --path . --script res://mods/unfplap/tools/pose_bake.gd
   -- --check` and the same with `--write`; the exporter round-trip is `pose_export.gd --check`.
-- Idle Life stretch: a private standing offer, the accept turn, the presentation, the act, a live
-  flag toggle, a cancelled offer, a direct act, Idle Life removed, and both integrations at once.
-  Check the forehooves stay planted through body sway, the oral/head-back overlays, anatomy and
-  camera alignment, and the afterglow close window.
 
 ## Related docs
 

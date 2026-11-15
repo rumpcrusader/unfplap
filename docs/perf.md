@@ -159,8 +159,8 @@ steady missionary, steady face-sit and looping-edge windows when the live lab is
 claim numbers before then.
 
 The standing family now pays the render-time pose write as well: `render_write()` runs
-`sync_stretch()`, `sync_ground_frame()` and `apply_render()` after every physics and process writer,
-the same order as the bed family. In a standing lab, compare `runtime_process` and `pose_recipe` at
+`sync_ground_frame()` and `apply_render()` after every physics and process writer, the same order as
+the bed family. In a standing lab, compare `runtime_process` and `pose_recipe` at
 Canon and one non-canon size against the pre-C build; the ground frame sync is one transform compare
 per tick and allocates nothing, and the pose write is the only new per-frame cost.
 

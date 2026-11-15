@@ -31,8 +31,8 @@ static func reference_config() -> Dictionary:
 	}
 
 
-## The full reference recipe: the bake and the parity baseline. It is stretch-independent and is
-## never called by the shipped runtime, which uses the baked base plus the live-setting difference.
+## The full reference recipe: the bake and the parity baseline. It is never called by the shipped
+## runtime, which uses the baked base plus the live-setting difference.
 func apply_reference(rig, sk: Skeleton3D, weight: float, config: Dictionary) -> void:
 	_config = config
 	_stance(rig, sk, weight)
@@ -40,22 +40,15 @@ func apply_reference(rig, sk: Skeleton3D, weight: float, config: Dictionary) -> 
 
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
-	if bool(state.get("stretch", false)):
-		# The external Idle Life holder owns the body, the stance and the ground plant. The act
-		# keeps only its head-back lift on top.
-		apply_overlay(rig, sk, weight, state)
-		return
 	apply_base(rig, sk, weight, state)
 	apply_overlay(rig, sk, weight, state)
 
 
 ## The baked base: the v7 asset plus the live-setting difference from its reference. False when the
-## asset or the ground frame is unavailable, or while the external stretch holder owns the body;
-## the shipped act never falls back to the procedural stance.
+## asset or the ground frame is unavailable; the shipped act never falls back to the procedural
+## stance.
 func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	_config = state.get("config", {})
-	if bool(state.get("stretch", false)):
-		return false
 	var authored: Variant = state.get("authored")
 	var frame: Variant = state.get("ground_frame")
 	if authored == null or not frame is Transform3D or not bool(authored.get("available")):

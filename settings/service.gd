@@ -421,10 +421,6 @@ class ActSnapshot:
 static func act_snapshot(pose_id: String) -> ActSnapshot:
 	var snap := ActSnapshot.new()
 	snap.features = _block("features.")
-	# The stretch integration is currently broken: an old saved true stays dormant unless the
-	# player turned Enable debug on. See docs/integrations.md.
-	if not debug_mode.get_bool():
-		snap.features["idle_life_stretch"] = false
 	snap.caress_quality = quality.get_choice()
 	snap.thrust_up = orientation.get_choice() == "up"
 	snap.thrust_pixels_per_cm = pixels_per_cm.get_num()
@@ -1737,10 +1733,6 @@ static var kissing_reactions := flag("kissing_reactions", "features.kissing_reac
 	"Use Kissing reactions",
 	"Play the Kissing mod's horn, wing and earth-pony reactions during the act.",
 	INTEGRATIONS, "")
-static var idle_life_stretch := flag("idle_life_stretch", "features.idle_life_stretch",
-	"Use the Idle Life stretch pose",
-	"Offer and hold Idle Life's stretch during the standing offer and act. (currently broken)",
-	INTEGRATIONS, "").as_debug()
 
 ## The built-in act prompts from `settings/catalogs.json`. The player file stores only overrides,
 ## and `_fill_prompts()` supplies the current built-ins at read time so a release can update them.
@@ -1821,6 +1813,8 @@ static var _deprecated := [
 	deprecated("features.act_climax", func(_value: Variant) -> Dictionary: return {}),
 	# Her climax always runs the full Kissing fidget set; the switch is retired.
 	deprecated("features.kissing_full_fidgets", func(_value: Variant) -> Dictionary: return {}),
+	# The pose framework no longer speaks to Idle Life; the stretch integration is retired.
+	deprecated("features.idle_life_stretch", func(_value: Variant) -> Dictionary: return {}),
 	# Standing Anon always keeps the game's stepping feet; the planted-body switches are retired.
 	deprecated("features.standing_plant_feet", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.standing.plant_spread_m",

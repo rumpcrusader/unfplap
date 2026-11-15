@@ -1,21 +1,18 @@
 # Mod integrations
 
-Optional bridges to other installed mods. The service presents another mod's reactions or pose
-style through the act without changing that mod, and lists every supported integration in its own
-settings tab whether or not the other mod is installed.
+Optional bridges to other installed mods. The service presents another mod's reactions through the
+act without changing that mod, and lists every supported integration in its own settings tab
+whether or not the other mod is installed.
 
 ## Scope
 
 - `integrations/service.gd` is the facade and the only scene adapter.
 - `shared/integrations.gd` is the provider catalog: mod identity, verified version, feature names
   and binding paths.
-- `integrations/provider.gd`, `context.gd`, `action.gd`, `kissing.gd` and `idle_life.gd` are
-  pure service internals.
-- Two integrations are supported: the Kissing 1.2.9 reaction layer and the Idle Life 1.4.2
-  stretch pose. Kissing's own kiss driver, guard, rear, reach, approach, step-back and memory
-  recorder stay out of this service.
-- The Idle Life provider only switches the act pose node's `stretch` flag. The external pose
-  script is loaded and held by `poses/idle_stretch.gd`; its owner is `docs/poses.md`.
+- `integrations/provider.gd`, `context.gd`, `action.gd` and `kissing.gd` are pure service
+  internals.
+- One integration is supported: the Kissing 1.2.9 reaction layer. Kissing's own kiss driver,
+  guard, rear, reach, approach, step-back and memory recorder stay out of this service.
 - The Integrations settings tab always lists a supported mod, even when that mod is absent. The
   version is the one this adapter was verified with, not a semver compatibility promise; a later
   release may still work, and the tab does not report the installed version or a mismatch.
@@ -51,12 +48,6 @@ Kissing 1.2.9 binds:
 | `beat` | `excitement` child `Beat` | yes |
 | `skeleton` | pony property `skeleton` | yes |
 | `fidgets` | `skeleton` child `KissingFidgets` | no |
-
-Idle Life 1.4.2 binds:
-
-| Binding | Path | Required |
-|---|---|---|
-| `pose` | pony property `skeleton`, child `UnfplapPose` | yes |
 
 ## Provider contract
 
@@ -117,22 +108,6 @@ a permanent cause:
 Kissing's horn aura/hum, wing shiver and earth-pony tail/ear fidgets are the three reaction families
 in scope. The act's own wing controller creates the open-wing node the shiver needs.
 
-## Idle Life provider
-
-`integrations/idle_life.gd` runs when `features.idle_life_stretch` is on, the pose family is
-`standing`, the `pose` binding resolves and Idle Life is active this launch. It appends one start
-action, `set_value("pose", "stretch", true)`, and has no tick, afterglow, reaction-cap or
-excitement-hold behavior. The facade saves the pre-act `stretch` value and restores it on stop,
-feature-off, missing binding, act end or `reset()`, so the normal standing recipe returns.
-
-The stretch switch is debug-only, and the feature is currently broken: entering
-the act with it on makes Anon undergo a transformation. It stays dormant unless **Enable debug** is
-on; `act_snapshot()` forces the feature false and the standing presentation's `_stretch_enabled()`
-also requires debug mode. Do not recommend turning it on until the transformation is fixed.
-
-The provider never reads or writes Idle Life's files. The external script, the episode choice and
-the modifier order belong to `poses/idle_stretch.gd` (`docs/poses.md`).
-
 ## Settings
 
 One declaration per supported integration, in `settings/service.gd`:
@@ -140,14 +115,13 @@ One declaration per supported integration, in `settings/service.gd`:
 | Setting | Behavior |
 |---|---|
 | `features.kissing_reactions` | run the Kissing reaction bridge during the act |
-| `features.idle_life_stretch` | debug-only: switch the accepted standing presentation and act to Idle Life's stretch pose while Idle Life is active; dormant unless Enable debug is on, currently broken, and the ask stays normal |
 
 Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by
 default, under one blue **Experimental** notice at the top of the tab. The section body carries the hint `Verified with version: $verified_version`, then that
 provider's player-facing feature flags; its open state is stored under `integrations/Mods/<mod id>`.
-The tab's **Debug** block, shown only when **Enable debug** is on, holds its debug-only switches.
-There is no installed/mismatch status and no buttons. A flag edit during an act starts or
-stops the provider live through `apply_live_settings()`.
+It carries no debug switches of its own, so the tab has no Debug block. There is no
+installed/mismatch status and no buttons. A flag edit during an act starts or stops the provider
+live through `apply_live_settings()`.
 
 ## Lifecycle
 
@@ -190,8 +164,6 @@ stops the provider live through `apply_live_settings()`.
 - `tests/integrations/test_catalog.gd` — metadata completeness and feature/declaration agreement.
 - `tests/integrations/test_kissing.gd` — Kissing availability, the warming/close/climax ramp, the
   bond cap, the pause fade, afterglow, an Affection kiss and the full-fidget restore/suppress.
-- `tests/integrations/test_idle_life.gd` — the stretch provider's feature, pose, external-mod and
-  binding gates, and its one reused pose write.
 - `tests/integrations/test_service.gd` — binding resolution, save/restore, optional bindings,
   the reaction cap, live feature edits, shared Beat ownership, full fidgets and idempotent reset.
 - `tests/integrations/test_hold.gd` — the runtime's named excitement Beat hold and last-release restore.
@@ -213,16 +185,6 @@ stops the provider live through `apply_live_settings()`.
   restored.
 - Remove Kissing: the tab still shows `Kissing by modChad` and `Verified with version: 1.2.9`; the
   flag has no effect.
-- With Idle Life 1.4.2 installed and `Use the Idle Life stretch pose` on: a private standing offer
-  asks in the normal pose while she faces Anon; once the line finishes and Anon accepts, the
-  presentation and act hold the same light/deep variant and side; a public ask stays normal; a
-  cancelled offer drops the choice.
-- Toggle the Idle Life flag off and on during the presentation and the act: the normal standing
-  pose returns and the stretch is reinstalled with no stale modifier.
-- Remove or disable Idle Life: the tab still shows `Idle Life by modChad`,
-  `Verified with version: 1.4.2` and the switch; the flag has no effect and no script errors
-  appear.
-- Run both integrations together: Kissing's readiness ramp and the stretch act coexist.
 
 ## Related docs
 

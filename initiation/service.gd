@@ -158,7 +158,7 @@ var _cuddle_seen: Dictionary = {}
 var _cuddle_asked: Dictionary = {}
 ## id -> the short retry deadline after a failed walk-over or unavailable ask.
 var _retry_at: Dictionary = {}
-## The last quiet reason the scan logged, so one blocked stretch logs once.
+## The last quiet reason the scan logged, so one blocked offer logs once.
 var _quiet_reason := ""
 ## id -> the last candidate reject reasons, for the throttled skip log and Show data.
 var _scan_reason: Dictionary = {}
@@ -1546,10 +1546,6 @@ func _cancel_episode(set_cooldown: bool, reason := "", keep_rest := false) -> vo
 	_conversation.cancel_scope()
 	if is_instance_valid(runtime) and runtime.has_method("set_request_face"):
 		runtime.call("set_request_face", false)
-	# An act-key start keeps the choice for the act: `clear_presentation()` releases the holder without
-	# clearing it. Every other close path drops the choice and rerolls the next offer.
-	if not keep_rest and is_instance_valid(runtime) and runtime.has_method("clear_stretch_offer"):
-		runtime.call("clear_stretch_offer")
 	if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):
 		runtime.call("clear_presentation")
 	if not keep_rest and _episode.bed_joined and is_instance_valid(pony):

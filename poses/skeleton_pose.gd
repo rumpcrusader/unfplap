@@ -46,9 +46,6 @@ var kiss := 0.0
 var amount := 0.0
 var target_amount := 0.0
 var climaxing := false
-## Run the standing recipe as an overlay on the external Idle Life stretch: the body and the
-## ground plant belong to that holder, so the act writes only the oral and head-back offsets.
-var stretch := false
 var pose_config: Dictionary = {}
 ## Hand-authored base pose (poses/authored_pose.gd) and the space it is placed in. A null asset or
 ## a missing frame leaves the recipe's correction stack as the fallback.
@@ -251,7 +248,6 @@ func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 		"head_back": head_back,
 		"kiss": kiss,
 		"climaxing": climaxing,
-		"stretch": stretch,
 		"clock": _clock,
 		"config": _from_config,
 		"authored": authored,

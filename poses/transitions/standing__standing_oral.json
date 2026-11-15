@@ -8,8 +8,7 @@
     "features": ["anatomy_oral"],
     "consent": "oral",
     "forms": ["human", "pony"],
-    "views": ["desktop", "vr"],
-    "stretch": "inactive"
+    "views": ["desktop", "vr"]
   },
   "duration": 1.6,
   "easing": "smoothstep",

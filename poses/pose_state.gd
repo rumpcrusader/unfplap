@@ -41,8 +41,8 @@ static func next(state: int, event: String) -> int:
 
 
 ## Why a pose request was accepted or refused, in the exact order the session reports it. `checks`
-## keys are optional and pass by default: form_ok, view_ok, features_ok, consent_ok, stretch_ok,
-## asset_ok, and `locked` (which defaults false). The service decides which checks apply; this
+## keys are optional and pass by default: form_ok, view_ok, features_ok, consent_ok, asset_ok and
+## `locked` (which defaults false). The service decides which checks apply; this
 ## module never reads settings, assets or consent.
 static func request_code(pose_state: int, act_state: int, from_id: String, to_id: String,
 		edge_exists: bool, checks: Dictionary = {}) -> String:
@@ -67,8 +67,8 @@ static func request_code(pose_state: int, act_state: int, from_id: String, to_id
 
 
 ## The edge's `requires` block against the same checks. A requirement list that is absent or empty
-## passes; a present one is represented by its `form_ok`, `view_ok`, `features_ok`, `consent_ok`
-## or `stretch_ok` flag. The order is form, view, refused.
+## passes; a present one is represented by its `form_ok`, `view_ok`, `features_ok` or `consent_ok`
+## flag. The order is form, view, refused.
 static func requirement_code(edge: Dictionary, checks: Dictionary = {}) -> String:
 	var requires_value: Variant = edge.get("requires", {})
 	var requires: Dictionary = requires_value as Dictionary if requires_value is Dictionary else {}
@@ -76,7 +76,7 @@ static func requirement_code(edge: Dictionary, checks: Dictionary = {}) -> Strin
 		return "unsupported_form"
 	if _required(requires.get("views", [])) and not _flag(checks, "view_ok"):
 		return "unsupported_view"
-	for key: String in ["features", "consent", "stretch"]:
+	for key: String in ["features", "consent"]:
 		if _required(requires.get(key)) and not _flag(checks, key + "_ok"):
 			return "refused"
 	return "ok"
@@ -94,8 +94,7 @@ static func _flags_code(checks: Dictionary) -> String:
 		return "unsupported_form"
 	if not _flag(checks, "view_ok"):
 		return "unsupported_view"
-	if not _flag(checks, "features_ok") or not _flag(checks, "consent_ok") \
-			or not _flag(checks, "stretch_ok"):
+	if not _flag(checks, "features_ok") or not _flag(checks, "consent_ok"):
 		return "refused"
 	return "ok"
 

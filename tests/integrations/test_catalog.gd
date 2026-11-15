@@ -81,25 +81,9 @@ func run() -> void:
 	check(str(kissing.get("verified_version", "")) == "1.2.9", "Kissing verified version")
 	check((kissing.get("features", []) as Array).has("kissing_reactions"),
 		"Kissing owns the reactions feature")
-	check(ids == ["kissing", "idle_life"], "the catalog order is Kissing then Idle Life")
-	check(ids.has("idle_life"), "Idle Life is a supported integration")
-	var idle_life: Dictionary = CATALOG.provider("idle_life")
-	check(str(idle_life.get("mod_name", "")) == "Idle Life", "Idle Life display name")
-	check(str(idle_life.get("author", "")) == "modChad", "Idle Life author")
-	check(str(idle_life.get("verified_version", "")) == "1.4.2", "Idle Life verified version")
-	check((idle_life.get("features", []) as Array).has("idle_life_stretch"),
-		"Idle Life owns the stretch feature")
-	var idle_bindings: Variant = idle_life.get("bindings", {})
-	check(idle_bindings is Dictionary and (idle_bindings as Dictionary).has("pose"),
-		"Idle Life binds the act pose")
-	var pose_steps: Variant = (idle_bindings as Dictionary).get("pose", [])
-	check(pose_steps is Array and (pose_steps as Array).size() == 2,
-		"the pose binding is the skeleton's UnfplapPose child")
-	check(SETTINGS.idle_life_stretch.tab == SETTINGS.INTEGRATIONS,
-		"the stretch flag lives in the Integrations tab")
-	check(not bool(SETTINGS.idle_life_stretch.default),
-		"the stretch pose defaults off")
-	check(bool(SETTINGS.idle_life_stretch.debug),
-		"the stretch pose is a debug setting")
+	check(ids == ["kissing"], "Kissing is the only supported integration")
+	check(CATALOG.provider("idle_life").is_empty(), "Idle Life is no longer a supported integration")
+	check(SETTINGS.by_name("idle_life_stretch") == null,
+		"the retired Idle Life stretch flag is gone")
 	print("INTEGRATIONS_CATALOG_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

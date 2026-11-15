@@ -40,8 +40,7 @@ builds a fresh verdict. The start sequence:
 7. release the cradle/cuddle/navigator/player ownership through `scene_hold`;
 8. snapshot the pony bones, mark the act active, build the anatomy act;
 9. place the bodies, build the pose, capture the look, lock the player and the navigator, start the
-   camera, the audio, the HUD and the act face, then arm the act integrations and install the
-   standing stretch holder before body sway's first pass.
+   camera, the audio, the HUD and the act face, then arm the act integrations.
 
 A failure in any step runs `_abort_start()` and the same teardown; it never leaves a partial act.
 
@@ -99,9 +98,8 @@ failed start runs the same function and restores only what it took.
   `_restore_pony_bones()`. `_free_pose()` runs the session's pose-scope steps
   (`leave_pose_start()`, `leave_pose_body()` and the final `release_pose()`) with the act-scope
   resets between them at their positions, resets the mod-integration bridge after the base kiss,
-  releases the shared excitement Beat hold, drops the standing stretch holder and leaves every
-  property the act borrowed back in place. `_end_session()` clears the stored stretch episode
-  choice after the pose is released. `_build_pose()` calls the same ledger as the new-act prep
+  releases the shared excitement Beat hold and leaves every property the act borrowed back in
+  place. `_build_pose()` calls the same ledger as the new-act prep
   before it builds the pose, so a pose left from the offer cannot stack. The step table and the
   scope split are `docs/poses.md`.
 - `_restore_camera()` is the act's camera ledger: a separate act-level path, not part of the pose
@@ -128,8 +126,8 @@ failed start runs the same function and restores only what it took.
   through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still follows the first facts sync and runs
   no pose tick or fan-out.
 - `_process`: `_process_tick(delta)` — the render-time pose write after every game writer (the bed
-  family places its Anon body and eye camera; the standing family syncs its stretch holder and
-  ground frame and writes the same pose), the camera lean and motion, the climax wave, the breath,
+  family places its Anon body and eye camera; the standing family syncs its ground frame and
+  writes the same pose), the camera lean and motion, the climax wave, the breath,
   the face and the HUD.
 - `main._process` calls `active_runtime.apply_camera_motion()` every rendered frame. Keep this
   single owner.
@@ -139,8 +137,7 @@ failed start runs the same function and restores only what it took.
 ## Public surface
 
 The runtime keeps thin forwards for `main.gd`, `hud/service.gd`, `input/service.gd`, the labs, `initiation/service.gd`,
-`anatomy/service.gd`, `poses/standing_presentation.gd` (including `clear_stretch_offer()`) and the
-tests. The stable
+`anatomy/service.gd`, `poses/standing_presentation.gd` and the tests. The stable
 cross-mod surface is `docs/api.md`; the internal reads the HUD/tests use (`state`, `pose_id`,
 `pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay
 callable.
@@ -151,8 +148,8 @@ at the call site, so a suite that needs `act_thrusts`, `camera_owned`, `close_le
 reads that facade too.
 
 The pose surface is `pose_view()`, `request_pose(target_id, trigger, context)`,
-`request_command(command_id)` and `command(command_id)`. The runtime supplies its state, features
-and stretch; the session refuses or starts the edge. It also binds the session's pose host
+`request_command(command_id)` and `command(command_id)`. The runtime supplies its state and
+features; the session refuses or starts the edge. It also binds the session's pose host
 callbacks: `mouth_point` and `opening_point` for the oral turn and `face_point` for the face
 contact, plus the oral kiss/speech/viseme/status callbacks. `face_point` is the anatomy bridge's
 real face anchor on the act body; a missing or inactive body is `Vector3.INF`. `request_command(id)` is the pure allow check:

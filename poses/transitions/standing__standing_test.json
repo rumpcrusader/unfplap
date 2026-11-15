@@ -8,8 +8,7 @@
     "features": [],
     "consent": "",
     "forms": ["human", "pony"],
-    "views": ["desktop", "vr"],
-    "stretch": "inactive"
+    "views": ["desktop", "vr"]
   },
   "duration": 0.6,
   "easing": "smoothstep",

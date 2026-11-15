@@ -714,7 +714,7 @@ func _check_pose_session() -> void:
 	check(agents.contains("`poses/service.gd`"), "docs/README.md names poses/service.gd")
 	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",
 			"test_pose_asset_v7.gd", "test_pose_bake.gd", "test_pose_rig.gd", "test_pose_scale.gd",
-			"test_rotation.gd", "test_stretch.gd", "test_pose_spec.gd", "test_pose_registry.gd",
+			"test_rotation.gd", "test_pose_spec.gd", "test_pose_registry.gd",
 			"test_pose_view.gd", "test_pose_state.gd", "test_pose_edge.gd", "test_pose_blend.gd",
 			"test_modifier_profile.gd", "test_face_contact.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
@@ -732,7 +732,6 @@ func _check_pose_session() -> void:
 	check(not runtime.contains("turn_facing("),
 		"the runtime has no per-tick facing copy")
 	check(facade.contains("func render_write("), "the pose session owns the render-time order")
-	check(facade.contains("func sync_stretch("), "the pose session owns the stretch holder")
 	check(facade.contains("UnfplapMissionaryAnon") and facade.contains("func _install_act_body("),
 		"the pose session owns the act body adapter")
 	var loader := FileAccess.get_file_as_string(ROOT.path_join("poses/authored_pose.gd"))
@@ -1138,7 +1137,7 @@ func _check_hud_lines() -> void:
 func _check_integrations_isolation(files: Array[String]) -> void:
 	var pure_files := [
 		"integrations/provider.gd", "integrations/context.gd", "integrations/action.gd",
-		"integrations/kissing.gd", "integrations/idle_life.gd", "shared/integrations.gd",
+		"integrations/kissing.gd", "shared/integrations.gd",
 	]
 	for name: String in pure_files:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
@@ -1158,9 +1157,8 @@ func _check_integrations_isolation(files: Array[String]) -> void:
 			"%s uses the integrations facade only" % relative)
 		check(not text.contains("res://mods/kissing/"),
 			"%s does not import Kissing internals" % relative)
-		if relative != "poses/idle_stretch.gd":
-			check(not text.contains("res://mods/idle_life/"),
-				"%s does not import Idle Life internals" % relative)
+		check(not text.contains("res://mods/idle_life/"),
+			"%s does not import Idle Life internals" % relative)
 		if relative == "runtime.gd":
 			continue
 		check(not text.contains("Beat.paused") and not text.contains("beat.paused"),
@@ -1178,8 +1176,8 @@ func _check_integrations_docs() -> void:
 	for name: String in ["AGENTS.md", "docs/README.md", "docs/settings.md", "docs/runtime.md"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/integrations.md"), "%s links to docs/integrations.md" % name)
-	for name: String in ["test_catalog.gd", "test_kissing.gd", "test_service.gd", "test_hold.gd",
-			"test_idle_life.gd"]:
+	for name: String in ["test_catalog.gd", "test_kissing.gd", "test_service.gd",
+			"test_hold.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/integrations/" + name)),
 			"tests/integrations/%s exists" % name)
 

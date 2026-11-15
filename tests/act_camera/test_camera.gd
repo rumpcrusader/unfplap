@@ -150,6 +150,9 @@ func _pose(facts: RefCounted, family: String) -> void:
 	view.family = family
 	view.contact_kind = "opening"
 	view.presentation = {"lean": "missionary" if family == "bed" else "standing"}
+	view.camera = {
+		"profile": "missionary_shots" if family == "bed" else "standing_procedural",
+	}
 	facts.pose_view = view
 
 

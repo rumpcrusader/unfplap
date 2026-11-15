@@ -132,6 +132,12 @@ func lean_profile() -> String:
 	return str((view.presentation as Dictionary).get("lean", "")) if view != null else ""
 
 
+## The pose camera profile, the shot family the row declares.
+func camera_profile() -> String:
+	var view: Variant = _pose_view()
+	return str((view.camera as Dictionary).get("profile", "")) if view != null else ""
+
+
 ## Write the pose's look target for this rendered frame: the missionary gaze versus the kissing
 ## mouth, the authored-Anon fallback and the pose's kiss/climax weights. The runtime calls this
 ## after the pose session's render write and before the shot tick, so the head solves against
@@ -142,14 +148,14 @@ func write_look_target(pose: Node) -> void:
 	if not is_instance_valid(kiss):
 		return
 	var view: Camera3D = facts.main.camera()
-	if pose_family() == "bed" and is_instance_valid(missionary_camera) \
+	if camera_profile() == "missionary_shots" and is_instance_valid(missionary_camera) \
 			and is_instance_valid(missionary_camera.view()):
 		view = missionary_camera.view()
 	var custom_kiss: bool = kiss.custom_visible()
 	var kiss_view: Camera3D = kiss.mouth_view()
 	if is_instance_valid(view):
 		if custom_kiss and is_instance_valid(kiss_view):
-			if pose_family() == "bed":
+			if camera_profile() == "missionary_shots":
 				# Best-effort lean: blend from his eyes to his mouth with the kiss's own 0.35 s
 				# fade, so the head leans in with the kiss instead of snapping to the mouth on
 				# the first frame. The pose solve still aims at the moving point every frame.
@@ -161,7 +167,7 @@ func write_look_target(pose: Node) -> void:
 					pose.set("look_point", gaze)
 			else:
 				pose.set("look_point", kiss.target(kiss_view))
-		elif pose_family() == "bed":
+		elif camera_profile() == "missionary_shots":
 			# Look at the authored Anon, not at the game camera: his body is placed by the act,
 			# and the player rig the camera belongs to is standing off the bed.
 			pose.set("look_point", gaze_point())
@@ -528,7 +534,7 @@ func neck_midpoint() -> Vector3:
 ## Dispatch the act shot. Missionary owns its own view; standing applies the player-camera
 ## offsets. Debug free look leaves the stock player camera alone.
 func apply_motion() -> void:
-	if pose_family() == "bed":
+	if camera_profile() == "missionary_shots":
 		if missionary_camera != null:
 			missionary_camera.call("tick")
 		return

@@ -24,6 +24,12 @@ static func all() -> Array:
 	return [MISSIONARY, STANDING]
 
 
+## Every pose the registry knows, public or internal. Until internal poses exist this is the
+## public list; `all()` stays the public/base list the API and offers use.
+static func every() -> Array:
+	return all()
+
+
 ## The shipped defaults for one pose, or `{}` when the pose has none.
 static func defaults(id: String) -> Dictionary:
 	return DEFAULTS_DATA.block("default.poses." + id)

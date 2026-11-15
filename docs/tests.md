@@ -105,6 +105,9 @@ environment, say so instead of claiming it passed. The lab roster, keys and paus
 - Pass counts are never copied into a doc; the suite path is.
 - A regression test stays after the fix. Deleting it re-opens the bug.
 - A suite does not assert another service's private state; it calls that service's facade.
+- `tests/test_source_hygiene.gd` carries the raw pose-read census. Its per-file `pose_id` and
+  `oral_active` budget ratchets down with the pose view migration: a migrated consumer may not
+  raise its entry, and a file that drops lowers it in the same commit.
 
 ## Related docs
 

@@ -148,8 +148,13 @@ shared/
   preferences.gd   # pure profile math and schema
   act_history.gd   # shared store
   act_view.gd      # read model
+  pose_specs.gd    # pose capability table (pure)
+  pose_view.gd     # pose read model
   ...
 ```
+
+`poses/pose_spec.gd` and `poses/registry.gd` are private to the pose service; the capability table
+is `shared/pose_specs.gd` and the read model the session refreshes is `shared/pose_view.gd`.
 
 Every service has exactly one facade. A second entry point is either merged into the facade or
 moved to `shared/` with its own contract. There are no root-level forwarding shims: a shim would

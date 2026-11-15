@@ -13,7 +13,8 @@ const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "Colo
 ## file, per file. It ratchets down: a migrated consumer must not gain a reference, and a file that
 ## drops lowers its entry in the same commit. Producer mirrors may raise a producer's entry in the
 ## commit that adds them, with the total held flat. The hard allowlist is Phase B5/E.
-## A0 census: 183 `pose_id`, 17 `oral_active` (tests and tools excluded).
+## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). The A0.2 view adds its
+## four `pose_id` compatibility mirrors and three `oral_active` fields; a refill does not grow them.
 const POSE_ID_BUDGET := {
 	"runtime.gd": 62,
 	"poses/service.gd": 29,
@@ -44,6 +45,7 @@ const POSE_ID_BUDGET := {
 	"integrations/context.gd": 1,
 	"camera/missionary_camera.gd": 1,
 	"anatomy/facts.gd": 1,
+	"shared/pose_view.gd": 4,
 }
 const ORAL_ACTIVE_BUDGET := {
 	"runtime.gd": 8,
@@ -54,6 +56,7 @@ const ORAL_ACTIVE_BUDGET := {
 	"dialogue/service.gd": 1,
 	"anatomy/act.gd": 1,
 	"poses/body_sway.gd": 1,
+	"shared/pose_view.gd": 3,
 }
 var failures := 0
 var checks := 0
@@ -600,7 +603,8 @@ func _check_pose_session() -> void:
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(agents.contains("`poses/service.gd`"), "docs/README.md names poses/service.gd")
 	for name: String in ["test_session.gd", "test_pose_asset.gd", "test_pose_rig.gd",
-			"test_pose_scale.gd", "test_rotation.gd", "test_stretch.gd"]:
+			"test_pose_scale.gd", "test_rotation.gd", "test_stretch.gd", "test_pose_spec.gd",
+			"test_pose_registry.gd", "test_pose_view.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/poses/" + name)),
 			"tests/poses/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))

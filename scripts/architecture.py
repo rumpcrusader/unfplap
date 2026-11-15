@@ -336,6 +336,8 @@ PURPOSE = {
     "shared/perf.gd": "perf probe",
     "shared/perf_idle.gd": "idle perf aggregate",
     "shared/pose_catalog.gd": "pose ids and schema",
+    "shared/pose_specs.gd": "pose capability table",
+    "shared/pose_view.gd": "pose read model",
     "shared/relationship_cue.gd": "relationship prompt note",
     "shared/rump_cone.gd": "standing offer zone",
 }

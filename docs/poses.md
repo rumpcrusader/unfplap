@@ -20,6 +20,12 @@ schema; the shipped per-pose values live under `default.poses` in `settings/defa
 `poses/service.gd` owns the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action
 math; `camera/service.gd` owns the camera and lean state.
 
+`shared/pose_specs.gd` is the static pose capability table: family, frame, driver, settings group,
+the ten profiles, forms and views. `poses/pose_spec.gd` is its typed wrapper and validator, and
+`poses/registry.gd` the cache and catalog check; both are private to `poses/`. `shared/pose_view.gd`
+is the scene-free read model for one pose: the identity, the spec profiles, the live config and the
+contact and facing mirrors.
+
 ## Typed view
 
 The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/standing_anon.gd`,
@@ -35,6 +41,12 @@ world-space sway through `facts.standing_sway_offset`; that field is the one own
 runtime reads it from there. The session binds `facts`, `perf` and
 `log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module
 that reaches into the runtime fails `tests/test_source_hygiene.gd`.
+
+`shared/pose_view.gd` is the pose read model the session fills and clears. It holds the identity
+and support fields from the registry, the ten spec profiles by reference, the live config (the same
+object as `facts.pose_config`) and the per-tick contact and facing values. `pose_state` is `STEADY`
+while the session is live and `IDLE` after `release_pose()`. The compatibility `pose_id`,
+`oral_active` and `anal_active` fields mirror the old facts until the last reader migrates.
 
 ## Spaces and axes
 
@@ -330,6 +342,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 | shared | hands_reach_plan | `shared/hands_reach_plan.gd` | reach planning math |
 | shared | hands_scale | `shared/hands_scale.gd` | palm scale |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
+| shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
 
 ## Lifecycle
 
@@ -346,6 +359,9 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 - `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
   standing stretch holder and the session API.
+- `tests/poses/test_pose_spec.gd` — the field wrapper, the shared validator and the pure source.
+- `tests/poses/test_pose_registry.gd` — the two shipped specs, the unchanged public catalog and the
+  table rules.
 - `tests/poses/test_stretch.gd` — the external script validation, episode choice, ask ramp,
   modifier order, fallback and cleanup.
 - `tests/test_standing_presentation.gd` — the offer gate, the navigator stepping turn and its away
@@ -356,6 +372,8 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — uniform scale and rest-scale ownership.
 - `tests/poses/test_rotation.gd` — body-relative axes and the rotation helpers.
+- `tests/poses/test_pose_view.gd` — defaults, the filled view, the live mirrors and the reused
+  clear.
 
 ## Verification / lab
 

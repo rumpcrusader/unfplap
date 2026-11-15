@@ -1,19 +1,23 @@
 # Poses and skeleton
 
-This is the contract for the act's body pose: the skeleton driver, the authored missionary base,
-the bed-frame placement, the standing body pose, the post-act posture and the timing domains that
-write them. The act camera and shot are `docs/camera.md`; the anatomy part is `docs/anatomy.md`;
+This is the contract for the act's pose system: the pose document and its static capability table,
+the live session state machine, the authored edges and their per-channel tracks, the v7 authored
+assets and their placement, the per-pose settings and the post-act posture. The act camera and shot
+are `docs/camera.md`; the anatomy part is `docs/anatomy.md`;
 the caress paths and palm holders are `docs/hands.md`. The pose tuning rows are in the debug-only
 **Poses** settings tab; see `docs/settings.md`.
 
 ## Ownership
 
-`poses/service.gd` is the pose session facade. It owns the skeleton pose modifier, the authored
-bases, the bed and ground frames and their follow, the extra modifiers (tail, tail lay, body sway,
-prone sway, ear twitch), the pony bone snapshots, the pose rig check, the pose diagnostics, the
-standing reference capture and the pose-scope teardown steps. The runtime owns the act state, the start ordering and the one teardown
-ledger; it binds the session and reads its `pose()`, `pose_config` and `bed_frame` directly.
-Presentation modules read the same values from `shared/act_facts.gd`.
+`poses/service.gd` is the pose session facade. It owns the live state machine (`IDLE`/`ENTERING`/
+`STEADY`/`TRANSITIONING`/`EXITING`), the active edge and its clock, the per-pose configs and the
+target snapshot, the skeleton pose modifier, the authored bases, the bed and ground frames and their
+follow, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the pony bone
+snapshots, the pose rig check, the pose diagnostics, the standing reference capture, the retarget
+hook and the pose-scope teardown steps. The runtime owns the act state, the start ordering and the
+one teardown ledger; it binds the session and reads its `pose()`, `pose_config` and `bed_frame` for
+the start/teardown and the standing gap, not as the consumer contract. Presentation modules read
+the pose view through `shared/act_facts.gd`.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads a
 pose spec row's `asset` document (version 7 with the version 6 migration path); the missionary and
@@ -37,8 +41,9 @@ contact and facing mirrors.
 
 ## Pose assets
 
-A pose row's `asset` names its authored document under `poses/`; an internal row leaves it empty and
-inherits it through its `base` chain. The scene gate's `pose_asset`/`pose_rig` rows read the resolved
+A pose row's `asset` names its authored document under `poses/`; an internal row may leave it empty
+and inherit it through its `base` chain, or own its asset. The shipped internal rows inherit. The
+scene gate's `pose_asset`/`pose_rig` rows read the resolved
 document. `poses/authored_pose.gd` is the one loader; it reads version 7 and the version 6 bed-space
 migration path, and never converts a pose per frame.
 
@@ -51,7 +56,8 @@ and the `support` height), the armature `root`, the body bone deltas, and option
 - **`local_rest` bones.** A bone entry is a delta from the bone's rest local transform:
   `delta = rest.affine_inverse() * pose`, and the runtime writes `pose = rest * delta`. At rest the
   delta is identity, and every body bone is present in the file, including the ones left at rest.
-  The head is not one of the 30: a standing recipe applies its own head bow and chin on top.
+  The head is not one of the 30: the live pose's recipe owns it. The standing recipe applies the
+  reference bow and chin; the missionary recipe resets it and the gaze solve aims it at Anon.
 - **Placement.** The frame is placed from the hips anchor and the contact, not from a scaled asset
   origin. At body scale `s` the root is scaled about the anchor and lifted so the contact stays on
   the support; the live body scale is applied once at the world root, so the skeleton-space root
@@ -93,6 +99,9 @@ document, `capture_asset()` applies `apply_reference()` at the reference config 
   `body.glb` rest pose plus `apply_reference()` and prints `[pose_bake] PROVISIONAL reference=rest`.
   A provisional asset is not the final stance; replace the fixture with a live capture and re-run
   `--write`/`--check`.
+- The shipped fixture is the **live Canon capture** and `pose_bake.gd -- --check` prints no
+  `PROVISIONAL`. The fallback above is only for a checkout that has no fixture; it is not the
+  shipped state.
 - `--write` writes `poses/standing_pose.json`; `--check` re-bakes in memory and fails when the
   checked-in asset is stale. Both the fixture and the asset are tracked.
 
@@ -518,11 +527,14 @@ Missionary is its own state, not the game's bed rest:
 ### Base pose
 
 - **Asset.** `poses/authored_pose.gd` reads version 7 of the JSON once per process and caches it.
-  Every transform is in **bed space**: origin at the middle of the mattress top, the bed's own
-  axes, `+Z` the direction her head points. The runtime maps it onto the real bed with
+  The file stores `local_rest` bone deltas, the hips anchor and contact, the armature root and the
+  optional anon/shots/bed blocks; the asset's **frame** is bed space: origin at the middle of the
+  mattress top, the bed's own axes, `+Z` the direction her head points. The runtime maps the frame
+  onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`,
-  so the pillow end (the shared bed frame's `-Z`) is where her head points. Version 6 remains the
-  one-release read path.
+  so the pillow end (the shared bed frame's `-Z`) is where her head points. The bones are not bed
+  space: the loader applies `rest * delta`, and the anchor/contact rule places the root. Version 6
+  remains the one-release read path.
 - **The act owns the render.** The game re-poses the rig after our modifier pass (the clip tier's
   `enter`/`leave`, the posture and the terrain solver), so the modifier's write is not what the
   renderer sees. The runtime therefore applies the same recipe once more from `_process`, after
@@ -539,8 +551,8 @@ Missionary is its own state, not the game's bed rest:
   writes only what the file holds and never resets the rig, so a bone missing from the file keeps
   the game's own pose and breaks the chain it hangs from. Version 7 stores every bone as a
   `local_rest` delta, including the ones left at rest; the loader applies `rest * delta`. The lab
-  reads bed-space transforms for every version from `BED_SPACE_VERSION` 4 on, so an older file is
-  never applied as lab world.
+  reads a v7 file as `local_rest` and only the v6 migration as bed space, so an older file is never
+  applied as lab world.
 - **Own the scale too.** `FillyProportions` and the part hiders *multiply* a bone's pose scale
   every modifier pass (`set_bone_pose_scale(..., get_bone_pose_scale(...) * factor)`) and rely on
   the animation resetting it to rest each frame. The act replaces the animation, so every bone it
@@ -590,8 +602,7 @@ Missionary is its own state, not the game's bed rest:
   multiplied. Canon is unchanged; Canon, JRHNBR, Same Height and the stallion multiplier render at
   their own size, and the four-size lab covers Hoers.
 - **The Anon and the shots** use the same rule (`place_origin`): their origins scale about the hips
-  anchor and follow the contact lift; their authored bases are unchanged. At canon both are the v6
-  transform within 0.1 mm.
+  anchor and follow the contact lift; their authored bases are unchanged.
 - **The shots** are authored frame-space transforms; `camera/missionary_camera.gd` reads only their
   origins through `shot_origin()` and aims them at her live face and vulva. A missing shot falls
   back to a fixed bed-relative point placed by the same anchor/lift rule.
@@ -613,8 +624,7 @@ Missionary is its own state, not the game's bed rest:
 - The shot's camera positions are bed-relative, so the body and the eye move together on any bed.
 - **No fallback.** There is no second missionary pose. A missing/invalid asset, a version below 6
   or no bed frame (the floating pose preview) means no pose is applied, and the act's `pose_asset`
-  gate refuses the start with `missionary pose unavailable: <reason>` in the log. The anatomy's
-  `pelvis_curl_deg`/`legs_wrap`/`bed_lift_m` keys are gone with the stack.
+  gate refuses the start with `missionary pose unavailable: <reason>` in the log.
 - **Reload.** The asset is shared for the process; the **Reload posed base** Debug block action
   re-reads the file in place, so the lab export → game reload loop works mid-act.
 
@@ -742,7 +752,8 @@ undergo a transformation, so it must not be recommended.
 
 ### Missionary kiss
 
-`kiss_control.lean_kiss_tick()` runs for both poses. Missionary kisses when F is held and
+`kiss_control.lean_kiss_tick()` runs for the two base poses, missionary and standing. Missionary
+kisses when F is held and
 `lean_forward >= MISSIONARY_KISS_LEAN` (0.90) **and** W is held: `lean_targets` adds `|side|` to
 the forward lean, so without the W test a pure side lean would pull the kiss. The kiss itself uses
 the custom head-aim path (the stock pose is authored for a standing pony); `Q`/`E` no longer kiss,
@@ -806,10 +817,10 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 ### Teardown scope
 
-`runtime._free_pose()` is the one pose teardown ledger. It mixes two lifetimes: the pose scope the
-session owns and the act scope the runtime owns. A pose transition calls none of the pose-scope
-steps or the act exit; it retargets through `pose_changed(view)` and leaves the teardown to
-`_free_pose()`.
+`runtime._free_pose()` is the one pose teardown ledger. It is the one ledger across two lifetimes:
+the pose scope the session owns and the act scope the runtime owns. A pose transition calls none of
+the pose-scope steps or the act exit; it retargets through `pose_changed(view)` and leaves the
+teardown to `_free_pose()`.
 
 | Step | Scope | Owner |
 |---|---|---|
@@ -821,7 +832,7 @@ steps or the act exit; it retargets through `pose_changed(view)` and leaves the 
 | `integrations.reset()` | act | the integrations |
 | `_reset_excitement_hold()` | act | the runtime |
 | `release_free_camera_lock` | act | the camera |
-| `standing_anon.remove()` | pose: the act's Anon body | the runtime |
+| `standing_anon.remove()` | pose: the standing player-body Anon wrapper | the runtime |
 | `leave_pose_body()` | pose: stretch holder, extra modifiers | the session |
 | `_restore_voice_volume()` | act | the runtime |
 | `reactions.end_act()` | act | the reactions |
@@ -883,7 +894,8 @@ unchanged.
 - `tests/test_standing_presentation.gd` — the offer gate, the navigator stepping turn and its away
   settle, a blocked turn aborting without a snap, the fallback rotation, and the
   ask-to-presentation stretch handoff including a live flag edit.
-- `tests/poses/test_pose_asset.gd` — asset version, bone list and bed-space load.
+- `tests/poses/test_pose_asset.gd` — the missionary asset's v7 version/space/frame, body and Anon
+  bone lists, anchor/contact/root and bed reference.
 - `tests/poses/test_pose_asset_v7.gd` — the v7 schema and its refusals, `local_rest` bone math, the
   anchor/contact placement at four sizes, variants and the spec `asset` resolution; the v6 fixture
   and the v6 ground refusal.

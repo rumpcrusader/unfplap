@@ -239,6 +239,10 @@ var _oral_path: RefCounted
 var _caress_oral_was_active := false
 var _caress_oral_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
 var _caress_oral_started := {"L": 0, "R": 0}
+## Hands whose contact path still needs a warm build. The first caress of an act builds the
+## path's anchors and the coat source; spending one hand per actionable tick puts that cost in
+## the start transition instead of the player's first `A`/`D`. See `docs/hands.md`.
+var _warm_sides: Array = ["L", "R"]
 var _debug_draw_mesh: MeshInstance3D = null
 var _debug_draw_depth_mesh: MeshInstance3D = null
 var _debug_immediate: ImmediateMesh = null
@@ -324,6 +328,8 @@ func pose_changed(view: Variant) -> void:
 	_hook_seen = true
 	_hook_path = path
 	_hook_contact = contact
+	if path_changed:
+		_warm_sides = ["L", "R"]
 	# The standing ↔ oral pair is one contact-driven path: the mouth switch, not the request,
 	# retargets the caress so the blend can capture the live hand frames. Any other path change
 	# ends the holds.
@@ -339,6 +345,7 @@ func _caress_tick(delta: float) -> void:
 		_caress_oral_was_active = false
 		return
 	_caress_oral_tick()
+	warm_contact_paths()
 	# Hold-X auto settings owns A/D and Z/C, so the keys freeze while the layer is open. The
 	# hands keep their current state and the caress keeps scoring; only the input is ignored.
 	var frozen := bool(facts.call_value(facts.auto_panel_open, false))
@@ -1108,6 +1115,7 @@ func reset() -> void:
 	_caress_oral_was_active = false
 	_caress_oral_from = {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
 	_caress_oral_started = {"L": 0, "R": 0}
+	_warm_sides = ["L", "R"]
 	_clear_debug_draw()
 	_caress_latched = {"L": false, "R": false}
 	_caress_key_down = {"L": false, "R": false}
@@ -1126,6 +1134,22 @@ func any_active() -> bool:
 
 func active(side: String) -> bool:
 	return bool(_caress_active.get(side, false))
+
+
+## Warm one contact path for the next actionable tick. The first press in an act builds the
+## path's anchors and the coat source on the spot, so the controller spends one hand per tick
+## while the act is starting instead. The frame is not applied and no caress is latched; a
+## fresh `A`/`D` still resets that hand through the normal start. Returns true while a hand
+## still waits for its warm build.
+func warm_contact_paths() -> bool:
+	if facts == null or _warm_sides.is_empty():
+		return false
+	_sync()
+	if _pose_family() not in ["bed", "standing"]:
+		return false
+	var side: String = _warm_sides.pop_front()
+	_set_caress_hand(side, false)
+	return not _warm_sides.is_empty()
 
 
 func smack() -> void:

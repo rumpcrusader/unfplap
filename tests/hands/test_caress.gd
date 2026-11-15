@@ -737,6 +737,32 @@ func run() -> void:
 	check(area_back_candidates.size() == 1
 		and (area_back_candidates[0]["point"] as Vector3).x < 0.0,
 		"backward lean reaches the area flank_back")
+	# The first caress of an act used to build both contact paths on the key press. The
+	# controller warms one hand per actionable tick, reports each build as `caress_path`, and
+	# never latches a caress while warming.
+	var warm_facts := ACT_FACTS.new()
+	warm_facts.pony = stand_pony
+	warm_facts.size_scale = 1.0
+	warm_facts.lean_forward = 0.0
+	warm_facts.physics_delta = 0.016
+	var warm_view: RefCounted = VIEW.new()
+	warm_view.family = "standing"
+	warm_view.hands = {"path": "standing"}
+	warm_view.contact_kind = "opening"
+	warm_facts.pose_view = warm_view
+	var warm_hands := HANDS.new(warm_facts)
+	check(warm_hands.warm_contact_paths(), "the first warm tick leaves the other hand for the next")
+	var warm_provider: Variant = warm_hands.get("_flank_path")
+	check(warm_provider != null
+		and int((warm_provider.get("_paths") as Dictionary).size()) == 1,
+		"the first warm tick builds only its own hand's path")
+	check(not warm_hands.warm_contact_paths(), "the second warm tick finishes both hands")
+	check(warm_provider != null
+		and int((warm_provider.get("_paths") as Dictionary).size()) == 2,
+		"the second warm tick builds the other hand's path")
+	check(not warm_hands.caress_active("L") and not warm_hands.caress_active("R"),
+		"warming never latches a caress")
+	check(not warm_hands.warm_contact_paths(), "a third warm tick does no work")
 	standing_path.call("reset")
 	head_root.free()
 

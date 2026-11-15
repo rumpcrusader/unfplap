@@ -224,6 +224,11 @@ With the flag off, both hands share the full region patch as before.
 - Begin: `bind()`/`begin()`
 - End: act teardown
 - Idempotent: yes
+- Warm-up: once the act is actionable, the controller builds each hand's contact path one hand
+  per physics tick, so the body/head source gather and the marked-area scans land before the
+  first `A`/`D` rather than on the key press. The warm frame is not applied and no caress is
+  latched, and a fresh `A`/`D` still resets that hand through the normal start. A `hands.path`
+  change arms the warm again for the new path.
 
 
 ## Settings
@@ -332,7 +337,8 @@ selection and starts the swing.
 
 - `tests/hands/test_caress.gd`: surface patch and its two quality levels, authored paths, marked
   area path, side mapping, standing path, oral head node and side inversion, the exact node
-  without a head patch, contact blend, engine placement, smoothing and reach.
+  without a head patch, contact blend, engine placement, smoothing, reach and the
+  one-hand-per-tick path warm.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 

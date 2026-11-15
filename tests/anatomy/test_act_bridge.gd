@@ -19,11 +19,8 @@ var checks := 0
 
 
 class FakeAct extends Node:
-	var pull_out := false
 	var toggles: Array[String] = []
-	var withdraws := 0
 	var climaxes := 0
-	var finishes := 0
 	var afterglow_ticks := 0
 	var ends := 0
 	var teardowns := 0
@@ -37,9 +34,6 @@ class FakeAct extends Node:
 	func toggle_hole(_state: int) -> void:
 		toggles.append("hole")
 
-	func toggle_finish(_state: int) -> void:
-		toggles.append("finish")
-
 	func hold_oral_mouth() -> void:
 		hold_mouths += 1
 
@@ -49,17 +43,8 @@ class FakeAct extends Node:
 	func oral_mouth_point() -> Variant:
 		return mouth
 
-	func pull_out_selected() -> bool:
-		return pull_out
-
-	func withdraw() -> void:
-		withdraws += 1
-
 	func on_climax() -> void:
 		climaxes += 1
-
-	func on_finish() -> void:
-		finishes += 1
 
 	func afterglow_tick(_delta: float, _facts: Variant) -> void:
 		afterglow_ticks += 1
@@ -318,31 +303,25 @@ func _check_gates() -> void:
 	bridge.act = act
 	check(bridge.act_available(), "an assigned act is available")
 
-	# The three action gates are feature-gated; the test turns them on and restores them after.
+	# The action gates are feature-gated; the test turns them on and restores them after.
 	var holes_on := SETTINGS.anatomy_holes.get_bool()
 	var oral_on := SETTINGS.anatomy_oral.get_bool()
-	var finish_on := SETTINGS.anatomy_finish.get_bool()
 	SETTINGS.anatomy_holes.set_bool(true)
 	SETTINGS.anatomy_oral.set_bool(true)
-	SETTINGS.anatomy_finish.set_bool(true)
 	host.pose_view = _view("standing")
 	check(bridge.oral_ready(), "oral is ready in standing active")
 	check(bridge.hole_ready(), "hole is ready in standing active")
-	check(bridge.finish_ready(), "finish is ready in active")
 	check(bridge.actions_ready(), "any live gate opens the action set")
 	host.pose_view.contact_kind = "mouth"
 	check(not bridge.hole_ready(), "the mouth contact blocks the hole gate")
 	host.pose_view.contact_kind = "opening"
 	host.state = STATE_IDLE
 	check(not bridge.oral_ready(), "oral is not ready outside active")
-	check(not bridge.finish_ready(), "finish is not ready outside active")
 	check(not bridge.actions_ready(), "no live gate closes the action set")
 	bridge.toggle_hole()
-	bridge.toggle_finish()
-	check(act.toggles == ["hole", "finish"], "the toggles reach the act")
+	check(act.toggles == ["hole"], "the toggle reaches the act")
 	SETTINGS.anatomy_holes.set_bool(holes_on)
 	SETTINGS.anatomy_oral.set_bool(oral_on)
-	SETTINGS.anatomy_finish.set_bool(finish_on)
 	act.free()
 	bridge.act = null
 	bridge.bind(_host(host))
@@ -361,15 +340,9 @@ func _check_action_reads() -> void:
 	check(act.visemes == ["D", ""], "the viseme event reaches the act")
 	check(bridge.mouth_point().is_equal_approx(Vector3(0.0, 1.2, 0.4)),
 		"the bridge exposes the provider's mouth point")
-	act.pull_out = true
-	check(bridge.finish_pull_out(), "pull out reads the act")
-	bridge.withdraw()
 	bridge.on_climax()
-	bridge.on_finish()
 	bridge.afterglow_tick(0.1)
-	check(act.withdraws == 1, "withdraw reaches the act")
 	check(act.climaxes == 1, "on_climax reaches the act")
-	check(act.finishes == 1, "on_finish reaches the act")
 	check(act.afterglow_ticks == 1, "afterglow_tick reaches the act")
 	bridge.act = null
 	check(bridge.mouth_point() == Vector3.ZERO, "no act returns no mouth point")
@@ -404,16 +377,11 @@ func _check_face() -> void:
 	host.pose_view.contact_kind = "face"
 	check(bridge.face_ready(), "the face contact with a live body is face ready")
 	var holes_on := SETTINGS.anatomy_holes.get_bool()
-	var finish_on := SETTINGS.anatomy_finish.get_bool()
 	SETTINGS.anatomy_holes.set_bool(true)
-	SETTINGS.anatomy_finish.set_bool(true)
 	check(not bridge.hole_ready(), "the face contact blocks the hole gate")
-	check(not bridge.finish_ready(), "the face contact blocks the finish gate")
 	host.pose_view.contact_kind = "opening"
 	check(bridge.hole_ready(), "the opening contact restores the hole gate")
-	check(bridge.finish_ready(), "the opening contact restores the finish gate")
 	SETTINGS.anatomy_holes.set_bool(holes_on)
-	SETTINGS.anatomy_finish.set_bool(finish_on)
 	bridge.act = null
 	check(not bridge.face_ready(), "no act is not face ready")
 	bridge.set_missionary_anon(null)

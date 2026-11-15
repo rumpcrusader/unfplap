@@ -9,7 +9,7 @@ deliberately not imported.
 `vr/service.gd` is the VR controller, created by the anatomy bridge's `vr_start()` (called from the
 runtime's `_start_vr_act()`) when a headset is active and a `XRCamera3D`/`XROrigin3D` pair exists
 under the player. It is a scene adapter with typed handles, never the runtime node: the bridge
-handle (`toggle_hole`, `toggle_finish`, `oral_ready`, `vr_forward`, `vr_depth`), the `command`
+handle (`toggle_hole`, `oral_ready`, `vr_forward`, `vr_depth`), the `command`
 dispatcher for the oral id, the `align` write-back, the `touch` readiness event and a
 `pony_source` read. It also receives `player`, `hip_target`, `camera` and `origin`, and queues
 itself free in `vr_stop()`. The runtime owns the standing act state; the bridge owns the anatomy
@@ -21,7 +21,6 @@ hooks the controller calls.
 |---|---|
 | right `primary_click` | the act key (the runtime's context start/end) |
 | right `ax_button` | toggle the anatomy hole |
-| left `primary_click` | toggle the finish |
 | left `by_button` | the `oral` command while the anatomy gate is open |
 | waist/hip tracker | depth: the hip delta along `vr_forward()`, mapped over `HIP_RANGE_M = 0.16 m` |
 | real hand petting | `on_touch("caress")` |

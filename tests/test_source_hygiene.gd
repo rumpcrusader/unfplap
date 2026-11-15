@@ -985,9 +985,10 @@ func _check_act_commands() -> void:
 	var input := FileAccess.get_file_as_string(ROOT.path_join("input/service.gd"))
 	check(input.contains("preload(\"res://mods/unfplap/shared/act_commands.gd\")"),
 		"the input service preloads the command vocabulary")
-	for command_name: String in ["HOLE", "ORAL", "FINISH"]:
+	for command_name: String in ["HOLE", "ORAL"]:
 		check(input.contains("runtime.call(\"command\", ACT_COMMANDS.%s)" % command_name),
 			"the input service dispatches the %s command" % command_name)
+	check(not input.contains("ACT_COMMANDS.FINISH"), "the input service has no finish key")
 	for toggle: String in ["toggle_anatomy_hole", "toggle_anatomy_oral", "toggle_anatomy_finish"]:
 		check(not input.contains(toggle), "the input service does not call %s" % toggle)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
@@ -996,9 +997,9 @@ func _check_act_commands() -> void:
 	var body := _func_body(runtime, "command")
 	check(body.contains("request_command(command_id)"),
 		"the dispatcher checks the profile and the live edge lock first")
-	for toggle: String in ["toggle_anatomy_hole()", "toggle_anatomy_oral()",
-			"toggle_anatomy_finish()"]:
+	for toggle: String in ["toggle_anatomy_hole()", "toggle_anatomy_oral()"]:
 		check(body.contains(toggle), "the dispatcher runs %s" % toggle)
+	check(not body.contains("ACT_COMMANDS.FINISH"), "the dispatcher has no finish command")
 	check(body.contains("ACT_COMMANDS.POSE_BACK") and body.contains("ACT_COMMANDS.POSE_FORWARD"),
 		"the dispatcher keeps pose navigation reserved")
 	check(body.contains("ACT_COMMANDS.END"), "the dispatcher reserves end")

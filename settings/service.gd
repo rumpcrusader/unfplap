@@ -802,8 +802,6 @@ static var orientation := choice("orientation", "thrust.orientation", ["up", "do
 static var standing_stool := flag("standing_stool", "features.standing_stool",
 	"Enable footstool",
 	"A mare much taller than Anon needs a footstool for the standing act. Find one in a house or buy one at the shop.", GENERAL, "")
-static var anatomy_finish := flag("anatomy_finish", "features.anatomy_finish",
-	"Allow finish control", "Let B choose whether Anon finishes inside or pulls out.", GENERAL, "")
 static var act_input_shield := flag("act_input_shield", "features.act_input_shield",
 	"Block other mods' hotkeys during act", "", GENERAL, "")
 static var debug_mode := flag("debug_mode", "debug_mode", "Enable debug", "", GENERAL, "")
@@ -1827,6 +1825,8 @@ static var _deprecated := [
 	deprecated("thrust.contact_gap_m", func(_value: Variant) -> Dictionary: return {}),
 	# The tip rests at her entrance before the first thrust; the standoff is fixed at zero.
 	deprecated("anatomy.back_out_m", func(_value: Variant) -> Dictionary: return {}),
+	# A climax has no inside/outside finish choice; the finish selection is retired.
+	deprecated("features.anatomy_finish", func(_value: Variant) -> Dictionary: return {}),
 	# Standing Anon always keeps the game's stepping feet; the planted-body switches are retired.
 	deprecated("features.standing_plant_feet", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("presentation.standing.plant_spread_m",

@@ -97,10 +97,8 @@ var auto_min_depth := 0.0
 var auto_max_depth := 0.0
 var auto_pace := 0.0
 var auto_shape := ""
-var finish_pull_out := false
 var hole_ready := false
 var oral_ready := false
-var finish_ready := false
 var hud_readouts := true
 var hud_controls := true
 

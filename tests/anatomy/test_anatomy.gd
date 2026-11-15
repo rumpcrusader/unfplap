@@ -547,7 +547,6 @@ func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	check(not bool(runtime.call("anatomy_hole_ready")), "hole gate closed without an act")
 	check(not bool(runtime.call("anatomy_oral_ready")), "oral gate closed without an act")
-	check(not bool(runtime.call("anatomy_finish_ready")), "finish gate closed without an act")
 	check(not bool(runtime.call("anatomy_actions_ready")), "all anatomy gates closed without an act")
 	# The refresh binds the reactions facade to her node, which is what the standing offer's rump
 	# anchor reads. Without it the act-key hint never appears.

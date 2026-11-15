@@ -78,10 +78,8 @@ caress. An unlimited limit uses the 3-climax reference.
   The thrust row reads `Thrust` (manual only), the X row reads `Switch to auto` or
   `Switch to manual`, and a second X row (`Hold`, `Auto settings`) shows while auto is on. The
   pose rows read `Lean`, `Reach`, `Caress` and `Caress movement`; they do not spell out both
-  directions. `Kiss` only shows in the standing pose, and the `Finish: in/out` row is built but
-  hidden until the finish control has a visible effect (the `B` key still works). Only the `Hold`
-  rows carry the modifier column, so an icon is followed by its words with no reserved blank
-  space.
+  directions. `Kiss` only shows in the standing pose. Only the `Hold` rows carry the modifier
+  column, so an icon is followed by its words with no reserved blank space.
 - The control card stays at full opacity while Anon leans or leans in for a kiss and returns after
   it; the cue and readiness readouts stay at full opacity.
 - The pose title is the spec's `presentation.hud_label`; the internal bed face-sit says `Face-sit`

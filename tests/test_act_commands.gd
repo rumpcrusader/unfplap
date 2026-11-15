@@ -33,9 +33,9 @@ func run() -> void:
 ## The shipped ids are fixed, unique, non-empty and lower_snake_case; the const list matches them.
 func _check_vocabulary() -> void:
 	var expected := [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
-		ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.FINISH, ACT_COMMANDS.HOLE,
+		ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE,
 		ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD, ACT_COMMANDS.END]
-	check(ACT_COMMANDS.ALL == expected, "the vocabulary is the ten shipped ids")
+	check(ACT_COMMANDS.ALL == expected, "the vocabulary is the nine shipped ids")
 	var pattern := RegEx.new()
 	pattern.compile("^[a-z][a-z0-9_]*$")
 	var seen := {}

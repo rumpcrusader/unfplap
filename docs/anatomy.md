@@ -1,7 +1,7 @@
 # Anatomy and tail seating
 
 The anatomy system is the optional adult anatomy layer: the per-mare mesh and material, the act's
-hole/oral/finish controls, the player part, and the tail dock seat. This file is the single
+hole/oral controls, the player part, and the tail dock seat. This file is the single
 technical contract; other docs link here.
 
 ## Scope
@@ -11,7 +11,7 @@ This contract covers:
 - which adult mares attach anatomy and how the mesh is bound;
 - anatomy visibility, teats, the skin strip, the body-coat deform and the coat follow;
 - the per-mare placement block and the debug placement actions;
-- the act's shape drive, winking, hole, oral and finish controls;
+- the act's shape drive, winking, hole and oral controls;
 - idle heat winking and discharge;
 - the player part's placement, shaping and throb;
 - tail seating, the dock skin and the tail/dock placement;
@@ -33,7 +33,6 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/act_bridge.gd` | per-act handle the runtime owns: the persistent controller handle, the per-act handle, the typed context, the missionary body, the VR controller, the action gates and the aim/gaze reads |
 | `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
 | `anatomy/act/oral.gd` | the mouth/contact provider: mouth point, base opening, D viseme and clear |
-| `anatomy/act/finish.gd` | finish in/out, finish droplets and afterglow rest depth |
 | `anatomy/act/debug.gd` | the three aim markers |
 | `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
 | `anatomy/coat.gd` | rig coat patch, vulva/anal spread, the vulva cut and the still zones |
@@ -68,8 +67,7 @@ The internal entry points are:
 - `poses/missionary_anon.gd` and `poses/standing_anon.gd` use the service's player methods for the hip
   offset, root position and scale. The missionary act body is placed from the v7 hips anchor and
   mattress contact (`place_origin`), so a non-canon pony keeps him on the mattress at her size.
-- `input/service.gd` calls the runtime's anatomy action gates; `hud/service.gd` renders the matching rows and
-  hidden finish row.
+- `input/service.gd` calls the runtime's anatomy action gates; `hud/service.gd` renders the matching rows.
 - `settings/service.gd` and `registry/service.gd` use `shared/anatomy_placement.gd` as the shared pure schema.
 
 The controller reads the typed `anatomy/facts.gd` object and host callbacks; it never reads the
@@ -113,11 +111,10 @@ fluid(), idle_discharge(count)
 
 ```gdscript
 tick(delta, facts)
-toggle_hole(state), toggle_finish(state)
+toggle_hole(state)
 hold_oral_mouth(), set_oral_viseme(letter), oral_mouth_point()
-pull_out_selected(), finish_out(), finished_inside()
 opening_normal(), hole_point(), hole_rear()
-on_climax(), on_finish(), withdraw(), afterglow_tick(delta, facts)
+on_climax(), afterglow_tick(delta, facts)
 end(), teardown()
 ```
 
@@ -133,22 +130,18 @@ The controller's `consent` callback is bound to its pony and takes the key only
 |---|---|
 | `V` | toggle the anal hole in `ACTIVE`/`CLIMAX`; refused during the mouth contact |
 | `N` | request the standing oral pose, or its return edge |
-| `B` | choose finish in/out in `ACTIVE`/`CLIMAX` |
 
-- The controls require their feature flag: `features.anatomy_holes`, `features.anatomy_oral` and
-  `features.anatomy_finish`. With every flag off the keys are not consumed and the act is the
-  master act.
+- The controls require their feature flag: `features.anatomy_holes` and `features.anatomy_oral`.
+  With both flags off the keys are not consumed and the act is the master act.
 - With `anatomy_mode = never` the keys pass through: the act controller does not exist.
 - `V` toggles the anal hole. The mare bits mesh carries the anal shape keys; `anal_mesh()`
   returns the anatomy mesh.
 - Anal and oral need the mare's per-mare consent (`get_profile(id).consent.anal` / `.oral`); a
   refusal shows the anatomy status line and changes nothing. The oral consent is the `consent`
   requirement on the forward pose edge.
-- `B` only changes the finish selection and shows the status line. The finish is applied by the
-  player's climax event.
-- The act key owns the act; `V`/`N`/`B` never start or end it.
+- The act key owns the act; `V`/`N` never start or end it.
 
-The keys reach the runtime through the `hole`, `oral` and `finish` commands
+The keys reach the runtime through the `hole` and `oral` commands
 (`shared/act_commands.gd`); the active pose's control profile and live edge lock must allow the id
 first. `N` is a thin delegate: the runtime passes the per-mare oral consent to `request_pose`, which
 starts the authored `standing ↔ standing_oral` edge or refuses it. The anatomy act only reads the
@@ -259,8 +252,8 @@ The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `p
 `bed_frame` and `cycle_phase`. The act and the persistent controller read that object and the
 host callbacks; neither reads the runtime node. The act no longer writes pose keys or a facing: the
 pose-owned oral turn owns the frame, the facing and the neck keys, and the act reads the pose
-view's contact for its part target and shape drive and its `frame` for the bed-only inset and
-finish direction. The per-act handle is created without a start pose id. It returns the mouth point and opening through
+view's contact for its part target and shape drive and its `frame` for the bed-only inset.
+The per-act handle is created without a start pose id. It returns the mouth point and opening through
 `oral_mouth_point()`/`hole_point()` for the runtime's pose host callbacks.
 
 The bridge also writes `perf_on` from the host's `perf_enabled`, so the persistent controller takes
@@ -275,12 +268,10 @@ the orchestration. It owns:
 - the persistent controller handle and the per-act `anatomy/act.gd` handle;
 - the reused `anatomy/facts.gd` context;
 - the service-owned missionary Anon body as an opaque handle, and the VR standing controller;
-- the action gates (`hole_ready`, `oral_ready`, `finish_ready`, `actions_ready`), the toggles,
-  the oral/finish reads, the mouth point and the viseme write, the face point and its ready gate,
-  and the placement controls;
+- the action gates (`hole_ready`, `oral_ready`, `actions_ready`), the hole toggle, the mouth
+  point and the viseme write, the face point and its ready gate, and the placement controls;
 - the aim/gaze reads (`gaze_point`, `aim_eyes`, `normal`, `opening`, `rear`);
-- the act hooks (`tick`, `withdraw`, `on_climax`, `on_finish`, `afterglow_tick`, `end`,
-  `apply_live`, `detach`);
+- the act hooks (`tick`, `on_climax`, `afterglow_tick`, `end`, `apply_live`, `detach`);
 - the VR hooks (`vr_start`, `vr_stop`, `vr_y_held`, `vr_forward`, `vr_depth`).
 
 The host is a plain dictionary of callables. The runtime supplies `main`, `pony`, `runtime`,
@@ -294,7 +285,7 @@ The bridge never reads `runtime` or `main` private fields and never preloads eit
 action keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the
 bridge only routes them. `oral_ready()` is the feature, the standing pose family and an active act;
 `hole_ready()` reads the pose view's mouth and face contacts so V is refused while either owns the
-contact, and `finish_ready()` refuses the face contact too. The VR left `by_button` emits the `oral`
+contact. The VR left `by_button` emits the `oral`
 command through the host's `command` callback.
 
 The face contact has a real provider. `face_point()` is the act body's `mouth_point()` — his
@@ -368,7 +359,7 @@ appearance, including the missionary-only fold hack, when the pose family change
 - `wink_mode(depth, touching, climaxes)` is pure: 0 is nothing, 1 is touching, 2 is pulled out
   after at least one climax.
 
-### Hole, oral and finish
+### Hole and oral
 
 - `V` toggles the anal hole in `ACTIVE`/`CLIMAX` when `features.anatomy_holes` is on, the pose
   view is not in mouth contact, and the per-mare `anal` consent is true. The mix eases over `0.9 s`.
@@ -388,24 +379,16 @@ appearance, including the missionary-only fold hack, when the pose family change
   Her climax reaction line is skipped. The pose turn plays the base game's soft kiss on a
   `2.5–4.5 s` idle timer. Bystanders may still speak. Releasing the contact restores the regular
   standing behaviour.
-- `B` toggles finish in/out in `ACTIVE`/`CLIMAX` when `features.anatomy_finish` is on. The row is
-  built in the HUD but hidden until the finish has a visible effect.
 - The pose turn writes the pony's global position. The reverse edge's completion, a release and
   the one act exit restore the position and facing the turn captured before the navigator and
   posture resume.
 
-### Finish and fluid
+### Fluid
 
-- On the player's finish, `on_finish()` chooses out when `pull_out` is selected or the stroke is
-  below `PULLED_OUT_PHASE = 0.35`; otherwise it finishes inside.
-- An outside finish sprays on her with timed `_spurts_on_her` pulses (up to four). An inside
-  finish schedules the leak after `0.7 s`. `withdraw()` sprays the inside finish when the player
-  pulls out.
 - Every fluid path is gated by `features.anatomy_fluid`. The persistent fluid node is reused by
   every act; idle heat discharge uses the same node.
-- The afterglow tracks the part at a resting share: `0.8` of reach when he stays in, `0` when he
-  finished out. The share moves toward its target at `1.6/s`. The held phase keeps the act's
-  attached alignment: the part stays on Anon's Hips and turns to the live opening normal. The
+- The afterglow tracks the part at her entrance (zero penetration). The held phase keeps the
+  act's attached alignment: the part stays on Anon's Hips and turns to the live opening normal. The
   detached bed holder is not used, because it rolls the part to her anatomy mesh's own axes and
   her mesh is inverted in the lying pose.
 - Act end animates the closed shape back to 1 over `1.5 s`, clears the part and the mouth viseme;
@@ -643,7 +626,7 @@ built from the declarations, so the label, help and bounds are not restated here
 - `anatomy.dock_style`: `hide`, `coat` or `genitals`. The old `show_dock` and
   `dock_color` keys migrate in that order, with a hidden dock winning over its colour.
 - `anatomy.teats`, `anatomy.skin_strip`: optional teats and the ventral midline strip.
-- `features.anatomy_fluid`: climax, finish and idle droplets.
+- `features.anatomy_fluid`: climax and idle droplets.
 - `features.body_coat_deform`: runtime coat patch; debug.
 - `anatomy.coat_follow`: how far the anatomy follows the body coat's leg skinning; debug.
   `0.0` keeps it rigid, `1.0` follows fully.
@@ -670,8 +653,7 @@ built from the declarations, so the label, help and bounds are not restated here
 - `presentation.missionary.part_inset_m`: missionary-only part inset, added to `part_front_m`.
 - `presentation.missionary.size.<preset>.vulva_shift_mm`, `vulva_pitch_deg`,
   `vulva_depth_shift_mm` and `vulva_hug_mm`: the missionary-only placement and grip trims.
-- `features.anatomy_holes`, `features.anatomy_oral`, `features.anatomy_finish`: the V/N/B
-  controls.
+- `features.anatomy_holes`, `features.anatomy_oral`: the V/N controls.
 - The VR standing act always starts on a headset; the old `features.anatomy_vr` switch is retired.
 - `features.debug_aim_points`: the three aim markers.
 
@@ -789,7 +771,7 @@ The anatomy migration is complete:
   split out. The controller is a thin shell; the attach module owns the mesh, dock, visibility,
   fluid and idle discharge.
 - `anatomy/act.gd` is the per-act handle returned by `controller.begin_act()`;
-  `anatomy/act/state.gd` is pure, and `act/oral.gd`, `act/finish.gd` and `act/debug.gd` own the
+  `anatomy/act/state.gd` is pure, and `act/oral.gd` and `act/debug.gd` own the
   three behaviors.
 - `anatomy/act_bridge.gd` is the per-act bridge the runtime owns: created by
   `anatomy.gd.new_act(host)`, it keeps the controller/act handles, the typed context, the

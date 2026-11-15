@@ -127,8 +127,8 @@ func run() -> void:
 			"the afterglow tracks the live opening")
 		check((track["rear"] as Vector3).is_equal_approx(Vector3(0.0, 0.0, 1.0)),
 			"the afterglow passes the opening's rear axis")
-		check(near(float(track["penetration_m"]), 0.16),
-			"the afterglow passes the resting share of the reach")
+		check(near(float(track["penetration_m"]), 0.0),
+			"the afterglow rests the part at her entrance")
 		check(part.aim_opening.is_equal_approx(Vector3(0.0, 0.5, 1.0)),
 			"the part aims at the live opening")
 		check(part.aim_normal.is_equal_approx(Vector3(0.0, 0.0, 1.0)),

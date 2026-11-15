@@ -79,7 +79,7 @@ calling back into the runtime):
 max_pony_climaxes, close_hint, summary_hud, cycle_heat
 y_pink, hud_readouts, hud_controls
 auto_on, auto_layer_open, auto_min_depth, auto_max_depth, auto_pace, auto_shape
-finish_pull_out, hole_ready, oral_ready, finish_ready
+hole_ready, oral_ready
 ```
 
 Scene handles:

@@ -524,7 +524,7 @@ act reads it for the part target and the hole gate; the camera reads it for the 
 dialogue and HUD read it through the facts. The `face` kind is the bed face-sit edge: the forward
 missionary edge switches to it at `0.9` and the reverse returns to `opening` at `0.0`. The anatomy
 act parks the part and reports a zero hip offset, the anatomy bridge refuses
-`hole_ready`/`finish_ready`, and `poses/face_contact.gd` follows the bridge's `face_point()`.
+`hole_ready`, and `poses/face_contact.gd` follows the bridge's `face_point()`.
 The standing camera reads `view.facing`/
 `facing_amount` directly each physics tick; the pose turn writes them, so no service carries a
 facing copy. The running lean kiss is ended by the oral lean tick; the kiss release still advances

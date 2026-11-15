@@ -27,7 +27,6 @@ var _right: XRController3D
 var _hip_base := Vector3.INF
 var _stick_wait := 0.0
 var _swap_held := false
-var _finish_held := false
 var _oral_held := false
 var y_held := false
 
@@ -55,10 +54,6 @@ func _physics_process(delta: float) -> void:
 	if swap and not _swap_held and bridge != null:
 		bridge.toggle_hole()
 	_swap_held = swap
-	var finish := is_instance_valid(_left) and _left.is_button_pressed("primary_click")
-	if finish and not _finish_held and bridge != null:
-		bridge.toggle_finish()
-	_finish_held = finish
 	var oral := is_instance_valid(_left) and _left.is_button_pressed("by_button")
 	if oral and not _oral_held and command.is_valid() and _oral_ready():
 		command.call(ACT_COMMANDS.ORAL)

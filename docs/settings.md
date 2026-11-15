@@ -356,9 +356,9 @@ bounds — and applies live.
 One ungrouped list, in this order: **Show start button**, **Show controls**, **Show HUD readouts**,
 **Move captions to top**, **Mute Ponese**, **Caress surface quality** (`Fast` / `Precise`),
 **Climax limit** (`0…20`; `0` is unlimited), **Mouse sensitivity** in pixels per centimetre of hip
-travel (`20…400`), **Thrust direction** (which mouse direction deepens the stroke), **Enable
-footstool** and **Allow finish control**. The **Auto Thrust** section follows, and **Enable debug**
-(the switch that reveals the Debug sections) is the tab's last player row, under it.
+travel (`20…400`), **Thrust direction** (which mouse direction deepens the stroke) and **Enable
+footstool**. The **Auto Thrust** section follows, and **Enable debug** (the switch that reveals the
+Debug sections) is the tab's last player row, under it.
 
 **Auto Thrust** holds the values an automatic act starts with: **Auto min depth** (`0…0.82`),
 **Auto max depth** (`0.20…1`), **Auto pace** (`1.0…3.75/s`) and **Auto shape** (five waveforms).

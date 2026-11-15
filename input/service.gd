@@ -227,10 +227,6 @@ func _act_key(runtime: Variant, key: InputEventKey, state: int) -> void:
 		runtime.call("command", ACT_COMMANDS.ORAL)
 		_consume(key)
 		return
-	if key.physical_keycode == KEY_B and bool(runtime.call("anatomy_finish_ready")):
-		runtime.call("command", ACT_COMMANDS.FINISH)
-		_consume(key)
-		return
 	# Enter opens the act chat and then hands the keyboard to the text field.
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER] \
 			and bool(main.call("open_act_chat")):

@@ -39,9 +39,6 @@ class FakeBridge extends RefCounted:
 	func toggle_hole() -> void:
 		calls.append("hole")
 
-	func toggle_finish() -> void:
-		calls.append("finish")
-
 	func command(id: String) -> void:
 		calls.append("command:" + id)
 
@@ -167,7 +164,7 @@ func run() -> void:
 
 	left.set_input(&"primary_click", true)
 	_tick(act, 2)
-	check(_count(bridge, "finish") == 1, "left primary click chooses the finish once")
+	check(_count(bridge, "finish") == 0, "left primary click does nothing during the act")
 	left.set_input(&"primary_click", false)
 	_tick(act)
 

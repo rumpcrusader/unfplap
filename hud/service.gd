@@ -37,7 +37,6 @@ var _hint_gap: Control
 var _controls: VBoxContainer
 var _act_key := "6"
 var _y_label: Label
-var _finish_label: Label
 var _auto_label: Label
 var _control_rows := {}
 ## Hold-X layer rows, shown instead of the normal card while the auto settings are open.
@@ -221,9 +220,6 @@ func _build_controls() -> void:
 	# integration: anatomy rows; hidden unless their feature and state allow them.
 	_add_hint_row("anatomy_hole", [{"cap": "V"}], "", "Switch hole")
 	_add_hint_row("anatomy_oral", [{"cap": "N"}], "", "Oral")
-	# Finish control is hidden for now: it changes nothing the player can see yet. The B key still
-	# toggles the runtime state (`anatomy_finish_ready`), so re-showing this row is all it needs.
-	_finish_label = _add_hint_row("anatomy_finish", [{"cap": "B"}], "", "Finish: in")
 	# The act key is the context control, so it stays at the bottom of the card.
 	_y_label = _add_hint_row("y", [{"cap": _act_key}], "Hold", "")
 	# Hold-X auto settings. Built here so the card swaps in place; hidden until the layer opens.
@@ -404,8 +400,6 @@ func update_from(view: RefCounted) -> void:
 	_hint_auto.visible = not auto_text.is_empty()
 	if _auto_label != null:
 		_auto_label.text = "Switch to manual" if bool(view.auto_on) else "Switch to auto"
-	if _finish_label != null:
-		_finish_label.text = "Finish: out" if bool(view.finish_pull_out) else "Finish: in"
 	if bool(view.auto_layer_open):
 		for kind: String in ["min", "max", "pace", "shape"]:
 			var label := _layer_labels.get(kind) as Label
@@ -494,16 +488,13 @@ func _apply_control_visibility(state: int, view: RefCounted) -> void:
 		elif state == STATE_CLIMAX:
 			show = true
 		# integration: anatomy rows exist only while their feature is live.
-		if key in ["anatomy_hole", "anatomy_oral", "anatomy_finish"]:
+		if key in ["anatomy_hole", "anatomy_oral"]:
 			show = _extra_row_visible(key, state, standing, view)
 		# Auto owns the stroke, so the mouse no longer sets its depth: hide the thrust row there.
 		if key == "thrust" and auto_on:
 			show = false
 		# The hold layer only exists while auto runs.
 		if key == "auto_settings" and not auto_on:
-			show = false
-		# Finish control is hidden for now (see `_build_controls`); the B key still works.
-		if key == "anatomy_finish":
 			show = false
 		# The hold-X layer replaces the whole card: its keys mean something else while it is open.
 		control.visible = show and not layer
@@ -521,6 +512,4 @@ func _extra_row_visible(key: String, state: int, standing: bool, view: RefCounte
 			return bool(view.hole_ready)
 		"anatomy_oral":
 			return bool(view.oral_ready)
-		"anatomy_finish":
-			return bool(view.finish_ready)
 	return false

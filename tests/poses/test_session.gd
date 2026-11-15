@@ -920,8 +920,7 @@ func _check_oral_edge() -> void:
 	check(session.request_command(ACT_COMMANDS.POSE_BACK), "the oral lock allows pose_back")
 	check(session.request_command(ACT_COMMANDS.END), "the oral lock allows end")
 	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
-			ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH,
-			ACT_COMMANDS.POSE_FORWARD]:
+			ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE, ACT_COMMANDS.POSE_FORWARD]:
 		check(not session.request_command(command_id),
 			"the oral lock denies %s" % command_id)
 	session.tick(0.7)
@@ -1076,7 +1075,7 @@ func _check_facesit_edge() -> void:
 			ACT_COMMANDS.END]:
 		check(session.request_command(command_id),
 			"the face-sit control set allows %s" % command_id)
-	for command_id: String in [ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH,
+	for command_id: String in [ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE,
 			ACT_COMMANDS.ORAL, ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD]:
 		check(not session.request_command(command_id),
 			"the face-sit control set denies %s" % command_id)
@@ -1190,7 +1189,7 @@ func _check_commands() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: RefCounted = made["session"]
 	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
-			ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH,
+			ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE,
 			ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD, ACT_COMMANDS.END]:
 		check(session.request_command(command_id),
 			"the standing profile allows %s" % command_id)
@@ -1200,7 +1199,7 @@ func _check_commands() -> void:
 	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
 	check(str(result.get("code", "")) == "ok", "the command check starts the debug edge")
 	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
-			ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH,
+			ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE,
 			ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD]:
 		check(not session.request_command(command_id),
 			"the standing_test profile blocks %s" % command_id)
@@ -1210,7 +1209,7 @@ func _check_commands() -> void:
 	var missionary_made := _live_session(CATALOG.MISSIONARY)
 	var missionary: RefCounted = missionary_made["session"]
 	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
-			ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE, ACT_COMMANDS.FINISH, ACT_COMMANDS.END]:
+			ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE, ACT_COMMANDS.END]:
 		check(missionary.request_command(command_id),
 			"the missionary profile allows %s" % command_id)
 	for command_id: String in [ACT_COMMANDS.ORAL, ACT_COMMANDS.POSE_BACK,

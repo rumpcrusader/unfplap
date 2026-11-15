@@ -41,7 +41,6 @@ class FakeRuntime extends Node:
 	var state := 4
 	var holes := 0
 	var orals := 0
-	var finishes := 0
 	var smacks := 0
 	var commands: Array[String] = []
 	var action_ready := true
@@ -51,9 +50,6 @@ class FakeRuntime extends Node:
 		return action_ready
 
 	func anatomy_oral_ready() -> bool:
-		return action_ready
-
-	func anatomy_finish_ready() -> bool:
 		return action_ready
 
 	func command(command_id: String) -> bool:
@@ -66,9 +62,6 @@ class FakeRuntime extends Node:
 
 	func toggle_anatomy_oral() -> void:
 		orals += 1
-
-	func toggle_anatomy_finish() -> void:
-		finishes += 1
 
 	func smack() -> void:
 		smacks += 1
@@ -299,8 +292,8 @@ func _check_shield() -> void:
 	await process_frame
 
 
-## V/N/B emit their command ids through the runtime; a non-ready or refused command does not
-## dispatch, and the key is consumed either way.
+## V/N emit their command ids through the runtime; a non-ready or refused command does not
+## dispatch, and the key is consumed either way. B is retired: it is an ordinary blocked key.
 func _check_act_commands() -> void:
 	var before := SETTINGS.act_input_shield.get_bool()
 	SETTINGS.act_input_shield.set_bool(true)
@@ -314,8 +307,7 @@ func _check_act_commands() -> void:
 	main.active_runtime = runtime
 	await process_frame
 
-	for case: Array in [[KEY_V, ACT_COMMANDS.HOLE], [KEY_N, ACT_COMMANDS.ORAL],
-			[KEY_B, ACT_COMMANDS.FINISH]]:
+	for case: Array in [[KEY_V, ACT_COMMANDS.HOLE], [KEY_N, ACT_COMMANDS.ORAL]]:
 		var code := int(case[0])
 		var command_id := str(case[1])
 		runtime.commands.clear()
@@ -325,6 +317,15 @@ func _check_act_commands() -> void:
 		check(runtime.commands == [command_id], "%s dispatches once" % command_id)
 		check(root.is_input_handled(), "the %s key is consumed" % command_id)
 		await _release(code)
+
+	# The finish key is gone: B dispatches nothing and is only shielded.
+	runtime.commands.clear()
+	await _hold(service, KEY_B)
+	_reset_handled()
+	service.call("_input", _key(KEY_B))
+	check(runtime.commands.is_empty(), "B dispatches no command")
+	check(root.is_input_handled(), "B stays a blocked act key")
+	await _release(KEY_B)
 
 	# A closed readiness gate leaves the command undispatched.
 	runtime.action_ready = false

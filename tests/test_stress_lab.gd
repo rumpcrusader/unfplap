@@ -41,11 +41,10 @@ func run() -> void:
 	await super.run()
 	if is_instance_valid(game):
 		print("[unfplap stress] %d adult mares; fillies excluded" % _stress_ids().size())
-		print("[unfplap stress] anatomy flags: mode=%s holes=%s oral=%s finish=%s fluid=%s" % [
+		print("[unfplap stress] anatomy flags: mode=%s holes=%s oral=%s fluid=%s" % [
 			SETTINGS.anatomy_mode.get_choice(),
 			str(SETTINGS.anatomy_holes.get_bool()),
 			str(SETTINGS.anatomy_oral.get_bool()),
-			str(SETTINGS.anatomy_finish.get_bool()),
 			str(SETTINGS.anatomy_fluid.get_bool()),
 		])
 

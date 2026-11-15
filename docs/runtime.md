@@ -62,7 +62,7 @@ A failure in any step runs `_abort_start()` and the same teardown; it never leav
 | wheel | auto pace |
 | `T` | the game's talk turn; scored as input |
 | `H` | consumed; a stock hug cannot end the act's kiss |
-| `V` / `N` / `B` | anatomy hole / oral / finish, gated by `docs/anatomy.md` |
+| `V` / `N` | anatomy hole / oral, gated by `docs/anatomy.md` |
 | Enter | the game chat during an act |
 | hold middle | the debug action wheel; release runs the highlighted action; see `docs/debug.md` |
 | any other key | consumed during an act; `Enter`, `T`, `Esc` and `F1`–`F12` stay live (`docs/input.md`) |
@@ -158,7 +158,7 @@ contact, plus the oral kiss/speech/viseme/status callbacks. `face_point` is the 
 real face anchor on the act body; a missing or inactive body is `Vector3.INF`. `request_command(id)` is the pure allow check:
 `end` is reserved and always allowed, otherwise the id must be in the active pose's control profile
 and the live edge lock must not deny it. `command(id)` runs that check first, then dispatches the
-discrete `hole`/`finish` ids to the anatomy entry points and `oral` to `toggle_anatomy_oral()`,
+discrete `hole` id to the anatomy entry point and `oral` to `toggle_anatomy_oral()`,
 which requests the target pose with the per-mare consent string; the reserved `pose_back`/
 `pose_forward` return false, and `end` returns true without an act exit. The act-key hold still
 owns the one exit path.

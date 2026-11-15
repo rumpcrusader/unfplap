@@ -228,13 +228,8 @@ func oral_ready() -> bool:
 		and pose_family() == "standing" and SETTINGS.anatomy_oral.get_bool()
 
 
-func finish_ready() -> bool:
-	return is_instance_valid(act) and _host("state", 0) in [STATE_ACTIVE, STATE_CLIMAX] \
-		and SETTINGS.anatomy_finish.get_bool() and not _face_contact()
-
-
 func actions_ready() -> bool:
-	return hole_ready() or oral_ready() or finish_ready()
+	return hole_ready() or oral_ready()
 
 
 ## Re-assert the oral mouth shape after the base game stopped her speech.
@@ -272,18 +267,9 @@ func face_ready() -> bool:
 	return is_instance_valid(act) and _face_contact() and bed_active()
 
 
-func finish_pull_out() -> bool:
-	return is_instance_valid(act) and bool(act.call("pull_out_selected"))
-
-
 func toggle_hole() -> void:
 	if is_instance_valid(act):
 		act.call("toggle_hole", _host("state", 0))
-
-
-func toggle_finish() -> void:
-	if is_instance_valid(act):
-		act.call("toggle_finish", _host("state", 0))
 
 
 ## The stock flank smack reaction on the persistent controller.
@@ -292,20 +278,10 @@ func react() -> void:
 		controller.call("react")
 
 
-## The act's own withdrawal, climax, finish and afterglow hooks.
-func withdraw() -> void:
-	if is_instance_valid(act):
-		act.call("withdraw")
-
-
+## The act's own climax and afterglow hooks.
 func on_climax() -> void:
 	if is_instance_valid(act):
 		act.call("on_climax")
-
-
-func on_finish() -> void:
-	if is_instance_valid(act):
-		act.call("on_finish")
 
 
 func afterglow_tick(delta: float) -> void:

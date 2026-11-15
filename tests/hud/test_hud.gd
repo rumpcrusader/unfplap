@@ -233,8 +233,6 @@ func _check_controls() -> void:
 	view.state = 2
 	hud.call("update_from", view)
 	check((rows.get("kiss") as Control).visible, "missionary shows the kiss (front lean)")
-	check((rows.get("anatomy_finish") as Control).visible == false,
-		"the finish control is hidden for now")
 	view.pose_view.family = "standing"
 	hud.call("update_from", view)
 	check((rows.get("kiss") as Control).visible, "standing shows the kiss")

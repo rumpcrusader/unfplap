@@ -1,14 +1,13 @@
 extends Node
 ## integration: per-act anatomy behaviour. It reads the
-## current act depth, the pose view's contact and drives the anatomy meshes, the Anon part, the
-## finish state and the fluid. It never touches thrust scoring, auto thrust or the camera.
+## current act depth, the pose view's contact and drives the anatomy meshes, the Anon part and the
+## fluid. It never touches thrust scoring, auto thrust or the camera.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
-const FINISH := preload("res://mods/unfplap/anatomy/act/finish.gd")
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 
@@ -50,7 +49,6 @@ var _oral: RefCounted
 var _face_parted := false
 var _fill := 0.0
 var _wide := 0.0
-var _finish: RefCounted
 ## Climax wink: the shapes stay driven around the shaft, and this adds the open/close pulses
 ## on top instead of a tween that the per-frame drive would cancel.
 var _wink_left := 0.0
@@ -82,8 +80,6 @@ func setup(service_node: Node, pony_node: Node3D, anatomy_node: Node,
 		_display_name = str(identity.get("display_name"))
 	elif is_instance_valid(pony):
 		_display_name = str(pony.name)
-	_finish = FINISH.new()
-	_finish.setup(anatomy, pony, service, status, Callable(self, "_bed_pose"))
 	_oral = ORAL.new()
 	_oral.call("setup", pony, anatomy)
 	reset()
@@ -100,8 +96,6 @@ func reset() -> void:
 	_face_parted = false
 	if _oral != null:
 		_oral.call("reset")
-	if _finish != null:
-		_finish.reset()
 	_wink_left = 0.0
 	_wink_total = 0.0
 	_wink_beats = 0.0
@@ -124,8 +118,8 @@ func _pose_view() -> Variant:
 	return _facts.pose_view if _facts != null else null
 
 
-## Whether the live pose is the bed frame. The finish fluid direction reads this through a
-## callable, so the per-act handle owns no start pose id.
+## Whether the live pose is the bed frame. The act reads it for the missionary-only part inset and
+## owns no start pose id.
 func _bed_pose() -> bool:
 	var view: Variant = _pose_view()
 	return view != null and str(view.frame) == "bed"
@@ -188,18 +182,6 @@ func oral_mouth_point() -> Vector3:
 	return point if point is Vector3 and (point as Vector3).is_finite() else Vector3.ZERO
 
 
-func finish_out() -> bool:
-	return _finish != null and bool(_finish.finish_out())
-
-
-func pull_out_selected() -> bool:
-	return _finish != null and bool(_finish.pull_out_selected())
-
-
-func finished_inside() -> bool:
-	return _finish != null and bool(_finish.finished_inside())
-
-
 func toggle_hole(state: int) -> void:
 	if not SETTINGS.anatomy_holes.get_bool() or state not in [2, 3] \
 			or _mouth_contact() or _face_contact():
@@ -210,11 +192,6 @@ func toggle_hole(state: int) -> void:
 		_status("%s is not into that" % _display_name)
 		return
 	_anal = not _anal
-
-
-func toggle_finish(state: int) -> void:
-	if _finish != null:
-		_finish.toggle(state)
 
 
 func _part() -> Variant:
@@ -463,11 +440,6 @@ func on_climax() -> void:
 	fluid.call("drip", Callable(self, "hole_point"), 2.5, 7.0, 0.007, PONY_FLUID_COLOR)
 
 
-func on_finish() -> void:
-	if _finish != null:
-		_finish.on_finish(_depth(), _mouth_contact(), _facts.fluid_ground_y)
-
-
 ## integration: afterglow part tracking, on the act's attached alignment.
 func afterglow_tick(delta: float, facts: RefCounted) -> void:
 	_facts = facts if facts != null else FACTS.new()
@@ -479,9 +451,8 @@ func afterglow_tick(delta: float, facts: RefCounted) -> void:
 	var part: Variant = _part()
 	if not is_instance_valid(mesh) or not is_instance_valid(part) or not bool(part.call("showing")):
 		return
+	# The held phase rests the tip at her entrance; no finish state drives this depth any more.
 	var rest_m := 0.0
-	if _finish != null:
-		rest_m = float(_finish.afterglow_step(delta, _facts.penetration_reach))
 	# Keep the act's attached alignment through the held phase. The detached bed holder aligns
 	# the part's roll to the anatomy mesh's own axes, and in the lying pose her mesh +Y points
 	# into the mattress, so the shaft would be rolled 180° there.
@@ -499,11 +470,6 @@ func afterglow_tick(delta: float, facts: RefCounted) -> void:
 			(mesh as Node3D).global_transform.basis.y.normalized(), false, rest_m, delta,
 			(mesh as Node3D).get_parent(), true)
 	_facts.perf("anatomy_afterglow", Time.get_ticks_usec() - started)
-
-
-func withdraw() -> void:
-	if _finish != null:
-		_finish.withdraw()
 
 
 func end() -> void:
@@ -524,8 +490,6 @@ func teardown() -> void:
 	_anal = false
 	_hole_mix = 0.0
 	_face_parted = false
-	if _finish != null:
-		_finish.teardown()
 
 
 func _hole_out() -> Vector3:

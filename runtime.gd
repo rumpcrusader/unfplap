@@ -968,9 +968,6 @@ func command(command_id: String) -> bool:
 		ACT_COMMANDS.ORAL:
 			toggle_anatomy_oral()
 			return true
-		ACT_COMMANDS.FINISH:
-			toggle_anatomy_finish()
-			return true
 		ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD:
 			return false
 		ACT_COMMANDS.END:
@@ -1174,10 +1171,8 @@ func _sync_hud_facts() -> void:
 		_afterglow.close_caress_earned, pony_climaxes, _max_pony_climaxes)
 	facts.hud_readouts = hud_readouts()
 	facts.hud_controls = hud_controls()
-	facts.finish_pull_out = _anatomy_bridge.finish_pull_out()
 	facts.hole_ready = _anatomy_bridge.hole_ready()
 	facts.oral_ready = _anatomy_bridge.oral_ready()
-	facts.finish_ready = _anatomy_bridge.finish_ready()
 	facts.auto_on = _readiness.auto_active()
 	if facts.auto_on:
 		facts.auto_min_depth = _readiness.auto_min_depth()
@@ -2469,15 +2464,6 @@ func _oral_speech_stop() -> void:
 	_stop_pony_speech()
 
 
-func toggle_anatomy_finish() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.toggle_finish()
-
-
-func anatomy_finish_pull_out() -> bool:
-	return _anatomy_bridge.finish_pull_out()
-
-
 ## integration: precise action gates. With no act controller (feature off or no controller) the
 ## keys pass through and the HUD rows stay hidden.
 func anatomy_hole_ready() -> bool:
@@ -2486,10 +2472,6 @@ func anatomy_hole_ready() -> bool:
 
 func anatomy_oral_ready() -> bool:
 	return _anatomy_bridge.oral_ready()
-
-
-func anatomy_finish_ready() -> bool:
-	return _anatomy_bridge.finish_ready()
 
 
 func anatomy_actions_ready() -> bool:
@@ -3218,8 +3200,6 @@ func cancel() -> void:
 func end_afterglow() -> void:
 	if state == State.AFTERGLOW:
 		_log("afterglow end pony=%s" % str(pony.name))
-		# integration: if he stayed in, the withdrawal gush is part of the finish.
-		_anatomy_bridge.withdraw()
 		_afterglow.cancel_close()
 		_restore_begin()
 
@@ -3390,8 +3370,6 @@ func _afterglow_begin() -> void:
 	# Bed afterglow keeps only lean and caress; standing keeps its kiss.
 	if _pose_family() != "standing":
 		_kiss_controller().end_lean_kiss()
-	# integration: decide and show the finish before the summary is written.
-	_anatomy_bridge.on_finish()
 	_commit_afterglow()
 	state = State.AFTERGLOW
 	_sync_act_facts()

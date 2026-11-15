@@ -2897,9 +2897,11 @@ static func _collect_leaves(value: Variant, prefix: String, out: Dictionary) -> 
 
 
 static func _same_leaf(a: Variant, b: Variant) -> bool:
-	if a is int or a is float:
-		if b is int or b is float:
-			return is_equal_approx(float(a), float(b))
+	var a_number := a is int or a is float
+	var b_number := b is int or b is float
+	if a_number or b_number:
+		return a_number and b_number and is_equal_approx(float(a), float(b))
+	if typeof(a) != typeof(b):
 		return false
 	return a == b
 

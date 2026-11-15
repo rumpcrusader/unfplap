@@ -67,8 +67,9 @@ Non-code tasks: a release is `.opencode/skills/release/SKILL.md`; syncing shippe
 
 - Mod id `unfplap`; the current version and target game are in `mod.json`. Adult mares only; human
   Anon and AnonPony.
-- All eligibility, consent and relationship-level gates are in `docs/eligibility.md`. Exactly two
-  poses: `missionary` on a bed/couch and `standing` standing.
+- All eligibility, consent and relationship-level gates are in `docs/eligibility.md`. Two
+  **offerable** poses: `missionary` on a bed/couch and `standing` standing; internal poses are not
+  offers.
 - No pregnancy, conception, content warning, new character or body models. Estrus is an optional,
   off-by-default cycle (`features.estrus_cycle`) that changes timing, willingness and dialogue
   only. The anatomy is an optional, feature-gated addition that never replaces a pony's body or

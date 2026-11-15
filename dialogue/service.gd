@@ -283,7 +283,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	if facts.state != STATE_ACTIVE or not _game_ok():
 		return ""
 	# integration: her mouth is busy during oral.
-	if bool(facts.oral_active):
+	if facts.pose_view != null and str(facts.pose_view.contact_kind) == "mouth":
 		return ""
 	if _director() == null:
 		return ""
@@ -296,9 +296,10 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	var face_note := ""
 	if kind == "cue":
 		face_note = ACT_FACE.prompt_note("cue", facts.mood)
+	var pose := str(facts.pose_view.id) if facts.pose_view != null else ""
 	var values := {
 		"state": UTTERANCE.state_line(
-			facts.pose_id, facts.mood, facts.last_intensity, facts.last_pattern,
+			pose, facts.mood, facts.last_intensity, facts.last_pattern,
 			facts.last_touch, facts.last_talk, facts.act_seconds, facts.pony_climaxes),
 		"preferences": PREFERENCES.describe(facts.preferences),
 		"taste": PREFERENCES.describe(facts.preferences),

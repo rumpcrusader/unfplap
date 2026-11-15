@@ -13,8 +13,8 @@ const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "Colo
 ## file, per file. It ratchets down: a migrated consumer must not gain a reference, and a file that
 ## drops lowers its entry in the same commit. Producer mirrors may raise a producer's entry in the
 ## commit that adds them, with the total held flat. The hard allowlist is Phase B5/E.
-## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). A1.2 has moved the
-## camera, hands and kiss to the view and the anatomy context to the view: 157 and 21 remain.
+## A0 census: 185 `pose_id`, 18 `oral_active` (tests and tools excluded). A1 has moved the camera,
+## hands, kiss, anatomy, afterglow, dialogue, HUD and body sway to the view: 151 and 19 remain.
 const POSE_ID_BUDGET := {
 	"runtime.gd": 62,
 	"poses/service.gd": 31,
@@ -25,16 +25,13 @@ const POSE_ID_BUDGET := {
 	"poses/standing_anon.gd": 5,
 	"anatomy/controller.gd": 3,
 	"api.gd": 3,
-	"afterglow/service.gd": 3,
+	"afterglow/service.gd": 2,
 	"anatomy/act.gd": 2,
 	"rest/service.gd": 2,
 	"integrations/service.gd": 2,
-	"hud/service.gd": 2,
-	"dialogue/utterance.gd": 2,
 	"anatomy/act/oral.gd": 2,
 	"anatomy/act/finish.gd": 2,
 	"shared/act_facts.gd": 2,
-	"dialogue/service.gd": 1,
 	"scene_hold/service.gd": 1,
 	"main.gd": 1,
 	"integrations/idle_life.gd": 1,
@@ -45,9 +42,7 @@ const ORAL_ACTIVE_BUDGET := {
 	"runtime.gd": 11,
 	"anatomy/act_bridge.gd": 3,
 	"shared/act_facts.gd": 1,
-	"dialogue/service.gd": 1,
 	"anatomy/act.gd": 1,
-	"poses/body_sway.gd": 1,
 	"shared/pose_view.gd": 3,
 }
 var failures := 0

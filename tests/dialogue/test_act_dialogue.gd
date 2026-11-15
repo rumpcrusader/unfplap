@@ -5,6 +5,7 @@ extends SceneTree
 
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 var failures := 0
@@ -107,7 +108,11 @@ func run() -> void:
 	facts.pony_id = "fluttershy"
 	facts.display_name = "Fluttershy"
 	facts.event_id = "evt1"
-	facts.pose_id = "standing"
+	var pose: RefCounted = VIEW.new()
+	pose.id = "standing"
+	pose.family = "standing"
+	pose.contact_kind = "opening"
+	facts.pose_view = pose
 	facts.state = 2
 	facts.mood = "warming"
 	facts.cue = "She wants it firmer."

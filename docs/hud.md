@@ -16,8 +16,9 @@ The runtime gathers the live values into the typed act view (`shared/act_facts.g
 count and limit, cue, close hint, summary, the preference axes, heat, the `End` tint, the auto
 readout and the anatomy row gates. `main.gd` calls `runtime.act_view()` once per rendered frame and
 passes that object to `hud/service.gd`, which reads fields and never probes the runtime for a
-method. The pure module has no Node, tree, `Settings` or game access, so the formats are testable
-without a scene.
+method. The control visibility reads `view.pose_view.family` (`bed` for missionary, `standing` for
+standing) instead of a raw pose id. The pure module has no Node, tree, `Settings` or game access,
+so the formats are testable without a scene.
 
 ## Lines
 
@@ -127,7 +128,6 @@ caption line.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Lifecycle
 

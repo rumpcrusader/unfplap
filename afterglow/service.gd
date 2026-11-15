@@ -4,15 +4,19 @@ extends RefCounted
 ## its end and every scene result; this facade owns the close-window timer and its decision.
 ## Contract: `docs/afterglow.md`.
 
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 
 ## The close window only exists in the standing afterglow.
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
 
-## Pose of the afterglow that owns these timers.
+## The act pose this afterglow belongs to, for the presentation row.
 var pose := ""
+## The pose view the runtime carries into the next `begin()`; its `afterglow` profile owns the
+## close-window decision.
+var view: RefCounted = null
+## Whether this pose's afterglow profile opens a close window.
+var close_window := false
 ## One short private afterglow beat, rolled once when the afterglow begins. Empty means silence.
 var beat := ""
 var close_left := 0.0
@@ -30,22 +34,31 @@ var caress_active := Callable()
 var on_stay_close := Callable()
 
 
-## Start a fresh afterglow for this pose. Standing opens its close window immediately.
+## Carry the pose view into the next afterglow. The runtime binds it once per act.
+func bind_view(view_in: RefCounted) -> void:
+	view = view_in
+
+
+## Start a fresh afterglow for this pose. The row's `afterglow.close_window` opens the close
+## window immediately.
 func begin(pose_id: String, summary: Dictionary) -> void:
 	pose = pose_id
+	var afterglow: Variant = view.afterglow if view != null else null
+	close_window = bool((afterglow as Dictionary).get("close_window", false)) \
+		if afterglow is Dictionary else false
 	beat = ACT_SUMMARY.afterglow_beat(summary, randf())
 	close_caress_seconds = 0.0
 	close_rewarded = false
 	close_caress_earned = false
 	positive = bool(summary.get("reward", false))
-	close_left = STAY_CLOSE_SECONDS if pose_id == CATALOG.STANDING else 0.0
+	close_left = STAY_CLOSE_SECONDS if close_window else 0.0
 
 
 ## The presentation the runtime applies when the act enters the held afterglow. The facade owns
 ## the phase decisions; the runtime applies the row in this order and owns the scene calls the
 ## row cannot make (the wings, the face beat, the summary commit).
 func presentation() -> Dictionary:
-	var standing := pose == CATALOG.STANDING
+	var standing := pose == "standing"
 	return {
 		"pose_mode": "standing" if standing else "afterglow",
 		"afterglow_pose": "" if standing else pose,
@@ -59,6 +72,7 @@ func presentation() -> Dictionary:
 ## Clear every value for the next act. The callbacks stay.
 func reset() -> void:
 	pose = ""
+	close_window = false
 	beat = ""
 	close_left = 0.0
 	close_caress_seconds = 0.0
@@ -67,9 +81,9 @@ func reset() -> void:
 	positive = false
 
 
-## Count caress time and run the standing close window down. The window opens in `begin()`.
+## Count caress time and run the close window down. The window opens in `begin()`.
 func close_tick(delta: float) -> void:
-	if pose != CATALOG.STANDING or close_left <= 0.0:
+	if not close_window or close_left <= 0.0:
 		return
 	if _truthy(caress_active):
 		close_caress_seconds += delta

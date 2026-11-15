@@ -115,7 +115,7 @@ static func _pattern_rank(value: String) -> int:
 
 ## Short private state line for the AI. No speed/depth units: the mood, the two preference axes
 ## and the last concrete input are what a partner would actually notice.
-static func state_line(pose_id: String, mood: String, intensity: String, pattern: String,
+static func state_line(pose: String, mood: String, intensity: String, pattern: String,
 		last_touch: String, last_talk: String, _seconds: float, climaxes := 0) -> String:
 	var motion := "unknown"
 	if not intensity.is_empty() and not pattern.is_empty():
@@ -125,7 +125,7 @@ static func state_line(pose_id: String, mood: String, intensity: String, pattern
 	elif not pattern.is_empty():
 		motion = pattern
 	return "pose=%s, mood=%s, he is %s, last touch=%s, last talk=%s, climaxes=%d" % [
-		pose_id, mood, motion,
+		pose, mood, motion,
 		last_touch if not last_touch.is_empty() else "none",
 		last_talk if not last_talk.is_empty() else "none",
 		climaxes,

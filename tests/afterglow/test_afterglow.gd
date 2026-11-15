@@ -7,6 +7,7 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
@@ -36,11 +37,20 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+func _view(pose: String) -> RefCounted:
+	var view: RefCounted = VIEW.new()
+	view.id = pose
+	view.family = "bed" if pose == "missionary" else "standing"
+	view.afterglow = {"close_window": pose == "standing"}
+	return view
+
+
 func _facade(pose: String) -> Dictionary:
 	var host := Host.new()
 	var phase: RefCounted = AFTERGLOW.new()
 	phase.caress_active = Callable(host, "is_caressing")
 	phase.on_stay_close = Callable(host, "stay_close")
+	phase.bind_view(_view(pose))
 	phase.begin(pose, {"reward": true})
 	return {"phase": phase, "host": host}
 
@@ -132,6 +142,7 @@ func run() -> void:
 	check(mission["phase"].hint() == "", "missionary has no close cue")
 
 	var runtime_hint: Node = _runtime("standing")
+	runtime_hint._afterglow.bind_view(_view("standing"))
 	runtime_hint._afterglow.begin("standing", {})
 	check(str(runtime_hint.call("close_hint")).contains("Stay close"),
 		"the runtime forwards the close cue")

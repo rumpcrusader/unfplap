@@ -4,6 +4,7 @@ extends SceneTree
 
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
 var checks := 0
@@ -13,7 +14,9 @@ var checks := 0
 func _view() -> RefCounted:
 	var facts: RefCounted = ACT_FACTS.new()
 	facts.state = 2
-	facts.pose_id = "standing"
+	var pose: RefCounted = POSE_VIEW.new()
+	pose.family = "standing"
+	facts.pose_view = pose
 	facts.max_pony_climaxes = 3
 	facts.pony_climaxes = 0
 	facts.cue = "She is close."
@@ -196,7 +199,7 @@ func _check_controls() -> void:
 	check(_act_cap(rows).text == "F", "the act-key row follows a captured key")
 	hud.call("set_act_key", "6")
 	check(_act_cap(rows).text == "6", "the act-key row returns to 6")
-	view.pose_id = "missionary"
+	view.pose_view.family = "bed"
 	hud.call("update_from", view)
 	check((rows.get("lean") as Control).visible, "missionary afterglow keeps the lean")
 	check((rows.get("caress") as Control).visible, "missionary afterglow keeps the caress")
@@ -208,7 +211,7 @@ func _check_controls() -> void:
 	check((rows.get("kiss") as Control).visible, "missionary shows the kiss (front lean)")
 	check((rows.get("anatomy_finish") as Control).visible == false,
 		"the finish control is hidden for now")
-	view.pose_id = "standing"
+	view.pose_view.family = "standing"
 	hud.call("update_from", view)
 	check((rows.get("kiss") as Control).visible, "standing shows the kiss")
 	hud.call("show_prompt", "Make love")

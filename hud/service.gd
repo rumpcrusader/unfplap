@@ -6,7 +6,6 @@ extends CanvasLayer
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const ICON_PATH := "res://world/ui/prompts/%s.png"
 ## The offer words are the mod's pink accent, like the control card's earned-caress `End`.
@@ -474,8 +473,9 @@ func _apply_control_visibility(state: int, view: RefCounted) -> void:
 		_controls.visible = hints_on and _hint.visible
 	if _hint_gap != null:
 		_hint_gap.visible = hints_on and _hint.visible
-	var standing := str(view.pose_id) == CATALOG.STANDING
-	var missionary := str(view.pose_id) == CATALOG.MISSIONARY
+	var pose_view: Variant = view.pose_view
+	var standing := pose_view != null and str(pose_view.family) == "standing"
+	var missionary := pose_view != null and str(pose_view.family) == "bed"
 	var afterglow := state == STATE_AFTERGLOW
 	var layer := bool(view.auto_layer_open)
 	var auto_on := bool(view.auto_on)

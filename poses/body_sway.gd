@@ -49,7 +49,7 @@ func _apply(delta: float) -> void:
 	var target := -clampf(float(depth_value), 0.0, 1.0) * BODY_SWAY_MAX_M
 	# The oral segment keeps her body still: the spring rests at its base and publishes a zero
 	# offset, so Anon's pinned hip does not inherit a stale rock.
-	if bool(facts.oral_active):
+	if facts.pose_view != null and str(facts.pose_view.contact_kind) == "mouth":
 		target = 0.0
 		_offset = 0.0
 		_velocity = 0.0

@@ -39,10 +39,11 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 
 | Method | Meaning |
 |---|---|
-| `begin(pose_id, summary)` | start the phase, roll the private beat and open the standing close window |
+| `begin(pose_id, summary)` | start the phase, roll the private beat and open the close window the pose profile declares |
+| `bind_view(view)` | carry the pose view whose `afterglow.close_window` decides that window |
 | `presentation()` | the afterglow presentation row: pose mode, tail target and flicks, HUD state and the wings flag |
 | `reset()` | clear every per-act value; the callbacks stay |
-| `close_tick(delta)` | count caress time and run the standing window down |
+| `close_tick(delta)` | count caress time and run the window down |
 | `cancel_close()` | drop the window without a reward |
 | `hint()` | the close prompt, or the content line after the reward |
 
@@ -61,8 +62,8 @@ executor, so that action does not control the phase.
 
 ## Close window
 
-- Only the standing afterglow opens it; `begin()` sets `close_left = STAY_CLOSE_SECONDS` (8 s) for
-  `standing` and zero for `missionary`.
+- The pose row's `afterglow.close_window` opens it: standing declares it, missionary does not.
+  `begin()` sets `close_left = STAY_CLOSE_SECONDS` (8 s) when the profile opens the window.
 - `close_tick()` adds to `close_caress_seconds` while the hand controller has an active caress and
   subtracts the same delta from `close_left`.
 - At zero the window grants exactly one reward. `close_caress_earned` is true only with at least
@@ -105,7 +106,6 @@ Hold the act key:
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 
 ## Lifecycle
 

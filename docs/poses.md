@@ -223,9 +223,9 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
 - `poses/body_sway.gd` translates `pony_hips` with an inverted damped spring: back on inward depth,
   forward on outward depth. All four limb-root origins are preserved so the hooves stay planted.
   The same world offset is added to Anon's pinned hip so the contact rocks together.
-  `BODY_SWAY_MAX_M = 0.035`. While `facts.oral_active` is set (the standing oral segment), the
-  spring target, offset and published world offset stay at zero, so the pelvis holds its recipe
-  base; with oral off the spring runs unchanged.
+  `BODY_SWAY_MAX_M = 0.035`. While `facts.pose_view.contact_kind == "mouth"` (the standing oral
+  segment), the spring target, offset and published world offset stay at zero, so the pelvis holds
+  its recipe base; with oral off the spring runs unchanged.
 - Strong thrusts build a subtle rump blush decal up to `0.375` albedo mix (smack uses `0.8`).
   The reaction facade and the jiggle values are in `docs/reactions.md`.
 - `poses/ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a

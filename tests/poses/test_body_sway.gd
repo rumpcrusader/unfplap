@@ -5,6 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/poses/test_body_sway.gd
 
 const SWAY := preload("res://mods/unfplap/poses/body_sway.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
 var checks := 0
@@ -12,7 +13,7 @@ var checks := 0
 
 class FakeFacts extends RefCounted:
 	var depth := 1.0
-	var oral_active := false
+	var pose_view: Variant = null
 	var standing_sway_offset := Vector3.ZERO
 
 	func perf(_key: String, _usec: int) -> void:
@@ -37,6 +38,9 @@ func run() -> void:
 			"pony_femur_L", "pony_femur_R"]:
 		skeleton.add_bone(bone_name)
 	var facts := FakeFacts.new()
+	var view: RefCounted = VIEW.new()
+	view.contact_kind = "opening"
+	facts.pose_view = view
 	var sway: SkeletonModifier3D = SWAY.new()
 	sway.mare = mare
 	sway.facts = facts
@@ -53,7 +57,7 @@ func run() -> void:
 	check(skeleton.get_bone_pose(hips).origin.distance_to(base) > 0.0001,
 		"the pelvis leaves its base on a regular thrust")
 
-	facts.oral_active = true
+	view.contact_kind = "mouth"
 	sway.call("_apply", 0.05)
 	check(facts.standing_sway_offset == Vector3.ZERO,
 		"oral publishes a zero sway offset")
@@ -62,7 +66,7 @@ func run() -> void:
 	check(skeleton.get_bone_pose(hips).origin.is_equal_approx(base),
 		"oral leaves the pelvis at its base")
 
-	facts.oral_active = false
+	view.contact_kind = "opening"
 	for _i: int in 4:
 		sway.call("_apply", 0.05)
 	check(facts.standing_sway_offset.length() > 0.0001,

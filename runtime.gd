@@ -3241,6 +3241,7 @@ func _afterglow_begin() -> void:
 	state = State.AFTERGLOW
 	_sync_act_facts()
 	_integrations_controller().afterglow()
+	_afterglow.bind_view(_pose_session.view())
 	_afterglow.begin(pose_id, _summary_service.summary)
 	cue = ""
 	_readiness.cue_override = ""

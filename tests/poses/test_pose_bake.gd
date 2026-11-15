@@ -8,6 +8,8 @@ extends SceneTree
 const BAKE := preload("res://mods/unfplap/tools/pose_bake.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const RECIPE := preload("res://mods/unfplap/poses/standing_recipe.gd")
+const ORAL := preload("res://mods/unfplap/poses/standing_oral_recipe.gd")
+const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const BODY := preload("res://world/characters/hybrid_mare/body.glb")
 
 const STANDING_PATH := "res://mods/unfplap/poses/standing_pose.json"
@@ -187,8 +189,75 @@ func _check_shipped_standing() -> void:
 	check(worst_pos <= 0.002, "the body positions are size-invariant: %.5f m" % worst_pos)
 	check(worst_deg <= 0.5, "the body rotations are size-invariant: %.4f deg" % worst_deg)
 	pony.transform = original
+	_check_oral_parity(pony, sk, fixture as Dictionary, frame, config)
+
 	root.remove_child(pony)
 	pony.free()
+
+
+## The oral delta on the baked base matches the reference recipe plus the same delta at four sizes:
+## the neck/head rotations and the head anchor relative to the hips.
+func _check_oral_parity(pony: Node3D, sk: Skeleton3D, fixture: Dictionary, frame: Transform3D,
+		config: Dictionary) -> void:
+	var rig: Variant = RIG.new()
+	rig.call("cache", pony, sk)
+	var keys := {"oral_pitch": 0.25, "oral_yaw": -0.12, "oral_roll": 0.15}
+	var oral: Variant = ORAL.new()
+	_load_fixture(sk, fixture)
+	var recipe: Variant = RECIPE.new()
+	recipe.call("apply_reference", rig, sk, 1.0, config)
+	sk.force_update_all_bone_transforms()
+	oral.call("apply_delta", rig, sk, 1.0, {"config": keys})
+	sk.force_update_all_bone_transforms()
+	var reference := _oral_places(sk)
+	var loader: Variant = AUTHORED.new()
+	loader.call("load_file", STANDING_PATH)
+	var live: Variant = RECIPE.new()
+	var original := pony.transform
+	var worst_pos := 0.0
+	var worst_deg := 0.0
+	for size: float in SIZES:
+		pony.transform.basis = original.basis * Basis.from_scale(Vector3.ONE * size)
+		sk.reset_bone_poses()
+		sk.force_update_all_bone_transforms()
+		var state := {
+			"config": config, "authored": loader, "ground_frame": frame,
+			"body_scale": size, "size_name": "canon", "stretch": false,
+		}
+		check(bool(live.call("apply_base", rig, sk, 1.0, state)),
+			"the live standing base applies the asset at %.2f" % size)
+		sk.force_update_all_bone_transforms()
+		oral.call("apply_delta", rig, sk, 1.0, {"config": keys})
+		sk.force_update_all_bone_transforms()
+		var got := _oral_places(sk)
+		for name: String in reference:
+			var a: Dictionary = reference[name]
+			var b: Dictionary = got[name]
+			var qa: Quaternion = (a["rotation"] as Quaternion).normalized()
+			var qb: Quaternion = (b["rotation"] as Quaternion).normalized()
+			var angle := rad_to_deg(qa.angle_to(qb))
+			worst_deg = maxf(worst_deg, angle)
+			worst_pos = maxf(worst_pos, (a["position"] as Vector3).distance_to(b["position"]))
+	pony.transform = original
+	check(worst_deg <= 0.5, "the oral neck/head parity is size-invariant: %.4f deg" % worst_deg)
+	check(worst_pos <= 0.002, "the oral head anchor is size-invariant: %.5f m" % worst_pos)
+
+
+## The neck/head local rotations and their skeleton-space positions relative to the hips.
+func _oral_places(sk: Skeleton3D) -> Dictionary:
+	var out := {}
+	var hips := sk.find_bone("pony_hips")
+	var hips_origin := sk.get_bone_global_pose(hips).origin if hips >= 0 else Vector3.ZERO
+	for name: String in ["pony_neck1", "pony_neck2", "pony_head"]:
+		var bone := sk.find_bone(name)
+		if bone < 0:
+			continue
+		var pose := sk.get_bone_global_pose(bone)
+		out[name] = {
+			"rotation": pose.basis.get_rotation_quaternion(),
+			"position": pose.origin - hips_origin,
+		}
+	return out
 
 
 func _find_skeleton(node: Node) -> Skeleton3D:

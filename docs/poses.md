@@ -51,6 +51,7 @@ and the `support` height), the armature `root`, the body bone deltas, and option
 - **`local_rest` bones.** A bone entry is a delta from the bone's rest local transform:
   `delta = rest.affine_inverse() * pose`, and the runtime writes `pose = rest * delta`. At rest the
   delta is identity, and every body bone is present in the file, including the ones left at rest.
+  The head is not one of the 30: a standing recipe applies its own head bow and chin on top.
 - **Placement.** The frame is placed from the hips anchor and the contact, not from a scaled asset
   origin. At body scale `s` the root is scaled about the anchor and lifted so the contact stays on
   the support; the live body scale is applied once at the world root, so the skeleton-space root
@@ -656,7 +657,12 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   from the root's lateral offset, with an eased envelope and cooldown.
 - The standing base is the v7 asset `poses/standing_pose.json`, baked from the game's settled
   standing reference with `apply_reference()` at the effective reference config. The live recipe
-  applies only the difference from that reference; the default stance is the baked pose.
+  applies only the difference from that reference; the default stance is the baked pose. The asset
+  carries the 30 body bones, not `pony_head`, so the live base applies the head's full reference
+  bow and chin itself; the neck bones are the baked difference.
+- `standing_oral` runs the B2 procedural delta on that baked base, after it and before the
+  overlay, in both the single and two-base forms. The neck/head and the mouth anchor match the
+  reference recipe plus the same delta at all four sizes (the oral parity in `test_pose_bake`).
 - `chin_up_deg` and `neck_down_deg` come from the presentation block, and their effective defaults
   are the presentation values. `foreleg_spread` is the absolute outward half-angle; the recipe
   measures the **baked** hoof line, so the reference value adds zero and a changed value adds only
@@ -840,7 +846,7 @@ unchanged.
   reverse restore.
 - `tests/poses/test_oral_turn.gd` — the pose-owned oral turn: the captured root/facing/opening,
   the forward and reverse weight mapping, the opening anchor while turning, the live mouth once
-  settled, the soft-kiss timer and the one restore.
+  settled at canon and at a non-canon size, the soft-kiss timer and the one restore.
 - `tests/poses/test_modifier_profile.gd` — the synthetic profile reconcile: the shared owner keeps
   its node, the source-only owner is removed, the target-only owners install behind their feature
   gates, the act-exit leave still removes all and the synthetic profile stays out of the shipped
@@ -872,8 +878,9 @@ unchanged.
   anchor/contact placement at four sizes, variants and the spec `asset` resolution; the v6 fixture
   and the v6 ground refusal.
 - `tests/poses/test_pose_bake.gd` — the bake capture/compare math on a synthetic rig, the
-  deterministic writer and its fixture-path refusal, and the shipped standing asset's freshness,
-  four-size body parity, contact, anchor and reference config.
+  deterministic writer and its fixture-path refusal, the shipped standing asset's freshness,
+  four-size body parity, contact, anchor, reference config, and the four-size oral neck/head
+  parity against the reference recipe plus the same delta.
 - `tests/poses/test_body_sway.gd` — the regular depth sway, the zeroed oral hold and the release.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — the v6 uniform scale, the v7 anchor/contact placement at four

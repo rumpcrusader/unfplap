@@ -31,10 +31,11 @@ func near(a: float, b: float, eps := 0.001) -> bool:
 	return absf(a - b) <= eps
 
 
-func _live() -> Dictionary:
+func _live(scale := 1.0) -> Dictionary:
 	var pony := FakePony.new()
 	pony.position = Vector3(1.0, 0.0, 2.0)
 	pony.basis = Basis(Vector3.UP, 0.6)
+	pony.scale = Vector3.ONE * scale
 	root.add_child(pony)
 	var view: RefCounted = VIEW.new()
 	view.from_config = {"marker": 1}
@@ -57,6 +58,7 @@ func _free(made: Dictionary) -> void:
 
 func run() -> void:
 	_check_forward()
+	_check_size()
 	_check_reverse()
 	print("ORAL_TURN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -109,6 +111,37 @@ func _check_forward() -> void:
 	check(kisses.is_empty(), "the kiss timer waits before the first beat")
 	turn.tick(5.0, view, 1.0)
 	check(kisses.size() == 1, "the soft kiss fires after the idle interval")
+	_free(made)
+
+
+## The same turn at a non-canon body size: the mouth anchor scales with her, the root and facing
+## still restore exactly, and the contact target stays finite.
+func _check_size() -> void:
+	var made := _live(1.7)
+	var pony: FakePony = made["pony"]
+	var view: RefCounted = made["view"]
+	var turn: RefCounted = made["turn"]
+	var from: Vector3 = pony.global_position
+	var from_basis: Basis = pony.global_transform.basis.orthonormalized()
+	turn.begin(true, view)
+	turn.tick(1.0, view, 1.0)
+	view.contact_kind = "mouth"
+	var mouth: Vector3 = pony.to_global(Vector3(0.0, 1.3, 0.5))
+	var opening_distance: float = (view.contact_target as Vector3).distance_to(mouth)
+	for i: int in 20:
+		turn.tick(0.25, view, 1.0)
+	check((view.contact_target as Vector3).distance_to(mouth) < opening_distance,
+		"the mouth anchor follows the non-canon size")
+	check((view.contact_target as Vector3).is_finite(), "the scaled mouth anchor is finite")
+	turn.begin(false, view)
+	turn.tick(1.0, view, 1.0)
+	check(pony.global_position.is_equal_approx(from),
+		"the reverse restores the non-canon root")
+	check(pony.global_transform.basis.orthonormalized().is_equal_approx(from_basis),
+		"the reverse restores the non-canon facing")
+	turn.restore(view)
+	check(not turn.active and is_zero_approx(view.facing_amount),
+		"the non-canon restore clears the turn")
 	_free(made)
 
 

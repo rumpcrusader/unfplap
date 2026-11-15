@@ -62,21 +62,26 @@ func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 		return false
 	authored.call("apply_pony", sk, weight, frame, float(state.get("body_scale", 1.0)),
 		str(state.get("size_name", "")))
+	sk.force_update_all_bone_transforms()
 	_apply_difference(rig, sk, weight)
 	return true
 
 
 ## The live settings as deltas from the reference. At defaults every delta is zero and the baked
-## pose is untouched.
+## pose is untouched. The one exception is the **head** chin: the asset carries the 30 body bones,
+## not `pony_head`, so the base applies the absolute chin value and only the neck is a difference.
 func _apply_difference(rig, sk: Skeleton3D, weight: float) -> void:
 	var reference := reference_config()
-	_bow(rig, sk, weight, _value("bow", float(reference["bow"])) - float(reference["bow"]))
+	_bow_body(rig, sk, weight,
+		_value("bow", float(reference["bow"])) - float(reference["bow"]))
+	# The head is not in the asset: apply its full reference bow and chin.
+	_bow_head(rig, sk, weight * _value("bow", float(reference["bow"])))
 	_bend_forelegs(rig, sk, weight,
 		_value("foreleg", float(reference["foreleg"])) - float(reference["foreleg"]))
 	_spread_hind(rig, sk, weight,
 		_value("hind_spread", float(reference["hind_spread"])) - float(reference["hind_spread"]))
 	_chin_neck(rig, sk, weight,
-		_value("chin_up_deg", float(reference["chin_up_deg"])) - float(reference["chin_up_deg"]),
+		_value("chin_up_deg", float(reference["chin_up_deg"])),
 		_value("neck_down_deg", float(reference["neck_down_deg"]))
 			- float(reference["neck_down_deg"]))
 	_spread_fore(rig, sk, weight,
@@ -112,10 +117,28 @@ func _value(key: String, fallback: float) -> float:
 
 func _bow(rig, sk: Skeleton3D, weight: float, scale: float) -> void:
 	_spine_bow(rig, sk, weight, scale)
+	_bow_body(rig, sk, weight, scale)
+	_bow_head(rig, sk, weight * scale)
+
+
+## The neck part of the bow, without the head: the head is not in the 30-bone asset, so the live
+## path applies its full reference angle itself.
+func _bow_body(rig, sk: Skeleton3D, weight: float, scale: float) -> void:
+	if rig.neck.is_empty():
+		return
 	var axis: Vector3 = rig.right_axis(sk)
 	var neck_angles: Array[float] = [-0.08, -0.06, -0.04]
-	for i: int in rig.neck.size():
+	var neck_count := maxi(0, rig.neck.size() - 1)
+	for i: int in neck_count:
 		rig.rotate(sk, rig.neck[i], axis, neck_angles[mini(i, neck_angles.size() - 1)] * weight * scale)
+
+
+## The bow's share on the head (`pony_head`), the same last neck angle.
+func _bow_head(rig, sk: Skeleton3D, weight: float) -> void:
+	if rig.neck.size() < 2:
+		return
+	var axis: Vector3 = rig.right_axis(sk)
+	rig.rotate(sk, rig.neck[rig.neck.size() - 1], axis, -0.04 * weight)
 
 
 func _spine_bow(rig, sk: Skeleton3D, weight: float, scale: float) -> void:
@@ -183,6 +206,8 @@ func _chin_neck(rig, sk: Skeleton3D, weight: float, chin_deg: float, neck_deg: f
 		var per := deg_to_rad(neck_deg) * weight / float(neck_count)
 		for i: int in neck_count:
 			rig.rotate(sk, rig.neck[i], axis, -per)
+	# The head's global pose must see the neck it hangs from, before the chin is applied.
+	sk.force_update_all_bone_transforms()
 	var head: int = rig.neck[rig.neck.size() - 1]
 	rig.rotate(sk, head, axis, deg_to_rad(chin_deg) * weight)
 

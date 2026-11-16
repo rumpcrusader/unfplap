@@ -305,6 +305,7 @@ func _init() -> void:
 	_scene.request_face_active = Callable(self, "request_face_active")
 	_scene.release_carry = Callable(self, "_release_carry")
 	_scene.on_refusal_face = Callable(self, "_refusal_face")
+	_scene.hold_compatible = Callable(self, "_scene_hold_compatible")
 	_rest.context = Callable(self, "_rest_context")
 	_rest.restore_scene = Callable(self, "_rest_restore_scene")
 	_rest.log = Callable(self, "_log")
@@ -313,6 +314,7 @@ func _init() -> void:
 		"main": Callable(self, "_main"),
 		"state": Callable(self, "_state"),
 		"pose_family": Callable(self, "_pose_family"),
+		"request_face_active": Callable(self, "request_face_active"),
 	})
 	_act_facts.play_mouth_kiss = Callable(self, "_play_mouth_kiss")
 	_act_facts.act_actions_allowed = Callable(self, "_act_actions_allowed")
@@ -2031,7 +2033,19 @@ func _release_carry() -> bool:
 
 
 func _claim_nav() -> bool:
+	if _hold.holds_negotiation():
+		return _hold.adopt_hold()
 	return _hold.claim_nav(_id)
+
+
+## The per-pony negotiation hold handle. `main` and the Negotiation service call this through the
+## runtime; they do not read `_hold`.
+func hold_handle() -> RefCounted:
+	return _hold
+
+
+func _scene_hold_compatible(pose: String, source: String) -> bool:
+	return _hold.accepts_hold(pose, source)
 
 
 ## Standing keeps her body turned away and planted. Stop the standing face-turn response so a

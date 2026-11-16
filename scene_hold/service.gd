@@ -8,10 +8,19 @@ const STATE_IDLE := 0
 const STATE_AFTERGLOW := 4
 const STATE_RESTORE := 5
 
+## The two owner namespaces: an act lease and a negotiation lease. The scene gate accepts both
+## through the hold's compatibility predicate.
+const TOKEN_ACT := "unfplap:"
+const TOKEN_NEGOTIATION := "unfplap:negotiation:"
+
 ## Ownership state. The runtime keeps read views for its old field names and the reports.
 var nav: Node = null
 var token := ""
 var nav_old_wander := true
+## True while this ledger holds the negotiation lease. `adopt_hold()` hands it to the act.
+var negotiation := false
+## True while this ledger set the game's `affection_active` meta and must clear it.
+var affection_owned := false
 var face_turn_rate_owned := false
 var face_turn_rate_saved := -1.0
 var locked_player := false
@@ -42,6 +51,78 @@ func _callback(key: String) -> Callable:
 ## Take the navigator: the act owns the lease and holds her in place. The token is the runtime's
 ## `unfplap:<id>` owner string.
 func claim_nav(owner_id: String) -> bool:
+	return _claim(owner_id, TOKEN_ACT)
+
+
+## Claim the negotiation lease: `unfplap:negotiation:<id>`. It works while the runtime is IDLE.
+## A missing or reserved navigator, another mod's live owner, or a routine owner with an active
+## route is Occupied.
+func claim_negotiation(owner_id: String) -> bool:
+	return _claim(owner_id, TOKEN_NEGOTIATION)
+
+
+## Take over an owner that the proactive request already holds. The release data (`old_wander`)
+## comes from the request lease; the navigator itself is not changed.
+func transfer_nav(existing_token: String, old_wander := true) -> bool:
+	var pony: Variant = _host("pony")
+	if not is_instance_valid(pony) or existing_token.is_empty():
+		return false
+	var found: Node = pony.get_node_or_null("Navigator")
+	if found == null or str(found.get("command_owner")) != existing_token:
+		return false
+	nav = found
+	token = existing_token
+	nav_old_wander = old_wander
+	negotiation = true
+	nav.call("stay")
+	nav.set("command_owner", token)
+	nav.set("wander_enabled", false)
+	return str(nav.get("command_owner")) == token
+
+
+## Attach this ledger to an owner claimed elsewhere, without touching the navigator. The act
+## start uses it when the negotiation ledger is a different object.
+func adopt_nav(existing_token: String, old_wander := true) -> bool:
+	var pony: Variant = _host("pony")
+	if not is_instance_valid(pony) or existing_token.is_empty():
+		return false
+	var found: Node = pony.get_node_or_null("Navigator")
+	if found == null or str(found.get("command_owner")) != existing_token:
+		return false
+	nav = found
+	token = existing_token
+	nav_old_wander = old_wander
+	negotiation = false
+	return true
+
+
+## Keep this ledger's negotiation hold as the act hold: the owner, wander and affection stay
+## untouched, so the act start does not claim a second owner.
+func adopt_hold() -> bool:
+	if not holds_negotiation():
+		return false
+	negotiation = false
+	return true
+
+
+## True while this ledger owns the negotiation lease.
+func holds_negotiation() -> bool:
+	if not negotiation or token.is_empty() or nav == null or not is_instance_valid(nav):
+		return false
+	return str(nav.get("command_owner")) == token
+
+
+## The scene gate's hold-compatibility predicate. It is true for a live negotiation lease or an
+## adopted act start: the navigator owner is this ledger's token and the affection hold is ours.
+func accepts_hold(_pose: String, _source: String) -> bool:
+	if token.is_empty() or not affection_owned:
+		return false
+	if nav == null or not is_instance_valid(nav):
+		return false
+	return str(nav.get("command_owner")) == token
+
+
+func _claim(owner_id: String, prefix: String) -> bool:
 	var pony: Variant = _host("pony")
 	if not is_instance_valid(pony):
 		return false
@@ -50,15 +131,26 @@ func claim_nav(owner_id: String) -> bool:
 		return false
 	if str(nav.get("reserved_by")) != "":
 		return false
+	if prefix == TOKEN_NEGOTIATION:
+		var owner := str(nav.get("command_owner"))
+		if owner.begins_with("unfplap:"):
+			return false
+		# A routine owner is free only with no active route; anything else is Occupied.
+		if not owner.is_empty() and not (owner.begins_with("life:") or owner.begins_with("day:")):
+			return false
+		if bool(nav.get("_has_target")):
+			return false
 	nav_old_wander = bool(nav.get("wander_enabled"))
-	token = "unfplap:" + owner_id
+	token = prefix + owner_id
+	negotiation = prefix == TOKEN_NEGOTIATION
 	nav.call("stay")
 	nav.set("command_owner", token)
 	nav.set("wander_enabled", false)
 	return str(nav.get("command_owner")) == token
 
 
-## Re-assert the lease on every tick if another system changed the owner.
+## Re-assert the lease on every tick if another system changed the owner. A negotiation lease also
+## clears a walk target another system set, so she stays with Anon.
 func keep_nav() -> void:
 	if nav == null or not is_instance_valid(nav):
 		return
@@ -66,17 +158,74 @@ func keep_nav() -> void:
 		nav.call("stay")
 		nav.set("command_owner", token)
 		nav.set("wander_enabled", false)
+	if negotiation and bool(nav.get("_has_target")):
+		nav.call("stay")
 
 
 ## Give the navigator back and restore the wander flag it had before the act.
 func release_nav() -> void:
 	if nav == null or not is_instance_valid(nav):
 		nav = null
+		token = ""
+		negotiation = false
 		return
 	if str(nav.get("command_owner")) == token:
 		nav.set("command_owner", "")
 	nav.set("wander_enabled", nav_old_wander)
 	nav = null
+	token = ""
+	negotiation = false
+
+
+## Keep Anon as her conversation target. A cleared target is re-asserted; another live target is
+## an attention reassignment and returns false, so the negotiation can end with `target_left`.
+func keep_target() -> bool:
+	var pony: Variant = _host("pony")
+	var main: Variant = _host("main")
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	var player: Variant = main.get("player")
+	if not is_instance_valid(player):
+		return false
+	if not pony.has_method("set_conversation_target"):
+		return false
+	var current: Variant = pony.get("conversation_target")
+	if is_instance_valid(current) and current != player:
+		return false
+	pony.call("set_conversation_target", player, true)
+	return true
+
+
+## Take the game's physical affection hold. The offering request's own face hold is handed over at
+## formation; any other live affection hold is Occupied.
+func hold_affection() -> bool:
+	var pony: Variant = _host("pony")
+	if not is_instance_valid(pony):
+		return false
+	if affection_owned:
+		return true
+	if pony.has_meta("affection_active"):
+		var face: Variant = _host("request_face_active", false)
+		if not bool(face):
+			return false
+	affection_owned = true
+	pony.set_meta("affection_active", true)
+	return true
+
+
+## Clear the affection hold only when this ledger set it.
+func release_affection() -> void:
+	var pony: Variant = _host("pony")
+	if affection_owned and is_instance_valid(pony) and pony.has_meta("affection_active"):
+		pony.remove_meta("affection_active")
+	affection_owned = false
+
+
+## Release the whole negotiation hold: the physical affection first, then the navigator lease.
+## Idempotent; every terminal outcome calls it.
+func release_negotiation() -> void:
+	release_affection()
+	release_nav()
 
 
 ## Hold the standing face-turn rate at zero without pausing locomotion or emotions. A forced call

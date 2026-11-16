@@ -18,10 +18,12 @@ class FakeNav extends Node:
 	var command_owner := ""
 	var wander_enabled := true
 	var reserved_by := ""
+	var _has_target := false
 	var stays := 0
 
 	func stay() -> void:
 		stays += 1
+		_has_target = false
 
 
 class FakeSession extends Node:
@@ -119,14 +121,15 @@ func _fixture(pose_family := "standing", state := STATE_ACTIVE) -> Dictionary:
 	main.game = game
 	main.reach = reach
 	var hold: RefCounted = HOLD.new()
-	hold.bind({
+	var host := {
 		"pony": Callable(_value, "make").bind(pony),
 		"main": Callable(_value, "make").bind(main),
 		"state": Callable(_value, "make").bind(state),
 		"pose_family": Callable(_value, "make").bind(pose_family),
-	})
+	}
+	hold.bind(host)
 	return {"hold": hold, "pony": pony, "nav": nav, "session": session, "body": body,
-		"game": game, "reach": reach, "main": main}
+		"game": game, "reach": reach, "main": main, "host": host}
 
 
 class _value extends RefCounted:
@@ -143,6 +146,7 @@ func _free(made: Dictionary) -> void:
 
 func run() -> void:
 	_check_nav()
+	_check_negotiation()
 	_check_face_turn()
 	_check_attention()
 	_check_player()
@@ -180,6 +184,88 @@ func _check_nav() -> void:
 	nav.free()
 	check(not hold.claim_nav("rarity"), "a missing navigator is refused")
 	_free(made)
+
+
+## The negotiation lease in IDLE: claim, keep, keep-target, the affection hold, adoption and the
+## idempotent release. Also the transfer from a request lease and a second ledger adopting it.
+func _check_negotiation() -> void:
+	var made := _fixture("standing", STATE_IDLE)
+	var hold: RefCounted = made["hold"]
+	var pony: FakePony = made["pony"]
+	var nav: FakeNav = made["nav"]
+	var main: FakeMain = made["main"]
+	nav.wander_enabled = true
+	nav._has_target = true
+	check(not hold.claim_negotiation("rarity"), "an active route is Occupied")
+	nav._has_target = false
+	check(hold.claim_negotiation("rarity"), "an idle routine owner is free for negotiation")
+	check(hold.token == HOLD.TOKEN_NEGOTIATION + "rarity",
+		"the negotiation token names its owner")
+	check(nav.command_owner == hold.token, "the navigator records the negotiation owner")
+	check(hold.negotiation and hold.holds_negotiation(), "the ledger is in negotiation mode")
+	check(not nav.wander_enabled, "the negotiation holds wander off")
+
+	nav.command_owner = "weather:rain"
+	nav._has_target = true
+	hold.keep_nav()
+	check(nav.command_owner == hold.token, "the keep re-asserts the negotiation owner")
+	check(not nav._has_target, "the negotiation keep clears another route's target")
+
+	pony.conversation_target = null
+	check(hold.keep_target(), "a cleared target is kept on Anon")
+	check(pony.conversation_target == main.player, "the target is Anon's body")
+	var other := Node3D.new()
+	root.add_child(other)
+	pony.conversation_target = other
+	check(not hold.keep_target(), "another live target is an attention reassignment")
+	check(pony.conversation_target == other, "the other target is not overwritten")
+	root.remove_child(other)
+	other.free()
+	pony.conversation_target = main.player
+
+	check(hold.hold_affection(), "the negotiation takes the physical affection hold")
+	check(pony.has_meta("affection_active"), "the affection meta is set")
+	check(hold.accepts_hold("standing", ""), "the scene gate accepts the live hold")
+
+	check(hold.adopt_hold(), "the act adopts the negotiation hold")
+	check(nav.command_owner == hold.token, "adoption keeps the same navigator owner")
+	check(hold.accepts_hold("missionary", "bed_side"),
+		"the adopted start is still scene-gate compatible")
+	check(not hold.negotiation, "the ledger leaves negotiation mode at adoption")
+
+	hold.release_negotiation()
+	check(nav.command_owner == "", "the release gives the navigator back")
+	check(nav.wander_enabled, "the release restores the saved wander flag")
+	check(not pony.has_meta("affection_active"), "the release clears the affection hold")
+	check(hold.nav == null and hold.token.is_empty(), "the release clears the handle and token")
+	hold.release_negotiation()
+	check(not hold.accepts_hold("standing", ""), "a second release is idempotent")
+	_free(made)
+
+	# The proactive request hands its lease over; a second ledger can adopt the same owner.
+	var handed := _fixture("standing", STATE_IDLE)
+	var request_hold: RefCounted = handed["hold"]
+	var request_nav: FakeNav = handed["nav"]
+	request_nav.command_owner = "unfplap:request:rarity"
+	request_nav.wander_enabled = false
+	check(request_hold.transfer_nav("unfplap:request:rarity", true),
+		"the request lease transfers to the negotiation")
+	check(request_hold.token == "unfplap:request:rarity" and request_hold.negotiation,
+		"the transfer keeps the request token")
+	check(request_hold.hold_affection(), "the transferred hold takes the affection meta")
+	check(request_hold.accepts_hold("standing", ""), "the transferred hold is gate-compatible")
+	var act := HOLD.new()
+	act.bind(handed["host"])
+	check(act.adopt_nav(request_hold.token, true), "a second ledger adopts the live owner")
+	check(request_nav.command_owner == request_hold.token,
+		"adoption does not change the navigator")
+	check(not act.accepts_hold("standing", ""),
+		"a ledger that does not own the affection hold is not complete")
+	act.release_nav()
+	check(request_nav.command_owner == "", "the adopted ledger releases the owner")
+	check(request_nav.wander_enabled, "the release restores the handed-over wander flag")
+	request_hold.release_affection()
+	_free(handed)
 
 
 func _check_face_turn() -> void:

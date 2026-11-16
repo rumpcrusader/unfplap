@@ -219,6 +219,21 @@ rows: Array[Row]       # key, ok, reason, effect
 `reasons()` returns the failed rows' reasons; `rows_text()` renders the rows. `Row.effect` is
 the `Effect` enum, not a string.
 
+## Base clearance
+
+The new negotiation routes call `shared/clearance.gd` once per route: at formation for an offer,
+at attempt for the hotkey. `evaluate(eligible, relationship_ok, available)` returns a typed
+`Result` with the failed rows in order (`eligibility`, `relationship`, `available`). The
+eligibility service's `eligible?` answer is the `eligible` boolean; the negotiation never inspects
+its rows. `relationship_ok()` is the shared pure predicate over a live relationship, romance
+eligibility, the Promiscuity floor and the relationship override, and `available()` combines the
+act, sleep, presence and Occupied facts.
+
+Willingness, history, cycle, aftercare, diestrus, privacy and general consent are Context
+(`shared/context.gd`), never clearance. The tolerance stop's `stop_until` is a separate gate. The
+package freezes the Base clearance result; a settings change after formation does not invalidate
+it.
+
 Rows and effects:
 
 | Effect | Meaning |

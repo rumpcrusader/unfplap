@@ -79,6 +79,21 @@ pose session facade. `pose_asset`/`pose_rig` are emitted for a bed pose and for 
 candidate's own `asset` is resolved through its `base` chain, and a missing or frame-mismatched
 asset refuses the start. The ground family has no procedural fallback.
 
+## Pose options and placement
+
+The negotiation routes build their offerable list with the pure `shared/pose_options.gd`: the
+capability row (`pose_specs`) plus one plain `Placement` record (cuddle and the bed under her, a
+free bed and its front spot, a free standing approach) produce a typed `Array[Option]` of
+`(pose, source, bed)`. Only offerable, public, form/view-supported options with an authored source
+are returned; an empty list means no offer and no reasoning. The active offer owns the bed handle
+it carries.
+
+`shared/pose_placement.gd` answers the live feasibility of one chosen option from plain facts
+(`bed_known`, `bed_front_known`, `standing_free`, `stool_ok`, `player_ready`) and never reads the
+scene. The scene gate remains the single owner of the live rows and the start verdict; the module
+is the shared vocabulary the answer transition and the route checks use to name a failure, not a
+second gate.
+
 ### Bed size
 
 The stock bed admits a guest through `SharedBed.eligible()`, which measures her own `body_scale`

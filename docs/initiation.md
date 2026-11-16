@@ -42,6 +42,8 @@ The purity boundary is deliberate:
 
 - `facts.gd`, `policy.gd`, `prompts.gd` and `shared/consent.gd` have no `Node`, tree, time, file,
   `Settings`, scene or game preload. They take plain values and return plain values or strings.
+  `shared/privacy_rules.gd` is the same kind of pure rule and holds the offer/cuddle formulas the
+  policy delegates to.
 - `conversation.gd` owns `director._player_text`, `_held_text`, `_now`, `characters`, `speech`,
   `player_approaches`, `group`, the `transcript` connection, the classifier client and
   `world_context.record`. It keeps the ask turn's baseline of the two player-line fields. The
@@ -192,7 +194,9 @@ public_offer   = heat or (features.act_public_offer and consent.public)
 ```
 
 "House alone" excludes the offering mare and counts every other mare in the house; outdoors,
-`others_near` counts every other mare within `30 m`. The public-offer part is the player's
+`others_near` counts every other mare within `30 m`. The offer and cuddle formulas are
+`shared/privacy_rules.gd`; the public-offer override stays in `initiation/policy.gd` for the
+current route and the shared rule has none. The public-offer part is the player's
 **Enable public offers** switch; a public offer is still an offer; the act
 itself does not require privacy. The throttled `request privacy ...` log prints the player
 position, the house, every mare in the house, every mare within `30 m`, the target label, the
@@ -403,6 +407,7 @@ after the spoken words only when the moment genuinely changes how she feels.
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 | shared | pose_offer | `shared/pose_offer.gd` | typed act offer |
 | shared | pose_specs | `shared/pose_specs.gd` | offerable poses and form/view support |
+| shared | privacy_rules | `shared/privacy_rules.gd` | offer and cuddle privacy formulas |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
 | store | act_history | `shared/act_history.gd` | stored history rows |
 

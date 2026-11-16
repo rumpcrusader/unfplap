@@ -4,6 +4,7 @@ extends RefCounted
 ## supplies plain values and keeps every timer. See `docs/initiation.md`.
 
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const PRIVACY_RULES := preload("res://mods/unfplap/shared/privacy_rules.gd")
 
 ## Usual per-mare wait between offers.
 const COOLDOWN_S := 600.0
@@ -89,15 +90,15 @@ static func retry_ready(now: float, retry_at: float) -> bool:
 
 ## An indoor cuddle needs the house to herself; an outdoor one needs nobody within the radius.
 static func cuddle_private(indoor: bool, house_alone: bool, others_near: bool) -> bool:
-	return house_alone if indoor else not others_near
+	return PRIVACY_RULES.cuddle_private(indoor, house_alone, others_near)
 
 
-## A public offer overrides the privacy reserve for every kind of offer. Otherwise the same
-## house-or-distance rule as a cuddle applies.
+## The current route's public-offer override, then the shared offer rule. The override is retired
+## for the negotiation route; until then it keeps the existing offer behavior unchanged.
 static func offer_private(public_offer: bool, house_alone: bool, others_near: bool) -> bool:
 	if public_offer:
 		return true
-	return house_alone or not others_near
+	return PRIVACY_RULES.offer_private(house_alone, others_near)
 
 
 static func wording_mode(private: bool) -> String:

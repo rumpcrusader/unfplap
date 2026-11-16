@@ -79,6 +79,11 @@ only stable external surface is `docs/api.md`.
 | Face data | `shared/act_face.gd` | `docs/face.md` | `tests/face/` |
 | Relationship cue | `shared/relationship_cue.gd` | `docs/dialogue.md` | `tests/test_relationship_cue.gd` |
 | Pose catalog | `shared/pose_catalog.gd` | `docs/poses.md` | `tests/test_catalog.gd` |
+| Pose options | `shared/pose_options.gd` | `docs/poses.md`, `docs/scene_gate.md` | `tests/pose_options/` |
+| Pose placement | `shared/pose_placement.gd` | `docs/scene_gate.md` | `tests/pose_placement/` |
+| Base clearance | `shared/clearance.gd` | `docs/eligibility.md` | `tests/clearance/` |
+| Negotiation context | `shared/context.gd` | `docs/negotiation.md` | `tests/context/` |
+| Privacy rules | `shared/privacy_rules.gd` | `docs/initiation.md` | `tests/privacy_rules/` |
 | Anatomy placement | `shared/anatomy_placement.gd` | `docs/anatomy.md` | `tests/anatomy/` |
 | Mod integration catalog | `shared/integrations.gd` | `docs/integrations.md` | `tests/integrations/` |
 | Lean/travel math | `shared/act_motion.gd` | `docs/camera.md` | `tests/act_camera/` |

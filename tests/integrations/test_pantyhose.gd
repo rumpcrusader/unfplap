@@ -96,6 +96,7 @@ func run() -> void:
 	_check_two_surfaces()
 	_check_multi_mare()
 	_check_undress()
+	_check_overlay_parenting()
 	_check_debug()
 	print("PANTYHOSE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
@@ -197,6 +198,9 @@ func _check_hull_fixture() -> void:
 			if value < 0.0:
 				invalid += 1
 		check(invalid > 0, "an uncovered cell keeps the invalid marker")
+	var unbounded := HULL.build(mesh, 72, 6)
+	check(unbounded != null and unbounded.resolution == 72 and unbounded.smoothing == 6,
+		"the hull precision rows are unbounded debug values")
 	HULL.clear_cache()
 
 
@@ -571,6 +575,34 @@ func _check_undress() -> void:
 
 # --------------------------------------------------------------------------- debug
 
+## The heatmap must not be a child of the anatomy mesh and must not require the mesh to be visible:
+## a far mesh or act-only hiding would otherwise hide the field the debug view is inspecting.
+func _check_overlay_parenting() -> void:
+	var scene := _make_world()
+	var integration: Node = scene["integration"]
+	var pony := _pony("rarity")
+	var parent_mesh := MeshInstance3D.new()
+	parent_mesh.name = "AnatomyMesh"
+	parent_mesh.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
+		Vector3(1.0, 2.0, 3.0))
+	root.add_child(parent_mesh)
+	integration.call("_show_overlay", pony, _hull(), parent_mesh)
+	check(bool(integration.call("overlay_active")),
+		"the heatmap shows without the anatomy being visible")
+	var overlay := integration.get_node_or_null("UnfplapPantyhoseHull") as MeshInstance3D
+	check(overlay != null and overlay.get_parent() == integration,
+		"the heatmap is parented to the integration, not the anatomy mesh")
+	if overlay != null:
+		check(overlay.top_level, "the heatmap keeps its own global transform")
+		check(overlay.global_transform.origin.is_equal_approx(parent_mesh.global_transform.origin),
+			"the heatmap copies the anatomy mesh transform")
+	integration.call("_hide_overlay")
+	check(not bool(integration.call("overlay_active")), "hiding the heatmap works")
+	parent_mesh.free()
+	pony.free()
+	_free_world(scene)
+
+
 func _check_debug() -> void:
 	var scene := _make_world()
 	var anatomy: FakeAnatomy = scene["anatomy"]
@@ -593,6 +625,17 @@ func _check_debug() -> void:
 	SETTINGS.pantyhose_hull_resolution.set_num(before)
 	integration.call("apply_live_settings")
 	integration.call("_process", 0.4)
+	var hz_before := SETTINGS.pantyhose_update_hz.get_num()
+	SETTINGS.pantyhose_update_hz.set_num(10.0)
+	integration.call("apply_live_settings")
+	check(near(float(integration.call("update_interval")), 0.1),
+		"the update frequency sets the scan interval")
+	SETTINGS.pantyhose_update_hz.set_num(0.0)
+	integration.call("apply_live_settings")
+	check(float(integration.call("update_interval")) < 0.0,
+		"zero update frequency stops the automatic scan")
+	SETTINGS.pantyhose_update_hz.set_num(hz_before)
+	integration.call("apply_live_settings")
 	var show_before := SETTINGS.pantyhose_hull_show.get_bool()
 	SETTINGS.pantyhose_hull_show.set_bool(true)
 	integration.call("apply_live_settings")

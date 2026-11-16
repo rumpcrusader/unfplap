@@ -27,9 +27,6 @@ const DOMAIN_MARGIN := 0.004
 const DILATE_PASSES := 6
 ## A cell the outer surface never covered. The shader reads a negative value and skips the cell.
 const INVALID := -1.0
-const MIN_RESOLUTION := 8
-const MAX_RESOLUTION := 64
-const MAX_SMOOTHING := 4
 ## The blend shapes that can move the visible outer surface. `stretch` is excluded: the mod
 ## always zeroes it (it would scale the whole mesh), so it is never a worn state.
 const SHAPES := ["closed", "wink", "anal_open", "anal_stretch", "anal_overstretch",
@@ -53,11 +50,14 @@ class Hull extends RefCounted:
 
 ## Build (or return the cached) depth field for `mesh`. `field` is row-major over
 ## `resolution²`, normalised over `z_min`/`z_max`, with `INVALID` in an uncovered cell.
+## Resolution and smoothing are debug values and are not clamped above; they are only floored so
+## the grid is valid. A high resolution is expensive: the texture is `resolution² × 4` bytes and
+## the rasterisation is GDScript.
 static func build(mesh: ArrayMesh, resolution: int, smoothing: int) -> Hull:
 	if mesh == null:
 		return null
-	var res := clampi(resolution, MIN_RESOLUTION, MAX_RESOLUTION)
-	var smooth := clampi(smoothing, 0, MAX_SMOOTHING)
+	var res := maxi(1, resolution)
+	var smooth := maxi(0, smoothing)
 	var key := "%d|%d|%d" % [mesh.get_rid().get_id(), res, smooth]
 	var cached: Variant = _cache.get(key)
 	if cached is Hull:

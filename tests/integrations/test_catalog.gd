@@ -102,7 +102,8 @@ func run() -> void:
 	check(SETTINGS.pantyhose_hull_resolution.debug
 		and SETTINGS.pantyhose_hull_smoothing.debug
 		and SETTINGS.pantyhose_hull_margin_mm.debug
-		and SETTINGS.pantyhose_hull_show.debug,
-		"the hull precision controls stay in the Debug block")
+		and SETTINGS.pantyhose_hull_show.debug
+		and SETTINGS.pantyhose_update_hz.debug,
+		"the hull and update controls stay in the Debug block")
 	print("INTEGRATIONS_CATALOG_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

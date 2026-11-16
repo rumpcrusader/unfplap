@@ -239,6 +239,9 @@ builds it in anatomy-local space (`+Z` toward the tail):
 - The build is cached by source mesh RID, resolution and smoothing, so every mare shares one
   field. `garment_hull_rebuild()` clears the cache; a precision edit or the Rebuild action rebuilds
   once, off the frame path.
+- Resolution, smoothing and margin are unbounded debug values (the builder only floors resolution
+  to 1 and smoothing to 0). High values cost a one-time rebuild. The adapter's **Update frequency**
+  (`debug.pantyhose_update_hz`) sets how often it rescans; `0` stops the automatic scan.
 
 The reads:
 
@@ -248,8 +251,8 @@ The reads:
   trims. `garment_transform_for(body, mesh)` is the pure form the tests pin.
 - `garment_visible()` — attached and the visibility poll has the mesh shown; a far mesh or
   `act` mode outside the act is false, and the cloth is left alone.
-- `garment_parent()` — the anatomy mesh itself, so the debug heatmap can parent to it and follow
-  the live bone transform without a per-frame write.
+- `garment_parent()` — the anatomy mesh itself; the debug heatmap copies its live transform
+  rather than parenting to it, so a hidden far/act mesh does not hide the debug overlay.
 
 The shader maps the worn vertex into anatomy-local space, reads the field, and pushes along the
 anatomy's +Z by `surface_z + margin - local.z`. The margin is converted from millimetres by the
@@ -704,8 +707,9 @@ built from the declarations, so the label, help and bounds are not restated here
 - The VR standing act always starts on a headset; the old `features.anatomy_vr` switch is retired.
 - `features.debug_aim_points`: the three aim markers.
 - `debug.pantyhose_hull_resolution`, `debug.pantyhose_hull_smoothing`,
-  `debug.pantyhose_hull_margin_mm` and `debug.pantyhose_hull_show`: the garment-hull precision
-  rows; their behavior is `docs/integrations.md` (`## Pantyhose & Panties`).
+  `debug.pantyhose_hull_margin_mm`, `debug.pantyhose_hull_show` and `debug.pantyhose_update_hz`:
+  the garment-hull and adapter debug rows; their behavior is `docs/integrations.md`
+  (`## Pantyhose & Panties`). The hull rows are unbounded debug values.
 
 ## Debug and performance
 

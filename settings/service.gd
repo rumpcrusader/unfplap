@@ -1749,18 +1749,22 @@ static var pantyhose_bulge := flag("pantyhose_bulge", "features.pantyhose_bulge"
 static var pantyhose_hull_resolution := num("pantyhose_hull_resolution",
 	"debug.pantyhose_hull_resolution", "Hull precision",
 	"Depth-field cells across the anatomy. Higher is smoother and costs a one-time rebuild.",
-	INTEGRATIONS, "Pantyhose").with_range(8.0, 64.0).with_step(1.0).as_debug()
+	INTEGRATIONS, "Pantyhose").with_step(1.0).as_debug()
 static var pantyhose_hull_smoothing := num("pantyhose_hull_smoothing",
 	"debug.pantyhose_hull_smoothing", "Hull smoothing",
 	"Averaging passes over the depth field; more softens the cloth lift.",
-	INTEGRATIONS, "Pantyhose").with_range(0.0, 4.0).with_step(1.0).as_debug()
+	INTEGRATIONS, "Pantyhose").with_step(1.0).as_debug()
 static var pantyhose_hull_margin_mm := num("pantyhose_hull_margin_mm",
 	"debug.pantyhose_hull_margin_mm", "Hull margin",
 	"Extra lift over the anatomy surface, in millimetres.",
-	INTEGRATIONS, "Pantyhose").with_unit("mm").with_range(0.0, 10.0).with_step(0.5).as_debug()
+	INTEGRATIONS, "Pantyhose").with_unit("mm").with_step(0.5).as_debug()
 static var pantyhose_hull_show := flag("pantyhose_hull_show", "debug.pantyhose_hull_show",
 	"Show hull", "Draw the depth field over the anatomy as a heatmap.",
 	INTEGRATIONS, "Pantyhose").as_debug()
+static var pantyhose_update_hz := num("pantyhose_update_hz",
+	"debug.pantyhose_update_hz", "Update frequency",
+	"How often the adapter rescans the worn pieces, in Hz. Zero stops the automatic scan.",
+	INTEGRATIONS, "Pantyhose").with_unit("Hz").with_step(0.5).as_debug()
 
 ## The built-in act prompts from `settings/catalogs.json`. The player file stores only overrides,
 ## and `_fill_prompts()` supplies the current built-ins at read time so a release can update them.

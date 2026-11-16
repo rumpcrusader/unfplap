@@ -22,14 +22,13 @@ const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose
 const MOD_ID := "pantyhose"
 ## The garment nodes are children of the body's parent, next to `MareBody`.
 const PREFIXES := ["Wear_panties-", "Wear_pantyhose-"]
-## The pack's own wardrobe tick is 4 s; a 0.5 s scan catches a gift or a take-off promptly
-## without touching the frame path.
-const SCAN_S := 0.5
+## The shipped scan rate: 2 Hz is the old 0.5 s scan. The debug Update frequency overrides it.
+const DEFAULT_UPDATE_HZ := 2.0
 ## A precision edit waits for the drag to settle before the one-time rebuild.
 const REBUILD_DELAY_S := 0.3
 ## The debug heatmap sits this far in front of the field surface (anatomy-local metres).
 const OVERLAY_Z_LIFT := 0.0015
-const OVERLAY_ALPHA := 0.55
+const OVERLAY_ALPHA := 0.78
 
 
 ## One garment node's saved overrides, so a feature-off, a mod-off or a world close restores
@@ -52,6 +51,7 @@ var _hull_resolution := 48
 var _hull_smoothing := 1
 var _hull_margin_mm := 5.0
 var _show_hull := false
+var _update_hz := DEFAULT_UPDATE_HZ
 var _rebuild_at := -1.0
 var _mismatch_logged := false
 
@@ -59,9 +59,12 @@ var _mismatch_logged := false
 var _applied: Dictionary = {}
 ## original material instance id + variant -> compatibility material
 var _materials: Dictionary = {}
-## The debug heatmap; it is a child of the anatomy mesh so it follows the live transform.
+## The debug heatmap. It is a top-level child of this node and copies the anatomy mesh's
+## transform, so it is visible even when the anatomy mesh is hidden (far mesh / act mode).
 var _overlay: MeshInstance3D
 var _overlay_texture: Variant = null
+var _overlay_parent: Node3D = null
+var _overlay_reason := ""
 
 
 func setup(main_node: Node) -> void:
@@ -76,9 +79,10 @@ func setup(main_node: Node) -> void:
 ## The host's world entry. Called from `main._on_world`.
 func on_world(host: Node) -> void:
 	_game = host
-	_clock = SCAN_S
+	_clock = _scan_interval()
 	_rebuild_at = -1.0
 	_mismatch_logged = false
+	_overlay_reason = ""
 	set_process(true)
 	_connect_anatomy()
 	apply_live_settings()
@@ -114,6 +118,7 @@ func apply_live_settings() -> void:
 	_bulge = SETTINGS.pantyhose_bulge.get_bool()
 	_hull_margin_mm = SETTINGS.pantyhose_hull_margin_mm.get_num()
 	_show_hull = SETTINGS.pantyhose_hull_show.get_bool()
+	_update_hz = maxf(SETTINGS.pantyhose_update_hz.get_num(), 0.0)
 	var resolution := int(SETTINGS.pantyhose_hull_resolution.get_num())
 	var smoothing := int(SETTINGS.pantyhose_hull_smoothing.get_num())
 	if resolution != _hull_resolution or smoothing != _hull_smoothing:
@@ -124,7 +129,8 @@ func apply_live_settings() -> void:
 		_restore_all()
 	if not _show_hull:
 		_hide_overlay()
-	_clock = SCAN_S
+	_clock = _scan_interval()
+	_overlay_reason = ""
 	if is_instance_valid(_game):
 		scan()
 
@@ -136,11 +142,26 @@ func _process(delta: float) -> void:
 		_rebuild_at -= delta
 		if _rebuild_at < 0.0:
 			rebuild_hull()
+	_update_overlay_transform()
+	if _clock < 0.0:
+		return
 	_clock -= delta
 	if _clock > 0.0:
 		return
-	_clock = SCAN_S
+	_clock = _scan_interval()
 	scan()
+
+
+## The scan interval in seconds, or a negative value when the debug Update frequency is 0.
+## Public so the test suite can pin the setting without waiting.
+func update_interval() -> float:
+	return _scan_interval()
+
+
+func _scan_interval() -> float:
+	if _update_hz <= 0.0:
+		return -1.0
+	return 1.0 / _update_hz
 
 
 ## Scan every loaded mare for a worn piece. Public so the test suite can pin one pass without
@@ -424,41 +445,48 @@ func _scan_overlay(mares: Array, anatomy: Node) -> void:
 	if DisplayServer.get_name() == "headless":
 		_hide_overlay()
 		return
-	if not anatomy.has_method("garment_visible") or not anatomy.has_method("garment_hull") \
-			or not anatomy.has_method("garment_parent"):
+	if not anatomy.has_method("garment_hull") or not anatomy.has_method("garment_parent"):
 		_hide_overlay()
+		_note_overlay_reason("no anatomy reads")
 		return
 	for pony: Variant in mares:
 		if not is_instance_valid(pony) or not (pony is Node3D):
 			continue
-		if not bool(anatomy.call("garment_visible", pony)):
+		# The anatomy may be hidden (far mesh or act mode); the field still exists, and the
+		# heatmap is the debug way to inspect it. Only a detached controller has no parent/hull.
+		var parent_value: Variant = anatomy.call("garment_parent", pony)
+		if not parent_value is Node3D:
 			continue
 		var value: Variant = anatomy.call("garment_hull", pony)
 		if value == null:
 			continue
-		_show_overlay(pony as Node3D, value, anatomy)
+		_show_overlay(pony as Node3D, value, parent_value as Node3D)
 		return
 	_hide_overlay()
+	_note_overlay_reason("no anatomy controller or hull")
 
 
-func _show_overlay(pony: Node3D, hull: Variant, anatomy: Node) -> void:
-	var parent_value: Variant = anatomy.call("garment_parent", pony)
-	if not parent_value is Node3D:
-		_hide_overlay()
-		return
-	var parent := parent_value as Node3D
+func _show_overlay(pony: Node3D, hull: Variant, parent: Node3D) -> void:
 	var overlay := _ensure_overlay()
 	if overlay == null:
 		return
-	if overlay.get_parent() != parent:
+	_overlay_parent = parent
+	if overlay.get_parent() != self:
 		if overlay.get_parent() != null:
 			overlay.get_parent().remove_child(overlay)
-		parent.add_child(overlay)
-		overlay.transform = Transform3D.IDENTITY
+		add_child(overlay)
+	# The field is in the anatomy mesh's local space. Copy that mesh's live transform instead of
+	# parenting to it, so a hidden far/act mesh does not hide the debug heatmap.
+	overlay.top_level = true
+	overlay.global_transform = parent.global_transform
 	if _overlay_texture != hull.texture:
 		overlay.mesh = _hull_mesh(hull)
 		_overlay_texture = hull.texture
 	overlay.visible = overlay.mesh != null
+	if overlay.visible:
+		_note_overlay_reason("shown pony=%s res=%d" % [pony.name, hull.resolution])
+	else:
+		_note_overlay_reason("empty hull mesh")
 
 
 func _ensure_overlay() -> MeshInstance3D:
@@ -479,10 +507,23 @@ func _ensure_overlay() -> MeshInstance3D:
 	return _overlay
 
 
+func _update_overlay_transform() -> void:
+	if not is_instance_valid(_overlay) or not _overlay.visible:
+		return
+	if not is_instance_valid(_overlay_parent):
+		_hide_overlay()
+		return
+	_overlay.global_transform = _overlay_parent.global_transform
+
+
 func _hide_overlay() -> void:
 	if is_instance_valid(_overlay):
 		_overlay.visible = false
 	_overlay_texture = null
+	_overlay_parent = null
+	if _overlay_reason.begins_with("shown"):
+		_log("hull overlay hidden")
+	_overlay_reason = ""
 
 
 func _free_overlay() -> void:
@@ -490,11 +531,20 @@ func _free_overlay() -> void:
 		_overlay.queue_free()
 	_overlay = null
 	_overlay_texture = null
+	_overlay_parent = null
+	_overlay_reason = ""
+
+
+## Log the overlay state once per change. Debug logs only; the state changes rarely.
+func _note_overlay_reason(reason: String) -> void:
+	if _overlay_reason == reason:
+		return
+	_overlay_reason = reason
+	_log("hull overlay: " + reason)
 
 
 ## One quad per covered cell, coloured from blue (low) to red (high). The mesh is in the
-## anatomy's local space and the overlay is a child of the anatomy mesh, so it follows the live
-## pose without a per-frame transform.
+## anatomy's local space; the overlay copies the anatomy mesh's global transform every frame.
 func _hull_mesh(hull: Variant) -> ArrayMesh:
 	var field: PackedFloat32Array = hull.field
 	var domain: Rect2 = hull.domain
@@ -558,6 +608,8 @@ func _anatomy() -> Node:
 
 
 func _mod_active() -> bool:
+	if not is_inside_tree():
+		return false
 	var mods := get_node_or_null("/root/Mods")
 	if mods == null or not mods.has_method("is_active"):
 		return false

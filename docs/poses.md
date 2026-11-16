@@ -32,7 +32,8 @@ and the `POSE_KEYS` schema; the shipped per-pose values live under `default.pose
 math; `camera/service.gd` owns the camera and lean state.
 
 `shared/pose_specs.gd` is the static pose capability table: family, frame, driver, settings group,
-the ten profiles, forms, views, the scene block and the public/offerable flags. The scene gate and
+the ten profiles, forms, views, the scene block, the `start` block and the public/offerable flags.
+The scene gate and
 the request service enforce those rows; a pose is offered only when `offerable`, supported by the
 live form and view, and its `scene.sources` allows the act source. `poses/pose_spec.gd` is its typed
 wrapper and validator,
@@ -301,6 +302,37 @@ chain must not revisit a row.
 The spec table and the edges are data. The session builds `missionary` and `standing` in `begin()`
 and starts an authored edge only on a request; the debug pair's player-visible proof is the Debug
 **Pose: test variant** action.
+
+## Start block
+
+Every row declares `start`, the pose's act-start contract:
+
+```gdscript
+"start": {"mode": "key", "setup": "bed_stand_up"},
+```
+
+`mode` is `key` or `auto`. `key` waits for the act key; `auto` lets a trigger call the same start
+path without it. Every shipped row is `key`. The `auto` flag is stored on the offer, never acted on
+by the start path: the trigger owns its timing.
+
+`setup` is the closed placement vocabulary `bed_stand_up`, `bed_keep_lying` or `standing_place`.
+`runtime.start()` dispatches on this name (`_run_start_setup`) and never on a pose id, so a new pose
+adds a row, an asset and a recipe, not a start branch. The adapters and the start order are
+`docs/runtime.md`.
+
+| Pose | mode | setup |
+|---|---|---|
+| `missionary` | `key` | `bed_stand_up` |
+| `standing` | `key` | `standing_place` |
+| `standing_test` | `key` | `standing_place` |
+| `standing_oral` | `key` | `standing_place` |
+| `bed_facesit` | `key` | `bed_stand_up` |
+
+`bed_keep_lying` has no shipped consumer yet: the riding pose is its first intended user. The
+focused `tests/poses/test_start_setup.gd` proves the vocabulary, the validator, the helpers and the
+runtime dispatcher with a synthetic `auto`/`bed_keep_lying` row; that row stays out of the shipped
+table and the catalog. `poses/pose_spec.gd` rejects a missing block, an unknown mode or an unknown
+setup, and `poses/registry.gd`'s `check_table()` covers every shipped row.
 
 ## Session requests and ticks
 
@@ -940,6 +972,12 @@ teardown; it stays unchanged.
   and the pure source.
 - `tests/poses/test_pose_registry.gd` — the five shipped specs, the three authored pairs, the
   unchanged public catalog and the table rules.
+- `tests/poses/test_pose_offer.gd` — the typed offer's defaults and validity, the blocked hint,
+  the cancel/scope/auto fields, and `main.start_pose_offer()`'s history, buck, blocked, transient,
+  attempt, failed-start and invalid-handle outcomes.
+- `tests/poses/test_start_setup.gd` — the closed start vocabulary and shipped table, the helper
+  defaults, the synthetic `auto`/`bed_keep_lying` row and the runtime's setup dispatch for both bed
+  adapters and an unknown name.
 - `tests/poses/test_pose_edge.gd` — the edge documents, the typed wrapper and validator, the
   registry load and the debug, oral and face-sit forward/reverse run proofs.
 - `tests/test_standing_presentation.gd` — the offer gate, the navigator stepping turn and its away

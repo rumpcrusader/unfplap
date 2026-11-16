@@ -27,7 +27,7 @@ dialogue cues and prompts.
 
 | File | Role |
 |---|---|
-| `initiation/service.gd` | facade: scan, admission, candidate assembly, the live episode, phase dispatch, cooldown IO and the typed `Episode`/`Candidate`/`ForceResult` |
+| `initiation/service.gd` | facade: scan, admission, candidate assembly, the live episode, phase dispatch, cooldown IO and the typed `Episode`/`Candidate`/`ForceResult`, plus the shared `PoseOffer` handoff |
 | `initiation/facts.gd` | pure typed `Request`: the plain values the rules and wording read |
 | `initiation/policy.gd` | pure rules: timers, cooldowns, privacy, wording mode, prompt schedule, pose choice, weighted pick and the phase tables |
 | `initiation/consent.gd` | pure private-answer state machine: transcript, model step, one clarification, deadlines |
@@ -69,20 +69,22 @@ enum Phase { NONE, APPROACH, ARRIVE, ASK, PRESENT, INVITE, BED_APPROACH, BED_LEA
 class Candidate:   id, runtime, pony, pose, source, bed, rest, front, private, cuddle,
                    bed_invite, weight, forced
 class Episode:     serial, phase, candidate fields, timers, consent/reply/nav blocks
-class StartOffer:  runtime, pony, pose, source, bed
 class ForceResult: ok, id, pose, reject
+# shared, `shared/pose_offer.gd`:
+class PoseOffer:   runtime, pony, pose, source, bed, trigger, auto, pending, scope, blocked,
+                   cancel
 
 func setup(main_node: Node) -> void
 func tick(delta: float) -> void
 func reset() -> void
 func cancel_for(pony: Node) -> void
 func force(runtime: Node, pose := "") -> ForceResult
-func start_offer() -> StartOffer
+func start_offer() -> PoseOffer
 ```
 
 `force()` is the debug/lab entry: it keeps the paused-tree bypass and the eligibility and scene
 gates, and returns the comma-joined reject reason in `ForceResult.reject`. `start_offer()` is the
-accepted-offer handoff `main` reads on every idle hint scan; it reuses one `StartOffer` object, so
+accepted-offer handoff `main` reads on every idle hint scan; it reuses one `PoseOffer` object, so
 the caller reads it immediately.
 
 Adapters (internal, called by the facade):
@@ -306,6 +308,25 @@ An accepted private offer is handed to the act key by `start_offer()`. It answer
 `main._refresh_offer()` prefers this live offer over the bed and rump-fan discovery, so the hint
 cannot name another pony while the episode lives.
 
+#### The typed offer
+
+`shared/pose_offer.gd` is the plain `RefCounted` handle the act start consumes. It carries the
+runtime, pony, pose, source and bed; the trigger name; the `auto` flag; the `pending` handoff flag;
+the classifier `scope`; the `blocked` record; and the owner's `cancel` callback. It has no tree,
+settings or file access.
+
+- `start_offer()` fills it with `trigger: "offer"`, `auto: false`, `pending: true`,
+  `scope: "dialogue:"` and `cancel: cancel_for(pony)`. `main.try_start()` reads it immediately and
+  hands it to `main.start_pose_offer()`; the idle scan's own offers are built in the same type.
+- `main` never reaches into this service: the cleanup is the bound `cancel_for`, and a successful
+  start cancels the offer's classifier scope instead of a hardcoded `dialogue:`.
+- `blocked` is a discovery record `{hint, need, toast}`. A blocked offer shows its toast and never
+  reaches the gate or the act; it is not a refusal and closes nothing.
+- `auto` is stored only. A trigger that wants an instant start sets it and calls
+  `main.start_pose_offer()` itself; the start function does not wait on its own.
+- The start gate still runs in full (`runtime.start_verdict()` and `runtime.start()`); the typed
+  offer changes discovery and cleanup only.
+
 The handoff changes discovery only: `runtime.start_verdict()` and `runtime.start()` still run the
 full gate and start sequence, and an accepted offer cannot bypass a scene row. A failed gate
 keeps the offer:
@@ -408,7 +429,8 @@ after the spoken words only when the moment genuinely changes how she feels.
   and the set/clear round trip.
 - `tests/initiation/test_initiation_api.gd`: the facade through `force()` and a fake director and
   runtime — the distant walk and the arrival settle, the ask's navigator lease, the ask and invite
-  keys, the live `start_offer()` range and phase, the local yes/no effects, the request face, the
+  keys, the live `start_offer()` range, phase and typed offer fields (trigger, pending, auto,
+  scope, cancel, empty blocked), the local yes/no effects, the request face, the
   deferred presentation after the offer line, the sticky invitation after a closed start gate, the
   presentation retry, the stale-line baseline, the public answer that becomes private, the public
   no, the `REQUEST` debug rows, the cooldown clear, `cancel_for`/`reset` and the scan quiet/skip

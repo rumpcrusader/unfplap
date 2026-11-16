@@ -22,27 +22,53 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
 
 ## Start
 
-`main.try_start()` is the only act-start path. It prefers the request service's live accepted offer
-(`initiation.start_offer()`) and otherwise rediscovers the free-standing fan or the bed side. It
-composes the eligibility policy verdict with the scene rows (`docs/eligibility.md`,
-`docs/scene_gate.md`) and calls `runtime.start()`. The start gate runs before the request handoff:
-a transient failed gate leaves the accepted offer and its hint alive, while a history or buck
-refusal closes them. The idle hint may reuse a per-runtime policy snapshot, but this path always
-builds a fresh verdict. The start sequence:
+`main.try_start()` is the act key's only entry. It builds a typed offer from the idle scan (the
+bed side or the free-standing fan) or takes the request service's live accepted offer
+(`initiation.start_offer()`), then hands it to `main.start_pose_offer(offer)`. The offer owns its
+pose, blocked hint, cancel callback and classifier scope, so that one function never names a pose
+and never reaches into the request service. An automatic trigger calls the same function with the
+offer's `auto` flag set; the trigger owns its timing. The start gate runs before the request
+handoff: a transient failed gate leaves the accepted offer and its hint alive, while a history or
+buck refusal closes them. The idle hint may reuse a per-runtime policy snapshot, but this path
+always builds a fresh verdict. The start sequence:
 
 1. re-read the identity, gate and refusal;
 2. reset the stool handle and refresh the anatomy bridge;
 3. begin the camera session, clear the idle presentation, the mood face and the act face;
 4. snapshot the settings and preferences, build the thrust tracker and the pose config;
-5. resolve the bed (missionary) or the standing spot (standing), apply the eye override and the
-   initial face;
+5. resolve the bed when the row's `scene.requires_bed` is set (a missing bed fails closed before
+   anything is borrowed), then apply the eye override and the initial face;
 6. allocate the serial/event id, reset readiness, dialogue, history and the thrust state;
 7. release the cradle/cuddle/navigator/player ownership through `scene_hold`;
 8. snapshot the pony bones, mark the act active, build the anatomy act;
-9. place the bodies, build the pose, capture the look, lock the player and the navigator, start the
-   camera, the audio, the HUD and the act face, then arm the act integrations.
+9. dispatch the row's `start.setup` (below) to place the bodies;
+10. build the pose, sync the start settings group, prepare the start camera profile, capture the
+    look, lock the player and the navigator, start the camera, the audio, the HUD and the act face,
+    then arm the act integrations.
 
 A failure in any step runs `_abort_start()` and the same teardown; it never leaves a partial act.
+
+### Start setup adapters
+
+`runtime.start()` matches the pose row's closed `start.setup` name and never a pose id. The names
+and their placement:
+
+| Setup | Adapter | Placement |
+|---|---|---|
+| `bed_stand_up` | `_start_bed_stand_up()` | a human Anon `force_stand_up()`; the cradle or bed rest release already ran in the prelude; `request_posture("stand")`; the bed frame |
+| `bed_keep_lying` | `_start_bed_keep_lying()` | no `force_stand_up()`; a `dialogue` source releases managed rest; `request_posture("stand")` so the authored act body owns her pose; the bed frame |
+| `standing_place` | `_start_standing_place()` | `_begin_standing_placement()`; a failed stool aborts; `request_posture("stand")`; the facts sync; `begin_facing()` |
+
+A missing bed fails the two bed adapters closed; a failed cradle/bed rest release already aborted
+in the prelude. An unknown or missing setup logs one `start blocked setup=...` line and aborts
+through `_abort_start()`; the gate already passed, so this is a spec/data error, not a refusal.
+`bed_keep_lying` has no shipped consumer yet; the riding pose is its first, and
+`tests/poses/test_start_setup.gd` proves the dispatch until then.
+
+The start settings-group sync (`_sync_start_pose_config()`) and the start camera
+(`_prepare_start_camera()`) read the row's `settings_group` and `camera.profile`, not the pose id.
+The group sync is a small dispatch today: a new settings group adds its own sync next to its row.
+`start` logs the chosen setup with the pose and source.
 
 ## Controls
 
@@ -172,6 +198,9 @@ the start pose's own config sync.
 - `tests/test_runtime_notes.gd` — the prompt forwards.
 - `tests/test_runtime_offer_policy.gd` — the idle hint's policy snapshot, its invalidation keys
   and the fresh gate path.
+- `tests/poses/test_pose_offer.gd` — the typed offer and `main.start_pose_offer()`'s outcome table.
+- `tests/poses/test_start_setup.gd` — the closed setup vocabulary, the synthetic
+  `auto`/`bed_keep_lying` row and the runtime dispatch for both bed adapters.
 - `tests/readiness/test_oral_quiet.gd` — the oral contact: the plap and rump/tail jiggle skip, the
   kept slide/vocal/wings/blush/ear, the climax-line skip and the regular-path regression.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.

@@ -809,6 +809,10 @@ split when the suite is next touched.
   pre-hidden dock stays hidden.
 - The act's idle wink and the climax pulse share one countdown; adding a second scheduler would
   make them overlap.
+- The garment hull is a rear-facing depth field, not a 3D SDF: an undercut the field cannot
+  represent is a deferred refinement, and the debug overlay is the way to see one. The panty
+  mesh's own low resolution is a separate later concern; the mod does not tessellate it at
+  runtime.
 - The persistent controller and the act read the typed `anatomy/facts.gd` context, not the
   runtime node. The legacy `test_anatomy.gd` integration suite still reads private controller
   state; it is the only test seam left.

@@ -431,14 +431,20 @@ func _pose_family() -> String:
 	return family if not family.is_empty() else _start_family()
 
 
+## The start spec row. Start-time decisions read this before the view exists; the raw read is kept
+## in this one helper so the start identity stays the only pose-id input.
+func _start_row() -> Dictionary:
+	return POSE_SPECS.spec(pose_id)
+
+
 ## The start spec's family. Start-time decisions read this before the view exists.
 func _start_family() -> String:
-	return str(POSE_SPECS.spec(pose_id).get("family", ""))
+	return str(_start_row().get("family", ""))
 
 
 ## The start spec's settings group. The internal poses share the standing group.
 func _start_group() -> String:
-	return str(POSE_SPECS.spec(pose_id).get("settings_group", ""))
+	return str(_start_row().get("settings_group", ""))
 
 
 
@@ -446,7 +452,7 @@ func _start_group() -> String:
 func _start_frame() -> String:
 	var view: Variant = _pose_session.view()
 	var frame := str(view.frame) if view != null else ""
-	return frame if not frame.is_empty() else str(POSE_SPECS.spec(pose_id).get("frame", ""))
+	return frame if not frame.is_empty() else str(_start_row().get("frame", ""))
 
 
 ## The pose read model the anatomy context mirrors; the session owns the one object.
@@ -1868,13 +1874,14 @@ func start(pose: String, bed_in: Variant, act_source: String,
 		return false
 	# The accepted standing offer may still be stepping her away from Anon. The act start owns
 	# her body and would clear the presentation mid-turn, so wait for the settled pose.
-	if pose == CATALOG.STANDING and presentation_active() and not presentation_settled():
+	if POSE_SPECS.start_setup(pose) == "standing_place" and presentation_active() \
+			and not presentation_settled():
 		_log("start blocked presentation turn pose=%s source=%s pony=%s" % [
 			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
 	_reset_stool_state()
 	_anatomy_refresh()
-	if pose == CATALOG.STANDING:
+	if bool(POSE_SPECS.scene(pose).get("stool", false)):
 		var stool_need := stool_needed_count()
 		if stool_need > 0:
 			if stool_case_count() < stool_need or not _take_stool_items(stool_need):
@@ -1902,7 +1909,7 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_cue_gap = SETTINGS.cue_gap_value(float(_profile.get("cue_gap", 12.0)))
 	_standing_camera_controller().reset()
 	bed = _scene_gate().resolve_bed(pose, act_source, bed_in)
-	if pose == CATALOG.MISSIONARY and bed == null:
+	if bool(POSE_SPECS.scene(pose).get("requires_bed", false)) and bed == null:
 		# Nothing else is borrowed yet, but the jiggle radius was just applied.
 		_reactions.restore_radius()
 		pose_id = ""
@@ -1966,35 +1973,18 @@ func start(pose: String, bed_in: Variant, act_source: String,
 	_anatomy_refresh()
 	_anatomy_act_refresh()
 
-	# The act is its own state for both of them: Anon stands up before the snapshot and the lock, and
-	# she leaves the game's lying state. The bed only supplies the frame their bodies are placed in.
-	if pose == CATALOG.MISSIONARY and not _player_pony:
-		var body: Variant = main.player
-		if body != null and body.has_method("force_stand_up"):
-			body.call("force_stand_up")
-	if pose == CATALOG.MISSIONARY:
-		if source == "cradle":
-			_rest_service().call("place_on_start")
-		else:
-			pony.reset_physics_interpolation()
-		if pony.get("posture") != null:
-			pony.request_posture("stand")
-	else:
-		var standing := _begin_standing_placement()
-		if _stool_failed():
-			_abort_start()
-			return false
-		pony.request_posture("stand")
-		_sync_act_facts()
-		_standing_camera_controller().begin_facing(standing)
+	# The act is its own state for both of them: the setup adapter places the bodies before the
+	# snapshot and the lock. The bed only supplies the frame their bodies are placed in.
+	var setup := POSE_SPECS.start_setup(pose)
+	if not _run_start_setup(setup):
+		_abort_start()
+		return false
 
 	_build_pose()
 	_reactions.clear_stock_marks()
-	if pose == CATALOG.MISSIONARY:
-		_sync_missionary_pose_config()
+	_sync_start_pose_config()
 	_camera_service().call("reset_lean_state")
-	if pose == CATALOG.MISSIONARY:
-		_missionary_camera_controller().prepare()
+	_prepare_start_camera()
 	_camera_service().call("capture_look")
 	_lock_player()
 	_pause_face_turn()
@@ -2023,7 +2013,8 @@ func start(pose: String, bed_in: Variant, act_source: String,
 		_sync_hud_facts()
 		main.hud.show_act(_act_facts)
 		main.hud.hide_prompt()
-	_log("started pose=%s source=%s pony=%s eye=%.2f" % [pose, act_source, str(pony.name), _act_camera.camera_target_eye])
+	_log("started pose=%s setup=%s source=%s pony=%s eye=%.2f" % [
+		pose, setup, act_source, str(pony.name), _act_camera.camera_target_eye])
 	return true
 
 func _next_serial() -> int:
@@ -2147,6 +2138,68 @@ func _begin_standing_placement() -> Transform3D:
 	return standing
 
 
+## Dispatch the spec's closed `start.setup` vocabulary to its placement adapter. It never selects
+## on a pose id: a new pose row adds its setup name and data, not a branch here. A missing or
+## unknown name is a data error after the gate passed; `start()` aborts the partial act.
+func _run_start_setup(setup: String) -> bool:
+	match setup:
+		"bed_stand_up":
+			return _start_bed_stand_up()
+		"bed_keep_lying":
+			return _start_bed_keep_lying()
+		"standing_place":
+			return _start_standing_place()
+		_:
+			_log("start blocked setup=%s source=%s pony=%s" % [
+				setup if not setup.is_empty() else "missing", source,
+				str(pony.name) if is_instance_valid(pony) else "?"])
+			return false
+
+
+## The bed stand-up start: Anon leaves the mattress before the player snapshot and the lock, and
+## she leaves the game's lying state. The bed rest/cradle release already ran in the common
+## prelude; the authored body owns her pose from here.
+func _start_bed_stand_up() -> bool:
+	if bed == null:
+		return false
+	if not _player_pony:
+		var body: Variant = main.player
+		if body != null and body.has_method("force_stand_up"):
+			body.call("force_stand_up")
+	if source == "cradle":
+		_rest_service().call("place_on_start")
+	else:
+		pony.reset_physics_interpolation()
+	if pony.get("posture") != null:
+		pony.request_posture("stand")
+	return true
+
+
+## The bed lying start: Anon does not stand up, and the authored act body takes over her pose. The
+## riding pose is the first intended consumer; no shipped row uses this setup yet.
+func _start_bed_keep_lying() -> bool:
+	if bed == null:
+		return false
+	if source == "dialogue" and not REST.release_managed(pony):
+		return false
+	pony.reset_physics_interpolation()
+	if pony.get("posture") != null:
+		pony.request_posture("stand")
+	return true
+
+
+## The standing start: keep her where she stands, place Anon behind her at the act gap, take the
+## stool items and start the facing lock.
+func _start_standing_place() -> bool:
+	var standing := _begin_standing_placement()
+	if _stool_failed():
+		return false
+	pony.request_posture("stand")
+	_sync_act_facts()
+	_standing_camera_controller().begin_facing(standing)
+	return true
+
+
 ## Remove the act prop and put every case item back. Every exit path calls this.
 func _release_stool() -> void:
 	var act: Variant = _stool_act()
@@ -2205,6 +2258,26 @@ func _sync_standing_pose_config() -> void:
 ## pose keeps its nuzzle overrides live.
 func _sync_missionary_pose_config() -> void:
 	_pose_service().sync_missionary_config()
+
+
+## The start pose's settings-group sync after `_build_pose()`. This is a group dispatch, not a pose
+## branch: the riding group adds its own sync with its pose row, and foundation 3 generalizes the
+## per-group sync. An unknown group keeps the config `start()` already set from its settings block.
+func _sync_start_pose_config() -> void:
+	match _start_group():
+		"missionary":
+			_sync_missionary_pose_config()
+		_:
+			pass
+
+
+## Prepare the start pose's camera profile before the look is captured. The bed shot camera reads
+## the authored asset; the standing camera starts in its placement adapter instead.
+func _prepare_start_camera() -> void:
+	var camera: Variant = _start_row().get("camera", {})
+	var profile := str((camera as Dictionary).get("profile", "")) if camera is Dictionary else ""
+	if profile == "missionary_shots":
+		_missionary_camera_controller().prepare()
 
 
 ## The parsed authored missionary pose, for the shot camera and the debug action.

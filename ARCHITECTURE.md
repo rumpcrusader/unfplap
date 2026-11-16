@@ -168,7 +168,7 @@ give the mod two entry points and hide the real dependency.
 
 | Scope | Constructed by | Begun / ended by | Examples |
 |---|---|---|---|
-| World | `main` on ready or world entry | `main` on world close | settings, registry, anatomy, stool, initiation, privacy, input, debug |
+| World | `main` on ready or world entry | `main` on world close | settings, registry, anatomy, stool, initiation, privacy, negotiation, input, debug |
 | Per-pony | `main` when a runtime attaches | pony despawn or world close | the runtime itself |
 | Per-pony handle | the runtime, once per pony | the runtime ledger or the negotiation hold | pose, camera, hands, kiss, face, history, afterglow, scene hold, rest |
 | Pure / read model | its owner | no teardown | preferences math, act view, perf probe |

@@ -21,6 +21,7 @@ const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
+const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
@@ -231,6 +232,20 @@ func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 	if str(snapshot.get("id", "")).is_empty():
 		return false
 	return POLICY.participates(snapshot, str(TARGET_KEYS[target]))
+
+
+## The Base clearance relationship row for the negotiation routes: a live relationship, romance
+## eligibility and the Promiscuity floor. The relationship override opens the romance and
+## Promiscuity parts. It is one boolean; the negotiation never inspects the verdict rows.
+func relationship_ok(pony: Node) -> bool:
+	if not is_instance_valid(main) or not is_instance_valid(pony):
+		return false
+	var facts := _facts_data(pony)
+	var override := bool(facts.get("ignore_gates", false))
+	var floor_ok := POLICY.level_ok(str(facts.get("promiscuity", "any")),
+		int(facts.get("love_level", -1)))
+	return CLEARANCE.relationship_ok(bool(facts.get("has_relationship", false)),
+		bool(facts.get("romance_eligible", false)), floor_ok, override)
 
 
 ## The witness age category. This is the only place a consumer needs the age instead of a

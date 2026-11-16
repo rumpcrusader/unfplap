@@ -1,0 +1,845 @@
+extends Node
+## Service: negotiation
+## Contract: docs/negotiation.md
+## Scope: world
+## Import: negotiation/service.gd only
+##
+## The Act Negotiation: Anon offers, the Anon decision, the Mare response, pose re-checks,
+## privacy sampling, Agreement formation and ownership, the one global lock and the terminal
+## outcome. The service owns the whole negotiation and the Agreement window; the Act service
+## receives an opaque handle and never mutates the package. `main` mediates the per-pony hold, the
+## director and the model calls through the typed `Host` below.
+
+const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
+const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
+const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
+const POSE_PLACEMENT := preload("res://mods/unfplap/shared/pose_placement.gd")
+const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+
+enum Phase { NONE, OFFERED, AGREEMENT }
+enum Outcome { ACCEPTED, REFUSED, EXPIRED, INTERRUPTED, START_FAILED, NO_OFFER, OCCUPIED, STARTED }
+
+## The offer cooldown: only a plain decline or an acceptance.
+const COOLDOWN_S := 120.0
+## The privacy provider is sampled at the request-scan cadence, not per frame.
+const PRIVACY_SAMPLE_S := 0.5
+
+const ANSWER_ACCEPT := "accept"
+const ANSWER_REFUSE := "refuse"
+const ANSWER_COUNTER := "counter_offer"
+const ANSWER_NO_OFFER := "no_offer"
+
+
+## The player form and display the option builder filters on.
+class FormView:
+	var form := "human"
+	var view := "desktop"
+
+
+## The finalized proactive offer the Proactive service hands over at formation. It carries the
+## already-decided base clearance, pose option, visibility and request hold.
+class MareOffer:
+	var runtime: Node = null
+	var pony: Node3D = null
+	var option: POSE_OPTIONS.Option = null
+	var base: CLEARANCE.Result = null
+	var private := false
+	var hold_token := ""
+	var hold_old_wander := true
+	var line := ""
+	var cuddle := false
+
+	func valid() -> bool:
+		return is_instance_valid(runtime) and is_instance_valid(pony) and option != null \
+			and option.valid() and base != null and base.ok()
+
+
+## One model request. `kind` is `anon_offer`, `anon_decision` or `mare_response`.
+class DecisionRequest:
+	var kind := ""
+	var text := ""
+	var line := ""
+	var context: CONTEXT.Context = null
+	var options: Array[POSE_OPTIONS.Option] = []
+
+
+## One model answer. `answer` is normalized to `accept`, `refuse`, `counter_offer` or
+## `no_offer`; `option_index` picks an option from the request list; `failed` marks a reasoning
+## failure.
+class Decision:
+	var answer := ""
+	var option_index := -1
+	var failed := false
+
+
+## The terminal outcome reported to the Proactive service and the debug log.
+class Terminal:
+	var pony: Node = null
+	var pony_id := ""
+	var outcome := 0
+	var reason := ""
+	var trigger := 0
+	var cooldown_s := 0.0
+
+
+## The host boundary. Every field is a named callback supplied by `main`; the service reads no
+## other service directly and never touches the runtime's private fields.
+class Host:
+	## Seconds. The service's one clock.
+	var now: Callable
+	## (pony) -> bool: the eligibility service's `eligible?` answer.
+	var eligible: Callable
+	## (pony) -> bool: the live relationship, romance and Promiscuity floor.
+	var relationship_ok: Callable
+	## (pony) -> Dictionary: the plain facts `shared/context.gd` builds from.
+	var context_facts: Callable
+	## (pony, cuddle) -> bool: the privacy provider's live predicate.
+	var privacy_private: Callable
+	## (runtime) -> PoseOptions.Placement: the plain placement facts.
+	var placement_for: Callable
+	## () -> FormView: the player's live form and display.
+	var form_view: Callable
+	## (runtime) -> RefCounted: the per-pony `scene_hold/service.gd` ledger.
+	var hold_for: Callable
+	## (DecisionRequest, scope, done) -> bool: the dialogue classifier.
+	var classify: Callable
+	## (DecisionRequest, scope, done) -> bool: the Mare reasoning call.
+	var reason: Callable
+	## (MareOffer, scope, done) -> bool: watch the first new line from the conversation target.
+	var await_answer: Callable
+	## (scope) -> void: cancel one classifier scope.
+	var cancel_scope: Callable
+	## (text) -> void.
+	var toast: Callable
+	## (text) -> void.
+	var log: Callable
+	## (pony, reason) -> void: the shared reaction line.
+	var react: Callable
+	## (Terminal) -> void.
+	var on_outcome: Callable
+	## (Handle) -> void: the Agreement is ready for the Act service.
+	var on_agreement: Callable
+
+
+## One live negotiation's private state. It is cleared when the Agreement forms.
+class Offer:
+	var id := 0
+	var generation := 0
+	var runtime: Node = null
+	var pony: Node3D = null
+	var pony_id := ""
+	var option: POSE_OPTIONS.Option = null
+	var base: CLEARANCE.Result = null
+	var context: CONTEXT.Context = null
+	var private := false
+	var trigger := 0
+	var hold_token := ""
+	var hold_old_wander := true
+	var hold_claimed := false
+	var scope := ""
+	var line := ""
+	var cuddle := false
+	var expires_at := 0.0
+
+var _host: Host
+var _phase := Phase.NONE
+var _locked := false
+var _offer: Offer = null
+var _agreement: AGREEMENT.Package = null
+var _handle: AGREEMENT.Handle = null
+var _generation := 0
+var _serial := 0
+var _deadline := 0.0
+var _privacy_clock := 0.0
+
+
+func setup(host: Host) -> void:
+	_host = host
+
+
+## Clear the live Act Negotiation on a world close. It releases the hold and cancels every
+## classifier scope; it reports no terminal outcome.
+func reset() -> void:
+	_cancel_scope(_offer.scope if _offer != null else "")
+	_cancel_scope(_agreement.classifier_scope if _agreement != null else "")
+	_release_hold()
+	_clear_state()
+	_host = null
+
+
+func phase() -> Phase:
+	return _phase
+
+
+func is_locked() -> bool:
+	return _locked
+
+
+## The live Agreement handle, or null. `main`/the Act service read it immediately.
+func handle() -> AGREEMENT.Handle:
+	return _handle if _phase == Phase.AGREEMENT else null
+
+
+## The live Agreement package for the debug row. Consumers do not mutate it.
+func agreement() -> AGREEMENT.Package:
+	return _agreement if _phase == Phase.AGREEMENT else null
+
+
+## The TTL and the privacy sample, driven by `main.tick`.
+func tick(delta: float) -> void:
+	if _host == null or _phase == Phase.NONE:
+		return
+	if _now() >= _deadline:
+		_close(Outcome.EXPIRED, "", 0.0)
+		return
+	if not _keep_hold():
+		return
+	var private := _offer.private if _phase == Phase.OFFERED else _agreement.private
+	if not private:
+		return
+	_privacy_clock += delta
+	if _privacy_clock < PRIVACY_SAMPLE_S:
+		return
+	_privacy_clock = 0.0
+	var pony: Node = _pony()
+	if not is_instance_valid(pony) or not _private_now(pony, _cuddle_flag()):
+		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_PRIVACY, 0.0, true)
+
+
+## The Proactive service's handoff: a formed Mare offer. The service owns the exchange from here;
+## the Anon decision is the first new line from the conversation target.
+func begin_mare_offer(offer: MareOffer) -> bool:
+	if _host == null or offer == null or not offer.valid():
+		return false
+	if _locked:
+		_blocked(offer.pony)
+		return false
+	var live := Offer.new()
+	_begin_state(live, offer.runtime, offer.pony, offer.option, AGREEMENT.Trigger.MARE_OFFER,
+		offer.line, offer.cuddle)
+	live.base = offer.base
+	live.private = offer.private
+	if not _claim_mare_hold(live, offer):
+		_close(Outcome.OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
+		return false
+	live.context = _context(live.pony)
+	var scope := _scope("answer")
+	live.scope = scope
+	var watching := bool(_host.await_answer.call(offer, scope,
+		func(text: String, error: String) -> void: _on_anon_answer(live, text, error)))
+	if not watching:
+		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		return false
+	_log_line("negotiation offer id=%s trigger=mare pose=%s private=%s" % [
+		live.pony_id, live.option.key(), str(live.private)])
+	return true
+
+
+## An Anon offer, classified from his line. The target runtime comes from `main`.
+func begin_anon_offer(runtime: Node, text: String) -> bool:
+	if _host == null or not is_instance_valid(runtime):
+		return false
+	var pony: Variant = runtime.get("pony")
+	if not is_instance_valid(pony):
+		return false
+	if _locked:
+		_blocked(pony as Node)
+		return false
+	var base := _clearance_for(runtime)
+	if not base.ok():
+		_formation_failure(pony, Outcome.NO_OFFER, base.reason(), AGREEMENT.Trigger.ANON_OFFER)
+		return false
+	var options := _options_for(runtime)
+	if options.is_empty():
+		_formation_failure(pony, Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE,
+			AGREEMENT.Trigger.ANON_OFFER)
+		return false
+	var live := Offer.new()
+	_begin_state(live, runtime, pony, null, AGREEMENT.Trigger.ANON_OFFER, text, false)
+	live.base = base
+	live.context = _context(live.pony)
+	var scope := _scope("anon_offer")
+	live.scope = scope
+	var request := DecisionRequest.new()
+	request.kind = "anon_offer"
+	request.text = text
+	request.context = live.context
+	request.options = options
+	var started := bool(_host.classify.call(request, scope,
+		func(decision: Decision) -> void: _on_anon_offer_classified(live, decision)))
+	if not started:
+		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		return false
+	return true
+
+
+## `main` reports the Act service's start result. Started closes the Agreement without releasing
+## the adopted hold; StartFailed clears it and releases the hold.
+func report(handle: AGREEMENT.Handle, started: bool) -> bool:
+	if handle == null or not _agreement_matches(handle):
+		return false
+	var package := _agreement
+	if started:
+		_clear_state()
+		_report_outcome(package.pony, Outcome.STARTED, "", package.trigger, 0.0)
+		_log_line("negotiation started id=%d" % package.id)
+	else:
+		_close(Outcome.START_FAILED, "", 0.0)
+	return true
+
+
+## The Act service's one cancel callback. A stale handle is ignored.
+func cancel(handle: AGREEMENT.Handle, reason: String) -> bool:
+	if handle == null or not _agreement_matches(handle):
+		return false
+	var live_reason := _interrupt_reason(reason)
+	_close(Outcome.INTERRUPTED, live_reason, 0.0, live_reason == AGREEMENT.REASON_PRIVACY)
+	return true
+
+
+## The hotkey's exact match: the same mare and the exact pose option. A live Agreement with any
+## other mare, pose, source or bed is not a match.
+func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Handle:
+	if _phase != Phase.AGREEMENT or _agreement == null or _host == null:
+		return null
+	if not is_instance_valid(runtime) or _agreement.runtime != runtime:
+		return null
+	if not _agreement.matches(_agreement.pony, option):
+		return null
+	return _handle
+
+
+## The hotkey breaks any live Act Negotiation. It logs the interruption and returns whether one
+## was ended.
+func interrupt_for_hotkey() -> bool:
+	if _phase == Phase.NONE:
+		return false
+	_close(Outcome.INTERRUPTED, AGREEMENT.REASON_HOTKEY, 0.0)
+	return true
+
+
+## Debug rows for the Show data block.
+func debug_rows(pony: Node) -> Array[String]:
+	var rows: Array[String] = []
+	rows.append("phase=%s locked=%s" % [_phase_name(_phase), str(_locked)])
+	if _offer != null and (not is_instance_valid(pony) or _offer.pony == pony):
+		rows.append("offer id=%s trigger=%s pose=%s private=%s" % [
+			_offer.pony_id, _trigger_name(_offer.trigger), _offer.option.key() if
+			_offer.option != null else "none", str(_offer.private)])
+		rows.append("offer expires in %.1fs" % maxf(0.0, _offer.expires_at - _now()))
+	if _agreement != null and (not is_instance_valid(pony) or _agreement.pony == pony):
+		rows.append("agreement id=%d pose=%s private=%s" % [
+			_agreement.id, _agreement.option_key(), str(_agreement.private)])
+		rows.append("agreement expires in %.1fs" % maxf(0.0, _agreement.expires_at() - _now()))
+	return rows
+
+
+# --------------------------------------------------------------------------- state
+
+func _begin_state(live: Offer, runtime: Node, pony: Node3D, option: POSE_OPTIONS.Option,
+		trigger: int, line: String, cuddle: bool) -> void:
+	_generation += 1
+	_serial += 1
+	live.id = _serial
+	live.generation = _generation
+	live.runtime = runtime
+	live.pony = pony
+	live.pony_id = _pony_id(pony)
+	live.option = option
+	live.trigger = trigger
+	live.line = line
+	live.cuddle = cuddle
+	live.expires_at = _now() + AGREEMENT.OFFER_TTL_S
+	_offer = live
+	_agreement = null
+	_handle = null
+	_phase = Phase.OFFERED
+	_locked = true
+	_deadline = live.expires_at
+	_privacy_clock = 0.0
+
+
+func _clear_state() -> void:
+	_phase = Phase.NONE
+	_locked = false
+	_offer = null
+	_agreement = null
+	_handle = null
+	_deadline = 0.0
+	_privacy_clock = 0.0
+	_generation += 1
+
+
+## One close path for every terminal outcome. The hold is released unless the Act adopted it on
+## Started. No cooldown, no record and no reasoning write happens here.
+func _close(outcome: int, reason: String, cooldown: float, reaction := false) -> void:
+	var pony: Node = _pony()
+	var trigger := _trigger()
+	var package_pony: Node = _agreement.pony if _agreement != null else pony
+	if _offer != null:
+		_cancel_scope(_offer.scope)
+	if _agreement != null:
+		_cancel_scope(_agreement.classifier_scope)
+	_release_hold()
+	_clear_state()
+	_report_outcome(package_pony, outcome, reason, trigger, cooldown)
+	_notify(outcome, reason)
+	if reaction and is_instance_valid(package_pony):
+		_react(package_pony, reason)
+
+
+func _formation_failure(pony: Variant, outcome: int, reason: String, trigger: int) -> void:
+	var target := pony as Node if pony is Node else null
+	_report_outcome(target, outcome, reason, trigger, 0.0)
+	_notify(outcome, reason)
+
+
+func _report_outcome(pony: Node, outcome: int, reason: String, trigger: int,
+		cooldown: float) -> void:
+	if _host == null or not _host.on_outcome.is_valid():
+		return
+	var terminal := Terminal.new()
+	terminal.pony = pony
+	terminal.pony_id = _pony_id(pony)
+	terminal.outcome = outcome
+	terminal.reason = reason
+	terminal.trigger = trigger
+	terminal.cooldown_s = cooldown
+	_host.on_outcome.call(terminal)
+
+
+func _accept(live: Offer) -> void:
+	_generation += 1
+	var package := AGREEMENT.Package.new()
+	package.id = live.id
+	package.generation = _generation
+	package.runtime = live.runtime
+	package.pony = live.pony
+	package.pony_id = live.pony_id
+	package.option = live.option
+	package.private = live.private
+	package.clearance = live.base
+	package.context = live.context
+	package.pose_profile_ok = POSE_SPECS.is_public(live.option.pose)
+	package.pose_source_ok = POSE_PLACEMENT.source_allowed(live.option.pose, live.option.source)
+	package.answer = ANSWER_ACCEPT
+	package.accepted_at = _now()
+	package.ttl_s = AGREEMENT.AGREEMENT_TTL_S
+	package.hold_token = live.hold_token
+	package.hold_old_wander = live.hold_old_wander
+	package.trigger = live.trigger
+	package.classifier_scope = live.scope
+	package.offer_line = live.line
+	_agreement = package
+	_handle = _make_handle(package)
+	_offer = null
+	_phase = Phase.AGREEMENT
+	_deadline = package.expires_at()
+	_privacy_clock = 0.0
+	_report_outcome(package.pony, Outcome.ACCEPTED, "", package.trigger, COOLDOWN_S)
+	_log_line("negotiation agreement id=%d trigger=%s pose=%s private=%s" % [
+		package.id, _trigger_name(package.trigger), package.option_key(), str(package.private)])
+	if _host.on_agreement.is_valid():
+		_host.on_agreement.call(_handle)
+
+
+func _make_handle(package: AGREEMENT.Package) -> AGREEMENT.Handle:
+	var out := AGREEMENT.Handle.new()
+	out.id = package.id
+	out.generation = package.generation
+	out.pony = package.pony
+	out.pony_id = package.pony_id
+	out.option = package.option
+	out.private = package.private
+	out.pose_profile_ok = package.pose_profile_ok
+	out.pose_source_ok = package.pose_source_ok
+	out.hold_token = package.hold_token
+	out.hold_old_wander = package.hold_old_wander
+	out.trigger = package.trigger
+	out.cancel = Callable(self, "_cancel_handle").bind(package.id, package.generation)
+	return out
+
+
+func _cancel_handle(reason: String, id: int, generation: int) -> bool:
+	if _phase != Phase.AGREEMENT or _agreement == null:
+		return false
+	if _agreement.id != id or _agreement.generation != generation:
+		return false
+	var live_reason := _interrupt_reason(reason)
+	_close(Outcome.INTERRUPTED, live_reason, 0.0, live_reason == AGREEMENT.REASON_PRIVACY)
+	return true
+
+
+func _agreement_matches(handle: AGREEMENT.Handle) -> bool:
+	if _phase != Phase.AGREEMENT or _agreement == null:
+		return false
+	return handle.id == _agreement.id and handle.generation == _agreement.generation
+
+
+func _interrupt_reason(reason: String) -> String:
+	if reason in [AGREEMENT.REASON_PRIVACY, AGREEMENT.REASON_POSE, AGREEMENT.REASON_HOTKEY,
+			AGREEMENT.REASON_TARGET_LEFT]:
+		return reason
+	return AGREEMENT.REASON_CANCELLED
+
+
+# --------------------------------------------------------------------------- decisions
+
+func _on_anon_answer(live: Offer, text: String, error: String) -> void:
+	if not _current(live):
+		return
+	_cancel_scope(live.scope)
+	if not error.is_empty():
+		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		return
+	var scope := _scope("decision")
+	live.scope = scope
+	var request := DecisionRequest.new()
+	request.kind = "anon_decision"
+	request.text = text
+	request.line = live.line
+	request.context = live.context
+	var started := bool(_host.classify.call(request, scope,
+		func(decision: Decision) -> void: _on_anon_decision(live, decision)))
+	if not started:
+		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+
+
+func _on_anon_decision(live: Offer, decision: Decision) -> void:
+	if not _current(live):
+		return
+	_cancel_scope(live.scope)
+	if decision == null:
+		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		return
+	var answer := _answer_of(decision)
+	if answer == ANSWER_ACCEPT:
+		_accept(live)
+	elif answer == ANSWER_COUNTER:
+		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0)
+	else:
+		_close(Outcome.REFUSED, "", COOLDOWN_S)
+
+
+func _on_anon_offer_classified(live: Offer, decision: Decision) -> void:
+	if not _current(live):
+		return
+	_cancel_scope(live.scope)
+	if decision == null or decision.failed or not _is_offer(decision):
+		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		return
+	var options := _options_for(live.runtime)
+	if decision.option_index < 0 or decision.option_index >= options.size():
+		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
+		return
+	var option: POSE_OPTIONS.Option = options[decision.option_index]
+	live.option = option
+	live.cuddle = option.cuddle
+	if not _claim_anon_hold(live):
+		_close(Outcome.OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
+		return
+	live.private = _private_now(live.pony, option.cuddle)
+	var scope := _scope("mare_response")
+	live.scope = scope
+	var request := DecisionRequest.new()
+	request.kind = "mare_response"
+	request.text = live.line
+	request.context = live.context
+	request.options = [option]
+	var started := bool(_host.reason.call(request, scope,
+		func(answer: Decision) -> void: _on_mare_response(live, answer)))
+	if not started:
+		_close(Outcome.REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
+
+
+func _on_mare_response(live: Offer, decision: Decision) -> void:
+	if not _current(live):
+		return
+	_cancel_scope(live.scope)
+	if decision == null or decision.failed:
+		_close(Outcome.REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
+		return
+	var answer := _answer_of(decision)
+	if answer == ANSWER_ACCEPT:
+		_accept(live)
+	elif answer == ANSWER_COUNTER:
+		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0)
+	else:
+		_close(Outcome.REFUSED, "", COOLDOWN_S)
+
+
+func _answer_of(decision: Decision) -> String:
+	if decision == null or decision.failed:
+		return ANSWER_REFUSE
+	var text := str(decision.answer).strip_edges().to_lower()
+	if text == ANSWER_NO_OFFER:
+		return ANSWER_NO_OFFER
+	if text in ["offer", "yes"]:
+		return ANSWER_ACCEPT
+	return CONTEXT.answer(text)
+
+
+func _is_offer(decision: Decision) -> bool:
+	var text := str(decision.answer).strip_edges().to_lower()
+	return text in [ANSWER_ACCEPT, "offer", "yes"] and decision.option_index >= 0
+
+
+## True while a callback still belongs to the live offer. A late result after any terminal
+## transition can never form an Agreement.
+func _current(live: Offer) -> bool:
+	return live != null and _offer == live and _phase == Phase.OFFERED \
+		and live.generation == _generation
+
+
+# --------------------------------------------------------------------------- clearance and context
+
+func _clearance_for(runtime: Node) -> CLEARANCE.Result:
+	var pony: Variant = runtime.get("pony")
+	var present := is_instance_valid(pony)
+	var state: Variant = runtime.get("state")
+	var in_act := state != null and int(state) != 0
+	var sleeping := present and bool((pony as Node).get("sleeping"))
+	var eligible := present and bool(_host.eligible.call(pony))
+	var relationship := present and bool(_host.relationship_ok.call(pony))
+	var available := CLEARANCE.available(in_act, sleeping, present, false)
+	return CLEARANCE.evaluate(eligible, relationship, available)
+
+
+func _context(pony: Node) -> CONTEXT.Context:
+	var facts: Variant = _host.context_facts.call(pony)
+	return CONTEXT.build(facts if facts is Dictionary else {})
+
+
+func _options_for(runtime: Node) -> Array[POSE_OPTIONS.Option]:
+	var view: Variant = _host.form_view.call()
+	var placement: Variant = _host.placement_for.call(runtime)
+	if not view is FormView or not placement is POSE_OPTIONS.Placement:
+		return []
+	var live := view as FormView
+	return POSE_OPTIONS.build(live.form, live.view, placement as POSE_OPTIONS.Placement)
+
+
+# --------------------------------------------------------------------------- hold
+
+func _claim_mare_hold(live: Offer, offer: MareOffer) -> bool:
+	var hold: Variant = _hold()
+	if hold == null:
+		return false
+	if not offer.hold_token.is_empty():
+		if not (bool(hold.holds_negotiation()) and str(hold.token) == offer.hold_token):
+			if not bool(hold.transfer_nav(offer.hold_token, offer.hold_old_wander)):
+				return false
+	else:
+		if not bool(hold.claim_negotiation(live.pony_id)):
+			return false
+	if not bool(hold.hold_affection()):
+		hold.release_nav()
+		return false
+	live.hold_token = str(hold.token)
+	live.hold_old_wander = bool(hold.nav_old_wander)
+	live.hold_claimed = true
+	return true
+
+
+func _claim_anon_hold(live: Offer) -> bool:
+	var hold: Variant = _hold()
+	if hold == null:
+		return false
+	if not bool(hold.claim_negotiation(live.pony_id)):
+		return false
+	if not bool(hold.hold_affection()):
+		hold.release_nav()
+		return false
+	live.hold_token = str(hold.token)
+	live.hold_old_wander = bool(hold.nav_old_wander)
+	live.hold_claimed = true
+	return true
+
+
+## Keep the navigator and Anon as the conversation target. A lost owner or a reassigned target is
+## `target_left`; the service still owns the Agreement until the Act reports Started.
+func _keep_hold() -> bool:
+	var hold: Variant = _hold()
+	if hold == null:
+		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
+		return false
+	if _offer != null and not _offer.hold_claimed:
+		# The Anon offer is still being classified; there is no lease to keep yet, only attention.
+		if not bool(hold.keep_target()):
+			_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
+			return false
+		return true
+	hold.keep_nav()
+	if not bool(hold.keep_target()):
+		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
+		return false
+	if not bool(hold.accepts_hold(_pose(), _source())):
+		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
+		return false
+	return true
+
+
+func _release_hold() -> void:
+	if _offer != null and not _offer.hold_claimed:
+		return
+	if _agreement == null and _offer == null:
+		return
+	var hold: Variant = _hold()
+	if hold != null:
+		hold.release_negotiation()
+
+
+func _hold() -> Variant:
+	var runtime: Node = _runtime()
+	if not is_instance_valid(runtime) or _host == null or not _host.hold_for.is_valid():
+		return null
+	var hold: Variant = _host.hold_for.call(runtime)
+	return hold if hold != null else null
+
+
+# --------------------------------------------------------------------------- helpers
+
+func _runtime() -> Node:
+	if _offer != null and is_instance_valid(_offer.runtime):
+		return _offer.runtime
+	if _agreement != null and is_instance_valid(_agreement.runtime):
+		return _agreement.runtime
+	return null
+
+
+func _pony() -> Node:
+	if _offer != null and is_instance_valid(_offer.pony):
+		return _offer.pony
+	if _agreement != null and is_instance_valid(_agreement.pony):
+		return _agreement.pony
+	return null
+
+
+func _pose() -> String:
+	if _offer != null and _offer.option != null:
+		return _offer.option.pose
+	if _agreement != null and _agreement.option != null:
+		return _agreement.option.pose
+	return ""
+
+
+func _source() -> String:
+	if _offer != null and _offer.option != null:
+		return _offer.option.source
+	if _agreement != null and _agreement.option != null:
+		return _agreement.option.source
+	return ""
+
+
+func _cuddle_flag() -> bool:
+	if _offer != null:
+		return _offer.cuddle
+	if _agreement != null and _agreement.option != null:
+		return _agreement.option.cuddle
+	return false
+
+
+func _trigger() -> int:
+	if _offer != null:
+		return _offer.trigger
+	if _agreement != null:
+		return _agreement.trigger
+	return AGREEMENT.Trigger.ANON_OFFER
+
+
+func _private_now(pony: Node, cuddle: bool) -> bool:
+	if _host == null or not _host.privacy_private.is_valid():
+		return true
+	return bool(_host.privacy_private.call(pony, cuddle))
+
+
+func _pony_id(pony: Node) -> String:
+	if not is_instance_valid(pony):
+		return ""
+	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+
+
+func _scope(kind: String) -> String:
+	return "negotiation:%s:%d:%d" % [kind, _serial, _generation]
+
+
+func _cancel_scope(scope: String) -> void:
+	if scope.is_empty() or _host == null or not _host.cancel_scope.is_valid():
+		return
+	_host.cancel_scope.call(scope)
+
+
+func _now() -> float:
+	if _host != null and _host.now.is_valid():
+		return float(_host.now.call())
+	return Time.get_ticks_msec() / 1000.0
+
+
+func _log_line(text: String) -> void:
+	if _host != null and _host.log.is_valid():
+		_host.log.call(text)
+
+
+func _toast(text: String) -> void:
+	if _host != null and _host.toast.is_valid():
+		_host.toast.call(text)
+
+
+func _react(pony: Node, reason: String) -> void:
+	if _host != null and _host.react.is_valid():
+		_host.react.call(pony, reason)
+
+
+func _blocked(pony: Node) -> void:
+	_report_outcome(pony, Outcome.NO_OFFER, AGREEMENT.REASON_LOCKED, _trigger(), 0.0)
+	_log_line("negotiation blocked reason=locked")
+	_toast("Another offer is already in progress.")
+
+
+func _notify(outcome: int, reason: String) -> void:
+	match outcome:
+		Outcome.OCCUPIED:
+			_log_line("negotiation occupied")
+			_toast("She is busy right now.")
+		Outcome.NO_OFFER:
+			_log_line("negotiation no offer reason=%s" % reason)
+			_toast("She is not available for that.")
+		Outcome.REFUSED:
+			_log_line("negotiation refused reason=%s" % ("none" if reason.is_empty() else reason))
+			_toast("She said not here." if reason == AGREEMENT.REASON_COUNTER_OFFER else
+				"She said no.")
+		Outcome.EXPIRED:
+			_log_line("negotiation expired")
+			_toast("The offer expired.")
+		Outcome.INTERRUPTED:
+			_log_line("negotiation interrupted reason=%s" % reason)
+			if reason == AGREEMENT.REASON_PRIVACY:
+				_toast("Someone came near; the offer ended.")
+			elif reason == AGREEMENT.REASON_HOTKEY:
+				_toast("The offer was cancelled.")
+			elif reason == AGREEMENT.REASON_TARGET_LEFT:
+				_toast("She was called away.")
+			else:
+				_toast("The offer ended.")
+		Outcome.START_FAILED:
+			_log_line("negotiation start failed")
+			_toast("The act could not start.")
+		Outcome.STARTED:
+			_log_line("negotiation started")
+
+
+func _phase_name(value: int) -> String:
+	match value:
+		Phase.OFFERED: return "offered"
+		Phase.AGREEMENT: return "agreement"
+	return "none"
+
+
+func _trigger_name(value: int) -> String:
+	match value:
+		AGREEMENT.Trigger.MARE_OFFER: return "mare"
+		AGREEMENT.Trigger.ANON_OFFER: return "anon"
+		AGREEMENT.Trigger.HOTKEY_MATCH: return "hotkey"
+	return "anon"

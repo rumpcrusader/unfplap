@@ -116,6 +116,7 @@ func setup(main_node: Node) -> void
 func clear() -> void
 
 func eligible(pony: Node, target: Target = Target.ACT) -> bool
+func relationship_ok(pony: Node) -> bool
 func witness_age(pony: Node) -> Age
 
 func get_verdict(pony: Node, mode: Mode = Mode.START) -> Verdict
@@ -124,10 +125,13 @@ func get_profile(id: String) -> Profile
 func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary
 ```
 
-`eligible()` is the capability answer. `witness_age()` is the only age-shaped answer and only
-for witness wording. `get_verdict()` is the typed act gate. `get_profile()` reads the resolved
-provider/player profile for one id; `set_profile()` writes the provider layer's eligible assertion,
-participation and consent. The pair is the cross-mod read/write side. The service stores nothing.
+`eligible()` is the capability answer. `relationship_ok()` is the Base clearance relationship row
+for the negotiation routes: a live relationship, romance eligibility and the Promiscuity floor, with
+the relationship override opening the two soft rows. `witness_age()` is the only age-shaped answer
+and only for witness wording. `get_verdict()` is the typed act gate. `get_profile()` reads the
+resolved provider/player profile for one id; `set_profile()` writes the provider layer's eligible
+assertion, participation and consent. The pair is the cross-mod read/write side. The service stores
+nothing.
 
 ### Callers
 
@@ -487,6 +491,7 @@ contract is `docs/initiation.md`.
 |---|---|---|---|
 | service | registry | `registry/service.gd` | provider layers and stable ids |
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | clearance | `shared/clearance.gd` | the Base clearance relationship row |
 | shared | consent | `shared/consent.gd` | consent keys and defaults |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | participation | `shared/participation.gd` | participation keys and defaults |

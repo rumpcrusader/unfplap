@@ -137,8 +137,8 @@ The shader maps the garment vertex into anatomy-local space with the per-mare tr
 field, and pushes the cloth out along the anatomy's +Z by the surface difference plus the margin.
 The margin is stored in anatomy-local units and converted back by the basis' Z scale, so the
 slider stays in world millimetres. The debug controls choose the field resolution, smoothing and
-margin; a precision edit or the Rebuild action clears the cache and rebuilds after 0.3 s, off the
-frame path.
+margin; a precision edit clears the cache and rebuilds after 0.3 s, and the Rebuild action rebuilds
+immediately. Both are off the frame path.
 
 On `anatomy.act_started` the adapter calls the wardrobe's `set_worn(id, "panties", false)` and
 `set_worn(id, "pantyhose", false)` and then `dress(pony, id, season)` immediately, so the nodes are

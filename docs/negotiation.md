@@ -32,8 +32,9 @@ start, the scene rows or the pose placement gate. Those belong to `docs/initiati
 - the terminal outcome and the offer cooldown.
 
 `negotiation/agreement.gd` is the pure package and handle. The service is its only writer.
-`main` mediates the per-pony hold, the director, the model calls and the Proactive handoff; the
-Act service gets only the handle.
+`negotiation/prompts.gd` is the pure model request layer: the three instructions, the payload
+builders and the reply parsers. `main` mediates the per-pony hold, the director, the model calls
+and the Proactive handoff; the Act service gets only the handle.
 
 ## Internal API
 
@@ -120,6 +121,18 @@ The Mare offer:
 The hotkey never forms an offer. `hotkey_handle` returns the live Agreement only for the same mare
 and the exact `(pose, source, bed, cuddle)` option; `interrupt_for_hotkey` ends any live
 negotiation with `Interrupted(hotkey)`.
+
+## Decisions
+
+| Request | Instruction | Payload | Parse |
+|---|---|---|---|
+| Anon offer | `ANON_OFFER_INSTRUCTION` | the player line, the indexed options, Context | `{"offer","option"}`; only a clear offer with an in-range option survives |
+| Anon decision | `ANON_DECISION_INSTRUCTION` | the Mare offer line, the player reply | `{"answer"}`; `unclear` is a refusal, malformed is a failure |
+| Mare response | `MARE_RESPONSE_INSTRUCTION` | the player offer, the option, Context | `{"answer"}`; `unclear` or malformed is a failure |
+
+`negotiation/prompts.gd` owns the strings and the parsers; the host adapter owns the LLM call and
+the cancel scope. A parsed failure maps to `NoOffer` for the classifier and `Refused` for the
+answer, with no cooldown.
 
 ## Agreement
 
@@ -224,6 +237,7 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 - `tests/negotiation/test_service.gd`: the Anon offer, the Anon decision, the Mare response, the
   failure semantics, the lock, the hold, privacy, `target_left`, the cooldown table, the Agreement
   handle, `Started`/`StartFailed` and the stale-handle guard, with a fake host and model.
+- `tests/negotiation/test_prompts.gd`: the payload shape and the three reply parsers.
 
 ## Known limits
 

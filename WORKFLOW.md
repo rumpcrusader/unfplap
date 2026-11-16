@@ -133,7 +133,8 @@ Docs-only commits do not need bisecting; use `git bisect skip` if one is picked.
 
 Use `/release`. The runbook is `.opencode/skills/release/SKILL.md`. The agent prepares and
 validates locally; the maintainer reviews the release commit, pushes it and the annotated tag, and
-handles CI and the community store.
+handles CI and both publish workflows: `publish-store` for the community store and
+`publish-index` for the self-hosted mod index.
 
 ## What not to do
 

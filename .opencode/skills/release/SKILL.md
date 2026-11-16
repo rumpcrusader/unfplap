@@ -98,8 +98,12 @@ Give this reminder, then stop:
 1. Confirm the GitHub release asset and its `.sha256`; install that exact pck once.
 2. Run `publish-store` as a dry run, then submit.
 3. Approve `mod-store`; the store admin approves the row.
+4. Run `publish-index` as a dry run, then submit.
+5. Approve `mod-index`; ask the index reviewer to approve the new release revision.
 
-The store dry run previews the pone.rs mirror but does not write the store.
+The store dry run previews the pone.rs mirror but does not write the store. The index dry run
+reads `scripts/index_listing.json` and the public listing; it does not write either. The first
+index run sets `create`, and its output is the listing ID to commit. Later runs leave it off.
 
 ## Failure
 

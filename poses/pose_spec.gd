@@ -4,6 +4,7 @@ extends RefCounted
 ## files or the scene. Contract: `docs/poses.md`.
 
 const PATH := "res://mods/unfplap/poses/pose_spec.gd"
+const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 
 const ID_PATTERN := "^[a-z][a-z0-9_]*$"
 const FAMILIES := ["bed", "standing"]
@@ -38,6 +39,8 @@ var driver := ""
 var settings_group := ""
 var game_posture := ""
 var drive_policy := ""
+var start_mode := ""
+var start_setup := ""
 var anon: Dictionary = {}
 var contact: Dictionary = {}
 var camera: Dictionary = {}
@@ -107,6 +110,7 @@ static func errors(spec_id: String, data: Dictionary, table: Dictionary = {}) ->
 			and not ((afterglow as Dictionary)["close_window"] is bool):
 		out.append("afterglow.close_window is not a boolean")
 	_check_scene(out, data.get("scene"))
+	_check_start(out, data.get("start"))
 	return out
 
 
@@ -182,6 +186,16 @@ static func _check_list(out: Array[String], data: Dictionary, key: String, known
 		out.append("%s is empty" % key)
 
 
+## The act-start block: `mode` and `setup` are required and closed; extra keys are additive.
+static func _check_start(out: Array[String], value: Variant) -> void:
+	if not (value is Dictionary):
+		out.append("start is not a dictionary")
+		return
+	var block: Dictionary = value
+	_check_choice(out, block, "mode", POSE_SPECS.START_MODES)
+	_check_choice(out, block, "setup", POSE_SPECS.START_SETUPS)
+
+
 static func _check_scene(out: Array[String], value: Variant) -> void:
 	if not (value is Dictionary):
 		out.append("scene is not a dictionary")
@@ -214,6 +228,9 @@ func _fill(spec_id: String, data: Dictionary) -> void:
 	settings_group = str(data.get("settings_group", ""))
 	game_posture = str(data.get("game_posture", ""))
 	drive_policy = str(data.get("drive_policy", ""))
+	var start: Dictionary = data.get("start", {})
+	start_mode = str(start.get("mode", ""))
+	start_setup = str(start.get("setup", ""))
 	anon = data.get("anon", {})
 	contact = data.get("contact", {})
 	camera = data.get("camera", {})

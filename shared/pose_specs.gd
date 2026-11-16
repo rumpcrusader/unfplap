@@ -20,11 +20,17 @@ const STANDING_ORAL := "standing_oral"
 ## shares the missionary settings block and has no row of its own.
 const BED_FACESIT := "bed_facesit"
 
+## The closed act-start vocabulary. `mode` says whether the act key is required; `setup` names the
+## runtime placement adapter. `runtime.start()` dispatches on `setup`, never on a pose id.
+const START_MODES := ["key", "auto"]
+const START_SETUPS := ["bed_stand_up", "bed_keep_lying", "standing_place"]
+
 ## `asset` is the row's authored pose document under `poses/`; a base chain supplies it to an
 ## internal row. `driver` is the procedural recipe, `base` an inherited pose id and `delta` an
-## authored delta asset. `forms` are the game's `human`/`pony` identifiers and `views` the
-## `desktop`/`vr` configurations the pose is authored for; A0/A1 declare them and the scene gate
-## enforces them in Phase B1.
+## authored delta asset. `start` is the act-start contract: every row declares its `mode` and
+## `setup`, and the runtime matches that closed vocabulary. `forms` are the game's `human`/`pony`
+## identifiers and `views` the `desktop`/`vr` configurations the pose is authored for; A0/A1
+## declare them and the scene gate enforces them in Phase B1.
 const SPECS := {
 	MISSIONARY: {
 		"id": MISSIONARY,
@@ -35,6 +41,7 @@ const SPECS := {
 		"asset": "poses/missionary_pose.json",
 		"delta": "",
 		"driver": "poses/missionary_recipe.gd",
+		"start": {"mode": "key", "setup": "bed_stand_up"},
 		"settings_group": "missionary",
 		"game_posture": "stand",
 		"drive_policy": "missionary",
@@ -69,6 +76,7 @@ const SPECS := {
 		"asset": "poses/standing_pose.json",
 		"delta": "",
 		"driver": "poses/standing_recipe.gd",
+		"start": {"mode": "key", "setup": "standing_place"},
 		"settings_group": "standing",
 		"game_posture": "stand",
 		"drive_policy": "standing",
@@ -102,6 +110,7 @@ const SPECS := {
 		"asset": "",
 		"delta": "",
 		"driver": "",
+		"start": {"mode": "key", "setup": "standing_place"},
 		"settings_group": "standing",
 		"game_posture": "stand",
 		"drive_policy": "standing",
@@ -135,6 +144,7 @@ const SPECS := {
 		"asset": "",
 		"delta": "poses/standing_oral_recipe.gd",
 		"driver": "",
+		"start": {"mode": "key", "setup": "standing_place"},
 		"settings_group": "standing",
 		"game_posture": "stand",
 		"drive_policy": "standing",
@@ -168,6 +178,7 @@ const SPECS := {
 		"asset": "poses/bed_facesit_pose.json",
 		"delta": "",
 		"driver": "poses/missionary_recipe.gd",
+		"start": {"mode": "key", "setup": "bed_stand_up"},
 		"settings_group": "missionary",
 		"game_posture": "stand",
 		"drive_policy": "missionary",
@@ -232,6 +243,11 @@ const NO_SCENE := {
 }
 
 
+## The start block a missing or malformed row reads as. An empty setup fails the runtime dispatcher
+## closed; `mode` claims the act key but never reaches an adapter.
+const NO_START := {"mode": "key", "setup": ""}
+
+
 ## The shipped spec ids, in table order.
 static func ids() -> Array[String]:
 	return [MISSIONARY, STANDING, STANDING_TEST, STANDING_ORAL, BED_FACESIT]
@@ -250,6 +266,25 @@ static func scene(id: String) -> Dictionary:
 		return NO_SCENE
 	var block: Variant = (row as Dictionary).get("scene")
 	return block if block is Dictionary else NO_SCENE
+
+
+## The start block for `id`, or the fail-closed default. Callers read it and never write it.
+static func start(pose: String) -> Dictionary:
+	var row: Variant = SPECS.get(pose)
+	if not row is Dictionary:
+		return NO_START
+	var block: Variant = (row as Dictionary).get("start")
+	return block if block is Dictionary else NO_START
+
+
+## The act-start mode: `key` waits for the act key, `auto` lets a trigger call the start path.
+static func start_mode(pose: String) -> String:
+	return str(start(pose).get("mode", "key"))
+
+
+## The runtime setup adapter name. An unknown row returns "" and `start()` aborts.
+static func start_setup(pose: String) -> String:
+	return str(start(pose).get("setup", ""))
 
 
 ## Whether `id` is a public pose. An internal pose is reachable only through its authored edge.

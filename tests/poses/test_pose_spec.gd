@@ -75,6 +75,10 @@ func _check_shipped() -> void:
 		check(spec.offerable == bool(row.get("offerable", false)), "%s reads offerable" % id)
 		check(spec.settings_group == str(row.get("settings_group", "")),
 			"%s keeps its settings group" % id)
+		check(spec.start_mode == str(row.get("start", {}).get("mode", "")),
+			"%s keeps its start mode" % id)
+		check(spec.start_setup == str(row.get("start", {}).get("setup", "")),
+			"%s keeps its start setup" % id)
 		check(spec.forms is Array[String], "%s types its forms" % id)
 		check(spec.views is Array[String], "%s types its views" % id)
 		check(spec.forms == row.get("forms"), "%s keeps its forms" % id)
@@ -199,6 +203,15 @@ func _check_errors() -> void:
 	check(not _mutated({"asset": "poses/pose.txt"}).is_empty(),
 		"a non-JSON asset is rejected")
 	check(_mutated({"asset": ""}).is_empty(), "an empty asset is valid")
+	check(not _mutated({"start": {}}).is_empty(), "a missing start block is rejected")
+	check(not _mutated({"start": {"mode": "key"}}).is_empty(),
+		"a start block without a setup is rejected")
+	check(not _mutated({"start": {"mode": "wait", "setup": "standing_place"}}).is_empty(),
+		"an unknown start mode is rejected")
+	check(not _mutated({"start": {"mode": "key", "setup": "bench_place"}}).is_empty(),
+		"an unknown start setup is rejected")
+	check(_mutated({"start": {"mode": "auto", "setup": "bed_keep_lying", "why": "test"}}).is_empty(),
+		"an extra start key is additive")
 	check(not _without("camera", "profile").is_empty(), "a missing profile key is rejected")
 	check(not _without("afterglow", "close_window").is_empty(),
 		"a missing close window flag is rejected")

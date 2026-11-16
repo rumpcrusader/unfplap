@@ -111,6 +111,19 @@ func _check_shipped() -> void:
 	check(registry.spec("not_a_pose") == null, "an unknown id has no spec")
 	check(is_same(registry.spec(CATALOG.MISSIONARY), registry.spec(CATALOG.MISSIONARY)),
 		"the registry caches one spec per id")
+	# Every shipped row declares the closed start contract; missionary and standing are the two
+	# public starts, and the internal rows keep the placement of the pose they are reached from.
+	for id: String in CATALOG.every():
+		var row: Variant = registry.spec(id)
+		check(row != null and row.start_mode == "key", "%s starts on the act key" % id)
+		check(row != null and row.start_setup in SPECS.START_SETUPS,
+			"%s declares a known start setup" % id)
+	check(missionary != null and missionary.start_setup == "bed_stand_up",
+		"missionary stands the bed act up")
+	check(standing != null and standing.start_setup == "standing_place",
+		"standing places the standing act")
+	check(facesit != null and facesit.start_setup == "bed_stand_up",
+		"the bed face-sit keeps the bed placement")
 
 
 func _check_edges() -> void:

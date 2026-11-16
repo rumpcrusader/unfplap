@@ -213,9 +213,11 @@ func _outcome_kinds(boxes: Boxes) -> Array:
 func _free(made: Dictionary) -> void:
 	var runtime: Node = made["runtime"]
 	var pony: Node = made["pony"]
+	var service: Node = made["service"]
 	root.remove_child(runtime)
 	runtime.free()
 	pony.free()
+	service.free()
 
 
 func _accept_anon(made: Dictionary) -> void:

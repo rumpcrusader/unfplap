@@ -264,6 +264,7 @@ func run() -> void:
 	_check_player()
 	_check_bed()
 	_check_rows()
+	_check_scene_only()
 	_check_profiles()
 	_check_verdicts()
 	_check_refusal()
@@ -516,6 +517,76 @@ func _check_rows() -> void:
 	var offer_rows: Array = gate.call("rows", "standing", "", null, "offer", true)
 	for row: ELIGIBILITY.Row in offer_rows:
 		check(row.key != "player", "the offer rows skip the player row")
+	_free(made)
+
+
+## The scene-only start: the frozen pose rows, the aftercare removal, the hold exemption and the
+## transient/hard split. No policy row is built.
+func _check_scene_only() -> void:
+	var made := _fixture()
+	var gate: RefCounted = made["gate"]
+	var pony: FakePony = made["pony"]
+	var nav: FakeNav = made["nav"]
+	var main: FakeMain = made["main"]
+	var bed: Node3D = made["bed"]
+	var frozen := GATE.FrozenPose.new(true, true)
+
+	var verdict: Variant = gate.call("scene_only_verdict", "missionary", "already_lying", bed,
+		frozen)
+	check(not _has_row(verdict.rows, "aftercare"), "the scene-only rows drop aftercare")
+	check(not _has_row(verdict.rows, "pose_form"), "the scene-only rows drop pose_form")
+	check(not _has_row(verdict.rows, "pose_view"), "the scene-only rows drop pose_view")
+	check(not _has_row(verdict.rows, "pose"), "the scene-only rows drop the formation row")
+	check(_has_row(verdict.rows, "pose_profile"), "the frozen profile row is still named")
+	check(_has_row(verdict.rows, "pose_source"), "the frozen source row is still named")
+	check(verdict.hard_ok, "the hard scene rows pass")
+	check(verdict.transient.has("bed_gate"), "the unfilled bed gate is transient")
+	check(not verdict.ok, "a transient failure keeps the auto-start waiting")
+
+	pony.set_meta("sex_aftercare", true)
+	verdict = gate.call("scene_only_verdict", "missionary", "already_lying", bed, frozen)
+	check(verdict.hard_ok, "aftercare is no longer a start row")
+	pony.remove_meta("sex_aftercare")
+
+	main.beside = false
+	verdict = gate.call("scene_only_verdict", "missionary", "already_lying", bed, frozen)
+	check(verdict.hard_ok, "a transient player row does not fail the hard set")
+	check(verdict.transient.has("player") and verdict.transient.has("bed_gate"),
+		"the player and bed gate rows are both transient")
+	main.beside = true
+
+	gate.configure(STATE_ACTIVE, "rarity", {})
+	verdict = gate.call("scene_only_verdict", "missionary", "already_lying", bed, frozen)
+	check(not verdict.hard_ok, "a running act fails the hard state row")
+	gate.configure(STATE_IDLE, "rarity", {})
+
+	var unfrozen := GATE.FrozenPose.new(false, false)
+	verdict = gate.call("scene_only_verdict", "missionary", "already_lying", bed, unfrozen)
+	check(not verdict.hard_ok, "a failed frozen capability fails the hard set")
+	check(not _row_ok(verdict.rows, "pose_profile"), "the frozen profile row reports its value")
+	check(not _row_ok(verdict.rows, "pose_source"), "the frozen source row reports its value")
+
+	# A foreign navigator owner and affection hold fail; the negotiation hold exempts both.
+	pony.posture = {"requested": "stand", "settled": true}
+	pony.interruption = "Affection active"
+	(made["affection"] as FakeAffection).kind = "nuzzle"
+	nav.command_owner = "unfplap:negotiation:rarity"
+	var blocked: Variant = gate.call("scene_only_verdict", "standing", "", null, frozen)
+	check(not blocked.hard_ok, "an unaccepted hold fails the hard rows")
+	check(not _row_ok(blocked.rows, "affection"), "the affection row names the hold")
+	check(not _row_ok(blocked.rows, "nav_owner"), "the navigator owner row names the hold")
+	check(not _row_ok(blocked.rows, "nav_pose"), "the standing pose row names the hold")
+
+	gate.hold_compatible = func(_pose: String, _source: String) -> bool: return true
+	var held: Variant = gate.call("scene_only_verdict", "standing", "", null, frozen)
+	check(held.ok, "the negotiation hold passes the scene-only start")
+	check(_row_ok(held.rows, "affection"), "the hold exempts the affection row")
+	check(_row_ok(held.rows, "nav_owner"), "the hold is an accepted navigator owner")
+	check(_row_ok(held.rows, "nav_pose"), "the hold exempts the standing pose row")
+	gate.hold_compatible = Callable()
+	nav.command_owner = ""
+	pony.interruption = ""
+	(made["affection"] as FakeAffection).kind = ""
 	_free(made)
 
 

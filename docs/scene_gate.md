@@ -103,6 +103,49 @@ inside its length. Anon's half of the lane and his head/sit offsets scale with
 Height mare is refused. This is stock behaviour, not a mod override, and the `bed` / `bed_gate`
 rows report it.
 
+## Scene-only start
+
+`scene_only_verdict(pose, source, bed, FrozenPose)` is the accepted-Agreement start. It does not
+build a policy verdict: Base clearance and the pose capability were frozen at formation, so the
+gate runs only the live world rows. `FrozenPose` carries `pose_profile_ok` and `pose_source_ok`
+from the Agreement; the form and view are applied by the act with the frozen pair and are not
+start rows. `aftercare` is removed; the Act service clears it at start. `SceneVerdict` reports
+`hard_ok` (every non-transient row), `transient_ok`, `ok`, the typed `rows`, the failing
+`transient` keys and every failed reason.
+
+| Row | Scene-only start |
+|---|---|
+| `state` | live |
+| `paused` | live |
+| `conversation` | live |
+| `sleeping` | live |
+| `sex_active` | live |
+| `aftercare` | removed; the Act service clears it |
+| `cuddle` | live |
+| `affection` | live; the negotiation hold is exempt |
+| `pose_profile` | frozen from the Agreement |
+| `pose_source` | frozen from the Agreement |
+| `pose_form` | dropped; the frozen form is applied |
+| `pose_view` | dropped; the frozen view is applied |
+| `player` | live, **transient** |
+| `navigator` | live |
+| `navigator_reserved` | live; the hold uses `command_owner`, so `reserved_by` still blocks |
+| `nav_owner` | live; the negotiation hold token is accepted |
+| `nav_pose` | live; the negotiation hold is exempt |
+| `stool` | live |
+| `pose_asset` | live technical |
+| `pose_rig` | live technical |
+| `bed` | live |
+| `bed_occupied` | live |
+| `bed_gate` | live, **transient** |
+| `standing_free` | live |
+| `pose` | formation-only; not a start row |
+
+The host binds `hold_compatible(pose, source) -> bool`; it is true only while the navigator owner
+and the affection hold belong to the live negotiation hold. A hard failure is a `StartFailed`; a
+failing transient row is waited on within the Agreement TTL. The existing `start_verdict()` and
+`offer_verdict()` stay for the legacy route until the Agreement start replaces it.
+
 ## Navigator owners
 
 | Owner prefix | Verdict |
@@ -170,7 +213,8 @@ runtime's `debug_line()` is a thin forward. No scene row is recomputed twice in 
 
 `tests/scene_gate/test_scene_gate.gd` covers the conversation, cuddle, affection, navigator,
 player, bed and row sets, the structural rows, the policy/scene merge (including a supplied
-`verdict_in` snapshot), the start/offer verdicts, the debug line, the reason list, the refusal
-executor and the auto-cuddle suppression with fake scene nodes. `tests/eligibility/` keeps the
-pure policy suites. The runtime suite (`tests/test_runtime_teardown.gd`) and the history stop
-suite drive the public forwards.
+`verdict_in` snapshot), the start/offer verdicts, the scene-only verdict (the aftercare removal,
+the frozen pose rows, the hold exemption and the transient/hard split), the debug line, the
+reason list, the refusal executor and the auto-cuddle suppression with fake scene nodes.
+`tests/eligibility/` keeps the pure policy suites. The runtime suite
+(`tests/test_runtime_teardown.gd`) and the history stop suite drive the public forwards.

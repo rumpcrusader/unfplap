@@ -37,6 +37,34 @@ var on_refusal_face := Callable()
 ## eligibility's own logic or the runtime's private fields.
 var policy_verdict := Callable()
 var debug_context := Callable()
+## The negotiation hold's compatibility predicate. The host binds it; it returns true when the
+## navigator owner and the affection hold belong to the live negotiation hold. Missing is false.
+var hold_compatible := Callable()
+
+## The transient scene-only rows: the auto-start waits on them inside the Agreement TTL.
+const SCENE_ONLY_TRANSIENT := ["player", "bed_gate"]
+
+
+## The Agreement's frozen pose capability. It is recorded at formation; a settings or form change
+## does not rebuild it.
+class FrozenPose:
+	var pose_profile_ok := false
+	var pose_source_ok := false
+
+	func _init(profile_ok := true, source_ok := true) -> void:
+		pose_profile_ok = profile_ok
+		pose_source_ok = source_ok
+
+
+## The scene-only start answer. `hard_ok` is every non-transient row; `transient` names the
+## transient row keys still failing; `ok` is both.
+class SceneVerdict:
+	var ok := false
+	var hard_ok := false
+	var transient_ok := true
+	var rows: Array[ELIGIBILITY.Row] = []
+	var transient: PackedStringArray = []
+	var reasons: PackedStringArray = []
 
 
 ## Bind the scene nodes and the pose session. A missing node fails the gate closed.
@@ -143,6 +171,88 @@ func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
 		"rows": data.get("rows", []),
 		"policy": policy,
 	}
+
+
+## The scene-only start of an accepted Agreement: no policy rebuild, no formation row, no
+## aftercare. `frozen` carries the pose capability recorded at formation. `player` and `bed_gate`
+## are transient; every other row is hard. `hold_compatible` exempts the negotiation hold's
+## navigator owner and affection hold.
+func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
+		frozen: FrozenPose = null) -> SceneVerdict:
+	var rows_out: Array[ELIGIBILITY.Row] = []
+	_gate_row(rows_out, "invalid_pony", is_instance_valid(pony), "invalid_pony")
+	_gate_row(rows_out, "no_main", is_instance_valid(main), "no_main")
+	_gate_row(rows_out, "no_player", is_instance_valid(main) and is_instance_valid(main.player),
+		"no_player")
+	_gate_row(rows_out, "no_game", is_instance_valid(main) and is_instance_valid(main.game),
+		"no_game")
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		return _scene_only_result(rows_out)
+	var tree: SceneTree = pony.get_tree()
+	_gate_row(rows_out, "state", state == STATE_IDLE, "state=%d" % state)
+	_gate_row(rows_out, "paused", tree == null or not tree.paused, "paused")
+	_gate_row(rows_out, "conversation", conversation_ok(), "conversation")
+	_gate_row(rows_out, "sleeping", not pony.sleeping, "sleeping")
+	_gate_row(rows_out, "sex_active", not bool(pony.get_meta("sex_active", false)), "sex_active")
+	_gate_row(rows_out, "cuddle",
+		not cuddle_active() or cuddle_start_override(pose, act_source), "cuddle")
+	var hold_exempt := _hold_exempt(pose, act_source)
+	_gate_row(rows_out, "affection", hold_exempt or free_of_affection(), "affection")
+	_gate_row(rows_out, "pose_profile", frozen != null and frozen.pose_profile_ok, "pose")
+	_gate_row(rows_out, "pose_source", frozen != null and frozen.pose_source_ok, "pose_source")
+	_gate_row(rows_out, "player", player_ready_for(pose, act_source, bed), "player")
+	var nav: Node = pony.get_node_or_null("Navigator")
+	_gate_row(rows_out, "navigator", nav != null, "no_navigator")
+	if nav != null:
+		_gate_row(rows_out, "navigator_reserved", str(nav.get("reserved_by")) == "",
+			"navigator_reserved")
+		_gate_row(rows_out, "nav_owner", hold_exempt or nav_owner_allows(pose, act_source),
+			"nav_owner")
+	_gate_row(rows_out, "nav_pose", nav_pose_gate(pose, act_source, hold_exempt), "nav_pose")
+	var scene := _scene(pose)
+	if bool(scene.get("stool", false)):
+		var need := needed_stool()
+		_gate_row(rows_out, "stool", need <= 0 or owned_stools() >= need, "needs_stool")
+	if _is_bed_pose(pose) or str(scene.get("frame", "")) == "ground":
+		var pose_ready := authored_ready(pose)
+		_gate_row(rows_out, "pose_asset", pose_ready, authored_reason(pose))
+		if pose_ready:
+			var missing := rig_missing(pose)
+			_gate_row(rows_out, "pose_rig", missing.is_empty(), rig_reason(missing))
+	if _is_bed_pose(pose):
+		var found: Node3D = resolve_bed(pose, act_source, bed)
+		_gate_row(rows_out, "bed", found != null, "no_bed")
+		if found != null:
+			_gate_row(rows_out, "bed_occupied", not main.bed_occupied(found, pony), "bed_occupied")
+			_gate_row(rows_out, "bed_gate", bed_gate(pose, act_source, found), "bed_gate")
+	elif bool(scene.get("standing_free", false)):
+		_gate_row(rows_out, "standing_free",
+			not pony.is_held() and not pony.has_meta("seated"), "standing_free")
+	return _scene_only_result(rows_out)
+
+
+func _scene_only_result(rows_in: Array[ELIGIBILITY.Row]) -> SceneVerdict:
+	var out := SceneVerdict.new()
+	out.rows = rows_in
+	out.hard_ok = true
+	for row: ELIGIBILITY.Row in rows_in:
+		if row.ok:
+			continue
+		out.reasons.append(row.reason)
+		if row.key in SCENE_ONLY_TRANSIENT:
+			if not out.transient.has(row.key):
+				out.transient.append(row.key)
+		else:
+			out.hard_ok = false
+	out.transient_ok = out.transient.is_empty()
+	out.ok = out.hard_ok and out.transient_ok
+	return out
+
+
+func _hold_exempt(pose: String, act_source: String) -> bool:
+	if not hold_compatible.is_valid():
+		return false
+	return bool(hold_compatible.call(pose, act_source))
 
 
 func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
@@ -552,12 +662,14 @@ func free_of_affection() -> bool:
 	return true
 
 
-func nav_owner_allows(pose: String, act_source: String) -> bool:
+func nav_owner_allows(pose: String, act_source: String, hold_exempt := false) -> bool:
 	if not is_instance_valid(pony):
 		return false
 	var nav: Node = pony.get_node_or_null("Navigator")
 	if nav == null:
 		return false
+	if hold_exempt:
+		return true
 	var owner := str(nav.get("command_owner"))
 	if owner.is_empty():
 		return true
@@ -602,7 +714,7 @@ func sleep_owner_allows_bed(pose: String, act_source: String) -> bool:
 	return str(status.get("requested", "")) == "lie_down"
 
 
-func nav_pose_gate(pose: String, act_source: String) -> bool:
+func nav_pose_gate(pose: String, act_source: String, hold_exempt := false) -> bool:
 	if not is_instance_valid(pony):
 		return false
 	if _is_standing_pose(pose):
@@ -614,9 +726,11 @@ func nav_pose_gate(pose: String, act_source: String) -> bool:
 			return false
 		var interruption := str(pony.action_interruption_reason())
 		if not interruption.is_empty():
-			# The request's own affection_active hold is not a gate against its invite.
+			# The request's own affection_active hold or the negotiation hold is not a gate against
+			# its own invite.
 			var request_hold := request_face_active.is_valid() and bool(request_face_active.call())
-			if not (request_hold and state == STATE_IDLE and interruption.contains("Affection")):
+			if not (hold_exempt or (request_hold and state == STATE_IDLE \
+					and interruption.contains("Affection"))):
 				return false
 		var status: Dictionary = pony.posture_status()
 		if str(status.get("requested", "")) != "stand" or not bool(status.get("settled", false)):

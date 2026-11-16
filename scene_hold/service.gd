@@ -162,8 +162,10 @@ func keep_nav() -> void:
 		nav.call("stay")
 
 
-## Give the navigator back and restore the wander flag it had before the act.
+## Give the navigator back and restore the wander flag it had before the act. The adopted hold's
+## affection meta is cleared here too, so a normal act teardown releases both.
 func release_nav() -> void:
+	release_affection()
 	if nav == null or not is_instance_valid(nav):
 		nav = null
 		token = ""

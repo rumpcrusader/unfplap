@@ -113,15 +113,22 @@ static func parse_mare_response(reply: String, error: String) -> Reply:
 
 
 static func _option_row(index: int, option: POSE_OPTIONS.Option) -> Dictionary:
+	var pose := ""
+	var source := ""
+	var cuddle := false
 	var bed := "none"
-	if option != null and is_instance_valid(option.bed):
-		bed = str((option.bed as Node).name)
+	if option != null:
+		pose = option.pose
+		source = option.source
+		cuddle = option.cuddle
+		if is_instance_valid(option.bed):
+			bed = str((option.bed as Node).name)
 	return {
 		"index": index,
-		"pose": option.pose if option != null else "",
-		"source": option.source if option != null else "",
+		"pose": pose,
+		"source": source,
 		"bed": bed,
-		"cuddle": option.cuddle if option != null else false,
+		"cuddle": cuddle,
 	}
 
 

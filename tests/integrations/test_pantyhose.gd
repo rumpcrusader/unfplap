@@ -130,9 +130,17 @@ func _fixture_mesh() -> ArrayMesh:
 	shape.resize(Mesh.ARRAY_MAX)
 	shape[Mesh.ARRAY_VERTEX] = shape_verts
 	shape[Mesh.ARRAY_NORMAL] = normals
+	# An act shape that must not enter the rest field.
+	var anal_verts := verts.duplicate()
+	anal_verts[0] = Vector3(0.0, 0.0, 0.06)
+	var anal_shape: Array = []
+	anal_shape.resize(Mesh.ARRAY_MAX)
+	anal_shape[Mesh.ARRAY_VERTEX] = anal_verts
+	anal_shape[Mesh.ARRAY_NORMAL] = normals
 	var mesh := ArrayMesh.new()
 	mesh.add_blend_shape("closed")
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [shape])
+	mesh.add_blend_shape("anal_extreme")
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [shape, anal_shape])
 	return mesh
 
 
@@ -170,8 +178,8 @@ func _check_hull_fixture() -> void:
 	check(domain.size.x > 0.027 and domain.size.x < 0.029,
 		"the domain is the outer footprint plus the margin")
 	check(near(hull.z_min, 0.01), "the field starts at the outer surface")
-	check(near(hull.z_max, 0.03), "the closed shape raises the envelope")
-	check(hull.z_max < 0.05, "the back-facing inner quad is excluded")
+	check(near(hull.z_max, 0.03), "the rest closed shape is the field")
+	check(hull.z_max < 0.05, "the act anal shape is ignored")
 	var field := hull.field
 	check(field.size() == 64, "the field is resolution squared")
 	var highest := 0.0
@@ -226,8 +234,12 @@ func _check_hull_real() -> void:
 	check(domain.size.x > 0.05 and domain.size.x < 0.10, "the domain stays on the rump")
 	check(domain.size.y > 0.15 and domain.size.y < 0.25,
 		"the anal extreme shape does not stretch the domain")
-	check(hull.z_max > 0.02 and hull.z_max < 0.06,
-		"the envelope includes the anal keys without the whole-mesh stretch")
+	check(hull.z_max > 0.015 and hull.z_max < 0.03,
+		"the field is the rest closed surface, not the act anal envelope")
+	var no_ponut := HULL.build(mesh, 32, 1, 0.0)
+	var rest_ponut := HULL.build(mesh, 32, 1, -0.1)
+	check(no_ponut.texture != rest_ponut.texture,
+		"the rest ponut scale is part of the field")
 	var field := hull.field
 	var valid := 0
 	for value: float in field:
@@ -596,6 +608,9 @@ func _check_overlay_parenting() -> void:
 		check(overlay.top_level, "the heatmap keeps its own global transform")
 		check(overlay.global_transform.origin.is_equal_approx(parent_mesh.global_transform.origin),
 			"the heatmap copies the anatomy mesh transform")
+		var overlay_mesh := overlay.mesh as ArrayMesh
+		check(overlay_mesh != null and overlay_mesh.surface_get_array_len(0) == 9,
+			"the heatmap uses shared corner vertices")
 	integration.call("_hide_overlay")
 	check(not bool(integration.call("overlay_active")), "hiding the heatmap works")
 	parent_mesh.free()

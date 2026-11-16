@@ -133,8 +133,10 @@ mare shares it. The previous override is saved and restored on a hidden anatomy,
 pack-off, node replacement and world close.
 
 The lift samples `anatomy/garment_hull.gd`'s rear-facing outer depth field, built from the refined
-anatomy mesh and shared by every mare. The field is the outer envelope of the base mesh and the
-`closed`, `wink` and anal blend shapes; the inner canal is excluded by the rear-facing normal test.
+anatomy mesh and shared by every mare. The field is the **rest appearance**: the base mesh with
+`closed` at 1 and `ponut_scale` at the rest `anal_scale - 1`; `wink`, the anal keys and `stretch`
+are at 0. The inner canal is excluded by the rear-facing normal test. The garment is removed at act
+start, so the field does not need the opened/stretched act shapes.
 The shader maps the garment vertex into anatomy-local space with the per-mare transform, reads the
 field, and pushes the cloth out along the anatomy's +Z by the surface difference plus the margin.
 The margin is stored in anatomy-local units and converted back by the basis' Z scale, so the
@@ -142,9 +144,10 @@ slider stays in world millimetres. The debug controls choose the field resolutio
 margin and update frequency. The hull rows are unbounded debug values; a high resolution or many
 smoothing passes costs a one-time rebuild. A precision edit clears the cache and rebuilds after
 0.3 s, and the Rebuild action rebuilds immediately. Both are off the frame path. **Show hull**
-draws the heatmap from a top-level world mesh that copies the anatomy mesh's transform, so the
-field can be inspected even when the anatomy is hidden (far mesh or `act` mode outside an act);
-the overlay state and the reason it is hidden are logged once per change with debug logs on.
+draws the heatmap as a continuous corner-grid surface from a top-level world mesh that copies the
+anatomy mesh's transform, so the field can be inspected even when the anatomy is hidden (far mesh
+or `act` mode outside an act); the overlay state and the reason it is hidden are logged once per
+change with debug logs on.
 
 On `anatomy.act_started` the adapter calls the wardrobe's `set_worn(id, "panties", false)` and
 `set_worn(id, "pantyhose", false)` and then `dress(pony, id, season)` immediately, so the nodes are

@@ -387,8 +387,9 @@ func detach() -> void:
 # --------------------------------------------------------------------------- garment hull
 
 ## The worn-garment depth field for this pony's refined anatomy mesh. It is built once per
-## source mesh, resolution and smoothing and shared by every mare; the integration only needs
-## the texture and the per-mare transform. Null when the anatomy is detached.
+## source mesh, resolution, smoothing and rest ponut scale and shared by every mare; the field is
+## the rest appearance (closed lips, rest ponut; no act shapes). The integration only needs the
+## texture and the per-mare transform. Null when the anatomy is detached.
 func garment_hull() -> GARMENT_HULL.Hull:
 	if not is_attached() or not is_instance_valid(attach.mesh):
 		return null
@@ -396,7 +397,8 @@ func garment_hull() -> GARMENT_HULL.Hull:
 	if mesh == null:
 		return null
 	return GARMENT_HULL.build(mesh, int(SETTINGS.pantyhose_hull_resolution.get_num()),
-		int(SETTINGS.pantyhose_hull_smoothing.get_num()))
+		int(SETTINGS.pantyhose_hull_smoothing.get_num()),
+		SETTINGS.anal_scale.get_num() - 1.0)
 
 
 ## Map an anatomy-local point into the garment's model space (the body's rest space). The

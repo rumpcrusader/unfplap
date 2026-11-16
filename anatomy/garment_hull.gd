@@ -27,10 +27,10 @@ const DOMAIN_MARGIN := 0.004
 const DILATE_PASSES := 6
 ## A cell the outer surface never covered. The shader reads a negative value and skips the cell.
 const INVALID := -1.0
-## The blend shapes that can move the visible outer surface. `stretch` is excluded: the mod
-## always zeroes it (it would scale the whole mesh), so it is never a worn state.
-const SHAPES := ["closed", "wink", "anal_open", "anal_stretch", "anal_overstretch",
-	"anal_extreme", "ponut_scale"]
+## The rest appearance outside an act: the authored closed lips and the rest ponut scale. The
+## garment is removed at act start, so the opened/stretched act shapes are not part of the field.
+const REST_SHAPE := "closed"
+const PONUT_SHAPE := "ponut_scale"
 
 static var _cache: Dictionary = {}
 
@@ -50,19 +50,23 @@ class Hull extends RefCounted:
 
 ## Build (or return the cached) depth field for `mesh`. `field` is row-major over
 ## `resolution²`, normalised over `z_min`/`z_max`, with `INVALID` in an uncovered cell.
+## The field is the rest appearance: the base mesh with `closed` at 1 and `ponut_scale` at
+## `ponut_scale` (the rest `anal_scale - 1`). Every act shape is at 0; the garment is removed
+## at act start, so the field does not need the opened or stretched shapes.
 ## Resolution and smoothing are debug values and are not clamped above; they are only floored so
 ## the grid is valid. A high resolution is expensive: the texture is `resolution² × 4` bytes and
 ## the rasterisation is GDScript.
-static func build(mesh: ArrayMesh, resolution: int, smoothing: int) -> Hull:
+static func build(mesh: ArrayMesh, resolution: int, smoothing: int,
+		ponut_scale := 0.0) -> Hull:
 	if mesh == null:
 		return null
 	var res := maxi(1, resolution)
 	var smooth := maxi(0, smoothing)
-	var key := "%d|%d|%d" % [mesh.get_rid().get_id(), res, smooth]
+	var key := "%d|%d|%d|%.6f" % [mesh.get_rid().get_id(), res, smooth, ponut_scale]
 	var cached: Variant = _cache.get(key)
 	if cached is Hull:
 		return cached as Hull
-	var built := _build(mesh, res, smooth)
+	var built := _build(mesh, res, smooth, ponut_scale)
 	if built != null:
 		_cache[key] = built
 	return built
@@ -74,7 +78,7 @@ static func clear_cache() -> void:
 	_cache.clear()
 
 
-static func _build(mesh: ArrayMesh, res: int, smooth: int) -> Hull:
+static func _build(mesh: ArrayMesh, res: int, smooth: int, ponut_scale: float) -> Hull:
 	var surfaces: Array[Dictionary] = []
 	var x_min := INF
 	var y_min := INF
@@ -102,6 +106,7 @@ static func _build(mesh: ArrayMesh, res: int, smooth: int) -> Hull:
 				continue
 			var sv: PackedVector3Array = shape[Mesh.ARRAY_VERTEX]
 			shape_verts.append(sv if sv.size() == verts.size() else PackedVector3Array())
+		var rest := _rest_vertices(verts, shape_verts, mesh, ponut_scale)
 		var tris: Array[Vector3i] = []
 		for t in range(0, indices.size(), 3):
 			var a := indices[t]
@@ -126,7 +131,7 @@ static func _build(mesh: ArrayMesh, res: int, smooth: int) -> Hull:
 				continue
 			tris.append(Vector3i(a, b, c))
 			for index: int in [a, b, c]:
-				var p := verts[index]
+				var p := rest[index]
 				x_min = minf(x_min, p.x)
 				y_min = minf(y_min, p.y)
 				x_max = maxf(x_max, p.x)
@@ -134,9 +139,8 @@ static func _build(mesh: ArrayMesh, res: int, smooth: int) -> Hull:
 		if tris.is_empty():
 			continue
 		surfaces.append({
-			"verts": verts,
+			"rest": rest,
 			"tris": tris,
-			"shapes": shape_verts,
 		})
 	if surfaces.is_empty() or not is_finite(x_min) or x_max <= x_min or y_max <= y_min:
 		return null
@@ -149,24 +153,15 @@ static func _build(mesh: ArrayMesh, res: int, smooth: int) -> Hull:
 	var z_min := INF
 	var z_max := -INF
 	for surface: Dictionary in surfaces:
-		var verts: PackedVector3Array = surface["verts"]
+		var rest: PackedVector3Array = surface["rest"]
 		var tris: Array[Vector3i] = surface["tris"]
-		var shapes: Array[PackedVector3Array] = surface["shapes"]
-		var layers: Array[PackedVector3Array] = [verts]
-		for i in shapes.size():
-			if not str(mesh.get_blend_shape_name(i)) in SHAPES:
-				continue
-			var sv: PackedVector3Array = shapes[i]
-			if not sv.is_empty():
-				layers.append(sv)
-		for layer: PackedVector3Array in layers:
-			for tri: Vector3i in tris:
-				var pa := layer[tri.x]
-				var pb := layer[tri.y]
-				var pc := layer[tri.z]
-				z_min = minf(z_min, minf(pa.z, minf(pb.z, pc.z)))
-				z_max = maxf(z_max, maxf(pa.z, maxf(pb.z, pc.z)))
-				_rasterise(best, res, domain, cell, pa, pb, pc)
+		for tri: Vector3i in tris:
+			var pa := rest[tri.x]
+			var pb := rest[tri.y]
+			var pc := rest[tri.z]
+			z_min = minf(z_min, minf(pa.z, minf(pb.z, pc.z)))
+			z_max = maxf(z_max, maxf(pa.z, maxf(pb.z, pc.z)))
+			_rasterise(best, res, domain, cell, pa, pb, pc)
 	if z_max <= z_min:
 		return null
 	best = _dilate(best, res)
@@ -195,6 +190,34 @@ static func _build(mesh: ArrayMesh, res: int, smooth: int) -> Hull:
 	hull.smoothing = smooth
 	hull.texture = ImageTexture.create_from_image(image)
 	return hull
+
+
+## The rest appearance of one surface: the authored `closed` shape at weight 1, plus the
+## `ponut_scale` shape at the rest weight (`anal_scale - 1`). `wink`, the anal keys and `stretch`
+## are at 0. The blend shapes are additive relative to the base mesh, matching Godot's blend.
+static func _rest_vertices(verts: PackedVector3Array, shapes: Array[PackedVector3Array],
+		mesh: ArrayMesh, ponut_scale: float) -> PackedVector3Array:
+	var out := verts.duplicate()
+	var closed := _shape_index(mesh, REST_SHAPE)
+	if closed >= 0 and closed < shapes.size():
+		var closed_verts: PackedVector3Array = shapes[closed]
+		if closed_verts.size() == out.size():
+			out = closed_verts.duplicate()
+	if absf(ponut_scale) > 0.000001:
+		var ponut := _shape_index(mesh, PONUT_SHAPE)
+		if ponut >= 0 and ponut < shapes.size():
+			var ponut_verts: PackedVector3Array = shapes[ponut]
+			if ponut_verts.size() == out.size():
+				for i in out.size():
+					out[i] += (ponut_verts[i] - verts[i]) * ponut_scale
+	return out
+
+
+static func _shape_index(mesh: ArrayMesh, shape_name: String) -> int:
+	for i in mesh.get_blend_shape_count():
+		if str(mesh.get_blend_shape_name(i)) == shape_name:
+			return i
+	return -1
 
 
 ## Store the maximum Z of `pa`/`pb`/`pc` over the grid cells whose centre lies inside the

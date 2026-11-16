@@ -228,17 +228,20 @@ builds it in anatomy-local space (`+Z` toward the tail):
 
 - Only triangles whose local normal faces rearward (`n.z > OUTER_NORMAL_Z`) are kept, so the inner
   canal and cavity walls never enter the field.
-- The base mesh and the `closed`, `wink`, `anal_open`, `anal_stretch`, `anal_overstretch`,
-  `anal_extreme` and `ponut_scale` blend shapes are rasterised at full weight; the field is their
-  outer envelope. `stretch` is excluded because the mod always zeroes it.
+- The field is the **rest appearance**, not the act envelope: the base mesh with `closed` at 1 and
+  `ponut_scale` at the rest `anal_scale - 1`. `wink`, `anal_open`, `anal_stretch`,
+  `anal_overstretch`, `anal_extreme` and `stretch` are at 0. The garment is removed at act start,
+  so the field does not need the opened or stretched act shapes; the debug heatmap shows the rest
+  vulva/ponut. If `pantyhose_undress` is off, the cloth stays on during an act and the act shapes
+  can poke through; that is the player's choice.
 - The X/Y projection is a `resolution × resolution` grid of the maximum Z per cell. The domain is
   the retained outer triangles' X/Y bounds plus a small margin, so the anal extreme shape cannot
   stretch the domain. Empty cells are filled by dilation and the debug smoothing passes.
 - The field is normalised over `z_min`/`z_max`; an uncovered cell keeps a negative marker and the
   shader skips it. The texture is `FORMAT_RF`, linear, no repeat.
-- The build is cached by source mesh RID, resolution and smoothing, so every mare shares one
-  field. `garment_hull_rebuild()` clears the cache; a precision edit or the Rebuild action rebuilds
-  once, off the frame path.
+- The build is cached by source mesh RID, resolution, smoothing and the rest ponut scale, so every
+  mare shares one field. `garment_hull_rebuild()` clears the cache; a precision edit or the Rebuild
+  action rebuilds once, off the frame path.
 - Resolution, smoothing and margin are unbounded debug values (the builder only floors resolution
   to 1 and smoothing to 0). High values cost a one-time rebuild. The adapter's **Update frequency**
   (`debug.pantyhose_update_hz`) sets how often it rescans; `0` stops the automatic scan.
@@ -813,6 +816,9 @@ split when the suite is next touched.
   pre-hidden dock stays hidden.
 - The act's idle wink and the climax pulse share one countdown; adding a second scheduler would
   make them overlap.
+- The garment hull is the **rest appearance**; an idle heat wink or an act with `pantyhose_undress`
+  off can open or stretch the anatomy past the cloth. The field deliberately does not include the
+  act's `wink`, `anal_*` or `stretch` shapes, because the garment is removed at act start.
 - The garment hull is a rear-facing depth field, not a 3D SDF: an undercut the field cannot
   represent is a deferred refinement, and the debug overlay is the way to see one. The panty
   mesh's own low resolution is a separate later concern; the mod does not tessellate it at

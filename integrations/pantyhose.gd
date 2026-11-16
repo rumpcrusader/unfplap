@@ -543,7 +543,7 @@ func _note_overlay_reason(reason: String) -> void:
 	_log("hull overlay: " + reason)
 
 
-## One quad per covered cell, coloured from blue (low) to red (high). The mesh is in the
+## A continuous corner-grid surface coloured from blue (low) to red (high). The mesh is in the
 ## anatomy's local space; the overlay copies the anatomy mesh's global transform every frame.
 func _hull_mesh(hull: Variant) -> ArrayMesh:
 	var field: PackedFloat32Array = hull.field
@@ -555,35 +555,51 @@ func _hull_mesh(hull: Variant) -> ArrayMesh:
 	var z_max: float = hull.z_max
 	var span := z_max - z_min
 	var cell := Vector2(domain.size.x / float(res), domain.size.y / float(res))
+	var stride := res + 1
 	var vertices := PackedVector3Array()
 	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
+	# A shared corner grid: each corner takes the maximum of the up-to-four cells touching it, so
+	# adjacent quads meet exactly instead of floating at different heights.
+	var corners := PackedFloat32Array()
+	corners.resize(stride * stride)
+	corners.fill(-1.0)
+	for j in stride:
+		for i in stride:
+			var value := -1.0
+			for dj in range(-1, 1):
+				for di in range(-1, 1):
+					var ci := i + di
+					var cj := j + dj
+					if ci < 0 or cj < 0 or ci >= res or cj >= res:
+						continue
+					var cell_value := field[cj * res + ci]
+					if cell_value >= 0.0:
+						value = maxf(value, cell_value)
+			corners[j * stride + i] = value
+	for j in stride:
+		for i in stride:
+			var value := maxf(corners[j * stride + i], 0.0)
+			var x := domain.position.x + float(i) * cell.x
+			var y := domain.position.y + float(j) * cell.y
+			var z := z_min + value * span + OVERLAY_Z_LIFT
+			vertices.append(Vector3(x, y, z))
+			colors.append(Color(value, 0.25, 1.0 - value, OVERLAY_ALPHA))
 	for j in res:
 		for i in res:
-			var value := field[j * res + i]
-			if value < 0.0:
+			var a := j * stride + i
+			var b := a + 1
+			var c := a + stride + 1
+			var d := a + stride
+			if corners[a] < 0.0 or corners[b] < 0.0 \
+					or corners[c] < 0.0 or corners[d] < 0.0:
 				continue
-			var x0 := domain.position.x + float(i) * cell.x
-			var y0 := domain.position.y + float(j) * cell.y
-			var x1 := x0 + cell.x
-			var y1 := y0 + cell.y
-			var z := z_min + value * span + OVERLAY_Z_LIFT
-			var color := Color(value, 0.25, 1.0 - value, OVERLAY_ALPHA)
-			var base := vertices.size()
-			vertices.append(Vector3(x0, y0, z))
-			vertices.append(Vector3(x1, y0, z))
-			vertices.append(Vector3(x1, y1, z))
-			vertices.append(Vector3(x0, y1, z))
-			colors.append(color)
-			colors.append(color)
-			colors.append(color)
-			colors.append(color)
-			indices.append(base)
-			indices.append(base + 1)
-			indices.append(base + 2)
-			indices.append(base)
-			indices.append(base + 2)
-			indices.append(base + 3)
+			indices.append(a)
+			indices.append(b)
+			indices.append(c)
+			indices.append(a)
+			indices.append(c)
+			indices.append(d)
 	if indices.is_empty():
 		return null
 	var arrays: Array = []

@@ -120,7 +120,10 @@ def read_state():
 def validate_origin(raw):
     if not raw:
         fail("INDEX_UNCONFIGURED scripts/index_listing.json has no url; set the index origin first.")
-    parts = urllib.parse.urlsplit(raw)
+    try:
+        parts = urllib.parse.urlsplit(raw)
+    except ValueError as error:
+        fail(f"INDEX_UNCONFIGURED {raw!r} is not a valid origin: {error}")
     if parts.scheme not in ("http", "https") or not parts.netloc or not parts.hostname:
         fail(f"INDEX_UNCONFIGURED {raw!r} is not an http(s) origin.")
     if parts.path:

@@ -14,14 +14,22 @@ const WIDGET_FILES := ["res://mods/unfplap/settings/ui.gd",
 const WIDGETS := ["SpinBox.new(", "CheckButton.new(", "OptionButton.new(", "ColorPickerButton.new("]
 ## The pose capability census: every raw `pose_id` occurrence in a shipped `.gd` file, per file.
 ## It ratchets down: a migrated consumer must not gain a reference, and a file that drops lowers
-## its entry in the same commit. The remaining reads are the runtime's start identity, the pose
-## session's begin key, the settings data API and the debug display line.
+## its entry in the same commit. The runtime keeps only its start identity (`_start_row`, the set,
+## the log/readback and the reset); the setup name is the start's one placement input.
 const POSE_ID_BUDGET := {
-	"runtime.gd": 12,
+	"runtime.gd": 10,
 	"poses/service.gd": 1,
 	"settings/service.gd": 11,
 	"main.gd": 1,
 }
+## Files that may compare a pose string outside the data modules. The request wording and its
+## offer policy read the offered pose (not the act start), and `main` labels its debug offer
+## buttons. No other shipped file may branch on a pose id.
+const POSE_COMPARE_EXCEPTIONS := [
+	"initiation/prompts.gd",
+	"initiation/service.gd",
+	"main.gd",
+]
 ## The compatibility `oral_active`/`anal_active` mirrors are gone; the view's contact kind is the
 ## one mouth source. Any occurrence outside a test is a regression.
 const ORAL_ACTIVE_BUDGET := {}
@@ -105,6 +113,7 @@ func run() -> void:
 	_check_pose_docs()
 	_check_pose_capability_census(files)
 	_check_pose_id_comparisons(files)
+	_check_start_dispatch()
 	_check_oral_contact(files)
 	_check_pose_aliases()
 	_check_act_commands()
@@ -903,8 +912,9 @@ func _check_oral_contact(files: Array[String]) -> void:
 		"the oral command never calls the removed anatomy toggle")
 
 
-## No start-pose comparison outside the pose data modules and the settings data API. The
-## orchestrator keeps `pose_id` only as the start identity passed to the session and the logs.
+## No start-pose comparison outside the pose data modules, the request policy and the debug label.
+## The orchestrator keeps `pose_id` only as the start identity and dispatches on the spec's closed
+## setup name. `pose == CATALOG.` is rejected in every other shipped file.
 func _check_pose_id_comparisons(files: Array[String]) -> void:
 	var data_owners := ["shared/pose_catalog.gd", "shared/pose_specs.gd", "settings/service.gd"]
 	for path: String in files:
@@ -913,12 +923,43 @@ func _check_pose_id_comparisons(files: Array[String]) -> void:
 		if path.begins_with(ROOT.path_join("tests/")) or path.begins_with(ROOT.path_join("tools/")):
 			continue
 		var relative := path.trim_prefix(ROOT.path_join(""))
-		if relative.begins_with("poses/") or relative in data_owners:
+		if relative.begins_with("poses/") or relative in data_owners \
+				or relative in POSE_COMPARE_EXCEPTIONS:
 			continue
 		var text := FileAccess.get_file_as_string(path)
-		for token: String in ["pose_id ==", "pose_id !=", "pose_id in [", "pose_id not in "]:
+		for token: String in ["pose_id ==", "pose_id !=", "pose_id in [", "pose_id not in ",
+				"pose == CATALOG.", "pose != CATALOG.", "pose == \"", "pose != \"",
+				"pose in [", "pose not in "]:
 			check(not text.contains(token),
 				"%s keeps no start-pose branch: %s" % [relative, token])
+
+
+## The act start is one dispatch on the spec's closed setup name, not a pose-id branch. The typed
+## offer start is one function: the act key and an auto trigger both call it, and it neither names
+## a pose nor reaches into the request service.
+func _check_start_dispatch() -> void:
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	var start := _func_body(runtime, "start")
+	check(start.contains("POSE_SPECS.start_setup(pose)") and start.contains("_run_start_setup(setup)"),
+		"runtime.start dispatches on the spec setup name")
+	check(not start.contains("CATALOG."), "runtime.start names no pose id")
+	var dispatch := _func_body(runtime, "_run_start_setup")
+	check(not dispatch.is_empty(), "the runtime setup dispatcher exists")
+	for setup: String in POSE_SPECS.START_SETUPS:
+		check(dispatch.contains("\"%s\"" % setup), "the dispatcher names the %s setup" % setup)
+	check(not dispatch.contains("CATALOG."), "the setup dispatcher names no pose id")
+	var main := FileAccess.get_file_as_string(ROOT.path_join("main.gd"))
+	var offer := _func_body(main, "start_pose_offer")
+	check(not offer.is_empty(), "main.start_pose_offer exists")
+	for token: String in ["offer.blocked", "_cancel_pose_offer(offer)", "offer.scope"]:
+		check(offer.contains(token), "main.start_pose_offer reads %s" % token)
+	check(not offer.contains("initiation"), "main.start_pose_offer never reaches into the request")
+	check(not offer.contains("CATALOG."), "main.start_pose_offer names no pose id")
+	var try_start := _func_body(main, "try_start")
+	check(try_start.contains("start_pose_offer(_offer)"),
+		"main.try_start hands the playable offer to the one start")
+	check(try_start.contains("start_pose_offer(_offer_blocked)"),
+		"main.try_start hands the blocked offer to the one start")
 
 
 ## The typed view and the act facts carry the live values only; the compatibility aliases are

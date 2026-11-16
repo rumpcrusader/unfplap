@@ -1737,6 +1737,31 @@ static var kissing_reactions := flag("kissing_reactions", "features.kissing_reac
 	"Play the Kissing mod's horn, wing and earth-pony reactions during the act.",
 	INTEGRATIONS, "")
 
+# -- Pantyhose & Panties by mitty: the world garment adapter; see docs/integrations.md.
+static var pantyhose_undress := flag("pantyhose_undress", "features.pantyhose_undress",
+	"Take them off for acts",
+	"Remove her panties and pantyhose when an act starts; she stays undressed afterwards.",
+	INTEGRATIONS, "")
+static var pantyhose_bulge := flag("pantyhose_bulge", "features.pantyhose_bulge",
+	"Lift the cloth over the anatomy",
+	"Lift the worn panties and pantyhose over the anatomy instead of letting it poke through.",
+	INTEGRATIONS, "")
+static var pantyhose_hull_resolution := num("pantyhose_hull_resolution",
+	"debug.pantyhose_hull_resolution", "Hull precision",
+	"Depth-field cells across the anatomy. Higher is smoother and costs a one-time rebuild.",
+	INTEGRATIONS, "Pantyhose").with_range(8.0, 64.0).with_step(1.0).as_debug()
+static var pantyhose_hull_smoothing := num("pantyhose_hull_smoothing",
+	"debug.pantyhose_hull_smoothing", "Hull smoothing",
+	"Averaging passes over the depth field; more softens the cloth lift.",
+	INTEGRATIONS, "Pantyhose").with_range(0.0, 4.0).with_step(1.0).as_debug()
+static var pantyhose_hull_margin_mm := num("pantyhose_hull_margin_mm",
+	"debug.pantyhose_hull_margin_mm", "Hull margin",
+	"Extra lift over the anatomy surface, in millimetres.",
+	INTEGRATIONS, "Pantyhose").with_unit("mm").with_range(0.0, 10.0).with_step(0.5).as_debug()
+static var pantyhose_hull_show := flag("pantyhose_hull_show", "debug.pantyhose_hull_show",
+	"Show hull", "Draw the depth field over the anatomy as a heatmap.",
+	INTEGRATIONS, "Pantyhose").as_debug()
+
 ## The built-in act prompts from `settings/catalogs.json`. The player file stores only overrides,
 ## and `_fill_prompts()` supplies the current built-ins at read time so a release can update them.
 static var DEFAULT_ACT_PROMPTS: Dictionary = DEFAULTS.catalog_block("act_prompts")

@@ -52,8 +52,7 @@ func run() -> void:
 					check(setting.tab == SETTINGS.INTEGRATIONS,
 						"feature %s lives in the Integrations tab" % name)
 		var bindings: Variant = provider.get("bindings", {})
-		check(bindings is Dictionary and not (bindings as Dictionary).is_empty(),
-			"provider %s declares bindings" % id)
+		check(bindings is Dictionary, "provider %s declares a bindings dictionary" % id)
 		if bindings is Dictionary:
 			for binding: String in bindings as Dictionary:
 				var steps: Variant = (bindings as Dictionary)[binding]
@@ -70,10 +69,12 @@ func run() -> void:
 	check(complete, "every provider has complete display metadata")
 	var declared: Array = []
 	for setting: SETTINGS.Setting in SETTINGS.tab_settings(SETTINGS.INTEGRATIONS):
+		if setting.debug:
+			continue
 		if not features.has(setting.name):
 			declared.append(setting.name)
 	check(declared.is_empty(),
-		"every Integrations declaration belongs to a provider: %s" % str(declared))
+		"every player-facing Integrations declaration belongs to a provider: %s" % str(declared))
 	check(ids.has("kissing"), "Kissing is a supported integration")
 	var kissing: Dictionary = CATALOG.provider("kissing")
 	check(str(kissing.get("mod_name", "")) == "Kissing", "Kissing display name")
@@ -81,9 +82,27 @@ func run() -> void:
 	check(str(kissing.get("verified_version", "")) == "1.2.9", "Kissing verified version")
 	check((kissing.get("features", []) as Array).has("kissing_reactions"),
 		"Kissing owns the reactions feature")
-	check(ids == ["kissing"], "Kissing is the only supported integration")
+	check(ids.has("pantyhose"), "Pantyhose & Panties is a supported integration")
+	var pantyhose: Dictionary = CATALOG.provider("pantyhose")
+	check(str(pantyhose.get("mod_name", "")) == "Pantyhose & Panties",
+		"Pantyhose & Panties display name")
+	check(str(pantyhose.get("author", "")) == "mitty", "Pantyhose & Panties author")
+	check(str(pantyhose.get("verified_version", "")) == "0.1.1",
+		"Pantyhose & Panties verified version")
+	var pantyhose_features: Array = pantyhose.get("features", [])
+	check(pantyhose_features.has("pantyhose_undress")
+		and pantyhose_features.has("pantyhose_bulge"),
+		"Pantyhose & Panties owns its undress and bulge features")
+	check((pantyhose.get("bindings", {}) as Dictionary).is_empty(),
+		"the world integration has no per-act bindings")
+	check(ids == ["kissing", "pantyhose"], "Kissing and Pantyhose are the supported integrations")
 	check(CATALOG.provider("idle_life").is_empty(), "Idle Life is no longer a supported integration")
 	check(SETTINGS.by_name("idle_life_stretch") == null,
 		"the retired Idle Life stretch flag is gone")
+	check(SETTINGS.pantyhose_hull_resolution.debug
+		and SETTINGS.pantyhose_hull_smoothing.debug
+		and SETTINGS.pantyhose_hull_margin_mm.debug
+		and SETTINGS.pantyhose_hull_show.debug,
+		"the hull precision controls stay in the Debug block")
 	print("INTEGRATIONS_CATALOG_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

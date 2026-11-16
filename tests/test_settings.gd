@@ -930,6 +930,8 @@ func _check_section_folding() -> void:
 ## version this adapter was verified with and every declared flag. Debug-only switches sit in the
 ## tab's Debug block.
 func _check_integrations_panel() -> void:
+	var debug_before := SETTINGS.debug_mode.get_bool()
+	SETTINGS.debug_mode.set_bool(false)
 	var list := VBoxContainer.new()
 	var debug_section: Control = SETTINGS_UI.build_integrations(list, 16, null, Callable())
 	var labels: Array = []
@@ -949,9 +951,23 @@ func _check_integrations_panel() -> void:
 	for setting: SETTINGS.Setting in SETTINGS.tab_settings(SETTINGS.INTEGRATIONS):
 		check(labels.has(setting.label),
 			"the Integrations tab draws %s" % setting.name)
-	check(debug_section == null, "the Integrations tab has no Debug block of its own")
-	check(not labels.has("Debug"), "the Integrations tab has no Debug heading")
+	check(debug_section is Control,
+		"the Integrations tab builds its Debug block when it has debug settings")
+	check(not (debug_section as Control).visible,
+		"the Integrations Debug block is hidden without Enable debug")
+	check(labels.has("Debug"), "the Integrations tab has one Debug heading")
 	list.free()
+	SETTINGS.debug_mode.set_bool(true)
+	var debug_list := VBoxContainer.new()
+	var shown: Control = SETTINGS_UI.build_integrations(debug_list, 16, null, Callable())
+	check(shown is Control and (shown as Control).visible,
+		"Enable debug shows the Integrations Debug block")
+	var debug_labels: Array = []
+	_collect_labels(debug_list, debug_labels)
+	check(debug_labels.has("Hull precision"), "the Debug block draws the hull precision row")
+	check(debug_labels.has("Show hull"), "the Debug block draws the Show hull row")
+	debug_list.free()
+	SETTINGS.debug_mode.set_bool(debug_before)
 
 
 func _check_panel_tab(tab: String, debug_on: bool) -> void:

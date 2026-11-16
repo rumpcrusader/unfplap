@@ -114,6 +114,12 @@
 		"release_hold_seconds": 1.0,
 		"utterance_gap_seconds": 18.0
 	},
+	"debug": {
+		"pantyhose_hull_margin_mm": 5.0,
+		"pantyhose_hull_resolution": 48.0,
+		"pantyhose_hull_show": false,
+		"pantyhose_hull_smoothing": 1.0
+	},
 	"debug_hide_tails": false,
 	"debug_mode": false,
 	"debug_perf": false,
@@ -186,6 +192,8 @@
 		"kissing_reactions": true,
 		"missionary_body_motion": true,
 		"mute_ponese_audio": true,
+		"pantyhose_bulge": true,
+		"pantyhose_undress": true,
 		"standing_body_sway": true,
 		"standing_stool": true,
 		"thrust_ear_twitch": true

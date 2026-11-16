@@ -340,10 +340,11 @@ and the failure is logged. Opening the Unfplap settings tab calls `SETTINGS.relo
 re-reads the player file immediately, so a hand-edited file applies when the tab opens; otherwise
 it needs a restart. The shipped document never reloads mid-process.
 
-Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `controls`, `features`,
-`relationship`, `thrust`, `auto_thrust`, `caress`, `jiggle`, `camera_thrust`, `presentation`,
-`history`, `tolerance`, `cues`, `talk`, `player`, `anatomy`, `ui` (section open state), `default`
-(the player's differences from the shipped profile only) and `characters` overrides.
+Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `debug`, `controls`,
+`features`, `relationship`, `thrust`, `auto_thrust`, `caress`, `jiggle`, `camera_thrust`,
+`presentation`, `history`, `tolerance`, `cues`, `talk`, `player`, `anatomy`, `ui` (section open
+state), `default` (the player's differences from the shipped profile only) and `characters`
+overrides.
 
 ## The settings tab
 
@@ -435,8 +436,10 @@ interjections**.
   `shared/integrations.gd`, in catalog order, whether or not the other mod is installed, then gets
   its own collapsible section named `Mod by Author` and open by default. The section body carries
   the Faint `Verified with version: ...` hint and its player-facing switches; its open state is
-  stored under `integrations/Mods/<mod id>`. The Kissing entry is always listed, whether or not
-  Kissing is installed. The behavior is in `docs/integrations.md`.
+  stored under `integrations/Mods/<mod id>`. The Kissing and Pantyhose & Panties entries are always
+  listed, whether or not the other mod is installed. The tab ends with its one Debug block (behind
+  **Enable debug**), which carries the Pantyhose hull precision rows and the **Pantyhose: rebuild
+  hull** action. The behavior is in `docs/integrations.md`.
 
 **Debug sections**
 
@@ -451,6 +454,8 @@ tuning:
   receptive window.
 - **Kissing**: the reaction bridge's level and cap are `docs/integrations.md`; it has no debug
   switch of its own.
+- **Pantyhose** (Integrations): **Hull precision**, **Hull smoothing**, **Hull margin** and
+  **Show hull**, plus the **Pantyhose: rebuild hull** action; see `docs/integrations.md`.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
   still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points,
@@ -503,6 +508,8 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `act_public_offer` | per-mare public consent affects offers; see `docs/eligibility.md` |
 | `mute_ponese_audio` | mute a Ponese-only act voice but keep its text |
 | `kissing_reactions` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
+| `pantyhose_undress` | take her panties and pantyhose off when an act starts; she stays undressed; see `docs/integrations.md` |
+| `pantyhose_bulge` | lift the worn panties and pantyhose over the anatomy; see `docs/integrations.md` |
 
 Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,
 unprompted act lines with their fresh-angle wording, starting an act through an active cuddle,
@@ -567,7 +574,7 @@ Debug commands are entries in `debug/service.gd`:
 ```
 
 The **Debug** block of the tab named by the entry's `tab` (`general` by default, or `anatomy`/
-`world`; the Poses tab carries none) draws a button for it and calls `method` on the
+`world`/`integrations`; the Poses tab carries none) draws a button for it and calls `method` on the
 entry node. An action on a wheel page sets
 `"panel": false`; the Debug block skips it, so the settings blocks draw only the settings-only
 actions. Entries that share `"row"` are drawn compactly on one line under that caption (`"short"`

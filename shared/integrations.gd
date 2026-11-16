@@ -8,7 +8,7 @@ extends RefCounted
 ## optional. The service keeps optional bindings under watch so a node that appears mid-act is
 ## bound then.
 
-const ORDER := ["kissing"]
+const ORDER := ["kissing", "pantyhose"]
 
 const PROVIDERS := {
 	"kissing": {
@@ -24,6 +24,17 @@ const PROVIDERS := {
 			"skeleton": [{"property": "skeleton"}],
 			"fidgets": [{"property": "skeleton"}, {"child": "KissingFidgets", "optional": true}],
 		},
+	},
+	## The Pantyhose & Panties adapter is a world integration: it runs outside acts and has no
+	## per-act provider or bindings. Its feature flags drive the garment shader and the act-start
+	## undress; see `docs/integrations.md` (`## Pantyhose & Panties`).
+	"pantyhose": {
+		"mod_id": "pantyhose",
+		"mod_name": "Pantyhose & Panties",
+		"author": "mitty",
+		"verified_version": "0.1.1",
+		"features": ["pantyhose_undress", "pantyhose_bulge"],
+		"bindings": {},
 	},
 }
 

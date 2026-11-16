@@ -20,6 +20,7 @@ const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -62,6 +63,8 @@ var input
 var api: Node
 ## Anatomy system facade: per-pony controllers, the player part and tail seating.
 var anatomy: Node
+## The Pantyhose & Panties world adapter; inert when that pack is absent.
+var pantyhose: Node
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
 var stool: Node
 var _anatomy_status_label: Label
@@ -196,6 +199,10 @@ func _ready() -> void:
 	anatomy.name = "UnfplapAnatomy"
 	anatomy.call("setup", self)
 	add_child(anatomy)
+	pantyhose = PANTYHOSE.new()
+	pantyhose.name = "UnfplapPantyhose"
+	pantyhose.call("setup", self)
+	add_child(pantyhose)
 	stool = STOOL.new()
 	stool.name = "UnfplapStool"
 	stool.call("setup", self)
@@ -247,6 +254,8 @@ func _on_world(host: Node) -> void:
 	eligibility.setup(self)
 	if is_instance_valid(stool):
 		stool.call("on_world", host)
+	if is_instance_valid(pantyhose):
+		pantyhose.call("on_world", host)
 	_stool_hint_toast_shown = false
 	_last_blocked_key = ""
 	_interactor = null
@@ -267,6 +276,8 @@ func _on_world(host: Node) -> void:
 func _on_world_closed(_host: Node) -> void:
 	_debug("world closed")
 	close_debug_wheel()
+	if is_instance_valid(pantyhose):
+		pantyhose.call("on_world_closed")
 	if is_instance_valid(anatomy):
 		anatomy.call("clear_player")
 	_clear_native_hint()
@@ -378,6 +389,8 @@ func _apply_settings_changed() -> void:
 	refresh_anatomy()
 	if is_instance_valid(anatomy):
 		anatomy.call("refresh_tails")
+	if is_instance_valid(pantyhose):
+		pantyhose.call("apply_live_settings")
 
 
 ## The anatomy controller owns the genitals material; refresh the dock after it attaches, changes
@@ -1415,6 +1428,14 @@ func action_give_stool() -> String:
 	return "Footstool added."
 
 
+## Rebuild the worn-garment depth field after a precision edit. The integration owns the cache
+## and the scan; `main` only forwards the button.
+func action_pantyhose_rebuild() -> String:
+	if not is_instance_valid(pantyhose):
+		return "Pantyhose integration is not running."
+	return str(pantyhose.call("rebuild_hull"))
+
+
 func _debug_history_target() -> Node:
 	var view: Camera3D = camera()
 	return _debug_target(view) if is_instance_valid(view) else null
@@ -2082,6 +2103,10 @@ func _exit_tree() -> void:
 		stool.call("shutdown")
 		stool.queue_free()
 		stool = null
+	if is_instance_valid(pantyhose):
+		pantyhose.call("shutdown")
+		pantyhose.queue_free()
+		pantyhose = null
 	if is_instance_valid(anatomy):
 		anatomy.call("shutdown")
 		anatomy.queue_free()

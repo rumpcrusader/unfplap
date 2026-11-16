@@ -25,7 +25,8 @@ skeleton-flag sync.
 ## Debug actions
 
 Debug actions live in `debug/service.gd` and render as buttons in the **Debug** block of the tab
-their `tab` names (`general` by default, `anatomy` or `world`); the Poses tab carries none. Adding an action is one entry plus one method. An action on a wheel page sets
+their `tab` names (`general` by default, `anatomy`, `world` or `integrations`); the Poses tab
+carries none. Adding an action is one entry plus one method. An action on a wheel page sets
 `panel: false`, so the settings blocks draw only the settings-only actions and the wheel is the
 only trigger for the rest; those wheel-backed actions are desktop-only.
 
@@ -46,6 +47,7 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Make sex-ready | — | Mare |
 | Give footstool | General | — |
 | Reset act prompts | General | — |
+| Pantyhose: rebuild hull | Integrations | — |
 | Force/Clear heat | — | Mare |
 | Force/Clear diestrus | — | Mare |
 | Resume automatic cycle | World | — |
@@ -100,6 +102,9 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   act is not `ACTIVE`, the pose is changing, a kiss is running or the anatomy act body is
   unavailable. It never ends the act. See `docs/poses.md`.
 - **Reset act prompts** clears the per-mare prompt overrides; see `docs/settings.md`.
+- **Pantyhose: rebuild hull** clears the shared garment depth field and rebuilds it from the
+  anatomy mesh after a precision edit; the build time is logged with debug logs on. It is inert
+  when the pack is absent. See `docs/integrations.md` (`## Pantyhose & Panties`).
 
 ## Action wheel
 

@@ -1195,8 +1195,11 @@ func _check_integrations_isolation(files: Array[String]) -> void:
 			continue
 		var text := FileAccess.get_file_as_string(path)
 		var external := text.replace("mods/unfplap/integrations/service.gd", "")
+		external = external.replace("mods/unfplap/integrations/pantyhose.gd", "")
 		check(not external.contains("mods/unfplap/integrations/"),
-			"%s uses the integrations facade only" % relative)
+			"%s uses the integrations facades only" % relative)
+		check(relative == "main.gd" or not text.contains("integrations/pantyhose.gd"),
+			"%s does not import the world adapter" % relative)
 		check(not text.contains("res://mods/kissing/"),
 			"%s does not import Kissing internals" % relative)
 		check(not text.contains("res://mods/idle_life/"),
@@ -1205,6 +1208,14 @@ func _check_integrations_isolation(files: Array[String]) -> void:
 			continue
 		check(not text.contains("Beat.paused") and not text.contains("beat.paused"),
 			"%s uses the shared excitement hold instead of writing Beat.paused" % relative)
+	var world := FileAccess.get_file_as_string(ROOT.path_join("integrations/pantyhose.gd"))
+	for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")",
+			"extends \"res://mods/unfplap/main.gd\""]:
+		check(not world.contains(token),
+			"the pantyhose world adapter has no host preload: %s" % token)
+	check(world.contains("func on_world(") and world.contains("func on_world_closed("),
+		"the pantyhose world adapter exposes its world hooks")
 
 
 ## The integrations contract is linked from the docs that own the lifecycle, settings and tests.
@@ -1212,6 +1223,8 @@ func _check_integrations_docs() -> void:
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/integrations.md"))
 	check(contract.contains("`integrations/service.gd`"),
 		"docs/integrations.md names the facade")
+	check(contract.contains("`integrations/pantyhose.gd`"),
+		"docs/integrations.md names the world adapter")
 	for heading: String in ["## Scope", "## Ownership", "## Lifecycle", "## Dependencies",
 			"## Tests"]:
 		check(contract.contains(heading), "docs/integrations.md has %s" % heading)
@@ -1219,7 +1232,7 @@ func _check_integrations_docs() -> void:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/integrations.md"), "%s links to docs/integrations.md" % name)
 	for name: String in ["test_catalog.gd", "test_kissing.gd", "test_service.gd",
-			"test_hold.gd"]:
+			"test_hold.gd", "test_pantyhose.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/integrations/" + name)),
 			"tests/integrations/%s exists" % name)
 
@@ -1305,7 +1318,7 @@ func _check_eligibility_docs() -> void:
 func _check_anatomy_isolation(files: Array[String]) -> void:
 	var pure_files := [
 		"anatomy/identity.gd", "anatomy/geometry.gd", "anatomy/act/state.gd",
-		"anatomy/facts.gd",
+		"anatomy/facts.gd", "anatomy/garment_hull.gd",
 	]
 	for name: String in pure_files:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
@@ -1360,6 +1373,10 @@ func _check_anatomy_docs() -> void:
 		check(text.contains("docs/anatomy.md"), "%s links to docs/anatomy.md" % name)
 	check(FileAccess.file_exists(ROOT.path_join("tests/anatomy/test_act_bridge.gd")),
 		"tests/anatomy/test_act_bridge.gd exists")
+	check(contract.contains("anatomy/garment_hull.gd"),
+		"docs/anatomy.md names the garment hull builder")
+	check(contract.contains("## Garment hull"),
+		"docs/anatomy.md documents the garment hull")
 
 
 ## The stool system is self-contained: only its facade may be preloaded outside `stool/`, and the

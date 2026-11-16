@@ -1,0 +1,578 @@
+extends Node
+## Pantyhose & Panties by mitty: the world-side compatibility adapter for the optional anatomy.
+##
+## The pack cuts a worn piece from the pony's own body and skins it with her skin, so the
+## anatomy mesh pokes through the cloth. This adapter samples a depth field built from the
+## anatomy mesh (see `anatomy/garment_hull.gd`) and lifts each garment surface over it with a
+## self-contained copy of the 0.1.1 look shaders. It also takes the lower garment off when an
+## anatomy act starts, using the wardrobe's own saved `pony_off` state.
+##
+## Scope: world. `main.gd` constructs it once, calls `on_world()`/`on_world_closed()` with the
+## world and `apply_live_settings()` on every settings edit. It never preloads `main.gd`,
+## `runtime.gd` or an anatomy private file; it reads `main.anatomy` through the host and the
+## scene's public nodes. The pack itself is never edited.
+##
+## See `docs/integrations.md` and `docs/anatomy.md` (`## Garment hull`).
+
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
+const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
+
+const MOD_ID := "pantyhose"
+## The garment nodes are children of the body's parent, next to `MareBody`.
+const PREFIXES := ["Wear_panties-", "Wear_pantyhose-"]
+## The pack's own wardrobe tick is 4 s; a 0.5 s scan catches a gift or a take-off promptly
+## without touching the frame path.
+const SCAN_S := 0.5
+## A precision edit waits for the drag to settle before the one-time rebuild.
+const REBUILD_DELAY_S := 0.3
+## The debug heatmap sits this far in front of the field surface (anatomy-local metres).
+const OVERLAY_Z_LIFT := 0.0015
+const OVERLAY_ALPHA := 0.55
+
+
+## One garment node's saved overrides, so a feature-off, a mod-off or a world close restores
+## exactly what was there before this adapter wrote it.
+class Applied:
+	var mesh_id := 0
+	var count := 0
+	var originals: Array = []
+
+
+var main: Node
+## Test seam for the pack-active check. Production sets it in `setup()`.
+var mod_active := Callable()
+
+var _game: Node
+var _clock := 0.0
+var _undress := true
+var _bulge := true
+var _hull_resolution := 48
+var _hull_smoothing := 1
+var _hull_margin_mm := 5.0
+var _show_hull := false
+var _rebuild_at := -1.0
+var _mismatch_logged := false
+
+## garment node -> Applied
+var _applied: Dictionary = {}
+## original material instance id + variant -> compatibility material
+var _materials: Dictionary = {}
+## The debug heatmap; it is a child of the anatomy mesh so it follows the live transform.
+var _overlay: MeshInstance3D
+var _overlay_texture: Variant = null
+
+
+func setup(main_node: Node) -> void:
+	main = main_node
+	if mod_active.is_null():
+		mod_active = Callable(self, "_mod_active")
+	set_process(false)
+	apply_live_settings()
+	_connect_anatomy()
+
+
+## The host's world entry. Called from `main._on_world`.
+func on_world(host: Node) -> void:
+	_game = host
+	_clock = SCAN_S
+	_rebuild_at = -1.0
+	_mismatch_logged = false
+	set_process(true)
+	_connect_anatomy()
+	apply_live_settings()
+
+
+## The host's world close. Restore every override before the game and its ponies go away.
+func on_world_closed() -> void:
+	_restore_all()
+	_hide_overlay()
+	_free_overlay()
+	_materials.clear()
+	_game = null
+	_clock = 0.0
+	_rebuild_at = -1.0
+	set_process(false)
+
+
+## The entry node's teardown. Idempotent.
+func shutdown() -> void:
+	on_world_closed()
+	_disconnect_anatomy()
+	main = null
+
+
+func _exit_tree() -> void:
+	on_world_closed()
+
+
+## Cache every setting this adapter reads. The settings service calls this through
+## `main._apply_settings_changed()`; there is no per-frame settings read.
+func apply_live_settings() -> void:
+	_undress = SETTINGS.pantyhose_undress.get_bool()
+	_bulge = SETTINGS.pantyhose_bulge.get_bool()
+	_hull_margin_mm = SETTINGS.pantyhose_hull_margin_mm.get_num()
+	_show_hull = SETTINGS.pantyhose_hull_show.get_bool()
+	var resolution := int(SETTINGS.pantyhose_hull_resolution.get_num())
+	var smoothing := int(SETTINGS.pantyhose_hull_smoothing.get_num())
+	if resolution != _hull_resolution or smoothing != _hull_smoothing:
+		_hull_resolution = resolution
+		_hull_smoothing = smoothing
+		_queue_rebuild()
+	if not _bulge or not _mod_active_now():
+		_restore_all()
+	if not _show_hull:
+		_hide_overlay()
+	_clock = SCAN_S
+	if is_instance_valid(_game):
+		scan()
+
+
+func _process(delta: float) -> void:
+	if not is_instance_valid(_game):
+		return
+	if _rebuild_at >= 0.0:
+		_rebuild_at -= delta
+		if _rebuild_at < 0.0:
+			rebuild_hull()
+	_clock -= delta
+	if _clock > 0.0:
+		return
+	_clock = SCAN_S
+	scan()
+
+
+## Scan every loaded mare for a worn piece. Public so the test suite can pin one pass without
+## waiting for the clock.
+func scan() -> void:
+	if not is_instance_valid(_game) or not _mod_active_now():
+		_restore_all()
+		_hide_overlay()
+		return
+	var anatomy := _anatomy()
+	var mares: Variant = _game.get("mares")
+	var seen: Dictionary = {}
+	if anatomy != null and mares is Array:
+		for pony: Variant in mares:
+			if not is_instance_valid(pony) or not (pony is Node3D):
+				continue
+			_scan_pony(pony as Node3D, anatomy, seen)
+	_drop_missing(seen)
+	if _show_hull and anatomy != null and mares is Array:
+		_scan_overlay(mares, anatomy)
+	else:
+		_hide_overlay()
+
+
+## Rebuild the shared depth field after a precision edit or the debug Rebuild button. The
+## build is one-time; `scan()` applies the new texture on the same call.
+func rebuild_hull() -> String:
+	if not is_instance_valid(_game) or not _mod_active_now():
+		return "Pantyhose integration is inactive."
+	var anatomy := _anatomy()
+	if anatomy == null or not anatomy.has_method("garment_hull_rebuild"):
+		return "No anatomy service."
+	var started := Time.get_ticks_usec()
+	anatomy.call("garment_hull_rebuild")
+	scan()
+	var usec := Time.get_ticks_usec() - started
+	if usec > 0:
+		_log("garment hull rebuilt in %.2f ms" % (float(usec) / 1000.0))
+	return "Garment hull rebuilt."
+
+
+## True while the debug heatmap is shown. Headless runs never create it.
+func overlay_active() -> bool:
+	return is_instance_valid(_overlay) and _overlay.visible
+
+
+# --------------------------------------------------------------------------- garment surfaces
+
+func _scan_pony(pony: Node3D, anatomy: Node, seen: Dictionary) -> void:
+	var visible := _bulge and anatomy.has_method("garment_visible") \
+		and bool(anatomy.call("garment_visible", pony))
+	var hull: Variant = null
+	var xform := Transform3D.IDENTITY
+	if visible and anatomy.has_method("garment_hull") and anatomy.has_method("garment_transform"):
+		hull = anatomy.call("garment_hull", pony)
+		if hull == null:
+			visible = false
+		else:
+			var transform_value: Variant = anatomy.call("garment_transform", pony)
+			if transform_value is Transform3D:
+				xform = transform_value as Transform3D
+	for prefix: String in PREFIXES:
+		for node: Node in pony.find_children(prefix + "*", "", true, false):
+			if not node is MeshInstance3D or node.is_queued_for_deletion():
+				continue
+			var mesh_node := node as MeshInstance3D
+			seen[mesh_node] = true
+			if not visible or hull == null:
+				_restore_if_applied(mesh_node)
+				continue
+			_apply_node(mesh_node, hull, xform)
+
+
+func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D) -> void:
+	var mesh := node.mesh
+	if mesh == null:
+		_restore_if_applied(node)
+		return
+	var count := mesh.get_surface_count()
+	var mesh_id := mesh.get_rid().get_id()
+	var applied_value: Variant = _applied.get(node)
+	if applied_value is Applied \
+			and (applied_value.mesh_id != mesh_id or applied_value.count != count):
+		_restore_node(node, applied_value)
+		applied_value = null
+	if not applied_value is Applied:
+		var fresh := Applied.new()
+		fresh.mesh_id = mesh_id
+		fresh.count = count
+		fresh.originals.resize(count)
+		for i in count:
+			fresh.originals[i] = node.get_surface_override_material(i)
+		_applied[node] = fresh
+		applied_value = fresh
+	var applied := applied_value as Applied
+	var texture: Variant = hull.texture
+	var domain: Rect2 = hull.domain
+	var domain_vec := Vector4(domain.position.x, domain.position.y, domain.size.x, domain.size.y)
+	var z_range := Vector2(float(hull.z_min), float(hull.z_max))
+	var any := false
+	for i in count:
+		var original := mesh.surface_get_material(i)
+		var compat := _compat_material(original)
+		if compat == null:
+			var saved: Variant = applied.originals[i] if i < applied.originals.size() else null
+			node.set_surface_override_material(i, saved if saved is Material else null)
+			continue
+		compat.set_shader_parameter("hull_texture", texture)
+		compat.set_shader_parameter("hull_domain", domain_vec)
+		compat.set_shader_parameter("hull_z_range", z_range)
+		node.set_surface_override_material(i, compat)
+		any = true
+	if not any:
+		_restore_node(node, applied)
+		return
+	var basis := xform.basis
+	var inverse := Basis.IDENTITY
+	if absf(basis.determinant()) > 0.0000001:
+		inverse = basis.inverse()
+	node.set_instance_shader_parameter("hull_on", 1.0)
+	node.set_instance_shader_parameter("hull_origin", xform.origin)
+	node.set_instance_shader_parameter("hull_basis_x", basis.x)
+	node.set_instance_shader_parameter("hull_basis_y", basis.y)
+	node.set_instance_shader_parameter("hull_basis_z", basis.z)
+	node.set_instance_shader_parameter("hull_basis_inv_x", inverse.x)
+	node.set_instance_shader_parameter("hull_basis_inv_y", inverse.y)
+	node.set_instance_shader_parameter("hull_basis_inv_z", inverse.z)
+	node.set_instance_shader_parameter("hull_margin", _margin_local(xform, _hull_margin_mm))
+
+
+## A margin in millimetres as anatomy-local units; the shader converts the local push back by
+## the basis' Z scale, so the slider stays in world millimetres on every body size.
+static func _margin_local(xform: Transform3D, millimetres: float) -> float:
+	var scale := (xform.basis * Vector3(0.0, 0.0, 1.0)).length()
+	return (millimetres / 1000.0) / maxf(scale, 0.0001)
+
+
+func _restore_if_applied(node: MeshInstance3D) -> void:
+	var applied: Variant = _applied.get(node)
+	if applied is Applied:
+		_restore_node(node, applied)
+
+
+func _restore_node(node: Node, applied: Applied) -> void:
+	_applied.erase(node)
+	if not is_instance_valid(node) or not node is MeshInstance3D:
+		return
+	var mesh_node := node as MeshInstance3D
+	# Clear the instance uniform while our compatibility material is still the override; the
+	# pack's shader does not know the name.
+	mesh_node.set_instance_shader_parameter("hull_on", 0.0)
+	var mesh := mesh_node.mesh
+	if mesh == null:
+		return
+	var count := mini(applied.count, mesh.get_surface_count())
+	for i in count:
+		var saved: Variant = applied.originals[i] if i < applied.originals.size() else null
+		mesh_node.set_surface_override_material(i, saved if saved is Material else null)
+
+
+func _drop_missing(seen: Dictionary) -> void:
+	var missing: Array = []
+	for node: Variant in _applied:
+		if not is_instance_valid(node) or not seen.has(node):
+			missing.append(node)
+	for node: Variant in missing:
+		var applied: Variant = _applied.get(node)
+		if applied is Applied:
+			_restore_node(node, applied)
+		else:
+			_applied.erase(node)
+
+
+func _restore_all() -> void:
+	var nodes: Array = _applied.keys()
+	for node: Variant in nodes:
+		var applied: Variant = _applied.get(node)
+		if applied is Applied:
+			_restore_node(node, applied)
+	_applied.clear()
+
+
+# --------------------------------------------------------------------------- compatibility material
+
+func _compat_material(original: Material) -> ShaderMaterial:
+	if not original is ShaderMaterial:
+		return null
+	var source := original as ShaderMaterial
+	var shader := source.shader
+	if shader == null:
+		return null
+	var variant := _variant_of(shader)
+	if variant.is_empty():
+		if not _mismatch_logged:
+			_mismatch_logged = true
+			_log("garment material is not the verified pantyhose shader; cloth left alone")
+		return null
+	var key := "%d|%s" % [source.get_instance_id(), variant]
+	var cached: Variant = _materials.get(key)
+	if cached is ShaderMaterial:
+		return cached as ShaderMaterial
+	var compat := ShaderMaterial.new()
+	compat.shader = SHEER_SHADER if variant == "sheer" else CUT_SHADER
+	compat.render_priority = source.render_priority
+	var rows: Array = shader.get_shader_uniform_list()
+	for row: Dictionary in rows:
+		var name := str(row.get("name", ""))
+		if name.is_empty() or name.begins_with("hull_"):
+			continue
+		var value: Variant = source.get_shader_parameter(name)
+		if value != null:
+			compat.set_shader_parameter(name, value)
+	_materials[key] = compat
+	return compat
+
+
+## Which copied shader the original material needs. The 0.1.1 paths are the contract; the
+## `edge_alpha` fallback keeps a renamed copy working.
+static func _variant_of(shader: Shader) -> String:
+	var path := shader.resource_path
+	if path.ends_with("hosiery_sheer.gdshader") or path.ends_with("pantyhose_sheer.gdshader"):
+		return "sheer"
+	if path.ends_with("hosiery_cut.gdshader") or path.ends_with("pantyhose_cut.gdshader"):
+		return "cut"
+	var rows: Array = shader.get_shader_uniform_list()
+	for row: Dictionary in rows:
+		if str(row.get("name", "")) == "edge_alpha":
+			return "sheer"
+	return ""
+
+
+# --------------------------------------------------------------------------- act undress
+
+func _connect_anatomy() -> void:
+	var anatomy := _anatomy()
+	if anatomy == null or not anatomy.has_signal("act_started"):
+		return
+	if not anatomy.is_connected("act_started", _on_act_started):
+		anatomy.connect("act_started", _on_act_started)
+
+
+func _disconnect_anatomy() -> void:
+	var anatomy := _anatomy()
+	if anatomy == null or not anatomy.has_signal("act_started"):
+		return
+	if anatomy.is_connected("act_started", _on_act_started):
+		anatomy.disconnect("act_started", _on_act_started)
+
+
+## The act start. `set_worn` writes the wardrobe's saved `pony_off`, then `dress` removes the
+## nodes immediately so the first rendered act frame is already undressed. There is no restore
+## on act end: she stays undressed until she is asked or given a new piece.
+func _on_act_started(pony: Node3D) -> void:
+	if not _undress or not _mod_active_now():
+		return
+	if not is_instance_valid(_game) or not is_instance_valid(pony):
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var wardrobe: Node = tree.get_first_node_in_group("pony_wardrobe")
+	if wardrobe == null or not wardrobe.has_method("set_worn") or not wardrobe.has_method("dress"):
+		_log("undress skipped: no pony wardrobe")
+		return
+	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+	if id.is_empty():
+		_log("undress skipped: no pony id")
+		return
+	var weather := _game.get_node_or_null("Weather")
+	var season := str(weather.get("season")) if weather != null else "spring"
+	var panties := str(wardrobe.call("set_worn", id, "panties", false))
+	var hose := str(wardrobe.call("set_worn", id, "pantyhose", false))
+	wardrobe.call("dress", pony, id, season)
+	if not panties.is_empty() or not hose.is_empty():
+		_log("undress %s (%s%s)" % [id, panties, hose])
+
+
+# --------------------------------------------------------------------------- debug heatmap
+
+func _scan_overlay(mares: Array, anatomy: Node) -> void:
+	if DisplayServer.get_name() == "headless":
+		_hide_overlay()
+		return
+	if not anatomy.has_method("garment_visible") or not anatomy.has_method("garment_hull") \
+			or not anatomy.has_method("garment_parent"):
+		_hide_overlay()
+		return
+	for pony: Variant in mares:
+		if not is_instance_valid(pony) or not (pony is Node3D):
+			continue
+		if not bool(anatomy.call("garment_visible", pony)):
+			continue
+		var value: Variant = anatomy.call("garment_hull", pony)
+		if value == null:
+			continue
+		_show_overlay(pony as Node3D, value, anatomy)
+		return
+	_hide_overlay()
+
+
+func _show_overlay(pony: Node3D, hull: Variant, anatomy: Node) -> void:
+	var parent_value: Variant = anatomy.call("garment_parent", pony)
+	if not parent_value is Node3D:
+		_hide_overlay()
+		return
+	var parent := parent_value as Node3D
+	var overlay := _ensure_overlay()
+	if overlay == null:
+		return
+	if overlay.get_parent() != parent:
+		if overlay.get_parent() != null:
+			overlay.get_parent().remove_child(overlay)
+		parent.add_child(overlay)
+		overlay.transform = Transform3D.IDENTITY
+	if _overlay_texture != hull.texture:
+		overlay.mesh = _hull_mesh(hull)
+		_overlay_texture = hull.texture
+	overlay.visible = overlay.mesh != null
+
+
+func _ensure_overlay() -> MeshInstance3D:
+	if is_instance_valid(_overlay):
+		return _overlay
+	_overlay = MeshInstance3D.new()
+	_overlay.name = "UnfplapPantyhoseHull"
+	_overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.no_depth_test = true
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.albedo_color = Color(1.0, 1.0, 1.0, OVERLAY_ALPHA)
+	material.render_priority = 10
+	_overlay.material_override = material
+	return _overlay
+
+
+func _hide_overlay() -> void:
+	if is_instance_valid(_overlay):
+		_overlay.visible = false
+	_overlay_texture = null
+
+
+func _free_overlay() -> void:
+	if is_instance_valid(_overlay):
+		_overlay.queue_free()
+	_overlay = null
+	_overlay_texture = null
+
+
+## One quad per covered cell, coloured from blue (low) to red (high). The mesh is in the
+## anatomy's local space and the overlay is a child of the anatomy mesh, so it follows the live
+## pose without a per-frame transform.
+func _hull_mesh(hull: Variant) -> ArrayMesh:
+	var field: PackedFloat32Array = hull.field
+	var domain: Rect2 = hull.domain
+	var res: int = hull.resolution
+	if res <= 0 or field.size() != res * res or domain.size.x <= 0.0 or domain.size.y <= 0.0:
+		return null
+	var z_min: float = hull.z_min
+	var z_max: float = hull.z_max
+	var span := z_max - z_min
+	var cell := Vector2(domain.size.x / float(res), domain.size.y / float(res))
+	var vertices := PackedVector3Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	for j in res:
+		for i in res:
+			var value := field[j * res + i]
+			if value < 0.0:
+				continue
+			var x0 := domain.position.x + float(i) * cell.x
+			var y0 := domain.position.y + float(j) * cell.y
+			var x1 := x0 + cell.x
+			var y1 := y0 + cell.y
+			var z := z_min + value * span + OVERLAY_Z_LIFT
+			var color := Color(value, 0.25, 1.0 - value, OVERLAY_ALPHA)
+			var base := vertices.size()
+			vertices.append(Vector3(x0, y0, z))
+			vertices.append(Vector3(x1, y0, z))
+			vertices.append(Vector3(x1, y1, z))
+			vertices.append(Vector3(x0, y1, z))
+			colors.append(color)
+			colors.append(color)
+			colors.append(color)
+			colors.append(color)
+			indices.append(base)
+			indices.append(base + 1)
+			indices.append(base + 2)
+			indices.append(base)
+			indices.append(base + 2)
+			indices.append(base + 3)
+	if indices.is_empty():
+		return null
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+# --------------------------------------------------------------------------- host
+
+func _anatomy() -> Node:
+	if not is_instance_valid(main):
+		return null
+	var value: Variant = main.get("anatomy")
+	if value is Node:
+		return value as Node
+	return null
+
+
+func _mod_active() -> bool:
+	var mods := get_node_or_null("/root/Mods")
+	if mods == null or not mods.has_method("is_active"):
+		return false
+	return bool(mods.call("is_active", MOD_ID))
+
+
+func _mod_active_now() -> bool:
+	return not mod_active.is_null() and bool(mod_active.call())
+
+
+func _queue_rebuild() -> void:
+	if is_instance_valid(_game):
+		_rebuild_at = REBUILD_DELAY_S
+
+
+func _log(text: String) -> void:
+	if is_instance_valid(main) and main.has_method("debug"):
+		main.call("debug", "[pantyhose] " + text)

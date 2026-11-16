@@ -149,6 +149,7 @@ func run() -> void:
 	_check_two_owners()
 	_check_missing_mid_act()
 	_check_climax_fidgets()
+	_check_world_only()
 	print("INTEGRATIONS_SERVICE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 
@@ -349,6 +350,23 @@ func _check_climax_fidgets() -> void:
 	service.reset()
 	check(int(fidgets._root) == 7, "reset restores the act-start root")
 	check(near(float(fidgets._tap_next), 0.25), "reset restores the act-start tap clock")
+	_free_scene(scene)
+
+
+## The Pantyhose & Panties entry is a world integration. It has no per-act provider, so the
+## facade must not create one even when its flags are on and the pack is active.
+func _check_world_only() -> void:
+	var scene := _setup()
+	var facts: FakeFacts = scene["facts"]
+	facts.features = {"kissing_reactions": true, "pantyhose_undress": true,
+		"pantyhose_bulge": true}
+	facts.mods_active = {"pantyhose": true}
+	var service := SERVICE.new(facts)
+	service.begin()
+	check(not service.active_ids().has("pantyhose"),
+		"the Pantyhose world integration has no per-act provider")
+	check(service.active_ids().has("kissing"), "Kissing still runs beside it")
+	service.reset()
 	_free_scene(scene)
 
 

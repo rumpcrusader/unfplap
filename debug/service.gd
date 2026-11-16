@@ -4,8 +4,9 @@ extends RefCounted
 ## debug operation.
 
 ## Debug actions. `method` is called on the entry node. `tab` places the button in that tab's
-## Debug block (`general` by default, or `anatomy`/`world`); a missing tab means General.
-## `panel: false` keeps an action off every settings block but leaves it available to the wheel;
+## Debug block (`general` by default, or `anatomy`/`world`/`integrations`); a missing tab means
+## General. `panel: false` keeps an action off every settings block but leaves it available to
+## the wheel;
 ## every action on a wheel page sets it, so settings draw only the settings-only actions.
 ## Add an action here; it becomes a button in the matching Debug block automatically. Actions that
 ## share a `row` are drawn compactly on one line, captioned with `short`; consecutive entries with
@@ -73,6 +74,12 @@ const ACTIONS := {
 		"label": "Reset act prompts",
 		"help": "Remove saved act-line prompt overrides and return to the built-in prompts.",
 		"method": "action_reset_act_prompts",
+	},
+	"pantyhose_rebuild": {
+		"label": "Pantyhose: rebuild hull",
+		"help": "Rebuild the worn-garment depth field from the anatomy mesh after changing its precision.",
+		"method": "action_pantyhose_rebuild",
+		"tab": "integrations",
 	},
 	"cycle_heat": {
 		"label": "Force heat",

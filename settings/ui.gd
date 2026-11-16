@@ -205,10 +205,10 @@ static func _set_enabled_deep(root: Node, enabled: bool) -> void:
 
 ## The catalog-driven Integrations tab. Every supported mod gets its own collapsible section,
 ## named after the mod and open by default. The section body carries the verified version and that
-## provider's player-facing feature flags; debug-only switches sit in the tab's Debug block at the
-## bottom. There is no installed/mismatch status.
+## provider's player-facing feature flags; debug-only switches and actions sit in the tab's Debug
+## block at the bottom. There is no installed/mismatch status.
 static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
-		changed: Callable) -> Control:
+		changed: Callable, actions_builder := Callable()) -> Control:
 	_build_experimental_notice(list, font_size)
 	var providers: Array[Dictionary] = INTEGRATIONS_CATALOG.all()
 	if providers.is_empty():
@@ -249,8 +249,9 @@ static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 			continue
 		drawn[setting.name] = true
 		_add_row(list, setting, font_size, page, changed)
-	# Debug-only integration switches stay behind Enable debug, in the tab's one Debug block.
-	return build(list, SETTINGS.INTEGRATIONS, font_size, page, changed, Callable(), true)
+	# Debug-only integration switches and actions stay behind Enable debug, in the tab's one
+	# Debug block.
+	return build(list, SETTINGS.INTEGRATIONS, font_size, page, changed, actions_builder, true)
 
 
 ## The Integrations tab opens with the blue Experimental banner. It is the tab's only status
@@ -591,7 +592,8 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	# Supported mods and their one-switch-per-integration list; always visible, even when the
 	# other mod is absent.
 	var integrations_list := _settings_tab_list("Integrations", tabs_box)
-	_collect_debug_section(build_integrations(integrations_list, font_size, page, changed))
+	_collect_debug_section(build_integrations(integrations_list, font_size, page, changed,
+		actions_builder))
 	# Style the bar after it exists with its tabs: the container re-applies its theme to the
 	# internal TabBar when the tree changes, which would shadow overrides set before that.
 	_style_tabs(tabs_box, font_size)

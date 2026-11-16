@@ -32,6 +32,14 @@ The full source path for every shipped file is in `audio/cue_sources.json`.
 The pack is credited as a SFX pack. Do not contact the pack's contributors directly, and do not
 redistribute this subset as a standalone sound pack.
 
+## Pantyhose & Panties shaders
+
+**mitty** — the look shaders under `integrations/shaders/` are adapted from Pantyhose & Panties
+0.1.1's `hosiery_common.gdshaderinc`, `hosiery_cut.gdshader` and `hosiery_sheer.gdshader`, copied
+as `pantyhose_common.gdshaderinc`, `pantyhose_cut.gdshader` and `pantyhose_sheer.gdshader`. The
+depth-field hull block and its integration are Unfplap's. The pantyhose pack itself is not bundled;
+the copy is pinned to 0.1.1 by `shared/integrations.gd`'s `verified_version`.
+
 ## Adding a credit
 
 A new third-party asset gets its entry here in the same commit as the asset: the author, the

@@ -6,13 +6,17 @@ whether or not the other mod is installed.
 
 ## Scope
 
-- `integrations/service.gd` is the facade and the only scene adapter.
+- `integrations/service.gd` is the per-act facade and the only per-act scene adapter.
+- `integrations/pantyhose.gd` is the world-side adapter for the Pantyhose & Panties 0.1.1 pack:
+  it lifts a worn piece over the anatomy and takes the lower garment off at an act start. The pack
+  is never edited; the compatibility shaders are a pinned copy under `integrations/shaders/`.
 - `shared/integrations.gd` is the provider catalog: mod identity, verified version, feature names
   and binding paths.
 - `integrations/provider.gd`, `context.gd`, `action.gd` and `kissing.gd` are pure service
   internals.
-- One integration is supported: the Kissing 1.2.9 reaction layer. Kissing's own kiss driver,
-  guard, rear, reach, approach, step-back and memory recorder stay out of this service.
+- Two integrations are supported: the Kissing 1.2.9 reaction layer and the Pantyhose & Panties
+  0.1.1 world garment adapter. Kissing's own kiss driver, guard, rear, reach, approach, step-back
+  and memory recorder stay out of this service.
 - The Integrations settings tab always lists a supported mod, even when that mod is absent. The
   version is the one this adapter was verified with, not a semver compatibility promise; a later
   release may still work, and the tab does not report the installed version or a mismatch.
@@ -23,6 +27,10 @@ The facade owns the per-act provider state, the binding resolution, the save/res
 lifecycle. Providers own only policy: whether they apply, and which properties they want set. A
 provider never reads a node, a tree, the clock, the filesystem, the settings file or the runtime's
 private fields.
+
+The world adapter owns its 0.5 s scan, the per-node material overrides, its cached feature/debug
+values and the act-start undress. It reads the anatomy through `main.anatomy` and the game through
+`main.game`; it never preloads either host and never edits the pack.
 
 The runtime constructs one service per act through `_integrations_controller()` and passes its typed
 `shared/act_facts.gd` view. The runtime calls `begin()`, `tick()`, `afterglow()`,
@@ -48,6 +56,9 @@ Kissing 1.2.9 binds:
 | `beat` | `excitement` child `Beat` | yes |
 | `skeleton` | pony property `skeleton` | yes |
 | `fidgets` | `skeleton` child `KissingFidgets` | no |
+
+Pantyhose & Panties 0.1.1 is a world integration: its `bindings` dictionary is empty, so the
+per-act facade never creates a provider for it. Its two features drive the world adapter below.
 
 ## Provider contract
 
@@ -108,6 +119,39 @@ a permanent cause:
 Kissing's horn aura/hum, wing shiver and earth-pony tail/ear fidgets are the three reaction families
 in scope. The act's own wing controller creates the open-wing node the shiver needs.
 
+## Pantyhose & Panties
+
+`integrations/pantyhose.gd` is the world adapter, created by `main` as `main.pantyhose`. It runs
+outside acts: every 0.5 s it finds each mare's `Wear_panties-*` and `Wear_pantyhose-*` nodes and,
+while the anatomy mesh is shown and the bulge flag is on, gives every surface of the shared piece
+an override of the copied compatibility shader. The original material stays on the shared mesh;
+the override is per node, and every instance value is per node, so two mares never share a
+transform. The compatibility material is cached per source material and variant, so each fabric
+keeps its own look parameters while every mare shares it. The previous override is saved and
+restored on a hidden anatomy, feature-off, pack-off, node replacement and world close.
+
+The lift samples `anatomy/garment_hull.gd`'s rear-facing outer depth field, built from the refined
+anatomy mesh and shared by every mare. The field is the outer envelope of the base mesh and the
+`closed`, `wink` and anal blend shapes; the inner canal is excluded by the rear-facing normal test.
+The shader maps the garment vertex into anatomy-local space with the per-mare transform, reads the
+field, and pushes the cloth out along the anatomy's +Z by the surface difference plus the margin.
+The margin is stored in anatomy-local units and converted back by the basis' Z scale, so the
+slider stays in world millimetres. The debug controls choose the field resolution, smoothing and
+margin; a precision edit or the Rebuild action clears the cache and rebuilds after 0.3 s, off the
+frame path.
+
+On `anatomy.act_started` the adapter calls the wardrobe's `set_worn(id, "panties", false)` and
+`set_worn(id, "pantyhose", false)` and then `dress(pony, id, season)` immediately, so the nodes are
+gone before the first rendered act frame. `set_worn` writes the game's own `pony_off` state; the
+adapter does not restore anything at act end, so she stays undressed until she is asked or given a
+new piece. A missing wardrobe, pony id or season is a quiet no-op (the season falls back to
+`spring`).
+
+The compatibility shaders are `integrations/shaders/pantyhose_common.gdshaderinc`,
+`pantyhose_cut.gdshader` and `pantyhose_sheer.gdshader`: a self-contained copy of 0.1.1's look
+with the hull block added. The catalog's `verified_version` pins the copy. A renamed or changed
+pack shader is left alone and logged once; the adapter never edits the pack.
+
 ## Settings
 
 One declaration per supported integration, in `settings/service.gd`:
@@ -115,21 +159,27 @@ One declaration per supported integration, in `settings/service.gd`:
 | Setting | Behavior |
 |---|---|
 | `features.kissing_reactions` | run the Kissing reaction bridge during the act |
+| `features.pantyhose_undress` | take her panties and pantyhose off when an act starts; she stays undressed |
+| `features.pantyhose_bulge` | lift the worn panties and pantyhose over the anatomy |
 
 Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by
 default, under one blue **Experimental** notice at the top of the tab. The section body carries the hint `Verified with version: $verified_version`, then that
 provider's player-facing feature flags; its open state is stored under `integrations/Mods/<mod id>`.
-It carries no debug switches of its own, so the tab has no Debug block. There is no
-installed/mismatch status and no buttons. A flag edit during an act starts or stops the provider
-live through `apply_live_settings()`.
+The tab's one Debug block (behind **Enable debug**) carries the Pantyhose hull precision rows
+(`debug.pantyhose_hull_*`) and the **Pantyhose: rebuild hull** action; Kissing has no debug rows.
+There is no installed/mismatch status and no other buttons. A flag edit during an act starts or
+stops the Kissing provider live through `apply_live_settings()`; the Pantyhose flags are cached by
+the world adapter on the same settings edit.
 
 ## Lifecycle
 
-- Scope: per-act
-- Constructed by: `runtime._integrations_controller()`
-- Begin: `begin()` at `State.POSING_IN`
-- End: `reset()` in `_free_pose()`
-- Idempotent: yes
+- Scope: per-act service + world adapter
+- Constructed by: `runtime._integrations_controller()` for the per-act facade;
+  `main._ready()` for the world adapter
+- Begin: `begin()` at `State.POSING_IN`; `on_world(host)` on world entry
+- End: `reset()` in `_free_pose()`; `on_world_closed()` on world close and `shutdown()` in
+  `main._exit_tree()`
+- Idempotent: yes. The world adapter is inert when the pack is absent.
 
 ## Host boundary
 
@@ -139,10 +189,15 @@ live through `apply_live_settings()`.
 | `begin()` | resolve bindings and start available providers after the act reaches `POSING_IN` |
 | `tick(delta)` | update context, watch optional bindings and apply provider tick actions |
 | `afterglow()` | apply the one afterglow action before Kissing's hold/fade |
-| `apply_live_settings()` | restart or stop providers after a settings edit |
+| `apply_live_settings()` | restart or stop providers after a settings edit; refresh the world adapter's cached flags |
 | `reset()` | restore every saved value after the base kiss reset in `_free_pose()` |
 | `shared/act_facts.gd` | typed read model passed to the constructor; no per-frame settings read |
 | `hold_beat(owner)` / `release_beat(owner)` | acquire or release the runtime's shared excitement Beat hold |
+| `main.anatomy` | the controller's `garment_hull()`, `garment_transform()`, `garment_visible()`, `garment_parent()`, `garment_hull_rebuild()` and the `act_started` signal |
+| `main.game.mares` | the loaded mares the world adapter scans |
+| `main.game.Weather` | the wardrobe season the undress passes to `dress()` |
+| `pony_wardrobe` group | the wardrobe's `set_worn()` and `dress()` for the act undress |
+| `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` |
 
 ## Dependencies
 
@@ -150,24 +205,33 @@ live through `apply_live_settings()`.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | settings | `settings/service.gd` | feature flags, hull precision and the cached values |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog |
+| shared | pony_id | `shared/pony_id.gd` | stable id for the wardrobe's `set_worn()` |
 
 ### Used by
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | host | runtime | `_integrations_controller()` | act lifecycle and typed facts |
+| host | main | `main.pantyhose` | world lifecycle and the debug Rebuild button |
 | service | settings | `settings/ui.gd` | Integrations tab catalog |
 
 ## Tests
 
-- `tests/integrations/test_catalog.gd` — metadata completeness and feature/declaration agreement.
+- `tests/integrations/test_catalog.gd` — metadata completeness, feature/declaration agreement and
+  the world-only entry (no per-act bindings).
 - `tests/integrations/test_kissing.gd` — Kissing availability, the warming/close/climax ramp, the
   bond cap, the pause fade, afterglow, an Affection kiss and the full-fidget restore/suppress.
+- `tests/integrations/test_pantyhose.gd` — the hull builder (fixture and real anatomy mesh), the
+  transform mapping, the surface overrides and restore, the shared mesh, multi-mare independence,
+  the act-start undress, the feature/pack/wardrobe/weather guards and the debug rebuild/overlay.
 - `tests/integrations/test_service.gd` — binding resolution, save/restore, optional bindings,
-  the reaction cap, live feature edits, shared Beat ownership, full fidgets and idempotent reset.
+  the reaction cap, live feature edits, shared Beat ownership, full fidgets, idempotent reset and
+  the absence of a per-act provider for the world integration.
 - `tests/integrations/test_hold.gd` — the runtime's named excitement Beat hold and last-release restore.
-- `tests/test_settings.gd` — the Integrations tab draws every provider header and flag.
+- `tests/test_settings.gd` — the Integrations tab draws every provider header, flag and the Debug
+  block's hull rows.
 - `tests/test_source_hygiene.gd` — pure providers, facade-only imports and docs links.
 
 ## Verification / lab
@@ -185,6 +249,11 @@ live through `apply_live_settings()`.
   restored.
 - Remove Kissing: the tab still shows `Kissing by modChad` and `Verified with version: 1.2.9`; the
   flag has no effect.
+- With the pantyhose pack as `0_pantyhose.pck`, give all eight kinds and check the bulge in
+  `always` and `act` anatomy modes; start an act and confirm the immediate removal; check she stays
+  undressed; turn each flag off; remove the pack; check the original materials come back and two
+  mares keep independent transforms. Use **Show hull** and **Rebuild** to inspect the field; the
+  overlay is desktop-only and is skipped headless.
 
 ## Related docs
 

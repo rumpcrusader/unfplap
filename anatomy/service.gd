@@ -17,6 +17,11 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
+
+## Emitted when a pony's per-act anatomy handle is built, before the pose starts. A world
+## integration uses it to take a worn garment off before the first rendered act frame.
+signal act_started(pony: Node3D)
 
 var main: Node
 var player: Node
@@ -132,6 +137,59 @@ static func new_act(host: Dictionary) -> RefCounted:
 func controller(pony: Node) -> Node:
 	var value: Variant = _controllers.get(pony)
 	return value if is_instance_valid(value) else null
+
+
+## The controller tells the facade that an act handle was built; the facade re-emits it for the
+## world integrations. The controller never emits on its own node, so the signal has one owner.
+func note_act_started(pony_node: Node3D) -> void:
+	act_started.emit(pony_node)
+
+
+## The worn-garment depth field for a pony, or null when the anatomy is absent.
+func garment_hull(pony_node: Node) -> GARMENT_HULL.Hull:
+	var handle := controller(pony_node)
+	if not is_instance_valid(handle) or not handle.has_method("garment_hull"):
+		return null
+	var value: Variant = handle.call("garment_hull")
+	if value is GARMENT_HULL.Hull:
+		return value as GARMENT_HULL.Hull
+	return null
+
+
+## The anatomy-local to garment-model transform for a pony. Identity when the anatomy is absent.
+func garment_transform(pony_node: Node) -> Transform3D:
+	var handle := controller(pony_node)
+	if not is_instance_valid(handle) or not handle.has_method("garment_transform"):
+		return Transform3D.IDENTITY
+	var value: Variant = handle.call("garment_transform")
+	return value if value is Transform3D else Transform3D.IDENTITY
+
+
+## Whether the anatomy mesh is attached and currently shown; a hidden far mesh or act-only
+## hiding leaves the worn garment alone.
+func garment_visible(pony_node: Node) -> bool:
+	var handle := controller(pony_node)
+	if not is_instance_valid(handle) or not handle.has_method("garment_visible"):
+		return false
+	return bool(handle.call("garment_visible"))
+
+
+## The anatomy mesh the hull field lives in. The debug heatmap parents itself here so it
+## follows the live bone transform without a per-frame write.
+func garment_parent(pony_node: Node) -> Node3D:
+	var handle := controller(pony_node)
+	if not is_instance_valid(handle) or not handle.has_method("garment_parent"):
+		return null
+	var value: Variant = handle.call("garment_parent")
+	if value is Node3D:
+		return value as Node3D
+	return null
+
+
+## Clear the shared hull cache after a precision edit or the debug Rebuild button. The next
+## `garment_hull()` read rebuilds once per source mesh; no per-frame work.
+func garment_hull_rebuild() -> void:
+	GARMENT_HULL.clear_cache()
 
 
 func online(pony: Node) -> bool:

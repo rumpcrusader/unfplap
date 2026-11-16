@@ -15,6 +15,7 @@ const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
+const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const MARE_BITS_PATH := ASSET_DIR + "mare_bits_v2.scn"
@@ -124,13 +125,16 @@ func set_facts(facts_node: RefCounted) -> void:
 
 
 ## Create the per-act controller. The controller owns it until `end_act()`; its behaviour
-## follows the live pose view, so the runtime needs no start pose id here.
+## follows the live pose view, so the runtime needs no start pose id here. The facade is told
+## before the pose starts, so a world integration can undress the pony before the first frame.
 func begin_act() -> Node:
 	end_act()
 	_act = ACT.new()
 	_act.name = "UnfplapAnatomyAct"
 	add_child(_act)
 	_act.call("setup", service, pony, self, consent, status)
+	if is_instance_valid(service) and service.has_method("note_act_started"):
+		service.call("note_act_started", pony)
 	return _act
 
 
@@ -378,6 +382,61 @@ func detach() -> void:
 	set_process(false)
 	if dock_refresh.is_valid():
 		dock_refresh.call(pony)
+
+
+# --------------------------------------------------------------------------- garment hull
+
+## The worn-garment depth field for this pony's refined anatomy mesh. It is built once per
+## source mesh, resolution and smoothing and shared by every mare; the integration only needs
+## the texture and the per-mare transform. Null when the anatomy is detached.
+func garment_hull() -> GARMENT_HULL.Hull:
+	if not is_attached() or not is_instance_valid(attach.mesh):
+		return null
+	var mesh := attach.mesh.mesh as ArrayMesh
+	if mesh == null:
+		return null
+	return GARMENT_HULL.build(mesh, int(SETTINGS.pantyhose_hull_resolution.get_num()),
+		int(SETTINGS.pantyhose_hull_smoothing.get_num()))
+
+
+## Map an anatomy-local point into the garment's model space (the body's rest space). The
+## anatomy mesh is skinned to `pony_hips`; the body model is the space the worn garment's
+## vertices are skinned in. The per-act trims are part of the live mesh transform.
+func garment_transform() -> Transform3D:
+	var body: Node3D = null
+	if is_instance_valid(pony):
+		body = pony.find_child("MareBody", true, false) as Node3D
+		if body == null:
+			body = pony
+	if not is_attached() or not is_instance_valid(attach.mesh):
+		return Transform3D.IDENTITY
+	return garment_transform_for(body, attach.mesh)
+
+
+## True when the anatomy is attached and the visibility poll has the mesh shown. A far mesh or
+## the act-only hiding makes the cloth skip the hull.
+func garment_visible() -> bool:
+	return is_attached() and is_instance_valid(attach.mesh) and attach.visible()
+
+
+## The anatomy mesh whose local space the hull field is built in. The debug heatmap is parented
+## here so it follows the live bone transform with no per-frame write.
+func garment_parent() -> Node3D:
+	return attach.mesh if is_attached() and is_instance_valid(attach.mesh) else null
+
+
+## The pure transform mapping, so the tests can pin it without a live attachment.
+static func garment_transform_for(body: Node3D, mesh: Node3D) -> Transform3D:
+	if not is_instance_valid(body) or not is_instance_valid(mesh):
+		return Transform3D.IDENTITY
+	return body.global_transform.affine_inverse() * mesh.global_transform
+
+
+## A margin in millimetres as anatomy-local units. The shader converts the local push back by
+## the basis' Z scale, so this keeps the slider in world millimetres on every body size.
+static func garment_margin_local(transform: Transform3D, millimetres: float) -> float:
+	var scale := (transform.basis * Vector3(0.0, 0.0, 1.0)).length()
+	return (millimetres / 1000.0) / maxf(scale, 0.0001)
 
 
 func winking_mesh() -> MeshInstance3D:

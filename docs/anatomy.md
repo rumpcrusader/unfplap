@@ -37,6 +37,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
 | `anatomy/coat.gd` | rig coat patch, vulva/anal spread, the vulva cut and the still zones |
 | `anatomy/coat_follow.gd` | samples the body coat's leg weights and keeps the anatomy shell on the rump |
+| `anatomy/garment_hull.gd` | the worn-garment rear-facing outer depth field, shared by every mare |
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
 | `anatomy/player.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
@@ -87,6 +88,8 @@ tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), tai
 placement_target(), placement_id(), placement_values(id), placement_refresh()
 placement_debug(op, value), placement_show()
 consent(pony, key), status(text)
+garment_hull(pony), garment_transform(pony), garment_visible(pony), garment_parent(pony)
+garment_hull_rebuild(), note_act_started(pony)
 player_encounter(on), player_track(...), player_showing(), player_available()
 player_prepare(), player_root_now(), player_tip_center(), player_shaft_radii(count)
 player_shaft_length_m(), player_girth_at(point), player_tip_world()
@@ -105,7 +108,14 @@ apply_part_visibility(show, teats_on, strip_on)
 is_attached(), body_coat_refresh()
 body_coat_mesh(), body_coat_material(), body_outline_material()
 fluid(), idle_discharge(count)
+garment_hull(), garment_transform(), garment_visible(), garment_parent()
+garment_transform_for(body, mesh), garment_margin_local(transform, millimetres)
 ```
+
+The `main.anatomy` `act_started(pony)` signal is emitted by `note_act_started()` when a
+controller builds its per-act handle, before the pose starts. A world integration uses it to take
+a worn garment off before the first rendered act frame. `garment_hull_rebuild()` clears the shared
+hull cache; the next read rebuilds once.
 
 `controller.begin_act()` (per-act handle):
 
@@ -209,6 +219,43 @@ resulting `view.contact_kind`/`view.contact_target`.
 - The dock style setting chooses the dock material: `genitals` copies the attached anatomy material
   with the skin tones, `coat` keeps the game's coat material, and `hide` removes the dock. With
   anatomy detached, the dock falls back to the coat.
+
+## Garment hull
+
+The optional worn-garment compatibility (`docs/integrations.md`, Pantyhose & Panties) needs the
+anatomy's outer surface as a height field the cloth shader can sample. `anatomy/garment_hull.gd`
+builds it in anatomy-local space (`+Z` toward the tail):
+
+- Only triangles whose local normal faces rearward (`n.z > OUTER_NORMAL_Z`) are kept, so the inner
+  canal and cavity walls never enter the field.
+- The base mesh and the `closed`, `wink`, `anal_open`, `anal_stretch`, `anal_overstretch`,
+  `anal_extreme` and `ponut_scale` blend shapes are rasterised at full weight; the field is their
+  outer envelope. `stretch` is excluded because the mod always zeroes it.
+- The X/Y projection is a `resolution × resolution` grid of the maximum Z per cell. The domain is
+  the retained outer triangles' X/Y bounds plus a small margin, so the anal extreme shape cannot
+  stretch the domain. Empty cells are filled by dilation and the debug smoothing passes.
+- The field is normalised over `z_min`/`z_max`; an uncovered cell keeps a negative marker and the
+  shader skips it. The texture is `FORMAT_RF`, linear, no repeat.
+- The build is cached by source mesh RID, resolution and smoothing, so every mare shares one
+  field. `garment_hull_rebuild()` clears the cache; a precision edit or the Rebuild action rebuilds
+  once, off the frame path.
+
+The reads:
+
+- `garment_hull()` — the shared field, or null when detached.
+- `garment_transform()` — `body.global_transform.affine_inverse() * anatomy_mesh.global_transform`,
+  the anatomy-local → garment-model mapping, including the live placement and the missionary
+  trims. `garment_transform_for(body, mesh)` is the pure form the tests pin.
+- `garment_visible()` — attached and the visibility poll has the mesh shown; a far mesh or
+  `act` mode outside the act is false, and the cloth is left alone.
+- `garment_parent()` — the anatomy mesh itself, so the debug heatmap can parent to it and follow
+  the live bone transform without a per-frame write.
+
+The shader maps the worn vertex into anatomy-local space, reads the field, and pushes along the
+anatomy's +Z by `surface_z + margin - local.z`. The margin is converted from millimetres by the
+basis' Z scale, and the local push is converted back when it is applied, so the slider stays in
+world millimetres on every body size. The hull block is in the copied compatibility shaders under
+`integrations/shaders/`; see `docs/integrations.md`.
 
 ## Placement
 
@@ -656,6 +703,9 @@ built from the declarations, so the label, help and bounds are not restated here
 - `features.anatomy_holes`, `features.anatomy_oral`: the V/N controls.
 - The VR standing act always starts on a headset; the old `features.anatomy_vr` switch is retired.
 - `features.debug_aim_points`: the three aim markers.
+- `debug.pantyhose_hull_resolution`, `debug.pantyhose_hull_smoothing`,
+  `debug.pantyhose_hull_margin_mm` and `debug.pantyhose_hull_show`: the garment-hull precision
+  rows; their behavior is `docs/integrations.md` (`## Pantyhose & Panties`).
 
 ## Debug and performance
 
@@ -730,6 +780,8 @@ Current suites:
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.
 - `tests/anatomy/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
 - `tests/anatomy/test_tail_hide.gd`: the debug tail collapse and restore.
+- `tests/integrations/test_pantyhose.gd`: the garment hull builder, the transform mapping and the
+  world adapter's surface overrides and act-start undress.
 
 All anatomy suites live under `tests/anatomy/`. Pure tests must not instantiate a scene or read
 private controller state; facade tests use documented accessors and fakes. The legacy
@@ -777,7 +829,7 @@ The anatomy migration is complete:
   `anatomy.gd.new_act(host)`, it keeps the controller/act handles, the typed context, the
   missionary Anon body, the VR controller, the action gates and the aim/gaze reads. The runtime
   binds a cached host dictionary and never preloads the bridge.
-- `anatomy/identity.gd`, `geometry.gd`, `act/state.gd` and `facts.gd` are pure.
+- `anatomy/identity.gd`, `geometry.gd`, `garment_hull.gd`, `act/state.gd` and `facts.gd` are pure.
   `shared/anatomy_placement.gd` stays a shared pure schema.
 - The player part and tail seating are under `anatomy/`; `main` keeps only thin debug/button
   forwards and the HUD status gateway. The player body, the dock refresh, the perf sink and the

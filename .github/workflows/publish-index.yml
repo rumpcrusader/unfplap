@@ -4,7 +4,6 @@ name: publish-index
 # A dry run stops after the preview, so the first submission is always reviewed by eye.
 # The submit job needs the `mod-index` environment with required reviewers; approving the run
 # lets it spend HE_MOD_TOKEN. The index reviewer still approves the release revision itself.
-# Set the environment URL to the live index origin in the repository's environment settings.
 on:
   workflow_dispatch:
     inputs:
@@ -58,6 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: mod-index
+      url: https://mods.pones.top/
     steps:
       - uses: actions/checkout@v4
 

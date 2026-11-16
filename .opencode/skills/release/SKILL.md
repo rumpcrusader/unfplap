@@ -102,8 +102,10 @@ Give this reminder, then stop:
 5. Approve `mod-index`; ask the index reviewer to approve the new release revision.
 
 The store dry run previews the pone.rs mirror but does not write the store. The index dry run
-reads `scripts/index_listing.json` and the public listing; it does not write either. The first
-index run sets `create`, and its output is the listing ID to commit. Later runs leave it off.
+reads `scripts/index_listing.json` and the public listing; it does not write either. Set `url` in
+`scripts/index_listing.json` once before the first run. The first bootstrap **submit** uses
+`dry_run=false` and `create=true`; its output is the listing ID to commit. Later runs leave
+`create` off.
 
 ## Failure
 

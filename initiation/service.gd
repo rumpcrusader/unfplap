@@ -18,6 +18,7 @@ const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
 const CONVERSATION := preload("res://mods/unfplap/initiation/conversation.gd")
 const VENUE := preload("res://mods/unfplap/initiation/venue.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const CONSENT := preload("res://mods/unfplap/initiation/classifier.gd")
 const CONSENT_CORE := preload("res://mods/unfplap/initiation/consent.gd")
@@ -65,16 +66,6 @@ class Candidate extends RefCounted:
 	var bed_invite := false
 	var weight := 0.0
 	var forced := false
-
-
-## The live accepted offer `main` may start with the act key. Memory only, one per episode.
-## `start_offer()` reuses one object; read it immediately and do not store it across calls.
-class StartOffer extends RefCounted:
-	var runtime: Node
-	var pony: Node3D
-	var pose := ""
-	var source := ""
-	var bed: Node
 
 
 ## One live request episode. The facade owns it and clears it on every exit; it is never stored
@@ -149,7 +140,7 @@ class ForceResult extends RefCounted:
 
 var main: Node
 var _episode: Episode = null
-var _start_offer := StartOffer.new()
+var _start_offer := POSE_OFFER.new()
 var _scan_clock := 0.0
 var _serial := 0
 ## id -> whether she was cuddling on the last scan.
@@ -259,8 +250,9 @@ func cancel_for(pony: Node) -> void:
 
 
 ## The accepted offer the act key may start, or null. Only a private invitation whose
-## presentation (or bed) is ready is handed over; the caller runs the full start gate.
-func start_offer() -> StartOffer:
+## presentation (or bed) is ready is handed over; the caller runs the full start gate. The one
+## `PoseOffer` object is reused, so read it immediately and do not store it across calls.
+func start_offer() -> POSE_OFFER:
 	if _episode == null or _episode.phase != Phase.INVITE or not _episode.private:
 		return null
 	var runtime: Node = _episode.runtime
@@ -268,7 +260,7 @@ func start_offer() -> StartOffer:
 	if not is_instance_valid(main) or not is_instance_valid(runtime) \
 			or not is_instance_valid(pony) or int(runtime.get("state")) != 0:
 		return null
-	if _episode.pose == CATALOG.STANDING:
+	if bool(POSE_SPECS.scene(_episode.pose).get("standing_free", false)):
 		if not bool(runtime.call("presentation_active")) \
 				or not bool(runtime.call("presentation_settled")):
 			return null
@@ -284,6 +276,12 @@ func start_offer() -> StartOffer:
 	_start_offer.pose = _episode.pose
 	_start_offer.source = _episode.source
 	_start_offer.bed = _episode.bed
+	_start_offer.trigger = "offer"
+	_start_offer.auto = false
+	_start_offer.pending = true
+	_start_offer.scope = "dialogue:"
+	_start_offer.blocked = {}
+	_start_offer.cancel = Callable(self, "cancel_for").bind(pony)
 	return _start_offer
 
 

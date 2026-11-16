@@ -28,6 +28,7 @@ const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
@@ -74,8 +75,10 @@ var eligibility: ELIGIBILITY
 var memory: MEMORY
 
 var _runtimes: Dictionary = {}
-var _offer: Dictionary = {}
-var _offer_blocked: Dictionary = {}
+## The idle scan's playable offer and its blocked variant. Both are typed `PoseOffer` handles;
+## null means none. See `start_pose_offer()`.
+var _offer: POSE_OFFER = null
+var _offer_blocked: POSE_OFFER = null
 var _offer_clock := 0.0
 var _interactor: Node
 var _desktop: Node
@@ -250,8 +253,8 @@ func _on_world(host: Node) -> void:
 	_desktop = null
 	_camera_cache = null
 	_camera_cache_at = 0.0
-	_offer = {}
-	_offer_blocked = {}
+	_offer = null
+	_offer_blocked = null
 	_perf_idle.reset()
 	if is_instance_valid(initiation):
 		initiation.reset()
@@ -276,8 +279,8 @@ func _on_world_closed(_host: Node) -> void:
 	active_runtime = null
 	game = null
 	player = null
-	_offer = {}
-	_offer_blocked = {}
+	_offer = null
+	_offer_blocked = null
 	_perf_idle.reset()
 	_last_blocked_key = ""
 	if is_instance_valid(stool):
@@ -503,8 +506,8 @@ func _process_entry(delta: float) -> void:
 			var hud_started := Time.get_ticks_usec()
 			hud.update_from(active_runtime.call("act_view"))
 			active_runtime.call("perf_note", "hud", Time.get_ticks_usec() - hud_started)
-		_offer = {}
-		_offer_blocked = {}
+		_offer = null
+		_offer_blocked = null
 		_sync_native_hint("")
 		return
 
@@ -520,10 +523,11 @@ func _process_entry(delta: float) -> void:
 	if is_instance_valid(initiation):
 		initiation.tick(delta)
 	var hint := ""
-	if not _offer.is_empty():
+	if _offer != null:
 		hint = OFFER_HINT
-	elif not _offer_blocked.is_empty():
-		hint = str(_offer_blocked.get("hint", NEEDS_STOOL_HINT))
+	elif _offer_blocked != null:
+		var blocked_hint := _offer_blocked.blocked_hint()
+		hint = blocked_hint if not blocked_hint.is_empty() else NEEDS_STOOL_HINT
 	else:
 		_last_offer_key = ""
 		_last_blocked_key = ""
@@ -531,8 +535,8 @@ func _process_entry(delta: float) -> void:
 
 
 func _refresh_offer() -> void:
-	_offer = {}
-	_offer_blocked = {}
+	_offer = null
+	_offer_blocked = null
 	if not is_instance_valid(player) or not is_instance_valid(game):
 		return
 	if get_tree().paused:
@@ -548,23 +552,19 @@ func _refresh_offer() -> void:
 
 	# The request service's accepted offer owns the hint while it lives. It is already a yes, so
 	# the rump fan must not be needed to rediscover it; the live gate still decides the hint.
-	var live := _live_request_offer()
-	if not live.is_empty():
-		var live_runtime: Variant = live.get("runtime")
-		if not is_instance_valid(live_runtime):
-			return
+	var live: POSE_OFFER = _live_request_offer()
+	if live != null:
+		var live_runtime: Node = live.runtime
 		var live_gate: Dictionary = live_runtime.call("hint_start_verdict",
-			str(live.get("pose", "")), str(live.get("source", "")), live.get("bed"))
+			live.pose, live.source, live.bed)
 		if bool(live_gate.get("show", false)):
 			_offer = live
 			_log_offer()
 			return
 		if bool(live_runtime.call("stool_blocks_verdict", live_gate)):
 			var live_need := maxi(1, int(live_runtime.call("stool_needed_count")))
-			var live_hint := _stool_hint_for(live_need)
-			_offer_blocked = {"runtime": live_runtime, "pony": live.get("pony"),
-				"need": live_need, "hint": live_hint}
-			_log_blocked_offer(live_runtime, live.get("pony"), live_need)
+			_offer_blocked = _blocked_copy(live, live_need, _stool_hint_for(live_need))
+			_log_blocked_offer(live_runtime, live.pony, live_need)
 		return
 
 	# Missionary now requires Anon to be seated/lying on the bed with a pony lying there. A
@@ -576,8 +576,7 @@ func _refresh_offer() -> void:
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
 				if bed != null and runtime.can_show_start(CATALOG.MISSIONARY, "bed_side", bed):
-					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
-						"source": "bed_side", "bed": bed}
+					_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
 					_log_offer()
 					return
 
@@ -589,8 +588,7 @@ func _refresh_offer() -> void:
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
 				if bed != null and runtime.can_show_start(CATALOG.MISSIONARY, "already_lying", bed):
-					_offer = {"runtime": runtime, "pony": lying, "pose": CATALOG.MISSIONARY,
-						"source": "already_lying", "bed": bed}
+					_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "already_lying", bed)
 					_log_offer()
 					return
 
@@ -610,8 +608,7 @@ func _refresh_offer() -> void:
 			if timed:
 				_perf_idle.note("offer_gate", Time.get_ticks_usec() - gate_started)
 			if bool(gate.get("show", false)):
-				_offer = {"runtime": runtime, "pony": standing, "pose": CATALOG.STANDING,
-					"source": "", "bed": null}
+				_offer = _new_offer(runtime, standing, CATALOG.STANDING, "", null)
 				_log_offer()
 			else:
 				var stool_started := Time.get_ticks_usec() if timed else 0
@@ -620,19 +617,56 @@ func _refresh_offer() -> void:
 					_perf_idle.note("offer_stool", Time.get_ticks_usec() - stool_started)
 				if blocked:
 					var need := maxi(1, int(runtime.call("stool_needed_count")))
-					var hint := _stool_hint_for(need)
-					_offer_blocked = {"runtime": runtime, "pony": standing,
-						"need": need, "hint": hint}
+					var blocked_offer := _new_offer(runtime, standing, CATALOG.STANDING, "", null)
+					blocked_offer.blocked = _blocked_record(need, _stool_hint_for(need))
+					_offer_blocked = blocked_offer
 					_log_blocked_offer(runtime, standing, need)
+
+
+## Build one typed offer for the idle scan. The cleanup is always the request service's
+## `cancel_for`: it also releases a stray presentation, whether or not this pony has an episode.
+func _new_offer(runtime: Node, pony: Node, pose: String, source: String,
+		bed: Variant = null) -> POSE_OFFER:
+	var offer := POSE_OFFER.new()
+	offer.runtime = runtime
+	offer.pony = pony as Node3D
+	offer.pose = pose
+	offer.source = source
+	offer.bed = bed
+	if is_instance_valid(initiation) and is_instance_valid(offer.pony):
+		offer.cancel = Callable(initiation, "cancel_for").bind(offer.pony)
+	return offer
+
+
+## The blocked record: the prompt hint and the toast a press shows.
+func _blocked_record(need: int, hint: String) -> Dictionary:
+	return {"hint": hint, "need": maxi(1, need), "toast": _stool_find_hint(need)}
+
+
+## A copy of the live request offer with its blocked record. The request service reuses its one
+## offer object, so the scan never writes discovery policy into it.
+func _blocked_copy(offer: POSE_OFFER, need: int, hint: String) -> POSE_OFFER:
+	var blocked := POSE_OFFER.new()
+	blocked.runtime = offer.runtime
+	blocked.pony = offer.pony
+	blocked.pose = offer.pose
+	blocked.source = offer.source
+	blocked.bed = offer.bed
+	blocked.trigger = offer.trigger
+	blocked.pending = offer.pending
+	blocked.scope = offer.scope
+	blocked.cancel = offer.cancel
+	blocked.blocked = _blocked_record(need, hint)
+	return blocked
 
 
 ## The current offer's pony, for the request service's cuddle check. It refreshes the offer the
 ## same way the prompt does, so the act key and a proactive cuddle offer cannot disagree.
 func offer_target() -> Node:
 	_refresh_offer()
-	if _offer.is_empty():
+	if _offer == null:
 		return null
-	var target: Variant = _offer.get("pony")
+	var target: Variant = _offer.pony
 	return target if is_instance_valid(target) else null
 
 
@@ -773,36 +807,31 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 			hud.call("toast", _stool_find_hint(need), 4.0)
 
 
-## The request service's live accepted offer, in the idle hint's `_offer` shape. Empty when none.
-func _live_request_offer() -> Dictionary:
+## The request service's live accepted offer. Null when none. The object is the service's one
+## reusable handle, so read it immediately and do not store it.
+func _live_request_offer() -> POSE_OFFER:
 	if not is_instance_valid(initiation) or not initiation.has_method("start_offer"):
-		return {}
+		return null
 	var live: Variant = initiation.call("start_offer")
-	if live == null:
-		return {}
-	var pony: Variant = live.get("pony")
-	var runtime: Variant = live.get("runtime")
-	if not is_instance_valid(pony) or not is_instance_valid(runtime):
-		return {}
-	return {"runtime": runtime, "pony": pony, "pose": str(live.get("pose", "")),
-		"source": str(live.get("source", "")), "bed": live.get("bed"), "pending": true}
+	if not (live is POSE_OFFER):
+		return null
+	var offer := live as POSE_OFFER
+	return offer if offer.valid() else null
 
 
 func _log_offer() -> void:
-	if _offer.is_empty():
+	if _offer == null:
 		return
-	var target: Variant = _offer.get("pony")
-	var pending := bool(_offer.get("pending", false))
+	var target: Variant = _offer.pony
 	var key := "%s:%s:%s:%s" % [
 		str(target.name) if is_instance_valid(target) else "?",
-		str(_offer.get("pose", "")), str(_offer.get("source", "")), str(pending)]
+		_offer.pose, _offer.source, str(_offer.pending)]
 	if key == _last_offer_key:
 		return
 	_last_offer_key = key
 	_debug("OFFER pony=%s pose=%s source=%s bed=%s pending=%s" % [
 		str(target.name) if is_instance_valid(target) else "?",
-		str(_offer.get("pose", "")), str(_offer.get("source", "")), str(_offer.get("bed")),
-		str(pending)])
+		_offer.pose, _offer.source, str(_offer.bed), str(_offer.pending)])
 
 
 func debug_target(view: Camera3D) -> Node:
@@ -844,67 +873,73 @@ func _debug_target(view: Camera3D) -> Node:
 	return best
 
 
+## The act key's one start entry. It discovers the offer, hands it to `start_pose_offer()` and
+## falls back to the refusal path only when neither a playable nor a blocked offer exists.
 func try_start() -> bool:
 	if is_instance_valid(active_runtime):
 		return false
 	_refresh_offer()
-	if _offer.is_empty() and _offer_blocked.is_empty():
+	if _offer == null and _offer_blocked == null:
 		# A stale policy snapshot can hide the accepted offer. Use the live episode anyway; the
 		# fresh start gate below still decides whether the act may start.
-		var live := _live_request_offer()
-		if not live.is_empty():
-			_offer = live
-	if _offer.is_empty():
-		if not _offer_blocked.is_empty():
-			if is_instance_valid(hud) and hud.has_method("toast"):
-				var need := maxi(1, int(_offer_blocked.get("need", 1)))
-				hud.call("toast", _stool_find_hint(need), 4.0)
-			return false
+		_offer = _live_request_offer()
+	if _offer == null:
+		if _offer_blocked != null:
+			return start_pose_offer(_offer_blocked)
 		return _try_refusal()
-	var runtime: Variant = _offer.get("runtime")
-	if not is_instance_valid(runtime):
+	return start_pose_offer(_offer)
+
+
+## The one typed act-start path. The act key and any future automatic trigger call this. The offer
+## carries its pose, blocked policy, owner cleanup and classifier scope, so this function never
+## names a pose and never reaches into the request service.
+func start_pose_offer(offer: POSE_OFFER) -> bool:
+	if offer == null or not offer.valid():
 		return false
-	var target: Variant = _offer.get("pony")
-	var source := str(_offer.get("source", ""))
-	var pose := str(_offer.get("pose", ""))
-	var bed = _offer.get("bed")
+	if not offer.blocked.is_empty():
+		var toast := str(offer.blocked.get("toast", ""))
+		if not toast.is_empty() and is_instance_valid(hud) and hud.has_method("toast"):
+			hud.call("toast", toast, 4.0)
+		return false
+	var runtime: Node = offer.runtime
+	var target: Variant = offer.pony
 	# The gate runs before the request handoff: a transient refusal must leave the accepted offer
 	# and its hint intact, because the player can fix the condition and press again.
-	var gate: Dictionary = runtime.call("start_verdict", pose, source, bed)
+	var gate: Dictionary = runtime.call("start_verdict", offer.pose, offer.source, offer.bed)
 	if bool(gate.get("history_refuse", false)):
-		_cancel_request_offer(target)
-		runtime.call("refuse_from_history", pose, source, bed)
+		_cancel_pose_offer(offer)
+		runtime.call("refuse_from_history", offer.pose, offer.source, offer.bed)
 		_clear_offer_hint()
 		return true
 	if not bool(gate.get("attempt", false)):
 		if bool(gate.get("buck_refuse", false)):
-			_cancel_request_offer(target)
-			runtime.call("start", pose, bed, source, gate)
+			_cancel_pose_offer(offer)
+			runtime.call("start", offer.pose, offer.bed, offer.source, gate)
 			_clear_offer_hint()
 			return false
-		_log_start_blocked(gate, pose, source, target)
+		_log_start_blocked(gate, offer.pose, offer.source, target)
 		return false
-	_cancel_request_offer(target)
-	var started: bool = bool(runtime.call("start", pose, bed, source, gate))
+	_cancel_pose_offer(offer)
+	var started: bool = bool(runtime.call("start", offer.pose, offer.bed, offer.source, gate))
 	if started:
-		if is_instance_valid(classifier):
-			classifier.call("cancel_scope", "dialogue:")
+		if not offer.scope.is_empty() and is_instance_valid(classifier):
+			classifier.call("cancel_scope", offer.scope)
 	else:
 		_debug("start failed pose=%s source=%s pony=%s" % [
-			pose, source, str(target.name) if is_instance_valid(target) else "?"])
+			offer.pose, offer.source, str(target.name) if is_instance_valid(target) else "?"])
 	_clear_offer_hint()
 	return started
 
 
-## Close the live request episode before a start or refusal that owns the pony. A missing target
-## or service is a no-op.
-func _cancel_request_offer(target: Variant) -> void:
-	if is_instance_valid(initiation) and is_instance_valid(target):
-		initiation.cancel_for(target)
+## Close the live request episode before a start or refusal that owns the pony. The offer carries
+## the callback; a missing callback is a no-op.
+func _cancel_pose_offer(offer: POSE_OFFER) -> void:
+	if offer != null and offer.cancel.is_valid():
+		offer.cancel.call()
 
 
 func _clear_offer_hint() -> void:
-	_offer = {}
+	_offer = null
 	if is_instance_valid(hud):
 		hud.hide_prompt()
 
@@ -1732,7 +1767,7 @@ func set_active(runtime: Node) -> void:
 		if is_instance_valid(pony):
 			initiation.cancel_for(pony)
 	active_runtime = runtime
-	_offer = {}
+	_offer = null
 
 
 func clear_active(runtime: Node) -> void:
@@ -2051,7 +2086,7 @@ func _exit_tree() -> void:
 		anatomy.call("shutdown")
 		anatomy.queue_free()
 		anatomy = null
-	_offer = {}
+	_offer = null
 	_perf_idle.reset()
 	if is_instance_valid(hud):
 		hud.queue_free()

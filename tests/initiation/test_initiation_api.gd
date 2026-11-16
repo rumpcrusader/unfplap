@@ -276,11 +276,17 @@ func run() -> void:
 	check(director.queued[0].begins_with("unfplap:request:rarity:")
 		and director.queued[0].ends_with(":invite"), "the invitation key names the request")
 
-	# The accepted offer hands its live shape to the act key, independent of the rump fan.
-	var live: INIT.StartOffer = initiation.start_offer()
+	# The accepted offer hands its live typed shape to the act key, independent of the rump fan.
+	var live: INIT.POSE_OFFER = initiation.start_offer()
 	check(live != null and live.pose == CATALOG.STANDING and live.source.is_empty(),
 		"the accepted standing offer is startable")
 	check(live != null and live.pony == target, "the start offer names the mare")
+	check(live != null and live.trigger == "offer" and live.pending and not live.auto,
+		"the live offer carries its trigger and the act-key handoff state")
+	check(live != null and live.scope == "dialogue:" and live.cancel.is_valid(),
+		"the live offer carries its classifier scope and owner cleanup")
+	check(live != null and live.blocked.is_empty() and live.blocked_hint().is_empty(),
+		"the live offer starts playable")
 	target.global_position = Vector3(4.0, 0.0, 0.0)
 	check(initiation.start_offer() == null, "an accepted offer past 3 m is not startable")
 	target.global_position = Vector3(1.732, 0.0, 1.0)

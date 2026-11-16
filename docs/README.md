@@ -35,6 +35,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Eligibility and consent | `eligibility/service.gd` | `docs/eligibility.md` | `tests/eligibility/` |
 | Scene gate and refusal | `scene_gate/service.gd` | `docs/scene_gate.md` | `tests/scene_gate/` |
 | Act scene hold | `scene_hold/service.gd` | `docs/scene_hold.md` | `tests/scene_hold/` |
+| Privacy | `privacy/service.gd` | `docs/privacy.md` | `tests/privacy/` |
 | Mod integrations | `integrations/service.gd`, `integrations/pantyhose.gd` | `docs/integrations.md` | `tests/integrations/` |
 | Bed rest and rejoin | `rest/service.gd` | `docs/rest.md` | `tests/rest/` |
 | Hands | `hands/service.gd` | `docs/hands.md` | `tests/hands/` |

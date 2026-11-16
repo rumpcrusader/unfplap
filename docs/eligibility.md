@@ -434,19 +434,18 @@ readiness, offer cooldown and the public-offer override.
 Eligibility reads the resolved result. It never writes it. `public`, `anal` and `oral` are
 independent:
 
-- **Public** is an offer privacy override, never an act gate and never a refusal. It only matters
-  while the **Enable public offers** switch is on.
+- **Public** is a soft Context preference for reasoning on the negotiation routes. It is not an
+  offer privacy override and never gates an act; the old `Enable public offers` switch is retired.
 - **Anal** gates `V`; **oral** gates `N`.
 - Feature flags (`features.anatomy_holes`, `features.anatomy_oral`) are capability gates, not
   consent.
 
 ## Offers and privacy
 
-A proactive offer uses the same public/heat override for bed, cuddle and standing:
-
-```text
-offer_allowed = private or heat or (features.act_public_offer and consent.public)
-```
+The negotiation routes derive visibility from `privacy/service.gd` and have no public override:
+a crowded offer is simply public, and per-mare public consent and heat are Context for reasoning.
+The legacy proactive route still reads `actions.public_offer` until the retired
+`features.act_public_offer` setting is removed; it is not a rule the new routes may copy.
 
 "Private" is a house with no other pony in that house, or outdoors with no other pony within
 30 m. The offering mare is excluded from the other-pony checks. A public offer is still an offer;

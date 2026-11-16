@@ -34,7 +34,8 @@ dialogue cues and prompts.
 | `initiation/cooldowns.gd` | request cooldown store: `request_times`, the history wait and the heat shortening |
 | `initiation/prompts.gd` | pure wording: ask, reminders, clarification, invitation, give-up lines and the situation texts |
 | `initiation/conversation.gd` | scene adapter: the only reader of the conversation director, the consent classifier and the world context |
-| `initiation/venue.gd` | scene adapter: the only reader of navigators, posture, the bed search and the privacy scan |
+| `initiation/venue.gd` | scene adapter: the only reader of navigators, posture and the bed search |
+| `privacy/service.gd` | world privacy provider: the house, the other mares, the radius and the offer/cuddle predicates |
 | `docs/initiation.md` | this contract |
 | `tests/initiation/` | pure rules, facts and wording suites, plus the facade API suite |
 
@@ -52,14 +53,15 @@ The purity boundary is deliberate:
 - `venue.gd` owns `Navigator` fields (`command_owner`, `wander_enabled`, `command_speed_limit`,
   `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the
   bed rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`, `accept`), the player seat and
-  `couch_sleeping`, the house lookup, the `couches` group and `WorldLayout`.
+  `couch_sleeping`, the `couches` group and `WorldLayout`. The world house lookup is delegated to
+  the privacy provider.
 - The facade is the only file that preloads `eligibility/service.gd`, `shared/act_history.gd` (for the ask
   notes), `shared/cycle.gd`, `settings/service.gd`, `memory/service.gd` (`docs/memory.md`), `shared/relationship_cue.gd`,
   `shared/act_face.gd` and
   `rest/control.gd`; `cooldowns.gd` also preloads `shared/act_history.gd` and the policy module.
 - No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*`.
-- `main.gd` creates the service (`setup(self)`) and drives it: `tick`, `reset`, `cancel_for`,
-  `force` and `offer_target()`. `runtime.gd` exposes `cuddle_active()` for the scan.
+- `main.gd` creates the service (`setup(self, privacy)`) and drives it: `tick`, `reset`,
+  `cancel_for`, `force` and `offer_target()`. `runtime.gd` exposes `cuddle_active()` for the scan.
 
 ## Internal API
 
@@ -95,9 +97,8 @@ Adapters (internal, called by the facade):
 conversation: hook, unhook, quiet, idle, begin_turn, player_reacted, last_player_text, player_name,
               pony_speaking, begin_greeting, queue, cancel_keys, classify_offer,
               cancel_key, cancel_scope, record_situation
-venue:        player, mares, pony_id, region_of, camera_forward, private_at_player,
-              cuddle_privacy, privacy_report, can_approach, stand, ensure_stand,
-              claim_nav, nav_owned, nav_has_target, stay, release_nav, find_bed_for,
+venue:        player, mares, pony_id, region_of, camera_forward, house_at, can_approach, stand,
+              ensure_stand, claim_nav, nav_owned, nav_has_target, stay, release_nav, find_bed_for,
               rest_front, accept_bed, player_in_bed
 ```
 
@@ -188,19 +189,17 @@ be sent to a bed outside the ask's own reach.
 ## Privacy
 
 ```text
-offer_private  = public_offer or house_alone or not others_near
+offer_private  = house_alone or not others_near
 cuddle_private = house_alone if indoors else not others_near
-public_offer   = heat or (features.act_public_offer and consent.public)
 ```
 
-"House alone" excludes the offering mare and counts every other mare in the house; outdoors,
-`others_near` counts every other mare within `30 m`. The offer and cuddle formulas are
-`shared/privacy_rules.gd`; the public-offer override stays in `initiation/policy.gd` for the
-current route and the shared rule has none. The public-offer part is the player's
-**Enable public offers** switch; a public offer is still an offer; the act
-itself does not require privacy. The throttled `request privacy ...` log prints the player
-position, the house, every mare in the house, every mare within `30 m`, the target label, the
-public-offer flag and the resolved result.
+The formulas are `shared/privacy_rules.gd` and the scene reads are `privacy/service.gd`. This
+service calls `offer_private()` for a bed or standing offer and `cuddle_private()` for a cuddle;
+the target is excluded from the other-mare checks. There is no public-offer override and no
+heat/public-consent visibility rule: a crowded offer is simply public. "House alone" counts every
+other mare in the house; outdoors, `others_near` counts every other mare within `30 m`. A public
+offer is still an offer; the act itself does not require privacy. The throttled
+`request privacy ...` log is the provider's report.
 
 ## Ask
 
@@ -400,6 +399,7 @@ after the spoken words only when the moment genuinely changes how she feels.
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | memory | `memory/service.gd` | act memory and witness pass |
+| service | privacy | `privacy/service.gd` | live offer and cuddle privacy |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_face | `shared/act_face.gd` | face beat data |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
@@ -407,7 +407,6 @@ after the spoken words only when the moment genuinely changes how she feels.
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 | shared | pose_offer | `shared/pose_offer.gd` | typed act offer |
 | shared | pose_specs | `shared/pose_specs.gd` | offerable poses and form/view support |
-| shared | privacy_rules | `shared/privacy_rules.gd` | offer and cuddle privacy formulas |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
 | store | act_history | `shared/act_history.gd` | stored history rows |
 

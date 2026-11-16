@@ -9,6 +9,7 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
+const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -69,6 +70,7 @@ var pantyhose: Node
 var stool: Node
 var _anatomy_status_label: Label
 var initiation
+var privacy: PRIVACY
 var classifier
 var active_runtime
 ## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
@@ -191,9 +193,11 @@ func _ready() -> void:
 	classifier = CLASSIFIER.new()
 	classifier.name = "UnfplapClassifier"
 	add_child(classifier)
+	privacy = PRIVACY.new()
+	privacy.setup(self)
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
-	initiation.call("setup", self)
+	initiation.call("setup", self, privacy)
 	add_child(initiation)
 	anatomy = ANATOMY.new()
 	anatomy.name = "UnfplapAnatomy"
@@ -2088,6 +2092,7 @@ func _exit_tree() -> void:
 	if is_instance_valid(initiation):
 		initiation.reset()
 		initiation.queue_free()
+	privacy = null
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
 		classifier.queue_free()

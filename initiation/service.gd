@@ -32,6 +32,7 @@ const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const REST_CONTROL := preload("res://mods/unfplap/rest/control.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
+const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 
 const KEY_PREFIX := "unfplap:request"
 
@@ -157,17 +158,21 @@ var _scan_reason: Dictionary = {}
 var _scan_log_at: Dictionary = {}
 var _conversation: CONVERSATION
 var _venue: VENUE
+var _privacy: PRIVACY
 
 
-func setup(main_node: Node) -> void:
+func setup(main_node: Node, privacy_node: PRIVACY = null) -> void:
 	main = main_node
+	_privacy = privacy_node if is_instance_valid(privacy_node) else PRIVACY.new()
+	if not is_instance_valid(privacy_node):
+		_privacy.setup(main_node)
 	_conversation = CONVERSATION.new()
 	_conversation.name = "UnfplapRequestThought"
 	_conversation.bind(main_node, Callable(self, "_on_player_transcript"))
 	add_child(_conversation)
 	_venue = VENUE.new()
 	_venue.name = "UnfplapRequestPlace"
-	_venue.bind(main_node)
+	_venue.bind(main_node, _privacy)
 	add_child(_venue)
 
 
@@ -649,24 +654,11 @@ func _append_gate_reasons(reasons: Array, label: String, gate: Dictionary) -> vo
 # --------------------------------------------------------------------------- privacy
 
 func _private_at_player(except: Node = null) -> bool:
-	var public_offer := is_instance_valid(except) and _public_offer_ok(except)
-	return bool(_venue.private_at_player(except, public_offer))
+	return _privacy.offer_private(except)
 
 
 func _cuddle_privacy_ok(pony: Node3D) -> bool:
-	var public_offer := is_instance_valid(pony) and _public_offer_ok(pony)
-	return bool(_venue.cuddle_privacy(pony, public_offer))
-
-
-## Heat and per-mare public consent override the privacy reserve, for every kind of offer. The
-## exact rule is in `docs/eligibility.md`.
-func _public_offer_ok(pony: Node) -> bool:
-	if not is_instance_valid(pony):
-		return false
-	var service := _eligibility()
-	if service == null:
-		return false
-	return service.get_verdict(pony, ELIGIBILITY.Mode.OFFER).actions.public_offer
+	return _privacy.cuddle_private(pony)
 
 
 ## The cuddle offer must be the same offer the act key would start.
@@ -683,9 +675,7 @@ func _log_privacy_once(target: Node) -> void:
 	var now := _now()
 	if now - _episode.privacy_log_at < 1.0:
 		return
-	var public_offer := is_instance_valid(target) and _public_offer_ok(target)
-	var report := str(_venue.privacy_report(target, public_offer,
-		_private_at_player(target)))
+	var report := _privacy.report(target)
 	if _episode.privacy_report == report:
 		return
 	_episode.privacy_report = report
@@ -946,7 +936,7 @@ func _tick_bed_wait() -> void:
 	if _now() - _episode.bed_wait_started > POLICY.BED_WAIT_TIMEOUT_S:
 		_give_up("bed wait timeout")
 		return
-	if player.global_position.distance_to(pony.global_position) > POLICY.PRIVACY_RADIUS_M:
+	if player.global_position.distance_to(pony.global_position) > POLICY.BED_WAIT_RANGE_M:
 		_cancel_episode(false, "bed wait player left")
 		return
 	if not _episode.bed_joining:

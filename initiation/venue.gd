@@ -1,18 +1,19 @@
 extends Node
 ## The request system's venue adapter: the only file that touches navigators, posture, the bed
-## search and the privacy scan. It answers with plain values and appends reject reasons for the
-## debug log. See `docs/initiation.md`.
+## search and the world house. It answers with plain values and appends reject reasons for the
+## debug log. The privacy scan lives in `privacy/service.gd`. See `docs/initiation.md`.
 
-const HOUSE := preload("res://world/buildings/house_interior.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 
 var main: Node
+var _privacy: RefCounted
 
 
-func bind(main_node: Node) -> void:
+func bind(main_node: Node, privacy_node: RefCounted) -> void:
 	main = main_node
+	_privacy = privacy_node
 
 
 func player() -> Node3D:
@@ -57,85 +58,9 @@ func camera_forward() -> Vector3:
 
 
 func house_at(at: Vector3) -> Node3D:
-	if not is_inside_tree():
+	if not is_instance_valid(_privacy):
 		return null
-	return HOUSE.at(get_tree(), at)
-
-
-## The offer privacy rule. The facade resolves `public_offer` from eligibility and this gathers
-## the house and distance facts.
-func private_at_player(except: Node, public_offer: bool) -> bool:
-	var node := player()
-	if not is_instance_valid(node):
-		return false
-	var house := house_at(node.global_position)
-	return POLICY.offer_private(is_instance_valid(except) and public_offer,
-		house != null and not other_in_house(house, except),
-		other_within(node.global_position, except, POLICY.PRIVACY_RADIUS_M))
-
-
-## The cuddle rule: an indoor cuddle needs the house alone, an outdoor one needs nobody near.
-func cuddle_privacy(pony: Node, public_offer: bool) -> bool:
-	var node := player()
-	if not is_instance_valid(node):
-		return false
-	if is_instance_valid(pony) and public_offer:
-		return true
-	var house := house_at(node.global_position)
-	var indoor := house != null
-	return POLICY.cuddle_private(indoor, indoor and not other_in_house(house, pony),
-		other_within(node.global_position, pony, POLICY.PRIVACY_RADIUS_M))
-
-
-func other_in_house(house: Node3D, except: Node) -> bool:
-	if not is_instance_valid(house):
-		return false
-	for node: Variant in mares():
-		if not is_instance_valid(node) or node == except:
-			continue
-		if house_at((node as Node3D).global_position) == house:
-			return true
-	return false
-
-
-func other_within(at: Vector3, except: Node, radius: float) -> bool:
-	for node: Variant in mares():
-		if not is_instance_valid(node) or node == except:
-			continue
-		if (node as Node3D).global_position.distance_to(at) <= radius:
-			return true
-	return false
-
-
-## Diagnostic for an offer's privacy decision. The target is labelled and excluded from the
-## other-pony checks, so the logged result matches the offer's actual privacy rule.
-func privacy_report(target: Node, public_offer: bool, private: bool) -> String:
-	var node := player()
-	if not is_instance_valid(node):
-		return "player=none"
-	var house := house_at(node.global_position)
-	var in_house: Array[String] = []
-	var nearby: Array[String] = []
-	for item: Variant in mares():
-		if not is_instance_valid(item) or not item is Node3D:
-			continue
-		var actor := item as Node3D
-		var distance := actor.global_position.distance_to(node.global_position)
-		var id := pony_id(actor)
-		var tag := id if not id.is_empty() else str(actor.name)
-		if actor == target:
-			tag += "(target)"
-		if house != null and house_at(actor.global_position) == house:
-			in_house.append("%s(%.1fm)" % [tag, distance])
-		if distance <= POLICY.PRIVACY_RADIUS_M:
-			nearby.append("%s(%.1fm)" % [tag, distance])
-	var house_text := "none"
-	if house != null:
-		house_text = "%s@%s" % [str(house.name), str(house.global_position)]
-	var target_id := str(pony_id(target)) if is_instance_valid(target) else "?"
-	return "player=%s target=%s house=%s in_house=[%s] within_%dm=[%s] public_offer=%s private=%s" % [
-		str(node.global_position), target_id, house_text, ",".join(in_house),
-		int(POLICY.PRIVACY_RADIUS_M), ",".join(nearby), str(public_offer), str(private)]
+	return _privacy.house_at(at)
 
 
 ## A standing offer needs a free navigator in Anon's region and within reach.

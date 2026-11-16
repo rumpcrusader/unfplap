@@ -7,6 +7,7 @@ extends SceneTree
 
 const INIT := preload("res://mods/unfplap/initiation/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const COOLDOWNS := preload("res://mods/unfplap/initiation/cooldowns.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
@@ -243,7 +244,9 @@ func run() -> void:
 
 	var initiation := INIT.new()
 	initiation.name = "UnfplapInitiation"
-	initiation.call("setup", fake_main)
+	var privacy := PRIVACY.new()
+	privacy.setup(fake_main)
+	initiation.call("setup", fake_main, privacy)
 	root.add_child(initiation)
 
 	# A standing ask starts through the debug entry and arms the request face.
@@ -333,7 +336,7 @@ func run() -> void:
 	check(not runtime.presented, "a private yes is refused when a third pony arrived")
 	check(not runtime.face_on, "the refused accept clears the request face")
 
-	# Heat opens the public override, so the same crowded offer is accepted.
+	# Heat is Context, not a visibility override: the same crowded offer stays public.
 	initiation.reset()
 	runtime.phase = "heat"
 	runtime.presented = false
@@ -341,7 +344,7 @@ func run() -> void:
 	director.state = "idle"
 	director.transcript.emit("yes")
 	initiation.tick(0.0)
-	check(runtime.presented, "heat overrides the privacy reserve")
+	check(not runtime.presented, "heat no longer overrides the privacy reserve")
 	runtime.phase = "normal"
 	game.mares = [target]
 

@@ -35,7 +35,7 @@ func run() -> void:
 	check(POLICY.PLAYER_MOVE_CANCEL_M == 5.0, "Anon moving 5 m cancels the walk")
 	check(POLICY.ASK_RANGE_CANCEL_M == 8.0, "the ask cancels past 8 m")
 	check(POLICY.PENDING_START_RANGE_M == 3.0, "an accepted offer starts within 3 m")
-	check(POLICY.PRIVACY_RADIUS_M == 30.0, "privacy looks 30 m out")
+	check(POLICY.BED_WAIT_RANGE_M == 30.0, "the bed wait lets Anon roam 30 m")
 	check(POLICY.PROMPT_1_S == 12.0, "the first reminder is at twelve seconds")
 	check(POLICY.PROMPT_2_S == 24.0, "the second reminder is at twenty-four seconds")
 	check(POLICY.GIVE_UP_S == 60.0, "an unanswered offer gives up at sixty seconds")
@@ -60,21 +60,6 @@ func run() -> void:
 	check(POLICY.heat_cooldown(600.0) == 150.0, "heat quarters the cooldown")
 	check(POLICY.retry_ready(1000.0, 999.0), "a passed retry is ready")
 	check(not POLICY.retry_ready(1000.0, 1001.0), "a future retry still waits")
-
-	check(POLICY.cuddle_private(true, true, false), "an indoor cuddle needs house solitude")
-	check(not POLICY.cuddle_private(true, false, false),
-		"an indoor cuddle rejects another pony in the house")
-	check(POLICY.cuddle_private(false, false, false), "an outdoor cuddle needs nobody near")
-	check(not POLICY.cuddle_private(false, false, true),
-		"an outdoor cuddle rejects a nearby pony")
-	check(POLICY.cuddle_private(false, false, false),
-		"an outdoor cuddle ignores the house state")
-
-	check(POLICY.offer_private(true, false, true), "a public offer overrides the reserve")
-	check(POLICY.offer_private(false, true, true), "house solitude allows an offer")
-	check(POLICY.offer_private(false, false, false), "nobody near allows an offer")
-	check(not POLICY.offer_private(false, false, true),
-		"a nearby pony blocks an offer without house solitude")
 
 	check(POLICY.wording_mode(true) == POLICY.MODE_FREE, "a private offer words freely")
 	check(POLICY.wording_mode(false) == POLICY.MODE_INDIRECT, "a public offer hints")

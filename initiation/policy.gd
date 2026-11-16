@@ -4,7 +4,6 @@ extends RefCounted
 ## supplies plain values and keeps every timer. See `docs/initiation.md`.
 
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const PRIVACY_RULES := preload("res://mods/unfplap/shared/privacy_rules.gd")
 
 ## Usual per-mare wait between offers.
 const COOLDOWN_S := 600.0
@@ -23,7 +22,8 @@ const ASK_RANGE_CANCEL_M := 8.0
 ## free-standing reach so the 2.8 m ask edge still starts, but small enough that the act-start
 ## placement is a nudge, not a cross-room teleport.
 const PENDING_START_RANGE_M := 3.0
-const PRIVACY_RADIUS_M := 30.0
+## How far Anon may wander during the bed-join wait before the offer closes.
+const BED_WAIT_RANGE_M := 30.0
 const PROMPT_1_S := 12.0
 const PROMPT_2_S := 24.0
 ## No reply at all: she lets it go after this long.
@@ -89,18 +89,6 @@ static func retry_ready(now: float, retry_at: float) -> bool:
 
 
 ## An indoor cuddle needs the house to herself; an outdoor one needs nobody within the radius.
-static func cuddle_private(indoor: bool, house_alone: bool, others_near: bool) -> bool:
-	return PRIVACY_RULES.cuddle_private(indoor, house_alone, others_near)
-
-
-## The current route's public-offer override, then the shared offer rule. The override is retired
-## for the negotiation route; until then it keeps the existing offer behavior unchanged.
-static func offer_private(public_offer: bool, house_alone: bool, others_near: bool) -> bool:
-	if public_offer:
-		return true
-	return PRIVACY_RULES.offer_private(house_alone, others_near)
-
-
 static func wording_mode(private: bool) -> String:
 	return MODE_FREE if private else MODE_INDIRECT
 

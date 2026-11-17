@@ -6,21 +6,6 @@ extends RefCounted
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-const DEFAULT_RULES := {
-	"forgiving_warning": 4.0,
-	"normal_warning_1": 1.0,
-	"normal_warning_2": 4.0,
-	"normal_stop": 10.0,
-	"strict_warning": 1.0,
-	"strict_stop": 3.0,
-	"dislike_amount": 1.0,
-	"like_relief": 1.0,
-	"decay_seconds": 25.0,
-	"decay_amount": 1.0,
-	"normal_cooldown_s": 300.0,
-	"strict_cooldown_s": 600.0,
-}
-
 var tier := "normal"
 var distress := 0.0
 var warning_stage := 0
@@ -47,10 +32,9 @@ static var _RULES := {
 
 
 static func rules() -> Dictionary:
-	var out := DEFAULT_RULES.duplicate(true)
-	for key: String in DEFAULT_RULES:
-		if _RULES.has(key):
-			out[key] = _RULES[key].get_num()
+	var out: Dictionary = {}
+	for key: String in _RULES:
+		out[key] = _RULES[key].get_num()
 	return out
 
 
@@ -68,7 +52,7 @@ func observe_dislike(kind: String) -> Dictionary:
 	if stopped:
 		return {}
 	last_dislike = kind
-	distress += float(rules().get("dislike_amount", 1.0))
+	distress += float(rules()["dislike_amount"])
 	return event()
 
 
@@ -76,7 +60,7 @@ func observe_dislike(kind: String) -> Dictionary:
 func observe_like(_kind: String) -> void:
 	if stopped:
 		return
-	distress = maxf(0.0, distress - float(rules().get("like_relief", 1.0)))
+	distress = maxf(0.0, distress - float(rules()["like_relief"]))
 
 
 ## Slow forgiveness while the act continues. No warning is emitted by decay.
@@ -84,13 +68,13 @@ func tick(delta: float) -> void:
 	if stopped:
 		return
 	var limits := rules()
-	var period := float(limits.get("decay_seconds", 25.0))
+	var period := float(limits["decay_seconds"])
 	if period <= 0.0:
 		return
 	_decay_left += maxf(0.0, delta)
 	while _decay_left >= period:
 		_decay_left -= period
-		distress = maxf(0.0, distress - float(limits.get("decay_amount", 1.0)))
+		distress = maxf(0.0, distress - float(limits["decay_amount"]))
 
 
 func event() -> Dictionary:
@@ -99,24 +83,24 @@ func event() -> Dictionary:
 	var limits := rules()
 	match tier:
 		"forgiving":
-			if warning_stage < 1 and distress >= float(limits.get("forgiving_warning", 4.0)):
+			if warning_stage < 1 and distress >= float(limits["forgiving_warning"]):
 				warning_stage = 1
 				return {"warning": 1, "distress": distress}
 		"strict":
-			if warning_stage < 1 and distress >= float(limits.get("strict_warning", 1.0)):
+			if warning_stage < 1 and distress >= float(limits["strict_warning"]):
 				warning_stage = 1
 				return {"warning": 1, "distress": distress}
-			if distress >= float(limits.get("strict_stop", 3.0)):
+			if distress >= float(limits["strict_stop"]):
 				stopped = true
 				return {"stop": true, "distress": distress, "kind": last_dislike}
 		_:
-			if warning_stage < 1 and distress >= float(limits.get("normal_warning_1", 1.0)):
+			if warning_stage < 1 and distress >= float(limits["normal_warning_1"]):
 				warning_stage = 1
 				return {"warning": 1, "distress": distress}
-			if warning_stage < 2 and distress >= float(limits.get("normal_warning_2", 4.0)):
+			if warning_stage < 2 and distress >= float(limits["normal_warning_2"]):
 				warning_stage = 2
 				return {"warning": 2, "distress": distress}
-			if distress >= float(limits.get("normal_stop", 10.0)):
+			if distress >= float(limits["normal_stop"]):
 				stopped = true
 				return {"stop": true, "distress": distress, "kind": last_dislike}
 	return {}
@@ -127,8 +111,8 @@ func cooldown_seconds() -> float:
 	var limits := rules()
 	match tier:
 		"strict":
-			return float(limits.get("strict_cooldown_s", 600.0))
+			return float(limits["strict_cooldown_s"])
 		"normal":
-			return float(limits.get("normal_cooldown_s", 300.0))
+			return float(limits["normal_cooldown_s"])
 		_:
 			return 0.0

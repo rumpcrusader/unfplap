@@ -87,6 +87,7 @@ func run() -> void:
 	_check_preloads(files)
 	_check_settings_module(files)
 	_check_shipped_data()
+	_check_no_default_tables()
 	_check_teardown(files)
 	_check_hands_isolation()
 	_check_hands_docs()
@@ -154,6 +155,14 @@ func _check_shipped_data() -> void:
 	check(not poses.contains("const POSE_DEFAULTS"), "the pose defaults are not in code")
 	var preferences := FileAccess.get_file_as_string(ROOT.path_join("shared/preferences.gd"))
 	check(not preferences.contains("const DEFAULTS :="), "the preference defaults are not in code")
+
+
+## The live settings are the only source of the act rule tables. A second table silently shadows
+## an edit, so a reintroduced copy fails before it can drift.
+func _check_no_default_tables() -> void:
+	for name: String in ["readiness/tolerance.gd", "summary/score.gd", "shared/act_history.gd"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(not text.contains("DEFAULT_RULES"), "%s builds its rules from the live handles" % name)
 
 
 func _check_settings_module(files: Array[String]) -> void:

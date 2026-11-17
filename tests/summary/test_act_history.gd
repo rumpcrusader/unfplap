@@ -46,6 +46,14 @@ func run() -> void:
 		"the rebuilt table carries the live setting")
 	SETTINGS.reminder_hurt.set_num(float(saved_reminder))
 
+	var saved_normal := int(rebuilt.get("normal_cooldown_s", 300))
+	SETTINGS.normal_cooldown_s.set_num(float(saved_normal + 30))
+	var rebuilt_normal: Dictionary = HISTORY.rules()
+	check(int(rebuilt_normal["normal_cooldown_s"]) == saved_normal + 30,
+		"the act-history cooldown follows tolerance.normal_cooldown_s")
+	check(rebuilt_normal.has("strict_cooldown_s"), "the strict cooldown is mapped")
+	SETTINGS.normal_cooldown_s.set_num(float(saved_normal))
+
 	var rules: Dictionary = HISTORY.rules()
 	var reminder := int(rules.get("reminder_hurt", 2))
 	var block := int(rules.get("offer_block_hurt", 4))

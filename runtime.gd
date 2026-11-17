@@ -880,7 +880,7 @@ func _standing_presentation_controller():
 
 ## Feature flag from the act snapshot. Unknown flags read as off.
 func _feature(name: String) -> bool:
-	return bool(_features.get(name, false))
+	return bool(_features.get(name))
 
 
 func _dialogue_service() -> RefCounted:

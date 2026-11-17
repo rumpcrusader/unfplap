@@ -11,23 +11,6 @@ extends RefCounted
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-const DEFAULT_RULES := {
-	"good_min": 0.80,
-	"bad_max": 0.20,
-	"w_climax": 0.30,
-	"w_talk": 0.20,
-	"w_touch": 0.20,
-	"w_motion": 0.15,
-	"w_not_early": 0.15,
-	"p_dislike": 0.10,
-	"p_severe": 0.15,
-	"p_silence": 0.15,
-	"p_miss": 0.10,
-	"early_grace_s": 20.0,
-	"min_thrusts": 2,
-}
-
-
 ## Short private beats for afterglow. The HUD and the impression keep the full summary; these
 ## only give the model a mood, never a review or a request list. 40% of rolls return nothing.
 const AFTERGLOW_BEATS := {
@@ -43,49 +26,27 @@ const AFTERGLOW_BEATS := {
 
 ## The live setting behind each rule key, declared once so `rules()` needs no path strings.
 static var _RULES := {
-	"apology_repair": SETTINGS.apology_repair,
-	"bad_hurt": SETTINGS.bad_hurt,
 	"bad_max": SETTINGS.bad_max,
-	"decay_amount": SETTINGS.decay_amount,
-	"decay_days": SETTINGS.decay_days,
 	"early_grace_s": SETTINGS.early_grace_s,
-	"good_comfort": SETTINGS.good_comfort,
 	"good_min": SETTINGS.good_min,
-	"good_repair": SETTINGS.good_repair,
-	"great_comfort": SETTINGS.great_comfort,
-	"great_repair": SETTINGS.great_repair,
-	"max_comfort": SETTINGS.max_comfort,
-	"max_hurt": SETTINGS.max_hurt,
-	"mild_hurt": SETTINGS.mild_hurt,
 	"min_thrusts": SETTINGS.min_thrusts,
-	"offer_base_s": SETTINGS.offer_base_s,
-	"offer_block_hurt": SETTINGS.offer_block_hurt,
-	"offer_comfort_scale": SETTINGS.offer_comfort_scale,
-	"offer_min_s": SETTINGS.offer_min_s,
-	"offer_weight_base": SETTINGS.offer_weight_base,
-	"offer_weight_comfort": SETTINGS.offer_weight_comfort,
-	"offer_weight_hurt": SETTINGS.offer_weight_hurt,
 	"p_dislike": SETTINGS.p_dislike,
 	"p_miss": SETTINGS.p_miss,
 	"p_severe": SETTINGS.p_severe,
 	"p_silence": SETTINGS.p_silence,
-	"reminder_hurt": SETTINGS.reminder_hurt,
-	"severe_hurt": SETTINGS.severe_hurt,
 	"w_climax": SETTINGS.w_climax,
 	"w_motion": SETTINGS.w_motion,
 	"w_not_early": SETTINGS.w_not_early,
 	"w_talk": SETTINGS.w_talk,
 	"w_touch": SETTINGS.w_touch,
-	"withdraw_hurt": SETTINGS.withdraw_hurt,
 }
 
 
-## The live rules. A key the declaration table does not carry keeps its module default.
+## The live rules. Every key is declared in the settings catalog.
 static func rules() -> Dictionary:
-	var out := DEFAULT_RULES.duplicate(true)
-	for key: String in DEFAULT_RULES:
-		if _RULES.has(key):
-			out[key] = _RULES[key].get_num()
+	var out: Dictionary = {}
+	for key: String in _RULES:
+		out[key] = _RULES[key].get_num()
 	return out
 
 
@@ -93,10 +54,8 @@ static func rules() -> Dictionary:
 ##   preferences, seconds, thrusts, pony_climaxes, talk_liked, talk_dislikes,
 ##   touches_liked, touch_dislikes, player_lines, intensity_total, intensity_right,
 ##   pattern_total, pattern_right, ended_early, forced.
-static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
-	var rules: Dictionary = DEFAULT_RULES.duplicate(true)
-	for key: Variant in rule_set:
-		rules[key] = rule_set[key]
+static func evaluate(snapshot: Dictionary, rule_set: Dictionary) -> Dictionary:
+	var rules: Dictionary = rule_set
 	if bool(snapshot.get("forced", false)):
 		return _skipped("forced")
 	var preferences: Dictionary = {}
@@ -107,8 +66,8 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 		return _stopped(snapshot)
 	var seconds := float(snapshot.get("seconds", 0.0))
 	var thrusts := int(snapshot.get("thrusts", 0))
-	if seconds < float(rules.get("early_grace_s", 20.0)) \
-			and thrusts < int(rules.get("min_thrusts", 2)):
+	if seconds < float(rules["early_grace_s"]) \
+			and thrusts < int(rules["min_thrusts"]):
 		return _skipped("short_act")
 
 	var seeks_talk := PREFERENCES.seeks_talk(preferences)
@@ -143,18 +102,18 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 	var early_ok := not ended_early
 
 	var weighted: Array = [
-		{"key": "climax", "ok": climax_ok, "weight": float(rules.get("w_climax", 0.30))},
-		{"key": "not_early", "ok": early_ok, "weight": float(rules.get("w_not_early", 0.15))},
+		{"key": "climax", "ok": climax_ok, "weight": float(rules["w_climax"])},
+		{"key": "not_early", "ok": early_ok, "weight": float(rules["w_not_early"])},
 	]
 	if seeks_talk:
 		weighted.append({"key": "talk", "ok": talk_ok,
-			"weight": float(rules.get("w_talk", 0.20))})
+			"weight": float(rules["w_talk"])})
 	if seeks_touch:
 		weighted.append({"key": "touch", "ok": touch_ok,
-			"weight": float(rules.get("w_touch", 0.20))})
+			"weight": float(rules["w_touch"])})
 	if motion_known:
 		weighted.append({"key": "motion", "ok": motion_ok,
-			"weight": float(rules.get("w_motion", 0.15))})
+			"weight": float(rules["w_motion"])})
 
 	var applicable := 0.0
 	var passed := 0.0
@@ -181,24 +140,24 @@ static func evaluate(snapshot: Dictionary, rule_set := {}) -> Dictionary:
 	if dislikes_total >= 3:
 		severe = true
 	var silent := seeks_talk and player_lines == 0
-	var penalties := minf(dislikes_total * float(rules.get("p_dislike", 0.10)), 0.20)
+	var penalties := minf(dislikes_total * float(rules["p_dislike"]), 0.20)
 	if severe:
-		penalties += float(rules.get("p_severe", 0.15))
+		penalties += float(rules["p_severe"])
 	if silent:
-		penalties += float(rules.get("p_silence", 0.15))
+		penalties += float(rules["p_silence"])
 	# A touch preference that was never met, or motion that did not match, is a real miss.
 	# It is not enough to make the act bad by itself, but it keeps it out of the good band.
 	if seeks_touch and has_touch_likes and touches_liked <= 0 and touch_dislikes_total == 0 \
 			and not ended_early:
-		penalties += float(rules.get("p_miss", 0.10))
+		penalties += float(rules["p_miss"])
 	if motion_known and not motion_ok:
-		penalties += float(rules.get("p_miss", 0.10))
+		penalties += float(rules["p_miss"])
 	var quality := clampf((passed - penalties) / maxf(applicable, 0.01), 0.0, 1.0)
 
 	var grade := "neutral"
-	if quality >= float(rules.get("good_min", 0.80)):
+	if quality >= float(rules["good_min"]):
 		grade = "good"
-	elif quality <= float(rules.get("bad_max", 0.20)):
+	elif quality <= float(rules["bad_max"]):
 		grade = "bad"
 	var great := grade == "good" and pony_climaxes >= 2 and dislikes_total == 0 \
 		and not silent and not ended_early

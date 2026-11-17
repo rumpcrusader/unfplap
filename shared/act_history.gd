@@ -19,50 +19,20 @@ const MAX_WANTS := 120
 ## facts are stale. Reads and decay never bump it.
 static var revision := 0
 
-const DEFAULT_RULES := {
-	"reminder_hurt": 2,
-	"offer_block_hurt": 4,
-	"withdraw_hurt": 6,
-	"max_hurt": 8,
-	"max_comfort": 8,
-	"bad_hurt": 1,
-	"severe_hurt": 2,
-	"mild_hurt": 1,
-	"good_comfort": 1,
-	"great_comfort": 2,
-	"good_repair": 1,
-	"great_repair": 2,
-	"apology_repair": 1,
-	"decay_days": 2,
-	"decay_amount": 1,
-	"offer_base_s": 600.0,
-	"offer_min_s": 300.0,
-	"offer_comfort_scale": 0.05,
-	"offer_weight_base": 0.70,
-	"offer_weight_comfort": 0.05,
-	"offer_weight_hurt": 0.12,
-	"normal_cooldown_s": 300.0,
-	"strict_cooldown_s": 600.0,
-}
-
-
 ## The live setting behind each rule key, declared once so `rules()` needs no path strings.
 static var _RULES := {
 	"apology_repair": SETTINGS.apology_repair,
 	"bad_hurt": SETTINGS.bad_hurt,
-	"bad_max": SETTINGS.bad_max,
 	"decay_amount": SETTINGS.decay_amount,
 	"decay_days": SETTINGS.decay_days,
-	"early_grace_s": SETTINGS.early_grace_s,
 	"good_comfort": SETTINGS.good_comfort,
-	"good_min": SETTINGS.good_min,
 	"good_repair": SETTINGS.good_repair,
 	"great_comfort": SETTINGS.great_comfort,
 	"great_repair": SETTINGS.great_repair,
 	"max_comfort": SETTINGS.max_comfort,
 	"max_hurt": SETTINGS.max_hurt,
 	"mild_hurt": SETTINGS.mild_hurt,
-	"min_thrusts": SETTINGS.min_thrusts,
+	"normal_cooldown_s": SETTINGS.normal_cooldown_s,
 	"offer_base_s": SETTINGS.offer_base_s,
 	"offer_block_hurt": SETTINGS.offer_block_hurt,
 	"offer_comfort_scale": SETTINGS.offer_comfort_scale,
@@ -70,17 +40,9 @@ static var _RULES := {
 	"offer_weight_base": SETTINGS.offer_weight_base,
 	"offer_weight_comfort": SETTINGS.offer_weight_comfort,
 	"offer_weight_hurt": SETTINGS.offer_weight_hurt,
-	"p_dislike": SETTINGS.p_dislike,
-	"p_miss": SETTINGS.p_miss,
-	"p_severe": SETTINGS.p_severe,
-	"p_silence": SETTINGS.p_silence,
 	"reminder_hurt": SETTINGS.reminder_hurt,
 	"severe_hurt": SETTINGS.severe_hurt,
-	"w_climax": SETTINGS.w_climax,
-	"w_motion": SETTINGS.w_motion,
-	"w_not_early": SETTINGS.w_not_early,
-	"w_talk": SETTINGS.w_talk,
-	"w_touch": SETTINGS.w_touch,
+	"strict_cooldown_s": SETTINGS.strict_cooldown_s,
 	"withdraw_hurt": SETTINGS.withdraw_hurt,
 	}
 
@@ -95,10 +57,9 @@ static var _rules_cache: Dictionary = {}
 static func rules() -> Dictionary:
 	if _rules_generation == SETTINGS.generation:
 		return _rules_cache
-	var out := DEFAULT_RULES.duplicate(true)
-	for key: String in DEFAULT_RULES:
-		if _RULES.has(key):
-			out[key] = _RULES[key].get_num()
+	var out: Dictionary = {}
+	for key: String in _RULES:
+		out[key] = _RULES[key].get_num()
 	_rules_cache = out
 	_rules_generation = SETTINGS.generation
 	return _rules_cache
@@ -163,20 +124,20 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 	var severe := bool(outcome.get("severe", false))
 	var regular := rules()
 	if grade == "good" or grade == "great":
-		var comfort_add := int(regular.get("great_comfort", 2)) if grade == "great" \
-			else int(regular.get("good_comfort", 1))
-		var repair := int(regular.get("great_repair", 2)) if grade == "great" \
-			else int(regular.get("good_repair", 1))
-		row["comfort"] = mini(int(regular.get("max_comfort", 8)),
+		var comfort_add := int(regular["great_comfort"]) if grade == "great" \
+			else int(regular["good_comfort"])
+		var repair := int(regular["great_repair"]) if grade == "great" \
+			else int(regular["good_repair"])
+		row["comfort"] = mini(int(regular["max_comfort"]),
 			int(row.get("comfort", 0)) + comfort_add)
 		row["hurt"] = maxi(0, int(row.get("hurt", 0)) - repair)
 		row["good"] = int(row.get("good", 0)) + 1
 		row["streak_good"] = int(row.get("streak_good", 0)) + 1
 		row["streak_bad"] = 0
 	elif grade == "bad":
-		var hurt_add := int(regular.get("severe_hurt", 2)) if severe \
-			else int(regular.get("bad_hurt", 1))
-		row["hurt"] = mini(int(regular.get("max_hurt", 8)),
+		var hurt_add := int(regular["severe_hurt"]) if severe \
+			else int(regular["bad_hurt"])
+		row["hurt"] = mini(int(regular["max_hurt"]),
 			int(row.get("hurt", 0)) + hurt_add)
 		row["comfort"] = maxi(0, int(row.get("comfort", 0)) - 1)
 		row["bad"] = int(row.get("bad", 0)) + 1
@@ -185,8 +146,8 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 	else:
 		row["neutral"] = int(row.get("neutral", 0)) + 1
 		if bool(outcome.get("early", false)):
-			row["hurt"] = mini(int(regular.get("max_hurt", 8)),
-				int(row.get("hurt", 0)) + int(regular.get("mild_hurt", 1)))
+			row["hurt"] = mini(int(regular["max_hurt"]),
+				int(row.get("hurt", 0)) + int(regular["mild_hurt"]))
 	row["acts"] = int(row.get("acts", 0)) + 1
 	row["last_grade"] = grade
 	row["last_quality"] = clampf(float(outcome.get("quality", 0.0)), 0.0, 1.0)
@@ -198,8 +159,8 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 		row["last_day"] = now_day
 	if bool(outcome.get("stopped_by_her", false)):
 		var tolerance := str(outcome.get("tolerance", "normal"))
-		var cooldown := float(regular.get("strict_cooldown_s", 600.0)) \
-			if tolerance == "strict" else float(regular.get("normal_cooldown_s", 300.0))
+		var cooldown := float(regular["strict_cooldown_s"]) \
+			if tolerance == "strict" else float(regular["normal_cooldown_s"])
 		row["stop_until"] = Time.get_unix_time_from_system() + cooldown
 		row["last_stop_kind"] = tolerance
 		row["last_stop_at"] = Time.get_unix_time_from_system()
@@ -272,7 +233,7 @@ static func apology_repair(section: Dictionary, id: String, now_day: float) -> b
 	if now_day >= 0.0 and absf(last - now_day) < 0.001:
 		return false
 	var before := int(row.get("hurt", 0))
-	var amount := int(rules().get("apology_repair", 1))
+	var amount := int(rules()["apology_repair"])
 	row["hurt"] = maxi(0, before - amount)
 	row["last_apology_day"] = now_day
 	if now_day > 0.0:
@@ -301,11 +262,11 @@ static func reset(section: Dictionary, id: String) -> bool:
 static func tier_index(row: Dictionary) -> int:
 	var regular := rules()
 	var hurt := int(row.get("hurt", 0))
-	if hurt >= int(regular.get("withdraw_hurt", 6)):
+	if hurt >= int(regular["withdraw_hurt"]):
 		return 3
-	if hurt >= int(regular.get("offer_block_hurt", 4)):
+	if hurt >= int(regular["offer_block_hurt"]):
 		return 2
-	if hurt >= int(regular.get("reminder_hurt", 2)):
+	if hurt >= int(regular["reminder_hurt"]):
 		return 1
 	return 0
 
@@ -350,17 +311,17 @@ static func offer_weight(row: Dictionary) -> float:
 	if blocks_offers(row):
 		return 0.0
 	var regular := rules()
-	var value := float(regular.get("offer_weight_base", 0.70)) \
-		+ float(int(row.get("comfort", 0))) * float(regular.get("offer_weight_comfort", 0.05)) \
-		- float(int(row.get("hurt", 0))) * float(regular.get("offer_weight_hurt", 0.12))
+	var value := float(regular["offer_weight_base"]) \
+		+ float(int(row.get("comfort", 0))) * float(regular["offer_weight_comfort"]) \
+		- float(int(row.get("hurt", 0))) * float(regular["offer_weight_hurt"])
 	return clampf(value, 0.0, 1.0)
 
 
 static func offer_cooldown(row: Dictionary, base_seconds := -1.0) -> float:
 	var regular := rules()
-	var base := base_seconds if base_seconds >= 0.0 else float(regular.get("offer_base_s", 600.0))
-	var scale := float(regular.get("offer_comfort_scale", 0.05))
-	var floor_s := float(regular.get("offer_min_s", 300.0))
+	var base := base_seconds if base_seconds >= 0.0 else float(regular["offer_base_s"])
+	var scale := float(regular["offer_comfort_scale"])
+	var floor_s := float(regular["offer_min_s"])
 	return maxf(floor_s, base * (1.0 - float(int(row.get("comfort", 0))) * scale))
 
 
@@ -476,8 +437,8 @@ static func sanitize(raw: Variant) -> Dictionary:
 			"streak_good", "streak_bad", "announced_tier"]:
 		out[key] = maxi(0, int(value.get(key, 0)))
 	var regular := rules()
-	out["hurt"] = mini(int(regular.get("max_hurt", 8)), int(out["hurt"]))
-	out["comfort"] = mini(int(regular.get("max_comfort", 8)), int(out["comfort"]))
+	out["hurt"] = mini(int(regular["max_hurt"]), int(out["hurt"]))
+	out["comfort"] = mini(int(regular["max_comfort"]), int(out["comfort"]))
 	out["announced_tier"] = mini(3, int(out["announced_tier"]))
 	out["last_grade"] = str(value.get("last_grade", "")).left(16)
 	out["last_quality"] = clampf(float(value.get("last_quality", 0.0)), 0.0, 1.0)
@@ -563,11 +524,11 @@ static func _decay(row: Dictionary, now_day: float) -> void:
 		row["last_day"] = now_day
 		return
 	var days := now_day - last
-	var period := maxf(1.0, float(rules().get("decay_days", 2)))
+	var period := maxf(1.0, float(rules()["decay_days"]))
 	if days < period:
 		return
 	var steps := int(days / period)
-	var amount := steps * int(rules().get("decay_amount", 1))
+	var amount := steps * int(rules()["decay_amount"])
 	row["hurt"] = maxi(0, int(row.get("hurt", 0)) - amount)
 	row["last_day"] = now_day
 	_tidy_pending(row)

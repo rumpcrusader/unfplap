@@ -4,6 +4,22 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/summary/test_act_summary.gd
 
 const SUMMARY := preload("res://mods/unfplap/summary/score.gd")
+## The declared rule keys the score suite exercises. Values match the shipped defaults.
+const RULES := {
+	"good_min": 0.80,
+	"bad_max": 0.20,
+	"w_climax": 0.30,
+	"w_talk": 0.20,
+	"w_touch": 0.20,
+	"w_motion": 0.15,
+	"w_not_early": 0.15,
+	"p_dislike": 0.10,
+	"p_severe": 0.15,
+	"p_silence": 0.15,
+	"p_miss": 0.10,
+	"early_grace_s": 20.0,
+	"min_thrusts": 2,
+}
 
 var failures := 0
 var checks := 0
@@ -54,7 +70,7 @@ func snapshot(overrides := {}) -> Dictionary:
 
 
 func evaluate(overrides := {}) -> Dictionary:
-	return SUMMARY.evaluate(snapshot(overrides), SUMMARY.DEFAULT_RULES)
+	return SUMMARY.evaluate(snapshot(overrides), RULES)
 
 
 func run() -> void:

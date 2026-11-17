@@ -61,6 +61,7 @@ func _runtime(pose: String) -> Node:
 	runtime.pose_id = pose
 	runtime.state = 4 # AFTERGLOW
 	runtime._preferences = PREF.resolve({})
+	runtime._snapshot_settings()
 	runtime._thrust_tracker = THRUST.new()
 	return runtime
 

@@ -585,8 +585,8 @@ func _close_idle_chunk(key: String, started: int) -> void:
 ## The entry's per-frame body. `_process` above only times it for the idle probe; the call order
 ## here is load-bearing.
 func _process_entry(delta: float, timed: bool) -> void:
-	# The caption move is an act-only path; the settings read behind it is not worth a call per frame.
-	if _captions_on_top:
+	# The caption move is an act-only path; the two reads behind it are not worth a per-frame call.
+	if _captions_on_top and is_instance_valid(active_runtime):
 		var caption_started := Time.get_ticks_usec() if timed else 0
 		_caption_top_tick()
 		if timed:
@@ -1082,11 +1082,13 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 func _tick_agreement_auto_start(delta: float) -> void:
 	if is_instance_valid(active_runtime) or not is_instance_valid(negotiation):
 		return
-	var handle: Variant = negotiation.call("handle")
-	if handle == null:
-		return
+	# The clock runs before the handle read so the common frame pays one arithmetic step: a
+	# handle that appears between polls is consumed on the next one, 0.25 s later at most.
 	_agreement_clock += delta
 	if _agreement_clock < 0.25:
+		return
+	var handle: Variant = negotiation.call("handle")
+	if handle == null:
 		return
 	_agreement_clock = 0.0
 	if menu_panel_open():

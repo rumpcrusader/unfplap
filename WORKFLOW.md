@@ -33,21 +33,23 @@ is a separate repository; never commit game-source changes from the mod repo.
    - `scripts/test.sh <suite>...` for the suites that cover it; use `--all` when it crosses
      several services;
    - `scripts/check.sh` for a quick parse check of the changed scripts;
+   - `scripts/lint.sh` for the shipped GDScript;
    - `scripts/smoke.sh` for entry/runtime changes;
    - `./lab.sh` for camera/pose changes; the session is in `last-run.log`, and say it was manual.
 7. Run the full gate once per task, when the code change is complete:
 
    ```bash
+   scripts/lint.sh
    scripts/test_all.sh
    ```
 
-   It runs every suite and ends in `TEST_ALL_PASS`. Do not re-run it after every commit or every
-   file.
+   The test runner runs every suite and ends in `TEST_ALL_PASS`; the lint gate checks the shipped
+   GDScript. Do not re-run either after every commit or every file.
 8. Commit the code with one scoped, imperative subject line and no body. Do not stage `.md` files
    or comment-only edits, except the minimum doc text a test or checker reads to stay green.
 9. After the task's last code commit, write the owning `.md` prose and every code-comment edit.
-   Run `scripts/check.sh --all` and the suites that read the edited docs, then commit them as
-   `docs: <summary>`. See "Documentation commits" below.
+   Run `scripts/check.sh --all`, `scripts/lint.sh` and the suites that read the edited docs, then
+   commit them as `docs: <summary>`. See "Documentation commits" below.
 10. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
     CI builds and releases from the remote, but the agent never pushes.
 
@@ -82,6 +84,19 @@ manual labs use the local contract automatically when `dist/asset_pack.local.jso
   shadows source edits.
 - New `.gd` files must be tracked before a build; the pack manifest reads `git ls-files`.
 
+## Lint
+
+`scripts/lint.sh` runs gdlint 4.5.0 over the shipped `.gd` files only. Install the pinned toolchain
+once:
+
+```bash
+python3 -m pip install -r scripts/requirements-lint.txt
+```
+
+Tests and tools are excluded because gdtoolkit's parser rejects some valid test syntax. The config
+and the disabled structural rules are in `.gdlintrc`; the formatting, linting and complexity policy
+is in `docs/quality.md`. The source-checks CI job runs the same command.
+
 ## Commit messages
 
 ```text
@@ -93,7 +108,7 @@ One line, at most 72 characters, no trailing period. Reverts use
 belongs in the code comment or the contract doc, not in git.
 
 Scopes: `camera`, `missionary`, `standing`, `thrust`, `hips`, `settings`, `hud`,
-`dialogue`, `initiation`, `memory`, `audio`, `cues`, `docs`, `tests`, `build`, `ci`,
+`dialogue`, `initiation`, `memory`, `audio`, `cues`, `docs`, `tests`, `build`, `ci`, `lint`,
 `release`, `anatomy`, `vr`.
 
 Never use `WIP`, `fixes`, `stuff`, `misc` or `cleanup` as the whole message: say what changed.
@@ -115,8 +130,8 @@ for the last one.
 - The code commit carries the behavior, its tests and only the doc text a test or checker reads to
   stay green. Run `scripts/test_all.sh` before it.
 - The docs commit carries the owning `.md` prose and every code-comment edit.
-- Before the docs commit, run `scripts/check.sh --all` and the suites that read an edited doc:
-  `scripts/test.sh test_source_hygiene`, plus `test_api` when `docs/api.md` changed.
+- Before the docs commit, run `scripts/check.sh --all`, `scripts/lint.sh` and the suites that read
+  an edited doc: `scripts/test.sh test_source_hygiene`, plus `test_api` when `docs/api.md` changed.
 - Subject: `docs: <short imperative summary>`.
 
 A docs-only task is one `docs:` commit.

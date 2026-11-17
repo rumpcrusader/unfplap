@@ -150,5 +150,6 @@ in `_physics_tick`.
 ## Related docs
 
 - `docs/README.md` — the suite-to-service map, the doc template and the verification matrix.
+- `docs/quality.md` — the static gates and tooling policy.
 - `docs/debug.md` — the lab roster and keys.
 - `WORKFLOW.md` — the commands and the release flow.

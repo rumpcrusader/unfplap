@@ -17,6 +17,7 @@ restate a contract.
 | `runtime.gd` | `docs/runtime.md` |
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |
+| `.gdlintrc`, `scripts/lint.sh`, `scripts/requirements-lint.txt` | `docs/quality.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
 | `shared/act_keys.gd` | `docs/input.md` |
 | `shared/integrations.gd` | `docs/integrations.md` |
@@ -91,8 +92,9 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   reads, run every gate, and commit the code. Then update the owning `.md` prose and every code
   comment in one separate `docs:` commit, after the task's last code commit.
 - Settle the design before touching files. Once it is settled, apply every code edit first, then
-  check the change. Gate the code once per task, not per commit: `scripts/test.sh <touched>` and
-  `scripts/check.sh` before each commit, `scripts/test_all.sh` once when the code phase is done.
+  check the change. Gate the code once per task, not per commit: `scripts/test.sh <touched>`,
+  `scripts/check.sh` and `scripts/lint.sh` before each commit, `scripts/test_all.sh` once when the
+  code phase is done.
 - Use one whole-file write for a file that changes heavily, and send independent edits together in
   one turn. A chain of single-line edits costs a round trip each.
 - Plans live outside the repo. Resolve the path with
@@ -110,10 +112,11 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
    commit.
 2. The owning doc is updated in a separate `docs:` commit; a new doc is indexed in
    `docs/README.md`.
-3. Suites are added or retargeted; `scripts/test.sh <touched>` passes and `scripts/check.sh --all`
-   is clean before the code commit.
+3. Suites are added or retargeted; `scripts/test.sh <touched>` passes, `scripts/check.sh --all` is
+   clean and `scripts/lint.sh` is clean before the code commit.
 4. `scripts/test_all.sh` passes once, at the end of the code phase.
-5. The docs commit passes `scripts/check.sh --all` and every suite that reads an edited doc.
+5. The docs commit passes `scripts/check.sh --all`, `scripts/lint.sh` and every suite that reads an
+   edited doc.
 6. New `.gd` files are tracked before a build; the pack manifest reads `git ls-files`.
 7. `mod.json.version` and `changelog.txt` change only through the release skill.
 8. `README.md` was not edited; a needed change is reported with exact replacement text.
@@ -168,6 +171,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 scripts/test.sh <suite>...   # touched suites; also --list, --all
 scripts/test_all.sh          # every suite, once per task
 scripts/check.sh             # fast parse check; --all before done
+scripts/lint.sh              # gdlint over the shipped scripts
 ./lab.sh                     # manual lab; also lab-stress.sh, lab-vr.sh
 ```
 

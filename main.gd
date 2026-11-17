@@ -1004,7 +1004,7 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	if _agreement_clock < 0.25:
 		return
 	_agreement_clock = 0.0
-	if get_tree().paused or menu_open():
+	if menu_panel_open():
 		return
 	if DisplayServer.get_name() != "headless" and not headset_view() \
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -1027,7 +1027,7 @@ func report_agreement(handle: Variant, started: bool) -> void:
 		negotiation.call("report", handle, started)
 
 
-## Close the live request episode before a start or refusal that owns the pony. The offer carries
+## Clear the act-key hint and its cached offer.
 func _clear_offer_hint() -> void:
 	_offer = null
 	if is_instance_valid(hud):

@@ -67,9 +67,10 @@ The runtime keeps the call sites and the director/vocal prepare.
 `audio/stock_smack.gd` is one world-scope Node that `main.gd` creates in `_ready()`. While
 `features.pack_smack_sound` is on, it gives the native `FlankTouch` sound player an
 `AudioStreamRandomizer` over the two pack hand-smack variants. The randomizer runs in no-repeat
-mode, at the act's level and a neutral pitch so its own pitch variation applies. The decal, blush,
-jiggle and reaction stay on the stock impact. Each changed player's stream, volume and pitch are
-saved and restored when the switch goes off, when the pony starts an act, or when the world closes.
+mode, at its own level (`STOCK_VOLUME_DB`, a little louder than the act's hand smack) and a neutral
+pitch so its own pitch variation applies. The decal, blush, jiggle and reaction stay on the stock
+impact. Each changed player's stream, volume and pitch are saved and restored when the switch goes
+off, when the pony starts an act, or when the world closes.
 
 `main.gd` calls `pony_ready()` for every pony, `apply_settings()` on every settings edit,
 `act_start()`/`act_end()` with the act pony, `clear_world()` on a world close and `shutdown()` on

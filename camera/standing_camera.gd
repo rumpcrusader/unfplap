@@ -239,6 +239,10 @@ func _drive_glance(delta: float) -> void:
 		return
 	if secondary == null or not is_instance_valid(secondary) or not secondary.has_method("look_toward"):
 		return
+	if _pose_cfg.is_empty():
+		return
+	if _glance_wait < 0.0:
+		_glance_wait = randf_range(float(_pose_cfg["glance_min"]), float(_pose_cfg["glance_max"]))
 	if _glance_left > 0.0:
 		_glance_left -= delta
 		secondary.call("look_toward", _glance_angles(), 0.4)
@@ -364,9 +368,9 @@ func begin_facing(transform: Transform3D) -> void:
 	_glance_back = false
 	_glance_sign_set = false
 	_glance_head_back = 0.0
-	_glance_wait = randf_range(
-		float(_pose_cfg["glance_min"]),
-		float(_pose_cfg["glance_max"]))
+	# The standing placement starts before the pose session builds; arm the first wait when the
+	# config is available on the first drive tick instead of reading an empty config here.
+	_glance_wait = -1.0
 
 
 ## integration: the pose view owns the oral facing while its turn runs. Amount 0 clears it.
@@ -445,7 +449,7 @@ func hold_glance() -> void:
 func clear_glance() -> void:
 	_glance_left = 0.0
 	_glance_back = false
-	_glance_wait = randf_range(
+	_glance_wait = -1.0 if _pose_cfg.is_empty() else randf_range(
 		float(_pose_cfg["glance_min"]),
 		float(_pose_cfg["glance_max"]))
 

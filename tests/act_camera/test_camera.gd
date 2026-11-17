@@ -628,8 +628,8 @@ func _standing_config(overrides := {}) -> Dictionary:
 
 
 ## The standing camera re-reads the view's config only on a settings-group or pose-id change, so the
-## standing debug edge holds the live config and its glance/tail values do not snap. The stale
-## `facts.pose_config` alias must never win.
+## standing debug edge holds the live config and its glance/tail values do not snap. An unrelated
+## config never wins over the view's.
 func _check_standing_cache() -> void:
 	var facts: RefCounted = FACTS.new()
 	var view: RefCounted = VIEW.new()
@@ -641,14 +641,13 @@ func _check_standing_cache() -> void:
 	var config_a: Dictionary = _standing_config({"glance_min": 5.0})
 	var config_b: Dictionary = _standing_config({"glance_min": 7.0})
 	var config_c: Dictionary = _standing_config({"glance_min": 9.0})
-	facts.pose_config = stale
 	view.from_config = config_a
 	view.pose_config = config_a
 	var standing: RefCounted = STANDING_CAMERA.new(facts)
 	standing.call("_sync")
 	check(is_same(standing._pose_cfg, config_a), "the standing camera reads the view config")
 	check(not is_same(standing._pose_cfg, stale),
-		"a stale facts.pose_config alias never wins")
+		"an unrelated config never wins")
 	view.from_config = config_b
 	view.pose_config = config_b
 	standing.call("_sync")
@@ -671,7 +670,7 @@ func _check_standing_cache() -> void:
 	check(is_same(standing._pose_cfg, config_b),
 		"an empty from_config falls back to the view's pose_config, not the alias")
 	check(not is_same(standing._pose_cfg, stale),
-		"the fallback never reads facts.pose_config")
+		"the fallback never reads an unrelated config")
 	view.family = "bed"
 	check(standing.call("_pose_family") == "bed",
 		"a bed view is outside the standing controller")
@@ -688,6 +687,20 @@ func _check_standing_cache() -> void:
 	standing.call("sync_view_facing")
 	check(not standing._facing_override_on,
 		"a zero facing amount returns the normal facing lock")
+
+	# The standing start calls begin_facing before the pose session builds. The empty config must
+	# not be read; the first drive tick arms the wait once the pose config exists.
+	var early_view: RefCounted = VIEW.new()
+	early_view.id = CATALOG.STANDING
+	early_view.family = "standing"
+	early_view.settings_group = "standing"
+	var early_facts: RefCounted = FACTS.new()
+	early_facts.pose_view = early_view
+	early_facts.presentation_config = {"glance_back_speed": 1.0}
+	var early_camera: RefCounted = STANDING_CAMERA.new(early_facts)
+	early_camera.call("begin_facing", Transform3D.IDENTITY)
+	check(float(early_camera._glance_wait) < 0.0,
+		"a start before the pose config arms its first glance later")
 
 
 func _check_neck() -> void:

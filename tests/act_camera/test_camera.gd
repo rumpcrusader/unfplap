@@ -200,9 +200,9 @@ func _check_session() -> void:
 	camera.call("configure", {"surge": 0.5, "bob": 0.25})
 	check(near(camera.camera_surge, 0.5) and near(camera.camera_bob, 0.25),
 		"the camera_thrust block reaches the facade")
-	camera.call("configure", {})
+	camera.call("configure", {"surge": 1.0, "bob": 0.35})
 	check(near(camera.camera_surge, 1.0) and near(camera.camera_bob, 0.35),
-		"an empty block falls back to the shipped defaults")
+		"configure replaces the block")
 	camera.lean = 0.2
 	camera.bob = 0.2
 	camera.back = 0.2

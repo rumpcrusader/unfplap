@@ -21,7 +21,7 @@ const PASS_KEYS := [KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE, KEY_T,
 var main: Node
 
 ## The act input shield, cached from `features.act_input_shield` on every settings change.
-var _shield := false
+var _shield: bool
 var _suppress_q := false
 var _old_q := false
 ## One recapture log per act. The cursor can take more than one physics tick to report captured.

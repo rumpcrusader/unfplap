@@ -60,8 +60,8 @@ const AIM_RANGE_M := 8.0
 const AIM_TUBE_M := 1.5
 ## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
 ## Default OFF. Toggle in the Debug settings tab.
-var debug_logs := false
-var debug_perf := false
+var debug_logs: bool
+var debug_perf: bool
 
 var game
 var player
@@ -113,7 +113,7 @@ var _debug_face_index := -1
 ## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
 var _captions: Dictionary = {}
 ## Cached captions_on_top so the per-frame caption tick never rereads settings.json.
-var _captions_on_top := false
+var _captions_on_top: bool
 ## The idle (outside-act) debug perf probe; see docs/perf.md.
 var _perf_idle := PERF_IDLE.new()
 ## True while the adapter's global Anon-offer watch is armed.

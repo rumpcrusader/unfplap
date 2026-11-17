@@ -28,11 +28,11 @@ var tail: Variant = null
 ## Per-act configuration. `configure()` receives the runtime's act snapshot.
 var pose_family := ""
 var size_scale := 1.0
-var jiggle_radius_m := 0.26
-var jiggle_center_height_m := 0.1
-var jiggle_center_back_m := 0.15
-var jiggle_intensity := 0.2
-var jiggle_smack_intensity := 0.45
+var jiggle_radius_m: float
+var jiggle_center_height_m: float
+var jiggle_center_back_m: float
+var jiggle_intensity: float
+var jiggle_smack_intensity: float
 var climax_seconds := 5.0
 
 ## Live reaction state.
@@ -68,14 +68,12 @@ func configure(context: Dictionary) -> void:
 	pose_family = str(context.get("pose_family", ""))
 	size_scale = float(context.get("size_scale", 1.0))
 	climax_seconds = float(context.get("climax_seconds", 5.0))
-	var block: Variant = context.get("jiggle")
-	if not block is Dictionary:
-		block = {}
-	jiggle_radius_m = float((block as Dictionary).get("radius", 0.26))
-	jiggle_center_height_m = float((block as Dictionary).get("center_height_m", 0.1))
-	jiggle_center_back_m = float((block as Dictionary).get("center_back_m", 0.15))
-	jiggle_intensity = float((block as Dictionary).get("intensity", 0.2))
-	jiggle_smack_intensity = float((block as Dictionary).get("smack_intensity", 0.45))
+	var block: Dictionary = context["jiggle"]
+	jiggle_radius_m = float(block["radius"])
+	jiggle_center_height_m = float(block["center_height_m"])
+	jiggle_center_back_m = float(block["center_back_m"])
+	jiggle_intensity = float(block["intensity"])
+	jiggle_smack_intensity = float(block["smack_intensity"])
 
 
 ## Start a fresh act. Clears the per-act visual state; the configuration survives.

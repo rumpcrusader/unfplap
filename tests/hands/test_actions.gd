@@ -238,6 +238,19 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
 
+## The complete `jiggle.*` block the runtime snapshot passes; overrides replace keys.
+func jiggle_block(overrides := {}) -> Dictionary:
+	var block := {
+		"radius": float(SETTINGS.radius.default),
+		"center_height_m": float(SETTINGS.center_height_m.default),
+		"center_back_m": float(SETTINGS.center_back_m.default),
+		"intensity": float(SETTINGS.intensity.default),
+		"smack_intensity": float(SETTINGS.smack_intensity.default),
+	}
+	block.merge(overrides, true)
+	return block
+
+
 func run() -> void:
 	var forward: Vector2 = MOTION.lean_targets(0.0, -1.0)
 	check(near(forward.x, 1.0) and near(forward.y, 0.0), "W leans forward")
@@ -562,7 +575,7 @@ func run() -> void:
 
 	var smack := REACTIONS.new()
 	smack.configure({"pose_family": "standing", "size_scale": 1.0,
-		"jiggle": {"smack_intensity": 0.5}})
+		"jiggle": jiggle_block({"smack_intensity": 0.5})})
 	var jiggle_pony := Node3D.new()
 	root.add_child(jiggle_pony)
 	var fake_tail := FakeTail.new()
@@ -609,11 +622,11 @@ func run() -> void:
 	radius_flank._jiggle_targets = [[radius_mat, radius_mesh]]
 	var radius := REACTIONS.new()
 	radius.bind_scene(null, null, radius_flank)
-	radius.configure({"jiggle": {"radius": 0.30}})
+	radius.configure({"jiggle": jiggle_block({"radius": 0.30})})
 	radius.apply_radius()
 	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), 0.30),
 		"jiggle radius applies to the targets")
-	radius.configure({"jiggle": {"radius": -0.05}})
+	radius.configure({"jiggle": jiggle_block({"radius": -0.05})})
 	radius.apply_radius()
 	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), -0.05),
 		"jiggle radius is applied unclamped")
@@ -711,7 +724,7 @@ func run() -> void:
 	var smack_pony := Node3D.new()
 	root.add_child(smack_pony)
 	smack_amount.bind_scene(smack_pony, null, smack_flank)
-	smack_amount.configure({"jiggle": {"smack_intensity": 0.5}})
+	smack_amount.configure({"jiggle": jiggle_block({"smack_intensity": 0.5})})
 	smack_amount.smack(0.8)
 	check(near(float(smack_flank._jiggle_amount), 0.04),
 		"smack jiggle intensity scales the amount")

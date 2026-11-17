@@ -82,8 +82,8 @@ var _hook_family := ""
 var _hook_camera := ""
 var _hook_lean := ""
 var _hook_seen := false
-var camera_surge := 0.0
-var camera_bob := 0.0
+var camera_surge: float
+var camera_bob: float
 
 ## The player look the act captured and the live view it applies.
 var look_yaw := 0.0
@@ -212,8 +212,8 @@ func gaze_point() -> Vector3:
 
 ## Take the act's camera tuning from the runtime's settings snapshot.
 func configure(camera_block: Dictionary) -> void:
-	camera_surge = float(camera_block.get("surge", 1.0))
-	camera_bob = float(camera_block.get("bob", 0.35))
+	camera_surge = float(camera_block["surge"])
+	camera_bob = float(camera_block["bob"])
 
 
 ## A fresh act: the previous session is dropped and the shot starts from rest. The runtime captures

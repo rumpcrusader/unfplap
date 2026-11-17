@@ -56,6 +56,10 @@ right-aligned value columns.
 - max: the row's worst single call in `ms`;
 - calls: the row's call count in the window, the same number the block prints.
 
+A permanent first row, `unfplap total`, sums the window's root totals into the average column and
+takes the worst single call in the window as its max; it has no call count. The tree follows under
+a separator.
+
 The values are coloured against the debug targets: the average is green at zero and red at
 `100ms/s`, the max green at zero and red at `0.5ms`, and the call count green at one call per
 rendered frame and red at two. A value is amber at half its target and red at the target and
@@ -65,7 +69,8 @@ no call of its own, and a name that no longer fits after the indentation is trim
 ellipsis.
 
 The caption repeats the probe's own header (`pony`/`pose`/`state` for an act, `runtimes`/`mares`
-for idle) with `fps`, `frame`, `phys` and `tick`.
+for idle) with `fps`, `frame`, `phys` and `tick`. From the second window on it also carries the
+measured `refresh` rate in Hz: the interval between the last two panels.
 
 ## Act probe API
 

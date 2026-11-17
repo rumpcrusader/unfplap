@@ -199,9 +199,11 @@ clears and hides it; a world close clears it, and the next window redraws the sa
 
 The tree glyphs and indentation are the block's own. Each value runs green → amber → red against
 its target — `100ms/s` for the average, `0.5ms` for the worst call and two calls per rendered frame
-for the count — so a red cell is the row to look at first. A `self` row prints `-` for max and
-calls. The caption names the probe's own header and the engine frame numbers. The rows themselves
-are `docs/perf.md`'s.
+for the count — so a red cell is the row to look at first. A permanent first row, `unfplap total`,
+sums the window's roots and takes the worst single call, so the mod's own cost is one line; it has
+no call count. A `self` row prints `-` for max and calls. The caption names the probe's own header,
+the engine frame numbers and, from the second window, the measured refresh rate in Hz. The rows
+themselves are `docs/perf.md`'s.
 
 ## Lab keys
 

@@ -763,8 +763,10 @@ func _rump_cone_target(view: Camera3D) -> Node:
 		return null
 	var eye: Vector3 = view.global_position
 	# Geometry first: eligibility resolves a whole profile per mare, so only the in-cone
-	# candidates pay for it. Nearest first preserves the nearest eligible adult result.
-	var candidates: Array = []
+	# candidates pay for it, and only while they beat the nearest eligible one already found.
+	# One pass keeps the scan allocation-free: the scan runs every second in the frame.
+	var best: Node3D = null
+	var best_distance := INF
 	for node: Variant in mares():
 		if not is_instance_valid(node):
 			continue
@@ -786,18 +788,13 @@ func _rump_cone_target(view: Camera3D) -> Node:
 			continue
 		var flat := Vector3(eye.x - rump.x, 0.0, eye.z - rump.z)
 		var distance := flat.length()
-		if distance > RUMP_CONE.REACH_M:
+		if distance > RUMP_CONE.REACH_M or distance >= best_distance:
 			continue
-		candidates.append([distance, actor])
-	if candidates.is_empty():
-		return null
-	candidates.sort_custom(func(a: Array, b: Array) -> bool:
-		return float(a[0]) < float(b[0]))
-	for candidate: Array in candidates:
-		var actor := candidate[1] as Node3D
-		if is_instance_valid(actor) and _is_act_target(actor):
-			return actor
-	return null
+		if not _is_act_target(actor):
+			continue
+		best_distance = distance
+		best = actor
+	return best
 
 
 func _native_row() -> HBoxContainer:

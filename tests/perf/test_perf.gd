@@ -13,6 +13,9 @@ class Sink extends RefCounted:
 	var active := true
 	var text := ""
 	var calls := 0
+	var panel_entries: Array = []
+	var panel_info: Dictionary = {}
+	var panel_calls := 0
 
 	func is_enabled() -> bool:
 		return enabled
@@ -36,6 +39,11 @@ class Sink extends RefCounted:
 		calls += 1
 		text = line
 
+	func panel(entries: Array, info: Dictionary) -> void:
+		panel_calls += 1
+		panel_entries = entries
+		panel_info = info
+
 
 func _initialize() -> void:
 	run.call_deferred()
@@ -56,6 +64,22 @@ func row(text: String, key: String) -> String:
 	return ""
 
 
+## The keys the panel received, in display order.
+func keys(entries: Array) -> Array:
+	var out: Array = []
+	for entry: Dictionary in entries:
+		out.append(str(entry["key"]))
+	return out
+
+
+## The residual row of `parent`, or an empty dictionary.
+func self_row(entries: Array, parent: String) -> Dictionary:
+	for entry: Dictionary in entries:
+		if bool(entry["self"]) and str(entry["parent"]) == parent:
+			return entry
+	return {}
+
+
 func run() -> void:
 	var probe := PERF.new()
 	check(not probe.on(), "the probe starts off")
@@ -63,11 +87,24 @@ func run() -> void:
 	probe.tick(5.0)
 	check(true, "absent callbacks are no-ops")
 
+	var text_only := Sink.new()
+	text_only.enabled = true
+	var bare := PERF.new()
+	bare.enabled = Callable(text_only, "is_enabled")
+	bare.active = Callable(text_only, "is_active")
+	bare.header = Callable(text_only, "header")
+	bare.log = Callable(text_only, "write")
+	bare.note("runtime", 10)
+	bare.tick(1.1)
+	check(text_only.calls == 1 and text_only.panel_calls == 0,
+		"an unbound panel sink still prints the text block")
+
 	var sink := Sink.new()
 	probe.enabled = Callable(sink, "is_enabled")
 	probe.active = Callable(sink, "is_active")
 	probe.header = Callable(sink, "header")
 	probe.log = Callable(sink, "write")
+	probe.show = Callable(sink, "panel")
 	probe.note("runtime", 10)
 	probe.tick(5.0)
 	check(sink.calls == 0, "a disabled probe never prints")
@@ -132,6 +169,20 @@ func run() -> void:
 	check(residual.contains("calls -"), "a self row has no call count")
 	check(sink.text.contains("\nunknown_chunk"),
 		"a chunk absent from the parent table is a root")
+	check(sink.panel_entries.size() == sink.text.split("\n").size() - 1,
+		"the panel receives the same rows the block prints")
+	check(keys(sink.panel_entries).has("pose_fanout")
+		and keys(sink.panel_entries).has("unknown_chunk"),
+		"the panel receives the noted chunks")
+	var residual_row := self_row(sink.panel_entries, "runtime_physics")
+	check(not residual_row.is_empty()
+		and is_equal_approx(float(residual_row.get("total", 0.0)), 1.5),
+		"the panel receives the parent's self residual")
+	check(str(sink.panel_info.get("pony", "")) == "fluttershy",
+		"the panel receives the header facts")
+	check(sink.panel_info.has("fps") and sink.panel_info.has("frame_ms")
+		and sink.panel_info.has("phys_ms") and sink.panel_info.has("tick"),
+		"the panel receives the engine frame facts")
 
 	probe.reset()
 	probe.note("runtime_process", 1000)

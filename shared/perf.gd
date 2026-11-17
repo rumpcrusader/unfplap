@@ -55,6 +55,8 @@ var active := Callable()
 ## Header facts for the summary line: pony, pose, state, lean, hands, near_mesh, tier, wings.
 var header := Callable()
 var log := Callable()
+## The panel sink for one window: the laid-out rows plus the header and engine facts as data.
+var show := Callable()
 
 
 func on() -> bool:
@@ -111,11 +113,12 @@ func tick(delta: float) -> void:
 	_rows.clear()
 	var entries: Array = TREE.layout(totals, PARENTS)
 	var facts: Dictionary = header.call() if header.is_valid() else {}
+	var fps := Engine.get_frames_per_second()
+	var frame_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	var phys_ms := Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
 	var text := "perf pony=%s pose=%s state=%d fps=%d frame=%.1fms phys=%.1fms lean=%s hands=%s tick=%.2f draws=%d prims=%d near_mesh=%s tier=%s wings=%s" % [
 		str(facts.get("pony", "?")), str(facts.get("pose", "")), int(facts.get("state", 0)),
-		Engine.get_frames_per_second(),
-		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
-		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+		fps, frame_ms, phys_ms,
 		str(facts.get("lean", "?")), str(facts.get("hands", "?")), ticks,
 		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
 		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
@@ -134,3 +137,10 @@ func tick(delta: float) -> void:
 			str(entry["prefix"]) + key, total, "%.3fms" % (total / float(frames)), peak, calls]
 	if log.is_valid():
 		log.call(text)
+	if show.is_valid():
+		var info := facts.duplicate()
+		info["fps"] = fps
+		info["frame_ms"] = frame_ms
+		info["phys_ms"] = phys_ms
+		info["tick"] = ticks
+		show.call(entries, info)

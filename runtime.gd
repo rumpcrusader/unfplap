@@ -333,6 +333,7 @@ func _init() -> void:
 	_perf_probe.active = Callable(self, "_perf_active")
 	_perf_probe.header = Callable(self, "_perf_header")
 	_perf_probe.log = Callable(self, "_log")
+	_perf_probe.show = Callable(self, "_perf_show")
 
 
 ## The host callbacks for the per-act anatomy bridge. The bridge reads the scene, the live state
@@ -665,6 +666,12 @@ func _anatomy_fluid_ground_y() -> float:
 func _log(text: String) -> void:
 	if is_instance_valid(main) and main.has_method("debug"):
 		main.call("debug", text)
+
+
+## Forward one act window to the entry's corner panel, which owns the gate and the drawing.
+func _perf_show(entries: Array, info: Dictionary) -> void:
+	if is_instance_valid(main) and main.has_method("perf_block"):
+		main.call("perf_block", entries, info)
 
 
 ## Debug perf probe. Timed chunks report microseconds here; `perf_note()` forwards to `shared/perf.gd`,

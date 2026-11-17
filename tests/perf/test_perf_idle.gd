@@ -13,6 +13,9 @@ class Sink extends RefCounted:
 	var enabled := false
 	var text := ""
 	var calls := 0
+	var panel_entries: Array = []
+	var panel_info: Dictionary = {}
+	var panel_calls := 0
 
 	func is_enabled() -> bool:
 		return enabled
@@ -23,6 +26,11 @@ class Sink extends RefCounted:
 	func write(line: String) -> void:
 		calls += 1
 		text = line
+
+	func panel(entries: Array, info: Dictionary) -> void:
+		panel_calls += 1
+		panel_entries = entries
+		panel_info = info
 
 
 func _initialize() -> void:
@@ -51,6 +59,14 @@ func token(line: String, label: String) -> String:
 	return str(parts[at + 1]) if at >= 0 and at + 1 < parts.size() else ""
 
 
+## The keys the panel received, in display order.
+func keys(entries: Array) -> Array:
+	var out: Array = []
+	for entry: Dictionary in entries:
+		out.append(str(entry["key"]))
+	return out
+
+
 func run() -> void:
 	var probe := PERF_IDLE.new()
 	check(not probe.on(), "the probe starts off")
@@ -58,10 +74,22 @@ func run() -> void:
 	probe.tick(5.0)
 	check(true, "absent callbacks are no-ops")
 
+	var text_only := Sink.new()
+	text_only.enabled = true
+	var bare := PERF_IDLE.new()
+	bare.enabled = Callable(text_only, "is_enabled")
+	bare.counts = Callable(text_only, "counts")
+	bare.log = Callable(text_only, "write")
+	bare.note("runtime", 10)
+	bare.tick(1.1)
+	check(text_only.calls == 1 and text_only.panel_calls == 0,
+		"an unbound panel sink still prints the block")
+
 	var sink := Sink.new()
 	probe.enabled = Callable(sink, "is_enabled")
 	probe.counts = Callable(sink, "counts")
 	probe.log = Callable(sink, "write")
+	probe.show = Callable(sink, "panel")
 	probe.note("runtime", 10, "twilight")
 	probe.tick(5.0)
 	check(sink.calls == 0, "a disabled probe never prints")
@@ -89,6 +117,15 @@ func run() -> void:
 	check(sink.text.contains("max") and sink.text.contains("9.00ms applejack"),
 		"the summary keeps the worst call and its owner")
 	check(sink.text.contains("\nzzz_slow"), "a chunk without a parent is a root")
+	check(sink.panel_calls == 1, "one panel window per printed block")
+	check(keys(sink.panel_entries) == ["zzz_slow", "runtime_process"],
+		"the panel receives the block's rows in order")
+	check(int(sink.panel_info.get("runtimes", 0)) == 4
+		and int(sink.panel_info.get("mares", 0)) == 6,
+		"the panel receives the idle header counts")
+	check(sink.panel_info.has("fps") and sink.panel_info.has("frame_ms")
+		and sink.panel_info.has("phys_ms") and sink.panel_info.has("tick"),
+		"the panel receives the engine frame facts")
 
 	probe.note("no_owner", 300)
 	probe.tick(1.1)

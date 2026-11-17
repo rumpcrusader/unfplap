@@ -42,6 +42,8 @@ var enabled := Callable()
 ## Header counts for the block: `{runtimes, mares}`.
 var counts := Callable()
 var log := Callable()
+## The panel sink for one window: the laid-out rows plus the counts and engine facts as data.
+var show := Callable()
 
 
 func on() -> bool:
@@ -94,12 +96,12 @@ func tick(delta: float) -> void:
 	_rows.clear()
 	var entries: Array = TREE.layout(totals, PARENTS)
 	var facts: Dictionary = counts.call() if counts.is_valid() else {}
+	var fps := Engine.get_frames_per_second()
+	var frame_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	var phys_ms := Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
 	var text := "perf idle runtimes=%d mares=%d fps=%d frame=%.1fms phys=%.1fms tick=%.2f" % [
 		int(facts.get("runtimes", 0)), int(facts.get("mares", 0)),
-		Engine.get_frames_per_second(),
-		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
-		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
-		ticks]
+		fps, frame_ms, phys_ms, ticks]
 	for entry: Dictionary in entries:
 		var key := str(entry["key"])
 		var total := float(entry["total"])
@@ -119,3 +121,10 @@ func tick(delta: float) -> void:
 			str(entry["prefix"]) + key, total, per_call, calls, peak, owner]
 	if log.is_valid():
 		log.call(text)
+	if show.is_valid():
+		var info := facts.duplicate()
+		info["fps"] = fps
+		info["frame_ms"] = frame_ms
+		info["phys_ms"] = phys_ms
+		info["tick"] = ticks
+		show.call(entries, info)

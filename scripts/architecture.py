@@ -318,6 +318,7 @@ PURPOSE = {
     "hud/service.gd": "act HUD card",
     "stool/service.gd": "footstool supply",
     "debug/service.gd": "debug action registry",
+    "debug/perf_view.gd": "perf flame panel",
     "input/service.gd": "act input policy",
     "shared/preferences.gd": "profile schema and math",
     "shared/character_preferences.gd": "roster and catalog templates",

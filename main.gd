@@ -24,6 +24,7 @@ const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
+const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
@@ -109,6 +110,8 @@ var _native_hint_text := ""
 var _dance_hint_shown := false
 var _debug_skeleton: Node3D
 var _debug_wheel: CanvasLayer
+## The in-game perf panel, created on the first printed window; see docs/perf.md.
+var _perf_view: CanvasLayer
 var _debug_face_index := -1
 ## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
 var _captions: Dictionary = {}
@@ -179,6 +182,17 @@ func _perf_idle_counts() -> Dictionary:
 	return {"runtimes": runtimes, "mares": mares().size()}
 
 
+## One window from either probe, drawn in the corner panel. The text block stays the record.
+func perf_block(entries: Array, info: Dictionary) -> void:
+	if not debug_logs or not debug_perf:
+		return
+	if not is_instance_valid(_perf_view):
+		_perf_view = PERF_VIEW.new()
+		_perf_view.name = "UnfplapPerfView"
+		add_child(_perf_view)
+	_perf_view.call("show_window", entries, info)
+
+
 ## One entry per diagnostic action: identification first, then tab-indented rows.
 func _debug_block(title: String, rows: Array) -> void:
 	var text := title
@@ -207,6 +221,7 @@ func _ready() -> void:
 	_perf_idle.enabled = Callable(self, "_perf_idle_on")
 	_perf_idle.counts = Callable(self, "_perf_idle_counts")
 	_perf_idle.log = Callable(self, "debug")
+	_perf_idle.show = Callable(self, "perf_block")
 	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
@@ -345,6 +360,8 @@ func _on_world_closed(_host: Node) -> void:
 	_offer = null
 	_offer_blocked = null
 	_perf_idle.reset()
+	if is_instance_valid(_perf_view):
+		_perf_view.call("clear")
 	_last_blocked_key = ""
 	if is_instance_valid(stool):
 		stool.call("on_world_closed")
@@ -424,6 +441,8 @@ func apply_settings_changed() -> void:
 func _apply_settings_changed() -> void:
 	debug_logs = SETTINGS.debug_mode.get_bool()
 	debug_perf = SETTINGS.debug_perf.get_bool()
+	if is_instance_valid(_perf_view) and not (debug_logs and debug_perf):
+		_perf_view.call("clear")
 	if not debug_logs:
 		close_debug_wheel()
 	if is_instance_valid(input):

@@ -101,14 +101,19 @@ func _limit(sk: Skeleton3D, bone: int) -> void:
 	sk.set_bone_pose_rotation(bone, held.get_rotation_quaternion())
 
 
+## A synthetic rig has no mare; the skeleton's own basis is the same frame.
+func _body_basis(sk: Skeleton3D) -> Basis:
+	return mare.global_basis if is_instance_valid(mare) else sk.global_basis
+
+
 ## Body-relative axes in skeleton space.
 func right_axis(sk: Skeleton3D) -> Vector3:
-	return (sk.global_basis.inverse() * mare.global_basis.x).normalized()
+	return (sk.global_basis.inverse() * _body_basis(sk).x).normalized()
 
 
 func up_axis(sk: Skeleton3D) -> Vector3:
-	return (sk.global_basis.inverse() * mare.global_basis.y).normalized()
+	return (sk.global_basis.inverse() * _body_basis(sk).y).normalized()
 
 
 func forward_axis(sk: Skeleton3D) -> Vector3:
-	return (sk.global_basis.inverse() * -mare.global_basis.z).normalized()
+	return (sk.global_basis.inverse() * -_body_basis(sk).z).normalized()

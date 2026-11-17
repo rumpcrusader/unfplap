@@ -1806,11 +1806,18 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> b
 	if service == null or not is_instance_valid(service):
 		return false
 	var stool := _hotkey_stool_for(pose)
+	var rows_started := Time.get_ticks_usec() if idle_perf else 0
 	var verdict: Variant = scene_only_verdict(pose, act_source, bed_in, null, stool.x, stool.y)
+	if idle_perf:
+		_idle_perf_note("offer_rows", Time.get_ticks_usec() - rows_started)
 	if verdict == null or not bool(verdict.ok):
 		return false
-	return bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT)) \
+	var policy_started := Time.get_ticks_usec() if idle_perf else 0
+	var ready := bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT)) \
 		and bool(service.call("relationship_ok", pony))
+	if idle_perf:
+		_idle_perf_note("offer_policy", Time.get_ticks_usec() - policy_started)
+	return ready
 
 
 ## The footstool pair for this call. A non-stool pose returns `(-1, -1)`, which tells the gate to

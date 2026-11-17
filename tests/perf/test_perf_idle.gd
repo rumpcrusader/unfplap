@@ -129,6 +129,28 @@ func run() -> void:
 	check(sink.text.contains("0.15ms/s") and sink.text.contains("3.15ms/s"),
 		"the self rows carry the residual time")
 
+	probe.reset()
+	probe.note("entry_process", 12000)
+	probe.note("offer_scan", 5000)
+	probe.note("offer_gate", 4800)
+	probe.note("offer_rows", 4200)
+	probe.note("offer_policy", 600)
+	probe.note("entry_hint", 3000)
+	probe.note("entry_negotiation", 900)
+	probe.note("entry_initiation", 400)
+	probe.note("entry_watch", 100)
+	probe.note("entry_caption", 50)
+	probe.tick(1.1)
+	check(row(sink.text, "entry_hint").begins_with("├─ "),
+		"the entry body's chunks nest under entry_process")
+	check(row(sink.text, "entry_caption").begins_with("└─ "),
+		"the smallest entry chunk closes its level")
+	check(row(sink.text, "offer_rows").begins_with("│  │  ├─ "),
+		"the gate's rows and policy nest two levels under the scan")
+	check(sink.text.find("offer_rows") < sink.text.find("offer_policy"),
+		"the gate prints its measured split in total order")
+	check(sink.text.contains("2.55ms/s"), "the entry body keeps its own residual row")
+
 	print("PERF_IDLE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("PERF_IDLE_PASS")

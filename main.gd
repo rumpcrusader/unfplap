@@ -549,16 +549,24 @@ func _character_participation(id: String) -> Dictionary:
 func _process(delta: float) -> void:
 	var timed := _perf_idle.on()
 	var started := Time.get_ticks_usec() if timed else 0
-	_process_entry(delta)
+	_process_entry(delta, timed)
 	if timed:
 		_perf_idle.note("entry_process", Time.get_ticks_usec() - started)
 	_perf_idle.tick(delta)
 
 
+## Close one idle chunk whose stamp the caller took. The note itself stays outside the next chunk.
+func _close_idle_chunk(key: String, started: int) -> void:
+	_perf_idle.note(key, Time.get_ticks_usec() - started)
+
+
 ## The entry's per-frame body. `_process` above only times it for the idle probe; the call order
 ## here is load-bearing.
-func _process_entry(delta: float) -> void:
+func _process_entry(delta: float, timed: bool) -> void:
+	var caption_started := Time.get_ticks_usec() if timed else 0
 	_caption_top_tick()
+	if timed:
+		_close_idle_chunk("entry_caption", caption_started)
 	if not is_instance_valid(player) and is_instance_valid(game):
 		var body: Variant = game.get("player")
 		if is_instance_valid(body):
@@ -579,18 +587,27 @@ func _process_entry(delta: float) -> void:
 	_offer_clock += delta
 	if _offer_clock >= OFFER_SCAN_S:
 		_offer_clock = 0.0
-		if _perf_idle.on():
+		if timed:
 			var offer_started := Time.get_ticks_usec()
 			_refresh_offer()
-			_perf_idle.note("offer_scan", Time.get_ticks_usec() - offer_started)
+			_close_idle_chunk("offer_scan", offer_started)
 		else:
 			_refresh_offer()
 	if is_instance_valid(initiation):
+		var initiation_started := Time.get_ticks_usec() if timed else 0
 		initiation.tick(delta)
+		if timed:
+			_close_idle_chunk("entry_initiation", initiation_started)
 	if is_instance_valid(negotiation):
+		var negotiation_started := Time.get_ticks_usec() if timed else 0
 		negotiation.tick(delta)
 		_tick_agreement_auto_start(delta)
+		if timed:
+			_close_idle_chunk("entry_negotiation", negotiation_started)
+	var watch_started := Time.get_ticks_usec() if timed else 0
 	_tick_negotiation_watch()
+	if timed:
+		_close_idle_chunk("entry_watch", watch_started)
 	var hint := ""
 	if _offer != null:
 		hint = OFFER_HINT
@@ -600,7 +617,10 @@ func _process_entry(delta: float) -> void:
 	else:
 		_last_offer_key = ""
 		_last_blocked_key = ""
+	var hint_started := Time.get_ticks_usec() if timed else 0
 	_sync_native_hint(hint)
+	if timed:
+		_close_idle_chunk("entry_hint", hint_started)
 
 
 func _refresh_offer() -> void:

@@ -140,7 +140,8 @@ wheel is drawn at 75% opacity.
 
 ## Show data
 
-`main.debug_data(target)` returns the stable sections `TARGET`, `CYCLE`, `GATE`, `REQUEST`, `ACT`,
+`main.debug_data(target)` returns the stable sections `TARGET`, `CYCLE`, `GATE`, `REQUEST`,
+`NEGOTIATION`, `ACT`,
 `STOOL`, `HISTORY`, `PROMPT` and `BED`; `ACT` is present only while this target owns the live act.
 The Show data action prints them as one tab-indented log entry. `BED` is the same row builder the
 Bed cuddle action uses. The old Show actions are gone; a future always-on overlay can render the

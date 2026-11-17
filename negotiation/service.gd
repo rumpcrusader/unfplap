@@ -596,6 +596,9 @@ func _claim_mare_hold(live: Offer, offer: MareOffer) -> bool:
 		if not (bool(hold.holds_negotiation()) and str(hold.token) == offer.hold_token):
 			if not bool(hold.transfer_nav(offer.hold_token, offer.hold_old_wander)):
 				return false
+	elif offer.cuddle:
+		if not bool(hold.claim_attention()):
+			return false
 	else:
 		if not bool(hold.claim_negotiation(live.pony_id)):
 			return false
@@ -612,7 +615,9 @@ func _claim_anon_hold(live: Offer) -> bool:
 	var hold: Variant = _hold()
 	if hold == null:
 		return false
-	if not bool(hold.claim_negotiation(live.pony_id)):
+	var claimed := bool(hold.claim_attention()) if live.cuddle \
+		else bool(hold.claim_negotiation(live.pony_id))
+	if not claimed:
 		return false
 	if not bool(hold.hold_affection()):
 		hold.release_nav()

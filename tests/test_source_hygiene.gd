@@ -940,9 +940,12 @@ func _check_pose_id_comparisons(files: Array[String]) -> void:
 func _check_start_dispatch() -> void:
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	var start := _func_body(runtime, "start")
-	check(start.contains("POSE_SPECS.start_setup(pose)") and start.contains("_run_start_setup(setup)"),
-		"runtime.start dispatches on the spec setup name")
+	check(start.contains("_begin_act("), "runtime.start reaches the one start body")
 	check(not start.contains("CATALOG."), "runtime.start names no pose id")
+	var body := _func_body(runtime, "_begin_act")
+	check(body.contains("POSE_SPECS.start_setup(pose)") and body.contains("_run_start_setup(setup)"),
+		"the start body dispatches on the spec setup name")
+	check(not body.contains("CATALOG."), "the start body names no pose id")
 	var dispatch := _func_body(runtime, "_run_start_setup")
 	check(not dispatch.is_empty(), "the runtime setup dispatcher exists")
 	for setup: String in POSE_SPECS.START_SETUPS:
@@ -1427,8 +1430,8 @@ func _check_stool_docs() -> void:
 ## internals live only in the two scene adapters.
 func _check_initiation_isolation(files: Array[String]) -> void:
 	var pure_files := [
-		"initiation/consent.gd", "initiation/facts.gd", "initiation/policy.gd",
-		"initiation/prompts.gd",
+		"initiation/facts.gd", "initiation/policy.gd", "initiation/prompts.gd",
+		"initiation/reasoning.gd",
 	]
 	for name: String in pure_files:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
@@ -1456,7 +1459,7 @@ func _check_initiation_isolation(files: Array[String]) -> void:
 			".get(\"_guest\")", ".get(\"_sleeper\")", "get_first_node_in_group",
 			"main.get(\"classifier\")"]:
 		check(not facade.contains(token), "the initiation facade keeps %s behind an adapter" % token)
-	for name: String in ["initiation/conversation.gd", "initiation/venue.gd"]:
+	for name: String in ["initiation/venue.gd"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
 				"preload(\"res://mods/unfplap/main.gd\")"]:
@@ -1482,8 +1485,8 @@ func _check_initiation_docs() -> void:
 	var contract := FileAccess.get_file_as_string(ROOT.path_join("docs/initiation.md"))
 	check(not contract.is_empty(), "docs/initiation.md exists")
 	for heading: String in ["## Scope", "## Architecture", "## Internal API", "## Data ownership",
-			"## Episode", "## Admission", "## Candidates", "## Privacy", "## Ask", "## Consent",
-			"## Presentation and invite", "## Cancellation", "## Prompts", "## Debug and lab",
+			"## Episode", "## Admission", "## Candidates", "## Reasoning", "## Privacy",
+			"## Ask and handoff", "## Cancellation", "## Prompts", "## Debug and lab",
 			"## Tests", "## Known limits"]:
 		check(contract.contains(heading), "docs/initiation.md has %s" % heading)
 	for name: String in ["AGENTS.md", "docs/eligibility.md"]:

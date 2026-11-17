@@ -1,6 +1,6 @@
 extends SceneTree
-## Pure proactive-request wording: the ask, the invitation, the reminders, the give-up lines and
-## the world-context situations.
+## Pure proactive-request wording: the ask context, the ask purpose, the observed-situation text
+## and the heat sentence.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/initiation/test_prompts.gd
 
 const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
@@ -63,36 +63,17 @@ func run() -> void:
 	check(PROMPTS.ask_context(request).contains("invite him to come to bed"),
 		"a bed ask invites him to come to bed")
 
-	# The generated-intent purpose carries the relationship and history notes and the face hint.
+	# The generated-intent purpose carries the relationship and history notes.
 	request.relation_note = "You and Anon: friends."
 	request.history_note = "You want to make it up to him."
-	request.face_note = " Face: you may start the line with [face:shy]."
 	request.pose = CATALOG.STANDING
 	var purpose := PROMPTS.ask_purpose(request)
 	check(purpose.contains("You and Anon: friends."), "the ask carries the relationship note")
 	check(purpose.contains("You want to make it up to him."), "the ask carries the history note")
-	check(purpose.contains("[face:shy]"), "the ask carries the face hint")
-	check(not PROMPTS.ask_context(request).contains("[face:shy]"),
-		"the observed-situation context carries no face hint")
-	check(purpose.ends_with(request.face_note), "the face hint closes the ask purpose")
-
-	# The invitation after acceptance: the standing back or the bed position.
-	check(PROMPTS.invite_purpose(request).contains("turned your back"),
-		"the standing invitation names the presented back")
-	request.pose = CATALOG.MISSIONARY
-	check(PROMPTS.invite_purpose(request).contains("lying beside Anon"),
-		"the bed invitation names the bed position")
-	check(PROMPTS.invite_purpose(request).ends_with(request.face_note),
-		"the invitation carries the face hint")
-
-	check(PROMPTS.reminder_purpose(false).contains("indirectly"),
-		"a public reminder hints")
-	check(PROMPTS.reminder_purpose(true).contains("once more"),
-		"a private reminder asks again")
-	check(PROMPTS.clarify_purpose().contains("not clear"), "the clarification names the problem")
-	check(PROMPTS.give_up_purpose().contains("over for now"), "the give-up line ends the offer")
-	check(PROMPTS.invite_give_up_purpose().contains("did not take you up"),
-		"the invite give-up line lets it go")
+	check(purpose.contains("[calm]"), "the ask names the opening face tags")
+	check(purpose.contains("question mark"), "the ask ends as a question")
+	check(PROMPTS.ask_context(request).contains("You want to make it up to him."),
+		"the observed-situation context carries the private history note")
 
 	# World-context situations.
 	request.pose = CATALOG.STANDING
@@ -103,9 +84,6 @@ func run() -> void:
 		"a standing situation is not a cuddle")
 	request.cuddle = true
 	check(PROMPTS.situation_ask(request).contains("cuddling"), "a cuddle situation says so")
-	check(PROMPTS.situation_consent(true).contains("accepted"), "the accept situation says yes")
-	check(PROMPTS.situation_consent(false).contains("declined"), "the decline situation says no")
-	check(PROMPTS.situation_end().contains("over for now"), "the end situation closes the offer")
 
 	print("INITIATION_PROMPTS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

@@ -483,7 +483,8 @@ both effective drivers are the standing driver, both deltas are empty and the ta
 the standing group with the same presentation, so the body holds. The oral pair takes
 `MODE_BLEND` in both directions because only one side carries the delta; it is a real two-base
 edge, not the fast path. The pair is the current proof of the state machine's single path. The
-offer presentation pose (`poses/standing_presentation.gd`) is the same evaluator with the standing
+offer presentation pose (`poses/standing_presentation.gd`, now driven by the act start rather than
+the proactive request) is the same evaluator with the standing
 pair and its own config. The single path is the compatibility path: the shipped poses keep their
 own asset on both sides.
 

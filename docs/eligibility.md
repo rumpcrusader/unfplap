@@ -142,12 +142,13 @@ nothing.
 | `runtime.start()` | `start_verdict()` | none |
 | `runtime.refuse_available()` / `refuse()` | `buck_refuse` | `scene_gate/service.gd` refusal executor |
 | `runtime._still_willing()` | `get_verdict(pony, Mode.MID_ACT)` | none |
-| `main._refresh_offer()` | `runtime.hint_start_verdict().show` | candidate discovery; reuses the policy snapshot, runs live scene rows |
+| `main._refresh_offer()` | a live Agreement's scene-only rows, else `runtime.hint_start_verdict().show` | candidate discovery; the Agreement offer wins, the idle scan reuses the policy snapshot |
 | `main.try_start()` | `runtime.start()` | none |
 | `main._try_refusal()` | `runtime.refuse_available()` | none |
 | `main` candidate scan | `eligible(pony, Target.ACT)` through `_is_act_target()` | candidate discovery |
 | `main.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
-| `initiation` | `get_verdict(pony, Mode.OFFER)` | cooldown, approach, bed search, privacy, classifier; see `docs/initiation.md` |
+| `initiation` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` + the scene-only formation rows | cooldown, approach, bed search, privacy, Mare Initiation Reasoning; see `docs/initiation.md` |
+| `runtime.start_agreement()` | none; the scene-only rows and the frozen pose capability | the Agreement start; the policy was frozen at formation |
 | `anatomy/act` | `get_profile(id).consent` | feature flags |
 | `anatomy` facade | `eligible(pony, Target.ANATOMY)` | rig, assets, dock; forwards to its controllers |
 | `tail_seat` | `eligible(pony, Target.TAIL)` through the anatomy facade | hair, dock |
@@ -284,8 +285,9 @@ Rules:
 `main._refresh_offer()` runs at the 0.15 s hint cadence. It calls
 `runtime.hint_start_verdict()`, which reuses one cached `Verdict` for `Mode.START` and still runs
 every live scene row. Only the hint uses the snapshot: `runtime.start_verdict()`,
-`runtime.offer_verdict()`, `runtime.start()`, the refusal path, `debug_line()` and the initiation
-service build a fresh verdict.
+`runtime.offer_verdict()`, `runtime.start()`, the refusal path and `debug_line()` build a fresh
+verdict. The scene-only Agreement rows run no policy, and the initiation scan uses `eligible?`
+plus `relationship_ok()` without a verdict.
 
 The runtime stores the snapshot per pony with its last key and a 0.5 s fallback TTL. It rebuilds
 when any of these changes:
@@ -523,9 +525,10 @@ contract is `docs/initiation.md`.
 - `tests/hands/test_actions.gd`: the invalid-pony gate smoke.
 - `tests/scene_gate/test_scene_gate.gd`: the live scene rows, the navigator/player/bed
   predicates and the refusal executor; its contract is `docs/scene_gate.md`.
-- `tests/initiation/test_policy.gd`, `test_prompts.gd` and `test_initiation_api.gd`: the offer
-  rules, wording and facade; `tests/test_consent_classifier.gd` covers the classifier parsing.
-  The request service's contract is `docs/initiation.md`.
+- `tests/initiation/test_policy.gd`, `test_prompts.gd`, `test_reasoning.gd` and
+  `test_initiation_api.gd`: the offer pacing, wording, reasoning and facade;
+  `tests/test_consent_classifier.gd` covers the classifier parsing. The request service's contract
+  is `docs/initiation.md`.
 - `tests/anatomy/test_anatomy.gd`: the anatomy target, participation, the provider's `eligible`
   assertion and the rig checks.
 - `tests/anatomy/test_identity.gd`: the princess body profile and the off-roster list.

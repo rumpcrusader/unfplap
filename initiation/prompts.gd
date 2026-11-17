@@ -1,8 +1,7 @@
 extends RefCounted
-## Pure proactive-request wording: the ask, both reminders, the clarification, the invitation, the
-## give-up lines and the world-context situation texts. The facade supplies the face, relationship
-## and history notes as strings, so this file has no Settings, scene or game access.
-## See `docs/initiation.md`.
+## Pure proactive-request wording: the ask context, the ask purpose, the observed-situation text
+## and the heat sentence. The facade supplies the relationship and history notes as strings, so
+## this file has no Settings, scene or game access. See `docs/initiation.md`.
 
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const FACTS := preload("res://mods/unfplap/initiation/facts.gd")
@@ -58,44 +57,7 @@ static func ask_purpose(request: FACTS.Request) -> String:
 	text += heat_line(request.heat)
 	if not request.history_note.is_empty():
 		text += " " + request.history_note
-	text += request.face_note
 	return text
-
-
-## The invitation after Anon accepted: the bed position or the presented back.
-static func invite_purpose(request: FACTS.Request) -> String:
-	var text := ""
-	if request.pose == CATALOG.MISSIONARY:
-		text = "You are lying beside Anon on the bed, ready for him. Comment on taking the bed position and invite him in your own voice, in a way that fits how you feel about him. One short sentence. Begin with [whispering] or [calm]. Do not narrate actions."
-	else:
-		text = "You have just turned your back to Anon and lifted your tail aside, ready for him. Comment on taking the position and invite him in your own voice, in a way that fits how you feel about him. One short sentence. Begin with [whispering] or [calm]. Do not narrate actions."
-	text += request.face_note
-	return text
-
-
-static func clarify_purpose() -> String:
-	return "Anon's answer was not clear. Ask him plainly, as a direct question, whether he wants this, in your own voice. One short sentence ending with a question mark. Do not narrate actions."
-
-
-static func invite_give_up_purpose() -> String:
-	return "Anon accepted but did not take you up on it. Say one short, in-character line letting it go for now, without anger. Do not narrate actions."
-
-
-static func reminder_purpose(private: bool) -> String:
-	if not private:
-		return "Anon has not reacted to your hint. Ask once more, indirectly, as a question in one short sentence. Other ponies are around. Do not repeat your first line."
-	return "Anon has not answered your offer. Ask the question once more, short and in your own voice; playful or plain is fine, but do not turn it into a demand. Do not repeat your first line."
-
-
-static func give_up_purpose() -> String:
-	return "Your offer is over for now. Say one short line in your own voice, letting it go without pressure or anger. Do not ask again and do not narrate actions."
-
-
-## The heat sentence appended to both ask forms. Empty outside heat.
-static func heat_line(heat: bool) -> String:
-	if heat:
-		return " You are in heat, and you want him; let the urgency show without turning it into a demand."
-	return ""
 
 
 ## World-context text: she has decided to ask.
@@ -112,17 +74,11 @@ static func situation_ask(request: FACTS.Request) -> String:
 	return text
 
 
-## World-context text: Anon answered the private offer.
-static func situation_consent(accepted: bool) -> String:
-	if accepted:
-		return "Anon accepted your offer. You are alone together and taking the position he came for."
-	return "Anon declined your offer."
-
-
-## World-context text: the offer is over without an answer. It replaces the open ask situation so
-## the director's next line does not keep the offer alive after the controller gave up.
-static func situation_end() -> String:
-	return "Your offer for sex is over for now. Anon did not take it up."
+## The heat sentence appended to both ask forms. Empty outside heat.
+static func heat_line(heat: bool) -> String:
+	if heat:
+		return " You are in heat, and you want him; let the urgency show without turning it into a demand."
+	return ""
 
 
 ## The single free/indirect decision. Every builder above branches on this once.

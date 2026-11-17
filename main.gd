@@ -214,7 +214,7 @@ func _ready() -> void:
 	_bind_negotiation_host()
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
-	initiation.call("setup", self, privacy)
+	initiation.call("setup", self, privacy, adapter)
 	add_child(initiation)
 	anatomy = ANATOMY.new()
 	anatomy.name = "UnfplapAnatomy"
@@ -591,22 +591,16 @@ func _refresh_offer() -> void:
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var pony_form: bool = PLAYER_FORM.is_pony(form)
 
-	# The request service's accepted offer owns the hint while it lives. It is already a yes, so
-	# the rump fan must not be needed to rediscover it; the live gate still decides the hint.
-	var live: POSE_OFFER = _live_request_offer()
-	if live != null:
-		var live_runtime: Node = live.runtime
-		var live_gate: Dictionary = live_runtime.call("hint_start_verdict",
-			live.pose, live.source, live.bed)
-		if bool(live_gate.get("show", false)):
-			_offer = live
-			_log_offer()
+	# A live Agreement owns the hint while it lives: it is already a yes. Its scene-only rows and
+	# the settled presentation decide whether the act key can consume it; no other offer appears.
+	if is_instance_valid(negotiation):
+		var handle: Variant = negotiation.call("handle")
+		if handle != null:
+			var live: POSE_OFFER = _agreement_offer(handle)
+			if live != null:
+				_offer = live
+				_log_offer()
 			return
-		if bool(live_runtime.call("stool_blocks_verdict", live_gate)):
-			var live_need := maxi(1, int(live_runtime.call("stool_needed_count")))
-			_offer_blocked = _blocked_copy(live, live_need, _stool_hint_for(live_need))
-			_log_blocked_offer(live_runtime, live.pony, live_need)
-		return
 
 	# Missionary now requires Anon to be seated/lying on the bed with a pony lying there. A
 	# standing or cradling Anon has no valid missionary camera, so that entry is not offered.
@@ -665,7 +659,7 @@ func _refresh_offer() -> void:
 
 
 ## Build one typed offer for the idle scan. The cleanup is always the request service's
-## `cancel_for`: it also releases a stray presentation, whether or not this pony has an episode.
+## an Agreement press: a live Agreement is consumed by the scene-only start, not a request close.
 func _new_offer(runtime: Node, pony: Node, pose: String, source: String,
 		bed: Variant = null) -> POSE_OFFER:
 	var offer := POSE_OFFER.new()
@@ -674,8 +668,6 @@ func _new_offer(runtime: Node, pony: Node, pose: String, source: String,
 	offer.pose = pose
 	offer.source = source
 	offer.bed = bed
-	if is_instance_valid(initiation) and is_instance_valid(offer.pony):
-		offer.cancel = Callable(initiation, "cancel_for").bind(offer.pony)
 	return offer
 
 
@@ -848,16 +840,30 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 			hud.call("toast", _stool_find_hint(need), 4.0)
 
 
-## The request service's live accepted offer. Null when none. The object is the service's one
-## reusable handle, so read it immediately and do not store it.
-func _live_request_offer() -> POSE_OFFER:
-	if not is_instance_valid(initiation) or not initiation.has_method("start_offer"):
+## The live Agreement as the act key's own typed offer. It is a yes already, so the rump fan and
+## the policy snapshot do not rediscover it; the scene-only rows and the settled presentation
+## decide the hint. Null while the world is not ready.
+func _agreement_offer(handle: Variant) -> POSE_OFFER:
+	if handle == null:
 		return null
-	var live: Variant = initiation.call("start_offer")
-	if not (live is POSE_OFFER):
+	var pony: Variant = handle.pony
+	var runtime: Node = runtime_for(pony) if is_instance_valid(pony) else null
+	if not is_instance_valid(runtime) or not runtime.has_method("agreement_offer_ready"):
 		return null
-	var offer := live as POSE_OFFER
-	return offer if offer.valid() else null
+	if not bool(runtime.call("agreement_offer_ready", handle)):
+		return null
+	var option: Variant = handle.option
+	if option == null:
+		return null
+	var offer := POSE_OFFER.new()
+	offer.runtime = runtime
+	offer.pony = pony as Node3D
+	offer.pose = str(option.pose)
+	offer.source = str(option.source)
+	offer.bed = option.bed
+	offer.trigger = "agreement"
+	offer.pending = false
+	return offer
 
 
 func _log_offer() -> void:
@@ -920,10 +926,6 @@ func try_start() -> bool:
 	if is_instance_valid(active_runtime):
 		return false
 	_refresh_offer()
-	if _offer == null and _offer_blocked == null:
-		# A stale policy snapshot can hide the accepted offer. Use the live episode anyway; the
-		# fresh start gate below still decides whether the act may start.
-		_offer = _live_request_offer()
 	if _offer == null:
 		if _offer_blocked != null:
 			return start_pose_offer(_offer_blocked)
@@ -937,6 +939,8 @@ func try_start() -> bool:
 func start_pose_offer(offer: POSE_OFFER) -> bool:
 	if offer == null or not offer.valid():
 		return false
+	if offer.trigger == "agreement":
+		return _start_agreement_offer(offer)
 	if not offer.blocked.is_empty():
 		var toast := str(offer.blocked.get("toast", ""))
 		if not toast.is_empty() and is_instance_valid(hud) and hud.has_method("toast"):
@@ -970,6 +974,28 @@ func start_pose_offer(offer: POSE_OFFER) -> bool:
 			offer.pose, offer.source, str(target.name) if is_instance_valid(target) else "?"])
 	_clear_offer_hint()
 	return started
+
+
+## The act key consumes a live Agreement through its scene-only start. `WAIT` keeps the hint and
+## the Agreement for the next press; a started or failed attempt clears the hint, and the runtime
+## reports the result to the Negotiation service.
+func _start_agreement_offer(offer: POSE_OFFER) -> bool:
+	var handle: Variant = negotiation.call("handle") if is_instance_valid(negotiation) else null
+	if handle == null or not is_instance_valid(offer.runtime):
+		_clear_offer_hint()
+		return false
+	var result := int(offer.runtime.call("start_agreement", handle))
+	if result == RUNTIME.AGREEMENT_WAIT:
+		_debug("agreement start waiting pose=%s source=%s" % [offer.pose, offer.source])
+		return false
+	_clear_offer_hint()
+	return result == RUNTIME.AGREEMENT_STARTED
+
+
+## The runtime's Agreement start result, forwarded to the Negotiation service.
+func report_agreement(handle: Variant, started: bool) -> void:
+	if is_instance_valid(negotiation):
+		negotiation.call("report", handle, started)
 
 
 ## Close the live request episode before a start or refusal that owns the pony. The offer carries
@@ -1221,6 +1247,10 @@ func debug_data(target: Node) -> Dictionary:
 		sections.append(_debug_section("REQUEST", initiation.debug_rows(target)))
 	else:
 		sections.append(_debug_section("REQUEST", ["request service unavailable"]))
+	if is_instance_valid(negotiation):
+		sections.append(_debug_section("NEGOTIATION", negotiation.debug_rows(target)))
+	else:
+		sections.append(_debug_section("NEGOTIATION", ["negotiation service unavailable"]))
 	if is_instance_valid(active_runtime) and runtime == active_runtime:
 		sections.append(_debug_section("ACT", _debug_act_rows(runtime)))
 	sections.append(_debug_section("STOOL", _debug_stool_rows(runtime)))
@@ -1811,10 +1841,6 @@ func allocate_serial() -> int:
 
 
 func set_active(runtime: Node) -> void:
-	if is_instance_valid(initiation):
-		var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
-		if is_instance_valid(pony):
-			initiation.cancel_for(pony)
 	active_runtime = runtime
 	_offer = null
 
@@ -2144,11 +2170,22 @@ func _bind_negotiation_host() -> void:
 	negotiation.call("setup", host)
 
 
-## The Proactive service's handoff: a formed Mare offer to the Negotiation service. The service
-## owns the answer, privacy, pose re-checks and the Agreement from here.
-func begin_mare_offer(offer: Variant) -> bool:
-	if not is_instance_valid(negotiation) or offer == null:
+## The Proactive service's handoff: it passes the formed Mare offer as plain values; `main`
+## builds the typed package and hands it to the Negotiation service, which owns the answer,
+## privacy, pose re-checks and the Agreement from here.
+func form_mare_offer(fields: Dictionary) -> bool:
+	if not is_instance_valid(negotiation) or fields.is_empty():
 		return false
+	var offer := NEGOTIATION.MareOffer.new()
+	offer.runtime = fields.get("runtime")
+	offer.pony = fields.get("pony")
+	offer.option = fields.get("option")
+	offer.base = fields.get("base")
+	offer.private = bool(fields.get("private", false))
+	offer.hold_token = str(fields.get("hold_token", ""))
+	offer.hold_old_wander = bool(fields.get("hold_old_wander", true))
+	offer.line = str(fields.get("line", ""))
+	offer.cuddle = bool(fields.get("cuddle", false))
 	return bool(negotiation.call("begin_mare_offer", offer))
 
 
@@ -2237,7 +2274,15 @@ func _negotiation_react(pony: Node, _reason: String) -> void:
 
 
 func _on_negotiation_outcome(terminal: Variant) -> void:
-	if is_instance_valid(initiation) and initiation.has_method("on_negotiation_outcome"):
+	if terminal == null:
+		return
+	var pony: Variant = terminal.pony
+	if is_instance_valid(pony):
+		var runtime: Variant = runtime_for(pony)
+		if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):
+			runtime.call("clear_presentation")
+	if terminal.outcome != NEGOTIATION.Outcome.STARTED \
+			and is_instance_valid(initiation) and initiation.has_method("on_negotiation_outcome"):
 		initiation.call("on_negotiation_outcome", terminal)
 
 
@@ -2247,11 +2292,16 @@ func _on_agreement(handle: Variant) -> void:
 		return
 	var pony: Variant = handle.pony
 	var runtime: Variant = runtime_for(pony) if is_instance_valid(pony) else null
-	if is_instance_valid(runtime) and runtime.has_method("start_agreement"):
-		runtime.call("start_agreement", handle)
+	if not is_instance_valid(runtime) or not runtime.has_method("start_agreement"):
+		if is_instance_valid(negotiation):
+			negotiation.call("cancel", handle, "cancelled")
 		return
-	if is_instance_valid(negotiation):
-		negotiation.call("cancel", handle, "cancelled")
+	# The presentation is act-owned: it starts now, and the auto-start waits for it to settle.
+	var option: Variant = handle.option
+	if option != null and str(option.pose) == CATALOG.STANDING \
+			and not bool(runtime.call("present_standing")):
+		_debug("agreement present failed pony=%s" % str(pony.name))
+	_offer = null
 
 
 func _exit_tree() -> void:

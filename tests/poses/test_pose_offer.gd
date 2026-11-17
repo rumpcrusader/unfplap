@@ -6,6 +6,7 @@ extends SceneTree
 
 const MAIN := preload("res://mods/unfplap/main.gd")
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
+const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 
 var failures := 0
 var checks := 0
@@ -21,6 +22,12 @@ class FakeRuntime extends Node:
 	var starts := 0
 	var refusals := 0
 	var last_start: Array = []
+	var agreement_result := 0
+	var agreement_handles: Array = []
+
+	func start_agreement(handle: Variant) -> int:
+		agreement_handles.append(handle)
+		return agreement_result
 
 	func start_verdict(_pose: String, _source: String, _bed: Variant) -> Dictionary:
 		return gate
@@ -40,6 +47,17 @@ class FakeClassifier extends Node:
 
 	func cancel_scope(scope: String) -> void:
 		scopes.append(scope)
+
+
+class FakeNegotiation extends Node:
+	var live: Variant = null
+	var reports: Array = []
+
+	func handle() -> Variant:
+		return live
+
+	func report(_handle: Variant, started: bool) -> void:
+		reports.append(started)
 
 
 class FakeHud extends Node:
@@ -193,12 +211,36 @@ func _check_start_path() -> void:
 	check(main.get("_offer") == null, "a failed start clears the hint")
 	runtime.start_result = true
 
+	# A live Agreement is consumed through the scene-only start: WAIT keeps the hint and the
+	# Agreement, STARTED and FAILED clear the hint. The runtime reports the result.
+	var negotiation := FakeNegotiation.new()
+	main.negotiation = negotiation
+	negotiation.live = {"pony": pony, "option": null}
+	var agreement := _offer(runtime, pony)
+	agreement.trigger = "agreement"
+	main.set("_offer", agreement)
+	runtime.agreement_result = RUNTIME.AGREEMENT_WAIT
+	check(not bool(main.call("start_pose_offer", agreement)),
+		"a waiting Agreement does not start")
+	check(main.get("_offer") == agreement, "a waiting Agreement keeps the hint")
+	check(runtime.agreement_handles.size() == 1,
+		"the Agreement handle reaches the runtime")
+	runtime.agreement_result = RUNTIME.AGREEMENT_STARTED
+	check(bool(main.call("start_pose_offer", agreement)),
+		"a ready Agreement starts through the scene-only path")
+	check(main.get("_offer") == null, "a started Agreement clears the hint")
+	check(runtime.starts == 0, "the Agreement start does not use the policy start path")
+	negotiation.live = null
+	check(not bool(main.call("start_pose_offer", agreement)),
+		"a missing Agreement handle starts nothing")
+
 	# An invalid handle is a no-op.
 	check(not bool(main.call("start_pose_offer", POSE_OFFER.new())),
 		"an invalid offer starts nothing")
 
 	root.remove_child(main)
 	main.free()
+	negotiation.free()
 	runtime.free()
 	pony.free()
 

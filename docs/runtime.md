@@ -22,17 +22,29 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
 
 ## Start
 
-`main.try_start()` is the act key's only entry. It builds a typed offer from the idle scan (the
-bed side or the free-standing fan) or takes the request service's live accepted offer
-(`initiation.start_offer()`), then hands it to `main.start_pose_offer(offer)`. The offer owns its
-pose, blocked hint, cancel callback and classifier scope, so that one function never names a pose
-and never reaches into the request service. An automatic trigger calls the same function with the
-offer's `auto` flag set; the trigger owns its timing. The start gate runs before the request
-handoff: a transient failed gate leaves the accepted offer and its hint alive, while a history or
-buck refusal closes them. The idle hint may reuse a per-runtime policy snapshot, but this path
-always builds a fresh verdict. The start sequence:
+`main.try_start()` is the act key's only entry. It hands a typed offer to
+`main.start_pose_offer(offer)`. The idle scan builds its offer from the bed side or the
+free-standing fan; a live Agreement builds `trigger: "agreement"` from its frozen option and the
+scene-only rows. The offer owns its pose, blocked hint and trigger, so that one function never
+names a pose and never reaches into a request or negotiation service.
 
-1. re-read the identity, gate and refusal;
+Two start paths share the one body (`runtime._begin_act()`):
+
+- **The general act key** runs the full gate (`runtime.start_verdict()`: policy rows plus the live
+  scene rows) and keeps the history/buck refusal behavior. A transient failed gate leaves the
+  offer and the hint alive.
+- **The Agreement** runs `runtime.start_agreement(handle)`: only the scene-only rows with the
+  frozen pose capability (`scene_only_verdict`), then `_begin_act()`. It reports `Started` or
+  `StartFailed` to the Negotiation service through `main.report_agreement()`. `AGREEMENT_WAIT`
+  means a transient row or an unsettled presentation, and the Agreement stays live. The
+  presentation is act-owned and starts when `main` receives the Agreement.
+
+The aftercare is cleared before an Agreement start: the `sex_aftercare` meta, the visual aftercare
+node and its navigator lease. The act then adopts the negotiation hold through `_claim_nav()`:
+the scene-hold ledger already owns the navigator, so the start keeps the same owner instead of
+claiming a second one. The start sequence:
+
+1. re-read the identity, the gate and any refusal (the Agreement path runs the scene-only rows);
 2. reset the stool handle and refresh the anatomy bridge;
 3. begin the camera session, clear the idle presentation, the mood face and the act face;
 4. snapshot the settings and preferences, build the thrust tracker and the pose config;

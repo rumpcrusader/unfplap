@@ -152,6 +152,14 @@ func _fixture() -> Dictionary:
 	return {"runtime": runtime, "pony": pony, "player": player, "main": main, "hud": hud}
 
 
+class FakeHandle extends RefCounted:
+	var option: Variant = null
+	var pony: Variant = null
+
+	func valid() -> bool:
+		return true
+
+
 func run() -> void:
 	var f := _fixture()
 	var runtime: Node = f["runtime"]
@@ -160,6 +168,17 @@ func run() -> void:
 	var main: FakeMain = f["main"]
 	var nav: FakeNav = runtime._hold.nav
 	var inventory: FakeInventory = main.game.inventory
+
+	# The scene-only Agreement start's guard rails: no handle, no option, and the aftercare clear.
+	check(runtime.start_agreement(null) == RUNTIME.AGREEMENT_FAILED,
+		"a missing Agreement handle fails the start")
+	check(runtime.start_agreement(FakeHandle.new()) == RUNTIME.AGREEMENT_FAILED,
+		"an Agreement without an option fails the start")
+	check(not runtime.agreement_offer_ready(null),
+		"a missing Agreement is never ready")
+	pony.set_meta("sex_aftercare", true)
+	runtime._clear_aftercare()
+	check(not pony.has_meta("sex_aftercare"), "the Agreement start clears aftercare")
 
 	runtime._end_session(false)
 	check(pony.face_turn_rate == 0.45, "face-turn rate restored")

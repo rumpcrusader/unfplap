@@ -4,13 +4,12 @@ extends RefCounted
 ## dictionary. See `docs/initiation.md`.
 
 class Request extends RefCounted:
-	## The pose she is offering, or the pose the invitation will use.
+	## The pose she is offering.
 	var pose := ""
 	var cuddle := false
 	## True when the offer is private; the wording mode follows from it.
 	var private := false
 	var heat := false
 	## Host-supplied prompt extras. Empty when the feature that owns them is off.
-	var face_note := ""
 	var relation_note := ""
 	var history_note := ""

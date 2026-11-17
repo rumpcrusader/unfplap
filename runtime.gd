@@ -71,6 +71,11 @@ const RESTORE_SECONDS := 0.4
 const NOMINAL_SHAFT_M := 0.2
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
 const HOLD_ACT_SECONDS := 0.35
+## The Agreement start's answer: a transient row or an unsettled presentation keeps waiting; a
+## technical rollback is a start failure.
+const AGREEMENT_WAIT := 0
+const AGREEMENT_STARTED := 1
+const AGREEMENT_FAILED := 2
 ## Presentation: how close the pony stands in front of the player for standing.
 const STANDING_GAP_M := 0.55
 ## Per-size standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
@@ -1590,7 +1595,8 @@ func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
 func scene_only_verdict(pose: String, act_source: String, bed_in: Variant = null,
 		frozen: Variant = null) -> Variant:
 	_read_id()
-	return _scene_gate().scene_only_verdict(pose, act_source, bed_in, frozen)
+	var capability: Variant = frozen if frozen != null else SCENE_GATE.FrozenPose.new(true, true)
+	return _scene_gate().scene_only_verdict(pose, act_source, bed_in, capability)
 
 
 ## The idle hint's start verdict: a reused policy snapshot plus live scene rows. Only
@@ -1884,6 +1890,68 @@ func start(pose: String, bed_in: Variant, act_source: String,
 		return false
 	# The accepted standing offer may still be stepping her away from Anon. The act start owns
 	# her body and would clear the presentation mid-turn, so wait for the settled pose.
+	if POSE_SPECS.start_setup(pose) == "standing_place" and presentation_active() \
+			and not presentation_settled():
+		_log("start blocked presentation turn pose=%s source=%s pony=%s" % [
+			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		return false
+	return _begin_act(pose, bed_in, act_source)
+
+
+## The scene-only Agreement start. The Negotiation package froze the policy and the pose
+## capability; only the world rows run. `WAIT` keeps the Agreement live (a transient row or the
+## presentation is not ready); `STARTED` and `FAILED` are reported to `main`.
+func start_agreement(handle: Variant) -> int:
+	if handle == null or not bool(handle.call("valid")):
+		return AGREEMENT_FAILED
+	var option: Variant = handle.option
+	if option == null:
+		return AGREEMENT_FAILED
+	var pose := str(option.pose)
+	var act_source := str(option.source)
+	if not agreement_offer_ready(handle):
+		_log("agreement start waiting pose=%s source=%s pony=%s" % [
+			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		return AGREEMENT_WAIT
+	_clear_aftercare()
+	var started := _begin_act(pose, option.bed, act_source)
+	if is_instance_valid(main) and main.has_method("report_agreement"):
+		main.call("report_agreement", handle, started)
+	return AGREEMENT_STARTED if started else AGREEMENT_FAILED
+
+
+## True when the scene-only rows pass and, for a standing option, the presentation is settled.
+func agreement_offer_ready(handle: Variant) -> bool:
+	if handle == null or not bool(handle.call("valid")):
+		return false
+	var option: Variant = handle.option
+	if option == null:
+		return false
+	_read_id()
+	var pose := str(option.pose)
+	var verdict: Variant = scene_only_verdict(pose, str(option.source), option.bed,
+		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
+	if verdict == null or not bool(verdict.ok):
+		return false
+	if POSE_SPECS.start_setup(pose) == "standing_place" and presentation_active() \
+			and not presentation_settled():
+		return false
+	return true
+
+
+## Clear the visual aftercare before a new start: the face and tail state, the meta and the
+## aftercare navigator lease. The node restores its own nav only while it still owns it.
+func _clear_aftercare() -> void:
+	if is_instance_valid(_aftercare):
+		_aftercare.queue_free()
+		_aftercare = null
+	if is_instance_valid(pony) and pony.has_meta("sex_aftercare"):
+		pony.remove_meta("sex_aftercare")
+
+
+## The shared start body after every gate. The act key's policy path and the scene-only
+## Agreement path both land here; the one teardown still owns every failure.
+func _begin_act(pose: String, bed_in: Variant, act_source: String) -> bool:
 	if POSE_SPECS.start_setup(pose) == "standing_place" and presentation_active() \
 			and not presentation_settled():
 		_log("start blocked presentation turn pose=%s source=%s pony=%s" % [

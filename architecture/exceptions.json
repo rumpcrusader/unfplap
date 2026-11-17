@@ -25,14 +25,6 @@
       "expires": "phase-2"
     },
     {
-      "from": "initiation/service.gd",
-      "to": "rest/control.gd",
-      "kind": "service-private",
-      "owner": "initiation",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
-    },
-    {
       "from": "kiss/legs.gd",
       "to": "poses/pose_rig.gd",
       "kind": "service-private",

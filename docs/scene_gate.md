@@ -143,8 +143,8 @@ start rows. `aftercare` is removed; the Act service clears it at start. `SceneVe
 
 The host binds `hold_compatible(pose, source) -> bool`; it is true only while the navigator owner
 and the affection hold belong to the live negotiation hold. A hard failure is a `StartFailed`; a
-failing transient row is waited on within the Agreement TTL. The existing `start_verdict()` and
-`offer_verdict()` stay for the legacy route until the Agreement start replaces it.
+failing transient row is waited on within the Agreement TTL. `runtime.start_agreement(handle)`
+consumes this verdict; the act key's general path still runs `start_verdict()`.
 
 ## Navigator owners
 

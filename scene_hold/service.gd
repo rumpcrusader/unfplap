@@ -61,6 +61,22 @@ func claim_negotiation(owner_id: String) -> bool:
 	return _claim(owner_id, TOKEN_NEGOTIATION)
 
 
+## Take the attention and physical affection hold without a navigator lease. A cuddle session
+## already owns the navigator; the negotiation keeps Anon as the target, owns the affection meta
+## and leaves the session's lease alone.
+func claim_attention() -> bool:
+	var pony: Variant = _host("pony")
+	if not is_instance_valid(pony):
+		return false
+	var found: Node = pony.get_node_or_null("Navigator")
+	if found == null or str(found.get("reserved_by")) != "":
+		return false
+	nav = null
+	token = ""
+	negotiation = true
+	return true
+
+
 ## Take over an owner that the proactive request already holds. The release data (`old_wander`)
 ## comes from the request lease; the navigator itself is not changed.
 func transfer_nav(existing_token: String, old_wander := true) -> bool:
@@ -112,11 +128,14 @@ func holds_negotiation() -> bool:
 	return str(nav.get("command_owner")) == token
 
 
-## The scene gate's hold-compatibility predicate. It is true for a live negotiation lease or an
-## adopted act start: the navigator owner is this ledger's token and the affection hold is ours.
+## The scene gate's hold-compatibility predicate. It is true while the affection hold is ours
+## and, when there is a navigator lease, the owner is this ledger's token. An attention-only
+## cuddle hold has no lease of its own.
 func accepts_hold(_pose: String, _source: String) -> bool:
-	if token.is_empty() or not affection_owned:
+	if not affection_owned:
 		return false
+	if token.is_empty():
+		return true
 	if nav == null or not is_instance_valid(nav):
 		return false
 	return str(nav.get("command_owner")) == token

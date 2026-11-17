@@ -242,6 +242,30 @@ func _check_negotiation() -> void:
 	check(not hold.accepts_hold("standing", ""), "a second release is idempotent")
 	_free(made)
 
+	# A cuddle session owns the navigator. The negotiation takes the attention and affection
+	# hold only, leaves the session's owner and releases without touching it.
+	var cuddled := _fixture("standing", STATE_IDLE)
+	var cuddle_hold: RefCounted = cuddled["hold"]
+	var cuddle_nav: FakeNav = cuddled["nav"]
+	var cuddle_pony: FakePony = cuddled["pony"]
+	cuddle_nav.command_owner = "cuddle:1234"
+	check(cuddle_hold.claim_attention(), "the cuddle hold claims attention without a lease")
+	check(cuddle_nav.command_owner == "cuddle:1234",
+		"the attention claim leaves the cuddle owner alone")
+	check(cuddle_hold.token.is_empty() and cuddle_hold.nav == null,
+		"the attention claim has no navigator lease")
+	check(not cuddle_hold.accepts_hold("missionary", "bed_side"),
+		"the attention claim alone is not a complete scene-gate hold")
+	check(cuddle_hold.hold_affection(), "the cuddle hold takes the affection meta")
+	check(cuddle_hold.accepts_hold("missionary", "bed_side"),
+		"the attention and affection hold is scene-gate compatible")
+	cuddle_hold.release_negotiation()
+	check(cuddle_nav.command_owner == "cuddle:1234",
+		"the attention release leaves the cuddle owner alone")
+	check(not cuddle_pony.has_meta("affection_active"),
+		"the attention release clears the affection meta")
+	_free(cuddled)
+
 	# The proactive request hands its lease over; a second ledger can adopt the same owner.
 	var handed := _fixture("standing", STATE_IDLE)
 	var request_hold: RefCounted = handed["hold"]

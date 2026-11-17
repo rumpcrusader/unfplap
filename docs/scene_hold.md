@@ -36,6 +36,8 @@ negotiation runs before the act.
 - `claim_negotiation(owner_id)` — claims `unfplap:negotiation:<id>` while the runtime is `IDLE`.
   A missing/reserved navigator, another mod's owner, a routine owner with an active route, or
   another `unfplap:` owner is Occupied.
+- `claim_attention()` — takes the attention and physical affection hold without a navigator lease.
+  A cuddle session already owns the navigator; the claim leaves that owner alone.
 - `transfer_nav(existing_token, old_wander)` — takes over the proactive request's live lease,
   keeping its token and release data.
 - `adopt_nav(existing_token, old_wander)` — attaches a second ledger to a live owner without
@@ -43,8 +45,9 @@ negotiation runs before the act.
 - `adopt_hold()` — the act start keeps this ledger's negotiation owner instead of claiming a
   second one.
 - `holds_negotiation()` — true while this ledger owns the negotiation lease.
-- `accepts_hold(pose, source)` — the scene gate's compatibility predicate: the navigator owner is
-  this ledger's token and the affection hold is ours. It stays true after `adopt_hold()`.
+- `accepts_hold(pose, source)` — the scene gate's compatibility predicate: the affection hold is
+  ours and, when the ledger has a navigator lease, the owner is this ledger's token. An
+  attention-only cuddle hold has no lease of its own. It stays true after `adopt_hold()`.
 - `keep_nav()` — re-asserts the lease if the owner changed; a negotiation lease also clears a
   route target another system set.
 - `keep_target()` — keeps Anon as the conversation target. A cleared target is re-asserted;
@@ -114,9 +117,10 @@ No controls. The debug log reports the ownership state on the `debug_line` call 
 ## Tests
 
 `tests/scene_hold/` covers the claim/keep/release, the negotiation lease in `IDLE`, the token the
-scene gate accepts, keep-target and the attention reassignment, the affection hold, the
-transfer/adoption handoff, the idempotent release, the face-turn ownership, the player lock, the
-attention clear, the carry release and the cuddle end with fake navigator, player and cuddle nodes.
+scene gate accepts, the attention-only cuddle hold, keep-target and the attention reassignment,
+the affection hold, the transfer/adoption handoff, the idempotent release, the face-turn
+ownership, the player lock, the attention clear, the carry release and the cuddle end with fake
+navigator, player and cuddle nodes.
 The teardown suite (`tests/test_runtime_teardown.gd`) is retargeted to the facade.
 
 ## Verification / lab

@@ -1,8 +1,9 @@
 # Proactive requests
 
-The proactive-request service is the one controller that lets a mare ask Anon for sex. It never
-starts the act: the act key remains the only act-start path. This file is the single technical contract;
-other docs link here.
+The proactive service is the one controller that lets a mare ask Anon for sex. It keeps the pacing,
+the placeable choice, the walk and the ask; it does not own the answer, the Agreement or the act
+start. It never starts the act: the Negotiation service owns the exchange and the act key consumes
+the Agreement. This file is the single technical contract; other docs link here.
 
 ## Scope
 
@@ -10,96 +11,83 @@ This contract covers:
 
 - the quiet gate that decides when an automatic request may begin;
 - admission: the per-mare cooldown, the heat shortening, the short retry and the scan interval;
-- candidate discovery for a cuddle, a bed and a standing offer, and the weighted pick;
-- the offer privacy rule and the public-offer override;
-- the walk to Anon or to the bed front, and the arrival settle;
-- the ask line, the two reminders and the deadlines;
-- the private consent classification, the one clarification and the decline;
-- the standing presentation, the invitation and its give-up line;
-- the cooldown/retry split on every closing phase and the shared cancellation path;
+- Base clearance and the placeable pose options for a cuddle, a bed and a standing offer;
+- Mare Initiation Reasoning: whether she offers and which option she chooses;
+- the walk to Anon or to the bed front and the arrival settle;
+- the ask line, the observed-situation record and the Mare-offer handoff;
+- the pacing update from the Negotiation service's terminal outcome;
 - the world-context situations, the debug actions and the lab path.
 
-It does not cover act eligibility (see `docs/eligibility.md`), act readiness or thrust
-(`docs/readiness.md`), pose or camera (`docs/poses.md`, `docs/camera.md`), or the act's own
-dialogue cues and prompts.
+It does not cover the exchange, the Anon decision, privacy sampling, the Agreement, the presentation
+or the act start: those are `docs/negotiation.md` and `docs/runtime.md`.
 
 ## Architecture
 
 | File | Role |
 |---|---|
-| `initiation/service.gd` | facade: scan, admission, candidate assembly, the live episode, phase dispatch, cooldown IO and the typed `Episode`/`Candidate`/`ForceResult`, plus the shared `PoseOffer` handoff |
-| `initiation/facts.gd` | pure typed `Request`: the plain values the rules and wording read |
-| `initiation/policy.gd` | pure rules: timers, cooldowns, privacy, wording mode, prompt schedule, pose choice, weighted pick and the phase tables |
-| `initiation/consent.gd` | pure private-answer state machine: transcript, model step, one clarification, deadlines |
+| `initiation/service.gd` | facade: scan, admission, Base clearance, candidate assembly, the live episode, phase dispatch, the reasoning call, the ask and the handoff |
+| `initiation/facts.gd` | pure typed `Request`: the plain values the wording reads |
+| `initiation/policy.gd` | pure pacing: scan, cooldown, heat, retry, approach, bed search, wording mode and the phase names |
+| `initiation/reasoning.gd` | pure Mare Initiation Reasoning: the instruction, the payload and the parser |
+| `initiation/prompts.gd` | pure wording: the ask context, the ask purpose, the situation text and the heat line |
 | `initiation/cooldowns.gd` | request cooldown store: `request_times`, the history wait and the heat shortening |
-| `initiation/prompts.gd` | pure wording: ask, reminders, clarification, invitation, give-up lines and the situation texts |
-| `initiation/conversation.gd` | scene adapter: the only reader of the conversation director, the consent classifier and the world context |
-| `initiation/venue.gd` | scene adapter: the only reader of navigators, posture and the bed search |
+| `initiation/venue.gd` | scene adapter: the only reader of navigators, posture, the bed search and the placement facts |
 | `privacy/service.gd` | world privacy provider: the house, the other mares, the radius and the offer/cuddle predicates |
+| `negotiation/adapter.gd` | the director bridge and model host `main` injects: the quiet gate, the ask queue, the situation record, the reasoning call |
+| `negotiation/service.gd` | the Act Negotiation: the answer, privacy, the Agreement and the global lock |
 | `docs/initiation.md` | this contract |
-| `tests/initiation/` | pure rules, facts and wording suites, plus the facade API suite |
+| `tests/initiation/` | the pure rules, facts, reasoning and wording suites, plus the facade API suite |
 
 The purity boundary is deliberate:
 
-- `facts.gd`, `policy.gd`, `prompts.gd` and `shared/consent.gd` have no `Node`, tree, time, file,
+- `facts.gd`, `policy.gd`, `prompts.gd` and `reasoning.gd` have no `Node`, tree, time, file,
   `Settings`, scene or game preload. They take plain values and return plain values or strings.
-  `shared/privacy_rules.gd` is the same kind of pure rule and holds the offer/cuddle formulas the
-  policy delegates to.
-- `conversation.gd` owns `director._player_text`, `_held_text`, `_now`, `characters`, `speech`,
-  `player_approaches`, `group`, the `transcript` connection, the classifier client and
-  `world_context.record`. It keeps the ask turn's baseline of the two player-line fields. The
-  facade still parses a local yes/no with the shared `consent_classifier.local_intent()` static and
-  hands the intent to the consent core.
 - `venue.gd` owns `Navigator` fields (`command_owner`, `wander_enabled`, `command_speed_limit`,
-  `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the
-  bed rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`, `accept`), the player seat and
-  `couch_sleeping`, the `couches` group and `WorldLayout`. The world house lookup is delegated to
-  the privacy provider.
-- The facade is the only file that preloads `eligibility/service.gd`, `shared/act_history.gd` (for the ask
-  notes), `shared/cycle.gd`, `settings/service.gd`, `memory/service.gd` (`docs/memory.md`), `shared/relationship_cue.gd`,
-  `shared/act_face.gd` and
-  `rest/control.gd`; `cooldowns.gd` also preloads `shared/act_history.gd` and the policy module.
-- No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*`.
-- `main.gd` creates the service (`setup(self, privacy)`) and drives it: `tick`, `reset`,
-  `cancel_for`, `force` and `offer_target()`. `runtime.gd` exposes `cuddle_active()` for the scan.
+  `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the bed
+  rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`), the player seat, the `couches` group and
+  `WorldLayout`. It also builds the placement facts the option builder consumes.
+- The director bridge is the injected `negotiation/adapter.gd`; this service never reads the
+  director or the classifier. `main` owns one adapter and gives it to this service at `setup()`.
+- The facade is the only file that preloads `eligibility/service.gd`, `privacy/service.gd`,
+  `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`, `shared/pose_catalog.gd`
+  and `shared/cycle.gd`; `cooldowns.gd` preloads `shared/act_history.gd`.
+- No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*` except the
+  orchestrator, which owns the service.
+- `main.gd` creates the service (`setup(self, privacy, adapter)`) and drives it: `tick`, `reset`,
+  `force`, `placement_for` and the outcome handoff. `runtime.gd` exposes `cuddle_active()` and the
+  scene-only verdict.
 
 ## Internal API
 
 `main.initiation`:
 
 ```gdscript
-enum Phase { NONE, APPROACH, ARRIVE, ASK, PRESENT, INVITE, BED_APPROACH, BED_LEAD, BED_WAIT }
+enum Phase { NONE, APPROACH, ARRIVE, ASK, BED_APPROACH }
 
-class Candidate:   id, runtime, pony, pose, source, bed, rest, front, private, cuddle,
-                   bed_invite, weight, forced
-class Episode:     serial, phase, candidate fields, timers, consent/reply/nav blocks
+class Candidate:   id, runtime, pony, options, option, base, context, private, cuddle, forced
+class Episode:     serial, phase, candidate values, timers, hazard, navigator lease
 class ForceResult: ok, id, pose, reject
-# shared, `shared/pose_offer.gd`:
-class PoseOffer:   runtime, pony, pose, source, bed, trigger, auto, pending, scope, blocked,
-                   cancel
 
-func setup(main_node: Node) -> void
+func setup(main_node: Node, privacy_node: Privacy = null, adapter_node: Node = null) -> void
 func tick(delta: float) -> void
 func reset() -> void
-func cancel_for(pony: Node) -> void
 func force(runtime: Node, pose := "") -> ForceResult
-func start_offer() -> PoseOffer
+func on_negotiation_outcome(terminal: RefCounted) -> void
+func clear_cooldown(pony: Node) -> bool
+func placement_for(runtime: Node) -> PoseOptions.Placement
+func debug_rows(pony: Node) -> Array[String]
 ```
 
-`force()` is the debug/lab entry: it keeps the paused-tree bypass and the eligibility and scene
-gates, and returns the comma-joined reject reason in `ForceResult.reject`. `start_offer()` is the
-accepted-offer handoff `main` reads on every idle hint scan; it reuses one `PoseOffer` object, so
-the caller reads it immediately.
+`force()` is the debug/lab entry: it bypasses the quiet, cooldown, retry and reasoning checks but
+keeps Base clearance, the placeable options and the scene-only formation rows. An empty `pose` lets
+the scan's first option decide; an internal pose is rejected, never substituted.
 
-Adapters (internal, called by the facade):
+The venue adapter is internal:
 
 ```gdscript
-conversation: hook, unhook, quiet, idle, begin_turn, player_reacted, last_player_text, player_name,
-              pony_speaking, begin_greeting, queue, cancel_keys, classify_offer,
-              cancel_key, cancel_scope, record_situation
-venue:        player, mares, pony_id, region_of, camera_forward, house_at, can_approach, stand,
-              ensure_stand, claim_nav, nav_owned, nav_has_target, stay, release_nav, find_bed_for,
-              rest_front, accept_bed, player_in_bed
+venue: player, mares, pony_id, region_of, camera_forward, house_at, can_approach, stand,
+       ensure_stand, claim_nav, nav_owned, nav_has_target, stay, release_nav, restore_limits,
+       find_bed_for, rest_front, accept_bed, player_in_bed, placement_for
 ```
 
 ## Data ownership
@@ -107,10 +95,10 @@ venue:        player, mares, pony_id, region_of, camera_forward, house_at, can_a
 | Data | Stored where | Owner |
 |---|---|---|
 | Request cooldown (`request_times`) | `Mods.state("unfplap")` | `initiation/cooldowns.gd` |
-| Live episode, start-offer handoff, cuddle edge, one-ask-per-cuddle, retry deadlines and scan skip reasons | memory only | this facade |
+| Live episode, cuddle edge, one-ask-per-cuddle, retry deadlines and scan skip reasons | memory only | this facade |
 | Act history and its offer cooldown | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
 | Cycle phase | runtime, derived from the day | `shared/cycle.gd` |
-| Per-mare consent and public-offer flag | resolved verdict | `docs/eligibility.md` |
+| The formed Mare offer and the Agreement | memory only | `negotiation/service.gd` |
 | Relationship, stage, love, willingness | game save | base game |
 
 Rules:
@@ -118,6 +106,8 @@ Rules:
 - No eligibility block and no request block is written to `settings.json`.
 - The cooldown is the only persisted value, and only the facade reads or writes it.
 - The episode never survives a world close; `reset()` closes it and clears the session maps.
+- The request lease leaves this service at formation; after that the Negotiation service owns the
+  hold and the terminal path.
 
 ## Episode
 
@@ -126,19 +116,18 @@ One episode at a time. Each phase waits on its own condition:
 | Phase | Waits for | Moves to |
 |---|---|---|
 | `APPROACH` | arrival within `2.8 m`; cancels on quiet loss, region change, Anon moving `5 m`, nav ownership loss or `35 s` | `ARRIVE` |
-| `ARRIVE` | `2 s` settle with Anon still in range | `ASK` |
-| `BED_APPROACH` | bed front within `1.4 m` or the navigator finishing its path; `25 s` cap | `ASK` |
-| `ASK` | the deadline, an answer, or a physical yes | `PRESENT`, `BED_LEAD`, `INVITE`, or closed |
-| `PRESENT` | the runtime's presentation and its settled check; a turn that never settles closes instead of inviting (`5 s` cap) | `INVITE` |
-| `BED_LEAD` | the bed front; `25 s` cap | `BED_WAIT` |
-| `BED_WAIT` | Anon reclined on the offered bed and the native rest accepting her | `INVITE` |
-| `INVITE` | the act key, a lost presentation/bed, or `60 s`; a transient start gate waits | closed, with a give-up line on timeout |
+| `ARRIVE` | `2 s` settle with Anon still in range | ask and handoff |
+| `BED_APPROACH` | bed front within `1.4 m` or the navigator finishing its path; `25 s` cap | ask and handoff |
+| `ASK` | the handoff result only; the ask line is speakable and the episode leaves this service | none |
 
-Timers come only from `initiation/policy.gd`; `tests/initiation/test_policy.gd` locks every value.
+`ASK` is a transient phase: the offer is formed, the ask line is queued and the episode clears. The
+Negotiation service owns the answer from that moment; there is no reminder, deadline, clarification
+or presentation in this service. Timers come only from `initiation/policy.gd`;
+`tests/initiation/test_policy.gd` locks every value.
 
 ## Admission
 
-An automatic scan runs every `0.5 s` and needs a quiet moment:
+An automatic scan runs every `0.5 s` and needs a quiet moment through the injected adapter:
 
 - not paused, no menu panel with a free cursor, Anon not locked, flying or knocked down;
 - the director idle, not in a group exchange or an approach, not hearing, and background AI
@@ -152,243 +141,116 @@ The reason names are `unavailable`, `paused`, `mouse`, `menu`, `no_player`, `con
 
 Per mare, the scan then requires:
 
-- the runtime idle (`state == 0`) and a stable id;
-- the eligibility offer verdict (`Mode.OFFER`);
+- the runtime idle (`state == 0`), present, awake and a stable id;
+- Base clearance: the eligibility `eligible?` answer, the relationship row and availability;
 - the cooldown: the history offer cooldown since `request_times[id]`, quartered in heat (the
   cooldown store owns it);
-- the `30 s` retry deadline left by a failed walk-over or an unavailable ask.
+- the `30 s` retry deadline left by a failed walk-over, reasoning failure or refused handoff.
 
 A rejected mare logs `request scan skip id=<id> reasons=<...>` when her reason set changes or
-after `10 s`, so a steady cooldown does not fill the log.
+after `10 s`, so a steady cooldown does not fill the log. One mare is considered per scan, with a
+rotating start index; her reasoning still decides whether she offers.
 
 A cuddle rising edge clears that mare's cooldown and permits one ask per cuddle. The debug
-actions bypass the quiet, cooldown, retry and AI-usage checks but keep the eligibility and scene
-gates.
+actions bypass the quiet, cooldown, retry and reasoning checks but keep Base clearance, the options
+and the scene-only formation rows.
 
 ## Candidates
 
-| Candidate | Requires |
+The available options are computed **before** reasoning, from one placement pass:
+
+| Option | Requires |
 |---|---|
-| Cuddle | an active cuddle, an offerable bed pose, the bed under her, the offer gate, and `main.offer_target()` naming her |
-| Bed | an offerable bed pose, a free bed within `7 m` on the same floor and region, a finite front spot, the offer gate |
-| Standing | an offerable standing pose, the offer gate, a free navigator in Anon's region, and Anon within `24 m` |
+| Cuddle | an active cuddle, the bed under her, an offerable bed pose, and `main.offer_target()` naming her |
+| Bed | an offerable bed pose, a free bed within `7 m` on the same floor and region, a finite front spot |
+| Standing | an offerable standing pose, a free navigator in Anon's region, and Anon within `24 m` |
 
-Only `shared/pose_specs.gd` rows with `offerable` are candidates. The row's `forms`/`views` must
-contain the player's live form and display, and the candidate's act source must be in its
-`scene.sources` (an empty list places no source constraint). `standing_test` and `standing_oral`
-are internal, never offered, and a forced request naming them is rejected rather than falling back
-to another pose.
+`shared/pose_options.gd` is the one builder: it filters the pose spec's `offerable`, `forms`,
+`views` and `scene.sources` rows. `standing_test` and `standing_oral` are internal, never offered,
+and a forced request naming them is rejected rather than falling back to another pose. A cuddle is
+the only option considered while she is in the cuddle.
 
-Weight is `verdict.offer_weight` from act history. Cuddle candidates are preferred outright;
-otherwise the pick is weighted. A blocked history has weight `0` unless the relationship bypass is
-on, which restores the base weight (`docs/eligibility.md`, `## Relationship bypass`). When both base
-poses fit a non-cuddle offer, the pose is a coin flip; one fitting pose is used. A bed invite walks
-to the bed front, not to Anon. The bed search stays below the `8 m` ask cancel range, so she cannot
-be sent to a bed outside the ask's own reach.
+Each option then passes the scene-only formation rows (`runtime.scene_only_verdict` with the live
+pose capability): a hard failure drops the option. The `player` and `bed_gate` rows are transient
+at formation because Anon is not in position yet; the Agreement's own start waits for them.
+
+## Reasoning
+
+`initiation/reasoning.gd` is the Mare Initiation Reasoning: one bounded model call per scan with the
+Context facts and the indexed options. It answers `{"offer": bool, "option": int}`.
+
+- `offer: false` is not a terminal outcome: she applies the full pacing cooldown and the scan moves
+  to the next mare.
+- An unavailable or malformed reasoning applies the `30 s` retry.
+- An in-range option is chosen; an out-of-range index is a no-offer.
+- The reasoning runs after the options exist and before the walk. A missing option list means no
+  call.
+- Full AI is required for an automatic offer. The debug `force()` bypasses the reasoning and uses
+  the requested option (or the first placeable one), so the lab works with `ai_usage=talk`.
 
 ## Privacy
 
-```text
-offer_private  = house_alone or not others_near
-cuddle_private = house_alone if indoors else not others_near
-```
+The visibility is derived once at formation from `privacy/service.gd`, with the offer rule for a
+bed or standing offer and the cuddle rule for a cuddle. There is no public-offer override and no
+heat/public-consent visibility rule: a crowded offer is simply public. The Negotiation service owns
+the live privacy sampling after formation; this service does not monitor it.
 
-The formulas are `shared/privacy_rules.gd` and the scene reads are `privacy/service.gd`. This
-service calls `offer_private()` for a bed or standing offer and `cuddle_private()` for a cuddle;
-the target is excluded from the other-mare checks. There is no public-offer override and no
-heat/public-consent visibility rule: a crowded offer is simply public. "House alone" counts every
-other mare in the house; outdoors, `others_near` counts every other mare within `30 m`. A public
-offer is still an offer; the act itself does not require privacy. The throttled
-`request privacy ...` log is the provider's report.
+## Ask and handoff
 
-## Ask
+The ask line uses `begin_greeting` through the adapter, otherwise one `queue_generated_intent` row
+keyed `unfplap:request:<id>:<serial>:ask`. It uses the observed-situation context and the
+generated-intent purpose, and records one `situation` world-context event. There is no negotiation
+face and no presentation: she asks in the normal standing pose.
 
-The initial line uses `begin_player_greeting` when the director has it, otherwise one
-`queue_generated_intent` row keyed `unfplap:request:<id>:<serial>:ask`. It records the
-`situation` world-context event and, for a private standing offer, sets the request face. The ask
-itself stays in the normal standing pose: the presentation starts only once she has settled, and
-its behavior is in `docs/poses.md`.
+A non-cuddle offer claims the navigator (`unfplap:request:<id>`, wander off, no route) in the
+approach or the ask, and asks her to stand; a cuddle keeps the session's own navigator owner. The
+request's speed and pace overrides are restored before the handoff.
 
-A non-cuddle ask claims the navigator (`unfplap:request:<id>`, wander off, no route) and asks her
-to stand before the line is queued, so a wander or a bumped navigator cannot close the ask while
-Anon answers. A cuddle keeps the managed rest owner; a bed ask hands the navigator to the bed for
-the join. The lease lasts through the ask, the presentation and the invitation and is released by
-the one close path.
+The handoff is one `main.form_mare_offer(fields)` call with plain values: the runtime, mare, option,
+Base clearance, visibility, the request lease token and release data, the offer line and the cuddle
+flag. `main` builds the typed package and calls the Negotiation service. Order:
 
-- Reminders are queued at `12 s` and `24 s`, one each, and never repeat a key.
-- The no-reply deadline is `60 s`; after an answer it is `45 s`; after a clarification `30 s`.
-  A pending classifier or a speaking mare extends it by `5 s` instead of closing.
-- Lying down on the offered bed after the `2.5 s` grace counts as a physical yes.
-- The ask closes when the player moves past `8 m` or `can_offer()` turns false.
+1. form the offer; a refusal releases the request lease and sets the `30 s` retry, and no line is
+   spoken;
+2. speak the ask line and record the situation;
+3. clear the episode. The request lease now belongs to the Negotiation service.
 
-## Consent
-
-A private offer waits for Anon's answer. The decision is pure: `initiation/consent.gd` owns a
-`Reply` (seen, clarified, pending, started, intent, source, text, response, key) and returns an
-`Action` (`NONE`, `CLASSIFY`, `ACCEPT`, `DECLINE`, `CLARIFY`) plus the `cancel_pending` flag. The
-facade parses a local yes/no with the shared `consent_classifier.local_intent()`, hands the intent
-in, performs the returned action and owns every effect.
-
-Rules:
-
-- the answer is the first new line after the ask: the director's `transcript` signal, or a changed
-  `_player_text`/`_held_text` since the ask baseline. A line left over from an earlier chat is
-  ignored, and a queued fallback ask baselines the stale text before it waits;
-- one clear answer ends the wait; a second answer is ignored until the one clarification has
-  happened, and the same text after it is ignored while a different one can still resolve it;
-- a new answer replaces one still waiting for the model and cancels its classifier key;
-- an unclear answer becomes pending; the model request (`offer:<id>:<serial>`) starts only when
-  the director is idle and she is not speaking, so it never runs beside the reply to the same
-  line; a provider error or a missing classifier is `unclear`;
-- an unresolved answer gets exactly one clarification line, then gives up;
-- the ask deadline extends while an answer, a line or her own speech is in flight.
-
-A decline records the declined situation and closes with the full cooldown. The declined and
-ended situation texts state only what happened (`Anon declined your offer.`, `Your offer for sex
-is over for now. Anon did not take it up.`); they do not tell the model to stop pressing him, so
-she may choose to pressure after a no. The act gates still decide whether any later attempt can
-start.
-
-A public offer also listens. If the third pony has left by the time Anon answers, the offer becomes
-private and the same answer is taken normally; if he is still there, a clear no records the
-declined situation and closes with the full cooldown, and any other answer marks the ask answered
-but keeps the hint for the act key without presenting.
-
-An accept records the accepted situation, then:
-
-- standing: the presentation phase with the turn pending. `present_standing()` starts once the ask
-  line has finished (the director is idle and she is not speaking), or at its safety cap. This
-  keeps her normal and facing Anon for the whole offer line;
-- cuddle: the invitation line in the existing bed;
-- bed: the walk to the bed (`BED_LEAD`) and the wait for Anon to lie down.
-
-## Presentation and invite
-
-The standing presentation is turned with `present_standing()`. It sets the game's
-`affection_active` hold so an AI `[approach]`/`[follow]` from her reply cannot break the pose, and
-`runtime._nav_pose_gate` exempts that hold while `_request_face` is true.
-
-The accepted turn is the game's own stepping turn: `present_standing()` gives the navigator a
-`face_point` along the away direction, the same turn the base-game conversation circle and idle
-fidget use, and keeps it set through physics and process. She settles once she is away enough
-(within 60 degrees of directly away, about 120 degrees from Anon), not only at an exact 180
-degrees. The pose is never attached during the turn and the body is never snapped: on settle her
-current yaw is locked and `_attach_present_pose()` blends the pose in on the spot. A turn that
-makes
-no progress for 1.5 s, or runs past its 4 s timeout, aborts without a pose; the controller
-re-presents up to twice before closing an offer the player already accepted. Once presenting, her
-yaw is locked and conversation facing is paused, so she does not turn to face Anon while talking.
-The bed invite does not set the request face, because `SharedBedRest.eligible()` rejects
-`affection_active`.
-
-At the settle she releases the request half-lid and holds the base game's `affectionate` face —
-heavy lids, dilated pupils, full blush and heart shines — while the sustained nose blush stays at
-full. For `1.5 s` she gives one stronger over-the-shoulder glance back at Anon; after that the
-head eases into a softer over-the-shoulder hold. Her eyes stay aimed at Anon through both. A
-spoken line's own face wins while it owns the expression, and the affectionate face returns when
-the line clears; closing clears only the face this controller applied.
-
-The standing invitation waits for `presentation_settled()`; the `5 s` presentation cap never
-queues an invitation while she is still turning. If movement breaks the present, the controller
-re-presents twice before ending an offer the player already accepted. The invitation is queued
-once and is valid only while the phase is still `present`, `invite` or `bed_wait`, the
-presentation/bed state holds and Anon is in range; the start gate is not part of the line's
-validity. A `60 s` invitation timeout queues one short give-up line and closes with the full
-cooldown. A standing act start is refused while the presentation is active and unsettled, so an
-act-key press cannot take her body mid-turn.
-
-An accepted offer is a promise, so a transient start-gate failure never closes it. Readiness
-changes are logged once (`request invite blocked ...` / `request invite ready ...`), the act key's
-failed-row log names the reasons, and the `60 s` timeout is the bound. A standing presentation
-attempt that fails once is retried inside the `ACCEPT_LINE_TIMEOUT_S` window; only a presentation
-still failing at the window's end closes the offer.
-
-### Accepted offer handoff
-
-An accepted private offer is handed to the act key by `start_offer()`. It answers only in
-`INVITE` and only when the presentation is settled (standing) or Anon is on the offered bed
-(missionary). The standing range is `policy.PENDING_START_RANGE_M`, not the free-standing fan.
-`main._refresh_offer()` prefers this live offer over the bed and rump-fan discovery, so the hint
-cannot name another pony while the episode lives.
-
-#### The typed offer
-
-`shared/pose_offer.gd` is the plain `RefCounted` handle the act start consumes. It carries the
-runtime, pony, pose, source and bed; the trigger name; the `auto` flag; the `pending` handoff flag;
-the classifier `scope`; the `blocked` record; and the owner's `cancel` callback. It has no tree,
-settings or file access.
-
-- `start_offer()` fills it with `trigger: "offer"`, `auto: false`, `pending: true`,
-  `scope: "dialogue:"` and `cancel: cancel_for(pony)`. `main.try_start()` reads it immediately and
-  hands it to `main.start_pose_offer()`; the idle scan's own offers are built in the same type.
-- `main` never reaches into this service: the cleanup is the bound `cancel_for`, and a successful
-  start cancels the offer's classifier scope instead of a hardcoded `dialogue:`.
-- `blocked` is a discovery record `{hint, need, toast}`. A blocked offer shows its toast and never
-  reaches the gate or the act; it is not a refusal and closes nothing.
-- `auto` is stored only. A trigger that wants an instant start sets it and calls
-  `main.start_pose_offer()` itself; the start function does not wait on its own.
-- The start gate still runs in full (`runtime.start_verdict()` and `runtime.start()`); the typed
-  offer changes discovery and cleanup only.
-
-The handoff changes discovery only: `runtime.start_verdict()` and `runtime.start()` still run the
-full gate and start sequence, and an accepted offer cannot bypass a scene row. A failed gate
-keeps the offer:
-
-| Gate result | Action |
-|---|---|
-| history refusal | the request closes, the history line speaks, the hint clears |
-| no attempt, buck refusal | the request closes, the buck/push runs, the hint clears |
-| no attempt, no refusal | the request and hint stay; the log names the failed rows |
-| attempt | the request closes and `runtime.start()` runs |
-| attempt, start fails | the start logs it and the hint clears; the request was handed off |
+The offer line the Anon decision classifier reads is `The pony has just asked Anon to have sex...`
+or the bed variant; it is not the generated wording.
 
 ## Cancellation
 
-`_cancel_episode(set_cooldown, reason, keep_rest)` is the one close path:
+`_close_episode(retry, reason)` is the one request close path:
 
-1. cancel the `offer:` classifier scope;
-2. clear the request face and the presentation; the act-key-start handoff releases the holder
-   and keeps the act's own state;
-3. release the bed rest unless `keep_rest` (an act-key start keeps it);
-4. hand the navigator back with its saved owner, wander, speed and pace;
-5. set the full cooldown or the `30 s` retry from the phase tables;
-6. cancel every queued director row for the episode;
-7. clear the episode.
+1. hand the navigator back with its saved owner, wander, speed and pace (when this service still
+   owns it);
+2. set the `30 s` retry when the close is a failure;
+3. log the reason;
+4. clear the episode.
 
-`cancel_for()` runs before a normal act-key start and keeps the bed rest; `force()` closes any live
-episode first; `reset()` closes it and clears the session maps on a world close.
-
-The navigator lease is `unfplap:request:<id>` while the episode runs. The runtime's act gate
-accepts that owner while the runtime is `IDLE`, so the act key stays valid; the runtime reads the
-namespace string and never calls the service, which keeps the service's one-way dependency on the
-runtime.
+A successful handoff is not a close: the episode clears and the lease moves to the Negotiation
+service. `force()` closes any live episode first; `reset()` closes it, cancels the pending reasoning
+scope and clears the session maps on a world close.
 
 ## Prompts
 
 `initiation/prompts.gd` builds every line from a `FACTS.Request`. The facade supplies
-`relation_note` (from `main.memory.cue_facts` + `relationship_cue`), `history_note` (from
-`act_history.ask_note`) and `face_note` (`act_face.prompt_note("ask"|"invite")`). Wording mode is
-decided once per builder by
-`policy.wording_mode(private)`: `free` speaks plainly and asks clearly, `indirect` hints while
-other ponies are around. The heat line is appended only in heat and is empty otherwise. The face
-hint is the expression guidance: `[face:...]` at the start of the line, and the game's feeling tag
-after the spoken words only when the moment genuinely changes how she feels.
+`relation_note` and `history_note` from `main.context_facts`, which reads the eligibility snapshot,
+act history and the memory cue (`docs/memory.md`). Wording mode is decided once per builder by
+`policy.wording_mode(private)`: `free` speaks plainly and asks clearly, `indirect` hints while other
+ponies are around. The heat line is appended only in heat and is empty otherwise.
 
 ## Debug and lab
 
 - **Trigger bed offer** / **Trigger standing offer** call `force()` and report the reject reason.
   They need the settings page closed to advance.
-- `request force ...`, `request ask ...`, `request privacy ...`, `request consent ...`,
-  `request reminder ...`, `request invite ...` and `request end ... phase=... reason=...` are the
-  debug log lines.
-- `request scan quiet reason=<reason>` names one blocked quiet gate per reason change;
-  `request scan skip id=<id> reasons=<...>` names one rejected mare per reason change or every
-  `10 s`.
-- **Show data** adds the `REQUEST` section: the id, the cooldown readiness, the last request time,
-  the effective wait, the retry left, the live episode phase/pose/privacy/invite state, whether the
-  accepted offer is startable, and the last scan skip.
-- **Clear offer cooldown** clears the aimed mare's stored cooldown, short retry and last skip, so
-  the next scan can offer again immediately.
+- `request force ...`, `request ask ...`, `request reasoning ...`, `request outcome ...`,
+  `request scan quiet reason=<reason>` and `request scan skip id=<id> reasons=<...>` are the debug
+  log lines.
+- **Show data** adds the `REQUEST` section: the id, cooldown readiness, the last request time, the
+  effective wait, the retry left, whether a reasoning is pending, the live episode phase/pose/
+  privacy and the last scan skip. The `NEGOTIATION` section beside it is the other service.
+- **Clear offer cooldown** clears the aimed mare's stored cooldown, short retry and last skip.
 - The lab runs with `ai_usage=talk`, so automatic offers do not fire; use the debug actions.
 
 ## Dependencies
@@ -398,18 +260,14 @@ after the spoken words only when the moment genuinely changes how she feels.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
-| service | memory | `memory/service.gd` | act memory and witness pass |
 | service | privacy | `privacy/service.gd` | live offer and cuddle privacy |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | act_face | `shared/act_face.gd` | face beat data |
+| shared | clearance | `shared/clearance.gd` | the Base clearance result |
+| shared | context | `shared/context.gd` | typed Context for the reasoning |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 | shared | pose_options | `shared/pose_options.gd` | the placement and option list |
-| shared | pose_offer | `shared/pose_offer.gd` | typed act offer |
-| shared | pose_specs | `shared/pose_specs.gd` | offerable poses and form/view support |
-| shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
-| store | act_history | `shared/act_history.gd` | stored history rows |
+| store | act_history | `shared/act_history.gd` | stored history rows and the offer cooldown |
 
 ## Lifecycle
 
@@ -419,54 +277,36 @@ after the spoken words only when the moment genuinely changes how she feels.
 - End: `reset()`/world close
 - Idempotent: yes
 
-
 ## Tests
 
-- `tests/initiation/test_policy.gd`: the timer lock, cooldowns, heat, retry, privacy, wording
-  mode, prompt schedule, pose choice, weighted picks, the phase tables, the accepted-offer start
-  range and the bed search inside the ask range.
+- `tests/initiation/test_policy.gd`: the pacing lock, cooldown, heat, retry, approach and the phase
+  names.
 - `tests/initiation/test_facts.gd`: the typed request defaults and independence.
-- `tests/initiation/test_prompts.gd`: ask, public/private wording, heat, notes, face hint,
-  invitation, reminders, give-up lines and the situation texts.
-- `tests/initiation/test_consent.gd`: the private-answer state machine, the model step and the
-  deadlines.
+- `tests/initiation/test_prompts.gd`: the private/public ask, heat, the notes and the situation
+  text.
+- `tests/initiation/test_reasoning.gd`: the payload shape and the reply parser.
 - `tests/initiation/test_cooldowns.gd`: the stored clock, the history wait, the heat shortening
   and the set/clear round trip.
-- `tests/initiation/test_initiation_api.gd`: the facade through `force()` and a fake director and
-  runtime — the distant walk and the arrival settle, the ask's navigator lease, the ask and invite
-  keys, the live `start_offer()` range, phase and typed offer fields (trigger, pending, auto,
-  scope, cancel, empty blocked), the local yes/no effects, the request face, the
-  deferred presentation after the offer line, the sticky invitation after a closed start gate, the
-  presentation retry, the stale-line baseline, the public answer that becomes private, the public
-  no, the `REQUEST` debug rows, the cooldown clear, `cancel_for`/`reset` and the scan quiet/skip
-  logs.
-- `tests/test_rump_cone.gd`: the 90 degree half-angle / 2 m free-standing fan, including the exact
-  side and exact reach boundaries.
-- `tests/test_standing_presentation.gd`: the accepted offer against a fake navigator — the
-  `face_point` stepping turn, the 60-degree away settle and its 61-degree non-settle, the no-snap
-  abort, the fallback rotation, the one-shot glance and soft hold, the affectionate face and
-  blush and the line-face priority.
-- `tests/test_consent_classifier.gd`: the shared classifier's local and strict reply parsing.
-- `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the
-  adapter private-access boundary and this contract's presence.
+- `tests/initiation/test_initiation_api.gd`: the facade through `force()` and the scan with a fake
+  adapter, privacy and runtime — Base clearance and the option filters, the reasoning no/yes and
+  failure, the walk and the arrival, the ask line and its fallback, the situation record, the
+  handoff and a refused handoff, the cuddle attention hold, the outcome pacing, `clear_cooldown`,
+  the debug rows and the scan logs.
+- `tests/negotiation/test_adapter.gd`: the injected bridge this service calls.
+- `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the adapter
+  private-access boundary and this contract's presence.
 
 ## Known limits
 
-- The conversation adapter reads stock director fields (`_player_text`, `_held_text`, `_now`,
-  `characters`) and the venue adapter reads stock navigator and bed-rest fields. A game change can
-  remove them; every read is guarded and the offer simply stops.
-- `SharedBed.accept()` is the stock invitation path; it can refuse for up to five one-second
-  retries before the offer gives up.
-- A classifier that is unavailable resolves as `unclear`, which costs the one clarification.
+- The adapter reads stock director fields (`_player_text`, `_held_text`, `_now`, `characters`) and
+  the venue adapter reads stock navigator and bed-rest fields. A game change can remove them; every
+  read is guarded and the offer simply stops.
+- A reasoning call is a model request; an unavailable model or no configured endpoint means no
+  automatic offer. The debug actions bypass it.
 - A request is not persisted: a save during an episode resumes with no episode and no navigator
   lease.
 - Automatic offers need AI usage Full; the lab's debug actions are the supported way to see one.
 - The standing offer requires an adult mare who is an eligibility target and a free navigator;
   another pony's task or lease is a reason to skip her, not to wait.
-- The free-standing hint is a 90 degree / 2 m rear fan; an accepted standing offer can start from
-  up to `3 m`, and the start sequence places Anon at the standing gap, so the correction is
-  bounded but visible.
-- A permanently blocked start gate holds an accepted invitation for up to `60 s`. The give-up line
-  and the act key's failed-row log explain it; the offer itself stays until then.
-- A public offer that becomes private accepts only through a new answer. The earlier public yes is
-  a hint for the act key, not a stored consent.
+- The request lease is best effort: a re-task is the Negotiation service's `target_left`, not this
+  service's close.

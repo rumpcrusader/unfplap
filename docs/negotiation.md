@@ -160,6 +160,10 @@ answer, with no cooldown.
 
 ## Agreement
 
+`main.form_mare_offer(fields)` builds the typed Mare offer from the Proactive service's plain
+values and calls `begin_mare_offer`. The Proactive owns the ask line and the request lease until
+formation; the Negotiation service owns them after it.
+
 `negotiation/agreement.gd:Package` is the frozen package:
 
 - id and generation, the mare (node and stable id);
@@ -175,7 +179,9 @@ The package is immutable: the service builds it once and never rewrites it. The 
 `Handle`: the id, the generation, the operational frozen values, and one `cancel(reason)` callback
 whose bound arguments make a late handle harmless. It reports `Started`/`StartFailed` through
 `report(handle, started)`; the service closes the Agreement, releases the lock and releases the
-hold unless the Act adopted it on `Started`.
+hold unless the Act adopted it on `Started`. `main._on_agreement()` starts the standing
+presentation (act-owned) and the act key consumes the handle through `runtime.start_agreement()`;
+a wait keeps the Agreement live.
 
 Close reasons: `Started`, `StartFailed`, `Expired`, `Interrupted` (`privacy`, `pose`, `hotkey`,
 `target_left`, `cancelled`). Every close releases the lock. Only `Started` leaves the adopted hold
@@ -199,7 +205,8 @@ immediately, the shared reaction helper queues the line, and no cooldown is writ
 
 `main` supplies the per-pony `scene_hold` ledger. The service claims
 `unfplap:negotiation:<id>` for an Anon offer, or takes the Proactive request's token over for a
-Mare offer, then takes the physical affection hold. Every tick it re-asserts the navigator and
+Mare offer, then takes the physical affection hold. A cuddle offer takes the attention and
+affection hold only (`claim_attention`): the cuddle session keeps its own navigator lease. Every tick it re-asserts the navigator and
 keeps Anon as the conversation target. A lost owner, a missing ledger or a reassigned target is
 `Interrupted(target_left)`. Every terminal outcome calls `release_negotiation()`; `Started` leaves
 the adopted hold to the act.
@@ -272,5 +279,5 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 - The model calls are the host adapters' work; this service only sees the typed `Decision`.
 - The hold is best effort: a re-task or an attention reassignment ends the negotiation with
   `target_left`.
-- The route is not switched yet: `main` does not call this service until the Proactive and Anon
-  handoffs land.
+- The Anon offer route and the auto-start trigger are not wired yet; the Mare offer route is live
+  through the act key.

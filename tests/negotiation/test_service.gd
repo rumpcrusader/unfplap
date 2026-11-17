@@ -49,6 +49,14 @@ class FakeHold extends RefCounted:
 	var target_ok := true
 	var transfer_count := 0
 	var release_count := 0
+	var attention_count := 0
+
+	func claim_attention() -> bool:
+		attention_count += 1
+		token = ""
+		negotiation = true
+		claimed = false
+		return true
 
 	func claim_negotiation(id: String) -> bool:
 		if not claim_ok:
@@ -82,7 +90,7 @@ class FakeHold extends RefCounted:
 		return target_ok
 
 	func accepts_hold(_pose: String, _source: String) -> bool:
-		return claimed and affection_owned
+		return affection_owned and (token.is_empty() or claimed)
 
 	func release_nav() -> void:
 		claimed = false
@@ -191,7 +199,16 @@ func _standing_option() -> POSE_OPTIONS.Option:
 	return out
 
 
-func _mare_offer(made: Dictionary, option: POSE_OPTIONS.Option, private := true):
+func _cuddle_option(bed: Node3D) -> POSE_OPTIONS.Option:
+	var out := POSE_OPTIONS.Option.new()
+	out.pose = CATALOG.MISSIONARY
+	out.source = "bed_side"
+	out.bed = bed
+	out.cuddle = true
+	return out
+
+
+func _mare_offer(made: Dictionary, option: POSE_OPTIONS.Option, private := true, cuddle := false):
 	var offer := NEGOTIATION.MareOffer.new()
 	offer.runtime = made["runtime"]
 	offer.pony = made["pony"]
@@ -201,6 +218,7 @@ func _mare_offer(made: Dictionary, option: POSE_OPTIONS.Option, private := true)
 	offer.hold_token = "unfplap:request:rarity"
 	offer.hold_old_wander = true
 	offer.line = "come here"
+	offer.cuddle = cuddle
 	return offer
 
 
@@ -231,6 +249,8 @@ func _accept_anon(made: Dictionary) -> void:
 func run() -> void:
 	_check_anon_accept()
 	_check_anon_failures()
+	_check_anon_cuddle()
+	_check_mare_cuddle()
 	_check_mare_offer()
 	_check_mare_response()
 	_check_privacy()
@@ -354,6 +374,45 @@ func _check_anon_failures() -> void:
 	_accept_anon(made)
 	check(boxes.outcomes[0].outcome == NEGOTIATION.Outcome.OCCUPIED, "a failed hold is Occupied")
 	check(not made["service"].is_locked(), "Occupied releases the lock")
+	_free(made)
+
+
+func _check_mare_cuddle() -> void:
+	var made := _fixture()
+	var boxes: Boxes = made["boxes"]
+	var service = made["service"]
+	var bed := Node3D.new()
+	root.add_child(bed)
+	var offer = _mare_offer(made, _cuddle_option(bed), true, true)
+	offer.hold_token = ""
+	boxes.classify_decision = _decision("accept")
+	check(service.begin_mare_offer(offer), "a cuddle Mare offer starts")
+	check(boxes.hold.attention_count == 1, "the cuddle offer takes the attention hold")
+	check(boxes.hold.token.is_empty(), "the cuddle offer takes no navigator lease")
+	check(boxes.hold.transfer_count == 0, "the cuddle offer transfers no lease")
+	check(service.handle().option.cuddle, "the cuddle option is kept")
+	check(service.phase() == NEGOTIATION.Phase.AGREEMENT, "the cuddle Agreement forms")
+	root.remove_child(bed)
+	bed.free()
+	_free(made)
+
+
+func _check_anon_cuddle() -> void:
+	var made := _fixture()
+	var boxes: Boxes = made["boxes"]
+	var bed := Node3D.new()
+	root.add_child(bed)
+	boxes.placement.cuddle = true
+	boxes.placement.cuddle_bed = bed
+	boxes.classify_decision = _decision("accept", 0)
+	boxes.reason_decision = _decision("accept")
+	check(made["service"].begin_anon_offer(made["runtime"], "cuddle?"),
+		"an Anon cuddle offer starts")
+	check(boxes.hold.attention_count == 1, "the Anon cuddle offer takes the attention hold")
+	check(boxes.hold.token.is_empty(), "the Anon cuddle offer takes no navigator lease")
+	check(made["service"].handle().option.cuddle, "the Anon cuddle option forms the Agreement")
+	root.remove_child(bed)
+	bed.free()
 	_free(made)
 
 

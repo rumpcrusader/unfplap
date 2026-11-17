@@ -197,11 +197,10 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
 ## Standing camera
 
 - Camera height is Anon's normal eye plus `eye_delta_for(size)`: Canon lowers it by
-  `CANON_STANDING_CAMERA_DROP_M = 0.10 m`, JRHNBR raises it by
-  `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`, and every other preset keeps the normal eye. The act
-  never rewrites the player's `_stand_eye` / `_eye_height`, so `AnonBody` stays upright and follows
-  the camera. The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once
-  at pose start, then freezes. The lean vector is applied on top.
+  `CANON_STANDING_CAMERA_DROP_M = 0.10 m`; JRHNBR and every other preset keep the normal eye. The
+  act never rewrites the player's `_stand_eye` / `_eye_height`, so `AnonBody` stays upright and
+  follows the camera. The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2`
+  midpoint) once at pose start, then freezes. The lean vector is applied on top.
 - Canon also multiplies the standing lean travel by `0.8` (`standing_lean_scale()`).
 - Lean mapping: forward `0.24 m` / `6°` down / `1.5°` roll; backward
   `presentation.lean_back_m` with the same downward pitch; side `0.18 m` /

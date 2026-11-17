@@ -169,8 +169,8 @@ func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> 
 func _standing_eye_height() -> float:
 	return float(facts.player_eye_height) + eye_delta_for(str(facts.size_name))
 
-## The per-size net offset on Anon's normal standing eye. Canon lowers the eye line and JRHNBR
-## raises it; every other preset keeps the normal eye.
+## The per-size net offset on Anon's normal standing eye. Canon lowers the eye line; every other
+## preset keeps the normal eye.
 static func eye_delta_for(size_name: String) -> float:
 	if size_name == "canon":
 		return -CANON_STANDING_CAMERA_DROP_M

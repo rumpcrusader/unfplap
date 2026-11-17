@@ -5,7 +5,7 @@ block per one-second window, so a stall can be attributed to a modifier, a servi
 pony without a live profiler. The act probe prints one summary per acting pony; the idle probe
 aggregates every idle runtime into one block. Either block is laid out as a tree by
 `shared/perf_tree.gd`, and `main.debug()` prefixes every printed line with `[unfplap] `. The same
-window is drawn as a flame graph in the top-left corner; see `docs/debug.md`.
+window is tabled in the top-left corner; see `docs/debug.md`.
 
 ## Ownership
 
@@ -45,26 +45,27 @@ table, and print the returned rows in order:
 `self` is the time a parent spends outside its timed children: the loop around them, not a
 measurement error.
 
-## Flame panel
+## Panel rows
 
 Each probe hands its window to `main.perf_block()` through `show` after the block is built, so the
-panel and the console block can never disagree about the rows. `debug/perf_view.gd` draws the
-window as an icicle flame graph:
+panel and the console block can never disagree about the rows. `debug/perf_view.gd` prints the
+same tree one row per line: the block's tree glyphs and chunk key, the filling space, then three
+right-aligned value columns.
 
-- roots pack across the top row in display order (largest total first), each as wide as its share
-  of all root totals;
-- a child is packed inside its parent's span by its share of the parent total, and the parent's
-  `self` row takes the rest;
-- a child that would overrun its parent (the modifier-pass case) is clipped at the parent's edge
-  instead of spilling into the next sibling;
-- one row per level, with bars fading from the accent toward the panel shade by depth and a muted
-  `self` bar;
-- a bar draws its chunk key only when the name fits, so a narrow bar is read from the legend.
+- average: the row's window total in `ms/s`;
+- max: the row's worst single call in `ms`;
+- calls: the row's call count in the window, the same number the block prints.
+
+The values are coloured against the debug targets: the average is green at zero and red at
+`100ms/s`, the max green at zero and red at `0.5ms`, and the call count green at one call per
+rendered frame and red at two. A value is amber at half its target and red at the target and
+beyond. The call colour divides the count by the window's rendered frames; the
+number itself stays the window's count. A `self` row prints `-` for max and calls because it has
+no call of its own, and a name that no longer fits after the indentation is trimmed with an
+ellipsis.
 
 The caption repeats the probe's own header (`pony`/`pose`/`state` for an act, `runtimes`/`mares`
-for idle) with `fps`, `frame`, `phys` and `tick`. The six-row legend below the graph lists the
-largest measured chunks of the window with their `ms/s` totals, so a bar too narrow for its name
-stays readable.
+for idle) with `fps`, `frame`, `phys` and `tick`.
 
 ## Act probe API
 
@@ -74,7 +75,7 @@ stays readable.
 | `active: Callable` | true while an act is running; the window clears outside it |
 | `header: Callable` | returns `{pony, pose, state, lean, hands, near_mesh, tier, wings}` |
 | `log: Callable` | writes one summary block |
-| `show: Callable` | hands one window's laid-out rows and header facts to the panel |
+| `show: Callable` | hands one window to the panel: the laid-out rows with each `max`, the header facts and `frames` |
 | `note(key, usec)` | record one timed chunk; a cheap no-op when off |
 | `time(key, started_usec)` | close one call site; the caller takes the start stamp |
 | `reset()` | clear the window, the rows and the physics mark |
@@ -137,7 +138,7 @@ first caress path, not the per-tick contact.
 | `enabled: Callable` | both debug switches are on and no act is running |
 | `counts: Callable` | returns `{runtimes, mares}` for the header, read once per window |
 | `log: Callable` | writes one block |
-| `show: Callable` | hands one window's laid-out rows and header counts to the panel |
+| `show: Callable` | hands one window to the panel: the laid-out rows with each `max`, the header counts and `frames` |
 | `on()` | the cheap gate |
 | `note(key, usec, owner)` | aggregate one chunk; the worst call keeps its owner id |
 | `reset()` | clear the window, the rows and the physics mark |
@@ -216,7 +217,7 @@ offerable pose assets are parsed at world ready, so their load is not inside a f
 
 **Enable debug** + **Print perf logs** in General's Debug block. Standing in town outside an act
 prints one `perf idle` block a second. During an act the per-pony `perf` lines print instead and
-no idle block prints. Either block also redraws the corner flame panel (`docs/debug.md`). Every
+no idle block prints. Either block also redraws the corner perf panel (`docs/debug.md`). Every
 printed line, continuation rows included, carries the `[unfplap] ` prefix from `main.debug()`, so
 a block stays attributable after the game's own output interleaves with it.
 
@@ -256,8 +257,8 @@ and allocates nothing, and the pose write is the only new per-frame cost.
   worst owner, tree block text and reset-on-disable.
 - `tests/perf/test_perf_tree.gd` — the shared layout: roots, nesting, glyph prefixes, per-level
   order, the self residual and its floor.
-- `tests/test_perf_flame.gd` — the panel: root shares, nesting, the self residual, overrun
-  clipping and the graph height, plus the view's caption, legend and clear.
+- `tests/test_perf_panel.gd` — the panel: the row height, the colour targets for average, max and
+  calls per frame, and the view's caption and clear.
 
 ## Related docs
 

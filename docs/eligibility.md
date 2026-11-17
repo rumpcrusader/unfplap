@@ -54,11 +54,10 @@ The purity boundary is deliberate:
 ## Data ownership
 
 Eligibility stores nothing. Facts are a per-call snapshot and are never saved or added to the
-per-character profile. The runtime's idle hint caches its two Base-clearance booleans for `0.5 s`
-(`runtime.hotkey_ready`); the cache is never written, is not part of this service, and the other
-scene rows stay live on every call. The hint runs those rows first: when they fail it leaves the
-cached Base clearance untouched, and only a passing scene rebuilds it. A real act-key press still
-reads Base clearance fresh before the scene.
+per-character profile. The idle hint scans once per second and runs the scene rows first; only a
+passing scene reads Base clearance. Every scan reads it live. `relationship_ok()` uses a narrow
+clearance read of the relationship runtime, romance eligibility, the love level, the Promiscuity
+floor and the override; the full facts snapshot belongs to `get_verdict()`.
 
 | Data | Stored where | Owner |
 |---|---|---|
@@ -140,7 +139,7 @@ nothing.
 | `runtime.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate/service.gd` rows; the legacy start/test harness |
 | `runtime.start()` | `start_verdict()` | none; the legacy start/test harness |
 | `runtime.refuse_available()` / `refuse()` | `buck_refuse` | `scene_gate/service.gd` refusal executor; legacy/test only |
-| `runtime.hotkey_ready()` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` | Base clearance for the idle hint and the hotkey; the scene-only rows. The hint caches both for `0.5 s` and rebuilds them only after the scene passes; a press reads fresh. |
+| `runtime.hotkey_ready()` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` | Base clearance for the idle hint and the hotkey; the scene-only rows. The hint reads Base clearance live after the scene passes; a press runs the same path. |
 | `main._refresh_offer()` | a live Agreement's scene-only rows, else `runtime.hotkey_ready()` | candidate discovery; the Agreement offer wins, the idle scan uses Base clearance plus the scene-only rows |
 | `main.try_start()` | `runtime.hotkey_ready()` | the act key; no policy row, no buck |
 | `main` candidate scan | `eligible(pony, Target.ACT)` through `_is_act_target()` | candidate discovery |
@@ -231,7 +230,10 @@ at attempt for the hotkey. `evaluate(eligible, relationship_ok, available)` retu
 eligibility service's `eligible?` answer is the `eligible` boolean; the negotiation never inspects
 its rows. `relationship_ok()` is the shared pure predicate over a live relationship, romance
 eligibility, the Promiscuity floor and the relationship override, and `available()` combines the
-act, sleep, presence and Occupied facts.
+act, sleep, presence and Occupied facts. The service's `relationship_ok()` reads only those
+values: the relationship runtime, romance eligibility, the ladder's love level, the Promiscuity
+floor and the override. It never reads willingness, history, cycle, player form or consent; the
+full snapshot exists for `get_verdict()`.
 
 Willingness, history, cycle, aftercare, diestrus, privacy and general consent are Context
 (`shared/context.gd`), never clearance. The tolerance stop's `stop_until` is a separate gate. The

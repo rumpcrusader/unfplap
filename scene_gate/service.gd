@@ -176,8 +176,8 @@ func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
 ## The scene-only start of an accepted Agreement: no policy rebuild, no formation row, no
 ## aftercare. `frozen` carries the pose capability recorded at formation. `player` and `bed_gate`
 ## are transient; every other row is hard. `hold_compatible` exempts the negotiation hold's
-## navigator owner and affection hold. `stool_need`/`stool_have` are an optional cached pair for
-## the idle hint; `-1` in either reads the live provider callbacks.
+## navigator owner and affection hold. `stool_need`/`stool_have` are the footstool pair the
+## runtime read for this call; `-1` in either reads the live provider callbacks.
 func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 		frozen: FrozenPose = null, stool_need: int = -1, stool_have: int = -1) -> SceneVerdict:
 	var rows_out: Array[ELIGIBILITY.Row] = []

@@ -51,6 +51,7 @@ const CAPTION_TOP_MARGIN := 26.0
 ## like the base game's tap prompts ("G · Carry"), not a hold. Only holding the act key during an
 ## act is a hold.
 const OFFER_HINT := "Make love"
+## The idle offer hint's scan cadence. The act key rescans immediately in `try_start()`.
 const OFFER_SCAN_S := 1.0
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"

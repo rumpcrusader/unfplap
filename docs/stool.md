@@ -146,9 +146,8 @@ idle hint and the act start.
 - `main._refresh_offer()` shows **Make love** when the start is possible and **Needs a footstool**
   or **Needs N footstools** when the stack is the only missing thing. The blocked note has no
   act-key icon. A one-time toast points at houses.
-- The idle hint caches the reach and case pair for `HOTKEY_CACHE_S`, next to Base clearance: the
-  anatomy measurement and the inventory scan run once per window, and a real act-key press reads
-  fresh. The other scene rows stay live on every call.
+- The idle hint reads the reach and case pair once per scan (once per second) and hands it to the
+  scene row. The anatomy measurement and the inventory scan are not repeated inside the same scan.
 - The blocked hint reads that pair through `runtime.hint_stool()`; it does not repeat the reach or
   case reads. Before the first hint the accessor falls back to the live pair.
 - Pressing the act key on the blocked note does not start an act.

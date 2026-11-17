@@ -182,9 +182,6 @@ var _act_hold := 0.0
 var _act_hold_ready := false
 var _act_hold_fired := false
 var _id := ""
-## The idle offer hint's cached policy verdict. The scene rows still run on every scan; only the
-## eligibility half is reused. A real start, refusal, debug line or initiation gate never reads it.
-## See `docs/eligibility.md`.
 ## Debug-only estrus phase override. Empty means derive the phase from the world day and her id.
 var _cycle_override := ""
 var _profile: Dictionary = {}

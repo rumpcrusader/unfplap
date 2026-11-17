@@ -158,7 +158,7 @@ func run() -> void:
 	controller.set("opening_y", 1.25)
 	check(runtime.stool_needed_count() == 1, "35 cm needs one 20 cm step")
 	controller.set("opening_y", 1.30)
-	# The gate measures the act body: the standing eye delta is applied to the measured gap.
+	# The gate measures the act body: the standing camera's net size offset is removed.
 	set_pony_size("mounting")
 	check(is_equal_approx(runtime.stool_gap_m(), 0.40), "JRHNBR keeps the measured act gap")
 	check(runtime.stool_needed_count() == 2, "a 40 cm JRHNBR act gap needs two steps")

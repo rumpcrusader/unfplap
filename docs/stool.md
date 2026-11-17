@@ -114,8 +114,8 @@ gap_act          = gap_measured - eye_delta_m
 The floor term is zero when both stand on the same floor and makes a step between them explicit.
 `gap_measured` equals the world vertical gap `opening.y - part_root.y`.
 
-`eye_delta_m` is the standing camera's net offset from Anon's normal eye (Canon `-0.10 m`,
-JRHNBR `0.0 m`, every other preset `0.0`; `docs/camera.md`). The runtime supplies it, so the rule
+`eye_delta_m` is the standing camera's net offset from Anon's normal eye (Canon `-0.10 m`, JRHNBR
+`+0.10 m`, every other preset `0.0`; `docs/camera.md`). The runtime supplies it, so the rule
 measures the body the act will actually use: a stool's lift is real height instead of a cancel of
 an eye-height change.
 

@@ -161,6 +161,8 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 
 - Logging follows **Enable debug** (General's last row); there is no separate log switch and no
   hotkey. It controls logging only, not the HUD.
+- Every logged line, continuation rows of a multi-line block included, carries the `[unfplap] `
+  prefix; `main.debug()` adds it per line.
 - **Print perf logs** is a separate debug toggle. With **Enable debug** and
   **Print perf logs** on, an act prints one `perf` block a second and, outside an act, one
   aggregated `perf idle` block a second. Either switch off stops both. See `docs/perf.md`.

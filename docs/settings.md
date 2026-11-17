@@ -609,10 +609,11 @@ per-service debug actions are in `docs/debug.md`.
 **Print perf logs** (with **Enable debug**) turns on both debug probes. During an act, timed chunks
 call `perf_note(chunk, usec)`; `shared/perf.gd` holds the window, the chunk rows and the header
 facts and prints one per-pony `perf` summary a second. Outside an act, `shared/perf_idle.gd` prints
-one aggregated `perf idle` block a second with each chunk's total, average and worst pony. Both are
-off and allocation-free when either switch is off; the act window resets outside an act and the idle
-window resets when an act starts. They are debug tools, not settings: no declaration, no persisted
-value. See `docs/perf.md`.
+one aggregated `perf idle` block a second with each chunk's total, average and worst pony. Rows
+nest under their parent chunk and sort largest first inside their level, and a parent's unmeasured
+remainder prints as a `self` row. Both probes are off and allocation-free when either switch is
+off; the act window resets outside an act and the idle window resets when an act starts. They are
+debug tools, not settings: no declaration, no persisted value. See `docs/perf.md`.
 
 ## Dependencies
 

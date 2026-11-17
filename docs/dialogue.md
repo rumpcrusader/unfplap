@@ -155,6 +155,10 @@ Cue lines are event-driven, not a timer. `dialogue/utterance_scheduler.gd` owns 
   `cues.reaction_max_age_seconds` (reaction); a row already speaking is never cut.
   A quiet or unchanged act may produce no cue line.
 
+The scheduler's pacing fields and `cue_gap` carry no code default: `configure(pacing)` assigns the
+seven keys from the runtime snapshot and `reset(now, gap)` sets the per-mare gap, so the shipped
+`cues.*` values and the profile's `cue_gap` are their only source.
+
 Every cue line gets a private relationship note and tone: friendship/love level, a human stage
 phrase, first-time/repeat, mood, then `guarded`/`friendly`/`tender`/`warm`/`ardent`/`open`/
 `careful`. No romance with an acquaintance is `guarded`; no romance with a friend is `friendly`; a

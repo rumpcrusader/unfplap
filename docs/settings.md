@@ -102,7 +102,9 @@ pacing, jiggle, camera thrust, the presentation block for that settings group an
 The runtime takes it in `_snapshot_settings()` with the start spec's `settings_group` and re-runs
 it in `apply_live_settings()`. An internal pose (`standing_test`, `standing_oral`) shares the
 standing group and has no `presentation` block or `default.poses` row of its own. There is no
-path-keyed read outside the settings service and no second cache.
+path-keyed read outside the settings service and no second cache. The runtime's act fields carry
+no code default: `_snapshot_settings()` is their only writer, and a consumer indexes the complete
+snapshot block.
 
 ## Adding a setting: one declaration, one shipped value, one read
 
@@ -531,6 +533,12 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
   private settings module.
 - `SETTINGS.act_snapshot(group)` is the one bulk read. There is no path-keyed gameplay read and
   no second cache; a new per-act value belongs on `ActSnapshot`, not in a new `SETTINGS.block`.
+- **A consumer carries no default.** Do not declare a field, constant or argument default with a
+  value the setting also ships; the declaration and `settings/defaults.json` are the only source.
+  Where a fallback is genuinely needed, read `SETTINGS.<name>.default` or the shipped block
+  (`PREFERENCES.defaults()`, `CATALOG.defaults(pose_id)`, `DEFAULTS.block(...)`), never a literal.
+  A complete settings block is indexed (`block["key"]`); do not soften it with
+  `.get("key", literal)`, which only hides a missing or stale copy.
 - **Do not add per-setting tests.** A declaration is compile-checked (name, accessor and kind), so
   the only assertions are the ones in `tests/test_settings.gd`: registry integrity, the shipped
   document's schema (key set, types, options and bounds — never values), the file round-trip,

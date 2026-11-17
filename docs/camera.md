@@ -96,7 +96,9 @@ id, so a held debug pair does not snap. `tests/act_camera/test_camera.gd` pins t
   speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `camera/service.gd` follows it with one critically damped
   response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel; outward
   strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the camera dips toward her on
-  the inward stroke and rises on the return.
+  the inward stroke and rises on the return. Surge and Bob are cached from the complete
+  `camera_thrust.*` block in `configure()` at act start and on a live settings edit; the facade
+  keeps no fallback value.
 - Side lean rolls the camera outward (`-LEAN_SIDE_ROLL_DEG × side`).
 - The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0` (`camera/service.gd`).
 - `Q`/`E` fire their pose action at `LEAN_FIRE = 0.75` and release at `LEAN_RELEASE = 0.60`. The

@@ -619,7 +619,9 @@ keeps no start id of its own.
 ## Missionary
 
 The pose is the **hand-authored asset** in `poses/missionary_pose.json`, placed in the real bed's
-space, with the nuzzle and gaze overlays on top. There is no second implementation.
+space, with the nuzzle and gaze overlays on top. There is no second implementation. The nuzzle
+scale, period and duration come from the pose config (`default.poses.missionary`); the recipe has
+no constants for them.
 
 ### Act state
 
@@ -809,7 +811,9 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   difference from that reference; the default stance is the baked pose and matches the old
   procedural stance on every owned bone. The asset carries the 30 body bones, not `pony_head`, so
   the live base applies the head's full reference bow and chin itself; the neck bones are the baked
-  difference.
+  difference. Both recipes read their config by index: `_value(key)` has no fallback, and every
+  caller passes a complete block (`SETTINGS.pose(...)`, `reference_config()` or the shipped
+  defaults).
 - `standing_oral` runs the procedural delta on that baked base, after it and before the overlay,
   in both the single and two-base forms. The neck/head and the mouth anchor match the reference
   recipe plus the same delta at all four sizes (the oral parity in `test_pose_bake`).

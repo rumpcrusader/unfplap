@@ -191,7 +191,9 @@ The tab's one Debug block (behind **Enable debug**) carries the Pantyhose hull r
 **Pantyhose: rebuild hull** action; Kissing has no debug rows.
 There is no installed/mismatch status and no other buttons. A flag edit during an act starts or
 stops the Kissing provider live through `apply_live_settings()`; the Pantyhose flags are cached by
-the world adapter on the same settings edit.
+the world adapter on the same settings edit. Its cached flags, hull width/height, smoothing and
+margins are fields with no code default: `apply_live_settings()` fills them before the hull or an
+overlay reads them.
 
 ## Lifecycle
 

@@ -193,7 +193,9 @@ testing.
 
 - `readiness/auto_thrust.gd` is a pure generator: `pace` (1.0–3.75/s), `min_depth` (0–0.82),
   `max_depth` (0.20–1), `curve` (`cosine`, `thrust`, `tease`, `saw`, `hold`). Every shape starts
-  at the bottom and returns to the bottom.
+  at the bottom and returns to the bottom. The facade's auto defaults and the generator's four
+  values carry no code default: `configure_auto()` fills them from the act snapshot and
+  `reset()` takes all four explicitly.
 - `readiness/auto_panel.gd` is the pure hold-X layer: tap/hold detection, the 0.28 s grace, key repeats and
   the four live rows.
 - The runtime reads `Input` and passes the key states to readiness; readiness returns the actions

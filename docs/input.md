@@ -36,6 +36,7 @@ saved data. Its state is transient:
 The service is a Node; its contract is the Node lifecycle and the input callbacks:
 
 - `_ready()` — sets `PROCESS_MODE_ALWAYS`, the early physics priority and calls `apply_settings()`;
+  the shield field starts unset, so this is what gives it its first value before any input runs;
 - `_physics_process(delta)` — keeps the mouse captured and the seated guard while an act is live;
 - `_input(event)` — routes the debug wheel first (a middle button press opens it and its release
   runs the hovered slot or closes it; while open it owns every event), then consumes act keys,

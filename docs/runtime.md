@@ -216,6 +216,11 @@ the teardown; the pose view is the active pose. `_end_session()` aborts a live e
 one pose teardown. `apply_live_settings()` also refreshes a running edge's target snapshot after
 the start pose's own config sync.
 
+The act-tunable fields (the thrust values, the caress quality, the cue/talk pacing, the jiggle,
+camera and climax values) are declared without a code default. `_snapshot_settings()` is their
+only writer and runs at act start and again at the top of `apply_live_settings()`, before the
+IDLE early return, so a read outside an act still sees the current settings.
+
 ## Tests
 
 - `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags and the oral edge's

@@ -296,6 +296,9 @@ fade. The hull block is in the copied compatibility shaders under
   action. The Debug actions **Placement**, **Placement tail**, **Placement dock**, **Placement
   tail tilt** (1° per press) and **Placement file** edit, save, reset or log the selected target.
   A default edit is staged until Save; a mare override is written directly.
+- `anatomy/placement.gd` and the player part keep only the live placement fields: `load()` and
+  `_apply_values()` take the complete resolved block and index it, so neither carries a copy of a
+  placement default.
 - The old `anatomy_place.json` and `anon_place.json` files import once and are renamed to
   `.migrated`. The retired `anatomy.tail_seat.<id>` block and the `tail_offset_mm`,
   `tail_forward_mm` and `dock_offset_mm` globals migrate into the placement block. The legacy
@@ -512,7 +515,8 @@ appearance, including the missionary-only fold hack, when the pose family change
   vertical radii, `coat_hole_depth_mm` the cut depth, `jiggle_still` the vulva still zone,
   `anal_still` the anal zone, `still_oval` the vertical half-axis, `still_fade` the rim fade,
   `still_height_mm` the vulva zone's vertical placement and `vulva_out_mm` the mesh push.
-  `draw_still_zones` overlays the two ellipsoids and their fully-still cores.
+  `draw_still_zones` overlays the two ellipsoids and their fully-still cores. The coat reads the
+  oval and fade into its ring fields from the uniform pass; it holds no default for them.
 - The per-pony rig duplicate and its outline, plus the patched merged near materials, are added
   back to the game's jiggle target list after every `_start_jiggle()`. The anatomy also re-adds
   them on a stock flank smack through `physical_reaction("flank_smack")`.
@@ -571,7 +575,9 @@ body's own deformation across the whole mesh.
   `player_scale`, `part_base_scale`, `part_mid_scale`, `part_head_scale`, `part_length_scale` and
   `part_throb` shape the mesh; `part_front_m` and `pelvis_gap_m` set the standoff. The shaped
   length and head radius feed `entry`, `girth_at`, `shaft_radii`, the tip and the hole grip, so
-  geometry and collision stay together.
+  geometry and collision stay together. Every one of those values is read from its setting into
+  a plain field by `_read_settings()`/`_load_place()`; the part declares no copy of a setting's
+  default.
 - The part is created on player ready and its hidden mesh is warmed by a deferred, guarded
   `prepare()`, so the first standing offer does not load `anon_part.scn`, its shader and three
   textures inside the offer scan. The anatomy master must be on; a body that is not ready yet is

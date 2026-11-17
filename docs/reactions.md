@@ -26,7 +26,8 @@ audio facade (`docs/audio.md`).
 | `runtime.gd` | binds the scene, snapshots the settings, calls the facade from the stroke/climax paths |
 
 The facade is a `RefCounted` scene adapter. It reads Nodes and the `body_coat_deform` setting; the
-jiggle tuning is pushed in by `configure()` from the runtime's act snapshot. The standing tail
+jiggle tuning is pushed in by `configure()` from the runtime's act snapshot. The block is complete,
+so `configure()` indexes its five keys and the facade holds no fallback value. The standing tail
 modifier is bound by the pose builder because it changes with the pose. The flank is discovered
 lazily from the pony's `FlankTouch`, so a stock smack outside an act still reaches the patched
 body coat.

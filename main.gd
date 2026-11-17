@@ -686,6 +686,9 @@ func _refresh_offer() -> void:
 		return
 	if get_tree().paused:
 		return
+	if DisplayServer.get_name() != "headless" and not headset_view() \
+			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
 	var view: Camera3D = camera()
 	if view == null:
 		return

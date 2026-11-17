@@ -359,7 +359,7 @@ bounds — and applies live.
 **General**
 
 One ungrouped list, in this order: **Show controls**, **Show HUD readouts**, **Move captions to
-top**, **Mute Ponese**, **Caress surface quality** (`Fast` / `Precise`),
+top**, **Mute Ponese**, **Use pack smack sound**, **Caress surface quality** (`Fast` / `Precise`),
 **Climax limit** (`0…20`; `0` is unlimited), **Mouse sensitivity** in pixels per centimetre of hip
 travel (`20…400`), **Thrust direction** (which mouse direction deepens the stroke) and **Enable
 footstool**. The **Auto Thrust** section follows. The tab's last player row is **Enable debug**,
@@ -377,8 +377,8 @@ The act's hold-X layer edits the same values live; these rows set the starting p
 **Block other mods' hotkeys during act** shields an act's input; see the HACK note in
 `docs/input.md`.
 
-The audio switches and the hip back-off (`0.25…2.0×`) live in General's Debug block. The body slap
-fires at true contact; the old **Contact gap** row is retired.
+The hip back-off (`0.25…2.0×`) lives in General's Debug block. The body slap fires at true
+contact; the old **Contact gap** row is retired.
 
 **Anatomy**
 
@@ -512,6 +512,7 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `estrus_cycle` | 30-day heat/diestrus cycle: heat warms faster and offers sooner; diestrus is Context; see `docs/eligibility.md` |
 | `act_speech_feel` | thrust-paced interjection instruction in cue lines |
 | `mute_ponese_audio` | mute a Ponese-only act voice but keep its text |
+| `pack_smack_sound` | use the pack hand-smack audio for the native flank smack outside an act; see `docs/audio.md` |
 | `kissing_reactions` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
 | `pantyhose_undress` | take her panties and pantyhose off when an act starts; she stays undressed; see `docs/integrations.md` |
 | `pantyhose_bulge` | lift the worn panties and pantyhose over the anatomy; see `docs/integrations.md` |

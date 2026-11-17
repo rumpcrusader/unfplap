@@ -62,6 +62,22 @@ The runtime keeps the call sites and the director/vocal prepare.
 - `tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences it at
   the restore begin.
 
+## Outside acts
+
+`audio/stock_smack.gd` is one world-scope Node that `main.gd` creates in `_ready()`. While
+`features.pack_smack_sound` is on, it gives the native `FlankTouch` sound player an
+`AudioStreamRandomizer` over the two pack hand-smack variants. The randomizer runs in no-repeat
+mode, at the act's level and a neutral pitch so its own pitch variation applies. The decal, blush,
+jiggle and reaction stay on the stock impact. Each changed player's stream, volume and pitch are
+saved and restored when the switch goes off, when the pony starts an act, or when the world closes.
+
+`main.gd` calls `pony_ready()` for every pony, `apply_settings()` on every settings edit,
+`act_start()`/`act_end()` with the act pony, `clear_world()` on a world close and `shutdown()` on
+mod exit. An act pony is skipped: `set_active()` gives her stock player back so the hands' own
+per-impact swap owns it, and `clear_active()` re-installs the pack layer after the hands restore.
+The layer remembers a pony seen while the switch is off, so turning it on reaches her too. It does
+no per-frame work.
+
 ## Voice policy
 
 `mute_ponese_audio` keeps the generated line and the text HUD but silences the pony's Ponese
@@ -81,7 +97,8 @@ the debug read.
 ## Packs and settings
 
 - The pack foley files are fetched from the resource archive and packed; see `assets/README.md`.
-- `features.mute_ponese_audio` gates the Ponese mute. It is the only audio flag.
+- `features.mute_ponese_audio` gates the Ponese mute and `features.pack_smack_sound` gates the
+  outside-act smack replacement.
 - The base-game breath and squee are always on and are not gated by a flag.
 
 ## Dependencies
@@ -101,6 +118,9 @@ the debug read.
 - End: `end()`
 - Idempotent: yes
 
+The outside-act layer is world-scope: `main._ready()` constructs it, `_ready()` reads the switch,
+`clear_world()` restores every player on a world close and `shutdown()` runs on mod exit. It is
+idempotent.
 
 ## Tests
 
@@ -108,4 +128,6 @@ the debug read.
 the mid-act mute edit through `apply_live_settings()`.
 `tests/act_audio/test_act_audio.gd` covers the pure catalogue, the pack cue
 selection, the profile-based `uses_bed`, the cached `pose_changed` impact and the oral
-`plap = false` path. `tests/test_runtime_teardown.gd` drives the runtime's audio forwards.
+`plap = false` path. `tests/act_audio/test_smack_sound.gd` covers the outside-act layer's install,
+restore, live switch, act handoff and world close. `tests/test_runtime_teardown.gd` drives the
+runtime's audio forwards.

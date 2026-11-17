@@ -54,9 +54,10 @@ The purity boundary is deliberate:
 
 Eligibility stores nothing. Facts are a per-call snapshot and are never saved or added to the
 per-character profile. The idle hint scans once per second and runs the scene rows first; only a
-passing scene reads Base clearance. Every scan reads it live. `relationship_ok()` uses a narrow
-clearance read of the relationship runtime, romance eligibility, the love level and the
-Promiscuity floor; the full facts snapshot belongs to `get_verdict()`.
+passing scene reads Base clearance. Every scan reads its rows live. `relationship_ok()` uses a
+narrow clearance read of the relationship runtime, romance eligibility, the love level and the
+Promiscuity floor; the level itself comes from the game's ladder cache, so the read does not
+rebuild her bond facts. The full facts snapshot belongs to `get_verdict()`.
 
 | Data | Stored where | Owner |
 |---|---|---|
@@ -125,6 +126,10 @@ func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary
 
 `eligible()` is the capability answer. `relationship_ok()` is the Base clearance relationship row
 for the negotiation routes: a live relationship, romance eligibility and the Promiscuity floor.
+Its love level comes from the game's own ladder cache (`world_context.state.bond_levels`, kept
+current by `relationship_runtime._level_check()` on every impression and bond change), and
+`relationship_runtime.ladder()` is the fallback for a pony the game has not recorded yet. The cache
+is the reason the idle hint and the proactive scan do not rebuild her bond facts every pass.
 `witness_age()` is the only age-shaped answer and only for witness wording. `get_verdict()` is the
 typed act gate. `get_profile()` reads the resolved provider/player profile for one id;
 `set_profile()` writes the provider layer's eligible assertion, participation and consent. The
@@ -460,8 +465,8 @@ thresholds (`docs/readiness.md`).
   participation and row effects.
 - `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `witness_age()`, typed
   facts and verdict, capability targets, the no-stable-id boundary, the profile consent, the
-  provider layer through `set_profile()`/`get_profile()`, the Promiscuity setting and clear/setup
-  lifecycle.
+  provider layer through `set_profile()`/`get_profile()`, the Promiscuity setting, the cached love
+  level with the ladder fallback, and the clear/setup lifecycle.
 - `tests/test_pony_id.gd`: the stable-id rule (metadata wins, identity fallback, no identity).
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
 - `tests/test_source_hygiene.gd`: purity, the facade-only preload rule, the single-reader rule and

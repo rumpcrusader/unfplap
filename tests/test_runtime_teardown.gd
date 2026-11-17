@@ -84,10 +84,26 @@ class FakeGame extends Node:
 	var headset_view := false
 
 
+class FakeMemory extends RefCounted:
+	func cancel_act(_event_id: Variant = null, _keep_speaking: Variant = null) -> int:
+		return 0
+
+	func cancel_line(_key: Variant = null) -> void:
+		pass
+
+	func note(_kind: Variant = null, _id: Variant = null, _event_id: Variant = null,
+			_reason: Variant = null) -> void:
+		pass
+
+	func line_state(_key: Variant = null) -> int:
+		return 0
+
+
 class FakeMain extends Node:
 	var player: Variant = null
 	var hud: Variant = null
 	var game: Variant = null
+	var memory: Variant = null
 	var active_runtime: Variant = null
 	var view: Camera3D = null
 	var anatomy: Variant = null
@@ -149,6 +165,7 @@ func _fixture() -> Dictionary:
 	game.inventory = FakeInventory.new()
 	main.player = player
 	main.game = game
+	main.memory = FakeMemory.new()
 	runtime.add_child(pony)
 	runtime.add_child(nav)
 	runtime.add_child(main)

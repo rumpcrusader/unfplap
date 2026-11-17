@@ -32,6 +32,9 @@ class FakeRuntime extends Node:
 	var hotkey_starts := 0
 	var hotkey_result := true
 
+	func force_stop() -> void:
+		pass
+
 	func start_agreement(handle: Variant, _skip_presentation := false) -> int:
 		agreement_handles.append(handle)
 		return agreement_result

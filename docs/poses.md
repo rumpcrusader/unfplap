@@ -981,9 +981,9 @@ teardown; it stays unchanged.
   adapters and an unknown name.
 - `tests/poses/test_pose_edge.gd` — the edge documents, the typed wrapper and validator, the
   registry load and the debug, oral and face-sit forward/reverse run proofs.
-- `tests/test_standing_presentation.gd` — the offer gate, the navigator stepping turn and its away
-  settle, a blocked turn aborting without a snap, the fallback rotation and the presentation's
-  affectionate face.
+- `tests/test_standing_presentation.gd` — the act-owned presentation start, the navigator stepping
+  turn and its away settle, a blocked turn aborting without a snap, the fallback rotation and the
+  presentation's affectionate face.
 - `tests/poses/test_pose_asset.gd` — the missionary asset's v7 version/space/frame, body and Anon
   bone lists, anchor/contact/root and bed reference.
 - `tests/poses/test_pose_asset_v7.gd` — the v7 schema and its refusals, `local_rest` bone math, the

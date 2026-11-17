@@ -65,12 +65,15 @@ func run() -> void:
 		"the mare payload carries Context")
 
 	var anon := PROMPTS.parse_anon_offer("{\"offer\":true,\"option\":1}", "", 2)
-	check(anon.answer == "accept" and anon.option_index == 1 and not anon.failed,
-		"a clear offer with an in-range option parses")
+	check(anon.answer == "accept" and anon.option_index == 1 and not anon.failed \
+		and not anon.out_of_range, "a clear offer with an in-range option parses")
 	anon = PROMPTS.parse_anon_offer("{\"offer\":false}", "", 2)
 	check(anon.answer == "no_offer" and not anon.failed, "a no-offer reply parses")
 	anon = PROMPTS.parse_anon_offer("{\"offer\":true,\"option\":3}", "", 2)
-	check(anon.answer == "no_offer" and not anon.failed, "an out-of-list option is no offer")
+	check(anon.answer == "accept" and anon.option_index == 3 and anon.out_of_range \
+		and not anon.failed, "an out-of-list option keeps the index and marks the range")
+	anon = PROMPTS.parse_anon_offer("{\"offer\":true,\"option\":-1}", "", 2)
+	check(anon.out_of_range, "a negative option is out of range")
 	anon = PROMPTS.parse_anon_offer("{\"offer\":true}", "", 2)
 	check(anon.failed, "a missing option is a failure")
 	anon = PROMPTS.parse_anon_offer("not json", "", 2)
@@ -128,6 +131,8 @@ func run() -> void:
 	var parsed := PROMPTS.parse("anon_offer", "{\"offer\":true,\"option\":1}", "", 2)
 	check(parsed.answer == "accept" and parsed.option_index == 1,
 		"the offer parse is dispatched")
+	var overflow := PROMPTS.parse("anon_offer", "{\"offer\":true,\"option\":4}", "", 2)
+	check(overflow.out_of_range, "the dispatched offer parse keeps the range marker")
 	check(PROMPTS.parse("anon_decision", "{\"answer\":\"refuse\"}", "", 0).answer == "refuse",
 		"the decision parse is dispatched")
 	check(PROMPTS.parse("mare_response", "{\"answer\":\"counter_offer\"}", "", 0).answer

@@ -87,7 +87,7 @@ The venue adapter is internal:
 ```gdscript
 venue: player, mares, pony_id, region_of, camera_forward, house_at, can_approach, stand,
        ensure_stand, claim_nav, nav_owned, nav_has_target, stay, release_nav, restore_limits,
-       find_bed_for, rest_front, accept_bed, player_in_bed, placement_for
+       find_bed_for, rest_front, placement_for
 ```
 
 ## Data ownership
@@ -148,6 +148,9 @@ Per mare, the scan then requires:
 - the cooldown: the history offer cooldown since `request_times[id]`, quartered in heat (the
   cooldown store owns it);
 - the `30 s` retry deadline left by a failed walk-over, reasoning failure or refused handoff.
+
+The Negotiation's `cooldown_s` on a plain decline or acceptance is a pacing signal only; this
+stored history cooldown is the effective per-mare wait.
 
 A rejected mare logs `request scan skip id=<id> reasons=<...>` when her reason set changes or
 after `10 s`, so a steady cooldown does not fill the log. One mare is considered per scan, with a
@@ -219,6 +222,11 @@ flag. `main` builds the typed package and calls the Negotiation service. Order:
 
 The offer line the Anon decision classifier reads is `The pony has just asked Anon to have sex...`
 or the bed variant; it is not the generated wording.
+
+The reverse route is the Negotiation's Anon offer. A normal line that is not an offer closes
+silently: no terminal outcome reaches `on_negotiation_outcome`, so no pacing retry or cooldown is
+written. A plain decline or an acceptance reports the Negotiation's `COOLDOWN_S` signal; the
+stored history cooldown above remains the effective per-mare wait.
 
 ## Cancellation
 

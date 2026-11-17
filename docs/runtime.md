@@ -28,26 +28,29 @@ free-standing fan; a live Agreement builds `trigger: "agreement"` from its froze
 scene-only rows. The offer owns its pose, blocked hint and trigger, so that one function never
 names a pose and never reaches into a request or negotiation service.
 
-Two start paths share the one body (`runtime._begin_act()`):
+The live start paths share the one body (`runtime._begin_act()`):
 
-- **The general act key** runs the full gate (`runtime.start_verdict()`: policy rows plus the live
-  scene rows) and keeps the history/buck refusal behavior. A transient failed gate leaves the
-  offer and the hint alive.
+- **The hotkey** runs `runtime.start_hotkey()`: Base clearance plus the scene-only rows, then
+  `_begin_act()`. No policy row, no offer cooldown, no buck and no history refusal. The idle hint
+  reuses that Base-clearance answer for `0.5 s` (`runtime._hotkey_cache_at`); a real press passes
+  `fresh` and reads it again. The scene rows stay live on every call. A transient failed gate
+  leaves the offer and the hint alive.
 - **The Agreement** runs `runtime.start_agreement(handle)`: only the scene-only rows with the
   frozen pose capability (`scene_only_verdict`), then `_begin_act()`. It reports `Started` or
   `StartFailed` to the Negotiation service through `main.report_agreement()`. `AGREEMENT_WAIT`
   means a transient row or an unsettled presentation, and the Agreement stays live. The
   presentation is act-owned and starts when `main` receives the Agreement.
-
 - **Auto-start:** `main._tick_agreement_auto_start()` samples the live Agreement at `0.25 s`. When
   the presentation is settled and the scene-only rows pass, with no menu, no pause and no live
-  act, it starts with no key press.
-- **The hotkey:** the act key always accepts. No context pose means no attempt (log and toast). A
-  live Agreement's exact `(pose, source, bed, cuddle)` match starts it immediately and skips the
-  presentation; any other live Agreement or negotiation is interrupted with
-  `Interrupted(hotkey)` and the immediate attempt runs. The attempt is Base clearance plus the
-  scene-only rows: no offer cooldown, no buck and no history refusal. The tolerance stop is the
-  only refusal path.
+  act, it starts with no key press. A private Agreement takes a fresh privacy sample first; a
+  public one does not sample.
+- **The hotkey's exact match:** the act key always accepts. No context pose means no attempt (log
+  and toast). A live Agreement's exact `(pose, source, bed, cuddle)` match starts it immediately,
+  skips the presentation and does not resample privacy; any other live Agreement or negotiation is
+  interrupted with `Interrupted(hotkey)` and the immediate attempt runs.
+- **The legacy harness:** `runtime.start()` runs `runtime.start_verdict()` (policy rows plus the
+  live scene rows) and keeps the history/buck refusal behaviour. It is the documented test and
+  start-setup harness; the live act key does not call it.
 
 The aftercare is cleared before an Agreement start: the `sex_aftercare` meta, the visual aftercare
 node and its navigator lease. The act then adopts the negotiation hold through `_claim_nav()`:
@@ -222,7 +225,8 @@ the start pose's own config sync.
 - `tests/test_runtime_notes.gd` — the prompt forwards.
 - `tests/poses/test_pose_offer.gd` — the typed offer, the Agreement/hotkey outcome table and the
   one start path. The idle hint no longer keeps a policy snapshot; its readiness is
-  `runtime.hotkey_ready()`.
+  `runtime.hotkey_ready()`, whose Base-clearance answer is cached for `0.5 s` and dropped by the
+  teardown (`tests/test_runtime_teardown.gd`).
 - `tests/poses/test_start_setup.gd` — the closed setup vocabulary, the synthetic
   `auto`/`bed_keep_lying` row and the runtime dispatch for both bed adapters.
 - `tests/readiness/test_oral_quiet.gd` — the oral contact: the plap and rump/tail jiggle skip, the

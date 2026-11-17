@@ -270,34 +270,6 @@ func rest_front(rest: Node, pony: Node3D) -> Variant:
 	return null
 
 
-## Seat her through the native bed rest. False when it refuses.
-func accept_bed(rest: Node, pony: Node3D) -> bool:
-	if not is_instance_valid(rest) or not is_instance_valid(pony):
-		return false
-	if not rest.has_method("accept"):
-		return false
-	return bool(rest.call("accept", pony))
-
-
-## True while Anon is reclined on this bed.
-func player_in_bed(bed: Variant) -> bool:
-	var node := player()
-	if not is_instance_valid(node) or not is_instance_valid(bed):
-		return false
-	if not bool(node.get_meta("couch_sleeping", false)):
-		return false
-	var seat: Variant = node.get("seat")
-	if not is_instance_valid(seat):
-		return false
-	if not seat.has_meta("couch"):
-		return false
-	var couch: Variant = seat.get_meta("couch")
-	if not is_instance_valid(couch):
-		return false
-	var bed_node: Variant = couch.get("_bed") if couch.get("_bed") != null else couch.get("bed_node")
-	return bed_node == bed
-
-
 ## The plain placement facts for one runtime: a cuddle bed under her, a free bed near Anon with
 ## its front spot, and a free standing approach. One pass answers every option.
 func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:

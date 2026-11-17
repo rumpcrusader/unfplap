@@ -97,11 +97,10 @@ total, largest first, so the first row is the chunk to fix.
 | `anatomy_coat_follow`, `anatomy_visibility`, `teat_jiggle` | reported through `facts.perf` |
 
 The anatomy chunks need no extra forward: `facts.perf` already calls the runtime's `perf_note`,
-which is the single forwarding point. Chunks nest: `anatomy_process` contains
-`anatomy_coat_follow` and `anatomy_visibility`; `entry_process` contains `offer_scan`, which
-contains `offer_cone`, `offer_gate` and `offer_stool`; `offer_gate` contains `offer_policy` and
-`offer_scene`. A steady `offer_policy` near zero means the hint reused its snapshot; a full
-`offer_policy` row means the key changed or the fallback TTL expired. See `docs/eligibility.md`.
+which is the single forwarding point. `entry_process` contains `offer_scan`, which contains
+`offer_cone` and `offer_gate`. `offer_gate` reads `runtime.hotkey_ready()`: the scene rows are
+rebuilt every call, while the two Base-clearance reads are cached for `0.5 s` across the 0.15 s
+hint scan. A real act-key press passes `fresh` and pays the eligibility read again.
 
 ## Gate and reset
 

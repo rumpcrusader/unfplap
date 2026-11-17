@@ -303,9 +303,12 @@ func run() -> void:
 		"the mood face uses the game's expression names")
 	root.add_child(refused_runtime)
 	paused = true
-	var blocked: PackedStringArray = refused_runtime.call("offer_reasons", "standing", "", null)
+	var gate: Variant = refused_runtime.call("_scene_gate")
+	var blocked_rows: Array = gate.call("offer_verdict", "standing", "", null).get("rows", [])
+	var blocked: PackedStringArray = gate.call("report_reasons", blocked_rows)
 	check("paused" in blocked, "a paused tree rejects a normal offer")
-	var forced: PackedStringArray = refused_runtime.call("offer_reasons", "standing", "", null, true)
+	var forced_rows: Array = gate.call("offer_verdict", "standing", "", null, true).get("rows", [])
+	var forced: PackedStringArray = gate.call("report_reasons", forced_rows)
 	check(not ("paused" in forced), "the debug offer bypasses the paused gate")
 	paused = false
 	root.remove_child(refused_runtime)

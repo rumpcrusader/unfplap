@@ -1,7 +1,8 @@
 extends SceneTree
-## The Negotiation service through its public API with a fake host: the Anon offer, the Anon
-## decision, the Mare response, the lock, the hold, privacy, the TTL, the Agreement handle and the
-## terminal outcomes. No live scene and no model.
+## The Negotiation service through its public API with a fake host: the Anon offer and its
+## captured options, the live placement re-check, the Anon decision, the Mare response, the lock,
+## the hold, privacy, the TTL, the Agreement handle and the terminal outcomes. No live scene and no
+## model.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/negotiation/test_service.gd
 
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
@@ -108,6 +109,7 @@ class Boxes:
 	var eligible := true
 	var relationship := true
 	var privacy := true
+	var place_ok := true
 	var classify_mode := "sync"
 	var reason_mode := "sync"
 	var await_mode := "sync"
@@ -126,6 +128,7 @@ class Boxes:
 	var logs: Array[String] = []
 	var hold: FakeHold
 	var placement: POSE_OPTIONS.Placement
+	var placed: Array = []
 	var form_view = null
 	var context_facts: Dictionary = {"willingness": true}
 
@@ -146,6 +149,9 @@ func _fixture() -> Dictionary:
 	host.context_facts = func(_target: Node) -> Dictionary: return boxes.context_facts
 	host.privacy_private = func(_target: Node, _cuddle: bool) -> bool: return boxes.privacy
 	host.placement_for = func(_target: Node): return boxes.placement
+	host.pose_placed = func(_target: Node, option) -> bool:
+		boxes.placed.append(option)
+		return boxes.place_ok
 	host.form_view = func(): return boxes.form_view
 	host.hold_for = func(_target: Node): return boxes.hold
 	host.classify = func(request, scope, done) -> bool:
@@ -185,11 +191,12 @@ func _fixture() -> Dictionary:
 	return {"service": service, "boxes": boxes, "host": host, "runtime": runtime, "pony": pony}
 
 
-func _decision(answer: String, index := -1, failed := false):
+func _decision(answer: String, index := -1, failed := false, out_of_range := false):
 	var out := PROMPTS.Reply.new()
 	out.answer = answer
 	out.option_index = index
 	out.failed = failed
+	out.out_of_range = out_of_range
 	return out
 
 
@@ -249,6 +256,7 @@ func _accept_anon(made: Dictionary) -> void:
 func run() -> void:
 	_check_anon_accept()
 	_check_anon_failures()
+	_check_capture_and_placement()
 	_check_anon_cuddle()
 	_check_mare_cuddle()
 	_check_mare_offer()
@@ -355,10 +363,21 @@ func _check_anon_failures() -> void:
 	runtime = made["runtime"]
 	check(service.begin_anon_offer(runtime, "nice weather"), "the attempt starts")
 	check(service.phase() == NEGOTIATION.Phase.NONE, "an unclear line forms no offer")
-	check(boxes.outcomes[0].outcome == NEGOTIATION.Outcome.NO_OFFER, "an unclear line is NoOffer")
-	check(boxes.outcomes[0].reason == AGREEMENT.REASON_NOT_OFFER,
-		"a normal line is a silent no-offer")
-	check(boxes.toasts.is_empty(), "a normal line shows no toast")
+	check(boxes.outcomes.is_empty(), "a normal line reports no terminal outcome")
+	check(boxes.toasts.is_empty() and boxes.logs.is_empty(),
+		"a normal line is silent")
+	check(not service.is_locked(), "a normal line releases the lock")
+	_free(made)
+
+	made = _fixture()
+	boxes = made["boxes"]
+	boxes.classify_decision = _decision("accept", 0, false, true)
+	service = made["service"]
+	runtime = made["runtime"]
+	service.begin_anon_offer(runtime, "want to?")
+	check(boxes.outcomes[0].reason == AGREEMENT.REASON_NO_CONTEXT_POSE,
+		"an out-of-range marker is NoOffer")
+	check(not boxes.toasts.is_empty(), "an out-of-range option is feedback, not silence")
 	_free(made)
 
 	made = _fixture()
@@ -377,6 +396,60 @@ func _check_anon_failures() -> void:
 	_accept_anon(made)
 	check(boxes.outcomes[0].outcome == NEGOTIATION.Outcome.OCCUPIED, "a failed hold is Occupied")
 	check(not made["service"].is_locked(), "Occupied releases the lock")
+	_free(made)
+
+
+func _check_capture_and_placement() -> void:
+	var made := _fixture()
+	var boxes: Boxes = made["boxes"]
+	var bed := Node3D.new()
+	root.add_child(bed)
+	# The classifier request captures the standing-only list; the placement changes to a cuddle
+	# while the reply is in flight. The captured list decides the option.
+	boxes.classify_mode = "async"
+	boxes.classify_decision = _decision("accept", 0)
+	boxes.reason_decision = _decision("accept")
+	var service = made["service"]
+	check(service.begin_anon_offer(made["runtime"], "want to?"), "the async Anon offer starts")
+	boxes.placement.standing_free = false
+	boxes.placement.cuddle = true
+	boxes.placement.cuddle_bed = bed
+	boxes.classify_done.call(boxes.classify_decision)
+	check(boxes.placed.size() == 1 and boxes.placed[0].pose == CATALOG.STANDING,
+		"the reply indexes the options captured at request time")
+	check(boxes.agreements.size() == 1, "the captured option still forms the Agreement")
+	root.remove_child(bed)
+	bed.free()
+	_free(made)
+
+	# The Anon route checks placement after the classifier and before the hold claim.
+	made = _fixture()
+	boxes = made["boxes"]
+	boxes.place_ok = false
+	boxes.classify_decision = _decision("accept", 0)
+	service = made["service"]
+	check(service.begin_anon_offer(made["runtime"], "want to?"), "the offer attempt starts")
+	check(boxes.outcomes[0].outcome == NEGOTIATION.Outcome.INTERRUPTED,
+		"a moved placement interrupts the Anon route")
+	check(boxes.outcomes[0].reason == AGREEMENT.REASON_POSE, "the placement failure is pose")
+	check(boxes.agreements.is_empty(), "a placement failure forms no Agreement")
+	check(boxes.hold.release_count == 0, "the Anon route has not claimed the hold yet")
+	_free(made)
+
+	# The Mare route checks placement after Anon's answer and before the Agreement forms.
+	made = _fixture()
+	boxes = made["boxes"]
+	boxes.place_ok = false
+	boxes.classify_decision = _decision("accept")
+	var offer = _mare_offer(made, _standing_option())
+	service = made["service"]
+	check(service.begin_mare_offer(offer), "the Mare offer starts the exchange")
+	check(boxes.outcomes[0].outcome == NEGOTIATION.Outcome.INTERRUPTED,
+		"a moved placement interrupts the Mare route")
+	check(boxes.outcomes[0].reason == AGREEMENT.REASON_POSE,
+		"the Mare placement failure is pose")
+	check(boxes.agreements.is_empty(), "the Mare placement failure forms no Agreement")
+	check(boxes.hold.release_count == 1, "the Mare placement failure releases the hold")
 	_free(made)
 
 
@@ -442,6 +515,7 @@ func _check_mare_offer() -> void:
 	check(boxes.outcomes[0].outcome == NEGOTIATION.Outcome.REFUSED, "a refusal is Refused")
 	check(boxes.outcomes[0].cooldown_s == NEGOTIATION.COOLDOWN_S,
 		"a plain decline writes the cooldown")
+	check(boxes.reactions.is_empty(), "a plain decline queues no extra line")
 	_free(made)
 
 	made = _fixture()
@@ -453,6 +527,9 @@ func _check_mare_offer() -> void:
 	check(boxes.outcomes[0].reason == AGREEMENT.REASON_COUNTER_OFFER,
 		"a counter-offer is a refusal reason")
 	check(boxes.outcomes[0].cooldown_s == 0.0, "a counter-offer writes no cooldown")
+	check(boxes.reactions.size() == 1
+		and boxes.reactions[0][1] == AGREEMENT.REASON_COUNTER_OFFER,
+		"a counter-offer queues one reaction line")
 	_free(made)
 
 	made = _fixture()
@@ -513,6 +590,9 @@ func _check_mare_response() -> void:
 	made["service"].begin_anon_offer(made["runtime"], "want to?")
 	check(boxes.outcomes[0].reason == AGREEMENT.REASON_COUNTER_OFFER, "the Mare can counter-offer")
 	check(boxes.outcomes[0].cooldown_s == 0.0, "a Mare counter-offer writes no cooldown")
+	check(boxes.reactions.size() == 1
+		and boxes.reactions[0][1] == AGREEMENT.REASON_COUNTER_OFFER,
+		"the Mare counter-offer queues one reaction line")
 	_free(made)
 
 	made = _fixture()

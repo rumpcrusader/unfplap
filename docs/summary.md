@@ -144,8 +144,8 @@ and debug; no prompt sends it to the model.
 
 `shared/act_history.gd` also keeps a process-wide `revision`, bumped by every stored-row write
 (`commit`, `repair`, `apology_repair`, `reset` and `mark_announced`). Reads, sanitising and time
-decay do not bump it. The runtime's idle offer hint uses it to drop a stale policy snapshot; see
-`docs/eligibility.md`.
+decay do not bump it. The runtime's idle hotkey cache joins it into its invalidation key; a stored
+write rebuilds the Base-clearance answer.
 
 Only good and bad acts move the points. Neutral acts change no history.
 
@@ -171,8 +171,8 @@ Only good and bad acts move the points. Neutral acts change no history.
 | Hurt | hurt 4–5 |
 | Withdrawn | hurt 6+ |
 
-The tier names are presentation. Their effect on the start hint, proactive offers and spoken
-refusal is in `docs/eligibility.md`.
+The tier names are presentation. Their effect on the legacy start gate, proactive offers and
+spoken refusal is in `docs/eligibility.md`.
 
 There is **no break-up path**. The highest tier's act gate is in `docs/eligibility.md`; it never
 calls `player_bonds.break_up()`.
@@ -211,8 +211,9 @@ approaches. Her dialogue prompt and the relationship profile also show it.
 
 The mod writes or keeps that note on the moments the base game does not see:
 
-- a refused act attempt (`runtime.refuse()`) commits `annoyed`, or `angry` when the refusal also
-  bucked or knocked Anon down (`main.memory.commit`, the `REFUSAL` slot);
+- the legacy `runtime.refuse()` harness commits `annoyed`, or `angry` when the refusal also
+  bucked or knocked Anon down (`main.memory.commit`, the `REFUSAL` slot); the live strict tolerance
+  stop calls `scene_gate.buck_or_push()` and the summary owns its `angry` impression;
 - the refusal calls the game's own `bonds.unwanted_contact(id, "kiss")`, costing a little trust;
 - a normal tolerance stop holds `annoyed`; a strict stop holds `angry` (its summary impression).
 

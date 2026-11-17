@@ -151,21 +151,18 @@ func run() -> void:
 	main.add_child(main.view)
 	main.view.global_position = Vector3.ZERO
 
-	var offer_ok := {"value": false}
 	var facts: RefCounted = ACT_FACTS.new()
 	facts.main = main
 	facts.pony = pony
 	facts.cuddle_active = func() -> bool: return false
 	facts.free_of_affection = func() -> bool: return true
-	facts.can_offer = func(_pose: String, _source: String, _bed: Variant) -> bool:
-		return bool(offer_ok["value"])
 	facts.pause_face_turn = func(_force: bool) -> void: pass
 	facts.restore_face_turn = func() -> void: pass
 	facts.now = func() -> float: return float(clock["now"])
 
 	var presentation: Variant = PRESENTATION.new(facts)
 	check(bool(presentation.call("present_standing")),
-		"an accepted offer presents even with the pre-turn offer gate closed")
+		"an accepted offer presents without a pre-turn gate")
 	check(bool(presentation.call("presentation_active"))
 		and not bool(presentation.call("presentation_settled")),
 		"the presentation is active but unsettled while she turns")

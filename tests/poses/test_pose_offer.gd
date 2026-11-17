@@ -1,6 +1,7 @@
 extends SceneTree
 ## The typed pose offer and the one start path: defaults, validity, the blocked record, the
-## cancel/scope/auto fields, and `main.start_pose_offer()`'s outcome table.
+## cancel/scope/auto fields, `main.start_pose_offer()`'s outcome table and the private
+## Agreement auto-start's fresh privacy sample.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_offer.gd
 
@@ -8,7 +9,9 @@ extends SceneTree
 ## compiler cannot see at preload time. The autoload node exists before the suite runs.
 var MAIN: Variant = null
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
+const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 
 var failures := 0
 var checks := 0
@@ -32,6 +35,9 @@ class FakeRuntime extends Node:
 	func start_agreement(handle: Variant, _skip_presentation := false) -> int:
 		agreement_handles.append(handle)
 		return agreement_result
+
+	func agreement_offer_ready(_handle: Variant, _skip_presentation := false) -> bool:
+		return true
 
 	func start_hotkey(_pose: String, _bed: Variant, _source: String) -> bool:
 		hotkey_starts += 1
@@ -63,6 +69,7 @@ class FakeClassifier extends Node:
 class FakeNegotiation extends Node:
 	var live: Variant = null
 	var reports: Array = []
+	var cancels: Array = []
 	var interrupts := 0
 	var locked := false
 	var match: Variant = null
@@ -72,6 +79,11 @@ class FakeNegotiation extends Node:
 
 	func report(_handle: Variant, started: bool) -> void:
 		reports.append(started)
+
+	func cancel(handle: Variant, reason: String) -> bool:
+		cancels.append([handle, reason])
+		live = null
+		return true
 
 	func is_locked() -> bool:
 		return locked
@@ -118,6 +130,7 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	_check_handle()
 	_check_start_path()
+	_check_agreement_auto_start()
 	_check_sources()
 	print("POSE_OFFER_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -257,6 +270,62 @@ func _check_start_path() -> void:
 	check(not bool(main.call("start_pose_offer", POSE_OFFER.new())),
 		"an invalid offer starts nothing")
 
+	root.remove_child(main)
+	main.free()
+	negotiation.free()
+	runtime.free()
+	pony.free()
+
+
+func _check_agreement_auto_start() -> void:
+	if MAIN == null:
+		return
+	var main: Node = MAIN.new()
+	root.add_child(main)
+	main.hud = FakeHud.new()
+	var runtime := FakeRuntime.new()
+	var pony := FakePony.new()
+	root.add_child(runtime)
+	root.add_child(pony)
+	main.set("_runtimes", {pony: runtime})
+	var negotiation := FakeNegotiation.new()
+	main.negotiation = negotiation
+	main.privacy = PRIVACY.new()
+	var option := POSE_OPTIONS.Option.new()
+	option.pose = "missionary"
+	option.source = "bed_side"
+	var handle := {"pony": pony, "option": option, "private": true}
+	negotiation.live = handle
+
+	# A private Agreement whose fresh sample is public is cancelled, not started.
+	main.set("_agreement_clock", 0.25)
+	main.call("_tick_agreement_auto_start", 0.0)
+	check(negotiation.cancels.size() == 1
+		and str(negotiation.cancels[0][1]) == "privacy",
+		"a private auto-start cancels when the fresh sample is public")
+	check(runtime.agreement_handles.is_empty(),
+		"a cancelled private auto-start starts no act")
+
+	# A public Agreement takes no privacy sample and starts.
+	handle.private = false
+	negotiation.live = handle
+	runtime.agreement_result = RUNTIME.AGREEMENT_STARTED
+	main.set("_agreement_clock", 0.25)
+	main.call("_tick_agreement_auto_start", 0.0)
+	check(runtime.agreement_handles.size() == 1,
+		"a public Agreement auto-starts without a privacy sample")
+	check(negotiation.cancels.size() == 1, "the public auto-start does not cancel")
+
+	# The hotkey's exact match starts at once and does not sample the provider.
+	negotiation.live = handle
+	negotiation.match = handle
+	var offer := _offer(runtime, pony)
+	check(bool(main.call("start_pose_offer", offer)), "the exact hotkey match starts")
+	check(negotiation.cancels.size() == 1, "the hotkey match does not resample privacy")
+	check(runtime.agreement_handles.size() == 2, "the hotkey match consumes the Agreement")
+
+	root.remove_child(runtime)
+	root.remove_child(pony)
 	root.remove_child(main)
 	main.free()
 	negotiation.free()

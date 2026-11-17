@@ -44,8 +44,8 @@ enum Outcome { ACCEPTED, REFUSED, EXPIRED, INTERRUPTED, START_FAILED, NO_OFFER, 
 
 class FormView:       form, view
 class MareOffer:      runtime, pony, option, base, private, hold_token, hold_old_wander, line, cuddle
-class DecisionRequest: kind, text, line, context, options
-class Decision:       answer, option_index, failed
+class Request:        kind, text, line, context, options
+class Reply:          answer, option_index, failed, out_of_range
 class Terminal:       pony, pony_id, outcome, reason, trigger, cooldown_s
 class Host:           the named callbacks below
 
@@ -75,6 +75,7 @@ The host callbacks are:
 | `context_facts` | `(pony) -> Dictionary` | plain `shared/context.gd` facts |
 | `privacy_private` | `(pony, cuddle) -> bool` | the privacy provider |
 | `placement_for` | `(runtime) -> PoseOptions.Placement` | the live placement facts |
+| `pose_placed` | `(runtime, PoseOptions.Option) -> bool` | the live scene-only placement re-check before an Agreement forms |
 | `form_view` | `() -> FormView` | the player's form and display |
 | `hold_for` | `(runtime) -> RefCounted` | the per-pony `scene_hold/service.gd` ledger |
 | `classify` | `(PROMPTS.Request, scope, done) -> bool` | the dialogue classifier; `done` gets a `PROMPTS.Reply` |
@@ -128,17 +129,24 @@ the adapter's global watch only while no negotiation and no act is live; the ada
 first new line and reports it once the director is idle again, so the classifier never races her
 reply to the same line. `main` resolves the mare from the game's conversation target
 (`conversation_target` bound to Anon), cancels an in-flight proactive approach that has not formed
-a Mare offer, and calls `begin_anon_offer(runtime, line)`. A line that is not a clear offer is a
-silent `NoOffer(not_offer)`: no toast and no cooldown.
+a Mare offer, and calls `begin_anon_offer(runtime, line)`. A line that is not a clear offer is
+silent: it reports no terminal outcome, shows no toast and writes no cooldown, so the Proactive
+pacing sees nothing.
 
 1. Base clearance: `eligible?`, `relationship_ok` and availability; a failure is `NoOffer`.
-2. Pose options from `shared/pose_options.gd`; an empty list is `NoOffer`.
-3. The classifier picks intent and one option index; an unclear line or an out-of-list option is
-   `NoOffer`.
-4. The negotiation hold is claimed (`claim_negotiation`); a failure is `Occupied`.
-5. Visibility is derived from `privacy_private` with the offer or cuddle rule.
-6. The Mare Response Reasoning answers with Context plus the offer text and option; a failure is
-   `Refused`; a plain refusal writes the 120 s cooldown; a counter-offer does not.
+2. Pose options from `shared/pose_options.gd`; an empty list is `NoOffer`. The service stores the
+   exact list it sends to the classifier on that offer.
+3. The classifier picks intent and one option index; the reply indexes the captured list, never a
+   recomputed one. A missing or non-integer option is `NoOffer(classifier_unavailable)`; an index
+   outside the captured list is `NoOffer(no_context_pose)` with log and toast; a genuine non-offer
+   closes silently.
+4. The live placement check runs on the chosen option before the hold claim; a failure is
+   `Interrupted(pose)` and forms no Agreement.
+5. The negotiation hold is claimed (`claim_negotiation`); a failure is `Occupied`.
+6. Visibility is derived from `privacy_private` with the offer or cuddle rule.
+7. The Mare Response Reasoning answers with Context plus the offer text and option; a failure is
+   `Refused`; a plain refusal writes the offer cooldown signal; a counter-offer writes none and
+   closes with one generated line.
 
 The Mare offer:
 
@@ -146,7 +154,8 @@ The Mare offer:
 2. The service owns the exchange: the hold is transferred (`transfer_nav`) or claimed.
 3. The first new line from the conversation target goes to the Anon decision classifier; an
    ambiguous line is `Refused`.
-4. A yes forms the Agreement; a refusal writes the cooldown; a counter-offer does not.
+4. A yes runs the live placement check and then forms the Agreement; a refusal writes the
+   cooldown signal; a counter-offer writes none and closes with one generated line.
 
 The hotkey never forms an offer. `hotkey_handle` returns the live Agreement only for the same mare
 and the exact `(pose, source, bed, cuddle)` option; `interrupt_for_hotkey` ends any live
@@ -156,13 +165,15 @@ negotiation with `Interrupted(hotkey)`.
 
 | Request | Instruction | Payload | Parse |
 |---|---|---|---|
-| Anon offer | `ANON_OFFER_INSTRUCTION` | the player line, the indexed options, Context | `{"offer","option"}`; only a clear offer with an in-range option survives |
+| Anon offer | `ANON_OFFER_INSTRUCTION` | the player line, the indexed options, Context | `{"offer","option"}`; a clear offer returns the raw index and an `out_of_range` marker when it is outside the captured list |
 | Anon decision | `ANON_DECISION_INSTRUCTION` | the Mare offer line, the player reply | `{"answer"}`; `unclear` is a refusal, malformed is a failure |
 | Mare response | `MARE_RESPONSE_INSTRUCTION` | the player offer, the option, Context | `{"answer"}`; `unclear` or malformed is a failure |
 
 `negotiation/prompts.gd` owns the strings and the parsers; the host adapter owns the LLM call and
 the cancel scope. A parsed failure maps to `NoOffer` for the classifier and `Refused` for the
-answer, with no cooldown.
+answer, with no cooldown. A clear offer with an out-of-list index maps to
+`NoOffer(no_context_pose)`; the service validates the index against the list it captured at
+request time.
 
 ## Agreement
 
@@ -189,6 +200,13 @@ hold unless the Act adopted it on `Started`. `main._on_agreement()` starts the s
 presentation (act-owned) and the act key consumes the handle through `runtime.start_agreement()`;
 a wait keeps the Agreement live.
 
+Formation runs the live placement re-check (`Host.pose_placed`, the scene-only rows) after the
+positive answer and before the package is built. A moved bed or a lost standing spot is
+`Interrupted(pose)`: no Agreement forms and the offer hold is released. The auto-start samples a
+private Agreement's visibility freshly at `main`'s 0.25 s clock; if it is now public it cancels with
+`privacy`. The hotkey's exact match starts at once and does not resample: the live Agreement's own
+visibility wins for that press.
+
 Close reasons: `Started`, `StartFailed`, `Expired`, `Interrupted` (`privacy`, `pose`, `hotkey`,
 `target_left`, `cancelled`). Every close releases the lock. Only `Started` leaves the adopted hold
 to the act.
@@ -206,7 +224,9 @@ negotiation + 120 s Agreement).
 The service samples the provider every 0.5 s while a private offer or Agreement lives. A public
 offer never subscribes: its visibility was derived at formation and stays public. A private offer
 that loses privacy is `Interrupted(privacy)` in the negotiation or the Agreement; the state ends
-immediately, the shared reaction helper queues the line, and no cooldown is written.
+immediately, the shared reaction helper queues the line, and no cooldown is written. The
+auto-start takes its own fresh sample immediately before a private Agreement starts; a loss there
+cancels the Agreement with the same `privacy` reason and reaction.
 
 ## Hold
 
@@ -220,9 +240,14 @@ the adopted hold to the act.
 
 ## Feedback and cooldown
 
-Log + toast for `NoOffer`, `Occupied`, lock-blocked and every terminal outcome. The cooldown is
-120 s only on a plain decline or an acceptance; a counter-offer, expiry, interruption and start
-failure write none. The tolerance stop's `stop_until` is separate.
+Log + toast for `NoOffer`, `Occupied`, lock-blocked and every terminal outcome. A genuine
+non-offer is the exception: it closes silently, with no outcome, log or toast, so no pacing retry
+is written. `COOLDOWN_S` is the service's cooldown signal on a plain decline or an acceptance; the
+Proactive's stored history cooldown is the effective per-mare wait. A counter-offer, expiry,
+interruption and start failure write none. A counter-offer also queues one short generated line
+declining the place or timing while still wanting him; a plain refusal keeps the base-game
+dialogue and no extra line; privacy keeps its interruption line. The tolerance stop's `stop_until`
+is separate.
 
 ## Data ownership
 
@@ -273,11 +298,12 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 
 - `tests/negotiation/test_agreement.gd`: the package fields, TTL, expiry, exact match and the
   handle.
-- `tests/negotiation/test_service.gd`: the Anon offer, the Anon decision, the Mare response, the
-  failure semantics, the lock, the hold, privacy, `target_left`, the cooldown table, the Agreement
-  handle, `Started`/`StartFailed` and the stale-handle guard, with a fake host and model.
+- `tests/negotiation/test_service.gd`: the Anon offer, the captured option list, the live
+  placement re-check, the Anon decision, the Mare response, the silent non-offer, the counter-offer
+  line, the failure semantics, the lock, the hold, privacy, `target_left`, the cooldown table, the
+  Agreement handle, `Started`/`StartFailed` and the stale-handle guard, with a fake host and model.
 - `tests/negotiation/test_prompts.gd`: the payload shape, the request dispatch and the three
-  reply parsers.
+  reply parsers, including the Anon offer's out-of-range marker.
 - `tests/negotiation/test_adapter.gd`: the quiet gate, the queue and the situation record, the
   answer watch and its cancel, the three model calls and the raw path, with a fake director and
   classifier.

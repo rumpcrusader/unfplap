@@ -142,7 +142,6 @@ var free_look_rotation := Callable()
 var desktop_pose_driver := Callable()
 var cuddle_active := Callable()
 var free_of_affection := Callable()
-var can_offer := Callable()
 var pause_face_turn := Callable()
 var restore_face_turn := Callable()
 ## Shared act-level ownership of the game's excitement Beat. A service acquires a named hold; the
@@ -228,13 +227,6 @@ func pose_driver() -> Variant:
 ## The node that answers the Anon pose-driver write-backs.
 func driver_host() -> Variant:
 	return pose_host.call() if pose_host.is_valid() else null
-
-
-## Whether an act may be offered now. A missing callback refuses.
-func offer_allowed(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	if not can_offer.is_valid():
-		return false
-	return bool(can_offer.call(pose, act_source, bed_in))
 
 
 ## Hold the face turn for the act. A missing callback is a no-op.

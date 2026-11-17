@@ -993,7 +993,8 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 
 ## The Agreement's automatic start: it waits for the presentation to settle and Anon to be in
 ## position, then consumes the handle with no key press. A menu, a paused tree or a live act
-## holds it.
+## holds it. A private Agreement takes a fresh privacy sample; the exact hotkey match does not,
+## because a live Agreement's own visibility wins for that press.
 func _tick_agreement_auto_start(delta: float) -> void:
 	if is_instance_valid(active_runtime) or not is_instance_valid(negotiation):
 		return
@@ -1013,12 +1014,37 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	var runtime: Node = runtime_for(pony) if is_instance_valid(pony) else null
 	if not is_instance_valid(runtime) or not runtime.has_method("agreement_offer_ready"):
 		return
-	if not bool(runtime.call("agreement_offer_ready", handle)):
-		return
 	var offer := _agreement_offer(handle)
-	if offer != null:
-		_debug("agreement auto-start pony=%s pose=%s" % [str(pony.name), offer.pose])
-		_start_agreement_offer(offer, false)
+	if offer == null:
+		return
+	var option: Variant = handle.option
+	var cuddle := option != null and bool(option.cuddle)
+	if bool(handle.private) and not _agreement_private_now(pony, cuddle):
+		_debug("agreement auto-start privacy lost pony=%s" % str(pony.name))
+		negotiation.call("cancel", handle, "privacy")
+		return
+	_debug("agreement auto-start pony=%s pose=%s" % [str(pony.name), offer.pose])
+	_start_agreement_offer(offer, false)
+
+
+## A fresh privacy sample for the auto-start, with the offer's cuddle rule. A missing provider
+## reads as public, so a private Agreement does not start on a stale answer.
+func _agreement_private_now(pony: Node, cuddle: bool) -> bool:
+	if not is_instance_valid(privacy):
+		return false
+	return privacy.cuddle_private(pony) if cuddle else privacy.offer_private(pony)
+
+
+## The live placement re-check the Negotiation asks for before an Agreement forms: the chosen
+## option's scene-only rows, with no frozen capability and no hold exemption. It is a scene
+## check, not a new policy read.
+func agreement_pose_placed(runtime: Node, option: POSE_OPTIONS.Option) -> bool:
+	if not is_instance_valid(runtime) or option == null \
+			or not runtime.has_method("scene_only_verdict"):
+		return false
+	var verdict: Variant = runtime.call("scene_only_verdict", option.pose, option.source,
+		option.bed, null)
+	return verdict != null and bool(verdict.hard_ok)
 
 
 ## The runtime's Agreement start result, forwarded to the Negotiation service.
@@ -2135,6 +2161,7 @@ func _bind_negotiation_host() -> void:
 		if is_instance_valid(initiation) and initiation.has_method("placement_for"):
 			return initiation.call("placement_for", runtime)
 		return POSE_OPTIONS.Placement.new()
+	host.pose_placed = Callable(self, "agreement_pose_placed")
 	host.form_view = Callable(self, "form_view")
 	host.hold_for = func(runtime):
 		if is_instance_valid(runtime) and runtime.has_method("hold_handle"):
@@ -2252,17 +2279,29 @@ func _toast(text: String) -> void:
 	hud.call("toast", text, 4.0)
 
 
-## The shared interruption line: a short generated line, queued and not delaying the clear.
-func _negotiation_react(pony: Node, _reason: String) -> void:
+## The shared terminal line. The purpose follows the close reason: a counter-offer still wants
+## him, a privacy loss lets the moment go, and every other close is the generic release. It is a
+## short generated line, queued and not delaying the clear.
+func _negotiation_react(pony: Node, reason: String) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(adapter):
 		return
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	if id.is_empty():
 		return
+	var purpose := ""
+	match reason:
+		NEGOTIATION.AGREEMENT.REASON_COUNTER_OFFER:
+			purpose = "Anon just offered sex and she said no only to the place or the timing, " \
+				+ "because she still wants him. Say one short, in-character line declining that " \
+				+ "place or moment and making that clear. Do not ask again and do not narrate actions."
+		NEGOTIATION.AGREEMENT.REASON_PRIVACY:
+			purpose = "The moment was interrupted. Say one short, in-character line letting it " \
+				+ "go, without anger. Do not ask again and do not narrate actions."
+		_:
+			purpose = "The offer ended. Say one short, in-character line letting it go, without " \
+				+ "anger. Do not ask again and do not narrate actions."
 	var key := "unfplap:negotiation:react:%d" % Time.get_ticks_usec()
-	adapter.call("queue", id,
-		"The moment was interrupted. Say one short, in-character line letting it go, without " \
-		+ "anger. Do not ask again and do not narrate actions.",
+	adapter.call("queue", id, purpose,
 		key, func() -> bool: return is_instance_valid(pony) and pony.is_inside_tree(), false)
 
 

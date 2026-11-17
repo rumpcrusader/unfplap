@@ -5,7 +5,6 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
 
 var failures := 0
@@ -130,20 +129,6 @@ func run() -> void:
 	controller.set("opening_y", 1.25)
 	store.slots[0] = {"id": STOOL.ID, "count": 1}
 	check(runtime.stool_case_count() == 1, "one case footstool is counted")
-	# The idle blocked hint reuses the gate it already built instead of running it again.
-	controller.set("opening_y", 1.30)
-	var stool_only := ELIGIBILITY.Row.new()
-	stool_only.key = "stool"
-	stool_only.reason = "needs_stool"
-	var verdict := {"rows": [stool_only]}
-	check(runtime.stool_blocks_verdict(verdict),
-		"the blocked hint reads the stool row from the first gate")
-	var other := ELIGIBILITY.Row.new()
-	other.key = "sleeping"
-	other.ok = false
-	other.reason = "sleeping"
-	check(not runtime.stool_blocks_verdict({"rows": [stool_only, other]}),
-		"another failed row still hides the stool hint")
 	store.slots[1] = {"id": STOOL.ID, "count": 1}
 	check(runtime.stool_case_count() == 2, "two case footstools are counted")
 	SETTINGS.anatomy_mode.set_choice("never")

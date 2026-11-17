@@ -31,8 +31,6 @@ const REASON_REASONING_FAILED := "reasoning_failed"
 const REASON_CLASSIFIER_UNAVAILABLE := "classifier_unavailable"
 const REASON_NO_CONTEXT_POSE := "no_context_pose"
 const REASON_OCCUPIED := "occupied"
-## A player line that is not a clear offer: no offer, no feedback.
-const REASON_NOT_OFFER := "not_offer"
 
 
 ## The complete frozen package. Every field is set at formation; the service never rewrites one.

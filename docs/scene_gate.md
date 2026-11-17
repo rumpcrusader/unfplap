@@ -22,8 +22,8 @@ adult mare *may*; this answers whether the *scene* is ready right now.
 
 `runtime.gd` keeps the policy and the live context: it supplies `policy_verdict` (the
 `eligibility/service.gd` verdict) and `debug_context` (the act values the status line reads) through
-callbacks, and keeps the public forwards (`can_show_start`, `can_offer`, `offer_reasons`,
-`refuse_available`, `refuse`, `find_bed_under`, `free_of_affection`, `cuddle_active`). The runtime
+callbacks, and keeps the public forwards (`can_show_start`, `refuse_available`, `refuse`,
+`find_bed_under`, `free_of_affection`, `cuddle_active`). The runtime
 also owns the refusal face (`_start_upset("angry"|"annoyed")`); the facade calls back with the
 buck flag.
 
@@ -36,12 +36,14 @@ The pose half reads `shared/pose_specs.gd`, never a pose-id comparison: `scene()
 against `PLAYER_FORM.active()` and the headset view. An unknown or internal pose fails
 `pose_profile`; an offer of a non-offerable pose also fails `pose`. The gate fails closed.
 
-`start_verdict()` and `offer_verdict()` accept a `verdict_in` policy snapshot. The idle hint
-supplies the runtime's cached `Mode.START` verdict this way (`docs/eligibility.md`); the gate still
-builds and evaluates every live scene row on every call. The stool-blocked hint reuses that same
-gate result through `runtime.stool_blocks_verdict()` instead of running the start gate twice. An
-accepted proactive offer still calls the same `start_verdict()` and does not bypass a scene row;
-the request handoff only changes hint discovery (`docs/initiation.md`).
+`start_verdict()` and `offer_verdict()` accept a `verdict_in` policy snapshot. The idle hint no
+longer supplies one: its readiness is `runtime.hotkey_ready()` (Base clearance plus the scene-only
+rows), and the runtime caches only the Base-clearance answer for a brief `0.5 s` while the hint
+scans. The scene rows are rebuilt on every call. The blocked standing hint re-reads only the live
+`stool_needed_count` / `stool_case_count`; it never reruns the start gate. The live act key is the
+same Base-clearance plus scene-only path, and an accepted proactive offer starts through its
+Agreement's scene-only rows; the request handoff only changes hint discovery
+(`docs/initiation.md`).
 
 ## Row sets
 
@@ -164,7 +166,7 @@ consumes this verdict; the act key's general path still runs `start_verdict()`.
 
 The free-standing act-key hint is discovered by `shared/rump_cone.gd`: a 90 degree half-angle fan
 to each side of her backward axis, within 2 m of her rump anchor. It is a discovery rule for the
-idle hint, not a scene-gate row, and the start gate is unchanged.
+idle hint, not a scene-gate row; the hotkey and the Agreement start keep their own scene-only rows.
 
 ## Refusal
 

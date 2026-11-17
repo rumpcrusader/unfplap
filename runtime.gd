@@ -66,6 +66,9 @@ const ORAL_KISS_DB := -22.0
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
+## The idle hint's Base-clearance cache. The hint scans at 0.15 s; the eligibility reads are
+## stable for longer. A real hotkey press re-reads fresh. The scene rows stay live every call.
+const HOTKEY_CACHE_S := 0.5
 ## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
 ## feel is the same with the anatomy off. Close to the default part's visible length.
 const NOMINAL_SHAFT_M := 0.2
@@ -154,8 +157,14 @@ var _perf_probe := PERF.new()
 var idle_perf := false
 ## Idle standing invitation. Kept separate from the act's pose/tail so the act key can take over
 ## cleanly.
-## Idle request face: blush and lids while a private offer is being asked or presented.
+## The `POSING_IN` timer: the pose settles into the act after this many seconds.
 var _pose_in_left := 0.0
+## The idle hint's short Base-clearance cache. `_hotkey_cache_key` joins the settings generation,
+## the provider registry revision and the act-history revision; any change rebuilds it.
+var _hotkey_cache_at := -1000.0
+var _hotkey_cache_key := Vector3i.ZERO
+var _hotkey_cache_eligible := false
+var _hotkey_cache_relationship := false
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
 ## the HUD card reads the cached flag.
 var _cycle_heat := false
@@ -329,7 +338,6 @@ func _init() -> void:
 	_act_facts.desktop_pose_driver = Callable(self, "_desktop_pose_driver")
 	_act_facts.cuddle_active = Callable(self, "_cuddle_active")
 	_act_facts.free_of_affection = Callable(self, "_free_of_affection")
-	_act_facts.can_offer = Callable(self, "can_offer")
 	_act_facts.pause_face_turn = Callable(self, "_pause_face_turn")
 	_act_facts.restore_face_turn = Callable(self, "_restore_face_turn")
 	_act_facts.hold_excitement = Callable(self, "_hold_excitement")
@@ -1487,20 +1495,6 @@ func can_show_start(pose: String, act_source: String, bed_in: Variant = null) ->
 	return bool(start_verdict(pose, act_source, bed_in).get("show", false))
 
 
-## Offer eligibility before she is in position. Unlike the act-key start gate, this does not require
-## the pony to be lying or the player to be ready; those stay in the final gate. `forced` is the
-## Debug -> Actions bypass: the settings page pauses the tree, and the episode advances after it
-## closes, so the paused row must not reject a forced offer.
-func can_offer(pose: String, act_source: String, bed_in: Variant = null, forced := false) -> bool:
-	return bool(offer_verdict(pose, act_source, bed_in, forced).get("ok", false))
-
-
-## The failed offer gates, for the debug request buttons and their logs.
-func offer_reasons(pose: String, act_source: String, bed_in: Variant = null,
-		forced := false) -> PackedStringArray:
-	return _scene_gate().report_reasons(offer_verdict(pose, act_source, bed_in, forced).get("rows", []))
-
-
 func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
 	return _scene_gate().report_reasons(start_verdict(pose, act_source, bed_in).get("rows", []))
 
@@ -1558,17 +1552,6 @@ func stool_blocks_start(pose: String, act_source: String, bed_in: Variant = null
 	return bool(act.call("blocks_start", _start_reasons(pose, act_source, bed_in)))
 
 
-## The blocked-hint variant: reuse the gate the hint already built instead of running the whole
-## start gate a second time. The handle still re-reads the live need and case count.
-func stool_blocks_verdict(verdict: Dictionary) -> bool:
-	var act: Variant = _stool_act()
-	if act == null:
-		return false
-	var value: Variant = verdict.get("rows", [])
-	var rows: Array = value if value is Array else []
-	return bool(act.call("blocks_start", _scene_gate().report_reasons(rows)))
-
-
 func stool_state_text() -> String:
 	var act: Variant = _stool_act()
 	return str(act.call("state_text")) if act != null else "stool unavailable"
@@ -1577,13 +1560,6 @@ func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
 		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
 	_read_id()
 	return _scene_gate().start_verdict(pose, act_source, bed_in, verdict_in)
-
-
-## The full proactive-offer gate. It uses the offer-safe scene subset.
-func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
-		forced := false, verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
-	_read_id()
-	return _scene_gate().offer_verdict(pose, act_source, bed_in, forced, verdict_in)
 
 
 ## The scene-only start of an accepted Agreement: no policy verdict, no formation row, no
@@ -1681,7 +1657,8 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	_read_id()
 	return _scene_gate().debug_line(pose, act_source, bed_in, distance, dot)
 
-## Whether the scene itself can host a refusal. The policy must already say `buck_refuse`.
+## Whether the legacy policy start can host a refusal. The live strict tolerance stop calls the
+## scene gate's `buck_or_push()` directly; this harness pairs it with `runtime.start()`.
 func refuse_available(pose: String, act_source: String, bed_in: Variant = null,
 		gate_in: Dictionary = {}) -> bool:
 	_read_id()
@@ -1747,6 +1724,9 @@ func _nav_pose_gate(pose: String, act_source: String) -> bool:
 func find_bed_under() -> Node3D:
 	return _scene_gate().find_bed_under()
 
+## The legacy policy start: the documented test and start-setup harness. The live act key uses
+## `start_hotkey()` and an accepted Agreement uses `start_agreement()`; this path keeps the policy
+## rows, the history refusal and the buck for those proofs.
 func start(pose: String, bed_in: Variant, act_source: String,
 		gate_in: Dictionary = {}) -> bool:
 	_read_id()
@@ -1832,7 +1812,10 @@ func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
 
 ## The hotkey's readiness: Base clearance plus the scene-only rows. No policy verdict, no offer
 ## cooldown and no history refusal. The act key never bucks; the tolerance stop owns refusal.
-func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
+## The 0.15 s idle hint scan reuses the Base-clearance answer for `HOTKEY_CACHE_S`; a real press
+## passes `fresh = true` and re-reads it. The scene rows stay live on every call.
+func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null,
+		fresh := false) -> bool:
 	_read_id()
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
@@ -1841,18 +1824,33 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> b
 	var service: Variant = main.get("eligibility")
 	if service == null or not is_instance_valid(service):
 		return false
-	if not bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT)):
-		return false
-	if not bool(service.call("relationship_ok", pony)):
+	var now := _now_s()
+	var key := Vector3i(SETTINGS.generation, MARE_REGISTRY.revision, ACT_HISTORY.revision)
+	if fresh or now - _hotkey_cache_at > HOTKEY_CACHE_S or key != _hotkey_cache_key:
+		_hotkey_cache_at = now
+		_hotkey_cache_key = key
+		_hotkey_cache_eligible = bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT))
+		_hotkey_cache_relationship = bool(service.call("relationship_ok", pony))
+	if not _hotkey_cache_eligible or not _hotkey_cache_relationship:
 		return false
 	var verdict: Variant = scene_only_verdict(pose, act_source, bed_in, null)
 	return verdict != null and bool(verdict.ok)
 
 
-## The act key's immediate attempt, with no Agreement and no presentation wait.
+## Drop the idle hint's cached Base clearance. The act teardown and the runtime's own exit both
+## do this, so a new act cannot inherit a stale eligibility answer.
+func _reset_hotkey_cache() -> void:
+	_hotkey_cache_at = -1000.0
+	_hotkey_cache_key = Vector3i.ZERO
+	_hotkey_cache_eligible = false
+	_hotkey_cache_relationship = false
+
+
+## The act key's immediate attempt, with no Agreement and no presentation wait. The press reads
+## the Base clearance fresh; only the idle hint's scan may reuse the brief cache.
 func start_hotkey(pose: String, bed_in: Variant, act_source: String,
 		skip_presentation := false) -> bool:
-	if not hotkey_ready(pose, act_source, bed_in):
+	if not hotkey_ready(pose, act_source, bed_in, true):
 		_log("hotkey blocked pose=%s source=%s pony=%s" % [
 			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
@@ -1891,7 +1889,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_camera_service().call("begin_session", _start_family())
 	_posture_owned = false
 	_session_finalized = false
-	# Remove the idle standing invitation and its request face before the act builds its own pose.
+	# Remove the idle standing presentation and its face before the act builds its own pose.
 	clear_presentation()
 	_end_mood_face()
 	_end_act_face()
@@ -3538,6 +3536,7 @@ func _restore_begin() -> void:
 ## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
 func _end_session(rejoin_cuddle: bool) -> void:
 	_stop_auto()
+	_reset_hotkey_cache()
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
 	# returns Anon and her to it, but only when it did not go badly.
 	var rejoin_bed: Node3D = null
@@ -4138,6 +4137,7 @@ func _snout() -> Vector3:
 ## The kiss foreleg overrides are global AffectionPose settings. Restore them if the world
 ## closes or the mod is switched off mid-kiss.
 func _exit_tree() -> void:
+	_reset_hotkey_cache()
 	_kiss_controller().restore_forelegs()
 	_release_stool()
 	_end_tail_tuck()

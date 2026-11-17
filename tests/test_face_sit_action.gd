@@ -41,9 +41,24 @@ class FakePose extends RefCounted:
 	func view() -> Variant:
 		return _view
 
+	func pose() -> Variant:
+		return _view
+
 
 class FakeBridge extends RefCounted:
 	var missionary_anon: Variant = null
+
+	func bind(_host: Dictionary) -> void:
+		pass
+
+	func refresh() -> void:
+		pass
+
+	func end() -> void:
+		pass
+
+	func detach() -> void:
+		pass
 
 
 class FakeRuntime extends Node:

@@ -24,7 +24,6 @@ class Sink extends RefCounted:
 	var touch_kind := ""
 	var touch_calls := 0
 	var impact_strength := 0.0
-	var offer_ok := true
 	var paused := false
 	var restored := 0
 	var mod_active := false
@@ -69,9 +68,6 @@ class Sink extends RefCounted:
 
 	func impact(strength: float) -> void:
 		impact_strength = strength
-
-	func offer(_pose: String, _source: String, _bed: Variant) -> bool:
-		return offer_ok
 
 	func pause(on: bool) -> void:
 		paused = on
@@ -171,13 +167,11 @@ func run() -> void:
 	facts.restore_face()
 	check(true, "absent readiness and scene-hold callbacks are no-ops")
 	check(facts.driver_host() == null, "an absent pose host returns null")
-	check(not facts.offer_allowed("standing", ""), "an absent offer gate refuses")
 	check(not facts.mod_active("kissing"), "an absent mod gate reads as inactive")
 	check(facts.standing_camera_controller() == null, "an absent camera callback returns null")
 	check(facts.pose_driver() == null, "an absent pose driver returns null")
 	facts.on_touch = Callable(sink, "touch_event")
 	facts.on_smack = Callable(sink, "impact")
-	facts.can_offer = Callable(sink, "offer")
 	facts.mod_enabled = Callable(sink, "mod_on")
 	facts.pause_face_turn = Callable(sink, "pause")
 	facts.restore_face_turn = Callable(sink, "restore")
@@ -191,9 +185,6 @@ func run() -> void:
 	check(sink.paused, "the face-turn pause callback receives the force flag")
 	facts.restore_face()
 	check(sink.restored == 1, "the face-turn restore callback fires once")
-	check(facts.offer_allowed("standing", "") and sink.offer_ok, "the offer gate answers the caller")
-	sink.offer_ok = false
-	check(not facts.offer_allowed("standing", ""), "a closed offer gate refuses")
 	check(not facts.mod_active("kissing"), "the mod gate reports an inactive mod")
 	sink.mod_active = true
 	check(facts.mod_active("kissing"), "the mod gate reports an active mod")

@@ -134,20 +134,20 @@ step. The remainder of `gap_act` after the last stool is below the threshold, wh
 anatomy hip aim absorbs.
 
 A missing anatomy controller, an unprepared player part, non-finite values, AnonPony or a headset
-rig makes the rule inapplicable, not required. The gate is evaluated at the standing offer/start
-and again on `start()`.
+rig makes the rule inapplicable, not required. The gate is evaluated at the standing formation, the
+idle hint and the act start.
 
 ## Gate and hint
 
 - The standing scene gate gets a `stool` row with reason `needs_stool` when the act gap needs more
   case footstools than Anon has.
-- `can_offer` uses the same row, so a tall mare does not proactively offer when Anon cannot reach.
+- The scene-only formation rows, the Agreement's placement check and `runtime.hotkey_ready()` use
+  the same row, so a tall mare neither offers nor shows the hint when Anon cannot reach.
 - `main._refresh_offer()` shows **Make love** when the start is possible and **Needs a footstool**
   or **Needs N footstools** when the stack is the only missing thing. The blocked note has no
   act-key icon. A one-time toast points at houses.
-- The blocked hint reuses the gate the scan already built (`runtime.stool_blocks_verdict()`): it
-  reads that gate's failed reasons and re-reads only the live need and case count. It never runs
-  the full start gate a second time.
+- The blocked hint reads only `runtime.stool_needed_count()` and `runtime.stool_case_count()` after
+  the standing hint is not ready; the scene rows themselves are live on every call.
 - Pressing the act key on the blocked note does not start an act.
 - The normal start path takes exactly the required number of case units. A short or unwritable
   case blocks the start.
@@ -155,7 +155,7 @@ and again on `start()`.
 ## Act flow
 
 - The standing state is unchanged when the rule does not apply.
-- When it applies, `runtime.start()` asks the handle to check out `needed` case units
+- When it applies, `runtime._begin_act()` asks the handle to check out `needed` case units
   (`take_items()` → `store.take(slot)`); the handle keeps every token and slot.
 - `_begin_standing_placement()` computes Anon's normal spot and calls `place()`; the handle builds
   a stack of `needed` stools under it and raises his player root to

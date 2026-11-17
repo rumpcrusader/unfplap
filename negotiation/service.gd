@@ -79,6 +79,9 @@ class Host:
 	var privacy_private: Callable
 	## (runtime) -> PoseOptions.Placement: the plain placement facts.
 	var placement_for: Callable
+	## (runtime, PoseOptions.Option) -> bool: the live scene-only placement re-check before an
+	## Agreement forms. A missing callback refuses.
+	var pose_placed: Callable
 	## () -> FormView: the player's live form and display.
 	var form_view: Callable
 	## (runtime) -> RefCounted: the per-pony `scene_hold/service.gd` ledger.
@@ -112,6 +115,9 @@ class Offer:
 	var pony: Node3D = null
 	var pony_id := ""
 	var option: POSE_OPTIONS.Option = null
+	## The exact option list sent to the Anon classifier. The reply indexes this list, never a
+	## recomputed one.
+	var options: Array[POSE_OPTIONS.Option] = []
 	var base: CLEARANCE.Result = null
 	var context: CONTEXT.Context = null
 	var private := false
@@ -240,6 +246,7 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 	var live := Offer.new()
 	_begin_state(live, runtime, pony, null, AGREEMENT.Trigger.ANON_OFFER, text, false)
 	live.base = base
+	live.options = options
 	live.context = _context(live.pony)
 	var scope := _scope("anon_offer")
 	live.scope = scope
@@ -371,6 +378,18 @@ func _close(outcome: int, reason: String, cooldown: float, reaction := false) ->
 		_react(package_pony, reason)
 
 
+## A genuine non-offer: cancel the scopes, release any claim and clear the state without a
+## terminal outcome, a toast or a reaction. The Proactive pacing sees nothing, so a normal
+## conversation line cannot write a retry or a cooldown.
+func _silent_close() -> void:
+	if _offer != null:
+		_cancel_scope(_offer.scope)
+	if _agreement != null:
+		_cancel_scope(_agreement.classifier_scope)
+	_release_hold()
+	_clear_state()
+
+
 func _formation_failure(pony: Variant, outcome: int, reason: String, trigger: int) -> void:
 	var target := pony as Node if pony is Node else null
 	_report_outcome(target, outcome, reason, trigger, 0.0)
@@ -497,9 +516,12 @@ func _on_anon_decision(live: Offer, reply: PROMPTS.Reply) -> void:
 		return
 	var answer := str(reply.answer)
 	if answer == CONTEXT.ANSWER_ACCEPT:
+		if not _placement_ok(live.option):
+			_close(Outcome.INTERRUPTED, AGREEMENT.REASON_POSE, 0.0)
+			return
 		_accept(live)
 	elif answer == CONTEXT.ANSWER_COUNTER_OFFER:
-		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0)
+		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0, true)
 	else:
 		_close(Outcome.REFUSED, "", COOLDOWN_S)
 
@@ -511,17 +533,22 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 	if reply == null or reply.failed:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
-	if reply.answer != CONTEXT.ANSWER_ACCEPT:
-		# A normal line that is not an offer is silent: no log line, no toast, no cooldown.
-		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NOT_OFFER, 0.0)
-		return
-	var options := _options_for(live.runtime)
-	if reply.option_index < 0 or reply.option_index >= options.size():
+	if reply.out_of_range:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
 		return
-	var option: POSE_OPTIONS.Option = options[reply.option_index]
+	if reply.answer != CONTEXT.ANSWER_ACCEPT:
+		# A normal line that is not an offer is silent: no outcome, no toast, no cooldown.
+		_silent_close()
+		return
+	if reply.option_index < 0 or reply.option_index >= live.options.size():
+		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
+		return
+	var option: POSE_OPTIONS.Option = live.options[reply.option_index]
 	live.option = option
 	live.cuddle = option.cuddle
+	if not _placement_ok(option):
+		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_POSE, 0.0)
+		return
 	if not _claim_anon_hold(live):
 		_close(Outcome.OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
 		return
@@ -550,7 +577,7 @@ func _on_mare_response(live: Offer, reply: PROMPTS.Reply) -> void:
 	if answer == CONTEXT.ANSWER_ACCEPT:
 		_accept(live)
 	elif answer == CONTEXT.ANSWER_COUNTER_OFFER:
-		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0)
+		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0, true)
 	else:
 		_close(Outcome.REFUSED, "", COOLDOWN_S)
 
@@ -588,6 +615,17 @@ func _options_for(runtime: Node) -> Array[POSE_OPTIONS.Option]:
 		return []
 	var live := view as FormView
 	return POSE_OPTIONS.build(live.form, live.view, placement as POSE_OPTIONS.Placement)
+
+
+## The live placement re-check for the chosen option, just before the hold is claimed or the
+## Agreement forms. It runs the scene-only rows through the host; a missing callback refuses.
+func _placement_ok(option: POSE_OPTIONS.Option) -> bool:
+	if _host == null or not _host.pose_placed.is_valid() or option == null:
+		return false
+	var runtime: Node = _runtime()
+	if not is_instance_valid(runtime):
+		return false
+	return bool(_host.pose_placed.call(runtime, option))
 
 
 # --------------------------------------------------------------------------- hold
@@ -779,8 +817,7 @@ func _notify(outcome: int, reason: String) -> void:
 			_toast("She is busy right now.")
 		Outcome.NO_OFFER:
 			_log_line("negotiation no offer reason=%s" % reason)
-			if reason != AGREEMENT.REASON_NOT_OFFER:
-				_toast("She is not available for that.")
+			_toast("She is not available for that.")
 		Outcome.REFUSED:
 			_log_line("negotiation refused reason=%s" % ("none" if reason.is_empty() else reason))
 			_toast("She said not here." if reason == AGREEMENT.REASON_COUNTER_OFFER else

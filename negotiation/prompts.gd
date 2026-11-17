@@ -19,10 +19,13 @@ const MAX_TEXT_CHARS := 600
 
 
 ## The parsed model answer. `failed` marks a missing, malformed or untrustworthy reply.
+## `out_of_range` marks a clear offer whose index is outside the request's captured option list;
+## the service validates the index against that list and reports it as a no-context pose.
 class Reply:
 	var answer := ""
 	var option_index := -1
 	var failed := false
+	var out_of_range := false
 
 
 ## One model request for the Negotiation service. `kind` is `anon_offer`, `anon_decision` or
@@ -104,8 +107,9 @@ static func mare_response_payload(text: String, option: POSE_OPTIONS.Option,
 	return payload
 
 
-## Parse an Anon-offer classifier reply. Only a clear offer with an in-range option survives;
-## anything else is `no_offer` (`failed` when the reply itself was unusable).
+## Parse an Anon-offer classifier reply. A clear offer returns the raw index even when it is
+## outside the request's captured list, so the service can validate it against the live options;
+## `out_of_range` marks that case. A missing or non-integer option is a failure.
 static func parse_anon_offer(reply: String, error: String, option_count: int) -> Reply:
 	var out := Reply.new()
 	out.answer = "no_offer"
@@ -122,10 +126,9 @@ static func parse_anon_offer(reply: String, error: String, option_count: int) ->
 		out.failed = true
 		return out
 	var index := int(parsed.get("option"))
-	if index < 0 or index >= option_count:
-		return out
 	out.answer = "accept"
 	out.option_index = index
+	out.out_of_range = index < 0 or index >= option_count
 	return out
 
 

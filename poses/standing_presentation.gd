@@ -1,6 +1,7 @@
 extends RefCounted
-## Idle standing invitation and request face. This is not the act: no camera, player lock,
-## HUD or sex_active. The runtime only forwards the public calls.
+## The standing act presentation: the invitation turn and face the act-owned start waits for. It
+## is not the act: no camera, player lock, HUD or sex_active. The runtime only forwards the public
+## calls.
 
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")

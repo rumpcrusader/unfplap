@@ -798,7 +798,9 @@ func run() -> void:
 
 	var gate_runtime: Node = RUNTIME.new()
 	check(not gate_runtime.can_show_start(CATALOG.MISSIONARY, "bed_side"), "missing pony blocks start")
-	check(not gate_runtime.can_offer(CATALOG.STANDING, ""), "missing pony blocks offer")
+	var gate: Variant = gate_runtime.call("_scene_gate")
+	check(not bool(gate.call("offer_verdict", CATALOG.STANDING, "", null).get("ok", false)),
+		"missing pony blocks offer")
 	check(gate_runtime._start_reasons(CATALOG.MISSIONARY, "bed_side") == PackedStringArray(["invalid_pony"]),
 		"gate report keeps the invalid-pony reason")
 	gate_runtime.free()

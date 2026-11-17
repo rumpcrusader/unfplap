@@ -78,6 +78,7 @@ class FakeMain extends Node:
 	var active_runtime: Variant = null
 	var view: Camera3D = null
 	var anatomy: Variant = null
+	var eligibility: Variant = null
 	var cleared: Array = []
 
 	func clear_active(runtime: Node) -> void:
@@ -85,6 +86,19 @@ class FakeMain extends Node:
 
 	func camera() -> Camera3D:
 		return view
+
+
+class FakeEligibility extends Node:
+	var eligible_calls := 0
+	var relationship_calls := 0
+
+	func eligible(_pony: Variant, _target: int) -> bool:
+		eligible_calls += 1
+		return true
+
+	func relationship_ok(_pony: Variant) -> bool:
+		relationship_calls += 1
+		return true
 
 
 class FakeAnatomyService extends RefCounted:
@@ -180,6 +194,9 @@ func run() -> void:
 	runtime._clear_aftercare()
 	check(not pony.has_meta("sex_aftercare"), "the Agreement start clears aftercare")
 
+	runtime._hotkey_cache_at = 5.0
+	runtime._hotkey_cache_eligible = true
+	runtime._hotkey_cache_relationship = true
 	runtime._end_session(false)
 	check(pony.face_turn_rate == 0.45, "face-turn rate restored")
 	check(not runtime._hold.face_turn_rate_owned, "face-turn ownership cleared")
@@ -199,12 +216,31 @@ func run() -> void:
 	check(runtime.pose_id == "" and runtime.source == "" and runtime.bed == null,
 		"act ids cleared")
 	check(main.cleared.size() == 1 and main.cleared[0] == runtime, "main clears the active runtime")
+	check(runtime._hotkey_cache_at < 0.0 and not runtime._hotkey_cache_eligible,
+		"the teardown drops the hotkey clearance cache")
 
 	# A second teardown is a no-op, not a second restore.
 	runtime._end_session(false)
 	check(pony.face_turn_rate == 0.45, "double teardown keeps the saved face-turn rate")
 	check(not pony.has_meta("sex_active"), "double teardown is safe")
 	check(inventory.placed == 1, "double teardown does not re-place the hotbar")
+
+	# The idle hint reuses the two Base-clearance reads for its 0.5 s window; the act-key press
+	# asks fresh, and the window expiry rebuilds the answer.
+	var eligibility := FakeEligibility.new()
+	main.eligibility = eligibility
+	runtime.state = 0
+	runtime.call("hotkey_ready", CATALOG_STANDING, "")
+	runtime.call("hotkey_ready", CATALOG_STANDING, "")
+	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
+		"the idle hint reuses the Base-clearance answer")
+	runtime.call("hotkey_ready", CATALOG_STANDING, "", null, true)
+	check(eligibility.eligible_calls == 2 and eligibility.relationship_calls == 2,
+		"the act-key press re-reads Base clearance")
+	runtime._clock_s = 1.0
+	runtime.call("hotkey_ready", CATALOG_STANDING, "")
+	check(eligibility.eligible_calls == 3, "the Base-clearance cache expires")
+	eligibility.free()
 
 	# A forced stop at IDLE must not touch the player's captured look.
 	var f2 := _fixture()

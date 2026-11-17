@@ -54,7 +54,7 @@ func set_mesh(mesh_node: MeshInstance3D, skeleton_node: Skeleton3D) -> void:
 	skeleton = skeleton_node
 
 
-## The material currently applied to the anatomy mesh, for the coat follow and the dock copy.
+## The material currently applied to the anatomy mesh, for the coat line and the dock copy.
 func material() -> ShaderMaterial:
 	if not is_instance_valid(mesh):
 		return null

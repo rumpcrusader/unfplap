@@ -170,7 +170,7 @@ total, largest first, so the first row is the chunk to fix.
 | `runtime_history` | `_history_tick(delta)` | `runtime_physics` |
 | `runtime_process` | one pony's idle `_process_tick` | root |
 | `anatomy_process` | the whole persistent `anatomy/controller.gd::_process`, reported outside an act | root |
-| `anatomy_coat_follow`, `anatomy_visibility` | reported through `facts.perf` | `anatomy_process` |
+| `anatomy_coat_line`, `anatomy_visibility` | reported through `facts.perf` | `anatomy_process` |
 | `teat_jiggle`, `climax_fluid` | reported through `facts.perf` | root |
 
 The anatomy chunks need no extra forward: `facts.perf` already calls the runtime's `perf_note`,

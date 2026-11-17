@@ -37,6 +37,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
 | `anatomy/coat.gd` | rig and merged-near coat patch, vulva/anal spread, the vulva cut and the still zones |
 | `anatomy/coat_line.gd` | samples a vertical line on the body coat and bends/stretches the anatomy shell with it |
+| `anatomy/coat_line_debug.gd` | debug overlay for the rest/live coat line and its cross-sections |
 | `anatomy/garment_hull.gd` | the worn-garment rear-facing outer depth field, shared by every mare |
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
@@ -567,6 +568,9 @@ with it, and when the line stretches, the mesh stretches along it.
 - The line is per pony and is rebuilt when the anatomy mesh changes or the placement changes. It
   retries every two seconds while it cannot be built. The body grid and bind poses are cached per
   body mesh and skin. The line does not tick while the anatomy mesh is hidden.
+- With **Anatomy → Debug → Draw coat line** on, `anatomy/coat_line_debug.gd` draws the rest line,
+  the live line and one cross-section marker per sample under the anatomy mesh. Live segments
+  warm up when stretched and cool down when compressed.
 - A stock flank smack jiggles the body coat; the anatomy shader does not call the game's
   `flank_jiggle`.
 
@@ -752,6 +756,9 @@ built from the declarations, so the label, help and bounds are not restated here
   pushes the switch to `anatomy/tail/visibility.gd`, which processes only while it is on.
 - `anatomy.draw_still_zones` (**Draw still zones**) overlays the two still-zone ellipsoids and
   their fully-still cores on the body coat.
+- `anatomy.draw_coat_line` (**Draw coat line**) overlays the sampled rest and live coat lines and
+  their cross-section markers. Live segments warm up when stretched and cool down when
+  compressed.
 - **Show skeleton overlay** (`anatomy.skeleton_overlay`) is a persisted Anatomy → Debug flag. It
   draws nearby ponies' body, face and hair/tail skeletons only while **Enable debug** is on; click
   a joint to print its bone data. The overlay itself is `debug/skeleton.gd`; see `docs/debug.md`.

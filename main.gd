@@ -54,6 +54,9 @@ const CAPTION_TOP_MARGIN := 26.0
 const OFFER_HINT := "Make love"
 ## The idle offer hint's scan cadence. The act key rescans immediately in `try_start()`.
 const OFFER_SCAN_S := 1.0
+## The standing gate's refresh cadence while the same mare stays the cone target; the scan reads
+## the cone every `OFFER_SCAN_S`, the full gate is the expensive half.
+const GATE_REFRESH_S := 2.0
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
 ## Debug target rule: the mare closest to the camera's aim ray, inside this tube and range.
@@ -98,6 +101,13 @@ var _runtimes: Dictionary = {}
 var _offer: POSE_OFFER = null
 var _offer_blocked: POSE_OFFER = null
 var _offer_clock := 0.0
+## The standing gate's last verdict and its footstool pair, reused while the same mare stays the
+## cone target. See `_standing_ready()`.
+var _gate_target: Node
+var _gate_at := 0.0
+var _gate_ready := false
+var _gate_stool_need := 0
+var _gate_stool_have := 0
 var _interactor: Node
 var _desktop: Node
 var _camera_cache: Camera3D
@@ -362,6 +372,9 @@ func _on_world_closed(_host: Node) -> void:
 	player = null
 	_offer = null
 	_offer_blocked = null
+	_gate_target = null
+	_gate_at = 0.0
+	_gate_ready = false
 	_perf_idle.reset()
 	if is_instance_valid(_perf_view):
 		_perf_view.call("clear")
@@ -711,20 +724,40 @@ func _refresh_offer() -> void:
 		var runtime: Node = runtime_for(standing)
 		if is_instance_valid(runtime):
 			var gate_started := Time.get_ticks_usec() if timed else 0
-			var ready := bool(runtime.call("hotkey_ready", CATALOG.STANDING, "", null))
+			var ready := _standing_ready(standing, runtime)
 			if timed:
 				_perf_idle.note("offer_gate", Time.get_ticks_usec() - gate_started)
 			if ready:
 				_offer = _new_offer(runtime, standing, CATALOG.STANDING, "", null)
 				_log_offer()
 			else:
-				var stool: Dictionary = runtime.call("hint_stool")
-				var need := int(stool.get("need", 0))
-				if need > 0 and int(stool.get("have", 0)) < need:
+				var need := _gate_stool_need
+				if need > 0 and _gate_stool_have < need:
 					var blocked_offer := _new_offer(runtime, standing, CATALOG.STANDING, "", null)
 					blocked_offer.blocked = _blocked_record(need, _stool_hint_for(need))
 					_offer_blocked = blocked_offer
 					_log_blocked_offer(runtime, standing, need)
+
+
+## The standing gate, with its verdict reused while the same mare stays the cone target. The full
+## gate costs about half a millisecond (the scene rows, the pose rows and her relationship ladder),
+## and its inputs change on a state transition the cone scan cannot see, so it is refreshed every
+## `GATE_REFRESH_S`. The act key runs the gate again on every press, so a reused verdict can only
+## hold the hint back, never start or block an act.
+func _standing_ready(target: Node, runtime: Node) -> bool:
+	var now := Time.get_ticks_msec() * 0.001
+	if target == _gate_target and now - _gate_at < GATE_REFRESH_S:
+		return _gate_ready
+	_gate_target = target
+	_gate_at = now
+	_gate_ready = bool(runtime.call("hotkey_ready", CATALOG.STANDING, "", null))
+	_gate_stool_need = 0
+	_gate_stool_have = 0
+	if not _gate_ready:
+		var stool: Dictionary = runtime.call("hint_stool")
+		_gate_stool_need = int(stool.get("need", 0))
+		_gate_stool_have = int(stool.get("have", 0))
+	return _gate_ready
 
 
 ## Build one typed offer for the idle scan. A live Agreement press is consumed by the scene-only

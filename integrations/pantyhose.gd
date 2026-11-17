@@ -522,7 +522,7 @@ func _take_off_action(tree: SceneTree, id: String, kinds: Array[String], wardrob
 	var turn: int = int(turn_value) if turn_value is int else 0
 	var actions: Array = []
 	for kind: String in kinds:
-		actions.append({"id": "undress " + kind, "type": "take_off", "kind": kind})
+		actions.append({"id": "undress_" + kind, "type": "take_off", "kind": kind})
 	var error := str(coordinator.call("commit", id, actions, {}, turn))
 	if not error.is_empty():
 		_log("take_off refused: " + error)

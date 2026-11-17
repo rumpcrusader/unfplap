@@ -10,6 +10,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
 const ANATOMY_SCENE := "res://mods/unfplap/assets/anatomy/mare/mare_bits_v2.scn"
+const SCHEMA := preload("res://world/ai/pony_action_schema.gd")
 
 var failures := 0
 var checks := 0
@@ -635,6 +636,10 @@ func _check_undress() -> void:
 	check(acts.all(func(action: Variant) -> bool:
 		return str((action as Dictionary).get("type", "")) == "take_off"),
 		"both actions are take_off")
+	for action: Variant in acts:
+		check(SCHEMA.validate((action as Dictionary).duplicate(true),
+			{"capabilities": ["take_off"]}) == "",
+			"the take_off action passes the game's schema")
 	check(acts.size() == 2
 		and str((acts[0] as Dictionary).get("id", "")) != str((acts[1] as Dictionary).get("id", "")),
 		"the action ids stay unique within the turn")

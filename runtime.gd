@@ -2595,6 +2595,8 @@ func anatomy_opening() -> Vector3:
 	return _anatomy_bridge.opening()
 
 
+## The standing pelvis correction the anatomy part asks for, in world space. The standing camera
+## uses its vertical part for the camera/body drop; zero outside a standing anatomy act.
 func anatomy_hip_offset() -> Vector3:
 	var service: Variant = _anatomy_service()
 	if service == null or not service.has_method("player_hip_offset"):

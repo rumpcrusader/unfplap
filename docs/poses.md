@@ -20,7 +20,9 @@ session and reads its `pose()`, `pose_config` and `bed_frame` for
 the start/teardown and the standing gap, not as the consumer contract. Presentation modules read
 the pose view through `shared/act_facts.gd`.
 
-`poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/authored_pose.gd` loads a
+`poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/tail_chain.gd` resolves the
+visible tail chain: the devkit hair chain `mTail1..mTail6` when present, otherwise the fitted body
+chain `pony_tail_01..pony_tail_05`. `poses/authored_pose.gd` loads a
 pose spec row's `asset` document (version 7 with the version 6 migration path); the missionary and
 standing rows own their files and a base row supplies the asset to its internal inheritors.
 `poses/oral_turn.gd` is the pose-owned standing oral actor/frame turn,
@@ -808,9 +810,12 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   are the presentation values. `foreleg_spread` is the absolute outward half-angle; the recipe
   measures the **baked** fore limb line at the finger tip, so the reference value adds zero and a
   changed value adds only the difference.
-- Tail aside/lift/flick on the hair skeleton; side randomized per act.
-  `presentation.standing.tail.yaw_deg` (aside) and `pitch_deg` (lift) are the live amounts, in
-  degrees. A damped spring driven by raw `depth` also rocks the
+- Tail aside/lift/flick runs on the visible tail chain (`poses/tail_chain.gd`): the devkit hair
+  chain `mTail1..mTail6` when present, otherwise the fitted body chain
+  `pony_tail_01..pony_tail_05`. The princess exports weight the tail into the body and skip the
+  devkit hair, so their body chain is the one moved; a devkit mare keeps its hair tail. Side
+  randomized per act. `presentation.standing.tail.yaw_deg` (aside) and `pitch_deg` (lift) are
+  the live amounts, in degrees. A damped spring driven by raw `depth` also rocks the
   tail with the thrust: sagittal `ROCK_PITCH = 0.12` and lateral `ROCK_YAW = 0.08`. Each thrust
   adds a short decaying wave (`JIGGLE_DECAY = 3.6`, `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`,
   `JIGGLE_YAW = 0.08`) at the same strength as the rump shader, strongest at the tail root and
@@ -820,9 +825,10 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   are in `docs/reactions.md`. Stock marks are hidden and aged at act start, so a mark from an
   earlier regular smack cannot linger as a stale jiggle point. The game's tail anchor pins the
   first 12–67 mm of the `DevkitTail` root cap to the hair `mPelvis`, so the `mTail1..6` wave alone
-  cannot move the base; `tail_pose` also translates the hair `mPelvis` by `JIGGLE_BASE_M = 0.02 m`
-  using the rump shader's thrust wave and restores the mane bones, so only the tail base and chain
-  move.
+  cannot move the base; on the hair chain `tail_pose` also translates `mPelvis` by
+  `JIGGLE_BASE_M = 0.02 m` using the rump shader's thrust wave and restores the mane bones. The
+  body chain has no such pinned hair base, so it rotates from `pony_tail_01` and never translates
+  the hips.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `poses/wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`
@@ -996,6 +1002,10 @@ teardown; it stays unchanged.
   anchor, reference config, and the four-size oral neck/head parity against the reference recipe
   plus the same delta.
 - `tests/poses/test_body_sway.gd` — the regular depth sway, the zeroed oral hold and the release.
+- `tests/poses/test_tail_chain.gd` — the hair/body chain resolver, the body-tail aside/lift, bed lay
+  and post-stop tuck.
+- `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split, including the body-tail
+  install path for fitted exports.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — the v6 uniform scale, the v7 anchor/contact placement at four
   sizes and the rest-scale ownership.
@@ -1018,6 +1028,8 @@ teardown; it stays unchanged.
   `pose_runtime_check --pose bed_facesit` are the non-interactive proof.
 - Standing: stance, foreleg spread, ears, tail, wings, afterglow fold and the pose at both Canon
   and Same Height sizes.
+- Princess tails: standing aside/lift, the missionary bed lay, the afterglow flick and the
+  post-stop tuck. Celestia and Luna use the body chain; a devkit mare keeps the hair chain.
 - Four sizes: repeat the missionary and standing lab at Canon, JRHNBR, Same Height and Hoers. The
   body, the Anon, the authored shot and the anatomy contact must stay framed at every size; the
   contact stays on the mattress or the ground and the hips stay at the anchor. The bake/check

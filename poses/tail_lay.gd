@@ -1,13 +1,14 @@
 extends SkeletonModifier3D
-## Missionary: lay the hair tail flat on the mattress and straighten it. The tail is not part of
+## Missionary: lay the visible tail flat on the mattress and straighten it. The tail is not part of
 ## the authored body pose because every pony's tail rig differs; this runs on the hair skeleton
-## after the game's own tail motion and uses whichever `mTail1..6` bones exist.
+## after the game's own tail motion, or on the body skeleton for a fitted tail, and uses whichever
+## chain exists. Contract: `docs/poses.md`.
 ##
 ## The root is left where the rig put it; only the chain is turned onto the bed plane. The target
 ## follows the authored bed frame, so the tail lies toward her rump on any bed orientation.
 
+const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
 const FADE_SECONDS := 0.5
-const BONE_NAMES := ["mTail1", "mTail2", "mTail3", "mTail4", "mTail5", "mTail6"]
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 
 var mare: Node3D
@@ -51,12 +52,13 @@ func _cache() -> void:
 	var sk := get_skeleton()
 	if sk == null:
 		return
-	for name: String in BONE_NAMES:
-		var bone := sk.find_bone(name)
-		if bone >= 0:
-			_bones.append(bone)
-			if not _saved.has(bone):
-				_saved[bone] = sk.get_bone_pose(bone)
+	var found: Dictionary = TAIL_CHAIN.chain(sk)
+	var chain_bones: Variant = found.get("bones", [])
+	for value: Variant in chain_bones:
+		var bone := int(value)
+		_bones.append(bone)
+		if not _saved.has(bone):
+			_saved[bone] = sk.get_bone_pose(bone)
 
 
 ## Put the tail chain back where the game left it before the act; the game's own tail motion

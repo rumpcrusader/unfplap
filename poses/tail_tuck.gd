@@ -2,6 +2,7 @@ extends Node
 ## Short post-stop posture: a tucked tail for 20 seconds. It owns no navigator and no
 ## aftercare state, so the pony can stand, walk or talk normally while it fades.
 
+const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 const DURATION := 20.0
 const FADE := 0.8
@@ -20,18 +21,21 @@ func _ready() -> void:
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
 		queue_free()
 		return
-	var hair: Variant = pony.get("hair_skeleton")
-	if hair is Skeleton3D:
-		_tail = TAIL.new()
-		_tail.name = "UnfplapTuckedTail"
-		_tail.set("mare", pony)
-		_tail.set("aside_angle", 0.0)
-		_tail.set("lift_angle", TUCK_LIFT)
-		_tail.set("flick_amplitude", 0.0)
-		_tail.set("base_pivot", true)
-		_tail.set("amount", 0.0)
-		_tail.set("target_amount", 1.0)
-		(hair as Skeleton3D).add_child(_tail)
+	var found: Dictionary = TAIL_CHAIN.resolve(pony)
+	if found.is_empty():
+		return
+	var skeleton: Skeleton3D = found["skeleton"]
+	_tail = TAIL.new()
+	_tail.name = "UnfplapTuckedTail"
+	_tail.set("mare", pony)
+	_tail.set("aside_angle", 0.0)
+	_tail.set("lift_angle", TUCK_LIFT)
+	_tail.set("flick_amplitude", 0.0)
+	_tail.set("base_pivot", true)
+	_tail.set("amount", 0.0)
+	_tail.set("target_amount", 1.0)
+	_tail.set("process_priority", 20)
+	skeleton.add_child(_tail)
 
 
 func _physics_process(delta: float) -> void:

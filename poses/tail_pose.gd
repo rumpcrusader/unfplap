@@ -1,9 +1,11 @@
 extends SkeletonModifier3D
-## Moves the tail aside and slightly up for the standing presentation, and can flick it.
-## Runs on the hair skeleton after hybrid_tail_motion; only rotates bones.
+## Moves the visible tail aside and slightly up for the standing presentation, and can flick it.
+## Runs on the hair skeleton after hybrid_tail_motion, or on the body skeleton for a fitted tail;
+## only rotates bones.
 ##
 ## The side is chosen per act by `choose_side()` so the tail does not always sweep the same way.
 
+const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
 const ASIDE_ANGLE := 0.55
 const LIFT_ANGLE := 0.42
 var aside_angle := ASIDE_ANGLE
@@ -88,19 +90,24 @@ func _cache() -> void:
 	var sk := get_skeleton()
 	if sk == null:
 		return
+	var found: Dictionary = TAIL_CHAIN.chain(sk)
 	_bones.clear()
-	for i: int in range(1, 7):
-		var bone := sk.find_bone("mTail%d" % i)
-		if bone >= 0:
-			_bones.append(bone)
-			if not _saved.has(bone):
-				_saved[bone] = sk.get_bone_pose(bone)
-	_pelvis = sk.find_bone("mPelvis")
+	var chain_bones: Variant = found.get("bones", [])
+	for value: Variant in chain_bones:
+		var bone := int(value)
+		_bones.append(bone)
+		if not _saved.has(bone):
+			_saved[bone] = sk.get_bone_pose(bone)
+	# Only the devkit hair tail has the pinned mPelvis and the mane sharing its skeleton. A body
+	# tail rotates from pony_tail_01 and must not translate the hips.
+	_pelvis = -1
 	_mane.clear()
-	for name: String in ["mChest", "mNeck", "mHead"]:
-		var mane_bone := sk.find_bone(name)
-		if mane_bone >= 0:
-			_mane.append(mane_bone)
+	if bool(found.get("hair", false)):
+		_pelvis = sk.find_bone("mPelvis")
+		for name: String in ["mChest", "mNeck", "mHead"]:
+			var mane_bone := sk.find_bone(name)
+			if mane_bone >= 0:
+				_mane.append(mane_bone)
 
 
 ## Pick a fresh side for this act. With an Anon position, sweep the tail away from him:

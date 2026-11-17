@@ -13,6 +13,7 @@ const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 const TAIL_LAY := preload("res://mods/unfplap/poses/tail_lay.gd")
+const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
 const BODY_SWAY := preload("res://mods/unfplap/poses/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/poses/prone_sway.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
@@ -1349,9 +1350,10 @@ func _drop(node: Node) -> void:
 func _install_tail() -> void:
 	if is_instance_valid(tail) or not is_instance_valid(pony):
 		return
-	var hair: Variant = pony.get("hair_skeleton")
-	if not hair is Skeleton3D:
+	var found: Dictionary = TAIL_CHAIN.resolve(pony)
+	if found.is_empty():
 		return
+	var skeleton: Skeleton3D = found["skeleton"]
 	tail = TAIL.new()
 	tail.name = "UnfplapTail"
 	tail.mare = pony
@@ -1364,20 +1366,23 @@ func _install_tail() -> void:
 	if not side_anchor is Vector3:
 		side_anchor = Vector3.INF
 	tail.call("choose_side", side_anchor)
-	(hair as Skeleton3D).add_child(tail)
+	tail.process_priority = 20
+	skeleton.add_child(tail)
 
 
 func _install_tail_lay() -> void:
 	if not is_instance_valid(pony):
 		return
-	var hair: Variant = pony.get("hair_skeleton")
-	if not hair is Skeleton3D:
+	var found: Dictionary = TAIL_CHAIN.resolve(pony)
+	if found.is_empty():
 		return
+	var skeleton: Skeleton3D = found["skeleton"]
 	tail_lay = TAIL_LAY.new()
 	tail_lay.name = "UnfplapTailLay"
 	tail_lay.mare = pony
 	tail_lay.facts = facts
-	(hair as Skeleton3D).add_child(tail_lay)
+	tail_lay.process_priority = 20
+	skeleton.add_child(tail_lay)
 
 
 func _install_body_sway(skeleton: Skeleton3D) -> void:

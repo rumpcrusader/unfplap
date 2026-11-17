@@ -62,6 +62,7 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	_check_missionary_scope()
 	_check_standing_scope()
+	_check_body_tail_scope()
 	_check_transition_path()
 	_check_facesit_transition()
 	_check_no_act_exit()
@@ -71,15 +72,30 @@ func run() -> void:
 	quit(0 if failures == 0 else 1)
 
 
+## A fitted body tail chain for the princess-style fixtures: no devkit hair tail.
+func _add_body_tail(body: Skeleton3D) -> void:
+	var parent := body.find_bone("pony_hips")
+	for i: int in range(1, 6):
+		var bone := body.add_bone("pony_tail_0%d" % i)
+		body.set_bone_parent(bone, parent)
+		var rest := Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.08))
+		body.set_bone_rest(bone, rest)
+		body.set_bone_pose(bone, rest)
+		parent = bone
+
+
 ## One live session over a fake pony, a body and hair skeleton, and a bed for the missionary frame.
 ## The pose begins before the assertions so every leave step meets a live act.
-func _fixture(pose: String, features: Dictionary) -> Dictionary:
+func _fixture(pose: String, features: Dictionary, body_tail := false) -> Dictionary:
 	var pony := FakePony.new()
 	root.add_child(pony)
 	var body := Skeleton3D.new()
 	body.add_bone("pony_hips")
+	if body_tail:
+		_add_body_tail(body)
 	var hair := Skeleton3D.new()
-	hair.add_bone("mTail1")
+	if not body_tail:
+		hair.add_bone("mTail1")
 	pony.skeleton = body
 	pony.hair_skeleton = hair
 	var bed := Node3D.new()
@@ -246,6 +262,26 @@ func _check_standing_scope() -> void:
 	check(session.ground_frame == null,
 		"the standing final release clears the ground frame")
 	_free_fixture(made)
+
+
+## A fitted body tail has no devkit hair chain; both the standing tail and the bed tail lay must
+## install on the body skeleton instead.
+func _check_body_tail_scope() -> void:
+	var made := _fixture(CATALOG.STANDING, {}, true)
+	var session: RefCounted = made["session"]
+	var body: Skeleton3D = made["body"]
+	var tail: Variant = session.tail
+	check(tail != null and tail.get_parent() == body,
+		"the standing tail installs on a fitted body skeleton")
+	_free_fixture(made)
+
+	var bed_made := _fixture(CATALOG.MISSIONARY, {}, true)
+	var bed_session: RefCounted = bed_made["session"]
+	var bed_body: Skeleton3D = bed_made["body"]
+	var tail_lay: Variant = bed_session.tail_lay
+	check(tail_lay != null and tail_lay.get_parent() == bed_body,
+		"the bed tail lay installs on a fitted body skeleton")
+	_free_fixture(bed_made)
 
 
 ## The live debug edge: the request and tick path keeps the pose node, the config and the view, and

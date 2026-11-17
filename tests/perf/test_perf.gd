@@ -80,6 +80,14 @@ func self_row(entries: Array, parent: String) -> Dictionary:
 	return {}
 
 
+## The row for one chunk key, or an empty dictionary.
+func panel_row(entries: Array, key: String) -> Dictionary:
+	for entry: Dictionary in entries:
+		if str(entry["key"]) == key:
+			return entry
+	return {}
+
+
 func run() -> void:
 	var probe := PERF.new()
 	check(not probe.on(), "the probe starts off")
@@ -183,6 +191,10 @@ func run() -> void:
 	check(sink.panel_info.has("fps") and sink.panel_info.has("frame_ms")
 		and sink.panel_info.has("phys_ms") and sink.panel_info.has("tick"),
 		"the panel receives the engine frame facts")
+	check(int(sink.panel_info.get("frames", 0)) >= 1,
+		"the panel receives the window's rendered frames")
+	check(is_equal_approx(float(panel_row(sink.panel_entries, "pose_tick").get("max", 0.0)), 2.0),
+		"the panel receives each row's worst call")
 
 	probe.reset()
 	probe.note("runtime_process", 1000)

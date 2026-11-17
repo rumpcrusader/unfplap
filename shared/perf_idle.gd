@@ -121,9 +121,13 @@ func tick(delta: float) -> void:
 	if log.is_valid():
 		log.call(text)
 	if show.is_valid():
+		for entry: Dictionary in entries:
+			var peak_row: Array = peaks.get(str(entry["key"]), [0, ""])
+			entry["max"] = float(peak_row[0]) / 1000.0
 		var info := facts.duplicate()
 		info["fps"] = fps
 		info["frame_ms"] = frame_ms
 		info["phys_ms"] = phys_ms
 		info["tick"] = ticks
+		info["frames"] = frames
 		show.call(entries, info)

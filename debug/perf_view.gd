@@ -1,44 +1,51 @@
 extends CanvasLayer
-## The in-game perf panel: one probe window drawn as an icicle flame graph in the top-left corner.
-## Roots share the top row, each level below sits inside its parent's span and a parent's
-## unmeasured cost is its `self` bar. The text block stays the record; this only adds the picture.
-## See `docs/perf.md` and `docs/debug.md`.
+## The in-game perf panel: the probe's window as the same tree the log block prints, with each
+## row's average, max and call count coloured against the debug targets. The text block stays the
+## record; this only adds the table. See `docs/perf.md` and `docs/debug.md`.
 
 const PANEL_W := 620.0
 const PANEL_PAD := 10.0
 const PANEL_AT := Vector2(28.0, 26.0)
-const GRAPH_W := PANEL_W - PANEL_PAD * 2.0
+const INNER_W := PANEL_W - PANEL_PAD * 2.0
 const ROW_H := 16.0
-const ROW_GAP := 2.0
-const LEGEND_ROWS := 6
-const BAR_FONT := 11
+const FONT_SIZE := 11
 const CAPTION_FONT := 13
-const LEGEND_FONT := 12
-const NAME_PAD := 6.0
+## Fixed cell for one tree glyph, so the indentation lines up without a monospace font.
+const CELL_W := 7.0
+const NAME_GAP := 6.0
+const AVG_W := 78.0
+const MAX_W := 60.0
+const CALLS_W := 46.0
+const COL_GAP := 8.0
+const VALUE_W := AVG_W + MAX_W + CALLS_W + COL_GAP * 2.0
+## Debug targets: a column reads red at its target and green at zero. An idle chunk's average and
+## max are the whole window's; calls are coloured per rendered frame against one call.
+const AVG_LIMIT := 100.0
+const MAX_LIMIT := 0.5
+const CALLS_BASE := 1.0
+const CALLS_LIMIT := 2.0
+const GREEN := Color("7ee08a")
+const AMBER := Color("ffd166")
+const RED := Color("ff6b81")
 ## The act card's palette, so the debug panel reads as the mod's and not as a second look.
 const ACCENT := Color("ffa8c7")
 const INK := Color("f4f1ff")
 const SHADE := Color("1a1624")
 const MUTED := Color(0.957, 0.945, 1.0, 0.6)
-const BAR_ALPHA := 0.92
-## How far a nested level fades from the accent toward the panel shade.
-const DEPTH_FADE := 0.62
 
 var _panel: PanelContainer
 var _caption: Label
-var _canvas: FlameCanvas
-var _legend: GridContainer
-var _legend_names: Array[Label] = []
-var _legend_values: Array[Label] = []
+var _canvas: TreeCanvas
 var _entries: Array = []
+var _info: Dictionary = {}
 
 
-class FlameCanvas extends Control:
+class TreeCanvas extends Control:
 	var view: Variant
 
 	func _draw() -> void:
 		if view != null:
-			view.call("_draw_bars", self)
+			view.call("_draw_rows", self)
 
 
 func _ready() -> void:
@@ -68,36 +75,13 @@ func _ready() -> void:
 	_caption.add_theme_font_size_override("font_size", CAPTION_FONT)
 	_caption.add_theme_color_override("font_color", INK)
 	box.add_child(_caption)
-	_canvas = FlameCanvas.new()
+	_canvas = TreeCanvas.new()
 	_canvas.name = "PerfCanvas"
 	_canvas.view = self
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_canvas.custom_minimum_size = Vector2(GRAPH_W, 0.0)
+	_canvas.custom_minimum_size = Vector2(INNER_W, 0.0)
 	_canvas.resized.connect(_canvas.queue_redraw)
 	box.add_child(_canvas)
-	_legend = GridContainer.new()
-	_legend.name = "PerfLegend"
-	_legend.columns = 2
-	_legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_legend.add_theme_constant_override("h_separation", 12)
-	_legend.add_theme_constant_override("v_separation", 1)
-	box.add_child(_legend)
-	for _index in LEGEND_ROWS:
-		var name_label := Label.new()
-		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_label.add_theme_font_size_override("font_size", LEGEND_FONT)
-		name_label.add_theme_color_override("font_color", MUTED)
-		_legend.add_child(name_label)
-		_legend_names.append(name_label)
-		var value_label := Label.new()
-		value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		value_label.custom_minimum_size = Vector2(76.0, 0.0)
-		value_label.add_theme_font_size_override("font_size", LEGEND_FONT)
-		value_label.add_theme_color_override("font_color", INK)
-		_legend.add_child(value_label)
-		_legend_values.append(value_label)
 	_panel.visible = false
 
 
@@ -116,9 +100,9 @@ func show_window(entries: Array, info: Dictionary) -> void:
 	if _panel == null:
 		return
 	_entries = entries
+	_info = info
 	_caption.text = caption(info)
-	_fill_legend(entries)
-	_canvas.custom_minimum_size = Vector2(GRAPH_W, height(entries))
+	_canvas.custom_minimum_size = Vector2(INNER_W, height(entries))
 	_canvas.queue_redraw()
 	_panel.visible = true
 
@@ -126,13 +110,11 @@ func show_window(entries: Array, info: Dictionary) -> void:
 ## Hide the panel and drop the last window.
 func clear() -> void:
 	_entries = []
+	_info = {}
 	if is_instance_valid(_caption):
 		_caption.text = ""
-	for index in _legend_names.size():
-		_legend_names[index].text = ""
-		_legend_values[index].text = ""
 	if is_instance_valid(_canvas):
-		_canvas.custom_minimum_size = Vector2(GRAPH_W, 0.0)
+		_canvas.custom_minimum_size = Vector2(INNER_W, 0.0)
 		_canvas.queue_redraw()
 	if is_instance_valid(_panel):
 		_panel.visible = false
@@ -152,101 +134,93 @@ static func caption(info: Dictionary) -> String:
 		float(info.get("phys_ms", 0.0)), float(info.get("tick", 0.0))]
 
 
-## One bar per display row: roots pack across `width` in entry order, children pack inside their
-## parent's span and a `self` row keeps the residual. Empty entries and a zero width draw nothing.
-static func rects(entries: Array, width: float) -> Array:
-	var out: Array = []
-	if entries.is_empty() or width <= 0.0:
-		return out
-	var root_total := 0.0
-	for entry: Dictionary in entries:
-		if int(entry["depth"]) == 0:
-			root_total += maxf(0.0, float(entry["total"]))
-	# Per depth: [origin_x, span_w, cursor_x, total]. A depth-first entry list fills the parent
-	# before its own children arrive, so the cursor is all the packing needs.
-	var levels: Array = []
-	var root_left := 0.0
-	for entry: Dictionary in entries:
-		var depth := int(entry["depth"])
-		var total := maxf(0.0, float(entry["total"]))
-		var x := 0.0
-		var bar := 0.0
-		if depth == 0:
-			bar = width if root_total <= 0.0 else width * total / root_total
-			x = root_left
-			root_left += bar
-			levels.clear()
-		elif depth <= levels.size():
-			var parent: Array = levels[depth - 1]
-			var span := float(parent[1])
-			var parent_total := float(parent[3])
-			var room := maxf(0.0, float(parent[0]) + span - float(parent[2]))
-			bar = 0.0 if parent_total <= 0.0 else minf(total / parent_total * span, room)
-			x = float(parent[2])
-			parent[2] = x + bar
-			levels.resize(depth)
-		out.append(_bar(entry, x, bar))
-		levels.append([x, bar, x, total])
-	return out
-
-
-## The graph height for one window: one row per level.
+## The list height for one window: one row per tree line, the same lines the block prints.
 static func height(entries: Array) -> float:
-	var deepest := -1
-	for entry: Dictionary in entries:
-		deepest = maxi(deepest, int(entry["depth"]))
-	if deepest < 0:
+	return float(entries.size()) * ROW_H
+
+
+## Green at zero, amber at half the target, red at the target and beyond.
+static func heat(value: float, limit: float) -> Color:
+	if limit <= 0.0:
+		return GREEN
+	var ratio := clampf(value / limit, 0.0, 1.0)
+	if ratio <= 0.5:
+		return GREEN.lerp(AMBER, ratio * 2.0)
+	return AMBER.lerp(RED, (ratio - 0.5) * 2.0)
+
+
+## Calls per rendered frame; a window with no frames reports none.
+static func per_frame(calls: int, frames: int) -> float:
+	if frames <= 0:
 		return 0.0
-	return float(deepest + 1) * (ROW_H + ROW_GAP)
+	return float(calls) / float(frames)
 
 
-static func _bar(entry: Dictionary, x: float, w: float) -> Dictionary:
-	return {
-		"key": str(entry["key"]),
-		"depth": int(entry["depth"]),
-		"x": x,
-		"w": w,
-		"self": bool(entry["self"]),
-	}
+## One call per frame is the baseline; the call count reaches red at `CALLS_LIMIT`.
+static func calls_heat(calls: int, frames: int) -> Color:
+	var over := maxf(0.0, per_frame(calls, frames) - CALLS_BASE)
+	return heat(over, CALLS_LIMIT - CALLS_BASE)
 
 
-func _fill_legend(entries: Array) -> void:
-	var rows: Array = []
-	for entry: Dictionary in entries:
-		if not bool(entry["self"]):
-			rows.append([float(entry["total"]), str(entry["key"])])
-	rows.sort_custom(func(a: Array, b: Array) -> bool: return float(a[0]) > float(b[0]))
-	for index in _legend_names.size():
-		if index < rows.size():
-			_legend_names[index].text = str(rows[index][1])
-			_legend_values[index].text = "%.2fms/s" % float(rows[index][0])
-		else:
-			_legend_names[index].text = ""
-			_legend_values[index].text = ""
-
-
-func _depth_color(depth: int) -> Color:
-	var fade := clampf(float(depth) / 4.0, 0.0, 1.0) * DEPTH_FADE
-	return Color(ACCENT.lerp(SHADE, fade), BAR_ALPHA)
-
-
-func _draw_bars(canvas: Control) -> void:
+func _draw_rows(canvas: Control) -> void:
 	if _entries.is_empty():
 		return
-	var bars: Array = rects(_entries, canvas.size.x)
 	var font := canvas.get_theme_default_font()
-	for row: Dictionary in bars:
-		var w := float(row["w"])
-		if w < 1.0:
+	if font == null:
+		return
+	var width := canvas.size.x
+	var frames := int(_info.get("frames", 0))
+	var value_left := width - VALUE_W
+	var name_limit := value_left - COL_GAP
+	var avg_x := value_left
+	var max_x := avg_x + AVG_W + COL_GAP
+	var calls_x := max_x + MAX_W + COL_GAP
+	var pad_top := (ROW_H - font.get_height(FONT_SIZE)) * 0.5
+	var ascent := font.get_ascent(FONT_SIZE)
+	var cell_widths: Dictionary = {}
+	for index in _entries.size():
+		var entry: Dictionary = _entries[index]
+		var baseline := float(index) * ROW_H + pad_top + ascent
+		var is_self := bool(entry["self"])
+		var prefix := str(entry.get("prefix", ""))
+		for cell in prefix.length():
+			var glyph := prefix[cell]
+			var glyph_w := float(cell_widths.get(glyph, -1.0))
+			if glyph_w < 0.0:
+				glyph_w = font.get_string_size(glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
+				cell_widths[glyph] = glyph_w
+			canvas.draw_string(font,
+				Vector2(float(cell) * CELL_W + (CELL_W - glyph_w) * 0.5, baseline), glyph,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, MUTED)
+		var name_x := float(prefix.length()) * CELL_W + NAME_GAP
+		var name_w := name_limit - name_x
+		if name_w > 8.0:
+			canvas.draw_string(font, Vector2(name_x, baseline),
+				_fit(font, str(entry["key"]), name_w), HORIZONTAL_ALIGNMENT_LEFT, name_w,
+				FONT_SIZE, MUTED if is_self else INK)
+		var total := float(entry["total"])
+		canvas.draw_string(font, Vector2(avg_x, baseline), "%.2fms/s" % total,
+			HORIZONTAL_ALIGNMENT_RIGHT, AVG_W, FONT_SIZE, heat(total, AVG_LIMIT))
+		if is_self:
+			canvas.draw_string(font, Vector2(max_x, baseline), "-",
+				HORIZONTAL_ALIGNMENT_RIGHT, MAX_W, FONT_SIZE, MUTED)
+			canvas.draw_string(font, Vector2(calls_x, baseline), "-",
+				HORIZONTAL_ALIGNMENT_RIGHT, CALLS_W, FONT_SIZE, MUTED)
 			continue
-		var depth := int(row["depth"])
-		var at := Vector2(float(row["x"]), float(depth) * (ROW_H + ROW_GAP))
-		var fill := MUTED if bool(row["self"]) else _depth_color(depth)
-		canvas.draw_rect(Rect2(at, Vector2(w, ROW_H)), fill)
-		if font == null:
-			continue
-		var key := str(row["key"])
-		if font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, BAR_FONT).x + NAME_PAD > w:
-			continue
-		canvas.draw_string(font, at + Vector2(NAME_PAD * 0.5, ROW_H - 4.0), key,
-			HORIZONTAL_ALIGNMENT_LEFT, w, BAR_FONT, Color.WHITE)
+		var peak := float(entry.get("max", 0.0))
+		canvas.draw_string(font, Vector2(max_x, baseline), "%.2fms" % peak,
+			HORIZONTAL_ALIGNMENT_RIGHT, MAX_W, FONT_SIZE, heat(peak, MAX_LIMIT))
+		var calls := int(entry["calls"])
+		canvas.draw_string(font, Vector2(calls_x, baseline), str(calls),
+			HORIZONTAL_ALIGNMENT_RIGHT, CALLS_W, FONT_SIZE, calls_heat(calls, frames))
+
+
+## `text` trimmed with an ellipsis when it does not fit `width`.
+static func _fit(font: Font, text: String, width: float) -> String:
+	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x <= width:
+		return text
+	var cut := text
+	while cut.length() > 1 \
+			and font.get_string_size(cut + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x > width:
+		cut = cut.left(cut.length() - 1)
+	return cut + "…"

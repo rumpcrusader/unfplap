@@ -40,8 +40,7 @@ class FakeShotFacts extends RefCounted:
 		return fallback
 
 
-class FakePlayer extends Node:
-	var rotation := Vector3.ZERO
+class FakePlayer extends Node3D:
 	var _stand_eye: Variant = 1.7
 	var _eye_height: Variant = 1.7
 	var _pitch: Variant = 0.0
@@ -182,6 +181,7 @@ func run() -> void:
 	_check_oral_lean()
 	_check_retarget()
 	_check_lock_and_eye()
+	_check_eye_line()
 	_check_look()
 	_check_free_look()
 	_check_motion()
@@ -482,6 +482,54 @@ func _check_lock_and_eye() -> void:
 	check(not camera.eye_override, "a seated player keeps the seat camera")
 	(player.seat as Node3D).free()
 	player.seat = null
+	main.remove_child(player)
+	main.remove_child(main.view)
+	player.free()
+	(main.view as Camera3D).free()
+	main.free()
+
+
+func _check_eye_line() -> void:
+	var made := _fixture()
+	var camera: Variant = made["camera"]
+	var facts: Variant = made["facts"]
+	var player := made["player"] as FakePlayer
+	var main := made["main"] as FakeMain
+	player.global_position = Vector3.ZERO
+	var pony := FakePony.new()
+	root.add_child(pony)
+	var skeleton := Skeleton3D.new()
+	pony.add_child(skeleton)
+	pony.skeleton = skeleton
+	facts.pony = pony
+
+	var base: float = camera.call("player_eye_height")
+	var preset: float = base * float(camera.call("size_scale"))
+
+	camera.call("apply_eye_override", "standing", false)
+	check(near(camera.camera_target_eye, preset),
+		"a skeleton without her head bone keeps the preset eye")
+	camera.call("restore_eye_override")
+
+	var head := skeleton.add_bone("pony_head")
+	for line: float in [minf(preset, base) - 0.5, (preset + base) * 0.5, base + 0.5]:
+		skeleton.set_bone_rest(head, Transform3D(Basis.IDENTITY, Vector3(0.0, line, 0.0)))
+		var expected := maxf(preset, minf(base, line))
+		camera.call("apply_eye_override", "standing", false)
+		check(near(camera.camera_target_eye, expected),
+			"the standing eye follows her live line up to Anon's own eye")
+		camera.call("restore_eye_override")
+
+	player.global_position.y = 0.4
+	var raised := base + 0.5
+	skeleton.set_bone_rest(head, Transform3D(Basis.IDENTITY, Vector3(0.0, raised + 0.4, 0.0)))
+	camera.call("apply_eye_override", "standing", false)
+	check(near(camera.camera_target_eye, maxf(preset, minf(base, raised))),
+		"the live eye line is relative to the raised player root")
+	camera.call("restore_eye_override")
+
+	root.remove_child(pony)
+	pony.free()
 	main.remove_child(player)
 	main.remove_child(main.view)
 	player.free()

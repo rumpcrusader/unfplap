@@ -624,7 +624,14 @@ func apply_eye_override(family: String, player_pony: bool) -> void:
 	if body.get("_stand_eye") == null or body.get("seat") != null:
 		return
 	var base := player_eye_height()
-	var target := base * size_scale()
+	var preset := base * size_scale()
+	var her_eye := pony_eye_height()
+	var target := preset
+	if is_finite(her_eye):
+		target = maxf(preset, minf(base, her_eye))
+		if target > preset + 0.0001:
+			write_log("eye line raised preset=%.2f her=%.2f target=%.2f" % [
+				preset, her_eye, target])
 	camera_target_eye = target
 	if absf(target - base) < 0.001:
 		return
@@ -743,6 +750,23 @@ func player_eye_height() -> float:
 	if is_instance_valid(body) and body.get("_stand_eye") != null:
 		return float(body.get("_stand_eye"))
 	return 1.6
+
+
+func pony_eye_height() -> float:
+	var pony: Variant = facts.pony if facts != null else null
+	if not is_instance_valid(pony):
+		return NAN
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D:
+		return NAN
+	var skeleton := sk as Skeleton3D
+	var head := skeleton.find_bone("pony_head")
+	if head < 0:
+		return NAN
+	var eye: Vector3 = skeleton.global_transform * skeleton.get_bone_rest(head).origin
+	var body: Variant = player_body()
+	var floor_y := (body as Node3D).global_position.y if body is Node3D else 0.0
+	return eye.y - floor_y
 
 
 func mouse_sensitivity() -> float:

@@ -273,12 +273,15 @@ lift, recovered from `VERTEX - CUSTOM0` along the rest normal `CUSTOM1`) through
 `garment_rest_transform()`, reads the field, and pushes along the live anatomy's +Z by
 `surface_z + margin - local.z`. The cloth is a skinned copy of the body, so its cut edge near the
 ponut top and vulva bottom moves with the legs while the anatomy stays rigid to `pony_hips`; the
-rest lookup keeps that edge on the field instead of sliding it off the edge when she walks. The
-margin is converted from millimetres by the live basis' Z scale, and the local push is converted
-back when it is applied, so the slider stays in world millimetres on every body size. The edge
-fade is a small 3% of the domain, so the lift is full at the anatomy; the larger Y domain margin
-keeps the ponut top and vulva bottom away from the fade. The hull block is in the copied
-compatibility shaders under `integrations/shaders/`; see `docs/integrations.md`.
+rest lookup keeps that edge on the field instead of sliding it off the edge when she walks. If
+the rest lookup falls outside the field or the cell is invalid, the shader falls back to the
+previous live lookup (`VERTEX` through `garment_transform()`), and the adapter writes both
+uniform sets so a shader from an earlier build still lifts. The margin is converted from
+millimetres by the live basis' Z scale, and the local push is converted back when it is applied,
+so the slider stays in world millimetres on every body size. The edge fade is a small 3% of the
+domain, so the lift is full at the anatomy; the larger Y domain margin keeps the ponut top and
+vulva bottom away from the fade. The hull block is in the copied compatibility shaders under
+`integrations/shaders/`; see `docs/integrations.md`.
 
 ## Placement
 

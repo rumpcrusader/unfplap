@@ -147,16 +147,20 @@ recovers that lift from `VERTEX - CUSTOM0` along the rest normal `CUSTOM1`, so s
 point does not float the cloth by its own thickness. The cloth is a skinned copy of the body, so
 its cut edge near the ponut top and vulva bottom moves with the legs while the anatomy stays rigid
 to `pony_hips`; the rest lookup keeps that edge on the field instead of letting the walking pose
-slide it off the edge. The margin is stored in anatomy-local units and converted back by the live
-basis' Z scale, so the slider stays in world millimetres. The field has a larger Y domain margin
-and the shader fades the lift over only the outer 3%, so the ponut top and vulva bottom keep their
-full lift without raising the margin over the vulva. The debug controls choose the field width,
-height, smoothing and margin; the hull rows are unbounded debug values, and a high width/height or
-many smoothing passes costs a one-time rebuild. The adapter updates the live push axis every
-frame; the rest lookup follows the placement. A precision edit clears the cache and rebuilds after
-0.3 s, and the Rebuild action rebuilds immediately. Both are off the frame path. **Show hull**
-draws the heatmap as a continuous corner-grid surface from a top-level world mesh that copies the
-anatomy mesh's transform, so the field can be inspected even
+slide it off the edge. If the rest lookup falls outside the field or the sampled cell is invalid,
+the shader falls back to the previous live lookup (`VERTEX` through the live origin and basis
+inverse), so the cloth still lifts where the rest point cannot be resolved. The adapter writes
+both uniform sets, so a shader from an earlier build remains usable; the loaded lookup path is
+logged once with debug logs on. The margin is stored in anatomy-local units and converted back by
+the live basis' Z scale, so the slider stays in world millimetres. The field has a larger Y domain
+margin and the shader fades the lift over only the outer 3%, so the ponut top and vulva bottom
+keep their full lift without raising the margin over the vulva. The debug controls choose the
+field width, height, smoothing and margin; the hull rows are unbounded debug values, and a high
+width/height or many smoothing passes costs a one-time rebuild. The adapter updates the live push
+axis every frame; the rest lookup follows the placement. A precision edit clears the cache and
+rebuilds after 0.3 s, and the Rebuild action rebuilds immediately. Both are off the frame path.
+**Show hull** draws the heatmap as a continuous corner-grid surface from a top-level world mesh
+that copies the anatomy mesh's transform, so the field can be inspected even
 when the anatomy is hidden (far mesh or `act` mode outside an act); the overlay state and the
 reason it is hidden are logged once per change with debug logs on.
 

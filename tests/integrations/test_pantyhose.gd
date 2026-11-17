@@ -432,6 +432,7 @@ func _check_bulge() -> void:
 	var game: FakeGame = scene["game"]
 	var anatomy: FakeAnatomy = scene["anatomy"]
 	var integration: Node = scene["integration"]
+	var fake_main: FakeMain = scene["main"]
 	var pony := _pony("rarity")
 	game.mares = [pony]
 	var material := _material(CUT_SHADER)
@@ -443,6 +444,11 @@ func _check_bulge() -> void:
 	anatomy.rest_xform = rest
 	anatomy.has_rest = true
 	integration.call("scan")
+	var shader_logged := false
+	for text: String in fake_main.logs:
+		if text.contains("hull shader"):
+			shader_logged = true
+	check(shader_logged, "the adapter reports which hull shader is loaded")
 	var override := garment.get_surface_override_material(0)
 	check(override is ShaderMaterial, "the worn piece gets a compatibility override")
 	if override is ShaderMaterial:
@@ -461,23 +467,32 @@ func _check_bulge() -> void:
 	var origin: Variant = garment.get_instance_shader_parameter("hull_rest_origin")
 	check(origin is Vector3 and near((origin as Vector3).y, 1.0),
 		"the per-mare rest origin is set")
+	var live_origin: Variant = garment.get_instance_shader_parameter("hull_origin")
+	check(live_origin is Vector3 and near((live_origin as Vector3).y, 1.0),
+		"the live origin is set for the fallback lookup")
 	var z_axis: Variant = garment.get_instance_shader_parameter("hull_basis_z")
 	check(z_axis is Vector3 and near((z_axis as Vector3).length(), 0.5),
 		"the live basis carries the placement scale")
 	var rest_inv_z: Variant = garment.get_instance_shader_parameter("hull_rest_basis_inv_z")
 	check(rest_inv_z is Vector3 and near((rest_inv_z as Vector3).z, 2.0),
 		"the rest inverse basis is set")
+	var live_inv_z: Variant = garment.get_instance_shader_parameter("hull_basis_inv_z")
+	check(live_inv_z is Vector3 and near((live_inv_z as Vector3).z, 2.0),
+		"the live inverse basis is set for the fallback lookup")
 	check(near(float(garment.get_instance_shader_parameter("hull_margin")), 0.01),
 		"the outer margin is anatomy-local")
 	check(near(float(garment.get_instance_shader_parameter("hull_min_margin")), 0.002),
 		"the minimum margin is anatomy-local")
 	var live := Transform3D(Basis.from_euler(Vector3(0.0, 0.35, 0.0))
-		.scaled(Vector3.ONE * 0.5), Vector3(0.0, 1.0, 2.0))
+		.scaled(Vector3.ONE * 0.5), Vector3(0.0, 2.0, 2.0))
 	anatomy.xform = live
 	integration.call("_process", 0.016)
 	var moved_axis: Variant = garment.get_instance_shader_parameter("hull_basis_z")
 	check(moved_axis is Vector3 and not (moved_axis as Vector3).is_equal_approx(z_axis as Vector3),
 		"the live push axis follows the anatomy every frame")
+	var moved_live: Variant = garment.get_instance_shader_parameter("hull_origin")
+	check(moved_live is Vector3 and near((moved_live as Vector3).y, 2.0),
+		"the live fallback origin follows the pose")
 	var held_rest: Variant = garment.get_instance_shader_parameter("hull_rest_origin")
 	check(held_rest is Vector3 and near((held_rest as Vector3).y, 1.0),
 		"the rest lookup does not follow the live pose")

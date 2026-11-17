@@ -20,19 +20,28 @@ varying float edge_dist;
 // The field is rest space: the lookup uses the garment's rest position (`CUSTOM0.xyz` plus the
 // pack's own rest lift) through the rest anatomy transform. The push uses the anatomy's live +Z
 // (`hull_basis_z`), so the cloth follows the walking pose without sliding the lookup off the
-// ponut top or vulva bottom. The local push is converted back by the live basis' Z scale, so the
-// margin stays in world millimetres on every body size. The margin ramps from `hull_min_margin`
-// on the anatomy's vertical center line (the vulva midline, x = 0) to `hull_margin` toward the
-// field's X sides.
+// ponut top or vulva bottom. If the rest lookup misses the field, the shader falls back to the
+// previous live lookup (`VERTEX` through `hull_origin`/`hull_basis_inv`), so an older shader or a
+// garment whose rest point is outside the field still lifts. The local push is converted back by
+// the live basis' Z scale, so the margin stays in world millimetres on every body size. The
+// margin ramps from `hull_min_margin` on the anatomy's vertical center line (the vulva midline,
+// x = 0) to `hull_margin` toward the field's X sides.
 uniform sampler2D hull_texture : filter_linear, repeat_disable;
 uniform vec4 hull_domain = vec4(0.0, 0.0, 1.0, 1.0);
 uniform vec2 hull_z_range = vec2(0.0, 1.0);
 // The pack's built-in rest lift for this surface, in garment model metres. The skirt uses 0.
 uniform float hull_rest_lift = 0.0;
 instance uniform float hull_on = 0.0;
-// Godot does not support matrix instance uniforms, so the rest basis inverse travels as its
-// three column vectors. `hull_basis_z` is the anatomy's live +Z (toward the tail).
+// Godot does not support matrix instance uniforms, so the basis and its inverse travel as their
+// column vectors. The rest set samples `CUSTOM0`; the live set is the fallback used by earlier
+// shader builds, which read `VERTEX`. `hull_basis_z` is the anatomy's live +Z (toward the tail).
+instance uniform vec3 hull_origin = vec3(0.0);
+instance uniform vec3 hull_basis_x = vec3(1.0, 0.0, 0.0);
+instance uniform vec3 hull_basis_y = vec3(0.0, 1.0, 0.0);
 instance uniform vec3 hull_basis_z = vec3(0.0, 0.0, 1.0);
+instance uniform vec3 hull_basis_inv_x = vec3(1.0, 0.0, 0.0);
+instance uniform vec3 hull_basis_inv_y = vec3(0.0, 1.0, 0.0);
+instance uniform vec3 hull_basis_inv_z = vec3(0.0, 0.0, 1.0);
 instance uniform vec3 hull_rest_origin = vec3(0.0);
 instance uniform vec3 hull_rest_basis_inv_x = vec3(1.0, 0.0, 0.0);
 instance uniform vec3 hull_rest_basis_inv_y = vec3(0.0, 1.0, 0.0);
@@ -46,21 +55,30 @@ instance uniform float hull_min_margin = 0.0;
 		vec3 hull_rest_point = CUSTOM0.xyz + normalize(CUSTOM1.xyz + vec3(0.0, 0.0001, 0.0)) * hull_rest_lift; \
 		vec3 hull_local = hull_rest_basis_inv * (hull_rest_point - hull_rest_origin); \
 		vec2 hull_uv = (hull_local.xy - hull_domain.xy) / hull_domain.zw; \
+		float hull_raw = -1.0; \
 		if (hull_uv.x > 0.0 && hull_uv.x < 1.0 && hull_uv.y > 0.0 && hull_uv.y < 1.0) { \
-			float hull_raw = textureLod(hull_texture, hull_uv, 0.0).r; \
-			if (hull_raw >= 0.0) { \
-				float hull_surface = mix(hull_z_range.x, hull_z_range.y, hull_raw); \
-				float hull_ramp = smoothstep(0.0, max(hull_domain.z * 0.5, 0.0001), abs(hull_local.x)); \
-				float hull_margin_now = mix(hull_min_margin, hull_margin, hull_ramp); \
-				float hull_push = hull_surface + hull_margin_now - hull_local.z; \
-				if (hull_push > 0.0) { \
-					float hull_edge = min(min(hull_uv.x, 1.0 - hull_uv.x), min(hull_uv.y, 1.0 - hull_uv.y)); \
-					float hull_fade = smoothstep(0.0, 0.03, hull_edge); \
-					float hull_scale = max(length(hull_basis_z), 0.0001); \
-					vec3 hull_axis = hull_basis_z / hull_scale; \
-					VERTEX += hull_axis * (hull_push * hull_scale * hull_fade); \
-					NORMAL = normalize(mix(NORMAL, hull_axis, clamp(hull_push * 20.0, 0.0, 1.0) * 0.8)); \
-				} \
+			hull_raw = textureLod(hull_texture, hull_uv, 0.0).r; \
+		} \
+		if (hull_raw < 0.0) { \
+			mat3 hull_basis_inv = mat3(hull_basis_inv_x, hull_basis_inv_y, hull_basis_inv_z); \
+			hull_local = hull_basis_inv * (VERTEX - hull_origin); \
+			hull_uv = (hull_local.xy - hull_domain.xy) / hull_domain.zw; \
+			if (hull_uv.x > 0.0 && hull_uv.x < 1.0 && hull_uv.y > 0.0 && hull_uv.y < 1.0) { \
+				hull_raw = textureLod(hull_texture, hull_uv, 0.0).r; \
+			} \
+		} \
+		if (hull_raw >= 0.0) { \
+			float hull_surface = mix(hull_z_range.x, hull_z_range.y, hull_raw); \
+			float hull_ramp = smoothstep(0.0, max(hull_domain.z * 0.5, 0.0001), abs(hull_local.x)); \
+			float hull_margin_now = mix(hull_min_margin, hull_margin, hull_ramp); \
+			float hull_push = hull_surface + hull_margin_now - hull_local.z; \
+			if (hull_push > 0.0) { \
+				float hull_edge = min(min(hull_uv.x, 1.0 - hull_uv.x), min(hull_uv.y, 1.0 - hull_uv.y)); \
+				float hull_fade = smoothstep(0.0, 0.03, hull_edge); \
+				float hull_scale = max(length(hull_basis_z), 0.0001); \
+				vec3 hull_axis = hull_basis_z / hull_scale; \
+				VERTEX += hull_axis * (hull_push * hull_scale * hull_fade); \
+				NORMAL = normalize(mix(NORMAL, hull_axis, clamp(hull_push * 20.0, 0.0, 1.0) * 0.8)); \
 			} \
 		} \
 	}

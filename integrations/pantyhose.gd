@@ -56,6 +56,7 @@ var _hull_min_margin_mm := 1.0
 var _show_hull := false
 var _rebuild_at := -1.0
 var _mismatch_logged := false
+var _rest_shader_logged := false
 
 ## garment node -> the pony it belongs to
 var _tracked: Dictionary = {}
@@ -88,6 +89,7 @@ func on_world(host: Node) -> void:
 	_discover_clock = 0.0
 	_rebuild_at = -1.0
 	_mismatch_logged = false
+	_rest_shader_logged = false
 	_overlay_reason = ""
 	set_process(true)
 	_connect_anatomy()
@@ -104,6 +106,7 @@ func on_world_closed() -> void:
 	_game = null
 	_discover_clock = 0.0
 	_rebuild_at = -1.0
+	_rest_shader_logged = false
 	set_process(false)
 
 
@@ -328,8 +331,20 @@ func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D,
 	var rest_inverse := Basis.IDENTITY
 	if absf(rest_basis.determinant()) > 0.0000001:
 		rest_inverse = rest_basis.inverse()
+	var live_basis := xform.basis
+	var live_inverse := Basis.IDENTITY
+	if absf(live_basis.determinant()) > 0.0000001:
+		live_inverse = live_basis.inverse()
 	node.set_instance_shader_parameter("hull_on", 1.0)
-	node.set_instance_shader_parameter("hull_basis_z", xform.basis.z)
+	# The previous shader build reads these live uniforms; the current shader uses them as the
+	# per-vertex fallback when the rest lookup misses the field.
+	node.set_instance_shader_parameter("hull_origin", xform.origin)
+	node.set_instance_shader_parameter("hull_basis_x", live_basis.x)
+	node.set_instance_shader_parameter("hull_basis_y", live_basis.y)
+	node.set_instance_shader_parameter("hull_basis_z", live_basis.z)
+	node.set_instance_shader_parameter("hull_basis_inv_x", live_inverse.x)
+	node.set_instance_shader_parameter("hull_basis_inv_y", live_inverse.y)
+	node.set_instance_shader_parameter("hull_basis_inv_z", live_inverse.z)
 	node.set_instance_shader_parameter("hull_rest_origin", rest_xform.origin)
 	node.set_instance_shader_parameter("hull_rest_basis_inv_x", rest_inverse.x)
 	node.set_instance_shader_parameter("hull_rest_basis_inv_y", rest_inverse.y)
@@ -466,6 +481,14 @@ func _compat_material(original: Material, rest_lift: float) -> ShaderMaterial:
 		if value != null:
 			compat.set_shader_parameter(name, value)
 	compat.set_shader_parameter("hull_rest_lift", rest_lift)
+	if not _rest_shader_logged:
+		_rest_shader_logged = true
+		var rest_shader := false
+		for row: Dictionary in compat.shader.get_shader_uniform_list():
+			if str(row.get("name", "")) == "hull_rest_lift":
+				rest_shader = true
+				break
+		_log("hull shader: %s" % ("rest lookup" if rest_shader else "live only"))
 	_materials[key] = compat
 	return compat
 

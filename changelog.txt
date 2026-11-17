@@ -1,3 +1,17 @@
+v0.6.0
+- Ask mare by talking — a clear offer in conversation now starts the negotiation: she answers in character, and the act begins on its own when she agrees.
+- Mare asking improved — when she walks over and asks, your spoken answer decides it, and the act starts as soon as you agree.
+- Offers follow the scene — she offers when it is private, and a crowded offer is simply public; the old Enable public offers switch is retired.
+- New Poses tab after Anatomy, with Enable Oral and Enable Anal reachable without debug; the pose tuning rows moved into its Debug block.
+- Pantyhose & Panties — worn panties and pantyhose lift over the anatomy, and she takes them off when the act starts.
+- Afterglow keeps the pose the act ended in, including the turned standing oral frame.
+- Retired: the finish control and its B key, the wet climax layer, the Show start button, the Idle Life stretch pose and the Kissing fidget switch.
+- Fixed: the coat cut follows the near body and the live pose instead of leaving the opening behind.
+- Fixed: Anon's hip follows her pelvis sway in standing instead of drifting off her.
+- Fixed: the pull-out standoff no longer pushes him out at zero depth.
+- Fixed: a live Ponese mute edit now reaches the voice.
+- Fixed: updated prompts, character templates and per-mare placement reach an existing save wherever you did not override them.
+
 v0.5.1
 - Reworked: standing oral — she now turns to face you at her mouth, the act goes quiet and her voice stops, and your hands caress the sides of her head.
 - Fixed: other mods' keys no longer fire during an act; the new Block other mods' keys setting keeps the act's own keys live.

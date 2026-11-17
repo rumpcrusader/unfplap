@@ -219,6 +219,10 @@ func _drive_glance(delta: float) -> void:
 			or (_glance_left > 0.0 and _glance_back)) else 0.0
 		_glance_head_back = move_toward(_glance_head_back, back_target, delta / _glance_back_fade())
 		facts.pose.set("head_back", _glance_head_back)
+	# The forced, lean-up and random glances all read the pose config. The standing placement can
+	# begin before the pose session builds, so wait for the config instead of indexing an empty one.
+	if _pose_cfg.is_empty():
+		return
 	var secondary: Variant = pony.get("secondary")
 	if not str(facts.forced_glance).is_empty():
 		_glance_sign_set = true
@@ -238,8 +242,6 @@ func _drive_glance(delta: float) -> void:
 			_aim_eyes_at_player()
 		return
 	if secondary == null or not is_instance_valid(secondary) or not secondary.has_method("look_toward"):
-		return
-	if _pose_cfg.is_empty():
 		return
 	if _glance_wait < 0.0:
 		_glance_wait = randf_range(float(_pose_cfg["glance_min"]), float(_pose_cfg["glance_max"]))

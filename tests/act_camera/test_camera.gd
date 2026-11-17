@@ -79,6 +79,12 @@ class FakeHands extends RefCounted:
 class FakeKiss extends RefCounted:
 	var calls: Array[String] = []
 
+	func standing_active() -> bool:
+		return false
+
+	func base_active() -> bool:
+		return false
+
 	func lean_kiss_tick() -> void:
 		calls.append("lean_kiss_tick")
 
@@ -107,6 +113,12 @@ class FakeStandingCamera extends RefCounted:
 
 class FakePony extends Node3D:
 	var skeleton: Variant = null
+	var secondary: Variant = null
+
+
+class FakeSecondary extends RefCounted:
+	func look_toward(_angles: Vector3, _seconds: float) -> void:
+		pass
 
 
 class FakeMissionaryCamera extends RefCounted:
@@ -697,10 +709,23 @@ func _check_standing_cache() -> void:
 	var early_facts: RefCounted = FACTS.new()
 	early_facts.pose_view = early_view
 	early_facts.presentation_config = {"glance_back_speed": 1.0}
+	var early_kiss := FakeKiss.new()
+	early_facts.kiss = func() -> Variant: return early_kiss
+	var early_pony := FakePony.new()
+	early_pony.secondary = FakeSecondary.new()
+	root.add_child(early_pony)
+	early_facts.pony = early_pony
+	early_facts.lean_forward = 1.0
 	var early_camera: RefCounted = STANDING_CAMERA.new(early_facts)
 	early_camera.call("begin_facing", Transform3D.IDENTITY)
 	check(float(early_camera._glance_wait) < 0.0,
 		"a start before the pose config arms its first glance later")
+	early_camera.call("drive_glance", 0.1)
+	check(not early_camera._glance_back,
+		"an empty pose config does not arm the lean glance")
+	check(float(early_camera._glance_wait) < 0.0,
+		"the first wait stays armed until the pose config exists")
+	early_pony.free()
 
 
 func _check_neck() -> void:

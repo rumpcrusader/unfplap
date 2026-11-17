@@ -168,20 +168,12 @@ func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> 
 	_applied_side = side
 
 func _standing_eye_height() -> float:
-	return float(facts.player_eye_height) + eye_delta_for(str(facts.size_name))
-
-## The per-size net offset on Anon's normal standing eye. Canon lowers the eye line and JRHNBR
-## raises it; every other preset keeps the normal eye.
-static func eye_delta_for(size_name: String) -> float:
-	if size_name == "canon":
-		return -CANON_STANDING_CAMERA_DROP_M
-	if size_name == "mounting":
-		return MOUNTING_STANDING_CAMERA_LIFT_M
-	return 0.0
-
-## The eye the standing act uses: Anon's normal height plus the preset's net offset.
-func act_eye_height() -> float:
-	return _standing_eye_height()
+	var height := float(facts.player_eye_height)
+	if str(facts.size_name) == "canon":
+		height -= CANON_STANDING_CAMERA_DROP_M
+	elif str(facts.size_name) == "mounting":
+		height += MOUNTING_STANDING_CAMERA_LIFT_M
+	return height
 
 func _lock_body_facing() -> void:
 	if not _has_facing or _pose_family() != "standing" or not is_instance_valid(pony):

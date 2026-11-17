@@ -2157,6 +2157,12 @@ func _bind_negotiation_host() -> void:
 	negotiation.call("setup", host)
 
 
+## True while an Act Negotiation (offer or Agreement) owns the lock. The Proactive scan stays
+## quiet, so no second mare starts a reasoning call or a walk.
+func negotiation_locked() -> bool:
+	return is_instance_valid(negotiation) and bool(negotiation.call("is_locked"))
+
+
 ## The Proactive service's handoff: it passes the formed Mare offer as plain values; `main`
 ## builds the typed package and hands it to the Negotiation service, which owns the answer,
 ## privacy, pose re-checks and the Agreement from here.

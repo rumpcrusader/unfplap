@@ -196,8 +196,9 @@ to the act.
 ## Lock
 
 One Act Negotiation at a time, including the Agreement window. A live offer or Agreement blocks a
-new Mare offer, Anon offer or proactive approach; the attempt is reported `NoOffer` with reason
-`locked`, logged and toasted. The hotkey is the only break. The lock lasts at most 240 s (120 s
+new Mare offer, Anon offer or proactive approach; the Proactive scan stays quiet while the lock is
+held, and an attempt that still reaches the service is reported `NoOffer` with reason `locked`,
+logged and toasted. The hotkey is the only break. The lock lasts at most 240 s (120 s
 negotiation + 120 s Agreement).
 
 ## Privacy

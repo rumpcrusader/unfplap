@@ -276,6 +276,9 @@ func _tick_cuddle_edges() -> void:
 func _consider_start() -> void:
 	if not is_instance_valid(_adapter):
 		return
+	if is_instance_valid(main) and main.has_method("negotiation_locked") \
+			and bool(main.call("negotiation_locked")):
+		return
 	var quiet := str(_adapter.call("quiet_reason", POLICY.QUIET_CHAT_GAP_S))
 	if not quiet.is_empty():
 		if quiet != _quiet_reason:
@@ -452,6 +455,9 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 	if not is_instance_valid(candidate.pony) or not is_instance_valid(runtime):
 		return
 	if int(runtime.get("state")) != 0:
+		return
+	if is_instance_valid(main) and main.has_method("negotiation_locked") \
+			and bool(main.call("negotiation_locked")):
 		return
 	var decision := REASONING.parse(reply, error, candidate.options.size())
 	if decision.failed:

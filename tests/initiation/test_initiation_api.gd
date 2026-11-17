@@ -49,6 +49,10 @@ class FakeMain extends Node:
 	var offer: Dictionary = {}
 	var handoff_ok := true
 	var offer_target_value: Variant = null
+	var locked := false
+
+	func negotiation_locked() -> bool:
+		return locked
 
 	func runtime_for(pony: Node) -> Node:
 		var runtime: Variant = runtimes.get(pony)
@@ -482,4 +486,10 @@ func _check_scan_logs() -> void:
 	service.tick(0.5)
 	check(_debug_count(main, "request scan quiet reason=chat") == 1,
 		"the same quiet reason logs once")
+	adapter.quiet_reason_value = ""
+	main.locked = true
+	adapter.reason_payloads.clear()
+	service.tick(0.5)
+	check(adapter.reason_payloads.is_empty(), "a live negotiation keeps the scan quiet")
+	main.locked = false
 	_free(made)

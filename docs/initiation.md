@@ -127,7 +127,9 @@ or presentation in this service. Timers come only from `initiation/policy.gd`;
 
 ## Admission
 
-An automatic scan runs every `0.5 s` and needs a quiet moment through the injected adapter:
+An automatic scan runs every `0.5 s` and needs a quiet moment through the injected adapter. While
+an Act Negotiation owns the lock (`main.negotiation_locked()`), the scan stays quiet: no second
+mare starts a reasoning call, a walk or a handoff.
 
 - not paused, no menu panel with a free cursor, Anon not locked, flying or knocked down;
 - the director idle, not in a group exchange or an approach, not hearing, and background AI

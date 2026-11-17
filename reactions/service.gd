@@ -102,11 +102,11 @@ func end_act() -> void:
 	restore_radius()
 
 
-## The runtime-patched rig coat is no longer the exact game Shader, so FlankTouch's
-## JIGGLE_SHADERS check skips it. Put the coat and its outline back into the active target list.
-## `_start_jiggle()` rebuilds the list on every slap, so this runs for each thrust and act smack.
-## It is also the anatomy's stock-smack hook, so the setting is read here rather than snapshotted:
-## a regular smack outside an act must still reach the patched coat.
+## The runtime-patched rig coat and merged-near materials are no longer the exact game Shaders, so
+## FlankTouch's JIGGLE_SHADERS check skips them. Put the anatomy's whole coat target list back into
+## the active list. `_start_jiggle()` rebuilds the list on every slap, so this runs for each thrust
+## and act smack. It is also the anatomy's stock-smack hook, so the setting is read here rather
+## than snapshotted: a regular smack outside an act must still reach the patched coat.
 func body_coat_target() -> void:
 	if not SETTINGS.body_coat_deform.get_bool():
 		return
@@ -115,6 +115,26 @@ func body_coat_target() -> void:
 	if not is_instance_valid(flank) or not is_instance_valid(anatomy):
 		return
 	if anatomy.has_method("is_attached") and not bool(anatomy.call("is_attached")):
+		return
+	var targets: Variant = flank.get("_jiggle_targets")
+	if not targets is Array:
+		return
+	var pairs: Variant = null
+	if anatomy.has_method("body_coat_targets"):
+		pairs = anatomy.call("body_coat_targets")
+		if pairs is Array and (pairs as Array).is_empty() and anatomy.has_method("body_coat_refresh"):
+			anatomy.call("body_coat_refresh")
+			pairs = anatomy.call("body_coat_targets")
+	if pairs is Array and not (pairs as Array).is_empty():
+		for pair_v: Variant in pairs as Array:
+			if not pair_v is Array:
+				continue
+			var pair := pair_v as Array
+			if pair.size() < 2 or not pair[0] is ShaderMaterial \
+					or not pair[1] is MeshInstance3D:
+				continue
+			_add_coat_target(targets as Array, pair[0] as ShaderMaterial,
+				pair[1] as MeshInstance3D)
 		return
 	var body: Variant = anatomy.call("body_coat_mesh")
 	var mat: Variant = anatomy.call("body_coat_material")
@@ -129,26 +149,18 @@ func body_coat_target() -> void:
 	if not is_instance_valid(body) or not body is MeshInstance3D \
 			or not is_instance_valid(mat) or not mat is ShaderMaterial:
 		return
-	var targets: Variant = flank.get("_jiggle_targets")
-	if not targets is Array:
-		return
-	var materials: Array = [mat]
+	_add_coat_target(targets as Array, mat as ShaderMaterial, body as MeshInstance3D)
 	var outline: Variant = anatomy.call("body_outline_material")
 	if is_instance_valid(outline) and outline is ShaderMaterial:
-		materials.append(outline)
-	for material: Variant in materials:
-		var target_mat := material as ShaderMaterial
-		if target_mat == null:
-			continue
-		var present := false
-		for target: Variant in targets:
-			if target is Array and not (target as Array).is_empty() \
-					and (target as Array)[0] == target_mat:
-				present = true
-				break
-		if present:
-			continue
-		(targets as Array).append([target_mat, body])
+		_add_coat_target(targets as Array, outline as ShaderMaterial, body as MeshInstance3D)
+
+
+func _add_coat_target(targets: Array, material: ShaderMaterial, body: MeshInstance3D) -> void:
+	for target: Variant in targets:
+		if target is Array and not (target as Array).is_empty() \
+				and (target as Array)[0] == material:
+			return
+	targets.append([material, body])
 
 
 ## The thrust's rump wobble. One shader center on the rump midline so both flanks wobble

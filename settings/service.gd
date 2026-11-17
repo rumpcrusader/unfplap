@@ -1457,7 +1457,7 @@ static var anal_aim_mm := num("anal_aim_mm", "anatomy.anal_aim_mm",
 static var anal_body_depth_mm := num("anal_body_depth_mm", "anatomy.anal_body_depth_mm",
 	"Anal body depth",
 	"Push the visible body ponut inward around the anal opening so the V2 hole and an oversized shaft stop clipping the body.", ANATOMY, "Holes") \
-	.with_unit("mm").with_step(1.0).with_range(0.0, 60.0) \
+	.with_unit("mm").with_step(1.0) \
 	.as_debug()
 static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical",
 	"Lip vertical share",
@@ -1467,42 +1467,42 @@ static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical",
 static var coat_spread := num("coat_spread", "anatomy.coat_spread",
 	"Coat spread",
 	"Multiplier for the body coat stretching around the vulva as the opening widens.", ANATOMY, "Holes") \
-	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
+	.with_unit("×").with_step(0.05) \
 	.as_debug()
 static var coat_hole := num("coat_hole", "anatomy.coat_hole",
 	"Coat hole width",
 	"Lateral radius of the ellipse cut out of the body coat behind the vulva opening, as a share of the measured lip radius. Keep it at or below 1 so the cut stays under the lips; 0 turns the cut off.", ANATOMY, "Holes") \
-	.with_unit("×").with_step(0.01).with_range(0.0, 1.2) \
+	.with_unit("×").with_step(0.01) \
 	.as_debug()
 static var coat_hole_height := num("coat_hole_height", "anatomy.coat_hole_height",
 	"Coat hole height",
 	"Vertical radius of the coat cut, as a share of the measured lip radius. The lips reach further up and down than they do sideways, so this sits above the width; matching the width makes the cut round.", ANATOMY, "Holes") \
-	.with_unit("×").with_step(0.01).with_range(0.0, 1.5) \
+	.with_unit("×").with_step(0.01) \
 	.as_debug()
 static var coat_hole_depth_mm := num("coat_hole_depth_mm", "anatomy.coat_hole_depth_mm",
 	"Coat hole depth",
 	"How far behind the vulva opening the coat cut reaches. Keep it shorter than the anatomy's inner cavity.", ANATOMY, "Holes") \
-	.with_unit("mm").with_step(1.0).with_range(0.0, 50.0) \
+	.with_unit("mm").with_step(1.0) \
 	.as_debug()
 static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still",
 	"Jiggle still zone",
 	"Multiplier for the no-jiggle zone around the vulva. 0 turns the still zone off.", ANATOMY, "Holes") \
-	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
+	.with_unit("×").with_step(0.05) \
 	.as_debug()
 static var anal_still := num("anal_still", "anatomy.anal_still",
 	"Anal still zone",
 	"Multiplier for the no-jiggle zone around the visible ponut. 0 turns the still zone off.", ANATOMY, "Holes") \
-	.with_unit("×").with_step(0.05).with_range(0.0, 2.0) \
+	.with_unit("×").with_step(0.05) \
 	.as_debug()
 static var still_oval := num("still_oval", "anatomy.still_oval",
 	"Still zone oval",
 	"Vertical half-axis of both still zones as a share of the lateral one. Lower makes them flatter.", ANATOMY, "Holes") \
-	.with_unit("×").with_step(0.05).with_range(0.2, 1.5) \
+	.with_unit("×").with_step(0.05) \
 	.as_debug()
 static var still_fade := num("still_fade", "anatomy.still_fade",
 	"Still zone fade",
 	"Share of each still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
-	.with_unit("×").with_step(0.01).with_range(0.02, 0.6) \
+	.with_unit("×").with_step(0.01) \
 	.as_debug()
 static var vulva_out_mm := num("vulva_out_mm", "anatomy.vulva_out_mm",
 	"Vulva out",
@@ -1512,7 +1512,7 @@ static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm",
 	"Still zone height",
 	"Vertical placement of the vulva still zone from its opening; positive is higher, negative lower.",
 	ANATOMY, "Holes") \
-	.with_unit("mm").with_step(0.5).with_range(-50.0, 50.0) \
+	.with_unit("mm").with_step(0.5) \
 	.as_debug()
 static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zones",
 	"Draw still zones",

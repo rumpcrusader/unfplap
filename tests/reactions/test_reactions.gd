@@ -44,6 +44,7 @@ class FakeAnatomy extends Node:
 	var mesh: MeshInstance3D
 	var material: ShaderMaterial
 	var outline: ShaderMaterial
+	var target_pairs: Array = []
 
 	func is_attached() -> bool:
 		return true
@@ -56,6 +57,9 @@ class FakeAnatomy extends Node:
 
 	func body_outline_material() -> ShaderMaterial:
 		return outline
+
+	func body_coat_targets() -> Array:
+		return target_pairs
 
 
 class FakeBoop extends Node:
@@ -150,10 +154,22 @@ func _check_body_coat_target() -> void:
 	check(flank._jiggle_targets.size() == 2, "body and outline join the jiggle targets")
 	reactions.body_coat_target()
 	check(flank._jiggle_targets.size() == 2, "the body target is not duplicated")
+	var near_mesh := MeshInstance3D.new()
+	var near_material := ShaderMaterial.new()
+	root.add_child(near_mesh)
+	anatomy.target_pairs = [[anatomy.material, body], [anatomy.outline, body],
+		[near_material, near_mesh]]
+	flank._jiggle_targets = []
+	reactions.body_coat_target()
+	check(flank._jiggle_targets.size() == 3, "the near coat target joins the jiggle targets")
+	reactions.body_coat_target()
+	check(flank._jiggle_targets.size() == 3, "the near coat target is not duplicated")
 	SETTINGS.body_coat_deform.set_bool(false)
 	reactions.body_coat_target()
-	check(flank._jiggle_targets.size() == 2, "the coat target is skipped when the flag is off")
+	check(flank._jiggle_targets.size() == 3, "the coat target is skipped when the flag is off")
 	SETTINGS.body_coat_deform.set_bool(was_on)
+	root.remove_child(near_mesh)
+	near_mesh.free()
 	root.remove_child(anatomy)
 	anatomy.free()
 	root.remove_child(body)

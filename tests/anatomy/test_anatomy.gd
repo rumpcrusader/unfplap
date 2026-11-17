@@ -46,6 +46,10 @@ class FakeMain extends Node:
 	var eligibility: Variant
 
 
+class NearCoatPony extends Node3D:
+	var _near: Dictionary = {}
+
+
 class FakeAnatomy extends Node:
 	var calls: Array[String] = []
 
@@ -870,7 +874,7 @@ func run() -> void:
 	# The controller keeps the coat accessors the runtime uses for the jiggle handoff.
 	var coat_owner := ANATOMY.new()
 	for method: String in ["is_attached", "body_coat_mesh", "body_coat_material",
-			"body_outline_material"]:
+			"body_outline_material", "body_coat_targets"]:
 		check(coat_owner.has_method(method), "the controller exposes %s" % method)
 	check(not bool(coat_owner.call("is_attached")), "a fresh controller is not attached")
 	coat_owner.free()
@@ -910,8 +914,9 @@ func run() -> void:
 			"the patch swaps the include")
 		check(patched.code.contains("body_coat_deform(VERTEX)"),
 			"the patch swaps the deform call")
-		check(patched.code.contains("body_coat_vertex = VERTEX;"),
-			"the patch records the model-space coat position")
+		check(patched.code.contains(
+			"body_coat_vertex = (body_coat_anatomy_inverse * vec4(VERTEX, 1.0)).xyz;"),
+			"the patch records the anatomy-local coat position")
 		check(patched.code.contains("body_coat_vulva_cut(body_coat_vertex)"),
 			"the patch cuts the coat inside the vulva opening")
 		check(patched.code.contains("res://addons/cel-shader/includes/base-cel-shader.gdshaderinc"),
@@ -925,9 +930,96 @@ func run() -> void:
 		"a shader without a fragment hook still gets the coat deform")
 	check(deform_only == null or not deform_only.code.contains("body_coat_vulva_cut"),
 		"a shader without a fragment hook leaves the vulva cut out")
+	var near_source := Shader.new()
+	near_source.code = "shader_type spatial;\n" \
+		+ "const int ENTRIES = 32;\n" \
+		+ "varying flat int pal;\n" \
+		+ "#include \"res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc\"\n" \
+		+ "uniform float jiggle_entry[ENTRIES];\n" \
+		+ "void vertex() { pal = 0; VERTEX += flank_jiggle(VERTEX) * jiggle_entry[pal]; }\n" \
+		+ "void fragment() { ALBEDO = vec3(1.0); }"
+	var near_patched := COAT_PATCH.patched(near_source)
+	check(near_patched != null, "the near palette shader patch finds its hooks")
+	if near_patched != null:
+		check(near_patched.code.contains("uniform float body_coat_entry[ENTRIES];"),
+			"the near patch adds the body entry mask")
+		check(near_patched.code.contains("body_coat_deform(body_coat_posed)"),
+			"the near patch swaps in the coat deform")
+		check(near_patched.code.contains("body_coat_vulva_cut(body_coat_vertex)"),
+			"the near patch cuts the body entry")
+		check(near_patched.code.contains(
+			"body_coat_entry[pal] > 0.5 && body_coat_vulva_cut(body_coat_vertex)"),
+			"the near cut is gated on the body palette entry")
 	var unpatched := Shader.new()
 	unpatched.code = "shader_type spatial;"
 	check(COAT_PATCH.patched(unpatched) == null, "a shader without the hooks is left alone")
+	var game_body: Shader = load("res://addons/cel-shader/cel-shader-base.gdshader")
+	var game_near: Shader = load("res://world/characters/hybrid_mare/near_pony.gdshader")
+	var game_near_occlusion: Shader = load(
+		"res://world/characters/hybrid_mare/near_pony_occlusion.gdshader")
+	var game_near_outline: Shader = load(
+		"res://world/characters/hybrid_mare/near_pony_outline.gdshader")
+	check(COAT_PATCH.patched(game_body) != null, "the real body shader patches")
+	check(COAT_PATCH.patched(game_near) != null, "the real near pony shader patches")
+	var compiled := ShaderMaterial.new()
+	for source: Shader in [game_body, game_near, game_near_occlusion, game_near_outline]:
+		var real_patch := COAT_PATCH.patched(source)
+		check(real_patch != null, "the real coat shader compiles")
+		if real_patch != null:
+			compiled.shader = real_patch
+	for setting in [SETTINGS.anal_body_depth_mm, SETTINGS.coat_spread, SETTINGS.coat_hole,
+			SETTINGS.coat_hole_height, SETTINGS.coat_hole_depth_mm, SETTINGS.jiggle_still,
+			SETTINGS.anal_still, SETTINGS.still_oval, SETTINGS.still_fade,
+			SETTINGS.still_height_mm]:
+		check(setting.low <= -1000.0 and setting.high >= 1000.0,
+			"%s is an unbounded debug row" % setting.name)
+
+	var near_pony := NearCoatPony.new()
+	root.add_child(near_pony)
+	var near_body := MeshInstance3D.new()
+	near_body.name = "MareBody"
+	near_pony.add_child(near_body)
+	var near_head := MeshInstance3D.new()
+	near_head.name = "Head"
+	near_pony.add_child(near_head)
+	var near_mesh := MeshInstance3D.new()
+	near_pony.add_child(near_mesh)
+	var near_coat_source := Shader.new()
+	near_coat_source.code = "shader_type spatial;\n" \
+		+ "const int ENTRIES = 32;\n" \
+		+ "varying flat int pal;\n" \
+		+ "#include \"res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc\"\n" \
+		+ "uniform float jiggle_entry[ENTRIES];\n" \
+		+ "void vertex() { pal = 0; VERTEX += flank_jiggle(VERTEX) * jiggle_entry[pal]; }\n" \
+		+ "void fragment() { ALBEDO = vec3(1.0); }"
+	var palette := ShaderMaterial.new()
+	palette.shader = near_coat_source
+	var hull := ShaderMaterial.new()
+	hull.shader = near_coat_source
+	palette.next_pass = hull
+	var entries := [[near_pony.get_path_to(near_body), 0],
+		[near_pony.get_path_to(near_head), 0]]
+	near_pony._near = {"groups": [{"mi": near_mesh,
+		"group": {"variants": {"full": {"outputs": [{"entries": entries}]}}},
+		"built": {"full": {"materials": [palette]}}}]}
+	var near_coat := COAT.new()
+	near_coat.setup(near_pony, null)
+	near_coat.set("_body_mesh", near_body)
+	near_coat.set("_body_patched", true)
+	near_coat.call("_refresh_near")
+	check(palette.shader != near_coat_source and hull.shader != near_coat_source,
+		"the merged near body and outline are patched")
+	var near_mask: Variant = palette.get_shader_parameter("body_coat_entry")
+	check(near_mask is PackedFloat32Array and (near_mask as PackedFloat32Array).size() == 32,
+		"the near palette gets a full body-entry mask")
+	if near_mask is PackedFloat32Array:
+		var mask := near_mask as PackedFloat32Array
+		check(mask[0] > 0.5 and mask[1] < 0.5,
+			"only the MareBody palette entry gets the coat deform")
+	near_coat.call("restore")
+	check(palette.shader == near_coat_source and hull.shader == near_coat_source,
+		"the near palette shaders restore exactly")
+	near_pony.free()
 
 	_check_face_contact()
 

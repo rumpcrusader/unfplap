@@ -217,6 +217,7 @@ func _process(delta: float) -> void:
 	# probe keeps the rows it had before this chunk existed.
 	var process_started := Time.get_ticks_usec() if facts.perf_on and facts.state == 0 else 0
 	_heat_idle_tick(delta)
+	coat.tick()
 	coat.tick_debug()
 	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame())
 	var follow_started := Time.get_ticks_usec()
@@ -345,6 +346,10 @@ func body_outline_material() -> ShaderMaterial:
 	return coat.body_outline_material() if coat != null else null
 
 
+func body_coat_targets() -> Array:
+	return coat.targets() if coat != null else []
+
+
 ## Public coat refresh for the runtime's jiggle fallback. The private `_apply_body_coat` stays
 ## the implementation; the runtime no longer calls a private method.
 func body_coat_refresh() -> void:
@@ -356,7 +361,7 @@ func _apply_body_coat_uniforms() -> void:
 
 
 ## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig
-## coat (MareBody) is the visible one; NearBody is only the cutie-mark merge.
+## coat and the merged near body are patched; which one is visible depends on the near mesh.
 func _apply_body_coat() -> void:
 	coat.apply()
 

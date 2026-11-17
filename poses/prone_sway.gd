@@ -63,7 +63,25 @@ func _process_modification_with_delta(delta: float) -> void:
 		perf.call("pose_prone", Time.get_ticks_usec() - started)
 
 
+## The session's render-time replay: `skeleton_pose.apply_render()` rewrites the 30 body bones
+## after the modifier pass, so the current slide and nod are written once more after it. The
+## springs only advance in the modifier pass.
+func apply_render(sk: Skeleton3D) -> void:
+	if not is_instance_valid(mare) or facts == null:
+		return
+	if int(facts.state) not in [2, 3]: # ACTIVE / CLIMAX
+		return
+	_write(sk)
+
+
 func _apply(delta: float) -> void:
+	_tick(delta)
+	_write(get_skeleton())
+
+
+func _tick(delta: float) -> void:
+	if not is_instance_valid(mare) or facts == null:
+		return
 	var depth_value: Variant = facts.depth
 	var depth := clampf(float(depth_value), 0.0, 1.0)
 	var slide_target := SLIDE_SIGN * depth * SLIDE_M
@@ -74,11 +92,13 @@ func _apply(delta: float) -> void:
 	var nod_accel := -NOD_STIFFNESS * (_nod - nod_target) - NOD_DAMPING * _nod_velocity
 	_nod_velocity += nod_accel * delta
 	_nod += _nod_velocity * delta
+
+
+func _write(sk: Skeleton3D) -> void:
+	if not is_instance_valid(mare) or sk == null:
+		return
 	if absf(_slide) < 0.00001 and absf(_slide_velocity) < 0.00001 \
 			and absf(_nod) < 0.00001 and absf(_nod_velocity) < 0.00001:
-		return
-	var sk := get_skeleton()
-	if sk == null:
 		return
 	if not _cached:
 		_spine = sk.find_bone("pony_spine1")

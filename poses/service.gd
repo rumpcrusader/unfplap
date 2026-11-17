@@ -1448,6 +1448,8 @@ func render_write(context: Dictionary) -> void:
 		var standing_sk: Variant = pony.get("skeleton")
 		if is_instance_valid(pose_node) and standing_sk is Skeleton3D:
 			apply_render(standing_sk as Skeleton3D)
+			if is_instance_valid(body_sway):
+				body_sway.call("apply_render", standing_sk as Skeleton3D)
 		return
 	if family != "bed":
 		return
@@ -1459,6 +1461,8 @@ func render_write(context: Dictionary) -> void:
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(pose_node) and sk is Skeleton3D:
 		apply_render(sk as Skeleton3D)
+		if is_instance_valid(prone_sway):
+			prone_sway.call("apply_render", sk as Skeleton3D)
 	if bool(context.get("eye_camera_active", false)) and eye_camera.is_valid():
 		eye_camera.call()
 

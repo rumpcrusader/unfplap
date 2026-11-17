@@ -31,6 +31,13 @@ func _process_modification_with_delta(delta: float) -> void:
 		facts.perf("body_sway", Time.get_ticks_usec() - started)
 
 
+## The session's render-time replay: `skeleton_pose.apply_render()` rewrites the 30 body bones
+## after the modifier pass, so the current offset is written once more after it. The spring only
+## advances in the modifier pass.
+func apply_render(sk: Skeleton3D) -> void:
+	_write(sk)
+
+
 func _exit_tree() -> void:
 	if facts != null:
 		facts.standing_sway_offset = Vector3.ZERO
@@ -61,6 +68,11 @@ func pose_changed(view: Variant) -> void:
 
 
 func _apply(delta: float) -> void:
+	_tick(delta)
+	_write(get_skeleton())
+
+
+func _tick(delta: float) -> void:
 	if not is_instance_valid(mare) or facts == null:
 		return
 	var depth_value: Variant = facts.depth
@@ -77,8 +89,10 @@ func _apply(delta: float) -> void:
 	var accel := -SWAY_STIFFNESS * (_offset - target) - SWAY_DAMPING * _velocity
 	_velocity += accel * delta
 	_offset += _velocity * delta
-	var sk := get_skeleton()
-	if sk == null:
+
+
+func _write(sk: Skeleton3D) -> void:
+	if not is_instance_valid(mare) or facts == null or sk == null:
 		return
 	if not _cached:
 		_hips = sk.find_bone("pony_hips")

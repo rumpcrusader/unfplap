@@ -26,6 +26,15 @@ class FakePony extends Node3D:
 	var body_scale := 0.66
 
 
+class FakeSway extends SkeletonModifier3D:
+	var calls := 0
+	var skeletons: Array = []
+
+	func apply_render(sk: Skeleton3D) -> void:
+		calls += 1
+		skeletons.append(sk)
+
+
 class FakeActBody extends Node:
 	var sink: Array = []
 	var assets: Array = []
@@ -97,6 +106,7 @@ func run() -> void:
 	_check_missing_standing_asset()
 	_check_render_write()
 	_check_standing_render_write()
+	_check_sway_render_write()
 	_check_effective_paths()
 	_check_state_machine()
 	_check_oral_edge()
@@ -409,6 +419,39 @@ func _check_standing_render_write() -> void:
 	check(str(session.pose_node.get("diag_last_base")) == "authored",
 		"the standing render write reaches apply_render")
 	_free_live(made)
+
+
+## The pose evaluator owns the 30 body bones, so the session replays the active sway after it.
+func _check_sway_render_write() -> void:
+	var made := _live_session(CATALOG.STANDING)
+	var session: RefCounted = made["session"]
+	var body: Skeleton3D = made["body"]
+	var standing := FakeSway.new()
+	session.body_sway = standing
+	session.pose_node.amount = 1.0
+	session.pose_node.target_amount = 1.0
+	session.render_write({})
+	check(standing.calls == 1 and standing.skeletons[0] == body,
+		"the standing render write replays the body sway after the pose")
+	session.body_sway = null
+	standing.free()
+	_free_live(made)
+
+	var bed := _live_session(CATALOG.MISSIONARY)
+	var bed_session: RefCounted = bed["session"]
+	var bed_body: Skeleton3D = bed["body"]
+	var prone := FakeSway.new()
+	bed_session.prone_sway = prone
+	bed_session.pose_node.amount = 1.0
+	bed_session.pose_node.target_amount = 1.0
+	bed_session.bed_frame = Transform3D.IDENTITY
+	bed_session.pose_node.bed_frame = Transform3D.IDENTITY
+	bed_session.render_write({"bed_frame": Transform3D.IDENTITY})
+	check(prone.calls == 1 and prone.skeletons[0] == bed_body,
+		"the bed render write replays the prone sway after the pose")
+	bed_session.prone_sway = null
+	prone.free()
+	_free_live(bed)
 
 
 func _check_bones() -> void:

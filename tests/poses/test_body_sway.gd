@@ -57,6 +57,19 @@ func run() -> void:
 	check(skeleton.get_bone_pose(hips).origin.distance_to(base) > 0.0001,
 		"the pelvis leaves its base on a regular thrust")
 
+	# The pose evaluator rewrites the 30 body bones after the modifier pass; the session replays
+	# the sway from the render write, so the offset survives to the rendered frame.
+	var replayed := skeleton.get_bone_pose(hips).origin
+	skeleton.set_bone_pose_position(hips, base)
+	sway.call("apply_render", skeleton)
+	check(skeleton.get_bone_pose(hips).origin.is_equal_approx(replayed),
+		"the render replay restores the pelvis offset after the pose write")
+	check(facts.standing_sway_offset.length() > 0.0001,
+		"the render replay keeps the published world offset")
+	sway.call("apply_render", skeleton)
+	check(skeleton.get_bone_pose(hips).origin.is_equal_approx(replayed),
+		"a repeated render replay does not accumulate the offset")
+
 	view.contact_kind = "mouth"
 	sway.call("_apply", 0.05)
 	check(facts.standing_sway_offset == Vector3.ZERO,
@@ -65,6 +78,10 @@ func run() -> void:
 		"oral holds the sway spring at rest")
 	check(skeleton.get_bone_pose(hips).origin.is_equal_approx(base),
 		"oral leaves the pelvis at its base")
+	sway.call("apply_render", skeleton)
+	check(skeleton.get_bone_pose(hips).origin.is_equal_approx(base)
+		and facts.standing_sway_offset == Vector3.ZERO,
+		"the oral render replay keeps the pelvis and published offset at rest")
 
 	view.contact_kind = "opening"
 	for _i: int in 4:

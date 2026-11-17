@@ -29,9 +29,10 @@ provider never reads a node, a tree, the clock, the filesystem, the settings fil
 private fields.
 
 The world adapter owns its every-frame hull update and fixed-fallback node discovery, the per-node
-material overrides, its cached feature/debug values and the act-start undress. It reads the anatomy
-through `main.anatomy` and the game through `main.game`; it never preloads either host and never
-edits the pack.
+material overrides, its cached feature/debug values and the act-start undress. The undress is the
+game's own `take_off` action when her executor exists, with the direct wardrobe calls as its
+fallback. It reads the anatomy through `main.anatomy` and the game through `main.game`; it never
+preloads either host and never edits the pack.
 
 The runtime constructs one service per act through `_integrations_controller()` and passes its typed
 `shared/act_facts.gd` view. The runtime calls `begin()`, `tick()`, `afterglow()`,
@@ -153,12 +154,19 @@ top-level world mesh that copies the anatomy mesh's transform, so the field can 
 when the anatomy is hidden (far mesh or `act` mode outside an act); the overlay state and the
 reason it is hidden are logged once per change with debug logs on.
 
-On `anatomy.act_started` the adapter calls the wardrobe's `set_worn(id, "panties", false)` and
-`set_worn(id, "pantyhose", false)` and then `dress(pony, id, season)` immediately, so the nodes are
-gone before the first rendered act frame. `set_worn` writes the game's own `pony_off` state; the
-adapter does not restore anything at act end, so she stays undressed until she is asked or given a
-new piece. A missing wardrobe, pony id or season is a quiet no-op (the season falls back to
-`spring`).
+On `anatomy.act_started` the adapter reads `wanted()` under the wardrobe's own `_season()` and
+collects the kinds she wears from this pack (`panties-*`, `pantyhose-*`). It sends one `take_off`
+action per kind through the game's action coordinator (`conversation_director.actions.commit`)
+with the director's current turn — the same path as one of her own `[take_off]` replies. The
+executor calls the pack's `set_worn()` and `dress()` synchronously inside that commit, so the
+nodes are gone before the first rendered act frame, and the game records the action outcome for
+her dialogue prompt. When the director, her executor or an accepted commit is unavailable, the
+adapter falls back to the same two wardrobe calls itself: `set_worn(kind, false)` for every worn
+kind, then `dress(pony, id, season)`. The id is the pony's `identity.id` and the season the
+wardrobe's own `_season()` (falling back to `spring`), the same key and season every other
+wardrobe call uses. `set_worn` writes the game's own `pony_off` state; the adapter does not
+restore anything at act end, so she stays undressed until she is asked or given a new piece. A
+missing wardrobe, pony id or worn piece is a quiet no-op.
 
 The compatibility shaders are `integrations/shaders/pantyhose_common.gdshaderinc`,
 `pantyhose_cut.gdshader` and `pantyhose_sheer.gdshader`: a self-contained copy of 0.1.1's look
@@ -209,8 +217,8 @@ the world adapter on the same settings edit.
 | `hold_beat(owner)` / `release_beat(owner)` | acquire or release the runtime's shared excitement Beat hold |
 | `main.anatomy` | the controller's `garment_hull()`, `garment_transform()`, `garment_visible()`, `garment_parent()`, `garment_hull_rebuild()` and the `act_started` signal |
 | `main.game.mares` | the loaded mares the world adapter scans |
-| `main.game.Weather` | the wardrobe season the undress passes to `dress()` |
-| `pony_wardrobe` group | the wardrobe's `set_worn()` and `dress()` for the act undress |
+| `pony_wardrobe` group | the wardrobe's `wanted()`, `_season()`, `set_worn()` and `dress()` for the act undress |
+| `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
 | `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` |
 
 ## Dependencies
@@ -238,7 +246,9 @@ the world adapter on the same settings edit.
   bond cap, the pause fade, afterglow, an Affection kiss and the full-fidget restore/suppress.
 - `tests/integrations/test_pantyhose.gd` — the hull builder (fixture and real anatomy mesh), the
   transform mapping, the surface overrides and restore, the shared mesh, multi-mare independence,
-  the act-start undress, the feature/pack/wardrobe/weather guards and the debug rebuild/overlay.
+  the act-start undress (the `take_off` commit with the director's turn, the identity-id key, the
+  wardrobe's season, the direct fallback and the nothing-worn no-op), the feature/pack/wardrobe
+  guards and the debug rebuild/overlay.
 - `tests/integrations/test_service.gd` — binding resolution, save/restore, optional bindings,
   the reaction cap, live feature edits, shared Beat ownership, full fidgets, idempotent reset and
   the absence of a per-act provider for the world integration.

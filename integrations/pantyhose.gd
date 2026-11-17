@@ -5,7 +5,8 @@ extends Node
 ## anatomy mesh pokes through the cloth. This adapter samples a depth field built from the
 ## anatomy mesh (see `anatomy/garment_hull.gd`) and lifts each garment surface over it with a
 ## self-contained copy of the 0.1.1 look shaders. It also takes the lower garment off when an
-## anatomy act starts, using the wardrobe's own saved `pony_off` state.
+## anatomy act starts, through the game's own `take_off` action, so the pack's `pony_off` state and
+## the outcome her dialogue prompt reads are the same as when she takes it off herself.
 ##
 ## Scope: world. `main.gd` constructs it once, calls `on_world()`/`on_world_closed()` with the
 ## world and `apply_live_settings()` on every settings edit. It never preloads `main.gd`,
@@ -452,9 +453,11 @@ func _disconnect_anatomy() -> void:
 		anatomy.disconnect("act_started", _on_act_started)
 
 
-## The act start. `set_worn` writes the wardrobe's saved `pony_off`, then `dress` removes the
-## nodes immediately so the first rendered act frame is already undressed. There is no restore
-## on act end: she stays undressed until she is asked or given a new piece.
+## The act start. `wanted()` names the pieces she wears, and `_take_off_action()` sends one
+## `take_off` per kind, so the pack's `set_worn`/`dress` run synchronously and the first rendered
+## act frame is already undressed. A missing director, executor or accepted commit falls back to
+## the same two wardrobe calls. There is no restore on act end: she stays undressed until she is
+## asked or given a new piece.
 func _on_act_started(pony: Node3D) -> void:
 	if not _undress or not _mod_active_now():
 		return

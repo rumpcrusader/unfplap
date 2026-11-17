@@ -12,7 +12,6 @@ const WINDOW_S := 1.0
 ## Chunk containment outside an act. A chunk without an entry, or whose parent did not print in
 ## this window, is a root; the anatomy controller's own chunks nest under its whole process.
 const PARENTS := {
-	"entry_caption": "entry_process",
 	"entry_initiation": "entry_process",
 	"entry_negotiation": "entry_process",
 	"entry_watch": "entry_process",

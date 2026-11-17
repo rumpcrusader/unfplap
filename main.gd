@@ -600,10 +600,7 @@ func _close_idle_chunk(key: String, started: int) -> void:
 func _process_entry(delta: float, timed: bool) -> void:
 	# The caption move is an act-only path; the two reads behind it are not worth a per-frame call.
 	if _captions_on_top and is_instance_valid(active_runtime):
-		var caption_started := Time.get_ticks_usec() if timed else 0
 		_caption_top_tick()
-		if timed:
-			_close_idle_chunk("entry_caption", caption_started)
 	if not is_instance_valid(player) and is_instance_valid(game):
 		var body: Variant = game.get("player")
 		if is_instance_valid(body):

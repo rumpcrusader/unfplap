@@ -15,13 +15,14 @@ extends Node
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Garment hull`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
 
 const MOD_ID := "pantyhose"
 ## The garment nodes are children of the body's parent, next to `MareBody`.
 const PREFIXES := ["Wear_panties-", "Wear_pantyhose-"]
+## The same two families as item kinds, so `wanted()` names the pieces to take off.
+const KIND_PREFIXES := ["panties-", "pantyhose-"]
 ## How often the adapter re-discovers the worn nodes. The hull transform and instance uniforms
 ## update every frame; this only catches a new/removed garment.
 const DISCOVER_S := 0.5
@@ -463,20 +464,67 @@ func _on_act_started(pony: Node3D) -> void:
 	if tree == null:
 		return
 	var wardrobe: Node = tree.get_first_node_in_group("pony_wardrobe")
-	if wardrobe == null or not wardrobe.has_method("set_worn") or not wardrobe.has_method("dress"):
+	if wardrobe == null or not wardrobe.has_method("set_worn") or not wardrobe.has_method("dress") \
+			or not wardrobe.has_method("wanted"):
 		_log("undress skipped: no pony wardrobe")
 		return
-	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+	var identity: Variant = pony.get("identity")
+	var id := str(identity.get("id")) if identity != null else ""
 	if id.is_empty():
 		_log("undress skipped: no pony id")
 		return
-	var weather := _game.get_node_or_null("Weather")
-	var season := str(weather.get("season")) if weather != null else "spring"
-	var panties := str(wardrobe.call("set_worn", id, "panties", false))
-	var hose := str(wardrobe.call("set_worn", id, "pantyhose", false))
+	var season: String = str(wardrobe.call("_season")) if wardrobe.has_method("_season") else "spring"
+	var kinds := _worn_hosiery(wardrobe.call("wanted", id, season))
+	if kinds.is_empty():
+		return
+	if _take_off_action(tree, id, kinds, wardrobe, season):
+		_log("undress %s (%s) through take_off" % [id, ", ".join(kinds)])
+		return
+	for kind: String in kinds:
+		wardrobe.call("set_worn", id, kind, false)
 	wardrobe.call("dress", pony, id, season)
-	if not panties.is_empty() or not hose.is_empty():
-		_log("undress %s (%s%s)" % [id, panties, hose])
+	_log("undress %s (%s)" % [id, ", ".join(kinds)])
+
+
+## The worn kinds among `wanted()`'s `{kind: colour}` that are this pack's lower garments.
+static func _worn_hosiery(worn: Variant) -> Array[String]:
+	var kinds: Array[String] = []
+	if not worn is Dictionary:
+		return kinds
+	for key: Variant in (worn as Dictionary).keys():
+		var kind := str(key)
+		for prefix: String in KIND_PREFIXES:
+			if kind.begins_with(prefix):
+				kinds.append(kind)
+				break
+	return kinds
+
+
+## The `take_off` action her own reply would use. The game's executor runs the pack's `set_worn`
+## and `dress` and records the outcome for her prompt. False when it cannot run or the pieces are
+## still worn, so the caller takes the direct path.
+func _take_off_action(tree: SceneTree, id: String, kinds: Array[String], wardrobe: Node,
+		season: String) -> bool:
+	var director: Node = tree.get_first_node_in_group("conversation_director")
+	if director == null:
+		return false
+	var coordinator: Variant = director.get("actions")
+	if not coordinator is Node or not is_instance_valid(coordinator) \
+			or not (coordinator as Node).has_method("commit"):
+		return false
+	var executors: Variant = coordinator.get("executors")
+	if not executors is Dictionary or not (executors as Dictionary).has(id):
+		return false
+	var turn_value: Variant = director.get("_turn_id")
+	var turn: int = int(turn_value) if turn_value is int else 0
+	var actions: Array = []
+	for kind: String in kinds:
+		actions.append({"id": "undress " + kind, "type": "take_off", "kind": kind})
+	var error := str(coordinator.call("commit", id, actions, {}, turn))
+	if not error.is_empty():
+		_log("take_off refused: " + error)
+		return false
+	return _worn_hosiery(wardrobe.call("wanted", id, season)).is_empty()
 
 
 # --------------------------------------------------------------------------- debug heatmap

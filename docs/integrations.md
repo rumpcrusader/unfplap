@@ -221,7 +221,6 @@ the world adapter on the same settings edit.
 |---|---|---|---|
 | service | settings | `settings/service.gd` | feature flags, hull precision and the cached values |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog |
-| shared | pony_id | `shared/pony_id.gd` | stable id for the wardrobe's `set_worn()` |
 
 ### Used by
 

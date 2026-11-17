@@ -53,8 +53,8 @@ class FakeGame extends Node:
 	var mares: Array = []
 
 
-class FakeWeather extends Node:
-	var season := "winter"
+class FakeIdentity extends Resource:
+	var id := ""
 
 
 class FakePony extends Node3D:
@@ -63,13 +63,48 @@ class FakePony extends Node3D:
 
 class FakeWardrobe extends Node:
 	var calls: Array[String] = []
+	## What `wanted()` answers: {kind: colour index}, like the game's wardrobe.
+	var wanted_map: Dictionary = {}
+	var season := "winter"
+
+	func wanted(_id: String, _season: String) -> Dictionary:
+		return wanted_map
 
 	func set_worn(id: String, spoken: String, on: bool) -> String:
 		calls.append("set_worn:%s:%s:%s" % [id, spoken, str(on)])
+		if on:
+			wanted_map[spoken] = 0
+		else:
+			wanted_map.erase(spoken)
 		return spoken
 
 	func dress(pony: Node3D, id: String, season: String) -> void:
 		calls.append("dress:%s:%s:%s" % [id, season, pony.name])
+
+	func _season() -> String:
+		return season
+
+
+class FakeCoordinator extends Node:
+	var executors: Dictionary = {}
+	var commits: Array[Dictionary] = []
+	var wardrobe: Node = null
+	var refuse := false
+
+	func commit(id: String, actions: Array, targets: Dictionary, turn: int) -> String:
+		commits.append({"id": id, "actions": actions.duplicate(true), "targets": targets, "turn": turn})
+		if refuse:
+			return "Not now"
+		# The game's executor runs the wardrobe itself, not the adapter: keep `calls` adapter-only.
+		for action: Variant in actions:
+			if wardrobe != null:
+				wardrobe.wanted_map.erase(str((action as Dictionary).get("kind", "")))
+		return ""
+
+
+class FakeDirector extends Node:
+	var actions: Node = null
+	var _turn_id := 7
 
 
 func _initialize() -> void:
@@ -333,6 +368,9 @@ func _free_world(scene: Dictionary) -> void:
 func _pony(id: String) -> FakePony:
 	var pony := FakePony.new()
 	pony.name = id.capitalize()
+	var identity := FakeIdentity.new()
+	identity.id = id
+	pony.identity = identity
 	pony.set_meta("relationship_id", id)
 	root.add_child(pony)
 	return pony
@@ -563,42 +601,98 @@ func _check_undress() -> void:
 	var anatomy: FakeAnatomy = scene["anatomy"]
 	var integration: Node = scene["integration"]
 	var pony := _pony("rarity")
+	# The wardrobe's key is identity.id; a different relationship meta must not reach it.
+	pony.set_meta("relationship_id", "rarity_meta")
 	game.mares = [pony]
-	var weather := FakeWeather.new()
-	weather.name = "Weather"
-	game.add_child(weather)
 	var wardrobe := FakeWardrobe.new()
 	wardrobe.name = "Wardrobe"
+	wardrobe.wanted_map = {"panties-lace": 0, "pantyhose-sheer": 0}
+	wardrobe.season = "winter"
 	wardrobe.add_to_group("pony_wardrobe")
 	root.add_child(wardrobe)
+	var coordinator := FakeCoordinator.new()
+	coordinator.name = "Coordinator"
+	coordinator.wardrobe = wardrobe
+	coordinator.executors = {"rarity": true}
+	root.add_child(coordinator)
+	var director := FakeDirector.new()
+	director.name = "Director"
+	director.actions = coordinator
+	director.add_to_group("conversation_director")
+	root.add_child(director)
+
+	# Her own take_off action: one commit, the kinds she wears, the director's own turn.
 	anatomy.act_started.emit(pony)
-	check(wardrobe.calls.has("set_worn:rarity:panties:false"),
-		"the act takes the panties off")
-	check(wardrobe.calls.has("set_worn:rarity:pantyhose:false"),
-		"the act takes the pantyhose off")
-	check(wardrobe.calls.has("dress:rarity:winter:Rarity"),
-		"the wardrobe removes the nodes immediately")
+	check(coordinator.commits.size() == 1, "the act takes the game's take_off path")
+	var row: Dictionary = coordinator.commits[0] if not coordinator.commits.is_empty() else {}
+	var acts: Array = row.get("actions", [])
+	check(str(row.get("id", "")) == "rarity", "the take_off names her identity id")
+	check(int(row.get("turn", -1)) == 7, "the take_off keeps the director's turn")
+	check(acts.size() == 2
+		and str((acts[0] as Dictionary).get("kind", "")) == "panties-lace"
+		and str((acts[1] as Dictionary).get("kind", "")) == "pantyhose-sheer",
+		"the take_off actions name the kinds she wears")
+	check(acts.all(func(action: Variant) -> bool:
+		return str((action as Dictionary).get("type", "")) == "take_off"),
+		"both actions are take_off")
+	check(acts.size() == 2
+		and str((acts[0] as Dictionary).get("id", "")) != str((acts[1] as Dictionary).get("id", "")),
+		"the action ids stay unique within the turn")
+	check(wardrobe.calls.is_empty(), "the action path does not also call the wardrobe")
+	check(wardrobe.wanted_map.is_empty(), "both pieces are off")
 	integration.call("scan")
-	check(wardrobe.calls.size() == 3, "the undress does not repeat on the next scan")
+	check(coordinator.commits.size() == 1, "the undress does not repeat on the next scan")
 	wardrobe.calls.clear()
+
+	# A refused commit takes the direct path with the wardrobe's own season and id.
+	wardrobe.wanted_map = {"panties-lace": 0, "pantyhose-sheer": 0}
+	coordinator.refuse = true
+	anatomy.act_started.emit(pony)
+	check(wardrobe.calls.has("set_worn:rarity:panties-lace:false"),
+		"a refused take_off still removes the panties")
+	check(wardrobe.calls.has("set_worn:rarity:pantyhose-sheer:false"),
+		"a refused take_off still removes the pantyhose")
+	check(wardrobe.calls.has("dress:rarity:winter:Rarity"),
+		"the fallback dresses her with the wardrobe's season")
+	check(not wardrobe.calls.has("set_worn:rarity_meta:panties-lace:false"),
+		"the fallback keys by identity, not the relationship meta")
+	coordinator.refuse = false
+	wardrobe.calls.clear()
+	var commits := coordinator.commits.size()
+
+	# A pony the director does not track also takes the direct path.
+	wardrobe.wanted_map = {"panties-lace": 0}
+	coordinator.executors = {}
+	anatomy.act_started.emit(pony)
+	check(wardrobe.calls.has("set_worn:rarity:panties-lace:false"),
+		"a missing executor takes the direct path")
+	wardrobe.calls.clear()
+	coordinator.executors = {"rarity": true}
+
+	# Nothing of the pack's is worn: no action, no outcome, no wardrobe call.
+	wardrobe.wanted_map = {"scarf": 0}
+	anatomy.act_started.emit(pony)
+	check(coordinator.commits.size() == commits and wardrobe.calls.is_empty(),
+		"a mare with only her winter scarf is not touched")
+
 	var before := SETTINGS.pantyhose_undress.get_bool()
 	SETTINGS.pantyhose_undress.set_bool(false)
 	integration.call("apply_live_settings")
+	wardrobe.wanted_map = {"panties-lace": 0}
 	anatomy.act_started.emit(pony)
-	check(wardrobe.calls.is_empty(), "the undress flag can keep her dressed")
+	check(coordinator.commits.size() == commits and wardrobe.calls.is_empty(),
+		"the undress flag can keep her dressed")
 	SETTINGS.pantyhose_undress.set_bool(before)
 	integration.call("apply_live_settings")
 	integration.set("mod_active", func() -> bool: return false)
 	anatomy.act_started.emit(pony)
 	check(wardrobe.calls.is_empty(), "an absent pantyhose pack leaves the wardrobe alone")
 	integration.set("mod_active", func() -> bool: return true)
-	weather.free()
-	anatomy.act_started.emit(pony)
-	check(wardrobe.calls.has("dress:rarity:spring:Rarity"),
-		"a missing weather falls back to spring")
 	wardrobe.free()
 	anatomy.act_started.emit(pony)
 	check(true, "a missing wardrobe is a quiet no-op")
+	director.free()
+	coordinator.free()
 	pony.free()
 	_free_world(scene)
 

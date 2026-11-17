@@ -58,6 +58,10 @@ bed_frame (the live missionary bed frame, or null), bed, profile
 physics_delta (the physics tick delta the hand and reach easing uses)
 ```
 
+`standing_sway_offset` is the world-space pelvis offset the standing body sway publishes; the
+standing Anon controller adds it to his pinned hip. It is zero outside the standing family and
+while the oral segment holds the body still.
+
 `pose_view` is the pose read model (`shared/pose_view.gd`): the pose identity, the spec profiles,
 the live config and the live contact and facing values. It is the read path for every
 presentation module. During an authored transition, `pose_state` is `TRANSITIONING` and

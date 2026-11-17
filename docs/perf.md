@@ -128,7 +128,8 @@ The act probe's own chunks, in call order inside one physics tick: `pose_tick`, 
 camera/hands/kiss/anatomy/audio hooks. The facts sync carries the one `pose_view`; the standing
 camera reads its facing each physics tick, and the mouth/contact provider reads its
 `contact_kind`. The skeleton modifiers report `pose_recipe` (`UnfplapPose`) and `pose_prone`
-(`UnfplapProneSway`); `runtime_process` covers the render-time pose write. Chunks nest:
+(`UnfplapProneSway`); `runtime_process` covers the render-time pose write and the sway replay.
+Chunks nest:
 `runtime_presentation` contains `wings_tick`, and `caress_tick` contains `caress_precise` →
 `caress_path` (the one-time path/anchor build) and `caress_surface` → `caress_skin`/`caress_tri`/
 `caress_ray`. `caress_path` only reports on a build tick; a large max there with every other chunk

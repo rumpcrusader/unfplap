@@ -139,7 +139,7 @@ dictionary for the session: `set_pose_config()`, `sync_standing_config()` and
 `sync_missionary_config()` merge into it in place, so the pose modifier, `view.pose_config` and
 the standing camera's cached config all alias the same object. `poses/body_sway.gd` publishes its
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
-runtime reads it from there. The session binds `facts`, `perf` and
+standing Anon controller reads it from there. The session binds `facts`, `perf` and
 `log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module
 that reaches into the runtime fails `tests/test_source_hygiene.gd`.
 
@@ -663,8 +663,10 @@ Missionary is its own state, not the game's bed rest:
   `enter`/`leave`, the posture and the terrain solver), so the modifier's write is not what the
   renderer sees. The runtime therefore applies the same recipe once more from `_process`, after
   every physics and process writer of the frame: `skeleton_pose.apply_render()`, same weight, no
-  extra ramp and no clock advance. The physics-pass write stays because the game's own contacts and
-  pose layers read the skeleton during the tick.
+  extra ramp and no clock advance. The active sway then replays its current offset on the same
+  skeleton, because the pose write owns the body bones it moves: `body_sway` for standing and
+  `prone_sway` for the bed. The springs only advance in the modifier pass. The physics-pass write
+  stays because the game's own contacts and pose layers read the skeleton during the tick.
 - **What is written.** The 30 body bones in `PONY_BONES` (`tools/pose_lab.gd`) — hips, spine1–3,
   neck1–2, flanks, femurs, tibias, legLowers, tarsals, hooves, shoulders, upper/lower arms, wrists,
   hands and fingers — plus the skeleton **root** (the armature bone) for placement. The actor node
@@ -790,10 +792,13 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   follow the raised floor. The rule, prop and supply are in `docs/stool.md`.
 - `poses/body_sway.gd` translates `pony_hips` with an inverted damped spring: back on inward depth,
   forward on outward depth. All four limb-root origins are preserved so the hooves stay planted.
-  The same world offset is added to Anon's pinned hip so the contact rocks together.
-  `BODY_SWAY_MAX_M = 0.035`. While `facts.pose_view.contact_kind == "mouth"` (the standing oral
-  segment), the spring target, offset and published world offset stay at zero, so the pelvis holds
-  its recipe base; with oral off the spring runs unchanged.
+  The same world offset is added to Anon's pinned hip so the contact rocks together. The spring
+  ticks in the modifier pass; `render_write()` replays the current offset after
+  `skeleton_pose.apply_render()`, because that write owns the 30 body bones and would otherwise
+  erase the pelvis motion before the frame renders. `BODY_SWAY_MAX_M = 0.035`. While
+  `facts.pose_view.contact_kind == "mouth"` (the standing oral segment), the spring target, offset
+  and published world offset stay at zero, so the pelvis holds its recipe base; with oral off the
+  spring runs unchanged.
 - Strong thrusts build a subtle rump blush decal up to `0.375` albedo mix (smack uses `0.8`).
   The reaction facade and the jiggle values are in `docs/reactions.md`.
 - `poses/ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
@@ -869,9 +874,10 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 - `runtime._process`: view-depth travel, lean, climax wave, breath, look point, pose climax flag.
   `_process_tick` calls `poses/service.gd`'s `render_write()`, which owns the render-time order:
-  for the bed family, park the game presentation and place the act's Anon body, write her pose, then
-  the eye-shot camera tick; for the standing family, sync the ground frame and write her pose
-  after every game writer. It then calls `camera/service.gd`'s
+  for the bed family, park the game presentation and place the act's Anon body, write her pose,
+  replay the prone sway, then the eye-shot camera tick; for the standing family, sync the ground
+  frame, write her pose and replay the body sway after every game writer. It then calls
+  `camera/service.gd`'s
   `write_look_target()`, which owns the look point (the missionary gaze, the kissing-mouth blend and
   the authored-Anon fallback) and the pose's kiss and climax weights.
 - `runtime._physics_process`: presentation, timers, facing lock, glances,
@@ -950,8 +956,8 @@ teardown; it stays unchanged.
 
 ## Tests
 
-- `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs,
-  the session API, the effective driver/base paths, the state machine, the
+- `tests/poses/test_session.gd` — pose build/free, bed frame follow, modifier installs, the
+  render-time sway replay, the session API, the effective driver/base paths, the state machine, the
   request/refusal codes, the target snapshot with the presentation, the requested evaluator pair,
   the target adoption, the live/target asset pair and its completion and reload, the tick/switch/
   status path, the real control profiles, the pose-change hook
@@ -1003,7 +1009,10 @@ teardown; it stays unchanged.
   the old procedural pose on every owned bone including `pony_head`, four-size body parity, contact,
   anchor, reference config, and the four-size oral neck/head parity against the reference recipe
   plus the same delta.
-- `tests/poses/test_body_sway.gd` — the regular depth sway, the zeroed oral hold and the release.
+- `tests/poses/test_body_sway.gd` — the regular depth sway, the render replay after the pose write,
+  the zeroed oral hold and the release.
+- `tests/poses/test_prone_sway.gd` — the missionary slide and nod, the render replay after the pose
+  write and the active-state gate.
 - `tests/poses/test_tail_chain.gd` — the hair/body chain resolver, the body-tail aside/lift, bed lay
   and post-stop tuck.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split, including the body-tail

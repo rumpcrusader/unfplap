@@ -1434,16 +1434,17 @@ func apply_render(skeleton: Skeleton3D) -> void:
 
 
 ## The whole render-time step for one frame, in order: park the game presentation and place the
-## act's own Anon body over it, write her pose last, then let the eye-shot camera read his posed
-## head. The runtime owns the call site in `_process_tick`; this facade owns the sequence.
+## act's own Anon body over it, write her pose, replay the sway that pose write would erase, then
+## let the eye-shot camera read his posed head. The runtime owns the call site in `_process_tick`;
+## this facade owns the sequence.
 ## Context: `bed_frame`, `body_scale`, `eye_camera_active`. The view family is the active pose's.
 func render_write(context: Dictionary) -> void:
 	if not is_instance_valid(pony):
 		return
 	var family := str(_view.family)
 	if family == "standing":
-		# Same order as the bed family: the ground frame, then the pose write after every physics
-		# and process writer of the frame.
+		# Same order as the bed family: the ground frame, the pose write after every physics and
+		# process writer of the frame, then the sway replay on top of that write.
 		sync_ground_frame()
 		var standing_sk: Variant = pony.get("skeleton")
 		if is_instance_valid(pose_node) and standing_sk is Skeleton3D:

@@ -182,7 +182,6 @@ func run() -> void:
 	_check_oral_lean()
 	_check_retarget()
 	_check_lock_and_eye()
-	_check_anatomy_drop()
 	_check_look()
 	_check_free_look()
 	_check_motion()
@@ -466,38 +465,6 @@ func _check_lock_and_eye() -> void:
 	check(near(standing.call("act_eye_height"), 1.61), "the same-height act eye is normal")
 	check(near(player._stand_eye, 2.4) and near(player._eye_height, 2.4),
 		"the standing act never edits the player's eye height")
-	main.remove_child(player)
-	main.remove_child(main.view)
-	player.free()
-	(main.view as Camera3D).free()
-	main.free()
-
-
-func _check_anatomy_drop() -> void:
-	var made := _fixture()
-	var facts: RefCounted = made["facts"]
-	var main := made["main"] as FakeMain
-	var player := made["player"] as FakePlayer
-	facts.player_eye_height = 1.61
-	facts.size_name = "mounting"
-	var standing: RefCounted = STANDING_CAMERA.new(facts)
-	facts.anatomy_hip_offset = func() -> Vector3: return Vector3(0.0, -0.2, 0.0)
-	standing.call("_update_anatomy_drop", 0.2)
-	check(near(standing.call("anatomy_drop_m"), 0.2),
-		"the hip offset's vertical part becomes the camera drop")
-	check(near(standing.call("act_eye_height"), 1.51),
-		"the anatomy drop lowers the effective standing eye")
-	facts.anatomy_hip_offset = func() -> Vector3: return Vector3.ZERO
-	standing.call("_update_anatomy_drop", 0.2)
-	check(near(standing.call("anatomy_drop_m"), 0.2),
-		"a settled hip offset holds the camera drop")
-	facts.anatomy_hip_offset = func() -> Vector3: return Vector3(0.0, 0.2, 0.0)
-	standing.call("_update_anatomy_drop", 0.2)
-	check(near(standing.call("anatomy_drop_m"), 0.0),
-		"an upward hip offset releases the camera drop")
-	check(near(STANDING_CAMERA.anatomy_drop_next(0.0, -0.1, 0.1), 0.1),
-		"the drop eases over its fixed window")
-	facts.anatomy_hip_offset = Callable()
 	main.remove_child(player)
 	main.remove_child(main.view)
 	player.free()

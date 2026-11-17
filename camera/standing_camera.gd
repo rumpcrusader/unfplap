@@ -16,7 +16,6 @@ const GLANCE_YAW := 3.0
 const GLANCE_BACK_PITCH := 1.2
 const GLANCE_BACK_CHANCE := 0.5
 const CAM_SPEED_SMOOTH_S := 0.06
-const ANATOMY_DROP_SECONDS := 0.20
 const STATE_IDLE := 0
 const STATE_RESTORE := 5
 
@@ -34,7 +33,6 @@ var _pose_cfg_key := ""
 var _applied_bob := 0.0
 var _applied_lean := 0.0
 var _applied_side := 0.0
-var _anatomy_drop_m := 0.0
 var _standing_base_look := Vector3.INF
 var _standing_base_local := Vector3.ZERO
 var _standing_base_saved := false
@@ -170,22 +168,7 @@ func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> 
 	_applied_side = side
 
 func _standing_eye_height() -> float:
-	return float(facts.player_eye_height) + eye_delta_for(str(facts.size_name)) - _anatomy_drop_m
-
-static func anatomy_drop_next(current: float, offset_y: float, delta: float) -> float:
-	var target := maxf(0.0, current - offset_y)
-	return move_toward(current, target, maxf(delta, 0.0) / ANATOMY_DROP_SECONDS)
-
-func anatomy_drop_m() -> float:
-	return _anatomy_drop_m
-
-func _update_anatomy_drop(delta: float) -> void:
-	if facts == null or not facts.anatomy_hip_offset.is_valid():
-		return
-	var offset: Variant = facts.anatomy_hip_offset.call()
-	if not offset is Vector3 or not (offset as Vector3).is_finite():
-		return
-	_anatomy_drop_m = anatomy_drop_next(_anatomy_drop_m, (offset as Vector3).y, delta)
+	return float(facts.player_eye_height) + eye_delta_for(str(facts.size_name))
 
 ## The per-size net offset on Anon's normal standing eye. Canon lowers the eye line and JRHNBR
 ## raises it; every other preset keeps the normal eye.
@@ -426,7 +409,6 @@ func reset() -> void:
 	_applied_bob = 0.0
 	_applied_lean = 0.0
 	_applied_side = 0.0
-	_anatomy_drop_m = 0.0
 	_standing_base_saved = false
 	_standing_base_look = Vector3.INF
 	_standing_base_local = Vector3.ZERO
@@ -486,10 +468,6 @@ func tick() -> void:
 	var kiss: Variant = facts.kiss_controller()
 	if kiss == null:
 		return
-	var delta := 0.0
-	if is_instance_valid(main):
-		delta = main.get_process_delta_time()
-	_update_anatomy_drop(delta)
 
 	var lean_scale := float(facts.standing_lean_scale)
 	_set_camera_offsets(float(facts.bob) - kiss.lean_drop() * kiss.lean() - float(facts.anon_torso_drop),
@@ -524,7 +502,6 @@ func restore() -> void:
 	_applied_bob = 0.0
 	_applied_lean = 0.0
 	_applied_side = 0.0
-	_anatomy_drop_m = 0.0
 	_standing_base_saved = false
 	_depth_prev = 0.0
 	_depth_speed = 0.0

@@ -36,7 +36,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/act/debug.gd` | the three aim markers |
 | `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
 | `anatomy/coat.gd` | rig and merged-near coat patch, vulva/anal spread, the vulva cut and the still zones |
-| `anatomy/coat_line.gd` | samples a vertical line on the body coat and bends/stretches the anatomy shell with it |
+| `anatomy/coat_line.gd` | bends the anatomy shell around a vertical line driven by the hind legs |
 | `anatomy/coat_line_debug.gd` | debug overlay for the rest/live coat line and its cross-sections |
 | `anatomy/garment_hull.gd` | the worn-garment rear-facing outer depth field, shared by every mare |
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
@@ -530,24 +530,22 @@ appearance, including the missionary-only fold hack, when the pose family change
 
 ### Coat line
 
-The anatomy mesh is rigidly attached to `pony_hips`, while the visible rig coat is skinned to
-`pony_hips` plus the hind-leg and spine bones. Without a follow, the coat's rump moves with the
-hind legs and the anatomy rim slides out of the coat. The coat line gives the anatomy the body's
-own deformation as one vertical line: when the line bends, every cross-section of the mesh bends
-with it, and when the line stretches, the mesh stretches along it.
+The anatomy mesh is rigidly attached to `pony_hips`. The coat line is a vertical line in the
+anatomy mesh's local space: when the line bends, every cross-section of the mesh bends with it,
+and when the line stretches, the mesh stretches along it. It is a simple uniform bend, not a
+sample of the body coat.
 
-- `anatomy/coat_line.gd` finds the skinned `MareBody`, buckets its rest vertices into a 2 cm grid
-  and samples `LINE_SAMPLES` targets at `x = 0` across the bits mesh's local Y range. Each target
-  maps through the untrimmed `base_place` into body rest space and resolves to its nearest body
-  rest vertex (5×5×5 cell search). The vertex's full skin influence map is kept, not only the
-  four leg bones, so the line also follows the spine and any other body bone.
-- `geometry.coat_line_samples()` is pure: nearest vertex, returned rest point and normalized
-  bind-name → weight map. Samples are sorted by local Y and duplicates closer than 2 mm are
-  dropped; fewer than two usable samples leaves the anatomy rigid.
+- `anatomy/coat_line.gd` builds `LINE_SAMPLES` points at `x = 0` across the bits mesh's local Y
+  range. The line is the mesh's own vertical axis; it does not read `MareBody`, its skin or its
+  weights.
 - Each time the skeleton reports its final pose (`skeleton_updated`, after every
-  `SkeletonModifier3D`), the controller skins every sample's rest point with all its body
-  influences (`pose · bind · rest`) and maps it into anatomy local with
-  `base_place⁻¹ · hips_delta⁻¹`, where `hips_delta = pose(hips) · hips_rest⁻¹`.
+  `SkeletonModifier3D`), the controller reads the hind-leg tip bones (`pony_tibia_L/R`, falling
+  back to `pony_femur_L/R` then `pony_flank_L/R`). It maps each tip's live and rest origin into
+  anatomy local with `base_place⁻¹ · hips_delta⁻¹`, where
+  `hips_delta = pose(hips) · hips_rest⁻¹`, and takes the horizontal component of the larger
+  side's travel. The line's lower samples shift by that bend with a smooth falloff; the top
+  sample stays seated. The bend is scaled and capped in local units.
+- `geometry.coat_line_bend()` is pure: it fills the live line from the rest line and the bend.
   `geometry.fill_line_frames()` builds one frame per sample: the shortest-arc rotation from the
   rest tangent to the live tangent and the along-tangent stretch, with no roll about the line and
   no coat-normal follow. The stretch clamps to 0.5…2. The frame origin puts the sample's rest
@@ -565,15 +563,13 @@ with it, and when the line stretches, the mesh stretches along it.
   track the visible vulva and anus instead of the rigid mesh transform. `shapes.hole_local()` stays
   the base local point; the controller deforms it before applying the mesh transform.
 - Missionary trims stay on the mesh transform; the line uses the untrimmed `base_place`.
-- The line is independent of `features.body_coat_deform` and works with the game coat shader
-  untouched. It skips when the body has no `MareBody`, no skinned `ARRAY_BONES`/`ARRAY_WEIGHTS`,
-  or no `pony_hips` bone; the anatomy then keeps its rigid attachment. A bind name missing from
-  the rig is dropped and the remaining influence weights are normalized.
+- The line is independent of `features.body_coat_deform` and the body coat's skin. It needs the
+  `pony_hips` bone and at least one hind-leg tip; a missing leg bone leaves the line straight.
 - The teats and skin strip are already engine-skinned and the dock rides the hair skeleton, so
   their copies of the anatomy material set `line_count` to zero.
 - The line is per pony and is rebuilt when the anatomy mesh changes or the placement changes. It
-  retries every two seconds while it cannot be built. The body grid and bind poses are cached per
-  body mesh and skin. The line does not tick while the anatomy mesh is hidden.
+  retries every two seconds while it cannot be built. The line does not tick while the anatomy
+  mesh is hidden.
 - With **Anatomy → Debug → Draw coat line** on, `anatomy/coat_line_debug.gd` draws the rest line,
   the live line and one cross-section marker per sample under the anatomy mesh. Live segments
   warm up when stretched and cool down when compressed.
@@ -803,7 +799,7 @@ Current suites:
   id is `tests/test_pony_id.gd`. The adult capability is tested with the eligibility service in
   `tests/eligibility/`.
 - `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
-  radius, the V2 anal ring weights/centre, the coat line targets/sampler/frames and the shader
+  radius, the V2 anal ring weights/centre, the coat line targets/bend/frames and the shader
   sample-count sync.
 - `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive and the wink
   scheduler.
@@ -847,11 +843,11 @@ split when the suite is next touched.
 - The body-coat patch depends on the game shader keeping `flank_jiggle.gdshaderinc` and
   `VERTEX += flank_jiggle(VERTEX);`. A game update that removes either hook disables the patch,
   not the whole anatomy. A missing `void fragment()` keeps the deform but drops the vulva cut.
-- The coat line depends on the body coat's rest vertices, skin weights and the `pony_hips` bone.
-  A body without a skin and bind data, or without the pelvis bone, stays rigid. It must read the
-  skeleton inside `skeleton_updated`; a read from `_process` sees the unmodified pose and drops
-  every modifier-driven stretch or fidget. The act's hole point and normal use the same frames as
-  the shader, so the shaft tracks the visible opening.
+- The coat line depends on the `pony_hips` bone and the hind-leg tip bones. A body without the
+  pelvis bone stays rigid; a missing leg tip leaves the line straight. It must read the skeleton
+  inside `skeleton_updated`; a read from `_process` sees the unmodified pose and drops every
+  modifier-driven stretch or fidget. The act's hole point and normal use the same frames as the
+  shader, so the shaft tracks the visible opening.
 - The princesses' fitted bodies have no hair skeleton; their tail seat is unavailable and their
   pre-hidden dock stays hidden.
 - The act's idle wink and the climax pulse share one countdown; adding a second scheduler would

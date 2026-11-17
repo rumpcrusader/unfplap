@@ -103,6 +103,7 @@ func run() -> void:
 		and SETTINGS.pantyhose_hull_height.debug
 		and SETTINGS.pantyhose_hull_smoothing.debug
 		and SETTINGS.pantyhose_hull_margin_mm.debug
+		and SETTINGS.pantyhose_hull_min_margin_mm.debug
 		and SETTINGS.pantyhose_hull_show.debug,
 		"the hull controls stay in the Debug block")
 	print("INTEGRATIONS_CATALOG_RESULT checks=%d failures=%d" % [checks, failures])

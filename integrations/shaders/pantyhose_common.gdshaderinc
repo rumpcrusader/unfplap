@@ -19,7 +19,8 @@ varying float edge_dist;
 // `hull_texture` is normalised over `hull_z_range`; a negative cell is invalid and skipped.
 // `hull_basis` maps anatomy-local space (its +Z is toward the tail) into the garment model
 // space. The local push is converted back by the basis' Z scale, so the margin stays in world
-// millimetres on every body size.
+// millimetres on every body size. The margin ramps from `hull_min_margin` on the anatomy's
+// vertical center line (the vulva midline, x = 0) to `hull_margin` toward the field's X sides.
 uniform sampler2D hull_texture : filter_linear, repeat_disable;
 uniform vec4 hull_domain = vec4(0.0, 0.0, 1.0, 1.0);
 uniform vec2 hull_z_range = vec2(0.0, 1.0);
@@ -34,6 +35,7 @@ instance uniform vec3 hull_basis_inv_x = vec3(1.0, 0.0, 0.0);
 instance uniform vec3 hull_basis_inv_y = vec3(0.0, 1.0, 0.0);
 instance uniform vec3 hull_basis_inv_z = vec3(0.0, 0.0, 1.0);
 instance uniform float hull_margin = 0.0;
+instance uniform float hull_min_margin = 0.0;
 
 #define HOSIERY_HULL_VERTEX \
 	if (hull_on > 0.5) { \
@@ -45,7 +47,9 @@ instance uniform float hull_margin = 0.0;
 			float hull_raw = textureLod(hull_texture, hull_uv, 0.0).r; \
 			if (hull_raw >= 0.0) { \
 				float hull_surface = mix(hull_z_range.x, hull_z_range.y, hull_raw); \
-				float hull_push = hull_surface + hull_margin - hull_local.z; \
+				float hull_ramp = smoothstep(0.0, max(hull_domain.z * 0.5, 0.0001), abs(hull_local.x)); \
+				float hull_margin_now = mix(hull_min_margin, hull_margin, hull_ramp); \
+				float hull_push = hull_surface + hull_margin_now - hull_local.z; \
 				if (hull_push > 0.0) { \
 					float hull_edge = min(min(hull_uv.x, 1.0 - hull_uv.x), min(hull_uv.y, 1.0 - hull_uv.y)); \
 					float hull_fade = smoothstep(0.0, 0.03, hull_edge); \

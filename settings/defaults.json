@@ -117,6 +117,7 @@
 	"debug": {
 		"pantyhose_hull_height": 48.0,
 		"pantyhose_hull_margin_mm": 5.0,
+		"pantyhose_hull_min_margin_mm": 1.0,
 		"pantyhose_hull_show": false,
 		"pantyhose_hull_smoothing": 1.0,
 		"pantyhose_hull_width": 48.0

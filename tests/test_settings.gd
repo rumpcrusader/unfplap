@@ -966,6 +966,7 @@ func _check_integrations_panel() -> void:
 	_collect_labels(debug_list, debug_labels)
 	check(debug_labels.has("Hull width"), "the Debug block draws the hull width row")
 	check(debug_labels.has("Hull height"), "the Debug block draws the hull height row")
+	check(debug_labels.has("Min hull margin"), "the Debug block draws the min hull margin row")
 	check(debug_labels.has("Show hull"), "the Debug block draws the Show hull row")
 	debug_list.free()
 	SETTINGS.debug_mode.set_bool(debug_before)

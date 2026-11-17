@@ -52,6 +52,7 @@ var _hull_width := 48
 var _hull_height := 48
 var _hull_smoothing := 1
 var _hull_margin_mm := 5.0
+var _hull_min_margin_mm := 1.0
 var _show_hull := false
 var _rebuild_at := -1.0
 var _mismatch_logged := false
@@ -120,6 +121,7 @@ func apply_live_settings() -> void:
 	_undress = SETTINGS.pantyhose_undress.get_bool()
 	_bulge = SETTINGS.pantyhose_bulge.get_bool()
 	_hull_margin_mm = SETTINGS.pantyhose_hull_margin_mm.get_num()
+	_hull_min_margin_mm = SETTINGS.pantyhose_hull_min_margin_mm.get_num()
 	_show_hull = SETTINGS.pantyhose_hull_show.get_bool()
 	var width := int(SETTINGS.pantyhose_hull_width.get_num())
 	var height := int(SETTINGS.pantyhose_hull_height.get_num())
@@ -324,6 +326,8 @@ func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D) -> voi
 	node.set_instance_shader_parameter("hull_basis_inv_y", inverse.y)
 	node.set_instance_shader_parameter("hull_basis_inv_z", inverse.z)
 	node.set_instance_shader_parameter("hull_margin", _margin_local(xform, _hull_margin_mm))
+	node.set_instance_shader_parameter("hull_min_margin",
+		_margin_local(xform, _hull_min_margin_mm))
 
 
 ## A margin in millimetres as anatomy-local units; the shader converts the local push back by

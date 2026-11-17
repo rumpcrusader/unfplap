@@ -428,7 +428,9 @@ func _check_bulge() -> void:
 	check(z_axis is Vector3 and near((z_axis as Vector3).length(), 0.5),
 		"the basis carries the placement scale")
 	check(near(float(garment.get_instance_shader_parameter("hull_margin")), 0.01),
-		"the margin is anatomy-local")
+		"the outer margin is anatomy-local")
+	check(near(float(garment.get_instance_shader_parameter("hull_min_margin")), 0.002),
+		"the minimum margin is anatomy-local")
 	anatomy.xform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
 		Vector3(0.0, 2.0, 0.0))
 	integration.call("_process", 0.016)

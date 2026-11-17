@@ -1753,7 +1753,11 @@ static var pantyhose_hull_smoothing := num("pantyhose_hull_smoothing",
 	INTEGRATIONS, "Pantyhose").with_step(1.0).as_debug()
 static var pantyhose_hull_margin_mm := num("pantyhose_hull_margin_mm",
 	"debug.pantyhose_hull_margin_mm", "Hull margin",
-	"Extra lift over the anatomy surface, in millimetres.",
+	"Extra lift over the anatomy surface toward the sides, in millimetres.",
+	INTEGRATIONS, "Pantyhose").with_unit("mm").with_step(0.5).as_debug()
+static var pantyhose_hull_min_margin_mm := num("pantyhose_hull_min_margin_mm",
+	"debug.pantyhose_hull_min_margin_mm", "Min hull margin",
+	"Lift at the vulva's vertical center line; Hull margin applies toward the sides.",
 	INTEGRATIONS, "Pantyhose").with_unit("mm").with_step(0.5).as_debug()
 static var pantyhose_hull_show := flag("pantyhose_hull_show", "debug.pantyhose_hull_show",
 	"Show hull", "Draw the depth field over the anatomy as a heatmap.",

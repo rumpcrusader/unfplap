@@ -16,13 +16,15 @@ class FakeFacade extends RefCounted:
 	var need := 2
 	var threshold := 0.20
 	var height := 0.20
+	var last_gap := NAN
 	var built: Array = []
 	var freed: Array = []
 
 	func gap(_opening: float, _hoof: float, _root: float, _foot: float) -> float:
 		return gap_value
 
-	func needed_count(_gap: float) -> int:
+	func needed_count(gap: float) -> int:
+		last_gap = gap
 		return need
 
 	func threshold_m() -> float:
@@ -174,6 +176,23 @@ func _check_rule() -> void:
 	var text := str(act.call("state_text"))
 	check(text.contains("need=2") and text.contains("active=false"),
 		"the debug row reports the need and the inactive stack")
+	var facade := made["facade"] as FakeFacade
+	facade.need = 1
+	act.eye_delta_m = 0.10
+	check(is_equal_approx(float(act.call("gap_m")), 0.30),
+		"a raised act eye shrinks the measured gap")
+	check(int(act.call("needed_count")) == 1 and is_equal_approx(facade.last_gap, 0.30),
+		"the step count reads the raised act gap")
+	facade.need = 0
+	act.eye_delta_m = -0.10
+	check(is_equal_approx(float(act.call("gap_m")), 0.50),
+		"a lowered act eye grows the measured gap")
+	check(int(act.call("needed_count")) == 0 and is_equal_approx(facade.last_gap, 0.50),
+		"the step count reads the lowered act gap")
+	var state := str(act.call("state_text"))
+	check(state.contains("gap_measured=0.400") and state.contains("eye_delta=-0.100") \
+		and state.contains("act_gap=0.500"),
+		"the debug row reports the measured gap, the eye delta and the act gap")
 	var no_ctl := _fixture()
 	(no_ctl["act"] as RefCounted).anatomy_ctl = null
 	check(not bool((no_ctl["act"] as RefCounted).call("applies")),
@@ -181,6 +200,7 @@ func _check_rule() -> void:
 	_free(no_ctl)
 	(made["facade"] as FakeFacade).gap_value = 0.1
 	(made["facade"] as FakeFacade).need = 0
+	act.eye_delta_m = 0.0
 	check(not bool(act.call("required")), "a below-threshold gap needs no stool")
 	_free(made)
 

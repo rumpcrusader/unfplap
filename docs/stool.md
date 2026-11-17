@@ -65,6 +65,7 @@ The handle's internal API:
 
 ```gdscript
 bind(facade, main, pony, player, anatomy_ctl)
+eye_delta_m            # set by the runtime before a gate or state call
 applies() -> bool
 gap_m() -> float
 needed_count() -> int
@@ -81,13 +82,16 @@ floor_y_at(at, body) -> float
 ```
 
 `place()` builds the stack under the runtime's standing spot and returns the raised player
-target; `release()` frees the prop, lowers the player and returns every case unit.
+target; `release()` frees the prop, lowers the player and returns every case unit. `bind()` runs
+on every runtime access, so a rebuilt anatomy controller cannot leave a stale handle. The runtime
+sets `eye_delta_m` from the standing camera's net offset before it reads the gate.
 
 `build_prop()` returns `{"node": StaticBody3D, "height": float, "count": int, "step": float}`.
 `ignore` is the partner pony; the stack must not collide with her.
 
-`runtime.gd` supplies the scene values, calls the handle and composes the gate; it does not read
-a controller's private state. The live opening comes from the per-pony anatomy controller, the
+`runtime.gd` supplies the scene values, including `eye_delta_m` from the standing camera, calls
+the handle and composes the gate; it does not read a controller's private state. The live opening
+comes from the per-pony anatomy controller, the
 part root from `main.anatomy.player_root_now()`, and `main.anatomy.player_prepare()` builds the
 hidden part first. The part is normally warmed when the player part is created, so the first
 standing offer does not load it (`docs/anatomy.md`); `player_prepare()` remains the idempotent
@@ -103,25 +107,31 @@ online:
 her_above_hooves = opening.y - pony.global_position.y
 his_above_feet   = part_root.y - player.global_position.y
 floor_delta      = pony.global_position.y - player.global_position.y
-gap              = her_above_hooves - his_above_feet + floor_delta
+gap_measured     = her_above_hooves - his_above_feet + floor_delta
+gap_act          = gap_measured - eye_delta_m
 ```
 
 The floor term is zero when both stand on the same floor and makes a step between them explicit.
-The expression equals the world vertical gap `opening.y - part_root.y`.
+`gap_measured` equals the world vertical gap `opening.y - part_root.y`.
+
+`eye_delta_m` is the standing camera's net offset from Anon's normal eye (Canon `-0.10 m`, JRHNBR
+`+0.10 m`, every other preset `0.0`; `docs/camera.md`). The runtime supplies it, so the rule
+measures the body the act will actually use: a stool's lift is real height instead of a cancel of
+an eye-height change.
 
 With `T = presentation.standing.stool_gap_m` and
 `S = presentation.standing.stool_height_m`:
 
 ```text
-if gap <= T:
+if gap_act <= T:
     needed = 0
 else:
-    needed = max(1, floor((gap - T) / S) + 1)
+    needed = max(1, floor((gap_act - T) / S) + 1)
 ```
 
-The first stool is required once the gap passes the threshold. Each stool then covers one step.
-The remainder after the last stool is below the threshold, which the existing anatomy hip aim
-absorbs.
+The first stool is required once the act gap passes the threshold. Each stool then covers one
+step. The remainder of `gap_act` after the last stool is below the threshold, which the existing
+anatomy hip aim absorbs.
 
 A missing anatomy controller, an unprepared player part, non-finite values, AnonPony or a headset
 rig makes the rule inapplicable, not required. The gate is evaluated at the standing offer/start
@@ -129,7 +139,7 @@ and again on `start()`.
 
 ## Gate and hint
 
-- The standing scene gate gets a `stool` row with reason `needs_stool` when the rule needs more
+- The standing scene gate gets a `stool` row with reason `needs_stool` when the act gap needs more
   case footstools than Anon has.
 - `can_offer` uses the same row, so a tall mare does not proactively offer when Anon cannot reach.
 - `main._refresh_offer()` shows **Make love** when the start is possible and **Needs a footstool**
@@ -197,8 +207,8 @@ and again on `start()`.
   placed stool adds this much height.
 - **Give footstool** adds one to the briefcase.
 - **Show data** prints the aimed mare's stool state in its STOOL section: opening, hoof
-  and part heights, gap, threshold, step height, required count, case count, owned count, free
-  slots and active count.
+  and part heights, the measured gap, the act eye delta, the act gap, threshold, step height,
+  required count, case count, owned count, free slots and active count.
 
 ## Dependencies
 
@@ -216,10 +226,11 @@ and again on `start()`.
   loans.
 - `tests/stool/test_stool_api.gd`: the facade's setting reads, threshold, step height, count, gap
   and item id.
-- `tests/stool/test_gate.gd`: the runtime forwards' live gap, two-step requirement, case count and
-  the blocked hint's reuse of the first gate's rows.
-- `tests/stool/test_act.gd`: the per-act handle's rule, case loans, stack placement/release,
-  reset and the missing-stool-only block.
+- `tests/stool/test_gate.gd`: the runtime forwards' live gap, the act eye delta and act gap for
+  Same Height, JRHNBR and Canon, the case count and the blocked hint's reuse of the first gate's
+  rows.
+- `tests/stool/test_act.gd`: the per-act handle's rule, the runtime-supplied eye delta, case loans,
+  stack placement/release, reset and the missing-stool-only block.
 - `tests/stool/test_prop.gd`: the stacked visuals, total height, box top and both pony collision
   exceptions.
 - `tests/stool/test_placement.gd`: the player-root raise to the stack top, exception cleanup and

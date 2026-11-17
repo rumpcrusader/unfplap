@@ -1,7 +1,8 @@
 extends RefCounted
 ## One act's footstool state: the live reach rule, the case loans, the placed stack and the player
-## lift. The runtime creates one per act and keeps the standing placement decision; this handle
-## owns the stack lifetime and the item return. Contract: `docs/stool.md`.
+## lift. The runtime creates one per act, supplies the act eye delta and keeps the standing
+## placement decision; this handle owns the stack lifetime and the item return. Contract:
+## `docs/stool.md`.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -21,6 +22,9 @@ var failed := false
 var count := 0
 var height_m := 0.0
 var floor_y := 0.0
+## The standing camera's net offset from Anon's normal eye (Canon -0.10, JRHNBR +0.10). The
+## runtime supplies it, and the live gap is measured against that act body.
+var eye_delta_m := 0.0
 var node: Node3D = null
 var tokens: Array[String] = []
 var slots: Array[int] = []
@@ -63,7 +67,8 @@ func applies() -> bool:
 	return true
 
 
-## The live vertical gap: her opening above her hooves against his part above his feet.
+## The live vertical gap: her opening above her hooves against his part above his feet, measured
+## on the act body (the normal eye plus the standing camera's net offset).
 ## Returns NAN when either body or the anatomy is unavailable.
 func gap_m() -> float:
 	if not applies():
@@ -81,7 +86,7 @@ func gap_m() -> float:
 	if not part is Vector3 or not (part as Vector3).is_finite():
 		return NAN
 	return float(facade.call("gap", (opening as Vector3).y, pony.global_position.y,
-		(part as Vector3).y, player.global_position.y))
+		(part as Vector3).y, player.global_position.y)) - eye_delta_m
 
 
 func needed_count() -> int:
@@ -152,6 +157,7 @@ func state_text() -> String:
 	if anatomy_ok and part_ok and facade != null \
 			and is_instance_valid(pony) and is_instance_valid(player):
 		gap = float(facade.call("gap", opening.y, hoof_y, part.y, foot_y))
+	var act_gap: float = gap - eye_delta_m
 	var threshold := 0.20
 	var height := 0.20
 	if facade != null:
@@ -159,17 +165,18 @@ func state_text() -> String:
 		height = float(facade.call("height_m"))
 	var need := needed_count()
 	var gap_text := "n/a" if not is_finite(gap) else "%.3f" % gap
+	var act_gap_text := "n/a" if not is_finite(act_gap) else "%.3f" % act_gap
 	var owned := 0
 	var free := 0
 	if facade != null and store != null:
 		owned = int(facade.call("owned_count", store))
 		free = int(facade.call("free_slots", store))
-	return "pony=%s applies=%s anatomy=%s part=%s her_opening=%.3f her_hoof=%.3f her_bits=%.3f his_root=%.3f his_feet=%.3f his_bits=%.3f floor_delta=%.3f gap=%s threshold=%.3f height=%.3f required=%s need=%d active=%s count=%d case=%d owned=%d free=%d" % [
+	return "pony=%s applies=%s anatomy=%s part=%s her_opening=%.3f her_hoof=%.3f her_bits=%.3f his_root=%.3f his_feet=%.3f his_bits=%.3f floor_delta=%.3f gap_measured=%s eye_delta=%.3f act_gap=%s threshold=%.3f height=%.3f required=%s need=%d active=%s count=%d case=%d owned=%d free=%d" % [
 		str(pony.name) if is_instance_valid(pony) else "?",
 		str(applies()), str(anatomy_ok), str(part_ok),
 		opening.y, hoof_y, opening.y - hoof_y, part.y, foot_y, part.y - foot_y,
-		hoof_y - foot_y, gap_text, threshold, height, str(required()),
-		need, str(active), count, case_count(), owned, free]
+		hoof_y - foot_y, gap_text, eye_delta_m, act_gap_text, threshold, height,
+		str(required()), need, str(active), count, case_count(), owned, free]
 
 
 ## Check out the case units the start needs. A short or unwritable case returns false and gives

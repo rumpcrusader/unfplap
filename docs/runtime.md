@@ -55,11 +55,11 @@ the scene-hold ledger already owns the navigator, so the start keeps the same ow
 claiming a second one. The start sequence:
 
 1. re-read the identity, the gate and any refusal (the Agreement path runs the scene-only rows);
-2. reset the stool handle and refresh the anatomy bridge;
+2. reset the stool handle (including its act eye delta) and refresh the anatomy bridge;
 3. begin the camera session, clear the idle presentation, the mood face and the act face;
 4. snapshot the settings and preferences, build the thrust tracker and the pose config;
 5. resolve the bed when the row's `scene.requires_bed` is set (a missing bed fails closed before
-   anything is borrowed), then apply the eye override and the initial face;
+   anything is borrowed), then set the initial face;
 6. allocate the serial/event id, reset readiness, dialogue, history and the thrust state;
 7. release the cradle/cuddle/navigator/player ownership through `scene_hold`;
 8. snapshot the pony bones, mark the act active, build the anatomy act;
@@ -69,6 +69,8 @@ claiming a second one. The start sequence:
     then arm the act integrations.
 
 A failure in any step runs `_abort_start()` and the same teardown; it never leaves a partial act.
+The `started ... eye=` log reads the standing camera's act eye (Anon's normal eye plus the
+preset's net offset, `docs/camera.md`), not an override target; a non-standing start logs `0`.
 
 ### Start setup adapters
 
@@ -131,10 +133,10 @@ The HUD card rows, the key caps and the `End` tint are `docs/hud.md`. The lab ke
 ## Teardown
 
 `_end_session(rejoin_cuddle)` is the only exit path. It gives back, in order: the inventory HUD,
-kiss forelegs, face-turn rate, eye override, face and wings, player lock, camera,
+kiss forelegs, face-turn rate, face and wings, player lock, camera,
 `sex_active`, navigator, player look, posture/cuddle, pose, audio, HUD and the active runtime. Every
 step checks the ownership flag it restores (`_act_camera.camera_owned`, `_act_camera.look_captured`,
-`_act_camera.eye_override`, `_hold.locked_player`, `_hold.face_turn_rate_owned`, `_hold.nav`, the
+`_hold.locked_player`, `_hold.face_turn_rate_owned`, `_hold.nav`, the
 runtime's own `_posture_owned` and the HUD's borrowed quick-slot state, the controller flags), so a
 failed start runs the same function and restores only what it took.
 

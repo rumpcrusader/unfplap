@@ -111,8 +111,10 @@ baselines the director's player-line fields and reports the first new line; `can
 drops the watch and cancels the classifier scope together.
 
 The shared classifier (`initiation/classifier.gd`, owned by `main`) bounds every call: one client,
-one queue, one deadline, `input_bytes` and `output_tokens` limits, and a raw completion that
-reports the text and the provider error without parsing it.
+one queue, one deadline, `input_bytes` and `output_tokens` limits, a private-reasoning room on top
+of the visible output budget, and a raw completion that reports the text and the provider error
+without parsing it. The budget and deadline are sized for a reasoning model: a call that exhausts
+the budget returns no JSON and the route reports `NoOffer(classifier_unavailable)`.
 
 ## Process
 

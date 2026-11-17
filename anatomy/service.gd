@@ -165,6 +165,16 @@ func garment_transform(pony_node: Node) -> Transform3D:
 	return value if value is Transform3D else Transform3D.IDENTITY
 
 
+## The rest-pose form of `garment_transform()`: the field lookup's mapping, with the hips pose
+## removed. Identity when the anatomy is absent.
+func garment_rest_transform(pony_node: Node) -> Transform3D:
+	var handle := controller(pony_node)
+	if not is_instance_valid(handle) or not handle.has_method("garment_rest_transform"):
+		return Transform3D.IDENTITY
+	var value: Variant = handle.call("garment_rest_transform")
+	return value if value is Transform3D else Transform3D.IDENTITY
+
+
 ## Whether the anatomy mesh is attached and currently shown; a hidden far mesh or act-only
 ## hiding leaves the worn garment alone.
 func garment_visible(pony_node: Node) -> bool:

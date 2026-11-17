@@ -37,7 +37,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
 | `anatomy/coat.gd` | rig coat patch, vulva/anal spread, the vulva cut and the still zones |
 | `anatomy/coat_follow.gd` | samples the body coat's leg weights and keeps the anatomy shell on the rump |
-| `anatomy/garment_hull.gd` | the worn-garment rear-facing outer depth field, shared by every mare |
+| `anatomy/garment_hull.gd` | the worn-garment rest-surface outer depth field, shared by every mare |
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
 | `anatomy/player.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
@@ -88,7 +88,8 @@ tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), tai
 placement_target(), placement_id(), placement_values(id), placement_refresh()
 placement_debug(op, value), placement_show()
 consent(pony, key), status(text)
-garment_hull(pony), garment_transform(pony), garment_visible(pony), garment_parent(pony)
+garment_hull(pony), garment_transform(pony), garment_rest_transform(pony),
+garment_visible(pony), garment_parent(pony)
 garment_hull_rebuild(), note_act_started(pony)
 player_encounter(on), player_track(...), player_showing(), player_available()
 player_prepare(), player_root_now(), player_tip_center(), player_shaft_radii(count)
@@ -108,8 +109,10 @@ apply_part_visibility(show, teats_on, strip_on)
 is_attached(), body_coat_refresh()
 body_coat_mesh(), body_coat_material(), body_outline_material()
 fluid(), idle_discharge(count)
-garment_hull(), garment_transform(), garment_visible(), garment_parent()
-garment_transform_for(body, mesh), garment_margin_local(transform, millimetres)
+garment_hull(), garment_transform(), garment_rest_transform(), garment_visible(),
+garment_parent()
+garment_transform_for(body, mesh), garment_rest_transform_for(body, skeleton, bone_rest,
+mesh_local), garment_margin_local(transform, millimetres)
 ```
 
 The `main.anatomy` `act_started(pony)` signal is emitted by `note_act_started()` when a
@@ -246,27 +249,36 @@ builds it in anatomy-local space (`+Z` toward the tail):
   Rebuild action rebuilds once, off the frame path.
 - Width, height, smoothing and margin are unbounded debug values (the builder only floors the
   cells to 1 and smoothing to 0). High values cost a one-time rebuild. The adapter updates the
-  hull transform every frame; it re-discovers the worn nodes on a fixed fallback, not a player
-  refresh rate.
+  live push axis every frame and the rest lookup with the placement; it re-discovers the worn
+  nodes on a fixed fallback, not a player refresh rate.
 
 The reads:
 
 - `garment_hull()` — the shared field, or null when detached.
 - `garment_transform()` — `body.global_transform.affine_inverse() * anatomy_mesh.global_transform`,
-  the anatomy-local → garment-model mapping, including the live placement and the missionary
-  trims. `garment_transform_for(body, mesh)` is the pure form the tests pin.
+  the live anatomy-local → garment-model mapping. It gives the shader the live +Z push axis,
+  including the live placement and the missionary trims. `garment_transform_for(body, mesh)` is
+  the pure form the tests pin.
+- `garment_rest_transform()` — the same mapping with the live bone pose replaced by the rest
+  bind: `body.global⁻¹ * skeleton.global * bone_rest * mesh.transform`. The shader uses it to
+  sample the field at the garment's rest position; the live placement and any trim are kept.
+  `garment_rest_transform_for(body, skeleton, bone_rest, mesh_local)` is the pure form.
 - `garment_visible()` — attached and the visibility poll has the mesh shown; a far mesh or
   `act` mode outside the act is false, and the cloth is left alone.
 - `garment_parent()` — the anatomy mesh itself; the debug heatmap copies its live transform
   rather than parenting to it, so a hidden far/act mesh does not hide the debug overlay.
 
-The shader maps the worn vertex into anatomy-local space, reads the field, and pushes along the
-anatomy's +Z by `surface_z + margin - local.z`. The margin is converted from millimetres by the
-basis' Z scale, and the local push is converted back when it is applied, so the slider stays in
-world millimetres on every body size. The edge fade is a small 3% of the domain, so the lift is
-full at the anatomy; the larger Y domain margin keeps the ponut top and vulva bottom away from the
-fade. The hull block is in the copied compatibility shaders under
-`integrations/shaders/`; see `docs/integrations.md`.
+The shader samples the cloth's rest position (`CUSTOM0.xyz` plus the pack's own built-in rest
+lift, recovered from `VERTEX - CUSTOM0` along the rest normal `CUSTOM1`) through
+`garment_rest_transform()`, reads the field, and pushes along the live anatomy's +Z by
+`surface_z + margin - local.z`. The cloth is a skinned copy of the body, so its cut edge near the
+ponut top and vulva bottom moves with the legs while the anatomy stays rigid to `pony_hips`; the
+rest lookup keeps that edge on the field instead of sliding it off the edge when she walks. The
+margin is converted from millimetres by the live basis' Z scale, and the local push is converted
+back when it is applied, so the slider stays in world millimetres on every body size. The edge
+fade is a small 3% of the domain, so the lift is full at the anatomy; the larger Y domain margin
+keeps the ponut top and vulva bottom away from the fade. The hull block is in the copied
+compatibility shaders under `integrations/shaders/`; see `docs/integrations.md`.
 
 ## Placement
 
@@ -824,10 +836,10 @@ split when the suite is next touched.
 - The garment hull is the **rest appearance**; an idle heat wink or an act with `pantyhose_undress`
   off can open or stretch the anatomy past the cloth. The field deliberately does not include the
   act's `wink`, `anal_*` or `stretch` shapes, because the garment is removed at act start.
-- The garment hull is a rear-facing depth field, not a 3D SDF: an undercut the field cannot
-  represent is a deferred refinement, and the debug overlay is the way to see one. The panty
-  mesh's own low resolution is a separate later concern; the mod does not tessellate it at
-  runtime.
+- The garment hull is a height field projected along the anatomy's +Z, not a 3D SDF: an
+  undercut the field cannot represent is a deferred refinement, and the debug overlay is the way
+  to see one. The panty mesh's own low resolution is a separate later concern; the mod does not
+  tessellate it at runtime.
 - The persistent controller and the act read the typed `anatomy/facts.gd` context, not the
   runtime node. The legacy `test_anatomy.gd` integration suite still reads private controller
   state; it is the only test seam left.

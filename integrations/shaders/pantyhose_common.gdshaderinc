@@ -17,31 +17,34 @@ varying float edge_dist;
 
 // The worn garment's depth field, built from the anatomy mesh by `anatomy/garment_hull.gd`.
 // `hull_texture` is normalised over `hull_z_range`; a negative cell is invalid and skipped.
-// `hull_basis` maps anatomy-local space (its +Z is toward the tail) into the garment model
-// space. The local push is converted back by the basis' Z scale, so the margin stays in world
-// millimetres on every body size. The margin ramps from `hull_min_margin` on the anatomy's
-// vertical center line (the vulva midline, x = 0) to `hull_margin` toward the field's X sides.
+// The field is rest space: the lookup uses the garment's rest position (`CUSTOM0.xyz` plus the
+// pack's own rest lift) through the rest anatomy transform. The push uses the anatomy's live +Z
+// (`hull_basis_z`), so the cloth follows the walking pose without sliding the lookup off the
+// ponut top or vulva bottom. The local push is converted back by the live basis' Z scale, so the
+// margin stays in world millimetres on every body size. The margin ramps from `hull_min_margin`
+// on the anatomy's vertical center line (the vulva midline, x = 0) to `hull_margin` toward the
+// field's X sides.
 uniform sampler2D hull_texture : filter_linear, repeat_disable;
 uniform vec4 hull_domain = vec4(0.0, 0.0, 1.0, 1.0);
 uniform vec2 hull_z_range = vec2(0.0, 1.0);
+// The pack's built-in rest lift for this surface, in garment model metres. The skirt uses 0.
+uniform float hull_rest_lift = 0.0;
 instance uniform float hull_on = 0.0;
-instance uniform vec3 hull_origin = vec3(0.0);
-// Godot does not support matrix instance uniforms, so the basis and its inverse travel as
-// their three column vectors. `hull_basis_z` is the anatomy's +Z (toward the tail).
-instance uniform vec3 hull_basis_x = vec3(1.0, 0.0, 0.0);
-instance uniform vec3 hull_basis_y = vec3(0.0, 1.0, 0.0);
+// Godot does not support matrix instance uniforms, so the rest basis inverse travels as its
+// three column vectors. `hull_basis_z` is the anatomy's live +Z (toward the tail).
 instance uniform vec3 hull_basis_z = vec3(0.0, 0.0, 1.0);
-instance uniform vec3 hull_basis_inv_x = vec3(1.0, 0.0, 0.0);
-instance uniform vec3 hull_basis_inv_y = vec3(0.0, 1.0, 0.0);
-instance uniform vec3 hull_basis_inv_z = vec3(0.0, 0.0, 1.0);
+instance uniform vec3 hull_rest_origin = vec3(0.0);
+instance uniform vec3 hull_rest_basis_inv_x = vec3(1.0, 0.0, 0.0);
+instance uniform vec3 hull_rest_basis_inv_y = vec3(0.0, 1.0, 0.0);
+instance uniform vec3 hull_rest_basis_inv_z = vec3(0.0, 0.0, 1.0);
 instance uniform float hull_margin = 0.0;
 instance uniform float hull_min_margin = 0.0;
 
 #define HOSIERY_HULL_VERTEX \
 	if (hull_on > 0.5) { \
-		mat3 hull_basis = mat3(hull_basis_x, hull_basis_y, hull_basis_z); \
-		mat3 hull_basis_inv = mat3(hull_basis_inv_x, hull_basis_inv_y, hull_basis_inv_z); \
-		vec3 hull_local = hull_basis_inv * (VERTEX - hull_origin); \
+		mat3 hull_rest_basis_inv = mat3(hull_rest_basis_inv_x, hull_rest_basis_inv_y, hull_rest_basis_inv_z); \
+		vec3 hull_rest_point = CUSTOM0.xyz + normalize(CUSTOM1.xyz + vec3(0.0, 0.0001, 0.0)) * hull_rest_lift; \
+		vec3 hull_local = hull_rest_basis_inv * (hull_rest_point - hull_rest_origin); \
 		vec2 hull_uv = (hull_local.xy - hull_domain.xy) / hull_domain.zw; \
 		if (hull_uv.x > 0.0 && hull_uv.x < 1.0 && hull_uv.y > 0.0 && hull_uv.y < 1.0) { \
 			float hull_raw = textureLod(hull_texture, hull_uv, 0.0).r; \

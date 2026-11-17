@@ -129,9 +129,9 @@ so the cloth follows the anatomy with no scan lag. It re-discovers the `Wear_pan
 bulge flag is on, gives every surface of the shared piece an override of the copied compatibility
 shader. The original material stays on the shared mesh; the override is per node, and every
 instance value is per node, so two mares never share a transform. The compatibility material is
-cached per source material and variant, so each fabric keeps its own look parameters while every
-mare shares it. The previous override is saved and restored on a hidden anatomy, feature-off,
-pack-off, node replacement and world close.
+cached per source material, variant and the surface's built-in rest lift, so each fabric keeps its
+own look parameters while every mare shares it. The previous override is saved and restored on a
+hidden anatomy, feature-off, pack-off, node replacement and world close.
 
 The lift samples `anatomy/garment_hull.gd`'s rest-surface outer depth field, built from the refined
 anatomy mesh and shared by every mare. The field is the **rest appearance**: the base mesh with
@@ -139,17 +139,24 @@ anatomy mesh and shared by every mare. The field is the **rest appearance**: the
 are at 0. The field takes the maximum Z per cell over every rest triangle, so the inner canal and
 body-facing surfaces never win the max; the curved ponut-top/vulva-bottom silhouette is included.
 The garment is removed at act start, so the field does not need the opened/stretched act shapes.
-The shader maps the garment vertex into anatomy-local space with the per-mare transform, reads the
-field, and pushes the cloth out along the anatomy's +Z by the surface difference plus the margin.
-The margin is stored in anatomy-local units and converted back by the basis' Z scale, so the
-slider stays in world millimetres. The field has a larger Y domain margin and the shader fades the
-lift over only the outer 3%, so the ponut top and vulva bottom keep their full lift without
-raising the margin over the vulva. The debug controls choose the field width, height, smoothing
-and margin; the hull rows are unbounded debug values, and a high width/height or many smoothing
-passes costs a one-time rebuild. The adapter updates the hull transform every frame; a precision
-edit clears the cache and rebuilds after 0.3 s, and the Rebuild action rebuilds immediately. Both
-are off the frame path. **Show hull** draws the heatmap as a continuous corner-grid surface from a
-top-level world mesh that copies the anatomy mesh's transform, so the field can be inspected even
+The shader samples the cloth's rest position (`CUSTOM0.xyz` plus the pack's own built-in rest
+lift) through the rest anatomy transform, reads the field, and pushes the cloth out along the
+live anatomy's +Z by the surface difference plus the margin. The pack lifts its cut cloth a few
+millimetres off the body at build time and records the unlifted point in `CUSTOM0`; the adapter
+recovers that lift from `VERTEX - CUSTOM0` along the rest normal `CUSTOM1`, so sampling the rest
+point does not float the cloth by its own thickness. The cloth is a skinned copy of the body, so
+its cut edge near the ponut top and vulva bottom moves with the legs while the anatomy stays rigid
+to `pony_hips`; the rest lookup keeps that edge on the field instead of letting the walking pose
+slide it off the edge. The margin is stored in anatomy-local units and converted back by the live
+basis' Z scale, so the slider stays in world millimetres. The field has a larger Y domain margin
+and the shader fades the lift over only the outer 3%, so the ponut top and vulva bottom keep their
+full lift without raising the margin over the vulva. The debug controls choose the field width,
+height, smoothing and margin; the hull rows are unbounded debug values, and a high width/height or
+many smoothing passes costs a one-time rebuild. The adapter updates the live push axis every
+frame; the rest lookup follows the placement. A precision edit clears the cache and rebuilds after
+0.3 s, and the Rebuild action rebuilds immediately. Both are off the frame path. **Show hull**
+draws the heatmap as a continuous corner-grid surface from a top-level world mesh that copies the
+anatomy mesh's transform, so the field can be inspected even
 when the anatomy is hidden (far mesh or `act` mode outside an act); the overlay state and the
 reason it is hidden are logged once per change with debug logs on.
 
@@ -207,7 +214,7 @@ the world adapter on the same settings edit.
 | `reset()` | restore every saved value after the base kiss reset in `_free_pose()` |
 | `shared/act_facts.gd` | typed read model passed to the constructor; no per-frame settings read |
 | `hold_beat(owner)` / `release_beat(owner)` | acquire or release the runtime's shared excitement Beat hold |
-| `main.anatomy` | the controller's `garment_hull()`, `garment_transform()`, `garment_visible()`, `garment_parent()`, `garment_hull_rebuild()` and the `act_started` signal |
+| `main.anatomy` | the controller's `garment_hull()`, `garment_transform()`, `garment_rest_transform()`, `garment_visible()`, `garment_parent()`, `garment_hull_rebuild()` and the `act_started` signal |
 | `main.game.mares` | the loaded mares the world adapter scans |
 | `main.game.Weather` | the wardrobe season the undress passes to `dress()` |
 | `pony_wardrobe` group | the wardrobe's `set_worn()` and `dress()` for the act undress |
@@ -219,7 +226,7 @@ the world adapter on the same settings edit.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | settings | `settings/service.gd` | feature flags, hull precision and the cached values |
+| service | settings | `settings/service.gd` | feature flags, hull width/height and the cached values |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog |
 | shared | pony_id | `shared/pony_id.gd` | stable id for the wardrobe's `set_worn()` |
 
@@ -238,8 +245,9 @@ the world adapter on the same settings edit.
 - `tests/integrations/test_kissing.gd` — Kissing availability, the warming/close/climax ramp, the
   bond cap, the pause fade, afterglow, an Affection kiss and the full-fidget restore/suppress.
 - `tests/integrations/test_pantyhose.gd` — the hull builder (fixture and real anatomy mesh), the
-  transform mapping, the surface overrides and restore, the shared mesh, multi-mare independence,
-  the act-start undress, the feature/pack/wardrobe/weather guards and the debug rebuild/overlay.
+  live and rest transform mapping, the per-frame push axis, the pack's rest lift, the surface
+  overrides and restore, the shared mesh, multi-mare independence, the act-start undress, the
+  feature/pack/wardrobe/weather guards and the debug rebuild/overlay.
 - `tests/integrations/test_service.gd` — binding resolution, save/restore, optional bindings,
   the reaction cap, live feature edits, shared Beat ownership, full fidgets, idempotent reset and
   the absence of a per-act provider for the world integration.

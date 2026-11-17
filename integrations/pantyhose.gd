@@ -48,14 +48,14 @@ var mod_active := Callable()
 
 var _game: Node
 var _discover_clock := 0.0
-var _undress := true
-var _bulge := true
+var _undress: bool
+var _bulge: bool
 var _hull_width := 48
 var _hull_height := 48
 var _hull_smoothing := 1
-var _hull_margin_mm := 5.0
-var _hull_min_margin_mm := 1.0
-var _show_hull := false
+var _hull_margin_mm: float
+var _hull_min_margin_mm: float
+var _show_hull: bool
 var _rebuild_at := -1.0
 var _mismatch_logged := false
 

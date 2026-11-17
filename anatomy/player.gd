@@ -63,13 +63,13 @@ var _pitch := 0.0
 var _scale := 1.0
 ## Missionary-only base slide along the shaft, set by `anatomy_act` from
 ## `presentation.missionary.part_inset_m`. Negative pulls the whole part back into the pelvis.
-var bed_inset_m := 0.0
-var _setting_scale := 1.0
-var _girth_base := 1.0
-var _girth_mid := 1.0
-var _girth_head := 1.0
-var _part_length_scale := 1.0
-var _throb_gain := 1.0
+var bed_inset_m: float
+var _setting_scale: float
+var _girth_base: float
+var _girth_mid: float
+var _girth_head: float
+var _part_length_scale: float
+var _throb_gain: float
 var _throb_clock := 0.0
 var _throb_depth := 0.0
 var _throb_amount := 0.0
@@ -710,9 +710,7 @@ func encounter(on: bool) -> void:
 
 func _load_place() -> void:
 	var placement := SETTINGS.anon_placement()
-	_pos = Vector3(
-		float(placement.get("offset_x", 0.0)),
-		float(placement.get("offset_y", 0.0)),
-		float(placement.get("offset_z", 0.0)))
-	_pitch = float(placement.get("pitch_deg", 0.0))
-	_scale = maxf(0.05, float(placement.get("scale", 1.0)))
+	_pos = Vector3(float(placement["offset_x"]), float(placement["offset_y"]),
+		float(placement["offset_z"]))
+	_pitch = float(placement["pitch_deg"])
+	_scale = maxf(0.05, float(placement["scale"]))

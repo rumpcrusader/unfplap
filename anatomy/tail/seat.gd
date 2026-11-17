@@ -43,7 +43,7 @@ var eligible := Callable()
 ## pony -> cached original values, target and live state. See `_prepare()`.
 var _rows: Dictionary = {}
 ## Last applied values of Anatomy › Re-seat tails and docks, Dock style and the two debug offsets.
-var _enabled := true
+var _enabled: bool
 var _dock_style := ""
 static var _reference := Vector3.INF
 static var _reference_loaded := false

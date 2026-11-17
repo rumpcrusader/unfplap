@@ -34,8 +34,8 @@ var _zone_anal_centre := Vector3.ZERO
 var _zone_axes := Basis.IDENTITY
 var _zone_vulva_radius := 0.0
 var _zone_anal_radius := 0.0
-var _zone_oval := 0.7
-var _zone_fade := 0.25
+var _zone_oval: float
+var _zone_fade: float
 var _near_state: Dictionary = {}
 var _near_entries: Dictionary = {}
 var _materials: Array = []

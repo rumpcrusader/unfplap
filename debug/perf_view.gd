@@ -18,6 +18,8 @@ const MAX_W := 60.0
 const CALLS_W := 46.0
 const COL_GAP := 8.0
 const VALUE_W := AVG_W + MAX_W + CALLS_W + COL_GAP * 2.0
+## The permanent first row's label: the whole window's measured total.
+const TOTAL_LABEL := "unfplap total"
 ## Debug targets: a column reads red at its target and green at zero. An idle chunk's average and
 ## max are the whole window's; calls are coloured per rendered frame against one call.
 const AVG_LIMIT := 100.0
@@ -38,6 +40,9 @@ var _caption: Label
 var _canvas: TreeCanvas
 var _entries: Array = []
 var _info: Dictionary = {}
+## When the previous window arrived and the measured refresh rate; `-1` until a second window.
+var _last_shown_ms := -1
+var _refresh_hz := 0.0
 
 
 class TreeCanvas extends Control:
@@ -99,9 +104,18 @@ func _panel_style() -> StyleBoxFlat:
 func show_window(entries: Array, info: Dictionary) -> void:
 	if _panel == null:
 		return
+	var now := Time.get_ticks_msec()
+	if _last_shown_ms >= 0:
+		var seconds := float(now - _last_shown_ms) / 1000.0
+		if seconds > 0.05:
+			_refresh_hz = 1.0 / seconds
+	_last_shown_ms = now
 	_entries = entries
 	_info = info
-	_caption.text = caption(info)
+	var line := caption(info)
+	if _refresh_hz > 0.0:
+		line += " · refresh %.1f Hz" % _refresh_hz
+	_caption.text = line
 	_canvas.custom_minimum_size = Vector2(INNER_W, height(entries))
 	_canvas.queue_redraw()
 	_panel.visible = true
@@ -111,6 +125,8 @@ func show_window(entries: Array, info: Dictionary) -> void:
 func clear() -> void:
 	_entries = []
 	_info = {}
+	_last_shown_ms = -1
+	_refresh_hz = 0.0
 	if is_instance_valid(_caption):
 		_caption.text = ""
 	if is_instance_valid(_canvas):
@@ -134,9 +150,21 @@ static func caption(info: Dictionary) -> String:
 		float(info.get("phys_ms", 0.0)), float(info.get("tick", 0.0))]
 
 
-## The list height for one window: one row per tree line, the same lines the block prints.
+## The list height for one window: the permanent total row, then one row per tree line.
 static func height(entries: Array) -> float:
-	return float(entries.size()) * ROW_H
+	return float(entries.size() + 1) * ROW_H
+
+
+## The permanent top row: every root's window total, and the worst single call in the window.
+static func totals(entries: Array) -> Dictionary:
+	var average := 0.0
+	var peak := 0.0
+	for entry: Dictionary in entries:
+		if int(entry["depth"]) == 0:
+			average += float(entry["total"])
+		if not bool(entry["self"]):
+			peak = maxf(peak, float(entry.get("max", 0.0)))
+	return {"avg": average, "max": peak}
 
 
 ## Green at zero, amber at half the target, red at the target and beyond.
@@ -163,12 +191,12 @@ static func calls_heat(calls: int, frames: int) -> Color:
 
 
 func _draw_rows(canvas: Control) -> void:
-	if _entries.is_empty():
-		return
 	var font := canvas.get_theme_default_font()
 	if font == null:
 		return
 	var width := canvas.size.x
+	if width <= 0.0:
+		return
 	var frames := int(_info.get("frames", 0))
 	var value_left := width - VALUE_W
 	var name_limit := value_left - COL_GAP
@@ -177,10 +205,21 @@ func _draw_rows(canvas: Control) -> void:
 	var calls_x := max_x + MAX_W + COL_GAP
 	var pad_top := (ROW_H - font.get_height(FONT_SIZE)) * 0.5
 	var ascent := font.get_ascent(FONT_SIZE)
+	var first_baseline := pad_top + ascent
+	var summary := totals(_entries)
+	canvas.draw_string(font, Vector2(NAME_GAP, first_baseline), TOTAL_LABEL,
+		HORIZONTAL_ALIGNMENT_LEFT, name_limit - NAME_GAP, FONT_SIZE, ACCENT)
+	canvas.draw_string(font, Vector2(avg_x, first_baseline), "%.2fms/s" % float(summary["avg"]),
+		HORIZONTAL_ALIGNMENT_RIGHT, AVG_W, FONT_SIZE, heat(float(summary["avg"]), AVG_LIMIT))
+	canvas.draw_string(font, Vector2(max_x, first_baseline), "%.2fms" % float(summary["max"]),
+		HORIZONTAL_ALIGNMENT_RIGHT, MAX_W, FONT_SIZE, heat(float(summary["max"]), MAX_LIMIT))
+	canvas.draw_string(font, Vector2(calls_x, first_baseline), "-",
+		HORIZONTAL_ALIGNMENT_RIGHT, CALLS_W, FONT_SIZE, MUTED)
+	canvas.draw_rect(Rect2(0.0, ROW_H - 1.0, width, 1.0), Color(ACCENT, 0.22))
 	var cell_widths: Dictionary = {}
 	for index in _entries.size():
 		var entry: Dictionary = _entries[index]
-		var baseline := float(index) * ROW_H + pad_top + ascent
+		var baseline := float(index + 1) * ROW_H + first_baseline
 		var is_self := bool(entry["self"])
 		var prefix := str(entry.get("prefix", ""))
 		for cell in prefix.length():

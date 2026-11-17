@@ -36,6 +36,7 @@ func row(key: String, depth: int, total: float, max_ms: float, calls: int,
 
 func run() -> void:
 	_check_height()
+	_check_totals()
 	_check_heat()
 	_check_calls()
 	_check_view()
@@ -46,14 +47,31 @@ func run() -> void:
 
 
 func _check_height() -> void:
-	check(is_equal_approx(VIEW.height([]), 0.0), "an empty window has no rows")
-	check(is_equal_approx(VIEW.height([row("a", 0, 1.0, 0.1, 1)]), VIEW.ROW_H),
-		"one row is one row high")
+	check(is_equal_approx(VIEW.height([]), VIEW.ROW_H),
+		"an empty window keeps the permanent total row")
+	check(is_equal_approx(VIEW.height([row("a", 0, 1.0, 0.1, 1)]), 2.0 * VIEW.ROW_H),
+		"the total row and one tree row are two rows high")
 	check(is_equal_approx(VIEW.height([
 		row("a", 0, 3.0, 0.1, 1),
 		row("b", 1, 2.0, 0.1, 1),
 		row("self", 1, 1.0, 0.0, 0, true, "a"),
-	]), 3.0 * VIEW.ROW_H), "the list is as high as its row count")
+	]), 4.0 * VIEW.ROW_H), "the list is one row taller than its row count")
+
+
+func _check_totals() -> void:
+	var empty := VIEW.totals([])
+	check(is_equal_approx(float(empty["avg"]), 0.0)
+		and is_equal_approx(float(empty["max"]), 0.0),
+		"an empty window totals zero")
+	var total := VIEW.totals([
+		row("runtime_physics", 0, 36.17, 0.42, 60),
+		row("pose_tick", 1, 24.00, 0.38, 120),
+		row("runtime_process", 0, 5.00, 0.51, 60),
+	])
+	check(is_equal_approx(float(total["avg"]), 41.17),
+		"the total sums the roots, not their children")
+	check(is_equal_approx(float(total["max"]), 0.51),
+		"the total takes the window's worst call")
 
 
 func _check_heat() -> void:
@@ -101,11 +119,15 @@ func _check_view() -> void:
 		"the act caption names the pony, pose and state")
 	check(is_equal_approx(canvas.custom_minimum_size.y, VIEW.height(entries)),
 		"the list takes the window's row count")
+	check(not caption.text.contains("Hz"), "the first window has no refresh rate")
 	check(VIEW.caption({"runtimes": 4, "mares": 6, "fps": 60}).contains(
 		"perf idle runtimes=4 mares=6"), "the idle caption names the runtime and mare counts")
+	view.set("_last_shown_ms", maxi(0, Time.get_ticks_msec() - 1000))
 	view.call("show_window", entries, {"runtimes": 4, "mares": 6, "fps": 30, "frames": 30})
 	check(caption.text.contains("perf idle") and caption.text.contains("30 fps"),
 		"the caption follows the idle probe")
+	check(caption.text.contains("refresh") and caption.text.contains("Hz"),
+		"a second window adds the measured refresh rate")
 	view.call("clear")
 	check(caption.text.is_empty(), "clear drops the caption")
 	check(not panel.visible, "clear hides the panel")

@@ -255,9 +255,11 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 
 - **Trigger bed offer** / **Trigger standing offer** call `force()` and report the reject reason.
   They need the settings page closed to advance.
-- `request force ...`, `request ask ...`, `request reasoning ...`, `request outcome ...`,
-  `request scan quiet reason=<reason>` and `request scan skip id=<id> reasons=<...>` are the debug
-  log lines.
+- `request force ...`, `request ask ...` and the reasoning lines
+  `request reasoning start|result|yes|no|failed|unavailable`; also
+  `request outcome ... cooldown=...`, `request scan quiet reason=<reason>` and
+  `request scan skip id=<id> reasons=<...>` are the debug log lines. The `result` line carries the
+  parsed offer, option index, failure and the trimmed raw reply/error.
 - **Show data** adds the `REQUEST` section: the id, cooldown readiness, the last request time, the
   effective wait, the retry left, whether a reasoning is pending, the live episode phase/pose/
   privacy and the last scan skip. The `NEGOTIATION` section beside it is the other service.

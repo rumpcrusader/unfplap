@@ -85,7 +85,9 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   and are consumed on the next unpaused frame.
 - **Clear offer cooldown** clears the aimed mare's proactive-offer cooldown, short retry and last
   scan skip, so she can be offered again immediately. It is a settings-only World action; the
-  wheel keeps its seven slots. See `docs/initiation.md`.
+  wheel keeps its eight slots. See `docs/initiation.md`.
+- **Trigger Anon offer** forms an Anon offer for the aimed mare as if Anon had just asked her.
+  It is on the Mare wheel page; the Anon classifier and the Mare response still run.
 - **Force act face** cycles the base-game faces; see `docs/face.md`.
 - **Reload posed base** re-reads the active pose's authored JSON in place; a running act picks it
   up on its next frame. With no live act it re-reads the default missionary asset. See
@@ -167,6 +169,14 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
   comfort=...` line per act while **Enable debug** is on.
 - Neglect events log their warning/stop, tier, distress and dislike.
+- The Act Negotiation logs `anon_watch armed|disarmed`, `anon_line received|skip|-> negotiation`,
+  `classifier start|result`, `negotiation state|outcome|offer|hold|privacy|hotkey`,
+  `agreement formed|auto-start|start`, and `hotkey exact match|interrupt|immediate|start` lines.
+  The classifier lines carry the kind, scope, parsed answer, option index, failure and the trimmed
+  raw reply/error.
+- The Proactive Mare reasoning logs `request reasoning start` and `request reasoning result` with
+  the parsed offer/index and the trimmed raw reply/error; `request outcome` carries the terminal
+  reason and cooldown.
 - Multi-line diagnostics are one entry: identification line first, then tab-indented rows.
 
 ## Lab keys

@@ -241,8 +241,9 @@ the adopted hold to the act.
 ## Feedback and cooldown
 
 Log + toast for `NoOffer`, `Occupied`, lock-blocked and every terminal outcome. A genuine
-non-offer is the exception: it closes silently, with no outcome, log or toast, so no pacing retry
-is written. `COOLDOWN_S` is the service's cooldown signal on a plain decline or an acceptance; the
+non-offer is the exception for the player: no outcome, no toast and no pacing retry; the debug log
+still records `negotiation non-offer` and `state=none reason=non_offer`, so it is diagnosable
+without changing the pacing. `COOLDOWN_S` is the service's cooldown signal on a plain decline or an acceptance; the
 Proactive's stored history cooldown is the effective per-mare wait. A counter-offer, expiry,
 interruption and start failure write none. A counter-offer also queues one short generated line
 declining the place or timing while still wanting him; a plain refusal keeps the base-game
@@ -273,8 +274,13 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 
 - No hotkey and no face. The Act key is the hotkey; this service only matches an Agreement or
   interrupts for it.
-- The `negotiation ...` debug log lines are `offer`, `agreement`, `refused`, `expired`,
-  `interrupted`, `start failed`, `started`, `blocked` and `occupied`.
+- The `negotiation ...` debug log lines are `state=offered|agreement|none`, `offer`, `hold claim`,
+  `hold lost`, `privacy lost`, `hotkey match|interrupt`, `answer`, `non-offer`, `outcome`,
+  `agreement`, `refused`, `expired`, `interrupted`, `start failed`, `started`, `blocked` and
+  `occupied`.
+- The classifier runs and results are `classifier start` / `classifier result` from
+  `negotiation/adapter.gd`; the result carries the kind, scope, answer, option index, failure and
+  the trimmed raw reply/error.
 - `debug_rows()` adds the `NEGOTIATION` Show data section: phase, lock, live offer/Agreement and
   the TTL.
 - **Trigger Anon offer** (Debug → Actions / the Mare wheel) forms an Anon offer for the aimed mare

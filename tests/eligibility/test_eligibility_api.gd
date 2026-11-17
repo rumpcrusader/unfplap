@@ -50,8 +50,13 @@ class FakePony extends Node3D:
 	var identity: Variant
 
 
+class FakeContext extends Node:
+	var state := {}
+
+
 class FakeGame extends Node:
 	var mares: Array = []
+	var world_context: Node
 
 
 class FakeMain extends Node:
@@ -80,9 +85,11 @@ func run() -> void:
 	var main := FakeMain.new()
 	main.name = "FakeMain"
 	main.game = FakeGame.new()
+	main.game.world_context = FakeContext.new()
 	main.player = Node3D.new()
 	root.add_child(main)
 	root.add_child(main.game)
+	root.add_child(main.game.world_context)
 	root.add_child(main.player)
 	main.eligibility = ELIGIBILITY.new()
 	main.eligibility.setup(main)
@@ -136,6 +143,21 @@ func run() -> void:
 	pony.remove_meta("relationship_runtime")
 	check(not main.eligibility.relationship_ok(pony), "no relationship runtime fails clearance")
 	pony.set_meta("relationship_runtime", relation)
+	# The love level comes from the game's own ladder cache, and `ladder()` is the fallback for a
+	# pony the game has not recorded yet. The fake ladder says New Couple (2); the cache says
+	# No crush yet (0), so a floor that the cached level fails and the ladder level passes proves
+	# which read answered.
+	main.game.world_context.state["bond_levels"] = {"rarity": {"friendship": 3, "love": 0}}
+	SETTINGS.promiscuity.set_choice("new_couple")
+	check(not main.eligibility.relationship_ok(pony),
+		"the clearance floor reads the game's cached love level")
+	check(int(main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START).facts.love_level) == 0,
+		"the facts snapshot reads the cached love level too")
+	main.game.world_context.state["bond_levels"] = {}
+	check(main.eligibility.relationship_ok(pony),
+		"an unrecorded pony falls back to the relationship ladder")
+	check(int(main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START).facts.love_level) == 2,
+		"the fallback fills the facts snapshot")
 	SETTINGS.promiscuity.set_choice(saved_promiscuity)
 	relation.bonds.welcome = false
 	var unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)

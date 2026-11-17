@@ -241,15 +241,44 @@ func relationship_ok(pony: Node) -> bool:
 	var bonds: Variant = rel.get("bonds")
 	if bonds != null and is_instance_valid(bonds) and bonds.has_method("eligible_for_romance"):
 		romance = bool(bonds.call("eligible_for_romance", id))
-	var love := -1
-	if rel.has_method("ladder"):
-		var levels: Variant = rel.call("ladder", id)
-		if levels is Dictionary:
-			var row: Variant = (levels as Dictionary).get("love", {})
-			if row is Dictionary:
-				love = int((row as Dictionary).get("level", -1))
+	var love := _love_level(rel, id)
 	var floor_ok := POLICY.level_ok(str(SETTINGS.promiscuity.get_choice()), love)
 	return CLEARANCE.relationship_ok(true, romance, floor_ok)
+
+
+## Her love level, read from the game's own ladder cache. `relationship_runtime._level_check()`
+## writes `world_context.state.bond_levels` on every impression and bond change, which is the whole
+## set that can move a level, so the row is as current as `ladder()` for one dictionary read.
+## `ladder()` rebuilds every fact and deep-copies her bond record three times, so it is only the
+## fallback for a pony the game has not recorded yet.
+func _love_level(rel: Variant, id: String) -> int:
+	var cached: Variant = _bond_levels().get(id)
+	if cached is Dictionary:
+		return int((cached as Dictionary).get("love", -1))
+	if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
+		var ladder: Variant = rel.call("ladder", id)
+		if ladder is Dictionary:
+			var love: Variant = (ladder as Dictionary).get("love", {})
+			if love is Dictionary:
+				return int((love as Dictionary).get("level", -1))
+	return -1
+
+
+## The game's per-pony level cache, or an empty dictionary outside a live world.
+func _bond_levels() -> Dictionary:
+	if not is_instance_valid(main):
+		return {}
+	var game: Variant = main.get("game")
+	if game == null or not is_instance_valid(game):
+		return {}
+	var context: Variant = game.get("world_context")
+	if context == null or not is_instance_valid(context):
+		return {}
+	var state: Variant = context.get("state")
+	if not state is Dictionary:
+		return {}
+	var levels: Variant = (state as Dictionary).get("bond_levels")
+	return levels if levels is Dictionary else {}
 
 
 ## The witness age category. This is the only place a consumer needs the age instead of a
@@ -359,12 +388,7 @@ func _read_relationship(pony: Node, id: String, out: Dictionary) -> void:
 			var record: Variant = bonds.call("record_for", id)
 			if record is Dictionary:
 				out["stage"] = str((record as Dictionary).get("stage", ""))
-	if rel.has_method("ladder"):
-		var ladder: Variant = rel.call("ladder", id)
-		if ladder is Dictionary:
-			var love: Variant = (ladder as Dictionary).get("love", {})
-			if love is Dictionary:
-				out["love_level"] = int((love as Dictionary).get("level", -1))
+	out["love_level"] = _love_level(rel, id)
 
 
 func _read_settings(out: Dictionary) -> void:

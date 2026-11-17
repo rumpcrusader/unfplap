@@ -197,10 +197,17 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
 ## Standing camera
 
 - Camera height through player `_stand_eye` / `_eye_height`; do not set the eye line by teleporting
-  the rig. The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at
-  pose start, then freezes. The lean vector is applied on top.
+  the rig. The target is the preset eye (`player_eye_height × size_scale`) raised to her live
+  `pony_head` **rest** line when that is higher; that lift never passes Anon's own eye. A fitted
+  body taller than its preset (the princesses, a tall modded mare) therefore cannot leave the view
+  at her chest, and Anon is not scaled up to her. Rest, not the posed bone, so a conversation bow
+  or the act neck-down does not move the camera. The line is measured in Anon's root frame, which
+  terrain and the footstool may raise. A missing skeleton or head bone keeps the preset. The camera
+  aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose start, then
+  freezes. The lean vector is applied on top.
 - Canon lowers the standing eye line by `CANON_STANDING_CAMERA_DROP_M = 0.10 m` and multiplies lean
-  travel by `0.8`; JRHNBR raises it by `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`.
+  travel by `0.8`; JRHNBR raises it by `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`. These offsets
+  apply on top of the eye target; the preset is the clamp's floor, not its cap.
 - Lean mapping: forward `0.24 m` / `6°` down / `1.5°` roll; backward
   `presentation.lean_back_m` with the same downward pitch; side `0.18 m` /
   `8°` outward roll / `3°` yaw. All scale with pony size.

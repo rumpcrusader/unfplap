@@ -489,6 +489,8 @@ func _check_lock_and_eye() -> void:
 	main.free()
 
 
+## Her live rest head line can raise the standing eye, never above Anon's own. The target is
+## relative to the player root, so a raised floor must not be read as a taller pony.
 func _check_eye_line() -> void:
 	var made := _fixture()
 	var camera: Variant = made["camera"]
@@ -520,6 +522,7 @@ func _check_eye_line() -> void:
 			"the standing eye follows her live line up to Anon's own eye")
 		camera.call("restore_eye_override")
 
+	# The same line from a raised player root is measured above that root, not in world space.
 	player.global_position.y = 0.4
 	var raised := base + 0.5
 	skeleton.set_bone_rest(head, Transform3D(Basis.IDENTITY, Vector3(0.0, raised + 0.4, 0.0)))

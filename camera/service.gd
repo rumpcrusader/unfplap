@@ -612,8 +612,9 @@ func tick_free_look() -> void:
 	write_log("free look %s" % ("on" if active else "off"))
 
 
-## Standing eye height follows the body preset; missionary is owned by the game's bed rest/seat
-## camera and AnonPony has its own eye height. The previous values are restored at act end.
+## Standing eye height follows the body preset, raised to the pony's live rest eye line and never
+## above Anon's own eye; missionary is owned by the game's bed rest/seat camera and AnonPony has
+## its own eye height. The previous values are restored at act end.
 func apply_eye_override(family: String, player_pony: bool) -> void:
 	camera_target_eye = 0.0
 	if family == "bed" or player_pony:
@@ -628,6 +629,8 @@ func apply_eye_override(family: String, player_pony: bool) -> void:
 	var her_eye := pony_eye_height()
 	var target := preset
 	if is_finite(her_eye):
+		# A fitted body (the princesses, a tall modded mare) can be taller than its size preset.
+		# Her live eye line lifts the target, but never above Anon's own eye: he stays human.
 		target = maxf(preset, minf(base, her_eye))
 		if target > preset + 0.0001:
 			write_log("eye line raised preset=%.2f her=%.2f target=%.2f" % [
@@ -752,6 +755,10 @@ func player_eye_height() -> float:
 	return 1.6
 
 
+## Her live eye line in Anon's root frame, from the rest head bone. The OpenPony head rest sits
+## at the eye target height in both the standard and the fitted princess exports. Rest, not the
+## posed bone: a conversation bow or the act neck-down must not move the camera. The player root
+## can be raised by terrain or the footstool, and the eye target is relative to it.
 func pony_eye_height() -> float:
 	var pony: Variant = facts.pony if facts != null else null
 	if not is_instance_valid(pony):

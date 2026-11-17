@@ -218,8 +218,9 @@ func on_negotiation_outcome(terminal: RefCounted) -> void:
 		_retry_at.erase(id)
 	else:
 		_retry_at[id] = _now() + POLICY.RETRY_S
-	_debug("request outcome id=%s outcome=%d reason=%s" % [
-		id, int(terminal.outcome), _reason_name(str(terminal.reason))])
+	_debug("request outcome id=%s outcome=%d reason=%s cooldown=%.0f" % [
+		id, int(terminal.outcome), _reason_name(str(terminal.reason)),
+		float(terminal.cooldown_s)])
 
 
 ## A new Anon offer or hotkey cancels an in-flight approach that has not formed a Mare offer.
@@ -432,6 +433,8 @@ func _start_reasoning(candidate: Candidate) -> void:
 	var serial := _reasoning_serial
 	_reasoning_scope = "negotiation:initiation:%d:%d" % [_serial, serial]
 	_reasoning_pending = true
+	_debug("request reasoning start id=%s options=%d" % [
+		candidate.id, candidate.options.size()])
 	var payload := REASONING.payload(candidate.context, candidate.options)
 	var started := bool(_adapter.call("complete_raw", REASONING.INSTRUCTION, payload,
 		_reasoning_scope,
@@ -460,6 +463,9 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 			and bool(main.call("negotiation_locked")):
 		return
 	var decision := REASONING.parse(reply, error, candidate.options.size())
+	_debug("request reasoning result id=%s offer=%s option=%d failed=%s reply=%s error=%s" % [
+		candidate.id, str(decision.offer), decision.option_index, str(decision.failed),
+		_reply_text(reply), "none" if error.is_empty() else error])
 	if decision.failed:
 		_retry_at[candidate.id] = _now() + POLICY.RETRY_S
 		_debug("request reasoning failed id=%s error=%s" % [
@@ -924,3 +930,8 @@ func _now() -> float:
 func _debug(text: String) -> void:
 	if is_instance_valid(main) and main.has_method("debug"):
 		main.call("debug", text)
+
+
+func _reply_text(reply: String) -> String:
+	var text := reply.strip_edges()
+	return text if text.length() <= 512 else text.left(512) + "..."

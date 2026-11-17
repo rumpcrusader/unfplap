@@ -1779,6 +1779,8 @@ func start_agreement(handle: Variant, skip_presentation := false) -> int:
 		return AGREEMENT_WAIT
 	_clear_aftercare()
 	var started := _begin_act(pose, option.bed, act_source, skip_presentation)
+	_log("agreement start %s pose=%s source=%s" % [
+		"started" if started else "failed", pose, act_source])
 	if is_instance_valid(main) and main.has_method("report_agreement"):
 		main.call("report_agreement", handle, started)
 	return AGREEMENT_STARTED if started else AGREEMENT_FAILED
@@ -1850,7 +1852,10 @@ func start_hotkey(pose: String, bed_in: Variant, act_source: String,
 			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
 	_clear_aftercare()
-	return _begin_act(pose, bed_in, act_source, skip_presentation)
+	var started := _begin_act(pose, bed_in, act_source, skip_presentation)
+	_log("hotkey start %s pose=%s source=%s" % [
+		"started" if started else "failed", pose, act_source])
+	return started
 
 
 ## Clear the visual aftercare before a new start: the face and tail state, the meta and the

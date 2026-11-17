@@ -192,6 +192,7 @@ func tick(delta: float) -> void:
 	_privacy_clock = 0.0
 	var pony: Node = _pony()
 	if not is_instance_valid(pony) or not _private_now(pony, _cuddle_flag()):
+		_log_line("negotiation privacy lost id=%s" % _pony_id(pony))
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_PRIVACY, 0.0, true)
 
 
@@ -209,8 +210,11 @@ func begin_mare_offer(offer: MareOffer) -> bool:
 	live.base = offer.base
 	live.private = offer.private
 	if not _claim_mare_hold(live, offer):
+		_log_line("negotiation hold claim id=%s trigger=mare result=false" % live.pony_id)
 		_close(Outcome.OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
 		return false
+	_log_line("negotiation hold claim id=%s trigger=mare result=true token=%s" % [
+		live.pony_id, live.hold_token])
 	live.context = _context(live.pony)
 	var scope := _scope("answer")
 	live.scope = scope
@@ -248,6 +252,8 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 	live.base = base
 	live.options = options
 	live.context = _context(live.pony)
+	_log_line("negotiation classify start id=%s text_len=%d options=%d" % [
+		live.pony_id, text.length(), options.size()])
 	var scope := _scope("anon_offer")
 	live.scope = scope
 	var request := PROMPTS.Request.new()
@@ -272,7 +278,7 @@ func report(handle: AGREEMENT.Handle, started: bool) -> bool:
 	if started:
 		_clear_state()
 		_report_outcome(package.pony, Outcome.STARTED, "", package.trigger, 0.0)
-		_log_line("negotiation started id=%d" % package.id)
+		_log_line("negotiation started id=%d state=none" % package.id)
 	else:
 		_close(Outcome.START_FAILED, "", 0.0)
 	return true
@@ -296,6 +302,7 @@ func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Hand
 		return null
 	if not _agreement.matches(_agreement.pony, option):
 		return null
+	_log_line("negotiation hotkey match id=%s" % _agreement.pony_id)
 	return _handle
 
 
@@ -304,6 +311,7 @@ func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Hand
 func interrupt_for_hotkey() -> bool:
 	if _phase == Phase.NONE:
 		return false
+	_log_line("negotiation hotkey interrupt id=%s" % _pony_id(_pony()))
 	_close(Outcome.INTERRUPTED, AGREEMENT.REASON_HOTKEY, 0.0)
 	return true
 
@@ -347,6 +355,8 @@ func _begin_state(live: Offer, runtime: Node, pony: Node3D, option: POSE_OPTIONS
 	_locked = true
 	_deadline = live.expires_at
 	_privacy_clock = 0.0
+	_log_line("negotiation state=offered id=%s serial=%d trigger=%s" % [
+		live.pony_id, live.id, _trigger_name(trigger)])
 
 
 func _clear_state() -> void:
@@ -372,6 +382,8 @@ func _close(outcome: int, reason: String, cooldown: float, reaction := false) ->
 		_cancel_scope(_agreement.classifier_scope)
 	_release_hold()
 	_clear_state()
+	_log_line("negotiation outcome=%s reason=%s cooldown=%.0f" % [
+		_outcome_name(outcome), "none" if reason.is_empty() else reason, cooldown])
 	_report_outcome(package_pony, outcome, reason, trigger, cooldown)
 	_notify(outcome, reason)
 	if reaction and is_instance_valid(package_pony):
@@ -388,6 +400,7 @@ func _silent_close() -> void:
 		_cancel_scope(_agreement.classifier_scope)
 	_release_hold()
 	_clear_state()
+	_log_line("negotiation state=none reason=non_offer")
 
 
 func _formation_failure(pony: Variant, outcome: int, reason: String, trigger: int) -> void:
@@ -438,6 +451,8 @@ func _accept(live: Offer) -> void:
 	_phase = Phase.AGREEMENT
 	_deadline = package.expires_at()
 	_privacy_clock = 0.0
+	_log_line("negotiation state=agreement id=%s" % package.pony_id)
+	_log_line("negotiation outcome=accepted cooldown=%.0f" % COOLDOWN_S)
 	_report_outcome(package.pony, Outcome.ACCEPTED, "", package.trigger, COOLDOWN_S)
 	_log_line("negotiation agreement id=%d trigger=%s pose=%s private=%s" % [
 		package.id, _trigger_name(package.trigger), package.option_key(), str(package.private)])
@@ -511,6 +526,9 @@ func _on_anon_decision(live: Offer, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
+	_log_line("negotiation answer id=%s kind=anon_decision answer=%s failed=%s" % [
+		live.pony_id, "none" if reply == null else reply.answer,
+		str(reply == null or reply.failed)])
 	if reply == null or reply.failed:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
@@ -530,6 +548,12 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
+	if reply != null:
+		_log_line("negotiation classify result id=%s answer=%s option=%d failed=%s out_of_range=%s" % [
+			live.pony_id, reply.answer, reply.option_index, str(reply.failed),
+			str(reply.out_of_range)])
+	else:
+		_log_line("negotiation classify result id=%s answer=none failed=true" % live.pony_id)
 	if reply == null or reply.failed:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
@@ -537,7 +561,9 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
 		return
 	if reply.answer != CONTEXT.ANSWER_ACCEPT:
-		# A normal line that is not an offer is silent: no outcome, no toast, no cooldown.
+		# A normal line that is not an offer is silent for the player: no outcome, no toast,
+		# no cooldown. The debug line keeps it visible in the log.
+		_log_line("negotiation non-offer id=%s answer=%s" % [live.pony_id, reply.answer])
 		_silent_close()
 		return
 	if reply.option_index < 0 or reply.option_index >= live.options.size():
@@ -550,9 +576,14 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_POSE, 0.0)
 		return
 	if not _claim_anon_hold(live):
+		_log_line("negotiation hold claim id=%s trigger=anon result=false" % live.pony_id)
 		_close(Outcome.OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
 		return
+	_log_line("negotiation hold claim id=%s trigger=anon result=true token=%s" % [
+		live.pony_id, live.hold_token])
 	live.private = _private_now(live.pony, option.cuddle)
+	_log_line("negotiation offer id=%s trigger=anon pose=%s private=%s" % [
+		live.pony_id, option.key(), str(live.private)])
 	var scope := _scope("mare_response")
 	live.scope = scope
 	var request := PROMPTS.Request.new()
@@ -570,6 +601,9 @@ func _on_mare_response(live: Offer, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
+	_log_line("negotiation answer id=%s kind=mare_response answer=%s failed=%s" % [
+		live.pony_id, "none" if reply == null else reply.answer,
+		str(reply == null or reply.failed)])
 	if reply == null or reply.failed:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
 		return
@@ -675,19 +709,23 @@ func _claim_anon_hold(live: Offer) -> bool:
 func _keep_hold() -> bool:
 	var hold: Variant = _hold()
 	if hold == null:
+		_log_line("negotiation hold lost id=%s reason=missing" % _pony_id(_pony()))
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	if _offer != null and not _offer.hold_claimed:
 		# The Anon offer is still being classified; there is no lease to keep yet, only attention.
 		if not bool(hold.keep_target()):
+			_log_line("negotiation hold lost id=%s reason=target_left" % _pony_id(_pony()))
 			_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 			return false
 		return true
 	hold.keep_nav()
 	if not bool(hold.keep_target()):
+		_log_line("negotiation hold lost id=%s reason=target_left" % _pony_id(_pony()))
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	if not bool(hold.accepts_hold(_pose(), _source())):
+		_log_line("negotiation hold lost id=%s reason=owner" % _pony_id(_pony()))
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	return true
@@ -840,6 +878,19 @@ func _notify(outcome: int, reason: String) -> void:
 			_toast("The act could not start.")
 		Outcome.STARTED:
 			_log_line("negotiation started")
+
+
+func _outcome_name(value: int) -> String:
+	match value:
+		Outcome.ACCEPTED: return "accepted"
+		Outcome.REFUSED: return "refused"
+		Outcome.EXPIRED: return "expired"
+		Outcome.INTERRUPTED: return "interrupted"
+		Outcome.START_FAILED: return "start_failed"
+		Outcome.NO_OFFER: return "no_offer"
+		Outcome.OCCUPIED: return "occupied"
+		Outcome.STARTED: return "started"
+	return "none"
 
 
 func _phase_name(value: int) -> String:

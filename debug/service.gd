@@ -234,8 +234,8 @@ const ACTIONS := {
 const WHEEL_PAGES := {
 	"mare": {
 		"title": "Mare",
-		"actions": ["show_data", "bed_offer", "bed_cuddle", "standing_offer", "cycle_heat",
-			"cycle_diestrus", "sex_ready"],
+		"actions": ["show_data", "bed_offer", "bed_cuddle", "standing_offer", "anon_offer",
+			"cycle_heat", "cycle_diestrus", "sex_ready"],
 	},
 	"act": {
 		"title": "Act",
@@ -243,7 +243,7 @@ const WHEEL_PAGES := {
 			"force_act_face"],
 	},
 }
-const WHEEL_MAX_SLOTS := 7
+const WHEEL_MAX_SLOTS := 8
 
 
 ## The wheel's root page for the current act state.

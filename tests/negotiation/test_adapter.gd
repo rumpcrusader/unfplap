@@ -116,9 +116,13 @@ class FakeMain extends Node:
 	var game: Variant = null
 	var classifier: Node = null
 	var menu := false
+	var logs: Array[String] = []
 
 	func menu_open() -> bool:
 		return menu
+
+	func debug(text: String) -> void:
+		logs.append(text)
 
 
 func _fixture() -> Dictionary:
@@ -156,6 +160,13 @@ func _option(pose: String, source := "", bed: Variant = null) -> POSE_OPTIONS.Op
 	out.source = source
 	out.bed = bed
 	return out
+
+
+func _has_log(lines: Array[String], needle: String) -> bool:
+	for line: String in lines:
+		if line.contains(needle):
+			return true
+	return false
 
 
 func run() -> void:
@@ -331,6 +342,7 @@ func _check_models() -> void:
 	var made := _fixture()
 	var adapter: Node = made["adapter"]
 	var classifier: FakeClassifier = made["classifier"]
+	var main: FakeMain = made["main"]
 	var bed := Node3D.new()
 	root.add_child(bed)
 	var context := CONTEXT.build({"willingness": true})
@@ -359,6 +371,10 @@ func _check_models() -> void:
 		"the classifier payload carries Context")
 	check(got.size() == 1 and got[0].answer == CONTEXT.ANSWER_ACCEPT and got[0].option_index == 0,
 		"the reply is parsed into the typed answer")
+	check(_has_log(main.logs, "classifier start kind=anon_offer"),
+		"the classifier start is logged")
+	check(_has_log(main.logs, "classifier result kind=anon_offer"),
+		"the classifier result is logged")
 
 	got.clear()
 	request.kind = "anon_decision"

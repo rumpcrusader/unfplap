@@ -960,20 +960,24 @@ func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 	var runtime: Node = offer.runtime
 	if not is_instance_valid(runtime):
 		return false
+	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
+		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
 	if is_instance_valid(negotiation):
 		var handle: Variant = negotiation.call("handle")
 		if handle != null:
 			var match: Variant = negotiation.call("hotkey_handle", runtime, _option_for(offer))
 			if match != null:
+				_debug("hotkey exact match id=%s pose=%s" % [id, offer.pose])
 				return _start_agreement_offer(offer, true)
+			_debug("hotkey interrupt agreement id=%s" % id)
 			negotiation.call("interrupt_for_hotkey")
-			_debug("hotkey interrupted a different agreement")
 		elif bool(negotiation.call("is_locked")):
+			_debug("hotkey interrupt negotiation id=%s" % id)
 			negotiation.call("interrupt_for_hotkey")
-			_debug("hotkey interrupted the negotiation")
+	_debug("hotkey immediate id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
 	var started := bool(runtime.call("start_hotkey", offer.pose, offer.bed, offer.source))
 	if not started:
-		_debug("hotkey start blocked pose=%s source=%s" % [offer.pose, offer.source])
+		_debug("hotkey start blocked id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
 		return false
 	_clear_offer_hint()
 	return true
@@ -998,6 +1002,10 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 		_clear_offer_hint()
 		return false
 	var result := int(offer.runtime.call("start_agreement", handle, skip_presentation))
+	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
+		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
+	_debug("agreement start id=%s pose=%s skip_presentation=%s result=%d" % [
+		id, offer.pose, str(skip_presentation), result])
 	if result == RUNTIME.AGREEMENT_WAIT:
 		_debug("agreement start waiting pose=%s source=%s" % [offer.pose, offer.source])
 		return false
@@ -1031,8 +1039,12 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	var offer := _agreement_offer(handle)
 	if offer == null:
 		return
-	var option: Variant = handle.option
-	var cuddle := option != null and bool(option.cuddle)
+	var option: Variant = _field(handle, "option")
+	var cuddle := option != null and bool(_field(option, "cuddle", false))
+	var pony_id := str(_field(handle, "pony_id", ""))
+	if pony_id.is_empty() and is_instance_valid(pony):
+		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+	_debug("agreement auto-start id=%s pose=%s" % [pony_id, offer.pose])
 	if bool(handle.private) and not _agreement_private_now(pony, cuddle):
 		_debug("agreement auto-start privacy lost pony=%s" % str(pony.name))
 		negotiation.call("cancel", handle, "privacy")
@@ -2293,6 +2305,16 @@ func _toast(text: String) -> void:
 	hud.call("toast", text, 4.0)
 
 
+## Read a typed field from the production handle/terminal or a test dictionary.
+func _field(value: Variant, key: String, fallback: Variant = null) -> Variant:
+	if value is Dictionary:
+		return (value as Dictionary).get(key, fallback)
+	if value == null:
+		return fallback
+	var got: Variant = value.get(key)
+	return fallback if got == null else got
+
+
 ## The shared terminal line. The purpose follows the close reason: a counter-offer still wants
 ## him, a privacy loss lets the moment go, and every other close is the generic release. It is a
 ## short generated line, queued and not delaying the clear.
@@ -2329,31 +2351,47 @@ func _tick_negotiation_watch() -> void:
 		if not _watching_player:
 			_watching_player = true
 			adapter.call("watch_player", Callable(self, "_on_anon_line"))
+			_debug("anon_watch armed")
 		return
 	if _watching_player:
 		_watching_player = false
 		adapter.call("unwatch_player")
+		_debug("anon_watch disarmed reason=%s" % [
+			"act" if is_instance_valid(active_runtime) else "locked"])
 
 
 ## The first new player line while he talks to a mare: an Anon offer. The Negotiation service
 ## classifies intent; a normal line forms nothing and says nothing.
 func _on_anon_line(text: String) -> void:
 	var line := text.strip_edges()
-	if line.is_empty() or line.length() > 600:
+	_debug("anon_line received len=%d" % line.length())
+	if line.is_empty():
+		_debug("anon_line skip reason=empty")
+		return
+	if line.length() > 600:
+		_debug("anon_line skip reason=too_long len=%d" % line.length())
 		return
 	if not is_instance_valid(negotiation) or bool(negotiation.call("is_locked")):
+		_debug("anon_line skip reason=locked")
 		return
 	if not is_instance_valid(classifier) or not bool(classifier.call("available")):
+		_debug("anon_line skip reason=no_classifier")
 		return
 	var pony := _conversation_mare()
 	if not is_instance_valid(pony):
+		_debug("anon_line skip reason=no_target")
 		return
 	var runtime: Variant = runtime_for(pony)
 	if not is_instance_valid(runtime) or int(runtime.get("state")) != 0:
+		_debug("anon_line skip reason=runtime_state state=%s" % [
+			str(runtime.get("state")) if is_instance_valid(runtime) else "none"])
 		return
 	if is_instance_valid(initiation) and initiation.has_method("cancel_approach"):
 		initiation.call("cancel_approach")
-	negotiation.call("begin_anon_offer", runtime, line)
+	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+	_debug("anon_line -> negotiation id=%s" % [id if not id.is_empty() else str(pony.name)])
+	var started := bool(negotiation.call("begin_anon_offer", runtime, line))
+	_debug("anon_line negotiation started=%s" % str(started))
 
 
 ## The mare whose conversation target is Anon, nearest first. The game's own target decides; the
@@ -2384,12 +2422,16 @@ func _conversation_mare() -> Node:
 func _on_negotiation_outcome(terminal: Variant) -> void:
 	if terminal == null:
 		return
-	var pony: Variant = terminal.pony
+	_debug("negotiation outcome id=%s outcome=%d reason=%s cooldown=%.0f" % [
+		str(_field(terminal, "pony_id", "")), int(_field(terminal, "outcome", 0)),
+		str(_field(terminal, "reason", "")) if not str(_field(terminal, "reason", "")).is_empty()
+			else "none", float(_field(terminal, "cooldown_s", 0.0))])
+	var pony: Variant = _field(terminal, "pony")
 	if is_instance_valid(pony):
 		var runtime: Variant = runtime_for(pony)
 		if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):
 			runtime.call("clear_presentation")
-	if terminal.outcome != NEGOTIATION.Outcome.STARTED \
+	if int(_field(terminal, "outcome", -1)) != NEGOTIATION.Outcome.STARTED \
 			and is_instance_valid(initiation) and initiation.has_method("on_negotiation_outcome"):
 		initiation.call("on_negotiation_outcome", terminal)
 
@@ -2398,14 +2440,21 @@ func _on_negotiation_outcome(terminal: Variant) -> void:
 func _on_agreement(handle: Variant) -> void:
 	if handle == null:
 		return
-	var pony: Variant = handle.pony
+	var pony: Variant = _field(handle, "pony")
+	var pony_id := str(_field(handle, "pony_id", ""))
+	if pony_id.is_empty() and is_instance_valid(pony):
+		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+	var option: Variant = _field(handle, "option")
+	_debug("agreement formed id=%s trigger=%s pose=%s private=%s" % [
+		pony_id, str(_field(handle, "trigger", "")),
+		str(_field(option, "pose", "none")) if option != null else "none",
+		str(_field(handle, "private", false))])
 	var runtime: Variant = runtime_for(pony) if is_instance_valid(pony) else null
 	if not is_instance_valid(runtime) or not runtime.has_method("start_agreement"):
 		if is_instance_valid(negotiation):
 			negotiation.call("cancel", handle, "cancelled")
 		return
 	# The presentation is act-owned: it starts now, and the auto-start waits for it to settle.
-	var option: Variant = handle.option
 	if option != null and str(option.pose) == CATALOG.STANDING \
 			and not bool(runtime.call("present_standing")):
 		_debug("agreement present failed pony=%s" % str(pony.name))

@@ -64,13 +64,13 @@ func _check_roots() -> void:
 	check(DEBUG_ACTIONS.wheel_root(true) == "act", "a live act opens the Act page")
 	check(DEBUG_ACTIONS.wheel_title("mare") == "Mare", "the Mare page is titled")
 	check(DEBUG_ACTIONS.wheel_title("act") == "Act", "the Act page is titled")
-	check(DEBUG_ACTIONS.WHEEL_MAX_SLOTS == 7, "the wheel is capped at seven slots")
+	check(DEBUG_ACTIONS.WHEEL_MAX_SLOTS == 8, "the wheel is capped at eight slots")
 
 
 func _check_pages() -> void:
 	check(DEBUG_ACTIONS.wheel_actions("mare") == [
-		"show_data", "bed_offer", "bed_cuddle", "standing_offer", "cycle_heat",
-		"cycle_diestrus", "sex_ready"], "the Mare page order is stable")
+		"show_data", "bed_offer", "bed_cuddle", "standing_offer", "anon_offer",
+		"cycle_heat", "cycle_diestrus", "sex_ready"], "the Mare page order is stable")
 	check(DEBUG_ACTIONS.wheel_actions("act") == [
 		"show_data", "force_tolerance_warning", "force_tolerance_stop", "force_act_face"],
 		"the Act page order is stable")

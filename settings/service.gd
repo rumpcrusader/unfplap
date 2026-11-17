@@ -1829,6 +1829,7 @@ static var _deprecated := [
 	# The act key always accepts and the Agreement owns visibility; both switches are retired.
 	deprecated("relationship.sex_start", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("features.act_public_offer", func(_value: Variant) -> Dictionary: return {}),
+	# The relationship rows always decide; the one-switch bypass is retired.
 	deprecated("relationship.ignore_gates", func(_value: Variant) -> Dictionary: return {}),
 	# Acts always end an active cuddle; the switch is retired.
 	deprecated("features.allow_act_during_cuddle",

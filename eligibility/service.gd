@@ -227,9 +227,8 @@ func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 
 
 ## The Base clearance relationship row for the negotiation routes: a live relationship, romance
-## eligibility and the Promiscuity floor. The relationship override opens the romance and
-## Promiscuity parts. Reads only those facts; willingness, history, cycle, player form and consent
-## belong to the full verdict and are not built here.
+## eligibility and the Promiscuity floor. Reads only those facts; willingness, history, cycle,
+## player form and consent belong to the full verdict and are not built here.
 func relationship_ok(pony: Node) -> bool:
 	if not is_instance_valid(main) or not is_instance_valid(pony):
 		return false

@@ -25,8 +25,8 @@ const STYLE := preload("res://world/ui/menu_style.gd")
 ## a dropdown, which cannot overflow the card.
 const MOST_PILLS := 4
 const PILL_LABEL_CHARS := 18
-## General's last player rows, in draw order: the relationship bypass sits directly above
-## Enable debug, which governs the Debug blocks. Both are drawn after the tab's sections.
+## General's last player row: Enable debug governs the Debug blocks and is drawn after the tab's
+## sections.
 const GENERAL_TAIL := ["debug_mode"]
 
 ## Injected pages, the Debug block of each tab, and the guard that keeps the game's own sidebar
@@ -290,8 +290,7 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, se
 		if setting != null and setting.group.is_empty():
 			loose.append(setting)
 	# Enable debug is the last player row of General: it governs the Debug block every section
-	# ends with, and the relationship bypass sits just above it. Hold both out of the top run and
-	# draw them after the sections below, in `GENERAL_TAIL` order.
+	# ends with. Hold it out of the top run and draw it after the sections below.
 	var tail: Array = []
 	if tab == SETTINGS.GENERAL and prefix.is_empty():
 		for name: String in GENERAL_TAIL:

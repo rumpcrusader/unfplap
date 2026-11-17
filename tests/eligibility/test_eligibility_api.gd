@@ -1,6 +1,6 @@
 extends SceneTree
-## Eligibility API adapter: live facts, capability targets, consent, the typed verdict, the
-## relationship bypass flag and the provider profile layer. No world file is touched; SETTINGS uses
+## Eligibility API adapter: live facts, capability targets, consent, the typed verdict and the
+## provider profile layer. No world file is touched; SETTINGS uses
 ## a throwaway XDG data dir in the test runner.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility_api.gd
 

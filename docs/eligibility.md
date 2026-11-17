@@ -16,7 +16,6 @@ This contract covers:
 - the Promiscuity level and the relationship rows;
 - base-game kiss willingness (`bonds.welcomes(id, "kiss")`);
 - history and cycle as Context for the negotiation routes;
-- the relationship bypass;
 - per-mare public, anal and oral consent;
 - the legacy start gate and refusal rows (kept for tests and the start-setup proofs);
 - the capability answers the other services consume.
@@ -41,7 +40,7 @@ The purity boundary is deliberate:
   preload. It receives plain data and returns plain data.
 - `eligibility/service.gd` is read-only. It never saves settings, history or consent.
 - Only `eligibility/service.gd` reads `bonds.welcomes`, `bonds.adults`,
-  `bonds.eligible_for_romance`, `SETTINGS.promiscuity`, `SETTINGS.ignore_gates`,
+  `bonds.eligible_for_romance`, `SETTINGS.promiscuity`,
   `SETTINGS.consent` for a gate, `ACT_HISTORY.blocks_start`,
   `ACT_HISTORY.blocks_offers`, `ACT_HISTORY.offer_weight` or `CYCLE.allows_sex`.
 - `shared/act_history.gd`, `shared/cycle.gd`, `shared/consent.gd` and
@@ -56,8 +55,8 @@ The purity boundary is deliberate:
 Eligibility stores nothing. Facts are a per-call snapshot and are never saved or added to the
 per-character profile. The idle hint scans once per second and runs the scene rows first; only a
 passing scene reads Base clearance. Every scan reads it live. `relationship_ok()` uses a narrow
-clearance read of the relationship runtime, romance eligibility, the love level, the Promiscuity
-floor and the override; the full facts snapshot belongs to `get_verdict()`.
+clearance read of the relationship runtime, romance eligibility, the love level and the
+Promiscuity floor; the full facts snapshot belongs to `get_verdict()`.
 
 | Data | Stored where | Owner |
 |---|---|---|
@@ -125,12 +124,11 @@ func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary
 ```
 
 `eligible()` is the capability answer. `relationship_ok()` is the Base clearance relationship row
-for the negotiation routes: a live relationship, romance eligibility and the Promiscuity floor, with
-the relationship override opening the two soft rows. `witness_age()` is the only age-shaped answer
-and only for witness wording. `get_verdict()` is the typed act gate. `get_profile()` reads the
-resolved provider/player profile for one id; `set_profile()` writes the provider layer's eligible
-assertion, participation and consent. The pair is the cross-mod read/write side. The service stores
-nothing.
+for the negotiation routes: a live relationship, romance eligibility and the Promiscuity floor.
+`witness_age()` is the only age-shaped answer and only for witness wording. `get_verdict()` is the
+typed act gate. `get_profile()` reads the resolved provider/player profile for one id;
+`set_profile()` writes the provider layer's eligible assertion, participation and consent. The
+pair is the cross-mod read/write side. The service stores nothing.
 
 ### Callers
 
@@ -180,7 +178,7 @@ assertion wins over the identity flag in both directions.
 ```text
 id, has_identity, is_player_pony, is_filly, is_stallion, eligible, participation,
 has_relationship, registered_adult, romance_eligible, stage, love_level, willing,
-ignore_gates, promiscuity, player_young, player_pony,
+promiscuity, player_young, player_pony,
 cycle_phase, cycle_allows, heat, history, consent
 ```
 
@@ -213,7 +211,7 @@ offer_weight: float
 facts: Facts
 actions: Actions       # public, anal, oral
 relations: Relations   # id, stage, love_level, willing,
-                       # promiscuity, cycle_phase, heat, ignore_gates, base
+                       # promiscuity, cycle_phase, heat, base
 rows: Array[Row]       # key, ok, reason, effect
 ```
 
@@ -229,10 +227,10 @@ at attempt for the hotkey. `evaluate(eligible, relationship_ok, available)` retu
 `Result` with the failed rows in order (`eligibility`, `relationship`, `available`). The
 eligibility service's `eligible?` answer is the `eligible` boolean; the negotiation never inspects
 its rows. `relationship_ok()` is the shared pure predicate over a live relationship, romance
-eligibility, the Promiscuity floor and the relationship override, and `available()` combines the
+eligibility and the Promiscuity floor, and `available()` combines the
 act, sleep, presence and Occupied facts. The service's `relationship_ok()` reads only those
-values: the relationship runtime, romance eligibility, the ladder's love level, the Promiscuity
-floor and the override. It never reads willingness, history, cycle, player form or consent; the
+values: the relationship runtime, romance eligibility, the ladder's love level and the Promiscuity
+floor. It never reads willingness, history, cycle, player form or consent; the
 full snapshot exists for `get_verdict()`.
 
 Willingness, history, cycle, aftercare, diestrus, privacy and general consent are Context
@@ -250,7 +248,7 @@ Rows and effects:
 | `offer_block` | the legacy policy start may be allowed; no proactive offer |
 | `flag` | public/privacy flag; never a failure |
 
-Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`, `bypass`,
+Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`,
 `participation`, `relation`, `cycle`, `history`, `history_offers`, `public`.
 
 ## Modes and truth table
@@ -276,9 +274,6 @@ Rules:
 - `buck_refuse` ignores the cycle and history.
 - `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a
   buck, a history refusal or a mood note. It is a boundary, not a mood beat.
-- With the relationship bypass on, the four relationship rows (`promiscuity`, `romance`, `relation`,
-  `history`) are passed and `buck_refuse`/`history_refuse` are false; the remaining rows still
-  decide.
 
 ## Adults
 
@@ -331,28 +326,6 @@ Soulmates 4, Head Over Hooves 3, Marefriend/Coltfriend 2, New Couple 1, Crush 0,
 
 An unknown value falls back to Marefriend. `Any Adult` skips only this floor; adulthood,
 relationship runtime and romance eligibility still apply.
-
-## Relationship bypass
-
-`relationship.ignore_gates` (**I just wanna plap!**, General) is the one switch that opens every
-relationship-based row. `eligibility/service.gd` reads it once per snapshot into
-`facts.ignore_gates`; the policy then treats these four rows as passed:
-
-- `promiscuity`: the Promiscuity floor;
-- `romance`: `bonds.eligible_for_romance`;
-- `relation`: `bonds.welcomes(id, "kiss")`, which also removes `buck_refuse`;
-- `history`: `blocks_start` and `blocks_offers`, which also removes `history_refuse` and lets a
-  blocked history offer. The offer weight falls back to the rule's base weight with the row's
-  comfort credit kept; the stored history is never written.
-
-The verdict gains a passing `bypass` flag row while the switch is on.
-
-It never opens the structural or boundary rows: adulthood and the provider assertion,
-`has_relationship`, `registered_adult`, the adult player, `participation.acts`, per-mare consent,
-the estrus cycle, privacy and every live scene row still decide. A bypassed mare keeps her stored
-history, so summaries and prompt wording may still mention it, and a Strict tolerance stop still
-ends the act and bucks (`docs/readiness.md`). The LLM has no gate either way: a generated line can
-say no, but nothing parses act lines for consent.
 
 ## Kiss willingness
 
@@ -484,10 +457,10 @@ thresholds (`docs/readiness.md`).
 
 - `tests/eligibility/test_eligibility.gd`: the pure truth table, the one adulthood predicate,
   capability targets, witness age, Promiscuity, willingness, history, cycle, public/anal/oral,
-  participation, the relationship bypass and row effects.
+  participation and row effects.
 - `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `witness_age()`, typed
   facts and verdict, capability targets, the no-stable-id boundary, the profile consent, the
-  provider layer through `set_profile()`/`get_profile()`, the settings flag and clear/setup
+  provider layer through `set_profile()`/`get_profile()`, the Promiscuity setting and clear/setup
   lifecycle.
 - `tests/test_pony_id.gd`: the stable-id rule (metadata wins, identity fallback, no identity).
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
@@ -512,9 +485,8 @@ thresholds (`docs/readiness.md`).
 - The base game changes `bonds.welcomes()` over time; the negotiation routes read it as Context
   for reasoning, not as a gate.
 - Public consent is not a general exhibitionism gate; it is a soft Context preference.
-- The relationship bypass never writes the game's bonds, so a mare's own dialogue and the base
-  game's kiss and cuddle systems still read her real relationship. A Strict tolerance stop still
-  ends the act, bucks and calls the game's `request_space` (`docs/readiness.md`).
+- A Strict tolerance stop still ends the act, bucks and calls the game's `request_space`
+  (`docs/readiness.md`).
 - The internal API is not part of `docs/api.md`; the cross-mod `profile.mare` capability reads
   `get_profile(id)` and writes `set_profile(owner, id, profile)`. A live eligibility verdict is
   not part of the API.

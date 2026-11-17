@@ -178,7 +178,7 @@ func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
 ## are transient; every other row is hard. `hold_compatible` exempts the negotiation hold's
 ## navigator owner and affection hold.
 func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
-		frozen: FrozenPose = null) -> SceneVerdict:
+		frozen: FrozenPose = null, stool_need: int = -1, stool_have: int = -1) -> SceneVerdict:
 	var rows_out: Array[ELIGIBILITY.Row] = []
 	_gate_row(rows_out, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	_gate_row(rows_out, "no_main", is_instance_valid(main), "no_main")
@@ -211,8 +211,12 @@ func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 	_gate_row(rows_out, "nav_pose", nav_pose_gate(pose, act_source, hold_exempt), "nav_pose")
 	var scene := _scene(pose)
 	if bool(scene.get("stool", false)):
-		var need := needed_stool()
-		_gate_row(rows_out, "stool", need <= 0 or owned_stools() >= need, "needs_stool")
+		var need := stool_need
+		var have := stool_have
+		if need < 0:
+			need = needed_stool()
+			have = owned_stools()
+		_gate_row(rows_out, "stool", need <= 0 or have >= need, "needs_stool")
 	if _is_bed_pose(pose) or str(scene.get("frame", "")) == "ground":
 		var pose_ready := authored_ready(pose)
 		_gate_row(rows_out, "pose_asset", pose_ready, authored_reason(pose))

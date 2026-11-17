@@ -165,6 +165,11 @@ var _hotkey_cache_at := -1000.0
 var _hotkey_cache_key := Vector3i.ZERO
 var _hotkey_cache_eligible := false
 var _hotkey_cache_relationship := false
+var _hotkey_stool_at := -1000.0
+var _hotkey_stool_key := Vector3i.ZERO
+var _hotkey_stool_valid := false
+var _hotkey_stool_need := 0
+var _hotkey_stool_have := 0
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
 ## the HUD card reads the cached flag.
 var _cycle_heat := false
@@ -1566,10 +1571,11 @@ func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
 ## The scene-only start of an accepted Agreement: no policy verdict, no formation row, no
 ## aftercare. `frozen` carries the pose capability recorded at formation.
 func scene_only_verdict(pose: String, act_source: String, bed_in: Variant = null,
-		frozen: Variant = null) -> Variant:
+		frozen: Variant = null, stool_need: int = -1, stool_have: int = -1) -> Variant:
 	_read_id()
 	var capability: Variant = frozen if frozen != null else SCENE_GATE.FrozenPose.new(true, true)
-	return _scene_gate().scene_only_verdict(pose, act_source, bed_in, capability)
+	return _scene_gate().scene_only_verdict(pose, act_source, bed_in, capability,
+		stool_need, stool_have)
 
 
 ## The policy verdict. The runtime reads the eligibility service; the scene gate composes it.
@@ -1827,15 +1833,49 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null,
 		return false
 	var now := _now_s()
 	var key := Vector3i(SETTINGS.generation, MARE_REGISTRY.revision, ACT_HISTORY.revision)
-	if fresh or now - _hotkey_cache_at > HOTKEY_CACHE_S or key != _hotkey_cache_key:
-		_hotkey_cache_at = now
-		_hotkey_cache_key = key
-		_hotkey_cache_eligible = bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT))
-		_hotkey_cache_relationship = bool(service.call("relationship_ok", pony))
-	if not _hotkey_cache_eligible or not _hotkey_cache_relationship:
+	if fresh:
+		_refresh_hotkey_clearance(service, now, key)
+		if not _hotkey_cache_eligible or not _hotkey_cache_relationship:
+			return false
+	var refresh_late := false
+	if not fresh:
+		refresh_late = now - _hotkey_cache_at > HOTKEY_CACHE_S or key != _hotkey_cache_key
+		if not refresh_late and (not _hotkey_cache_eligible or not _hotkey_cache_relationship):
+			return false
+	var stool := _hotkey_stool_for(pose, now, key, fresh)
+	var verdict: Variant = scene_only_verdict(pose, act_source, bed_in, null, stool.x, stool.y)
+	if verdict == null or not bool(verdict.ok):
 		return false
-	var verdict: Variant = scene_only_verdict(pose, act_source, bed_in, null)
-	return verdict != null and bool(verdict.ok)
+	if refresh_late:
+		_refresh_hotkey_clearance(service, now, key)
+	return _hotkey_cache_eligible and _hotkey_cache_relationship
+
+
+func _refresh_hotkey_clearance(service: Variant, now: float, key: Vector3i) -> void:
+	_hotkey_cache_at = now
+	_hotkey_cache_key = key
+	_hotkey_cache_eligible = bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT))
+	_hotkey_cache_relationship = bool(service.call("relationship_ok", pony))
+
+
+func _hotkey_stool_for(pose: String, now: float, key: Vector3i, fresh: bool) -> Vector2i:
+	if not bool(POSE_SPECS.scene(pose).get("stool", false)):
+		return Vector2i(-1, -1)
+	var stale := fresh or not _hotkey_stool_valid or now - _hotkey_stool_at > HOTKEY_CACHE_S \
+		or key != _hotkey_stool_key
+	if stale:
+		_hotkey_stool_need = stool_needed_count()
+		_hotkey_stool_have = stool_case_count()
+		_hotkey_stool_at = now
+		_hotkey_stool_key = key
+		_hotkey_stool_valid = true
+	return Vector2i(_hotkey_stool_need, _hotkey_stool_have)
+
+
+func hint_stool() -> Dictionary:
+	if _hotkey_stool_valid:
+		return {"need": _hotkey_stool_need, "have": _hotkey_stool_have}
+	return {"need": stool_needed_count(), "have": stool_case_count()}
 
 
 ## Drop the idle hint's cached Base clearance. The act teardown and the runtime's own exit both
@@ -1845,6 +1885,11 @@ func _reset_hotkey_cache() -> void:
 	_hotkey_cache_key = Vector3i.ZERO
 	_hotkey_cache_eligible = false
 	_hotkey_cache_relationship = false
+	_hotkey_stool_at = -1000.0
+	_hotkey_stool_key = Vector3i.ZERO
+	_hotkey_stool_valid = false
+	_hotkey_stool_need = 0
+	_hotkey_stool_have = 0
 
 
 ## The act key's immediate attempt, with no Agreement and no presentation wait. The press reads

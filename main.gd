@@ -655,8 +655,9 @@ func _refresh_offer() -> void:
 				_offer = _new_offer(runtime, standing, CATALOG.STANDING, "", null)
 				_log_offer()
 			else:
-				var need := int(runtime.call("stool_needed_count"))
-				if need > 0 and int(runtime.call("stool_case_count")) < need:
+				var stool: Dictionary = runtime.call("hint_stool")
+				var need := int(stool.get("need", 0))
+				if need > 0 and int(stool.get("have", 0)) < need:
 					var blocked_offer := _new_offer(runtime, standing, CATALOG.STANDING, "", null)
 					blocked_offer.blocked = _blocked_record(need, _stool_hint_for(need))
 					_offer_blocked = blocked_offer

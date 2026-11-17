@@ -19,9 +19,20 @@ class FakePony extends Node3D:
 	var expressions: Variant = null
 	var posture_requests: Array[String] = []
 	var reset_transforms: Array[Transform3D] = []
+	var motion_paused := false
+	var actual_speed := 0.0
 
 	func posture_status() -> Dictionary:
 		return {"requested": "stand", "settled": true}
+
+	func is_held() -> bool:
+		return false
+
+	func grounded() -> bool:
+		return true
+
+	func action_interruption_reason() -> String:
+		return ""
 
 	func request_posture(name: String) -> bool:
 		posture_requests.append(name)
@@ -61,6 +72,8 @@ class FakeInventory extends RefCounted:
 	var hud_hidden := false
 	var hotbar: Variant = null
 	var placed := 0
+	var held := {}
+	var holding_case := ""
 
 	func _place_hotbar() -> void:
 		placed += 1
@@ -127,6 +140,9 @@ func _fixture() -> Dictionary:
 	pony.posture = Node.new()
 	pony.add_child(pony.posture)
 	var nav: FakeNav = FakeNav.new()
+	var scene_nav: FakeNav = FakeNav.new()
+	scene_nav.name = "Navigator"
+	pony.add_child(scene_nav)
 	var player: FakePlayer = FakePlayer.new()
 	var main: FakeMain = FakeMain.new()
 	var game: FakeGame = FakeGame.new()
@@ -230,8 +246,12 @@ func run() -> void:
 	var eligibility := FakeEligibility.new()
 	main.eligibility = eligibility
 	runtime.state = 0
+	check(bool(runtime.call("hotkey_ready", CATALOG_STANDING, "")),
+		"the idle hint passes with the scene rows ready")
 	runtime.call("hotkey_ready", CATALOG_STANDING, "")
-	runtime.call("hotkey_ready", CATALOG_STANDING, "")
+	var hint_stool: Dictionary = runtime.call("hint_stool")
+	check(int(hint_stool.get("need", -1)) == 0 and int(hint_stool.get("have", -1)) == 0,
+		"the hint reports the cached footstool answer")
 	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
 		"the idle hint reuses the Base-clearance answer")
 	runtime.call("hotkey_ready", CATALOG_STANDING, "", null, true)
@@ -240,6 +260,17 @@ func run() -> void:
 	runtime._clock_s = 1.0
 	runtime.call("hotkey_ready", CATALOG_STANDING, "")
 	check(eligibility.eligible_calls == 3, "the Base-clearance cache expires")
+	runtime._clock_s = 2.0
+	pony.set_meta("seated", true)
+	check(not bool(runtime.call("hotkey_ready", CATALOG_STANDING, "")),
+		"a seated pony fails the standing hint")
+	check(eligibility.eligible_calls == 3,
+		"a failed scene row leaves the Base-clearance cache alone")
+	pony.remove_meta("seated")
+	check(bool(runtime.call("hotkey_ready", CATALOG_STANDING, "")),
+		"the standing hint recovers")
+	check(eligibility.eligible_calls == 4,
+		"the recovered scene rebuilds Base clearance once")
 	eligibility.free()
 
 	# A forced stop at IDLE must not touch the player's captured look.

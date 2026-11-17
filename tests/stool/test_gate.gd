@@ -20,8 +20,10 @@ class FakeController extends Node:
 
 class FakeService extends Node:
 	var root_y := 0.9
+	var prepare_calls := 0
 
 	func player_prepare() -> bool:
+		prepare_calls += 1
 		return true
 
 	func player_root_now() -> Vector3:
@@ -35,6 +37,8 @@ class FakeGame extends Node:
 
 class FakeInventory extends Node:
 	var inventory: Variant
+	var held := {}
+	var holding_case := ""
 
 
 class FakeMain extends Node:
@@ -42,6 +46,44 @@ class FakeMain extends Node:
 	var game: Node
 	var anatomy: Node
 	var stool: Node
+	var eligibility: Node
+
+
+class FakeEligibility extends Node:
+	var eligible_calls := 0
+	var relationship_calls := 0
+
+	func eligible(_pony: Variant, _target: int) -> bool:
+		eligible_calls += 1
+		return true
+
+	func relationship_ok(_pony: Variant) -> bool:
+		relationship_calls += 1
+		return true
+
+
+class TestPony extends Node3D:
+	var sleeping := false
+	var motion_paused := false
+	var actual_speed := 0.0
+	var skeleton: Variant = null
+
+	func is_held() -> bool:
+		return false
+
+	func grounded() -> bool:
+		return true
+
+	func action_interruption_reason() -> String:
+		return ""
+
+	func posture_status() -> Dictionary:
+		return {"requested": "stand", "settled": true}
+
+
+class FakeNav extends Node:
+	var reserved_by := ""
+	var command_owner := ""
 
 
 func _initialize() -> void:
@@ -78,7 +120,10 @@ func run() -> void:
 	SETTINGS.stool_gap_m.set_num(0.20)
 	SETTINGS.stool_height_m.set_num(0.20)
 	var main := FakeMain.new()
-	var pony := Node3D.new()
+	var pony := TestPony.new()
+	var nav := FakeNav.new()
+	nav.name = "Navigator"
+	pony.add_child(nav)
 	var player := Node3D.new()
 	var game := FakeGame.new()
 	var inventory := FakeInventory.new()
@@ -89,11 +134,13 @@ func run() -> void:
 	main.game = game
 	main.anatomy = FakeService.new()
 	main.stool = STOOL.new()
+	main.eligibility = FakeEligibility.new()
 	root.add_child(main)
 	root.add_child(pony)
 	root.add_child(player)
 	root.add_child(game)
 	root.add_child(inventory)
+	root.add_child(main.eligibility)
 	var runtime: Node = RUNTIME.new()
 	runtime.main = main
 	runtime.pony = pony
@@ -131,6 +178,43 @@ func run() -> void:
 	check(runtime.stool_case_count() == 1, "one case footstool is counted")
 	store.slots[1] = {"id": STOOL.ID, "count": 1}
 	check(runtime.stool_case_count() == 2, "two case footstools are counted")
+
+	# The idle hint reuses the reach/case pair for its own cache window, and a failed scene
+	# does not rebuild Base clearance.
+	var eligibility: FakeEligibility = main.eligibility
+	var anatomy_service: FakeService = main.anatomy
+	var prepare_before: int = anatomy_service.prepare_calls
+	check(runtime.hotkey_ready("standing", ""), "the standing hint is ready")
+	check(anatomy_service.prepare_calls == prepare_before + 1,
+		"the hint reads the reach once")
+	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
+		"the hint reads Base clearance once")
+	check(runtime.hotkey_ready("standing", ""), "the next hint scan stays ready")
+	check(anatomy_service.prepare_calls == prepare_before + 1,
+		"the next scan reuses the reach and the case count")
+	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
+		"the next scan reuses Base clearance")
+	var hint_stool: Dictionary = runtime.hint_stool()
+	check(int(hint_stool.get("need", -1)) == 1 and int(hint_stool.get("have", -1)) == 2,
+		"the hint reports the cached reach and case count")
+	check(runtime.hotkey_ready("standing", "", null, true), "the act-key press is ready")
+	check(anatomy_service.prepare_calls == prepare_before + 2, "a press re-reads the reach")
+	check(eligibility.eligible_calls == 2, "a press re-reads Base clearance")
+	runtime._clock_s = 1.0
+	check(runtime.hotkey_ready("standing", ""), "the hint stays ready after the window")
+	check(anatomy_service.prepare_calls == prepare_before + 3,
+		"the window expiry re-reads the reach")
+	check(eligibility.eligible_calls == 3, "the window expiry re-reads Base clearance")
+	runtime._clock_s = 2.0
+	pony.set_meta("seated", true)
+	check(not runtime.hotkey_ready("standing", ""), "a seated pony fails the standing hint")
+	check(eligibility.eligible_calls == 3,
+		"a failed scene row leaves Base clearance alone")
+	pony.remove_meta("seated")
+	check(runtime.hotkey_ready("standing", ""), "the standing hint recovers")
+	check(eligibility.eligible_calls == 4,
+		"the recovered scene rebuilds Base clearance once")
+
 	SETTINGS.anatomy_mode.set_choice("never")
 	check(not runtime.stool_required(), "anatomy off disables the gate")
 	SETTINGS.anatomy_mode.set_choice("always")
@@ -138,6 +222,7 @@ func run() -> void:
 	SETTINGS.stool_height_m.set_num(0.20)
 	runtime.free()
 	controller.free()
+	main.eligibility.free()
 	main.anatomy.free()
 	main.stool.free()
 	main.free()

@@ -23,6 +23,7 @@ const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
+const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
@@ -126,6 +127,8 @@ var _native_hint_row: HBoxContainer
 var _dance_hint_shown := false
 var _debug_skeleton: Node3D
 var _debug_wheel: CanvasLayer
+## The installed Idle Life entry node, for the deep-stretch debug action; see docs/debug.md.
+var _idle_life: Node
 ## The in-game perf panel, created on the first printed window; see docs/perf.md.
 var _perf_view: CanvasLayer
 var _debug_face_index := -1
@@ -300,6 +303,7 @@ func _ready() -> void:
 	Mods.on_node(PONY_PATH, _on_pony)
 	Mods.on_node(SETTINGS_PAGE_PATH, _on_settings_page)
 	Mods.on_node(CAPTION_PATH, _on_caption)
+	Mods.on_node(DEBUG_STRETCH.ENTRY_PATH, _on_idle_life)
 	var settings := get_node_or_null("/root/Settings")
 	if settings != null and settings.has_signal("changed") \
 			and not settings.changed.is_connected(_on_game_setting_changed):
@@ -558,6 +562,11 @@ func _on_pony(pony: Node) -> void:
 	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
 
 
+## The installed Idle Life entry node, when that mod is on; the deep-stretch action uses it.
+func _on_idle_life(node: Node) -> void:
+	_idle_life = node if node.has_method("play") else null
+
+
 ## Live adult mares that are not in the base roster, for the Characters selector. A modded mare
 ## appears while she is in the world; her saved preset stays in settings.json when she despawns.
 func live_character_ids() -> Array[String]:
@@ -676,9 +685,6 @@ func _refresh_offer() -> void:
 	if not is_instance_valid(player) or not is_instance_valid(game):
 		return
 	if get_tree().paused:
-		return
-	if DisplayServer.get_name() != "headless" and not headset_view() \
-			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	var view: Camera3D = camera()
 	if view == null:
@@ -1240,6 +1246,21 @@ func action_bed_cuddle() -> String:
 func _bed_cuddle_sequence(target: Node) -> void:
 	var result: String = await DEBUG_BED.invite(self, target)
 	_debug("bed cuddle: " + result)
+
+
+## Wheel-only: play Idle Life's deep stretch on the live act's pony, else the aimed mare. It
+## ignores her posture and a live act, so the idle is forced to the end.
+func action_deep_stretch() -> String:
+	var target: Node = null
+	if is_instance_valid(active_runtime):
+		var pony: Variant = active_runtime.get("pony")
+		if pony is Node3D and is_instance_valid(pony):
+			target = pony
+	else:
+		var view: Camera3D = camera()
+		if is_instance_valid(view):
+			target = _debug_target(view)
+	return DEBUG_STRETCH.stretch(_idle_life, target as Node3D)
 
 
 ## Wheel-only: qualify the aimed adult mare for the act gate. The helper clears her busy state,

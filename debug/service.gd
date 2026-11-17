@@ -72,6 +72,13 @@ const ACTIONS := {
 		"panel": false,
 		"short": "Sex ready",
 	},
+	"deep_stretch": {
+		"label": "Force deep stretch",
+		"help": "Play Idle Life's deep stretch on the aimed mare, or on the live act's pony. It interrupts her current idle and plays to the end.",
+		"method": "action_deep_stretch",
+		"panel": false,
+		"short": "Deep stretch",
+	},
 	"give_stool": {
 		"label": "Give footstool",
 		"help": "Add a footstool to Anon's briefcase.",
@@ -235,15 +242,15 @@ const WHEEL_PAGES := {
 	"mare": {
 		"title": "Mare",
 		"actions": ["show_data", "bed_offer", "bed_cuddle", "standing_offer", "anon_offer",
-			"cycle_heat", "cycle_diestrus", "sex_ready"],
+			"cycle_heat", "cycle_diestrus", "sex_ready", "deep_stretch"],
 	},
 	"act": {
 		"title": "Act",
 		"actions": ["show_data", "force_tolerance_warning", "force_tolerance_stop",
-			"force_act_face"],
+			"force_act_face", "deep_stretch"],
 	},
 }
-const WHEEL_MAX_SLOTS := 8
+const WHEEL_MAX_SLOTS := 9
 
 
 ## The wheel's root page for the current act state.

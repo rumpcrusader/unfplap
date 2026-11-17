@@ -1231,8 +1231,13 @@ func _check_integrations_isolation(files: Array[String]) -> void:
 			"%s does not import the world adapter" % relative)
 		check(not text.contains("res://mods/kissing/"),
 			"%s does not import Kissing internals" % relative)
-		check(not text.contains("res://mods/idle_life/"),
-			"%s does not import Idle Life internals" % relative)
+		# The one Idle Life bridge names the entry node for `Mods.on_node`; no file may preload
+		# that mod's scripts or pose resources.
+		if relative != "debug/idle_stretch.gd":
+			check(not text.contains("res://mods/idle_life/"),
+				"%s does not import Idle Life internals" % relative)
+		for token: String in ["preload(\"res://mods/idle_life/", "load(\"res://mods/idle_life/"]:
+			check(not text.contains(token), "%s preloads no Idle Life file" % relative)
 		if relative == "runtime.gd":
 			continue
 		check(not text.contains("Beat.paused") and not text.contains("beat.paused"),

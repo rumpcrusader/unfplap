@@ -64,16 +64,17 @@ func _check_roots() -> void:
 	check(DEBUG_ACTIONS.wheel_root(true) == "act", "a live act opens the Act page")
 	check(DEBUG_ACTIONS.wheel_title("mare") == "Mare", "the Mare page is titled")
 	check(DEBUG_ACTIONS.wheel_title("act") == "Act", "the Act page is titled")
-	check(DEBUG_ACTIONS.WHEEL_MAX_SLOTS == 8, "the wheel is capped at eight slots")
+	check(DEBUG_ACTIONS.WHEEL_MAX_SLOTS == 9, "the wheel is capped at nine slots")
 
 
 func _check_pages() -> void:
 	check(DEBUG_ACTIONS.wheel_actions("mare") == [
 		"show_data", "bed_offer", "bed_cuddle", "standing_offer", "anon_offer",
-		"cycle_heat", "cycle_diestrus", "sex_ready"], "the Mare page order is stable")
+		"cycle_heat", "cycle_diestrus", "sex_ready", "deep_stretch"],
+		"the Mare page order is stable")
 	check(DEBUG_ACTIONS.wheel_actions("act") == [
-		"show_data", "force_tolerance_warning", "force_tolerance_stop", "force_act_face"],
-		"the Act page order is stable")
+		"show_data", "force_tolerance_warning", "force_tolerance_stop", "force_act_face",
+		"deep_stretch"], "the Act page order is stable")
 	for page: String in ["mare", "act"]:
 		var actions: Array[String] = DEBUG_ACTIONS.wheel_actions(page)
 		var seen := {}
@@ -142,6 +143,17 @@ func _check_registry() -> void:
 		"the sex-ready action has its wheel label")
 	check(not bool(DEBUG_ACTIONS.ACTIONS["force_act_face"].get("panel", true)),
 		"the face action is wheel-only")
+	check(DEBUG_ACTIONS.ACTIONS.has("deep_stretch"), "the deep-stretch action is registered")
+	check(str(DEBUG_ACTIONS.ACTIONS["deep_stretch"].get("label", "")) == "Force deep stretch",
+		"the deep-stretch action label")
+	check(str(DEBUG_ACTIONS.ACTIONS["deep_stretch"].get("method", "")) == "action_deep_stretch",
+		"the deep-stretch action method")
+	check(str(DEBUG_ACTIONS.ACTIONS["deep_stretch"].get("short", "")) == "Deep stretch",
+		"the deep-stretch wheel label")
+	check(not bool(DEBUG_ACTIONS.ACTIONS["deep_stretch"].get("panel", true)),
+		"the deep-stretch action is wheel-only")
+	check(not (DEBUG_ACTIONS.ACTIONS["deep_stretch"] as Dictionary).has("hotkey"),
+		"the deep-stretch action has no hotkey")
 
 
 func _check_labels() -> void:

@@ -51,6 +51,7 @@ const CAPTION_TOP_MARGIN := 26.0
 ## like the base game's tap prompts ("G · Carry"), not a hold. Only holding the act key during an
 ## act is a hold.
 const OFFER_HINT := "Make love"
+const OFFER_SCAN_S := 1.0
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
 ## Debug target rule: the mare closest to the camera's aim ray, inside this tube and range.
@@ -569,7 +570,7 @@ func _process_entry(delta: float) -> void:
 		return
 
 	_offer_clock += delta
-	if _offer_clock >= 0.15:
+	if _offer_clock >= OFFER_SCAN_S:
 		_offer_clock = 0.0
 		if _perf_idle.on():
 			var offer_started := Time.get_ticks_usec()

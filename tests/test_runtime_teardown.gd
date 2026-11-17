@@ -210,9 +210,6 @@ func run() -> void:
 	runtime._clear_aftercare()
 	check(not pony.has_meta("sex_aftercare"), "the Agreement start clears aftercare")
 
-	runtime._hotkey_cache_at = 5.0
-	runtime._hotkey_cache_eligible = true
-	runtime._hotkey_cache_relationship = true
 	runtime._end_session(false)
 	check(pony.face_turn_rate == 0.45, "face-turn rate restored")
 	check(not runtime._hold.face_turn_rate_owned, "face-turn ownership cleared")
@@ -232,8 +229,6 @@ func run() -> void:
 	check(runtime.pose_id == "" and runtime.source == "" and runtime.bed == null,
 		"act ids cleared")
 	check(main.cleared.size() == 1 and main.cleared[0] == runtime, "main clears the active runtime")
-	check(runtime._hotkey_cache_at < 0.0 and not runtime._hotkey_cache_eligible,
-		"the teardown drops the hotkey clearance cache")
 
 	# A second teardown is a no-op, not a second restore.
 	runtime._end_session(false)
@@ -241,36 +236,31 @@ func run() -> void:
 	check(not pony.has_meta("sex_active"), "double teardown is safe")
 	check(inventory.placed == 1, "double teardown does not re-place the hotbar")
 
-	# The idle hint reuses the two Base-clearance reads for its 0.5 s window; the act-key press
-	# asks fresh, and the window expiry rebuilds the answer.
+	# Every hint scan reads Base clearance; a failing scene reads none.
 	var eligibility := FakeEligibility.new()
 	main.eligibility = eligibility
 	runtime.state = 0
 	check(bool(runtime.call("hotkey_ready", CATALOG_STANDING, "")),
 		"the idle hint passes with the scene rows ready")
-	runtime.call("hotkey_ready", CATALOG_STANDING, "")
+	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
+		"the hint reads Base clearance")
 	var hint_stool: Dictionary = runtime.call("hint_stool")
 	check(int(hint_stool.get("need", -1)) == 0 and int(hint_stool.get("have", -1)) == 0,
-		"the hint reports the cached footstool answer")
-	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
-		"the idle hint reuses the Base-clearance answer")
-	runtime.call("hotkey_ready", CATALOG_STANDING, "", null, true)
+		"the hint reports the gate's footstool pair")
+	check(bool(runtime.call("hotkey_ready", CATALOG_STANDING, "")),
+		"the next hint scan passes")
 	check(eligibility.eligible_calls == 2 and eligibility.relationship_calls == 2,
-		"the act-key press re-reads Base clearance")
-	runtime._clock_s = 1.0
-	runtime.call("hotkey_ready", CATALOG_STANDING, "")
-	check(eligibility.eligible_calls == 3, "the Base-clearance cache expires")
-	runtime._clock_s = 2.0
+		"the next hint scan reads Base clearance again")
 	pony.set_meta("seated", true)
 	check(not bool(runtime.call("hotkey_ready", CATALOG_STANDING, "")),
 		"a seated pony fails the standing hint")
-	check(eligibility.eligible_calls == 3,
-		"a failed scene row leaves the Base-clearance cache alone")
+	check(eligibility.eligible_calls == 2,
+		"a failed scene row reads no Base clearance")
 	pony.remove_meta("seated")
 	check(bool(runtime.call("hotkey_ready", CATALOG_STANDING, "")),
 		"the standing hint recovers")
-	check(eligibility.eligible_calls == 4,
-		"the recovered scene rebuilds Base clearance once")
+	check(eligibility.eligible_calls == 3 and eligibility.relationship_calls == 3,
+		"the recovered scene reads Base clearance once")
 	eligibility.free()
 
 	# A forced stop at IDLE must not touch the player's captured look.

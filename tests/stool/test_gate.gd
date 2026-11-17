@@ -179,8 +179,7 @@ func run() -> void:
 	store.slots[1] = {"id": STOOL.ID, "count": 1}
 	check(runtime.stool_case_count() == 2, "two case footstools are counted")
 
-	# The idle hint reuses the reach/case pair for its own cache window, and a failed scene
-	# does not rebuild Base clearance.
+	# Each hint scan reads the reach and Base clearance; a failed scene reads no Base clearance.
 	var eligibility: FakeEligibility = main.eligibility
 	var anatomy_service: FakeService = main.anatomy
 	var prepare_before: int = anatomy_service.prepare_calls
@@ -188,32 +187,25 @@ func run() -> void:
 	check(anatomy_service.prepare_calls == prepare_before + 1,
 		"the hint reads the reach once")
 	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
-		"the hint reads Base clearance once")
-	check(runtime.hotkey_ready("standing", ""), "the next hint scan stays ready")
-	check(anatomy_service.prepare_calls == prepare_before + 1,
-		"the next scan reuses the reach and the case count")
-	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
-		"the next scan reuses Base clearance")
+		"the hint reads Base clearance")
 	var hint_stool: Dictionary = runtime.hint_stool()
 	check(int(hint_stool.get("need", -1)) == 1 and int(hint_stool.get("have", -1)) == 2,
-		"the hint reports the cached reach and case count")
-	check(runtime.hotkey_ready("standing", "", null, true), "the act-key press is ready")
-	check(anatomy_service.prepare_calls == prepare_before + 2, "a press re-reads the reach")
-	check(eligibility.eligible_calls == 2, "a press re-reads Base clearance")
-	runtime._clock_s = 1.0
-	check(runtime.hotkey_ready("standing", ""), "the hint stays ready after the window")
-	check(anatomy_service.prepare_calls == prepare_before + 3,
-		"the window expiry re-reads the reach")
-	check(eligibility.eligible_calls == 3, "the window expiry re-reads Base clearance")
-	runtime._clock_s = 2.0
+		"the blocked note reuses the gate's reach and case count")
+	check(anatomy_service.prepare_calls == prepare_before + 1,
+		"the blocked note does not repeat the reach read")
+	check(runtime.hotkey_ready("standing", ""), "the next hint scan stays ready")
+	check(anatomy_service.prepare_calls == prepare_before + 2,
+		"the next scan reads the reach again")
+	check(eligibility.eligible_calls == 2 and eligibility.relationship_calls == 2,
+		"the next scan reads Base clearance again")
 	pony.set_meta("seated", true)
 	check(not runtime.hotkey_ready("standing", ""), "a seated pony fails the standing hint")
-	check(eligibility.eligible_calls == 3,
-		"a failed scene row leaves Base clearance alone")
+	check(eligibility.eligible_calls == 2,
+		"a failed scene row reads no Base clearance")
 	pony.remove_meta("seated")
 	check(runtime.hotkey_ready("standing", ""), "the standing hint recovers")
-	check(eligibility.eligible_calls == 4,
-		"the recovered scene rebuilds Base clearance once")
+	check(eligibility.eligible_calls == 3,
+		"the recovered scene reads Base clearance once")
 
 	SETTINGS.anatomy_mode.set_choice("never")
 	check(not runtime.stool_required(), "anatomy off disables the gate")

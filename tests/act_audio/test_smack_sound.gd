@@ -48,7 +48,8 @@ func run() -> void:
 			"the pool avoids repeating the previous slap")
 		check(near(randomizer.random_pitch, CUES.PITCH_MAX),
 			"the pool varies pitch by the act range")
-	check(near(player.volume_db, CUES.VOLUME_DB), "the native player uses the pack level")
+	check(near(player.volume_db, CUES.STOCK_VOLUME_DB), "the native player uses the outside-act level")
+	check(CUES.STOCK_VOLUME_DB > CUES.VOLUME_DB, "the outside-act level is louder than the act's")
 	check(near(player.pitch_scale, 1.0), "the native pitch is neutral before the pool varies it")
 
 	SETTINGS.pack_smack_sound.set_bool(false)

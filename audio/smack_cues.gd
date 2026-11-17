@@ -11,5 +11,7 @@ const PATHS := [
 	"res://mods/unfplap/assets/audio/smack/hand_03.wav",
 ]
 const VOLUME_DB := -7.0
+## The outside-act layer sits a little louder than the act's hand smack.
+const STOCK_VOLUME_DB := -4.0
 const PITCH_MIN := 0.97
 const PITCH_MAX := 1.03

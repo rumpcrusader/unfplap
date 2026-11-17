@@ -100,7 +100,7 @@ func _install(pony: Variant) -> void:
 	saved.pitch_scale = player.pitch_scale
 	_applied.append(saved)
 	player.stream = stream
-	player.volume_db = CUES.VOLUME_DB
+	player.volume_db = CUES.STOCK_VOLUME_DB
 	player.pitch_scale = 1.0
 
 

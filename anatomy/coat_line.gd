@@ -5,7 +5,8 @@ extends RefCounted
 ## and the fluid stay together.
 ##
 ## The line is sampled once from the body mesh's own rest vertices and skin, and the frames are
-## refreshed from the live skeleton each tick. See `docs/anatomy.md` (`## Coat line`).
+## refreshed from the skeleton's final `skeleton_updated` pose. See `docs/anatomy.md`
+## (`## Coat line`).
 
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 

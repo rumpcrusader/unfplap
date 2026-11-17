@@ -544,12 +544,18 @@ with it, and when the line stretches, the mesh stretches along it.
 - `geometry.coat_line_samples()` is pure: nearest vertex, returned rest point and normalized
   bind-name → weight map. Samples are sorted by local Y and duplicates closer than 2 mm are
   dropped; fewer than two usable samples leaves the anatomy rigid.
-- Each frame the controller skins every sample's rest point with all its body influences
-  (`pose · bind · rest`) and maps it into anatomy local with `base_place⁻¹ · hips_delta⁻¹`, where
-  `hips_delta = pose(hips) · hips_rest⁻¹`. `geometry.fill_line_frames()` builds one frame per
-  sample: the shortest-arc rotation from the rest tangent to the live tangent and the
-  along-tangent stretch, with no roll about the line and no coat-normal follow. The stretch
-  clamps to 0.5…2. The frame origin puts the sample's rest point on its live point.
+- Each time the skeleton reports its final pose (`skeleton_updated`, after every
+  `SkeletonModifier3D`), the controller skins every sample's rest point with all its body
+  influences (`pose · bind · rest`) and maps it into anatomy local with
+  `base_place⁻¹ · hips_delta⁻¹`, where `hips_delta = pose(hips) · hips_rest⁻¹`.
+  `geometry.fill_line_frames()` builds one frame per sample: the shortest-arc rotation from the
+  rest tangent to the live tangent and the along-tangent stretch, with no roll about the line and
+  no coat-normal follow. The stretch clamps to 0.5…2. The frame origin puts the sample's rest
+  point on its live point.
+- The pose is read inside `skeleton_updated` because outside it the skeleton reports its
+  unmodified pose. The idle stretch, the buck and the other fidget layers are
+  `SkeletonModifier3D`s, so a `_process` read would miss exactly the motions this line exists to
+  follow.
 - `anatomy.gdshader` stores the frames as `line_basis_x/y/z`, `line_origin` and `line_rest` with
   `line_count`. It finds the segment by the vertex's local Y, mixes the two neighbouring frames,
   and applies `basis · vertex + origin` to the position and the basis to the normal, after the
@@ -842,8 +848,10 @@ split when the suite is next touched.
   `VERTEX += flank_jiggle(VERTEX);`. A game update that removes either hook disables the patch,
   not the whole anatomy. A missing `void fragment()` keeps the deform but drops the vulva cut.
 - The coat line depends on the body coat's rest vertices, skin weights and the `pony_hips` bone.
-  A body without a skin and bind data, or without the pelvis bone, stays rigid. The act's hole
-  point and normal use the same frames as the shader, so the shaft tracks the visible opening.
+  A body without a skin and bind data, or without the pelvis bone, stays rigid. It must read the
+  skeleton inside `skeleton_updated`; a read from `_process` sees the unmodified pose and drops
+  every modifier-driven stretch or fidget. The act's hole point and normal use the same frames as
+  the shader, so the shaft tracks the visible opening.
 - The princesses' fitted bodies have no hair skeleton; their tail seat is unavailable and their
   pre-hidden dock stays hidden.
 - The act's idle wink and the climax pulse share one countdown; adding a second scheduler would

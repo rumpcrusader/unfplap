@@ -453,14 +453,14 @@ func _check_lock_and_eye() -> void:
 	facts.size_name = "canon"
 	check(near(STANDING_CAMERA.eye_delta_for("canon"),
 		-STANDING_CAMERA.CANON_STANDING_CAMERA_DROP_M), "Canon lowers the eye line")
-	check(near(STANDING_CAMERA.eye_delta_for("mounting"),
-		STANDING_CAMERA.MOUNTING_STANDING_CAMERA_LIFT_M), "JRHNBR raises the eye line")
+	check(near(STANDING_CAMERA.eye_delta_for("mounting"), 0.0),
+		"JRHNBR keeps the normal eye")
 	check(near(STANDING_CAMERA.eye_delta_for("same height"), 0.0),
 		"the same-height preset keeps the normal eye")
 	var standing: RefCounted = STANDING_CAMERA.new(facts)
 	check(near(standing.call("act_eye_height"), 1.51), "the Canon act eye is normal minus 10 cm")
 	facts.size_name = "mounting"
-	check(near(standing.call("act_eye_height"), 1.71), "the JRHNBR act eye is normal plus 10 cm")
+	check(near(standing.call("act_eye_height"), 1.61), "the JRHNBR act eye is normal")
 	facts.size_name = "same height"
 	check(near(standing.call("act_eye_height"), 1.61), "the same-height act eye is normal")
 	check(near(player._stand_eye, 2.4) and near(player._eye_height, 2.4),

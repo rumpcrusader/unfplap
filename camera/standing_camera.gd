@@ -6,7 +6,6 @@ const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 
 const STANDING_HEAD_NECK_HEIGHT_M := 1.0
 const CANON_STANDING_CAMERA_DROP_M := 0.10
-const MOUNTING_STANDING_CAMERA_LIFT_M := 0.10
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
 const GLANCE_MIN_INTERVAL := 5.0
@@ -175,8 +174,6 @@ func _standing_eye_height() -> float:
 static func eye_delta_for(size_name: String) -> float:
 	if size_name == "canon":
 		return -CANON_STANDING_CAMERA_DROP_M
-	if size_name == "mounting":
-		return MOUNTING_STANDING_CAMERA_LIFT_M
 	return 0.0
 
 ## The eye the standing act uses: Anon's normal height plus the preset's net offset.

@@ -217,20 +217,17 @@ func run() -> void:
 	check(absf(player2.rotation.y - 0.7) < 0.0001,
 		"IDLE force_stop leaves the player yaw alone")
 
-	# A failed standing start restores the player eye height without a camera step.
+	# A failed standing start leaves the player's own eye height untouched.
 	var f3 := _fixture()
 	var runtime3: Node = f3["runtime"]
 	var player3: FakePlayer = f3["player"]
 	runtime3._act_camera.camera_owned = false
 	runtime3._act_camera.look_captured = false
-	runtime3._act_camera.eye_override = true
-	runtime3._act_camera.saved_stand_eye = 1.6
-	runtime3._act_camera.saved_eye_height = 1.6
 	player3._stand_eye = 2.1
 	player3._eye_height = 2.1
 	runtime3._end_session(false)
-	check(absf(player3._stand_eye - 1.6) < 0.0001, "aborted start restores the eye override")
-	check(absf(player3._eye_height - 1.6) < 0.0001, "aborted start restores the eye height")
+	check(absf(player3._stand_eye - 2.1) < 0.0001, "aborted start leaves the player eye alone")
+	check(absf(player3._eye_height - 2.1) < 0.0001, "aborted start leaves the eye height alone")
 
 	# An invalid pony still releases the player, navigator and active runtime.
 	var f4 := _fixture()

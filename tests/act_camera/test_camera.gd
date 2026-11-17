@@ -1,6 +1,6 @@
 extends SceneTree
 ## The act camera facade: the lean and its smoothing, the shot response, the free look, the
-## free-camera lock, the eye override, the captured look and the shot geometry helpers.
+## free-camera lock, the standing eye delta, the captured look and the shot geometry helpers.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_camera/test_camera.gd
 
@@ -445,43 +445,26 @@ func _check_lock_and_eye() -> void:
 	camera.call("release_free_camera_lock")
 	check(not player.controls_locked, "the release restores the saved controls")
 
-	# The standing eye override scales the player's eye with the body preset.
+	# The standing act keeps the player's normal eye; only the per-size net offset is added.
 	player._stand_eye = 2.4
 	player._eye_height = 2.4
-	var base: float = camera.call("player_eye_height")
-	var scale: float = camera.call("size_scale")
-	camera.call("apply_eye_override", "standing", false)
-	check(near(camera.camera_target_eye, base * scale),
-		"the standing eye target scales with the body preset")
-	if near(base * scale, base):
-		check(not camera.eye_override, "a unit size leaves the eye alone")
-	else:
-		check(camera.eye_override, "a size change owns the eye override")
-		camera.call("restore_eye_override")
-	check(near(player._stand_eye, 2.4), "the restored player keeps her own eye height")
-	camera.call("apply_eye_override", "bed", false)
-	check(near(camera.camera_target_eye, 0.0), "missionary never edits the eye")
-	check(not camera.eye_override, "missionary never owns the eye override")
-
-	# An owned override restores the saved values exactly.
-	camera.eye_override = true
-	camera.saved_stand_eye = 1.6
-	camera.saved_eye_height = 1.6
-	player._stand_eye = 2.1
-	player._eye_height = 2.1
-	camera.call("restore_eye_override")
-	check(near(player._stand_eye, 1.6) and near(player._eye_height, 1.6),
-		"the eye override restores both saved heights")
-	check(not camera.eye_override, "the restore drops the ownership flag")
-
-	camera.call("apply_eye_override", "standing", true)
-	check(near(camera.camera_target_eye, 0.0) and not camera.eye_override,
-		"AnonPony keeps her own eye height")
-	player.seat = Node3D.new()
-	camera.call("apply_eye_override", "standing", false)
-	check(not camera.eye_override, "a seated player keeps the seat camera")
-	(player.seat as Node3D).free()
-	player.seat = null
+	var facts: RefCounted = made["facts"]
+	facts.player_eye_height = 1.61
+	facts.size_name = "canon"
+	check(near(STANDING_CAMERA.eye_delta_for("canon"),
+		-STANDING_CAMERA.CANON_STANDING_CAMERA_DROP_M), "Canon lowers the eye line")
+	check(near(STANDING_CAMERA.eye_delta_for("mounting"),
+		STANDING_CAMERA.MOUNTING_STANDING_CAMERA_LIFT_M), "JRHNBR raises the eye line")
+	check(near(STANDING_CAMERA.eye_delta_for("same height"), 0.0),
+		"the same-height preset keeps the normal eye")
+	var standing: RefCounted = STANDING_CAMERA.new(facts)
+	check(near(standing.call("act_eye_height"), 1.51), "the Canon act eye is normal minus 10 cm")
+	facts.size_name = "mounting"
+	check(near(standing.call("act_eye_height"), 1.71), "the JRHNBR act eye is normal plus 10 cm")
+	facts.size_name = "same height"
+	check(near(standing.call("act_eye_height"), 1.61), "the same-height act eye is normal")
+	check(near(player._stand_eye, 2.4) and near(player._eye_height, 2.4),
+		"the standing act never edits the player's eye height")
 	main.remove_child(player)
 	main.remove_child(main.view)
 	player.free()

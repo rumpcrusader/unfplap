@@ -1,16 +1,16 @@
 # Act camera and shots
 
 This is the contract for the act camera: the lean input and smoothing, the speed-driven surge and
-bob, the missionary shot transforms, the standing camera and Anon's body lean, the standing eye
-override, the free look and the captured player look. The body pose is `docs/poses.md`; the kiss
+bob, the missionary shot transforms, the standing camera and Anon's body lean, its per-size eye
+offset, the free look and the captured player look. The body pose is `docs/poses.md`; the kiss
 itself is `docs/kiss.md`; the hands are `docs/hands.md`.
 
 ## Ownership
 
 `camera/service.gd` is the act camera session. It owns the lean input and its smoothing, the
 speed-driven surge/bob response and the afterglow back-off, the debug free look, the free-camera
-`controls_locked` lock, the standing eye override, the captured player look and every size/torso
-helper the shot and the hands read.
+`controls_locked` lock, the captured player look and every size/torso helper the shot and the
+hands read.
 
 `camera/missionary_camera.gd` and `camera/standing_camera.gd` stay the shot implementations;
 `poses/standing_anon.gd` and `poses/missionary_anon.gd` stay the Anon body wrappers. The runtime owns the tick
@@ -41,7 +41,7 @@ does not read a start pose id or a contact mirror. The field and callback contra
 
 The camera's `pose_changed(view)` hook is the retarget seam: it caches the last family, shot
 profile and presentation lean, and only on a change retires the pose-local lean action and re-aims
-the next shot. It keeps the act camera session, the eye override and the captured look; the
+the next shot. It keeps the act camera session and the captured look; the
 eye-camera tick stays the runtime's render-time callback. The standing camera re-reads its glance/
 tail config from the view's `from_config`/`pose_config` and caches it by settings group and pose
 id, so a held debug pair does not snap. `tests/act_camera/test_camera.gd` pins the hook and
@@ -115,8 +115,8 @@ id, so a held debug pair does not snap. `tests/act_camera/test_camera.gd` pins t
 - `F` is not an act control in missionary. In standing, holding `F` at a full side lean
   (`abs(side) >= STANDING_KISS_LEAN = 0.90`) starts the same base-game kiss; outside an act it
   remains the game's flight key.
-- Teardown order in `_restore_camera()`: free-camera lock, Anon wrapper and palm scale, eye override
-  and avatar, missionary view, standing camera, then player look. `_restore_look()` only runs when
+- Teardown order in `_restore_camera()`: free-camera lock, Anon wrapper and palm scale, avatar,
+  missionary view, standing camera, then player look. `_restore_look()` only runs when
   it captured the player (`look_captured`), so a forced stop at `IDLE` cannot reset the player's
   facing.
 
@@ -196,11 +196,13 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
 
 ## Standing camera
 
-- Camera height through player `_stand_eye` / `_eye_height`; do not set the eye line by teleporting
-  the rig. The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at
-  pose start, then freezes. The lean vector is applied on top.
-- Canon lowers the standing eye line by `CANON_STANDING_CAMERA_DROP_M = 0.10 m` and multiplies lean
-  travel by `0.8`; JRHNBR raises it by `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`.
+- Camera height is Anon's normal eye plus `eye_delta_for(size)`: Canon lowers it by
+  `CANON_STANDING_CAMERA_DROP_M = 0.10 m`, JRHNBR raises it by
+  `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`, and every other preset keeps the normal eye. The act
+  never rewrites the player's `_stand_eye` / `_eye_height`, so `AnonBody` stays upright and follows
+  the camera. The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once
+  at pose start, then freezes. The lean vector is applied on top.
+- Canon also multiplies the standing lean travel by `0.8` (`standing_lean_scale()`).
 - Lean mapping: forward `0.24 m` / `6°` down / `1.5°` roll; backward
   `presentation.lean_back_m` with the same downward pitch; side `0.18 m` /
   `8°` outward roll / `3°` yaw. All scale with pony size.
@@ -254,8 +256,8 @@ takes effect when the panel closes.
 ## Tests
 
 - `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, the pose-view facing
-  override, shot targets, free camera, eye override, look capture and restore, size scales and the
-  afterglow back-off.
+  override, shot targets, free camera, the standing eye delta, look capture and restore, size
+  scales and the afterglow back-off.
 - `tests/poses/test_session.gd` — the pose camera targets and the bed frame the shot reads.
 - `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.
 

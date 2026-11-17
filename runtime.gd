@@ -134,8 +134,8 @@ var _pose_session: RefCounted = POSE_SESSION.new()
 var _scene: RefCounted = SCENE_GATE.new()
 ## The bed/couch rest and cuddle rejoin. See `rest/service.gd` and `docs/rest.md`.
 var _rest: RefCounted = REST_REJOIN.new()
-## The act camera session: the lean, the shot smoothing, the free look, the free-camera lock, the
-## standing eye override and the captured player look. See `camera/service.gd` and `docs/camera.md`.
+## The act camera session: the lean, the shot smoothing, the free look, the free-camera lock,
+## the captured player look and the size helpers. See `camera/service.gd` and `docs/camera.md`.
 var _act_camera: RefCounted = ACT_CAMERA.new()
 ## The per-act anatomy bridge: the persistent controller, the per-act handle, the typed context,
 ## the missionary body and the VR controller. See `docs/anatomy.md`.
@@ -1914,7 +1914,6 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 		bed = null
 		return false
 	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	_camera_service().call("apply_eye_override", _start_family(), _player_pony)
 	_wings_controller().reset()
 	_act_seconds = 0.0
 	_reactions.begin_act()
@@ -2010,8 +2009,11 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 		_sync_hud_facts()
 		main.hud.show_act(_act_facts)
 		main.hud.hide_prompt()
+	var act_eye := 0.0
+	if _start_family() == "standing":
+		act_eye = float(_standing_camera_controller().call("act_eye_height"))
 	_log("started pose=%s setup=%s source=%s pony=%s eye=%.2f" % [
-		pose, setup, act_source, str(pony.name), _act_camera.camera_target_eye])
+		pose, setup, act_source, str(pony.name), act_eye])
 	return true
 
 func _next_serial() -> int:
@@ -3550,7 +3552,6 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_set_inventory_hud_hidden(false)
 	_kiss_controller().restore_forelegs()
 	_restore_face_turn()
-	_camera_service().call("restore_eye_override")
 	if is_instance_valid(pony):
 		_clear_face()
 		_end_act_face()
@@ -4059,7 +4060,6 @@ func _restore_camera() -> void:
 	_hand_controller().reset()
 	_camera_service().call("release_free_camera_lock")
 	_standing_anon_controller().remove()
-	_camera_service().call("restore_eye_override")
 	_missionary_camera_controller().release()
 	_sync_act_facts()
 	_standing_camera_controller().restore()

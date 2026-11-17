@@ -1,6 +1,6 @@
 extends RefCounted
 ## The act camera session: the lean input and its smoothing, the speed-driven thrust camera, the
-## debug free look, the free-camera lock, the standing eye override, the captured player look and
+## debug free look, the free-camera lock, the captured player look and
 ## the shot geometry helpers. The two pose cameras (`camera/missionary_camera.gd`, `camera/standing_camera.gd`)
 ## stay the shot implementations; this facade owns the session around them.
 ## Contract: docs/camera.md.
@@ -89,12 +89,6 @@ var camera_bob := 0.0
 var look_yaw := 0.0
 var look_pitch := 0.0
 
-## The standing eye override: the act raises or lowers the player's own eye height while it runs.
-var eye_override := false
-var saved_stand_eye := 0.0
-var saved_eye_height := 0.0
-var camera_target_eye := 0.0
-
 ## Debug free look: the player camera replaces the act shot and the mouse looks instead of
 ## thrusting. The rotation is held from the act's starting view.
 var free_look_yaw := 0.0
@@ -143,7 +137,7 @@ func camera_profile() -> String:
 
 
 ## The pose-change hook: a new shot family or profile retires the pose-local lean action and
-## re-aims the next shot. The camera session, the eye override and the captured look stay put, and
+## re-aims the next shot. The camera session and the captured look stay put, and
 ## the eye-camera tick remains the runtime's render-time callback.
 func pose_changed(view: Variant) -> void:
 	if view == null:
@@ -610,48 +604,6 @@ func tick_free_look() -> void:
 	free_look_yaw = 0.0
 	free_look_pitch = 0.0
 	write_log("free look %s" % ("on" if active else "off"))
-
-
-## Standing eye height follows the body preset; missionary is owned by the game's bed rest/seat
-## camera and AnonPony has its own eye height. The previous values are restored at act end.
-func apply_eye_override(family: String, player_pony: bool) -> void:
-	camera_target_eye = 0.0
-	if family == "bed" or player_pony:
-		return
-	var body: Variant = player_body()
-	if not is_instance_valid(body):
-		return
-	if body.get("_stand_eye") == null or body.get("seat") != null:
-		return
-	var base := player_eye_height()
-	var target := base * size_scale()
-	camera_target_eye = target
-	if absf(target - base) < 0.001:
-		return
-	if not eye_override:
-		saved_stand_eye = float(body.get("_stand_eye"))
-		saved_eye_height = float(body.get("_eye_height"))
-		eye_override = true
-	body.set("_stand_eye", target)
-	body.set("_eye_height", target)
-	if body.has_method("_set_eye_y"):
-		body.call("_set_eye_y", target)
-	write_log("eye override standing base=%.2f target=%.2f" % [base, target])
-
-
-func restore_eye_override() -> void:
-	if not eye_override:
-		return
-	eye_override = false
-	var body: Variant = player_body()
-	if not is_instance_valid(body):
-		return
-	if body.get("_stand_eye") != null:
-		body.set("_stand_eye", saved_stand_eye)
-	if body.get("_eye_height") != null:
-		body.set("_eye_height", saved_eye_height)
-	if body.has_method("_set_eye_y"):
-		body.call("_set_eye_y", saved_stand_eye)
 
 
 ## Snapshot the player look before the act turns the camera.

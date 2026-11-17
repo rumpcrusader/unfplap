@@ -65,20 +65,16 @@ func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 ## not `pony_head`, so the base applies the absolute chin value and only the neck is a difference.
 func _apply_difference(rig, sk: Skeleton3D, weight: float) -> void:
 	var reference := reference_config()
-	_bow_body(rig, sk, weight,
-		_value("bow", float(reference["bow"])) - float(reference["bow"]))
+	_bow_body(rig, sk, weight, _value("bow") - float(reference["bow"]))
 	# The head is not in the asset: apply its full reference bow and chin.
-	_bow_head(rig, sk, weight * _value("bow", float(reference["bow"])))
-	_bend_forelegs(rig, sk, weight,
-		_value("foreleg", float(reference["foreleg"])) - float(reference["foreleg"]))
+	_bow_head(rig, sk, weight * _value("bow"))
+	_bend_forelegs(rig, sk, weight, _value("foreleg") - float(reference["foreleg"]))
 	_spread_hind(rig, sk, weight,
-		_value("hind_spread", float(reference["hind_spread"])) - float(reference["hind_spread"]))
+		_value("hind_spread") - float(reference["hind_spread"]))
 	_chin_neck(rig, sk, weight,
-		_value("chin_up_deg", float(reference["chin_up_deg"])),
-		_value("neck_down_deg", float(reference["neck_down_deg"]))
-			- float(reference["neck_down_deg"]))
-	_spread_fore(rig, sk, weight,
-		_value("foreleg_spread", float(reference["foreleg_spread"])))
+		_value("chin_up_deg"),
+		_value("neck_down_deg") - float(reference["neck_down_deg"]))
+	_spread_fore(rig, sk, weight, _value("foreleg_spread"))
 
 
 ## The moveable neck overlay: the head-back lift. The oral neck swing is the oral row's procedural
@@ -94,18 +90,17 @@ func apply_overlay(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> voi
 ## The full stance: the bow, foreleg bend and spread, hind spread and the neck/chin curve. Bake and
 ## parity only; the live path applies the reference recipe once at capture time.
 func _stance(rig, sk: Skeleton3D, weight: float) -> void:
-	_bow(rig, sk, weight, _value("bow", STANDING_BOW))
-	_bend_forelegs(rig, sk, weight, _value("foreleg", STANDING_FORELEG))
-	_spread_fore(rig, sk, weight, _value("foreleg_spread", STANDING_FORELEG_SPREAD))
-	_spread_hind(rig, sk, weight, _value("hind_spread", STANDING_HIND_SPREAD))
+	_bow(rig, sk, weight, _value("bow"))
+	_bend_forelegs(rig, sk, weight, _value("foreleg"))
+	_spread_fore(rig, sk, weight, _value("foreleg_spread"))
+	_spread_hind(rig, sk, weight, _value("hind_spread"))
 	_chin_neck(rig, sk, weight,
-		_value("chin_up_deg", STANDING_CHIN_UP_DEG),
-		_value("neck_down_deg", STANDING_NECK_DOWN_DEG))
+		_value("chin_up_deg"),
+		_value("neck_down_deg"))
 
 
-func _value(key: String, fallback: float) -> float:
-	var value: Variant = _config.get(key)
-	return float(value) if value != null else fallback
+func _value(key: String) -> float:
+	return float(_config[key])
 
 
 func _bow(rig, sk: Skeleton3D, weight: float, scale: float) -> void:

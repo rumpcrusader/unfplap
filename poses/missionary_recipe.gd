@@ -6,10 +6,6 @@ extends RefCounted
 ## The base writes the skeleton root (placement) and the body bones. The head bone is reset to rest
 ## here, because the runtime owns the face: the gaze solve aims `pony_head`'s frame at Anon.
 
-const MISSIONARY_NUZZLE_SCALE := 0.45
-const NUZZLE_PERIOD := 7.0
-const NUZZLE_DURATION := 2.4
-
 var _config: Dictionary = {}
 
 
@@ -195,7 +191,7 @@ func _nuzzle_look_point(rig, sk: Skeleton3D, look_point: Vector3, pulse: float) 
 	var distance := origin.distance_to(look_point)
 	if distance < 0.01:
 		return look_point
-	var degrees := _value("nuzzle_scale", MISSIONARY_NUZZLE_SCALE) * 8.0 * clampf(pulse, 0.0, 1.0)
+	var degrees := _value("nuzzle_scale") * 8.0 * clampf(pulse, 0.0, 1.0)
 	if absf(degrees) < 0.01:
 		return look_point
 	var right: Vector3 = (sk.global_basis * rig.right_axis(sk)).normalized()
@@ -205,14 +201,13 @@ func _nuzzle_look_point(rig, sk: Skeleton3D, look_point: Vector3, pulse: float) 
 
 
 func _nuzzle_pulse(clock: float) -> float:
-	var period := maxf(0.1, _value("nuzzle_period", NUZZLE_PERIOD))
-	var duration := maxf(0.05, _value("nuzzle_duration", NUZZLE_DURATION))
+	var period := maxf(0.1, _value("nuzzle_period"))
+	var duration := maxf(0.05, _value("nuzzle_duration"))
 	var phase := fmod(clock, period)
 	if phase > duration:
 		return 0.0
 	return sin(phase / duration * PI)
 
 
-func _value(key: String, fallback: float) -> float:
-	var value: Variant = _config.get(key)
-	return float(value) if value != null else fallback
+func _value(key: String) -> float:
+	return float(_config[key])

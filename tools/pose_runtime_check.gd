@@ -12,6 +12,7 @@ const BODY := preload("res://world/characters/hybrid_mare/body.glb")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 ## Bones the overlays never touch, so the recipe's base must match a bare base application exactly.
 ## The full body set: a bone left out of the file keeps the game's own pose at runtime.
@@ -67,7 +68,7 @@ func _initialize() -> void:
 	var frame := Transform3D(Basis(Vector3.UP, 1.1), Vector3(3.0, 0.62, -2.0))
 	var look_point: Vector3 = frame * Vector3(0.05, 0.30, 0.45)
 	var state := {
-		"config": {},
+		"config": CATALOG.defaults("missionary"),
 		"authored": pose,
 		"bed_frame": frame,
 		"body_scale": 1.0,

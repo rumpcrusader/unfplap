@@ -153,7 +153,7 @@ func _check_perf_probe() -> void:
 		var line := fake_main.lines[0]
 		check(line.begins_with("perf pony=twilight_sparkle pose=standing state=2"),
 			"perf block names the pony and pose")
-		check(line.contains("\n\tprobe_chunk"), "perf block lists a timed chunk")
+		check(line.contains("\nprobe_chunk"), "perf block lists a timed chunk")
 		check(line.contains("2.00ms/s"), "perf block totals the window")
 	fake_main.debug_logs = false
 	probe.call("perf_note", "hidden_chunk", 500)

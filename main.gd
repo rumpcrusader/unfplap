@@ -122,8 +122,14 @@ var _watching_player := false
 var _agreement_clock := 0.0
 
 
+## Every line carries the mod's id, so a block's continuation lines stay attributable after the
+## game's own output interleaves with them.
 func debug(text: String) -> void:
-	if debug_logs:
+	if not debug_logs:
+		return
+	if text.contains("\n"):
+		print(("[unfplap] " + text).replace("\n", "\n[unfplap] "))
+	else:
 		print("[unfplap] " + text)
 
 

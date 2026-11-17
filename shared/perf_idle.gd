@@ -6,7 +6,22 @@ extends RefCounted
 ## The host supplies the gate, the counts and the log, so this module has no scene access. The act
 ## probe is the separate `shared/perf.gd`. See `docs/perf.md` and `docs/settings.md`.
 
+const TREE := preload("res://mods/unfplap/shared/perf_tree.gd")
 const WINDOW_S := 1.0
+
+## Chunk containment outside an act. A chunk without an entry, or whose parent did not print in
+## this window, is a root; the anatomy controller's own chunks nest under its whole process.
+const PARENTS := {
+	"offer_scan": "entry_process",
+	"offer_cone": "offer_scan",
+	"offer_gate": "offer_scan",
+	"runtime_anatomy_sync": "runtime_physics",
+	"runtime_facts": "runtime_physics",
+	"runtime_presentation": "runtime_physics",
+	"runtime_history": "runtime_physics",
+	"anatomy_coat_follow": "anatomy_process",
+	"anatomy_visibility": "anatomy_process",
+}
 
 var _rows: Dictionary = {}
 var _clock := 0.0
@@ -63,12 +78,14 @@ func tick(delta: float) -> void:
 	_physics_mark = physics
 	_clock = 0.0
 	_frames = 0
-	var rows: Array = []
+	var totals: Dictionary = {}
+	var peaks: Dictionary = {}
 	for key: String in _rows:
 		var row: Array = _rows[key]
-		rows.append([key, int(row[0]), float(row[1]) / 1000.0, int(row[2]), str(row[3])])
+		totals[key] = [float(row[1]) / 1000.0, int(row[0])]
+		peaks[key] = [int(row[2]), str(row[3])]
 	_rows.clear()
-	rows.sort_custom(func(a: Array, b: Array) -> bool: return float(a[2]) > float(b[2]))
+	var entries: Array = TREE.layout(totals, PARENTS)
 	var facts: Dictionary = counts.call() if counts.is_valid() else {}
 	var text := "perf idle runtimes=%d mares=%d fps=%d frame=%.1fms phys=%.1fms tick=%.2f" % [
 		int(facts.get("runtimes", 0)), int(facts.get("mares", 0)),
@@ -76,10 +93,22 @@ func tick(delta: float) -> void:
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
 		ticks]
-	for row: Array in rows:
-		var owner := str(row[4])
-		text += "\n\t%-20s %8.2fms/s %7.1fus/call calls %d max %.2fms %s" % [
-			str(row[0]), float(row[2]), float(row[2]) * 1000.0 / float(maxi(1, int(row[1]))),
-			int(row[1]), float(row[3]) / 1000.0, owner if not owner.is_empty() else "-"]
+	for entry: Dictionary in entries:
+		var key := str(entry["key"])
+		var total := float(entry["total"])
+		# A residual row has no call of its own: only the unmeasured time is real.
+		var per_call := "-"
+		var calls := "-"
+		var peak := "-"
+		var owner := "-"
+		if not bool(entry["self"]):
+			var row: Array = peaks.get(key, [0, ""])
+			var count := maxi(1, int(entry["calls"]))
+			per_call = "%.1fus" % (total * 1000.0 / float(count))
+			calls = str(int(entry["calls"]))
+			peak = "%.2fms" % (float(row[0]) / 1000.0)
+			owner = str(row[1]) if not str(row[1]).is_empty() else "-"
+		text += "\n%-28s %8.2fms/s %8s/call calls %4s max %7s %s" % [
+			str(entry["prefix"]) + key, total, per_call, calls, peak, owner]
 	if log.is_valid():
 		log.call(text)

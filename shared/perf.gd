@@ -5,7 +5,42 @@ extends RefCounted
 ## The host supplies the two gates and the header facts, so this module has no scene access. See
 ## `docs/perf.md` and `docs/settings.md`.
 
+const TREE := preload("res://mods/unfplap/shared/perf_tree.gd")
 const WINDOW_S := 1.0
+
+## Chunk containment inside one act tick. A chunk without an entry, or whose parent did not print
+## in this window, is a root; the modifier pass reports under the render-time `runtime_process`.
+const PARENTS := {
+	"pose_tick": "runtime_physics",
+	"runtime_facts": "runtime_physics",
+	"pose_fanout": "runtime_physics",
+	"runtime_presentation": "runtime_physics",
+	"wings_tick": "runtime_presentation",
+	"caress_tick": "runtime_physics",
+	"caress_precise": "caress_tick",
+	"caress_path": "caress_precise",
+	"caress_surface": "caress_precise",
+	"caress_select": "caress_surface",
+	"caress_ensure": "caress_surface",
+	"caress_skin": "caress_surface",
+	"caress_closest": "caress_surface",
+	"caress_ray": "caress_surface",
+	"caress_blur": "caress_surface",
+	"caress_tri": "caress_surface",
+	"caress_arm": "pose_fanout",
+	"kiss_tick": "runtime_physics",
+	"runtime_ai": "runtime_physics",
+	"anatomy_tick": "runtime_physics",
+	"anatomy_afterglow": "runtime_physics",
+	"runtime_talk": "runtime_physics",
+	"runtime_camera": "runtime_physics",
+	"runtime_face": "runtime_physics",
+	"pose_recipe": "runtime_process",
+	"pose_prone": "runtime_process",
+	"body_sway": "runtime_process",
+	"ear_twitch": "runtime_process",
+	"tail_pose": "runtime_process",
+}
 
 var _rows: Dictionary = {}
 var _clock := 0.0
@@ -67,12 +102,14 @@ func tick(delta: float) -> void:
 	_physics_mark = physics
 	_clock = 0.0
 	_frames = 0
-	var rows: Array = []
+	var totals: Dictionary = {}
+	var peaks: Dictionary = {}
 	for key: String in _rows:
 		var row: Array = _rows[key]
-		rows.append([key, int(row[0]), float(row[1]) / 1000.0, int(row[2])])
+		totals[key] = [float(row[1]) / 1000.0, int(row[0])]
+		peaks[key] = int(row[2])
 	_rows.clear()
-	rows.sort_custom(func(a: Array, b: Array) -> bool: return float(a[2]) > float(b[2]))
+	var entries: Array = TREE.layout(totals, PARENTS)
 	var facts: Dictionary = header.call() if header.is_valid() else {}
 	var text := "perf pony=%s pose=%s state=%d fps=%d frame=%.1fms phys=%.1fms lean=%s hands=%s tick=%.2f draws=%d prims=%d near_mesh=%s tier=%s wings=%s" % [
 		str(facts.get("pony", "?")), str(facts.get("pose", "")), int(facts.get("state", 0)),
@@ -84,9 +121,16 @@ func tick(delta: float) -> void:
 		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
 		str(facts.get("near_mesh", "?")), str(facts.get("tier", "?")),
 		str(facts.get("wings", "no"))]
-	for row: Array in rows:
-		text += "\n\t%-16s %7.2fms/s per-frame %6.3fms max %6.2fms calls %d" % [
-			str(row[0]), float(row[2]), float(row[2]) / frames, float(row[3]) / 1000.0,
-			int(row[1])]
+	for entry: Dictionary in entries:
+		var key := str(entry["key"])
+		var total := float(entry["total"])
+		# A residual row has no call of its own: only the unmeasured time is real.
+		var peak := "-"
+		var calls := "-"
+		if not bool(entry["self"]):
+			peak = "%.2fms" % (float(peaks.get(key, 0)) / 1000.0)
+			calls = str(int(entry["calls"]))
+		text += "\n%-28s %8.2fms/s per-frame %8s max %7s calls %s" % [
+			str(entry["prefix"]) + key, total, "%.3fms" % (total / float(frames)), peak, calls]
 	if log.is_valid():
 		log.call(text)

@@ -1,5 +1,5 @@
 extends SceneTree
-## The act perf probe: gates, the window boundary, the header facts and the summary text.
+## The act perf probe: gates, the window boundary, the header facts and the tree summary text.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/perf/test_perf.gd
 
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
@@ -48,6 +48,14 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+## The block line that names `key`.
+func row(text: String, key: String) -> String:
+	for line: String in text.split("\n"):
+		if line.contains(key):
+			return line
+	return ""
+
+
 func run() -> void:
 	var probe := PERF.new()
 	check(not probe.on(), "the probe starts off")
@@ -91,6 +99,8 @@ func run() -> void:
 	check(sink.text.contains("max") and sink.text.contains("2.00ms"),
 		"the summary keeps the worst call")
 	check(sink.text.contains("calls 2"), "the summary keeps the call count")
+	check(sink.text.contains("\npose_tick"),
+		"a chunk without its parent in the window is a root")
 
 	probe.reset()
 	probe.tick(1.1)
@@ -100,6 +110,42 @@ func run() -> void:
 	probe.time("kiss_tick", Time.get_ticks_usec())
 	probe.tick(1.1)
 	check(sink.text.contains("kiss_tick"), "time() records the chunk elapsed time")
+
+	probe.reset()
+	probe.note("runtime_physics", 5000)
+	probe.note("pose_tick", 2000)
+	probe.note("pose_fanout", 1500)
+	probe.note("unknown_chunk", 300)
+	probe.tick(1.1)
+	check(sink.text.contains("\nruntime_physics"),
+		"a parent that names no parent is a root, without a glyph")
+	check(sink.text.find("runtime_physics") < sink.text.find("pose_tick"),
+		"a parent prints before its children")
+	check(sink.text.find("pose_tick") < sink.text.find("pose_fanout"),
+		"children sort largest total first")
+	check(sink.text.contains("├─ pose_tick") and sink.text.contains("├─ pose_fanout"),
+		"children carry a branch glyph")
+	check(sink.text.contains("└─ self"), "the last row of a level carries the closing glyph")
+	var residual := row(sink.text, "self")
+	check(residual.contains("1.50ms/s"),
+		"a parent's unmeasured cost prints as its self row")
+	check(residual.contains("calls -"), "a self row has no call count")
+	check(sink.text.contains("\nunknown_chunk"),
+		"a chunk absent from the parent table is a root")
+
+	probe.reset()
+	probe.note("runtime_process", 1000)
+	probe.note("pose_recipe", 1500)
+	probe.tick(1.1)
+	check(sink.text.contains("└─ pose_recipe"), "a modifier nests under the render-time process")
+	check(not sink.text.contains("self"),
+		"children larger than the parent print no self row")
+
+	probe.reset()
+	probe.note("runtime_physics", 1000)
+	probe.note("runtime_facts", 995)
+	probe.tick(1.1)
+	check(not sink.text.contains("self"), "a residual under 10us prints no row")
 
 	print("PERF_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

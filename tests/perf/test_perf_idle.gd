@@ -1,6 +1,6 @@
 extends SceneTree
-## The idle perf aggregator: the gate, the window boundary, per-owner aggregation, the block text
-## and the reset rules.
+## The idle perf aggregator: the gate, the window boundary, per-owner aggregation, the tree block
+## text and the reset rules.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/perf/test_perf_idle.gd
 
 const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
@@ -36,6 +36,21 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+## The block line that names `key`.
+func row(text: String, key: String) -> String:
+	for line: String in text.split("\n"):
+		if line.contains(key):
+			return line
+	return ""
+
+
+## The whitespace-separated token after `label` in one row.
+func token(line: String, label: String) -> String:
+	var parts := line.split(" ", false)
+	var at := parts.find(label)
+	return str(parts[at + 1]) if at >= 0 and at + 1 < parts.size() else ""
+
+
 func run() -> void:
 	var probe := PERF_IDLE.new()
 	check(not probe.on(), "the probe starts off")
@@ -67,15 +82,17 @@ func run() -> void:
 		"the header carries the engine frame, physics and tick facts")
 	check(sink.text.find("zzz_slow") < sink.text.find("runtime_process"),
 		"rows sort by total time, largest first")
-	check(sink.text.contains("calls 2"), "the summary keeps the call count")
+	check(token(row(sink.text, "zzz_slow"), "calls") == "2",
+		"the summary keeps the call count")
 	check(sink.text.contains("10.00ms/s"), "the summary keeps the window total")
 	check(sink.text.contains("5000.0us/call"), "the summary keeps the average call")
-	check(sink.text.contains("max 9.00ms applejack"),
+	check(sink.text.contains("max") and sink.text.contains("9.00ms applejack"),
 		"the summary keeps the worst call and its owner")
+	check(sink.text.contains("\nzzz_slow"), "a chunk without a parent is a root")
 
 	probe.note("no_owner", 300)
 	probe.tick(1.1)
-	check(sink.text.contains("max 0.30ms -"), "a chunk without an owner prints a dash")
+	check(sink.text.contains("0.30ms -"), "a chunk without an owner prints a dash")
 
 	probe.reset()
 	probe.tick(1.1)
@@ -92,6 +109,25 @@ func run() -> void:
 	check(sink.calls == 4, "the probe prints again after the gate returns")
 	check(sink.text.contains("fresh"), "the new window keeps its own chunk")
 	check(not sink.text.contains("stale"), "the gate off cleared the stale window")
+
+	probe.reset()
+	probe.note("entry_process", 7000)
+	probe.note("offer_scan", 3850)
+	probe.note("offer_gate", 3530)
+	probe.note("offer_cone", 170)
+	probe.tick(1.1)
+	check(sink.text.contains("\nentry_process"),
+		"the outermost chunk is a root, without a glyph")
+	check(sink.text.find("entry_process") < sink.text.find("offer_scan"),
+		"a parent prints before its children")
+	check(sink.text.contains("│  ├─ offer_gate"),
+		"a grandchild continues its parent's column")
+	check(sink.text.find("offer_gate") < sink.text.find("offer_cone"),
+		"children sort largest total first")
+	check(sink.text.contains("│  └─ self") and sink.text.contains("\n└─ self"),
+		"each parent's unmeasured cost is its own self row")
+	check(sink.text.contains("0.15ms/s") and sink.text.contains("3.15ms/s"),
+		"the self rows carry the residual time")
 
 	print("PERF_IDLE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

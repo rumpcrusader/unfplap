@@ -7,12 +7,12 @@ overlay and the log switches. The lab scripts are in `WORKFLOW.md`; the settings
 ## Scope
 
 `debug/service.gd` owns the action registry and the wheel page order. `debug/ui.gd` draws the
-Debug block buttons. `debug/wheel.gd` is the hold-middle wheel. `debug/bed.gd` is the stock bed
-cuddle helper behind the wheel's Bed cuddle action and Show data's BED section. `debug/pony.gd` is
-the debug pony-preparation helper shared by the bed cuddle and the wheel's Sex ready action.
-`debug/skeleton.gd` draws the skeleton overlay. `settings/ui.gd` injects the Unfplap tab and calls
-`debug/ui.gd` for each Debug block. `main.gd` owns the console gate, the wheel gate and the
-skeleton-flag sync.
+Debug block buttons. `debug/wheel.gd` is the hold-middle wheel. `debug/perf_view.gd` draws the
+perf flame panel. `debug/bed.gd` is the stock bed cuddle helper behind the wheel's Bed cuddle
+action and Show data's BED section. `debug/pony.gd` is the debug pony-preparation helper shared by
+the bed cuddle and the wheel's Sex ready action. `debug/skeleton.gd` draws the skeleton overlay.
+`settings/ui.gd` injects the Unfplap tab and calls `debug/ui.gd` for each Debug block. `main.gd`
+owns the console gate, the wheel gate, the perf panel and the skeleton-flag sync.
 
 ## Console
 
@@ -181,6 +181,20 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
   reason and cooldown.
 - Multi-line diagnostics are one entry: identification line first, then tab-indented rows.
 
+## Perf panel
+
+With **Enable debug** and **Print perf logs** on, the top-left corner carries the perf panel: the
+window the probes just printed, drawn as an icicle flame graph under a caption and a six-row
+legend. It is a `CanvasLayer` at layer 20 that ignores the mouse, so it never blocks the act view
+or the wheel, and it stays hidden until the first window arrives. Either switch off clears and
+hides it; a world close clears it, and the next window redraws the same node.
+
+The top row holds the roots in the block's own order, largest total first. Each row below sits
+inside its parent's span, and a muted `self` bar is the parent's unmeasured cost. A bar draws its
+name only when it fits, so a narrow bar is read from the legend, which lists the six largest
+chunks with their `ms/s` totals. The caption names the probe's own header and the engine frame
+numbers. The rows themselves are `docs/perf.md`'s.
+
 ## Lab keys
 
 - `Shift+[` / `Shift+]` cycles every adult mare the population catalogue can spawn. The eight
@@ -228,7 +242,8 @@ a slot runs it, release in the centre only closes). `tests/test_debug_pony.gd` p
 preparation helper: upright and idle, busy clearing, the raise-only sex-ready record, its floors
 and cleared fields, the refusal paths and the log/toast text. `tests/test_settings.gd` covers the
 skeleton flag, the Debug block labels that remain and the absence of every wheel action from the
-blocks. The overlay, the hover cue and the lab pass are manual.
+blocks. The overlay, the hover cue and the lab pass are manual. `tests/test_perf_flame.gd` pins the
+perf panel's bar geometry, caption, legend and clear.
 
 ## Related docs
 

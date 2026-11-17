@@ -1,10 +1,11 @@
-# Perf probes (`shared/perf.gd`, `shared/perf_idle.gd`, `shared/perf_tree.gd`)
+# Perf probes (`shared/perf.gd`, `shared/perf_idle.gd`, `shared/perf_tree.gd`, `debug/perf_view.gd`)
 
 The mod's two debug performance probes. Both report timed chunks in microseconds and print one
 block per one-second window, so a stall can be attributed to a modifier, a service or a single
 pony without a live profiler. The act probe prints one summary per acting pony; the idle probe
 aggregates every idle runtime into one block. Either block is laid out as a tree by
-`shared/perf_tree.gd`, and `main.debug()` prefixes every printed line with `[unfplap] `.
+`shared/perf_tree.gd`, and `main.debug()` prefixes every printed line with `[unfplap] `. The same
+window is drawn as a flame graph in the top-left corner; see `docs/debug.md`.
 
 ## Ownership
 
@@ -14,10 +15,13 @@ aggregates every idle runtime into one block. Either block is laid out as a tree
   aggregated rows, worst owner per chunk, counts, the idle parent table and block formatting.
 - `shared/perf_tree.gd` is a pure static module used by both probes. It turns flat rows plus a
   parent table into the display order and the `self` residuals; it knows no chunk on its own.
+- `debug/perf_view.gd` draws the panel. It owns no gate, no data and no setting: a probe hands it
+  one laid-out window and its facts, and the entry hides it when either switch goes off.
 - The runtime supplies the act probe's two gates (`enabled`, `active`), the header facts and the
-  log callback.
-- `main.gd` supplies the idle probe's gate (`enabled`), the header counts and the log callback.
-  Idle runtimes forward their chunks through `runtime.perf_note()`.
+  log and panel callbacks.
+- `main.gd` supplies the idle probe's gate (`enabled`), the header counts and the log and panel
+  callbacks. Its `perf_block()` keeps the panel to the two debug switches and creates the view on
+  the first window. Idle runtimes forward their chunks through `runtime.perf_note()`.
 - Timed call sites in the runtime, the anatomy controller and the skeleton modifiers report to the
   runtime; `main.gd` times its own process body and the offer scan.
 - `**Print perf logs**` is a separate debug switch; it needs **Enable debug** on too. One switch
@@ -41,6 +45,27 @@ table, and print the returned rows in order:
 `self` is the time a parent spends outside its timed children: the loop around them, not a
 measurement error.
 
+## Flame panel
+
+Each probe hands its window to `main.perf_block()` through `show` after the block is built, so the
+panel and the console block can never disagree about the rows. `debug/perf_view.gd` draws the
+window as an icicle flame graph:
+
+- roots pack across the top row in display order (largest total first), each as wide as its share
+  of all root totals;
+- a child is packed inside its parent's span by its share of the parent total, and the parent's
+  `self` row takes the rest;
+- a child that would overrun its parent (the modifier-pass case) is clipped at the parent's edge
+  instead of spilling into the next sibling;
+- one row per level, with bars fading from the accent toward the panel shade by depth and a muted
+  `self` bar;
+- a bar draws its chunk key only when the name fits, so a narrow bar is read from the legend.
+
+The caption repeats the probe's own header (`pony`/`pose`/`state` for an act, `runtimes`/`mares`
+for idle) with `fps`, `frame`, `phys` and `tick`. The six-row legend below the graph lists the
+largest measured chunks of the window with their `ms/s` totals, so a bar too narrow for its name
+stays readable.
+
 ## Act probe API
 
 | Member | Contract |
@@ -49,6 +74,7 @@ measurement error.
 | `active: Callable` | true while an act is running; the window clears outside it |
 | `header: Callable` | returns `{pony, pose, state, lean, hands, near_mesh, tier, wings}` |
 | `log: Callable` | writes one summary block |
+| `show: Callable` | hands one window's laid-out rows and header facts to the panel |
 | `note(key, usec)` | record one timed chunk; a cheap no-op when off |
 | `time(key, started_usec)` | close one call site; the caller takes the start stamp |
 | `reset()` | clear the window, the rows and the physics mark |
@@ -111,6 +137,7 @@ first caress path, not the per-tick contact.
 | `enabled: Callable` | both debug switches are on and no act is running |
 | `counts: Callable` | returns `{runtimes, mares}` for the header, read once per window |
 | `log: Callable` | writes one block |
+| `show: Callable` | hands one window's laid-out rows and header counts to the panel |
 | `on()` | the cheap gate |
 | `note(key, usec, owner)` | aggregate one chunk; the worst call keeps its owner id |
 | `reset()` | clear the window, the rows and the physics mark |
@@ -169,9 +196,9 @@ parsed at world ready, so their load is not inside a first scan.
 
 **Enable debug** + **Print perf logs** in General's Debug block. Standing in town outside an act
 prints one `perf idle` block a second. During an act the per-pony `perf` lines print instead and
-no idle block prints. Every printed line, continuation rows included, carries the `[unfplap] `
-prefix from `main.debug()`, so a block stays attributable after the game's own output interleaves
-with it.
+no idle block prints. Either block also redraws the corner flame panel (`docs/debug.md`). Every
+printed line, continuation rows included, carries the `[unfplap] ` prefix from `main.debug()`, so
+a block stays attributable after the game's own output interleaves with it.
 
 ### Pose edge comparison
 
@@ -209,6 +236,8 @@ and allocates nothing, and the pose write is the only new per-frame cost.
   worst owner, tree block text and reset-on-disable.
 - `tests/perf/test_perf_tree.gd` — the shared layout: roots, nesting, glyph prefixes, per-level
   order, the self residual and its floor.
+- `tests/test_perf_flame.gd` — the panel: root shares, nesting, the self residual, overrun
+  clipping and the graph height, plus the view's caption, legend and clear.
 
 ## Related docs
 

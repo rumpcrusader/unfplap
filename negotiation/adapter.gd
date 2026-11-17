@@ -22,6 +22,9 @@ var _watch: Dictionary = {}
 ## the same line.
 var _offer_watch := Callable()
 var _offer_pending := ""
+## The idle offer watch reads the director at 10 Hz, not per frame; the transcript signal still
+## clears the wait immediately.
+var _offer_clock := 0.0
 
 
 func bind(main_node: Node) -> void:
@@ -36,9 +39,12 @@ func _exit_tree() -> void:
 	_offer_pending = ""
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _offer_watch.is_valid():
-		_poll_offer_watch()
+		_offer_clock += delta
+		if _offer_clock >= 0.1:
+			_offer_clock = 0.0
+			_poll_offer_watch()
 	if _watch.is_empty():
 		return
 	if not player_reacted():

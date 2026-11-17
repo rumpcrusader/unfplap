@@ -284,10 +284,10 @@ func _check_offer_watch() -> void:
 	adapter.watch_player(func(text: String) -> void: got.append(text))
 	check(got.is_empty(), "the offer watch ignores an old line")
 	director._player_text = "want to?"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	check(got == ["want to?"], "the first new line reaches the offer watch")
 	director._player_text = "take me to bed"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	check(got.size() == 2 and got[1] == "take me to bed",
 		"a later line reaches the offer watch again")
 
@@ -295,34 +295,34 @@ func _check_offer_watch() -> void:
 	got.clear()
 	director.state = "speaking"
 	director._player_text = "come here"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	check(got.is_empty(), "a spoken reply delays the offer line")
 	director.state = "idle"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	check(got == ["come here"], "the offer line starts once the director is idle")
 
 	# A second line replaces the pending one.
 	got.clear()
 	director.state = "speaking"
 	director._player_text = "first"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	director._player_text = "second"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	director.state = "idle"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	check(got == ["second"], "the newest pending line is the one reported")
 
 	# Unwatching drops a pending line and stops the watch.
 	got.clear()
 	director.state = "speaking"
 	director._player_text = "dropped"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	adapter.unwatch_player()
 	director.state = "idle"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	check(got.is_empty(), "unwatching drops the pending offer line")
 	director._player_text = "after"
-	adapter._process(0.0)
+	adapter._process(0.1)
 	check(got.is_empty(), "an unwatched line forms nothing")
 	_free(made)
 

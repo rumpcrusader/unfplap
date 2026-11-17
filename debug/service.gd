@@ -44,6 +44,13 @@ const ACTIONS := {
 		"panel": false,
 		"short": "Standing offer",
 	},
+	"anon_offer": {
+		"label": "Trigger Anon offer",
+		"help": "Form an Anon offer for the aimed mare as if Anon had just asked her.",
+		"method": "action_anon_offer",
+		"panel": false,
+		"short": "Anon offer",
+	},
 	"show_data": {
 		"label": "Show data",
 		"help": "Print the aimed mare's target, cycle, gate, act, stool, history, prompt and bed data to the debug log.",

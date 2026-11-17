@@ -251,8 +251,9 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
   `interrupted`, `start failed`, `started`, `blocked` and `occupied`.
 - `debug_rows()` adds the `NEGOTIATION` Show data section: phase, lock, live offer/Agreement and
   the TTL.
-- Debug actions (trigger Anon offer, force expiry, force privacy loss, force start failure, clear
-  cooldown) are wired by `main` and documented in `docs/debug.md` when the route lands.
+- **Trigger Anon offer** (Debug → Actions / the Mare wheel) forms an Anon offer for the aimed mare
+  as if Anon had just asked her. **Clear offer cooldown** is the Proactive service's action; the
+  `NEGOTIATION` Show data section is the live state.
 
 ## Dependencies
 

@@ -115,7 +115,7 @@ wheel is drawn at 75% opacity.
 
 | Page | Slots, clockwise from the top |
 |---|---|
-| **Mare** | Show data · Bed offer · Bed cuddle · Standing offer · Force/Clear heat · Force/Clear diestrus · Sex ready |
+| **Mare** | Show data · Bed offer · Bed cuddle · Standing offer · Anon offer · Force/Clear heat · Force/Clear diestrus · Sex ready |
 | **Act** | Show data · Neglect warning · Neglect stop · Next face |
 
 - The page is chosen by the live act: **Act** while an act runs, **Mare** otherwise. There are no

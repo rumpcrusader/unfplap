@@ -1045,6 +1045,25 @@ func action_standing_offer() -> String:
 	return _debug_offer_request(CATALOG.STANDING)
 
 
+## Debug: form an Anon offer for the aimed mare as if Anon had just asked her. The classifier still
+## decides the option and the response; this only skips typing the line in a conversation.
+func action_anon_offer() -> String:
+	if not is_instance_valid(negotiation) or not is_instance_valid(player):
+		return "Act system not ready."
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if not is_instance_valid(target):
+		return "No mare under the crosshair."
+	var runtime: Variant = runtime_for(target)
+	if not is_instance_valid(runtime):
+		return "No runtime for %s." % str(target.name)
+	var formed := bool(negotiation.call("begin_anon_offer", runtime, "I want you. Come here."))
+	_debug("anon offer button: %s formed=%s" % [str(target.name), str(formed)])
+	if formed:
+		return "Anon offer started for %s." % str(target.name)
+	return "Anon offer refused for %s." % str(target.name)
+
+
 ## Wheel-only: start the stock bed cuddle. The bed, recline and invite sequence runs after this
 ## returns, so the wheel closes immediately and the debug log carries the detailed result.
 func action_bed_cuddle() -> String:

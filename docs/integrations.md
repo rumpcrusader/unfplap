@@ -28,7 +28,7 @@ lifecycle. Providers own only policy: whether they apply, and which properties t
 provider never reads a node, a tree, the clock, the filesystem, the settings file or the runtime's
 private fields.
 
-The world adapter owns its scan (the debug Update frequency, 2 Hz by default), the per-node
+The world adapter owns its every-frame hull update and fixed-fallback node discovery, the per-node
 material overrides, its cached feature/debug values and the act-start undress. It reads the anatomy
 through `main.anatomy` and the game through `main.game`; it never preloads either host and never
 edits the pack.
@@ -123,12 +123,13 @@ in scope. The act's own wing controller creates the open-wing node the shiver ne
 ## Pantyhose & Panties
 
 `integrations/pantyhose.gd` is the world adapter, created by `main` as `main.pantyhose`. It runs
-outside acts: at the debug Update frequency (2 Hz by default, `0` stops the automatic scan) it
-finds each mare's `Wear_panties-*` and `Wear_pantyhose-*` nodes and, while the anatomy mesh is
-shown and the bulge flag is on, gives every surface of the shared piece an override of the copied
-compatibility shader. The original material stays on the shared mesh; the override is per node, and
-every instance value is per node, so two mares never share a transform. The compatibility material
-is cached per source material and variant, so each fabric keeps its own look parameters while every
+outside acts: every frame it updates the hull transform and instance uniforms for each worn piece,
+so the cloth follows the anatomy with no scan lag. It re-discovers the `Wear_panties-*` and
+`Wear_pantyhose-*` nodes on a fixed fallback (0.5 s), and while the anatomy mesh is shown and the
+bulge flag is on, gives every surface of the shared piece an override of the copied compatibility
+shader. The original material stays on the shared mesh; the override is per node, and every
+instance value is per node, so two mares never share a transform. The compatibility material is
+cached per source material and variant, so each fabric keeps its own look parameters while every
 mare shares it. The previous override is saved and restored on a hidden anatomy, feature-off,
 pack-off, node replacement and world close.
 
@@ -140,14 +141,16 @@ start, so the field does not need the opened/stretched act shapes.
 The shader maps the garment vertex into anatomy-local space with the per-mare transform, reads the
 field, and pushes the cloth out along the anatomy's +Z by the surface difference plus the margin.
 The margin is stored in anatomy-local units and converted back by the basis' Z scale, so the
-slider stays in world millimetres. The debug controls choose the field resolution, smoothing,
-margin and update frequency. The hull rows are unbounded debug values; a high resolution or many
-smoothing passes costs a one-time rebuild. A precision edit clears the cache and rebuilds after
-0.3 s, and the Rebuild action rebuilds immediately. Both are off the frame path. **Show hull**
-draws the heatmap as a continuous corner-grid surface from a top-level world mesh that copies the
-anatomy mesh's transform, so the field can be inspected even when the anatomy is hidden (far mesh
-or `act` mode outside an act); the overlay state and the reason it is hidden are logged once per
-change with debug logs on.
+slider stays in world millimetres. The field has a larger Y domain margin and the shader fades the
+lift over only the outer 3%, so the ponut top and vulva bottom keep their full lift without
+raising the margin over the vulva. The debug controls choose the field width, height, smoothing
+and margin; the hull rows are unbounded debug values, and a high width/height or many smoothing
+passes costs a one-time rebuild. The adapter updates the hull transform every frame; a precision
+edit clears the cache and rebuilds after 0.3 s, and the Rebuild action rebuilds immediately. Both
+are off the frame path. **Show hull** draws the heatmap as a continuous corner-grid surface from a
+top-level world mesh that copies the anatomy mesh's transform, so the field can be inspected even
+when the anatomy is hidden (far mesh or `act` mode outside an act); the overlay state and the
+reason it is hidden are logged once per change with debug logs on.
 
 On `anatomy.act_started` the adapter calls the wardrobe's `set_worn(id, "panties", false)` and
 `set_worn(id, "pantyhose", false)` and then `dress(pony, id, season)` immediately, so the nodes are
@@ -174,8 +177,8 @@ One declaration per supported integration, in `settings/service.gd`:
 Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by
 default, under one blue **Experimental** notice at the top of the tab. The section body carries the hint `Verified with version: $verified_version`, then that
 provider's player-facing feature flags; its open state is stored under `integrations/Mods/<mod id>`.
-The tab's one Debug block (behind **Enable debug**) carries the Pantyhose hull precision rows
-(`debug.pantyhose_hull_*`), the **Update frequency** row (`debug.pantyhose_update_hz`) and the
+The tab's one Debug block (behind **Enable debug**) carries the Pantyhose hull rows
+(`debug.pantyhose_hull_*`, including **Hull width** and **Hull height**) and the
 **Pantyhose: rebuild hull** action; Kissing has no debug rows.
 There is no installed/mismatch status and no other buttons. A flag edit during an act starts or
 stops the Kissing provider live through `apply_live_settings()`; the Pantyhose flags are cached by

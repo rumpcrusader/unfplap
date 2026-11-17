@@ -964,7 +964,8 @@ func _check_integrations_panel() -> void:
 		"Enable debug shows the Integrations Debug block")
 	var debug_labels: Array = []
 	_collect_labels(debug_list, debug_labels)
-	check(debug_labels.has("Hull precision"), "the Debug block draws the hull precision row")
+	check(debug_labels.has("Hull width"), "the Debug block draws the hull width row")
+	check(debug_labels.has("Hull height"), "the Debug block draws the hull height row")
 	check(debug_labels.has("Show hull"), "the Debug block draws the Show hull row")
 	debug_list.free()
 	SETTINGS.debug_mode.set_bool(debug_before)

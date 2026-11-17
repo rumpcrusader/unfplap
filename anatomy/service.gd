@@ -186,10 +186,15 @@ func garment_parent(pony_node: Node) -> Node3D:
 	return null
 
 
-## Clear the shared hull cache after a precision edit or the debug Rebuild button. The next
-## `garment_hull()` read rebuilds once per source mesh; no per-frame work.
+## Clear the shared hull cache and every controller's cached field after a precision edit or the
+## debug Rebuild button. The next `garment_hull()` read rebuilds once per source mesh; no
+## per-frame work.
 func garment_hull_rebuild() -> void:
 	GARMENT_HULL.clear_cache()
+	for pony: Variant in _controllers.keys():
+		var handle: Variant = _controllers[pony]
+		if is_instance_valid(handle) and handle.has_method("garment_hull_clear"):
+			handle.call("garment_hull_clear")
 
 
 func online(pony: Node) -> bool:

@@ -54,6 +54,14 @@ var _rig_logged := false
 var _visibility_clock := 0.0
 ## Idle heat schedule; the controller supplies state, visibility and the cycle phase.
 var heat: RefCounted
+## The cached `MareBody` for the per-frame garment transform.
+var _garment_body: Node3D
+## The cached rest hull and the settings it was built for.
+var _garment_hull: GARMENT_HULL.Hull
+var _hull_width := 48
+var _hull_height := 48
+var _hull_smoothing := 1
+var _hull_ponut := 0.0
 
 
 ## The pure mesh rebuild and geometry live in `anatomy/geometry.gd`; these forwarders keep the
@@ -112,6 +120,7 @@ func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 	coat_follow.setup(pony, placement)
 	appearance = APPEARANCE.new()
 	appearance.setup(pony, shapes, dock_refresh, facts.perf_note)
+	_read_hull_settings()
 
 
 ## Replace the runtime context. The facade calls this when the controller is created; tests can
@@ -358,6 +367,7 @@ func apply_live() -> void:
 		return
 	if not placement.dirty() and SETTINGS.placement_revision != placement.revision():
 		placement.load()
+	_read_hull_settings()
 	_apply_material()
 	_apply_place()
 	shapes.refresh_anal()
@@ -379,6 +389,8 @@ func detach() -> void:
 		shapes.clear_mesh()
 	if attach != null:
 		attach.detach()
+	_garment_body = null
+	_garment_hull = null
 	set_process(false)
 	if dock_refresh.is_valid():
 		dock_refresh.call(pony)
@@ -387,32 +399,57 @@ func detach() -> void:
 # --------------------------------------------------------------------------- garment hull
 
 ## The worn-garment depth field for this pony's refined anatomy mesh. It is built once per
-## source mesh, resolution, smoothing and rest ponut scale and shared by every mare; the field is
-## the rest appearance (closed lips, rest ponut; no act shapes). The integration only needs the
-## texture and the per-mare transform. Null when the anatomy is detached.
+## source mesh, width, height, smoothing and rest ponut scale and shared by every mare; the field
+## is the rest appearance (closed lips, rest ponut; no act shapes). The integration only needs the
+## texture and the per-mare transform. Null when the anatomy is detached. The settings are read
+## in `apply_live()`/`setup()`, not on this every-frame read.
 func garment_hull() -> GARMENT_HULL.Hull:
 	if not is_attached() or not is_instance_valid(attach.mesh):
 		return null
 	var mesh := attach.mesh.mesh as ArrayMesh
 	if mesh == null:
 		return null
-	return GARMENT_HULL.build(mesh, int(SETTINGS.pantyhose_hull_resolution.get_num()),
-		int(SETTINGS.pantyhose_hull_smoothing.get_num()),
-		SETTINGS.anal_scale.get_num() - 1.0)
+	if _garment_hull != null:
+		return _garment_hull
+	_garment_hull = GARMENT_HULL.build(mesh, _hull_width, _hull_height, _hull_smoothing,
+		_hull_ponut)
+	return _garment_hull
+
+
+## Drop this controller's cached hull so the next read rebuilds with the current settings.
+func garment_hull_clear() -> void:
+	_garment_hull = null
+
+
+func _read_hull_settings() -> void:
+	var width := int(SETTINGS.pantyhose_hull_width.get_num())
+	var height := int(SETTINGS.pantyhose_hull_height.get_num())
+	var smoothing := int(SETTINGS.pantyhose_hull_smoothing.get_num())
+	var ponut := SETTINGS.anal_scale.get_num() - 1.0
+	if width == _hull_width and height == _hull_height and smoothing == _hull_smoothing \
+			and is_equal_approx(ponut, _hull_ponut):
+		return
+	_hull_width = width
+	_hull_height = height
+	_hull_smoothing = smoothing
+	_hull_ponut = ponut
+	_garment_hull = null
 
 
 ## Map an anatomy-local point into the garment's model space (the body's rest space). The
 ## anatomy mesh is skinned to `pony_hips`; the body model is the space the worn garment's
-## vertices are skinned in. The per-act trims are part of the live mesh transform.
+## vertices are skinned in. The per-act trims are part of the live mesh transform. The body is
+## cached; this runs every frame.
 func garment_transform() -> Transform3D:
-	var body: Node3D = null
-	if is_instance_valid(pony):
-		body = pony.find_child("MareBody", true, false) as Node3D
-		if body == null:
-			body = pony
 	if not is_attached() or not is_instance_valid(attach.mesh):
 		return Transform3D.IDENTITY
-	return garment_transform_for(body, attach.mesh)
+	if not is_instance_valid(_garment_body):
+		_garment_body = null
+		if is_instance_valid(pony):
+			_garment_body = pony.find_child("MareBody", true, false) as Node3D
+			if _garment_body == null:
+				_garment_body = pony
+	return garment_transform_for(_garment_body, attach.mesh)
 
 
 ## True when the anatomy is attached and the visibility poll has the mesh shown. A far mesh or
@@ -421,8 +458,8 @@ func garment_visible() -> bool:
 	return is_attached() and is_instance_valid(attach.mesh) and attach.visible()
 
 
-## The anatomy mesh whose local space the hull field is built in. The debug heatmap is parented
-## here so it follows the live bone transform with no per-frame write.
+## The anatomy mesh whose local space the hull field is built in. The debug heatmap copies its
+## live transform rather than parenting to it, so a hidden mesh does not hide the heatmap.
 func garment_parent() -> Node3D:
 	return attach.mesh if is_attached() and is_instance_valid(attach.mesh) else null
 

@@ -115,11 +115,11 @@
 		"utterance_gap_seconds": 18.0
 	},
 	"debug": {
+		"pantyhose_hull_height": 48.0,
 		"pantyhose_hull_margin_mm": 5.0,
-		"pantyhose_hull_resolution": 48.0,
 		"pantyhose_hull_show": false,
 		"pantyhose_hull_smoothing": 1.0,
-		"pantyhose_update_hz": 2.0
+		"pantyhose_hull_width": 48.0
 	},
 	"debug_hide_tails": false,
 	"debug_mode": false,

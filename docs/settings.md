@@ -438,8 +438,8 @@ interjections**.
   the Faint `Verified with version: ...` hint and its player-facing switches; its open state is
   stored under `integrations/Mods/<mod id>`. The Kissing and Pantyhose & Panties entries are always
   listed, whether or not the other mod is installed. The tab ends with its one Debug block (behind
-  **Enable debug**), which carries the Pantyhose hull precision and update rows and the
-  **Pantyhose: rebuild hull** action. The behavior is in `docs/integrations.md`.
+  **Enable debug**), which carries the Pantyhose hull width, height, smoothing, margin and show
+  rows and the **Pantyhose: rebuild hull** action. The behavior is in `docs/integrations.md`.
 
 **Debug sections**
 
@@ -454,10 +454,11 @@ tuning:
   receptive window.
 - **Kissing**: the reaction bridge's level and cap are `docs/integrations.md`; it has no debug
   switch of its own.
-- **Pantyhose** (Integrations): **Hull precision**, **Hull smoothing**, **Hull margin**,
-  **Show hull** and **Update frequency**, plus the **Pantyhose: rebuild hull** action; see
-  `docs/integrations.md`. The hull rows are unbounded debug values: high precision or smoothing
-  costs a one-time rebuild, and **Update frequency** is in Hz (`0` stops the automatic scan).
+- **Pantyhose** (Integrations): **Hull width**, **Hull height**, **Hull smoothing**,
+  **Hull margin** and **Show hull**, plus the **Pantyhose: rebuild hull** action; see
+  `docs/integrations.md`. The hull rows are unbounded debug values: a high width/height or many
+  smoothing passes costs a one-time rebuild. The adapter updates the hull every frame; there is
+  no refresh-rate setting.
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
   still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points,

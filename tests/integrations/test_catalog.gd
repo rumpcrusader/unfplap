@@ -99,11 +99,11 @@ func run() -> void:
 	check(CATALOG.provider("idle_life").is_empty(), "Idle Life is no longer a supported integration")
 	check(SETTINGS.by_name("idle_life_stretch") == null,
 		"the retired Idle Life stretch flag is gone")
-	check(SETTINGS.pantyhose_hull_resolution.debug
+	check(SETTINGS.pantyhose_hull_width.debug
+		and SETTINGS.pantyhose_hull_height.debug
 		and SETTINGS.pantyhose_hull_smoothing.debug
 		and SETTINGS.pantyhose_hull_margin_mm.debug
-		and SETTINGS.pantyhose_hull_show.debug
-		and SETTINGS.pantyhose_update_hz.debug,
-		"the hull and update controls stay in the Debug block")
+		and SETTINGS.pantyhose_hull_show.debug,
+		"the hull controls stay in the Debug block")
 	print("INTEGRATIONS_CATALOG_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

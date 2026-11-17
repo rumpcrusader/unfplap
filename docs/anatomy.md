@@ -234,17 +234,19 @@ builds it in anatomy-local space (`+Z` toward the tail):
   so the field does not need the opened or stretched act shapes; the debug heatmap shows the rest
   vulva/ponut. If `pantyhose_undress` is off, the cloth stays on during an act and the act shapes
   can poke through; that is the player's choice.
-- The X/Y projection is a `resolution × resolution` grid of the maximum Z per cell. The domain is
-  the retained outer triangles' X/Y bounds plus a small margin, so the anal extreme shape cannot
-  stretch the domain. Empty cells are filled by dilation and the debug smoothing passes.
+- The X/Y projection is a `width × height` grid of the maximum Z per cell. The domain is the
+  retained outer triangles' X/Y bounds plus a small margin; the Y margin is larger so the ponut
+  top and vulva bottom are inside the field and the shader's edge fade does not cut their lift.
+  Empty cells are filled by dilation and the debug smoothing passes.
 - The field is normalised over `z_min`/`z_max`; an uncovered cell keeps a negative marker and the
   shader skips it. The texture is `FORMAT_RF`, linear, no repeat.
-- The build is cached by source mesh RID, resolution, smoothing and the rest ponut scale, so every
-  mare shares one field. `garment_hull_rebuild()` clears the cache; a precision edit or the Rebuild
-  action rebuilds once, off the frame path.
-- Resolution, smoothing and margin are unbounded debug values (the builder only floors resolution
-  to 1 and smoothing to 0). High values cost a one-time rebuild. The adapter's **Update frequency**
-  (`debug.pantyhose_update_hz`) sets how often it rescans; `0` stops the automatic scan.
+- The build is cached by source mesh RID, width, height, smoothing and the rest ponut scale, so
+  every mare shares one field. `garment_hull_rebuild()` clears the cache; a precision edit or the
+  Rebuild action rebuilds once, off the frame path.
+- Width, height, smoothing and margin are unbounded debug values (the builder only floors the
+  cells to 1 and smoothing to 0). High values cost a one-time rebuild. The adapter updates the
+  hull transform every frame; it re-discovers the worn nodes on a fixed fallback, not a player
+  refresh rate.
 
 The reads:
 
@@ -260,7 +262,9 @@ The reads:
 The shader maps the worn vertex into anatomy-local space, reads the field, and pushes along the
 anatomy's +Z by `surface_z + margin - local.z`. The margin is converted from millimetres by the
 basis' Z scale, and the local push is converted back when it is applied, so the slider stays in
-world millimetres on every body size. The hull block is in the copied compatibility shaders under
+world millimetres on every body size. The edge fade is a small 3% of the domain, so the lift is
+full at the anatomy; the larger Y domain margin keeps the ponut top and vulva bottom away from the
+fade. The hull block is in the copied compatibility shaders under
 `integrations/shaders/`; see `docs/integrations.md`.
 
 ## Placement
@@ -709,10 +713,10 @@ built from the declarations, so the label, help and bounds are not restated here
 - `features.anatomy_holes`, `features.anatomy_oral`: the V/N controls.
 - The VR standing act always starts on a headset; the old `features.anatomy_vr` switch is retired.
 - `features.debug_aim_points`: the three aim markers.
-- `debug.pantyhose_hull_resolution`, `debug.pantyhose_hull_smoothing`,
-  `debug.pantyhose_hull_margin_mm`, `debug.pantyhose_hull_show` and `debug.pantyhose_update_hz`:
-  the garment-hull and adapter debug rows; their behavior is `docs/integrations.md`
-  (`## Pantyhose & Panties`). The hull rows are unbounded debug values.
+- `debug.pantyhose_hull_width`, `debug.pantyhose_hull_height`,
+  `debug.pantyhose_hull_smoothing`, `debug.pantyhose_hull_margin_mm` and
+  `debug.pantyhose_hull_show`: the garment-hull debug rows; their behavior is
+  `docs/integrations.md` (`## Pantyhose & Panties`). The hull rows are unbounded debug values.
 
 ## Debug and performance
 

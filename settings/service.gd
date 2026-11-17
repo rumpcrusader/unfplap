@@ -1746,9 +1746,13 @@ static var pantyhose_bulge := flag("pantyhose_bulge", "features.pantyhose_bulge"
 	"Lift the cloth over the anatomy",
 	"Lift the worn panties and pantyhose over the anatomy instead of letting it poke through.",
 	INTEGRATIONS, "")
-static var pantyhose_hull_resolution := num("pantyhose_hull_resolution",
-	"debug.pantyhose_hull_resolution", "Hull precision",
-	"Depth-field cells across the anatomy. Higher is smoother and costs a one-time rebuild.",
+static var pantyhose_hull_width := num("pantyhose_hull_width",
+	"debug.pantyhose_hull_width", "Hull width",
+	"Depth-field cells across the anatomy width. Higher is smoother and costs a one-time rebuild.",
+	INTEGRATIONS, "Pantyhose").with_step(1.0).as_debug()
+static var pantyhose_hull_height := num("pantyhose_hull_height",
+	"debug.pantyhose_hull_height", "Hull height",
+	"Depth-field cells across the anatomy height. Higher is smoother and costs a one-time rebuild.",
 	INTEGRATIONS, "Pantyhose").with_step(1.0).as_debug()
 static var pantyhose_hull_smoothing := num("pantyhose_hull_smoothing",
 	"debug.pantyhose_hull_smoothing", "Hull smoothing",
@@ -1761,10 +1765,6 @@ static var pantyhose_hull_margin_mm := num("pantyhose_hull_margin_mm",
 static var pantyhose_hull_show := flag("pantyhose_hull_show", "debug.pantyhose_hull_show",
 	"Show hull", "Draw the depth field over the anatomy as a heatmap.",
 	INTEGRATIONS, "Pantyhose").as_debug()
-static var pantyhose_update_hz := num("pantyhose_update_hz",
-	"debug.pantyhose_update_hz", "Update frequency",
-	"How often the adapter rescans the worn pieces, in Hz. Zero stops the automatic scan.",
-	INTEGRATIONS, "Pantyhose").with_unit("Hz").with_step(0.5).as_debug()
 
 ## The built-in act prompts from `settings/catalogs.json`. The player file stores only overrides,
 ## and `_fill_prompts()` supplies the current built-ins at read time so a release can update them.
@@ -1860,6 +1860,11 @@ static var _deprecated := [
 	deprecated("anatomy.mare_bits", func(_value: Variant) -> Dictionary: return {}),
 	# The separate log switch folded into the debug switch.
 	deprecated("debug_logs", func(_value: Variant) -> Dictionary: return {}),
+	# The hull precision became separate width and height cells.
+	deprecated("debug.pantyhose_hull_resolution", func(value: Variant) -> Dictionary:
+		return {"debug.pantyhose_hull_width": value, "debug.pantyhose_hull_height": value}),
+	# The adapter updates the hull every frame; the refresh-rate control is retired.
+	deprecated("debug.pantyhose_update_hz", func(_value: Variant) -> Dictionary: return {}),
 	# Missionary is one authored pose and one authored shot now; the correction stack, its neck
 	# offsets and its frozen-shot tuning are retired.
 	deprecated("presentation.missionary.authored_base",

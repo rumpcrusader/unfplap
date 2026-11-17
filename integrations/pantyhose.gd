@@ -22,8 +22,9 @@ const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose
 const MOD_ID := "pantyhose"
 ## The garment nodes are children of the body's parent, next to `MareBody`.
 const PREFIXES := ["Wear_panties-", "Wear_pantyhose-"]
-## The shipped scan rate: 2 Hz is the old 0.5 s scan. The debug Update frequency overrides it.
-const DEFAULT_UPDATE_HZ := 2.0
+## How often the adapter re-discovers the worn nodes. The hull transform and instance uniforms
+## update every frame; this only catches a new/removed garment.
+const DISCOVER_S := 0.5
 ## A precision edit waits for the drag to settle before the one-time rebuild.
 const REBUILD_DELAY_S := 0.3
 ## The debug heatmap sits this far in front of the field surface (anatomy-local metres).
@@ -44,17 +45,19 @@ var main: Node
 var mod_active := Callable()
 
 var _game: Node
-var _clock := 0.0
+var _discover_clock := 0.0
 var _undress := true
 var _bulge := true
-var _hull_resolution := 48
+var _hull_width := 48
+var _hull_height := 48
 var _hull_smoothing := 1
 var _hull_margin_mm := 5.0
 var _show_hull := false
-var _update_hz := DEFAULT_UPDATE_HZ
 var _rebuild_at := -1.0
 var _mismatch_logged := false
 
+## garment node -> the pony it belongs to
+var _tracked: Dictionary = {}
 ## garment node -> Applied
 var _applied: Dictionary = {}
 ## original material instance id + variant -> compatibility material
@@ -79,7 +82,7 @@ func setup(main_node: Node) -> void:
 ## The host's world entry. Called from `main._on_world`.
 func on_world(host: Node) -> void:
 	_game = host
-	_clock = _scan_interval()
+	_discover_clock = 0.0
 	_rebuild_at = -1.0
 	_mismatch_logged = false
 	_overlay_reason = ""
@@ -95,7 +98,7 @@ func on_world_closed() -> void:
 	_free_overlay()
 	_materials.clear()
 	_game = null
-	_clock = 0.0
+	_discover_clock = 0.0
 	_rebuild_at = -1.0
 	set_process(false)
 
@@ -118,23 +121,25 @@ func apply_live_settings() -> void:
 	_bulge = SETTINGS.pantyhose_bulge.get_bool()
 	_hull_margin_mm = SETTINGS.pantyhose_hull_margin_mm.get_num()
 	_show_hull = SETTINGS.pantyhose_hull_show.get_bool()
-	_update_hz = maxf(SETTINGS.pantyhose_update_hz.get_num(), 0.0)
-	var resolution := int(SETTINGS.pantyhose_hull_resolution.get_num())
+	var width := int(SETTINGS.pantyhose_hull_width.get_num())
+	var height := int(SETTINGS.pantyhose_hull_height.get_num())
 	var smoothing := int(SETTINGS.pantyhose_hull_smoothing.get_num())
-	if resolution != _hull_resolution or smoothing != _hull_smoothing:
-		_hull_resolution = resolution
+	if width != _hull_width or height != _hull_height or smoothing != _hull_smoothing:
+		_hull_width = width
+		_hull_height = height
 		_hull_smoothing = smoothing
 		_queue_rebuild()
 	if not _bulge or not _mod_active_now():
 		_restore_all()
 	if not _show_hull:
 		_hide_overlay()
-	_clock = _scan_interval()
 	_overlay_reason = ""
 	if is_instance_valid(_game):
 		scan()
 
 
+## The hull transform and every per-instance uniform update every frame. The worn nodes are
+## re-discovered on a fixed fallback, not by a user setting.
 func _process(delta: float) -> void:
 	if not is_instance_valid(_game):
 		return
@@ -143,43 +148,30 @@ func _process(delta: float) -> void:
 		if _rebuild_at < 0.0:
 			rebuild_hull()
 	_update_overlay_transform()
-	if _clock < 0.0:
-		return
-	_clock -= delta
-	if _clock > 0.0:
-		return
-	_clock = _scan_interval()
-	scan()
+	_update_garments()
+	_discover_clock -= delta
+	if _discover_clock <= 0.0:
+		_discover_clock = DISCOVER_S
+		_discover()
+	var anatomy := _anatomy()
+	var mares: Variant = _game.get("mares")
+	if _show_hull and anatomy != null and mares is Array:
+		_scan_overlay(mares, anatomy)
+	else:
+		_hide_overlay()
 
 
-## The scan interval in seconds, or a negative value when the debug Update frequency is 0.
-## Public so the test suite can pin the setting without waiting.
-func update_interval() -> float:
-	return _scan_interval()
-
-
-func _scan_interval() -> float:
-	if _update_hz <= 0.0:
-		return -1.0
-	return 1.0 / _update_hz
-
-
-## Scan every loaded mare for a worn piece. Public so the test suite can pin one pass without
-## waiting for the clock.
+## One full pass, for the Rebuild action and the tests: re-discover the worn nodes and update
+## the hull.
 func scan() -> void:
 	if not is_instance_valid(_game) or not _mod_active_now():
 		_restore_all()
 		_hide_overlay()
 		return
+	_discover()
+	_update_garments()
 	var anatomy := _anatomy()
 	var mares: Variant = _game.get("mares")
-	var seen: Dictionary = {}
-	if anatomy != null and mares is Array:
-		for pony: Variant in mares:
-			if not is_instance_valid(pony) or not (pony is Node3D):
-				continue
-			_scan_pony(pony as Node3D, anatomy, seen)
-	_drop_missing(seen)
 	if _show_hull and anatomy != null and mares is Array:
 		_scan_overlay(mares, anatomy)
 	else:
@@ -210,29 +202,68 @@ func overlay_active() -> bool:
 
 # --------------------------------------------------------------------------- garment surfaces
 
-func _scan_pony(pony: Node3D, anatomy: Node, seen: Dictionary) -> void:
-	var visible := _bulge and anatomy.has_method("garment_visible") \
-		and bool(anatomy.call("garment_visible", pony))
-	var hull: Variant = null
-	var xform := Transform3D.IDENTITY
-	if visible and anatomy.has_method("garment_hull") and anatomy.has_method("garment_transform"):
-		hull = anatomy.call("garment_hull", pony)
-		if hull == null:
-			visible = false
-		else:
-			var transform_value: Variant = anatomy.call("garment_transform", pony)
-			if transform_value is Transform3D:
-				xform = transform_value as Transform3D
+func _discover() -> void:
+	if not is_instance_valid(_game) or not _mod_active_now():
+		_restore_all()
+		return
+	var anatomy := _anatomy()
+	var mares: Variant = _game.get("mares")
+	var seen: Dictionary = {}
+	if anatomy != null and mares is Array:
+		for pony: Variant in mares:
+			if not is_instance_valid(pony) or not (pony is Node3D):
+				continue
+			_discover_pony(pony as Node3D, seen)
+	_drop_missing(seen)
+
+
+func _discover_pony(pony: Node3D, seen: Dictionary) -> void:
 	for prefix: String in PREFIXES:
 		for node: Node in pony.find_children(prefix + "*", "", true, false):
 			if not node is MeshInstance3D or node.is_queued_for_deletion():
 				continue
 			var mesh_node := node as MeshInstance3D
 			seen[mesh_node] = true
-			if not visible or hull == null:
-				_restore_if_applied(mesh_node)
-				continue
-			_apply_node(mesh_node, hull, xform)
+			_tracked[mesh_node] = pony
+
+
+## The every-frame pass: the hull transform and every instance uniform follow the anatomy.
+func _update_garments() -> void:
+	if not is_instance_valid(_game) or not _mod_active_now():
+		_restore_all()
+		return
+	var anatomy := _anatomy()
+	if anatomy == null:
+		_restore_all()
+		return
+	var nodes: Array = _tracked.keys()
+	for node: Variant in nodes:
+		if not is_instance_valid(node) or not node is MeshInstance3D:
+			_tracked.erase(node)
+			continue
+		var mesh_node := node as MeshInstance3D
+		var pony: Variant = _tracked.get(mesh_node)
+		if not is_instance_valid(pony) or not (pony is Node3D):
+			_tracked.erase(mesh_node)
+			_restore_if_applied(mesh_node)
+			continue
+		var visible := _bulge and anatomy.has_method("garment_visible") \
+			and bool(anatomy.call("garment_visible", pony))
+		if not visible:
+			_restore_if_applied(mesh_node)
+			continue
+		var hull: Variant = null
+		if anatomy.has_method("garment_hull"):
+			hull = anatomy.call("garment_hull", pony)
+		if hull == null:
+			_restore_if_applied(mesh_node)
+			continue
+		var xform := Transform3D.IDENTITY
+		if anatomy.has_method("garment_transform"):
+			var value: Variant = anatomy.call("garment_transform", pony)
+			if value is Transform3D:
+				xform = value as Transform3D
+		_apply_node(mesh_node, hull, xform)
 
 
 func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D) -> void:
@@ -267,12 +298,15 @@ func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D) -> voi
 		var compat := _compat_material(original)
 		if compat == null:
 			var saved: Variant = applied.originals[i] if i < applied.originals.size() else null
-			node.set_surface_override_material(i, saved if saved is Material else null)
+			var fallback: Material = saved if saved is Material else null
+			if node.get_surface_override_material(i) != fallback:
+				node.set_surface_override_material(i, fallback)
 			continue
 		compat.set_shader_parameter("hull_texture", texture)
 		compat.set_shader_parameter("hull_domain", domain_vec)
 		compat.set_shader_parameter("hull_z_range", z_range)
-		node.set_surface_override_material(i, compat)
+		if node.get_surface_override_material(i) != compat:
+			node.set_surface_override_material(i, compat)
 		any = true
 	if not any:
 		_restore_node(node, applied)
@@ -324,10 +358,11 @@ func _restore_node(node: Node, applied: Applied) -> void:
 
 func _drop_missing(seen: Dictionary) -> void:
 	var missing: Array = []
-	for node: Variant in _applied:
+	for node: Variant in _tracked:
 		if not is_instance_valid(node) or not seen.has(node):
 			missing.append(node)
 	for node: Variant in missing:
+		_tracked.erase(node)
 		var applied: Variant = _applied.get(node)
 		if applied is Applied:
 			_restore_node(node, applied)
@@ -336,6 +371,7 @@ func _drop_missing(seen: Dictionary) -> void:
 
 
 func _restore_all() -> void:
+	_tracked.clear()
 	var nodes: Array = _applied.keys()
 	for node: Variant in nodes:
 		var applied: Variant = _applied.get(node)
@@ -484,7 +520,8 @@ func _show_overlay(pony: Node3D, hull: Variant, parent: Node3D) -> void:
 		_overlay_texture = hull.texture
 	overlay.visible = overlay.mesh != null
 	if overlay.visible:
-		_note_overlay_reason("shown pony=%s res=%d" % [pony.name, hull.resolution])
+		_note_overlay_reason("shown pony=%s res=%dx%d" % [pony.name, hull.resolution_x,
+			hull.resolution_y])
 	else:
 		_note_overlay_reason("empty hull mesh")
 
@@ -548,36 +585,38 @@ func _note_overlay_reason(reason: String) -> void:
 func _hull_mesh(hull: Variant) -> ArrayMesh:
 	var field: PackedFloat32Array = hull.field
 	var domain: Rect2 = hull.domain
-	var res: int = hull.resolution
-	if res <= 0 or field.size() != res * res or domain.size.x <= 0.0 or domain.size.y <= 0.0:
+	var res_x: int = hull.resolution_x
+	var res_y: int = hull.resolution_y
+	if res_x <= 0 or res_y <= 0 or field.size() != res_x * res_y \
+			or domain.size.x <= 0.0 or domain.size.y <= 0.0:
 		return null
 	var z_min: float = hull.z_min
 	var z_max: float = hull.z_max
 	var span := z_max - z_min
-	var cell := Vector2(domain.size.x / float(res), domain.size.y / float(res))
-	var stride := res + 1
+	var cell := Vector2(domain.size.x / float(res_x), domain.size.y / float(res_y))
+	var stride := res_x + 1
 	var vertices := PackedVector3Array()
 	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
 	# A shared corner grid: each corner takes the maximum of the up-to-four cells touching it, so
 	# adjacent quads meet exactly instead of floating at different heights.
 	var corners := PackedFloat32Array()
-	corners.resize(stride * stride)
+	corners.resize(stride * (res_y + 1))
 	corners.fill(-1.0)
-	for j in stride:
+	for j in res_y + 1:
 		for i in stride:
 			var value := -1.0
 			for dj in range(-1, 1):
 				for di in range(-1, 1):
 					var ci := i + di
 					var cj := j + dj
-					if ci < 0 or cj < 0 or ci >= res or cj >= res:
+					if ci < 0 or cj < 0 or ci >= res_x or cj >= res_y:
 						continue
-					var cell_value := field[cj * res + ci]
+					var cell_value := field[cj * res_x + ci]
 					if cell_value >= 0.0:
 						value = maxf(value, cell_value)
 			corners[j * stride + i] = value
-	for j in stride:
+	for j in res_y + 1:
 		for i in stride:
 			var value := maxf(corners[j * stride + i], 0.0)
 			var x := domain.position.x + float(i) * cell.x
@@ -585,8 +624,8 @@ func _hull_mesh(hull: Variant) -> ArrayMesh:
 			var z := z_min + value * span + OVERLAY_Z_LIFT
 			vertices.append(Vector3(x, y, z))
 			colors.append(Color(value, 0.25, 1.0 - value, OVERLAY_ALPHA))
-	for j in res:
-		for i in res:
+	for j in res_y:
+		for i in res_x:
 			var a := j * stride + i
 			var b := a + 1
 			var c := a + stride + 1

@@ -168,7 +168,7 @@ func _wide_fixture_mesh() -> ArrayMesh:
 
 func _check_hull_fixture() -> void:
 	var mesh := _fixture_mesh()
-	var hull := HULL.build(mesh, 8, 0)
+	var hull := HULL.build(mesh, 8, 8, 0)
 	check(hull != null, "the fixture hull builds")
 	if hull == null:
 		return
@@ -189,16 +189,20 @@ func _check_hull_fixture() -> void:
 	var texture := hull.texture
 	check(texture is ImageTexture and texture.get_width() == 8,
 		"the field texture matches the resolution")
-	var again := HULL.build(mesh, 8, 0)
+	var again := HULL.build(mesh, 8, 8, 0)
 	check(again.texture == hull.texture, "the field is cached")
 	HULL.clear_cache()
-	var rebuilt := HULL.build(mesh, 8, 0)
+	var rebuilt := HULL.build(mesh, 8, 8, 0)
 	check(rebuilt.texture != hull.texture, "a rebuild drops the cache")
-	var fine := HULL.build(mesh, 16, 2)
-	check(fine.resolution == 16 and fine.smoothing == 2,
-		"resolution and smoothing are part of the build")
+	var fine := HULL.build(mesh, 16, 16, 2)
+	check(fine.resolution_x == 16 and fine.resolution_y == 16 and fine.smoothing == 2,
+		"width, height and smoothing are part of the build")
 	check(fine.texture.get_width() == 16, "the fine texture is 16 wide")
-	var gap := HULL.build(_wide_fixture_mesh(), 16, 0)
+	var tall := HULL.build(mesh, 16, 32, 0)
+	check(tall.resolution_x == 16 and tall.resolution_y == 32
+		and tall.texture.get_width() == 16 and tall.texture.get_height() == 32,
+		"a non-square hull width and height are honoured")
+	var gap := HULL.build(_wide_fixture_mesh(), 16, 16, 0)
 	check(gap != null, "the wide fixture hull builds")
 	if gap != null:
 		var invalid := 0
@@ -206,9 +210,10 @@ func _check_hull_fixture() -> void:
 			if value < 0.0:
 				invalid += 1
 		check(invalid > 0, "an uncovered cell keeps the invalid marker")
-	var unbounded := HULL.build(mesh, 72, 6)
-	check(unbounded != null and unbounded.resolution == 72 and unbounded.smoothing == 6,
-		"the hull precision rows are unbounded debug values")
+	var unbounded := HULL.build(mesh, 72, 72, 6)
+	check(unbounded != null and unbounded.resolution_x == 72 and unbounded.resolution_y == 72
+		and unbounded.smoothing == 6,
+		"the hull width and height rows are unbounded debug values")
 	HULL.clear_cache()
 
 
@@ -225,7 +230,7 @@ func _check_hull_real() -> void:
 	if mesh == null:
 		node.free()
 		return
-	var hull := HULL.build(mesh, 32, 1)
+	var hull := HULL.build(mesh, 32, 32, 1)
 	check(hull != null, "the real anatomy hull builds")
 	if hull == null:
 		node.free()
@@ -236,8 +241,8 @@ func _check_hull_real() -> void:
 		"the anal extreme shape does not stretch the domain")
 	check(hull.z_max > 0.015 and hull.z_max < 0.03,
 		"the field is the rest closed surface, not the act anal envelope")
-	var no_ponut := HULL.build(mesh, 32, 1, 0.0)
-	var rest_ponut := HULL.build(mesh, 32, 1, -0.1)
+	var no_ponut := HULL.build(mesh, 32, 32, 1, 0.0)
+	var rest_ponut := HULL.build(mesh, 32, 32, 1, -0.1)
 	check(no_ponut.texture != rest_ponut.texture,
 		"the rest ponut scale is part of the field")
 	var field := hull.field
@@ -387,7 +392,7 @@ func _material(shader: Shader) -> ShaderMaterial:
 
 
 func _hull() -> HULL.Hull:
-	return HULL.build(_fixture_mesh(), 2, 0)
+	return HULL.build(_fixture_mesh(), 2, 2, 0)
 
 
 func _check_bulge() -> void:
@@ -424,6 +429,14 @@ func _check_bulge() -> void:
 		"the basis carries the placement scale")
 	check(near(float(garment.get_instance_shader_parameter("hull_margin")), 0.01),
 		"the margin is anatomy-local")
+	anatomy.xform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
+		Vector3(0.0, 2.0, 0.0))
+	integration.call("_process", 0.016)
+	var moved: Variant = garment.get_instance_shader_parameter("hull_origin")
+	check(moved is Vector3 and near((moved as Vector3).y, 2.0),
+		"the hull follows the anatomy every frame")
+	anatomy.xform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
+		Vector3(0.0, 1.0, 2.0))
 	anatomy.visible = false
 	integration.call("scan")
 	check(garment.get_surface_override_material(0) == null,
@@ -631,26 +644,15 @@ func _check_debug() -> void:
 	check(result.contains("rebuilt"), "the rebuild button reports its result")
 	check(anatomy.rebuilds == 1, "the rebuild clears the shared hull cache once")
 	check(fake_main.logs.size() > 0, "the rebuild logs its build time")
-	var before := SETTINGS.pantyhose_hull_resolution.get_num()
-	SETTINGS.pantyhose_hull_resolution.set_num(16.0)
+	var before := SETTINGS.pantyhose_hull_width.get_num()
+	SETTINGS.pantyhose_hull_width.set_num(16.0)
 	integration.call("apply_live_settings")
-	check(anatomy.rebuilds == 1, "a precision edit waits for the debounce")
+	check(anatomy.rebuilds == 1, "a width edit waits for the debounce")
 	integration.call("_process", 0.4)
 	check(anatomy.rebuilds == 2, "the debounce rebuilds once")
-	SETTINGS.pantyhose_hull_resolution.set_num(before)
+	SETTINGS.pantyhose_hull_width.set_num(before)
 	integration.call("apply_live_settings")
 	integration.call("_process", 0.4)
-	var hz_before := SETTINGS.pantyhose_update_hz.get_num()
-	SETTINGS.pantyhose_update_hz.set_num(10.0)
-	integration.call("apply_live_settings")
-	check(near(float(integration.call("update_interval")), 0.1),
-		"the update frequency sets the scan interval")
-	SETTINGS.pantyhose_update_hz.set_num(0.0)
-	integration.call("apply_live_settings")
-	check(float(integration.call("update_interval")) < 0.0,
-		"zero update frequency stops the automatic scan")
-	SETTINGS.pantyhose_update_hz.set_num(hz_before)
-	integration.call("apply_live_settings")
 	var show_before := SETTINGS.pantyhose_hull_show.get_bool()
 	SETTINGS.pantyhose_hull_show.set_bool(true)
 	integration.call("apply_live_settings")

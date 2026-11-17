@@ -48,7 +48,7 @@ instance uniform float hull_margin = 0.0;
 				float hull_push = hull_surface + hull_margin - hull_local.z; \
 				if (hull_push > 0.0) { \
 					float hull_edge = min(min(hull_uv.x, 1.0 - hull_uv.x), min(hull_uv.y, 1.0 - hull_uv.y)); \
-					float hull_fade = smoothstep(0.0, 0.12, hull_edge); \
+					float hull_fade = smoothstep(0.0, 0.03, hull_edge); \
 					float hull_scale = max(length(hull_basis_z), 0.0001); \
 					vec3 hull_axis = hull_basis_z / hull_scale; \
 					VERTEX += hull_axis * (hull_push * hull_scale * hull_fade); \

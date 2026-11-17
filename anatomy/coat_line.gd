@@ -62,6 +62,10 @@ var _basis_y := PackedVector3Array()
 var _basis_z := PackedVector3Array()
 var _origin := PackedVector3Array()
 var _line_count := 0
+## The last visibility the controller passed. The skeleton signal skips while hidden.
+var _hidden := true
+## True once the signal has supplied a final (modifier-applied) pose.
+var _pose_ready := false
 
 
 func setup(pony_node: Node3D, placement_node: RefCounted) -> void:
@@ -70,12 +74,19 @@ func setup(pony_node: Node3D, placement_node: RefCounted) -> void:
 
 
 func set_mesh(mesh_node: MeshInstance3D, skeleton_node: Skeleton3D) -> void:
+	if is_instance_valid(skeleton) and skeleton.skeleton_updated.is_connected(_on_skeleton_updated):
+		skeleton.skeleton_updated.disconnect(_on_skeleton_updated)
 	mesh = mesh_node
 	skeleton = skeleton_node
+	if is_instance_valid(skeleton) \
+			and not skeleton.skeleton_updated.is_connected(_on_skeleton_updated):
+		skeleton.skeleton_updated.connect(_on_skeleton_updated)
 	_built = false
 	_built_mesh_id = 0
 	_line_count = 0
 	_retry_at_msec = 0
+	_hidden = true
+	_pose_ready = false
 
 
 ## The material is recreated whenever the anatomy appearance changes; the line keeps its state on
@@ -98,6 +109,8 @@ func summary() -> String:
 
 
 func clear() -> void:
+	if is_instance_valid(skeleton) and skeleton.skeleton_updated.is_connected(_on_skeleton_updated):
+		skeleton.skeleton_updated.disconnect(_on_skeleton_updated)
 	pony = null
 	placement = null
 	mesh = null
@@ -107,6 +120,8 @@ func clear() -> void:
 	_built_mesh_id = 0
 	_line_count = 0
 	_retry_at_msec = 0
+	_hidden = true
+	_pose_ready = false
 	_rest_body = PackedVector3Array()
 	_rest_local = PackedVector3Array()
 	_live = PackedVector3Array()
@@ -120,9 +135,11 @@ func clear() -> void:
 	last_error = ""
 
 
-## Called every frame by the controller. Builds the line lazily and refreshes the frames from the
-## live skeleton. A missing body or skin leaves the anatomy rigid.
+## Called every frame by the controller. Builds the line lazily; the frames themselves come from
+## `_on_skeleton_updated`, where the skeleton reports its final modifier-applied pose. A missing
+## body or skin leaves the anatomy rigid.
 func tick(hidden: bool) -> void:
+	_hidden = hidden
 	if hidden:
 		return
 	if not is_instance_valid(mesh) or not is_instance_valid(skeleton) \
@@ -141,8 +158,26 @@ func tick(hidden: bool) -> void:
 		if not rebuild():
 			_retry_at_msec = now + 2000
 			return
+	if not _pose_ready:
+		_compute_frames()
+
+
+## The skeleton's final pose, after every `SkeletonModifier3D`. Outside this signal the skeleton
+## reports its unmodified pose, so the coat's own stretch and fidget rotations would be missed.
+func _on_skeleton_updated() -> void:
+	if _hidden:
+		return
+	_compute_frames()
+	_pose_ready = true
+
+
+## Skin every sample from the current skeleton pose and build the line frames.
+func _compute_frames() -> void:
+	if not _built or _line_count < 2 or not is_instance_valid(skeleton) \
+			or not is_instance_valid(material):
+		return
 	var hips_delta := skeleton.get_bone_global_pose(_hips_index) * _hips_rest.affine_inverse()
-	var to_local := base.affine_inverse() * hips_delta.affine_inverse()
+	var to_local := _built_place.affine_inverse() * hips_delta.affine_inverse()
 	for i in _unique_bones.size():
 		_bone_matrices[i] = skeleton.get_bone_global_pose(_unique_bones[i]) * _bone_bind[i]
 	for i in _rest_body.size():
@@ -162,6 +197,7 @@ func rebuild() -> bool:
 	_built = false
 	_built_mesh_id = 0
 	_line_count = 0
+	_pose_ready = false
 	_rest_body = PackedVector3Array()
 	_rest_local = PackedVector3Array()
 	_live = PackedVector3Array()

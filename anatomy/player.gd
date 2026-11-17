@@ -58,9 +58,9 @@ var placing := false
 var _mesh: MeshInstance3D
 var _skeleton: Skeleton3D
 var _bone_inverse := Transform3D.IDENTITY
-var _pos := Vector3.ZERO
-var _pitch := 0.0
-var _scale := 1.0
+var _pos: Vector3
+var _pitch: float
+var _scale: float
 ## Missionary-only base slide along the shaft, set by `anatomy_act` from
 ## `presentation.missionary.part_inset_m`. Negative pulls the whole part back into the pelvis.
 var bed_inset_m: float

@@ -900,7 +900,7 @@ func _view_id() -> String:
 
 func headset_view() -> bool:
 	return is_instance_valid(main) and is_instance_valid(main.game) \
-		and bool(main.game.get("headset_view"))
+		and main.game.get("headset_view") == true
 
 
 func _row(rows_out: Array, key: String, ok: bool, reason := "") -> void:

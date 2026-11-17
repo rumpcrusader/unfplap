@@ -671,8 +671,8 @@ func _log(text: String) -> void:
 ## which prints one summary a second so a pony-specific stall can be attributed to a modifier
 ## without a live profiler.
 func _perf_enabled() -> bool:
-	return is_instance_valid(main) and bool(main.get("debug_logs")) \
-		and bool(main.get("debug_perf"))
+	return is_instance_valid(main) and main.get("debug_logs") == true \
+		and main.get("debug_perf") == true
 
 
 func _perf_active() -> bool:
@@ -871,7 +871,7 @@ func _standing_presentation_controller():
 
 ## Feature flag from the act snapshot. Unknown flags read as off.
 func _feature(name: String) -> bool:
-	return bool(_features.get(name))
+	return bool(_features.get(name, false))
 
 
 func _dialogue_service() -> RefCounted:
@@ -2688,7 +2688,8 @@ func _restore_stray_inventory_hud() -> void:
 ## The act hides the game's quick-slot card for its whole run. `hud/service.gd` owns the borrowed
 ## state and restores exactly what it found, so every exit path can call this unconditionally.
 func _set_inventory_hud_hidden(hidden: bool) -> void:
-	if is_instance_valid(main) and is_instance_valid(main.hud):
+	if is_instance_valid(main) and is_instance_valid(main.hud) \
+			and main.hud.has_method("set_inventory_hidden"):
 		main.hud.set_inventory_hidden(hidden)
 
 ## Anon's visible shaft length in metres, measured from the placed part. With the anatomy off the

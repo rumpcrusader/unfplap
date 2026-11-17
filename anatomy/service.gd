@@ -44,7 +44,7 @@ func setup(main_node: Node) -> void:
 	tail_seat = TAIL_SEAT.new()
 	tail_seat.name = "UnfplapTailSeat"
 	var perf_call := func() -> bool:
-		return is_instance_valid(main) and bool(main.get("debug_perf"))
+		return is_instance_valid(main) and main.get("debug_perf") == true
 	var log_call := func(text: String) -> void:
 		if is_instance_valid(main) and main.has_method("_debug"):
 			main.call("_debug", text)

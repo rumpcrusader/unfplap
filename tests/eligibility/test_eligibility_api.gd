@@ -26,11 +26,13 @@ class FakeBonds extends RefCounted:
 	var stage := "dating"
 	var welcome := true
 	var romance := true
+	var welcomes_calls := 0
 
 	func eligible_for_romance(_id: String) -> bool:
 		return romance
 
 	func welcomes(_id: String, _kind: String) -> bool:
+		welcomes_calls += 1
 		return welcome
 
 	func record_for(_id: String) -> Dictionary:
@@ -116,6 +118,30 @@ func run() -> void:
 	check(verdict.rows_text().contains("adult"), "the typed rows are readable")
 	check(verdict.reasons().is_empty(), "a passing verdict has no reasons")
 
+	# Base clearance reads only the relationship facts it uses; willingness, history and cycle
+	# stay on the full verdict.
+	relation.bonds.welcomes_calls = 0
+	check(main.eligibility.relationship_ok(pony), "the clearance relationship row passes")
+	check(relation.bonds.welcomes_calls == 0, "clearance does not read kiss willingness")
+	relation.bonds.welcome = false
+	check(main.eligibility.relationship_ok(pony), "clearance ignores willingness")
+	var saved_promiscuity := SETTINGS.promiscuity.get_choice()
+	var saved_override := SETTINGS.ignore_gates.get_bool()
+	SETTINGS.promiscuity.set_choice("any")
+	relation.bonds.romance = false
+	check(not main.eligibility.relationship_ok(pony), "romance eligibility gates clearance")
+	relation.bonds.romance = true
+	check(main.eligibility.relationship_ok(pony), "Any Adult passes the floor")
+	SETTINGS.promiscuity.set_choice("head_over_hooves")
+	check(not main.eligibility.relationship_ok(pony), "the love floor gates clearance")
+	SETTINGS.ignore_gates.set_bool(true)
+	check(main.eligibility.relationship_ok(pony), "the override opens the floor")
+	SETTINGS.ignore_gates.set_bool(false)
+	pony.remove_meta("relationship_runtime")
+	check(not main.eligibility.relationship_ok(pony), "no relationship runtime fails clearance")
+	pony.set_meta("relationship_runtime", relation)
+	SETTINGS.promiscuity.set_choice(saved_promiscuity)
+	SETTINGS.ignore_gates.set_bool(saved_override)
 	relation.bonds.welcome = false
 	var unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
 	check(not bool(unwilling.show), "an unwilling mare has no legacy hint")

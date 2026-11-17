@@ -230,16 +230,30 @@ func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 
 ## The Base clearance relationship row for the negotiation routes: a live relationship, romance
 ## eligibility and the Promiscuity floor. The relationship override opens the romance and
-## Promiscuity parts. It is one boolean; the negotiation never inspects the verdict rows.
+## Promiscuity parts. Reads only those facts; willingness, history, cycle, player form and consent
+## belong to the full verdict and are not built here.
 func relationship_ok(pony: Node) -> bool:
 	if not is_instance_valid(main) or not is_instance_valid(pony):
 		return false
-	var facts := _facts_data(pony)
-	var override := bool(facts.get("ignore_gates", false))
-	var floor_ok := POLICY.level_ok(str(facts.get("promiscuity", "any")),
-		int(facts.get("love_level", -1)))
-	return CLEARANCE.relationship_ok(bool(facts.get("has_relationship", false)),
-		bool(facts.get("romance_eligible", false)), floor_ok, override)
+	var rel: Variant = pony.get_meta("relationship_runtime") \
+		if pony.has_meta("relationship_runtime") else null
+	if rel == null or not is_instance_valid(rel):
+		return false
+	var id := _pony_id(pony)
+	var romance := false
+	var bonds: Variant = rel.get("bonds")
+	if bonds != null and is_instance_valid(bonds) and bonds.has_method("eligible_for_romance"):
+		romance = bool(bonds.call("eligible_for_romance", id))
+	var love := -1
+	if rel.has_method("ladder"):
+		var levels: Variant = rel.call("ladder", id)
+		if levels is Dictionary:
+			var row: Variant = (levels as Dictionary).get("love", {})
+			if row is Dictionary:
+				love = int((row as Dictionary).get("level", -1))
+	var override := SETTINGS.ignore_gates.get_bool()
+	var floor_ok := POLICY.level_ok(str(SETTINGS.promiscuity.get_choice()), love)
+	return CLEARANCE.relationship_ok(true, romance, floor_ok, override)
 
 
 ## The witness age category. This is the only place a consumer needs the age instead of a

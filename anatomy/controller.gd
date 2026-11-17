@@ -9,7 +9,7 @@ const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
-const COAT_FOLLOW := preload("res://mods/unfplap/anatomy/coat_follow.gd")
+const COAT_LINE := preload("res://mods/unfplap/anatomy/coat_line.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
@@ -38,8 +38,8 @@ var eligible := Callable()
 var attach: RefCounted
 ## The rig coat's runtime deform and still-zone debug.
 var coat: RefCounted
-## The anatomy shell's follow of the body coat's leg skinning.
-var coat_follow: RefCounted
+## The anatomy shell's follow of the body coat's line.
+var coat_line: RefCounted
 ## Saved placement, missionary trims and the debug nudge path.
 var placement: RefCounted
 ## Persistent shape state: closing/winking, the grip solve, Anon's shaft mask and the V2 anal
@@ -97,7 +97,7 @@ func _init() -> void:
 	shapes.setup(null, self)
 	coat = COAT.new()
 	coat.setup(null, shapes)
-	coat_follow = COAT_FOLLOW.new()
+	coat_line = COAT_LINE.new()
 	heat = HEAT.new()
 	heat.setup(shapes)
 	placement = PLACEMENT.new()
@@ -117,7 +117,7 @@ func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 	shapes.setup(pony, self)
 	coat.setup(pony, shapes)
 	placement.setup(pony)
-	coat_follow.setup(pony, placement)
+	coat_line.setup(pony, placement)
 	appearance = APPEARANCE.new()
 	appearance.setup(pony, shapes, dock_refresh, facts.perf_note)
 	_read_hull_settings()
@@ -196,16 +196,15 @@ func _attach() -> void:
 	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
 	shapes.set_mesh(mesh)
 	coat.set_mesh(mesh, attach.skeleton)
-	coat_follow.setup(pony, placement)
-	coat_follow.set_mesh(mesh, attach.skeleton)
+	coat_line.setup(pony, placement)
+	coat_line.set_mesh(mesh, attach.skeleton)
 	appearance.set_mesh(mesh, attach.skeleton)
 	appearance.attach_parts()
 	_apply_material()
-	if not coat_follow.rebuild():
-		if SETTINGS.coat_follow.get_num() > 0.0:
-			_log("coat follow skipped: %s" % str(coat_follow.last_error))
+	if not coat_line.rebuild():
+		_log("coat line skipped: %s" % str(coat_line.last_error))
 	else:
-		_log("coat follow built %s" % str(coat_follow.summary()))
+		_log("coat line built %s" % str(coat_line.summary()))
 	set_process(true)
 	attach.apply_visibility(_act_visible())
 	_apply_body_coat()
@@ -220,9 +219,9 @@ func _process(delta: float) -> void:
 	coat.tick()
 	coat.tick_debug()
 	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame())
-	var follow_started := Time.get_ticks_usec()
-	coat_follow.tick()
-	facts.perf("anatomy_coat_follow", Time.get_ticks_usec() - follow_started)
+	var line_started := Time.get_ticks_usec()
+	coat_line.tick(attach.visible())
+	facts.perf("anatomy_coat_line", Time.get_ticks_usec() - line_started)
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
 		_note_process(process_started)
@@ -303,8 +302,8 @@ func _apply_place() -> void:
 func _apply_material() -> void:
 	if appearance != null:
 		appearance.apply_material(_missionary_pose())
-	if coat_follow != null and appearance != null:
-		coat_follow.set_material(appearance.material())
+	if coat_line != null and appearance != null:
+		coat_line.set_material(appearance.material())
 
 
 static func body_local_point(bind: Transform3D, mesh_transform: Transform3D,
@@ -382,8 +381,8 @@ func apply_live() -> void:
 
 func detach() -> void:
 	end_act()
-	if coat_follow != null:
-		coat_follow.clear()
+	if coat_line != null:
+		coat_line.clear()
 	if coat != null:
 		coat.clear_mesh()
 	if placement != null:
@@ -507,24 +506,22 @@ func hole_local(mix: float) -> Vector3:
 	return shapes.hole_local(mix)
 
 
-## The act and fluid anchors follow the anatomy's coat-follow weights. The shader moves the
-## visible opening; these two use the same four matrices and the opening's sampled weights so the
-## shaft, droplets and drips stay on it.
+## The act and fluid anchors follow the anatomy's coat line. The shader moves the visible
+## opening; these two use the same frames so the shaft, droplets and drips stay on it.
 func hole_point(mix := 0.0) -> Vector3:
 	var mesh: MeshInstance3D = shapes.winking_mesh()
-	if not is_instance_valid(mesh) or coat_follow == null:
+	if not is_instance_valid(mesh) or coat_line == null:
 		return shapes.hole_point(mix)
 	var local: Vector3 = shapes.hole_local(mix)
-	local = coat_follow.deform_point(local, coat_follow.opening_weights(mix))
+	local = coat_line.deform_point(local)
 	return mesh.global_transform * local
 
 
 func hole_rear(mix := 0.0) -> Vector3:
 	var mesh: MeshInstance3D = shapes.winking_mesh()
-	if not is_instance_valid(mesh) or coat_follow == null:
+	if not is_instance_valid(mesh) or coat_line == null:
 		return shapes.hole_rear(mix)
-	var local: Vector3 = coat_follow.deform_direction(Vector3.BACK,
-		coat_follow.opening_weights(mix))
+	var local: Vector3 = coat_line.deform_direction(Vector3.BACK)
 	return (mesh.global_basis * local).normalized()
 
 

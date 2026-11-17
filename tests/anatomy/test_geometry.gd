@@ -1,10 +1,11 @@
 extends SceneTree
 ## Pure anatomy geometry: the lip-radius rule, the body-local mapping, the still-zone radius,
-## the V2 anal ring weights/centre, the coat weight grid/sampler and the coat-follow matrices.
+## the V2 anal ring weights/centre, the coat line sampler/frames and the shader sample sync.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/anatomy/test_geometry.gd
 
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
+const COAT_LINE := preload("res://mods/unfplap/anatomy/coat_line.gd")
 
 var failures := 0
 var checks := 0
@@ -86,102 +87,129 @@ func run() -> void:
 	check(GEOMETRY.anal_ring_centre(extreme).distance_to(GEOMETRY.V2_ANAL_RING_EXTREME) < 0.0001,
 		"the extreme ring is the measured extreme point")
 
-	# The coat follow samples the body's own skin weights. The grid buckets the body rest
-	# vertices, and the sampler averages the nearest three by inverse distance.
-	var body_vertices := PackedVector3Array([Vector3.ZERO, Vector3(0.01, 0.0, 0.0)])
+	# The line targets span the mesh's local Y range at x = 0.
+	var targets := GEOMETRY.coat_line_targets(-0.04, 0.06, 3)
+	check(targets.size() == 3, "the line has one target per sample")
+	check(targets[0].is_equal_approx(Vector3(0.0, -0.04, 0.0)),
+		"the first target is the mesh's bottom")
+	check(targets[2].is_equal_approx(Vector3(0.0, 0.06, 0.0)),
+		"the last target is the mesh's top")
+	check(targets[1].is_equal_approx(Vector3(0.0, 0.01, 0.0)),
+		"the middle target is evenly spaced")
+
+	# The line sampler resolves a body-space target to its nearest rest vertex and that vertex's
+	# full influence map, normalized.
+	var body_vertices := PackedVector3Array([Vector3.ZERO, Vector3(0.02, 0.0, 0.0),
+		Vector3(0.0, 0.02, 0.0)])
 	var grid := GEOMETRY.body_weight_grid(body_vertices, 0.02)
 	check(grid.has(Vector3i.ZERO), "the weight grid buckets a body vertex")
 	check(not grid.is_empty(), "the weight grid has a cell")
-	var names := PackedStringArray()
-	for bone: String in GEOMETRY.COAT_FOLLOW_BONES:
-		names.append(bone)
-	check(names.size() == 4, "the four leg bones are the coat-follow order")
-	var bones := PackedInt32Array([0, 1, 2, 3, 0, 1, 2, 3])
-	var weights := PackedFloat32Array([0.5, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0])
-	var sampled := GEOMETRY.sample_coat_weights(
-		PackedVector3Array([Vector3(0.005, 0.0, 0.0)]), Transform3D.IDENTITY,
-		body_vertices, bones, weights, names, grid, 0.02)
-	check(sampled.size() == 4, "one anatomy vertex gets four coat weights")
-	if sampled.size() == 4:
-		check(abs(sampled[0] - 64) <= 1, "the sampler averages flank L by inverse distance")
-		check(abs(sampled[1] - 32) <= 1, "the sampler averages flank R by inverse distance")
-		check(sampled[2] == 0 and sampled[3] == 0, "unused leg weights stay zero")
-	var empty := GEOMETRY.sample_coat_weights(
-		PackedVector3Array([Vector3(2.0, 2.0, 2.0)]), Transform3D.IDENTITY,
-		body_vertices, bones, weights, names, grid, 0.02)
-	check(empty == PackedByteArray([0, 0, 0, 0]), "a vertex outside the grid falls back to hips")
+	var names := PackedStringArray(["pony_hips", "pony_spine1", "pony_flank_L",
+		"pony_femur_L"])
+	var bones := PackedInt32Array([0, 1, 2, 3, 0, 0, 0, 0, 1, 0, 0, 0])
+	var weights := PackedFloat32Array([0.5, 0.25, 0.125, 0.125, 1.0, 0.0, 0.0, 0.0,
+		1.0, 0.0, 0.0, 0.0])
+	var sampled := GEOMETRY.coat_line_samples(
+		PackedVector3Array([Vector3(0.001, 0.0, 0.0)]), body_vertices, bones, weights,
+		names, grid, 0.02)
+	var sampled_indices: PackedInt32Array = sampled["indices"]
+	var sampled_points: PackedVector3Array = sampled["points"]
+	var sampled_influences: Array = sampled["influences"]
+	check(sampled_indices == PackedInt32Array([0]), "the sampler picks the nearest body vertex")
+	check(sampled_points.size() == 1 and sampled_points[0] == Vector3.ZERO,
+		"the sampler returns the nearest rest point")
+	check(sampled_influences.size() == 1, "one target produces one influence map")
+	if sampled_influences.size() == 1:
+		var row: Dictionary = sampled_influences[0]
+		check(near(float(row.get("pony_hips", 0.0)), 0.5), "hips keep their weight")
+		check(near(float(row.get("pony_spine1", 0.0)), 0.25), "the spine keeps its weight")
+		check(near(float(row.get("pony_flank_L", 0.0)), 0.125), "the flank keeps its weight")
+		check(near(float(row.get("pony_femur_L", 0.0)), 0.125), "the femur keeps its weight")
+		var total := 0.0
+		for value: float in row.values():
+			total += value
+		check(near(total, 1.0), "the influence map is normalized")
+	var missing := GEOMETRY.coat_line_samples(
+		PackedVector3Array([Vector3(2.0, 2.0, 2.0)]), body_vertices, bones, weights,
+		names, grid, 0.02)
+	var missing_indices: PackedInt32Array = missing["indices"]
+	check(missing_indices.is_empty(), "a target outside the grid is skipped")
 
-	# The anatomy mesh gets a custom0 RGBA8 channel without touching its positions or shapes.
-	var source := ArrayMesh.new()
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array([
-		Vector3.ZERO, Vector3.RIGHT, Vector3.UP])
-	arrays[Mesh.ARRAY_NORMAL] = PackedVector3Array([
-		Vector3.BACK, Vector3.BACK, Vector3.BACK])
-	arrays[Mesh.ARRAY_INDEX] = PackedInt32Array([0, 1, 2])
-	source.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var packed := PackedByteArray([255, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255, 0])
-	var weighted := GEOMETRY.mesh_with_coat_weights(source, packed)
-	check(weighted != null, "the anatomy mesh rebuild keeps one surface")
-	if weighted != null:
-		var format := weighted.surface_get_format(0)
-		check((format & Mesh.ARRAY_FORMAT_CUSTOM0) != 0,
-			"the anatomy mesh carries its weight channel")
-		check(((format >> Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
-			& Mesh.ARRAY_FORMAT_CUSTOM_BITS) == Mesh.ARRAY_CUSTOM_RGBA8_UNORM,
-			"the weight channel is RGBA8")
-		var stored: Variant = weighted.surface_get_arrays(0)[Mesh.ARRAY_CUSTOM0]
-		check(stored is PackedByteArray and (stored as PackedByteArray) == packed,
-			"the sampled weights survive the rebuild")
-		check(weighted.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
-			== source.surface_get_arrays(0)[Mesh.ARRAY_VERTEX],
-			"the weighted mesh keeps its rest vertices")
+	# The line frames: identity at rest, bend with the tangent and stretch along it.
+	var rest := PackedVector3Array([Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.1, 0.0),
+		Vector3(0.0, 0.2, 0.0)])
+	var basis_x := PackedVector3Array()
+	var basis_y := PackedVector3Array()
+	var basis_z := PackedVector3Array()
+	var origin := PackedVector3Array()
+	basis_x.resize(3)
+	basis_y.resize(3)
+	basis_z.resize(3)
+	origin.resize(3)
+	GEOMETRY.fill_line_frames(rest, rest, basis_x, basis_y, basis_z, origin)
+	check(basis_x[1].is_equal_approx(Vector3.RIGHT), "a matching line keeps its X column")
+	check(basis_y[1].is_equal_approx(Vector3.UP), "a matching line keeps its Y column")
+	check(basis_z[1].is_equal_approx(Vector3.BACK), "a matching line keeps its Z column")
+	check(origin[1].is_equal_approx(Vector3.ZERO), "a matching line has no offset")
+	check(GEOMETRY.line_point_at(Vector3(0.01, 0.05, 0.0), rest, basis_x, basis_y,
+		basis_z, origin).is_equal_approx(Vector3(0.01, 0.05, 0.0)),
+		"an identity line keeps the point")
 
-	# The follow matrices are pelvis-relative and identity at rest.
-	var rest := Transform3D.IDENTITY
-	var quarter := Transform3D(Basis(Vector3.BACK, PI / 2.0), Vector3.ZERO)
-	var turned := GEOMETRY.coat_follow_matrices(rest, rest, [quarter], [rest], rest)
-	check(turned.size() == 1, "one leg produces one follow matrix")
-	check((turned[0] * Vector3.RIGHT).is_equal_approx(Vector3.UP),
-		"the follow matrix applies the leg rotation")
-	var same := GEOMETRY.coat_follow_matrices(
-		Transform3D(Basis(Vector3.UP, 0.7), Vector3(0.1, 0.2, 0.3)), rest,
-		[Transform3D(Basis(Vector3.UP, 0.7), Vector3(0.1, 0.2, 0.3))], [rest], rest)
-	check(same[0].is_equal_approx(Transform3D.IDENTITY),
-		"a leg that moves with the pelvis has no relative motion")
-	var placed := GEOMETRY.coat_follow_matrices(rest, rest, [quarter], [rest],
-		Transform3D(Basis.IDENTITY, Vector3(1.0, 0.0, 0.0)))
-	check((placed[0] * Vector3.ZERO).is_equal_approx(Vector3(-1.0, 1.0, 0.0)),
-		"the follow matrix is placed in anatomy-local space")
+	var bent := PackedVector3Array([Vector3.ZERO, Vector3(0.0, 0.1, 0.0),
+		Vector3(0.1, 0.2, 0.0)])
+	GEOMETRY.fill_line_frames(rest, bent, basis_x, basis_y, basis_z, origin)
+	var rotated := GEOMETRY.line_point_at(Vector3(0.01, 0.1, 0.0), rest, basis_x,
+		basis_y, basis_z, origin)
+	check(rotated.x > 0.005 and rotated.y < 0.1,
+		"a bent line rotates a perpendicular offset at the bend")
 
-	# The opening anchor uses the same weights as the shader. The nearest vertex and the weighted
-	# point/direction are the CPU side of that contract.
-	var points := PackedVector3Array([Vector3.ZERO, Vector3(1.0, 0.0, 0.0)])
-	check(GEOMETRY.nearest_vertex_index(points, Vector3(0.1, 0.0, 0.0)) == 0,
-		"the opening weight picks the nearest anatomy vertex")
-	check(GEOMETRY.nearest_vertex_index(points, Vector3(0.9, 0.0, 0.0)) == 1,
-		"the nearest anatomy vertex follows the point")
-	check(GEOMETRY.nearest_vertex_index(PackedVector3Array(), Vector3.ZERO) == -1,
-		"an empty anatomy mesh has no nearest vertex")
-	var one := PackedFloat32Array([1.0, 0.0, 0.0, 0.0])
-	var half := PackedFloat32Array([0.5, 0.0, 0.0, 0.0])
-	var identity: Array[Transform3D] = [rest, rest, rest, rest]
-	var rotated: Array[Transform3D] = [quarter, rest, rest, rest]
-	check(GEOMETRY.weighted_point(Vector3.RIGHT, PackedFloat32Array(), identity, 1.0)
-		.is_equal_approx(Vector3.RIGHT), "a missing weight map leaves the point alone")
-	check(GEOMETRY.weighted_point(Vector3.RIGHT, one, identity, 1.0)
-		.is_equal_approx(Vector3.RIGHT), "identity follow keeps the point")
-	check(GEOMETRY.weighted_point(Vector3.RIGHT, one, rotated, 1.0)
-		.is_equal_approx(Vector3.UP), "a full leg weight rotates the opening point")
-	check(GEOMETRY.weighted_point(Vector3.RIGHT, half, rotated, 1.0)
-		.is_equal_approx(Vector3(0.5, 0.5, 0.0)), "the pelvis keeps the remaining weight")
-	check(GEOMETRY.weighted_point(Vector3.RIGHT, one, rotated, 0.0)
-		.is_equal_approx(Vector3.RIGHT), "strength zero keeps the opening rigid")
-	check(GEOMETRY.weighted_direction(Vector3.RIGHT, one, rotated, 1.0)
-		.is_equal_approx(Vector3.UP), "the opening normal follows the leg rotation")
-	check(GEOMETRY.weighted_direction(Vector3.RIGHT, one, identity, 1.0)
-		.is_equal_approx(Vector3.RIGHT), "identity follow keeps the opening normal")
+	var stretched_line := PackedVector3Array([Vector3.ZERO, Vector3(0.0, 0.2, 0.0),
+		Vector3(0.0, 0.4, 0.0)])
+	GEOMETRY.fill_line_frames(rest, stretched_line, basis_x, basis_y, basis_z, origin)
+	check(near(GEOMETRY.line_point_at(Vector3(0.0, 0.1, 0.0), rest, basis_x, basis_y,
+		basis_z, origin).y, 0.2), "a stretched line scales the along-line component")
+	check(near(GEOMETRY.line_point_at(Vector3(0.0, -1.0, 0.0), rest, basis_x, basis_y,
+		basis_z, origin).y, -2.0), "a Y below the line clamps to the first frame")
+	check(near(GEOMETRY.line_point_at(Vector3(0.0, 1.0, 0.0), rest, basis_x, basis_y,
+		basis_z, origin).y, 2.0), "a Y above the line clamps to the last frame")
+
+	# Unused shader slots copy the last frame.
+	basis_x.resize(5)
+	basis_y.resize(5)
+	basis_z.resize(5)
+	origin.resize(5)
+	GEOMETRY.fill_line_frames(rest, bent, basis_x, basis_y, basis_z, origin)
+	check(basis_x[3] == basis_x[2] and basis_x[4] == basis_x[2],
+		"padded X slots copy the last frame")
+	check(origin[3] == origin[2] and origin[4] == origin[2],
+		"padded offsets copy the last frame")
+
+	# The opening CPU twin mixes the two neighbouring frames.
+	basis_x.resize(3)
+	basis_y.resize(3)
+	basis_z.resize(3)
+	origin.resize(3)
+	GEOMETRY.fill_line_frames(rest, bent, basis_x, basis_y, basis_z, origin)
+	var f := 0.5
+	var mix_x := basis_x[0].lerp(basis_x[1], f)
+	var mix_y := basis_y[0].lerp(basis_y[1], f)
+	var mix_z := basis_z[0].lerp(basis_z[1], f)
+	var mix_origin := origin[0].lerp(origin[1], f)
+	var local := Vector3(0.01, 0.05, 0.0)
+	var expected_point := mix_x * local.x + mix_y * local.y + mix_z * local.z + mix_origin
+	check(GEOMETRY.line_point_at(local, rest, basis_x, basis_y, basis_z, origin)
+		.is_equal_approx(expected_point), "the opening point mixes its two frames")
+	var direction_local := Vector3(0.0, 0.05, 1.0)
+	var direction := mix_x * direction_local.x + mix_y * direction_local.y \
+		+ mix_z * direction_local.z
+	check(GEOMETRY.line_direction_at(direction_local, rest, basis_x, basis_y, basis_z,
+		origin).is_equal_approx(direction.normalized()),
+		"the opening normal mixes its two frames")
+
+	# The shader's sample count must match the module.
+	var shader := FileAccess.get_file_as_string("res://mods/unfplap/anatomy/anatomy.gdshader")
+	check(shader.contains("const int LINE_N = %d;" % COAT_LINE.LINE_SAMPLES),
+		"the shader declares the coat line sample count")
 
 	print("ANATOMY_GEOMETRY_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

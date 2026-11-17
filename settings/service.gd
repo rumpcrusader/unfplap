@@ -1335,10 +1335,6 @@ static var body_coat_deform := flag("body_coat_deform", "features.body_coat_defo
 	"Body coat deform",
 	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
 	ANATOMY, "").as_debug()
-static var coat_follow := num("coat_follow", "anatomy.coat_follow",
-	"Coat follow",
-	"How far the anatomy follows the body coat when the hind legs move. 0 keeps it rigid; 1 follows fully.",
-	ANATOMY, "").with_range(0.0, 1.0).as_debug()
 # -- Placement  (debug)
 ## The anatomy place actions read this pill. It is hidden from the declaration rows because the
 ## pill above those actions owns the widget.
@@ -1857,6 +1853,8 @@ static var _deprecated := [
 	deprecated("features.anatomy_vr", func(_value: Variant) -> Dictionary: return {}),
 	# One mare bits mesh ships with the pack; the mesh choice is retired.
 	deprecated("anatomy.mare_bits", func(_value: Variant) -> Dictionary: return {}),
+	# The coat line always follows the body coat; the strength switch is retired.
+	deprecated("anatomy.coat_follow", func(_value: Variant) -> Dictionary: return {}),
 	# The separate log switch folded into the debug switch.
 	deprecated("debug_logs", func(_value: Variant) -> Dictionary: return {}),
 	# The hull precision became separate width and height cells.

@@ -26,7 +26,7 @@ const PARENTS := {
 	"runtime_facts": "runtime_physics",
 	"runtime_presentation": "runtime_physics",
 	"runtime_history": "runtime_physics",
-	"anatomy_coat_follow": "anatomy_process",
+	"anatomy_coat_line": "anatomy_process",
 	"anatomy_visibility": "anatomy_process",
 }
 

@@ -56,8 +56,8 @@ func apply(missionary: bool, depth: float, bed_frame: Variant) -> void:
 	mesh.transform = local
 
 
-## The untrimmed anatomy placement in skeleton rest space. The coat follow samples and rotates
-## this placement; the missionary trim is applied after it on the mesh transform.
+## The untrimmed anatomy placement in skeleton rest space. The coat line samples this placement;
+## the missionary trim is applied after it on the mesh transform.
 func base_place() -> Transform3D:
 	var basis := Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0)) \
 		.scaled(Vector3.ONE * _scale)
@@ -74,12 +74,6 @@ func base_place() -> Transform3D:
 	if absf(out) > 0.00001:
 		place += basis.z.normalized() * out
 	return Transform3D(basis, place)
-
-
-## The untrimmed placement in the anatomy mesh's parent (bone) space, for sampling the body
-## coat's skin weights.
-func base_transform() -> Transform3D:
-	return bone_inverse * base_place()
 
 
 ## The depth trim follows the thrust every frame; the rest of the placement polls.

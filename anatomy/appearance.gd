@@ -148,8 +148,8 @@ func apply_teats_material(base: ShaderMaterial) -> void:
 	material.set_shader_parameter("coat_shadow",
 		shade if shade is Color else Color(0.68, 0.68, 0.68))
 	material.set_shader_parameter("contour_amount", 0.0)
-	# The teats and strip are engine-skinned already; only the anatomy mesh carries custom0.
-	material.set_shader_parameter("coat_follow_strength", 0.0)
+	# The teats and strip are engine-skinned; the copy must not inherit the anatomy line.
+	material.set_shader_parameter("line_count", 0)
 	if is_instance_valid(teats_mesh):
 		teats_mesh.set_surface_override_material(0, material)
 	if is_instance_valid(teats_jiggle):
@@ -163,7 +163,7 @@ func apply_teats_material(base: ShaderMaterial) -> void:
 		strip.set_shader_parameter("gap_to", _strip_gap.y)
 		strip.set_shader_parameter("strip_trim", 1.0)
 		strip.set_shader_parameter("strip_scale", SETTINGS.strip_scale.get_num())
-		strip.set_shader_parameter("coat_follow_strength", 0.0)
+		strip.set_shader_parameter("line_count", 0)
 		skin_strip.set_surface_override_material(0, strip)
 
 

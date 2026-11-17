@@ -31,12 +31,9 @@ const V2_ANAL_RING_OVER := Vector3(0.00279, 0.05955, 0.01908)
 const V2_ANAL_RING_EXTREME := Vector3(0.00303, 0.03996, 0.03310)
 const V2_ANAL_RING_PONUT := Vector3(0.00296, 0.06515, 0.03310)
 
-## The leg bones the anatomy follows, in the custom0 order the shader reads.
-const COAT_FOLLOW_BONES := ["pony_flank_L", "pony_flank_R", "pony_femur_L", "pony_femur_R"]
-
 ## Cell size of the body-vertex lookup grid. The rump weights are smooth; 2 cm keeps the nearest
-## three body vertices inside the 3x3x3 neighbourhood around every anatomy vertex.
-const COAT_FOLLOW_CELL_M := 0.02
+## body vertex inside the 5x5x5 neighbourhood around every line target.
+const COAT_LINE_CELL_M := 0.02
 
 static var _refined_winking_meshes := {}
 
@@ -127,165 +124,190 @@ static func body_weight_grid(vertices: PackedVector3Array, cell: float) -> Dicti
 	return grid
 
 
-## Sample the body coat's four leg weights for every anatomy vertex. `body_to_local` maps the
-## anatomy mesh into the body mesh's rest space; the nearest three body vertices are averaged by
-## inverse distance, so a seam between vertex groups does not snap. The four bytes are the
-## custom0 RGBA8 weights in `COAT_FOLLOW_BONES` order; the remaining weight is the pelvis.
-static func sample_coat_weights(vertices: PackedVector3Array, body_to_local: Transform3D,
+## The line targets: `count` local points at x = 0, evenly spaced across the mesh's local Y range.
+static func coat_line_targets(y_min: float, y_max: float, count: int) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	if count < 1:
+		return out
+	out.resize(count)
+	for i in count:
+		var t := 0.0 if count == 1 else float(i) / float(count - 1)
+		out[i] = Vector3(0.0, lerpf(y_min, y_max, t), 0.0)
+	return out
+
+
+## Resolve each line target, in body rest space, to its nearest body rest vertex. Returns
+## `indices`, the nearest `points` and their normalized bind-name -> weight `influences`. A target
+## with no vertex inside the 5x5x5 grid neighbourhood is skipped.
+static func coat_line_samples(targets_body: PackedVector3Array,
 		body_vertices: PackedVector3Array, body_bones: PackedInt32Array,
 		body_weights: PackedFloat32Array, bone_names: PackedStringArray,
-		grid: Dictionary, cell: float) -> PackedByteArray:
-	var out := PackedByteArray()
-	out.resize(vertices.size() * 4)
-	if vertices.is_empty() or body_vertices.is_empty() or cell <= 0.0:
-		return out
+		grid: Dictionary, cell: float) -> Dictionary:
+	var indices := PackedInt32Array()
+	var points := PackedVector3Array()
+	var influences: Array = []
+	if targets_body.is_empty() or body_vertices.is_empty() or cell <= 0.0:
+		return {"indices": indices, "points": points, "influences": influences}
 	var stride := body_bones.size() / body_vertices.size() if body_vertices.size() > 0 else 0
 	if stride <= 0 or body_weights.size() != body_bones.size() \
 			or body_bones.size() != body_vertices.size() * stride:
-		return out
-	var leg_binds: Array[int] = [-1, -1, -1, -1]
-	var any := false
-	for i in bone_names.size():
-		var index := COAT_FOLLOW_BONES.find(String(bone_names[i]))
-		if index >= 0 and leg_binds[index] < 0:
-			leg_binds[index] = i
-			any = true
-	if not any:
-		return out
+		return {"indices": indices, "points": points, "influences": influences}
 	var inv_cell := 1.0 / cell
-	for v in vertices.size():
-		var p: Vector3 = body_to_local * vertices[v]
-		var base := Vector3i(floori(p.x * inv_cell), floori(p.y * inv_cell),
-			floori(p.z * inv_cell))
-		var candidates: Array[int] = []
-		var distances: Array[float] = []
-		for radius in [1, 2]:
-			for dx in range(-radius, radius + 1):
-				for dy in range(-radius, radius + 1):
-					for dz in range(-radius, radius + 1):
-						var key := base + Vector3i(dx, dy, dz)
-						var bucket: Variant = grid.get(key)
-						if not bucket is PackedInt32Array:
-							continue
-						for index: int in bucket:
-							var d: float = body_vertices[index].distance_squared_to(p)
-							if candidates.size() < 3:
-								candidates.append(index)
-								distances.append(d)
-								continue
-							var worst := 0
-							for k in 3:
-								if distances[k] > distances[worst]:
-									worst = k
-							if d < distances[worst]:
-								candidates[worst] = index
-								distances[worst] = d
-			if not candidates.is_empty():
-				break
-		if candidates.is_empty():
+	for target in targets_body:
+		var index := _nearest_body_vertex(target, body_vertices, grid, inv_cell)
+		if index < 0:
 			continue
-		var inverse_total := 0.0
-		for c in candidates.size():
-			inverse_total += 1.0 / maxf(distances[c], 0.00000001)
-		var sums := [0.0, 0.0, 0.0, 0.0]
-		for c in candidates.size():
-			var weight := (1.0 / maxf(distances[c], 0.00000001)) / inverse_total
-			var start := candidates[c] * stride
-			for k in stride:
-				var bind := body_bones[start + k]
-				var amount := body_weights[start + k] * weight
-				if amount <= 0.0:
-					continue
-				for j in 4:
-					if bind == leg_binds[j]:
-						sums[j] += amount
-						break
-		var total := float(sums[0]) + float(sums[1]) + float(sums[2]) + float(sums[3])
-		var scale := 1.0 if total <= 1.0 else 1.0 / total
-		for j in 4:
-			out[v * 4 + j] = clampi(roundi(float(sums[j]) * scale * 255.0), 0, 255)
-	return out
+		indices.append(index)
+		points.append(body_vertices[index])
+		var row := {}
+		var total := 0.0
+		var start := index * stride
+		for k in stride:
+			var weight := body_weights[start + k]
+			if weight <= 0.0:
+				continue
+			var bind := body_bones[start + k]
+			if bind < 0 or bind >= bone_names.size():
+				continue
+			var bone := String(bone_names[bind])
+			row[bone] = float(row.get(bone, 0.0)) + weight
+			total += weight
+		if total > 0.0:
+			for bone: String in row.keys():
+				row[bone] = float(row[bone]) / total
+		influences.append(row)
+	return {"indices": indices, "points": points, "influences": influences}
 
 
-## One mesh with the sampled weights on its unused custom0 channel. The anatomy has one surface
-## and no custom attributes today; a surface that cannot take the weights is left to the caller
-## (the coat follow then stays off rather than collapsing the mesh).
-static func mesh_with_coat_weights(source: ArrayMesh, weights: PackedByteArray) -> ArrayMesh:
-	if source == null or source.get_surface_count() != 1:
-		return null
-	if weights.size() != source.surface_get_array_len(0) * 4:
-		return null
-	var rebuilt := ArrayMesh.new()
-	rebuilt.blend_shape_mode = source.blend_shape_mode
-	for i in source.get_blend_shape_count():
-		rebuilt.add_blend_shape(source.get_blend_shape_name(i))
-	var arrays: Array = source.surface_get_arrays(0)
-	if arrays.size() != Mesh.ARRAY_MAX:
-		return null
-	arrays[Mesh.ARRAY_CUSTOM0] = weights
-	var shapes: Array = source.surface_get_blend_shape_arrays(0)
-	rebuilt.add_surface_from_arrays(source.surface_get_primitive_type(0), arrays, shapes, {}, 0)
-	rebuilt.surface_set_material(0, source.surface_get_material(0))
-	rebuilt.surface_set_name(0, source.surface_get_name(0))
-	return rebuilt
+## The nearest body rest vertex inside a growing 5x5x5 cell neighbourhood, or -1.
+static func _nearest_body_vertex(point: Vector3, vertices: PackedVector3Array,
+		grid: Dictionary, inv_cell: float) -> int:
+	var base := Vector3i(floori(point.x * inv_cell), floori(point.y * inv_cell),
+		floori(point.z * inv_cell))
+	for radius in [1, 2]:
+		var best := -1
+		var best_distance := INF
+		for dx in range(-radius, radius + 1):
+			for dy in range(-radius, radius + 1):
+				for dz in range(-radius, radius + 1):
+					var key := base + Vector3i(dx, dy, dz)
+					var bucket: Variant = grid.get(key)
+					if not bucket is PackedInt32Array:
+						continue
+					for index: int in bucket:
+						var distance := vertices[index].distance_squared_to(point)
+						if distance < best_distance:
+							best_distance = distance
+							best = index
+		if best >= 0:
+			return best
+	return -1
 
 
-## The four bone transforms in the anatomy mesh's local space, relative to the pelvis. `poses`
-## and `rests` are the live and rest skeleton poses of the same four leg bones; `hips` and
-## `hips_rest` are the pelvis. `base_place` maps anatomy local into skeleton rest space. At rest
-## every returned matrix is the identity, so no coat follow means no motion.
-static func coat_follow_matrices(hips: Transform3D, hips_rest: Transform3D,
-		poses: Array[Transform3D], rests: Array[Transform3D],
-		base_place: Transform3D) -> Array[Transform3D]:
-	var out: Array[Transform3D] = []
-	var hips_delta := hips * hips_rest.affine_inverse()
-	var inv_delta := hips_delta.affine_inverse()
-	var inv_place := base_place.affine_inverse()
-	for i in poses.size():
-		var pose := poses[i]
-		var rest := rests[i] if i < rests.size() else Transform3D.IDENTITY
-		var delta := pose * rest.affine_inverse()
-		out.append(inv_place * inv_delta * delta * base_place)
-	return out
+## The shortest-arc rotation taking `from` to `to`.
+static func rotation_between(from: Vector3, to: Vector3) -> Basis:
+	if from.length_squared() < 0.000000000001 or to.length_squared() < 0.000000000001:
+		return Basis.IDENTITY
+	var a := from.normalized()
+	var b := to.normalized()
+	var dot := clampf(a.dot(b), -1.0, 1.0)
+	if dot > 0.999999:
+		return Basis.IDENTITY
+	if dot < -0.999999:
+		var opposite := a.cross(Vector3.RIGHT)
+		if opposite.length_squared() < 0.000001:
+			opposite = a.cross(Vector3.UP)
+		if opposite.length_squared() < 0.000001:
+			opposite = a.cross(Vector3.BACK)
+		return Basis(opposite.normalized(), PI)
+	return Basis(a.cross(b).normalized(), acos(dot))
 
 
-## The nearest anatomy vertex for a local point (the two openings use this to read the same
-## weights the shader uses there).
-static func nearest_vertex_index(vertices: PackedVector3Array, point: Vector3) -> int:
-	var best := -1
-	var best_distance := INF
-	for i in vertices.size():
-		var distance := vertices[i].distance_squared_to(point)
-		if distance < best_distance:
-			best_distance = distance
-			best = i
-	return best
+## Fill one frame per line sample: the shortest-arc rotation from the rest tangent to the live
+## tangent, scaled along the rest tangent by the segment stretch. Slots past the sample count copy
+## the last frame. `basis_x/y/z` and `origin` are the shader's per-sample columns and offsets.
+static func fill_line_frames(rest: PackedVector3Array, live: PackedVector3Array,
+		basis_x: PackedVector3Array, basis_y: PackedVector3Array,
+		basis_z: PackedVector3Array, origin: PackedVector3Array) -> void:
+	var count := mini(rest.size(), live.size())
+	var slots := basis_x.size()
+	if count < 1 or slots < count or basis_y.size() < slots or basis_z.size() < slots \
+			or origin.size() < slots:
+		return
+	for i in count:
+		var prev := maxi(i - 1, 0)
+		var next := mini(i + 1, count - 1)
+		var rest_tangent := rest[next] - rest[prev]
+		var live_tangent := live[next] - live[prev]
+		var rest_length := rest_tangent.length()
+		var stretch := 1.0
+		var basis := Basis.IDENTITY
+		if rest_length > 0.000001 and live_tangent.length_squared() > 0.000000000001:
+			var tangent := rest_tangent / rest_length
+			stretch = clampf(live_tangent.length() / rest_length, 0.5, 2.0)
+			var shear := Basis.IDENTITY
+			var amount := stretch - 1.0
+			shear.x += tangent * (tangent.x * amount)
+			shear.y += tangent * (tangent.y * amount)
+			shear.z += tangent * (tangent.z * amount)
+			basis = rotation_between(tangent, live_tangent) * shear
+		basis_x[i] = basis.x
+		basis_y[i] = basis.y
+		basis_z[i] = basis.z
+		origin[i] = live[i] - basis * rest[i]
+	for i in range(count, slots):
+		basis_x[i] = basis_x[count - 1]
+		basis_y[i] = basis_y[count - 1]
+		basis_z[i] = basis_z[count - 1]
+		origin[i] = origin[count - 1]
 
 
-## The shader's weighted point, on the CPU. `weights` are the four leg weights (0…1) in custom0
-## order, `matrices` the four pelvis-relative transforms, and `strength` the coat-follow setting.
-static func weighted_point(local: Vector3, weights: PackedFloat32Array,
-		matrices: Array[Transform3D], strength: float) -> Vector3:
-	if weights.size() < 4 or matrices.size() < 4 or strength <= 0.0:
+## The segment index and blend factor a local Y falls in. -1 when the line has fewer than two
+## samples. The index clamps to the last segment and the factor to 0…1.
+static func _line_segment(y: float, rest: PackedVector3Array) -> Vector2:
+	var count := rest.size()
+	if count < 2:
+		return Vector2(-1.0, 0.0)
+	var index := 0
+	for i in count:
+		if rest[i].y <= y:
+			index = i
+	index = mini(index, count - 2)
+	var span := maxf(rest[index + 1].y - rest[index].y, 0.00001)
+	return Vector2(float(index), clampf((y - rest[index].y) / span, 0.0, 1.0))
+
+
+## The line's frame at a local Y, mixed between its two neighbouring samples. Maps an
+## anatomy-local point the same way `anatomy.gdshader` maps a vertex.
+static func line_point_at(local: Vector3, rest: PackedVector3Array,
+		basis_x: PackedVector3Array, basis_y: PackedVector3Array,
+		basis_z: PackedVector3Array, origin: PackedVector3Array) -> Vector3:
+	var segment := _line_segment(local.y, rest)
+	if segment.x < 0.0:
 		return local
-	var weight_sum := minf(weights[0] + weights[1] + weights[2] + weights[3], 1.0)
-	var followed := local * (1.0 - weight_sum)
-	for i in 4:
-		followed += (matrices[i] * local) * weights[i]
-	return local.lerp(followed, strength)
+	var i := int(segment.x)
+	var f := segment.y
+	var bx := basis_x[i].lerp(basis_x[i + 1], f)
+	var by := basis_y[i].lerp(basis_y[i + 1], f)
+	var bz := basis_z[i].lerp(basis_z[i + 1], f)
+	var o := origin[i].lerp(origin[i + 1], f)
+	return bx * local.x + by * local.y + bz * local.z + o
 
 
-## The shader's weighted normal direction, on the CPU.
-static func weighted_direction(local: Vector3, weights: PackedFloat32Array,
-		matrices: Array[Transform3D], strength: float) -> Vector3:
-	if weights.size() < 4 or matrices.size() < 4 or strength <= 0.0:
-		return local
-	var weight_sum := minf(weights[0] + weights[1] + weights[2] + weights[3], 1.0)
-	var followed := local * (1.0 - weight_sum)
-	for i in 4:
-		followed += (matrices[i].basis * local) * weights[i]
-	var out := local.lerp(followed, strength)
-	return out.normalized() if out.length_squared() > 0.000001 else local.normalized()
+## The line's frame direction at a local Y, normalized.
+static func line_direction_at(local: Vector3, rest: PackedVector3Array,
+		basis_x: PackedVector3Array, basis_y: PackedVector3Array,
+		basis_z: PackedVector3Array, _origin: PackedVector3Array) -> Vector3:
+	var segment := _line_segment(local.y, rest)
+	if segment.x < 0.0:
+		return local.normalized()
+	var i := int(segment.x)
+	var f := segment.y
+	var direction := basis_x[i].lerp(basis_x[i + 1], f) * local.x \
+		+ basis_y[i].lerp(basis_y[i + 1], f) * local.y \
+		+ basis_z[i].lerp(basis_z[i + 1], f) * local.z
+	return direction.normalized() if direction.length_squared() > 0.000001 \
+		else local.normalized()
 
 
 ## The five additive V2 anal keys for a local penetration radius. The first four start where the

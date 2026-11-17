@@ -69,37 +69,38 @@ uniform float strip_trim = 0.0;
 uniform float strip_scale = 1.0;
 uniform float contour_amount = 1.0;
 
-// integration: the anatomy follows the body coat's leg skinning. `CUSTOM0` holds the four leg
-// weights (flank L/R, femur L/R) sampled from the body mesh; the remaining weight is the rigid
-// pelvis. The controller applies the same weighted matrices to the act's hole point and normal.
-uniform mat4 coat_follow_l;
-uniform mat4 coat_follow_r;
-uniform mat4 coat_follow_femur_l;
-uniform mat4 coat_follow_femur_r;
-uniform float coat_follow_strength = 0.0;
+// integration: the anatomy follows a vertical line sampled on the body coat. Each sample holds a
+// frame (three basis columns and an origin) that bends every cross-section and stretches it along
+// the line. The controller applies the same frames to the act's hole point and normal.
+const int LINE_N = 8;
+uniform vec3 line_rest[LINE_N];
+uniform vec3 line_basis_x[LINE_N];
+uniform vec3 line_basis_y[LINE_N];
+uniform vec3 line_basis_z[LINE_N];
+uniform vec3 line_origin[LINE_N];
+uniform int line_count = 0;
 
-void apply_coat_follow(inout vec3 vertex, inout vec3 normal, vec4 weights) {
-	if (coat_follow_strength <= 0.0) {
+void apply_coat_line(inout vec3 vertex, inout vec3 normal) {
+	if (line_count < 2) {
 		return;
 	}
-	float weight_sum = min(dot(weights, vec4(1.0)), 1.0);
-	float amount = coat_follow_strength;
-	if (amount <= 0.0) {
-		return;
+	int i = 0;
+	for (int k = 0; k < LINE_N; k++) {
+		if (k >= line_count) {
+			break;
+		}
+		if (line_rest[k].y <= vertex.y) {
+			i = k;
+		}
 	}
-	vec4 p = vec4(vertex, 1.0);
-	vec3 followed = vertex * (1.0 - weight_sum);
-	followed += (coat_follow_l * p).xyz * weights.x;
-	followed += (coat_follow_r * p).xyz * weights.y;
-	followed += (coat_follow_femur_l * p).xyz * weights.z;
-	followed += (coat_follow_femur_r * p).xyz * weights.w;
-	mat3 normal_matrix = mat3(1.0) * (1.0 - weight_sum)
-		+ mat3(coat_follow_l) * weights.x
-		+ mat3(coat_follow_r) * weights.y
-		+ mat3(coat_follow_femur_l) * weights.z
-		+ mat3(coat_follow_femur_r) * weights.w;
-	vertex = mix(vertex, followed, amount);
-	normal = normalize(mix(normal, normal_matrix * normal, amount));
+	i = min(i, line_count - 2);
+	float span = max(line_rest[i + 1].y - line_rest[i].y, 0.00001);
+	float f = clamp((vertex.y - line_rest[i].y) / span, 0.0, 1.0);
+	mat3 b = mat3(mix(line_basis_x[i], line_basis_x[i + 1], f),
+		mix(line_basis_y[i], line_basis_y[i + 1], f),
+		mix(line_basis_z[i], line_basis_z[i + 1], f));
+	vertex = b * vertex + mix(line_origin[i], line_origin[i + 1], f);
+	normal = normalize(b * normal);
 }
 
 void vertex() {
@@ -120,7 +121,7 @@ void vertex() {
 	if (strip_trim > 0.5 && abs(strip_scale - 1.0) > 0.000001) {
 		VERTEX.x *= strip_scale;
 	}
-	apply_coat_follow(VERTEX, NORMAL, CUSTOM0);
+	apply_coat_line(VERTEX, NORMAL);
 	VERTEX += (VERTEX.x < 0.0 ? sway_left : sway_right) * (1.0 - COLOR.b);
 	if (hole_target > lip_radius) {
 		vec3 spread = VERTEX - vulva_centre;

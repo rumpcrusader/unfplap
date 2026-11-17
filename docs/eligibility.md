@@ -129,7 +129,9 @@ for the negotiation routes: a live relationship, romance eligibility and the Pro
 Its love level comes from the game's own ladder cache (`world_context.state.bond_levels`, kept
 current by `relationship_runtime._level_check()` on every impression and bond change), and
 `relationship_runtime.ladder()` is the fallback for a pony the game has not recorded yet. The cache
-is the reason the idle hint and the proactive scan do not rebuild her bond facts every pass.
+is the reason the idle hint and the proactive scan do not rebuild her bond facts every pass. It
+cannot see a player-form change, which empties the game's love row without a signal; romance
+eligibility is read live and gates the row first, so a young player still fails clearance.
 `witness_age()` is the only age-shaped answer and only for witness wording. `get_verdict()` is the
 typed act gate. `get_profile()` reads the resolved provider/player profile for one id;
 `set_profile()` writes the provider layer's eligible assertion, participation and consent. The

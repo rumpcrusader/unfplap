@@ -250,7 +250,8 @@ func relationship_ok(pony: Node) -> bool:
 ## writes `world_context.state.bond_levels` on every impression and bond change, which is the whole
 ## set that can move a level, so the row is as current as `ladder()` for one dictionary read.
 ## `ladder()` rebuilds every fact and deep-copies her bond record three times, so it is only the
-## fallback for a pony the game has not recorded yet.
+## fallback for a pony the game has not recorded yet. The cache cannot see a player-form change,
+## which empties the game's love row without a signal; the romance row gates that before the floor.
 func _love_level(rel: Variant, id: String) -> int:
 	var cached: Variant = _bond_levels().get(id)
 	if cached is Dictionary:

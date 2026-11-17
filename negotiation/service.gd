@@ -508,8 +508,12 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
-	if reply == null or reply.failed or reply.answer != CONTEXT.ANSWER_ACCEPT:
+	if reply == null or reply.failed:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		return
+	if reply.answer != CONTEXT.ANSWER_ACCEPT:
+		# A normal line that is not an offer is silent: no log line, no toast, no cooldown.
+		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NOT_OFFER, 0.0)
 		return
 	var options := _options_for(live.runtime)
 	if reply.option_index < 0 or reply.option_index >= options.size():
@@ -775,7 +779,8 @@ func _notify(outcome: int, reason: String) -> void:
 			_toast("She is busy right now.")
 		Outcome.NO_OFFER:
 			_log_line("negotiation no offer reason=%s" % reason)
-			_toast("She is not available for that.")
+			if reason != AGREEMENT.REASON_NOT_OFFER:
+				_toast("She is not available for that.")
 		Outcome.REFUSED:
 			_log_line("negotiation refused reason=%s" % ("none" if reason.is_empty() else reason))
 			_toast("She said not here." if reason == AGREEMENT.REASON_COUNTER_OFFER else

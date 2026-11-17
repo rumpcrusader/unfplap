@@ -113,6 +113,8 @@ var _captions: Dictionary = {}
 var _captions_on_top := false
 ## The idle (outside-act) debug perf probe; see docs/perf.md.
 var _perf_idle := PERF_IDLE.new()
+## True while the adapter's global Anon-offer watch is armed.
+var _watching_player := false
 
 
 func debug(text: String) -> void:
@@ -291,6 +293,9 @@ func _on_world(host: Node) -> void:
 	if is_instance_valid(negotiation):
 		negotiation.call("reset")
 		_bind_negotiation_host()
+	if is_instance_valid(adapter) and _watching_player:
+		_watching_player = false
+		adapter.call("unwatch_player")
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
 	if is_instance_valid(hud):
@@ -563,6 +568,7 @@ func _process_entry(delta: float) -> void:
 		initiation.tick(delta)
 	if is_instance_valid(negotiation):
 		negotiation.tick(delta)
+	_tick_negotiation_watch()
 	var hint := ""
 	if _offer != null:
 		hint = OFFER_HINT
@@ -2271,6 +2277,68 @@ func _negotiation_react(pony: Node, _reason: String) -> void:
 		"The moment was interrupted. Say one short, in-character line letting it go, without " \
 		+ "anger. Do not ask again and do not narrate actions.",
 		key, func() -> bool: return is_instance_valid(pony) and pony.is_inside_tree(), false)
+
+
+## The global Anon-offer watch is armed only while no negotiation and no act is live, so a line
+## answering a Mare offer is never seen twice.
+func _tick_negotiation_watch() -> void:
+	if not is_instance_valid(adapter) or not is_instance_valid(negotiation):
+		return
+	var free := not is_instance_valid(active_runtime) and not bool(negotiation.call("is_locked"))
+	if free:
+		if not _watching_player:
+			_watching_player = true
+			adapter.call("watch_player", Callable(self, "_on_anon_line"))
+		return
+	if _watching_player:
+		_watching_player = false
+		adapter.call("unwatch_player")
+
+
+## The first new player line while he talks to a mare: an Anon offer. The Negotiation service
+## classifies intent; a normal line forms nothing and says nothing.
+func _on_anon_line(text: String) -> void:
+	var line := text.strip_edges()
+	if line.is_empty() or line.length() > 600:
+		return
+	if not is_instance_valid(negotiation) or bool(negotiation.call("is_locked")):
+		return
+	if not is_instance_valid(classifier) or not bool(classifier.call("available")):
+		return
+	var pony := _conversation_mare()
+	if not is_instance_valid(pony):
+		return
+	var runtime: Variant = runtime_for(pony)
+	if not is_instance_valid(runtime) or int(runtime.get("state")) != 0:
+		return
+	if is_instance_valid(initiation) and initiation.has_method("cancel_approach"):
+		initiation.call("cancel_approach")
+	negotiation.call("begin_anon_offer", runtime, line)
+
+
+## The mare whose conversation target is Anon, nearest first. The game's own target decides; the
+## classifiers never reroute the director.
+func _conversation_mare() -> Node:
+	if not is_instance_valid(player):
+		return null
+	var best: Node = null
+	var best_distance := INF
+	for node: Variant in mares():
+		if not is_instance_valid(node) or not _is_act_target(node):
+			continue
+		var target: Variant = node.get("conversation_target")
+		if not is_instance_valid(target):
+			continue
+		var bound: bool = target == player \
+			or (player is Node and (player as Node).is_ancestor_of(target))
+		if not bound:
+			continue
+		var actor := node as Node3D
+		var distance := actor.global_position.distance_to(player.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = node
+	return best
 
 
 func _on_negotiation_outcome(terminal: Variant) -> void:

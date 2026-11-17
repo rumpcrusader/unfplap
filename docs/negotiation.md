@@ -123,7 +123,13 @@ The routes:
 | Anon offer | this service (`begin_anon_offer`) | the Mare Response Reasoning |
 | Hotkey | the Act service (`hotkey_handle`) | accepted; no buck |
 
-The Anon offer:
+The Anon offer is formed from the first new player line while Anon talks to a mare. `main` arms
+the adapter's global watch only while no negotiation and no act is live; the adapter captures the
+first new line and reports it once the director is idle again, so the classifier never races her
+reply to the same line. `main` resolves the mare from the game's conversation target
+(`conversation_target` bound to Anon), cancels an in-flight proactive approach that has not formed
+a Mare offer, and calls `begin_anon_offer(runtime, line)`. A line that is not a clear offer is a
+silent `NoOffer(not_offer)`: no toast and no cooldown.
 
 1. Base clearance: `eligible?`, `relationship_ok` and availability; a failure is `NoOffer`.
 2. Pose options from `shared/pose_options.gd`; an empty list is `NoOffer`.
@@ -279,5 +285,5 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 - The model calls are the host adapters' work; this service only sees the typed `Decision`.
 - The hold is best effort: a re-task or an attention reassignment ends the negotiation with
   `target_left`.
-- The Anon offer route and the auto-start trigger are not wired yet; the Mare offer route is live
-  through the act key.
+- The Agreement auto-start (without the act key) is not wired yet; both offer routes are live and
+  the act key consumes the Agreement through the scene-only start.

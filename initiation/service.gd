@@ -222,6 +222,13 @@ func on_negotiation_outcome(terminal: RefCounted) -> void:
 		id, int(terminal.outcome), _reason_name(str(terminal.reason))])
 
 
+## A new Anon offer or hotkey cancels an in-flight approach that has not formed a Mare offer.
+func cancel_approach() -> void:
+	if _episode == null:
+		return
+	_close_episode(false, "interrupted")
+
+
 ## Debug: drop one mare's offer cooldown, short retry and last skip reason. False without an id.
 func clear_cooldown(pony: Node) -> bool:
 	var id := _venue.pony_id(pony) if is_instance_valid(pony) else ""

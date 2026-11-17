@@ -17,6 +17,11 @@ var _last_text := ""
 var _seen := false
 ## The one live answer watch: `{scope, done, pony}`. Empty when nothing is waiting.
 var _watch: Dictionary = {}
+## The global Anon-offer watch: the first new player line while he talks to a mare. The callback
+## receives the line once the director is idle again, so the classifier never races her reply to
+## the same line.
+var _offer_watch := Callable()
+var _offer_pending := ""
 
 
 func bind(main_node: Node) -> void:
@@ -27,9 +32,13 @@ func bind(main_node: Node) -> void:
 func _exit_tree() -> void:
 	unhook()
 	_watch = {}
+	_offer_watch = Callable()
+	_offer_pending = ""
 
 
 func _process(_delta: float) -> void:
+	if _offer_watch.is_valid():
+		_poll_offer_watch()
 	if _watch.is_empty():
 		return
 	if not player_reacted():
@@ -252,6 +261,39 @@ func complete_raw(system: String, payload: Dictionary, scope: String, done: Call
 	if not is_instance_valid(classifier) or not classifier.has_method("complete_raw"):
 		return false
 	return bool(classifier.call("complete_raw", system, payload, scope, done))
+
+
+## Watch the first new player line for an Anon offer. `main` enables it while no negotiation is
+## live; the callback receives the line once the director is idle again.
+func watch_player(callback: Callable) -> void:
+	if not callback.is_valid():
+		return
+	if _offer_watch.is_valid():
+		_offer_watch = callback
+		return
+	_offer_watch = callback
+	_offer_pending = ""
+	begin_turn()
+
+
+## Stop the global Anon-offer watch without touching an answer watch.
+func unwatch_player() -> void:
+	_offer_watch = Callable()
+	_offer_pending = ""
+
+
+func _poll_offer_watch() -> void:
+	if player_reacted():
+		var text := last_player_text()
+		if not text.is_empty():
+			begin_turn()
+			_offer_pending = text
+	if _offer_pending.is_empty() or not idle():
+		return
+	var text := _offer_pending
+	_offer_pending = ""
+	if _offer_watch.is_valid():
+		_offer_watch.call(text)
 
 
 ## Watch the first new line from the conversation target. The service baselines nothing; the

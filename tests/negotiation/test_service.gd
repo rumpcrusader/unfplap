@@ -356,6 +356,9 @@ func _check_anon_failures() -> void:
 	check(service.begin_anon_offer(runtime, "nice weather"), "the attempt starts")
 	check(service.phase() == NEGOTIATION.Phase.NONE, "an unclear line forms no offer")
 	check(boxes.outcomes[0].outcome == NEGOTIATION.Outcome.NO_OFFER, "an unclear line is NoOffer")
+	check(boxes.outcomes[0].reason == AGREEMENT.REASON_NOT_OFFER,
+		"a normal line is a silent no-offer")
+	check(boxes.toasts.is_empty(), "a normal line shows no toast")
 	_free(made)
 
 	made = _fixture()

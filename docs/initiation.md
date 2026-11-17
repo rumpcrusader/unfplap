@@ -230,7 +230,8 @@ or the bed variant; it is not the generated wording.
 
 A successful handoff is not a close: the episode clears and the lease moves to the Negotiation
 service. `force()` closes any live episode first; `reset()` closes it, cancels the pending reasoning
-scope and clears the session maps on a world close.
+scope and clears the session maps on a world close. `cancel_approach()` closes a live pre-formation
+episode when a new Anon offer or hotkey interrupts her walk.
 
 ## Prompts
 

@@ -162,6 +162,7 @@ func run() -> void:
 	_check_quiet()
 	_check_queue()
 	_check_answer()
+	_check_offer_watch()
 	_check_models()
 	print("NEGOTIATION_ADAPTER_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
@@ -271,6 +272,58 @@ func _check_answer() -> void:
 	var classifier: FakeClassifier = made["classifier"]
 	check(classifier.cancelled.has("negotiation:answer:3"),
 		"the cancel reaches the classifier too")
+	_free(made)
+
+
+func _check_offer_watch() -> void:
+	var made := _fixture()
+	var adapter: Node = made["adapter"]
+	var director: FakeDirector = made["director"]
+	var got: Array[String] = []
+	director._player_text = "an old line"
+	adapter.watch_player(func(text: String) -> void: got.append(text))
+	check(got.is_empty(), "the offer watch ignores an old line")
+	director._player_text = "want to?"
+	adapter._process(0.0)
+	check(got == ["want to?"], "the first new line reaches the offer watch")
+	director._player_text = "take me to bed"
+	adapter._process(0.0)
+	check(got.size() == 2 and got[1] == "take me to bed",
+		"a later line reaches the offer watch again")
+
+	# While the director is still speaking her reply, the line waits for idle.
+	got.clear()
+	director.state = "speaking"
+	director._player_text = "come here"
+	adapter._process(0.0)
+	check(got.is_empty(), "a spoken reply delays the offer line")
+	director.state = "idle"
+	adapter._process(0.0)
+	check(got == ["come here"], "the offer line starts once the director is idle")
+
+	# A second line replaces the pending one.
+	got.clear()
+	director.state = "speaking"
+	director._player_text = "first"
+	adapter._process(0.0)
+	director._player_text = "second"
+	adapter._process(0.0)
+	director.state = "idle"
+	adapter._process(0.0)
+	check(got == ["second"], "the newest pending line is the one reported")
+
+	# Unwatching drops a pending line and stops the watch.
+	got.clear()
+	director.state = "speaking"
+	director._player_text = "dropped"
+	adapter._process(0.0)
+	adapter.unwatch_player()
+	director.state = "idle"
+	adapter._process(0.0)
+	check(got.is_empty(), "unwatching drops the pending offer line")
+	director._player_text = "after"
+	adapter._process(0.0)
+	check(got.is_empty(), "an unwatched line forms nothing")
 	_free(made)
 
 

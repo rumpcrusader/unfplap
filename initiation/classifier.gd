@@ -104,6 +104,12 @@ func classify(text: String, offer: String, done: Callable) -> bool:
 	return classify_offer(text, offer, "offer:legacy:%d" % Time.get_ticks_usec(), done)
 
 
+## True when a bounded request can be sent now: a configured director and client. A consumer
+## checks it before forming an offer, so a disabled model is not a toast on every line.
+func available() -> bool:
+	return _ensure_configured()
+
+
 ## One raw bounded completion for the negotiation routes. The caller owns the schema and parses
 ## the text; the classifier owns the one client, the queue and the deadline. `done` receives the
 ## raw reply and the provider error.

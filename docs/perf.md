@@ -160,9 +160,15 @@ total, largest first, so the first row is the chunk to fix.
 | Chunk | Source | Parent |
 |---|---|---|
 | `entry_process` | the whole `main._process` body | root |
-| `offer_scan` | the 1 s `_refresh_offer()` call | `entry_process` |
+| `entry_initiation` | `initiation.tick(delta)` | `entry_process` |
+| `entry_negotiation` | `negotiation.tick(delta)` and `_tick_agreement_auto_start(delta)` | `entry_process` |
+| `entry_watch` | `_tick_negotiation_watch()` | `entry_process` |
+| `entry_hint` | the offer hint build and `_sync_native_hint()` | `entry_process` |
+| `offer_scan` | the `OFFER_SCAN_S` `_refresh_offer()` call | `entry_process` |
 | `offer_cone` | the standing candidate search in `_refresh_offer()` | `offer_scan` |
-| `offer_gate` | the standing hint's `runtime.hotkey_ready()` | `offer_scan` |
+| `offer_gate` | the standing gate, `_standing_ready()` | `offer_scan` |
+| `offer_rows` | `scene_only_verdict()`, every scene row | `offer_gate` |
+| `offer_policy` | `eligible()` and `relationship_ok()` after the rows pass | `offer_gate` |
 | `runtime_physics` | one pony's idle `_physics_process` | root |
 | `runtime_anatomy_sync` | the two `_sync_anatomy_facts()` calls per physics tick, summed | `runtime_physics` |
 | `runtime_facts` | `_sync_act_facts()` in the physics tick | `runtime_physics` |
@@ -174,12 +180,26 @@ total, largest first, so the first row is the chunk to fix.
 | `teat_jiggle`, `climax_fluid` | reported through `facts.perf` | root |
 
 The anatomy chunks need no extra forward: `facts.perf` already calls the runtime's `perf_note`,
-which is the single forwarding point. `entry_process` contains `offer_scan`, which contains
-`offer_cone` and `offer_gate`. `offer_gate` reads `runtime.hotkey_ready()`: the scene rows are
-rebuilt every call, and Base clearance is read live only when they pass. The hint scans once per
-second, so each scan is the full cost; there is no eligibility cache. `relationship_ok()` reads
-only the clearance facts rather than the full snapshot, and the two offerable pose assets are
-parsed at world ready, so their load is not inside a first scan.
+which is the single forwarding point. `entry_process` contains the four entry chunks and
+`offer_scan`; `offer_scan` contains `offer_cone` and `offer_gate`, and `offer_gate` contains
+`offer_rows` and `offer_policy`. The entry chunks split the per-frame body at its calls, so a row
+that stays large is one call site and the `entry_process` `self` row is the body around them. The
+caption move has no idle chunk: it only runs while an act owns the entry, and the idle probe is off
+during an act.
+
+`offer_cone` is the standing candidate search: geometry first, and Base clearance only for the
+candidates that beat the nearest eligible one already found, in one pass with no per-candidate
+allocation. `offer_rows` is the whole scene-row verdict and `offer_policy` the clearance and
+relationship reads behind it, so a gate dominated by `offer_rows` is a scene question and one
+dominated by `offer_policy` is a relationship question; `relationship_ok()` reads only the
+clearance facts rather than the full snapshot, and the relationship ladder behind it is the single
+largest item in one gate.
+
+The cone scan runs every `OFFER_SCAN_S`, but the gate behind it is reused while the same mare stays
+the cone target and refreshed every `GATE_REFRESH_S`. A reused window prints `offer_gate` as the
+cache read alone, so its per-call average mixes the two. The act key runs the gate again on every
+press, so a reused verdict can only hold the hint back, never start or block an act. The two
+offerable pose assets are parsed at world ready, so their load is not inside a first scan.
 
 ## Gate and reset
 

@@ -107,7 +107,9 @@ outline, and muted `#f4f1ff` at 60% for modifiers. `hud/service.gd` exposes `tex
 scale beside 30 px words, placed by `hud.prompt_row()` so it sits beside base prompts. The game
 has no `key_6.png`, so the cap is drawn by `hud.keycap()` at the prompt-row scale. Without that row
 (VR or no `InteractionHints`) the same row is built into the HUD's own centered prompt above the
-caption line.
+caption line. The entry resolves the hints node and that row once per world and re-resolves them
+only when the row leaves the tree, and an unchanged hint text is not re-applied, so a steady frame
+touches neither the tree nor the row.
 
 ## Gates
 

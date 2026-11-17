@@ -27,7 +27,7 @@ const MOST_PILLS := 4
 const PILL_LABEL_CHARS := 18
 ## General's last player rows, in draw order: the relationship bypass sits directly above
 ## Enable debug, which governs the Debug blocks. Both are drawn after the tab's sections.
-const GENERAL_TAIL := ["ignore_gates", "debug_mode"]
+const GENERAL_TAIL := ["debug_mode"]
 
 ## Injected pages, the Debug block of each tab, and the guard that keeps the game's own sidebar
 ## buttons from fighting the injected tab.

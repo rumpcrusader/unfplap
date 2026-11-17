@@ -1097,6 +1097,13 @@ func _check_migration() -> void:
 		"a deprecated key maps to its replacement")
 	check(not (moved.get("old", {}) as Dictionary).has("radius"),
 		"the deprecated key is erased")
+	var retired_bypass: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
+		"relationship": {"ignore_gates": true, "promiscuity": "any"}},
+		SETTINGS.SCHEMA_VERSION)
+	var relationship: Dictionary = retired_bypass.get("relationship", {})
+	check(not relationship.has("ignore_gates"), "the retired plap switch is erased")
+	check(str(relationship.get("promiscuity", "")) == "any",
+		"the retired plap switch leaves the Promiscuity row alone")
 
 	# The per-size split seeds Canon from the old flat value.
 	var sized: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,

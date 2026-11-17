@@ -39,12 +39,11 @@ func run() -> void:
 	check(not occupied.ok() and occupied.reason() == CLEARANCE.REASON_AVAILABLE,
 		"only the availability row fails")
 
-	check(CLEARANCE.relationship_ok(true, true, true, false), "romance and floor pass")
-	check(not CLEARANCE.relationship_ok(true, false, true, false), "romance eligibility gates")
-	check(not CLEARANCE.relationship_ok(true, true, false, false), "the floor gates")
-	check(CLEARANCE.relationship_ok(true, false, false, true), "the override opens both rows")
-	check(not CLEARANCE.relationship_ok(false, true, true, true),
-		"the override keeps the live relationship")
+	check(CLEARANCE.relationship_ok(true, true, true), "romance and floor pass")
+	check(not CLEARANCE.relationship_ok(true, false, true), "romance eligibility gates")
+	check(not CLEARANCE.relationship_ok(true, true, false), "the floor gates")
+	check(not CLEARANCE.relationship_ok(false, true, true),
+		"a cleared romance and floor still need a live relationship")
 
 	check(CLEARANCE.available(false, false, true, false), "a free present mare is available")
 	check(not CLEARANCE.available(true, false, true, false), "an act blocks availability")

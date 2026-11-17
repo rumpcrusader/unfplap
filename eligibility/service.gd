@@ -123,7 +123,6 @@ class Facts extends RefCounted:
 	var stage := ""
 	var love_level := -1
 	var willing := false
-	var ignore_gates := false
 	var promiscuity := "any"
 	var player_young := true
 	var player_pony := false
@@ -148,7 +147,6 @@ class Relations extends RefCounted:
 	var promiscuity := "any"
 	var cycle_phase := "normal"
 	var heat := false
-	var ignore_gates := false
 	var base := false
 
 
@@ -251,9 +249,8 @@ func relationship_ok(pony: Node) -> bool:
 			var row: Variant = (levels as Dictionary).get("love", {})
 			if row is Dictionary:
 				love = int((row as Dictionary).get("level", -1))
-	var override := SETTINGS.ignore_gates.get_bool()
 	var floor_ok := POLICY.level_ok(str(SETTINGS.promiscuity.get_choice()), love)
-	return CLEARANCE.relationship_ok(true, romance, floor_ok, override)
+	return CLEARANCE.relationship_ok(true, romance, floor_ok)
 
 
 ## The witness age category. This is the only place a consumer needs the age instead of a
@@ -373,7 +370,6 @@ func _read_relationship(pony: Node, id: String, out: Dictionary) -> void:
 
 func _read_settings(out: Dictionary) -> void:
 	out["promiscuity"] = SETTINGS.promiscuity.get_choice()
-	out["ignore_gates"] = SETTINGS.ignore_gates.get_bool()
 
 
 func _read_player(out: Dictionary) -> void:
@@ -399,24 +395,14 @@ func _read_history(id: String, out: Dictionary) -> void:
 		return
 	var row: Dictionary = ACT_HISTORY.effective_row(ACT_HISTORY.section(), id,
 		ACT_HISTORY.day_now())
-	var bypass := bool(out.get("ignore_gates", false))
 	out["history"] = {
 		"tier": ACT_HISTORY.tier_name(row),
 		"hurt": int(row.get("hurt", 0)),
 		"comfort": int(row.get("comfort", 0)),
-		"blocks_start": not bypass and ACT_HISTORY.blocks_start(row),
-		"blocks_offers": not bypass and ACT_HISTORY.blocks_offers(row),
-		"offer_weight": _history_offer_weight(row, bypass),
+		"blocks_start": ACT_HISTORY.blocks_start(row),
+		"blocks_offers": ACT_HISTORY.blocks_offers(row),
+		"offer_weight": ACT_HISTORY.offer_weight(row),
 	}
-
-
-## History's block flags are a relationship gate. The bypass ignores them, and a blocked row
-## offers at the rule's own base weight with its comfort credit kept; the stored row is untouched.
-## See `docs/eligibility.md` (`## Relationship bypass`).
-func _history_offer_weight(row: Dictionary, bypass: bool) -> float:
-	if not bypass:
-		return ACT_HISTORY.offer_weight(row)
-	return ACT_HISTORY.offer_weight({"hurt": 0, "comfort": int(row.get("comfort", 0))})
 
 
 ## The identity half of the snapshot. `eligible()` and `witness_age()` build only this block, so a
@@ -451,7 +437,6 @@ func _typed_facts(data: Dictionary) -> Facts:
 	out.stage = str(data.get("stage", ""))
 	out.love_level = int(data.get("love_level", -1))
 	out.willing = bool(data.get("willing", false))
-	out.ignore_gates = bool(data.get("ignore_gates", false))
 	out.promiscuity = str(data.get("promiscuity", "any"))
 	out.player_young = bool(data.get("player_young", true))
 	out.player_pony = bool(data.get("player_pony", false))
@@ -482,7 +467,6 @@ func _typed_relations(policy: Dictionary) -> Relations:
 	out.promiscuity = str(data.get("promiscuity", "any"))
 	out.cycle_phase = str(data.get("cycle_phase", "normal"))
 	out.heat = bool(data.get("heat", false))
-	out.ignore_gates = bool(data.get("ignore_gates", false))
 	out.base = bool(data.get("base", false))
 	return out
 

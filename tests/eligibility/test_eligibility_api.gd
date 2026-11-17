@@ -126,7 +126,6 @@ func run() -> void:
 	relation.bonds.welcome = false
 	check(main.eligibility.relationship_ok(pony), "clearance ignores willingness")
 	var saved_promiscuity := SETTINGS.promiscuity.get_choice()
-	var saved_override := SETTINGS.ignore_gates.get_bool()
 	SETTINGS.promiscuity.set_choice("any")
 	relation.bonds.romance = false
 	check(not main.eligibility.relationship_ok(pony), "romance eligibility gates clearance")
@@ -134,14 +133,10 @@ func run() -> void:
 	check(main.eligibility.relationship_ok(pony), "Any Adult passes the floor")
 	SETTINGS.promiscuity.set_choice("head_over_hooves")
 	check(not main.eligibility.relationship_ok(pony), "the love floor gates clearance")
-	SETTINGS.ignore_gates.set_bool(true)
-	check(main.eligibility.relationship_ok(pony), "the override opens the floor")
-	SETTINGS.ignore_gates.set_bool(false)
 	pony.remove_meta("relationship_runtime")
 	check(not main.eligibility.relationship_ok(pony), "no relationship runtime fails clearance")
 	pony.set_meta("relationship_runtime", relation)
 	SETTINGS.promiscuity.set_choice(saved_promiscuity)
-	SETTINGS.ignore_gates.set_bool(saved_override)
 	relation.bonds.welcome = false
 	var unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
 	check(not bool(unwilling.show), "an unwilling mare has no legacy hint")
@@ -259,21 +254,6 @@ func run() -> void:
 		"base-game kiss willingness still gates")
 	check(not bool(filly_verdict.show) and not bool(filly_verdict.attempt),
 		"base-game gates still block the act")
-
-	# The relationship bypass: the live settings flag opens the base-game rows while the provider
-	# assertion still supplies adulthood.
-	SETTINGS.ignore_gates.set_bool(true)
-	var bypassed: ELIGIBILITY.Verdict = main.eligibility.get_verdict(filly, ELIGIBILITY.Mode.START)
-	check(bool(bypassed.facts.ignore_gates), "the bypass flag reaches the fact snapshot")
-	check(bool(bypassed.show) and bool(bypassed.attempt),
-		"the bypass lets a provider-asserted adult start despite the base-game rows")
-	check(not bool(bypassed.buck_refuse) and not bool(bypassed.history_refuse),
-		"the bypass removes the refusal routes")
-	check(bool(bypassed.relations.ignore_gates), "the bypass reaches the typed relations")
-	SETTINGS.ignore_gates.set_bool(false)
-	var restored_block: ELIGIBILITY.Verdict = main.eligibility.get_verdict(
-		filly, ELIGIBILITY.Mode.START)
-	check(not bool(restored_block.show), "turning the bypass off restores the base-game gates")
 
 	# A provider not-eligible assertion overrides a base-game registered adult.
 	layer.eligible = ELIGIBILITY.EligibilityAssertion.NOT_ELIGIBLE

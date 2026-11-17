@@ -49,15 +49,12 @@ static func evaluate(eligible: bool, relationship_ok: bool, available: bool) -> 
 
 
 ## The relationship row: a live relationship exists, romance eligibility passes and her love
-## level meets the Promiscuity floor. The relationship override opens the romance and
-## Promiscuity parts. The eligibility service owns the fact reads; this is the pure predicate
-## both routes share.
+## level meets the Promiscuity floor. The eligibility service owns the fact reads; this is the
+## pure predicate both routes share.
 static func relationship_ok(has_relationship: bool, romance_eligible: bool,
-		love_level_meets_floor: bool, override: bool) -> bool:
+		love_level_meets_floor: bool) -> bool:
 	if not has_relationship:
 		return false
-	if override:
-		return true
 	return romance_eligible and love_level_meets_floor
 
 

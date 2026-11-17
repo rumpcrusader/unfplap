@@ -1617,7 +1617,6 @@ func _debug_context() -> Dictionary:
 		"id": id, "display": display, "stage": relations.stage,
 		"love_name": love_name, "love_level": relations.love_level,
 		"welcomes": relations.willing,
-		"ignore_gates": relations.ignore_gates,
 		"mood": mood,
 		"state": state,
 		"presenting": _standing_presentation_controller().presentation_active(),

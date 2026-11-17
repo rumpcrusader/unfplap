@@ -387,7 +387,6 @@ func _check_eligibility_isolation(files: Array[String]) -> void:
 		"bonds.eligible_for_romance(": ["eligibility/service.gd"],
 		"bonds.adults": ["eligibility/service.gd"],
 		"SETTINGS.promiscuity": ["eligibility/service.gd", "settings/service.gd"],
-		"SETTINGS.ignore_gates": ["eligibility/service.gd", "settings/service.gd"],
 		"SETTINGS.profile_eligible": ["eligibility/service.gd", "settings/characters_ui.gd",
 			"main.gd", "api.gd"],
 		"SETTINGS.profile_participation": ["eligibility/service.gd", "main.gd", "api.gd"],

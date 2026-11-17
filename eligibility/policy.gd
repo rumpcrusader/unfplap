@@ -65,17 +65,15 @@ static func age_kind(facts: Dictionary) -> int:
 
 
 ## The shared base: an adult mare with a relationship runtime, a registered adult, an adult
-## player, romance eligibility and the selected Promiscuity floor. The relationship bypass skips
-## the two relationship rows; the structural rows stay.
+## player, romance eligibility and the selected Promiscuity floor.
 static func base_ok(facts: Dictionary) -> bool:
-	var bypass := bool(facts.get("ignore_gates", false))
 	return adult_mare(facts) \
 		and bool(facts.get("has_relationship", false)) \
 		and bool(facts.get("registered_adult", false)) \
 		and adult_player(facts) \
-		and (bypass or bool(facts.get("romance_eligible", false))) \
-		and (bypass or level_ok(str(facts.get("promiscuity", "any")),
-			int(facts.get("love_level", -1))))
+		and bool(facts.get("romance_eligible", false)) \
+		and level_ok(str(facts.get("promiscuity", "any")),
+			int(facts.get("love_level", -1)))
 
 
 ## Evaluate one fact snapshot. Every field is computed; `mode` is recorded for diagnostics and
@@ -83,19 +81,18 @@ static func base_ok(facts: Dictionary) -> bool:
 static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 	var facts := FACTS.normalize(raw_facts)
 	var rows: Array = []
-	var bypass := bool(facts.get("ignore_gates", false))
 	var adult := adult_mare(facts)
 	var relationship := bool(facts.get("has_relationship", false)) \
 		and bool(facts.get("registered_adult", false))
 	var player := adult_player(facts)
-	var romance := bypass or bool(facts.get("romance_eligible", false))
-	var level := bypass or level_ok(str(facts.get("promiscuity", "any")),
+	var romance := bool(facts.get("romance_eligible", false))
+	var level := level_ok(str(facts.get("promiscuity", "any")),
 		int(facts.get("love_level", -1)))
-	var willing := bypass or bool(facts.get("willing", false))
+	var willing := bool(facts.get("willing", false))
 	var cycle_ok := bool(facts.get("cycle_allows", false))
 	var history := facts.get("history", {}) as Dictionary
-	var blocks_start := not bypass and bool(history.get("blocks_start", false))
-	var blocks_offers := not bypass and bool(history.get("blocks_offers", false))
+	var blocks_start := bool(history.get("blocks_start", false))
+	var blocks_offers := bool(history.get("blocks_offers", false))
 	var participation: Dictionary = facts.get("participation", {}) as Dictionary
 	var participates := bool(participation.get("acts", true))
 	var base := adult and relationship and player and romance and level
@@ -114,8 +111,6 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 	_add_row(rows, "form", player, "form", EFFECT_BLOCK)
 	_add_row(rows, "romance", romance, "romance", EFFECT_BLOCK)
 	_add_row(rows, "promiscuity", level, "promiscuity", EFFECT_BLOCK)
-	if bypass:
-		_add_row(rows, "bypass", true, "bypass", EFFECT_FLAG)
 	_add_row(rows, "participation", participates, "participation", EFFECT_BLOCK)
 	_add_row(rows, "relation", willing, "relation", EFFECT_REFUSE)
 	_add_row(rows, "cycle", cycle_ok, "cycle", EFFECT_BLOCK)
@@ -138,7 +133,6 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 		"promiscuity": str(facts.get("promiscuity", "any")),
 		"cycle_phase": str(facts.get("cycle_phase", "normal")),
 		"heat": heat,
-		"ignore_gates": bypass,
 		"base": base,
 	}
 	return {

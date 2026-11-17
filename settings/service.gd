@@ -766,9 +766,6 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 static var act_key := num("act_key", "controls.act_key",
 	"Act Key", "Key that starts and ends the act.", GENERAL, "") \
 	.with_range(1.0, float(ACT_KEYS.MAX_CODE - 1)).as_hidden()
-static var ignore_gates := flag("ignore_gates", "relationship.ignore_gates",
-	"I just wanna plap!",
-	"Disable all programmatic relationship checks. LLM can still refuse you.", GENERAL, "")
 static var act_controls := flag("act_controls", "features.act_controls", "Show controls",
 	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "")
 static var hud_readouts := flag("hud_readouts", "features.hud_readouts", "Show HUD readouts",
@@ -1832,6 +1829,7 @@ static var _deprecated := [
 	# The act key always accepts and the Agreement owns visibility; both switches are retired.
 	deprecated("relationship.sex_start", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("features.act_public_offer", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("relationship.ignore_gates", func(_value: Variant) -> Dictionary: return {}),
 	# Acts always end an active cuddle; the switch is retired.
 	deprecated("features.allow_act_during_cuddle",
 		func(_value: Variant) -> Dictionary: return {}),

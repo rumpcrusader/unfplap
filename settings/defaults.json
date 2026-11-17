@@ -329,7 +329,6 @@
 		}
 	},
 	"relationship": {
-		"ignore_gates": false,
 		"promiscuity": "marefriend"
 	},
 	"talk": {

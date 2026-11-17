@@ -577,10 +577,7 @@ body's own deformation across the whole mesh.
   sliding aim puts the tip there; the bed holder sits `shaft - penetration` behind her. The
   applied value is eased by `PENETRATION_SMOOTH_S = 0.06 s`.
 - The hip-offset handshake is two-way: the part publishes `hip_offset_wanted` and accepts
-  `hip_offset_applied` after the pose moves his pelvis. The standing camera also reads the offset's
-  vertical part and lowers the camera and upper body by it; the pose keeps applying the live offset
-  to the pelvis, so the part stays at her opening and the torso follows instead of staying at the
-  old eye line. `reset_state()` clears the offset, aim,
+  `hip_offset_applied` after the pose moves his pelvis. `reset_state()` clears the offset, aim,
   bend, squash, shader squish, throb, bed inset and the smoothed penetration, so a following act
   never inherits the previous transform. A closing world removes the player body, and the part
   with it, from the tree before `world_closed` reaches the facade, so the part never reads a mesh

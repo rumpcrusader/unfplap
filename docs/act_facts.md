@@ -113,7 +113,7 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `act_actions_allowed` | the camera's action window |
 | `auto_panel_open` | the hold-X layer |
 | `standing_camera`, `missionary_anon` | the pose bodies |
-| `anatomy_normal`, `anatomy_opening`, `anatomy_hip_offset` | the anatomy reads |
+| `anatomy_normal`, `anatomy_opening` | the anatomy reads |
 | `authored_pose_asset`, `missionary_face_point` | the shot targets |
 | `gaze_point` | the missionary gaze target the camera's look write uses |
 | `free_look_rotation` | the debug view rotation |

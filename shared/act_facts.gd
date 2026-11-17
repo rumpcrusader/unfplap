@@ -134,7 +134,6 @@ var standing_camera := Callable()
 var missionary_anon := Callable()
 var anatomy_normal := Callable()
 var anatomy_opening := Callable()
-## The standing pelvis correction the anatomy part asks for; the camera follows its vertical part.
 var anatomy_hip_offset := Callable()
 var authored_pose_asset := Callable()
 var missionary_face_point := Callable()

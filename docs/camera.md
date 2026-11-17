@@ -199,14 +199,9 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
 - Camera height is Anon's normal eye plus `eye_delta_for(size)`: Canon lowers it by
   `CANON_STANDING_CAMERA_DROP_M = 0.10 m`, JRHNBR raises it by
   `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`, and every other preset keeps the normal eye. The act
-  never rewrites the player's `_stand_eye` / `_eye_height`, so the basic height is not crouched by
-  the pony preset; the anatomy drop below is the one standing crouch. The camera aims at the
-  middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose start, then freezes. The
-  lean vector is applied on top.
-- When the standing anatomy part is showing, the camera also drops by the vertical part of the
-  anatomy hip offset. The pose keeps applying the live `hip_offset_wanted` to the pelvis, so the
-  part stays at her opening while the upper body and camera follow it instead of staying at the
-  old eye line. The drop eases over `ANATOMY_DROP_SECONDS`; it is geometry, not a tuning value.
+  never rewrites the player's `_stand_eye` / `_eye_height`, so `AnonBody` stays upright and follows
+  the camera. The camera aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once
+  at pose start, then freezes. The lean vector is applied on top.
 - Canon also multiplies the standing lean travel by `0.8` (`standing_lean_scale()`).
 - Lean mapping: forward `0.24 m` / `6°` down / `1.5°` roll; backward
   `presentation.lean_back_m` with the same downward pitch; side `0.18 m` /
@@ -261,8 +256,8 @@ takes effect when the panel closes.
 ## Tests
 
 - `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, the pose-view facing
-  override, shot targets, free camera, the standing eye delta and anatomy drop, look capture and
-  restore, size scales and the afterglow back-off.
+  override, shot targets, free camera, the standing eye delta, look capture and restore, size
+  scales and the afterglow back-off.
 - `tests/poses/test_session.gd` — the pose camera targets and the bed frame the shot reads.
 - `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.
 

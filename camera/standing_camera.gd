@@ -16,7 +16,6 @@ const GLANCE_YAW := 3.0
 const GLANCE_BACK_PITCH := 1.2
 const GLANCE_BACK_CHANCE := 0.5
 const CAM_SPEED_SMOOTH_S := 0.06
-## Fixed ease for the anatomy drop; its amount comes from the hip offset, never a setting.
 const ANATOMY_DROP_SECONDS := 0.20
 const STATE_IDLE := 0
 const STATE_RESTORE := 5
@@ -35,8 +34,6 @@ var _pose_cfg_key := ""
 var _applied_bob := 0.0
 var _applied_lean := 0.0
 var _applied_side := 0.0
-## The vertical part of the standing anatomy hip offset, carried by the camera/body so the upper
-## body follows the pelvis while the pose keeps applying the live offset to the hips.
 var _anatomy_drop_m := 0.0
 var _standing_base_look := Vector3.INF
 var _standing_base_local := Vector3.ZERO
@@ -175,13 +172,10 @@ func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> 
 func _standing_eye_height() -> float:
 	return float(facts.player_eye_height) + eye_delta_for(str(facts.size_name)) - _anatomy_drop_m
 
-## One step of the standing anatomy drop. The hip offset is the remaining pelvis correction; adding
-## its vertical part to the current drop lowers the camera/body without a tunable amount.
 static func anatomy_drop_next(current: float, offset_y: float, delta: float) -> float:
 	var target := maxf(0.0, current - offset_y)
 	return move_toward(current, target, maxf(delta, 0.0) / ANATOMY_DROP_SECONDS)
 
-## The drop the camera/body currently applies.
 func anatomy_drop_m() -> float:
 	return _anatomy_drop_m
 

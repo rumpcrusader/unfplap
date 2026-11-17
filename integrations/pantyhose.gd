@@ -50,9 +50,9 @@ var _game: Node
 var _discover_clock := 0.0
 var _undress: bool
 var _bulge: bool
-var _hull_width := 48
-var _hull_height := 48
-var _hull_smoothing := 1
+var _hull_width: int
+var _hull_height: int
+var _hull_smoothing: int
 var _hull_margin_mm: float
 var _hull_min_margin_mm: float
 var _show_hull: bool

@@ -60,7 +60,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Settings | `settings/service.gd` | `docs/settings.md` | `tests/test_settings.gd` |
 | Mare registry | `registry/service.gd` | `docs/registry.md` | `tests/test_api.gd` |
 | Input | `input/service.gd` | `docs/input.md` | `tests/test_input.gd` |
-| Debug tooling | `debug/service.gd` | `docs/debug.md` | `tests/test_debug_wheel.gd`, `tests/test_debug_pony.gd` |
+| Debug tooling | `debug/service.gd` | `docs/debug.md` | `tests/test_debug_wheel.gd`, `tests/test_debug_pony.gd`, `tests/test_deep_stretch.gd` |
 
 Scope and lifecycle are declared in each contract's `## Lifecycle`. A facade is internal API; the
 only stable external surface is `docs/api.md`.

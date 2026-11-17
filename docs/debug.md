@@ -10,9 +10,10 @@ overlay and the log switches. The lab scripts are in `WORKFLOW.md`; the settings
 Debug block buttons. `debug/wheel.gd` is the hold-middle wheel. `debug/perf_view.gd` draws the
 perf flame panel. `debug/bed.gd` is the stock bed cuddle helper behind the wheel's Bed cuddle
 action and Show data's BED section. `debug/pony.gd` is the debug pony-preparation helper shared by
-the bed cuddle and the wheel's Sex ready action. `debug/skeleton.gd` draws the skeleton overlay.
-`settings/ui.gd` injects the Unfplap tab and calls `debug/ui.gd` for each Debug block. `main.gd`
-owns the console gate, the wheel gate, the perf panel and the skeleton-flag sync.
+the bed cuddle and the wheel's Sex ready action. `debug/idle_stretch.gd` is the Idle Life
+deep-stretch bridge behind the wheel's Force deep stretch action. `debug/skeleton.gd` draws the
+skeleton overlay. `settings/ui.gd` injects the Unfplap tab and calls `debug/ui.gd` for each Debug
+block. `main.gd` owns the console gate, the wheel gate, the perf panel and the skeleton-flag sync.
 
 ## Console
 
@@ -45,6 +46,7 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Show data | — | Mare and Act |
 | Bed cuddle | — | Mare |
 | Make sex-ready | — | Mare |
+| Force deep stretch | — | Mare and Act |
 | Give footstool | General | — |
 | Reset act prompts | General | — |
 | Pantyhose: rebuild hull | Integrations | — |
@@ -77,6 +79,12 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   runtime or bond save path refuses before anything changes. The record is written through the
   game's `player_bonds._save`, so the action is a debug cheat like Reset act history; the detailed
   rows go to the debug log and the toast names the mare.
+- **Force deep stretch** plays Idle Life 1.4.2's `stretch_deep` idle on the live act's pony, or on
+  the aimed mare outside an act. It interrupts an idle already running through Idle Life's
+  `_finish()` and calls its forced `play()`, so the stretch is not cut short by her posture, a
+  conversation or a live act. Idle Life is optional: without it the action reports "Idle Life
+  isn't running." This is a debug preview, not an integration; `debug/idle_stretch.gd` is the one
+  file that names the other mod's entry.
 - **Force/Clear heat** and **Force/Clear diestrus** are one slot each. The label follows the
   aimed mare's current phase; Clear sets the session phase to **normal**. **Resume automatic
   cycle** clears the override and is settings-only. See the cycle section of
@@ -84,8 +92,8 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 - **Reset act history** clears the stored row; **Force neglect warning/stop** act on the live act
   and are consumed on the next unpaused frame.
 - **Clear offer cooldown** clears the aimed mare's proactive-offer cooldown, short retry and last
-  scan skip, so she can be offered again immediately. It is a settings-only World action; the
-  wheel keeps its eight slots. See `docs/initiation.md`.
+  scan skip, so she can be offered again immediately. It is a settings-only World action and takes
+  no wheel slot. See `docs/initiation.md`.
 - **Trigger Anon offer** forms an Anon offer for the aimed mare as if Anon had just asked her.
   It is on the Mare wheel page; the Anon classifier and the Mare response still run.
 - **Force act face** cycles the base-game faces; see `docs/face.md`.
@@ -117,8 +125,8 @@ wheel is drawn at 75% opacity.
 
 | Page | Slots, clockwise from the top |
 |---|---|
-| **Mare** | Show data · Bed offer · Bed cuddle · Standing offer · Anon offer · Force/Clear heat · Force/Clear diestrus · Sex ready |
-| **Act** | Show data · Neglect warning · Neglect stop · Next face |
+| **Mare** | Show data · Bed offer · Bed cuddle · Standing offer · Anon offer · Force/Clear heat · Force/Clear diestrus · Sex ready · Deep stretch |
+| **Act** | Show data · Neglect warning · Neglect stop · Next face · Deep stretch |
 
 - The page is chosen by the live act: **Act** while an act runs, **Mare** otherwise. There are no
   subpages, so every action is at most one click from the open wheel.
@@ -235,10 +243,12 @@ numbers. The rows themselves are `docs/perf.md`'s.
 
 ## Tests
 
-`tests/test_debug_wheel.gd` pins the wheel page order, the seven-slot cap, the settings-only split
+`tests/test_debug_wheel.gd` pins the wheel page order, the nine-slot cap, the settings-only split
 (wheel actions are `panel: false`, settings-only actions stay on the panel), the retired action
 ids, the dynamic cycle labels and the hold-middle input contract (middle press opens, release over
-a slot runs it, release in the centre only closes). `tests/test_debug_pony.gd` pins the shared
+a slot runs it, release in the centre only closes). `tests/test_deep_stretch.gd` pins the Idle Life
+bridge: its entry path and idle id, the missing-entry and missing-pony refusals, the forced play
+call, interrupting a running idle and a refused play. `tests/test_debug_pony.gd` pins the shared
 preparation helper: upright and idle, busy clearing, the raise-only sex-ready record, its floors
 and cleared fields, the refusal paths and the log/toast text. `tests/test_settings.gd` covers the
 skeleton flag, the Debug block labels that remain and the absence of every wheel action from the

@@ -35,7 +35,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/act/oral.gd` | the mouth/contact provider: mouth point, base opening, D viseme and clear |
 | `anatomy/act/debug.gd` | the three aim markers |
 | `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
-| `anatomy/coat.gd` | rig coat patch, vulva/anal spread, the vulva cut and the still zones |
+| `anatomy/coat.gd` | rig and merged-near coat patch, vulva/anal spread, the vulva cut and the still zones |
 | `anatomy/coat_follow.gd` | samples the body coat's leg weights and keeps the anatomy shell on the rump |
 | `anatomy/garment_hull.gd` | the worn-garment rear-facing outer depth field, shared by every mare |
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
@@ -50,7 +50,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/fluid.gd` | droplets with gravity, sticking, creeping and ground pools |
 | `anatomy/teat_jiggle.gd` | teat spring sway |
 | `anatomy/still_zone_debug.gd` | debug overlay for the two no-jiggle zones |
-| `anatomy/body_coat_patch.gd` | runtime patch of the game coat shader; swaps the jiggle include and call and adds the vulva cut |
+| `anatomy/body_coat_patch.gd` | runtime patch of the rig coat and the merged-near palette shaders; swaps the jiggle include and call and adds the vulva cut |
 | `anatomy/anatomy.gdshader` | the per-pony anatomy material |
 | `anatomy/body_coat_deform.gdshaderinc` | the coat deform include used by the patch |
 | `vr/service.gd` | optional VR standing act, gated by the anatomy master; not anatomy behavior |
@@ -485,6 +485,12 @@ appearance, including the missionary-only fold hack, when the pose family change
   `VERTEX += flank_jiggle(VERTEX);` with `VERTEX += body_coat_deform(VERTEX);`, then adds the
   vulva coat cut at the start of `fragment()`. The outline hull is patched the same way. No game
   source is edited and no cel shader is copied.
+- The merged near pony (`hybrid_near_mesh`) is covered too. Its palette shader, occlusion variant
+  and outline use `VERTEX += flank_jiggle(VERTEX) * jiggle_entry[pal];`; the patch swaps in the
+  same deform and cut for the palette entries whose source path is `MareBody`. A
+  `body_coat_entry[pal]` mask built from the near mesh's source paths keeps head, hair, dock and
+  wing entries on the stock jiggle with no cut. The merged body and outline materials join the
+  same jiggle target list as the rig coat.
 - The patch is cached per source shader. The include and call are required: a game update that
   removes either makes `anatomy/body_coat_patch.patched()` return null and leaves the original
   shader alone. The `void fragment()` hook is optional; without it the deform still applies and
@@ -492,23 +498,30 @@ appearance, including the missionary-only fold hack, when the pose family change
 - The anatomy shell is pushed slightly into the coat, so without the cut the closed lips show the
   body surface behind them. The patch discards coat fragments inside an ellipse behind the opening:
   the radii are `coat_hole` (lateral) and `coat_hole_height` (vertical) × the measured lip radius,
-  up to `coat_hole_depth_mm` behind the opening plane, in the same body-local frame as the spread.
-  The cut is taller than it is wide because the measured lip radius is radial while the lips reach
-  further up and down. The cut is gated on the anatomy mesh being visible, so `act` mode leaves the
-  coat whole while she is hidden. Either radius at 0 turns the cut off.
+  up to `coat_hole_depth_mm` behind the opening plane. The cut is taller than it is wide because
+  the measured lip radius is radial while the lips reach further up and down. The cut is gated on
+  the anatomy mesh being visible, so `act` mode leaves the coat whole while she is hidden. Either
+  radius at 0 turns the cut off.
 - The patch drives the vulva spread, the V2 anal mound and hole, the vulva cut and two no-jiggle
-  ellipsoids: one around the vulva and one around the visible ponut. The uniforms are body-local,
-  mapped through the `pony_hips` bind.
+  ellipsoids: one around the vulva and one around the visible ponut. The uniforms are in the
+  anatomy mesh's local frame. A body-to-anatomy matrix, refreshed every frame, maps each
+  already-skinned coat vertex into that frame before the cut and the masks are evaluated, so the
+  cut and the zones follow the live pose, the saved placement and the missionary trims. The debug
+  rings use the anatomy mesh's own transform.
 - `coat_spread` scales the vulva spread, `coat_hole` and `coat_hole_height` the cut's lateral and
   vertical radii, `coat_hole_depth_mm` the cut depth, `jiggle_still` the vulva still zone,
   `anal_still` the anal zone, `still_oval` the vertical half-axis, `still_fade` the rim fade,
   `still_height_mm` the vulva zone's vertical placement and `vulva_out_mm` the mesh push.
   `draw_still_zones` overlays the two ellipsoids and their fully-still cores.
-- The per-pony material duplicate and its outline are added back to the game's jiggle target list
-  after every `_start_jiggle()`. The anatomy also re-adds them on a stock flank smack through
-  `physical_reaction("flank_smack")`.
-- Turning the flag off restores the original shader resource and clears the mod uniforms. The
-  per-pony material copies stay; only the shader and the uniforms are undone.
+- The per-pony rig duplicate and its outline, plus the patched merged near materials, are added
+  back to the game's jiggle target list after every `_start_jiggle()`. The anatomy also re-adds
+  them on a stock flank smack through `physical_reaction("flank_smack")`.
+- Turning the flag off restores the original shader resource and clears the mod uniforms on the
+  rig, the hull and the merged near materials. The per-pony material copies stay; only the shader
+  and the uniforms are undone.
+- The body-coat and still-zone rows are unbounded debug numbers. The shader keeps its physical
+  guards: a negative radius turns that deform or still zone off, and the fade and oval keep their
+  lower-safe ranges.
 
 ### Coat follow
 
@@ -745,8 +758,8 @@ built from the declarations, so the label, help and bounds are not restated here
   blend runs on the GPU. The seat's own `_process` is enabled only while **Print perf logs** is
   on, so the probe costs nothing in a normal session.
 - The mesh and material debug helpers (`body_coat_mesh()`, `body_coat_material()`,
-  `body_outline_material()`, `is_attached()`) exist so the runtime can re-add the patched material
-  to the game's jiggle target list.
+  `body_outline_material()`, `body_coat_targets()`, `is_attached()`) exist so the runtime can
+  re-add the patched rig and merged-near materials to the game's jiggle target list.
 
 ## Dependencies
 
@@ -784,9 +797,9 @@ Current suites:
   opening once it is released, and clears the missionary inset outside the bed pose.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
-  idle heat, mesh refinement, act calls, the player part's idempotent `prepare()`, body coat, the
-  vulva cut and still zones, the face contact's parked part and restored opening, plus the
-  provider's `eligible` assertion and the participation gate).
+  idle heat, mesh refinement, act calls, the player part's idempotent `prepare()`, the rig and
+  near coat patch, the vulva cut and still zones, the face contact's parked part and restored
+  opening, plus the provider's `eligible` assertion and the participation gate).
 - `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
   callbacks.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.

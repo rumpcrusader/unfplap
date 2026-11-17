@@ -1,8 +1,8 @@
 extends Node3D
 ## Debug overlay for the two body-coat still zones. Four line rings: the outer ellipsoid and the
-## fully-still core of the vulva and visible anal cup zones. anatomy/service.gd places them each frame
-## through the pony_hips skinning transform; the rings are unshaded, no-depth-test overlays so
-## they stay visible through the coat.
+## fully-still core of the vulva and visible anal cup zones. anatomy/coat.gd places them each frame
+## through the anatomy mesh transform; the rings are unshaded, no-depth-test overlays so they stay
+## visible through the coat.
 
 const SEGMENTS := 48
 const VULVA_COLOR := Color(1.0, 0.35, 0.60, 0.90)
@@ -47,8 +47,8 @@ func _make_ring(mesh: ArrayMesh, color: Color) -> MeshInstance3D:
 	return ring
 
 
-## place the outer ellipsoid and its fully-still core. `axes` is the zone frame in body space;
-## `body_to_world` is the pony_hips skinning transform (body local -> world).
+## place the outer ellipsoid and its fully-still core. `axes` is the anatomy-local zone frame;
+## `body_to_world` is the anatomy mesh transform (anatomy local -> world).
 func update(body_to_world: Transform3D, vulva_centre: Vector3, vulva_axes: Basis,
 		vulva_radius: float, anal_centre: Vector3, anal_radius: float,
 		oval: float, fade: float, shown: bool) -> void:

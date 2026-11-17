@@ -154,7 +154,7 @@ color(n, path, label, help, tab, group)
 | `group` | the panel section; `"Standing › Smack"` is a subheading under `Standing`. A group needs at least 3 related settings: fewer, and pass `""` so the setting sits in the tab with no heading (a small subgroup merges into its parent). A pose feature flag left in General keeps its old pose group even when Poses took the rest of the section |
 | `options`, `labels` | the accepted values and their display text for a choice or list |
 | `with_unit`, `with_step`, `with_scale` | display unit, spin step and display multiplier (`m` shown as `cm` = `100`) |
-| `with_range` | the contract bounds; only applied when the setting is not debug |
+| `with_range` | the player-facing contract bounds; a debug row uses them only as its spin-box span and is never clamped |
 | `with_slider` | draw a themed HSlider instead of a spin box |
 | `as_debug` | show it in the tab's Debug block only, and never clamp it |
 | `as_hidden` | keep it out of the declaration rows; a hand-built `settings/ui.gd` control (the placement target pill) owns the widget |
@@ -176,7 +176,8 @@ prefixes pre-emptively.
   is the only clamp a consumer may rely on: sensitivity, hip back-off, auto pace/depth, camera
   surge/bob, glance-back speed, genital tone.
 - A debug number (`.as_debug()`) is stored and returned **verbatim**; `with_range` only shapes the
-  spin box. Moving a setting to or from debug is the `as_debug()` call alone.
+  spin box, and a debug row that needs the full range should omit it. Moving a setting to or from
+  debug is the `as_debug()` call alone.
 - Moving a debug setting to player-facing starts clamping its stored value. Check the saved range
   when you do it.
 - Do not add a clamp in a consumer "to be safe". If a value must stay playable, give it
@@ -461,7 +462,8 @@ tuning:
 - **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
 - **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
   still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points,
-  **Hide tails** and **Show skeleton overlay**.
+  **Hide tails** and **Show skeleton overlay**. The coat and still-zone rows are unbounded debug
+  values; the shader turns a negative radius off.
 - **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, Surge and Bob. Surge is
   the forward camera travel, Bob the vertical dip; both follow the filtered thrust **speed**, not
   depth, with one smooth critically damped response.

@@ -32,7 +32,9 @@ lazily from the pony's `FlankTouch`, so a stock smack outside an act still reach
 body coat.
 
 The patched body coat is the runtime case: `FlankTouch` rebuilds its `_jiggle_targets` list on
-every slap, so the body and outline materials are re-added after every `_start_jiggle()`.
+every slap, so the anatomy's `body_coat_targets()` pairs are re-added after every
+`_start_jiggle()`. The list covers the rig body and outline and, when the merged near mesh
+contains her body, its palette and outline materials.
 
 ## Internal API
 
@@ -43,7 +45,7 @@ every slap, so the body and outline materials are re-added after every `_start_j
 | `configure(context)` | take `jiggle`, `pose_family`, `size_scale` and `climax_seconds` from the act snapshot |
 | `begin_act()` | clear the per-act blush, jiggle log and heart pulses |
 | `end_act()` | free the blush decal, drop the tail and restore the stock shader radius |
-| `body_coat_target()` | re-add the patched body and outline to the jiggle targets |
+| `body_coat_target()` | re-add the patched rig and merged-near body materials to the jiggle targets |
 | `thrust(weight)` | start the rump jiggle and scale its resolved amount |
 | `tail_thrust(weight)` | add the standing tail impulse for the same thrust |
 | `smack(strength)` | carry the native smack jiggle into the tail |

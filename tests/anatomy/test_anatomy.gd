@@ -825,7 +825,7 @@ func run() -> void:
 	check(is_zero_approx(float(wink_act.get("_wink_left"))), "reset clears the act wink")
 	wink_act.free()
 
-	# The body coat shader works in NearBody vertex space; the anatomy pose is in bone space.
+	# The generic bind helper maps anatomy-local points into the body's rest space.
 	var bind := Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(0.1, 0.2, 0.3))
 	var mesh_xf := Transform3D(Basis(Vector3.RIGHT, -0.3), Vector3(0.0, 0.55, 0.29))
 	var point := Vector3(0.01, -0.02, 0.03)

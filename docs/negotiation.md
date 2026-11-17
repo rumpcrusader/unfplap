@@ -234,8 +234,8 @@ cancels the Agreement with the same `privacy` reason and reaction.
 `unfplap:negotiation:<id>` for an Anon offer, or takes the Proactive request's token over for a
 Mare offer, then takes the physical affection hold. A cuddle offer takes the attention and
 affection hold only (`claim_attention`): the cuddle session keeps its own navigator lease. Every tick it re-asserts the navigator and
-keeps Anon as the conversation target. A lost owner, a missing ledger or a reassigned target is
-`Interrupted(target_left)`. Every terminal outcome calls `release_negotiation()`; `Started` leaves
+keeps Anon as the conversation target. A lost owner, a missing ledger or a target outside Anon's
+subtree is `Interrupted(target_left)`. Every terminal outcome calls `release_negotiation()`; `Started` leaves
 the adopted hold to the act.
 
 ## Feedback and cooldown

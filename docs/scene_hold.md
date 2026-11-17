@@ -50,7 +50,8 @@ negotiation runs before the act.
 - `keep_nav()` — re-asserts the lease if the owner changed; a negotiation lease also clears a
   route target another system set.
 - `keep_target()` — keeps Anon as the conversation target. A cleared target is re-asserted;
-  another live target returns false (`target_left`).
+  a target under Anon (his rig or body) is still Anon, and any other live target returns false
+  (`target_left`).
 - `hold_affection()` / `release_affection()` — set and clear the game's `affection_active` meta.
   Any live affection hold is Occupied.
 - `release_negotiation()` — releases the whole negotiation hold: affection first, then the

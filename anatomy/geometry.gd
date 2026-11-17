@@ -31,10 +31,6 @@ const V2_ANAL_RING_OVER := Vector3(0.00279, 0.05955, 0.01908)
 const V2_ANAL_RING_EXTREME := Vector3(0.00303, 0.03996, 0.03310)
 const V2_ANAL_RING_PONUT := Vector3(0.00296, 0.06515, 0.03310)
 
-## Cell size of the body-vertex lookup grid. The rump weights are smooth; 2 cm keeps the nearest
-## body vertex inside the 5x5x5 neighbourhood around every line target.
-const COAT_LINE_CELL_M := 0.02
-
 static var _refined_winking_meshes := {}
 
 
@@ -107,23 +103,6 @@ static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
 	return maxf(lip * outer_factor * scale * 1.3, 0.045) * multiplier
 
 
-## Bucket body rest vertices by cell so the anatomy's weight sample is a handful of distance
-## checks instead of a full scan. Pure: the caller owns the vertices.
-static func body_weight_grid(vertices: PackedVector3Array, cell: float) -> Dictionary:
-	var grid := {}
-	if vertices.is_empty() or cell <= 0.0:
-		return grid
-	for i in vertices.size():
-		var key := Vector3i(
-			floori(vertices[i].x / cell),
-			floori(vertices[i].y / cell),
-			floori(vertices[i].z / cell))
-		var bucket: PackedInt32Array = grid.get(key, PackedInt32Array())
-		bucket.append(i)
-		grid[key] = bucket
-	return grid
-
-
 ## The line targets: `count` local points at x = 0, evenly spaced across the mesh's local Y range.
 static func coat_line_targets(y_min: float, y_max: float, count: int) -> PackedVector3Array:
 	var out := PackedVector3Array()
@@ -136,72 +115,21 @@ static func coat_line_targets(y_min: float, y_max: float, count: int) -> PackedV
 	return out
 
 
-## Resolve each line target, in body rest space, to its nearest body rest vertex. Returns
-## `indices`, the nearest `points` and their normalized bind-name -> weight `influences`. A target
-## with no vertex inside the 5x5x5 grid neighbourhood is skipped.
-static func coat_line_samples(targets_body: PackedVector3Array,
-		body_vertices: PackedVector3Array, body_bones: PackedInt32Array,
-		body_weights: PackedFloat32Array, bone_names: PackedStringArray,
-		grid: Dictionary, cell: float) -> Dictionary:
-	var indices := PackedInt32Array()
-	var points := PackedVector3Array()
-	var influences: Array = []
-	if targets_body.is_empty() or body_vertices.is_empty() or cell <= 0.0:
-		return {"indices": indices, "points": points, "influences": influences}
-	var stride := body_bones.size() / body_vertices.size() if body_vertices.size() > 0 else 0
-	if stride <= 0 or body_weights.size() != body_bones.size() \
-			or body_bones.size() != body_vertices.size() * stride:
-		return {"indices": indices, "points": points, "influences": influences}
-	var inv_cell := 1.0 / cell
-	for target in targets_body:
-		var index := _nearest_body_vertex(target, body_vertices, grid, inv_cell)
-		if index < 0:
-			continue
-		indices.append(index)
-		points.append(body_vertices[index])
-		var row := {}
-		var total := 0.0
-		var start := index * stride
-		for k in stride:
-			var weight := body_weights[start + k]
-			if weight <= 0.0:
-				continue
-			var bind := body_bones[start + k]
-			if bind < 0 or bind >= bone_names.size():
-				continue
-			var bone := String(bone_names[bind])
-			row[bone] = float(row.get(bone, 0.0)) + weight
-			total += weight
-		if total > 0.0:
-			for bone: String in row.keys():
-				row[bone] = float(row[bone]) / total
-		influences.append(row)
-	return {"indices": indices, "points": points, "influences": influences}
-
-
-## The nearest body rest vertex inside a growing 5x5x5 cell neighbourhood, or -1.
-static func _nearest_body_vertex(point: Vector3, vertices: PackedVector3Array,
-		grid: Dictionary, inv_cell: float) -> int:
-	var base := Vector3i(floori(point.x * inv_cell), floori(point.y * inv_cell),
-		floori(point.z * inv_cell))
-	for radius in [1, 2]:
-		var best := -1
-		var best_distance := INF
-		for dx in range(-radius, radius + 1):
-			for dy in range(-radius, radius + 1):
-				for dz in range(-radius, radius + 1):
-					var key := base + Vector3i(dx, dy, dz)
-					var bucket: Variant = grid.get(key)
-					if not bucket is PackedInt32Array:
-						continue
-					for index: int in bucket:
-						var distance := vertices[index].distance_squared_to(point)
-						if distance < best_distance:
-							best_distance = distance
-							best = index
-		if best >= 0:
-			return best
-	return -1
+## The live line: the rest line shifted by `bend` with a smooth falloff from the top (0) to the
+## bottom (1). `bend` is in the same local space as `rest`; `out` is filled in place.
+static func coat_line_bend(rest: PackedVector3Array, bend: Vector3,
+		out: PackedVector3Array) -> void:
+	if out.size() != rest.size():
+		out.resize(rest.size())
+	if rest.is_empty():
+		return
+	var y_min := rest[0].y
+	var y_max := rest[rest.size() - 1].y
+	var span := maxf(y_max - y_min, 0.000001)
+	for i in rest.size():
+		var t := (rest[i].y - y_min) / span
+		var falloff := smoothstep(0.0, 1.0, 1.0 - t)
+		out[i] = rest[i] + bend * falloff
 
 
 ## The shortest-arc rotation taking `from` to `to`.

@@ -1,6 +1,6 @@
 extends SceneTree
 ## Pure anatomy geometry: the lip-radius rule, the body-local mapping, the still-zone radius,
-## the V2 anal ring weights/centre, the coat line sampler/frames and the shader sample sync.
+## the V2 anal ring weights/centre, the coat line targets/bend/frames and the shader sample sync.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/anatomy/test_geometry.gd
 
@@ -97,43 +97,17 @@ func run() -> void:
 	check(targets[1].is_equal_approx(Vector3(0.0, 0.01, 0.0)),
 		"the middle target is evenly spaced")
 
-	# The line sampler resolves a body-space target to its nearest rest vertex and that vertex's
-	# full influence map, normalized.
-	var body_vertices := PackedVector3Array([Vector3.ZERO, Vector3(0.02, 0.0, 0.0),
-		Vector3(0.0, 0.02, 0.0)])
-	var grid := GEOMETRY.body_weight_grid(body_vertices, 0.02)
-	check(grid.has(Vector3i.ZERO), "the weight grid buckets a body vertex")
-	check(not grid.is_empty(), "the weight grid has a cell")
-	var names := PackedStringArray(["pony_hips", "pony_spine1", "pony_flank_L",
-		"pony_femur_L"])
-	var bones := PackedInt32Array([0, 1, 2, 3, 0, 0, 0, 0, 1, 0, 0, 0])
-	var weights := PackedFloat32Array([0.5, 0.25, 0.125, 0.125, 1.0, 0.0, 0.0, 0.0,
-		1.0, 0.0, 0.0, 0.0])
-	var sampled := GEOMETRY.coat_line_samples(
-		PackedVector3Array([Vector3(0.001, 0.0, 0.0)]), body_vertices, bones, weights,
-		names, grid, 0.02)
-	var sampled_indices: PackedInt32Array = sampled["indices"]
-	var sampled_points: PackedVector3Array = sampled["points"]
-	var sampled_influences: Array = sampled["influences"]
-	check(sampled_indices == PackedInt32Array([0]), "the sampler picks the nearest body vertex")
-	check(sampled_points.size() == 1 and sampled_points[0] == Vector3.ZERO,
-		"the sampler returns the nearest rest point")
-	check(sampled_influences.size() == 1, "one target produces one influence map")
-	if sampled_influences.size() == 1:
-		var row: Dictionary = sampled_influences[0]
-		check(near(float(row.get("pony_hips", 0.0)), 0.5), "hips keep their weight")
-		check(near(float(row.get("pony_spine1", 0.0)), 0.25), "the spine keeps its weight")
-		check(near(float(row.get("pony_flank_L", 0.0)), 0.125), "the flank keeps its weight")
-		check(near(float(row.get("pony_femur_L", 0.0)), 0.125), "the femur keeps its weight")
-		var total := 0.0
-		for value: float in row.values():
-			total += value
-		check(near(total, 1.0), "the influence map is normalized")
-	var missing := GEOMETRY.coat_line_samples(
-		PackedVector3Array([Vector3(2.0, 2.0, 2.0)]), body_vertices, bones, weights,
-		names, grid, 0.02)
-	var missing_indices: PackedInt32Array = missing["indices"]
-	check(missing_indices.is_empty(), "a target outside the grid is skipped")
+	# The live line is the rest line shifted by the bend, anchored at the top.
+	var bent_line := PackedVector3Array()
+	GEOMETRY.coat_line_bend(targets, Vector3(0.01, 0.0, 0.0), bent_line)
+	check(bent_line.size() == targets.size(), "the bend keeps one point per sample")
+	check(bent_line[2].is_equal_approx(targets[2]), "the top sample stays anchored")
+	check(bent_line[0].is_equal_approx(targets[0] + Vector3(0.01, 0.0, 0.0)),
+		"the bottom sample follows the bend")
+	check(bent_line[1].is_equal_approx(targets[1] + Vector3(0.005, 0.0, 0.0)),
+		"the middle sample follows half the bend")
+	GEOMETRY.coat_line_bend(targets, Vector3.ZERO, bent_line)
+	check(bent_line == targets, "a zero bend keeps the rest line")
 
 	# The line frames: identity at rest, bend with the tangent and stretch along it.
 	var rest := PackedVector3Array([Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.1, 0.0),

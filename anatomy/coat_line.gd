@@ -1,21 +1,21 @@
 extends RefCounted
-## Per-pony coat line: the anatomy follows a vertical line sampled on the body coat, so a bent
-## coat bends every cross-section of the mesh and a stretched coat stretches it along the line.
-## The act's hole point and normal use the same frames, so the visible vulva and anus, the shaft
-## and the fluid stay together.
+## Per-pony coat line: a vertical line in the anatomy mesh's local space. The hind-leg motion
+## bends the line uniformly; the shader bends every cross-section with it. The act's hole point
+## and normal use the same frames.
 ##
-## The line is sampled once from the body mesh's own rest vertices and skin, and the frames are
-## refreshed from the skeleton's final `skeleton_updated` pose. See `docs/anatomy.md`
-## (`## Coat line`).
+## The line is the mesh's own vertical axis, not a sample of the body coat. See
+## `docs/anatomy.md` (`## Coat line`).
 
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 
-const BODY_NAME := "MareBody"
 const HIPS_BONE := "pony_hips"
 ## Must match `LINE_N` in `anatomy/anatomy.gdshader`; a source test pins the pair.
 const LINE_SAMPLES := 8
-## Samples closer than this in local Y are the same cross-section.
-const LINE_MIN_DUPLICATE_M := 0.002
+## The hind-leg tip bones, in fallback order per side.
+const LEG_TIPS := ["pony_tibia_", "pony_femur_", "pony_flank_"]
+## How much of the leg tip's horizontal travel the line follows, and its local cap.
+const BEND_GAIN := 0.8
+const BEND_MAX_M := 0.04
 
 var pony: Node3D
 var placement: RefCounted
@@ -25,37 +25,20 @@ var material: ShaderMaterial
 
 var last_error := ""
 
-## Body mesh/skin id -> rest vertices, skin data and the vertex grid. The body resources are
-## shared by every standard mare, so the 7,625-vertex grid is built once.
-static var _body_cache: Dictionary = {}
-
-var _body_vertices := PackedVector3Array()
-var _body_bones := PackedInt32Array()
-var _body_weights := PackedFloat32Array()
-var _body_names := PackedStringArray()
-var _body_binds: Array[Transform3D] = []
-var _grid: Dictionary = {}
-var _grid_cell := GEOMETRY.COAT_LINE_CELL_M
-
 var _hips_index := -1
 var _hips_rest := Transform3D.IDENTITY
 var _built_place := Transform3D.IDENTITY
 var _built_mesh_id := 0
 var _built := false
-## A body without a usable coat is a stable condition; do not scan for it every frame.
+## A missing mesh or skeleton is a stable condition; do not scan for it every frame.
 var _retry_at_msec := 0
 
-## Line build, in anatomy-local space. Valid samples are `_rest_local.size()` long; the shader
-## arrays are padded to `LINE_SAMPLES` with the last frame.
-var _rest_body := PackedVector3Array()
+## The line in anatomy-local space. `_rest_local` is the mesh's vertical axis; `_live` is the
+## bent line. The shader arrays are padded to `LINE_SAMPLES` with the last frame.
 var _rest_local := PackedVector3Array()
-var _sample_bone_slots: Array[PackedInt32Array] = []
-var _sample_weights: Array[PackedFloat32Array] = []
-var _unique_bones := PackedInt32Array()
-var _bone_bind: Array[Transform3D] = []
-var _bone_matrices: Array[Transform3D] = []
-var _bone_slot: Dictionary = {}
 var _live := PackedVector3Array()
+var _leg_tips := PackedInt32Array()
+var _leg_rests := PackedVector3Array()
 
 ## The shader's per-sample columns and offsets, preallocated to `LINE_SAMPLES`.
 var _basis_x := PackedVector3Array()
@@ -123,22 +106,15 @@ func clear() -> void:
 	_retry_at_msec = 0
 	_hidden = true
 	_pose_ready = false
-	_rest_body = PackedVector3Array()
 	_rest_local = PackedVector3Array()
 	_live = PackedVector3Array()
-	_sample_bone_slots = []
-	_sample_weights = []
-	_unique_bones = PackedInt32Array()
-	_bone_bind = []
-	_bone_matrices = []
-	_bone_slot = {}
-	_grid = {}
+	_leg_tips = PackedInt32Array()
+	_leg_rests = PackedVector3Array()
 	last_error = ""
 
 
 ## Called every frame by the controller. Builds the line lazily; the frames themselves come from
-## `_on_skeleton_updated`, where the skeleton reports its final modifier-applied pose. A missing
-## body or skin leaves the anatomy rigid.
+## `_on_skeleton_updated`, where the skeleton reports its final modifier-applied pose.
 func tick(hidden: bool) -> void:
 	_hidden = hidden
 	if hidden:
@@ -172,42 +148,44 @@ func _on_skeleton_updated() -> void:
 	_pose_ready = true
 
 
-## Skin every sample from the current skeleton pose and build the line frames.
+## Bend the line from the hind-leg tip travel relative to the pelvis and build its frames.
 func _compute_frames() -> void:
 	if not _built or _line_count < 2 or not is_instance_valid(skeleton) \
 			or not is_instance_valid(material):
 		return
 	var hips_delta := skeleton.get_bone_global_pose(_hips_index) * _hips_rest.affine_inverse()
-	var to_local := _built_place.affine_inverse() * hips_delta.affine_inverse()
-	for i in _unique_bones.size():
-		_bone_matrices[i] = skeleton.get_bone_global_pose(_unique_bones[i]) * _bone_bind[i]
-	for i in _rest_body.size():
-		var skinned := Vector3.ZERO
-		var slots := _sample_bone_slots[i]
-		var weights := _sample_weights[i]
-		for k in slots.size():
-			skinned += (_bone_matrices[slots[k]] * _rest_body[i]) * weights[k]
-		_live[i] = to_local * skinned
+	var inv_hips := hips_delta.affine_inverse()
+	var inv_place := _built_place.affine_inverse()
+	var bend := Vector3.ZERO
+	var best := 0.0
+	for i in _leg_tips.size():
+		var pose := skeleton.get_bone_global_pose(_leg_tips[i])
+		var live_local := inv_place * inv_hips * pose.origin
+		var rest_local := inv_place * _leg_rests[i]
+		var delta := live_local - rest_local
+		var horizontal := Vector3(delta.x, 0.0, delta.z)
+		var length := horizontal.length()
+		if length > best:
+			best = length
+			bend = horizontal
+	if best > 0.000001:
+		bend = bend / best * minf(best * BEND_GAIN, BEND_MAX_M)
+	GEOMETRY.coat_line_bend(_rest_local, bend, _live)
 	GEOMETRY.fill_line_frames(_rest_local, _live, _basis_x, _basis_y, _basis_z, _origin)
 	_upload_frames()
 
 
-## Re-find the body mesh, resample the line and rebuild the frames. Called on attach, a mesh swap
-## or a placement change; not per frame.
+## Rebuild the line from the anatomy mesh's local Y range. Called on attach, a mesh swap or a
+## placement change; not per frame.
 func rebuild() -> bool:
 	_built = false
 	_built_mesh_id = 0
 	_line_count = 0
 	_pose_ready = false
-	_rest_body = PackedVector3Array()
 	_rest_local = PackedVector3Array()
 	_live = PackedVector3Array()
-	_sample_bone_slots = []
-	_sample_weights = []
-	_unique_bones = PackedInt32Array()
-	_bone_bind = []
-	_bone_matrices = []
-	_bone_slot = {}
+	_leg_tips = PackedInt32Array()
+	_leg_rests = PackedVector3Array()
 	last_error = ""
 	if not is_instance_valid(mesh) or not is_instance_valid(skeleton) \
 			or not is_instance_valid(placement):
@@ -216,8 +194,6 @@ func rebuild() -> bool:
 	var source := mesh.mesh as ArrayMesh
 	if source == null or source.get_surface_count() != 1:
 		last_error = "anatomy mesh is not one surface"
-		return false
-	if not _read_body():
 		return false
 	var base_value: Variant = placement.base_place()
 	if not base_value is Transform3D:
@@ -241,77 +217,21 @@ func rebuild() -> bool:
 	for vertex in vertices:
 		y_min = minf(y_min, vertex.y)
 		y_max = maxf(y_max, vertex.y)
-	var targets := GEOMETRY.coat_line_targets(y_min, y_max, LINE_SAMPLES)
-	var targets_body := PackedVector3Array()
-	targets_body.resize(targets.size())
-	for i in targets.size():
-		targets_body[i] = base * targets[i]
-	var samples := GEOMETRY.coat_line_samples(targets_body, _body_vertices,
-		_body_bones, _body_weights, _body_names, _grid, _grid_cell)
-	var indices: PackedInt32Array = samples.get("indices", PackedInt32Array())
-	var points: PackedVector3Array = samples.get("points", PackedVector3Array())
-	var influences: Array = samples.get("influences", [])
-	if indices.size() < 2:
-		last_error = "no body coat at the anatomy"
-		return false
-	var inv_base := base.affine_inverse()
-	var rows: Array = []
-	for i in indices.size():
-		rows.append({"body": points[i], "local": inv_base * points[i],
-			"influence": influences[i]})
-	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var left: Vector3 = a["local"]
-		var right: Vector3 = b["local"]
-		return left.y < right.y)
-	var keep: Array = []
-	var last_y := -INF
-	for row: Dictionary in rows:
-		var local: Vector3 = row["local"]
-		if not keep.is_empty() and local.y - last_y < LINE_MIN_DUPLICATE_M:
-			continue
-		keep.append(row)
-		last_y = local.y
-	if keep.size() < 2:
+	_rest_local = GEOMETRY.coat_line_targets(y_min, y_max, LINE_SAMPLES)
+	if _rest_local.size() < 2:
 		last_error = "coat line samples collapse"
 		return false
-	for row: Dictionary in keep:
-		var local: Vector3 = row["local"]
-		var body: Vector3 = row["body"]
-		var influence: Dictionary = row["influence"]
-		var slots := PackedInt32Array()
-		var weights := PackedFloat32Array()
-		var total := 0.0
-		for bone_name: String in influence.keys():
-			var weight := float(influence[bone_name])
-			if weight <= 0.0:
-				continue
-			var bone := skeleton.find_bone(bone_name)
-			if bone < 0:
-				continue
-			var slot := int(_bone_slot.get(bone, -1))
-			if slot < 0:
-				slot = _unique_bones.size()
-				_bone_slot[bone] = slot
-				_unique_bones.append(bone)
-				_bone_bind.append(_bind_pose(bone_name))
-				_bone_matrices.append(Transform3D.IDENTITY)
-			slots.append(slot)
-			weights.append(weight)
-			total += weight
-		if slots.is_empty():
-			continue
-		if total > 0.0:
-			for k in weights.size():
-				weights[k] /= total
-		_rest_body.append(body)
-		_rest_local.append(local)
-		_sample_bone_slots.append(slots)
-		_sample_weights.append(weights)
-	_line_count = _rest_body.size()
-	if _line_count < 2:
-		last_error = "anatomy bones are missing"
-		return false
+	_line_count = _rest_local.size()
 	_live.resize(_line_count)
+	for side: String in ["L", "R"]:
+		var tip := -1
+		for prefix: String in LEG_TIPS:
+			tip = skeleton.find_bone(prefix + side)
+			if tip >= 0:
+				break
+		if tip >= 0:
+			_leg_tips.append(tip)
+			_leg_rests.append(skeleton.get_bone_global_rest(tip).origin)
 	_hips_index = hips_index
 	_hips_rest = skeleton.get_bone_global_rest(_hips_index)
 	_built_mesh_id = mesh.mesh.get_instance_id()
@@ -349,14 +269,6 @@ func deform_direction(local: Vector3) -> Vector3:
 		return local
 	return GEOMETRY.line_direction_at(local, _rest_local, _basis_x, _basis_y,
 		_basis_z, _origin)
-
-
-## The body bind pose for a bone name, in the body skin's bind order.
-func _bind_pose(bone_name: String) -> Transform3D:
-	var index := _body_names.find(bone_name)
-	if index < 0 or index >= _body_binds.size():
-		return Transform3D.IDENTITY
-	return _body_binds[index]
 
 
 func _ensure_upload_arrays() -> void:
@@ -398,73 +310,3 @@ func _upload_frames() -> void:
 	material.set_shader_parameter("line_basis_y", _basis_y)
 	material.set_shader_parameter("line_basis_z", _basis_z)
 	material.set_shader_parameter("line_origin", _origin)
-
-
-## The body coat's rest vertices, skin data and bind poses. The body mesh and skin resources are
-## shared by every standard mare; the grid is built once and reused by every pony's line.
-func _read_body() -> bool:
-	if not is_instance_valid(pony):
-		last_error = "no pony"
-		return false
-	var model: Variant = pony.get("_model")
-	if not model is Node:
-		last_error = "no pony model"
-		return false
-	var body := (model as Node).find_child(BODY_NAME, true, false) as MeshInstance3D
-	if not is_instance_valid(body) or body.mesh == null or body.skin == null:
-		last_error = "no skinned body coat"
-		return false
-	if body.mesh.get_surface_count() < 1:
-		last_error = "body coat has no surface"
-		return false
-	var key := "%d:%d" % [body.mesh.get_instance_id(), body.skin.get_instance_id()]
-	var cached: Variant = _body_cache.get(key)
-	if not cached is Dictionary:
-		cached = _build_body(body)
-		if (cached as Dictionary).is_empty():
-			return false
-		_body_cache[key] = cached
-	var row := cached as Dictionary
-	_body_vertices = row.get("vertices", PackedVector3Array())
-	_body_bones = row.get("bones", PackedInt32Array())
-	_body_weights = row.get("weights", PackedFloat32Array())
-	_body_names = row.get("names", PackedStringArray())
-	_body_binds = []
-	var bind_row: Variant = row.get("binds", [])
-	if bind_row is Array:
-		for bind: Transform3D in bind_row:
-			_body_binds.append(bind)
-	_grid = row.get("grid", {})
-	if _body_vertices.is_empty() or _body_bones.is_empty() or _body_weights.is_empty():
-		last_error = "body coat has no skin data"
-		return false
-	return true
-
-
-## Build the immutable body-side data once per body mesh and skin.
-func _build_body(body: MeshInstance3D) -> Dictionary:
-	var arrays: Array = body.mesh.surface_get_arrays(0)
-	if arrays.size() != Mesh.ARRAY_MAX or arrays[Mesh.ARRAY_VERTEX] == null \
-			or arrays[Mesh.ARRAY_BONES] == null or arrays[Mesh.ARRAY_WEIGHTS] == null:
-		last_error = "body coat is not skinned"
-		return {}
-	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
-	var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
-	if vertices.is_empty() or bones.is_empty() or weights.is_empty():
-		last_error = "body coat has no skin data"
-		return {}
-	var skin: Skin = body.skin
-	var names := PackedStringArray()
-	var binds: Array[Transform3D] = []
-	for i in skin.get_bind_count():
-		names.append(String(skin.get_bind_name(i)))
-		binds.append(skin.get_bind_pose(i))
-	return {
-		"vertices": vertices,
-		"bones": bones,
-		"weights": weights,
-		"names": names,
-		"binds": binds,
-		"grid": GEOMETRY.body_weight_grid(vertices, _grid_cell),
-	}

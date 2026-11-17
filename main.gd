@@ -28,6 +28,7 @@ const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const STOCK_SMACK := preload("res://mods/unfplap/audio/stock_smack.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
@@ -79,6 +80,8 @@ var anatomy: Node
 var pantyhose: Node
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
 var stool: Node
+## Outside-act stock smack sound layer; see `docs/audio.md`.
+var stock_smack: Node
 var _anatomy_status_label: Label
 var initiation: INITIATION
 var privacy: PRIVACY
@@ -269,6 +272,10 @@ func _ready() -> void:
 	stool.name = "UnfplapStool"
 	stool.call("setup", self)
 	add_child(stool)
+	stock_smack = STOCK_SMACK.new()
+	stock_smack.name = "UnfplapStockSmack"
+	stock_smack.set("log", Callable(self, "debug"))
+	add_child(stock_smack)
 	api = API.new()
 	api.name = "UnfplapAPI"
 	api.call("_bind", self)
@@ -368,6 +375,8 @@ func _on_world_closed(_host: Node) -> void:
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null
+	if is_instance_valid(stock_smack):
+		stock_smack.call("clear_world")
 	game = null
 	player = null
 	_offer = null
@@ -478,6 +487,8 @@ func _apply_settings_changed() -> void:
 		anatomy.call("refresh_tails")
 	if is_instance_valid(pantyhose):
 		pantyhose.call("apply_live_settings")
+	if is_instance_valid(stock_smack):
+		stock_smack.call("apply_settings")
 
 
 ## The anatomy controller owns the genitals material; refresh the dock after it attaches, changes
@@ -531,6 +542,8 @@ func _on_pony(pony: Node) -> void:
 		return
 	if is_instance_valid(anatomy):
 		anatomy.call("tail_ready", pony)
+	if is_instance_valid(stock_smack):
+		stock_smack.call("pony_ready", pony)
 	if _runtimes.has(pony):
 		return
 	var runtime: Node = RUNTIME.new()
@@ -1976,11 +1989,15 @@ func allocate_serial() -> int:
 func set_active(runtime: Node) -> void:
 	active_runtime = runtime
 	_offer = null
+	if is_instance_valid(stock_smack):
+		stock_smack.call("act_start", runtime.get("pony"))
 
 
 func clear_active(runtime: Node) -> void:
 	if active_runtime == runtime:
 		active_runtime = null
+		if is_instance_valid(stock_smack):
+			stock_smack.call("act_end", runtime.get("pony"))
 
 
 func camera() -> Camera3D:
@@ -2600,6 +2617,10 @@ func _exit_tree() -> void:
 		anatomy.call("shutdown")
 		anatomy.queue_free()
 		anatomy = null
+	if is_instance_valid(stock_smack):
+		stock_smack.call("shutdown")
+		stock_smack.queue_free()
+		stock_smack = null
 	_offer = null
 	_perf_idle.reset()
 	if is_instance_valid(hud):

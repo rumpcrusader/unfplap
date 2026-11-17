@@ -10,7 +10,6 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
-const SMACK_CTL := preload("res://mods/unfplap/hands/smack.gd")
 var failures := 0
 var checks := 0
 
@@ -187,9 +186,9 @@ func run() -> void:
 	smack.call("_install_sound")
 	check(smack_player.stream != stock_stream and smack_player.stream is AudioStream,
 		"the act installs a pack smack")
-	check(near(smack_player.volume_db, SMACK_CTL.SMACK_VOLUME_DB), "pack smack uses its own level")
-	check(smack_player.pitch_scale >= SMACK_CTL.SMACK_PITCH_MIN
-		and smack_player.pitch_scale <= SMACK_CTL.SMACK_PITCH_MAX, "pack smack varies its pitch")
+	check(near(smack_player.volume_db, SMACK.VOLUME_DB), "pack smack uses its own level")
+	check(smack_player.pitch_scale >= SMACK.PITCH_MIN
+		and smack_player.pitch_scale <= SMACK.PITCH_MAX, "pack smack varies its pitch")
 	smack.call("_restore_sound")
 	check(smack_player.stream == stock_stream, "smack restore puts the stock stream back")
 	check(near(smack_player.volume_db, -10.0) and near(smack_player.pitch_scale, 1.2),

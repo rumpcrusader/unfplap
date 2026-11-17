@@ -8,9 +8,10 @@ policy.
 | File | Role |
 |---|---|
 | `audio/service.gd` | the per-runtime audio facade: the pack layer, the base-game sound child, and the Ponese mute policy |
+| `audio/stock_smack.gd` | the world-scope outside-act replacement on the native `FlankTouch` player |
 | `audio/sound.gd` | base-game breath and `squee_*` climax players and their timing |
 | `audio/cues.gd` | the pure pack cue table (groups, variants, volume, cooldowns, pitch) |
-| `audio/smack_cues.gd` | the hand-smack variants used by the hands system |
+| `audio/smack_cues.gd` | the hand-smack variants used by the hands system and the outside-act layer |
 | `docs/audio.md` | this contract |
 
 `audio/service.gd` is one Node per runtime. The runtime creates it lazily and keeps it for the
@@ -89,6 +90,7 @@ the debug read.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | settings | `settings/service.gd` | the outside-act smack switch |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 
 ## Lifecycle

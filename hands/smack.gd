@@ -27,9 +27,6 @@ const SMACK_PHASE_RAISE := 1
 const SMACK_PHASE_STRIKE := 2
 const SMACK_PHASE_CONTACT := 3
 const SMACK_PHASE_RECOVER := 4
-const SMACK_VOLUME_DB := -7.0
-const SMACK_PITCH_MIN := 0.97
-const SMACK_PITCH_MAX := 1.03
 
 var hand: SESSION
 
@@ -441,8 +438,8 @@ func _install_sound() -> void:
 		_sound_installed = true
 	var index := _next_stream(_streams.size())
 	player.stream = _streams[index]
-	player.volume_db = SMACK_VOLUME_DB
-	player.pitch_scale = randf_range(SMACK_PITCH_MIN, SMACK_PITCH_MAX)
+	player.volume_db = SMACK_AUDIO.VOLUME_DB
+	player.pitch_scale = randf_range(SMACK_AUDIO.PITCH_MIN, SMACK_AUDIO.PITCH_MAX)
 
 
 func _restore_sound() -> void:

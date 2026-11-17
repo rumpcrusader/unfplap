@@ -55,7 +55,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Face and mood | `face/service.gd` | `docs/face.md` | `tests/face/` |
 | Reactions | `reactions/service.gd` | `docs/reactions.md` | `tests/reactions/` |
 | Stool | `stool/service.gd` | `docs/stool.md` | `tests/stool/` |
-| Audio and voice | `audio/service.gd` | `docs/audio.md` | `tests/act_audio/` |
+| Audio and voice | `audio/service.gd`, `audio/stock_smack.gd` | `docs/audio.md` | `tests/act_audio/` |
 | HUD | `hud/service.gd` | `docs/hud.md` | `tests/hud/` |
 | Settings | `settings/service.gd` | `docs/settings.md` | `tests/test_settings.gd` |
 | Mare registry | `registry/service.gd` | `docs/registry.md` | `tests/test_api.gd` |

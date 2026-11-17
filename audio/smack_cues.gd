@@ -9,3 +9,6 @@ const PATHS := [
 	"res://mods/unfplap/assets/audio/smack/hand_02.wav",
 	"res://mods/unfplap/assets/audio/smack/hand_03.wav",
 ]
+const VOLUME_DB := -7.0
+const PITCH_MIN := 0.97
+const PITCH_MAX := 1.03

@@ -776,6 +776,9 @@ static var captions_on_top := flag("captions_on_top", "features.captions_on_top"
 static var mute_ponese_audio := flag("mute_ponese_audio", "features.mute_ponese_audio",
 	"Mute Ponese",
 	"Keep the act's generated text but silence the Ponese voice for that act.", GENERAL, "")
+static var pack_smack_sound := flag("pack_smack_sound", "features.pack_smack_sound",
+	"Use pack smack sound",
+	"Use the mod's own hand-smack audio for regular flank smacks outside an act.", GENERAL, "")
 static var quality := choice("quality", "caress.quality",
 	["fast", "precise"], ["Fast", "Precise"],
 	"Caress surface quality",

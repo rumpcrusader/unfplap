@@ -1160,11 +1160,19 @@ func _check_act_audio() -> void:
 			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
 			"main.get(", "main.call(\""]:
 		check(not facade.contains(token), "act audio has no host reach-in: %s" % token)
+	var stock := FileAccess.get_file_as_string(ROOT.path_join("audio/stock_smack.gd"))
+	check(stock.contains("func pony_ready(") and stock.contains("func act_start("),
+		"the outside-act smack layer is present")
+	for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")", "runtime.get(", "runtime.call(\"",
+			"main.get(", "main.call(\""]:
+		check(not stock.contains(token), "the stock smack layer has no host reach-in: %s" % token)
 	check(contract.contains("## Ownership"), "docs/audio.md documents the owner")
 	check(contract.contains("`audio/service.gd`"), "docs/audio.md names the facade")
+	check(contract.contains("`audio/stock_smack.gd`"), "docs/audio.md names the stock layer")
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(agents.contains("`docs/audio.md`"), "docs/README.md links to docs/audio.md")
-	for name: String in ["test_audio.gd", "test_act_audio.gd"]:
+	for name: String in ["test_audio.gd", "test_act_audio.gd", "test_smack_sound.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/act_audio/" + name)),
 			"tests/act_audio/%s exists" % name)
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))

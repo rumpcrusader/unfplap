@@ -6,13 +6,15 @@ extends Node
 const LLM := preload("res://world/ai/llm_client.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 
-const DEADLINE_SECONDS := 4.0
+const DEADLINE_SECONDS := 8.0
 const MAX_QUEUE := 4
 ## The negotiation model calls answer in JSON with one short answer or an option index. The
-## caller owns the schema; the classifier only bounds the request and the deadline.
+## caller owns the schema; the classifier only bounds the request and the deadline. The budget
+## reserves private-reasoning room on top of the visible JSON budget: a reasoning model that
+## exhausts it produces no JSON at all.
 const NEGOTIATION_LIMITS := {
-	"purpose": "unfplap_negotiation", "input_bytes": 4096, "output_tokens": 48,
-	"reasoning_room": 96, "max_attempts": 1,
+	"purpose": "unfplap_negotiation", "input_bytes": 4096, "output_tokens": 64,
+	"reasoning_room": 768, "max_attempts": 1,
 }
 
 var client: Node

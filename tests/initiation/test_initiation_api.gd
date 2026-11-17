@@ -7,6 +7,7 @@ extends SceneTree
 const INIT := preload("res://mods/unfplap/initiation/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 
 var failures := 0
 var checks := 0
@@ -263,6 +264,10 @@ func _debug_count(main: FakeMain, text: String) -> int:
 
 
 func run() -> void:
+	check(CLASSIFIER.NEGOTIATION_LIMITS.get("reasoning_room", 0) >= 512,
+		"the negotiation classifier reserves private-reasoning room")
+	check(CLASSIFIER.DEADLINE_SECONDS >= 8.0,
+		"the negotiation classifier deadline covers reasoning")
 	_check_force()
 	_check_clearance_and_options()
 	_check_reasoning()

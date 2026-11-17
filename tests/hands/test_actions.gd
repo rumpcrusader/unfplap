@@ -381,6 +381,21 @@ func run() -> void:
 	lean_anon.call("apply_anon_lean", hip, Basis.IDENTITY)
 	check(near(hip.global_position.z, MOTION.lean_distance(1.0, lean_scale)),
 		"forward lean keeps the pelvis behind the rump")
+	lean_facts.lean_view_forward = 0.0
+	lean_facts.shot_lean_forward = 0.0
+	lean_facts.standing_sway_offset = Vector3(0.0, 0.0, 0.03)
+	var sway_hip := Node3D.new()
+	root.add_child(sway_hip)
+	lean_anon.call("apply_anon_lean", sway_hip, Basis.IDENTITY)
+	check(near(sway_hip.global_position.z, 0.03),
+		"her pelvis sway moves Anon's pinned hip")
+	lean_facts.standing_sway_offset = Vector3.INF
+	var invalid_hip := Node3D.new()
+	root.add_child(invalid_hip)
+	lean_anon.call("apply_anon_lean", invalid_hip, Basis.IDENTITY)
+	check(near(invalid_hip.global_position.z, 0.0),
+		"a non-finite pelvis sway is ignored")
+	lean_facts.standing_sway_offset = Vector3.ZERO
 	var side_hip := Node3D.new()
 	root.add_child(side_hip)
 	lean_facts.lean_view_forward = 0.0
@@ -390,6 +405,8 @@ func run() -> void:
 	check(near(side_hip.global_position.x, -MOTION.LEAN_SIDE_M * lean_scale),
 		"side lean keeps the pelvis centred")
 	hip.free()
+	sway_hip.free()
+	invalid_hip.free()
 	side_hip.free()
 	# The kiss callback closes a reference cycle; break it so the helpers are freed.
 	lean_facts.kiss = Callable()

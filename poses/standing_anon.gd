@@ -100,6 +100,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 		# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
 		hip.global_position.y += kiss.lean_drop() * kiss.lean() + float(facts.anon_torso_drop)
 		hip.global_position.y -= _hip_drop()
+		hip.global_position += _sway_offset()
 		# Keep the game's stepping feet and only pin the lower body while leaning.
 		if forward_shift > 0.001 or absf(side_shift) > 0.001 or kiss.lean() > 0.001:
 			if not _lower_captured and left is Node3D and right is Node3D:
@@ -129,6 +130,15 @@ func _anatomy_service() -> Variant:
 ## Lower Anon's standing hips; use this when his body sits too high.
 func _hip_drop() -> float:
 	return SETTINGS.hip_drop_m.get_num()
+
+
+func _sway_offset() -> Vector3:
+	if facts == null:
+		return Vector3.ZERO
+	var raw: Variant = facts.standing_sway_offset
+	if raw is Vector3 and (raw as Vector3).is_finite():
+		return raw
+	return Vector3.ZERO
 
 
 ## The AnonBody above the hip target that owns both foot targets. `HipsTarget` is parented to the

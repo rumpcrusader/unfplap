@@ -257,10 +257,10 @@ func _binding(provider: ProviderState, binding: String) -> Node:
 func _required_alive(provider: ProviderState) -> bool:
 	for binding: String in provider.required:
 		var node: Variant = provider.bindings.get(binding)
-		if node is Node and is_instance_valid(node):
+		if is_instance_valid(node) and node is Node:
 			continue
 		node = _refresh_binding(provider, binding)
-		if not node is Node:
+		if not is_instance_valid(node) or not node is Node:
 			return false
 	return true
 

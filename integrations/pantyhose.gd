@@ -381,7 +381,7 @@ func _restore_all() -> void:
 	var nodes: Array = _applied.keys()
 	for node: Variant in nodes:
 		var applied: Variant = _applied.get(node)
-		if applied is Applied:
+		if is_instance_valid(node) and node is Node and applied is Applied:
 			_restore_node(node, applied)
 	_applied.clear()
 

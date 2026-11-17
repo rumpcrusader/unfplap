@@ -1,3 +1,6 @@
+v0.6.1
+- Fixed: worn panties and pantyhose now come off through the game's own undress action, so her wardrobe and her conversation stay in step.
+
 v0.6.0
 - Ask mare by talking — a clear offer in conversation now starts the negotiation: she answers in character, and the act begins on its own when she agrees.
 - Mare asking improved — when she walks over and asks, your spoken answer decides it, and the act starts as soon as you agree.

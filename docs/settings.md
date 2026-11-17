@@ -355,8 +355,8 @@ bounds — and applies live.
 
 **General**
 
-One ungrouped list, in this order: **Show start button**, **Show controls**, **Show HUD readouts**,
-**Move captions to top**, **Mute Ponese**, **Caress surface quality** (`Fast` / `Precise`),
+One ungrouped list, in this order: **Show controls**, **Show HUD readouts**, **Move captions to
+top**, **Mute Ponese**, **Caress surface quality** (`Fast` / `Precise`),
 **Climax limit** (`0…20`; `0` is unlimited), **Mouse sensitivity** in pixels per centimetre of hip
 travel (`20…400`), **Thrust direction** (which mouse direction deepens the stroke) and **Enable
 footstool**. The **Auto Thrust** section follows. The tab's last two player rows are drawn under
@@ -376,10 +376,6 @@ The act's hold-X layer edits the same values live; these rows set the starting p
 
 The audio switches and the hip back-off (`0.25…2.0×`) live in General's Debug block. The body slap
 fires at true contact; the old **Contact gap** row is retired.
-
-**Show start button** chooses between When Available and Try Your Luck. The gate semantics —
-including what Try Your Luck does and does not lift — are in `docs/eligibility.md`. The setting
-itself only stores the choice.
 
 **Anatomy**
 
@@ -421,8 +417,11 @@ The behavior behind the rows is in `docs/camera.md`, `docs/hands.md`, `docs/kiss
 
 **World**
 
-No headings: **Promiscuity**, **Enable estrus cycle**, **Enable public offers** and **Enable speech
-interjections**.
+No headings: **Promiscuity**, **Enable estrus cycle** and **Enable speech interjections**.
+
+The retired `relationship.sex_start` (**Show start button**) and `features.act_public_offer`
+(**Enable public offers**) have no replacement; a stored value is dropped on load through
+`_deprecated`. The act key is the hotkey and offer visibility comes from the privacy provider.
 
 **Characters**
 
@@ -506,9 +505,8 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `missionary_body_motion` | missionary torso slide and head nod on the thrust |
 | `thrust_ear_twitch` | standing thrust ear-twitch modifier |
 | `standing_stool` | a live reach gap over `stool_gap_m` needs enough `goods:footstool` stacks of `stool_height_m`; the shop or house drops supply them |
-| `estrus_cycle` | 30-day heat/diestrus cycle: heat warms faster, offers sooner and ignores privacy; diestrus blocks sex |
+| `estrus_cycle` | 30-day heat/diestrus cycle: heat warms faster and offers sooner; diestrus is Context; see `docs/eligibility.md` |
 | `act_speech_feel` | thrust-paced interjection instruction in cue lines |
-| `act_public_offer` | per-mare public consent affects offers; see `docs/eligibility.md` |
 | `mute_ponese_audio` | mute a Ponese-only act voice but keep its text |
 | `kissing_reactions` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
 | `pantyhose_undress` | take her panties and pantyhose off when an act starts; she stays undressed; see `docs/integrations.md` |

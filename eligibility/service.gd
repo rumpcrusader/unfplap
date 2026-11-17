@@ -29,7 +29,7 @@ const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 ## provider assertion. See `docs/eligibility.md` (`## Capability targets`).
 enum Target { ACT, ANATOMY, TAIL, CHARACTER }
 ## Verdict modes. The mode is recorded; every verdict field is always computed.
-enum Mode { START, OFFER, MID_ACT }
+enum Mode { START, OFFER }
 ## Row effects. `NONE` is a scene row; the rest mirror `eligibility/policy.gd`.
 enum Effect { NONE, BLOCK, REFUSE, HISTORY_REFUSE, OFFER_BLOCK, FLAG }
 ## Witness age categories.
@@ -47,7 +47,6 @@ const TARGET_KEYS := {
 const MODE_NAMES := {
 	Mode.START: "start",
 	Mode.OFFER: "offer",
-	Mode.MID_ACT: "mid_act",
 }
 
 
@@ -126,8 +125,6 @@ class Facts extends RefCounted:
 	var willing := false
 	var ignore_gates := false
 	var promiscuity := "any"
-	var sex_start := "try_luck"
-	var public_feature := true
 	var player_young := true
 	var player_pony := false
 	var cycle_phase := "normal"
@@ -139,7 +136,6 @@ class Facts extends RefCounted:
 
 class Actions extends RefCounted:
 	var public := false
-	var public_offer := false
 	var anal := false
 	var oral := false
 
@@ -150,7 +146,6 @@ class Relations extends RefCounted:
 	var love_level := -1
 	var willing := false
 	var promiscuity := "any"
-	var sex_start := ""
 	var cycle_phase := "normal"
 	var heat := false
 	var ignore_gates := false
@@ -172,7 +167,6 @@ class Verdict extends RefCounted:
 	var offer := false
 	var buck_refuse := false
 	var history_refuse := false
-	var stop := true
 	var offer_weight := 0.0
 	var facts: Facts = Facts.new()
 	var actions: Actions = Actions.new()
@@ -278,7 +272,6 @@ func get_verdict(pony: Node, mode: Mode = Mode.START) -> Verdict:
 	out.offer = bool(policy.get("offer", false))
 	out.buck_refuse = bool(policy.get("buck_refuse", false))
 	out.history_refuse = bool(policy.get("history_refuse", false))
-	out.stop = bool(policy.get("stop", true))
 	out.offer_weight = float(policy.get("offer_weight", 0.0))
 	return out
 
@@ -366,8 +359,6 @@ func _read_relationship(pony: Node, id: String, out: Dictionary) -> void:
 
 func _read_settings(out: Dictionary) -> void:
 	out["promiscuity"] = SETTINGS.promiscuity.get_choice()
-	out["sex_start"] = SETTINGS.sex_start.get_choice()
-	out["public_feature"] = SETTINGS.act_public_offer.get_bool()
 	out["ignore_gates"] = SETTINGS.ignore_gates.get_bool()
 
 
@@ -448,8 +439,6 @@ func _typed_facts(data: Dictionary) -> Facts:
 	out.willing = bool(data.get("willing", false))
 	out.ignore_gates = bool(data.get("ignore_gates", false))
 	out.promiscuity = str(data.get("promiscuity", "any"))
-	out.sex_start = str(data.get("sex_start", "try_luck"))
-	out.public_feature = bool(data.get("public_feature", true))
 	out.player_young = bool(data.get("player_young", true))
 	out.player_pony = bool(data.get("player_pony", false))
 	out.cycle_phase = str(data.get("cycle_phase", "normal"))
@@ -464,7 +453,6 @@ func _typed_actions(policy: Dictionary) -> Actions:
 	var data: Dictionary = policy.get("actions", {})
 	var out := Actions.new()
 	out.public = bool(data.get("public", false))
-	out.public_offer = bool(data.get("public_offer", false))
 	out.anal = bool(data.get("anal", false))
 	out.oral = bool(data.get("oral", false))
 	return out
@@ -478,7 +466,6 @@ func _typed_relations(policy: Dictionary) -> Relations:
 	out.love_level = int(data.get("love_level", -1))
 	out.willing = bool(data.get("willing", false))
 	out.promiscuity = str(data.get("promiscuity", "any"))
-	out.sex_start = str(data.get("sex_start", ""))
 	out.cycle_phase = str(data.get("cycle_phase", "normal"))
 	out.heat = bool(data.get("heat", false))
 	out.ignore_gates = bool(data.get("ignore_gates", false))

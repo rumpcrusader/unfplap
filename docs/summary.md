@@ -90,7 +90,9 @@ path is gone, so a bad act can no longer give `+2` romance.
 
 A completed act starts `face/mood_face.gd`: a good or non-early neutral act holds a relaxed face with
 the warm prompt note, and a bad act holds `sad`/`annoyed` instead. The 10 s aftercare hold always
-runs, but its positive tail-up body language is only used after a good act. `stay_close_reward`
+runs, but its positive tail-up body language is only used after a good act. A new act start
+clears it: the Act service removes the meta, frees the aftercare node and releases its navigator
+hold before claiming the new one. `stay_close_reward`
 gives its extra romance only on a good or non-early neutral act; after a bad act, staying close and
 caressing is a one-point hurt repair instead. The caress reward threshold is in `docs/hands.md`.
 
@@ -177,8 +179,10 @@ calls `player_bonds.break_up()`.
 
 ## The mid-act stop
 
-The neglect-tolerance meter that triggers a stop is owned by readiness; its rules, tiers and
-settings are in `docs/readiness.md`. A stop is a dedicated path, not `cancel()`:
+The tolerance stop is the only mid-act stop. The old relationship/cycle/Promiscuity withdrawal is
+gone; a relationship, willingness or cycle change never ends a running act. The neglect-tolerance
+meter that triggers a stop is owned by readiness; its rules, tiers and settings are in
+`docs/readiness.md`. A stop is a dedicated path, not `cancel()`:
 
 - it forces a severe bad summary (`stopped_by_her`, no romance, mood annoyed/angry) and `+2` hurt;
 - it records `main.memory.note(MEMORY.NoteKind.STOPPED, ..., MEMORY.StopReason.WITHDREW)`;
@@ -194,8 +198,9 @@ The **Force neglect warning** and **Force neglect stop** debug actions drive the
 testing.
 
 Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
-weight. The base offer cooldown is `600 s`, reduced by `5%` per comfort point with a `300 s` floor.
-How the weight, cooldown and refusal reach the act gate is in `docs/eligibility.md`.
+weight. It is Context for Mare Initiation Reasoning, not a hard gate. The base offer cooldown is
+`600 s`, reduced by `5%` per comfort point with a `300 s` floor; heat quarters it. The history
+tiers and their effect on the legacy start gate are in `docs/eligibility.md`.
 
 ## Mood after a refusal and a buck
 

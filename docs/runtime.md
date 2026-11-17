@@ -39,6 +39,16 @@ Two start paths share the one body (`runtime._begin_act()`):
   means a transient row or an unsettled presentation, and the Agreement stays live. The
   presentation is act-owned and starts when `main` receives the Agreement.
 
+- **Auto-start:** `main._tick_agreement_auto_start()` samples the live Agreement at `0.25 s`. When
+  the presentation is settled and the scene-only rows pass, with no menu, no pause and no live
+  act, it starts with no key press.
+- **The hotkey:** the act key always accepts. No context pose means no attempt (log and toast). A
+  live Agreement's exact `(pose, source, bed, cuddle)` match starts it immediately and skips the
+  presentation; any other live Agreement or negotiation is interrupted with
+  `Interrupted(hotkey)` and the immediate attempt runs. The attempt is Base clearance plus the
+  scene-only rows: no offer cooldown, no buck and no history refusal. The tolerance stop is the
+  only refusal path.
+
 The aftercare is cleared before an Agreement start: the `sex_aftercare` meta, the visual aftercare
 node and its navigator lease. The act then adopts the negotiation hold through `_claim_nav()`:
 the scene-hold ledger already owns the navigator, so the start keeps the same owner instead of
@@ -121,7 +131,7 @@ The HUD card rows, the key caps and the `End` tint are `docs/hud.md`. The lab ke
 ## Teardown
 
 `_end_session(rejoin_cuddle)` is the only exit path. It gives back, in order: the inventory HUD,
-request face, kiss forelegs, face-turn rate, eye override, face and wings, player lock, camera,
+kiss forelegs, face-turn rate, eye override, face and wings, player lock, camera,
 `sex_active`, navigator, player look, posture/cuddle, pose, audio, HUD and the active runtime. Every
 step checks the ownership flag it restores (`_act_camera.camera_owned`, `_act_camera.look_captured`,
 `_act_camera.eye_override`, `_hold.locked_player`, `_hold.face_turn_rate_owned`, `_hold.nav`, the
@@ -208,9 +218,9 @@ the start pose's own config sync.
 - `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags and the oral edge's
   consent/feature refusals plus its abort through `_end_session`.
 - `tests/test_runtime_notes.gd` — the prompt forwards.
-- `tests/test_runtime_offer_policy.gd` — the idle hint's policy snapshot, its invalidation keys
-  and the fresh gate path.
-- `tests/poses/test_pose_offer.gd` — the typed offer and `main.start_pose_offer()`'s outcome table.
+- `tests/poses/test_pose_offer.gd` — the typed offer, the Agreement/hotkey outcome table and the
+  one start path. The idle hint no longer keeps a policy snapshot; its readiness is
+  `runtime.hotkey_ready()`.
 - `tests/poses/test_start_setup.gd` — the closed setup vocabulary, the synthetic
   `auto`/`bed_keep_lying` row and the runtime dispatch for both bed adapters.
 - `tests/readiness/test_oral_quiet.gd` — the oral contact: the plap and rump/tail jiggle skip, the

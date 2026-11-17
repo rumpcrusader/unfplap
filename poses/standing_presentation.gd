@@ -23,14 +23,14 @@ const PRESENT_AWAY_RAD := deg_to_rad(60.0)
 const PRESENT_GLANCE_BACK_S := 1.5
 ## The base game's approved bedroom face: heavy lids, dilated pupils, full blush and hearts.
 const PRESENT_FACE := "affectionate"
+## The presentation's own nose blush, sustained while she holds the pose.
+const PRESENT_BLUSH := 1.0
 const TURN_NAVIGATOR := "navigator"
 const TURN_FACE := "face"
 const TURN_YAW := "yaw"
 ## Safety cap: the invitation owns her body, so no missed end path may leave the pose on forever.
 ## Longer than the invite wait plus the turn.
 const PRESENT_MAX_SECONDS := 75.0
-const REQUEST_LIDS := 0.45
-const REQUEST_BLUSH := 1.0
 const STATE_IDLE := 0
 
 var facts: Variant
@@ -61,8 +61,9 @@ var _present_yaw := 0.0
 var _present_target_yaw := 0.0
 var _present_look_point := Vector3.ZERO
 var _present_face_direction := Vector3.ZERO
-var _request_face := false
-var _request_claimed_affection := false
+## The presentation's own affection hold: it blocks AI approach/follow through the turn.
+var _present_hold := false
+var _present_claimed_affection := false
 ## Bring her into the presentation hold: the ask is always the normal standing pose, and the
 ## stored variant and side carry into the act once she has accepted and turned.
 func present_standing() -> bool:
@@ -81,8 +82,8 @@ func present_standing() -> bool:
 	# No pre-turn offer gate here: she has faced Anon for the ask line, so the rump-sensitive
 	# gate can fail while she is still in front of him. The invite/start gate is rechecked after
 	# the turn, once she is in position.
-	if not _request_face:
-		set_request_face(true)
+	if not _present_hold:
+		_set_presentation_hold(true)
 	var player: Variant = main.player
 	var view: Camera3D = main.camera()
 	var target: Vector3 = pony.global_position - Vector3.FORWARD
@@ -166,7 +167,6 @@ func _attach_present_pose() -> void:
 	_present_glance_until = facts.clock() + PRESENT_GLANCE_BACK_S
 	_present_glance_sign_set = false
 	# The ask and turn half-lid gives way to the affectionate face's own sculpted lids.
-	_release_request_stare()
 	_apply_present_face()
 
 
@@ -315,6 +315,7 @@ func clear_presentation() -> void:
 	_present_glance_back = false
 	_present_glance_until = 0.0
 	_present_glance_sign_set = false
+	_end_presentation_hold()
 	_clear_present_face()
 	facts.restore_face()
 
@@ -425,31 +426,23 @@ func _presentation_turn_valid() -> bool:
 	return true
 
 
-## Idle request face and action hold. `affection_active` is the game's existing "physical
-## affection owns her" flag; it blocks AI approach/follow actions while she asks and presents.
-
-func set_request_face(on: bool) -> void:
+## The presentation's own action hold. `affection_active` is the game's existing "physical
+## affection owns her" flag; it blocks AI approach/follow actions while she turns and presents.
+## The negotiation hold sets the same flag; the presentation only clears the one it set.
+func _set_presentation_hold(on: bool) -> void:
 	_sync()
 	if not is_instance_valid(pony):
 		return
 	if on:
-		_request_face = true
+		_present_hold = true
 		if not pony.has_meta("affection_active"):
 			pony.set_meta("affection_active", true)
-			_request_claimed_affection = true
+			_present_claimed_affection = true
 		return
-	_request_face = false
-	if _request_claimed_affection:
+	_present_hold = false
+	if _present_claimed_affection:
 		pony.remove_meta("affection_active")
-		_request_claimed_affection = false
-	var expressions: Variant = pony.get("expressions")
-	if expressions != null and expressions.has_method("stare"):
-		expressions.call("stare", false)
-
-
-
-func request_face_active() -> bool:
-	return _request_face
+		_present_claimed_affection = false
 
 
 ## Re-read the live settings after an edit. The presentation has no act-time values of its own;
@@ -458,30 +451,22 @@ func apply_live_settings() -> void:
 	_sync()
 
 
-func _request_face_process() -> void:
-	if not _request_face or not is_instance_valid(pony):
-		return
-	var boop: Variant = pony.get("boop_node")
-	if boop != null and boop.has_method("sustain_blush"):
-		boop.call("sustain_blush", REQUEST_BLUSH)
-	# The ask and turn hold the request half-lid. Once she presents, the affectionate face's
-	# sculpted lids own the eyes.
-	if _presenting:
-		return
-	var expressions: Variant = pony.get("expressions")
-	if expressions != null and expressions.has_method("stare"):
-		expressions.call("stare", true, REQUEST_LIDS)
-
-
-## Release the ask/turn half-lid before the held face's own lids take over.
-func _release_request_stare() -> void:
-	var expressions: Variant = pony.get("expressions") if is_instance_valid(pony) else null
-	if expressions != null and expressions.has_method("stare"):
-		expressions.call("stare", false)
+## Release the presentation's hold when the turn ends for any reason.
+func _end_presentation_hold() -> void:
+	_set_presentation_hold(false)
 
 
 ## Hold the approved affectionate face after the turn. A spoken line's own face wins while it
 ## owns the expression; the held face returns once the line clears.
+## The held pose keeps the nose blush at full; the face's own blush is the display layer.
+func _sustain_present_blush() -> void:
+	if not is_instance_valid(pony):
+		return
+	var boop: Variant = pony.get("boop_node")
+	if boop != null and boop.has_method("sustain_blush"):
+		boop.call("sustain_blush", PRESENT_BLUSH)
+
+
 func _apply_present_face() -> void:
 	if not is_instance_valid(pony):
 		return
@@ -535,6 +520,7 @@ func _presentation_process() -> void:
 	if secondary != null and is_instance_valid(secondary) and secondary.has_method("look_toward"):
 		secondary.call("look_toward", _present_glance_angles(), 0.45)
 	_present_aim_eyes()
+	_sustain_present_blush()
 	_apply_present_face()
 
 
@@ -603,8 +589,6 @@ func process() -> void:
 		_present_turn_process()
 	elif _presenting:
 		_presentation_process()
-	if _request_face:
-		_request_face_process()
 
 
 func physics(delta: float) -> void:
@@ -613,7 +597,6 @@ func physics(delta: float) -> void:
 		return
 	if facts.clock() - _present_started >= PRESENT_MAX_SECONDS:
 		_log("present standing expired after %.0f s" % PRESENT_MAX_SECONDS)
-		set_request_face(false)
 		clear_presentation()
 		return
 	_presentation_physics(delta)

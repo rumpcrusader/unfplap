@@ -111,15 +111,14 @@ func run() -> void:
 	check(str(verdict.facts.stage) == "dating" and int(verdict.facts.love_level) == 2,
 		"facts read the ladder and stage")
 
-	check(bool(verdict.show) and bool(verdict.attempt), "Try Your Luck starts a willing mare")
+	check(bool(verdict.show) and bool(verdict.attempt), "a willing mare starts")
 	check(bool(verdict.offer), "offers pass")
-	check(not bool(verdict.stop), "a willing mare continues an act")
 	check(verdict.rows_text().contains("adult"), "the typed rows are readable")
 	check(verdict.reasons().is_empty(), "a passing verdict has no reasons")
 
 	relation.bonds.welcome = false
 	var unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(bool(unwilling.show), "Try Your Luck still shows the hint")
+	check(not bool(unwilling.show), "an unwilling mare has no legacy hint")
 	check(not bool(unwilling.attempt) and bool(unwilling.buck_refuse),
 		"unwilling starts the refusal path")
 
@@ -263,15 +262,13 @@ func run() -> void:
 	main.eligibility.set_profile(main, "rarity", layer)
 
 	relation.bonds.welcome = true
-	SETTINGS.sex_start.set_choice("when_available")
 	var available: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(bool(available.show), "When Available shows the hint for a willing mare")
+	check(bool(available.show), "a willing mare shows the legacy hint")
 	relation.bonds.welcome = false
 	var available_unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(
 		pony, ELIGIBILITY.Mode.START)
-	check(not bool(available_unwilling.show), "When Available waits for kiss willingness")
+	check(not bool(available_unwilling.show), "an unwilling mare has no legacy hint")
 	relation.bonds.welcome = true
-	SETTINGS.sex_start.set_choice("try_luck")
 
 	main.eligibility.clear()
 	check(not main.eligibility.eligible(pony), "cleared service rejects every pony")

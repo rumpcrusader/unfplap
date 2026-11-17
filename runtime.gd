@@ -181,11 +181,6 @@ var _id := ""
 ## The idle offer hint's cached policy verdict. The scene rows still run on every scan; only the
 ## eligibility half is reused. A real start, refusal, debug line or initiation gate never reads it.
 ## See `docs/eligibility.md`.
-const OFFER_POLICY_TTL_USEC := 500_000
-var _offer_policy: ELIGIBILITY.Verdict = null
-var _offer_policy_at_usec := 0
-var _offer_policy_key: Array = []
-var _offer_policy_dirty := true
 ## Debug-only estrus phase override. Empty means derive the phase from the world day and her id.
 var _cycle_override := ""
 var _profile: Dictionary = {}
@@ -307,9 +302,9 @@ func _init() -> void:
 	_pose_session.log = Callable(self, "_log")
 	_scene.stool_need = Callable(self, "stool_needed_count")
 	_scene.stool_count = Callable(self, "stool_case_count")
-	_scene.request_face_active = Callable(self, "request_face_active")
 	_scene.release_carry = Callable(self, "_release_carry")
 	_scene.on_refusal_face = Callable(self, "_refusal_face")
+	_scene.presentation_active = Callable(self, "presentation_active")
 	_scene.hold_compatible = Callable(self, "_scene_hold_compatible")
 	_rest.context = Callable(self, "_rest_context")
 	_rest.restore_scene = Callable(self, "_rest_restore_scene")
@@ -319,7 +314,6 @@ func _init() -> void:
 		"main": Callable(self, "_main"),
 		"state": Callable(self, "_state"),
 		"pose_family": Callable(self, "_pose_family"),
-		"request_face_active": Callable(self, "request_face_active"),
 	})
 	_act_facts.play_mouth_kiss = Callable(self, "_play_mouth_kiss")
 	_act_facts.act_actions_allowed = Callable(self, "_act_actions_allowed")
@@ -1599,126 +1593,6 @@ func scene_only_verdict(pose: String, act_source: String, bed_in: Variant = null
 	return _scene_gate().scene_only_verdict(pose, act_source, bed_in, capability)
 
 
-## The idle hint's start verdict: a reused policy snapshot plus live scene rows. Only
-## `main._refresh_offer()` uses this; a real start, refusal, debug line or initiation gate calls
-## `start_verdict()`/`offer_verdict()` and builds a fresh policy. See `docs/eligibility.md`.
-func hint_start_verdict(pose: String, act_source: String, bed_in: Variant = null) -> Dictionary:
-	_read_id()
-	var started := Time.get_ticks_usec() if idle_perf else 0
-	var policy: ELIGIBILITY.Verdict = offer_policy_verdict()
-	if idle_perf:
-		_idle_perf_note("offer_policy", Time.get_ticks_usec() - started)
-	started = Time.get_ticks_usec() if idle_perf else 0
-	var out: Dictionary = _scene_gate().start_verdict(pose, act_source, bed_in, policy)
-	if idle_perf:
-		_idle_perf_note("offer_scene", Time.get_ticks_usec() - started)
-	return out
-
-
-## The START policy snapshot reused by the idle hint. It is rebuilt only when its key changes or
-## the fallback TTL expires, so a scan does not re-read relationship, consent, cycle and history
-## seven times a second. The returned verdict is read-only for consumers.
-func offer_policy_verdict() -> ELIGIBILITY.Verdict:
-	_read_id()
-	var key := _offer_key()
-	var now := Time.get_ticks_usec()
-	if _offer_policy != null and not _offer_policy_dirty \
-			and now - _offer_policy_at_usec < OFFER_POLICY_TTL_USEC \
-			and key == _offer_policy_key:
-		return _offer_policy
-	_offer_policy = _policy_verdict(ELIGIBILITY.Mode.START)
-	_offer_policy_at_usec = now
-	_offer_policy_key = key
-	_offer_policy_dirty = false
-	_bind_offer_signals()
-	return _offer_policy
-
-
-## Everything the policy snapshot depends on that is cheap to read. The relationship and
-## impressions nodes also emit `changed`, which marks the snapshot dirty; the key catches a
-## runtime swap or a missed signal.
-func _offer_key() -> Array:
-	var form: Dictionary = PLAYER_FORM.active(get_tree()) if is_inside_tree() else {}
-	var relationship: Variant = null
-	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
-		relationship = pony.get_meta("relationship_runtime")
-	var relationship_id := 0
-	var bonds_id := 0
-	if relationship is Object and is_instance_valid(relationship):
-		relationship_id = (relationship as Object).get_instance_id()
-		var bonds: Variant = relationship.get("bonds")
-		if bonds is Object and is_instance_valid(bonds):
-			bonds_id = (bonds as Object).get_instance_id()
-	return [
-		_id,
-		int(SETTINGS.generation),
-		int(MARE_REGISTRY.revision),
-		int(ACT_HISTORY.revision),
-		str(form.get("kind", "human")),
-		str(form.get("age", "adult")),
-		cycle_phase(),
-		relationship_id,
-		bonds_id,
-	]
-
-
-func _bind_offer_signals() -> void:
-	var callback := Callable(self, "_on_offer_facts_changed")
-	var relationship: Variant = null
-	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
-		relationship = pony.get_meta("relationship_runtime")
-	if relationship is Object and is_instance_valid(relationship):
-		var bonds: Variant = relationship.get("bonds")
-		if bonds is Object and is_instance_valid(bonds) \
-				and bonds.has_signal("changed") \
-				and not bonds.is_connected("changed", callback):
-			bonds.connect("changed", callback)
-	var impressions: Variant = _offer_impressions()
-	if impressions is Object and is_instance_valid(impressions) \
-			and impressions.has_signal("changed") \
-			and not impressions.is_connected("changed", callback):
-		impressions.connect("changed", callback)
-
-
-func _offer_impressions() -> Variant:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
-		return null
-	var context: Variant = main.game.get("world_context")
-	if context == null or not is_instance_valid(context):
-		return null
-	return context.get("impressions")
-
-
-## The game's bonds and impressions nodes emit `changed(id: String)`; the id is not read, and
-## the default keeps a zero-argument `changed` working.
-func _on_offer_facts_changed(_id: String = "") -> void:
-	_offer_policy_dirty = true
-
-
-func _unbind_offer_signals() -> void:
-	var callback := Callable(self, "_on_offer_facts_changed")
-	var relationship: Variant = null
-	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
-		relationship = pony.get_meta("relationship_runtime")
-	if relationship is Object and is_instance_valid(relationship):
-		var bonds: Variant = relationship.get("bonds")
-		if bonds is Object and is_instance_valid(bonds) \
-				and bonds.has_signal("changed") and bonds.is_connected("changed", callback):
-			bonds.disconnect("changed", callback)
-	var impressions: Variant = _offer_impressions()
-	if impressions is Object and is_instance_valid(impressions) \
-			and impressions.has_signal("changed") \
-			and impressions.is_connected("changed", callback):
-		impressions.disconnect("changed", callback)
-
-
-func _invalidate_offer_policy() -> void:
-	_offer_policy = null
-	_offer_policy_at_usec = 0
-	_offer_policy_key = []
-	_offer_policy_dirty = true
-
-
 ## The policy verdict. The runtime reads the eligibility service; the scene gate composes it.
 func _policy_verdict(mode: ELIGIBILITY.Mode,
 		verdict_in: ELIGIBILITY.Verdict = null) -> ELIGIBILITY.Verdict:
@@ -1774,7 +1648,7 @@ func _debug_context() -> Dictionary:
 		"id": id, "display": display, "stage": relations.stage,
 		"love_name": love_name, "love_level": relations.love_level,
 		"welcomes": relations.willing,
-		"sex_start": relations.sex_start, "ignore_gates": relations.ignore_gates,
+		"ignore_gates": relations.ignore_gates,
 		"mood": mood,
 		"state": state,
 		"presenting": _standing_presentation_controller().presentation_active(),
@@ -1900,28 +1774,43 @@ func start(pose: String, bed_in: Variant, act_source: String,
 
 ## The scene-only Agreement start. The Negotiation package froze the policy and the pose
 ## capability; only the world rows run. `WAIT` keeps the Agreement live (a transient row or the
-## presentation is not ready); `STARTED` and `FAILED` are reported to `main`.
-func start_agreement(handle: Variant) -> int:
+## presentation is not ready); `STARTED` and `FAILED` are reported to `main`. The hotkey's exact
+## match passes `skip_presentation`, so a settled turn is not waited on.
+func start_agreement(handle: Variant, skip_presentation := false) -> int:
 	if handle == null or not bool(handle.call("valid")):
 		return AGREEMENT_FAILED
 	var option: Variant = handle.option
 	if option == null:
 		return AGREEMENT_FAILED
+	_read_id()
 	var pose := str(option.pose)
 	var act_source := str(option.source)
-	if not agreement_offer_ready(handle):
-		_log("agreement start waiting pose=%s source=%s pony=%s" % [
-			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+	var verdict: Variant = scene_only_verdict(pose, act_source, option.bed,
+		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
+	if verdict == null or not bool(verdict.hard_ok):
+		_log("agreement start blocked pose=%s source=%s pony=%s reasons=%s" % [
+			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?",
+			"none" if verdict == null else ",".join(verdict.reasons)])
+		if is_instance_valid(main) and main.has_method("report_agreement"):
+			main.call("report_agreement", handle, false)
+		return AGREEMENT_FAILED
+	if not bool(verdict.ok):
+		_log("agreement start waiting pose=%s source=%s transient=%s" % [
+			pose, act_source, ",".join(verdict.transient)])
+		return AGREEMENT_WAIT
+	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
+			and presentation_active() and not presentation_settled():
+		_log("agreement start waiting pose=%s source=%s presentation" % [pose, act_source])
 		return AGREEMENT_WAIT
 	_clear_aftercare()
-	var started := _begin_act(pose, option.bed, act_source)
+	var started := _begin_act(pose, option.bed, act_source, skip_presentation)
 	if is_instance_valid(main) and main.has_method("report_agreement"):
 		main.call("report_agreement", handle, started)
 	return AGREEMENT_STARTED if started else AGREEMENT_FAILED
 
 
 ## True when the scene-only rows pass and, for a standing option, the presentation is settled.
-func agreement_offer_ready(handle: Variant) -> bool:
+func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
 	if handle == null or not bool(handle.call("valid")):
 		return false
 	var option: Variant = handle.option
@@ -1933,10 +1822,40 @@ func agreement_offer_ready(handle: Variant) -> bool:
 		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
 	if verdict == null or not bool(verdict.ok):
 		return false
-	if POSE_SPECS.start_setup(pose) == "standing_place" and presentation_active() \
-			and not presentation_settled():
+	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
+			and presentation_active() and not presentation_settled():
 		return false
 	return true
+
+
+## The hotkey's readiness: Base clearance plus the scene-only rows. No policy verdict, no offer
+## cooldown and no history refusal. The act key never bucks; the tolerance stop owns refusal.
+func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
+	_read_id()
+	if not is_instance_valid(pony) or not is_instance_valid(main):
+		return false
+	if state != State.IDLE or pony.sleeping:
+		return false
+	var service: Variant = main.get("eligibility")
+	if service == null or not is_instance_valid(service):
+		return false
+	if not bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT)):
+		return false
+	if not bool(service.call("relationship_ok", pony)):
+		return false
+	var verdict: Variant = scene_only_verdict(pose, act_source, bed_in, null)
+	return verdict != null and bool(verdict.ok)
+
+
+## The act key's immediate attempt, with no Agreement and no presentation wait.
+func start_hotkey(pose: String, bed_in: Variant, act_source: String,
+		skip_presentation := false) -> bool:
+	if not hotkey_ready(pose, act_source, bed_in):
+		_log("hotkey blocked pose=%s source=%s pony=%s" % [
+			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
+		return false
+	_clear_aftercare()
+	return _begin_act(pose, bed_in, act_source, skip_presentation)
 
 
 ## Clear the visual aftercare before a new start: the face and tail state, the meta and the
@@ -1951,9 +1870,10 @@ func _clear_aftercare() -> void:
 
 ## The shared start body after every gate. The act key's policy path and the scene-only
 ## Agreement path both land here; the one teardown still owns every failure.
-func _begin_act(pose: String, bed_in: Variant, act_source: String) -> bool:
-	if POSE_SPECS.start_setup(pose) == "standing_place" and presentation_active() \
-			and not presentation_settled():
+func _begin_act(pose: String, bed_in: Variant, act_source: String,
+		skip_presentation := false) -> bool:
+	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
+			and presentation_active() and not presentation_settled():
 		_log("start blocked presentation turn pose=%s source=%s pony=%s" % [
 			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
 		return false
@@ -1970,7 +1890,6 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String) -> bool:
 	_posture_owned = false
 	_session_finalized = false
 	# Remove the idle standing invitation and its request face before the act builds its own pose.
-	set_request_face(false)
 	clear_presentation()
 	_end_mood_face()
 	_end_act_face()
@@ -2144,12 +2063,6 @@ func presentation_settled() -> bool:
 
 func clear_presentation() -> void:
 	_standing_presentation_controller().clear_presentation()
-
-func set_request_face(on: bool) -> void:
-	_standing_presentation_controller().set_request_face(on)
-
-func request_face_active() -> bool:
-	return bool(_standing_presentation_controller().request_face_active())
 
 func _keep_nav() -> void:
 	_hold.keep_nav()
@@ -3620,7 +3533,6 @@ func _restore_begin() -> void:
 ## `cancel()` queues the early-stop reaction after `_restore_begin()`, and `_finish_restore()` must
 ## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
 func _end_session(rejoin_cuddle: bool) -> void:
-	_invalidate_offer_policy()
 	_stop_auto()
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
 	# returns Anon and her to it, but only when it did not go badly.
@@ -3636,7 +3548,6 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	# The oral turn's facing override must not outlive the act, even on a direct forced stop.
 	_standing_camera_controller().reset_facing()
 	_set_inventory_hud_hidden(false)
-	set_request_face(false)
 	_kiss_controller().restore_forelegs()
 	_restore_face_turn()
 	_camera_service().call("restore_eye_override")
@@ -3925,10 +3836,6 @@ func _check_running() -> void:
 	if not is_instance_valid(pony):
 		force_stop()
 		return
-	if state == State.ACTIVE or state == State.POSING_IN or state == State.CLIMAX:
-		if not _still_willing():
-			_stop("unwilling")
-			return
 	if pony.is_held():
 		_stop("picked up")
 		return
@@ -3954,10 +3861,6 @@ func _check_running() -> void:
 	if _player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
 		_stop("form change")
 		return
-
-func _still_willing() -> bool:
-	var policy := _policy_verdict(ELIGIBILITY.Mode.MID_ACT)
-	return policy != null and not policy.stop
 
 func _stop(reason: String) -> void:
 	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])
@@ -4233,8 +4136,6 @@ func _snout() -> Vector3:
 ## The kiss foreleg overrides are global AffectionPose settings. Restore them if the world
 ## closes or the mod is switched off mid-kiss.
 func _exit_tree() -> void:
-	_invalidate_offer_policy()
-	_unbind_offer_signals()
 	_kiss_controller().restore_forelegs()
 	_release_stool()
 	_end_tail_tuck()

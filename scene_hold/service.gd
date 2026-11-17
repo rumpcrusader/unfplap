@@ -226,9 +226,7 @@ func hold_affection() -> bool:
 	if affection_owned:
 		return true
 	if pony.has_meta("affection_active"):
-		var face: Variant = _host("request_face_active", false)
-		if not bool(face):
-			return false
+		return false
 	affection_owned = true
 	pony.set_meta("affection_active", true)
 	return true

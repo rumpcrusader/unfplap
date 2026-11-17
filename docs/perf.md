@@ -86,10 +86,7 @@ total, largest first, so the first row is the chunk to fix.
 | `entry_process` | the whole `main._process` body |
 | `offer_scan` | the 0.15 s `_refresh_offer()` call |
 | `offer_cone` | the standing candidate search in `_refresh_offer()` |
-| `offer_gate` | the standing hint's `runtime.hint_start_verdict()` |
-| `offer_policy` | the cached eligibility policy inside that gate |
-| `offer_scene` | the live scene rows inside that gate |
-| `offer_stool` | the blocked-hint footstool check |
+| `offer_gate` | the standing hint's `runtime.hotkey_ready()` |
 | `runtime_process` | one pony's idle `_process_tick` |
 | `runtime_physics` | one pony's idle `_physics_process` |
 | `runtime_anatomy_sync` | the two `_sync_anatomy_facts()` calls per physics tick, summed |

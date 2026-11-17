@@ -29,12 +29,6 @@ static func level_ok(required: String, love_level: int) -> bool:
 	return need < 0 or love_level >= need
 
 
-## The Show start button `try_luck` mode shows the start hint before she welcomes a kiss. It never skips the
-## base kiss willingness for a start or an offer; the policy still checks that separately.
-static func hint_without_willingness(sex_start: String) -> bool:
-	return sex_start == "try_luck"
-
-
 static func adult_pony(facts: Dictionary) -> bool:
 	return FACTS.adult_pony(bool(facts.get("has_identity", false)),
 		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),
@@ -105,14 +99,12 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 	var participation: Dictionary = facts.get("participation", {}) as Dictionary
 	var participates := bool(participation.get("acts", true))
 	var base := adult and relationship and player and romance and level
-	var hint_early := hint_without_willingness(str(facts.get("sex_start", "")))
-	var show := base and participates and cycle_ok and (willing or hint_early)
+	var show := base and participates and cycle_ok and willing
 	var attempt := show and willing and not blocks_start
 	var buck_refuse := base and not willing
 	var history_refuse := base and blocks_start
 	var offer := base and participates and willing and cycle_ok \
 		and not blocks_offers and not blocks_start
-	var stop := not (base and willing and cycle_ok)
 	var offer_weight := 0.0
 	if offer:
 		offer_weight = float(history.get("offer_weight", 0.0))
@@ -133,11 +125,8 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 
 	var consent: Dictionary = facts.get("consent", {}) as Dictionary
 	var heat := bool(facts.get("heat", false))
-	var public_consent := bool(consent.get("public", false))
-	var public_feature := bool(facts.get("public_feature", false))
 	var actions := {
-		"public": public_consent,
-		"public_offer": heat or (public_feature and public_consent),
+		"public": bool(consent.get("public", false)),
 		"anal": bool(consent.get("anal", false)),
 		"oral": bool(consent.get("oral", false)),
 	}
@@ -147,7 +136,6 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 		"love_level": int(facts.get("love_level", -1)),
 		"willing": willing,
 		"promiscuity": str(facts.get("promiscuity", "any")),
-		"sex_start": str(facts.get("sex_start", "")),
 		"cycle_phase": str(facts.get("cycle_phase", "normal")),
 		"heat": heat,
 		"ignore_gates": bypass,
@@ -161,7 +149,6 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 		"offer": offer,
 		"buck_refuse": buck_refuse,
 		"history_refuse": history_refuse,
-		"stop": stop,
 		"offer_weight": offer_weight,
 		"actions": actions,
 		"relations": relations,

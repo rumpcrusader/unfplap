@@ -29,8 +29,7 @@ negotiation runs before the act.
 
 ## Public API
 
-- `bind(host)` — the host context: `pony`, `main`, `pose_family`, `state`,
-  `request_face_active`.
+- `bind(host)` — the host context: `pony`, `main`, `pose_family`, `state`.
 - `claim_nav(owner_id)` — takes the navigator for the act, records the old wander flag, builds the
   `unfplap:<id>` token and returns whether the lease is owned.
 - `claim_negotiation(owner_id)` — claims `unfplap:negotiation:<id>` while the runtime is `IDLE`.
@@ -53,7 +52,7 @@ negotiation runs before the act.
 - `keep_target()` — keeps Anon as the conversation target. A cleared target is re-asserted;
   another live target returns false (`target_left`).
 - `hold_affection()` / `release_affection()` — set and clear the game's `affection_active` meta.
-  The request face's own hold is handed over; any other live affection hold is Occupied.
+  Any live affection hold is Occupied.
 - `release_negotiation()` — releases the whole negotiation hold: affection first, then the
   navigator. Idempotent; every terminal outcome calls it.
 - `release_nav()` — gives the owner back and restores the wander flag.
@@ -105,8 +104,6 @@ No controls. The debug log reports the ownership state on the `debug_line` call 
 - `pony` — the `Navigator`, `face_turn_rate`, `CuddleSession`, `set_conversation_target`.
 - `main` — the `interactor`, `player`, `game.kisser`.
 - `main.player` — the `kiss_hold` meta, `seat`, `_q_held` and the conversation target.
-- `request_face_active` — the runtime's live request face, so its `affection_active` hold is
-  handed over instead of treated as Occupied.
 - The runtime — the caller, the state and the live pose family.
 
 ### Uses

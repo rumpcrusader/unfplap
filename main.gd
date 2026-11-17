@@ -115,6 +115,8 @@ var _captions_on_top := false
 var _perf_idle := PERF_IDLE.new()
 ## True while the adapter's global Anon-offer watch is armed.
 var _watching_player := false
+## The Agreement auto-start's 0.25 s readiness clock.
+var _agreement_clock := 0.0
 
 
 func debug(text: String) -> void:
@@ -568,6 +570,7 @@ func _process_entry(delta: float) -> void:
 		initiation.tick(delta)
 	if is_instance_valid(negotiation):
 		negotiation.tick(delta)
+		_tick_agreement_auto_start(delta)
 	_tick_negotiation_watch()
 	var hint := ""
 	if _offer != null:
@@ -597,8 +600,9 @@ func _refresh_offer() -> void:
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
 	var pony_form: bool = PLAYER_FORM.is_pony(form)
 
-	# A live Agreement owns the hint while it lives: it is already a yes. Its scene-only rows and
-	# the settled presentation decide whether the act key can consume it; no other offer appears.
+	# A live Agreement owns the hint while it is ready: it is already a yes. While its rows wait
+	# or the presentation turns, the context scan below still finds a hotkey attempt, so a press
+	# can start the exact match immediately or interrupt a different one.
 	if is_instance_valid(negotiation):
 		var handle: Variant = negotiation.call("handle")
 		if handle != null:
@@ -606,7 +610,7 @@ func _refresh_offer() -> void:
 			if live != null:
 				_offer = live
 				_log_offer()
-			return
+				return
 
 	# Missionary now requires Anon to be seated/lying on the bed with a pony lying there. A
 	# standing or cradling Anon has no valid missionary camera, so that entry is not offered.
@@ -616,7 +620,7 @@ func _refresh_offer() -> void:
 			var runtime: Node = runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
-				if bed != null and runtime.can_show_start(CATALOG.MISSIONARY, "bed_side", bed):
+				if bed != null and bool(runtime.call("hotkey_ready", CATALOG.MISSIONARY, "bed_side", bed)):
 					_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
 					_log_offer()
 					return
@@ -628,14 +632,13 @@ func _refresh_offer() -> void:
 			var runtime: Node = runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
-				if bed != null and runtime.can_show_start(CATALOG.MISSIONARY, "already_lying", bed):
+				if bed != null and bool(runtime.call("hotkey_ready", CATALOG.MISSIONARY, "already_lying", bed)):
 					_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "already_lying", bed)
 					_log_offer()
 					return
 
-	# Standing: Anon must stand in the cone behind her rump. No crosshair aim is needed. The gate
-	# reuses the runtime's offer-policy snapshot; the scene rows still run on every scan. See
-	# `docs/eligibility.md`.
+	# Standing: Anon must stand in the cone behind her rump. No crosshair aim is needed. The
+	# hotkey readiness is Base clearance plus the scene-only rows, with no policy snapshot.
 	var timed := _perf_idle.on()
 	var cone_started := Time.get_ticks_usec() if timed else 0
 	var standing: Node = _rump_cone_target(view)
@@ -645,27 +648,23 @@ func _refresh_offer() -> void:
 		var runtime: Node = runtime_for(standing)
 		if is_instance_valid(runtime):
 			var gate_started := Time.get_ticks_usec() if timed else 0
-			var gate: Dictionary = runtime.hint_start_verdict(CATALOG.STANDING, "", null)
+			var ready := bool(runtime.call("hotkey_ready", CATALOG.STANDING, "", null))
 			if timed:
 				_perf_idle.note("offer_gate", Time.get_ticks_usec() - gate_started)
-			if bool(gate.get("show", false)):
+			if ready:
 				_offer = _new_offer(runtime, standing, CATALOG.STANDING, "", null)
 				_log_offer()
 			else:
-				var stool_started := Time.get_ticks_usec() if timed else 0
-				var blocked := bool(runtime.stool_blocks_verdict(gate))
-				if timed:
-					_perf_idle.note("offer_stool", Time.get_ticks_usec() - stool_started)
-				if blocked:
-					var need := maxi(1, int(runtime.call("stool_needed_count")))
+				var need := int(runtime.call("stool_needed_count"))
+				if need > 0 and int(runtime.call("stool_case_count")) < need:
 					var blocked_offer := _new_offer(runtime, standing, CATALOG.STANDING, "", null)
 					blocked_offer.blocked = _blocked_record(need, _stool_hint_for(need))
 					_offer_blocked = blocked_offer
 					_log_blocked_offer(runtime, standing, need)
 
 
-## Build one typed offer for the idle scan. The cleanup is always the request service's
-## an Agreement press: a live Agreement is consumed by the scene-only start, not a request close.
+## Build one typed offer for the idle scan. A live Agreement press is consumed by the scene-only
+## start, not a request close, so the idle offers carry no cancel callback.
 func _new_offer(runtime: Node, pony: Node, pose: String, source: String,
 		bed: Variant = null) -> POSE_OFFER:
 	var offer := POSE_OFFER.new()
@@ -683,22 +682,6 @@ func _blocked_record(need: int, hint: String) -> Dictionary:
 
 
 ## A copy of the live request offer with its blocked record. The request service reuses its one
-## offer object, so the scan never writes discovery policy into it.
-func _blocked_copy(offer: POSE_OFFER, need: int, hint: String) -> POSE_OFFER:
-	var blocked := POSE_OFFER.new()
-	blocked.runtime = offer.runtime
-	blocked.pony = offer.pony
-	blocked.pose = offer.pose
-	blocked.source = offer.source
-	blocked.bed = offer.bed
-	blocked.trigger = offer.trigger
-	blocked.pending = offer.pending
-	blocked.scope = offer.scope
-	blocked.cancel = offer.cancel
-	blocked.blocked = _blocked_record(need, hint)
-	return blocked
-
-
 ## The current offer's pony, for the request service's cuddle check. It refreshes the offer the
 ## same way the prompt does, so the act key and a proactive cuddle offer cannot disagree.
 func offer_target() -> Node:
@@ -926,8 +909,8 @@ func _debug_target(view: Camera3D) -> Node:
 	return best
 
 
-## The act key's one start entry. It discovers the offer, hands it to `start_pose_offer()` and
-## falls back to the refusal path only when neither a playable nor a blocked offer exists.
+## The act key's one start entry. The act key is the hotkey: it always accepts, never bucks or
+## refuses, and a missing context pose is no attempt. The tolerance stop owns the refusal path.
 func try_start() -> bool:
 	if is_instance_valid(active_runtime):
 		return false
@@ -935,67 +918,107 @@ func try_start() -> bool:
 	if _offer == null:
 		if _offer_blocked != null:
 			return start_pose_offer(_offer_blocked)
-		return _try_refusal()
+		_debug("hotkey no context pose")
+		_toast("There is nothing to start here.")
+		return false
 	return start_pose_offer(_offer)
 
 
-## The one typed act-start path. The act key and any future automatic trigger call this. The offer
-## carries its pose, blocked policy, owner cleanup and classifier scope, so this function never
-## names a pose and never reaches into the request service.
+## The one typed act-start path. The act key and the Agreement auto-start call this. The offer
+## carries its pose and trigger, so this function never names a pose.
 func start_pose_offer(offer: POSE_OFFER) -> bool:
 	if offer == null or not offer.valid():
 		return false
-	if offer.trigger == "agreement":
-		return _start_agreement_offer(offer)
 	if not offer.blocked.is_empty():
 		var toast := str(offer.blocked.get("toast", ""))
-		if not toast.is_empty() and is_instance_valid(hud) and hud.has_method("toast"):
-			hud.call("toast", toast, 4.0)
+		if not toast.is_empty():
+			_toast(toast)
 		return false
+	if offer.trigger == "agreement":
+		return _start_agreement_offer(offer, false)
+	return _start_hotkey_offer(offer)
+
+
+## The hotkey: a live Agreement's exact match starts it immediately and skips the presentation;
+## any other live negotiation or Agreement is interrupted and the immediate attempt runs. The
+## attempt is Base clearance plus the scene-only rows, with no offer cooldown.
+func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 	var runtime: Node = offer.runtime
-	var target: Variant = offer.pony
-	# The gate runs before the request handoff: a transient refusal must leave the accepted offer
-	# and its hint intact, because the player can fix the condition and press again.
-	var gate: Dictionary = runtime.call("start_verdict", offer.pose, offer.source, offer.bed)
-	if bool(gate.get("history_refuse", false)):
-		_cancel_pose_offer(offer)
-		runtime.call("refuse_from_history", offer.pose, offer.source, offer.bed)
-		_clear_offer_hint()
-		return true
-	if not bool(gate.get("attempt", false)):
-		if bool(gate.get("buck_refuse", false)):
-			_cancel_pose_offer(offer)
-			runtime.call("start", offer.pose, offer.bed, offer.source, gate)
-			_clear_offer_hint()
-			return false
-		_log_start_blocked(gate, offer.pose, offer.source, target)
+	if not is_instance_valid(runtime):
 		return false
-	_cancel_pose_offer(offer)
-	var started: bool = bool(runtime.call("start", offer.pose, offer.bed, offer.source, gate))
-	if started:
-		if not offer.scope.is_empty() and is_instance_valid(classifier):
-			classifier.call("cancel_scope", offer.scope)
-	else:
-		_debug("start failed pose=%s source=%s pony=%s" % [
-			offer.pose, offer.source, str(target.name) if is_instance_valid(target) else "?"])
+	if is_instance_valid(negotiation):
+		var handle: Variant = negotiation.call("handle")
+		if handle != null:
+			var match: Variant = negotiation.call("hotkey_handle", runtime, _option_for(offer))
+			if match != null:
+				return _start_agreement_offer(offer, true)
+			negotiation.call("interrupt_for_hotkey")
+			_debug("hotkey interrupted a different agreement")
+		elif bool(negotiation.call("is_locked")):
+			negotiation.call("interrupt_for_hotkey")
+			_debug("hotkey interrupted the negotiation")
+	var started := bool(runtime.call("start_hotkey", offer.pose, offer.bed, offer.source))
+	if not started:
+		_debug("hotkey start blocked pose=%s source=%s" % [offer.pose, offer.source])
+		return false
 	_clear_offer_hint()
-	return started
+	return true
+
+
+## The exact pose option a hotkey attempt names. The idle hint never offers a cuddle, so the flag
+## is false; a cuddle Agreement is consumed by its own offer path instead.
+func _option_for(offer: POSE_OFFER) -> POSE_OPTIONS.Option:
+	var option := POSE_OPTIONS.Option.new()
+	option.pose = offer.pose
+	option.source = offer.source
+	option.bed = offer.bed
+	return option
 
 
 ## The act key consumes a live Agreement through its scene-only start. `WAIT` keeps the hint and
 ## the Agreement for the next press; a started or failed attempt clears the hint, and the runtime
-## reports the result to the Negotiation service.
-func _start_agreement_offer(offer: POSE_OFFER) -> bool:
+## reports the result to the Negotiation service. `skip_presentation` is the exact hotkey match.
+func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 	var handle: Variant = negotiation.call("handle") if is_instance_valid(negotiation) else null
 	if handle == null or not is_instance_valid(offer.runtime):
 		_clear_offer_hint()
 		return false
-	var result := int(offer.runtime.call("start_agreement", handle))
+	var result := int(offer.runtime.call("start_agreement", handle, skip_presentation))
 	if result == RUNTIME.AGREEMENT_WAIT:
 		_debug("agreement start waiting pose=%s source=%s" % [offer.pose, offer.source])
 		return false
 	_clear_offer_hint()
 	return result == RUNTIME.AGREEMENT_STARTED
+
+
+## The Agreement's automatic start: it waits for the presentation to settle and Anon to be in
+## position, then consumes the handle with no key press. A menu, a paused tree or a live act
+## holds it.
+func _tick_agreement_auto_start(delta: float) -> void:
+	if is_instance_valid(active_runtime) or not is_instance_valid(negotiation):
+		return
+	var handle: Variant = negotiation.call("handle")
+	if handle == null:
+		return
+	_agreement_clock += delta
+	if _agreement_clock < 0.25:
+		return
+	_agreement_clock = 0.0
+	if get_tree().paused or menu_open():
+		return
+	if DisplayServer.get_name() != "headless" and not headset_view() \
+			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+	var pony: Variant = handle.pony
+	var runtime: Node = runtime_for(pony) if is_instance_valid(pony) else null
+	if not is_instance_valid(runtime) or not runtime.has_method("agreement_offer_ready"):
+		return
+	if not bool(runtime.call("agreement_offer_ready", handle)):
+		return
+	var offer := _agreement_offer(handle)
+	if offer != null:
+		_debug("agreement auto-start pony=%s pose=%s" % [str(pony.name), offer.pose])
+		_start_agreement_offer(offer, false)
 
 
 ## The runtime's Agreement start result, forwarded to the Negotiation service.
@@ -1005,29 +1028,10 @@ func report_agreement(handle: Variant, started: bool) -> void:
 
 
 ## Close the live request episode before a start or refusal that owns the pony. The offer carries
-## the callback; a missing callback is a no-op.
-func _cancel_pose_offer(offer: POSE_OFFER) -> void:
-	if offer != null and offer.cancel.is_valid():
-		offer.cancel.call()
-
-
 func _clear_offer_hint() -> void:
 	_offer = null
 	if is_instance_valid(hud):
 		hud.hide_prompt()
-
-
-## Name the failed start-gate rows for a press that keeps the accepted offer alive.
-func _log_start_blocked(gate: Dictionary, pose: String, source: String, target: Variant) -> void:
-	var failed: PackedStringArray = []
-	var rows: Variant = gate.get("rows", [])
-	if rows is Array:
-		for row: Variant in rows:
-			if row is ELIGIBILITY.Row and not (row as ELIGIBILITY.Row).ok:
-				failed.append((row as ELIGIBILITY.Row).reason)
-	_debug("start blocked pose=%s source=%s pony=%s reasons=%s" % [
-		pose, source, str(target.name) if is_instance_valid(target) else "?",
-		",".join(failed) if not failed.is_empty() else "none"])
 
 
 ## Debug Actions entries (`DEBUG_ACTIONS.ACTIONS`). The offer helper forces a proactive request for
@@ -1795,48 +1799,6 @@ func skeleton_click() -> bool:
 	if not is_instance_valid(_debug_skeleton) or not bool(_debug_skeleton.get("enabled")):
 		return false
 	return bool(_debug_skeleton.call("handle_click"))
-
-
-func _try_refusal() -> bool:
-	if not is_instance_valid(player) or not is_instance_valid(game):
-		return false
-	if get_tree().paused:
-		return false
-	if DisplayServer.get_name() != "headless" and not headset_view() \
-			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return false
-	var view: Camera3D = camera()
-	if view == null:
-		return false
-	var pony_form: bool = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	if not pony_form:
-		var reach: Node = interactor()
-		if is_instance_valid(reach) and reach.get("cradled") == true:
-			var held: Variant = reach.get("held")
-			if held is Node3D and is_instance_valid(held):
-				var runtime: Node = runtime_for(held)
-				if is_instance_valid(runtime):
-					var bed: Node3D = bed_for_cradle(held)
-					if bed != null and bool(runtime.call("refuse_available", CATALOG.MISSIONARY, "cradle", bed)):
-						runtime.call("refuse", CATALOG.MISSIONARY, "cradle", bed)
-						return true
-	if pony_form:
-		var lying: Node = nearest_lying(view)
-		if is_instance_valid(lying):
-			var runtime: Node = runtime_for(lying)
-			if is_instance_valid(runtime):
-				var bed: Variant = runtime.call("find_bed_under")
-				if bed is Node3D and bool(runtime.call("refuse_available", CATALOG.MISSIONARY, "already_lying", bed)):
-					runtime.call("refuse", CATALOG.MISSIONARY, "already_lying", bed)
-					return true
-	var standing: Node = _rump_cone_target(view)
-	if is_instance_valid(standing):
-		var runtime: Node = runtime_for(standing)
-		if is_instance_valid(runtime) and bool(runtime.call("refuse_available", CATALOG.STANDING, "", null)):
-			runtime.call("refuse", CATALOG.STANDING, "", null)
-			return true
-	return false
-
 
 func allocate_serial() -> int:
 	var section: Dictionary = Mods.state("unfplap")

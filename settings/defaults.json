@@ -174,7 +174,6 @@
 	"features": {
 		"act_controls": true,
 		"act_input_shield": true,
-		"act_public_offer": false,
 		"act_speech_feel": false,
 		"anatomy_fluid": true,
 		"anatomy_holes": true,
@@ -330,8 +329,7 @@
 	},
 	"relationship": {
 		"ignore_gates": false,
-		"promiscuity": "marefriend",
-		"sex_start": "try_luck"
+		"promiscuity": "marefriend"
 	},
 	"talk": {
 		"receptive_seconds": 8.0,

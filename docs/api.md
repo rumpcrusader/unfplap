@@ -144,7 +144,7 @@ values, a reserved id, a missing `id` or `source`, and non-positive placement sc
 | `source` | yes | Provider mod id, for logs and `sources`. |
 | `name` | no | Settings label and `describe_mare().name` for an off-roster mare. A base-game name always wins. |
 | `preferences` | no | `shared/preferences.gd` profile fields: `intensity`, `pattern`, `touch`, `dislikes`, `talk`, `warmth`, `tolerance`, `notes`. |
-| `consent` | no | `public`, `anal`, `oral` booleans. Missing keys use the existing deterministic id defaults. |
+| `consent` | no | `public`, `anal`, `oral` booleans. Missing keys use the existing deterministic id defaults. `public` is a soft Context preference; it is not an offer visibility or act gate. |
 | `eligible` | no | Provider-only tri-state: `true` or `false` asserts the pony's age; absent lets the game's identity decide. It is never written to the player's settings. |
 | `profile` | no | `participation` with `acts`, `anatomy` and `tail` booleans. Missing keys default to `true`. It is subtractive: `true` means "does not veto", never "grants". |
 | `placement` | no | Any subset of `offset_x`, `offset_y`, `offset_z`, `pitch_deg`, `scale`, `tail_y`, `tail_z`, `dock_y`, `dock_scale`, `tail_tilt_deg`. |

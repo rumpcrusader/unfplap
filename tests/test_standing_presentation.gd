@@ -203,8 +203,7 @@ func run() -> void:
 		"the settled presentation holds the affectionate face")
 	check(not boop.blushes.is_empty() and near(float(boop.blushes[-1]), 1.0),
 		"the presentation sustains the full blush")
-	check(not expressions.stares.is_empty() and not bool(expressions.stares[-1][0]),
-		"the settle releases the request stare")
+	check(expressions.stares.is_empty(), "the presentation takes no request stare")
 	check(secondary.looks > 0 and secondary.last_angles.x > 0.5,
 		"the first look is the stronger over-the-shoulder glance")
 	check(near(eye_motion.target_weight, 1.0)
@@ -284,9 +283,10 @@ func _check_presentation_face(presentation: Variant, pony: FakePony, facts: RefC
 		body: Skeleton3D, expressions: FakeExpressions) -> void:
 	facts.pony_id = "rarity"
 	facts.mod_enabled = func(_id: String) -> bool: return true
-	presentation.call("set_request_face", true)
 	check(bool(presentation.call("present_standing")),
 		"the accepted offer reaches the presentation")
+	check(pony.has_meta("affection_active"),
+		"the presentation takes its own affection hold")
 	pony.rotation.y = AWAY_YAW - deg_to_rad(10.0)
 	presentation.call("physics", 0.016)
 	await process_frame
@@ -296,6 +296,8 @@ func _check_presentation_face(presentation: Variant, pony: FakePony, facts: RefC
 		"the presentation holds the affectionate face")
 	expressions.dialogue_face = "shy"
 	presentation.call("clear_presentation")
+	check(not pony.has_meta("affection_active"),
+		"closing releases the presentation hold")
 	check(expressions.dialogue_face == "shy",
 		"closing leaves a foreign line face alone")
 	expressions.dialogue_face = ""

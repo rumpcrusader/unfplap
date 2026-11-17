@@ -4,7 +4,9 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_offer.gd
 
-const MAIN := preload("res://mods/unfplap/main.gd")
+## Loaded at run time: `main.gd` names the game's `Mods` autoload, which the `--script`
+## compiler cannot see at preload time. The autoload node exists before the suite runs.
+var MAIN: Variant = null
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 
@@ -24,10 +26,16 @@ class FakeRuntime extends Node:
 	var last_start: Array = []
 	var agreement_result := 0
 	var agreement_handles: Array = []
+	var hotkey_starts := 0
+	var hotkey_result := true
 
-	func start_agreement(handle: Variant) -> int:
+	func start_agreement(handle: Variant, _skip_presentation := false) -> int:
 		agreement_handles.append(handle)
 		return agreement_result
+
+	func start_hotkey(_pose: String, _bed: Variant, _source: String) -> bool:
+		hotkey_starts += 1
+		return hotkey_result
 
 	func start_verdict(_pose: String, _source: String, _bed: Variant) -> Dictionary:
 		return gate
@@ -48,16 +56,35 @@ class FakeClassifier extends Node:
 	func cancel_scope(scope: String) -> void:
 		scopes.append(scope)
 
+	func cancel_all() -> void:
+		pass
+
 
 class FakeNegotiation extends Node:
 	var live: Variant = null
 	var reports: Array = []
+	var interrupts := 0
+	var locked := false
+	var match: Variant = null
 
 	func handle() -> Variant:
 		return live
 
 	func report(_handle: Variant, started: bool) -> void:
 		reports.append(started)
+
+	func is_locked() -> bool:
+		return locked
+
+	func hotkey_handle(_runtime: Node, _option: Variant) -> Variant:
+		return match
+
+	func interrupt_for_hotkey() -> void:
+		interrupts += 1
+
+	func reset() -> void:
+		live = null
+		locked = false
 
 
 class FakeHud extends Node:
@@ -134,6 +161,10 @@ func _check_handle() -> void:
 
 
 func _check_start_path() -> void:
+	MAIN = load("res://mods/unfplap/main.gd")
+	check(MAIN != null, "main.gd loads with the game autoloads")
+	if MAIN == null:
+		return
 	var main: Node = MAIN.new()
 	root.add_child(main)
 	var hud := FakeHud.new()
@@ -152,64 +183,23 @@ func _check_start_path() -> void:
 		"toast": "Find a footstool in a house."}
 	check(not bool(main.call("start_pose_offer", blocked)),
 		"a blocked offer does not start")
-	check(runtime.starts == 0 and hud.toasts == ["Find a footstool in a house."],
+	check(runtime.starts == 0 and runtime.hotkey_starts == 0,
+		"a blocked offer starts neither path")
+	check(hud.toasts == ["Find a footstool in a house."],
 		"a blocked offer shows the recorded toast once")
 
-	# A history refusal closes the offer and reports the refusal as handled.
-	var history := _offer(runtime, pony)
-	var history_cancel := Counter.new()
-	history.cancel = Callable(history_cancel, "bump")
-	runtime.gate = {"attempt": false, "history_refuse": true}
-	check(bool(main.call("start_pose_offer", history)),
-		"a history refusal reports that it happened")
-	check(history_cancel.count == 1 and runtime.refusals == 1 and runtime.starts == 0,
-		"a history refusal closes the owner before refusing")
-	check(main.get("_offer") == null, "a history refusal clears the hint")
-
-	# A buck refusal closes the owner and runs the push, not the act.
-	var buck := _offer(runtime, pony)
-	var buck_cancel := Counter.new()
-	buck.cancel = Callable(buck_cancel, "bump")
-	runtime.gate = {"attempt": false, "buck_refuse": true}
-	check(not bool(main.call("start_pose_offer", buck)), "a buck refusal starts nothing")
-	check(buck_cancel.count == 1 and runtime.starts == 1 and runtime.last_start[0] == "missionary",
-		"a buck refusal closes the owner and starts the refusal path")
-
-	# A transient failed gate keeps the owner and the hint alive.
-	var transient := _offer(runtime, pony)
-	var transient_cancel := Counter.new()
-	transient.cancel = Callable(transient_cancel, "bump")
-	runtime.gate = {"attempt": false, "buck_refuse": false, "rows": []}
-	check(not bool(main.call("start_pose_offer", transient)),
-		"a transient failed gate starts nothing")
-	check(transient_cancel.count == 0, "a transient failed gate keeps the accepted offer")
-
-	# An attempt closes the owner, starts the act and cancels the offer's classifier scope.
-	var accepted := _offer(runtime, pony)
-	var accepted_cancel := Counter.new()
-	accepted.cancel = Callable(accepted_cancel, "bump")
-	accepted.scope = "dialogue:"
-	runtime.gate = {"attempt": true}
-	runtime.starts = 0
-	check(bool(main.call("start_pose_offer", accepted)), "an attempt starts the act")
-	check(accepted_cancel.count == 1 and runtime.starts == 1,
-		"an attempt closes the owner before the start")
-	check(classifier.scopes == ["dialogue:"], "an attempt cancels the offer's classifier scope")
-	check(main.get("_offer") == null, "a successful start clears the hint")
-
-	# A failed start still closed the handoff: the offer is handed off and the hint clears.
-	var failed := _offer(runtime, pony)
-	var failed_cancel := Counter.new()
-	failed.cancel = Callable(failed_cancel, "bump")
-	failed.scope = "dialogue:"
-	runtime.gate = {"attempt": true}
-	runtime.start_result = false
-	classifier.scopes.clear()
-	check(not bool(main.call("start_pose_offer", failed)), "a failed start returns false")
-	check(failed_cancel.count == 1 and classifier.scopes.is_empty(),
-		"a failed start keeps the owner closed and cancels no scope")
-	check(main.get("_offer") == null, "a failed start clears the hint")
-	runtime.start_result = true
+	# The hotkey's immediate attempt: Base clearance plus scene-only rows, no policy gate.
+	var hotkey := _offer(runtime, pony)
+	runtime.hotkey_result = true
+	main.set("_offer", hotkey)
+	check(bool(main.call("start_pose_offer", hotkey)), "the hotkey starts an immediate attempt")
+	check(runtime.hotkey_starts == 1 and runtime.starts == 0,
+		"the hotkey uses the scene-only path, not the policy start")
+	check(main.get("_offer") == null, "a started hotkey clears the hint")
+	runtime.hotkey_result = false
+	check(not bool(main.call("start_pose_offer", hotkey)),
+		"a blocked hotkey starts nothing")
+	runtime.hotkey_result = true
 
 	# A live Agreement is consumed through the scene-only start: WAIT keeps the hint and the
 	# Agreement, STARTED and FAILED clear the hint. The runtime reports the result.
@@ -233,6 +223,35 @@ func _check_start_path() -> void:
 	negotiation.live = null
 	check(not bool(main.call("start_pose_offer", agreement)),
 		"a missing Agreement handle starts nothing")
+
+	# A live Agreement's exact match skips the presentation and consumes the handle.
+	negotiation.live = {"pony": pony, "option": null}
+	negotiation.match = negotiation.live
+	var matching := _offer(runtime, pony)
+	main.set("_offer", matching)
+	runtime.agreement_result = RUNTIME.AGREEMENT_STARTED
+	var hotkey_before := runtime.hotkey_starts
+	check(bool(main.call("start_pose_offer", matching)),
+		"a matching Agreement starts from the hotkey")
+	check(runtime.hotkey_starts == hotkey_before,
+		"a matching Agreement is not a hotkey attempt")
+	check(main.get("_offer") == null, "a matching Agreement clears the hint")
+	negotiation.live = null
+	negotiation.match = null
+
+	# A live negotiation without an Agreement is interrupted before the attempt.
+	negotiation.locked = true
+	runtime.hotkey_result = true
+	check(bool(main.call("start_pose_offer", hotkey)), "the hotkey runs after a negotiation")
+	check(negotiation.interrupts == 1, "an active negotiation is interrupted")
+	negotiation.locked = false
+
+	# A live Agreement with a different option is interrupted; the attempt still runs.
+	negotiation.live = {"pony": pony, "option": null}
+	runtime.hotkey_result = true
+	check(bool(main.call("start_pose_offer", hotkey)), "a different Agreement is interrupted")
+	check(negotiation.interrupts == 2, "the different Agreement is interrupted")
+	negotiation.live = null
 
 	# An invalid handle is a no-op.
 	check(not bool(main.call("start_pose_offer", POSE_OFFER.new())),

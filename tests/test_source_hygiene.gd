@@ -388,7 +388,6 @@ func _check_eligibility_isolation(files: Array[String]) -> void:
 		"bonds.adults": ["eligibility/service.gd"],
 		"SETTINGS.promiscuity": ["eligibility/service.gd", "settings/service.gd"],
 		"SETTINGS.ignore_gates": ["eligibility/service.gd", "settings/service.gd"],
-		"SETTINGS.sex_start": ["eligibility/service.gd", "settings/service.gd"],
 		"SETTINGS.profile_eligible": ["eligibility/service.gd", "settings/characters_ui.gd",
 			"main.gd", "api.gd"],
 		"SETTINGS.profile_participation": ["eligibility/service.gd", "main.gd", "api.gd"],
@@ -954,7 +953,7 @@ func _check_start_dispatch() -> void:
 	var main := FileAccess.get_file_as_string(ROOT.path_join("main.gd"))
 	var offer := _func_body(main, "start_pose_offer")
 	check(not offer.is_empty(), "main.start_pose_offer exists")
-	for token: String in ["offer.blocked", "_cancel_pose_offer(offer)", "offer.scope"]:
+	for token: String in ["offer.blocked", "_start_agreement_offer(offer", "_start_hotkey_offer(offer)"]:
 		check(offer.contains(token), "main.start_pose_offer reads %s" % token)
 	check(not offer.contains("initiation"), "main.start_pose_offer never reaches into the request")
 	check(not offer.contains("CATALOG."), "main.start_pose_offer names no pose id")

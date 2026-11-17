@@ -766,10 +766,6 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 static var act_key := num("act_key", "controls.act_key",
 	"Act Key", "Key that starts and ends the act.", GENERAL, "") \
 	.with_range(1.0, float(ACT_KEYS.MAX_CODE - 1)).as_hidden()
-static var sex_start := choice("sex_start", "relationship.sex_start",
-	["when_available", "try_luck"], ["When Available", "Try Your Luck"],
-	"Show start button",
-	"When to show \"Make love\" button.", GENERAL, "")
 static var ignore_gates := flag("ignore_gates", "relationship.ignore_gates",
 	"I just wanna plap!",
 	"Disable all programmatic relationship checks. LLM can still refuse you.", GENERAL, "")
@@ -1579,9 +1575,6 @@ static var promiscuity := choice("promiscuity", "relationship.promiscuity",
 static var estrus_cycle := flag("estrus_cycle", "features.estrus_cycle",
 	"Enable estrus cycle",
 	"Give mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.", WORLD, "")
-static var act_public_offer := flag("act_public_offer", "features.act_public_offer",
-	"Enable public offers",
-	"Let a mare who is comfortable with others around still offer sex in public.", WORLD, "")
 static var act_speech_feel := flag("act_speech_feel", "features.act_speech_feel",
 	"Enable speech interjections",
 	"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.", WORLD, "")
@@ -1832,6 +1825,9 @@ static var _deprecated := [
 		return {} if bool(value) else {"anatomy.dock_style": "hide"}),
 	# The marked-area caress path is the only standing path; the switch is retired.
 	deprecated("features.caress_areas", func(_value: Variant) -> Dictionary: return {}),
+	# The act key always accepts and the Agreement owns visibility; both switches are retired.
+	deprecated("relationship.sex_start", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.act_public_offer", func(_value: Variant) -> Dictionary: return {}),
 	# Acts always end an active cuddle; the switch is retired.
 	deprecated("features.allow_act_during_cuddle",
 		func(_value: Variant) -> Dictionary: return {}),

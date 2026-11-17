@@ -285,5 +285,5 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 - The model calls are the host adapters' work; this service only sees the typed `Decision`.
 - The hold is best effort: a re-task or an attention reassignment ends the negotiation with
   `target_left`.
-- The Agreement auto-start (without the act key) is not wired yet; both offer routes are live and
-  the act key consumes the Agreement through the scene-only start.
+- Both offer routes are live. The Agreement auto-starts when the presentation settles and the
+  scene-only rows pass; the act key consumes an exact match earlier and skips the presentation.

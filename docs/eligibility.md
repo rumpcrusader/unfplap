@@ -13,15 +13,13 @@ this contract.
 This contract covers:
 
 - the one adult predicate and the per-target capability answers;
-- the Promiscuity level and Show start button choice;
+- the Promiscuity level and the relationship rows;
 - base-game kiss willingness (`bonds.welcomes(id, "kiss")`);
-- history withdrawal and offer blocks;
-- the estrus cycle sex gate;
+- history and cycle as Context for the negotiation routes;
 - the relationship bypass;
 - per-mare public, anal and oral consent;
-- the start hint, start attempt, buck refusal and history refusal;
-- proactive offer eligibility and offer weight;
-- mid-act withdrawal from a relationship change.
+- the legacy start gate and refusal rows (kept for tests and the tolerance path);
+- the capability answers the other services consume.
 
 It does not cover act readiness, thrust, tolerance, pose or camera rules. The live scene rows
 (state, navigator, bed, player, cuddle, affection) and the refusal executor are a separate
@@ -43,8 +41,8 @@ The purity boundary is deliberate:
   preload. It receives plain data and returns plain data.
 - `eligibility/service.gd` is read-only. It never saves settings, history or consent.
 - Only `eligibility/service.gd` reads `bonds.welcomes`, `bonds.adults`,
-  `bonds.eligible_for_romance`, `SETTINGS.promiscuity`, `SETTINGS.sex_start`,
-  `SETTINGS.ignore_gates`, `SETTINGS.consent` for a gate, `ACT_HISTORY.blocks_start`,
+  `bonds.eligible_for_romance`, `SETTINGS.promiscuity`, `SETTINGS.ignore_gates`,
+  `SETTINGS.consent` for a gate, `ACT_HISTORY.blocks_start`,
   `ACT_HISTORY.blocks_offers`, `ACT_HISTORY.offer_weight` or `CYCLE.allows_sex`.
 - `shared/act_history.gd`, `shared/cycle.gd`, `shared/consent.gd` and
   `shared/participation.gd` remain the authorities for their own data. Eligibility only composes
@@ -93,7 +91,7 @@ Rules:
 
 ```gdscript
 enum Target { ACT, ANATOMY, TAIL, CHARACTER }
-enum Mode { START, OFFER, MID_ACT }
+enum Mode { START, OFFER }
 enum Effect { NONE, BLOCK, REFUSE, HISTORY_REFUSE, OFFER_BLOCK, FLAG }
 enum Age { NONE, YOUNG, ADULT }
 enum EligibilityAssertion { IDENTITY, ELIGIBLE, NOT_ELIGIBLE }
@@ -104,7 +102,7 @@ class Profile: eligible, participation, consent
                eligible_value() -> Variant  # null, true or false; the cross-mod shape
 class History: tier, hurt, comfort, blocks_start, blocks_offers, offer_weight
 class Facts: id, eligible, participation, has_relationship, ... (see `## Facts`)
-class Actions: public, public_offer, anal, oral
+class Actions: public, anal, oral
 class Relations: id, stage, love_level, ... (see `## Verdict`)
 class Row: key, ok, reason, effect
 class Verdict: mode, base, show, attempt, offer, buck_refuse, history_refuse,
@@ -141,8 +139,7 @@ nothing.
 | `runtime.offer_verdict()` | `get_verdict(pony, Mode.OFFER)` | offer-safe `scene_gate/service.gd` rows |
 | `runtime.start()` | `start_verdict()` | none |
 | `runtime.refuse_available()` / `refuse()` | `buck_refuse` | `scene_gate/service.gd` refusal executor |
-| `runtime._still_willing()` | `get_verdict(pony, Mode.MID_ACT)` | none |
-| `main._refresh_offer()` | a live Agreement's scene-only rows, else `runtime.hint_start_verdict().show` | candidate discovery; the Agreement offer wins, the idle scan reuses the policy snapshot |
+| `main._refresh_offer()` | a live Agreement's scene-only rows, else `runtime.hotkey_ready()` | candidate discovery; the Agreement offer wins, the idle scan uses Base clearance plus the scene-only rows |
 | `main.try_start()` | `runtime.start()` | none |
 | `main._try_refusal()` | `runtime.refuse_available()` | none |
 | `main` candidate scan | `eligible(pony, Target.ACT)` through `_is_act_target()` | candidate discovery |
@@ -183,7 +180,7 @@ assertion wins over the identity flag in both directions.
 ```text
 id, has_identity, is_player_pony, is_filly, is_stallion, eligible, participation,
 has_relationship, registered_adult, romance_eligible, stage, love_level, willing,
-ignore_gates, promiscuity, sex_start, public_feature, player_young, player_pony,
+ignore_gates, promiscuity, player_young, player_pony,
 cycle_phase, cycle_allows, heat, history, consent
 ```
 
@@ -212,12 +209,11 @@ attempt: bool          # the act key starts the act
 offer: bool            # proactive offer allowed
 buck_refuse: bool      # the act key triggers refuse()
 history_refuse: bool   # the act key triggers refuse_from_history()
-stop: bool             # mid-act withdrawal
 offer_weight: float
 facts: Facts
-actions: Actions       # public, public_offer, anal, oral
+actions: Actions       # public, anal, oral
 relations: Relations   # id, stage, love_level, willing,
-                       # promiscuity, sex_start, cycle_phase, heat, ignore_gates, base
+                       # promiscuity, cycle_phase, heat, ignore_gates, base
 rows: Array[Row]       # key, ok, reason, effect
 ```
 
@@ -257,53 +253,27 @@ Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`, `bypass`
 `base` = valid adult mare + relationship runtime + registered adult + adult player + romance
 eligible + Promiscuity level pass.
 
-| Condition | `show` | `attempt` | `buck_refuse` | `history_refuse` | `offer` | `stop` |
-|---|---|---|---|---|---|---|
-| not `base` | no | no | no | no | no | yes |
-| `participation.acts` false | no | no | no | no | no | no |
-| `!willing`, When Available | no | no | yes | — | no | yes |
-| `!willing`, Try Your Luck | yes | no | yes | — | no | yes |
-| `willing`, history withdrawn/stop | yes | no | no | yes | no | no |
-| `willing`, history hurt (tier 2) | yes | yes | no | no | no | no |
-| diestrus | no | no | — | — | no | yes |
-| heat or public consent | — | — | — | — | privacy flag | — |
+| Condition | `show` | `attempt` | `buck_refuse` | `history_refuse` | `offer` |
+|---|---|---|---|---|---|
+| not `base` | no | no | no | no | no |
+| `participation.acts` false | no | no | no | no | no |
+| `!willing` | no | no | yes | — | no |
+| `willing`, history withdrawn/stop | yes | no | no | yes | no |
+| `willing`, history hurt (tier 2) | yes | yes | no | no | no |
+| diestrus | no | no | — | — | no |
 
 Rules:
 
+- The new routes do not consume `show`, `attempt`, `buck_refuse`, `history_refuse`, `offer` or
+  `offer_weight`. Base clearance uses `eligible?` and `relationship_ok()`; Context carries the
+  soft facts. These fields are the legacy start gate and its tests.
 - `history_refuse` wins over `buck_refuse`; it does not require willingness.
-- `buck_refuse` ignores the start button mode, cycle and history.
-- `stop` requires base + willing + cycle; history does not stop an act.
+- `buck_refuse` ignores the cycle and history.
 - `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a
   buck, a history refusal or a mood note. It is a boundary, not a mood beat.
-- `show` and `attempt` are separate. Try Your Luck shows the hint while `attempt` is false.
 - With the relationship bypass on, the four relationship rows (`promiscuity`, `romance`, `relation`,
-  `history`) are passed and `buck_refuse`/`history_refuse` are false; `show`, `attempt` and `offer`
-  still need the remaining rows.
-
-## Offer hint snapshot
-
-`main._refresh_offer()` runs at the 0.15 s hint cadence. It calls
-`runtime.hint_start_verdict()`, which reuses one cached `Verdict` for `Mode.START` and still runs
-every live scene row. Only the hint uses the snapshot: `runtime.start_verdict()`,
-`runtime.offer_verdict()`, `runtime.start()`, the refusal path and `debug_line()` build a fresh
-verdict. The scene-only Agreement rows run no policy, and the initiation scan uses `eligible?`
-plus `relationship_ok()` without a verdict.
-
-The runtime stores the snapshot per pony with its last key and a 0.5 s fallback TTL. It rebuilds
-when any of these changes:
-
-- settings `generation` or the provider registry `revision`;
-- `ACT_HISTORY.revision` (bumped by every stored history write);
-- the player form kind or age;
-- the cycle phase;
-- the pony id, relationship runtime or bonds node;
-- a `bonds.changed` or `impressions.changed` signal, where available;
-- the TTL expiring, so a missed signal cannot stale the hint forever.
-
-The scene gate receives the snapshot through its `verdict_in` argument, appends its live rows and
-evaluates them normally. A cached `show` therefore never bypasses a closed door, a sleep, a cuddle,
-a navigator lease or a footstool shortage. `runtime.stool_blocks_verdict()` reuses the same gate's
-rows for the blocked hint instead of running the gate a second time.
+  `history`) are passed and `buck_refuse`/`history_refuse` are false; the remaining rows still
+  decide.
 
 ## Adults
 
@@ -370,8 +340,7 @@ relationship-based row. `eligibility/service.gd` reads it once per snapshot into
   blocked history offer. The offer weight falls back to the rule's base weight with the row's
   comfort credit kept; the stored history is never written.
 
-`stop` follows the same rows, so a mid-act relationship change no longer withdraws her. The
-verdict gains a passing `bypass` flag row while the switch is on.
+The verdict gains a passing `bypass` flag row while the switch is on.
 
 It never opens the structural or boundary rows: adulthood and the provider assertion,
 `has_relationship`, `registered_adult`, the adult player, `participation.acts`, per-mare consent,
@@ -396,17 +365,13 @@ bucked or knocked Anon down. It also calls `bonds.unwanted_contact(id, "kiss")` 
 boundary) and holds the matching face in `face/mood_face.gd`. `angry` makes `bonds.welcomes()` false, so
 she refuses kisses and offers for the note's 300 s freshness.
 
-## Show start button
+## The act key and the legacy gate
 
-`relationship.sex_start` decides whether the start hint waits for her to welcome a kiss:
-
-- **When Available** requires kiss willingness. A mare who does not welcome a kiss has no hint and
-  no proactive offer.
-- **Try Your Luck** shows the hint before she welcomes the kiss. It **does not** drop the
-  Promiscuity level and it **does not** skip willingness at start. Pressing the act key still refuses when
-  she does not.
-
-Both modes use the same Promiscuity floor, the same base gate and the same willingness row.
+`relationship.sex_start` (**Show start button**) is retired. The act key is the hotkey: it always
+attempts, and its readiness is Base clearance plus the scene-only rows (`runtime.hotkey_ready`).
+There is no willingness, history, cycle or mode row on that path, and no buck or history refusal.
+The legacy `runtime.start()` / `start_verdict()` path keeps the policy rows for tests and the
+tolerance refusal path; it is not the new gate.
 
 ## History and cycle
 
@@ -416,18 +381,23 @@ summary/tolerance decisions and the refusal gate; the runtime still exposes
 
 - `blocks_start`: withdrawn tier or an active `stop_until`;
 - `blocks_offers`: hurt tier or higher, or an active `stop_until`;
-- `offer_weight`: the weighted proactive-offer chance.
+- `offer_weight`: the history Context weight for Mare Initiation Reasoning.
+
+On the negotiation routes these are Context, not gates. The tolerance `stop_until` is the only
+hard pre-start gate; the legacy start gate above still reads the rest for tests and the tolerance
+path.
 
 Tiers: hurt 2–3 keeps normal offers but lowers their weight and may give a rare vague hint
 (about one in four acts); hurt 4–5 makes no proactive offers while a player-initiated start is
 still allowed; hurt 6+ (withdrawn) makes no offers and keeps the start hint with a spoken refusal
 until repaired. An active `stop_until` blocks both the next start and proactive offers.
 
-A withdrawn mare still shows the hint; pressing the act key speaks the refusal. A hurt mare still accepts a
-player-initiated start but makes no proactive offers.
+A withdrawn mare's history stays Context; the hotkey attempt does not read it. A hurt mare's
+offer weight is Context for her reasoning.
 
-`cycle.allows_sex()` blocks start and offers in diestrus. Heat does not change the gate; it changes
-readiness, offer cooldown and the public-offer override.
+`cycle.allows_sex()` is Context on the negotiation routes and a row on the legacy start gate.
+Heat does not change visibility; it changes readiness, the offer cooldown and the reasoning
+Context.
 
 ## Per-mare action consent
 
@@ -450,8 +420,7 @@ independent:
 
 The negotiation routes derive visibility from `privacy/service.gd` and have no public override:
 a crowded offer is simply public, and per-mare public consent and heat are Context for reasoning.
-The legacy proactive route still reads `actions.public_offer` until the retired
-`features.act_public_offer` setting is removed; it is not a rule the new routes may copy.
+`features.act_public_offer` (**Enable public offers**) is retired.
 
 "Private" is a house with no other pony in that house, or outdoors with no other pony within
 30 m. The offering mare is excluded from the other-pony checks. A public offer is still an offer;
@@ -462,18 +431,12 @@ proactive-offer cooldown (`HEAT_COOLDOWN = 0.25`) and adds the heat sentence to 
 Cooldown, approach, bed search and the ask/consent classifier remain in the request service; its
 contract is `docs/initiation.md`.
 
-## Mid-act withdrawal
+## Mid-act behavior
 
-`Mode.MID_ACT.stop` is true when any of these changes after the act started:
-
-- adult mare, adult player or romance eligibility;
-- Promiscuity level;
-- kiss willingness;
-- the Show start button mode;
-- estrus cycle allows sex.
-
-`runtime._still_willing()` checks this every quarter second. A real tolerance stop is separate:
-`readiness/tolerance.gd` owns disliked-touch distress and its warning/stop thresholds.
+The mid-act relationship/cycle/promiscuity stop and `Mode.MID_ACT` are gone. A relationship,
+Promiscuity, willingness or cycle change never withdraws her during an act. The tolerance stop is
+the only mid-act stop: `readiness/tolerance.gd` owns disliked-touch distress and its warning/stop
+thresholds (`docs/readiness.md`).
 
 ## Debug
 
@@ -512,8 +475,8 @@ contract is `docs/initiation.md`.
 ## Tests
 
 - `tests/eligibility/test_eligibility.gd`: the pure truth table, the one adulthood predicate,
-  capability targets, witness age, Promiscuity, willingness, Show start button, history, cycle,
-  public/anal/oral, participation, the relationship bypass and row effects.
+  capability targets, witness age, Promiscuity, willingness, history, cycle, public/anal/oral,
+  participation, the relationship bypass and row effects.
 - `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `witness_age()`, typed
   facts and verdict, capability targets, the no-stable-id boundary, the profile consent, the
   provider layer through `set_profile()`/`get_profile()`, the settings flag and clear/setup
@@ -538,9 +501,9 @@ contract is `docs/initiation.md`.
 
 ## Known limits
 
-- The base game changes `bonds.welcomes()` over time; a mid-act mood swing can stop the act through
-  the willingness row.
-- Public consent is not a general exhibitionism gate; it is an offer privacy override.
+- The base game changes `bonds.welcomes()` over time; the negotiation routes read it as Context
+  for reasoning, not as a gate.
+- Public consent is not a general exhibitionism gate; it is a soft Context preference.
 - The relationship bypass never writes the game's bonds, so a mare's own dialogue and the base
   game's kiss and cuddle systems still read her real relationship. A Strict tolerance stop still
   ends the act, bucks and calls the game's `request_space` (`docs/readiness.md`).

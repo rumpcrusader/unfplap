@@ -1,6 +1,6 @@
 extends SceneTree
-## Pure eligibility policy: adults, Promiscuity, willingness, the start button mode, history, cycle,
-## the relationship bypass and per-mare consent. No world or user:// file is touched.
+## Pure eligibility policy: adults, Promiscuity, willingness, history, cycle, the relationship
+## bypass and per-mare consent. No world or user:// file is touched.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility.gd
 
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
@@ -35,8 +35,6 @@ func facts(over: Dictionary = {}) -> Dictionary:
 	out["love_level"] = 2
 	out["willing"] = true
 	out["promiscuity"] = "any"
-	out["sex_start"] = "try_luck"
-	out["public_feature"] = true
 	out["player_young"] = false
 	out["player_pony"] = false
 	out["cycle_phase"] = "normal"
@@ -73,10 +71,6 @@ func run() -> void:
 	check(POLICY.level_ok("any", -1), "Any Adult skips the love level")
 	check(POLICY.level_ok("", 2), "unknown Promiscuity falls back to Marefriend")
 	check(not POLICY.level_ok("", 1), "fallback still has a floor")
-	check(POLICY.hint_without_willingness("try_luck"), "Try Your Luck shows the hint early")
-	check(not POLICY.hint_without_willingness("when_available"),
-		"When Available waits for willingness")
-	check(not POLICY.hint_without_willingness(""), "an unknown start button mode does not show early")
 
 	check(POLICY.adult_pony(facts()), "an identified adult pony")
 	check(POLICY.adult_mare(facts()), "an adult mare")
@@ -123,12 +117,10 @@ func run() -> void:
 
 	var base := POLICY.evaluate(facts(), "start")
 	check(bool(base.base), "steady adult mare has a base")
-	check(bool(base.show) and bool(base.attempt), "all gates pass in Try Your Luck")
+	check(bool(base.show) and bool(base.attempt), "all gates pass for a willing mare")
 	check(bool(base.offer), "all gates allow an offer")
-	check(not bool(base.stop), "all gates keep an act going")
 	check(bool(base.actions.anal) and bool(base.actions.oral), "action consent is read")
 	check(not bool(base.actions.public), "public consent defaults off")
-	check(not bool(base.actions.public_offer), "public consent needs the feature or heat")
 
 	var opt_out := POLICY.evaluate(facts({"participation": {"acts": false}}), "start")
 	check(not bool(opt_out.show), "a participation opt-out hides the hint")
@@ -136,7 +128,6 @@ func run() -> void:
 	check(not bool(opt_out.offer), "a participation opt-out does not offer")
 	check(not bool(opt_out.buck_refuse), "a participation opt-out is not a refusal")
 	check(not bool(opt_out.history_refuse), "a participation opt-out is not a history refusal")
-	check(not bool(opt_out.stop), "a participation opt-out does not change the mid-act stop")
 	var adult_override := POLICY.evaluate(facts({"is_filly": true, "eligible": true}), "start")
 	check(bool(adult_override.show), "a provider's eligible assertion overrides the filly flag")
 	var adult_override_off := POLICY.evaluate(facts({"is_filly": false, "eligible": false}), "start")
@@ -159,31 +150,17 @@ func run() -> void:
 	var no_romance := POLICY.evaluate(facts({"romance_eligible": false}), "start")
 	check(not bool(no_romance.show), "romance eligibility blocks")
 
-	var available := POLICY.evaluate(facts({"sex_start": "when_available"}), "start")
-	check(bool(available.show) and bool(available.attempt),
-		"When Available shows the hint for a willing mare")
-	var available_unwilling := POLICY.evaluate(
-		facts({"willing": false, "sex_start": "when_available"}), "start")
-	check(not bool(available_unwilling.show),
-		"When Available waits for kiss willingness")
-
-	var unwilling_luck := POLICY.evaluate(facts({"willing": false}), "start")
-	check(bool(unwilling_luck.show), "Try Your Luck still shows the hint when unwilling")
-	check(not bool(unwilling_luck.attempt), "an unwilling mare does not start")
-	check(bool(unwilling_luck.buck_refuse), "an unwilling mare can refuse")
-	check(not bool(unwilling_luck.offer), "an unwilling mare never offers")
-	check(bool(unwilling_luck.stop), "an unwilling mare stops a mid-act check")
-	var unwilling_available := POLICY.evaluate(
-		facts({"willing": false, "sex_start": "when_available"}), "start")
-	check(not bool(unwilling_available.show), "When Available hides the hint when unwilling")
-	check(bool(unwilling_available.buck_refuse), "a refusal is still possible")
+	var unwilling := POLICY.evaluate(facts({"willing": false}), "start")
+	check(not bool(unwilling.show), "an unwilling mare has no legacy hint")
+	check(not bool(unwilling.attempt), "an unwilling mare does not start")
+	check(bool(unwilling.buck_refuse), "an unwilling mare can refuse")
+	check(not bool(unwilling.offer), "an unwilling mare never offers")
 
 	var withdrawn := POLICY.evaluate(facts({"history": {"blocks_start": true}}), "start")
 	check(bool(withdrawn.show), "a withdrawn mare still shows the hint")
 	check(not bool(withdrawn.attempt), "a withdrawn mare does not start")
 	check(bool(withdrawn.history_refuse), "a withdrawn mare speaks the refusal")
 	check(not bool(withdrawn.offer), "a withdrawn mare does not offer")
-	check(not bool(withdrawn.stop), "history does not stop an act")
 	var hurt := POLICY.evaluate(facts({"history": {"blocks_offers": true}}), "offer")
 	check(bool(hurt.show) and bool(hurt.attempt), "a hurt mare still starts")
 	check(not bool(hurt.offer), "a hurt mare does not offer")
@@ -206,7 +183,6 @@ func run() -> void:
 	check(bool(bypass.offer), "the bypass lets a blocked history offer")
 	check(not bool(bypass.buck_refuse) and not bool(bypass.history_refuse),
 		"the bypass removes both refusal routes")
-	check(not bool(bypass.stop), "the bypass keeps a mid-act check going")
 	check(POLICY.base_ok(facts({"ignore_gates": true, "romance_eligible": false,
 		"promiscuity": "soulmates", "love_level": 0})), "base_ok honors the bypass")
 	var bypass_row: Dictionary = {}
@@ -227,7 +203,7 @@ func run() -> void:
 		"the bypass keeps the participation veto")
 	var bypass_cold := POLICY.evaluate(
 		facts({"ignore_gates": true, "cycle_allows": false, "cycle_phase": "diestrus"}), "start")
-	check(not bool(bypass_cold.show) and not bool(bypass_cold.offer) and bool(bypass_cold.stop),
+	check(not bool(bypass_cold.show) and not bool(bypass_cold.offer),
 		"the bypass keeps the estrus cycle")
 	var bypass_filly := POLICY.evaluate(facts({"ignore_gates": true, "is_filly": true}), "start")
 	check(not bool(bypass_filly.show), "the bypass never makes a filly a target")
@@ -235,16 +211,9 @@ func run() -> void:
 	var cold := POLICY.evaluate(facts({"cycle_allows": false, "cycle_phase": "diestrus"}), "start")
 	check(not bool(cold.show), "diestrus hides the hint")
 	check(not bool(cold.offer), "diestrus blocks offers")
-	check(bool(cold.stop), "diestrus stops a mid-act check")
 
 	var public_consent := POLICY.evaluate(facts({"consent": {"public": true}}), "offer")
-	check(bool(public_consent.actions.public), "public consent is read")
-	check(bool(public_consent.actions.public_offer), "public consent is an offer override")
-	var public_off := POLICY.evaluate(
-		facts({"consent": {"public": true}, "public_feature": false}), "offer")
-	check(not bool(public_off.actions.public_offer), "the feature switch still gates public offers")
-	var heat := POLICY.evaluate(facts({"heat": true, "consent": {"public": false}}), "offer")
-	check(bool(heat.actions.public_offer), "heat overrides privacy")
+	check(bool(public_consent.actions.public), "public consent is read as a soft preference")
 	var anal_off := POLICY.evaluate(facts({"consent": {"anal": false}}), "start")
 	check(not bool(anal_off.actions.anal), "anal consent is independent of start eligibility")
 

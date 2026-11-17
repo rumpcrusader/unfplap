@@ -10,34 +10,19 @@ const UTTERANCE := preload("res://mods/unfplap/dialogue/utterance.gd")
 
 const CLOSE_AT := 65.0
 const WANTING_AT := 40.0
-## A base cue must hold still this long before it can become a line.
-const CUE_STABLE_S := 2.0
-## An event cue (liked/disliked touch or talk) is a moment, not a trend; it only needs to settle
-## inside its 2.5 s override lifetime.
-const CUE_OVERRIDE_STABLE_S := 0.5
 const CUE_GAP_MIN_S := 8.0
 const CUE_GAP_MAX_S := 30.0
-## Mod-owned generated lines wait this long after the previous line was accepted, even when the
-## director is free. Other systems keep their own scheduling.
-const UTTERANCE_MIN_GAP_S := 18.0
-## Demand lines ("She wants…"/"She needs…") get their own budget and repeat lock.
-const DEMAND_LINE_GAP_S := 28.0
-const DEMAND_REPEAT_S := 45.0
-## A queued line that has not reached audio by this age is stale. The runtime drops it.
-const CUE_MAX_AGE_S := 20.0
-## Keep the slot reserved briefly after speech stops, so a split TTS reply cannot be interrupted.
-const RELEASE_HOLD_S := 1.0
 
-var cue_gap := 12.0
-## Debug-overridable pacing. The constants above are the defaults; runtime.gd pushes the
-## `cues.*` settings into these fields at act start and on a live settings edit.
-var base_stable_s := CUE_STABLE_S
-var override_stable_s := CUE_OVERRIDE_STABLE_S
-var utterance_gap_s := UTTERANCE_MIN_GAP_S
-var demand_gap_s := DEMAND_LINE_GAP_S
-var demand_repeat_s := DEMAND_REPEAT_S
-var max_age_s := CUE_MAX_AGE_S
-var release_hold_s := RELEASE_HOLD_S
+var cue_gap: float
+## Debug-overridable pacing. runtime.gd pushes the `cues.*` settings into these fields at act
+## start and on a live settings edit.
+var base_stable_s: float
+var override_stable_s: float
+var utterance_gap_s: float
+var demand_gap_s: float
+var demand_repeat_s: float
+var max_age_s: float
+var release_hold_s: float
 ## Why the last `admit_cue()` call returned false, for the runtime's debug log.
 var last_reason := ""
 

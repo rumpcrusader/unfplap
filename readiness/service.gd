@@ -74,11 +74,11 @@ var act_pattern_right := 0
 
 ## Per-act configuration.
 var preferences: Dictionary = {}
-var override_seconds := 10.0
-var overwhelmed_seconds := 1.2
-var touch_cooldown := 4.0
-var talk_cooldown := 8.0
-var receptive_seconds := 8.0
+var override_seconds: float
+var overwhelmed_seconds: float
+var touch_cooldown: float
+var talk_cooldown: float
+var receptive_seconds: float
 
 ## Host boundary. Missing callbacks are no-ops.
 var log := Callable()
@@ -99,10 +99,10 @@ var auto_thrust: RefCounted = AUTO_THRUST.new()
 var auto_panel: RefCounted = AUTO_PANEL.new()
 var auto_on := false
 ## The act's `auto_thrust.*` snapshot, pushed by the runtime.
-var auto_default_pace := 1.0
-var auto_default_depth := 0.5
-var auto_default_min := 0.0
-var auto_default_shape := "cosine"
+var auto_default_pace: float
+var auto_default_depth: float
+var auto_default_min: float
+var auto_default_shape: String
 
 
 ## The runtime forwards the public values; these are the auto readouts.
@@ -116,7 +116,7 @@ func configure_auto(pace: float, max_depth: float, shape: String, min_depth: flo
 	auto_default_pace = pace
 	auto_default_depth = max_depth
 	auto_default_min = min_depth
-	auto_default_shape = shape if AUTO_THRUST.SHAPES.has(shape) else "cosine"
+	auto_default_shape = shape
 	auto_thrust.set_shape(auto_default_shape)
 
 

@@ -163,7 +163,7 @@ func run() -> void:
 		check(_thrusts(_simulate(0.9, 1.0, 3.0, shape)).size() >= 2,
 			"shape %s produces real strokes" % shape)
 	var shaped: RefCounted = AUTO.new()
-	shaped.call("reset", 1.0, 0.9, "hold")
+	shaped.call("reset", 1.0, 0.9, "hold", 0.0)
 	check(str(shaped.get("shape")) == "hold", "the configured shape is stored")
 	shaped.call("set_shape", "thrust")
 	check(str(shaped.get("shape")) == "thrust", "a live shape change applies")
@@ -186,7 +186,7 @@ func run() -> void:
 		"a bottom above the peak raises the peak")
 	check(near(float(banded.get("max_depth")), AUTO.DEPTH_MAX),
 		"the raised peak reaches full depth")
-	banded.call("reset", 1.5, 0.5)
+	banded.call("reset", 1.5, 0.5, "cosine", 0.0)
 	banded.call("nudge_min", 0.1)
 	check(near(float(banded.get("min_depth")), 0.1), "the bottom nudges up")
 	check(near(float(banded.get("max_depth")), 0.5), "a nudge keeps the peak")
@@ -201,7 +201,7 @@ func run() -> void:
 
 	# Enabling from the hand's depth must not snap backwards.
 	var auto: RefCounted = AUTO.new()
-	auto.call("reset", 1.5, 0.9)
+	auto.call("reset", 1.5, 0.9, "cosine", 0.0)
 	auto.call("begin", 0.6)
 	check(near(float(auto.get("max_depth")), 0.9), "auto keeps the configured peak")
 	check(near(float(auto.call("current_depth")), 0.6), "auto begins at the hand's depth")
@@ -211,14 +211,14 @@ func run() -> void:
 
 	# A peak shallower than the current depth is raised instead of pulling him back.
 	var raised: RefCounted = AUTO.new()
-	raised.call("reset", 1.5, AUTO.DEPTH_MIN)
+	raised.call("reset", 1.5, AUTO.DEPTH_MIN, "cosine", 0.0)
 	raised.call("begin", 0.8)
 	check(near(float(raised.get("max_depth")), 0.8), "begin raises the peak to the current depth")
 	check(near(float(raised.call("current_depth")), 0.8), "raised begin keeps the current depth")
 
 	# Wheel/mouse nudges stay inside the contract bounds.
 	var bounds: RefCounted = AUTO.new()
-	bounds.call("reset", 1.5, 0.9)
+	bounds.call("reset", 1.5, 0.9, "cosine", 0.0)
 	bounds.call("nudge_depth", -10.0)
 	check(near(float(bounds.get("max_depth")), AUTO.DEPTH_MIN), "auto depth clamps at the minimum")
 	bounds.call("nudge_depth", 10.0)

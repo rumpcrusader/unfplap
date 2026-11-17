@@ -35,6 +35,7 @@ func _runtime() -> Node:
 		"talk": ["praise"],
 		"warmth": "normal",
 	})
+	runtime._snapshot_settings()
 	runtime._thrust_tracker = THRUST.new()
 	runtime.state = 2 # ACTIVE
 	runtime._readiness.last_touch_at = -1000.0

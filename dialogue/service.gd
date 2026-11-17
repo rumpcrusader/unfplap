@@ -76,13 +76,13 @@ func setup(main_node: Node) -> void:
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these fields.
 func configure(pacing: Dictionary) -> void:
 	var lines = scheduler()
-	lines.base_stable_s = float(pacing.get("base_stable", lines.base_stable_s))
-	lines.override_stable_s = float(pacing.get("override_stable", lines.override_stable_s))
-	lines.utterance_gap_s = float(pacing.get("utterance_gap", lines.utterance_gap_s))
-	lines.demand_gap_s = float(pacing.get("demand_gap", lines.demand_gap_s))
-	lines.demand_repeat_s = float(pacing.get("demand_repeat", lines.demand_repeat_s))
-	lines.max_age_s = float(pacing.get("max_age", lines.max_age_s))
-	lines.release_hold_s = float(pacing.get("release_hold", lines.release_hold_s))
+	lines.base_stable_s = float(pacing["base_stable"])
+	lines.override_stable_s = float(pacing["override_stable"])
+	lines.utterance_gap_s = float(pacing["utterance_gap"])
+	lines.demand_gap_s = float(pacing["demand_gap"])
+	lines.demand_repeat_s = float(pacing["demand_repeat"])
+	lines.max_age_s = float(pacing["max_age"])
+	lines.release_hold_s = float(pacing["release_hold"])
 
 
 func scheduler():

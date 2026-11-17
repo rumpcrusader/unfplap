@@ -67,8 +67,8 @@ func _check_defaults() -> void:
 	check(near(readiness.auto_min_depth(), 0.2), "configure_auto keeps the bottom")
 	check(near(readiness.auto_max_depth(), 0.8), "configure_auto keeps the peak")
 	check(readiness.auto_shape() == "thrust", "configure_auto keeps the shape")
-	readiness.configure_auto(1.0, 0.5, "not_a_shape", 0.0)
-	check(readiness.auto_shape() == "cosine", "an unknown shape falls back to cosine")
+	readiness.configure_auto(1.0, 0.5, "cosine", 0.0)
+	check(readiness.auto_shape() == "cosine", "configure_auto replaces the shape")
 	check(not readiness.auto_panel_open(), "the layer starts closed")
 
 

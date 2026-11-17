@@ -4,6 +4,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/dialogue/test_utterance_scheduler.gd
 
 const SCHED := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 var failures := 0
 var checks := 0
 
@@ -21,6 +22,13 @@ func check(ok: bool, text: String) -> void:
 
 func fresh() -> RefCounted:
 	var scheduler: RefCounted = SCHED.new()
+	scheduler.base_stable_s = float(SETTINGS.base_stable_seconds.default)
+	scheduler.override_stable_s = float(SETTINGS.override_stable_seconds.default)
+	scheduler.utterance_gap_s = float(SETTINGS.utterance_gap_seconds.default)
+	scheduler.demand_gap_s = float(SETTINGS.demand_gap_seconds.default)
+	scheduler.demand_repeat_s = float(SETTINGS.demand_repeat_seconds.default)
+	scheduler.max_age_s = float(SETTINGS.max_age_seconds.default)
+	scheduler.release_hold_s = float(SETTINGS.release_hold_seconds.default)
 	scheduler.reset(0.0, 12.0)
 	return scheduler
 

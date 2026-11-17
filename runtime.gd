@@ -124,7 +124,7 @@ var depth := 0.0
 ## Public: how far the tip has passed her lips, in metres. It never goes behind them: the tip rests
 ## at her entrance and the depth stays at zero there.
 var penetration_m := 0.0
-var thrust_up := true
+var thrust_up: bool
 
 ## The act's pose session: the pose modifier, the authored missionary base, the bed frame, the
 ## extra modifiers, the bone snapshots and the pose diagnostics. See `poses/service.gd`.
@@ -187,32 +187,32 @@ var _cycle_override := ""
 var _profile: Dictionary = {}
 var _features: Dictionary = {}
 ## The act's caress surface level, snapshotted from the settings so the engine never reads them.
-var _caress_quality := "precise"
+var _caress_quality: String
 var _preferences: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _thrust_tracker
 ## Auto thrust uses the one tracker: the generated depth only replaces the mouse movement.
-var _thrust_pixels_per_cm := 100.0
-var _thrust_travel := 1.0
-var _max_pony_climaxes := 3
+var _thrust_pixels_per_cm: float
+var _thrust_travel: float
+var _max_pony_climaxes: int
 ## The pose standoff, taken from the act snapshot so a stroke never reads a setting per impact.
-var _pelvis_gap_m := 0.025
-var _cue_gap := 12.0
+var _pelvis_gap_m: float
+var _cue_gap: float
 var _vocal_cooldown := 0.0
 ## The cue/utterance pacing and the oral soft-kiss cue. The oral turn owns its idle timer.
-var _cue_override_seconds := 10.0
-var _cue_base_stable_s := 2.0
-var _cue_override_stable_s := 0.5
-var _cue_utterance_gap_s := 18.0
-var _cue_demand_gap_s := 28.0
-var _cue_demand_repeat_s := 45.0
-var _cue_max_age_s := 20.0
-var _cue_reaction_max_age_s := 30.0
-var _cue_release_hold_s := 1.0
-var _cue_overwhelmed_s := 1.2
-var _touch_cooldown_s := 4.0
-var _talk_cooldown_s := 8.0
-var _receptive_seconds := 8.0
+var _cue_override_seconds: float
+var _cue_base_stable_s: float
+var _cue_override_stable_s: float
+var _cue_utterance_gap_s: float
+var _cue_demand_gap_s: float
+var _cue_demand_repeat_s: float
+var _cue_max_age_s: float
+var _cue_reaction_max_age_s: float
+var _cue_release_hold_s: float
+var _cue_overwhelmed_s: float
+var _touch_cooldown_s: float
+var _talk_cooldown_s: float
+var _receptive_seconds: float
 var _act_spoken_at := -1e9
 var _act_ended_early := false
 ## The act's summary, grade and peak record; see `summary/service.gd`. The runtime reads it as
@@ -223,7 +223,7 @@ var _tolerance_warning_key := ""
 var _end_early_key := ""
 var _climax_reaction_key := ""
 var _tail_tuck: Node
-var _aftercare_min := 10
+var _aftercare_min: int
 var _display_name := "the pony"
 var _serial := 0
 var _event_id := ""
@@ -249,7 +249,7 @@ var _face: RefCounted = FACE.new()
 ## `reactions/service.gd` and `docs/reactions.md`.
 var _reactions: RefCounted = REACTIONS.new()
 var _first_time := false
-var _act_climax_mode := "auto"
+var _act_climax_mode: String
 var _satisfaction_tween: Tween
 ## The act's base kiss normally rears and lifts both forelegs; zeroing those two shared
 ## settings keeps her forehooves planted for the kiss and restores them when it ends.
@@ -1089,7 +1089,7 @@ func apply_live_settings() -> void:
 	# Read the pre-edit mute before the snapshot replaces `_features`: a live Ponese mute edit is
 	# only visible as a change against the value the act started with, and that change is what
 	# pushes the new policy into the voice player below.
-	var previous_mute := bool(_features.get("mute_ponese_audio", false))
+	var previous_mute := _feature("mute_ponese_audio")
 	_snapshot_settings()
 	if state == State.IDLE:
 		# The idle standing presentation has its own live values, so a settings edit reaches it
@@ -1146,12 +1146,12 @@ func _refresh_live_voice() -> void:
 
 ## Optional HUD cue and readiness readouts. The act continues without them.
 func hud_readouts() -> bool:
-	return bool(_features.get("hud_readouts", true))
+	return bool(_features["hud_readouts"])
 
 
 ## Optional act control card, separate from the pony state readouts.
 func hud_controls() -> bool:
-	return bool(_features.get("act_controls", true))
+	return bool(_features["act_controls"])
 
 
 ## The typed act view `main.gd` and `hud/service.gd` read. The runtime owns it; the HUD never
@@ -1899,8 +1899,8 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_snapshot_settings()
 	_reactions.apply_radius()
 	_thrust_tracker = THRUST.new()
-	_aftercare_min = int(_profile.get("aftercare_min", 10))
-	_cue_gap = SETTINGS.cue_gap_value(float(_profile.get("cue_gap", 12.0)))
+	_aftercare_min = int(_profile["aftercare_min"])
+	_cue_gap = SETTINGS.cue_gap_value(float(_profile["cue_gap"]))
 	_standing_camera_controller().reset()
 	bed = _scene_gate().resolve_bed(pose, act_source, bed_in)
 	if bool(POSE_SPECS.scene(pose).get("requires_bed", false)) and bed == null:

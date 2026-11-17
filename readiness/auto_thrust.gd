@@ -35,15 +35,14 @@ const SHAPES := ["cosine", "thrust", "tease", "saw", "hold"]
 const MIN_BAND := 0.18
 
 var active := false
-## Thrusts per second. One cycle is one inward stroke. Matches the declared default; `reset()`
-## overwrites it with the configured act-start value.
-var pace := 1.0
+## Thrusts per second. One cycle is one inward stroke. `reset()` sets it from the act snapshot.
+var pace: float
 ## Requested bottom and peak depth, 0..1 of the full tracker range. The stroke travels
 ## `max_depth - min_depth`, so the band must stay at least `MIN_BAND` wide.
-var min_depth := 0.0
-var max_depth := 0.5
+var min_depth: float
+var max_depth: float
 ## Stroke waveform id, one of `SHAPES`.
-var shape := "cosine"
+var shape: String
 
 ## Smoothed band the waveform actually uses, so a depth nudge does not step the stroke.
 var _low := 0.0
@@ -53,11 +52,11 @@ var _depth := 0.0
 
 
 ## Back to the act-start defaults. Called by `runtime._reset_thrust_state()`.
-func reset(default_pace: float, default_depth: float, default_shape := "cosine",
-		default_min := 0.0) -> void:
+func reset(default_pace: float, default_depth: float, default_shape: String,
+		default_min: float) -> void:
 	active = false
 	pace = clampf(default_pace, PACE_MIN, PACE_MAX)
-	shape = default_shape if SHAPES.has(default_shape) else "cosine"
+	shape = default_shape
 	min_depth = clampf(default_min, 0.0, DEPTH_MAX - MIN_BAND)
 	max_depth = clampf(maxf(default_depth, min_depth + MIN_BAND), DEPTH_MIN, DEPTH_MAX)
 	min_depth = clampf(min_depth, 0.0, max_depth - MIN_BAND)

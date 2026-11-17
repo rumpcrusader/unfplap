@@ -2126,7 +2126,7 @@ func headset_view() -> bool:
 	return is_instance_valid(game) and bool(game.get("headset_view"))
 
 
-func _bedside_pony(view: Camera3D) -> Node:
+func _bedside_pony(_view: Camera3D) -> Node:
 	# The player's bed/couch seat knows exactly who lies beside Anon.
 	if is_instance_valid(player):
 		var seat: Variant = player.get("seat")

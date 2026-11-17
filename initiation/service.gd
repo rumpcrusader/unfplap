@@ -393,7 +393,7 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 ## The placeable options for this mare and the requested pose filter. The cuddle option comes
 ## only from an active cuddle's bed; a bed or standing offer comes from the venue.
 func _options_for(placement: POSE_OPTIONS.Placement, view: Variant, pose_request: String,
-		pony: Node3D, reasons: Array) -> Array[POSE_OPTIONS.Option]:
+		_pony: Node3D, reasons: Array) -> Array[POSE_OPTIONS.Option]:
 	var built := POSE_OPTIONS.build(str(view.form), str(view.view), placement)
 	var out: Array[POSE_OPTIONS.Option] = []
 	for option: POSE_OPTIONS.Option in built:

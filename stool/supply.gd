@@ -101,7 +101,7 @@ func _tick() -> void:
 		_debug("stool supply spawned=%d" % _spawned)
 
 
-func _place_in(house: Node3D, store: Variant, inventory: Node) -> bool:
+func _place_in(house: Node3D, _store: Variant, inventory: Node) -> bool:
 	for point: Vector3 in _spots(house):
 		var pose: Variant = _drop_pose(house, point)
 		if not pose is Transform3D:

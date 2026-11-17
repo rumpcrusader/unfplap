@@ -46,7 +46,7 @@ func _process(_delta: float) -> void:
 		align.call(hip_target, Basis.IDENTITY)
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	y_held = is_instance_valid(_right) and _right.is_button_pressed("primary_click")
 	_drive_depth()
 	_read_hands()

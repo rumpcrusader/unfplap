@@ -22,7 +22,7 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 
 ## The authored base: the bed-space body and the neutral head. False when the asset or the frame is
 ## unavailable; the overlay is then skipped too, exactly as the whole-pose path returns.
-func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
+func apply_base(_rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	_config = state.get("config", {})
 	var authored: Variant = state.get("authored")
 	var frame: Variant = state.get("bed_frame")

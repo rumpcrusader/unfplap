@@ -504,7 +504,7 @@ func _apply_control_visibility(state: int, view: RefCounted) -> void:
 			row.visible = layer and hints_on and _hint.visible
 
 
-func _extra_row_visible(key: String, state: int, standing: bool, view: RefCounted) -> bool:
+func _extra_row_visible(key: String, state: int, _standing: bool, view: RefCounted) -> bool:
 	if state == STATE_AFTERGLOW:
 		return false
 	match key:

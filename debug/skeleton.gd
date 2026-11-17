@@ -112,7 +112,7 @@ func _rebuild() -> void:
 
 
 func _collect_joints(skeleton: Skeleton3D, label: String, camera: Camera3D,
-		right: Vector3, up: Vector3) -> void:
+		right: Vector3, _up: Vector3) -> void:
 	var space: Transform3D = skeleton.global_transform
 	for index: int in skeleton.get_bone_count():
 		var pose := skeleton.get_bone_global_pose(index)

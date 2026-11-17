@@ -494,7 +494,7 @@ func _end_bed() -> void:
 
 
 ## integration: how far the tip has passed her opening, 0 to 1 of its length.
-func entry(opening: Vector3, rear: Vector3) -> float:
+func entry(opening: Vector3, _rear: Vector3) -> float:
 	if not _in_tree() or not _mesh.visible:
 		return -1.0
 	var length := _part_length() * _mesh.global_transform.basis.get_scale().x

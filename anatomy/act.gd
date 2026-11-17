@@ -398,7 +398,7 @@ func _start_wink(seconds: float, beats: float) -> void:
 
 ## The vulva plane's normal, oriented toward Anon. `hole_rear()` is the anatomy mesh's own axis;
 ## its sign depends on how the asset was authored, so it is resolved against his pelvis position.
-func _compute_normal(part: Variant) -> Vector3:
+func _compute_normal(_part: Variant) -> Vector3:
 	if not is_instance_valid(anatomy):
 		return Vector3.ZERO
 	var normal: Vector3 = hole_rear()

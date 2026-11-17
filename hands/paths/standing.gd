@@ -31,7 +31,7 @@ func candidates(hand_side: String, context: Dictionary) -> Array:
 
 ## The marked-area path is the standing caress path. It moves from the flank at no lean through
 ## the shoulder to the base of the neck at a full forward lean.
-func _authored_candidates(hand_side: String, context: Dictionary, lean: float) -> Array:
+func _authored_candidates(hand_side: String, _context: Dictionary, lean: float) -> Array:
 	# Anon stands behind her, so his left hand reaches her left side, and the area JSON stores
 	# the mare's own body sides.
 	var anchor_hand := hand_side

@@ -126,8 +126,8 @@ path-keyed read outside the settings service and no second cache.
 
 4. **Run `scripts/test_all.sh`.** It checks the registry, the shipped document's schema, the file
    round-trip, coercion and that the panel draws every declaration. Update the owning service's
-   `## Settings` section in the same commit; a setting contributed by a service is documented
-   there, not only here.
+   `## Settings` section in the `docs:` commit that follows; a setting contributed by a service is
+   documented there, not only here.
 
 Nothing else exists to update: the widget, unit, save, persistence and placement all come from the
 declaration; the value comes from the shipped document.

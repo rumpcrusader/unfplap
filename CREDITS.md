@@ -42,5 +42,6 @@ the copy is pinned to 0.1.1 by `shared/integrations.gd`'s `verified_version`.
 
 ## Adding a credit
 
-A new third-party asset gets its entry here in the same commit as the asset: the author, the
-licence or the permission, and what the mod uses. Do not repeat the credit anywhere else.
+A new third-party asset gets its entry here in the `docs:` commit that immediately follows the
+asset commit: the author, the licence or the permission, and what the mod uses. Do not repeat the
+credit anywhere else.

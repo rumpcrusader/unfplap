@@ -169,7 +169,8 @@ Rules:
 - lab checks are described as steps, not as historical results;
 - cross-system facts are links, not copies;
 - no historical notes, no "used to be" sections;
-- a behaviour, setting, control, debug action or test change updates the doc in the same commit.
+- a behaviour, setting, control, debug action or test change updates the doc in the separate
+  `docs:` commit after the code commit.
 
 ## Verification matrix
 

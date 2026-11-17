@@ -418,13 +418,15 @@ target; the exception and typing-debt files record the temporary gaps.
 
 - Move one service per commit. Do not mix a layout move with a behavior change.
 - Use `git mv`; move or remove the matching `.uid` files.
-- Retarget every preload, test, doc and index row in the same commit.
+- Retarget every preload, test and gate-read doc row in the code commit; move the rest of the doc
+  and the index row in the following docs commit.
 - Do not add a root shim to keep an old path alive. The old path is deleted.
 - New files must be tracked before a build; the pack manifest reads `git ls-files`.
 - `architecture/exceptions.json` may only shrink. Removing an exception is part of the commit
   that fixes the boundary.
 - `architecture/typing_debt.json` may only shrink between deliberate `--write-debt` updates.
-- A behavior phase updates the owning service doc and its tests in the same commit.
+- A behavior phase updates the service's tests in the code commit and its contract doc in the
+  following docs commit.
 
 ## Related
 

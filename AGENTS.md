@@ -87,9 +87,12 @@ Non-code tasks: a release is `.opencode/skills/release/SKILL.md`; syncing shippe
 
 Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
-- Settle the design before touching files. Once it is settled, apply every edit first, then check
-  the change. Gate once per task, not per commit: `scripts/test.sh <touched>` and
-  `scripts/check.sh` before each commit, `scripts/test_all.sh` once when the task is done.
+- **Code first, docs second.** Land the behavior and its tests, plus only the doc text a gate
+  reads, run every gate, and commit the code. Then update the owning `.md` prose and every code
+  comment in one separate `docs:` commit, after the task's last code commit.
+- Settle the design before touching files. Once it is settled, apply every code edit first, then
+  check the change. Gate the code once per task, not per commit: `scripts/test.sh <touched>` and
+  `scripts/check.sh` before each commit, `scripts/test_all.sh` once when the code phase is done.
 - Use one whole-file write for a file that changes heavily, and send independent edits together in
   one turn. A chain of single-line edits costs a round trip each.
 - Plans live outside the repo. Resolve the path with
@@ -103,13 +106,17 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 ## Definition of done
 
-1. The owning doc is updated in the same commit; a new doc is indexed in `docs/README.md`.
-2. Suites are added or retargeted, `scripts/test.sh <touched>` passes and `scripts/check.sh --all`
-   is clean.
-3. `scripts/test_all.sh` passes once, at the end of the task.
-4. New `.gd` files are tracked before a build; the pack manifest reads `git ls-files`.
-5. `mod.json.version` and `changelog.txt` change only through the release skill.
-6. `README.md` was not edited; a needed change is reported with exact replacement text.
+1. The code and its tests are committed, with only gate-read doc text, before the documentation
+   commit.
+2. The owning doc is updated in a separate `docs:` commit; a new doc is indexed in
+   `docs/README.md`.
+3. Suites are added or retargeted; `scripts/test.sh <touched>` passes and `scripts/check.sh --all`
+   is clean before the code commit.
+4. `scripts/test_all.sh` passes once, at the end of the code phase.
+5. The docs commit passes `scripts/check.sh --all` and every suite that reads an edited doc.
+6. New `.gd` files are tracked before a build; the pack manifest reads `git ls-files`.
+7. `mod.json.version` and `changelog.txt` change only through the release skill.
+8. `README.md` was not edited; a needed change is reported with exact replacement text.
 
 ## Non-negotiables
 
@@ -138,8 +145,17 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 - Every service has exactly one doc under `docs/`, indexed by `docs/README.md`, and that doc is the
   single source of truth for its purpose, ownership, API, state, settings, controls, debug actions,
-  dependencies and tests; no other doc restates them. Update it in the same commit as the change,
-  and remove obsolete claims instead of keeping historical notes.
+  dependencies and tests; no other doc restates them. Update it in the `docs:` commit that follows
+  the code commit, and remove obsolete claims instead of keeping historical notes.
+- **Docs follow the code.** Documentation means both `.md` files and code comments. A task that
+  changes documentation has one `docs:` commit, after its last code commit; never mix
+  documentation into a code commit. The only exception is the minimum doc text a test or checker
+  reads to stay green — a new service's contract stub and index row, a `Uses` row, the public
+  names in `docs/api.md` — which the code commit may carry for the docs commit to complete.
+- **Comments explain why, not what.** Add one only when the reason is not obvious from the code
+  flow and is too low-level or specific for the owning doc. Keep it concise: an invariant, a
+  workaround, an ordering constraint or a game quirk. Do not narrate the statements, restate a doc
+  or record history; delete a comment that only says what the code already says.
 - A doc names settings and behaviour, not copied numeric defaults; the shipped
   `settings/defaults.json` is the source for the default and the declaration in
   `settings/service.gd` for the bounds.

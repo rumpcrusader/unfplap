@@ -268,7 +268,8 @@ Provider layers are defaults. The player's saved data remains authoritative:
   `contract().deprecations` as `{name, since, replacement, remove_in}`.
 - A descriptor key is accepted and remapped for the life of the major; it is removed only in the
   next major.
-- `docs/api.md` and `tests/test_api.gd` are updated in the same change as any public surface change.
+- A public surface change updates `tests/test_api.gd` and the public names it reads from
+  `docs/api.md` in the code commit; the rest of the contract prose follows in the `docs:` commit.
   The test compares the reflected method list against an explicit manifest.
 
 ## Version history

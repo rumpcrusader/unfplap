@@ -97,20 +97,13 @@ python3 scripts/settings_sync.py promote --catalog <path> [<path> ...] --project
 
 Add `--dry-run` to print the intended writes without touching the file.
 
-## 5. Docs
-
-Update the owning doc when the promotion changes a contract: `docs/settings.md` for a declared
-setting, `docs/preferences.md` for a character template, `docs/poses.md` for a pose default,
-`docs/anatomy.md` for a placement row and `docs/api.md` for a prompt. Docs name the setting and its
-bounds, never the shipped value; a default lives only in the shipped document.
-
-## 6. Verify
+## 5. Verify the shipped data
 
 ```bash
 python3 scripts/settings_sync.py diff --project-root ../..
 python3 scripts/settings_sync.py diff --catalog --project-root ../..
 scripts/check.sh --all
-scripts/test.sh test_settings test_source_hygiene
+scripts/test.sh test_settings
 scripts/test_all.sh
 ```
 
@@ -118,13 +111,28 @@ The second diff must show only kept differences, missing paths, catalog override
 names. Unknown player leaves must be gone or reported. If the schema test fails, the shipped
 document and the declarations disagree; fix the document, never the test's expectation.
 
-## 7. Commit
+## 6. Commit the shipped data
 
-Stage only the files the run changed: the shipped document and the matching doc. Player profile
-files are outside the repository. Use one commit per area touched:
+Stage only the shipped document the run changed. Player profile files are outside the repository.
+Use one commit per area touched:
 
 - `settings: promote local defaults`
 - `settings: promote local catalog values`
+
+Do not stage the doc yet.
+
+## 7. Docs
+
+After the data commit, update the owning doc when the promotion changes a contract:
+`docs/settings.md` for a declared setting, `docs/preferences.md` for a character template,
+`docs/poses.md` for a pose default, `docs/anatomy.md` for a placement row and `docs/api.md` for a
+prompt. Docs name the setting and its bounds, never the shipped value; a default lives only in the
+shipped document.
+
+Run `scripts/check.sh --all`, `scripts/test.sh test_source_hygiene` and, when `docs/api.md`
+changed, `scripts/test.sh test_api`. Commit the doc in its own `docs:` commit:
+
+- `docs: describe the promoted settings`
 
 Do not push.
 

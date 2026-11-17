@@ -77,7 +77,7 @@ var pantyhose: Node
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
 var stool: Node
 var _anatomy_status_label: Label
-var initiation
+var initiation: INITIATION
 var privacy: PRIVACY
 var classifier
 ## The one director and model bridge: the Proactive service and the Negotiation Host share it.
@@ -107,6 +107,9 @@ var _last_blocked_key := ""
 var _stool_hint_toast_shown := false
 var _native_hint_label: Control
 var _native_hint_text := ""
+## The game's hints node and its 2D prompt row; resolved once per world, not per frame.
+var _native_hints_node: Node
+var _native_hint_row: HBoxContainer
 var _dance_hint_shown := false
 var _debug_skeleton: Node3D
 var _debug_wheel: CanvasLayer
@@ -582,10 +585,12 @@ func _close_idle_chunk(key: String, started: int) -> void:
 ## The entry's per-frame body. `_process` above only times it for the idle probe; the call order
 ## here is load-bearing.
 func _process_entry(delta: float, timed: bool) -> void:
-	var caption_started := Time.get_ticks_usec() if timed else 0
-	_caption_top_tick()
-	if timed:
-		_close_idle_chunk("entry_caption", caption_started)
+	# The caption move is an act-only path; the settings read behind it is not worth a call per frame.
+	if _captions_on_top:
+		var caption_started := Time.get_ticks_usec() if timed else 0
+		_caption_top_tick()
+		if timed:
+			_close_idle_chunk("entry_caption", caption_started)
 	if not is_instance_valid(player) and is_instance_valid(game):
 		var body: Variant = game.get("player")
 		if is_instance_valid(body):
@@ -796,16 +801,22 @@ func _rump_cone_target(view: Camera3D) -> Node:
 
 
 func _native_row() -> HBoxContainer:
-	if not is_instance_valid(game):
-		return null
-	var hints: Node = game.get_node_or_null("InteractionHints")
-	if hints == null:
+	# The row is read every frame, so it is cached: the path lookup allocates a NodePath and walks
+	# the tree, and the game keeps the same hints node and row for the whole world.
+	if is_instance_valid(_native_hint_row) and _native_hint_row.is_inside_tree():
+		return _native_hint_row
+	_native_hint_row = null
+	if not is_instance_valid(_native_hints_node) or _native_hints_node.get_parent() != game:
+		_native_hints_node = game.get_node_or_null("InteractionHints") \
+			if is_instance_valid(game) else null
+	if not is_instance_valid(_native_hints_node):
 		return null
 	# VR uses the world-space prompt row; the act-key hint falls back to the HUD prompt there.
-	if bool(hints.get("xr")):
+	if bool(_native_hints_node.get("xr")):
 		return null
-	var row: Variant = hints.get("_prompt2d")
+	var row: Variant = _native_hints_node.get("_prompt2d")
 	if row is HBoxContainer and is_instance_valid(row):
+		_native_hint_row = row
 		return row
 	return null
 
@@ -833,6 +844,8 @@ func _remove_native_hint(row: HBoxContainer = null) -> void:
 
 func _clear_native_hint() -> void:
 	_remove_native_hint(_native_row())
+	_native_hint_row = null
+	_native_hints_node = null
 
 
 func _sync_native_hint(text: String) -> void:
@@ -844,6 +857,13 @@ func _sync_native_hint(text: String) -> void:
 			else:
 				hud.show_prompt(text, "", _act_key_label() if text == OFFER_HINT else "")
 		return
+	# The scan changes the hint at most once a second; the common frame has nothing to apply, so it
+	# returns before the label checks and the container pokes.
+	if text == _native_hint_text:
+		if text.is_empty():
+			return
+		if is_instance_valid(_native_hint_label) and _native_hint_label.get_parent() == row:
+			return
 	if text.is_empty():
 		_remove_native_hint(row)
 		if is_instance_valid(hud):

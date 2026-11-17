@@ -436,41 +436,20 @@ func _read_hull_settings() -> void:
 	_garment_hull = null
 
 
-## Map an anatomy-local point into the garment's model space (the body's rest space) at the live
-## pose. The anatomy mesh is rigidly attached to `pony_hips`; the body model is the space the worn
-## garment's vertices are skinned in. The per-act trims are part of the live mesh transform. This
-## gives the shader the live +Z push axis; it does not sample the rest field. The body is cached;
-## this runs every frame.
+## Map an anatomy-local point into the garment's model space (the body's rest space). The
+## anatomy mesh is skinned to `pony_hips`; the body model is the space the worn garment's
+## vertices are skinned in. The per-act trims are part of the live mesh transform. The body is
+## cached; this runs every frame.
 func garment_transform() -> Transform3D:
 	if not is_attached() or not is_instance_valid(attach.mesh):
 		return Transform3D.IDENTITY
-	return garment_transform_for(_garment_body_node(), attach.mesh)
-
-
-## The same mapping with the bone pose removed: the anatomy-local -> garment-model space at the
-## rest pose, keeping the live placement and any act trim. The garment's rest vertex (the pack's
-## `CUSTOM0.xyz`) is sampled in this space, so a walking pose cannot slide the field lookup off
-## the ponut top or vulva bottom. The rest bone is the inverse of the attachment's rest bind, so
-## this reads no setting on the every-frame path.
-func garment_rest_transform() -> Transform3D:
-	if not is_attached() or not is_instance_valid(attach.mesh) \
-			or not is_instance_valid(attach.skeleton):
-		return Transform3D.IDENTITY
-	var bind: Transform3D = attach.bone_inverse
-	var bone_rest := bind.affine_inverse()
-	return garment_rest_transform_for(_garment_body_node(), attach.skeleton,
-		bone_rest, attach.mesh.transform)
-
-
-## The cached `MareBody` for the garment transforms' every-frame read.
-func _garment_body_node() -> Node3D:
 	if not is_instance_valid(_garment_body):
 		_garment_body = null
 		if is_instance_valid(pony):
 			_garment_body = pony.find_child("MareBody", true, false) as Node3D
 			if _garment_body == null:
 				_garment_body = pony
-	return _garment_body
+	return garment_transform_for(_garment_body, attach.mesh)
 
 
 ## True when the anatomy is attached and the visibility poll has the mesh shown. A far mesh or
@@ -490,16 +469,6 @@ static func garment_transform_for(body: Node3D, mesh: Node3D) -> Transform3D:
 	if not is_instance_valid(body) or not is_instance_valid(mesh):
 		return Transform3D.IDENTITY
 	return body.global_transform.affine_inverse() * mesh.global_transform
-
-
-## The rest form of `garment_transform_for`: the skeleton's rest bone replaces its live pose, so
-## the pack's rest-position attribute lands in the anatomy's field space while the cloth deforms.
-static func garment_rest_transform_for(body: Node3D, skeleton: Node3D, bone_rest: Transform3D,
-		mesh_local: Transform3D) -> Transform3D:
-	if not is_instance_valid(body) or not is_instance_valid(skeleton):
-		return Transform3D.IDENTITY
-	var rest := body.global_transform.affine_inverse() * skeleton.global_transform
-	return rest * bone_rest * mesh_local
 
 
 ## A margin in millimetres as anatomy-local units. The shader converts the local push back by

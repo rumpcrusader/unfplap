@@ -56,16 +56,13 @@ var _hull_min_margin_mm := 1.0
 var _show_hull := false
 var _rebuild_at := -1.0
 var _mismatch_logged := false
-var _rest_shader_logged := false
 
 ## garment node -> the pony it belongs to
 var _tracked: Dictionary = {}
 ## garment node -> Applied
 var _applied: Dictionary = {}
-## original material instance id + variant + rest lift -> compatibility material
+## original material instance id + variant -> compatibility material
 var _materials: Dictionary = {}
-## mesh instance id + surface -> the pack's built-in rest lift of that surface
-var _rest_lifts: Dictionary = {}
 ## The debug heatmap. It is a top-level child of this node and copies the anatomy mesh's
 ## transform, so it is visible even when the anatomy mesh is hidden (far mesh / act mode).
 var _overlay: MeshInstance3D
@@ -89,7 +86,6 @@ func on_world(host: Node) -> void:
 	_discover_clock = 0.0
 	_rebuild_at = -1.0
 	_mismatch_logged = false
-	_rest_shader_logged = false
 	_overlay_reason = ""
 	set_process(true)
 	_connect_anatomy()
@@ -102,11 +98,9 @@ func on_world_closed() -> void:
 	_hide_overlay()
 	_free_overlay()
 	_materials.clear()
-	_rest_lifts.clear()
 	_game = null
 	_discover_clock = 0.0
 	_rebuild_at = -1.0
-	_rest_shader_logged = false
 	set_process(false)
 
 
@@ -271,18 +265,10 @@ func _update_garments() -> void:
 			var value: Variant = anatomy.call("garment_transform", pony)
 			if value is Transform3D:
 				xform = value as Transform3D
-		# The field is rest; the live transform only supplies the push axis. Sample with the
-		# rest mapping so a walking pose cannot slide the lookup off the anatomy's extremes.
-		var rest_xform := xform
-		if anatomy.has_method("garment_rest_transform"):
-			var rest_value: Variant = anatomy.call("garment_rest_transform", pony)
-			if rest_value is Transform3D:
-				rest_xform = rest_value as Transform3D
-		_apply_node(mesh_node, hull, xform, rest_xform)
+		_apply_node(mesh_node, hull, xform)
 
 
-func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D,
-		rest_xform: Transform3D) -> void:
+func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D) -> void:
 	var mesh := node.mesh
 	if mesh == null:
 		_restore_if_applied(node)
@@ -311,7 +297,7 @@ func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D,
 	var any := false
 	for i in count:
 		var original := mesh.surface_get_material(i)
-		var compat := _compat_material(original, _surface_rest_lift(mesh, i))
+		var compat := _compat_material(original)
 		if compat == null:
 			var saved: Variant = applied.originals[i] if i < applied.originals.size() else null
 			var fallback: Material = saved if saved is Material else null
@@ -327,28 +313,18 @@ func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D,
 	if not any:
 		_restore_node(node, applied)
 		return
-	var rest_basis := rest_xform.basis
-	var rest_inverse := Basis.IDENTITY
-	if absf(rest_basis.determinant()) > 0.0000001:
-		rest_inverse = rest_basis.inverse()
-	var live_basis := xform.basis
-	var live_inverse := Basis.IDENTITY
-	if absf(live_basis.determinant()) > 0.0000001:
-		live_inverse = live_basis.inverse()
+	var basis := xform.basis
+	var inverse := Basis.IDENTITY
+	if absf(basis.determinant()) > 0.0000001:
+		inverse = basis.inverse()
 	node.set_instance_shader_parameter("hull_on", 1.0)
-	# The previous shader build reads these live uniforms; the current shader uses them as the
-	# per-vertex fallback when the rest lookup misses the field.
 	node.set_instance_shader_parameter("hull_origin", xform.origin)
-	node.set_instance_shader_parameter("hull_basis_x", live_basis.x)
-	node.set_instance_shader_parameter("hull_basis_y", live_basis.y)
-	node.set_instance_shader_parameter("hull_basis_z", live_basis.z)
-	node.set_instance_shader_parameter("hull_basis_inv_x", live_inverse.x)
-	node.set_instance_shader_parameter("hull_basis_inv_y", live_inverse.y)
-	node.set_instance_shader_parameter("hull_basis_inv_z", live_inverse.z)
-	node.set_instance_shader_parameter("hull_rest_origin", rest_xform.origin)
-	node.set_instance_shader_parameter("hull_rest_basis_inv_x", rest_inverse.x)
-	node.set_instance_shader_parameter("hull_rest_basis_inv_y", rest_inverse.y)
-	node.set_instance_shader_parameter("hull_rest_basis_inv_z", rest_inverse.z)
+	node.set_instance_shader_parameter("hull_basis_x", basis.x)
+	node.set_instance_shader_parameter("hull_basis_y", basis.y)
+	node.set_instance_shader_parameter("hull_basis_z", basis.z)
+	node.set_instance_shader_parameter("hull_basis_inv_x", inverse.x)
+	node.set_instance_shader_parameter("hull_basis_inv_y", inverse.y)
+	node.set_instance_shader_parameter("hull_basis_inv_z", inverse.z)
 	node.set_instance_shader_parameter("hull_margin", _margin_local(xform, _hull_margin_mm))
 	node.set_instance_shader_parameter("hull_min_margin",
 		_margin_local(xform, _hull_min_margin_mm))
@@ -403,56 +379,14 @@ func _restore_all() -> void:
 	var nodes: Array = _applied.keys()
 	for node: Variant in nodes:
 		var applied: Variant = _applied.get(node)
-		if applied is Applied and is_instance_valid(node):
+		if applied is Applied:
 			_restore_node(node, applied)
-		else:
-			_applied.erase(node)
 	_applied.clear()
 
 
 # --------------------------------------------------------------------------- compatibility material
 
-## The pack lifts its cut cloth a few millimetres off the body once, so its `VERTEX` is `CUSTOM0`
-## plus the rest normal (`CUSTOM1`) times that lift. The hull samples `CUSTOM0`; the shader must
-## add the same lift back or the cloth would float by its own thickness. The skirt stores its
-## final point in `CUSTOM0`, so its lift is 0. One pass per mesh surface, cached.
-func _surface_rest_lift(mesh: Mesh, surface: int) -> float:
-	var key := "%d|%d" % [mesh.get_instance_id(), surface]
-	if _rest_lifts.has(key):
-		return float(_rest_lifts[key])
-	var lift := 0.0
-	var arrays: Array = mesh.surface_get_arrays(surface)
-	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var custom0_value: Variant = arrays[Mesh.ARRAY_CUSTOM0]
-	var custom1_value: Variant = arrays[Mesh.ARRAY_CUSTOM1]
-	if not custom0_value is PackedFloat32Array or not custom1_value is PackedFloat32Array:
-		_rest_lifts[key] = lift
-		return lift
-	var custom0 := custom0_value as PackedFloat32Array
-	var custom1 := custom1_value as PackedFloat32Array
-	if verts.is_empty() or custom0.size() < verts.size() * 3 \
-			or custom1.size() < verts.size() * 3:
-		_rest_lifts[key] = lift
-		return lift
-	var stride0 := custom0.size() / verts.size()
-	var stride1 := custom1.size() / verts.size()
-	var found := false
-	for i in verts.size():
-		var normal := Vector3(custom1[i * stride1], custom1[i * stride1 + 1],
-			custom1[i * stride1 + 2])
-		if normal.length_squared() < 0.0000001:
-			continue
-		var point := Vector3(custom0[i * stride0], custom0[i * stride0 + 1],
-			custom0[i * stride0 + 2])
-		var value := absf((verts[i] - point).dot(normal.normalized()))
-		if not found or value < lift:
-			lift = value
-			found = true
-	_rest_lifts[key] = lift
-	return lift
-
-
-func _compat_material(original: Material, rest_lift: float) -> ShaderMaterial:
+func _compat_material(original: Material) -> ShaderMaterial:
 	if not original is ShaderMaterial:
 		return null
 	var source := original as ShaderMaterial
@@ -465,7 +399,7 @@ func _compat_material(original: Material, rest_lift: float) -> ShaderMaterial:
 			_mismatch_logged = true
 			_log("garment material is not the verified pantyhose shader; cloth left alone")
 		return null
-	var key := "%d|%s|%.6f" % [source.get_instance_id(), variant, rest_lift]
+	var key := "%d|%s" % [source.get_instance_id(), variant]
 	var cached: Variant = _materials.get(key)
 	if cached is ShaderMaterial:
 		return cached as ShaderMaterial
@@ -480,15 +414,6 @@ func _compat_material(original: Material, rest_lift: float) -> ShaderMaterial:
 		var value: Variant = source.get_shader_parameter(name)
 		if value != null:
 			compat.set_shader_parameter(name, value)
-	compat.set_shader_parameter("hull_rest_lift", rest_lift)
-	if not _rest_shader_logged:
-		_rest_shader_logged = true
-		var rest_shader := false
-		for row: Dictionary in compat.shader.get_shader_uniform_list():
-			if str(row.get("name", "")) == "hull_rest_lift":
-				rest_shader = true
-				break
-		_log("hull shader: %s" % ("rest lookup" if rest_shader else "live only"))
 	_materials[key] = compat
 	return compat
 

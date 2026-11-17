@@ -20,8 +20,6 @@ class FakeAnatomy extends Node:
 
 	var hull: Variant = null
 	var xform := Transform3D.IDENTITY
-	var rest_xform := Transform3D.IDENTITY
-	var has_rest := false
 	var visible := true
 	var parent_node: Node3D = null
 	var rebuilds := 0
@@ -31,9 +29,6 @@ class FakeAnatomy extends Node:
 
 	func garment_transform(_pony: Node) -> Transform3D:
 		return xform
-
-	func garment_rest_transform(_pony: Node) -> Transform3D:
-		return rest_xform if has_rest else xform
 
 	func garment_visible(_pony: Node) -> bool:
 		return visible
@@ -293,20 +288,6 @@ func _check_transform() -> void:
 		Vector3(0.0, 0.53, 0.284))
 	check(not CONTROLLER.garment_transform_for(body, mesh).origin.is_equal_approx(before),
 		"a live trim changes the garment transform")
-	# The rest form replaces the live bone pose with the rest bind and keeps the placement.
-	var skeleton := Node3D.new()
-	skeleton.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
-	root.add_child(skeleton)
-	var base := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.682),
-		Vector3(0.0, 0.53, 0.284))
-	var bone_rest := Transform3D(Basis.from_euler(Vector3(0.3, 0.0, 0.0)),
-		Vector3(0.0, 0.2, 0.1))
-	var mesh_local := bone_rest.affine_inverse() * base
-	var rest := CONTROLLER.garment_rest_transform_for(body, skeleton, bone_rest, mesh_local)
-	var rest_expected := body.global_transform.affine_inverse() * skeleton.global_transform * base
-	check(rest.is_equal_approx(rest_expected),
-		"the rest form uses the rest bone and the live placement")
-	skeleton.free()
 	body.free()
 	mesh.free()
 
@@ -358,31 +339,18 @@ func _pony(id: String) -> FakePony:
 
 
 func _garment_mesh(material: Material) -> ArrayMesh:
-	# A rest triangle, lifted along its rest normal by the pack's panties lift. The hull samples
-	# the unlifted `CUSTOM0`, so the adapter must recover this 6.5 mm.
-	var rest := PackedVector3Array([
+	var verts := PackedVector3Array([
 		Vector3(0.0, 0.0, 0.0), Vector3(0.01, 0.0, 0.0), Vector3(0.0, 0.01, 0.0),
 	])
 	var normals := PackedVector3Array([Vector3.BACK, Vector3.BACK, Vector3.BACK])
-	var verts := PackedVector3Array()
-	var custom0 := PackedFloat32Array()
-	var custom1 := PackedFloat32Array()
-	for i in rest.size():
-		verts.append(rest[i] + normals[i] * 0.0065)
-		custom0.append_array([rest[i].x, rest[i].y, rest[i].z, 0.0])
-		custom1.append_array([normals[i].x, normals[i].y, normals[i].z, 0.0])
 	var indices := PackedInt32Array([0, 1, 2])
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_INDEX] = indices
-	arrays[Mesh.ARRAY_CUSTOM0] = custom0
-	arrays[Mesh.ARRAY_CUSTOM1] = custom1
-	var flags := (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT) \
-		| (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT)
 	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, flags)
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	mesh.surface_set_material(0, material)
 	return mesh
 
@@ -432,23 +400,14 @@ func _check_bulge() -> void:
 	var game: FakeGame = scene["game"]
 	var anatomy: FakeAnatomy = scene["anatomy"]
 	var integration: Node = scene["integration"]
-	var fake_main: FakeMain = scene["main"]
 	var pony := _pony("rarity")
 	game.mares = [pony]
 	var material := _material(CUT_SHADER)
 	var garment := _garment(pony, "panties-satin", material)
 	anatomy.hull = _hull()
-	var rest := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
+	anatomy.xform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
 		Vector3(0.0, 1.0, 2.0))
-	anatomy.xform = rest
-	anatomy.rest_xform = rest
-	anatomy.has_rest = true
 	integration.call("scan")
-	var shader_logged := false
-	for text: String in fake_main.logs:
-		if text.contains("hull shader"):
-			shader_logged = true
-	check(shader_logged, "the adapter reports which hull shader is loaded")
 	var override := garment.get_surface_override_material(0)
 	check(override is ShaderMaterial, "the worn piece gets a compatibility override")
 	if override is ShaderMaterial:
@@ -459,52 +418,27 @@ func _check_bulge() -> void:
 			"the look parameters are copied")
 		check(compat.get_shader_parameter("hull_texture") != null,
 			"the shared hull texture is set")
-		check(near(float(compat.get_shader_parameter("hull_rest_lift")), 0.0065),
-			"the cloth's built-in rest lift is accounted for")
 	check(garment.mesh.surface_get_material(0) == material, "the shared mesh is not mutated")
 	check(near(float(garment.get_instance_shader_parameter("hull_on")), 1.0),
 		"the hull is on")
-	var origin: Variant = garment.get_instance_shader_parameter("hull_rest_origin")
+	var origin: Variant = garment.get_instance_shader_parameter("hull_origin")
 	check(origin is Vector3 and near((origin as Vector3).y, 1.0),
-		"the per-mare rest origin is set")
-	var live_origin: Variant = garment.get_instance_shader_parameter("hull_origin")
-	check(live_origin is Vector3 and near((live_origin as Vector3).y, 1.0),
-		"the live origin is set for the fallback lookup")
+		"the per-mare origin is set")
 	var z_axis: Variant = garment.get_instance_shader_parameter("hull_basis_z")
 	check(z_axis is Vector3 and near((z_axis as Vector3).length(), 0.5),
-		"the live basis carries the placement scale")
-	var rest_inv_z: Variant = garment.get_instance_shader_parameter("hull_rest_basis_inv_z")
-	check(rest_inv_z is Vector3 and near((rest_inv_z as Vector3).z, 2.0),
-		"the rest inverse basis is set")
-	var live_inv_z: Variant = garment.get_instance_shader_parameter("hull_basis_inv_z")
-	check(live_inv_z is Vector3 and near((live_inv_z as Vector3).z, 2.0),
-		"the live inverse basis is set for the fallback lookup")
+		"the basis carries the placement scale")
 	check(near(float(garment.get_instance_shader_parameter("hull_margin")), 0.01),
 		"the outer margin is anatomy-local")
 	check(near(float(garment.get_instance_shader_parameter("hull_min_margin")), 0.002),
 		"the minimum margin is anatomy-local")
-	var live := Transform3D(Basis.from_euler(Vector3(0.0, 0.35, 0.0))
-		.scaled(Vector3.ONE * 0.5), Vector3(0.0, 2.0, 2.0))
-	anatomy.xform = live
+	anatomy.xform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
+		Vector3(0.0, 2.0, 0.0))
 	integration.call("_process", 0.016)
-	var moved_axis: Variant = garment.get_instance_shader_parameter("hull_basis_z")
-	check(moved_axis is Vector3 and not (moved_axis as Vector3).is_equal_approx(z_axis as Vector3),
-		"the live push axis follows the anatomy every frame")
-	var moved_live: Variant = garment.get_instance_shader_parameter("hull_origin")
-	check(moved_live is Vector3 and near((moved_live as Vector3).y, 2.0),
-		"the live fallback origin follows the pose")
-	var held_rest: Variant = garment.get_instance_shader_parameter("hull_rest_origin")
-	check(held_rest is Vector3 and near((held_rest as Vector3).y, 1.0),
-		"the rest lookup does not follow the live pose")
-	anatomy.rest_xform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
-		Vector3(0.0, 3.0, 0.0))
-	integration.call("_process", 0.016)
-	var moved_rest: Variant = garment.get_instance_shader_parameter("hull_rest_origin")
-	check(moved_rest is Vector3 and near((moved_rest as Vector3).y, 3.0),
-		"a rest placement change moves the lookup")
-	anatomy.xform = rest
-	anatomy.rest_xform = rest
-	integration.call("_process", 0.016)
+	var moved: Variant = garment.get_instance_shader_parameter("hull_origin")
+	check(moved is Vector3 and near((moved as Vector3).y, 2.0),
+		"the hull follows the anatomy every frame")
+	anatomy.xform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
+		Vector3(0.0, 1.0, 2.0))
 	anatomy.visible = false
 	integration.call("scan")
 	check(garment.get_surface_override_material(0) == null,
@@ -598,21 +532,19 @@ func _check_multi_mare() -> void:
 	anatomy.hull = _hull()
 	# The fake service returns one transform; the two nodes must still carry independent values.
 	anatomy.xform = Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
-	anatomy.rest_xform = anatomy.xform
-	anatomy.has_rest = true
 	integration.call("scan")
 	check(first_garment.get_surface_override_material(0) != null
 		and second_garment.get_surface_override_material(0) != null,
 		"both mares get their own override")
-	var first_origin: Variant = first_garment.get_instance_shader_parameter("hull_rest_origin")
-	var second_origin: Variant = second_garment.get_instance_shader_parameter("hull_rest_origin")
+	var first_origin: Variant = first_garment.get_instance_shader_parameter("hull_origin")
+	var second_origin: Variant = second_garment.get_instance_shader_parameter("hull_origin")
 	check(first_origin is Vector3 and second_origin is Vector3,
-		"both mares carry an instance rest origin")
-	anatomy.rest_xform = Transform3D(Basis.IDENTITY, Vector3(0.0, 2.0, 0.0))
+		"both mares carry an instance origin")
+	anatomy.xform = Transform3D(Basis.IDENTITY, Vector3(0.0, 2.0, 0.0))
 	integration.call("scan")
-	var moved: Variant = second_garment.get_instance_shader_parameter("hull_rest_origin")
+	var moved: Variant = second_garment.get_instance_shader_parameter("hull_origin")
 	check(moved is Vector3 and near((moved as Vector3).y, 2.0),
-		"the instance rest value follows that mare's placement")
+		"the instance value follows that mare's transform")
 	first_garment.free()
 	second_garment.free()
 	first.free()

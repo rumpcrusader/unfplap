@@ -331,6 +331,7 @@ func _init() -> void:
 	_act_facts.missionary_anon = Callable(self, "missionary_anon_body")
 	_act_facts.anatomy_normal = Callable(self, "anatomy_normal")
 	_act_facts.anatomy_opening = Callable(self, "anatomy_opening")
+	_act_facts.anatomy_hip_offset = Callable(self, "anatomy_hip_offset")
 	_act_facts.authored_pose_asset = Callable(self, "authored_pose_asset")
 	_act_facts.missionary_face_point = Callable(self, "missionary_face_point")
 	_act_facts.gaze_point = Callable(self, "_missionary_gaze_point")
@@ -2592,6 +2593,14 @@ func anatomy_normal() -> Vector3:
 ## integration: her entrance point during an anatomy act, in world space.
 func anatomy_opening() -> Vector3:
 	return _anatomy_bridge.opening()
+
+
+func anatomy_hip_offset() -> Vector3:
+	var service: Variant = _anatomy_service()
+	if service == null or not service.has_method("player_hip_offset"):
+		return Vector3.ZERO
+	var value: Variant = service.call("player_hip_offset")
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.ZERO
 
 
 ## integration: the standing part aims itself in `player.gd`'s track; only the optional bed body

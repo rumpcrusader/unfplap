@@ -21,6 +21,7 @@ class Sink extends RefCounted:
 	var basis_ready := 0
 	var kiss_calls := 0
 	var neck := Vector3(1.0, 2.0, 3.0)
+	var hip_offset := Vector3(0.0, -0.2, 0.0)
 	var touch_kind := ""
 	var touch_calls := 0
 	var impact_strength := 0.0
@@ -58,6 +59,9 @@ class Sink extends RefCounted:
 
 	func neck_point() -> Vector3:
 		return neck
+
+	func hip_offset_value() -> Vector3:
+		return hip_offset
 
 	func clock_now() -> float:
 		return 7.5
@@ -118,6 +122,7 @@ func run() -> void:
 	check(not facts.log.is_valid(), "log callback starts absent")
 	check(not facts.kiss.is_valid(), "kiss callback starts absent")
 	check(not facts.neck_point.is_valid(), "neck callback starts absent")
+	check(not facts.anatomy_hip_offset.is_valid(), "anatomy hip offset callback starts absent")
 	check(not facts.set_look.is_valid(), "look write-back starts absent")
 
 	facts.perf("nothing", 5)
@@ -158,6 +163,9 @@ func run() -> void:
 		"the kiss callback returns the controller")
 	check(facts.neck_midpoint() == sink.neck, "the neck callback returns the point")
 	check(is_equal_approx(facts.clock(), 7.5), "the clock callback supplies the act clock")
+	facts.anatomy_hip_offset = Callable(sink, "hip_offset_value")
+	check(facts.anatomy_hip_offset.call() == sink.hip_offset,
+		"the anatomy hip offset callback returns the pelvis correction")
 
 	check(not facts.on_touch.is_valid() and not facts.on_smack.is_valid(),
 		"the readiness callbacks start absent")

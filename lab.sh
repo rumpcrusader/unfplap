@@ -34,4 +34,5 @@ godot --xr-mode off \
 	-- --mod-src unfplap --skip-title \
 	--world-id unfplap-test \
 	--lab res://mods/unfplap/tests/test_lab.gd \
+	--season=summer \
 	2>&1 | grep --line-buffered -v '^\[typing_lock\]' | tee "$ROOT/last-run.log"

@@ -84,13 +84,21 @@ static var _RULES := {
 	"withdraw_hurt": SETTINGS.withdraw_hurt,
 	}
 
+## The rebuilt live table and the settings generation it belongs to.
+static var _rules_generation := -1
+static var _rules_cache: Dictionary = {}
+
 
 static func rules() -> Dictionary:
+	if _rules_generation == SETTINGS.generation:
+		return _rules_cache
 	var out := DEFAULT_RULES.duplicate(true)
 	for key: String in DEFAULT_RULES:
 		if _RULES.has(key):
 			out[key] = _RULES[key].get_num()
-	return out
+	_rules_cache = out
+	_rules_generation = SETTINGS.generation
+	return _rules_cache
 
 
 ## The live mod section for the current world, or an empty dictionary outside one.

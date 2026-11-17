@@ -4,6 +4,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/summary/test_act_history.gd
 
 const HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var failures := 0
 var checks := 0
@@ -34,6 +35,17 @@ func outcome(grade: String, severe := false, text := "The act happened.") -> Dic
 
 
 func run() -> void:
+	var first_rules: Dictionary = HISTORY.rules()
+	var second_rules: Dictionary = HISTORY.rules()
+	check(is_same(first_rules, second_rules), "the rules table is reused within one generation")
+	var saved_reminder := int(first_rules.get("reminder_hurt", 2))
+	SETTINGS.reminder_hurt.set_num(float(saved_reminder + 1))
+	var rebuilt: Dictionary = HISTORY.rules()
+	check(not is_same(first_rules, rebuilt), "a settings write rebuilds the rules table")
+	check(int(rebuilt.get("reminder_hurt", -1)) == saved_reminder + 1,
+		"the rebuilt table carries the live setting")
+	SETTINGS.reminder_hurt.set_num(float(saved_reminder))
+
 	var rules: Dictionary = HISTORY.rules()
 	var reminder := int(rules.get("reminder_hurt", 2))
 	var block := int(rules.get("offer_block_hurt", 4))

@@ -715,13 +715,15 @@ func _keep_hold() -> bool:
 	if _offer != null and not _offer.hold_claimed:
 		# The Anon offer is still being classified; there is no lease to keep yet, only attention.
 		if not bool(hold.keep_target()):
-			_log_line("negotiation hold lost id=%s reason=target_left" % _pony_id(_pony()))
+			_log_line("negotiation hold lost id=%s reason=target_left target=%s" % [
+				_pony_id(_pony()), _target_name()])
 			_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 			return false
 		return true
 	hold.keep_nav()
 	if not bool(hold.keep_target()):
-		_log_line("negotiation hold lost id=%s reason=target_left" % _pony_id(_pony()))
+		_log_line("negotiation hold lost id=%s reason=target_left target=%s" % [
+			_pony_id(_pony()), _target_name()])
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	if not bool(hold.accepts_hold(_pose(), _source())):
@@ -809,6 +811,14 @@ func _pony_id(pony: Node) -> String:
 	if not is_instance_valid(pony):
 		return ""
 	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+
+
+func _target_name() -> String:
+	var pony: Node = _pony()
+	if not is_instance_valid(pony):
+		return "none"
+	var target: Variant = pony.get("conversation_target")
+	return str(target.name) if is_instance_valid(target) else "none"
 
 
 func _scope(kind: String) -> String:

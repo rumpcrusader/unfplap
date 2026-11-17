@@ -214,6 +214,13 @@ func _check_negotiation() -> void:
 	pony.conversation_target = null
 	check(hold.keep_target(), "a cleared target is kept on Anon")
 	check(pony.conversation_target == main.player, "the target is Anon's body")
+	var rig := Node3D.new()
+	main.player.add_child(rig)
+	pony.conversation_target = rig
+	check(hold.keep_target(), "Anon's rig is still Anon")
+	check(pony.conversation_target == main.player, "the target is re-asserted to Anon's body")
+	main.player.remove_child(rig)
+	rig.free()
 	var other := Node3D.new()
 	root.add_child(other)
 	pony.conversation_target = other

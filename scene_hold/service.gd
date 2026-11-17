@@ -212,7 +212,11 @@ func keep_target() -> bool:
 		return false
 	var current: Variant = pony.get("conversation_target")
 	if is_instance_valid(current) and current != player:
-		return false
+		# The game points at Anon's rig/body child, not always at main.player itself.
+		var under_player := current is Node and player is Node \
+			and (player as Node).is_ancestor_of(current as Node)
+		if not under_player:
+			return false
 	pony.call("set_conversation_target", player, true)
 	return true
 

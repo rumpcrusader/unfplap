@@ -1,0 +1,19 @@
+excluded_directories:
+- .git
+- .godot
+- tests
+- tools
+- dist
+- sources
+- assets
+
+disable:
+- class-definitions-order
+- max-line-length
+- max-file-lines
+- max-public-methods
+- max-returns
+
+function-arguments-number: 14
+constant-name: (_?[A-Z][A-Z0-9]*(_[A-Z0-9]+)*|([A-Z][a-z0-9]*)+)
+class-variable-name: (_?[a-z][a-z0-9]*(_[a-z0-9]+)*|_?[A-Z][A-Z0-9]*(_[A-Z0-9]+)*)

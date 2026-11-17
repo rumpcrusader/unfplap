@@ -14,6 +14,7 @@ sources
 *.sh
 .pckignore
 .gitignore
+.gdlintrc
 README.md
 docs
 assets/README.md

@@ -35,6 +35,7 @@ const API := preload("res://mods/unfplap/api.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
+const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
@@ -302,6 +303,14 @@ func _on_world(host: Node) -> void:
 		classifier.call("cancel_all")
 	if is_instance_valid(hud):
 		hud.hide_all()
+	_warm_offer_assets()
+
+
+func _warm_offer_assets() -> void:
+	for pose: String in [POSE_SPECS.MISSIONARY, POSE_SPECS.STANDING]:
+		var asset_path := str(POSE_SPECS.spec(pose).get("asset", ""))
+		if not asset_path.is_empty():
+			AUTHORED.shared(asset_path)
 
 
 func _on_world_closed(_host: Node) -> void:

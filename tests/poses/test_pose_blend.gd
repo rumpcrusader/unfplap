@@ -7,6 +7,7 @@ extends SceneTree
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const FAKE_A := "fake_a"
 const FAKE_B := "fake_b"
@@ -454,6 +455,14 @@ func _check_render_order() -> void:
 	_free_graph(made)
 
 
+## The shipped standing config with the test overrides, so the recipes read the reference values
+## instead of a missing key's zero.
+func _standing_config(overrides := {}) -> Dictionary:
+	var config: Dictionary = CATALOG.defaults(CATALOG.STANDING).duplicate(true)
+	config.merge(overrides, true)
+	return config
+
+
 ## A synthetic v7 base for the standing driver: one observable bone and a ground frame. The
 ## shipped asset's numbers belong to `test_pose_bake`; this suite only needs a base to exist.
 func _standing_base(made: Dictionary, bone := "pony_spine1", angle := 0.2) -> Variant:
@@ -482,7 +491,7 @@ func _check_shipped_driver() -> void:
 	var sk: Skeleton3D = made["sk"]
 	var pose_node: Node = made["pose_node"]
 	_standing_base(made)
-	pose_node.call("set_pose", POSE.STANDING_PATH, POSE.STANDING_PATH, "", "", {}, {})
+	pose_node.call("set_pose", POSE.STANDING_PATH, POSE.STANDING_PATH, "", "", _standing_config(), _standing_config())
 	check(pose_node.mode == POSE.MODE_SINGLE, "the standing pair is single")
 	check(pose_node.from_driver == POSE.STANDING_PATH, "the pair names the standing driver")
 	var driver: Variant = pose_node.driver_objects.get(POSE.STANDING_PATH)
@@ -505,8 +514,8 @@ func _check_oral_delta() -> void:
 	var sk: Skeleton3D = made["sk"]
 	var pose_node: Node = made["pose_node"]
 	_standing_base(made)
-	var config_a: Dictionary = {"tag": "standing"}
-	var config_b: Dictionary = {"oral_pitch": 0.4, "oral_yaw": 0.25, "oral_roll": 0.1}
+	var config_a: Dictionary = _standing_config()
+	var config_b: Dictionary = _standing_config({"oral_pitch": 0.4, "oral_yaw": 0.25, "oral_roll": 0.1})
 	pose_node.call("set_pose", POSE.STANDING_PATH, POSE.STANDING_PATH, "",
 		POSE.STANDING_ORAL_PATH, config_a, config_b)
 	check(pose_node.mode == POSE.MODE_BLEND,

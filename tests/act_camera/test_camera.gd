@@ -619,6 +619,14 @@ func _check_motion() -> void:
 	check(standing.calls.has("tick"), "standing dispatches the player-camera shot")
 
 
+## The shipped standing config with the test overrides, so the camera reads the same complete
+## block the act provides.
+func _standing_config(overrides := {}) -> Dictionary:
+	var config: Dictionary = CATALOG.defaults(CATALOG.STANDING).duplicate(true)
+	config.merge(overrides, true)
+	return config
+
+
 ## The standing camera re-reads the view's config only on a settings-group or pose-id change, so the
 ## standing debug edge holds the live config and its glance/tail values do not snap. The stale
 ## `facts.pose_config` alias must never win.
@@ -629,10 +637,10 @@ func _check_standing_cache() -> void:
 	view.family = "standing"
 	view.settings_group = "standing"
 	facts.pose_view = view
-	var stale: Dictionary = {"glance_min": 1.0}
-	var config_a: Dictionary = {"glance_min": 5.0}
-	var config_b: Dictionary = {"glance_min": 7.0}
-	var config_c: Dictionary = {"glance_min": 9.0}
+	var stale: Dictionary = _standing_config({"glance_min": 1.0})
+	var config_a: Dictionary = _standing_config({"glance_min": 5.0})
+	var config_b: Dictionary = _standing_config({"glance_min": 7.0})
+	var config_c: Dictionary = _standing_config({"glance_min": 9.0})
 	facts.pose_config = stale
 	view.from_config = config_a
 	view.pose_config = config_a

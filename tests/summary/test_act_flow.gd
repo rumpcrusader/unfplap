@@ -73,6 +73,7 @@ func run() -> void:
 	runtime._preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
 	runtime.state = 4 # AFTERGLOW
 	runtime.pose_id = CATALOG.MISSIONARY
+	runtime._snapshot_settings()
 	runtime.pony_climaxes = 2
 	runtime._summary_service.summary = {
 		"hud": "Great · she felt adored",

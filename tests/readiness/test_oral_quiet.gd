@@ -281,6 +281,7 @@ func _fixture() -> Dictionary:
 		"talk": ["praise"],
 		"warmth": "normal",
 	})
+	runtime._snapshot_settings()
 	runtime._anatomy_bridge = bridge
 	runtime._reactions = reactions
 	runtime._wings = wings

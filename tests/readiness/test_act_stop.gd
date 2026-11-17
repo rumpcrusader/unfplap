@@ -217,6 +217,7 @@ func fixture(kind: String) -> Dictionary:
 	runtime._summary_service.summary_done = false
 	runtime.state = 2 # ACTIVE
 	runtime.pose_id = "standing"
+	runtime._snapshot_settings()
 	runtime.pony_climaxes = 1
 	runtime._act_seconds = 90.0
 	runtime._readiness.act_thrusts = 10

@@ -539,6 +539,11 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
   (`PREFERENCES.defaults()`, `CATALOG.defaults(pose_id)`, `DEFAULTS.block(...)`), never a literal.
   A complete settings block is indexed (`block["key"]`); do not soften it with
   `.get("key", literal)`, which only hides a missing or stale copy.
+- **A rule table or a constant set is a default copy too.** When several settings form one policy
+  table, build it from the declared handles at the call site (the tolerance, score and history
+  `rules()` functions) instead of declaring a table of values. A constant that is a true baseline
+  for a computation or a bake (the standing recipe's six reference constants, the kiss's bed lean
+  geometry) is not a default copy: it is the reference the live setting is applied against.
 - **Do not add per-setting tests.** A declaration is compile-checked (name, accessor and kind), so
   the only assertions are the ones in `tests/test_settings.gd`: registry integrity, the shipped
   document's schema (key set, types, options and bounds — never values), the file round-trip,
@@ -635,7 +640,8 @@ value. See `docs/perf.md`.
   clashes, the per-mare merge, provider precedence for preferences/poses/prompts/placement and the
   consent cache's detached copy/invalidation.
 - `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims, that the
-  shipped defaults and catalog are present and the code constants are gone, and that no settings
+  shipped defaults and catalog are present and the code constants are gone, that no `DEFAULT_RULES`
+  table, standing gap table or `GLANCE_*` constant set is reintroduced, and that no settings
   widget is created outside `settings/ui.gd` and `settings/characters_ui.gd`.
 - `tests/integrations/` covers the catalog and reaction bridge; the Settings panel check includes
   the Integrations tab.

@@ -220,10 +220,13 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   follow the raised floor. The rule, prop and supply are in `docs/stool.md`.
 - Glances use `pony.secondary.look_toward`; `head_back` is eased; pupils aim via
   `eye_motion.target_world` / `target_weight`. Look-back yaw clamps at
-  `GLANCE_BACK_YAW = 1.62`; `glance_back_pitch` is multiplied by `1.2` (base `1.2`, boosted to
-  `1.44`). The `head_back` ease uses `GLANCE_BACK_FADE / glance_back_speed`, with
-  `glance_back_speed` live in the settings tab. A full forward `W` lean
-  with no side lean forces `head_back = 1.0` and an upward look at Anon.
+  `GLANCE_BACK_YAW = 1.62`; `glance_back_pitch` is multiplied by `1.2`. The `head_back` ease uses
+  `GLANCE_BACK_FADE / glance_back_speed`, with `glance_back_speed` live in the settings tab. Every
+  glance and camera value (`glance_min`, `glance_max`, `glance_hold`, `glance_back_chance`,
+  `glance_back_pitch`, `glance_yaw`, `glance_back_speed`, `camera_forward_m`, `camera_pitch_deg`)
+  is indexed from the cached pose config or the presentation block; the controller keeps no
+  `GLANCE_*` constants and no fallback copy. A full forward `W` lean with no side lean forces
+  `head_back = 1.0` and an upward look at Anon.
 - Standing kiss camera: `presentation.standing.kiss` `camera_yaw_deg` yaws the
   camera toward her; the mouth target, lean distances and palm offsets are in `docs/kiss.md`.
 - The standing controller caches the view's `from_config` (falling back to its `pose_config` when

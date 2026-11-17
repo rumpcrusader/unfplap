@@ -165,20 +165,22 @@ The afterglow phase and the standing close window are `docs/afterglow.md`.
 edits it as **Neglect tolerance**. Rarity is strict and Fluttershy is
 forgiving. The old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
 
-`readiness/tolerance.gd` is a pure per-act meter. It runs only during `POSING_IN`/`ACTIVE`:
+`readiness/tolerance.gd` is a pure per-act meter. It runs only during `POSING_IN`/`ACTIVE` and
+declares no rule values: `rules()` builds all twelve keys from the `tolerance.*` settings handles, so
+a settings edit reaches warnings, relief, decay and both stop cooldowns on the next generation.
 
-- every actual disliked touch/talk adds `tolerance.dislike_amount` (1);
-- every actual liked touch/talk subtracts `tolerance.like_relief` (1);
+- every actual disliked touch/talk adds `tolerance.dislike_amount`;
+- every actual liked touch/talk subtracts `tolerance.like_relief`;
 - a held caress is a discrete action; its five-second meter is in `docs/hands.md`;
-- passive decay subtracts 1 every 25 s;
+- passive decay subtracts `tolerance.decay_amount` every `tolerance.decay_seconds`;
 - warning stages are one-shot per act; compensation can lower distress and avoid a stop but does
   not replay a warning.
 
 | Tier | Warnings | Stop |
 |---|---|---|
-| Forgiving | one at 4 | never |
-| Normal | at 1, then 4 | 10 |
-| Strict | at 1 | 3 |
+| Forgiving | one at `tolerance.forgiving_warning` | never |
+| Normal | at `tolerance.normal_warning_1`, then `normal_warning_2` | at `tolerance.normal_stop` |
+| Strict | at `tolerance.strict_warning` | at `tolerance.strict_stop` |
 
 Readiness queues at most one decision per frame (`take_tolerance_decision()`); the runtime presents
 it. A warning sets a HUD cue and queues one short spoken warning; a stop runs the runtime's

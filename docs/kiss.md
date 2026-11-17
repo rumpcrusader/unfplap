@@ -106,9 +106,12 @@ turns her head across the mattress. Missionary always uses the custom head-aim p
 ## Settings
 
 `presentation.standing.kiss` holds the live standing values: `mouth_right`, `mouth_drop`,
-`mouth_forward`, `camera_yaw_deg`, `lean_side`, `lean_forward` and `lean_drop`. The missionary
-constants are in `kiss/service.gd`. Heights scale with `Settings.anon_height_scale()`, matching
-`player/player_mouth.gd`. See `docs/settings.md` for the settings framework.
+`mouth_forward`, `camera_yaw_deg`, `lean_side`, `lean_forward` and `lean_drop`. The missionary/bed
+lean constants (`KISS_LEAN_M`, `KISS_LEAN_SIDE_M`, `KISS_LEAN_DROP_M`, `KISS_CAMERA_YAW_DEG`) stay
+in `kiss/service.gd`: `_kiss_controls()` is empty for the bed family, so the same values serve the
+missionary path and are not copies of `presentation.standing.kiss`. `KISS_LEAN_SIDE_M` is also the
+pure side-geometry constant the hands suite pins. Heights scale with `Settings.anon_height_scale()`,
+matching `player/player_mouth.gd`. See `docs/settings.md` for the settings framework.
 
 ## Dependencies
 

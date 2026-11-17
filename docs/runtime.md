@@ -219,7 +219,12 @@ the start pose's own config sync.
 The act-tunable fields (the thrust values, the caress quality, the cue/talk pacing, the jiggle,
 camera and climax values) are declared without a code default. `_snapshot_settings()` is their
 only writer and runs at act start and again at the top of `apply_live_settings()`, before the
-IDLE early return, so a read outside an act still sees the current settings.
+IDLE early return, so a read outside an act sees the current settings after the first snapshot.
+
+The standing start/offer gap is read from `_pose_session.pose_config["gaps"]`; a session without a
+config falls back to `SETTINGS.pose(id, "standing")["gaps"]`. The shipped values live under
+`default.poses.standing.gaps`; the runtime keeps no gap table or numeric fallback, and a per-mare
+pose override still wins.
 
 ## Tests
 

@@ -149,7 +149,10 @@ write rebuilds the Base-clearance answer.
 
 The live rule table is memoised per `SETTINGS.generation`: `rules()` returns the same table until a
 settings write rebuilds it, and every caller treats it as read-only. Tier and offer-weight checks
-are therefore dictionary reads, not a rebuild per check.
+are therefore dictionary reads, not a rebuild per check. The table is built only from the declared
+`history.*` and `tolerance.*` handles; the module keeps no copy of a default. The stop cooldown
+reads `tolerance.normal_cooldown_s` or `tolerance.strict_cooldown_s`, the same values the
+readiness meter uses, so the two systems cannot disagree.
 
 Only good and bad acts move the points. Neutral acts change no history.
 
@@ -191,8 +194,10 @@ meter that triggers a stop is owned by readiness; its rules, tiers and settings 
 - it forces a severe bad summary (`stopped_by_her`, no romance, mood annoyed/angry) and `+2` hurt;
 - it records `main.memory.note(MEMORY.NoteKind.STOPPED, ..., MEMORY.StopReason.WITHDREW)`;
 - it ends through the forced path with no afterglow and no cuddle rejoin;
-- Normal: stern spoken line, no buck, no `request_space`, 5-minute sex-only cooldown;
-- Strict: stern line, `request_space`, buck/kick from bed, 10-minute sex-only cooldown;
+- Normal: stern spoken line, no buck, no `request_space`, `tolerance.normal_cooldown_s` sex-only
+  cooldown;
+- Strict: stern line, `request_space`, buck/kick from bed, `tolerance.strict_cooldown_s` sex-only
+  cooldown;
 - `stop_until`'s act gate is in `docs/eligibility.md`;
 - no aftercare; the `angry`/`annoyed` mood face follows when a summary was written. A 20 s
   tucked-tail effect hinged at the tail base follows her, owns no navigator, and is removed if a

@@ -789,7 +789,12 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   Same Height preset follows Anon's `player/height_cm`, so that gap, the lean scale and the
   caress offsets follow `Settings.anon_height_scale()` as described in `docs/hands.md`.
   For desktop human Anon the gap is measured from her root along her backward axis after he is
-  placed behind her.
+  placed behind her. The runtime keeps no gap table: `_standing_gap()` reads the pose config's
+  `gaps`, then `SETTINGS.pose(id, "standing")` when the session has none.
+- The idle invitation (`poses/standing_presentation.gd`) builds its own standing config. The
+  presentation chin/neck and tail values, the glance keys and the two tail angles are read by key
+  from the complete block, with no fallback literals. It keeps that config when the pose session has
+  none, so the next process frame does not erase the values it just attached.
 - A footstool may raise Anon's player root before the standing pose; the camera, feet and hips
   follow the raised floor. The rule, prop and supply are in `docs/stool.md`.
 - `poses/body_sway.gd` translates `pony_hips` with an inverted damped spring: back on inward depth,
@@ -813,7 +818,8 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   the live base applies the head's full reference bow and chin itself; the neck bones are the baked
   difference. Both recipes read their config by index: `_value(key)` has no fallback, and every
   caller passes a complete block (`SETTINGS.pose(...)`, `reference_config()` or the shipped
-  defaults).
+  defaults). The six `STANDING_*` constants in the recipe are the live delta baseline and the bake
+  reference, not copies of the shipped pose block.
 - `standing_oral` runs the procedural delta on that baked base, after it and before the overlay,
   in both the single and two-base forms. The neck/head and the mouth anchor match the reference
   recipe plus the same delta at all four sizes (the oral parity in `test_pose_bake`).

@@ -126,6 +126,13 @@ for test_name in "${SELECTED[@]}"; do
 		failed=1
 		continue
 	fi
+	# A suite can print a script error and still report failures=0; the log is part of the gate.
+	if grep -qE 'SCRIPT ERROR|Parse Error' "$work_dir/$safe.out" 2>/dev/null; then
+		printf 'FAIL %s (script error in log)\n' "$test_name"
+		grep -E 'SCRIPT ERROR|Parse Error' "$work_dir/$safe.out" | head -n 10
+		failed=1
+		continue
+	fi
 	if [[ "$result" == *"failures=0"* ]]; then
 		printf 'PASS %s\n' "$result"
 	else

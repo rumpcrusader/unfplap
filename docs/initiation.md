@@ -405,6 +405,7 @@ after the spoken words only when the moment genuinely changes how she feels.
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
+| shared | pose_options | `shared/pose_options.gd` | the placement and option list |
 | shared | pose_offer | `shared/pose_offer.gd` | typed act offer |
 | shared | pose_specs | `shared/pose_specs.gd` | offerable poses and form/view support |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |

@@ -9,8 +9,12 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
+const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
+const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
+const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
@@ -72,6 +76,11 @@ var _anatomy_status_label: Label
 var initiation
 var privacy: PRIVACY
 var classifier
+## The one director and model bridge: the Proactive service and the Negotiation Host share it.
+## See `docs/negotiation.md` (`## Director and model host`).
+var adapter: Node
+## The Act Negotiation service: the Anon offer, the Mare exchange, the Agreement and the lock.
+var negotiation: Node
 var active_runtime
 ## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
 var eligibility: ELIGIBILITY
@@ -195,6 +204,14 @@ func _ready() -> void:
 	add_child(classifier)
 	privacy = PRIVACY.new()
 	privacy.setup(self)
+	adapter = ADAPTER.new()
+	adapter.name = "UnfplapNegotiationAdapter"
+	add_child(adapter)
+	adapter.call("bind", self)
+	negotiation = NEGOTIATION.new()
+	negotiation.name = "UnfplapNegotiation"
+	add_child(negotiation)
+	_bind_negotiation_host()
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
 	initiation.call("setup", self, privacy)
@@ -271,6 +288,9 @@ func _on_world(host: Node) -> void:
 	_perf_idle.reset()
 	if is_instance_valid(initiation):
 		initiation.reset()
+	if is_instance_valid(negotiation):
+		negotiation.call("reset")
+		_bind_negotiation_host()
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
 	if is_instance_valid(hud):
@@ -287,6 +307,8 @@ func _on_world_closed(_host: Node) -> void:
 	_clear_native_hint()
 	if is_instance_valid(initiation):
 		initiation.reset()
+	if is_instance_valid(negotiation):
+		negotiation.call("reset")
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
 	if is_instance_valid(active_runtime):
@@ -539,6 +561,8 @@ func _process_entry(delta: float) -> void:
 			_refresh_offer()
 	if is_instance_valid(initiation):
 		initiation.tick(delta)
+	if is_instance_valid(negotiation):
+		negotiation.tick(delta)
 	var hint := ""
 	if _offer != null:
 		hint = OFFER_HINT
@@ -2078,6 +2102,158 @@ func nearest_lying(view: Camera3D) -> Node:
 	return best
 
 
+## Bind the Negotiation service's typed host. `reset()` drops it on a world close;
+## `_on_world()` rebinds it. Every model callback is the one adapter; every world read is a plain
+## public method here or in the Proactive facade.
+func _bind_negotiation_host() -> void:
+	if not is_instance_valid(negotiation):
+		return
+	var host := NEGOTIATION.Host.new()
+	host.now = func() -> float: return Time.get_ticks_msec() / 1000.0
+	host.eligible = func(pony) -> bool: return _is_act_target(pony)
+	host.relationship_ok = func(pony) -> bool:
+		return is_instance_valid(eligibility) and eligibility.relationship_ok(pony)
+	host.context_facts = Callable(self, "context_facts")
+	host.privacy_private = func(pony, cuddle) -> bool:
+		if not is_instance_valid(privacy):
+			return false
+		return privacy.cuddle_private(pony) if cuddle else privacy.offer_private(pony)
+	host.placement_for = func(runtime) -> POSE_OPTIONS.Placement:
+		if is_instance_valid(initiation) and initiation.has_method("placement_for"):
+			return initiation.call("placement_for", runtime)
+		return POSE_OPTIONS.Placement.new()
+	host.form_view = Callable(self, "form_view")
+	host.hold_for = func(runtime):
+		if is_instance_valid(runtime) and runtime.has_method("hold_handle"):
+			return runtime.call("hold_handle")
+		return null
+	host.classify = func(request, scope, done) -> bool:
+		return is_instance_valid(adapter) and bool(adapter.call("classify", request, scope, done))
+	host.reason = func(request, scope, done) -> bool:
+		return is_instance_valid(adapter) and bool(adapter.call("reason", request, scope, done))
+	host.await_answer = func(pony, scope, done) -> bool:
+		return is_instance_valid(adapter) and bool(adapter.call("await_answer", pony, scope, done))
+	host.cancel_scope = func(scope) -> void:
+		if is_instance_valid(adapter):
+			adapter.call("cancel_scope", scope)
+	host.toast = Callable(self, "_toast")
+	host.log = Callable(self, "debug")
+	host.react = Callable(self, "_negotiation_react")
+	host.on_outcome = Callable(self, "_on_negotiation_outcome")
+	host.on_agreement = Callable(self, "_on_agreement")
+	negotiation.call("setup", host)
+
+
+## The Proactive service's handoff: a formed Mare offer to the Negotiation service. The service
+## owns the answer, privacy, pose re-checks and the Agreement from here.
+func begin_mare_offer(offer: Variant) -> bool:
+	if not is_instance_valid(negotiation) or offer == null:
+		return false
+	return bool(negotiation.call("begin_mare_offer", offer))
+
+
+## The Context facts both Mare reasoning stages and the Negotiation Host read. One snapshot per
+## call from the eligibility facts, act history, memory and the live privacy state.
+func context_facts(pony: Node) -> Dictionary:
+	var out: Dictionary = {}
+	if not is_instance_valid(pony) or not is_instance_valid(eligibility):
+		return out
+	var verdict: ELIGIBILITY.Verdict = eligibility.get_verdict(pony, ELIGIBILITY.Mode.OFFER)
+	if verdict == null or verdict.facts == null:
+		return out
+	var facts: ELIGIBILITY.Facts = verdict.facts
+	var history: ELIGIBILITY.History = facts.history
+	var id := facts.id
+	out["willingness"] = facts.willing
+	out["history"] = {
+		"tier": history.tier, "hurt": history.hurt, "comfort": history.comfort,
+		"blocks_start": history.blocks_start, "blocks_offers": history.blocks_offers,
+		"offer_weight": history.offer_weight,
+	}
+	out["cycle_phase"] = facts.cycle_phase
+	out["heat"] = facts.heat
+	out["aftercare"] = pony.has_meta("sex_aftercare")
+	out["private"] = is_instance_valid(privacy) and privacy.offer_private(pony)
+	out["public_preference"] = facts.consent.public
+	out["mood"] = _world_mood(id)
+	out["relation_note"] = _relation_note(id)
+	out["history_note"] = ACT_HISTORY.ask_note(ACT_HISTORY.effective_row(
+		ACT_HISTORY.section(), id, ACT_HISTORY.day_now())) if not id.is_empty() else ""
+	return out
+
+
+## The player's live form and display for the pose option builder.
+func form_view() -> NEGOTIATION.FormView:
+	var out := NEGOTIATION.FormView.new()
+	out.form = "pony" if PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())) else "human"
+	out.view = "vr" if headset_view() else "desktop"
+	return out
+
+
+## The world-context impression mood for one id, or "".
+func _world_mood(id: String) -> String:
+	if id.is_empty() or not is_instance_valid(game):
+		return ""
+	var ctx: Variant = game.get("world_context")
+	if ctx == null or not is_instance_valid(ctx):
+		return ""
+	var impressions: Variant = ctx.get("impressions")
+	if impressions == null or not is_instance_valid(impressions) or not impressions.has_method("profile"):
+		return ""
+	var prof: Variant = impressions.call("profile", id)
+	return str((prof as Dictionary).get("mood", "")) if prof is Dictionary else ""
+
+
+## The relationship prompt note for one id, or "".
+func _relation_note(id: String) -> String:
+	if id.is_empty() or not is_instance_valid(memory) or not is_instance_valid(game):
+		return ""
+	var facts: MEMORY.CueFacts = memory.cue_facts(id, "")
+	var facts_dict := facts.to_dict()
+	var note := RELATIONSHIP_CUE.note(facts_dict)
+	if note.is_empty():
+		return ""
+	return note + " " + RELATIONSHIP_CUE.tone_line(RELATIONSHIP_CUE.tone(facts_dict))
+
+
+func _toast(text: String) -> void:
+	if text.is_empty() or not is_instance_valid(hud) or not hud.has_method("toast"):
+		return
+	hud.call("toast", text, 4.0)
+
+
+## The shared interruption line: a short generated line, queued and not delaying the clear.
+func _negotiation_react(pony: Node, _reason: String) -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(adapter):
+		return
+	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+	if id.is_empty():
+		return
+	var key := "unfplap:negotiation:react:%d" % Time.get_ticks_usec()
+	adapter.call("queue", id,
+		"The moment was interrupted. Say one short, in-character line letting it go, without " \
+		+ "anger. Do not ask again and do not narrate actions.",
+		key, func() -> bool: return is_instance_valid(pony) and pony.is_inside_tree(), false)
+
+
+func _on_negotiation_outcome(terminal: Variant) -> void:
+	if is_instance_valid(initiation) and initiation.has_method("on_negotiation_outcome"):
+		initiation.call("on_negotiation_outcome", terminal)
+
+
+## The Agreement is ready: the target runtime consumes it through its one start path.
+func _on_agreement(handle: Variant) -> void:
+	if handle == null:
+		return
+	var pony: Variant = handle.pony
+	var runtime: Variant = runtime_for(pony) if is_instance_valid(pony) else null
+	if is_instance_valid(runtime) and runtime.has_method("start_agreement"):
+		runtime.call("start_agreement", handle)
+		return
+	if is_instance_valid(negotiation):
+		negotiation.call("cancel", handle, "cancelled")
+
+
 func _exit_tree() -> void:
 	close_debug_wheel()
 	if is_instance_valid(eligibility):
@@ -2092,6 +2268,13 @@ func _exit_tree() -> void:
 	if is_instance_valid(initiation):
 		initiation.reset()
 		initiation.queue_free()
+	if is_instance_valid(negotiation):
+		negotiation.call("reset")
+		negotiation.queue_free()
+	if is_instance_valid(adapter):
+		adapter.queue_free()
+	negotiation = null
+	adapter = null
 	privacy = null
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")

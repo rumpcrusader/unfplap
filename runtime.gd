@@ -1585,6 +1585,14 @@ func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
 	return _scene_gate().offer_verdict(pose, act_source, bed_in, forced, verdict_in)
 
 
+## The scene-only start of an accepted Agreement: no policy verdict, no formation row, no
+## aftercare. `frozen` carries the pose capability recorded at formation.
+func scene_only_verdict(pose: String, act_source: String, bed_in: Variant = null,
+		frozen: Variant = null) -> Variant:
+	_read_id()
+	return _scene_gate().scene_only_verdict(pose, act_source, bed_in, frozen)
+
+
 ## The idle hint's start verdict: a reused policy snapshot plus live scene rows. Only
 ## `main._refresh_offer()` uses this; a real start, refusal, debug line or initiation gate calls
 ## `start_verdict()`/`offer_verdict()` and builds a fresh policy. See `docs/eligibility.md`.

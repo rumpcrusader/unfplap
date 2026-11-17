@@ -18,6 +18,7 @@ const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
 const CONVERSATION := preload("res://mods/unfplap/initiation/conversation.gd")
 const VENUE := preload("res://mods/unfplap/initiation/venue.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const CONSENT := preload("res://mods/unfplap/initiation/classifier.gd")
@@ -299,6 +300,14 @@ func clear_cooldown(pony: Node) -> bool:
 	_retry_at.erase(id)
 	_scan_reason.erase(id)
 	return true
+
+
+## The live placement facts for one runtime. `main` binds this into the Negotiation Host and the
+## scan uses the same pass to build the pose options.
+func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
+	if not is_instance_valid(_venue):
+		return POSE_OPTIONS.Placement.new()
+	return _venue.placement_for(runtime)
 
 
 # --------------------------------------------------------------------------- cuddle edge and cooldown

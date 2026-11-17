@@ -6,6 +6,7 @@ extends Node
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 
 var main: Node
 var _privacy: RefCounted
@@ -295,3 +296,38 @@ func player_in_bed(bed: Variant) -> bool:
 		return false
 	var bed_node: Variant = couch.get("_bed") if couch.get("_bed") != null else couch.get("bed_node")
 	return bed_node == bed
+
+
+## The plain placement facts for one runtime: a cuddle bed under her, a free bed near Anon with
+## its front spot, and a free standing approach. One pass answers every option.
+func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
+	var out := POSE_OPTIONS.Placement.new()
+	var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
+	if not is_instance_valid(pony):
+		return out
+	var node := player()
+	var cuddle := bool(runtime.call("cuddle_active")) if runtime.has_method("cuddle_active") else false
+	if cuddle:
+		var under: Variant = runtime.call("find_bed_under") if runtime.has_method("find_bed_under") \
+			else null
+		if is_instance_valid(under):
+			out.cuddle = true
+			out.cuddle_bed = under
+	var found := find_bed_for(pony)
+	if not found.is_empty():
+		out.bed = found.get("bed")
+		out.bed_front = found.get("front")
+	if is_instance_valid(node) and can_approach(pony, []):
+		out.standing_free = true
+	return out
+
+
+## Restore the request claim's speed and pace overrides before the negotiation takes the lease.
+## The navigator owner and the wander flag stay with the request episode.
+func restore_limits(nav: Node, limit: Variant, pace: Variant) -> void:
+	if not is_instance_valid(nav):
+		return
+	if limit != null:
+		nav.set("command_speed_limit", limit)
+	if pace != null:
+		nav.set("command_pace_target", pace)

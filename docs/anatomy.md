@@ -226,8 +226,9 @@ The optional worn-garment compatibility (`docs/integrations.md`, Pantyhose & Pan
 anatomy's outer surface as a height field the cloth shader can sample. `anatomy/garment_hull.gd`
 builds it in anatomy-local space (`+Z` toward the tail):
 
-- Only triangles whose local normal faces rearward (`n.z > OUTER_NORMAL_Z`) are kept, so the inner
-  canal and cavity walls never enter the field.
+- Every rest triangle is rasterised; the field is the maximum Z per cell. The inner canal and
+  body-facing surfaces sit behind the outer surface and never win the max, so no normal filter is
+  needed and the curved ponut-top/vulva-bottom silhouette is included.
 - The field is the **rest appearance**, not the act envelope: the base mesh with `closed` at 1 and
   `ponut_scale` at the rest `anal_scale - 1`. `wink`, `anal_open`, `anal_stretch`,
   `anal_overstretch`, `anal_extreme` and `stretch` are at 0. The garment is removed at act start,
@@ -235,9 +236,9 @@ builds it in anatomy-local space (`+Z` toward the tail):
   vulva/ponut. If `pantyhose_undress` is off, the cloth stays on during an act and the act shapes
   can poke through; that is the player's choice.
 - The X/Y projection is a `width × height` grid of the maximum Z per cell. The domain is the
-  retained outer triangles' X/Y bounds plus a small margin; the Y margin is larger so the ponut
-  top and vulva bottom are inside the field and the shader's edge fade does not cut their lift.
-  Empty cells are filled by dilation and the debug smoothing passes.
+  rest mesh's X/Y bounds plus a small margin; the Y margin is larger so the ponut top and vulva
+  bottom are inside the field and the shader's edge fade does not cut their lift. Empty cells are
+  filled by dilation and the debug smoothing passes.
 - The field is normalised over `z_min`/`z_max`; an uncovered cell keeps a negative marker and the
   shader skips it. The texture is `FORMAT_RF`, linear, no repeat.
 - The build is cached by source mesh RID, width, height, smoothing and the rest ponut scale, so

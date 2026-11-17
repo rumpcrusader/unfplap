@@ -104,15 +104,15 @@ func run() -> void:
 
 # --------------------------------------------------------------------------- hull builder
 
-## One outer quad at z 0.01, one back-facing quad at z 0.05 (the inner cavity) and a `closed`
-## shape that raises one outer corner. The field must take the outer surface and the shape, and
-## must not take the back-facing quad.
+## One outer quad at z 0.01, one inner quad behind it at z -0.02 and a `closed` shape that raises
+## one outer corner. The field takes the maximum Z per cell, so it takes the outer surface and the
+## shape and the inner quad never wins.
 func _fixture_mesh() -> ArrayMesh:
 	var verts := PackedVector3Array([
 		Vector3(0.0, 0.0, 0.01), Vector3(0.02, 0.0, 0.01),
 		Vector3(0.02, 0.02, 0.01), Vector3(0.0, 0.02, 0.01),
-		Vector3(0.0, 0.0, 0.05), Vector3(0.02, 0.0, 0.05),
-		Vector3(0.02, 0.02, 0.05), Vector3(0.0, 0.02, 0.05),
+		Vector3(0.0, 0.0, -0.02), Vector3(0.02, 0.0, -0.02),
+		Vector3(0.02, 0.02, -0.02), Vector3(0.0, 0.02, -0.02),
 	])
 	var normals := PackedVector3Array([
 		Vector3.BACK, Vector3.BACK, Vector3.BACK, Vector3.BACK,
@@ -177,9 +177,9 @@ func _check_hull_fixture() -> void:
 		"the domain starts at the outer footprint minus the margin")
 	check(domain.size.x > 0.027 and domain.size.x < 0.029,
 		"the domain is the outer footprint plus the margin")
-	check(near(hull.z_min, 0.01), "the field starts at the outer surface")
+	check(near(hull.z_min, -0.02), "the field starts at the lower inner surface")
 	check(near(hull.z_max, 0.03), "the rest closed shape is the field")
-	check(hull.z_max < 0.05, "the act anal shape is ignored")
+	check(hull.z_max < 0.05, "the lower inner surface and the act anal shape are ignored")
 	var field := hull.field
 	check(field.size() == 64, "the field is resolution squared")
 	var highest := 0.0

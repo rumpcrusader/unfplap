@@ -133,11 +133,12 @@ cached per source material and variant, so each fabric keeps its own look parame
 mare shares it. The previous override is saved and restored on a hidden anatomy, feature-off,
 pack-off, node replacement and world close.
 
-The lift samples `anatomy/garment_hull.gd`'s rear-facing outer depth field, built from the refined
+The lift samples `anatomy/garment_hull.gd`'s rest-surface outer depth field, built from the refined
 anatomy mesh and shared by every mare. The field is the **rest appearance**: the base mesh with
 `closed` at 1 and `ponut_scale` at the rest `anal_scale - 1`; `wink`, the anal keys and `stretch`
-are at 0. The inner canal is excluded by the rear-facing normal test. The garment is removed at act
-start, so the field does not need the opened/stretched act shapes.
+are at 0. The field takes the maximum Z per cell over every rest triangle, so the inner canal and
+body-facing surfaces never win the max; the curved ponut-top/vulva-bottom silhouette is included.
+The garment is removed at act start, so the field does not need the opened/stretched act shapes.
 The shader maps the garment vertex into anatomy-local space with the per-mare transform, reads the
 field, and pushes the cloth out along the anatomy's +Z by the surface difference plus the margin.
 The margin is stored in anatomy-local units and converted back by the basis' Z scale, so the

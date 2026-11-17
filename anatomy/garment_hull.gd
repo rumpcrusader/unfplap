@@ -1,27 +1,26 @@
 extends RefCounted
-## The garment hull: a rear-facing outer depth field built from the anatomy mesh. A worn garment
+## The garment hull: a rest-surface outer depth field built from the anatomy mesh. A worn garment
 ## (the Pantyhose & Panties cloth) samples it in the vertex shader and lifts itself over the
 ## anatomy surface instead of letting the mesh poke through. The field is built once per source
 ## mesh, width, height and smoothing, and is shared by every mare; only the transform is per-mare.
 ##
-## The mesh is read in anatomy-local space (+Z toward the tail). Only triangles whose local
-## normal faces rearward (`n.z > OUTER_NORMAL_Z`) are kept, so the inner canal and cavity walls
-## do not become part of the surface. Their X/Y projection is rasterised into a `resolution²`
-## grid that stores the maximum Z per cell. The base mesh and every relevant blend shape are
-## rasterised at full weight, so the field is the outer envelope of the shape range: the cloth
-## never cuts into a closed lip, a wink, or an opened anal ring.
+## The mesh is read in anatomy-local space (+Z toward the tail). Every rest triangle is
+## rasterised into a `width × height` grid that stores the maximum Z per cell. The inner canal and
+## body-facing surfaces sit behind the outer surface and never win the max, so no normal filter is
+## needed; the curved ponut-top/vulva-bottom silhouette is included. The field uses the rest
+## appearance only (the authored `closed` shape and the rest `ponut_scale`); the act's opened and
+## stretched shapes are excluded because the garment is removed at act start.
 ##
-## The domain is the X/Y bounds of the retained outer triangles plus a small margin, not the
-## full mesh AABB. The field is normalised over `z_min`/`z_max`; an empty cell keeps the
-## `INVALID` marker and the shader skips it.
+## The domain is the X/Y bounds of the rest mesh plus a margin. The field is normalised over
+## `z_min`/`z_max`; an empty cell keeps the `INVALID` marker and the shader skips it.
 ##
 ## Pure: it takes a mesh and plain numbers and reads no Node, scene or settings.
 ## See `docs/anatomy.md` (`## Garment hull`) and `docs/integrations.md`.
 
-## The authored mesh's outer surface faces the tail on +Z. The base mesh's anal cavity and inner
-## canal face the other way; a threshold above zero keeps them out of the field.
-const OUTER_NORMAL_Z := 0.1
-## Extra room around the retained outer triangles so the shader's edge fade has a border. The
+## The authored mesh's outer surface faces the tail on +Z. The field takes the maximum Z per
+## cell over every rest triangle, so the inner canal and body-facing surfaces never win the max;
+## no normal filter is needed, and the curved ponut-top/vulva-bottom silhouette is included.
+## Extra room around the rest mesh so the shader's edge fade has a border. The
 ## Y margin is larger: the ponut top and vulva bottom sit on the vertical bounds, and the field
 ## must extend past them so the fade does not cut their lift.
 const DOMAIN_MARGIN_X := 0.004
@@ -95,9 +94,6 @@ static func _build(mesh: ArrayMesh, res_x: int, res_y: int, smooth: int,
 		if arrays.is_empty() or arrays[Mesh.ARRAY_VERTEX] == null:
 			continue
 		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-		var normals: PackedVector3Array = PackedVector3Array()
-		if arrays[Mesh.ARRAY_NORMAL] != null:
-			normals = arrays[Mesh.ARRAY_NORMAL]
 		var indices: PackedInt32Array = PackedInt32Array()
 		if arrays[Mesh.ARRAY_INDEX] != null:
 			indices = arrays[Mesh.ARRAY_INDEX]
@@ -124,16 +120,6 @@ static func _build(mesh: ArrayMesh, res_x: int, res_y: int, smooth: int,
 				continue
 			var normal := (verts[b] - verts[a]).cross(verts[c] - verts[a])
 			if normal.length_squared() < 0.000000000001:
-				continue
-			normal = normal.normalized()
-			# Orient with the authored vertex normals so a flipped winding cannot keep an inner
-			# wall in the field.
-			if normals.size() == verts.size():
-				var authored := normals[a] + normals[b] + normals[c]
-				if authored.length_squared() > 0.000000000001 \
-						and normal.dot(authored.normalized()) < 0.0:
-					normal = -normal
-			if normal.z <= OUTER_NORMAL_Z:
 				continue
 			tris.append(Vector3i(a, b, c))
 			for index: int in [a, b, c]:

@@ -50,7 +50,9 @@ A pose row's `asset` names its authored document under `poses/`; an internal row
 and inherit it through its `base` chain, or own its asset. The shipped internal rows inherit. The
 scene gate's `pose_asset`/`pose_rig` rows read the resolved
 document. `poses/authored_pose.gd` is the one loader; it reads version 7 and the version 6 bed-space
-migration path, and never converts a pose per frame.
+migration path, and never converts a pose per frame. The two offerable assets are parsed at world
+ready, under the loading cover, so the idle hint's `pose_asset` row does not load them inside its
+first scan.
 
 Version 7 stores `space: "local_rest"`, the pose's `frame` (`bed` or `ground`), the `rig` name,
 version and bone count, the bake `reference` (`size`, `body_scale`, the config the base was authored

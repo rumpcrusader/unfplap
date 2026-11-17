@@ -99,8 +99,10 @@ total, largest first, so the first row is the chunk to fix.
 The anatomy chunks need no extra forward: `facts.perf` already calls the runtime's `perf_note`,
 which is the single forwarding point. `entry_process` contains `offer_scan`, which contains
 `offer_cone` and `offer_gate`. `offer_gate` reads `runtime.hotkey_ready()`: the scene rows are
-rebuilt every call, while the two Base-clearance reads are cached for `0.5 s` across the 0.15 s
-hint scan. A real act-key press passes `fresh` and pays the eligibility read again.
+rebuilt every call, while Base clearance and the footstool reach/case pair are cached for `0.5 s`
+across the 0.15 s hint scan. The hint runs the scene rows first and only rebuilds Base clearance
+when they pass. A real act-key press passes `fresh` and pays both reads again. The two offerable
+pose assets are parsed at world ready, so their load is not inside a first scan.
 
 ## Gate and reset
 

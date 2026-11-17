@@ -66,8 +66,9 @@ const ORAL_KISS_DB := -22.0
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
-## The idle hint's Base-clearance cache. The hint scans at 0.15 s; the eligibility reads are
-## stable for longer. A real hotkey press re-reads fresh. The scene rows stay live every call.
+## The idle hint's cache window. The hint scans at 0.15 s; Base clearance and the footstool reach
+## are stable for longer. A real hotkey press re-reads both fresh. The other scene rows stay live
+## every call, and a failing scene leaves Base clearance to be rebuilt on the next pass.
 const HOTKEY_CACHE_S := 0.5
 ## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
 ## feel is the same with the anatomy off. Close to the default part's visible length.
@@ -165,6 +166,8 @@ var _hotkey_cache_at := -1000.0
 var _hotkey_cache_key := Vector3i.ZERO
 var _hotkey_cache_eligible := false
 var _hotkey_cache_relationship := false
+## The footstool reach and case count the hint's scene row reads, cached for the same window. The
+## anatomy measurement and inventory scan are too costly to repeat on every 0.15 s scan.
 var _hotkey_stool_at := -1000.0
 var _hotkey_stool_key := Vector3i.ZERO
 var _hotkey_stool_valid := false
@@ -1818,8 +1821,9 @@ func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
 
 ## The hotkey's readiness: Base clearance plus the scene-only rows. No policy verdict, no offer
 ## cooldown and no history refusal. The act key never bucks; the tolerance stop owns refusal.
-## The 0.15 s idle hint scan reuses the Base-clearance answer for `HOTKEY_CACHE_S`; a real press
-## passes `fresh = true` and re-reads it. The scene rows stay live on every call.
+## The 0.15 s idle hint reuses Base clearance and the footstool reach for `HOTKEY_CACHE_S`; a real
+## press passes `fresh = true` and re-reads both. The hint runs the scene rows first and only
+## rebuilds Base clearance when they pass, so a blocked scene never pays a refresh it cannot use.
 func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null,
 		fresh := false) -> bool:
 	_read_id()
@@ -1850,6 +1854,8 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null,
 	return _hotkey_cache_eligible and _hotkey_cache_relationship
 
 
+## Rebuild the two Base-clearance reads. A fresh press calls this before the scene; the idle hint
+## calls it after a passing scene, so a blocked scene does not invalidate the previous answer.
 func _refresh_hotkey_clearance(service: Variant, now: float, key: Vector3i) -> void:
 	_hotkey_cache_at = now
 	_hotkey_cache_key = key
@@ -1857,6 +1863,8 @@ func _refresh_hotkey_clearance(service: Variant, now: float, key: Vector3i) -> v
 	_hotkey_cache_relationship = bool(service.call("relationship_ok", pony))
 
 
+## The footstool pair for a stool pose, from the hint window or read live when it expires (`fresh`
+## always reads live). A non-stool pose returns `(-1, -1)`, which tells the gate to skip the row.
 func _hotkey_stool_for(pose: String, now: float, key: Vector3i, fresh: bool) -> Vector2i:
 	if not bool(POSE_SPECS.scene(pose).get("stool", false)):
 		return Vector2i(-1, -1)
@@ -1871,6 +1879,8 @@ func _hotkey_stool_for(pose: String, now: float, key: Vector3i, fresh: bool) -> 
 	return Vector2i(_hotkey_stool_need, _hotkey_stool_have)
 
 
+## The cached footstool answer the blocked standing note reads, so it does not repeat the gate's
+## reach and case reads. Before the first hint it falls back to the live pair.
 func hint_stool() -> Dictionary:
 	if _hotkey_stool_valid:
 		return {"need": _hotkey_stool_need, "have": _hotkey_stool_have}

@@ -84,11 +84,14 @@ static var _RULES := {
 	"withdraw_hurt": SETTINGS.withdraw_hurt,
 	}
 
-## The rebuilt live table and the settings generation it belongs to.
+## The live rule table and the settings generation it was built from. `rules()` shares this table
+## with every caller; readers must not write to it.
 static var _rules_generation := -1
 static var _rules_cache: Dictionary = {}
 
 
+## The live rules for the current settings generation. The table is shared rather than copied, so
+## a hot gate pays one dictionary reference instead of a rebuild per tier check.
 static func rules() -> Dictionary:
 	if _rules_generation == SETTINGS.generation:
 		return _rules_cache

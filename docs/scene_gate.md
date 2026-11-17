@@ -38,11 +38,13 @@ against `PLAYER_FORM.active()` and the headset view. An unknown or internal pose
 
 `start_verdict()` and `offer_verdict()` accept a `verdict_in` policy snapshot. The idle hint no
 longer supplies one: its readiness is `runtime.hotkey_ready()` (Base clearance plus the scene-only
-rows), and the runtime caches only the Base-clearance answer for a brief `0.5 s` while the hint
-scans. The scene rows are rebuilt on every call. The blocked standing hint re-reads only the live
-`stool_needed_count` / `stool_case_count`; it never reruns the start gate. The live act key is the
-same Base-clearance plus scene-only path, and an accepted proactive offer starts through its
-Agreement's scene-only rows; the request handoff only changes hint discovery
+rows), and the runtime caches Base clearance and the footstool pair for a brief `0.5 s` while the
+hint scans. The other scene rows are rebuilt on every call, and the hint runs them before it
+rebuilds Base clearance. `scene_only_verdict()` takes the cached pair as an optional
+`stool_need`/`stool_have`; `-1` reads the live provider callbacks. The blocked standing hint reads
+the same cached pair through `runtime.hint_stool()`; it never reruns the start gate. The live act
+key is the same Base-clearance plus scene-only path, and an accepted proactive offer starts
+through its Agreement's scene-only rows; the request handoff only changes hint discovery
 (`docs/initiation.md`).
 
 ## Row sets
@@ -69,7 +71,7 @@ A `start` gate adds the final scene rows; an `offer` gate uses the offer-safe su
 | `navigator_reserved` | start | no `reserved_by` lease |
 | `nav_owner` | both | the navigator owner is compatible with the pose/source |
 | `nav_pose` | start | the pose is standable (standing) or the lying/cradle path is allowed |
-| `stool` | both | a `scene.stool` pose has enough footstools (provider callbacks) |
+| `stool` | both | a `scene.stool` pose has enough footstools (provider callbacks, or the idle hint's cached pair) |
 | `pose_asset` / `pose_rig` | both, bed or ground pose | the authored pose loaded and the rig has its bones |
 | `bed` / `bed_occupied` / `bed_gate` | both / both / start | a `scene.requires_bed` pose resolves a free bed and the bed-side/cradle conditions hold |
 | `standing_free` | offer, standing | she is not held and not seated |

@@ -147,6 +147,10 @@ and debug; no prompt sends it to the model.
 decay do not bump it. The runtime's idle hotkey cache joins it into its invalidation key; a stored
 write rebuilds the Base-clearance answer.
 
+The live rule table is memoised per `SETTINGS.generation`: `rules()` returns the same table until a
+settings write rebuilds it, and every caller treats it as read-only. Tier and offer-weight checks
+are therefore dictionary reads, not a rebuild per check.
+
 Only good and bad acts move the points. Neutral acts change no history.
 
 | Event | Effect |

@@ -306,6 +306,8 @@ func _on_world(host: Node) -> void:
 	_warm_offer_assets()
 
 
+## Parse the two offerable pose assets while the world is still under its loading cover. The idle
+## hint's authored row would otherwise load them inside its first scan.
 func _warm_offer_assets() -> void:
 	for pose: String in [POSE_SPECS.MISSIONARY, POSE_SPECS.STANDING]:
 		var asset_path := str(POSE_SPECS.spec(pose).get("asset", ""))

@@ -1515,6 +1515,10 @@ static var skeleton_overlay := flag("skeleton_overlay", "anatomy.skeleton_overla
 	"Show skeleton overlay",
 	"Draw nearby ponies' body, face and hair/tail skeletons. Left-click a joint to print it. Requires Enable debug.",
 	ANATOMY, "").as_debug()
+static var draw_coat_line := flag("draw_coat_line", "anatomy.draw_coat_line",
+	"Draw coat line",
+	"Draw the sampled rest line, the live bent and stretched line, and a cross-section marker at each sample.",
+	ANATOMY, "").as_debug()
 
 # -- Heat  (debug)
 static var wink_min_s := num("wink_min_s", "anatomy.wink_min_s", "Wink min gap",

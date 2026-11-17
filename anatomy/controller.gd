@@ -10,6 +10,7 @@ const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const COAT_LINE := preload("res://mods/unfplap/anatomy/coat_line.gd")
+const COAT_LINE_DEBUG := preload("res://mods/unfplap/anatomy/coat_line_debug.gd")
 const PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
@@ -40,6 +41,9 @@ var attach: RefCounted
 var coat: RefCounted
 ## The anatomy shell's follow of the body coat's line.
 var coat_line: RefCounted
+## The coat line's debug overlay, parented to the anatomy mesh.
+var _line_debug: Node3D
+var _line_debug_clock := 0.0
 ## Saved placement, missionary trims and the debug nudge path.
 var placement: RefCounted
 ## Persistent shape state: closing/winking, the grip solve, Anon's shaft mask and the V2 anal
@@ -198,6 +202,7 @@ func _attach() -> void:
 	coat.set_mesh(mesh, attach.skeleton)
 	coat_line.setup(pony, placement)
 	coat_line.set_mesh(mesh, attach.skeleton)
+	_ensure_line_debug()
 	appearance.set_mesh(mesh, attach.skeleton)
 	appearance.attach_parts()
 	_apply_material()
@@ -222,6 +227,7 @@ func _process(delta: float) -> void:
 	var line_started := Time.get_ticks_usec()
 	coat_line.tick(attach.visible())
 	facts.perf("anatomy_coat_line", Time.get_ticks_usec() - line_started)
+	_tick_line_debug(delta)
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
 		_note_process(process_started)
@@ -306,6 +312,36 @@ func _apply_material() -> void:
 		coat_line.set_material(appearance.material())
 
 
+## The coat line's debug overlay is a child of the anatomy mesh, so it shares the mesh's local
+## space and hides with it. Created once per attachment.
+func _ensure_line_debug() -> void:
+	if is_instance_valid(_line_debug):
+		return
+	if not is_attached() or not is_instance_valid(attach.mesh):
+		return
+	_line_debug = COAT_LINE_DEBUG.new()
+	_line_debug.name = "UnfplapCoatLine"
+	attach.mesh.add_child(_line_debug)
+	_line_debug.call("setup")
+	_line_debug_clock = 0.0
+
+
+## Redraw the debug line at 30 Hz while its debug flag is on and the mesh is shown.
+func _tick_line_debug(delta: float) -> void:
+	if not is_instance_valid(_line_debug):
+		return
+	if not SETTINGS.draw_coat_line.get_bool() or not is_attached() \
+			or not is_instance_valid(attach.mesh) or not attach.visible():
+		_line_debug.call("update", {}, false)
+		_line_debug_clock = 0.0
+		return
+	_line_debug_clock -= delta
+	if _line_debug_clock > 0.0:
+		return
+	_line_debug_clock = 1.0 / 30.0
+	_line_debug.call("update", coat_line.debug_data(), true)
+
+
 static func body_local_point(bind: Transform3D, mesh_transform: Transform3D,
 		point: Vector3) -> Vector3:
 	return GEOMETRY.body_local_point(bind, mesh_transform, point)
@@ -381,6 +417,10 @@ func apply_live() -> void:
 
 func detach() -> void:
 	end_act()
+	if is_instance_valid(_line_debug):
+		_line_debug.call("update", {}, false)
+	_line_debug = null
+	_line_debug_clock = 0.0
 	if coat_line != null:
 		coat_line.clear()
 	if coat != null:

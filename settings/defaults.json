@@ -12,6 +12,7 @@
 		"coat_hole_height": 1.5,
 		"coat_spread": 1.0,
 		"dock_style": "genitals",
+		"draw_coat_line": false,
 		"draw_still_zones": false,
 		"drip": 0.2,
 		"fluid_alpha": 0.4,

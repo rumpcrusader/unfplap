@@ -287,6 +287,18 @@ func rebuild() -> bool:
 	return true
 
 
+## Debug-only view of the built line in anatomy-local space. Empty when the line is not built.
+func debug_data() -> Dictionary:
+	if not _built or _line_count < 2:
+		return {}
+	return {
+		"rest": _rest_local,
+		"live": _live,
+		"basis_x": _basis_x,
+		"basis_z": _basis_z,
+	}
+
+
 ## The deformed local point for the act's hole anchor. Matches the shader's mapping.
 func deform_point(local: Vector3) -> Vector3:
 	if not _built or _line_count < 2:

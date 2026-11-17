@@ -101,6 +101,37 @@ func run() -> void:
 	check(PROMPTS.ANON_OFFER_INSTRUCTION.contains("\"offer\""), "the classifier asks for JSON")
 	check(PROMPTS.MARE_RESPONSE_INSTRUCTION.contains("counter_offer"),
 		"the mare response names the counter-offer")
+
+	var request := PROMPTS.Request.new()
+	request.kind = "anon_offer"
+	request.text = "take me to bed"
+	request.context = context
+	request.options = options
+	check(PROMPTS.system_for(request.kind) == PROMPTS.ANON_OFFER_INSTRUCTION,
+		"the Anon offer instruction is dispatched")
+	var dispatch := PROMPTS.payload_for(request)
+	check(str(dispatch.get("player_line", "")) == "take me to bed",
+		"the Anon offer payload is dispatched")
+	request.kind = "anon_decision"
+	request.text = "yes"
+	request.line = "come here"
+	check(PROMPTS.payload_for(request).get("offer") == "come here",
+		"the Anon decision payload is dispatched")
+	request.kind = "mare_response"
+	request.options = [options[1]]
+	check((PROMPTS.payload_for(request).get("option", {}) as Dictionary).get("pose")
+		== CATALOG.STANDING, "the Mare response payload is dispatched")
+	check(PROMPTS.system_for("nonsense").is_empty(), "an unknown kind has no instruction")
+	check(PROMPTS.payload_for(null).is_empty(), "a missing request has no payload")
+	var unknown := PROMPTS.parse("nonsense", "{}", "", 0)
+	check(unknown.failed and unknown.answer == "no_offer", "an unknown parse kind fails")
+	var parsed := PROMPTS.parse("anon_offer", "{\"offer\":true,\"option\":1}", "", 2)
+	check(parsed.answer == "accept" and parsed.option_index == 1,
+		"the offer parse is dispatched")
+	check(PROMPTS.parse("anon_decision", "{\"answer\":\"refuse\"}", "", 0).answer == "refuse",
+		"the decision parse is dispatched")
+	check(PROMPTS.parse("mare_response", "{\"answer\":\"counter_offer\"}", "", 0).answer
+		== "counter_offer", "the mare response parse is dispatched")
 	bed.free()
 	print("NEGOTIATION_PROMPTS_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

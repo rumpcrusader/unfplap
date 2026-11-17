@@ -25,6 +25,58 @@ class Reply:
 	var failed := false
 
 
+## One model request for the Negotiation service. `kind` is `anon_offer`, `anon_decision` or
+## `mare_response`. The service builds it; the host adapter turns it into the classifier call.
+class Request:
+	var kind := ""
+	var text := ""
+	var line := ""
+	var context: CONTEXT.Context = null
+	var options: Array[POSE_OPTIONS.Option] = []
+
+
+## The instruction for one request kind, or "" for an unknown kind.
+static func system_for(kind: String) -> String:
+	match kind:
+		"anon_offer":
+			return ANON_OFFER_INSTRUCTION
+		"anon_decision":
+			return ANON_DECISION_INSTRUCTION
+		"mare_response":
+			return MARE_RESPONSE_INSTRUCTION
+	return ""
+
+
+## The JSON payload for one request.
+static func payload_for(request: Request) -> Dictionary:
+	if request == null:
+		return {}
+	match request.kind:
+		"anon_offer":
+			return anon_offer_payload(request.text, request.options, request.context)
+		"anon_decision":
+			return anon_decision_payload(request.text, request.line)
+		"mare_response":
+			return mare_response_payload(request.text,
+				request.options[0] if not request.options.is_empty() else null, request.context)
+	return {}
+
+
+## Parse one reply through the request kind's parser. An unknown kind is a failure.
+static func parse(kind: String, reply: String, error: String, option_count: int) -> Reply:
+	match kind:
+		"anon_offer":
+			return parse_anon_offer(reply, error, option_count)
+		"anon_decision":
+			return parse_anon_decision(reply, error)
+		"mare_response":
+			return parse_mare_response(reply, error)
+	var out := Reply.new()
+	out.answer = "no_offer"
+	out.failed = true
+	return out
+
+
 static func anon_offer_payload(text: String, options: Array[POSE_OPTIONS.Option],
 		context: CONTEXT.Context) -> Dictionary:
 	var rows: Array = []

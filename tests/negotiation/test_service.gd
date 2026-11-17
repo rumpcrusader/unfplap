@@ -6,6 +6,7 @@ extends SceneTree
 
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -177,7 +178,7 @@ func _fixture() -> Dictionary:
 
 
 func _decision(answer: String, index := -1, failed := false):
-	var out := NEGOTIATION.Decision.new()
+	var out := PROMPTS.Reply.new()
 	out.answer = answer
 	out.option_index = index
 	out.failed = failed

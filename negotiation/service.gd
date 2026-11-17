@@ -11,6 +11,7 @@ extends Node
 ## director and the model calls through the typed `Host` below.
 
 const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
@@ -27,9 +28,6 @@ const COOLDOWN_S := 120.0
 const PRIVACY_SAMPLE_S := 0.5
 
 const ANSWER_ACCEPT := "accept"
-const ANSWER_REFUSE := "refuse"
-const ANSWER_COUNTER := "counter_offer"
-const ANSWER_NO_OFFER := "no_offer"
 
 
 ## The player form and display the option builder filters on.
@@ -54,24 +52,6 @@ class MareOffer:
 	func valid() -> bool:
 		return is_instance_valid(runtime) and is_instance_valid(pony) and option != null \
 			and option.valid() and base != null and base.ok()
-
-
-## One model request. `kind` is `anon_offer`, `anon_decision` or `mare_response`.
-class DecisionRequest:
-	var kind := ""
-	var text := ""
-	var line := ""
-	var context: CONTEXT.Context = null
-	var options: Array[POSE_OPTIONS.Option] = []
-
-
-## One model answer. `answer` is normalized to `accept`, `refuse`, `counter_offer` or
-## `no_offer`; `option_index` picks an option from the request list; `failed` marks a reasoning
-## failure.
-class Decision:
-	var answer := ""
-	var option_index := -1
-	var failed := false
 
 
 ## The terminal outcome reported to the Proactive service and the debug log.
@@ -103,11 +83,12 @@ class Host:
 	var form_view: Callable
 	## (runtime) -> RefCounted: the per-pony `scene_hold/service.gd` ledger.
 	var hold_for: Callable
-	## (DecisionRequest, scope, done) -> bool: the dialogue classifier.
+	## (PROMPTS.Request, scope, done) -> bool: the dialogue classifier. `done` gets a
+	## PROMPTS.Reply.
 	var classify: Callable
-	## (DecisionRequest, scope, done) -> bool: the Mare reasoning call.
+	## (PROMPTS.Request, scope, done) -> bool: the Mare reasoning call.
 	var reason: Callable
-	## (MareOffer, scope, done) -> bool: watch the first new line from the conversation target.
+	## (pony, scope, done) -> bool: watch the first new line from the conversation target.
 	var await_answer: Callable
 	## (scope) -> void: cancel one classifier scope.
 	var cancel_scope: Callable
@@ -227,7 +208,7 @@ func begin_mare_offer(offer: MareOffer) -> bool:
 	live.context = _context(live.pony)
 	var scope := _scope("answer")
 	live.scope = scope
-	var watching := bool(_host.await_answer.call(offer, scope,
+	var watching := bool(_host.await_answer.call(live.pony, scope,
 		func(text: String, error: String) -> void: _on_anon_answer(live, text, error)))
 	if not watching:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
@@ -262,13 +243,13 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 	live.context = _context(live.pony)
 	var scope := _scope("anon_offer")
 	live.scope = scope
-	var request := DecisionRequest.new()
+	var request := PROMPTS.Request.new()
 	request.kind = "anon_offer"
 	request.text = text
 	request.context = live.context
 	request.options = options
 	var started := bool(_host.classify.call(request, scope,
-		func(decision: Decision) -> void: _on_anon_offer_classified(live, decision)))
+		func(reply: PROMPTS.Reply) -> void: _on_anon_offer_classified(live, reply)))
 	if not started:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return false
@@ -496,45 +477,45 @@ func _on_anon_answer(live: Offer, text: String, error: String) -> void:
 		return
 	var scope := _scope("decision")
 	live.scope = scope
-	var request := DecisionRequest.new()
+	var request := PROMPTS.Request.new()
 	request.kind = "anon_decision"
 	request.text = text
 	request.line = live.line
 	request.context = live.context
 	var started := bool(_host.classify.call(request, scope,
-		func(decision: Decision) -> void: _on_anon_decision(live, decision)))
+		func(reply: PROMPTS.Reply) -> void: _on_anon_decision(live, reply)))
 	if not started:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 
 
-func _on_anon_decision(live: Offer, decision: Decision) -> void:
+func _on_anon_decision(live: Offer, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
-	if decision == null:
+	if reply == null or reply.failed:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
-	var answer := _answer_of(decision)
-	if answer == ANSWER_ACCEPT:
+	var answer := str(reply.answer)
+	if answer == CONTEXT.ANSWER_ACCEPT:
 		_accept(live)
-	elif answer == ANSWER_COUNTER:
+	elif answer == CONTEXT.ANSWER_COUNTER_OFFER:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0)
 	else:
 		_close(Outcome.REFUSED, "", COOLDOWN_S)
 
 
-func _on_anon_offer_classified(live: Offer, decision: Decision) -> void:
+func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
-	if decision == null or decision.failed or not _is_offer(decision):
+	if reply == null or reply.failed or reply.answer != CONTEXT.ANSWER_ACCEPT:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
 	var options := _options_for(live.runtime)
-	if decision.option_index < 0 or decision.option_index >= options.size():
+	if reply.option_index < 0 or reply.option_index >= options.size():
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
 		return
-	var option: POSE_OPTIONS.Option = options[decision.option_index]
+	var option: POSE_OPTIONS.Option = options[reply.option_index]
 	live.option = option
 	live.cuddle = option.cuddle
 	if not _claim_anon_hold(live):
@@ -543,47 +524,31 @@ func _on_anon_offer_classified(live: Offer, decision: Decision) -> void:
 	live.private = _private_now(live.pony, option.cuddle)
 	var scope := _scope("mare_response")
 	live.scope = scope
-	var request := DecisionRequest.new()
+	var request := PROMPTS.Request.new()
 	request.kind = "mare_response"
 	request.text = live.line
 	request.context = live.context
 	request.options = [option]
 	var started := bool(_host.reason.call(request, scope,
-		func(answer: Decision) -> void: _on_mare_response(live, answer)))
+		func(reply: PROMPTS.Reply) -> void: _on_mare_response(live, reply)))
 	if not started:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
 
 
-func _on_mare_response(live: Offer, decision: Decision) -> void:
+func _on_mare_response(live: Offer, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
-	if decision == null or decision.failed:
+	if reply == null or reply.failed:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
 		return
-	var answer := _answer_of(decision)
-	if answer == ANSWER_ACCEPT:
+	var answer := str(reply.answer)
+	if answer == CONTEXT.ANSWER_ACCEPT:
 		_accept(live)
-	elif answer == ANSWER_COUNTER:
+	elif answer == CONTEXT.ANSWER_COUNTER_OFFER:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0)
 	else:
 		_close(Outcome.REFUSED, "", COOLDOWN_S)
-
-
-func _answer_of(decision: Decision) -> String:
-	if decision == null or decision.failed:
-		return ANSWER_REFUSE
-	var text := str(decision.answer).strip_edges().to_lower()
-	if text == ANSWER_NO_OFFER:
-		return ANSWER_NO_OFFER
-	if text in ["offer", "yes"]:
-		return ANSWER_ACCEPT
-	return CONTEXT.answer(text)
-
-
-func _is_offer(decision: Decision) -> bool:
-	var text := str(decision.answer).strip_edges().to_lower()
-	return text in [ANSWER_ACCEPT, "offer", "yes"] and decision.option_index >= 0
 
 
 ## True while a callback still belongs to the live offer. A late result after any terminal

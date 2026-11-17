@@ -77,9 +77,9 @@ The host callbacks are:
 | `placement_for` | `(runtime) -> PoseOptions.Placement` | the live placement facts |
 | `form_view` | `() -> FormView` | the player's form and display |
 | `hold_for` | `(runtime) -> RefCounted` | the per-pony `scene_hold/service.gd` ledger |
-| `classify` | `(DecisionRequest, scope, done) -> bool` | the dialogue classifier |
-| `reason` | `(DecisionRequest, scope, done) -> bool` | the Mare Response Reasoning |
-| `await_answer` | `(MareOffer, scope, done) -> bool` | the first new line from the target |
+| `classify` | `(PROMPTS.Request, scope, done) -> bool` | the dialogue classifier; `done` gets a `PROMPTS.Reply` |
+| `reason` | `(PROMPTS.Request, scope, done) -> bool` | the Mare Response Reasoning |
+| `await_answer` | `(pony, scope, done) -> bool` | the first new line from the target |
 | `cancel_scope` | `(scope) -> void` | cancels one model scope |
 | `toast` / `log` | `(text) -> void` | player feedback and the debug line |
 | `react` | `(pony, reason) -> void` | the shared interruption line |
@@ -88,6 +88,30 @@ The host callbacks are:
 
 A model callback is called once. A late result after a terminal transition is ignored by the
 generation token.
+
+## Director and model host
+
+`negotiation/adapter.gd` is the one director bridge and model host. `main` owns one instance,
+injects it into the Proactive service and binds the `Host` model callbacks to it. It owns every
+private director read (`state`, `config`, `_player_text`, `_held_text`, the group, the approach
+and hearing state), the transcript hook, one answer watch and the bounded classifier calls. No
+service reads the director or the classifier directly, and the Proactive does not keep a second
+copy.
+
+The bridge methods are the pacing reads and the director writes: `quiet(chat_gap_s)`,
+`quiet_reason(chat_gap_s)`, `idle()`, `begin_greeting()`, `queue()`, `cancel_keys()`,
+`record_situation()`, `player_name()`, `pony_speaking()`.
+
+The model methods are `classify(request, scope, done)` and `reason(request, scope, done)`, which
+turn a `PROMPTS.Request` into the instruction and payload, call the shared classifier once and
+parse the reply into a `PROMPTS.Reply`; `complete_raw(system, payload, scope, done)` is the raw
+path for the Proactive's Mare Initiation Reasoning, which owns its own prompt; `await_answer()`
+baselines the director's player-line fields and reports the first new line; `cancel_scope()`
+drops the watch and cancels the classifier scope together.
+
+The shared classifier (`initiation/classifier.gd`, owned by `main`) bounds every call: one client,
+one queue, one deadline, `input_bytes` and `output_tokens` limits, and a raw completion that
+reports the text and the provider error without parsing it.
 
 ## Process
 
@@ -237,7 +261,11 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 - `tests/negotiation/test_service.gd`: the Anon offer, the Anon decision, the Mare response, the
   failure semantics, the lock, the hold, privacy, `target_left`, the cooldown table, the Agreement
   handle, `Started`/`StartFailed` and the stale-handle guard, with a fake host and model.
-- `tests/negotiation/test_prompts.gd`: the payload shape and the three reply parsers.
+- `tests/negotiation/test_prompts.gd`: the payload shape, the request dispatch and the three
+  reply parsers.
+- `tests/negotiation/test_adapter.gd`: the quiet gate, the queue and the situation record, the
+  answer watch and its cancel, the three model calls and the raw path, with a fake director and
+  classifier.
 
 ## Known limits
 

@@ -97,24 +97,7 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
-## The game's pony-size preset; the runtime reads it through the camera service.
-func set_pony_size(size_name: String) -> void:
-	var settings := root.get_node_or_null("/root/Settings")
-	if settings != null and settings.has_method("set_value"):
-		settings.call("set_value", "ponies/size", size_name)
-
-
-func pony_size() -> String:
-	var settings := root.get_node_or_null("/root/Settings")
-	if settings != null and settings.has_method("get_value"):
-		return str(settings.call("get_value", "ponies/size"))
-	return ""
-
-
 func run() -> void:
-	# Pin the preset: the real user settings decide the standing act eye and the live gap.
-	var saved_size := pony_size()
-	set_pony_size("same height")
 	SETTINGS.anatomy_mode.set_choice("always")
 	SETTINGS.standing_stool.set_bool(true)
 	SETTINGS.stool_gap_m.set_num(0.20)
@@ -157,23 +140,6 @@ func run() -> void:
 	check(runtime.stool_needed_count() == 0, "19 cm does not need a stool")
 	controller.set("opening_y", 1.25)
 	check(runtime.stool_needed_count() == 1, "35 cm needs one 20 cm step")
-	controller.set("opening_y", 1.30)
-	# The gate measures the act body: the standing camera's net size offset is removed.
-	set_pony_size("mounting")
-	check(is_equal_approx(runtime.stool_gap_m(), 0.30), "JRHNBR measures the raised act gap")
-	check(runtime.stool_needed_count() == 1, "a 30 cm act gap needs one step")
-	set_pony_size("canon")
-	check(is_equal_approx(runtime.stool_gap_m(), 0.50), "Canon measures the lowered act gap")
-	check(runtime.stool_needed_count() == 2, "a 50 cm act gap needs two steps")
-	controller.set("opening_y", 1.09)
-	check(is_equal_approx(runtime.stool_gap_m(), 0.29), "the Canon act gap follows her opening")
-	check(runtime.stool_needed_count() == 1, "a 29 cm act gap needs one step")
-	var stool_text := str(runtime.stool_state_text())
-	check(stool_text.contains("gap_measured=0.190") and stool_text.contains("eye_delta=-0.100") \
-		and stool_text.contains("act_gap=0.290"),
-		"the debug row reports the measured gap, the eye delta and the act gap")
-	set_pony_size("same height")
-	controller.set("opening_y", 1.25)
 	store.slots[0] = {"id": STOOL.ID, "count": 1}
 	check(runtime.stool_case_count() == 1, "one case footstool is counted")
 	store.slots[1] = {"id": STOOL.ID, "count": 1}
@@ -223,8 +189,6 @@ func run() -> void:
 	game.free()
 	inventory.free()
 	SETTINGS.anatomy_mode.set_choice("never")
-	if not saved_size.is_empty():
-		set_pony_size(saved_size)
 
 	print("STOOL_GATE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

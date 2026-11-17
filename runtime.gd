@@ -1501,8 +1501,6 @@ func _stool_act() -> Variant:
 		_stool = service.call("new_act")
 		_stool.log = Callable(self, "_log")
 	_stool.call("bind", service, main, pony, main.player, _anatomy_bridge.controller)
-	_stool.set("eye_delta_m",
-		STANDING_CAMERA.eye_delta_for(str(_camera_service().call("size_name"))))
 	return _stool
 
 

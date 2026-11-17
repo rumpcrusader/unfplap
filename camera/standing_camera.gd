@@ -9,12 +9,6 @@ const CANON_STANDING_CAMERA_DROP_M := 0.10
 const MOUNTING_STANDING_CAMERA_LIFT_M := 0.10
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
-const GLANCE_MIN_INTERVAL := 5.0
-const GLANCE_MAX_INTERVAL := 9.0
-const GLANCE_HOLD := 1.8
-const GLANCE_YAW := 3.0
-const GLANCE_BACK_PITCH := 1.2
-const GLANCE_BACK_CHANCE := 0.5
 const CAM_SPEED_SMOOTH_S := 0.06
 const STATE_IDLE := 0
 const STATE_RESTORE := 5
@@ -74,7 +68,7 @@ func _apply_standing_lean_look() -> void:
 	var pitch := clampf(
 		float(facts.look_pitch) - deg_to_rad(MOTION.LEAN_PITCH_DEG) \
 			* absf(float(facts.lean_view_forward)) * lean_scale
-		+ deg_to_rad(float(_presentation_cfg.get("camera_pitch_deg", 0.0))),
+		+ deg_to_rad(float(_presentation_cfg["camera_pitch_deg"])),
 		-1.5, 1.5)
 	body.rotation.y = yaw
 	if body.get("_pitch") != null:
@@ -194,7 +188,7 @@ func _lock_body_facing() -> void:
 			nav.call("set_conversation_target", null, false)
 
 func _glance_back_fade() -> float:
-	return MOTION.glance_back_fade_for(float(_presentation_cfg.get("glance_back_speed", 1.0)))
+	return MOTION.glance_back_fade_for(float(_presentation_cfg["glance_back_speed"]))
 
 ## Every few seconds she turns her head back toward Anon, then forward again. The game's
 ## secondary gaze owns the turn; standing only adds the optional throw-back rotation (`head_back`),
@@ -250,12 +244,12 @@ func _drive_glance(delta: float) -> void:
 		secondary.call("look_toward", _glance_angles(), 0.4)
 		_aim_eyes_at_player()
 		if _glance_left <= 0.0:
-			_glance_wait = randf_range(float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)), float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
+			_glance_wait = randf_range(float(_pose_cfg["glance_min"]), float(_pose_cfg["glance_max"]))
 		return
 	_glance_wait -= delta
 	if _glance_wait <= 0.0:
-		_glance_left = float(_pose_cfg.get("glance_hold", GLANCE_HOLD))
-		_glance_back = randf() < float(_pose_cfg.get("glance_back_chance", GLANCE_BACK_CHANCE))
+		_glance_left = float(_pose_cfg["glance_hold"])
+		_glance_back = randf() < float(_pose_cfg["glance_back_chance"])
 		_glance_sign_set = false
 	secondary.call("look_toward", Vector3.ZERO, 0.4)
 
@@ -291,10 +285,10 @@ func _glance_angles() -> Vector3:
 	var yaw: float = _glance_sign * absf(raw)
 	var pitch := atan2(local.y, Vector2(local.x, local.z).length())
 	if _glance_back:
-		var back_pitch := float(_pose_cfg.get("glance_back_pitch", GLANCE_BACK_PITCH)) * 1.2
+		var back_pitch := float(_pose_cfg["glance_back_pitch"]) * 1.2
 		return Vector3(clampf(pitch + back_pitch, -0.25, 1.44),
 			clampf(yaw, -MOTION.GLANCE_BACK_YAW, MOTION.GLANCE_BACK_YAW), 0.0)
-	var yaw_limit := float(_pose_cfg.get("glance_yaw", GLANCE_YAW))
+	var yaw_limit := float(_pose_cfg["glance_yaw"])
 	return Vector3(clampf(pitch, -0.35, 0.55), clampf(yaw, -yaw_limit, yaw_limit), 0.0)
 
 ## Free look, but inside a 45-degree cone around the direction the act began in. Movement stays
@@ -371,8 +365,8 @@ func begin_facing(transform: Transform3D) -> void:
 	_glance_sign_set = false
 	_glance_head_back = 0.0
 	_glance_wait = randf_range(
-		float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)),
-		float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
+		float(_pose_cfg["glance_min"]),
+		float(_pose_cfg["glance_max"]))
 
 
 ## integration: the pose view owns the oral facing while its turn runs. Amount 0 clears it.
@@ -452,8 +446,8 @@ func clear_glance() -> void:
 	_glance_left = 0.0
 	_glance_back = false
 	_glance_wait = randf_range(
-		float(_pose_cfg.get("glance_min", GLANCE_MIN_INTERVAL)),
-		float(_pose_cfg.get("glance_max", GLANCE_MAX_INTERVAL)))
+		float(_pose_cfg["glance_min"]),
+		float(_pose_cfg["glance_max"]))
 
 func tick() -> void:
 	_sync()
@@ -466,13 +460,13 @@ func tick() -> void:
 		float(facts.lean) - float(facts.back) + MOTION.lean_distance(
 			float(facts.lean_view_forward), lean_scale)
 		+ kiss.lean_distance() + float(facts.anon_torso_forward)
-		+ float(_presentation_cfg.get("camera_forward_m", 0.0)), kiss.lateral_offset(lean_scale))
+		+ float(_presentation_cfg["camera_forward_m"]), kiss.lateral_offset(lean_scale))
 	if _pose_family() == "standing" and bool(facts.free_camera_active) and is_instance_valid(camera):
 		camera.rotation.z = (-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * float(facts.lean_view_side) \
 			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * float(facts.lean_view_forward)) * lean_scale
 		camera.rotation.x = clampf(
 			float(facts.look_pitch) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(facts.lean_view_forward)) * lean_scale
-			+ deg_to_rad(float(_presentation_cfg.get("camera_pitch_deg", 0.0))),
+			+ deg_to_rad(float(_presentation_cfg["camera_pitch_deg"])),
 			-1.5, 1.5)
 
 func restore() -> void:

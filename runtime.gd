@@ -76,15 +76,6 @@ const HOLD_ACT_SECONDS := 0.35
 const AGREEMENT_WAIT := 0
 const AGREEMENT_STARTED := 1
 const AGREEMENT_FAILED := 2
-## Presentation: how close the pony stands in front of the player for standing.
-const STANDING_GAP_M := 0.55
-## Per-size standing gap. Same Height is the tuned baseline; Hoers stays unchanged.
-const STANDING_GAPS := {
-	"same height": 0.55,
-	"mounting": 0.45,
-	"canon": 0.25,
-	"hoers": 0.55,
-}
 
 var pony
 var main
@@ -2236,13 +2227,18 @@ func _standing_transform() -> Transform3D:
 	return Transform3D(Basis.looking_at(forward, Vector3.UP), at)
 
 func _standing_gap() -> float:
+	var size := "same height"
 	var settings: Node = get_node_or_null("/root/Settings")
-	if settings == null:
-		return STANDING_GAP_M
-	var size := str(settings.call("get_value", "ponies/size"))
-	var gaps: Variant = _pose_session.pose_config.get("gaps", STANDING_GAPS)
-	var gap := float((gaps as Dictionary).get(size, STANDING_GAP_M)) if gaps is Dictionary else STANDING_GAP_M
-	gap *= float(_camera_service().call("same_height_scale"))
+	if settings != null:
+		size = str(settings.call("get_value", "ponies/size"))
+	var gaps: Dictionary = {}
+	var configured: Variant = _pose_session.pose_config.get("gaps", {})
+	if configured is Dictionary:
+		gaps = configured
+	if gaps.is_empty():
+		gaps = SETTINGS.pose(str(_id), CATALOG.STANDING).get("gaps", {})
+	var base: float = float(gaps.get(size, gaps["same height"]))
+	var gap := base * float(_camera_service().call("same_height_scale"))
 	gap += SETTINGS.gap_offset_m.get_num()
 	_log("standing size=%s gap=%.2f" % [size, gap])
 	return gap

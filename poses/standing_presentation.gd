@@ -127,12 +127,12 @@ func _attach_present_pose() -> void:
 	_pose_cfg["foreleg_spread"] = 0.172
 	_pose_cfg["hind_spread"] = 0.0
 	var presentation_cfg: Dictionary = SETTINGS.act_snapshot(CATALOG.STANDING).presentation
-	_pose_cfg["chin_up_deg"] = float(presentation_cfg.get("chin_up_deg", 30.0))
-	_pose_cfg["neck_down_deg"] = float(presentation_cfg.get("neck_down_deg", 15.0))
-	var tail_cfg: Variant = presentation_cfg.get("tail", {})
+	_pose_cfg["chin_up_deg"] = float(presentation_cfg["chin_up_deg"])
+	_pose_cfg["neck_down_deg"] = float(presentation_cfg["neck_down_deg"])
+	var tail_cfg: Variant = presentation_cfg["tail"]
 	if tail_cfg is Dictionary:
-		_pose_cfg["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg", 31.5)))
-		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg", 24.1)))
+		_pose_cfg["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary)["yaw_deg"]))
+		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary)["pitch_deg"]))
 	var skeleton: Variant = pony.get("skeleton")
 	if skeleton is Skeleton3D:
 		_present_pose = POSE.new()
@@ -151,8 +151,8 @@ func _attach_present_pose() -> void:
 		_present_tail.name = "UnfplapPresentTail"
 		_present_tail.mare = pony
 		_present_tail.facts = facts
-		_present_tail.aside_angle = float(_pose_cfg.get("tail_aside", 0.55))
-		_present_tail.lift_angle = float(_pose_cfg.get("tail_lift", 0.42))
+		_present_tail.aside_angle = float(_pose_cfg["tail_aside"])
+		_present_tail.lift_angle = float(_pose_cfg["tail_lift"])
 		_present_tail.amount = 0.0
 		_present_tail.target_amount = 1.0
 		var side_anchor := Vector3.INF
@@ -543,10 +543,10 @@ func _present_glance_angles() -> Vector3:
 	var yaw: float = _present_glance_sign * absf(raw)
 	var pitch := atan2(local.y, Vector2(local.x, local.z).length())
 	if _present_glance_back:
-		var back_pitch := float(_pose_cfg.get("glance_back_pitch", 1.2)) * 1.2
+		var back_pitch := float(_pose_cfg["glance_back_pitch"]) * 1.2
 		return Vector3(clampf(pitch + back_pitch, -0.25, 1.44),
 			clampf(yaw, -MOTION.GLANCE_BACK_YAW, MOTION.GLANCE_BACK_YAW), 0.0)
-	var yaw_limit := float(_pose_cfg.get("glance_yaw", 3.0))
+	var yaw_limit := float(_pose_cfg["glance_yaw"])
 	return Vector3(clampf(pitch, -0.35, 0.55), clampf(yaw, -yaw_limit, yaw_limit), 0.0)
 
 
@@ -577,7 +577,10 @@ func _sync() -> void:
 	pony = facts.pony
 	var view: Variant = facts.pose_view
 	var cfg: Variant = view.pose_config if view != null else null
-	_pose_cfg = cfg if cfg is Dictionary else {}
+	# The idle presentation builds its own config before any pose session exists; an empty view
+	# config must not erase it on the next process frame.
+	if cfg is Dictionary and not (cfg as Dictionary).is_empty():
+		_pose_cfg = cfg
 
 
 func _init(facts_context: Variant = null) -> void:

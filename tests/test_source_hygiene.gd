@@ -157,12 +157,23 @@ func _check_shipped_data() -> void:
 	check(not preferences.contains("const DEFAULTS :="), "the preference defaults are not in code")
 
 
-## The live settings are the only source of the act rule tables. A second table silently shadows
-## an edit, so a reintroduced copy fails before it can drift.
+## The live settings are the only source of the act rule tables and the standing values. A second
+## table silently shadows an edit, so a reintroduced copy fails before it can drift.
 func _check_no_default_tables() -> void:
 	for name: String in ["readiness/tolerance.gd", "summary/score.gd", "shared/act_history.gd"]:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(not text.contains("DEFAULT_RULES"), "%s builds its rules from the live handles" % name)
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	for token: String in ["STANDING_GAPS", "STANDING_GAP_M"]:
+		check(not runtime.contains(token), "runtime has no standing gap table: %s" % token)
+	var standing_camera := FileAccess.get_file_as_string(
+		ROOT.path_join("camera/standing_camera.gd"))
+	check(not standing_camera.contains("const GLANCE_"),
+		"the standing camera has no glance constants")
+	for name: String in ["poses/standing_recipe.gd", "poses/missionary_recipe.gd"]:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
+		check(not text.contains("_value(key: String, fallback"),
+			"%s indexes its config without fallbacks" % name)
 
 
 func _check_settings_module(files: Array[String]) -> void:

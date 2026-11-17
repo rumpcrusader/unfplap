@@ -59,10 +59,13 @@ func run() -> void:
 
 - `_initialize()` defers `run()` so the tree is up before the checks touch a node.
 - `check(ok, text)` prints only failures; the text names the rule, not the value.
-- The final `…_RESULT checks=%d failures=%d` line is the runner's only input. A suite that never
+- The final `…_RESULT checks=%d failures=%d` line is the runner's result input. A suite that never
   prints it is reported as `FAIL … (no result)`.
-- `quit(0)` on success and `quit(1)` on failure; the runner reads the result line, but the exit
-  code keeps a direct `godot … --script` run honest.
+- The runner also scans the suite log for `SCRIPT ERROR` and `Parse Error`; a suite that logs one
+  fails even when the result line reports `failures=0`, so a script error cannot hide behind a
+  passing check count.
+- `quit(0)` on success and `quit(1)` on failure; the runner reads the result line and the log, but
+  the exit code keeps a direct `godot … --script` run honest.
 - The header comment carries the direct command, so a suite can be run without the runner while
   debugging.
 
@@ -87,7 +90,8 @@ func run() -> void:
 `scripts/test.sh` runs the same prechecks as the gate (Godot on `PATH`, the fetched asset set,
 `scripts/architecture.py --check`), uses the same discovery and the same per-suite invocation, so a
 subset cannot disagree with the full gate. A subset ends in `TEST_PASS <n> suites`; `--all` ends in
-`TEST_ALL_PASS`, which is the marker the release check greps.
+`TEST_ALL_PASS`, which is the marker the release check greps. Every suite must also leave no
+`SCRIPT ERROR` or `Parse Error` in its log.
 
 Discovery is `tests/**/test_*.gd`, two levels deep, excluding the manual labs (`test_lab*.gd`,
 `test_stress_lab.gd`). `TEST_JOBS` sets the parallelism (default 6).

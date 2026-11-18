@@ -7,7 +7,6 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
-const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 var checks := 0
@@ -298,10 +297,6 @@ func run() -> void:
 	check(int(refused["bonds"].unwanted) == 2, "each refusal costs trust once")
 	check(refused_runtime._face.mood_face == null,
 		"the face waits for a runtime in the tree")
-	check(MOOD_FACE.DURATION == 300.0, "the mood face matches the 300 s impression freshness")
-	check(str(MOOD_FACE.MOOD_FACES.get("annoyed", "")) == "annoyed"
-		and str(MOOD_FACE.MOOD_FACES.get("angry", "")) == "angry",
-		"the mood face uses the game's expression names")
 	root.add_child(refused_runtime)
 	paused = true
 	var gate: Variant = refused_runtime.call("_scene_gate")

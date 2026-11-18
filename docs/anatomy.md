@@ -949,28 +949,24 @@ Current suites:
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
   live opening aim, follows the pose view's mouth anchor while the contact holds, returns to the
   opening once it is released, and clears the missionary inset outside the bed pose.
-- `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path, and the
-  generated teats' own material with `sway_custom`.
 - `tests/anatomy/test_placement.gd`: the placement resolution (player override → provider → catalog
   → default), the body-fit key, the stable id, the default/override save, the legacy migration,
-  the placement editor delegation and the tail-seat row integration.
+  the placement editor delegation, the tail-seat row integration and the debug tail collapse.
 - `tests/anatomy/test_part.gd`: the player part's prepare/encounter, the tip and root, the bed
   holder, `reset_state`, the throb/girth/length shaping, the controller's part handle and track
   forward, the face contact's parked part and restored opening, the act wink scheduler, the
   anatomy rear as the authoritative outward normal, and the body-swap pelvis reset.
 - `tests/anatomy/test_coat.gd`: the refined winking mesh, the V2 anal keys, the rig and near-palette
-  shader patch, the drawn coat choice over a hidden game body, the vulva cut and the still zones.
+  shader patch, the drawn coat choice over a hidden game body, the vulva cut, the still zones, the
+  material rebuild after a mesh re-set and the fold-colour scoping.
 - `tests/anatomy/test_heat.gd`: the idle heat suppression, phase poll, rest shape and wink
   schedule.
 - `tests/anatomy/test_attach.gd`: the per-mare consent, the identity/profile, the provider
   `eligible` assertion, the participation gate, the runtime gates and the body-owned marker. The
   source-owned tail wrapper is `tests/integrations/test_changelings.gd`; the VR tracker API
   regressions are `tests/test_vr_act.gd`.
-- `tests/anatomy/test_facts.gd`: the typed context defaults, the contact/family/frame predicates
-  and the optional perf/log/smack callbacks; `reset()` keeps the context it was given.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.
 - `tests/anatomy/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
-- `tests/anatomy/test_tail_hide.gd`: the debug tail collapse and restore.
 - `tests/integrations/test_pantyhose.gd`: the garment hull builder, the transform mapping and the
   world adapter's surface overrides and act-start undress.
 

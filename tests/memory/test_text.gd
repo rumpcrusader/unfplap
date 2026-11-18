@@ -125,6 +125,19 @@ func run() -> void:
 	check(TEXT.reaction_name(FACTS.Reaction.FORM_OFFER) == "form_offer",
 		"form offer reaction name")
 
+	# The typed boundary rows keep their keys and a whitespace hit is not a found memory.
+	var hit := FACTS.MemoryHit.new()
+	check(not hit.found(), "an empty memory hit is not found")
+	hit.text = "  "
+	check(not hit.found(), "a whitespace memory hit is not found")
+	hit.text = "We talked about the garden."
+	check(hit.found(), "a real memory hit is found")
+	check(FACTS.Witness.new().to_dict().has("distance"),
+		"a witness row carries its distance")
+	var cue_row: Dictionary = FACTS.CueFacts.new().to_dict()
+	check(cue_row.has_all(["friendship", "love", "stage", "anger", "mood",
+		"first_time", "careful"]), "the cue facts dictionary carries its keys")
+
 	print("MEMORY_TEXT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("MEMORY_TEXT_PASS")

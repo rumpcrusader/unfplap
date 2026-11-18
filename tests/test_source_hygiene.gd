@@ -583,7 +583,7 @@ func _check_readiness() -> void:
 	check(contract.contains("## Ownership"), "docs/readiness.md documents the readiness owner")
 	check(contract.contains("`readiness/service.gd`"), "docs/readiness.md names readiness/service.gd")
 	for name: String in ["test_readiness.gd", "test_runtime_thrust.gd", "test_preferences.gd",
-			"test_auto_thrust.gd", "test_auto_panel.gd", "test_readiness_auto.gd",
+			"test_auto_thrust.gd", "test_readiness_auto.gd",
 			"test_act_tolerance.gd", "test_act_stop.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/readiness/" + name)),
 			"tests/readiness/%s exists" % name)
@@ -604,7 +604,7 @@ func _check_summary() -> void:
 	check(contract.contains("## Ownership"), "docs/summary.md documents the summary owner")
 	check(contract.contains("`summary/service.gd`"), "docs/summary.md names summary/service.gd")
 	for name: String in ["test_act_flow.gd", "test_act_summary.gd",
-			"test_act_history.gd", "test_history.gd"]:
+			"test_act_history.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/summary/" + name)),
 			"tests/summary/%s exists" % name)
 
@@ -656,7 +656,7 @@ func _check_face() -> void:
 		check(contract.contains(heading), "docs/face.md has %s" % heading)
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(agents.contains("docs/face.md"), "docs/README.md links to docs/face.md")
-	for name: String in ["test_runtime_face.gd", "test_act_face.gd", "test_mood_face.gd"]:
+	for name: String in ["test_runtime_face.gd", "test_act_face.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/face/" + name)),
 			"tests/face/%s exists" % name)
 
@@ -1307,7 +1307,7 @@ func _check_integrations_docs() -> void:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/integrations.md"), "%s links to docs/integrations.md" % name)
 	for name: String in ["test_catalog.gd", "test_kissing.gd", "test_service.gd",
-			"test_hold.gd", "test_pantyhose.gd", "test_changelings.gd"]:
+			"test_pantyhose.gd", "test_changelings.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/integrations/" + name)),
 			"tests/integrations/%s exists" % name)
 

@@ -6,6 +6,7 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
@@ -66,6 +67,7 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
+	_check_summary_shapes()
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime._preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
@@ -132,6 +134,48 @@ func run() -> void:
 	if failures == 0:
 		print("ACT_FLOW_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+func _check_summary_shapes() -> void:
+	var main := FakeMain.new()
+	root.add_child(main)
+	var summary := SUMMARY.new()
+	var gathered: Dictionary = {
+		"main": main,
+		"pony_id": "rarity",
+		"event_id": "intimacy_test",
+		"preferences": {"tolerance": "forgiving", "touch": ["cheek"]},
+		"seconds": 42.5,
+		"thrusts": 7,
+		"pony_climaxes": 2,
+		"talk_liked": 1,
+		"talk_dislikes": 0,
+		"touches_liked": 2,
+		"touch_dislikes": {"smack": 1},
+		"player_lines": 3,
+		"intensity_total": 6,
+		"intensity_right": 5,
+		"pattern_total": 4,
+		"pattern_right": 3,
+		"ended_early": false,
+		"stopped_by_her": true,
+	}
+	var built: Dictionary = summary.summary_inputs(gathered)
+	check(is_equal_approx(float(built.get("seconds", 0.0)), 42.5), "the input keeps the act seconds")
+	check(int(built.get("thrusts", 0)) == 7, "the input keeps the real thrusts")
+	check(int((built.get("touch_dislikes", {}) as Dictionary).get("smack", 0)) == 1,
+		"the input keeps the disliked touch kinds")
+	check(str(built.get("tolerance", "")) == "forgiving",
+		"the tolerance comes from the gathered preferences")
+	check(bool(built.get("stopped_by_her", false)), "the input keeps the partner stop")
+	check(not bool(built.get("forced", false)), "a missing forced flag reads false")
+	var wrapped: Dictionary = summary.summary_context(gathered)
+	check(str(wrapped.get("pony_id", "")) == "rarity"
+		and str(wrapped.get("event_id", "")) == "intimacy_test",
+		"the context keeps the ids")
+	check((wrapped.get("inputs", {}) as Dictionary).has("touch_dislikes"),
+		"the context wraps the built inputs")
+	main.free()
 
 
 func _check_commit() -> void:

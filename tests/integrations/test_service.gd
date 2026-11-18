@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_service.gd
 
 const SERVICE := preload("res://mods/unfplap/integrations/service.gd")
+const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 
 var failures := 0
 var checks := 0
@@ -150,6 +151,7 @@ func run() -> void:
 	_check_missing_mid_act()
 	_check_climax_fidgets()
 	_check_world_only()
+	_check_runtime_beat_hold()
 	print("INTEGRATIONS_SERVICE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 
@@ -351,6 +353,61 @@ func _check_climax_fidgets() -> void:
 	check(int(fidgets._root) == 7, "reset restores the act-start root")
 	check(near(float(fidgets._tap_next), 0.25), "reset restores the act-start tap clock")
 	_free_scene(scene)
+
+
+## The runtime's named Beat ownership: the last release restores, a repeated owner releases once,
+## and an already-paused Beat stays paused.
+func _check_runtime_beat_hold() -> void:
+	var scene := _runtime_beat()
+	var runtime: Node = scene["runtime"]
+	var beat: Timer = scene["beat"]
+	runtime.call("_hold_excitement", "same")
+	runtime.call("_hold_excitement", "same")
+	runtime.call("_release_excitement", "same")
+	check(not beat.paused, "a repeated owner releases once")
+	_free_runtime_beat(scene)
+
+	scene = _runtime_beat(true)
+	runtime = scene["runtime"]
+	beat = scene["beat"]
+	runtime.call("_hold_excitement", "first")
+	runtime.call("_release_excitement", "first")
+	check(beat.paused, "an already-paused Beat stays paused")
+	_free_runtime_beat(scene)
+
+	scene = _runtime_beat()
+	runtime = scene["runtime"]
+	beat = scene["beat"]
+	runtime.call("_hold_excitement", "first")
+	runtime.call("_hold_excitement", "second")
+	runtime.call("_release_excitement", "first")
+	check(beat.paused, "one remaining owner keeps the Beat paused")
+	runtime.call("_release_excitement", "second")
+	check(not beat.paused, "the last release restores the Beat")
+	_free_runtime_beat(scene)
+
+
+func _runtime_beat(paused := false) -> Dictionary:
+	var pony := FakePony.new()
+	var excitement := Node.new()
+	excitement.name = "Excitement"
+	var beat := Timer.new()
+	beat.name = "Beat"
+	beat.paused = paused
+	excitement.add_child(beat)
+	pony.add_child(excitement)
+	pony.excitement = excitement
+	root.add_child(pony)
+	var runtime: Node = RUNTIME.new()
+	runtime.pony = pony
+	return {"pony": pony, "runtime": runtime, "beat": beat}
+
+
+func _free_runtime_beat(scene: Dictionary) -> void:
+	var runtime: Node = scene["runtime"]
+	var pony: Node = scene["pony"]
+	runtime.free()
+	pony.free()
 
 
 ## The Pantyhose & Panties entry is a world integration. It has no per-act provider, so the

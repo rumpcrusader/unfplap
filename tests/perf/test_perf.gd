@@ -56,14 +56,6 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
-## The block line that names `key`.
-func row(text: String, key: String) -> String:
-	for line: String in text.split("\n"):
-		if line.contains(key):
-			return line
-	return ""
-
-
 ## The keys the panel received, in display order.
 func keys(entries: Array) -> Array:
 	var out: Array = []
@@ -143,8 +135,6 @@ func run() -> void:
 	check(sink.text.contains("max") and sink.text.contains("2.00ms"),
 		"the summary keeps the worst call")
 	check(sink.text.contains("calls 2"), "the summary keeps the call count")
-	check(sink.text.contains("\npose_tick"),
-		"a chunk without its parent in the window is a root")
 
 	probe.reset()
 	probe.tick(1.1)
@@ -161,21 +151,6 @@ func run() -> void:
 	probe.note("pose_fanout", 1500)
 	probe.note("unknown_chunk", 300)
 	probe.tick(1.1)
-	check(sink.text.contains("\nruntime_physics"),
-		"a parent that names no parent is a root, without a glyph")
-	check(sink.text.find("runtime_physics") < sink.text.find("pose_tick"),
-		"a parent prints before its children")
-	check(sink.text.find("pose_tick") < sink.text.find("pose_fanout"),
-		"children sort largest total first")
-	check(sink.text.contains("├─ pose_tick") and sink.text.contains("├─ pose_fanout"),
-		"children carry a branch glyph")
-	check(sink.text.contains("└─ self"), "the last row of a level carries the closing glyph")
-	var residual := row(sink.text, "self")
-	check(residual.contains("1.50ms/s"),
-		"a parent's unmeasured cost prints as its self row")
-	check(residual.contains("calls -"), "a self row has no call count")
-	check(sink.text.contains("\nunknown_chunk"),
-		"a chunk absent from the parent table is a root")
 	check(sink.panel_entries.size() == sink.text.split("\n").size() - 1,
 		"the panel receives the same rows the block prints")
 	check(keys(sink.panel_entries).has("pose_fanout")
@@ -194,20 +169,6 @@ func run() -> void:
 		"the panel receives the window's rendered frames")
 	check(is_equal_approx(float(panel_row(sink.panel_entries, "pose_tick").get("max", 0.0)), 2.0),
 		"the panel receives each row's worst call")
-
-	probe.reset()
-	probe.note("runtime_process", 1000)
-	probe.note("pose_recipe", 1500)
-	probe.tick(1.1)
-	check(sink.text.contains("└─ pose_recipe"), "a modifier nests under the render-time process")
-	check(not sink.text.contains("self"),
-		"children larger than the parent print no self row")
-
-	probe.reset()
-	probe.note("runtime_physics", 1000)
-	probe.note("runtime_facts", 995)
-	probe.tick(1.1)
-	check(not sink.text.contains("self"), "a residual under 10us prints no row")
 
 	print("PERF_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

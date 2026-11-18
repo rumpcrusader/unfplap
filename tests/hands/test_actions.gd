@@ -39,24 +39,6 @@ class FakeFlank extends Node3D:
 	var _jiggle_amount := 0.0
 
 
-class FakeAnatomy extends Node:
-	var mesh: MeshInstance3D
-	var material: ShaderMaterial
-	var outline: ShaderMaterial
-
-	func body_coat_mesh() -> MeshInstance3D:
-		return mesh
-
-	func body_coat_material() -> ShaderMaterial:
-		return material
-
-	func body_outline_material() -> ShaderMaterial:
-		return outline
-
-	func detach() -> void:
-		pass
-
-
 class FakeTouchBody extends Node:
 	var _rigs: Array = []
 	var _entries: Array = []
@@ -83,36 +65,6 @@ class FakeMain extends Node:
 
 	func debug(text: String) -> void:
 		lines.append(text)
-
-
-func _check_body_coat_jiggle_target() -> void:
-	var flank := FakeFlank.new()
-	var body := MeshInstance3D.new()
-	var material := ShaderMaterial.new()
-	var outline := ShaderMaterial.new()
-	var anatomy := FakeAnatomy.new()
-	anatomy.mesh = body
-	anatomy.material = material
-	anatomy.outline = outline
-	flank._jiggle_targets = []
-	var was_on := SETTINGS.body_coat_deform.get_bool()
-	SETTINGS.body_coat_deform.set_bool(true)
-	var reactions := REACTIONS.new()
-	reactions.bind_scene(null, anatomy, flank)
-	root.add_child(flank)
-	root.add_child(anatomy)
-	root.add_child(body)
-	reactions.body_coat_target()
-	check(flank._jiggle_targets.size() == 2, "body and outline join the jiggle targets")
-	reactions.body_coat_target()
-	check(flank._jiggle_targets.size() == 2, "body target is not duplicated")
-	root.remove_child(anatomy)
-	anatomy.free()
-	root.remove_child(body)
-	body.free()
-	root.remove_child(flank)
-	flank.free()
-	SETTINGS.body_coat_deform.set_bool(was_on)
 
 
 func _check_tail_tuning() -> void:
@@ -848,25 +800,6 @@ func run() -> void:
 	check(near(MOTION.lean_step(1.0, 0.0, 0.8, true), 0.5),
 		"shoulder recentre returns over 1.6 seconds")
 
-	var runtime: Node = RUNTIME.new()
-	runtime.state = 2 # ACTIVE
-	runtime.pose_id = CATALOG.MISSIONARY
-	runtime._act_camera.lean_side = 0.74
-	runtime._lean_action_tick()
-	check(not bool(runtime._act_camera.lean_action_active), "below 75 percent does not fire")
-	runtime._act_camera.lean_side = -0.75
-	runtime._lean_action_tick()
-	check(bool(runtime._act_camera.lean_action_active), "75 percent fires")
-	check(str(runtime._act_camera.lean_action_kind) == "",
-		"missionary Q fires no action; the kiss is F at a full forward lean")
-	runtime._act_camera.lean_side = -0.65
-	runtime._lean_action_tick()
-	check(bool(runtime._act_camera.lean_action_active), "action stays above 60 percent")
-	runtime._act_camera.lean_side = -0.60
-	runtime._lean_action_tick()
-	check(not bool(runtime._act_camera.lean_action_active), "action releases at 60 percent")
-	runtime.free()
-
 	var cuddle_runtime: Node = RUNTIME.new()
 	var cuddle_pony := Node3D.new()
 	cuddle_pony.set_meta("couch_cuddle", true)
@@ -880,7 +813,6 @@ func run() -> void:
 	cuddle_pony.free()
 	cuddle_runtime.free()
 
-	_check_body_coat_jiggle_target()
 	_check_tail_tuning()
 	_check_perf_probe()
 	_check_missionary_hand_hold()

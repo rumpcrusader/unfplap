@@ -52,6 +52,7 @@ func run() -> void:
 	_check_defaults()
 	_check_toggle_and_step()
 	_check_panel()
+	_check_panel_repeat()
 	_check_reset()
 	print("READINESS_AUTO_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -136,6 +137,33 @@ func _check_panel() -> void:
 	state.value = STATE_IDLE
 	readiness.auto_panel_tick(0.1, true, [], 0.3)
 	check(not readiness.auto_panel_open(), "the layer closes outside the act")
+
+
+func _check_panel_repeat() -> void:
+	var state := FakeState.new()
+	var readiness := _readiness(state)
+	state.value = STATE_ACTIVE
+	# Auto off: a tap toggles, but a held X has nothing to open.
+	for i: int in 4:
+		readiness.auto_panel_tick(0.1, true, [], 0.3)
+	check(not readiness.auto_panel_open(), "a hold cannot open the layer while auto is off")
+	readiness.toggle_auto(0.3)
+	for i: int in 4:
+		readiness.auto_panel_tick(0.1, true, [], 0.3)
+	check(readiness.auto_panel_open(), "the layer opens for the repeat keys")
+	# A layer key steps on press, then repeats after the delay at the repeat rate.
+	var dt := 1.0 / 60.0
+	var keys := [true, false, false, false, false, false, false]
+	var actions: Array[String] = readiness.auto_panel_tick(dt, true, keys, 0.3)
+	check(actions == ["min_up"], "a layer key steps on press")
+	actions = []
+	for i: int in int(AUTO_PANEL.REPEAT_DELAY_S / dt) - 1:
+		actions.append_array(readiness.auto_panel_tick(dt, true, keys, 0.3))
+	check(actions.is_empty(), "no repeat before the delay")
+	actions = []
+	for i: int in int(0.2 / dt):
+		actions.append_array(readiness.auto_panel_tick(dt, true, keys, 0.3))
+	check(actions.size() >= 2, "a held key keeps repeating")
 
 
 func _check_reset() -> void:

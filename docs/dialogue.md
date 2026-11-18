@@ -230,11 +230,10 @@ too-slow.
 - `tests/dialogue/test_utterance.gd`: pure formatting and the line seed.
 - `tests/dialogue/test_utterance_scheduler.gd`: stability, gaps, demand budget and the slot.
 - `tests/dialogue/test_act_dialogue.gd`: pacing configuration, cue admission, prompt assembly,
-  the memory channel, reactions, the recent-line reads, busy state and act-end cancellation.
+  the memory channel, reactions, the recent-line reads, busy state, act-end cancellation, the
+  idle apology repair and the pending reminder line.
 - `tests/dialogue/test_prompt_notes.gd`: the warm, mid-act and afterglow notes and the
   caress/lean reads.
-- `tests/dialogue/test_history_scan.gd`: the idle apology repair, the pending reminder line and the
-  announced mark.
 
 Run:
 

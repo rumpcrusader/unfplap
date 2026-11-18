@@ -10,6 +10,7 @@ const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 
 var failures := 0
@@ -293,6 +294,34 @@ func run() -> void:
 	editor_pony.free()
 	root.remove_child(editor_main)
 	editor_main.free()
+
+	# Debug tail collapse: the modifier scales both bones and restores them without moving joints.
+	var tail_skeleton := Skeleton3D.new()
+	tail_skeleton.add_bone("mTail1")
+	tail_skeleton.add_bone("mTail2")
+	tail_skeleton.set_bone_parent(1, 0)
+	root.add_child(tail_skeleton)
+	var tail_modifier := TAIL_HIDE.new()
+	tail_modifier.bones = [&"mTail1", &"mTail2"]
+	tail_skeleton.add_child(tail_modifier)
+	var joint_0 := tail_skeleton.get_bone_pose(0).origin
+	var joint_1 := tail_skeleton.get_bone_pose(1).origin
+	tail_modifier.call("set_hiding", true)
+	tail_modifier.call("_process_modification")
+	check(near(tail_skeleton.get_bone_pose_scale(0).x, TAIL_HIDE.HIDE_SCALE),
+		"first tail bone collapses")
+	check(near(tail_skeleton.get_bone_pose_scale(1).x, TAIL_HIDE.HIDE_SCALE),
+		"child tail bone collapses")
+	check(tail_skeleton.get_bone_pose(0).origin.is_equal_approx(joint_0)
+		and tail_skeleton.get_bone_pose(1).origin.is_equal_approx(joint_1),
+		"collapsing the tail leaves both joints in place")
+	tail_modifier.call("set_hiding", false)
+	check(near(tail_skeleton.get_bone_pose_scale(0).x, 1.0), "first tail bone restores")
+	check(near(tail_skeleton.get_bone_pose_scale(1).x, 1.0), "child tail bone restores")
+	check(tail_skeleton.get_bone_pose(0).origin.is_equal_approx(joint_0)
+		and tail_skeleton.get_bone_pose(1).origin.is_equal_approx(joint_1),
+		"restoring the tail leaves both joints in place")
+	tail_skeleton.free()
 
 	meta_first.free()
 	print("ANATOMY_PLACEMENT_RESULT checks=%d failures=%d" % [checks, failures])

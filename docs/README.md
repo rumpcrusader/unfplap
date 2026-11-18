@@ -86,7 +86,7 @@ only stable external surface is `docs/api.md`.
 | Pose placement | `shared/pose_placement.gd` | `docs/scene_gate.md` | `tests/pose_placement/` |
 | Base clearance | `shared/clearance.gd` | `docs/eligibility.md` | `tests/clearance/` |
 | Negotiation context | `shared/context.gd` | `docs/negotiation.md` | `tests/context/` |
-| Privacy rules | `shared/privacy_rules.gd` | `docs/initiation.md` | `tests/privacy_rules/` |
+| Privacy rules | `shared/privacy_rules.gd` | `docs/initiation.md` | `tests/privacy/` |
 | Anatomy placement | `shared/anatomy_placement.gd` | `docs/anatomy.md` | `tests/anatomy/` |
 | Body profile | `shared/body_profile.gd` | `docs/anatomy.md`, `docs/camera.md` | `tests/anatomy/`, `tests/act_camera/` |
 | Mod integration catalog | `shared/integrations.gd` | `docs/integrations.md` | `tests/integrations/` |

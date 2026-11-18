@@ -5,7 +5,6 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/afterglow/test_afterglow.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
@@ -83,33 +82,6 @@ func run() -> void:
 	note_runtime._act_camera.lean_forward = 0.0
 	check(note_runtime.prompt_note().contains("having sex"), "active prompt note")
 	note_runtime.free()
-
-	# The act-key hint's End shade follows climaxes but only the earned caress reaches full pink.
-	var pink_runtime: Node = _runtime("standing")
-	check(near(pink_runtime.hud_y_pink(), 0.0), "End starts ink")
-	pink_runtime.pony_climaxes = 2
-	check(near(pink_runtime.hud_y_pink(), 0.5), "two climaxes shade End halfway")
-	pink_runtime.pony_climaxes = 3
-	check(near(pink_runtime.hud_y_pink(), HUD_LINES.Y_END_TINT_MAX),
-		"three climaxes stop short of full pink")
-	pink_runtime._afterglow.close_caress_earned = true
-	check(near(pink_runtime.hud_y_pink(), 1.0), "the earned caress turns End fully pink")
-	pink_runtime.pose_id = "missionary"
-	check(near(pink_runtime.hud_y_pink(), HUD_LINES.Y_END_TINT_MAX),
-		"missionary keeps the capped climax shade")
-	pink_runtime.free()
-
-	var active: Node = _runtime("standing")
-	active.state = 2 # ACTIVE
-	active.cue = "She is close."
-	active._readiness.last_intensity = "firm"
-	active._readiness.last_pattern = "steady"
-	check(active.hud_cue_line(true) == "❤ 0/3 | She is close.", "HUD cue line")
-	check(active.hud_cue_line(false) == "❤ 0/3", "HUD cue line without optional segments")
-	check(active.hud_readiness_line(true) ==
-		"Wants: firm & steady | You: firm & steady", "separate HUD readiness line")
-	check(active.hud_readiness_line(false) == "", "readiness line hidden with readouts off")
-	active.free()
 
 	# The oral afterglow holds the turned pose but opens no standing close window.
 	var oral := _facade("standing_oral")

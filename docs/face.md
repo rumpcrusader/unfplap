@@ -136,5 +136,4 @@ the main handle and the `log` callback from the facade; it never reads the runti
 
 `tests/face/test_runtime_face.gd` covers the beat table, the line-face owner, the stare release,
 the lids and the smile hold, the climax quality shape, the mood face and the warm note with a fake
-expressions node. `tests/face/test_act_face.gd` covers the pure plans and
-`tests/face/test_mood_face.gd` covers the held node.
+expressions node. `tests/face/test_act_face.gd` covers the pure plans and the held mood-face node.

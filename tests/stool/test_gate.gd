@@ -131,6 +131,8 @@ func run() -> void:
 	var controller: Node = runtime._anatomy_bridge.controller
 	controller.set("opening_y", 1.30)
 
+	check(main.stool.enabled() == SETTINGS.standing_stool.get_bool(),
+		"the facade reads the feature switch")
 	check(runtime.stool_applies(), "the gate applies with anatomy and a human player")
 	check(is_equal_approx(runtime.stool_gap_m(), 0.40), "the live gap is 40 cm")
 	check(runtime.stool_needed_count() == 2, "40 cm needs two 20 cm steps")

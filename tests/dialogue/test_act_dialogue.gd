@@ -18,9 +18,13 @@ class FakeGame extends Node:
 
 class FakeMemory extends Node:
 	var requests: Array = []
+	var notes: Array = []
 	var states := {}
 	var cancel_act_calls := 0
 	var cancel_line_calls := 0
+
+	func note(kind: int, id: String, event_id: String, _reason := 0) -> void:
+		notes.append({"kind": kind, "id": id, "event_id": event_id})
 
 	func cue_facts(_id: String, _event_id: String) -> MEMORY.CueFacts:
 		return MEMORY.CueFacts.new()
@@ -80,6 +84,18 @@ class Host extends RefCounted:
 		return clock
 
 
+class FakeMods extends Node:
+	var data := {"unfplap": {}}
+	var saves := 0
+
+	func state(id: String) -> Dictionary:
+		var value: Variant = data.get(id, {})
+		return value if value is Dictionary else {}
+
+	func save_changed() -> void:
+		saves += 1
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -89,6 +105,16 @@ func check(ok: bool, text: String) -> void:
 	if not ok:
 		failures += 1
 		print("FAIL ", text)
+
+
+func _mods() -> FakeMods:
+	var existing: Node = root.get_node_or_null("Mods")
+	if existing != null:
+		existing.name = "ModsTest"
+	var mods := FakeMods.new()
+	mods.name = "Mods"
+	root.add_child(mods)
+	return mods
 
 
 func run() -> void:
@@ -181,6 +207,58 @@ func run() -> void:
 	dialogue.end_act("evt1")
 	check(main.memory.cancel_act_calls == 1, "the act's lines are cancelled once")
 	check(dialogue.scheduler().pending_key() == "", "the pending slot is dropped")
+
+	# The idle history scan: a sincere apology repairs one point and writes one note.
+	var mods := _mods()
+	facts.state = 0
+	var context := {
+		"main": main, "pony": pony, "director": director,
+		"pony_id": "fluttershy", "event_id": "evt1", "now": 100.0,
+		"turn": 2, "text": "", "paused": false, "speech_busy": false,
+		"director_state": "idle", "distance": 1.0, "target_is_player": false,
+	}
+	mods.data["unfplap"]["act_history"] = {
+		"fluttershy": {"hurt": 3, "last_apology_day": -1.0, "reminder_pending": false},
+	}
+	var history := DIALOGUE.new(facts)
+	history.setup(main)
+	history.history_tick(0.0, context)
+	context["turn"] = 3
+	context["text"] = "I'm sorry"
+	context["target_is_player"] = true
+	history.history_tick(1.1, context)
+	var repair_row: Dictionary = (mods.data["unfplap"]["act_history"] as Dictionary)["fluttershy"]
+	check(int(repair_row.get("hurt", 3)) == 2, "a sincere apology repairs one point")
+	check(main.memory.notes.size() == 1, "the apology writes one note")
+	if not main.memory.notes.is_empty():
+		check(int(main.memory.notes[0].get("kind", -1)) == MEMORY.NoteKind.APOLOGY,
+			"the apology note carries its kind")
+
+	# A pending reminder queues one line and is marked announced.
+	var queued_before: int = main.memory.requests.size()
+	mods.data["unfplap"]["act_history"] = {
+		"fluttershy": {"hurt": 2, "last_at": 0.0, "reminder_pending": true,
+			"complaint_pending": false},
+	}
+	history = DIALOGUE.new(facts)
+	history.setup(main)
+	context["text"] = ""
+	context["target_is_player"] = false
+	history.history_tick(1.1, context)
+	check(main.memory.requests.size() == queued_before + 1, "a pending reminder queues one line")
+	var reminder_row: Dictionary = (mods.data["unfplap"]["act_history"] as Dictionary)["fluttershy"]
+	check(not bool(reminder_row.get("reminder_pending", true)),
+		"the queued reminder is marked announced")
+
+	# A busy scene queues no reminder.
+	mods.data["unfplap"]["act_history"] = {
+		"fluttershy": {"hurt": 2, "last_at": 0.0, "complaint_pending": true},
+	}
+	history = DIALOGUE.new(facts)
+	history.setup(main)
+	context["speech_busy"] = true
+	history.history_tick(1.1, context)
+	check(main.memory.requests.size() == queued_before + 1, "a busy scene queues no reminder")
 
 	print("ACT_DIALOGUE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

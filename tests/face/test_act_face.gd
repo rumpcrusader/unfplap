@@ -4,8 +4,31 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/face/test_act_face.gd
 
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
+const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
 var checks := 0
 var failures := 0
+
+
+class FakeExpressions extends Node:
+	var dialogue_face := ""
+	var set_calls := 0
+	var clear_calls := 0
+
+	func set_dialogue(value: String) -> void:
+		dialogue_face = value
+		set_calls += 1
+
+	func clear_dialogue() -> void:
+		dialogue_face = ""
+		clear_calls += 1
+
+	func finish_dialogue(_delay := 3.0) -> void:
+		pass
+
+
+class FakeMoodPony extends Node3D:
+	var expressions: Variant = null
+	var boop_node: Variant = null
 
 
 func _initialize() -> void:
@@ -134,6 +157,52 @@ func run() -> void:
 	check(cue_note.contains("feeling tag after your spoken words"),
 		"cue note allows the base-game feeling tag after speech")
 	check(ACT_FACE.prompt_note("unknown").is_empty(), "unknown moment has no note")
+
+	# The held mood-face node: apply, yield to a line, return, and clear only its own face.
+	var mood_pony := FakeMoodPony.new()
+	var expressions := FakeExpressions.new()
+	mood_pony.add_child(expressions)
+	mood_pony.expressions = expressions
+	root.add_child(mood_pony)
+	var node: Node = MOOD_FACE.new()
+	node.set("pony", mood_pony)
+	node.set("face", "relaxed")
+	node.set("mood", "")
+	node.set("blush", 0.0)
+	root.add_child(node)
+	node.set_physics_process(false)
+	check(expressions.dialogue_face == "relaxed", "mood face applies on start")
+	check(expressions.set_calls >= 1, "mood face sets the face once")
+	expressions.dialogue_face = "happy"
+	node.call("_physics_process", 0.1)
+	check(expressions.dialogue_face == "happy", "mood face yields to a spoken line")
+	expressions.dialogue_face = ""
+	node.call("_physics_process", 0.1)
+	check(expressions.dialogue_face == "relaxed", "mood face returns after the line")
+	node.call("_finish", "test")
+	check(expressions.dialogue_face == "", "mood face clears only its own face")
+	check(expressions.clear_calls == 1, "mood face clears once")
+
+	var other_pony := FakeMoodPony.new()
+	var other_expressions := FakeExpressions.new()
+	other_pony.add_child(other_expressions)
+	other_pony.expressions = other_expressions
+	root.add_child(other_pony)
+	var other_node: Node = MOOD_FACE.new()
+	other_node.set("pony", other_pony)
+	other_node.set("face", "relaxed")
+	other_node.set("mood", "")
+	other_node.set("blush", 0.0)
+	root.add_child(other_node)
+	other_node.set_physics_process(false)
+	other_expressions.dialogue_face = "happy"
+	other_node.call("_finish", "test")
+	check(other_expressions.dialogue_face == "happy",
+		"mood face never clears another owner's face")
+	node.queue_free()
+	other_node.queue_free()
+	mood_pony.queue_free()
+	other_pony.queue_free()
 
 	print("ACT_FACE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

@@ -216,10 +216,8 @@ idle hint and the act start.
   stack-count cases.
 - `tests/stool/test_item.gd`: case slot, case count, owned count, free slots, take/put and placed
   loans.
-- `tests/stool/test_stool_api.gd`: the facade's setting reads, threshold, step height, count, gap
-  and item id.
-- `tests/stool/test_gate.gd`: the runtime forwards' live gap, two-step requirement, case count and
-  the blocked hint's reuse of the first gate's rows.
+- `tests/stool/test_gate.gd`: the facade's feature read, the runtime forwards' live gap, two-step
+  requirement, case count and the blocked hint's reuse of the first gate's rows.
 - `tests/stool/test_act.gd`: the per-act handle's rule, case loans, stack placement/release,
   reset and the missing-stool-only block.
 - `tests/stool/test_prop.gd`: the stacked visuals, total height, box top and both pony collision

@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/privacy/test_privacy.gd
 
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
+const PRIVACY_RULES := preload("res://mods/unfplap/shared/privacy_rules.gd")
 
 var failures := 0
 var checks := 0
@@ -113,6 +114,14 @@ func run() -> void:
 	# A missing main fails closed to not-private.
 	var unbound := PRIVACY.new()
 	check(not unbound.offer_private(target), "an unbound provider is not private")
+
+	# The pure cuddle rule: outdoors only the nearby mares matter, indoors only the house.
+	check(PRIVACY_RULES.cuddle_private(false, false, false),
+		"an outdoor cuddle needs no house and no near pony")
+	check(PRIVACY_RULES.cuddle_private(false, true, false),
+		"an outdoor cuddle ignores the house state")
+	check(not PRIVACY_RULES.cuddle_private(false, false, true),
+		"a nearby pony blocks an outdoor cuddle")
 
 	main.queue_free()
 	house.queue_free()

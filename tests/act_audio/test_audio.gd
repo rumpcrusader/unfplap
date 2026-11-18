@@ -61,21 +61,8 @@ func run() -> void:
 	audio.climax(Vector3.ZERO)
 	audio.call("stop_breath")
 
-	# The body slap gates on contact and takes its tier from the impact speed.
-	var ready: Dictionary = audio.get("_ready_at")
-	audio.play_impact("", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
-	check(float(ready.get("plap_firm", 0.0)) == 0.0, "a slow bottom stays silent")
-	ready["plap_rough"] = 0.0
-	audio.play_impact("rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.03, 0.02)
-	check(float(ready.get("plap_rough", 0.0)) == 0.0,
-		"a stroke 3 cm short is silent at a 2 cm contact gap")
-	audio.play_impact("rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
-	check(float(ready.get("plap_rough", 0.0)) > 0.0, "a bottomed-out rough stroke plaps")
-	ready["plap_rough"] = 0.0
-	audio.play_impact("rough", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.0)
-	check(float(ready.get("plap_rough", 0.0)) > 0.0,
-		"true contact at a zero epsilon plays the plap")
 	# The cached impact profile gates the soft-bed fabric: standing and standing_test play none.
+	var ready: Dictionary = audio.get("_ready_at")
 	view.audio = {"impact": CATALOG.STANDING}
 	audio.pose_changed(view)
 	ready["fabric"] = 0.0

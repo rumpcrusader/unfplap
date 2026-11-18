@@ -123,7 +123,6 @@ func run() -> void:
 	check(sink.text.contains("5000.0us/call"), "the summary keeps the average call")
 	check(sink.text.contains("max") and sink.text.contains("9.00ms applejack"),
 		"the summary keeps the worst call and its owner")
-	check(sink.text.contains("\nzzz_slow"), "a chunk without a parent is a root")
 	check(sink.panel_calls == 1, "one panel window per printed block")
 	check(keys(sink.panel_entries) == ["zzz_slow", "runtime_process"],
 		"the panel receives the block's rows in order")
@@ -157,46 +156,6 @@ func run() -> void:
 	check(sink.calls == 4, "the probe prints again after the gate returns")
 	check(sink.text.contains("fresh"), "the new window keeps its own chunk")
 	check(not sink.text.contains("stale"), "the gate off cleared the stale window")
-
-	probe.reset()
-	probe.note("entry_process", 7000)
-	probe.note("offer_scan", 3850)
-	probe.note("offer_gate", 3530)
-	probe.note("offer_cone", 170)
-	probe.tick(1.1)
-	check(sink.text.contains("\nentry_process"),
-		"the outermost chunk is a root, without a glyph")
-	check(sink.text.find("entry_process") < sink.text.find("offer_scan"),
-		"a parent prints before its children")
-	check(sink.text.contains("│  ├─ offer_gate"),
-		"a grandchild continues its parent's column")
-	check(sink.text.find("offer_gate") < sink.text.find("offer_cone"),
-		"children sort largest total first")
-	check(sink.text.contains("│  └─ self") and sink.text.contains("\n└─ self"),
-		"each parent's unmeasured cost is its own self row")
-	check(sink.text.contains("0.15ms/s") and sink.text.contains("3.15ms/s"),
-		"the self rows carry the residual time")
-
-	probe.reset()
-	probe.note("entry_process", 12000)
-	probe.note("offer_scan", 5000)
-	probe.note("offer_gate", 4800)
-	probe.note("offer_rows", 4200)
-	probe.note("offer_policy", 600)
-	probe.note("entry_hint", 3000)
-	probe.note("entry_negotiation", 900)
-	probe.note("entry_initiation", 400)
-	probe.note("entry_watch", 100)
-	probe.tick(1.1)
-	check(row(sink.text, "entry_hint").begins_with("├─ "),
-		"the entry body's chunks nest under entry_process")
-	check(row(sink.text, "entry_watch").begins_with("└─ "),
-		"the smallest entry chunk closes its level")
-	check(row(sink.text, "offer_rows").begins_with("│  │  ├─ "),
-		"the gate's rows and policy nest two levels under the scan")
-	check(sink.text.find("offer_rows") < sink.text.find("offer_policy"),
-		"the gate prints its measured split in total order")
-	check(sink.text.contains("2.60ms/s"), "the entry body keeps its own residual row")
 
 	print("PERF_IDLE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

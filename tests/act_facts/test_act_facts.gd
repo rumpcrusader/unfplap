@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_facts/test_act_facts.gd
 
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
@@ -180,6 +181,31 @@ func run() -> void:
 	check(is_same(facts.pose_view, view), "the pose view is carried as one object")
 	facts.pose_view = null
 	check(facts.pose_view == null, "the pose view clears")
+
+	# The anatomy context shares the host-callback boundary: an unbound call is a no-op and a
+	# bound one receives the chunk, the log line and the smack.
+	var anatomy_facts := ANATOMY_FACTS.new()
+	anatomy_facts.perf("nothing", 5)
+	anatomy_facts.write_log("nothing")
+	anatomy_facts.smack_body_coat()
+	var anatomy_sink := Sink.new()
+	anatomy_facts.perf_note = Callable(anatomy_sink, "note")
+	anatomy_facts.log = Callable(anatomy_sink, "write")
+	anatomy_facts.body_coat_smack = Callable(anatomy_sink, "smack")
+	anatomy_facts.perf("anatomy_tick", 42)
+	check(anatomy_sink.perf_calls == 1 and anatomy_sink.last_chunk == "anatomy_tick"
+		and anatomy_sink.last_usec == 42,
+		"the anatomy perf callback keeps the chunk and microseconds")
+	anatomy_facts.write_log("attached")
+	check(anatomy_sink.log_text == "attached", "the anatomy log callback receives the line")
+	anatomy_facts.smack_body_coat()
+	check(anatomy_sink.smack_calls == 1, "the anatomy smack callback receives one call")
+	anatomy_facts.perf_note = Callable()
+	anatomy_facts.log = Callable()
+	anatomy_facts.body_coat_smack = Callable()
+	anatomy_facts.perf("nothing", 5)
+	anatomy_facts.write_log("nothing")
+	anatomy_facts.smack_body_coat()
 
 	print("ACT_FACTS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

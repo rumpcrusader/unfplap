@@ -5,11 +5,13 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/anatomy/test_coat.gd
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
+const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const BODY_COAT_SURFACE := preload("res://mods/unfplap/shared/body_coat.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 
 var failures := 0
@@ -21,6 +23,19 @@ class NearCoatPony extends Node3D:
 
 class FakeCoatPony extends Node3D:
 	var _model: Node3D
+
+
+class FakeAppearanceIdentity extends Resource:
+	var id := "test_mare"
+	var display_name := "Test Mare"
+	var filly := false
+	var stallion := false
+	var coat_fill := Color(0.55, 0.35, 0.75)
+	var coat_shade := Color(0.35, 0.2, 0.5)
+
+
+class FakeAppearancePony extends Node3D:
+	var identity: Resource
 
 
 func _initialize() -> void:
@@ -348,6 +363,38 @@ func run() -> void:
 	near_coat.call("restore")
 	check(palette.shader == near_coat_source and hull.shader == near_coat_source,
 		"the near palette shaders restore exactly")
+	# A mesh re-set rebuilds the material, and the fold hack is scoped to one material build.
+	var appearance_pony := FakeAppearancePony.new()
+	appearance_pony.identity = FakeAppearanceIdentity.new()
+	get_root().add_child(appearance_pony)
+	var appearance_mesh := MeshInstance3D.new()
+	appearance_mesh.mesh = BoxMesh.new()
+	appearance_pony.add_child(appearance_mesh)
+	var shapes := SHAPES.new()
+	shapes.setup(appearance_pony, appearance_pony)
+	shapes.set_mesh(appearance_mesh)
+	var appearance := APPEARANCE.new()
+	appearance.setup(appearance_pony, shapes)
+	appearance.set_mesh(appearance_mesh, null)
+	appearance.apply_material(false)
+	shapes.set_mesh(appearance_mesh)
+	appearance.apply_material(false)
+	check(appearance_mesh.get_surface_override_material(0) is ShaderMaterial,
+		"the material rebuilds on a re-set mesh")
+	var saved_fold := SETTINGS.disable_fold_coloring.get_bool()
+	SETTINGS.disable_fold_coloring.set_bool(true)
+	appearance.apply_material(true)
+	var appearance_material := appearance_mesh.get_surface_override_material(0) as ShaderMaterial
+	check(appearance_material != null and is_zero_approx(
+		float(appearance_material.get_shader_parameter("fold_coloring"))),
+		"the missionary build drops the fold coloring")
+	appearance.apply_material(false)
+	appearance_material = appearance_mesh.get_surface_override_material(0) as ShaderMaterial
+	check(appearance_material != null and is_equal_approx(
+		float(appearance_material.get_shader_parameter("fold_coloring")), 1.0),
+		"a non-missionary rebuild restores the fold coloring")
+	SETTINGS.disable_fold_coloring.set_bool(saved_fold)
+	appearance_pony.queue_free()
 	near_pony.free()
 
 	print("ANATOMY_COAT_RESULT checks=%d failures=%d" % [checks, failures])

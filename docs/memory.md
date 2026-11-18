@@ -241,9 +241,8 @@ memory is marked used only after the caller queues the line.
 
 - `tests/memory/test_text.gd`: the pure wording — the adult sight/sound perceptions, the young
   scene texts, the refusal and stop texts, the impression and event suffixes, the witness
-  impression, and the keep-active rule.
-- `tests/memory/test_facts.gd`: the typed defaults, the `CueFacts` dictionary and the `MemoryHit`
-  `found()` flag.
+  impression, the keep-active rule, the `MemoryHit` `found()` flag and the typed to-dictionary
+  keys.
 - `tests/memory/test_store.gd`: the peak record, the higher-score replacement and the save.
 - `tests/memory/test_dialogue.gd`: the typed line state, the keep-active cancel and the cancel
   prefix.

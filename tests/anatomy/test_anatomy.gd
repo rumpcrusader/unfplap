@@ -19,6 +19,7 @@ const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
@@ -592,6 +593,33 @@ func run() -> void:
 	get_root().remove_child(rump_pony)
 	rump_pony.free()
 	runtime.free()
+
+	# A body that hides every mesh under its model without its own marker names that marker on
+	# `anatomy_owned_meta`; the anatomy and its parts ride the same skeleton and must carry it.
+	var owner_attach: RefCounted = ATTACH.new()
+	var owner_pony := Node3D.new()
+	var owner_skeleton := Skeleton3D.new()
+	var owner_mesh := MeshInstance3D.new()
+	owner_mesh.name = "UnfplapAnatomy"
+	var owner_part := MeshInstance3D.new()
+	owner_part.name = "UnfplapAnatomySkinStrip"
+	var owner_body := MeshInstance3D.new()
+	owner_body.name = "MareBody"
+	owner_skeleton.add_child(owner_mesh)
+	owner_skeleton.add_child(owner_part)
+	owner_skeleton.add_child(owner_body)
+	owner_pony.add_child(owner_skeleton)
+	get_root().add_child(owner_pony)
+	owner_attach.setup(owner_pony, owner_pony, FACTS.new())
+	owner_attach.attached = true
+	owner_attach.skeleton = owner_skeleton
+	owner_pony.set_meta("anatomy_owned_meta", "chrysalis_own")
+	owner_attach.mark_owned()
+	check(owner_mesh.has_meta("chrysalis_own"), "the anatomy mesh carries the body marker")
+	check(owner_part.has_meta("chrysalis_own"), "an anatomy part carries the body marker")
+	check(not owner_body.has_meta("chrysalis_own"), "the body's own mesh is left alone")
+	get_root().remove_child(owner_pony)
+	owner_pony.free()
 
 	# Idle heat: active act states suppress the display, idle allows it, and a due timer winks.
 	var heat_facts := FACTS.new()

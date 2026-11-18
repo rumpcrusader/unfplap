@@ -162,6 +162,8 @@ func run() -> void:
 	root.add_child(own)
 	adapter.call("prepare_pony", own)
 	check(str(own.get_meta("body_fit_id", "")) == "chrysalis", "her own body uses her fit")
+	check(str(own.get_meta("anatomy_owned_meta", "")) == "chrysalis_own",
+		"her body names the marker its hide pass keeps")
 	var chain: Node = own.get_node_or_null("ChrysalisHair/Hair_tail/Chain")
 	check(own.get_meta("tail_pose_root", null) == chain, "her spring tail root is exposed")
 	check(IDENTITY.body_fit_id(own) == "chrysalis", "the body-fit fallback reads the metadata")
@@ -177,6 +179,7 @@ func run() -> void:
 	adapter.call("prepare_pony", disguise)
 	check(str(disguise.get_meta("body_fit_id", "")) == "fluttershy",
 		"a disguise uses the copied pony's fit")
+	check(not disguise.has_meta("anatomy_owned_meta"), "a disguise has no body marker")
 	check(not disguise.has_meta("tail_pose_root"), "a disguise has no custom tail root")
 	check(SETTINGS.anatomy_placement("chrysalis", "fluttershy")
 		== SETTINGS.anatomy_placement("fluttershy"), "a disguise does not borrow her placement")

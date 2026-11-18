@@ -22,6 +22,9 @@ const ID := "chrysalis"
 const TAIL_ROOT := "ChrysalisHair/Hair_tail/Chain"
 ## A disguise marks its body with this geometry variant (`changeling=<pony id>` in 0.2.12).
 const SHAPE_PREFIX := "changeling="
+## Her own body script hides every mesh under her model that lacks this pack marker, so the
+## anatomy mesh on her skeleton must carry it or it is hidden for good.
+const BODY_OWN_META := "chrysalis_own"
 ## The player's own words for the reveal ask, lower-case and matched inside the line. The core
 ## owns no phrasing; a later source brings its own.
 const REVEAL_PHRASES := [
@@ -419,6 +422,10 @@ func _exit_tree() -> void:
 
 func _apply_fit(pony: Node, fit: String, tail_root: Node3D) -> void:
 	pony.set_meta("body_fit_id", fit)
+	if fit == ID:
+		pony.set_meta("anatomy_owned_meta", BODY_OWN_META)
+	elif pony.has_meta("anatomy_owned_meta"):
+		pony.remove_meta("anatomy_owned_meta")
 	if is_instance_valid(tail_root):
 		pony.set_meta("tail_pose_root", tail_root)
 	elif pony.has_meta("tail_pose_root"):

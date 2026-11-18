@@ -210,6 +210,7 @@ func _attach() -> void:
 	_ensure_line_debug()
 	appearance.set_mesh(mesh, attach.skeleton)
 	appearance.attach_parts()
+	attach.mark_owned()
 	_apply_material()
 	if not coat_line.rebuild():
 		_log("coat line skipped: %s" % str(coat_line.last_error))

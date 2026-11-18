@@ -41,6 +41,8 @@ var _shown := false
 var _teats_shown := false
 var _strip_shown := false
 var _dock_style := ""
+## True once the anatomy meshes carry the body's ownership marker, if it has one.
+var _owned_marked := false
 
 
 func setup(controller_node: Node, pony_node: Node3D, facts_node: RefCounted) -> void:
@@ -101,10 +103,25 @@ func attach(mesh_path: String) -> bool:
 		dock_was_visible = dock.visible
 	attached = true
 	_visibility_init = false
+	_owned_marked = false
+	mark_owned()
 	if pony.has_signal("physical_reaction") \
 			and not pony.physical_reaction.is_connected(_on_physical_reaction):
 		pony.physical_reaction.connect(_on_physical_reaction)
 	return true
+
+
+## A body that hides every mesh under its model unless the mesh carries its own marker names
+## that marker on `anatomy_owned_meta`. The anatomy rides the same skeleton, so mark every part.
+func mark_owned() -> void:
+	if not attached or not is_instance_valid(pony) or not is_instance_valid(skeleton):
+		return
+	var key := str(pony.get_meta("anatomy_owned_meta", "")).strip_edges()
+	if key.is_empty():
+		return
+	for node: Node in skeleton.find_children("UnfplapAnatomy*", "MeshInstance3D", true, false):
+		(node as MeshInstance3D).set_meta(key, true)
+	_owned_marked = true
 
 
 func detach() -> void:
@@ -128,6 +145,7 @@ func detach() -> void:
 	_shown = false
 	_teats_shown = false
 	_strip_shown = false
+	_owned_marked = false
 	dock = null
 
 
@@ -146,6 +164,8 @@ func visible() -> bool:
 func apply_visibility(act_visible: bool) -> void:
 	if not attached or not is_instance_valid(pony):
 		return
+	if not _owned_marked:
+		mark_owned()
 	var far := bool(pony.get("_far_mesh_shown")) if pony.get("_far_mesh_shown") != null else false
 	var teats_on := SETTINGS.teats.get_bool()
 	var strip_on := SETTINGS.skin_strip.get_bool()

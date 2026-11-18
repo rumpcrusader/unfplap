@@ -50,6 +50,7 @@ class FakeIdentity extends Resource:
 class FakePony extends Node3D:
 	var identity: Variant = null
 	var own_meshes: Array = []
+	var skeleton: Variant = null
 
 
 class Gate extends RefCounted:
@@ -107,12 +108,16 @@ func _identity(id: String, character_id := "") -> FakeIdentity:
 func _own_body() -> FakePony:
 	var pony := FakePony.new()
 	pony.identity = _identity("chrysalis", "celestia")
+	var rig := Node3D.new()
+	rig.name = "Skeleton3D"
+	pony.add_child(rig)
+	pony.skeleton = rig
 	var hair := Node3D.new()
 	hair.name = "ChrysalisHair"
 	pony.add_child(hair)
 	var attach := Node3D.new()
 	attach.name = "Hair_tail"
-	hair.add_child(attach)
+	rig.add_child(attach)
 	var chain := Node3D.new()
 	chain.name = "Chain"
 	attach.add_child(chain)
@@ -173,13 +178,14 @@ func run() -> void:
 	# placement wrapper above the chain, so the anatomy editor can move it without a seat row.
 	var own := _own_body()
 	root.add_child(own)
-	var holder: Node3D = own.get_node_or_null("ChrysalisHair/Hair_tail") as Node3D
+	var holder: Node3D = own.get_node_or_null("Skeleton3D/Hair_tail") as Node3D
 	var chain: Node3D = holder.get_node_or_null("Chain") as Node3D
 	adapter.call("prepare_pony", own)
 	check(str(own.get_meta("body_fit_id", "")) == "chrysalis", "her own body uses her fit")
 	check(str(own.get_meta("anatomy_owned_meta", "")) == "chrysalis_own",
 		"her body names the marker its hide pass keeps")
-	check(own.get_meta("tail_pose_root", null) == chain, "her spring tail root is exposed")
+	check(own.has_meta("tail_pose_root") and own.get_meta("tail_pose_root") == chain,
+		"her spring tail root is exposed")
 	var wrapper := chain.get_parent() as Node3D
 	check(is_instance_valid(wrapper) and str(wrapper.name) == "UnfplapTailPlacement",
 		"the adapter puts a placement wrapper above the chain")
@@ -237,26 +243,47 @@ func run() -> void:
 	check(str(late_body.get_meta("body_fit_id", "")) == "chrysalis",
 		"an early own body still gets her fit")
 	check(not late_body.has_meta("tail_pose_root"), "an early body has no tail root yet")
+	var late_rig := Node3D.new()
+	late_rig.name = "Skeleton3D"
+	late_body.add_child(late_rig)
+	late_body.skeleton = late_rig
 	var late_hair := Node3D.new()
 	late_hair.name = "ChrysalisHair"
+	late_body.add_child(late_hair)
 	var late_attach := Node3D.new()
 	late_attach.name = "Hair_tail"
 	var late_chain := Node3D.new()
 	late_chain.name = "Chain"
-	late_hair.add_child(late_attach)
+	late_rig.add_child(late_attach)
 	late_attach.add_child(late_chain)
-	late_body.add_child(late_hair)
 	adapter.call("_late_tail_one", late_body)
 	var late_wrapper := late_chain.get_parent() as Node3D
 	check(is_instance_valid(late_wrapper) and str(late_wrapper.name) == "UnfplapTailPlacement",
 		"the late check wraps a chain that arrives after an identity-less prepare")
-	check(late_body.get_meta("tail_pose_root", null) == late_chain,
+	check(late_body.has_meta("tail_pose_root")
+		and late_body.get_meta("tail_pose_root") == late_chain,
 		"the late retry finds the tail root")
 	check(bool(adapter.call("has_tail_placement", late_body)),
 		"the late body reports a source-owned tail placement")
 	check(main.late_prepares.has(late_body),
 		"the late retry asks main to prepare the body again")
 	late_body.free()
+
+	# A body that does not expose its rig through `skeleton` still resolves the attachment by
+	# search; runtime-built children have no scene owner.
+	var fallback := FakePony.new()
+	var fallback_root := Node3D.new()
+	fallback_root.name = "Body"
+	fallback.add_child(fallback_root)
+	var fallback_attach := Node3D.new()
+	fallback_attach.name = "Hair_tail"
+	fallback_root.add_child(fallback_attach)
+	var fallback_chain := Node3D.new()
+	fallback_chain.name = "Chain"
+	fallback_attach.add_child(fallback_chain)
+	check(adapter.call("_tail_root", fallback) == fallback_chain,
+		"the tail root falls back to a recursive attachment search")
+	fallback.free()
 
 	# A disguise copies the pony's fit and drops the custom tail root.
 	var disguise := FakePony.new()

@@ -18,8 +18,10 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MOD_ID := "changelings"
 const GROUP := "changelings_mod"
 const ID := "chrysalis"
-## Her own mane and tail script, built under the body: the visible tail root is its chain.
-const TAIL_ROOT := "ChrysalisHair/Hair_tail/Chain"
+## Her hair script puts one attachment per part on the game rig; the visible tail root is the
+## chain under the tail attachment (`Hair_` + part).
+const TAIL_ATTACHMENT := "Hair_tail"
+const TAIL_CHAIN := "Chain"
 ## The adapter-owned placement node above the chain. The act tail modifiers keep rotating the
 ## chain itself, so a placement edit and an act never restore each other.
 const TAIL_WRAPPER := "UnfplapTailPlacement"
@@ -458,14 +460,25 @@ func _may_be_hers(pony: Node) -> bool:
 	return identity == null or str(identity.get("id")).strip_edges() == ID
 
 
-## The chain path first, then the metadata from an earlier prepare. The wrapper may have taken
-## the chain, so the path can fail while the metadata still names it.
+## The metadata from an earlier prepare, then the chain under the rig's tail attachment. The
+## wrapper may have taken the chain, so the path can fail while the metadata still names it.
 func _tail_root(pony: Node) -> Node3D:
-	var root := pony.get_node_or_null(TAIL_ROOT) as Node3D
-	if is_instance_valid(root):
-		return root
-	var held: Variant = pony.get_meta("tail_pose_root", null)
-	return held as Node3D if is_instance_valid(held) else null
+	if pony.has_meta("tail_pose_root"):
+		var held: Variant = pony.get_meta("tail_pose_root")
+		if held is Node3D and is_instance_valid(held):
+			return held as Node3D
+	var rig := pony.get("skeleton") as Node3D
+	if is_instance_valid(rig):
+		var attached := rig.get_node_or_null(TAIL_ATTACHMENT) as Node3D
+		if is_instance_valid(attached):
+			var chain := attached.get_node_or_null(TAIL_CHAIN) as Node3D
+			if is_instance_valid(chain):
+				return chain
+	# Runtime-built nodes have no scene owner, so the search must include unowned children.
+	var attach := pony.find_child(TAIL_ATTACHMENT, true, false) as Node3D
+	if is_instance_valid(attach):
+		return attach.get_node_or_null(TAIL_CHAIN) as Node3D
+	return null
 
 
 ## Put one placement node between the chain and its parent. Repeated prepares reuse it, so the

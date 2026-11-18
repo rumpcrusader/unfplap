@@ -91,8 +91,6 @@ func run() -> void:
 		"the mouth point follows the player size scale")
 	check((oral.call("opening") as Vector3).is_equal_approx(anatomy.opening),
 		"the provider exposes the base opening")
-	check((oral.call("opening_point") as Vector3).is_equal_approx(anatomy.opening),
-		"the opening alias returns the base opening")
 
 	check(mouth.visemes.is_empty(), "a fresh provider mouths nothing")
 	oral.call("set_viseme", "D")

@@ -8,6 +8,7 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
+const ANATOMY_PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -537,7 +538,7 @@ func run() -> void:
 	place.call("_apply_place")
 	var dock_off: Transform3D = place_mesh.transform
 	check(dock_on.is_equal_approx(dock_off), "the dock switch never moves the anatomy")
-	check(near(dock_on.origin.y, place_pos.y + float(place.call("_tail_lift"))),
+	check(near(dock_on.origin.y, place_pos.y + float(ANATOMY_PLACEMENT.LIFT)),
 		"placement uses the calibrated lift")
 	SETTINGS.dock_style.set_choice(dock_before)
 	place.free()
@@ -681,11 +682,11 @@ func run() -> void:
 	heat_pony.free()
 
 	# The V2 mesh's density walk can collapse to the 4 mm floor; keep the authored band.
-	check(is_equal_approx(ANATOMY.stable_lip_radius(0.004), GEOMETRY.WINKING_LIP_RADIUS),
+	check(is_equal_approx(GEOMETRY.stable_lip_radius(0.004), GEOMETRY.WINKING_LIP_RADIUS),
 		"a collapsed lip radius falls back to the authored band")
-	check(is_equal_approx(ANATOMY.stable_lip_radius(GEOMETRY.WINKING_LIP_RADIUS),
+	check(is_equal_approx(GEOMETRY.stable_lip_radius(GEOMETRY.WINKING_LIP_RADIUS),
 		GEOMETRY.WINKING_LIP_RADIUS), "the authored lip radius is kept")
-	check(is_equal_approx(ANATOMY.stable_lip_radius(0.030), 0.030),
+	check(is_equal_approx(GEOMETRY.stable_lip_radius(0.030), 0.030),
 		"a nearby measured lip radius is kept")
 
 	# The refined mare bits mesh leaves the default resting mesh alone and masks the anal rim out
@@ -694,7 +695,7 @@ func run() -> void:
 	var wink_root: Node = wink_scene.instantiate()
 	var wink_mi := wink_root as MeshInstance3D
 	var source_mesh := wink_mi.mesh as ArrayMesh
-	var refined_mesh := ANATOMY.refined_winking_mesh(source_mesh)
+	var refined_mesh := GEOMETRY.refined_winking_mesh(source_mesh)
 	check(refined_mesh != null, "the winking mesh rebuilds")
 	if refined_mesh != null:
 		check(refined_mesh.get_blend_shape_count() >= 2, "the wink keeps its shape keys")
@@ -893,10 +894,10 @@ func run() -> void:
 	var bind := Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(0.1, 0.2, 0.3))
 	var mesh_xf := Transform3D(Basis(Vector3.RIGHT, -0.3), Vector3(0.0, 0.55, 0.29))
 	var point := Vector3(0.01, -0.02, 0.03)
-	var local := ANATOMY.body_local_point(bind, mesh_xf, point)
+	var local := GEOMETRY.body_local_point(bind, mesh_xf, point)
 	check((mesh_xf.affine_inverse() * (bind * local)).is_equal_approx(point),
 		"body-local point round-trips through the bind pose")
-	var local_dir := ANATOMY.body_local_direction(bind, mesh_xf, Vector3.BACK)
+	var local_dir := GEOMETRY.body_local_direction(bind, mesh_xf, Vector3.BACK)
 	check(absf(local_dir.length() - 1.0) < 0.0001, "body-local direction stays unit length")
 
 	# The rig coat patch only replaces the flank_jiggle include and one call; a shader without
@@ -931,9 +932,9 @@ func run() -> void:
 	check(not zones.visible, "debug rings hide when asked")
 	zones.free()
 	var expected_radius := maxf(0.022 * 2.2 * 0.742 * 1.3, 0.045)
-	check(near(ANATOMY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0), expected_radius),
+	check(near(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0), expected_radius),
 		"anal still radius follows the cup's outer ring")
-	check(is_zero_approx(ANATOMY.anal_still_radius_for(0.022, 2.2, 0.742, 0.0)),
+	check(is_zero_approx(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 0.0)),
 		"anal still multiplier 0 disables the zone")
 	# The controller keeps the coat accessors the runtime uses for the jiggle handoff.
 	var coat_owner := ANATOMY.new()

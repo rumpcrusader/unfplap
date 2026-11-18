@@ -68,10 +68,6 @@ func clear_mesh() -> void:
 	skeleton = null
 
 
-func is_patched() -> bool:
-	return _body_patched
-
-
 func body_mesh() -> MeshInstance3D:
 	return _body_mesh if _body_patched and is_instance_valid(_body_mesh) else null
 

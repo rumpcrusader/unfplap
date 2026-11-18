@@ -68,12 +68,6 @@ var _hull_smoothing := 1
 var _hull_ponut := 0.0
 
 
-## The pure mesh rebuild and geometry live in `anatomy/geometry.gd`; these forwarders keep the
-## static anatomy surface stable while the system is split.
-static func refined_winking_mesh(source: ArrayMesh) -> ArrayMesh:
-	return GEOMETRY.refined_winking_mesh(source)
-
-
 ## The mod's stable id for a pony: relationship metadata first, then the identity. This mirrors
 ## `runtime._read_id()` so placement and preferences key off the same value.
 static func pony_id(pony_node: Node) -> String:
@@ -164,10 +158,6 @@ func end_act() -> void:
 	_act = null
 
 
-func act() -> Node:
-	return _act
-
-
 func refresh() -> void:
 	if not _enabled() or not _is_eligible():
 		detach()
@@ -196,11 +186,11 @@ func _attach() -> void:
 			_log("anatomy skipped for %s: %s" % [pony.name, attach.last_error])
 		return
 	var mesh: MeshInstance3D = attach.mesh
-	var refined := refined_winking_mesh(mesh.mesh as ArrayMesh)
+	var refined := GEOMETRY.refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
 	var identity: Variant = pony.get("identity")
-	placement.set_mesh(mesh, attach.bone_inverse, body_profile(identity))
+	placement.set_mesh(mesh, attach.bone_inverse, IDENTITY.body_profile(identity))
 	placement.load()
 	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
 	shapes.set_mesh(mesh)
@@ -285,14 +275,6 @@ func _heat_rest_open() -> float:
 	return float(heat.rest_open()) if heat != null else 0.0
 
 
-## The calibrated lift used by every mare. The dock/tail base is not a reliable reference: some
-## tails (Derpy's) sit lower and pulled the whole anatomy into the rump. Keep one value so the
-## anatomy's size and position are identical across mares; the Dock style switch only hides or
-## shows the dock and never moves the anatomy.
-func _tail_lift() -> float:
-	return PLACEMENT.LIFT
-
-
 ## The act-only placement trim. The lying missionary pose tilts her pelvis, so the rigged vulva can
 ## sit a little high/low or face the wrong way; these values move only the anatomy mesh.
 func _missionary_pose() -> bool:
@@ -349,22 +331,6 @@ func _tick_line_debug(delta: float) -> void:
 	_line_debug.call("update", coat_line.debug_data(), true)
 
 
-static func body_local_point(bind: Transform3D, mesh_transform: Transform3D,
-		point: Vector3) -> Vector3:
-	return GEOMETRY.body_local_point(bind, mesh_transform, point)
-
-
-static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
-		direction: Vector3) -> Vector3:
-	return GEOMETRY.body_local_direction(bind, mesh_transform, direction)
-
-
-## Body-local radius of the visible anal cup's still zone.
-static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
-		multiplier: float) -> float:
-	return GEOMETRY.anal_still_radius_for(lip, outer_factor, scale, multiplier)
-
-
 ## The attach module computes the mesh/dock visibility; the controller owns the teats and strip
 ## parts, which live in the appearance module.
 func apply_part_visibility(show: bool, teats_on: bool, strip_on: bool) -> void:
@@ -398,12 +364,12 @@ func body_coat_refresh() -> void:
 	_apply_body_coat()
 
 
+## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig
+## coat and the merged near body are patched; which one is visible depends on the near mesh.
 func _apply_body_coat_uniforms() -> void:
 	coat.apply()
 
 
-## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig
-## coat and the merged near body are patched; which one is visible depends on the near mesh.
 func _apply_body_coat() -> void:
 	coat.apply()
 
@@ -619,12 +585,6 @@ func clear_shaft() -> void:
 ## The lip band's mean radius in local units, used by the grip solve and by tuning readouts.
 func lip_radius() -> float:
 	return shapes.lip_radius()
-
-
-## The pure stability rule lives in `anatomy/geometry.gd`; this forwarder keeps the static
-## anatomy surface stable while the system is split.
-static func stable_lip_radius(measured: float) -> float:
-	return GEOMETRY.stable_lip_radius(measured)
 
 
 func set_fill(fill: float) -> void:

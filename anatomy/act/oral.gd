@@ -52,11 +52,6 @@ func opening() -> Vector3:
 	return Vector3.ZERO
 
 
-## The opening accessor alias the pose host may read.
-func opening_point() -> Vector3:
-	return opening()
-
-
 func set_viseme(letter: String) -> void:
 	_viseme = letter
 	var mouth_rig: Variant = _pony_mouth()

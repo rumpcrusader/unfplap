@@ -361,12 +361,6 @@ func bed_active() -> bool:
 	return is_instance_valid(missionary_anon) and bool(missionary_anon.get("active"))
 
 
-func bed_avatar() -> Variant:
-	if is_instance_valid(missionary_anon):
-		return missionary_anon.get("avatar")
-	return null
-
-
 ## Her gaze target in missionary: the authored Anon's face. The host supplies the camera and the
 ## kiss; the bridge supplies the offset and the fallback.
 func gaze_point() -> Vector3:

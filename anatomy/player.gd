@@ -5,7 +5,6 @@ extends Node
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const HIPS_REST := Vector3(0.0, 0.978635, 0.013361)
 const SKIN := Color(0.34, 0.66, 0.34)
 const SKIN_SHADE := Color(0.27, 0.54, 0.28)
 const TIP := Color(0.62, 0.74, 0.42)
@@ -17,7 +16,6 @@ const TIP_POINT := Vector3(0.0, 0.974, 0.76)
 const TIP_LIFT_M := 0.02
 const PART_LENGTH := 0.655
 const WIDTHS := [0.156, 0.133, 0.127, 0.14, 0.15, 0.151, 0.157, 0.159, 0.149, 0.13, 0.104, 0.091, 0.056]
-const ENTRY_LEAD_M := 0.03
 const BEND_MAX := 0.6
 const BEND_STIFFNESS := 170.0
 const BEND_DAMPING := 13.0
@@ -493,15 +491,6 @@ func _end_bed() -> void:
 	_bed_holder = null
 
 
-## integration: how far the tip has passed her opening, 0 to 1 of its length.
-func entry(opening: Vector3, _rear: Vector3) -> float:
-	if not _in_tree() or not _mesh.visible:
-		return -1.0
-	var length := _part_length() * _mesh.global_transform.basis.get_scale().x
-	return clampf((length - (_mesh.global_transform * PIVOT).distance_to(opening)
-		+ ENTRY_LEAD_M) / length, 0.0, 1.0)
-
-
 ## integration: world radius of the shaft where it passes through `opening`.
 func girth_at(opening: Vector3) -> float:
 	if not _in_tree() or not _mesh.visible:
@@ -556,10 +545,6 @@ func shaft_radii(count := 8) -> PackedFloat32Array:
 	return out
 
 
-func depth_for(metres: float) -> float:
-	return metres / (_part_length() * _world_scale())
-
-
 func root_now() -> Vector3:
 	if not _in_tree():
 		return Vector3.INF
@@ -569,29 +554,6 @@ func root_now() -> Vector3:
 ## Build the hidden part mesh so a gate can measure its natural root before an encounter.
 func prepare() -> bool:
 	return _ensure()
-
-
-## Where his pelvis pivot sits for a given penetration: `shaft - penetration` behind her lips, so
-## the bed body follows the same physical model as the placed part.
-func root_for(target: Vector3, rear: Vector3, penetration_m: float) -> Vector3:
-	return target + rear * (shaft_length_m() - penetration_m)
-
-
-func spine_length() -> float:
-	if not is_instance_valid(_skeleton):
-		return 0.65
-	var hips := _skeleton.get_bone_global_rest(_skeleton.find_bone("Hips")).origin
-	var head := _skeleton.get_bone_global_rest(_skeleton.find_bone("Head")).origin
-	return hips.distance_to(head) * _skeleton.global_basis.get_scale().x
-
-
-func axis() -> Vector3:
-	return _rotation_basis() * (TIP_POINT - PIVOT).normalized()
-
-
-func hip_for(root: Vector3, hips: Basis) -> Vector3:
-	var local_root := _pos + _rotation_basis() * (PIVOT * _scale * _setting_scale)
-	return root - hips * ((local_root - HIPS_REST) * _skeleton.global_basis.get_scale().x)
 
 
 func _world_scale() -> float:

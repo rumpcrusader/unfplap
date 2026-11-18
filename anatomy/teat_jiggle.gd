@@ -7,7 +7,6 @@ const DAMPING := 7.0
 const INERTIA := 0.08
 const MAX_ACCELERATION := 60.0
 const TELEPORT_SPEED := 6.0
-const KICK_SPEED := 0.12
 const MAX_SWAY_M := 0.014
 
 var material: ShaderMaterial
@@ -25,13 +24,6 @@ var _sides := [{"uniform": "sway_left", "lag": Vector3.ZERO, "speed": Vector3.ZE
 	{"uniform": "sway_right", "lag": Vector3.ZERO, "speed": Vector3.ZERO}]
 var _last_position := Vector3.INF
 var _last_velocity := Vector3.ZERO
-
-
-## integration: a thrust pushes both along the body, by stroke strength from 0 to 1.
-func kick(direction: Vector3, strength: float) -> void:
-	for side: Dictionary in _sides:
-		side.speed += direction * KICK_SPEED * swing * clampf(strength, 0.0, 1.0) \
-			* (0.8 + randf() * 0.4)
 
 
 func _physics_process(delta: float) -> void:

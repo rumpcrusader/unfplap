@@ -197,10 +197,6 @@ func garment_hull_rebuild() -> void:
 			handle.call("garment_hull_clear")
 
 
-func online(pony: Node) -> bool:
-	return is_instance_valid(controller(pony))
-
-
 ## Re-read settings and identity for every live controller.
 func refresh_all() -> void:
 	for pony: Variant in _controllers.keys():
@@ -506,10 +502,6 @@ func part() -> Node:
 	return _player_part if is_instance_valid(_player_part) else null
 
 
-func player_available() -> bool:
-	return is_instance_valid(_player_part)
-
-
 func player_encounter(on: bool) -> void:
 	if is_instance_valid(_player_part):
 		_player_part.call("encounter", on)
@@ -532,26 +524,6 @@ func player_shaft_length_m() -> float:
 	return float(_player_part.call("shaft_length_m"))
 
 
-func player_girth_at(point: Vector3) -> float:
-	if not is_instance_valid(_player_part):
-		return -1.0
-	return float(_player_part.call("girth_at", point))
-
-
-func player_tip_world() -> Vector3:
-	if not is_instance_valid(_player_part):
-		return Vector3.ZERO
-	var value: Variant = _player_part.call("tip_world")
-	return value if value is Vector3 else Vector3.ZERO
-
-
-func player_tip_center() -> Vector3:
-	if not is_instance_valid(_player_part):
-		return Vector3.ZERO
-	var value: Variant = _player_part.call("tip_center")
-	return value if value is Vector3 else Vector3.ZERO
-
-
 func player_prepare() -> bool:
 	if not is_instance_valid(_player_part):
 		return false
@@ -563,13 +535,6 @@ func player_root_now() -> Vector3:
 		return Vector3.INF
 	var value: Variant = _player_part.call("root_now")
 	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
-
-
-func player_shaft_radii(count := 8) -> PackedFloat32Array:
-	if not is_instance_valid(_player_part):
-		return PackedFloat32Array()
-	var value: Variant = _player_part.call("shaft_radii", count)
-	return value if value is PackedFloat32Array else PackedFloat32Array()
 
 
 func player_hip_offset() -> Vector3:
@@ -588,19 +553,6 @@ func player_debug_scale() -> Variant:
 	if not is_instance_valid(_player_part) or not bool(_player_part.call("showing")):
 		return null
 	return _player_part.call("debug_scale")
-
-
-func player_set_aim(normal: Vector3, opening: Vector3, pitch := 0.0) -> void:
-	if not is_instance_valid(_player_part):
-		return
-	_player_part.set("aim_normal", normal)
-	_player_part.set("aim_opening", opening)
-	_player_part.set("aim_pitch_deg", pitch)
-
-
-func player_set_bed_inset(metres: float) -> void:
-	if is_instance_valid(_player_part):
-		_player_part.set("bed_inset_m", metres)
 
 
 func player_apply_live() -> void:

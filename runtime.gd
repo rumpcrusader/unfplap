@@ -411,8 +411,6 @@ func _anatomy_host() -> Dictionary:
 		"thrust_move": Callable(self, "_thrust_move"),
 		"now_s": Callable(self, "_now_s"),
 		"set_penetration_m": Callable(self, "_set_penetration_m"),
-		"player_pony": Callable(self, "_player_pony_value"),
-		"headset_view": Callable(self, "_headset_view"),
 		"align": Callable(self, "apply_anon_align"),
 		"touch": Callable(self, "_on_touch"),
 		"act_facts": Callable(self, "_act_facts_value"),
@@ -508,10 +506,6 @@ func _auto_pace() -> float:
 
 func _bed_frame() -> Variant:
 	return _pose_session.bed_frame
-
-
-func _player_pony_value() -> bool:
-	return _player_pony
 
 
 func _set_penetration_m(value: float) -> void:

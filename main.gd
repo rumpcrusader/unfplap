@@ -19,12 +19,8 @@ const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
-const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
-const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
-const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/actions.gd")
 const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
-const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
@@ -43,13 +39,11 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
-const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
-const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
@@ -67,12 +61,6 @@ const OFFER_SCAN_S := 1.0
 const GATE_REFRESH_S := 2.0
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
-## The debug name action cycles these shipped adult mares, so the lab can test more than one fit
-## without a text prompt. Player-named shapes belong to the dialogue path.
-const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "twilight_sparkle"]
-## Debug target rule: the mare closest to the camera's aim ray, inside this tube and range.
-const AIM_RANGE_M := 8.0
-const AIM_TUBE_M := 1.5
 
 var hud
 var input
@@ -132,12 +120,8 @@ var _native_hint_text := ""
 var _native_hints_node: Node
 var _native_hint_row: HBoxContainer
 var _dance_hint_shown := false
-var _debug_skeleton: Node3D
-var _debug_wheel: CanvasLayer
-## The installed Idle Life entry node, for the deep-stretch debug action; see docs/debug.md.
-var _idle_life: Node
-var _debug_face_index := -1
-var _form_shape_index := 0
+## Every Debug block button and wheel slot; see `docs/debug.md`.
+var debug_actions: DEBUG_ACTIONS
 ## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
 var _captions: Dictionary = {}
 ## Cached captions_on_top so the per-frame caption tick never rereads settings.json.
@@ -189,7 +173,6 @@ func _ready() -> void:
 	LOG.debug_perf = SETTINGS.debug_perf.get_bool()
 	LOG.act_running = Callable(self, "_perf_act_running")
 	LOG.counts = Callable(self, "_perf_counts")
-	_sync_skeleton_overlay()
 	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
@@ -256,6 +239,18 @@ func _ready() -> void:
 	changelings.call("setup", self)
 	add_child(changelings)
 	body_change.call("register_source", changelings)
+	# The debug actions run against the services above, so they are built last. Their exact reads
+	# of the entry's act state are bound here and nowhere else.
+	debug_actions = DEBUG_ACTIONS.new()
+	debug_actions.name = "UnfplapDebugActions"
+	debug_actions.host = _debug_host()
+	debug_actions.body_change = body_change
+	debug_actions.initiation = initiation
+	debug_actions.negotiation = negotiation
+	debug_actions.anatomy = anatomy
+	debug_actions.pantyhose = pantyhose
+	add_child(debug_actions)
+	debug_actions.sync_skeleton_overlay()
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [
@@ -276,7 +271,7 @@ func _ready() -> void:
 	Mods.on_node(PONY_PATH, _on_pony)
 	Mods.on_node(SETTINGS_PAGE_PATH, _on_settings_page)
 	Mods.on_node(CAPTION_PATH, _on_caption)
-	Mods.on_node(DEBUG_STRETCH.ENTRY_PATH, _on_idle_life)
+	Mods.on_node(DEBUG_STRETCH.ENTRY_PATH, Callable(debug_actions, "on_idle_life"))
 	var settings := get_node_or_null("/root/Settings")
 	if settings != null and settings.has_signal("changed") \
 			and not settings.changed.is_connected(_on_game_setting_changed):
@@ -291,7 +286,7 @@ func _ready() -> void:
 
 
 func _on_world(host: Node) -> void:
-	close_debug_wheel()
+	debug_actions.close_debug_wheel()
 	_clear_native_hint()
 	_dance_hint_shown = false
 	WORLD.bind_world(host)
@@ -336,7 +331,7 @@ func _warm_offer_assets() -> void:
 
 func _on_world_closed(_host: Node) -> void:
 	LOG.debug("world closed")
-	close_debug_wheel()
+	debug_actions.close_debug_wheel()
 	if is_instance_valid(pantyhose):
 		pantyhose.call("on_world_closed")
 	if is_instance_valid(anatomy):
@@ -444,7 +439,7 @@ func _apply_settings_changed() -> void:
 	if not (LOG.debug_logs and LOG.debug_perf):
 		LOG.clear_panel()
 	if not LOG.debug_logs:
-		close_debug_wheel()
+		debug_actions.close_debug_wheel()
 	if is_instance_valid(input):
 		input.call("apply_settings")
 	if is_instance_valid(hud):
@@ -452,7 +447,7 @@ func _apply_settings_changed() -> void:
 	# The native offer row and the fallback prompt carry the key cap; rebuild them with the new
 	# label on the next frame.
 	_clear_native_hint()
-	_sync_skeleton_overlay()
+	debug_actions.sync_skeleton_overlay()
 	SETTINGS_UI.refresh_debug_visibility()
 	_apply_caption_top()
 	_apply_live_settings()
@@ -487,6 +482,7 @@ func _on_player(body: Node) -> void:
 		hud.name = "UnfplapHUD"
 		hud.log = Callable(LOG, "debug")
 		add_child(hud)
+		debug_actions.hud = hud
 	if is_instance_valid(anatomy):
 		anatomy.call("player_ready", body)
 	if not is_instance_valid(input):
@@ -664,11 +660,6 @@ func _adopt_pending_swap(pony: Node) -> bool:
 	return true
 
 
-## The installed Idle Life entry node, when that mod is on; the deep-stretch action uses it.
-func _on_idle_life(node: Node) -> void:
-	_idle_life = node if node.has_method("play") else null
-
-
 ## Live adult mares that are not in the base roster, for the Characters selector. A modded mare
 ## appears while she is in the world; her saved preset stays in settings.json when she despawns.
 ## Installed-profile sources also list their mares while they are away.
@@ -706,7 +697,7 @@ func _on_settings_page(page: Node) -> void:
 
 ## The Debug block builder the settings panel inserts into each tab.
 func _build_settings_actions(list: VBoxContainer, font_size: int, tab: String) -> void:
-	DEBUG_UI.build_actions(list, font_size, self, tab)
+	DEBUG_UI.build_actions(list, font_size, debug_actions, tab)
 
 
 ## The live participation block for one mare. The Characters form is a settings UI file, so the
@@ -730,6 +721,18 @@ func _perf_counts() -> Dictionary:
 		if is_instance_valid(runtime):
 			runtimes += 1
 	return {"runtimes": runtimes, "mares": WORLD.mares().size()}
+
+
+## The debug actions' reads of the live act. The runtime registry is the entry's until `ponies`
+## owns it, so these named reads are the one place it hands them over.
+func _debug_host() -> DEBUG_ACTIONS.Host:
+	var host := DEBUG_ACTIONS.Host.new()
+	host.act = func() -> Node: return active_runtime if is_instance_valid(active_runtime) else null
+	host.runtime_for = Callable(self, "runtime_for")
+	host.runtimes = func() -> Array: return _runtimes.keys()
+	host.act_target = func(pony: Variant) -> bool: return _is_act_target(pony)
+	host.reload_posed_base = func() -> String: return AUTHORED.reload_file()
+	return host
 
 
 func _process(delta: float) -> void:
@@ -1121,45 +1124,6 @@ func _log_offer() -> void:
 		_offer.pose, _offer.source, str(_offer.bed), str(_offer.pending)])
 
 
-func debug_target(view: Camera3D) -> Node:
-	return _debug_target(view)
-
-
-func _debug_target(view: Camera3D) -> Node:
-	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
-		return null
-	var pony_form := PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	if not pony_form:
-		var reach: Node = WORLD.interactor()
-		if is_instance_valid(reach) and reach.get("cradled") == true:
-			var held: Variant = reach.get("held")
-			if held is Node3D and is_instance_valid(held):
-				return held
-	if not is_instance_valid(view):
-		return null
-	var forward := -view.global_basis.z
-	var best: Node = null
-	var best_perp := INF
-	for node: Variant in WORLD.mares():
-		if not is_instance_valid(node):
-			continue
-		var actor: Node3D = node as Node3D
-		if actor == null:
-			continue
-		var at: Vector3 = actor.global_position + Vector3.UP * 0.9
-		var delta: Vector3 = at - view.global_position
-		var along := forward.dot(delta)
-		if along <= 0.0 or along > AIM_RANGE_M:
-			continue
-		var perp := (delta - forward * along).length()
-		if perp > AIM_TUBE_M:
-			continue
-		if perp < best_perp:
-			best_perp = perp
-			best = actor
-	return best
-
-
 ## The act key's one start entry. The act key is the hotkey: it always accepts, never bucks or
 ## refuses, and a missing context pose is no attempt. The tolerance stop owns the refusal path.
 func try_start() -> bool:
@@ -1325,613 +1289,6 @@ func _clear_offer_hint() -> void:
 		hud.hide_prompt()
 
 
-## Debug Actions entries (`DEBUG_ACTIONS.ACTIONS`). The offer helper forces a proactive request for
-## the aimed mare, bypassing the quiet/cooldown/AI-usage checks so the lab can test requests with
-## ai_usage=talk.
-func action_bed_offer() -> String:
-	return _debug_offer_request(CATALOG.MISSIONARY)
-
-
-func action_standing_offer() -> String:
-	return _debug_offer_request(CATALOG.STANDING)
-
-
-## Debug: form an Anon offer for the aimed mare as if Anon had just asked her. The classifier still
-## decides the option and the response; this only skips typing the line in a conversation.
-func action_anon_offer() -> String:
-	if not is_instance_valid(negotiation) or not is_instance_valid(WORLD.player):
-		return "Act system not ready."
-	var view: Camera3D = WORLD.camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		return "No mare under the crosshair."
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime):
-		return "No runtime for %s." % str(target.name)
-	var formed := bool(negotiation.call("begin_anon_offer", runtime, "I want you. Come here."))
-	LOG.debug("anon offer button: %s formed=%s" % [str(target.name), str(formed)])
-	if formed:
-		return "Anon offer started for %s." % str(target.name)
-	return "Anon offer refused for %s." % str(target.name)
-
-
-## Wheel-only: start the stock bed cuddle. The bed, recline and invite sequence runs after this
-## returns, so the wheel closes immediately and the debug log carries the detailed result.
-func action_bed_cuddle() -> String:
-	if not is_instance_valid(WORLD.player):
-		return "Player not ready."
-	var target := _debug_history_target()
-	if not is_instance_valid(target):
-		return "No pony under the crosshair."
-	if not is_instance_valid(DEBUG_BED.find_bed(self)):
-		return "No bed found in this house."
-	_bed_cuddle_sequence(target)
-	return "Bed cuddle started for %s." % str(target.name)
-
-
-func _bed_cuddle_sequence(target: Node) -> void:
-	var result: String = await DEBUG_BED.invite(self, target)
-	LOG.debug("bed cuddle: " + result)
-
-
-## Wheel-only: play Idle Life's deep stretch on the live act's pony, else the aimed mare. It
-## ignores her posture and a live act, so the idle is forced to the end.
-func action_deep_stretch() -> String:
-	var target: Node = null
-	if is_instance_valid(active_runtime):
-		var pony: Variant = active_runtime.get("pony")
-		if pony is Node3D and is_instance_valid(pony):
-			target = pony
-	else:
-		var view: Camera3D = WORLD.camera()
-		if is_instance_valid(view):
-			target = _debug_target(view)
-	return DEBUG_STRETCH.stretch(_idle_life, target as Node3D)
-
-
-## Wheel-only: qualify the aimed adult mare for the act gate. The helper clears her busy state,
-## writes the game's bond record and a neutral mood; her romance tier is untouched.
-func action_sex_ready() -> String:
-	var target := _debug_history_target()
-	if not is_instance_valid(target) or not target is Node3D or not _is_act_target(target):
-		return "No adult mare under the crosshair."
-	return DEBUG_PONY.sex_ready(self, target as Node3D)
-
-
-## Debug-only estrus phase controls. The override is session-only and per pony; `cycle_auto`
-## clears it and resumes the automatic day/id cycle. A toggle's label follows the target's phase.
-func action_toggle_heat() -> String:
-	return _debug_cycle_toggle(CYCLE.HEAT)
-
-
-func action_toggle_diestrus() -> String:
-	return _debug_cycle_toggle(CYCLE.DIESTRUS)
-
-
-func action_cycle_auto() -> String:
-	return _debug_cycle_request("")
-
-
-func _debug_cycle_toggle(phase_name: String) -> String:
-	if not is_instance_valid(WORLD.player):
-		return "Player not ready."
-	var target := _debug_history_target()
-	if not is_instance_valid(target):
-		return "No mare under the crosshair."
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime) or not runtime.has_method("set_cycle_override"):
-		return "No runtime for %s." % str(target.name)
-	var current := str(runtime.call("cycle_phase")) if runtime.has_method("cycle_phase") else ""
-	var next := CYCLE.NORMAL if current == phase_name else phase_name
-	runtime.call("set_cycle_override", next)
-	var verb := "cleared" if next == CYCLE.NORMAL else "forced"
-	LOG.debug("cycle %s %s=%s" % [phase_name, str(target.name), next])
-	return "%s %s for %s." % [phase_name.capitalize(), verb, str(target.name)]
-
-
-## The aimed mare's effective estrus phase, or "" when there is no target.
-func debug_cycle_phase() -> String:
-	if not is_instance_valid(WORLD.player):
-		return ""
-	var target := _debug_history_target()
-	if not is_instance_valid(target):
-		return ""
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime) or not runtime.has_method("cycle_phase"):
-		return ""
-	return str(runtime.call("cycle_phase"))
-
-
-func _debug_cycle_request(phase_name: String) -> String:
-	if not is_instance_valid(WORLD.player):
-		return "Player not ready."
-	var view: Camera3D = WORLD.camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		return "No mare under the crosshair."
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime) or not runtime.has_method("set_cycle_override"):
-		return "No runtime for %s." % str(target.name)
-	runtime.call("set_cycle_override", phase_name)
-	var label := "automatic" if phase_name.is_empty() else phase_name
-	LOG.debug("cycle override %s=%s" % [str(target.name), label])
-	return "Cycle for %s: %s." % [str(target.name), label]
-
-
-## Debug form-change actions. They use the active source through the act's generic request when an
-## act is live, and the source directly while idle. A source that is absent says so and does
-## nothing; there is no global hotkey.
-func action_form_true() -> String:
-	return _form_change_request(true, "")
-
-
-func action_form_name() -> String:
-	var shape := str(FORM_DEBUG_SHAPES[_form_shape_index % FORM_DEBUG_SHAPES.size()])
-	_form_shape_index += 1
-	return _form_change_request(false, shape)
-
-
-func action_form_idle() -> String:
-	if is_instance_valid(active_runtime):
-		return "Form: the act is already live."
-	var source: Variant = _form_source()
-	if source == null:
-		return "No shape-changing mare."
-	if not source.has_method("request_appear") or not bool(source.call("request_appear")):
-		return "She cannot come out now."
-	return "She is out or coming."
-
-
-func _form_change_request(true_form: bool, shape_id: String) -> String:
-	var label := "her true form" if true_form else SETTINGS.character_name(shape_id)
-	if is_instance_valid(active_runtime) and active_runtime.has_method("request_form_change"):
-		var result: Variant = active_runtime.call("request_form_change", true_form, shape_id)
-		if result is Dictionary:
-			var answer: Dictionary = result
-			LOG.debug("form change %s: %s" % [label, str(answer.get("reason", ""))])
-			return str(answer.get("message", answer.get("reason", "")))
-		return "Form change refused."
-	var body := _form_body()
-	if body == null or not is_instance_valid(body_change):
-		return "No shape-changing mare."
-	var started := false
-	if true_form:
-		started = bool(body_change.call("request_own_form", body, BODY_CHANGE.Origin.PROVIDER))
-	else:
-		started = bool(body_change.call("request_form", body, shape_id,
-			BODY_CHANGE.Origin.PROVIDER))
-	LOG.debug("form change idle %s started=%s" % [label, str(started)])
-	if started:
-		return "Changing to %s." % label
-	return "She cannot take that form now."
-
-
-## The aimed mare's body, else a live body an active source handles, for the idle debug request.
-func _form_body() -> Node3D:
-	var view: Camera3D = WORLD.camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if target is Node3D and shape_source_for(target) != null:
-		return target
-	for pony: Variant in _runtimes.keys():
-		if pony is Node3D and is_instance_valid(pony) and shape_source_for(pony) != null:
-			return pony
-	return null
-
-
-## The aimed mare's source, else the first active one. The idle action only needs a source.
-func _form_source() -> Variant:
-	var view: Camera3D = WORLD.camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if is_instance_valid(target):
-		var aimed: Variant = shape_source_for(target)
-		if aimed != null:
-			return aimed
-	if not is_instance_valid(body_change):
-		return null
-	var active: Variant = body_change.call("active_sources")
-	if active is Array and not (active as Array).is_empty():
-		return (active as Array)[0]
-	return null
-
-
-## Shared by the Debug actions.
-func _debug_offer_request(pose := "") -> String:
-	if not is_instance_valid(initiation) or not is_instance_valid(WORLD.player):
-		return "Act system not ready."
-	var view: Camera3D = WORLD.camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		LOG.debug("request: no pony target")
-		return "No mare under the crosshair."
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime):
-		LOG.debug("request: no runtime for %s" % str(target.name))
-		return "No runtime for %s." % str(target.name)
-	var result: INITIATION.ForceResult = initiation.force(runtime, pose)
-	var started := result != null and result.ok
-	var label := ""
-	if pose == CATALOG.MISSIONARY:
-		label = " (bed)"
-	elif pose == CATALOG.STANDING:
-		label = " (standing)"
-	if started:
-		LOG.debug("request button: %s%s" % [str(target.name), label])
-		return "Offer started for %s%s." % [str(target.name), label]
-	var reason := "unknown"
-	if result != null and not result.reject.is_empty():
-		reason = result.reject
-	LOG.debug("request button reject %s%s reason=%s" % [str(target.name), label, reason])
-	return "Offer rejected for %s%s: %s." % [str(target.name), label, reason]
-
-
-## Debug: re-read the active pose's authored base without restarting. A running act picks the new
-## pose up on its next frame, so the lab (export) -> game (reload) loop works while posing.
-func action_reload_pose() -> String:
-	var error := ""
-	if is_instance_valid(active_runtime):
-		error = str(active_runtime.call("reload_pose_asset"))
-	else:
-		error = AUTHORED.reload_file()
-	if not error.is_empty():
-		LOG.debug("pose reload failed: %s" % error)
-		return "Pose reload failed: %s" % error
-	if is_instance_valid(active_runtime) and active_runtime.has_method("_sync_missionary_pose_config"):
-		active_runtime.call("_sync_missionary_pose_config")
-	LOG.debug("pose reloaded")
-	return "Reloaded the active posed base."
-
-
-## Debug: toggle the internal standing_test pose in a live standing act. The edge holds the body;
-## the reverse edge returns to standing. Never ends the act.
-func action_pose_test_variant() -> String:
-	if not is_instance_valid(active_runtime):
-		return "No act."
-	var view: Variant = active_runtime.call("pose_view")
-	var active := str(view.id) if view != null else ""
-	if active.is_empty():
-		return "No act."
-	if active != CATALOG.STANDING and active != CATALOG.STANDING_TEST:
-		return "Only in a standing act."
-	var target := CATALOG.STANDING_TEST if active == CATALOG.STANDING else CATALOG.STANDING
-	var result: Variant = active_runtime.call("request_pose", target, "debug")
-	if result is Dictionary:
-		var code := str((result as Dictionary).get("code", ""))
-		LOG.debug("pose test variant %s -> %s: %s" % [active, target, code])
-		return "Pose %s: %s." % [target, code]
-	return "Pose request failed."
-
-
-## Debug: toggle the internal bed face-sit in a live missionary act. The face-sit has no offer and
-## no key; this button is its only trigger. The edge changes the arrangement and the contact and
-## never ends the act.
-func action_facesit_variant() -> String:
-	if not is_instance_valid(active_runtime):
-		return "No act."
-	var error := str(active_runtime.call("face_sit_error"))
-	if not error.is_empty():
-		LOG.debug("face-sit refused: %s" % error)
-		return "Face-sit refused: %s." % error
-	var view: Variant = active_runtime.call("pose_view")
-	var active := str(view.id) if view != null else ""
-	var target := CATALOG.BED_FACESIT if active == CATALOG.MISSIONARY else CATALOG.MISSIONARY
-	var result: Variant = active_runtime.call("request_pose", target, "facesit")
-	if result is Dictionary:
-		var code := str((result as Dictionary).get("code", ""))
-		LOG.debug("pose face-sit %s -> %s: %s" % [active, target, code])
-		return "Pose %s: %s." % [target, code]
-	return "Pose request failed."
-
-
-## Debug: one structured dump for the aimed mare. Show data, and a future always-on overlay, can
-## render the same sections: TARGET, CYCLE, GATE, REQUEST, ACT, STOOL, HISTORY, PROMPT, BED.
-func action_show_data() -> String:
-	if not is_instance_valid(WORLD.player):
-		return "Player not ready."
-	var target := _debug_history_target()
-	if not is_instance_valid(target):
-		return "No pony under the crosshair."
-	var data := debug_data(target)
-	var rows: Array[String] = []
-	for section: Variant in data.get("sections", []):
-		if not section is Dictionary:
-			continue
-		var item: Dictionary = section
-		rows.append(str(item.get("title", "")))
-		for row: Variant in item.get("rows", []):
-			rows.append("  " + str(row))
-	LOG.block("DATA " + str(target.name), rows)
-	return "Data written to the debug log for %s." % str(target.name)
-
-
-## The structured per-mare collector. `ACT` is present only while this target owns the live act.
-func debug_data(target: Node) -> Dictionary:
-	var data := {"target": target, "sections": []}
-	if not is_instance_valid(target):
-		return data
-	var runtime: Variant = runtime_for(target)
-	var id := _debug_pony_id(target)
-	var sections: Array = data["sections"]
-	sections.append(_debug_section("TARGET", _debug_target_rows(target, runtime, id)))
-	sections.append(_debug_section("CYCLE", _debug_cycle_rows(runtime)))
-	sections.append(_debug_section("GATE", _debug_gate_rows(target, runtime)))
-	if is_instance_valid(initiation):
-		sections.append(_debug_section("REQUEST", initiation.debug_rows(target)))
-	else:
-		sections.append(_debug_section("REQUEST", ["request service unavailable"]))
-	if is_instance_valid(negotiation):
-		sections.append(_debug_section("NEGOTIATION", negotiation.debug_rows(target)))
-	else:
-		sections.append(_debug_section("NEGOTIATION", ["negotiation service unavailable"]))
-	if is_instance_valid(active_runtime) and runtime == active_runtime:
-		sections.append(_debug_section("ACT", _debug_act_rows(runtime)))
-	sections.append(_debug_section("STOOL", _debug_stool_rows(runtime)))
-	sections.append(_debug_section("HISTORY", _debug_history_rows(target)))
-	sections.append(_debug_section("PROMPT", _debug_prompt_rows(target)))
-	sections.append(_debug_section("BED", DEBUG_BED.rows(self, target)))
-	return data
-
-
-func _debug_section(title: String, rows: Array) -> Dictionary:
-	var lines: Array[String] = []
-	for row: Variant in rows:
-		lines.append(str(row))
-	return {"title": title, "rows": lines}
-
-
-func _debug_target_rows(target: Node, runtime: Variant, id: String) -> Array[String]:
-	var state := "none"
-	if is_instance_valid(runtime):
-		state = "live" if runtime == active_runtime else "idle"
-	return ["pony=%s id=%s" % [str(target.name), id if not id.is_empty() else "?"],
-		"runtime=%s" % state]
-
-
-func _debug_cycle_rows(runtime: Variant) -> Array[String]:
-	if not is_instance_valid(runtime):
-		return ["no runtime"]
-	var phase := str(runtime.call("cycle_phase")) if runtime.has_method("cycle_phase") else "?"
-	var override := str(runtime.call("cycle_override")) if runtime.has_method("cycle_override") else "?"
-	return ["phase=%s override=%s" % [phase, override if not override.is_empty() else "none"],
-		"heat=%s" % str(phase == CYCLE.HEAT)]
-
-
-func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
-	if not is_instance_valid(runtime):
-		return ["no runtime"]
-	var view: Camera3D = WORLD.camera()
-	var dist := -1.0
-	var dot := -1.0
-	if is_instance_valid(view) and target is Node3D:
-		var delta: Vector3 = (target as Node3D).global_position + Vector3.UP * 0.9 \
-			- view.global_position
-		dist = delta.length()
-		if dist > 0.001:
-			dot = (-view.global_basis.z).dot(delta.normalized())
-	var pose := CATALOG.STANDING
-	var source := ""
-	var bed: Variant = null
-	var status: Dictionary = target.call("posture_status") if target.has_method("posture_status") else {}
-	if str(status.get("requested", "")) == "lie_down":
-		pose = CATALOG.MISSIONARY
-		source = "already_lying"
-		bed = runtime.call("find_bed_under")
-	var line := str(runtime.call("debug_line", pose, source, bed, dist, dot)) \
-		if runtime.has_method("debug_line") else "no debug line"
-	return [line]
-
-
-func _debug_act_rows(runtime: Variant) -> Array[String]:
-	var rows: Array[String] = [
-		"state=%d pose=%s" % [int(runtime.get("state")), str(runtime.get("pose_id"))],
-		"climaxes=%d satisfaction=%.2f" % [
-			int(runtime.get("pony_climaxes")), float(runtime.get("satisfaction"))],
-	]
-	if runtime.has_method("act_face_rows"):
-		rows.append("face:")
-		for row: Variant in runtime.call("act_face_rows"):
-			rows.append("  " + str(row))
-	if runtime.has_method("pose_state_rows"):
-		rows.append("pose state:")
-		for row: Variant in runtime.call("pose_state_rows"):
-			rows.append("  " + str(row))
-	return rows
-
-
-func _debug_stool_rows(runtime: Variant) -> Array[String]:
-	if not is_instance_valid(runtime):
-		return ["no runtime"]
-	if not runtime.has_method("stool_state_text"):
-		return ["stool unavailable"]
-	return [str(runtime.call("stool_state_text"))]
-
-
-## Debug: cycle the game's expression faces on the active act or the aimed mare.
-func action_force_act_face() -> String:
-	if not is_instance_valid(WORLD.player):
-		return "Player not ready."
-	var view: Camera3D = WORLD.camera()
-	var target: Node = _debug_target(view) if is_instance_valid(view) else null
-	if not is_instance_valid(target):
-		return "No mare under the crosshair."
-	_debug_face_index = (_debug_face_index + 1) % ACT_FACE.FACES.size()
-	var face := str(ACT_FACE.FACES[_debug_face_index])
-	var runtime: Variant = runtime_for(target)
-	var shown := false
-	if is_instance_valid(runtime) and runtime.has_method("force_act_face"):
-		shown = bool(runtime.call("force_act_face", face))
-	if not shown:
-		shown = ACT_FACE.react(target, face, 3.0)
-	LOG.debug("act face %s=%s shown=%s" % [str(target.name), face, str(shown)])
-	return "Act face %s: %s%s." % [str(target.name), face,
-		"" if shown else " (a spoken line owns the face)"]
-
-
-## Debug: clear the aimed mare's proactive-offer cooldown and short retry.
-func action_clear_cooldown() -> String:
-	var target := _debug_history_target()
-	if not is_instance_valid(target):
-		return "No mare under the crosshair."
-	var name := str(target.name)
-	if not is_instance_valid(initiation) or not bool(initiation.call("clear_cooldown", target)):
-		return "No request state for %s." % name
-	LOG.debug("request cooldown cleared %s" % name)
-	return "Offer cooldown cleared for %s." % name
-
-
-## Debug: clear the aimed mare's long-term act history.
-func action_reset_act_history() -> String:
-	if not is_instance_valid(WORLD.player):
-		return "Act system not ready."
-	var target := _debug_history_target()
-	if not is_instance_valid(target):
-		return "No pony under the crosshair."
-	var id := _debug_pony_id(target)
-	if id.is_empty():
-		return "No relationship id for %s." % str(target.name)
-	var section: Dictionary = ACT_HISTORY.section()
-	if not ACT_HISTORY.reset(section, id):
-		return "No act history for %s." % str(target.name)
-	ACT_HISTORY.save()
-	LOG.debug("act history reset for %s" % id)
-	return "Act history cleared for %s." % str(target.name)
-
-
-## The stored act history, as Show data's HISTORY section.
-func _debug_history_rows(target: Node) -> Array[String]:
-	var id := _debug_pony_id(target)
-	var rows: Array[String] = ["pony=%s id=%s" % [
-		str(target.name), id if not id.is_empty() else "?"]]
-	if id.is_empty():
-		rows.append("no relationship id")
-		return rows
-	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
-	var acts := int(row.get("acts", 0))
-	if acts <= 0 and int(row.get("hurt", 0)) <= 0 and int(row.get("comfort", 0)) <= 0:
-		rows.append("no history stored")
-		return rows
-	rows.append("tier=%s hurt=%d comfort=%d acts=%d good=%d bad=%d neutral=%d" % [
-		ACT_HISTORY.tier_name(row), int(row.get("hurt", 0)), int(row.get("comfort", 0)),
-		acts, int(row.get("good", 0)), int(row.get("bad", 0)), int(row.get("neutral", 0))])
-	rows.append("streaks good=%d bad=%d announced=%d" % [
-		int(row.get("streak_good", 0)), int(row.get("streak_bad", 0)),
-		int(row.get("announced_tier", 0))])
-	var reason_values: Array = row.get("last_reasons", [])
-	var reason_text := ",".join(PackedStringArray(reason_values))
-	rows.append("last grade=%s quality=%.2f reasons=%s" % [
-		str(row.get("last_grade", "")), float(row.get("last_quality", 0.0)), reason_text])
-	var text := str(row.get("last_text", "")).strip_edges()
-	var wants := str(row.get("last_wants", "")).strip_edges()
-	rows.append("last text=%s" % (text if not text.is_empty() else "none"))
-	rows.append("wants=%s" % (wants if not wants.is_empty() else "none"))
-	var stop_until := float(row.get("stop_until", 0.0))
-	var now := Time.get_unix_time_from_system()
-	if stop_until > now:
-		rows.append("stop_until=%.0fs left (%s)" % [
-			stop_until - now, str(row.get("last_stop_kind", ""))])
-	var pending := ACT_HISTORY.pending_line(row)
-	rows.append("pending=%s" % (pending if not pending.is_empty() else "none"))
-	var recent: Variant = row.get("recent", [])
-	if recent is Array and not (recent as Array).is_empty():
-		rows.append("recent:")
-		for entry: Variant in recent:
-			if not entry is Dictionary:
-				continue
-			var item: Dictionary = entry
-			var stamp := Time.get_datetime_string_from_unix_time(int(item.get("at", 0.0)), true)
-			rows.append("- %s %.2f %s %s" % [
-				str(item.get("grade", "")), float(item.get("quality", 0.0)), stamp,
-				str(item.get("text", "")).strip_edges()])
-	return rows
-
-
-## The mod-owned parts of the next dialogue request, as Show data's PROMPT section.
-func _debug_prompt_rows(target: Node) -> Array[String]:
-	var id := _debug_pony_id(target)
-	var rows: Array[String] = ["pony=%s id=%s" % [
-		str(target.name), id if not id.is_empty() else "?"]]
-	if id.is_empty():
-		rows.append("no relationship id")
-		return rows
-	var runtime: Variant = runtime_for(target)
-	if not is_instance_valid(runtime):
-		rows.append("no runtime")
-		return rows
-	rows.append("prompt_note: " + str(runtime.call("prompt_note")))
-	rows.append("cycle_note: " + str(runtime.call("cycle_note")))
-	var history_row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
-	var history_note := ACT_HISTORY.prompt_note(history_row)
-	rows.append("history_note: " + (history_note if not history_note.is_empty() else "none"))
-	var ctx: Variant = WORLD.game.get("world_context") if is_instance_valid(WORLD.game) else null
-	if ctx != null and is_instance_valid(ctx):
-		var events: Array = ctx.call("events_for", id, 10) if ctx.has_method("events_for") else []
-		rows.append("recent events:")
-		for event: Variant in events:
-			if event is Dictionary:
-				var item: Dictionary = event
-				rows.append("  %s: %s" % [str(item.get("kind", "")), str(item.get("text", ""))])
-		var impressions: Variant = ctx.get("impressions")
-		if impressions != null and is_instance_valid(impressions) \
-				and impressions.has_method("standing_line"):
-			rows.append("standing_line: " + str(impressions.call("standing_line", id)))
-	return rows
-
-
-func action_reset_act_prompts() -> String:
-	SETTINGS.reset_act_prompts()
-	return "Act prompts reset to defaults."
-
-
-func action_give_stool() -> String:
-	if not is_instance_valid(WORLD.game):
-		return "Act system not ready."
-	var inventory: Variant = WORLD.game.get("inventory")
-	if not is_instance_valid(inventory):
-		return "No briefcase."
-	var store: Variant = inventory.get("inventory")
-	if store == null:
-		return "No briefcase."
-	var slot := int(store.call("grant", STOOL.ID, 1))
-	if slot < 0:
-		return "No room in the briefcase."
-	LOG.debug("stool granted slot=%d" % slot)
-	return "Footstool added."
-
-
-## Rebuild the worn-garment depth field after a precision edit. The integration owns the cache
-## and the scan; `main` only forwards the button.
-func action_pantyhose_rebuild() -> String:
-	if not is_instance_valid(pantyhose):
-		return "Pantyhose integration is not running."
-	return str(pantyhose.call("rebuild_hull"))
-
-
-func _debug_history_target() -> Node:
-	var view: Camera3D = WORLD.camera()
-	return _debug_target(view) if is_instance_valid(view) else null
-
-
-func _debug_pony_id(target: Node) -> String:
-	return PONY_ID.from(str(target.get_meta("relationship_id", "")), target.get("identity"))
-
-
-func action_force_tolerance_warning() -> String:
-	return _debug_force_tolerance("warning")
-
-
-func action_force_tolerance_stop() -> String:
-	return _debug_force_tolerance("stop")
-
-
-func _debug_force_tolerance(kind: String) -> String:
-	if not is_instance_valid(active_runtime):
-		return "No act is active."
-	if not active_runtime.has_method("debug_force_tolerance"):
-		return "The act cannot force a neglect warning."
-	if not bool(active_runtime.call("debug_force_tolerance", kind)):
-		return "Neglect forcing is only available during a live act."
-	return "Neglect %s queued." % kind
-
-
 ## integration: anatomy hooks used by the runtime and input.
 func anatomy_status(text: String, seconds := 2.0) -> void:
 	if is_instance_valid(hud) and hud.has_method("toast"):
@@ -1962,223 +1319,6 @@ func refresh_anatomy() -> void:
 		anatomy.call("apply_live")
 		anatomy.call("player_apply_live")
 
-
-## integration: the anatomy service owns the placement editor.
-func _placement_debug(op: String, value := 0.0) -> String:
-	if is_instance_valid(anatomy):
-		return str(anatomy.call("placement_debug", op, value))
-	return "Anatomy service unavailable."
-
-
-func action_anatomy_up() -> String:
-	return _placement_debug("y", 0.005)
-
-
-func action_anatomy_down() -> String:
-	return _placement_debug("y", -0.005)
-
-
-func action_anatomy_forward() -> String:
-	return _placement_debug("z", 0.005)
-
-
-func action_anatomy_back() -> String:
-	return _placement_debug("z", -0.005)
-
-
-func action_anatomy_pitch_up() -> String:
-	return _placement_debug("pitch", 1.0)
-
-
-func action_anatomy_pitch_down() -> String:
-	return _placement_debug("pitch", -1.0)
-
-
-func action_anatomy_scale_up() -> String:
-	return _placement_debug("scale", 0.02)
-
-
-func action_anatomy_scale_down() -> String:
-	return _placement_debug("scale", -0.02)
-
-
-func action_tail_seat_up() -> String:
-	return _placement_debug("tail_up", 0.005)
-
-
-func action_tail_seat_down() -> String:
-	return _placement_debug("tail_down", 0.005)
-
-
-func action_tail_dock_up() -> String:
-	return _placement_debug("dock_up", 0.005)
-
-
-func action_tail_dock_down() -> String:
-	return _placement_debug("dock_down", 0.005)
-
-
-func action_tail_dock_scale_up() -> String:
-	return _placement_debug("dock_scale_up", 0.05)
-
-
-func action_tail_dock_scale_down() -> String:
-	return _placement_debug("dock_scale_down", 0.05)
-
-
-func action_tail_seat_forward() -> String:
-	return _placement_debug("tail_forward", 0.005)
-
-
-func action_tail_seat_back() -> String:
-	return _placement_debug("tail_back", 0.005)
-
-
-func action_tail_tilt_left() -> String:
-	return _placement_debug("tail_tilt_left", 1.0)
-
-
-func action_tail_tilt_right() -> String:
-	return _placement_debug("tail_tilt_right", 1.0)
-
-
-func action_placement_save() -> String:
-	return _placement_debug("save")
-
-
-func action_placement_reset() -> String:
-	return _placement_debug("reset")
-
-
-func action_placement_show() -> String:
-	if is_instance_valid(anatomy):
-		return str(anatomy.call("placement_show"))
-	return "Anatomy service unavailable."
-
-
-func nearest_pony(view: Camera3D) -> Node:
-	return _nearest_pony(view)
-
-
-func _nearest_pony(view: Camera3D) -> Node:
-	if not is_instance_valid(view):
-		return null
-	var best: Node = null
-	var best_distance := 8.0
-	for node: Variant in WORLD.mares():
-		if not is_instance_valid(node) or not node is Node3D:
-			continue
-		var actor: Node3D = node as Node3D
-		var distance := actor.global_position.distance_to(view.global_position)
-		if distance < best_distance:
-			best_distance = distance
-			best = actor
-	return best
-
-
-## The persisted Anatomy debug flag is the only switch; the overlay is live only while debug is on.
-func _sync_skeleton_overlay() -> void:
-	var enabled := LOG.debug_logs and SETTINGS.skeleton_overlay.get_bool()
-	if enabled:
-		if not is_instance_valid(_debug_skeleton):
-			_debug_skeleton = DEBUG_SKELETON.new()
-			_debug_skeleton.name = "UnfplapSkeleton"
-			_debug_skeleton.set("main", self)
-			add_child(_debug_skeleton)
-		_debug_skeleton.set("enabled", true)
-	elif is_instance_valid(_debug_skeleton):
-		_debug_skeleton.set("enabled", false)
-
-
-## The debug wheel is created lazily on the first middle press. The gate here keeps a pack with
-## debug off from creating the node at all.
-func debug_wheel_input(event: InputEvent) -> bool:
-	if not is_instance_valid(_debug_wheel):
-		if not LOG.debug_logs:
-			return false
-		if not event is InputEventMouseButton:
-			return false
-		var button := event as InputEventMouseButton
-		if button.button_index != MOUSE_BUTTON_MIDDLE or not button.pressed:
-			return false
-		_debug_wheel = DEBUG_WHEEL.new()
-		_debug_wheel.name = "UnfplapDebugWheel"
-		_debug_wheel.set("main", self)
-		add_child(_debug_wheel)
-	return bool(_debug_wheel.call("handle_input", event))
-
-
-func debug_wheel_open() -> bool:
-	return is_instance_valid(_debug_wheel) and bool(_debug_wheel.call("is_open"))
-
-
-func close_debug_wheel() -> void:
-	if is_instance_valid(_debug_wheel):
-		_debug_wheel.call("close")
-
-
-func debug_wheel_act_live() -> bool:
-	return is_instance_valid(active_runtime)
-
-
-## The wheel's open gate: debug on, desktop, captured, focused, unpaused, no menu or text field,
-## and the left button not held.
-func debug_wheel_allowed() -> bool:
-	if not LOG.debug_logs or DisplayServer.get_name() == "headless":
-		return false
-	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
-		return false
-	if get_tree().paused or WORLD.headset_view():
-		return false
-	if not DisplayServer.window_is_focused():
-		return false
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return false
-	if WORLD.menu_open():
-		return false
-	var focus := get_viewport().gui_get_focus_owner()
-	if focus is LineEdit or focus is TextEdit:
-		return false
-	return not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-
-
-## The wheel's target: the active act's pony while an act runs, else the aimed mare.
-func debug_wheel_context() -> Dictionary:
-	var out := {"pony": null, "name": "No mare", "source": "none", "act": false}
-	if is_instance_valid(active_runtime):
-		out["act"] = true
-		var act_pony: Variant = active_runtime.get("pony")
-		if is_instance_valid(act_pony):
-			out["pony"] = act_pony
-			out["name"] = str((act_pony as Node).name)
-			out["source"] = "act"
-			return out
-		return out
-	var view: Camera3D = WORLD.camera()
-	if not is_instance_valid(view):
-		return out
-	var target: Node = _debug_target(view)
-	if is_instance_valid(target):
-		out["pony"] = target
-		out["name"] = str(target.name)
-		out["source"] = "aimed"
-	return out
-
-
-## Run a wheel action, toast its one-line result and log it. Show data's multi-line block stays in
-## the log; the toast only carries the summary.
-func debug_wheel_action(name: String) -> String:
-	var result := DEBUG_ACTIONS.run_action(name, self)
-	LOG.debug("wheel %s: %s" % [name, result])
-	if not result.is_empty() and is_instance_valid(hud) and hud.has_method("toast"):
-		hud.call("toast", result, 3.0)
-	return result
-
-
-func skeleton_click() -> bool:
-	if not is_instance_valid(_debug_skeleton) or not bool(_debug_skeleton.get("enabled")):
-		return false
-	return bool(_debug_skeleton.call("handle_click"))
 
 func allocate_serial() -> int:
 	var section: Dictionary = Mods.state("unfplap")
@@ -2555,7 +1695,8 @@ func _on_agreement(handle: Variant) -> void:
 
 
 func _exit_tree() -> void:
-	close_debug_wheel()
+	if is_instance_valid(debug_actions):
+		debug_actions.close_debug_wheel()
 	if is_instance_valid(eligibility):
 		eligibility.clear()
 		eligibility = null

@@ -944,13 +944,14 @@ stay event-time reads.
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the player body and the live scene |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | debug | `debug/service.gd` | the aimed-mare target rule |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | vr | `vr/service.gd` | VR act controls |
+| service | world | `world/service.gd` | the player body and the live scene |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | body_binding | `shared/body_binding.gd` | the anatomy body binding base |
 | shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |

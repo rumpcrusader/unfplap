@@ -59,10 +59,6 @@ class FakeGame extends Node:
 	var world_context: Node
 
 
-class FakeMain extends Node:
-	var game: Node
-
-
 class LogSink extends RefCounted:
 	var blocks: Array = []
 
@@ -124,7 +120,7 @@ class FakePony extends Node3D:
 
 
 class Fixture extends RefCounted:
-	var main: FakeMain
+	var host: Node
 	var log := LogSink.new()
 	var game: FakeGame
 	var context: FakeContext
@@ -136,7 +132,7 @@ class Fixture extends RefCounted:
 	func clear() -> void:
 		pony.free()
 		relation.free()
-		main.free()
+		host.free()
 		game.free()
 		context.free()
 		impressions.free()
@@ -174,12 +170,12 @@ func _pony(name: String) -> FakePony:
 	return pony
 
 
-## A full fake relationship stack: main -> game -> world context -> impressions, and a pony whose
+## A full fake relationship stack: world -> world context -> impressions, a host node and a pony
 ## relationship runtime carries a bonds store for applejack.
 func _fixture(pony_name: String, stage := "acquaintance") -> Fixture:
 	var fixture := Fixture.new()
-	fixture.main = FakeMain.new()
-	fixture.main.name = "FakeMain"
+	fixture.host = Node.new()
+	fixture.host.name = "FakeHost"
 	LOG.debug_logs = true
 	LOG.sink = Callable(fixture.log, "write")
 	fixture.game = FakeGame.new()
@@ -188,11 +184,10 @@ func _fixture(pony_name: String, stage := "acquaintance") -> Fixture:
 	fixture.context.name = "FakeContext"
 	fixture.impressions = FakeImpressions.new()
 	fixture.impressions.name = "FakeImpressions"
-	fixture.main.game = fixture.game
-	WORLD.bind_world(fixture.main.game)
+	WORLD.bind_world(fixture.game)
 	fixture.game.world_context = fixture.context
 	fixture.context.impressions = fixture.impressions
-	root.add_child(fixture.main)
+	root.add_child(fixture.host)
 	root.add_child(fixture.game)
 	root.add_child(fixture.context)
 	root.add_child(fixture.impressions)
@@ -306,7 +301,7 @@ func _check_clear_busy() -> void:
 
 func _check_sex_ready() -> void:
 	var stranger := _fixture("Applejack", "acquaintance")
-	var toast := DEBUG_PONY.sex_ready(stranger.main, stranger.pony)
+	var toast := DEBUG_PONY.sex_ready(stranger.host, stranger.pony)
 	check(toast == "Sex ready for Applejack.", "a raised stranger toasts the qualifying line")
 	check(stranger.log.blocks.size() == 1, "sex_ready logs one detail block")
 	check(str(stranger.log.blocks[0][0]) == "SEX READY Applejack", "the block names the pony")
@@ -320,7 +315,7 @@ func _check_sex_ready() -> void:
 	stranger.clear()
 
 	var friend := _fixture("Applejack", "friend")
-	DEBUG_PONY.sex_ready(friend.main, friend.pony)
+	DEBUG_PONY.sex_ready(friend.host, friend.pony)
 	rows = friend.log.blocks[0][1]
 	check(rows.has("record=stage friend -> dating"), "a friend is raised to dating")
 	friend.clear()
@@ -329,7 +324,7 @@ func _check_sex_ready() -> void:
 func _check_sex_ready_kept() -> void:
 	for stage: String in ["dating", "engaged", "married"]:
 		var fixture := _fixture("Applejack", stage)
-		var toast := DEBUG_PONY.sex_ready(fixture.main, fixture.pony)
+		var toast := DEBUG_PONY.sex_ready(fixture.host, fixture.pony)
 		var rows: Array = fixture.log.blocks[0][1]
 		check(rows.has("record=stage %s (kept)" % stage), "%s is kept, not lowered" % stage)
 		check(str((fixture.bonds as FakeBonds).records["applejack"].get("stage", "")) == stage,
@@ -343,7 +338,7 @@ func _check_sex_ready_floors() -> void:
 	var bonds := fixture.bonds as FakeBonds
 	bonds.records["applejack"]["familiarity"] = 200.0
 	fixture.impressions.moods["applejack"] = "annoyed"
-	DEBUG_PONY.sex_ready(fixture.main, fixture.pony)
+	DEBUG_PONY.sex_ready(fixture.host, fixture.pony)
 	var row: Dictionary = bonds.records["applejack"]
 	check(float(row.get("familiarity", 0.0)) == 200.0, "a familiarity above the floor is kept")
 	check(float(row.get("trust", 0.0)) == DEBUG_PONY.TRUST_FLOOR, "the trust floor is applied")
@@ -370,7 +365,7 @@ func _check_sex_ready_refusals() -> void:
 	missing.pony.add_child(nav)
 	missing.pony.motion_paused = true
 	missing.pony.remove_meta("relationship_runtime")
-	var toast := DEBUG_PONY.sex_ready(missing.main, missing.pony)
+	var toast := DEBUG_PONY.sex_ready(missing.host, missing.pony)
 	check(toast == "Sex ready refused for Applejack.", "missing bonds refuses")
 	var rows: Array = missing.log.blocks[0][1]
 	check(rows == ["record=refused: no bonds"], "the refusal row names the missing bonds")
@@ -381,7 +376,7 @@ func _check_sex_ready_refusals() -> void:
 
 	var unsaved := _fixture("Applejack", "acquaintance")
 	unsaved.relation.bonds = NoSaveBonds.new()
-	toast = DEBUG_PONY.sex_ready(unsaved.main, unsaved.pony)
+	toast = DEBUG_PONY.sex_ready(unsaved.host, unsaved.pony)
 	check(toast == "Sex ready refused for Applejack.", "missing _save refuses")
 	rows = unsaved.log.blocks[0][1]
 	check(rows == ["record=refused: no _save"], "the refusal row names the missing save")
@@ -389,7 +384,7 @@ func _check_sex_ready_refusals() -> void:
 
 	var unread := _fixture("Applejack", "acquaintance")
 	unread.relation.bonds = NoRecordBonds.new()
-	toast = DEBUG_PONY.sex_ready(unread.main, unread.pony)
+	toast = DEBUG_PONY.sex_ready(unread.host, unread.pony)
 	check(toast == "Sex ready refused for Applejack.", "missing record_for refuses")
 	rows = unread.log.blocks[0][1]
 	check(rows == ["record=refused: no record_for"], "the refusal row names the missing reader")

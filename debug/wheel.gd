@@ -7,7 +7,8 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const SOUNDS := preload("res://world/audio/interaction_sounds.gd")
 
-var main: Node
+## The `debug/actions.gd` node that owns the gate, the context and the slots.
+var actions: Node
 
 var _open := false
 var _page := "mare"
@@ -57,13 +58,13 @@ func is_open() -> bool:
 func open() -> bool:
 	if not _can_open():
 		return false
-	var context: Variant = main.call("debug_wheel_context")
+	var context: Variant = actions.call("debug_wheel_context")
 	_context = context if context is Dictionary else {}
 	var pony: Variant = _context.get("pony")
 	_target = pony as Node if is_instance_valid(pony) else null
 	_had_target = is_instance_valid(_target)
 	_page = DEBUG_ACTIONS.wheel_root(bool(_context.get("act", false)))
-	_slots = DEBUG_ACTIONS.wheel_actions(_page, main)
+	_slots = DEBUG_ACTIONS.wheel_actions(_page, actions)
 	_aim = Vector2.ZERO
 	_hover = -1
 	_open = true
@@ -137,7 +138,7 @@ func _process(_delta: float) -> void:
 
 
 func _can_open() -> bool:
-	return is_instance_valid(main) and bool(main.call("debug_wheel_allowed"))
+	return is_instance_valid(actions) and bool(actions.call("debug_wheel_allowed"))
 
 
 func _can_stay() -> bool:
@@ -145,15 +146,15 @@ func _can_stay() -> bool:
 		return false
 	if _had_target and not is_instance_valid(_target):
 		return false
-	return bool(main.call("debug_wheel_act_live")) == (_page == "act")
+	return bool(actions.call("debug_wheel_act_live")) == (_page == "act")
 
 
 func _activate() -> void:
 	var hovered := _hover
 	close()
-	if hovered < 0 or hovered >= _slots.size() or not is_instance_valid(main):
+	if hovered < 0 or hovered >= _slots.size() or not is_instance_valid(actions):
 		return
-	main.call("debug_wheel_action", _slots[hovered])
+	actions.call("debug_wheel_action", _slots[hovered])
 
 
 func _clamp_aim() -> void:
@@ -248,7 +249,7 @@ func _draw_wheel(canvas: Control) -> void:
 		canvas.draw_arc(center, inner, start, end, 24, edge, 1.0, true)
 		var mid := start + step * 0.5
 		var at := center + Vector2(cos(mid), sin(mid)) * ((inner + outer) * 0.5)
-		var label := DEBUG_ACTIONS.action_short(str(_slots[i]), main)
+		var label := DEBUG_ACTIONS.action_short(str(_slots[i]), actions)
 		canvas.draw_string(font, at + Vector2(-outer * 0.5, font_size * 0.35), label,
 			HORIZONTAL_ALIGNMENT_CENTER, outer, font_size,
 			Color.WHITE if hot else Color(0.95, 0.88, 0.92, 0.9))

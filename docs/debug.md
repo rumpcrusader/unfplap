@@ -242,13 +242,22 @@ themselves are `docs/perf.md`'s.
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the scene target, camera and beds |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | body_change | `body_change/service.gd` | the form actions and the shape-source gate |
+| service | initiation | `initiation/service.gd` | the forced offer, the cooldown and Show data's REQUEST rows |
+| service | negotiation | `negotiation/service.gd` | the Anon offer and Show data's NEGOTIATION rows |
 | service | settings | `settings/service.gd` | action-button rows, the skeleton flag and the placement target pill |
+| service | stool | `stool/service.gd` | the footstool the Give footstool action grants |
+| service | world | `world/service.gd` | the scene target, camera and beds |
+| shared | act_face | `shared/act_face.gd` | the face cycle |
+| shared | body_change | `shared/body_change.gd` | the provider origin of an idle form change |
+| shared | cycle | `shared/cycle.gd` | the estrus phase names |
 | shared | log | `shared/log.gd` | log sink, perf entry and panel |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id in Show data's BED rows |
+| shared | pose_catalog | `shared/pose_catalog.gd` | the pose ids the actions name |
+| store | act_history | `shared/act_history.gd` | Reset act history and Show data's HISTORY rows |
 | game | interaction_sounds | `res://world/audio/interaction_sounds.gd` | the hover `prop_ui_confirm` cue |
 
 ## Lifecycle

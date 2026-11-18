@@ -11,7 +11,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The Debug block's action buttons, plus the last result. Actions that share a `row` are drawn
 ## compactly on one line under the row's caption, so the block stays short.
-static func build_actions(list: VBoxContainer, font_size: int, main: Node, tab := "general") -> void:
+static func build_actions(list: VBoxContainer, font_size: int, target: Node, tab := "general") -> void:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 6)
@@ -36,13 +36,13 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node, tab :
 			continue
 		if str(action.get("tab", "general")) != tab:
 			continue
-		if not DEBUG_ACTIONS.action_available(name, main):
+		if not DEBUG_ACTIONS.action_available(name, target):
 			continue
 		var row := str(action.get("row", ""))
 		if row.is_empty():
 			row_name = ""
 			row_box = null
-			box.add_child(_action_button(name, action, font_size, main, status, false))
+			box.add_child(_action_button(name, action, font_size, target, status, false))
 			continue
 		if row != row_name or row_box == null:
 			row_name = row
@@ -54,7 +54,7 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node, tab :
 			caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row_box.add_child(caption)
 			box.add_child(row_box)
-		row_box.add_child(_action_button(name, action, font_size, main, status, true))
+		row_box.add_child(_action_button(name, action, font_size, target, status, true))
 	box.add_child(status)
 	list.add_child(box)
 
@@ -101,24 +101,24 @@ static func _select_placement_target(value: String, buttons: Array) -> void:
 			(other as Button).set_pressed_no_signal(str(other.get_meta("value")) == value)
 
 
-static func _action_button(name: String, action: Dictionary, font_size: int, main: Node,
+static func _action_button(name: String, action: Dictionary, font_size: int, target: Node,
 		status: Label, compact: bool) -> Button:
 	var button := Button.new()
-	button.text = DEBUG_ACTIONS.action_short(name, main) if compact \
-		else DEBUG_ACTIONS.action_label(name, main)
+	button.text = DEBUG_ACTIONS.action_short(name, target) if compact \
+		else DEBUG_ACTIONS.action_label(name, target)
 	button.tooltip_text = str(action.get("help", ""))
 	button.alignment = HORIZONTAL_ALIGNMENT_CENTER if compact else HORIZONTAL_ALIGNMENT_LEFT
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", font_size - 2)
 	button.pressed.connect(func() -> void:
-		var result := DEBUG_ACTIONS.run_action(name, main)
+		var result := DEBUG_ACTIONS.run_action(name, target)
 		status.text = result
 		# The cycle slots change between Force and Clear after their own click.
-		button.text = DEBUG_ACTIONS.action_short(name, main) if compact \
-			else DEBUG_ACTIONS.action_label(name, main)
-		_debug(main, "action %s %s" % [name, result]))
+		button.text = DEBUG_ACTIONS.action_short(name, target) if compact \
+			else DEBUG_ACTIONS.action_label(name, target)
+		_debug("action %s %s" % [name, result]))
 	return button
 
 
-static func _debug(_main: Node, text: String) -> void:
+static func _debug(text: String) -> void:
 	LOG.debug(text)

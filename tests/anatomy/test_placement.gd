@@ -44,9 +44,12 @@ class FakePlayer extends Node3D:
 	var camera: Variant = null
 
 
+class FakeWorld extends Node:
+	var mares: Array = []
+
+
 class FakeMain extends Node:
 	var eligibility: Variant
-	var target: Node
 	var refreshed := 0
 	var _view: Camera3D
 
@@ -55,12 +58,6 @@ class FakeMain extends Node:
 			_view = Camera3D.new()
 			add_child(_view)
 		return _view
-
-	func debug_target(_view: Camera3D) -> Node:
-		return target
-
-	func nearest_pony(_view: Camera3D) -> Node:
-		return null
 
 	func refresh_anatomy() -> void:
 		refreshed += 1
@@ -337,7 +334,7 @@ func run() -> void:
 	check(near(float(v3_pos[2]), 0.289), "current rows are not touched")
 
 	# The facade delegates the Placement actions to the editor; the editor resolves the pointed
-	# mare through the scene adapter and never keeps a second target.
+	# mare through the debug facade's aim rule and never keeps a second target.
 	var editor_main := FakeMain.new()
 	root.add_child(editor_main)
 	var editor_player := FakePlayer.new()
@@ -346,7 +343,12 @@ func run() -> void:
 	WORLD.bind_player(editor_player)
 	var editor_pony := _pony("editor_mare")
 	root.add_child(editor_pony)
-	editor_main.target = editor_pony
+	# In front of the rig camera, 2 m out and inside the aim tube.
+	editor_pony.global_position = Vector3(0.0, 0.0, -2.0)
+	var editor_world := FakeWorld.new()
+	root.add_child(editor_world)
+	editor_world.mares = [editor_pony]
+	WORLD.bind_world(editor_world)
 	var service: Node = ANATOMY_SERVICE.new()
 	root.add_child(service)
 	service.call("setup", editor_main)
@@ -367,6 +369,8 @@ func run() -> void:
 	editor_main.free()
 	root.remove_child(editor_player)
 	editor_player.free()
+	root.remove_child(editor_world)
+	editor_world.free()
 	WORLD.unbind()
 
 	# Debug tail collapse: the modifier scales both bones and restores them without moving joints.

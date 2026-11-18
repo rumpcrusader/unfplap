@@ -7,6 +7,7 @@ extends RefCounted
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 
@@ -20,12 +21,10 @@ func setup(service_node: Node, main_node: Node) -> void:
 
 
 func placement_target() -> Node:
-	if not is_instance_valid(main):
-		return null
 	var view: Camera3D = WORLD.camera()
-	var target: Node = main.call("debug_target", view) if is_instance_valid(view) else null
+	var target: Node = DEBUG_ACTIONS.aimed_pony(view)
 	if not is_instance_valid(target):
-		target = main.call("nearest_pony", view)
+		target = DEBUG_ACTIONS.nearest_pony(view)
 	return target
 
 

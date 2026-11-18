@@ -3,23 +3,27 @@ extends SceneTree
 ##
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_debug_wheel.gd
 ##
-## Pure: the wheel layout, the settings-only split and the dynamic cycle labels.
+## Pure: the wheel layout, the settings-only split, the dynamic cycle labels, the open gate and the
+## registry dispatch to the actions node.
 
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
+const DEBUG_ACTION_NODE := preload("res://mods/unfplap/debug/actions.gd")
 
 var failures := 0
 var checks := 0
 
 
-class PhaseMain extends Node:
+## The cycle-phase read the labels ask the actions node.
+class PhaseNode extends Node:
 	var phase := "heat"
 
 	func debug_cycle_phase() -> String:
 		return phase
 
 
-class WheelMain extends Node:
+## A stand-in for the actions node: the gate, the context and the slot dispatch.
+class WheelActions extends Node:
 	var last_action := ""
 
 	func debug_wheel_allowed() -> bool:
@@ -52,7 +56,9 @@ func run() -> void:
 	_check_pages()
 	_check_registry()
 	_check_labels()
+	_check_gate()
 	await _check_node()
+	await _check_dispatch()
 	print("DEBUG_WHEEL_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("DEBUG_WHEEL_PASS")
@@ -151,25 +157,79 @@ func _check_registry() -> void:
 		"the deep-stretch action has no hotkey")
 
 
+## One clear desktop frame, then one closed gate at a time.
+func _check_gate() -> void:
+	check(DEBUG_ACTIONS.wheel_gate(true, false, true, false, false, true, true, false, false,
+		false), "a captured, focused desktop frame opens the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(true, false, true, false, false, true, false, false,
+		false, false), "a free mouse refuses the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(true, false, true, true, false, true, true, false,
+		false, false), "a paused tree refuses the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(true, false, true, false, false, true, true, false,
+		true, false), "a focused text field refuses the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(false, false, true, false, false, true, true, false,
+		false, false), "debug off refuses the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(true, true, true, false, false, true, true, false,
+		false, false), "a headless display refuses the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(true, false, false, false, false, true, true, false,
+		false, false), "no world refuses the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(true, false, true, false, true, true, true, false,
+		false, false), "a headset eye refuses the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(true, false, true, false, false, false, true, false,
+		false, false), "an unfocused window refuses the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(true, false, true, false, false, true, true, true,
+		false, false), "an open menu refuses the wheel")
+	check(not DEBUG_ACTIONS.wheel_gate(true, false, true, false, false, true, true, false,
+		false, true), "a held left button refuses the wheel")
+
+
+## The registry resolves the actions node by itself: run, label, gate and clears it on exit.
+func _check_dispatch() -> void:
+	check(not DEBUG_ACTIONS.run_action("show_data").begins_with("Data written"),
+		"no actions node runs no action")
+	check(DEBUG_ACTIONS.run_action("no_such_action").is_empty(),
+		"an unknown action runs nothing")
+	check(not DEBUG_ACTIONS.wheel_open(), "no actions node has no open wheel")
+	check(not DEBUG_ACTIONS.skeleton_click(), "no actions node clicks no joint")
+	var node: Node = DEBUG_ACTION_NODE.new()
+	root.add_child(node)
+	await process_frame
+	check(DEBUG_ACTIONS.target == node, "the actions node registers itself")
+	check(DEBUG_ACTIONS.run_action("show_data") == "Player not ready.",
+		"the registry dispatch reaches the actions node")
+	check(DEBUG_ACTIONS.action_short("show_data") == "Show data",
+		"the registry label reads the actions node")
+	check(DEBUG_ACTIONS.action_label("show_data") == "Show data",
+		"the registry full label reads the actions node")
+	check(not DEBUG_ACTIONS.wheel_open(), "the actions node has no wheel yet")
+	var press := _button(MOUSE_BUTTON_MIDDLE, true)
+	check(not DEBUG_ACTIONS.wheel_input(press),
+		"the live wheel input refuses while the headless gate is closed")
+	root.remove_child(node)
+	node.free()
+	check(DEBUG_ACTIONS.target == null, "the actions node clears the registry on exit")
+	check(DEBUG_ACTIONS.run_action("show_data").is_empty(), "a freed node is no target")
+
+
 func _check_labels() -> void:
-	var main := PhaseMain.new()
+	var node := PhaseNode.new()
 	check(DEBUG_ACTIONS.action_label("cycle_heat", null) == "Force heat",
 		"cycle heat defaults to Force without a target")
 	check(DEBUG_ACTIONS.action_short("cycle_heat", null) == "Force heat",
 		"the short cycle heat defaults to Force without a target")
-	main.phase = "heat"
-	check(DEBUG_ACTIONS.action_label("cycle_heat", main) == "Clear heat",
+	node.phase = "heat"
+	check(DEBUG_ACTIONS.action_label("cycle_heat", node) == "Clear heat",
 		"cycle heat shows Clear in heat")
-	check(DEBUG_ACTIONS.action_short("cycle_heat", main) == "Clear heat",
+	check(DEBUG_ACTIONS.action_short("cycle_heat", node) == "Clear heat",
 		"the short cycle heat shows Clear in heat")
-	check(DEBUG_ACTIONS.action_label("cycle_diestrus", main) == "Force diestrus",
+	check(DEBUG_ACTIONS.action_label("cycle_diestrus", node) == "Force diestrus",
 		"cycle diestrus stays Force in heat")
-	main.phase = "diestrus"
-	check(DEBUG_ACTIONS.action_label("cycle_diestrus", main) == "Clear diestrus",
+	node.phase = "diestrus"
+	check(DEBUG_ACTIONS.action_label("cycle_diestrus", node) == "Clear diestrus",
 		"cycle diestrus shows Clear in diestrus")
-	check(DEBUG_ACTIONS.action_label("cycle_heat", main) == "Force heat",
+	check(DEBUG_ACTIONS.action_label("cycle_heat", node) == "Force heat",
 		"cycle heat returns to Force in diestrus")
-	main.free()
+	node.free()
 
 
 func _button(index: MouseButton, pressed: bool) -> InputEventMouseButton:
@@ -193,9 +253,9 @@ func _check_node() -> void:
 	check(not bool(wheel.call("is_open")), "the wheel starts closed")
 	check(not bool(wheel.call("handle_input", InputEventMouseButton.new())),
 		"the wheel ignores an unhandled button while closed")
-	var fake := WheelMain.new()
+	var fake := WheelActions.new()
 	root.add_child(fake)
-	wheel.set("main", fake)
+	wheel.set("actions", fake)
 	await process_frame
 	check(bool(wheel.call("handle_input", _button(MOUSE_BUTTON_MIDDLE, true))),
 		"the middle press is consumed")

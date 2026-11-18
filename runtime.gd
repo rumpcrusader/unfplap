@@ -11,6 +11,7 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
@@ -1357,8 +1358,7 @@ func _input(event: InputEvent) -> void:
 		return
 	# The debug wheel owns the mouse while it is open: its virtual reticle must not thrust or
 	# free-look the live act.
-	if is_instance_valid(main) and main.has_method("debug_wheel_open") \
-			and bool(main.call("debug_wheel_open")):
+	if DEBUG_ACTIONS.wheel_open():
 		return
 	var motion := event as InputEventMouseMotion
 	if motion == null:

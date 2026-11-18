@@ -7,6 +7,7 @@ extends SceneTree
 ## Loaded at run time: `main.gd` names the game's `Mods` autoload, which the `--script`
 ## compiler cannot see at preload time. The autoload node exists before the suite runs.
 var MAIN: Variant = null
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -189,17 +190,22 @@ func _check_action() -> void:
 	var runtime := FakeRuntime.new()
 	root.add_child(runtime)
 	runtime.view_id = CATALOG.MISSIONARY
-	main.active_runtime = runtime
-	var result := str(main.call("action_facesit_variant"))
+	var actions: Node = main.get("debug_actions")
+	check(is_instance_valid(actions), "the entry builds the debug actions node")
+	if not is_instance_valid(actions):
+		return
+	check(DEBUG_ACTIONS.target == actions, "the registry dispatches to the actions node")
+	actions.get("host").act = func() -> Node: return runtime
+	var result := DEBUG_ACTIONS.run_action("facesit_variant")
 	check(runtime.requests == 1 and runtime.target == CATALOG.BED_FACESIT,
 		"the action requests bed_facesit from missionary")
 	check(result == "Pose bed_facesit: ok.", "the action returns the human result")
 	runtime.view_id = CATALOG.BED_FACESIT
-	main.call("action_facesit_variant")
+	DEBUG_ACTIONS.run_action("facesit_variant")
 	check(runtime.requests == 2 and runtime.target == CATALOG.MISSIONARY,
 		"the action requests missionary from bed_facesit")
 	runtime.error = "a kiss is running"
-	var refused := str(main.call("action_facesit_variant"))
+	var refused := DEBUG_ACTIONS.run_action("facesit_variant")
 	check(runtime.requests == 2, "a refused action requests no pose")
 	check(refused == "Face-sit refused: a kiss is running.",
 		"the action returns the refusal reason")

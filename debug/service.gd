@@ -1,9 +1,25 @@
 extends RefCounted
+## Service: debug
+## Contract: docs/debug.md
+## Scope: process
+## Import: debug/service.gd only
+##
 ## The Debug block's action buttons and the debug action wheel's pages. An action is one entry in
-## `ACTIONS`; `method` is called on the entry node. Actions are not settings: they run a one-off
-## debug operation.
+## `ACTIONS`; `method` is called on `target`, the `debug/actions.gd` node the entry adds. Actions
+## are not settings: they run a one-off debug operation.
 
-## Debug actions. `method` is called on the entry node. `tab` places the button in that tab's
+const WORLD := preload("res://mods/unfplap/world/service.gd")
+const PLAYER_FORM := preload("res://world/life/player_form.gd")
+
+## The aimed mare: the mare closest to the camera's aim ray, inside this tube and range.
+const AIM_RANGE_M := 8.0
+const AIM_TUBE_M := 1.5
+
+## The node that runs the actions. `debug/actions.gd` sets it when it enters the tree, so every
+## dispatch, label and gate below resolves it without a caller passing it in.
+static var target: Node = null
+
+## Debug actions. `method` is called on `target`. `tab` places the button in that tab's
 ## Debug block (`general` by default, or `anatomy`/`world`/`integrations`); a missing tab means
 ## General. `panel: false` keeps an action off every settings block but leaves it available to
 ## the wheel;
@@ -289,7 +305,7 @@ static func wheel_root(act_live: bool) -> String:
 
 ## The action ids on one wheel page, in clockwise order. An action whose `requires` gate is
 ## closed is left off the wheel, the same rule the settings block uses.
-static func wheel_actions(page: String, main: Node = null) -> Array[String]:
+static func wheel_actions(page: String, node: Node = null) -> Array[String]:
 	var out: Array[String] = []
 	var entry: Variant = WHEEL_PAGES.get(page)
 	if not entry is Dictionary:
@@ -297,25 +313,25 @@ static func wheel_actions(page: String, main: Node = null) -> Array[String]:
 	var actions: Variant = (entry as Dictionary).get("actions", [])
 	if actions is Array:
 		for name: Variant in actions:
-			if _action_available(str(name), main):
+			if _action_available(str(name), _node(node)):
 				out.append(str(name))
 	return out
 
 
 ## The action's optional runtime gate. Only `shape_source` exists today: its buttons stay off
 ## every surface while no shape-changing source is installed.
-static func action_available(name: String, main: Node) -> bool:
-	return _action_available(name, main)
+static func action_available(name: String, node: Node = null) -> bool:
+	return _action_available(name, _node(node))
 
 
-static func _action_available(name: String, main: Node) -> bool:
+static func _action_available(name: String, node: Node) -> bool:
 	var entry: Variant = ACTIONS.get(name)
 	if not entry is Dictionary:
 		return false
 	if str((entry as Dictionary).get("requires", "")) != "shape_source":
 		return true
-	return is_instance_valid(main) and main.has_method("shape_source_active") \
-		and bool(main.call("shape_source_active"))
+	return is_instance_valid(node) and node.has_method("shape_source_active") \
+		and bool(node.call("shape_source_active"))
 
 
 static func wheel_title(page: String) -> String:
@@ -324,16 +340,16 @@ static func wheel_title(page: String) -> String:
 
 
 ## The action's full label, or the match label when the target is already in its `phase`.
-static func action_label(name: String, main: Node) -> String:
-	return _action_text(name, main, "label", "match_label")
+static func action_label(name: String, node: Node = null) -> String:
+	return _action_text(name, _node(node), "label", "match_label")
 
 
 ## The action's compact label, or the match label when the target is already in its `phase`.
-static func action_short(name: String, main: Node) -> String:
-	return _action_text(name, main, "short", "match_short")
+static func action_short(name: String, node: Node = null) -> String:
+	return _action_text(name, _node(node), "short", "match_short")
 
 
-static func _action_text(name: String, main: Node, key: String, match_key: String) -> String:
+static func _action_text(name: String, node: Node, key: String, match_key: String) -> String:
 	var entry: Variant = ACTIONS.get(name)
 	if not entry is Dictionary:
 		return name
@@ -342,9 +358,9 @@ static func _action_text(name: String, main: Node, key: String, match_key: Strin
 	var phase := str(action.get("phase", ""))
 	if phase.is_empty():
 		return text
-	if not is_instance_valid(main) or not main.has_method("debug_cycle_phase"):
+	if not is_instance_valid(node) or not node.has_method("debug_cycle_phase"):
 		return text
-	if str(main.call("debug_cycle_phase")) != phase:
+	if str(node.call("debug_cycle_phase")) != phase:
 		return text
 	return str(action.get(match_key, text))
 
@@ -358,12 +374,110 @@ static func hotkey_action(keycode: int) -> String:
 	return ""
 
 
-## Run one action on `target`. Returns its message, or "" when it cannot run.
-static func run_action(name: String, target: Node) -> String:
+## Run one action on `node`, or on the actions node when none is named. Returns its message, or ""
+## when it cannot run.
+static func run_action(name: String, node: Node = null) -> String:
 	if not ACTIONS.has(name):
 		return ""
+	var actions := _node(node)
 	var method := str(ACTIONS[name].get("method", ""))
-	if not is_instance_valid(target) or not target.has_method(method):
+	if not is_instance_valid(actions) or not actions.has_method(method):
 		return ""
-	var result: Variant = target.call(method)
+	var result: Variant = actions.call(method)
 	return str(result) if result is String else ""
+
+
+## The wheel's open gate for one frame's facts: debug on, desktop, in a world, unpaused, desktop
+## eye, focused window, captured cursor, no menu, no text field and the left button released.
+static func wheel_gate(debug_on: bool, headless: bool, in_world: bool, paused: bool,
+		headset: bool, focused: bool, captured: bool, menu_open: bool, typing: bool,
+		left_held: bool) -> bool:
+	if not debug_on or headless or not in_world or paused or headset or not focused:
+		return false
+	return captured and not menu_open and not typing and not left_held
+
+
+## One input event for the wheel. False when the mod has no actions node or the event is not the
+## wheel's.
+static func wheel_input(event: InputEvent) -> bool:
+	var actions := _node(null)
+	if not is_instance_valid(actions) or not actions.has_method("debug_wheel_input"):
+		return false
+	return bool(actions.call("debug_wheel_input", event))
+
+
+## True while the action wheel is open.
+static func wheel_open() -> bool:
+	var actions := _node(null)
+	if not is_instance_valid(actions) or not actions.has_method("debug_wheel_open"):
+		return false
+	return bool(actions.call("debug_wheel_open"))
+
+
+## One left click for the skeleton overlay; false when no joint is under the pointer.
+static func skeleton_click() -> bool:
+	var actions := _node(null)
+	if not is_instance_valid(actions) or not actions.has_method("skeleton_click"):
+		return false
+	return bool(actions.call("skeleton_click"))
+
+
+## The aimed mare: the mare closest to the camera's aim ray, or a cradled prop in Anon's arms
+## while he is not in pony form. `debug/actions.gd` and the placement editor share this rule.
+static func aimed_pony(view: Camera3D) -> Node:
+	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
+		return null
+	var tree := Engine.get_main_loop() as SceneTree
+	if not PLAYER_FORM.is_pony(PLAYER_FORM.active(tree)):
+		var reach: Node = WORLD.interactor()
+		if is_instance_valid(reach) and reach.get("cradled") == true:
+			var held: Variant = reach.get("held")
+			if held is Node3D and is_instance_valid(held):
+				return held
+	if not is_instance_valid(view):
+		return null
+	var forward := -view.global_basis.z
+	var best: Node = null
+	var best_perp := INF
+	for node: Variant in WORLD.mares():
+		if not is_instance_valid(node):
+			continue
+		var actor: Node3D = node as Node3D
+		if actor == null:
+			continue
+		var at: Vector3 = actor.global_position + Vector3.UP * 0.9
+		var delta: Vector3 = at - view.global_position
+		var along := forward.dot(delta)
+		if along <= 0.0 or along > AIM_RANGE_M:
+			continue
+		var perp := (delta - forward * along).length()
+		if perp > AIM_TUBE_M:
+			continue
+		if perp < best_perp:
+			best_perp = perp
+			best = actor
+	return best
+
+
+## The mare nearest the camera, inside `AIM_RANGE_M`; the placement editor's fallback aim.
+static func nearest_pony(view: Camera3D) -> Node:
+	if not is_instance_valid(view):
+		return null
+	var best: Node = null
+	var best_distance := AIM_RANGE_M
+	for node: Variant in WORLD.mares():
+		if not is_instance_valid(node) or not node is Node3D:
+			continue
+		var actor: Node3D = node as Node3D
+		var distance := actor.global_position.distance_to(view.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = actor
+	return best
+
+
+## The explicit node, else the live actions node.
+static func _node(node: Node) -> Node:
+	if is_instance_valid(node):
+		return node
+	return target if is_instance_valid(target) else null

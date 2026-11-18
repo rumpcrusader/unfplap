@@ -17,7 +17,8 @@ const UPDATE_HZ := 30.0
 const MAX_DISTANCE_M := 15.0
 const HOVER_MIN_PX := 9.0
 
-var main: Node
+## The `debug/actions.gd` node; the overlay draws only while it is live.
+var actions: Node
 var enabled := false:
 	set(value):
 		enabled = value
@@ -64,7 +65,7 @@ func _process(delta: float) -> void:
 func _rebuild() -> void:
 	_clear()
 	_joints.clear()
-	if not is_instance_valid(main):
+	if not is_instance_valid(actions):
 		_hover.clear()
 		return
 	var camera: Camera3D = get_viewport().get_camera_3d()

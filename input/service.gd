@@ -147,9 +147,8 @@ func _input(event: InputEvent) -> void:
 	# off the wheel returns false, so the middle button is not consumed.
 	var wheel_middle := event is InputEventMouseButton \
 		and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_MIDDLE
-	if main.has_method("debug_wheel_input") \
-			and (bool(main.call("debug_wheel_open")) or wheel_middle):
-		if bool(main.call("debug_wheel_input", event)):
+	if DEBUG_ACTIONS.wheel_open() or wheel_middle:
+		if DEBUG_ACTIONS.wheel_input(event):
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventKey:
@@ -161,7 +160,7 @@ func _input(event: InputEvent) -> void:
 			var focus := get_viewport().gui_get_focus_owner()
 			var action := DEBUG_ACTIONS.hotkey_action(debug_key.physical_keycode)
 			if not action.is_empty() and not (focus is LineEdit or focus is TextEdit):
-				DEBUG_ACTIONS.run_action(action, main)
+				DEBUG_ACTIONS.run_action(action)
 				get_viewport().set_input_as_handled()
 				return
 	if get_tree().paused:
@@ -173,7 +172,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT \
-				and bool(main.call("skeleton_click")):
+				and DEBUG_ACTIONS.skeleton_click():
 			get_viewport().set_input_as_handled()
 			return
 		# A click takes the mouse back when a menu left it visible during an act. The base game's

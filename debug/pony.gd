@@ -82,21 +82,21 @@ static func clear_busy(pony: Node3D) -> String:
 ## below it, the lab's familiarity/trust/together floors, no pending plan/offer and no boundary or
 ## dating cooldown. A record path that cannot save refuses before anything changes; the romance
 ## ladder, tier and love are never touched.
-static func sex_ready(main: Node, pony: Node3D) -> String:
-	if not is_instance_valid(main) or not is_instance_valid(pony):
+static func sex_ready(host: Node, pony: Node3D) -> String:
+	if not is_instance_valid(host) or not is_instance_valid(pony):
 		return "No adult mare under the crosshair."
 	var refusal := _record_refusal(pony)
 	if not refusal.is_empty():
 		var refused_rows: Array[String] = ["record=refused: " + refusal]
-		return _report(main, pony, refused_rows)
+		return _report(host, pony, refused_rows)
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	var rows: Array[String] = []
 	rows.append("idle=" + idle(pony))
 	rows.append("cleared=" + clear_busy(pony))
-	rows.append_array(_write_record(main, pony, id))
-	rows.append("mood=" + _neutral_mood(main, pony, id))
+	rows.append_array(_write_record(host, pony, id))
+	rows.append("mood=" + _neutral_mood(host, pony, id))
 	rows.append("romance=untouched")
-	return _report(main, pony, rows)
+	return _report(host, pony, rows)
 
 
 ## The reason the game's bond record cannot be written, or "" when it can.
@@ -135,9 +135,9 @@ static func _raise_stage(row: Dictionary) -> String:
 
 ## Write the game's own bond record. The row is the save field the relationship runtime reads;
 ## this is a debug cheat, documented in docs/debug.md.
-static func _write_record(main: Node, pony: Node3D, id: String) -> Array[String]:
+static func _write_record(host: Node, pony: Node3D, id: String) -> Array[String]:
 	var out: Array[String] = []
-	if not is_instance_valid(main) or not is_instance_valid(pony):
+	if not is_instance_valid(host) or not is_instance_valid(pony):
 		out.append("refused: no pony")
 		return out
 	var bonds := _bonds(pony)
@@ -169,10 +169,10 @@ static func _write_record(main: Node, pony: Node3D, id: String) -> Array[String]
 
 
 ## The game's impressions write one neutral mood and report the mood before and after.
-static func _neutral_mood(main: Node, pony: Node3D, id: String) -> String:
+static func _neutral_mood(host: Node, pony: Node3D, id: String) -> String:
 	if not is_instance_valid(pony):
 		return "no pony"
-	if not is_instance_valid(main):
+	if not is_instance_valid(host):
 		return "no game"
 	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
@@ -198,7 +198,7 @@ static func _neutral_mood(main: Node, pony: Node3D, id: String) -> String:
 
 
 ## Print the detail block and return the one-line wheel toast.
-static func _report(_main: Node, pony: Node3D, rows: Array[String]) -> String:
+static func _report(_host: Node, pony: Node3D, rows: Array[String]) -> String:
 	var refused := not rows.is_empty() and rows[0].begins_with("record=refused:")
 	var title := "SEX READY %s" % str(pony.name)
 	LOG.block(title, rows)

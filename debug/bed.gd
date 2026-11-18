@@ -16,8 +16,8 @@ const TRANSPORT_FLOOR_M := 0.5
 
 
 ## The player's current bed, else the bed of the house he is in, else a bed under his feet.
-static func find_bed(main: Node) -> Node3D:
-	if not is_instance_valid(main):
+static func find_bed(host: Node) -> Node3D:
+	if not is_instance_valid(host):
 		return null
 	var body: Variant = WORLD.player
 	if not is_instance_valid(body) or not body is Node3D:
@@ -27,7 +27,7 @@ static func find_bed(main: Node) -> Node3D:
 		var from_seat := _bed_from_seat(seat)
 		if is_instance_valid(from_seat):
 			return from_seat
-	var home: Node3D = HOUSE.at(main.get_tree(), (body as Node3D).global_position)
+	var home: Node3D = HOUSE.at(host.get_tree(), (body as Node3D).global_position)
 	if is_instance_valid(home):
 		var bed: Variant = home.call("ensure_bed", "guest")
 		if not bed is Node3D or not is_instance_valid(bed):
@@ -40,19 +40,19 @@ static func find_bed(main: Node) -> Node3D:
 
 ## The BED section of Show data: the bed, Anon's seat, the stock rest's partner and the target's
 ## own cuddle flags, followed by the full cuddle-gate line.
-static func rows(main: Node, target: Node) -> Array[String]:
+static func rows(host: Node, target: Node) -> Array[String]:
 	var out: Array[String] = []
-	if not is_instance_valid(main):
-		out.append("main unavailable")
+	if not is_instance_valid(host):
+		out.append("host unavailable")
 		return out
-	var bed := find_bed(main)
+	var bed := find_bed(host)
 	if not is_instance_valid(bed):
 		out.append("bed=none")
 		return out
 	var body: Variant = WORLD.player
 	var seat: Variant = body.get("seat") if is_instance_valid(body) else null
 	out.append("bed=%s at=%s" % [str(bed.name), str(bed.global_position)])
-	out.append("player seat=%s lying=%s" % [_node_name(seat), str(_player_lying(main))])
+	out.append("player seat=%s lying=%s" % [_node_name(seat), str(_player_lying(host))])
 	var rest := _existing_rest(bed)
 	if not is_instance_valid(rest):
 		out.append("stock rest=not installed")
@@ -66,17 +66,17 @@ static func rows(main: Node, target: Node) -> Array[String]:
 			str(pony.get_meta("cuddle_active", false)),
 			str(pony.get_meta("couch_cuddle", false)),
 			str(_cuddle_session(pony))])
-		out.append(state_text(main, pony, rest))
+		out.append(state_text(host, pony, rest))
 	return out
 
 
 ## The wheel action: prepare the bed, recline Anon, move a far mare and call the stock accept path.
 ## The detailed result goes to the debug log; the one-line result is the wheel toast.
-static func invite(main: Node, target: Node) -> String:
-	if not is_instance_valid(main) or not is_instance_valid(target) or not target is Node3D:
+static func invite(host: Node, target: Node) -> String:
+	if not is_instance_valid(host) or not is_instance_valid(target) or not target is Node3D:
 		return "No mare under the crosshair."
 	var pony := target as Node3D
-	var bed := find_bed(main)
+	var bed := find_bed(host)
 	if not is_instance_valid(bed):
 		return "No bed found in this house."
 	var rest: Node3D = BED_REST.for_bed(bed)
@@ -87,27 +87,27 @@ static func invite(main: Node, target: Node) -> String:
 	notes.append("idle=" + PONY.idle(pony))
 	if _needs_transport(pony, bed):
 		notes.append("transport=" + _bring_to_bed(pony, rest))
-		await main.get_tree().create_timer(0.7).timeout
-		if not _alive(main, target, rest):
+		await host.get_tree().create_timer(0.7).timeout
+		if not _alive(host, target, rest):
 			return "Bed cuddle interrupted."
 		# Recompute once she is inside: the first pass ran outside the house, where the
 		# bed-front height test cannot match her floor.
 		notes.append("grounded=" + PONY.idle(pony))
 		notes.append("front=" + _bring_to_bed(pony, rest))
-	notes.append("player=" + _ensure_player_lying(main, rest))
-	if _player_lying(main):
+	notes.append("player=" + _ensure_player_lying(host, rest))
+	if _player_lying(host):
 		# Let the reclined avatar settle before inviting: the snuggle support takes its landing
 		# height from the avatar's hip and head targets.
-		await main.get_tree().create_timer(1.2).timeout
-		if not _alive(main, target, rest):
+		await host.get_tree().create_timer(1.2).timeout
+		if not _alive(host, target, rest):
 			return "Bed cuddle interrupted."
-	notes.append("state=" + state_text(main, pony, rest))
-	if not _player_lying(main):
+	notes.append("state=" + state_text(host, pony, rest))
+	if not _player_lying(host):
 		notes.append("Anon must be lying on the bed to cuddle")
-		return _report(main, pony, false, notes)
+		return _report(host, pony, false, notes)
 	var accepted := bool(rest.call("accept", pony))
 	notes.append("invite=" + str(accepted))
-	return _report(main, pony, accepted, notes)
+	return _report(host, pony, accepted, notes)
 
 
 static func _bed_from_seat(seat: Variant) -> Node3D:
@@ -137,8 +137,8 @@ static func _existing_rest(bed: Node3D) -> Node3D:
 	return child as Node3D if is_instance_valid(child) else null
 
 
-static func _player_lying(main: Node) -> bool:
-	if not is_instance_valid(main):
+static func _player_lying(host: Node) -> bool:
+	if not is_instance_valid(host):
 		return false
 	var body: Variant = WORLD.player
 	return is_instance_valid(body) and bool((body as Node).get_meta("couch_sleeping", false))
@@ -146,8 +146,8 @@ static func _player_lying(main: Node) -> bool:
 
 ## Sit Anon on the bed's player seat and lie him back. The stock sit path still enforces its 3 m
 ## reach, so a failed sit says to step closer instead of teleporting the rig.
-static func _ensure_player_lying(main: Node, rest: Node3D) -> String:
-	if _player_lying(main):
+static func _ensure_player_lying(host: Node, rest: Node3D) -> String:
+	if _player_lying(host):
 		return "already lying"
 	var body: Variant = WORLD.player
 	if not is_instance_valid(body):
@@ -209,7 +209,7 @@ static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 
 ## The full cuddle gate the old lab printed on Mouse4: the bed, the target's own blockers, the
 ## navigator lease and the player's recline state, one line.
-static func state_text(main: Node, pony: Node3D, rest: Node3D) -> String:
+static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	var bed: Variant = rest.get("_bed") if rest != null else null
 	var nav: Node = pony.get_node_or_null("Navigator")
@@ -274,13 +274,13 @@ static func state_text(main: Node, pony: Node3D, rest: Node3D) -> String:
 		reasons.append("guest=" + str((guest as Dictionary).get("state", "?")))
 	if not seat_free:
 		reasons.append("seat_busy")
-	if not _player_lying(main):
+	if not _player_lying(host):
 		reasons.append("player_not_lying")
 	return ("pony=%s bed=%s dist=%.2f eligible=%s player_lying=%s willing=%s mare_fits=%s "
 		+ "seat_free=%s guest=%s sleeper=%s | nav owner=%s target=%s reserved=%s | reasons=%s") % [
 		id, _node_name(bed), dist,
 		str(rest.call("eligible", pony)) if rest != null else "no_rest",
-		str(_player_lying(main)), str(willing),
+		str(_player_lying(host)), str(willing),
 		str(rest.get("_mare_fits")) if rest != null else "?",
 		str(seat_free),
 		str((guest as Dictionary).get("state", "?")) if guest is Dictionary \
@@ -297,12 +297,12 @@ static func _cuddle_session(pony: Node3D) -> bool:
 	return session != null and bool(session.get("enabled"))
 
 
-static func _alive(main: Node, target: Node, rest: Node3D) -> bool:
-	return is_instance_valid(main) and is_instance_valid(target) and is_instance_valid(rest) \
-		and main.is_inside_tree()
+static func _alive(host: Node, target: Node, rest: Node3D) -> bool:
+	return is_instance_valid(host) and is_instance_valid(target) and is_instance_valid(rest) \
+		and host.is_inside_tree()
 
 
-static func _report(_main: Node, pony: Node3D, accepted: bool, rows: Array[String]) -> String:
+static func _report(_host: Node, pony: Node3D, accepted: bool, rows: Array[String]) -> String:
 	var title := "BED CUDDLE %s %s" % [str(pony.name), "accepted" if accepted else "refused"]
 	LOG.block(title, rows)
 	return "Bed cuddle started for %s." % str(pony.name) if accepted \

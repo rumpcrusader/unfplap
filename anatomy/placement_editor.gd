@@ -5,6 +5,7 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Placement`).
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
@@ -21,7 +22,7 @@ func setup(service_node: Node, main_node: Node) -> void:
 func placement_target() -> Node:
 	if not is_instance_valid(main):
 		return null
-	var view: Camera3D = main.call("camera")
+	var view: Camera3D = WORLD.camera()
 	var target: Node = main.call("debug_target", view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
 		target = main.call("nearest_pony", view)

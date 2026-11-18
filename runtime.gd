@@ -1,6 +1,7 @@
 extends Node
 ## One per pony. Holds the act state machine and all per-act state. It never edits game files.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const REST_REJOIN := preload("res://mods/unfplap/rest/service.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
@@ -455,9 +456,9 @@ func _reactions_service() -> Variant:
 ## The VR scene handles the anatomy bridge wires into the VR act. The runtime owns the player
 ## scene; the bridge receives the nodes and never searches for them.
 func _vr_scene() -> Variant:
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
 		return null
-	var player: Node = main.player
+	var player: Node = WORLD.player
 	var avatar := player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
 		return null
@@ -1382,7 +1383,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _headset_view() -> bool:
-	return is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view"))
+	return is_instance_valid(main) and is_instance_valid(WORLD.game) and bool(WORLD.game.get("headset_view"))
 
 ## The act key is a deliberate hold, matching the game's 0.35 s bridal-carry hold. A tap does
 ## nothing, and the trigger latches until release so a held key cannot fire twice.
@@ -1579,7 +1580,7 @@ func _stool_act() -> Variant:
 	if _stool == null:
 		_stool = service.call("new_act")
 		_stool.log = Callable(self, "_log")
-	_stool.call("bind", service, main, pony, main.player, _anatomy_bridge.controller)
+	_stool.call("bind", service, main, pony, WORLD.player, _anatomy_bridge.controller)
 	return _stool
 
 
@@ -1675,8 +1676,8 @@ func _debug_context() -> Dictionary:
 			if love is Dictionary:
 				love_name = str((love as Dictionary).get("name", "?"))
 	var mood := "?"
-	if is_instance_valid(main) and is_instance_valid(main.game):
-		var ctx: Variant = main.game.get("world_context")
+	if is_instance_valid(main) and is_instance_valid(WORLD.game):
+		var ctx: Variant = WORLD.game.get("world_context")
 		if ctx != null and is_instance_valid(ctx):
 			var impressions: Variant = ctx.get("impressions")
 			if impressions != null and is_instance_valid(impressions) and impressions.has_method("profile"):
@@ -1691,7 +1692,7 @@ func _debug_context() -> Dictionary:
 		owner = str(nav.get("command_owner"))
 		target = bool(nav.get("_has_target"))
 		reserved = str(nav.get("reserved_by"))
-	var body: Variant = main.player if is_instance_valid(main) else null
+	var body: Variant = WORLD.player if is_instance_valid(main) else null
 	return {
 		"id": id, "display": display, "stage": relations.stage,
 		"love_name": love_name, "love_level": relations.love_level,
@@ -2390,8 +2391,7 @@ func adopt_body(new_pony: Node) -> void:
 		_log("body swap ended: the new body is not an adult mare pony=%s" % str(new_pony.name))
 		force_stop()
 		return
-	if is_instance_valid(main) and main.has_method("refresh_body_lod"):
-		main.call("refresh_body_lod", new_pony)
+	WORLD.refresh_body_lod(new_pony)
 
 
 ## The body-change binding's adopt hook. It runs only for a body this runtime already presents;
@@ -2525,8 +2525,7 @@ func _resume_after_body_swap() -> void:
 ## skipped because the act is continuing, not entering.
 func _rebuild_pose_for_swap(pose: String) -> void:
 	_snapshot_pony_bones()
-	var camera: Variant = main.call("camera") if is_instance_valid(main) \
-		and main.has_method("camera") else null
+	var camera: Camera3D = WORLD.camera()
 	var look: Vector3 = pony.global_position
 	var camera_at := Vector3.INF
 	if camera is Camera3D:
@@ -2638,10 +2637,10 @@ func _apply_form_display_name(form: BODY_FORM.BodyForm, new_pony: Node = null) -
 func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
 	var forward: Vector3 = -pony.global_basis.z
 	forward.y = 0.0
-	var has_player := is_instance_valid(main) and is_instance_valid(main.player) \
-		and main.player is Node3D
+	var has_player := is_instance_valid(main) and is_instance_valid(WORLD.player) \
+		and WORLD.player is Node3D
 	if forward.length_squared() < 0.0001 and has_player:
-		forward = -main.player.global_basis.z
+		forward = -WORLD.player.global_basis.z
 	forward = forward.normalized()
 	var standing := Transform3D(Basis.looking_at(forward, Vector3.UP), pony.global_position)
 	var stool: Variant = _stool_act()
@@ -2662,7 +2661,7 @@ func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
 		return standing
 	# The offer cone already requires him within 0.8 m of her rump, so the correction is small.
 	# The act end leaves him there instead of snapping him back.
-	var body: Variant = main.player
+	var body: Variant = WORLD.player
 	var target: Vector3 = pony.global_position - forward * _standing_gap(form)
 	var floor_y := _floor_y_at(Vector3(target.x, body.global_position.y + 0.4, target.z), body)
 	if not is_finite(floor_y) or absf(floor_y - body.global_position.y) > 1.0:
@@ -2761,7 +2760,7 @@ func _start_bed_stand_up() -> bool:
 	if bed == null:
 		return false
 	if not _player_pony:
-		var body: Variant = main.player
+		var body: Variant = WORLD.player
 		if body != null and body.has_method("force_stand_up"):
 			body.call("force_stand_up")
 	if source == "cradle":
@@ -2821,16 +2820,16 @@ func _floor_y_at(at: Vector3, body: Node3D) -> float:
 	return float(service.call("floor_y_at", at, body))
 
 func _standing_transform() -> Transform3D:
-	var view: Camera3D = main.camera()
+	var view: Camera3D = WORLD.camera()
 	var forward := Vector3.FORWARD
 	if view != null:
 		forward = -view.global_basis.z
 	forward.y = 0.0
 	if forward.length_squared() < 0.0001:
-		forward = -main.player.global_basis.z
+		forward = -WORLD.player.global_basis.z
 	forward = forward.normalized()
-	var at: Vector3 = main.player.global_position + forward * _standing_gap()
-	at.y = main.player.global_position.y
+	var at: Vector3 = WORLD.player.global_position + forward * _standing_gap()
+	at.y = WORLD.player.global_position.y
 	return Transform3D(Basis.looking_at(forward, Vector3.UP), at)
 
 func _standing_gap(form: BODY_FORM.BodyForm = null) -> float:
@@ -2928,7 +2927,7 @@ func _sync_pose_frame() -> void:
 func _build_pose() -> void:
 	_free_pose()
 	var session := _pose_service()
-	var view: Variant = main.call("camera") if is_instance_valid(main) and main.has_method("camera") else null
+	var view: Camera3D = WORLD.camera()
 	var look: Vector3 = pony.global_position
 	var camera_at := Vector3.INF
 	if view is Camera3D:
@@ -3924,13 +3923,13 @@ func _history_note() -> String:
 ## decisions and the line queueing.
 func _history_tick(delta: float) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(main) \
-			or not is_instance_valid(main.player):
+			or not is_instance_valid(WORLD.player):
 		return
 	var director := _director()
 	if director == null:
 		return
 	var target: Variant = pony.get("conversation_target")
-	var body: Variant = main.player_body()
+	var body: Variant = WORLD.player_body()
 	_dialogue_service().history_tick(delta, {
 		"main": main,
 		"pony": pony,
@@ -3943,8 +3942,8 @@ func _history_tick(delta: float) -> void:
 		"paused": get_tree().paused,
 		"speech_busy": _speech_busy(),
 		"director_state": str(director.get("state")),
-		"distance": main.player.global_position.distance_to(pony.global_position),
-		"target_is_player": target == main.player or target == body,
+		"distance": WORLD.player.global_position.distance_to(pony.global_position),
+		"target_is_player": target == WORLD.player or target == body,
 	})
 
 
@@ -3988,7 +3987,7 @@ func _tolerance_warn(level: int) -> void:
 
 
 func _queue_tolerance_warning(level: int) -> void:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.game):
 		return
 	if not _tolerance_warning_key.is_empty():
 		main.memory.cancel_line(_tolerance_warning_key)
@@ -4003,7 +4002,7 @@ func _queue_tolerance_warning(level: int) -> void:
 
 
 func _cancel_tolerance_warning() -> void:
-	if not _tolerance_warning_key.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
+	if not _tolerance_warning_key.is_empty() and is_instance_valid(main) and is_instance_valid(WORLD.game):
 		main.memory.cancel_line(_tolerance_warning_key)
 	_tolerance_warning_key = ""
 
@@ -4021,7 +4020,7 @@ func _stop_with_her(reason: String) -> void:
 	_commit_summary(false)
 	# The stopped summary already says why. The basic event is the fallback when the summary was
 	# skipped, so one partner stop is never two memories.
-	if _summary_service.summary.is_empty() and is_instance_valid(main) and is_instance_valid(main.game):
+	if _summary_service.summary.is_empty() and is_instance_valid(main) and is_instance_valid(WORLD.game):
 		main.memory.note(MEMORY.NoteKind.STOPPED, _id, _event_id, MEMORY.StopReason.WITHDREW)
 	if _pose_family() == "bed":
 		REST.release_managed(pony)
@@ -4053,7 +4052,7 @@ func _request_space() -> void:
 
 
 func _queue_stop_line(strict: bool) -> void:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.game):
 		return
 	var fallback := "Stop. I don't want to continue. Not now. Begin with [angry] or [sad]."
 	if strict:
@@ -4293,7 +4292,7 @@ func cycle_note() -> String:
 
 ## Short private relationship facts for normal dialogue. Empty outside a relationship runtime.
 func _relationship_note() -> String:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.game):
 		return ""
 	_read_id()
 	return RELATIONSHIP_CUE.note(main.memory.cue_facts(_id, _event_id).to_dict())
@@ -4658,7 +4657,7 @@ func _act_phase() -> String:
 ## First time uses the durable act history plus the world context, the same fact the cue prompt
 ## already gets.
 func _read_first_time() -> bool:
-	if not is_instance_valid(main) or not is_instance_valid(main.game) or _id.is_empty():
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.game) or _id.is_empty():
 		return false
 	var facts: MEMORY.CueFacts = main.memory.cue_facts(_id, _event_id)
 	return facts.first_time
@@ -4740,7 +4739,7 @@ func force_act_face(face: String) -> bool:
 func act_face_rows() -> Array[String]:
 	_bind_face()
 	var base_mood := ""
-	if is_instance_valid(main) and is_instance_valid(main.game) and not _id.is_empty():
+	if is_instance_valid(main) and is_instance_valid(WORLD.game) and not _id.is_empty():
 		var facts: MEMORY.CueFacts = main.memory.cue_facts(_id, _event_id)
 		base_mood = facts.mood
 	return _face.rows({
@@ -4776,7 +4775,7 @@ func _check_running() -> void:
 	if _hold.nav != null and is_instance_valid(_hold.nav) and str(_hold.nav.get("reserved_by")) != "":
 		_stop("interrupted")
 		return
-	if _pose_family() == "bed" and bed != null and main.bed_occupied(bed, pony):
+	if _pose_family() == "bed" and bed != null and WORLD.bed_occupied(bed, pony):
 		_stop("interrupted")
 		return
 	if _player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
@@ -4806,7 +4805,7 @@ func _begin_camera_mode() -> void:
 		_start_vr_act()
 	if _player_pony or _headset_view():
 		return
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
 		return
 	_camera_service().call("begin_free")
 	_sync_act_facts()

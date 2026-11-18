@@ -3,6 +3,7 @@ extends SceneTree
 ## rejoin decision and note, the restore posture and the early rejoin exits.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/rest/test_rest.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const REST := preload("res://mods/unfplap/rest/service.gd")
 
 var failures := 0
@@ -121,6 +122,7 @@ func _fixture() -> Dictionary:
 	var player := FakePlayer.new()
 	var main := FakeMain.new()
 	main.player = player
+	WORLD.bind_player(main.player)
 	var bed := Node3D.new()
 	bed.name = "GuestBed"
 	bed.set_meta("mattress_top", 0.6)

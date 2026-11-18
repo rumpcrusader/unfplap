@@ -289,6 +289,7 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | player, mares, camera and beds |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

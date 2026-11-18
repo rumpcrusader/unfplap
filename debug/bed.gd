@@ -3,6 +3,7 @@ extends RefCounted
 ## him back, brings a far mare to the bed approach and asks the game's own `SharedBed` to accept
 ## her. The wheel's Bed cuddle action and Show data's BED section both come through here.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const PONY := preload("res://mods/unfplap/debug/pony.gd")
@@ -17,12 +18,12 @@ const TRANSPORT_FLOOR_M := 0.5
 static func find_bed(main: Node) -> Node3D:
 	if not is_instance_valid(main):
 		return null
-	var body: Variant = main.get("player")
+	var body: Variant = WORLD.player
 	if not is_instance_valid(body) or not body is Node3D:
 		return null
 	var seat: Variant = body.get("seat")
 	if is_instance_valid(seat):
-		var from_seat := _bed_from_seat(main, seat)
+		var from_seat := _bed_from_seat(seat)
 		if is_instance_valid(from_seat):
 			return from_seat
 	var home: Node3D = HOUSE.at(main.get_tree(), (body as Node3D).global_position)
@@ -32,7 +33,7 @@ static func find_bed(main: Node) -> Node3D:
 			bed = home.call("ensure_bed", "")
 		if bed is Node3D and is_instance_valid(bed):
 			return bed as Node3D
-	var under: Variant = main.call("bed_under", (body as Node3D).global_position)
+	var under: Variant = WORLD.bed_under((body as Node3D).global_position)
 	return under as Node3D if under is Node3D and is_instance_valid(under) else null
 
 
@@ -47,7 +48,7 @@ static func rows(main: Node, target: Node) -> Array[String]:
 	if not is_instance_valid(bed):
 		out.append("bed=none")
 		return out
-	var body: Variant = main.get("player")
+	var body: Variant = WORLD.player
 	var seat: Variant = body.get("seat") if is_instance_valid(body) else null
 	out.append("bed=%s at=%s" % [str(bed.name), str(bed.global_position)])
 	out.append("player seat=%s lying=%s" % [_node_name(seat), str(_player_lying(main))])
@@ -108,7 +109,7 @@ static func invite(main: Node, target: Node) -> String:
 	return _report(main, pony, accepted, notes)
 
 
-static func _bed_from_seat(main: Node, seat: Variant) -> Node3D:
+static func _bed_from_seat(seat: Variant) -> Node3D:
 	if not seat is Node or not is_instance_valid(seat):
 		return null
 	var couch: Variant = (seat as Node).get_meta("couch") if (seat as Node).has_meta("couch") \
@@ -119,7 +120,7 @@ static func _bed_from_seat(main: Node, seat: Variant) -> Node3D:
 			bound = couch.get("bed_node")
 		if bound is Node3D and is_instance_valid(bound):
 			return bound as Node3D
-	var real: Variant = main.call("real_bed", seat)
+	var real: Variant = WORLD.real_bed(seat)
 	return real as Node3D if real is Node3D and is_instance_valid(real) else null
 
 
@@ -138,7 +139,7 @@ static func _existing_rest(bed: Node3D) -> Node3D:
 static func _player_lying(main: Node) -> bool:
 	if not is_instance_valid(main):
 		return false
-	var body: Variant = main.get("player")
+	var body: Variant = WORLD.player
 	return is_instance_valid(body) and bool((body as Node).get_meta("couch_sleeping", false))
 
 
@@ -147,7 +148,7 @@ static func _player_lying(main: Node) -> bool:
 static func _ensure_player_lying(main: Node, rest: Node3D) -> String:
 	if _player_lying(main):
 		return "already lying"
-	var body: Variant = main.get("player")
+	var body: Variant = WORLD.player
 	if not is_instance_valid(body):
 		return "no player"
 	var seats: Variant = rest.get("seats") if rest != null else null

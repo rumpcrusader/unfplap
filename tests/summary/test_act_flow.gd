@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/summary/test_act_flow.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
@@ -194,6 +195,7 @@ func _check_peak_commit() -> void:
 	root.add_child(sink)
 	var main := FakeMain.new()
 	main.game = game
+	WORLD.bind_world(main.game)
 	main.memory = sink
 	root.add_child(main)
 	var summary := SUMMARY.new()
@@ -242,6 +244,7 @@ func _check_commit() -> void:
 	root.add_child(impressions)
 	var main := FakeMain.new()
 	main.game = game
+	WORLD.bind_world(main.game)
 	main.memory = MEMORY.new()
 	main.memory.setup(main)
 	root.add_child(main)

@@ -2,6 +2,7 @@ extends SceneTree
 ## The standing placement raises the player onto the stool and lowers him again.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_placement.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -62,6 +63,7 @@ func run() -> void:
 
 	var main := FakeMain.new()
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.stool = STOOL.new()
 	main.stool.call("setup", main)
 	root.add_child(main)

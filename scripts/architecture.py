@@ -93,6 +93,10 @@ POSE_FANOUT_ORDER = (
     "_anatomy_bridge",
     "_act_audio",
 )
+# The world facade is the scene read surface: the game, the player rig and the shared modules.
+WORLD_ALLOWED = ("res://world/", "res://player/", "res://mods/unfplap/shared/")
+WORLD_IMPORT = re.compile(r'(?:preload|load)\("(res://[^"]+\.gd)"\)')
+WORLD_EXTENDS = re.compile(r'^extends\s+"(res://[^"]+)"', re.MULTILINE)
 SETTINGS_DECLARATION = re.compile(
     r"^\s*static var \w+.*:=\s*(?:flag|num|choice|list|color)\(", re.MULTILINE)
 
@@ -401,6 +405,7 @@ def check_docs(failure: Failure) -> int:
 
 
 PURPOSE = {
+    "world/service.gd": "live scene reads",
     "settings/service.gd": "settings declarations and live values",
     "registry/service.gd": "provider layers and stable ids",
     "eligibility/service.gd": "adult and consent gate",
@@ -515,6 +520,7 @@ def replace_uses(text: str, block: str) -> str:
 
 
 LIFECYCLES = {
+    "world": ("world", "static initialization", "`bind_world()`/`bind_player()`", "`unbind()`/world close", "yes"),
     "settings": ("world", "`main._ready()`", "registry load", "process exit", "yes"),
     "registry": ("process", "static initialization", "none", "`reset()`", "yes"),
     "eligibility": ("world", "`main._ready()`", "`setup()`", "`clear()`", "yes"),
@@ -1005,6 +1011,38 @@ def check_sources(failure: Failure) -> None:
             failure.add("docs/%s.md names no test path that exists" % sid)
 
 
+def check_boundaries(failure: Failure) -> None:
+    """The composition-root rules: no reach-in into the entry, and a scene-only world facade."""
+    # A private reach-in is `get("_name")`/`call("_name")` through the entry or a runtime. A
+    # public member reached by string is still a locator; the full rule lands with the last
+    # owner (the service list replaces the string lookups).
+    reach_in = re.compile(r'\b(?:main|runtime)\.(?:call|get)\("_')
+    for path in shipped_sources():
+        if path == ROOT / "main.gd":
+            continue
+        text = path.read_text(encoding="utf-8")
+        for match in reach_in.finditer(text):
+            failure.add("%s:%d reaches into a private member: %s" % (
+                rel(path), line_of(text, match.start()), match.group(0)))
+
+    # The world facade answers where and what from the scene alone: it imports the game and the
+    # shared pure modules, never a service facade, the runtime or the entry.
+    world = ROOT / "world" / "service.gd"
+    if not world.is_file():
+        failure.add("missing world/service.gd")
+        return
+    source = "\n".join(
+        line for line in world.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#"))
+    text = source
+    imports = [(m.group(1), m.start()) for m in WORLD_IMPORT.finditer(text)]
+    imports += [(m.group(1), m.start()) for m in WORLD_EXTENDS.finditer(text)]
+    for target, at in imports:
+        if target.startswith(WORLD_ALLOWED):
+            continue
+        failure.add("world/service.gd:%d may not import %s" % (line_of(text, at), target))
+
+
 def check() -> int:
     failure = Failure()
     violations = scan_violations()
@@ -1012,6 +1050,7 @@ def check() -> int:
     check_docs(failure)
     check_typing(failure)
     check_sources(failure)
+    check_boundaries(failure)
     check_tests(failure)
     failures = len(failure.messages)
     for message in failure.messages:

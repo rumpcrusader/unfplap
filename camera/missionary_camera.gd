@@ -9,6 +9,7 @@ extends RefCounted
 ## tilts the eye and the thrust surge travels along the mattress, so the shot drifts around the two
 ## bodies instead of following the authored positions.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -78,16 +79,16 @@ func prepare() -> void:
 ## eye height and the camera have finished moving, and nothing else changes after it.
 func resnapshot() -> void:
 	_sync()
-	if not is_instance_valid(main) or not is_instance_valid(main.player) \
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.player) \
 			or not is_instance_valid(pony):
 		return
 	# Only the *game* camera's transform is refreshed. `_missionary_start_camera` stays the game camera
 	# captured by `prepare()`; asking the viewport now would return the act's own view, which is freed
 	# at the end.
-	_missionary_start_player_transform = main.player.global_transform
-	if is_instance_valid(main.camera()):
-		_missionary_start_camera = main.camera()
-		_missionary_start_camera_transform = main.camera().global_transform
+	_missionary_start_player_transform = WORLD.player.global_transform
+	if is_instance_valid(WORLD.camera()):
+		_missionary_start_camera = WORLD.camera()
+		_missionary_start_camera_transform = WORLD.camera().global_transform
 	_missionary_start_pony_transform = pony.global_transform
 	_missionary_start_pony_posture = str(pony.call("posture_status").get("requested", ""))
 	_missionary_start_bed_saved = is_instance_valid(bed)
@@ -505,7 +506,7 @@ func _missionary_head_look_point(view: Camera3D) -> Vector3:
 func _make_missionary_view() -> void:
 	if bool(facts.player_pony) or not is_instance_valid(pony):
 		return
-	if is_instance_valid(main) and is_instance_valid(main.game) and bool(main.game.get("headset_view")):
+	if is_instance_valid(main) and is_instance_valid(WORLD.game) and bool(WORLD.game.get("headset_view")):
 		return
 	_missionary_prev_camera = facts.viewport.get_camera_3d() \
 		if facts.viewport != null else null
@@ -513,7 +514,7 @@ func _make_missionary_view() -> void:
 	_missionary_view.name = "UnfplapMissionaryView"
 	_missionary_view.top_level = true
 	_missionary_view.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	var source: Camera3D = main.camera() if is_instance_valid(main) else null
+	var source: Camera3D = WORLD.camera() if is_instance_valid(main) else null
 	if is_instance_valid(source):
 		if not _missionary_player_rot_saved:
 			_missionary_player_rotation = source.rotation
@@ -547,8 +548,8 @@ func _free_missionary_view() -> void:
 			_missionary_prev_camera.fov, _missionary_prev_camera.near,
 			_missionary_prev_camera.far])
 	_missionary_prev_camera = null
-	if is_instance_valid(main) and is_instance_valid(main.player):
-		var source: Camera3D = main.camera() if is_instance_valid(main) else null
+	if is_instance_valid(main) and is_instance_valid(WORLD.player):
+		var source: Camera3D = WORLD.camera() if is_instance_valid(main) else null
 		if _missionary_player_rot_saved and is_instance_valid(source):
 			source.rotation = _missionary_player_rotation
 	_missionary_player_rot_saved = false
@@ -561,8 +562,8 @@ func _snapshot_missionary_start() -> void:
 		if facts.viewport != null else null
 	if is_instance_valid(_missionary_start_camera):
 		_missionary_start_camera_transform = _missionary_start_camera.global_transform
-	if is_instance_valid(main) and is_instance_valid(main.player):
-		_missionary_start_player_transform = main.player.global_transform
+	if is_instance_valid(main) and is_instance_valid(WORLD.player):
+		_missionary_start_player_transform = WORLD.player.global_transform
 	if is_instance_valid(pony):
 		_missionary_start_pony_transform = pony.global_transform
 		_missionary_start_pony_posture = str(pony.call("posture_status").get("requested", ""))
@@ -583,10 +584,10 @@ func _pose_family() -> String:
 ## player rig. The act's own body (`poses/missionary_anon.gd`) is placed and posed over it after this.
 func _hide_anon_avatar_for_missionary() -> void:
 	if _pose_family() != "bed" or not is_instance_valid(main) \
-			or not is_instance_valid(main.player):
+			or not is_instance_valid(WORLD.player):
 		return
-	if not is_instance_valid(_desktop_presentation) and is_instance_valid(main.game):
-		var presentation: Variant = main.game.get("desktop_presentation")
+	if not is_instance_valid(_desktop_presentation) and is_instance_valid(WORLD.game):
+		var presentation: Variant = WORLD.game.get("desktop_presentation")
 		if is_instance_valid(presentation):
 			_desktop_presentation = presentation as Node
 			var enabled: Variant = presentation.get("_enabled")
@@ -616,7 +617,7 @@ func _restore_anon_avatar() -> void:
 ## found them. The act's own state is over here; the runtime's bed cuddle rejoin starts from this
 ## restored standing spot.
 func _restore_scene() -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not is_instance_valid(pony) or not is_instance_valid(main) or not is_instance_valid(WORLD.player):
 		return
 	if not _missionary_start_saved:
 		return
@@ -630,7 +631,7 @@ func _restore_scene() -> void:
 		bed_shift = (bed as Node3D).global_position.distance_to(_missionary_start_bed_transform.origin)
 	# Player/pony first, camera last: setting the player yaw rotates a child camera, so the snapshot
 	# camera transform must be applied after the rig is back in place.
-	main.player.global_transform = delta * _missionary_start_player_transform
+	WORLD.player.global_transform = delta * _missionary_start_player_transform
 	pony.global_transform = delta * _missionary_start_pony_transform
 	pony.reset_physics_interpolation()
 	if is_instance_valid(_missionary_start_camera):

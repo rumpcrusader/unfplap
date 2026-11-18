@@ -6,6 +6,7 @@ extends SceneTree
 ## Fake nodes only: the helper touches a pony's Navigator, CuddleSession, act metas and public
 ## posture state, never a game file.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 
 var failures := 0
@@ -185,6 +186,7 @@ func _fixture(pony_name: String, stage := "acquaintance") -> Fixture:
 	fixture.impressions = FakeImpressions.new()
 	fixture.impressions.name = "FakeImpressions"
 	fixture.main.game = fixture.game
+	WORLD.bind_world(fixture.main.game)
 	fixture.game.world_context = fixture.context
 	fixture.context.impressions = fixture.impressions
 	root.add_child(fixture.main)

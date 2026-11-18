@@ -7,6 +7,7 @@ extends Node
 ##
 ## The asset carries every bone of his rig, so the file is the whole pose (see `poses/pose_lab.gd`).
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const HIP := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
@@ -101,9 +102,9 @@ var _palm_scale: SkeletonModifier3D
 func install(context: Variant) -> bool:
 	facts = context
 	main = facts.main if facts != null else null
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
 		return false
-	avatar = main.player.find_child("AnonBody", true, false) as Node3D
+	avatar = WORLD.player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
 		return false
 	skeleton = avatar.find_child("Skeleton3D", true, false) as Skeleton3D

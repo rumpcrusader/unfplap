@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/initiation/test_initiation_api.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const INIT := preload("res://mods/unfplap/initiation/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -232,7 +233,9 @@ func _fixture() -> Dictionary:
 	game.world_context = context
 	game.mares = [target]
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.game = game
+	WORLD.bind_world(main.game)
 	main.eligibility = eligibility
 	main.runtimes[target] = runtime
 	main.offer_target_value = target

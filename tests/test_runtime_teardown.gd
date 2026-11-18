@@ -2,6 +2,7 @@ extends SceneTree
 ## Act exit paths: one teardown, every borrowed value restored, safe to call twice.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_teardown.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -207,7 +208,9 @@ func _fixture() -> Dictionary:
 	var game: FakeGame = FakeGame.new()
 	game.inventory = FakeInventory.new()
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.game = game
+	WORLD.bind_world(main.game)
 	main.memory = FakeMemory.new()
 	runtime.add_child(pony)
 	runtime.add_child(nav)

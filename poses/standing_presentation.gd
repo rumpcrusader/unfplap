@@ -3,6 +3,7 @@ extends RefCounted
 ## is not the act: no camera, player lock, HUD or sex_active. The runtime only forwards the public
 ## calls.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -85,8 +86,8 @@ func present_standing() -> bool:
 	# the turn, once she is in position.
 	if not _present_hold:
 		_set_presentation_hold(true)
-	var player: Variant = main.player
-	var view: Camera3D = main.camera()
+	var player: Variant = WORLD.player
+	var view: Camera3D = WORLD.camera()
 	var target: Vector3 = pony.global_position - Vector3.FORWARD
 	if is_instance_valid(view):
 		target = view.global_position
@@ -338,7 +339,7 @@ func _presentation_valid() -> bool:
 		return false
 	if float(pony.actual_speed) > 0.10:
 		return false
-	var player: Variant = main.player
+	var player: Variant = WORLD.player
 	if is_instance_valid(player) and player.global_position.distance_to(pony.global_position) > 8.0:
 		return false
 	return true
@@ -421,7 +422,7 @@ func _presentation_turn_valid() -> bool:
 	var status: Dictionary = pony.posture_status()
 	if str(status.get("requested", "")) != "stand":
 		return false
-	var player: Variant = main.player
+	var player: Variant = WORLD.player
 	if is_instance_valid(player) and player.global_position.distance_to(pony.global_position) > 8.0:
 		return false
 	return true
@@ -511,7 +512,7 @@ func _presentation_process() -> void:
 	if not _presentation_valid():
 		clear_presentation()
 		return
-	var view: Camera3D = main.camera() if is_instance_valid(main) else null
+	var view: Camera3D = WORLD.camera() if is_instance_valid(main) else null
 	if is_instance_valid(_present_pose) and is_instance_valid(view):
 		_present_pose.look_point = view.global_position
 		_present_pose.head_back = 0.0
@@ -531,8 +532,8 @@ func _present_glance_angles() -> Vector3:
 	if pony.has_method("listen_point"):
 		head = pony.call("listen_point")
 	var target: Vector3 = head
-	if is_instance_valid(main) and is_instance_valid(main.player):
-		var view: Camera3D = main.camera()
+	if is_instance_valid(main) and is_instance_valid(WORLD.player):
+		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			target = view.global_position
 	var local: Vector3 = pony.global_basis.inverse() * (target - head)
@@ -557,7 +558,7 @@ func _present_aim_eyes() -> void:
 	var eye_motion: Variant = pony.get("eye_motion")
 	if eye_motion == null or not is_instance_valid(eye_motion):
 		return
-	var view: Camera3D = main.camera() if is_instance_valid(main) else null
+	var view: Camera3D = WORLD.camera() if is_instance_valid(main) else null
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
 	eye_motion.set("target_world", target)
 	eye_motion.set("target_weight", 1.0)

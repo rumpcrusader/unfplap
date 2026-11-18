@@ -4,6 +4,7 @@ extends SceneTree
 ##
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_input.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
@@ -16,25 +17,55 @@ var checks := 0
 class FakeMain extends Node:
 	var active_runtime: Node = null
 	var starts := 0
-	var chats := 0
-	var panels := false
 
 	func try_start() -> bool:
 		starts += 1
 		return true
 
-	func open_act_chat() -> bool:
-		chats += 1
-		return true
-
-	func menu_panel_open() -> bool:
-		return panels
-
 	func skeleton_click() -> bool:
 		return false
 
-	func headset_view() -> bool:
+
+class FakeWorld extends Node:
+	var headset_view := true
+	var save_menu: Variant = null
+
+	func _init() -> void:
+		var chat := FakeChat.new()
+		chat.name = "ChatBox"
+		add_child(chat)
+
+
+class FakeChat extends Node:
+	var opened := 0
+	var _lock_owned := false
+
+	func _open() -> bool:
+		opened += 1
 		return true
+
+
+class FakePanel extends Node:
+	var opened := false
+
+
+class FakePlayer extends Node3D:
+	var controls_locked := false
+
+
+## The input service reads the scene through the world facade: a headset eye, a chat box and the
+## menu panels.
+func _world() -> Dictionary:
+	var world := FakeWorld.new()
+	root.add_child(world)
+	var menu := FakePanel.new()
+	world.add_child(menu)
+	world.save_menu = menu
+	WORLD.bind_world(world)
+	var player := FakePlayer.new()
+	root.add_child(player)
+	WORLD.bind_player(player)
+	return {"world": world, "chat": world.get_node("ChatBox"), "menu": menu}
 
 
 class FakeRuntime extends Node:
@@ -131,6 +162,7 @@ func _check_injection() -> void:
 func _check_action() -> void:
 	var before := int(SETTINGS.act_key.get_num())
 	SETTINGS.act_key.set_num(float(KEY_6))
+	var scene := _world()
 	var main := FakeMain.new()
 	root.add_child(main)
 	var service := INPUT.new()
@@ -189,6 +221,7 @@ func _check_action() -> void:
 func _check_shield() -> void:
 	var before := SETTINGS.act_input_shield.get_bool()
 	SETTINGS.act_input_shield.set_bool(true)
+	var scene := _world()
 	var main := FakeMain.new()
 	root.add_child(main)
 	var service := INPUT.new()
@@ -234,12 +267,12 @@ func _check_shield() -> void:
 	check(not root.is_input_handled(), "a paused tree keeps its keys")
 	paused = false
 	await _release(KEY_P)
-	main.panels = true
+	(scene["menu"] as FakePanel).opened = true
 	await _hold(service, KEY_P)
 	_reset_handled()
 	service.call("_input", _key(KEY_P))
 	check(not root.is_input_handled(), "an open panel keeps its keys")
-	main.panels = false
+	(scene["menu"] as FakePanel).opened = false
 	await _release(KEY_P)
 
 	# The pass list stays live.
@@ -255,7 +288,7 @@ func _check_shield() -> void:
 	await _hold(service, KEY_ENTER)
 	_reset_handled()
 	service.call("_input", _key(KEY_ENTER))
-	check(main.chats == 1, "Enter opens the act chat")
+	check(int((scene["chat"] as FakeChat).opened) == 1, "Enter opens the act chat")
 	check(root.is_input_handled(), "Enter is consumed by the chat")
 	await physics_frame
 	check(Input.is_physical_key_pressed(KEY_ENTER), "Enter keeps its state")
@@ -297,6 +330,7 @@ func _check_shield() -> void:
 func _check_act_commands() -> void:
 	var before := SETTINGS.act_input_shield.get_bool()
 	SETTINGS.act_input_shield.set_bool(true)
+	var scene := _world()
 	var main := FakeMain.new()
 	root.add_child(main)
 	var service := INPUT.new()

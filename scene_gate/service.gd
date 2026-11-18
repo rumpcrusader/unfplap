@@ -4,6 +4,7 @@ extends RefCounted
 ## start/offer verdicts, the debug status line and the buck/push. Eligibility owns the policy.
 ## Contract: `docs/scene_gate.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -124,7 +125,7 @@ func rows(pose: String, act_source: String, bed_in: Variant, mode: String,
 		var found: Node3D = resolve_bed(pose, act_source, bed_in)
 		_row(rows_out, "bed", found != null, "no_bed")
 		if found != null:
-			_row(rows_out, "bed_occupied", not main.bed_occupied(found, pony), "bed_occupied")
+			_row(rows_out, "bed_occupied", not WORLD.bed_occupied(found, pony), "bed_occupied")
 			if mode == "start":
 				_row(rows_out, "bed_gate", bed_gate(pose, act_source, found), "bed_gate")
 	elif mode == "offer":
@@ -173,9 +174,9 @@ func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 	var rows_out: Array[ELIGIBILITY.Row] = []
 	_gate_row(rows_out, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	_gate_row(rows_out, "no_main", is_instance_valid(main), "no_main")
-	_gate_row(rows_out, "no_player", is_instance_valid(main) and is_instance_valid(main.player),
+	_gate_row(rows_out, "no_player", is_instance_valid(main) and is_instance_valid(WORLD.player),
 		"no_player")
-	_gate_row(rows_out, "no_game", is_instance_valid(main) and is_instance_valid(main.game),
+	_gate_row(rows_out, "no_game", is_instance_valid(main) and is_instance_valid(WORLD.game),
 		"no_game")
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		return _scene_only_result(rows_out)
@@ -218,7 +219,7 @@ func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 		var found: Node3D = resolve_bed(pose, act_source, bed)
 		_gate_row(rows_out, "bed", found != null, "no_bed")
 		if found != null:
-			_gate_row(rows_out, "bed_occupied", not main.bed_occupied(found, pony), "bed_occupied")
+			_gate_row(rows_out, "bed_occupied", not WORLD.bed_occupied(found, pony), "bed_occupied")
 			_gate_row(rows_out, "bed_gate", bed_gate(pose, act_source, found), "bed_gate")
 	elif bool(scene.get("standing_free", false)):
 		_gate_row(rows_out, "standing_free",
@@ -259,11 +260,11 @@ func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
 	_gate_row(structural, "no_main", is_instance_valid(main), "no_main")
 	if not is_instance_valid(main):
 		return {"rows": structural, "policy": null, "scene_ok": false}
-	_gate_row(structural, "no_player", is_instance_valid(main.player), "no_player")
-	if not is_instance_valid(main.player):
+	_gate_row(structural, "no_player", is_instance_valid(WORLD.player), "no_player")
+	if not is_instance_valid(WORLD.player):
 		return {"rows": structural, "policy": null, "scene_ok": false}
-	_gate_row(structural, "no_game", is_instance_valid(main.game), "no_game")
-	if not is_instance_valid(main.game):
+	_gate_row(structural, "no_game", is_instance_valid(WORLD.game), "no_game")
+	if not is_instance_valid(WORLD.game):
 		return {"rows": structural, "policy": null, "scene_ok": false}
 	var policy_mode: ELIGIBILITY.Mode = ELIGIBILITY.Mode.OFFER if mode == "offer" \
 		else ELIGIBILITY.Mode.START
@@ -413,9 +414,9 @@ func buck_or_push() -> bool:
 		return false
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection != null and affection.has_method("buck"):
-		if bool(affection.call("buck", main.player_body())):
+		if bool(affection.call("buck", WORLD.player_body())):
 			return true
-	var body: Variant = main.player
+	var body: Variant = WORLD.player
 	if not is_instance_valid(body):
 		return false
 	var knockdown: Variant = body.get("knockdown")
@@ -435,12 +436,12 @@ func conversation_ok() -> bool:
 	var target: Variant = pony.get("conversation_target")
 	if target == null or not is_instance_valid(target):
 		return true
-	var body: Node3D = main.player_body()
-	if target == main.player or target == body:
+	var body: Node3D = WORLD.player_body()
+	if target == WORLD.player or target == body:
 		return true
 	# The player's body/avatar is under the rig; another pony's is not.
-	if is_instance_valid(main.player) and main.player is Node \
-			and (main.player as Node).is_ancestor_of(target as Node):
+	if is_instance_valid(WORLD.player) and WORLD.player is Node \
+			and (WORLD.player as Node).is_ancestor_of(target as Node):
 		return true
 	return false
 
@@ -592,7 +593,7 @@ func bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 			return false
 	var tree: SceneTree = pony.get_tree()
 	if act_source == "cradle":
-		var reach: Node = main.interactor()
+		var reach: Node = WORLD.interactor()
 		if not is_instance_valid(reach):
 			return false
 		if reach.get("held") != pony or reach.get("cradled") != true:
@@ -605,24 +606,24 @@ func bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 		var status: Dictionary = pony.posture_status()
 		if str(status.get("requested", "")) != "lie_down" or not bool(status.get("settled", false)):
 			return false
-		return main.player_beside_bed(found)
+		return WORLD.player_beside_bed(found)
 	if not PLAYER_FORM.is_pony(PLAYER_FORM.active(tree)):
 		return false
 	var status2: Dictionary = pony.posture_status()
 	if str(status2.get("requested", "")) != "lie_down" or not bool(status2.get("settled", false)):
 		return false
-	return main.player_beside_bed(found)
+	return WORLD.player_beside_bed(found)
 
 
 func resolve_bed(pose: String, act_source: String, bed_in: Variant) -> Node3D:
 	if not _is_bed_pose(pose) or not is_instance_valid(main):
 		return null
 	if bed_in is Node3D and is_instance_valid(bed_in):
-		var real: Variant = main.real_bed(bed_in) if main.has_method("real_bed") else bed_in
+		var real := WORLD.real_bed(bed_in)
 		if real is Node3D and is_instance_valid(real):
 			return real
 	if act_source == "cradle":
-		return main.bed_for_cradle(pony)
+		return WORLD.bed_for_cradle(pony)
 	return find_bed_under()
 
 
@@ -630,13 +631,13 @@ func find_bed_under() -> Node3D:
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		return null
 	var exclude: RID = pony.get_rid() if pony is CollisionObject3D else RID()
-	return main.bed_under(pony.global_position, exclude)
+	return WORLD.bed_under(pony.global_position, exclude)
 
 
 func player_ready_for(pose: String, act_source: String, bed_in: Variant) -> bool:
 	if not is_instance_valid(main):
 		return false
-	var body: Variant = main.player
+	var body: Variant = WORLD.player
 	if not is_instance_valid(body):
 		return false
 	# A headset rig is a plain Node3D: it has neither desktop `controls_locked` nor `flying`, and
@@ -656,8 +657,8 @@ func player_ready_for(pose: String, act_source: String, bed_in: Variant) -> bool
 	if DisplayServer.get_name() != "headless" and not headset_view() \
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return false
-	var inventory: Variant = main.game.get("inventory") \
-		if is_instance_valid(main.game) else null
+	var inventory: Variant = WORLD.game.get("inventory") \
+		if is_instance_valid(WORLD.game) else null
 	if inventory != null:
 		var held: Variant = inventory.get("held")
 		if held is Dictionary and not (held as Dictionary).is_empty():
@@ -675,7 +676,7 @@ func player_ready_for(pose: String, act_source: String, bed_in: Variant) -> bool
 			return false
 	elif act_source == "already_lying":
 		var found: Node3D = resolve_bed(pose, act_source, bed_in)
-		if not main.player_beside_bed(found):
+		if not WORLD.player_beside_bed(found):
 			return false
 	elif act_source == "bed_side":
 		if seat == null:
@@ -684,7 +685,7 @@ func player_ready_for(pose: String, act_source: String, bed_in: Variant) -> bool
 		if rest != null and is_instance_valid(rest) and float(rest.get("amount")) < 0.99:
 			return false
 		var found_bed: Node3D = resolve_bed(pose, act_source, bed_in)
-		if not main.player_beside_bed(found_bed):
+		if not WORLD.player_beside_bed(found_bed):
 			return false
 	return true
 
@@ -730,8 +731,8 @@ func _view_id() -> String:
 
 
 func headset_view() -> bool:
-	return is_instance_valid(main) and is_instance_valid(main.game) \
-		and main.game.get("headset_view") == true
+	return is_instance_valid(main) and is_instance_valid(WORLD.game) \
+		and WORLD.game.get("headset_view") == true
 
 
 func _row(rows_out: Array, key: String, ok: bool, reason := "") -> void:

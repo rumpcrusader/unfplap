@@ -292,6 +292,7 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | menu, player and world context |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

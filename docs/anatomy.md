@@ -944,6 +944,7 @@ stay event-time reads.
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | the player body and the live scene |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

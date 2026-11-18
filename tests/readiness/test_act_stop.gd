@@ -5,6 +5,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/readiness/test_act_stop.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
@@ -193,7 +194,9 @@ func fixture(kind: String) -> Dictionary:
 	pony.add_child(affection)
 	pony.set_meta("relationship_runtime", relation)
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.game = game
+	WORLD.bind_world(main.game)
 	main.hud = hud
 	var memory := MEMORY.new()
 	memory.setup(main)

@@ -116,6 +116,7 @@ matching `player/player_mouth.gd`. See `docs/settings.md` for the settings frame
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | player, game and camera |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

@@ -3,6 +3,7 @@ extends CanvasLayer
 ## Buttons and words follow the game's own prompt row (world/ui/interaction_hints.gd): a cartoon
 ## key cap or controller icon beside light words with a dark outline, never a drop shadow.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
@@ -430,7 +431,7 @@ func set_inventory_hidden(hidden: bool) -> void:
 	var main := get_parent()
 	if not is_instance_valid(main):
 		return
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return
 	var inventory: Variant = game.get("inventory")

@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_camera/test_camera.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
@@ -43,6 +44,7 @@ class FakeShotFacts extends RefCounted:
 
 
 class FakePlayer extends Node3D:
+	var camera: Variant = null
 	var _stand_eye: Variant = 1.7
 	var _eye_height: Variant = 1.7
 	var _pitch: Variant = 0.0
@@ -170,8 +172,10 @@ func _fixture() -> Dictionary:
 	var player := FakePlayer.new()
 	main.add_child(player)
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.view = Camera3D.new()
 	main.add_child(main.view)
+	player.camera = main.view
 	root.add_child(main)
 	var facts: RefCounted = FACTS.new()
 	facts.main = main

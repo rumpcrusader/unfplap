@@ -169,6 +169,7 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | menus, headset, player and the act chat |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

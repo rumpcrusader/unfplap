@@ -3,6 +3,7 @@ extends Node
 ## While an act is active it consumes the act keys and the interaction keys, and keeps the
 ## game's own stand_up poll from force-standing a seated player.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
@@ -85,7 +86,7 @@ func _keep_mouse_captured() -> bool:
 		return false
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		return false
-	if main.has_method("menu_panel_open") and bool(main.call("menu_panel_open")):
+	if WORLD.menu_panel_open():
 		return false
 	# integration: the act chat owns the cursor while its field has focus.
 	var focus := get_viewport().gui_get_focus_owner()
@@ -101,12 +102,11 @@ func _keep_mouse_captured() -> bool:
 ## The eye is in a headset: the stock game leaves the desktop cursor visible, so act input must not
 ## require it captured.
 func _headset() -> bool:
-	return is_instance_valid(main) and main.has_method("headset_view") \
-		and bool(main.call("headset_view"))
+	return WORLD.headset_view()
 
 
 func _suppress_seated_q() -> void:
-	var body: Variant = main.get("player")
+	var body: Variant = WORLD.player
 	if not is_instance_valid(body):
 		return
 	if body.get("seat") != null:
@@ -119,14 +119,14 @@ func _suppress_seated_q() -> void:
 func _restore_seated_q() -> void:
 	if not _suppress_q:
 		return
-	var body: Variant = main.get("player")
+	var body: Variant = WORLD.player
 	if is_instance_valid(body):
 		body.set("_q_held", _old_q)
 	_suppress_q = false
 
 
 func _hold_movement() -> void:
-	var body: Variant = main.get("player")
+	var body: Variant = WORLD.player
 	if not is_instance_valid(body):
 		return
 	# Keep the camera free but stop walking, jumping, and couch-sleep toggles.
@@ -166,7 +166,7 @@ func _input(event: InputEvent) -> void:
 	if get_tree().paused:
 		return
 	# A panel that does not pause the tree (the map, the inventory) keeps its own keys.
-	if main.has_method("menu_panel_open") and bool(main.call("menu_panel_open")):
+	if WORLD.menu_panel_open():
 		return
 	var runtime: Variant = main.get("active_runtime")
 	if event is InputEventMouseButton:
@@ -229,7 +229,7 @@ func _act_key(runtime: Variant, key: InputEventKey, state: int) -> void:
 		return
 	# Enter opens the act chat and then hands the keyboard to the text field.
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER] \
-			and bool(main.call("open_act_chat")):
+			and bool(WORLD.open_act_chat()):
 		get_viewport().set_input_as_handled()
 		return
 	# X is consumed in every act state: AnonPony uses X to lie down, and the runtime polls it

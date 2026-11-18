@@ -13,10 +13,11 @@ extends RefCounted
 ## channel, four reads, and `setup`. Variants live in the typed objects in `memory/facts.gd`, never
 ## in extra functions. See `docs/memory.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
 const DIALOGUE := preload("res://mods/unfplap/memory/dialogue.gd")
-const WORLD := preload("res://mods/unfplap/memory/world.gd")
+const MEMORY_WORLD := preload("res://mods/unfplap/memory/world.gd")
 const PERCEPTION := preload("res://mods/unfplap/memory/perception.gd")
 const STORE := preload("res://mods/unfplap/memory/store.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -66,10 +67,10 @@ func commit(impression: Impression) -> void:
 		data["romance"] = romance
 	if not thought.is_empty():
 		data["thought"] = thought.left(240)
-	WORLD.commit_impression(game, impression.id, data,
+	MEMORY_WORLD.commit_impression(game, impression.id, data,
 		impression.event_id + TEXT.impression_suffix(impression.slot))
 	if not text.is_empty():
-		WORLD.record(game, "relationship", text,
+		MEMORY_WORLD.record(game, "relationship", text,
 			[impression.id, "player"], [impression.id, "player"],
 			impression.event_id + TEXT.event_suffix(impression.slot))
 
@@ -85,16 +86,16 @@ func note(kind: int, id: String, event_id: String, reason := 0) -> void:
 	var subjects: Array = [id, "player"]
 	match kind:
 		NoteKind.CANCELLED:
-			WORLD.record(game, "intimacy", TEXT.cancel_text(), witnesses, subjects,
+			MEMORY_WORLD.record(game, "intimacy", TEXT.cancel_text(), witnesses, subjects,
 				event_id + ":cancel")
 		NoteKind.CLIMAXED:
-			WORLD.record(game, "intimacy", TEXT.climax_text(), witnesses, subjects,
+			MEMORY_WORLD.record(game, "intimacy", TEXT.climax_text(), witnesses, subjects,
 				event_id + ":pony_climax")
 		NoteKind.STOPPED:
-			WORLD.record(game, "intimacy", TEXT.stop_text(reason), witnesses, subjects,
+			MEMORY_WORLD.record(game, "intimacy", TEXT.stop_text(reason), witnesses, subjects,
 				event_id + ":stop:" + TEXT.stop_name(reason))
 		NoteKind.APOLOGY:
-			WORLD.record(game, "relationship", TEXT.apology_text(), witnesses, subjects,
+			MEMORY_WORLD.record(game, "relationship", TEXT.apology_text(), witnesses, subjects,
 				"apology:%s:%d" % [id, Time.get_ticks_usec()])
 
 
@@ -184,7 +185,7 @@ func cue_facts(id: String, event_id: String) -> CueFacts:
 	var out := CueFacts.new()
 	if id.is_empty():
 		return out
-	var data := WORLD.cue_facts(_game(), id, event_id)
+	var data := MEMORY_WORLD.cue_facts(_game(), id, event_id)
 	out.friendship = str(data.get("friendship", ""))
 	out.friendship_level = int(data.get("friendship_level", -1))
 	out.love = str(data.get("love", ""))
@@ -202,7 +203,7 @@ func shared_memory(id: String, cue: String, event_id: String, used: Array) -> Me
 	var out := MemoryHit.new()
 	if id.is_empty():
 		return out
-	var data := WORLD.shared_memory(_game(), id, cue, event_id, used)
+	var data := MEMORY_WORLD.shared_memory(_game(), id, cue, event_id, used)
 	out.id = str(data.get("id", ""))
 	out.text = str(data.get("text", ""))
 	return out
@@ -232,7 +233,7 @@ func witnesses(partner_id: String, name: String, serial: int,
 func _game() -> Node:
 	if not is_instance_valid(main):
 		return null
-	var node: Variant = main.get("game")
+	var node: Variant = WORLD.game
 	if node is Node and is_instance_valid(node):
 		return node
 	return null

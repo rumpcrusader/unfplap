@@ -116,6 +116,7 @@ the main handle and the `log` callback from the facade; it never reads the runti
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | the world root |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

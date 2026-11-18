@@ -4,6 +4,7 @@ extends RefCounted
 ## the act state and the one teardown ledger; this facade owns the scene work.
 ## Contract: `docs/rest.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")
 
@@ -289,7 +290,7 @@ func restore_posture(frame: String, _rejoin_cuddle: bool) -> void:
 
 
 func player_node() -> Variant:
-	return main.player if is_instance_valid(main) else null
+	return WORLD.player if is_instance_valid(main) else null
 
 
 func context_values() -> Dictionary:

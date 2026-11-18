@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/memory/test_dialogue.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 var failures := 0
@@ -46,6 +47,7 @@ func run() -> void:
 	root.add_child(director)
 	var main := FakeMain.new()
 	main.game = director
+	WORLD.bind_world(main.game)
 	root.add_child(main)
 	var memory := MEMORY.new()
 	memory.setup(main)

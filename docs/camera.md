@@ -266,6 +266,7 @@ takes effect when the panel closes.
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | the eye's camera |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

@@ -4,6 +4,7 @@ extends RefCounted
 ## grade-aware commit and the peak-memory record. The idle apology/reminder scan is lines and the
 ## neglect meter is readiness. See docs/summary.md.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
@@ -160,7 +161,7 @@ func _reasons(outcome: Dictionary) -> String:
 
 
 func _game_ok(main: Variant) -> bool:
-	return is_instance_valid(main) and is_instance_valid(main.get("game"))
+	return is_instance_valid(main) and is_instance_valid(WORLD.game)
 
 
 func _write_log(text: String) -> void:

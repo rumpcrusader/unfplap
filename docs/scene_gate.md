@@ -182,6 +182,7 @@ runtime's `debug_line()` is a thin forward. No scene row is recomputed twice in 
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | beds, occupancy and the player body |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

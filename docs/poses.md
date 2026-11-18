@@ -924,6 +924,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | player, camera and mares |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

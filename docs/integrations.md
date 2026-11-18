@@ -458,6 +458,7 @@ overlay reads them.
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | the world root and the LOD rebuild |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

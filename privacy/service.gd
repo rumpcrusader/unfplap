@@ -9,6 +9,7 @@ extends RefCounted
 ## `shared/privacy_rules.gd` predicates. Visibility is derived from this state; there is no public
 ## override, no hotkey flag and no third-pony answer rule here.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PRIVACY_RULES := preload("res://mods/unfplap/shared/privacy_rules.gd")
@@ -118,14 +119,14 @@ func house_at(at: Vector3) -> Node3D:
 func player() -> Node3D:
 	if not is_instance_valid(main):
 		return null
-	var node: Variant = main.get("player")
+	var node: Variant = WORLD.player
 	return node as Node3D if is_instance_valid(node) else null
 
 
 func _mares() -> Array:
 	if not is_instance_valid(main):
 		return []
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return []
 	var list: Variant = game.get("mares")

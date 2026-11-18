@@ -96,6 +96,7 @@ phase.
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | player and mares |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

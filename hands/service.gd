@@ -3,6 +3,7 @@ extends "res://mods/unfplap/hands/session.gd"
 ## owns scoring and the act state; this controller drives the palms and contact frames. Standing
 ## rubs the flank; missionary rubs her chest, neck and cheek.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
 const FLANK_PATH := preload("res://mods/unfplap/hands/paths/standing.gd")
@@ -994,7 +995,7 @@ func _smack() -> void:
 		if not standing_target.is_empty():
 			at = standing_target.get("local", at)
 			normal = standing_target.get("normal", normal)
-	if at.is_finite() and is_instance_valid(main) and is_instance_valid(main.player):
+	if at.is_finite() and is_instance_valid(main) and is_instance_valid(WORLD.player):
 		if is_instance_valid(driver) and from_frame.is_finite():
 			var world_centre: Vector3 = _flank_frame() * at
 			var target: Transform3D = _engine().coat_frame(pony, hand_side, world_centre, normal,

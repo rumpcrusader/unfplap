@@ -5,6 +5,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/negotiation/test_adapter.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
@@ -84,6 +85,11 @@ class FakeWorldContext extends RefCounted:
 
 class FakeGame extends Node:
 	var world_context := FakeWorldContext.new()
+	var save_menu: Variant = null
+
+
+class FakePanel extends Node:
+	var opened := false
 
 
 class FakePlayer extends Node3D:
@@ -115,11 +121,7 @@ class FakeMain extends Node:
 	var player: Variant = null
 	var game: Variant = null
 	var classifier: Node = null
-	var menu := false
 	var logs: Array[String] = []
-
-	func menu_open() -> bool:
-		return menu
 
 	func debug(text: String) -> void:
 		logs.append(text)
@@ -131,7 +133,9 @@ func _fixture() -> Dictionary:
 	var game := FakeGame.new()
 	var classifier := FakeClassifier.new()
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.game = game
+	WORLD.bind_world(main.game)
 	main.classifier = classifier
 	var director := FakeDirector.new()
 	director.add_to_group("conversation_director")
@@ -186,9 +190,11 @@ func _check_quiet() -> void:
 	var director: FakeDirector = made["director"]
 	var player: FakePlayer = made["player"]
 	check(adapter.quiet_reason(45.0) == "", "an idle director with a free player is quiet")
-	main.menu = true
+	var menu := FakePanel.new()
+	menu.opened = true
+	(made["game"] as FakeGame).save_menu = menu
 	check(adapter.quiet_reason(45.0) == "menu", "an open menu is not quiet")
-	main.menu = false
+	menu.opened = false
 	director.state = "speaking"
 	check(adapter.quiet_reason(45.0) == "director_state", "a speaking director is not quiet")
 	director.state = "idle"
@@ -218,9 +224,11 @@ func _check_quiet() -> void:
 	check(adapter.quiet_reason(45.0) == "knocked", "a knockdown is not quiet")
 	player.remove_meta("knocked_down")
 	main.player = null
+	WORLD.bind_player(main.player)
 	check(adapter.quiet_reason(45.0) == "no_player", "a missing player is not quiet")
 	check(not adapter.quiet(45.0), "the boolean gate follows the reason")
 	main.player = player
+	WORLD.bind_player(main.player)
 	_free(made)
 
 

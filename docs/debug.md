@@ -240,6 +240,7 @@ themselves are `docs/perf.md`'s.
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | the scene target, camera and beds |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

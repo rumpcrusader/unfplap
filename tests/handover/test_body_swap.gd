@@ -7,6 +7,8 @@ extends SceneTree
 ## The entry node is faked here because `main.gd` names the `Mods` autoload, which a `--script`
 ## suite cannot load.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
+const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
@@ -39,6 +41,10 @@ class FakeNav extends Node:
 
 class FakePony extends Node3D:
 	var identity: Variant = null
+	var shading_version := 3
+	var head_width := 1.0
+	var head_width_factor := 1.0
+	var reference_face_enabled := false
 	var skeleton: Skeleton3D = null
 	var posture: Variant = null
 	var face_turn_rate := 0.45
@@ -334,7 +340,6 @@ class FakeMain extends Node:
 	var memory: Variant = null
 	var body_change: Variant = null
 	var begins := 0
-	var lod_refreshes: Array[Node] = []
 
 	func begin_body_swap(runtime: Node, old_pony: Node, id: String, change: BODY_CHANGE) -> void:
 		begins += 1
@@ -375,9 +380,6 @@ class FakeMain extends Node:
 	func adopt_pending_body(pony: Node) -> bool:
 		_prepare_pony(pony)
 		return _adopt_pending_swap(pony)
-
-	func refresh_body_lod(pony: Node) -> void:
-		lod_refreshes.append(pony)
 
 	func _prepare_pony(pony: Node) -> void:
 		if is_instance_valid(body_change) and pony is Node3D:
@@ -1084,12 +1086,14 @@ func _check_named_shape_gate() -> void:
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	source.shape = ""
+	var near_key: String = HYBRID_NEAR_MESH.key(new_pony)
+	HYBRID_NEAR_MESH.cache[near_key] = true
 	main._on_pony(new_pony)
 	check(runtime._suspended, "the new body binds without resuming")
 	check(runtime.pony == new_pony, "the runtime owns the new body during the wait")
 	check(runtime.get_parent() == new_pony, "the runtime moves under the new body")
 	check(not main.body_swap_pending(), "the adoption clears the pending swap")
-	check(main.lod_refreshes.has(new_pony), "the adopted body's LOD is rebuilt")
+	check(not HYBRID_NEAR_MESH.cache.has(near_key), "the adopted body's LOD is rebuilt")
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "a missing shape keeps the act suspended")
 	source.shape = "rarity"
@@ -1481,6 +1485,7 @@ func _check_same_node_refresh() -> void:
 	player.name = "FakePlayer"
 	main.add_child(player)
 	main.player = player
+	WORLD.bind_player(main.player)
 	var base := body_change.default_form(old_pony)
 	body_change.apply_form(old_pony, base)
 	var revised := body_change.default_form(old_pony)

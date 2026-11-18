@@ -3,6 +3,7 @@ extends SceneTree
 ## lines and the recent-line reads.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/dialogue/test_act_dialogue.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -120,6 +121,7 @@ func _mods() -> FakeMods:
 func run() -> void:
 	var facts := FACTS.new()
 	var main := FakeMain.new()
+	WORLD.bind_world(main.game)
 	var pony := FakePony.new()
 	var director := FakeDirector.new()
 	director.characters = {

@@ -1,6 +1,7 @@
 extends "res://mods/unfplap/hands/path_base.gd"
 ## Missionary caress path: the authored surface chain in `hands/paths/anchors.gd`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
@@ -164,11 +165,9 @@ func _camera_position() -> Vector3:
 	var value: Variant = facts.camera
 	if value is Camera3D and is_instance_valid(value):
 		return (value as Camera3D).global_position
-	var main: Variant = facts.main
-	if is_instance_valid(main) and main.has_method("camera"):
-		var cam: Variant = main.call("camera")
-		if cam is Camera3D and is_instance_valid(cam):
-			return (cam as Camera3D).global_position
+	var cam: Camera3D = WORLD.camera()
+	if cam != null:
+		return cam.global_position
 	return Vector3.INF
 
 

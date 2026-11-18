@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/anatomy/test_placement.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
@@ -37,6 +38,10 @@ class FakePony extends Node3D:
 
 class FakeHairLink extends Node:
 	var pelvis_offset := Transform3D.IDENTITY
+
+
+class FakePlayer extends Node3D:
+	var camera: Variant = null
 
 
 class FakeMain extends Node:
@@ -335,6 +340,10 @@ func run() -> void:
 	# mare through the scene adapter and never keeps a second target.
 	var editor_main := FakeMain.new()
 	root.add_child(editor_main)
+	var editor_player := FakePlayer.new()
+	root.add_child(editor_player)
+	editor_player.camera = editor_main.camera()
+	WORLD.bind_player(editor_player)
 	var editor_pony := _pony("editor_mare")
 	root.add_child(editor_pony)
 	editor_main.target = editor_pony
@@ -356,6 +365,9 @@ func run() -> void:
 	editor_pony.free()
 	root.remove_child(editor_main)
 	editor_main.free()
+	root.remove_child(editor_player)
+	editor_player.free()
+	WORLD.unbind()
 
 	# Debug tail collapse: the modifier scales both bones and restores them without moving joints.
 	var tail_skeleton := Skeleton3D.new()

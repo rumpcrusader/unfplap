@@ -5,6 +5,7 @@ extends RefCounted
 ## the act metas. Nothing here is game state of its own except the metas it clears and the bond
 ## record the sex-ready path writes; see `docs/debug.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 
 ## The bond stages the sex-ready write never lowers: an engaged or married mare keeps her stage.
@@ -172,7 +173,7 @@ static func _neutral_mood(main: Node, pony: Node3D, id: String) -> String:
 		return "no pony"
 	if not is_instance_valid(main):
 		return "no game"
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return "no game"
 	var context: Variant = game.get("world_context")

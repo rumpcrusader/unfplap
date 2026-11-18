@@ -6,6 +6,7 @@ extends RefCounted
 ## It reads the mod's own line channel through `main.memory` and the conversation director from
 ## the act facts. See `docs/dialogue.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PROMPTS := preload("res://mods/unfplap/dialogue/prompts.gd")
 const UTTERANCE := preload("res://mods/unfplap/dialogue/utterance.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
@@ -595,7 +596,7 @@ func _speech_busy() -> bool:
 
 
 func _game_ok() -> bool:
-	return is_instance_valid(main) and is_instance_valid(main.get("game"))
+	return is_instance_valid(main) and is_instance_valid(WORLD.game)
 
 
 func _now() -> float:

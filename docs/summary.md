@@ -270,6 +270,7 @@ block. They are debug numbers, so stored values are never clamped. See `docs/set
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | the world root |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

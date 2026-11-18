@@ -4,6 +4,7 @@ extends SceneTree
 ## a throwaway XDG data dir in the test runner.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility_api.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
@@ -90,6 +91,7 @@ func run() -> void:
 	var main := FakeMain.new()
 	main.name = "FakeMain"
 	main.game = FakeGame.new()
+	WORLD.bind_world(main.game)
 	main.game.world_context = FakeContext.new()
 	main.game.population = FakePopulation.new()
 	main.game.population.available = {
@@ -97,6 +99,7 @@ func run() -> void:
 		"scootaloo": "res://world/characters/background/scootaloo.tscn",
 	}
 	main.player = Node3D.new()
+	WORLD.bind_player(main.player)
 	root.add_child(main)
 	root.add_child(main.game)
 	root.add_child(main.game.world_context)

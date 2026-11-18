@@ -108,6 +108,7 @@ No controls. The debug log reports the ownership state on the `debug_line` call 
 - The runtime — the caller, the state and the live pose family.
 
 ### Uses
+| service | world | `world/service.gd` | Anon's body and reach |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

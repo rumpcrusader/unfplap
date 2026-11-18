@@ -3,6 +3,7 @@ extends RefCounted
 ## lift. The runtime creates one per act and keeps the standing placement decision; this handle
 ## owns the stack lifetime and the item return. Contract: `docs/stool.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
@@ -295,17 +296,17 @@ func floor_y_at(at: Vector3, body: Variant) -> float:
 
 
 func inventory_store() -> Variant:
-	if not is_instance_valid(main) or not is_instance_valid(main.game):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.game):
 		return null
-	var inventory: Variant = main.game.get("inventory")
+	var inventory: Variant = WORLD.game.get("inventory")
 	if not is_instance_valid(inventory):
 		return null
 	return inventory.get("inventory")
 
 
 func headset_view() -> bool:
-	return is_instance_valid(main) and is_instance_valid(main.game) \
-		and bool(main.game.get("headset_view"))
+	return is_instance_valid(main) and is_instance_valid(WORLD.game) \
+		and bool(WORLD.game.get("headset_view"))
 
 
 func write_log(text: String) -> void:

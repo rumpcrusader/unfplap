@@ -13,6 +13,7 @@ extends RefCounted
 ##
 ## Verdicts are built per call and never stored. See `docs/eligibility.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -296,7 +297,7 @@ func _love_level(rel: Variant, id: String) -> int:
 func _bond_levels() -> Dictionary:
 	if not is_instance_valid(main):
 		return {}
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if game == null or not is_instance_valid(game):
 		return {}
 	var context: Variant = game.get("world_context")
@@ -640,7 +641,7 @@ func _owner_source(owner: Node) -> String:
 func _live_pony(id: String) -> Node:
 	if not is_instance_valid(main):
 		return null
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if game == null or not is_instance_valid(game):
 		return null
 	var mares: Variant = (game as Node).get("mares")
@@ -658,7 +659,7 @@ func _shape_identity(id: String) -> Resource:
 	if _shape_identities.has(id):
 		return _shape_identities[id] as Resource
 	var identity: Resource = null
-	var game: Variant = main.get("game") if is_instance_valid(main) else null
+	var game: Variant = WORLD.game if is_instance_valid(main) else null
 	if game == null or not is_instance_valid(game):
 		_shape_identities[id] = identity
 		return null

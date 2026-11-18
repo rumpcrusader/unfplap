@@ -8,6 +8,7 @@ extends Node
 ##
 ## See `docs/anatomy.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const ACT_BRIDGE := preload("res://mods/unfplap/anatomy/act_bridge.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
@@ -54,8 +55,8 @@ func setup(main_node: Node) -> void:
 	var perf_call := func() -> bool:
 		return is_instance_valid(main) and main.get("debug_perf") == true
 	var log_call := func(text: String) -> void:
-		if is_instance_valid(main) and main.has_method("_debug"):
-			main.call("_debug", text)
+		if is_instance_valid(main) and main.has_method("debug"):
+			main.call("debug", text)
 	var eligible_tail := func(pony_node: Node) -> bool:
 		return _eligible_target(pony_node, ELIGIBILITY.Target.TAIL)
 	tail_seat.set("perf_on", perf_call)
@@ -437,10 +438,9 @@ func _player_body() -> Node3D:
 	var anon: Variant = (player as Node).find_child("AnonBody", true, false)
 	if anon is Node3D:
 		return anon as Node3D
-	if is_instance_valid(main) and main.has_method("player_body"):
-		var body: Variant = main.call("player_body")
-		if body is Node3D:
-			return body as Node3D
+	var body := WORLD.player_body()
+	if body != null:
+		return body
 	return player as Node3D if player is Node3D else null
 
 

@@ -5,6 +5,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/scene_gate/test_scene_gate.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -69,34 +70,6 @@ class FakeGame extends Node:
 class FakeMain extends Node:
 	var player: Variant = null
 	var game: Variant = null
-	var bed: Variant = null
-	var occupied := false
-	var beside := true
-	var carry: Variant = null
-
-	func player_body() -> Node3D:
-		return player as Node3D
-
-	func camera() -> Camera3D:
-		return null
-
-	func bed_under(_at: Vector3, _exclude: RID) -> Node3D:
-		return bed as Node3D
-
-	func bed_occupied(_bed_node: Node3D, _pony: Node3D) -> bool:
-		return occupied
-
-	func player_beside_bed(_bed_node: Node3D) -> bool:
-		return beside
-
-	func interactor() -> Node:
-		return carry
-
-	func real_bed(bed_node: Variant) -> Variant:
-		return bed_node
-
-	func bed_for_cradle(_pony: Node3D) -> Node3D:
-		return bed as Node3D
 
 
 class FakePose extends RefCounted:
@@ -179,11 +152,21 @@ func _fixture() -> Dictionary:
 	game.inventory = FakeInventory.new()
 	var main := FakeMain.new()
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.game = game
+	WORLD.bind_world(main.game)
 	var bed := Node3D.new()
 	bed.name = "GuestBed"
+	bed.set_meta("mattress_top", 0.6)
+	var bed_body := StaticBody3D.new()
+	var bed_shape := CollisionShape3D.new()
+	var bed_box := BoxShape3D.new()
+	bed_box.size = Vector3(6.0, 0.2, 6.0)
+	bed_shape.shape = bed_box
+	bed_body.add_child(bed_shape)
+	bed.add_child(bed_body)
 	root.add_child(bed)
-	main.bed = bed
+	bed.global_position = Vector3(0.0, -0.1, 0.0)
 	var pose := FakePose.new()
 	var stool := FakeStool.new()
 	var affection := FakeAffection.new()
@@ -201,6 +184,7 @@ func _fixture() -> Dictionary:
 	var context := FakeContext.new()
 	gate.policy_verdict = Callable(policy, "verdict_for")
 	gate.debug_context = Callable(context, "context")
+	await physics_frame
 	return {
 		"gate": gate, "pony": pony, "nav": nav, "player": player, "game": game,
 		"main": main, "bed": bed, "pose": pose, "stool": stool,
@@ -227,18 +211,18 @@ func _free(made: Dictionary) -> void:
 
 
 func run() -> void:
-	_check_conversation()
-	_check_cuddle()
-	_check_affection()
-	_check_navigator()
-	_check_player()
-	_check_bed()
-	_check_rows()
-	_check_scene_only()
-	_check_profiles()
-	_check_verdicts()
-	_check_buck_or_push()
-	_check_suppress()
+	await _check_conversation()
+	await _check_cuddle()
+	await _check_affection()
+	await _check_navigator()
+	await _check_player()
+	await _check_bed()
+	await _check_rows()
+	await _check_scene_only()
+	await _check_profiles()
+	await _check_verdicts()
+	await _check_buck_or_push()
+	await _check_suppress()
 
 	print("SCENE_GATE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -247,7 +231,7 @@ func run() -> void:
 
 
 func _check_conversation() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	var player: FakePlayer = made["player"]
@@ -261,15 +245,17 @@ func _check_conversation() -> void:
 	check(not bool(gate.call("conversation_ok")), "another pony's conversation blocks")
 	pony.conversation_target = player
 	main.player = null
+	WORLD.bind_player(main.player)
 	check(not bool(gate.call("conversation_ok")), "a missing player blocks")
 	main.player = player
+	WORLD.bind_player(main.player)
 	root.remove_child(other)
 	other.free()
 	_free(made)
 
 
 func _check_cuddle() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	check(not bool(gate.call("cuddle_active")), "no cuddle is inactive")
@@ -300,7 +286,7 @@ class FakeSession extends Node:
 
 
 func _check_affection() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var affection: FakeAffection = made["affection"]
 	check(bool(gate.call("free_of_affection")), "no affection is free")
@@ -324,7 +310,7 @@ class FakeHoof extends RefCounted:
 
 
 func _check_navigator() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var nav: FakeNav = made["nav"]
 	nav.command_owner = ""
@@ -363,9 +349,10 @@ func _check_navigator() -> void:
 
 
 func _check_player() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var player: FakePlayer = made["player"]
+	var bed: Node3D = made["bed"]
 	var inventory: FakeInventory = (made["game"] as FakeGame).inventory
 	check(bool(gate.call("player_ready_for", "standing", "", null)),
 		"a free player is ready to stand")
@@ -386,6 +373,7 @@ func _check_player() -> void:
 		"a held case is not ready")
 	inventory.holding_case = ""
 	var seat := Node3D.new()
+	bed.add_child(seat)
 	player.seat = seat
 	check(not bool(gate.call("player_ready_for", "standing", "", null)),
 		"a standing act needs Anon off a seat")
@@ -411,13 +399,14 @@ class FakeRest extends RefCounted:
 
 
 func _check_bed() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var bed: Node3D = made["bed"]
 	check(gate.call("resolve_bed", "standing", "", null) == null, "standing has no bed")
 	check(gate.call("resolve_bed", "missionary", "bed_side", null) == bed,
 		"missionary resolves the bed under her")
 	var explicit := Node3D.new()
+	explicit.set_meta("mattress_top", 0.6)
 	root.add_child(explicit)
 	check(gate.call("resolve_bed", "missionary", "bed_side", explicit) == explicit,
 		"an explicit bed is used as given")
@@ -432,14 +421,19 @@ func _check_bed() -> void:
 	check(not bool(gate.call("bed_gate", "missionary", "bed_side", bed)),
 		"a settling lie-down fails the bed gate")
 	pony.posture = {"requested": "lie_down", "settled": true}
-	(made["main"] as FakeMain).beside = false
+	var player: FakePlayer = made["player"]
+	var elsewhere := Node3D.new()
+	root.add_child(elsewhere)
+	player.seat = elsewhere
 	check(not bool(gate.call("bed_gate", "missionary", "bed_side", bed)),
 		"Anon away from the bed fails it")
+	root.remove_child(elsewhere)
+	elsewhere.free()
 	_free(made)
 
 
 func _check_rows() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	var rows: Array = gate.call("rows", "standing", "", null, "start", false)
@@ -482,11 +476,10 @@ func _check_rows() -> void:
 ## The scene-only start: the frozen pose rows, the aftercare removal, the hold exemption and the
 ## transient/hard split. No policy row is built.
 func _check_scene_only() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	var nav: FakeNav = made["nav"]
-	var main: FakeMain = made["main"]
 	var bed: Node3D = made["bed"]
 	var frozen := GATE.FrozenPose.new(true, true)
 
@@ -507,12 +500,17 @@ func _check_scene_only() -> void:
 	check(verdict.hard_ok, "aftercare is no longer a start row")
 	pony.remove_meta("sex_aftercare")
 
-	main.beside = false
+	var player: FakePlayer = made["player"]
+	var elsewhere := Node3D.new()
+	root.add_child(elsewhere)
+	player.seat = elsewhere
 	verdict = gate.call("scene_only_verdict", "missionary", "already_lying", bed, frozen)
 	check(verdict.hard_ok, "a transient player row does not fail the hard set")
 	check(verdict.transient.has("player") and verdict.transient.has("bed_gate"),
 		"the player and bed gate rows are both transient")
-	main.beside = true
+	player.seat = null
+	root.remove_child(elsewhere)
+	elsewhere.free()
 
 	gate.configure(STATE_ACTIVE, "rarity", {})
 	verdict = gate.call("scene_only_verdict", "missionary", "already_lying", bed, frozen)
@@ -567,7 +565,7 @@ func _has_row(rows: Array, key: String) -> bool:
 ## The pose spec drives the rows: public/offerable, form/view support, the authored source and the
 ## scene block's stool/bed/stem choices. An internal pose fails the offer.
 func _check_profiles() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	var main: FakeMain = made["main"]
@@ -634,7 +632,7 @@ func _check_profiles() -> void:
 
 
 func _check_verdicts() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	var policy: FakePolicy = made["policy"]
@@ -696,7 +694,7 @@ class FakeKnockdown extends RefCounted:
 ## The live strict stop calls this directly: the game's Affection owns the buck, and an Anon body
 ## without one falls back to its knockdown.
 func _check_buck_or_push() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	var player: FakePlayer = made["player"]
@@ -715,7 +713,7 @@ func _check_buck_or_push() -> void:
 
 
 func _check_suppress() -> void:
-	var made := _fixture()
+	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	var session := FakeSession.new()

@@ -3,6 +3,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/integrations/test_changelings.gd
 
+const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
@@ -33,7 +35,6 @@ class FakeMain extends Node:
 	var eligibility: Variant = null
 	var late_prepares: Array[Node] = []
 	var anatomy_refreshes := 0
-	var lod_refreshes: Array[Node] = []
 
 	func live_character_ids() -> Array[String]:
 		return live_ids.duplicate()
@@ -43,9 +44,6 @@ class FakeMain extends Node:
 
 	func refresh_anatomy() -> void:
 		anatomy_refreshes += 1
-
-	func refresh_body_lod(pony: Node) -> void:
-		lod_refreshes.append(pony)
 
 
 class FakePopulation extends Node:
@@ -63,6 +61,10 @@ class FakeIdentity extends Resource:
 
 class FakePony extends Node3D:
 	var identity: Variant = null
+	var shading_version := 3
+	var head_width := 1.0
+	var head_width_factor := 1.0
+	var reference_face_enabled := false
 	var own_meshes: Array = []
 	var skeleton: Variant = null
 
@@ -517,6 +519,8 @@ func run() -> void:
 	early.set_meta("geometry_variant", "changeling=rarity")
 	var late_before := main.late_prepares.size()
 	var anatomy_before := main.anatomy_refreshes
+	var lod_key: String = HYBRID_NEAR_MESH.key(early)
+	HYBRID_NEAR_MESH.cache[lod_key] = true
 	adapter.call("poll")
 	check(adapter.call("active_change").target_form_id == "rarity",
 		"the delayed named change keeps its target")
@@ -526,7 +530,7 @@ func run() -> void:
 		"the settled shape asks main for the late prepare once")
 	check(main.anatomy_refreshes == anatomy_before + 1,
 		"the settled shape refreshes the anatomy once")
-	check(main.lod_refreshes.has(early), "the settled shape rebuilds the body's LOD")
+	check(not HYBRID_NEAR_MESH.cache.has(lod_key), "the settled shape rebuilds the body's LOD")
 	adapter.call("poll")
 	check(main.late_prepares.size() == late_before + 1,
 		"the settled shape is not refitted again")
@@ -623,6 +627,7 @@ func run() -> void:
 	note_game.add_child(note_population)
 	root.add_child(note_game)
 	main.game = note_game
+	WORLD.bind_world(main.game)
 	check(str(adapter.call("named_form_note", "Chrysalis")) == CHANGELINGS.NOTE_HERSELF,
 		"naming herself gets the status")
 	check(str(adapter.call("named_form_note", "Twist")) == CHANGELINGS.NOTE_CANNOT,
@@ -634,6 +639,7 @@ func run() -> void:
 	check(str(adapter.call("named_form_note", "you are beautiful")).is_empty(),
 		"ordinary talk gets no status")
 	main.game = null
+	WORLD.bind_world(main.game)
 	root.remove_child(note_game)
 	note_game.free()
 
@@ -699,6 +705,7 @@ func run() -> void:
 	game.population = population
 	root.add_child(game)
 	main.game = game
+	WORLD.bind_world(main.game)
 	check(str(adapter.call("named_form", "Fluttershy")).is_empty(),
 		"a shape the pack cannot copy is excluded")
 	check(str(adapter.call("named_form_note", "Fluttershy")) == CHANGELINGS.NOTE_CANNOT,
@@ -708,6 +715,7 @@ func run() -> void:
 	check(str(adapter.call("named_form", "Fluttershy")) == "fluttershy",
 		"a copyable shape resolves")
 	main.game = null
+	WORLD.bind_world(main.game)
 	root.remove_child(game)
 	game.free()
 

@@ -2,6 +2,7 @@ extends SceneTree
 ## The runtime's live footstool gate: opening/part heights, threshold and case slot.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_gate.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -114,7 +115,9 @@ func run() -> void:
 	inventory.inventory = store
 	game.inventory = inventory
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.game = game
+	WORLD.bind_world(main.game)
 	main.anatomy = FakeService.new()
 	main.stool = STOOL.new()
 	main.eligibility = FakeEligibility.new()

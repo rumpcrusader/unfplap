@@ -6,6 +6,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_standing_presentation.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -126,6 +127,7 @@ func run() -> void:
 	main.eligibility = ELIGIBILITY.new()
 	main.eligibility.setup(main)
 	main.player = Node3D.new()
+	WORLD.bind_player(main.player)
 	root.add_child(main.player)
 
 	var pony := FakePony.new()

@@ -3,6 +3,7 @@ extends SceneTree
 ## cuddle rule. A fake house and fake mares; no live world.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/privacy/test_privacy.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const PRIVACY_RULES := preload("res://mods/unfplap/shared/privacy_rules.gd")
 
@@ -58,7 +59,9 @@ func run() -> void:
 	main.add_child(target)
 	main.add_child(other)
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.game = game
+	WORLD.bind_world(main.game)
 
 	var provider := PRIVACY.new()
 	provider.setup(main)

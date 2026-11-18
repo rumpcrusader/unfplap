@@ -85,6 +85,7 @@ The facade never preloads `runtime.gd` or `main.gd` and never reads their privat
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | Anon's body |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

@@ -132,6 +132,7 @@ touches neither the tree nor the row.
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | the world root |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

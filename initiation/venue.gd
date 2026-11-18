@@ -3,6 +3,7 @@ extends Node
 ## search and the world house. It answers with plain values; the facade owns the reasons and the
 ## debug log. The privacy scan lives in `privacy/service.gd`. See `docs/initiation.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -20,14 +21,14 @@ func bind(main_node: Node, privacy_node: RefCounted) -> void:
 func player() -> Node3D:
 	if not is_instance_valid(main):
 		return null
-	var node: Variant = main.get("player")
+	var node: Variant = WORLD.player
 	return node as Node3D if is_instance_valid(node) else null
 
 
 func mares() -> Array:
 	if not is_instance_valid(main):
 		return []
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return []
 	var list: Variant = game.get("mares")
@@ -49,7 +50,7 @@ func camera_forward() -> Vector3:
 	var node := player()
 	var forward := Vector3.FORWARD
 	if is_instance_valid(main):
-		var view: Variant = main.call("camera")
+		var view: Variant = WORLD.camera()
 		if is_instance_valid(view) and view is Camera3D:
 			forward = -(view as Camera3D).global_basis.z
 	forward.y = 0.0
@@ -231,7 +232,7 @@ func bed_row(bed: Node3D, pony: Node3D, node: Node3D) -> Dictionary:
 		return {}
 	if is_instance_valid(rest.get("_sleeper")):
 		return {}
-	if is_instance_valid(main) and bool(main.call("bed_occupied", bed, pony)):
+	if is_instance_valid(main) and bool(WORLD.bed_occupied(bed, pony)):
 		return {}
 	var front: Variant = rest_front(rest, pony)
 	if not front is Vector3 or not (front as Vector3).is_finite():

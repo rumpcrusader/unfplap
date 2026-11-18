@@ -2,6 +2,7 @@ extends RefCounted
 ## Standing look, glance, facing lock and camera offsets. The runtime owns the act state and feeds
 ## the typed `shared/act_facts.gd` context; this controller owns the look cone and framing state.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 
 const STANDING_HEAD_NECK_HEIGHT_M := 1.0
@@ -57,9 +58,9 @@ func _apply_standing_lean_look() -> void:
 	if not bool(facts.free_camera_active) or _pose_family() != "standing" \
 			or bool(facts.player_pony) or bool(facts.headset_view):
 		return
-	if not is_instance_valid(main) or not is_instance_valid(main.player) or kiss == null:
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.player) or kiss == null:
 		return
-	var body: Node = main.player
+	var body: Node = WORLD.player
 	var lean_scale := float(facts.standing_lean_scale)
 	var yaw := float(facts.look_yaw) + deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) \
 		* float(facts.lean_view_side) * lean_scale
@@ -74,7 +75,7 @@ func _apply_standing_lean_look() -> void:
 	if body.get("_pitch") != null:
 		body.set("_pitch", pitch)
 	if body.get("form_driver") == null:
-		var view: Camera3D = main.camera()
+		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			view.rotation.x = pitch
 
@@ -97,10 +98,10 @@ func _standing_neck_point() -> Vector3:
 func _apply_standing_base_look() -> void:
 	if bool(facts.player_pony) or bool(facts.headset_view):
 		return
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
 		return
-	var body: Node = main.player
-	var view: Camera3D = main.camera()
+	var body: Node = WORLD.player
+	var view: Camera3D = WORLD.camera()
 	if not is_instance_valid(view):
 		return
 	var target := _standing_base_look
@@ -130,7 +131,7 @@ func _apply_standing_base_look() -> void:
 func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> void:
 	if not is_instance_valid(camera):
 		return
-	var seated := is_instance_valid(main) and is_instance_valid(main.player) and main.player.get("seat") != null
+	var seated := is_instance_valid(main) and is_instance_valid(WORLD.player) and WORLD.player.get("seat") != null
 	var eye_height := _standing_eye_height()
 	if _standing_base_saved and not camera.top_level and not seated:
 		camera.position = Vector3(
@@ -268,7 +269,7 @@ func _aim_eyes_at_player() -> void:
 	var eye_motion: Variant = pony.get("eye_motion")
 	if eye_motion == null or not is_instance_valid(eye_motion):
 		return
-	var view: Camera3D = main.camera() if is_instance_valid(main) else null
+	var view: Camera3D = WORLD.camera() if is_instance_valid(main) else null
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
 	eye_motion.set("target_world", target)
 	eye_motion.set("target_weight", 1.0)
@@ -278,8 +279,8 @@ func _glance_angles() -> Vector3:
 	if pony.has_method("listen_point"):
 		head = pony.call("listen_point")
 	var target: Vector3 = head
-	if is_instance_valid(main) and is_instance_valid(main.player):
-		var view: Camera3D = main.camera()
+	if is_instance_valid(main) and is_instance_valid(WORLD.player):
+		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			target = view.global_position
 	var local: Vector3 = pony.global_basis.inverse() * (target - head)
@@ -304,9 +305,9 @@ func _clamp_look() -> void:
 	if _pose_family() == "bed":
 		# Missionary uses the mod-owned view; the player's body look is left alone.
 		return
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
 		return
-	var body: Node = main.player
+	var body: Node = WORLD.player
 	var form: Variant = body.get("form_driver")
 	# AnonPony lying/sitting has her own body-yaw limit; never widen it.
 	if form != null and form is Node and (form as Node).has_method("clamp_view"):
@@ -323,7 +324,7 @@ func _clamp_look() -> void:
 	var want := float(facts.look_pitch) + clampf(float(pitch_value) - float(facts.look_pitch), -LOOK_PITCH_LIMIT, LOOK_PITCH_LIMIT)
 	if absf(float(pitch_value) - want) > 0.00001:
 		body.set("_pitch", want)
-	var view: Camera3D = main.camera()
+	var view: Camera3D = WORLD.camera()
 	if form == null and is_instance_valid(view):
 		view.rotation.x = want
 

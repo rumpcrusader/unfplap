@@ -1,6 +1,7 @@
 extends Node
 ## Finds pickable footstools in the world when the player owns none. See docs/stool.md.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const SPAWN_COUNT := 3
 const RANGE_M := 80.0
@@ -49,7 +50,7 @@ func _process(delta: float) -> void:
 func _tick() -> void:
 	if not is_instance_valid(main):
 		return
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return
 	var tree := get_tree()

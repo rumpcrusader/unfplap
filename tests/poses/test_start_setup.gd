@@ -5,6 +5,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_start_setup.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -133,6 +134,7 @@ func _fixture() -> Dictionary:
 	var main := FakeMain.new()
 	var player := FakePlayer.new()
 	main.player = player
+	WORLD.bind_player(main.player)
 	runtime.pony = pony
 	runtime.main = main
 	runtime.bed = Node3D.new()

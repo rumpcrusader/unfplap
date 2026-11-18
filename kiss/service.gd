@@ -2,6 +2,7 @@ extends RefCounted
 ## Missionary and standing kiss. The runtime owns the act state; this controller owns the base
 ## AffectionPose bridge, the custom mouth aim, the foreleg pin and the kiss lean.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 const KISS_LEGS := preload("res://mods/unfplap/kiss/legs.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
@@ -148,15 +149,15 @@ func _start_base_kiss() -> bool:
 	if _pose_family() == "bed":
 		return false
 	if not is_instance_valid(pony) or not is_instance_valid(main) \
-			or not is_instance_valid(main.player) or not is_instance_valid(main.game):
+			or not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
 		return false
 	var affection: Variant = pony.get_node_or_null("Affection")
-	var kisser: Variant = main.game.get("kisser")
+	var kisser: Variant = WORLD.game.get("kisser")
 	if not is_instance_valid(affection) or not is_instance_valid(kisser):
 		return false
 	if not str(affection.get("kind")).is_empty():
 		return false
-	var body: Node = main.player
+	var body: Node = WORLD.player
 	var was_locked: bool = body.get("controls_locked") == true
 	body.set("controls_locked", false)
 	var begun := bool(kisser.call("begin_from_pony", pony))
@@ -193,15 +194,15 @@ func _end_base_kiss() -> void:
 			affection.call("end")
 		# Even if the affection already ended itself, clear its 60 s stare afterglow.
 		affection.call("cancel_afterglow")
-	if is_instance_valid(main) and is_instance_valid(main.game):
-		var kisser: Variant = main.game.get("kisser")
+	if is_instance_valid(main) and is_instance_valid(WORLD.game):
+		var kisser: Variant = WORLD.game.get("kisser")
 		if is_instance_valid(kisser):
 			kisser.set("_active", null)
 			kisser.set("_her_kiss", false)
 			kisser.set("_used_hold", false)
-	if is_instance_valid(main) and is_instance_valid(main.player) \
+	if is_instance_valid(main) and is_instance_valid(WORLD.player) \
 			and int(facts.state) in [STATE_ACTIVE, STATE_CLIMAX]:
-		main.player.set_meta("kiss_hold", true)
+		WORLD.player.set_meta("kiss_hold", true)
 	_base_kiss_releasing = is_instance_valid(_base_kiss_pose)
 	if not _base_kiss_releasing:
 		_base_kiss_affection = null
@@ -510,7 +511,7 @@ func _target(view: Camera3D) -> Vector3:
 ## the kiss target aimed her at the camera instead of at him.
 func _mouth_view() -> Camera3D:
 	if is_instance_valid(main):
-		var view: Camera3D = main.camera()
+		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			return view
 	return facts.camera as Camera3D

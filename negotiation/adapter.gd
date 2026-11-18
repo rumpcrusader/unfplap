@@ -5,6 +5,7 @@ extends Node
 ## calls live here; no service reads the director or the classifier directly.
 ## Contract: `docs/negotiation.md` (`## Director and model host`).
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 
@@ -107,9 +108,9 @@ func quiet_reason(chat_gap_s: float) -> String:
 		return "paused"
 	if DisplayServer.get_name() != "headless" and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return "mouse"
-	if main.call("menu_open"):
+	if WORLD.menu_panel_open():
 		return "menu"
-	var player: Variant = main.get("player")
+	var player: Variant = WORLD.player
 	if not is_instance_valid(player):
 		return "no_player"
 	if player.get("controls_locked") == true:
@@ -239,7 +240,7 @@ func cancel_keys(keys: Array) -> void:
 func record_situation(text: String, ids: Array, key: String) -> void:
 	if not is_instance_valid(main):
 		return
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return
 	var ctx: Variant = game.get("world_context")

@@ -14,6 +14,7 @@ extends "res://mods/unfplap/body_change/source.gd"
 ##
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Placement`, `## Tail seating`).
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const CHANGELINGS_POLICY := preload("res://mods/unfplap/integrations/changelings_policy.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -828,7 +829,7 @@ func _shape_candidates() -> Array[String]:
 func _all_shape_ids(candidates: Array[String]) -> Array[String]:
 	var out := candidates.duplicate()
 	if is_instance_valid(main):
-		var game: Variant = main.get("game")
+		var game: Variant = WORLD.game
 		if game is Node and is_instance_valid(game):
 			var population: Variant = (game as Node).get("population")
 			if population != null and is_instance_valid(population):
@@ -860,7 +861,7 @@ func _is_adult_shape(id: String, candidates: Array[String]) -> bool:
 func _copyable(shape_id: String) -> bool:
 	if not is_instance_valid(main):
 		return true
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if not game is Node or not is_instance_valid(game):
 		return true
 	var population: Variant = (game as Node).get("population")
@@ -996,8 +997,7 @@ func _prepare_change_body(pony: Node) -> void:
 		main.call("prepare_pony_late", pony)
 	if main.has_method("refresh_anatomy"):
 		main.call("refresh_anatomy")
-	if main.has_method("refresh_body_lod"):
-		main.call("refresh_body_lod", pony)
+	WORLD.refresh_body_lod(pony)
 
 
 ## The pack's world node. The pack registers this group in its own `_ready`.

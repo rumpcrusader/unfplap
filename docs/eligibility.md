@@ -436,6 +436,7 @@ refusal status (`docs/integrations.md`).
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | the world root |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

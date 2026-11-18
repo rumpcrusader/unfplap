@@ -3,6 +3,7 @@ extends Node
 ## to any spoken line face and ends after the mood's 300 s freshness. The runtime owns the start
 ## and the warm prompt note; this node only keeps the face and the light blush.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
@@ -86,7 +87,7 @@ func _mood_still_ours() -> bool:
 		return true
 	if not is_instance_valid(main):
 		return true
-	var game: Variant = main.get("game")
+	var game: Variant = WORLD.game
 	if game == null or not is_instance_valid(game):
 		return true
 	var ctx: Variant = game.get("world_context")

@@ -2,6 +2,7 @@ extends SceneTree
 ## The per-act footstool handle: the reach rule, the case loans, the placed stack and the release.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_act.gd
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT := preload("res://mods/unfplap/stool/act.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -116,7 +117,9 @@ func _fixture() -> Dictionary:
 	inventory.inventory = store
 	game.inventory = inventory
 	main.player = player
+	WORLD.bind_player(main.player)
 	main.game = game
+	WORLD.bind_world(main.game)
 	main.anatomy = FakeService.new()
 	var ctl := FakeController.new()
 	root.add_child(main)

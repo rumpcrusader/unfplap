@@ -5,6 +5,7 @@ extends RefCounted
 ## stay the shot implementations; this facade owns the session around them.
 ## Contract: docs/camera.md.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")

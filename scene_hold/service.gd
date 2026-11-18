@@ -4,6 +4,7 @@ extends RefCounted
 ## the act state and the one teardown ledger; this object owns the flags and the release order.
 ## Contract: `docs/scene_hold.md`.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const STATE_IDLE := 0
 const STATE_AFTERGLOW := 4
 const STATE_RESTORE := 5
@@ -205,7 +206,7 @@ func keep_target() -> bool:
 	var main: Variant = _host("main")
 	if not is_instance_valid(pony) or not is_instance_valid(main):
 		return false
-	var player: Variant = main.get("player")
+	var player: Variant = WORLD.player
 	if not is_instance_valid(player):
 		return false
 	if not pony.has_method("set_conversation_target"):
@@ -299,14 +300,14 @@ func lock_player() -> void:
 	var main: Variant = _host("main")
 	if not is_instance_valid(main):
 		return
-	var body: Variant = main.get("player")
+	var body: Variant = WORLD.player
 	if not is_instance_valid(body):
 		return
 	had_kiss_hold = body.has_meta("kiss_hold")
 	if not had_kiss_hold:
 		body.set_meta("kiss_hold", true)
-	if is_instance_valid(main.get("game")):
-		var found: Variant = main.get("game").get("kisser")
+	if is_instance_valid(WORLD.game):
+		var found: Variant = WORLD.game.get("kisser")
 		if is_instance_valid(found) and found is Node:
 			kisser = found as Node
 			kisser_processing = kisser.is_physics_processing()
@@ -325,8 +326,8 @@ func unlock_player() -> void:
 	kisser = null
 	kisser_processing = false
 	var main: Variant = _host("main")
-	if is_instance_valid(main) and is_instance_valid(main.get("player")):
-		var body: Variant = main.get("player")
+	if is_instance_valid(main) and is_instance_valid(WORLD.player):
+		var body: Variant = WORLD.player
 		if not had_kiss_hold and body.has_meta("kiss_hold"):
 			body.remove_meta("kiss_hold")
 	locked_player = false
@@ -338,7 +339,7 @@ func release_carry() -> bool:
 	var main: Variant = _host("main")
 	if not is_instance_valid(main):
 		return false
-	var reach: Node = main.call("interactor")
+	var reach: Node = WORLD.interactor()
 	var pony: Variant = _host("pony")
 	if not is_instance_valid(reach) or not is_instance_valid(pony):
 		return false

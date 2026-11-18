@@ -3,6 +3,7 @@ extends Node3D
 ## body, face and hair/tail skeletons of nearby loaded ponies as thick unshaded lines with joint
 ## circles. Hovering a joint turns it red; clicking one prints its bone name and pose properties.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BODY_COLOR := Color(0.38, 1.0, 0.62)
 const FACE_COLOR := Color(1.0, 0.83, 0.36)
 const HAIR_COLOR := Color(1.0, 0.54, 0.85)
@@ -66,15 +67,15 @@ func _rebuild() -> void:
 		_hover.clear()
 		return
 	var camera: Camera3D = get_viewport().get_camera_3d()
-	if not is_instance_valid(camera) and main.has_method("camera"):
-		camera = main.call("camera")
+	if not is_instance_valid(camera):
+		camera = WORLD.camera()
 	if not is_instance_valid(camera):
 		_hover.clear()
 		return
 	var at: Vector3 = camera.global_position
 	var right: Vector3 = camera.global_basis.x.normalized()
 	var up: Vector3 = camera.global_basis.y.normalized()
-	var list: Array = main.call("mares") if main.has_method("mares") else []
+	var list: Array = WORLD.mares()
 	var drawables: Array[Dictionary] = []
 	for pony: Variant in list:
 		if not is_instance_valid(pony) or not pony is Node3D:

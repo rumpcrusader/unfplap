@@ -3,6 +3,7 @@ extends CanvasLayer
 ## of the actions for the aimed mare, or for the live act; releasing on a slot runs it. It does
 ## not pause the tree, claim a hotkey or write a setting; see docs/debug.md.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const SOUNDS := preload("res://world/audio/interaction_sounds.gd")
 
@@ -184,9 +185,7 @@ func _update_hover() -> void:
 
 ## One stock UI click when the reticle moves onto a slot. The centre, open and close stay silent.
 func _play_hover() -> void:
-	if not is_instance_valid(main) or not main.has_method("camera"):
-		return
-	var view: Variant = main.call("camera")
+	var view: Camera3D = WORLD.camera()
 	if view is Camera3D and is_instance_valid(view):
 		SOUNDS.play_at(view, "prop_ui_confirm", (view as Camera3D).global_position)
 

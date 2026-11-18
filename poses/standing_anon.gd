@@ -2,6 +2,7 @@ extends RefCounted
 ## Standing Anon body: the hip thrust wrapper, the pelvis-sway follow and palm scale. The runtime
 ## owns readiness and scoring; this controller only poses the player rig.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ANON_THRUST := preload("res://mods/unfplap/poses/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
 const PALM_SCALE := preload("res://mods/unfplap/shared/hands_scale.gd")
@@ -160,9 +161,9 @@ func _lower_body_of(hip: Node3D) -> Node:
 
 func _install_anon_thrust() -> void:
 	_remove_anon_thrust()
-	if not _standing_family() or bool(facts.player_pony) or not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not _standing_family() or bool(facts.player_pony) or not is_instance_valid(main) or not is_instance_valid(WORLD.player):
 		return
-	var avatar := main.player.find_child("AnonBody", true, false) as Node3D
+	var avatar := WORLD.player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
 		return
 	var original: Variant = avatar.get("desktop_pose_driver")
@@ -172,7 +173,7 @@ func _install_anon_thrust() -> void:
 	driver.name = "UnfplapAnonThrust"
 	driver.set("original", original)
 	driver.set("runtime", facts.driver_host())
-	main.player.add_child(driver)
+	WORLD.player.add_child(driver)
 	avatar.set("desktop_pose_driver", driver)
 	_anon_thrust_driver = driver
 	_anon_thrust_original = original
@@ -185,7 +186,7 @@ func _install_anon_thrust() -> void:
 		skeleton.add_child(_hip_thrust)
 		_chest_back = CHEST_BACK.new()
 		_chest_back.name = "UnfplapChestBack"
-		_chest_back.set("player", main.player)
+		_chest_back.set("player", WORLD.player)
 		_chest_back.process_priority = 30
 		skeleton.add_child(_chest_back)
 	_install_palm_scale(avatar)
@@ -263,9 +264,9 @@ func _remove_anon_thrust() -> void:
 func _desktop_pose_driver() -> Node:
 	if is_instance_valid(_anon_thrust_driver):
 		return _anon_thrust_driver
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
+	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
 		return null
-	var avatar: Node = main.player.find_child("AnonBody", true, false)
+	var avatar: Node = WORLD.player.find_child("AnonBody", true, false)
 	if not is_instance_valid(avatar):
 		return null
 	var driver: Variant = avatar.get("desktop_pose_driver")

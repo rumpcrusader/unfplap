@@ -205,6 +205,7 @@ idle hint and the act start.
 ## Dependencies
 
 ### Uses
+| service | world | `world/service.gd` | the world root and the headset |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

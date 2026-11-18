@@ -4,6 +4,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/scene_hold/test_scene_hold.gd
 
+const INTERACTOR := preload("res://player/interactor.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 
 const STATE_IDLE := 0
@@ -66,19 +68,8 @@ class FakeGame extends Node:
 	var kisser: Node = null
 
 
-class FakeReach extends Node:
-	var held: Variant = null
-	var cradled := false
-	var _drop_upright := false
-	var _laying := -1.0
-	var _sleepy_kiss := false
-	var _lean := 1.0
-	var _lay: Dictionary = {"a": 1}
-	var desktop_actions: Variant = null
+class FakeDesktopActions extends Node:
 	var released := 0
-
-	func _init() -> void:
-		desktop_actions = self
 
 	func pony_released() -> void:
 		released += 1
@@ -87,10 +78,6 @@ class FakeReach extends Node:
 class FakeMain extends Node:
 	var player: FakeBody = null
 	var game: FakeGame = null
-	var reach: FakeReach = null
-
-	func interactor() -> Node:
-		return reach
 
 
 func _initialize() -> void:
@@ -113,13 +100,17 @@ func _fixture(pose_family := "standing", state := STATE_ACTIVE) -> Dictionary:
 	session.name = "CuddleSession"
 	pony.add_child(session)
 	var body := FakeBody.new()
+	var reach := INTERACTOR.new()
+	reach.name = "Interactor"
+	reach.desktop_actions = FakeDesktopActions.new()
+	body.add_child(reach)
 	var game := FakeGame.new()
 	game.kisser = FakeKisser.new()
-	var reach := FakeReach.new()
 	var main := FakeMain.new()
 	main.player = body
+	WORLD.bind_player(main.player)
 	main.game = game
-	main.reach = reach
+	WORLD.bind_world(main.game)
 	var hold: RefCounted = HOLD.new()
 	var host := {
 		"pony": Callable(_value, "make").bind(pony),
@@ -372,13 +363,14 @@ func _check_carry() -> void:
 	var made := _fixture()
 	var hold: RefCounted = made["hold"]
 	var pony: FakePony = made["pony"]
-	var reach: FakeReach = made["reach"]
+	var reach: Node = made["reach"]
+	var actions: FakeDesktopActions = reach.desktop_actions
 	check(not hold.release_carry(), "an empty carry is not ours")
-	reach.held = pony
-	reach.cradled = true
+	reach.set("held", pony)
+	reach.set("cradled", true)
 	check(hold.release_carry(), "the act releases its own cradled carry")
-	check(reach.held == null and not reach.cradled, "the carry flags clear")
-	check(reach.released == 1, "the desktop actions hear the release")
+	check(reach.get("held") == null and not bool(reach.get("cradled")), "the carry flags clear")
+	check(actions.released == 1, "the desktop actions hear the release")
 	check(pony.interaction_ends == 1, "her interaction ends")
 	check((reach.get("_lay") as Dictionary).is_empty(), "the saved lay pose clears")
 	_free(made)

@@ -36,12 +36,11 @@ const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd"
 const RUNTIME_BINDING := preload("res://mods/unfplap/runtime/body_binding.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
-const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
-const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/audio/stock_smack.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
@@ -53,8 +52,6 @@ const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
-const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const INTERACTOR_PATH := "res://player/interactor.gd"
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 const CAPTION_PATH := "res://world/ui/speech_caption.gd"
@@ -82,8 +79,6 @@ const AIM_TUBE_M := 1.5
 var debug_logs: bool
 var debug_perf: bool
 
-var game
-var player
 var hud
 var input
 ## Cross-mod API facade; see docs/api.md.
@@ -133,10 +128,6 @@ var _gate_at := 0.0
 var _gate_ready := false
 var _gate_stool_need := 0
 var _gate_stool_have := 0
-var _interactor: Node
-var _desktop: Node
-var _camera_cache: Camera3D
-var _camera_cache_at := 0.0
 var _last_offer_key := ""
 var _last_blocked_key := ""
 var _stool_hint_toast_shown := false
@@ -220,7 +211,7 @@ func _perf_idle_counts() -> Dictionary:
 	for runtime: Variant in _runtimes.values():
 		if is_instance_valid(runtime):
 			runtimes += 1
-	return {"runtimes": runtimes, "mares": mares().size()}
+	return {"runtimes": runtimes, "mares": WORLD.mares().size()}
 
 
 ## One window from either probe, drawn in the corner panel. The text block stays the record.
@@ -367,7 +358,7 @@ func _on_world(host: Node) -> void:
 	close_debug_wheel()
 	_clear_native_hint()
 	_dance_hint_shown = false
-	game = host
+	WORLD.bind_world(host)
 	if not is_instance_valid(eligibility):
 		eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
@@ -379,10 +370,6 @@ func _on_world(host: Node) -> void:
 		body_change.call("refresh_sources")
 	_stool_hint_toast_shown = false
 	_last_blocked_key = ""
-	_interactor = null
-	_desktop = null
-	_camera_cache = null
-	_camera_cache_at = 0.0
 	_offer = null
 	_offer_blocked = null
 	_pending_swap = {}
@@ -431,8 +418,7 @@ func _on_world_closed(_host: Node) -> void:
 	_pending_swap = {}
 	if is_instance_valid(stock_smack):
 		stock_smack.call("clear_world")
-	game = null
-	player = null
+	WORLD.unbind()
 	_offer = null
 	_offer_blocked = null
 	_gate_target = null
@@ -559,7 +545,7 @@ func refresh_dock_color(pony: Node) -> void:
 
 
 func _on_player(body: Node) -> void:
-	player = body
+	WORLD.bind_player(body)
 	_debug("player ready")
 	if not is_instance_valid(hud):
 		hud = HUD.new()
@@ -816,8 +802,8 @@ func _process_entry(delta: float, timed: bool) -> void:
 	# The caption move is an act-only path; the two reads behind it are not worth a per-frame call.
 	if _captions_on_top and is_instance_valid(active_runtime):
 		_caption_top_tick()
-	if not is_instance_valid(player) and is_instance_valid(game):
-		var body: Variant = game.get("player")
+	if not is_instance_valid(WORLD.player) and is_instance_valid(WORLD.game):
+		var body: Variant = WORLD.game.get("player")
 		if is_instance_valid(body):
 			_on_player(body)
 	if is_instance_valid(active_runtime):
@@ -875,14 +861,14 @@ func _process_entry(delta: float, timed: bool) -> void:
 func _refresh_offer() -> void:
 	_offer = null
 	_offer_blocked = null
-	if not is_instance_valid(player) or not is_instance_valid(game):
+	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
 		return
 	if get_tree().paused:
 		return
-	if DisplayServer.get_name() != "headless" and not headset_view() \
+	if DisplayServer.get_name() != "headless" and not WORLD.headset_view() \
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	if view == null:
 		return
 	var form: Dictionary = PLAYER_FORM.active(get_tree())
@@ -902,7 +888,7 @@ func _refresh_offer() -> void:
 
 	# Missionary now requires Anon to be seated/lying on the bed with a pony lying there. A
 	# standing or cradling Anon has no valid missionary camera, so that entry is not offered.
-	if not pony_form and is_instance_valid(player) and player.get("seat") != null:
+	if not pony_form and is_instance_valid(WORLD.player) and WORLD.player.get("seat") != null:
 		var lying: Node = _bedside_pony(view)
 		if is_instance_valid(lying):
 			var runtime: Node = runtime_for(lying)
@@ -1012,7 +998,7 @@ func _rump_cone_target(view: Camera3D) -> Node:
 	# One pass keeps the scan allocation-free: the scan runs every second in the frame.
 	var best: Node3D = null
 	var best_distance := INF
-	for node: Variant in mares():
+	for node: Variant in WORLD.mares():
 		if not is_instance_valid(node):
 			continue
 		var actor: Node3D = node as Node3D
@@ -1048,9 +1034,9 @@ func _native_row() -> HBoxContainer:
 	if is_instance_valid(_native_hint_row) and _native_hint_row.is_inside_tree():
 		return _native_hint_row
 	_native_hint_row = null
-	if not is_instance_valid(_native_hints_node) or _native_hints_node.get_parent() != game:
-		_native_hints_node = game.get_node_or_null("InteractionHints") \
-			if is_instance_valid(game) else null
+	if not is_instance_valid(_native_hints_node) or _native_hints_node.get_parent() != WORLD.game:
+		_native_hints_node = WORLD.game.get_node_or_null("InteractionHints") \
+			if is_instance_valid(WORLD.game) else null
 	if not is_instance_valid(_native_hints_node):
 		return null
 	# VR uses the world-space prompt row; the act-key hint falls back to the HUD prompt there.
@@ -1196,11 +1182,11 @@ func debug_target(view: Camera3D) -> Node:
 
 
 func _debug_target(view: Camera3D) -> Node:
-	if not is_instance_valid(player) or not is_instance_valid(game):
+	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
 		return null
 	var pony_form := PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
 	if not pony_form:
-		var reach: Node = interactor()
+		var reach: Node = WORLD.interactor()
 		if is_instance_valid(reach) and reach.get("cradled") == true:
 			var held: Variant = reach.get("held")
 			if held is Node3D and is_instance_valid(held):
@@ -1210,7 +1196,7 @@ func _debug_target(view: Camera3D) -> Node:
 	var forward := -view.global_basis.z
 	var best: Node = null
 	var best_perp := INF
-	for node: Variant in mares():
+	for node: Variant in WORLD.mares():
 		if not is_instance_valid(node):
 			continue
 		var actor: Node3D = node as Node3D
@@ -1336,9 +1322,9 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	if handle == null:
 		return
 	_agreement_clock = 0.0
-	if menu_panel_open():
+	if WORLD.menu_panel_open():
 		return
-	if DisplayServer.get_name() != "headless" and not headset_view() \
+	if DisplayServer.get_name() != "headless" and not WORLD.headset_view() \
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	var pony: Variant = handle.pony
@@ -1409,9 +1395,9 @@ func action_standing_offer() -> String:
 ## Debug: form an Anon offer for the aimed mare as if Anon had just asked her. The classifier still
 ## decides the option and the response; this only skips typing the line in a conversation.
 func action_anon_offer() -> String:
-	if not is_instance_valid(negotiation) or not is_instance_valid(player):
+	if not is_instance_valid(negotiation) or not is_instance_valid(WORLD.player):
 		return "Act system not ready."
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
 		return "No mare under the crosshair."
@@ -1428,7 +1414,7 @@ func action_anon_offer() -> String:
 ## Wheel-only: start the stock bed cuddle. The bed, recline and invite sequence runs after this
 ## returns, so the wheel closes immediately and the debug log carries the detailed result.
 func action_bed_cuddle() -> String:
-	if not is_instance_valid(player):
+	if not is_instance_valid(WORLD.player):
 		return "Player not ready."
 	var target := _debug_history_target()
 	if not is_instance_valid(target):
@@ -1453,7 +1439,7 @@ func action_deep_stretch() -> String:
 		if pony is Node3D and is_instance_valid(pony):
 			target = pony
 	else:
-		var view: Camera3D = camera()
+		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			target = _debug_target(view)
 	return DEBUG_STRETCH.stretch(_idle_life, target as Node3D)
@@ -1483,7 +1469,7 @@ func action_cycle_auto() -> String:
 
 
 func _debug_cycle_toggle(phase_name: String) -> String:
-	if not is_instance_valid(player):
+	if not is_instance_valid(WORLD.player):
 		return "Player not ready."
 	var target := _debug_history_target()
 	if not is_instance_valid(target):
@@ -1501,7 +1487,7 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 
 ## The aimed mare's effective estrus phase, or "" when there is no target.
 func debug_cycle_phase() -> String:
-	if not is_instance_valid(player):
+	if not is_instance_valid(WORLD.player):
 		return ""
 	var target := _debug_history_target()
 	if not is_instance_valid(target):
@@ -1513,9 +1499,9 @@ func debug_cycle_phase() -> String:
 
 
 func _debug_cycle_request(phase_name: String) -> String:
-	if not is_instance_valid(player):
+	if not is_instance_valid(WORLD.player):
 		return "Player not ready."
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
 		return "No mare under the crosshair."
@@ -1578,7 +1564,7 @@ func _form_change_request(true_form: bool, shape_id: String) -> String:
 
 ## The aimed mare's body, else a live body an active source handles, for the idle debug request.
 func _form_body() -> Node3D:
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if target is Node3D and shape_source_for(target) != null:
 		return target
@@ -1590,7 +1576,7 @@ func _form_body() -> Node3D:
 
 ## The aimed mare's source, else the first active one. The idle action only needs a source.
 func _form_source() -> Variant:
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if is_instance_valid(target):
 		var aimed: Variant = shape_source_for(target)
@@ -1606,9 +1592,9 @@ func _form_source() -> Variant:
 
 ## Shared by the Debug actions.
 func _debug_offer_request(pose := "") -> String:
-	if not is_instance_valid(initiation) or not is_instance_valid(player):
+	if not is_instance_valid(initiation) or not is_instance_valid(WORLD.player):
 		return "Act system not ready."
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
 		_debug("request: no pony target")
@@ -1695,7 +1681,7 @@ func action_facesit_variant() -> String:
 ## Debug: one structured dump for the aimed mare. Show data, and a future always-on overlay, can
 ## render the same sections: TARGET, CYCLE, GATE, REQUEST, ACT, STOOL, HISTORY, PROMPT, BED.
 func action_show_data() -> String:
-	if not is_instance_valid(player):
+	if not is_instance_valid(WORLD.player):
 		return "Player not ready."
 	var target := _debug_history_target()
 	if not is_instance_valid(target):
@@ -1768,7 +1754,7 @@ func _debug_cycle_rows(runtime: Variant) -> Array[String]:
 func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
 	if not is_instance_valid(runtime):
 		return ["no runtime"]
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	var dist := -1.0
 	var dot := -1.0
 	if is_instance_valid(view) and target is Node3D:
@@ -1817,9 +1803,9 @@ func _debug_stool_rows(runtime: Variant) -> Array[String]:
 
 ## Debug: cycle the game's expression faces on the active act or the aimed mare.
 func action_force_act_face() -> String:
-	if not is_instance_valid(player):
+	if not is_instance_valid(WORLD.player):
 		return "Player not ready."
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
 		return "No mare under the crosshair."
@@ -1850,7 +1836,7 @@ func action_clear_cooldown() -> String:
 
 ## Debug: clear the aimed mare's long-term act history.
 func action_reset_act_history() -> String:
-	if not is_instance_valid(player):
+	if not is_instance_valid(WORLD.player):
 		return "Act system not ready."
 	var target := _debug_history_target()
 	if not is_instance_valid(target):
@@ -1931,7 +1917,7 @@ func _debug_prompt_rows(target: Node) -> Array[String]:
 	var history_row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
 	var history_note := ACT_HISTORY.prompt_note(history_row)
 	rows.append("history_note: " + (history_note if not history_note.is_empty() else "none"))
-	var ctx: Variant = game.get("world_context") if is_instance_valid(game) else null
+	var ctx: Variant = WORLD.game.get("world_context") if is_instance_valid(WORLD.game) else null
 	if ctx != null and is_instance_valid(ctx):
 		var events: Array = ctx.call("events_for", id, 10) if ctx.has_method("events_for") else []
 		rows.append("recent events:")
@@ -1952,9 +1938,9 @@ func action_reset_act_prompts() -> String:
 
 
 func action_give_stool() -> String:
-	if not is_instance_valid(game):
+	if not is_instance_valid(WORLD.game):
 		return "Act system not ready."
-	var inventory: Variant = game.get("inventory")
+	var inventory: Variant = WORLD.game.get("inventory")
 	if not is_instance_valid(inventory):
 		return "No briefcase."
 	var store: Variant = inventory.get("inventory")
@@ -1976,7 +1962,7 @@ func action_pantyhose_rebuild() -> String:
 
 
 func _debug_history_target() -> Node:
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	return _debug_target(view) if is_instance_valid(view) else null
 
 
@@ -2031,41 +2017,6 @@ func refresh_anatomy() -> void:
 		anatomy.call("refresh_all")
 		anatomy.call("apply_live")
 		anatomy.call("player_apply_live")
-
-
-## integration: drop the merged LOD caches for a body whose shape changed and re-arm its near
-## mesh, so the visible body is rebuilt from the new rig instead of the old shape's gather.
-func refresh_body_lod(pony: Node) -> void:
-	if not is_instance_valid(pony):
-		return
-	HYBRID_NEAR_MESH.cache.erase(HYBRID_NEAR_MESH.key(pony))
-	var far_key: String = HYBRID_FAR_MESH._id(pony)
-	HYBRID_FAR_MESH.cache.erase(far_key)
-	HYBRID_FAR_MESH.shadow_cache.erase(far_key)
-	HYBRID_FAR_MESH.eyes_cache.erase(far_key)
-	if not pony.has_method("set_near_mesh"):
-		return
-	var enabled: Variant = pony.get("near_mesh_enabled")
-	if enabled != null and not bool(enabled):
-		return
-	pony.call("set_near_mesh", false)
-	pony.call("set_near_mesh", true)
-
-
-## integration: the chat box refuses while the act holds the controls; open it past that lock.
-func open_act_chat() -> bool:
-	if not is_instance_valid(game) or not is_instance_valid(player):
-		return false
-	var chat: Node = game.get_node_or_null("ChatBox")
-	if chat == null or not chat.has_method("_open"):
-		return false
-	var held: Variant = player.get("controls_locked")
-	player.set("controls_locked", false)
-	var opened := bool(chat.call("_open"))
-	player.set("controls_locked", held)
-	if opened:
-		chat.set("_lock_owned", false)
-	return opened
 
 
 ## integration: the anatomy service owns the placement editor.
@@ -2170,7 +2121,7 @@ func _nearest_pony(view: Camera3D) -> Node:
 		return null
 	var best: Node = null
 	var best_distance := 8.0
-	for node: Variant in mares():
+	for node: Variant in WORLD.mares():
 		if not is_instance_valid(node) or not node is Node3D:
 			continue
 		var actor: Node3D = node as Node3D
@@ -2231,15 +2182,15 @@ func debug_wheel_act_live() -> bool:
 func debug_wheel_allowed() -> bool:
 	if not debug_logs or DisplayServer.get_name() == "headless":
 		return false
-	if not is_instance_valid(player) or not is_instance_valid(game):
+	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
 		return false
-	if get_tree().paused or headset_view():
+	if get_tree().paused or WORLD.headset_view():
 		return false
 	if not DisplayServer.window_is_focused():
 		return false
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return false
-	if menu_open():
+	if WORLD.menu_open():
 		return false
 	var focus := get_viewport().gui_get_focus_owner()
 	if focus is LineEdit or focus is TextEdit:
@@ -2259,7 +2210,7 @@ func debug_wheel_context() -> Dictionary:
 			out["source"] = "act"
 			return out
 		return out
-	var view: Camera3D = camera()
+	var view: Camera3D = WORLD.camera()
 	if not is_instance_valid(view):
 		return out
 	var target: Node = _debug_target(view)
@@ -2312,69 +2263,6 @@ func clear_active(runtime: Node) -> void:
 			stock_smack.call("act_end", runtime.get("pony"))
 
 
-func camera() -> Camera3D:
-	if not is_instance_valid(player):
-		return null
-	var direct: Variant = player.get("camera")
-	if direct is Camera3D and is_instance_valid(direct):
-		return direct
-	var now := Time.get_ticks_msec() * 0.001
-	if is_instance_valid(_camera_cache) and now - _camera_cache_at < 1.0:
-		return _camera_cache
-	if is_instance_valid(game) and game.has_method("_find_camera"):
-		var found: Variant = game.call("_find_camera", player)
-		if found is Camera3D and is_instance_valid(found):
-			_camera_cache = found
-			_camera_cache_at = now
-			return found
-	var current: Camera3D = get_viewport().get_camera_3d()
-	_camera_cache = current
-	_camera_cache_at = now
-	return current
-
-
-func interactor() -> Node:
-	if is_instance_valid(_interactor):
-		return _interactor
-	if not is_instance_valid(player):
-		return null
-	for node: Node in player.find_children("*", "", true, false):
-		var script: Variant = node.get_script()
-		if script != null and str(script.resource_path) == INTERACTOR_PATH:
-			_interactor = node
-			return node
-	return null
-
-
-func desktop() -> Node:
-	if is_instance_valid(_desktop):
-		return _desktop
-	_desktop = get_tree().get_first_node_in_group("desktop_interactions")
-	return _desktop
-
-
-func player_body() -> Node3D:
-	if not is_instance_valid(player):
-		return null
-	var form: Variant = player.get("form_driver")
-	if form != null and is_instance_valid(form):
-		var avatar: Variant = form.get("avatar")
-		if avatar is Node3D and is_instance_valid(avatar):
-			return avatar
-	var body: Variant = player.find_child("Body", true, false)
-	if body is Node3D and is_instance_valid(body):
-		return body
-	return player as Node3D
-
-
-func mares() -> Array:
-	if is_instance_valid(game):
-		var list: Variant = game.get("mares")
-		if list is Array:
-			return list
-	return []
-
-
 ## The act-target capability. The eligibility service owns the rule; a scan uses this before
 ## building a runtime gate for a stallion or a young pony.
 func _is_act_target(pony: Variant) -> bool:
@@ -2392,167 +2280,10 @@ func runtime_for(pony: Node) -> Node:
 	return child if is_instance_valid(child) else null
 
 
-func bed_under(point: Vector3, exclude: RID = RID()) -> Node3D:
-	var world: World3D = null
-	if is_instance_valid(player):
-		world = player.get_world_3d()
-	if world == null:
-		world = get_viewport().world_3d
-	if world == null:
-		return null
-	var space: PhysicsDirectSpaceState3D = world.direct_space_state
-	if space == null:
-		return null
-	for lift: float in [0.6, 0.35, 0.15]:
-		var from := point + Vector3.UP * lift
-		var query := PhysicsRayQueryParameters3D.create(from, point + Vector3.DOWN * 2.5, 1)
-		if exclude.is_valid():
-			query.exclude = [exclude]
-		var hit: Dictionary = space.intersect_ray(query)
-		if hit.is_empty():
-			continue
-		var bed: Node3D = MATTRESS.bed_of(hit.get("collider"))
-		if bed != null:
-			var real := real_bed(bed)
-			if real != null:
-				return real
-	return null
-
-
-## The actual bed/couch behind a physics hit. A `SharedTorsoSupport` is a temporary child of the
-## bed that also carries `soft_support`; using it as the bed leaves the act with a freed node
-## once the cuddle support is removed.
-func real_bed(node: Node) -> Node3D:
-	if not is_instance_valid(node):
-		return null
-	if node.has_meta("shared_rest_support"):
-		var parent := node.get_parent() as Node3D
-		if is_instance_valid(parent):
-			return parent
-	var walk: Node = node
-	while walk != null:
-		if walk is Node3D and walk.has_meta("mattress_top"):
-			return walk as Node3D
-		walk = walk.get_parent()
-	if node is Node3D and node.has_meta("soft_support"):
-		return node as Node3D
-	return null
-
-
-func bed_for_cradle(pony: Node3D) -> Node3D:
-	if not is_instance_valid(pony):
-		return null
-	var exclude: RID = (pony as CollisionObject3D).get_rid() if pony is CollisionObject3D else RID()
-	var down: Node3D = bed_under(pony.global_position, exclude)
-	if down != null:
-		return down
-	var view: Camera3D = camera()
-	if view == null:
-		return null
-	var space: PhysicsDirectSpaceState3D = view.get_world_3d().direct_space_state
-	if space == null:
-		return null
-	var from := view.global_position
-	var to := from - view.global_basis.z * 3.2
-	var query := PhysicsRayQueryParameters3D.create(from, to, 1)
-	if exclude.is_valid():
-		query.exclude = [exclude]
-	var hit: Dictionary = space.intersect_ray(query)
-	if hit.is_empty():
-		return null
-	return real_bed(MATTRESS.bed_of(hit.get("collider")))
-
-
-func bed_occupied(bed: Node3D, target: Node) -> bool:
-	if not is_instance_valid(bed):
-		return false
-	var top := float(bed.get_meta("mattress_top", 0.6))
-	var at := bed.to_global(Vector3(0.0, top, 0.0))
-	for node: Variant in mares():
-		if not is_instance_valid(node) or node == target:
-			continue
-		var actor: Node3D = node as Node3D
-		if actor == null or not actor.has_method("posture_status"):
-			continue
-		var status: Dictionary = actor.posture_status()
-		if str(status.get("requested", "")) != "lie_down":
-			continue
-		if absf(actor.global_position.y - at.y) > 0.55:
-			continue
-		if Vector2(actor.global_position.x - at.x, actor.global_position.z - at.z).length() > 1.3:
-			continue
-		return true
-	return false
-
-
-func player_beside_bed(bed: Node3D) -> bool:
-	if not is_instance_valid(player):
-		return false
-	var seat: Variant = player.get("seat")
-	if seat == null or not is_instance_valid(seat):
-		return true
-	if not is_instance_valid(bed):
-		return true
-	if seat is Node3D and (seat as Node3D).get_parent() == bed:
-		return true
-	if seat is Node3D and (seat as Node3D).has_meta("couch"):
-		var couch: Variant = (seat as Node3D).get_meta("couch")
-		if is_instance_valid(couch):
-			var bed_node: Variant = couch.get("_bed") if couch.get("_bed") != null else couch.get("bed_node")
-			if bed_node == bed:
-				return true
-			if is_instance_valid(bed_node) and (bed_node as Node3D).is_ancestor_of(seat as Node):
-				return true
-	return false
-
-
-## True while a menu or panel owns the mouse: the tree is paused or a known UI panel is open.
-## Deliberately excludes "the mouse is visible" so a menu that leaves the cursor visible cannot
-## keep offers and act input dead after it closes. Use menu_open() for "can he interact now".
-func menu_panel_open() -> bool:
-	if get_tree().paused:
-		return true
-	if not is_instance_valid(game):
-		return false
-	for key: String in ["save_menu", "settings_menu", "pause_menu"]:
-		var panel: Variant = game.get(key)
-		if is_instance_valid(panel) and bool(panel.get("opened")):
-			return true
-	var inventory: Variant = game.get("inventory")
-	if not is_instance_valid(inventory):
-		return false
-	if inventory.has_method("_map_open") and bool(inventory.call("_map_open")):
-		return true
-	var case: Variant = inventory.get("case")
-	if is_instance_valid(case) and bool(case.get("visible")):
-		return true
-	var customizer: Variant = inventory.get("customizer")
-	if is_instance_valid(customizer) and bool(customizer.get("opened")):
-		return true
-	var inspector: Variant = inventory.get("inspector")
-	if is_instance_valid(inspector) and bool(inspector.get("active")):
-		return true
-	return false
-
-
-## True when the player should not interact with the world right now. Adds the mouse state to
-## menu_panel_open(): the base game leaves the cursor visible while a menu owns the mouse.
-func menu_open() -> bool:
-	if menu_panel_open():
-		return true
-	return Input.mouse_mode != Input.MOUSE_MODE_CAPTURED
-
-
-## The eye is in a headset. There is no desktop cursor to capture, and the stock game leaves the
-## mouse visible, so the "cursor is visible" gates must not read that as a menu owning the input.
-func headset_view() -> bool:
-	return is_instance_valid(game) and bool(game.get("headset_view"))
-
-
 func _bedside_pony(_view: Camera3D) -> Node:
 	# The player's bed/couch seat knows exactly who lies beside Anon.
-	if is_instance_valid(player):
-		var seat: Variant = player.get("seat")
+	if is_instance_valid(WORLD.player):
+		var seat: Variant = WORLD.player.get("seat")
 		if is_instance_valid(seat) and seat.has_meta("couch"):
 			var couch: Variant = seat.get_meta("couch")
 			if is_instance_valid(couch) and couch.has_method("partner"):
@@ -2568,7 +2299,7 @@ func nearest_lying(view: Camera3D) -> Node:
 	var best: Node
 	var best_dot := 0.78
 	var forward := -view.global_basis.z
-	for node: Variant in mares():
+	for node: Variant in WORLD.mares():
 		if not is_instance_valid(node):
 			continue
 		var actor: Node3D = node as Node3D
@@ -2692,15 +2423,15 @@ func context_facts(pony: Node) -> Dictionary:
 func form_view() -> NEGOTIATION.FormView:
 	var out := NEGOTIATION.FormView.new()
 	out.form = "pony" if PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())) else "human"
-	out.view = "vr" if headset_view() else "desktop"
+	out.view = "vr" if WORLD.headset_view() else "desktop"
 	return out
 
 
 ## The world-context impression mood for one id, or "".
 func _world_mood(id: String) -> String:
-	if id.is_empty() or not is_instance_valid(game):
+	if id.is_empty() or not is_instance_valid(WORLD.game):
 		return ""
-	var ctx: Variant = game.get("world_context")
+	var ctx: Variant = WORLD.game.get("world_context")
 	if ctx == null or not is_instance_valid(ctx):
 		return ""
 	var impressions: Variant = ctx.get("impressions")
@@ -2712,7 +2443,7 @@ func _world_mood(id: String) -> String:
 
 ## The relationship prompt note for one id, or "".
 func _relation_note(id: String) -> String:
-	if id.is_empty() or not is_instance_valid(memory) or not is_instance_valid(game):
+	if id.is_empty() or not is_instance_valid(memory) or not is_instance_valid(WORLD.game):
 		return ""
 	var facts: MEMORY.CueFacts = memory.cue_facts(id, "")
 	var facts_dict := facts.to_dict()
@@ -2820,22 +2551,22 @@ func _on_anon_line(text: String) -> void:
 ## The mare whose conversation target is Anon, nearest first. The game's own target decides; the
 ## classifiers never reroute the director.
 func _conversation_mare() -> Node:
-	if not is_instance_valid(player):
+	if not is_instance_valid(WORLD.player):
 		return null
 	var best: Node = null
 	var best_distance := INF
-	for node: Variant in mares():
+	for node: Variant in WORLD.mares():
 		if not is_instance_valid(node) or not _is_act_target(node):
 			continue
 		var target: Variant = node.get("conversation_target")
 		if not is_instance_valid(target):
 			continue
-		var bound: bool = target == player \
-			or (player is Node and (player as Node).is_ancestor_of(target))
+		var bound: bool = target == WORLD.player \
+			or (WORLD.player is Node and (WORLD.player as Node).is_ancestor_of(target))
 		if not bound:
 			continue
 		var actor := node as Node3D
-		var distance := actor.global_position.distance_to(player.global_position)
+		var distance := actor.global_position.distance_to(WORLD.player.global_position)
 		if distance < best_distance:
 			best_distance = distance
 			best = node

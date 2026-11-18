@@ -63,6 +63,8 @@ var _scale: float
 ## `presentation.missionary.part_inset_m`. Negative pulls the whole part back into the pelvis.
 var bed_inset_m: float
 var _setting_scale: float
+## The cock-forward standoff, read with the other live values and used by the per-frame placement.
+var _part_front_m := 0.0
 var _girth_base: float
 var _girth_mid: float
 var _girth_head: float
@@ -211,6 +213,7 @@ func _read_settings() -> void:
 	_girth_head = maxf(SETTINGS.part_head_scale.get_num(), 0.01)
 	_part_length_scale = maxf(SETTINGS.part_length_scale.get_num(), 0.01)
 	_throb_gain = maxf(SETTINGS.part_throb.get_num(), 0.0)
+	_part_front_m = SETTINGS.part_front_m.get_num()
 
 
 ## integration: the user-facing scale sits on top of the saved placement.
@@ -222,7 +225,7 @@ func _placed() -> Transform3D:
 	var basis := _rotation_basis().scaled(Vector3.ONE * _scale * _setting_scale)
 	# `Cock forward` slides the base out along the shaft, so it can sit on the front of the hips
 	# instead of inside the pelvis. The missionary inset moves the whole part back into the pelvis.
-	var front := SETTINGS.part_front_m.get_num() + bed_inset_m
+	var front := _part_front_m + bed_inset_m
 	var axis := (TIP_POINT - PIVOT).normalized()
 	return _bone_inverse * Transform3D(basis, _pos + (_rotation_basis() * axis) * front)
 

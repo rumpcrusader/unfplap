@@ -30,6 +30,12 @@ var _wide := 0.0
 var _hole_target := 0.0
 var _lip_radius := GEOMETRY.WINKING_LIP_RADIUS
 var _tween: Tween
+## The grip and anal tuning, read on setup/live and never on the per-frame shape drive.
+var _vulva_hug_mm := 0.0
+var _vulva_hug_mm_missionary := 0.0
+var _anal_hug_mm := 0.0
+var _anal_aim_mm := 0.0
+var _anal_scale := 1.0
 
 
 func setup(pony_node: Node3D, host_node: Node) -> void:
@@ -37,7 +43,17 @@ func setup(pony_node: Node3D, host_node: Node) -> void:
 	host = host_node
 
 
+## Read the shape tuning once. `apply_live()` refreshes it; a live edit applies at that refresh.
+func read_settings() -> void:
+	_vulva_hug_mm = SETTINGS.vulva_hug_mm.get_num()
+	_vulva_hug_mm_missionary = SETTINGS.vulva_hug_mm_for(SETTINGS.pony_size_name())
+	_anal_hug_mm = SETTINGS.anal_hug_mm.get_num()
+	_anal_aim_mm = SETTINGS.anal_aim_mm.get_num()
+	_anal_scale = SETTINGS.anal_scale.get_num()
+
+
 func set_mesh(mesh_node: MeshInstance3D) -> void:
+	read_settings()
 	mesh = mesh_node
 	_anal_mouth = GEOMETRY.V2_ANAL_RING_BASE
 	_anal_local = 0.0
@@ -135,7 +151,7 @@ func hole_local(mix: float) -> Vector3:
 	var local := GEOMETRY.WINKING_OPENING.lerp(_anal_mouth, t)
 	if is_instance_valid(mesh):
 		var scale := maxf(mesh.global_transform.basis.get_scale().y, 0.0001)
-		local += Vector3(0.0, SETTINGS.anal_aim_mm.get_num() / 1000.0 * t / scale, 0.0)
+		local += Vector3(0.0, _anal_aim_mm / 1000.0 * t / scale, 0.0)
 	return local
 
 
@@ -145,8 +161,7 @@ func hole_point(mix := 0.0) -> Vector3:
 	var point := mesh.global_transform * GEOMETRY.WINKING_OPENING
 	var t := clampf(mix, 0.0, 1.0)
 	var anal := mesh.global_transform * _anal_mouth
-	anal += mesh.global_transform.basis.y.normalized() \
-		* (SETTINGS.anal_aim_mm.get_num() / 1000.0)
+	anal += mesh.global_transform.basis.y.normalized() * (_anal_aim_mm / 1000.0)
 	return point.lerp(anal, t)
 
 
@@ -248,13 +263,6 @@ func wink_burst(count: int, discharge_count: int, rest_open: float,
 		from = rest_open
 
 
-## Missionary can use its own hug hack; every other pose keeps the anatomy setting.
-func _vulva_hug_mm(missionary: bool) -> float:
-	if missionary:
-		return SETTINGS.vulva_hug_mm_for(SETTINGS.pony_size_name())
-	return SETTINGS.vulva_hug_mm.get_num()
-
-
 ## Open the lips to the shaft's actual radius. `shaft_radius` is world metres; the mesh works in
 ## local units, so it is converted with the mesh scale and solved against the measured lip radius:
 ## the lip band is remapped from the rim out to `lip_outer`, so the opening reaches exactly that
@@ -267,7 +275,8 @@ func set_grip(shaft_radius: float, missionary: bool) -> void:
 	if material == null:
 		return
 	var scale := maxf(mesh.global_transform.basis.get_scale().x, 0.0001)
-	var hug := _vulva_hug_mm(missionary) / 1000.0 if shaft_radius > 0.0 else 0.0
+	var hug := (_vulva_hug_mm_missionary if missionary else _vulva_hug_mm) / 1000.0 \
+		if shaft_radius > 0.0 else 0.0
 	var local := maxf(shaft_radius + hug, 0.0) / scale
 	_hole_target = local
 	# No blend shape at all: it scales the whole mesh. The shader opens the hole by translating
@@ -336,7 +345,7 @@ func set_anal_grip(shaft_radius: float) -> void:
 	if not is_instance_valid(mesh):
 		return
 	var scale := maxf(mesh.global_transform.basis.get_scale().x, 0.0001)
-	var hug := SETTINGS.anal_hug_mm.get_num() / 1000.0 if shaft_radius > 0.0 else 0.0
+	var hug := _anal_hug_mm / 1000.0 if shaft_radius > 0.0 else 0.0
 	_anal_local = maxf(shaft_radius + hug, 0.0) / scale
 	_apply_anal_shape(_anal_local)
 
@@ -347,7 +356,7 @@ func set_anal_grip(shaft_radius: float) -> void:
 func _apply_anal_shape(local: float) -> void:
 	if not is_instance_valid(mesh):
 		return
-	var weights := GEOMETRY.anal_ring_weights(local, SETTINGS.anal_scale.get_num())
+	var weights := GEOMETRY.anal_ring_weights(local, _anal_scale)
 	_anal_mouth = GEOMETRY.anal_ring_centre(weights)
 	for pair: Array in [["anal_open", "open"], ["anal_stretch", "stretch"],
 			["anal_overstretch", "over"], ["anal_extreme", "extreme"],

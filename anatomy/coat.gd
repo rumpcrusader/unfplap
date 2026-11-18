@@ -28,6 +28,9 @@ var _body_outline: ShaderMaterial
 var _body_original_shader: Shader
 var _body_outline_original_shader: Shader
 var _body_patched := false
+## The two debug toggles, read on the visibility poll so the per-frame ring check is a field read.
+var _body_coat_deform := false
+var _draw_still_zones := false
 var _zone_debug: Node3D
 var _zone_vulva_centre := Vector3.ZERO
 var _zone_anal_centre := Vector3.ZERO
@@ -84,7 +87,9 @@ func targets() -> Array:
 
 ## Apply or remove the patch and write the current uniforms. Idempotent and safe to call live.
 func apply() -> void:
-	if not SETTINGS.body_coat_deform.get_bool():
+	_body_coat_deform = SETTINGS.body_coat_deform.get_bool()
+	_draw_still_zones = SETTINGS.draw_still_zones.get_bool()
+	if not _body_coat_deform:
 		restore()
 		return
 	if not is_instance_valid(pony):
@@ -186,8 +191,8 @@ func tick_debug() -> void:
 	if not is_instance_valid(_zone_debug):
 		_zone_debug = null
 		return
-	var show := SETTINGS.draw_still_zones.get_bool() and _body_patched \
-		and SETTINGS.body_coat_deform.get_bool() and is_instance_valid(mesh)
+	var show := _draw_still_zones and _body_patched \
+		and _body_coat_deform and is_instance_valid(mesh)
 	if not show:
 		_zone_debug.visible = false
 		return

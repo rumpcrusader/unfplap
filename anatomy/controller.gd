@@ -58,6 +58,10 @@ var appearance: RefCounted
 var _rig_logged := false
 ## integration: visibility is polled, not rewritten every frame, and act-only can hide it.
 var _visibility_clock := 0.0
+## The frame-path toggles, read on setup/refresh/apply_live. A live edit applies there.
+var _coat_line_on := false
+var _draw_coat_line := false
+var _anatomy_mode := ""
 ## Idle heat schedule; the controller supplies state, visibility and the cycle phase.
 var heat: RefCounted
 ## The cached `MareBody` for the per-frame garment transform.
@@ -126,6 +130,7 @@ func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 	appearance = APPEARANCE.new()
 	appearance.setup(pony, shapes, dock_refresh, facts.perf_note)
 	_read_hull_settings()
+	_read_toggles()
 
 
 ## Replace the runtime context. The facade calls this when the controller is created; tests can
@@ -179,6 +184,7 @@ func player_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool,
 
 
 func refresh() -> void:
+	_read_toggles()
 	if not _enabled() or not _is_eligible():
 		detach()
 		return
@@ -194,7 +200,18 @@ func _enabled() -> bool:
 	return SETTINGS.anatomy_on()
 
 
+## The frame-path toggles. `apply_live()` and the 0.2 s poll read these fields; `_process` never
+## reads Settings.
+func _read_toggles() -> void:
+	_coat_line_on = SETTINGS.coat_line.get_bool()
+	_draw_coat_line = SETTINGS.draw_coat_line.get_bool()
+	_anatomy_mode = SETTINGS.anatomy_mode.get_choice()
+
+
 func _attach() -> void:
+	_read_toggles()
+	if heat != null:
+		heat.read_settings()
 	if is_attached():
 		apply_live()
 		return
@@ -241,7 +258,7 @@ func _process(delta: float) -> void:
 	coat.tick_debug()
 	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame())
 	var line_started := Time.get_ticks_usec()
-	coat_line.set_enabled(SETTINGS.coat_line.get_bool())
+	coat_line.set_enabled(_coat_line_on)
 	coat_line.tick(attach.visible())
 	facts.perf("anatomy_coat_line", Time.get_ticks_usec() - line_started)
 	_tick_line_debug(delta)
@@ -271,7 +288,7 @@ func _note_process(started: int) -> void:
 ## integration: the visibility pill. `act` shows her only during the act's states: POSING_IN,
 ## ACTIVE, CLIMAX and AFTERGLOW.
 func _act_visible() -> bool:
-	match SETTINGS.anatomy_mode.get_choice():
+	match _anatomy_mode:
 		"always":
 			return true
 		"act":
@@ -338,7 +355,7 @@ func _ensure_line_debug() -> void:
 func _tick_line_debug(delta: float) -> void:
 	if not is_instance_valid(_line_debug):
 		return
-	if not SETTINGS.draw_coat_line.get_bool() or not coat_line.is_enabled() \
+	if not _draw_coat_line or not coat_line.is_enabled() \
 			or not is_attached() or not is_instance_valid(attach.mesh) or not attach.visible():
 		_line_debug.call("update", {}, false)
 		_line_debug_clock = 0.0
@@ -393,7 +410,12 @@ func _apply_body_coat() -> void:
 func apply_live() -> void:
 	if not is_attached():
 		return
-	if not placement.dirty() and SETTINGS.placement_revision != placement.revision():
+	_read_toggles()
+	placement.read_settings()
+	shapes.read_settings()
+	if heat != null:
+		heat.read_settings()
+	if SETTINGS.placement_revision != placement.revision():
 		placement.load()
 	_read_hull_settings()
 	_apply_material()

@@ -16,10 +16,18 @@ var _phase := ""
 var _phase_clock := 0.0
 var _wink_clock := 0.0
 var _suppressed := false
+## The idle rest, read on setup/live and never on the per-frame idle tick.
+var _rest_open := 0.0
 
 
 func setup(shapes_node: RefCounted) -> void:
 	shapes = shapes_node
+	read_settings()
+
+
+## Read the idle rest once. A live edit applies at the next settings refresh, not mid-tween.
+func read_settings() -> void:
+	_rest_open = clampf(SETTINGS.heat_rest_open.get_num(), 0.0, 1.0)
 
 
 func reset() -> void:
@@ -42,7 +50,7 @@ func wink_clock() -> float:
 
 
 func rest_open() -> float:
-	return clampf(SETTINGS.heat_rest_open.get_num(), 0.0, 1.0)
+	return _rest_open
 
 
 ## `phase_getter` is called only when the two-second poll expires. `on_peak` releases the heat

@@ -22,12 +22,26 @@ var body: Array = []
 var _pos: Vector3
 var _pitch: float
 var _scale: float
-var _place_dirty := false
 var _place_revision := -1
+## The placement trims, read on setup/live and never on the per-frame trim.
+var _vulva_out_mm := 0.0
+var _vulva_shift_mm := 0.0
+var _depth_shift_mm := 0.0
+var _vulva_pitch_deg := 0.0
 
 
 func setup(pony_node: Node3D) -> void:
 	pony = pony_node
+	read_settings()
+
+
+## Read the vulva trims once. A live edit applies on the next settings refresh, not mid-frame.
+func read_settings() -> void:
+	_vulva_out_mm = SETTINGS.vulva_out_mm.get_num()
+	var size := SETTINGS.pony_size_name()
+	_vulva_shift_mm = SETTINGS.vulva_shift_mm_for(size)
+	_depth_shift_mm = SETTINGS.vulva_depth_shift_mm_for(size)
+	_vulva_pitch_deg = SETTINGS.vulva_pitch_deg_for(size)
 
 
 func set_mesh(mesh_node: MeshInstance3D, bind: Transform3D, body_profile: Array) -> void:
@@ -43,10 +57,10 @@ func clear_mesh() -> void:
 
 
 func load() -> void:
+	read_settings()
 	var saved := SETTINGS.anatomy_placement(_pony_id(), _body_fit_id())
 	_apply_values(saved)
 	_place_revision = SETTINGS.placement_revision
-	_place_dirty = false
 
 
 func apply(missionary: bool, depth: float, bed_frame: Variant) -> void:
@@ -72,7 +86,7 @@ func base_place() -> Transform3D:
 		basis = basis.scaled(Vector3.ONE * size)
 	# Push the whole mesh out along its own normal. A pose that tucks the anatomy into the coat
 	# then shows the vulva instead of clipping it.
-	var out: float = SETTINGS.vulva_out_mm.get_num() / 1000.0
+	var out := _vulva_out_mm / 1000.0
 	if absf(out) > 0.00001:
 		place += basis.z.normalized() * out
 	return Transform3D(basis, place)
@@ -82,7 +96,7 @@ func base_place() -> Transform3D:
 func tick(missionary: bool, depth: float, bed_frame: Variant) -> void:
 	if not missionary:
 		return
-	if absf(SETTINGS.vulva_depth_shift_mm_for(SETTINGS.pony_size_name())) < 0.0001:
+	if absf(_depth_shift_mm) < 0.0001:
 		return
 	apply(missionary, depth, bed_frame)
 
@@ -90,11 +104,9 @@ func tick(missionary: bool, depth: float, bed_frame: Variant) -> void:
 ## Move only the anatomy mesh for the lying pose: a world-vertical shift plus a pitch about the
 ## bed's lateral axis, both around the mesh origin.
 func _missionary_trim(local: Transform3D, depth: float, bed_frame: Variant) -> Transform3D:
-	var size := SETTINGS.pony_size_name()
-	var shift: float = SETTINGS.vulva_shift_mm_for(size) / 1000.0
-	shift += SETTINGS.vulva_depth_shift_mm_for(size) / 1000.0 \
-		* clampf((depth - 0.2) / 0.8, 0.0, 1.0)
-	var pitch: float = deg_to_rad(SETTINGS.vulva_pitch_deg_for(size))
+	var shift := _vulva_shift_mm / 1000.0
+	shift += _depth_shift_mm / 1000.0 * clampf((depth - 0.2) / 0.8, 0.0, 1.0)
+	var pitch := deg_to_rad(_vulva_pitch_deg)
 	if absf(shift) < 0.00001 and absf(pitch) < 0.00001:
 		return local
 	var parent := mesh.get_parent() as Node3D
@@ -112,10 +124,6 @@ func _missionary_trim(local: Transform3D, depth: float, bed_frame: Variant) -> T
 	world.basis = Basis(axis, pitch) * world.basis
 	world.origin = pivot + Vector3.UP * shift
 	return parent.global_transform.affine_inverse() * world
-
-
-func dirty() -> bool:
-	return _place_dirty
 
 
 func revision() -> int:

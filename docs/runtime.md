@@ -154,6 +154,9 @@ new body, `anatomy.bind()` runs, the runtime is reparented under the new body, a
 `runtime.adopt_body()` resumes it. The stable id is the act's id: a borrowed shape keeps the same
 relationship, preferences, history and summary; only the display name follows the new identity.
 
+A live settings edit while suspended refreshes the snapshot and returns; the resume applies it
+with the rest of the rebuilt state instead of touching a released pose or the old body.
+
 `_resume_after_body_swap()` re-reads the settings and the new body's size, ends the old anatomy
 act and begins a new one at the current depth, rebuilds the live pose at the pose the act was in
 (`poses/service.gd`'s `settle()` skips the entrance ramp), reopens the camera, re-claims the new

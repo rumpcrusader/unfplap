@@ -248,7 +248,9 @@ and `disguised_as`: `request_true_form()` captures the current actor and calls `
 `request_shape(id)` calls `disguise(id)`; `set_player_request()` marks the change as the player's;
 `poll()` reads `actor` and clears the change when `busy` falls. A rising `busy` with the act pony as
 `actor` is a change her own AI started, with no `request_*` call: the adapter records the old body
-and lets the same watcher suspend the act. A `busy` on another body never reaches the act. The new
+and lets the same watcher suspend the act. If the pack has already moved `actor` to the new body,
+the adapter still records the act pony as the old body, so the watcher can suspend on it while the
+flame still holds it. A `busy` on another body never reaches the act. The new
 body is claimed by its stable identity before the shape is known, and `poll()` fills the target from
 the new body's `changeling=<id>` variant or `disguised_as`. `claims_body()` accepts her own body
 for a true form and the `changeling=<id>` variant for a named shape. `request_appear()` calls

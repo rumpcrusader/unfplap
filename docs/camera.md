@@ -200,13 +200,20 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
 
 - Camera height through player `_stand_eye` / `_eye_height`; do not set the eye line by teleporting
   the rig. The target is the preset eye (`player_eye_height × size_scale`) raised to her live
-  `pony_head` **rest** line when that is higher; that lift never passes Anon's own eye. A fitted
-  body taller than its preset (the princesses, a tall modded mare) therefore cannot leave the view
-  at her chest, and Anon is not scaled up to her. Rest, not the posed bone, so a conversation bow
-  or the act neck-down does not move the camera. The line is measured in Anon's root frame, which
-  terrain and the footstool may raise. A missing skeleton or head bone keeps the preset. The camera
-  aims at the middle of her neck (`pony_neck1`/`pony_neck2` midpoint) once at pose start, then
-  freezes. The lean vector is applied on top.
+  `pony_head` **global rest** line when that is higher; that lift never passes Anon's own eye. A
+  fitted body taller than its preset (the princesses, a tall modded mare) therefore cannot leave
+  the view at her chest, and Anon is not scaled up to her. Rest, not the posed bone, so a
+  conversation bow or the act neck-down does not move the camera. The global rest, not the bone's
+  local rest, so a head parented under the neck carries the neck's rest offset. The line is
+  measured in Anon's root frame, which terrain and the footstool may raise. A missing skeleton or
+  head bone keeps the preset. The camera aims at the middle of her neck
+  (`pony_neck1`/`pony_neck2` midpoint) once at pose start, then freezes. The lean vector is applied
+  on top.
+- A princess body's entrance sits higher or lower and further back than the mare's the presets were
+  tuned on (`shared/body_profile.gd`). The preset moves by the entrance height, a raise capped at
+  Anon's own eye or at a preset that is already higher; `runtime._standing_gap()` adds the back
+  offset, so Anon keeps the same distance from her entrance. The offset follows her body-fit key and
+  her live `body_scale`, so a body-swapped pony is measured from the body that is rendered.
 - Canon lowers the standing eye line by `CANON_STANDING_CAMERA_DROP_M = 0.10 m` and multiplies lean
   travel by `0.8`; JRHNBR raises it by `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`. These offsets
   apply on top of the eye target; the preset is the clamp's floor, not its cap.
@@ -267,8 +274,8 @@ takes effect when the panel closes.
 ## Tests
 
 - `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, the pose-view facing
-  override, shot targets, free camera, eye override, look capture and restore, size scales and the
-  afterglow back-off.
+  override, shot targets, free camera, eye override, the global-rest eye line, the princess
+  entrance offsets, look capture and restore, size scales and the afterglow back-off.
 - `tests/poses/test_session.gd` — the pose camera targets and the bed frame the shot reads.
 - `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.
 

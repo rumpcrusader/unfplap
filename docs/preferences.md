@@ -33,6 +33,7 @@ the player did not edit.
     "talk": ["reassurance"],      # empty = talk does not score for her
     "warmth": "normal",           # quick | normal | slow
     "tolerance": "normal",        # forgiving | normal | strict
+    "teat_size": "auto",          # auto | small | medium | large | huge
     "notes": "private attitude for the AI"
 }
 ```
@@ -40,6 +41,10 @@ the player did not edit.
 - `warmth` scales readiness gain: `quick` ×1.25, `normal` ×1.0, `slow` ×0.8.
 - `tolerance` (Neglect tolerance) sets mid-act warnings and the stop threshold; see
   `docs/readiness.md`. The old `timid`/`neutral` values resolve to `forgiving`/`normal`.
+- `teat_size` is her look, not a scoring axis: `small`…`huge` pick a size for the generated teats
+  (`docs/anatomy.md`), and `auto` keeps the size picked for her (a princess's own look or one from
+  her name). It has no shipped value in `default.preferences`; an unsaved profile resolves to
+  `auto`. A change applies the next time she appears.
 - `touch`/`talk` are likes; `dislikes` cannot overlap a like.
 - `notes` is the private attitude. The AI prompt receives the mood, the preference summary and the
   last concrete input, never a speed or depth dump.
@@ -107,6 +112,7 @@ The form holds:
 
 - intensity, pattern, warmth;
 - neglect tolerance (forgiving, normal, strict);
+- teat size (Auto, Small, Medium, Large, Huge), after neglect tolerance and before the touch rows;
 - one Dislikes / No preference / Likes pill row per touch action (smack, caress, kiss) and per
   talk action (praise, reassurance, dirty talk, playful);
 - public, anal and oral consent (`docs/eligibility.md`);
@@ -165,11 +171,12 @@ Rarity, Octavia, Maud and Zecora, and the wider roster follows the same rule.
 - The Characters form is the only per-mare editor; it writes only on **Save preset**.
 - The debug `Show data` action prints the resolved prompt note, relationship line, cycle note,
   history note and recent events in its PROMPT section.
-- `tests/readiness/test_preferences.gd` covers profile merge, likes/dislikes and classification.
+- `tests/readiness/test_preferences.gd` covers profile merge, likes/dislikes and classification,
+  and the teat size's display order, case handling and `auto` fallback.
 - `tests/test_character_preferences.gd` covers the roster, display names and the shipped catalog
   templates.
 - `tests/test_settings.gd` covers the per-mare merge, provider precedence and the Characters form
-  contract.
+  contract, including the teat size row's place and the saved difference.
 
 ## Related docs
 

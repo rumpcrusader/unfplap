@@ -19,8 +19,9 @@ const TOLERANCES := ["forgiving", "normal", "strict"]
 ## princess's own, or one from her name).
 const TEAT_SIZES := ["auto", "small", "medium", "large", "huge"]
 const TEAT_SIZE_VALUES := {"small": 0.0, "medium": 0.5, "large": 1.0, "huge": 1.4}
-## The profile fields, in display order. The shipped values live under `default.preferences` in
-## `settings/defaults.json`; this list is the schema, not a default.
+## The profile fields, in display order. Most shipped values live under `default.preferences` in
+## `settings/defaults.json`; `teat_size` has no shipped row and resolves to `auto`. This list is
+## the schema, not a default.
 const KEYS := ["intensity", "pattern", "touch", "dislikes", "talk", "warmth", "tolerance", "notes",
 	"teat_size"]
 

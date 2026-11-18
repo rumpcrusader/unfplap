@@ -340,12 +340,16 @@ IDLE early return, so a read outside an act sees the current settings after the 
 The standing start/offer gap is read from `_pose_session.pose_config["gaps"]`; a session without a
 config falls back to `SETTINGS.pose(id, "standing")["gaps"]`. The shipped values live under
 `default.poses.standing.gaps`; the runtime keeps no gap table or numeric fallback, and a per-mare
-pose override still wins.
+pose override still wins. The gap is measured from her centre, and a princess body's entrance sits
+further back or forward than the mare's the gaps were tuned on, so `_standing_gap()` adds the
+entrance's back offset (`camera/service.gd:entrance_offset()`); Anon keeps the same distance from
+her entrance.
 
 ## Tests
 
 - `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags and the oral edge's
-  consent/feature refusals plus its abort through `_end_session`.
+  consent/feature refusals plus its abort through `_end_session`, and the standing gap's princess
+  entrance shift.
 - `tests/test_runtime_notes.gd` — the prompt forwards.
 - `tests/poses/test_pose_offer.gd` — the typed offer, the Agreement/hotkey outcome table and the
   one start path. The idle hint no longer keeps a policy snapshot; its readiness is

@@ -69,7 +69,11 @@ and the `support` height), the armature `root`, the body bone deltas, and option
   origin. At body scale `s` the root is scaled about the anchor and lifted so the contact stays on
   the support; the live body scale is applied once at the world root, so the skeleton-space root
   pose stays orthonormal. `place_origin()` is the same rule for the Anon act body and the authored
-  shots.
+  shots. In a bed pose the root also rises by the body's measured clearance
+  (`bed_clearance()`): the pose is authored on the mare, whose body lies on the mattress, and a
+  body that hangs further from its armature root would otherwise sink. The measurement poses the
+  rest skeleton with the authored bones in frame space and skins her body on the CPU once per body
+  and variant; it is zero for the mare and for any body that already clears the support.
 - **Variants.** A variant is keyed by `size_name` with its own `body_scale`; an unknown name snaps to
   the nearest variant scale. It replaces `anchor`, `root`, `anon` and `shots` and merges
   `pony.bones` per bone. `space`, `frame`, `rig` and `reference` belong to the base and may not be
@@ -734,7 +738,9 @@ Missionary is its own state, not the game's bed rest:
   about it by `body_scale`, and the whole base is lifted so the contact stays on the mattress. The
   live body scale is applied once at the world root; the asset's bone translations are never
   multiplied. Canon is unchanged; Canon, JRHNBR, Same Height and the stallion multiplier render at
-  their own size, and the four-size lab covers Hoers.
+  their own size, and the four-size lab covers Hoers. An oversized body (the princesses' own) also
+  rises by its measured `bed_clearance()` so it rests on the mattress instead of sinking into it;
+  the mare's own body measures zero.
 - **The Anon and the shots** use the same rule (`place_origin`): their origins scale about the hips
   anchor and follow the contact lift; their authored bases are unchanged.
 - **The shots** are authored frame-space transforms; `camera/missionary_camera.gd` reads only their
@@ -1044,7 +1050,8 @@ teardown; it stays unchanged.
   install path for fitted exports.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
 - `tests/poses/test_pose_scale.gd` — the v6 uniform scale, the v7 anchor/contact placement at four
-  sizes and the rest-scale ownership.
+  sizes, the rest-scale ownership and the bed clearance: zero for the mare, positive and cached for
+  an oversized body, and applied only in a bed pose.
 - `tests/poses/test_rotation.gd` — body-relative axes and the rotation helpers.
 - `tests/poses/test_face_contact.gd` — the bed face-sit contact driver: the begin capture, the
   mouth follow, the depth press, the moving-bed carry, the missing-provider hold and the one

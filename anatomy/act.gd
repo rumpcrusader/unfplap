@@ -109,6 +109,40 @@ func reset() -> void:
 		anatomy.call("animate", 0.0, 1.0)
 
 
+## The typed context the act is ticking with.
+func facts() -> RefCounted:
+	return _facts
+
+
+## The face contact's parked state: true while the act body owns the contact placement.
+func face_parted() -> bool:
+	return _face_parted
+
+
+## True while the hole mix is turned to the anal opening.
+func anal_turned() -> bool:
+	return _anal
+
+
+## The part target this tick: her mouth in the mouth contact, her opening otherwise.
+func contact_point() -> Vector3:
+	return _contact_point
+
+
+## The opening normal the part is aimed along this tick; zero in the mouth and face contacts.
+func contact_normal() -> Vector3:
+	return _contact_normal
+
+
+## The current wink countdown and beat count. The climax pulse and her act wink share them.
+func wink_left() -> float:
+	return _wink_left
+
+
+func wink_beats() -> float:
+	return _wink_beats
+
+
 func _state() -> int:
 	return int(_facts.state) if _facts != null else 0
 

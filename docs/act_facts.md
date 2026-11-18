@@ -145,9 +145,11 @@ Helper methods: `perf()`, `write_log()`, `smack_body_coat()`, `touch()`, `smack_
 
 ## Tests
 
-- `tests/act_facts/test_act_facts.gd` — defaults, callback no-ops, helpers and the clock.
-- `tests/test_source_hygiene.gd` — the context has no scene reference and no presentation module
-  reaches into the runtime.
+- `tests/act_facts/test_act_facts.gd` — defaults, callback no-ops, helpers and the clock; the
+  anatomy context's host callback boundary.
+
+The import boundary is `scripts/architecture.py --check`; the "no scene reference and no runtime
+reach-in" part of the rule is review, not a text scan.
 
 ## Related docs
 

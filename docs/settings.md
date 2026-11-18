@@ -642,10 +642,9 @@ debug tools, not settings: no declaration, no persisted value. See `docs/perf.md
   drawing every declaration in its tab (and the Debug block only in debug mode), built-in name
   clashes, the per-mare merge, provider precedence for preferences/poses/prompts/placement and the
   consent cache's detached copy/invalidation.
-- `tests/test_source_hygiene.gd` checks that no file imports the removed tunable shims, that the
-  shipped defaults and catalog are present and the code constants are gone, that no `DEFAULT_RULES`
-  table, standing gap table or `GLANCE_*` constant set is reintroduced, and that no settings
-  widget is created outside `settings/ui.gd` and `settings/characters_ui.gd`.
+- `scripts/architecture.py --check` enforces the single declaration module and the absent
+  per-service settings modules and root composition shims. The suite is a schema and API contract:
+  it never asserts a shipped value.
 - `tests/integrations/` covers the catalog and reaction bridge; the Settings panel check includes
   the Integrations tab.
 - Keep the feature-flag table in this file current when adding a flag.

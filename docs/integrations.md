@@ -112,8 +112,8 @@ feature-off, missing required binding, failed start, act end or `reset()`. A `re
 saved original back without dropping the record, so a later write keeps the act-start value for the
 final reset.
 
-Providers must stay scene-free. `tests/test_source_hygiene.gd` rejects `extends Node`, `get_tree(`,
-`Time.`, `FileAccess`, `SETTINGS` and runtime/main/world preloads in the pure files.
+Providers must stay scene-free and must not preload a service, `runtime.gd` or `main.gd`;
+`scripts/architecture.py --check` rejects that import edge.
 
 ## Shape-change source
 
@@ -492,7 +492,6 @@ overlay reads them.
   owns its rules.
 - `tests/test_settings.gd` — the Integrations tab draws every provider header, flag and the Debug
   block's hull rows.
-- `tests/test_source_hygiene.gd` — pure providers, facade-only imports and docs links.
 
 ## Verification / lab
 

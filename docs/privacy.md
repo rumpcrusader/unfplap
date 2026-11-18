@@ -105,8 +105,7 @@ phase.
 ## Tests
 
 - `tests/privacy/test_privacy.gd`: the house/outdoors states, target exclusion, the 30 m radius
-  boundary, the offer vs. cuddle difference, the report, the pure formulas and the unbound
-  provider.
+  boundary, the offer vs. cuddle difference, the pure formulas and the unbound provider.
 
 ## Related docs
 

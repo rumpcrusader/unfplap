@@ -326,8 +326,8 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
   handoff and a refused handoff's reject reason, the cuddle attention hold, the outcome pacing,
   `clear_cooldown`, the debug rows and the scan logs.
 - `tests/negotiation/test_adapter.gd`: the injected bridge this service calls.
-- `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the adapter
-  private-access boundary and this contract's presence.
+
+The pure-core and facade-only import boundary is `scripts/architecture.py --check`.
 
 ## Known limits
 

@@ -178,12 +178,11 @@ Rules:
 
 | Check | Command / suite |
 |---|---|
-| Architecture gate | `scripts/architecture.py --check` |
+| Architecture gate (graph, docs, source and test-file rules) | `scripts/architecture.py --check` |
 | Parse all scripts | `scripts/check.sh --all` |
 | Touched suites | `scripts/test.sh <suite>...` |
 | Full headless gate | `scripts/test_all.sh` |
 | Source smoke | `scripts/smoke.sh` |
-| Source invariants | `scripts/architecture.py --check` |
 | Settings contract | `tests/test_settings.gd` |
 | Manual lab | `./lab.sh`, `./lab-stress.sh`, `./lab-vr.sh` |
 
@@ -193,10 +192,10 @@ Rules:
 
 - every doc under `docs/` is linked from this index;
 - every service has a facade, a contract and a test path;
-- no root service contract remains, and no doc names a removed root path;
-- no presentation module reaches into `runtime.gd` for state: the typed act view is the boundary;
 - each contract has the headings and sections the template requires;
 - every `Uses` edge matches the code, and no service imports another service's private files.
+
+The typed act view boundary is a review rule, not a gate check: `docs/act_facts.md` owns it.
 
 The manual lab is the only check the gate cannot run: it needs a live world and a person at the
 keyboard. Record its result in the phase notes instead of assuming it passed.

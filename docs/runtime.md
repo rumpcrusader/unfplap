@@ -48,16 +48,13 @@ The live start paths share the one body (`runtime._begin_act()`):
   and toast). A live Agreement's exact `(pose, source, bed, cuddle)` match starts it immediately,
   skips the presentation and does not resample privacy; any other live Agreement or negotiation is
   interrupted with `Interrupted(hotkey)` and the immediate attempt runs.
-- **The legacy harness:** `runtime.start()` runs `runtime.start_verdict()` (policy rows plus the
-  live scene rows) and keeps the history/buck refusal behaviour. It is the documented test and
-  start-setup harness; the live act key does not call it.
 
 The aftercare is cleared before an Agreement start: the `sex_aftercare` meta, the visual aftercare
 node and its navigator lease. The act then adopts the negotiation hold through `_claim_nav()`:
 the scene-hold ledger already owns the navigator, so the start keeps the same owner instead of
 claiming a second one. The start sequence:
 
-1. re-read the identity, the gate and any refusal (the Agreement path runs the scene-only rows);
+1. re-read the identity and the gate (the Agreement path runs the scene-only rows);
 2. reset the stool handle and refresh the anatomy bridge;
 3. begin the camera session, clear the idle presentation, the mood face and the act face;
 4. snapshot the settings and preferences, build the thrust tracker and the pose config;
@@ -75,8 +72,8 @@ A failure in any step runs `_abort_start()` and the same teardown; it never leav
 
 ### Start setup adapters
 
-`runtime.start()` matches the pose row's closed `start.setup` name and never a pose id. The names
-and their placement:
+`_begin_act()` matches the pose row's closed `start.setup` name (`_run_start_setup`) and never a
+pose id. The names and their placement:
 
 | Setup | Adapter | Placement |
 |---|---|---|
@@ -400,10 +397,12 @@ standing start no longer pulls the Hips bone across the gap. The fit log line ca
   the offer, her own change keeps the player's
   offer, a late body is adopted once after the grace instead of resuming the old body, a change
   during the restore finishes the act through the one exit, and a held body refuses the request.
-  The entry's adoption rules and the LOD refresh hook are pinned in
-  `tests/test_source_hygiene.gd`.
+  The entry's own adoption order is review-only: the suite fakes the entry because `main.gd` names
+  the `Mods` autoload, which a `--script` suite cannot load.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
+- `scripts/architecture.py --check` — the one exit, the pose ledger order and its three callers,
+  the fan-out order and the pose-before-facts write in `_physics_tick`.
 - The service suites indexed in `docs/README.md`.
 
 ## Verification / lab

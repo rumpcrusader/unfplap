@@ -252,8 +252,8 @@ settings.
   25 s decay, warning monotonicity and stop cooldowns.
 - `tests/readiness/test_act_stop.gd` — neutral/strict stop teardown, history cooldown, no/yes buck
   and request space.
-- `tests/readiness/test_thrust.gd` — reversal hysteresis, impact stall, travel, speed, strength,
-  contact and jiggle amount.
+- `tests/test_thrust.gd` — reversal hysteresis, impact stall, travel, speed, strength, contact and
+  jiggle amount.
 - `tests/readiness/test_preferences.gd` — profile merge, likes/dislikes, classification.
 - `tests/readiness/test_auto_thrust.gd` — every waveform, pace, band, inverse phase and reset.
 - `tests/handover/test_body_swap.gd` — the requested reveal's one-off spike and the neutral

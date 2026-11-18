@@ -250,8 +250,8 @@ memory is marked used only after the caller queues the line.
   impression and event per slot, the refusal mood, the stay-close reward, the reveal impression
   and peak, one event per note, the
   cue facts and the memory hit.
-- `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the
-  adapter private-access boundary and this contract's presence.
+
+The pure-core and facade-only import boundary is `scripts/architecture.py --check`.
 
 ## Known limits
 

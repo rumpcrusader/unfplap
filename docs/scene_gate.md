@@ -1,7 +1,7 @@
 # Scene gate contract
 
-The live half of the act gate and the refusal executor. Eligibility policy answers whether an
-adult mare *may*; this answers whether the *scene* is ready right now.
+The live half of the act gate. Eligibility policy answers whether an adult mare *may*; this answers
+whether the *scene* is ready right now.
 
 ## Ownership
 
@@ -17,15 +17,13 @@ adult mare *may*; this answers whether the *scene* is ready right now.
 - the cuddle and affection predicates, and the live auto-cuddle suppression;
 - the structural rows (`invalid_pony`, `no_main`, `no_player`, `no_game`), the policy/scene merge,
   `start_verdict` / `offer_verdict`, the debug status line and the reason list;
-- the refusal executor: `refuse_available`, `refuse`, the buck/push, the refusal impression, the
-  lost-trust hook and the refusal floor.
+- the physical buck/push (`buck_or_push`), which the tolerance strict stop uses.
 
 `runtime.gd` keeps the policy and the live context: it supplies `policy_verdict` (the
 `eligibility/service.gd` verdict) and `debug_context` (the act values the status line reads) through
-callbacks, and keeps the public forwards (`can_show_start`, `refuse_available`, `refuse`,
-`find_bed_under`, `free_of_affection`, `cuddle_active`). The runtime
-also owns the refusal face (`_start_upset("angry"|"annoyed")`); the facade calls back with the
-buck flag.
+callbacks, and keeps the public forwards (`can_show_start`, `find_bed_under`, `free_of_affection`,
+`cuddle_active`). The tolerance stop owns its impression and face (`docs/summary.md`,
+`docs/face.md`).
 
 The rows carry `ELIGIBILITY.Row` objects with the policy's own keys and reasons. The pure policy
 never sees a bed, a navigator, a pose asset or the player body.
@@ -168,22 +166,12 @@ The free-standing act-key hint is discovered by `shared/rump_cone.gd`: a 90 degr
 to each side of her backward axis, within 2 m of her rump anchor. It is a discovery rule for the
 idle hint, not a scene-gate row; the hotkey and the Agreement start keep their own scene-only rows.
 
-## Refusal
+## Buck and push
 
-`refuse_available` requires the policy's `buck_refuse` plus a live scene: idle runtime, valid
-pony/main/player/game, not sleeping/active/aftercare, free conversation and affection, an
-unreserved navigator compatible with the pose, Anon not locked/flying/knocked down/cursor-lost,
-an `Affection` with `buck()`, and the pose context (a `scene.standing_free` pose: free, grounded,
-standing and settled within 2.4 m; a `scene.requires_bed` pose: the authored source, then cradle
-held and cradled, or already lying and Anon beside the bed).
-
-`refuse` runs the buck/push (or releases the carry/bed rest first), then `note_refusal`: one
-`REFUSAL` impression with `angry` for a buck and `annoyed` for a turn-away, the game's
-`bonds.unwanted_contact(id, "kiss")` trust hit, and the matching held face. The lasting feeling is
-the impression; the face is presentation. A strict partner stop also calls the same buck/push.
-
-`refusal_ready` / `mark_refusal` pace the spoken refusal line at one per 4 s, so a held or repeated
-An act-key press does not queue a line per frame. The runtime owns the refusal line and its validity.
+`buck_or_push()` asks her `Affection` to buck; when that is unavailable or fails, it starts a
+knockdown push on Anon. It returns whether either ran. It is the physical stop the tolerance strict
+stop uses; the impression and the held face belong to `docs/summary.md` and `docs/face.md`. The
+live act key never bucks, and no eligibility verdict carries a refusal.
 
 ## Debug
 
@@ -216,6 +204,6 @@ runtime's `debug_line()` is a thin forward. No scene row is recomputed twice in 
 player, bed and row sets, the structural rows, the policy/scene merge (including a supplied
 `verdict_in` snapshot), the start/offer verdicts, the scene-only verdict (the aftercare removal,
 the frozen pose rows, the hold exemption and the transient/hard split), the debug line, the
-reason list, the refusal executor and the auto-cuddle suppression with fake scene nodes.
+reason list, the buck/push and the auto-cuddle suppression with fake scene nodes.
 `tests/eligibility/` keeps the pure policy suites. The runtime suite
 (`tests/test_runtime_teardown.gd`) and the history stop suite drive the public forwards.

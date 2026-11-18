@@ -81,7 +81,8 @@ the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, 
 controller reads `view.hands.path` and `view.contact_kind`, not a start pose id or a contact mirror. The
 smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
 `hands/session.gd`, so `hands/smack.gd` needs no host node. The field and callback contract is
-`docs/act_facts.md`; `tests/test_source_hygiene.gd` fails on a runtime reach-in.
+`docs/act_facts.md`; a hands module that preloads `runtime.gd` or `main.gd` fails
+`scripts/architecture.py --check`.
 
 The hands' `pose_changed(view)` hook retargets the contact path: it caches `view.hands.path` and
 `view.contact_kind`; a path change ends the live caress holds but keeps the controller, and a
@@ -354,7 +355,6 @@ selection and starts the swing.
   path warm, the visible-coat choice, the local face budget, the off-source skip and its debug
   full-patch fallback, the packed source-position anchor scan and the `caress_path` row.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
-- `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 
 ## Known limits
 

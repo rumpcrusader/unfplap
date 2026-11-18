@@ -946,6 +946,8 @@ Current suites:
 - `tests/anatomy/test_act_bridge.gd`: the host callbacks, the facts sync, the action gates, the
   mouth point and viseme routing, the face point, the VR scene wiring, the aim/gaze reads and the
   pose-change contact carry.
+- `tests/act_facts/test_act_facts.gd`: the `anatomy/facts.gd` typed context and its host callbacks,
+  alongside the `shared/act_facts.gd` model it shares the boundary with.
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
   live opening aim, follows the pose view's mouth anchor while the contact holds, returns to the
   opening once it is released, and clears the missionary inset outside the bed pose.
@@ -1043,8 +1045,9 @@ The anatomy migration is complete:
   read it instead of runtime private fields and never allocate a second object. The act reads the
   controller's player-part handle and returns its opening normal and mouth point through its
   public reads.
-- Tests live under `tests/anatomy/`, split pure vs facade. The boundary is enforced by
-  `tests/test_source_hygiene.gd`.
+- Tests live under `tests/anatomy/`, split pure vs facade; the anatomy context's callback boundary
+  is `tests/act_facts/test_act_facts.gd`. The import and purity boundary is
+  `scripts/architecture.py --check`.
 
 The test seam is split by concern: `tests/anatomy/test_placement.gd`, `test_part.gd`,
 `test_coat.gd`, `test_heat.gd` and `test_attach.gd` read the facade's documented accessors and the

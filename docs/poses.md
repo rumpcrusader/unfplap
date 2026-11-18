@@ -145,7 +145,7 @@ the standing camera's cached config all alias the same object. `poses/body_sway.
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
 standing Anon controller reads it from there. The session binds `facts`, `perf` and
 `log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module
-that reaches into the runtime fails `tests/test_source_hygiene.gd`.
+that preloads `runtime.gd` or `main.gd` fails `scripts/architecture.py --check`.
 
 `shared/pose_view.gd` is the pose read model the session fills and clears. It holds the identity
 and support fields from the registry, the ten spec profiles by reference, the live config (the same
@@ -324,7 +324,7 @@ path without it. Every shipped row is `key`. The `auto` flag is stored on the of
 by the start path: the trigger owns its timing.
 
 `setup` is the closed placement vocabulary `bed_stand_up`, `bed_keep_lying` or `standing_place`.
-`runtime.start()` dispatches on this name (`_run_start_setup`) and never on a pose id, so a new pose
+The start sequence dispatches on this name (`_run_start_setup`) and never on a pose id, so a new pose
 adds a row, an asset and a recipe, not a start branch. The adapters and the start order are
 `docs/runtime.md`.
 
@@ -1019,8 +1019,8 @@ teardown; it stays unchanged.
 - `tests/poses/test_pose_registry.gd` — the five shipped specs, the three authored pairs, the
   unchanged public catalog and the table rules.
 - `tests/poses/test_pose_offer.gd` — the typed offer's defaults and validity, the blocked hint,
-  the cancel/scope/auto fields, and `main.start_pose_offer()`'s history, buck, blocked, transient,
-  attempt, failed-start and invalid-handle outcomes.
+  the cancel/scope/auto fields, and `main.start_pose_offer()`'s hotkey, blocked, Agreement
+  wait/start/miss, interrupt and invalid-handle outcomes.
 - `tests/poses/test_start_setup.gd` — the closed start vocabulary and shipped table, the helper
   defaults, the synthetic `auto`/`bed_keep_lying` row and the runtime's setup dispatch for both bed
   adapters and an unknown name.
@@ -1045,6 +1045,8 @@ teardown; it stays unchanged.
 - `tests/poses/test_pose_sway.gd` — the standing body sway's regular depth sway, its zeroed oral
   hold and release, the missionary prone slide and nod, both render replays after the pose write
   and the prone active-state gate.
+- `tests/poses/test_act_body.gd` — the act-body adapter's placement blend, its v7 local-rest bone
+  blend and the service-bound asset-pair setter.
 - `tests/poses/test_tail_chain.gd` — the hair/body chain resolver, the body-tail aside/lift, bed lay,
   the custom-root aside/lift and bed turn with its restore, and the post-stop tuck.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split, including the body-tail

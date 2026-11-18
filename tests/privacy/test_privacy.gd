@@ -1,6 +1,6 @@
 extends SceneTree
 ## The privacy provider: house/outdoors, target exclusion, the other-mare radius, the offer vs.
-## cuddle rule and the report. A fake house and fake mares; no live world.
+## cuddle rule. A fake house and fake mares; no live world.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/privacy/test_privacy.gd
 
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")

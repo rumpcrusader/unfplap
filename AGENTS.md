@@ -127,7 +127,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   sequence, `_end_session` and the impact fan-out keep their call order until a change deliberately
   moves one call.
 - **One teardown.** `_end_session` stays in `runtime.gd` and is the only exit path;
-  `tests/test_source_hygiene.gd` enforces it. Do not add a second exit sequence.
+  `scripts/architecture.py --check` enforces it. Do not add a second exit sequence.
 - **No reach-ins, no allocation churn.** A system must not preload `runtime.gd` or `main.gd`, must
   not call `runtime.get("_…")` / `runtime.call("_…")`, and reuses `act_facts` and event
   dictionaries instead of allocating per frame. Presentation modules read `shared/act_facts.gd` or

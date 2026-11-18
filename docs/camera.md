@@ -36,8 +36,8 @@ profile and its own five authored shots; the camera cuts to them when its edge s
 family, the contact kind
 (`view.contact_kind`) and the presentation lean profile come from `facts.pose_view`; the camera
 does not read a start pose id or a contact mirror. The field and callback contract is
-`docs/act_facts.md`; a camera module that reaches into the runtime fails
-`tests/test_source_hygiene.gd`.
+`docs/act_facts.md`; a camera module that preloads `runtime.gd` or `main.gd` fails
+`scripts/architecture.py --check`.
 
 The camera's `pose_changed(view)` hook is the retarget seam: it caches the last family, shot
 profile and presentation lean, and only on a change retires the pose-local lean action and re-aims

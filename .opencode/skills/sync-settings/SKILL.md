@@ -129,7 +129,7 @@ After the data commit, update the owning doc when the promotion changes a contra
 prompt. Docs name the setting and its bounds, never the shipped value; a default lives only in the
 shipped document.
 
-Run `scripts/check.sh --all`, `scripts/test.sh test_source_hygiene` and, when `docs/api.md`
+Run `scripts/check.sh --all`, `python3 scripts/architecture.py --check` and, when `docs/api.md`
 changed, `scripts/test.sh test_api`. Commit the doc in its own `docs:` commit:
 
 - `docs: describe the promoted settings`

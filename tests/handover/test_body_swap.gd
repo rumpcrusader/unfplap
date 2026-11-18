@@ -5,8 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/handover/test_body_swap.gd
 ##
 ## The entry node is faked here because `main.gd` names the `Mods` autoload, which a `--script`
-## suite cannot load. The pending-swap rules mirrored by `FakeMain` are also pinned in
-## `tests/test_source_hygiene.gd` against the real entry.
+## suite cannot load.
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")

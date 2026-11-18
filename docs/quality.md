@@ -37,7 +37,7 @@ wanted.
 
 ## Shell scripts
 
-Every bash entry point starts with `set -euo pipefail`; `tests/test_source_hygiene.gd` pins that
+Every bash entry point starts with `set -euo pipefail`; `scripts/architecture.py --check` pins that
 prelude for every root and `scripts/*.sh`. Rely on the options instead of probing dependencies: a
 script that needs `godot` or `python3` calls it; `set -e` stops at the failing command and the shell
 or tool prints the reason. A `command -v` guard is only for a failure that would otherwise continue

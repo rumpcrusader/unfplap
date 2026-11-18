@@ -379,9 +379,12 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
 `scripts/architecture.py --write-debt` is the deliberate way to update the debt after a service
 is typed.
 
-`tests/test_source_hygiene.gd` keeps the behavioral invariants the architecture checker cannot see:
-one `_end_session`, settings widgets only in the owning UI files, no removed shims, no host
-preloads, no private runtime reach-ins in presentation modules.
+`scripts/architecture.py --check` owns the static invariants: one `_end_session`, the pose ledger's
+order and its three callers, the `_pose_fanout()` owner order and the pose-before-facts write in
+`_physics_tick`, the act-exit ban under `poses/`, the shell `errexit` prelude, the release files and
+the manifest, one settings declaration module, and the test-file rules in `docs/tests.md`. The
+typed act view boundary is a review rule: presentation modules read `shared/act_facts.gd`, not the
+runtime node.
 
 Suites are not services: their layout, isolation, discovery and runner are `docs/tests.md`.
 

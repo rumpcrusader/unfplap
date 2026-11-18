@@ -224,8 +224,6 @@ idle hint and the act start.
   exceptions.
 - `tests/stool/test_placement.gd`: the player-root raise to the stack top, exception cleanup and
   floor release.
-- `tests/test_source_hygiene.gd`: the stool purity and facade boundary, and this contract's
-  presence.
 - The lab covers the full act and supply: Canon and Same Height below the threshold, Celestia and
   Hoers against their live number, with and without enough case stools, early end, forced stop and
   afterglow.

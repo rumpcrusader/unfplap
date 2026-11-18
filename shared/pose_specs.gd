@@ -21,7 +21,7 @@ const STANDING_ORAL := "standing_oral"
 const BED_FACESIT := "bed_facesit"
 
 ## The closed act-start vocabulary. `mode` says whether the act key is required; `setup` names the
-## runtime placement adapter. `runtime.start()` dispatches on `setup`, never on a pose id.
+## runtime placement adapter. The start sequence dispatches on `setup`, never on a pose id.
 const START_MODES := ["key", "auto"]
 const START_SETUPS := ["bed_stand_up", "bed_keep_lying", "standing_place"]
 

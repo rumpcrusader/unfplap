@@ -132,7 +132,7 @@ The teardown suite (`tests/test_runtime_teardown.gd`) is retargeted to the facad
 
 ## Related docs
 
-- `docs/scene_gate.md` — the live scene rows and the refusal executor.
+- `docs/scene_gate.md` — the live scene rows.
 - `docs/eligibility.md` — the policy and consent gates.
 - `docs/rest.md` — the bed anchor, the cuddle rejoin and the restore posture.
 - `docs/runtime.md` — the one teardown ledger and the call order.

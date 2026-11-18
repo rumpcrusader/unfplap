@@ -8,10 +8,11 @@ lifecycle; this doc owns their shape and their runner.
 
 ## Scope
 
-- `tests/` holds every headless suite. The full gate runs them all.
+- `tests/` holds every headless suite. The full gate runs all 123 of them.
 - A suite is a scene-free `SceneTree` script that prints one machine-readable result line.
 - Anything that needs a live world, a person at the keyboard, a headset or the HUD belongs to a
   manual lab, not here.
+- The static source and test-file invariants are `scripts/architecture.py --check`, not a suite.
 
 ## Suite layout
 
@@ -21,12 +22,37 @@ lifecycle; this doc owns their shape and their runner.
 | `tests/test_<topic>.gd` | a root suite that crosses services, or a shared/pure module's suite |
 | `tests/<topic>/test_<topic>.gd` | a cross-service concern with its own name; `handover/` is the act body swap |
 
-One suite per file, and the directory mirrors the facade it exercises. The suite-to-service map is
-the `Tests` column of `docs/README.md`. A pure module's suite uses plain values: for example
+One suite per file, and the directory mirrors the facade it exercises. A small pure module folds
+into the suite that owns its facade instead of adding a file of its own. The suite-to-service map
+is the `Tests` column of `docs/README.md`. A pure module's suite uses plain values: for example
 `tests/poses/test_pose_state.gd` pins the pose transition table and the edge math with dictionaries
 and no scene, node or autoload. `tests/poses/test_pose_blend.gd` builds a bare `Skeleton3D` and fake
 drivers, so the pose evaluator's single/blend paths, capture buffers and non-finite guard are
 pinned without a game file.
+
+### Merged paths
+
+These files are gone; their coverage lives in the suite on the right. The mapping is a routing
+table, not a second owner: each rule has exactly one suite.
+
+| Removed suite | Now covered by |
+|---|---|
+| `tests/test_catalog.gd` | `tests/poses/test_pose_registry.gd` |
+| `tests/poses/test_pose_rig.gd` | `tests/poses/test_pose_asset.gd` |
+| `tests/poses/test_body_sway.gd`, `tests/poses/test_prone_sway.gd` | `tests/poses/test_pose_sway.gd` |
+| `tests/poses/test_pose_scale.gd` | `tests/poses/test_pose_asset_v7.gd` |
+| `tests/anatomy/test_facts.gd` | `tests/act_facts/test_act_facts.gd` |
+| `tests/anatomy/test_appearance.gd` | `tests/anatomy/test_coat.gd` |
+| `tests/anatomy/test_tail_hide.gd` | `tests/anatomy/test_placement.gd` |
+| `tests/privacy_rules/test_privacy_rules.gd` | `tests/privacy/test_privacy.gd` |
+| `tests/stool/test_stool_api.gd` | `tests/stool/test_gate.gd` |
+| `tests/memory/test_facts.gd` | `tests/memory/test_text.gd` |
+| `tests/dialogue/test_history_scan.gd` | `tests/dialogue/test_act_dialogue.gd` |
+| `tests/face/test_mood_face.gd` | `tests/face/test_act_face.gd` |
+| `tests/readiness/test_auto_panel.gd` | `tests/readiness/test_readiness_auto.gd` |
+| `tests/summary/test_history.gd` | `tests/summary/test_act_flow.gd` |
+| `tests/integrations/test_hold.gd` | `tests/integrations/test_service.gd` |
+| `tests/test_source_hygiene.gd` | `scripts/architecture.py --check` |
 
 ## Writing a suite
 
@@ -36,6 +62,8 @@ A suite is `extends SceneTree` with no scene and no autoload beyond `Mods` and `
 extends SceneTree
 ## What this suite pins. Run:
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_x.gd
+
+const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 
 var failures := 0
 var checks := 0
@@ -53,7 +81,7 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
-	check(true, "the first thing this suite pins")
+	check(CLEARANCE.evaluate(true, true, true).ok(), "Base clearance passes when every row holds")
 	print("X_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 ```
@@ -118,10 +146,11 @@ profile lives only in the session's test seam, and the live `refresh_modifiers()
 feature flags into the same reconcile. The hook suites are
 `tests/act_camera/test_camera.gd`, `tests/act_camera/test_kiss.gd`, `tests/hands/test_caress.gd`,
 `tests/hands/test_actions.gd`, `tests/anatomy/test_act_bridge.gd` and
-`tests/act_audio/test_audio.gd`. `tests/test_source_hygiene.gd` pins the `_pose_fanout()` order
-(pose service first, then camera, hands, kiss, anatomy and audio), the `_free_pose()` order and its
-three callers, and keeps the act-exit names out of `poses/`. The contract is `docs/poses.md`; this
-doc only names the gate.
+`tests/act_audio/test_audio.gd`. The pose ledger's order and its three callers, the
+`_pose_fanout()` owner order (pose service first, then camera, hands, kiss, anatomy and audio), the
+pose-before-facts order in `_physics_tick` and the ban on act-exit names under `poses/` are static
+rules in `scripts/architecture.py --check`. The contract is `docs/poses.md`; this doc only names
+the gate.
 
 The body-swap handover is `tests/handover/test_body_swap.gd`: suspend → adopt → resume with the
 act state, depth, climaxes and event id intact, the old runtime still alive, the new anatomy and
@@ -132,48 +161,76 @@ debug form-state label clearing at each state change while the HUD string stays 
 named change restoring the offer, her own change keeping the player's offer, a late body adopted
 once after the grace, a change during restore finishing through the one exit, a held body refusing
 the request, the part's old pelvis handshake cleared on resume, and the no-body watchdog,
-ineligible-shape and world-close paths ending through the one exit.
-`tests/test_source_hygiene.gd` pins the entry's adopt-before-create order, the late-adoption path,
-the runtime's reparent guard, the shape-gated resume, the LOD refresh hook, the debug form-label
-clearing call sites, the shell scripts' errexit prelude and the generic core's freedom from the
-adapter's vocabulary. The contract is `docs/runtime.md`.
+ineligible-shape and world-close paths ending through the one exit. The suite fakes the entry
+because `main.gd` names the `Mods` autoload, which a `--script` suite cannot load; the entry's own
+adopt-before-create and LOD-refresh order is review-only. The contract is `docs/runtime.md`.
 
 The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
 `test_pose_registry.gd`, `test_pose_spec.gd`, `test_pose_view.gd`, `test_session.gd`,
 `test_pose_blend.gd`, `test_pose_teardown.gd`, `test_oral_turn.gd`, `test_face_contact.gd`,
-`test_face_sit_action.gd` (the debug action and its refusal helper),
+`tests/test_face_sit_action.gd` (the debug action and its refusal helper),
 `test_modifier_profile.gd`, `test_pose_asset.gd`, `test_pose_asset_v7.gd`, `test_pose_bake.gd`,
-`test_rotation.gd` and `test_pose_sway.gd`; `docs/poses.md` says what each pins.
-`tests/test_act_commands.gd` pins the pure command vocabulary: unique lower_snake_case ids,
+`test_rotation.gd`, `test_pose_sway.gd` and `test_act_body.gd`; `docs/poses.md` says what each
+pins. `tests/test_act_commands.gd` pins the pure command vocabulary: unique lower_snake_case ids,
 the continuous/discrete partition of `ALL`, the helpers and the reserved `end`.
 `tests/poses/test_session.gd` reads those ids against the real `CONTROL_SETS` profiles, and
 `tests/test_input.gd` pins the `V`/`N`/`B` dispatch through `runtime.command()` (ready, refused and
 non-ready) plus the unchanged shield. The hook suites `tests/act_camera/test_camera.gd` and
-`tests/act_camera/test_kiss.gd` pin the view-only config; `tests/test_source_hygiene.gd` pins the
-pose-view contact and facing reads and the `pose_tick`/`pose_fanout` chunks around the facts sync
-in `_physics_tick`.
+`tests/act_camera/test_kiss.gd` pin the view-only config; the pose-view contact and facing reads
+are review rules (`docs/act_facts.md`), and the `pose_tick`/`pose_fanout` order around the facts
+sync in `_physics_tick` is a static rule in `scripts/architecture.py --check`.
 
 ## What not to assert
 
-- The shipped defaults schema and the bounds belong to `tests/test_settings.gd`. A suite names a
-  setting and its behaviour, not a copied number.
-- `scripts/architecture.py` owns the test-file rules. Every suite defines `check(` and prints a
-  line containing `_RESULT checks=`; no suite calls `check(true, …)`; no check compares a
-  `Setting.default` to a numeric literal; only `tests/test_settings.gd` reads
-  `settings/defaults.json`; and `FileAccess.get_file_as_string` is limited to the allow-list in
-  the checker — `tests/test_settings.gd`, `tests/test_api.gd`, `tests/poses/test_pose_bake.gd`,
-  `tests/poses/test_pose_edge.gd`, `tests/hands/test_caress.gd`,
-  `tests/anatomy/test_geometry.gd` and `tests/integrations/test_pantyhose.gd` — so no suite scans
-  production source or docs for text. The labs (`tests/test_lab*.gd`,
-  `tests/test_stress_lab.gd`) are exempt from the helper, result-line and file-read rules.
-- Pass counts are never copied into a doc; the suite path is.
+- **Test the API once.** One suite owns the contract for a facade; a feature suite calls the facade
+  and does not restate its contract. The settings schema, the character catalog and the pose table
+  each have one owner.
+- **Never assert a shipped default.** A suite names a setting and its behaviour and reads the live
+  value as input. It never copies the default into an expectation or compares a
+  `Setting.default` to a numeric literal. The shipped `settings/defaults.json` is the only source
+  of the value; `scripts/architecture.py --check` rejects a default-vs-literal comparison, with
+  one allow-listed fallback-to-default call in `tests/poses/test_session.gd`.
+- **Never grep source text.** A suite does not read production source or docs to assert their text.
+  Source invariants belong to `scripts/architecture.py --check`, and `FileAccess.get_file_as_string`
+  is limited to the allow-list below.
+- **No tautologies.** `check(true, …)`, a count compared with the keys just iterated, and a
+  read-back of the value just written prove nothing. A check compares a value the code produced
+  with the behaviour the suite names.
+- **Merge pure modules into their owning suite.** A pure helper or a small module adds its checks
+  to the suite of the facade that owns it; do not add a file per module. The merged-path table
+  above is the result.
 - A regression test stays after the fix. Deleting it re-opens the bug.
 - A suite does not assert another service's private state; it calls that service's facade.
-- `tests/test_source_hygiene.gd` carries the raw `pose_id` census. Its per-file budget ratchets
-  down: a migrated consumer may not raise its entry, and a file that drops lowers it in the same
-  commit. The remaining reads are the runtime's start identity, the pose session's begin key, the
-  settings data API and the debug display line. No start-pose comparison or `oral_active` mirror
-  survives outside the data modules.
+- Pass counts are never copied into a doc; the suite path is.
+
+### Test-file gate
+
+`scripts/architecture.py --check` enforces these rules over `tests/`:
+
+- every discovered `tests/**/test_*.gd` defines a `check(` helper and prints a line containing
+  `_RESULT checks=`;
+- no suite calls `check(true, …)`;
+- only `tests/test_settings.gd` reads `settings/defaults.json` (or names `DEFAULTS_FILE`);
+- no `check(` call places a declaration `.default` next to a numeric literal, except the
+  allow-listed `tests/poses/test_session.gd` fallback for `SETTINGS.chin_up_deg.default`;
+- `FileAccess.get_file_as_string` is limited to the allow-list below, so no suite scans production
+  source or docs for text;
+- the manual labs (`tests/test_lab*.gd`, `tests/test_stress_lab.gd`) are exempt from the helper,
+  result-line and file-read rules.
+
+The file-read allow-list, and the document each read is for:
+
+| Suite | Reads |
+|---|---|
+| `tests/test_settings.gd` | the shipped defaults document and its backups |
+| `tests/test_api.gd` | `docs/api.md` |
+| `tests/poses/test_pose_bake.gd` | the shipped standing asset bytes |
+| `tests/poses/test_pose_edge.gd` | the pose edge JSON fixtures |
+| `tests/hands/test_caress.gd` | the areas JSON fixture |
+| `tests/anatomy/test_geometry.gd` | the coat shader's sample count |
+| `tests/integrations/test_pantyhose.gd` | the copied shader includes |
+
+A new read is a review of the checker's map, not a copy-paste in a suite.
 
 ## Related docs
 

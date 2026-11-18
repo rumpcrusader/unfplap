@@ -183,8 +183,8 @@ not change the grade or soften a bad act. Her own reveal and a named shape add n
 | Hurt | hurt 4–5 |
 | Withdrawn | hurt 6+ |
 
-The tier names are presentation. Their effect on the legacy start gate, proactive offers and
-spoken refusal is in `docs/eligibility.md`.
+The tier names are presentation. Their effect on the pure policy table, proactive offers and the
+tolerance stop is in `docs/eligibility.md`.
 
 There is **no break-up path**. The highest tier's act gate is in `docs/eligibility.md`; it never
 calls `player_bonds.break_up()`.
@@ -214,21 +214,19 @@ testing.
 Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
 weight. It is Context for Mare Initiation Reasoning, not a hard gate. The base offer cooldown is
 `600 s`, reduced by `5%` per comfort point with a `300 s` floor; heat quarters it. The history
-tiers and their effect on the legacy start gate are in `docs/eligibility.md`.
+tiers and their effect on the policy's offer read are in `docs/eligibility.md`.
 
-## Mood after a refusal and a buck
+## Mood after a stop and a buck
 
 A mare's lasting mood in this game is the impression note (`world_context.impressions`), fresh for
-300 s. It is what `bonds.anger()` reads (`angry` 70, `annoyed` 40). Its eligibility gate effect is
-in `docs/eligibility.md`; it also gates resting closeness, hand feeding and her unprompted
-approaches. Her dialogue prompt and the relationship profile also show it.
+300 s. It is what `bonds.anger()` reads (`angry` 70, `annoyed` 40). It also gates resting
+closeness, hand feeding and her unprompted approaches. Her dialogue prompt and the relationship
+profile also show it.
 
 The mod writes or keeps that note on the moments the base game does not see:
 
-- the legacy `runtime.refuse()` harness commits `annoyed`, or `angry` when the refusal also
-  bucked or knocked Anon down (`main.memory.commit`, the `REFUSAL` slot); the live strict tolerance
-  stop calls `scene_gate.buck_or_push()` and the summary owns its `angry` impression;
-- the refusal calls the game's own `bonds.unwanted_contact(id, "kiss")`, costing a little trust;
+- the live strict tolerance stop calls `scene_gate.buck_or_push()` and the summary owns its
+  `angry` impression;
 - a normal tolerance stop holds `annoyed`; a strict stop holds `angry` (its summary impression).
 
 `face/mood_face.gd` displays the mood: it holds `annoyed`/`angry` on her face for the note's 300 s,

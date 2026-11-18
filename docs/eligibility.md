@@ -17,12 +17,11 @@ This contract covers:
 - base-game kiss willingness (`bonds.welcomes(id, "kiss")`);
 - history and cycle as Context for the negotiation routes;
 - per-mare public, anal and oral consent;
-- the legacy start gate and refusal rows (kept for tests and the start-setup proofs);
+- the pure policy truth table and its row effects;
 - the capability answers the other services consume.
 
 It does not cover act readiness, thrust, tolerance, pose or camera rules. The live scene rows
-(state, navigator, bed, player, cuddle, affection) and the refusal executor are a separate
-contract: `docs/scene_gate.md`.
+(state, navigator, bed, player, cuddle, affection) are a separate contract: `docs/scene_gate.md`.
 
 ## Architecture
 
@@ -31,7 +30,7 @@ contract: `docs/scene_gate.md`.
 | `eligibility/service.gd` | public API and the only scene adapter: builds the typed facts and verdict, reads the live relationship runtime, settings profile, history, cycle and consent |
 | `eligibility/policy.gd` | pure truth table: facts dictionary plus mode -> verdict dictionary, capability targets and witness age |
 | `eligibility/facts.gd` | pure fact schema; the one adulthood predicate and the pure age category stay private here |
-| `scene_gate/service.gd` | the live scene rows and the refusal executor; contract in `docs/scene_gate.md` |
+| `scene_gate/service.gd` | the live scene rows; contract in `docs/scene_gate.md` |
 | `docs/eligibility.md` | this contract |
 
 The purity boundary is deliberate:
@@ -107,8 +106,7 @@ class Facts: id, eligible, participation, has_relationship, ... (see `## Facts`)
 class Actions: public, anal, oral
 class Relations: id, stage, love_level, ... (see `## Verdict`)
 class Row: key, ok, reason, effect
-class Verdict: mode, base, show, attempt, offer, buck_refuse, history_refuse,
-               stop, offer_weight, facts, actions, relations, rows
+class Verdict: mode, base, show, offer, offer_weight, facts, actions, relations, rows
                reasons() -> PackedStringArray
                rows_text() -> String
 
@@ -148,9 +146,7 @@ shape-identity cache used by `eligible_id()`.
 
 | Caller | API | Scene work it keeps |
 |---|---|---|
-| `runtime.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate/service.gd` rows; the legacy start/test harness |
-| `runtime.start()` | `start_verdict()` | none; the legacy start/test harness |
-| `runtime.refuse_available()` / `refuse()` | `buck_refuse` | `scene_gate/service.gd` refusal executor; legacy/test only |
+| `runtime.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate/service.gd` rows; the hint helper and the debug line |
 | `runtime.hotkey_ready()` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` | Base clearance for the idle hint and the hotkey; the scene-only rows. The hint reads Base clearance live after the scene passes; a press runs the same path. |
 | `main._refresh_offer()` | a live Agreement's scene-only rows, else `runtime.hotkey_ready()` | candidate discovery; the Agreement offer wins, the idle scan uses Base clearance plus the scene-only rows |
 | `main.try_start()` | `runtime.hotkey_ready()` | the act key; no policy row, no buck |
@@ -217,11 +213,8 @@ first-time state, or request cooldowns.
 ```text
 mode: Mode
 base: bool
-show: bool             # the legacy start hint would appear
-attempt: bool          # the legacy start path may start
+show: bool             # the policy's start hint
 offer: bool            # proactive offer allowed
-buck_refuse: bool      # the legacy start path triggers refuse()
-history_refuse: bool   # the legacy start path triggers refuse_from_history()
 offer_weight: float
 facts: Facts
 actions: Actions       # public, anal, oral
@@ -231,9 +224,9 @@ rows: Array[Row]       # key, ok, reason, effect
 ```
 
 The live hotkey reads only the Base clearance (`base`) plus the scene rows; it never reads `show`,
-`attempt`, `buck_refuse` or `history_refuse`. Those four belong to the legacy `runtime.start()`
-harness. `reasons()` returns the failed rows' reasons; `rows_text()` renders the rows.
-`Row.effect` is the `Effect` enum, not a string.
+`offer` or `offer_weight`. Those are the pure policy's hint and offer reads. `reasons()` returns the
+failed rows' reasons; `rows_text()` renders the rows. `Row.effect` is the `Effect` enum, not a
+string.
 
 ## Base clearance
 
@@ -258,9 +251,9 @@ Rows and effects:
 | Effect | Meaning |
 |---|---|
 | `block` | the policy gate refuses a start and an offer; the hotkey hint is scene-only |
-| `refuse` | legacy `runtime.start()` only: the act key triggers the buck/push refusal |
-| `history_refuse` | legacy `runtime.start()` only: the act key speaks the history refusal |
-| `offer_block` | the legacy policy start may be allowed; no proactive offer |
+| `refuse` | the pure policy's `relation` row fails; no live route bucks |
+| `history_refuse` | the pure policy's `history` row fails; no live route speaks a refusal |
+| `offer_block` | the policy offer is blocked by history or an active stop |
 | `flag` | public/privacy flag; never a failure |
 
 Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`,
@@ -271,24 +264,22 @@ Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`,
 `base` = valid adult mare + relationship runtime + registered adult + adult player + romance
 eligible + Promiscuity level pass.
 
-| Condition | `show` | `attempt` | `buck_refuse` | `history_refuse` | `offer` |
-|---|---|---|---|---|---|
-| not `base` | no | no | no | no | no |
-| `participation.acts` false | no | no | no | no | no |
-| `!willing` | no | no | yes | — | no |
-| `willing`, history withdrawn/stop | yes | no | no | yes | no |
-| `willing`, history hurt (tier 2) | yes | yes | no | no | no |
-| diestrus | no | no | — | — | no |
+| Condition | `show` | `offer` |
+|---|---|---|
+| not `base` | no | no |
+| `participation.acts` false | no | no |
+| `!willing` | no | no |
+| `willing`, history withdrawn/stop | yes | no |
+| `willing`, history hurt (tier 2) | yes | no |
+| diestrus | no | no |
 
 Rules:
 
-- The new routes do not consume `show`, `attempt`, `buck_refuse`, `history_refuse`, `offer` or
-  `offer_weight`. Base clearance uses `eligible?` and `relationship_ok()`; Context carries the
-  soft facts. These fields are the legacy start gate and its tests.
-- `history_refuse` wins over `buck_refuse`; it does not require willingness.
-- `buck_refuse` ignores the cycle and history.
-- `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a
-  buck, a history refusal or a mood note. It is a boundary, not a mood beat.
+- The new routes do not consume `show`, `offer` or `offer_weight`. Base clearance uses `eligible?`
+  and `relationship_ok()`; Context carries the soft facts. `show` and `offer` are the pure policy
+  reads behind the hint helper, the debug line and the truth table.
+- `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a buck,
+  a history refusal or a mood note. It is a boundary, not a mood beat.
 
 ## Adults
 
@@ -320,11 +311,11 @@ Rules:
 
 `profile.participation` is the per-mare capability block: `acts`, `anatomy` and `tail`. It is
 subtractive: `true` means "does not veto", never "grants". A missing key means the default
-`true`. The `acts` key is an eligibility row with a `block` effect; it does not set
-`buck_refuse` or `history_refuse`, and it does not change `stop`. A player who opts out of acts
-is a quiet boundary, not a mood beat. The anatomy and tail keys gate `Target.ANATOMY` and
-`Target.TAIL`; their rig checks stay in `docs/anatomy.md`. `Target.CHARACTER` ignores all three
-so the Characters selector can always re-enable an opted-out mare.
+`true`. The `acts` key is an eligibility row with a `block` effect; a failing row also drops
+`show` and `offer`. A player who opts out of acts is a quiet boundary, not a mood beat. The anatomy
+and tail keys gate `Target.ANATOMY` and `Target.TAIL`; their rig checks stay in `docs/anatomy.md`.
+`Target.CHARACTER` ignores all three so the Characters selector can always re-enable an opted-out
+mare.
 
 A provider's `profile` is a layer; the player's `characters.<id>.profile` is a sparse difference
 layer. The player's `Reset to default` clears the player's participation and returns to the
@@ -348,50 +339,41 @@ relationship runtime and romance eligibility still apply.
 attraction, trust, anger, a boundary cooldown and temporary permissions. Eligibility does not
 reimplement it.
 
-`relation` is the willingness row. In the legacy start gate a failure is `refuse`, not a silent
-block: `buck_refuse` becomes true even when the hint is hidden. The hotkey path does not read it.
+`relation` is the willingness row of the pure policy table; it also feeds `show`. There is no buck
+or history refusal on a live route: the live act key accepts, and the tolerance strict stop owns
+the physical stop and its impression (`docs/readiness.md`, `docs/summary.md`). The face the stop
+uses is `docs/face.md`.
 
-`runtime.refuse()` is the legacy start/test refusal harness, not a live gate. It tries the
-buck/push, then `_note_refusal()` writes the game's impression (`main.memory.commit`, the `REFUSAL`
-slot): `annoyed` for a turn-away, `angry` when she
-bucked or knocked Anon down. It also calls `bonds.unwanted_contact(id, "kiss")` (trust -2,
-boundary) and holds the matching face in `face/mood_face.gd`. `angry` makes `bonds.welcomes()` false, so
-she refuses kisses and offers for the note's 300 s freshness. The live tolerance stop does not use
-this path: a strict stop calls `scene_gate.buck_or_push()` and the summary owns the `angry`
-impression (`docs/summary.md`).
-
-## The act key and the legacy gate
+## The act key
 
 `relationship.sex_start` (**Show start button**) is retired. The act key is the hotkey: it always
 attempts, and its readiness is Base clearance plus the scene-only rows (`runtime.hotkey_ready`).
-There is no willingness, history, cycle or mode row on that path, and no buck or history refusal.
-The legacy `runtime.start()` / `start_verdict()` path keeps the policy rows for tests and the
-start-setup proofs; it is not the new gate.
+There is no willingness, history, cycle or mode row on that path. `get_verdict()` and its policy
+rows remain the pure truth table behind the hint helper and the debug line; no live start route
+consumes a refusal.
 
 ## History and cycle
 
-`shared/act_history.gd` owns the point math and tiers (`docs/summary.md`). `summary/service.gd` owns the runtime-side
-summary/tolerance decisions and the refusal gate; the runtime still exposes
-`refuse_from_history()`. Eligibility consumes:
+`shared/act_history.gd` owns the point math and tiers (`docs/summary.md`). `summary/service.gd` owns
+the runtime-side summary and tolerance decisions; the runtime exposes no history refusal.
+Eligibility consumes:
 
 - `blocks_start`: withdrawn tier or an active `stop_until`;
 - `blocks_offers`: hurt tier or higher, or an active `stop_until`;
 - `offer_weight`: the history Context weight for Mare Initiation Reasoning.
 
-On the negotiation routes these are Context, not gates. The tolerance `stop_until` is the only
-hard pre-start gate; the legacy start gate above still reads the rest for tests and the
-start-setup proofs.
+On every route these are Context, not gates. The tolerance `stop_until` is the only hard
+pre-start gate.
 
 Tiers: hurt 2–3 keeps normal offers but lowers their weight and may give a rare vague hint
 (about one in four acts); hurt 4–5 makes no proactive offers while a player-initiated start is
-still allowed; in the legacy start gate hurt 6+ (withdrawn) makes no offers and keeps the start
-hint with a spoken refusal until repaired. An active `stop_until` blocks both the next start and
-proactive offers.
+still allowed; at hurt 6+ (withdrawn) the pure policy table makes no offers and keeps `show` true.
+An active `stop_until` blocks both the next start and proactive offers.
 
 A withdrawn mare's history stays Context; the hotkey attempt does not read it. A hurt mare's
 offer weight is Context for her reasoning.
 
-`cycle.allows_sex()` is Context on the negotiation routes and a row on the legacy start gate.
+`cycle.allows_sex()` is Context on the negotiation routes and a row on the pure policy table.
 Heat does not change visibility; it changes readiness, the offer cooldown and the reasoning
 Context.
 
@@ -443,8 +425,8 @@ refusal status (`docs/integrations.md`).
 
 ## Debug
 
-- `runtime.debug_line()` prints `show`, `attempt`, `offer`, `buck`, `history`, `ignore`, the policy
-  rows and the relation facts. It does not re-derive the gate.
+- `runtime.debug_line()` prints the live context, `show`, `offer`, the scene rows, `can_start` and
+  the reasons. It does not re-derive the gate.
 - `Verdict.rows_text()` returns the same policy view without scene rows.
 - The Debug actions **Trigger bed offer** and **Trigger standing offer** use the same service.
 - The Debug actions **Force/Clear heat** and **Force/Clear diestrus** feed `cycle_phase`; Clear
@@ -486,11 +468,10 @@ refusal status (`docs/integrations.md`).
   setting, the cached love level with the ladder fallback, and the clear/setup lifecycle.
 - `tests/test_pony_id.gd`: the stable-id rule (metadata wins, identity fallback, no identity).
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
-- `tests/test_source_hygiene.gd`: purity, the facade-only preload rule, the single-reader rule and
-  the docs link.
+- `scripts/architecture.py --check`: the purity and facade-only import boundary.
 - `tests/hands/test_actions.gd`: the invalid-pony gate smoke.
-- `tests/scene_gate/test_scene_gate.gd`: the live scene rows, the navigator/player/bed
-  predicates and the refusal executor; its contract is `docs/scene_gate.md`.
+- `tests/scene_gate/test_scene_gate.gd`: the live scene rows and the navigator/player/bed
+  predicates; its contract is `docs/scene_gate.md`.
 - `tests/initiation/test_policy.gd`, `test_prompts.gd`, `test_reasoning.gd` and
   `test_initiation_api.gd`: the offer pacing, wording, reasoning and facade. The bounded
   classifier's raw path is covered by `tests/negotiation/test_adapter.gd` and `test_prompts.gd`;

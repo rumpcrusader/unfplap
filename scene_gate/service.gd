@@ -1,8 +1,8 @@
 extends RefCounted
-## The scene half of the act gate and the refusal executor: the live state, cuddle, affection,
-## navigator, player, pose, stool and bed rows, the bed search, the structural rows, the
-## policy/scene merge, the start/offer verdicts, the debug status line, the buck/push refusal and
-## its mood beat. Eligibility owns the policy. Contract: `docs/scene_gate.md`.
+## The scene half of the act gate: the live state, cuddle, affection, navigator, player, pose,
+## stool and bed rows, the bed search, the structural rows, the policy/scene merge, the
+## start/offer verdicts, the debug status line and the buck/push. Eligibility owns the policy.
+## Contract: `docs/scene_gate.md`.
 
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")

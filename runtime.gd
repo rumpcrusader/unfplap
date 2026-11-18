@@ -140,8 +140,8 @@ var thrust_up: bool
 ## The act's pose session: the pose modifier, the authored missionary base, the bed frame, the
 ## extra modifiers, the bone snapshots and the pose diagnostics. See `poses/service.gd`.
 var _pose_session: RefCounted = POSE_SESSION.new()
-## The scene gate: the live state, navigator, bed, cuddle, player and pose rows plus the refusal
-## executor. See `scene_gate/service.gd` and `docs/scene_gate.md`.
+## The scene gate: the live state, navigator, bed, cuddle, player and pose rows. See
+## `scene_gate/service.gd` and `docs/scene_gate.md`.
 var _scene: RefCounted = SCENE_GATE.new()
 ## The bed/couch rest and cuddle rejoin. See `rest/service.gd` and `docs/rest.md`.
 var _rest: RefCounted = REST_REJOIN.new()

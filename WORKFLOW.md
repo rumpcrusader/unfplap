@@ -130,8 +130,9 @@ for the last one.
 - The code commit carries the behavior, its tests and only the doc text a test or checker reads to
   stay green. Run `scripts/test_all.sh` before it.
 - The docs commit carries the owning `.md` prose and every code-comment edit.
-- Before the docs commit, run `scripts/check.sh --all`, `scripts/lint.sh` and the suites that read
-  an edited doc: `scripts/test.sh test_source_hygiene`, plus `test_api` when `docs/api.md` changed.
+- Before the docs commit, run `scripts/check.sh --all`, `scripts/lint.sh`,
+  `python3 scripts/architecture.py --check` and `scripts/test.sh test_api` when `docs/api.md`
+  changed.
 - Subject: `docs: <short imperative summary>`.
 
 A docs-only task is one `docs:` commit.

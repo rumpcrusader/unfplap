@@ -7,6 +7,7 @@ extends RefCounted
 
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 
 ## The thrust camera: both channels are velocity-driven metres with one critically damped
 ## response, so the shot eases through the stroke instead of being kicked at its close.
@@ -628,11 +629,21 @@ func apply_eye_override(family: String, player_pony: bool) -> void:
 	var preset := base * size_scale()
 	var her_eye := pony_eye_height()
 	var target := preset
+	# A princess body has her entrance higher or lower than the mare every preset was tuned on:
+	# move his eye by the same amount, so he crouches only as far as she needs. A raise never goes
+	# above his own eye (or above a preset that already is).
+	var entrance := entrance_offset(facts.pony if facts != null else null)
+	if absf(entrance.x) > 0.0001:
+		var moved := preset + entrance.x
+		target = minf(moved, maxf(base, preset)) if entrance.x > 0.0 else moved
+		write_log("eye line entrance preset=%.2f shift=%+.3f target=%.2f" % [
+			preset, entrance.x, target])
 	if is_finite(her_eye):
 		# A fitted body (the princesses, a tall modded mare) can be taller than its size preset.
 		# Her live eye line lifts the target, but never above Anon's own eye: he stays human.
-		target = maxf(preset, minf(base, her_eye))
-		if target > preset + 0.0001:
+		var raised := maxf(target, minf(base, her_eye))
+		if raised > target + 0.0001:
+			target = raised
 			write_log("eye line raised preset=%.2f her=%.2f target=%.2f" % [
 				preset, her_eye, target])
 	camera_target_eye = target
@@ -770,10 +781,16 @@ func pony_eye_height() -> float:
 	var head := skeleton.find_bone("pony_head")
 	if head < 0:
 		return NAN
-	var eye: Vector3 = skeleton.global_transform * skeleton.get_bone_rest(head).origin
+	var eye: Vector3 = skeleton.global_transform * skeleton.get_bone_global_rest(head).origin
 	var body: Variant = player_body()
 	var floor_y := (body as Node3D).global_position.y if body is Node3D else 0.0
 	return eye.y - floor_y
+
+
+## How far her entrance sits from the mare's every standing offset was tuned on, in world metres
+## at her live body scale: `(higher +, further back +)`. Zero for an ordinary body.
+static func entrance_offset(pony: Node3D) -> Vector2:
+	return BODY_PROFILE.entrance_offset(pony)
 
 
 func mouse_sensitivity() -> float:

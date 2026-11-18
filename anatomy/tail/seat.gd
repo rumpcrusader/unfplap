@@ -16,6 +16,7 @@ extends Node
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
@@ -42,6 +43,8 @@ class SeatRow:
 	var pony: Node
 	var id := ""
 	var fit_id := ""
+	## The presented form this row was fitted for; null on a legacy/off row with no form yet.
+	var form: BODY_FORM.BodyForm = null
 	var body := "mare"
 	var link: Node
 	var dock: MeshInstance3D
@@ -185,9 +188,12 @@ static func _bind_for(mesh: MeshInstance3D, bone_name: String) -> Transform3D:
 	return Transform3D.IDENTITY
 
 
-## Called by main when a pony is ready. Idempotent.
-func attach(pony: Node) -> void:
+## Called by main when a pony is ready. Idempotent. `form` is the presented body's form, so a
+## borrowed shape seats its own fit and a source-owned tail is left to its provider.
+func attach(pony: Node, form: BODY_FORM.BodyForm = null) -> void:
 	if not is_instance_valid(pony) or _rows.has(pony) or not _eligible(pony):
+		return
+	if _source_tail(form):
 		return
 	if not SETTINGS.reseat_tails.get_bool():
 		# Off writes nothing: remember her so turning the setting on can seat her without a
@@ -195,11 +201,13 @@ func attach(pony: Node) -> void:
 		var off_row := SeatRow.new()
 		off_row.pony = pony
 		off_row.id = _id_for(pony)
+		off_row.fit_id = _fit_id(pony, form)
+		off_row.form = form
 		_rows[pony] = off_row
 		pony.tree_exiting.connect(func() -> void: _forget(pony))
 		return
 	var started := Time.get_ticks_usec()
-	var row := _prepare(pony)
+	var row := _prepare(pony, form)
 	if row == null:
 		return
 	var prepared := Time.get_ticks_usec()
@@ -218,6 +226,62 @@ func attach(pony: Node) -> void:
 	_log("tail seat %s anchor=(%.3f,%.3f,%.3f) delta=(%.3f,%.3f,%.3f)" % [
 		row.id, row.anchor.x, row.anchor.y, row.anchor.z,
 		row.applied.x, row.applied.y, row.applied.z])
+
+
+## The same body carries a revised form. A source-owned tail returns to its provider; a regular
+## hair tail re-resolves its placement row and re-seats the tail and dock when the fit changed.
+func refresh_form(pony: Node, form: BODY_FORM.BodyForm) -> void:
+	if not is_instance_valid(pony):
+		return
+	var row: SeatRow = _rows.get(pony) as SeatRow
+	if row == null:
+		return
+	if _source_tail(form):
+		if _seated(row):
+			_restore(row)
+		_forget(pony)
+		return
+	var fit_id := _fit_id(pony, form)
+	row.form = form
+	row.fit_id = fit_id
+	if not _seated(row) or not SETTINGS.reseat_tails.get_bool():
+		return
+	var placement := SETTINGS.anatomy_placement(row.id, fit_id)
+	var tail_moved := false
+	var dock_stale := false
+	for pair: Array in PLACEMENT_KEYS:
+		var key := str(pair[0])
+		var value := float(placement.get(key, pair[1]))
+		if is_equal_approx(value, _row_value(row, key)):
+			continue
+		_set_row_value(row, key, value)
+		match key:
+			"dock_y":
+				pass
+			"dock_scale":
+				dock_stale = true
+			_:
+				tail_moved = true
+				dock_stale = true
+	if tail_moved:
+		_apply_tail(row)
+	if dock_stale:
+		_apply_dock(row)
+	elif tail_moved:
+		_apply_lift(row)
+
+
+## A provider-owned tail root is not a seat row: the source applies its own placement wrapper.
+static func _source_tail(form: BODY_FORM.BodyForm) -> bool:
+	return form != null and is_instance_valid(form.tail_root)
+
+
+## The fit a row resolves its placement with. A null form is a legacy direct attach and falls
+## back to the body-fit mirror.
+static func _fit_id(pony: Node, form: BODY_FORM.BodyForm) -> String:
+	if form != null:
+		return form.fit_id
+	return IDENTITY.body_fit_id(pony)
 
 
 ## Re-apply or restore every live pony. Called on every settings edit; only the toggle, a
@@ -251,7 +315,7 @@ func refresh_all() -> void:
 			continue
 		if not _seated(row):
 			# She arrived while the seat was off; measure her now that it is on.
-			var prepared := _prepare(pony)
+			var prepared := _prepare(pony, row.form)
 			if prepared == null:
 				continue
 			_rows[pony] = prepared
@@ -393,7 +457,7 @@ func can_dock(pony: Node) -> bool:
 
 ## Cache every value the controller needs before its first write. Null when the pony cannot be
 ## measured; the controller then leaves her alone.
-func _prepare(pony: Node) -> SeatRow:
+func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
 	var link: Node = pony.get("hair_link") as Node
 	var skeleton: Skeleton3D = pony.get("skeleton") as Skeleton3D
 	var dock: MeshInstance3D = pony.find_child(DOCK_NAME, true, false) as MeshInstance3D
@@ -417,7 +481,7 @@ func _prepare(pony: Node) -> SeatRow:
 	var id := str(pony.get_meta("relationship_id", ""))
 	if id.is_empty():
 		id = str(identity.get("id"))
-	var fit_id := IDENTITY.body_fit_id(pony)
+	var fit_id := _fit_id(pony, form)
 	var placement := SETTINGS.anatomy_placement(id, fit_id)
 	var hair: Skeleton3D = pony.get("hair_skeleton") as Skeleton3D
 	var original_skin: Skin = dock.skin
@@ -430,6 +494,7 @@ func _prepare(pony: Node) -> SeatRow:
 	row.pony = pony
 	row.id = id
 	row.fit_id = fit_id
+	row.form = form
 	row.body = "stallion" if bool(identity.get("stallion")) else "mare"
 	row.link = link
 	row.dock = dock

@@ -19,6 +19,11 @@ var checks := 0
 class FakePony extends Node3D:
 	var identity: Variant = null
 	var body_scale := 1.0
+	var scale_calls: Array[float] = []
+
+	func set_body_scale(value: float) -> void:
+		scale_calls.append(value)
+		body_scale = value
 
 
 class FakeHost extends Node:
@@ -379,6 +384,8 @@ func _check_service() -> void:
 		"the mirror writes the source marker")
 	check(pony.get_meta("tail_pose_root", null) == tail, "the mirror writes the source tail root")
 	check(is_equal_approx(pony.body_scale, 1.2), "the mirror writes the body scale")
+	check(pony.scale_calls == [1.2],
+		"the mirror resizes through the game's body-scale setter, not a bare field write")
 	check(host.lines.size() == 1, "one form application logs one line")
 	var line := host.lines[host.lines.size() - 1] if not host.lines.is_empty() else ""
 	check(line.contains("body change") and line.contains("pony=fluttershy")

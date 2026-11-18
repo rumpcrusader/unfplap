@@ -7,6 +7,8 @@ extends SceneTree
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -126,7 +128,7 @@ func run() -> void:
 	meta_place.setup(meta_first)
 	var meta_mesh := MeshInstance3D.new()
 	meta_mesh.mesh = BoxMesh.new()
-	meta_place.set_mesh(meta_mesh, Transform3D.IDENTITY, [])
+	meta_place.set_mesh(meta_mesh, Transform3D.IDENTITY, BODY_PROFILE.ordinary_rig())
 	var rel_override := SETTINGS.anatomy_placement("relationship_id")
 	rel_override["offset_x"] = 0.321
 	SETTINGS.save_anatomy_placement("relationship_id", rel_override)
@@ -216,6 +218,23 @@ func run() -> void:
 	check(seat.pending_rebuilds() == 1, "a placement edit queues one dock rebuild")
 	seat.call("_flush_dirty")
 	check(seat.pending_rebuilds() == 0, "the settle pass drains the queue")
+
+	# A late form updates the remembered row's fit even while the seat is off, so turning it on
+	# measures the borrowed body rather than the identity's own row.
+	var borrowed := BODY_FORM.default_form(rigged)
+	borrowed.form_id = "borrowed_form"
+	borrowed.fit_id = "fluttershy"
+	seat.call("refresh_form", rigged, borrowed)
+	check(off_row.fit_id == "fluttershy", "a late form updates the tail row's fit")
+	check(off_row.form == borrowed, "the tail row keeps the form it was fitted for")
+
+	# Her own form's source tail root belongs to the provider's wrapper; the seat drops its row.
+	var source_form := BODY_FORM.default_form(rigged)
+	source_form.fit_id = "twilight_sparkle"
+	source_form.tail_root = Node3D.new()
+	seat.call("refresh_form", rigged, source_form)
+	check(seat.row(rigged) == null, "a source-owned tail root drops the seat row")
+	source_form.tail_root.free()
 	SETTINGS.reseat_tails.set_bool(reseat_before)
 	rigged.free()
 	seat.free()
@@ -227,7 +246,7 @@ func run() -> void:
 	place_mesh.mesh = BoxMesh.new()
 	place.add_child(place_mesh)
 	place.placement.setup(null)
-	place.placement.set_mesh(place_mesh, Transform3D.IDENTITY, [])
+	place.placement.set_mesh(place_mesh, Transform3D.IDENTITY, BODY_PROFILE.ordinary_rig())
 	place.placement.load()
 	var place_pos := Vector3(
 		float(default_place["offset_x"]),
@@ -243,6 +262,42 @@ func run() -> void:
 	check(dock_on.is_equal_approx(dock_off), "the dock switch never moves the anatomy")
 	check(near(dock_on.origin.y, place_pos.y + float(ANATOMY_PLACEMENT.LIFT)),
 		"placement uses the calibrated lift")
+
+	# The ordinary typed rig maps exactly to the empty array the pre-form callers passed.
+	place.placement.set_mesh(place_mesh, Transform3D.IDENTITY, BODY_PROFILE.ordinary_rig())
+	place.placement.load()
+	place.placement.apply(false, 0.0, null)
+	check(place_mesh.transform.is_equal_approx(dock_on),
+		"the ordinary rig maps to the same placement the empty profile did")
+
+	# A princess rig scales about the shared mare anchor, like the old array did.
+	var princess_rig := BODY_PROFILE.rig_for_key("celestia")
+	place.placement.set_mesh(place_mesh, Transform3D.IDENTITY, princess_rig)
+	place.placement.load()
+	place.placement.apply(false, 0.0, null)
+	var princess_place: Transform3D = place_mesh.transform
+	var lifted := place_pos + Vector3(0.0, float(ANATOMY_PLACEMENT.LIFT), 0.0)
+	check(near(princess_place.origin.x, lifted.x * princess_rig.scale)
+		and near(princess_place.origin.y, princess_rig.rear_y
+			+ (lifted.y - BODY_PROFILE.WINKING_REAR_Y) * princess_rig.scale)
+		and near(princess_place.origin.z, princess_rig.rear_z
+			+ (lifted.z - BODY_PROFILE.WINKING_REAR_Z) * princess_rig.scale),
+		"the princess rig places the anatomy about the shared mare anchor")
+
+	# The form's fit selects the row the placement reads.
+	var fit_provider := "form_fit_mare"
+	MARE_REGISTRY.register(5, {"id": fit_provider, "source": "anatomy_test",
+		"placement": {"offset_x": 0.123}})
+	var fit_place := ANATOMY_PLACEMENT.new()
+	fit_place.setup(meta_first)
+	var fit_mesh := MeshInstance3D.new()
+	fit_mesh.mesh = BoxMesh.new()
+	fit_place.set_mesh(fit_mesh, Transform3D.IDENTITY, BODY_PROFILE.ordinary_rig())
+	fit_place.load(fit_provider)
+	check(near(fit_place.base_place().origin.x, 0.123),
+		"the form fit selects the placement row")
+	MARE_REGISTRY.unregister(5, fit_provider)
+	fit_mesh.free()
 	SETTINGS.dock_style.set_choice(dock_before)
 	place.free()
 

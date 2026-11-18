@@ -7,6 +7,8 @@ extends SceneTree
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const BODY_COAT_SURFACE := preload("res://mods/unfplap/shared/body_coat.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
@@ -387,6 +389,22 @@ func run() -> void:
 			"the lip radius is published to the shader")
 		check(initial_material.get_shader_parameter("hole_target") is float,
 			"the hole target is published to the shader")
+	# The appearance's rig and fit come from the presented form, not the pony identity.
+	check((appearance.call("_profile") as Array).is_empty(),
+		"an ordinary form keeps the shared mare profile")
+	check(str(appearance.call("_fit_id")) == "test_mare",
+		"the form's fit names the body row")
+	var princess_form := BODY_FORM.default_form(appearance_pony)
+	princess_form.fit_id = "celestia"
+	princess_form.rig = BODY_PROFILE.rig_for_key("celestia")
+	appearance.set_form(princess_form)
+	var princess_profile: Array = appearance.call("_profile")
+	check(princess_profile.size() == 3 \
+		and near(float(princess_profile[2]), princess_form.rig.scale),
+		"the appearance reads the princess rig from the presented form")
+	check(is_equal_approx(float(appearance.call("_teat_size")), 1.0),
+		"the form fit selects the princess teat look")
+	appearance.set_form(null)
 	shapes.set_mesh(appearance_mesh)
 	appearance.apply_material(false)
 	check(appearance_mesh.get_surface_override_material(0) is ShaderMaterial,

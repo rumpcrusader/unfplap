@@ -9,7 +9,7 @@ const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
-const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 
 const WINKING_REST_OPEN := 0.6
 const WINKING_OPEN_AT := 0.3
@@ -482,9 +482,12 @@ func _aim_debug_tick(delta: float, part: Variant) -> void:
 	var scale_value: Variant = pony.get("body_scale")
 	if scale_value != null:
 		scale = float(scale_value)
+	var fit := BODY_FORM.default_form(pony).fit_id
+	if is_instance_valid(anatomy) and anatomy.has_method("form_fit_id"):
+		fit = str(anatomy.call("form_fit_id"))
 	_facts.write_log("anatomy aim normal=%s hole=%s rear=%s hips=%s root=%s hip=%s fit=%s scale=%.2f pen=%.3f" % [
 		str(_normal), str(hole_point()), str(hole_rear()), str(_hips_point()), str(root),
-		str(hip), BODY_PROFILE.body_fit_id(pony), scale, float(_facts.penetration_m)])
+		str(hip), fit, scale, float(_facts.penetration_m)])
 
 
 ## Her pelvis bone in world space, the stable reference for the opening's outward direction.

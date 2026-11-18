@@ -918,7 +918,9 @@ stay event-time reads.
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | vr | `vr/service.gd` | VR act controls |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
+| shared | body_binding | `shared/body_binding.gd` | the anatomy body binding base |
 | shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
+| shared | body_form | `shared/body_form.gd` | presented body rig, fit and marker |
 | shared | body_profile | `shared/body_profile.gd` | princess body profile and fit key |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |

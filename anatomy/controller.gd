@@ -4,6 +4,7 @@ extends Node
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
@@ -26,6 +27,8 @@ const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
 var pony: Node3D
 ## The typed runtime context. The controller never reads the runtime node.
 var facts: RefCounted
+## The presented body's form. Null keeps the default own form built from her identity.
+var _form: BODY_FORM.BodyForm = null
 ## The anatomy facade's dock-colour refresh. Called after attach/detach/tone changes.
 var dock_refresh := Callable()
 ## The anatomy facade and its host callbacks for the act handle.
@@ -129,6 +132,7 @@ func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 	coat_line.setup(pony, placement)
 	appearance = APPEARANCE.new()
 	appearance.setup(pony, shapes, dock_refresh, facts.perf_note)
+	appearance.set_form(form())
 	_read_hull_settings()
 	_read_toggles()
 
@@ -141,6 +145,72 @@ func set_facts(facts_node: RefCounted) -> void:
 		attach.facts = facts
 	if appearance != null:
 		appearance.set_perf(facts.perf_note)
+
+
+## The body form the controller measures from: the body-change service's form, or the default own
+## form built from the pony identity when no source has claimed the body.
+func form() -> BODY_FORM.BodyForm:
+	if _form != null:
+		return _form
+	return BODY_FORM.default_form(pony)
+
+
+## Store the presented form. `refresh_form()` is the write that re-applies an attached controller.
+func set_form(value: BODY_FORM.BodyForm) -> void:
+	_form = value
+	if appearance != null:
+		appearance.set_form(value)
+
+
+## The fit id the aim diagnostic and the placement read; empty only for a body with no identity.
+func form_fit_id() -> String:
+	var current := form()
+	return current.fit_id if current != null else ""
+
+
+## A revised form on the same body: update the placement rig/fit and rebuild the parts that were
+## fitted to the old body. The anatomy mesh is reused; the act handle is not touched.
+func refresh_form(value: BODY_FORM.BodyForm) -> void:
+	var previous := form()
+	set_form(value)
+	if not is_attached():
+		return
+	var current := form()
+	attach.mark_owned()
+	if _same_rig_and_fit(previous, current):
+		apply_live()
+		return
+	var mesh: MeshInstance3D = attach.mesh
+	if not is_instance_valid(mesh):
+		return
+	placement.set_mesh(mesh, attach.bone_inverse, current.rig)
+	placement.load(current.fit_id)
+	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
+	if appearance != null:
+		appearance.set_form(current)
+		appearance.clear()
+		appearance.set_mesh(mesh, attach.skeleton)
+		appearance.attach_parts()
+	attach.mark_owned()
+	_apply_material()
+	_apply_place()
+	_apply_body_coat()
+
+
+## True when the two forms measure the same body: the rig and the placement row are unchanged.
+static func _same_rig_and_fit(a: BODY_FORM.BodyForm, b: BODY_FORM.BodyForm) -> bool:
+	if a == null or b == null:
+		return a == b
+	if a.fit_id != b.fit_id:
+		return false
+	var a_rig := a.rig
+	var b_rig := b.rig
+	if a_rig == null or b_rig == null:
+		return a_rig == b_rig
+	if a_rig.id != b_rig.id or not is_equal_approx(a_rig.scale, b_rig.scale):
+		return false
+	return is_equal_approx(a_rig.rear_y, b_rig.rear_y) \
+		and is_equal_approx(a_rig.rear_z, b_rig.rear_z)
 
 
 ## Create the per-act controller. The controller owns it until `end_act()`; its behaviour
@@ -226,15 +296,16 @@ func _attach() -> void:
 	var refined := GEOMETRY.refined_winking_mesh(mesh.mesh as ArrayMesh)
 	if refined != null:
 		mesh.mesh = refined
-	var identity: Variant = pony.get("identity")
-	placement.set_mesh(mesh, attach.bone_inverse, IDENTITY.body_profile(identity))
-	placement.load()
+	var current := form()
+	placement.set_mesh(mesh, attach.bone_inverse, current.rig)
+	placement.load(current.fit_id)
 	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
 	shapes.set_mesh(mesh)
 	coat.set_mesh(mesh, attach.skeleton)
 	coat_line.setup(pony, placement)
 	coat_line.set_mesh(mesh, attach.skeleton)
 	_ensure_line_debug()
+	appearance.set_form(current)
 	appearance.set_mesh(mesh, attach.skeleton)
 	appearance.attach_parts()
 	attach.mark_owned()

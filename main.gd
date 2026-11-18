@@ -27,6 +27,7 @@ const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
@@ -287,6 +288,9 @@ func _ready() -> void:
 	body_change.name = "UnfplapBodyChange"
 	body_change.call("setup", self)
 	add_child(body_change)
+	var anatomy_binding: RefCounted = ANATOMY_BINDING.new()
+	anatomy_binding.call("setup", anatomy)
+	body_change.call("register_binding", anatomy_binding)
 	pantyhose = PANTYHOSE.new()
 	pantyhose.name = "UnfplapPantyhose"
 	pantyhose.call("setup", self)

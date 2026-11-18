@@ -5,6 +5,8 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/act_camera/test_camera.gd
 
 const CAMERA := preload("res://mods/unfplap/camera/service.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -572,38 +574,43 @@ func _check_eye_line() -> void:
 func _check_entrance() -> void:
 	var mare := FakePony.new()
 	mare.identity = {"id": "an_ordinary_mare"}
-	check(CAMERA.entrance_offset(mare).is_equal_approx(Vector2.ZERO),
-		"an ordinary mare keeps the tuned entrance")
-	check(CAMERA.entrance_offset(null).is_equal_approx(Vector2.ZERO),
-		"no pony has no entrance offset")
+	var ordinary := BODY_FORM.default_form(mare)
+	check(CAMERA.entrance_offset_for(ordinary).is_equal_approx(Vector2.ZERO),
+		"an ordinary form keeps the tuned entrance")
+	check(CAMERA.entrance_offset_for(null).is_equal_approx(Vector2.ZERO),
+		"no form has no entrance offset")
 	mare.free()
 
 	var celestia := FakePony.new()
 	celestia.identity = {"id": "celestia"}
-	var cel := CAMERA.entrance_offset(celestia)
+	var celestia_form := BODY_FORM.default_form(celestia)
+	var cel := CAMERA.entrance_offset_for(celestia_form)
 	check(near(cel.x, 0.312) and near(cel.y, 0.0368),
 		"Celestia's entrance is higher and further back")
 	celestia.body_scale = 1.5
-	check(near(CAMERA.entrance_offset(celestia).x, 0.312 * 1.5),
-		"the entrance offset follows her live body scale")
+	celestia_form.body_scale = 1.5
+	check(near(CAMERA.entrance_offset_for(celestia_form).x, 0.312 * 1.5),
+		"the entrance offset follows the form's body scale")
 	celestia.free()
 
 	var luna := FakePony.new()
 	luna.identity = {"id": "luna"}
-	var lun := CAMERA.entrance_offset(luna)
+	var luna_form := BODY_FORM.default_form(luna)
+	var lun := CAMERA.entrance_offset_for(luna_form)
 	check(near(lun.x, 0.055) and near(lun.y, -0.0696),
 		"Luna's entrance is lower and further forward")
 	luna.free()
 
-	# The offset follows the visible body: a copy on a princess body takes that body's entrance,
-	# and a princess wearing an ordinary body takes the mare's.
+	# The offset follows the presented form: a copy on a princess body takes that body's
+	# entrance, and a princess wearing an ordinary body takes the mare's.
 	var copy := FakePony.new()
 	copy.identity = {"id": "chrysalis", "character_id": "celestia"}
-	copy.set_meta("body_fit_id", "chrysalis")
-	check(CAMERA.entrance_offset(copy).is_equal_approx(Vector2.ZERO),
+	var copy_form := BODY_FORM.default_form(copy)
+	copy_form.rig = BODY_PROFILE.ordinary_rig()
+	check(CAMERA.entrance_offset_for(copy_form).is_equal_approx(Vector2.ZERO),
 		"a princess wearing an ordinary body uses the mare's entrance")
-	copy.set_meta("body_fit_id", "luna")
-	check(near(CAMERA.entrance_offset(copy).x, 0.055),
+	copy_form.rig = BODY_PROFILE.rig_for_key("luna")
+	check(near(CAMERA.entrance_offset_for(copy_form).x, 0.055),
 		"a copy on a princess body uses that body's entrance")
 	copy.free()
 

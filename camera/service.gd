@@ -7,6 +7,7 @@ extends RefCounted
 
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 
 ## The thrust camera: both channels are velocity-driven metres with one critically damped
@@ -616,7 +617,8 @@ func tick_free_look() -> void:
 ## Standing eye height follows the body preset, raised to the pony's live rest eye line and never
 ## above Anon's own eye; missionary is owned by the game's bed rest/seat camera and AnonPony has
 ## its own eye height. The previous values are restored at act end.
-func apply_eye_override(family: String, player_pony: bool) -> void:
+func apply_eye_override(family: String, player_pony: bool,
+		form: BODY_FORM.BodyForm = null) -> void:
 	camera_target_eye = 0.0
 	if family == "bed" or player_pony:
 		return
@@ -632,7 +634,7 @@ func apply_eye_override(family: String, player_pony: bool) -> void:
 	# A princess body has her entrance higher or lower than the mare every preset was tuned on:
 	# move his eye by the same amount, so he crouches only as far as she needs. A raise never goes
 	# above his own eye (or above a preset that already is).
-	var entrance := entrance_offset(facts.pony if facts != null else null)
+	var entrance := entrance_offset_for(form)
 	if absf(entrance.x) > 0.0001:
 		var moved := preset + entrance.x
 		target = minf(moved, maxf(base, preset)) if entrance.x > 0.0 else moved
@@ -787,10 +789,12 @@ func pony_eye_height() -> float:
 	return eye.y - floor_y
 
 
-## How far her entrance sits from the mare's every standing offset was tuned on, in world metres
-## at her live body scale: `(higher +, further back +)`. Zero for an ordinary body.
-static func entrance_offset(pony: Node3D) -> Vector2:
-	return BODY_PROFILE.entrance_offset(pony)
+## How far the presented form's entrance sits from the mare's every standing offset was tuned on,
+## in world metres at that body's scale: `(higher +, further back +)`. Zero for an ordinary rig.
+static func entrance_offset_for(form: BODY_FORM.BodyForm) -> Vector2:
+	if form == null:
+		return Vector2.ZERO
+	return BODY_PROFILE.entrance_offset_for(form.rig, form.body_scale)
 
 
 func mouse_sensitivity() -> float:

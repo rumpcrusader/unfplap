@@ -17,7 +17,9 @@ const LIFT := 0.03
 var pony: Node3D
 var mesh: MeshInstance3D
 var bone_inverse := Transform3D.IDENTITY
-var body: Array = []
+## The presented body's typed rig: the scale and rear anchor a princess (or source) body measures
+## from. The ordinary rig maps exactly to the pre-form array's empty profile.
+var rig: BODY_PROFILE.RigProfile = null
 
 var _pos: Vector3
 var _pitch: float
@@ -44,21 +46,25 @@ func read_settings() -> void:
 	_vulva_pitch_deg = SETTINGS.vulva_pitch_deg_for(size)
 
 
-func set_mesh(mesh_node: MeshInstance3D, bind: Transform3D, body_profile: Array) -> void:
+func set_mesh(mesh_node: MeshInstance3D, bind: Transform3D,
+		rig_profile: BODY_PROFILE.RigProfile) -> void:
 	mesh = mesh_node
 	bone_inverse = bind
-	body = body_profile
+	rig = rig_profile
 
 
 func clear_mesh() -> void:
 	mesh = null
 	bone_inverse = Transform3D.IDENTITY
-	body = []
+	rig = null
 
 
-func load() -> void:
+## Read the resolved row. `fit_id` is the presented form's fit; empty falls back to the legacy
+## body-fit mirror.
+func load(fit_id: String = "") -> void:
 	read_settings()
-	var saved := SETTINGS.anatomy_placement(_pony_id(), _body_fit_id())
+	var fit := fit_id if not fit_id.is_empty() else _body_fit_id()
+	var saved := SETTINGS.anatomy_placement(_pony_id(), fit)
 	_apply_values(saved)
 	_place_revision = SETTINGS.placement_revision
 
@@ -79,10 +85,10 @@ func base_place() -> Transform3D:
 		.scaled(Vector3.ONE * _scale)
 	# Placement never follows the dock. `Dock style` is a visibility/colour switch.
 	var place := _pos + Vector3(0.0, LIFT, minf(LIFT, 0.0) * 0.2)
-	if not body.is_empty():
-		var size: float = body[2]
-		place = Vector3(place.x * size, body[0] + (place.y - WINKING_REAR_Y) * size,
-			body[1] + (place.z - WINKING_REAR_Z) * size)
+	if rig != null:
+		var size := rig.scale
+		place = Vector3(place.x * size, rig.rear_y + (place.y - WINKING_REAR_Y) * size,
+			rig.rear_z + (place.z - WINKING_REAR_Z) * size)
 		basis = basis.scaled(Vector3.ONE * size)
 	# Push the whole mesh out along its own normal. A pose that tucks the anatomy into the coat
 	# then shows the vulva instead of clipping it.

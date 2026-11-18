@@ -6,8 +6,10 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/anatomy/test_attach.gd
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
+const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
 const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
@@ -37,6 +39,13 @@ class FakePony extends Node3D:
 
 class FakeMain extends Node:
 	var eligibility: Variant
+
+
+class FakeRuntime extends Node:
+	var context: RefCounted
+
+	func anatomy_facts() -> RefCounted:
+		return context
 
 
 func _initialize() -> void:
@@ -146,6 +155,71 @@ func run() -> void:
 	check(ANATOMY.body_profile(ordinary_identity).is_empty(),
 		"an ordinary modded mare uses the normal body profile")
 	check(ANATOMY.body_profile(null).is_empty(), "no identity has no body profile")
+
+	# The anatomy body binding stores the presented form, creates one controller and updates its
+	# facts when the runtime attaches later; a revised form refreshes the same controller.
+	var body_main := FakeMain.new()
+	root.add_child(body_main)
+	body_main.eligibility = host.eligibility
+	var body_service: Node = ANATOMY_SERVICE.new()
+	root.add_child(body_service)
+	body_service.call("setup", body_main)
+	var body_pony := _pony("fluttershy")
+	root.add_child(body_pony)
+	var own_form := BODY_FORM.default_form(body_pony)
+	var binding: RefCounted = ANATOMY_BINDING.new()
+	binding.call("setup", body_service)
+	check(str(binding.call("binding_id")) == "anatomy", "the anatomy binding names itself")
+	binding.call("bind_body", body_pony, own_form)
+	var body_controller: Node = body_service.call("controller", body_pony)
+	check(is_instance_valid(body_controller) and body_controller.call("form") == own_form,
+		"the anatomy binding creates one controller with the presented form")
+	check(body_service.call("form_for", body_pony) == own_form,
+		"the anatomy facade keeps the form the binding stored")
+	var facts_a: RefCounted = FACTS.new()
+	var runtime_a := FakeRuntime.new()
+	runtime_a.context = facts_a
+	root.add_child(runtime_a)
+	check(body_service.call("bind", body_pony, runtime_a) == body_controller,
+		"a later runtime bind reuses the controller the binding created")
+	var attach_a: Object = body_controller.get("attach") as Object
+	check(body_controller.get("facts") == facts_a \
+		and attach_a != null and attach_a.get("facts") == facts_a,
+		"the reused controller receives the runtime facts, not its default context")
+	var facts_b: RefCounted = FACTS.new()
+	var runtime_b := FakeRuntime.new()
+	runtime_b.context = facts_b
+	root.add_child(runtime_b)
+	body_service.call("bind", body_pony, runtime_b)
+	var attach_b: Object = body_controller.get("attach") as Object
+	check(body_controller.get("facts") == facts_b \
+		and attach_b != null and attach_b.get("facts") == facts_b,
+		"a second bind updates the same controller's facts")
+	var late_form := BODY_FORM.default_form(body_pony)
+	late_form.form_id = "borrowed_form"
+	late_form.fit_id = "fluttershy"
+	binding.call("refresh_body", body_pony, late_form)
+	check(body_controller.call("form") == late_form,
+		"a revised form refreshes the same controller without a second one")
+	check(ANATOMY._same_rig_and_fit(own_form, late_form),
+		"a form revision with the same rig and fit is a no-op refresh")
+	var changed_fit := BODY_FORM.default_form(body_pony)
+	changed_fit.fit_id = "borrowed_fit"
+	check(not ANATOMY._same_rig_and_fit(own_form, changed_fit),
+		"a changed fit re-applies the anatomy form")
+	binding.call("unbind_body", body_pony)
+	check(body_service.call("controller", body_pony) == null,
+		"the anatomy binding releases the controller")
+	check(body_service.call("form_for", body_pony) == null,
+		"the anatomy binding drops the form on unbind")
+	body_pony.free()
+	runtime_a.free()
+	runtime_b.free()
+	body_service.call("shutdown")
+	root.remove_child(body_service)
+	body_service.free()
+	root.remove_child(body_main)
+	body_main.free()
 
 	# The Characters selector lists only live off-roster mares.
 	var live_ids: Array[String] = ANATOMY.off_roster_ids(

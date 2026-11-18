@@ -50,9 +50,13 @@ class FakeFaceAnatomy extends Node:
 	var opening := Vector3(0.1, 0.2, 0.3)
 	var part_node: Variant = null
 	var tracks: Array = []
+	var form_fit := ""
 
 	func part() -> Variant:
 		return part_node
+
+	func form_fit_id() -> String:
+		return form_fit
 
 	func player_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool,
 			penetration_m: float, delta: float, mare_anchor: Node3D, attached := true) -> void:
@@ -316,6 +320,7 @@ func _check_aim_debug() -> void:
 	var part := FakeFacePart.new()
 	root.add_child(part)
 	anatomy.part_node = part
+	anatomy.form_fit = "borrowed_fit"
 	var act: Node = ANATOMY_ACT.new()
 	root.add_child(act)
 	act.setup(pony, anatomy)
@@ -328,8 +333,8 @@ func _check_aim_debug() -> void:
 	check(lines.size() == 1, "the debug aim line writes through the facts log")
 	check(not lines.is_empty() and lines[0].begins_with("anatomy aim"),
 		"the aim line keeps its debug label")
-	check(not lines.is_empty() and lines[0].contains("fit=twilight_sparkle"),
-		"the aim line carries the body-fit key")
+	check(not lines.is_empty() and lines[0].contains("fit=borrowed_fit"),
+		"the aim line carries the presented form's fit")
 	act.call("_aim_debug_tick", 0.016, part)
 	check(lines.size() == 1, "the aim diagnostic keeps its two-second cadence")
 	act.call("_aim_debug_tick", 2.0, part)

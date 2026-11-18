@@ -27,6 +27,11 @@ static func body_profile_for(pony: Variant) -> Array:
 	return BODY_PROFILE.body_profile_for(pony)
 
 
+## The typed rig of the body a pony is wearing now.
+static func rig_profile_for(pony: Variant) -> BODY_PROFILE.RigProfile:
+	return BODY_PROFILE.rig_for_pony(pony)
+
+
 ## Deduplicated ids that are not in the base roster. The caller owns the eligibility filter, the
 ## live-pony source and its ordering; this helper only filters and deduplicates.
 static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:

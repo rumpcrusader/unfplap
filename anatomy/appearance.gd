@@ -7,7 +7,8 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const TEAT_JIGGLE := preload("res://mods/unfplap/anatomy/teat_jiggle.gd")
-const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const BODY_FIT := preload("res://mods/unfplap/anatomy/body_fit.gd")
 const UDDER := preload("res://mods/unfplap/anatomy/udder.gd")
@@ -35,6 +36,8 @@ var perf_note := Callable()
 var mesh: MeshInstance3D
 var skeleton: Skeleton3D
 var shapes: RefCounted
+## The presented body's form. Null keeps the default own form built from her identity.
+var _form: BODY_FORM.BodyForm = null
 
 var teats_mesh: MeshInstance3D
 var skin_strip: MeshInstance3D
@@ -57,6 +60,32 @@ func set_perf(perf_callable: Callable) -> void:
 	perf_note = perf_callable
 	if is_instance_valid(teats_jiggle):
 		teats_jiggle.set("perf_note", perf_note)
+
+
+## The presented form supplies the rig and the placement fit the teats and strip are built for.
+func set_form(value: BODY_FORM.BodyForm) -> void:
+	_form = value
+
+
+## The typed rig of the body this appearance is built for.
+func _rig() -> BODY_PROFILE.RigProfile:
+	var current := _form if _form != null else BODY_FORM.default_form(pony)
+	return current.rig
+
+
+## The placement fit id the body's teats and strip follow.
+func _fit_id() -> String:
+	var current := _form if _form != null else BODY_FORM.default_form(pony)
+	return current.fit_id
+
+
+## The placement profile in the array shape `anatomy/body_fit.gd` takes; empty for the ordinary
+## rig so an ordinary mare keeps the shared mare body's own teats.
+func _profile() -> Array:
+	var rig := _rig()
+	if rig == null or rig.is_ordinary():
+		return []
+	return [rig.rear_y, rig.rear_z, rig.scale]
 
 
 func set_mesh(mesh_node: MeshInstance3D, skeleton_node: Skeleton3D) -> void:
@@ -214,8 +243,8 @@ func _skin_tones() -> Array:
 func _attach_teats() -> void:
 	if not is_instance_valid(pony) or is_instance_valid(teats_mesh):
 		return
-	var profile := IDENTITY.body_profile_for(pony)
-	var who := IDENTITY.body_fit_id(pony)
+	var profile := _profile()
+	var who := _fit_id()
 	var size := _teat_size()
 	# Grown from her own belly (anatomy/udder.gd), so they fit her body, whatever it is; the old
 	# mare-shaped asset is the fallback when her belly cannot be found.
@@ -266,8 +295,7 @@ func _attach_teats() -> void:
 
 
 func _attach_skin_strip() -> void:
-	if not is_instance_valid(pony) \
-			or not IDENTITY.body_profile_for(pony).is_empty() \
+	if not is_instance_valid(pony) or not _profile().is_empty() \
 			or is_instance_valid(skin_strip):
 		return
 	skin_strip = _skinned_part(STRIP_PATH, "UnfplapAnatomySkinStrip")
@@ -307,7 +335,7 @@ func _teat_size() -> float:
 		if not id.is_empty() else "auto"
 	if PREFERENCES.TEAT_SIZE_VALUES.has(chosen):
 		return float(PREFERENCES.TEAT_SIZE_VALUES[chosen])
-	var look: Variant = PRINCESS_TEATS.get(IDENTITY.body_fit_id(pony), null)
+	var look: Variant = PRINCESS_TEATS.get(_fit_id(), null)
 	if look is Dictionary and (look as Dictionary).has("size"):
 		return clampf(float((look as Dictionary)["size"]), 0.0, 1.0)
 	# From her name, in quarter steps: a town of mares then shares a handful of built shapes.

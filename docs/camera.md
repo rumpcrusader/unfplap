@@ -262,7 +262,8 @@ takes effect when the panel closes.
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
-| shared | body_profile | `shared/body_profile.gd` | princess entrance offset |
+| shared | body_form | `shared/body_form.gd` | presented body rig and scale for the entrance offset |
+| shared | body_profile | `shared/body_profile.gd` | rig entrance offset math |
 
 ## Lifecycle
 

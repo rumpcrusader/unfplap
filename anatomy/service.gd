@@ -18,6 +18,7 @@ const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const PLACEMENT_EDITOR := preload("res://mods/unfplap/anatomy/placement_editor.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 
 ## Emitted when a pony's per-act anatomy handle is built, before the pose starts. A world
 ## integration uses it to take a worn garment off before the first rendered act frame.
@@ -32,6 +33,9 @@ var placement_editor: RefCounted
 
 ## pony -> controller
 var _controllers: Dictionary = {}
+## Presented body -> the body-change service's form. A body with no stored form keeps the default
+## own form built from its identity.
+var _forms: Dictionary = {}
 var _player_part: Node
 ## The part whose hidden mesh is already built, and whether a deferred warm is queued.
 var _player_warm_part: Node = null
@@ -101,16 +105,23 @@ func _eligible_target(pony_node: Node, target: ELIGIBILITY.Target) -> bool:
 
 
 ## The live controller for a pony, created on first use. The runtime supplies its typed facts;
-## the facade supplies the anatomy service and the host callbacks for the act handle.
+## the facade supplies the anatomy service and the host callbacks for the act handle. A controller
+## created by a body binding before its runtime exists receives the runtime's facts here.
 func controller_for(pony: Node, runtime: Node) -> Node:
 	if not is_instance_valid(pony):
 		return null
-	var existing: Variant = _controllers.get(pony)
-	if is_instance_valid(existing):
-		return existing
 	var facts: Variant = null
 	if is_instance_valid(runtime) and runtime.has_method("anatomy_facts"):
 		facts = runtime.call("anatomy_facts")
+	var existing: Variant = _controllers.get(pony)
+	if is_instance_valid(existing):
+		var known: Node = existing
+		if facts != null:
+			known.call("set_facts", facts)
+		var stored: Variant = _forms.get(pony)
+		if stored is BODY_FORM.BodyForm:
+			known.call("set_form", stored)
+		return known
 	if facts == null:
 		facts = FACTS.new()
 	var controller: Node = CONTROLLER.new()
@@ -122,14 +133,62 @@ func controller_for(pony: Node, runtime: Node) -> Node:
 		return consent(pony, key)
 	controller.call("setup", pony, facts, self, consent_for,
 		Callable(self, "status"), Callable(self, "refresh_dock_color"), eligible_anatomy)
+	var stored: Variant = _forms.get(pony)
+	if stored is BODY_FORM.BodyForm:
+		controller.call("set_form", stored)
 	_controllers[pony] = controller
 	_push_part()
-	pony.tree_exiting.connect(func() -> void: detach_controller(pony))
+	pony.tree_exiting.connect(func() -> void:
+		detach_controller(pony)
+		_forms.erase(pony))
 	return controller
 
 
 func bind(pony: Node, runtime: Node) -> Node:
 	return controller_for(pony, runtime)
+
+
+## The form the body-change service applied to this body, or null when it only has the default own
+## form. The tail seat uses it to resolve the fit before it measures the tail.
+func form_for(pony: Node) -> BODY_FORM.BodyForm:
+	var stored: Variant = _forms.get(pony)
+	return stored as BODY_FORM.BodyForm if stored is BODY_FORM.BodyForm else null
+
+
+## A new presented body's form: store it, make sure its controller exists and refresh the tail
+## seat's row. The body-change service calls this before `tail_ready` and before the runtime
+## attaches, so the anatomy and tail measure the form that is already on the body.
+func bind_body(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
+	if not is_instance_valid(pony) or form == null:
+		return
+	_forms[pony] = form
+	var handle := controller_for(pony, null)
+	if is_instance_valid(handle):
+		handle.call("refresh_form", form)
+	if is_instance_valid(tail_seat):
+		tail_seat.call("refresh_form", pony, form)
+
+
+## The same body carries a revised form: update its controller and tail row without creating a
+## second controller.
+func refresh_body(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
+	if not is_instance_valid(pony) or form == null:
+		return
+	_forms[pony] = form
+	var handle := controller_for(pony, null)
+	if is_instance_valid(handle):
+		handle.call("refresh_form", form)
+	if is_instance_valid(tail_seat):
+		tail_seat.call("refresh_form", pony, form)
+
+
+## The body is leaving: drop its form and controller. The tail seat's own row is released by its
+## tree-exiting hook.
+func unbind_body(pony: Node3D) -> void:
+	if not is_instance_valid(pony):
+		return
+	_forms.erase(pony)
+	detach_controller(pony)
 
 
 ## One act's anatomy bridge. The runtime creates one per act and binds the host callbacks.
@@ -228,9 +287,12 @@ func apply_live() -> void:
 func tail_ready(pony: Node) -> void:
 	if not is_instance_valid(tail_seat) or not is_instance_valid(pony):
 		return
-	tail_seat.call("attach", pony)
+	var form := form_for(pony)
+	if form == null:
+		form = BODY_FORM.default_form(pony)
+	tail_seat.call("attach", pony, form)
 	# A mod may finish its hair or dock a frame after the pony is ready; attach is idempotent.
-	tail_seat.call_deferred("attach", pony)
+	tail_seat.call_deferred("attach", pony, form)
 
 
 func refresh_tails() -> void:
@@ -293,6 +355,7 @@ func shutdown() -> void:
 				controller.call("detach")
 				controller.queue_free()
 	_controllers.clear()
+	_forms.clear()
 	clear_player()
 	tail_seat = null
 	tail_visibility = null

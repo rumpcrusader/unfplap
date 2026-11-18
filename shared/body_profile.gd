@@ -94,16 +94,13 @@ static func ordinary_rig() -> RigProfile:
 	return RigProfile.new(ORDINARY_RIG, WINKING_REAR_Y, WINKING_REAR_Z, 1.0)
 
 
-## How far her entrance sits from the mare's every standing offset was tuned on, in world metres at
-## her live body scale: `(higher +, further back +)`. Zero for an ordinary body.
-static func entrance_offset(pony: Variant) -> Vector2:
-	var profile := body_profile_for(pony)
-	if profile.size() < 2:
+## How far a body's entrance sits from the mare's every standing offset was tuned on, in world
+## metres at the body's live scale: `(higher +, further back +)`. Zero for the ordinary rig.
+static func entrance_offset_for(rig: RigProfile, body_scale: float) -> Vector2:
+	if rig == null:
 		return Vector2.ZERO
-	var scale_value: Variant = pony.get("body_scale")
-	var scale := maxf(float(scale_value), 0.1) if scale_value != null else 1.0
-	return Vector2(float(profile[0]) - WINKING_REAR_Y,
-		float(profile[1]) - WINKING_REAR_Z) * scale
+	var scale := maxf(body_scale, 0.1)
+	return Vector2(rig.rear_y - WINKING_REAR_Y, rig.rear_z - WINKING_REAR_Z) * scale
 
 
 static func _identity_key(identity: Variant) -> String:

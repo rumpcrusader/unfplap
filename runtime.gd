@@ -34,6 +34,7 @@ const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
@@ -1929,7 +1930,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 		bed = null
 		return false
 	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	_camera_service().call("apply_eye_override", _start_family(), _player_pony)
+	_camera_service().call("apply_eye_override", _start_family(), _player_pony, _body_form())
 	_wings_controller().reset()
 	_act_seconds = 0.0
 	_reactions.begin_act()
@@ -2398,7 +2399,7 @@ func _resume_after_body_swap() -> void:
 	_reset_player_pelvis()
 	_reset_swap_input_state()
 	_camera_service().call("reset_lean_state")
-	_camera_service().call("apply_eye_override", _start_family(), _player_pony)
+	_camera_service().call("apply_eye_override", _start_family(), _player_pony, _body_form())
 	_prepare_start_camera()
 	_begin_camera_mode()
 	_missionary_camera_controller().hide_avatar()
@@ -2741,10 +2742,22 @@ func _standing_gap() -> float:
 	gap += SETTINGS.gap_offset_m.get_num()
 	# The gap is from her centre; a princess body's entrance sits further back or forward than
 	# the mare's the gaps were tuned on, so Anon keeps the same distance from her entrance.
-	var entrance: Vector2 = ACT_CAMERA.entrance_offset(pony)
+	var entrance: Vector2 = ACT_CAMERA.entrance_offset_for(_body_form())
 	gap += entrance.y
 	_log("standing size=%s gap=%.2f entrance_shift=%+.3f" % [size, gap, entrance.y])
 	return gap
+
+
+## The presented body's form, through `main.body_change`; a host without the service (a suite or
+## a lab harness) falls back to the identity's typed default own form.
+func _body_form() -> BODY_FORM.BodyForm:
+	if is_instance_valid(main):
+		var service: Variant = main.get("body_change")
+		if service != null and service.has_method("form_for"):
+			var stored: Variant = service.call("form_for", pony)
+			if stored is BODY_FORM.BodyForm:
+				return stored as BODY_FORM.BodyForm
+	return BODY_FORM.default_form(pony)
 
 
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose

@@ -382,7 +382,6 @@ func _anatomy_host() -> Dictionary:
 	if not _anatomy_host_cache.is_empty():
 		return _anatomy_host_cache
 	_anatomy_host_cache = {
-		"main": Callable(self, "_main"),
 		"pony": Callable(self, "_pony"),
 		"runtime": Callable(self, "_runtime"),
 		"reactions": Callable(self, "_reactions_service"),
@@ -413,7 +412,7 @@ func _anatomy_host() -> Dictionary:
 		"set_penetration_m": Callable(self, "_set_penetration_m"),
 		"align": Callable(self, "apply_anon_align"),
 		"touch": Callable(self, "_on_touch"),
-		"act_facts": Callable(self, "_act_facts_value"),
+		"vr_scene": Callable(self, "_vr_scene"),
 	}
 	return _anatomy_host_cache
 
@@ -434,8 +433,26 @@ func _reactions_service() -> Variant:
 	return _reactions
 
 
-func _act_facts_value() -> Variant:
-	return _act_facts
+## The VR scene handles the anatomy bridge wires into the VR act. The runtime owns the player
+## scene; the bridge receives the nodes and never searches for them.
+func _vr_scene() -> Variant:
+	if not is_instance_valid(main) or not is_instance_valid(main.player):
+		return null
+	var player: Node = main.player
+	var avatar := player.find_child("AnonBody", true, false) as Node3D
+	if not is_instance_valid(avatar):
+		return null
+	var cameras: Array = player.find_children("*", "XRCamera3D", true, false)
+	var origins: Array = player.find_children("*", "XROrigin3D", true, false)
+	if cameras.is_empty() or origins.is_empty():
+		return null
+	return {
+		"player": player,
+		"avatar": avatar,
+		"camera": cameras[0],
+		"origin": origins[0],
+		"hip_target": avatar.get("_hip_target"),
+	}
 
 
 ## Whether another mod's entry is active in this launch, for the integrations context.

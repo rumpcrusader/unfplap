@@ -261,12 +261,6 @@ func face_point() -> Vector3:
 	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
 
 
-## True when the face contact has a live provider: an active act, the view's face contact and the
-## act body's mouth anchor.
-func face_ready() -> bool:
-	return is_instance_valid(act) and _face_contact() and bed_active()
-
-
 func toggle_hole() -> void:
 	if is_instance_valid(act):
 		act.call("toggle_hole", _host("state", 0))
@@ -331,20 +325,9 @@ func set_missionary_anon(node: Variant) -> void:
 	missionary_anon = node
 
 
-func install_missionary_anon() -> bool:
-	if not is_instance_valid(missionary_anon):
-		return false
-	return bool(missionary_anon.call("install", _host("act_facts")))
-
-
 func refresh_palm() -> void:
 	if is_instance_valid(missionary_anon):
 		missionary_anon.call("refresh_palm")
-
-
-func apply_missionary_anon(frame: Transform3D, body_scale: float) -> void:
-	if is_instance_valid(missionary_anon):
-		missionary_anon.call("apply", frame, body_scale)
 
 
 func diag_row(face: Vector3, vulva: Vector3) -> String:
@@ -401,22 +384,22 @@ func aim_eyes() -> void:
 	eye_motion.set("target_weight", 1.0)
 
 
-## The VR standing controller. The host owns the player and the avatar; the bridge owns the
+## The VR standing controller. The runtime supplies the player scene handles; the bridge owns the
 ## handle and the headset's forward and depth.
 func vr_start() -> void:
 	vr_stop()
-	var main: Variant = _host("main")
-	if not is_instance_valid(main) or not is_instance_valid(main.player):
-		return
-	var avatar := main.player.find_child("AnonBody", true, false) as Node3D
-	if not is_instance_valid(avatar):
-		return
-	var cameras: Array = main.player.find_children("*", "XRCamera3D", true, false)
-	var origins: Array = main.player.find_children("*", "XROrigin3D", true, false)
-	if cameras.is_empty() or origins.is_empty():
+	var scene: Variant = _host("vr_scene")
+	if not scene is Dictionary:
 		return
 	var runtime: Variant = _host("runtime")
 	if not is_instance_valid(runtime):
+		return
+	var player: Variant = (scene as Dictionary).get("player")
+	var avatar: Variant = (scene as Dictionary).get("avatar")
+	var camera: Variant = (scene as Dictionary).get("camera")
+	var origin: Variant = (scene as Dictionary).get("origin")
+	if not is_instance_valid(player) or not is_instance_valid(avatar) \
+			or not is_instance_valid(camera) or not is_instance_valid(origin):
 		return
 	vr_act = VR_ACT.new()
 	vr_act.name = "UnfplapVrAct"
@@ -425,10 +408,10 @@ func vr_start() -> void:
 	vr_act.set("touch", _callback("touch"))
 	vr_act.set("pony_source", _callback("pony"))
 	vr_act.set("command", _callback("command"))
-	vr_act.set("player", main.player)
-	vr_act.set("hip_target", avatar.get("_hip_target"))
-	vr_act.set("camera", cameras[0])
-	vr_act.set("origin", origins[0])
+	vr_act.set("player", player)
+	vr_act.set("hip_target", (scene as Dictionary).get("hip_target"))
+	vr_act.set("camera", camera)
+	vr_act.set("origin", origin)
 	runtime.add_child(vr_act)
 
 

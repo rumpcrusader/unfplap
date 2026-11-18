@@ -109,19 +109,10 @@ class FakeService extends RefCounted:
 
 
 class FakeMissionaryAnon extends Node:
-	var installed: Variant = null
-	var applied := 0
 	var refreshes := 0
 	var removed := 0
 	var active := true
 	var mouth: Variant = Vector3(0.0, 1.1, 0.2)
-
-	func install(context: Variant) -> bool:
-		installed = context
-		return true
-
-	func apply(_frame: Transform3D, _body_scale: float) -> void:
-		applied += 1
 
 	func refresh_palm() -> void:
 		refreshes += 1
@@ -252,6 +243,7 @@ func run() -> void:
 	_check_lifecycle()
 	_check_host_callbacks()
 	_check_vr()
+	_check_vr_start()
 	print("ANATOMY_ACT_BRIDGE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ANATOMY_ACT_BRIDGE_PASS")
@@ -370,20 +362,14 @@ func _check_face() -> void:
 	host.pose_view = _view("bed")
 	var act := FakeAct.new()
 	bridge.act = act
-	host.pose_view.contact_kind = "opening"
-	check(not bridge.face_ready(), "the opening contact is not face ready")
-	host.pose_view.contact_kind = "mouth"
-	check(not bridge.face_ready(), "the mouth contact is not face ready")
-	host.pose_view.contact_kind = "face"
-	check(bridge.face_ready(), "the face contact with a live body is face ready")
 	var holes_on := SETTINGS.anatomy_holes.get_bool()
 	SETTINGS.anatomy_holes.set_bool(true)
+	host.pose_view.contact_kind = "face"
 	check(not bridge.hole_ready(), "the face contact blocks the hole gate")
 	host.pose_view.contact_kind = "opening"
 	check(bridge.hole_ready(), "the opening contact restores the hole gate")
 	SETTINGS.anatomy_holes.set_bool(holes_on)
 	bridge.act = null
-	check(not bridge.face_ready(), "no act is not face ready")
 	bridge.set_missionary_anon(null)
 	check(bridge.face_point() == Vector3.INF, "a cleared body has no face point")
 	act.free()
@@ -455,19 +441,16 @@ func _check_host_callbacks() -> void:
 	var missionary := FakeMissionaryAnon.new()
 	var pony := Node3D.new()
 	root.add_child(pony)
-	var act_facts := FACTS.new()
 	host.values["pony"] = pony
 	host.values["reactions"] = reactions
 	host.values["anatomy_service"] = service
 	host.values["eligibility_service"] = service
-	host.values["act_facts"] = act_facts
 	var bridge: RefCounted = BRIDGE.new()
 	bridge.bind(_host(host, {
 		"pony": Callable(host, "call_host").bind("pony"),
 		"reactions": Callable(host, "call_host").bind("reactions"),
 		"anatomy_service": Callable(host, "call_host").bind("anatomy_service"),
 		"eligibility_service": Callable(host, "call_host").bind("eligibility_service"),
-		"act_facts": Callable(host, "call_host").bind("act_facts"),
 	}))
 	bridge.refresh()
 	check(reactions.bindings.size() == 1, "the refresh binds the reactions scene")
@@ -478,10 +461,6 @@ func _check_host_callbacks() -> void:
 	if not host.statuses.is_empty():
 		check(str(host.statuses[0][0]) == "Anatomy", "the status carries its text")
 	bridge.set_missionary_anon(missionary)
-	check(bridge.install_missionary_anon(), "the missionary body installs")
-	check(missionary.installed == act_facts, "the missionary body receives the typed act view")
-	bridge.apply_missionary_anon(Transform3D.IDENTITY, 1.0)
-	check(missionary.applied == 1, "the bridge applies the opaque body")
 	bridge.refresh_palm()
 	check(missionary.refreshes == 1, "the bridge refreshes the opaque palm scale")
 	check(bridge.diag_row(Vector3.ZERO, Vector3.ZERO) == "body",
@@ -511,3 +490,47 @@ func _check_vr() -> void:
 	host.state = STATE_IDLE
 	bridge.vr_depth(0.2)
 	check(host.thrusts.size() == 1, "vr_depth ignores a non-act state")
+
+
+## The bridge wires the VR controller from the runtime's scene dictionary; it never searches the
+## player scene itself.
+func _check_vr_start() -> void:
+	var host := FakeHost.new()
+	var bridge: RefCounted = BRIDGE.new()
+	var runtime := Node.new()
+	root.add_child(runtime)
+	var player := Node3D.new()
+	var avatar := Node3D.new()
+	avatar.name = "AnonBody"
+	var camera := XRCamera3D.new()
+	var origin := XROrigin3D.new()
+	player.add_child(avatar)
+	player.add_child(camera)
+	player.add_child(origin)
+	root.add_child(player)
+	host.values["runtime"] = runtime
+	var scene := {
+		"player": player,
+		"avatar": avatar,
+		"camera": camera,
+		"origin": origin,
+		"hip_target": null,
+	}
+	bridge.bind(_host(host, {
+		"runtime": Callable(host, "call_host").bind("runtime"),
+		"vr_scene": func() -> Variant: return scene,
+	}))
+	bridge.vr_start()
+	check(is_instance_valid(bridge.vr_act), "vr_start builds the controller from the host scene")
+	if is_instance_valid(bridge.vr_act):
+		check(bridge.vr_act.get("player") == player, "the controller receives the player")
+		check(bridge.vr_act.get("camera") == camera, "the controller receives the camera")
+		check(bridge.vr_act.get("origin") == origin, "the controller receives the origin")
+		check(bridge.vr_act.get_parent() == runtime, "the runtime parents the controller")
+	bridge.vr_stop()
+	check(not is_instance_valid(bridge.vr_act), "vr_stop drops the controller")
+	bridge.bind(_host(host))
+	bridge.vr_start()
+	check(not is_instance_valid(bridge.vr_act), "a missing scene builds no controller")
+	runtime.free()
+	player.free()

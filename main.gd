@@ -634,6 +634,14 @@ func _prepare_pony(pony: Node) -> void:
 		stock_smack.call("pony_ready", pony)
 
 
+## A mod that adds a node the first prepare needed, such as the changelings tail chain, calls
+## this once it exists. Every prepare hook is idempotent, and this never creates a runtime.
+func prepare_pony_late(pony: Node) -> void:
+	if not is_instance_valid(pony) or not is_inside_tree():
+		return
+	_prepare_pony(pony)
+
+
 ## Adopt the body the suspended act's source reports when the spawn hook arrives too late for the
 ## pending swap. The runtime calls this from its watcher after the adoption grace.
 func adopt_pending_body(pony: Node) -> bool:

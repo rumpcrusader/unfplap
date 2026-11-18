@@ -15,13 +15,23 @@ var failures := 0
 var checks := 0
 
 
+class FakeEligibility extends RefCounted:
+	func eligible_shape(_id: String) -> bool:
+		return false
+
+
 class FakeMain extends Node:
 	var api: Node
 	var live_ids: Array[String] = []
 	var game: Variant = null
+	var eligibility: Variant = null
+	var late_prepares: Array[Node] = []
 
 	func live_character_ids() -> Array[String]:
 		return live_ids.duplicate()
+
+	func prepare_pony_late(pony: Node) -> void:
+		late_prepares.append(pony)
 
 
 class FakePopulation extends Node:
@@ -114,6 +124,7 @@ func run() -> void:
 	REGISTRY.reset()
 	var main := FakeMain.new()
 	main.name = "FakeMain"
+	main.eligibility = FakeEligibility.new()
 	root.add_child(main)
 	var api := API.new()
 	api.name = "UnfplapAPI"
@@ -148,9 +159,10 @@ func run() -> void:
 	check(str(preferences.get("tolerance", "")) == "normal", "approved tolerance")
 	check(str(preferences.get("notes", "")).begins_with("You "), "second-person notes")
 	var placed := SETTINGS.anatomy_placement_default("chrysalis")
-	check(near(float(placed.get("offset_y", 0.0)), 0.51), "provider placement Y")
+	check(near(float(placed.get("offset_y", 0.0)), 0.485), "provider placement Y")
 	check(near(float(placed.get("offset_z", 0.0)), 0.271), "provider placement Z")
-	check(near(float(placed.get("scale", 0.0)), 0.462), "provider placement scale")
+	check(near(float(placed.get("pitch_deg", 0.0)), 8.0), "provider placement pitch")
+	check(near(float(placed.get("scale", 0.0)), 0.422), "provider placement scale")
 
 	# No base-catalog change, and no ghost entry once the pack is off.
 	check(PROFILES.ORDER.size() == 103, "the base roster stays 103")
@@ -176,7 +188,35 @@ func run() -> void:
 		"a wrapped tail root keeps the metadata")
 	check(IDENTITY.body_fit_id(own) == "chrysalis", "the body-fit fallback reads the metadata")
 	check(near(float(SETTINGS.anatomy_placement("chrysalis", "chrysalis")
-		.get("offset_y", 0.0)), 0.51), "her fit resolves the provider placement")
+		.get("offset_y", 0.0)), 0.485), "her fit resolves the provider placement")
+
+	# Her hair can arrive after the first prepare. The late retry sets the root and asks main to
+	# run the preparation again, which is what binds the anatomy tail seat to the custom root.
+	var late_body := FakePony.new()
+	late_body.identity = _identity("chrysalis", "celestia")
+	var late_mesh := MeshInstance3D.new()
+	late_body.add_child(late_mesh)
+	late_body.own_meshes = [late_mesh]
+	root.add_child(late_body)
+	adapter.call("prepare_pony", late_body)
+	check(str(late_body.get_meta("body_fit_id", "")) == "chrysalis",
+		"an early own body still gets her fit")
+	check(not late_body.has_meta("tail_pose_root"), "an early body has no tail root yet")
+	var late_hair := Node3D.new()
+	late_hair.name = "ChrysalisHair"
+	var late_attach := Node3D.new()
+	late_attach.name = "Hair_tail"
+	var late_chain := Node3D.new()
+	late_chain.name = "Chain"
+	late_hair.add_child(late_attach)
+	late_attach.add_child(late_chain)
+	late_body.add_child(late_hair)
+	adapter.call("_late_prepare_one", late_body)
+	check(late_body.get_meta("tail_pose_root", null) == late_chain,
+		"the late retry finds the tail root")
+	check(main.late_prepares.has(late_body),
+		"the late retry asks main to prepare the body again")
+	late_body.free()
 
 	# A disguise copies the pony's fit and drops the custom tail root.
 	var disguise := FakePony.new()
@@ -300,6 +340,17 @@ func run() -> void:
 		"two whole names resolve to nothing")
 	check(str(adapter.call("named_form", "Chrysalis")).is_empty(),
 		"she cannot be named as her own shape")
+	var note_game := FakeGame.new()
+	var note_population := FakePopulation.new()
+	note_population.available = {
+		"twist": "res://mods/unfplap/tools/pose_lab.tscn",
+		"big_mcintosh": "res://mods/unfplap/tools/pose_lab.tscn",
+		"sweetie_belle": "res://mods/unfplap/tools/pose_lab.tscn",
+	}
+	note_game.population = note_population
+	note_game.add_child(note_population)
+	root.add_child(note_game)
+	main.game = note_game
 	check(str(adapter.call("named_form_note", "Chrysalis")) == CHANGELINGS.NOTE_HERSELF,
 		"naming herself gets the status")
 	check(str(adapter.call("named_form_note", "Twist")) == CHANGELINGS.NOTE_CANNOT,
@@ -310,6 +361,9 @@ func run() -> void:
 		"a filly from the base roster is refused")
 	check(str(adapter.call("named_form_note", "you are beautiful")).is_empty(),
 		"ordinary talk gets no status")
+	main.game = null
+	root.remove_child(note_game)
+	note_game.free()
 
 	# A live off-roster adult mare is a candidate through the entry's list.
 	main.live_ids = ["sunny_star"]

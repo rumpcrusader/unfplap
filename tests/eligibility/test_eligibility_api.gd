@@ -54,9 +54,14 @@ class FakeContext extends Node:
 	var state := {}
 
 
+class FakePopulation extends Node:
+	var available: Dictionary = {}
+
+
 class FakeGame extends Node:
 	var mares: Array = []
 	var world_context: Node
+	var population: Node
 
 
 class FakeMain extends Node:
@@ -86,10 +91,16 @@ func run() -> void:
 	main.name = "FakeMain"
 	main.game = FakeGame.new()
 	main.game.world_context = FakeContext.new()
+	main.game.population = FakePopulation.new()
+	main.game.population.available = {
+		"rarity": "res://world/characters/mane6/rarity.tscn",
+		"scootaloo": "res://world/characters/background/scootaloo.tscn",
+	}
 	main.player = Node3D.new()
 	root.add_child(main)
 	root.add_child(main.game)
 	root.add_child(main.game.world_context)
+	root.add_child(main.game.population)
 	root.add_child(main.player)
 	main.eligibility = ELIGIBILITY.new()
 	main.eligibility.setup(main)
@@ -106,6 +117,12 @@ func run() -> void:
 	check(main.eligibility.eligible(pony), "an adult mare is an act target")
 	check(main.eligibility.witness_age(pony) == ELIGIBILITY.Age.ADULT,
 		"an adult mare witnesses as an adult")
+	check(main.eligibility.eligible_shape("rarity"),
+		"a non-live adult shape is a character target")
+	check(not main.eligibility.eligible_shape("scootaloo"),
+		"a non-live filly shape is not a character target")
+	check(not main.eligibility.eligible_shape("not_a_pony"),
+		"an unknown shape is not a character target")
 	check(FACTS.AgeKind.NONE == ELIGIBILITY.Age.NONE
 		and FACTS.AgeKind.YOUNG == ELIGIBILITY.Age.YOUNG
 		and FACTS.AgeKind.ADULT == ELIGIBILITY.Age.ADULT,

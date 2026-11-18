@@ -25,6 +25,10 @@ const SHAPE_PREFIX := "changeling="
 ## Her own body script hides every mesh under her model that lacks this pack marker, so the
 ## anatomy mesh on her skeleton must carry it or it is hidden for good.
 const BODY_OWN_META := "chrysalis_own"
+## The pack builds her hair a few frames after the body's first prepare. Retry the tail-root
+## lookup for a short grace so the anatomy tail seat can attach once the chain exists.
+const LATE_PREPARE_TRIES := 6
+const LATE_PREPARE_STEP_S := 0.05
 ## The player's own words for the reveal ask, lower-case and matched inside the line. The core
 ## owns no phrasing; a later source brings its own.
 const REVEAL_PHRASES := [
@@ -40,18 +44,6 @@ const SHAPE_REQUEST_PHRASES := [
 ## a request phrase ("I don't want to wear Rarity").
 const SHAPE_NEGATIONS := [
 	"not", "never", "dont", "don t", "doesn t", "didn t", "can t", "cannot", "won t",
-]
-## Bodies the base game 0.3.1 writes as young or male; they are never a wearable shape. A pack
-## update may add more, and the live candidate list still gates every real choice.
-const INELIGIBLE_FORMS := [
-	"twist", "fiddly_twang",
-	"apple_bloom", "archer", "diamond_tiara", "dinky_doo", "noi", "ruby_pinch",
-	"scootaloo", "silver_spoon", "spike", "sweetie_belle",
-	"big_mcintosh", "braeburn", "caramel", "comet_tail", "compass_star",
-	"double_diamond", "dr_caballeron", "drwhooves", "flash_sentry", "igneous_rock",
-	"jackpot", "king_sombra", "night_light", "noteworthy", "party_favor",
-	"pokey_pierce", "prince_blueblood", "shining_armor", "soarin", "sunburst",
-	"thunderlane",
 ]
 const NOTE_WEARING := "She is already wearing that shape."
 const NOTE_HERSELF := "She is already herself."
@@ -74,7 +66,7 @@ const DESCRIPTOR := {
 		"tolerance": "normal",
 		"notes": "You are proud, theatrical and possessive, and you enjoy an audience. Kindness that asks nothing unsettles you, though you would never admit it. You show affection more in staying than in saying, and you remember who stayed.",
 	},
-	"placement": {"offset_y": 0.51, "offset_z": 0.271, "scale": 0.462},
+	"placement": {"offset_y": 0.485, "offset_z": 0.271, "pitch_deg": 8.0, "scale": 0.422},
 }
 
 var main: Node
@@ -95,6 +87,9 @@ var _act_pony: Node = null
 ## The pack's `busy` on the previous poll. A rising edge with the act pony as `actor` is a change
 ## her own AI started, which no `request_*` call announced.
 var _busy_seen := false
+## Pony -> attempts used while her custom tail root is still being built.
+var _late_prepare: Dictionary = {}
+var _late_timer: Timer
 
 
 func setup(main_node: Node) -> void:
@@ -363,13 +358,13 @@ func named_form_note(text: String) -> String:
 	var actor := _actor_id(mod)
 	if not actor.is_empty() and _name_score(key, actor) > 0:
 		return NOTE_HERSELF
-	for id: String in INELIGIBLE_FORMS:
-		if _name_score(key, id) > 0:
-			return NOTE_CANNOT
-	for id: String in _shape_candidates():
+	var candidates := _shape_candidates()
+	for id: String in _all_shape_ids(candidates):
 		if id == actor or id == current:
 			continue
-		if _name_score(key, id) > 0 and not _copyable(id):
+		if _name_score(key, id) <= 0:
+			continue
+		if not _is_adult_shape(id, candidates) or not _copyable(id):
 			return NOTE_CANNOT
 	return ""
 
@@ -394,13 +389,10 @@ func prepare_pony(pony: Node) -> void:
 			_apply_fit(pony, shape, null)
 		return
 	if _is_own_body(pony):
-		var root := pony.get_node_or_null(TAIL_ROOT) as Node3D
-		# The anatomy tail seat may have put its placement wrapper above the chain; the
-		# metadata still names the chain, which a repeated prepare must keep.
-		if not is_instance_valid(root):
-			var held: Variant = pony.get_meta("tail_pose_root", null)
-			root = held as Node3D if held is Node3D else null
+		var root := _tail_root(pony)
 		_apply_fit(pony, ID, root)
+		if not is_instance_valid(root):
+			_schedule_late_prepare(pony)
 		return
 	var identity: Variant = pony.get("identity")
 	if identity == null or str(identity.get("id")) != ID:
@@ -413,16 +405,82 @@ func prepare_pony(pony: Node) -> void:
 	_apply_fit(pony, fit if not fit.is_empty() else ID, null)
 
 
+## The chain path first, then the metadata from an earlier prepare. The anatomy seat may have
+## wrapped the chain, so the path can fail while the metadata still names it.
+func _tail_root(pony: Node) -> Node3D:
+	var root := pony.get_node_or_null(TAIL_ROOT) as Node3D
+	if is_instance_valid(root):
+		return root
+	var held: Variant = pony.get_meta("tail_pose_root", null)
+	return held as Node3D if held is Node3D else null
+
+
+## Her own body arrives before the pack's hair. Retry until the chain exists, then ask main to
+## run the body preparation again so the anatomy tail seat binds to the custom root.
+func _schedule_late_prepare(pony: Node) -> void:
+	if not is_instance_valid(pony) or not pony.is_inside_tree() or _late_prepare.has(pony):
+		return
+	_late_prepare[pony] = 0
+	if not is_instance_valid(_late_timer):
+		_late_timer = Timer.new()
+		_late_timer.name = "UnfplapLatePrepare"
+		_late_timer.wait_time = LATE_PREPARE_STEP_S
+		_late_timer.one_shot = false
+		add_child(_late_timer)
+		_late_timer.timeout.connect(_poll_late_prepare)
+	if _late_timer.is_stopped():
+		_late_timer.start()
+
+
+func _poll_late_prepare() -> void:
+	if _late_prepare.is_empty():
+		if is_instance_valid(_late_timer):
+			_late_timer.stop()
+		return
+	for pony: Variant in _late_prepare.keys():
+		_late_prepare_one(pony)
+
+
+func _late_prepare_one(pony: Variant) -> void:
+	if not _late_prepare.has(pony):
+		return
+	if not active() or not is_instance_valid(pony) or not (pony as Node).is_inside_tree():
+		_late_prepare.erase(pony)
+		return
+	var root := _tail_root(pony as Node)
+	if is_instance_valid(root):
+		_apply_fit(pony as Node, ID, root)
+		if is_instance_valid(main) and main.has_method("prepare_pony_late"):
+			main.call("prepare_pony_late", pony)
+		_late_prepare.erase(pony)
+		return
+	var tries := int(_late_prepare.get(pony, 0)) + 1
+	if tries >= LATE_PREPARE_TRIES:
+		_late_prepare.erase(pony)
+		return
+	_late_prepare[pony] = tries
+
+
+func _clear_late_prepare() -> void:
+	_late_prepare.clear()
+	if is_instance_valid(_late_timer):
+		_late_timer.stop()
+		_late_timer.queue_free()
+		_late_timer = null
+
+
 ## The entry node's teardown. Idempotent.
 func shutdown() -> void:
 	_end_change()
 	_unregister()
+	_clear_late_prepare()
 	main = null
 
 
 func _exit_tree() -> void:
 	_end_change()
 	_unregister()
+	_clear_late_prepare()
 
 
 func _apply_fit(pony: Node, fit: String, tail_root: Node3D) -> void:
@@ -505,6 +563,39 @@ func _shape_candidates() -> Array[String]:
 				if not id.is_empty() and not out.has(id):
 					out.append(id)
 	return out
+
+
+## Every body the pack may copy: the adult candidates plus the population catalogue's own ids.
+## The extra ids are what the note needs to recognize a young or male name; a real choice still
+## has to pass `_is_adult_shape()` and the copyable check.
+func _all_shape_ids(candidates: Array[String]) -> Array[String]:
+	var out := candidates.duplicate()
+	if is_instance_valid(main):
+		var game: Variant = main.get("game")
+		if game is Node and is_instance_valid(game):
+			var population: Variant = (game as Node).get("population")
+			if population != null and is_instance_valid(population):
+				var available: Variant = (population as Node).get("available")
+				if available is Dictionary:
+					for raw: Variant in (available as Dictionary).keys():
+						var id := str(raw).strip_edges()
+						if not id.is_empty() and not out.has(id):
+							out.append(id)
+	return out
+
+
+## The eligibility facade is the age/sex authority for a body that may not be live. The adult
+## candidate list is already gated; a population-only body asks the service's id-only target.
+func _is_adult_shape(id: String, candidates: Array[String]) -> bool:
+	if candidates.has(id):
+		return true
+	if not is_instance_valid(main):
+		return false
+	var eligibility: Variant = main.get("eligibility")
+	if eligibility == null or not is_instance_valid(eligibility) \
+			or not eligibility.has_method("eligible_shape"):
+		return false
+	return bool(eligibility.call("eligible_shape", id))
 
 
 ## The pack copies a shape by the game's population entry. Without a population (the lab's

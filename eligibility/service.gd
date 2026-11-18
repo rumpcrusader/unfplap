@@ -202,6 +202,8 @@ class Verdict extends RefCounted:
 
 
 var main: Node
+## Shape id -> its scene identity, for the id-only capability. Cleared with the world.
+var _shape_identities: Dictionary = {}
 
 
 func setup(main_node: Node) -> void:
@@ -210,6 +212,7 @@ func setup(main_node: Node) -> void:
 
 func clear() -> void:
 	main = null
+	_shape_identities.clear()
 
 
 ## One capability answer for a consumer. Cheap by design: identity, provider assertion, stable id
@@ -224,6 +227,33 @@ func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 	if str(snapshot.get("id", "")).is_empty():
 		return false
 	return POLICY.participates(snapshot, str(TARGET_KEYS[target]))
+
+
+## The id-only form of `eligible()` for a body that may not be live. A named shape resolves the
+## population scene's identity and the provider assertion, then the same target predicates. The
+## default is the character target: an adult mare with no participation veto, which is what a
+## shape source asks about a player-named body.
+func eligible_shape(id: String, target: Target = Target.CHARACTER) -> bool:
+	var mare_id := id.strip_edges()
+	if mare_id.is_empty() or not is_instance_valid(main) or not TARGET_KEYS.has(target):
+		return false
+	var pony := _live_pony(mare_id)
+	if is_instance_valid(pony):
+		return eligible(pony, target)
+	var identity := _shape_identity(mare_id)
+	if identity == null:
+		return false
+	var profile := SETTINGS.profile_identity(mare_id)
+	var facts := FACTS.empty()
+	facts["id"] = mare_id
+	facts["has_identity"] = true
+	var filly: Variant = identity.get("filly")
+	var stallion: Variant = identity.get("stallion")
+	facts["is_filly"] = filly is bool and filly
+	facts["is_stallion"] = stallion is bool and stallion
+	facts["eligible"] = profile.get("eligible", null)
+	facts["participation"] = profile.get("participation", {})
+	return POLICY.participates(facts, str(TARGET_KEYS[target]))
 
 
 ## The Base clearance relationship row for the negotiation routes: a live relationship, romance
@@ -609,6 +639,59 @@ func _owner_source(owner: Node) -> String:
 	if out.is_empty():
 		return "provider"
 	return out.substr(0, 64)
+
+
+## The live body for a shape id, when one is loaded. It is the authority for a provider mod's
+## off-roster mare.
+func _live_pony(id: String) -> Node:
+	if not is_instance_valid(main):
+		return null
+	var game: Variant = main.get("game")
+	if game == null or not is_instance_valid(game):
+		return null
+	var mares: Variant = (game as Node).get("mares")
+	if not mares is Array:
+		return null
+	for pony: Variant in mares:
+		if is_instance_valid(pony) and _pony_id(pony as Node) == id:
+			return pony as Node
+	return null
+
+
+## The population scene's identity for a shape that is not live. The population's `available`
+## map is the catalogue the pack copies from; the scene's root carries its identity resource.
+func _shape_identity(id: String) -> Resource:
+	if _shape_identities.has(id):
+		return _shape_identities[id] as Resource
+	var identity: Resource = null
+	var game: Variant = main.get("game") if is_instance_valid(main) else null
+	if game == null or not is_instance_valid(game):
+		_shape_identities[id] = identity
+		return null
+	var population: Variant = (game as Node).get("population")
+	if population == null or not is_instance_valid(population):
+		_shape_identities[id] = identity
+		return null
+	var available: Variant = (population as Node).get("available")
+	if not available is Dictionary:
+		_shape_identities[id] = identity
+		return null
+	var path := str((available as Dictionary).get(id, ""))
+	if path.is_empty():
+		_shape_identities[id] = identity
+		return null
+	var scene := load(path) as PackedScene
+	if scene == null:
+		_shape_identities[id] = identity
+		return null
+	var state := scene.get_state()
+	if state.get_node_count() > 0:
+		for i in state.get_node_property_count(0):
+			if state.get_node_property_name(0, i) == &"identity":
+				identity = state.get_node_property_value(0, i) as Resource
+				break
+	_shape_identities[id] = identity
+	return identity
 
 
 func _pony_id(pony: Node) -> String:

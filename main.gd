@@ -1994,6 +1994,8 @@ func refresh_anatomy() -> void:
 		anatomy.call("player_apply_live")
 
 
+## integration: drop the merged LOD caches for a body whose shape changed and re-arm its near
+## mesh, so the visible body is rebuilt from the new rig instead of the old shape's gather.
 func refresh_body_lod(pony: Node) -> void:
 	if not is_instance_valid(pony):
 		return

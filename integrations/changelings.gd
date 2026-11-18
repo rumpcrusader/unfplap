@@ -256,7 +256,8 @@ func request_appear() -> bool:
 
 
 ## Read the pack's completion state. The runtime calls this on every act tick, so a change her
-## own AI starts is caught without a zero-frame gap between the flame and the handover.
+## own AI starts is caught without a zero-frame gap between the flame and the handover. Once the
+## new body's variant reports the target, refit it and refresh the anatomy and LOD.
 func poll() -> void:
 	var mod := _source_mod()
 	if mod == null:
@@ -398,8 +399,9 @@ func refresh() -> void:
 
 ## Put the generic body-fit and tail metadata on a body she brings. Her own body uses her
 ## approved placement and the adapter-owned tail wrapper; a disguise uses the copied pony's fit
-## and the normal hair path. A missing node is a quiet no-op, so a pack update can change the
-## shape without a crash.
+## and the normal hair path. A named change's new body is fitted as the target before its variant
+## arrives; the old body and unrelated ponies are left alone. A missing node is a quiet no-op, so a
+## pack update can change the shape without a crash.
 func prepare_pony(pony: Node) -> void:
 	if not active() or not is_instance_valid(pony):
 		return
@@ -657,6 +659,8 @@ func _is_disguise(pony: Node) -> bool:
 	return str(pony.get_meta("geometry_variant", "")).begins_with(SHAPE_PREFIX)
 
 
+## The target shape while `pony` is the change's new body, or "". The new body may exist before
+## the pack writes its variant, so its spawn prepare must fit the requested shape, not her own.
 func _change_shape_for(pony: Node) -> String:
 	if not _changing or _change_target.is_empty() or not is_instance_valid(pony):
 		return ""
@@ -673,6 +677,8 @@ func _change_shape_for(pony: Node) -> String:
 	return ""
 
 
+## The shape the pack reports for a new body: its exact geometry variant, or `disguised_as` when
+## the body is the pack's current actor.
 func _pack_shape(pony: Node, mod: Node) -> String:
 	var shape := _shape_of(pony)
 	if not shape.is_empty():
@@ -872,7 +878,8 @@ func _begin_change(old: Node, shape_id: String, by_player: bool) -> void:
 	set_process(true)
 
 
-## The pack has finished (or vanished). The old/new handles stay readable for the act watcher.
+## The pack has finished (or vanished). The old/new handles stay readable for the act watcher;
+## the per-change fit flags reset for the next change.
 func _end_change() -> void:
 	_changing = false
 	_change_fit_done = false
@@ -882,6 +889,8 @@ func _end_change() -> void:
 	_busy_seen = mod != null and bool(mod.get("busy"))
 
 
+## The new body's shape is on it now: fit it as the target and let the anatomy, tail and LOD
+## rebuild against the body that is actually rendered.
 func _prepare_change_body(pony: Node) -> void:
 	if not is_instance_valid(main) or not is_instance_valid(pony):
 		return

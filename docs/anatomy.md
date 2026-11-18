@@ -440,7 +440,10 @@ runtime calls `begin_act()` on the new controller. The new act starts at the cur
 readiness; the next `context()` carries the live penetration and climaxes. The player part stays
 shown because the encounter continues. The adapter's `prepare_pony()` has already put the new
 body's `body_fit_id` and `tail_pose_root` in place before the bind, so the placement and the tail
-wrapper resolve against the body that is actually there.
+wrapper resolve against the body that is actually there. For a named change it applies the target
+shape's fit before the pack writes its variant, then applies it once more when the variant settles
+and refreshes the anatomy, so the placement is the shape's rather than her own. The settled fit
+also rebuilds the body's near/far LOD.
 
 ### Shape drive
 

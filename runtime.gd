@@ -2212,7 +2212,7 @@ func request_form_change(true_form: bool, shape_id := "", by_player := false) ->
 
 
 ## One watcher/swap tick. A live act polls its source for a change; a suspended act waits for the
-## adopted body, the source's completion, or the watchdog.
+## adopted body's shape, the source's completion, or the watchdog.
 func _body_swap_tick(delta: float) -> void:
 	if state == State.RESTORE:
 		_restore_shape_change_tick()
@@ -2274,6 +2274,8 @@ func _body_swap_tick(delta: float) -> void:
 	_suspend_for_body_swap(source)
 
 
+## True when the new body is ready to resume the act: the shape it wears is the requested target,
+## or the source has finished. A true-form target is empty, so an own body is ready at once.
 func _body_swap_ready(source: Variant, changing: bool) -> bool:
 	var shape := _source_current_shape(source) if is_instance_valid(source) else ""
 	if _swap_target.is_empty():
@@ -2382,8 +2384,8 @@ func attach_to_body(parent: Node) -> void:
 
 
 ## `main` calls this when the source's new body spawns. The runtime is already under `main`; it
-## moves under the new body and resumes on the same act. A body that is not an adult mare ends
-## the act through the one exit.
+## moves under the new body, binds its pose, face and anatomy, and waits for the watcher's resume.
+## A body that is not an adult mare ends the act through the one exit.
 func adopt_body(new_pony: Node) -> void:
 	if not _suspended or not is_instance_valid(new_pony):
 		return
@@ -3474,8 +3476,9 @@ func _form_hint_tick() -> void:
 
 ## The new body is up. A player-requested return to her own form is the act's exceptional beat;
 ## any other change (her own or a named shape) is a neutral continuation. A named change that
-## failed before the new body arrived puts the offer back so the player gets a second chance.
-## Her own change never spends the player's offer; only the call the player made does.
+## failed before the new body arrived, or a new body that never reported the named shape, puts the
+## offer back so the player gets a second chance. Her own change never spends the player's offer;
+## only the call the player made does.
 func _complete_form_change(source: Variant, changed: bool, by_player: bool, target := "",
 		confirmed := false) -> void:
 	if not changed:

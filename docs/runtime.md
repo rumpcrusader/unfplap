@@ -156,9 +156,19 @@ the act pony never reaches the act.
 `main._on_pony(new_pony)` adopts the suspended runtime before it creates a runtime: the source's
 `claims_body()` or the stable id must match, the adapter's `prepare_pony()` has already fitted the
 new body, `anatomy.bind()` runs, the runtime is reparented under the new body, and
-`runtime.adopt_body()` resumes it. A runtime created in a race is stopped and freed, and its
-anatomy controller is detached first, so the act never keeps two controllers or two owners. The stable id is the act's id: a borrowed shape keeps the same
-relationship, preferences, history and summary; only the display name follows the new identity.
+`runtime.adopt_body()` binds the new body, pose, face and anatomy but does not resume. The watcher
+resumes once the new body reports the requested shape or the source has finished; a true-form
+change (an empty target) is ready at once, and a target the source fills in after the suspension is
+read from its `target()` on the same ticks. A named shape that settles without the target resumes on
+the adult body as a failed change and puts the offer back. A runtime created in a race is stopped
+and freed, and its anatomy controller is detached first, so the act never keeps two controllers or
+two owners. The stable id is the act's id: a borrowed shape keeps the same relationship,
+preferences, history and summary; only the display name follows the new identity.
+
+The adoption and the adapter's settled fit call `main.refresh_body_lod()` for the new body: the
+game's near and far caches are dropped and the near mesh is re-armed, so the visible body is the
+shape variant rather than the old body's near mesh. A rebuilt near mesh that still shows her own
+materials is a pack-side look issue, not a game-file edit.
 
 A source may clear its changing state before the new body's spawn hook reaches `main`. The watcher
 keeps the act suspended while the source still reports a new body through `new_actor()`, then calls
@@ -174,9 +184,11 @@ act and begins a new one at the current depth, rebuilds the live pose at the pos
 (`poses/service.gd`'s `settle()` skips the entrance ramp), re-anchors Anon at the new body's gap
 for a standing act, resets the act-key hold and the auto stroke, reopens the camera, re-claims the
 new navigator, pauses the new face-turn rate, rebinds the face, voice, wings and integrations, and
-refreshes the HUD facts. The act continues from its current state. The camera shot is released on
-suspend and reopened on resume; the flame covers the re-frame, and Anon may shift slightly. That
-re-frame is the accepted behavior, not a zero-frame swap.
+refreshes the HUD facts. It stays the one resume path and runs after the shape is ready, so the
+standing re-anchor, the eye override and the pose use the shape body's size. The act continues from
+its current state. The camera shot is released on suspend and reopened on resume; the flame covers
+the re-frame, and Anon may shift slightly. That re-frame is the accepted behavior, not a zero-frame
+swap.
 
 Failure paths keep the one exit:
 
@@ -184,6 +196,8 @@ Failure paths keep the one exit:
   body;
 - a named shape fails before a new body arrives: the pending offer is restored so the player can
   name another;
+- a named shape's new body never reports the target: the act resumes on that adult body as a failed
+  change and restores the offer; the `8 s` watchdog bounds the wait;
 - no body arrives: the `8 s` watchdog ends the act through `force_stop()`;
 - the new body is not an adult mare: `adopt_body()` ends the act through `force_stop()`;
 - the world closes or the act is force-stopped while suspended: `_end_session()` clears the
@@ -284,7 +298,7 @@ failed start runs the same function and restores only what it took.
   through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still follows the first facts sync and runs
   no pose tick or fan-out.
 - A suspended act returns before the pose tick: `_body_swap_tick()` owns the wait and the resume,
-  and no act work runs until the new body adopts the runtime.
+  and no act work runs until the new body adopts the runtime and its shape is ready.
 - `_process`: `_process_tick(delta)` — the render-time pose write after every game writer (the bed
   family places its Anon body and eye camera; the standing family syncs its ground frame and
   writes the same pose), the camera lean and motion, the climax wave, the breath,
@@ -362,13 +376,16 @@ her entrance.
   kept slide/vocal/wings/blush/ear, the climax-line skip and the regular-path regression.
 - `tests/handover/test_body_swap.gd` — the generic handover: suspend → adopt → resume, the state
   depth, climaxes and event id survive, the old runtime is not freed, the new body's anatomy and
-  pose bind, a change the source started on its own, a repeated change, a failed change resumes
-  the old body, a source that goes inactive, the watchdog and an ineligible body end through the
-  one exit, a world close during the swap is safe, the hint clears on the state changes, a failed
-  named change restores the offer, her own change keeps the player's offer, a late body is adopted
-  once after the grace instead of resuming the old body, a change during the restore finishes the
-  act through the one exit, and a held body refuses the request. The entry's adoption rules are
-  pinned in `tests/test_source_hygiene.gd`.
+  pose bind, adoption binds without resuming, a named shape waits for its target, the target
+  completes as the shape, a missing shape restores the offer on the new body, the watchdog with a
+  body resumes as a failed shape, a change the source started on its own, a repeated change, a
+  failed change resumes the old body, a source that goes inactive, the no-body watchdog and an
+  ineligible body end through the one exit, a world close during the swap is safe, the hint clears
+  on the state changes, a failed named change restores the offer, her own change keeps the player's
+  offer, a late body is adopted once after the grace instead of resuming the old body, a change
+  during the restore finishes the act through the one exit, and a held body refuses the request.
+  The entry's adoption rules and the LOD refresh hook are pinned in
+  `tests/test_source_hygiene.gd`.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
 - The service suites indexed in `docs/README.md`.

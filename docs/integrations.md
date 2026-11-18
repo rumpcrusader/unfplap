@@ -331,14 +331,25 @@ and `disguised_as`: `request_true_form()` captures the current actor and calls `
 `actor` is a change her own AI started, with no `request_*` call: the adapter records the old body
 and lets the same watcher suspend the act. If the pack has already moved `actor` to the new body,
 the adapter still records the act pony as the old body, so the watcher can suspend on it while the
-flame still holds it. A `busy` on another body never reaches the act. The new
-body is claimed by its stable identity before the shape is known, and `poll()` fills the target from
-the new body's `changeling=<id>` variant or `disguised_as`. `claims_body()` accepts her own body
-for a true form and the `changeling=<id>` variant for a named shape. `request_appear()` calls
-`bring_out()` for the idle debug action. A `busy` from a visit end or another action that removes
-her follows the old-body/watchdog path in `docs/runtime.md`; a young or male shape ends the act
-cleanly instead of resuming it. Her own change never spends the player's post-climax offer: the
-offer stays pending and only a shape the player names clears it.
+flame still holds it. A `busy` on another body never reaches the act.
+
+During a named change the adapter fits the change's new body as the target before the pack writes
+the `changeling=<id>` variant. `prepare_pony()` applies `body_fit_id` = the target and leaves no
+own `tail_pose_root`, `anatomy_owned_meta` or own tail wrapper. Only that new body is fitted: the
+old body and unrelated ponies keep their own metadata. When `poll()` sees the new body's variant or
+`disguised_as` report the target, it applies the target fit once more, runs
+`main.prepare_pony_late()` and `main.refresh_anatomy()`, and rebuilds the body's near/far LOD
+through `main.refresh_body_lod()`. The change fit flags reset when the change ends.
+
+The new body is claimed by its stable identity before the shape is known, and `poll()` fills the
+target from the new body's `changeling=<id>` variant or `disguised_as`. `claims_body()` accepts her
+own body for a true form and the `changeling=<id>` variant for a named shape. The requested target
+stays readable through `target()` for the act watcher after the change ends; `current_shape()`
+reports the shape the body actually wears. `request_appear()` calls `bring_out()` for the idle
+debug action. A `busy` from a visit end or another action that removes her follows the
+old-body/watchdog path in `docs/runtime.md`; a young or male shape ends the act cleanly instead of
+resuming it. Her own change never spends the player's post-climax offer: the offer stays pending
+and only a shape the player names clears it.
 
 The player's own words are the adapter's: `asks_form_change(text)` matches its reveal phrase set
 (“true form”, “real you”, “real her”, “drop the disguise”, “unmask” and similar). `named_form(text)`
@@ -413,6 +424,8 @@ overlay reads them.
 | `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
 | `main._on_pony()` | runs the manager's `prepare_pony()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
 | `main.prepare_pony_late(pony)` | re-runs the manager prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late fit/ownership only, no runtime and no tail wrapper |
+| `main.refresh_anatomy()` | refreshes the live anatomy controllers and the player part after the settled shape fit |
+| `main.refresh_body_lod(pony)` | drops the new body's near/far LOD caches and re-arms its near mesh after a shape or an adoption |
 | `main.custom_tail_ready(pony)` / `main.apply_custom_tail(pony)` / `main.custom_tail_report()` | forward the anatomy editor to the source that owns a body's tail placement |
 | `main.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
 | `main.live_character_ids()` | merges the manager's `installed_character_ids()` |
@@ -464,9 +477,12 @@ overlay reads them.
   the body-fit/tail/anatomy-marker metadata for her own body, a disguise and an unrelated pony,
   including the `UnfplapTailPlacement` wrapper's creation, reuse, baked default, saved-offset
   apply, reset and report, a late chain that arrives after an identity-less first prepare, and
-  the manager's tail forwards. It also
-  pins the shape-change source through the manager: the actor/old/new/target state, the true-form
-  and named requests, the claimed body, the idle appear hook and the completion poll. An AI-started
+  the manager's tail forwards. The named-change fit is pinned before and after the variant: the
+  new body takes the target `body_fit_id` with no own tail root, marker or wrapper, the old body
+  and an unrelated pony are untouched, and the settled variant runs the late prepare, anatomy
+  refresh and LOD rebuild once. It also pins the shape-change source through the manager: the
+  actor/old/new/target state, the true-form and named requests, the claimed body, the idle appear
+  hook and the completion poll. An AI-started
   change is observed from a rising `busy`, claimed by identity before the shape is known and
   completed from the new body's variant; a `busy` on another body is ignored. The player hooks
   cover the reveal phrases (including the hint's own “real her”), whole adult base/live names, the

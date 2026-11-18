@@ -183,13 +183,13 @@ Rules:
 | Touched suites | `scripts/test.sh <suite>...` |
 | Full headless gate | `scripts/test_all.sh` |
 | Source smoke | `scripts/smoke.sh` |
-| Source hygiene | `tests/test_source_hygiene.gd` |
+| Source invariants | `scripts/architecture.py --check` |
 | Settings contract | `tests/test_settings.gd` |
 | Manual lab | `./lab.sh`, `./lab-stress.sh`, `./lab-vr.sh` |
 
 ## Documentation gate
 
-`tests/test_source_hygiene.gd` and `scripts/architecture.py --check` enforce this section:
+`scripts/architecture.py --check` enforces this section:
 
 - every doc under `docs/` is linked from this index;
 - every service has a facade, a contract and a test path;

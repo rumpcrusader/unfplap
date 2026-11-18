@@ -27,6 +27,75 @@ ARCH = ROOT / "architecture"
 EXCEPTIONS = ARCH / "exceptions.json"
 TYPING_DEBT = ARCH / "typing_debt.json"
 
+SOURCE_SKIP_DIRS = {
+    ".git", "dist", "assets", "sources", "tests", "tools", "scripts", "docs", ".godot",
+}
+RELEASE_FILES = (
+    ".opencode/skills/release/SKILL.md",
+    ".opencode/commands/release.md",
+    "scripts/prepare_release.sh",
+    "scripts/check_release.sh",
+    "scripts/check_release_metadata.py",
+    "scripts/build_manifest.py",
+    "scripts/asset_pack.py",
+    "scripts/pack_assets.sh",
+    "scripts/fetch_assets.sh",
+    "scripts/asset_pack.json",
+    "assets/README.md",
+)
+SHELL_ENTRIES = ("build.sh", "lab.sh", "lab-stress.sh", "lab-vr.sh")
+ACT_EXIT_CALLS = (
+    "_end_session(",
+    "_free_pose(",
+    "release_pose(",
+    "_unlock_player(",
+    "_restore_pony_bones(",
+    "_restore_camera(",
+    "_restore_look(",
+    "_release_nav(",
+)
+TEARDOWN_STEPS = (
+    "_restore_camera(",
+    "_restore_look(",
+    "_release_nav(",
+    "_free_pose(",
+    "_unlock_player(",
+)
+POSE_ACT_EXIT_CALLS = (
+    "_end_session(",
+    "_unlock_player(",
+    "_restore_pony_bones(",
+    "_restore_camera(",
+    "_restore_look(",
+    "_release_nav(",
+    "_free_pose(",
+)
+POSE_LEDGER_ORDER = (
+    "_pose_service().leave_pose_start()",
+    "clear_presentation()",
+    '_camera_service().call("end_lean_action")',
+    "_hand_controller().reset()",
+    "_kiss_controller().reset()",
+    "_integrations_controller().reset()",
+    "_reset_excitement_hold()",
+    '_camera_service().call("release_free_camera_lock")',
+    "_standing_anon_controller().remove()",
+    "_pose_service().leave_pose_body()",
+    "_restore_voice_volume()",
+    "_reactions.end_act()",
+    "_pose_service().release_pose()",
+)
+POSE_FANOUT_ORDER = (
+    "_pose_service()",
+    "_camera_service()",
+    "_hand_controller()",
+    "_kiss_controller()",
+    "_anatomy_bridge",
+    "_act_audio",
+)
+SETTINGS_DECLARATION = re.compile(
+    r"^\s*static var \w+.*:=\s*(?:flag|num|choice|list|color)\(", re.MULTILINE)
+
 ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
 SHARED_KINDS = {
     "act_history.gd": "store",
@@ -573,12 +642,198 @@ def graph() -> None:
         print("  %s --> %s" % (so.id, to.id))
 
 
+def shipped_sources() -> list[Path]:
+    return sorted(
+        path for path in ROOT.rglob("*.gd")
+        if not (set(path.relative_to(ROOT).parts) & SOURCE_SKIP_DIRS)
+    )
+
+
+def function_body(text: str, name: str) -> str:
+    match = re.search(r"^(?:static\s+)?func %s\(" % re.escape(name), text, re.MULTILINE)
+    if not match:
+        return ""
+    rest = text[match.end():]
+    next_func = re.search(r"^(?:static\s+)?func ", rest, re.MULTILINE)
+    return rest[:next_func.start()] if next_func else rest
+
+
+def call_lines(text: str, needle: str) -> list[str]:
+    return [
+        line for line in text.splitlines()
+        if needle in line and not line.lstrip().startswith(("#", "func "))
+    ]
+
+
+def doc_tests_section(text: str) -> str | None:
+    heading = re.search(r"^## Tests[^\n]*\n", text, re.MULTILINE)
+    if not heading:
+        return None
+    rest = text[heading.end():]
+    next_heading = re.search(r"^## ", rest, re.MULTILINE)
+    return rest[:next_heading.start()] if next_heading else rest
+
+
+def project_game_version() -> str:
+    if ROOT.parent.name != "mods":
+        return ""
+    project = ROOT.parent.parent / "project.godot"
+    if not project.is_file():
+        return ""
+    match = re.search(r'^config/version="([^"]+)"', project.read_text(encoding="utf-8"),
+                      re.MULTILINE)
+    return match.group(1) if match else ""
+
+
+def check_sources(failure: Failure) -> None:
+    runtime = (ROOT / "runtime.gd").read_text(encoding="utf-8")
+
+    # One teardown: every exit route goes through _end_session, and no stop path repeats a
+    # borrowed-state restore itself.
+    if len(re.findall(r"^func _end_session\(", runtime, re.MULTILINE)) != 1:
+        failure.add("runtime.gd must define exactly one _end_session()")
+    for name in ("_abort_start", "_finish_restore", "_restore_now", "force_stop"):
+        body = function_body(runtime, name)
+        if not body:
+            failure.add("runtime.gd is missing %s()" % name)
+            continue
+        if "_end_session(" not in body:
+            failure.add("%s must end through _end_session()" % name)
+        for call in TEARDOWN_STEPS:
+            if call in body:
+                failure.add("%s must not call %s directly" % (name, call))
+    if "_restore_now()" not in function_body(runtime, "force_stop"):
+        failure.add("force_stop must restore through _restore_now()")
+
+    # The pose ledger keeps its pose-scope steps and act-scope resets in their current order, and
+    # only the act exit, the new-act prep and the body-swap suspension call it.
+    free = function_body(runtime, "_free_pose")
+    cursor = 0
+    for call in POSE_LEDGER_ORDER:
+        at = free.find(call, cursor)
+        if at < 0:
+            failure.add("_free_pose() must keep %s at its position" % call)
+            break
+        cursor = at + len(call)
+    ledger_calls = call_lines(runtime, "_free_pose()")
+    if len(ledger_calls) != 3:
+        failure.add("the pose ledger must have exactly three callers (found %d)" % len(ledger_calls))
+    for name in ("_end_session", "_build_pose", "_suspend_for_body_swap"):
+        if "_free_pose()" not in function_body(runtime, name):
+            failure.add("%s must call the pose ledger" % name)
+    release_calls = call_lines(runtime, "_pose_service().release_pose()")
+    if len(release_calls) != 1 or "_pose_service().release_pose()" not in free:
+        failure.add("release_pose() must be called only from the pose ledger")
+
+    # The physics tick advances the pose edge before the facts sync, then fans the change out; the
+    # fixed owner order is the seam, and neither body is a second teardown.
+    tick = function_body(runtime, "_physics_tick")
+    tick_at = tick.find("_pose_service().tick(delta)")
+    facts_at = tick.find("_sync_act_facts()")
+    fanout_at = tick.find("_pose_fanout()", facts_at if facts_at >= 0 else 0)
+    if tick_at < 0 or facts_at < 0 or tick_at > facts_at:
+        failure.add("_physics_tick() must tick the pose before the first facts sync")
+    if facts_at < 0 or fanout_at < facts_at:
+        failure.add("_physics_tick() must fan the pose change out after the facts sync")
+    fanout = function_body(runtime, "_pose_fanout")
+    cursor = 0
+    for owner in POSE_FANOUT_ORDER:
+        at = fanout.find(owner, cursor)
+        if at < 0:
+            failure.add("_pose_fanout() must name %s in order" % owner)
+            break
+        cursor = at + len(owner)
+    for name, body in (("_physics_tick", tick), ("_pose_fanout", fanout)):
+        for call in ACT_EXIT_CALLS:
+            if call in body:
+                failure.add("%s() must not call %s" % (name, call))
+
+    # The pose system never reaches an act exit; its scope is the live pose and its own release.
+    for path in (ROOT / "poses").rglob("*.gd"):
+        text = path.read_text(encoding="utf-8")
+        for call in POSE_ACT_EXIT_CALLS:
+            if call in text:
+                failure.add("%s must not reach the act exit: %s" % (rel(path), call))
+
+    # Every bash entry point runs under errexit, so a failing tool stops it.
+    shell_paths = [ROOT / name for name in SHELL_ENTRIES]
+    shell_paths += sorted((ROOT / "scripts").glob("*.sh"))
+    for path in shell_paths:
+        lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines()]
+        if "set -euo pipefail" not in lines:
+            failure.add("%s must run under 'set -euo pipefail'" % rel(path))
+
+    # The release and asset tooling ships with the mod.
+    for name in RELEASE_FILES:
+        if not (ROOT / name).is_file():
+            failure.add("missing release file: %s" % name)
+
+    # The manifest is the entry contract: one known id, a dotted version and the project's game.
+    try:
+        manifest = json.loads((ROOT / "mod.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        failure.add("mod.json does not parse: %s" % error)
+        manifest = {}
+    if not isinstance(manifest, dict):
+        failure.add("mod.json must contain an object")
+        manifest = {}
+    if manifest.get("id") != "unfplap":
+        failure.add('mod.json id must be "unfplap"')
+    if not re.fullmatch(r"\d+\.\d+\.\d+", str(manifest.get("version", ""))):
+        failure.add("mod.json version must be MAJOR.MINOR.PATCH")
+    if "extends" in manifest:
+        failure.add("mod.json must declare an entry, not an extends")
+    if manifest.get("entry") != "res://mods/unfplap/main.gd":
+        failure.add("mod.json entry must be res://mods/unfplap/main.gd")
+    game_version = project_game_version()
+    if game_version and str(manifest.get("game_version", "")) != game_version:
+        failure.add("mod.json game_version %s does not match the project (%s)" % (
+            manifest.get("game_version", ""), game_version))
+
+    # One settings declaration module, one facade per assignment and no root composition shim.
+    settings = (ROOT / "settings" / "service.gd").read_text(encoding="utf-8")
+    if "static func all_settings() -> Array[Setting]" not in settings:
+        failure.add("settings/service.gd must expose all_settings() -> Array[Setting]")
+    declaring: list[str] = []
+    for path in shipped_sources():
+        source = path.read_text(encoding="utf-8")
+        if SETTINGS_DECLARATION.search(source):
+            declaring.append(rel(path))
+        if path.name == "settings.gd" and path.parent.name != "settings":
+            failure.add("no per-service settings module: %s" % rel(path))
+    if declaring != ["settings/service.gd"]:
+        failure.add("only settings/service.gd may declare settings (found %s)" % declaring)
+    for name in ("settings_page.gd", "settings_layout.gd"):
+        if (ROOT / name).exists():
+            failure.add("no root settings composition file: %s" % name)
+
+    # A service contract names its facade and at least one test path that exists. Indexing and the
+    # remaining headings are check_docs()' job.
+    for sid in SERVICES:
+        path = doc_path(sid)
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if f"{sid}/service.gd" not in text:
+            failure.add("docs/%s.md does not name %s/service.gd" % (sid, sid))
+        section = doc_tests_section(text)
+        if section is None:
+            failure.add("docs/%s.md has no ## Tests section" % sid)
+            continue
+        paths = {
+            p.rstrip(".,;:)") for p in re.findall(r"tests/[A-Za-z0-9_./*-]+", section)
+        }
+        if not any((ROOT / path).exists() for path in paths if "*" not in path):
+            failure.add("docs/%s.md names no test path that exists" % sid)
+
+
 def check() -> int:
     failure = Failure()
     violations = scan_violations()
     exceptions = check_exceptions(failure, violations)
     check_docs(failure)
     check_typing(failure)
+    check_sources(failure)
     failures = len(failure.messages)
     for message in failure.messages:
         print("FAIL", message)

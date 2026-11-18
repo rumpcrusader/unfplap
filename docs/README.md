@@ -88,6 +88,7 @@ only stable external surface is `docs/api.md`.
 | Negotiation context | `shared/context.gd` | `docs/negotiation.md` | `tests/context/` |
 | Privacy rules | `shared/privacy_rules.gd` | `docs/initiation.md` | `tests/privacy_rules/` |
 | Anatomy placement | `shared/anatomy_placement.gd` | `docs/anatomy.md` | `tests/anatomy/` |
+| Body profile | `shared/body_profile.gd` | `docs/anatomy.md`, `docs/camera.md` | `tests/anatomy/`, `tests/act_camera/` |
 | Mod integration catalog | `shared/integrations.gd` | `docs/integrations.md` | `tests/integrations/` |
 | Lean/travel math | `shared/act_motion.gd` | `docs/camera.md` | `tests/act_camera/` |
 | Palm scale | `shared/hands_scale.gd` | `docs/hands.md` | `tests/hands/` |

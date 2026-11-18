@@ -1,53 +1,30 @@
 extends RefCounted
-## Pure anatomy helpers: the princess body profile and the off-roster id list. It reads no Node,
-## scene or settings file; `anatomy/service.gd` supplies the live values. The stable pony id is
-## `shared/pony_id.gd`.
+## Pure anatomy helpers: the shared body profile and the off-roster id list. It reads no Node,
+## scene or settings file; `anatomy/service.gd` supplies the live values. The body profile itself
+## is `shared/body_profile.gd`, so the act camera can measure the same body without importing this
+## private module. The stable pony id is `shared/pony_id.gd`.
 ##
 ## The adult capability is not here: the eligibility facade owns it and the anatomy facade asks
 ## `eligible(pony, Target.ANATOMY)`.
 ##
 ## See `docs/anatomy.md` (`## Attachment and identity`).
 
-## The princess body scale and placement anchor for a known character. A modded copy can set
-## `character_id` to the canon pony whose body it uses; otherwise the identity id is the key.
-const WINKING_BODIES := {
-	"celestia": [0.853, 0.3329, 1.67],
-	"luna": [0.596, 0.2265, 1.095],
-}
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 
 
-## The princess body profile, or an empty array for an ordinary body. A modded copy is matched by
-## `character_id` first, then by its own identity id.
+## The princess body profile, or an empty array for an ordinary body.
 static func body_profile(identity: Variant) -> Array:
-	if identity == null:
-		return []
-	var character: Variant = identity.get("character_id")
-	var key := str(character) if character != null else ""
-	if key.is_empty():
-		var identity_id: Variant = identity.get("id")
-		key = str(identity_id) if identity_id != null else ""
-	var profile: Variant = WINKING_BODIES.get(key, [])
-	return profile.duplicate() if profile is Array else []
+	return BODY_PROFILE.body_profile(identity)
 
 
-## The body-fit key a placement row resolves against. An integration sets `body_fit_id` on the
-## pony when the visible body is not the identity's usual one; otherwise the identity's
-## `character_id` names the copied body and the identity id is the last fallback.
+## The body-fit key a placement row resolves against.
 static func body_fit_id(pony: Variant) -> String:
-	if not is_instance_valid(pony):
-		return ""
-	var meta := str(pony.get_meta("body_fit_id", "")).strip_edges()
-	if not meta.is_empty():
-		return meta
-	var identity: Variant = pony.get("identity")
-	if identity == null:
-		return ""
-	var character: Variant = identity.get("character_id")
-	var key := str(character) if character != null else ""
-	if key.is_empty():
-		var identity_id: Variant = identity.get("id")
-		key = str(identity_id) if identity_id != null else ""
-	return key
+	return BODY_PROFILE.body_fit_id(pony)
+
+
+## The profile of the body a pony is wearing now.
+static func body_profile_for(pony: Variant) -> Array:
+	return BODY_PROFILE.body_profile_for(pony)
 
 
 ## Deduplicated ids that are not in the base roster. The caller owns the eligibility filter, the

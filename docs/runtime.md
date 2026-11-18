@@ -147,8 +147,9 @@ not the act pony never reaches the act.
 - the runtime is reparented to `main` before the old body is freed;
 - the pose session, the anatomy act handle, the navigator lease, the face-turn hold, the camera
   shot and the body-bound controllers are released; the kiss and hand contact are reset, a held
-  body is released, the act-key hold and the auto stroke are dropped, the cached form-state debug
-  label is cleared, the bones are put back and the breath stops;
+  body is released, the act-key hold stops and the auto stroke is interrupted without resetting
+  its pace, band, shape or on/off state, the cached form-state debug label is cleared, the bones
+  are put back and the breath stops;
 - the outer act state, depth, penetration, climaxes, readiness, satisfaction, summary, event id,
   serial, settings snapshot and dialogue state stay in the runtime. The player stays locked, the
   HUD stays up and the outer camera is not restored to the player as an idle camera.
@@ -186,18 +187,23 @@ with the rest of the rebuilt state instead of touching a released pose or the ol
 
 `_resume_after_body_swap()` re-reads the settings and the new body's size, ends the old anatomy
 act and begins a new one at the current depth, rebuilds the live pose at the pose the act was in
-(`poses/service.gd`'s `settle()` skips the entrance ramp), re-anchors Anon at the new body's gap
-for a standing act, resets the act-key hold and the auto stroke, reopens the camera, re-claims the
-new navigator, pauses the new face-turn rate, rebinds the face, voice, wings and integrations, and
-refreshes the HUD facts. The body-change service has already applied the presented form and bound
-the world systems; the resume is the act's own ordered rebuild of the runtime's sub-services, not a
-second binding fan-out. The runtime binding looks the runtime up through `main.runtime_for(body)`
-and forwards the form; it never creates a runtime, starts an act or runs the act exit.
-`_resume_after_body_swap()` stays the one resume path and runs after the form is ready, so the
-standing re-anchor, the eye override and the pose use the new body's form. The act continues from
-its current state. The camera shot is released on suspend and reopened on resume; the flame covers
-the re-frame, and Anon may shift slightly. That re-frame is the accepted behavior, not a zero-frame
-swap.
+(`poses/service.gd`'s `settle()` skips the entrance ramp), resets the visual frame through
+`_reset_visual_for_form()` (restore the true eye, clear the shot, re-anchor a standing Anon at the
+new form's gap, then prepare the camera), restarts auto at its preserved values and state, reopens
+the camera, re-claims the new navigator, pauses the new face-turn rate, rebinds the face, voice,
+wings and integrations, and refreshes the HUD facts. The body-change service has already applied
+the presented form and bound the world systems; the resume is the act's own ordered rebuild of the
+runtime's sub-services, not a second binding fan-out. The runtime binding looks the runtime up
+through `main.runtime_for(body)` and forwards the form; it never creates a runtime, starts an act
+or runs the act exit. `_resume_after_body_swap()` stays the one resume path and runs after the
+form is ready, so the standing re-anchor, the eye override and the pose use the new body's form.
+A same-node revision takes the same `_reset_visual_for_form()` path through the runtime binding,
+without a resume or a second pose session. The act continues from its current state. The camera
+shot is released on suspend and recomputed on each presented-form change; the flame covers the
+re-frame, and Anon may shift slightly. That re-frame is the accepted behavior, not a zero-frame
+swap. The standalone base-game vocal cache can still hold an old body's freed player; the runtime
+prunes only its own stable id before a vocal play, so the next clip is created on the presented
+body (see `docs/audio.md`).
 
 Failure paths keep the one exit:
 
@@ -387,7 +393,8 @@ That gap is the pre-act view, not the contact distance. Before the act, `_begin_
 fits Anon's whole body: it takes the part's natural pivot (`player_root_natural()`, the applied Hips
 offset removed), her live opening and outward rear, and shifts his horizontal position so the pivot
 starts one shaft behind her entrance. The fit is bounded by `STANDING_FIT_MAX_M`, skipped on a
-stool, and repeated by the form resume through `_reanchor_player_after_swap()`. It clears the
+stool, and repeated by `_reanchor_player_for_form()` on a body resume or a same-node form revision,
+with the presented form passed in for the entrance gap. It clears the
 part's old Hips handshake (`player_reset_pelvis()`) after measuring, so a body swap cannot carry the
 previous body's offset into the fit. The per-frame aim then owns the stroke's pelvis correction; a
 standing start no longer pulls the Hips bone across the gap. The fit log line carries

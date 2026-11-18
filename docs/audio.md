@@ -95,6 +95,15 @@ itself, and a mid-act edit would never reach the voice player.
 The classification itself stays `audio/voice_status.gd` (pure); the runtime's `voice_status_line()` is
 the debug read.
 
+## Base-game vocal cache
+
+The runtime keeps the director/vocal call sites. The game's `world/ai/vocal_noises.gd` caches one
+`AudioStreamPlayer3D` per pony id under `_players`, parented to her body. A body change frees the
+old body and leaves a freed instance in that cache; the game's typed read at `play()` fails before
+its own `is_instance_valid()` guard. `runtime._prune_freed_vocal()` clears only this runtime's
+stable id before the next `play`, guarded against a changed or missing cache, so the game creates a
+new player under the presented body. It never edits the game file or another pony's entry.
+
 ## Packs and settings
 
 - The pack foley files are fetched from the resource archive and packed; see `assets/README.md`.

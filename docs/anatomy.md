@@ -475,14 +475,17 @@ The settled form also rebuilds the body's near/far LOD through `main.refresh_bod
 - `_fill` smoothsteps the width into the grip. `_hole_mix` moves the drive from the vulva to the
   anal opening over `HOLE_SWAP_S = 0.9 s`. The mouth contact subtracts itself from both.
 - The live `closed` value is `1 - (1 - 0.6 * (1 - fill)) * front`; the lips keep their grip
-  through the climax instead of snapping shut. The shader cut is closed over the shaft by the
-  fill.
+  through the climax instead of snapping shut. The fill closes the lip shapes over the shaft.
 - `set_grip(radius)` converts world metres to mesh units, adds `vulva_hug_mm` (positive opens,
   negative grips), writes `hole_target`, zeroes the `stretch` blend shape and updates the body
   coat. Missionary uses `presentation.missionary.size.<preset>.vulva_hug_mm` instead of the global
   value.
 - `set_shaft(pivot, axis, length, radii)` publishes Anon's shaft so the shader can project any
-  vertex inside it back onto the surface. `clear_shaft()` zeroes it.
+  outer vertex inside it back onto the surface. While `shaft_length > 0` the fragment skips the
+  inner-wall depth pull entirely: the shaft itself fills the opening, and pulling the pink wall
+  toward the camera drew the interior over the cock. `clear_shaft()` zeroes the shaft and restores
+  the pull for the empty opening. The guard is generic to standing, missionary and every contact
+  where the shaft is visible.
 - The V2 anal shape has five additive keys: `anal_open`, `anal_stretch`, `anal_overstretch`,
   `anal_extreme` and `ponut_scale`. The first four start where the previous one ends; the ponut key
   is a 2× ponut-only scale that fades out under the extreme key. No upper clamp: an oversized

@@ -23,8 +23,8 @@ The auto surface:
 
 | Facade call | Contract |
 |---|---|
-| `configure_auto(pace, max_depth, shape, min_depth)` | push the act's `auto_thrust.*` snapshot; `reset_auto()` returns to it |
-| `reset_auto()` / `stop_auto()` | a fresh act / the act phases that end it |
+| `configure_auto(pace, max_depth, shape, min_depth)` | push the act's `auto_thrust.*` snapshot; `reset_auto()` returns to it; the body-swap snapshot keeps the chosen shape |
+| `reset_auto()` / `stop_auto()` | a fresh act / the act phases that end it; `stop_auto()` keeps the live pace, band and shape |
 | `toggle_auto(depth)` | `X`; starts the generator at the hand's current depth |
 | `auto_step(delta)` | one generated depth, or `NAN` while off; the runtime applies it |
 | `auto_wheel(direction)` | the wheel notch |
@@ -212,6 +212,10 @@ testing.
   change adds its own `auto shape` line.
 - `X` is live in `ACTIVE`/`CLIMAX`; `_afterglow_begin()`, `_restore_begin()` and `_end_session()`
   stop it, and `_reset_thrust_state()` restores the act-start defaults.
+- A body swap stops the running stroke but preserves the four live values and the on/off state.
+  `_reset_swap_input_state()` calls `stop_auto()`, the resume re-reads settings without replacing
+  the chosen `Z` shape, and the adopted body restarts auto at the current depth. A later fresh act
+  still begins from the settings defaults.
 - The auto readout is `Auto · 20–80% · 1.50/s · Normal` (see `docs/hud.md`).
 
 ## Lifecycle
@@ -256,8 +260,8 @@ settings.
   jiggle amount.
 - `tests/readiness/test_preferences.gd` — profile merge, likes/dislikes, classification.
 - `tests/readiness/test_auto_thrust.gd` — every waveform, pace, band, inverse phase and reset.
-- `tests/handover/test_body_swap.gd` — the requested reveal's one-off spike and the neutral
-  named-shape path.
+- `tests/handover/test_body_swap.gd` — the requested reveal's one-off spike, the neutral
+  named-shape path and the auto settings/state preserved across a body swap.
 - `tests/readiness/test_readiness_auto.gd` — the facade: defaults, toggle, step, wheel, the panel
   actions and the reset.
 

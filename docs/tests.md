@@ -163,10 +163,11 @@ once after the grace, a change during restore finishing through the one exit, a 
 the request, the part's old pelvis handshake cleared on resume, the presented form's `form_name`
 driving the act facts while the stable id and event id survive and an empty form name falling back
 to the identity's display name, the fake policy recording the six generic act milestones in order,
-and the no-body watchdog, ineligible-form and world-close paths ending through the one exit. The
-suite fakes the entry because `main.gd` names the `Mods` autoload, which a `--script` suite cannot
-load; the entry's own adopt-before-create and LOD-refresh order is review-only. The contract is
-`docs/runtime.md`.
+the late-revision eye staying at its true-base target, auto's pace/band/shape/on state surviving
+the swap, the freed base-game vocal cache entry being pruned, and the no-body watchdog,
+ineligible-form and world-close paths ending through the one exit. The suite fakes the entry
+because `main.gd` names the `Mods` autoload, which a `--script` suite cannot load; the entry's own
+adopt-before-create and LOD-refresh order is review-only. The contract is `docs/runtime.md`.
 
 The body-change contract is `docs/body_change.md`. Its suites are
 `tests/body_change/test_service.gd` (the typed data, default form, form store, legacy mirror,

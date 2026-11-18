@@ -9,8 +9,8 @@ itself is `docs/kiss.md`; the hands are `docs/hands.md`.
 
 `camera/service.gd` is the act camera session. It owns the lean input and its smoothing, the
 speed-driven surge/bob response and the afterglow back-off, the debug free look, the free-camera
-`controls_locked` lock, the standing eye override, the captured player look and every size/torso
-helper the shot and the hands read.
+`controls_locked` lock, the standing eye override, the form-reset path, the captured player look and
+every size/torso helper the shot and the hands read.
 
 `camera/missionary_camera.gd` and `camera/standing_camera.gd` stay the shot implementations;
 `poses/standing_anon.gd` and `poses/missionary_anon.gd` stay the Anon body wrappers. The runtime owns the tick
@@ -216,10 +216,15 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   math to `shared/body_profile.gd`). The preset moves by the entrance height, a raise capped at
   Anon's own eye or at a preset that is already higher; `runtime._standing_gap()` adds the back
   offset, so Anon keeps the same distance from her entrance. The runtime passes the presented form
-  to `apply_eye_override()` at start, resume and a body-change rebind; the camera has no separate
-  body binding. A form revision refreshes the runtime's sub-services and re-applies the override,
-  and a body swap's resume repeats the entrance fit before framing (`docs/runtime.md`,
-  `docs/body_change.md`).
+  to `apply_eye_override()` at start and every body-form refresh; the camera has no separate body
+  binding. A re-application derives its target from the saved true base, not from the eye it
+  already lowered, and a form that needs no crouch gives the true eye back. `camera.reset_for_form()`
+  undoes the old override and shot state before applying the new form; `runtime._reset_visual_for_form()`
+  re-fits a standing Anon with `_reanchor_player_for_form()` and then prepares the shot. A same-node
+  revision runs the same reset as a resume (`docs/runtime.md`, `docs/body_change.md`).
+- The bed shot needs no placement pass: `missionary_anon.apply()` and the authored camera read the
+  live `body_scale` every tick. `reset_for_form()` clears the shot smoothing and the eye state, and
+  the next tick re-evaluates the authored shot from the new body.
 - Canon lowers the standing eye line by `CANON_STANDING_CAMERA_DROP_M = 0.10 m` and multiplies lean
   travel by `0.8`; JRHNBR raises it by `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`. These offsets
   apply on top of the eye target; the preset is the clamp's floor, not its cap.
@@ -281,8 +286,9 @@ takes effect when the panel closes.
 ## Tests
 
 - `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, the pose-view facing
-  override, shot targets, free camera, eye override, the global-rest eye line, the form entrance
-  offsets, look capture and restore, size scales and the afterglow back-off.
+  override, shot targets, free camera, the idempotent eye override and form reset, the global-rest
+  eye line, the form entrance offsets, look capture and restore, size scales and the afterglow
+  back-off.
 - `tests/poses/test_session.gd` — the pose camera targets and the bed frame the shot reads.
 - `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.
 

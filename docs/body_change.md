@@ -305,7 +305,9 @@ A change runs as follows:
 8. An idle change runs steps 2–5 without an act; the entry's normal `_on_pony` path may attach a
    runtime to the new body.
 9. An in-place change (same node, new variant) keeps the presented body and bumps the revision;
-   bindings refresh instead of rebind.
+   bindings refresh instead of rebind. The runtime's refresh path also recomputes the visual frame:
+   it restores the true eye, clears the shot, re-anchors a standing Anon at the revised form's gap
+   and prepares the camera. A bed act re-reads the live body scale in its authored shot.
 
 The service does not own the act's suspension, adoption or resume. A suspended act's runtime
 ignores the runtime binding until the one resume; see `docs/runtime.md` (`## Body swap`).
@@ -334,10 +336,12 @@ live placement; a changed rig or fit rebuilds the placement, appearance and mark
 tail. An unbind releases the tail row and detaches the controller, even when the node stays in the
 tree.
 
-The camera has no separate binding: the runtime's rebind re-applies the eye override from the
-presented form, and the resume repeats the entrance fit before framing. The pose has no separate
-binding: the runtime's rebind binds the session and the resume rebuilds the live pose on the new
-skeleton. `docs/camera.md` and `docs/poses.md` own those behaviors.
+The camera has no separate binding: the runtime's rebind calls `camera.reset_for_form()` and
+re-applies the eye override from the presented form, and a standing form change repeats the
+entrance fit before framing. The override is derived from the true base, so a late revision cannot
+compound the previous eye offset. The pose has no separate binding: the runtime's rebind binds the
+session and the resume rebuilds the live pose on the new skeleton. `docs/camera.md` and
+`docs/poses.md` own those behaviors.
 
 ## Provider observation
 
@@ -475,7 +479,9 @@ suspension, adoption, resume and failure phases.
 - `tests/integrations/test_changelings.gd` — the shipped provider's forms, markers, per-body fit,
   late revision and policy.
 - `tests/handover/test_body_swap.gd` — the act handover, one resume, the stable id, the presented
-  form name with the identity fallback, and the provider policy's six act milestones in order.
+  form name with the identity fallback, the late-revision eye and standing placement, auto
+  settings/state preserved across the swap, the freed vocal-cache prune, and the provider policy's
+  six act milestones in order.
 - `tests/test_runtime_teardown.gd` — the one exit and the body-change bind/refresh ordering.
 - `tests/anatomy/test_attach.gd`, `test_coat.gd`, `test_part.gd`, `test_placement.gd` — the anatomy
   binding, form rig/fit, marker, appearance and tail row.

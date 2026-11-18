@@ -111,11 +111,15 @@ func auto_active() -> bool:
 
 
 ## Snapshot the auto defaults once per act and on every live settings apply. The live shape
-## follows the setting, matching the old runtime behaviour.
-func configure_auto(pace: float, max_depth: float, shape: String, min_depth: float) -> void:
+## follows the setting, matching the old runtime behaviour; a body swap keeps the shape the act
+## already chose with `Z`, because the snapshot there is not a settings edit.
+func configure_auto(pace: float, max_depth: float, shape: String, min_depth: float,
+		keep_shape := false) -> void:
 	auto_default_pace = pace
 	auto_default_depth = max_depth
 	auto_default_min = min_depth
+	if keep_shape:
+		return
 	auto_default_shape = shape
 	auto_thrust.set_shape(auto_default_shape)
 

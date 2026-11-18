@@ -191,6 +191,12 @@ var _swap_pose := ""
 var _swap_shape_confirmed := false
 var _swap_elapsed := 0.0
 var _swap_clock := 0.0
+## The auto stroke's on/off state across a body swap. Its pace, band and shape stay in the
+## readiness generator; `_reset_swap_input_state()` only stops the stroke for the new pose.
+var _swap_auto_on := false
+## Keep the live `Z` shape when the resume re-reads settings instead of treating it as a settings
+## edit. The next act's snapshot still follows the saved setting.
+var _preserve_auto_shape_on_snapshot := false
 ## Form-change interaction: the exceptional reveal is once per act, the offer is once per act,
 ## and the HUD hint is cached so a frame never looks the source up.
 var _form_reveal_done := false
@@ -1116,7 +1122,7 @@ func _snapshot_settings() -> void:
 	_pelvis_gap_m = snap.pelvis_gap_m
 	_form_hint_debug = SETTINGS.debug_mode.get_bool()
 	_readiness.configure_auto(snap.auto_pace, snap.auto_max_depth, snap.auto_curve,
-		snap.auto_min_depth)
+		snap.auto_min_depth, _preserve_auto_shape_on_snapshot)
 	_reactions.configure({
 		"jiggle": snap.jiggle,
 		"pose_family": _start_family(),
@@ -2341,6 +2347,7 @@ func _suspend_for_body_swap(change: BODY_CHANGE) -> void:
 	# contact after resume; a held key or a running auto stroke would otherwise fire on it.
 	_kiss_controller().reset()
 	_hand_controller().reset()
+	_swap_auto_on = _readiness.auto_active()
 	_reset_swap_input_state()
 	_form_hint_tick()
 	_wings_controller().release()
@@ -2425,11 +2432,23 @@ func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 		_call_pose_changed(_act_audio, view)
 	_wings_controller()
 	_integrations_controller()
-	if state != State.IDLE:
-		_camera_service().call("apply_eye_override", _start_family(), _player_pony, form)
+	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		_reset_visual_for_form(form)
+		if _pose_family() == "standing":
+			_standing_camera_controller().prepare()
+		_sync_act_facts()
 		if not _features.is_empty() and is_instance_valid(main) and is_instance_valid(main.hud):
 			_sync_hud_facts()
 			main.hud.update_from(_act_facts)
+
+
+## Recompute the act's visual frame after a presented-form revision. The camera's old offset is
+## undone before the new form is measured, then the standing placement is re-fitted. The act state,
+## depth and climaxes are untouched; the pose session owns its own rebuild on a new body.
+func _reset_visual_for_form(form: BODY_FORM.BodyForm) -> void:
+	_camera_service().call("reset_for_form", _start_family(), _player_pony, form)
+	_reanchor_player_for_form(form)
+	_sync_act_facts()
 
 
 ## Resume the same act on the adopted body: anatomy, pose, camera, ownership and the body-bound
@@ -2462,18 +2481,19 @@ func _resume_after_body_swap() -> void:
 	# integration: the old act handle is gone; fetch the new body's controller and start its act.
 	_anatomy_refresh()
 	_anatomy_act_refresh()
+	_preserve_auto_shape_on_snapshot = true
 	_snapshot_settings()
+	_preserve_auto_shape_on_snapshot = false
 	_reactions.bind_scene(pony, _anatomy_bridge.controller)
 	_reactions.apply_radius()
 	_pose_service().set_pose_config(SETTINGS.pose(_id, _start_group()))
 	_rebuild_pose_for_swap(_swap_pose)
 	_sync_start_pose_config()
-	_reanchor_player_after_swap()
+	_reset_visual_for_form(_body_form())
 	# The bed path has no placement fit; clear the old body's Hips handshake for every resume.
 	_reset_player_pelvis()
 	_reset_swap_input_state()
 	_camera_service().call("reset_lean_state")
-	_camera_service().call("apply_eye_override", _start_family(), _player_pony, _body_form())
 	_prepare_start_camera()
 	_begin_camera_mode()
 	_missionary_camera_controller().hide_avatar()
@@ -2491,6 +2511,9 @@ func _resume_after_body_swap() -> void:
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		_sync_hud_facts()
 		main.hud.update_from(_act_facts)
+	if _swap_auto_on and state in [State.ACTIVE, State.CLIMAX]:
+		_readiness.toggle_auto(depth)
+	_swap_auto_on = false
 	_log("body swap resumed pony=%s id=%s form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
 		str(pony.name), _id, _change_form_id(change), state, _swap_pose, depth, pony_climaxes])
 	_complete_form_change(change, changed, confirmed)
@@ -2529,23 +2552,24 @@ func _rebuild_pose_for_swap(pose: String) -> void:
 
 
 ## The front lean and the auto stroke belong to the hand and the old body. Drop the latch so a
-## held act key or a running auto does not fire into the new pose; depth itself survives.
+## held act key or a running auto does not fire into the new pose. The auto generator keeps its
+## pace, band and shape; only its running state is interrupted.
 func _reset_swap_input_state() -> void:
 	_act_hold = 0.0
 	_act_hold_ready = false
 	_act_hold_fired = false
-	_readiness.reset_auto()
+	_readiness.stop_auto()
 
 
-## A standing act places Anon at the body's gap. A different-size shape needs that pass again;
-## the bed act keeps him where he is and the flame covers the camera re-frame.
-func _reanchor_player_after_swap() -> void:
+## A standing act places Anon at the body's gap. A different body form needs that pass again;
+## the bed act keeps him where he is and its authored shot re-reads the live body scale.
+func _reanchor_player_for_form(form: BODY_FORM.BodyForm = null) -> void:
 	if _pose_family() != "standing":
 		return
 	# The rebuilt pose starts with a zero Hips offset, so the part's applied offset from the old
 	# body is stale before the fit measures the natural pivot.
 	_reset_player_pelvis()
-	var standing := _begin_standing_placement()
+	var standing := _begin_standing_placement(form)
 	_standing_camera_controller().begin_facing(standing)
 
 
@@ -2576,6 +2600,7 @@ func _failed_body_swap(reason: String) -> void:
 	_swap_change = null
 	_swap_new_pony = null
 	_swap_shape_confirmed = false
+	_swap_auto_on = false
 	_suspended = false
 	force_stop()
 
@@ -2610,7 +2635,7 @@ func _apply_form_display_name(form: BODY_FORM.BodyForm, new_pony: Node = null) -
 	_display_name = name if not name.is_empty() else _id
 
 
-func _begin_standing_placement() -> Transform3D:
+func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
 	var forward: Vector3 = -pony.global_basis.z
 	forward.y = 0.0
 	var has_player := is_instance_valid(main) and is_instance_valid(main.player) \
@@ -2638,7 +2663,7 @@ func _begin_standing_placement() -> Transform3D:
 	# The offer cone already requires him within 0.8 m of her rump, so the correction is small.
 	# The act end leaves him there instead of snapping him back.
 	var body: Variant = main.player
-	var target: Vector3 = pony.global_position - forward * _standing_gap()
+	var target: Vector3 = pony.global_position - forward * _standing_gap(form)
 	var floor_y := _floor_y_at(Vector3(target.x, body.global_position.y + 0.4, target.z), body)
 	if not is_finite(floor_y) or absf(floor_y - body.global_position.y) > 1.0:
 		floor_y = body.global_position.y
@@ -2808,7 +2833,7 @@ func _standing_transform() -> Transform3D:
 	at.y = main.player.global_position.y
 	return Transform3D(Basis.looking_at(forward, Vector3.UP), at)
 
-func _standing_gap() -> float:
+func _standing_gap(form: BODY_FORM.BodyForm = null) -> float:
 	var size := "same height"
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings != null:
@@ -2824,7 +2849,7 @@ func _standing_gap() -> float:
 	gap += SETTINGS.gap_offset_m.get_num()
 	# The gap is from her centre; a princess body's entrance sits further back or forward than
 	# the mare's the gaps were tuned on, so Anon keeps the same distance from her entrance.
-	var entrance: Vector2 = ACT_CAMERA.entrance_offset_for(_body_form())
+	var entrance: Vector2 = ACT_CAMERA.entrance_offset_for(form if form != null else _body_form())
 	gap += entrance.y
 	_log("standing size=%s gap=%.2f entrance_shift=%+.3f" % [size, gap, entrance.y])
 	return gap
@@ -3407,8 +3432,28 @@ func _play_vocal() -> void:
 		return
 	var vocal: Variant = director.get("vocal")
 	if vocal != null and vocal.has_method("play"):
+		_prune_freed_vocal(vocal)
 		if bool(vocal.call("play", _id, "m", pony, -34.0)):
 			_vocal_cooldown = 3.0
+
+
+## The base game's vocal cache maps a pony id to an AudioStreamPlayer3D parented to her body.
+## A body swap frees that body and leaves a freed instance in the cache; the game's typed read at
+## `vocal_noises.gd:play()` then fails before its own validity guard. Clear only this runtime's
+## stable id so the game can create the player on the presented body. Guarded for a changed cache.
+func _prune_freed_vocal(vocal: Variant) -> void:
+	if not is_instance_valid(vocal):
+		return
+	var players: Variant = vocal.get("_players")
+	if not players is Dictionary:
+		return
+	if not (players as Dictionary).has(_id):
+		return
+	# An untyped read of a freed object normalizes to null; the game's typed read is what errors.
+	# The cache never stores a legitimate null, so an existing null slot is stale and safe to drop.
+	var cached: Variant = (players as Dictionary).get(_id)
+	if cached == null or not is_instance_valid(cached):
+		(players as Dictionary).erase(_id)
 
 
 ## Live mouth contact from the pose view. The pose service owns the contact switch; the runtime
@@ -4402,6 +4447,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_swap_change = null
 	_swap_new_pony = null
 	_swap_shape_confirmed = false
+	_swap_auto_on = false
 	_swap_elapsed = 0.0
 	_shape_offer_pending = false
 	_form_hint = ""

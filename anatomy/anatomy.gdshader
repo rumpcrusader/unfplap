@@ -192,7 +192,10 @@ void fragment() {
 	// integration: only from behind her, so the pink never shows through from the side.
 	vec3 rear = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
 	float rear_face = smoothstep(0.3, 0.65, dot(rear, VIEW));
-	vec3 pulled = VERTEX + VIEW * (cut_depth * inside) * rear_face;
+	// The shaft already fills the opening. Pulling the inner wall toward the camera while the cock
+	// is present drew the pink interior over the shaft; the pull belongs to the empty opening only.
+	float shaft_in = step(0.0001, shaft_length);
+	vec3 pulled = VERTEX + VIEW * (cut_depth * inside * rear_face * (1.0 - shaft_in));
 	vec4 clip = PROJECTION_MATRIX * vec4(pulled, 1.0);
 	DEPTH = clip.z / clip.w;
 

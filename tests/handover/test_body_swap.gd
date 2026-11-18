@@ -11,6 +11,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const RUNTIME_BINDING := preload("res://mods/unfplap/runtime/body_binding.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -78,6 +79,13 @@ class FakePlayer extends Node3D:
 	func _set_eye_y(value: float) -> void:
 		_stand_eye = value
 		_eye_height = value
+
+
+class FakeVocal extends Node:
+	var _players: Dictionary = {}
+
+	func play(_id: String, _kind: String, _at: Node3D, _volume_db := -30.0) -> bool:
+		return false
 
 
 class FakeSource extends "res://mods/unfplap/body_change/source.gd":
@@ -515,6 +523,8 @@ func _free_fixture(made: Dictionary) -> void:
 func run() -> void:
 	_check_observation()
 	_check_handover()
+	_check_auto_survives_swap()
+	_check_vocal_cache()
 	_check_form_display_name()
 	_check_policy_events()
 	_check_ai_change()
@@ -621,6 +631,65 @@ func _check_handover() -> void:
 	check(not new_pony.has_meta("sex_active"), "the one exit clears the new body's flag")
 	check(runtime._hold.nav == null and runtime._hold.token.is_empty(),
 		"the one exit gives up the act's navigator lease")
+	_free_fixture(f)
+
+
+## A transform interrupts the automatic stroke for the new pose but keeps its live settings and
+## resumes it on the adopted body at the same depth.
+func _check_auto_survives_swap() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	runtime._readiness.configure_auto(1.5, 0.8, "cosine", 0.2)
+	runtime._readiness.auto_thrust.pace = 2.75
+	runtime._readiness.auto_thrust.min_depth = 0.3
+	runtime._readiness.auto_thrust.max_depth = 0.7
+	runtime._readiness.auto_set_shape("saw")
+	runtime._readiness.toggle_auto(runtime.depth)
+	check(runtime._readiness.auto_active(), "auto is on before the swap")
+	source.changing = true
+	runtime._suspend_for_body_swap(source.active_change())
+	check(not runtime._readiness.auto_active(), "the swap interrupts the running stroke")
+	var new_pony := _pony("Auto Mare", "AutoBody")
+	root.add_child(new_pony)
+	source.new_pony = new_pony
+	main._on_pony(new_pony)
+	runtime._body_swap_tick(0.1)
+	check(runtime._readiness.auto_active(), "auto resumes after the adopted body")
+	check(absf(runtime._readiness.auto_pace() - 2.75) < 0.0001,
+		"auto keeps its pace across the swap")
+	check(absf(runtime._readiness.auto_min_depth() - 0.3) < 0.0001,
+		"auto keeps its bottom depth across the swap")
+	check(absf(runtime._readiness.auto_max_depth() - 0.7) < 0.0001,
+		"auto keeps its peak depth across the swap")
+	check(runtime._readiness.auto_shape() == "saw", "auto keeps its shape across the swap")
+	check(not runtime._swap_auto_on, "the pending auto restore is cleared")
+	_free_fixture(f)
+
+
+## The base game's vocal cache must not keep a freed player from the old body. The runtime clears
+## only its own stable id and leaves every valid entry alone.
+func _check_vocal_cache() -> void:
+	var f := _fixture()
+	var runtime: Node = f["runtime"]
+	runtime._id = "test_mare"
+	var vocal := FakeVocal.new()
+	root.add_child(vocal)
+	var freed := Node3D.new()
+	vocal._players["test_mare"] = freed
+	freed.free()
+	var kept := Node3D.new()
+	root.add_child(kept)
+	vocal._players["kept"] = kept
+	runtime._prune_freed_vocal(vocal)
+	check(not vocal._players.has("test_mare"), "a freed vocal cache entry is cleared")
+	check(vocal._players.get("kept") == kept, "another id's valid player is left alone")
+	vocal._players["test_mare"] = kept
+	runtime._prune_freed_vocal(vocal)
+	check(vocal._players.has("test_mare"), "a valid cached player is kept")
+	vocal.free()
+	kept.free()
 	_free_fixture(f)
 
 
@@ -1417,6 +1486,9 @@ func _check_same_node_refresh() -> void:
 	var revised := body_change.default_form(old_pony)
 	revised.form_id = "rarity"
 	revised.fit_id = "rarity"
+	revised.rig = BODY_PROFILE.RigProfile.new("test_low",
+		BODY_PROFILE.WINKING_REAR_Y - 0.14, BODY_PROFILE.WINKING_REAR_Z, 1.0)
+	revised.body_scale = 1.0
 	revised.revision = 1
 	body_change.apply_form(old_pony, revised)
 	check(int(runtime.state) == RUNTIME.State.ACTIVE,
@@ -1428,6 +1500,17 @@ func _check_same_node_refresh() -> void:
 	check(runtime._act_camera.camera_target_eye > 0.0,
 		"the live revision refreshes the eye target")
 	check(body_change.form_for(old_pony) == revised, "the live body takes the revised form")
+	var first_target := float(runtime._act_camera.camera_target_eye)
+	var revised_two := BODY_FORM.default_form(old_pony)
+	revised_two.form_id = "rarity"
+	revised_two.fit_id = "rarity"
+	revised_two.rig = BODY_PROFILE.RigProfile.new("test_low",
+		BODY_PROFILE.WINKING_REAR_Y - 0.14, BODY_PROFILE.WINKING_REAR_Z, 1.0)
+	revised_two.body_scale = 1.0
+	revised_two.revision = 2
+	body_change.apply_form(old_pony, revised_two)
+	check(absf(float(runtime._act_camera.camera_target_eye) - first_target) < 0.0001,
+		"a second revision does not compound the standing eye")
 	runtime.force_stop()
 	_free_fixture(f)
 

@@ -614,6 +614,30 @@ func tick_free_look() -> void:
 	write_log("free look %s" % ("on" if active else "off"))
 
 
+## Recompute the shot for a presented body form. The caller reanchors the pose (standing) and
+## prepares the shot; this only resets the camera's own state. The old eye override is undone
+## before the new target is derived, so a form revision cannot compound the previous offset.
+func reset_for_form(family: String, player_pony: bool,
+		form: BODY_FORM.BodyForm = null) -> void:
+	reset_shot()
+	camera_basis_ready = false
+	restore_eye_override()
+	if facts != null:
+		facts.player_eye_height = player_eye_height()
+	if family == "standing":
+		if standing_camera != null:
+			if standing_camera.has_method("restore"):
+				standing_camera.call("restore")
+			if standing_camera.has_method("reset"):
+				standing_camera.call("reset")
+	elif family == "bed":
+		if missionary_camera != null and missionary_camera.has_method("reset_look"):
+			missionary_camera.call("reset_look")
+	apply_eye_override(family, player_pony, form)
+	if facts != null:
+		facts.player_eye_height = player_eye_height()
+
+
 ## Standing eye height follows the body preset, raised to the pony's live rest eye line and never
 ## above Anon's own eye; missionary is owned by the game's bed rest/seat camera and AnonPony has
 ## its own eye height. The previous values are restored at act end.
@@ -627,7 +651,9 @@ func apply_eye_override(family: String, player_pony: bool,
 		return
 	if body.get("_stand_eye") == null or body.get("seat") != null:
 		return
-	var base := player_eye_height()
+	# Re-applying the same form must read the player's true base, not the eye this function
+	# already lowered. A late body scale otherwise compounds the override on every revision.
+	var base := saved_stand_eye if eye_override else player_eye_height()
 	var preset := base * size_scale()
 	var her_eye := pony_eye_height()
 	var target := preset
@@ -650,6 +676,11 @@ func apply_eye_override(family: String, player_pony: bool,
 				preset, her_eye, target])
 	camera_target_eye = target
 	if absf(target - base) < 0.001:
+		# The new form needs no crouch. Give back any previous override instead of leaving the
+		# old lower eye in place.
+		restore_eye_override()
+		return
+	if eye_override and absf(target - float(body.get("_stand_eye"))) < 0.0001:
 		return
 	if not eye_override:
 		saved_stand_eye = float(body.get("_stand_eye"))

@@ -112,6 +112,18 @@ class FakeStandingCamera extends RefCounted:
 	func tick() -> void:
 		calls.append("tick")
 
+	func restore() -> void:
+		calls.append("restore")
+
+	func reset() -> void:
+		calls.append("reset")
+
+	func prepare() -> void:
+		calls.append("prepare")
+
+	func begin_facing(_transform: Transform3D) -> void:
+		calls.append("begin_facing")
+
 
 class FakePony extends Node3D:
 	var skeleton: Variant = null
@@ -133,6 +145,9 @@ class FakeMissionaryCamera extends RefCounted:
 
 	func snapshot_yaw() -> float:
 		return NAN
+
+	func reset_look() -> void:
+		calls.append("reset_look")
 
 
 func _initialize() -> void:
@@ -476,6 +491,40 @@ func _check_lock_and_eye() -> void:
 		check(camera.eye_override, "a size change owns the eye override")
 		camera.call("restore_eye_override")
 	check(near(player._stand_eye, 2.4), "the restored player keeps her own eye height")
+
+	# Re-applying the same form must derive the target from the true base, never from the eye
+	# this override already lowered. A custom low entrance forces a non-unit target in the suite.
+	var lowered := BODY_FORM.BodyForm.new()
+	lowered.rig = BODY_PROFILE.RigProfile.new("test_low",
+		BODY_PROFILE.WINKING_REAR_Y - 0.14, BODY_PROFILE.WINKING_REAR_Z, 1.0)
+	lowered.body_scale = 1.0
+	player._stand_eye = 1.8
+	player._eye_height = 1.8
+	camera.call("apply_eye_override", "standing", false, lowered)
+	var first_target: float = float(camera.camera_target_eye)
+	check(camera.eye_override and first_target < 1.7,
+		"a low entrance lowers the standing eye")
+	camera.call("apply_eye_override", "standing", false, lowered)
+	check(near(camera.camera_target_eye, first_target),
+		"re-applying the same form does not compound the eye offset")
+	camera.call("reset_for_form", "standing", false, lowered)
+	check(near(camera.camera_target_eye, first_target),
+		"a form reset keeps the same true-base target")
+	var standing: FakeStandingCamera = made["standing"]
+	check(standing.calls.has("restore") and standing.calls.has("reset"),
+		"a standing form reset restores the old camera before resetting it")
+	var base_eye := 1.8
+	var eye_scale: float = camera.call("size_scale")
+	var neutral := BODY_FORM.BodyForm.new()
+	neutral.rig = BODY_PROFILE.RigProfile.new("test_neutral",
+		BODY_PROFILE.WINKING_REAR_Y + base_eye * (1.0 - eye_scale),
+		BODY_PROFILE.WINKING_REAR_Z, 1.0)
+	neutral.body_scale = 1.0
+	camera.call("apply_eye_override", "standing", false, neutral)
+	check(near(player._stand_eye, base_eye) and not camera.eye_override,
+		"a form that needs no crouch gives the true eye back")
+	player._stand_eye = 2.4
+	player._eye_height = 2.4
 	camera.call("apply_eye_override", "bed", false)
 	check(near(camera.camera_target_eye, 0.0), "missionary never edits the eye")
 	check(not camera.eye_override, "missionary never owns the eye override")

@@ -7,7 +7,7 @@ extends "res://mods/unfplap/shared/body_binding.gd"
 ## Scope: world. `main.gd` registers one instance with `main.body_change` after the Pantyhose
 ## adapter exists. The target is a narrow host handle, so this file never preloads the adapter.
 ##
-## See `docs/body_change.md` (`## Lifecycle`) and `docs/integrations.md`.
+## See `docs/body_change.md` (`## Bindings`) and `docs/integrations.md`.
 
 ## The Pantyhose & Panties world adapter, for its public `scan()`.
 var pantyhose: Node = null

@@ -608,6 +608,11 @@ context shape as the start, then `settle()` sets the pose and standing-tail amou
 inside the flame. The session's start ramp and the runtime's `POSING_IN` fade stay for a real
 entrance, so a resumed act does not visibly enter twice.
 
+The runtime's body-change binding also rebinds the live session for an idle or in-place form
+revision: it binds the session to the same body, re-applies the pose-change hook and never starts an
+act or a pose entrance. The fan-out is `docs/body_change.md`'s; the tick and teardown order stay
+here.
+
 ## Spaces and axes
 
 - Bone writes use `Skeleton3D` skeleton space via `get_bone_global_pose` /

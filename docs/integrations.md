@@ -18,15 +18,15 @@ whether or not the other mod is installed.
   and binding paths.
 - `integrations/provider.gd`, `context.gd`, `action.gd` and `kissing.gd` are pure service
   internals.
-- `integrations/shape_change.gd` is the world-side shape-change source manager and the documented
-  duck-typed source contract. It holds the sources, returns the first one that handles a pony and
-  forwards the installed list, the body-fit hook and the optional tail-placement hooks. It preloads
-  no source.
-- `integrations/changelings.gd` is a world-side adapter for the Queen Chrysalis 0.2.12 pack
-  (`changelings`): it lists her as an installed provider mare, fits the bodies the pack brings,
-  owns the placement wrapper above her spring tail, and is the pack's shape-change source. It is
-  not a catalog entry, has no settings, adds no Integrations tab section and needs no pack
+- `integrations/changelings.gd` is a world-side body-change provider for the Queen Chrysalis
+  0.2.12 pack (`changelings`): it extends `body_change/source.gd`, lists her as an installed
+  provider mare, returns the typed body form for each body the pack brings, owns the placement
+  wrapper above her spring tail and supplies her own form names, shape lookup and player words.
+  It is not a catalog entry, has no settings, adds no Integrations tab section and needs no pack
   rebuild.
+- `integrations/changelings_policy.gd` is the provider's offer/reveal policy: the offer timing and
+  prompt, the reveal effects and the `form_reveal` memory mark. The base runtime executes the
+  generic effects; the base service owns the mechanism (`docs/body_change.md`).
 - Two integrations are supported by the per-act service: the Kissing 1.2.9 reaction layer and the
   Pantyhose & Panties 0.1.1 world garment adapter. Kissing's own kiss driver, guard, rear, reach,
   approach, step-back and memory recorder stay out of this service.
@@ -37,9 +37,9 @@ whether or not the other mod is installed.
 ## Ownership
 
 The facade owns the per-act provider state, the binding resolution, the save/restore table and the
-lifecycle. Providers own only policy: whether they apply, and which properties they want set. A
-provider never reads a node, a tree, the clock, the filesystem, the settings file or the runtime's
-private fields.
+lifecycle. A per-act catalog provider owns only policy: whether it applies, and which properties it
+wants set. A provider never reads a node, a tree, the clock, the filesystem, the settings file or
+the runtime's private fields.
 
 The world adapter owns its every-frame hull update, its cloth-jiggle pass and its fixed-fallback
 node discovery, the per-node material overrides, its cached feature/debug values and the act-start
@@ -47,14 +47,16 @@ undress. The undress is the game's own `take_off` action when her executor exist
 wardrobe calls as its fallback. It reads the anatomy through `main.anatomy` and the game through
 `main.game`; it never preloads either host and never edits the pack.
 
-The changelings adapter owns its provider layer registration, the installed-mare list, the
-body-fit/tail metadata it writes on the pack's bodies, the `UnfplapTailPlacement` wrapper above
-her spring chain and the pack's shape-change source state. It reads the API through `main.api`,
-and the pack's own public nodes and state; it never edits the pack and never preloads a host.
+The changelings adapter owns its provider layer registration, the installed-mare list, the typed
+body form it returns for each of the pack's bodies, the `UnfplapTailPlacement` wrapper above her
+spring chain and the pack's own change state. It reads the API through `main.api`, and the pack's
+own public nodes and fields; it never edits the pack and never preloads a host. Its policy object
+owns the offer timing, prompt and reveal effects; the adapter's text hooks own the player's reveal
+and named-form words. Neither owns the form store or the binding fan-out.
 
-The shape-change manager owns the source list and the optional forwards. `main` registers the
-adapters and asks it for the source that handles a pony; the runtime and the debug block see only
-the generic source surface.
+The body-change service owns the source list, the form store, the apply path and the optional
+forwards. `main` registers the providers and asks the service for the source that handles a pony;
+the runtime and the debug block see the typed source and policy surfaces, never the pack.
 
 The runtime constructs one service per act through `_integrations_controller()` and passes its typed
 `shared/act_facts.gd` view. The runtime calls `begin()`, `tick()`, `afterglow()`,
@@ -115,37 +117,38 @@ final reset.
 Providers must stay scene-free and must not preload a service, `runtime.gd` or `main.gd`;
 `scripts/architecture.py --check` rejects that import edge.
 
-## Shape-change source
+## Body-change provider
 
-`integrations/shape_change.gd` is a duck-typed contract plus a small manager. A source is any
-object with `is_active()`, `handles_pony(pony)`, `is_changing()`, `old_actor()`, `new_actor()`,
-`target()`, `current_shape()`, `claims_body(pony)`, `request_true_form()`, `request_shape(id)`,
-`poll()`, `source_name()`, and `requested_by_player()`. `request_appear()`, `prepare_pony()`,
-`has_tail_placement()`, `apply_tail_placement()`, `tail_placement_report()`,
-`installed_character_ids()`, `set_player_request()`, `asks_form_change()`, `named_form()` and
-`named_form_note()` are optional. The manager's `source_for(pony)` returns the first active source
-that handles the pony; `prepare_pony()` runs every active source's hook before the anatomy bind;
-`has_tail_placement()` and `apply_tail_placement()` forward only to the source that handles the
-pony; `tail_placement_report()` joins every active source's non-empty lines; and
-`installed_character_ids()` merges the sources' away lists.
+`integrations/changelings.gd` extends `body_change/source.gd`, the typed provider base
+(`docs/body_change.md`, `## Source extension point`). A provider implements the base's virtual
+methods by path; it has no `class_name` and is registered by `main`. The base answers the neutral
+default, so a provider overrides only what it supports.
 
-A source is constructed and registered by `main`. A future regular-changelings pack gets its own
-world adapter under `integrations/`, constructed and registered the same way; it reads that pack's
-own public fields and leaves the runtime core and this contract unchanged. No second real source is
-registered now, and no future pack id is added to unfplap. A signal API is a later option; the
-shipped path stays the polling watcher, which needs no pack rebuild and sees a change the source's
-own AI starts.
+A provider owns its own pack read and its own forms:
 
-The runtime polls the source at `0.1 s` while an act is live. It suspends when the source's
-`old_actor()` is the act pony and `is_changing()` becomes true; the act state, the one teardown,
-the late-body adoption and the restore guard are `docs/runtime.md`. A source may start a change from
-its own AI as well as from a `request_*` call: `poll()` sets the source's changing state, and the
-runtime reads `is_changing()` and `old_actor()` after the poll. The source claims the spawned body
-through `claims_body()`, so the entry adopts the act runtime before it creates another.
-`request_true_form()` and `request_shape()` are the start calls; `target()` is empty for a return
-to the owner's own form, and `current_shape()` is empty while she is in it. `set_player_request()`
-marks the change just started as the player's own ask. A source that stalls without a new body is
-covered by the watchdog; a source that goes inactive restores the old body.
+- `is_active()`, `refresh()` and `handles_pony()` gate its pack and the bodies it may change;
+- `change_in_progress()`, `active_change()` and the request methods own its one live change;
+- `prepare_body(body, change)` returns the typed `BodyForm` for that presented body. It may be
+  called again when a late variant settles and bumps the form revision;
+- `claims_body()` and `presented_form_id()` let the entry adopt the spawned body and let the
+  runtime read the shape the body actually wears;
+- `target_form_id()` is the requested form, empty for the own form;
+- the optional text hooks (`asks_form_change()`, `named_form()`, `named_form_note()`), installed
+  list, tail hooks and `policy()` are the provider's presentation and business policy.
+
+The provider observes its own pack. The shipped provider reads it at 10 Hz and calls
+`body_change.notify_source_changed(self)` and `notify_body_ready(body)`; the base service never
+polls and never scans every frame. The runtime's `0.1 s` act watcher reads the service's active
+change only for suspension, late adoption, the restore guard and the watchdog
+(`docs/runtime.md`).
+
+The provider-policy execution is `docs/body_change.md`'s; the shipped policy's contents are
+`## Queen Chrysalis` below. Bonus climax has no implementation.
+
+A future regular-changelings pack gets its own provider under `integrations/`, constructed and
+registered the same way; it reads that pack's own public fields and leaves the runtime core and
+the base service unchanged. No second real provider is registered now, and no future pack id is
+added to unfplap.
 
 ## Kissing provider
 
@@ -283,73 +286,83 @@ layer leaves with unfplap and is never written to `settings.json`:
   act gate.
 
 `installed_character_ids()` returns `["chrysalis"]` only while the pack is active and the layer is
-registered. The manager merges that with the live off-roster mares for the Characters selector, so
-she is listed under **Other mares** even while she is away in the Badlands. The base roster stays
-103, and removing the pack removes the entry.
+registered. `body_change.installed_character_ids()` merges that with the live off-roster mares for
+the Characters selector, so she is listed under **Other mares** even while she is away in the
+Badlands. The base roster stays 103, and removing the pack removes the entry.
 
-`main._on_pony` asks the manager to run `prepare_pony(pony)` before the tail seat and the anatomy
-bind. The adapter sets `body_fit_id` and `tail_pose_root` on the two kinds of body the pack brings:
+`main._prepare_pony()` calls `body_change.notify_body_ready(pony)` before the tail seat and the
+anatomy bind. The service asks the provider's `prepare_body()` for the body's typed form and
+mirrors it. Her own body (the pack's own meshes or its spring tail) gets:
 
-- her own body (the pack's own meshes or its spring tail) uses `body_fit_id chrysalis` and names
-  the chain under the game rig's `Hair_tail` attachment as the tail root. `ChrysalisHair` is the
-  pack's hair controller; the attachment and its `Chain` are built on `pony.skeleton` (`Hair_` +
-  part), not under the controller. The adapter owns one `UnfplapTailPlacement` node between
-  `Hair_tail` and `Chain`; the resolved `tail_y`, `tail_z` and `tail_tilt_deg` move and tilt that
-  wrapper from the pack's modelled tail, the same absolute-offset rule the seat uses from its
-  reference dock. Her provider placement bakes her own tail reference, so the global tail default
-  stays a game-dock value and does not move her spring tail; a reset keeps her look. The act
-  modifiers keep saving, rotating and restoring `Chain` itself. `Re-seat tails and docks` off
-  returns the wrapper to identity; the dock keys do not apply. The chain is not a tail-seat row
-  and has no dock;
-- a disguise (`geometry_variant` `changeling=<pony id>` in 0.2.12) uses that pony's id as the body
-  fit and has no tail wrapper, so it uses the copied pony's placement and the normal hair chain.
+- `pony_id chrysalis`, `form_id` empty, `form_name Queen Chrysalis`;
+- `fit_id chrysalis` and the Celestia rig, because the cell body is the princess profile;
+- `owned_mesh_meta chrysalis_own`, the pack marker her hide pass reads;
+- the chain under the game rig's `Hair_tail` attachment as `tail_root`.
+
+`ChrysalisHair` is the pack's hair controller; the attachment and its `Chain` are built on
+`pony.skeleton` (`Hair_` + part), not under the controller. The adapter owns one
+`UnfplapTailPlacement` node between `Hair_tail` and `Chain`; the resolved `tail_y`, `tail_z` and
+`tail_tilt_deg` move and tilt that wrapper from the pack's modelled tail, the same absolute-offset
+rule the seat uses from its reference dock. Her provider placement bakes her own tail reference,
+so the global tail default stays a game-dock value and does not move her spring tail; a reset
+keeps her look. The act modifiers keep saving, rotating and restoring `Chain` itself. `Re-seat
+tails and docks` off returns the wrapper to identity; the dock keys do not apply. The chain is not
+a tail-seat row and has no dock.
+
+A disguise (`geometry_variant` `changeling=<pony id>` in 0.2.12) gets `pony_id chrysalis`,
+`form_id` and `fit_id` from the copied pony, that pony's rig from the shared profile table (the
+ordinary rig for a regular mare), the same `owned_mesh_meta chrysalis_own` marker and no
+`tail_root`, so it uses the copied pony's placement and the normal hair chain.
 
 The pack builds `Hair_tail/Chain` during her body's ready, and the first prepare can still run
 before the chain is readable or before the body has an identity. The adapter owns the late check:
 six tries at 50 ms, scheduled from her own-body path and from an identity-less early body. It
 finds the chain under `pony.skeleton` and, when that rig is not exposed, by searching for the
-`Hair_tail` attachment. When the chain appears it applies the fit and wrapper, then calls
-`main.prepare_pony_late(pony)` once for the late fit/anatomy metadata. The check does not depend
-on the anatomy seat, `tail_ready()` or a dock.
+`Hair_tail` attachment. When the chain appears it re-prepares the body (the form's `tail_root`
+changes its signature, so the revision bumps) and calls `main.prepare_pony_late(pony)` once for the
+late anatomy/tail pass. The check does not depend on the anatomy seat, `tail_ready()` or a dock.
 
 Her own body's hide pass runs every half second and hides every mesh under her model that lacks
-the pack's `chrysalis_own` marker. The anatomy mesh and its parts are on the same skeleton, so the
-adapter names that marker on her own body as `anatomy_owned_meta`, and anatomy attachment copies
-it onto its parts. A disguise clears it. Without the marker her body hides the anatomy once and
+the pack's `chrysalis_own` marker. The form carries that marker as `owned_mesh_meta`, the service
+mirrors it to `anatomy_owned_meta` and the anatomy attachment copies it onto its parts, which ride
+the same skeleton. A disguise keeps the marker too. Without it her body hides the anatomy once and
 the visibility cache never re-shows it, because the state did not change.
 
-A missing metadata node is a quiet no-op, so a pack update can change the shape without a crash.
-The integration does not depend on a new signal or a rebuilt pack. `body_fit_id`,
-`tail_pose_root` and `anatomy_owned_meta` are internal adapter metadata: they are not a
-`docs/api.md` convention and another mod must not depend on them. The `UnfplapTailPlacement` node
-is adapter-owned state as well, not a public convention.
+A missing node or field is a quiet no-op, so a pack update can change the shape without a crash.
+The integration does not depend on a new signal or a rebuilt pack. The typed `BodyForm` is the
+internal contract between the provider and the base service; the mirrored `body_fit_id`,
+`tail_pose_root` and `anatomy_owned_meta` metadata are the legacy readers' fallback and are not a
+`docs/api.md` convention. The `UnfplapTailPlacement` node is adapter-owned state as well, not a
+public convention.
 
-The adapter is also the pack's shape-change source. It watches the pack's public `busy`, `actor`
-and `disguised_as`: `request_true_form()` captures the current actor and calls `reveal()`;
-`request_shape(id)` calls `disguise(id)`; `set_player_request()` marks the change as the player's;
-`poll()` reads `actor` and clears the change when `busy` falls. A rising `busy` with the act pony as
-`actor` is a change her own AI started, with no `request_*` call: the adapter records the old body
-and lets the same watcher suspend the act. If the pack has already moved `actor` to the new body,
-the adapter still records the act pony as the old body, so the watcher can suspend on it while the
-flame still holds it. A `busy` on another body never reaches the act.
+The adapter is also the pack's body-change provider. It watches the pack's public `busy`, `actor`
+and `disguised_as` at its own 10 Hz observation tick: `request_form()` captures the current actor
+and calls `disguise(id)`; `request_own_form()` calls `reveal()`; a rising `busy` with the act pony
+as `actor` is a change her own AI started, with no request call. The adapter records the typed
+`BodyChange` with its origin and old body, and lets the service publish it to the runtime. If the
+pack has already moved `actor` to the new body, the adapter still records the act pony as the old
+body, so the watcher can suspend on it while the flame still holds it. A `busy` on another body
+never reaches the act.
 
-During a named change the adapter fits the change's new body as the target before the pack writes
-the `changeling=<id>` variant. `prepare_pony()` applies `body_fit_id` = the target and leaves no
-own `tail_pose_root`, `anatomy_owned_meta` or own tail wrapper. Only that new body is fitted: the
-old body and unrelated ponies keep their own metadata. When `poll()` sees the new body's variant or
-`disguised_as` report the target, it applies the target fit once more, runs
-`main.prepare_pony_late()` and `main.refresh_anatomy()`, and rebuilds the body's near/far LOD
-through `main.refresh_body_lod()`. The change fit flags reset when the change ends.
+`prepare_body()` builds the form from the body it is given, never from one global fit flag. During
+a named change it returns the target shape's form for the change's new body before the pack writes
+the `changeling=<id>` variant: `form_id` and `fit_id` are the target, the rig is the target's
+profile, the marker is kept and there is no own `tail_root` or wrapper. The old body and unrelated
+ponies keep their own forms. When observation sees the new body's variant or `disguised_as` report
+the target, the adapter calls `prepare_body()` again; if the descriptor changed, its per-body
+signature bumps the revision, the service refreshes the bound body, and the adapter runs
+`main.prepare_pony_late()` and `main.refresh_body_lod()`. The per-body revision and signature
+reset when the change ends.
 
-The new body is claimed by its stable identity before the shape is known, and `poll()` fills the
-target from the new body's `changeling=<id>` variant or `disguised_as`. `claims_body()` accepts her
-own body for a true form and the `changeling=<id>` variant for a named shape. The requested target
-stays readable through `target()` for the act watcher after the change ends; `current_shape()`
-reports the shape the body actually wears. `request_appear()` calls `bring_out()` for the idle
-debug action. A `busy` from a visit end or another action that removes her follows the
-old-body/watchdog path in `docs/runtime.md`; a young or male shape ends the act cleanly instead of
-resuming it. Her own change never spends the player's post-climax offer: the offer stays pending
-and only a shape the player names clears it.
+The new body is claimed by its stable identity before the shape is known, and observation fills
+`target_form_id` from the new body's `changeling=<id>` variant or `disguised_as`. `claims_body()`
+accepts her own body for a true form and the `changeling=<id>` variant for a named shape.
+`target_form_id()` stays readable for the act watcher after the change ends;
+`presented_form_id()` reports the shape the body actually wears. `request_appear()` calls
+`bring_out()` for the idle debug action. A `busy` from a visit end or another action that removes
+her follows the old-body/watchdog path in `docs/runtime.md`; a young or male shape ends the act
+cleanly instead of resuming it. Her own change never spends the player's post-climax offer: the
+offer stays pending and only a shape the player names clears it.
 
 The player's own words are the adapter's: `asks_form_change(text)` matches its reveal phrase set
 (“true form”, “real you”, “real her”, “drop the disguise”, “unmask” and similar). `named_form(text)`
@@ -367,6 +380,14 @@ ordinary talk. A population body outside the adult candidate list asks the facad
 `eligible_id()`; there is no young/male name table in the adapter. The live candidate list
 still gates every real choice. The reveal uses the existing talk turn and offer line; it adds no
 dedicated reaction line. The pack needs no rebuild and no new signal.
+
+The provider policy (`integrations/changelings_policy.gd`) offers after at least one pony climax,
+in her own form and in `ACTIVE`, while no offer is pending and the reveal is unused. The prompt is
+one short line in her voice. A named shape is a neutral continuation; the player-requested
+own-form reveal supplies the heat, peak, cue, `form_reveal` memory mark and comfort value. The
+runtime executes the generic heat/cue/memory/peak effects, the summary reads its own
+`form_reveal` flag, and `comfort` stays provider data (`docs/body_change.md`,
+`## Provider policy`). A second offer or reveal in one act does nothing. Bonus climax is deferred.
 
 ## Settings
 
@@ -393,15 +414,15 @@ overlay reads them.
 
 ## Lifecycle
 
-- Scope: per-act service + world adapters
+- Scope: per-act service + world adapters/providers
 - Constructed by: `runtime._integrations_controller()` for the per-act facade;
-  `main._ready()` for the shape-change manager and each world adapter
-- Begin: `begin()` at `State.POSING_IN`; `on_world(host)` on world entry; the manager refreshes
-  its sources on world entry; the changelings adapter registers its provider layer in `_ready()`
-  and on `refresh()`
+  `main._ready()` for the body-change provider and each world adapter
+- Begin: `begin()` at `State.POSING_IN`; `on_world(host)` on world entry; the provider refreshes
+  its pack and registration on world entry; the changelings adapter registers its provider layer
+  in `_ready()` and on `refresh()`
 - End: `reset()` in `_free_pose()`; `on_world_closed()` on world close and `shutdown()` in
   `main._exit_tree()`; the changelings layer leaves with its owner, and its shutdown clears the
-  late check and wrapper map while the wrapper node is freed with the body
+  observation state and wrapper map while the wrapper node is freed with the body
 - Idempotent: yes. A world adapter is inert when its pack is absent.
 
 ## Host boundary
@@ -422,14 +443,14 @@ overlay reads them.
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
 | `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` and re-applies each live source-owned tail after a settings edit |
 | `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
-| `main._on_pony()` | runs the manager's `prepare_pony()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
-| `main.prepare_pony_late(pony)` | re-runs the manager prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late fit/ownership only, no runtime and no tail wrapper |
-| `main.refresh_anatomy()` | refreshes the live anatomy controllers and the player part after the settled shape fit |
-| `main.refresh_body_lod(pony)` | drops the new body's near/far LOD caches and re-arms its near mesh after a shape or an adoption |
-| `main.custom_tail_ready(pony)` / `main.apply_custom_tail(pony)` / `main.custom_tail_report()` | forward the anatomy editor to the source that owns a body's tail placement |
+| `main._prepare_pony()` | calls `body_change.notify_body_ready()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
+| `main.prepare_pony_late(pony)` | re-runs the body-change prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late form/ownership only, no runtime and no tail wrapper |
+| `main.refresh_anatomy()` | refreshes the live anatomy controllers and the player part after the settled form |
+| `main.refresh_body_lod(pony)` | drops the new body's near/far LOD caches and re-arms its near mesh after a form or an adoption |
+| `main.custom_tail_ready(pony)` / `main.apply_custom_tail(pony)` / `main.custom_tail_report()` | forward the anatomy editor to the provider that owns a body's tail placement |
 | `main.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
-| `main.live_character_ids()` | merges the manager's `installed_character_ids()` |
-| `runtime.request_form_change()` | the act-side start of a source change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
+| `main.live_character_ids()` | merges the body-change service's `installed_character_ids()` |
+| `runtime.request_form_change()` | the act-side start of a body change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
 | `runtime.adopt_body()` / `attach_to_body()` | moves the suspended act under the claimed body |
 | `Mods.is_active("changelings")` | the adapter's installation gate |
 
@@ -476,23 +497,25 @@ overlay reads them.
   its teardown fallback and a missing-Beat scene, full fidgets, idempotent reset and the absence of
   a per-act provider for the world integration.
 - `tests/integrations/test_changelings.gd` — the installed list and provider layer while the pack is
-  on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
-  the body-fit/tail/anatomy-marker metadata for her own body, a disguise and an unrelated pony,
-  including the `UnfplapTailPlacement` wrapper's creation, reuse, baked default, saved-offset
-  apply, reset and report, a late chain that arrives after an identity-less first prepare, and
-  the manager's tail forwards. The named-change fit is pinned before and after the variant: the
-  new body takes the target `body_fit_id` with no own tail root, marker or wrapper, the old body
-  and an unrelated pony are untouched, and the settled variant runs the late prepare, anatomy
-  refresh and LOD rebuild once. It also pins the shape-change source through the manager: the
-  actor/old/new/target state, the true-form and named requests, the claimed body, the idle appear
-  hook and the completion poll. An AI-started
-  change is observed from a rising `busy`, claimed by identity before the shape is known and
-  completed from the new body's variant; a `busy` on another body is ignored. The player hooks
-  cover the reveal phrases (“true form”, “real her” and the rest), whole adult base/live names, the
-  imperative request phrases, negated and descriptive lines, names inside other words, ambiguous
-  names, the worn shape and self, a population young or male body through the eligibility
-  facade, and the population's copyable check.
-- `tests/handover/test_body_swap.gd` — the generic handover the source drives; `docs/runtime.md`
+  on, the approved profile and placement, the unchanged base roster, no entry when it is off, the
+  typed registration and observation arming, and the forms and marker for her own body, a disguise
+  and an unrelated pony: her own form's name, fit, princess rig, source marker and spring-tail root,
+  a regular borrowed form's ordinary rig and fit, a princess borrowed form's rig, and no own tail
+  root or borrowed placement for either. The `UnfplapTailPlacement` wrapper's creation, reuse,
+  baked default, saved-offset apply, reset and report, a late chain that arrives after an
+  identity-less first prepare, and the service's tail forwards are pinned too. The named change's
+  form is pinned before and after the variant: the new body takes the target form with no own tail
+  root or wrapper, the old body and an unrelated pony are untouched, a late descriptor change bumps
+  the revision, and the settled variant runs the late prepare and LOD rebuild once. The typed
+  change covers the actor/old/new/target state, the true-form and named requests, the claimed body,
+  the idle appear hook and the completion poll. An AI-started change is observed from a rising
+  `busy`, claimed by identity before the shape is known and completed from the new body's variant;
+  a `busy` on another body is ignored. The player hooks cover the reveal phrases (“true form”,
+  “real her” and the rest), whole adult base/live names, the imperative request phrases, negated
+  and descriptive lines, names inside other words, ambiguous names, the worn shape and self, a
+  population young or male body through the eligibility facade, and the population's copyable
+  check. The policy's offer gate, prompt and reveal/offer effect values are pinned here.
+- `tests/handover/test_body_swap.gd` — the generic handover the provider drives; `docs/runtime.md`
   owns its rules.
 - `tests/test_settings.gd` — the Integrations tab draws every provider header, flag and the Debug
   block's hull rows.
@@ -540,8 +563,8 @@ overlay reads them.
   act's tail modifiers do not undo the wrapper. Check a body swap, the pack switched off, a
   regular mare and Celestia/Luna are unchanged.
 - In the World Debug block, **Form: bring her out** brings her out while idle; **Form: true form**
-  and **Form: next named shape** drive the source outside an act. During a standing and a
-  missionary act the same two actions exercise the body handover: the flame plays, the act
+  and **Form: next named shape** drive the body-change service outside an act. During a standing
+  and a missionary act the same two actions exercise the body handover: the flame plays, the act
   re-poses on the new body and continues, and a second change is refused until the first finishes.
 - Disguised during a standing or missionary act, say the reveal ask in the game's talk turn
   (`T`/microphone): the flame plays, the act re-poses on her own body and continues, the readiness

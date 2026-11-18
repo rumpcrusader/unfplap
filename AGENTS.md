@@ -17,6 +17,7 @@ restate a contract.
 | `runtime.gd` | `docs/runtime.md` |
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |
+| `tests/body_change/**` | `docs/tests.md`, `docs/body_change.md` |
 | `*.sh`, `.gdlintrc`, `scripts/requirements-lint.txt` | `docs/quality.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
 | `shared/act_keys.gd` | `docs/input.md` |
@@ -25,6 +26,7 @@ restate a contract.
 | `shared/act_history.gd` | `docs/summary.md` |
 | `shared/act_motion.gd` | `docs/camera.md` |
 | `shared/anatomy_placement.gd` | `docs/anatomy.md` |
+| `shared/body_form.gd`, `shared/body_change.gd`, `shared/body_binding.gd`, `shared/body_change_policy.gd`, `shared/body_profile.gd` | `docs/body_change.md` (`shared/body_profile.gd` also `docs/anatomy.md`, `docs/camera.md`) |
 | `shared/character_preferences.gd`, `shared/preferences.gd` | `docs/preferences.md` |
 | `shared/defaults_data.gd` | `docs/settings.md` |
 | `shared/hands_*.gd` | `docs/hands.md` |
@@ -35,6 +37,7 @@ restate a contract.
 | `afterglow/**` | `docs/afterglow.md` |
 | `anatomy/**` | `docs/anatomy.md` |
 | `audio/**` | `docs/audio.md` |
+| `body_change/**` | `docs/body_change.md` |
 | `camera/**` | `docs/camera.md` |
 | `debug/**` | `docs/debug.md` |
 | `dialogue/**` | `docs/dialogue.md` |
@@ -45,6 +48,7 @@ restate a contract.
 | `initiation/**` | `docs/initiation.md` |
 | `input/**` | `docs/input.md` |
 | `integrations/**` | `docs/integrations.md` |
+| `integrations/changelings.gd`, `integrations/changelings_policy.gd` | `docs/integrations.md`, `docs/body_change.md` (`## Source extension point`, `## Provider policy`) |
 | `kiss/**` | `docs/kiss.md` |
 | `memory/**` | `docs/memory.md` |
 | `poses/**` | `docs/poses.md` |

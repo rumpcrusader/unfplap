@@ -6,7 +6,7 @@ extends "res://mods/unfplap/shared/body_binding.gd"
 ## Scope: world. `main.gd` registers one instance with `main.body_change` after the smack layer
 ## exists. The target is a narrow host handle, so this file never preloads the adapter.
 ##
-## See `docs/body_change.md` (`## Lifecycle`) and `docs/audio.md`.
+## See `docs/body_change.md` (`## Bindings`) and `docs/audio.md`.
 
 ## The outside-act stock smack layer, for its public `pony_ready(pony)`.
 var adapter: Node = null

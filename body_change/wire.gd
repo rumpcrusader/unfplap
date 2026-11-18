@@ -4,7 +4,7 @@ extends RefCounted
 ## module writes the keys the systems that have not migrated yet still read, and never reads a
 ## partial form back out of them.
 ##
-## See `docs/body_change.md` (`## Lifecycle`).
+## See `docs/body_change.md` (`## Internal API`).
 
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 

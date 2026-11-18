@@ -104,8 +104,8 @@ var _change_variant_done := false
 var _form_signatures: Dictionary = {}
 var _form_revisions: Dictionary = {}
 var _policy: POLICY = null
-## The last body the act asked about. The runtime resolves its source through `handles_pony`
-## before every poll, so this is the act pony without a new contract method.
+## The last body the source lookup asked about. The runtime resolves its source through
+## `handles_pony` before each observation, so this is the act pony without a new contract method.
 var _act_pony: Node = null
 ## The pack's `busy` on the previous poll. A rising edge with the act pony as `actor` is a change
 ## her own AI started, which no `request_*` call announced.
@@ -295,9 +295,9 @@ func request_appear() -> bool:
 	return true
 
 
-## Read the pack's completion state. The runtime calls this on every act tick, so a change her
-## own AI starts is caught without a zero-frame gap between the flame and the handover. Once the
-## new body's variant reports the target, refit it and refresh the anatomy and LOD.
+## Read the pack's completion state on the provider's own observation tick. A change her own AI
+## starts is caught without a zero-frame gap between the flame and the handover; once the new
+## body's variant reports the target, prepare the form again so the revision can bump.
 func poll() -> void:
 	var mod := _source_mod()
 	if mod == null:
@@ -444,7 +444,8 @@ func refresh() -> void:
 		set_process(false)
 
 
-## Compatibility for the old prepare hook. The body-change service owns the form application.
+## Compatibility forward for a caller with only the old prepare hook. The body-change service owns
+## the form application.
 func prepare_pony(pony: Node) -> void:
 	_notify_body_ready(pony)
 

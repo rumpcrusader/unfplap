@@ -211,11 +211,15 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   head bone keeps the preset. The camera aims at the middle of her neck
   (`pony_neck1`/`pony_neck2` midpoint) once at pose start, then freezes. The lean vector is applied
   on top.
-- A princess body's entrance sits higher or lower and further back than the mare's the presets were
-  tuned on (`shared/body_profile.gd`). The preset moves by the entrance height, a raise capped at
+- A presented body's entrance follows its `BodyForm`: `form.rig` supplies the rear anchor and scale
+  and `form.body_scale` the live scale (`camera/service.gd:entrance_offset_for()` delegates the
+  math to `shared/body_profile.gd`). The preset moves by the entrance height, a raise capped at
   Anon's own eye or at a preset that is already higher; `runtime._standing_gap()` adds the back
-  offset, so Anon keeps the same distance from her entrance. The offset follows her body-fit key and
-  her live `body_scale`, so a body-swapped pony is measured from the body that is rendered.
+  offset, so Anon keeps the same distance from her entrance. The runtime passes the presented form
+  to `apply_eye_override()` at start, resume and a body-change rebind; the camera has no separate
+  body binding. A form revision refreshes the runtime's sub-services and re-applies the override,
+  and a body swap's resume repeats the entrance fit before framing (`docs/runtime.md`,
+  `docs/body_change.md`).
 - Canon lowers the standing eye line by `CANON_STANDING_CAMERA_DROP_M = 0.10 m` and multiplies lean
   travel by `0.8`; JRHNBR raises it by `MOUNTING_STANDING_CAMERA_LIFT_M = 0.10 m`. These offsets
   apply on top of the eye target; the preset is the clamp's floor, not its cap.
@@ -277,8 +281,8 @@ takes effect when the panel closes.
 ## Tests
 
 - `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, the pose-view facing
-  override, shot targets, free camera, eye override, the global-rest eye line, the princess
-  entrance offsets, look capture and restore, size scales and the afterglow back-off.
+  override, shot targets, free camera, eye override, the global-rest eye line, the form entrance
+  offsets, look capture and restore, size scales and the afterglow back-off.
 - `tests/poses/test_session.gd` — the pose camera targets and the bed frame the shot reads.
 - `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.
 

@@ -139,10 +139,12 @@ The `text` is profile-safe: the game's profile rewrites a leading `You and Anon 
 The `thought` stays first-person and never goes through the profile rewrite. The stay-close thought
 is chosen by the `romance` and the mood.
 
-`FORM_REVEAL` is the one exceptional reveal the runtime records for a player's own ask: its fixed
+`FORM_REVEAL` is the one exceptional reveal: the runtime commits it once when a completed
+player-requested own-form change's provider effects name the `form_reveal` memory kind. Its fixed
 wording is in `memory/text.gd`, `form_reveal_impression()` builds the impression and
-`form_reveal_peak()` the peak with its own `:form_reveal` event id. The `FORM_OFFER` reaction is
-the act's post-climax offer line, not an impression.
+`form_reveal_peak()` the peak with its own `:form_reveal` event id. The `FORM_OFFER` reaction is the
+provider policy's post-climax offer line, not an impression (`docs/body_change.md`,
+`## Provider policy`).
 
 `note(kind, id, event_id, reason)` writes the fixed-wording intimacy events:
 

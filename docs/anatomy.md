@@ -9,6 +9,7 @@ technical contract; other docs link here.
 This contract covers:
 
 - which adult mares attach anatomy and how the mesh is bound;
+- the presented body's form rig, fit, marker and tail-root refresh;
 - anatomy visibility, teats, the skin strip, the body-coat deform and the coat line;
 - the per-mare placement block and the debug placement actions;
 - the act's shape drive, winking, hole and oral controls;
@@ -25,6 +26,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy/service.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement delegate |
+| `anatomy/body_binding.gd` | the anatomy body binding: forwards a presented body's form to the facade |
 | `anatomy/placement_editor.gd` | the Anatomy Placement editor: the debug target, the draft/save/reset actions and the report |
 | `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat and appearance forwards, the player-part handle, act lifecycle and the typed-facts boundary |
 | `anatomy/attach.gd` | persistent attachment: mesh/anchor/dock, visibility, dock restore, the fluid node and idle discharge |
@@ -46,7 +48,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
 | `anatomy/player.gd` | player part mesh, placement, the act's aim/bed-inset write seam, girth/head/length shaping, throb and the hip-offset handshake |
 | `shared/anatomy_placement.gd` | pure placement schema, merge/sanitize/diff and the one-time legacy migration |
-| `shared/body_profile.gd` | the winking body profiles, the body-fit key and the standing entrance offset |
+| `shared/body_profile.gd` | the typed `RigProfile`, the legacy body profiles, the body-fit key and the standing entrance offset |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
 | `anatomy/tail/dock_attach.gd` | builds the dock's two-bind GPU skin on the hair skeleton |
 | `anatomy/tail/dock_seat.gd` | snaps the dock base ring to the rumen and measures the tail-cap seat |
@@ -90,6 +92,7 @@ no service dependency.
 setup(main)
 player_ready(body), clear_player(), refresh_player(), player_apply_live()
 controller_for(pony, runtime), bind(pony, runtime), controller(pony)
+form_for(pony), bind_body(pony, form), refresh_body(pony, form), unbind_body(pony)
 refresh_all(), apply_live(), detach_controller(pony), shutdown()
 tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), can_dock(pony),
 can_place_tail(pony), tail_report()
@@ -114,6 +117,7 @@ draft/save/reset calls and the report; it calls back into the facade for `can_do
 setup(pony, facts, service, consent, status, dock_refresh, eligible)
 set_facts(facts)
 set_part(node), part(), player_track(...)
+form(), set_form(form), form_fit_id(), refresh_form(form)
 refresh(), detach(), apply_live()
 begin_act() -> Node, end_act()
 apply_part_visibility(show, teats_on, strip_on)
@@ -187,22 +191,33 @@ resulting `view.contact_kind`/`view.contact_target`.
 - The stable id is `relationship_id` metadata first, then the identity id; the one rule is
   `shared/pony_id.gd:from()`. Placement, the per-mare profile and the act history all key off the
   same value.
-- The princess body profile applies to `celestia` and `luna` and to a modded copy that sets
-  `character_id` to either. It supplies the body scale and the placement anchor; an ordinary
-  off-roster mare uses the normal profile. `shared/body_profile.gd` owns the table and the anchor;
-  `anatomy/identity.gd` delegates to it, and the act camera reads the same module.
-- The body-fit key names the body a pony's placement row belongs to: her `body_fit_id` metadata
-  when an integration set one, else her identity's `character_id`, else her own id. The provider or
-  catalog row resolves by that key; the player's placement override stays keyed by the stable id,
-  so it follows the mare rather than a temporary body. A disguise copied onto another pony's body
-  therefore uses that pony's fit, and the changelings adapter gives Queen Chrysalis her own
-  `chrysalis` fit while she wears her own body. The teats and the standing entrance follow the same
-  key, so they fit the body that is actually rendered.
+- The presented body's `BodyForm` is the authority for every physical read: `form.rig` supplies the
+  `RigProfile` (scale and rear anchor), `form.fit_id` the placement row, `form.owned_mesh_meta` the
+  mesh-hide marker and `form.tail_root` a source-owned tail. A body with no stored form uses the
+  default own form built from its identity (`shared/body_form.gd`). The anatomy body binding stores
+  the form; the controller, the appearance and the tail seat read it.
+- `shared/body_profile.gd` owns the princess table, the typed `RigProfile`, the ordinary rig and the
+  entrance-offset math. Its array accessors `body_profile()`, `body_profile_for()` and
+  `body_fit_id()` remain as legacy compatibility for the placement editor and the tail seat's
+  no-form fallback; `anatomy/identity.gd` only delegates, and new code reads `BodyForm.rig` and
+  `BodyForm.fit_id`. A modded copy is matched by `character_id` first, then by its own identity id;
+  an off-table identity uses the ordinary rig.
+- The placement row resolves by the form's `fit_id`, so a borrowed body uses its own fit. The
+  player's placement override stays keyed by the stable id, so it follows the mare rather than a
+  temporary body. The teats and the standing entrance follow the same form, so they fit the body
+  that is actually rendered.
 - A body may hide every mesh under its model unless the mesh carries a marker of the body's own.
-  It names that marker on the pony as `anatomy_owned_meta`; attachment copies it onto the anatomy
-  mesh and its parts, which ride the same skeleton. Queen Chrysalis's body uses this so its
-  `chrysalis_own` hide pass leaves the anatomy alone. The marker is adapter metadata, not a
-  `docs/api.md` convention.
+  The form names that marker as `owned_mesh_meta`; the service mirrors it to `anatomy_owned_meta`
+  and attachment copies it onto the anatomy mesh and its parts, which ride the same skeleton. Queen
+  Chrysalis's body uses this so its `chrysalis_own` hide pass leaves the anatomy alone. The marker
+  is provider metadata, not a `docs/api.md` convention.
+- The anatomy body binding (`anatomy/body_binding.gd`) is registered by `main` with
+  `main.body_change`. `bind_body()` stores the form, creates the per-pony controller with it and
+  refreshes the tail row; `refresh_body()` re-reads the same body's revised form; `unbind_body()`
+  releases the tail row and detaches the controller even when the node stays in the tree. The
+  controller's `refresh_form()` re-fits the placement and rebuilds the appearance, marker and
+  placement only when the rig or fit changed; a same-rig revision re-applies the live placement.
+  `docs/body_change.md` owns the binding and lifecycle contract.
 - The mare bits mesh and skin strip ship with the pack, so a missing mesh is a broken build, not a
   state the controller handles. The teats are generated from her body; the old mare-shaped
   `teats.scn` is the fallback when her belly cannot be measured.
@@ -234,6 +249,11 @@ resulting `view.contact_kind`/`view.contact_target`.
   non-missionary build restores the authored colors.
 - `coat_color` and `coat_shadow` on the anatomy material are her coat colours. The dock and the
   strip edges read that fallback; leaving it at zero made those vertices black.
+- The appearance reads the presented form: `set_form()` stores it, `_rig()` supplies the typed
+  `RigProfile`, `_fit_id()` the placement row, and `_profile()` is empty for the ordinary rig so an
+  ordinary mare keeps the shared body's teats. A princess or borrowed rig uses its rear anchor and
+  scale, and `PRINCESS_TEATS` is keyed by the form's fit. The controller calls the form path on
+  attach and on every form refresh; a same-rig revision keeps the attached parts.
 - Teats are grown from her own belly (`anatomy/udder.gd`), not laid on as a mare-shaped part. An
   oval patch of her rest belly surface is found with vertical rays, pushed out into two rounded
   lobes with nipples, and skinned with her own weights at each point, so it rides with her belly.
@@ -317,7 +337,7 @@ fade. The hull block is in the copied compatibility shaders under
 - `shared/anatomy_placement.gd` owns the schema and the merge/sanitize/diff helpers. The shipped
   per-mare rows live in `settings/catalogs.json` under `anatomy.placement`; resolution is the
   player override (keyed by the stable pony id), then a provider layer, then the catalog row, then
-  the global default. The provider and catalog layers resolve by the body-fit id
+  the global default. The provider and catalog layers resolve by the presented form's fit
   (`## Attachment and identity`), so a disguise borrows the copied pony's row where the player has
   not saved an override on the mare's stable id. Only keys
   that differ from the resolved default are stored; saving a row equal to the default removes the
@@ -435,15 +455,14 @@ not rebuild the anatomy material; the explicit refresh is what restores the pose
 appearance, including the missionary-only fold hack, when the pose family changes.
 
 A body swap changes the controller, not the act. The old bridge ends its act handle at suspension;
-`main` calls `anatomy.bind(new_pony, runtime)` while the runtime is under `main`, and the resumed
-runtime calls `begin_act()` on the new controller. The new act starts at the current depth and
-readiness; the next `context()` carries the live penetration and climaxes. The player part stays
-shown because the encounter continues. The adapter's `prepare_pony()` has already put the new
-body's `body_fit_id` and `tail_pose_root` in place before the bind, so the placement and the tail
-wrapper resolve against the body that is actually there. For a named change it applies the target
-shape's fit before the pack writes its variant, then applies it once more when the variant settles
-and refreshes the anatomy, so the placement is the shape's rather than her own. The settled fit
-also rebuilds the body's near/far LOD.
+the body-change service has already applied the new body's form and the anatomy binding has stored
+it before `main` calls `anatomy.bind(new_pony, runtime)`, so the placement and the tail seat
+resolve the body that is actually there. The resumed runtime calls `begin_act()` on the new
+controller. The new act starts at the current depth and readiness; the next `context()` carries the
+live penetration and climaxes. The player part stays shown because the encounter continues. A late
+variant raises the form revision; the service's refresh updates the same controller and re-seats
+the tail without a second controller, and a same-rig revision only re-applies the live placement.
+The settled form also rebuilds the body's near/far LOD through `main.refresh_body_lod()`.
 
 ### Shape drive
 
@@ -695,7 +714,7 @@ sample of the body coat.
   body fit, a shape or a body swap may move the hips reference but cannot reverse the authored
   mesh. `_compute_normal()` uses `pony_hips` only when the mesh rear is degenerate. In **Enable
   debug**, the act logs `anatomy aim` every two seconds with the normal, hole, rear, hips, part
-  root, hip offset, body-fit id, body scale and penetration.
+  root, hip offset, form fit id, body scale and penetration.
 - The hip-offset handshake is two-way: the part publishes `hip_offset_wanted` and accepts
   `hip_offset_applied` after the pose moves his pelvis. `root_natural()` returns the pivot with
   the applied offset removed, so a placement can measure where the part sits without the last
@@ -789,6 +808,11 @@ sample of the body coat.
   A per-mare row lives under `anatomy.placement.<id>` with the same keys; only differences from
   the resolved default are stored, and a row equal to the default removes the key. **Placement
   file Show** logs every live mare's anchor, target, resolved placement, applied delta and source.
+- The seat row keeps the presented form and its fit. `attach(pony, form)` and
+  `refresh_form(pony, form)` resolve the placement row by `form.fit_id`; a revised fit updates the
+  row and re-seats the tail and dock, and a form with a `tail_root` returns the tail to its
+  provider. The anatomy binding's unbind calls `release()` so a body that stays in the tree drops
+  the old fit's seat. A row with no form keeps the legacy body-fit fallback.
 - A new tail mesh alone cannot change the seat: `hybrid_tail_anchor` re-pins the first 12 mm of the
   tail root to the hair `mPelvis`, and the hair link places `mPelvis` from the tail mount. Author a
   new tail only for shape or silhouette; the seat remains this controller's job.
@@ -804,9 +828,9 @@ sample of the body coat.
   `main.apply_custom_tail()`; a dock action still answers `no dock on this tail.` The princesses'
   fitted bodies keep their body-rig tail and have no seat or wrapper.
 
-The per-pony seat state is the inner `SeatRow` class: the pony, the stable id and body-fit key,
-the cached originals, the measured anchor and cap, the five live placement values and the
-seat/attached/build/applied state. `_prepare()` returns a row or null; a row created while the
+The per-pony seat state is the inner `SeatRow` class: the pony, the stable id, the presented form
+and its fit, the cached originals, the measured anchor and cap, the five live placement values and
+the seat/attached/build/applied state. `_prepare()` returns a row or null; a row created while the
 setting is off has `seated = false` and no dock. `row.target(reference)` is the one
 reference-plus-tail-trim math used by the tail write and the report, so the seat keeps one target
 rule.
@@ -921,7 +945,7 @@ stay event-time reads.
 | shared | body_binding | `shared/body_binding.gd` | the anatomy body binding base |
 | shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
 | shared | body_form | `shared/body_form.gd` | presented body rig, fit and marker |
-| shared | body_profile | `shared/body_profile.gd` | princess body profile and fit key |
+| shared | body_profile | `shared/body_profile.gd` | typed rig, profile table and legacy fit key |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | preferences | `shared/preferences.gd` | teat size preset |
@@ -930,9 +954,10 @@ stay event-time reads.
 
 Current suites:
 
-- `tests/anatomy/test_identity.gd`: the princess body profile, the profile of the body a pony is
-  wearing, the body-fit key (metadata, then `character_id`, then the identity id) and the off-roster
-  list; the stable id is `tests/test_pony_id.gd`. The adult capability is tested with the
+- `tests/anatomy/test_identity.gd`: the legacy princess body profile accessors, the profile of the
+  body a pony is wearing, the body-fit key (metadata, then `character_id`, then the identity id)
+  and the off-roster list; the stable id is `tests/test_pony_id.gd`. The typed rig mapping and the
+  default form are `tests/body_change/test_service.gd`; the adult capability is tested with the
   eligibility service in `tests/eligibility/`.
 - `tests/anatomy/test_teats.gd`: the generated teat size curve (monotonic and clamped), the build
   guards, the mare-rest to her-rest fit (identity for the mare, Celestia's scale and 7.59 cm back
@@ -956,20 +981,24 @@ Current suites:
   opening once it is released, and clears the missionary inset outside the bed pose.
 - `tests/anatomy/test_placement.gd`: the placement resolution (player override → provider → catalog
   → default), the body-fit key, the stable id, the default/override save, the legacy migration,
-  the placement editor delegation, the tail-seat row integration and the debug tail collapse.
+  the placement editor delegation, the tail-seat row integration, the form fit row refresh and the
+  debug tail collapse.
 - `tests/anatomy/test_part.gd`: the player part's prepare/encounter, the tip and root, the bed
   holder, `reset_state`, the throb/girth/length shaping, the controller's part handle and track
   forward, the face contact's parked part and restored opening, the act wink scheduler, the
   anatomy rear as the authoritative outward normal, and the body-swap pelvis reset.
 - `tests/anatomy/test_coat.gd`: the refined winking mesh, the V2 anal keys, the rig and near-palette
   shader patch, the drawn coat choice over a hidden game body, the vulva cut, the still zones, the
-  material rebuild after a mesh re-set and the fold-colour scoping.
+  material rebuild after a mesh re-set, the form rig/fit appearance refresh and the fold-colour
+  scoping.
 - `tests/anatomy/test_heat.gd`: the idle heat suppression, phase poll, rest shape and wink
   schedule.
 - `tests/anatomy/test_attach.gd`: the per-mare consent, the identity/profile, the provider
-  `eligible` assertion, the participation gate, the runtime gates and the body-owned marker. The
-  source-owned tail wrapper is `tests/integrations/test_changelings.gd`; the VR tracker API
-  regressions are `tests/test_vr_act.gd`.
+  `eligible` assertion, the participation gate, the runtime gates, the anatomy binding's form
+  store, one-controller reuse and refresh, the unbind release, the body-owned marker and the
+  source marker on the anatomy mesh and parts. The source-owned tail wrapper is
+  `tests/integrations/test_changelings.gd`; the VR tracker API regressions are
+  `tests/test_vr_act.gd`.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.
 - `tests/anatomy/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
 - `tests/integrations/test_pantyhose.gd`: the garment hull builder, the transform mapping and the

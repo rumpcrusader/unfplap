@@ -6,7 +6,7 @@ extends "res://mods/unfplap/shared/body_binding.gd"
 ##
 ## Scope: world. `main.gd` registers one instance with `main.body_change` after the service exists.
 ##
-## See `docs/body_change.md` (`## Lifecycle`).
+## See `docs/body_change.md` (`## Bindings`).
 
 ## The entry node, for its public `refresh_body_lod(pony)`.
 var host: Node = null

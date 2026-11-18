@@ -8,7 +8,7 @@ lifecycle; this doc owns their shape and their runner.
 
 ## Scope
 
-- `tests/` holds every headless suite. The full gate runs all 123 of them.
+- `tests/` holds every headless suite. The full gate runs all 124 of them.
 - A suite is a scene-free `SceneTree` script that prints one machine-readable result line.
 - Anything that needs a live world, a person at the keyboard, a headset or the HUD belongs to a
   manual lab, not here.
@@ -154,16 +154,24 @@ the gate.
 
 The body-swap handover is `tests/handover/test_body_swap.gd`: suspend → adopt → resume with the
 act state, depth, climaxes and event id intact, the old runtime still alive, the new anatomy and
-pose bound, adoption binding without resuming until the named shape reports its target, the target
-completing as the shape, a missing shape restoring the offer on the new body, the watchdog with a
-body resuming as a failed shape, a change the source started on its own, a repeated change, the
+pose bound, adoption binding without resuming until the named form reports its target, the target
+completing as the form, a missing form restoring the offer on the new body, the watchdog with a
+body resuming as a failed form, a change the provider started on its own, a repeated change, the
 debug form-state label clearing at each state change while the HUD string stays empty, a failed
 named change restoring the offer, her own change keeping the player's offer, a late body adopted
 once after the grace, a change during restore finishing through the one exit, a held body refusing
 the request, the part's old pelvis handshake cleared on resume, and the no-body watchdog,
-ineligible-shape and world-close paths ending through the one exit. The suite fakes the entry
+ineligible-form and world-close paths ending through the one exit. The suite fakes the entry
 because `main.gd` names the `Mods` autoload, which a `--script` suite cannot load; the entry's own
 adopt-before-create and LOD-refresh order is review-only. The contract is `docs/runtime.md`.
+
+The body-change contract is `docs/body_change.md`. Its suites are
+`tests/body_change/test_service.gd` (the typed data, default form, form store, legacy mirror,
+binding order, same-node revisions, source registry and provider notification) and
+`tests/integrations/test_changelings.gd` (the shipped provider's forms and policy); the handover
+paragraph above is the act-side half. The base invariants — one body-change fan-out, one resume,
+one teardown and no provider vocabulary in the core — are static rules in
+`scripts/architecture.py --check`, not a suite.
 
 The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
 `test_pose_registry.gd`, `test_pose_spec.gd`, `test_pose_view.gd`, `test_session.gd`,

@@ -1,8 +1,8 @@
 extends RefCounted
 ## The typed base for a provider's offer/reveal policy. The provider decides the timing and the
-## contents; the base runtime executes the generic dialogue, readiness/peak/comfort, memory and
-## form-request effects from `BodyChangeEffects`. No runtime hook is wired in this phase. No
-## `class_name`: a provider extends this file by path.
+## contents; the base runtime reads `should_offer()`/`offer_prompt()` and executes the effects of
+## a completed offer or reveal from `BodyChangeEffects`. No `class_name`: a provider extends this
+## file by path.
 
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")

@@ -71,8 +71,9 @@ const ORAL_KISS_DB := -22.0
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
-## A body swap polls the source at this cadence and gives up after the watchdog. The flame and
-## the pack's spawn are well inside it; a longer wait means no body is coming.
+## The act watcher reads the body-change service at this cadence and gives up after the watchdog.
+## The provider observes its own pack; the flame and the spawn are well inside it, so a longer wait
+## means no body is coming.
 const BODY_SWAP_POLL_S := 0.1
 const BODY_SWAP_WATCHDOG_S := 8.0
 ## The source may clear its changing state before the spawn hook reaches the entry. Keep the act

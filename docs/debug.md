@@ -103,11 +103,12 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   It is on the Mare wheel page; the Anon classifier and the Mare response still run.
 - **Force act face** cycles the base-game faces; see `docs/face.md`.
 - **Form: true form**, **Form: next named shape** and **Form: bring her out** are the generic
-  shape-change actions. They are drawn only while `shape_source_active()` is true, so a launch
-  without an installed source has no dead buttons. In a live act the first two go through
+  body-change actions. They are drawn only while `shape_source_active()` is true, so a launch
+  without an installed provider has no dead buttons. In a live act the first two go through
   `runtime.request_form_change()` and the body handover continues the act; outside an act they ask
-  the source directly. The named action cycles the shipped adult mares in `FORM_DEBUG_SHAPES` and
-  names the next one in its result. Bring-out only asks the source to put an away actor in the
+  `body_change`, which forwards to the provider and runs the idle change path. The named action
+  cycles the shipped adult mares in `FORM_DEBUG_SHAPES` and
+  names the next one in its result. Bring-out only asks the provider to put an away actor in the
   world and is not a change. The wheel's Act page carries the two act actions; there is no hotkey.
 - **Reload posed base** re-reads the active pose's authored JSON in place; a running act picks it
   up on its next frame. With no live act it re-reads the default missionary asset. See

@@ -130,15 +130,18 @@ The HUD card rows, the key caps and the `End` tint are `docs/hud.md`. The lab ke
 
 ## Body swap
 
-A shape-changing source can replace the act pony's body without ending the act. A world-side
-source contract (the manager and the duck-typed surface are `integrations/shape_change.gd`) is
-polled by `_body_swap_tick()` at `0.1 s`; one source that handles the act pony and reports a change
-starts the handover. The adapter alone talks to the installed pack. A source may start a change
-from its own AI as well as from a `request_*` call: `poll()` sets the source's changing state, and
-the watcher reads `is_changing()` and `old_actor()` after the poll. A change whose old actor is not
-the act pony never reaches the act.
+A body-change provider can replace the act pony's presented body without ending the act. The
+mechanism, the typed form and the source/binding contracts are `docs/body_change.md`; this section
+owns the act side.
 
-`_suspend_for_body_swap(source)` keeps the act and stops its work:
+The provider observes its own pack and pushes the change through `main.body_change`; the runtime
+does not poll it. `_body_swap_tick()` reads `active_change_for(pony)` on its existing `0.1 s`
+cadence. One provider that handles the act pony and reports a live `BodyChange` whose
+`previous_body` is the act pony starts the handover. A provider may start a change from its own AI
+as well as from a `request_*` call; the typed change carries its origin. A change whose old body is
+not the act pony never reaches the act.
+
+`_suspend_for_body_swap(change)` keeps the act and stops its work:
 
 - one pending swap is recorded in `main`; a second change is refused until it clears;
 - the runtime is reparented to `main` before the old body is freed;
@@ -150,28 +153,31 @@ the act pony never reaches the act.
   serial, settings snapshot and dialogue state stay in the runtime. The player stays locked, the
   HUD stays up and the outer camera is not restored to the player as an idle camera.
 
-`main._on_pony(new_pony)` adopts the suspended runtime before it creates a runtime: the source's
-`claims_body()` or the stable id must match, the adapter's `prepare_pony()` has already fitted the
-new body, `anatomy.bind()` runs, the runtime is reparented under the new body, and
-`runtime.adopt_body()` binds the new body, pose, face and anatomy but does not resume. The watcher
-resumes once the new body reports the requested shape or the source has finished; a true-form
-change (an empty target) is ready at once, and a target the source fills in after the suspension is
-read from its `target()` on the same ticks. A named shape that settles without the target resumes on
-the adult body as a failed change and puts the offer back. A runtime created in a race is stopped
-and freed, and its anatomy controller is detached first, so the act never keeps two controllers or
-two owners. The stable id is the act's id: a borrowed shape keeps the same relationship,
-preferences, history and summary; only the display name follows the new identity.
+`main._on_pony(new_pony)` adopts the suspended runtime before it creates a runtime. The entry runs
+the body-change `notify_body_ready()` first, so the service asks the provider for the new body's
+form, applies it and fans it out before the tail seat and the anatomy bind; the placement and tail
+then read the presented form. The entry adopts when the change's typed source `claims_body()` or
+the stable id matches, then `anatomy.bind()` runs, the runtime is reparented under the new body,
+and `runtime.adopt_body()` binds the new body, pose, face and anatomy but does not resume. The
+watcher resumes once the new body reports the requested form or the provider has finished; a
+true-form change (an empty target) is ready at once, and a target the provider fills in after the
+suspension is read from the typed change's `target_form_id` on the same ticks. A named form that
+settles without the target resumes on the adult body as a failed change and puts the offer back. A
+runtime created in a race is stopped and freed, and its anatomy controller is detached first, so
+the act never keeps two controllers or two owners. The stable id is the act's id: a borrowed form
+keeps the same relationship, preferences, history and summary; only the display name follows the
+presented identity.
 
-The adoption and the adapter's settled fit call `main.refresh_body_lod()` for the new body: the
+The adoption and the provider's settled form call `main.refresh_body_lod()` for the new body: the
 game's near and far caches are dropped and the near mesh is re-armed, so the visible body is the
-shape variant rather than the old body's near mesh. A rebuilt near mesh that still shows her own
+form variant rather than the old body's near mesh. A rebuilt near mesh that still shows her own
 materials is a pack-side look issue, not a game-file edit.
 
-A source may clear its changing state before the new body's spawn hook reaches `main`. The watcher
-keeps the act suspended while the source still reports a new body through `new_actor()`, then calls
+A provider may clear its changing state before the new body's spawn hook reaches `main`. The
+watcher keeps the act suspended while the change still reports a `next_body`, then calls
 `main.adopt_pending_body()` to run the same prepare-and-adopt path after a short grace. The old body
 is not resumed while that new body exists, so the late spawn cannot attach a second runtime. A
-source that stops without a new body still follows the old-body or watchdog path below.
+provider that stops without a new body still follows the old-body or watchdog path below.
 
 A live settings edit while suspended refreshes the snapshot and returns; the resume applies it
 with the rest of the rebuilt state instead of touching a released pose or the old body.
@@ -181,19 +187,23 @@ act and begins a new one at the current depth, rebuilds the live pose at the pos
 (`poses/service.gd`'s `settle()` skips the entrance ramp), re-anchors Anon at the new body's gap
 for a standing act, resets the act-key hold and the auto stroke, reopens the camera, re-claims the
 new navigator, pauses the new face-turn rate, rebinds the face, voice, wings and integrations, and
-refreshes the HUD facts. It stays the one resume path and runs after the shape is ready, so the
-standing re-anchor, the eye override and the pose use the shape body's size. The act continues from
+refreshes the HUD facts. The body-change service has already applied the presented form and bound
+the world systems; the resume is the act's own ordered rebuild of the runtime's sub-services, not a
+second binding fan-out. The runtime binding looks the runtime up through `main.runtime_for(body)`
+and forwards the form; it never creates a runtime, starts an act or runs the act exit.
+`_resume_after_body_swap()` stays the one resume path and runs after the form is ready, so the
+standing re-anchor, the eye override and the pose use the new body's form. The act continues from
 its current state. The camera shot is released on suspend and reopened on resume; the flame covers
 the re-frame, and Anon may shift slightly. That re-frame is the accepted behavior, not a zero-frame
 swap.
 
 Failure paths keep the one exit:
 
-- the source stops with no new body and the old body alive: the same runtime resumes on the old
+- the provider stops with no new body and the old body alive: the same runtime resumes on the old
   body;
-- a named shape fails before a new body arrives: the pending offer is restored so the player can
+- a named form fails before a new body arrives: the pending offer is restored so the player can
   name another;
-- a named shape's new body never reports the target: the act resumes on that adult body as a failed
+- a named form's new body never reports the target: the act resumes on that adult body as a failed
   change and restores the offer; the `8 s` watchdog bounds the wait;
 - no body arrives: the `8 s` watchdog ends the act through `force_stop()`;
 - the new body is not an adult mare: `adopt_body()` ends the act through `force_stop()`;
@@ -213,37 +223,41 @@ is the only route that sets it.
 
 The game's talk turn (`T`/microphone) is the only player interaction; there is no new key, picker
 or settings row. `_player_line_tick()` reads a new director turn in `ACTIVE`, the same turn the
-readiness classifier scores, and passes its text to the source:
+readiness classifier scores, and passes its text to the typed source:
 
-- a source that wears another shape consumes a reveal ask through `asks_form_change(text)`; a
+- a source that wears another form consumes a reveal ask through `asks_form_change(text)`; a
   successful `runtime.request_form_change(true, "", true)` marks the change as the player's;
 - with the post-climax offer pending, a line that names an adult mare through `named_form(text)`
   starts `request_form_change(false, id, true)`; `named_form_note(text)` supplies a short status
   for a worn, own, young/male or uncopyable name and returns nothing for ordinary talk;
 - anything else is ordinary talk and is left to readiness and dialogue.
 
-The offer is made once per act after the first pony climax, in her own form and in `ACTIVE`:
-`_shape_offer_tick()` sets `_shape_offer_pending` and queues one `FORM_OFFER` reaction with a
-code-owned prompt. It is deliberately not offered in `CLIMAX` or `AFTERGLOW`: the player cannot
-answer it there, so a player who ends immediately after the first climax misses an indulgence. An
-unanswered offer ends with the act; the next act may offer again. A named change whose handover
-fails before a new body arrives restores the offer.
+The provider policy owns the offer timing and prompt (`docs/body_change.md`,
+`## Provider policy`). `_shape_offer_tick()` keeps the once-per-act gate, asks
+`policy.should_offer(context)` on each live `ACTIVE` tick and queues one `FORM_OFFER` reaction with
+`policy.offer_prompt()` when it first returns true. A policy may wait for its own stage; a false
+before its trigger does not spend the offer. The offer is deliberately not made in `CLIMAX` or
+`AFTERGLOW`: the player cannot answer it there, so a player who ends immediately after the first
+climax misses an indulgence. An unanswered offer ends with the act; the next act may offer again. A
+named change whose handover fails before a new body arrives restores the offer.
 
-A player-requested return to her own form is the act's one exceptional beat
-(`_complete_form_change()`): a `FORM_REVEAL_HEAT` readiness spike, a special impression and world
-event in the `FORM_REVEAL` slot, one `FORM_REVEAL_PEAK_SCORE` peak, and the `form_reveal` input the
-summary/act-history commit reads for an extra great-act comfort. It is recorded once before the
-effects, so a second ask in the same act does nothing. Her own reveal and any named shape are
-neutral: the handover runs, the act continues, and none of the exceptional effects apply. The same
-runtime keeps the flags across the swap; `_end_session()` clears the pending offer and the debug
-form label.
+A completed player-named change calls `policy.on_offer_accepted(context)`; a completed
+player-requested return to her own form calls `policy.on_reveal(context)` once. The base runtime
+executes the generic effects: a readiness heat spike and a cue while the act is `ACTIVE`, the
+reveal's peak and `form_reveal` memory mark, the exceptional face beat, and the `form_reveal` input
+the summary/act-history commit reads for an extra great-act comfort. The shipped policy gives the
+player-requested reveal its values and a named form none; an AI-origin own-form change is neutral
+because the runtime only calls `on_reveal()` for the player's own ask. `comfort` in the effects is
+provider data for the act history, not a summary input. The same runtime keeps the flags across the
+swap; `_end_session()` clears the pending offer and the debug form label.
 
-The player's offer survives her own change. An AI-origin shape change leaves `_shape_offer_pending`
-set, and only the shape the player names through the offer clears it; a player-requested reveal
-leaves it set too. The offer is therefore still available after her AI takes or leaves a shape.
+The player's offer survives her own change. An AI-origin form change leaves
+`_shape_offer_pending` set, and only the form the player names through the offer clears it; a
+player-requested reveal leaves it set too. The offer is therefore still available after her AI
+takes or leaves a form.
 
 `_form_hint_tick()` is a debug log probe, not a HUD source. It names the reveal ask while she wears
-another shape and the reveal is unused, and the name prompt while the offer is pending, but only
+another form and the reveal is unused, and the name prompt while the offer is pending, but only
 when **Enable debug** was on at the act's settings snapshot; `_form_hint` itself is always empty, so
 neither a release nor a debug build puts the dialogue channel on the HUD. The reveal and the gift
 are for the player to discover from her own words and behaviour. The probe runs on the state and
@@ -300,7 +314,7 @@ failed start runs the same function and restores only what it took.
   through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still follows the first facts sync and runs
   no pose tick or fan-out.
 - A suspended act returns before the pose tick: `_body_swap_tick()` owns the wait and the resume,
-  and no act work runs until the new body adopts the runtime and its shape is ready.
+  and no act work runs until the new body adopts the runtime and its form is ready.
 - `_process`: `_process_tick(delta)` — the render-time pose write after every game writer (the bed
   family places its Anon body and eye camera; the standing family syncs its ground frame and
   writes the same pose), the camera lean and motion, the climax wave, the breath,
@@ -318,12 +332,13 @@ cross-mod surface is `docs/api.md`; the internal reads the HUD/tests use (`state
 `pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay
 callable.
 
-`request_form_change(true_form, shape_id, by_player)` is the act-side shape request the debug block
-uses and the player interaction calls; the watcher turns it into the suspension, and `by_player`
-marks the change as the player's (only a player-requested true form is exceptional).
-`body_swap_pending()` is true between suspension and resume. `main.adopt_pending_body(pony)` runs
-the entry's prepare and pending-swap adoption for a body the watcher found before its spawn hook.
-`main` and the debug actions use these; no presentation module reads them.
+`request_form_change(true_form, shape_id, by_player)` is the act-side form request the debug block
+uses and the player interaction calls; `by_player` becomes the typed `BodyChange.Origin`, and the
+watcher turns the request into the suspension. Only a player-requested own form is exceptional.
+`body_swap_pending()` is true between suspension and resume.
+`main.adopt_pending_body(pony)` runs the entry's prepare and pending-swap adoption for a body the
+watcher found before its spawn hook. `main` and the debug actions use these; no presentation module
+reads them.
 
 The runtime does not mirror a service's act state. It reads it through the owning facade
 (`_readiness`, `_act_camera`, `_afterglow`, `_hold`, `_pose_session`, `_summary_service`, `_face`)
@@ -364,7 +379,7 @@ That gap is the pre-act view, not the contact distance. Before the act, `_begin_
 fits Anon's whole body: it takes the part's natural pivot (`player_root_natural()`, the applied Hips
 offset removed), her live opening and outward rear, and shifts his horizontal position so the pivot
 starts one shaft behind her entrance. The fit is bounded by `STANDING_FIT_MAX_M`, skipped on a
-stool, and repeated by the shape resume through `_reanchor_player_after_swap()`. It clears the
+stool, and repeated by the form resume through `_reanchor_player_after_swap()`. It clears the
 part's old Hips handshake (`player_reset_pelvis()`) after measuring, so a body swap cannot carry the
 previous body's offset into the fit. The per-frame aim then owns the stroke's pelvis correction; a
 standing start no longer pulls the Hips bone across the gap. The fit log line carries
@@ -388,10 +403,10 @@ standing start no longer pulls the Hips bone across the gap. The fit log line ca
   kept slide/vocal/wings/blush/ear, the climax-line skip and the regular-path regression.
 - `tests/handover/test_body_swap.gd` — the generic handover: suspend → adopt → resume, the state
   depth, climaxes and event id survive, the old runtime is not freed, the new body's anatomy and
-  pose bind, adoption binds without resuming, a named shape waits for its target, the target
-  completes as the shape, a missing shape restores the offer on the new body, the watchdog with a
-  body resumes as a failed shape, a change the source started on its own, a repeated change, a
-  failed change resumes the old body, a source that goes inactive, the no-body watchdog and an
+  pose bind, adoption binds without resuming, a named form waits for its target, the target
+  completes as the form, a missing form restores the offer on the new body, the watchdog with a
+  body resumes as a failed form, a change the provider started on its own, a repeated change, a
+  failed change resumes the old body, a provider that goes inactive, the no-body watchdog and an
   ineligible body end through the one exit, a world close during the swap is safe, the debug form
   label clears on the state changes while the HUD string stays empty, a failed named change restores
   the offer, her own change keeps the player's
@@ -412,9 +427,9 @@ standing start no longer pulls the Hips bone across the gap. The fit log line ca
   act-key end.
 - Early end (holding the act key at 0 climaxes) and a forced stop (Debug → Force neglect stop).
 - A failed start: no stuck navigator, kiss hold, inventory HUD or camera lock.
-- With an installed shape-changing source, run a standing and a missionary act and use the Debug
+- With an installed body-change provider, run a standing and a missionary act and use the Debug
   form actions: the flame covers the swap, the act resumes with the same depth and climaxes, the
-  tail and anatomy use the new body, and a second change starts after the first completes.
+  form's rig, anatomy and tail apply, and a second change starts after the first completes.
 
 ## Related docs
 

@@ -3,9 +3,10 @@ extends RefCounted
 ## names the body a pony is wearing, and the entrance offset the standing act measures from. Pure:
 ## it reads only the identity and the pony metadata it is given.
 ##
-## `RigProfile` is the typed rig a body form carries; the array accessors stay for the callers that
-## have not migrated yet. The anatomy fit, the teats and the act camera all read this one module, so
-## a body-swapped pony is measured from the body that is actually rendered. See `docs/anatomy.md`
+## `RigProfile` is the typed rig a body form carries; the array accessors are the compatibility
+## readers for the placement editor and the no-form fallback. The anatomy fit, the teats and the
+## act camera read the presented `BodyForm`'s rig and fit, so a body-swapped pony is measured from
+## the body that is actually rendered. See `docs/body_change.md`, `docs/anatomy.md`
 ## (`## Attachment and identity`) and `docs/camera.md` (`## Standing camera`).
 
 ## The princess body scale and placement anchor for a known character: `[anchor y, anchor z, size]`.

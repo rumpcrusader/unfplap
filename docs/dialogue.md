@@ -105,8 +105,8 @@ afterglow-beat reads, so the module has no scene access.
 A reaction is `memory.reaction_line`: a `LineRequest` with `LineKind.REACTION`. It never waits for
 a quiet channel, but `note_reaction()` resets the shared gap so a cue cannot follow immediately.
 The act's reactions are climax, intentional early end, history refusal, the tolerance
-warning/stop and the shape-change offer (`form_offer`). The offer uses the code-owned runtime
-prompt when the mare has no `event_form_offer` setting, and it is queued once per act from
+warning/stop and the body-change offer (`form_offer`). The offer uses the provider policy's prompt
+as the fallback when the mare has no `event_form_offer` setting, and it is queued once per act from
 `runtime._shape_offer_tick()`.
 
 The bystander pass is always on. It uses `memory.observers()` and the modern witness perception.
@@ -186,8 +186,8 @@ events. Intimacy events and private brain notes are skipped. The memory is colou
 peak memory quotes her answer only when she spoke during the act.
 
 Talk is scored when the player actually uses the game's talk turn. The turn also carries the
-shape-change interaction: the runtime reads the same text for the reveal ask and the named shape,
-and the act HUD shows one code-owned hint for it (`docs/hud.md`). The source owns the phrasing: the
+body-change interaction: the runtime reads the same text for the reveal ask and the named form,
+and the act HUD shows one code-owned hint for it (`docs/hud.md`). The provider owns the phrasing: the
 reveal phrase set includes the hint's own words, and a pony name only counts on a line that is the
 whole name or carries an imperative shape request, so ordinary talk such as “you are a rarity” or
 “I don't want Rarity” stays ordinary. There is no talk-invitation line for ordinary cues.

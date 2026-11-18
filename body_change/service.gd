@@ -180,8 +180,8 @@ func active_change_for(body: Node3D) -> BODY_CHANGE:
 	return null
 
 
-## Compatibility read: the first active change in source registration order, or null. The runtime
-## uses `active_change_for()`; this stays for diagnostics and older callers.
+## Compatibility read of the first live change in source order. The runtime uses
+## `active_change_for()`; this is the diagnostics and tests read.
 func active_change() -> BODY_CHANGE:
 	for source: BODY_CHANGE_SOURCE in _sources:
 		var stored: Variant = _active_by_source.get(source)

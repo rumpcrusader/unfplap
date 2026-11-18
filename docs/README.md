@@ -89,7 +89,11 @@ only stable external surface is `docs/api.md`.
 | Negotiation context | `shared/context.gd` | `docs/negotiation.md` | `tests/context/` |
 | Privacy rules | `shared/privacy_rules.gd` | `docs/initiation.md` | `tests/privacy/` |
 | Anatomy placement | `shared/anatomy_placement.gd` | `docs/anatomy.md` | `tests/anatomy/` |
-| Body profile | `shared/body_profile.gd` | `docs/anatomy.md`, `docs/camera.md` | `tests/anatomy/`, `tests/act_camera/` |
+| Body form | `shared/body_form.gd` | `docs/body_change.md` | `tests/body_change/` |
+| Body change | `shared/body_change.gd` | `docs/body_change.md` | `tests/body_change/`, `tests/handover/` |
+| Body binding | `shared/body_binding.gd` | `docs/body_change.md` | `tests/body_change/`, `tests/anatomy/` |
+| Body change policy | `shared/body_change_policy.gd` | `docs/body_change.md` | `tests/body_change/`, `tests/integrations/` |
+| Body profile | `shared/body_profile.gd` | `docs/anatomy.md`, `docs/camera.md`, `docs/body_change.md` | `tests/anatomy/`, `tests/act_camera/`, `tests/body_change/` |
 | Mod integration catalog | `shared/integrations.gd` | `docs/integrations.md` | `tests/integrations/` |
 | Lean/travel math | `shared/act_motion.gd` | `docs/camera.md` | `tests/act_camera/` |
 | Palm scale | `shared/hands_scale.gd` | `docs/hands.md` | `tests/hands/` |

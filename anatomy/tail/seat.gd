@@ -10,9 +10,9 @@ extends Node
 ## original before it writes, so turning the setting off restores the game's tail and dock exactly.
 ##
 ## Nothing is measured or written while the setting is off: the row then holds only the mare's id,
-## so a disabled seat costs one dictionary entry per pony. A placement edit writes the tail at
-## once and the skinned dock follows it; the dock mesh is rebuilt once per settled edit, not once
-## per settings tick.
+## so a disabled seat costs one row per pony. A placement edit writes the tail at once and the
+## skinned dock follows it; the dock mesh is rebuilt once per settled edit, not once per settings
+## tick.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")

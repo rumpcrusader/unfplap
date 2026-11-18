@@ -495,7 +495,7 @@ refusal status (`docs/integrations.md`).
   `test_initiation_api.gd`: the offer pacing, wording, reasoning and facade. The bounded
   classifier's raw path is covered by `tests/negotiation/test_adapter.gd` and `test_prompts.gd`;
   the request service's contract is `docs/initiation.md`.
-- `tests/anatomy/test_anatomy.gd`: the anatomy target, participation, the provider's `eligible`
+- `tests/anatomy/test_attach.gd`: the anatomy target, participation, the provider's `eligible`
   assertion and the rig checks.
 - `tests/anatomy/test_identity.gd`: the princess body profile and the off-roster list.
 - `tests/memory/test_memory_api.gd`: the facade's impression and event writes, the refusal mood

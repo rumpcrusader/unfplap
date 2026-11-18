@@ -6,9 +6,11 @@ extends Node
 ## `negotiation/service.gd` and the runtime; this service keeps the pacing, the approach and the
 ## offer formation. Nothing starts the act here.
 ##
-## The facade owns the episode, admission and phase orchestration. Rules are `initiation/policy.gd`,
-## wording is `initiation/prompts.gd`, the reasoning request is `initiation/reasoning.gd`, and
-## every scene read is behind `initiation/venue.gd` (navigators, posture, beds) or the
+## The facade owns the attempt, admission and phase orchestration. One `Candidate` carries the
+## offer and the live route; `_begin_route` is the single route entry and reports a short reason
+## for a route that ends before the ask. Rules are `initiation/policy.gd`, wording is
+## `initiation/prompts.gd`, the reasoning request is `initiation/reasoning.gd`, and every scene
+## read is behind `initiation/venue.gd` (navigators, posture, beds) or the
 ## `negotiation/adapter.gd` director bridge that `main` injects. See `docs/initiation.md`.
 ##
 ## Automatic requests are background AI turns, so they require AI usage Full.
@@ -29,7 +31,7 @@ const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 
 const KEY_PREFIX := "unfplap:request"
 
-## Episode phases. The pure phase tables are spelled in `initiation/policy.gd`.
+## Attempt phases. The pure phase tables are spelled in `initiation/policy.gd`.
 enum Phase { NONE, APPROACH, ARRIVE, ASK, BED_APPROACH }
 const PHASE_NAMES := {
 	Phase.NONE: POLICY.PHASE_NONE,
@@ -40,7 +42,9 @@ const PHASE_NAMES := {
 }
 
 
-## One mare's placeable choices and the values formation needs. The reasoning picks one option.
+## One mare's offer candidate and, once `_begin_route` starts it, the live attempt: the placeable
+## choices, the chosen option and the walk/ask route state. The scan builds candidates for several
+## mares, so route-time privacy reads and lease fields stay in `_begin_route`, not in the scan.
 class Candidate extends RefCounted:
 	var id := ""
 	var runtime: Node
@@ -52,6 +56,7 @@ class Candidate extends RefCounted:
 	var private := false
 	var forced := false
 	var serial := 0
+	## `Phase.NONE` until a route starts.
 	var phase := 0
 	var started_at := 0.0
 	var arrive_until := 0.0
@@ -66,7 +71,8 @@ class Candidate extends RefCounted:
 	var bed_front: Variant = null
 
 
-## What `force()` produced. `reject` is the comma-joined candidate reasons on failure.
+## What `force()` produced. `reject` is the comma-joined candidate reasons or the route close
+## reason.
 class ForceResult extends RefCounted:
 	var ok := false
 	var id := ""
@@ -79,9 +85,10 @@ var _episode: Candidate = null
 var _scan_clock := 0.0
 var _serial := 0
 var _scan_cursor := 0
-## id -> whether this cuddle has already produced an ask.
+## id -> whether this cuddle has already produced an ask; the key exists only while she cuddles.
 var _cuddle_asked: Dictionary = {}
-## id -> the short retry deadline after a failed walk-over, reasoning failure or refused handoff.
+## id -> the short retry deadline after a close with a reason, a reasoning failure or a refused
+## handoff.
 var _retry_at: Dictionary = {}
 ## The last quiet reason the scan logged, so one blocked offer logs once.
 var _quiet_reason := ""
@@ -148,7 +155,7 @@ func reset() -> void:
 
 ## Manual lab/debug entry point: bypass the quiet, cooldown, retry and reasoning; keep Base
 ## clearance, the placeable options and the formation check. An empty `pose` lets the scan's
-## first option decide.
+## first option decide. A route that ends before the ask reports its reason in `reject`.
 func force(runtime: Node, pose := "") -> ForceResult:
 	var out := ForceResult.new()
 	if not is_instance_valid(main) or not is_instance_valid(runtime):
@@ -197,7 +204,7 @@ func on_negotiation_outcome(terminal: RefCounted) -> void:
 		float(terminal.cooldown_s)])
 
 
-## A new Anon offer or hotkey cancels an in-flight approach that has not formed a Mare offer.
+## A new Anon offer or hotkey cancels a live attempt that has not formed a Mare offer.
 func cancel_approach() -> void:
 	if _episode == null:
 		return
@@ -431,8 +438,9 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 	_begin_route(candidate)
 
 
-## Where she goes to ask: a cuddle asks from the bed, a bed walks to its front, a standing offer
-## walks to Anon; already near means the ask starts now.
+## The single route entry: a cuddle asks from the bed, a bed walks to its front, a standing offer
+## walks to Anon; already near means the ask starts now. Returns `""` when the route started or the
+## ask formed, otherwise the close reason.
 func _begin_route(candidate: Candidate) -> String:
 	var player: Node3D = _venue.player()
 	if not is_instance_valid(player) or not is_instance_valid(candidate.pony):
@@ -504,6 +512,7 @@ func debug_rows(pony: Node) -> Array[String]:
 
 # --------------------------------------------------------------------------- approach
 
+## Walk to Anon and settle there; a failed claim or goal closes with its reason.
 func _walk_to_player(player: Node3D) -> String:
 	var pony: Node3D = _episode.pony
 	_episode.phase = Phase.APPROACH
@@ -633,8 +642,8 @@ func _tick_bed_approach() -> void:
 
 # --------------------------------------------------------------------------- ask and handoff
 
-## A cuddle asks from the bed without a navigator claim: the cuddle session owns her. Every other
-## route has claimed the navigator in its approach.
+## A cuddle asks from the bed without a navigator claim: the cuddle session owns her. A non-cuddle
+## claims the navigator here when no approach did, and a standing ask also asks her to stand.
 func _ask_now() -> String:
 	_episode.phase = Phase.ASK
 	if not _episode.option.cuddle:
@@ -646,7 +655,7 @@ func _ask_now() -> String:
 	return _start_ask_handoff()
 
 
-## Claim the navigator for this route, or close with `reason`.
+## Claim the navigator for this route, or close with `reason`. The venue always stops her first.
 func _claim(reason: String) -> String:
 	var claim: Dictionary = _venue.claim_nav(_episode.pony, _episode.token)
 	if claim.is_empty():
@@ -657,7 +666,7 @@ func _claim(reason: String) -> String:
 
 ## Form the Mare offer and hand it to the Negotiation service, then speak the ask line. The
 ## request lease moves to the negotiation at formation; a refused handoff releases it and sets the
-## short retry.
+## short retry. Returns the close reason on failure, `""` after a successful handoff.
 func _start_ask_handoff() -> String:
 	if _episode == null:
 		return ""
@@ -713,7 +722,7 @@ func _offer_line(option: POSE_OPTIONS.Option) -> String:
 	return "The pony has just asked Anon to have sex. She is waiting for his answer."
 
 
-## The ask line is still worth speaking while she is there and idle.
+## The ask line is still worth speaking while the runtime is idle and its pony is in the tree.
 func _line_valid(runtime: Node) -> bool:
 	if not is_instance_valid(runtime) or int(runtime.get("state")) != 0:
 		return false
@@ -762,8 +771,9 @@ func _apply_claim(episode: Candidate, claim: Dictionary) -> void:
 	episode.prev_pace = claim.get("pace")
 
 
-## The one request close path. The negotiator owns the lease after a successful handoff, so this
-## only handles the request's own episodes.
+## The one request close path. Stamps the short retry for any non-empty reason and returns it, so a
+## route can report the close. The negotiator owns the lease after a successful handoff, so this
+## only handles the request's own attempt.
 func _close_episode(reason: String) -> String:
 	if _episode == null:
 		return reason
@@ -793,6 +803,7 @@ func _tick_episode() -> void:
 
 # --------------------------------------------------------------------------- helpers
 
+## Present and awake; the caller has already rejected a busy runtime.
 func _available(pony: Node3D) -> bool:
 	return is_instance_valid(pony) and not bool(pony.get("sleeping"))
 

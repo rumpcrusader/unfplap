@@ -1,6 +1,6 @@
 extends Node
 ## The request system's venue adapter: the only file that touches navigators, posture, the bed
-## search and the world house. It answers with plain values and appends reject reasons for the
+## search and the world house. It answers with plain values; the facade owns the reasons and the
 ## debug log. The privacy scan lives in `privacy/service.gd`. See `docs/initiation.md`.
 
 const BED_REST := preload("res://world/relationships/shared_bed.gd")

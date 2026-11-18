@@ -35,6 +35,7 @@ static func ready(section_data: Dictionary, id: String, now: float, in_heat: boo
 		wait_seconds(section_data, id, in_heat))
 
 
+## The live-section variant of `ready` used by the scan and the debug rows.
 static func ready_for(id: String, in_heat: bool) -> bool:
 	return ready(section(), id, Time.get_unix_time_from_system(), in_heat)
 

@@ -8,6 +8,7 @@ extends RefCounted
 const HEAT_COOLDOWN := 0.25
 const SCAN_INTERVAL_S := 0.5
 const QUIET_CHAT_GAP_S := 45.0
+## The standing offer's reach: Anon must be within this distance. It is not the walk distance.
 const STANDING_RANGE_M := 24.0
 const APPROACH_GOAL_M := 2.0
 const ARRIVE_RANGE_M := 2.8

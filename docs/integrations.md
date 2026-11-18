@@ -246,21 +246,25 @@ she is listed under **Other mares** even while she is away in the Badlands. The 
 `main._on_pony` asks the manager to run `prepare_pony(pony)` before the tail seat and the anatomy
 bind. The adapter sets `body_fit_id` and `tail_pose_root` on the two kinds of body the pack brings:
 
-- her own body (the pack's own meshes or its `ChrysalisHair` tail) uses `body_fit_id chrysalis`
-  and names `ChrysalisHair/Hair_tail/Chain` as the tail root. The adapter owns one
-  `UnfplapTailPlacement` node between `Hair_tail` and `Chain`; `tail_y`, `tail_z` and
-  `tail_tilt_deg` move and tilt that wrapper as a delta from the resolved default, so the pack's
-  modelled tail is the zero. The act modifiers keep saving, rotating and restoring `Chain`
-  itself. `Re-seat tails and docks` off returns the wrapper to identity; the dock keys do not
-  apply. The chain is not a tail-seat row and has no dock;
+- her own body (the pack's own meshes or its spring tail) uses `body_fit_id chrysalis` and names
+  the chain under the game rig's `Hair_tail` attachment as the tail root. `ChrysalisHair` is the
+  pack's hair controller; the attachment and its `Chain` are built on `pony.skeleton` (`Hair_` +
+  part), not under the controller. The adapter owns one `UnfplapTailPlacement` node between
+  `Hair_tail` and `Chain`; `tail_y`, `tail_z` and `tail_tilt_deg` move and tilt that wrapper as a
+  delta from the resolved default, so the pack's modelled tail is the zero. The act modifiers
+  keep saving, rotating and restoring `Chain` itself. `Re-seat tails and docks` off returns the
+  wrapper to identity; the dock keys do not apply. The chain is not a tail-seat row and has no
+  dock;
 - a disguise (`geometry_variant` `changeling=<pony id>` in 0.2.12) uses that pony's id as the body
   fit and has no tail wrapper, so it uses the copied pony's placement and the normal hair chain.
 
-The pack can add `ChrysalisHair` after that first pass, and the first pass can run before the body
-has an identity. The adapter owns the late check: six tries at 50 ms, scheduled from her own-body
-path and from an identity-less early body. When the chain appears it applies the fit and wrapper,
-then calls `main.prepare_pony_late(pony)` once for the late fit/anatomy metadata. The check does
-not depend on the anatomy seat, `tail_ready()` or a dock.
+The pack builds `Hair_tail/Chain` during her body's ready, and the first prepare can still run
+before the chain is readable or before the body has an identity. The adapter owns the late check:
+six tries at 50 ms, scheduled from her own-body path and from an identity-less early body. It
+finds the chain under `pony.skeleton` and, when that rig is not exposed, by searching for the
+`Hair_tail` attachment. When the chain appears it applies the fit and wrapper, then calls
+`main.prepare_pony_late(pony)` once for the late fit/anatomy metadata. The check does not depend
+on the anatomy seat, `tail_ready()` or a dock.
 
 Her own body's hide pass runs every half second and hides every mesh under her model that lacks
 the pack's `chrysalis_own` marker. The anatomy mesh and its parts are on the same skeleton, so the

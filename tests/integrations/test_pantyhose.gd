@@ -1,6 +1,6 @@
 extends SceneTree
 ## The Pantyhose & Panties world adapter and the garment hull: the depth field, the transform
-## mapping, the surface overrides, the act-start undress and the debug controls.
+## mapping, the surface overrides, the cloth jiggle, the act-start undress and the debug controls.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_pantyhose.gd
 
 const HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
@@ -11,6 +11,7 @@ const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_c
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
 const ANATOMY_SCENE := "res://mods/unfplap/assets/anatomy/mare/mare_bits_v2.scn"
 const SCHEMA := preload("res://world/ai/pony_action_schema.gd")
+## The one uniform the adapter borrows from the game's coat material.
 const COAT_SHADER_CODE := "shader_type spatial;\nuniform float jiggle_radius = 0.12;\n" \
 	+ "void vertex() { VERTEX += vec3(0.0); }\n" \
 	+ "void fragment() { ALBEDO = vec3(1.0); }\n"
@@ -65,6 +66,8 @@ class FakePony extends Node3D:
 	var identity: Variant = null
 
 
+## The game's `FlankTouch`: a redness decal per target and the live wobble fields the adapter
+## mirrors. The coat materials are the `[material, mesh]` rows the act's reactions tune.
 class FakeFlank extends Node3D:
 	var _jiggle_index := -1
 	var _jiggle_age := 0.0
@@ -467,6 +470,8 @@ func _inst_vec3(node: MeshInstance3D, name: String) -> Vector3:
 	return value as Vector3 if value is Vector3 else Vector3.INF
 
 
+## `FlankTouch.impact()` places its mark at the hit point pushed out by the surface normal, so the
+## mark's +Y is the outward coat normal the adapter reads back.
 func _attach_flank(pony: Node3D) -> FakeFlank:
 	var flank := FakeFlank.new()
 	flank.name = "FlankTouch"
@@ -506,6 +511,7 @@ func _check_bulge() -> void:
 	var game: FakeGame = scene["game"]
 	var anatomy: FakeAnatomy = scene["anatomy"]
 	var integration: Node = scene["integration"]
+	# The lift checks pin the lift on its own; the cloth jiggle has its own checks below.
 	var jiggle_before := SETTINGS.pantyhose_jiggle.get_bool()
 	SETTINGS.pantyhose_jiggle.set_bool(false)
 	integration.call("apply_live_settings")

@@ -8,8 +8,12 @@ whether or not the other mod is installed.
 
 - `integrations/service.gd` is the per-act facade and the only per-act scene adapter.
 - `integrations/pantyhose.gd` is the world-side adapter for the Pantyhose & Panties 0.1.1 pack:
-  it lifts a worn piece over the anatomy and takes the lower garment off at an act start. The pack
-  is never edited; the compatibility shaders are a pinned copy under `integrations/shaders/`.
+  it lifts a worn piece over the anatomy, carries the coat's rump wobble into the worn cloth and
+  takes the lower garment off at an act start. The pack is never edited; the compatibility shaders
+  are a pinned copy under `integrations/shaders/`.
+- `integrations/garment_jiggle.gd` is the adapter's scene-free cloth-jiggle helper: it mirrors one
+  pony's live flank wobble onto one worn node through per-node instance uniforms and preloads
+  nothing.
 - `shared/integrations.gd` is the provider catalog: mod identity, verified version, feature names
   and binding paths.
 - `integrations/provider.gd`, `context.gd`, `action.gd` and `kissing.gd` are pure service
@@ -37,11 +41,11 @@ lifecycle. Providers own only policy: whether they apply, and which properties t
 provider never reads a node, a tree, the clock, the filesystem, the settings file or the runtime's
 private fields.
 
-The world adapter owns its every-frame hull update and fixed-fallback node discovery, the per-node
-material overrides, its cached feature/debug values and the act-start undress. The undress is the
-game's own `take_off` action when her executor exists, with the direct wardrobe calls as its
-fallback. It reads the anatomy through `main.anatomy` and the game through `main.game`; it never
-preloads either host and never edits the pack.
+The world adapter owns its every-frame hull update, its cloth-jiggle pass and its fixed-fallback
+node discovery, the per-node material overrides, its cached feature/debug values and the act-start
+undress. The undress is the game's own `take_off` action when her executor exists, with the direct
+wardrobe calls as its fallback. It reads the anatomy through `main.anatomy` and the game through
+`main.game`; it never preloads either host and never edits the pack.
 
 The changelings adapter owns its provider layer registration, the installed-mare list, the
 body-fit/tail metadata it writes on the pack's bodies, the `UnfplapTailPlacement` wrapper above
@@ -173,16 +177,19 @@ in scope. The act's own wing controller creates the open-wing node the shiver ne
 
 ## Pantyhose & Panties
 
-`integrations/pantyhose.gd` is the world adapter, created by `main` as `main.pantyhose`. It runs
-outside acts: every frame it updates the hull transform and instance uniforms for each worn piece,
-so the cloth follows the anatomy with no scan lag. It re-discovers the `Wear_panties-*` and
-`Wear_pantyhose-*` nodes on a fixed fallback (0.5 s), and while the anatomy mesh is shown and the
-bulge flag is on, gives every surface of the shared piece an override of the copied compatibility
-shader. The original material stays on the shared mesh; the override is per node, and every
-instance value is per node, so two mares never share a transform. The compatibility material is
-cached per source material and variant, so each fabric keeps its own look parameters while every
-mare shares it. The previous override is saved and restored on a hidden anatomy, feature-off,
-pack-off, node replacement and world close.
+`integrations/pantyhose.gd` is the world adapter, created by `main` as `main.pantyhose`. It is
+world-side rather than per-act: every frame it updates the hull transform and instance uniforms for
+each worn piece, so the cloth follows the anatomy with no scan lag. It re-discovers the
+`Wear_panties-*` and `Wear_pantyhose-*` nodes on a fixed fallback (0.5 s), and while the anatomy
+mesh is shown and the bulge flag is on, gives every surface of the shared piece an override of the
+copied compatibility shader. The original material stays on the shared mesh; the override is per
+node, and every instance value is per node, so two mares never share a transform. The compatibility
+material is cached per source material and variant, so each fabric keeps its own look parameters
+while every mare shares it. With the cloth-jiggle flag on, a worn piece keeps that override even
+with the anatomy hidden or the lift off, and its `hull_on` instance value is then off: the copied
+shader is what carries the wobble. The previous override is saved and restored when neither the
+lift nor the jiggle needs the copy (hidden anatomy, or a lift off with the jiggle off), on
+feature-off, pack-off, node replacement and world close.
 
 The lift samples `anatomy/garment_hull.gd`'s rest-surface outer depth field, built from the refined
 anatomy mesh and shared by every mare. The field is the **rest appearance**: the base mesh with
@@ -219,9 +226,27 @@ restore anything at act end, so she stays undressed until she is asked or given 
 missing wardrobe, pony id or worn piece is a quiet no-op.
 
 The compatibility shaders are `integrations/shaders/pantyhose_common.gdshaderinc`,
-`pantyhose_cut.gdshader` and `pantyhose_sheer.gdshader`: a self-contained copy of 0.1.1's look
-with the hull block added. The catalog's `verified_version` pins the copy. A renamed or changed
-pack shader is left alone and logged once; the adapter never edits the pack.
+`pantyhose_cut.gdshader`, `pantyhose_sheer.gdshader` and the cloth-jiggle
+`pantyhose_jiggle.gdshaderinc`: a self-contained copy of 0.1.1's look with the hull lift and the
+wobble added. The catalog's `verified_version` pins the copy. A renamed or changed pack shader is
+left alone and logged once; the adapter never edits the pack.
+
+**Jiggle the cloth** (`features.pantyhose_jiggle`) mirrors the game's own rump wobble instead of
+inventing a second one. `integrations/garment_jiggle.gd` reads the pony's `FlankTouch`: the active
+redness mark, the wobble age and the coat amplitude, then the mark's hit spot and outward normal.
+One pony is sampled once per garment pass; every worn node of that pony is written with five
+instance uniforms (`garment_jiggle_amount`, `_time`, `_center`, `_normal` and `_radius`) in its own
+model space. The copied shaders displace the cloth with the same damped spring, the same ripple out
+from the hit and the same vertical bob the coat's `flank_jiggle.gdshaderinc` runs, with no normal
+tilt. The amplitude and the falloff radius are converted through the garment node's own uniform
+scale, so a trimmed piece keeps the coat's world amplitude, and the radius is the coat's live
+`jiggle_radius` while the act's reactions have widened it on a `_jiggle_targets` material, the stock
+coat spread otherwise. Because one smack outside an act and a thrust or a smack during one all start
+the game's own wobble, the cloth follows all three; the adapter wires no smack event of its own. A
+missing `FlankTouch`, a renamed game field, a missing mark or a malformed value leaves the cloth
+rigid, silently. A finished wobble clears only the uniforms, so the lift stays, and every restore
+path clears them while the compatibility material is still the override, because the pack's shader
+does not know the names.
 
 ## Queen Chrysalis
 
@@ -322,6 +347,7 @@ One declaration per supported integration, in `settings/service.gd`:
 | `features.kissing_reactions` | run the Kissing reaction bridge during the act |
 | `features.pantyhose_undress` | take her panties and pantyhose off when an act starts; she stays undressed |
 | `features.pantyhose_bulge` | lift the worn panties and pantyhose over the anatomy |
+| `features.pantyhose_jiggle` | carry a smack's rump wobble into her worn panties and pantyhose |
 
 Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by
 default, under one blue **Experimental** notice at the top of the tab. The section body carries the hint `Verified with version: $verified_version`, then that
@@ -400,6 +426,10 @@ overlay reads them.
   bond cap, the pause fade, afterglow, an Affection kiss and the full-fidget restore/suppress.
 - `tests/integrations/test_pantyhose.gd` — the hull builder (fixture and real anatomy mesh), the
   transform mapping, the surface overrides and restore, the shared mesh, multi-mare independence,
+  the cloth jiggle (the mark spot and outward normal in the garment node's own space, the amplitude
+  and radius through the node scale, the borrowed coat radius and its stock fallback, the frame
+  age, two mares on one source material, a finished wobble, the hidden-anatomy and lift-off paths,
+  the flag off, and the dropped-piece, world-close and shutdown clears),
   the act-start undress (the `take_off` commit with the director's turn, the identity-id key, the
   wardrobe's season, the direct fallback and the nothing-worn no-op), the feature/pack/wardrobe
   guards and the debug rebuild/overlay.
@@ -447,6 +477,14 @@ overlay reads them.
   undressed; turn each flag off; remove the pack; check the original materials come back and two
   mares keep independent transforms. Use **Show hull** and **Rebuild** to inspect the field; the
   overlay is desktop-only and is skipped headless.
+- Smack a mare outside an act in each of the eight kinds and check the cloth wobbles with the coat
+  on cut and sheer, with the anatomy shown, with it hidden and with the lift off; check the
+  amplitude, the ripple and the vertical bob read on the cloth and that the sheer fabric stays
+  readable. Smack two mares side by side and check the wobbles stay independent. Start an act with
+  the undress off and check thrusts and act smacks wobble the cloth, and that the borrowed act
+  radius spreads the wobble as the coat's own does. Turn **Jiggle the cloth** off: the cloth is
+  rigid, the pack materials return with the lift off, and `last-run.log` holds no shader or uniform
+  warning.
 - With Queen Chrysalis 0.2.12 installed, open Settings → Characters: **Queen Chrysalis** is under
   **Other mares** with the approved profile, before she visits. Turn the pack off: the entry and
   the provider layer are gone and the base roster still reads 103.

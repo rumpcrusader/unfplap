@@ -4,7 +4,9 @@ extends Node
 ## The pack cuts a worn piece from the pony's own body and skins it with her skin, so the
 ## anatomy mesh pokes through the cloth. This adapter samples a depth field built from the
 ## anatomy mesh (see `anatomy/garment_hull.gd`) and lifts each garment surface over it with a
-## self-contained copy of the 0.1.1 look shaders. It also takes the lower garment off when an
+## self-contained copy of the 0.1.1 look shaders. While the cloth-jiggle flag is on, the same
+## copied shaders carry the pony's live flank wobble into the worn piece through
+## `integrations/garment_jiggle.gd`. It also takes the lower garment off when an
 ## anatomy act starts, through the game's own `take_off` action, so the pack's `pony_off` state and
 ## the outcome her dialogue prompt reads are the same as when she takes it off herself.
 ##
@@ -18,6 +20,7 @@ extends Node
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
+## The per-node cloth jiggle; see `docs/integrations.md` (`## Pantyhose & Panties`).
 const GARMENT_JIGGLE := preload("res://mods/unfplap/integrations/garment_jiggle.gd")
 
 const MOD_ID := "pantyhose"
@@ -41,6 +44,7 @@ class Applied:
 	var mesh_id := 0
 	var count := 0
 	var originals: Array = []
+	## True while the five cloth-jiggle uniforms are this adapter's, so every restore clears them.
 	var jiggling := false
 
 
@@ -52,6 +56,7 @@ var _game: Node
 var _discover_clock := 0.0
 var _undress: bool
 var _bulge: bool
+## The cloth jiggle every worn node reads; it caches one pony's sample per garment pass.
 var _jiggle := GARMENT_JIGGLE.new()
 var _jiggle_enabled: bool
 var _hull_width: int
@@ -211,6 +216,8 @@ func overlay_active() -> bool:
 
 # --------------------------------------------------------------------------- garment surfaces
 
+## Worn nodes are tracked whenever the lift or the jiggle can use them, so a hidden anatomy, or one
+## the player never shows, still gets the cloth wobble.
 func _discover() -> void:
 	if not is_instance_valid(_game) or not _mod_active_now():
 		_restore_all()
@@ -236,7 +243,8 @@ func _discover_pony(pony: Node3D, seen: Dictionary) -> void:
 			_tracked[mesh_node] = pony
 
 
-## The every-frame pass: the hull transform and every instance uniform follow the anatomy.
+## The every-frame pass: the hull transform and every instance uniform follow the anatomy, and a
+## worn piece carries its pony's live flank wobble while the cloth-jiggle flag is on.
 func _update_garments() -> void:
 	if not is_instance_valid(_game) or not _mod_active_now():
 		_restore_all()
@@ -271,6 +279,9 @@ func _update_garments() -> void:
 		_apply_node(mesh_node, pony as Node3D, hull, xform)
 
 
+## Gives the node's surfaces the compatibility override, the lift's instance values when there is a
+## lift, and the pony's wobble while the cloth-jiggle flag is on. Restores the node when neither
+## the lift nor the jiggle needs the copy.
 func _apply_node(node: MeshInstance3D, pony: Node3D, hull: Variant, xform: Transform3D) -> void:
 	if hull == null and not _jiggle_enabled:
 		_restore_if_applied(node)
@@ -368,8 +379,8 @@ func _restore_node(node: Node, applied: Applied) -> void:
 	if not is_instance_valid(node) or not node is MeshInstance3D:
 		return
 	var mesh_node := node as MeshInstance3D
-	# Clear the instance uniform while our compatibility material is still the override; the
-	# pack's shader does not know the name.
+	# Clear the instance uniforms while our compatibility material is still the override; the
+	# pack's shader does not know their names.
 	mesh_node.set_instance_shader_parameter("hull_on", 0.0)
 	if applied.jiggling:
 		GARMENT_JIGGLE.clear(mesh_node)
@@ -397,6 +408,8 @@ func _drop_missing(seen: Dictionary) -> void:
 			_applied.erase(node)
 
 
+## Restore every override and forget the sampled wobble; the pack-off, feature-off and world-close
+## path.
 func _restore_all() -> void:
 	_jiggle.reset()
 	_tracked.clear()

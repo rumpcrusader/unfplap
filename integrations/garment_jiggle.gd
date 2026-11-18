@@ -1,6 +1,20 @@
 extends RefCounted
+## The Pantyhose & Panties cloth jiggle: mirrors one pony's live `FlankTouch` wobble onto one worn
+## pantyhose or panties node through five per-node instance uniforms the copied shaders displace
+## their vertices with.
+##
+## The world adapter calls `begin_frame()` once per garment pass, `sample(pony)` for each tracked
+## node (the pony's wobble is read once and cached for the rest of the pass) and `apply(node)` for
+## every worn node of a pony that is wobbling; `clear(node)` and `reset()` undo it. Every read of
+## the game's `FlankTouch` is duck-typed and guarded, so a renamed field, a missing mark or a
+## malformed value leaves the cloth rigid instead of raising an error. No dictionary is allocated
+## per frame.
+##
+## See `docs/integrations.md` (`## Pantyhose & Panties`).
 
+## The stock `flank_jiggle.gdshaderinc` spread, used until an act's reactions widen the coat's own.
 const DEFAULT_RADIUS_M := 0.12
+## `FlankTouch.impact()` leaves its redness mark this far off the coat along the outward normal.
 const MARK_LIFT_M := 0.015
 const MIN_SCALE := 0.000001
 
@@ -13,11 +27,13 @@ var _normal := Vector3.BACK
 var _radius := DEFAULT_RADIUS_M
 
 
+## Drops the pony cached by the previous garment pass.
 func begin_frame() -> void:
 	_pony_id = 0
 	_live = false
 
 
+## Forgets the cached pony and the sampled wobble. The adapter calls it whenever it restores.
 func reset() -> void:
 	begin_frame()
 	_amount = 0.0
@@ -27,6 +43,7 @@ func reset() -> void:
 	_radius = DEFAULT_RADIUS_M
 
 
+## True while `pony`'s coat is wobbling, so `apply()` has something to write.
 func sample(pony: Node3D) -> bool:
 	if not is_instance_valid(pony):
 		_pony_id = 0
@@ -40,6 +57,9 @@ func sample(pony: Node3D) -> bool:
 	return _live
 
 
+## Converts the wobble into `node`'s own model space, where the shader displaces vertices. The
+## amplitude and the radius go through the node's uniform scale, the same idea as the hull margin,
+## so a trimmed piece keeps the coat's world amplitude.
 func apply(node: MeshInstance3D) -> void:
 	if not _live or not is_instance_valid(node) or not node.is_inside_tree():
 		return
@@ -56,6 +76,8 @@ func apply(node: MeshInstance3D) -> void:
 	node.set_instance_shader_parameter("garment_jiggle_radius", _radius / scale)
 
 
+## Returns the five uniforms to their defaults. The caller does this while the compatibility
+## material is still the override, because the pack's own shader does not know the names.
 static func clear(node: MeshInstance3D) -> void:
 	if not is_instance_valid(node):
 		return
@@ -66,6 +88,8 @@ static func clear(node: MeshInstance3D) -> void:
 	node.set_instance_shader_parameter("garment_jiggle_radius", DEFAULT_RADIUS_M)
 
 
+## `FlankTouch._process()` reads its hit spot back off the mark the same way, so the wobble centre
+## sits on the coat instead of a hair above it.
 func _read(pony: Node3D) -> bool:
 	var flank := pony.get_node_or_null("FlankTouch")
 	if flank == null:
@@ -104,6 +128,9 @@ func _read(pony: Node3D) -> bool:
 	return true
 
 
+## The first coat material's `jiggle_radius`, which the act's reactions widen for a thrust or a
+## smack. The game's shader falls back to its own default, so an unset, missing or negative value
+## is not a radius.
 static func _live_radius(flank: Node) -> float:
 	var targets: Variant = flank.get("_jiggle_targets")
 	if not targets is Array:
@@ -120,6 +147,7 @@ static func _live_radius(flank: Node) -> float:
 	return DEFAULT_RADIUS_M
 
 
+## A numeric game field as a float, or a quiet NaN when it is missing or renamed.
 static func _number(value: Variant) -> float:
 	if value is float:
 		return value as float
@@ -128,6 +156,7 @@ static func _number(value: Variant) -> float:
 	return NAN
 
 
+## World metres per model unit: the mean of the node's global basis axis lengths.
 static func _local_scale(node: Node3D) -> float:
 	var basis := node.global_transform.basis
 	var mean := (basis.x.length() + basis.y.length() + basis.z.length()) / 3.0

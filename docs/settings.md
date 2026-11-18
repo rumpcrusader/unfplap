@@ -516,6 +516,7 @@ The runtime snapshots them with every other act value in `_snapshot_settings()` 
 | `kissing_reactions` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
 | `pantyhose_undress` | take her panties and pantyhose off when an act starts; she stays undressed; see `docs/integrations.md` |
 | `pantyhose_bulge` | lift the worn panties and pantyhose over the anatomy; see `docs/integrations.md` |
+| `pantyhose_jiggle` | carry a smack's rump wobble into her worn panties and pantyhose; see `docs/integrations.md` |
 
 Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,
 unprompted act lines with their fresh-angle wording, starting an act through an active cuddle,

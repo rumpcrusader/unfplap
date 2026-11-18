@@ -1,8 +1,11 @@
-// Shared patterns and the garment hull lift for Pantyhose & Panties compatibility.
+// Shared patterns, the garment hull lift and the worn cloth jiggle for Pantyhose & Panties
+// compatibility.
 //
 // The pattern functions are adapted from Pantyhose & Panties 0.1.1 by mitty
 // (`res://mods/pantyhose/shaders/hosiery_common.gdshaderinc`). The hull uniforms and
-// `HOSIERY_HULL_VERTEX` are Unfplap's; see `docs/integrations.md` and `CREDITS.md`.
+// `HOSIERY_HULL_VERTEX` are Unfplap's, and so is the jiggle include at the end
+// (`pantyhose_jiggle.gdshaderinc`, written by `integrations/garment_jiggle.gd`); see
+// `docs/integrations.md` and `CREDITS.md`.
 //
 // Coordinates are the body's REST pose (CUSTOM0.xyz, about metres on a mare), so patterns stay
 // on the body while she moves; the rest normal (CUSTOM1.xyz) picks the projection planes

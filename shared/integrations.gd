@@ -25,9 +25,9 @@ const PROVIDERS := {
 			"fidgets": [{"property": "skeleton"}, {"child": "KissingFidgets", "optional": true}],
 		},
 	},
-	## The Pantyhose & Panties adapter is a world integration: it runs outside acts and has no
-	## per-act provider or bindings. Its feature flags drive the garment shader and the act-start
-	## undress; see `docs/integrations.md` (`## Pantyhose & Panties`).
+	## The Pantyhose & Panties adapter is a world integration: it has no per-act provider or
+	## bindings and runs its own every-frame pass. Its feature flags drive the garment shader, the
+	## cloth jiggle and the act-start undress; see `docs/integrations.md` (`## Pantyhose & Panties`).
 	"pantyhose": {
 		"mod_id": "pantyhose",
 		"mod_name": "Pantyhose & Panties",

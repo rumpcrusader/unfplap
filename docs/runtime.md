@@ -147,8 +147,8 @@ the act pony never reaches the act.
 - the runtime is reparented to `main` before the old body is freed;
 - the pose session, the anatomy act handle, the navigator lease, the face-turn hold, the camera
   shot and the body-bound controllers are released; the kiss and hand contact are reset, a held
-  body is released, the act-key hold and the auto stroke are dropped, the cached form hint is
-  cleared, the bones are put back and the breath stops;
+  body is released, the act-key hold and the auto stroke are dropped, the cached form-state debug
+  label is cleared, the bones are put back and the breath stops;
 - the outer act state, depth, penetration, climaxes, readiness, satisfaction, summary, event id,
   serial, settings snapshot and dialogue state stay in the runtime. The player stays locked, the
   HUD stays up and the outer camera is not restored to the player as an idle camera.
@@ -238,17 +238,22 @@ event in the `FORM_REVEAL` slot, one `FORM_REVEAL_PEAK_SCORE` peak, and the `for
 summary/act-history commit reads for an extra great-act comfort. It is recorded once before the
 effects, so a second ask in the same act does nothing. Her own reveal and any named shape are
 neutral: the handover runs, the act continues, and none of the exceptional effects apply. The same
-runtime keeps the flags across the swap; `_end_session()` clears the pending offer and hint.
+runtime keeps the flags across the swap; `_end_session()` clears the pending offer and the debug
+form label.
 
 The player's offer survives her own change. An AI-origin shape change leaves `_shape_offer_pending`
 set, and only the shape the player names through the offer clears it; a player-requested reveal
 leaves it set too. The offer is therefore still available after her AI takes or leaves a shape.
 
-`_form_hint_tick()` caches the act's one hint for the HUD: the reveal ask while she wears another
-shape and the reveal is unused, the name prompt while the offer is pending, otherwise nothing. It
-runs on the state and event changes, not per frame, and `shared/act_facts.gd` carries the string.
-`_climax()`, `_afterglow_begin()`, `_restore_begin()`, the suspension and the act end all clear
-it, so it never stays visible after the player can no longer act on it.
+`_form_hint_tick()` is a debug log probe, not a HUD source. It names the reveal ask while she wears
+another shape and the reveal is unused, and the name prompt while the offer is pending, but only
+when **Enable debug** was on at the act's settings snapshot; `_form_hint` itself is always empty, so
+neither a release nor a debug build puts the dialogue channel on the HUD. The reveal and the gift
+are for the player to discover from her own words and behaviour. The probe runs on the state and
+event changes, not per frame, and `shared/act_facts.gd` keeps the empty `form_hint` field so the act
+view and the card's existing row need no shape change. The debug label clears at the climax,
+afterglow, restore, suspension and act end, so the log never claims an action the player can no
+longer take.
 
 ## Teardown
 
@@ -356,14 +361,24 @@ config falls back to `SETTINGS.pose(id, "standing")["gaps"]`. The shipped values
 `default.poses.standing.gaps`; the runtime keeps no gap table or numeric fallback, and a per-mare
 pose override still wins. The gap is measured from her centre, and a princess body's entrance sits
 further back or forward than the mare's the gaps were tuned on, so `_standing_gap()` adds the
-entrance's back offset (`camera/service.gd:entrance_offset()`); Anon keeps the same distance from
-her entrance.
+entrance's back offset (`camera/service.gd:entrance_offset()`).
+
+That gap is the pre-act view, not the contact distance. Before the act, `_begin_standing_placement()`
+fits Anon's whole body: it takes the part's natural pivot (`player_root_natural()`, the applied Hips
+offset removed), her live opening and outward rear, and shifts his horizontal position so the pivot
+starts one shaft behind her entrance. The fit is bounded by `STANDING_FIT_MAX_M`, skipped on a
+stool, and repeated by the shape resume through `_reanchor_player_after_swap()`. It clears the
+part's old Hips handshake (`player_reset_pelvis()`) after measuring, so a body swap cannot carry the
+previous body's offset into the fit. The per-frame aim then owns the stroke's pelvis correction; a
+standing start no longer pulls the Hips bone across the gap. The fit log line carries
+`fit=<signed metres>` beside the placement.
 
 ## Tests
 
 - `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags and the oral edge's
-  consent/feature refusals plus its abort through `_end_session`, and the standing gap's princess
-  entrance shift.
+  consent/feature refusals plus its abort through `_end_session`, the standing gap's princess
+  entrance shift, and the whole-body fit that rests the shaft at her entrance with a stale Hips
+  offset removed.
 - `tests/test_runtime_notes.gd` — the prompt forwards.
 - `tests/poses/test_pose_offer.gd` — the typed offer, the Agreement/hotkey outcome table and the
   one start path. The idle hint no longer keeps a policy snapshot; its readiness is
@@ -380,8 +395,9 @@ her entrance.
   completes as the shape, a missing shape restores the offer on the new body, the watchdog with a
   body resumes as a failed shape, a change the source started on its own, a repeated change, a
   failed change resumes the old body, a source that goes inactive, the no-body watchdog and an
-  ineligible body end through the one exit, a world close during the swap is safe, the hint clears
-  on the state changes, a failed named change restores the offer, her own change keeps the player's
+  ineligible body end through the one exit, a world close during the swap is safe, the debug form
+  label clears on the state changes while the HUD string stays empty, a failed named change restores
+  the offer, her own change keeps the player's
   offer, a late body is adopted once after the grace instead of resuming the old body, a change
   during the restore finishes the act through the one exit, and a held body refuses the request.
   The entry's adoption rules and the LOD refresh hook are pinned in

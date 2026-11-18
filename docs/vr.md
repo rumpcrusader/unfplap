@@ -45,10 +45,10 @@ controller.
   `oral_ready()` is open. `docs/anatomy.md` owns the behavior.
 - VR is behind the anatomy master. Desktop human Anon owns the free act camera.
 - A form change in the optional VR standing act uses the same handover, with no new input-map key:
-  the reveal ask and the named shape still arrive through the game's own talk turn. The act-HUD
-  form hint (`docs/hud.md`) is the desktop panel; if the VR HUD does not render it, the dialogue
-  input still works and the hint is the fallback the player can ignore. The flame covers the
-  re-pose and the camera/view adjustment; the head-tracked view is not broken by the reopen.
+  the reveal ask and the named shape still arrive through the game's own talk turn. There is no
+  act-HUD form hint in any build; the player discovers the reveal and the gift. **Enable debug**
+  writes the state to the run log only (`docs/runtime.md`). The flame covers the re-pose and the
+  camera/view adjustment; the head-tracked view is not broken by the reopen.
 
 ## Lab
 

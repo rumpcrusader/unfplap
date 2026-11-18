@@ -98,8 +98,8 @@ consent(pony, key), status(text)
 garment_hull(pony), garment_transform(pony), garment_visible(pony), garment_parent(pony)
 garment_hull_rebuild(), note_act_started(pony)
 player_encounter(on), player_showing()
-player_prepare(), player_root_now(), player_shaft_length_m()
-player_hip_offset(), player_note_hip_offset(offset), player_debug_scale()
+player_prepare(), player_root_now(), player_root_natural(), player_shaft_length_m()
+player_hip_offset(), player_note_hip_offset(offset), player_reset_pelvis(), player_debug_scale()
 ```
 
 The Placement editor is `anatomy/placement_editor.gd`, owned by the facade as `placement_editor`.
@@ -690,13 +690,29 @@ sample of the body coat.
 - The act writes the part's per-frame aim through `set_aim(normal, opening, pitch)` and the
   missionary slide through `set_bed_inset(metres)`. `bed_inset_m` comes from the act's
   once-per-act `part_inset_m`; a live debug edit applies at the next act.
+- Her opening's outward normal is the anatomy mesh's own rear (+Z). The V2 mesh authors the vulva
+  on that axis and the coat shader reads the same `vulva_out`, so the mesh is authoritative; a
+  body fit, a shape or a body swap may move the hips reference but cannot reverse the authored
+  mesh. `_compute_normal()` uses `pony_hips` only when the mesh rear is degenerate. In **Enable
+  debug**, the act logs `anatomy aim` every two seconds with the normal, hole, rear, hips, part
+  root, hip offset, body-fit id, body scale and penetration.
 - The hip-offset handshake is two-way: the part publishes `hip_offset_wanted` and accepts
-  `hip_offset_applied` after the pose moves his pelvis. `reset_state()` clears the offset, aim,
-  bend, squash, shader squish, throb, bed inset and the smoothed penetration, so a following act
-  never inherits the previous transform. A closing world removes the player body, and the part
-  with it, from the tree before `world_closed` reaches the facade, so the part never reads a mesh
-  world transform outside the tree: that reset only collects the bed holder, and the next
-  `prepare()` or encounter rebuilds a detached part on the current body.
+  `hip_offset_applied` after the pose moves his pelvis. `root_natural()` returns the pivot with
+  the applied offset removed, so a placement can measure where the part sits without the last
+  pose. `reset_pelvis()` clears the applied/wanted offset, the aim, the bend and the smoothed
+  penetration without touching the mesh, the act's throb or the act state; the body swap's resume
+  and the standing start call it through the service.
+- A standing start fits Anon's whole body before the act: `_begin_standing_placement()` uses the
+  natural pivot, the live opening and the mesh rear to put his pivot one shaft behind her
+  entrance, bounded by `STANDING_FIT_MAX_M` and skipped on a stool. The fit removes the old
+  handshake after measuring, so the first act tick starts from a clean stance; the per-frame aim
+  then moves only his pelvis for the stroke. A shape resume repeats the fit on the new body.
+- `reset_state()` also clears the offset, aim, bend, squash, shader squish, throb, bed inset and the
+  smoothed penetration, so a following act never inherits the previous transform. A closing world
+  removes the player body, and the part with it, from the tree before `world_closed` reaches the
+  facade, so the part never reads a mesh world transform outside the tree: that reset only collects
+  the bed holder, and the next `prepare()` or encounter rebuilds a detached part on the current
+  body.
 - `poses/missionary_anon.gd` adds the act-only `bed_inset_m` to `part_front_m` for the bed pose. The
   part is fully reset by `encounter(false)` and `encounter(true)`.
 - `shaft_length_m()` is the visible placed length; the runtime's penetration reach is
@@ -940,7 +956,8 @@ Current suites:
   the placement editor delegation and the tail-seat row integration.
 - `tests/anatomy/test_part.gd`: the player part's prepare/encounter, the tip and root, the bed
   holder, `reset_state`, the throb/girth/length shaping, the controller's part handle and track
-  forward, the face contact's parked part and restored opening, and the act wink scheduler.
+  forward, the face contact's parked part and restored opening, the act wink scheduler, the
+  anatomy rear as the authoritative outward normal, and the body-swap pelvis reset.
 - `tests/anatomy/test_coat.gd`: the refined winking mesh, the V2 anal keys, the rig and near-palette
   shader patch, the drawn coat choice over a hidden game body, the vulva cut and the still zones.
 - `tests/anatomy/test_heat.gd`: the idle heat suppression, phase poll, rest shape and wink

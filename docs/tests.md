@@ -128,14 +128,15 @@ act state, depth, climaxes and event id intact, the old runtime still alive, the
 pose bound, adoption binding without resuming until the named shape reports its target, the target
 completing as the shape, a missing shape restoring the offer on the new body, the watchdog with a
 body resuming as a failed shape, a change the source started on its own, a repeated change, the
-hint clearing at each state change, a failed named change restoring the offer, her own change
-keeping the player's offer, a late body adopted once after the grace, a change during restore
-finishing through the one exit, a held body refusing the request, and the no-body watchdog,
+debug form-state label clearing at each state change while the HUD string stays empty, a failed
+named change restoring the offer, her own change keeping the player's offer, a late body adopted
+once after the grace, a change during restore finishing through the one exit, a held body refusing
+the request, the part's old pelvis handshake cleared on resume, and the no-body watchdog,
 ineligible-shape and world-close paths ending through the one exit.
 `tests/test_source_hygiene.gd` pins the entry's adopt-before-create order, the late-adoption path,
-the runtime's reparent guard, the shape-gated resume, the LOD refresh hook, the hint-clearing call
-sites, the shell scripts' errexit prelude and the generic core's freedom from the adapter's
-vocabulary. The contract is `docs/runtime.md`.
+the runtime's reparent guard, the shape-gated resume, the LOD refresh hook, the debug form-label
+clearing call sites, the shell scripts' errexit prelude and the generic core's freedom from the
+adapter's vocabulary. The contract is `docs/runtime.md`.
 
 The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
 `test_pose_registry.gd`, `test_pose_spec.gd`, `test_pose_view.gd`, `test_session.gd`,

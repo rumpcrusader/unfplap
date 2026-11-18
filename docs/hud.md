@@ -63,14 +63,13 @@ caress. An unlimited limit uses the 3-climax reference.
 - `act_controls` shows the control card. Off hides only the card; the cue,
   readiness line and close prompt remain.
 - Top to bottom: cue line `❤ N/limit | cue` (or `❤ N/∞` when the climax limit is unlimited),
-  readiness line `Wants: intensity & pattern | You: intensity & pattern`, the form-change hint,
-  auto readout `Auto · 20–80% · 1.50/s · Normal` while auto is on, blank separator, controls.
-- The form-change hint is one pink-accent line from `view.form_hint`, written by the runtime
-  (`docs/runtime.md`): the reveal ask while the act pony is in another shape, the name prompt
-  while the post-climax offer is pending, otherwise hidden. It names the game's talk turn and never
-  a new key. It is empty outside `ACTIVE`; the runtime clears the cached string at the climax,
-  afterglow, restore, suspension and act end, so it never lingers after the player can no longer
-  act on it. It is independent of `hud_readouts` and `hud_controls`.
+  readiness line `Wants: intensity & pattern | You: intensity & pattern`, the (always empty) form
+  row, auto readout `Auto · 20–80% · 1.50/s · Normal` while auto is on, blank separator, controls.
+- The form-change row stays in the card for layout compatibility but the runtime never fills it.
+  A release must not name the reveal or the gift: the player discovers both from her own words and
+  behaviour. **Enable debug** writes the state to the run log through `docs/runtime.md`, not to
+  `view.form_hint`; the row is empty outside a manually supplied view string. It is independent of
+  `hud_readouts` and `hud_controls`.
 - While the hold-X layer is open the control card is replaced by X (`Hold`, `Auto settings`),
   Q A (`Min depth N%`), W S (`Max depth N%`), E D (`Pace N/s`) and Z (`Shape: …`).
 - When readouts are off, the hearts remain; the cue and readiness line are hidden.

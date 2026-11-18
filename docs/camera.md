@@ -177,11 +177,13 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
   act's own `AnonBody`; `missionary_anon.remove()` restores the presentation, the avatar transform
   and its process at end, so the rotated bed body cannot appear inside the camera shot and the rig
   is back on the player afterwards.
-- **His body keeps the authored placement.** There is no second stroke asset: the attached
-  alignment moves his pelvis, never his whole body, so his head (the act camera) cannot swing on a
-  thrust. He is a human, so only his placement follows her size; the debug
-  `presentation.missionary.anon_size_match` (0…1) blends his body scale toward hers, 0 human and 1
-  a uniform scale with her.
+- **His body keeps the authored placement.** There is no second stroke asset: during the act the
+  attached alignment moves his pelvis, never his whole body, so his head (the act camera) cannot
+  swing on a thrust. The standing start's placement fit is the exception and runs before the act:
+  it moves his whole body once so the shaft rests at her entrance, then the camera is framed on the
+  fitted stance. A shape resume repeats that fit before the resumed framing. He is a human, so only
+  his placement follows her size; the debug `presentation.missionary.anon_size_match` (0…1) blends
+  his body scale toward hers, 0 human and 1 a uniform scale with her.
 - **The two base poses use the attached alignment.** `anon_part.gd`'s `_aim_attached()` turns the shaft
   about its base along her opening's normal and asks for `hip_offset_wanted`; the body that carries
   him applies that offset, so his pelvis follows the entrance and the shaft can never slide out of

@@ -485,7 +485,7 @@ overlay reads them.
   hook and the completion poll. An AI-started
   change is observed from a rising `busy`, claimed by identity before the shape is known and
   completed from the new body's variant; a `busy` on another body is ignored. The player hooks
-  cover the reveal phrases (including the hint's own “real her”), whole adult base/live names, the
+  cover the reveal phrases (“true form”, “real her” and the rest), whole adult base/live names, the
   imperative request phrases, negated and descriptive lines, names inside other words, ambiguous
   names, the worn shape and self, a population young or male body through the eligibility
   facade, and the population's copyable check.
@@ -549,18 +549,19 @@ overlay reads them.
   `[put_on: …]` or the pack's own controls): the same handover runs with no exceptional event. A
   change while she is not the act pony leaves the act alone; a visit end that removes her ends the
   act cleanly.
-- After one climax in her own form, wait for the offer line and the HUD hint; name a base adult
-  mare and check the act re-poses on that disguise with no comfort or peak boost. Name a young or
-  male body and check the short status and the unchanged act. Say a name without an imperative
-  (“you are a rarity”, “your name is Rarity”, “I don't want Rarity”) and check it is ordinary talk.
-- Let her own AI change shape while the offer waits: the act re-poses neutrally and the offer and
-  its HUD hint stay pending; naming a shape afterwards still works.
+- After one climax in her own form, wait for the offer line; no HUD row may name the reveal or the
+  gift. Name a base adult mare and check the act re-poses on that disguise with no comfort or peak
+  boost. Name a young or male body and check the short status and the unchanged act. Say a name
+  without an imperative (“you are a rarity”, “your name is Rarity”, “I don't want Rarity”) and
+  check it is ordinary talk.
+- Let her own AI change shape while the offer waits: the act re-poses neutrally and the offer stays
+  pending; naming a shape afterwards still works.
 - Leave the offer unanswered through an act end: no change, and the next act may offer again. A
   named change that fails before a new body arrives puts the offer back.
 - Let her AI start a change during the restore window: the act finishes its teardown through the
   one exit instead of leaving the body to be freed under the runtime.
-- Check the hint clears at the climax, afterglow and restore, and that a held body refuses the
-  request.
+- With **Enable debug** on, check the run log's `form hint suppressed` line clears at the climax,
+  afterglow and restore while the HUD row stays empty, and that a held body refuses the request.
 
 ## Related docs
 

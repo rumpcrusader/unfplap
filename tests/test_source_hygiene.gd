@@ -1225,10 +1225,13 @@ func _check_integrations_isolation(files: Array[String]) -> void:
 		var text := FileAccess.get_file_as_string(path)
 		var external := text.replace("mods/unfplap/integrations/service.gd", "")
 		external = external.replace("mods/unfplap/integrations/pantyhose.gd", "")
+		external = external.replace("mods/unfplap/integrations/changelings.gd", "")
 		check(not external.contains("mods/unfplap/integrations/"),
 			"%s uses the integrations facades only" % relative)
-		check(relative == "main.gd" or not text.contains("integrations/pantyhose.gd"),
-			"%s does not import the world adapter" % relative)
+		check(relative == "main.gd" or (
+			not text.contains("integrations/pantyhose.gd")
+			and not text.contains("integrations/changelings.gd")),
+			"%s does not import a world adapter" % relative)
 		check(not text.contains("res://mods/kissing/"),
 			"%s does not import Kissing internals" % relative)
 		# The one Idle Life bridge names the entry node for `Mods.on_node`; no file may preload
@@ -1250,6 +1253,16 @@ func _check_integrations_isolation(files: Array[String]) -> void:
 			"the pantyhose world adapter has no host preload: %s" % token)
 	check(world.contains("func on_world(") and world.contains("func on_world_closed("),
 		"the pantyhose world adapter exposes its world hooks")
+	var changelings := FileAccess.get_file_as_string(
+		ROOT.path_join("integrations/changelings.gd"))
+	for token: String in ["preload(\"res://mods/unfplap/runtime.gd\")",
+			"preload(\"res://mods/unfplap/main.gd\")",
+			"extends \"res://mods/unfplap/main.gd\""]:
+		check(not changelings.contains(token),
+			"the changelings adapter has no host preload: %s" % token)
+	check(changelings.contains("func installed_character_ids(")
+		and changelings.contains("func prepare_pony("),
+		"the changelings adapter exposes the installed list and body hooks")
 
 
 ## The integrations contract is linked from the docs that own the lifecycle, settings and tests.
@@ -1266,7 +1279,7 @@ func _check_integrations_docs() -> void:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
 		check(text.contains("docs/integrations.md"), "%s links to docs/integrations.md" % name)
 	for name: String in ["test_catalog.gd", "test_kissing.gd", "test_service.gd",
-			"test_hold.gd", "test_pantyhose.gd"]:
+			"test_hold.gd", "test_pantyhose.gd", "test_changelings.gd"]:
 		check(FileAccess.file_exists(ROOT.path_join("tests/integrations/" + name)),
 			"tests/integrations/%s exists" % name)
 

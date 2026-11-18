@@ -28,6 +28,7 @@ const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
+const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/audio/stock_smack.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
@@ -79,6 +80,8 @@ var api: Node
 var anatomy: Node
 ## The Pantyhose & Panties world adapter; inert when that pack is absent.
 var pantyhose: Node
+## The changelings (Queen Chrysalis) world adapter; inert when that pack is absent.
+var changelings: Node
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
 var stool: Node
 ## Outside-act stock smack sound layer; see `docs/audio.md`.
@@ -283,6 +286,10 @@ func _ready() -> void:
 	api.name = "UnfplapAPI"
 	api.call("_bind", self)
 	add_child(api)
+	changelings = CHANGELINGS.new()
+	changelings.name = "UnfplapChangelings"
+	changelings.call("setup", self)
+	add_child(changelings)
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [
@@ -329,6 +336,8 @@ func _on_world(host: Node) -> void:
 		stool.call("on_world", host)
 	if is_instance_valid(pantyhose):
 		pantyhose.call("on_world", host)
+	if is_instance_valid(changelings):
+		changelings.call("refresh")
 	_stool_hint_toast_shown = false
 	_last_blocked_key = ""
 	_interactor = null
@@ -544,6 +553,8 @@ func _on_pony(pony: Node) -> void:
 	# The player's own AnonPony is a pony_locomotion too. Never attach an intimacy runtime to her.
 	if pony.name == "PlayerPony" or is_instance_valid(pony.get("rig")):
 		return
+	if is_instance_valid(changelings):
+		changelings.call("prepare_pony", pony)
 	if is_instance_valid(anatomy):
 		anatomy.call("tail_ready", pony)
 	if is_instance_valid(stock_smack):
@@ -569,6 +580,7 @@ func _on_idle_life(node: Node) -> void:
 
 ## Live adult mares that are not in the base roster, for the Characters selector. A modded mare
 ## appears while she is in the world; her saved preset stays in settings.json when she despawns.
+## Installed-profile sources also list their mares while they are away.
 func live_character_ids() -> Array[String]:
 	var ids: Array[String] = []
 	for pony: Variant in _runtimes.keys():
@@ -576,9 +588,26 @@ func live_character_ids() -> Array[String]:
 				and eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER):
 			ids.append(ANATOMY.pony_id(pony))
 	var out: Array[String] = ANATOMY.off_roster_ids(ids, SETTINGS.CHARACTER_ORDER)
+	for id: String in installed_character_ids():
+		if not id in SETTINGS.CHARACTER_ORDER and not out.has(id):
+			out.append(id)
 	out.sort_custom(func(a: String, b: String) -> bool:
 		return SETTINGS.character_name(a).naturalnocasecmp_to(
 			SETTINGS.character_name(b)) < 0)
+	return out
+
+
+## Mares an active installed-profile source lists even while she is away. The source owns the
+## installation gate; the base roster stays the base roster.
+func installed_character_ids() -> Array[String]:
+	var out: Array[String] = []
+	if is_instance_valid(changelings):
+		var ids: Variant = changelings.call("installed_character_ids")
+		if ids is Array:
+			for raw: Variant in ids:
+				var id := str(raw).strip_edges()
+				if not id.is_empty() and not out.has(id):
+					out.append(id)
 	return out
 
 
@@ -2601,6 +2630,10 @@ func _exit_tree() -> void:
 	if is_instance_valid(eligibility):
 		eligibility.clear()
 		eligibility = null
+	if is_instance_valid(changelings):
+		changelings.call("shutdown")
+		changelings.queue_free()
+		changelings = null
 	if is_instance_valid(api):
 		api.call("_shutdown")
 		api.queue_free()

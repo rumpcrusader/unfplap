@@ -830,6 +830,7 @@ built from the declarations, so the label, help and bounds are not restated here
 | shared | body_profile | `shared/body_profile.gd` | princess body profile and fit key |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
+| shared | preferences | `shared/preferences.gd` | teat size preset |
 
 ## Tests
 

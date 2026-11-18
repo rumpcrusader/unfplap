@@ -10,6 +10,8 @@ const TEAT_JIGGLE := preload("res://mods/unfplap/anatomy/teat_jiggle.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const BODY_FIT := preload("res://mods/unfplap/anatomy/body_fit.gd")
 const UDDER := preload("res://mods/unfplap/anatomy/udder.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
@@ -300,11 +302,17 @@ func _attach_skin_strip() -> void:
 
 
 func _teat_size() -> float:
+	var identity: Variant = pony.get("identity")
+	# Her Characters-tab preset (Teat size) wins over the automatic size.
+	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), identity)
+	var chosen := str(SETTINGS.preferences(id).get("teat_size", "auto")) \
+		if not id.is_empty() else "auto"
+	if PREFERENCES.TEAT_SIZE_VALUES.has(chosen):
+		return float(PREFERENCES.TEAT_SIZE_VALUES[chosen])
 	var look: Variant = PRINCESS_TEATS.get(IDENTITY.body_fit_id(pony), null)
 	if look is Dictionary and (look as Dictionary).has("size"):
 		return clampf(float((look as Dictionary)["size"]), 0.0, 1.0)
 	# From her name, in quarter steps: a town of mares then shares a handful of built shapes.
-	var identity: Variant = pony.get("identity")
 	var name_id := str(identity.get("id")) if identity != null else ""
 	return snappedf(float(absi(name_id.hash()) % 101) / 100.0, 0.25)
 

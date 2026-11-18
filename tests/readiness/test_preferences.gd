@@ -27,6 +27,23 @@ func run() -> void:
 	check(str(neutral.get("tolerance", "")) == "normal", "default tolerance normal")
 	check((neutral.get("touch", []) as Array).is_empty(), "default touch empty")
 	check((neutral.get("talk", []) as Array).is_empty(), "default talk empty")
+	check(str(neutral.get("teat_size", "")) == "auto", "default teat size auto")
+
+	# The teat size is a per-mare look, in display order; Auto is not a size value.
+	check(PREF.TEAT_SIZES == ["auto", "small", "medium", "large", "huge"],
+		"the teat sizes are in display order")
+	check(not PREF.TEAT_SIZE_VALUES.has("auto"), "Auto keeps the automatic size")
+	var last_size := -1.0
+	for size_name: String in PREF.TEAT_SIZES:
+		if size_name == "auto":
+			continue
+		var size_value := float(PREF.TEAT_SIZE_VALUES.get(size_name, -1.0))
+		check(size_value > last_size, "%s is larger than the previous size" % size_name)
+		last_size = size_value
+	check(str(PREF.resolve({"teat_size": "LARGE"}).get("teat_size", "")) == "large",
+		"the teat size is case-insensitive")
+	check(str(PREF.resolve({"teat_size": "nonsense"}).get("teat_size", "")) == "auto",
+		"an unknown teat size falls back to auto")
 
 	check(PREF.intensity_for(0.10) == "soft", "soft intensity band")
 	check(PREF.intensity_for(0.50) == "firm", "firm intensity band")
@@ -76,12 +93,14 @@ func run() -> void:
 		"talk": ["praise", "nonsense"],
 		"warmth": "quick",
 		"tolerance": "strict",
+		"teat_size": "huge",
 		"notes": "  private  ",
 	})
 	check(str(preference.get("intensity", "")) == "rough", "valid intensity kept")
 	check(str(preference.get("pattern", "")) == "teasing", "valid pattern kept")
 	check(str(preference.get("warmth", "")) == "quick", "valid warmth kept")
 	check(str(preference.get("tolerance", "")) == "strict", "valid tolerance kept")
+	check(str(preference.get("teat_size", "")) == "huge", "valid teat size kept")
 	check((preference["touch"] as Array).has("smack"), "liked touch kept")
 	check(not (preference["touch"] as Array).has("nonsense"), "unknown touch dropped")
 	check(not (preference["dislikes"] as Array).has("smack"), "liked/disliked overlap removed")

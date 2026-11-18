@@ -15,9 +15,14 @@ const TOUCHES := ["smack", "caress", "kiss"]
 const TALKS := ["praise", "reassurance", "dirty", "playful"]
 const WARMTHS := ["quick", "normal", "slow"]
 const TOLERANCES := ["forgiving", "normal", "strict"]
+## Her teat size (the generated pair, anatomy/udder.gd): `auto` keeps the size picked for her (a
+## princess's own, or one from her name).
+const TEAT_SIZES := ["auto", "small", "medium", "large", "huge"]
+const TEAT_SIZE_VALUES := {"small": 0.0, "medium": 0.5, "large": 1.0, "huge": 1.4}
 ## The profile fields, in display order. The shipped values live under `default.preferences` in
 ## `settings/defaults.json`; this list is the schema, not a default.
-const KEYS := ["intensity", "pattern", "touch", "dislikes", "talk", "warmth", "tolerance", "notes"]
+const KEYS := ["intensity", "pattern", "touch", "dislikes", "talk", "warmth", "tolerance", "notes",
+	"teat_size"]
 
 ## Strength is travel x peak-speed factor from readiness/thrust.gd, clamped 0..1. This is the physical
 ## impact value used by the audio and the foley, not the preference axis.
@@ -54,6 +59,7 @@ static func resolve(raw: Variant) -> Dictionary:
 	out["warmth"] = _enum(str(out.get("warmth", "normal")).to_lower(), WARMTHS, "normal")
 	out["tolerance"] = tolerance_tier(str(out.get("tolerance", "normal")))
 	out["notes"] = str(out.get("notes", "")).strip_edges()
+	out["teat_size"] = _enum(str(out.get("teat_size", "auto")).to_lower(), TEAT_SIZES, "auto")
 	# A liked item cannot also be disliked.
 	var dislikes: Array = []
 	for key: Variant in out["dislikes"]:

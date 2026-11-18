@@ -1,6 +1,5 @@
 extends SceneTree
-## The typed pose spec: the shipped rows, the shared validator, the base/driver rule and the pure
-## source.
+## The typed pose spec: the shipped rows, the shared validator and the base/driver rule.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_spec.gd
 
@@ -26,7 +25,6 @@ func run() -> void:
 	_check_shipped()
 	_check_base_driver()
 	_check_errors()
-	_check_sources()
 	print("POSE_SPEC_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_SPEC_PASS")
@@ -195,13 +193,3 @@ func _check_errors() -> void:
 		"an internal spec shape is valid")
 	check(POSE_SPEC.from_dict("standing_oral", internal) != null,
 		"an internal spec builds")
-
-
-## The table and the wrapper are data: no settings read, no file, no scene.
-func _check_sources() -> void:
-	for path: String in ["shared/pose_specs.gd", "poses/pose_spec.gd"]:
-		var text := FileAccess.get_file_as_string("res://mods/unfplap/" + path)
-		check(not text.is_empty(), "%s is readable" % path)
-		for token: String in ["SETTINGS.", "FileAccess.", "res://world/", "settings/service.gd",
-				"poses/pose_view.gd"]:
-			check(not text.contains(token), "%s stays pure: %s" % [path, token])

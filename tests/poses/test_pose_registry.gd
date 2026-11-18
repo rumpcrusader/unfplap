@@ -35,6 +35,7 @@ func run() -> void:
 	_check_shipped()
 	_check_edges()
 	_check_catalog()
+	_check_defaults()
 	_check_table()
 	print("POSE_REGISTRY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -100,6 +101,37 @@ func _check_catalog() -> void:
 	var keys: Array = CATALOG.POSE_KEYS.keys()
 	keys.sort()
 	check(keys == public_ids, "POSE_KEYS stays the public schema")
+
+
+## The catalog schema: each public row's shipped defaults carry exactly its `POSE_KEYS`, the
+## standing gaps cover every `GAP_KEYS` entry, only public rows are offerable and an unknown id
+## fails closed.
+func _check_defaults() -> void:
+	for id: String in CATALOG.all():
+		var defaults: Dictionary = CATALOG.defaults(id)
+		check(not defaults.is_empty(), "the shipped defaults exist for " + id)
+		var keys: Array = defaults.keys()
+		keys.sort()
+		var expected: Array = CATALOG.POSE_KEYS[id].duplicate()
+		expected.sort()
+		check(keys == expected, "the shipped defaults match the pose schema for " + id)
+	var gaps: Variant = CATALOG.defaults(CATALOG.STANDING).get("gaps", {})
+	check(gaps is Dictionary and (gaps as Dictionary).size() == CATALOG.GAP_KEYS.size(),
+		"the standing size gaps cover GAP_KEYS")
+	var missing: Array = []
+	for key: String in CATALOG.GAP_KEYS:
+		if not (gaps is Dictionary and (gaps as Dictionary).has(key)):
+			missing.append(key)
+	check(missing.is_empty(), "the standing size gaps carry every key: %s" % str(missing))
+	check(CATALOG.defaults("no_such_pose").is_empty(), "an unknown pose reads no defaults")
+	for id: String in CATALOG.all():
+		check(SPECS.is_public(id) and SPECS.is_offerable(id),
+			"a public pose is offerable: " + id)
+	for id: String in [CATALOG.STANDING_TEST, CATALOG.STANDING_ORAL, CATALOG.BED_FACESIT]:
+		check(not SPECS.is_public(id) and not SPECS.is_offerable(id),
+			"an internal pose is not offerable: " + id)
+		check(CATALOG.defaults(id).is_empty() and not CATALOG.POSE_KEYS.has(id),
+			"an internal pose has no settings template: " + id)
 
 
 func _check_table() -> void:

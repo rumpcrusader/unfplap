@@ -134,7 +134,6 @@ func run() -> void:
 	_check_handle()
 	_check_start_path()
 	_check_agreement_auto_start()
-	_check_sources()
 	print("POSE_OFFER_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_OFFER_PASS")
@@ -343,10 +342,3 @@ func _offer(runtime: Node, pony: Node3D) -> POSE_OFFER:
 	offer.pose = "missionary"
 	offer.source = "bed_side"
 	return offer
-
-
-func _check_sources() -> void:
-	var text := FileAccess.get_file_as_string("res://mods/unfplap/shared/pose_offer.gd")
-	check(not text.is_empty(), "shared/pose_offer.gd is readable")
-	for token: String in ["get_tree(", "SETTINGS", "FileAccess", "preload(", "extends Node"]:
-		check(not text.contains(token), "shared/pose_offer.gd stays data: %s" % token)

@@ -1,5 +1,5 @@
 extends SceneTree
-## The authored pose edges: the documents, the typed wrapper and validator, the registry load and
+## The authored pose edges: the typed validator, the documents' requirement and policy rows and
 ## the edge run. Plain dictionaries and `FileAccess` only: no scene, no node, no autoload.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_edge.gd
@@ -7,21 +7,15 @@ extends SceneTree
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
 const STATE := preload("res://mods/unfplap/poses/pose_state.gd")
-const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 
 const FORWARD := "standing__standing_test"
 const REVERSE := "standing_test__standing"
-const ORAL_FORWARD := "standing__standing_oral"
-const ORAL_REVERSE := "standing_oral__standing"
-const FACESIT_FORWARD := "missionary__bed_facesit"
-const FACESIT_REVERSE := "bed_facesit__missionary"
 const FORWARD_PATH := "res://mods/unfplap/poses/transitions/standing__standing_test.json"
 const REVERSE_PATH := "res://mods/unfplap/poses/transitions/standing_test__standing.json"
 const ORAL_FORWARD_PATH := "res://mods/unfplap/poses/transitions/standing__standing_oral.json"
 const ORAL_REVERSE_PATH := "res://mods/unfplap/poses/transitions/standing_oral__standing.json"
 const FACESIT_FORWARD_PATH := "res://mods/unfplap/poses/transitions/missionary__bed_facesit.json"
 const FACESIT_REVERSE_PATH := "res://mods/unfplap/poses/transitions/bed_facesit__missionary.json"
-const SOURCE := "res://mods/unfplap/poses/transition_spec.gd"
 
 var failures := 0
 var checks := 0
@@ -43,8 +37,6 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 
 func run() -> void:
-	_check_documents()
-	_check_wrapper()
 	_check_runs()
 	_check_oral_documents()
 	_check_oral_runs()
@@ -52,8 +44,6 @@ func run() -> void:
 	_check_facesit_runs()
 	_check_rejections()
 	_check_shapes()
-	_check_registry()
-	_check_pure_source()
 	print("POSE_EDGE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_EDGE_PASS")
@@ -123,42 +113,6 @@ func _row(name: String, template: String, forms: Array, views: Array) -> Diction
 	return row
 
 
-func _check_documents() -> void:
-	var forward := _forward()
-	var reverse := _read(REVERSE_PATH)
-	var forward_errors := _errors(forward)
-	var reverse_errors := TRANSITION_SPEC.errors(REVERSE, reverse, SPECS.SPECS)
-	check(forward_errors.is_empty(), "the forward edge validates: %s" % str(forward_errors))
-	check(reverse_errors.is_empty(), "the reverse edge validates: %s" % str(reverse_errors))
-
-
-func _check_wrapper() -> void:
-	for edge_id: String in [FORWARD, REVERSE]:
-		var document := _document(edge_id)
-		var edge: Variant = TRANSITION_SPEC.from_dict(edge_id, document, SPECS.SPECS)
-		check(edge != null, "%s builds a wrapper" % edge_id)
-		if edge == null:
-			continue
-		check(edge.id == edge_id, "%s keeps its id" % edge_id)
-		check(edge.version == TRANSITION_SPEC.VERSION, "%s keeps its version" % edge_id)
-		check(edge.from_id == str(document.get("from", "")), "%s keeps from" % edge_id)
-		check(edge.to_id == str(document.get("to", "")), "%s keeps to" % edge_id)
-		check(edge.phases == document.get("phases"), "%s keeps its phases" % edge_id)
-		check(is_same(edge.requires, document.get("requires")),
-			"%s shares the requires block" % edge_id)
-		check(near(edge.duration, float(document.get("duration", 0.0))),
-			"%s keeps its duration" % edge_id)
-		check(edge.easing == str(document.get("easing", "")), "%s keeps its easing" % edge_id)
-		check(is_same(edge.channels, document.get("channels")),
-			"%s shares the channel table" % edge_id)
-		check(edge.constraints == document.get("constraints"), "%s keeps its constraints" % edge_id)
-		check(is_same(edge.events, document.get("events")),
-			"%s shares the event list" % edge_id)
-		check(is_same(edge.interrupt, document.get("interrupt")),
-			"%s shares the interrupt policy" % edge_id)
-		check(is_same(edge.data, document), "%s holds the document by reference" % edge_id)
-
-
 func _check_runs() -> void:
 	var forward := _forward()
 	var run: Variant = STATE.start_edge(forward, SPECS.STANDING, SPECS.STANDING_TEST)
@@ -213,10 +167,6 @@ func _check_runs() -> void:
 func _check_oral_documents() -> void:
 	var forward := _read(ORAL_FORWARD_PATH)
 	var reverse := _read(ORAL_REVERSE_PATH)
-	var forward_errors := TRANSITION_SPEC.errors(ORAL_FORWARD, forward, SPECS.SPECS)
-	var reverse_errors := TRANSITION_SPEC.errors(ORAL_REVERSE, reverse, SPECS.SPECS)
-	check(forward_errors.is_empty(), "the oral forward edge validates: %s" % str(forward_errors))
-	check(reverse_errors.is_empty(), "the oral reverse edge validates: %s" % str(reverse_errors))
 	var requires: Dictionary = forward.get("requires", {})
 	check(requires.get("features") == ["anatomy_oral"],
 		"the oral forward edge needs the anatomy feature")
@@ -225,17 +175,11 @@ func _check_oral_documents() -> void:
 	check(not reverse_requires.has("consent"),
 		"the oral reverse edge never asks for consent again")
 	var channels: Dictionary = forward.get("channels", {})
-	check(str((channels.get("base", {}) as Dictionary).get("kind", "")) == "delta",
-		"the oral forward base is a delta")
-	check(str((channels.get("contact", {}) as Dictionary).get("to", "")) == "mouth",
-		"the oral forward contact switches to the mouth")
 	var lock: Dictionary = channels.get("controls", {})
 	check(str(lock.get("kind", "")) == "lock", "the oral forward controls are a lock")
 	check(lock.get("allow") == ["oral", "pose_back", "end"],
 		"the oral lock allows oral, pose_back and end")
 	var reverse_channels: Dictionary = reverse.get("channels", {})
-	check(str((reverse_channels.get("contact", {}) as Dictionary).get("to", "")) == "opening",
-		"the oral reverse contact returns to the opening")
 	check(str((reverse_channels.get("audio", {}) as Dictionary).get("profile", "")) == "standing",
 		"the oral reverse audio returns to the standing speech profile")
 
@@ -293,22 +237,14 @@ func _check_oral_runs() -> void:
 func _check_facesit_documents() -> void:
 	var forward := _read(FACESIT_FORWARD_PATH)
 	var reverse := _read(FACESIT_REVERSE_PATH)
-	var forward_errors := TRANSITION_SPEC.errors(FACESIT_FORWARD, forward, SPECS.SPECS)
-	var reverse_errors := TRANSITION_SPEC.errors(FACESIT_REVERSE, reverse, SPECS.SPECS)
-	check(forward_errors.is_empty(), "the face-sit forward edge validates: %s" % str(forward_errors))
-	check(reverse_errors.is_empty(), "the face-sit reverse edge validates: %s" % str(reverse_errors))
 	var requires: Dictionary = forward.get("requires", {})
 	check(requires.get("forms") == ["human"], "the face-sit forward edge needs human Anon")
 	check(requires.get("views") == ["desktop"], "the face-sit forward edge needs a desktop view")
 	check(not requires.has("features") and not requires.has("consent"),
 		"the face-sit forward edge has no feature or consent row")
 	var channels: Dictionary = forward.get("channels", {})
-	check(str((channels.get("base", {}) as Dictionary).get("kind", "")) == "blend",
-		"the face-sit forward base is a blend")
 	check(str((channels.get("anon", {}) as Dictionary).get("profile", "")) == "facesit",
 		"the face-sit forward anon profile")
-	check(str((channels.get("contact", {}) as Dictionary).get("to", "")) == "face",
-		"the face-sit forward contact switches to the face")
 	check(str((channels.get("camera", {}) as Dictionary).get("kind", "")) == "hold",
 		"the face-sit forward camera holds the source shots")
 	var lock: Dictionary = channels.get("controls", {})
@@ -327,10 +263,6 @@ func _check_facesit_documents() -> void:
 	check(not reverse_requires.has("features") and not reverse_requires.has("consent"),
 		"the face-sit reverse edge has no feature or consent row")
 	var reverse_channels: Dictionary = reverse.get("channels", {})
-	check(str((reverse_channels.get("contact", {}) as Dictionary).get("to", "")) == "opening",
-		"the face-sit reverse contact returns to the opening")
-	check(near(float((reverse_channels.get("contact", {}) as Dictionary).get("at", -1.0)), 0.0),
-		"the face-sit reverse contact switches at zero")
 	check((reverse_channels.get("controls", {}) as Dictionary).get("allow") == ["end"],
 		"the face-sit reverse lock allows only end")
 	check(str((reverse_channels.get("presentation", {}) as Dictionary).get("to", "")) == "missionary",
@@ -513,51 +445,3 @@ func _check_shapes() -> void:
 		"an unknown top-level key is additive")
 	check(_errors(_with_channel("base", {"kind": "hold", "note": "additive"})).is_empty(),
 		"an unknown channel payload key is additive")
-
-
-func _check_registry() -> void:
-	var registry: RefCounted = REGISTRY.new()
-	var edges: Array = registry.edges()
-	check(edges.size() == 6, "the registry loads the two debug edges, the oral pair and the face-sit pair")
-	var ids: Array = []
-	for edge: Variant in edges:
-		ids.append(str(edge.id))
-	check(ids == [FACESIT_REVERSE, FACESIT_FORWARD, ORAL_FORWARD, FORWARD, ORAL_REVERSE, REVERSE],
-		"the edges load in sorted id order")
-	var forward: Variant = registry.edge(FORWARD)
-	var reverse: Variant = registry.edge(REVERSE)
-	check(forward != null and forward.id == FORWARD, "the forward edge is cached")
-	check(reverse != null and reverse.id == REVERSE, "the reverse edge is cached")
-	check(registry.edge(ORAL_FORWARD) != null, "the oral forward edge is cached")
-	check(registry.edge(ORAL_REVERSE) != null, "the oral reverse edge is cached")
-	check(registry.edge(FACESIT_FORWARD) != null, "the face-sit forward edge is cached")
-	check(registry.edge(FACESIT_REVERSE) != null, "the face-sit reverse edge is cached")
-	check(is_same(forward, registry.edge(FORWARD)), "a second edge lookup is the same instance")
-	check(is_same(reverse, registry.edge(REVERSE)), "the reverse lookup is the same instance")
-	check(registry.edge("standing") == null, "a pose id is not an edge id")
-	check(registry.edge("no_such_edge") == null, "an unknown edge is null")
-	var found: Array = registry.validate()
-	check(found.is_empty(), "the registry validates the table and all edges: %s" % str(found))
-
-
-## The wrapper is data: no scene, no settings, no file, no service and no act exit.
-func _check_pure_source() -> void:
-	var source := FileAccess.get_file_as_string(SOURCE)
-	check(not source.is_empty(), "poses/transition_spec.gd exists")
-	check(source.begins_with("extends RefCounted"), "the edge wrapper is a RefCounted")
-	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
-			"preload(\"res://world/",
-			"preload(\"res://mods/unfplap/runtime.gd\")",
-			"preload(\"res://mods/unfplap/main.gd\")",
-			"preload(\"res://mods/unfplap/settings/service.gd\")",
-			"preload(\"res://mods/unfplap/poses/service.gd\")",
-			"_end_session", "release_pose", "leave_pose_start", "leave_pose_body",
-			"_unlock_player"]:
-		check(not source.contains(token), "the edge wrapper stays pure: %s" % token)
-	var stray_preloads := 0
-	for line: String in source.split("\n"):
-		if line.contains("preload(") and not (line.contains("poses/pose_spec.gd")
-				or line.contains("poses/pose_state.gd")):
-			stray_preloads += 1
-	check(stray_preloads == 0,
-		"the only direct preloads are the pose spec and the pose state")

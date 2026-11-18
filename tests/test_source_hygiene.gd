@@ -758,7 +758,7 @@ func _check_pose_session() -> void:
 	var agents := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(agents.contains("`poses/service.gd`"), "docs/README.md names poses/service.gd")
 	for name: String in ["test_session.gd", "test_pose_teardown.gd", "test_pose_asset.gd",
-			"test_pose_asset_v7.gd", "test_pose_bake.gd", "test_pose_rig.gd", "test_pose_scale.gd",
+			"test_pose_asset_v7.gd", "test_pose_bake.gd", "test_pose_sway.gd",
 			"test_rotation.gd", "test_pose_spec.gd", "test_pose_registry.gd",
 			"test_pose_view.gd", "test_pose_state.gd", "test_pose_edge.gd", "test_pose_blend.gd",
 			"test_modifier_profile.gd", "test_face_contact.gd"]:

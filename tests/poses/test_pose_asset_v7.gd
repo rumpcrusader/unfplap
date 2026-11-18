@@ -1,7 +1,7 @@
 extends SceneTree
 ## The version 7 authored asset: the schema and its refusals, the `local_rest` bone math, the
-## anchor/contact placement at four sizes, variants and the spec asset resolution. Synthetic assets
-## keep the suite away from the shipped file's numbers.
+## anchor/contact placement at four sizes, the v6 uniform scale, variants, the bed clearance and
+## the spec asset resolution. Synthetic assets keep the suite away from the shipped file's numbers.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_asset_v7.gd
 
@@ -11,11 +11,13 @@ const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const FIXTURE_V6 := "res://mods/unfplap/tests/poses/fixtures/missionary_pose_v6.json"
 
+const MISSIONARY_PATH := "res://mods/unfplap/poses/missionary_pose.json"
 const SIZES := [1.0, 1.35, 1.7, 2.3]
 const PONY_BONES := AUTHORED.PONY_BONES
 
 var failures := 0
 var checks := 0
+var _scenes: Array[Node] = []
 
 
 func _initialize() -> void:
@@ -44,7 +46,9 @@ func run() -> void:
 	_check_variants()
 	_check_resolution()
 	_check_v6()
+	_check_v6_scale()
 	_check_facesit_asset()
+	await _check_bed_clearance()
 	print("POSE_ASSET_V7_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_ASSET_V7_PASS")
@@ -417,3 +421,111 @@ func _check_facesit_asset() -> void:
 		var placed: Vector3 = pose.call("place_origin", pose.call("contact_world", frame), frame, size)
 		check(near(placed.y, frame.origin.y, 0.00001),
 			"the face-sit contact sits on the mattress at %.2f" % size)
+
+
+## Version 6 is bed space with absolute local poses, so its placement scales uniformly with the
+## rig's pivot: the hips and the lateral/longitudinal axes follow the body scale, and a scaled
+## root basis would multiply the body twice.
+func _check_v6_scale() -> void:
+	var pose: Variant = AUTHORED.new()
+	pose.available = true
+	pose.pony_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.5, 0.0))
+	pose.pony_bones = {}
+	for name: String in PONY_BONES:
+		pose.pony_bones[name] = {"rotation": Quaternion.IDENTITY, "position": Vector3.ZERO}
+	pose.pony_bones["pony_hips"] = {"rotation": Quaternion.IDENTITY,
+		"position": Vector3(0.0, 0.1, 0.0)}
+
+	var canon := _skeleton(1.0)
+	var canon_world := _apply_v6(pose, canon)
+	check(near(canon_world.y, 0.6), "the canon v6 hips sit at the authored height: %.3f"
+		% canon_world.y)
+
+	var big := _skeleton(1.35)
+	var big_world := _apply_v6(pose, big)
+	check(near(big_world.y, 0.81), "the v6 placement scales the hips with the body: %.3f"
+		% big_world.y)
+	var root := AUTHORED.root_bone(big)
+	var determinant := big.get_bone_global_pose(root).basis.determinant()
+	check(near(determinant, 1.0), "the v6 root pose stays orthonormal: %.4f" % determinant)
+
+
+## The v6 pose placed on a synthetic rig and the hips' world position.
+func _apply_v6(pose: Variant, sk: Skeleton3D) -> Vector3:
+	check(bool(pose.call("apply_pony", sk, 1.0, Transform3D.IDENTITY,
+		sk.global_transform.basis.get_scale().x)), "the v6 asset applies")
+	var hips := sk.find_bone("pony_hips")
+	return sk.global_transform * sk.get_bone_global_pose(hips).origin
+
+
+## A body that is not the mare's own hangs further from its armature root, so the mare's root
+## placement sinks it into the mattress. The lift is measured once per body and only in a bed pose.
+func _check_bed_clearance() -> void:
+	var frame := Transform3D(Basis(Vector3.UP, 0.3), Vector3(0.0, 0.65, 0.0))
+	var asset: Variant = AUTHORED.new()
+	check(str(asset.call("load_file", MISSIONARY_PATH)).is_empty(), "the lift reads the asset")
+	check(float(asset.call("bed_clearance", null)) == 0.0, "no skeleton has no bed lift")
+
+	var mare := await _body("res://world/characters/hybrid_mare/body.glb")
+	check(mare != null, "the mare body has a skeleton")
+	if mare != null:
+		asset.call("apply_pony", mare, 1.0, frame, 1.0, "canon")
+		mare.force_update_all_bone_transforms()
+		check(near(float(asset.call("bed_clearance", mare)), 0.0),
+			"the mare body sits on the mattress with no lift")
+
+	var celestia := await _body("res://world/characters/princesses/celestia_body.glb")
+	check(celestia != null, "the princess body has a skeleton")
+	if celestia != null:
+		var before := AUTHORED._clearance.size()
+		asset.call("apply_pony", celestia, 1.0, frame, 1.0, "canon")
+		celestia.force_update_all_bone_transforms()
+		var lift := float(asset.call("bed_clearance", celestia))
+		check(lift > AUTHORED.BED_LIFT_MIN_M, "an oversized body is lifted: %.3f m" % lift)
+		check(AUTHORED._clearance.size() == before + 1, "the lift is measured once per body")
+		check(near(float(asset.call("bed_clearance", celestia)), lift),
+			"the measured lift is cached")
+
+		# The same asset on a ground pose applies no lift, and the same body in a bed pose does.
+		var ground: Variant = AUTHORED.new()
+		ground.available = true
+		ground.version = 7
+		ground.space = AUTHORED.SPACE_LOCAL_REST
+		ground.frame = "ground"
+		ground.anchor = {
+			"bone": "pony_hips",
+			"transform": Transform3D.IDENTITY,
+			"contact": Vector3.ZERO,
+			"support": 0.0,
+		}
+		ground.root = Transform3D.IDENTITY
+		ground.pony_bones = {}
+		for name: String in PONY_BONES:
+			ground.pony_bones[name] = {"rotation": Quaternion.IDENTITY, "position": Vector3.ZERO}
+		var root := AUTHORED.root_bone(celestia)
+		var wanted: Transform3D = ground.call("placed_root", Transform3D.IDENTITY, 1.0)
+		ground.call("apply_pony", celestia, 1.0, Transform3D.IDENTITY, 1.0, "canon")
+		check(near(celestia.get_bone_global_pose(root).origin.y, wanted.origin.y),
+			"a ground pose is never lifted")
+		ground.frame = "bed"
+		var bed_lift := float(ground.call("bed_clearance", celestia))
+		check(bed_lift > 0.0, "the same body sinks in a bed pose")
+		ground.call("apply_pony", celestia, 1.0, Transform3D.IDENTITY, 1.0, "canon")
+		check(near(celestia.get_bone_global_pose(root).origin.y, wanted.origin.y + bed_lift),
+			"a bed pose lifts the root by the measured sink")
+
+	for scene: Node in _scenes:
+		root.remove_child(scene)
+		scene.free()
+	_scenes.clear()
+
+
+## A real body scene's skeleton, kept alive until the check finishes.
+func _body(path: String) -> Skeleton3D:
+	var scene: Node = load(path).instantiate()
+	root.add_child(scene)
+	_scenes.append(scene)
+	await process_frame
+	for node: Node in scene.find_children("*", "Skeleton3D", true, false):
+		return node as Skeleton3D
+	return null

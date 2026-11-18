@@ -1,5 +1,6 @@
 extends SceneTree
-## The hand-authored missionary pose asset the runtime poses from.
+## The hand-authored missionary pose asset the runtime poses from, and the rig check that refuses
+## to pose a body missing one of its bones.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/poses/test_pose_asset.gd
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
@@ -130,7 +131,38 @@ func run() -> void:
 	check(bool(pose.get("available")), "available after reload")
 	check(not bool(pose.call("apply_pony", null, 1.0, Transform3D.IDENTITY, 1.0)),
 		"null skeleton is refused")
+	_check_rig()
 	_finish()
+
+
+## The rig rule: the full body rig is accepted and one missing bone is reported by name.
+func _check_rig() -> void:
+	var pose: Variant = AUTHORED.new()
+	pose.available = true
+	pose.pony_bones = {}
+	for name: String in REQUIRED:
+		pose.pony_bones[name] = {"rotation": Quaternion.IDENTITY, "position": Vector3.ZERO}
+	var full := _rig_skeleton()
+	check(pose.missing_bones(full).is_empty(), "a full rig has no missing bone")
+	var broken := _rig_skeleton("pony_finger_L")
+	var missing: Array = pose.missing_bones(broken)
+	check(missing.size() == 1 and missing[0] == "pony_finger_L",
+		"a broken rig reports exactly the missing bone: %s" % str(missing))
+	check(pose.missing_bones(null).is_empty(), "a null skeleton reports nothing")
+
+
+func _rig_skeleton(skip := "") -> Skeleton3D:
+	var sk := Skeleton3D.new()
+	root.add_child(sk)
+	var armature := sk.add_bone("armature")
+	sk.set_bone_parent(armature, -1)
+	for name: String in REQUIRED:
+		if name == skip:
+			continue
+		var bone := sk.add_bone(name)
+		sk.set_bone_parent(bone, armature)
+	sk.reset_bone_poses()
+	return sk
 
 
 func _finish() -> void:

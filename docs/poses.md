@@ -1014,8 +1014,8 @@ teardown; it stays unchanged.
   the requirement check, the edge start/validation, the duration and `after` constraints, the
   channel weights and switches, the edge events, completion, the interrupt fields and the reused
   arrays. Plain dictionaries only.
-- `tests/poses/test_pose_spec.gd` — the field wrapper, the shared validator, the base/driver rule
-  and the pure source.
+- `tests/poses/test_pose_spec.gd` — the field wrapper, the shared validator and the base/driver
+  rule.
 - `tests/poses/test_pose_registry.gd` — the five shipped specs, the three authored pairs, the
   unchanged public catalog and the table rules.
 - `tests/poses/test_pose_offer.gd` — the typed offer's defaults and validity, the blocked hint,
@@ -1024,34 +1024,31 @@ teardown; it stays unchanged.
 - `tests/poses/test_start_setup.gd` — the closed start vocabulary and shipped table, the helper
   defaults, the synthetic `auto`/`bed_keep_lying` row and the runtime's setup dispatch for both bed
   adapters and an unknown name.
-- `tests/poses/test_pose_edge.gd` — the edge documents, the typed wrapper and validator, the
-  registry load and the debug, oral and face-sit forward/reverse run proofs.
+- `tests/poses/test_pose_edge.gd` — the typed validator, the documents' requirement and policy
+  rows and the debug, oral and face-sit forward/reverse run proofs.
 - `tests/test_standing_presentation.gd` — the act-owned presentation start, the navigator stepping
   turn and its away settle, a blocked turn aborting without a snap, the fallback rotation and the
   presentation's affectionate face.
 - `tests/poses/test_pose_asset.gd` — the missionary asset's v7 version/space/frame, body and Anon
-  bone lists, anchor/contact/root and bed reference.
+  bone lists, anchor/contact/root and bed reference, and the rig check that reports a missing body
+  bone by name.
 - `tests/poses/test_pose_asset_v7.gd` — the v7 schema and its refusals, `local_rest` bone math, the
-  anchor/contact placement at four sizes, variants and the spec `asset` resolution; the v6 fixture
-  and the v6 ground refusal.
+  anchor/contact placement at four sizes, variants, the v6 uniform scale and placement rule, the
+  spec `asset` resolution, the v6 fixture and the v6 ground refusal, and the bed clearance: zero for
+  the mare, positive and cached for an oversized body, and applied only in a bed pose.
 - `tests/poses/test_pose_bake.gd` — the bake capture/compare math on a synthetic rig, the
   deterministic writer and its fixture-path refusal, the shipped standing asset's freshness, its
   stance guard (rotation-only base, a real hind width, opposite sides), the live base's parity with
   the old procedural pose on every owned bone including `pony_head`, four-size body parity, contact,
   anchor, reference config, and the four-size oral neck/head parity against the reference recipe
   plus the same delta.
-- `tests/poses/test_body_sway.gd` — the regular depth sway, the render replay after the pose write,
-  the zeroed oral hold and the release.
-- `tests/poses/test_prone_sway.gd` — the missionary slide and nod, the render replay after the pose
-  write and the active-state gate.
+- `tests/poses/test_pose_sway.gd` — the standing body sway's regular depth sway, its zeroed oral
+  hold and release, the missionary prone slide and nod, both render replays after the pose write
+  and the prone active-state gate.
 - `tests/poses/test_tail_chain.gd` — the hair/body chain resolver, the body-tail aside/lift, bed lay,
   the custom-root aside/lift and bed turn with its restore, and the post-stop tuck.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split, including the body-tail
   install path for fitted exports.
-- `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
-- `tests/poses/test_pose_scale.gd` — the v6 uniform scale, the v7 anchor/contact placement at four
-  sizes, the rest-scale ownership and the bed clearance: zero for the mare, positive and cached for
-  an oversized body, and applied only in a bed pose.
 - `tests/poses/test_rotation.gd` — body-relative axes and the rotation helpers.
 - `tests/poses/test_face_contact.gd` — the bed face-sit contact driver: the begin capture, the
   mouth follow, the depth press, the moving-bed carry, the missing-provider hold and the one

@@ -81,7 +81,7 @@ only stable external surface is `docs/api.md`.
 | History store | `shared/act_history.gd` | `docs/summary.md` | `tests/summary/` |
 | Face data | `shared/act_face.gd` | `docs/face.md` | `tests/face/` |
 | Relationship cue | `shared/relationship_cue.gd` | `docs/dialogue.md` | `tests/test_relationship_cue.gd` |
-| Pose catalog | `shared/pose_catalog.gd` | `docs/poses.md` | `tests/test_catalog.gd` |
+| Pose catalog | `shared/pose_catalog.gd` | `docs/poses.md` | `tests/poses/` |
 | Pose options | `shared/pose_options.gd` | `docs/poses.md`, `docs/scene_gate.md` | `tests/pose_options/` |
 | Pose placement | `shared/pose_placement.gd` | `docs/scene_gate.md` | `tests/pose_placement/` |
 | Base clearance | `shared/clearance.gd` | `docs/eligibility.md` | `tests/clearance/` |

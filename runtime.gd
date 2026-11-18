@@ -2165,6 +2165,10 @@ func request_form_change(true_form: bool, shape_id := "", by_player := false) ->
 			"message": "A form change is already in progress."}
 	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		return {"ok": false, "reason": "no live act", "message": "No live act."}
+	if not is_instance_valid(pony):
+		return {"ok": false, "reason": "no body", "message": "No body to change."}
+	if pony.has_method("is_held") and bool(pony.call("is_held")):
+		return {"ok": false, "reason": "she is held", "message": "She is being held right now."}
 	var source: Variant = _shape_source()
 	if source == null:
 		return {"ok": false, "reason": "no shape-changing source",
@@ -2248,6 +2252,10 @@ func _suspend_for_body_swap(source: Variant) -> void:
 		return
 	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		return
+	# Another system holding her would keep the old body as the act's owner. Release it before
+	# the flame takes the body; a failed release is logged and the watchdog still decides.
+	if pony.has_method("is_held") and bool(pony.call("is_held")) and not _release_carry():
+		_log("body swap: could not release the held body")
 	_suspended = true
 	_swap_source = source
 	_swap_old_pony = pony
@@ -2268,6 +2276,12 @@ func _suspend_for_body_swap(source: Variant) -> void:
 	_log("body swap suspend source=%s target=%s by_player=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
 		str(source.call("source_name")) if source.has_method("source_name") else "?",
 		_swap_target, str(_swap_by_player), state, _swap_pose, depth, pony_climaxes])
+	# The old body's contact and input state must not survive the flame. The new pose owns the
+	# contact after resume; a held key or a running auto stroke would otherwise fire on it.
+	_kiss_controller().reset()
+	_hand_controller().reset()
+	_reset_swap_input_state()
+	_form_hint_tick()
 	_wings_controller().release()
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.end()
@@ -2321,6 +2335,7 @@ func _resume_after_body_swap() -> void:
 		return
 	var changed := is_instance_valid(_swap_new_pony)
 	var by_player := _swap_by_player
+	var target := _swap_target
 	var source: Variant = _swap_source
 	_suspended = false
 	_swap_source = null
@@ -2348,6 +2363,8 @@ func _resume_after_body_swap() -> void:
 	_pose_service().set_pose_config(SETTINGS.pose(_id, _start_group()))
 	_rebuild_pose_for_swap(_swap_pose)
 	_sync_start_pose_config()
+	_reanchor_player_after_swap()
+	_reset_swap_input_state()
 	_camera_service().call("reset_lean_state")
 	_camera_service().call("apply_eye_override", _start_family(), _player_pony)
 	_prepare_start_camera()
@@ -2369,7 +2386,7 @@ func _resume_after_body_swap() -> void:
 		main.hud.update_from(_act_facts)
 	_log("body swap resumed pony=%s id=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
 		str(pony.name), _id, state, _swap_pose, depth, pony_climaxes])
-	_complete_form_change(source, changed, by_player)
+	_complete_form_change(source, changed, by_player, target)
 
 
 ## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is
@@ -2400,6 +2417,24 @@ func _rebuild_pose_for_swap(pose: String) -> void:
 		return
 	_pose_service().settle()
 	_reactions.bind_tail(_pose_service().tail)
+
+
+## The front lean and the auto stroke belong to the hand and the old body. Drop the latch so a
+## held act key or a running auto does not fire into the new pose; depth itself survives.
+func _reset_swap_input_state() -> void:
+	_act_hold = 0.0
+	_act_hold_ready = false
+	_act_hold_fired = false
+	_readiness.reset_auto()
+
+
+## A standing act places Anon at the body's gap. A different-size shape needs that pass again;
+## the bed act keeps him where he is and the flame covers the camera re-frame.
+func _reanchor_player_after_swap() -> void:
+	if _pose_family() != "standing":
+		return
+	var standing := _begin_standing_placement()
+	_standing_camera_controller().begin_facing(standing)
 
 
 ## The new body must still pass the act's adult-mare gate. A missing service reads as allowed,
@@ -3309,8 +3344,10 @@ func _on_player_line(text: String) -> void:
 				_id, str(result.get("reason", ""))])
 
 
-## After at least one climax, in her own form, she offers any adult mare's shape once. A queue
-## failure still leaves the offer standing: the HUD hint is the invitation.
+## After at least one climax, in her own form, she offers any adult mare's shape once. The offer
+## is made in ACTIVE only: that is the state where the player can answer it, and a player who
+## ends the act immediately after the first climax simply misses an indulgence. A queue failure
+## still leaves the offer standing: the HUD hint is the invitation.
 func _shape_offer_tick() -> void:
 	if _shape_offer_done or _suspended or state != State.ACTIVE or pony_climaxes < 1:
 		return
@@ -3356,9 +3393,13 @@ func _form_hint_tick() -> void:
 
 
 ## The new body is up. A player-requested return to her own form is the act's exceptional beat;
-## any other change (her own or a named shape) is a neutral continuation.
-func _complete_form_change(source: Variant, changed: bool, by_player: bool) -> void:
+## any other change (her own or a named shape) is a neutral continuation. A named change that
+## failed before the new body arrived puts the offer back so the player gets a second chance.
+func _complete_form_change(source: Variant, changed: bool, by_player: bool, target := "") -> void:
 	if not changed:
+		if not target.is_empty() and _shape_offer_done and not _shape_offer_pending:
+			_shape_offer_pending = true
+			_log("form change failed; the shape offer stands again id=%s" % _id)
 		_form_hint_tick()
 		return
 	var shape := _source_current_shape(source) if is_instance_valid(source) else ""
@@ -3824,6 +3865,7 @@ func _climax() -> void:
 	mood = "climax"
 	cue = "She is climaxing."
 	_set_cue_override("She is climaxing.", CLIMAX_SECONDS)
+	_form_hint_tick()
 	_reactions.schedule_hearts()
 	_reactions.hearts_burst_at(_reactions.dock_point())
 	_set_face(0.3, FACE.CLIMAX_LIDS)
@@ -3875,6 +3917,7 @@ func _finish_climax() -> void:
 	satisfaction = 0.0
 	mood = "warming"
 	cue = ""
+	_form_hint_tick()
 	_readiness.cue_override = ""
 	_readiness.cue_until = 0.0
 	_readiness.overwhelmed = 0.0
@@ -3981,6 +4024,7 @@ func _afterglow_begin() -> void:
 		_kiss_controller().end_lean_kiss()
 	_commit_afterglow()
 	state = State.AFTERGLOW
+	_form_hint_tick()
 	_sync_act_facts()
 	# The oral afterglow releases the mouth contact and keeps the turned pose. The pose row's
 	# afterglow profile is passive, so no standing close window opens.
@@ -4053,6 +4097,7 @@ func _restore_begin() -> void:
 	_end_act_lines(true)
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
 	state = State.RESTORE
+	_form_hint_tick()
 	# integration: act-only anatomy hides as soon as the act starts restoring.
 	_anatomy_bridge.apply_live()
 	_restore_left = RESTORE_SECONDS

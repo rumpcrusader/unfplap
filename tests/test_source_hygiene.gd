@@ -1268,6 +1268,8 @@ func _check_integrations_isolation(files: Array[String]) -> void:
 	check(changelings.contains("func installed_character_ids(")
 		and changelings.contains("func prepare_pony("),
 		"the changelings adapter exposes the installed list and body hooks")
+	check(changelings.contains("func _observe("),
+		"the changelings adapter observes a change its own AI starts")
 
 
 ## The integrations contract is linked from the docs that own the lifecycle, settings and tests.
@@ -1319,6 +1321,15 @@ func _check_body_swap() -> void:
 		check(suspend.contains(token), "the suspension keeps %s" % token)
 	check(_func_body(runtime, "_resume_after_body_swap").contains("_rebuild_pose_for_swap"),
 		"the resume rebuilds the live pose")
+	check(_func_body(runtime, "_resume_after_body_swap").contains("_reanchor_player_after_swap"),
+		"the resume re-anchors the player for a standing shape")
+	for name: String in ["_reset_swap_input_state", "_reanchor_player_after_swap"]:
+		check(runtime.contains("func %s(" % name), "the runtime keeps %s" % name)
+	for name: String in ["_climax", "_afterglow_begin", "_restore_begin"]:
+		check(_func_body(runtime, name).contains("_form_hint_tick()"),
+			"%s clears the cached form hint" % name)
+	check(_func_body(runtime, "_complete_form_change").contains("_shape_offer_pending = true"),
+		"a failed named change restores the offer")
 	check(_func_body(runtime, "_end_session").contains("clear_body_swap"),
 		"the one exit clears a pending swap")
 	check(_func_body(runtime, "_exit_tree").contains("_swapping_parent"),

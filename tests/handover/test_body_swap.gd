@@ -39,13 +39,14 @@ class FakePony extends Node3D:
 	var face_turn_rate := 0.45
 	var sleeping := false
 	var body_scale := 1.0
+	var held := false
 	var posture_requests: Array[String] = []
 
 	func posture_status() -> Dictionary:
 		return {"requested": "stand", "settled": true}
 
 	func is_held() -> bool:
-		return false
+		return held
 
 	func grounded() -> bool:
 		return true
@@ -140,6 +141,7 @@ class FakeSource extends Node:
 class FakeMemory extends RefCounted:
 	var impressions: Array = []
 	var peaks: Array = []
+	var notes: Array = []
 	var _service: Variant = MEMORY.new()
 
 	func form_reveal_impression(id: String, event_id: String) -> Variant:
@@ -153,6 +155,9 @@ class FakeMemory extends RefCounted:
 
 	func record_peak(peak: Variant) -> void:
 		peaks.append(peak)
+
+	func note(kind: int, id: String, event_id: String) -> void:
+		notes.append({"kind": kind, "id": id, "event_id": event_id})
 
 
 ## The talk turn the player's line arrives on. The runtime reads the same director fields the
@@ -329,13 +334,18 @@ func _free_fixture(made: Dictionary) -> void:
 
 func run() -> void:
 	_check_handover()
+	_check_ai_change()
 	_check_failed_change()
+	_check_source_gone()
 	_check_watchdog()
 	_check_invalid_shape()
 	_check_world_close()
 	_check_form_reveal()
 	_check_shape_offer()
 	_check_offer_gate()
+	_check_hint_states()
+	_check_failed_named_offer()
+	_check_held_guard()
 	print("BODY_SWAP_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 
@@ -358,7 +368,7 @@ func _check_handover() -> void:
 	check(int(runtime.pony_climaxes) == 1, "climaxes survive suspension")
 	check(str(runtime._event_id) == "intimacy_test_mare_1", "the event id survives suspension")
 
-	var new_pony := _pony("Queen Chrysalis", "NewBody")
+	var new_pony := _pony("New Mare", "NewBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	main._on_pony(new_pony)
@@ -372,7 +382,7 @@ func _check_handover() -> void:
 	check(absf(float(runtime.depth) - 0.42) < 0.0001, "depth survives resume")
 	check(int(runtime.pony_climaxes) == 1, "climaxes survive resume")
 	check(str(runtime._event_id) == "intimacy_test_mare_1", "the event id survives resume")
-	check(str(runtime._display_name) == "Queen Chrysalis", "the act takes the new display name")
+	check(str(runtime._display_name) == "New Mare", "the act takes the new display name")
 	check(new_pony.has_meta("sex_active"), "the new body carries the act flag")
 	var nav: FakeNav = new_pony.get_node("Navigator")
 	check(nav.command_owner == "unfplap:test_mare", "the new navigator is claimed")
@@ -391,6 +401,44 @@ func _check_handover() -> void:
 	_free_fixture(f)
 
 
+## A change the source started on its own (her AI, not a `request_*` call): the live watcher
+## suspends the act, adopts the new body and resumes without an exceptional event. A second
+## change after the resume is a new pending swap.
+func _check_ai_change() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var old_pony: FakePony = f["old"]
+	var source: FakeSource = f["source"]
+	main.memory = FakeMemory.new()
+	source.shape = "fluttershy"
+	# Nothing called request_shape: the source is already changing, as her own AI leaves it.
+	source.changing = true
+	runtime._swap_clock = 0.0
+	runtime._body_swap_tick(0.1)
+	check(runtime._suspended, "an AI-started change suspends the live act")
+	check(runtime._swap_by_player == false, "an AI change is not the player's")
+	var new_pony := _pony("New Mare", "AiBody")
+	root.add_child(new_pony)
+	source.new_pony = new_pony
+	source.shape = "rarity"
+	main._on_pony(new_pony)
+	check(not runtime._suspended, "the AI change resumes on the new body")
+	check(runtime.pony == new_pony, "the AI change keeps the act on the new body")
+	check(not runtime._form_reveal_done, "an AI change is neutral")
+	var memory: FakeMemory = main.memory
+	check(memory.impressions.is_empty(), "an AI change writes no reveal memory")
+	# A second change after the resume is a fresh handover, not a stale pending swap.
+	source.old_pony = new_pony
+	source.changing = true
+	runtime._swap_clock = 0.0
+	runtime._body_swap_tick(0.1)
+	check(runtime._suspended, "a second change after resume suspends again")
+	runtime.force_stop()
+	check(not main.body_swap_pending(), "the one exit clears the repeated swap")
+	_free_fixture(f)
+
+
 ## A change that stops with the old body alive resumes the same act on it.
 func _check_failed_change() -> void:
 	var f := _fixture()
@@ -404,6 +452,22 @@ func _check_failed_change() -> void:
 	check(runtime.pony == old_pony, "the old body keeps the act")
 	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the state survives the failed change")
 	check(absf(float(runtime.depth) - 0.42) < 0.0001, "depth survives the failed change")
+	runtime.force_stop()
+	_free_fixture(f)
+
+
+## A source that goes inactive mid-change (the pack switched off) resumes the old body.
+func _check_source_gone() -> void:
+	var f := _fixture()
+	var runtime: Node = f["runtime"]
+	var old_pony: FakePony = f["old"]
+	var source: FakeSource = f["source"]
+	runtime._suspend_for_body_swap(source)
+	source.active_flag = false
+	runtime._body_swap_tick(0.1)
+	check(not runtime._suspended, "a source that goes inactive resumes the old body")
+	check(runtime.pony == old_pony, "the old body keeps the act when the source is gone")
+	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the state survives a gone source")
 	runtime.force_stop()
 	_free_fixture(f)
 
@@ -584,4 +648,75 @@ func _check_offer_gate() -> void:
 	runtime.force_stop()
 	check(not runtime._shape_offer_pending, "the act end drops the pending offer")
 	check(str(runtime._form_hint).is_empty(), "the act end hides the hint")
+	_free_fixture(f)
+
+
+## The cached hint is cleared by the state change, not only by the next ACTIVE tick.
+func _check_hint_states() -> void:
+	var f := _fixture()
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	source.shape = "fluttershy"
+	runtime._form_reveal_done = false
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_ASK, "a disguise invites the ask")
+	runtime.state = RUNTIME.State.CLIMAX
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint).is_empty(), "the climax state clears the hint")
+	runtime.state = RUNTIME.State.AFTERGLOW
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint).is_empty(), "the afterglow state clears the hint")
+	runtime.state = RUNTIME.State.RESTORE
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint).is_empty(), "the restore state clears the hint")
+	runtime.state = RUNTIME.State.ACTIVE
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_ASK, "the active state restores the ask")
+	runtime.force_stop()
+	_free_fixture(f)
+
+
+## A named shape whose handover fails puts the offer back instead of spending it.
+func _check_failed_named_offer() -> void:
+	var f := _fixture()
+	var runtime: Node = f["runtime"]
+	var old_pony: FakePony = f["old"]
+	var source: FakeSource = f["source"]
+	source.shape = ""
+	runtime._shape_offer_tick()
+	check(runtime._shape_offer_pending, "the offer is pending before the name")
+	var director := FakeDirector.new()
+	director.name = "FakeDirector"
+	root.add_child(director)
+	source.named = "rarity"
+	director._turn_id = 1
+	director._player_text = "Rarity"
+	runtime._talk_tick(0.016)
+	check(source.shape_requests == ["rarity"], "the named mare starts the change")
+	check(not runtime._shape_offer_pending, "the name consumes the offer")
+	runtime._swap_clock = 0.0
+	runtime._body_swap_tick(0.1)
+	check(runtime._suspended, "the named change suspends the act")
+	source.changing = false
+	runtime._body_swap_tick(0.1)
+	check(not runtime._suspended, "the failed named change resumes the old body")
+	check(runtime.pony == old_pony, "the old body keeps the act")
+	check(runtime._shape_offer_pending, "a failed named change puts the offer back")
+	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE, "the hint returns with the offer")
+	runtime.force_stop()
+	director.queue_free()
+	_free_fixture(f)
+
+
+## A body another system is holding refuses the player's request instead of leaving a held body.
+func _check_held_guard() -> void:
+	var f := _fixture()
+	var runtime: Node = f["runtime"]
+	var old_pony: FakePony = f["old"]
+	old_pony.held = true
+	var result: Dictionary = runtime.request_form_change(true, "", true)
+	check(not bool(result.get("ok", false)), "a held body refuses a form request")
+	check(str(result.get("reason", "")) == "she is held", "the refusal names the hold")
+	old_pony.held = false
+	runtime.force_stop()
 	_free_fixture(f)

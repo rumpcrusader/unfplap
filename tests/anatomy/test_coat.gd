@@ -200,7 +200,6 @@ func run() -> void:
 	thin_coat.set("_body_mesh", thin_body)
 	thin_coat.set("_body_material", ShaderMaterial.new())
 	thin_coat.call("clear_mesh")
-	check(true, "a surface-less coat clear completes")
 	thin_body.free()
 
 	# A normal surface still loses its override on clear.

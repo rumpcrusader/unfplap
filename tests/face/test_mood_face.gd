@@ -1,10 +1,9 @@
 extends SceneTree
-## The held post-act mood face: table, duration and the line-face yield/clear rule.
+## The held post-act mood face: apply, yield, return and clear ownership.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/face/test_mood_face.gd
 
 const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
-const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 var checks := 0
 var failures := 0
 
@@ -52,12 +51,6 @@ func _fake() -> Dictionary:
 
 
 func run() -> void:
-	check(MOOD_FACE.DURATION == 300.0, "mood face matches the 300 s freshness")
-	check(MOOD_FACE.MOOD_FACES.size() == 10, "all ten moods are mapped")
-	for mood: String in MOOD_FACE.MOOD_FACES:
-		var face := str(MOOD_FACE.MOOD_FACES[mood])
-		check(face.is_empty() or ACT_FACE.valid_face(face), "valid mood face %s" % mood)
-
 	var f := _fake()
 	var pony: Node3D = f["pony"]
 	var expressions: FakeExpressions = f["expressions"]

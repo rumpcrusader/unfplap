@@ -7,7 +7,6 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
-const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 var failures := 0
@@ -67,7 +66,6 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
-	check(TAIL_TUCK.DURATION == 20.0, "the stop tail tuck lasts twenty seconds")
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime._preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}

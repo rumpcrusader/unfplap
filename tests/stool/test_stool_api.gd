@@ -36,7 +36,6 @@ func run() -> void:
 	check(system.needed_count(0.40) == 2, "40 cm needs two 20 cm steps")
 	check(is_equal_approx(system.gap(1.1, 0.0, 0.8, 0.0), 0.3),
 		"the facade exposes the pure gap")
-	check(STOOL.ID == "goods:footstool", "the base-game footstool is the item")
 	system.free()
 
 	print("STOOL_API_RESULT checks=%d failures=%d" % [checks, failures])

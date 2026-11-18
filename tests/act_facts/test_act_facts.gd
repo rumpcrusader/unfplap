@@ -128,7 +128,6 @@ func run() -> void:
 	facts.mark_camera_basis_ready()
 	check(facts.kiss_controller() == null, "absent kiss callback returns null")
 	check(facts.neck_midpoint() == Vector3.INF, "absent neck callback returns infinity")
-	check(true, "absent callbacks are no-ops")
 
 	var sink := Sink.new()
 	facts.perf_note = Callable(sink, "note")
@@ -165,7 +164,6 @@ func run() -> void:
 	facts.smack_hit(0.4)
 	facts.pause_face(true)
 	facts.restore_face()
-	check(true, "absent readiness and scene-hold callbacks are no-ops")
 	check(facts.driver_host() == null, "an absent pose host returns null")
 	check(not facts.mod_active("kissing"), "an absent mod gate reads as inactive")
 	check(facts.standing_camera_controller() == null, "an absent camera callback returns null")

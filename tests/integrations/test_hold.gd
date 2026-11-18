@@ -112,5 +112,4 @@ func _check_missing_beat() -> void:
 	var runtime: Variant = scene["runtime"]
 	runtime.call("_hold_excitement", "first")
 	runtime.call("_release_excitement", "first")
-	check(true, "a missing Beat is a safe no-op")
 	_free(scene)

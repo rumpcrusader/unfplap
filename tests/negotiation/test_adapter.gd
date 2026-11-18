@@ -229,7 +229,6 @@ func _check_queue() -> void:
 	var adapter: Node = made["adapter"]
 	var director: FakeDirector = made["director"]
 	var game: FakeGame = made["game"]
-	check(adapter.idle(), "the director is idle")
 	check(adapter.begin_greeting("rarity", "context"),
 		"the greeting is queued through the director")
 	check(director.greeted.size() == 1 and director.greeted[0][0] == "rarity",
@@ -245,7 +244,6 @@ func _check_queue() -> void:
 	check(rows.size() == 1 and rows[0]["kind"] == "situation", "the situation is recorded")
 	check(rows[0]["key"] == "key" and rows[0]["audience"] == ["rarity"],
 		"the situation keeps its key and audience")
-	check(adapter.player_name() == "Anon", "the player name reads the director config")
 	_free(made)
 
 

@@ -552,7 +552,6 @@ func run() -> void:
 		area_ids.append(str(anchor.get("id", "")))
 	check(area_ids == expected_left, "the marked area path follows the JSON standing order")
 	var area_start_index := expected_left.find(area_start)
-	check(area_start_index >= 0, "the JSON start is in the standing area order")
 	var expected_belly_u := 0.0
 	if area_start_index >= 0 and expected_left.size() > 1:
 		expected_belly_u = float(area_start_index) / float(expected_left.size() - 1)

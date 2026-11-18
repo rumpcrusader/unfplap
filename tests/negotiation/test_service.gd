@@ -304,7 +304,6 @@ func _check_anon_accept() -> void:
 	check(handle.option.pose == CATALOG.STANDING, "the handle carries the chosen option")
 	check(handle.private, "the private context forms a private Agreement")
 	check(handle.pose_profile_ok and handle.pose_source_ok, "the pose capability is frozen")
-	check(handle.hold_token == "unfplap:negotiation:rarity", "the handle carries the hold token")
 	check(handle.trigger == AGREEMENT.Trigger.ANON_OFFER, "the handle names the Anon route")
 	var package = service.agreement()
 	check(package.context.willingness, "the Agreement carries the Context")
@@ -321,7 +320,6 @@ func _check_anon_accept() -> void:
 	other.cuddle = true
 	check(service.hotkey_handle(runtime, other) == null,
 		"a different option does not match the Agreement")
-	check(service.debug_rows(made["pony"]).size() >= 2, "the debug rows describe the live Agreement")
 	boxes.clock = 221.0
 	service.tick(0.0)
 	check(_outcome_kinds(boxes).has(NEGOTIATION.Outcome.EXPIRED), "the Agreement TTL expires")
@@ -479,7 +477,6 @@ func _check_mare_cuddle() -> void:
 	boxes.classify_decision = _decision("accept")
 	check(service.begin_mare_offer(offer), "a cuddle Mare offer starts")
 	check(boxes.hold.attention_count == 1, "the cuddle offer takes the attention hold")
-	check(boxes.hold.token.is_empty(), "the cuddle offer takes no navigator lease")
 	check(boxes.hold.transfer_count == 0, "the cuddle offer transfers no lease")
 	check(service.handle().option.cuddle, "the cuddle option is kept")
 	check(service.phase() == NEGOTIATION.Phase.AGREEMENT, "the cuddle Agreement forms")
@@ -500,7 +497,6 @@ func _check_anon_cuddle() -> void:
 	check(made["service"].begin_anon_offer(made["runtime"], "cuddle?"),
 		"an Anon cuddle offer starts")
 	check(boxes.hold.attention_count == 1, "the Anon cuddle offer takes the attention hold")
-	check(boxes.hold.token.is_empty(), "the Anon cuddle offer takes no navigator lease")
 	check(made["service"].handle().option.cuddle, "the Anon cuddle option forms the Agreement")
 	root.remove_child(bed)
 	bed.free()

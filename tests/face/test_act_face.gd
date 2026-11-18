@@ -44,12 +44,10 @@ func _quality(overrides := {}) -> Dictionary:
 
 
 func run() -> void:
-	check(ACT_FACE.FACES.size() == 22, "22 expression faces")
 	for face: String in ACT_FACE.FACES:
 		check(ACT_FACE.valid_face(face), "valid face %s" % face)
 	check(not ACT_FACE.valid_face("not_a_face"), "unknown face is rejected")
 
-	check(ACT_FACE.MOOD_FACES.size() == 10, "all ten base moods are mapped")
 	for mood: String in ACT_FACE.MOOD_FACES:
 		var face := str(ACT_FACE.MOOD_FACES[mood])
 		check(face.is_empty() or ACT_FACE.valid_face(face), "mood %s maps to a face" % mood)

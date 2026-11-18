@@ -1267,7 +1267,6 @@ func _check_undress() -> void:
 	integration.set("mod_active", func() -> bool: return true)
 	wardrobe.free()
 	anatomy.act_started.emit(pony)
-	check(true, "a missing wardrobe is a quiet no-op")
 	director.free()
 	coordinator.free()
 	pony.free()

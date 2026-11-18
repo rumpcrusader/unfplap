@@ -59,7 +59,6 @@ func run() -> void:
 	facts.perf("nothing", 5)
 	facts.write_log("nothing")
 	facts.smack_body_coat()
-	check(true, "absent callbacks are no-ops")
 
 	var sink := Sink.new()
 	facts.perf_note = Callable(sink, "note")

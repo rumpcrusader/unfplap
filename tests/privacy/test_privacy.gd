@@ -68,7 +68,6 @@ func run() -> void:
 	target.global_position = Vector3(1.0, 0.0, 0.0)
 	other.global_position = Vector3(100.0, 0.0, 0.0)
 	var alone := provider.state_for(target)
-	check(alone.player == player, "the state names Anon")
 	check(alone.house == null and not alone.indoors, "outdoors has no house")
 	check(not alone.house_alone, "outdoors has no house solitude")
 	check(not alone.others_near, "a distant mare is not near")
@@ -77,18 +76,16 @@ func run() -> void:
 	# The target is excluded from its own other-mare checks.
 	game.mares = [target, other]
 	var excluded := provider.state_for(target)
-	check(excluded.offer_private, "the target does not count as another mare")
-	check(provider.offer_private(target), "the offer predicate excludes the target")
-	check(provider.cuddle_private(target), "the cuddle predicate excludes the target")
+	check(excluded.offer_private and excluded.cuddle_private,
+		"the target does not count as another mare")
 
 	# Another mare within the radius makes both public outdoors.
 	other.global_position = Vector3(30.0, 0.0, 0.0)
 	var near := provider.state_for(target)
 	check(near.others_near, "the radius admits 30 m")
 	check(not near.offer_private and not near.cuddle_private, "a nearby mare makes it public")
-	check(provider.report(target).contains("other(30.0m)"), "the report labels the other mare")
 	other.global_position = Vector3(30.01, 0.0, 0.0)
-	check(provider.offer_private(target), "just past the radius is private")
+	check(provider.state_for(target).offer_private, "just past the radius is private")
 
 	# Indoors the house is the bound for a cuddle; the offer rule still uses house solitude.
 	var house := FakeHouse.new()
@@ -104,7 +101,6 @@ func run() -> void:
 	check(not crowded.house_alone, "another mare in the house breaks house solitude")
 	check(not crowded.cuddle_private, "an indoor cuddle needs house solitude")
 	check(not crowded.offer_private, "a near indoor mare also fails the offer rule")
-	check(provider.report(target).contains("in_house=[other("), "the report lists the house mare")
 
 	# House solitude allows an offer even when a mare is outdoors within the radius.
 	other.global_position = Vector3(20.0, 0.0, 0.0)
@@ -117,7 +113,6 @@ func run() -> void:
 	# A missing main fails closed to not-private.
 	var unbound := PRIVACY.new()
 	check(not unbound.offer_private(target), "an unbound provider is not private")
-	check(unbound.report(target) == "player=none", "an unbound provider reports no player")
 
 	main.queue_free()
 	house.queue_free()

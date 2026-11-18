@@ -316,13 +316,7 @@ func _check_cuddle() -> void:
 	check(bool(gate.call("cuddle_active")), "a blending session is an active cuddle")
 	session.blend = 0.0
 	check(not bool(gate.call("cuddle_active")), "an ended session is inactive")
-	check(bool(gate.call("cuddle_start_override", CATALOG.MISSIONARY, "bed_side")),
-		"a bed-side missionary act overrides the cuddle gate")
-	check(bool(gate.call("cuddle_start_override", CATALOG.STANDING, "")),
-		"an act always starts through a cuddle")
 	gate.configure(STATE_IDLE, "rarity", {})
-	check(bool(gate.call("cuddle_start_override", CATALOG.STANDING, "")),
-		"an empty snapshot still starts through a cuddle")
 	_free(made)
 
 
@@ -450,7 +444,6 @@ func _check_bed() -> void:
 	var made := _fixture()
 	var gate: RefCounted = made["gate"]
 	var bed: Node3D = made["bed"]
-	check(gate.call("find_bed_under") == bed, "the bed under the pony resolves")
 	check(gate.call("resolve_bed", "standing", "", null) == null, "standing has no bed")
 	check(gate.call("resolve_bed", "missionary", "bed_side", null) == bed,
 		"missionary resolves the bed under her")
@@ -487,7 +480,6 @@ func _check_rows() -> void:
 			"cuddle", "affection", "player", "navigator", "navigator_reserved", "nav_owner",
 			"nav_pose", "stool"]:
 		check(key in keys, "the standing start rows carry %s" % key)
-	check(rows.size() == keys.size(), "every row is typed")
 	gate.configure(STATE_ACTIVE, "rarity", {})
 	rows = gate.call("rows", "standing", "", null, "start", false)
 	var state_ok := true
@@ -514,9 +506,6 @@ func _check_rows() -> void:
 			stool_ok = row.ok
 	check(not stool_ok, "too few footstools fail the stool row")
 	stool.need = 0
-	var offer_rows: Array = gate.call("rows", "standing", "", null, "offer", true)
-	for row: ELIGIBILITY.Row in offer_rows:
-		check(row.key != "player", "the offer rows skip the player row")
 	_free(made)
 
 

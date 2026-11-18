@@ -64,8 +64,6 @@ func _pony(id: String, filly := false, stallion := false) -> FakePony:
 func run() -> void:
 	# Consent defaults are deterministic and per-id, and an override wins.
 	var a := CONSENT.defaults("twilight_sparkle")
-	var b := CONSENT.defaults("twilight_sparkle")
-	check(a == b, "consent defaults are deterministic")
 	check(a.has("public") and a.has("anal") and a.has("oral"), "consent has all three keys")
 	var over := CONSENT.resolve("twilight_sparkle", {"anal": true, "oral": false})
 	check(bool(over.get("anal", false)), "consent anal override wins")

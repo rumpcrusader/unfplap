@@ -93,7 +93,6 @@ func run() -> void:
 	check(not probe.on(), "the probe starts off")
 	probe.note("runtime", 10)
 	probe.tick(5.0)
-	check(true, "absent callbacks are no-ops")
 
 	var text_only := Sink.new()
 	text_only.enabled = true

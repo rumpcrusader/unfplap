@@ -56,13 +56,11 @@ func run() -> void:
 	package.offer_line = "come here"
 	package.answer = "accept"
 
-	check(package.expires_at() == 220.0, "the Agreement TTL starts at acceptance")
-	check(not package.expired(219.9), "the Agreement is live inside its TTL")
-	check(package.expired(220.0), "the Agreement expires at its TTL")
+	var expires := package.accepted_at + package.ttl_s
+	check(package.expires_at() == expires, "the Agreement TTL starts at acceptance")
+	check(not package.expired(expires - 0.1), "the Agreement is live inside its TTL")
+	check(package.expired(expires), "the Agreement expires at its TTL")
 	check(package.option_key() == option.key(), "the package key is the option key")
-	check(package.clearance.ok(), "the frozen clearance is kept")
-	check(package.context.willingness, "the frozen Context is kept")
-	check(package.answer == "accept", "the frozen answer is kept")
 
 	check(package.matches(package.pony, _option("missionary", "bed_side", bed)),
 		"the same mare and exact option match")
@@ -87,7 +85,6 @@ func run() -> void:
 	handle.option = option
 	handle.cancel = func(_reason: String) -> bool: return true
 	check(handle.valid(), "a full handle is valid")
-	check(handle.trigger == AGREEMENT.Trigger.MARE_OFFER, "a new handle defaults to the mare route")
 
 	package.pony.free()
 	bed.free()

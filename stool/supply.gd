@@ -2,6 +2,7 @@ extends Node
 ## Finds pickable footstools in the world when the player owns none. See docs/stool.md.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const SPAWN_COUNT := 3
 const RANGE_M := 80.0
@@ -172,5 +173,4 @@ func _drop_pose(house: Node3D, point: Vector3) -> Variant:
 
 
 func _debug(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("debug"):
-		main.call("debug", text)
+	LOG.debug(text)

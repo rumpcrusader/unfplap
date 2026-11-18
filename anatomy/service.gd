@@ -20,6 +20,7 @@ const PLACEMENT_EDITOR := preload("res://mods/unfplap/anatomy/placement_editor.g
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Emitted when a pony's per-act anatomy handle is built, before the pose starts. A world
 ## integration uses it to take a worn garment off before the first rendered act frame.
@@ -53,10 +54,9 @@ func setup(main_node: Node) -> void:
 	tail_seat = TAIL_SEAT.new()
 	tail_seat.name = "UnfplapTailSeat"
 	var perf_call := func() -> bool:
-		return is_instance_valid(main) and main.get("debug_perf") == true
+		return LOG.debug_perf
 	var log_call := func(text: String) -> void:
-		if is_instance_valid(main) and main.has_method("debug"):
-			main.call("debug", text)
+		LOG.debug(text)
 	var eligible_tail := func(pony_node: Node) -> bool:
 		return _eligible_target(pony_node, ELIGIBILITY.Target.TAIL)
 	tail_seat.set("perf_on", perf_call)

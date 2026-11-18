@@ -2,7 +2,7 @@ extends SceneTree
 ## The perf panel: the list height, the colour targets and the view's caption and clear.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_perf_panel.gd
 
-const VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
+const VIEW := preload("res://mods/unfplap/shared/perf_view.gd")
 
 var failures := 0
 var checks := 0

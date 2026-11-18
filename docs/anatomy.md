@@ -957,6 +957,7 @@ stay event-time reads.
 | shared | body_form | `shared/body_form.gd` | presented body rig, fit and marker |
 | shared | body_profile | `shared/body_profile.gd` | typed rig, profile table and legacy fit key |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
+| shared | log | `shared/log.gd` | log sink, perf entry and panel |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | preferences | `shared/preferences.gd` | teat size preset |
 

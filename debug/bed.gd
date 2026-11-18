@@ -8,6 +8,7 @@ const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const PONY := preload("res://mods/unfplap/debug/pony.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## A mare farther than this from the bed, or on another floor, is moved to the bed approach first.
 const TRANSPORT_RANGE_M := 8.0
@@ -301,12 +302,9 @@ static func _alive(main: Node, target: Node, rest: Node3D) -> bool:
 		and main.is_inside_tree()
 
 
-static func _report(main: Node, pony: Node3D, accepted: bool, rows: Array[String]) -> String:
+static func _report(_main: Node, pony: Node3D, accepted: bool, rows: Array[String]) -> String:
 	var title := "BED CUDDLE %s %s" % [str(pony.name), "accepted" if accepted else "refused"]
-	if main.has_method("debug_block"):
-		main.call("debug_block", title, rows)
-	else:
-		main.call("debug", title)
+	LOG.block(title, rows)
 	return "Bed cuddle started for %s." % str(pony.name) if accepted \
 		else "Bed cuddle refused for %s." % str(pony.name)
 

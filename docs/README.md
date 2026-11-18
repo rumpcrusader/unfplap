@@ -73,6 +73,7 @@ only stable external surface is `docs/api.md`.
 |---|---|---|---|
 | Act keys | `shared/act_keys.gd` | `docs/input.md` | `tests/test_input.gd` |
 | Typed act view | `shared/act_facts.gd` | `docs/act_facts.md` | `tests/act_facts/` |
+| Log and perf entry | `shared/log.gd` | `docs/log.md` | `tests/perf/` |
 | Perf probes | `shared/perf.gd`, `shared/perf_idle.gd`, `shared/perf_tree.gd` | `docs/perf.md` | `tests/perf/` |
 | Preferences | `shared/preferences.gd` | `docs/preferences.md` | `tests/readiness/`, `tests/test_character_preferences.gd` |
 | Character templates | `shared/character_preferences.gd` | `docs/preferences.md` | `tests/test_character_preferences.gd` |

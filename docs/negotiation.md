@@ -298,6 +298,7 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 |---|---|---|---|
 | shared | clearance | `shared/clearance.gd` | Base clearance result |
 | shared | context | `shared/context.gd` | typed Context snapshot |
+| shared | log | `shared/log.gd` | log sink, perf entry and panel |
 | shared | pony_id | `shared/pony_id.gd` | stable mare id |
 | shared | pose_options | `shared/pose_options.gd` | the available options and exact match |
 | shared | pose_placement | `shared/pose_placement.gd` | the frozen source capability |

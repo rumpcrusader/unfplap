@@ -8,6 +8,7 @@ const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Keys the act samples every frame: the lean (Q/E/W/S), the auto layer (Q A W S E D Z, X), the
 ## caress (A/D, Z/C), the kiss (F) and the act-key hold. They are consumed but their pressed
@@ -93,9 +94,9 @@ func _keep_mouse_captured() -> bool:
 	if focus is LineEdit or focus is TextEdit:
 		return false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	if not _mouse_recapture_logged and main.has_method("debug"):
+	if not _mouse_recapture_logged:
 		_mouse_recapture_logged = true
-		main.call("debug", "recaptured mouse during act")
+		LOG.debug("recaptured mouse during act")
 	return true
 
 

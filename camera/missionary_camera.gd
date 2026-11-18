@@ -13,6 +13,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const SHOT_IDS := ["start", "back", "front", "left", "right"]
 ## In Anon eyes a kiss leans the eye in toward her face, but never closer than this to the face
@@ -645,7 +646,7 @@ func _restore_scene() -> void:
 
 ## One line at act start: the authored shot ends.
 func _log_shot_setup() -> void:
-	if not is_instance_valid(main) or not bool(main.get("debug_logs")):
+	if not LOG.debug_logs:
 		return
 	var scale := _missionary_body_scale()
 	var asset: Variant = facts.call_value(facts.authored_pose_asset) if facts != null else null

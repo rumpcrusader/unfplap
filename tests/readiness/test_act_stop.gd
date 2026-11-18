@@ -150,9 +150,6 @@ class FakeMain extends Node:
 	func camera() -> Camera3D:
 		return null
 
-	func debug(_text: String) -> void:
-		pass
-
 
 func _initialize() -> void:
 	run.call_deferred()

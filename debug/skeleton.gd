@@ -4,6 +4,7 @@ extends Node3D
 ## circles. Hovering a joint turns it red; clicking one prints its bone name and pose properties.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const BODY_COLOR := Color(0.38, 1.0, 0.62)
 const FACE_COLOR := Color(1.0, 0.83, 0.36)
 const HAIR_COLOR := Color(1.0, 0.54, 0.85)
@@ -235,8 +236,7 @@ func handle_click() -> bool:
 		str(skeleton.global_transform * pose.origin), str(pose.origin),
 		str(pose.basis.get_euler()), str(pose.basis.get_scale()),
 		str(skeleton.get_bone_rest(index).origin)]
-	if is_instance_valid(main) and main.has_method("debug"):
-		main.call("debug", line)
+	LOG.debug(line)
 	return true
 
 

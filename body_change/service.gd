@@ -14,6 +14,7 @@ const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_polic
 const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WIRE := preload("res://mods/unfplap/body_change/wire.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The game's pony `set_body_scale()` clamps its capsule to this range. A provider's form carries
 ## the same value the capsule takes, so the descriptor, the mesh scale and the capsule never
@@ -41,8 +42,7 @@ var _active_by_body: Dictionary = {}
 
 func setup(host: Node) -> void:
 	main = host
-	_log = Callable(host, "debug") if is_instance_valid(host) and host.has_method("debug") \
-		else Callable()
+	_log = Callable(LOG, "debug")
 
 
 ## Register one provider. The shared `BodyChange.source` handle is a narrow `Node`; this is the

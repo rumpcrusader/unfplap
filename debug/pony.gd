@@ -7,6 +7,7 @@ extends RefCounted
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The bond stages the sex-ready write never lowers: an engaged or married mare keeps her stage.
 const KEPT_STAGES := ["dating", "engaged", "married"]
@@ -198,12 +199,9 @@ static func _neutral_mood(main: Node, pony: Node3D, id: String) -> String:
 
 ## Print the detail block (or the title alone when the main node has no block helper) and return
 ## the one-line wheel toast.
-static func _report(main: Node, pony: Node3D, rows: Array[String]) -> String:
+static func _report(_main: Node, pony: Node3D, rows: Array[String]) -> String:
 	var refused := not rows.is_empty() and rows[0].begins_with("record=refused:")
 	var title := "SEX READY %s" % str(pony.name)
-	if main.has_method("debug_block"):
-		main.call("debug_block", title, rows)
-	else:
-		main.call("debug", title)
+	LOG.block(title, rows)
 	return "Sex ready refused for %s." % str(pony.name) if refused \
 		else "Sex ready for %s." % str(pony.name)

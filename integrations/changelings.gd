@@ -18,6 +18,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const CHANGELINGS_POLICY := preload("res://mods/unfplap/integrations/changelings_policy.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const MOD_ID := "changelings"
 const GROUP := "changelings_mod"
@@ -1061,5 +1062,4 @@ func _mod_active() -> bool:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("debug"):
-		main.call("debug", "[changelings] " + text)
+	LOG.debug("[changelings] " + text)

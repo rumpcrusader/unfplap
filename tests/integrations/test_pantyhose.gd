@@ -7,6 +7,7 @@ const HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const INTEGRATION := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
 const ANATOMY_SCENE := "res://mods/unfplap/assets/anatomy/mare/mare_bits_v2.scn"
@@ -56,10 +57,13 @@ class FakeAnatomy extends Node:
 class FakeMain extends Node:
 	var anatomy: Node
 	var game: Node
-	var logs: Array[String] = []
 
-	func debug(text: String) -> void:
-		logs.append(text)
+
+class LogSink extends RefCounted:
+	var lines: Array[String] = []
+
+	func write(text: String) -> void:
+		lines.append(text)
 
 
 class FakeGame extends Node:
@@ -396,6 +400,15 @@ func _free_world(scene: Dictionary) -> void:
 	var fake_main: Node = scene["main"]
 	if is_instance_valid(fake_main):
 		fake_main.free()
+
+
+## Both debug switches on, with the sink collecting the raw lines.
+func _capture_log() -> LogSink:
+	var sink := LogSink.new()
+	LOG.debug_logs = true
+	LOG.debug_perf = true
+	LOG.sink = Callable(sink, "write")
+	return sink
 
 
 func _pony(id: String) -> FakePony:
@@ -1310,15 +1323,15 @@ func _check_debug() -> void:
 	var scene := _make_world()
 	var anatomy: FakeAnatomy = scene["anatomy"]
 	var integration: Node = scene["integration"]
-	var fake_main: FakeMain = scene["main"]
 	var game: FakeGame = scene["game"]
 	var pony := _pony("rarity")
 	game.mares = [pony]
 	anatomy.hull = _hull()
+	var sink := _capture_log()
 	var result := str(integration.call("rebuild_hull"))
 	check(result.contains("rebuilt"), "the rebuild button reports its result")
 	check(anatomy.rebuilds == 1, "the rebuild clears the shared hull cache once")
-	check(fake_main.logs.size() > 0, "the rebuild logs its build time")
+	check(sink.lines.size() > 0, "the rebuild logs its build time")
 	var before := SETTINGS.pantyhose_hull_width.get_num()
 	SETTINGS.pantyhose_hull_width.set_num(16.0)
 	integration.call("apply_live_settings")

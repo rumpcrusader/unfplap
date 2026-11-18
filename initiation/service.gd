@@ -27,6 +27,7 @@ const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 
 const KEY_PREFIX := "unfplap:request"
@@ -839,8 +840,7 @@ func _now() -> float:
 
 
 func _debug(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("debug"):
-		main.call("debug", text)
+	LOG.debug(text)
 
 
 func _reply_text(reply: String) -> String:

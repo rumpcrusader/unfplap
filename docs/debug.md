@@ -245,6 +245,7 @@ themselves are `docs/perf.md`'s.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | action-button rows, the skeleton flag and the placement target pill |
+| shared | log | `shared/log.gd` | log sink, perf entry and panel |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id in Show data's BED rows |
 | game | interaction_sounds | `res://world/audio/interaction_sounds.gd` | the hover `prop_ui_confirm` cue |
 

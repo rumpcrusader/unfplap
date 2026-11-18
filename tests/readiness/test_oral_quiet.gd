@@ -227,10 +227,6 @@ class FakeMain extends Node:
 	var hud: Variant = null
 	var game: Variant = null
 	var active_runtime: Variant = null
-	var lines: Array[String] = []
-
-	func debug(text: String) -> void:
-		lines.append(text)
 
 	func clear_active(_runtime: Node) -> void:
 		pass

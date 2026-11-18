@@ -17,7 +17,7 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
-const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
@@ -25,7 +25,6 @@ const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
-const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
@@ -74,10 +73,6 @@ const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "
 ## Debug target rule: the mare closest to the camera's aim ray, inside this tube and range.
 const AIM_RANGE_M := 8.0
 const AIM_TUBE_M := 1.5
-## Mod setting: DEBUG LOGS. Persisted in user://mods/data/unfplap/settings.json.
-## Default OFF. Toggle in the Debug settings tab.
-var debug_logs: bool
-var debug_perf: bool
 
 var hud
 var input
@@ -141,31 +136,16 @@ var _debug_skeleton: Node3D
 var _debug_wheel: CanvasLayer
 ## The installed Idle Life entry node, for the deep-stretch debug action; see docs/debug.md.
 var _idle_life: Node
-## The in-game perf panel, created on the first printed window; see docs/perf.md.
-var _perf_view: CanvasLayer
 var _debug_face_index := -1
 var _form_shape_index := 0
 ## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
 var _captions: Dictionary = {}
 ## Cached captions_on_top so the per-frame caption tick never rereads settings.json.
 var _captions_on_top: bool
-## The idle (outside-act) debug perf probe; see docs/perf.md.
-var _perf_idle := PERF_IDLE.new()
 ## True while the adapter's global Anon-offer watch is armed.
 var _watching_player := false
 ## The Agreement auto-start's 0.25 s readiness clock.
 var _agreement_clock := 0.0
-
-
-## Every line carries the mod's id, so a block's continuation lines stay attributable after the
-## game's own output interleaves with them.
-func debug(text: String) -> void:
-	if not debug_logs:
-		return
-	if text.contains("\n"):
-		print(("[unfplap] " + text).replace("\n", "\n[unfplap] "))
-	else:
-		print("[unfplap] " + text)
 
 
 ## Live act/afterglow context for the game's normal dialogue prompt (pony_prompt_notes).
@@ -191,51 +171,6 @@ func prompt_note(pony: String) -> String:
 	return ""
 
 
-func _debug(text: String) -> void:
-	debug(text)
-
-
-## Debug idle perf probe. Idle runtimes report their timed chunks here; `shared/perf_idle.gd` prints
-## one aggregated block a second while no act runs. See docs/perf.md.
-func perf_idle_note(key: String, usec: int, owner := "") -> void:
-	_perf_idle.note(key, usec, owner)
-
-
-func _perf_idle_on() -> bool:
-	return debug_logs and debug_perf and not is_instance_valid(active_runtime)
-
-
-## Header counts for one idle block. Read once per window, never per note.
-func _perf_idle_counts() -> Dictionary:
-	var runtimes := 0
-	for runtime: Variant in _runtimes.values():
-		if is_instance_valid(runtime):
-			runtimes += 1
-	return {"runtimes": runtimes, "mares": WORLD.mares().size()}
-
-
-## One window from either probe, drawn in the corner panel. The text block stays the record.
-func perf_block(entries: Array, info: Dictionary) -> void:
-	if not debug_logs or not debug_perf:
-		return
-	if not is_instance_valid(_perf_view):
-		_perf_view = PERF_VIEW.new()
-		_perf_view.name = "UnfplapPerfView"
-		add_child(_perf_view)
-	_perf_view.call("show_window", entries, info)
-
-
-## One entry per diagnostic action: identification first, then tab-indented rows.
-func _debug_block(title: String, rows: Array) -> void:
-	var text := title
-	for row: Variant in rows:
-		var line := str(row)
-		if line.is_empty():
-			continue
-		text += "\n\t" + line
-	debug(text)
-
-
 func _ready() -> void:
 	process_priority = 100
 	set_process(true)
@@ -247,13 +182,14 @@ func _ready() -> void:
 		set_process(false)
 		return
 	add_to_group("pony_prompt_notes")
-	debug_logs = SETTINGS.debug_mode.get_bool()
-	debug_perf = SETTINGS.debug_perf.get_bool()
+	LOG.attach(self)
+	# The two debug switches arrive here once and again on a settings edit; every other module asks
+	# LOG, so no frame reads `settings` for them.
+	LOG.debug_logs = SETTINGS.debug_mode.get_bool()
+	LOG.debug_perf = SETTINGS.debug_perf.get_bool()
+	LOG.act_running = Callable(self, "_perf_act_running")
+	LOG.counts = Callable(self, "_perf_counts")
 	_sync_skeleton_overlay()
-	_perf_idle.enabled = Callable(self, "_perf_idle_on")
-	_perf_idle.counts = Callable(self, "_perf_idle_counts")
-	_perf_idle.log = Callable(self, "debug")
-	_perf_idle.show = Callable(self, "perf_block")
 	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
@@ -306,7 +242,7 @@ func _ready() -> void:
 	add_child(stool)
 	stock_smack = STOCK_SMACK.new()
 	stock_smack.name = "UnfplapStockSmack"
-	stock_smack.set("log", Callable(self, "debug"))
+	stock_smack.set("log", Callable(LOG, "debug"))
 	add_child(stock_smack)
 	var smack_binding: RefCounted = SMACK_BINDING.new()
 	smack_binding.call("setup", stock_smack)
@@ -332,8 +268,8 @@ func _ready() -> void:
 			"res://mods/unfplap/poses/standing_recipe.gd",
 	]:
 		source_mtime = maxi(source_mtime, FileAccess.get_modified_time(path))
-	_debug("entry ready (debug logs %s) runtime_mtime=%d" % [
-		"ON" if debug_logs else "OFF", source_mtime])
+	LOG.debug("entry ready (debug logs %s) runtime_mtime=%d" % [
+		"ON" if LOG.debug_logs else "OFF", source_mtime])
 	Mods.world_ready.connect(_on_world)
 	Mods.world_closed.connect(_on_world_closed)
 	Mods.player_ready.connect(_on_player)
@@ -373,7 +309,7 @@ func _on_world(host: Node) -> void:
 	_offer = null
 	_offer_blocked = null
 	_pending_swap = {}
-	_perf_idle.reset()
+	LOG.reset()
 	if is_instance_valid(initiation):
 		initiation.reset()
 	if is_instance_valid(negotiation):
@@ -399,7 +335,7 @@ func _warm_offer_assets() -> void:
 
 
 func _on_world_closed(_host: Node) -> void:
-	_debug("world closed")
+	LOG.debug("world closed")
 	close_debug_wheel()
 	if is_instance_valid(pantyhose):
 		pantyhose.call("on_world_closed")
@@ -424,9 +360,8 @@ func _on_world_closed(_host: Node) -> void:
 	_gate_target = null
 	_gate_at = 0.0
 	_gate_ready = false
-	_perf_idle.reset()
-	if is_instance_valid(_perf_view):
-		_perf_view.call("clear")
+	LOG.reset()
+	LOG.clear_panel()
 	_last_blocked_key = ""
 	if is_instance_valid(stool):
 		stool.call("on_world_closed")
@@ -504,11 +439,11 @@ func apply_settings_changed() -> void:
 
 
 func _apply_settings_changed() -> void:
-	debug_logs = SETTINGS.debug_mode.get_bool()
-	debug_perf = SETTINGS.debug_perf.get_bool()
-	if is_instance_valid(_perf_view) and not (debug_logs and debug_perf):
-		_perf_view.call("clear")
-	if not debug_logs:
+	LOG.debug_logs = SETTINGS.debug_mode.get_bool()
+	LOG.debug_perf = SETTINGS.debug_perf.get_bool()
+	if not (LOG.debug_logs and LOG.debug_perf):
+		LOG.clear_panel()
+	if not LOG.debug_logs:
 		close_debug_wheel()
 	if is_instance_valid(input):
 		input.call("apply_settings")
@@ -546,11 +481,11 @@ func refresh_dock_color(pony: Node) -> void:
 
 func _on_player(body: Node) -> void:
 	WORLD.bind_player(body)
-	_debug("player ready")
+	LOG.debug("player ready")
 	if not is_instance_valid(hud):
 		hud = HUD.new()
 		hud.name = "UnfplapHUD"
-		hud.log = Callable(self, "debug")
+		hud.log = Callable(LOG, "debug")
 		add_child(hud)
 	if is_instance_valid(anatomy):
 		anatomy.call("player_ready", body)
@@ -599,7 +534,7 @@ func _on_pony(pony: Node) -> void:
 		anatomy.call("bind", pony, runtime)
 	pony.add_child(runtime)
 	_runtimes[pony] = runtime
-	_debug("runtime attached %s id=%s" % [str(pony.name), str(pony.get_meta("relationship_id", ""))])
+	LOG.debug("runtime attached %s id=%s" % [str(pony.name), str(pony.get_meta("relationship_id", ""))])
 	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
 
 
@@ -766,7 +701,7 @@ func installed_character_ids() -> Array[String]:
 func _on_settings_page(page: Node) -> void:
 	SETTINGS_UI.inject(page, Callable(self, "_build_settings_actions"),
 		Callable(self, "live_character_ids"), Callable(self, "_character_participation"),
-		Callable(self, "_apply_settings_changed"), Callable(self, "debug"))
+		Callable(self, "_apply_settings_changed"), Callable(LOG, "debug"))
 
 
 ## The Debug block builder the settings panel inserts into each tab.
@@ -782,18 +717,27 @@ func _character_participation(id: String) -> Dictionary:
 	return {}
 
 
+## The idle probe's act gate. The runtime belongs to the entry until the pony registry moves out,
+## so the entry is the one place that can answer it.
+func _perf_act_running() -> bool:
+	return is_instance_valid(active_runtime)
+
+
+## The idle block's header counts. Read once per window, never per note.
+func _perf_counts() -> Dictionary:
+	var runtimes := 0
+	for runtime: Variant in _runtimes.values():
+		if is_instance_valid(runtime):
+			runtimes += 1
+	return {"runtimes": runtimes, "mares": WORLD.mares().size()}
+
+
 func _process(delta: float) -> void:
-	var timed := _perf_idle.on()
+	var timed := LOG.tick(delta)
 	var started := Time.get_ticks_usec() if timed else 0
 	_process_entry(delta, timed)
 	if timed:
-		_perf_idle.note("entry_process", Time.get_ticks_usec() - started)
-	_perf_idle.tick(delta)
-
-
-## Close one idle chunk whose stamp the caller took. The note itself stays outside the next chunk.
-func _close_idle_chunk(key: String, started: int) -> void:
-	_perf_idle.note(key, Time.get_ticks_usec() - started)
+		LOG.close("entry_process", started)
 
 
 ## The entry's per-frame body. `_process` above only times it for the idle probe; the call order
@@ -825,24 +769,24 @@ func _process_entry(delta: float, timed: bool) -> void:
 		if timed:
 			var offer_started := Time.get_ticks_usec()
 			_refresh_offer()
-			_close_idle_chunk("offer_scan", offer_started)
+			LOG.close("offer_scan", offer_started)
 		else:
 			_refresh_offer()
 	if is_instance_valid(initiation):
 		var initiation_started := Time.get_ticks_usec() if timed else 0
 		initiation.tick(delta)
 		if timed:
-			_close_idle_chunk("entry_initiation", initiation_started)
+			LOG.close("entry_initiation", initiation_started)
 	if is_instance_valid(negotiation):
 		var negotiation_started := Time.get_ticks_usec() if timed else 0
 		negotiation.tick(delta)
 		_tick_agreement_auto_start(delta)
 		if timed:
-			_close_idle_chunk("entry_negotiation", negotiation_started)
+			LOG.close("entry_negotiation", negotiation_started)
 	var watch_started := Time.get_ticks_usec() if timed else 0
 	_tick_negotiation_watch()
 	if timed:
-		_close_idle_chunk("entry_watch", watch_started)
+		LOG.close("entry_watch", watch_started)
 	var hint := ""
 	if _offer != null:
 		hint = OFFER_HINT
@@ -855,7 +799,7 @@ func _process_entry(delta: float, timed: bool) -> void:
 	var hint_started := Time.get_ticks_usec() if timed else 0
 	_sync_native_hint(hint)
 	if timed:
-		_close_idle_chunk("entry_hint", hint_started)
+		LOG.close("entry_hint", hint_started)
 
 
 func _refresh_offer() -> void:
@@ -913,18 +857,18 @@ func _refresh_offer() -> void:
 
 	# Standing: Anon must stand in the cone behind her rump. No crosshair aim is needed. The
 	# hotkey readiness is Base clearance plus the scene-only rows, with no policy snapshot.
-	var timed := _perf_idle.on()
+	var timed := LOG.idle_on()
 	var cone_started := Time.get_ticks_usec() if timed else 0
 	var standing: Node = _rump_cone_target(view)
 	if timed:
-		_perf_idle.note("offer_cone", Time.get_ticks_usec() - cone_started)
+		LOG.note("offer_cone", Time.get_ticks_usec() - cone_started)
 	if is_instance_valid(standing):
 		var runtime: Node = runtime_for(standing)
 		if is_instance_valid(runtime):
 			var gate_started := Time.get_ticks_usec() if timed else 0
 			var ready := _standing_ready(standing, runtime)
 			if timed:
-				_perf_idle.note("offer_gate", Time.get_ticks_usec() - gate_started)
+				LOG.note("offer_gate", Time.get_ticks_usec() - gate_started)
 			if ready:
 				_offer = _new_offer(runtime, standing, CATALOG.STANDING, "", null)
 				_log_offer()
@@ -1128,7 +1072,7 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 	var gap_text := "n/a" if not (gap is float or gap is int) \
 		or not is_finite(float(gap)) else "%.3f" % float(gap)
 	var have := int(runtime.call("stool_case_count"))
-	_debug("OFFER blocked pony=%s reason=needs_stool gap=%s need=%d have=%d" % [
+	LOG.debug("OFFER blocked pony=%s reason=needs_stool gap=%s need=%d have=%d" % [
 		str(target.name), gap_text, need, have])
 	if not _stool_hint_toast_shown:
 		_stool_hint_toast_shown = true
@@ -1172,7 +1116,7 @@ func _log_offer() -> void:
 	if key == _last_offer_key:
 		return
 	_last_offer_key = key
-	_debug("OFFER pony=%s pose=%s source=%s bed=%s pending=%s" % [
+	LOG.debug("OFFER pony=%s pose=%s source=%s bed=%s pending=%s" % [
 		str(target.name) if is_instance_valid(target) else "?",
 		_offer.pose, _offer.source, str(_offer.bed), str(_offer.pending)])
 
@@ -1225,7 +1169,7 @@ func try_start() -> bool:
 	if _offer == null:
 		if _offer_blocked != null:
 			return start_pose_offer(_offer_blocked)
-		_debug("hotkey no context pose")
+		LOG.debug("hotkey no context pose")
 		_toast("There is nothing to start here.")
 		return false
 	return start_pose_offer(_offer)
@@ -1260,17 +1204,17 @@ func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 		if handle != null:
 			var match: Variant = negotiation.call("hotkey_handle", runtime, _option_for(offer))
 			if match != null:
-				_debug("hotkey exact match id=%s pose=%s" % [id, offer.pose])
+				LOG.debug("hotkey exact match id=%s pose=%s" % [id, offer.pose])
 				return _start_agreement_offer(offer, true)
-			_debug("hotkey interrupt agreement id=%s" % id)
+			LOG.debug("hotkey interrupt agreement id=%s" % id)
 			negotiation.call("interrupt_for_hotkey")
 		elif bool(negotiation.call("is_locked")):
-			_debug("hotkey interrupt negotiation id=%s" % id)
+			LOG.debug("hotkey interrupt negotiation id=%s" % id)
 			negotiation.call("interrupt_for_hotkey")
-	_debug("hotkey immediate id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
+	LOG.debug("hotkey immediate id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
 	var started := bool(runtime.call("start_hotkey", offer.pose, offer.bed, offer.source))
 	if not started:
-		_debug("hotkey start blocked id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
+		LOG.debug("hotkey start blocked id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
 		return false
 	_clear_offer_hint()
 	return true
@@ -1297,10 +1241,10 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 	var result := int(offer.runtime.call("start_agreement", handle, skip_presentation))
 	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
 		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
-	_debug("agreement start id=%s pose=%s skip_presentation=%s result=%d" % [
+	LOG.debug("agreement start id=%s pose=%s skip_presentation=%s result=%d" % [
 		id, offer.pose, str(skip_presentation), result])
 	if result == RUNTIME.AGREEMENT_WAIT:
-		_debug("agreement start waiting pose=%s source=%s" % [offer.pose, offer.source])
+		LOG.debug("agreement start waiting pose=%s source=%s" % [offer.pose, offer.source])
 		return false
 	_clear_offer_hint()
 	return result == RUNTIME.AGREEMENT_STARTED
@@ -1339,12 +1283,12 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	var pony_id := str(_field(handle, "pony_id", ""))
 	if pony_id.is_empty() and is_instance_valid(pony):
 		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
-	_debug("agreement auto-start id=%s pose=%s" % [pony_id, offer.pose])
+	LOG.debug("agreement auto-start id=%s pose=%s" % [pony_id, offer.pose])
 	if bool(handle.private) and not _agreement_private_now(pony, cuddle):
-		_debug("agreement auto-start privacy lost pony=%s" % str(pony.name))
+		LOG.debug("agreement auto-start privacy lost pony=%s" % str(pony.name))
 		negotiation.call("cancel", handle, "privacy")
 		return
-	_debug("agreement auto-start pony=%s pose=%s" % [str(pony.name), offer.pose])
+	LOG.debug("agreement auto-start pony=%s pose=%s" % [str(pony.name), offer.pose])
 	_start_agreement_offer(offer, false)
 
 
@@ -1405,7 +1349,7 @@ func action_anon_offer() -> String:
 	if not is_instance_valid(runtime):
 		return "No runtime for %s." % str(target.name)
 	var formed := bool(negotiation.call("begin_anon_offer", runtime, "I want you. Come here."))
-	_debug("anon offer button: %s formed=%s" % [str(target.name), str(formed)])
+	LOG.debug("anon offer button: %s formed=%s" % [str(target.name), str(formed)])
 	if formed:
 		return "Anon offer started for %s." % str(target.name)
 	return "Anon offer refused for %s." % str(target.name)
@@ -1427,7 +1371,7 @@ func action_bed_cuddle() -> String:
 
 func _bed_cuddle_sequence(target: Node) -> void:
 	var result: String = await DEBUG_BED.invite(self, target)
-	_debug("bed cuddle: " + result)
+	LOG.debug("bed cuddle: " + result)
 
 
 ## Wheel-only: play Idle Life's deep stretch on the live act's pony, else the aimed mare. It
@@ -1481,7 +1425,7 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 	var next := CYCLE.NORMAL if current == phase_name else phase_name
 	runtime.call("set_cycle_override", next)
 	var verb := "cleared" if next == CYCLE.NORMAL else "forced"
-	_debug("cycle %s %s=%s" % [phase_name, str(target.name), next])
+	LOG.debug("cycle %s %s=%s" % [phase_name, str(target.name), next])
 	return "%s %s for %s." % [phase_name.capitalize(), verb, str(target.name)]
 
 
@@ -1510,7 +1454,7 @@ func _debug_cycle_request(phase_name: String) -> String:
 		return "No runtime for %s." % str(target.name)
 	runtime.call("set_cycle_override", phase_name)
 	var label := "automatic" if phase_name.is_empty() else phase_name
-	_debug("cycle override %s=%s" % [str(target.name), label])
+	LOG.debug("cycle override %s=%s" % [str(target.name), label])
 	return "Cycle for %s: %s." % [str(target.name), label]
 
 
@@ -1544,7 +1488,7 @@ func _form_change_request(true_form: bool, shape_id: String) -> String:
 		var result: Variant = active_runtime.call("request_form_change", true_form, shape_id)
 		if result is Dictionary:
 			var answer: Dictionary = result
-			_debug("form change %s: %s" % [label, str(answer.get("reason", ""))])
+			LOG.debug("form change %s: %s" % [label, str(answer.get("reason", ""))])
 			return str(answer.get("message", answer.get("reason", "")))
 		return "Form change refused."
 	var body := _form_body()
@@ -1556,7 +1500,7 @@ func _form_change_request(true_form: bool, shape_id: String) -> String:
 	else:
 		started = bool(body_change.call("request_form", body, shape_id,
 			BODY_CHANGE.Origin.PROVIDER))
-	_debug("form change idle %s started=%s" % [label, str(started)])
+	LOG.debug("form change idle %s started=%s" % [label, str(started)])
 	if started:
 		return "Changing to %s." % label
 	return "She cannot take that form now."
@@ -1597,11 +1541,11 @@ func _debug_offer_request(pose := "") -> String:
 	var view: Camera3D = WORLD.camera()
 	var target: Node = _debug_target(view) if is_instance_valid(view) else null
 	if not is_instance_valid(target):
-		_debug("request: no pony target")
+		LOG.debug("request: no pony target")
 		return "No mare under the crosshair."
 	var runtime: Variant = runtime_for(target)
 	if not is_instance_valid(runtime):
-		_debug("request: no runtime for %s" % str(target.name))
+		LOG.debug("request: no runtime for %s" % str(target.name))
 		return "No runtime for %s." % str(target.name)
 	var result: INITIATION.ForceResult = initiation.force(runtime, pose)
 	var started := result != null and result.ok
@@ -1611,12 +1555,12 @@ func _debug_offer_request(pose := "") -> String:
 	elif pose == CATALOG.STANDING:
 		label = " (standing)"
 	if started:
-		_debug("request button: %s%s" % [str(target.name), label])
+		LOG.debug("request button: %s%s" % [str(target.name), label])
 		return "Offer started for %s%s." % [str(target.name), label]
 	var reason := "unknown"
 	if result != null and not result.reject.is_empty():
 		reason = result.reject
-	_debug("request button reject %s%s reason=%s" % [str(target.name), label, reason])
+	LOG.debug("request button reject %s%s reason=%s" % [str(target.name), label, reason])
 	return "Offer rejected for %s%s: %s." % [str(target.name), label, reason]
 
 
@@ -1629,11 +1573,11 @@ func action_reload_pose() -> String:
 	else:
 		error = AUTHORED.reload_file()
 	if not error.is_empty():
-		_debug("pose reload failed: %s" % error)
+		LOG.debug("pose reload failed: %s" % error)
 		return "Pose reload failed: %s" % error
 	if is_instance_valid(active_runtime) and active_runtime.has_method("_sync_missionary_pose_config"):
 		active_runtime.call("_sync_missionary_pose_config")
-	_debug("pose reloaded")
+	LOG.debug("pose reloaded")
 	return "Reloaded the active posed base."
 
 
@@ -1652,7 +1596,7 @@ func action_pose_test_variant() -> String:
 	var result: Variant = active_runtime.call("request_pose", target, "debug")
 	if result is Dictionary:
 		var code := str((result as Dictionary).get("code", ""))
-		_debug("pose test variant %s -> %s: %s" % [active, target, code])
+		LOG.debug("pose test variant %s -> %s: %s" % [active, target, code])
 		return "Pose %s: %s." % [target, code]
 	return "Pose request failed."
 
@@ -1665,7 +1609,7 @@ func action_facesit_variant() -> String:
 		return "No act."
 	var error := str(active_runtime.call("face_sit_error"))
 	if not error.is_empty():
-		_debug("face-sit refused: %s" % error)
+		LOG.debug("face-sit refused: %s" % error)
 		return "Face-sit refused: %s." % error
 	var view: Variant = active_runtime.call("pose_view")
 	var active := str(view.id) if view != null else ""
@@ -1673,7 +1617,7 @@ func action_facesit_variant() -> String:
 	var result: Variant = active_runtime.call("request_pose", target, "facesit")
 	if result is Dictionary:
 		var code := str((result as Dictionary).get("code", ""))
-		_debug("pose face-sit %s -> %s: %s" % [active, target, code])
+		LOG.debug("pose face-sit %s -> %s: %s" % [active, target, code])
 		return "Pose %s: %s." % [target, code]
 	return "Pose request failed."
 
@@ -1695,7 +1639,7 @@ func action_show_data() -> String:
 		rows.append(str(item.get("title", "")))
 		for row: Variant in item.get("rows", []):
 			rows.append("  " + str(row))
-	_debug_block("DATA " + str(target.name), rows)
+	LOG.block("DATA " + str(target.name), rows)
 	return "Data written to the debug log for %s." % str(target.name)
 
 
@@ -1817,7 +1761,7 @@ func action_force_act_face() -> String:
 		shown = bool(runtime.call("force_act_face", face))
 	if not shown:
 		shown = ACT_FACE.react(target, face, 3.0)
-	_debug("act face %s=%s shown=%s" % [str(target.name), face, str(shown)])
+	LOG.debug("act face %s=%s shown=%s" % [str(target.name), face, str(shown)])
 	return "Act face %s: %s%s." % [str(target.name), face,
 		"" if shown else " (a spoken line owns the face)"]
 
@@ -1830,7 +1774,7 @@ func action_clear_cooldown() -> String:
 	var name := str(target.name)
 	if not is_instance_valid(initiation) or not bool(initiation.call("clear_cooldown", target)):
 		return "No request state for %s." % name
-	_debug("request cooldown cleared %s" % name)
+	LOG.debug("request cooldown cleared %s" % name)
 	return "Offer cooldown cleared for %s." % name
 
 
@@ -1848,7 +1792,7 @@ func action_reset_act_history() -> String:
 	if not ACT_HISTORY.reset(section, id):
 		return "No act history for %s." % str(target.name)
 	ACT_HISTORY.save()
-	_debug("act history reset for %s" % id)
+	LOG.debug("act history reset for %s" % id)
 	return "Act history cleared for %s." % str(target.name)
 
 
@@ -1949,7 +1893,7 @@ func action_give_stool() -> String:
 	var slot := int(store.call("grant", STOOL.ID, 1))
 	if slot < 0:
 		return "No room in the briefcase."
-	_debug("stool granted slot=%d" % slot)
+	LOG.debug("stool granted slot=%d" % slot)
 	return "Footstool added."
 
 
@@ -1993,7 +1937,7 @@ func anatomy_status(text: String, seconds := 2.0) -> void:
 	if is_instance_valid(hud) and hud.has_method("toast"):
 		hud.call("toast", text, seconds)
 	else:
-		_debug(text)
+		LOG.debug(text)
 
 
 ## Cross-mod API: a provider layer changed. Re-resolve the live anatomy, tail seat and act
@@ -2134,7 +2078,7 @@ func _nearest_pony(view: Camera3D) -> Node:
 
 ## The persisted Anatomy debug flag is the only switch; the overlay is live only while debug is on.
 func _sync_skeleton_overlay() -> void:
-	var enabled := debug_logs and SETTINGS.skeleton_overlay.get_bool()
+	var enabled := LOG.debug_logs and SETTINGS.skeleton_overlay.get_bool()
 	if enabled:
 		if not is_instance_valid(_debug_skeleton):
 			_debug_skeleton = DEBUG_SKELETON.new()
@@ -2150,7 +2094,7 @@ func _sync_skeleton_overlay() -> void:
 ## debug off from creating the node at all.
 func debug_wheel_input(event: InputEvent) -> bool:
 	if not is_instance_valid(_debug_wheel):
-		if not debug_logs:
+		if not LOG.debug_logs:
 			return false
 		if not event is InputEventMouseButton:
 			return false
@@ -2180,7 +2124,7 @@ func debug_wheel_act_live() -> bool:
 ## The wheel's open gate: debug on, desktop, captured, focused, unpaused, no menu or text field,
 ## and the left button not held.
 func debug_wheel_allowed() -> bool:
-	if not debug_logs or DisplayServer.get_name() == "headless":
+	if not LOG.debug_logs or DisplayServer.get_name() == "headless":
 		return false
 	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
 		return false
@@ -2225,15 +2169,10 @@ func debug_wheel_context() -> Dictionary:
 ## the log; the toast only carries the summary.
 func debug_wheel_action(name: String) -> String:
 	var result := DEBUG_ACTIONS.run_action(name, self)
-	_debug("wheel %s: %s" % [name, result])
+	LOG.debug("wheel %s: %s" % [name, result])
 	if not result.is_empty() and is_instance_valid(hud) and hud.has_method("toast"):
 		hud.call("toast", result, 3.0)
 	return result
-
-
-## Public wrapper for the debug bed helper's multi-line report.
-func debug_block(title: String, rows: Array) -> void:
-	_debug_block(title, rows)
 
 
 func skeleton_click() -> bool:
@@ -2357,7 +2296,7 @@ func _bind_negotiation_host() -> void:
 		if is_instance_valid(adapter):
 			adapter.call("cancel_scope", scope)
 	host.toast = Callable(self, "_toast")
-	host.log = Callable(self, "debug")
+	host.log = Callable(LOG, "debug")
 	host.react = Callable(self, "_negotiation_react")
 	host.on_outcome = Callable(self, "_on_negotiation_outcome")
 	host.on_agreement = Callable(self, "_on_agreement")
@@ -2505,12 +2444,12 @@ func _tick_negotiation_watch() -> void:
 		if not _watching_player:
 			_watching_player = true
 			adapter.call("watch_player", Callable(self, "_on_anon_line"))
-			_debug("anon_watch armed")
+			LOG.debug("anon_watch armed")
 		return
 	if _watching_player:
 		_watching_player = false
 		adapter.call("unwatch_player")
-		_debug("anon_watch disarmed reason=%s" % [
+		LOG.debug("anon_watch disarmed reason=%s" % [
 			"act" if is_instance_valid(active_runtime) else "locked"])
 
 
@@ -2518,34 +2457,34 @@ func _tick_negotiation_watch() -> void:
 ## classifies intent; a normal line forms nothing and says nothing.
 func _on_anon_line(text: String) -> void:
 	var line := text.strip_edges()
-	_debug("anon_line received len=%d" % line.length())
+	LOG.debug("anon_line received len=%d" % line.length())
 	if line.is_empty():
-		_debug("anon_line skip reason=empty")
+		LOG.debug("anon_line skip reason=empty")
 		return
 	if line.length() > 600:
-		_debug("anon_line skip reason=too_long len=%d" % line.length())
+		LOG.debug("anon_line skip reason=too_long len=%d" % line.length())
 		return
 	if not is_instance_valid(negotiation) or bool(negotiation.call("is_locked")):
-		_debug("anon_line skip reason=locked")
+		LOG.debug("anon_line skip reason=locked")
 		return
 	if not is_instance_valid(classifier) or not bool(classifier.call("available")):
-		_debug("anon_line skip reason=no_classifier")
+		LOG.debug("anon_line skip reason=no_classifier")
 		return
 	var pony := _conversation_mare()
 	if not is_instance_valid(pony):
-		_debug("anon_line skip reason=no_target")
+		LOG.debug("anon_line skip reason=no_target")
 		return
 	var runtime: Variant = runtime_for(pony)
 	if not is_instance_valid(runtime) or int(runtime.get("state")) != 0:
-		_debug("anon_line skip reason=runtime_state state=%s" % [
+		LOG.debug("anon_line skip reason=runtime_state state=%s" % [
 			str(runtime.get("state")) if is_instance_valid(runtime) else "none"])
 		return
 	if is_instance_valid(initiation) and initiation.has_method("cancel_approach"):
 		initiation.call("cancel_approach")
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
-	_debug("anon_line -> negotiation id=%s" % [id if not id.is_empty() else str(pony.name)])
+	LOG.debug("anon_line -> negotiation id=%s" % [id if not id.is_empty() else str(pony.name)])
 	var started := bool(negotiation.call("begin_anon_offer", runtime, line))
-	_debug("anon_line negotiation started=%s" % str(started))
+	LOG.debug("anon_line negotiation started=%s" % str(started))
 
 
 ## The mare whose conversation target is Anon, nearest first. The game's own target decides; the
@@ -2576,7 +2515,7 @@ func _conversation_mare() -> Node:
 func _on_negotiation_outcome(terminal: Variant) -> void:
 	if terminal == null:
 		return
-	_debug("negotiation outcome id=%s outcome=%d reason=%s cooldown=%.0f" % [
+	LOG.debug("negotiation outcome id=%s outcome=%d reason=%s cooldown=%.0f" % [
 		str(_field(terminal, "pony_id", "")), int(_field(terminal, "outcome", 0)),
 		str(_field(terminal, "reason", "")) if not str(_field(terminal, "reason", "")).is_empty()
 			else "none", float(_field(terminal, "cooldown_s", 0.0))])
@@ -2599,7 +2538,7 @@ func _on_agreement(handle: Variant) -> void:
 	if pony_id.is_empty() and is_instance_valid(pony):
 		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	var option: Variant = _field(handle, "option")
-	_debug("agreement formed id=%s trigger=%s pose=%s private=%s" % [
+	LOG.debug("agreement formed id=%s trigger=%s pose=%s private=%s" % [
 		pony_id, str(_field(handle, "trigger", "")),
 		str(_field(option, "pose", "none")) if option != null else "none",
 		str(_field(handle, "private", false))])
@@ -2611,7 +2550,7 @@ func _on_agreement(handle: Variant) -> void:
 	# The presentation is act-owned: it starts now, and the auto-start waits for it to settle.
 	if option != null and str(option.pose) == CATALOG.STANDING \
 			and not bool(runtime.call("present_standing")):
-		_debug("agreement present failed pony=%s" % str(pony.name))
+		LOG.debug("agreement present failed pony=%s" % str(pony.name))
 	_offer = null
 
 
@@ -2670,7 +2609,7 @@ func _exit_tree() -> void:
 		stock_smack.queue_free()
 		stock_smack = null
 	_offer = null
-	_perf_idle.reset()
+	LOG.detach()
 	if is_instance_valid(hud):
 		hud.queue_free()
 	if is_instance_valid(input):

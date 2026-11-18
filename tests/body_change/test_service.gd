@@ -14,10 +14,19 @@ const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const RUNTIME_BINDING := preload("res://mods/unfplap/runtime/body_binding.gd")
 const SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
 
 var failures := 0
 var checks := 0
+var log_sink := LogSink.new()
+
+
+class LogSink extends RefCounted:
+	var lines: Array[String] = []
+
+	func write(text: String) -> void:
+		lines.append(text)
 
 
 class FakePony extends Node3D:
@@ -31,11 +40,7 @@ class FakePony extends Node3D:
 
 
 class FakeHost extends Node:
-	var lines: Array[String] = []
 	var runtimes: Dictionary = {}
-
-	func debug(text: String) -> void:
-		lines.append(text)
 
 	func runtime_for(body: Node) -> Node:
 		if not is_instance_valid(body):
@@ -194,6 +199,9 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
+	# Both debug switches on, with the sink collecting the raw lines the service asserts on.
+	LOG.debug_logs = true
+	LOG.sink = Callable(log_sink, "write")
 	_check_rig_profiles()
 	_check_default_form()
 	_check_body_change()
@@ -407,7 +415,7 @@ func _check_world_bindings() -> void:
 	check(lod_target.refreshes == [body], "the LOD binding refreshes the adopted body")
 	check(garment_target.scans == 1, "the garment binding re-scans for the adopted body")
 	check(smack_target.handed_over == [body], "the smack binding hands the adopted body over")
-	var line := host.lines[host.lines.size() - 1] if not host.lines.is_empty() else ""
+	var line := log_sink.lines[log_sink.lines.size() - 1] if not log_sink.lines.is_empty() else ""
 	check(line.contains("bindings=lod,garments,stock_smack"),
 		"the service log names the world bindings in registration order")
 
@@ -522,6 +530,7 @@ func _check_scale_clamp() -> void:
 
 
 func _check_service() -> void:
+	log_sink.lines.clear()
 	var host := FakeHost.new()
 	var service := SERVICE.new()
 	service.setup(host)
@@ -578,8 +587,8 @@ func _check_service() -> void:
 	check(is_equal_approx(pony.body_scale, 1.2), "the mirror writes the body scale")
 	check(pony.scale_calls == [1.2],
 		"the mirror resizes through the game's body-scale setter, not a bare field write")
-	check(host.lines.size() == 1, "one form application logs one line")
-	var line := host.lines[host.lines.size() - 1] if not host.lines.is_empty() else ""
+	check(log_sink.lines.size() == 1, "one form application logs one line")
+	var line := log_sink.lines[log_sink.lines.size() - 1] if not log_sink.lines.is_empty() else ""
 	check(line.contains("body change") and line.contains("pony=fluttershy")
 		and line.contains("form=borrowed_form") and line.contains("fit=borrowed_fit")
 		and line.contains("rig=celestia") and line.contains("marker=source_own")

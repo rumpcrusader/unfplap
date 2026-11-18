@@ -11,6 +11,7 @@ const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var failures := 0
 var checks := 0
@@ -121,10 +122,13 @@ class FakeMain extends Node:
 	var player: Variant = null
 	var game: Variant = null
 	var classifier: Node = null
-	var logs: Array[String] = []
 
-	func debug(text: String) -> void:
-		logs.append(text)
+
+class LogSink extends RefCounted:
+	var lines: Array[String] = []
+
+	func write(text: String) -> void:
+		lines.append(text)
 
 
 func _fixture() -> Dictionary:
@@ -164,6 +168,14 @@ func _option(pose: String, source := "", bed: Variant = null) -> POSE_OPTIONS.Op
 	out.source = source
 	out.bed = bed
 	return out
+
+
+## Both debug switches on, with the sink collecting the raw lines.
+func _capture_log() -> LogSink:
+	var sink := LogSink.new()
+	LOG.debug_logs = true
+	LOG.sink = Callable(sink, "write")
+	return sink
 
 
 func _has_log(lines: Array[String], needle: String) -> bool:
@@ -348,7 +360,7 @@ func _check_models() -> void:
 	var made := _fixture()
 	var adapter: Node = made["adapter"]
 	var classifier: FakeClassifier = made["classifier"]
-	var main: FakeMain = made["main"]
+	var sink := _capture_log()
 	var bed := Node3D.new()
 	root.add_child(bed)
 	var context := CONTEXT.build({"willingness": true})
@@ -377,9 +389,9 @@ func _check_models() -> void:
 		"the classifier payload carries Context")
 	check(got.size() == 1 and got[0].answer == CONTEXT.ANSWER_ACCEPT and got[0].option_index == 0,
 		"the reply is parsed into the typed answer")
-	check(_has_log(main.logs, "classifier start kind=anon_offer"),
+	check(_has_log(sink.lines, "classifier start kind=anon_offer"),
 		"the classifier start is logged")
-	check(_has_log(main.logs, "classifier result kind=anon_offer"),
+	check(_has_log(sink.lines, "classifier result kind=anon_offer"),
 		"the classifier result is logged")
 
 	got.clear()

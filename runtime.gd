@@ -10,6 +10,7 @@ const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
@@ -733,22 +734,19 @@ func _anatomy_fluid_ground_y() -> float:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("debug"):
-		main.call("debug", text)
+	LOG.debug(text)
 
 
 ## Forward one act window to the entry's corner panel, which owns the gate and the drawing.
 func _perf_show(entries: Array, info: Dictionary) -> void:
-	if is_instance_valid(main) and main.has_method("perf_block"):
-		main.call("perf_block", entries, info)
+	LOG.perf_block(entries, info)
 
 
 ## Debug perf probe. Timed chunks report microseconds here; `perf_note()` forwards to `shared/perf.gd`,
 ## which prints one summary a second so a pony-specific stall can be attributed to a modifier
 ## without a live profiler.
 func _perf_enabled() -> bool:
-	return is_instance_valid(main) and main.get("debug_logs") == true \
-		and main.get("debug_perf") == true
+	return LOG.debug_logs and LOG.debug_perf
 
 
 func _perf_active() -> bool:
@@ -764,8 +762,7 @@ func perf_note(key: String, usec: int) -> void:
 
 ## Forward one idle chunk to the entry's aggregator. Only reachable while the idle probe is on.
 func _idle_perf_note(key: String, usec: int) -> void:
-	if is_instance_valid(main) and main.has_method("perf_idle_note"):
-		main.call("perf_idle_note", key, usec, _id)
+	LOG.note(key, usec, _id)
 
 
 ## Time one call site for the perf probe (callers take the start stamp themselves).

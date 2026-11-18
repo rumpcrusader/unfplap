@@ -18,6 +18,7 @@ extends Node
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Garment hull`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
 ## The per-node cloth jiggle; see `docs/integrations.md` (`## Pantyhose & Panties`).
@@ -776,5 +777,4 @@ func _queue_rebuild() -> void:
 
 
 func _log(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("debug"):
-		main.call("debug", "[pantyhose] " + text)
+	LOG.debug("[pantyhose] " + text)

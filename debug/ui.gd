@@ -6,6 +6,7 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 
 ## The Debug block's action buttons, plus the last result. Actions that share a `row` are drawn
@@ -119,6 +120,5 @@ static func _action_button(name: String, action: Dictionary, font_size: int, mai
 	return button
 
 
-static func _debug(main: Node, text: String) -> void:
-	if is_instance_valid(main) and main.has_method("debug"):
-		main.call("debug", text)
+static func _debug(_main: Node, text: String) -> void:
+	LOG.debug(text)

@@ -9,9 +9,18 @@ const INIT := preload("res://mods/unfplap/initiation/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var failures := 0
 var checks := 0
+var log_sink := LogSink.new()
+
+
+class LogSink extends RefCounted:
+	var lines: Array[String] = []
+
+	func write(text: String) -> void:
+		lines.append(text)
 
 
 func _initialize() -> void:
@@ -47,7 +56,6 @@ class FakeMain extends Node:
 	var runtimes: Dictionary = {}
 	var eligibility: Variant
 	var view := FakeView.new()
-	var debug_lines: Array[String] = []
 	var offer: Dictionary = {}
 	var handoff_ok := true
 	var offer_target_value: Variant = null
@@ -68,9 +76,6 @@ class FakeMain extends Node:
 
 	func bed_occupied(_bed: Node3D, _target: Node) -> bool:
 		return false
-
-	func debug(text: String) -> void:
-		debug_lines.append(text)
 
 	func form_view() -> Variant:
 		return view
@@ -258,15 +263,18 @@ func _free(made: Dictionary) -> void:
 		node.free()
 
 
-func _debug_count(main: FakeMain, text: String) -> int:
+func _debug_count(text: String) -> int:
 	var count := 0
-	for line: String in main.debug_lines:
+	for line: String in log_sink.lines:
 		if line == text:
 			count += 1
 	return count
 
 
 func run() -> void:
+	# Both debug switches on, with the sink collecting the raw lines the service asserts on.
+	LOG.debug_logs = true
+	LOG.sink = Callable(log_sink, "write")
 	check(CLASSIFIER.NEGOTIATION_LIMITS.get("reasoning_room", 0) >= 512,
 		"the negotiation classifier reserves private-reasoning room")
 	check(CLASSIFIER.DEADLINE_SECONDS >= 8.0,
@@ -402,10 +410,10 @@ func _check_reasoning() -> void:
 	check(main.offer.is_empty(), "a no-offer reasoning forms nothing")
 
 	service.reset()
-	main.debug_lines.clear()
+	log_sink.lines.clear()
 	adapter.reason_payloads.clear()
 	service.tick(0.5)
-	check(_debug_count(main, "request reasoning no id=rarity") == 1,
+	check(_debug_count("request reasoning no id=rarity") == 1,
 		"a reasoning no is logged and applies the pacing")
 
 	# Clear the stamped cooldown so the next scan may reason again.
@@ -490,10 +498,10 @@ func _check_scan_logs() -> void:
 	var main: FakeMain = made["main"]
 	adapter.quiet_reason_value = "chat"
 	service.tick(0.5)
-	check(_debug_count(main, "request scan quiet reason=chat") == 1,
+	check(_debug_count("request scan quiet reason=chat") == 1,
 		"a recent chat logs one quiet reason")
 	service.tick(0.5)
-	check(_debug_count(main, "request scan quiet reason=chat") == 1,
+	check(_debug_count("request scan quiet reason=chat") == 1,
 		"the same quiet reason logs once")
 	adapter.quiet_reason_value = ""
 	main.locked = true

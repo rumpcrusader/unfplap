@@ -7,6 +7,7 @@ extends Node
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 
 var main: Node
@@ -345,8 +346,7 @@ func _complete(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
 
 
 func _debug(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("debug"):
-		main.call("debug", text)
+	LOG.debug(text)
 
 
 func _reply_text(reply: String) -> String:

@@ -14,6 +14,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const API_MAJOR := 1
 const API_MINOR := 1
@@ -198,8 +199,7 @@ func _mod_version() -> String:
 
 
 func _debug(text: String) -> void:
-	if is_instance_valid(_main) and _main.has_method("debug"):
-		_main.call("debug", "api " + text)
+	LOG.debug("api " + text)
 
 
 func _warn(text: String) -> void:

@@ -57,10 +57,6 @@ class FakePeakSink extends Node:
 class FakeMain extends Node:
 	var game: Node
 	var memory
-	var lines: Array[String] = []
-
-	func debug(text: String) -> void:
-		lines.append(text)
 
 
 func _initialize() -> void:

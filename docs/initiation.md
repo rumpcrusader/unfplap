@@ -298,6 +298,7 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 | shared | clearance | `shared/clearance.gd` | the Base clearance result |
 | shared | context | `shared/context.gd` | typed Context for the reasoning |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
+| shared | log | `shared/log.gd` | log sink, perf entry and panel |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 | shared | pose_options | `shared/pose_options.gd` | the placement and option list |

@@ -8,6 +8,7 @@ extends SceneTree
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var failures := 0
 var checks := 0
@@ -60,18 +61,18 @@ class FakeGame extends Node:
 
 class FakeMain extends Node:
 	var game: Node
+
+
+class LogSink extends RefCounted:
 	var blocks: Array = []
 
-	func debug_block(title: String, rows: Array) -> void:
-		blocks.append([title, rows.duplicate()])
-
-
-class BareMain extends Node:
-	var game: Node
-	var lines: Array = []
-
-	func debug(text: String) -> void:
-		lines.append(text)
+	## The title line, then one row per following line without its tab indent.
+	func write(text: String) -> void:
+		var parts := text.split("\n")
+		var rows: Array = []
+		for line: String in parts.slice(1):
+			rows.append(line.trim_prefix("\t"))
+		blocks.append([parts[0], rows])
 
 
 class FakeBonds extends RefCounted:
@@ -124,6 +125,7 @@ class FakePony extends Node3D:
 
 class Fixture extends RefCounted:
 	var main: FakeMain
+	var log := LogSink.new()
 	var game: FakeGame
 	var context: FakeContext
 	var impressions: FakeImpressions
@@ -159,7 +161,6 @@ func run() -> void:
 	_check_sex_ready_kept()
 	_check_sex_ready_floors()
 	_check_sex_ready_refusals()
-	_check_sex_ready_fallback()
 	print("DEBUG_PONY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("DEBUG_PONY_PASS")
@@ -179,6 +180,8 @@ func _fixture(pony_name: String, stage := "acquaintance") -> Fixture:
 	var fixture := Fixture.new()
 	fixture.main = FakeMain.new()
 	fixture.main.name = "FakeMain"
+	LOG.debug_logs = true
+	LOG.sink = Callable(fixture.log, "write")
 	fixture.game = FakeGame.new()
 	fixture.game.name = "FakeGame"
 	fixture.context = FakeContext.new()
@@ -305,9 +308,9 @@ func _check_sex_ready() -> void:
 	var stranger := _fixture("Applejack", "acquaintance")
 	var toast := DEBUG_PONY.sex_ready(stranger.main, stranger.pony)
 	check(toast == "Sex ready for Applejack.", "a raised stranger toasts the qualifying line")
-	check(stranger.main.blocks.size() == 1, "sex_ready logs one detail block")
-	check(str(stranger.main.blocks[0][0]) == "SEX READY Applejack", "the block names the pony")
-	var rows: Array = stranger.main.blocks[0][1]
+	check(stranger.log.blocks.size() == 1, "sex_ready logs one detail block")
+	check(str(stranger.log.blocks[0][0]) == "SEX READY Applejack", "the block names the pony")
+	var rows: Array = stranger.log.blocks[0][1]
 	check(rows.has("record=stage acquaintance -> dating"), "a stranger is raised to dating")
 	check(rows.has("romance=untouched"), "the log keeps romance untouched")
 	var row: Dictionary = (stranger.bonds as FakeBonds).records["applejack"]
@@ -318,7 +321,7 @@ func _check_sex_ready() -> void:
 
 	var friend := _fixture("Applejack", "friend")
 	DEBUG_PONY.sex_ready(friend.main, friend.pony)
-	rows = friend.main.blocks[0][1]
+	rows = friend.log.blocks[0][1]
 	check(rows.has("record=stage friend -> dating"), "a friend is raised to dating")
 	friend.clear()
 
@@ -327,7 +330,7 @@ func _check_sex_ready_kept() -> void:
 	for stage: String in ["dating", "engaged", "married"]:
 		var fixture := _fixture("Applejack", stage)
 		var toast := DEBUG_PONY.sex_ready(fixture.main, fixture.pony)
-		var rows: Array = fixture.main.blocks[0][1]
+		var rows: Array = fixture.log.blocks[0][1]
 		check(rows.has("record=stage %s (kept)" % stage), "%s is kept, not lowered" % stage)
 		check(str((fixture.bonds as FakeBonds).records["applejack"].get("stage", "")) == stage,
 			"%s stays in the saved record" % stage)
@@ -354,7 +357,7 @@ func _check_sex_ready_floors() -> void:
 	check(cooldowns.has("outing"), "other cooldowns are kept")
 	check(fixture.impressions.commits.size() == 1, "one neutral impression is committed")
 	check(str(fixture.impressions.moods["applejack"]) == "neutral", "the mood is neutral")
-	var rows: Array = fixture.main.blocks[0][1]
+	var rows: Array = fixture.log.blocks[0][1]
 	check(rows.has("mood=annoyed -> neutral"), "the log reports the mood change")
 	fixture.clear()
 
@@ -369,7 +372,7 @@ func _check_sex_ready_refusals() -> void:
 	missing.pony.remove_meta("relationship_runtime")
 	var toast := DEBUG_PONY.sex_ready(missing.main, missing.pony)
 	check(toast == "Sex ready refused for Applejack.", "missing bonds refuses")
-	var rows: Array = missing.main.blocks[0][1]
+	var rows: Array = missing.log.blocks[0][1]
 	check(rows == ["record=refused: no bonds"], "the refusal row names the missing bonds")
 	check(nav.command_owner == "life:graze" and missing.pony.motion_paused,
 		"a refusal leaves the pony untouched")
@@ -380,7 +383,7 @@ func _check_sex_ready_refusals() -> void:
 	unsaved.relation.bonds = NoSaveBonds.new()
 	toast = DEBUG_PONY.sex_ready(unsaved.main, unsaved.pony)
 	check(toast == "Sex ready refused for Applejack.", "missing _save refuses")
-	rows = unsaved.main.blocks[0][1]
+	rows = unsaved.log.blocks[0][1]
 	check(rows == ["record=refused: no _save"], "the refusal row names the missing save")
 	unsaved.clear()
 
@@ -388,20 +391,6 @@ func _check_sex_ready_refusals() -> void:
 	unread.relation.bonds = NoRecordBonds.new()
 	toast = DEBUG_PONY.sex_ready(unread.main, unread.pony)
 	check(toast == "Sex ready refused for Applejack.", "missing record_for refuses")
-	rows = unread.main.blocks[0][1]
+	rows = unread.log.blocks[0][1]
 	check(rows == ["record=refused: no record_for"], "the refusal row names the missing reader")
 	unread.clear()
-
-
-func _check_sex_ready_fallback() -> void:
-	var fixture := _fixture("Applejack", "acquaintance")
-	var bare := BareMain.new()
-	bare.name = "BareMain"
-	bare.game = fixture.game
-	root.add_child(bare)
-	var toast := DEBUG_PONY.sex_ready(bare, fixture.pony)
-	check(toast == "Sex ready for Applejack.", "the fallback path still toasts")
-	check(bare.lines == ["SEX READY Applejack"],
-		"a main without debug_block gets the title line")
-	bare.free()
-	fixture.clear()

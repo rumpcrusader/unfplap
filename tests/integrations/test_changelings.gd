@@ -245,12 +245,16 @@ func run() -> void:
 	pack.disguised_as = ""
 	check(bool(adapter.call("asks_form_change", "Please, show me the real you.")),
 		"the ask phrase asks for a reveal")
+	check(bool(adapter.call("asks_form_change", "show me the real her")),
+		"the hint's own phrase asks for a reveal")
 	check(bool(adapter.call("asks_form_change", "drop the disguise")),
 		"the disguise phrase asks for a reveal")
 	check(not bool(adapter.call("asks_form_change", "you are beautiful")),
 		"ordinary talk is not a reveal ask")
 	check(str(adapter.call("named_form", "I want Rarity")) == "rarity",
 		"a named adult mare resolves")
+	check(str(adapter.call("named_form", "you are a rarity")).is_empty(),
+		"a name mentioned without a shape verb is not a choice")
 	check(str(adapter.call("named_form", "Twilight Sparkle")) == "twilight_sparkle",
 		"a full display name resolves")
 	check(str(adapter.call("named_form", "Apple")).is_empty(),
@@ -263,6 +267,10 @@ func run() -> void:
 		"naming herself gets the status")
 	check(str(adapter.call("named_form_note", "Twist")) == CHANGELINGS.NOTE_CANNOT,
 		"a schoolfilly is refused")
+	check(str(adapter.call("named_form_note", "Big McIntosh")) == CHANGELINGS.NOTE_CANNOT,
+		"a stallion is refused")
+	check(str(adapter.call("named_form_note", "Sweetie Belle")) == CHANGELINGS.NOTE_CANNOT,
+		"a filly from the base roster is refused")
 	check(str(adapter.call("named_form_note", "you are beautiful")).is_empty(),
 		"ordinary talk gets no status")
 
@@ -308,6 +316,61 @@ func run() -> void:
 	adapter.call("poll")
 	check(not bool(adapter.call("is_changing")), "the marked change completes")
 
+	# Her own AI starts a change: a busy edge with the act body as actor is observed without a
+	# request call. The new disguise is claimed by identity before its shape is known.
+	pack.actor = own
+	pack.disguised_as = "fluttershy"
+	pack.busy = false
+	adapter.call("handles_pony", own)
+	adapter.call("poll")
+	pack.busy = true
+	adapter.call("poll")
+	check(bool(adapter.call("is_changing")), "an AI-started change is observed")
+	check(adapter.call("old_actor") == own, "the AI change holds the old body")
+	check(not bool(adapter.call("requested_by_player")), "the AI change is not the player's")
+	var ai_shape := FakePony.new()
+	ai_shape.identity = _identity("chrysalis", "")
+	ai_shape.set_meta("geometry_variant", "changeling=rarity")
+	root.add_child(ai_shape)
+	check(bool(adapter.call("claims_body", ai_shape)),
+		"the AI body is claimed by identity before the shape is known")
+	pack.actor = ai_shape
+	adapter.call("poll")
+	check(str(adapter.call("target")) == "rarity", "the AI target fills from the new body")
+	pack.busy = false
+	adapter.call("poll")
+	check(not bool(adapter.call("is_changing")), "the AI change completes")
+
+	# A busy on a body that is not the act pony never reaches the act.
+	adapter.call("handles_pony", own)
+	pack.actor = other
+	pack.busy = false
+	adapter.call("poll")
+	pack.busy = true
+	adapter.call("poll")
+	check(not bool(adapter.call("is_changing")),
+		"a busy on another body is not the act's change")
+	pack.busy = false
+	adapter.call("poll")
+
+	# An AI reveal keeps the empty target: the new body is her own form, not a disguise.
+	adapter.call("handles_pony", ai_shape)
+	pack.actor = ai_shape
+	pack.busy = false
+	adapter.call("poll")
+	pack.busy = true
+	adapter.call("poll")
+	check(bool(adapter.call("is_changing")), "an AI reveal is observed")
+	var ai_own := _own_body()
+	root.add_child(ai_own)
+	pack.actor = ai_own
+	adapter.call("poll")
+	check(str(adapter.call("target")).is_empty(), "an AI reveal keeps no shape target")
+	check(bool(adapter.call("claims_body", ai_own)), "the AI true-form body is claimed")
+	pack.busy = false
+	adapter.call("poll")
+	check(not bool(adapter.call("is_changing")), "the AI reveal completes")
+
 	# The idle helper only asks the pack to bring her out; it is not a shape change.
 	pack.actor = null
 	pack.busy = false
@@ -336,7 +399,7 @@ func run() -> void:
 	adapter.call("shutdown")
 	root.remove_child(adapter)
 	adapter.free()
-	for node: Node in [own, disguise, other, true_new, shape_new, wrong_shape, pack]:
+	for node: Node in [own, disguise, other, true_new, shape_new, wrong_shape, ai_shape, ai_own, pack]:
 		root.remove_child(node)
 		node.free()
 	api.call("_shutdown")

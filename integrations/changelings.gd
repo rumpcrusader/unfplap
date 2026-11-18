@@ -25,12 +25,28 @@ const SHAPE_PREFIX := "changeling="
 ## The player's own words for the reveal ask, lower-case and matched inside the line. The core
 ## owns no phrasing; a later source brings its own.
 const REVEAL_PHRASES := [
-	"true form", "real form", "real self", "real you", "as yourself", "show yourself",
-	"show me the real", "drop the disguise", "take off the disguise", "lose the disguise",
-	"unmask", "who you really are",
+	"true form", "real form", "real self", "real you", "real her", "as yourself",
+	"show yourself", "show me the real", "drop the disguise", "take off the disguise",
+	"lose the disguise", "unmask", "who you really are",
 ]
-## Bodies the base game writes as young or male; they are never a wearable shape.
-const INELIGIBLE_FORMS := ["twist", "fiddly_twang"]
+## A single distinctive word only names a shape when the line also asks for one. Without this,
+## "you are a rarity" would select Rarity while the offer is pending.
+const SHAPE_VERBS := [
+	"wear", "become", "want", "name", "choose", "pick", "turn into", "look like",
+	"shape of", "take the shape",
+]
+## Bodies the base game 0.3.1 writes as young or male; they are never a wearable shape. A pack
+## update may add more, and the live candidate list still gates every real choice.
+const INELIGIBLE_FORMS := [
+	"twist", "fiddly_twang",
+	"apple_bloom", "archer", "diamond_tiara", "dinky_doo", "noi", "ruby_pinch",
+	"scootaloo", "silver_spoon", "spike", "sweetie_belle",
+	"big_mcintosh", "braeburn", "caramel", "comet_tail", "compass_star",
+	"double_diamond", "dr_caballeron", "drwhooves", "flash_sentry", "igneous_rock",
+	"jackpot", "king_sombra", "night_light", "noteworthy", "party_favor",
+	"pokey_pierce", "prince_blueblood", "shining_armor", "soarin", "sunburst",
+	"thunderlane",
+]
 const NOTE_WEARING := "She is already wearing that shape."
 const NOTE_HERSELF := "She is already herself."
 const NOTE_CANNOT := "She cannot wear that shape."
@@ -67,6 +83,12 @@ var _change_old: Node = null
 var _change_new: Node = null
 var _change_target := ""
 var _change_by_player := false
+## The last body the act asked about. The runtime resolves its source through `handles_pony`
+## before every poll, so this is the act pony without a new contract method.
+var _act_pony: Node = null
+## The pack's `busy` on the previous poll. A rising edge with the act pony as `actor` is a change
+## her own AI started, which no `request_*` call announced.
+var _busy_seen := false
 
 
 func setup(main_node: Node) -> void:
@@ -105,10 +127,13 @@ func installed_character_ids() -> Array[String]:
 func handles_pony(pony: Node) -> bool:
 	if not active() or not is_instance_valid(pony):
 		return false
-	if _is_disguise(pony) or _is_own_body(pony):
-		return true
-	var identity: Variant = pony.get("identity")
-	return identity != null and str(identity.get("id")) == ID
+	var handled := _is_disguise(pony) or _is_own_body(pony)
+	if not handled:
+		var identity: Variant = pony.get("identity")
+		handled = identity != null and str(identity.get("id")) == ID
+	if handled:
+		_act_pony = pony
+	return handled
 
 
 ## The body a new change should claim, so the act is adopted before the pack finishes settling.
@@ -117,7 +142,9 @@ func claims_body(pony: Node) -> bool:
 		return false
 	if _change_target.is_empty():
 		if _is_disguise(pony):
-			return false
+			# Her own AI may begin a shape change before `disguised_as` names it. Claim the body
+			# by the identity it keeps, not by a shape the pack has not written yet.
+			return _same_identity(pony, _change_old) or _same_relationship(pony, _change_old)
 		if _is_own_body(pony):
 			return true
 		var identity: Variant = pony.get("identity")
@@ -215,21 +242,47 @@ func request_appear() -> bool:
 	return true
 
 
-## Read the pack's completion state. The runtime also calls this, so a change started from the
-## Settings tab completes when no act is watching it.
+## Read the pack's completion state. The runtime calls this on every act tick, so a change her
+## own AI starts is caught without a zero-frame gap between the flame and the handover.
 func poll() -> void:
-	if not _changing:
-		set_process(false)
-		return
 	var mod := _source_mod()
 	if mod == null:
-		_end_change()
+		if _changing:
+			_end_change()
+		return
+	if not _changing:
+		_observe(mod)
 		return
 	var current: Variant = mod.get("actor")
 	if current is Node3D and is_instance_valid(current) and current != _change_old:
 		_change_new = current as Node
+		# The pack writes the copied id on the new body or `disguised_as`; a true-form body is
+		# not a disguise, so the empty target stays correct for a reveal.
+		if _change_target.is_empty() and _is_disguise(_change_new):
+			var shape := _shape_of(_change_new)
+			if shape.is_empty():
+				shape = str(mod.get("disguised_as")).strip_edges()
+			if not shape.is_empty():
+				_change_target = shape
 	if not bool(mod.get("busy")):
 		_end_change()
+
+
+## A `busy` edge with the act pony as `actor` is a change no `request_*` announced: her own AI
+## took the shape off or put one on. Only the act pony's own change reaches the handover; any
+## other `busy` still ends when the pack goes idle.
+func _observe(mod: Node) -> void:
+	var busy := bool(mod.get("busy"))
+	var rising := busy and not _busy_seen
+	_busy_seen = busy
+	if not rising:
+		return
+	var actor: Variant = mod.get("actor")
+	if not actor is Node3D or not is_instance_valid(actor):
+		return
+	if not _same_actor(actor as Node):
+		return
+	_begin_change(actor as Node, "", false)
 
 
 func source_name() -> String:
@@ -380,10 +433,39 @@ func _actor_id(mod: Node) -> String:
 	var actor: Variant = mod.get("actor")
 	if not actor is Node or not is_instance_valid(actor):
 		return ""
-	var identity: Variant = (actor as Node).get("identity")
+	return _identity_id(actor as Node)
+
+
+## The stable identity id a body keeps across a shape change.
+func _identity_id(pony: Node) -> String:
+	if not is_instance_valid(pony):
+		return ""
+	var identity: Variant = pony.get("identity")
 	if identity == null:
 		return ""
 	return str(identity.get("id")).strip_edges()
+
+
+## True when the pack's actor is the act pony, or the same identity after a body swap.
+func _same_actor(actor: Node) -> bool:
+	if not is_instance_valid(actor):
+		return false
+	if is_instance_valid(_act_pony) and actor == _act_pony:
+		return true
+	return _same_identity(actor, _act_pony)
+
+
+func _same_identity(a: Node, b: Node) -> bool:
+	var id := _identity_id(a)
+	return not id.is_empty() and id == _identity_id(b)
+
+
+## A copied body may keep the pack's relationship id even when its identity is the copied pony.
+func _same_relationship(a: Node, b: Node) -> bool:
+	if not is_instance_valid(a) or not is_instance_valid(b):
+		return false
+	var id := str(a.get_meta("relationship_id", "")).strip_edges()
+	return not id.is_empty() and id == str(b.get_meta("relationship_id", "")).strip_edges()
 
 
 ## Every adult mare the player may name: the base roster plus the live off-roster and provider
@@ -422,20 +504,37 @@ func _copyable(shape_id: String) -> bool:
 
 
 ## 0 for no match. A whole display name beats the id's words, which beat one distinctive word.
-## A single word only counts on its own, so "apple" never silently picks one apple mare.
+## A single word only counts on its own or with an explicit shape verb, so "you are a rarity"
+## never silently picks Rarity and "apple" never silently picks one apple mare.
 func _name_score(key: String, id: String) -> int:
 	var name := _normalize(SETTINGS.character_name(id))
 	var ident := _normalize(id.replace("_", " "))
 	var best := 0
-	if not name.is_empty() and key.contains(name):
+	var explicit := _has_shape_verb(key)
+	# A one-word name is common enough to appear in ordinary talk; only count it when the line
+	# is the name or asks for a shape. A multi-word display name is distinctive on its own.
+	var name_words := name.split(" ", false)
+	if not name.is_empty() and key.contains(name) \
+			and (name_words.size() > 1 or explicit or key == name):
 		best = 1000 + name.length()
-	if not ident.is_empty() and key.contains(ident):
+	var ident_words := ident.split(" ", false)
+	if not ident.is_empty() and key.contains(ident) \
+			and (ident_words.size() > 1 or explicit or key == ident):
 		best = maxi(best, 900 + ident.length())
 	var words := name.split(" ", false)
 	for word: String in words:
 		if word.length() >= 4 and key.split(" ", false).has(word):
-			best = maxi(best, 100 + word.length())
+			if explicit or key == word:
+				best = maxi(best, 100 + word.length())
 	return best
+
+
+## True when the player's line asks her to take a form, not merely mentions a name.
+func _has_shape_verb(key: String) -> bool:
+	for verb: String in SHAPE_VERBS:
+		if key.contains(verb):
+			return true
+	return false
 
 
 ## Lower-case words only, so punctuation and casing never hide a name.
@@ -457,6 +556,8 @@ func _begin_change(old: Node, shape_id: String, by_player: bool) -> void:
 	_change_new = null
 	_change_target = shape_id
 	_change_by_player = by_player
+	# The pack is busy from here; the next rising edge is a new change, not this one.
+	_busy_seen = true
 	set_process(true)
 
 
@@ -464,6 +565,8 @@ func _begin_change(old: Node, shape_id: String, by_player: bool) -> void:
 func _end_change() -> void:
 	_changing = false
 	set_process(false)
+	var mod := _source_mod()
+	_busy_seen = mod != null and bool(mod.get("busy"))
 
 
 ## The pack's world node. The pack registers this group in its own `_ready`.

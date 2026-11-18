@@ -15,7 +15,9 @@ extends RefCounted
 ##   request_shape(shape_id: String) -> bool start a change to a named shape
 ##   set_player_request(by_player: bool)     (optional) mark the change just started
 ##   request_appear() -> bool                (optional) bring the actor out while idle
-##   poll() -> void                          advance the source's own read of the world
+##   poll() -> void                          advance the source's own read of the world; it may
+##                                           start a change the source's own AI began, with no
+##                                           request call, and the runtime will see it
 ##   source_name() -> String                 a short name for the act log
 ##   prepare_pony(pony: Node) -> void        (optional) fit metadata on a body
 ##   installed_character_ids() -> Array[String] (optional) mares listed while away
@@ -27,6 +29,8 @@ extends RefCounted
 ##
 ## Nothing here preloads a source and no source may name unfplap's runtime or main. The manager
 ## returns the first active source that handles a pony; the handover core knows only this contract.
+## A source that starts a change on its own (an AI action, not a `request_*` call) sets its own
+## changing state in `poll()`; the runtime polls before it reads `is_changing()` and `old_actor()`.
 
 var _sources: Array = []
 

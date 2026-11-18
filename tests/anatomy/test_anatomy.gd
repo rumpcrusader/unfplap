@@ -76,6 +76,15 @@ class FakeFaceAnatomy extends Node:
 	var calls: Array = []
 	var mesh: MeshInstance3D
 	var opening := Vector3(0.1, 0.2, 0.3)
+	var part_node: Variant = null
+	var tracks: Array = []
+
+	func part() -> Variant:
+		return part_node
+
+	func player_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool,
+			penetration_m: float, delta: float, mare_anchor: Node3D, attached := true) -> void:
+		tracks.append([target, rear, up, bed, penetration_m, delta, mare_anchor, attached])
 
 	func animate(_closed: float, _seconds: float) -> void:
 		calls.append(["animate"])
@@ -120,18 +129,25 @@ class FakeFacePart extends Node:
 	var aim_opening_writes := 0
 	var inset_writes := 0
 	var aim_pitch_deg := 0.0
-	var aim_normal: Vector3 = Vector3.ZERO:
-		set(value):
-			aim_normal = value
-			aim_normal_writes += 1
-	var aim_opening: Vector3 = Vector3.ZERO:
-		set(value):
-			aim_opening = value
-			aim_opening_writes += 1
-	var bed_inset_m := 0.0:
-		set(value):
-			bed_inset_m = value
-			inset_writes += 1
+	var aim_normal := Vector3.ZERO
+	var aim_opening := Vector3.ZERO
+	var bed_inset_m := 0.0
+	var tracks: Array = []
+
+	func set_aim(normal: Vector3, opening: Vector3, pitch := 0.0) -> void:
+		aim_normal = normal
+		aim_opening = opening
+		aim_pitch_deg = pitch
+		aim_normal_writes += 1
+		aim_opening_writes += 1
+
+	func set_bed_inset(metres: float) -> void:
+		bed_inset_m = metres
+		inset_writes += 1
+
+	func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool,
+			penetration_m: float, delta: float, mare_anchor: Node3D, attached := true) -> void:
+		tracks.append([target, rear, up, bed, penetration_m, delta, mare_anchor, attached])
 
 	func encounter(on: bool) -> void:
 		encounters.append(on)
@@ -154,18 +170,6 @@ class FakeFacePart extends Node:
 
 	func shaft_radii(_count: int) -> Array:
 		return []
-
-
-class FakeFaceService extends Node:
-	var tracks := 0
-	var part_node: Variant = null
-
-	func part() -> Variant:
-		return part_node
-
-	func player_track(_point: Vector3, _rear: Vector3, _up: Vector3, _detached: bool,
-			_shown: float, _delta: float, _parent: Variant, _attached: bool) -> void:
-		tracks += 1
 
 
 func _initialize() -> void:
@@ -203,12 +207,10 @@ func _check_face_contact() -> void:
 	pony.skeleton = sk
 	var part := FakeFacePart.new()
 	root.add_child(part)
-	var service := FakeFaceService.new()
-	service.part_node = part
-	root.add_child(service)
+	anatomy.part_node = part
 	var act: Node = ANATOMY_ACT.new()
 	root.add_child(act)
-	act.setup(service, pony, anatomy)
+	act.setup(pony, anatomy)
 	var view: RefCounted = VIEW.new()
 	view.family = "bed"
 	view.frame = "bed"
@@ -224,7 +226,7 @@ func _check_face_contact() -> void:
 	facts.bed_frame = Transform3D.IDENTITY
 
 	act.tick(0.016, facts)
-	check(service.tracks == 0, "the face contact never tracks the part")
+	check(anatomy.tracks.is_empty(), "the face contact never tracks the part")
 	check(part.encounters == [false], "the first face tick parts the part once")
 	check(part.aim_normal_writes == 0 and part.aim_opening_writes == 0,
 		"the face contact writes no aim")
@@ -249,7 +251,7 @@ func _check_face_contact() -> void:
 
 	act.tick(0.016, facts)
 	check(part.encounters == [false], "a second face tick does not part the part again")
-	check(service.tracks == 0, "the face contact still never tracks the part")
+	check(anatomy.tracks.is_empty(), "the face contact still never tracks the part")
 	check(is_same(act.get("_facts"), facts), "the act keeps the context it was ticked with")
 	var holes_on := SETTINGS.anatomy_holes.get_bool()
 	SETTINGS.anatomy_holes.set_bool(true)
@@ -262,7 +264,7 @@ func _check_face_contact() -> void:
 	act.tick(0.016, facts)
 	check(part.encounters == [false, true], "the first opening tick restores the part once")
 	check(not bool(act.get("_face_parted")), "the face flag clears on the opening contact")
-	check(service.tracks == 1, "the opening contact resumes the player track")
+	check(anatomy.tracks.size() == 1, "the opening contact resumes the player track")
 	check(part.aim_opening_writes >= 1 and part.aim_normal_writes >= 1,
 		"the opening contact resumes the aim writes")
 	check(part.inset_writes >= 1, "the bed opening contact restores the bed inset")
@@ -272,8 +274,6 @@ func _check_face_contact() -> void:
 
 	act.call("teardown")
 	act.free()
-	root.remove_child(service)
-	service.free()
 	root.remove_child(part)
 	part.free()
 	root.remove_child(pony)
@@ -811,6 +811,19 @@ func run() -> void:
 	check(not (part.call("root_now") as Vector3).is_finite(),
 		"the player root is invalid before the part mesh is prepared")
 	part.free()
+
+	# The controller owns the player-part handle and forwards the act's track, so the act never
+	# needs the facade.
+	var part_owner := ANATOMY.new()
+	var tracked_part := FakeFacePart.new()
+	part_owner.set_part(tracked_part)
+	check(part_owner.part() == tracked_part, "the controller exposes the pushed part")
+	part_owner.player_track(Vector3.ONE, Vector3.BACK, Vector3.UP, false, 0.1, 0.016, null, true)
+	check(tracked_part.tracks.size() == 1, "the controller forwards the part track")
+	part_owner.set_part(null)
+	check(part_owner.part() == null, "a cleared part handle reads as absent")
+	part_owner.free()
+	tracked_part.free()
 
 	# A closing world removes the player body, and the part under its Hips, from the tree before
 	# `world_closed` reaches the facade. That teardown reset must not read or write world

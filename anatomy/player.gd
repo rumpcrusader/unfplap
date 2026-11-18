@@ -452,6 +452,19 @@ func _aim_attached(target: Vector3, penetration_m: float) -> void:
 		_hip_offset_wanted = to_open - aim_dir * (to_tip.length() - penetration_m)
 
 
+## The act's one aim write: her opening's outward normal and point, plus the anal tilt. The
+## fields stay the placement inputs; the act no longer sets them by property name.
+func set_aim(normal: Vector3, opening: Vector3, pitch := 0.0) -> void:
+	aim_normal = normal
+	aim_opening = opening
+	aim_pitch_deg = pitch
+
+
+## The act's one bed-inset write: the missionary base slide along the shaft.
+func set_bed_inset(metres: float) -> void:
+	bed_inset_m = metres
+
+
 ## The Hips-bone offset, in world space, that puts the part at the entrance for this depth.
 func hip_offset_wanted() -> Vector3:
 	return _hip_offset_wanted

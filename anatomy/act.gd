@@ -32,7 +32,6 @@ const HOLE_SWAP_S := 0.9
 const PULLED_OUT_PHASE := 0.35
 const PONY_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 
-var service: Node
 var pony: Node3D
 var anatomy: Node
 var consent := Callable()
@@ -40,6 +39,10 @@ var status := Callable()
 var _display_name := ""
 ## The bridge's typed act context, kept across ticks. The act never allocates or reads the runtime.
 var _facts: RefCounted = null
+## The controller's player-part handle. The act reads the anatomy it was given, never the facade.
+var _part_handle: Node
+## The missionary part inset, read once per act. A live debug edit applies at the next act.
+var _part_inset_m := 0.0
 var _anal := false
 var _hole_mix := 0.0
 var _oral: RefCounted
@@ -67,13 +70,16 @@ var _contact_rear := Vector3.ZERO
 var _debug: RefCounted
 
 
-func setup(service_node: Node, pony_node: Node3D, anatomy_node: Node,
+func setup(pony_node: Node3D, anatomy_node: Node,
 		consent_callable := Callable(), status_callable := Callable()) -> void:
-	service = service_node
 	pony = pony_node
 	anatomy = anatomy_node
 	consent = consent_callable
 	status = status_callable
+	_part_inset_m = SETTINGS.part_inset_m.get_num()
+	_part_handle = null
+	if is_instance_valid(anatomy) and anatomy.has_method("part"):
+		_part_handle = anatomy.call("part")
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
 	if identity != null and identity.get("display_name") != null:
 		_display_name = str(identity.get("display_name"))
@@ -194,9 +200,14 @@ func toggle_hole(state: int) -> void:
 
 
 func _part() -> Variant:
-	if not is_instance_valid(service) or not service.has_method("part"):
-		return null
-	return service.call("part")
+	if is_instance_valid(_part_handle):
+		return _part_handle
+	_part_handle = null
+	if is_instance_valid(anatomy) and anatomy.has_method("part"):
+		var handle: Variant = anatomy.call("part")
+		if is_instance_valid(handle):
+			_part_handle = handle
+	return _part_handle
 
 
 func _consent(key: String) -> bool:
@@ -292,7 +303,6 @@ func tick(delta: float, facts: RefCounted) -> void:
 	_normal = _compute_normal(part)
 	_contact()
 	if is_instance_valid(part):
-		part.set("aim_pitch_deg", 0.0)
 		if bool(part.call("showing")):
 			var pivot: Vector3 = part.call("root_now")
 			var tip: Vector3 = part.call("tip_world")
@@ -303,18 +313,16 @@ func tick(delta: float, facts: RefCounted) -> void:
 					part.call("shaft_radii", 8))
 		else:
 			anatomy.call("clear_shaft")
-		part.set("aim_normal", _contact_normal)
-		part.set("aim_opening", _contact_point)
+		part.call("set_aim", _contact_normal, _contact_point, 0.0)
 		# The bed pose needs the base pulled back into the pelvis: the authored pose puts it on
 		# the lower belly, which also leaves the hips farther from her than `Pelvis gap` implies.
-		part.set("bed_inset_m", SETTINGS.part_inset_m.get_num()
-			if _bed_pose() else 0.0)
+		part.call("set_bed_inset", _part_inset_m if _bed_pose() else 0.0)
 	# Both poses use the attached alignment: the part is a child of his Hips bone, it turns about its
 	# base to her opening's normal, and the pose that carries his body applies `hip_offset_wanted`, so
 	# his pelvis follows the entrance instead of the shaft sliding out of his crotch.
 	var shown: float = _facts.penetration_m
-	if is_instance_valid(service):
-		service.call("player_track", _contact_point, _contact_rear,
+	if anatomy.has_method("player_track"):
+		anatomy.call("player_track", _contact_point, _contact_rear,
 			frame.basis.y.normalized(), false, shown, delta, (mesh as Node3D).get_parent(),
 			true)
 	if _debug != null:
@@ -439,8 +447,7 @@ func on_climax() -> void:
 func afterglow_tick(delta: float, facts: RefCounted) -> void:
 	if facts != null:
 		_facts = facts
-	if _facts == null or not is_instance_valid(anatomy) \
-			or not is_instance_valid(pony) or not is_instance_valid(service):
+	if _facts == null or not is_instance_valid(anatomy) or not is_instance_valid(pony):
 		return
 	var started := Time.get_ticks_usec()
 	var mesh: Variant = anatomy.call("winking_mesh")
@@ -455,14 +462,11 @@ func afterglow_tick(delta: float, facts: RefCounted) -> void:
 	var normal := _compute_normal(part)
 	_normal = normal
 	_contact()
-	part.set("aim_pitch_deg", 0.0)
-	part.set("aim_normal", _contact_normal)
-	part.set("aim_opening", _contact_point)
+	part.call("set_aim", _contact_normal, _contact_point, 0.0)
 	# The missionary inset belongs to the whole bed act, not only to the thrusting states.
-	part.set("bed_inset_m", SETTINGS.part_inset_m.get_num()
-		if _bed_pose() else 0.0)
-	if is_instance_valid(service):
-		service.call("player_track", _contact_point, _contact_rear,
+	part.call("set_bed_inset", _part_inset_m if _bed_pose() else 0.0)
+	if anatomy.has_method("player_track"):
+		anatomy.call("player_track", _contact_point, _contact_rear,
 			(mesh as Node3D).global_transform.basis.y.normalized(), false, rest_m, delta,
 			(mesh as Node3D).get_parent(), true)
 	_facts.perf("anatomy_afterglow", Time.get_ticks_usec() - started)
@@ -481,6 +485,7 @@ func teardown() -> void:
 		_debug.clear()
 		_debug = null
 	_facts = null
+	_part_handle = null
 	if _oral != null:
 		_oral.call("teardown")
 	_anal = false

@@ -119,6 +119,7 @@ func controller_for(pony: Node, runtime: Node) -> Node:
 	controller.call("setup", pony, facts, self, consent_for,
 		Callable(self, "status"), Callable(self, "refresh_dock_color"), eligible_anatomy)
 	_controllers[pony] = controller
+	_push_part()
 	pony.tree_exiting.connect(func() -> void: detach_controller(pony))
 	return controller
 
@@ -441,6 +442,7 @@ func clear_player() -> void:
 	_player_warm_part = null
 	_player_warm_queued = false
 	player = null
+	_push_part()
 
 
 func refresh_player() -> void:
@@ -452,6 +454,7 @@ func refresh_player() -> void:
 			_player_part = null
 		_player_warm_part = null
 		_player_warm_queued = false
+		_push_part()
 		return
 	if not is_instance_valid(_player_part):
 		_player_part = PLAYER.new()
@@ -460,6 +463,7 @@ func refresh_player() -> void:
 	_player_part.set("player_body", _player_body())
 	if _player_part.has_method("apply_live"):
 		_player_part.call("apply_live")
+	_push_part()
 	# The first standing offer needs the part's natural root. Build the hidden mesh now, under the
 	# loading cover, instead of loading its scene, shader and textures inside the offer scan. The
 	# gate keeps `player_prepare()` as the idempotent fallback when this body is not ready yet.
@@ -497,21 +501,18 @@ func _player_body() -> Node3D:
 	return player as Node3D if player is Node3D else null
 
 
-## The anatomy-internal player part handle. Pose systems use the methods below instead.
-func part() -> Node:
-	return _player_part if is_instance_valid(_player_part) else null
+## Push the live part handle to every controller. The act reads it through its own anatomy, so
+## the facade's part never becomes a second act dependency.
+func _push_part() -> void:
+	for pony: Variant in _controllers.keys():
+		var handle: Variant = _controllers[pony]
+		if is_instance_valid(handle) and handle.has_method("set_part"):
+			handle.call("set_part", _player_part)
 
 
 func player_encounter(on: bool) -> void:
 	if is_instance_valid(_player_part):
 		_player_part.call("encounter", on)
-
-
-func player_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool,
-		penetration_m: float, delta: float, mare_anchor: Node3D, attached := true) -> void:
-	if is_instance_valid(_player_part):
-		_player_part.call("track", target, rear, up, bed, penetration_m, delta,
-			mare_anchor, attached)
 
 
 func player_showing() -> bool:

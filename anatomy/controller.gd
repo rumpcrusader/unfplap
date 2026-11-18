@@ -30,6 +30,8 @@ var facts: RefCounted
 var dock_refresh := Callable()
 ## The anatomy facade and its host callbacks for the act handle.
 var service: Node
+## The service's player-part handle, pushed on every player rebuild. The act reads this.
+var _part_handle: Node
 var consent := Callable()
 var status := Callable()
 ## The anatomy facade's capability answer for this pony (identity + participation).
@@ -144,7 +146,7 @@ func begin_act() -> Node:
 	_act = ACT.new()
 	_act.name = "UnfplapAnatomyAct"
 	add_child(_act)
-	_act.call("setup", service, pony, self, consent, status)
+	_act.call("setup", pony, self, consent, status)
 	if is_instance_valid(service) and service.has_method("note_act_started"):
 		service.call("note_act_started", pony)
 	return _act
@@ -156,6 +158,24 @@ func end_act() -> void:
 		_act.call("teardown")
 		_act.queue_free()
 	_act = null
+
+
+## The service owns the player part; this handle is the one seam the act reads. A rebuild pushes
+## the new node, and an invalid one reads as absent.
+func set_part(node: Node) -> void:
+	_part_handle = node if is_instance_valid(node) else null
+
+
+func part() -> Node:
+	return _part_handle if is_instance_valid(_part_handle) else null
+
+
+## Forward the act's per-tick part track to the live handle.
+func player_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool,
+		penetration_m: float, delta: float, mare_anchor: Node3D, attached := true) -> void:
+	var handle := part()
+	if is_instance_valid(handle):
+		handle.call("track", target, rear, up, bed, penetration_m, delta, mare_anchor, attached)
 
 
 func refresh() -> void:

@@ -721,7 +721,8 @@ sample of the body coat.
   resolved seat default is not added. `docs/poses.md` owns how the act modifiers rotate and
   restore the root itself, so a placement edit and an act never overwrite each other. The dock
   keys do not apply to a custom root. Queen Chrysalis's fitted body skips the devkit hair and
-  uses this path for her spring chain.
+  uses this path for her spring chain; a chain that appears after the first body pass is attached
+  when the source's late prepare calls `tail_ready()` again.
 
 ## Lifecycle
 

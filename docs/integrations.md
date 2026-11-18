@@ -228,8 +228,8 @@ layer leaves with unfplap and is never written to `settings.json`:
 - the approved profile (`intensity firm`, `pattern teasing`, `touch caress, kiss`,
   `dislikes smack`, `talk praise, playful`, `warmth slow`, `tolerance normal`) and her
   second-person notes;
-- the placement for her own body (`offset_y`, `offset_z`, `scale`) over the global default,
-  applied through her Celestia body profile;
+- the placement for her own body (`offset_y`, `offset_z`, `pitch_deg`, `scale`) over the global
+  default, applied through her Celestia body profile;
 - no `eligible` assertion: her identity decides age, so a young disguised shape still fails the
   act gate.
 
@@ -249,16 +249,22 @@ bind. The adapter sets `body_fit_id` and `tail_pose_root` on the two kinds of bo
   fit and has no custom tail root, so it uses the copied pony's placement and the normal hair
   chain.
 
+The pack can add `ChrysalisHair` after that first pass. The adapter retries the tail-root lookup
+for a short grace; when the chain appears it sets `tail_pose_root` and calls
+`main.prepare_pony_late(pony)`, which re-runs the manager prepare and `anatomy.tail_ready()`. The
+seat then binds the custom root and the placement editor's tail keys work. The hook creates no
+runtime and every prepare hook is idempotent.
+
 Her own body's hide pass runs every half second and hides every mesh under her model that lacks
 the pack's `chrysalis_own` marker. The anatomy mesh and its parts are on the same skeleton, so the
 adapter names that marker on her own body as `anatomy_owned_meta`, and anatomy attachment copies
 it onto its parts. A disguise clears it. Without the marker her body hides the anatomy once and
 the visibility cache never re-shows it, because the state did not change.
 
-A missing node is a quiet no-op, so a pack update can change the shape without a crash. The
-integration does not depend on a new signal or a rebuilt pack. `body_fit_id`, `tail_pose_root` and
-`anatomy_owned_meta` are internal adapter metadata: they are not a `docs/api.md` convention and
-another mod must not depend on them.
+A missing metadata node is a quiet no-op, and a missing tail chain is retried for a short grace,
+so a pack update can change the shape without a crash. The integration does not depend on a new
+signal or a rebuilt pack. `body_fit_id`, `tail_pose_root` and `anatomy_owned_meta` are internal
+adapter metadata: they are not a `docs/api.md` convention and another mod must not depend on them.
 
 The adapter is also the pack's shape-change source. It watches the pack's public `busy`, `actor`
 and `disguised_as`: `request_true_form()` captures the current actor and calls `reveal()`;
@@ -286,11 +292,12 @@ pack can copy. A line is a choice only when it is a whole name or carries an imp
 inside a sentence without one is ordinary talk, and a negated or descriptive line (“I don't want
 Rarity”, “your name is Rarity”) never selects a shape. Names are matched as whole words, so an id
 word does not match inside another word. `named_form_note()`
-returns a short status when the line names a shape she already wears, herself, a known young or male
-body, or an uncopyable pony, and returns nothing for ordinary talk. The young/male list is the base
-game 0.3.1 roster; a pack update may add more, and the live candidate list still gates every real
-choice. The reveal uses the existing talk turn and offer line; it adds no dedicated reaction line.
-The pack needs no rebuild and no new signal.
+returns a short status when the line names a shape she already wears, herself, a body the
+eligibility facade says is not an adult mare, or an uncopyable pony, and returns nothing for
+ordinary talk. A population body outside the adult candidate list asks the facade's id-only
+`eligible_shape()`; there is no young/male name table in the adapter. The live candidate list
+still gates every real choice. The reveal uses the existing talk turn and offer line; it adds no
+dedicated reaction line. The pack needs no rebuild and no new signal.
 
 ## Settings
 
@@ -345,6 +352,7 @@ overlay reads them.
 | `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` |
 | `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
 | `main._on_pony()` | runs the manager's `prepare_pony()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
+| `main.prepare_pony_late(pony)` | re-runs the manager prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; no runtime is created |
 | `main.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
 | `main.live_character_ids()` | merges the manager's `installed_character_ids()` |
 | `runtime.request_form_change()` | the act-side start of a source change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
@@ -386,14 +394,16 @@ overlay reads them.
 - `tests/integrations/test_changelings.gd` — the installed list and provider layer while the pack is
   on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
   the body-fit/custom-tail/anatomy-marker metadata for her own body, a disguise and an unrelated
-  pony, including a wrapped tail root keeping its metadata. It also
+  pony, including a wrapped tail root keeping its metadata and an early body whose chain arrives on
+  the late retry. It also
   pins the shape-change source through the manager: the actor/old/new/target state, the true-form
   and named requests, the claimed body, the idle appear hook and the completion poll. An AI-started
   change is observed from a rising `busy`, claimed by identity before the shape is known and
   completed from the new body's variant; a `busy` on another body is ignored. The player hooks
   cover the reveal phrases (including the hint's own “real her”), whole adult base/live names, the
   imperative request phrases, negated and descriptive lines, names inside other words, ambiguous
-  names, the worn shape and self, known young and male bodies, and the population's copyable check.
+  names, the worn shape and self, a population young or male body through the eligibility
+  facade, and the population's copyable check.
 - `tests/handover/test_body_swap.gd` — the generic handover the source drives; `docs/runtime.md`
   owns its rules.
 - `tests/test_settings.gd` — the Integrations tab draws every provider header, flag and the Debug

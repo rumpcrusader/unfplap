@@ -52,8 +52,9 @@ The purity boundary is deliberate:
 
 ## Data ownership
 
-Eligibility stores nothing. Facts are a per-call snapshot and are never saved or added to the
-per-character profile. The idle hint scans once per second and runs the scene rows first; only a
+Eligibility stores no eligibility state. Facts are a per-call snapshot and are never saved or
+added to the per-character profile; the only cache is a named shape's scene identity for
+`eligible_shape()`. The idle hint scans once per second and runs the scene rows first; only a
 passing scene reads Base clearance. Every scan reads its rows live. `relationship_ok()` uses a
 narrow clearance read of the relationship runtime, romance eligibility, the love level and the
 Promiscuity floor; the level itself comes from the game's ladder cache, so the read does not
@@ -115,6 +116,7 @@ func setup(main_node: Node) -> void
 func clear() -> void
 
 func eligible(pony: Node, target: Target = Target.ACT) -> bool
+func eligible_shape(id: String, target: Target = Target.CHARACTER) -> bool
 func relationship_ok(pony: Node) -> bool
 func witness_age(pony: Node) -> Age
 
@@ -132,10 +134,15 @@ current by `relationship_runtime._level_check()` on every impression and bond ch
 is the reason the idle hint and the proactive scan do not rebuild her bond facts every pass. It
 cannot see a player-form change, which empties the game's love row without a signal; romance
 eligibility is read live and gates the row first, so a young player still fails clearance.
-`witness_age()` is the only age-shaped answer and only for witness wording. `get_verdict()` is the
-typed act gate. `get_profile()` reads the resolved provider/player profile for one id;
+`eligible_shape()` is the id-only form for a body that may not be live: a live pony answers as
+`eligible()`, otherwise the shape's population scene identity and provider assertion feed the same
+target predicate. It remains a capability, not an age/sex read; the default character target is
+what a shape source asks about a player-named body. `witness_age()` is the only age-shaped answer
+and only for witness wording. `get_verdict()` is the typed act gate. `get_profile()` reads the
+resolved provider/player profile for one id;
 `set_profile()` writes the provider layer's eligible assertion, participation and consent. The
-pair is the cross-mod read/write side. The service stores nothing.
+pair is the cross-mod read/write side. The service stores no eligibility state, only the
+shape-identity cache used by `eligible_shape()`.
 
 ### Callers
 
@@ -152,6 +159,7 @@ pair is the cross-mod read/write side. The service stores nothing.
 | `initiation` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` + the scene-only formation rows | cooldown, approach, bed search, privacy, Mare Initiation Reasoning; see `docs/initiation.md` |
 | `runtime.start_agreement()` | none; the scene-only rows and the frozen pose capability | the Agreement start; the policy was frozen at formation |
 | `anatomy/act` | `get_profile(id).consent` | feature flags |
+| `integrations/changelings` | `eligible_shape(id)` | a player-named disguise body that may not be live |
 | `anatomy` facade | `eligible(pony, Target.ANATOMY)` | rig, assets, dock; forwards to its controllers |
 | `tail_seat` | `eligible(pony, Target.TAIL)` through the anatomy facade | hair, dock |
 | `memory` | `witness_age(pony)` | perception, sleeping |
@@ -430,8 +438,8 @@ A shape change during an act is still an adult-mare gate. The runtime re-checks
 `eligible(pony, ACT)` on the adopted body and ends the act through `_end_session()` if it fails, so
 a young or male body can never continue the act. This covers a change the player asked for and one
 the source's own AI started. The player's named shape is restricted to adult mares by the
-shape-change source before the request starts, and a known young or male name gets a short refusal
-status (`docs/integrations.md`).
+shape-change source before the request starts, and a population young or male body gets a short
+refusal status (`docs/integrations.md`).
 
 ## Debug
 
@@ -472,10 +480,10 @@ status (`docs/integrations.md`).
 - `tests/eligibility/test_eligibility.gd`: the pure truth table, the one adulthood predicate,
   capability targets, witness age, Promiscuity, willingness, history, cycle, public/anal/oral,
   participation and row effects.
-- `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `witness_age()`, typed
-  facts and verdict, capability targets, the no-stable-id boundary, the profile consent, the
-  provider layer through `set_profile()`/`get_profile()`, the Promiscuity setting, the cached love
-  level with the ladder fallback, and the clear/setup lifecycle.
+- `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `eligible_shape()`,
+  `witness_age()`, typed facts and verdict, capability targets, the no-stable-id boundary, the
+  profile consent, the provider layer through `set_profile()`/`get_profile()`, the Promiscuity
+  setting, the cached love level with the ladder fallback, and the clear/setup lifecycle.
 - `tests/test_pony_id.gd`: the stable-id rule (metadata wins, identity fallback, no identity).
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
 - `tests/test_source_hygiene.gd`: purity, the facade-only preload rule, the single-reader rule and

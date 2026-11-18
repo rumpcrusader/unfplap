@@ -70,6 +70,21 @@ func presented_form_id(_body: Node3D) -> String:
 	return ""
 
 
+## True when the player's line asks for the identity's own form. Optional.
+func asks_form_change(_text: String) -> bool:
+	return false
+
+
+## The form id the player's line names, or "" for none. Optional.
+func named_form(_text: String) -> String:
+	return ""
+
+
+## A short status for a form that cannot be worn, or "" for ordinary talk. Optional.
+func named_form_note(_text: String) -> String:
+	return ""
+
+
 ## The provider's optional offer/reveal policy, or null.
 func policy() -> POLICY:
 	return null

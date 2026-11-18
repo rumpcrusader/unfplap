@@ -5,6 +5,7 @@ extends SceneTree
 
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
 const CHANGELINGS_POLICY := preload("res://mods/unfplap/integrations/changelings_policy.gd")
@@ -568,6 +569,11 @@ func run() -> void:
 		"the disguise phrase asks for a reveal")
 	check(not bool(adapter.call("asks_form_change", "you are beautiful")),
 		"ordinary talk is not a reveal ask")
+	var typed_source: BODY_CHANGE_SOURCE = adapter
+	check(typed_source.asks_form_change("show me the real her"),
+		"the typed source exposes the reveal ask")
+	check(typed_source.named_form("Rarity") == "rarity",
+		"the typed source exposes the named form")
 	check(str(adapter.call("named_form", "Rarity")) == "rarity",
 		"a whole adult mare name resolves")
 	check(str(adapter.call("named_form", "wear Rarity")) == "rarity",
@@ -660,6 +666,12 @@ func run() -> void:
 	offer_context.offer_pending = false
 	offer_context.reveal_used = true
 	check(not policy.should_offer(offer_context), "no offer after the reveal was used")
+	offer_context.reveal_used = false
+	offer_context.max_climaxes = 1
+	offer_context.origin = BODY_CHANGE.Origin.PLAYER
+	offer_context.by_player = true
+	check(policy.should_offer(offer_context),
+		"the player's origin and climax cap do not change the offer")
 	check(policy.offer_prompt() == CHANGELINGS_POLICY.OFFER_PROMPT,
 		"the policy supplies the one offer prompt")
 	check(policy.offer_prompt().contains("adult mare's shape"),

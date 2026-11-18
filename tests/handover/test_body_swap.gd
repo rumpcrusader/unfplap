@@ -11,6 +11,8 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
+const RUNTIME_BINDING := preload("res://mods/unfplap/runtime/body_binding.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -64,6 +66,20 @@ class FakePony extends Node3D:
 		global_transform = transform
 
 
+class FakePlayer extends Node3D:
+	var _stand_eye := 1.6
+	var _eye_height := 1.6
+	var seat: Variant = null
+	var form_driver: Variant = null
+
+	func eye_height() -> float:
+		return _stand_eye
+
+	func _set_eye_y(value: float) -> void:
+		_stand_eye = value
+		_eye_height = value
+
+
 class FakeSource extends "res://mods/unfplap/body_change/source.gd":
 	var changing := false:
 		set(value):
@@ -90,6 +106,7 @@ class FakeSource extends "res://mods/unfplap/body_change/source.gd":
 	var poll_calls := 0
 	var change: BODY_CHANGE = null
 	var service: BODY_CHANGE_SERVICE = null
+	var policy_value: POLICY = null
 
 	func source_id() -> String:
 		return "fake"
@@ -111,6 +128,9 @@ class FakeSource extends "res://mods/unfplap/body_change/source.gd":
 
 	func presented_form_id(_body: Node3D) -> String:
 		return shape.strip_edges()
+
+	func policy() -> POLICY:
+		return policy_value
 
 	func claims_body(pony: Node3D) -> bool:
 		return changing and is_instance_valid(new_pony) and pony == new_pony
@@ -178,6 +198,64 @@ class FakeSource extends "res://mods/unfplap/body_change/source.gd":
 	func _notify() -> void:
 		if service != null:
 			service.notify_source_changed(self)
+
+
+## The provider's typed offer/reveal policy, with observable calls and a snapshot of the runtime's
+## context. The runtime is the code under test; this is the provider side of the contract.
+class FakePolicy extends "res://mods/unfplap/shared/body_change_policy.gd":
+	var prompt := "Offer the shape."
+	var heat := 30.0
+	var peak := 150.0
+	var cue := "She shows you the real her."
+	var memory_kind := "form_reveal"
+	var offer_calls := 0
+	var prompt_calls := 0
+	var accepted_calls := 0
+	var reveal_calls := 0
+	var last_offer: Dictionary = {}
+	var last_accepted: Dictionary = {}
+	var last_reveal: Dictionary = {}
+
+	func should_offer(context: POLICY.BodyChangeActContext) -> bool:
+		offer_calls += 1
+		last_offer = _snapshot(context)
+		return context.act_active and context.form != null and context.form.is_own() \
+			and context.pony_climaxes >= 1 and not context.offer_pending \
+			and not context.reveal_used
+
+	func offer_prompt() -> String:
+		prompt_calls += 1
+		return prompt
+
+	func on_offer_accepted(context: POLICY.BodyChangeActContext) -> POLICY.BodyChangeEffects:
+		accepted_calls += 1
+		last_accepted = _snapshot(context)
+		return POLICY.BodyChangeEffects.new()
+
+	func on_reveal(context: POLICY.BodyChangeActContext) -> POLICY.BodyChangeEffects:
+		reveal_calls += 1
+		last_reveal = _snapshot(context)
+		var effects := POLICY.BodyChangeEffects.new()
+		effects.heat = heat
+		effects.peak = peak
+		effects.cue = cue
+		effects.memory_kind = memory_kind
+		return effects
+
+	func _snapshot(context: POLICY.BodyChangeActContext) -> Dictionary:
+		return {
+			"pony_id": context.pony_id,
+			"own": context.form != null and context.form.is_own(),
+			"has_change": context.change != null,
+			"origin": int(context.origin),
+			"state": int(context.state),
+			"offer_pending": context.offer_pending,
+			"reveal_used": context.reveal_used,
+			"by_player": context.by_player,
+			"pony_climaxes": context.pony_climaxes,
+			"max_climaxes": context.max_climaxes,
+			"act_active": context.act_active,
+		}
 
 
 class FakeMemory extends RefCounted:
@@ -250,6 +328,15 @@ class FakeMain extends Node:
 
 	func body_swap_pending() -> bool:
 		return not _pending_swap.is_empty()
+
+	func runtime_for(body: Node) -> Node:
+		if not is_instance_valid(body):
+			return null
+		var runtime: Variant = _runtimes.get(body)
+		if is_instance_valid(runtime):
+			return runtime
+		var child: Node = body.get_node_or_null("UnfplapRuntime")
+		return child if is_instance_valid(child) else null
 
 	func camera() -> Camera3D:
 		return null
@@ -368,6 +455,7 @@ func _fixture() -> Dictionary:
 	runtime.depth = 0.42
 	runtime.penetration_m = 0.11
 	runtime.pony_climaxes = 1
+	runtime._max_pony_climaxes = 3
 	runtime._event_id = "intimacy_test_mare_1"
 	runtime._serial = 1
 	runtime._preferences = SETTINGS.preferences("test_mare")
@@ -384,10 +472,15 @@ func _fixture() -> Dictionary:
 	source.old_pony = old_pony
 	source.service = body_change
 	source.changing = false
+	var policy := FakePolicy.new()
+	source.policy_value = policy
 	main.source = source
 	body_change.call("register_source", source)
+	var runtime_binding: RefCounted = RUNTIME_BINDING.new()
+	runtime_binding.call("setup", main)
+	body_change.call("register_binding", runtime_binding)
 	return {"main": main, "runtime": runtime, "old": old_pony, "source": source,
-		"body_change": body_change}
+		"body_change": body_change, "policy": policy}
 
 
 func _free_fixture(made: Dictionary) -> void:
@@ -429,6 +522,9 @@ func run() -> void:
 	_check_late_adoption()
 	_check_restore_change()
 	_check_held_guard()
+	_check_idle_body_binding()
+	_check_same_node_refresh()
+	_check_origins()
 	print("BODY_SWAP_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 
@@ -649,6 +745,7 @@ func _check_form_reveal() -> void:
 	var main: FakeMain = f["main"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
+	var policy: FakePolicy = f["policy"]
 	main.memory = FakeMemory.new()
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
@@ -673,8 +770,19 @@ func _check_form_reveal() -> void:
 	check(not runtime._suspended, "the reveal resumes the same act")
 	check(runtime.pony == new_pony, "the reveal keeps the act on the new body")
 	check(runtime._form_reveal_done, "the requested reveal is recorded once")
-	check(float(runtime.satisfaction) >= RUNTIME.FORM_REVEAL_HEAT - 0.01,
-		"the reveal spikes readiness")
+	check(policy.reveal_calls == 1, "the reveal asks the provider policy once")
+	check(int(policy.last_reveal.get("origin", -1)) == int(BODY_CHANGE.Origin.PLAYER),
+		"the reveal context is the player's origin")
+	check(bool(policy.last_reveal.get("by_player", false)),
+		"the reveal context marks the player")
+	check(bool(policy.last_reveal.get("has_change", false)),
+		"the reveal context carries the typed change")
+	check(not bool(policy.last_reveal.get("reveal_used", true)),
+		"the reveal context is read before the once-per-act mark")
+	check(float(runtime.satisfaction) >= policy.heat - 0.01,
+		"the reveal spikes readiness by the policy's heat")
+	check(runtime._readiness.cue_override == policy.cue,
+		"the reveal cue comes from the policy")
 	var memory: FakeMemory = main.memory
 	check(memory.impressions.size() == 1, "the reveal writes one special impression")
 	if not memory.impressions.is_empty():
@@ -686,6 +794,9 @@ func _check_form_reveal() -> void:
 		check(not str(impression.event_text).contains(" you "),
 			"the reveal event has no second-person body")
 	check(memory.peaks.size() == 1, "the reveal records one peak")
+	if not memory.peaks.is_empty():
+		check(is_equal_approx(float(memory.peaks[0].score), policy.peak),
+			"the reveal peak uses the policy's score")
 	var values: Dictionary = runtime._summary_values()
 	check(bool(values.get("form_reveal", false)), "the summary sees the reveal")
 	# Once per act: a second ask while disguised again does nothing.
@@ -695,6 +806,7 @@ func _check_form_reveal() -> void:
 	director._player_text = "show me the real you"
 	runtime._talk_tick(0.016)
 	check(source.true_requests == 0, "a second ask in the same act does nothing")
+	check(policy.reveal_calls == 1, "the used reveal asks no second time")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)
@@ -707,11 +819,27 @@ func _check_shape_offer() -> void:
 	var main: FakeMain = f["main"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
+	var policy: FakePolicy = f["policy"]
 	main.memory = FakeMemory.new()
 	source.shape = ""
 	runtime._shape_offer_tick()
 	check(runtime._shape_offer_done and runtime._shape_offer_pending,
 		"a true-form climax offers the shape change")
+	check(policy.offer_calls == 1, "the offer tick asks the policy once")
+	check(policy.prompt_calls == 1, "the offer prompt comes from the policy")
+	check(bool(policy.last_offer.get("act_active", false)),
+		"the offer context is the active stage")
+	check(int(policy.last_offer.get("pony_climaxes", -1)) == 1,
+		"the offer context carries the climax count")
+	check(int(policy.last_offer.get("max_climaxes", -1)) == runtime._max_pony_climaxes,
+		"the offer context carries the act's climax cap")
+	check(int(policy.last_offer.get("origin", -1)) == int(BODY_CHANGE.Origin.PROVIDER),
+		"the offer context is the provider's origin")
+	check(bool(policy.last_offer.get("own", false)), "the offer context uses the own form")
+	check(not bool(policy.last_offer.get("offer_pending", true)),
+		"the offer context is read before the offer is marked")
+	runtime._shape_offer_tick()
+	check(policy.offer_calls == 1, "a made offer is not asked again")
 	runtime._form_hint_tick()
 	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_SHAPE,
 		"the offer names the pony in the debug log")
@@ -737,6 +865,9 @@ func _check_shape_offer() -> void:
 	runtime._body_swap_tick(0.1)
 	check(not runtime._form_reveal_done, "a named shape is not an exceptional reveal")
 	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
+	check(policy.accepted_calls == 1, "the named shape asks the accepted-offer policy")
+	check(int(policy.last_accepted.get("origin", -1)) == int(BODY_CHANGE.Origin.PLAYER),
+		"the accepted offer context is the player's origin")
 	var memory: FakeMemory = main.memory
 	check(memory.impressions.is_empty(), "a named shape writes no reveal memory")
 	check(memory.peaks.is_empty(), "a named shape records no reveal peak")
@@ -827,10 +958,18 @@ func _check_offer_gate() -> void:
 	var f := _fixture()
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
+	var body_change: BODY_CHANGE_SERVICE = f["body_change"]
 	source.shape = "rarity"
+	var borrowed := body_change.default_form(runtime.pony)
+	borrowed.form_id = "rarity"
+	borrowed.fit_id = "rarity"
+	body_change.apply_form(runtime.pony, borrowed)
 	runtime._shape_offer_tick()
 	check(not runtime._shape_offer_done, "a disguise gets no shape offer")
 	source.shape = ""
+	var own := body_change.default_form(runtime.pony)
+	own.revision = borrowed.revision + 1
+	body_change.apply_form(runtime.pony, own)
 	runtime.pony_climaxes = 0
 	runtime._shape_offer_tick()
 	check(not runtime._shape_offer_done, "the offer waits for a climax")
@@ -1106,5 +1245,89 @@ func _check_held_guard() -> void:
 	check(not bool(result.get("ok", false)), "a held body refuses a form request")
 	check(str(result.get("reason", "")) == "she is held", "the refusal names the hold")
 	old_pony.held = false
+	runtime.force_stop()
+	_free_fixture(f)
+
+
+## A form change on an idle body binds the runtime's systems without an act resume or an exit.
+func _check_idle_body_binding() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var old_pony: FakePony = f["old"]
+	var body_change: BODY_CHANGE_SERVICE = f["body_change"]
+	runtime.state = RUNTIME.State.IDLE
+	runtime.pose_id = ""
+	runtime.source = ""
+	var own := body_change.default_form(old_pony)
+	body_change.apply_form(old_pony, own)
+	check(int(runtime.state) == RUNTIME.State.IDLE, "an idle form bind leaves the state idle")
+	check(not runtime._suspended, "an idle form bind never suspends")
+	check(runtime.pony == old_pony, "the idle body keeps its runtime")
+	check(runtime._pose_session.pony == old_pony, "the idle form bind binds the pose session")
+	check(runtime._face.pony == old_pony, "the idle form bind binds the face")
+	check(main._runtimes.size() == 1, "the idle form bind creates no second runtime")
+	check(is_zero_approx(runtime._act_camera.camera_target_eye),
+		"an idle form bind applies no act eye override")
+	var revised := body_change.default_form(old_pony)
+	revised.form_id = "rarity"
+	revised.fit_id = "rarity"
+	revised.revision = 1
+	body_change.apply_form(old_pony, revised)
+	check(int(runtime.state) == RUNTIME.State.IDLE, "a same-node revision keeps the idle state")
+	check(body_change.form_for(old_pony) == revised, "the idle body takes the revised form")
+	check(not runtime._suspended and not main.body_swap_pending(),
+		"a same-node revision never starts a swap")
+	_free_fixture(f)
+
+
+## A live act's same-node revision refreshes the eye, pose and camera without a resume.
+func _check_same_node_refresh() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var old_pony: FakePony = f["old"]
+	var body_change: BODY_CHANGE_SERVICE = f["body_change"]
+	var player := FakePlayer.new()
+	player.name = "FakePlayer"
+	main.add_child(player)
+	main.player = player
+	var base := body_change.default_form(old_pony)
+	body_change.apply_form(old_pony, base)
+	var revised := body_change.default_form(old_pony)
+	revised.form_id = "rarity"
+	revised.fit_id = "rarity"
+	revised.revision = 1
+	body_change.apply_form(old_pony, revised)
+	check(int(runtime.state) == RUNTIME.State.ACTIVE,
+		"a live same-node revision keeps the act state")
+	check(not runtime._suspended and not main.body_swap_pending(),
+		"a live same-node revision starts no swap")
+	check(main.begins == 0, "a live same-node revision starts no handover")
+	check(runtime._pose_session.pony == old_pony, "the live revision keeps the pose bound")
+	check(runtime._act_camera.camera_target_eye > 0.0,
+		"the live revision refreshes the eye target")
+	check(body_change.form_for(old_pony) == revised, "the live body takes the revised form")
+	runtime.force_stop()
+	_free_fixture(f)
+
+
+## The runtime forwards the request origin unchanged: provider and player are distinct.
+func _check_origins() -> void:
+	var f := _fixture()
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	var provider: Dictionary = runtime.request_form_change(false, "rarity", false)
+	check(bool(provider.get("ok", false)), "a provider-origin form request starts")
+	check(source.active_change().origin == BODY_CHANGE.Origin.PROVIDER,
+		"a provider-origin request keeps its origin")
+	source.changing = false
+	runtime._swap_clock = 0.0
+	runtime._body_swap_tick(0.1)
+	var player: Dictionary = runtime.request_form_change(false, "rarity", true)
+	check(bool(player.get("ok", false)), "a player-origin form request starts")
+	check(source.active_change().origin == BODY_CHANGE.Origin.PLAYER,
+		"a player-origin request keeps its origin")
+	source.changing = false
 	runtime.force_stop()
 	_free_fixture(f)

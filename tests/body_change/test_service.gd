@@ -12,6 +12,7 @@ const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const GARMENT_BINDING := preload("res://mods/unfplap/body_change/garment_binding.gd")
 const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
+const RUNTIME_BINDING := preload("res://mods/unfplap/runtime/body_binding.gd")
 const SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
 
@@ -31,9 +32,32 @@ class FakePony extends Node3D:
 
 class FakeHost extends Node:
 	var lines: Array[String] = []
+	var runtimes: Dictionary = {}
 
 	func debug(text: String) -> void:
 		lines.append(text)
+
+	func runtime_for(body: Node) -> Node:
+		if not is_instance_valid(body):
+			return null
+		var runtime: Variant = runtimes.get(body)
+		return runtime if runtime is Node else null
+
+
+class FakeRuntime extends Node:
+	var journal: Array[String] = []
+	var last_body: Node3D = null
+	var last_form: BODY_FORM.BodyForm = null
+
+	func bind_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
+		journal.append("bind")
+		last_body = body
+		last_form = form
+
+	func refresh_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
+		journal.append("refresh")
+		last_body = body
+		last_form = form
 
 
 class FakeLodHost extends Node:
@@ -176,6 +200,7 @@ func run() -> void:
 	_check_binding()
 	_check_policy()
 	_check_world_bindings()
+	_check_runtime_binding()
 	_check_scale_clamp()
 	_check_service()
 	print("BODY_CHANGE_RESULT checks=%d failures=%d" % [checks, failures])
@@ -405,6 +430,54 @@ func _check_world_bindings() -> void:
 	garment_target.free()
 	smack_target.free()
 	body.free()
+
+
+## The runtime binding dispatches through the entry's public runtime lookup and never owns the
+## act: a body without a runtime is inert, and an unbind is not a teardown.
+func _check_runtime_binding() -> void:
+	var host := FakeHost.new()
+	host.name = "RuntimeBindingHost"
+	var binding: RefCounted = RUNTIME_BINDING.new()
+	binding.call("setup", host)
+	check(str(binding.call("binding_id")) == "runtime", "the runtime binding names itself")
+
+	var body := FakePony.new()
+	body.name = "RuntimeBody"
+	body.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
+	var form := BODY_FORM.default_form(body)
+	var runtime := FakeRuntime.new()
+	runtime.name = "FakeRuntime"
+	host.runtimes[body] = runtime
+	binding.call("bind_body", body, form)
+	check(runtime.journal == ["bind"], "a body with a runtime binds that runtime")
+	check(runtime.last_body == body, "the runtime receives the presented body")
+	check(runtime.last_form == form, "the runtime receives the form")
+	binding.call("refresh_body", body, form)
+	check(runtime.journal == ["bind", "refresh"],
+		"a same-node revision refreshes the runtime")
+	binding.call("unbind_body", body)
+	check(runtime.journal == ["bind", "refresh"],
+		"the runtime binding never runs an act teardown on unbind")
+
+	var idle := FakePony.new()
+	idle.name = "IdleBody"
+	idle.identity = {"id": "rarity", "display_name": "Rarity"}
+	binding.call("bind_body", idle, form)
+	binding.call("refresh_body", idle, form)
+	check(runtime.journal == ["bind", "refresh"],
+		"a body without a runtime is left alone")
+
+	host.runtimes[idle] = runtime
+	runtime.name = "SecondRuntime"
+	binding.call("bind_body", idle, form)
+	check(runtime.journal == ["bind", "refresh", "bind"],
+		"the binding follows the entry's runtime lookup")
+	check(runtime.last_body == idle, "the second body's runtime is the target")
+
+	host.free()
+	runtime.free()
+	body.free()
+	idle.free()
 
 
 func _check_scale_clamp() -> void:

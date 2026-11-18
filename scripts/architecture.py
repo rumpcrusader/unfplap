@@ -886,6 +886,43 @@ def check_sources(failure: Failure) -> None:
     if "_resume_after_body_swap(" in function_body(runtime, "adopt_body"):
         failure.add("adopt_body() must not resume; the watcher owns the one resume")
 
+    # The provider policy owns the offer prompt and the reveal magnitudes. The runtime only asks
+    # the typed policy and executes its generic effects.
+    for name in ("FORM_OFFER_PROMPT", "FORM_REVEAL_HEAT", "FORM_REVEAL_PEAK_SCORE"):
+        if name in runtime:
+            failure.add("runtime.gd must not own the provider policy value %s" % name)
+    offer = function_body(runtime, "_shape_offer_tick")
+    for needle in (".should_offer(", ".offer_prompt()"):
+        if needle not in offer:
+            failure.add("_shape_offer_tick() must ask the typed policy for %s" % needle)
+    if ".on_reveal(" not in function_body(runtime, "_commit_form_reveal"):
+        failure.add("_commit_form_reveal() must execute the typed policy's on_reveal()")
+    if ".on_offer_accepted(" not in function_body(runtime, "_apply_offer_accepted"):
+        failure.add("_apply_offer_accepted() must execute the typed policy's on_offer_accepted()")
+
+    # One runtime binding: the entry registers it, the runtime exposes the two typed hooks, and
+    # the binding never runs the act exit or a second resume.
+    binding_path = ROOT / "runtime" / "body_binding.gd"
+    if not binding_path.is_file():
+        failure.add("missing runtime/body_binding.gd")
+    else:
+        binding = binding_path.read_text(encoding="utf-8")
+        if 'extends "res://mods/unfplap/shared/body_binding.gd"' not in binding:
+            failure.add("runtime/body_binding.gd must extend the typed body binding")
+        if 'return "runtime"' not in binding:
+            failure.add('runtime/body_binding.gd must name itself "runtime"')
+        for needle in ("_end_session(", "_resume_after_body_swap("):
+            if call_lines(binding, needle):
+                failure.add("runtime/body_binding.gd must not call %s" % needle)
+    main_source = (ROOT / "main.gd").read_text(encoding="utf-8")
+    if main_source.count("runtime/body_binding.gd") != 1:
+        failure.add("main.gd must preload one runtime/body_binding.gd")
+    if main_source.count('register_binding", runtime_binding') != 1:
+        failure.add("main.gd must register one runtime binding")
+    for name in ("bind_body_services", "refresh_body_services"):
+        if len(re.findall(r"^func %s\(" % name, runtime, re.MULTILINE)) != 1:
+            failure.add("runtime.gd must define exactly one %s()" % name)
+
     # The base mechanism never names the installed provider's characters or its mesh marker.
     for path in shipped_sources():
         name = rel(path)

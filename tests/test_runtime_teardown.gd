@@ -4,6 +4,7 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const CATALOG_STANDING := "standing"
 const CATALOG_STANDING_TEST := "standing_test"
@@ -632,7 +633,36 @@ func run() -> void:
 		and int(runtime10.state) == RUNTIME.State.IDLE,
 		"the one exit clears a suspended typed body change")
 
-	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10]:
+	# The body-change binding path refreshes the runtime without an act exit or a resume.
+	var f11 := _fixture()
+	var runtime11: Node = f11["runtime"]
+	root.add_child(runtime11)
+	var pony11: FakePony = f11["pony"]
+	var main11: FakeMain = f11["main"]
+	runtime11.state = 2
+	runtime11.pose_id = CATALOG_STANDING
+	var form11 := BODY_FORM.default_form(pony11)
+	runtime11.bind_body_services(pony11, form11)
+	check(int(runtime11.state) == 2, "a body bind leaves a live act live")
+	check(not runtime11._suspended, "a body bind never suspends the act")
+	check(runtime11._pose_session.pony == pony11, "the body bind binds the pose session")
+	check(runtime11._face.pony == pony11, "the body bind binds the face")
+	check(main11.cleared.is_empty(), "a body bind never runs the act exit")
+	form11.form_id = "rarity"
+	form11.fit_id = "rarity"
+	form11.revision = 1
+	runtime11.refresh_body_services(pony11, form11)
+	check(int(runtime11.state) == 2, "a same-node refresh leaves a live act live")
+	check(runtime11._act_camera.camera_target_eye > 0.0,
+		"a same-node refresh reapplies the eye target")
+	check(main11.cleared.is_empty(), "a same-node refresh never runs the act exit")
+	runtime11._form_context.form = form11
+	runtime11._form_context.change = BODY_CHANGE.new()
+	runtime11._end_session(false)
+	check(runtime11._form_context.form == null and runtime11._form_context.change == null,
+		"the one exit clears the reused policy context")
+
+	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11]:
 		(item["runtime"] as Node).free()
 	print("RUNTIME_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

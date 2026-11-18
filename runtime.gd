@@ -35,6 +35,7 @@ const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
+const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -77,19 +78,18 @@ const BODY_SWAP_WATCHDOG_S := 8.0
 ## The source may clear its changing state before the spawn hook reaches the entry. Keep the act
 ## suspended while the source still reports a new body; after this grace the entry adopts it.
 const BODY_SWAP_ADOPT_GRACE_S := 0.5
-## A player-requested reveal is the act's one exceptional beat: a readiness spike, a special
-## impression and peak, and extra comfort at the act's record. Magnitudes are lab-tuned.
-const FORM_REVEAL_HEAT := 30.0
-const FORM_REVEAL_PEAK_SCORE := 150.0
+## A player-requested reveal is the act's one exceptional beat; its heat, peak, cue and memory
+## mark are the provider policy's, not the base runtime's.
 ## Debug log labels for the form state. A release never publishes a HUD hint: the player finds
 ## the reveal and the gift by probing her, so the debug build may name the state in the log only.
 const FORM_HINT_ASK := "Say to her: ask to see the real her."
 const FORM_HINT_SHAPE := "Say to her: name the pony she should wear."
+## The memory mark a generic reveal may name. The memory facade owns the one exceptional reveal
+## builder and its wording; the runtime only routes the kind.
+const FORM_REVEAL_MEMORY := "form_reveal"
 ## The standing start may place Anon closer or farther so the shaft rests at her entrance before
 ## the act. Beyond this the offer cone would be wrong and the fit is left to the hip offset.
 const STANDING_FIT_MAX_M := 0.6
-## She offers the change in her own voice; the note is code-owned and short.
-const FORM_OFFER_PROMPT := "Offer him a gift: for the rest of this, you will wear any adult mare's shape he names. Say it in one short line, at most 24 words, in your own voice, as a proud indulgence rather than a plea. Do not explain how it works and do not list names."
 ## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
 ## feel is the same with the anatomy off. Close to the default part's visible length.
 const NOMINAL_SHAFT_M := 0.2
@@ -195,6 +195,9 @@ var _swap_clock := 0.0
 var _form_reveal_done := false
 var _shape_offer_done := false
 var _shape_offer_pending := false
+## Reused typed policy context. The offer tick runs every ACTIVE frame, so the runtime writes
+## this value instead of allocating one per ask.
+var _form_context: BODY_CHANGE_POLICY.BodyChangeActContext = BODY_CHANGE_POLICY.BodyChangeActContext.new()
 var _form_talk_turn := -1
 var _form_hint := ""
 ## The debug log label for the current form state. It is never copied to the act facts, so no
@@ -1953,6 +1956,8 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_form_reveal_done = false
 	_shape_offer_done = false
 	_shape_offer_pending = false
+	_form_context.form = null
+	_form_context.change = null
 	_form_hint = ""
 	_form_hint_log = ""
 	_end_tail_tuck()
@@ -2383,6 +2388,47 @@ func adopt_body(new_pony: Node) -> void:
 		main.call("refresh_body_lod", new_pony)
 
 
+## The body-change binding's adopt hook. It runs only for a body this runtime already presents;
+## a suspended act is left to the one resume, and an idle runtime simply rebinds its sub-services.
+func bind_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
+	if _suspended or not _is_presented_body(body):
+		return
+	_rebind_body_services(form)
+
+
+## The same presented body carries a revised form: refresh the eye/pose/camera and the other
+## body-bound systems without a resume, a second runtime or an act exit.
+func refresh_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
+	if _suspended or not _is_presented_body(body):
+		return
+	_rebind_body_services(form)
+
+
+func _is_presented_body(body: Node3D) -> bool:
+	return is_instance_valid(body) and is_instance_valid(pony) and body == pony
+
+
+## One idempotent rebind for the body-change path. The act resume owns its own ordered rebuild;
+## this is the idle and in-place revision refresh and never touches the act state.
+func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
+	_pose_service().bind(self, pony)
+	_face.bind(pony, self)
+	_bind_act_view()
+	_sync_act_facts()
+	_anatomy_refresh()
+	_camera_service()
+	_reactions.bind_scene(pony, _anatomy_bridge.controller)
+	var view: Variant = _pose_service().view()
+	_call_pose_changed(_hand_controller(), view)
+	_call_pose_changed(_kiss_controller(), view)
+	if is_instance_valid(_act_audio):
+		_call_pose_changed(_act_audio, view)
+	_wings_controller()
+	_integrations_controller()
+	if state != State.IDLE:
+		_camera_service().call("apply_eye_override", _start_family(), _player_pony, form)
+
+
 ## Resume the same act on the adopted body: anatomy, pose, camera, ownership and the body-bound
 ## controllers are rebuilt; the act's state and history are not.
 func _resume_after_body_swap() -> void:
@@ -2773,12 +2819,11 @@ func _standing_gap() -> float:
 ## The presented body's form, through `main.body_change`; a host without the service (a suite or
 ## a lab harness) falls back to the identity's typed default own form.
 func _body_form() -> BODY_FORM.BodyForm:
-	if is_instance_valid(main):
-		var service: Variant = main.get("body_change")
-		if service != null and service.has_method("form_for"):
-			var stored: Variant = service.call("form_for", pony)
-			if stored is BODY_FORM.BodyForm:
-				return stored as BODY_FORM.BodyForm
+	var service := _body_change_service()
+	if service != null:
+		var stored := service.form_for(pony)
+		if stored != null:
+			return stored
 	return BODY_FORM.default_form(pony)
 
 
@@ -3473,19 +3518,27 @@ func _on_player_line(text: String) -> void:
 				_id, str(result.get("reason", ""))])
 
 
-## After at least one climax, in her own form, she offers any adult mare's shape once. The offer
-## is made in ACTIVE only: that is the state where the player can answer it, and a player who
-## ends the act immediately after the first climax simply misses an indulgence. A queue failure
-## still leaves the offer standing: the HUD hint is the invitation.
+## The provider policy owns the offer timing and the prompt. The runtime keeps the once-per-act
+## gate and the dialogue reaction; a false before the provider's trigger does not spend the offer.
 func _shape_offer_tick() -> void:
-	if _shape_offer_done or _suspended or state != State.ACTIVE or pony_climaxes < 1:
+	if _shape_offer_done or _suspended or state != State.ACTIVE:
 		return
 	var source := _shape_source()
 	if source == null:
 		# This pony has no shape source, and one cannot join a live act; stop asking every tick.
 		_shape_offer_done = true
 		return
-	if not _source_current_shape(source).is_empty():
+	var policy := _shape_policy(source)
+	if policy == null:
+		# A provider without a policy never offers; one cannot join a live act.
+		_shape_offer_done = true
+		return
+	if not policy.should_offer(_form_context_for(_body_form(),
+			BODY_CHANGE.Origin.PROVIDER, null)):
+		return
+	var prompt := policy.offer_prompt().strip_edges()
+	if prompt.is_empty():
+		_shape_offer_done = true
 		return
 	_shape_offer_done = true
 	_shape_offer_pending = true
@@ -3497,7 +3550,7 @@ func _shape_offer_tick() -> void:
 	var valid := func() -> bool:
 		return not _suspended and _event_id == act_id and _shape_offer_pending
 	var key: String = _dialogue_service().reaction_line(MEMORY.Reaction.FORM_OFFER,
-		"%s:form_offer" % act_id, FORM_OFFER_PROMPT, valid)
+		"%s:form_offer" % act_id, prompt, valid)
 	if key.is_empty():
 		return
 	_dialogue_service().note_reaction(key, cue, _now_s() + _cue_reaction_max_age_s)
@@ -3550,12 +3603,13 @@ func _complete_form_change(change: BODY_CHANGE, changed: bool, confirmed := fals
 		return
 	if by_player and target.is_empty() and shape.is_empty() and source != null:
 		if not _form_reveal_done:
-			_commit_form_reveal()
+			_commit_form_reveal(change)
 		_form_hint_tick()
 		_shape_offer_tick()
 		return
 	if by_player and not shape.is_empty():
 		_shape_offer_pending = false
+		_apply_offer_accepted(change)
 	_form_hint_tick()
 	_log("form changed id=%s shape=%s exceptional=false" % [
 		_id, shape if not shape.is_empty() else "self"])
@@ -3570,20 +3624,83 @@ func _restore_shape_offer(target: String, by_player: bool) -> void:
 	_log("form change failed; the shape offer stands again id=%s" % _id)
 
 
-## Once per act: a large readiness spike, one special impression and world event, one peak, and
-## the comfort input the summary record reads. The private thought says he wanted her, not the
-## shape; the world event stays non-graphic.
-func _commit_form_reveal() -> void:
+## Once per act: the provider's typed effects become the readiness spike, cue, special impression
+## and peak. The private thought says he wanted her, not the shape; the world event stays
+## non-graphic. `comfort` stays provider data: the summary's generic input is the reveal flag.
+func _commit_form_reveal(change: BODY_CHANGE) -> void:
+	var policy := _shape_policy(_change_source(change))
+	var effects: BODY_CHANGE_POLICY.BodyChangeEffects = null
+	if policy != null:
+		effects = policy.on_reveal(_form_context_for(_body_form(),
+			BODY_CHANGE.Origin.PLAYER, change))
 	_form_reveal_done = true
-	if state == State.ACTIVE:
-		_readiness.add_heat(minf(FORM_REVEAL_HEAT, READINESS_MAX - satisfaction))
-		_set_cue_override("She shows you the real her.", _cue_override_seconds)
 	_set_face(0.85, FACE.ACT_LIDS)
-	var memory: Variant = _memory_service()
-	if memory != null:
-		memory.commit(memory.form_reveal_impression(_id, _event_id))
-		memory.record_peak(memory.form_reveal_peak(_id, _event_id, FORM_REVEAL_PEAK_SCORE))
+	_apply_form_effects(effects)
 	_log("form reveal id=%s event=%s readiness=%.0f" % [_id, _event_id, satisfaction])
+
+
+## A player-named shape is the provider's accepted offer. The changelings policy is neutral; a
+## future provider may supply its own generic effects.
+func _apply_offer_accepted(change: BODY_CHANGE) -> void:
+	var policy := _shape_policy(_change_source(change))
+	if policy == null:
+		return
+	_apply_form_effects(policy.on_offer_accepted(_form_context_for(_body_form(),
+		BODY_CHANGE.Origin.PLAYER, change)))
+
+
+## Execute one typed effect value. `0`/`""` means none, so a neutral value is a no-op.
+func _apply_form_effects(effects: BODY_CHANGE_POLICY.BodyChangeEffects) -> void:
+	if effects == null or effects.is_empty():
+		return
+	if state == State.ACTIVE:
+		if effects.heat > 0.0:
+			_readiness.add_heat(minf(effects.heat, READINESS_MAX - satisfaction))
+		if not effects.cue.is_empty():
+			_set_cue_override(effects.cue, _cue_override_seconds)
+	if effects.memory_kind.is_empty() and effects.peak <= 0.0:
+		return
+	var memory: Variant = _memory_service()
+	if memory == null:
+		return
+	if effects.memory_kind == FORM_REVEAL_MEMORY:
+		memory.commit(memory.form_reveal_impression(_id, _event_id))
+	if effects.peak > 0.0:
+		memory.record_peak(memory.form_reveal_peak(_id, _event_id, effects.peak))
+
+
+## The provider's typed offer/reveal policy, or null. The base runtime knows the contract, not
+## the installed pack.
+func _shape_policy(source: BODY_CHANGE_SOURCE = null) -> BODY_CHANGE_POLICY:
+	var service := _body_change_service()
+	if service != null and is_instance_valid(pony) and pony is Node3D:
+		var policy := service.policy_for(pony)
+		if policy != null:
+			return policy
+	if source == null:
+		source = _shape_source()
+	if source == null:
+		return null
+	return source.policy()
+
+
+## Fill the reused typed act context the provider policy reads. The offer tick runs every ACTIVE
+## frame, so this writes fields and never allocates.
+func _form_context_for(form: BODY_FORM.BodyForm, origin: BODY_CHANGE.Origin,
+		change: BODY_CHANGE) -> BODY_CHANGE_POLICY.BodyChangeActContext:
+	var context := _form_context
+	context.pony_id = _id
+	context.form = form
+	context.change = change
+	context.origin = origin
+	context.state = change.state if change != null else BODY_CHANGE.State.REQUESTED
+	context.offer_pending = _shape_offer_pending
+	context.reveal_used = _form_reveal_done
+	context.by_player = origin == BODY_CHANGE.Origin.PLAYER
+	context.pony_climaxes = pony_climaxes
+	context.max_climaxes = _max_pony_climaxes
+	context.act_active = state == State.ACTIVE and not _suspended
+	return context
 
 
 func _form_status(text: String) -> void:
@@ -3599,20 +3716,19 @@ func _source_current_shape(source: BODY_CHANGE_SOURCE) -> String:
 
 
 func _source_asks_form_change(source: BODY_CHANGE_SOURCE, text: String) -> bool:
-	return source != null and source.has_method("asks_form_change") \
-		and bool(source.call("asks_form_change", text))
+	return source != null and source.asks_form_change(text)
 
 
 func _source_named_form(source: BODY_CHANGE_SOURCE, text: String) -> String:
-	if source == null or not source.has_method("named_form"):
+	if source == null:
 		return ""
-	return str(source.call("named_form", text)).strip_edges()
+	return source.named_form(text).strip_edges()
 
 
 func _source_named_note(source: BODY_CHANGE_SOURCE, text: String) -> String:
-	if source == null or not source.has_method("named_form_note"):
+	if source == null:
 		return ""
-	return str(source.call("named_form_note", text)).strip_edges()
+	return source.named_form_note(text).strip_edges()
 
 
 func _memory_service() -> Variant:
@@ -4250,6 +4366,8 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_swap_elapsed = 0.0
 	_shape_offer_pending = false
 	_form_hint = ""
+	_form_context.form = null
+	_form_context.change = null
 	if is_instance_valid(main) and main.has_method("clear_body_swap"):
 		main.call("clear_body_swap", self)
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act

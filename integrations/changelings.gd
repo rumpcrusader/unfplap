@@ -29,11 +29,14 @@ const REVEAL_PHRASES := [
 	"show yourself", "show me the real", "drop the disguise", "take off the disguise",
 	"lose the disguise", "unmask", "who you really are",
 ]
-## A single distinctive word only names a shape when the line also asks for one. Without this,
-## "you are a rarity" would select Rarity while the offer is pending.
-const SHAPE_VERBS := [
-	"wear", "become", "want", "name", "choose", "pick", "turn into", "look like",
-	"shape of", "take the shape",
+## A shape request is imperative or a whole name; a mention or a description is ordinary talk.
+const SHAPE_REQUEST_PHRASES := [
+	"wear", "become", "turn into", "change into", "name yourself",
+]
+## Words that make a line a refusal or a description rather than a request, even when it carries
+## a request phrase ("I don't want to wear Rarity").
+const SHAPE_NEGATIONS := [
+	"not", "never", "dont", "don t", "doesn t", "didn t", "can t", "cannot", "won t",
 ]
 ## Bodies the base game 0.3.1 writes as young or male; they are never a wearable shape. A pack
 ## update may add more, and the live candidate list still gates every real choice.
@@ -510,35 +513,45 @@ func _copyable(shape_id: String) -> bool:
 
 
 ## 0 for no match. A whole display name beats the id's words, which beat one distinctive word.
-## A single word only counts on its own or with an explicit shape verb, so "you are a rarity"
-## never silently picks Rarity and "apple" never silently picks one apple mare.
+## A name inside a sentence only counts with an imperative request, so "you are a rarity",
+## "I don't want Rarity" and "your name is Rarity" never silently pick Rarity, and "apple"
+## still never silently picks one apple mare.
 func _name_score(key: String, id: String) -> int:
 	var name := _normalize(SETTINGS.character_name(id))
 	var ident := _normalize(id.replace("_", " "))
 	var best := 0
-	var explicit := _has_shape_verb(key)
-	# A one-word name is common enough to appear in ordinary talk; only count it when the line
-	# is the name or asks for a shape. A multi-word display name is distinctive on its own.
-	var name_words := name.split(" ", false)
-	if not name.is_empty() and key.contains(name) \
-			and (name_words.size() > 1 or explicit or key == name):
+	var request := _has_shape_request(key)
+	# A whole line is a name on its own; a name inside a sentence needs the imperative.
+	if not name.is_empty() and (key == name or (request and key.contains(name))):
 		best = 1000 + name.length()
-	var ident_words := ident.split(" ", false)
-	if not ident.is_empty() and key.contains(ident) \
-			and (ident_words.size() > 1 or explicit or key == ident):
+	if not ident.is_empty() and (key == ident or (request and key.contains(ident))):
 		best = maxi(best, 900 + ident.length())
-	var words := name.split(" ", false)
-	for word: String in words:
+	# A single word of a name is common enough to appear in ordinary talk; it only counts on its
+	# own line or with an imperative.
+	for word: String in name.split(" ", false):
 		if word.length() >= 4 and key.split(" ", false).has(word):
-			if explicit or key == word:
+			if request or key == word:
 				best = maxi(best, 100 + word.length())
 	return best
 
 
-## True when the player's line asks her to take a form, not merely mentions a name.
-func _has_shape_verb(key: String) -> bool:
-	for verb: String in SHAPE_VERBS:
-		if key.contains(verb):
+## True when the player's line asks her to take a form, not merely mentions a name. A negation
+## anywhere in the line wins over the request phrase.
+func _has_shape_request(key: String) -> bool:
+	if _negated(key):
+		return false
+	var padded := " %s " % key
+	for phrase: String in SHAPE_REQUEST_PHRASES:
+		if padded.contains(" %s " % phrase):
+			return true
+	return key.begins_with("name ")
+
+
+## A refusal or a description is never a request, even when it names a shape.
+func _negated(key: String) -> bool:
+	var padded := " %s " % key
+	for word: String in SHAPE_NEGATIONS:
+		if padded.contains(" %s " % word):
 			return true
 	return false
 

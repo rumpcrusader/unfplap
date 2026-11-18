@@ -251,12 +251,36 @@ func run() -> void:
 		"the disguise phrase asks for a reveal")
 	check(not bool(adapter.call("asks_form_change", "you are beautiful")),
 		"ordinary talk is not a reveal ask")
-	check(str(adapter.call("named_form", "I want Rarity")) == "rarity",
-		"a named adult mare resolves")
+	check(str(adapter.call("named_form", "Rarity")) == "rarity",
+		"a whole adult mare name resolves")
+	check(str(adapter.call("named_form", "wear Rarity")) == "rarity",
+		"an imperative wear request resolves")
+	check(str(adapter.call("named_form", "become Rarity")) == "rarity",
+		"an imperative become request resolves")
+	check(str(adapter.call("named_form", "turn into Rarity")) == "rarity",
+		"an imperative turn-into request resolves")
+	check(str(adapter.call("named_form", "name yourself Rarity")) == "rarity",
+		"an imperative name request resolves")
+	check(str(adapter.call("named_form", "name Rarity")) == "rarity",
+		"a leading name request resolves")
 	check(str(adapter.call("named_form", "you are a rarity")).is_empty(),
-		"a name mentioned without a shape verb is not a choice")
+		"a name mentioned without an imperative is not a choice")
+	check(str(adapter.call("named_form", "I want Rarity")).is_empty(),
+		"wanting a name is not an imperative request")
+	check(str(adapter.call("named_form", "I don't want Rarity")).is_empty(),
+		"a negated name is not a choice")
+	check(str(adapter.call("named_form", "I don't want to wear Rarity")).is_empty(),
+		"a negation wins over the request phrase")
+	check(str(adapter.call("named_form", "your name is Rarity")).is_empty(),
+		"a descriptive name is not a choice")
 	check(str(adapter.call("named_form", "Twilight Sparkle")) == "twilight_sparkle",
-		"a full display name resolves")
+		"a whole multi-word display name resolves")
+	check(str(adapter.call("named_form", "wear Twilight Sparkle")) == "twilight_sparkle",
+		"a multi-word name resolves with an imperative")
+	check(str(adapter.call("named_form", "I don't want Twilight Sparkle")).is_empty(),
+		"a negated multi-word name is not a choice")
+	check(str(adapter.call("named_form", "your name is Twilight Sparkle")).is_empty(),
+		"a descriptive multi-word name is not a choice")
 	check(str(adapter.call("named_form", "Apple")).is_empty(),
 		"an ambiguous name resolves to nothing")
 	check(str(adapter.call("named_form", "Rarity or Fluttershy")).is_empty(),
@@ -287,6 +311,8 @@ func run() -> void:
 		"the worn shape is excluded")
 	check(str(adapter.call("named_form_note", "Rarity")) == CHANGELINGS.NOTE_WEARING,
 		"naming the worn shape gets the status")
+	check(str(adapter.call("named_form_note", "I don't want Rarity")).is_empty(),
+		"a negated worn name gets no status")
 	var game := FakeGame.new()
 	var population := FakePopulation.new()
 	population.available = {"rarity": "res://mods/unfplap/tools/pose_lab.tscn"}

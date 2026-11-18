@@ -1366,6 +1366,10 @@ func _check_anatomy_isolation(files: Array[String]) -> void:
 		"the coat line receives the mesh visibility")
 	check(line.contains("func tick(visible: bool)"),
 		"the coat line tick takes visibility, not hidden")
+	check(line.contains("func set_enabled(enabled: bool)"),
+		"the coat line has a debug toggle")
+	check(controller.contains("coat_line.set_enabled(SETTINGS.coat_line.get_bool())"),
+		"the controller applies the coat line toggle")
 	var act := FileAccess.get_file_as_string(ROOT.path_join("anatomy/act.gd"))
 	check(not act.contains("runtime.get("), "the anatomy act does not read runtime fields")
 	check(not act.contains("runtime.call(\"_"), "the anatomy act does not call runtime private helpers")

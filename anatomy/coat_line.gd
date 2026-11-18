@@ -46,6 +46,8 @@ var _basis_y := PackedVector3Array()
 var _basis_z := PackedVector3Array()
 var _origin := PackedVector3Array()
 var _line_count := 0
+## The debug toggle. Off uploads `line_count = 0`, so the mesh stays rigid.
+var _enabled := false
 ## The last visibility the controller passed. The skeleton signal skips while hidden.
 var _hidden := true
 ## True once the signal has supplied a final (modifier-applied) pose.
@@ -69,6 +71,7 @@ func set_mesh(mesh_node: MeshInstance3D, skeleton_node: Skeleton3D) -> void:
 	_built_mesh_id = 0
 	_line_count = 0
 	_retry_at_msec = 0
+	_enabled = false
 	_hidden = true
 	_pose_ready = false
 
@@ -104,6 +107,7 @@ func clear() -> void:
 	_built_mesh_id = 0
 	_line_count = 0
 	_retry_at_msec = 0
+	_enabled = false
 	_hidden = true
 	_pose_ready = false
 	_rest_local = PackedVector3Array()
@@ -113,11 +117,29 @@ func clear() -> void:
 	last_error = ""
 
 
+## The debug toggle. Off uploads `line_count = 0` so the mesh stays rigid; on re-uploads the line
+## and lets the next pose compute the frames.
+func set_enabled(enabled: bool) -> void:
+	if _enabled == enabled:
+		return
+	_enabled = enabled
+	_pose_ready = false
+	if not enabled:
+		_hidden = true
+		_reset_frames()
+		_upload_frames()
+	_upload_static()
+
+
+func is_enabled() -> bool:
+	return _enabled
+
+
 ## Called every frame by the controller. Builds the line lazily; the frames themselves come from
 ## `_on_skeleton_updated`, where the skeleton reports its final modifier-applied pose.
 func tick(visible: bool) -> void:
-	_hidden = not visible
-	if not visible:
+	_hidden = not visible or not _enabled
+	if _hidden:
 		return
 	if not is_instance_valid(mesh) or not is_instance_valid(skeleton) \
 			or not is_instance_valid(placement) or not is_instance_valid(material):
@@ -150,7 +172,7 @@ func _on_skeleton_updated() -> void:
 
 ## Bend the line from the hind-leg tip travel relative to the pelvis and build its frames.
 func _compute_frames() -> void:
-	if not _built or _line_count < 2 or not is_instance_valid(skeleton) \
+	if not _enabled or not _built or _line_count < 2 or not is_instance_valid(skeleton) \
 			or not is_instance_valid(material):
 		return
 	var hips_delta := skeleton.get_bone_global_pose(_hips_index) * _hips_rest.affine_inverse()
@@ -299,7 +321,7 @@ func _upload_static() -> void:
 		padded[i] = _rest_local[mini(i, _rest_local.size() - 1)] if not _rest_local.is_empty() \
 			else last
 	material.set_shader_parameter("line_rest", padded)
-	material.set_shader_parameter("line_count", _line_count)
+	material.set_shader_parameter("line_count", _line_count if _enabled else 0)
 
 
 func _upload_frames() -> void:

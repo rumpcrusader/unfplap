@@ -225,6 +225,7 @@ func _process(delta: float) -> void:
 	coat.tick_debug()
 	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame())
 	var line_started := Time.get_ticks_usec()
+	coat_line.set_enabled(SETTINGS.coat_line.get_bool())
 	coat_line.tick(attach.visible())
 	facts.perf("anatomy_coat_line", Time.get_ticks_usec() - line_started)
 	_tick_line_debug(delta)
@@ -330,8 +331,8 @@ func _ensure_line_debug() -> void:
 func _tick_line_debug(delta: float) -> void:
 	if not is_instance_valid(_line_debug):
 		return
-	if not SETTINGS.draw_coat_line.get_bool() or not is_attached() \
-			or not is_instance_valid(attach.mesh) or not attach.visible():
+	if not SETTINGS.draw_coat_line.get_bool() or not coat_line.is_enabled() \
+			or not is_attached() or not is_instance_valid(attach.mesh) or not attach.visible():
 		_line_debug.call("update", {}, false)
 		_line_debug_clock = 0.0
 		return

@@ -16,7 +16,7 @@ This contract covers:
 - cue admission: stability, shared gap, demand budget, override lifetime and one pending slot;
 - cue prompt assembly from the act facts, preferences, relationship facts and the shared memory;
 - the normal dialogue prompt notes: the mid-act and afterglow moment, the warm after-sex note,
-  the history and relationship lines and the caress/lean reads;
+  the history and relationship lines, the caress/lean reads and the presented body form;
 - reaction lines for climax, early end, history refusal and tolerance events;
 - the bystander line and its observer pass;
 - the idle history scan: the apology repair and the pending reminder/complaint line;
@@ -35,7 +35,7 @@ face beats (`docs/face.md`).
 | `shared/act_facts.gd` | the runtime's typed act view: state, ids, mood/cue, stroke and touch/talk values, preferences, prompts, features and the director clock |
 | `dialogue/utterance_scheduler.gd` | pure admission policy: stability, gaps, demand budget, the one pending slot |
 | `dialogue/utterance.gd` | pure prompt formatting and the private line seed |
-| `dialogue/prompts.gd` | pure normal-dialogue note assembly: warm, mid-act, afterglow, caress/lean |
+| `dialogue/prompts.gd` | pure normal-dialogue note assembly: warm, mid-act, afterglow, caress/lean, presented body |
 | `memory/service.gd` | the mod's line channel: queue, key, state, cancel and cancel-by-act |
 | `docs/dialogue.md` | this contract |
 | `tests/dialogue/` | the pure scheduler/formatting suites and the facade suite |
@@ -61,7 +61,7 @@ tree.
 | `note_reaction(key, cue_text, until)` | reserve the shared slot for that reaction |
 | `busy()` | the director or the pony is actually speaking |
 | `recent_lines()` / `last_spoken_line()` / `last_spoken_at()` | read the director's recent speech |
-| `prompt_note(values)` | the normal dialogue note: state, warm, history, beat, relation, caress/lean, pose |
+| `prompt_note(values)` | the normal dialogue note: state, warm, history, beat, relation, caress/lean, pose, presented form |
 | `scheduler()` | the pure scheduler, for the facade's own calls and the facade suite |
 
 ## Admission
@@ -92,13 +92,20 @@ sets them on `act_facts` immediately before calling the facade.
 
 - outside the act states, the warm after-sex note (with the relationship line appended) or the
   history note;
+- a live body line for a pony a body-change source handles: `form_name` and whether the form is her
+  own or borrowed. The line is the prompt's current-form authority; the pack's event history can
+  still quote an earlier shape, so the model must not infer the body from it. A pony with no source
+  adds nothing, and the line rides outside, inside and after the act;
 - mid-act, the act note plus the history note, the relationship line and one caress/lean sentence
   when one is active (chest and belly in missionary, flank standing); a quiet read adds nothing;
-- in afterglow, the afterglow note, one optional beat and the same relationship and caress reads;
-  the mid-act history note is not recited, and the note does not advertise a stay instruction.
+- in afterglow, the afterglow note, the presented body line, one optional beat and the same
+  relationship and caress reads; the mid-act history note is not recited, and the note does not
+  advertise a stay instruction.
 
 The runtime supplies plain values and keeps the history, relationship, caress, lean, pose and
-afterglow-beat reads, so the module has no scene access.
+afterglow-beat reads, so the module has no scene access. `form_name` is the presented form's
+presentation name and `form_borrowed` is `not form.is_own()`; the runtime reads both from the
+body-change service's stored form.
 
 ## Reactions and bystanders
 
@@ -232,8 +239,8 @@ too-slow.
 - `tests/dialogue/test_act_dialogue.gd`: pacing configuration, cue admission, prompt assembly,
   the memory channel, reactions, the recent-line reads, busy state, act-end cancellation, the
   idle apology repair and the pending reminder line.
-- `tests/dialogue/test_prompt_notes.gd`: the warm, mid-act and afterglow notes and the
-  caress/lean reads.
+- `tests/dialogue/test_prompt_notes.gd`: the warm, mid-act and afterglow notes, the caress/lean
+  reads and the presented body's own/borrowed line.
 
 Run:
 

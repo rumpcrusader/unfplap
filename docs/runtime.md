@@ -167,7 +167,8 @@ runtime created in a race is stopped and freed, and its anatomy controller is de
 the act never keeps two controllers or two owners. The stable id is the act's id: a borrowed form
 keeps the same relationship, preferences, history and summary; the caption and dialogue name follow
 the adopted form's `BodyForm.form_name`, and an empty form name falls back to the identity's display
-name.
+name. The normal dialogue prompt note also names the live presented body (own or borrowed) from the
+stored form, so a stale shape event cannot make the model describe a body she is no longer wearing.
 
 The adoption and the provider's settled form call `main.refresh_body_lod()` for the new body: the
 game's near and far caches are dropped and the near mesh is re-armed, so the visible body is the

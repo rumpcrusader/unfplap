@@ -409,8 +409,11 @@ A physical system reads the presented form: anatomy placement and scale, tail fi
 entrance, appearance, LOD and the body-bound controllers. The new body must still pass the act's
 adult-mare gate; a young or male shape ends the act through the one exit. The act caption and
 dialogue presentation name follow the presented form's `form_name`; an empty form name falls back
-to the identity's display name. The stable `pony_id`, act id, memory, dialogue history,
-preferences, eligibility and relationship never change with the form.
+to the identity's display name. The normal dialogue prompt also carries the live written form state
+(“your own body” or “<name>'s shape, not your own body”) from `form_name` and `is_own()`, so the
+model reads the body the player can see instead of inferring it from an older shape event. The
+stable `pony_id`, act id, memory, dialogue history, preferences, eligibility and relationship never
+change with the form.
 
 ## Settings
 

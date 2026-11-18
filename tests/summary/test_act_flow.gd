@@ -46,6 +46,13 @@ class FakeImpressions extends Node:
 		calls.append({"id": id, "data": data.duplicate(true), "event_id": event_id})
 
 
+class FakePeakSink extends Node:
+	var peaks: Array = []
+
+	func record_peak(peak: Variant) -> void:
+		peaks.append(peak)
+
+
 class FakeMain extends Node:
 	var game: Node
 	var memory
@@ -129,6 +136,7 @@ func run() -> void:
 	probe.free()
 
 	_check_commit()
+	_check_peak_commit()
 
 	print("ACT_FLOW_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -176,6 +184,45 @@ func _check_summary_shapes() -> void:
 	check((wrapped.get("inputs", {}) as Dictionary).has("touch_dislikes"),
 		"the context wraps the built inputs")
 	main.free()
+
+
+## The peak memory is written once per act from the committed summary, with the act's exchange.
+func _check_peak_commit() -> void:
+	var game := FakeGame.new()
+	root.add_child(game)
+	var sink := FakePeakSink.new()
+	root.add_child(sink)
+	var main := FakeMain.new()
+	main.game = game
+	main.memory = sink
+	root.add_child(main)
+	var summary := SUMMARY.new()
+	check(not summary.peak_recorded, "the peak flag starts clear")
+	summary.summary = {"positive": true, "grade": "good"}
+	summary.record_peak_memory({
+		"main": main,
+		"pony_id": "rarity",
+		"event_id": "intimacy_test",
+		"satisfaction": 95.0,
+		"both_matches": 6,
+		"dislikes": 0,
+		"liked_touch": 1,
+		"liked_talk": 0,
+		"player_talk": "you are perfect",
+		"her_at": 10.0,
+		"her_line": "I know.",
+	}, 5.0)
+	check(sink.peaks.size() == 1, "a peak act is stored once")
+	if not sink.peaks.is_empty():
+		var peak: MEMORY.Peak = sink.peaks[0]
+		check(peak.text.contains("you are perfect") and peak.text.contains("I know."),
+			"the peak quotes the act's exchange")
+		check(peak.score > 0.0, "the peak keeps its score")
+	summary.record_peak_memory({"main": main}, 0.0)
+	check(sink.peaks.size() == 1, "the peak is stored once per act")
+	main.free()
+	game.free()
+	sink.free()
 
 
 func _check_commit() -> void:

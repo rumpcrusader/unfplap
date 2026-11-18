@@ -386,15 +386,36 @@ func _check_runtime_beat_hold() -> void:
 	check(not beat.paused, "the last release restores the Beat")
 	_free_runtime_beat(scene)
 
+	scene = _runtime_beat()
+	runtime = scene["runtime"]
+	beat = scene["beat"]
+	runtime.call("_hold_excitement", "first")
+	runtime.call("_hold_excitement", "second")
+	runtime.call("_reset_excitement_hold")
+	check(not beat.paused, "act teardown restores the Beat even with owners left")
+	_free_runtime_beat(scene)
 
-func _runtime_beat(paused := false) -> Dictionary:
+	scene = _runtime_beat(false, false)
+	runtime = scene["runtime"]
+	runtime.call("_hold_excitement", "first")
+	runtime.call("_release_excitement", "first")
+	check((runtime.get("_excitement_holders") as Array).is_empty(),
+		"a scene without a Beat releases the hold without an owner left")
+	check(runtime.get("_excitement_beat") == null,
+		"a scene without a Beat leaves no resolved timer")
+	_free_runtime_beat(scene)
+
+
+func _runtime_beat(paused := false, with_beat := true) -> Dictionary:
 	var pony := FakePony.new()
 	var excitement := Node.new()
 	excitement.name = "Excitement"
-	var beat := Timer.new()
-	beat.name = "Beat"
-	beat.paused = paused
-	excitement.add_child(beat)
+	var beat: Timer = null
+	if with_beat:
+		beat = Timer.new()
+		beat.name = "Beat"
+		beat.paused = paused
+		excitement.add_child(beat)
 	pony.add_child(excitement)
 	pony.excitement = excitement
 	root.add_child(pony)

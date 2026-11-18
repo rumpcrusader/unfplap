@@ -377,6 +377,16 @@ func run() -> void:
 	appearance.setup(appearance_pony, shapes)
 	appearance.set_mesh(appearance_mesh, null)
 	appearance.apply_material(false)
+	var initial_material := appearance_mesh.get_surface_override_material(0) as ShaderMaterial
+	check(initial_material != null, "the anatomy mesh gets an override material")
+	if initial_material != null:
+		check(initial_material.shader != null, "the anatomy shader loads")
+		check(initial_material.get_shader_parameter("skin_color") is Color,
+			"the skin color is a color")
+		check(initial_material.get_shader_parameter("lip_radius") is float,
+			"the lip radius is published to the shader")
+		check(initial_material.get_shader_parameter("hole_target") is float,
+			"the hole target is published to the shader")
 	shapes.set_mesh(appearance_mesh)
 	appearance.apply_material(false)
 	check(appearance_mesh.get_surface_override_material(0) is ShaderMaterial,
@@ -394,6 +404,30 @@ func run() -> void:
 		float(appearance_material.get_shader_parameter("fold_coloring")), 1.0),
 		"a non-missionary rebuild restores the fold coloring")
 	SETTINGS.disable_fold_coloring.set_bool(saved_fold)
+
+	# The generated teats carry their sway weight in CUSTOM0.x, so they get their own material with
+	# `sway_custom` on; the old mare-shaped asset keeps the vertex-alpha sway.
+	var teats := MeshInstance3D.new()
+	teats.mesh = BoxMesh.new()
+	appearance_pony.add_child(teats)
+	appearance.teats_mesh = teats
+	appearance.generated_teats = true
+	appearance.apply_teats_material(appearance_material)
+	var teats_material := teats.get_surface_override_material(0) as ShaderMaterial
+	check(teats_material != null and teats_material != appearance_material,
+		"the generated teats get their own material")
+	if teats_material != null:
+		check(is_equal_approx(float(teats_material.get_shader_parameter("sway_custom")), 1.0),
+			"the generated teats use their own sway weight")
+	appearance.generated_teats = false
+	appearance.apply_teats_material(appearance_material)
+	teats_material = teats.get_surface_override_material(0) as ShaderMaterial
+	if teats_material != null:
+		var sway: Variant = teats_material.get_shader_parameter("sway_custom")
+		check(sway == null or is_zero_approx(float(sway)),
+			"the old teats asset keeps the vertex-alpha sway")
+	appearance.teats_mesh = null
+	teats.queue_free()
 	appearance_pony.queue_free()
 	near_pony.free()
 

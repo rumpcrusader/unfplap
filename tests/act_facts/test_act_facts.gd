@@ -4,6 +4,7 @@ extends SceneTree
 
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
@@ -206,6 +207,45 @@ func run() -> void:
 	anatomy_facts.perf("nothing", 5)
 	anatomy_facts.write_log("nothing")
 	anatomy_facts.smack_body_coat()
+
+	# The anatomy view predicates: a null view matches nothing, and a set one reads its family,
+	# frame and contact kind.
+	check(anatomy_facts.contact_kind() == "" and anatomy_facts.family() == ""
+		and anatomy_facts.frame() == "", "a null view has no contact, family or frame")
+	check(not anatomy_facts.mouth_contact() and not anatomy_facts.face_contact()
+		and not anatomy_facts.bed_pose() and not anatomy_facts.missionary(),
+		"a null view matches no contact or pose predicate")
+	var anatomy_view: Variant = VIEW.new()
+	anatomy_view.family = "bed"
+	anatomy_view.frame = "bed"
+	anatomy_view.contact_kind = "mouth"
+	anatomy_facts.pose_view = anatomy_view
+	check(anatomy_facts.contact_kind() == "mouth" and anatomy_facts.mouth_contact(),
+		"the mouth contact reads the view")
+	check(not anatomy_facts.face_contact(), "the mouth contact is not the face contact")
+	check(anatomy_facts.family() == "bed" and anatomy_facts.missionary(),
+		"the bed family is the missionary pose")
+	check(anatomy_facts.frame() == "bed" and anatomy_facts.bed_pose(),
+		"the bed frame carries the part inset")
+	anatomy_view.contact_kind = "face"
+	check(anatomy_facts.face_contact() and not anatomy_facts.mouth_contact(),
+		"the face contact reads the view")
+	anatomy_view.family = "standing"
+	anatomy_view.frame = "ground"
+	anatomy_view.contact_kind = "opening"
+	check(anatomy_facts.contact_kind() == "opening" and anatomy_facts.family() == "standing"
+		and anatomy_facts.frame() == "ground",
+		"the standing opening carries its family and frame")
+	check(not anatomy_facts.mouth_contact() and not anatomy_facts.face_contact()
+		and not anatomy_facts.bed_pose() and not anatomy_facts.missionary(),
+		"a standing opening matches no contact or bed predicate")
+
+	var act: Node = ANATOMY_ACT.new()
+	var kept := ANATOMY_FACTS.new()
+	act.set("_facts", kept)
+	act.call("reset")
+	check(is_same(act.get("_facts"), kept), "reset keeps the context it was given")
+	act.free()
 
 	print("ACT_FACTS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

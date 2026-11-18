@@ -341,8 +341,6 @@ func _init() -> void:
 	_pose_session.log = Callable(self, "_log")
 	_scene.stool_need = Callable(self, "stool_needed_count")
 	_scene.stool_count = Callable(self, "stool_case_count")
-	_scene.release_carry = Callable(self, "_release_carry")
-	_scene.on_refusal_face = Callable(self, "_refusal_face")
 	_scene.presentation_active = Callable(self, "presentation_active")
 	_scene.hold_compatible = Callable(self, "_scene_hold_compatible")
 	_rest.context = Callable(self, "_rest_context")
@@ -1721,33 +1719,6 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	_read_id()
 	return _scene_gate().debug_line(pose, act_source, bed_in, distance, dot)
 
-## Whether the legacy policy start can host a refusal. The live strict tolerance stop calls the
-## scene gate's `buck_or_push()` directly; this harness pairs it with `runtime.start()`.
-func refuse_available(pose: String, act_source: String, bed_in: Variant = null,
-		gate_in: Dictionary = {}) -> bool:
-	_read_id()
-	var gate: Dictionary = gate_in if not gate_in.is_empty() \
-		else start_verdict(pose, act_source, bed_in)
-	return _scene_gate().refuse_available(pose, act_source, bed_in, gate)
-
-## The refusal itself: the scene gate owns the buck/push and its mood beat.
-func refuse(pose: String, act_source: String, bed_in: Variant = null,
-		gate_in: Dictionary = {}) -> void:
-	_read_id()
-	var gate: Dictionary = gate_in if not gate_in.is_empty() \
-		else start_verdict(pose, act_source, bed_in)
-	await _scene_gate().refuse(pose, act_source, bed_in, gate)
-
-## A refusal is a real mood beat: the scene gate writes the impression and trust, and this holds
-## the matching face.
-func _note_refusal(bucked: bool) -> void:
-	_scene_gate().note_refusal(bucked)
-
-
-func _refusal_face(bucked: bool) -> void:
-	_start_upset("angry" if bucked else "annoyed")
-
-
 func _read_id() -> bool:
 	if not is_instance_valid(pony):
 		return false
@@ -1787,36 +1758,6 @@ func _nav_pose_gate(pose: String, act_source: String) -> bool:
 
 func find_bed_under() -> Node3D:
 	return _scene_gate().find_bed_under()
-
-## The legacy policy start: the documented test and start-setup harness. The live act key uses
-## `start_hotkey()` and an accepted Agreement uses `start_agreement()`; this path keeps the policy
-## rows, the history refusal and the buck for those proofs.
-func start(pose: String, bed_in: Variant, act_source: String,
-		gate_in: Dictionary = {}) -> bool:
-	_read_id()
-	var gate: Dictionary = gate_in if not gate_in.is_empty() \
-		else start_verdict(pose, act_source, bed_in)
-	if bool(gate.get("history_refuse", false)):
-		_log("start refused by history pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
-		refuse_from_history(pose, act_source, bed_in)
-		return false
-	if not bool(gate.get("attempt", false)):
-		_log("start blocked pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
-		# Try Your Luck can reach this point before she welcomes the kiss. The refusal is a real
-		# buck/push, not a silent no-op.
-		if bool(gate.get("buck_refuse", false)) and refuse_available(pose, act_source, bed_in, gate):
-			_log("start refused pose=%s source=%s pony=%s" % [pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
-			refuse(pose, act_source, bed_in, gate)
-		return false
-	# The accepted standing offer may still be stepping her away from Anon. The act start owns
-	# her body and would clear the presentation mid-turn, so wait for the settled pose.
-	if POSE_SPECS.start_setup(pose) == "standing_place" and presentation_active() \
-			and not presentation_settled():
-		_log("start blocked presentation turn pose=%s source=%s pony=%s" % [
-			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?"])
-		return false
-	return _begin_act(pose, bed_in, act_source)
-
 
 ## The scene-only Agreement start. The Negotiation package froze the policy and the pose
 ## capability; only the world rows run. `WAIT` keeps the Agreement live (a transient row or the
@@ -3754,39 +3695,6 @@ func _summary_inputs() -> Dictionary:
 func _history_note() -> String:
 	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), _id, ACT_HISTORY.day_now())
 	return ACT_HISTORY.prompt_note(row)
-
-
-## Called by main before a normal act-key start. A withdrawn mare still shows the offer; pressing
-## the act key gives one gentle refusal instead of a silent no.
-func history_blocks_start() -> bool:
-	if state != State.IDLE:
-		return false
-	var verdict := _policy_verdict(ELIGIBILITY.Mode.START)
-	return verdict != null and bool(verdict.history_refuse)
-
-
-func refuse_from_history(_pose_in: String, source: String, _bed_in: Variant = null) -> bool:
-	_read_id()
-	if not history_blocks_start():
-		return false
-	var now := _now_s()
-	if not _scene.refusal_ready(now):
-		return true
-	_scene.mark_refusal(now)
-	if is_instance_valid(main) and is_instance_valid(main.game):
-		var row: Dictionary = ACT_HISTORY.effective_row(ACT_HISTORY.section(), _id,
-			ACT_HISTORY.day_now())
-		var event_id := "history_refusal_%s_%d" % [_id, Time.get_ticks_usec()]
-		var valid := func() -> bool:
-			return is_instance_valid(pony) and state == State.IDLE
-		_dialogue_service().reaction_line(MEMORY.Reaction.HISTORY_REFUSAL, event_id, ACT_HISTORY.refusal_purpose(row), valid)
-		_log("history refusal id=%s tier=%s hurt=%d" % [
-			_id, ACT_HISTORY.tier_name(row), int(row.get("hurt", 0))])
-	if source == "cradle":
-		_release_carry()
-		if is_instance_valid(pony) and pony.get("posture") != null:
-			pony.request_posture("stand")
-	return true
 
 
 ## Idle-only history scan. The scene values are gathered here; `dialogue/service.gd` owns the

@@ -41,14 +41,6 @@
       "expires": "phase-2"
     },
     {
-      "from": "scene_gate/service.gd",
-      "to": "rest/control.gd",
-      "kind": "service-private",
-      "owner": "scene_gate",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
-    },
-    {
       "from": "settings/service.gd",
       "to": "registry/service.gd",
       "kind": "layer",

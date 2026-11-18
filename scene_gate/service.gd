@@ -8,8 +8,6 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
-const REST := preload("res://mods/unfplap/rest/control.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 const STATE_IDLE := 0
 
@@ -23,16 +21,11 @@ var pose_session: Variant = null
 var state := 0
 var id := ""
 var features: Dictionary = {}
-## The last spoken-refusal stamp. The line is paced, not repeated every frame.
-var _refusal_at := -1000.0
 
 ## Host boundary. A missing callback is a no-op.
 var stool_need := Callable()
 var stool_count := Callable()
 var presentation_active := Callable()
-var release_carry := Callable()
-## The runtime owns the refusal face; this only says whether the moment was a buck.
-var on_refusal_face := Callable()
 ## The policy verdict and the debug context. The runtime supplies both; the gate never reads
 ## eligibility's own logic or the runtime's private fields.
 var policy_verdict := Callable()
@@ -152,9 +145,6 @@ func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
 	var scene_ok := bool(data.get("scene_ok", false))
 	return {
 		"show": policy != null and policy.show and scene_ok,
-		"attempt": policy != null and policy.attempt and scene_ok,
-		"buck_refuse": policy != null and policy.buck_refuse,
-		"history_refuse": policy != null and policy.history_refuse and scene_ok,
 		"rows": data.get("rows", []),
 		"policy": policy,
 	}
@@ -351,15 +341,13 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null,
 	var bed_text := "n/a"
 	if bed_pose:
 		bed_text = str(found_bed != null and bed_gate(pose, act_source, found_bed))
-	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level%d) welcomes=%s mood=%s | show=%s attempt=%s offer=%s buck=%s history=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s romance=%s promiscuity=%s cycle=%s historyrow=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
+	var text := "pony=%s id=%s dist=%.2f dot=%.2f stage=%s love=%s(level%d) welcomes=%s mood=%s | show=%s offer=%s | state=%d presenting=%s sleep=%s held=%s grounded=%s seated=%s cuddle=%s motion=%s speed=%.2f posture=%s interrupt=%s | nav owner=%s target=%s reserved=%s | player locked=%s flying=%s seat=%s mouse=%s paused=%s | gates rel=%s form=%s romance=%s promiscuity=%s cycle=%s historyrow=%s conv=%s aff=%s player=%s navowner=%s navpose=%s bed=%s | can_start=%s reasons=%s" % [
 		str(context.get("display", "?")), str(context.get("id", "")),
 		float(distance), float(dot), str(context.get("stage", "")),
 		str(context.get("love_name", "?")), int(context.get("love_level", 0)),
 		str(context.get("welcomes", false)),
 		str(context.get("mood", "?")),
-		str(bool(gate.get("show", false))), str(bool(gate.get("attempt", false))),
-		str(policy != null and policy.offer), str(policy != null and policy.buck_refuse),
-		str(policy != null and policy.history_refuse),
+		str(bool(gate.get("show", false))), str(policy != null and policy.offer),
 		int(context.get("state", 0)), str(context.get("presenting", false)),
 		str(context.get("sleeping", false)), str(context.get("held", false)),
 		str(context.get("grounded", false)), str(context.get("seated", false)),
@@ -418,163 +406,6 @@ func rig_missing(pose := "") -> Array:
 
 func rig_reason(missing: Array) -> String:
 	return str(pose_session.call("rig_reason", missing)) if pose_session != null else ""
-
-
-## A refusal is a real mood beat, not just a buck animation. The game's lasting feeling is the
-## impression note, which drives eligibility, anger, offers, approaches and her dialogue; the held
-## face displays it (`face/mood_face.gd`). A buck is the stronger moment, so it is the stronger mood.
-func note_refusal(bucked: bool) -> void:
-	if is_instance_valid(main) and is_instance_valid(main.game) and main.memory != null:
-		var impression := MEMORY.Impression.new()
-		impression.id = id
-		impression.event_id = "unfplap_refusal_%s_%d" % [id, Time.get_ticks_usec()]
-		impression.slot = MEMORY.ImpressionSlot.REFUSAL
-		impression.mood = "angry" if bucked else "annoyed"
-		main.memory.commit(impression)
-	refuse_trust()
-	if on_refusal_face.is_valid():
-		on_refusal_face.call(bucked)
-
-
-## The spoken refusal line is paced: one gentle refusal per 4 s, so a held or repeated act-key press
-## does not queue a line per frame. The runtime owns the line itself.
-func refusal_ready(now: float) -> bool:
-	return now - _refusal_at >= 4.0
-
-
-func mark_refusal(now: float) -> void:
-	_refusal_at = now
-
-
-## The game's own unwelcome-contact hook: a little trust lost and the boundary signal. It never
-## sets a mood itself, so the refusal impression owns that.
-func refuse_trust() -> void:
-	if not is_instance_valid(pony):
-		return
-	if not pony.has_meta("relationship_runtime"):
-		return
-	var rel: Variant = pony.get_meta("relationship_runtime")
-	if rel == null or not is_instance_valid(rel):
-		return
-	var bonds: Variant = rel.get("bonds")
-	if bonds != null and is_instance_valid(bonds) and bonds.has_method("unwanted_contact"):
-		bonds.call("unwanted_contact", id, "kiss")
-
-
-## Whether the scene itself can host a refusal at all. The policy must already say `buck_refuse`.
-func refuse_available(pose: String, act_source: String, bed_in: Variant,
-		gate: Dictionary) -> bool:
-	if state != STATE_IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
-		return false
-	if not is_instance_valid(main.player) or not is_instance_valid(main.game):
-		return false
-	var policy: ELIGIBILITY.Verdict = gate.get("policy")
-	if policy == null or not policy.buck_refuse:
-		return false # Willing, or not an eligible adult mare: the normal offer/start path owns it.
-	if pony.sleeping or bool(pony.get_meta("sex_active", false)) or pony.has_meta("sex_aftercare"):
-		return false
-	if not conversation_ok() or not free_of_affection():
-		return false
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav == null or str(nav.get("reserved_by")) != "":
-		return false
-	if not nav_owner_allows(pose, act_source):
-		return false
-	var body: Variant = main.player
-	if body.get("controls_locked") == true or body.get("flying") == true:
-		return false
-	if bool(body.get_meta("knocked_down", false)):
-		return false
-	if DisplayServer.get_name() != "headless" and not headset_view() \
-			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return false
-	var affection: Node = pony.get_node_or_null("Affection")
-	if affection == null or not affection.has_method("buck"):
-		return false
-	if _is_standing_pose(pose):
-		if pony.is_held() or not pony.grounded() or pony.has_meta("seated"):
-			return false
-		var status: Dictionary = pony.posture_status()
-		if str(status.get("requested", "")) != "stand" or not bool(status.get("settled", false)):
-			return false
-		if pony.global_position.distance_to(body.global_position) > 2.4:
-			return false
-		return true
-	if not _is_bed_pose(pose):
-		return false
-	if not _source_allowed(pose, act_source):
-		return false
-	if act_source == "cradle":
-		var reach: Node = main.interactor()
-		if not is_instance_valid(reach):
-			return false
-		return reach.get("held") == pony and reach.get("cradled") == true
-	if act_source == "already_lying":
-		var bed: Node3D = resolve_bed(pose, act_source, bed_in)
-		if bed == null:
-			return false
-		var status2: Dictionary = pony.posture_status()
-		if str(status2.get("requested", "")) != "lie_down":
-			return false
-		return main.player_beside_bed(bed)
-	return false
-
-
-## The refusal itself: a standing buck/push, or the cradle/bed release then the same reaction.
-func refuse(pose: String, act_source: String, bed_in: Variant, gate: Dictionary) -> void:
-	if not refuse_available(pose, act_source, bed_in, gate):
-		return
-	if _is_standing_pose(pose):
-		note_refusal(buck_or_push())
-		return
-	if not _is_bed_pose(pose) or not _source_allowed(pose, act_source):
-		return
-	if act_source == "cradle":
-		if not release_carry.is_valid() or not bool(release_carry.call()):
-			return
-		var at := refusal_floor()
-		var forward: Vector3 = main.player.global_position - at
-		forward.y = 0.0
-		if forward.length_squared() < 0.0001:
-			forward = -main.player.global_basis.z
-		forward = forward.normalized()
-		pony.reset_motion(Transform3D(Basis.looking_at(forward, Vector3.UP), at))
-		pony.reset_physics_interpolation()
-		pony.request_posture("stand")
-		var tree: SceneTree = pony.get_tree()
-		if tree != null:
-			await tree.physics_frame
-		note_refusal(buck_or_push())
-		return
-	if act_source == "already_lying":
-		if not REST.release_managed(pony):
-			return
-		pony.request_posture("stand")
-		var tree: SceneTree = pony.get_tree()
-		if tree != null:
-			await tree.physics_frame
-		note_refusal(buck_or_push())
-
-
-func refusal_floor() -> Vector3:
-	var forward: Vector3 = -main.player.global_basis.z
-	var view: Camera3D = main.camera()
-	if view != null:
-		forward = -view.global_basis.z
-	forward.y = 0.0
-	if forward.length_squared() < 0.0001:
-		forward = Vector3.FORWARD
-	forward = forward.normalized()
-	var at: Vector3 = main.player.global_position + forward * 1.1
-	var world: World3D = main.player.get_world_3d()
-	if world != null:
-		var space: PhysicsDirectSpaceState3D = world.direct_space_state
-		if space != null:
-			var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0, at + Vector3.DOWN * 4.0, 1)
-			var hit: Dictionary = space.intersect_ray(query)
-			if not hit.is_empty():
-				at = hit.get("position", at)
-	return at
 
 
 func buck_or_push() -> bool:

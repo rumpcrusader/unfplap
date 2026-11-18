@@ -137,7 +137,7 @@ func run() -> void:
 	check(str(verdict.facts.stage) == "dating" and int(verdict.facts.love_level) == 2,
 		"facts read the ladder and stage")
 
-	check(bool(verdict.show) and bool(verdict.attempt), "a willing mare starts")
+	check(bool(verdict.show), "a willing mare starts")
 	check(bool(verdict.offer), "offers pass")
 	check(verdict.rows_text().contains("adult"), "the typed rows are readable")
 	check(verdict.reasons().is_empty(), "a passing verdict has no reasons")
@@ -179,8 +179,6 @@ func run() -> void:
 	relation.bonds.welcome = false
 	var unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
 	check(not bool(unwilling.show), "an unwilling mare has no legacy hint")
-	check(not bool(unwilling.attempt) and bool(unwilling.buck_refuse),
-		"unwilling starts the refusal path")
 
 	var stallion := FakePony.new()
 	var stallion_identity := FakeIdentity.new()
@@ -291,8 +289,7 @@ func run() -> void:
 		"base-game romance eligibility still gates")
 	check(not bool(filly_verdict.facts.willing),
 		"base-game kiss willingness still gates")
-	check(not bool(filly_verdict.show) and not bool(filly_verdict.attempt),
-		"base-game gates still block the act")
+	check(not bool(filly_verdict.show), "base-game gates still block the act")
 
 	# A provider not-eligible assertion overrides a base-game registered adult.
 	layer.eligible = ELIGIBILITY.EligibilityAssertion.NOT_ELIGIBLE

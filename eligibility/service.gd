@@ -161,10 +161,7 @@ class Verdict extends RefCounted:
 	var mode: Mode = Mode.START
 	var base := false
 	var show := false
-	var attempt := false
 	var offer := false
-	var buck_refuse := false
-	var history_refuse := false
 	var offer_weight := 0.0
 	var facts: Facts = Facts.new()
 	var actions: Actions = Actions.new()
@@ -338,10 +335,7 @@ func get_verdict(pony: Node, mode: Mode = Mode.START) -> Verdict:
 	out.rows = _typed_rows(policy.get("rows", []))
 	out.base = bool(policy.get("base", false))
 	out.show = bool(policy.get("show", false))
-	out.attempt = bool(policy.get("attempt", false))
 	out.offer = bool(policy.get("offer", false))
-	out.buck_refuse = bool(policy.get("buck_refuse", false))
-	out.history_refuse = bool(policy.get("history_refuse", false))
 	out.offer_weight = float(policy.get("offer_weight", 0.0))
 	return out
 

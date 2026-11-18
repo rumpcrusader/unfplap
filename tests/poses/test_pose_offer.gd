@@ -22,11 +22,6 @@ class FakePony extends Node3D:
 
 
 class FakeRuntime extends Node:
-	var gate: Dictionary = {}
-	var start_result := true
-	var starts := 0
-	var refusals := 0
-	var last_start: Array = []
 	var agreement_result := 0
 	var agreement_handles: Array = []
 	var hotkey_starts := 0
@@ -45,18 +40,6 @@ class FakeRuntime extends Node:
 	func start_hotkey(_pose: String, _bed: Variant, _source: String) -> bool:
 		hotkey_starts += 1
 		return hotkey_result
-
-	func start_verdict(_pose: String, _source: String, _bed: Variant) -> Dictionary:
-		return gate
-
-	func start(pose: String, bed: Variant, source: String, _gate: Dictionary) -> bool:
-		starts += 1
-		last_start = [pose, bed, source]
-		return start_result
-
-	func refuse_from_history(_pose: String, _source: String, _bed: Variant) -> bool:
-		refusals += 1
-		return true
 
 
 class FakeClassifier extends Node:
@@ -198,8 +181,8 @@ func _check_start_path() -> void:
 		"toast": "Find a footstool in a house."}
 	check(not bool(main.call("start_pose_offer", blocked)),
 		"a blocked offer does not start")
-	check(runtime.starts == 0 and runtime.hotkey_starts == 0,
-		"a blocked offer starts neither path")
+	check(runtime.hotkey_starts == 0
+		and runtime.agreement_handles.is_empty(), "a blocked offer starts neither path")
 	check(hud.toasts == ["Find a footstool in a house."],
 		"a blocked offer shows the recorded toast once")
 
@@ -208,8 +191,8 @@ func _check_start_path() -> void:
 	runtime.hotkey_result = true
 	main.set("_offer", hotkey)
 	check(bool(main.call("start_pose_offer", hotkey)), "the hotkey starts an immediate attempt")
-	check(runtime.hotkey_starts == 1 and runtime.starts == 0,
-		"the hotkey uses the scene-only path, not the policy start")
+	check(runtime.hotkey_starts == 1,
+		"the hotkey uses the scene-only path")
 	check(main.get("_offer") == null, "a started hotkey clears the hint")
 	runtime.hotkey_result = false
 	check(not bool(main.call("start_pose_offer", hotkey)),
@@ -234,7 +217,6 @@ func _check_start_path() -> void:
 	check(bool(main.call("start_pose_offer", agreement)),
 		"a ready Agreement starts through the scene-only path")
 	check(main.get("_offer") == null, "a started Agreement clears the hint")
-	check(runtime.starts == 0, "the Agreement start does not use the policy start path")
 	negotiation.live = null
 	check(not bool(main.call("start_pose_offer", agreement)),
 		"a missing Agreement handle starts nothing")

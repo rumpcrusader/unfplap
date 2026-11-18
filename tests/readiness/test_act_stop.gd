@@ -1,7 +1,7 @@
 extends SceneTree
 ## Runtime stop path: neutral and strict stops end the act, commit a severe summary, and only
-## strict requests space and bucks. A refusal writes the game's angry/annoyed impression and
-## holds the matching face. No live world is needed.
+## strict requests space and bucks. The stop mood reaches the summary and its impression, and the
+## stop face waits for an in-tree runtime. No live world is needed.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/readiness/test_act_stop.gd
 
@@ -249,6 +249,13 @@ func run() -> void:
 	check(float(normal_row.get("stop_until", 0.0)) > Time.get_unix_time_from_system(),
 		"a normal stop writes a cooldown")
 	check(str(normal_summary.get("mood", "")) == "annoyed", "a normal stop is annoyed")
+	var normal_calls: Array = (normal["impressions"] as Node).calls
+	check(normal_calls.size() == 1, "a normal stop writes one impression")
+	var normal_impression: Dictionary = normal_calls[0]
+	check(str((normal_impression.get("data", {}) as Dictionary).get("mood", "")) == "annoyed",
+		"the stop impression carries the summary mood")
+	check(normal_runtime._face.mood_face == null,
+		"the stop face waits for a runtime in the tree")
 	var normal_events: Array = normal["context"].events
 	check(normal_events.size() == 1, "a partner stop writes one world event")
 	check(str((normal_events[0] as Dictionary).get("kind", "")) == "relationship",
@@ -267,6 +274,11 @@ func run() -> void:
 	check(bool(strict_runtime.get("_stopped_by_her")), "a strict stop is flagged")
 	var strict_summary: Dictionary = strict_runtime._summary_service.summary
 	check(str(strict_summary.get("mood", "")) == "angry", "a strict stop is angry")
+	var strict_calls: Array = (strict["impressions"] as Node).calls
+	check(strict_calls.size() == 1, "a strict stop writes one impression")
+	var strict_impression: Dictionary = strict_calls[0]
+	check(str((strict_impression.get("data", {}) as Dictionary).get("mood", "")) == "angry",
+		"the strict impression carries the angry mood")
 	var strict_events: Array = strict["context"].events
 	check(strict_events.size() == 1, "a strict partner stop also writes one world event")
 	check(int(strict["bonds"].requests) == 1, "a strict stop requests space")
@@ -282,24 +294,11 @@ func run() -> void:
 	if strict["existing"] != null and is_instance_valid(strict["existing"]):
 		strict["existing"].name = "Mods"
 
-	var refused := fixture("normal")
-	var refused_runtime: Node = refused["runtime"]
-	refused_runtime.call("_note_refusal", false)
-	var turned: Dictionary = (refused["impressions"] as Node).calls[-1]
-	check(str((turned["data"] as Dictionary).get("mood", "")) == "annoyed",
-		"a turn-away refusal is annoyed")
-	check(str(turned.get("event_id", "")).ends_with(":mood"),
-		"the refusal mood uses its own commit id")
-	check(int(refused["bonds"].unwanted) == 1, "a refusal costs a little trust")
-	refused_runtime.call("_note_refusal", true)
-	var bucked: Dictionary = (refused["impressions"] as Node).calls[-1]
-	check(str((bucked["data"] as Dictionary).get("mood", "")) == "angry", "a buck is angry")
-	check(int(refused["bonds"].unwanted) == 2, "each refusal costs trust once")
-	check(refused_runtime._face.mood_face == null,
-		"the face waits for a runtime in the tree")
-	root.add_child(refused_runtime)
+	var paused_fixture := fixture("normal")
+	var paused_runtime: Node = paused_fixture["runtime"]
+	root.add_child(paused_runtime)
 	paused = true
-	var gate: Variant = refused_runtime.call("_scene_gate")
+	var gate: Variant = paused_runtime.call("_scene_gate")
 	var blocked_rows: Array = gate.call("offer_verdict", "standing", "", null).get("rows", [])
 	var blocked: PackedStringArray = gate.call("report_reasons", blocked_rows)
 	check("paused" in blocked, "a paused tree rejects a normal offer")
@@ -307,14 +306,14 @@ func run() -> void:
 	var forced: PackedStringArray = gate.call("report_reasons", forced_rows)
 	check(not ("paused" in forced), "the debug offer bypasses the paused gate")
 	paused = false
-	root.remove_child(refused_runtime)
-	refused_runtime.queue_free()
-	refused["main"].queue_free()
-	refused["context"].queue_free()
-	refused["impressions"].queue_free()
-	refused["mods"].free()
-	if refused["existing"] != null and is_instance_valid(refused["existing"]):
-		refused["existing"].name = "Mods"
+	root.remove_child(paused_runtime)
+	paused_runtime.queue_free()
+	paused_fixture["main"].queue_free()
+	paused_fixture["context"].queue_free()
+	paused_fixture["impressions"].queue_free()
+	paused_fixture["mods"].free()
+	if paused_fixture["existing"] != null and is_instance_valid(paused_fixture["existing"]):
+		paused_fixture["existing"].name = "Mods"
 
 	print("ACT_STOP_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

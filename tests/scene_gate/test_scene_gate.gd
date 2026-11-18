@@ -1,7 +1,7 @@
 extends SceneTree
 ## The scene gate: the live scene rows, the structural rows, the policy/scene merge, the
 ## start/offer verdicts, the debug status line, the bed search, the player/navigator predicates
-## and the refusal executor. The policy itself is the runtime's callback.
+## and the buck/push the live strict stop calls. The policy itself is the runtime's callback.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/scene_gate/test_scene_gate.gd
 
@@ -66,29 +66,9 @@ class FakeGame extends Node:
 	var headset_view := false
 
 
-class FakeBonds extends Node:
-	var unwanted := 0
-
-	func unwanted_contact(_id: String, _kind: String) -> float:
-		unwanted += 1
-		return 40.0
-
-
-class FakeRelation extends Node:
-	var bonds: Variant = null
-
-
-class FakeMemory extends RefCounted:
-	var events: Array = []
-
-	func commit(impression: Variant) -> void:
-		events.append(impression)
-
-
 class FakeMain extends Node:
 	var player: Variant = null
 	var game: Variant = null
-	var memory: Variant = null
 	var bed: Variant = null
 	var occupied := false
 	var beside := true
@@ -157,13 +137,6 @@ class FakeStool extends RefCounted:
 		return count
 
 
-class FakeFace extends RefCounted:
-	var moods: Array[String] = []
-
-	func on_face(bucked: bool) -> void:
-		moods.append("angry" if bucked else "annoyed")
-
-
 class FakePolicy extends RefCounted:
 	var verdict: Variant = null
 	var calls := 0
@@ -207,14 +180,12 @@ func _fixture() -> Dictionary:
 	var main := FakeMain.new()
 	main.player = player
 	main.game = game
-	main.memory = FakeMemory.new()
 	var bed := Node3D.new()
 	bed.name = "GuestBed"
 	root.add_child(bed)
 	main.bed = bed
 	var pose := FakePose.new()
 	var stool := FakeStool.new()
-	var face := FakeFace.new()
 	var affection := FakeAffection.new()
 	affection.name = "Affection"
 	pony.add_child(affection)
@@ -226,14 +197,13 @@ func _fixture() -> Dictionary:
 	gate.configure(STATE_IDLE, "rarity", {})
 	gate.stool_need = Callable(stool, "stool_need")
 	gate.stool_count = Callable(stool, "stool_count")
-	gate.on_refusal_face = Callable(face, "on_face")
 	var policy := FakePolicy.new()
 	var context := FakeContext.new()
 	gate.policy_verdict = Callable(policy, "verdict_for")
 	gate.debug_context = Callable(context, "context")
 	return {
 		"gate": gate, "pony": pony, "nav": nav, "player": player, "game": game,
-		"main": main, "bed": bed, "pose": pose, "stool": stool, "face": face,
+		"main": main, "bed": bed, "pose": pose, "stool": stool,
 		"affection": affection, "policy": policy, "context": context,
 	}
 
@@ -267,7 +237,7 @@ func run() -> void:
 	_check_scene_only()
 	_check_profiles()
 	_check_verdicts()
-	_check_refusal()
+	_check_buck_or_push()
 	_check_suppress()
 
 	print("SCENE_GATE_RESULT checks=%d failures=%d" % [checks, failures])
@@ -671,10 +641,7 @@ func _check_verdicts() -> void:
 	var context: FakeContext = made["context"]
 	var verdict := ELIGIBILITY.Verdict.new()
 	verdict.show = true
-	verdict.attempt = true
 	verdict.offer = true
-	verdict.buck_refuse = true
-	verdict.history_refuse = true
 	var row := ELIGIBILITY.Row.new()
 	row.key = "relation"
 	row.ok = true
@@ -683,15 +650,11 @@ func _check_verdicts() -> void:
 	policy.verdict = verdict
 	var start: Dictionary = gate.call("start_verdict", "standing", "", null)
 	check(bool(start.get("show", false)), "the start verdict follows the policy")
-	check(bool(start.get("attempt", false)), "the start verdict follows the policy")
-	check(bool(start.get("buck_refuse", false)), "the start verdict follows the policy")
-	check(bool(start.get("history_refuse", false)), "the start verdict follows the policy")
 	check(policy.calls == 1, "the policy callback runs once")
 	# The idle hint supplies its cached policy; the gate must skip the callback and still run
 	# every live scene row.
 	var reused := ELIGIBILITY.Verdict.new()
 	reused.show = true
-	reused.attempt = true
 	var calls_before := policy.calls
 	var reused_start: Dictionary = gate.call("start_verdict", "standing", "", null, reused)
 	check(policy.calls == calls_before, "a supplied verdict skips the policy callback")
@@ -711,8 +674,6 @@ func _check_verdicts() -> void:
 	pony.set_meta("sex_aftercare", true)
 	var blocked: Dictionary = gate.call("start_verdict", "standing", "", null)
 	check(not bool(blocked.get("show", false)), "a failed scene row hides the start")
-	check(not bool(blocked.get("attempt", false)), "a failed scene row blocks the attempt")
-	check(not bool(blocked.get("history_refuse", false)), "a failed scene row hides the history refusal")
 	pony.remove_meta("sex_aftercare")
 	var offer: Dictionary = gate.call("offer_verdict", "standing", "", null, true)
 	check(bool(offer.get("ok", false)), "the offer verdict follows the policy")
@@ -725,49 +686,32 @@ func _check_verdicts() -> void:
 	_free(made)
 
 
-func _check_refusal() -> void:
+class FakeKnockdown extends RefCounted:
+	var starts := 0
+
+	func start(_body: Variant, _impulse: Vector3) -> void:
+		starts += 1
+
+
+## The live strict stop calls this directly: the game's Affection owns the buck, and an Anon body
+## without one falls back to its knockdown.
+func _check_buck_or_push() -> void:
 	var made := _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	var player: FakePlayer = made["player"]
-	var main: FakeMain = made["main"]
-	var view := Node3D.new()
-	root.add_child(view)
-	view.global_position = Vector3(0.0, 0.0, 0.0)
-	player.global_position = Vector3(0.0, 0.0, 1.5)
 	pony.global_position = Vector3(0.0, 0.0, 0.0)
-	var verdict := ELIGIBILITY.Verdict.new()
-	verdict.buck_refuse = true
-	var gate_dict := {"policy": verdict}
-	check(bool(gate.call("refuse_available", "standing", "", null, gate_dict)),
-		"a willing-but-unwelcome pony can refuse")
-	gate.call("refuse", "standing", "", null, gate_dict)
-	var face: FakeFace = made["face"]
-	check(face.moods == ["angry"], "a standing refusal bucks and holds the angry face")
-	check((made["affection"] as FakeAffection).bucks == 1, "the refusal uses the game's buck")
-	check((main.memory as FakeMemory).events.size() == 1, "the refusal writes one impression")
-	var impression: Variant = (main.memory as FakeMemory).events[0]
-	check(str(impression.mood) == "angry", "the buck sets the angry impression")
-	check(str(impression.id) == "rarity", "the impression uses the mare id")
-	var rel := FakeRelation.new()
-	var bonds := FakeBonds.new()
-	rel.bonds = bonds
-	pony.set_meta("relationship_runtime", rel)
-	gate.call("note_refusal", false)
-	check(bonds.unwanted == 1, "a turn-away refusal costs a little trust")
-	check(face.moods[-1] == "annoyed", "a turn-away holds the annoyed face")
-	(main.memory as FakeMemory).events.clear()
-	main.bed = null
-	verdict.buck_refuse = false
-	check(not bool(gate.call("refuse_available", "standing", "", null, gate_dict)),
-		"a willing gate cannot refuse")
-	check(bool(gate.call("refusal_ready", 10.0)), "a fresh refusal is ready")
-	gate.call("mark_refusal", 10.0)
-	check(not bool(gate.call("refusal_ready", 11.0)), "the refusal rate limit holds")
-	check(bool(gate.call("refusal_ready", 15.0)), "the refusal rate limit clears")
+	player.global_position = Vector3(0.0, 0.0, 1.5)
+	check(bool(gate.call("buck_or_push")), "the Affection buck is the live buck/push")
+	check((made["affection"] as FakeAffection).bucks == 1, "the game's own buck runs once")
+	var affection: Node = made["affection"]
+	pony.remove_child(affection)
+	affection.free()
+	var knockdown := FakeKnockdown.new()
+	player.knockdown = knockdown
+	check(bool(gate.call("buck_or_push")), "an Anon body falls back to its knockdown")
+	check(knockdown.starts == 1, "the knockdown starts once")
 	_free(made)
-	root.remove_child(view)
-	view.free()
 
 
 func _check_suppress() -> void:

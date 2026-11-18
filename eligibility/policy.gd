@@ -97,9 +97,6 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 	var participates := bool(participation.get("acts", true))
 	var base := adult and relationship and player and romance and level
 	var show := base and participates and cycle_ok and willing
-	var attempt := show and willing and not blocks_start
-	var buck_refuse := base and not willing
-	var history_refuse := base and blocks_start
 	var offer := base and participates and willing and cycle_ok \
 		and not blocks_offers and not blocks_start
 	var offer_weight := 0.0
@@ -139,10 +136,7 @@ static func evaluate(raw_facts: Dictionary, mode: String) -> Dictionary:
 		"mode": mode,
 		"base": base,
 		"show": show,
-		"attempt": attempt,
 		"offer": offer,
-		"buck_refuse": buck_refuse,
-		"history_refuse": history_refuse,
 		"offer_weight": offer_weight,
 		"actions": actions,
 		"relations": relations,

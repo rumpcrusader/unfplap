@@ -387,16 +387,6 @@
     },
     {
       "service": "scene_gate",
-      "func": "refuse",
-      "signature": "func refuse(pose: String, act_source: String, bed_in: Variant, gate: Dictionary) -> void:"
-    },
-    {
-      "service": "scene_gate",
-      "func": "refuse_available",
-      "signature": "func refuse_available(pose: String, act_source: String, bed_in: Variant, gate: Dictionary) -> bool:"
-    },
-    {
-      "service": "scene_gate",
       "func": "report_reasons",
       "signature": "func report_reasons(rows_in: Array) -> PackedStringArray:"
     },

@@ -482,7 +482,7 @@ func _aim_debug_tick(delta: float, part: Variant) -> void:
 	var scale_value: Variant = pony.get("body_scale")
 	if scale_value != null:
 		scale = float(scale_value)
-	_facts.log("anatomy aim normal=%s hole=%s rear=%s hips=%s root=%s hip=%s fit=%s scale=%.2f pen=%.3f" % [
+	_facts.write_log("anatomy aim normal=%s hole=%s rear=%s hips=%s root=%s hip=%s fit=%s scale=%.2f pen=%.3f" % [
 		str(_normal), str(hole_point()), str(hole_rear()), str(_hips_point()), str(root),
 		str(hip), BODY_PROFILE.body_fit_id(pony), scale, float(_facts.penetration_m)])
 

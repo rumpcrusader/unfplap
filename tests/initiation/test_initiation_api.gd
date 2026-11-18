@@ -58,7 +58,6 @@ class FakeMain extends Node:
 	var view := FakeView.new()
 	var offer: Dictionary = {}
 	var handoff_ok := true
-	var offer_target_value: Variant = null
 	var locked := false
 
 	func negotiation_locked() -> bool:
@@ -86,9 +85,6 @@ class FakeMain extends Node:
 	func form_mare_offer(fields: Dictionary) -> bool:
 		offer = fields
 		return handoff_ok
-
-	func offer_target() -> Variant:
-		return offer_target_value
 
 
 class FakeGame extends Node:
@@ -243,7 +239,6 @@ func _fixture() -> Dictionary:
 	WORLD.bind_world(main.game)
 	main.eligibility = eligibility
 	main.runtimes[target] = runtime
-	main.offer_target_value = target
 	for node: Node in [game, player, target, runtime, adapter]:
 		root.add_child(node)
 	root.add_child(main)

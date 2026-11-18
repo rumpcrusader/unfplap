@@ -29,6 +29,7 @@ const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
+const OFFER := preload("res://mods/unfplap/offer/service.gd")
 
 const KEY_PREFIX := "unfplap:request"
 
@@ -99,6 +100,8 @@ var _scan_reason: Dictionary = {}
 var _scan_log_at: Dictionary = {}
 var _venue: VENUE
 var _privacy: PRIVACY
+## The idle offer service: the cuddle offer must match the offer the act key would start.
+var _offer: OFFER
 ## The injected director bridge and model host. `main` owns it; see `negotiation/adapter.gd`.
 var _adapter: Node
 ## One reasoning call at a time. A new scan never starts a second; a terminal transition bumps
@@ -108,12 +111,14 @@ var _reasoning_serial := 0
 var _reasoning_scope := ""
 
 
-func setup(main_node: Node, privacy_node: PRIVACY = null, adapter_node: Node = null) -> void:
+func setup(main_node: Node, privacy_node: PRIVACY = null, adapter_node: Node = null,
+		offer_node: OFFER = null) -> void:
 	main = main_node
 	_privacy = privacy_node if is_instance_valid(privacy_node) else PRIVACY.new()
 	if not is_instance_valid(privacy_node):
 		_privacy.setup(main_node)
 	_adapter = adapter_node if is_instance_valid(adapter_node) else main.get("adapter")
+	_offer = offer_node
 	_venue = VENUE.new()
 	_venue.name = "UnfplapRequestPlace"
 	_venue.bind(main_node, _privacy)
@@ -739,9 +744,9 @@ func _private_now(pony: Node, cuddle: bool) -> bool:
 
 ## The cuddle offer must be the same offer the act key would start.
 func _offer_targets_pony(pony: Node) -> bool:
-	if not is_instance_valid(main) or not is_instance_valid(pony) or not main.has_method("offer_target"):
+	if not is_instance_valid(_offer) or not is_instance_valid(pony):
 		return false
-	var target: Variant = main.call("offer_target")
+	var target: Node = _offer.offer_target()
 	return is_instance_valid(target) and target == pony
 
 

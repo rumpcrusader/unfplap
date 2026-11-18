@@ -406,6 +406,7 @@ def check_docs(failure: Failure) -> int:
 
 PURPOSE = {
     "world/service.gd": "live scene reads",
+    "offer/service.gd": "idle act offer and hint",
     "settings/service.gd": "settings declarations and live values",
     "registry/service.gd": "provider layers and stable ids",
     "eligibility/service.gd": "adult and consent gate",
@@ -522,6 +523,7 @@ def replace_uses(text: str, block: str) -> str:
 
 LIFECYCLES = {
     "world": ("world", "static initialization", "`bind_world()`/`bind_player()`", "`unbind()`/world close", "yes"),
+    "offer": ("world", "`main._ready()`", "`on_world()`", "`reset()`/world close", "yes"),
     "settings": ("world", "`main._ready()`", "registry load", "process exit", "yes"),
     "registry": ("process", "static initialization", "none", "`reset()`", "yes"),
     "eligibility": ("world", "`main._ready()`", "`setup()`", "`clear()`", "yes"),

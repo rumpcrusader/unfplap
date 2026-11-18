@@ -350,6 +350,13 @@ func asset_for(spec_id: String) -> String:
 	return _effective_asset(_registry.spec(spec_id))
 
 
+## Parse one authored asset into the shared cache before anything reads it, so a first idle scan
+## or act start never pays for the load. A row with no asset is a quiet no-op.
+static func warm_asset(path: String) -> void:
+	if not path.is_empty():
+		AUTHORED.shared(path)
+
+
 ## The spec a candidate names: the id's row, or the live view's row when the candidate is empty.
 func _candidate_spec(candidate := "") -> Variant:
 	var spec_id := str(candidate)

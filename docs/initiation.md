@@ -294,6 +294,7 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | offer | `offer/service.gd` | the offer the act key would start |
 | service | privacy | `privacy/service.gd` | live offer and cuddle privacy |
 | shared | clearance | `shared/clearance.gd` | the Base clearance result |
 | shared | context | `shared/context.gd` | typed Context for the reasoning |

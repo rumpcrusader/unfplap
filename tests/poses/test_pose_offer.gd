@@ -12,6 +12,7 @@ const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
+const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
 
 var failures := 0
 var checks := 0
@@ -87,12 +88,13 @@ class FakeNegotiation extends Node:
 
 class FakeHud extends Node:
 	var toasts: Array[String] = []
+	var hides := 0
 
 	func toast(text: String, _seconds := 2.0) -> void:
 		toasts.append(text)
 
 	func hide_prompt() -> void:
-		pass
+		hides += 1
 
 
 class Counter extends RefCounted:
@@ -189,11 +191,11 @@ func _check_start_path() -> void:
 	# The hotkey's immediate attempt: Base clearance plus scene-only rows, no policy gate.
 	var hotkey := _offer(runtime, pony)
 	runtime.hotkey_result = true
-	main.set("_offer", hotkey)
+	var hides := hud.hides
 	check(bool(main.call("start_pose_offer", hotkey)), "the hotkey starts an immediate attempt")
 	check(runtime.hotkey_starts == 1,
 		"the hotkey uses the scene-only path")
-	check(main.get("_offer") == null, "a started hotkey clears the hint")
+	check(hud.hides == hides + 1, "a started hotkey clears the hint")
 	runtime.hotkey_result = false
 	check(not bool(main.call("start_pose_offer", hotkey)),
 		"a blocked hotkey starts nothing")
@@ -206,17 +208,17 @@ func _check_start_path() -> void:
 	negotiation.live = {"pony": pony, "option": null}
 	var agreement := _offer(runtime, pony)
 	agreement.trigger = "agreement"
-	main.set("_offer", agreement)
 	runtime.agreement_result = RUNTIME.AGREEMENT_WAIT
+	hides = hud.hides
 	check(not bool(main.call("start_pose_offer", agreement)),
 		"a waiting Agreement does not start")
-	check(main.get("_offer") == agreement, "a waiting Agreement keeps the hint")
+	check(hud.hides == hides, "a waiting Agreement keeps the hint")
 	check(runtime.agreement_handles.size() == 1,
 		"the Agreement handle reaches the runtime")
 	runtime.agreement_result = RUNTIME.AGREEMENT_STARTED
 	check(bool(main.call("start_pose_offer", agreement)),
 		"a ready Agreement starts through the scene-only path")
-	check(main.get("_offer") == null, "a started Agreement clears the hint")
+	check(hud.hides == hides + 1, "a started Agreement clears the hint")
 	negotiation.live = null
 	check(not bool(main.call("start_pose_offer", agreement)),
 		"a missing Agreement handle starts nothing")
@@ -225,14 +227,14 @@ func _check_start_path() -> void:
 	negotiation.live = {"pony": pony, "option": null}
 	negotiation.match = negotiation.live
 	var matching := _offer(runtime, pony)
-	main.set("_offer", matching)
 	runtime.agreement_result = RUNTIME.AGREEMENT_STARTED
 	var hotkey_before := runtime.hotkey_starts
+	hides = hud.hides
 	check(bool(main.call("start_pose_offer", matching)),
 		"a matching Agreement starts from the hotkey")
 	check(runtime.hotkey_starts == hotkey_before,
 		"a matching Agreement is not a hotkey attempt")
-	check(main.get("_offer") == null, "a matching Agreement clears the hint")
+	check(hud.hides == hides + 1, "a matching Agreement clears the hint")
 	negotiation.live = null
 	negotiation.match = null
 
@@ -278,7 +280,10 @@ func _check_agreement_auto_start() -> void:
 	var option := POSE_OPTIONS.Option.new()
 	option.pose = "missionary"
 	option.source = "bed_side"
-	var handle := {"pony": pony, "option": option, "private": true}
+	var handle := AGREEMENT.Handle.new()
+	handle.pony = pony
+	handle.option = option
+	handle.private = true
 	negotiation.live = handle
 
 	# A private Agreement whose fresh sample is public is cancelled, not started.

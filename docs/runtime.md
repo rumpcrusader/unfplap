@@ -151,7 +151,8 @@ starts the handover. The adapter alone talks to the installed pack.
 `main._on_pony(new_pony)` adopts the suspended runtime before it creates a runtime: the source's
 `claims_body()` or the stable id must match, the adapter's `prepare_pony()` has already fitted the
 new body, `anatomy.bind()` runs, the runtime is reparented under the new body, and
-`runtime.adopt_body()` resumes it. The stable id is the act's id: a borrowed shape keeps the same
+`runtime.adopt_body()` resumes it. A runtime created in a race is stopped and freed, and its
+anatomy controller is detached first, so the act never keeps two controllers or two owners. The stable id is the act's id: a borrowed shape keeps the same
 relationship, preferences, history and summary; only the display name follows the new identity.
 
 A live settings edit while suspended refreshes the snapshot and returns; the resume applies it

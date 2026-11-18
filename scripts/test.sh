@@ -7,7 +7,7 @@
 # Godot 4.5 must be on PATH.
 # TEST_JOBS sets the parallelism (default 6).
 
-set -u
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
@@ -101,9 +101,9 @@ run_one() {
 	XDG_DATA_HOME="$work_dir/data-$safe" mkdir -p "$work_dir/data-$safe"
 	XDG_DATA_HOME="$work_dir/data-$safe" timeout 90 godot --headless --xr-mode off \
 		--path "$PROJECT_ROOT" --script "res://mods/unfplap/tests/$test_name.gd" \
-		>"$work_dir/$safe.out" 2>&1
+		>"$work_dir/$safe.out" 2>&1 || true
 	local result
-	result="$(grep -E '_RESULT checks=' "$work_dir/$safe.out" | tail -n 1)"
+	result="$(grep -E '_RESULT checks=' "$work_dir/$safe.out" | tail -n 1 || true)"
 	printf '%s\n' "$result" >"$work_dir/$safe.result"
 }
 export -f run_one

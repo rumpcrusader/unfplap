@@ -6,7 +6,7 @@
 # TEST_JOBS sets the parallelism (default 6).
 # The runner is scripts/test.sh; use it directly for a subset.
 
-set -u
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

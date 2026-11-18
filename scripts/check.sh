@@ -5,7 +5,7 @@
 #        scripts/check.sh --all      # every mod script
 # Godot 4.5 must be on PATH.
 
-set -u
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
@@ -43,7 +43,7 @@ check_one() {
 	local file="$1"
 	local log="$out_dir/$(printf '%s' "$file" | tr '/' '_').log"
 	timeout 60 godot --headless --xr-mode off --path "$PROJECT_ROOT" \
-		--check-only --script "res://mods/unfplap/$file" >"$log" 2>&1
+		--check-only --script "res://mods/unfplap/$file" >"$log" 2>&1 || true
 	# Only parse failures matter here; a compile error about a game autoload (Mods, Settings…)
 	# just means the file cannot be resolved standalone.
 	# A missing game autoload (Mods, Settings) is a standalone-resolution artefact, not a bug.

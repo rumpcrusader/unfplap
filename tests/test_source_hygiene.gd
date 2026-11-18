@@ -87,6 +87,7 @@ func run() -> void:
 	_check_preloads(files)
 	_check_settings_module(files)
 	_check_shipped_data()
+	_check_shell_scripts()
 	_check_no_default_tables()
 	_check_teardown(files)
 	_check_hands_isolation()
@@ -132,6 +133,18 @@ func run() -> void:
 	if failures == 0:
 		print("SOURCE_HYGIENE_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+## Every bash entry point starts under errexit, so a failing tool stops the script instead of
+## letting it report success. The rule and its expected-failure exception are `docs/quality.md`.
+func _check_shell_scripts() -> void:
+	var paths: Array[String] = ["build.sh", "lab.sh", "lab-stress.sh", "lab-vr.sh"]
+	for name: String in DirAccess.get_files_at(ROOT.path_join("scripts")):
+		if name.ends_with(".sh"):
+			paths.append("scripts/" + name)
+	for path: String in paths:
+		var text := FileAccess.get_file_as_string(ROOT.path_join(path))
+		check(text.contains("\nset -euo pipefail\n"), "%s runs under errexit" % path)
 
 
 ## The settings live in one module with one declaration per setting; settings widgets may only

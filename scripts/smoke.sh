@@ -4,7 +4,7 @@
 # Usage: scripts/smoke.sh
 # Godot 4.5 must be on PATH.
 
-set -u
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
@@ -23,9 +23,13 @@ fi
 log_file="$(mktemp "${TMPDIR:-/tmp}/unfplap-smoke.XXXXXX")"
 trap 'rm -f "$log_file"' EXIT
 
-timeout "$SMOKE_SECONDS" godot --headless --xr-mode off --path "$PROJECT_ROOT" \
-	-- --mod-src unfplap --skip-title >"$log_file" 2>&1
-status=$?
+status=0
+if timeout "$SMOKE_SECONDS" godot --headless --xr-mode off --path "$PROJECT_ROOT" \
+		-- --mod-src unfplap --skip-title >"$log_file" 2>&1; then
+	status=0
+else
+	status=$?
+fi
 
 if grep -qE 'SCRIPT ERROR|Parse Error|Invalid|ERROR' "$log_file"; then
 	printf 'SMOKE_FAIL\n'

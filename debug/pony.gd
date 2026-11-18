@@ -197,8 +197,7 @@ static func _neutral_mood(main: Node, pony: Node3D, id: String) -> String:
 	return "%s -> %s" % [before, after]
 
 
-## Print the detail block (or the title alone when the main node has no block helper) and return
-## the one-line wheel toast.
+## Print the detail block and return the one-line wheel toast.
 static func _report(_main: Node, pony: Node3D, rows: Array[String]) -> String:
 	var refused := not rows.is_empty() and rows[0].begins_with("record=refused:")
 	var title := "SEX READY %s" % str(pony.name)

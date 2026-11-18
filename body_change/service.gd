@@ -23,7 +23,7 @@ const BODY_SCALE_MIN := 0.25
 const BODY_SCALE_MAX := 4.0
 
 var main: Node = null
-## The host's debug sink. `main.debug()` carries the mod id and obeys the debug toggle.
+## The log sink. `LOG.debug()` carries the mod id and obeys the debug toggle.
 var _log: Callable = Callable()
 ## Registration order is the binding fan-out order and the source lookup order.
 var _sources: Array[BODY_CHANGE_SOURCE] = []

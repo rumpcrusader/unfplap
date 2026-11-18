@@ -737,7 +737,7 @@ func _log(text: String) -> void:
 	LOG.debug(text)
 
 
-## Forward one act window to the entry's corner panel, which owns the gate and the drawing.
+## Forward one act window to the corner panel, which owns the drawing.
 func _perf_show(entries: Array, info: Dictionary) -> void:
 	LOG.perf_block(entries, info)
 
@@ -760,7 +760,7 @@ func perf_note(key: String, usec: int) -> void:
 		_idle_perf_note(key, usec)
 
 
-## Forward one idle chunk to the entry's aggregator. Only reachable while the idle probe is on.
+## Forward one idle chunk to the log module's aggregator. Only reachable while the idle probe is on.
 func _idle_perf_note(key: String, usec: int) -> void:
 	LOG.note(key, usec, _id)
 

@@ -1,29 +1,31 @@
-# Perf probes (`shared/perf.gd`, `shared/perf_idle.gd`, `shared/perf_tree.gd`, `debug/perf_view.gd`)
+# Perf probes (`shared/perf.gd`, `shared/perf_idle.gd`, `shared/perf_tree.gd`, `shared/perf_view.gd`)
 
 The mod's two debug performance probes. Both report timed chunks in microseconds and print one
 block per one-second window, so a stall can be attributed to a modifier, a service or a single
 pony without a live profiler. The act probe prints one summary per acting pony; the idle probe
 aggregates every idle runtime into one block. Either block is laid out as a tree by
-`shared/perf_tree.gd`, and `main.debug()` prefixes every printed line with `[unfplap] `. The same
+`shared/perf_tree.gd`, and `LOG.debug()` prefixes every printed line with `[unfplap] `. The same
 window is tabled in the top-left corner; see `docs/debug.md`.
 
 ## Ownership
 
 - `shared/perf.gd` is a pure `RefCounted` module owned by the runtime. It holds the act's window,
   chunk rows, header facts, the act parent table and summary formatting.
-- `shared/perf_idle.gd` is a pure `RefCounted` module owned by `main.gd`. It holds the idle window,
-  aggregated rows, worst owner per chunk, counts, the idle parent table and block formatting.
+- `shared/perf_idle.gd` is a pure `RefCounted` module owned by `shared/log.gd`. It holds the idle
+  window, aggregated rows, worst owner per chunk, counts, the idle parent table and block
+  formatting.
 - `shared/perf_tree.gd` is a pure static module used by both probes. It turns flat rows plus a
   parent table into the display order and the `self` residuals; it knows no chunk on its own.
-- `debug/perf_view.gd` draws the panel. It owns no gate, no data and no setting: a probe hands it
-  one laid-out window and its facts, and the entry hides it when either switch goes off.
+- `shared/perf_view.gd` draws the panel. It owns no gate, no data and no setting: a probe hands it
+  one laid-out window and its facts, and `shared/log.gd` hides it when either switch goes off.
 - The runtime supplies the act probe's two gates (`enabled`, `active`), the header facts and the
   log and panel callbacks.
-- `main.gd` supplies the idle probe's gate (`enabled`), the header counts and the log and panel
-  callbacks. Its `perf_block()` keeps the panel to the two debug switches and creates the view on
-  the first window. Idle runtimes forward their chunks through `runtime.perf_note()`.
+- `shared/log.gd` supplies the idle probe's gate (`enabled`), the header counts and the log and
+  panel callbacks, and keeps the panel to the two debug switches: `perf_block()` creates the view
+  on the first window. Its two scene-free unknowns, the act gate and the counts, are entry
+  callables (`docs/log.md`). Idle runtimes forward their chunks through `runtime.perf_note()`.
 - Timed call sites in the runtime, the anatomy controller and the skeleton modifiers report to the
-  runtime; `main.gd` times its own process body and the offer scan.
+  runtime; `main.gd` times its own process body and the offer scan through `LOG.note()`/`LOG.close()`.
 - `**Print perf logs**` is a separate debug switch; it needs **Enable debug** on too. One switch
   drives both probes.
 
@@ -47,8 +49,8 @@ measurement error.
 
 ## Panel rows
 
-Each probe hands its window to `main.perf_block()` through `show` after the block is built, so the
-panel and the console block can never disagree about the rows. `debug/perf_view.gd` prints the
+Each probe hands its window to `LOG.perf_block()` through `show` after the block is built, so the
+panel and the console block can never disagree about the rows. `shared/perf_view.gd` prints the
 same tree one row per line: the block's tree glyphs and chunk key, the filling space, then three
 right-aligned value columns.
 
@@ -173,7 +175,7 @@ total, largest first, so the first row is the chunk to fix.
 
 | Chunk | Source | Parent |
 |---|---|---|
-| `entry_process` | the whole `main._process` body | root |
+| `entry_process` | the whole `main._process` body, closed after it | root |
 | `entry_initiation` | `initiation.tick(delta)` | `entry_process` |
 | `entry_negotiation` | `negotiation.tick(delta)` and `_tick_agreement_auto_start(delta)` | `entry_process` |
 | `entry_watch` | `_tick_negotiation_watch()` | `entry_process` |
@@ -219,8 +221,10 @@ offerable pose assets are parsed at world ready, so their load is not inside a f
 
 - Both probes are off unless **Enable debug** and **Print perf logs** are on.
 - The act probe prints only while its runtime is not `IDLE`; its window resets outside an act.
-- The idle probe prints only while no act is running (`main.active_runtime` is null). It resets
-  when an act starts, when a switch goes off, on world start, on world close and on entry teardown.
+- The idle probe prints only while no act is running (`LOG.act_running` reads false). It resets
+  when an act starts, when a switch goes off, on world start, on world close and on entry teardown
+  (`LOG.reset()`/`LOG.detach()`). `LOG.tick(delta)` runs first in `_process`, so a window prints at
+  the frame boundary and the entry closes `entry_process` after its body.
 - With a switch off, no clock is taken in the idle path, the runtime's forward is one bool branch
   and `note`/`tick` early-return. Rows are updated in place; nothing allocates per frame. The tree
   layout runs once per window, not per note.
@@ -231,7 +235,7 @@ offerable pose assets are parsed at world ready, so their load is not inside a f
 **Enable debug** + **Print perf logs** in General's Debug block. Standing in town outside an act
 prints one `perf idle` block a second. During an act the per-pony `perf` lines print instead and
 no idle block prints. Either block also redraws the corner perf panel (`docs/debug.md`). Every
-printed line, continuation rows included, carries the `[unfplap] ` prefix from `main.debug()`, so
+printed line, continuation rows included, carries the `[unfplap] ` prefix from `LOG.debug()`, so
 a block stays attributable after the game's own output interleaves with it.
 
 ### Pose edge comparison
@@ -266,6 +270,8 @@ and allocates nothing, and the pose write is the only new per-frame cost.
 
 - `tests/perf/test_perf.gd` — the act probe's on/active gates, window reset, row aggregation,
   parent and child rows, per-level order, the self residual and summary formatting.
+- `tests/perf/test_log.gd` — the module around both probes: the switch gate, the block text, one
+  idle window a second and the panel created lazily under `attach()`.
 - `tests/perf/test_perf_idle.gd` — the idle probe's gate, window boundary, per-owner aggregation,
   worst owner, tree block text and reset-on-disable.
 - `tests/perf/test_perf_tree.gd` — the shared layout: roots, nesting, glyph prefixes, per-level
@@ -275,6 +281,7 @@ and allocates nothing, and the pose write is the only new per-frame cost.
 
 ## Related docs
 
+- `docs/log.md` — the switches, the line format and the panel's owner.
 - `docs/settings.md` — the two debug switches.
 - `docs/debug.md` — the Debug block and the logging bullets.
 - `docs/act_facts.md` — the host callback the runtime binds.

@@ -423,7 +423,7 @@ change with the form.
 
 No player-facing setting is added for the mechanism. A provider's own feature gate and timing are
 the provider's; the debug logs are the only player-visible diagnostics. The debug body-change line
-is written through the host's debug sink and obeys **Enable debug**.
+is written through `LOG.debug()` and obeys **Enable debug**.
 
 ## Controls and debug
 
@@ -440,7 +440,6 @@ suspension, adoption, resume and failure phases.
 
 | Host call | Purpose |
 |---|---|
-| `main.debug(text)` | the one debug sink; missing is a quiet no-op |
 | `main._ready()` | constructs the service, registers the bindings and the providers |
 | `main._on_world()` | calls `refresh_sources()` so each provider re-reads its pack |
 | `main._prepare_pony()` | calls `notify_body_ready()` before the tail seat, the stock smack layer and a runtime |

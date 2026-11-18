@@ -31,7 +31,8 @@ restate a contract.
 | `shared/character_preferences.gd`, `shared/preferences.gd` | `docs/preferences.md` |
 | `shared/defaults_data.gd` | `docs/settings.md` |
 | `shared/hands_*.gd` | `docs/hands.md` |
-| `shared/perf.gd`, `shared/perf_idle.gd` | `docs/perf.md` |
+| `shared/log.gd` | `docs/log.md` |
+| `shared/perf.gd`, `shared/perf_idle.gd`, `shared/perf_view.gd` | `docs/perf.md` |
 | `shared/pose_catalog.gd` | `docs/poses.md` |
 | `shared/relationship_cue.gd` | `docs/dialogue.md` |
 | `shared/rump_cone.gd` | `docs/scene_gate.md` |

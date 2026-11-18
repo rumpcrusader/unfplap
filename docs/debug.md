@@ -7,13 +7,14 @@ overlay and the log switches. The lab scripts are in `WORKFLOW.md`; the settings
 ## Scope
 
 `debug/service.gd` owns the action registry and the wheel page order. `debug/ui.gd` draws the
-Debug block buttons. `debug/wheel.gd` is the hold-middle wheel. `debug/perf_view.gd` draws the
-perf panel. `debug/bed.gd` is the stock bed cuddle helper behind the wheel's Bed cuddle
+Debug block buttons. `debug/wheel.gd` is the hold-middle wheel. `shared/perf_view.gd` draws the
+perf panel for `shared/log.gd`. `debug/bed.gd` is the stock bed cuddle helper behind the wheel's Bed cuddle
 action and Show data's BED section. `debug/pony.gd` is the debug pony-preparation helper shared by
 the bed cuddle and the wheel's Sex ready action. `debug/idle_stretch.gd` is the Idle Life
 deep-stretch bridge behind the wheel's Force deep stretch action. `debug/skeleton.gd` draws the
 skeleton overlay. `settings/ui.gd` injects the Unfplap tab and calls `debug/ui.gd` for each Debug
-block. `main.gd` owns the console gate, the wheel gate, the perf panel and the skeleton-flag sync.
+block. `main.gd` owns the console gate, the wheel gate and the skeleton-flag sync; the log switches
+and the perf panel are `shared/log.gd`'s.
 
 ## Console
 
@@ -183,7 +184,7 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 - Logging follows **Enable debug** (General's last row); there is no separate log switch and no
   hotkey. It controls logging only, not the HUD.
 - Every logged line, continuation rows of a multi-line block included, carries the `[unfplap] `
-  prefix; `main.debug()` adds it per line.
+  prefix; `LOG.debug()` (`shared/log.gd`) adds it per line, and every module prints through it.
 - **Print perf logs** is a separate debug toggle. With **Enable debug** and
   **Print perf logs** on, an act prints one `perf` block a second and, outside an act, one
   aggregated `perf idle` block a second. Either switch off stops both. See `docs/perf.md`.
@@ -209,6 +210,7 @@ same tree the probes print, one row per chunk, with its average, worst call and 
 right-aligned columns. It is a `CanvasLayer` at layer 20 that ignores the mouse, so it never blocks
 the act view or the wheel, and it stays hidden until the first window arrives. Either switch off
 clears and hides it; a world close clears it, and the next window redraws the same node.
+`shared/log.gd` creates it under the entry on the first printed window; see `docs/log.md`.
 
 The tree glyphs and indentation are the block's own. Each value runs green → amber → red against
 its target — `100ms/s` for the average, `0.5ms` for the worst call and two calls per rendered frame
@@ -276,7 +278,8 @@ perf panel's row height, colour targets, caption and clear.
 ## Related docs
 
 - `docs/settings.md` — the Debug block and the declaration rules.
-- `docs/perf.md` — the act perf probe.
+- `docs/perf.md` — the two perf probes.
+- `docs/log.md` — the log switches, the line format and the panel's owner.
 - `docs/anatomy.md` — the placement actions and the skeleton flag.
 - `docs/summary.md`, `docs/face.md`, `docs/eligibility.md` — the per-service debug actions.
 - `WORKFLOW.md` — the lab commands.

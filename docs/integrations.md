@@ -251,8 +251,8 @@ for a true form and the `changeling=<id>` variant for a named shape. `request_ap
 The player's own words are the adapter's: `asks_form_change(text)` matches its reveal phrase set
 (“true form”, “real you”, “drop the disguise”, “unmask” and similar). `named_form(text)` matches an
 adult mare's display name or id against the base roster and the entry's live off-roster/provider
-list; it excludes the shape she already wears and herself, refuses a tied ambiguous name, and
-returns a shape only when the game's population has a scene the pack can copy. `named_form_note()`
+list; it excludes the shape she already wears and herself, refuses an ambiguous name (a tie or two
+whole names), and returns a shape only when the game's population has a scene the pack can copy. `named_form_note()`
 returns a short status when the line names a shape she already wears, herself, a known young or male
 body, or an uncopyable pony, and returns nothing for ordinary talk. The pack needs no rebuild and no
 new signal.

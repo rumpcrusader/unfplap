@@ -35,6 +35,8 @@ static func build_actions(list: VBoxContainer, font_size: int, main: Node, tab :
 			continue
 		if str(action.get("tab", "general")) != tab:
 			continue
+		if not DEBUG_ACTIONS.action_available(name, main):
+			continue
 		var row := str(action.get("row", ""))
 		if row.is_empty():
 			row_name = ""

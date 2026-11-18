@@ -4,6 +4,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/integrations/test_changelings.gd
 
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
+const SHAPE_CHANGE := preload("res://mods/unfplap/integrations/shape_change.gd")
 const API := preload("res://mods/unfplap/api.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -33,6 +34,29 @@ class Gate extends RefCounted:
 
 	func active() -> bool:
 		return on
+
+
+class FakeSourceMod extends Node:
+	var actor: Variant = null
+	var disguised_as := ""
+	var busy := false
+	var revealed := 0
+	var disguised_to := ""
+	var brought := 0
+
+	func _ready() -> void:
+		add_to_group(CHANGELINGS.GROUP)
+
+	func reveal() -> void:
+		revealed += 1
+		busy = true
+
+	func disguise(shape_id: String) -> void:
+		disguised_to = shape_id
+		busy = true
+
+	func bring_out() -> void:
+		brought += 1
 
 
 func _initialize() -> void:
@@ -84,6 +108,9 @@ func run() -> void:
 	api.call("_bind", main)
 	main.api = api
 	var gate := Gate.new()
+	var pack := FakeSourceMod.new()
+	pack.name = "FakeChangelingsMod"
+	root.add_child(pack)
 	var adapter := CHANGELINGS.new()
 	adapter.name = "UnfplapChangelings"
 	adapter.set("mod_active", Callable(gate, "active"))
@@ -148,6 +175,69 @@ func run() -> void:
 	adapter.call("prepare_pony", other)
 	check(not other.has_meta("body_fit_id"), "an unrelated pony keeps the generic fit rule")
 
+	# The generic source contract: the adapter is the only object that reads the pack's fields.
+	var manager := SHAPE_CHANGE.new()
+	manager.call("register", adapter)
+	check(bool(manager.call("active")), "the manager sees the active source")
+	check(manager.call("source_for", own) == adapter, "her body resolves to the source")
+	check(manager.call("source_for", other) == null, "an unrelated pony has no source")
+	check((manager.call("installed_character_ids") as Array) == ["chrysalis"],
+		"the manager lists the installed mare")
+	check(bool(adapter.call("handles_pony", own)), "the source handles her own body")
+	check(bool(adapter.call("handles_pony", disguise)), "the source handles a disguise")
+	check(not bool(adapter.call("handles_pony", other)), "the source leaves other mares alone")
+
+	# A true-form change: the old body is captured, the new own body is claimed, and completion
+	# clears the change while leaving the handles for the act's log.
+	pack.actor = own
+	pack.disguised_as = "fluttershy"
+	check(bool(adapter.call("request_true_form")), "the source starts a true-form change")
+	check(bool(adapter.call("is_changing")) and adapter.call("old_actor") == own,
+		"the old body is held for the act")
+	check(str(adapter.call("target")).is_empty(), "a true-form change has no shape target")
+	check(pack.revealed == 1, "the source calls the pack's reveal")
+	var true_new := _own_body()
+	root.add_child(true_new)
+	check(bool(adapter.call("claims_body", true_new)), "the new own body is claimed")
+	pack.actor = true_new
+	pack.busy = false
+	adapter.call("poll")
+	check(adapter.call("new_actor") == true_new, "the new body is readable")
+	check(not bool(adapter.call("is_changing")), "poll ends the change when the pack is free")
+
+	# A named shape: the copied body's variant is its claim, not any changeling body.
+	pack.actor = own
+	pack.disguised_as = ""
+	check(bool(adapter.call("request_shape", "rarity")), "the source starts a named change")
+	check(str(adapter.call("target")) == "rarity", "the requested shape is held")
+	check(pack.disguised_to == "rarity", "the source calls the pack's disguise")
+	var shape_new := FakePony.new()
+	shape_new.identity = _identity("chrysalis", "")
+	shape_new.set_meta("geometry_variant", "changeling=rarity")
+	root.add_child(shape_new)
+	var wrong_shape := FakePony.new()
+	wrong_shape.identity = _identity("chrysalis", "")
+	wrong_shape.set_meta("geometry_variant", "changeling=fluttershy")
+	root.add_child(wrong_shape)
+	check(bool(adapter.call("claims_body", shape_new)), "the requested shape's body is claimed")
+	check(not bool(adapter.call("claims_body", wrong_shape)),
+		"another shape's body is not claimed")
+	pack.actor = shape_new
+	pack.busy = false
+	adapter.call("poll")
+	check(not bool(adapter.call("is_changing")), "the named change completes")
+
+	# The idle helper only asks the pack to bring her out; it is not a shape change.
+	pack.actor = null
+	pack.busy = false
+	check(bool(adapter.call("request_appear")), "the idle action asks her out")
+	check(pack.brought == 1 and not bool(adapter.call("is_changing")),
+		"bringing her out is not a change")
+	check(not bool(adapter.call("asks_form_change", "show me")),
+		"phase 3 owns the player's ask")
+	check(str(adapter.call("named_form", "rarity")).is_empty(),
+		"phase 3 owns the named shape")
+
 	# The pack off unregisters the provider and empties the installed list.
 	gate.on = false
 	adapter.call("refresh")
@@ -169,7 +259,7 @@ func run() -> void:
 	adapter.call("shutdown")
 	root.remove_child(adapter)
 	adapter.free()
-	for node: Node in [own, disguise, other]:
+	for node: Node in [own, disguise, other, true_new, shape_new, wrong_shape, pack]:
 		root.remove_child(node)
 		node.free()
 	api.call("_shutdown")

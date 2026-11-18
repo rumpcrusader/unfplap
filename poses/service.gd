@@ -1497,6 +1497,17 @@ func pose() -> Variant:
 	return pose_node
 
 
+## A rebuilt pose starts settled. The body swap re-poses the surviving act inside the flame, so
+## the start ramp would be a visible second entrance on the new body.
+func settle() -> void:
+	if is_instance_valid(pose_node):
+		pose_node.amount = 1.0
+		pose_node.target_amount = 1.0
+	if is_instance_valid(tail):
+		tail.amount = 1.0
+		tail.target_amount = 1.0
+
+
 func basis_amount() -> float:
 	return float(pose_node.get("amount")) if is_instance_valid(pose_node) else 0.0
 

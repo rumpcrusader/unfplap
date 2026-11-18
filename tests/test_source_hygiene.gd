@@ -126,6 +126,7 @@ func run() -> void:
 	_check_act_audio()
 	_check_hud_lines()
 	_check_scene_hold()
+	_check_body_swap()
 	_check_docs_index(files)
 	print("SOURCE_HYGIENE_RESULT checks=%d failures=%d files=%d" % [checks, failures, files.size()])
 	if failures == 0:
@@ -300,13 +301,16 @@ func _check_teardown(files: Array[String]) -> void:
 		if at < 0:
 			break
 		cursor = at + call.length()
-	# Only the act exit and the new-act prep reach the pose ledger, and only the ledger releases
-	# the pose. A pose transition calls the pose-scope steps, never the ledger.
-	check(_count(runtime, "_free_pose()") == 3, "the pose ledger has two callers")
+	# Only the act exit, the new-act prep and the body-swap suspension reach the pose ledger, and
+	# only the ledger releases the pose. A pose transition calls the pose-scope steps, never the
+	# ledger.
+	check(_count(runtime, "_free_pose()") == 4, "the pose ledger has three callers")
 	check(_func_body(runtime, "_end_session").contains("_free_pose()"),
 		"_end_session calls the pose ledger")
 	check(_func_body(runtime, "_build_pose").contains("_free_pose()"),
 		"_build_pose calls the pose ledger as its prep")
+	check(_func_body(runtime, "_suspend_for_body_swap").contains("_free_pose()"),
+		"the body swap suspends through the pose ledger")
 	check(_count(runtime, "_pose_service().release_pose()") == 1
 		and free.contains("_pose_service().release_pose()"),
 		"release_pose is called only from the pose ledger")
@@ -1208,7 +1212,7 @@ func _check_hud_lines() -> void:
 func _check_integrations_isolation(files: Array[String]) -> void:
 	var pure_files := [
 		"integrations/provider.gd", "integrations/context.gd", "integrations/action.gd",
-		"integrations/kissing.gd", "shared/integrations.gd",
+		"integrations/kissing.gd", "integrations/shape_change.gd", "shared/integrations.gd",
 	]
 	for name: String in pure_files:
 		var text := FileAccess.get_file_as_string(ROOT.path_join(name))
@@ -1226,6 +1230,7 @@ func _check_integrations_isolation(files: Array[String]) -> void:
 		var external := text.replace("mods/unfplap/integrations/service.gd", "")
 		external = external.replace("mods/unfplap/integrations/pantyhose.gd", "")
 		external = external.replace("mods/unfplap/integrations/changelings.gd", "")
+		external = external.replace("mods/unfplap/integrations/shape_change.gd", "")
 		check(not external.contains("mods/unfplap/integrations/"),
 			"%s uses the integrations facades only" % relative)
 		check(relative == "main.gd" or (
@@ -1288,6 +1293,43 @@ func _check_integrations_docs() -> void:
 
 ## The docs are the single source of truth: every doc under docs/ is indexed by docs/README.md, and
 ## the root holds no service contract. The service doc names its facade and its tests.
+## The body swap keeps one runtime and one exit. The entry adopts before it creates a second
+## runtime; the runtime suspends, moves its own parent and resumes; a reparent is not a world
+## close. The core names no installed pack: the adapter is the only source.
+func _check_body_swap() -> void:
+	var main := FileAccess.get_file_as_string(ROOT.path_join("main.gd"))
+	var on_pony := _func_body(main, "_on_pony")
+	var adopt_at := on_pony.find("_adopt_pending_swap(pony)")
+	var create_at := on_pony.find("RUNTIME.new()")
+	check(adopt_at >= 0 and create_at > adopt_at,
+		"the entry adopts the pending swap before creating a runtime")
+	var adopt := _func_body(main, "_adopt_pending_swap")
+	for token: String in ["claims_body", "attach_to_body", "_pending_swap = {}", "adopt_body"]:
+		check(adopt.contains(token), "the entry adoption keeps %s" % token)
+	var begin := _func_body(main, "begin_body_swap")
+	check(begin.contains("_pending_swap") and begin.contains("_runtimes.erase"),
+		"the entry records one swap and frees the old map entry")
+	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
+	for name: String in ["_body_swap_tick", "_suspend_for_body_swap", "attach_to_body",
+			"adopt_body", "_resume_after_body_swap", "_failed_body_swap"]:
+		check(runtime.contains("func %s(" % name), "the runtime keeps %s" % name)
+	var suspend := _func_body(runtime, "_suspend_for_body_swap")
+	for token: String in ["attach_to_body(main)", "_free_pose()", "_restore_camera()",
+			"begin_body_swap"]:
+		check(suspend.contains(token), "the suspension keeps %s" % token)
+	check(_func_body(runtime, "_resume_after_body_swap").contains("_rebuild_pose_for_swap"),
+		"the resume rebuilds the live pose")
+	check(_func_body(runtime, "_end_session").contains("clear_body_swap"),
+		"the one exit clears a pending swap")
+	check(_func_body(runtime, "_exit_tree").contains("_swapping_parent"),
+		"a handover reparent does not run the world-close teardown")
+	for token: String in ["chrysalis", "changelings", "disguise"]:
+		check(not runtime.to_lower().contains(token), "the runtime core names no pack: %s" % token)
+	var poses := FileAccess.get_file_as_string(ROOT.path_join("poses/service.gd"))
+	check(_func_body(poses, "settle").contains("target_amount = 1.0"),
+		"the rebuilt pose starts settled")
+
+
 func _check_docs_index(files: Array[String]) -> void:
 	var index := FileAccess.get_file_as_string(ROOT.path_join("docs/README.md"))
 	check(not index.is_empty(), "docs/README.md exists")

@@ -66,6 +66,10 @@ const ORAL_KISS_DB := -22.0
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
+## A body swap polls the source at this cadence and gives up after the watchdog. The flame and
+## the pack's spawn are well inside it; a longer wait means no body is coming.
+const BODY_SWAP_POLL_S := 0.1
+const BODY_SWAP_WATCHDOG_S := 8.0
 ## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
 ## feel is the same with the anatomy off. Close to the default part's visible length.
 const NOMINAL_SHAFT_M := 0.2
@@ -157,6 +161,18 @@ var _cycle_heat := false
 var _climax_left := 0.0
 var _restore_left := 0.0
 var _check_clock := 0.0
+## A body swap keeps the act alive but stops its ticks. The old body, the source and the current
+## pose id are held until the new body adopts the runtime; `_end_session()` is still the only exit.
+var _suspended := false
+var _swap_source: Variant = null
+var _swap_old_pony: Node = null
+var _swap_new_pony: Node = null
+var _swap_pose := ""
+var _swap_elapsed := 0.0
+var _swap_clock := 0.0
+## `reparent()` runs `_exit_tree()`. The handover moves the live runtime between bodies, so that
+## signal must not run the world-close teardown it exists for.
+var _swapping_parent := false
 ## The act's afterglow phase: the standing close window and the presentation it asks for.
 ## See `afterglow/service.gd` and `docs/afterglow.md`.
 var _afterglow: RefCounted = AFTERGLOW.new()
@@ -892,7 +908,9 @@ func _dialogue_service() -> RefCounted:
 ## The pose session, bound to this runtime and its pony. Suites build a runtime without entering
 ## the tree, so the binding is refreshed on every access instead of only in `_ready()`.
 func _pose_service() -> RefCounted:
-	_pose_session.bind(self, pony)
+	# A lost body (world close mid-swap) leaves a freed reference; the session must not carry it
+	# into a release or a fan-out.
+	_pose_session.bind(self, pony if is_instance_valid(pony) else null)
 	_pose_session.id = _id
 	_pose_session.hide_avatar = Callable(self, "_hide_act_avatar")
 	_pose_session.set_act_body = Callable(self, "_set_missionary_anon_handle")
@@ -1263,6 +1281,8 @@ func _process_tick(delta: float) -> void:
 	if state == State.IDLE:
 		_standing_presentation_controller().process()
 		return
+	if _suspended:
+		return
 	_sync_act_facts()
 	_sync_pose_frame()
 	_pose_render_write()
@@ -1278,7 +1298,7 @@ func _process_tick(delta: float) -> void:
 ## Mouse input. Vertical motion thrusts; the act camera intentionally ignores it for look.
 ## Auto thrust owns the stroke, so the mouse does nothing there: depth is set from the hold-X layer.
 func _input(event: InputEvent) -> void:
-	if state == State.IDLE:
+	if state == State.IDLE or _suspended:
 		return
 	# The debug wheel owns the mouse while it is open: its virtual reticle must not thrust or
 	# free-look the live act.
@@ -1357,6 +1377,12 @@ func _physics_process(delta: float) -> void:
 
 
 func _physics_tick(delta: float) -> void:
+	if _suspended:
+		_body_swap_tick(delta)
+		return
+	_body_swap_tick(delta)
+	if _suspended or state == State.IDLE:
+		return
 	_clock_s += maxf(0.0, delta)
 	# The pose edge advances before the facts sync reads the view; the fan-out runs after that read
 	# and before any presentation tick. An edge keeps ticking through CLIMAX and AFTERGLOW.
@@ -2092,6 +2118,294 @@ func _abort_start() -> void:
 	_end_act_lines(true)
 	_end_session(false)
 	_finalize_session(false)
+
+# --------------------------------------------------------------------------- body swap
+
+## True while a shape change has the act suspended. `main` reads it to keep the act's pending
+## record and the debug actions see one change at a time.
+func body_swap_pending() -> bool:
+	return _suspended
+
+
+## The act-side form request. It only starts a change; the watcher suspends the act on the next
+## tick, so the act's state, depth and climaxes are never handed to a second runtime.
+func request_form_change(true_form: bool, shape_id := "") -> Dictionary:
+	if _suspended:
+		return {"ok": false, "reason": "a form change is already in progress",
+			"message": "A form change is already in progress."}
+	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		return {"ok": false, "reason": "no live act", "message": "No live act."}
+	var source: Variant = _shape_source()
+	if source == null:
+		return {"ok": false, "reason": "no shape-changing source",
+			"message": "No shape-changing mare."}
+	if source.has_method("is_changing") and bool(source.call("is_changing")):
+		return {"ok": false, "reason": "the source is already changing",
+			"message": "She is already changing."}
+	var started := false
+	if true_form:
+		started = source.has_method("request_true_form") \
+			and bool(source.call("request_true_form"))
+	else:
+		started = source.has_method("request_shape") \
+			and bool(source.call("request_shape", shape_id))
+	if not started:
+		return {"ok": false, "reason": "the source refused",
+			"message": "She cannot take that form now."}
+	var label := "her true form" if true_form else SETTINGS.character_name(shape_id)
+	_log("body swap requested target=%s form=%s pose=%s depth=%.3f climaxes=%d" % [
+		shape_id if not shape_id.is_empty() else "self",
+		"true" if true_form else "named", str(_start_row().get("id", "")), depth,
+		pony_climaxes])
+	return {"ok": true, "reason": "", "message": "Changing to %s." % label}
+
+
+## One watcher/swap tick. A live act polls its source for a change; a suspended act waits for the
+## adopted body, the source's completion, or the watchdog.
+func _body_swap_tick(delta: float) -> void:
+	if _suspended:
+		_swap_elapsed += delta
+		var source: Variant = _swap_source
+		if is_instance_valid(source) and source.has_method("poll"):
+			source.call("poll")
+		if is_instance_valid(_swap_new_pony):
+			# Adoption normally resumes at once; this is the fallback for a late handover.
+			_resume_after_body_swap()
+			return
+		var changing: bool = is_instance_valid(source) and source.has_method("is_changing") \
+			and bool(source.call("is_changing"))
+		if is_instance_valid(source) and source.has_method("is_active") \
+				and not bool(source.call("is_active")):
+			changing = false
+		if not changing:
+			if is_instance_valid(pony) and pony == _swap_old_pony:
+				_log("body swap failed; the old body survives, resuming pony=%s" % str(pony.name))
+				_resume_after_body_swap()
+			else:
+				_failed_body_swap("the source stopped without a new body")
+			return
+		if _swap_elapsed >= BODY_SWAP_WATCHDOG_S:
+			if is_instance_valid(pony) and pony == _swap_old_pony:
+				_log("body swap watchdog; the old body survives, resuming")
+				_resume_after_body_swap()
+			else:
+				_failed_body_swap("watchdog expired with no body")
+		return
+	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		return
+	_swap_clock -= delta
+	if _swap_clock > 0.0:
+		return
+	_swap_clock = BODY_SWAP_POLL_S
+	var source: Variant = _shape_source()
+	if source == null:
+		return
+	if source.has_method("poll"):
+		source.call("poll")
+	if not source.has_method("is_changing") or not bool(source.call("is_changing")):
+		return
+	if not source.has_method("old_actor") or source.call("old_actor") != pony:
+		return
+	_suspend_for_body_swap(source)
+
+
+## Stop the act's ticks without ending it. The runtime leaves the old body here; the old body may
+## still be alive inside the flame. The outer act state, depth, climaxes, summary and event stay.
+func _suspend_for_body_swap(source: Variant) -> void:
+	if _suspended or not is_instance_valid(pony):
+		return
+	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		return
+	_suspended = true
+	_swap_source = source
+	_swap_old_pony = pony
+	_swap_new_pony = null
+	_swap_elapsed = 0.0
+	var view: Variant = _pose_service().view()
+	_swap_pose = str(view.id) if view != null and not str(view.id).is_empty() \
+		else str(_start_row().get("id", ""))
+	if is_instance_valid(main) and main.has_method("begin_body_swap"):
+		var target := ""
+		if source.has_method("target"):
+			target = str(source.call("target"))
+		main.call("begin_body_swap", self, pony, _id, source, target)
+	# Leave the old body before it is freed. `main` keeps the act; the new body adopts the node.
+	attach_to_body(main)
+	_log("body swap suspend source=%s target=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
+		str(source.call("source_name")) if source.has_method("source_name") else "?",
+		str(source.call("target")) if source.has_method("target") else "",
+		state, _swap_pose, depth, pony_climaxes])
+	_wings_controller().release()
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.end()
+	_release_nav()
+	_restore_face_turn()
+	_free_pose()
+	_restore_pony_bones()
+	if _act_camera.camera_owned:
+		_restore_camera()
+	_stop_breath()
+
+
+## Move the live runtime under another node without running its world-close `_exit_tree()`. The
+## handover uses this for `main` and then for the new body.
+func attach_to_body(parent: Node) -> void:
+	if not is_instance_valid(parent) or get_parent() == parent:
+		return
+	_swapping_parent = true
+	reparent(parent)
+	_swapping_parent = false
+
+
+## `main` calls this when the source's new body spawns. The runtime is already under `main`; it
+## moves under the new body and resumes on the same act. A body that is not an adult mare ends
+## the act through the one exit.
+func adopt_body(new_pony: Node) -> void:
+	if not _suspended or not is_instance_valid(new_pony):
+		return
+	_swap_new_pony = new_pony
+	pony = new_pony
+	_pose_service().bind(self, pony)
+	_face.bind(pony, self)
+	if is_instance_valid(main) and main.has_method("clear_body_swap"):
+		main.call("clear_body_swap", self)
+	_adopt_display_name(pony)
+	_anatomy_refresh()
+	if not _new_body_is_adult():
+		_log("body swap ended: the new body is not an adult mare pony=%s" % str(new_pony.name))
+		force_stop()
+		return
+	_resume_after_body_swap()
+
+
+## Resume the same act on the adopted body: anatomy, pose, camera, ownership and the body-bound
+## controllers are rebuilt; the act's state and history are not.
+func _resume_after_body_swap() -> void:
+	if not _suspended:
+		return
+	if not is_instance_valid(pony):
+		_failed_body_swap("no body to resume on")
+		return
+	_suspended = false
+	_swap_source = null
+	_swap_new_pony = null
+	_swap_old_pony = null
+	_swap_elapsed = 0.0
+	_swap_clock = BODY_SWAP_POLL_S
+	if is_instance_valid(main) and main.has_method("clear_body_swap"):
+		main.call("clear_body_swap", self)
+	_pose_service().bind(self, pony)
+	_face.bind(pony, self)
+	_sync_act_facts()
+	pony.sleeping = false
+	if pony.has_method("set_sim_tier"):
+		pony.set_sim_tier(pony.SimTier.HERO)
+	pony.set_meta("sex_active", true)
+	# integration: the old act handle is gone; fetch the new body's controller and start its act.
+	_anatomy_refresh()
+	_anatomy_act_refresh()
+	_snapshot_settings()
+	_reactions.bind_scene(pony, _anatomy_bridge.controller)
+	_reactions.apply_radius()
+	_pose_service().set_pose_config(SETTINGS.pose(_id, _start_group()))
+	_rebuild_pose_for_swap(_swap_pose)
+	_sync_start_pose_config()
+	_camera_service().call("reset_lean_state")
+	_camera_service().call("apply_eye_override", _start_family(), _player_pony)
+	_prepare_start_camera()
+	_begin_camera_mode()
+	_missionary_camera_controller().hide_avatar()
+	_wings_controller().reset()
+	_claim_nav()
+	_pause_face_turn(true)
+	_clear_face()
+	_set_face(0.45, FACE.ACT_LIDS)
+	_apply_voice_policy()
+	_sync_act_facts()
+	_pose_service().pose_changed(_pose_service().view())
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.apply_live()
+	_integrations_controller().begin()
+	if is_instance_valid(main) and is_instance_valid(main.hud):
+		_sync_hud_facts()
+		main.hud.update_from(_act_facts)
+	_log("body swap resumed pony=%s id=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
+		str(pony.name), _id, state, _swap_pose, depth, pony_climaxes])
+
+
+## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is
+## skipped because the act is continuing, not entering.
+func _rebuild_pose_for_swap(pose: String) -> void:
+	_snapshot_pony_bones()
+	var camera: Variant = main.call("camera") if is_instance_valid(main) \
+		and main.has_method("camera") else null
+	var look: Vector3 = pony.global_position
+	var camera_at := Vector3.INF
+	if camera is Camera3D:
+		look = (camera as Camera3D).global_position
+		camera_at = look
+	var size_name := str(_camera_service().call("size_name"))
+	var started: bool = _pose_service().begin({
+		"pose_id": pose if not pose.is_empty() else str(_start_row().get("id", "")),
+		"id": _id,
+		"features": _features,
+		"bed": bed,
+		"presentation": _presentation_cfg,
+		"pose_config": _pose_session.pose_config,
+		"look_point": look,
+		"camera_position": camera_at,
+		"size_name": size_name,
+	})
+	if not started:
+		_log("body swap: the new body has no pose skeleton")
+		return
+	_pose_service().settle()
+	_reactions.bind_tail(_pose_service().tail)
+
+
+## The new body must still pass the act's adult-mare gate. A missing service reads as allowed,
+## so a suite can drive the handover without the world's eligibility graph.
+func _new_body_is_adult() -> bool:
+	if not is_instance_valid(main):
+		return true
+	var service: Variant = main.get("eligibility")
+	if service == null or not service.has_method("eligible"):
+		return true
+	return bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT))
+
+
+## Clear the swap and end the act through the one exit. A lost body is not an act to resume.
+func _failed_body_swap(reason: String) -> void:
+	_log("body swap failed: %s" % reason)
+	if is_instance_valid(main) and main.has_method("clear_body_swap"):
+		main.call("clear_body_swap", self)
+	_swap_source = null
+	_swap_new_pony = null
+	_swap_old_pony = null
+	_suspended = false
+	force_stop()
+
+
+## The act pony's source, through the entry's manager. The runtime knows the contract, not the
+## installed pack.
+func _shape_source() -> Variant:
+	if not is_instance_valid(main) or not main.has_method("shape_source_for"):
+		return null
+	return main.call("shape_source_for", pony)
+
+
+## The new body's name for the act caption and dialogue. The stable id stays the act's id: a
+## borrowed shape still belongs to the same relationship, preferences and history.
+func _adopt_display_name(new_pony: Node) -> void:
+	if not is_instance_valid(new_pony):
+		return
+	var identity: Variant = new_pony.get("identity")
+	if identity == null:
+		_display_name = _id
+		return
+	var name: Variant = identity.get("display_name")
+	_display_name = str(name) if name != null and not str(name).is_empty() else _id
+
 
 func _begin_standing_placement() -> Transform3D:
 	var forward: Vector3 = -pony.global_basis.z
@@ -3284,7 +3598,7 @@ func _climax() -> void:
 		return
 	pony_climaxes += 1
 	_log("pony climax=%d pose=%s pony=%s readiness=%.0f" % [
-		pony_climaxes, pose_id, str(pony.name), satisfaction])
+		pony_climaxes, str(_start_row().get("id", "")), str(pony.name), satisfaction])
 	state = State.CLIMAX
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
@@ -3542,6 +3856,15 @@ func _restore_begin() -> void:
 ## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
 func _end_session(rejoin_cuddle: bool) -> void:
 	_stop_auto()
+	# A suspended act may end here (world close, a failed swap or an invalid body). Drop the
+	# handover before the normal teardown; it is not a second exit path.
+	_suspended = false
+	_swap_source = null
+	_swap_new_pony = null
+	_swap_old_pony = null
+	_swap_elapsed = 0.0
+	if is_instance_valid(main) and main.has_method("clear_body_swap"):
+		main.call("clear_body_swap", self)
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
 	# returns Anon and her to it, but only when it did not go badly.
 	var rejoin_bed: Node3D = null
@@ -4033,6 +4356,8 @@ func _body_scale_value() -> float:
 ## Dispatch the act shot through the camera facade. The facts are refreshed first so the shot
 ## reads this frame's lean and look.
 func apply_camera_motion() -> void:
+	if _suspended:
+		return
 	_sync_hud_facts()
 	if not bool(_camera_service().call("motion_ready")):
 		return
@@ -4144,6 +4469,10 @@ func _snout() -> Vector3:
 ## The kiss foreleg overrides are global AffectionPose settings. Restore them if the world
 ## closes or the mod is switched off mid-kiss.
 func _exit_tree() -> void:
+	if _swapping_parent:
+		return
+	if is_instance_valid(main) and main.has_method("clear_body_swap"):
+		main.call("clear_body_swap", self)
 	_kiss_controller().restore_forelegs()
 	_release_stool()
 	_end_tail_tuck()

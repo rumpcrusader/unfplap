@@ -44,8 +44,8 @@ static func custom_root(pony: Variant) -> Node3D:
 	if not is_instance_valid(pony):
 		return null
 	var value: Variant = null
-	if pony.has_method("get_meta"):
-		value = pony.get_meta("tail_pose_root", null)
+	if pony.has_method("has_meta") and pony.has_meta("tail_pose_root"):
+		value = pony.get_meta("tail_pose_root")
 	if not value is Node3D:
 		value = pony.get("tail_pose_root")
 	return value as Node3D if is_instance_valid(value) else null

@@ -29,6 +29,7 @@ const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
+const SHAPE_CHANGE := preload("res://mods/unfplap/integrations/shape_change.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/audio/stock_smack.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
@@ -62,6 +63,9 @@ const OFFER_SCAN_S := 1.0
 const GATE_REFRESH_S := 2.0
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
+## The debug name action cycles these shipped adult mares, so the lab can test more than one fit
+## without a text prompt. Player-named shapes belong to the dialogue path.
+const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "twilight_sparkle"]
 ## Debug target rule: the mare closest to the camera's aim ray, inside this tube and range.
 const AIM_RANGE_M := 8.0
 const AIM_TUBE_M := 1.5
@@ -80,6 +84,9 @@ var api: Node
 var anatomy: Node
 ## The Pantyhose & Panties world adapter; inert when that pack is absent.
 var pantyhose: Node
+## The world-side shape-change sources. The handover core reads one through this manager; the
+## adapter below registers itself and is the only file that names the installed pack.
+var shape_change: RefCounted
 ## The changelings (Queen Chrysalis) world adapter; inert when that pack is absent.
 var changelings: Node
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
@@ -103,6 +110,9 @@ var eligibility: ELIGIBILITY
 var memory: MEMORY
 
 var _runtimes: Dictionary = {}
+## One suspended act waiting for the body its source is building. The runtime reparents itself to
+## `main` before the old body goes; the new body's spawn adopts it here.
+var _pending_swap: Dictionary = {}
 ## The idle scan's playable offer and its blocked variant. Both are typed `PoseOffer` handles;
 ## null means none. See `start_pose_offer()`.
 var _offer: POSE_OFFER = null
@@ -135,6 +145,7 @@ var _idle_life: Node
 ## The in-game perf panel, created on the first printed window; see docs/perf.md.
 var _perf_view: CanvasLayer
 var _debug_face_index := -1
+var _form_shape_index := 0
 ## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
 var _captions: Dictionary = {}
 ## Cached captions_on_top so the per-frame caption tick never rereads settings.json.
@@ -286,10 +297,12 @@ func _ready() -> void:
 	api.name = "UnfplapAPI"
 	api.call("_bind", self)
 	add_child(api)
+	shape_change = SHAPE_CHANGE.new()
 	changelings = CHANGELINGS.new()
 	changelings.name = "UnfplapChangelings"
 	changelings.call("setup", self)
 	add_child(changelings)
+	shape_change.register(changelings)
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [
@@ -336,8 +349,8 @@ func _on_world(host: Node) -> void:
 		stool.call("on_world", host)
 	if is_instance_valid(pantyhose):
 		pantyhose.call("on_world", host)
-	if is_instance_valid(changelings):
-		changelings.call("refresh")
+	if shape_change != null:
+		shape_change.call("refresh")
 	_stool_hint_toast_shown = false
 	_last_blocked_key = ""
 	_interactor = null
@@ -346,6 +359,7 @@ func _on_world(host: Node) -> void:
 	_camera_cache_at = 0.0
 	_offer = null
 	_offer_blocked = null
+	_pending_swap = {}
 	_perf_idle.reset()
 	if is_instance_valid(initiation):
 		initiation.reset()
@@ -388,6 +402,7 @@ func _on_world_closed(_host: Node) -> void:
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null
+	_pending_swap = {}
 	if is_instance_valid(stock_smack):
 		stock_smack.call("clear_world")
 	game = null
@@ -553,12 +568,14 @@ func _on_pony(pony: Node) -> void:
 	# The player's own AnonPony is a pony_locomotion too. Never attach an intimacy runtime to her.
 	if pony.name == "PlayerPony" or is_instance_valid(pony.get("rig")):
 		return
-	if is_instance_valid(changelings):
-		changelings.call("prepare_pony", pony)
+	if shape_change != null:
+		shape_change.call("prepare_pony", pony)
 	if is_instance_valid(anatomy):
 		anatomy.call("tail_ready", pony)
 	if is_instance_valid(stock_smack):
 		stock_smack.call("pony_ready", pony)
+	if _adopt_pending_swap(pony):
+		return
 	if _runtimes.has(pony):
 		return
 	var runtime: Node = RUNTIME.new()
@@ -571,6 +588,82 @@ func _on_pony(pony: Node) -> void:
 	_runtimes[pony] = runtime
 	_debug("runtime attached %s id=%s" % [str(pony.name), str(pony.get_meta("relationship_id", ""))])
 	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
+
+
+## Record the act's one pending body swap. The runtime keeps the act; this record only lets the
+## new body's spawn find it before a second runtime is created.
+func begin_body_swap(runtime: Node, old_pony: Node, id: String, source: Variant,
+		target: String) -> void:
+	if not is_instance_valid(runtime):
+		return
+	_pending_swap = {
+		"runtime": runtime,
+		"old_pony": old_pony,
+		"id": id,
+		"source": source,
+		"target": target,
+	}
+	if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
+		_runtimes.erase(old_pony)
+
+
+## The swap finished, failed or the act ended. Idempotent and scoped to the runtime.
+func clear_body_swap(runtime: Node) -> void:
+	if _pending_swap.get("runtime") == runtime:
+		_pending_swap = {}
+
+
+func body_swap_pending() -> bool:
+	return not _pending_swap.is_empty()
+
+
+## The first active source that handles this pony, or null.
+func shape_source_for(pony: Node) -> Variant:
+	if shape_change == null:
+		return null
+	return shape_change.call("source_for", pony)
+
+
+## Any active shape-changing source, for the debug block's visibility gate.
+func shape_source_active() -> bool:
+	return shape_change != null and bool(shape_change.call("active"))
+
+
+## Adopt the suspended act onto a newly spawned body. Runs after the adapter fitted it but before
+## a runtime is created, so there is never a second act owner. Returns true when it adopted.
+func _adopt_pending_swap(pony: Node) -> bool:
+	if _pending_swap.is_empty() or not is_instance_valid(pony):
+		return false
+	var runtime: Variant = _pending_swap.get("runtime")
+	if not is_instance_valid(runtime):
+		_pending_swap = {}
+		return false
+	var source: Variant = _pending_swap.get("source")
+	var claimed: bool = is_instance_valid(source) and source.has_method("claims_body") \
+		and bool(source.call("claims_body", pony))
+	if not claimed:
+		var identity: Variant = pony.get("identity")
+		var new_id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), identity)
+		if new_id != str(_pending_swap.get("id", "")):
+			return false
+	var duplicate: Variant = _runtimes.get(pony)
+	if is_instance_valid(duplicate) and duplicate != runtime:
+		# A runtime created before adoption could only be a race; the suspended act is the owner.
+		if duplicate.has_method("force_stop"):
+			duplicate.call("force_stop")
+		duplicate.queue_free()
+	var old_pony: Variant = _pending_swap.get("old_pony")
+	if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
+		_runtimes.erase(old_pony)
+	_runtimes[pony] = runtime
+	if is_instance_valid(anatomy):
+		anatomy.call("bind", pony, runtime)
+	if runtime.get_parent() != pony:
+		runtime.call("attach_to_body", pony)
+	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
+	_pending_swap = {}
+	runtime.call("adopt_body", pony)
+	return true
 
 
 ## The installed Idle Life entry node, when that mod is on; the deep-stretch action uses it.
@@ -600,15 +693,9 @@ func live_character_ids() -> Array[String]:
 ## Mares an active installed-profile source lists even while she is away. The source owns the
 ## installation gate; the base roster stays the base roster.
 func installed_character_ids() -> Array[String]:
-	var out: Array[String] = []
-	if is_instance_valid(changelings):
-		var ids: Variant = changelings.call("installed_character_ids")
-		if ids is Array:
-			for raw: Variant in ids:
-				var id := str(raw).strip_edges()
-				if not id.is_empty() and not out.has(id):
-					out.append(id)
-	return out
+	if shape_change == null:
+		return []
+	return shape_change.call("installed_character_ids")
 
 
 ## The settings page hook. No game-script extension is used. Opening the page re-reads
@@ -1362,6 +1449,69 @@ func _debug_cycle_request(phase_name: String) -> String:
 	var label := "automatic" if phase_name.is_empty() else phase_name
 	_debug("cycle override %s=%s" % [str(target.name), label])
 	return "Cycle for %s: %s." % [str(target.name), label]
+
+
+## Debug form-change actions. They use the active source through the act's generic request when an
+## act is live, and the source directly while idle. A source that is absent says so and does
+## nothing; there is no global hotkey.
+func action_form_true() -> String:
+	return _form_change_request(true, "")
+
+
+func action_form_name() -> String:
+	var shape := str(FORM_DEBUG_SHAPES[_form_shape_index % FORM_DEBUG_SHAPES.size()])
+	_form_shape_index += 1
+	return _form_change_request(false, shape)
+
+
+func action_form_idle() -> String:
+	if is_instance_valid(active_runtime):
+		return "Form: the act is already live."
+	var source: Variant = _form_source()
+	if source == null:
+		return "No shape-changing mare."
+	if not source.has_method("request_appear") or not bool(source.call("request_appear")):
+		return "She cannot come out now."
+	return "She is out or coming."
+
+
+func _form_change_request(true_form: bool, shape_id: String) -> String:
+	var label := "her true form" if true_form else SETTINGS.character_name(shape_id)
+	if is_instance_valid(active_runtime) and active_runtime.has_method("request_form_change"):
+		var result: Variant = active_runtime.call("request_form_change", true_form, shape_id)
+		if result is Dictionary:
+			var answer: Dictionary = result
+			_debug("form change %s: %s" % [label, str(answer.get("reason", ""))])
+			return str(answer.get("message", answer.get("reason", "")))
+		return "Form change refused."
+	var source: Variant = _form_source()
+	if source == null:
+		return "No shape-changing mare."
+	var started := false
+	if true_form and source.has_method("request_true_form"):
+		started = bool(source.call("request_true_form"))
+	elif not true_form and source.has_method("request_shape"):
+		started = bool(source.call("request_shape", shape_id))
+	_debug("form change idle %s started=%s" % [label, str(started)])
+	if started:
+		return "Changing to %s." % label
+	return "She cannot take that form now."
+
+
+## The aimed mare's source, else the first active one. The idle action only needs a source.
+func _form_source() -> Variant:
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if is_instance_valid(target):
+		var aimed: Variant = shape_source_for(target)
+		if aimed != null:
+			return aimed
+	if shape_change == null:
+		return null
+	var active: Variant = shape_change.call("active_sources")
+	if active is Array and not (active as Array).is_empty():
+		return (active as Array)[0]
+	return null
 
 
 ## Shared by the Debug actions.
@@ -2657,6 +2807,7 @@ func _exit_tree() -> void:
 	if is_instance_valid(active_runtime):
 		active_runtime.force_stop()
 	active_runtime = null
+	_pending_swap = {}
 	for runtime: Variant in _runtimes.values():
 		if is_instance_valid(runtime):
 			runtime.force_stop()

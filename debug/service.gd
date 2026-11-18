@@ -169,6 +169,35 @@ const ACTIONS := {
 		"row": "Act face",
 		"short": "Next face",
 	},
+	# integration: the generic form change. The buttons appear only while an installed source is
+	# active; the act's own request keeps the runtime, and the idle action only tests the source.
+	"form_true": {
+		"label": "Form: true form",
+		"help": "Ask the active shape-changing mare to show her own form. In an act the body swaps and the act continues; outside one it only changes her.",
+		"method": "action_form_true",
+		"tab": "world",
+		"row": "Form",
+		"short": "True form",
+		"requires": "shape_source",
+	},
+	"form_name": {
+		"label": "Form: next named shape",
+		"help": "Change her to the next shipped adult mare's shape. In an act the body swaps and the act continues; outside one it only changes her.",
+		"method": "action_form_name",
+		"tab": "world",
+		"row": "Form",
+		"short": "Named shape",
+		"requires": "shape_source",
+	},
+	"form_idle": {
+		"label": "Form: bring her out",
+		"help": "Bring an away shape-changing mare out as she is. No act is needed; use it before a lab act.",
+		"method": "action_form_idle",
+		"tab": "world",
+		"row": "Form",
+		"short": "Bring out",
+		"requires": "shape_source",
+	},
 	# integration: one placement editor for anatomy, tail and dock. The target pill above the
 	# actions selects the global default or the pointed mare.
 	"anatomy_up": {"label": "Placement up", "help": "Move the selected placement up 5 mm.",
@@ -246,8 +275,8 @@ const WHEEL_PAGES := {
 	},
 	"act": {
 		"title": "Act",
-		"actions": ["show_data", "force_tolerance_warning", "force_tolerance_stop",
-			"force_act_face", "deep_stretch"],
+		"actions": ["show_data", "form_true", "form_name", "force_tolerance_warning",
+			"force_tolerance_stop", "force_act_face", "deep_stretch"],
 	},
 }
 const WHEEL_MAX_SLOTS := 9
@@ -258,8 +287,9 @@ static func wheel_root(act_live: bool) -> String:
 	return "act" if act_live else "mare"
 
 
-## The action ids on one wheel page, in clockwise order.
-static func wheel_actions(page: String) -> Array[String]:
+## The action ids on one wheel page, in clockwise order. An action whose `requires` gate is
+## closed is left off the wheel, the same rule the settings block uses.
+static func wheel_actions(page: String, main: Node = null) -> Array[String]:
 	var out: Array[String] = []
 	var entry: Variant = WHEEL_PAGES.get(page)
 	if not entry is Dictionary:
@@ -267,8 +297,25 @@ static func wheel_actions(page: String) -> Array[String]:
 	var actions: Variant = (entry as Dictionary).get("actions", [])
 	if actions is Array:
 		for name: Variant in actions:
-			out.append(str(name))
+			if _action_available(str(name), main):
+				out.append(str(name))
 	return out
+
+
+## The action's optional runtime gate. Only `shape_source` exists today: its buttons stay off
+## every surface while no shape-changing source is installed.
+static func action_available(name: String, main: Node) -> bool:
+	return _action_available(name, main)
+
+
+static func _action_available(name: String, main: Node) -> bool:
+	var entry: Variant = ACTIONS.get(name)
+	if not entry is Dictionary:
+		return false
+	if str((entry as Dictionary).get("requires", "")) != "shape_source":
+		return true
+	return is_instance_valid(main) and main.has_method("shape_source_active") \
+		and bool(main.call("shape_source_active"))
 
 
 static func wheel_title(page: String) -> String:

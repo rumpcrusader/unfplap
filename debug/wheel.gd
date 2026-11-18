@@ -62,7 +62,7 @@ func open() -> bool:
 	_target = pony as Node if is_instance_valid(pony) else null
 	_had_target = is_instance_valid(_target)
 	_page = DEBUG_ACTIONS.wheel_root(bool(_context.get("act", false)))
-	_slots = DEBUG_ACTIONS.wheel_actions(_page)
+	_slots = DEBUG_ACTIONS.wheel_actions(_page, main)
 	_aim = Vector2.ZERO
 	_hover = -1
 	_open = true

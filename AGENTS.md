@@ -16,9 +16,11 @@ restate a contract.
 | `main.gd` | `ARCHITECTURE.md`, `docs/runtime.md` |
 | `runtime.gd` | `docs/runtime.md` |
 | `world/service.gd` | `docs/world.md` |
+| `offer/service.gd` | `docs/offer.md` |
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |
 | `tests/body_change/**` | `docs/tests.md`, `docs/body_change.md` |
+| `tests/offer/**` | `docs/tests.md`, `docs/offer.md` |
 | `*.sh`, `.gdlintrc`, `scripts/requirements-lint.txt` | `docs/quality.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
 | `shared/act_keys.gd` | `docs/input.md` |
@@ -64,6 +66,7 @@ restate a contract.
 | `stool/**` | `docs/stool.md` |
 | `summary/**` | `docs/summary.md` |
 | `vr/**` | `docs/vr.md` |
+| `offer/**` | `docs/offer.md` |
 | `world/**` | `docs/world.md` |
 | `assets/**`, `scripts/asset_pack*` | `assets/README.md`, `CREDITS.md` |
 

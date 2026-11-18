@@ -162,9 +162,10 @@ consumes this verdict; the act key's general path still runs `start_verdict()`.
 
 ## Standing offer hint
 
-The free-standing act-key hint is discovered by `shared/rump_cone.gd`: a 90 degree half-angle fan
-to each side of her backward axis, within 2 m of her rump anchor. It is a discovery rule for the
-idle hint, not a scene-gate row; the hotkey and the Agreement start keep their own scene-only rows.
+The free-standing act-key hint is discovered by `offer/service.gd` through `shared/rump_cone.gd`:
+a 90 degree half-angle fan to each side of her backward axis, within 2 m of her rump anchor. It is a
+discovery rule for the idle hint, not a scene-gate row; the hotkey and the Agreement start keep
+their own scene-only rows.
 
 ## Buck and push
 

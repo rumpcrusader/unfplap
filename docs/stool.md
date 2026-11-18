@@ -133,9 +133,9 @@ idle hint and the act start.
   case footstools than Anon has.
 - The scene-only formation rows, the Agreement's placement check and `runtime.hotkey_ready()` use
   the same row, so a tall mare neither offers nor shows the hint when Anon cannot reach.
-- `main._refresh_offer()` shows **Make love** when the start is possible and **Needs a footstool**
-  or **Needs N footstools** when the stack is the only missing thing. The blocked note has no
-  act-key icon. A one-time toast points at houses.
+- `offer/service.gd` shows **Make love** when the start is possible and **Needs a footstool** or
+  **Needs N footstools** when the stack is the only missing thing. The blocked note has no act-key
+  icon. A one-time toast points at houses.
 - The idle hint reads the reach and case pair once per scan (once per second) and hands it to the
   scene row. The anatomy measurement and the inventory scan are not repeated inside the same scan.
 - The blocked hint reads that pair through `runtime.hint_stool()`; it does not repeat the reach or

@@ -25,7 +25,8 @@ window is tabled in the top-left corner; see `docs/debug.md`.
   on the first window. Its two scene-free unknowns, the act gate and the counts, are entry
   callables (`docs/log.md`). Idle runtimes forward their chunks through `runtime.perf_note()`.
 - Timed call sites in the runtime, the anatomy controller and the skeleton modifiers report to the
-  runtime; `main.gd` times its own process body and the offer scan through `LOG.note()`/`LOG.close()`.
+  runtime; `main.gd` times its own process body and `offer/service.gd` times the scan and the hint
+  through `LOG.note()`/`LOG.close()`.
 - `**Print perf logs**` is a separate debug switch; it needs **Enable debug** on too. One switch
   drives both probes.
 
@@ -179,10 +180,10 @@ total, largest first, so the first row is the chunk to fix.
 | `entry_initiation` | `initiation.tick(delta)` | `entry_process` |
 | `entry_negotiation` | `negotiation.tick(delta)` and `_tick_agreement_auto_start(delta)` | `entry_process` |
 | `entry_watch` | `_tick_negotiation_watch()` | `entry_process` |
-| `entry_hint` | the offer hint build and `_sync_native_hint()` | `entry_process` |
-| `offer_scan` | the `OFFER_SCAN_S` `_refresh_offer()` call | `entry_process` |
-| `offer_cone` | the standing candidate search in `_refresh_offer()` | `offer_scan` |
-| `offer_gate` | the standing gate, `_standing_ready()` | `offer_scan` |
+| `entry_hint` | the offer hint build and its prompt-row sync, in `offer.tick()` | `entry_process` |
+| `offer_scan` | the `OFFER_SCAN_S` `offer.scan()` call | `entry_process` |
+| `offer_cone` | the standing candidate search in `offer.scan()` | `offer_scan` |
+| `offer_gate` | the standing gate, `offer._standing_ready()` | `offer_scan` |
 | `offer_rows` | `scene_only_verdict()`, every scene row | `offer_gate` |
 | `offer_policy` | `eligible()` and `relationship_ok()` after the rows pass | `offer_gate` |
 | `runtime_physics` | one pony's idle `_physics_process` | root |
@@ -199,9 +200,10 @@ The anatomy chunks need no extra forward: `facts.perf` already calls the runtime
 which is the single forwarding point. `entry_process` contains the four entry chunks and
 `offer_scan`; `offer_scan` contains `offer_cone` and `offer_gate`, and `offer_gate` contains
 `offer_rows` and `offer_policy`. The entry chunks split the per-frame body at its calls, so a row
-that stays large is one call site and the `entry_process` `self` row is the body around them. The
-caption move has no idle chunk: it only runs while an act owns the entry, and the idle probe is off
-during an act.
+that stays large is one call site and the `entry_process` `self` row is the body around them.
+`offer_scan` and `entry_hint` are reported by `offer.tick()` and stay under `entry_process` because
+the entry calls it in its own body. The caption move has no idle chunk: it only runs while an act
+owns the entry, and the idle probe is off during an act.
 
 `offer_cone` is the standing candidate search: geometry first, and Base clearance only for the
 candidates that beat the nearest eligible one already found, in one pass with no per-candidate

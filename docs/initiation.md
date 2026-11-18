@@ -183,7 +183,7 @@ The available options are computed **before** reasoning, from one placement pass
 
 | Option | Requires |
 |---|---|
-| Cuddle | an active cuddle, the bed under her, an offerable bed pose, and `main.offer_target()` naming her |
+| Cuddle | an active cuddle, the bed under her, an offerable bed pose, and `offer.offer_target()` naming her |
 | Bed | an offerable bed pose, a free bed within `7 m` on the same floor and region, a finite front spot |
 | Standing | an offerable standing pose, a free navigator in Anon's region, and Anon within the `24 m` standing reach |
 

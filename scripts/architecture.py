@@ -123,6 +123,9 @@ TEST_DEFAULT_FALLBACK = {
 }
 
 ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
+# Service files another owner may extend or preload as a documented extension point. The source
+# base is a provider contract, not a second facade.
+PUBLIC_SERVICE_FILES = {"body_change/source.gd"}
 SHARED_KINDS = {
     "act_history.gd": "store",
     "act_facts.gd": "read model",
@@ -220,6 +223,8 @@ def edge_kind(src: str, tgt: str) -> tuple[str, Owner | None, Owner | None]:
     if so and to and so.id == to.id:
         return "self", so, to
     if to.kind == "service":
+        if tgt in PUBLIC_SERVICE_FILES:
+            return "service", so, to
         return ("service-private" if to.private else "service"), so, to
     if to.kind in ("shared", "store", "read model"):
         return to.kind, so, to

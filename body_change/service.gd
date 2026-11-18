@@ -84,6 +84,59 @@ func active_sources() -> Array[BODY_CHANGE_SOURCE]:
 	return out
 
 
+## True when any registered provider is active, for the debug gates.
+func active() -> bool:
+	for source: BODY_CHANGE_SOURCE in _sources:
+		if is_instance_valid(source) and source.is_active():
+			return true
+	return false
+
+
+## Re-read every provider's own installation state. The providers own their gates.
+func refresh_sources() -> void:
+	for source: BODY_CHANGE_SOURCE in _sources:
+		if is_instance_valid(source):
+			source.refresh()
+
+
+## Every installed character id, deduplicated, in registration order.
+func installed_character_ids() -> Array[String]:
+	var out: Array[String] = []
+	for source: BODY_CHANGE_SOURCE in _sources:
+		if not is_instance_valid(source) or not source.is_active():
+			continue
+		for raw: String in source.installed_character_ids():
+			var id := raw.strip_edges()
+			if not id.is_empty() and not out.has(id):
+				out.append(id)
+	return out
+
+
+## True when the body's handling provider owns a tail placement.
+func has_tail_placement(body: Node3D) -> bool:
+	var source := source_for(body)
+	return source != null and source.has_tail_placement(body)
+
+
+## Re-apply the handling provider's current tail placement.
+func apply_tail_placement(body: Node3D) -> void:
+	var source := source_for(body)
+	if source != null:
+		source.apply_tail_placement(body)
+
+
+## Every active provider's live source-owned tail lines.
+func tail_placement_report() -> String:
+	var lines := PackedStringArray()
+	for source: BODY_CHANGE_SOURCE in _sources:
+		if not is_instance_valid(source) or not source.is_active():
+			continue
+		var text := source.tail_placement_report().strip_edges()
+		if not text.is_empty():
+			lines.append(text)
+	return "\n".join(lines)
+
+
 ## The first active provider that handles the presented body, or null.
 func source_for(body: Node3D) -> BODY_CHANGE_SOURCE:
 	if not is_instance_valid(body):

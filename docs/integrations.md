@@ -440,6 +440,9 @@ overlay reads them.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | feature flags, hull precision and the cached values |
+| service | body_change | `body_change/source.gd` | typed body-change provider base |
+| shared | body_change_policy | `shared/body_change_policy.gd` | provider offer/reveal policy base |
+| shared | body_profile | `shared/body_profile.gd` | rig profiles for the borrowed forms |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog |
 
 ### Used by

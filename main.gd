@@ -30,7 +30,6 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
-const SHAPE_CHANGE := preload("res://mods/unfplap/integrations/shape_change.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
@@ -90,9 +89,6 @@ var anatomy: Node
 var body_change: Node
 ## The Pantyhose & Panties world adapter; inert when that pack is absent.
 var pantyhose: Node
-## The world-side shape-change sources. The handover core reads one through this manager; the
-## adapter below registers itself and is the only file that names the installed pack.
-var shape_change: RefCounted
 ## The changelings (Queen Chrysalis) world adapter; inert when that pack is absent.
 var changelings: Node
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
@@ -307,12 +303,11 @@ func _ready() -> void:
 	api.name = "UnfplapAPI"
 	api.call("_bind", self)
 	add_child(api)
-	shape_change = SHAPE_CHANGE.new()
 	changelings = CHANGELINGS.new()
 	changelings.name = "UnfplapChangelings"
 	changelings.call("setup", self)
 	add_child(changelings)
-	shape_change.register(changelings)
+	body_change.call("register_source", changelings)
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [
@@ -359,8 +354,8 @@ func _on_world(host: Node) -> void:
 		stool.call("on_world", host)
 	if is_instance_valid(pantyhose):
 		pantyhose.call("on_world", host)
-	if shape_change != null:
-		shape_change.call("refresh")
+	if is_instance_valid(body_change):
+		body_change.call("refresh_sources")
 	_stool_hint_toast_shown = false
 	_last_blocked_key = ""
 	_interactor = null
@@ -523,7 +518,7 @@ func _apply_settings_changed() -> void:
 	refresh_anatomy()
 	if is_instance_valid(anatomy):
 		anatomy.call("refresh_tails")
-	if shape_change != null:
+	if is_instance_valid(body_change):
 		# A settings edit can change the re-seat toggle or a saved tail; the source applies its
 		# own wrapper once for each live body.
 		for pony: Variant in _runtimes.keys():
@@ -630,38 +625,39 @@ func body_swap_pending() -> bool:
 
 ## The first active source that handles this pony, or null.
 func shape_source_for(pony: Node) -> Variant:
-	if shape_change == null:
+	if not is_instance_valid(body_change):
 		return null
-	return shape_change.call("source_for", pony)
+	return body_change.call("source_for", pony)
 
 
 ## Any active shape-changing source, for the debug block's visibility gate.
 func shape_source_active() -> bool:
-	return shape_change != null and bool(shape_change.call("active"))
+	return is_instance_valid(body_change) and bool(body_change.call("active"))
 
 
 ## True when the body's source owns a tail placement the anatomy editor can move.
 func custom_tail_ready(pony: Node) -> bool:
-	return shape_change != null and bool(shape_change.call("has_tail_placement", pony))
+	return is_instance_valid(body_change) and bool(body_change.call("has_tail_placement", pony))
 
 
 ## Re-apply the source's current tail placement after an anatomy edit or a settings change.
 func apply_custom_tail(pony: Node) -> void:
-	if shape_change != null:
-		shape_change.call("apply_tail_placement", pony)
+	if is_instance_valid(body_change):
+		body_change.call("apply_tail_placement", pony)
 
 
 ## The live source-owned tail lines, one per wrapper.
 func custom_tail_report() -> String:
-	if shape_change == null:
+	if not is_instance_valid(body_change):
 		return ""
-	return str(shape_change.call("tail_placement_report"))
+	return str(body_change.call("tail_placement_report"))
 
 
-## Fit and prepare a new body before it can take a runtime or an act. Every hook is optional.
+## Fit and prepare a new body before it can take a runtime or an act. The body-change service asks
+## the handling provider for the body's form and mirrors it before anatomy attaches.
 func _prepare_pony(pony: Node) -> void:
-	if shape_change != null:
-		shape_change.call("prepare_pony", pony)
+	if is_instance_valid(body_change):
+		body_change.call("notify_body_ready", pony)
 	if is_instance_valid(anatomy):
 		anatomy.call("tail_ready", pony)
 	if is_instance_valid(stock_smack):
@@ -752,9 +748,9 @@ func live_character_ids() -> Array[String]:
 ## Mares an active installed-profile source lists even while she is away. The source owns the
 ## installation gate; the base roster stays the base roster.
 func installed_character_ids() -> Array[String]:
-	if shape_change == null:
+	if not is_instance_valid(body_change):
 		return []
-	return shape_change.call("installed_character_ids")
+	return body_change.call("installed_character_ids")
 
 
 ## The settings page hook. No game-script extension is used. Opening the page re-reads
@@ -1565,9 +1561,9 @@ func _form_source() -> Variant:
 		var aimed: Variant = shape_source_for(target)
 		if aimed != null:
 			return aimed
-	if shape_change == null:
+	if not is_instance_valid(body_change):
 		return null
-	var active: Variant = shape_change.call("active_sources")
+	var active: Variant = body_change.call("active_sources")
 	if active is Array and not (active as Array).is_empty():
 		return (active as Array)[0]
 	return null

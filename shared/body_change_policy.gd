@@ -35,6 +35,11 @@ class BodyChangeActContext extends RefCounted:
 	var offer_pending: bool = false
 	var reveal_used: bool = false
 	var by_player: bool = false
+	## The act's pony-climax count and cap (0 = no cap); `act_active` is true only in the act's
+	## active state, so a policy can gate an offer on the stage the player can answer it in.
+	var pony_climaxes: int = 0
+	var max_climaxes: int = 0
+	var act_active: bool = false
 
 
 ## Every generic act milestone. The provider decides whether this event matters to it.

@@ -19,6 +19,11 @@ func is_active() -> bool:
 	return false
 
 
+## Re-read the provider's own pack availability and registration. Optional.
+func refresh() -> void:
+	pass
+
+
 ## True when this source handles the pony's presented body.
 func handles_pony(_pony: Node3D) -> bool:
 	return false
@@ -84,3 +89,8 @@ func has_tail_placement(_pony: Node3D) -> bool:
 ## Apply the provider's tail placement. Optional.
 func apply_tail_placement(_pony: Node3D) -> void:
 	pass
+
+
+## One line per live source-owned tail, or "" for none. Optional.
+func tail_placement_report() -> String:
+	return ""

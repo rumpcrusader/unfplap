@@ -3,8 +3,12 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/integrations/test_changelings.gd
 
+const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
-const SHAPE_CHANGE := preload("res://mods/unfplap/integrations/shape_change.gd")
+const CHANGELINGS_POLICY := preload("res://mods/unfplap/integrations/changelings_policy.gd")
+const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const API := preload("res://mods/unfplap/api.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -22,6 +26,7 @@ class FakeEligibility extends RefCounted:
 
 class FakeMain extends Node:
 	var api: Node
+	var body_change: Node
 	var live_ids: Array[String] = []
 	var game: Variant = null
 	var eligibility: Variant = null
@@ -139,6 +144,11 @@ func run() -> void:
 	main.name = "FakeMain"
 	main.eligibility = FakeEligibility.new()
 	root.add_child(main)
+	var body_change := BODY_CHANGE_SERVICE.new()
+	body_change.name = "UnfplapBodyChange"
+	body_change.call("setup", main)
+	root.add_child(body_change)
+	main.body_change = body_change
 	var api := API.new()
 	api.name = "UnfplapAPI"
 	root.add_child(api)
@@ -153,6 +163,12 @@ func run() -> void:
 	adapter.set("mod_active", Callable(gate, "active"))
 	adapter.call("setup", main)
 	root.add_child(adapter)
+	check(bool(body_change.call("register_source", adapter)),
+		"the adapter registers as a typed body-change source")
+	var bare := Node.new()
+	check(not bool(body_change.call("register_source", bare)),
+		"a bare node is not a body-change source")
+	bare.free()
 
 	# With the pack installed she is a registered provider mare and an installed list entry.
 	gate.on = true
@@ -191,7 +207,7 @@ func run() -> void:
 	root.add_child(own)
 	var holder: Node3D = own.get_node_or_null("Skeleton3D/Hair_tail") as Node3D
 	var chain: Node3D = holder.get_node_or_null("Chain") as Node3D
-	adapter.call("prepare_pony", own)
+	body_change.call("notify_body_ready", own)
 	check(str(own.get_meta("body_fit_id", "")) == "chrysalis", "her own body uses her fit")
 	check(str(own.get_meta("anatomy_owned_meta", "")) == "chrysalis_own",
 		"her body names the marker its hide pass keeps")
@@ -201,7 +217,7 @@ func run() -> void:
 	check(is_instance_valid(wrapper) and str(wrapper.name) == "UnfplapTailPlacement",
 		"the adapter puts a placement wrapper above the chain")
 	check(wrapper.get_parent() == holder, "the wrapper sits under the hair attachment")
-	adapter.call("prepare_pony", own)
+	body_change.call("notify_body_ready", own)
 	check(chain.get_parent() == wrapper, "a repeated prepare reuses the wrapper")
 	check(holder.get_node_or_null("UnfplapTailPlacement/UnfplapTailPlacement") == null,
 		"the wrapper is never nested")
@@ -210,6 +226,19 @@ func run() -> void:
 	check(IDENTITY.body_fit_id(own) == "chrysalis", "the body-fit fallback reads the metadata")
 	check(near(float(SETTINGS.anatomy_placement("chrysalis", "chrysalis")
 		.get("offset_y", 0.0)), 0.49), "her fit resolves the provider placement")
+	var own_form: BODY_FORM.BodyForm = body_change.call("form_for", own)
+	check(own_form.pony_id == "chrysalis" and own_form.is_own(),
+		"her own form keeps the stable identity and the empty form id")
+	check(own_form.form_name == "Queen Chrysalis", "her own form carries her name")
+	check(own_form.fit_id == "chrysalis", "her own form uses her placement row")
+	check(own_form.rig.id == "celestia", "her own form uses the princess rig")
+	check(own_form.owned_mesh_meta == "chrysalis_own", "her own form keeps the source marker")
+	check(own_form.tail_root == chain, "her own form returns the spring-tail root")
+	check(adapter.call("source_id") == "changelings", "the source names its provider id")
+	check(bool(adapter.call("is_active")), "the source reports the pack active")
+	check(not bool(adapter.call("change_in_progress")), "no change is in progress yet")
+	check(adapter.call("presented_form_id", own).is_empty(),
+		"her own body presents no borrowed form id")
 
 	# The tail keys apply from the pack's modelled root, like the seat from its reference dock.
 	check(near(wrapper.position.y, 0.04), "her baked tail default is applied")
@@ -250,7 +279,7 @@ func run() -> void:
 	late_body.add_child(late_mesh)
 	late_body.own_meshes = [late_mesh]
 	root.add_child(late_body)
-	adapter.call("prepare_pony", late_body)
+	body_change.call("notify_body_ready", late_body)
 	check(str(late_body.get_meta("body_fit_id", "")) == "chrysalis",
 		"an early own body still gets her fit")
 	check(not late_body.has_meta("tail_pose_root"), "an early body has no tail root yet")
@@ -296,58 +325,83 @@ func run() -> void:
 		"the tail root falls back to a recursive attachment search")
 	fallback.free()
 
-	# A disguise copies the pony's fit and drops the custom tail root.
+	# A disguise copies the pony's fit and keeps only the source marker, with no custom tail root.
 	var disguise := FakePony.new()
 	disguise.identity = _identity("chrysalis", "")
 	disguise.set_meta("geometry_variant", "changeling=fluttershy")
 	root.add_child(disguise)
 	disguise.set_meta("tail_pose_root", chain)
-	adapter.call("prepare_pony", disguise)
+	body_change.call("notify_body_ready", disguise)
 	check(str(disguise.get_meta("body_fit_id", "")) == "fluttershy",
 		"a disguise uses the copied pony's fit")
-	check(not disguise.has_meta("anatomy_owned_meta"), "a disguise has no body marker")
+	check(str(disguise.get_meta("anatomy_owned_meta", "")) == "chrysalis_own",
+		"a disguise keeps the source marker")
 	check(not disguise.has_meta("tail_pose_root"), "a disguise has no custom tail root")
 	check(not bool(adapter.call("has_tail_placement", disguise)),
 		"a disguise has no source-owned tail placement")
+	check(adapter.call("presented_form_id", disguise) == "fluttershy",
+		"a disguise presents the copied form id")
 	check(SETTINGS.anatomy_placement("chrysalis", "fluttershy")
 		== SETTINGS.anatomy_placement("fluttershy"), "a disguise does not borrow her placement")
+	var disguise_form: BODY_FORM.BodyForm = body_change.call("form_for", disguise)
+	check(disguise_form.pony_id == "chrysalis" and disguise_form.form_id == "fluttershy",
+		"a borrowed regular form keeps the stable identity and the shape id")
+	check(disguise_form.fit_id == "fluttershy", "a borrowed regular form uses the shape's fit")
+	check(disguise_form.rig.is_ordinary(), "a borrowed regular form uses the ordinary rig")
+	check(disguise_form.owned_mesh_meta == "chrysalis_own",
+		"a borrowed regular form keeps the source marker")
+	check(disguise_form.tail_root == null, "a borrowed regular form has no own tail root")
+
+	# A borrowed princess shape takes the shared profile table's rig.
+	var princess := FakePony.new()
+	princess.identity = _identity("chrysalis", "")
+	princess.set_meta("geometry_variant", "changeling=celestia")
+	root.add_child(princess)
+	body_change.call("notify_body_ready", princess)
+	var princess_form: BODY_FORM.BodyForm = body_change.call("form_for", princess)
+	check(princess_form.form_id == "celestia" and princess_form.fit_id == "celestia",
+		"a borrowed princess form uses the shape's fit")
+	check(princess_form.rig.id == "celestia", "a borrowed princess form uses the princess rig")
+	check(princess_form.owned_mesh_meta == "chrysalis_own",
+		"a borrowed princess form keeps the source marker")
+	check(princess_form.tail_root == null, "a borrowed princess form has no own tail root")
+	check(near(princess_form.body_scale, 1.0), "a borrowed form carries the live body scale")
 
 	# An unrelated pony is never touched.
 	var other := FakePony.new()
 	other.identity = _identity("fluttershy")
 	root.add_child(other)
-	adapter.call("prepare_pony", other)
+	body_change.call("notify_body_ready", other)
 	check(not other.has_meta("body_fit_id"), "an unrelated pony keeps the generic fit rule")
 
-	# The generic source contract: the adapter is the only object that reads the pack's fields.
-	var manager := SHAPE_CHANGE.new()
-	manager.call("register", adapter)
-	check(bool(manager.call("active")), "the manager sees the active source")
-	check(manager.call("source_for", own) == adapter, "her body resolves to the source")
-	check(manager.call("source_for", other) == null, "an unrelated pony has no source")
-	check((manager.call("installed_character_ids") as Array) == ["chrysalis"],
-		"the manager lists the installed mare")
+	# The typed body-change source registry: the adapter is the only object that reads the pack's
+	# fields, and the base service owns the lookup and the optional provider forwards.
+	check(bool(body_change.call("active")), "the service sees the active source")
+	check(body_change.call("source_for", own) == adapter, "her body resolves to the source")
+	check(body_change.call("source_for", other) == null, "an unrelated pony has no source")
+	check((body_change.call("installed_character_ids") as Array) == ["chrysalis"],
+		"the service lists the installed mare")
 	check(bool(adapter.call("handles_pony", own)), "the source handles her own body")
 	check(bool(adapter.call("handles_pony", disguise)), "the source handles a disguise")
 	check(not bool(adapter.call("handles_pony", other)), "the source leaves other mares alone")
-	var manager_tail := SETTINGS.anatomy_placement("chrysalis", "chrysalis")
-	manager_tail["tail_y"] = 0.03
-	SETTINGS.save_anatomy_placement("chrysalis", manager_tail, "chrysalis")
-	check(bool(manager.call("has_tail_placement", own)),
-		"the manager forwards the tail-placement check")
-	check(not bool(manager.call("has_tail_placement", other)),
+	var service_tail := SETTINGS.anatomy_placement("chrysalis", "chrysalis")
+	service_tail["tail_y"] = 0.03
+	SETTINGS.save_anatomy_placement("chrysalis", service_tail, "chrysalis")
+	check(bool(body_change.call("has_tail_placement", own)),
+		"the service forwards the tail-placement check")
+	check(not bool(body_change.call("has_tail_placement", other)),
 		"a body without a source has no tail placement")
-	manager.call("apply_tail_placement", own)
-	check(near(wrapper.position.y, 0.03), "the manager forwards the placement apply")
-	check(str(manager.call("tail_placement_report")).contains(
+	body_change.call("apply_tail_placement", own)
+	check(near(wrapper.position.y, 0.03), "the service forwards the placement apply")
+	check(str(body_change.call("tail_placement_report")).contains(
 		"chrysalis custom tail offset=(0.000,0.030,0.000)"),
-		"the manager forwards the tail report")
+		"the service forwards the tail report")
 	SETTINGS.save_anatomy_placement("chrysalis",
 		SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis"), "chrysalis")
-	manager.call("apply_tail_placement", own)
+	body_change.call("apply_tail_placement", own)
 
 	# A true-form change: the old body is captured, the new own body is claimed, and completion
-	# clears the change while leaving the handles for the act's log.
+	# leaves the typed change readable for the act's watcher.
 	pack.actor = own
 	pack.disguised_as = "fluttershy"
 	check(bool(adapter.call("request_true_form")), "the source starts a true-form change")
@@ -355,6 +409,11 @@ func run() -> void:
 		"the old body is held for the act")
 	check(str(adapter.call("target")).is_empty(), "a true-form change has no shape target")
 	check(pack.revealed == 1, "the source calls the pack's reveal")
+	var begun: BODY_CHANGE = body_change.call("active_change")
+	check(begun == adapter.call("active_change") and begun.source == adapter,
+		"the provider announcement publishes the typed change")
+	check(begun.state == BODY_CHANGE.State.REQUESTED and begun.target_form_id.is_empty(),
+		"the new change starts requested with an empty target")
 	var true_new := _own_body()
 	root.add_child(true_new)
 	check(bool(adapter.call("claims_body", true_new)), "the new own body is claimed")
@@ -363,12 +422,19 @@ func run() -> void:
 	adapter.call("poll")
 	check(adapter.call("new_actor") == true_new, "the new body is readable")
 	check(not bool(adapter.call("is_changing")), "poll ends the change when the pack is free")
+	var settled: BODY_CHANGE = body_change.call("active_change")
+	check(settled == adapter.call("active_change") and settled.state == BODY_CHANGE.State.SETTLED,
+		"the completed change is published as settled")
+	var true_form: BODY_FORM.BodyForm = body_change.call("form_for", true_new)
+	check(true_form.is_own() and true_form.fit_id == "chrysalis",
+		"the new own body presents her own form")
 
 	# A named shape: the copied body's variant is its claim, not any changeling body.
 	pack.actor = own
 	pack.disguised_as = ""
 	check(bool(adapter.call("request_shape", "rarity")), "the source starts a named change")
 	check(str(adapter.call("target")) == "rarity", "the requested shape is held")
+	check(adapter.call("target_form_id") == "rarity", "the typed target reads the same shape")
 	check(pack.disguised_to == "rarity", "the source calls the pack's disguise")
 	var shape_new := FakePony.new()
 	shape_new.identity = _identity("chrysalis", "")
@@ -409,21 +475,30 @@ func run() -> void:
 	early.own_meshes = [MeshInstance3D.new()]
 	root.add_child(early)
 	pack.actor = early
-	adapter.call("prepare_pony", early)
+	body_change.call("notify_body_ready", early)
 	check(str(early.get_meta("body_fit_id", "")) == "rarity",
 		"the new body is fitted as the target before its variant")
 	check(not early.has_meta("tail_pose_root"), "the target fit exposes no own tail root")
-	check(not early.has_meta("anatomy_owned_meta"), "the target fit keeps no own body marker")
+	check(str(early.get_meta("anatomy_owned_meta", "")) == "chrysalis_own",
+		"the target fit keeps the source marker")
 	check(early_chain.get_parent() == early_attach,
 		"the target fit adds no own tail wrapper")
+	var early_form: BODY_FORM.BodyForm = body_change.call("form_for", early)
+	check(early_form.form_id == "rarity" and early_form.fit_id == "rarity",
+		"the new body's form is the requested shape")
+	check(early_form.owned_mesh_meta == "chrysalis_own" and early_form.tail_root == null,
+		"the new body's borrowed form keeps the marker and drops the own tail")
 	var own_fit := str(own.get_meta("body_fit_id", ""))
-	adapter.call("prepare_pony", own)
+	body_change.call("notify_body_ready", own)
 	check(str(own.get_meta("body_fit_id", "")) == own_fit,
 		"the old body is not refitted during the change")
+	var old_form: BODY_FORM.BodyForm = body_change.call("form_for", own)
+	check(old_form.is_own() and old_form.fit_id == "chrysalis",
+		"the old body keeps its own form, not the new body's fit")
 	var untouched := FakePony.new()
 	untouched.identity = _identity("fluttershy")
 	root.add_child(untouched)
-	adapter.call("prepare_pony", untouched)
+	body_change.call("notify_body_ready", untouched)
 	check(not untouched.has_meta("body_fit_id"),
 		"an unrelated pony is not fitted during the change")
 
@@ -446,6 +521,29 @@ func run() -> void:
 	pack.busy = false
 	adapter.call("poll")
 	check(not bool(adapter.call("is_changing")), "the delayed named change completes")
+
+	# A body prepared before the pack exposes the requested shape first reads as her own form;
+	# once the target becomes known the descriptor changes and the revision bumps for that body.
+	pack.actor = own
+	pack.disguised_as = ""
+	pack.busy = false
+	check(bool(adapter.call("request_shape", "rarity")), "a late-variant change starts")
+	var late_variant := _own_body()
+	root.add_child(late_variant)
+	body_change.call("notify_body_ready", late_variant)
+	var before_variant: BODY_FORM.BodyForm = body_change.call("form_for", late_variant)
+	check(before_variant.is_own() and before_variant.revision == 0,
+		"the body reads as her own form before the target is known")
+	pack.actor = late_variant
+	body_change.call("notify_body_ready", late_variant)
+	var after_variant: BODY_FORM.BodyForm = body_change.call("form_for", late_variant)
+	check(after_variant.form_id == "rarity" and after_variant.fit_id == "rarity",
+		"the late target refits the body as the borrowed shape")
+	check(after_variant.revision == before_variant.revision + 1,
+		"the late variant bumps only that body's form revision")
+	pack.busy = false
+	adapter.call("poll")
+	check(not bool(adapter.call("is_changing")), "the late-variant change completes")
 
 	# The player's own words: the reveal ask, then an adult mare's name.
 	pack.actor = true_new
@@ -526,6 +624,42 @@ func run() -> void:
 	check(str(adapter.call("named_form", "Sunny Star")) == "sunny_star",
 		"a live off-roster adult mare resolves")
 	main.live_ids = []
+
+	# The provider policy owns the offer timing, prompt and reveal effects.
+	var policy: POLICY = adapter.call("policy")
+	check(policy is CHANGELINGS_POLICY, "the adapter returns the typed changelings policy")
+	var offer_context := POLICY.BodyChangeActContext.new()
+	offer_context.form = own_form
+	offer_context.act_active = true
+	offer_context.pony_climaxes = 1
+	check(policy.should_offer(offer_context),
+		"the policy offers after the first climax in her own form")
+	offer_context.pony_climaxes = 0
+	check(not policy.should_offer(offer_context), "no offer before the first climax")
+	offer_context.pony_climaxes = 1
+	offer_context.act_active = false
+	check(not policy.should_offer(offer_context), "no offer outside the active stage")
+	offer_context.act_active = true
+	offer_context.form = disguise_form
+	check(not policy.should_offer(offer_context), "no offer while she wears a borrowed form")
+	offer_context.form = own_form
+	offer_context.offer_pending = true
+	check(not policy.should_offer(offer_context), "no second offer while one is pending")
+	offer_context.offer_pending = false
+	offer_context.reveal_used = true
+	check(not policy.should_offer(offer_context), "no offer after the reveal was used")
+	check(policy.offer_prompt() == CHANGELINGS_POLICY.OFFER_PROMPT,
+		"the policy supplies the one offer prompt")
+	check(policy.offer_prompt().contains("adult mare's shape"),
+		"the offer prompt names any adult mare's shape")
+	var accepted := policy.on_offer_accepted(offer_context)
+	check(accepted.is_empty(), "a named shape is neutral")
+	var reveal := policy.on_reveal(offer_context)
+	check(near(reveal.heat, 30.0), "the reveal adds the readiness heat")
+	check(near(reveal.peak, 150.0), "the reveal records the peak")
+	check(reveal.comfort == 1, "the reveal marks one comfort beat")
+	check(reveal.memory_kind == "form_reveal" and not reveal.cue.is_empty(),
+		"the reveal names its memory and cue")
 
 	# The shape she already wears is not a change, and the pack's population decides copyable.
 	pack.actor = shape_new
@@ -629,17 +763,20 @@ func run() -> void:
 
 	# The pack off unregisters the provider and empties the installed list.
 	gate.on = false
-	adapter.call("refresh")
+	body_change.call("refresh_sources")
 	check(not REGISTRY.has("chrysalis"), "the layer is gone when the pack is off")
 	check((adapter.call("installed_character_ids") as Array).is_empty(),
 		"no ghost entry without the pack")
+	check(not bool(body_change.call("active")), "the service sees no active source")
+	check((body_change.call("installed_character_ids") as Array).is_empty(),
+		"the service lists no installed mare without the pack")
 	check(SETTINGS.character_name("chrysalis") != "Queen Chrysalis",
 		"the provider name is gone with the layer")
 
 	# On again: idempotent registration and listing.
 	gate.on = true
-	adapter.call("refresh")
-	adapter.call("refresh")
+	body_change.call("refresh_sources")
+	body_change.call("refresh_sources")
 	check(REGISTRY.has("chrysalis"), "the layer returns with the pack")
 	var again: Array = adapter.call("installed_character_ids")
 	check(again.size() == 1 and str(again[0]) == "chrysalis",
@@ -648,10 +785,12 @@ func run() -> void:
 	adapter.call("shutdown")
 	root.remove_child(adapter)
 	adapter.free()
-	for node: Node in [own, disguise, other, true_new, shape_new, wrong_shape, ai_shape, ai_own,
-			early, untouched, pack]:
+	for node: Node in [own, disguise, princess, other, true_new, shape_new, wrong_shape, ai_shape,
+			ai_own, early, late_variant, untouched, pack]:
 		root.remove_child(node)
 		node.free()
+	root.remove_child(body_change)
+	body_change.free()
 	api.call("_shutdown")
 	root.remove_child(api)
 	api.free()

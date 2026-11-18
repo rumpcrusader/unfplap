@@ -1,18 +1,21 @@
-extends Node
-## Queen Chrysalis, by changelings: the world-side adapter for the installed-mare profile, the
-## body-fit id and her own spring tail.
+extends "res://mods/unfplap/body_change/source.gd"
+## Queen Chrysalis, by changelings: the typed body-change provider for the installed-mare profile,
+## the forms the pack brings and her own spring tail.
 ##
 ## The pack's own body script extends the game's pony, so unfplap already attaches its runtime and
 ## anatomy controller. This adapter adds only what the generic core cannot know: her approved
-## profile as a provider layer, her body-fit and custom tail-root metadata on the bodies she
-## brings, the installed list entry while the pack is active, and the player's own words for the
-## reveal ask and the named shape. It reads the pack's public nodes and state; it never edits the
-## pack and never requires a rebuild.
+## profile as a provider layer, the body form for each body the pack brings, the installed list
+## entry while the pack is active, and the player's own words for the reveal ask and the named
+## shape. It reads the pack's public nodes and state; it never edits the pack and never requires a
+## rebuild.
 ##
-## Scope: world. `main.gd` constructs it once. It never preloads `main.gd` or `runtime.gd`.
+## Scope: world. `main.gd` constructs it once and registers it with `main.body_change`. It never
+## preloads `main.gd` or `runtime.gd`.
 ##
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Placement`, `## Tail seating`).
 
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
+const CHANGELINGS_POLICY := preload("res://mods/unfplap/integrations/changelings_policy.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const MOD_ID := "changelings"
@@ -30,6 +33,8 @@ const SHAPE_PREFIX := "changeling="
 ## Her own body script hides every mesh under her model that lacks this pack marker, so the
 ## anatomy mesh on her skeleton must carry it or it is hidden for good.
 const BODY_OWN_META := "chrysalis_own"
+## Her own body's rig row. The cell body is the princess profile, not the ordinary mare body.
+const OWN_RIG := "celestia"
 ## The pack builds her hair a few frames after the body's first prepare. Retry the tail-root
 ## lookup for a short grace so the wrapper can attach once the chain exists.
 const LATE_TAIL_TRIES := 6
@@ -82,15 +87,21 @@ var main: Node
 var mod_active := Callable()
 
 var _registered := false
-## The generic shape-change source state. The runtime reads it through the source methods below;
-## it never sees the pack's own fields.
+## The typed change the runtime reads through the source methods below; it never sees the pack's
+## own fields.
+var _change: BODY_CHANGE = null
 var _changing := false
 var _change_old: Node = null
 var _change_new: Node = null
 var _change_target := ""
 var _change_by_player := false
-var _change_fit_done := false
-var _change_refit_done := false
+## A named change's variant is refitted and announced once when it settles.
+var _change_variant_done := false
+## Presented body -> the signature of the last form the provider returned and its revision.
+## A late variant that changes the descriptor bumps the revision for that body only.
+var _form_signatures: Dictionary = {}
+var _form_revisions: Dictionary = {}
+var _policy: POLICY = null
 ## The last body the act asked about. The runtime resolves its source through `handles_pony`
 ## before every poll, so this is the act pony without a new contract method.
 var _act_pony: Node = null
@@ -131,13 +142,25 @@ func installed_character_ids() -> Array[String]:
 	return out
 
 
-# --------------------------------------------------------------------------- shape-change source
+## The pack's offer/reveal policy. The base runtime executes its typed effects.
+func policy() -> POLICY:
+	if _policy == null:
+		_policy = CHANGELINGS_POLICY.new()
+	return _policy
+
+
+# --------------------------------------------------------------------------- body-change source
 #
-# The generic contract is documented in `integrations/shape_change.gd`. Only this adapter reads
-# the pack's own `busy`, `actor` and `disguised_as` fields and calls `reveal()` / `disguise()`.
+# Only this adapter reads the pack's own `busy`, `actor` and `disguised_as` fields and calls
+# `reveal()` / `disguise()`.
+
+## The stable provider id for the body-change service.
+func source_id() -> String:
+	return MOD_ID
+
 
 ## True when this installed body may be changed through the pack.
-func handles_pony(pony: Node) -> bool:
+func handles_pony(pony: Node3D) -> bool:
 	if not active() or not is_instance_valid(pony):
 		return false
 	var handled := _is_disguise(pony) or _is_own_body(pony)
@@ -150,7 +173,7 @@ func handles_pony(pony: Node) -> bool:
 
 
 ## The body a new change should claim, so the act is adopted before the pack finishes settling.
-func claims_body(pony: Node) -> bool:
+func claims_body(pony: Node3D) -> bool:
 	if not _changing or not is_instance_valid(pony):
 		return false
 	if _change_target.is_empty():
@@ -169,8 +192,17 @@ func is_active() -> bool:
 	return active()
 
 
-func is_changing() -> bool:
+func change_in_progress() -> bool:
 	return _changing
+
+
+## Compatibility for the runtime's existing watcher until the typed change read lands.
+func is_changing() -> bool:
+	return change_in_progress()
+
+
+func active_change() -> BODY_CHANGE:
+	return _change
 
 
 func old_actor() -> Node:
@@ -182,8 +214,29 @@ func new_actor() -> Node:
 
 
 ## The requested shape id; empty while she returns to her own form.
-func target() -> String:
+func target_form_id() -> String:
 	return _change_target
+
+
+## Compatibility for the runtime's existing watcher until the typed change read lands.
+func target() -> String:
+	return target_form_id()
+
+
+## The shape the presented body wears; empty for her own form.
+func presented_form_id(body: Node3D) -> String:
+	if not is_instance_valid(body):
+		return ""
+	var shape := _shape_of(body)
+	if not shape.is_empty():
+		return shape
+	var mod := _source_mod()
+	if mod == null:
+		return ""
+	var actor: Variant = mod.get("actor")
+	if actor is Node and is_instance_valid(actor) and actor == body:
+		return str(mod.get("disguised_as")).strip_edges()
+	return ""
 
 
 ## The shape she wears now; empty while she is her own form. The spawned body's geometry variant
@@ -195,7 +248,7 @@ func current_shape() -> String:
 		return ""
 	var actor: Variant = mod.get("actor")
 	if actor is Node and is_instance_valid(actor):
-		var worn := _shape_of(actor as Node)
+		var worn := presented_form_id(actor as Node3D)
 		if not worn.is_empty():
 			return worn
 		if _is_own_body(actor as Node):
@@ -206,16 +259,39 @@ func current_shape() -> String:
 ## Mark the change just started as the player's ask. The runtime requests the change first and
 ## sets the flag before its watcher sees the change, so the reveal event can tell it apart.
 func set_player_request(by_player: bool) -> void:
-	if _changing:
-		_change_by_player = by_player
+	if not _changing:
+		return
+	_change_by_player = by_player
+	if _change != null:
+		_change.origin = BODY_CHANGE.Origin.PLAYER if by_player else BODY_CHANGE.Origin.AI
+		_notify_source_changed()
 
 
 func requested_by_player() -> bool:
 	return _change_by_player
 
 
-## Start a change back to her own form. The pack plays the flame and replaces the body.
+## Ask for a borrowed or custom form. The pack owns whether that shape is available.
+func request_form(body: Node3D, form_id: String, origin: BODY_CHANGE.Origin) -> bool:
+	return _start_shape(body, form_id, origin)
+
+
+## Ask for the identity's own form. The pack plays the flame and replaces the body.
+func request_own_form(body: Node3D, origin: BODY_CHANGE.Origin) -> bool:
+	return _start_own_form(body, origin)
+
+
+## Compatibility for the runtime's existing request path until the typed change hook lands.
 func request_true_form() -> bool:
+	return _start_own_form(null, BODY_CHANGE.Origin.PROVIDER)
+
+
+## Compatibility for the runtime's existing request path until the typed change hook lands.
+func request_shape(shape_id: String) -> bool:
+	return _start_shape(null, shape_id, BODY_CHANGE.Origin.PROVIDER)
+
+
+func _start_own_form(body: Node3D, origin: BODY_CHANGE.Origin) -> bool:
 	var mod := _source_mod()
 	if not active() or _changing or mod == null:
 		return false
@@ -224,13 +300,13 @@ func request_true_form() -> bool:
 		return false
 	if str(mod.get("disguised_as")).is_empty():
 		return false
-	_begin_change(current as Node, "", false)
+	var old: Node = body if is_instance_valid(body) else current as Node
+	_begin_change(old, "", origin)
 	mod.call("reveal")
 	return true
 
 
-## Start a change to `shape_id`. The pack owns whether that shape is available.
-func request_shape(shape_id: String) -> bool:
+func _start_shape(body: Node3D, shape_id: String, origin: BODY_CHANGE.Origin) -> bool:
 	var shape := shape_id.strip_edges()
 	var mod := _source_mod()
 	if not active() or _changing or mod == null or shape.is_empty():
@@ -238,7 +314,8 @@ func request_shape(shape_id: String) -> bool:
 	var current: Variant = mod.get("actor")
 	if not current is Node3D or not is_instance_valid(current):
 		return false
-	_begin_change(current as Node, shape, false)
+	var old: Node = body if is_instance_valid(body) else current as Node
+	_begin_change(old, shape, origin)
 	mod.call("disguise", shape)
 	return true
 
@@ -269,21 +346,27 @@ func poll() -> void:
 		return
 	var current: Variant = mod.get("actor")
 	if current is Node3D and is_instance_valid(current) and current != _change_old:
-		_change_new = current as Node
-		# The pack writes the copied id on the new body or `disguised_as`; a true-form body is
-		# not a disguise, so the empty target stays correct for a reveal.
-		if _change_target.is_empty() and _is_disguise(_change_new):
-			var shape := _shape_of(_change_new)
-			if shape.is_empty():
-				shape = str(mod.get("disguised_as")).strip_edges()
-			if not shape.is_empty():
-				_change_target = shape
-	if not _change_target.is_empty() and not _change_refit_done \
+		if current != _change_new:
+			_change_new = current as Node
+			if _change != null:
+				_change.next_body = _change_new
+			# The pack writes the copied id on the new body or `disguised_as`; a true-form body
+			# is not a disguise, so the empty target stays correct for a reveal.
+			if _change_target.is_empty() and _is_disguise(_change_new):
+				var shape := _shape_of(_change_new)
+				if shape.is_empty():
+					shape = str(mod.get("disguised_as")).strip_edges()
+				if not shape.is_empty():
+					_change_target = shape
+					if _change != null:
+						_change.target_form_id = shape
+			_notify_source_changed()
+			_notify_body_ready(_change_new)
+	if not _change_target.is_empty() and not _change_variant_done \
 			and is_instance_valid(_change_new):
 		if _pack_shape(_change_new, mod) == _change_target:
-			_change_refit_done = true
-			_change_fit_done = true
-			_apply_fit(_change_new, _change_target, null)
+			_change_variant_done = true
+			_notify_body_ready(_change_new)
 			_prepare_change_body(_change_new)
 	if not bool(mod.get("busy")):
 		_end_change()
@@ -309,7 +392,7 @@ func _observe(mod: Node) -> void:
 	var old := actor as Node
 	if is_instance_valid(_act_pony):
 		old = _act_pony
-	_begin_change(old, "", false)
+	_begin_change(old, "", BODY_CHANGE.Origin.AI)
 
 
 func source_name() -> String:
@@ -397,55 +480,38 @@ func refresh() -> void:
 		_unregister()
 
 
-## Put the generic body-fit and tail metadata on a body she brings. Her own body uses her
-## approved placement and the adapter-owned tail wrapper; a disguise uses the copied pony's fit
-## and the normal hair path. A named change's new body is fitted as the target before its variant
-## arrives; the old body and unrelated ponies are left alone. A missing node is a quiet no-op, so a
-## pack update can change the shape without a crash.
+## Compatibility for the old prepare hook. The body-change service owns the form application.
 func prepare_pony(pony: Node) -> void:
-	if not active() or not is_instance_valid(pony):
-		return
-	if _changing and not _change_target.is_empty():
-		var named := _change_shape_for(pony)
-		if named.is_empty():
-			return
-		_change_new = pony
-		if not _change_fit_done:
-			_apply_fit(pony, named, null)
-			_change_fit_done = true
-		return
-	if _is_disguise(pony):
-		var shape := _shape_of(pony)
-		if not shape.is_empty():
-			_apply_fit(pony, shape, null)
-		return
-	if _is_own_body(pony):
-		_apply_own_tail(pony)
-		return
-	var identity: Variant = pony.get("identity")
-	if identity == null:
-		# The pack may build the body before its identity is assigned; it can still become hers.
-		_schedule_late_tail(pony)
-		return
-	if str(identity.get("id")).strip_edges() != ID:
-		return
-	# A form whose variant marker is missing: the copied body's own identity names its fit.
-	var fit := ""
-	var character: Variant = identity.get("character_id")
-	if character != null:
-		fit = str(character).strip_edges()
-	_apply_fit(pony, fit if not fit.is_empty() else ID, null)
-	_schedule_late_tail(pony)
+	_notify_body_ready(pony)
 
 
-func has_tail_placement(pony: Node) -> bool:
-	if not active() or not is_instance_valid(pony) or _is_disguise(pony):
+## Build one presented body's form. Her own body carries her rig, fit, marker and spring-tail
+## root; a borrowed form carries the copied pony's fit and rig, keeps the source marker and has no
+## own tail root. The old body and unrelated ponies never receive the new body's form, and a late
+## variant that changes the descriptor bumps this body's revision.
+func prepare_body(body: Node3D, change: BODY_CHANGE) -> BODY_FORM.BodyForm:
+	if not is_instance_valid(body):
+		return null
+	var form := _build_form(body, _form_shape_for(body, change))
+	var signature := _form_signature(form)
+	var previous := str(_form_signatures.get(body, ""))
+	var revision := int(_form_revisions.get(body, 0))
+	if not previous.is_empty() and previous != signature:
+		revision += 1
+	_form_signatures[body] = signature
+	_form_revisions[body] = revision
+	form.revision = revision
+	return form
+
+
+func has_tail_placement(pony: Node3D) -> bool:
+	if not active() or not is_instance_valid(pony) or not presented_form_id(pony).is_empty():
 		return false
 	return _is_own_body(pony) and is_instance_valid(_tail_root(pony))
 
 
-func apply_tail_placement(pony: Node) -> void:
-	if not active() or not is_instance_valid(pony) or _is_disguise(pony):
+func apply_tail_placement(pony: Node3D) -> void:
+	if not active() or not is_instance_valid(pony) or not presented_form_id(pony).is_empty():
 		return
 	var root := _tail_root(pony)
 	if is_instance_valid(root):
@@ -467,13 +533,57 @@ func tail_placement_report() -> String:
 	return "\n".join(lines)
 
 
-func _apply_own_tail(pony: Node) -> void:
-	var root := _tail_root(pony)
-	_apply_fit(pony, ID, root)
+func _form_shape_for(body: Node3D, change: BODY_CHANGE) -> String:
+	var shape := _shape_of(body)
+	if not shape.is_empty():
+		return shape
+	var changing_shape := _change_shape_for(body)
+	if not changing_shape.is_empty():
+		return changing_shape
+	if change != null and not change.target_form_id.is_empty() \
+			and body != change.previous_body and change.next_body == body:
+		return change.target_form_id
+	return ""
+
+
+func _build_form(body: Node3D, shape: String) -> BODY_FORM.BodyForm:
+	var form := BODY_FORM.BodyForm.new()
+	form.pony_id = ID
+	form.form_id = shape
+	form.owned_mesh_meta = BODY_OWN_META
+	form.body_scale = _live_scale(body)
+	if not shape.is_empty():
+		form.form_name = _shape_name(shape)
+		form.fit_id = shape
+		form.rig = BODY_PROFILE.rig_for_key(shape)
+		return form
+	form.form_name = "Queen Chrysalis"
+	form.fit_id = ID
+	form.rig = BODY_PROFILE.rig_for_key(OWN_RIG)
+	var root := _tail_root(body)
 	if is_instance_valid(root):
-		_apply_tail_placement_now(pony, root)
-	else:
-		_schedule_late_tail(pony)
+		_apply_tail_placement_now(body, root)
+		form.tail_root = root
+	elif _may_be_hers(body):
+		_schedule_late_tail(body)
+	return form
+
+
+func _shape_name(shape: String) -> String:
+	var name := SETTINGS.character_name(shape).strip_edges()
+	return name if not name.is_empty() else shape
+
+
+func _live_scale(body: Node3D) -> float:
+	var value: Variant = body.get("body_scale")
+	return maxf(float(value), 0.1) if value != null else 1.0
+
+
+func _form_signature(form: BODY_FORM.BodyForm) -> String:
+	var rig_id := form.rig.id if form.rig != null else "-"
+	var tail := str(form.tail_root.get_instance_id()) if is_instance_valid(form.tail_root) else "-"
+	return "%s|%s|%s|%s|%s|%.4f|%s" % [
+		form.pony_id, form.form_id, form.form_name, form.fit_id, rig_id, form.body_scale, tail]
 
 
 func _may_be_hers(pony: Node) -> bool:
@@ -606,8 +716,7 @@ func _late_tail_one(pony: Variant) -> void:
 		return
 	var root := _tail_root(node)
 	if is_instance_valid(root):
-		_apply_fit(node, ID, root)
-		_apply_tail_placement_now(node, root)
+		_notify_body_ready(node)
 		if is_instance_valid(main) and main.has_method("prepare_pony_late"):
 			main.call("prepare_pony_late", pony)
 		_late_tail.erase(pony)
@@ -630,29 +739,23 @@ func _clear_late_tail() -> void:
 ## The entry node's teardown. Idempotent.
 func shutdown() -> void:
 	_end_change()
+	_clear_change_read()
 	_unregister()
 	_clear_late_tail()
 	_tail_wrappers.clear()
+	_form_signatures.clear()
+	_form_revisions.clear()
 	main = null
 
 
 func _exit_tree() -> void:
 	_end_change()
+	_clear_change_read()
 	_unregister()
 	_clear_late_tail()
 	_tail_wrappers.clear()
-
-
-func _apply_fit(pony: Node, fit: String, tail_root: Node3D) -> void:
-	pony.set_meta("body_fit_id", fit)
-	if fit == ID:
-		pony.set_meta("anatomy_owned_meta", BODY_OWN_META)
-	elif pony.has_meta("anatomy_owned_meta"):
-		pony.remove_meta("anatomy_owned_meta")
-	if is_instance_valid(tail_root):
-		pony.set_meta("tail_pose_root", tail_root)
-	elif pony.has_meta("tail_pose_root"):
-		pony.remove_meta("tail_pose_root")
+	_form_signatures.clear()
+	_form_revisions.clear()
 
 
 func _is_disguise(pony: Node) -> bool:
@@ -865,28 +968,64 @@ static func _normalize(text: String) -> String:
 
 
 ## One change, one old body. A second request while it runs is refused by the caller's gate.
-func _begin_change(old: Node, shape_id: String, by_player: bool) -> void:
+func _begin_change(old: Node, shape_id: String, origin: BODY_CHANGE.Origin) -> void:
 	_changing = true
 	_change_old = old
 	_change_new = null
 	_change_target = shape_id
-	_change_by_player = by_player
-	_change_fit_done = false
-	_change_refit_done = false
+	_change_by_player = origin == BODY_CHANGE.Origin.PLAYER
+	_change_variant_done = false
+	_change = BODY_CHANGE.new()
+	_change.source = self
+	_change.origin = origin
+	_change.previous_body = old as Node3D
+	_change.target_form_id = shape_id
+	_change.state = BODY_CHANGE.State.REQUESTED
+	_change.started_s = Time.get_ticks_msec() / 1000.0
 	# The pack is busy from here; the next rising edge is a new change, not this one.
 	_busy_seen = true
 	set_process(true)
+	_notify_source_changed()
 
 
 ## The pack has finished (or vanished). The old/new handles stay readable for the act watcher;
-## the per-change fit flags reset for the next change.
+## the per-change variant flag resets for the next change.
 func _end_change() -> void:
 	_changing = false
-	_change_fit_done = false
-	_change_refit_done = false
+	_change_variant_done = false
 	set_process(false)
+	if _change != null:
+		_change.state = BODY_CHANGE.State.SETTLED if is_instance_valid(_change_new) \
+			else BODY_CHANGE.State.FAILED
+	_notify_source_changed()
 	var mod := _source_mod()
 	_busy_seen = mod != null and bool(mod.get("busy"))
+
+
+func _clear_change_read() -> void:
+	_change = null
+	_notify_source_changed()
+
+
+func _body_change() -> Node:
+	if not is_instance_valid(main):
+		return null
+	var value: Variant = main.get("body_change")
+	return value as Node if value is Node else null
+
+
+func _notify_source_changed() -> void:
+	var service := _body_change()
+	if service != null and service.has_method("notify_source_changed"):
+		service.call("notify_source_changed", self)
+
+
+func _notify_body_ready(pony: Node) -> void:
+	if not is_instance_valid(pony):
+		return
+	var service := _body_change()
+	if service != null and service.has_method("notify_body_ready"):
+		service.call("notify_body_ready", pony)
 
 
 ## The new body's shape is on it now: fit it as the target and let the anatomy, tail and LOD

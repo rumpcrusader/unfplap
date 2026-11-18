@@ -1360,6 +1360,12 @@ func _check_anatomy_isolation(files: Array[String]) -> void:
 				"preload(\"res://world/", "preload(\"res://mods/unfplap/runtime.gd\")",
 				"preload(\"res://mods/unfplap/main.gd\")"]:
 			check(not text.contains(token), "%s stays pure: %s" % [name, token])
+	var controller := FileAccess.get_file_as_string(ROOT.path_join("anatomy/controller.gd"))
+	var line := FileAccess.get_file_as_string(ROOT.path_join("anatomy/coat_line.gd"))
+	check(controller.contains("coat_line.tick(attach.visible())"),
+		"the coat line receives the mesh visibility")
+	check(line.contains("func tick(visible: bool)"),
+		"the coat line tick takes visibility, not hidden")
 	var act := FileAccess.get_file_as_string(ROOT.path_join("anatomy/act.gd"))
 	check(not act.contains("runtime.get("), "the anatomy act does not read runtime fields")
 	check(not act.contains("runtime.call(\"_"), "the anatomy act does not call runtime private helpers")

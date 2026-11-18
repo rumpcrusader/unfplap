@@ -115,9 +115,9 @@ func clear() -> void:
 
 ## Called every frame by the controller. Builds the line lazily; the frames themselves come from
 ## `_on_skeleton_updated`, where the skeleton reports its final modifier-applied pose.
-func tick(hidden: bool) -> void:
-	_hidden = hidden
-	if hidden:
+func tick(visible: bool) -> void:
+	_hidden = not visible
+	if not visible:
 		return
 	if not is_instance_valid(mesh) or not is_instance_valid(skeleton) \
 			or not is_instance_valid(placement) or not is_instance_valid(material):

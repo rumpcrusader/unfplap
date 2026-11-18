@@ -186,6 +186,11 @@ resulting `view.contact_kind`/`view.contact_target`.
   so it follows the mare rather than a temporary body. A disguise copied onto another pony's body
   therefore uses that pony's fit, and the changelings adapter gives Queen Chrysalis her own
   `chrysalis` fit while she wears her own body.
+- A body may hide every mesh under its model unless the mesh carries a marker of the body's own.
+  It names that marker on the pony as `anatomy_owned_meta`; attachment copies it onto the anatomy
+  mesh and its parts, which ride the same skeleton. Queen Chrysalis's body uses this so its
+  `chrysalis_own` hide pass leaves the anatomy alone. The marker is adapter metadata, not a
+  `docs/api.md` convention.
 - The mare bits mesh, teats and skin strip ship with the pack, so a missing mesh is a broken
   build, not a state the controller handles.
 - The winking mesh is rebuilt once per source mesh and shared. The rebuild masks the anal rim out

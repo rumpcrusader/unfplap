@@ -247,10 +247,16 @@ bind. The adapter sets `body_fit_id` and `tail_pose_root` on the two kinds of bo
   fit and has no custom tail root, so it uses the copied pony's placement and the normal hair
   chain.
 
+Her own body's hide pass runs every half second and hides every mesh under her model that lacks
+the pack's `chrysalis_own` marker. The anatomy mesh and its parts are on the same skeleton, so the
+adapter names that marker on her own body as `anatomy_owned_meta`, and anatomy attachment copies
+it onto its parts. A disguise clears it. Without the marker her body hides the anatomy once and
+the visibility cache never re-shows it, because the state did not change.
+
 A missing node is a quiet no-op, so a pack update can change the shape without a crash. The
-integration does not depend on a new signal or a rebuilt pack. `body_fit_id` and `tail_pose_root`
-are internal adapter metadata: they are not a `docs/api.md` convention and another mod must not
-depend on them.
+integration does not depend on a new signal or a rebuilt pack. `body_fit_id`, `tail_pose_root` and
+`anatomy_owned_meta` are internal adapter metadata: they are not a `docs/api.md` convention and
+another mod must not depend on them.
 
 The adapter is also the pack's shape-change source. It watches the pack's public `busy`, `actor`
 and `disguised_as`: `request_true_form()` captures the current actor and calls `reveal()`;
@@ -377,7 +383,8 @@ overlay reads them.
 - `tests/integrations/test_hold.gd` — the runtime's named excitement Beat hold and last-release restore.
 - `tests/integrations/test_changelings.gd` — the installed list and provider layer while the pack is
   on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
-  the body-fit/custom-tail metadata for her own body, a disguise and an unrelated pony. It also
+  the body-fit/custom-tail/anatomy-marker metadata for her own body, a disguise and an unrelated
+  pony. It also
   pins the shape-change source through the manager: the actor/old/new/target state, the true-form
   and named requests, the claimed body, the idle appear hook and the completion poll. An AI-started
   change is observed from a rising `busy`, claimed by identity before the shape is known and

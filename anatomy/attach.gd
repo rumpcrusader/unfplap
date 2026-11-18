@@ -111,8 +111,9 @@ func attach(mesh_path: String) -> bool:
 	return true
 
 
-## A body that hides every mesh under its model unless the mesh carries its own marker names
-## that marker on `anatomy_owned_meta`. The anatomy rides the same skeleton, so mark every part.
+## Some bodies hide every mesh under their model unless it carries the body's own marker. The
+## pony names that marker on `anatomy_owned_meta`; anatomy parts ride the same skeleton, so mark
+## them or the body's pass hides them for good.
 func mark_owned() -> void:
 	if not attached or not is_instance_valid(pony) or not is_instance_valid(skeleton):
 		return

@@ -109,6 +109,30 @@ func record_peak(peak: Peak) -> void:
 	STORE.record(peak.id, peak.event_id, peak.text, peak.score)
 
 
+## The exceptional player-requested reveal impression, with its fixed private and world wording.
+## The runtime writes it once; `ImpressionSlot.FORM_REVEAL` keeps its own idempotent suffix.
+func form_reveal_impression(id: String, event_id: String) -> Impression:
+	var out := Impression.new()
+	out.id = id
+	out.event_id = event_id
+	out.slot = ImpressionSlot.FORM_REVEAL
+	out.mood = "happy"
+	out.romance = 2
+	out.thought = TEXT.form_reveal_thought()
+	out.event_text = TEXT.form_reveal_text()
+	return out
+
+
+## The reveal's special peak, keyed to its own event.
+func form_reveal_peak(id: String, event_id: String, score: float) -> Peak:
+	var out := Peak.new()
+	out.id = id
+	out.event_id = event_id + ":form_reveal"
+	out.text = TEXT.form_reveal_peak_text()
+	out.score = score
+	return out
+
+
 ## Queue one of the mod's own lines. `Line.key` always names it; `Line.queued` says whether the
 ## director accepted it.
 func line(request: LineRequest) -> Line:

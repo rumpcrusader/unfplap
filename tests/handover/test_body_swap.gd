@@ -140,6 +140,13 @@ class FakeSource extends Node:
 class FakeMemory extends RefCounted:
 	var impressions: Array = []
 	var peaks: Array = []
+	var _service: Variant = MEMORY.new()
+
+	func form_reveal_impression(id: String, event_id: String) -> Variant:
+		return _service.call("form_reveal_impression", id, event_id)
+
+	func form_reveal_peak(id: String, event_id: String, score: float) -> Variant:
+		return _service.call("form_reveal_peak", id, event_id, score)
 
 	func commit(impression: Variant) -> void:
 		impressions.append(impression)

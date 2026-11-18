@@ -166,6 +166,21 @@ func run() -> void:
 	check(str((bucked_row["data"] as Dictionary).get("thought", "")).contains("bucked"),
 		"the buck thought names the buck")
 
+	var reveal: Variant = memory.form_reveal_impression("rarity", "intimacy_1")
+	memory.commit(reveal)
+	var reveal_row: Dictionary = impressions.calls[-1]
+	check(str(reveal_row.get("event_id", "")).ends_with(":form_reveal"),
+		"the reveal impression keeps its own id")
+	check(str((reveal_row["data"] as Dictionary).get("thought", "")).contains("not the shape"),
+		"the reveal thought says he wanted her")
+	check(not str((reveal_row["data"] as Dictionary).get("thought", "")).contains(" you "),
+		"the reveal thought stays first person")
+	check(str(context.events[-1].id).ends_with(":form_reveal"),
+		"the reveal event keeps its own id")
+	var peak: Variant = memory.form_reveal_peak("rarity", "intimacy_1", 150.0)
+	check(str(peak.event_id) == "intimacy_1:form_reveal", "the reveal peak has its own event")
+	check(is_equal_approx(float(peak.score), 150.0), "the reveal peak keeps its score")
+
 	game.queue_free()
 	context.queue_free()
 	impressions.queue_free()

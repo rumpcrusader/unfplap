@@ -3390,21 +3390,8 @@ func _commit_form_reveal() -> void:
 	_set_face(0.85, FACE.ACT_LIDS)
 	var memory: Variant = _memory_service()
 	if memory != null:
-		var impression := MEMORY.Impression.new()
-		impression.id = _id
-		impression.event_id = _event_id
-		impression.slot = MEMORY.ImpressionSlot.FORM_REVEAL
-		impression.mood = "happy"
-		impression.romance = 2
-		impression.thought = "He wanted me, not the shape I was wearing."
-		impression.event_text = "Anon asked to see the real her, and she set the borrowed shape aside."
-		memory.commit(impression)
-		var peak := MEMORY.Peak.new()
-		peak.id = _id
-		peak.event_id = _event_id + ":form_reveal"
-		peak.text = "Anon asked to see the real me, and I let him."
-		peak.score = FORM_REVEAL_PEAK_SCORE
-		memory.record_peak(peak)
+		memory.commit(memory.form_reveal_impression(_id, _event_id))
+		memory.record_peak(memory.form_reveal_peak(_id, _event_id, FORM_REVEAL_PEAK_SCORE))
 	_log("form reveal id=%s event=%s readiness=%.0f" % [_id, _event_id, satisfaction])
 
 

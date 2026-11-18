@@ -77,6 +77,20 @@ static func stay_close_thought(caressed: bool, positive: bool) -> String:
 	return "He stayed close after; I felt cared for."
 
 
+## The one exceptional reveal event, its private thought and its peak text. The event stays
+## non-graphic and the thought says he wanted her, not the shape.
+static func form_reveal_text() -> String:
+	return "Anon asked to see the real her, and she set the borrowed shape aside."
+
+
+static func form_reveal_thought() -> String:
+	return "He wanted me, not the shape I was wearing."
+
+
+static func form_reveal_peak_text() -> String:
+	return "Anon asked to see the real me, and I let him."
+
+
 ## The `act_prompts.event_*` setting key for one reaction.
 static func reaction_name(reaction: int) -> String:
 	match reaction:

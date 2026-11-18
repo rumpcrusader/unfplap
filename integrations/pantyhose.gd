@@ -33,6 +33,8 @@ const KIND_PREFIXES := ["panties-", "pantyhose-"]
 const DISCOVER_S := 0.5
 ## A precision edit waits for the drag to settle before the one-time rebuild.
 const REBUILD_DELAY_S := 0.3
+## The garment pass runs after the coat's own wobble, so both read the same frame's values.
+const PROCESS_PRIORITY := 100
 ## The debug heatmap sits this far in front of the field surface (anatomy-local metres).
 const OVERLAY_Z_LIFT := 0.0015
 const OVERLAY_ALPHA := 0.78
@@ -84,6 +86,7 @@ var _overlay_reason := ""
 
 func setup(main_node: Node) -> void:
 	main = main_node
+	process_priority = PROCESS_PRIORITY
 	if mod_active.is_null():
 		mod_active = Callable(self, "_mod_active")
 	set_process(false)

@@ -19,8 +19,9 @@ uniform float spec = 0.45;
 
 void vertex() {
 	HOSIERY_VERTEX
+	vec3 cloth_jiggle = hosiery_jiggle(VERTEX);
 	HOSIERY_HULL_VERTEX
-	HOSIERY_JIGGLE_VERTEX
+	VERTEX += cloth_jiggle;
 }
 
 void fragment() {

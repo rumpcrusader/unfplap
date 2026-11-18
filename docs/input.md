@@ -62,9 +62,9 @@ label.
 
 ## Data ownership
 
-Nothing is saved. The service reads `main.active_runtime`, `main.player`, `main.debug_wheel_open()`,
-`main.menu_panel_open()` and the viewport focus owner, plus the `act_key` and `act_input_shield`
-settings. It does not store runtime state.
+Nothing is saved. The service reads `main.active_runtime`, `main.debug_wheel_open()`,
+`WORLD.player`, `WORLD.menu_panel_open()` and the viewport focus owner, plus the `act_key` and
+`act_input_shield` settings. It does not store runtime state.
 
 ## Lifecycle
 
@@ -114,7 +114,7 @@ real state. This is a deliberate, global lie about key state, kept only for the 
   this one talk turn, and a body another system is holding refuses the request rather than adding a
   control.
   Everything also passes while a `LineEdit`/`TextEdit` has focus, the tree is paused, or
-  `main.menu_panel_open()` is true.
+  `WORLD.menu_panel_open()` is true.
 - `RAW_KEYS` are consumed but never cleared: `Q W E A S D Z X C F`, the keys the act samples
   every frame (lean, auto layer, caress, kiss), and the act key itself (the hold-to-end poll).
 - `features.act_input_shield` turns the shield off; the old per-key consumption lists then run

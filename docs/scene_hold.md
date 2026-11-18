@@ -103,15 +103,16 @@ No controls. The debug log reports the ownership state on the `debug_line` call 
 ## Dependencies
 
 - `pony` — the `Navigator`, `face_turn_rate`, `CuddleSession`, `set_conversation_target`.
-- `main` — the `interactor`, `player`, `game.kisser`.
-- `main.player` — the `kiss_hold` meta, `seat`, `_q_held` and the conversation target.
+- `main` — the game's kisser.
+- `WORLD.player` — the `kiss_hold` meta, `seat`, `_q_held` and the conversation target.
+- `WORLD.interactor()` — the reach node the carry release clears.
 - The runtime — the caller, the state and the live pose family.
 
 ### Uses
-| service | world | `world/service.gd` | Anon's body and reach |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | world | `world/service.gd` | Anon's body and reach |
 
 ## Tests
 

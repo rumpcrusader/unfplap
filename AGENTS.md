@@ -15,6 +15,7 @@ restate a contract.
 |---|---|
 | `main.gd` | `ARCHITECTURE.md`, `docs/runtime.md` |
 | `runtime.gd` | `docs/runtime.md` |
+| `world/service.gd` | `docs/world.md` |
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |
 | `tests/body_change/**` | `docs/tests.md`, `docs/body_change.md` |
@@ -62,6 +63,7 @@ restate a contract.
 | `stool/**` | `docs/stool.md` |
 | `summary/**` | `docs/summary.md` |
 | `vr/**` | `docs/vr.md` |
+| `world/**` | `docs/world.md` |
 | `assets/**`, `scripts/asset_pack*` | `assets/README.md`, `CREDITS.md` |
 
 Non-code tasks: a release is `.opencode/skills/release/SKILL.md`; syncing shipped defaults is

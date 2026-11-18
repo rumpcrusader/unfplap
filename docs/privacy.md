@@ -22,8 +22,8 @@ negotiation face here.
 
 `privacy/service.gd` (RefCounted) owns the scene reads for privacy:
 
-- Anon from `main.player`;
-- the mares from `main.game.mares`;
+- Anon from `WORLD.player`;
+- the mares from `WORLD.game.mares`;
 - the house from `res://world/buildings/house_interior.gd` (`HOUSE.at`) and
   `privacy.RADIUS_M` (30 m);
 - the target exclusion: the offered mare never counts as another mare.
@@ -91,7 +91,7 @@ phase.
 ## Host boundary
 
 `setup(main_node)` stores the entry node. The provider calls only plain values:
-`main.player`, `main.game` and `main.get_tree()`. It never calls a service or a runtime.
+`WORLD.player` and `WORLD.game`. It never calls a service or a runtime.
 
 ## Dependencies
 

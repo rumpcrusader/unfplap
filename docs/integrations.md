@@ -45,7 +45,7 @@ The world adapter owns its every-frame hull update, its cloth-jiggle pass and it
 node discovery, the per-node material overrides, its cached feature/debug values and the act-start
 undress. The undress is the game's own `take_off` action when her executor exists, with the direct
 wardrobe calls as its fallback. It reads the anatomy through `main.anatomy` and the game through
-`main.game`; it never preloads either host and never edits the pack.
+`WORLD.game`; it never preloads either host and never edits the pack.
 
 The changelings adapter owns its provider layer registration, the installed-mare list, the typed
 body form it returns for each of the pack's bodies, the `UnfplapTailPlacement` wrapper above her
@@ -351,7 +351,7 @@ profile, the marker is kept and there is no own `tail_root` or wrapper. The old 
 ponies keep their own forms. When observation sees the new body's variant or `disguised_as` report
 the target, the adapter calls `prepare_body()` again; if the descriptor changed, its per-body
 signature bumps the revision, the service refreshes the bound body, and the adapter runs
-`main.prepare_pony_late()` and `main.refresh_body_lod()`. The per-body revision and signature
+`main.prepare_pony_late()` and `WORLD.refresh_body_lod()`. The per-body revision and signature
 reset when the change ends.
 
 The new body is claimed by its stable identity before the shape is known, and observation fills
@@ -439,7 +439,7 @@ overlay reads them.
 | `shared/act_facts.gd` | typed read model passed to the constructor; no per-frame settings read |
 | `hold_beat(owner)` / `release_beat(owner)` | acquire or release the runtime's shared excitement Beat hold |
 | `main.anatomy` | the controller's `garment_hull()`, `garment_transform()`, `garment_visible()`, `garment_parent()`, `garment_hull_rebuild()` and the `act_started` signal |
-| `main.game.mares` | the loaded mares the world adapter scans |
+| `WORLD.game.mares` | the loaded mares the world adapter scans |
 | `pony_wardrobe` group | the wardrobe's `wanted()`, `_season()`, `set_worn()` and `dress()` for the act undress |
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
 | `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` and re-applies each live source-owned tail after a settings edit |
@@ -447,7 +447,7 @@ overlay reads them.
 | `main._prepare_pony()` | calls `body_change.notify_body_ready()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
 | `main.prepare_pony_late(pony)` | re-runs the body-change prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late form/ownership only, no runtime and no tail wrapper |
 | `main.refresh_anatomy()` | refreshes the live anatomy controllers and the player part after the settled form |
-| `main.refresh_body_lod(pony)` | drops the new body's near/far LOD caches and re-arms its near mesh after a form or an adoption |
+| `WORLD.refresh_body_lod(pony)` | drops the new body's near/far LOD caches and re-arms its near mesh after a form or an adoption |
 | `main.custom_tail_ready(pony)` / `main.apply_custom_tail(pony)` / `main.custom_tail_report()` | forward the anatomy editor to the provider that owns a body's tail placement |
 | `main.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
 | `main.live_character_ids()` | merges the body-change service's `installed_character_ids()` |

@@ -17,6 +17,7 @@ that service's purpose, API, state, settings, controls, debug actions, dependenc
 | Service internals | Private modules under `<service>/`. Nothing outside the service imports them. |
 | Shared pure module | Deterministic data or math in `shared/`. No scene, no lifecycle, no service dependency. |
 | Shared store | Persisted shared data in `shared/`. No scene, no lifecycle; may read `settings`, never a domain service. |
+| Scene read facade | `world/service.gd`: the live world root, Anon's body and the reads derived from them, bound by the entry. Answers where and what, never whether. |
 | Read model | A scene-free mutable value object refreshed by its owner, for example the act view. |
 | Cross-mod API | `api.gd` and `docs/api.md`: the only stable contract another mod may call. |
 | Host | A scene or orchestrator object a service receives values and callbacks from. A host is not a service. |
@@ -29,6 +30,7 @@ per-world or per-pony orchestration state, but they do not implement another ser
 ```text
 main.gd / runtime.gd          entry and orchestration
 api.gd                        cross-mod facade
+world/service.gd              scene read facade
 <service>/service.gd          service facades
 <service>/**                  private service implementation
 shared/**                     pure modules, shared stores, read models
@@ -39,6 +41,7 @@ res://world/..., res://player/...   game and engine
 |---|---|
 | Entry / orchestrator | anything |
 | Cross-mod API | service facades, shared modules |
+| Scene read facade | `res://world/`, `res://player/` and shared modules |
 | Infrastructure service (`settings`) | shared pure modules |
 | Domain service | `settings`, shared modules, other service facades |
 | Shared store | `settings`, shared pure |
@@ -242,7 +245,8 @@ It owns its `Mods.state` key and its pure policy; it does not own scene behavior
 A host is the object that gives a service its scene and live values: usually `main` or `runtime`.
 The relationship is not a service dependency and is not drawn as one.
 
-A host passes:
+A service that needs the live scene does not receive it from its host: it reads `WORLD`
+(`world/service.gd`), the one scene read facade the entry binds. A host passes:
 
 - scene handles the service is allowed to touch;
 - plain values and typed read models;

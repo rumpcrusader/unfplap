@@ -445,7 +445,7 @@ suspension, adoption, resume and failure phases.
 | `main._on_world()` | calls `refresh_sources()` so each provider re-reads its pack |
 | `main._prepare_pony()` | calls `notify_body_ready()` before the tail seat, the stock smack layer and a runtime |
 | `main.runtime_for(pony)` | the runtime binding's public lookup |
-| `main.refresh_body_lod(pony)` | the LOD binding's public refresh |
+| `WORLD.refresh_body_lod(pony)` | the LOD binding's public refresh |
 | `pantyhose.scan()` | the garment binding's public scan |
 | `stock_smack.pony_ready(pony)` | the stock smack binding's public prepare |
 | `main.body_change` | the runtime's and the debug block's service handle |

@@ -358,7 +358,7 @@ fade. The hull block is in the copied compatibility shaders under
   action. The Debug actions **Placement**, **Placement tail**, **Placement dock**, **Placement
   tail tilt** (1° per press) and **Placement file** edit, save, reset or log the selected target.
   A default edit is staged until Save; a mare override is written directly.
-  `anatomy/placement_editor.gd` owns the target resolution (`main.camera()` →
+  `anatomy/placement_editor.gd` owns the target resolution (`WORLD.camera()` →
   `main.debug_target()` → `main.nearest_pony()`) and the draft/save/reset calls; the facade keeps
   `placement_debug()`/`placement_show()` as one-line delegates.
 - `anatomy/placement.gd` and the player part keep only the live placement fields: `load()` and
@@ -462,7 +462,7 @@ controller. The new act starts at the current depth and readiness; the next `con
 live penetration and climaxes. The player part stays shown because the encounter continues. A late
 variant raises the form revision; the service's refresh updates the same controller and re-seats
 the tail without a second controller, and a same-rig revision only re-applies the live placement.
-The settled form also rebuilds the body's near/far LOD through `main.refresh_body_lod()`.
+The settled form also rebuilds the body's near/far LOD through `WORLD.refresh_body_lod()`.
 
 ### Shape drive
 

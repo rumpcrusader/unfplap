@@ -1749,6 +1749,10 @@ static var pantyhose_bulge := flag("pantyhose_bulge", "features.pantyhose_bulge"
 	"Lift the cloth over the anatomy",
 	"Lift the worn panties and pantyhose over the anatomy instead of letting it poke through.",
 	INTEGRATIONS, "")
+static var pantyhose_jiggle := flag("pantyhose_jiggle", "features.pantyhose_jiggle",
+	"Jiggle the cloth",
+	"Carry a smack's rump wobble into her worn panties and pantyhose.",
+	INTEGRATIONS, "")
 static var pantyhose_hull_width := num("pantyhose_hull_width",
 	"debug.pantyhose_hull_width", "Hull width",
 	"Depth-field cells across the anatomy width. Higher is smoother and costs a one-time rebuild.",

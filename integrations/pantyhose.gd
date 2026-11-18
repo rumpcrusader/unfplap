@@ -18,6 +18,7 @@ extends Node
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
+const GARMENT_JIGGLE := preload("res://mods/unfplap/integrations/garment_jiggle.gd")
 
 const MOD_ID := "pantyhose"
 ## The garment nodes are children of the body's parent, next to `MareBody`.
@@ -40,6 +41,7 @@ class Applied:
 	var mesh_id := 0
 	var count := 0
 	var originals: Array = []
+	var jiggling := false
 
 
 var main: Node
@@ -50,6 +52,8 @@ var _game: Node
 var _discover_clock := 0.0
 var _undress: bool
 var _bulge: bool
+var _jiggle := GARMENT_JIGGLE.new()
+var _jiggle_enabled: bool
 var _hull_width: int
 var _hull_height: int
 var _hull_smoothing: int
@@ -122,6 +126,7 @@ func _exit_tree() -> void:
 func apply_live_settings() -> void:
 	_undress = SETTINGS.pantyhose_undress.get_bool()
 	_bulge = SETTINGS.pantyhose_bulge.get_bool()
+	_jiggle_enabled = SETTINGS.pantyhose_jiggle.get_bool()
 	_hull_margin_mm = SETTINGS.pantyhose_hull_margin_mm.get_num()
 	_hull_min_margin_mm = SETTINGS.pantyhose_hull_min_margin_mm.get_num()
 	_show_hull = SETTINGS.pantyhose_hull_show.get_bool()
@@ -133,7 +138,7 @@ func apply_live_settings() -> void:
 		_hull_height = height
 		_hull_smoothing = smoothing
 		_queue_rebuild()
-	if not _bulge or not _mod_active_now():
+	if (not _bulge and not _jiggle_enabled) or not _mod_active_now():
 		_restore_all()
 	if not _show_hull:
 		_hide_overlay()
@@ -213,7 +218,7 @@ func _discover() -> void:
 	var anatomy := _anatomy()
 	var mares: Variant = _game.get("mares")
 	var seen: Dictionary = {}
-	if anatomy != null and mares is Array:
+	if (anatomy != null or _jiggle_enabled) and mares is Array:
 		for pony: Variant in mares:
 			if not is_instance_valid(pony) or not (pony is Node3D):
 				continue
@@ -236,10 +241,11 @@ func _update_garments() -> void:
 	if not is_instance_valid(_game) or not _mod_active_now():
 		_restore_all()
 		return
-	var anatomy := _anatomy()
-	if anatomy == null:
+	if not _bulge and not _jiggle_enabled:
 		_restore_all()
 		return
+	var anatomy := _anatomy()
+	_jiggle.begin_frame()
 	var nodes: Array = _tracked.keys()
 	for node: Variant in nodes:
 		if not is_instance_valid(node) or not node is MeshInstance3D:
@@ -251,26 +257,24 @@ func _update_garments() -> void:
 			_tracked.erase(mesh_node)
 			_restore_if_applied(mesh_node)
 			continue
-		var visible := _bulge and anatomy.has_method("garment_visible") \
+		var visible := _bulge and anatomy != null and anatomy.has_method("garment_visible") \
 			and bool(anatomy.call("garment_visible", pony))
-		if not visible:
-			_restore_if_applied(mesh_node)
-			continue
 		var hull: Variant = null
-		if anatomy.has_method("garment_hull"):
-			hull = anatomy.call("garment_hull", pony)
-		if hull == null:
-			_restore_if_applied(mesh_node)
-			continue
 		var xform := Transform3D.IDENTITY
-		if anatomy.has_method("garment_transform"):
-			var value: Variant = anatomy.call("garment_transform", pony)
-			if value is Transform3D:
-				xform = value as Transform3D
-		_apply_node(mesh_node, hull, xform)
+		if visible:
+			if anatomy.has_method("garment_hull"):
+				hull = anatomy.call("garment_hull", pony)
+			if hull != null and anatomy.has_method("garment_transform"):
+				var value: Variant = anatomy.call("garment_transform", pony)
+				if value is Transform3D:
+					xform = value as Transform3D
+		_apply_node(mesh_node, pony as Node3D, hull, xform)
 
 
-func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D) -> void:
+func _apply_node(node: MeshInstance3D, pony: Node3D, hull: Variant, xform: Transform3D) -> void:
+	if hull == null and not _jiggle_enabled:
+		_restore_if_applied(node)
+		return
 	var mesh := node.mesh
 	if mesh == null:
 		_restore_if_applied(node)
@@ -292,10 +296,14 @@ func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D) -> voi
 		_applied[node] = fresh
 		applied_value = fresh
 	var applied := applied_value as Applied
-	var texture: Variant = hull.texture
-	var domain: Rect2 = hull.domain
-	var domain_vec := Vector4(domain.position.x, domain.position.y, domain.size.x, domain.size.y)
-	var z_range := Vector2(float(hull.z_min), float(hull.z_max))
+	var texture: Variant = null
+	var domain_vec := Vector4.ZERO
+	var z_range := Vector2.ZERO
+	if hull != null:
+		var domain: Rect2 = hull.domain
+		texture = hull.texture
+		domain_vec = Vector4(domain.position.x, domain.position.y, domain.size.x, domain.size.y)
+		z_range = Vector2(float(hull.z_min), float(hull.z_max))
 	var any := false
 	for i in count:
 		var original := mesh.surface_get_material(i)
@@ -306,30 +314,40 @@ func _apply_node(node: MeshInstance3D, hull: Variant, xform: Transform3D) -> voi
 			if node.get_surface_override_material(i) != fallback:
 				node.set_surface_override_material(i, fallback)
 			continue
-		compat.set_shader_parameter("hull_texture", texture)
-		compat.set_shader_parameter("hull_domain", domain_vec)
-		compat.set_shader_parameter("hull_z_range", z_range)
+		if hull != null:
+			compat.set_shader_parameter("hull_texture", texture)
+			compat.set_shader_parameter("hull_domain", domain_vec)
+			compat.set_shader_parameter("hull_z_range", z_range)
 		if node.get_surface_override_material(i) != compat:
 			node.set_surface_override_material(i, compat)
 		any = true
 	if not any:
 		_restore_node(node, applied)
 		return
-	var basis := xform.basis
-	var inverse := Basis.IDENTITY
-	if absf(basis.determinant()) > 0.0000001:
-		inverse = basis.inverse()
-	node.set_instance_shader_parameter("hull_on", 1.0)
-	node.set_instance_shader_parameter("hull_origin", xform.origin)
-	node.set_instance_shader_parameter("hull_basis_x", basis.x)
-	node.set_instance_shader_parameter("hull_basis_y", basis.y)
-	node.set_instance_shader_parameter("hull_basis_z", basis.z)
-	node.set_instance_shader_parameter("hull_basis_inv_x", inverse.x)
-	node.set_instance_shader_parameter("hull_basis_inv_y", inverse.y)
-	node.set_instance_shader_parameter("hull_basis_inv_z", inverse.z)
-	node.set_instance_shader_parameter("hull_margin", _margin_local(xform, _hull_margin_mm))
-	node.set_instance_shader_parameter("hull_min_margin",
-		_margin_local(xform, _hull_min_margin_mm))
+	if hull != null:
+		var basis := xform.basis
+		var inverse := Basis.IDENTITY
+		if absf(basis.determinant()) > 0.0000001:
+			inverse = basis.inverse()
+		node.set_instance_shader_parameter("hull_on", 1.0)
+		node.set_instance_shader_parameter("hull_origin", xform.origin)
+		node.set_instance_shader_parameter("hull_basis_x", basis.x)
+		node.set_instance_shader_parameter("hull_basis_y", basis.y)
+		node.set_instance_shader_parameter("hull_basis_z", basis.z)
+		node.set_instance_shader_parameter("hull_basis_inv_x", inverse.x)
+		node.set_instance_shader_parameter("hull_basis_inv_y", inverse.y)
+		node.set_instance_shader_parameter("hull_basis_inv_z", inverse.z)
+		node.set_instance_shader_parameter("hull_margin", _margin_local(xform, _hull_margin_mm))
+		node.set_instance_shader_parameter("hull_min_margin",
+			_margin_local(xform, _hull_min_margin_mm))
+	else:
+		node.set_instance_shader_parameter("hull_on", 0.0)
+	if _jiggle_enabled and _jiggle.sample(pony):
+		_jiggle.apply(node)
+		applied.jiggling = true
+	elif applied.jiggling:
+		GARMENT_JIGGLE.clear(node)
+		applied.jiggling = false
 
 
 ## A margin in millimetres as anatomy-local units; the shader converts the local push back by
@@ -353,6 +371,9 @@ func _restore_node(node: Node, applied: Applied) -> void:
 	# Clear the instance uniform while our compatibility material is still the override; the
 	# pack's shader does not know the name.
 	mesh_node.set_instance_shader_parameter("hull_on", 0.0)
+	if applied.jiggling:
+		GARMENT_JIGGLE.clear(mesh_node)
+		applied.jiggling = false
 	var mesh := mesh_node.mesh
 	if mesh == null:
 		return
@@ -377,6 +398,7 @@ func _drop_missing(seen: Dictionary) -> void:
 
 
 func _restore_all() -> void:
+	_jiggle.reset()
 	_tracked.clear()
 	var nodes: Array = _applied.keys()
 	for node: Variant in nodes:

@@ -11,6 +11,9 @@ const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_c
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
 const ANATOMY_SCENE := "res://mods/unfplap/assets/anatomy/mare/mare_bits_v2.scn"
 const SCHEMA := preload("res://world/ai/pony_action_schema.gd")
+const COAT_SHADER_CODE := "shader_type spatial;\nuniform float jiggle_radius = 0.12;\n" \
+	+ "void vertex() { VERTEX += vec3(0.0); }\n" \
+	+ "void fragment() { ALBEDO = vec3(1.0); }\n"
 
 var failures := 0
 var checks := 0
@@ -60,6 +63,14 @@ class FakeIdentity extends Resource:
 
 class FakePony extends Node3D:
 	var identity: Variant = null
+
+
+class FakeFlank extends Node3D:
+	var _jiggle_index := -1
+	var _jiggle_age := 0.0
+	var _jiggle_amount := 0.0
+	var marks: Array = []
+	var _jiggle_targets: Array = []
 
 
 class FakeWardrobe extends Node:
@@ -131,6 +142,10 @@ func run() -> void:
 	_check_sheer()
 	_check_two_surfaces()
 	_check_multi_mare()
+	_check_jiggle()
+	_check_jiggle_two_mares()
+	_check_jiggle_without_lift()
+	_check_jiggle_lifecycle()
 	_check_undress()
 	_check_overlay_parenting()
 	_check_debug()
@@ -434,11 +449,66 @@ func _hull() -> HULL.Hull:
 	return HULL.build(_fixture_mesh(), 2, 2, 0)
 
 
+func _inst_float(node: MeshInstance3D, name: String) -> float:
+	var value: Variant = node.get_instance_shader_parameter(name)
+	if value == null:
+		return 0.0
+	if value is float:
+		return value as float
+	if value is int:
+		return float(value)
+	return NAN
+
+
+func _inst_vec3(node: MeshInstance3D, name: String) -> Vector3:
+	var value: Variant = node.get_instance_shader_parameter(name)
+	if value == null:
+		return Vector3.ZERO
+	return value as Vector3 if value is Vector3 else Vector3.INF
+
+
+func _attach_flank(pony: Node3D) -> FakeFlank:
+	var flank := FakeFlank.new()
+	flank.name = "FlankTouch"
+	pony.add_child(flank)
+	return flank
+
+
+func _start_jiggle(flank: FakeFlank, at: Vector3, outward: Vector3, amount: float,
+		age := 0.0) -> Decal:
+	var normal := outward.normalized()
+	var across := Vector3.UP.cross(normal).normalized()
+	if across.length_squared() < 0.5:
+		across = Vector3.RIGHT
+	var basis := Basis(across, normal, across.cross(normal)).orthonormalized()
+	var mark := Decal.new()
+	mark.name = "Mark"
+	flank.add_child(mark)
+	mark.global_transform = Transform3D(basis, at + normal * 0.015)
+	flank.marks.append(mark)
+	flank._jiggle_index = flank.marks.size() - 1
+	flank._jiggle_amount = amount
+	flank._jiggle_age = age
+	return mark
+
+
+func _coat_material(radius: float) -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = COAT_SHADER_CODE
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	material.set_shader_parameter("jiggle_radius", radius)
+	return material
+
+
 func _check_bulge() -> void:
 	var scene := _make_world()
 	var game: FakeGame = scene["game"]
 	var anatomy: FakeAnatomy = scene["anatomy"]
 	var integration: Node = scene["integration"]
+	var jiggle_before := SETTINGS.pantyhose_jiggle.get_bool()
+	SETTINGS.pantyhose_jiggle.set_bool(false)
+	integration.call("apply_live_settings")
 	var pony := _pony("rarity")
 	game.mares = [pony]
 	var material := _material(CUT_SHADER)
@@ -500,6 +570,8 @@ func _check_bulge() -> void:
 	integration.call("apply_live_settings")
 	integration.call("scan")
 	check(garment.get_surface_override_material(0) != null, "turning the bulge on lifts it again")
+	SETTINGS.pantyhose_jiggle.set_bool(jiggle_before)
+	integration.call("apply_live_settings")
 	garment.free()
 	pony.free()
 	_free_world(scene)
@@ -591,6 +663,210 @@ func _check_multi_mare() -> void:
 	second_garment.free()
 	first.free()
 	second.free()
+	_free_world(scene)
+
+
+# --------------------------------------------------------------------------- cloth jiggle
+
+func _check_jiggle() -> void:
+	var scene := _make_world()
+	var game: FakeGame = scene["game"]
+	var anatomy: FakeAnatomy = scene["anatomy"]
+	var integration: Node = scene["integration"]
+	var pony := _pony("rarity")
+	game.mares = [pony]
+	var garment := _garment(pony, "panties-satin", _material(CUT_SHADER))
+	garment.transform = Transform3D(Basis(Vector3.UP, PI / 2.0).scaled(Vector3.ONE * 0.5),
+		Vector3(1.0, 2.0, 3.0))
+	anatomy.hull = _hull()
+	anatomy.xform = Transform3D.IDENTITY
+	var flank := _attach_flank(pony)
+	_start_jiggle(flank, Vector3(1.0, 2.0, 3.5), Vector3.BACK, 0.02, 0.25)
+	integration.call("scan")
+	check(garment.get_surface_override_material(0) is ShaderMaterial,
+		"the jiggle keeps the compatibility override")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.04, 0.0001),
+		"the coat amplitude travels through the garment node scale")
+	check(near(_inst_float(garment, "garment_jiggle_time"), 0.25),
+		"the wobble age is the coat's own age")
+	var center := _inst_vec3(garment, "garment_jiggle_center")
+	check(center.distance_to(Vector3(-1.0, 0.0, 0.0)) < 0.0001,
+		"the mark's coat spot is in the garment node's own space")
+	var normal := _inst_vec3(garment, "garment_jiggle_normal")
+	check(normal.distance_to(Vector3.LEFT) < 0.0001,
+		"the outward coat normal is in the garment node's own space")
+	check(near(_inst_float(garment, "garment_jiggle_radius"), 0.24, 0.0001),
+		"the stock coat radius travels through the garment node scale")
+	flank._jiggle_age = 0.5
+	integration.call("scan")
+	check(near(_inst_float(garment, "garment_jiggle_time"), 0.5),
+		"the wobble follows the coat every frame")
+	var coat := _coat_material(0.3)
+	flank._jiggle_targets = [[coat, garment]]
+	integration.call("scan")
+	check(near(_inst_float(garment, "garment_jiggle_radius"), 0.6, 0.0001),
+		"the act's tuned coat radius is borrowed")
+	coat.set_shader_parameter("jiggle_radius", -0.05)
+	integration.call("scan")
+	check(near(_inst_float(garment, "garment_jiggle_radius"), 0.24, 0.0001),
+		"a negative coat radius falls back to the stock spread")
+	garment.free()
+	pony.free()
+	_free_world(scene)
+
+
+func _check_jiggle_two_mares() -> void:
+	var scene := _make_world()
+	var game: FakeGame = scene["game"]
+	var anatomy: FakeAnatomy = scene["anatomy"]
+	var integration: Node = scene["integration"]
+	var first := _pony("rarity")
+	var second := _pony("applejack")
+	game.mares = [first, second]
+	var material := _material(CUT_SHADER)
+	var first_garment := _garment(first, "panties-lace", material)
+	var second_garment := _garment(second, "pantyhose-fishnet", material)
+	anatomy.hull = _hull()
+	anatomy.xform = Transform3D.IDENTITY
+	var first_flank := _attach_flank(first)
+	var second_flank := _attach_flank(second)
+	_start_jiggle(first_flank, Vector3(0.1, 1.0, 0.2), Vector3.BACK, 0.02, 0.1)
+	_start_jiggle(second_flank, Vector3(0.4, 1.1, 0.3), Vector3.BACK, 0.01, 0.4)
+	integration.call("scan")
+	check(first_garment.get_surface_override_material(0) ==
+		second_garment.get_surface_override_material(0),
+		"the two mares share the one compatibility material")
+	check(near(_inst_float(first_garment, "garment_jiggle_amount"), 0.02, 0.0001)
+		and near(_inst_float(second_garment, "garment_jiggle_amount"), 0.01, 0.0001),
+		"each mare's cloth carries her own coat amplitude")
+	check(near(_inst_float(first_garment, "garment_jiggle_time"), 0.1, 0.0001)
+		and near(_inst_float(second_garment, "garment_jiggle_time"), 0.4, 0.0001),
+		"each mare's cloth carries her own wobble age")
+	check(_inst_vec3(first_garment, "garment_jiggle_center").distance_to(
+		_inst_vec3(second_garment, "garment_jiggle_center")) > 0.1,
+		"the two mares keep independent wobble centres")
+	first_flank._jiggle_index = -1
+	first_flank._jiggle_amount = 0.0
+	integration.call("scan")
+	check(near(_inst_float(first_garment, "garment_jiggle_amount"), 0.0),
+		"a finished wobble clears that mare's cloth")
+	check(first_garment.get_surface_override_material(0) != null,
+		"a finished wobble keeps the lift on the worn piece")
+	check(near(_inst_float(second_garment, "garment_jiggle_amount"), 0.01, 0.0001),
+		"ending one mare's wobble leaves the other's")
+	first_garment.free()
+	second_garment.free()
+	first.free()
+	second.free()
+	_free_world(scene)
+
+
+func _check_jiggle_without_lift() -> void:
+	var scene := _make_world()
+	var game: FakeGame = scene["game"]
+	var anatomy: FakeAnatomy = scene["anatomy"]
+	var integration: Node = scene["integration"]
+	var bulge_before := SETTINGS.pantyhose_bulge.get_bool()
+	var jiggle_before := SETTINGS.pantyhose_jiggle.get_bool()
+	SETTINGS.pantyhose_jiggle.set_bool(true)
+	integration.call("apply_live_settings")
+	var pony := _pony("fluttershy")
+	game.mares = [pony]
+	var garment := _garment(pony, "pantyhose-sheer", _material(SHEER_SHADER))
+	anatomy.hull = _hull()
+	anatomy.visible = false
+	var flank := _attach_flank(pony)
+	_start_jiggle(flank, Vector3(0.0, 1.0, 0.3), Vector3.BACK, 0.02, 0.1)
+	integration.call("scan")
+	check(garment.get_surface_override_material(0) is ShaderMaterial,
+		"a hidden anatomy still carries the cloth jiggle")
+	check(near(_inst_float(garment, "hull_on"), 0.0), "a hidden anatomy leaves the lift off")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
+		"a hidden anatomy keeps the wobble")
+	anatomy.visible = true
+	integration.call("scan")
+	check(near(_inst_float(garment, "hull_on"), 1.0), "the lift returns with the anatomy")
+	SETTINGS.pantyhose_jiggle.set_bool(false)
+	integration.call("apply_live_settings")
+	integration.call("scan")
+	check(garment.get_surface_override_material(0) is ShaderMaterial,
+		"turning the jiggle off keeps the lift in place")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+		"turning the jiggle off clears the cloth wobble")
+	SETTINGS.pantyhose_jiggle.set_bool(true)
+	integration.call("apply_live_settings")
+	integration.call("scan")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
+		"turning the jiggle on takes the live wobble again")
+	SETTINGS.pantyhose_bulge.set_bool(false)
+	integration.call("apply_live_settings")
+	integration.call("scan")
+	check(garment.get_surface_override_material(0) is ShaderMaterial,
+		"turning the lift off keeps the cloth shader for the jiggle")
+	check(near(_inst_float(garment, "hull_on"), 0.0), "turning the lift off sets the hull off")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
+		"turning the lift off keeps the wobble")
+	SETTINGS.pantyhose_jiggle.set_bool(false)
+	integration.call("apply_live_settings")
+	integration.call("scan")
+	check(garment.get_surface_override_material(0) == null,
+		"both flags off restore the pack material")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+		"both flags off clear the cloth wobble")
+	SETTINGS.pantyhose_bulge.set_bool(bulge_before)
+	SETTINGS.pantyhose_jiggle.set_bool(jiggle_before)
+	integration.call("apply_live_settings")
+	garment.free()
+	pony.free()
+	_free_world(scene)
+
+
+func _check_jiggle_lifecycle() -> void:
+	var scene := _make_world()
+	var game: FakeGame = scene["game"]
+	var anatomy: FakeAnatomy = scene["anatomy"]
+	var integration: Node = scene["integration"]
+	var pony := _pony("rarity")
+	game.mares = [pony]
+	var garment := _garment(pony, "panties-satin", _material(CUT_SHADER))
+	anatomy.hull = _hull()
+	integration.call("scan")
+	check(garment.get_surface_override_material(0) is ShaderMaterial,
+		"a worn piece without a flank keeps the lift")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+		"a missing flank is a quiet no-op")
+	var flank := _attach_flank(pony)
+	_start_jiggle(flank, Vector3(0.0, 1.0, 0.3), Vector3.BACK, 0.02, 0.1)
+	integration.call("scan")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
+		"a flank that appears the next pass jiggles the cloth")
+	game.mares = []
+	integration.call("scan")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+		"a dropped garment clears the wobble")
+	check(garment.get_surface_override_material(0) == null,
+		"a dropped garment restores the pack material")
+	game.mares = [pony]
+	integration.call("scan")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
+		"the wobble returns with the re-discovered piece")
+	integration.call("on_world_closed")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+		"a world close clears the cloth wobble")
+	check(garment.get_surface_override_material(0) == null,
+		"a world close restores the pack material")
+	integration.call("on_world", game)
+	integration.set_process(false)
+	integration.call("scan")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
+		"a new world takes the live wobble again")
+	integration.call("shutdown")
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+		"a shutdown clears the cloth wobble")
+	check(garment.get_surface_override_material(0) == null,
+		"a shutdown restores the pack material")
+	garment.free()
+	pony.free()
 	_free_world(scene)
 
 

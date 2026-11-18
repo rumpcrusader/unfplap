@@ -19,6 +19,7 @@ uniform float spec = 0.45;
 void vertex() {
 	HOSIERY_VERTEX
 	HOSIERY_HULL_VERTEX
+	HOSIERY_JIGGLE_VERTEX
 }
 
 void fragment() {

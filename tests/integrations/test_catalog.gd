@@ -91,8 +91,11 @@ func run() -> void:
 		"Pantyhose & Panties verified version")
 	var pantyhose_features: Array = pantyhose.get("features", [])
 	check(pantyhose_features.has("pantyhose_undress")
-		and pantyhose_features.has("pantyhose_bulge"),
-		"Pantyhose & Panties owns its undress and bulge features")
+		and pantyhose_features.has("pantyhose_bulge")
+		and pantyhose_features.has("pantyhose_jiggle"),
+		"Pantyhose & Panties owns its undress, bulge and jiggle features")
+	check(pantyhose_features == ["pantyhose_undress", "pantyhose_bulge", "pantyhose_jiggle"],
+		"the Pantyhose features keep their tab order")
 	check((pantyhose.get("bindings", {}) as Dictionary).is_empty(),
 		"the world integration has no per-act bindings")
 	check(ids == ["kissing", "pantyhose"], "Kissing and Pantyhose are the supported integrations")

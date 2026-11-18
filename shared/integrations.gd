@@ -33,7 +33,7 @@ const PROVIDERS := {
 		"mod_name": "Pantyhose & Panties",
 		"author": "mitty",
 		"verified_version": "0.1.1",
-		"features": ["pantyhose_undress", "pantyhose_bulge"],
+		"features": ["pantyhose_undress", "pantyhose_bulge", "pantyhose_jiggle"],
 		"bindings": {},
 	},
 }

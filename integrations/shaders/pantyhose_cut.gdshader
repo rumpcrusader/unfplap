@@ -21,6 +21,7 @@ uniform float uv_metres = 0.0;    // > 0: patterns follow the body's UV layout (
 void vertex() {
 	HOSIERY_VERTEX
 	HOSIERY_HULL_VERTEX
+	HOSIERY_JIGGLE_VERTEX
 }
 
 void fragment() {

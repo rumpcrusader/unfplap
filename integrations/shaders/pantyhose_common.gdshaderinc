@@ -125,3 +125,5 @@ float pat(vec2 p, int which, float cell, float width) {
 	if (which == 2) return dots2(p);
 	return ribs2(vec2(p.y, p.x));
 }
+
+#include "res://mods/unfplap/integrations/shaders/pantyhose_jiggle.gdshaderinc"

@@ -295,7 +295,7 @@ word does not match inside another word. `named_form_note()`
 returns a short status when the line names a shape she already wears, herself, a body the
 eligibility facade says is not an adult mare, or an uncopyable pony, and returns nothing for
 ordinary talk. A population body outside the adult candidate list asks the facade's id-only
-`eligible_shape()`; there is no young/male name table in the adapter. The live candidate list
+`eligible_id()`; there is no young/male name table in the adapter. The live candidate list
 still gates every real choice. The reveal uses the existing talk turn and offer line; it adds no
 dedicated reaction line. The pack needs no rebuild and no new signal.
 

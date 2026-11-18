@@ -169,31 +169,66 @@ func run() -> void:
 	check(not "chrysalis" in PROFILES.ORDER, "she is not a base-roster pony")
 	check(not "chrysalis" in SETTINGS.CHARACTER_ORDER, "she is not in the base order")
 
-	# Her own body uses her fit and names the visible spring-tail root.
+	# Her own body uses her fit and exposes the visible spring-tail root. The adapter owns the
+	# placement wrapper above the chain, so the anatomy editor can move it without a seat row.
 	var own := _own_body()
 	root.add_child(own)
+	var holder: Node3D = own.get_node_or_null("ChrysalisHair/Hair_tail") as Node3D
+	var chain: Node3D = holder.get_node_or_null("Chain") as Node3D
 	adapter.call("prepare_pony", own)
 	check(str(own.get_meta("body_fit_id", "")) == "chrysalis", "her own body uses her fit")
 	check(str(own.get_meta("anatomy_owned_meta", "")) == "chrysalis_own",
 		"her body names the marker its hide pass keeps")
-	var chain: Node = own.get_node_or_null("ChrysalisHair/Hair_tail/Chain")
 	check(own.get_meta("tail_pose_root", null) == chain, "her spring tail root is exposed")
-	var holder: Node = own.get_node_or_null("ChrysalisHair/Hair_tail")
-	var wrapper := Node3D.new()
-	wrapper.name = "UnfplapTailPlacement"
-	holder.add_child(wrapper)
-	(chain as Node3D).reparent(wrapper, true)
+	var wrapper := chain.get_parent() as Node3D
+	check(is_instance_valid(wrapper) and str(wrapper.name) == "UnfplapTailPlacement",
+		"the adapter puts a placement wrapper above the chain")
+	check(wrapper.get_parent() == holder, "the wrapper sits under the hair attachment")
 	adapter.call("prepare_pony", own)
-	check(own.get_meta("tail_pose_root", null) == chain,
-		"a wrapped tail root keeps the metadata")
+	check(chain.get_parent() == wrapper, "a repeated prepare reuses the wrapper")
+	check(holder.get_node_or_null("UnfplapTailPlacement/UnfplapTailPlacement") == null,
+		"the wrapper is never nested")
+	check(bool(adapter.call("has_tail_placement", own)),
+		"her own body reports a source-owned tail placement")
 	check(IDENTITY.body_fit_id(own) == "chrysalis", "the body-fit fallback reads the metadata")
 	check(near(float(SETTINGS.anatomy_placement("chrysalis", "chrysalis")
 		.get("offset_y", 0.0)), 0.485), "her fit resolves the provider placement")
 
-	# Her hair can arrive after the first prepare. The late retry sets the root and asks main to
-	# run the preparation again, which is what binds the anatomy tail seat to the custom root.
+	# The tail keys move the wrapper as a delta from the resolved default; the chain itself is
+	# left for the act modifiers to rotate and restore.
+	var reseat_before := SETTINGS.reseat_tails.get_bool()
+	SETTINGS.reseat_tails.set_bool(true)
+	var tail_values := SETTINGS.anatomy_placement("chrysalis", "chrysalis")
+	var tail_base := SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis")
+	tail_values["tail_y"] = float(tail_base.get("tail_y", 0.0)) + 0.05
+	tail_values["tail_z"] = float(tail_base.get("tail_z", 0.0)) + 0.02
+	tail_values["tail_tilt_deg"] = float(tail_base.get("tail_tilt_deg", 0.0)) + 10.0
+	SETTINGS.save_anatomy_placement("chrysalis", tail_values, "chrysalis")
+	adapter.call("apply_tail_placement", own)
+	check(near(wrapper.position.y, 0.05) and near(wrapper.position.z, 0.02),
+		"the saved tail keys move the wrapper")
+	check(not wrapper.basis.is_equal_approx(Basis.IDENTITY),
+		"the saved tail tilt turns the wrapper")
+	var tail_report := str(adapter.call("tail_placement_report"))
+	check(tail_report.contains("chrysalis custom tail offset=(0.000,0.050,0.020)"),
+		"the report names the applied offset")
+
+	# Re-seat off returns the wrapper to the pack's modelled tail; on applies the saved keys.
+	SETTINGS.reseat_tails.set_bool(false)
+	adapter.call("apply_tail_placement", own)
+	check(wrapper.transform.is_equal_approx(Transform3D.IDENTITY),
+		"re-seat off returns the wrapper to identity")
+	SETTINGS.reseat_tails.set_bool(true)
+	adapter.call("apply_tail_placement", own)
+	check(near(wrapper.position.y, 0.05), "re-seat on applies the saved keys")
+	SETTINGS.save_anatomy_placement("chrysalis",
+		SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis"), "chrysalis")
+	adapter.call("apply_tail_placement", own)
+	SETTINGS.reseat_tails.set_bool(reseat_before)
+
+	# Her hair can arrive after the first prepare, even before the body has an identity. The
+	# adapter-owned late check wraps the chain without the anatomy seat or `tail_ready()`.
 	var late_body := FakePony.new()
-	late_body.identity = _identity("chrysalis", "celestia")
 	var late_mesh := MeshInstance3D.new()
 	late_body.add_child(late_mesh)
 	late_body.own_meshes = [late_mesh]
@@ -211,9 +246,14 @@ func run() -> void:
 	late_hair.add_child(late_attach)
 	late_attach.add_child(late_chain)
 	late_body.add_child(late_hair)
-	adapter.call("_late_prepare_one", late_body)
+	adapter.call("_late_tail_one", late_body)
+	var late_wrapper := late_chain.get_parent() as Node3D
+	check(is_instance_valid(late_wrapper) and str(late_wrapper.name) == "UnfplapTailPlacement",
+		"the late check wraps a chain that arrives after an identity-less prepare")
 	check(late_body.get_meta("tail_pose_root", null) == late_chain,
 		"the late retry finds the tail root")
+	check(bool(adapter.call("has_tail_placement", late_body)),
+		"the late body reports a source-owned tail placement")
 	check(main.late_prepares.has(late_body),
 		"the late retry asks main to prepare the body again")
 	late_body.free()
@@ -229,6 +269,8 @@ func run() -> void:
 		"a disguise uses the copied pony's fit")
 	check(not disguise.has_meta("anatomy_owned_meta"), "a disguise has no body marker")
 	check(not disguise.has_meta("tail_pose_root"), "a disguise has no custom tail root")
+	check(not bool(adapter.call("has_tail_placement", disguise)),
+		"a disguise has no source-owned tail placement")
 	check(SETTINGS.anatomy_placement("chrysalis", "fluttershy")
 		== SETTINGS.anatomy_placement("fluttershy"), "a disguise does not borrow her placement")
 
@@ -250,6 +292,22 @@ func run() -> void:
 	check(bool(adapter.call("handles_pony", own)), "the source handles her own body")
 	check(bool(adapter.call("handles_pony", disguise)), "the source handles a disguise")
 	check(not bool(adapter.call("handles_pony", other)), "the source leaves other mares alone")
+	var manager_tail := SETTINGS.anatomy_placement("chrysalis", "chrysalis")
+	var manager_base := SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis")
+	manager_tail["tail_y"] = float(manager_base.get("tail_y", 0.0)) + 0.03
+	SETTINGS.save_anatomy_placement("chrysalis", manager_tail, "chrysalis")
+	check(bool(manager.call("has_tail_placement", own)),
+		"the manager forwards the tail-placement check")
+	check(not bool(manager.call("has_tail_placement", other)),
+		"a body without a source has no tail placement")
+	manager.call("apply_tail_placement", own)
+	check(near(wrapper.position.y, 0.03), "the manager forwards the placement apply")
+	check(str(manager.call("tail_placement_report")).contains(
+		"chrysalis custom tail offset=(0.000,0.030,0.000)"),
+		"the manager forwards the tail report")
+	SETTINGS.save_anatomy_placement("chrysalis",
+		SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis"), "chrysalis")
+	manager.call("apply_tail_placement", own)
 
 	# A true-form change: the old body is captured, the new own body is claimed, and completion
 	# clears the change while leaving the handles for the act's log.

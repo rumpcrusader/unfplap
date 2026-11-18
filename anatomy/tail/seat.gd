@@ -25,9 +25,6 @@ const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_
 const ANATOMY_PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 
 const DOCK_NAME := "OpenPonyDock"
-## The placement node the seat puts above a custom `tail_pose_root`, so the act tail modifiers
-## keep saving and restoring the root itself while the seat moves the wrapper.
-const CUSTOM_WRAPPER := "UnfplapTailPlacement"
 const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.json"
 ## The reference's cap sits just below and in front of the body's own tail root. This fallback is
 ## the current game relation; the JSON reference wins whenever it is available.
@@ -169,14 +166,6 @@ func attach(pony: Node) -> void:
 	pony.tree_exiting.connect(func() -> void: _forget(pony))
 	_apply(row)
 	var done := Time.get_ticks_usec()
-	if bool(row.get("custom", false)):
-		if _perf_on():
-			_log("tail perf attach %s custom prepare=%dus apply=%dus" % [
-				str(row["id"]), prepared - started, done - prepared])
-		_log("tail seat %s custom offset=(%.3f,%.3f,%.3f) source=%s" % [
-			str(row["id"]), (row["applied"] as Vector3).x, (row["applied"] as Vector3).y,
-			(row["applied"] as Vector3).z, _source(row)])
-		return
 	if _perf_on():
 		var dock: Variant = row.get("dock")
 		var verts := 0
@@ -236,7 +225,6 @@ func refresh_all() -> void:
 			_apply(row)
 			rebuilt += 1
 			continue
-		var custom := bool(row.get("custom", false))
 		var placement := SETTINGS.anatomy_placement(str(row["id"]),
 			str(row.get("fit_id", "")))
 		var changed := false
@@ -244,8 +232,6 @@ func refresh_all() -> void:
 		var dock_stale := false
 		for pair: Array in PLACEMENT_KEYS:
 			var key := str(pair[0])
-			if custom and key.begins_with("dock_"):
-				continue
 			var value := float(placement.get(key, pair[1]))
 			if is_equal_approx(value, float(row.get(key, pair[1]))):
 				continue
@@ -260,7 +246,7 @@ func refresh_all() -> void:
 				_:
 					# The tail moved, and the base-ring snap follows it.
 					tail_moved = true
-					dock_stale = not custom
+					dock_stale = true
 		if not changed:
 			continue
 		if tail_moved:
@@ -291,14 +277,6 @@ func report_all() -> String:
 		if not _seated(row):
 			continue
 		var source := _source(row)
-		if bool(row.get("custom", false)):
-			var applied: Vector3 = row.get("applied", Vector3.ZERO)
-			lines.append("%s custom tail offset=(%.3f,%.3f,%.3f) source=%s" % [
-				str(row["id"]), applied.x, applied.y, applied.z, source])
-			count += 1
-			if source == "override":
-				exceptions += 1
-			continue
 		var placement := SETTINGS.anatomy_placement(str(row["id"]),
 			str(row.get("fit_id", "")))
 		var reference_anchor := reference(pony)
@@ -343,9 +321,6 @@ func _forget(pony: Variant) -> void:
 func _eligible(pony: Node) -> bool:
 	if eligible.is_null() or not bool(eligible.call(pony)):
 		return false
-	# A custom tail root has no hair skeleton or dock; the seat still moves it.
-	if is_instance_valid(_custom_root(pony)):
-		return true
 	var hair: Variant = pony.get("hair_skeleton")
 	var skeleton: Variant = pony.get("skeleton")
 	if not hair is Skeleton3D or not skeleton is Skeleton3D:
@@ -362,35 +337,19 @@ func _id_for(pony: Node) -> String:
 	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 
 
-## The custom visible tail root a body exposes through `tail_pose_root` metadata or property.
-## Keep the read local: the pose service's chain helper is private to that service.
-func _custom_root(pony: Node) -> Node3D:
-	if not is_instance_valid(pony):
-		return null
-	var value: Variant = null
-	if pony.has_meta("tail_pose_root"):
-		value = pony.get_meta("tail_pose_root")
-	if not value is Node3D:
-		value = pony.get("tail_pose_root")
-	return value as Node3D if is_instance_valid(value) else null
-
-
 ## True when the tail/dock placement can ever move this pony, even while the seat is toggled off.
 func can_seat(pony: Node) -> bool:
 	return is_instance_valid(pony) and _eligible(pony)
 
 
-## True when the pony has a dock the dock controls can move. A custom tail root has no dock.
+## True when the pony has a dock the dock controls can move.
 func can_dock(pony: Node) -> bool:
-	return can_seat(pony) and not is_instance_valid(_custom_root(pony))
+	return can_seat(pony)
 
 
 ## Cache every value the controller needs before its first write. Empty when the pony cannot be
 ## measured; the controller then leaves her alone.
 func _prepare(pony: Node) -> Dictionary:
-	var custom := _custom_root(pony)
-	if is_instance_valid(custom):
-		return _prepare_custom(pony, custom)
 	var link: Node = pony.get("hair_link") as Node
 	var skeleton: Skeleton3D = pony.get("skeleton") as Skeleton3D
 	var dock: MeshInstance3D = pony.find_child(DOCK_NAME, true, false) as MeshInstance3D
@@ -456,48 +415,6 @@ func _prepare(pony: Node) -> Dictionary:
 	}
 
 
-## A custom tail root has no hair link or dock to measure. Put a placement node above the root;
-## the act tail modifiers keep saving and restoring the root itself, so a placement edit and an
-## act never overwrite each other.
-func _prepare_custom(pony: Node, root: Node3D) -> Dictionary:
-	var parent := root.get_parent() as Node3D
-	if not is_instance_valid(parent):
-		_log("tail seat: custom root has no parent for %s" % pony.name)
-		return {}
-	var wrapper: Node3D = parent if str(parent.name) == CUSTOM_WRAPPER else null
-	if not is_instance_valid(wrapper):
-		wrapper = parent.get_node_or_null(CUSTOM_WRAPPER) as Node3D
-	if not is_instance_valid(wrapper):
-		wrapper = Node3D.new()
-		wrapper.name = CUSTOM_WRAPPER
-		parent.add_child(wrapper)
-	if root.get_parent() != wrapper:
-		root.reparent(wrapper, true)
-	var id := _id_for(pony)
-	var fit_id := IDENTITY.body_fit_id(pony)
-	var placement := SETTINGS.anatomy_placement(id, fit_id)
-	# The pack's modelled tail is the zero. The resolved default is the seat trim a game hair
-	# tail starts from, not a move the custom root should inherit.
-	var base := SETTINGS.anatomy_placement_default(id, false, fit_id)
-	return {
-		"pony": pony,
-		"id": id,
-		"fit_id": fit_id,
-		"custom": true,
-		"root": root,
-		"wrapper": wrapper,
-		"tail_y": float(placement.get("tail_y", 0.0)),
-		"tail_z": float(placement.get("tail_z", 0.0)),
-		"tail_tilt_deg": float(placement.get("tail_tilt_deg", 0.0)),
-		"tail_base_y": float(base.get("tail_y", 0.0)),
-		"tail_base_z": float(base.get("tail_z", 0.0)),
-		"tail_base_tilt_deg": float(base.get("tail_tilt_deg", 0.0)),
-		"seated": true,
-		"attached": false,
-		"applied": Vector3.ZERO,
-	}
-
-
 ## Seat her and build the dock: the attach path and a settled placement edit.
 func _apply(row: Dictionary) -> void:
 	if not _apply_tail(row):
@@ -514,8 +431,6 @@ func _apply_tail(row: Dictionary) -> bool:
 	if not SETTINGS.reseat_tails.get_bool():
 		_restore(row)
 		return false
-	if bool(row.get("custom", false)):
-		return _apply_custom_tail(row)
 	var reference_anchor := reference(pony)
 	if not reference_anchor.is_finite():
 		return false
@@ -538,43 +453,9 @@ func _apply_tail(row: Dictionary) -> bool:
 	return true
 
 
-## The tail keys on a custom root: move and tilt the wrapper above the root in her body frame.
-## The root itself keeps whatever the act modifiers last wrote, so an act and a placement edit
-## never restore each other.
-func _apply_custom_tail(row: Dictionary) -> bool:
-	var pony: Node3D = row.get("pony") as Node3D
-	var wrapper: Node3D = row.get("wrapper") as Node3D
-	if not is_instance_valid(pony) or not is_instance_valid(wrapper) \
-			or not pony.is_inside_tree() or not wrapper.is_inside_tree():
-		return false
-	var parent := wrapper.get_parent() as Node3D
-	if not is_instance_valid(parent):
-		return false
-	var offset := Vector3(0.0,
-		float(row.get("tail_y", 0.0)) - float(row.get("tail_base_y", 0.0)),
-		float(row.get("tail_z", 0.0)) - float(row.get("tail_base_z", 0.0)))
-	# Rotation-only mapping into the wrapper's parent: the body scale belongs to the world root,
-	# and the tail keys are body-space metres like the hair-link placement.
-	var to_parent := parent.global_transform.basis.orthonormalized().inverse() \
-		* pony.global_transform.basis.orthonormalized()
-	var local := to_parent * offset
-	var next := Transform3D(Basis.IDENTITY, local)
-	var tilt := deg_to_rad(float(row.get("tail_tilt_deg", 0.0))
-		- float(row.get("tail_base_tilt_deg", 0.0)))
-	if absf(tilt) > 0.000001:
-		var axis := (to_parent * Vector3.BACK).normalized()
-		next.basis = Basis(axis, tilt)
-	wrapper.transform = next
-	row["applied"] = offset
-	_invalidate_far(pony)
-	return true
-
-
 ## Rebuild the dock mesh for the current fit and seat delta. Expensive: attach, toggle and one
 ## pass per settled placement edit only.
 func _apply_dock(row: Dictionary) -> void:
-	if bool(row.get("custom", false)):
-		return
 	var pony: Node = row.get("pony") as Node
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
 		return
@@ -587,7 +468,7 @@ func _apply_dock(row: Dictionary) -> void:
 ## The dock offset is a post-skin lift on the instance transform, so a `dock_y` edit needs no
 ## mesh rebuild.
 func _apply_lift(row: Dictionary) -> void:
-	if bool(row.get("custom", false)) or not bool(row.get("attached", false)):
+	if not bool(row.get("attached", false)):
 		return
 	var dock: MeshInstance3D = row.get("dock") as MeshInstance3D
 	var hair: Skeleton3D = row.get("hair_sk") as Skeleton3D
@@ -601,8 +482,6 @@ func _apply_lift(row: Dictionary) -> void:
 ## Queue her dock for the settle pass. A slider drag rewrites the tail every tick; the dock mesh
 ## is rebuilt once after the last edit.
 func _mark_dirty(row: Dictionary) -> void:
-	if bool(row.get("custom", false)):
-		return
 	if not _dirty.has(row):
 		_dirty.append(row)
 	if is_instance_valid(_settle):
@@ -623,12 +502,6 @@ func _flush_dirty() -> void:
 
 func _restore(row: Dictionary) -> void:
 	if not _seated(row):
-		return
-	if bool(row.get("custom", false)):
-		var wrapper: Node3D = row.get("wrapper") as Node3D
-		if is_instance_valid(wrapper):
-			wrapper.transform = Transform3D.IDENTITY
-		row["applied"] = Vector3.ZERO
 		return
 	var pony: Node = row.get("pony") as Node
 	if not is_instance_valid(pony) or not pony.is_inside_tree():

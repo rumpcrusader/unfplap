@@ -510,55 +510,6 @@ func run() -> void:
 	rigged.free()
 	seat.free()
 
-	# A custom tail root (Queen Chrysalis's spring chain) has no hair link or dock. The seat
-	# wraps it, and the tail keys move the wrapper while the act modifiers keep the root itself.
-	var custom_seat := TAIL_SEAT.new()
-	root.add_child(custom_seat)
-	custom_seat.set("eligible", func(_node: Node) -> bool: return true)
-	var custom_pony := FakePony.new()
-	custom_pony.identity = FakeIdentity.new()
-	custom_pony.identity.id = "chrysalis"
-	custom_pony.set_meta("relationship_id", "chrysalis")
-	var custom_attach := Node3D.new()
-	custom_attach.name = "Hair_tail"
-	var custom_root := Node3D.new()
-	custom_root.name = "Chain"
-	var custom_mesh := MeshInstance3D.new()
-	custom_mesh.mesh = BoxMesh.new()
-	custom_root.add_child(custom_mesh)
-	custom_attach.add_child(custom_root)
-	custom_pony.add_child(custom_attach)
-	custom_pony.set_meta("tail_pose_root", custom_root)
-	root.add_child(custom_pony)
-	SETTINGS.reseat_tails.set_bool(true)
-	custom_seat.call("attach", custom_pony)
-	var custom_rows: Dictionary = custom_seat.get("_rows")
-	var custom_row: Dictionary = custom_rows.get(custom_pony, {})
-	check(bool(custom_row.get("custom", false)), "a custom tail root gets a custom seat row")
-	check(str(custom_root.get_parent().name) == "UnfplapTailPlacement",
-		"the custom root moves under a placement wrapper")
-	var custom_wrapper := custom_root.get_parent() as Node3D
-	custom_seat.call("_prepare_custom", custom_pony, custom_root)
-	check(custom_root.get_parent() == custom_wrapper, "a second prepare reuses the wrapper")
-	check(bool(custom_seat.call("can_seat", custom_pony)), "the custom tail reports seatable")
-	check(not bool(custom_seat.call("can_dock", custom_pony)), "the custom tail has no dock")
-	custom_row["tail_y"] = float(custom_row.get("tail_base_y", 0.0)) + 0.05
-	custom_row["tail_z"] = float(custom_row.get("tail_base_z", 0.0))
-	custom_row["tail_tilt_deg"] = float(custom_row.get("tail_base_tilt_deg", 0.0))
-	custom_seat.call("_apply_tail", custom_row)
-	check(near(custom_wrapper.position.y, 0.05),
-		"the tail Y key moves the custom root up")
-	custom_row["tail_tilt_deg"] = float(custom_row.get("tail_base_tilt_deg", 0.0)) + 10.0
-	custom_seat.call("_apply_tail", custom_row)
-	check(not custom_wrapper.basis.is_equal_approx(Basis.IDENTITY),
-		"the tail tilt turns the custom root")
-	custom_seat.call("_restore", custom_row)
-	check(custom_wrapper.transform.is_equal_approx(Transform3D.IDENTITY),
-		"turning the seat off restores the custom root")
-	custom_seat.free()
-	custom_pony.free()
-	SETTINGS.reseat_tails.set_bool(reseat_before)
-
 	var place_pos := Vector3(
 		float(default_place["offset_x"]),
 		float(default_place["offset_y"]),

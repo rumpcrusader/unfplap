@@ -235,6 +235,11 @@ func tail_ready(pony: Node) -> void:
 func refresh_tails() -> void:
 	if is_instance_valid(tail_seat):
 		tail_seat.call("refresh_all")
+	if not is_instance_valid(main) or not main.has_method("apply_custom_tail"):
+		return
+	for pony: Variant in _controllers.keys():
+		if is_instance_valid(pony):
+			main.call("apply_custom_tail", pony)
 
 
 func refresh_dock_color(pony: Node) -> void:
@@ -244,6 +249,14 @@ func refresh_dock_color(pony: Node) -> void:
 
 func can_seat(pony: Node) -> bool:
 	return is_instance_valid(tail_seat) and bool(tail_seat.call("can_seat", pony))
+
+
+## True when a tail placement action can move this pony: a regular seat or a source-owned tail.
+func can_place_tail(pony: Node) -> bool:
+	if can_seat(pony):
+		return true
+	return is_instance_valid(main) and main.has_method("custom_tail_ready") \
+		and bool(main.call("custom_tail_ready", pony))
 
 
 ## True when this pony has a dock the placement controls can move.
@@ -298,10 +311,11 @@ func placement_debug(op: String, value := 0.0) -> String:
 	var fit_id := ""
 	if id != "default" and is_instance_valid(target):
 		fit_id = CONTROLLER.body_fit_id(target)
-	if id != "default" and (op.begins_with("tail_") or op.begins_with("dock_")):
-		if op.begins_with("dock_") and not can_dock(target):
+	if id != "default" and op.begins_with("dock_"):
+		if not can_dock(target):
 			return "%s: no dock on this tail." % id
-		if not can_seat(target):
+	if id != "default" and op.begins_with("tail_"):
+		if not can_place_tail(target):
 			return "%s: tail seat unavailable (no hair tail or dock)." % id
 	var values := placement_values(id, fit_id)
 	match op:
@@ -313,6 +327,7 @@ func placement_debug(op: String, value := 0.0) -> String:
 			else:
 				SETTINGS.save_anatomy_placement(id, values, fit_id)
 				placement_refresh()
+				_apply_custom_tail(target)
 			return "%s saved %s" % [id, PLACEMENT.text(values)]
 		"reset":
 			if id == "default":
@@ -321,6 +336,7 @@ func placement_debug(op: String, value := 0.0) -> String:
 				SETTINGS.save_anatomy_placement(id,
 					SETTINGS.anatomy_placement_default(id, false, fit_id), fit_id)
 			placement_refresh()
+			_apply_custom_tail(target)
 			return "%s %s" % [id, PLACEMENT.text(placement_values(id, fit_id))]
 		"text":
 			return "%s %s" % [id, PLACEMENT.text(values)]
@@ -332,13 +348,26 @@ func placement_debug(op: String, value := 0.0) -> String:
 			else:
 				SETTINGS.save_anatomy_placement(id, values, fit_id)
 			placement_refresh()
+			_apply_custom_tail(target)
 			return "%s %s" % [id, PLACEMENT.text(values)]
 
 
 func placement_show() -> String:
-	var text := placement_debug("text")
+	var parts := PackedStringArray([placement_debug("text")])
 	var report := tail_report()
-	return text if report.is_empty() else "%s | %s" % [text, report]
+	if not report.is_empty():
+		parts.append(report)
+	if is_instance_valid(main) and main.has_method("custom_tail_report"):
+		var custom := str(main.call("custom_tail_report"))
+		if not custom.is_empty():
+			parts.append(custom)
+	return " | ".join(parts)
+
+
+func _apply_custom_tail(target: Node) -> void:
+	if is_instance_valid(target) and is_instance_valid(main) \
+			and main.has_method("apply_custom_tail"):
+		main.call("apply_custom_tail", target)
 
 
 static func _nudge_placement(placement: Dictionary, op: String, value: float) -> bool:

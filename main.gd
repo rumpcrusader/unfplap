@@ -624,6 +624,24 @@ func shape_source_active() -> bool:
 	return shape_change != null and bool(shape_change.call("active"))
 
 
+## True when the body's source owns a tail placement the anatomy editor can move.
+func custom_tail_ready(pony: Node) -> bool:
+	return shape_change != null and bool(shape_change.call("has_tail_placement", pony))
+
+
+## Re-apply the source's current tail placement after an anatomy edit or a settings change.
+func apply_custom_tail(pony: Node) -> void:
+	if shape_change != null:
+		shape_change.call("apply_tail_placement", pony)
+
+
+## The live source-owned tail lines, one per wrapper.
+func custom_tail_report() -> String:
+	if shape_change == null:
+		return ""
+	return str(shape_change.call("tail_placement_report"))
+
+
 ## Fit and prepare a new body before it can take a runtime or an act. Every hook is optional.
 func _prepare_pony(pony: Node) -> void:
 	if shape_change != null:

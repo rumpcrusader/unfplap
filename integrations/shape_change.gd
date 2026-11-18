@@ -95,6 +95,33 @@ func prepare_pony(pony: Node) -> void:
 			source.call("prepare_pony", pony)
 
 
+func has_tail_placement(pony: Node) -> bool:
+	if not is_instance_valid(pony):
+		return false
+	var source: Variant = source_for(pony)
+	return source != null and source.has_method("has_tail_placement") \
+		and bool(source.call("has_tail_placement", pony))
+
+
+func apply_tail_placement(pony: Node) -> void:
+	if not is_instance_valid(pony):
+		return
+	var source: Variant = source_for(pony)
+	if source != null and source.has_method("apply_tail_placement"):
+		source.call("apply_tail_placement", pony)
+
+
+func tail_placement_report() -> String:
+	var lines := PackedStringArray()
+	for source: Variant in active_sources():
+		if not source.has_method("tail_placement_report"):
+			continue
+		var text := str(source.call("tail_placement_report")).strip_edges()
+		if not text.is_empty():
+			lines.append(text)
+	return "\n".join(lines)
+
+
 ## Every installed mare id, deduplicated, in source order.
 func installed_character_ids() -> Array[String]:
 	var out: Array[String] = []

@@ -20,15 +20,18 @@ const GROUP := "changelings_mod"
 const ID := "chrysalis"
 ## Her own mane and tail script, built under the body: the visible tail root is its chain.
 const TAIL_ROOT := "ChrysalisHair/Hair_tail/Chain"
+## The adapter-owned placement node above the chain. The act tail modifiers keep rotating the
+## chain itself, so a placement edit and an act never restore each other.
+const TAIL_WRAPPER := "UnfplapTailPlacement"
 ## A disguise marks its body with this geometry variant (`changeling=<pony id>` in 0.2.12).
 const SHAPE_PREFIX := "changeling="
 ## Her own body script hides every mesh under her model that lacks this pack marker, so the
 ## anatomy mesh on her skeleton must carry it or it is hidden for good.
 const BODY_OWN_META := "chrysalis_own"
 ## The pack builds her hair a few frames after the body's first prepare. Retry the tail-root
-## lookup for a short grace so the anatomy tail seat can attach once the chain exists.
-const LATE_PREPARE_TRIES := 6
-const LATE_PREPARE_STEP_S := 0.05
+## lookup for a short grace so the wrapper can attach once the chain exists.
+const LATE_TAIL_TRIES := 6
+const LATE_TAIL_STEP_S := 0.05
 ## The player's own words for the reveal ask, lower-case and matched inside the line. The core
 ## owns no phrasing; a later source brings its own.
 const REVEAL_PHRASES := [
@@ -87,9 +90,11 @@ var _act_pony: Node = null
 ## The pack's `busy` on the previous poll. A rising edge with the act pony as `actor` is a change
 ## her own AI started, which no `request_*` call announced.
 var _busy_seen := false
-## Pony -> attempts used while her custom tail root is still being built.
-var _late_prepare: Dictionary = {}
-var _late_timer: Timer
+## Pony -> attempts used while her spring chain is still being built.
+var _late_tail: Dictionary = {}
+var _late_tail_timer: Timer
+## Pony -> the placement wrapper above her spring chain.
+var _tail_wrappers: Dictionary = {}
 
 
 func setup(main_node: Node) -> void:
@@ -377,9 +382,10 @@ func refresh() -> void:
 		_unregister()
 
 
-## Put the generic body-fit and custom-tail metadata on a body she brings. Her own body uses her
-## approved placement and spring tail; a disguise uses the copied pony's fit and the normal hair
-## path. A missing node is a quiet no-op, so a pack update can change the shape without a crash.
+## Put the generic body-fit and tail metadata on a body she brings. Her own body uses her
+## approved placement and the adapter-owned tail wrapper; a disguise uses the copied pony's fit
+## and the normal hair path. A missing node is a quiet no-op, so a pack update can change the
+## shape without a crash.
 func prepare_pony(pony: Node) -> void:
 	if not active() or not is_instance_valid(pony):
 		return
@@ -389,13 +395,14 @@ func prepare_pony(pony: Node) -> void:
 			_apply_fit(pony, shape, null)
 		return
 	if _is_own_body(pony):
-		var root := _tail_root(pony)
-		_apply_fit(pony, ID, root)
-		if not is_instance_valid(root):
-			_schedule_late_prepare(pony)
+		_apply_own_tail(pony)
 		return
 	var identity: Variant = pony.get("identity")
-	if identity == null or str(identity.get("id")) != ID:
+	if identity == null:
+		# The pack may build the body before its identity is assigned; it can still become hers.
+		_schedule_late_tail(pony)
+		return
+	if str(identity.get("id")).strip_edges() != ID:
 		return
 	# A form whose variant marker is missing: the copied body's own identity names its fit.
 	var fit := ""
@@ -403,84 +410,202 @@ func prepare_pony(pony: Node) -> void:
 	if character != null:
 		fit = str(character).strip_edges()
 	_apply_fit(pony, fit if not fit.is_empty() else ID, null)
+	_schedule_late_tail(pony)
 
 
-## The chain path first, then the metadata from an earlier prepare. The anatomy seat may have
-## wrapped the chain, so the path can fail while the metadata still names it.
+func has_tail_placement(pony: Node) -> bool:
+	if not active() or not is_instance_valid(pony) or _is_disguise(pony):
+		return false
+	return _is_own_body(pony) and is_instance_valid(_tail_root(pony))
+
+
+func apply_tail_placement(pony: Node) -> void:
+	if not active() or not is_instance_valid(pony) or _is_disguise(pony):
+		return
+	var root := _tail_root(pony)
+	if is_instance_valid(root):
+		_apply_tail_placement_now(pony, root)
+	elif _may_be_hers(pony):
+		_schedule_late_tail(pony)
+
+
+func tail_placement_report() -> String:
+	var lines := PackedStringArray()
+	for pony: Variant in _tail_wrappers.keys():
+		var wrapper: Variant = _tail_wrappers[pony]
+		if not is_instance_valid(pony) or not is_instance_valid(wrapper):
+			_tail_wrappers.erase(pony)
+			continue
+		var offset: Vector3 = (wrapper as Node3D).get_meta("unfplap_tail_offset", Vector3.ZERO)
+		lines.append("%s custom tail offset=(%.3f,%.3f,%.3f)" % [
+			ID, offset.x, offset.y, offset.z])
+	return "\n".join(lines)
+
+
+func _apply_own_tail(pony: Node) -> void:
+	var root := _tail_root(pony)
+	_apply_fit(pony, ID, root)
+	if is_instance_valid(root):
+		_apply_tail_placement_now(pony, root)
+	else:
+		_schedule_late_tail(pony)
+
+
+func _may_be_hers(pony: Node) -> bool:
+	if _is_own_body(pony):
+		return true
+	var identity: Variant = pony.get("identity")
+	return identity == null or str(identity.get("id")).strip_edges() == ID
+
+
+## The chain path first, then the metadata from an earlier prepare. The wrapper may have taken
+## the chain, so the path can fail while the metadata still names it.
 func _tail_root(pony: Node) -> Node3D:
 	var root := pony.get_node_or_null(TAIL_ROOT) as Node3D
 	if is_instance_valid(root):
 		return root
 	var held: Variant = pony.get_meta("tail_pose_root", null)
-	return held as Node3D if held is Node3D else null
+	return held as Node3D if is_instance_valid(held) else null
 
 
-## Her own body arrives before the pack's hair. Retry until the chain exists, then ask main to
-## run the body preparation again so the anatomy tail seat binds to the custom root.
-func _schedule_late_prepare(pony: Node) -> void:
-	if not is_instance_valid(pony) or not pony.is_inside_tree() or _late_prepare.has(pony):
+## Put one placement node between the chain and its parent. Repeated prepares reuse it, so the
+## chain is never nested under a second wrapper.
+func _ensure_tail_wrapper(pony: Node, root: Node3D) -> Node3D:
+	var known: Variant = _tail_wrappers.get(pony)
+	if is_instance_valid(known) and (known as Node3D).is_inside_tree():
+		var held := known as Node3D
+		if root.get_parent() != held:
+			root.reparent(held, true)
+		return held
+	var parent := root.get_parent() as Node3D
+	if not is_instance_valid(parent):
+		return null
+	var wrapper: Node3D = parent if str(parent.name) == TAIL_WRAPPER else null
+	if not is_instance_valid(wrapper):
+		wrapper = parent.get_node_or_null(TAIL_WRAPPER) as Node3D
+	if not is_instance_valid(wrapper):
+		wrapper = Node3D.new()
+		wrapper.name = TAIL_WRAPPER
+		parent.add_child(wrapper)
+	if root.get_parent() != wrapper:
+		root.reparent(wrapper, true)
+	_tail_wrappers[pony] = wrapper
+	return wrapper
+
+
+func _apply_tail_placement_now(pony: Node, root: Node3D) -> bool:
+	var body := pony as Node3D
+	if not is_instance_valid(body) or not body.is_inside_tree():
+		return false
+	var wrapper := _ensure_tail_wrapper(pony, root)
+	if not is_instance_valid(wrapper) or not wrapper.is_inside_tree():
+		return false
+	if not SETTINGS.reseat_tails.get_bool():
+		wrapper.transform = Transform3D.IDENTITY
+		wrapper.set_meta("unfplap_tail_offset", Vector3.ZERO)
+		return true
+	var placement := SETTINGS.anatomy_placement(ID, ID)
+	var base := SETTINGS.anatomy_placement_default(ID, false, ID)
+	var offset := Vector3(0.0,
+		float(placement.get("tail_y", 0.0)) - float(base.get("tail_y", 0.0)),
+		float(placement.get("tail_z", 0.0)) - float(base.get("tail_z", 0.0)))
+	var tilt := deg_to_rad(float(placement.get("tail_tilt_deg", 0.0))
+		- float(base.get("tail_tilt_deg", 0.0)))
+	var parent := wrapper.get_parent() as Node3D
+	if not is_instance_valid(parent):
+		return false
+	# Rotation-only mapping into the wrapper's parent: the body scale belongs to the world root,
+	# and the tail keys are body-space metres like the hair-link placement.
+	var to_parent := parent.global_transform.basis.orthonormalized().inverse() \
+		* body.global_transform.basis.orthonormalized()
+	var local := to_parent * offset
+	var next := Transform3D(Basis.IDENTITY, local)
+	if absf(tilt) > 0.000001:
+		var axis := (to_parent * Vector3.BACK).normalized()
+		next.basis = Basis(axis, tilt)
+	wrapper.transform = next
+	wrapper.set_meta("unfplap_tail_offset", offset)
+	return true
+
+
+## Her own body arrives before the pack's hair. Retry until the chain exists, then apply the
+## wrapper and ask main for the late fit/ownership prepare.
+func _schedule_late_tail(pony: Node) -> void:
+	if not is_instance_valid(pony) or not pony.is_inside_tree() or _late_tail.has(pony):
 		return
-	_late_prepare[pony] = 0
-	if not is_instance_valid(_late_timer):
-		_late_timer = Timer.new()
-		_late_timer.name = "UnfplapLatePrepare"
-		_late_timer.wait_time = LATE_PREPARE_STEP_S
-		_late_timer.one_shot = false
-		add_child(_late_timer)
-		_late_timer.timeout.connect(_poll_late_prepare)
-	if _late_timer.is_stopped():
-		_late_timer.start()
+	_late_tail[pony] = 0
+	if not is_instance_valid(_late_tail_timer):
+		_late_tail_timer = Timer.new()
+		_late_tail_timer.name = "UnfplapLateTail"
+		_late_tail_timer.wait_time = LATE_TAIL_STEP_S
+		_late_tail_timer.one_shot = false
+		add_child(_late_tail_timer)
+		_late_tail_timer.timeout.connect(_poll_late_tail)
+	if _late_tail_timer.is_stopped():
+		_late_tail_timer.start()
 
 
-func _poll_late_prepare() -> void:
-	if _late_prepare.is_empty():
-		if is_instance_valid(_late_timer):
-			_late_timer.stop()
+func _poll_late_tail() -> void:
+	if _late_tail.is_empty():
+		if is_instance_valid(_late_tail_timer):
+			_late_tail_timer.stop()
 		return
-	for pony: Variant in _late_prepare.keys():
-		_late_prepare_one(pony)
+	for pony: Variant in _late_tail.keys():
+		_late_tail_one(pony)
 
 
-func _late_prepare_one(pony: Variant) -> void:
-	if not _late_prepare.has(pony):
+func _late_tail_one(pony: Variant) -> void:
+	if not _late_tail.has(pony):
 		return
-	if not active() or not is_instance_valid(pony) or not (pony as Node).is_inside_tree():
-		_late_prepare.erase(pony)
+	var node := pony as Node
+	if not active() or not is_instance_valid(node) or not node.is_inside_tree():
+		_late_tail.erase(pony)
 		return
-	var root := _tail_root(pony as Node)
+	if _is_disguise(node):
+		_late_tail.erase(pony)
+		return
+	var identity: Variant = node.get("identity")
+	if identity != null and str(identity.get("id")).strip_edges() != ID \
+			and not _is_own_body(node):
+		_late_tail.erase(pony)
+		return
+	var root := _tail_root(node)
 	if is_instance_valid(root):
-		_apply_fit(pony as Node, ID, root)
+		_apply_fit(node, ID, root)
+		_apply_tail_placement_now(node, root)
 		if is_instance_valid(main) and main.has_method("prepare_pony_late"):
 			main.call("prepare_pony_late", pony)
-		_late_prepare.erase(pony)
+		_late_tail.erase(pony)
 		return
-	var tries := int(_late_prepare.get(pony, 0)) + 1
-	if tries >= LATE_PREPARE_TRIES:
-		_late_prepare.erase(pony)
+	var tries := int(_late_tail.get(pony, 0)) + 1
+	if tries >= LATE_TAIL_TRIES:
+		_late_tail.erase(pony)
 		return
-	_late_prepare[pony] = tries
+	_late_tail[pony] = tries
 
 
-func _clear_late_prepare() -> void:
-	_late_prepare.clear()
-	if is_instance_valid(_late_timer):
-		_late_timer.stop()
-		_late_timer.queue_free()
-		_late_timer = null
+func _clear_late_tail() -> void:
+	_late_tail.clear()
+	if is_instance_valid(_late_tail_timer):
+		_late_tail_timer.stop()
+		_late_tail_timer.queue_free()
+		_late_tail_timer = null
 
 
 ## The entry node's teardown. Idempotent.
 func shutdown() -> void:
 	_end_change()
 	_unregister()
-	_clear_late_prepare()
+	_clear_late_tail()
+	_tail_wrappers.clear()
 	main = null
 
 
 func _exit_tree() -> void:
 	_end_change()
 	_unregister()
-	_clear_late_prepare()
+	_clear_late_tail()
+	_tail_wrappers.clear()
 
 
 func _apply_fit(pony: Node, fit: String, tail_root: Node3D) -> void:
@@ -705,7 +830,7 @@ func _process(_delta: float) -> void:
 
 ## Her own body: the pack's own meshes, or its spring-tail script. A copied pony has neither.
 func _is_own_body(pony: Node) -> bool:
-	if pony.get_node_or_null(TAIL_ROOT) is Node3D:
+	if is_instance_valid(_tail_root(pony)):
 		return true
 	var meshes: Variant = pony.get("own_meshes")
 	return meshes is Array and not (meshes as Array).is_empty()

@@ -3255,13 +3255,10 @@ func _on_talk(text: String) -> void:
 
 ## The game's talk turn is the one interaction channel: no new key and no picker. The readiness
 ## service already scores a new turn; this reads the same turn for the source's own words.
-func _player_line_tick() -> void:
-	if state != State.ACTIVE or _suspended:
+func _player_line_tick(director: Node) -> void:
+	if state != State.ACTIVE or _suspended or director == null:
 		return
-	var director := _director()
-	if director == null:
-		return
-	var turn := _talk_turn()
+	var turn := _talk_turn(director)
 	if turn == _form_talk_turn:
 		return
 	_form_talk_turn = turn
@@ -3271,8 +3268,7 @@ func _player_line_tick() -> void:
 	_on_player_line(text)
 
 
-func _talk_turn() -> int:
-	var director := _director()
+func _talk_turn(director: Node) -> int:
 	if director == null:
 		return -1
 	var value: Variant = director.get("_turn_id")
@@ -3431,13 +3427,15 @@ func _memory_service() -> Variant:
 
 
 func _talk_tick(_delta: float) -> void:
-	_player_line_tick()
-	_readiness.talk_tick(_director())
+	var director := _director()
+	_player_line_tick(director)
+	_readiness.talk_tick(director)
 
 
 func _remember_talk_turn() -> void:
-	_readiness.remember_talk_turn(_director())
-	_form_talk_turn = _talk_turn()
+	var director := _director()
+	_readiness.remember_talk_turn(director)
+	_form_talk_turn = _talk_turn(director)
 
 
 ## The readiness host boundary: scene values the pure scoring needs, and the presentation it

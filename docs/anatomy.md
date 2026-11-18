@@ -582,20 +582,26 @@ The settled form also rebuilds the body's near/far LOD through `main.refresh_bod
   `VERTEX += flank_jiggle(VERTEX);` with `VERTEX += body_coat_deform(VERTEX);`, then adds the
   vulva coat cut at the start of `fragment()`. The outline hull is patched the same way. No game
   source is edited and no cel shader is copied.
+- The cel alpha-cutout and occlusion variants use the same base include but omit the game
+  `flank_jiggle` hook. The patch injects the game include, the mod include and the deform call into
+  their duplicate before `void vertex()`, so a source body that dresses its coat with either
+  variant gets the same cut and spread as the base shader.
 - The merged near pony (`hybrid_near_mesh`) is covered too. Its palette shader, occlusion variant
   and outline use `VERTEX += flank_jiggle(VERTEX) * jiggle_entry[pal];`; the patch swaps in the
   same deform and cut for the palette entries whose source path is `MareBody`. A
   `body_coat_entry[pal]` mask built from the near mesh's source paths keeps head, hair, dock and
   wing entries on the stock jiggle with no cut. The merged body and outline materials join the
   same jiggle target list as the rig coat.
-- The patch is cached per source shader. The include and call are required: a game update that
-  removes either makes `anatomy/body_coat_patch.patched()` return null and leaves the original
-  shader alone. The `void fragment()` hook is optional; without it the deform still applies and
-  only the vulva cut is left out.
+- The patch is cached per source shader. The base and outline hooks are required; a game update
+  that removes either makes `anatomy/body_coat_patch.patched()` return null and leaves the
+  original shader alone. The cutout/occlusion variants get the hook injected. The `void fragment()`
+  hook is optional; without it the deform still applies and only the vulva cut is left out.
 - The patch targets the **drawn** body coat. The game's `MareBody` is used while it is visible; a
   source body that hides it and draws its own (the changelings pack's `ChrysalisBody`) uses its
   own visible coat surface (`cq_Body`) and outline. A hidden game body is never patched, because
-  its cut would have nothing to show on.
+  its cut would have nothing to show on. A material that is not a `ShaderMaterial`, or a shader
+  with neither coat hook, is left alone and logs one `body coat skipped` warning naming the mesh,
+  surface and shader, so a provider body cannot silently lose the cut.
 - The anatomy shell is pushed slightly into the coat, so without the cut the closed lips show the
   body surface behind them. The patch discards coat fragments inside an ellipse behind the opening:
   the radii are `coat_hole` (lateral) and `coat_hole_height` (vertical) × the measured lip radius,
@@ -991,9 +997,9 @@ Current suites:
   forward, the face contact's parked part and restored opening, the act wink scheduler, the
   anatomy rear as the authoritative outward normal, and the body-swap pelvis reset.
 - `tests/anatomy/test_coat.gd`: the refined winking mesh, the V2 anal keys, the rig and near-palette
-  shader patch, the drawn coat choice over a hidden game body, the vulva cut, the still zones, the
-  material rebuild after a mesh re-set, the form rig/fit appearance refresh and the fold-colour
-  scoping.
+  shader patch, the base/cutout/occlusion hook injection, the drawn coat choice over a hidden game
+  body, the vulva cut, the still zones, the material rebuild after a mesh re-set, the form rig/fit
+  appearance refresh and the fold-colour scoping.
 - `tests/anatomy/test_heat.gd`: the idle heat suppression, phase poll, rest shape and wink
   schedule.
 - `tests/anatomy/test_attach.gd`: the per-mare consent, the identity/profile, the provider

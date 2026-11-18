@@ -11,7 +11,7 @@ whether or not the other mod is installed.
   it lifts a worn piece over the anatomy, carries the coat's rump wobble into the worn cloth and
   takes the lower garment off at an act start. The pack is never edited; the compatibility shaders
   are a pinned copy under `integrations/shaders/`.
-- `integrations/garment_jiggle.gd` is the adapter's scene-free cloth-jiggle helper: it mirrors one
+- `integrations/garment_jiggle.gd` is the adapter's scene-side cloth-jiggle helper: it mirrors one
   pony's live flank wobble onto one worn node through per-node instance uniforms and preloads
   nothing.
 - `shared/integrations.gd` is the provider catalog: mod identity, verified version, feature names

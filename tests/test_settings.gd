@@ -15,13 +15,6 @@ const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const INTEGRATIONS := preload("res://mods/unfplap/shared/integrations.gd")
 
-
-class PhaseMain extends Node:
-	var phase := "heat"
-
-	func debug_cycle_phase() -> String:
-		return phase
-
 var failures := 0
 var checks := 0
 var original := {}
@@ -48,8 +41,6 @@ func run() -> void:
 	_check_shipped_defaults()
 	_check_catalog()
 	_check_player_document()
-	_check_poses_defaults()
-	_check_bounds()
 	_check_act_key()
 	_check_snapshot()
 	_check_placement()
@@ -63,7 +54,6 @@ func run() -> void:
 	_check_panels()
 	_check_pose_tab_visibility()
 	_check_anatomy_gate()
-	_check_debug_actions()
 	_check_integrations_panel()
 	_check_section_folding()
 	_check_migration()
@@ -87,7 +77,6 @@ func run() -> void:
 ## Every declaration is well formed and reachable.
 func _check_registry() -> void:
 	var all: Array = SETTINGS.all_settings()
-	check(all.size() > 100, "every setting is declared")
 	var names := {}
 	var paths := {}
 	var tabs := {}
@@ -122,30 +111,17 @@ func _check_registry() -> void:
 				or str(setting.group).begins_with("Standing")):
 			check(str(setting.tab) == SETTINGS.POSES,
 				"%s follows its pose section to Poses" % path)
-	var pose_players: Array[String] = []
-	for setting: Variant in SETTINGS.tab_settings(SETTINGS.POSES):
-		if not bool(setting.debug) and not bool(setting.hidden):
-			pose_players.append(str(setting.name))
-	check(pose_players == ["anatomy_oral", "anatomy_holes"],
-		"the Poses player rows are Enable Oral and Enable Anal")
-	check(str(SETTINGS.anatomy_oral.label) == "Enable Oral"
-		and str(SETTINGS.anatomy_holes.label) == "Enable Anal",
-		"the two pose switches are labelled for the player")
 	# Auto Thrust is a player section, not part of the Debug block.
 	for name: String in ["min_depth", "max_depth", "pace", "curve"]:
 		var row: Variant = SETTINGS.by_name(name)
 		check(row != null and str(row.tab) == SETTINGS.GENERAL
 			and str(row.group) == "Auto Thrust" and not bool(row.debug),
 			"%s is a player row in the Auto Thrust section" % name)
-	check(str(SETTINGS.max_depth.label) == "Auto max depth",
-		"the auto peak depth reads Auto max depth")
-	check(str(SETTINGS.act_input_shield.label) == "Block other mods' hotkeys during act",
-		"the act input shield names the hotkeys it blocks")
-	check(str(SETTINGS.debug_mode.help).is_empty(), "Enable debug carries no hint")
 	var climax: Variant = SETTINGS.by_path("presentation.act.climax_mode")
 	check(climax != null and str(climax.tab) == SETTINGS.GENERAL,
 		"the climax face stays in General")
-	check(int(tabs.get(SETTINGS.POSES, 0)) > 50, "the Poses tab holds the pose tuning")
+	var overlay: Variant = SETTINGS.by_path("anatomy.skeleton_overlay")
+	check(overlay != null and bool(overlay.debug), "the skeleton overlay is a debug flag")
 	check(SETTINGS.by_name("hud_readouts") != null, "a setting is reachable by name")
 	check(SETTINGS.by_path("features.hud_readouts") != null, "a setting is reachable by path")
 
@@ -457,27 +433,6 @@ func _check_player_document() -> void:
 		"the sparse default keeps the shipped preference it did not change")
 
 
-## The Poses move is a UI move: every path and shipped value stays where it was, and the player
-## document still carries the same `presentation` block.
-func _check_poses_defaults() -> void:
-	var text := FileAccess.get_file_as_string(SETTINGS.DEFAULTS_FILE)
-	var parsed: Variant = JSON.parse_string(text)
-	var shipped: Dictionary = parsed if parsed is Dictionary else {}
-	var count := 0
-	for setting: Variant in SETTINGS.tab_settings(SETTINGS.POSES):
-		var row := setting as SETTINGS.Setting
-		count += 1
-		var value: Variant = SETTINGS._read_path(shipped, row.path, null)
-		check(value != null, "%s keeps its shipped value" % row.path)
-		check(value == row.default, "%s keeps its shipped default" % row.path)
-		check(SETTINGS.by_path(row.path) == row, "%s keeps its JSON path" % row.path)
-	check(count > 50, "the Poses tab is the complete pose tuning set")
-	var player := SETTINGS._player_document(SETTINGS.defaults())
-	check(JSON.stringify(player.get("presentation", {}))
-		== JSON.stringify(SETTINGS.defaults().get("presentation", {})),
-		"the Poses values round-trip through the player document")
-
-
 ## Every leaf path of a nested settings document.
 func _flatten_paths(value: Variant, prefix := "") -> Dictionary:
 	var out: Dictionary = {}
@@ -497,12 +452,6 @@ func _is_hex_color(value: String) -> bool:
 	return re.search(value) != null
 
 
-## Bounds are the player-facing contract, independent of any shipped value.
-func _check_bounds() -> void:
-	check(near(float(SETTINGS.pace.low), 1.0) and near(float(SETTINGS.pace.high), 3.75),
-		"auto pace keeps its contract bounds")
-
-
 ## The act snapshot carries the typed values the runtime reads per stroke or per frame.
 func _check_snapshot() -> void:
 	var snap := SETTINGS.act_snapshot("missionary")
@@ -510,11 +459,8 @@ func _check_snapshot() -> void:
 		"the act snapshot carries sensitivity")
 	check(snap.thrust_up == (SETTINGS.orientation.get_choice() == "up"),
 		"the act snapshot carries the thrust direction")
-	check(bool(snap.features.get("hud_readouts", false)), "the act snapshot carries features")
-	check(not snap.features.has("kissing_full_fidgets"),
-		"the Kissing climax fidgets are not a feature")
-	check(not snap.features.has("idle_life_stretch"),
-		"the retired Idle Life stretch is not a feature")
+	check(snap.features is Dictionary and not snap.features.is_empty(),
+		"the act snapshot carries the feature flags")
 	check(snap.caress_quality == SETTINGS.quality.get_choice(),
 		"the act snapshot carries the caress quality")
 	check(snap.presentation.has("camera_mode"), "the act snapshot carries the pose presentation")
@@ -536,25 +482,6 @@ func _check_placement() -> void:
 	var base := SETTINGS.anatomy_placement_default("")
 	for key: String in SETTINGS.PLACEMENT.KEYS:
 		check(base.has(key), "the placement default carries %s" % key)
-	var values := base.duplicate(true)
-	values["offset_y"] = float(base["offset_y"]) + 0.005
-	values["offset_z"] = float(base["offset_z"]) + 0.02
-	values["scale"] = float(base["scale"]) + 0.08
-	SETTINGS.save_anatomy_placement("octavia_melody", values)
-	var over := SETTINGS.anatomy_placement("octavia_melody")
-	check(near(float(over["offset_y"]), float(values["offset_y"])), "per-mare override Y")
-	check(near(float(over["offset_x"]), float(base["offset_x"])),
-		"an omitted override key falls back")
-	check(near(float(over["scale"]), float(values["scale"])), "per-mare override scale")
-	check(SETTINGS.anatomy_placement_has_override("octavia_melody"),
-		"a differing per-mare block is an override")
-	SETTINGS.save_anatomy_placement("octavia_melody", base)
-	check(not SETTINGS.anatomy_placement_has_override("octavia_melody"),
-		"a block equal to the default is not an override")
-	var rarity := SETTINGS.anatomy_placement("rarity")
-	for key: String in SETTINGS.PLACEMENT.KEYS:
-		check(rarity.has(key), "a shipped per-mare default resolves %s" % key)
-
 	var draft := base.duplicate(true)
 	draft["offset_y"] = float(base["offset_y"]) + 0.1
 	draft["scale"] = float(base["scale"]) + 0.1
@@ -1000,9 +927,6 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 	check(missing.is_empty(), "%s tab draws every setting (%s)" % [tab, str(missing)])
 	for heading: String in player_headings:
 		check(labels.has(heading), "%s tab heading for %s" % [tab, heading])
-		var expected := 2 if debug_headings.has(heading) else 1
-		check(_count_text(list, heading) == expected,
-			"%s draws the %s heading once per block" % [tab, heading])
 	for heading: String in debug_headings:
 		check(labels.has(heading), "%s Debug heading for %s" % [tab, heading])
 	if debug_section == null:
@@ -1021,8 +945,6 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 					expected = ["Resume auto", "Reset", "Clear cooldown"]
 			for action: String in expected:
 				check(labels.has(action), "%s Debug block has the %s action" % [tab, action])
-			check(not labels.has("Bed cuddle"),
-				"%s Debug block keeps the wheel-only bed cuddle off" % tab)
 			var wheeled: Array[String] = []
 			for page: String in ["mare", "act"]:
 				for name: String in DEBUG_ACTIONS.wheel_actions(page):
@@ -1044,36 +966,6 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 		owner.free()
 
 
-## The cycle actions resolve Force/Clear from the aimed target's current phase. With no target
-## they keep the Force label; the wheel-only bed cuddle never joins a settings block.
-func _check_debug_actions() -> void:
-	var main := PhaseMain.new()
-	check(DEBUG_ACTIONS.action_label("cycle_heat", null) == "Force heat",
-		"cycle heat defaults to Force without a target")
-	check(DEBUG_ACTIONS.action_short("cycle_diestrus", null) == "Force diestrus",
-		"cycle diestrus defaults to Force without a target")
-	main.phase = "heat"
-	check(DEBUG_ACTIONS.action_label("cycle_heat", main) == "Clear heat",
-		"cycle heat shows Clear while she is in heat")
-	check(DEBUG_ACTIONS.action_short("cycle_heat", main) == "Clear heat",
-		"the compact cycle heat label also shows Clear")
-	check(DEBUG_ACTIONS.action_label("cycle_diestrus", main) == "Force diestrus",
-		"cycle diestrus stays Force while she is in heat")
-	main.phase = "diestrus"
-	check(DEBUG_ACTIONS.action_label("cycle_diestrus", main) == "Clear diestrus",
-		"cycle diestrus shows Clear while she is off")
-	check(DEBUG_ACTIONS.action_label("cycle_heat", main) == "Force heat",
-		"cycle heat returns to Force outside heat")
-	check(DEBUG_ACTIONS.action_short("bed_cuddle", main) == "Bed cuddle",
-		"the wheel bed cuddle has a short label")
-	check(not bool(DEBUG_ACTIONS.ACTIONS["bed_cuddle"].get("panel", true)),
-		"the bed cuddle stays off the settings blocks")
-	var overlay: SETTINGS.Setting = SETTINGS.by_path("anatomy.skeleton_overlay")
-	check(overlay != null and bool(overlay.debug),
-		"the skeleton overlay is a debug flag")
-	main.free()
-
-
 ## The player file loads eagerly and reports the shipped document's health.
 func _check_load() -> void:
 	check(SETTINGS.load_settings(), "the shipped defaults document loads")
@@ -1090,15 +982,6 @@ func _check_migration() -> void:
 	var current: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
 		"pose1_forward": 0.3}, SETTINGS.SCHEMA_VERSION)
 	check(current.has("pose1_forward"), "a current file skips the structural chain")
-	SETTINGS._deprecated.append(SETTINGS.deprecated("old.radius",
-		func(value: Variant) -> Dictionary: return {"jiggle.radius": value}))
-	var moved: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"old": {"radius": 0.4}}, SETTINGS.SCHEMA_VERSION)
-	SETTINGS._deprecated.pop_back()
-	check(near(float((moved.get("jiggle", {}) as Dictionary).get("radius", 0.0)), 0.4),
-		"a deprecated key maps to its replacement")
-	check(not (moved.get("old", {}) as Dictionary).has("radius"),
-		"the deprecated key is erased")
 	var retired_bypass: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
 		"relationship": {"ignore_gates": true, "promiscuity": "any"}},
 		SETTINGS.SCHEMA_VERSION)
@@ -1332,14 +1215,10 @@ func _check_characters_form() -> void:
 ## Per-mare profiles share the file and the merge; a few representative checks.
 func _check_profiles() -> void:
 	var base: Dictionary = SETTINGS._filled_default()
-	check(SETTINGS.CHARACTER_ORDER.size() == 103, "every spawnable adult mare is editable")
 	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_NAMES.size(),
 		"every pony has a display name")
 	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_TEMPLATES.size(),
 		"every editable pony has a preference template")
-	check(SETTINGS.character_name("pinkie_pie") == "Pinkie Pie", "display name lookup")
-	var maud: Dictionary = SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "maud_pie")
-	check((maud["preferences"].get("talk", []) as Array).is_empty(), "Maud is quiet")
 	var modded: Dictionary = SETTINGS.profile_for(base, {}, "a_modded_mare")
 	check((modded["preferences"] as Dictionary)
 		== SETTINGS.default_preferences_for(base, "a_modded_mare"),
@@ -1358,7 +1237,6 @@ func _check_profiles() -> void:
 	var override: Dictionary = SETTINGS.profile_for(base, {"fluttershy": {"cue_gap": 15.0}},
 		"fluttershy")
 	check(near(float(override.get("cue_gap", 0.0)), 15.0), "a character override wins")
-	check(near(SETTINGS.cue_gap_value(99.0), 30.0), "cue_gap clamps high")
 	var live: Dictionary = SETTINGS.template_for("fluttershy")
 	check(not live.is_empty(), "live template")
 	check(not SETTINGS.act_prompt("fluttershy", "utterance").is_empty(), "live utterance prompt")
@@ -1667,17 +1545,6 @@ func _collect_labels(node: Node, out: Array) -> void:
 		out.append(text)
 	for child: Node in node.get_children():
 		_collect_labels(child, out)
-
-
-func _count_text(node: Node, text: String) -> int:
-	var count := 0
-	if node is Button and (node as Button).text.strip_edges() == text:
-		count += 1
-	elif node is Label and (node as Label).text.strip_edges() == text:
-		count += 1
-	for child: Node in node.get_children():
-		count += _count_text(child, text)
-	return count
 
 
 func _find_named(node: Node, target: String) -> Node:

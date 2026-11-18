@@ -132,11 +132,11 @@ func on_offer_accepted(context: BodyChangeActContext) -> BodyChangeEffects
 func on_reveal(context: BodyChangeActContext) -> BodyChangeEffects
 ```
 
-`BodyChangeEffects` carries `heat`, `peak`, `comfort`, `cue` and `memory_kind`; `0` and `""` mean
-no effect, and `is_empty()` tests that. `BodyChangeActContext` carries the stable id, the presented
-form, the change, the origin and state, the offer/reveal flags, the climax count and cap and
-whether the act is active. The runtime reuses one context value per act and never allocates one
-per frame. The base answers no offer and empty effects.
+`BodyChangeEffects` carries `heat`, `peak`, `cue` and `memory_kind`; `0` and `""` mean no effect,
+and `is_empty()` tests that. `BodyChangeActContext` carries the stable id, the presented form, the
+change, the origin and state, the offer/reveal flags, the climax count and cap and whether the act
+is active. The runtime reuses one context value per act and never allocates one per frame. The base
+answers no offer and empty effects; the provider decides whether a generic event matters.
 
 ### `BodyChangeSource` — `body_change/source.gd`
 
@@ -365,15 +365,18 @@ runtime executes the generic effects and keeps the once-per-act gates:
   own-form change calls `on_reveal(context)` once and gives the act its exceptional face beat. A
   player-named change uses the provider's offer-accepted effects; an AI-origin change is neutral.
 - The runtime executes `heat` and `cue` only while the act is `ACTIVE`, and turns `memory_kind`
-  `form_reveal` into the reveal impression and `peak` into the reveal peak. `comfort` is provider
-  data: the summary reads the `form_reveal` input, not the effects value.
+  `form_reveal` into the reveal impression and `peak` into the reveal peak. The summary reads its
+  own `form_reveal` input for the extra comfort; the effects carry no comfort value.
 - An unanswered offer ends with the act; a player-named change whose handover fails before a new
   body arrives restores the offer. A change her AI starts leaves the player's offer pending.
 
-`on_act_event()` is the typed milestone hook for a provider whose timing needs an event. The
-shipped runtime derives the offer gate from `should_offer()` and does not dispatch an event from
-it. Bonus climax has no implementation; a later provider may extend the policy once its behavior
-is specified.
+`on_act_event()` receives the generic act milestones: `ACTIVE` on the first active entry,
+`CLIMAX_END` when a pony climax ends, `AFTERGLOW` on the afterglow entry, `OFFER_ACCEPTED` when a
+player-named change completes, `REVEALED` when a player-requested own-form change completes and
+`FORM_SETTLED` when the act resumes on the presented form. The runtime dispatches them through one
+helper with the reused act context; the provider decides whether an event matters. `should_offer()`
+stays the per-`ACTIVE`-tick offer check. Bonus climax has no implementation; a later provider may
+extend the policy once its behavior is specified.
 
 ## Source extension point
 
@@ -404,9 +407,10 @@ identity's when the presented body changes.
 
 A physical system reads the presented form: anatomy placement and scale, tail fit and root, camera
 entrance, appearance, LOD and the body-bound controllers. The new body must still pass the act's
-adult-mare gate; a young or male shape ends the act through the one exit. The caption and dialogue
-presentation name may follow the presented identity's display name while the stable id stays the
-act's id.
+adult-mare gate; a young or male shape ends the act through the one exit. The act caption and
+dialogue presentation name follow the presented form's `form_name`; an empty form name falls back
+to the identity's display name. The stable `pony_id`, act id, memory, dialogue history,
+preferences, eligibility and relationship never change with the form.
 
 ## Settings
 
@@ -467,8 +471,8 @@ suspension, adoption, resume and failure phases.
   the runtime binding.
 - `tests/integrations/test_changelings.gd` — the shipped provider's forms, markers, per-body fit,
   late revision and policy.
-- `tests/handover/test_body_swap.gd` — the act handover, one resume, stable id and provider policy
-  hook.
+- `tests/handover/test_body_swap.gd` — the act handover, one resume, the stable id, the presented
+  form name with the identity fallback, and the provider policy's six act milestones in order.
 - `tests/test_runtime_teardown.gd` — the one exit and the body-change bind/refresh ordering.
 - `tests/anatomy/test_attach.gd`, `test_coat.gd`, `test_part.gd`, `test_placement.gd` — the anatomy
   binding, form rig/fit, marker, appearance and tail row.

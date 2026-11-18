@@ -144,7 +144,8 @@ player-requested own-form change's provider effects name the `form_reveal` memor
 wording is in `memory/text.gd`, `form_reveal_impression()` builds the impression and
 `form_reveal_peak()` the peak with its own `:form_reveal` event id. The `FORM_OFFER` reaction is the
 provider policy's post-climax offer line, not an impression (`docs/body_change.md`,
-`## Provider policy`).
+`## Provider policy`). The presented form's name is presentation only: the impression and event use
+the stable `pony_id`, never the worn form.
 
 `note(kind, id, event_id, reason)` writes the fixed-wording intimacy events:
 

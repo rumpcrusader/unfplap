@@ -173,8 +173,8 @@ Only good and bad acts move the points, plus the exceptional requested reveal.
 The player-requested reveal (`docs/body_change.md`, `## Provider policy`) is an exceptional positive
 beat: the summary input `form_reveal` adds the great-act comfort after the grade's own change and
 does not change the grade or soften a bad act. The reveal's heat, peak, cue and memory mark are the
-provider policy's effects; `BodyChangeEffects.comfort` is provider data and is not a summary input.
-Her own reveal and a named form add nothing.
+provider policy's effects; the summary's comfort comes only from its own `form_reveal` input. Her
+own reveal and a named form add nothing.
 
 ## Tiers
 

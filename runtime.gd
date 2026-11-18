@@ -3640,7 +3640,7 @@ func _restore_shape_offer(target: String, by_player: bool) -> void:
 
 ## Once per act: the provider's typed effects become the readiness spike, cue, special impression
 ## and peak. The private thought says he wanted her, not the shape; the world event stays
-## non-graphic. `comfort` stays provider data: the summary's generic input is the reveal flag.
+## non-graphic. The summary's generic `form_reveal` input carries the comfort; the effects do not.
 func _commit_form_reveal(change: BODY_CHANGE) -> void:
 	var policy := _shape_policy(_change_source(change))
 	var effects: BODY_CHANGE_POLICY.BodyChangeEffects = null

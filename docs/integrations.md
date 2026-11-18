@@ -384,9 +384,10 @@ dedicated reaction line. The pack needs no rebuild and no new signal.
 The provider policy (`integrations/changelings_policy.gd`) offers after at least one pony climax,
 in her own form and in `ACTIVE`, while no offer is pending and the reveal is unused. The prompt is
 one short line in her voice. A named shape is a neutral continuation; the player-requested
-own-form reveal supplies the heat, peak, cue, `form_reveal` memory mark and comfort value. The
-runtime executes the generic heat/cue/memory/peak effects, the summary reads its own
-`form_reveal` flag, and `comfort` stays provider data (`docs/body_change.md`,
+own-form reveal supplies the heat, peak, cue and `form_reveal` memory mark. The runtime executes the
+generic heat/cue/memory/peak effects and dispatches the six generic act milestones to
+`on_act_event()`; this policy leaves that hook as the base no-op because `should_offer()` owns its
+timing. The summary reads its own `form_reveal` flag for the extra comfort (`docs/body_change.md`,
 `## Provider policy`). A second offer or reveal in one act does nothing. Bonus climax is deferred.
 
 ## Settings

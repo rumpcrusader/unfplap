@@ -165,8 +165,9 @@ suspension is read from the typed change's `target_form_id` on the same ticks. A
 settles without the target resumes on the adult body as a failed change and puts the offer back. A
 runtime created in a race is stopped and freed, and its anatomy controller is detached first, so
 the act never keeps two controllers or two owners. The stable id is the act's id: a borrowed form
-keeps the same relationship, preferences, history and summary; only the display name follows the
-presented identity.
+keeps the same relationship, preferences, history and summary; the caption and dialogue name follow
+the adopted form's `BodyForm.form_name`, and an empty form name falls back to the identity's display
+name.
 
 The adoption and the provider's settled form call `main.refresh_body_lod()` for the new body: the
 game's near and far caches are dropped and the near mesh is re-armed, so the visible body is the
@@ -247,9 +248,15 @@ executes the generic effects: a readiness heat spike and a cue while the act is 
 reveal's peak and `form_reveal` memory mark, the exceptional face beat, and the `form_reveal` input
 the summary/act-history commit reads for an extra great-act comfort. The shipped policy gives the
 player-requested reveal its values and a named form none; an AI-origin own-form change is neutral
-because the runtime only calls `on_reveal()` for the player's own ask. `comfort` in the effects is
-provider data for the act history, not a summary input. The same runtime keeps the flags across the
+because the runtime only calls `on_reveal()` for the player's own ask. The reveal's comfort is the
+summary's `form_reveal` input, not an effects field. The same runtime keeps the flags across the
 swap; `_end_session()` clears the pending offer and the debug form label.
+
+The runtime dispatches the generic policy milestones through one helper and the reused act
+context: `ACTIVE` at the first active entry, `CLIMAX_END` when a pony climax ends, `AFTERGLOW` at
+the afterglow entry, `OFFER_ACCEPTED` and `REVEALED` when the player's named or own-form change
+completes, and `FORM_SETTLED` after the act resumes on the presented form. The provider decides
+which events matter; `should_offer()` remains the per-`ACTIVE`-tick offer check.
 
 The player's offer survives her own change. An AI-origin form change leaves
 `_shape_offer_pending` set, and only the form the player names through the offer clears it; a
@@ -409,11 +416,12 @@ standing start no longer pulls the Hips bone across the gap. The fit log line ca
   failed change resumes the old body, a provider that goes inactive, the no-body watchdog and an
   ineligible body end through the one exit, a world close during the swap is safe, the debug form
   label clears on the state changes while the HUD string stays empty, a failed named change restores
-  the offer, her own change keeps the player's
-  offer, a late body is adopted once after the grace instead of resuming the old body, a change
-  during the restore finishes the act through the one exit, and a held body refuses the request.
-  The entry's own adoption order is review-only: the suite fakes the entry because `main.gd` names
-  the `Mods` autoload, which a `--script` suite cannot load.
+  the offer, her own change keeps the player's offer, a late body is adopted once after the grace
+  instead of resuming the old body, a change during the restore finishes the act through the one
+  exit, a held body refuses the request, the presented form's name drives the act facts with the
+  identity fallback while the stable id and event id survive, and the fake policy records all six
+  generic act milestones in order. The entry's own adoption order is review-only: the suite fakes
+  the entry because `main.gd` names the `Mods` autoload, which a `--script` suite cannot load.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
 - `scripts/architecture.py --check` — the one exit, the pose ledger order and its three callers,

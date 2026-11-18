@@ -107,6 +107,7 @@ func _init() -> void:
 	attach.setup(self, null, facts)
 	shapes = SHAPES.new()
 	shapes.setup(null, self)
+	shapes.log = Callable(self, "_log")
 	coat = COAT.new()
 	coat.setup(null, shapes)
 	coat.log = Callable(self, "_log")

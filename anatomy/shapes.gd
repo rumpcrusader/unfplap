@@ -36,6 +36,9 @@ var _vulva_hug_mm_missionary := 0.0
 var _anal_hug_mm := 0.0
 var _anal_aim_mm := 0.0
 var _anal_scale := 1.0
+## The host debug sink, used by the grip readout. Empty in tests.
+var log := Callable()
+var _grip_log_ms := 0
 
 
 func setup(pony_node: Node3D, host_node: Node) -> void:
@@ -279,6 +282,7 @@ func set_grip(shaft_radius: float, missionary: bool) -> void:
 		if shaft_radius > 0.0 else 0.0
 	var local := maxf(shaft_radius + hug, 0.0) / scale
 	_hole_target = local
+	_log_grip(shaft_radius, local, scale)
 	# No blend shape at all: it scales the whole mesh. The shader opens the hole by translating
 	# the rim band outward to the measured shaft radius.
 	var shape := mesh.find_blend_shape_by_name("stretch")
@@ -381,6 +385,19 @@ func clear_part() -> void:
 func _measure_lip_radius() -> float:
 	return GEOMETRY.stable_lip_radius(
 		_measure_ring_radius(mesh, GEOMETRY.WINKING_OPENING, GEOMETRY.WINKING_LIP_RADIUS))
+
+
+## One grip readout per second: the world shaft radius, the mesh scale, the measured lip and the
+## local hole target. This separates "the grip was told to open" from "the shader did not move".
+func _log_grip(shaft_radius: float, local: float, scale: float) -> void:
+	if not log.is_valid():
+		return
+	var now := Time.get_ticks_msec()
+	if now - _grip_log_ms < 1000:
+		return
+	_grip_log_ms = now
+	log.call("anatomy grip shaft=%.4f scale=%.3f lip=%.4f hole=%.4f wide=%.4f" % [
+		shaft_radius, scale, _lip_radius, local, _wide])
 
 
 func _measure_ring_radius(target: MeshInstance3D, centre: Vector3, fallback: float) -> float:

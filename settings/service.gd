@@ -857,6 +857,11 @@ static var caress_local := flag("caress_local", "features.caress_local",
 	"Use local caress patch",
 	"Skin and raycast only the coat window around each caress hand instead of the whole body patch. Off restores the full patch for both hands.",
 	GENERAL, "Caress").as_debug()
+static var caress_full_fallback := flag("caress_full_fallback",
+	"features.caress_full_fallback",
+	"Full caress patch fallback",
+	"Let a caress point beyond the coat window fall back to the full body patch. Off keeps the last local window and skips that point; on restores the old full-patch behavior.",
+	GENERAL, "Caress").as_debug()
 static var path_id := choice("path_id", "presentation.missionary.caress.path_id",
 	["one", "two"], ["Path one: belly/chest/neck/cheek", "Path two: flank/shoulder/neck"],
 	"Missionary path",

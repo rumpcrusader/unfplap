@@ -9,7 +9,7 @@ const CACHE_LIMIT := 12
 ## The local window keeps at most this many faces. A dense source body (the changelings pack's
 ## body is more than twice the hybrid mare's) would otherwise pay for every face in the window
 ## on each closest query and skin.
-const LOCAL_FACE_BUDGET := 480
+const LOCAL_FACE_BUDGET := 384
 const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")
 ## The patch is skinned at most once per update_ms, and the blur walks blur_depth rings. The
 ## caress quality setting lowers both; the default keeps the exact miss fallback.
@@ -31,6 +31,9 @@ var update_ms := 33
 var blur_depth := 2
 var accurate_miss := true
 var local_enabled := false
+## The debug fallback for a point beyond the source. Off keeps the last local window and
+## skips that point; on restores the old full-patch skin and query.
+var full_fallback := false
 
 static var _source_cache: Dictionary = {}
 
@@ -122,31 +125,51 @@ func set_local(on: bool) -> void:
 	_soup_dirty = true
 
 
-## Pick the local window for one world query. Cheap when the point is still inside the current
-## window; a new window is skinned by the next `update_pose()`. Called before the pose update so
-## the first hand of the frame never skins the old window.
-func select(point: Vector3) -> void:
-	if not local_enabled or _cells.is_empty() or not is_instance_valid(skeleton):
+## Enable or disable the debug full-patch fallback. A change does not invalidate the current
+## window; the next point beyond the source uses the new mode.
+func set_full_fallback(on: bool) -> void:
+	full_fallback = on
+
+
+## Pick the local window for one world query. Returns false when the point is beyond the
+## source and the full-patch fallback is off; the caller then skips this point instead of
+## skinning the whole body. The previous window is kept, so a nearby point stays local.
+## Cheap when the point is still inside the current window; a new window is skinned by the next
+## `update_pose()`. Called before the pose update so the first hand of the frame never skins
+## the old window.
+func select(point: Vector3) -> bool:
+	if not local_enabled:
 		if _local_valid:
 			_local_valid = false
 			_soup_dirty = true
-		return
+		return true
+	if _cells.is_empty() or not is_instance_valid(skeleton):
+		if full_fallback:
+			if _local_valid:
+				_local_valid = false
+				_soup_dirty = true
+			return true
+		return false
 	var local_point: Vector3 = skeleton.global_transform.affine_inverse() * point
 	if _local_valid:
 		var core := _local_radius * LOCAL_CORE_SCALE
 		if local_point.distance_squared_to(_local_center) <= core * core:
-			return
+			return true
 	var started := Time.get_ticks_usec()
 	var collected := _collect_faces(local_point)
 	if collected.is_empty():
-		# A point beyond the source keeps the full patch, which is the old behaviour.
-		if _local_valid:
-			_local_valid = false
-			_soup_dirty = true
+		# A point beyond the source keeps the previous window; the full patch is only the
+		# debug fallback, because a dense source body would skin its whole coat every tick.
 		_perf_note("caress_select", Time.get_ticks_usec() - started)
-		return
+		if full_fallback:
+			if _local_valid:
+				_local_valid = false
+				_soup_dirty = true
+			return true
+		return false
 	_build_local(collected, local_point)
 	_perf_note("caress_select", Time.get_ticks_usec() - started)
+	return true
 
 
 func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
@@ -364,7 +387,9 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 	if normal.length_squared() < 0.5:
 		normal = Vector3.UP
 	# A direct caller may skip the placement's pre-update; a new window must be skinned first.
-	select(point)
+	# An off-source point is skipped unless the debug full-patch fallback is on.
+	if not select(point):
+		return {}
 	if _soup_dirty:
 		update_pose(true)
 	var started := Time.get_ticks_usec()

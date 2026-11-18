@@ -184,6 +184,7 @@
 		"body_coat_deform": true,
 		"captions_on_top": true,
 		"caress_debug": false,
+		"caress_full_fallback": false,
 		"caress_local": true,
 		"caress_reach_shoulder_m": 0.0,
 		"debug_aim_points": false,

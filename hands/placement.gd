@@ -10,6 +10,9 @@ const COAT := preload("res://mods/unfplap/hands/contact.gd")
 
 const PALM_CONTACT_MAX_STEP_M := 0.06
 const PALM_CONTACT_SOURCE_HITS := 2
+## The most path candidates one hand tries in a frame. A candidate beyond the source is
+## skipped locally, so a long fallback chain cannot fan out into a full-patch query.
+const MAX_CANDIDATES := 3
 
 var facts: Variant
 
@@ -33,7 +36,9 @@ func frame(pony: Variant, path: Variant, hand_side: String, context: Dictionary)
 	var list: Variant = path.call("candidates", hand_side, context)
 	if not list is Array or (list as Array).is_empty():
 		return _last_or_invalid(hand_side)
-	for candidate_value: Variant in (list as Array):
+	var candidates := list as Array
+	for index in mini(candidates.size(), MAX_CANDIDATES):
+		var candidate_value: Variant = candidates[index]
 		if not candidate_value is Dictionary:
 			continue
 		var candidate: Dictionary = candidate_value
@@ -206,6 +211,7 @@ func _surface(pony: Variant, region: String, hand_side: String, point: Vector3) 
 	if not bool(surface.call("ensure", pony, region)):
 		return null
 	surface.call("set_local", local)
+	surface.call("set_full_fallback", _full_fallback())
 	surface.call("select", point)
 	surface.call("set_quality", _quality())
 	surface.call("update_pose")
@@ -224,6 +230,14 @@ func _local_patch() -> bool:
 	if facts == null:
 		return false
 	return bool(facts.feature("caress_local", true))
+
+
+## `features.caress_full_fallback` from the act snapshot. Off keeps the caress local; the
+## debug flag restores the old full-body fallback for a point beyond the source.
+func _full_fallback() -> bool:
+	if facts == null:
+		return false
+	return bool(facts.feature("caress_full_fallback", false))
 
 
 func _state(key: String) -> Dictionary:

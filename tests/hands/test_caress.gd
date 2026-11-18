@@ -495,6 +495,18 @@ func run() -> void:
 		"the window re-centres when the hand leaves its core")
 	check(not (local_surface.call("nearest", neck_point, flank_out) as Dictionary).is_empty(),
 		"the re-centred window still answers the ray")
+	var far_point := Vector3(100.0, 100.0, 100.0)
+	local_surface.call("set_full_fallback", false)
+	check(not bool(local_surface.call("select", far_point)),
+		"an off-source point is skipped without the full patch")
+	check((local_surface.call("nearest", far_point, flank_out) as Dictionary).is_empty(),
+		"an off-source caress point has no contact")
+	local_surface.call("set_full_fallback", true)
+	check(bool(local_surface.call("select", far_point)),
+		"the debug full-patch fallback accepts an off-source point")
+	check(not (local_surface.call("nearest", far_point, flank_out) as Dictionary).is_empty(),
+		"the debug full-patch fallback answers the off-source point")
+	local_surface.call("set_full_fallback", false)
 	local_surface.call("set_local", false)
 	local_surface.call("update_pose", true)
 	check(int(local_surface.call("face_count")) == full_faces,

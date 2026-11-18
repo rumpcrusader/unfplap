@@ -282,7 +282,13 @@ func _observe(mod: Node) -> void:
 		return
 	if not _same_actor(actor as Node):
 		return
-	_begin_change(actor as Node, "", false)
+	# Prefer the act pony itself: the pack may already have moved `actor` to the new body while
+	# the old one is still inside the flame. The watcher can still suspend on the old body, and
+	# `poll()` picks the new actor up on the next tick.
+	var old := actor as Node
+	if is_instance_valid(_act_pony):
+		old = _act_pony
+	_begin_change(old, "", false)
 
 
 func source_name() -> String:

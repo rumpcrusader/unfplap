@@ -12,6 +12,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 var failures := 0
 var checks := 0
@@ -66,6 +67,14 @@ class FakeSource extends Node:
 	var new_pony: Node = null
 	var shape_id := ""
 	var active_flag := true
+	var shape := ""
+	var asks := false
+	var named := ""
+	var note := ""
+	var true_requests := 0
+	var shape_requests: Array[String] = []
+	var player_marks: Array[bool] = []
+	var player_request := false
 
 	func is_active() -> bool:
 		return active_flag
@@ -85,6 +94,9 @@ class FakeSource extends Node:
 	func target() -> String:
 		return shape_id
 
+	func current_shape() -> String:
+		return shape
+
 	func claims_body(pony: Node) -> bool:
 		return changing and is_instance_valid(new_pony) and pony == new_pony
 
@@ -93,6 +105,58 @@ class FakeSource extends Node:
 
 	func source_name() -> String:
 		return "fake"
+
+	func asks_form_change(_text: String) -> bool:
+		return asks
+
+	func named_form(_text: String) -> String:
+		return named
+
+	func named_form_note(_text: String) -> String:
+		return note
+
+	func set_player_request(by_player: bool) -> void:
+		player_request = by_player
+		player_marks.append(by_player)
+
+	func requested_by_player() -> bool:
+		return player_request
+
+	func request_true_form() -> bool:
+		true_requests += 1
+		shape_id = ""
+		shape = ""
+		changing = true
+		return true
+
+	func request_shape(shape: String) -> bool:
+		shape_requests.append(shape)
+		shape_id = shape
+		shape = shape
+		changing = true
+		return true
+
+
+class FakeMemory extends RefCounted:
+	var impressions: Array = []
+	var peaks: Array = []
+
+	func commit(impression: Variant) -> void:
+		impressions.append(impression)
+
+	func record_peak(peak: Variant) -> void:
+		peaks.append(peak)
+
+
+## The talk turn the player's line arrives on. The runtime reads the same director fields the
+## readiness service reads.
+class FakeDirector extends Node:
+	var _turn_id := 0
+	var _player_text := ""
+	var state := "idle"
+
+	func _ready() -> void:
+		add_to_group("conversation_director")
 
 
 class FakeEligibility extends RefCounted:
@@ -114,6 +178,8 @@ class FakeMain extends Node:
 	var game: Variant = null
 	var anatomy: Variant = null
 	var stock_smack: Variant = null
+	var source: Variant = null
+	var memory: Variant = null
 
 	func begin_body_swap(runtime: Node, old_pony: Node, id: String, source: Variant,
 			target: String) -> void:
@@ -130,7 +196,9 @@ class FakeMain extends Node:
 		return not _pending_swap.is_empty()
 
 	func shape_source_for(_pony: Node) -> Variant:
-		return _pending_swap.get("source")
+		if not _pending_swap.is_empty():
+			return _pending_swap.get("source")
+		return source
 
 	func camera() -> Camera3D:
 		return null
@@ -230,7 +298,8 @@ func _fixture() -> Dictionary:
 	source.name = "FakeSource"
 	root.add_child(source)
 	source.old_pony = old_pony
-	source.changing = true
+	source.changing = false
+	main.source = source
 	return {"main": main, "runtime": runtime, "old": old_pony, "source": source}
 
 
@@ -257,6 +326,9 @@ func run() -> void:
 	_check_watchdog()
 	_check_invalid_shape()
 	_check_world_close()
+	_check_form_reveal()
+	_check_shape_offer()
+	_check_offer_gate()
 	print("BODY_SWAP_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 
@@ -269,6 +341,7 @@ func _check_handover() -> void:
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
 
+	source.changing = true
 	runtime._suspend_for_body_swap(source)
 	check(runtime._suspended, "the act suspends")
 	check(runtime.get_parent() == main, "the runtime leaves the old body for main")
@@ -375,4 +448,133 @@ func _check_world_close() -> void:
 	runtime.force_stop()
 	check(int(runtime.state) == RUNTIME.State.IDLE, "a world close during a swap ends the act")
 	check(not main.body_swap_pending(), "a world close clears the pending swap")
+	_free_fixture(f)
+
+
+## The player's own ask during a disguise: the handover resumes the same act and the one
+## exceptional beat is recorded once, with the spike, the impression and the peak.
+func _check_form_reveal() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	main.memory = FakeMemory.new()
+	var director := FakeDirector.new()
+	director.name = "FakeDirector"
+	root.add_child(director)
+	source.shape = "fluttershy"
+	source.asks = true
+	director._turn_id = 1
+	director._player_text = "show me the real you"
+	runtime._talk_tick(0.016)
+	check(source.true_requests == 1, "the ask starts a true-form change")
+	check(source.player_request, "the ask marks the change as the player's")
+	check(source.changing, "the source is changing after the ask")
+	runtime._body_swap_tick(0.1)
+	check(runtime._suspended, "the act suspends for the reveal")
+	var new_pony := _pony("Test Mare", "TrueBody")
+	root.add_child(new_pony)
+	source.new_pony = new_pony
+	source.shape = ""
+	main._on_pony(new_pony)
+	check(not runtime._suspended, "the reveal resumes the same act")
+	check(runtime.pony == new_pony, "the reveal keeps the act on the new body")
+	check(runtime._form_reveal_done, "the requested reveal is recorded once")
+	check(float(runtime.satisfaction) >= RUNTIME.FORM_REVEAL_HEAT - 0.01,
+		"the reveal spikes readiness")
+	var memory: FakeMemory = main.memory
+	check(memory.impressions.size() == 1, "the reveal writes one special impression")
+	if not memory.impressions.is_empty():
+		var impression: Variant = memory.impressions[0]
+		check(int(impression.slot) == MEMORY.ImpressionSlot.FORM_REVEAL,
+			"the impression uses the reveal slot")
+		check(str(impression.thought).contains("not the shape"),
+			"the private thought says he wanted her")
+		check(not str(impression.event_text).contains(" you "),
+			"the reveal event has no second-person body")
+	check(memory.peaks.size() == 1, "the reveal records one peak")
+	var values: Dictionary = runtime._summary_values()
+	check(bool(values.get("form_reveal", false)), "the summary sees the reveal")
+	# Once per act: a second ask while disguised again does nothing.
+	source.shape = "rarity"
+	source.true_requests = 0
+	director._turn_id = 2
+	director._player_text = "show me the real you"
+	runtime._talk_tick(0.016)
+	check(source.true_requests == 0, "a second ask in the same act does nothing")
+	runtime.force_stop()
+	director.queue_free()
+	_free_fixture(f)
+
+
+## Her offer after a climax, and a named shape: the act resumes on the disguise with no
+## exceptional beat.
+func _check_shape_offer() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	main.memory = FakeMemory.new()
+	source.shape = ""
+	runtime._shape_offer_tick()
+	check(runtime._shape_offer_done and runtime._shape_offer_pending,
+		"a true-form climax offers the shape change")
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE, "the offer names the pony in the hint")
+	var director := FakeDirector.new()
+	director.name = "FakeDirector"
+	root.add_child(director)
+	source.named = "rarity"
+	director._turn_id = 1
+	director._player_text = "Rarity"
+	runtime._talk_tick(0.016)
+	check(source.shape_requests == ["rarity"], "the named mare starts the change")
+	check(not runtime._shape_offer_pending, "the offer is consumed by the name")
+	check(source.player_marks.has(false), "a named shape stays neutral")
+	runtime._body_swap_tick(0.1)
+	check(runtime._suspended, "the named change suspends the act")
+	var new_pony := _pony("Test Mare", "ShapeBody")
+	root.add_child(new_pony)
+	source.new_pony = new_pony
+	source.shape = "rarity"
+	main._on_pony(new_pony)
+	check(not runtime._form_reveal_done, "a named shape is not an exceptional reveal")
+	var memory: FakeMemory = main.memory
+	check(memory.impressions.is_empty(), "a named shape writes no reveal memory")
+	check(memory.peaks.is_empty(), "a named shape records no reveal peak")
+	runtime.force_stop()
+	director.queue_free()
+	_free_fixture(f)
+
+
+## The offer gate and the act-HUD hint states.
+func _check_offer_gate() -> void:
+	var f := _fixture()
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	source.shape = "rarity"
+	runtime._shape_offer_tick()
+	check(not runtime._shape_offer_done, "a disguise gets no shape offer")
+	source.shape = ""
+	runtime.pony_climaxes = 0
+	runtime._shape_offer_tick()
+	check(not runtime._shape_offer_done, "the offer waits for a climax")
+	runtime.pony_climaxes = 1
+	runtime._shape_offer_tick()
+	check(runtime._shape_offer_done and runtime._shape_offer_pending,
+		"the offer is made once after a climax")
+	source.shape = "fluttershy"
+	runtime._shape_offer_pending = false
+	runtime._form_reveal_done = false
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_ASK,
+		"a disguise invites the reveal ask")
+	runtime._form_reveal_done = true
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint).is_empty(), "a used reveal hides the hint")
+	runtime._form_reveal_done = false
+	runtime._shape_offer_pending = true
+	runtime.force_stop()
+	check(not runtime._shape_offer_pending, "the act end drops the pending offer")
+	check(str(runtime._form_hint).is_empty(), "the act end hides the hint")
 	_free_fixture(f)

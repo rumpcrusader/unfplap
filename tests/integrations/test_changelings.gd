@@ -17,6 +17,19 @@ var checks := 0
 
 class FakeMain extends Node:
 	var api: Node
+	var live_ids: Array[String] = []
+	var game: Variant = null
+
+	func live_character_ids() -> Array[String]:
+		return live_ids.duplicate()
+
+
+class FakePopulation extends Node:
+	var available: Dictionary = {}
+
+
+class FakeGame extends Node:
+	var population: Variant = null
 
 
 class FakeIdentity extends Resource:
@@ -227,16 +240,78 @@ func run() -> void:
 	adapter.call("poll")
 	check(not bool(adapter.call("is_changing")), "the named change completes")
 
+	# The player's own words: the reveal ask, then an adult mare's name.
+	pack.actor = true_new
+	pack.disguised_as = ""
+	check(bool(adapter.call("asks_form_change", "Please, show me the real you.")),
+		"the ask phrase asks for a reveal")
+	check(bool(adapter.call("asks_form_change", "drop the disguise")),
+		"the disguise phrase asks for a reveal")
+	check(not bool(adapter.call("asks_form_change", "you are beautiful")),
+		"ordinary talk is not a reveal ask")
+	check(str(adapter.call("named_form", "I want Rarity")) == "rarity",
+		"a named adult mare resolves")
+	check(str(adapter.call("named_form", "Twilight Sparkle")) == "twilight_sparkle",
+		"a full display name resolves")
+	check(str(adapter.call("named_form", "Apple")).is_empty(),
+		"an ambiguous name resolves to nothing")
+	check(str(adapter.call("named_form", "Chrysalis")).is_empty(),
+		"she cannot be named as her own shape")
+	check(str(adapter.call("named_form_note", "Chrysalis")) == CHANGELINGS.NOTE_HERSELF,
+		"naming herself gets the status")
+	check(str(adapter.call("named_form_note", "Twist")) == CHANGELINGS.NOTE_CANNOT,
+		"a schoolfilly is refused")
+	check(str(adapter.call("named_form_note", "you are beautiful")).is_empty(),
+		"ordinary talk gets no status")
+
+	# A live off-roster adult mare is a candidate through the entry's list.
+	main.live_ids = ["sunny_star"]
+	check(str(adapter.call("named_form", "Sunny Star")) == "sunny_star",
+		"a live off-roster adult mare resolves")
+	main.live_ids = []
+
+	# The shape she already wears is not a change, and the pack's population decides copyable.
+	pack.actor = shape_new
+	check(str(adapter.call("current_shape")) == "rarity", "the worn shape is readable")
+	check(str(adapter.call("named_form", "Rarity")).is_empty(),
+		"the worn shape is excluded")
+	check(str(adapter.call("named_form_note", "Rarity")) == CHANGELINGS.NOTE_WEARING,
+		"naming the worn shape gets the status")
+	var game := FakeGame.new()
+	var population := FakePopulation.new()
+	population.available = {"rarity": "res://mods/unfplap/tools/pose_lab.tscn"}
+	game.population = population
+	root.add_child(game)
+	main.game = game
+	check(str(adapter.call("named_form", "Fluttershy")).is_empty(),
+		"a shape the pack cannot copy is excluded")
+	check(str(adapter.call("named_form_note", "Fluttershy")) == CHANGELINGS.NOTE_CANNOT,
+		"an uncopyable shape gets the status")
+	population.available["fluttershy"] = "res://mods/unfplap/tools/pose_lab.tscn"
+	pack.actor = true_new
+	check(str(adapter.call("named_form", "Fluttershy")) == "fluttershy",
+		"a copyable shape resolves")
+	main.game = null
+	root.remove_child(game)
+	game.free()
+
+	# The player flag travels on the change just started.
+	pack.actor = own
+	pack.disguised_as = "fluttershy"
+	check(not bool(adapter.call("requested_by_player")), "a request starts as hers")
+	check(bool(adapter.call("request_true_form")), "the true-form request starts")
+	adapter.call("set_player_request", true)
+	check(bool(adapter.call("requested_by_player")), "the player flag marks the change")
+	pack.busy = false
+	adapter.call("poll")
+	check(not bool(adapter.call("is_changing")), "the marked change completes")
+
 	# The idle helper only asks the pack to bring her out; it is not a shape change.
 	pack.actor = null
 	pack.busy = false
 	check(bool(adapter.call("request_appear")), "the idle action asks her out")
 	check(pack.brought == 1 and not bool(adapter.call("is_changing")),
 		"bringing her out is not a change")
-	check(not bool(adapter.call("asks_form_change", "show me")),
-		"phase 3 owns the player's ask")
-	check(str(adapter.call("named_form", "rarity")).is_empty(),
-		"phase 3 owns the named shape")
 
 	# The pack off unregisters the provider and empties the installed list.
 	gate.on = false

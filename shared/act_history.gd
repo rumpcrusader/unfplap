@@ -148,6 +148,11 @@ static func commit(section: Dictionary, id: String, outcome: Dictionary,
 		if bool(outcome.get("early", false)):
 			row["hurt"] = mini(int(regular["max_hurt"]),
 				int(row.get("hurt", 0)) + int(regular["mild_hurt"]))
+	# The requested reveal is the act's one exceptional comfort beat: a great act's worth on top
+	# of the grade's own change. It never softens a bad act.
+	if bool(outcome.get("form_reveal", false)) and grade != "bad":
+		row["comfort"] = mini(int(regular["max_comfort"]),
+			int(row.get("comfort", 0)) + int(regular["great_comfort"]))
 	row["acts"] = int(row.get("acts", 0)) + 1
 	row["last_grade"] = grade
 	row["last_quality"] = clampf(float(outcome.get("quality", 0.0)), 0.0, 1.0)

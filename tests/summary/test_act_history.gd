@@ -91,6 +91,18 @@ func run() -> void:
 	check(int(great_row.get("comfort", 0)) == good_comfort + great_comfort,
 		"a great act adds more comfort")
 
+	# The requested reveal is an exceptional comfort beat; it never softens a bad act.
+	var reveal := outcome("good")
+	reveal["form_reveal"] = true
+	var reveal_row: Dictionary = HISTORY.commit({}, "rarity", reveal, 10.0).get("row", {})
+	check(int(reveal_row.get("comfort", 0)) == good_comfort + great_comfort,
+		"a requested reveal adds the great-act comfort")
+	var bad_reveal := outcome("bad")
+	bad_reveal["form_reveal"] = true
+	var bad_reveal_row: Dictionary = HISTORY.commit({}, "rarity", bad_reveal, 10.0).get("row", {})
+	check(int(bad_reveal_row.get("comfort", 0)) == 0,
+		"a reveal never softens a bad act")
+
 	# A bad act costs comfort and adds hurt. Repeat until the tiers.
 	var bad: Dictionary = outcome("bad")
 	var res: Dictionary = HISTORY.commit(section, "rarity", bad, 10.0)

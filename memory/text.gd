@@ -42,6 +42,8 @@ static func impression_suffix(slot: int) -> String:
 			return ":mood"
 		FACTS.ImpressionSlot.STAY_CLOSE:
 			return ":stay_close_gain"
+		FACTS.ImpressionSlot.FORM_REVEAL:
+			return ":form_reveal"
 		_:
 			return ":gain"
 
@@ -53,9 +55,16 @@ static func event_kind(slot: int) -> String:
 
 
 ## The idempotent event-id suffix for one impression slot. A refusal keeps its bare id; the act
-## summary keeps its own `:summary` id so a later prompt can recall the act.
+## summary keeps its own `:summary` id so a later prompt can recall the act. The reveal is its own
+## beat, so it never collides with the summary written at the act's end.
 static func event_suffix(slot: int) -> String:
-	return "" if slot == FACTS.ImpressionSlot.REFUSAL else ":summary"
+	match slot:
+		FACTS.ImpressionSlot.REFUSAL:
+			return ""
+		FACTS.ImpressionSlot.FORM_REVEAL:
+			return ":form_reveal"
+		_:
+			return ":summary"
 
 
 ## The private stay-close thought. A positive act reads as cared for; a bad act reads as a
@@ -83,6 +92,8 @@ static func reaction_name(reaction: int) -> String:
 			return "tolerance_warning"
 		FACTS.Reaction.TOLERANCE_STOP:
 			return "tolerance_stop"
+		FACTS.Reaction.FORM_OFFER:
+			return "form_offer"
 		_:
 			return "climax"
 

@@ -75,6 +75,7 @@ static func evaluate(snapshot: Dictionary, rule_set: Dictionary) -> Dictionary:
 	var has_touch_likes := not (preferences.get("touch", []) as Array).is_empty()
 	var pony_climaxes := int(snapshot.get("pony_climaxes", 0))
 	var ended_early := bool(snapshot.get("ended_early", false))
+	var form_reveal := bool(snapshot.get("form_reveal", false))
 	var talk_liked := int(snapshot.get("talk_liked", 0))
 	var talk_dislikes := int(snapshot.get("talk_dislikes", 0))
 	var touches_liked := int(snapshot.get("touches_liked", 0))
@@ -213,6 +214,7 @@ static func evaluate(snapshot: Dictionary, rule_set: Dictionary) -> Dictionary:
 		"severe": severe,
 		"early": ended_early,
 		"stopped": false,
+		"form_reveal": form_reveal,
 		"reasons": reasons,
 		"checks": checks,
 		"right": right,

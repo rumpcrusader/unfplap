@@ -9,17 +9,21 @@ extends RefCounted
 ##   old_actor() -> Node                     the body being left, while it still exists
 ##   new_actor() -> Node                     the body the change produced, when it exists
 ##   target() -> String                      the requested shape id, "" for her own form
+##   current_shape() -> String               the shape worn now, "" for her own form
 ##   claims_body(pony: Node) -> bool         a newly spawned body belongs to this change
 ##   request_true_form() -> bool             start a change back to her own form
 ##   request_shape(shape_id: String) -> bool start a change to a named shape
+##   set_player_request(by_player: bool)     (optional) mark the change just started
 ##   request_appear() -> bool                (optional) bring the actor out while idle
 ##   poll() -> void                          advance the source's own read of the world
 ##   source_name() -> String                 a short name for the act log
 ##   prepare_pony(pony: Node) -> void        (optional) fit metadata on a body
 ##   installed_character_ids() -> Array[String] (optional) mares listed while away
 ##   requested_by_player() -> bool           the change carries a player's ask
-##   asks_form_change(text: String) -> bool  (phase 3) the text asks for a reveal
-##   named_form(text: String) -> String      (phase 3) the shape named in the text
+##   asks_form_change(text: String) -> bool  the text asks for a reveal
+##   named_form(text: String) -> String      the shape named in the text, or ""
+##   named_form_note(text: String) -> String (optional) a short status when the named
+##                                           shape is known but cannot be worn
 ##
 ## Nothing here preloads a source and no source may name unfplap's runtime or main. The manager
 ## returns the first active source that handles a pony; the handover core knows only this contract.

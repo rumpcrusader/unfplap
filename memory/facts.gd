@@ -9,13 +9,13 @@ enum LineState { ABSENT, QUEUED, GENERATING, SPEAKING, DELIVERED, UNKNOWN }
 enum LineKind { REACTION, UTTERANCE, BYSTANDER }
 ## A settings-driven act reaction. The names are the `act_prompts.event_*` keys.
 enum Reaction { CLIMAX, END_EARLY, HISTORY_REFUSAL, HISTORY_REMINDER, HISTORY_COMPLAINT,
-		TOLERANCE_WARNING, TOLERANCE_STOP }
+		TOLERANCE_WARNING, TOLERANCE_STOP, FORM_OFFER }
 ## A world-context event with fixed wording.
 enum NoteKind { CANCELLED, CLIMAXED, STOPPED, APOLOGY }
 ## Why an act stopped. Only reachable reasons are listed.
 enum StopReason { NONE, UNWILLING, PICKED_UP, INTERRUPTED, FORM_CHANGE, WITHDREW }
 ## The impression slot, which owns the idempotent event-id suffix.
-enum ImpressionSlot { ACT, ACT_EARLY, REFUSAL, STAY_CLOSE }
+enum ImpressionSlot { ACT, ACT_EARLY, REFUSAL, STAY_CLOSE, FORM_REVEAL }
 ## How an observer perceived the act.
 enum Sense { SIGHT, SOUND }
 

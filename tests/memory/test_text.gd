@@ -88,10 +88,16 @@ func run() -> void:
 		"refusal impression suffix")
 	check(TEXT.impression_suffix(FACTS.ImpressionSlot.STAY_CLOSE) == ":stay_close_gain",
 		"stay-close impression suffix")
+	check(TEXT.impression_suffix(FACTS.ImpressionSlot.FORM_REVEAL) == ":form_reveal",
+		"reveal impression suffix")
 	check(TEXT.event_suffix(FACTS.ImpressionSlot.REFUSAL) == "", "refusal event keeps its bare id")
 	check(TEXT.event_suffix(FACTS.ImpressionSlot.ACT) == ":summary", "act event suffix")
+	check(TEXT.event_suffix(FACTS.ImpressionSlot.FORM_REVEAL) == ":form_reveal",
+		"the reveal keeps its own event id")
 	check(TEXT.event_kind(FACTS.ImpressionSlot.REFUSAL) == "intimacy", "refusal is an intimacy event")
 	check(TEXT.event_kind(FACTS.ImpressionSlot.ACT) == "relationship", "act is a relationship event")
+	check(TEXT.event_kind(FACTS.ImpressionSlot.FORM_REVEAL) == "relationship",
+		"the reveal is a relationship event")
 
 	check(TEXT.stay_close_thought(true, true).contains("caressed"),
 		"a positive stay-close caress names the caress")
@@ -116,6 +122,8 @@ func run() -> void:
 		"history reminder reaction name")
 	check(TEXT.reaction_name(FACTS.Reaction.TOLERANCE_WARNING) == "tolerance_warning",
 		"tolerance warning reaction name")
+	check(TEXT.reaction_name(FACTS.Reaction.FORM_OFFER) == "form_offer",
+		"form offer reaction name")
 
 	print("MEMORY_TEXT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

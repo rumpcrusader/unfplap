@@ -70,6 +70,15 @@ const RESTORE_SECONDS := 0.4
 ## the pack's spawn are well inside it; a longer wait means no body is coming.
 const BODY_SWAP_POLL_S := 0.1
 const BODY_SWAP_WATCHDOG_S := 8.0
+## A player-requested reveal is the act's one exceptional beat: a readiness spike, a special
+## impression and peak, and extra comfort at the act's record. Magnitudes are lab-tuned.
+const FORM_REVEAL_HEAT := 30.0
+const FORM_REVEAL_PEAK_SCORE := 150.0
+## The one act-HUD hint. It names the existing dialogue channel, never a new key.
+const FORM_HINT_ASK := "Say to her: ask to see the real her."
+const FORM_HINT_SHAPE := "Say to her: name the pony she should wear."
+## She offers the change in her own voice; the note is code-owned and short.
+const FORM_OFFER_PROMPT := "Offer him a gift: for the rest of this, you will wear any adult mare's shape he names. Say it in one short line, at most 24 words, in your own voice, as a proud indulgence rather than a plea. Do not explain how it works and do not list names."
 ## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
 ## feel is the same with the anatomy off. Close to the default part's visible length.
 const NOMINAL_SHAFT_M := 0.2
@@ -168,8 +177,17 @@ var _swap_source: Variant = null
 var _swap_old_pony: Node = null
 var _swap_new_pony: Node = null
 var _swap_pose := ""
+var _swap_target := ""
+var _swap_by_player := false
 var _swap_elapsed := 0.0
 var _swap_clock := 0.0
+## Form-change interaction: the exceptional reveal is once per act, the offer is once per act,
+## and the HUD hint is cached so a frame never looks the source up.
+var _form_reveal_done := false
+var _shape_offer_done := false
+var _shape_offer_pending := false
+var _form_talk_turn := -1
+var _form_hint := ""
 ## `reparent()` runs `_exit_tree()`. The handover moves the live runtime between bodies, so that
 ## signal must not run the world-close teardown it exists for.
 var _swapping_parent := false
@@ -572,6 +590,7 @@ func _sync_act_facts() -> void:
 	facts.satisfaction = satisfaction
 	facts.mood = mood
 	facts.cue = cue
+	facts.form_hint = _form_hint
 	facts.pony_climaxes = pony_climaxes
 	facts.depth = depth
 	facts.penetration_m = penetration_m
@@ -1454,6 +1473,7 @@ func _physics_tick(delta: float) -> void:
 			var talk_started := Time.get_ticks_usec()
 			_readiness_tick(delta)
 			_talk_tick(delta)
+			_shape_offer_tick()
 			_bystander_tick(delta)
 			_timed("runtime_talk", talk_started)
 	if state in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.RESTORE]:
@@ -1469,6 +1489,7 @@ func _physics_tick(delta: float) -> void:
 			# scene is settled now, and restoring to this is what puts the camera back correctly.
 			if _pose_family() == "bed":
 				_missionary_camera_controller().resnapshot()
+			_form_hint_tick()
 	elif state == State.CLIMAX:
 		_climax_left -= delta
 		_reactions.hearts_tick(delta)
@@ -1966,6 +1987,10 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_reset_thrust_state()
 	_stopped_by_her = false
 	_tolerance_warning_key = ""
+	_form_reveal_done = false
+	_shape_offer_done = false
+	_shape_offer_pending = false
+	_form_hint = ""
 	_end_tail_tuck()
 	_summary_service.reset_act()
 	_prepare_vocal()
@@ -2132,8 +2157,9 @@ func body_swap_pending() -> bool:
 
 
 ## The act-side form request. It only starts a change; the watcher suspends the act on the next
-## tick, so the act's state, depth and climaxes are never handed to a second runtime.
-func request_form_change(true_form: bool, shape_id := "") -> Dictionary:
+## tick, so the act's state, depth and climaxes are never handed to a second runtime. `by_player`
+## marks a player's own ask; only a requested reveal is exceptional.
+func request_form_change(true_form: bool, shape_id := "", by_player := false) -> Dictionary:
 	if _suspended:
 		return {"ok": false, "reason": "a form change is already in progress",
 			"message": "A form change is already in progress."}
@@ -2156,11 +2182,13 @@ func request_form_change(true_form: bool, shape_id := "") -> Dictionary:
 	if not started:
 		return {"ok": false, "reason": "the source refused",
 			"message": "She cannot take that form now."}
+	if source.has_method("set_player_request"):
+		source.call("set_player_request", by_player)
 	var label := "her true form" if true_form else SETTINGS.character_name(shape_id)
-	_log("body swap requested target=%s form=%s pose=%s depth=%.3f climaxes=%d" % [
+	_log("body swap requested target=%s form=%s by_player=%s pose=%s depth=%.3f climaxes=%d" % [
 		shape_id if not shape_id.is_empty() else "self",
-		"true" if true_form else "named", str(_start_row().get("id", "")), depth,
-		pony_climaxes])
+		"true" if true_form else "named", str(by_player), str(_start_row().get("id", "")),
+		depth, pony_climaxes])
 	return {"ok": true, "reason": "", "message": "Changing to %s." % label}
 
 
@@ -2224,21 +2252,22 @@ func _suspend_for_body_swap(source: Variant) -> void:
 	_swap_source = source
 	_swap_old_pony = pony
 	_swap_new_pony = null
+	_swap_target = ""
+	if source.has_method("target"):
+		_swap_target = str(source.call("target")).strip_edges()
+	_swap_by_player = source.has_method("requested_by_player") \
+		and bool(source.call("requested_by_player"))
 	_swap_elapsed = 0.0
 	var view: Variant = _pose_service().view()
 	_swap_pose = str(view.id) if view != null and not str(view.id).is_empty() \
 		else str(_start_row().get("id", ""))
 	if is_instance_valid(main) and main.has_method("begin_body_swap"):
-		var target := ""
-		if source.has_method("target"):
-			target = str(source.call("target"))
-		main.call("begin_body_swap", self, pony, _id, source, target)
+		main.call("begin_body_swap", self, pony, _id, source, _swap_target)
 	# Leave the old body before it is freed. `main` keeps the act; the new body adopts the node.
 	attach_to_body(main)
-	_log("body swap suspend source=%s target=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
+	_log("body swap suspend source=%s target=%s by_player=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
 		str(source.call("source_name")) if source.has_method("source_name") else "?",
-		str(source.call("target")) if source.has_method("target") else "",
-		state, _swap_pose, depth, pony_climaxes])
+		_swap_target, str(_swap_by_player), state, _swap_pose, depth, pony_climaxes])
 	_wings_controller().release()
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.end()
@@ -2290,10 +2319,15 @@ func _resume_after_body_swap() -> void:
 	if not is_instance_valid(pony):
 		_failed_body_swap("no body to resume on")
 		return
+	var changed := is_instance_valid(_swap_new_pony)
+	var by_player := _swap_by_player
+	var source: Variant = _swap_source
 	_suspended = false
 	_swap_source = null
 	_swap_new_pony = null
 	_swap_old_pony = null
+	_swap_target = ""
+	_swap_by_player = false
 	_swap_elapsed = 0.0
 	_swap_clock = BODY_SWAP_POLL_S
 	if is_instance_valid(main) and main.has_method("clear_body_swap"):
@@ -2335,6 +2369,7 @@ func _resume_after_body_swap() -> void:
 		main.hud.update_from(_act_facts)
 	_log("body swap resumed pony=%s id=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
 		str(pony.name), _id, state, _swap_pose, depth, pony_climaxes])
+	_complete_form_change(source, changed, by_player)
 
 
 ## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is
@@ -2386,6 +2421,8 @@ func _failed_body_swap(reason: String) -> void:
 	_swap_source = null
 	_swap_new_pony = null
 	_swap_old_pony = null
+	_swap_target = ""
+	_swap_by_player = false
 	_suspended = false
 	force_stop()
 
@@ -3216,12 +3253,204 @@ func _on_talk(text: String) -> void:
 	_readiness.talk(text)
 
 
+## The game's talk turn is the one interaction channel: no new key and no picker. The readiness
+## service already scores a new turn; this reads the same turn for the source's own words.
+func _player_line_tick() -> void:
+	if state != State.ACTIVE or _suspended:
+		return
+	var director := _director()
+	if director == null:
+		return
+	var turn := _talk_turn()
+	if turn == _form_talk_turn:
+		return
+	_form_talk_turn = turn
+	var text := str(director.get("_player_text")).strip_edges()
+	if text.is_empty():
+		return
+	_on_player_line(text)
+
+
+func _talk_turn() -> int:
+	var director := _director()
+	if director == null:
+		return -1
+	var value: Variant = director.get("_turn_id")
+	return int(value) if value != null else -1
+
+
+## One player line during a live act. A pending shape offer consumes a named adult mare; a
+## source wearing another shape consumes a reveal ask. Everything else is ordinary talk and is
+## left alone.
+func _on_player_line(text: String) -> void:
+	if state != State.ACTIVE or _suspended:
+		return
+	var source: Variant = _shape_source()
+	if source == null or not source.has_method("current_shape"):
+		return
+	if _shape_offer_pending:
+		var shape := _source_named_form(source, text)
+		if not shape.is_empty():
+			var answer: Dictionary = request_form_change(false, shape)
+			if bool(answer.get("ok", false)):
+				_shape_offer_pending = false
+				_form_hint_tick()
+				_log("form change named by player id=%s shape=%s" % [_id, shape])
+				return
+			_log("form change named by player refused id=%s shape=%s reason=%s" % [
+				_id, shape, str(answer.get("reason", ""))])
+		var note := _source_named_note(source, text)
+		if not note.is_empty():
+			_form_status(note)
+	if not _source_current_shape(source).is_empty():
+		if _form_reveal_done or not _source_asks_form_change(source, text):
+			return
+		var result: Dictionary = request_form_change(true, "", true)
+		if bool(result.get("ok", false)):
+			_log("form reveal requested id=%s" % _id)
+		else:
+			_log("form reveal refused id=%s reason=%s" % [
+				_id, str(result.get("reason", ""))])
+
+
+## After at least one climax, in her own form, she offers any adult mare's shape once. A queue
+## failure still leaves the offer standing: the HUD hint is the invitation.
+func _shape_offer_tick() -> void:
+	if _shape_offer_done or _suspended or state != State.ACTIVE or pony_climaxes < 1:
+		return
+	var source: Variant = _shape_source()
+	if source == null or not source.has_method("current_shape"):
+		# This pony has no shape source, and one cannot join a live act; stop asking every tick.
+		_shape_offer_done = true
+		return
+	if not _source_current_shape(source).is_empty():
+		return
+	_shape_offer_done = true
+	_shape_offer_pending = true
+	_form_hint_tick()
+	_log("form shape offer id=%s climaxes=%d" % [_id, pony_climaxes])
+	if not is_instance_valid(main):
+		return
+	var act_id := _event_id
+	var valid := func() -> bool:
+		return not _suspended and _event_id == act_id and _shape_offer_pending
+	var key: String = _dialogue_service().reaction_line(MEMORY.Reaction.FORM_OFFER,
+		"%s:form_offer" % act_id, FORM_OFFER_PROMPT, valid)
+	if key.is_empty():
+		return
+	_dialogue_service().note_reaction(key, cue, _now_s() + _cue_reaction_max_age_s)
+	_log("utterance kind=reaction key=%s" % key)
+
+
+## The one act-HUD hint. The cached string is what `_sync_act_facts` copies, so a frame never
+## looks the source up and the HUD never probes the runtime.
+func _form_hint_tick() -> void:
+	var next := ""
+	if state == State.ACTIVE and not _suspended:
+		var source: Variant = _shape_source()
+		if source != null and source.has_method("current_shape"):
+			if _shape_offer_pending:
+				next = FORM_HINT_SHAPE
+			elif not _form_reveal_done and not _source_current_shape(source).is_empty():
+				next = FORM_HINT_ASK
+	if next == _form_hint:
+		return
+	_form_hint = next
+	_log("form hint \"%s\"" % next)
+
+
+## The new body is up. A player-requested return to her own form is the act's exceptional beat;
+## any other change (her own or a named shape) is a neutral continuation.
+func _complete_form_change(source: Variant, changed: bool, by_player: bool) -> void:
+	if not changed:
+		_form_hint_tick()
+		return
+	var shape := _source_current_shape(source) if is_instance_valid(source) else ""
+	if by_player and shape.is_empty() and is_instance_valid(source):
+		if not _form_reveal_done:
+			_commit_form_reveal()
+		_form_hint_tick()
+		_shape_offer_tick()
+		return
+	if not shape.is_empty():
+		_shape_offer_pending = false
+	_form_hint_tick()
+	_log("form changed id=%s shape=%s exceptional=false" % [
+		_id, shape if not shape.is_empty() else "self"])
+
+
+## Once per act: a large readiness spike, one special impression and world event, one peak, and
+## the comfort input the summary record reads. The private thought says he wanted her, not the
+## shape; the world event stays non-graphic.
+func _commit_form_reveal() -> void:
+	_form_reveal_done = true
+	if state == State.ACTIVE:
+		_readiness.add_heat(minf(FORM_REVEAL_HEAT, READINESS_MAX - satisfaction))
+		_set_cue_override("She shows you the real her.", _cue_override_seconds)
+	_set_face(0.85, FACE.ACT_LIDS)
+	var memory: Variant = _memory_service()
+	if memory != null:
+		var impression := MEMORY.Impression.new()
+		impression.id = _id
+		impression.event_id = _event_id
+		impression.slot = MEMORY.ImpressionSlot.FORM_REVEAL
+		impression.mood = "happy"
+		impression.romance = 2
+		impression.thought = "He wanted me, not the shape I was wearing."
+		impression.event_text = "Anon asked to see the real her, and she set the borrowed shape aside."
+		memory.commit(impression)
+		var peak := MEMORY.Peak.new()
+		peak.id = _id
+		peak.event_id = _event_id + ":form_reveal"
+		peak.text = "Anon asked to see the real me, and I let him."
+		peak.score = FORM_REVEAL_PEAK_SCORE
+		memory.record_peak(peak)
+	_log("form reveal id=%s event=%s readiness=%.0f" % [_id, _event_id, satisfaction])
+
+
+func _form_status(text: String) -> void:
+	if is_instance_valid(main) and is_instance_valid(main.hud) \
+			and main.hud.has_method("toast"):
+		main.hud.call("toast", text, 2.5)
+
+
+func _source_current_shape(source: Variant) -> String:
+	if source == null or not source.has_method("current_shape"):
+		return ""
+	return str(source.call("current_shape")).strip_edges()
+
+
+func _source_asks_form_change(source: Variant, text: String) -> bool:
+	return source != null and source.has_method("asks_form_change") \
+		and bool(source.call("asks_form_change", text))
+
+
+func _source_named_form(source: Variant, text: String) -> String:
+	if source == null or not source.has_method("named_form"):
+		return ""
+	return str(source.call("named_form", text)).strip_edges()
+
+
+func _source_named_note(source: Variant, text: String) -> String:
+	if source == null or not source.has_method("named_form_note"):
+		return ""
+	return str(source.call("named_form_note", text)).strip_edges()
+
+
+func _memory_service() -> Variant:
+	if not is_instance_valid(main):
+		return null
+	return main.get("memory")
+
+
 func _talk_tick(_delta: float) -> void:
+	_player_line_tick()
 	_readiness.talk_tick(_director())
 
 
 func _remember_talk_turn() -> void:
 	_readiness.remember_talk_turn(_director())
+	_form_talk_turn = _talk_turn()
 
 
 ## The readiness host boundary: scene values the pure scoring needs, and the presentation it
@@ -3310,6 +3539,7 @@ func _summary_values() -> Dictionary:
 		"pattern_right": _readiness.act_pattern_right,
 		"ended_early": _act_ended_early,
 		"stopped_by_her": _stopped_by_her,
+		"form_reveal": _form_reveal_done,
 	}
 
 
@@ -3866,7 +4096,11 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_swap_source = null
 	_swap_new_pony = null
 	_swap_old_pony = null
+	_swap_target = ""
+	_swap_by_player = false
 	_swap_elapsed = 0.0
+	_shape_offer_pending = false
+	_form_hint = ""
 	if is_instance_valid(main) and main.has_method("clear_body_swap"):
 		main.call("clear_body_swap", self)
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act

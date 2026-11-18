@@ -49,6 +49,7 @@ func summary_inputs(context: Dictionary) -> Dictionary:
 		"pattern_right": int(context.get("pattern_right", 0)),
 		"ended_early": bool(context.get("ended_early", false)),
 		"stopped_by_her": bool(context.get("stopped_by_her", false)),
+		"form_reveal": bool(context.get("form_reveal", false)),
 		"tolerance": str(preferences.get("tolerance", "normal")),
 		"forced": bool(context.get("forced", false)),
 	}

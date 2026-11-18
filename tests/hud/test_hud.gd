@@ -47,6 +47,7 @@ func run() -> void:
 	_check_style()
 	_check_anatomy_rows()
 	_check_controls()
+	_check_form_hint()
 	print("HUD_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("HUD_PASS")
@@ -86,6 +87,28 @@ func _check_style() -> void:
 		"the prompt cap matches the game icon height")
 	var capped_text := capped.get_child(1) as Label
 	check(capped_text != null and capped_text.text == "Make love", "the capped row keeps its words")
+
+
+func _check_form_hint() -> void:
+	var hud: CanvasLayer = HUD.new()
+	root.add_child(hud)
+	var form := hud.get("_hint_form") as Label
+	check(form != null, "the act card builds the form hint row")
+	var view := _view()
+	hud.call("update_from", view)
+	check(form != null and not form.visible, "no form hint without a source state")
+	view.form_hint = "Say to her: ask to see the real her."
+	hud.call("update_from", view)
+	check(form != null and form.visible, "the form hint shows in the act")
+	check(form != null and form.text == "Say to her: ask to see the real her.",
+		"the form hint keeps its words")
+	check(form != null and form.get_theme_color("font_color") == HUD.ACCENT,
+		"the form hint uses the pink accent")
+	view.form_hint = ""
+	view.state = 4
+	hud.call("update_from", view)
+	check(form != null and not form.visible, "afterglow hides the form hint")
+	hud.queue_free()
 
 
 func _check_anatomy_rows() -> void:

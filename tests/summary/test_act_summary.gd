@@ -82,6 +82,10 @@ func run() -> void:
 	check(is_equal_approx(float(clean.quality), 1.0), "a clean act scores 1.0")
 	check(str(clean.hud).contains("wanted"), "good HUD is feeling words")
 
+	var reveal := evaluate({"form_reveal": true})
+	check(bool(reveal.get("form_reveal", false)), "the reveal input reaches the outcome")
+	check(str(reveal.grade) == str(clean.grade), "a reveal does not change the grade")
+
 	var great := evaluate({"pony_climaxes": 2})
 	check(great.grade == "great", "two climaxes with no misses is great")
 	check(int(great.romance) == 2, "a great act gives romance +2")

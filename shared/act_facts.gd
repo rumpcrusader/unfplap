@@ -101,6 +101,8 @@ var hole_ready := false
 var oral_ready := false
 var hud_readouts := true
 var hud_controls := true
+## The act's one form-change hint, or "". It names the dialogue channel and no new control.
+var form_hint := ""
 
 # Scene handles the act owns. Presentation modules are scene adapters, so they receive the nodes
 # they work on rather than reading the runtime's fields.

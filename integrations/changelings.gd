@@ -5,12 +5,15 @@ extends Node
 ## The pack's own body script extends the game's pony, so unfplap already attaches its runtime and
 ## anatomy controller. This adapter adds only what the generic core cannot know: her approved
 ## profile as a provider layer, her body-fit and custom tail-root metadata on the bodies she
-## brings, and the installed list entry while the pack is active. It reads the pack's public
-## nodes and state; it never edits the pack and never requires a rebuild.
+## brings, the installed list entry while the pack is active, and the player's own words for the
+## reveal ask and the named shape. It reads the pack's public nodes and state; it never edits the
+## pack and never requires a rebuild.
 ##
 ## Scope: world. `main.gd` constructs it once. It never preloads `main.gd` or `runtime.gd`.
 ##
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Placement`, `## Tail seating`).
+
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const MOD_ID := "changelings"
 const GROUP := "changelings_mod"
@@ -19,6 +22,18 @@ const ID := "chrysalis"
 const TAIL_ROOT := "ChrysalisHair/Hair_tail/Chain"
 ## A disguise marks its body with this geometry variant (`changeling=<pony id>` in 0.2.12).
 const SHAPE_PREFIX := "changeling="
+## The player's own words for the reveal ask, lower-case and matched inside the line. The core
+## owns no phrasing; a later source brings its own.
+const REVEAL_PHRASES := [
+	"true form", "real form", "real self", "real you", "as yourself", "show yourself",
+	"show me the real", "drop the disguise", "take off the disguise", "lose the disguise",
+	"unmask", "who you really are",
+]
+## Bodies the base game writes as young or male; they are never a wearable shape.
+const INELIGIBLE_FORMS := ["twist", "fiddly_twang"]
+const NOTE_WEARING := "She is already wearing that shape."
+const NOTE_HERSELF := "She is already herself."
+const NOTE_CANNOT := "She cannot wear that shape."
 
 ## The approved provider profile. No `eligible` assertion: her identity decides age, so a young
 ## disguised shape still fails the act gate.
@@ -131,6 +146,30 @@ func target() -> String:
 	return _change_target
 
 
+## The shape she wears now; empty while she is her own form. The spawned body's geometry variant
+## is exact as soon as the pack brings it, while `disguised_as` is only written once the change
+## has settled.
+func current_shape() -> String:
+	var mod := _source_mod()
+	if mod == null:
+		return ""
+	var actor: Variant = mod.get("actor")
+	if actor is Node and is_instance_valid(actor):
+		var worn := _shape_of(actor as Node)
+		if not worn.is_empty():
+			return worn
+		if _is_own_body(actor as Node):
+			return ""
+	return str(mod.get("disguised_as")).strip_edges()
+
+
+## Mark the change just started as the player's ask. The runtime requests the change first and
+## sets the flag before its watcher sees the change, so the reveal event can tell it apart.
+func set_player_request(by_player: bool) -> void:
+	if _changing:
+		_change_by_player = by_player
+
+
 func requested_by_player() -> bool:
 	return _change_by_player
 
@@ -197,12 +236,73 @@ func source_name() -> String:
 	return MOD_ID
 
 
-## Phase 3 owns the player's own words. The source contract keeps the hooks in one place.
-func asks_form_change(_text: String) -> bool:
+## True when the player's own words ask her to drop the shape and show herself.
+func asks_form_change(text: String) -> bool:
+	if not active():
+		return false
+	var key := _normalize(text)
+	if key.is_empty():
+		return false
+	for phrase: String in REVEAL_PHRASES:
+		if key.contains(phrase):
+			return true
 	return false
 
 
-func named_form(_text: String) -> String:
+## The adult mare named in the player's line, or "". She, the shape she already wears and a
+## body the pack cannot copy are never returned. An ambiguous name matches nothing.
+func named_form(text: String) -> String:
+	if not active():
+		return ""
+	var key := _normalize(text)
+	if key.is_empty():
+		return ""
+	var mod := _source_mod()
+	var actor := _actor_id(mod)
+	var current := current_shape()
+	var best := ""
+	var best_score := 0
+	var tied := false
+	for id: String in _shape_candidates():
+		if id == actor or id == current:
+			continue
+		var score := _name_score(key, id)
+		if score <= 0:
+			continue
+		if score > best_score:
+			best = id
+			best_score = score
+			tied = false
+		elif score == best_score:
+			tied = true
+	if best.is_empty() or tied:
+		return ""
+	return best if _copyable(best) else ""
+
+
+## A short status when the line names a shape she wears, herself, or a known ineligible body.
+## Ordinary talk returns "", so the offer can stay pending without a status on every line.
+func named_form_note(text: String) -> String:
+	if not active():
+		return ""
+	var key := _normalize(text)
+	if key.is_empty():
+		return ""
+	var mod := _source_mod()
+	var current := current_shape()
+	if not current.is_empty() and _name_score(key, current) > 0:
+		return NOTE_WEARING
+	var actor := _actor_id(mod)
+	if not actor.is_empty() and _name_score(key, actor) > 0:
+		return NOTE_HERSELF
+	for id: String in INELIGIBLE_FORMS:
+		if _name_score(key, id) > 0:
+			return NOTE_CANNOT
+	for id: String in _shape_candidates():
+		if id == actor or id == current:
+			continue
+		if _name_score(key, id) > 0 and not _copyable(id):
+			return NOTE_CANNOT
 	return ""
 
 
@@ -268,6 +368,83 @@ func _is_disguise(pony: Node) -> bool:
 func _shape_of(pony: Node) -> String:
 	var variant := str(pony.get_meta("geometry_variant", ""))
 	return variant.trim_prefix(SHAPE_PREFIX).strip_edges() if variant.begins_with(SHAPE_PREFIX) else ""
+
+
+## The body the pack is acting through, by its identity. "" while she has no body.
+func _actor_id(mod: Node) -> String:
+	if mod == null:
+		return ""
+	var actor: Variant = mod.get("actor")
+	if not actor is Node or not is_instance_valid(actor):
+		return ""
+	var identity: Variant = (actor as Node).get("identity")
+	if identity == null:
+		return ""
+	return str(identity.get("id")).strip_edges()
+
+
+## Every adult mare the player may name: the base roster plus the live off-roster and provider
+## mares the entry lists. The base roster is adult by construction; the entry's list is already
+## gated for a character.
+func _shape_candidates() -> Array[String]:
+	var out: Array[String] = []
+	for id: String in SETTINGS.CHARACTER_ORDER:
+		if not id.is_empty() and not out.has(id):
+			out.append(id)
+	if is_instance_valid(main) and main.has_method("live_character_ids"):
+		var live: Variant = main.call("live_character_ids")
+		if live is Array:
+			for raw: Variant in live:
+				var id := str(raw).strip_edges()
+				if not id.is_empty() and not out.has(id):
+					out.append(id)
+	return out
+
+
+## The pack copies a shape by the game's population entry. Without a population (the lab's
+## `--character` starts) the adult roster is still a valid choice.
+func _copyable(shape_id: String) -> bool:
+	if not is_instance_valid(main):
+		return true
+	var game: Variant = main.get("game")
+	if not game is Node or not is_instance_valid(game):
+		return true
+	var population: Variant = (game as Node).get("population")
+	if population == null:
+		return true
+	var available: Variant = population.get("available")
+	if not available is Dictionary:
+		return true
+	return not str((available as Dictionary).get(shape_id, "")).is_empty()
+
+
+## 0 for no match. A whole display name beats the id's words, which beat one distinctive word.
+## A single word only counts on its own, so "apple" never silently picks one apple mare.
+func _name_score(key: String, id: String) -> int:
+	var name := _normalize(SETTINGS.character_name(id))
+	var ident := _normalize(id.replace("_", " "))
+	var best := 0
+	if not name.is_empty() and key.contains(name):
+		best = 1000 + name.length()
+	if not ident.is_empty() and key.contains(ident):
+		best = maxi(best, 900 + ident.length())
+	var words := name.split(" ", false)
+	for word: String in words:
+		if word.length() >= 4 and key.split(" ", false).has(word):
+			best = maxi(best, 100 + word.length())
+	return best
+
+
+## Lower-case words only, so punctuation and casing never hide a name.
+static func _normalize(text: String) -> String:
+	var out := ""
+	for index in text.length():
+		var c := text[index].to_lower()
+		if (c >= "a" and c <= "z") or (c >= "0" and c <= "9"):
+			out += c
+		else:
+			out += " "
+	return " ".join(out.split(" ", false))
 
 
 ## One change, one old body. A second request while it runs is refused by the caller's gate.

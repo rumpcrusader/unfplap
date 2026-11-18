@@ -32,6 +32,7 @@ var _prompt_key := ""
 var _hint: VBoxContainer
 var _hint_status: Label
 var _hint_readiness: Label
+var _hint_form: Label
 var _hint_auto: Label
 var _hint_gap: Control
 var _controls: VBoxContainer
@@ -105,6 +106,13 @@ func _ready() -> void:
 	_hint_readiness.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_readiness.visible = false
 	_hint.add_child(_hint_readiness)
+	# The form-change invitation: the existing talk channel, never a new key.
+	_hint_form = text_label("", 15, ACCENT, 5)
+	_hint_form.name = "HintForm"
+	_hint_form.custom_minimum_size = Vector2(580.0, 0.0)
+	_hint_form.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint_form.visible = false
+	_hint.add_child(_hint_form)
 	_hint_auto = text_label("", 14, MUTED, 4)
 	_hint_auto.name = "HintAuto"
 	_hint_auto.custom_minimum_size = Vector2(580.0, 0.0)
@@ -121,11 +129,12 @@ func _ready() -> void:
 	_controls.visible = false
 	_hint.add_child(_controls)
 	_build_controls()
-	# Cue line, readiness text, auto readout, then the separator, then the control rows.
+	# Cue line, readiness text, form hint, auto readout, then the separator, then the control rows.
 	_hint.move_child(_hint_status, 0)
 	_hint.move_child(_hint_readiness, 1)
-	_hint.move_child(_hint_auto, 2)
-	_hint.move_child(_hint_gap, 3)
+	_hint.move_child(_hint_form, 2)
+	_hint.move_child(_hint_auto, 3)
+	_hint.move_child(_hint_gap, 4)
 
 
 ## Words in the game's prompt style: light ink, dark outline, no shadow.
@@ -319,6 +328,8 @@ func hide_act() -> void:
 		_hint_status.visible = false
 	if _hint_readiness != null:
 		_hint_readiness.visible = false
+	if _hint_form != null:
+		_hint_form.visible = false
 	if _hint_auto != null:
 		_hint_auto.visible = false
 	if _hint_gap != null:
@@ -392,6 +403,11 @@ func update_from(view: RefCounted) -> void:
 			str(view.close_hint), str(view.summary_hud))
 	_hint_readiness.text = readiness_line
 	_hint_readiness.visible = not readiness_line.is_empty()
+	var form_text := ""
+	if _hint.visible:
+		form_text = str(view.form_hint)
+	_hint_form.text = form_text
+	_hint_form.visible = not form_text.is_empty()
 	var auto_text := ""
 	if _hint.visible and bool(view.auto_on):
 		auto_text = HUD_LINES.auto_text(float(view.auto_min_depth), float(view.auto_max_depth),

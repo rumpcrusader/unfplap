@@ -255,6 +255,8 @@ func run() -> void:
 		"a full display name resolves")
 	check(str(adapter.call("named_form", "Apple")).is_empty(),
 		"an ambiguous name resolves to nothing")
+	check(str(adapter.call("named_form", "Rarity or Fluttershy")).is_empty(),
+		"two whole names resolve to nothing")
 	check(str(adapter.call("named_form", "Chrysalis")).is_empty(),
 		"she cannot be named as her own shape")
 	check(str(adapter.call("named_form_note", "Chrysalis")) == CHANGELINGS.NOTE_HERSELF,

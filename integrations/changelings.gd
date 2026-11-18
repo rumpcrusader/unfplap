@@ -263,19 +263,22 @@ func named_form(text: String) -> String:
 	var best := ""
 	var best_score := 0
 	var tied := false
+	var whole := 0
 	for id: String in _shape_candidates():
 		if id == actor or id == current:
 			continue
 		var score := _name_score(key, id)
 		if score <= 0:
 			continue
+		if score >= 900:
+			whole += 1
 		if score > best_score:
 			best = id
 			best_score = score
 			tied = false
 		elif score == best_score:
 			tied = true
-	if best.is_empty() or tied:
+	if best.is_empty() or tied or whole > 1:
 		return ""
 	return best if _copyable(best) else ""
 

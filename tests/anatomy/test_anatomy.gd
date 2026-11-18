@@ -89,9 +89,6 @@ class FakeFaceAnatomy extends Node:
 	func set_grip(value: float) -> void:
 		calls.append(["grip", value])
 
-	func set_anal_shape(first: float, second: float) -> void:
-		calls.append(["anal_shape", first, second])
-
 	func set_anal_grip(value: float) -> void:
 		calls.append(["anal_grip", value])
 
@@ -109,9 +106,6 @@ class FakeFaceAnatomy extends Node:
 
 	func hole_rear(_mix: float) -> Vector3:
 		return Vector3(0.0, 0.0, 1.0)
-
-	func anal_mesh() -> Variant:
-		return mesh
 
 	func fluid() -> Node3D:
 		return null
@@ -238,14 +232,11 @@ func _check_face_contact() -> void:
 		"the face contact writes no bed inset")
 	var fill := _last_call(anatomy.calls, "fill")
 	var grip := _last_call(anatomy.calls, "grip")
-	var anal := _last_call(anatomy.calls, "anal_shape")
 	var drive := _last_call(anatomy.calls, "drive")
 	check(not fill.is_empty() and is_zero_approx(float(fill[1])),
 		"the face contact zeroes the fill")
 	check(not grip.is_empty() and is_zero_approx(float(grip[1])),
 		"the face contact zeroes the grip")
-	check(anal.size() == 3 and is_zero_approx(float(anal[1]))
-		and is_zero_approx(float(anal[2])), "the face contact zeroes the anal shape")
 	check(not _last_call(anatomy.calls, "clear_shaft").is_empty(),
 		"the face contact clears the shaft")
 	check(not drive.is_empty()
@@ -931,10 +922,10 @@ func run() -> void:
 		Vector3(0.0, 0.1, 0.0), 0.05, 0.7, 0.25, false)
 	check(not zones.visible, "debug rings hide when asked")
 	zones.free()
-	var expected_radius := maxf(0.022 * 2.2 * 0.742 * 1.3, 0.045)
-	check(near(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0), expected_radius),
-		"anal still radius follows the cup's outer ring")
-	check(is_zero_approx(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 0.0)),
+	var expected_radius := maxf(0.022 * 2.2 * 1.3, 0.045 / 0.742)
+	check(near(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0, 0.0),
+		expected_radius), "anal still radius follows the cup's outer ring")
+	check(is_zero_approx(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 0.0, 0.0)),
 		"anal still multiplier 0 disables the zone")
 	# The controller keeps the coat accessors the runtime uses for the jiggle handoff.
 	var coat_owner := ANATOMY.new()

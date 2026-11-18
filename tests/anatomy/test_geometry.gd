@@ -47,11 +47,13 @@ func run() -> void:
 	check(GEOMETRY.body_local_direction(bind, mesh_xf, Vector3(1.0, 0.0, 0.0))
 		== Vector3.RIGHT, "body_local_direction keeps an unrotated basis")
 
-	# The still-zone radius follows the lip band with a floor.
-	var radius := GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0)
-	var expected := maxf(0.022 * 2.2 * 0.742 * 1.3, 0.045)
+	# The still-zone radius follows the lip band with a floor, scaled by the extreme key.
+	var radius := GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0, 0.0)
+	var expected := maxf(0.022 * 2.2 * 1.3, 0.045 / 0.742)
 	check(near(radius, expected), "the anal still radius follows the lip band")
-	check(near(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 0.0), 0.0),
+	check(near(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0, 0.5),
+		expected * 1.5), "the anal still radius follows the extreme key")
+	check(near(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 0.0, 0.0), 0.0),
 		"a zero multiplier turns the anal still zone off")
 
 	# The V2 anal keys start where the previous one ends.

@@ -13,6 +13,13 @@ const WINK_ANAL_TO_Y := 0.050
 ## collapse the measured value to the 4 mm floor and make the shader open a huge ring.
 const WINKING_LIP_RADIUS := 0.018
 
+## The authored vulva opening and lip band in mesh-local space.
+const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
+const LIP_OUTER_FACTOR := 3.0
+
+## The authored anal centre the shader reads. The V2 ring below owns the act's live opening.
+const ANAL_SHADER_CENTRE := Vector3(0.0, 0.071, 0.019)
+
 ## Anal rim fallback, in mesh units. The V2 mesh owns the anal opening.
 const ANAL_LIP := 0.022
 const ANAL_OUTER_FACTOR := 2.2
@@ -97,10 +104,11 @@ static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
 
 
 ## Body-local radius of the visible anal cup's still zone. The cup's own outer ring sets the
-## size; the 1.3 margin reaches the coat around it and the floor keeps a small cup usable.
+## size; the 1.3 margin reaches the coat around it and the floor keeps a small cup usable. The
+## extreme key extrapolates the visible mound, so the zone follows it.
 static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
-		multiplier: float) -> float:
-	return maxf(lip * outer_factor * scale * 1.3, 0.045) * multiplier
+		multiplier: float, extreme: float) -> float:
+	return maxf(lip * outer_factor * 1.3, 0.045 / scale) * multiplier * (1.0 + extreme)
 
 
 ## The line targets: `count` local points at x = 0, evenly spaced across the mesh's local Y range.

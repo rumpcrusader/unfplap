@@ -8,6 +8,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const TEAT_JIGGLE := preload("res://mods/unfplap/anatomy/teat_jiggle.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
+const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const BODY_FIT := preload("res://mods/unfplap/anatomy/body_fit.gd")
 const UDDER := preload("res://mods/unfplap/anatomy/udder.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -23,9 +24,6 @@ const PRINCESS_TEATS := {
 	"celestia": {"size": 1.0, "bounce": 1.3, "stiffness": 0.7, "damping": 0.75},
 }
 
-const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
-const ANAL_OPENING := Vector3(0.0, 0.071, 0.019)
-const LIP_OUTER_FACTOR := 3.0
 const WINKING_SLIT_HALF := 0.06
 const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
@@ -93,12 +91,12 @@ func apply_material(missionary: bool) -> void:
 	material.set_shader_parameter("fold_coloring",
 		0.0 if missionary and SETTINGS.disable_fold_coloring.get_bool() else 1.0)
 	var world_scale := maxf(mesh.global_transform.basis.get_scale().x, 0.001)
-	material.set_shader_parameter("vulva_centre", WINKING_OPENING)
-	material.set_shader_parameter("anal_centre", ANAL_OPENING)
+	material.set_shader_parameter("vulva_centre", GEOMETRY.WINKING_OPENING)
+	material.set_shader_parameter("anal_centre", GEOMETRY.ANAL_SHADER_CENTRE)
 	# The mesh carries the ponut shape in its blend keys; the coat side reads `anal_scale`.
 	material.set_shader_parameter("anal_scale", 1.0)
 	material.set_shader_parameter("lip_radius", shapes.lip_radius())
-	material.set_shader_parameter("lip_outer", shapes.lip_radius() * LIP_OUTER_FACTOR)
+	material.set_shader_parameter("lip_outer", shapes.lip_radius() * GEOMETRY.LIP_OUTER_FACTOR)
 	material.set_shader_parameter("lip_vertical",
 		clampf(SETTINGS.lip_vertical.get_num(), 0.0, 1.0))
 	material.set_shader_parameter("vulva_height", SETTINGS.vulva_height.get_num())

@@ -186,7 +186,7 @@ func toggle_hole(state: int) -> void:
 	if not SETTINGS.anatomy_holes.get_bool() or state not in [2, 3] \
 			or _mouth_contact() or _face_contact():
 		return
-	if not is_instance_valid(anatomy) or not is_instance_valid(anatomy.call("anal_mesh")):
+	if not is_instance_valid(anatomy) or not is_instance_valid(anatomy.call("winking_mesh")):
 		return
 	if not _anal and not _consent("anal"):
 		_status("%s is not into that" % _display_name)
@@ -288,8 +288,6 @@ func tick(delta: float, facts: RefCounted) -> void:
 		anatomy.call("set_grip", grip_world * front)
 		# The anal ring is solved against the same real shaft radius as the vulva, so it opens to
 		# exactly his girth instead of scaling a blend shape by a constant.
-		var anal := _wide * _hole_mix * rearward
-		anatomy.call("set_anal_shape", anal * 1.4, anal)
 		anatomy.call("set_anal_grip", grip_world * _hole_mix * rearward)
 	_normal = _compute_normal(part)
 	_contact()
@@ -336,7 +334,6 @@ func _face_tick(_delta: float, part: Variant) -> void:
 	if is_instance_valid(anatomy):
 		anatomy.call("set_fill", 0.0)
 		anatomy.call("set_grip", 0.0)
-		anatomy.call("set_anal_shape", 0.0, 0.0)
 		anatomy.call("clear_shaft")
 		anatomy.call("drive", WINKING_REST_OPEN)
 	var point := hole_point()

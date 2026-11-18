@@ -366,10 +366,6 @@ func body_coat_refresh() -> void:
 
 ## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig
 ## coat and the merged near body are patched; which one is visible depends on the near mesh.
-func _apply_body_coat_uniforms() -> void:
-	coat.apply()
-
-
 func _apply_body_coat() -> void:
 	coat.apply()
 
@@ -511,10 +507,6 @@ func idle_discharge(count: int) -> void:
 		attach.idle_discharge(count)
 
 
-func anal_mesh() -> MeshInstance3D:
-	return shapes.anal_mesh()
-
-
 func hole_local(mix: float) -> Vector3:
 	return shapes.hole_local(mix)
 
@@ -564,14 +556,14 @@ func wink(count := 1, seconds := 0.45) -> void:
 func wink_burst(count: int, discharge_count := -1) -> void:
 	shapes.wink_burst(count, discharge_count, _heat_rest_open(),
 		Callable(self, "idle_discharge"))
-	_apply_body_coat_uniforms()
+	_apply_body_coat()
 
 
 ## Open the lips to the shaft's actual radius. The shape module converts world metres to mesh
 ## units and applies the hug padding.
 func set_grip(shaft_radius: float) -> void:
 	shapes.set_grip(shaft_radius, _missionary_pose())
-	_apply_body_coat_uniforms()
+	_apply_body_coat()
 
 
 func set_shaft(pivot: Vector3, axis: Vector3, length: float, radii: PackedFloat32Array) -> void:
@@ -596,18 +588,13 @@ func set_anal_grip(shaft_radius: float) -> void:
 	shapes.set_anal_grip(shaft_radius)
 
 
-## Kept for the act's call order; the old cup's cut depth is gone and the shape keys do the work.
-func set_anal_shape(_fill: float, _wide := 0.0) -> void:
-	pass
-
-
 func react() -> void:
 	shapes.react()
 
 
 func _clear_part() -> void:
 	shapes.clear_part()
-	_apply_body_coat_uniforms()
+	_apply_body_coat()
 
 
 func _log(text: String) -> void:

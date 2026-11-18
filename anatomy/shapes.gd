@@ -8,8 +8,6 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 
-const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
-const LIP_OUTER_FACTOR := 3.0
 const WINKING_CUT_DEPTH := 0.07
 const WINKING_CUT_FILLED := 0.9
 
@@ -66,10 +64,6 @@ func clear_mesh() -> void:
 
 
 func winking_mesh() -> MeshInstance3D:
-	return mesh
-
-
-func anal_mesh() -> MeshInstance3D:
 	return mesh
 
 
@@ -139,7 +133,7 @@ func state() -> Dictionary:
 
 func hole_local(mix: float) -> Vector3:
 	var t := clampf(mix, 0.0, 1.0)
-	var local := WINKING_OPENING.lerp(_anal_mouth, t)
+	var local := GEOMETRY.WINKING_OPENING.lerp(_anal_mouth, t)
 	if is_instance_valid(mesh):
 		var scale := maxf(mesh.global_transform.basis.get_scale().y, 0.0001)
 		local += Vector3(0.0, SETTINGS.anal_aim_mm.get_num() / 1000.0 * t / scale, 0.0)
@@ -149,7 +143,7 @@ func hole_local(mix: float) -> Vector3:
 func hole_point(mix := 0.0) -> Vector3:
 	if not is_instance_valid(mesh):
 		return Vector3.ZERO
-	var point := mesh.global_transform * WINKING_OPENING
+	var point := mesh.global_transform * GEOMETRY.WINKING_OPENING
 	var t := clampf(mix, 0.0, 1.0)
 	var anal := mesh.global_transform * _anal_mouth
 	anal += mesh.global_transform.basis.y.normalized() \
@@ -364,11 +358,6 @@ func _apply_anal_shape(local: float) -> void:
 			mesh.set_blend_shape_value(index, float(weights.get(str(pair[1]), 0.0)))
 
 
-## Kept for the act's call order; the old cup's cut depth is gone and the shape keys do the work.
-func set_anal_shape(_fill: float, _wide := 0.0) -> void:
-	pass
-
-
 func react() -> void:
 	if is_instance_valid(mesh):
 		wink(2)
@@ -383,7 +372,7 @@ func clear_part() -> void:
 
 func _measure_lip_radius() -> float:
 	return GEOMETRY.stable_lip_radius(
-		_measure_ring_radius(mesh, WINKING_OPENING, GEOMETRY.WINKING_LIP_RADIUS))
+		_measure_ring_radius(mesh, GEOMETRY.WINKING_OPENING, GEOMETRY.WINKING_LIP_RADIUS))
 
 
 func _measure_ring_radius(target: MeshInstance3D, centre: Vector3, fallback: float) -> float:

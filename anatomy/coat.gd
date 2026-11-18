@@ -11,8 +11,6 @@ const BODY_COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd"
 const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")
 const STILL_ZONE_DEBUG := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 
-const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
-const LIP_OUTER_FACTOR := 3.0
 const BODY_ANAL_REACH := 0.09
 const VULVA_RELIEF_M := 0.002
 const JIGGLE_STILL_MIN_M := 0.05
@@ -366,7 +364,7 @@ func _apply_uniforms() -> void:
 	var lip_denom := maxf(lip, 0.004)
 	var spread := maxf(float(shapes.hole_target()) / lip_denom, 1.0)
 	spread = 1.0 + (spread - 1.0) * SETTINGS.coat_spread.get_num()
-	var reach := maxf(lip * LIP_OUTER_FACTOR * 1.1, 0.02 / scale)
+	var reach := maxf(lip * GEOMETRY.LIP_OUTER_FACTOR * 1.1, 0.02 / scale)
 	var depth := (spread - 1.0) * VULVA_RELIEF_M / scale
 	var hole: float = maxf(SETTINGS.coat_hole.get_num(), 0.0)
 	var hole_height: float = maxf(SETTINGS.coat_hole_height.get_num(), 0.0)
@@ -375,16 +373,16 @@ func _apply_uniforms() -> void:
 	var hole_depth: float = maxf(SETTINGS.coat_hole_depth_mm.get_num(), 0.0) / 1000.0 / scale
 	var hole_front: float = 0.01 / scale
 	var hole_open: float = 1.0 if is_instance_valid(mesh) and mesh.is_visible_in_tree() else 0.0
-	var still_centre := WINKING_OPENING \
+	var still_centre := GEOMETRY.WINKING_OPENING \
 		+ Vector3.UP * (SETTINGS.still_height_mm.get_num() / 1000.0 / scale)
-	var still_radius := maxf(lip * LIP_OUTER_FACTOR * 1.3,
+	var still_radius := maxf(lip * GEOMETRY.LIP_OUTER_FACTOR * 1.3,
 		JIGGLE_STILL_MIN_M / scale) * SETTINGS.jiggle_still.get_num()
 	var anal_centre: Vector3 = shapes.anal_mouth()
 	var anal_local: float = float(shapes.anal_local())
 	var anal_extreme := maxf(0.0, (anal_local - GEOMETRY.ANAL_OVER_R)
 		/ (GEOMETRY.ANAL_EXTREME_R - GEOMETRY.ANAL_OVER_R))
-	var anal_still_radius := maxf(GEOMETRY.ANAL_LIP * GEOMETRY.ANAL_OUTER_FACTOR * 1.3,
-		0.045 / scale) * SETTINGS.anal_still.get_num() * (1.0 + anal_extreme)
+	var anal_still_radius := GEOMETRY.anal_still_radius_for(GEOMETRY.ANAL_LIP,
+		GEOMETRY.ANAL_OUTER_FACTOR, scale, SETTINGS.anal_still.get_num(), anal_extreme)
 	_zone_vulva_centre = still_centre
 	_zone_anal_centre = anal_centre
 	_zone_vulva_radius = still_radius
@@ -408,7 +406,7 @@ func _apply_uniforms() -> void:
 		# Slightly wider than the shaft; the extra 3 mm side lip flange covers the wall.
 		material.set_shader_parameter("body_coat_anal_hole_reach",
 			maxf(anal_local, GEOMETRY.ANAL_OPEN_R) + 0.0015 / scale)
-		material.set_shader_parameter("body_coat_vulva_centre", WINKING_OPENING)
+		material.set_shader_parameter("body_coat_vulva_centre", GEOMETRY.WINKING_OPENING)
 		material.set_shader_parameter("body_coat_vulva_out", Vector3.BACK)
 		material.set_shader_parameter("body_coat_vulva_scale", spread)
 		material.set_shader_parameter("body_coat_vulva_reach", reach)

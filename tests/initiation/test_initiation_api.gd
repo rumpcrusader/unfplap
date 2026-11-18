@@ -425,6 +425,7 @@ func _check_handoff_failure() -> void:
 	main.handoff_ok = false
 	var result: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)
 	check(not result.ok, "a refused handoff forms no offer")
+	check(result.reject == "handoff refused", "a refused handoff reports the close reason")
 	check(nav.command_owner.is_empty(), "a refused handoff releases the request lease")
 	check(adapter.greetings.is_empty(), "a refused handoff speaks no ask line")
 	check("\n".join(PackedStringArray(service.debug_rows(made["target"]))).contains("retry left="),

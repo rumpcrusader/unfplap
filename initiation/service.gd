@@ -100,9 +100,6 @@ var _adapter: Node
 var _reasoning_pending := false
 var _reasoning_serial := 0
 var _reasoning_scope := ""
-## Incremented on every successful Mare-offer handoff; `force()` uses it to report a formed
-## offer after the episode has already left this service.
-var _formed_serial := 0
 
 
 func setup(main_node: Node, privacy_node: PRIVACY = null, adapter_node: Node = null) -> void:
@@ -172,13 +169,16 @@ func force(runtime: Node, pose := "") -> ForceResult:
 	out.reject = ""
 	candidate.option = candidate.options[0]
 	candidate.context = _context(candidate.pony)
-	_serial += 1
-	var formed := _formed_serial
-	_begin_route(candidate)
-	out.ok = _episode != null or _formed_serial != formed
+	var reason := _begin_route(candidate)
+	out.ok = reason.is_empty()
+	out.reject = reason
 	out.id = candidate.id
 	out.pose = candidate.option.pose
-	_debug("request force %s pose=%s" % [candidate.id, candidate.option.pose])
+	if out.ok:
+		_debug("request force %s pose=%s" % [candidate.id, candidate.option.pose])
+	else:
+		_debug("request force reject %s pose=%s reasons=%s" % [
+			candidate.id, candidate.option.pose, reason])
 	return out
 
 
@@ -434,28 +434,29 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 		_debug("request reasoning no id=%s" % candidate.id)
 		return
 	candidate.option = candidate.options[decision.option_index]
-	_serial += 1
 	_debug("request reasoning yes id=%s pose=%s" % [candidate.id, candidate.option.pose])
 	_begin_route(candidate)
 
 
 ## Where she goes to ask: a cuddle asks from the bed, a bed walks to its front, a standing offer
 ## walks to Anon; already near means the ask starts now.
-func _begin_route(candidate: Candidate) -> void:
+func _begin_route(candidate: Candidate) -> String:
 	var player: Node3D = _venue.player()
 	if not is_instance_valid(player) or not is_instance_valid(candidate.pony):
-		return
+		return "route lost"
+	_serial += 1
 	candidate.serial = _serial
+	candidate.token = KEY_PREFIX + ":" + candidate.id
+	candidate.started_at = _now()
+	candidate.private = _private_now(candidate.pony, candidate.option.cuddle)
+	_episode = candidate
 	if candidate.option.cuddle:
-		_start_ask(candidate)
-		return
+		return _ask_now()
 	if candidate.option.pose == CATALOG.MISSIONARY:
-		_start_bed_approach(candidate)
-		return
+		return _lead_to_bed()
 	if player.global_position.distance_to(candidate.pony.global_position) <= POLICY.ARRIVE_RANGE_M:
-		_start_ask(candidate)
-	else:
-		_start_approach(candidate)
+		return _ask_now()
+	return _walk_to_player(player)
 
 
 ## One mare's failed scan candidate. The reason text is logged when it changes or after 10 s, so a
@@ -511,41 +512,29 @@ func debug_rows(pony: Node) -> Array[String]:
 
 # --------------------------------------------------------------------------- approach
 
-func _start_approach(candidate: Candidate) -> void:
-	var pony: Node3D = candidate.pony
-	var runtime: Node = candidate.runtime
-	var player: Node3D = _venue.player()
-	if not is_instance_valid(pony) or not is_instance_valid(runtime) or not is_instance_valid(player):
-		return
-	var nav: Node = _venue.nav_for(pony)
-	if not is_instance_valid(nav):
-		return
-	candidate.phase = Phase.APPROACH
-	candidate.started_at = _now()
-	candidate.arrive_until = _now() + POLICY.ARRIVE_WAIT_S
-	candidate.player_start = player.global_position
-	candidate.region = str(_venue.region_of(player.global_position))
-	candidate.token = KEY_PREFIX + ":" + candidate.id
-	candidate.private = _private_now(pony, candidate.option.cuddle)
-	_episode = candidate
-	var claim: Dictionary = _venue.claim_nav(pony, candidate.token, true)
-	if claim.is_empty():
-		_close_episode("approach nav claim")
-		return
-	_apply_claim(candidate, claim)
-	_venue.stand(pony)
+func _walk_to_player(player: Node3D) -> String:
+	var pony: Node3D = _episode.pony
+	_episode.phase = Phase.APPROACH
+	_episode.arrive_until = _now() + POLICY.ARRIVE_WAIT_S
+	_episode.player_start = player.global_position
+	_episode.region = str(_venue.region_of(player.global_position))
+	var reason := _claim("approach nav claim")
+	if not reason.is_empty():
+		return reason
+	var nav: Node = _episode.nav
+	_venue.ensure_stand(pony)
 	if player.global_position.distance_to(pony.global_position) <= POLICY.ARRIVE_RANGE_M:
 		_arrive()
-		return
+		return ""
 	var forward: Vector3 = _venue.camera_forward()
 	var goal: Variant = nav.call("command_support",
 		player.global_position + forward * POLICY.APPROACH_GOAL_M)
 	if goal is Vector3 and (goal as Vector3).is_finite() \
 			and absf((goal as Vector3).y - pony.global_position.y) <= 3.0:
 		if not bool(nav.call("command_destination", goal, "trot")):
-			_close_episode("approach destination")
-		return
-	_close_episode("approach goal")
+			return _close_episode("approach destination")
+		return ""
+	return _close_episode("approach goal")
 
 
 func _tick_approach() -> void:
@@ -610,33 +599,25 @@ func _tick_arrive() -> void:
 
 ## A bed offer walks to the bed front, not to Anon. Asking from the bed avoids a blocked
 ## approach spot when he is already lying down.
-func _start_bed_approach(candidate: Candidate) -> void:
-	if _episode != null:
-		return
-	var found: Dictionary = _venue.find_bed_for(candidate.pony)
-	if found.is_empty() or found.get("bed") != candidate.option.bed:
-		return
+func _lead_to_bed() -> String:
+	_episode.phase = Phase.BED_APPROACH
+	var found: Dictionary = _venue.find_bed_for(_episode.pony)
+	if found.is_empty() or found.get("bed") != _episode.option.bed:
+		return _close_episode("bed approach")
 	var front: Variant = found.get("front")
 	if not front is Vector3:
-		return
-	candidate.phase = Phase.BED_APPROACH
-	candidate.started_at = _now()
-	candidate.bed_front = front
-	candidate.token = KEY_PREFIX + ":" + candidate.id
-	candidate.private = _private_now(candidate.pony, candidate.option.cuddle)
-	_episode = candidate
-	var claim: Dictionary = _venue.claim_nav(candidate.pony, candidate.token, true)
-	if claim.is_empty():
-		_close_episode("bed approach nav claim")
-		return
-	_apply_claim(candidate, claim)
-	_venue.ensure_stand(candidate.pony)
-	if candidate.pony.global_position.distance_to(front) <= 1.2:
-		_venue.stay(candidate.nav)
-		_start_ask_handoff()
-		return
-	if not bool(candidate.nav.call("command_destination", front, "trot")):
-		_close_episode("bed approach destination")
+		return _close_episode("bed approach")
+	_episode.bed_front = front
+	var reason := _claim("bed approach nav claim")
+	if not reason.is_empty():
+		return reason
+	_venue.ensure_stand(_episode.pony)
+	if _episode.pony.global_position.distance_to(front) <= 1.2:
+		_venue.stay(_episode.nav)
+		return _start_ask_handoff()
+	if not bool(_episode.nav.call("command_destination", front, "trot")):
+		return _close_episode("bed approach destination")
+	return ""
 
 
 func _tick_bed_approach() -> void:
@@ -662,44 +643,43 @@ func _tick_bed_approach() -> void:
 
 ## A cuddle asks from the bed without a navigator claim: the cuddle session owns her. Every other
 ## route has claimed the navigator in its approach.
-func _start_ask(candidate: Candidate) -> void:
-	if _episode != null:
-		return
-	candidate.phase = Phase.ASK
-	candidate.started_at = _now()
-	candidate.token = KEY_PREFIX + ":" + candidate.id
-	candidate.private = _private_now(candidate.pony, candidate.option.cuddle)
-	_episode = candidate
-	if not candidate.option.cuddle:
-		var claim: Dictionary = _venue.claim_nav(candidate.pony, candidate.token, true)
-		if claim.is_empty():
-			_close_episode("ask nav claim")
-			return
-		_apply_claim(candidate, claim)
-		if candidate.option.pose == CATALOG.STANDING:
-			_venue.ensure_stand(candidate.pony)
-	_start_ask_handoff()
+func _ask_now() -> String:
+	_episode.phase = Phase.ASK
+	if not _episode.option.cuddle:
+		var reason := _claim("ask nav claim")
+		if not reason.is_empty():
+			return reason
+		if _episode.option.pose == CATALOG.STANDING:
+			_venue.ensure_stand(_episode.pony)
+	return _start_ask_handoff()
+
+
+## Claim the navigator for this route, or close with `reason`.
+func _claim(reason: String) -> String:
+	var claim: Dictionary = _venue.claim_nav(_episode.pony, _episode.token)
+	if claim.is_empty():
+		return _close_episode(reason)
+	_apply_claim(_episode, claim)
+	return ""
 
 
 ## Form the Mare offer and hand it to the Negotiation service, then speak the ask line. The
 ## request lease moves to the negotiation at formation; a refused handoff releases it and sets the
 ## short retry.
-func _start_ask_handoff() -> void:
+func _start_ask_handoff() -> String:
 	if _episode == null:
-		return
+		return ""
 	var runtime: Node = _episode.runtime
 	var pony: Node3D = _episode.pony
 	var option: POSE_OPTIONS.Option = _episode.option
 	if not is_instance_valid(runtime) or not is_instance_valid(pony) or option == null:
-		_close_episode("ask lost")
-		return
+		return _close_episode("ask lost")
 	# The place can have changed since the scan; only a hard scene failure closes the ask. An
 	# unfilled bed gate or a player not yet in position is the Agreement's live condition.
 	var verdict: Variant = runtime.call("scene_only_verdict", option.pose, option.source,
 		option.bed, null)
 	if verdict == null or not bool(verdict.hard_ok):
-		_close_episode("ask scene")
-		return
+		return _close_episode("ask scene")
 	_episode.private = _private_now(pony, option.cuddle)
 	var request := _request(_episode.private, option, _episode.context)
 	var line := PROMPTS.ask_context(request)
@@ -715,9 +695,7 @@ func _start_ask_handoff() -> void:
 	_venue.restore_limits(episode.nav, episode.prev_limit, episode.prev_pace)
 	var handed := bool(main.call("form_mare_offer", fields))
 	if not handed:
-		_close_episode("handoff refused")
-		return
-	_formed_serial += 1
+		return _close_episode("handoff refused")
 	_episode = null
 	if episode.option.cuddle:
 		_cuddle_asked[episode.id] = true
@@ -733,6 +711,7 @@ func _start_ask_handoff() -> void:
 			"%s:%s:%d:situation" % [KEY_PREFIX, episode.id, episode.serial])
 	_debug("request ask %s pose=%s private=%s cuddle=%s" % [
 		episode.id, option.pose, str(episode.private), str(option.cuddle)])
+	return ""
 
 
 ## The Anon decision classifier's offer context: what she just asked him.

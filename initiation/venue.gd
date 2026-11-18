@@ -65,37 +65,25 @@ func house_at(at: Vector3) -> Node3D:
 
 
 ## A standing offer needs a free navigator in Anon's region and within reach.
-func can_approach(pony: Node3D, reasons: Array = []) -> bool:
+func can_approach(pony: Node3D) -> bool:
 	var node := player()
 	if not is_instance_valid(node):
-		reasons.append("standing:no_player")
 		return false
 	var nav: Node = pony.get_node_or_null("Navigator")
 	if nav == null:
-		reasons.append("standing:no_navigator")
 		return false
 	if str(nav.get("reserved_by")) != "":
-		reasons.append("standing:reserved")
 		return false
 	var owner := str(nav.get("command_owner"))
 	if not (owner.is_empty() or owner.begins_with("life:")):
-		reasons.append("standing:owner")
 		return false
 	if bool(nav.get("_has_target")):
-		reasons.append("standing:busy")
 		return false
 	if region_of(node.global_position) != region_of(pony.global_position):
-		reasons.append("standing:region")
 		return false
 	if node.global_position.distance_to(pony.global_position) > POLICY.APPROACH_RADIUS_M:
-		reasons.append("standing:too_far")
 		return false
 	return true
-
-
-func stand(pony: Node) -> void:
-	if is_instance_valid(pony) and pony.has_method("request_posture"):
-		pony.call("request_posture", "stand")
 
 
 ## Ask her to stand only when she is not already heading there.
@@ -108,17 +96,12 @@ func ensure_stand(pony: Node) -> void:
 	pony.call("request_posture", "stand")
 
 
-func nav_for(pony: Node3D) -> Node:
-	if not is_instance_valid(pony):
-		return null
-	return pony.get_node_or_null("Navigator")
-
-
 ## Claim the navigator for a request episode and return its previous state:
-## `{nav, owner, wander, limit, pace}`, or `{}` when she has no navigator. `stop` halts her before
-## the ownership token is set.
-func claim_nav(pony: Node3D, token: String, stop := false) -> Dictionary:
-	var nav := nav_for(pony)
+## `{nav, owner, wander, limit, pace}`, or `{}` when she has no navigator.
+func claim_nav(pony: Node3D, token: String) -> Dictionary:
+	if not is_instance_valid(pony):
+		return {}
+	var nav: Node = pony.get_node_or_null("Navigator")
 	if nav == null:
 		return {}
 	var before := {
@@ -128,8 +111,7 @@ func claim_nav(pony: Node3D, token: String, stop := false) -> Dictionary:
 		"limit": nav.get("command_speed_limit"),
 		"pace": nav.get("command_pace_target"),
 	}
-	if stop:
-		nav.call("stay")
+	nav.call("stay")
 	nav.set("command_owner", token)
 	nav.set("wander_enabled", false)
 	nav.set("command_speed_limit", INF)
@@ -289,7 +271,7 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 	if not found.is_empty():
 		out.bed = found.get("bed")
 		out.bed_front = found.get("front")
-	if is_instance_valid(node) and can_approach(pony, []):
+	if is_instance_valid(node) and can_approach(pony):
 		out.standing_free = true
 	return out
 

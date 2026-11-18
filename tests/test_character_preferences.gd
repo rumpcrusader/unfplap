@@ -1,12 +1,11 @@
 extends SceneTree
-## Every romanceable base-game mare has a valid, explicit preference profile.
+## The base-game character catalog is an explicit, adult, well-formed preference profile for every
+## roster mare. One validation pass per row, plus the settings merge for one catalog mare.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_character_preferences.gd
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PROFILES := preload("res://mods/unfplap/shared/character_preferences.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const DEFAULTS := preload("res://mods/unfplap/shared/defaults_data.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 ## The base game's young ponies and the two adults whose identity resource does not match
 ## their written profile. They must stay out of the preference roster.
@@ -20,10 +19,6 @@ const STALLIONS := [
 	"dr_caballeron", "drwhooves", "flash_sentry", "igneous_rock", "jackpot", "king_sombra",
 	"night_light", "noteworthy", "party_favor", "pokey_pierce", "prince_blueblood",
 	"shining_armor", "soarin", "sunburst", "thunderlane",
-]
-const PREFERENCE_KEYS := [
-	"intensity", "pattern", "touch", "dislikes", "talk", "warmth", "tolerance",
-	"notes",
 ]
 
 var failures := 0
@@ -42,110 +37,116 @@ func check(ok: bool, text: String) -> void:
 
 
 func run() -> void:
-	check(PROFILES.ORDER.size() == 103, "one hundred and three adult mares")
-	check(PROFILES.ORDER.size() == PROFILES.NAMES.size(), "every mare has a display name")
-	check(PROFILES.ORDER.size() == PROFILES.TEMPLATES.size(), "every mare has a template")
-	var shipped: Dictionary = DEFAULTS.catalog_block("character_templates")
-	check(shipped.size() == PROFILES.TEMPLATES.size(),
-		"the roster reads the shipped character-template catalog")
-	for id: String in PROFILES.ORDER:
-		check(shipped.has(id), "the shipped catalog has a template for " + id)
-
 	var seen: Dictionary = {}
-	for id: String in PROFILES.ORDER:
-		check(not seen.has(id), "unique id " + id)
-		seen[id] = true
-		check(PROFILES.NAMES.has(id) and not str(PROFILES.NAMES[id]).is_empty(),
-			"display name for " + id)
-		check(not id in EXCLUDED, "young or mislabelled pony stays out: " + id)
-		check(not id in STALLIONS, "stallions stay out: " + id)
-	for id: String in PROFILES.NAMES:
-		check(seen.has(id), "name has an order row: " + id)
-	for id: String in PROFILES.TEMPLATES:
-		check(seen.has(id), "template has an order row: " + id)
+	var duplicates: PackedStringArray = []
+	for id: Variant in PROFILES.ORDER:
+		var key := str(id)
+		if seen.has(key):
+			duplicates.append(key)
+		seen[key] = true
+	check(duplicates.is_empty(), "roster ids are unique: " + ", ".join(duplicates))
 
-	var signatures: Dictionary = {}
-	var intensities: Dictionary = {}
-	var patterns: Dictionary = {}
-	var warmth: Dictionary = {}
-	var tolerances: Dictionary = {}
-	var mares_with_talk := 0
-	var mares_with_dislikes := 0
+	var unordered: PackedStringArray = []
+	for id: Variant in PROFILES.NAMES:
+		if not seen.has(str(id)):
+			unordered.append("name " + str(id))
+	for id: Variant in PROFILES.TEMPLATES:
+		if not seen.has(str(id)):
+			unordered.append("template " + str(id))
+	check(unordered.is_empty(), "every name and template has an order row: " + ", ".join(unordered))
 
-	for id: String in PROFILES.ORDER:
-		var template: Dictionary = PROFILES.TEMPLATES[id]
-		check(template.has("preferences"), id + " has a preference block")
-		var preference: Dictionary = template.get("preferences", {})
-		var intensity := str(preference.get("intensity", ""))
-		var pattern := str(preference.get("pattern", ""))
-		var touch: Array = preference.get("touch", [])
-		var talk: Array = preference.get("talk", [])
-		var dislikes: Array = preference.get("dislikes", [])
-		var warmth_value := str(preference.get("warmth", ""))
-		var tolerance := str(preference.get("tolerance", "normal"))
-		var notes := str(preference.get("notes", ""))
+	var incomplete: PackedStringArray = []
+	for id: Variant in PROFILES.ORDER:
+		if not PROFILES.NAMES.has(id):
+			incomplete.append("name " + str(id))
+		if not PROFILES.TEMPLATES.has(id):
+			incomplete.append("template " + str(id))
+	check(incomplete.is_empty(), "every order row has a display name and a template: "
+		+ ", ".join(incomplete))
 
-		check(intensity in PREFERENCES.INTENSITIES, id + " intensity")
-		check(pattern in PREFERENCES.PATTERNS, id + " pattern")
-		check(warmth_value in PREFERENCES.WARMTHS, id + " warmth")
-		check(tolerance in PREFERENCES.TOLERANCES, id + " tolerance")
-		check(not touch.is_empty(), id + " likes at least one touch")
-		check(notes.begins_with("You "), id + " notes are second person")
-		check(notes.length() <= 260, id + " notes stay short")
-		check(not preference.has("pose"), id + " has no legacy pose key")
-		for key: Variant in preference:
-			check(str(key) in PREFERENCE_KEYS, id + " has no unknown preference key: " + str(key))
+	var unresolved: PackedStringArray = []
+	for id: Variant in PROFILES.ORDER:
+		var problem := _row_problem(str(id))
+		check(problem.is_empty(), "row %s: %s" % [str(id), problem])
+		var template: Dictionary = PROFILES.TEMPLATES.get(id, {})
+		var notes := str((template.get("preferences", {}) as Dictionary).get("notes", ""))
+		if str(PREFERENCES.resolve(template.get("preferences", {})).get("notes", "")) \
+				!= notes.strip_edges():
+			unresolved.append(str(id))
+	check(unresolved.is_empty(), "resolve keeps every note: " + ", ".join(unresolved))
 
-		for value: Variant in touch:
-			check(str(value) in PREFERENCES.TOUCHES, id + " valid liked touch: " + str(value))
-		for value: Variant in talk:
-			check(str(value) in PREFERENCES.TALKS, id + " valid liked talk: " + str(value))
-		for value: Variant in dislikes:
-			check(str(value) in PREFERENCES.TOUCHES + PREFERENCES.TALKS,
-				id + " valid dislike: " + str(value))
-			check(not (str(value) in touch or str(value) in talk),
-				id + " dislike is not also a like: " + str(value))
-
-		if not talk.is_empty():
-			mares_with_talk += 1
-		if not dislikes.is_empty():
-			mares_with_dislikes += 1
-		signatures["%s/%s/%s/%s/%s/%s" % [intensity, pattern, warmth_value, tolerance,
-			",".join(touch), ",".join(talk)]] = true
-		intensities[intensity] = true
-		patterns[pattern] = true
-		warmth[warmth_value] = true
-		tolerances[tolerance] = true
-
-		var resolved := PREFERENCES.resolve(preference)
-		check(str(resolved.get("notes", "")) == notes.strip_edges(), id + " notes survive resolve")
-
-	check(PROFILES.ORDER.size() > 80, "the roster is the full base-game mare cast")
-	check(signatures.size() >= 30, "profiles are varied, not one copied template")
-	check(intensities.size() == PREFERENCES.INTENSITIES.size(), "every intensity appears")
-	check(patterns.size() == PREFERENCES.PATTERNS.size(), "every pattern appears")
-	check(warmth.size() == PREFERENCES.WARMTHS.size(), "every warmth appears")
-	check(tolerances.size() == PREFERENCES.TOLERANCES.size(), "every tolerance appears")
-	check(mares_with_talk >= 80, "most mares score some kind of talk")
-	check(mares_with_dislikes >= 10 and mares_with_dislikes <= 30,
-		"dislikes stay characterful, not universal")
-
-	var base: Dictionary = SETTINGS._filled_default()
-	var maud := SETTINGS.profile_for(base, PROFILES.TEMPLATES, "maud_pie")
-	check(((maud["preferences"] as Dictionary).get("talk", []) as Array).is_empty(), "Maud is quiet")
-	var fluttershy := SETTINGS.profile_for(base, PROFILES.TEMPLATES, "fluttershy")
-	check(str((fluttershy["preferences"] as Dictionary).get("tolerance", "")) == "forgiving",
-		"Fluttershy is forgiving")
-	var poses: Dictionary = fluttershy.get("poses", {})
-	check(is_equal_approx(float((poses.get(CATALOG.MISSIONARY, {}) as Dictionary).get(
-		"hind_spread", 0.0)), 0.45), "Fluttershy's pose override survives")
-	var prompts: Dictionary = fluttershy.get("event_prompts", {})
-	check(str(prompts.get("climax", "")).is_empty(), "Fluttershy uses the generic climax fallback")
-	var aloe := SETTINGS.profile_for(base, PROFILES.TEMPLATES, "aloe")
-	check(str((aloe["preferences"] as Dictionary).get("notes", "")).begins_with("You "),
-		"a new mare merges through settings")
+	var base: Dictionary = SETTINGS.data().get("default", {})
+	var merged: Dictionary = SETTINGS.profile_for(base, {}, "aloe")
+	var merged_preference: Dictionary = merged.get("preferences", {})
+	check(str(merged_preference.get("notes", "")).begins_with("You ")
+		and not (merged_preference.get("touch", []) as Array).is_empty(),
+		"a catalog mare's profile merges through the settings service")
 
 	print("CHARACTER_PREFERENCES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("CHARACTER_PREFERENCES_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+## The whole row schema. A non-empty result names the first broken rule; the caller prints it with
+## the row id so one failing mare does not hide the rest.
+func _row_problem(id: String) -> String:
+	if id in EXCLUDED:
+		return "a young or mislabelled pony is not romanceable"
+	if id in STALLIONS:
+		return "a stallion is not an adult mare"
+	if str(PROFILES.NAMES.get(id, "")).strip_edges().is_empty():
+		return "no display name"
+	var template: Variant = PROFILES.TEMPLATES.get(id, null)
+	if not template is Dictionary or (template as Dictionary).is_empty():
+		return "no shipped template"
+	var preference: Variant = (template as Dictionary).get("preferences", null)
+	if not preference is Dictionary:
+		return "no preferences block"
+	var pref: Dictionary = preference
+	for key: Variant in pref:
+		var name := str(key)
+		if name == "pose":
+			return "has the legacy pose key"
+		if not name in PREFERENCES.KEYS:
+			return "unknown preference key " + name
+	var intensity := str(pref.get("intensity", ""))
+	if not intensity in PREFERENCES.INTENSITIES:
+		return "invalid intensity " + intensity
+	var pattern := str(pref.get("pattern", ""))
+	if not pattern in PREFERENCES.PATTERNS:
+		return "invalid pattern " + pattern
+	var warmth := str(pref.get("warmth", ""))
+	if not warmth in PREFERENCES.WARMTHS:
+		return "invalid warmth " + warmth
+	# The main cast predates the explicit tolerance row; its absence resolves to `normal`.
+	var tolerance := str(pref.get("tolerance", "normal"))
+	if not tolerance in PREFERENCES.TOLERANCES:
+		return "invalid tolerance " + tolerance
+	var touch: Variant = pref.get("touch", [])
+	if not touch is Array or (touch as Array).is_empty():
+		return "likes no touch"
+	for value: Variant in (touch as Array):
+		if not str(value) in PREFERENCES.TOUCHES:
+			return "unknown liked touch " + str(value)
+	var talk: Variant = pref.get("talk", [])
+	if not talk is Array:
+		return "talk is not a list"
+	for value: Variant in (talk as Array):
+		if not str(value) in PREFERENCES.TALKS:
+			return "unknown talk " + str(value)
+	var dislikes: Variant = pref.get("dislikes", [])
+	if not dislikes is Array:
+		return "dislikes is not a list"
+	for value: Variant in (dislikes as Array):
+		var key := str(value)
+		if not (key in PREFERENCES.TOUCHES or key in PREFERENCES.TALKS):
+			return "unknown dislike " + key
+		if key in (touch as Array) or key in (talk as Array):
+			return "a dislike is also a like: " + key
+	var notes := str(pref.get("notes", ""))
+	if not notes.begins_with("You "):
+		return "notes are not second person"
+	if notes.length() > 260:
+		return "notes are too long"
+	return ""

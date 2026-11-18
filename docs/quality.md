@@ -35,6 +35,19 @@ valid GDScript code, discards every expression so and/or are not counted, has no
 options, and exits 0 on failure. Use a parser-based baseline ratchet if complexity gating is
 wanted.
 
+## Shell scripts
+
+Every bash entry point starts with `set -euo pipefail`. Rely on the options instead of probing
+dependencies: a script that needs `godot` or `python3` calls it; `set -e` stops at the failing
+command and the shell or tool prints the reason. A `command -v` guard is only for a failure that
+would otherwise continue or act unsafely.
+
+A script that must observe a failure captures the status at that call (`if cmd; then ...; else
+status=$?; fi`) and keeps `-e`; it does not drop `-e` so a loop can continue.
+
+More than 25 non-empty, non-comment lines is a smell: extract a shared prelude or move the logic
+into the tool the script wraps. The threshold is a review prompt, not a gate.
+
 ## Related docs
 
 - `docs/tests.md` — the behavioural suites and the runner.

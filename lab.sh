@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run the manual unfplap lab and tee the session to ./last-run.log.
 # Usage: ./lab.sh
-# Godot 4.5 must be on PATH.
+# Godot 4.5 and python3 must be on PATH.
 
 set -euo pipefail
 

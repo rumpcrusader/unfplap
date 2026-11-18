@@ -18,7 +18,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | `../CREDITS.md` | external credits: anatomy and act audio |
 | `api.md` | the stable cross-mod API |
 | `tests.md` | the suite layout, conventions and the runner |
-| `quality.md` | the static gates: formatting policy, gdlint and complexity policy |
+| `quality.md` | the static gates: formatting policy, gdlint, complexity and shell-script rules |
 
 ## Orchestrators
 

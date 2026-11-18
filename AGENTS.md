@@ -17,7 +17,7 @@ restate a contract.
 | `runtime.gd` | `docs/runtime.md` |
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |
-| `.gdlintrc`, `scripts/lint.sh`, `scripts/requirements-lint.txt` | `docs/quality.md` |
+| `*.sh`, `.gdlintrc`, `scripts/requirements-lint.txt` | `docs/quality.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
 | `shared/act_keys.gd` | `docs/input.md` |
 | `shared/integrations.gd` | `docs/integrations.md` |

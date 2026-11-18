@@ -568,12 +568,7 @@ func _on_pony(pony: Node) -> void:
 	# The player's own AnonPony is a pony_locomotion too. Never attach an intimacy runtime to her.
 	if pony.name == "PlayerPony" or is_instance_valid(pony.get("rig")):
 		return
-	if shape_change != null:
-		shape_change.call("prepare_pony", pony)
-	if is_instance_valid(anatomy):
-		anatomy.call("tail_ready", pony)
-	if is_instance_valid(stock_smack):
-		stock_smack.call("pony_ready", pony)
+	_prepare_pony(pony)
 	if _adopt_pending_swap(pony):
 		return
 	if _runtimes.has(pony):
@@ -627,6 +622,25 @@ func shape_source_for(pony: Node) -> Variant:
 ## Any active shape-changing source, for the debug block's visibility gate.
 func shape_source_active() -> bool:
 	return shape_change != null and bool(shape_change.call("active"))
+
+
+## Fit and prepare a new body before it can take a runtime or an act. Every hook is optional.
+func _prepare_pony(pony: Node) -> void:
+	if shape_change != null:
+		shape_change.call("prepare_pony", pony)
+	if is_instance_valid(anatomy):
+		anatomy.call("tail_ready", pony)
+	if is_instance_valid(stock_smack):
+		stock_smack.call("pony_ready", pony)
+
+
+## Adopt the body the suspended act's source reports when the spawn hook arrives too late for the
+## pending swap. The runtime calls this from its watcher after the adoption grace.
+func adopt_pending_body(pony: Node) -> bool:
+	if not is_instance_valid(pony):
+		return false
+	_prepare_pony(pony)
+	return _adopt_pending_swap(pony)
 
 
 ## Adopt the suspended act onto a newly spawned body. Runs after the adapter fitted it but before

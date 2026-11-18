@@ -70,6 +70,9 @@ const RESTORE_SECONDS := 0.4
 ## the pack's spawn are well inside it; a longer wait means no body is coming.
 const BODY_SWAP_POLL_S := 0.1
 const BODY_SWAP_WATCHDOG_S := 8.0
+## The source may clear its changing state before the spawn hook reaches the entry. Keep the act
+## suspended while the source still reports a new body; after this grace the entry adopts it.
+const BODY_SWAP_ADOPT_GRACE_S := 0.5
 ## A player-requested reveal is the act's one exceptional beat: a readiness spike, a special
 ## impression and peak, and extra comfort at the act's record. Magnitudes are lab-tuned.
 const FORM_REVEAL_HEAT := 30.0
@@ -2199,6 +2202,9 @@ func request_form_change(true_form: bool, shape_id := "", by_player := false) ->
 ## One watcher/swap tick. A live act polls its source for a change; a suspended act waits for the
 ## adopted body, the source's completion, or the watchdog.
 func _body_swap_tick(delta: float) -> void:
+	if state == State.RESTORE:
+		_restore_shape_change_tick()
+		return
 	if _suspended:
 		_swap_elapsed += delta
 		var source: Variant = _swap_source
@@ -2214,6 +2220,8 @@ func _body_swap_tick(delta: float) -> void:
 				and not bool(source.call("is_active")):
 			changing = false
 		if not changing:
+			if _late_body_pending(source):
+				return
 			if is_instance_valid(pony) and pony == _swap_old_pony:
 				_log("body swap failed; the old body survives, resuming pony=%s" % str(pony.name))
 				_resume_after_body_swap()
@@ -2243,6 +2251,40 @@ func _body_swap_tick(delta: float) -> void:
 	if not source.has_method("old_actor") or source.call("old_actor") != pony:
 		return
 	_suspend_for_body_swap(source)
+
+
+## The source finished before the new body's spawn reached the entry. Keep the act suspended
+## while the source reports a new body, then let the entry adopt it through the same pending-swap
+## path; resuming the old body here would attach a second runtime to the new one.
+func _late_body_pending(source: Variant) -> bool:
+	if not is_instance_valid(source) or not source.has_method("new_actor"):
+		return false
+	var newcomer: Variant = source.call("new_actor")
+	if not is_instance_valid(newcomer) or newcomer == _swap_old_pony:
+		return false
+	if _swap_elapsed < BODY_SWAP_ADOPT_GRACE_S:
+		return true
+	return is_instance_valid(main) and main.has_method("adopt_pending_body") \
+		and bool(main.call("adopt_pending_body", newcomer))
+
+
+## A change her AI starts inside the restore window can free the body under the runtime before
+## the one exit has returned the act's borrowed state. Finish the restore now instead; the act is
+## already ending, so the change is not suspended.
+func _restore_shape_change_tick() -> void:
+	if not is_instance_valid(pony):
+		return
+	var source: Variant = _shape_source()
+	if source == null or not source.has_method("is_changing"):
+		return
+	if source.has_method("poll"):
+		source.call("poll")
+	if not bool(source.call("is_changing")):
+		return
+	if not source.has_method("old_actor") or source.call("old_actor") != pony:
+		return
+	_log("body swap during restore; ending through the one exit")
+	force_stop()
 
 
 ## Stop the act's ticks without ending it. The runtime leaves the old body here; the old body may
@@ -3322,7 +3364,7 @@ func _on_player_line(text: String) -> void:
 	if _shape_offer_pending:
 		var shape := _source_named_form(source, text)
 		if not shape.is_empty():
-			var answer: Dictionary = request_form_change(false, shape)
+			var answer: Dictionary = request_form_change(false, shape, true)
 			if bool(answer.get("ok", false)):
 				_shape_offer_pending = false
 				_form_hint_tick()
@@ -3395,6 +3437,7 @@ func _form_hint_tick() -> void:
 ## The new body is up. A player-requested return to her own form is the act's exceptional beat;
 ## any other change (her own or a named shape) is a neutral continuation. A named change that
 ## failed before the new body arrived puts the offer back so the player gets a second chance.
+## Her own change never spends the player's offer; only the call the player made does.
 func _complete_form_change(source: Variant, changed: bool, by_player: bool, target := "") -> void:
 	if not changed:
 		if not target.is_empty() and _shape_offer_done and not _shape_offer_pending:
@@ -3409,7 +3452,7 @@ func _complete_form_change(source: Variant, changed: bool, by_player: bool, targ
 		_form_hint_tick()
 		_shape_offer_tick()
 		return
-	if not shape.is_empty():
+	if by_player and not shape.is_empty():
 		_shape_offer_pending = false
 	_form_hint_tick()
 	_log("form changed id=%s shape=%s exceptional=false" % [

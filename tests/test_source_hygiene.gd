@@ -1308,13 +1308,22 @@ func _check_body_swap() -> void:
 	var adopt := _func_body(main, "_adopt_pending_swap")
 	for token: String in ["claims_body", "attach_to_body", "_pending_swap = {}", "adopt_body"]:
 		check(adopt.contains(token), "the entry adoption keeps %s" % token)
+	var late := _func_body(main, "adopt_pending_body")
+	check(late.contains("_prepare_pony") and late.contains("_adopt_pending_swap"),
+		"the late body runs the prepare hooks before adoption")
 	var begin := _func_body(main, "begin_body_swap")
 	check(begin.contains("_pending_swap") and begin.contains("_runtimes.erase"),
 		"the entry records one swap and frees the old map entry")
 	var runtime := FileAccess.get_file_as_string(ROOT.path_join("runtime.gd"))
 	for name: String in ["_body_swap_tick", "_suspend_for_body_swap", "attach_to_body",
-			"adopt_body", "_resume_after_body_swap", "_failed_body_swap"]:
+			"adopt_body", "_resume_after_body_swap", "_failed_body_swap", "_late_body_pending",
+			"_restore_shape_change_tick"]:
 		check(runtime.contains("func %s(" % name), "the runtime keeps %s" % name)
+	var swap_tick := _func_body(runtime, "_body_swap_tick")
+	check(swap_tick.contains("State.RESTORE") and swap_tick.contains("_restore_shape_change_tick()"),
+		"the watcher finishes a restore before a shape change can free the body")
+	check(_func_body(runtime, "_late_body_pending").contains("adopt_pending_body"),
+		"the late body waits for the entry's adoption")
 	var suspend := _func_body(runtime, "_suspend_for_body_swap")
 	for token: String in ["attach_to_body(main)", "_free_pose()", "_restore_camera()",
 			"begin_body_swap"]:
@@ -1330,6 +1339,9 @@ func _check_body_swap() -> void:
 			"%s clears the cached form hint" % name)
 	check(_func_body(runtime, "_complete_form_change").contains("_shape_offer_pending = true"),
 		"a failed named change restores the offer")
+	check(_func_body(runtime, "_complete_form_change").contains(
+		"if by_player and not shape.is_empty():"),
+		"only the player's named shape spends the offer")
 	check(_func_body(runtime, "_end_session").contains("clear_body_swap"),
 		"the one exit clears a pending swap")
 	check(_func_body(runtime, "_exit_tree").contains("_swapping_parent"),

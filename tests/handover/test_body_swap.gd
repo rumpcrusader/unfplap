@@ -225,6 +225,9 @@ class FakeMain extends Node:
 	func _on_pony(pony: Node) -> void:
 		_adopt_pending_swap(pony)
 
+	func adopt_pending_body(pony: Node) -> bool:
+		return _adopt_pending_swap(pony)
+
 	func _adopt_pending_swap(pony: Node) -> bool:
 		if _pending_swap.is_empty() or not is_instance_valid(pony):
 			return false
@@ -345,6 +348,9 @@ func run() -> void:
 	_check_offer_gate()
 	_check_hint_states()
 	_check_failed_named_offer()
+	_check_ai_change_keeps_offer()
+	_check_late_adoption()
+	_check_restore_change()
 	_check_held_guard()
 	print("BODY_SWAP_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
@@ -601,7 +607,7 @@ func _check_shape_offer() -> void:
 	runtime._talk_tick(0.016)
 	check(source.shape_requests == ["rarity"], "the named mare starts the change")
 	check(not runtime._shape_offer_pending, "the offer is consumed by the name")
-	check(source.player_marks.has(false), "a named shape stays neutral")
+	check(source.player_marks.has(true), "a named shape is the player's ask")
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "the named change suspends the act")
 	var new_pony := _pony("Test Mare", "ShapeBody")
@@ -610,6 +616,7 @@ func _check_shape_offer() -> void:
 	source.shape = "rarity"
 	main._on_pony(new_pony)
 	check(not runtime._form_reveal_done, "a named shape is not an exceptional reveal")
+	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
 	var memory: FakeMemory = main.memory
 	check(memory.impressions.is_empty(), "a named shape writes no reveal memory")
 	check(memory.peaks.is_empty(), "a named shape records no reveal peak")
@@ -705,6 +712,104 @@ func _check_failed_named_offer() -> void:
 	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE, "the hint returns with the offer")
 	runtime.force_stop()
 	director.queue_free()
+	_free_fixture(f)
+
+
+## Her own AI changes shape while the player's post-climax offer waits: the neutral handover
+## keeps the offer. The shape the player names still spends it.
+func _check_ai_change_keeps_offer() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	source.shape = ""
+	runtime._shape_offer_tick()
+	check(runtime._shape_offer_pending, "the offer is pending before her change")
+	source.changing = true
+	runtime._swap_clock = 0.0
+	runtime._body_swap_tick(0.1)
+	check(runtime._suspended, "her own change suspends the offered act")
+	var ai_body := _pony("Test Mare", "AiOfferBody")
+	root.add_child(ai_body)
+	source.new_pony = ai_body
+	source.shape = "fluttershy"
+	source.changing = false
+	main._on_pony(ai_body)
+	check(not runtime._suspended, "her own change resumes the act")
+	check(runtime._shape_offer_pending, "her own change keeps the player's offer")
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE,
+		"the hint still names the player's offer")
+	var director := FakeDirector.new()
+	director.name = "FakeDirector"
+	root.add_child(director)
+	source.named = "rarity"
+	director._turn_id = 1
+	director._player_text = "Rarity"
+	runtime._talk_tick(0.016)
+	check(source.shape_requests == ["rarity"], "the player's name reaches the source")
+	check(source.player_marks.has(true), "the player's name is marked as the player's")
+	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
+	runtime.force_stop()
+	director.queue_free()
+	_free_fixture(f)
+
+
+## The source clears its changing state before the new body's spawn reaches the entry. The
+## watcher keeps the act suspended for the grace, then the entry adopts the body the source still
+## reports; no second runtime attaches to it.
+func _check_late_adoption() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var old_pony: FakePony = f["old"]
+	var source: FakeSource = f["source"]
+	source.changing = true
+	runtime._suspend_for_body_swap(source)
+	var late_pony := _pony("Late Mare", "LateBody")
+	root.add_child(late_pony)
+	source.new_pony = late_pony
+	source.changing = false
+	runtime._body_swap_tick(RUNTIME.BODY_SWAP_ADOPT_GRACE_S * 0.5)
+	check(runtime._suspended, "a late body keeps the act suspended")
+	check(runtime.pony == old_pony, "the old body is not resumed while the new body exists")
+	check(not main._runtimes.has(late_pony), "no runtime attaches to the late body yet")
+	runtime._body_swap_tick(RUNTIME.BODY_SWAP_ADOPT_GRACE_S)
+	check(not runtime._suspended, "the entry adopts the late body after the grace")
+	check(runtime.pony == late_pony, "the act resumes on the late body")
+	check(runtime.get_parent() == late_pony, "the runtime moves under the late body")
+	check(main._runtimes.get(late_pony) == runtime, "the late body maps to the same runtime")
+	check(main._runtimes.size() == 1, "the late adoption creates no second runtime")
+	runtime.force_stop()
+	_free_fixture(f)
+
+
+## Her own change can start while the act is already restoring. The restore finishes through the
+## one exit; the change is not suspended and leaves no pending swap or stale source.
+func _check_restore_change() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	runtime.state = RUNTIME.State.RESTORE
+	runtime._restore_left = RUNTIME.RESTORE_SECONDS
+	var other := _pony("Other Mare", "OtherBody")
+	root.add_child(other)
+	source.changing = true
+	source.old_pony = other
+	runtime._body_swap_tick(0.1)
+	check(int(runtime.state) == RUNTIME.State.RESTORE,
+		"another body's change leaves the restore alone")
+	check(not main.body_swap_pending(), "another body's change records no pending swap")
+	source.old_pony = runtime.pony
+	runtime._body_swap_tick(0.1)
+	check(int(runtime.state) == RUNTIME.State.IDLE,
+		"the act pony's change during restore finishes the act")
+	check(not runtime._suspended, "a change during restore never suspends")
+	check(not main.body_swap_pending(), "a change during restore records no pending swap")
+	check(runtime._swap_source == null, "the one exit drops the swap source")
+	check(main.active_runtime == null, "the one exit clears the active runtime")
+	other.queue_free()
 	_free_fixture(f)
 
 

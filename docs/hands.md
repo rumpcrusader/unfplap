@@ -214,8 +214,10 @@ With `features.caress_local` on, the stable region patch stays the source, but e
 raycasts only a rest-space window of its intended point. The window re-centres when the point
 leaves its inner half, so the contact and the normal blur's rings never see the window boundary;
 the mesh gather, the vertex rings and the face buckets are shared per source, while each hand owns
-its own window so opposite flanks never compete. A point beyond the source keeps the full patch.
-With the flag off, both hands share the full region patch as before.
+its own window so opposite flanks never compete. A point beyond the source keeps the previous
+local window and skips that point; the debug `features.caress_full_fallback` restores the old
+full-region fallback for comparison. With `features.caress_local` off, both hands share the full
+region patch as before.
 
 The coat source is the **drawn** body coat: `MareBody` while the game body is visible, otherwise
 the visible source body (the changelings pack's `ChrysalisBody`). A hidden game body is never
@@ -242,6 +244,7 @@ does not scale the skin and closest query with its full coat.
 |---|---|
 | `caress.quality` | player-facing caress surface level; `precise` snaps to the coat every tick, `fast` refreshes at 15 Hz with a 1-ring blur and accepts the intended point on a ray miss |
 | `features.caress_local` | debug: skin and raycast only the coat window around each caress hand; off restores the full region patch |
+| `features.caress_full_fallback` | debug: let a point beyond the coat window fall back to the full body patch; off keeps the last local window and skips that point |
 | `features.caress_debug` | one precise contact line per hand per act, debug overlay |
 | `features.caress_reach_shoulder_m` | missionary reach shoulder shift |
 | `presentation.missionary.caress.path_id` | authored chain `one` or `two` |
@@ -348,8 +351,8 @@ selection and starts the swing.
 - `tests/hands/test_caress.gd`: surface patch and its two quality levels, authored paths, marked
   area path, side mapping, standing path, oral head node and side inversion, the exact node
   without a head patch, contact blend, engine placement, smoothing and reach, the one-hand-per-tick
-  path warm, the visible-coat choice, the local face budget, the packed source-position anchor
-  scan and the `caress_path` row.
+  path warm, the visible-coat choice, the local face budget, the off-source skip and its debug
+  full-patch fallback, the packed source-position anchor scan and the `caress_path` row.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 
@@ -360,8 +363,9 @@ selection and starts the swing.
   smack's hull contact query only. A source body whose game `Head` is hidden still uses that head
   mesh for the head region; the caress body region follows the drawn coat.
 - The local window follows the hand's intended point; a point that lands beyond the region source
-  keeps the full patch for that hand. `ray()` (the authored anchor build) always uses the full
-  patch, because it maps a soup face back to a source vertex.
+  keeps the last local window and is skipped for that hand. The debug
+  `features.caress_full_fallback` restores the old full-region fallback. `ray()` (the authored
+  anchor build) always uses the full patch, because it maps a soup face back to a source vertex.
 - The path builders cache per hand and pony; changing `path_id` rebuilds the next caress path.
 - The oral head path has no fallback: a missing `head_side` side, an unbuilt head source or a
   point beyond `AUTHORED_MAX_DISTANCE` leaves that hand without a caress target for the turn. A

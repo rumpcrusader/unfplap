@@ -1,0 +1,86 @@
+extends Node
+## The typed base for a body-change source: the provider that observes its own pack and supplies
+## body forms. A source is a world node; the body-change service owns the transition and calls these
+## virtual methods. The base answers the neutral default, so a provider overrides only what it
+## supports. No `class_name`: a provider extends this file by path.
+
+const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
+
+
+## The stable provider id, for the service log and the source registry.
+func source_id() -> String:
+	return ""
+
+
+## True while the provider's own pack or feature is available.
+func is_active() -> bool:
+	return false
+
+
+## True when this source handles the pony's presented body.
+func handles_pony(_pony: Node3D) -> bool:
+	return false
+
+
+## True between a request and the change's settle or failure.
+func change_in_progress() -> bool:
+	return false
+
+
+## The change this source is running, or null.
+func active_change() -> BODY_CHANGE:
+	return null
+
+
+## Ask for a borrowed or custom form id. False when the request was refused.
+func request_form(_body: Node3D, _form_id: String, _origin: BODY_CHANGE.Origin) -> bool:
+	return false
+
+
+## Ask for the identity's own form. False when the request was refused.
+func request_own_form(_body: Node3D, _origin: BODY_CHANGE.Origin) -> bool:
+	return false
+
+
+## Prepare the next body and return its form. Called before anatomy, tail, camera and pose attach.
+## A provider may call it again when a late variant settles and bump the form revision.
+func prepare_body(_body: Node3D, _change: BODY_CHANGE) -> BODY_FORM.BodyForm:
+	return null
+
+
+## True when this provider owns the new body and the act may adopt it.
+func claims_body(_body: Node3D) -> bool:
+	return false
+
+
+## The requested form id; empty for her own form.
+func target_form_id() -> String:
+	return ""
+
+
+## The form id the body presents now; empty for her own form.
+func presented_form_id(_body: Node3D) -> String:
+	return ""
+
+
+## The provider's optional offer/reveal policy, or null.
+func policy() -> POLICY:
+	return null
+
+
+## Character ids this provider installs even while they are away. Optional.
+func installed_character_ids() -> Array[String]:
+	var ids: Array[String] = []
+	return ids
+
+
+## True when this provider wants to place the pony's tail itself. Optional.
+func has_tail_placement(_pony: Node3D) -> bool:
+	return false
+
+
+## Apply the provider's tail placement. Optional.
+func apply_tail_placement(_pony: Node3D) -> void:
+	pass

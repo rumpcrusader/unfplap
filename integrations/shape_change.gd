@@ -20,6 +20,9 @@ extends RefCounted
 ##                                           request call, and the runtime will see it
 ##   source_name() -> String                 a short name for the act log
 ##   prepare_pony(pony: Node) -> void        (optional) fit metadata on a body
+##   has_tail_placement(pony: Node) -> bool  (optional) a source-owned tail placement exists
+##   apply_tail_placement(pony: Node) -> void (optional) re-apply the current tail placement
+##   tail_placement_report() -> String       (optional) one line per live source-owned tail
 ##   installed_character_ids() -> Array[String] (optional) mares listed while away
 ##   requested_by_player() -> bool           the change carries a player's ask
 ##   asks_form_change(text: String) -> bool  the text asks for a reveal

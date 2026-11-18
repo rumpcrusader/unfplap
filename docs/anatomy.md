@@ -85,7 +85,8 @@ setup(main)
 player_ready(body), clear_player(), refresh_player(), player_apply_live()
 controller_for(pony, runtime), bind(pony, runtime), controller(pony), online(pony)
 refresh_all(), apply_live(), detach_controller(pony), shutdown()
-tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), tail_report()
+tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), can_dock(pony),
+can_place_tail(pony), tail_report()
 placement_target(), placement_id(), placement_values(id), placement_refresh()
 placement_debug(op, value), placement_show()
 consent(pony, key), status(text)
@@ -399,7 +400,7 @@ runtime calls `begin_act()` on the new controller. The new act starts at the cur
 readiness; the next `context()` carries the live penetration and climaxes. The player part stays
 shown because the encounter continues. The adapter's `prepare_pony()` has already put the new
 body's `body_fit_id` and `tail_pose_root` in place before the bind, so the placement and the tail
-seat resolve against the body that is actually there.
+wrapper resolve against the body that is actually there.
 
 ### Shape drive
 
@@ -715,14 +716,16 @@ sample of the body coat.
 - A new tail mesh alone cannot change the seat: `hybrid_tail_anchor` re-pins the first 12 mm of the
   tail root to the hair `mPelvis`, and the hair link places `mPelvis` from the tail mount. Author a
   new tail only for shape or silhouette; the seat remains this controller's job.
-- A visible tail that is not on either game skeleton can name a `tail_pose_root` `Node3D` through
-  pony metadata. The seat puts an `UnfplapTailPlacement` wrapper above that root, and
-  `tail_y`/`tail_z`/`tail_tilt_deg` move the wrapper as a delta from the modelled root; the
-  resolved seat default is not added. `docs/poses.md` owns how the act modifiers rotate and
-  restore the root itself, so a placement edit and an act never overwrite each other. The dock
-  keys do not apply to a custom root. Queen Chrysalis's fitted body skips the devkit hair and
-  uses this path for her spring chain; a chain that appears after the first body pass is attached
-  when the source's late prepare calls `tail_ready()` again.
+- The seat is the game hair-tail/dock path only. A visible tail that is not on either game
+  skeleton is owned by the body source that brings it; the changelings adapter puts an
+  `UnfplapTailPlacement` wrapper above Queen Chrysalis's spring chain and applies
+  `tail_y`/`tail_z`/`tail_tilt_deg` as a delta from the modelled root, with the resolved seat
+  default subtracted. The wrapper is not a seat row and has no dock. `Re-seat tails and docks`
+  off returns it to identity. `docs/poses.md` owns how the act modifiers rotate and restore the
+  chain itself, so a placement edit and an act never overwrite each other. The Anatomy editor's
+  tail actions accept a source-owned tail through `can_place_tail()` and forward
+  `main.apply_custom_tail()`; a dock action still answers `no dock on this tail.` The princesses'
+  fitted bodies keep their body-rig tail and have no seat or wrapper.
 
 ## Lifecycle
 
@@ -749,7 +752,7 @@ built from the declarations, so the label, help and bounds are not restated here
 - `features.body_coat_deform`: runtime coat patch; debug.
 - `anatomy.skin_tone`, `anatomy.vulva_height`, `anatomy.anal_scale`, `anatomy.vulva_inner_color`,
   `anatomy.clitoris_color`: material appearance.
-- `anatomy.reseat_tails`: dock/tail seat.
+- `anatomy.reseat_tails`: dock/tail seat and the source-owned tail wrapper.
 - `anatomy.placement.default.*`, `anatomy.placement.anon.*`, `anatomy.placement.<id>.*` and
   `anatomy.placement_target`: the placement block and editor target.
 - `anatomy.anal_aim_mm`, `anatomy.anal_hug_mm`, `anatomy.vulva_hug_mm`,
@@ -784,8 +787,8 @@ built from the declarations, so the label, help and bounds are not restated here
   **Placement** (anatomy), **Placement tail**, **Placement dock**, **Placement tail tilt** and
   **Placement file**. They edit the selected target; the default is staged until Save, a mare
   override writes directly. **Placement file Show** logs every live mare's anchor, target,
-  resolved placement, applied delta and source; a custom tail logs its applied offset instead of
-  an anchor and target.
+  resolved placement, applied delta and source; a source-owned tail logs its applied wrapper
+  offset instead.
 - **Hide tails** is the persisted Debug toggle that collapses every loaded AI character's hair
   and body tail roots through `anatomy/tail/hide.gd`; it touches no other body part. The facade
   pushes the switch to `anatomy/tail/visibility.gd`, which processes only while it is on.
@@ -850,10 +853,11 @@ Current suites:
   opening once it is released, and clears the missionary inset outside the bed pose.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, the stable-id override
-  against the body-fit default, dock visibility, the custom-tail wrapper and its tail keys, idle
-  heat, mesh refinement, act calls, the player part's idempotent `prepare()`, the rig and near
-  coat patch, the vulva cut and still zones, the face contact's parked part and restored opening,
-  plus the provider's `eligible` assertion and the participation gate).
+  against the body-fit default, dock visibility, the regular tail seat, idle heat, mesh refinement,
+  act calls, the player part's idempotent `prepare()`, the rig and near coat patch, the vulva cut
+  and still zones, the face contact's parked part and restored opening, plus the provider's
+  `eligible` assertion and the participation gate). The source-owned tail wrapper is
+  `tests/integrations/test_changelings.gd`.
 - `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
   callbacks.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.

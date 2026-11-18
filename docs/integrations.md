@@ -16,11 +16,13 @@ whether or not the other mod is installed.
   internals.
 - `integrations/shape_change.gd` is the world-side shape-change source manager and the documented
   duck-typed source contract. It holds the sources, returns the first one that handles a pony and
-  forwards the installed list and the body-fit hook. It preloads no source.
+  forwards the installed list, the body-fit hook and the optional tail-placement hooks. It preloads
+  no source.
 - `integrations/changelings.gd` is a world-side adapter for the Queen Chrysalis 0.2.12 pack
-  (`changelings`): it lists her as an installed provider mare, gives the bodies the pack brings
-  the generic body-fit and custom-tail metadata, and is the pack's shape-change source. It is not
-  a catalog entry, has no settings, adds no Integrations tab section and needs no pack rebuild.
+  (`changelings`): it lists her as an installed provider mare, fits the bodies the pack brings,
+  owns the placement wrapper above her spring tail, and is the pack's shape-change source. It is
+  not a catalog entry, has no settings, adds no Integrations tab section and needs no pack
+  rebuild.
 - Two integrations are supported by the per-act service: the Kissing 1.2.9 reaction layer and the
   Pantyhose & Panties 0.1.1 world garment adapter. Kissing's own kiss driver, guard, rear, reach,
   approach, step-back and memory recorder stay out of this service.
@@ -42,13 +44,13 @@ fallback. It reads the anatomy through `main.anatomy` and the game through `main
 preloads either host and never edits the pack.
 
 The changelings adapter owns its provider layer registration, the installed-mare list, the
-body-fit/custom-tail metadata it writes on the pack's bodies and the pack's shape-change source
-state. It reads the API through `main.api`, and the pack's own public nodes and state; it never
-edits the pack and never preloads a host.
+body-fit/tail metadata it writes on the pack's bodies, the `UnfplapTailPlacement` wrapper above
+her spring chain and the pack's shape-change source state. It reads the API through `main.api`,
+and the pack's own public nodes and state; it never edits the pack and never preloads a host.
 
-The shape-change manager owns the source list and nothing else. `main` registers the adapters and
-asks it for the source that handles a pony; the runtime and the debug block see only the generic
-source surface.
+The shape-change manager owns the source list and the optional forwards. `main` registers the
+adapters and asks it for the source that handles a pony; the runtime and the debug block see only
+the generic source surface.
 
 The runtime constructs one service per act through `_integrations_controller()` and passes its typed
 `shared/act_facts.gd` view. The runtime calls `begin()`, `tick()`, `afterglow()`,
@@ -115,9 +117,12 @@ Providers must stay scene-free. `tests/test_source_hygiene.gd` rejects `extends 
 object with `is_active()`, `handles_pony(pony)`, `is_changing()`, `old_actor()`, `new_actor()`,
 `target()`, `current_shape()`, `claims_body(pony)`, `request_true_form()`, `request_shape(id)`,
 `poll()`, `source_name()`, and `requested_by_player()`. `request_appear()`, `prepare_pony()`,
+`has_tail_placement()`, `apply_tail_placement()`, `tail_placement_report()`,
 `installed_character_ids()`, `set_player_request()`, `asks_form_change()`, `named_form()` and
 `named_form_note()` are optional. The manager's `source_for(pony)` returns the first active source
 that handles the pony; `prepare_pony()` runs every active source's hook before the anatomy bind;
+`has_tail_placement()` and `apply_tail_placement()` forward only to the source that handles the
+pony; `tail_placement_report()` joins every active source's non-empty lines; and
 `installed_character_ids()` merges the sources' away lists.
 
 A source is constructed and registered by `main`. A future regular-changelings pack gets its own
@@ -242,18 +247,20 @@ she is listed under **Other mares** even while she is away in the Badlands. The 
 bind. The adapter sets `body_fit_id` and `tail_pose_root` on the two kinds of body the pack brings:
 
 - her own body (the pack's own meshes or its `ChrysalisHair` tail) uses `body_fit_id chrysalis`
-  and names `ChrysalisHair/Hair_tail/Chain` as the custom tail root; the anatomy tail seat wraps
-  that root so the placement editor's tail keys move her tail, while the act modifiers still
-  rotate and restore the chain itself;
+  and names `ChrysalisHair/Hair_tail/Chain` as the tail root. The adapter owns one
+  `UnfplapTailPlacement` node between `Hair_tail` and `Chain`; `tail_y`, `tail_z` and
+  `tail_tilt_deg` move and tilt that wrapper as a delta from the resolved default, so the pack's
+  modelled tail is the zero. The act modifiers keep saving, rotating and restoring `Chain`
+  itself. `Re-seat tails and docks` off returns the wrapper to identity; the dock keys do not
+  apply. The chain is not a tail-seat row and has no dock;
 - a disguise (`geometry_variant` `changeling=<pony id>` in 0.2.12) uses that pony's id as the body
-  fit and has no custom tail root, so it uses the copied pony's placement and the normal hair
-  chain.
+  fit and has no tail wrapper, so it uses the copied pony's placement and the normal hair chain.
 
-The pack can add `ChrysalisHair` after that first pass. The adapter retries the tail-root lookup
-for a short grace; when the chain appears it sets `tail_pose_root` and calls
-`main.prepare_pony_late(pony)`, which re-runs the manager prepare and `anatomy.tail_ready()`. The
-seat then binds the custom root and the placement editor's tail keys work. The hook creates no
-runtime and every prepare hook is idempotent.
+The pack can add `ChrysalisHair` after that first pass, and the first pass can run before the body
+has an identity. The adapter owns the late check: six tries at 50 ms, scheduled from her own-body
+path and from an identity-less early body. When the chain appears it applies the fit and wrapper,
+then calls `main.prepare_pony_late(pony)` once for the late fit/anatomy metadata. The check does
+not depend on the anatomy seat, `tail_ready()` or a dock.
 
 Her own body's hide pass runs every half second and hides every mesh under her model that lacks
 the pack's `chrysalis_own` marker. The anatomy mesh and its parts are on the same skeleton, so the
@@ -261,10 +268,11 @@ adapter names that marker on her own body as `anatomy_owned_meta`, and anatomy a
 it onto its parts. A disguise clears it. Without the marker her body hides the anatomy once and
 the visibility cache never re-shows it, because the state did not change.
 
-A missing metadata node is a quiet no-op, and a missing tail chain is retried for a short grace,
-so a pack update can change the shape without a crash. The integration does not depend on a new
-signal or a rebuilt pack. `body_fit_id`, `tail_pose_root` and `anatomy_owned_meta` are internal
-adapter metadata: they are not a `docs/api.md` convention and another mod must not depend on them.
+A missing metadata node is a quiet no-op, so a pack update can change the shape without a crash.
+The integration does not depend on a new signal or a rebuilt pack. `body_fit_id`,
+`tail_pose_root` and `anatomy_owned_meta` are internal adapter metadata: they are not a
+`docs/api.md` convention and another mod must not depend on them. The `UnfplapTailPlacement` node
+is adapter-owned state as well, not a public convention.
 
 The adapter is also the pack's shape-change source. It watches the pack's public `busy`, `actor`
 and `disguised_as`: `request_true_form()` captures the current actor and calls `reveal()`;
@@ -330,7 +338,8 @@ overlay reads them.
   its sources on world entry; the changelings adapter registers its provider layer in `_ready()`
   and on `refresh()`
 - End: `reset()` in `_free_pose()`; `on_world_closed()` on world close and `shutdown()` in
-  `main._exit_tree()`; the changelings layer leaves with its owner
+  `main._exit_tree()`; the changelings layer leaves with its owner, and its shutdown clears the
+  late check and wrapper map while the wrapper node is freed with the body
 - Idempotent: yes. A world adapter is inert when its pack is absent.
 
 ## Host boundary
@@ -349,10 +358,11 @@ overlay reads them.
 | `main.game.mares` | the loaded mares the world adapter scans |
 | `pony_wardrobe` group | the wardrobe's `wanted()`, `_season()`, `set_worn()` and `dress()` for the act undress |
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
-| `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` |
+| `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` and re-applies each live source-owned tail after a settings edit |
 | `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
 | `main._on_pony()` | runs the manager's `prepare_pony()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
-| `main.prepare_pony_late(pony)` | re-runs the manager prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; no runtime is created |
+| `main.prepare_pony_late(pony)` | re-runs the manager prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late fit/ownership only, no runtime and no tail wrapper |
+| `main.custom_tail_ready(pony)` / `main.apply_custom_tail(pony)` / `main.custom_tail_report()` | forward the anatomy editor to the source that owns a body's tail placement |
 | `main.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
 | `main.live_character_ids()` | merges the manager's `installed_character_ids()` |
 | `runtime.request_form_change()` | the act-side start of a source change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
@@ -393,9 +403,10 @@ overlay reads them.
 - `tests/integrations/test_hold.gd` — the runtime's named excitement Beat hold and last-release restore.
 - `tests/integrations/test_changelings.gd` — the installed list and provider layer while the pack is
   on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
-  the body-fit/custom-tail/anatomy-marker metadata for her own body, a disguise and an unrelated
-  pony, including a wrapped tail root keeping its metadata and an early body whose chain arrives on
-  the late retry. It also
+  the body-fit/tail/anatomy-marker metadata for her own body, a disguise and an unrelated pony,
+  including the `UnfplapTailPlacement` wrapper's creation, reuse, saved-offset apply, reset and
+  report, a late chain that arrives after an identity-less first prepare, and the manager's tail
+  forwards. It also
   pins the shape-change source through the manager: the actor/old/new/target state, the true-form
   and named requests, the claimed body, the idle appear hook and the completion poll. An AI-started
   change is observed from a rising `busy`, claimed by identity before the shape is known and
@@ -436,6 +447,13 @@ overlay reads them.
 - Visit her anatomy in `always` and `act` on her own body; check the scale and position and that
   the spring tail lifts asides in standing and lays in missionary. Take a disguise shape and check
   it uses the copied pony's fit and the normal hair tail.
+- Point at her own body in the Anatomy Debug block: **Placement tail** moves the
+  `UnfplapTailPlacement` wrapper, **Placement tail tilt** turns it, and a dock action answers
+  `no dock on this tail.` `Show placement` includes the `chrysalis custom tail offset=...` line.
+  Turn **Re-seat tails and docks** off and on: the wrapper returns to the modelled tail and then
+  reapplies the saved keys. Nudge her tail during a standing and a missionary act and confirm the
+  act's tail modifiers do not undo the wrapper. Check a body swap, the pack switched off, a
+  regular mare and Celestia/Luna are unchanged.
 - In the World Debug block, **Form: bring her out** brings her out while idle; **Form: true form**
   and **Form: next named shape** drive the source outside an act. During a standing and a
   missionary act the same two actions exercise the body handover: the flame plays, the act

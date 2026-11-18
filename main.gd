@@ -514,6 +514,8 @@ func _apply_settings_changed() -> void:
 	if is_instance_valid(anatomy):
 		anatomy.call("refresh_tails")
 	if shape_change != null:
+		# A settings edit can change the re-seat toggle or a saved tail; the source applies its
+		# own wrapper once for each live body.
 		for pony: Variant in _runtimes.keys():
 			if is_instance_valid(pony):
 				apply_custom_tail(pony)

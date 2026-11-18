@@ -217,6 +217,11 @@ the mesh gather, the vertex rings and the face buckets are shared per source, wh
 its own window so opposite flanks never compete. A point beyond the source keeps the full patch.
 With the flag off, both hands share the full region patch as before.
 
+The coat source is the **drawn** body coat: `MareBody` while the game body is visible, otherwise
+the visible source body (the changelings pack's `ChrysalisBody`). A hidden game body is never
+queried. The local window keeps at most `LOCAL_FACE_BUDGET = 480` faces, so a dense source body
+does not scale the skin and closest query with its full coat.
+
 ## Lifecycle
 
 - Scope: per-act
@@ -343,7 +348,8 @@ selection and starts the swing.
 - `tests/hands/test_caress.gd`: surface patch and its two quality levels, authored paths, marked
   area path, side mapping, standing path, oral head node and side inversion, the exact node
   without a head patch, contact blend, engine placement, smoothing and reach, the one-hand-per-tick
-  path warm, the packed source-position anchor scan and the `caress_path` row.
+  path warm, the visible-coat choice, the local face budget, the packed source-position anchor
+  scan and the `caress_path` row.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 - `tests/test_source_hygiene.gd`: the engine has no pose reference and the docs link here.
 
@@ -351,7 +357,8 @@ selection and starts the swing.
 
 - The coat patch covers the body and head meshes (torso, neck, cheek). Hair, mane, wing and tail
   layers are not part of the exact patch; the standing `Ignore body parts` setting filters the
-  smack's hull contact query only.
+  smack's hull contact query only. A source body whose game `Head` is hidden still uses that head
+  mesh for the head region; the caress body region follows the drawn coat.
 - The local window follows the hand's intended point; a point that lands beyond the region source
   keeps the full patch for that hand. `ray()` (the authored anchor build) always uses the full
   patch, because it maps a soup face back to a source vertex.

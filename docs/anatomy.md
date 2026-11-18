@@ -540,6 +540,10 @@ wrapper resolve against the body that is actually there.
   removes either makes `anatomy/body_coat_patch.patched()` return null and leaves the original
   shader alone. The `void fragment()` hook is optional; without it the deform still applies and
   only the vulva cut is left out.
+- The patch targets the **drawn** body coat. The game's `MareBody` is used while it is visible; a
+  source body that hides it and draws its own (the changelings pack's `ChrysalisBody`) uses its
+  own visible coat surface (`cq_Body`) and outline. A hidden game body is never patched, because
+  its cut would have nothing to show on.
 - The anatomy shell is pushed slightly into the coat, so without the cut the closed lips show the
   body surface behind them. The patch discards coat fragments inside an ellipse behind the opening:
   the radii are `coat_hole` (lateral) and `coat_hole_height` (vertical) × the measured lip radius,
@@ -883,8 +887,9 @@ Current suites:
   generated teats' own material with `sway_custom`.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, the stable-id override
   against the body-fit default, dock visibility, the regular tail seat, idle heat, mesh refinement,
-  act calls, the player part's idempotent `prepare()`, the rig and near coat patch, the vulva cut
-  and still zones, the face contact's parked part and restored opening, plus the provider's
+  act calls, the player part's idempotent `prepare()`, the rig and near coat patch, the drawn
+  coat choice over a hidden game body, the vulva cut and still zones, the face contact's parked
+  part and restored opening, plus the provider's
   `eligible` assertion and the participation gate). The source-owned tail wrapper is
   `tests/integrations/test_changelings.gd`.
 - `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack

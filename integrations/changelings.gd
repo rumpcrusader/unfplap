@@ -73,7 +73,7 @@ const DESCRIPTOR := {
 	},
 	"placement": {
 		"offset_y": 0.49, "offset_z": 0.271, "pitch_deg": 8.0, "scale": 0.422,
-		"tail_y": 0.035, "tail_z": 0.0, "tail_tilt_deg": 0.0,
+		"tail_y": 0.04, "tail_z": 0.0, "tail_tilt_deg": 0.0,
 	},
 }
 

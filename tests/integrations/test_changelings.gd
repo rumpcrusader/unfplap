@@ -168,7 +168,7 @@ func run() -> void:
 	check(near(float(placed.get("offset_z", 0.0)), 0.271), "provider placement Z")
 	check(near(float(placed.get("pitch_deg", 0.0)), 8.0), "provider placement pitch")
 	check(near(float(placed.get("scale", 0.0)), 0.422), "provider placement scale")
-	check(near(float(placed.get("tail_y", 0.0)), 0.035), "provider tail Y")
+	check(near(float(placed.get("tail_y", 0.0)), 0.04), "provider tail Y")
 	check(near(float(placed.get("tail_z", 0.0)), 0.0), "provider tail Z")
 	check(near(float(placed.get("tail_tilt_deg", 0.0)), 0.0), "provider tail tilt")
 
@@ -204,7 +204,7 @@ func run() -> void:
 		.get("offset_y", 0.0)), 0.49), "her fit resolves the provider placement")
 
 	# The tail keys apply from the pack's modelled root, like the seat from its reference dock.
-	check(near(wrapper.position.y, 0.035), "her baked tail default is applied")
+	check(near(wrapper.position.y, 0.04), "her baked tail default is applied")
 	var reseat_before := SETTINGS.reseat_tails.get_bool()
 	SETTINGS.reseat_tails.set_bool(true)
 	var tail_values := SETTINGS.anatomy_placement("chrysalis", "chrysalis")
@@ -232,7 +232,7 @@ func run() -> void:
 	SETTINGS.save_anatomy_placement("chrysalis",
 		SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis"), "chrysalis")
 	adapter.call("apply_tail_placement", own)
-	check(near(wrapper.position.y, 0.035), "reset returns her tail to the baked default")
+	check(near(wrapper.position.y, 0.04), "reset returns her tail to the baked default")
 	SETTINGS.reseat_tails.set_bool(reseat_before)
 
 	# Her hair can arrive after the first prepare, even before the body has an identity. The

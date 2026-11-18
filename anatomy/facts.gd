@@ -42,3 +42,33 @@ func write_log(text: String) -> void:
 func smack_body_coat() -> void:
 	if body_coat_smack.is_valid():
 		body_coat_smack.call()
+
+
+func contact_kind() -> String:
+	return str(pose_view.contact_kind) if pose_view != null else ""
+
+
+func family() -> String:
+	return str(pose_view.family) if pose_view != null else ""
+
+
+func frame() -> String:
+	return str(pose_view.frame) if pose_view != null else ""
+
+
+func mouth_contact() -> bool:
+	return contact_kind() == "mouth"
+
+
+func face_contact() -> bool:
+	return contact_kind() == "face"
+
+
+## The act's part inset reads the frame; the missionary trims read the family. They are separate
+## because a pose can share a frame without sharing the bed placement.
+func bed_pose() -> bool:
+	return frame() == "bed"
+
+
+func missionary() -> bool:
+	return family() == "bed"

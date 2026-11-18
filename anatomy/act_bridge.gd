@@ -104,15 +104,15 @@ func act_available() -> bool:
 
 ## The pose view the act reads for the mouth contact.
 func _mouth_contact() -> bool:
-	var view: Variant = _host("pose_view")
-	return view != null and str(view.contact_kind) == "mouth"
+	facts.pose_view = _host("pose_view")
+	return facts.mouth_contact()
 
 
 ## True while the view names the face contact. The pose service's future face driver reads the
 ## view; the geometry owner reads this helper.
 func _face_contact() -> bool:
-	var view: Variant = _host("pose_view")
-	return view != null and str(view.contact_kind) == "face"
+	facts.pose_view = _host("pose_view")
+	return facts.face_contact()
 
 
 ## The per-act handle. The controller's `begin_act` creates it; the bridge resets the facts first.
@@ -141,8 +141,8 @@ func sync_facts() -> void:
 
 ## The pose family from the runtime's pose view: `bed` for missionary, `standing` for standing.
 func pose_family() -> String:
-	var view: Variant = _host("pose_view")
-	return str(view.family) if view != null else ""
+	facts.pose_view = _host("pose_view")
+	return facts.family()
 
 
 ## One pose-change hook: carry the view family and contact for the contact switch, without

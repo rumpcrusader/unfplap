@@ -9,7 +9,6 @@ const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
-const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 
 const WINKING_REST_OPEN := 0.6
 const WINKING_OPEN_AT := 0.3
@@ -39,8 +38,8 @@ var anatomy: Node
 var consent := Callable()
 var status := Callable()
 var _display_name := ""
-## Per-tick typed act facts written by the runtime. The act never reads runtime private fields.
-var _facts: RefCounted = FACTS.new()
+## The bridge's typed act context, kept across ticks. The act never allocates or reads the runtime.
+var _facts: RefCounted = null
 var _anal := false
 var _hole_mix := 0.0
 var _oral: RefCounted
@@ -88,7 +87,6 @@ func setup(service_node: Node, pony_node: Node3D, anatomy_node: Node,
 
 
 func reset() -> void:
-	_facts = FACTS.new()
 	_anal = false
 	_hole_mix = 0.0
 	_fill = 0.0
@@ -113,6 +111,10 @@ func _depth() -> float:
 	return clampf(float(_facts.depth), 0.0, 1.0) if _facts != null else 0.0
 
 
+func _climaxes() -> int:
+	return int(_facts.climaxes) if _facts != null else 0
+
+
 ## The per-act contact view the runtime refreshed this tick.
 func _pose_view() -> Variant:
 	return _facts.pose_view if _facts != null else null
@@ -121,22 +123,19 @@ func _pose_view() -> Variant:
 ## Whether the live pose is the bed frame. The act reads it for the missionary-only part inset and
 ## owns no start pose id.
 func _bed_pose() -> bool:
-	var view: Variant = _pose_view()
-	return view != null and str(view.frame) == "bed"
+	return _facts != null and _facts.bed_pose()
 
 
 ## True while the pose view names the mouth contact. The pose service owns the contact switch;
 ## the act only reads it.
 func _mouth_contact() -> bool:
-	var view: Variant = _pose_view()
-	return view != null and str(view.contact_kind) == "mouth"
+	return _facts != null and _facts.mouth_contact()
 
 
 ## True while the pose view names the face contact. The act parks the part; the pose's face driver
 ## owns the contact placement.
 func _face_contact() -> bool:
-	var view: Variant = _pose_view()
-	return view != null and str(view.contact_kind) == "face"
+	return _facts != null and _facts.face_contact()
 
 
 ## Her vulva opening at the live hole mix.
@@ -231,8 +230,9 @@ func _contact() -> void:
 
 
 func tick(delta: float, facts: RefCounted) -> void:
-	_facts = facts if facts != null else FACTS.new()
-	if not is_instance_valid(anatomy) or not is_instance_valid(pony):
+	if facts != null:
+		_facts = facts
+	if _facts == null or not is_instance_valid(anatomy) or not is_instance_valid(pony):
 		return
 	var mesh: Variant = anatomy.call("winking_mesh")
 	if not is_instance_valid(mesh):
@@ -359,8 +359,7 @@ func _act_wink_tick(delta: float, part: Variant) -> void:
 		var reach := TOUCH_MARGIN_M
 		var tip: Vector3 = part.call("tip_center")
 		touching = tip.is_finite() and tip.distance_to(hole_point()) <= reach
-	var mode := STATE.wink_mode(_depth(), touching, _facts.climaxes,
-		PULLED_OUT_PHASE)
+	var mode := STATE.wink_mode(_depth(), touching, _climaxes(), PULLED_OUT_PHASE)
 	if mode != _act_wink_mode:
 		_act_wink_mode = mode
 		_act_wink_next = _wink_interval(mode)
@@ -438,8 +437,9 @@ func on_climax() -> void:
 
 ## integration: afterglow part tracking, on the act's attached alignment.
 func afterglow_tick(delta: float, facts: RefCounted) -> void:
-	_facts = facts if facts != null else FACTS.new()
-	if not is_instance_valid(anatomy) \
+	if facts != null:
+		_facts = facts
+	if _facts == null or not is_instance_valid(anatomy) \
 			or not is_instance_valid(pony) or not is_instance_valid(service):
 		return
 	var started := Time.get_ticks_usec()

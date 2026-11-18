@@ -250,6 +250,7 @@ func _check_face_contact() -> void:
 	act.tick(0.016, facts)
 	check(part.encounters == [false], "a second face tick does not part the part again")
 	check(service.tracks == 0, "the face contact still never tracks the part")
+	check(is_same(act.get("_facts"), facts), "the act keeps the context it was ticked with")
 	var holes_on := SETTINGS.anatomy_holes.get_bool()
 	SETTINGS.anatomy_holes.set_bool(true)
 	act.call("toggle_hole", 2)

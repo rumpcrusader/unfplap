@@ -3,6 +3,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/anatomy/test_facts.gd
 
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const ACT := preload("res://mods/unfplap/anatomy/act.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
 var checks := 0
@@ -71,6 +73,43 @@ func run() -> void:
 	check(sink.log_text == "attached", "the log callback receives the line")
 	facts.smack_body_coat()
 	check(sink.smack_calls == 1, "the smack callback receives one call")
+
+	check(facts.contact_kind() == "" and facts.family() == "" and facts.frame() == "",
+		"a null view has no contact, family or frame")
+	check(not facts.mouth_contact() and not facts.face_contact()
+		and not facts.bed_pose() and not facts.missionary(),
+		"a null view matches no contact or pose predicate")
+
+	var view: Variant = VIEW.new()
+	view.family = "bed"
+	view.frame = "bed"
+	view.contact_kind = "mouth"
+	facts.pose_view = view
+	check(facts.contact_kind() == "mouth" and facts.mouth_contact(),
+		"the mouth contact reads the view")
+	check(not facts.face_contact(), "the mouth contact is not the face contact")
+	check(facts.family() == "bed" and facts.missionary(),
+		"the bed family is the missionary pose")
+	check(facts.frame() == "bed" and facts.bed_pose(),
+		"the bed frame carries the part inset")
+	view.contact_kind = "face"
+	check(facts.face_contact() and not facts.mouth_contact(),
+		"the face contact reads the view")
+	view.family = "standing"
+	view.frame = "ground"
+	view.contact_kind = "opening"
+	check(facts.contact_kind() == "opening" and facts.family() == "standing"
+		and facts.frame() == "ground", "the standing opening carries its family and frame")
+	check(not facts.mouth_contact() and not facts.face_contact()
+		and not facts.bed_pose() and not facts.missionary(),
+		"a standing opening matches no contact or bed predicate")
+
+	var act: Node = ACT.new()
+	var kept := FACTS.new()
+	act.set("_facts", kept)
+	act.call("reset")
+	check(is_same(act.get("_facts"), kept), "reset keeps the context it was given")
+	act.free()
 
 	print("ANATOMY_FACTS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

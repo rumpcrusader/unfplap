@@ -14,9 +14,13 @@ whether or not the other mod is installed.
   and binding paths.
 - `integrations/provider.gd`, `context.gd`, `action.gd` and `kissing.gd` are pure service
   internals.
-- Two integrations are supported: the Kissing 1.2.9 reaction layer and the Pantyhose & Panties
-  0.1.1 world garment adapter. Kissing's own kiss driver, guard, rear, reach, approach, step-back
-  and memory recorder stay out of this service.
+- `integrations/changelings.gd` is a world-side adapter for the Queen Chrysalis 0.2.12 pack
+  (`changelings`): it lists her as an installed provider mare and gives the bodies the pack brings
+  the generic body-fit and custom-tail metadata. It is not a catalog entry, has no settings and
+  needs no pack rebuild.
+- Two integrations are supported by the per-act service: the Kissing 1.2.9 reaction layer and the
+  Pantyhose & Panties 0.1.1 world garment adapter. Kissing's own kiss driver, guard, rear, reach,
+  approach, step-back and memory recorder stay out of this service.
 - The Integrations settings tab always lists a supported mod, even when that mod is absent. The
   version is the one this adapter was verified with, not a semver compatibility promise; a later
   release may still work, and the tab does not report the installed version or a mismatch.
@@ -33,6 +37,10 @@ material overrides, its cached feature/debug values and the act-start undress. T
 game's own `take_off` action when her executor exists, with the direct wardrobe calls as its
 fallback. It reads the anatomy through `main.anatomy` and the game through `main.game`; it never
 preloads either host and never edits the pack.
+
+The changelings adapter owns its provider layer registration, the installed-mare list and the
+body-fit/custom-tail metadata it writes on the pack's bodies. It reads the API through `main.api`,
+and the pack's own public nodes and state; it never edits the pack and never preloads a host.
 
 The runtime constructs one service per act through `_integrations_controller()` and passes its typed
 `shared/act_facts.gd` view. The runtime calls `begin()`, `tick()`, `afterglow()`,
@@ -173,6 +181,38 @@ The compatibility shaders are `integrations/shaders/pantyhose_common.gdshaderinc
 with the hull block added. The catalog's `verified_version` pins the copy. A renamed or changed
 pack shader is left alone and logged once; the adapter never edits the pack.
 
+## Queen Chrysalis
+
+`integrations/changelings.gd` is active only while `Mods.is_active("changelings")` is true. It
+registers one provider layer through `api.register_mare` with the adapter as the owner, so the
+layer leaves with unfplap and is never written to `settings.json`:
+
+- `id` `chrysalis`, source `changelings`, name `Queen Chrysalis`;
+- the approved profile (`intensity firm`, `pattern teasing`, `touch caress, kiss`,
+  `dislikes smack`, `talk praise, playful`, `warmth slow`, `tolerance normal`) and her
+  second-person notes;
+- the placement for her own body (`offset_y`, `offset_z`, `scale`) over the global default,
+  applied through her Celestia body profile;
+- no `eligible` assertion: her identity decides age, so a young disguised shape still fails the
+  act gate.
+
+`installed_character_ids()` returns `["chrysalis"]` only while the pack is active and the layer is
+registered. `main.live_character_ids()` merges that with the live off-roster mares for the
+Characters selector, so she is listed under **Other mares** even while she is away in the
+Badlands. The base roster stays 103, and removing the pack removes the entry.
+
+`main._on_pony` calls `prepare_pony(pony)` before the tail seat and the anatomy bind. The adapter
+sets `body_fit_id` and `tail_pose_root` on the two kinds of body the pack brings:
+
+- her own body (the pack's own meshes or its `ChrysalisHair` tail) uses `body_fit_id chrysalis`
+  and names `ChrysalisHair/Hair_tail/Chain` as the custom tail root;
+- a disguise (`geometry_variant` `changeling=<pony id>` in 0.2.12) uses that pony's id as the body
+  fit and has no custom tail root, so it uses the copied pony's placement and the normal hair
+  chain.
+
+A missing node is a quiet no-op, so a pack update can change the shape without a crash. The
+integration does not depend on a new signal or a rebuilt pack.
+
 ## Settings
 
 One declaration per supported integration, in `settings/service.gd`:
@@ -197,13 +237,14 @@ overlay reads them.
 
 ## Lifecycle
 
-- Scope: per-act service + world adapter
+- Scope: per-act service + world adapters
 - Constructed by: `runtime._integrations_controller()` for the per-act facade;
-  `main._ready()` for the world adapter
-- Begin: `begin()` at `State.POSING_IN`; `on_world(host)` on world entry
+  `main._ready()` for each world adapter
+- Begin: `begin()` at `State.POSING_IN`; `on_world(host)` on world entry; the changelings adapter
+  registers its provider layer in `_ready()` and on `refresh()`
 - End: `reset()` in `_free_pose()`; `on_world_closed()` on world close and `shutdown()` in
-  `main._exit_tree()`
-- Idempotent: yes. The world adapter is inert when the pack is absent.
+  `main._exit_tree()`; the changelings layer leaves with its owner
+- Idempotent: yes. A world adapter is inert when its pack is absent.
 
 ## Host boundary
 
@@ -222,6 +263,10 @@ overlay reads them.
 | `pony_wardrobe` group | the wardrobe's `wanted()`, `_season()`, `set_worn()` and `dress()` for the act undress |
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
 | `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` |
+| `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
+| `main._on_pony()` | calls the changelings adapter's `prepare_pony()` before the tail seat and anatomy bind |
+| `main.live_character_ids()` | merges the changelings adapter's `installed_character_ids()` |
+| `Mods.is_active("changelings")` | the adapter's installation gate |
 
 ## Dependencies
 
@@ -255,6 +300,9 @@ overlay reads them.
   the reaction cap, live feature edits, shared Beat ownership, full fidgets, idempotent reset and
   the absence of a per-act provider for the world integration.
 - `tests/integrations/test_hold.gd` — the runtime's named excitement Beat hold and last-release restore.
+- `tests/integrations/test_changelings.gd` — the installed list and provider layer while the pack is
+  on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
+  the body-fit/custom-tail metadata for her own body, a disguise and an unrelated pony.
 - `tests/test_settings.gd` — the Integrations tab draws every provider header, flag and the Debug
   block's hull rows.
 - `tests/test_source_hygiene.gd` — pure providers, facade-only imports and docs links.
@@ -279,6 +327,12 @@ overlay reads them.
   undressed; turn each flag off; remove the pack; check the original materials come back and two
   mares keep independent transforms. Use **Show hull** and **Rebuild** to inspect the field; the
   overlay is desktop-only and is skipped headless.
+- With Queen Chrysalis 0.2.12 installed, open Settings → Characters: **Queen Chrysalis** is under
+  **Other mares** with the approved profile, before she visits. Turn the pack off: the entry and
+  the provider layer are gone and the base roster still reads 103.
+- Visit her anatomy in `always` and `act` on her own body; check the scale and position and that
+  the spring tail lifts asides in standing and lays in missionary. Take a disguise shape and check
+  it uses the copied pony's fit and the normal hair tail.
 
 ## Related docs
 

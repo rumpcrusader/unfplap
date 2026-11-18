@@ -846,6 +846,12 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   `JIGGLE_BASE_M = 0.02 m` using the rump shader's thrust wave and restores the mane bones. The
   body chain has no such pinned hair base, so it rotates from `pony_tail_01` and never translates
   the hips.
+- A visible tail that is not on either game skeleton names a `tail_pose_root` `Node3D` through pony
+  metadata. `poses/tail_chain.gd` resolves it, and `tail_pose`/`tail_lay` rotate that node about the
+  same lift/aside sign and bed target as the bone path, then restore its saved local transform at
+  the act's pose exit. The game's bone chain stays untouched. The changelings adapter names Queen
+  Chrysalis's `ChrysalisHair/Hair_tail/Chain`; a missing node falls back to the bone path, so every
+  other pony behaves as before.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `poses/wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`
@@ -1023,8 +1029,8 @@ teardown; it stays unchanged.
   the zeroed oral hold and the release.
 - `tests/poses/test_prone_sway.gd` — the missionary slide and nod, the render replay after the pose
   write and the active-state gate.
-- `tests/poses/test_tail_chain.gd` — the hair/body chain resolver, the body-tail aside/lift, bed lay
-  and post-stop tuck.
+- `tests/poses/test_tail_chain.gd` — the hair/body chain resolver, the body-tail aside/lift, bed lay,
+  the custom-root aside/lift and bed turn with its restore, and the post-stop tuck.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split, including the body-tail
   install path for fitted exports.
 - `tests/poses/test_pose_rig.gd` — bone cache, global write and non-finite rejection.
@@ -1050,7 +1056,8 @@ teardown; it stays unchanged.
 - Standing: stance, foreleg spread, ears, tail, wings, afterglow fold and the pose at both Canon
   and Same Height sizes.
 - Princess tails: standing aside/lift, the missionary bed lay, the afterglow flick and the
-  post-stop tuck. Celestia and Luna use the body chain; a devkit mare keeps the hair chain.
+  post-stop tuck. Celestia and Luna use the body chain; a devkit mare keeps the hair chain; Queen
+  Chrysalis's `tail_pose_root` spring chain is moved and restored without a body-chain write.
 - Four sizes: repeat the missionary and standing lab at Canon, JRHNBR, Same Height and Hoers. The
   body, the Anon, the authored shot and the anatomy contact must stay framed at every size; the
   contact stays on the mattress or the ground and the hips stay at the anchor. The bake/check

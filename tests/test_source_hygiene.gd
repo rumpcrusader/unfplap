@@ -1272,6 +1272,8 @@ func _check_integrations_docs() -> void:
 		"docs/integrations.md names the facade")
 	check(contract.contains("`integrations/pantyhose.gd`"),
 		"docs/integrations.md names the world adapter")
+	check(contract.contains("`integrations/changelings.gd`"),
+		"docs/integrations.md names the changelings adapter")
 	for heading: String in ["## Scope", "## Ownership", "## Lifecycle", "## Dependencies",
 			"## Tests"]:
 		check(contract.contains(heading), "docs/integrations.md has %s" % heading)

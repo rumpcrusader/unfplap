@@ -96,7 +96,10 @@ The **Characters** tab exposes one in-page pony selector with its own search, a 
 button and a **Reset to default** button in one row under the selector, and one form. The selector
 is the game's `world/ui/menu_picker.gd` dropdown: it unfolds inside the page and scrolls there, so
 its list never runs past the settings window. It lists the 103 base-game mares first, then any live
-adult mare from another mod under an **Other mares** header; an off-roster mare uses her registered
+adult mare from another mod and any mare an active installed-profile integration lists even while
+she is away, under an **Other mares** header. The changelings adapter is that source for Queen
+Chrysalis: she keeps her provider profile and placement while she is in the Badlands, the base
+roster stays 103, and removing the pack removes the entry. An off-roster mare uses her registered
 provider template and placement when one exists (`docs/api.md`), otherwise the global default
 profile and placement, until a preset or per-mare override is saved.
 

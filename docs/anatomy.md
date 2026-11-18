@@ -180,6 +180,12 @@ resulting `view.contact_kind`/`view.contact_target`.
 - The princess body profile applies to `celestia` and `luna` and to a modded copy that sets
   `character_id` to either. It supplies the body scale and the placement anchor; an ordinary
   off-roster mare uses the normal profile.
+- The body-fit key names the body a pony's placement row belongs to: her `body_fit_id` metadata
+  when an integration set one, else her identity's `character_id`, else her own id. The provider or
+  catalog row resolves by that key; the player's placement override stays keyed by the stable id,
+  so it follows the mare rather than a temporary body. A disguise copied onto another pony's body
+  therefore uses that pony's fit, and the changelings adapter gives Queen Chrysalis her own
+  `chrysalis` fit while she wears her own body.
 - The mare bits mesh, teats and skin strip ship with the pack, so a missing mesh is a broken
   build, not a state the controller handles.
 - The winking mesh is rebuilt once per source mesh and shared. The rebuild masks the anal rim out
@@ -280,7 +286,10 @@ fade. The hull block is in the copied compatibility shaders under
   five only.
 - `shared/anatomy_placement.gd` owns the schema and the merge/sanitize/diff helpers. The shipped
   per-mare rows live in `settings/catalogs.json` under `anatomy.placement`; resolution is the
-  player override, then a provider layer, then the catalog row, then the global default. Only keys
+  player override (keyed by the stable pony id), then a provider layer, then the catalog row, then
+  the global default. The provider and catalog layers resolve by the body-fit id
+  (`## Attachment and identity`), so a disguise borrows the copied pony's row where the player has
+  not saved an override on the mare's stable id. Only keys
   that differ from the resolved default are stored; saving a row equal to the default removes the
   block. Schema 10 strips the rows an older build materialised for every mare, keeping only real
   overrides, so a provider's placement wins wherever the player did not edit.
@@ -693,6 +702,10 @@ sample of the body coat.
 - A new tail mesh alone cannot change the seat: `hybrid_tail_anchor` re-pins the first 12 mm of the
   tail root to the hair `mPelvis`, and the hair link places `mPelvis` from the tail mount. Author a
   new tail only for shape or silhouette; the seat remains this controller's job.
+- A visible tail that is not on either game skeleton can name a `tail_pose_root` `Node3D` through
+  pony metadata; `docs/poses.md` owns how the act modifiers move it. Queen Chrysalis's fitted body
+  skips the devkit hair, so her tail seat is unavailable and her spring chain is moved by that
+  custom root instead.
 
 ## Lifecycle
 
@@ -799,8 +812,9 @@ built from the declarations, so the label, help and bounds are not restated here
 
 Current suites:
 
-- `tests/anatomy/test_identity.gd`: the princess body profile and the off-roster list; the stable
-  id is `tests/test_pony_id.gd`. The adult capability is tested with the eligibility service in
+- `tests/anatomy/test_identity.gd`: the princess body profile, the body-fit key (metadata, then
+  `character_id`, then the identity id) and the off-roster list; the stable id is
+  `tests/test_pony_id.gd`. The adult capability is tested with the eligibility service in
   `tests/eligibility/`.
 - `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
   radius, the V2 anal ring weights/centre, the coat line targets/bend/frames and the shader
@@ -817,10 +831,11 @@ Current suites:
   live opening aim, follows the pose view's mouth anchor while the contact holds, returns to the
   opening once it is released, and clears the missionary inset outside the bed pose.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
-- `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, dock visibility,
-  idle heat, mesh refinement, act calls, the player part's idempotent `prepare()`, the rig and
-  near coat patch, the vulva cut and still zones, the face contact's parked part and restored
-  opening, plus the provider's `eligible` assertion and the participation gate).
+- `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, the stable-id override
+  against the body-fit default, dock visibility, idle heat, mesh refinement, act calls, the player
+  part's idempotent `prepare()`, the rig and near coat patch, the vulva cut and still zones, the
+  face contact's parked part and restored opening, plus the provider's `eligible` assertion and
+  the participation gate).
 - `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
   callbacks.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.

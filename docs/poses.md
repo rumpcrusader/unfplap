@@ -855,9 +855,11 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
 - A visible tail that is not on either game skeleton names a `tail_pose_root` `Node3D` through pony
   metadata. `poses/tail_chain.gd` resolves it, and `tail_pose`/`tail_lay` rotate that node about the
   same lift/aside sign and bed target as the bone path, then restore its saved local transform at
-  the act's pose exit. The game's bone chain stays untouched. The changelings adapter names Queen
-  Chrysalis's `ChrysalisHair/Hair_tail/Chain`; a missing node falls back to the bone path, so every
-  other pony behaves as before.
+  the act's pose exit. The game's bone chain stays untouched. The anatomy tail seat may put a
+  placement wrapper above that root; the act modifiers still rotate and restore the root itself,
+  so the wrapper's placement survives an act. The changelings adapter names Queen Chrysalis's
+  `ChrysalisHair/Hair_tail/Chain`; a missing node falls back to the bone path, so every other pony
+  behaves as before.
 - Standing wings start at `WING_STANDING_HOLD = 0.65` (about `60°` above the ground), then open by
   `WING_STANDING_SPREAD = 0.25` as satisfaction rises. Missionary keeps the stock spread progression.
   A mod-owned `poses/wing_sweep.gd` runs last and yaws `pony_WingBase_L/R` by `WING_SWEEP_DEG = 10°`

@@ -716,9 +716,12 @@ sample of the body coat.
   tail root to the hair `mPelvis`, and the hair link places `mPelvis` from the tail mount. Author a
   new tail only for shape or silhouette; the seat remains this controller's job.
 - A visible tail that is not on either game skeleton can name a `tail_pose_root` `Node3D` through
-  pony metadata; `docs/poses.md` owns how the act modifiers move it. Queen Chrysalis's fitted body
-  skips the devkit hair, so her tail seat is unavailable and her spring chain is moved by that
-  custom root instead.
+  pony metadata. The seat puts an `UnfplapTailPlacement` wrapper above that root, and
+  `tail_y`/`tail_z`/`tail_tilt_deg` move the wrapper as a delta from the modelled root; the
+  resolved seat default is not added. `docs/poses.md` owns how the act modifiers rotate and
+  restore the root itself, so a placement edit and an act never overwrite each other. The dock
+  keys do not apply to a custom root. Queen Chrysalis's fitted body skips the devkit hair and
+  uses this path for her spring chain.
 
 ## Lifecycle
 
@@ -780,7 +783,8 @@ built from the declarations, so the label, help and bounds are not restated here
   **Placement** (anatomy), **Placement tail**, **Placement dock**, **Placement tail tilt** and
   **Placement file**. They edit the selected target; the default is staged until Save, a mare
   override writes directly. **Placement file Show** logs every live mare's anchor, target,
-  resolved placement, applied delta and source.
+  resolved placement, applied delta and source; a custom tail logs its applied offset instead of
+  an anchor and target.
 - **Hide tails** is the persisted Debug toggle that collapses every loaded AI character's hair
   and body tail roots through `anatomy/tail/hide.gd`; it touches no other body part. The facade
   pushes the switch to `anatomy/tail/visibility.gd`, which processes only while it is on.
@@ -845,10 +849,10 @@ Current suites:
   opening once it is released, and clears the missionary inset outside the bed pose.
 - `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, the stable-id override
-  against the body-fit default, dock visibility, idle heat, mesh refinement, act calls, the player
-  part's idempotent `prepare()`, the rig and near coat patch, the vulva cut and still zones, the
-  face contact's parked part and restored opening, plus the provider's `eligible` assertion and
-  the participation gate).
+  against the body-fit default, dock visibility, the custom-tail wrapper and its tail keys, idle
+  heat, mesh refinement, act calls, the player part's idempotent `prepare()`, the rig and near
+  coat patch, the vulva cut and still zones, the face contact's parked part and restored opening,
+  plus the provider's `eligible` assertion and the participation gate).
 - `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
   callbacks.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.

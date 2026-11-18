@@ -242,7 +242,9 @@ she is listed under **Other mares** even while she is away in the Badlands. The 
 bind. The adapter sets `body_fit_id` and `tail_pose_root` on the two kinds of body the pack brings:
 
 - her own body (the pack's own meshes or its `ChrysalisHair` tail) uses `body_fit_id chrysalis`
-  and names `ChrysalisHair/Hair_tail/Chain` as the custom tail root;
+  and names `ChrysalisHair/Hair_tail/Chain` as the custom tail root; the anatomy tail seat wraps
+  that root so the placement editor's tail keys move her tail, while the act modifiers still
+  rotate and restore the chain itself;
 - a disguise (`geometry_variant` `changeling=<pony id>` in 0.2.12) uses that pony's id as the body
   fit and has no custom tail root, so it uses the copied pony's placement and the normal hair
   chain.
@@ -384,7 +386,7 @@ overlay reads them.
 - `tests/integrations/test_changelings.gd` — the installed list and provider layer while the pack is
   on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
   the body-fit/custom-tail/anatomy-marker metadata for her own body, a disguise and an unrelated
-  pony. It also
+  pony, including a wrapped tail root keeping its metadata. It also
   pins the shape-change source through the manager: the actor/old/new/target state, the true-form
   and named requests, the claimed body, the idle appear hook and the completion poll. An AI-started
   change is observed from a rising `busy`, claimed by identity before the shape is known and

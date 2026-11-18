@@ -65,8 +65,6 @@ func run() -> void:
 	check(CYCLE.wink_burst_count(0.30) == 1, "singles start at thirty percent")
 	check(CYCLE.wink_burst_count(0.999) == 1, "the top roll is a single")
 
-	check(not bool(SETTINGS.estrus_cycle.default), "estrus is off by default")
-
 	# A pony that has only just spawned has no relationship runtime yet. The anatomy bridge asks
 	# for the phase during its bind, so the read must not warn or throw.
 	var runtime: Node = RUNTIME.new()

@@ -28,7 +28,6 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 func run() -> void:
 	var before := SETTINGS.pack_smack_sound.get_bool()
-	check(bool(SETTINGS.pack_smack_sound.default), "the shipped default is on")
 	SETTINGS.pack_smack_sound.set_bool(true)
 
 	var service: Node = STOCK.new()

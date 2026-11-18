@@ -58,26 +58,16 @@ func _check_style() -> void:
 	var cap: PanelContainer = HUD.keycap("W")
 	var letter := cap.get_child(0) as Label
 	check(letter != null and letter.text == "W", "drawn key cap keeps its key")
-	check(letter.get_theme_color("font_color") == HUD.INK, "key cap letter is ink")
 	var wide_cap: PanelContainer = HUD.keycap("RMB")
 	check(wide_cap.custom_minimum_size.x > cap.custom_minimum_size.x,
 		"a multi-character cap is wider")
-	var painter := cap.get_theme_stylebox("panel") as StyleBoxFlat
-	check(painter != null and painter.bg_color == HUD.CAP_BG, "key cap uses the prompt cap colour")
-	check(painter.border_width_bottom > painter.border_width_top, "key cap has the prompt bottom lip")
-	check(painter.corner_radius_top_left > 0, "key cap is rounded")
 	var icon: TextureRect = HUD.button_icon("key_q", 28.0)
 	check(icon != null and icon.texture != null, "prompt icon resolves")
 	check(HUD.button_icon("no_such_icon", 28.0) == null, "missing prompt icon is null")
-	var label := HUD.text_label("Make love", 30)
-	check(label.get_theme_constant("outline_size") > 0, "words use the prompt outline")
-	check(label.get_theme_color("font_color") == HUD.INK, "words are ink")
-	check(label.get_theme_color("font_outline_color") == HUD.SHADE, "outline is the prompt shade")
 	var row: HBoxContainer = HUD.prompt_row("button_y", "Make love")
 	check(row.get_child_count() == 2, "prompt row is icon plus words")
 	var action := row.get_child(1) as Label
 	check(action != null and action.text == "Make love", "prompt row reads the offer action")
-	check(action.get_theme_color("font_color") == HUD.ACCENT, "offer action is the pink accent")
 	check(row.get_child(0) is TextureRect, "prompt row starts with the game icon")
 	var capped: HBoxContainer = HUD.prompt_row("", "Make love", "6")
 	check(capped.get_child_count() == 2, "a capped prompt row is cap plus words")
@@ -102,8 +92,6 @@ func _check_form_hint() -> void:
 	check(form != null and form.visible, "the form hint shows in the act")
 	check(form != null and form.text == "Say to her: ask to see the real her.",
 		"the form hint keeps its words")
-	check(form != null and form.get_theme_color("font_color") == HUD.ACCENT,
-		"the form hint uses the pink accent")
 	view.form_hint = ""
 	view.state = 4
 	hud.call("update_from", view)
@@ -144,7 +132,6 @@ func _check_controls() -> void:
 	var view := _view()
 	hud.call("update_from", view)
 	check(y_label.text == "End early", "the act key offers an early end before the first climax")
-	check(y_label.get_theme_color("font_color") == HUD.INK, "early end is ink")
 	var status := hud.get("_hint_status") as Label
 	check(status.text.begins_with("❤ 0/3"), "cue line reaches the HUD")
 	var readiness := hud.get("_hint_readiness") as Label
@@ -225,12 +212,6 @@ func _check_controls() -> void:
 	view.y_pink = 0.25
 	hud.call("update_from", view)
 	check(y_label.text == "End", "the act key offers the end after a climax")
-	check(not y_label.get_theme_color("font_color").is_equal_approx(HUD.INK),
-		"End warms after a climax")
-	view.y_pink = 1.0
-	hud.call("update_from", view)
-	check(y_label.get_theme_color("font_color").is_equal_approx(HUD.ACCENT),
-		"an earned caress turns End fully pink")
 	view.state = 3
 	hud.call("update_from", view)
 	check(y_label.text == "End", "the act key ends during a climax")

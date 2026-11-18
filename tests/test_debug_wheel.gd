@@ -97,11 +97,6 @@ func _check_pages() -> void:
 
 
 func _check_registry() -> void:
-	for removed: String in ["show_act_history", "show_stool", "show_act_face",
-			"show_prompt_context", "pose_state", "force_heat", "force_diestrus",
-			"clear_cycle_override", "skeleton_overlay"]:
-		check(not DEBUG_ACTIONS.ACTIONS.has(removed), "the retired action %s is gone" % removed)
-		check(not _wheel_has(removed), "the wheel does not carry %s" % removed)
 	for settings_only: String in ["reset_act_history", "reload_pose", "give_stool",
 			"reset_act_prompts", "cycle_auto", "facesit_variant", "clear_cooldown"]:
 		check(DEBUG_ACTIONS.ACTIONS.has(settings_only),

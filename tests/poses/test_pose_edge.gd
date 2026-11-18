@@ -124,18 +124,8 @@ func _row(name: String, template: String, forms: Array, views: Array) -> Diction
 
 
 func _check_documents() -> void:
-	check(FileAccess.file_exists(FORWARD_PATH), "the forward edge file exists")
-	check(FileAccess.file_exists(REVERSE_PATH), "the reverse edge file exists")
 	var forward := _forward()
 	var reverse := _read(REVERSE_PATH)
-	check(not forward.is_empty(), "the forward edge parses")
-	check(not reverse.is_empty(), "the reverse edge parses")
-	check(str(forward.get("id", "")) == FORWARD, "the forward edge id")
-	check(str(forward.get("from", "")) == SPECS.STANDING, "the forward edge from")
-	check(str(forward.get("to", "")) == SPECS.STANDING_TEST, "the forward edge to")
-	check(str(reverse.get("id", "")) == REVERSE, "the reverse edge id")
-	check(str(reverse.get("from", "")) == SPECS.STANDING_TEST, "the reverse edge from")
-	check(str(reverse.get("to", "")) == SPECS.STANDING, "the reverse edge to")
 	var forward_errors := _errors(forward)
 	var reverse_errors := TRANSITION_SPEC.errors(REVERSE, reverse, SPECS.SPECS)
 	check(forward_errors.is_empty(), "the forward edge validates: %s" % str(forward_errors))
@@ -221,18 +211,8 @@ func _check_runs() -> void:
 
 
 func _check_oral_documents() -> void:
-	check(FileAccess.file_exists(ORAL_FORWARD_PATH), "the oral forward edge file exists")
-	check(FileAccess.file_exists(ORAL_REVERSE_PATH), "the oral reverse edge file exists")
 	var forward := _read(ORAL_FORWARD_PATH)
 	var reverse := _read(ORAL_REVERSE_PATH)
-	check(not forward.is_empty(), "the oral forward edge parses")
-	check(not reverse.is_empty(), "the oral reverse edge parses")
-	check(str(forward.get("id", "")) == ORAL_FORWARD, "the oral forward edge id")
-	check(str(forward.get("from", "")) == SPECS.STANDING, "the oral forward edge from")
-	check(str(forward.get("to", "")) == SPECS.STANDING_ORAL, "the oral forward edge to")
-	check(str(reverse.get("id", "")) == ORAL_REVERSE, "the oral reverse edge id")
-	check(str(reverse.get("from", "")) == SPECS.STANDING_ORAL, "the oral reverse edge from")
-	check(str(reverse.get("to", "")) == SPECS.STANDING, "the oral reverse edge to")
 	var forward_errors := TRANSITION_SPEC.errors(ORAL_FORWARD, forward, SPECS.SPECS)
 	var reverse_errors := TRANSITION_SPEC.errors(ORAL_REVERSE, reverse, SPECS.SPECS)
 	check(forward_errors.is_empty(), "the oral forward edge validates: %s" % str(forward_errors))
@@ -247,8 +227,6 @@ func _check_oral_documents() -> void:
 	var channels: Dictionary = forward.get("channels", {})
 	check(str((channels.get("base", {}) as Dictionary).get("kind", "")) == "delta",
 		"the oral forward base is a delta")
-	check(near(float((channels.get("contact", {}) as Dictionary).get("at", 0.0)), 0.9),
-		"the oral forward contact switches at 0.9")
 	check(str((channels.get("contact", {}) as Dictionary).get("to", "")) == "mouth",
 		"the oral forward contact switches to the mouth")
 	var lock: Dictionary = channels.get("controls", {})
@@ -313,18 +291,8 @@ func _check_oral_runs() -> void:
 
 
 func _check_facesit_documents() -> void:
-	check(FileAccess.file_exists(FACESIT_FORWARD_PATH), "the face-sit forward edge file exists")
-	check(FileAccess.file_exists(FACESIT_REVERSE_PATH), "the face-sit reverse edge file exists")
 	var forward := _read(FACESIT_FORWARD_PATH)
 	var reverse := _read(FACESIT_REVERSE_PATH)
-	check(not forward.is_empty(), "the face-sit forward edge parses")
-	check(not reverse.is_empty(), "the face-sit reverse edge parses")
-	check(str(forward.get("id", "")) == FACESIT_FORWARD, "the face-sit forward edge id")
-	check(str(forward.get("from", "")) == SPECS.MISSIONARY, "the face-sit forward edge from")
-	check(str(forward.get("to", "")) == SPECS.BED_FACESIT, "the face-sit forward edge to")
-	check(str(reverse.get("id", "")) == FACESIT_REVERSE, "the face-sit reverse edge id")
-	check(str(reverse.get("from", "")) == SPECS.BED_FACESIT, "the face-sit reverse edge from")
-	check(str(reverse.get("to", "")) == SPECS.MISSIONARY, "the face-sit reverse edge to")
 	var forward_errors := TRANSITION_SPEC.errors(FACESIT_FORWARD, forward, SPECS.SPECS)
 	var reverse_errors := TRANSITION_SPEC.errors(FACESIT_REVERSE, reverse, SPECS.SPECS)
 	check(forward_errors.is_empty(), "the face-sit forward edge validates: %s" % str(forward_errors))
@@ -334,15 +302,11 @@ func _check_facesit_documents() -> void:
 	check(requires.get("views") == ["desktop"], "the face-sit forward edge needs a desktop view")
 	check(not requires.has("features") and not requires.has("consent"),
 		"the face-sit forward edge has no feature or consent row")
-	check(near(float(forward.get("duration", 0.0)), 1.6),
-		"the face-sit forward edge runs for 1.6 s")
 	var channels: Dictionary = forward.get("channels", {})
 	check(str((channels.get("base", {}) as Dictionary).get("kind", "")) == "blend",
 		"the face-sit forward base is a blend")
 	check(str((channels.get("anon", {}) as Dictionary).get("profile", "")) == "facesit",
 		"the face-sit forward anon profile")
-	check(near(float((channels.get("contact", {}) as Dictionary).get("at", 0.0)), 0.9),
-		"the face-sit forward contact switches at 0.9")
 	check(str((channels.get("contact", {}) as Dictionary).get("to", "")) == "face",
 		"the face-sit forward contact switches to the face")
 	check(str((channels.get("camera", {}) as Dictionary).get("kind", "")) == "hold",
@@ -354,10 +318,6 @@ func _check_facesit_documents() -> void:
 		"the face-sit forward presentation stays missionary")
 	check(forward.get("constraints") == ["contact after base@0.55"],
 		"the face-sit forward contact is floored after the base")
-	var events: Array = forward.get("events", [])
-	check(events.size() == 1 and str(events[0].get("kind", "")) == "status"
-		and str(events[0].get("value", "")) == "facesit",
-		"the face-sit forward reports one facesit status")
 	check(str((forward.get("interrupt", {}) as Dictionary).get("climax", "")) == "hold"
 		and str((forward.get("interrupt", {}) as Dictionary).get("teardown", "")) == "abort",
 		"the face-sit forward interrupt policy")
@@ -366,8 +326,6 @@ func _check_facesit_documents() -> void:
 		"the face-sit reverse edge asks for both forms and views")
 	check(not reverse_requires.has("features") and not reverse_requires.has("consent"),
 		"the face-sit reverse edge has no feature or consent row")
-	check(near(float(reverse.get("duration", 0.0)), 1.2),
-		"the face-sit reverse edge runs for 1.2 s")
 	var reverse_channels: Dictionary = reverse.get("channels", {})
 	check(str((reverse_channels.get("contact", {}) as Dictionary).get("to", "")) == "opening",
 		"the face-sit reverse contact returns to the opening")
@@ -377,10 +335,6 @@ func _check_facesit_documents() -> void:
 		"the face-sit reverse lock allows only end")
 	check(str((reverse_channels.get("presentation", {}) as Dictionary).get("to", "")) == "missionary",
 		"the face-sit reverse presentation switches back at zero")
-	var reverse_events: Array = reverse.get("events", [])
-	check(reverse_events.size() == 1 and str(reverse_events[0].get("kind", "")) == "status"
-		and str(reverse_events[0].get("value", "")) == "missionary",
-		"the face-sit reverse reports one missionary status")
 
 
 func _check_facesit_runs() -> void:

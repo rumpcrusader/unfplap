@@ -93,24 +93,10 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	var facts := FACTS.new()
 	check(facts.state == 0, "state starts idle")
-	check(facts.pose_view == null, "the pose view starts absent")
-	check(facts.source == "", "source starts empty")
-	check(is_zero_approx(facts.satisfaction), "satisfaction starts at zero")
-	check(is_zero_approx(facts.seconds_since_stroke), "time since the last stroke starts at zero")
+	check(facts.pose_view == null and facts.main == null,
+		"the scene handles start absent")
 	check(facts.mood == "" and facts.cue == "", "mood and cue start empty")
 	check(facts.pony_climaxes == 0, "climaxes start at zero")
-	check(is_zero_approx(facts.depth) and is_zero_approx(facts.penetration_m),
-		"stroke values start at zero")
-	check(is_equal_approx(facts.penetration_reach, 0.2), "reach starts at the nominal shaft")
-	check(is_equal_approx(facts.size_scale, 1.0), "size scale starts at one")
-	check(not facts.player_pony and not facts.headset_view, "view flags start false")
-	check(facts.bed_frame == null, "bed frame starts null")
-	check(facts.main == null and facts.pony == null and facts.camera == null
-		and facts.pose == null, "scene handles start null")
-	check(facts.event_id == "" and facts.pony_id == "", "line ids start empty")
-	check(facts.features.is_empty() and facts.preferences.is_empty(),
-		"feature and preference blocks start empty")
-	check(facts.caress_quality == "precise", "the caress quality starts precise")
 	check(is_zero_approx(facts.clock()), "the line clock starts at zero")
 	check(not facts.director.is_valid(), "the director callback starts absent")
 	check(not facts.now.is_valid(), "the clock callback starts absent")

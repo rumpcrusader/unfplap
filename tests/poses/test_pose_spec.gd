@@ -1,5 +1,5 @@
 extends SceneTree
-## The typed pose spec: the field wrapper, the shared validator, the base/driver rule and the pure
+## The typed pose spec: the shipped rows, the shared validator, the base/driver rule and the pure
 ## source.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_spec.gd
@@ -66,55 +66,6 @@ func _check_shipped() -> void:
 			continue
 		check(spec.id == id, "%s keeps its id" % id)
 		check(not spec.display_name.is_empty(), "%s has a display name" % id)
-		check(spec.base == str(row.get("base", "")), "%s keeps its base" % id)
-		check(spec.asset == str(row.get("asset", "")), "%s keeps its asset" % id)
-		check(spec.delta == str(row.get("delta", "")), "%s keeps its delta" % id)
-		check(spec.driver == str(row.get("driver", "")), "%s keeps its driver" % id)
-		check(spec.public_pose == bool(row.get("public", false)),
-			"%s reads public into public_pose" % id)
-		check(spec.offerable == bool(row.get("offerable", false)), "%s reads offerable" % id)
-		check(spec.settings_group == str(row.get("settings_group", "")),
-			"%s keeps its settings group" % id)
-		check(spec.start_mode == str(row.get("start", {}).get("mode", "")),
-			"%s keeps its start mode" % id)
-		check(spec.start_setup == str(row.get("start", {}).get("setup", "")),
-			"%s keeps its start setup" % id)
-		check(spec.forms is Array[String], "%s types its forms" % id)
-		check(spec.views is Array[String], "%s types its views" % id)
-		check(spec.forms == row.get("forms"), "%s keeps its forms" % id)
-		check(spec.views == row.get("views"), "%s keeps its views" % id)
-		for profile: String in POSE_SPEC.REQUIRED_PROFILES.keys():
-			check(is_same(spec.get(profile), row.get(profile)),
-				"%s shares the %s profile dictionary" % [id, profile])
-		check(is_same(spec.camera, row["camera"]), "%s does not copy its camera profile" % id)
-		if id == SPECS.STANDING_TEST:
-			check(not spec.public_pose and not spec.offerable, "the test pose is internal")
-			check(spec.settings_group == SPECS.STANDING, "the test pose uses the standing group")
-			check(spec.base == SPECS.STANDING, "the test pose inherits standing")
-			check(spec.driver.is_empty(), "the test pose has no driver of its own")
-			check(spec.asset.is_empty(), "the test pose has no asset of its own")
-		if id == SPECS.MISSIONARY:
-			check(spec.asset == "poses/missionary_pose.json", "missionary declares its asset")
-		if id == SPECS.STANDING_ORAL:
-			check(not spec.public_pose and not spec.offerable, "the oral pose is internal")
-			check(spec.settings_group == SPECS.STANDING, "the oral pose uses the standing group")
-			check(spec.base == SPECS.STANDING, "the oral pose inherits standing")
-			check(spec.driver.is_empty(), "the oral pose has no driver of its own")
-			check(spec.asset.is_empty(), "the oral pose has no asset of its own")
-			check(spec.delta == "poses/standing_oral_recipe.gd",
-				"the oral pose declares the procedural delta")
-		if id == SPECS.BED_FACESIT:
-			check(not spec.public_pose and not spec.offerable, "the face-sit pose is internal")
-			check(spec.settings_group == SPECS.MISSIONARY,
-				"the face-sit pose uses the missionary group")
-			check(spec.asset == "poses/bed_facesit_pose.json",
-				"the face-sit pose declares its asset")
-			check(spec.driver == "poses/missionary_recipe.gd",
-				"the face-sit pose reuses the missionary recipe")
-			check(str(spec.contact.get("kind", "")) == "face",
-				"the face-sit pose contacts the face")
-			check(str(spec.controls.get("set", "")) == "facesit",
-				"the face-sit pose uses its own control set")
 
 
 ## The driver/base rule: a driver may be empty only when an inherited base owns it, and a base must

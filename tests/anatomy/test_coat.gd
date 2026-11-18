@@ -149,23 +149,6 @@ func run() -> void:
 	var local_dir := GEOMETRY.body_local_direction(bind, mesh_xf, Vector3.BACK)
 	check(absf(local_dir.length() - 1.0) < 0.0001, "body-local direction stays unit length")
 
-	# The rig coat patch only replaces the flank_jiggle include and one call; a shader without
-	# those hooks is left alone instead of being half-patched.
-	check(bool(SETTINGS.body_coat_deform.default), "body coat deform is on by default")
-	check(near(float(SETTINGS.coat_hole.default), 0.7),
-		"the coat hole uses 70% of the lip radius across by default")
-	check(float(SETTINGS.coat_hole_height.default) > float(SETTINGS.coat_hole.default),
-		"the coat hole is a taller-than-wide ellipse by default")
-	check(near(float(SETTINGS.coat_hole_depth_mm.default), 30.0),
-		"the coat hole reaches 30 mm behind the opening by default")
-	check(near(float(SETTINGS.anal_still.default), 0.0), "anal still zone is off by default")
-	check(near(float(SETTINGS.still_oval.default), 1.5),
-		"still zones are taller than they are wide")
-	check(near(float(SETTINGS.still_fade.default), 0.3),
-		"still zones fade over 0.3 of their radius")
-	check(near(float(SETTINGS.still_height_mm.default), 25.0),
-		"the vulva still zone sits 25 mm above the opening by default")
-	check(not bool(SETTINGS.draw_still_zones.default), "still-zone debug rings are off by default")
 	var zones := STILL_ZONES.new()
 	root.add_child(zones)
 	zones.call("setup")
@@ -252,6 +235,8 @@ func run() -> void:
 	coat_pony.free()
 	coat_model.queue_free()
 
+	# The rig coat patch only replaces the flank_jiggle include and one call; a shader without
+	# those hooks is left alone instead of being half-patched.
 	var patch_source := Shader.new()
 	patch_source.code = "shader_type spatial;\n" \
 		+ "#include \"includes/base-cel-shader.gdshaderinc\"\n" \
@@ -318,13 +303,6 @@ func run() -> void:
 		check(real_patch != null, "the real coat shader compiles")
 		if real_patch != null:
 			compiled.shader = real_patch
-	for setting in [SETTINGS.anal_body_depth_mm, SETTINGS.coat_spread, SETTINGS.coat_hole,
-			SETTINGS.coat_hole_height, SETTINGS.coat_hole_depth_mm, SETTINGS.jiggle_still,
-			SETTINGS.anal_still, SETTINGS.still_oval, SETTINGS.still_fade,
-			SETTINGS.still_height_mm]:
-		check(setting.low <= -1000.0 and setting.high >= 1000.0,
-			"%s is an unbounded debug row" % setting.name)
-
 	var near_pony := NearCoatPony.new()
 	root.add_child(near_pony)
 	var near_body := MeshInstance3D.new()

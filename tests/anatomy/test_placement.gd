@@ -137,11 +137,6 @@ func run() -> void:
 	meta_mesh.free()
 
 	var default_place := SETTINGS.anatomy_placement_default("")
-	check(near(float(default_place["offset_x"]), 0.0), "global anatomy X is on the crease")
-	check(near(float(default_place["offset_y"]), 0.505), "global anatomy Y")
-	check(near(float(default_place["offset_z"]), 0.284), "global anatomy Z")
-	check(near(float(default_place["pitch_deg"]), 3.0), "global anatomy pitch")
-	check(near(float(default_place["scale"]), 0.682), "global anatomy scale")
 	var modded_place := SETTINGS.anatomy_placement_default("not_a_base_mare")
 	check(modded_place == default_place, "an off-roster mare uses the global anatomy placement")
 

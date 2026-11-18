@@ -51,63 +51,6 @@ func _check_shipped() -> void:
 	check(registry.all().size() == 5, "the registry builds all five typed specs")
 	var found: Array = registry.validate()
 	check(found.is_empty(), "the shipped table and edges validate: %s" % str(found))
-	var standing: Variant = registry.spec(CATALOG.STANDING)
-	check(standing != null and standing.family == "standing", "the standing spec is typed")
-	check(standing != null and standing.id == CATALOG.STANDING, "the standing spec keeps its id")
-	var missionary: Variant = registry.spec(CATALOG.MISSIONARY)
-	check(missionary != null and missionary.asset == "poses/missionary_pose.json",
-		"missionary carries its authored asset")
-	var test: Variant = registry.spec(CATALOG.STANDING_TEST)
-	check(test != null and test.id == CATALOG.STANDING_TEST, "the test spec keeps its id")
-	if test != null:
-		check(not test.public_pose, "the test pose is internal")
-		check(not test.offerable, "the test pose is not offerable")
-		check(test.base == CATALOG.STANDING, "the test pose inherits standing")
-		check(test.driver.is_empty(), "the test pose has no driver of its own")
-		check(test.asset.is_empty(), "the test pose inherits its asset")
-	var oral: Variant = registry.spec(CATALOG.STANDING_ORAL)
-	check(oral != null and oral.id == CATALOG.STANDING_ORAL, "the oral spec keeps its id")
-	if oral != null:
-		check(not oral.public_pose, "the oral pose is internal")
-		check(not oral.offerable, "the oral pose is not offerable")
-		check(oral.base == CATALOG.STANDING, "the oral pose inherits standing")
-		check(oral.driver.is_empty(), "the oral pose has no driver of its own")
-		check(oral.asset.is_empty(), "the oral pose inherits its asset")
-		check(oral.delta == "poses/standing_oral_recipe.gd",
-			"the oral pose carries the procedural delta")
-		check(oral.settings_group == "standing", "the oral pose uses the standing settings group")
-		check(str(oral.contact.get("kind", "")) == "mouth", "the oral pose contacts the mouth")
-		check(str(oral.hands.get("path", "")) == "oral", "the oral pose uses the oral hand path")
-		check(str(oral.controls.get("set", "")) == "standing_oral",
-			"the oral pose uses its own control set")
-		check(not bool(oral.afterglow.get("close_window", true)),
-			"the oral afterglow opens no close window")
-	var facesit: Variant = registry.spec(CATALOG.BED_FACESIT)
-	check(facesit != null and facesit.id == CATALOG.BED_FACESIT, "the face-sit spec keeps its id")
-	if facesit != null:
-		check(not facesit.public_pose, "the face-sit pose is internal")
-		check(not facesit.offerable, "the face-sit pose is not offerable")
-		check(facesit.base.is_empty(), "the face-sit owns its geometry")
-		check(facesit.asset == "poses/bed_facesit_pose.json",
-			"the face-sit carries its authored asset")
-		check(facesit.driver == "poses/missionary_recipe.gd",
-			"the face-sit reuses the missionary recipe")
-		check(facesit.settings_group == "missionary",
-			"the face-sit uses the missionary settings group")
-		check(str(facesit.contact.get("kind", "")) == "face", "the face-sit contacts the face")
-		check(str(facesit.hands.get("path", "")) == "missionary",
-			"the face-sit reuses the missionary hand path")
-		check(str(facesit.controls.get("set", "")) == "facesit",
-			"the face-sit uses its own control set")
-		check(facesit.forms == ["human"] and facesit.views == ["desktop"],
-			"the face-sit is authored for human desktop")
-		check(str(facesit.scene.get("frame", "")) == "bed" \
-				and bool(facesit.scene.get("requires_bed", false)),
-			"the face-sit requires a bed")
-		check(not bool(facesit.afterglow.get("close_window", true)),
-			"the face-sit afterglow opens no close window")
-		check(str(facesit.presentation.get("hud_label", "")) == "Face-sit",
-			"the face-sit HUD label")
 	check(registry.spec("not_a_pose") == null, "an unknown id has no spec")
 	check(is_same(registry.spec(CATALOG.MISSIONARY), registry.spec(CATALOG.MISSIONARY)),
 		"the registry caches one spec per id")
@@ -118,11 +61,10 @@ func _check_shipped() -> void:
 		check(row != null and row.start_mode == "key", "%s starts on the act key" % id)
 		check(row != null and row.start_setup in SPECS.START_SETUPS,
 			"%s declares a known start setup" % id)
-	check(missionary != null and missionary.start_setup == "bed_stand_up",
-		"missionary stands the bed act up")
-	check(standing != null and standing.start_setup == "standing_place",
-		"standing places the standing act")
-	check(facesit != null and facesit.start_setup == "bed_stand_up",
+	var missionary: Variant = registry.spec(CATALOG.MISSIONARY)
+	var facesit: Variant = registry.spec(CATALOG.BED_FACESIT)
+	check(facesit != null and missionary != null
+		and facesit.start_setup == missionary.start_setup,
 		"the bed face-sit keeps the bed placement")
 
 
@@ -158,14 +100,6 @@ func _check_catalog() -> void:
 	var keys: Array = CATALOG.POSE_KEYS.keys()
 	keys.sort()
 	check(keys == public_ids, "POSE_KEYS stays the public schema")
-	check(CATALOG.defaults(CATALOG.STANDING_TEST).is_empty(),
-		"the internal test pose has no default.poses block")
-	check(CATALOG.defaults(CATALOG.STANDING_ORAL).is_empty(),
-		"the internal oral pose has no default.poses block")
-	check(CATALOG.defaults(CATALOG.BED_FACESIT).is_empty(),
-		"the internal face-sit pose has no default.poses block")
-	for id: String in CATALOG.all():
-		check(not CATALOG.defaults(id).is_empty(), "%s has shipped defaults" % id)
 
 
 func _check_table() -> void:

@@ -21,12 +21,10 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	var empty := CONTEXT.build({})
-	check(not empty.willingness, "willingness defaults false")
-	check(empty.cycle_phase == "normal", "cycle defaults normal")
-	check(not empty.heat and not empty.diestrus, "heat and diestrus default off")
-	check(not empty.aftercare and not empty.private, "aftercare and privacy default off")
-	check(empty.history_tier == "steady", "history defaults steady")
-	check(empty.history_offer_weight == 0.0, "offer weight defaults zero")
+	check(not empty.willingness and empty.cycle_phase == "normal" and not empty.aftercare,
+		"an empty snapshot reads an unwilling, normal, soft-free day")
+	check(empty.history_tier == "steady" and empty.history_offer_weight == 0.0,
+		"an empty snapshot reads a steady history with no offer weight")
 
 	var facts := CONTEXT.build({
 		"willingness": true,

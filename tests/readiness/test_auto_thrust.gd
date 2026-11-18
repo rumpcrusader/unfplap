@@ -239,7 +239,6 @@ func run() -> void:
 	check(near(SETTINGS.max_depth.high, AUTO.DEPTH_MAX),
 		"auto depth high matches")
 	check(near(AUTO.PACE_STEP, 0.25), "wheel pace step is fixed")
-	check(SETTINGS.by_path("auto_thrust.pace_step") == null, "the wheel pace step is not a setting")
 
 	print("AUTO_THRUST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

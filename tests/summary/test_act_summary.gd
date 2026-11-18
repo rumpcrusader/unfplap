@@ -4,22 +4,6 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/summary/test_act_summary.gd
 
 const SUMMARY := preload("res://mods/unfplap/summary/score.gd")
-## The declared rule keys the score suite exercises. Values match the shipped defaults.
-const RULES := {
-	"good_min": 0.80,
-	"bad_max": 0.20,
-	"w_climax": 0.30,
-	"w_talk": 0.20,
-	"w_touch": 0.20,
-	"w_motion": 0.15,
-	"w_not_early": 0.15,
-	"p_dislike": 0.10,
-	"p_severe": 0.15,
-	"p_silence": 0.15,
-	"p_miss": 0.10,
-	"early_grace_s": 20.0,
-	"min_thrusts": 2,
-}
 
 var failures := 0
 var checks := 0
@@ -70,10 +54,11 @@ func snapshot(overrides := {}) -> Dictionary:
 
 
 func evaluate(overrides := {}) -> Dictionary:
-	return SUMMARY.evaluate(snapshot(overrides), RULES)
+	return SUMMARY.evaluate(snapshot(overrides), SUMMARY.rules())
 
 
 func run() -> void:
+	var rules := SUMMARY.rules()
 	var clean := evaluate()
 	check(clean.grade == "good", "a clean act is good")
 	check(clean.positive, "a clean act is positive")
@@ -102,7 +87,7 @@ func run() -> void:
 
 	var bad := evaluate({"talk_liked": 0, "player_lines": 0, "touch_dislikes": {"smack": 2}})
 	check(bad.grade == "bad", "repeated disliked handling plus silence is bad")
-	check(float(bad.quality) <= 0.20, "a bad act is at or below the 0.20 band")
+	check(float(bad.quality) <= float(rules["bad_max"]), "a bad act is at or below the bad band")
 	check(bool(bad.severe), "repeated disliked handling is severe")
 	check(int(bad.romance) == -1, "a bad act gives romance -1")
 	check(str(bad.mood) == "annoyed", "a severe bad act is annoyed")
@@ -159,7 +144,8 @@ func run() -> void:
 	check(bool(forced.skip), "a forced stop is skipped")
 	check(not forced.positive, "a forced stop is not positive")
 
-	var short := evaluate({"seconds": 5.0, "thrusts": 0})
+	var short := evaluate({"seconds": float(rules["early_grace_s"]) - 1.0,
+		"thrusts": int(rules["min_thrusts"]) - 1})
 	check(bool(short.skip), "a very short act is skipped")
 
 	var no_touch := base_preferences()

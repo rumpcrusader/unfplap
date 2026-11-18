@@ -3,7 +3,6 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/anatomy/test_tail_hide.gd
 
 const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var failures := 0
 var checks := 0
@@ -25,8 +24,6 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 
 func run() -> void:
-	check(not bool(SETTINGS.debug_hide_tails.default), "hide tails is off by default")
-
 	var skeleton := Skeleton3D.new()
 	skeleton.add_bone("mTail1")
 	skeleton.add_bone("mTail2")

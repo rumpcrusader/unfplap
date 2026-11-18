@@ -233,7 +233,7 @@ func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 ## population scene's identity and the provider assertion, then the same target predicates. The
 ## default is the character target: an adult mare with no participation veto, which is what a
 ## shape source asks about a player-named body.
-func eligible_shape(id: String, target: Target = Target.CHARACTER) -> bool:
+func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
 	var mare_id := id.strip_edges()
 	if mare_id.is_empty() or not is_instance_valid(main) or not TARGET_KEYS.has(target):
 		return false

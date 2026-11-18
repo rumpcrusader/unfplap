@@ -16,7 +16,7 @@ var checks := 0
 
 
 class FakeEligibility extends RefCounted:
-	func eligible_shape(_id: String) -> bool:
+	func eligible_id(_id: String) -> bool:
 		return false
 
 

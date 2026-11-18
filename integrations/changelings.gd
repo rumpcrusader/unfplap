@@ -593,9 +593,9 @@ func _is_adult_shape(id: String, candidates: Array[String]) -> bool:
 		return false
 	var eligibility: Variant = main.get("eligibility")
 	if eligibility == null or not is_instance_valid(eligibility) \
-			or not eligibility.has_method("eligible_shape"):
+			or not eligibility.has_method("eligible_id"):
 		return false
-	return bool(eligibility.call("eligible_shape", id))
+	return bool(eligibility.call("eligible_id", id))
 
 
 ## The pack copies a shape by the game's population entry. Without a population (the lab's

@@ -117,11 +117,11 @@ func run() -> void:
 	check(main.eligibility.eligible(pony), "an adult mare is an act target")
 	check(main.eligibility.witness_age(pony) == ELIGIBILITY.Age.ADULT,
 		"an adult mare witnesses as an adult")
-	check(main.eligibility.eligible_shape("rarity"),
+	check(main.eligibility.eligible_id("rarity"),
 		"a non-live adult shape is a character target")
-	check(not main.eligibility.eligible_shape("scootaloo"),
+	check(not main.eligibility.eligible_id("scootaloo"),
 		"a non-live filly shape is not a character target")
-	check(not main.eligibility.eligible_shape("not_a_pony"),
+	check(not main.eligibility.eligible_id("not_a_pony"),
 		"an unknown shape is not a character target")
 	check(FACTS.AgeKind.NONE == ELIGIBILITY.Age.NONE
 		and FACTS.AgeKind.YOUNG == ELIGIBILITY.Age.YOUNG

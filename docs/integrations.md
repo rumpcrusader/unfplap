@@ -469,8 +469,9 @@ overlay reads them.
   wardrobe's season, the direct fallback and the nothing-worn no-op), the feature/pack/wardrobe
   guards and the debug rebuild/overlay.
 - `tests/integrations/test_service.gd` — binding resolution, save/restore, optional bindings,
-  the reaction cap, live feature edits, shared Beat ownership, the runtime's named Beat hold, full
-  fidgets, idempotent reset and the absence of a per-act provider for the world integration.
+  the reaction cap, live feature edits, shared Beat ownership, the runtime's named Beat hold with
+  its teardown fallback and a missing-Beat scene, full fidgets, idempotent reset and the absence of
+  a per-act provider for the world integration.
 - `tests/integrations/test_changelings.gd` — the installed list and provider layer while the pack is
   on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
   the body-fit/tail/anatomy-marker metadata for her own body, a disguise and an unrelated pony,

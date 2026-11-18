@@ -1,6 +1,6 @@
 extends SceneTree
 ## The memory facade's public API: one impression and its event per slot, one event per note,
-## the refusal mood, and the stay-close reward.
+## and the stay-close reward.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/memory/test_memory_api.gd
 

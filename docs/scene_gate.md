@@ -21,7 +21,7 @@ whether the *scene* is ready right now.
 
 `runtime.gd` keeps the policy and the live context: it supplies `policy_verdict` (the
 `eligibility/service.gd` verdict) and `debug_context` (the act values the status line reads) through
-callbacks, and keeps the public forwards (`can_show_start`, `find_bed_under`, `free_of_affection`,
+callbacks, and keeps the public forwards (`find_bed_under`, `free_of_affection`,
 `cuddle_active`). The tolerance stop owns its impression and face (`docs/summary.md`,
 `docs/face.md`).
 

@@ -284,10 +284,10 @@ block. They are debug numbers, so stored values are never clamped. See `docs/set
   motion and touch misses, and the reveal input carried into the outcome.
 - `tests/summary/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
   sanitising, pending lines, reset, the write revision and the reveal's extra comfort.
-- `tests/summary/test_act_flow.gd` — the summary input/context shape, the runtime snapshot and the
-  afterglow HUD summary.
+- `tests/summary/test_act_flow.gd` — the summary input/context shape, the runtime snapshot, the
+  afterglow HUD summary and the peak-memory commit.
 - `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.
-- `tests/memory/test_text.gd` — the event, refusal and witness wording and the id suffixes.
+- `tests/memory/test_text.gd` — the event and witness wording and the id suffixes.
 
 ## Verification / lab
 

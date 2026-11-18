@@ -10,7 +10,6 @@ This contract covers:
 
 - the act's world-context event and its grade-aware impression;
 - the fixed-wording intimacy events (cancel, pony climax, stop, apology);
-- the refusal event and its private thought;
 - the player-requested reveal's impression, event and special peak;
 - the per-world peak-memory record and its read;
 - the witness pass: the perception test, the per-observer age split and the age-appropriate row;
@@ -67,7 +66,7 @@ enum Reaction { CLIMAX, END_EARLY, HISTORY_REFUSAL, HISTORY_REMINDER,
                 HISTORY_COMPLAINT, TOLERANCE_WARNING, TOLERANCE_STOP, FORM_OFFER }
 enum NoteKind { CANCELLED, CLIMAXED, STOPPED, APOLOGY }
 enum StopReason { NONE, UNWILLING, PICKED_UP, INTERRUPTED, FORM_CHANGE, WITHDREW }
-enum ImpressionSlot { ACT, ACT_EARLY, REFUSAL, STAY_CLOSE, FORM_REVEAL }
+enum ImpressionSlot { ACT, ACT_EARLY, STAY_CLOSE, FORM_REVEAL }
 enum Sense { SIGHT, SOUND }
 
 class Impression:   id, event_id, slot, mood, romance, thought, event_text
@@ -108,8 +107,8 @@ re-exports them as `MEMORY.LineState`, `MEMORY.LineKind`, and so on, so a caller
 
 | Data | Stored where | Owner |
 |---|---|---|
-| Act summary, refusal, stay-close, mood | `world_context.impressions` (per mare) | `memory/world.gd` |
-| Act/refusal/stop/pony-climax/witness event | `world_context` (per world) | `memory/world.gd` |
+| Act summary, stay-close, mood | `world_context.impressions` (per mare) | `memory/world.gd` |
+| Act/stop/pony-climax/witness event | `world_context` (per world) | `memory/world.gd` |
 | Peak memory | `Mods.state("unfplap").peak_memories` | `memory/store.gd` |
 | Live line key, state, queue | the director's authored-line queue | `memory/dialogue.gd` |
 | Cue facts, shared-memory hit | derived per call | `memory/world.gd` |
@@ -132,14 +131,13 @@ Rules:
 |---|---|---|---|---|
 | `ACT` | `:gain` | `:gain` | `relationship` | the summary's `text` |
 | `ACT_EARLY` | `:summary` | `:summary` | `relationship` | the summary's `text` |
-| `REFUSAL` | `:mood` | `:mood` | `intimacy` | the refusal text |
 | `STAY_CLOSE` | `:stay_close_gain` | `:stay_close_gain` | `relationship` | the stay-close text |
 | `FORM_REVEAL` | `:form_reveal` | `:form_reveal` | `relationship` | the reveal text |
 
 The `text` is profile-safe: the game's profile rewrites a leading `You and Anon ` to
 `You and <name>`, so no event line uses a second-person pronoun for the pony after that prefix.
-The `thought` stays first-person and never goes through the profile rewrite. A refusal text is
-chosen by the `angry` mood; the stay-close thought is chosen by the `romance` and the mood.
+The `thought` stays first-person and never goes through the profile rewrite. The stay-close thought
+is chosen by the `romance` and the mood.
 
 `FORM_REVEAL` is the one exceptional reveal the runtime records for a player's own ask: its fixed
 wording is in `memory/text.gd`, `form_reveal_impression()` builds the impression and
@@ -240,14 +238,14 @@ memory is marked used only after the caller queues the line.
 ## Tests
 
 - `tests/memory/test_text.gd`: the pure wording — the adult sight/sound perceptions, the young
-  scene texts, the refusal and stop texts, the impression and event suffixes, the witness
+  scene texts, the stop texts, the impression and event suffixes, the witness
   impression, the keep-active rule, the `MemoryHit` `found()` flag and the typed to-dictionary
   keys.
 - `tests/memory/test_store.gd`: the peak record, the higher-score replacement and the save.
 - `tests/memory/test_dialogue.gd`: the typed line state, the keep-active cancel and the cancel
   prefix.
 - `tests/memory/test_memory_api.gd`: the facade through a fake game and director — one
-  impression and event per slot, the refusal mood, the stay-close reward, the reveal impression
+  impression and event per slot, the stay-close reward, the reveal impression
   and peak, one event per note, the
   cue facts and the memory hit.
 

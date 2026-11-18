@@ -946,8 +946,9 @@ Current suites:
 - `tests/anatomy/test_act_bridge.gd`: the host callbacks, the facts sync, the action gates, the
   mouth point and viseme routing, the face point, the VR scene wiring, the aim/gaze reads and the
   pose-change contact carry.
-- `tests/act_facts/test_act_facts.gd`: the `anatomy/facts.gd` typed context and its host callbacks,
-  alongside the `shared/act_facts.gd` model it shares the boundary with.
+- `tests/act_facts/test_act_facts.gd`: the `anatomy/facts.gd` typed context, its host callbacks,
+  its view predicates and reset identity, alongside the `shared/act_facts.gd` model it shares the
+  boundary with.
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
   live opening aim, follows the pose view's mouth anchor while the contact holds, returns to the
   opening once it is released, and clears the missionary inset outside the bed pose.

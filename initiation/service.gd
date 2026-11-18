@@ -50,25 +50,9 @@ class Candidate extends RefCounted:
 	var base: CLEARANCE.Result = null
 	var context: CONTEXT.Context = null
 	var private := false
-	var cuddle := false
 	var forced := false
-
-
-## One live request episode: a walk to Anon or to the bed front, the settle, and the ask that
-## hands the offer over. The facade clears it on every exit; it is never stored across a world.
-class Episode extends RefCounted:
 	var serial := 0
 	var phase := 0
-	var id := ""
-	var runtime: Node
-	var pony: Node3D
-	var options: Array[POSE_OPTIONS.Option] = []
-	var option: POSE_OPTIONS.Option = null
-	var base: CLEARANCE.Result = null
-	var context: CONTEXT.Context = null
-	var private := false
-	var cuddle := false
-	var forced := false
 	var started_at := 0.0
 	var arrive_until := 0.0
 	var token := ""
@@ -79,8 +63,6 @@ class Episode extends RefCounted:
 	var prev_pace: Variant = null
 	var player_start := Vector3.ZERO
 	var region := ""
-	## A `Vector3` walk goal, or null.
-	var goal: Variant = null
 	var bed_front: Variant = null
 
 
@@ -93,7 +75,7 @@ class ForceResult extends RefCounted:
 
 
 var main: Node
-var _episode: Episode = null
+var _episode: Candidate = null
 var _scan_clock := 0.0
 var _serial := 0
 var _scan_cursor := 0
@@ -193,7 +175,6 @@ func force(runtime: Node, pose := "") -> ForceResult:
 	if candidate.option == null:
 		out.reject = "pose:%s" % pose
 		return out
-	candidate.cuddle = candidate.option.cuddle
 	candidate.context = _context(candidate.pony)
 	_serial += 1
 	var formed := _formed_serial
@@ -385,7 +366,6 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	out.pony = pony
 	out.options = placeable
 	out.base = base
-	out.cuddle = cuddle
 	out.forced = forced
 	return out
 
@@ -476,7 +456,6 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 		_debug("request reasoning no id=%s" % candidate.id)
 		return
 	candidate.option = candidate.options[decision.option_index]
-	candidate.cuddle = candidate.option.cuddle
 	_serial += 1
 	_debug("request reasoning yes id=%s pose=%s" % [candidate.id, candidate.option.pose])
 	_begin_route(candidate)
@@ -488,6 +467,7 @@ func _begin_route(candidate: Candidate) -> void:
 	var player: Node3D = _venue.player()
 	if not is_instance_valid(player) or not is_instance_valid(candidate.pony):
 		return
+	candidate.serial = _serial
 	if candidate.option.cuddle:
 		_start_ask(candidate)
 		return
@@ -562,18 +542,19 @@ func _start_approach(candidate: Candidate) -> void:
 	var nav: Node = _venue.nav_for(pony)
 	if not is_instance_valid(nav):
 		return
-	var episode := _episode_for(candidate)
-	episode.phase = Phase.APPROACH
-	episode.started_at = _now()
-	episode.arrive_until = _now() + POLICY.ARRIVE_WAIT_S
-	episode.player_start = player.global_position
-	episode.region = str(_venue.region_of(player.global_position))
-	_episode = episode
-	var claim: Dictionary = _venue.claim_nav(pony, episode.token, true)
+	candidate.phase = Phase.APPROACH
+	candidate.started_at = _now()
+	candidate.arrive_until = _now() + POLICY.ARRIVE_WAIT_S
+	candidate.player_start = player.global_position
+	candidate.region = str(_venue.region_of(player.global_position))
+	candidate.token = KEY_PREFIX + ":" + candidate.id
+	candidate.private = _private_now(pony, candidate.option.cuddle)
+	_episode = candidate
+	var claim: Dictionary = _venue.claim_nav(pony, candidate.token, true)
 	if claim.is_empty():
 		_close_episode(false, "approach nav claim")
 		return
-	_apply_claim(claim)
+	_apply_claim(candidate, claim)
 	_venue.stand(pony)
 	if player.global_position.distance_to(pony.global_position) <= POLICY.ARRIVE_RANGE_M:
 		_arrive()
@@ -583,7 +564,6 @@ func _start_approach(candidate: Candidate) -> void:
 		player.global_position + forward * POLICY.APPROACH_GOAL_M)
 	if goal is Vector3 and (goal as Vector3).is_finite() \
 			and absf((goal as Vector3).y - pony.global_position.y) <= 3.0:
-		episode.goal = goal
 		if not bool(nav.call("command_destination", goal, "trot")):
 			_close_episode(false, "approach destination")
 		return
@@ -661,22 +641,23 @@ func _start_bed_approach(candidate: Candidate) -> void:
 	var front: Variant = found.get("front")
 	if not front is Vector3:
 		return
-	var episode := _episode_for(candidate)
-	episode.phase = Phase.BED_APPROACH
-	episode.started_at = _now()
-	episode.bed_front = front
-	_episode = episode
-	var claim: Dictionary = _venue.claim_nav(candidate.pony, episode.token, true)
+	candidate.phase = Phase.BED_APPROACH
+	candidate.started_at = _now()
+	candidate.bed_front = front
+	candidate.token = KEY_PREFIX + ":" + candidate.id
+	candidate.private = _private_now(candidate.pony, candidate.option.cuddle)
+	_episode = candidate
+	var claim: Dictionary = _venue.claim_nav(candidate.pony, candidate.token, true)
 	if claim.is_empty():
 		_close_episode(false, "bed approach nav claim")
 		return
-	_apply_claim(claim)
+	_apply_claim(candidate, claim)
 	_venue.ensure_stand(candidate.pony)
 	if candidate.pony.global_position.distance_to(front) <= 1.2:
-		_venue.stay(episode.nav)
+		_venue.stay(candidate.nav)
 		_start_ask_handoff()
 		return
-	if not bool(episode.nav.call("command_destination", front, "trot")):
+	if not bool(candidate.nav.call("command_destination", front, "trot")):
 		_close_episode(false, "bed approach destination")
 
 
@@ -706,37 +687,20 @@ func _tick_bed_approach() -> void:
 func _start_ask(candidate: Candidate) -> void:
 	if _episode != null:
 		return
-	var episode := _episode_for(candidate)
-	episode.phase = Phase.ASK
-	episode.started_at = _now()
-	_episode = episode
+	candidate.phase = Phase.ASK
+	candidate.started_at = _now()
+	candidate.token = KEY_PREFIX + ":" + candidate.id
+	candidate.private = _private_now(candidate.pony, candidate.option.cuddle)
+	_episode = candidate
 	if not candidate.option.cuddle:
-		var claim: Dictionary = _venue.claim_nav(candidate.pony, episode.token, true)
+		var claim: Dictionary = _venue.claim_nav(candidate.pony, candidate.token, true)
 		if claim.is_empty():
 			_close_episode(false, "ask nav claim")
 			return
-		_apply_claim(claim)
+		_apply_claim(candidate, claim)
 		if candidate.option.pose == CATALOG.STANDING:
 			_venue.ensure_stand(candidate.pony)
 	_start_ask_handoff()
-
-
-func _episode_for(candidate: Candidate) -> Episode:
-	var episode := Episode.new()
-	episode.serial = _serial
-	episode.id = candidate.id
-	episode.runtime = candidate.runtime
-	episode.pony = candidate.pony
-	episode.options = candidate.options
-	episode.option = candidate.option
-	episode.base = candidate.base
-	episode.context = candidate.context
-	episode.cuddle = candidate.cuddle
-	episode.forced = candidate.forced
-	episode.token = KEY_PREFIX + ":" + candidate.id
-	var pony: Node3D = candidate.pony
-	episode.private = _private_now(pony, candidate.cuddle)
-	return episode
 
 
 ## Form the Mare offer and hand it to the Negotiation service, then speak the ask line. The
@@ -777,7 +741,7 @@ func _start_ask_handoff() -> void:
 		return
 	_formed_serial += 1
 	_episode = null
-	if episode.cuddle:
+	if episode.option.cuddle:
 		_cuddle_asked[episode.id] = true
 	var started := false
 	if is_instance_valid(_adapter):
@@ -847,12 +811,12 @@ func _request(private: bool, option: POSE_OPTIONS.Option, context: CONTEXT.Conte
 
 # --------------------------------------------------------------------------- close and tick
 
-func _apply_claim(claim: Dictionary) -> void:
-	_episode.nav = claim.get("nav")
-	_episode.prev_owner = str(claim.get("owner", ""))
-	_episode.prev_wander = bool(claim.get("wander", true))
-	_episode.prev_limit = claim.get("limit")
-	_episode.prev_pace = claim.get("pace")
+func _apply_claim(episode: Candidate, claim: Dictionary) -> void:
+	episode.nav = claim.get("nav")
+	episode.prev_owner = str(claim.get("owner", ""))
+	episode.prev_wander = bool(claim.get("wander", true))
+	episode.prev_limit = claim.get("limit")
+	episode.prev_pace = claim.get("pace")
 
 
 ## The one request close path. The negotiator owns the lease after a successful handoff, so this

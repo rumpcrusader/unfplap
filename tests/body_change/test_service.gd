@@ -1,6 +1,7 @@
 extends SceneTree
-## The typed body-change data and base contracts: BodyForm and its default form, the RigProfile
-## mapping, BodyChange, and the BodyBinding/BodyChangePolicy virtual bases. Run:
+## The typed body-change data, the base contracts and the body-change service: BodyForm and its
+## default form, the RigProfile mapping, BodyChange, the BodyBinding/BodyChangePolicy virtual bases,
+## the service's form store, legacy mirror, binding fan-out and source registry. Run:
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/body_change/test_service.gd
 
@@ -9,6 +10,7 @@ const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
+const SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 
 var failures := 0
 var checks := 0
@@ -19,27 +21,90 @@ class FakePony extends Node3D:
 	var body_scale := 1.0
 
 
-class FakeSource extends Node:
-	pass
+class FakeHost extends Node:
+	var lines: Array[String] = []
+
+	func debug(text: String) -> void:
+		lines.append(text)
+
+
+class FakeSource extends "res://mods/unfplap/body_change/source.gd":
+	var id := "fake"
+	var active := true
+	var handled: Node3D = null
+	var claimed: Node3D = null
+	var change: BODY_CHANGE = null
+	var form_to_return: BODY_FORM.BodyForm = null
+	var policy_value: POLICY = null
+	var prepared: Array[Node3D] = []
+	var request_kind := ""
+	var requested_form := ""
+	var requested_origin: int = -1
+	var request_result := true
+
+	func source_id() -> String:
+		return id
+
+	func is_active() -> bool:
+		return active
+
+	func handles_pony(pony: Node3D) -> bool:
+		return handled != null and pony == handled
+
+	func change_in_progress() -> bool:
+		return change != null
+
+	func active_change() -> BODY_CHANGE:
+		return change
+
+	func request_form(_body: Node3D, form_id: String, origin: BODY_CHANGE.Origin) -> bool:
+		request_kind = "form"
+		requested_form = form_id
+		requested_origin = int(origin)
+		return request_result
+
+	func request_own_form(_body: Node3D, origin: BODY_CHANGE.Origin) -> bool:
+		request_kind = "own"
+		requested_form = ""
+		requested_origin = int(origin)
+		return request_result
+
+	func prepare_body(body: Node3D, _change: BODY_CHANGE) -> BODY_FORM.BodyForm:
+		prepared.append(body)
+		return form_to_return
+
+	func claims_body(body: Node3D) -> bool:
+		return claimed != null and body == claimed
+
+	func policy() -> POLICY:
+		return policy_value
 
 
 class RecordingBinding extends "res://mods/unfplap/shared/body_binding.gd":
+	var id := "recording"
 	var calls: Array[String] = []
+	var journal: Array[String] = []
 	var last_body: Node3D = null
 	var last_form: BODY_FORM.BodyForm = null
 
+	func binding_id() -> String:
+		return id
+
 	func bind_body(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 		calls.append("bind")
+		journal.append(id + ":bind")
 		last_body = body
 		last_form = form
 
 	func refresh_body(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 		calls.append("refresh")
+		journal.append(id + ":refresh")
 		last_body = body
 		last_form = form
 
 	func unbind_body(body: Node3D) -> void:
 		calls.append("unbind")
+		journal.append(id + ":unbind")
 		last_body = body
 
 
@@ -81,6 +146,7 @@ func run() -> void:
 	_check_body_change()
 	_check_binding()
 	_check_policy()
+	_check_service()
 	print("BODY_CHANGE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 
@@ -197,6 +263,7 @@ func _check_binding() -> void:
 	body.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
 	var form := BODY_FORM.default_form(body)
 	var binding := RecordingBinding.new()
+	check(binding.binding_id() == "recording", "a binding names itself for the service log")
 	binding.bind_body(body, form)
 	binding.refresh_body(body, form)
 	binding.unbind_body(body)
@@ -206,6 +273,7 @@ func _check_binding() -> void:
 	check(binding.last_form == form, "the binding receives the form")
 	# The base's virtual defaults stay callable and inert for a service that overrides nothing.
 	var base := BODY_BINDING.new()
+	check(base.binding_id().is_empty(), "the base binding has no log name")
 	base.bind_body(body, form)
 	base.refresh_body(body, form)
 	base.unbind_body(body)
@@ -254,3 +322,213 @@ func _check_policy() -> void:
 	empty.comfort = 1
 	check(not empty.is_empty(), "a comfort mark makes the effects non-empty")
 	body.free()
+
+
+func _check_service() -> void:
+	var host := FakeHost.new()
+	var service := SERVICE.new()
+	service.setup(host)
+
+	var journal: Array[String] = []
+	var one := RecordingBinding.new()
+	one.id = "one"
+	one.journal = journal
+	var two := RecordingBinding.new()
+	two.id = "two"
+	two.journal = journal
+	check(service.register_binding(one), "a body binding registers")
+	check(service.register_binding(two), "a second body binding registers")
+	check(service.register_binding(one), "registering the same binding twice is idempotent")
+	check(not service.register_binding(RefCounted.new()),
+		"a bare object is not a body binding")
+
+	var pony := FakePony.new()
+	pony.name = "PonyBody"
+	pony.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
+	pony.body_scale = 0.92
+	var own := service.form_for(pony)
+	check(own.is_own() and own.fit_id == "fluttershy",
+		"the service builds and stores the own form")
+	check(service.form_for(pony) == own, "the form store returns the cached form")
+	check(service.pony_id_for(pony) == "fluttershy", "the service exposes the stable pony id")
+	check(service.form_for(null) == null, "a missing body has no form")
+	check(service.pony_id_for(null).is_empty(), "a missing body has no stable id")
+
+	# Built before the borrowed form mirrors its fit, as a provider's own form is.
+	var own_again := service.default_form(pony)
+	own_again.revision = 2
+
+	var tail := Node3D.new()
+	tail.name = "TailRoot"
+	var borrowed := service.default_form(pony)
+	borrowed.form_id = "borrowed_form"
+	borrowed.form_name = "Borrowed Form"
+	borrowed.fit_id = "borrowed_fit"
+	borrowed.rig = BODY_PROFILE.rig_for_key("celestia")
+	borrowed.owned_mesh_meta = "source_own"
+	borrowed.tail_root = tail
+	borrowed.body_scale = 1.2
+	borrowed.revision = 0
+	service.apply_form(pony, borrowed)
+	check(journal == ["one:bind", "two:bind"], "bindings fan out in registration order")
+	check(service.form_for(pony) == borrowed, "the applied form replaces the stored default")
+	check(service.pony_id_for(pony) == "fluttershy", "a borrowed form keeps the stable identity")
+	check(pony.get_meta("body_fit_id", "") == "borrowed_fit",
+		"the mirror writes the body-fit key")
+	check(pony.get_meta("anatomy_owned_meta", "") == "source_own",
+		"the mirror writes the source marker")
+	check(pony.get_meta("tail_pose_root", null) == tail, "the mirror writes the source tail root")
+	check(is_equal_approx(pony.body_scale, 1.2), "the mirror writes the body scale")
+	check(host.lines.size() == 1, "one form application logs one line")
+	var line := host.lines[host.lines.size() - 1] if not host.lines.is_empty() else ""
+	check(line.contains("body change") and line.contains("pony=fluttershy")
+		and line.contains("form=borrowed_form") and line.contains("fit=borrowed_fit")
+		and line.contains("rig=celestia") and line.contains("marker=source_own")
+		and line.contains("bindings=one,two"),
+		"the applied form logs the form, rig, marker and bindings")
+
+	journal.clear()
+	borrowed.revision = 1
+	borrowed.fit_id = "late_fit"
+	service.apply_form(pony, borrowed)
+	check(journal == ["one:refresh", "two:refresh"],
+		"a new revision refreshes in registration order")
+	check(pony.get_meta("body_fit_id", "") == "late_fit",
+		"the late revision updates the legacy fit")
+	journal.clear()
+	service.apply_form(pony, borrowed)
+	check(journal.is_empty(), "an unchanged revision does not refresh the bindings")
+
+	journal.clear()
+	service.apply_form(pony, own_again)
+	check(journal == ["one:refresh", "two:refresh"],
+		"a return to the own form refreshes the bindings")
+	check(not pony.has_meta("anatomy_owned_meta"), "the own form clears the source marker")
+	check(not pony.has_meta("tail_pose_root"), "the own form clears the source tail root")
+	check(pony.get_meta("body_fit_id", "") == "fluttershy",
+		"the own form restores the identity fit")
+	check(service.form_for(pony).is_own(), "the store keeps the returned own form")
+
+	journal.clear()
+	service.unbind_body(pony)
+	check(journal == ["one:unbind", "two:unbind"], "unbind fans out in registration order")
+	check(service.form_for(pony).is_own() and service.form_for(pony) != own_again,
+		"unbinding drops the stored source form")
+	journal.clear()
+	service.unbind_body(pony)
+	check(journal.is_empty(), "a second unbind is a no-op")
+
+	var second := FakePony.new()
+	second.name = "SecondBody"
+	second.identity = {"id": "rarity", "display_name": "Rarity"}
+	journal.clear()
+	service.bind_body(second)
+	check(journal == ["one:bind", "two:bind"], "a direct bind uses the registration order")
+	check(second.get_meta("body_fit_id", "") == "rarity",
+		"a direct bind mirrors the default form")
+	journal.clear()
+	service.bind_body(second)
+	check(journal.is_empty(), "binding an already bound body is a no-op")
+	journal.clear()
+	service.refresh_body(second)
+	check(journal == ["one:refresh", "two:refresh"],
+		"a direct refresh re-reads the stored form")
+
+	journal.clear()
+	var source_own := service.default_form(second)
+	source_own.owned_mesh_meta = "source_own"
+	service.apply_form(second, source_own)
+	check(journal == ["one:refresh", "two:refresh"],
+		"a source own form replaces the default at the same revision")
+	check(second.get_meta("anatomy_owned_meta", "") == "source_own",
+		"the source own form mirrors its marker over the default")
+
+	var source := FakeSource.new()
+	source.name = "FakeSource"
+	source.handled = second
+	source.claimed = second
+	var policy := RecordingPolicy.new()
+	source.policy_value = policy
+	var bare := Node.new()
+	check(not service.register_source(bare), "a bare node is not a body-change source")
+	bare.free()
+	check(service.register_source(source), "a typed source registers")
+	check(service.register_source(source), "registering the same source twice is idempotent")
+	check(service.active_sources().size() == 1 and service.active_sources()[0] == source,
+		"the active source list keeps the typed registration")
+	check(service.source_for(second) == source, "the handling source is found for its body")
+	check(service.source_for(pony) == null, "a body without a handling source has none")
+	check(service.policy_for(second) == policy, "the service exposes the provider policy")
+	check(service.policy_for(pony) == null, "a body without a source has no policy")
+
+	source.active = false
+	check(service.source_for(second) == null, "an inactive source does not handle a body")
+	check(service.active_sources().is_empty(), "an inactive source is not active")
+	check(service.policy_for(second) == null, "an inactive source exposes no policy")
+	source.active = true
+
+	check(service.request_form(second, "borrowed_form", BODY_CHANGE.Origin.PLAYER),
+		"the service forwards a form request")
+	check(source.request_kind == "form" and source.requested_form == "borrowed_form"
+		and source.requested_origin == int(BODY_CHANGE.Origin.PLAYER),
+		"the provider receives the form id and origin")
+	check(service.request_own_form(second, BODY_CHANGE.Origin.AI),
+		"the service forwards an own-form request")
+	check(source.request_kind == "own" and source.requested_origin == int(BODY_CHANGE.Origin.AI),
+		"the provider receives the own-form origin")
+	source.request_result = false
+	check(not service.request_form(second, "other", BODY_CHANGE.Origin.AI),
+		"a refused provider request is reported")
+	check(not service.request_form(pony, "other", BODY_CHANGE.Origin.AI),
+		"a body without a source refuses the request")
+	source.request_result = true
+
+	var change := BODY_CHANGE.new()
+	change.source = source
+	change.origin = BODY_CHANGE.Origin.PROVIDER
+	change.previous_body = second
+	change.target_form_id = "borrowed_form"
+	source.change = change
+	service.notify_source_changed(source)
+	check(service.active_change() == change, "a provider notification publishes the active change")
+	source.change = null
+	service.notify_source_changed(source)
+	check(service.active_change() == null, "a cleared provider change clears the active read")
+
+	var late := service.default_form(second)
+	late.form_id = "borrowed_form"
+	late.form_name = "Borrowed Form"
+	late.fit_id = "late_fit"
+	late.rig = BODY_PROFILE.rig_for_key("celestia")
+	late.owned_mesh_meta = "source_own"
+	late.body_scale = 1.1
+	late.revision = 3
+	source.form_to_return = late
+	source.change = change
+	change.state = BODY_CHANGE.State.ADOPTED
+	journal.clear()
+	service.notify_body_ready(second)
+	check(source.prepared.size() == 1 and source.prepared[0] == second,
+		"the claiming provider prepares the new body once")
+	check(journal == ["one:refresh", "two:refresh"],
+		"a late provider form refreshes the bound body")
+	check(second.get_meta("body_fit_id", "") == "late_fit",
+		"the late provider form updates the legacy fit")
+	check(change.form == late and change.next_body == second,
+		"the active change keeps the prepared form and body")
+
+	source.prepared.clear()
+	service.notify_body_ready(pony)
+	check(source.prepared.is_empty(), "a body the source does not claim is left alone")
+
+	service.unregister_source(source)
+	check(service.active_sources().is_empty(), "an unregistered source leaves the registry")
+	check(service.active_change() == null,
+		"unregistering the change's source clears the active read")
+
+	service.free()
+	host.free()
+	source.free()
+	second.free()
+	pony.free()
+	tail.free()

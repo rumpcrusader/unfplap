@@ -27,6 +27,7 @@ const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
 const SHAPE_CHANGE := preload("res://mods/unfplap/integrations/shape_change.gd")
@@ -84,6 +85,9 @@ var input
 var api: Node
 ## Anatomy system facade: per-pony controllers, the player part and tail seating.
 var anatomy: Node
+## Base body-change service: the per-body form store and the source/binding registries. Inert until
+## the runtime and the providers register with it.
+var body_change: Node
 ## The Pantyhose & Panties world adapter; inert when that pack is absent.
 var pantyhose: Node
 ## The world-side shape-change sources. The handover core reads one through this manager; the
@@ -283,6 +287,10 @@ func _ready() -> void:
 	anatomy.name = "UnfplapAnatomy"
 	anatomy.call("setup", self)
 	add_child(anatomy)
+	body_change = BODY_CHANGE_SERVICE.new()
+	body_change.name = "UnfplapBodyChange"
+	body_change.call("setup", self)
+	add_child(body_change)
 	pantyhose = PANTYHOSE.new()
 	pantyhose.name = "UnfplapPantyhose"
 	pantyhose.call("setup", self)

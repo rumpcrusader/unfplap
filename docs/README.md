@@ -42,6 +42,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Bed rest and rejoin | `rest/service.gd` | `docs/rest.md` | `tests/rest/` |
 | Hands | `hands/service.gd` | `docs/hands.md` | `tests/hands/` |
 | Anatomy | `anatomy/service.gd` | `docs/anatomy.md` | `tests/anatomy/` |
+| Body change | `body_change/service.gd` | `docs/body_change.md` | `tests/body_change/` |
 | VR act | `vr/service.gd` | `docs/vr.md` | `tests/test_vr_act.gd` |
 | Proactive requests | `initiation/service.gd` | `docs/initiation.md` | `tests/initiation/` |
 | Act memory | `memory/service.gd` | `docs/memory.md` | `tests/memory/` |

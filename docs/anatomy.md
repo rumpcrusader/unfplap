@@ -28,7 +28,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat and appearance forwards, act lifecycle and the typed-facts boundary |
 | `anatomy/attach.gd` | persistent attachment: mesh/anchor/dock, visibility, dock restore, the fluid node and idle discharge |
 | `anatomy/facts.gd` | typed runtime context: state, pose, depth, bed frame, cycle phase and the host callbacks |
-| `anatomy/placement.gd` | saved offset/pitch/scale, missionary trims and the debug nudge/save/reset path |
+| `anatomy/placement.gd` | saved offset/pitch/scale, the calibrated lift and the missionary trims |
 | `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads the typed act facts and the pose view's contact, and returns its opening normal and lid shape |
 | `anatomy/act_bridge.gd` | per-act handle the runtime owns: the persistent controller handle, the per-act handle, the typed context, the missionary body, the VR controller, the action gates and the aim/gaze reads |
 | `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
@@ -86,7 +86,7 @@ a thin shell.
 ```gdscript
 setup(main)
 player_ready(body), clear_player(), refresh_player(), player_apply_live()
-controller_for(pony, runtime), bind(pony, runtime), controller(pony), online(pony)
+controller_for(pony, runtime), bind(pony, runtime), controller(pony)
 refresh_all(), apply_live(), detach_controller(pony), shutdown()
 tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), can_dock(pony),
 can_place_tail(pony), tail_report()
@@ -95,10 +95,8 @@ placement_debug(op, value), placement_show()
 consent(pony, key), status(text)
 garment_hull(pony), garment_transform(pony), garment_visible(pony), garment_parent(pony)
 garment_hull_rebuild(), note_act_started(pony)
-player_encounter(on), player_track(...), player_showing(), player_available()
-player_prepare(), player_root_now(), player_tip_center(), player_shaft_radii(count)
-player_shaft_length_m(), player_girth_at(point), player_tip_world()
-player_set_aim(normal, opening, pitch), player_set_bed_inset(metres)
+player_encounter(on), player_track(...), player_showing()
+player_prepare(), player_root_now(), player_shaft_length_m()
 player_hip_offset(), player_note_hip_offset(offset), player_debug_scale()
 ```
 
@@ -108,7 +106,7 @@ player_hip_offset(), player_note_hip_offset(offset), player_debug_scale()
 setup(pony, facts, service, consent, status, dock_refresh)
 set_facts(facts)
 refresh(), detach(), apply_live()
-begin_act() -> Node, end_act(), act()
+begin_act() -> Node, end_act()
 apply_part_visibility(show, teats_on, strip_on)
 is_attached(), body_coat_refresh()
 body_coat_mesh(), body_coat_material(), body_outline_material()
@@ -149,8 +147,7 @@ The controller's `consent` callback is bound to its pony and takes the key only
 - The controls require their feature flag: `features.anatomy_holes` and `features.anatomy_oral`.
   With both flags off the keys are not consumed and the act is the master act.
 - With `anatomy_mode = never` the keys pass through: the act controller does not exist.
-- `V` toggles the anal hole. The mare bits mesh carries the anal shape keys; `anal_mesh()`
-  returns the anatomy mesh.
+- `V` toggles the anal hole. The mare bits mesh carries the anal shape keys.
 - Anal and oral need the mare's per-mare consent (`get_profile(id).consent.anal` / `.oral`); a
   refusal shows the anatomy status line and changes nothing. The oral consent is the `consent`
   requirement on the forward pose edge.
@@ -444,7 +441,7 @@ wrapper resolve against the body that is actually there.
   the penetration point vertically for the hole query; the ring shape itself uses the measured
   points. `anal_scale` drives the ponut and body coat, not the opening.
 - `set_anal_grip(radius)` uses the same world-to-local conversion and `anal_hug_mm` padding. The
-  mesh carries the anal shape keys, so `anal_mesh()` always returns the anatomy mesh and `V` is
+  mesh carries the anal shape keys, so `winking_mesh()` always returns the anatomy mesh and `V` is
   available.
 
 ### Winking

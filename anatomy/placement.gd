@@ -1,7 +1,7 @@
 extends RefCounted
-## The per-mare anatomy placement: the saved offset/pitch/scale, the calibrated lift, the
-## missionary trims and the debug nudge/save/reset path. It owns only placement state; the
-## controller supplies the mesh, its bone bind and the act depth/frame.
+## The per-mare anatomy placement: the saved offset/pitch/scale, the calibrated lift and the
+## missionary trims. It owns only placement state; the controller supplies the mesh, its bone
+## bind and the act depth/frame.
 ##
 ## See `docs/anatomy.md` (`## Placement`).
 

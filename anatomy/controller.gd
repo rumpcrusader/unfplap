@@ -44,7 +44,7 @@ var coat_line: RefCounted
 ## The coat line's debug overlay, parented to the anatomy mesh.
 var _line_debug: Node3D
 var _line_debug_clock := 0.0
-## Saved placement, missionary trims and the debug nudge path.
+## Saved placement and the missionary trims.
 var placement: RefCounted
 ## Persistent shape state: closing/winking, the grip solve, Anon's shaft mask and the V2 anal
 ## keys. The controller forwards its public shape API.

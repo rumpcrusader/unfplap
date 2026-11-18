@@ -373,8 +373,7 @@ func _act_wink_tick(delta: float, part: Variant) -> void:
 	_start_wink(ACT_WINK_S, 1.0)
 
 
-## The pure decision lives in `anatomy/act/state.gd`; this forwarder keeps the act's static
-## surface stable while the system is split.
+## The pure decision lives in `anatomy/act/state.gd`.
 static func wink_mode(depth: float, touching: bool, climaxes: int) -> int:
 	return STATE.wink_mode(depth, touching, climaxes, PULLED_OUT_PHASE)
 

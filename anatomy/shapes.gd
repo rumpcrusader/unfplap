@@ -99,8 +99,6 @@ func tween_running() -> bool:
 	return _tween != null and _tween.is_running()
 
 
-## Test/debug snapshot of the shape state; the controller's forwarding methods keep the public
-## shape API stable while the system is split.
 ## Reapply the blend shapes and the shader cut after the material is rebuilt.
 func refresh_winking() -> void:
 	_apply_winking_shape()
@@ -116,6 +114,7 @@ func apply_anal_local(local: float) -> void:
 	_apply_anal_shape(local)
 
 
+## Test/debug snapshot of the shape state.
 func state() -> Dictionary:
 	return {
 		"closed": _closed,

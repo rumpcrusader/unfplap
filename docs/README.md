@@ -45,7 +45,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Anatomy | `anatomy/service.gd` | `docs/anatomy.md` | `tests/anatomy/` |
 | Body change | `body_change/service.gd` | `docs/body_change.md` | `tests/body_change/` |
 | VR act | `vr/service.gd` | `docs/vr.md` | `tests/test_vr_act.gd` |
-| Idle act offer | `offer/service.gd` | `docs/offer.md` | `tests/offer/` |
+| Idle act offer and start | `offer/service.gd` | `docs/offer.md` | `tests/offer/` |
 | Proactive requests | `initiation/service.gd` | `docs/initiation.md` | `tests/initiation/` |
 | Act memory | `memory/service.gd` | `docs/memory.md` | `tests/memory/` |
 | Act dialogue and prompt notes | `dialogue/service.gd` | `docs/dialogue.md` | `tests/dialogue/` |

@@ -57,9 +57,10 @@ The purity boundary is deliberate:
   and `shared/cycle.gd`; `cooldowns.gd` preloads `shared/act_history.gd`.
 - No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
-- `main.gd` creates the service (`setup(self, privacy, adapter)`) and drives it: `tick`, `reset`,
-  `force`, `cancel_approach`, `placement_for` and the outcome handoff. `runtime.gd` exposes
-  `cuddle_active()` and the scene-only verdict.
+- `main.gd` creates the service (`setup(self, privacy, adapter, offer)`) and drives it: `tick`,
+  `reset`, `force`, `cancel_approach`, `placement_for` and the outcome handoff. `runtime.gd`
+  exposes `cuddle_active()` and the scene-only verdict; the offer facade answers which pony the
+  act key would start (`docs/offer.md`).
 
 ## Internal API
 
@@ -326,8 +327,9 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 - `tests/initiation/test_initiation_api.gd`: the facade through `force()` and the scan with a fake
   adapter, privacy and runtime — Base clearance and the option filters, the reasoning no/yes and
   failure, the walk and the arrival, the ask line and its fallback, the situation record, the
-  handoff and a refused handoff's reject reason, the cuddle attention hold, the outcome pacing,
-  `clear_cooldown`, the debug rows and the scan logs.
+  handoff and a refused handoff's reject reason, the cuddle attention hold, the non-forced scan's
+  cuddle gate reading the offer facade's current target, the outcome pacing, `clear_cooldown`,
+  the debug rows and the scan logs.
 - `tests/negotiation/test_adapter.gd`: the injected bridge this service calls.
 
 The pure-core and facade-only import boundary is `scripts/architecture.py --check`.

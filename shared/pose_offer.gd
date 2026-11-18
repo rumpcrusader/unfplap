@@ -1,9 +1,9 @@
 extends RefCounted
 ## One typed act offer. A trigger (the act key's idle scan, the accepted proactive request, or a
-## future auto/dialogue trigger) builds this handle and hands it to `main.start_pose_offer()`; the
-## owner's cleanup and the classifier scope live here too, so the start path never names a pose.
-## Plain data only: no tree access, no settings, no file access. Contract: `docs/initiation.md`
-## and `docs/runtime.md`.
+## future auto/dialogue trigger) builds this handle and hands it to the offer service's start
+## path; the owner's cleanup and the classifier scope live here too, so the start path never names
+## a pose. Plain data only: no tree access, no settings, no file access. Contract:
+## `docs/initiation.md`, `docs/offer.md` and `docs/runtime.md`.
 
 ## The runtime that owns the act.
 var runtime: Node = null

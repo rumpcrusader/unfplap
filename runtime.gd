@@ -1764,8 +1764,9 @@ func find_bed_under() -> Node3D:
 
 ## The scene-only Agreement start. The Negotiation package froze the policy and the pose
 ## capability; only the world rows run. `WAIT` keeps the Agreement live (a transient row or the
-## presentation is not ready); `STARTED` and `FAILED` are reported to `main`. The hotkey's exact
-## match passes `skip_presentation`, so a settled turn is not waited on.
+## presentation is not ready); `STARTED` and `FAILED` are reported to the Negotiation service by
+## the offer service, its only caller. The hotkey's exact match passes `skip_presentation`, so a
+## settled turn is not waited on.
 func start_agreement(handle: Variant, skip_presentation := false) -> int:
 	if handle == null or not bool(handle.call("valid")):
 		return AGREEMENT_FAILED

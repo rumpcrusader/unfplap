@@ -202,10 +202,12 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
   comfort=...` line per act while **Enable debug** is on.
 - Neglect events log their warning/stop, tier, distress and dislike.
 - The Act Negotiation logs `anon_watch armed|disarmed`, `anon_line received|skip|-> negotiation`,
-  `classifier start|result`, `negotiation state|outcome|offer|hold|privacy|hotkey`,
-  `agreement formed|auto-start|start`, and `hotkey exact match|interrupt|immediate|start` lines.
-  The classifier lines carry the kind, scope, parsed answer, option index, failure and the trimmed
+  `classifier start|result` and `negotiation state|outcome|offer|hold|privacy|hotkey` lines. The
+  classifier lines carry the kind, scope, parsed answer, option index, failure and the trimmed
   raw reply/error.
+- The idle offer logs its `OFFER ...` and `OFFER blocked ...` lines and the act start's
+  `hotkey exact match|interrupt|immediate|start` and `agreement auto-start|start` lines; the
+  entry logs `agreement formed` when the Agreement reaches it. `docs/offer.md` lists them.
 - The Proactive Mare reasoning logs `request reasoning start` and `request reasoning result` with
   the parsed offer/index and the trimmed raw reply/error; `request outcome` carries the terminal
   reason and cooldown.

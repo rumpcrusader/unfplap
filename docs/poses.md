@@ -1025,9 +1025,9 @@ teardown; it stays unchanged.
   rule.
 - `tests/poses/test_pose_registry.gd` — the five shipped specs, the three authored pairs, the
   unchanged public catalog and the table rules.
-- `tests/poses/test_pose_offer.gd` — the typed offer's defaults and validity, the blocked hint,
-  the cancel/scope/auto fields, and `main.start_pose_offer()`'s hotkey, blocked, Agreement
-  wait/start/miss, interrupt and invalid-handle outcomes.
+- `tests/poses/test_pose_offer.gd` — the typed offer's defaults and validity, the blocked hint and
+  the cancel/scope/auto fields. The start path that consumes it is the offer service's
+  (`docs/offer.md`).
 - `tests/poses/test_start_setup.gd` — the closed start vocabulary and shipped table, the helper
   defaults, the synthetic `auto`/`bed_keep_lying` row and the runtime's setup dispatch for both bed
   adapters and an unknown name.

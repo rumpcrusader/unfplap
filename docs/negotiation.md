@@ -196,18 +196,19 @@ formation; the Negotiation service owns them after it.
 
 The package is immutable: the service builds it once and never rewrites it. The Act service gets
 `Handle`: the id, the generation, the operational frozen values, and one `cancel(reason)` callback
-whose bound arguments make a late handle harmless. It reports `Started`/`StartFailed` through
+whose bound arguments make a late handle harmless. The offer service, the Act service's only
+caller, reports the `runtime.start_agreement()` answer as `Started`/`StartFailed` through
 `report(handle, started)`; the service closes the Agreement, releases the lock and releases the
 hold unless the Act adopted it on `Started`. `main._on_agreement()` starts the standing
-presentation (act-owned) and the act key consumes the handle through `runtime.start_agreement()`;
-a wait keeps the Agreement live.
+presentation (act-owned) and the act key and the auto-start consume the handle through
+`runtime.start_agreement()`; a wait keeps the Agreement live.
 
 Formation runs the live placement re-check (`Host.pose_placed`, the scene-only rows) after the
 positive answer and before the package is built. A moved bed or a lost standing spot is
 `Interrupted(pose)`: no Agreement forms and the offer hold is released. The auto-start samples a
-private Agreement's visibility freshly at `main`'s 0.25 s clock; if it is now public it cancels with
-`privacy`. The hotkey's exact match starts at once and does not resample: the live Agreement's own
-visibility wins for that press.
+private Agreement's visibility freshly at the offer service's `0.25 s` clock; if it is now public
+it cancels with `privacy`. The hotkey's exact match starts at once and does not resample: the
+live Agreement's own visibility wins for that press.
 
 Close reasons: `Started`, `StartFailed`, `Expired`, `Interrupted` (`privacy`, `pose`, `hotkey`,
 `target_left`, `cancelled`). Every close releases the lock. Only `Started` leaves the adopted hold

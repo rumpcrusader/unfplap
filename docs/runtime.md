@@ -22,8 +22,8 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
 
 ## Start
 
-`main.try_start()` is the act key's only entry. It hands a typed offer to
-`main.start_pose_offer(offer)`. The idle scan builds its offer from the bed side or the
+`offer.try_start()` is the act key's only entry (`docs/offer.md`). It hands a typed offer to
+`offer.start_pose_offer(offer)`. The idle scan builds its offer from the bed side or the
 free-standing fan; a live Agreement builds `trigger: "agreement"` from its frozen option and the
 scene-only rows. The offer owns its pose, blocked hint and trigger, so that one function never
 names a pose and never reaches into a request or negotiation service.
@@ -36,14 +36,15 @@ The live start paths share the one body (`runtime._begin_act()`):
   the same path. There is no eligibility cache, and a failing scene reads no Base clearance. A
   transient failed gate leaves the offer and the hint alive.
 - **The Agreement** runs `runtime.start_agreement(handle)`: only the scene-only rows with the
-  frozen pose capability (`scene_only_verdict`), then `_begin_act()`. It reports `Started` or
-  `StartFailed` to the Negotiation service through `main.report_agreement()`. `AGREEMENT_WAIT`
-  means a transient row or an unsettled presentation, and the Agreement stays live. The
-  presentation is act-owned and starts when `main` receives the Agreement.
-- **Auto-start:** `main._tick_agreement_auto_start()` samples the live Agreement at `0.25 s`. When
-  the presentation is settled and the scene-only rows pass, with no menu, no pause and no live
-  act, it starts with no key press. A private Agreement takes a fresh privacy sample first; a
-  public one does not sample.
+  frozen pose capability (`scene_only_verdict`), then `_begin_act()`. The runtime answers
+  `AGREEMENT_WAIT`, `AGREEMENT_STARTED` or `AGREEMENT_FAILED` and the offer, its only caller,
+  reports `Started` or `StartFailed` to the Negotiation service. `AGREEMENT_WAIT` means a
+  transient row or an unsettled presentation, and the Agreement stays live. The presentation is
+  act-owned and starts when `main` receives the Agreement.
+- **Auto-start:** the offer's clock samples the live Agreement at `0.25 s`. When the presentation
+  is settled and the scene-only rows pass, with no menu, no pause and no live act, it starts with
+  no key press. A private Agreement takes a fresh privacy sample first; a public one does not
+  sample.
 - **The hotkey's exact match:** the act key always accepts. No context pose means no attempt (log
   and toast). A live Agreement's exact `(pose, source, bed, cuddle)` match starts it immediately,
   skips the presentation and does not resample privacy; any other live Agreement or negotiation is

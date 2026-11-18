@@ -178,7 +178,7 @@ total, largest first, so the first row is the chunk to fix.
 |---|---|---|
 | `entry_process` | the whole `main._process` body, closed after it | root |
 | `entry_initiation` | `initiation.tick(delta)` | `entry_process` |
-| `entry_negotiation` | `negotiation.tick(delta)` and `_tick_agreement_auto_start(delta)` | `entry_process` |
+| `entry_negotiation` | `negotiation.tick(delta)` | `entry_process` |
 | `entry_watch` | `_tick_negotiation_watch()` | `entry_process` |
 | `entry_hint` | the offer hint build and its prompt-row sync, in `offer.tick()` | `entry_process` |
 | `offer_scan` | the `OFFER_SCAN_S` `offer.scan()` call | `entry_process` |
@@ -202,8 +202,9 @@ which is the single forwarding point. `entry_process` contains the four entry ch
 `offer_rows` and `offer_policy`. The entry chunks split the per-frame body at its calls, so a row
 that stays large is one call site and the `entry_process` `self` row is the body around them.
 `offer_scan` and `entry_hint` are reported by `offer.tick()` and stay under `entry_process` because
-the entry calls it in its own body. The caption move has no idle chunk: it only runs while an act
-owns the entry, and the idle probe is off during an act.
+the entry calls it in its own body. The Agreement auto-start clock rides in the same `offer.tick()`
+and has no chunk of its own: it is one arithmetic step in the common frame. The caption move has
+no idle chunk: it only runs while an act owns the entry, and the idle probe is off during an act.
 
 `offer_cone` is the standing candidate search: geometry first, and Base clearance only for the
 candidates that beat the nearest eligible one already found, in one pass with no per-candidate

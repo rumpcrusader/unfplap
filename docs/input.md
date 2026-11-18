@@ -5,7 +5,8 @@ The input service owns the mod's act key, mouse policy and the act input shield.
 an act, shields the act from every other key, routes the debug action wheel, and routes any
 hotkey a debug action declares (none today).
 
-It does not own act behavior. It calls the active runtime's typed commands and `main.try_start()`.
+It does not own act behavior. It calls the active runtime's typed commands and hands the act key
+to the idle offer service (`offer.try_start()`).
 
 ## Scope
 
@@ -162,10 +163,10 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 - The input service consumes a key when the act routes it, when an action declares it, or when the
   shield takes it; a text field's focus always passes everything. The rules are in the section
   above.
-- The act key starts the hinted act with a tap (`main.try_start()`), and holding it during an act
-  is handled by `runtime.gd` (`docs/runtime.md`). The bundled Dance Mod polls raw `Y`; the act
-  input shield clears it during an act, and the shipped default act key keeps the collision out
-  of idle play too.
+- The act key starts the hinted act with a tap (`offer.try_start()`, `docs/offer.md`), and
+  holding it during an act is handled by `runtime.gd` (`docs/runtime.md`). The bundled Dance Mod
+  polls raw `Y`; the act input shield clears it during an act, and the shipped default act key
+  keeps the collision out of idle play too.
 
 ## Dependencies
 
@@ -184,11 +185,11 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 ## Tests
 
 - `tests/test_input.gd` — the legacy fallback, the installed action, a captured rebind, typing
-  protection, the start route through `main.try_start()`, the release-injection spike, the shield
-  (a foreign key consumed and cleared, an act-polled key kept, the pass list, typing, a paused
-  tree, an open panel and the setting off) and the `V`/`N` dispatch: each emits its command id
-  once when ready, a non-ready or refused command does not dispatch, and the key is consumed. `B`
-  is retired: it dispatches nothing and is only shielded.
+  protection, the start route into the offer facade's `try_start()`, the release-injection spike,
+  the shield (a foreign key consumed and cleared, an act-polled key kept, the pass list, typing, a
+  paused tree, an open panel and the setting off) and the `V`/`N` dispatch: each emits its command
+  id once when ready, a non-ready or refused command does not dispatch, and the key is consumed.
+  `B` is retired: it dispatches nothing and is only shielded.
 - `tests/test_act_commands.gd` — the pure vocabulary: unique `lower_snake_case` ids, the
   continuous/discrete partition, the helpers and the reserved `end`.
 - The manual lab covers act start, end, smack, auto, chat and the seated-player guard.

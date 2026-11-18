@@ -25,11 +25,16 @@ if ! python3 "$ROOT/scripts/asset_pack.py" verify --root "$ROOT"; then
 	exit 1
 fi
 
+display="${DISPLAY_DRIVER:-}"
+if [[ -z "$display" ]]; then
+	if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then display=wayland; else display=x11; fi
+fi
+
 printf 'Lab log: %s\n' "$ROOT/last-run.log"
 
 # typing_lock is an installed mod outside this repo; its per-frame lines bury the lab log.
 godot --xr-mode off \
-	--display-driver wayland \
+	--display-driver "$display" \
 	--path "$PROJECT_ROOT" \
 	-- --mod-src unfplap --skip-title \
 	--world-id unfplap-test \

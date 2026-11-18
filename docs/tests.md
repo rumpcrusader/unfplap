@@ -19,6 +19,7 @@ lifecycle; this doc owns their shape and their runner.
 |---|---|
 | `tests/<service>/test_<topic>.gd` | the suites for one service's facade or internals |
 | `tests/test_<topic>.gd` | a root suite that crosses services, or a shared/pure module's suite |
+| `tests/<topic>/test_<topic>.gd` | a cross-service concern with its own name; `handover/` is the act body swap |
 
 One suite per file, and the directory mirrors the facade it exercises. The suite-to-service map is
 the `Tests` column of `docs/README.md`. A pure module's suite uses plain values: for example
@@ -119,8 +120,15 @@ feature flags into the same reconcile. The hook suites are
 `tests/hands/test_actions.gd`, `tests/anatomy/test_act_bridge.gd` and
 `tests/act_audio/test_audio.gd`. `tests/test_source_hygiene.gd` pins the `_pose_fanout()` order
 (pose service first, then camera, hands, kiss, anatomy and audio), the `_free_pose()` order and its
-two callers, and keeps the act-exit names out of `poses/`. The contract is `docs/poses.md`; this doc
-only names the gate.
+three callers, and keeps the act-exit names out of `poses/`. The contract is `docs/poses.md`; this
+doc only names the gate.
+
+The body-swap handover is `tests/handover/test_body_swap.gd`: suspend → adopt → resume with the
+act state, depth, climaxes and event id intact, the old runtime still alive, the new anatomy and
+pose bound, and the failure, watchdog, ineligible-shape and world-close paths ending through the
+one exit. `tests/test_source_hygiene.gd` pins the entry's adopt-before-create order, the runtime's
+reparent guard and the generic core's freedom from the adapter's vocabulary. The contract is
+`docs/runtime.md`.
 
 The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
 `test_pose_registry.gd`, `test_pose_spec.gd`, `test_pose_view.gd`, `test_session.gd`,

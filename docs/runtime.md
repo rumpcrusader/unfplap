@@ -131,6 +131,47 @@ resumes then.
 The HUD card rows, the key caps and the `End` tint are `docs/hud.md`. The lab keys are
 `docs/debug.md`.
 
+## Body swap
+
+A shape-changing source can replace the act pony's body without ending the act. A world-side
+source contract (the manager and the duck-typed surface are `integrations/shape_change.gd`) is
+polled by `_body_swap_tick()` at `0.1 s`; one source that handles the act pony and reports a change
+starts the handover. The adapter alone talks to the installed pack.
+
+`_suspend_for_body_swap(source)` keeps the act and stops its work:
+
+- one pending swap is recorded in `main`; a second change is refused until it clears;
+- the runtime is reparented to `main` before the old body is freed;
+- the pose session, the anatomy act handle, the navigator lease, the face-turn hold, the camera
+  shot and the body-bound controllers are released; the bones are put back and the breath stops;
+- the outer act state, depth, penetration, climaxes, readiness, satisfaction, summary, event id,
+  serial, settings snapshot and dialogue state stay in the runtime. The player stays locked, the
+  HUD stays up and the outer camera is not restored to the player as an idle camera.
+
+`main._on_pony(new_pony)` adopts the suspended runtime before it creates a runtime: the source's
+`claims_body()` or the stable id must match, the adapter's `prepare_pony()` has already fitted the
+new body, `anatomy.bind()` runs, the runtime is reparented under the new body, and
+`runtime.adopt_body()` resumes it. The stable id is the act's id: a borrowed shape keeps the same
+relationship, preferences, history and summary; only the display name follows the new identity.
+
+`_resume_after_body_swap()` re-reads the settings and the new body's size, ends the old anatomy
+act and begins a new one at the current depth, rebuilds the live pose at the pose the act was in
+(`poses/service.gd`'s `settle()` skips the entrance ramp), reopens the camera, re-claims the new
+navigator, pauses the new face-turn rate, rebinds the face, voice, wings and integrations, and
+refreshes the HUD facts. The act continues from its current state.
+
+Failure paths keep the one exit:
+
+- the source stops with the old body alive: the same runtime resumes on the old body;
+- no body arrives: the `8 s` watchdog ends the act through `force_stop()`;
+- the new body is not an adult mare: `adopt_body()` ends the act through `force_stop()`;
+- the world closes or the act is force-stopped while suspended: `_end_session()` clears the
+  pending record and runs the normal teardown.
+
+`reparent()` runs `_exit_tree()`. The runtime's `_swapping_parent` flag makes that signal a no-op
+during the handover, so a move between bodies cannot run the world-close teardown. `attach_to_body()`
+is the only route that sets it.
+
 ## Teardown
 
 `_end_session(rejoin_cuddle)` is the only exit path. It gives back, in order: the inventory HUD,
@@ -164,7 +205,8 @@ failed start runs the same function and restores only what it took.
 
 ## Tick order
 
-- `_physics_process`: `_physics_tick(delta)` — the pose tick, the facts sync, the pose fan-out, the
+- `_physics_process`: `_physics_tick(delta)` — the body-swap watcher, the pose tick, the facts sync,
+  the pose fan-out, the
   act timer, the readiness tick, the dialogue service, the history scan, the tolerance, the scene
   keep-alives, the anatomy tick, the thrust tracker and the presentation modules (wings and mod
   integrations). `_sync_pose_frame()` follows the bed or the pony root ground frame before the
@@ -176,6 +218,8 @@ failed start runs the same function and restores only what it took.
   `act_body`/`anon` channel), then camera, hands, kiss, anatomy and audio. An edge keeps ticking
   through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still follows the first facts sync and runs
   no pose tick or fan-out.
+- A suspended act returns before the pose tick: `_body_swap_tick()` owns the wait and the resume,
+  and no act work runs until the new body adopts the runtime.
 - `_process`: `_process_tick(delta)` — the render-time pose write after every game writer (the bed
   family places its Anon body and eye camera; the standing family syncs its ground frame and
   writes the same pose), the camera lean and motion, the climax wave, the breath,
@@ -192,6 +236,10 @@ The runtime keeps thin forwards for `main.gd`, `hud/service.gd`, `input/service.
 cross-mod surface is `docs/api.md`; the internal reads the HUD/tests use (`state`, `pose_id`,
 `pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay
 callable.
+
+`request_form_change(true_form, shape_id)` is the act-side shape request the debug block uses; the
+watcher turns it into the suspension. `body_swap_pending()` is true between suspension and resume.
+`main` and the debug actions use these two; no presentation module reads them.
 
 The runtime does not mirror a service's act state. It reads it through the owning facade
 (`_readiness`, `_act_camera`, `_afterglow`, `_hold`, `_pose_session`, `_summary_service`, `_face`)
@@ -240,6 +288,11 @@ pose override still wins.
   `auto`/`bed_keep_lying` row and the runtime dispatch for both bed adapters.
 - `tests/readiness/test_oral_quiet.gd` — the oral contact: the plap and rump/tail jiggle skip, the
   kept slide/vocal/wings/blush/ear, the climax-line skip and the regular-path regression.
+- `tests/handover/test_body_swap.gd` — the generic handover: suspend → adopt → resume, the state
+  depth, climaxes and event id survive, the old runtime is not freed, the new body's anatomy and
+  pose bind, a failed change resumes the old body, the watchdog and an ineligible body end through
+  the one exit, and a world close during the swap is safe. The entry's adoption rules are pinned in
+  `tests/test_source_hygiene.gd`.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
 - The service suites indexed in `docs/README.md`.
@@ -251,6 +304,9 @@ pose override still wins.
   act-key end.
 - Early end (holding the act key at 0 climaxes) and a forced stop (Debug → Force neglect stop).
 - A failed start: no stuck navigator, kiss hold, inventory HUD or camera lock.
+- With an installed shape-changing source, run a standing and a missionary act and use the Debug
+  form actions: the flame covers the swap, the act resumes with the same depth and climaxes, the
+  tail and anatomy use the new body, and a second change starts after the first completes.
 
 ## Related docs
 

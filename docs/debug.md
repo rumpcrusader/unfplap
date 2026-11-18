@@ -29,7 +29,9 @@ Debug actions live in `debug/service.gd` and render as buttons in the **Debug** 
 their `tab` names (`general` by default, `anatomy`, `world` or `integrations`); the Poses tab
 carries none. Adding an action is one entry plus one method. An action on a wheel page sets
 `panel: false`, so the settings blocks draw only the settings-only actions and the wheel is the
-only trigger for the rest; those wheel-backed actions are desktop-only.
+only trigger for the rest; those wheel-backed actions are desktop-only. An action may declare
+`requires: "shape_source"`; both the settings block and the wheel drop it unless the entry's
+`shape_source_active()` is true.
 
 The registry declares no global hotkeys: the game's own dev keys (`F4` render breakdown, `F9`
 trace, `F10` FPS overlay, `F11` free camera) must stay usable while the mod is loaded, so a Debug
@@ -58,6 +60,9 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Force neglect warning | — | Act |
 | Force neglect stop | — | Act |
 | Force act face | — | Act |
+| Form: true form | World | Act |
+| Form: next named shape | World | Act |
+| Form: bring her out | World | — |
 | Placement up/down/forward/back/pitch/bigger/smaller | Anatomy | — |
 | Tail placement up/down/forward/back, tilt left/right | Anatomy | — |
 | Dock placement up/down/bigger/smaller | Anatomy | — |
@@ -97,6 +102,13 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 - **Trigger Anon offer** forms an Anon offer for the aimed mare as if Anon had just asked her.
   It is on the Mare wheel page; the Anon classifier and the Mare response still run.
 - **Force act face** cycles the base-game faces; see `docs/face.md`.
+- **Form: true form**, **Form: next named shape** and **Form: bring her out** are the generic
+  shape-change actions. They are drawn only while `shape_source_active()` is true, so a launch
+  without an installed source has no dead buttons. In a live act the first two go through
+  `runtime.request_form_change()` and the body handover continues the act; outside an act they ask
+  the source directly. The named action cycles the shipped adult mares in `FORM_DEBUG_SHAPES` and
+  names the next one in its result. Bring-out only asks the source to put an away actor in the
+  world and is not a change. The wheel's Act page carries the two act actions; there is no hotkey.
 - **Reload posed base** re-reads the active pose's authored JSON in place; a running act picks it
   up on its next frame. With no live act it re-reads the default missionary asset. See
   `docs/poses.md`.
@@ -126,7 +138,7 @@ wheel is drawn at 75% opacity.
 | Page | Slots, clockwise from the top |
 |---|---|
 | **Mare** | Show data · Bed offer · Bed cuddle · Standing offer · Anon offer · Force/Clear heat · Force/Clear diestrus · Sex ready · Deep stretch |
-| **Act** | Show data · Neglect warning · Neglect stop · Next face · Deep stretch |
+| **Act** | Show data · True form · Named shape · Neglect warning · Neglect stop · Next face · Deep stretch |
 
 - The page is chosen by the live act: **Act** while an act runs, **Mare** otherwise. There are no
   subpages, so every action is at most one click from the open wheel.
@@ -248,7 +260,8 @@ themselves are `docs/perf.md`'s.
 `tests/test_debug_wheel.gd` pins the wheel page order, the nine-slot cap, the settings-only split
 (wheel actions are `panel: false`, settings-only actions stay on the panel), the retired action
 ids, the dynamic cycle labels and the hold-middle input contract (middle press opens, release over
-a slot runs it, release in the centre only closes). `tests/test_deep_stretch.gd` pins the Idle Life
+a slot runs it, release in the centre only closes). The form actions' `shape_source` gate is the
+same one the settings block and the wheel use. `tests/test_deep_stretch.gd` pins the Idle Life
 bridge: its entry path and idle id, the missing-entry and missing-pony refusals, the forced play
 call, interrupting a running idle and a refused play. `tests/test_debug_pony.gd` pins the shared
 preparation helper: upright and idle, busy clearing, the raise-only sex-ready record, its floors

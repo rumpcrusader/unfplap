@@ -388,6 +388,14 @@ before it refreshes the controller. The per-tick facts sync writes the same valu
 not rebuild the anatomy material; the explicit refresh is what restores the pose-specific
 appearance, including the missionary-only fold hack, when the pose family changes.
 
+A body swap changes the controller, not the act. The old bridge ends its act handle at suspension;
+`main` calls `anatomy.bind(new_pony, runtime)` while the runtime is under `main`, and the resumed
+runtime calls `begin_act()` on the new controller. The new act starts at the current depth and
+readiness; the next `context()` carries the live penetration and climaxes. The player part stays
+shown because the encounter continues. The adapter's `prepare_pony()` has already put the new
+body's `body_fit_id` and `tail_pose_root` in place before the bind, so the placement and the tail
+seat resolve against the body that is actually there.
+
 ### Shape drive
 
 - The act reads the player part's girth at the opening. Without a part, the width comes from the

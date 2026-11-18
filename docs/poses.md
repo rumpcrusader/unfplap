@@ -598,6 +598,12 @@ and the kiss) read the view's family, profiles and config. The runtime's `pose_i
 start identity for `start()`, the gate and the teardown; `view.id` is the live pose. The session
 keeps no start id of its own.
 
+A body swap rebuilds the live pose on the new skeleton at `view.id`; it is not a pose transition
+and not a new act. The runtime stages the settings pose config, calls `begin()` with the same
+context shape as the start, then `settle()` sets the pose and standing-tail amounts straight to 1
+inside the flame. The session's start ramp and the runtime's `POSING_IN` fade stay for a real
+entrance, so a resumed act does not visibly enter twice.
+
 ## Spaces and axes
 
 - Bone writes use `Skeleton3D` skeleton space via `get_bone_global_pose` /
@@ -963,8 +969,9 @@ teardown to `_free_pose()`.
 
 The runtime calls the two leave steps and the final release at their table positions, with the
 act-scope resets between them. `release_pose()` is called only from `_free_pose()`. `_end_session()`
-(the one act exit) and `_build_pose()` (the new-act prep) are the only `_free_pose()` callers. A
-second `release_pose()` is a no-op.
+(the one act exit), `_build_pose()` (the new-act prep) and `_suspend_for_body_swap()` (the
+act-preserving body handover) are the only `_free_pose()` callers. A second `release_pose()` is a
+no-op.
 
 `_restore_camera()` also ends the lean action, resets the hands, releases the free-camera lock and
 removes the standing player-body Anon wrapper. That is the act's camera restore path, not the pose

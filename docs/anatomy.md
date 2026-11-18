@@ -570,6 +570,8 @@ sample of the body coat.
 - The line is per pony and is rebuilt when the anatomy mesh changes or the placement changes. It
   retries every two seconds while it cannot be built. The line does not tick while the anatomy
   mesh is hidden.
+- **Anatomy → Debug → Coat line** gates the whole line. Off uploads `line_count = 0` and keeps
+  the mesh rigid; **Draw coat line** only controls the overlay.
 - With **Anatomy → Debug → Draw coat line** on, `anatomy/coat_line_debug.gd` draws the rest line,
   the live line and one cross-section marker per sample under the anatomy mesh. Live segments
   warm up when stretched and cool down when compressed.
@@ -758,6 +760,8 @@ built from the declarations, so the label, help and bounds are not restated here
   pushes the switch to `anatomy/tail/visibility.gd`, which processes only while it is on.
 - `anatomy.draw_still_zones` (**Draw still zones**) overlays the two still-zone ellipsoids and
   their fully-still cores on the body coat.
+- `anatomy.coat_line` (**Coat line**) enables the hind-leg line bend. Off keeps the anatomy rigid
+  and hides the debug overlay.
 - `anatomy.draw_coat_line` (**Draw coat line**) overlays the sampled rest and live coat lines and
   their cross-section markers. Live segments warm up when stretched and cool down when
   compressed.

@@ -27,11 +27,6 @@
     },
     {
       "service": "anatomy",
-      "func": "placement_values",
-      "signature": "func placement_values(id: String, fit_id: String = \"\") -> Dictionary:"
-    },
-    {
-      "service": "anatomy",
       "func": "player_debug_scale",
       "signature": "func player_debug_scale() -> Variant:"
     },

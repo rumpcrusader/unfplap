@@ -175,6 +175,7 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | debug | `debug/service.gd` | debug action registry |
+| service | offer | `offer/service.gd` | the act key's one start |
 | service | settings | `settings/service.gd` | the `act_key` keycode and the shield flag |
 | shared | act_keys | `shared/act_keys.gd` | action name, legacy fallback and cap labels |
 | shared | act_commands | `shared/act_commands.gd` | the ids `V`/`N` emit |

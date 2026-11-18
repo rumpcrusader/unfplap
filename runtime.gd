@@ -1781,8 +1781,6 @@ func start_agreement(handle: Variant, skip_presentation := false) -> int:
 		_log("agreement start blocked pose=%s source=%s pony=%s reasons=%s" % [
 			pose, act_source, str(pony.name) if is_instance_valid(pony) else "?",
 			"none" if verdict == null else ",".join(verdict.reasons)])
-		if is_instance_valid(main) and main.has_method("report_agreement"):
-			main.call("report_agreement", handle, false)
 		return AGREEMENT_FAILED
 	if not bool(verdict.ok):
 		_log("agreement start waiting pose=%s source=%s transient=%s" % [
@@ -1796,8 +1794,6 @@ func start_agreement(handle: Variant, skip_presentation := false) -> int:
 	var started := _begin_act(pose, option.bed, act_source, skip_presentation)
 	_log("agreement start %s pose=%s source=%s" % [
 		"started" if started else "failed", pose, act_source])
-	if is_instance_valid(main) and main.has_method("report_agreement"):
-		main.call("report_agreement", handle, started)
 	return AGREEMENT_STARTED if started else AGREEMENT_FAILED
 
 

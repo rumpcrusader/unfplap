@@ -129,12 +129,15 @@ A missing callable reads as "no runtime" and "not a target", so an unbound servi
 | service | hud | `hud/service.gd` | the prompt row unit and the HUD fallback |
 | service | negotiation | `negotiation/service.gd` | the live Agreement offer |
 | service | poses | `poses/service.gd` | the warmed authored pose assets |
+| service | privacy | `privacy/service.gd` | the fresh sample before a private Agreement auto-starts |
 | service | settings | `settings/service.gd` | the act key's cap label |
 | service | world | `world/service.gd` | player, camera, mares, headset and pause |
 | shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
 | shared | log | `shared/log.gd` | the offer lines and the idle offer chunks |
+| shared | pony_id | `shared/pony_id.gd` | the mare id in the start log lines |
 | shared | pose_catalog | `shared/pose_catalog.gd` | the two offerable pose ids |
 | shared | pose_offer | `shared/pose_offer.gd` | the typed act offer |
+| shared | pose_options | `shared/pose_options.gd` | the exact option a hotkey match names |
 | shared | pose_specs | `shared/pose_specs.gd` | the two offerable assets |
 | shared | rump_cone | `shared/rump_cone.gd` | the standing offer zone |
 

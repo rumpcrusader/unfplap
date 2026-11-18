@@ -6,6 +6,7 @@ extends SceneTree
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const INIT := preload("res://mods/unfplap/initiation/service.gd")
+const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
@@ -215,6 +216,16 @@ class FakeTerminal extends RefCounted:
 	var cooldown_s := 0.0
 
 
+## The idle offer facade's one read the Proactive gate uses: which pony the act key would start.
+class FakeOffer extends OFFER:
+	var target: Variant = null
+	var reads := 0
+
+	func offer_target() -> Node:
+		reads += 1
+		return target if is_instance_valid(target) else null
+
+
 func _fixture() -> Dictionary:
 	var main := FakeMain.new()
 	var game := FakeGame.new()
@@ -231,6 +242,7 @@ func _fixture() -> Dictionary:
 	var eligibility := FakeEligibility.new()
 	var adapter := FakeAdapter.new()
 	var privacy := FakePrivacy.new()
+	var offer := FakeOffer.new()
 	game.world_context = context
 	game.mares = [target]
 	main.player = player
@@ -239,20 +251,21 @@ func _fixture() -> Dictionary:
 	WORLD.bind_world(main.game)
 	main.eligibility = eligibility
 	main.runtimes[target] = runtime
-	for node: Node in [game, player, target, runtime, adapter]:
+	for node: Node in [game, player, target, runtime, adapter, offer]:
 		root.add_child(node)
 	root.add_child(main)
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
-	service.call("setup", main, privacy, adapter)
+	service.call("setup", main, privacy, adapter, offer)
 	root.add_child(service)
 	return {"main": main, "game": game, "context": context, "player": player,
 		"target": target, "nav": nav, "runtime": runtime, "eligibility": eligibility,
-		"adapter": adapter, "privacy": privacy, "service": service}
+		"adapter": adapter, "privacy": privacy, "service": service, "offer": offer}
 
 
 func _free(made: Dictionary) -> void:
-	for key: String in ["service", "main", "game", "player", "target", "runtime", "adapter"]:
+	for key: String in ["service", "main", "game", "player", "target", "runtime", "adapter",
+			"offer"]:
 		var node: Node = made[key]
 		root.remove_child(node)
 		node.free()
@@ -279,6 +292,7 @@ func run() -> void:
 	_check_reasoning()
 	_check_handoff_failure()
 	_check_cuddle()
+	_check_cuddle_target()
 	_check_outcome_and_reset()
 	_check_scan_logs()
 	print("INITIATION_API_RESULT checks=%d failures=%d" % [checks, failures])
@@ -455,6 +469,45 @@ func _check_cuddle() -> void:
 	check(str(main.offer.get("hold_token", "x")).is_empty(),
 		"the cuddle handoff carries no navigator lease")
 	check(nav.command_owner.is_empty(), "the cuddle keeps the session's navigator")
+	service.reset()
+	root.remove_child(bed)
+	bed.free()
+	_free(made)
+
+
+## The Proactive scan's cuddle gate reads the offer facade's current target: a non-forced scan
+## skips a cuddle the act key would not start, and asks the one it would.
+func _check_cuddle_target() -> void:
+	var made := _fixture()
+	var service: Node = made["service"]
+	var runtime: FakeRuntime = made["runtime"]
+	var main: FakeMain = made["main"]
+	var adapter: FakeAdapter = made["adapter"]
+	var target: FakePony = made["target"]
+	var offer: FakeOffer = made["offer"]
+	var bed := Node3D.new()
+	root.add_child(bed)
+	runtime.cuddle = true
+	runtime.bed_under = bed
+	service.clear_cooldown(target)
+	adapter.reason_reply = "{\"offer\":true,\"option\":0}"
+
+	# The act key would start another pony, so the scan's cuddle candidate is skipped, not forced.
+	offer.target = null
+	log_sink.lines.clear()
+	service.tick(0.5)
+	check(offer.reads > 0, "the scan reads the offer facade's current target")
+	check(adapter.reason_payloads.is_empty(),
+		"a cuddle the act key would not start reasons nothing")
+	check(main.offer.is_empty(), "a cuddle the act key would not start forms nothing")
+	check(_debug_count("request scan skip id=rarity reasons=cuddle:target") == 1,
+		"the skipped cuddle names the offer target")
+
+	# The act key's current offer is her, so the same scan asks.
+	offer.target = target
+	service.tick(0.5)
+	check(not main.offer.is_empty(), "a cuddle the act key would start forms the offer")
+	check(bool(main.offer.get("cuddle", false)), "the non-forced handoff marks the cuddle")
 	service.reset()
 	root.remove_child(bed)
 	bed.free()

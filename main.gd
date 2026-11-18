@@ -41,7 +41,6 @@ const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
@@ -98,8 +97,6 @@ var _captions: Dictionary = {}
 var _captions_on_top: bool
 ## True while the adapter's global Anon-offer watch is armed.
 var _watching_player := false
-## The Agreement auto-start's 0.25 s readiness clock.
-var _agreement_clock := 0.0
 
 
 ## Live act/afterglow context for the game's normal dialogue prompt (pony_prompt_notes).
@@ -162,12 +159,14 @@ func _ready() -> void:
 	add_child(negotiation)
 	_bind_negotiation_host()
 	# The idle offer is built before the Proactive service, which asks it which pony the act key
-	# would start. Its two entry reads are the runtime registry and the act-target rule.
+	# would start. Its entry reads are the runtime registry, the act-target rule and the live act.
 	offer = OFFER.new()
 	offer.name = "UnfplapOffer"
 	offer.runtime_for = Callable(self, "runtime_for")
 	offer.act_target = Callable(self, "_is_act_target")
+	offer.act_live = Callable(self, "_act_live")
 	offer.negotiation = negotiation
+	offer.privacy = privacy
 	offer.apply_settings()
 	add_child(offer)
 	initiation = INITIATION.new()
@@ -448,6 +447,7 @@ func _on_player(body: Node) -> void:
 		input = INPUT.new()
 		input.name = "UnfplapInput"
 		input.main = self
+		input.offer = offer
 		add_child(input)
 	offer.hud = hud
 	hud.call("set_act_key", _act_key_label())
@@ -733,155 +733,12 @@ func _process_entry(delta: float, timed: bool) -> void:
 	if is_instance_valid(negotiation):
 		var negotiation_started := Time.get_ticks_usec() if timed else 0
 		negotiation.tick(delta)
-		_tick_agreement_auto_start(delta)
 		if timed:
 			LOG.close("entry_negotiation", negotiation_started)
 	var watch_started := Time.get_ticks_usec() if timed else 0
 	_tick_negotiation_watch()
 	if timed:
 		LOG.close("entry_watch", watch_started)
-
-
-## The act key's one start entry. The act key is the hotkey: it always accepts, never bucks or
-## refuses, and a missing context pose is no attempt. The tolerance stop owns the refusal path.
-func try_start() -> bool:
-	if is_instance_valid(active_runtime):
-		return false
-	offer.scan()
-	var current: POSE_OFFER = offer.current()
-	if current == null:
-		var blocked: POSE_OFFER = offer.blocked()
-		if blocked != null:
-			return start_pose_offer(blocked)
-		LOG.debug("hotkey no context pose")
-		_toast("There is nothing to start here.")
-		return false
-	return start_pose_offer(current)
-
-
-## The one typed act-start path. The act key and the Agreement auto-start call this. The offer
-## carries its pose and trigger, so this function never names a pose.
-func start_pose_offer(offer: POSE_OFFER) -> bool:
-	if offer == null or not offer.valid():
-		return false
-	if not offer.blocked.is_empty():
-		var toast := str(offer.blocked.get("toast", ""))
-		if not toast.is_empty():
-			_toast(toast)
-		return false
-	if offer.trigger == "agreement":
-		return _start_agreement_offer(offer, false)
-	return _start_hotkey_offer(offer)
-
-
-## The hotkey: a live Agreement's exact match starts it immediately and skips the presentation;
-## any other live negotiation or Agreement is interrupted and the immediate attempt runs. The
-## attempt is Base clearance plus the scene-only rows, with no offer cooldown.
-func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
-	var runtime: Node = offer.runtime
-	if not is_instance_valid(runtime):
-		return false
-	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
-		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
-	if is_instance_valid(negotiation):
-		var handle: Variant = negotiation.call("handle")
-		if handle != null:
-			var match: Variant = negotiation.call("hotkey_handle", runtime, _option_for(offer))
-			if match != null:
-				LOG.debug("hotkey exact match id=%s pose=%s" % [id, offer.pose])
-				return _start_agreement_offer(offer, true)
-			LOG.debug("hotkey interrupt agreement id=%s" % id)
-			negotiation.call("interrupt_for_hotkey")
-		elif bool(negotiation.call("is_locked")):
-			LOG.debug("hotkey interrupt negotiation id=%s" % id)
-			negotiation.call("interrupt_for_hotkey")
-	LOG.debug("hotkey immediate id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
-	var started := bool(runtime.call("start_hotkey", offer.pose, offer.bed, offer.source))
-	if not started:
-		LOG.debug("hotkey start blocked id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
-		return false
-	_clear_offer_hint()
-	return true
-
-
-## The exact pose option a hotkey attempt names. The idle hint never offers a cuddle, so the flag
-## is false; a cuddle Agreement is consumed by its own offer path instead.
-func _option_for(offer: POSE_OFFER) -> POSE_OPTIONS.Option:
-	var option := POSE_OPTIONS.Option.new()
-	option.pose = offer.pose
-	option.source = offer.source
-	option.bed = offer.bed
-	return option
-
-
-## The act key consumes a live Agreement through its scene-only start. `WAIT` keeps the hint and
-## the Agreement for the next press; a started or failed attempt clears the hint, and the runtime
-## reports the result to the Negotiation service. `skip_presentation` is the exact hotkey match.
-func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
-	var handle: Variant = negotiation.call("handle") if is_instance_valid(negotiation) else null
-	if handle == null or not is_instance_valid(offer.runtime):
-		_clear_offer_hint()
-		return false
-	var result := int(offer.runtime.call("start_agreement", handle, skip_presentation))
-	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
-		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
-	LOG.debug("agreement start id=%s pose=%s skip_presentation=%s result=%d" % [
-		id, offer.pose, str(skip_presentation), result])
-	if result == RUNTIME.AGREEMENT_WAIT:
-		LOG.debug("agreement start waiting pose=%s source=%s" % [offer.pose, offer.source])
-		return false
-	_clear_offer_hint()
-	return result == RUNTIME.AGREEMENT_STARTED
-
-
-## The Agreement's automatic start: it waits for the presentation to settle and Anon to be in
-## position, then consumes the handle with no key press. A menu, a paused tree or a live act
-## holds it. A private Agreement takes a fresh privacy sample; the exact hotkey match does not,
-## because a live Agreement's own visibility wins for that press.
-func _tick_agreement_auto_start(delta: float) -> void:
-	if is_instance_valid(active_runtime) or not is_instance_valid(negotiation):
-		return
-	# The clock runs before the handle read so the common frame pays one arithmetic step: a
-	# handle that appears between polls is consumed on the next one, 0.25 s later at most.
-	_agreement_clock += delta
-	if _agreement_clock < 0.25:
-		return
-	var handle: Variant = negotiation.call("handle")
-	if handle == null:
-		return
-	_agreement_clock = 0.0
-	if WORLD.menu_panel_open():
-		return
-	if DisplayServer.get_name() != "headless" and not WORLD.headset_view() \
-			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return
-	var pony: Variant = handle.pony
-	var runtime: Node = runtime_for(pony) if is_instance_valid(pony) else null
-	if not is_instance_valid(runtime) or not runtime.has_method("agreement_offer_ready"):
-		return
-	var typed: POSE_OFFER = offer.agreement_offer(handle)
-	if typed == null:
-		return
-	var option: Variant = _field(handle, "option")
-	var cuddle := option != null and bool(_field(option, "cuddle", false))
-	var pony_id := str(_field(handle, "pony_id", ""))
-	if pony_id.is_empty() and is_instance_valid(pony):
-		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
-	LOG.debug("agreement auto-start id=%s pose=%s" % [pony_id, typed.pose])
-	if bool(handle.private) and not _agreement_private_now(pony, cuddle):
-		LOG.debug("agreement auto-start privacy lost pony=%s" % str(pony.name))
-		negotiation.call("cancel", handle, "privacy")
-		return
-	LOG.debug("agreement auto-start pony=%s pose=%s" % [str(pony.name), typed.pose])
-	_start_agreement_offer(typed, false)
-
-
-## A fresh privacy sample for the auto-start, with the offer's cuddle rule. A missing provider
-## reads as public, so a private Agreement does not start on a stale answer.
-func _agreement_private_now(pony: Node, cuddle: bool) -> bool:
-	if not is_instance_valid(privacy):
-		return false
-	return privacy.cuddle_private(pony) if cuddle else privacy.offer_private(pony)
 
 
 ## The live placement re-check the Negotiation asks for before an Agreement forms: the chosen
@@ -894,19 +751,6 @@ func agreement_pose_placed(runtime: Node, option: POSE_OPTIONS.Option) -> bool:
 	var verdict: Variant = runtime.call("scene_only_verdict", option.pose, option.source,
 		option.bed, null)
 	return verdict != null and bool(verdict.hard_ok)
-
-
-## The runtime's Agreement start result, forwarded to the Negotiation service.
-func report_agreement(handle: Variant, started: bool) -> void:
-	if is_instance_valid(negotiation):
-		negotiation.call("report", handle, started)
-
-
-## Clear the act-key hint and its cached offer.
-func _clear_offer_hint() -> void:
-	offer.clear_current()
-	if is_instance_valid(hud):
-		hud.hide_prompt()
 
 
 ## integration: anatomy hooks used by the runtime and input.
@@ -967,6 +811,12 @@ func clear_active(runtime: Node) -> void:
 func _is_act_target(pony: Variant) -> bool:
 	return is_instance_valid(eligibility) \
 		and eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
+
+
+## The offer's act-live read: a live act owns the frame, so the act key starts nothing and no
+## Agreement auto-starts.
+func _act_live() -> bool:
+	return is_instance_valid(active_runtime)
 
 
 func runtime_for(pony: Node) -> Node:

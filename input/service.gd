@@ -5,6 +5,7 @@ extends Node
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
+const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -21,6 +22,8 @@ const PASS_KEYS := [KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE, KEY_T,
 	KEY_F11, KEY_F12]
 
 var main: Node
+## The idle offer's facade: the act key hands it the start.
+var offer: OFFER = null
 
 ## The act input shield, cached from `features.act_input_shield` on every settings change.
 var _shield: bool
@@ -210,7 +213,7 @@ func _input(event: InputEvent) -> void:
 	if key.is_action(ACT_KEYS.ACTION):
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not _headset():
 			return
-		if bool(main.call("try_start")):
+		if is_instance_valid(offer) and offer.try_start():
 			get_viewport().set_input_as_handled()
 
 

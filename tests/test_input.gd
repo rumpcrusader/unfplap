@@ -8,6 +8,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
+const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var failures := 0
@@ -16,14 +17,22 @@ var checks := 0
 
 class FakeMain extends Node:
 	var active_runtime: Node = null
-	var starts := 0
-
-	func try_start() -> bool:
-		starts += 1
-		return true
 
 	func skeleton_click() -> bool:
 		return false
+
+
+## The offer facade the act key hands its one press. Its own act-live rule is
+## `tests/offer/test_start.gd`; this records that the input service reached it.
+class FakeOffer extends OFFER:
+	var starts := 0
+	var live := false
+
+	func try_start() -> bool:
+		if live:
+			return false
+		starts += 1
+		return true
 
 
 class FakeWorld extends Node:
@@ -165,8 +174,11 @@ func _check_action() -> void:
 	var scene := _world()
 	var main := FakeMain.new()
 	root.add_child(main)
+	var offer := FakeOffer.new()
+	root.add_child(offer)
 	var service := INPUT.new()
 	service.main = main
+	service.offer = offer
 	main.add_child(service)
 	await process_frame
 
@@ -189,12 +201,14 @@ func _check_action() -> void:
 	key.physical_keycode = KEY_6
 	key.pressed = true
 	service.call("_input", key)
-	check(main.starts == 1, "an idle act-key press starts the hinted act")
+	check(offer.starts == 1, "an idle act-key press asks the offer to start")
 
 	var runtime := FakeRuntime.new()
+	offer.live = true
 	main.active_runtime = runtime
 	service.call("_input", key)
-	check(main.starts == 1, "the act key does not start a second act while one is live")
+	check(offer.starts == 1, "the act key does not start a second act while one is live")
+	offer.live = false
 
 	# A focused text field takes the action out of the InputMap and restores it afterwards.
 	var field := LineEdit.new()
@@ -211,6 +225,7 @@ func _check_action() -> void:
 
 	service.queue_free()
 	main.queue_free()
+	offer.queue_free()
 	runtime.queue_free()
 	SETTINGS.act_key.set_num(float(before))
 	await process_frame

@@ -138,7 +138,8 @@ func _autostart_run() -> void:
 	await get_tree().physics_frame
 	if not is_inside_tree():
 		return
-	var started: bool = main.call("try_start")
+	var offer: Variant = main.get("offer")
+	var started := is_instance_valid(offer) and bool(offer.call("try_start"))
 	print("[unfplap vr] autostart: standing act started=%s" % str(started))
 	if started:
 		# The runtime appears on the next tick, which latches the base and resets the stroke.

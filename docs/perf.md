@@ -136,6 +136,11 @@ render-time pose write and the sway replay, which is where the modifier pass rep
 `caress_path` only reports on a build tick; a large max there with every other chunk steady is the
 first caress path, not the per-tick contact.
 
+The body-swap watcher runs before the act chunks: one source `poll()` per `0.1 s` while an act is
+live, plus a read of the same source's changing state. It allocates nothing per frame, so it stays
+in the `runtime_physics` self row rather than a named chunk. A suspend/resume is one-time per change
+and the watchdog covers a source that never settles.
+
 ## Idle probe API
 
 | Member | Contract |

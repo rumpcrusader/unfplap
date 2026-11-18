@@ -187,8 +187,10 @@ peak memory quotes her answer only when she spoke during the act.
 
 Talk is scored when the player actually uses the game's talk turn. The turn also carries the
 shape-change interaction: the runtime reads the same text for the reveal ask and the named shape,
-and the act HUD shows one code-owned hint for it (`docs/hud.md`). There is no talk-invitation line
-for ordinary cues.
+and the act HUD shows one code-owned hint for it (`docs/hud.md`). The source owns the phrasing: the
+reveal phrase set includes the hint's own words, and a one-word pony name only counts when the line
+also asks for a shape, so ordinary talk such as “you are a rarity” stays ordinary. There is no
+talk-invitation line for ordinary cues.
 
 Unprompted cue and reaction lines are always on. The line-angle note adds one fresh angle and the
 “use something from today if it fits” hint to a cue line, and the recent-line anti-repeat window

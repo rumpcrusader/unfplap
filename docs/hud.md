@@ -68,7 +68,9 @@ caress. An unlimited limit uses the 3-climax reference.
 - The form-change hint is one pink-accent line from `view.form_hint`, written by the runtime
   (`docs/runtime.md`): the reveal ask while the act pony is in another shape, the name prompt
   while the post-climax offer is pending, otherwise hidden. It names the game's talk turn and never
-  a new key. It is empty outside `ACTIVE` and is independent of `hud_readouts` and `hud_controls`.
+  a new key. It is empty outside `ACTIVE`; the runtime clears the cached string at the climax,
+  afterglow, restore, suspension and act end, so it never lingers after the player can no longer
+  act on it. It is independent of `hud_readouts` and `hud_controls`.
 - While the hold-X layer is open the control card is replaced by X (`Hold`, `Auto settings`),
   Q A (`Min depth N%`), W S (`Max depth N%`), E D (`Pace N/s`) and Z (`Shape: …`).
 - When readouts are off, the hearts remain; the cue and readiness line are hidden.

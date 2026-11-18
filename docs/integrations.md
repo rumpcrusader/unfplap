@@ -122,9 +122,11 @@ that handles the pony; `prepare_pony()` runs every active source's hook before t
 
 The runtime polls the source at `0.1 s` while an act is live. It suspends when the source's
 `old_actor()` is the act pony and `is_changing()` becomes true; the act state and the one teardown
-are `docs/runtime.md`. The source claims the spawned body through `claims_body()`, so the entry
-adopts the act runtime before it creates another. `request_true_form()` and `request_shape()` are
-the only start calls; `target()` is empty for a return to the owner's own form, and `current_shape()`
+are `docs/runtime.md`. A source may start a change from its own AI as well as from a `request_*`
+call: `poll()` sets the source's changing state, and the runtime reads `is_changing()` and
+`old_actor()` after the poll. The source claims the spawned body through `claims_body()`, so the
+entry adopts the act runtime before it creates another. `request_true_form()` and `request_shape()`
+are the start calls; `target()` is empty for a return to the owner's own form, and `current_shape()`
 is empty while she is in it. `set_player_request()` marks the change just started as the player's
 own ask. A future regular changelings mod implements the same surface and registers its source; no
 core file changes.
@@ -244,18 +246,27 @@ integration does not depend on a new signal or a rebuilt pack.
 The adapter is also the pack's shape-change source. It watches the pack's public `busy`, `actor`
 and `disguised_as`: `request_true_form()` captures the current actor and calls `reveal()`;
 `request_shape(id)` calls `disguise(id)`; `set_player_request()` marks the change as the player's;
-`poll()` reads `actor` and clears the change when `busy` falls. `claims_body()` accepts her own body
+`poll()` reads `actor` and clears the change when `busy` falls. A rising `busy` with the act pony as
+`actor` is a change her own AI started, with no `request_*` call: the adapter records the old body
+and lets the same watcher suspend the act. A `busy` on another body never reaches the act. The new
+body is claimed by its stable identity before the shape is known, and `poll()` fills the target from
+the new body's `changeling=<id>` variant or `disguised_as`. `claims_body()` accepts her own body
 for a true form and the `changeling=<id>` variant for a named shape. `request_appear()` calls
-`bring_out()` for the idle debug action.
+`bring_out()` for the idle debug action. A `busy` from a visit end or another action that removes
+her follows the old-body/watchdog path in `docs/runtime.md`; a young or male shape ends the act
+cleanly instead of resuming it.
 
 The player's own words are the adapter's: `asks_form_change(text)` matches its reveal phrase set
-(“true form”, “real you”, “drop the disguise”, “unmask” and similar). `named_form(text)` matches an
-adult mare's display name or id against the base roster and the entry's live off-roster/provider
-list; it excludes the shape she already wears and herself, refuses an ambiguous name (a tie or two
-whole names), and returns a shape only when the game's population has a scene the pack can copy. `named_form_note()`
+(“true form”, “real you”, “real her”, “drop the disguise”, “unmask” and similar). `named_form(text)`
+matches an adult mare's display name or id against the base roster and the entry's live
+off-roster/provider list; it excludes the shape she already wears and herself, refuses an ambiguous
+name (a tie or two whole names), and returns a shape only when the game's population has a scene the
+pack can copy. A one-word name only counts when the line is the name or asks for a shape (“wear”,
+“become”, “want”, “name” and similar), so “you are a rarity” is ordinary talk. `named_form_note()`
 returns a short status when the line names a shape she already wears, herself, a known young or male
-body, or an uncopyable pony, and returns nothing for ordinary talk. The pack needs no rebuild and no
-new signal.
+body, or an uncopyable pony, and returns nothing for ordinary talk. The young/male list is the base
+game 0.3.1 roster; a pack update may add more, and the live candidate list still gates every real
+choice. The pack needs no rebuild and no new signal.
 
 ## Settings
 
@@ -351,9 +362,12 @@ overlay reads them.
   on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
   the body-fit/custom-tail metadata for her own body, a disguise and an unrelated pony. It also
   pins the shape-change source through the manager: the actor/old/new/target state, the true-form
-  and named requests, the claimed body, the idle appear hook and the completion poll. The player
-  hooks cover the reveal phrases, adult base/live names, ambiguous names, the worn shape and self,
-  known ineligible bodies, and the population's copyable check.
+  and named requests, the claimed body, the idle appear hook and the completion poll. An AI-started
+  change is observed from a rising `busy`, claimed by identity before the shape is known and
+  completed from the new body's variant; a `busy` on another body is ignored. The player hooks
+  cover the reveal phrases (including the hint's own “real her”), adult base/live names, ambiguous
+  names, a name without a shape verb, the worn shape and self, known young and male bodies, and the
+  population's copyable check.
 - `tests/handover/test_body_swap.gd` — the generic handover the source drives; `docs/runtime.md`
   owns its rules.
 - `tests/test_settings.gd` — the Integrations tab draws every provider header, flag and the Debug
@@ -394,10 +408,18 @@ overlay reads them.
   (`T`/microphone): the flame plays, the act re-poses on her own body and continues, the readiness
   spike and the reveal impression/peak/comfort appear once, and a second ask does nothing. Her own
   AI reveal must get the handover but not the exceptional event.
+- Let her own AI take the shape off or put one on during an act (`[take_off: disguise]` /
+  `[put_on: …]` or the pack's own controls): the same handover runs with no exceptional event. A
+  change while she is not the act pony leaves the act alone; a visit end that removes her ends the
+  act cleanly.
 - After one climax in her own form, wait for the offer line and the HUD hint; name a base adult
   mare and check the act re-poses on that disguise with no comfort or peak boost. Name a young or
-  male body and check the short status and the unchanged act.
-- Leave the offer unanswered through an act end: no change, and the next act may offer again.
+  male body and check the short status and the unchanged act. Say a name without a shape verb
+  (“you are a rarity”) and check it is ordinary talk.
+- Leave the offer unanswered through an act end: no change, and the next act may offer again. A
+  named change that fails before a new body arrives puts the offer back.
+- Check the hint clears at the climax, afterglow and restore, and that a held body refuses the
+  request.
 
 ## Related docs
 

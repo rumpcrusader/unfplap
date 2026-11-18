@@ -125,10 +125,12 @@ doc only names the gate.
 
 The body-swap handover is `tests/handover/test_body_swap.gd`: suspend → adopt → resume with the
 act state, depth, climaxes and event id intact, the old runtime still alive, the new anatomy and
-pose bound, and the failure, watchdog, ineligible-shape and world-close paths ending through the
-one exit. `tests/test_source_hygiene.gd` pins the entry's adopt-before-create order, the runtime's
-reparent guard and the generic core's freedom from the adapter's vocabulary. The contract is
-`docs/runtime.md`.
+pose bound, a change the source started on its own, a repeated change, the hint clearing at each
+state change, a failed named change restoring the offer, a held body refusing the request, and the
+failure, watchdog, ineligible-shape and world-close paths ending through the one exit.
+`tests/test_source_hygiene.gd` pins the entry's adopt-before-create order, the runtime's reparent
+guard, the hint-clearing call sites and the generic core's freedom from the adapter's vocabulary.
+The contract is `docs/runtime.md`.
 
 The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
 `test_pose_registry.gd`, `test_pose_spec.gd`, `test_pose_view.gd`, `test_session.gd`,

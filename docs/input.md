@@ -110,6 +110,9 @@ real state. This is a deliberate, global lie about key state, kept only for the 
 - `PASS_KEYS` stay live: `Enter`/`KP Enter` (typing), `T` (the game's talk turn, scored by the
   act and read for the shape-change reveal ask and named shape), `Esc` (the pause menu) and
   `F1`–`F12` (the game's save, settings, weather and debug keys).
+  The form interaction adds no key or input-map entry: both the reveal ask and the named shape use
+  this one talk turn, and a body another system is holding refuses the request rather than adding a
+  control.
   Everything also passes while a `LineEdit`/`TextEdit` has focus, the tree is paused, or
   `main.menu_panel_open()` is true.
 - `RAW_KEYS` are consumed but never cleared: `Q W E A S D Z X C F`, the keys the act samples

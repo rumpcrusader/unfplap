@@ -428,8 +428,10 @@ thresholds (`docs/readiness.md`).
 
 A shape change during an act is still an adult-mare gate. The runtime re-checks
 `eligible(pony, ACT)` on the adopted body and ends the act through `_end_session()` if it fails, so
-a young or male body can never continue the act. The player's named shape is restricted to adult
-mares by the shape-change source before the request starts (`docs/integrations.md`).
+a young or male body can never continue the act. This covers a change the player asked for and one
+the source's own AI started. The player's named shape is restricted to adult mares by the
+shape-change source before the request starts, and a known young or male name gets a short refusal
+status (`docs/integrations.md`).
 
 ## Debug
 

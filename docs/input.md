@@ -108,7 +108,8 @@ the next physics step, so a raw poller reads the key as up; the player's own rel
 real state. This is a deliberate, global lie about key state, kept only for the length of an act.
 
 - `PASS_KEYS` stay live: `Enter`/`KP Enter` (typing), `T` (the game's talk turn, scored by the
-  act), `Esc` (the pause menu) and `F1`–`F12` (the game's save, settings, weather and debug keys).
+  act and read for the shape-change reveal ask and named shape), `Esc` (the pause menu) and
+  `F1`–`F12` (the game's save, settings, weather and debug keys).
   Everything also passes while a `LineEdit`/`TextEdit` has focus, the tree is paused, or
   `main.menu_panel_open()` is true.
 - `RAW_KEYS` are consumed but never cleared: `Q W E A S D Z X C F`, the keys the act samples

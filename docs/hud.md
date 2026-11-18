@@ -63,8 +63,12 @@ caress. An unlimited limit uses the 3-climax reference.
 - `act_controls` shows the control card. Off hides only the card; the cue,
   readiness line and close prompt remain.
 - Top to bottom: cue line `❤ N/limit | cue` (or `❤ N/∞` when the climax limit is unlimited),
-  readiness line `Wants: intensity & pattern | You: intensity & pattern`, auto readout
-  `Auto · 20–80% · 1.50/s · Normal` while auto is on, blank separator, controls.
+  readiness line `Wants: intensity & pattern | You: intensity & pattern`, the form-change hint,
+  auto readout `Auto · 20–80% · 1.50/s · Normal` while auto is on, blank separator, controls.
+- The form-change hint is one pink-accent line from `view.form_hint`, written by the runtime
+  (`docs/runtime.md`): the reveal ask while the act pony is in another shape, the name prompt
+  while the post-climax offer is pending, otherwise hidden. It names the game's talk turn and never
+  a new key. It is empty outside `ACTIVE` and is independent of `hud_readouts` and `hud_controls`.
 - While the hold-X layer is open the control card is replaced by X (`Hold`, `Auto settings`),
   Q A (`Min depth N%`), W S (`Max depth N%`), E D (`Pace N/s`) and Z (`Shape: …`).
 - When readouts are off, the hearts remain; the cue and readiness line are hidden.
@@ -114,7 +118,7 @@ touches neither the tree nor the row.
 ## Gates
 
 - `features.hud_readouts` hides the cue and readiness segments; the hearts and the
-  close prompt stay.
+  close prompt stay. The form-change hint is not a readout and stays visible.
 - `features.act_controls` hides the whole control card; the cue, readiness and close
   prompt stay.
 - The afterglow summary is independent of `hud_readouts` and is always shown.
@@ -143,7 +147,8 @@ touches neither the tree nor the row.
 ## Tests
 
 `tests/hud/test_hud_lines.gd` covers the formats, the afterglow precedence, heat, the auto
-readout and the tint. `tests/hud/test_hud.gd` covers the card rows and the style helpers.
+readout and the tint. `tests/hud/test_hud.gd` covers the card rows, the style helpers and the
+form-change hint.
 `tests/afterglow/test_afterglow.gd` drives the runtime's HUD forwards.
 
 ## Related docs

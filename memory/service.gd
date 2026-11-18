@@ -8,9 +8,10 @@ extends RefCounted
 ## as `main.memory`. It reads `main.game` and `main.eligibility` per call and stores nothing;
 ## `memory/store.gd` owns the only persisted value, the per-world peak memories.
 ##
-## The boundary is deliberately small: three writes (`commit`, `note`, `record_peak`), four
-## calls on the mod's own line channel, four reads, and `setup`. Variants live in the typed
-## objects in `memory/facts.gd`, never in extra functions. See `docs/memory.md`.
+## The boundary is deliberately small: three writes (`commit`, `note`, `record_peak`), two pure
+## reveal builders (`form_reveal_impression`, `form_reveal_peak`), four calls on the mod's own line
+## channel, four reads, and `setup`. Variants live in the typed objects in `memory/facts.gd`, never
+## in extra functions. See `docs/memory.md`.
 
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")

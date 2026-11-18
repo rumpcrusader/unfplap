@@ -176,6 +176,35 @@ Failure paths keep the one exit:
 during the handover, so a move between bodies cannot run the world-close teardown. `attach_to_body()`
 is the only route that sets it.
 
+### Form interaction
+
+The game's talk turn (`T`/microphone) is the only player interaction; there is no new key, picker
+or settings row. `_player_line_tick()` reads a new director turn in `ACTIVE`, the same turn the
+readiness classifier scores, and passes its text to the source:
+
+- a source that wears another shape consumes a reveal ask through `asks_form_change(text)`; a
+  successful `runtime.request_form_change(true, "", true)` marks the change as the player's;
+- with the post-climax offer pending, a line that names an adult mare through `named_form(text)`
+  starts `request_form_change(false, id)`; `named_form_note(text)` supplies a short status for a
+  worn, own, young/male or uncopyable name and returns nothing for ordinary talk;
+- anything else is ordinary talk and is left to readiness and dialogue.
+
+The offer is made once per act after the first pony climax, in her own form and in `ACTIVE`:
+`_shape_offer_tick()` sets `_shape_offer_pending` and queues one `FORM_OFFER` reaction with a
+code-owned prompt. An unanswered offer ends with the act; the next act may offer again.
+
+A player-requested return to her own form is the act's one exceptional beat
+(`_complete_form_change()`): a `FORM_REVEAL_HEAT` readiness spike, a special impression and world
+event in the `FORM_REVEAL` slot, one `FORM_REVEAL_PEAK_SCORE` peak, and the `form_reveal` input the
+summary/act-history commit reads for an extra great-act comfort. It is recorded once before the
+effects, so a second ask in the same act does nothing. Her own reveal and any named shape are
+neutral: the handover runs, the act continues, and none of the exceptional effects apply. The same
+runtime keeps the flags across the swap; `_end_session()` clears the pending offer and hint.
+
+`_form_hint_tick()` caches the act's one hint for the HUD: the reveal ask while she wears another
+shape and the reveal is unused, the name prompt while the offer is pending, otherwise nothing. It
+runs on the state and event changes, not per frame, and `shared/act_facts.gd` carries the string.
+
 ## Teardown
 
 `_end_session(rejoin_cuddle)` is the only exit path. It gives back, in order: the inventory HUD,
@@ -211,7 +240,8 @@ failed start runs the same function and restores only what it took.
 
 - `_physics_process`: `_physics_tick(delta)` — the body-swap watcher, the pose tick, the facts sync,
   the pose fan-out, the
-  act timer, the readiness tick, the dialogue service, the history scan, the tolerance, the scene
+  act timer, the readiness tick, the dialogue service, the form offer, the history scan, the
+  tolerance, the scene
   keep-alives, the anatomy tick, the thrust tracker and the presentation modules (wings and mod
   integrations). `_sync_pose_frame()` follows the bed or the pony root ground frame before the
   render write. The pose tick advances the oral turn and the edge's switches and events; the
@@ -241,9 +271,10 @@ cross-mod surface is `docs/api.md`; the internal reads the HUD/tests use (`state
 `pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay
 callable.
 
-`request_form_change(true_form, shape_id)` is the act-side shape request the debug block uses; the
-watcher turns it into the suspension. `body_swap_pending()` is true between suspension and resume.
-`main` and the debug actions use these two; no presentation module reads them.
+`request_form_change(true_form, shape_id, by_player)` is the act-side shape request the debug block
+uses and the player interaction calls; the watcher turns it into the suspension, and `by_player`
+marks a requested reveal as exceptional. `body_swap_pending()` is true between suspension and
+resume. `main` and the debug actions use these; no presentation module reads them.
 
 The runtime does not mirror a service's act state. It reads it through the owning facade
 (`_readiness`, `_act_camera`, `_afterglow`, `_hold`, `_pose_session`, `_summary_service`, `_face`)

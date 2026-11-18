@@ -11,6 +11,7 @@ This contract covers:
 - the act's world-context event and its grade-aware impression;
 - the fixed-wording intimacy events (cancel, pony climax, stop, apology);
 - the refusal event and its private thought;
+- the player-requested reveal's impression, event and special peak;
 - the per-world peak-memory record and its read;
 - the witness pass: the perception test, the per-observer age split and the age-appropriate row;
 - the mod's own line channel: queue, key, cancel, cancel-by-act and the typed line state;
@@ -63,10 +64,10 @@ The purity boundary is deliberate:
 enum LineState { ABSENT, QUEUED, GENERATING, SPEAKING, DELIVERED, UNKNOWN }
 enum LineKind { REACTION, UTTERANCE, BYSTANDER }
 enum Reaction { CLIMAX, END_EARLY, HISTORY_REFUSAL, HISTORY_REMINDER,
-                HISTORY_COMPLAINT, TOLERANCE_WARNING, TOLERANCE_STOP }
+                HISTORY_COMPLAINT, TOLERANCE_WARNING, TOLERANCE_STOP, FORM_OFFER }
 enum NoteKind { CANCELLED, CLIMAXED, STOPPED, APOLOGY }
 enum StopReason { NONE, UNWILLING, PICKED_UP, INTERRUPTED, FORM_CHANGE, WITHDREW }
-enum ImpressionSlot { ACT, ACT_EARLY, REFUSAL, STAY_CLOSE }
+enum ImpressionSlot { ACT, ACT_EARLY, REFUSAL, STAY_CLOSE, FORM_REVEAL }
 enum Sense { SIGHT, SOUND }
 
 class Impression:   id, event_id, slot, mood, romance, thought, event_text
@@ -82,6 +83,8 @@ class LineRequest:  kind, id, event_id, suffix, purpose, reaction, valid, finish
 func setup(main_node: Node) -> void
 
 func commit(impression: Impression) -> void
+func form_reveal_impression(id: String, event_id: String) -> Impression
+func form_reveal_peak(id: String, event_id: String, score: float) -> Peak
 func note(kind: NoteKind, id: String, event_id: String, reason := 0) -> void
 func record_peak(peak: Peak) -> void
 
@@ -131,11 +134,17 @@ Rules:
 | `ACT_EARLY` | `:summary` | `:summary` | `relationship` | the summary's `text` |
 | `REFUSAL` | `:mood` | `:mood` | `intimacy` | the refusal text |
 | `STAY_CLOSE` | `:stay_close_gain` | `:stay_close_gain` | `relationship` | the stay-close text |
+| `FORM_REVEAL` | `:form_reveal` | `:form_reveal` | `relationship` | the reveal text |
 
 The `text` is profile-safe: the game's profile rewrites a leading `You and Anon ` to
 `You and <name>`, so no event line uses a second-person pronoun for the pony after that prefix.
 The `thought` stays first-person and never goes through the profile rewrite. A refusal text is
 chosen by the `angry` mood; the stay-close thought is chosen by the `romance` and the mood.
+
+`FORM_REVEAL` is the one exceptional reveal the runtime records for a player's own ask: its fixed
+wording is in `memory/text.gd`, `form_reveal_impression()` builds the impression and
+`form_reveal_peak()` the peak with its own `:form_reveal` event id. The `FORM_OFFER` reaction is
+the act's post-climax offer line, not an impression.
 
 `note(kind, id, event_id, reason)` writes the fixed-wording intimacy events:
 
@@ -239,7 +248,8 @@ memory is marked used only after the caller queues the line.
 - `tests/memory/test_dialogue.gd`: the typed line state, the keep-active cancel and the cancel
   prefix.
 - `tests/memory/test_memory_api.gd`: the facade through a fake game and director — one
-  impression and event per slot, the refusal mood, the stay-close reward, one event per note, the
+  impression and event per slot, the refusal mood, the stay-close reward, the reveal impression
+  and peak, one event per note, the
   cue facts and the memory hit.
 - `tests/test_source_hygiene.gd`: the pure-core boundary, the facade-only preload rule, the
   adapter private-access boundary and this contract's presence.

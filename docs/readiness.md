@@ -109,9 +109,13 @@ both axes match       +1.4 per real thrust × warmth
 one axis matches      +0.7 per real thrust × warmth
 neither matches       no gain; stopping and waiting simply pauses progress
 liked touch / talk    +6.0 once, capped at ASSIST_CAP = 60
+requested reveal      +30.0 once, not assist-capped
 disliked touch/talk   -6.0 once and 1.2 s overwhelmed
 ```
 
+- The player-requested reveal (`docs/runtime.md`, `## Body swap`) adds its one-off spike in
+  `ACTIVE`; because it is not assist-capped it can carry her over `PONY_CLIMAX_AT` on the next
+  tick. Her own reveal and a named shape add nothing.
 - Real thrusts are rate-limited to one scored thrust every `0.2 s`; faster input is presentation.
 - A liked touch or talk opens an 8 s receptive window: real thrusts gain `×1.25`.
 - Touch shares one 4 s scoring cooldown. Alternating caress, kiss and smack does not bypass it.
@@ -253,6 +257,8 @@ settings.
 - `tests/readiness/test_preferences.gd` — profile merge, likes/dislikes, classification.
 - `tests/readiness/test_auto_thrust.gd` — every waveform, pace, band, inverse phase and reset.
 - `tests/readiness/test_auto_panel.gd` — tap/hold, grace, repeats and the shape cycle.
+- `tests/handover/test_body_swap.gd` — the requested reveal's one-off spike and the neutral
+  named-shape path.
 - `tests/readiness/test_readiness_auto.gd` — the facade: defaults, toggle, step, wheel, the panel
   actions and the reset.
 

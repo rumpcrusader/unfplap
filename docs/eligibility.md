@@ -426,6 +426,11 @@ Promiscuity, willingness or cycle change never withdraws her during an act. The 
 the only mid-act stop: `readiness/tolerance.gd` owns disliked-touch distress and its warning/stop
 thresholds (`docs/readiness.md`).
 
+A shape change during an act is still an adult-mare gate. The runtime re-checks
+`eligible(pony, ACT)` on the adopted body and ends the act through `_end_session()` if it fails, so
+a young or male body can never continue the act. The player's named shape is restricted to adult
+mares by the shape-change source before the request starts (`docs/integrations.md`).
+
 ## Debug
 
 - `runtime.debug_line()` prints `show`, `attempt`, `offer`, `buck`, `history`, `ignore`, the policy

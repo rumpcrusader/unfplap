@@ -81,7 +81,7 @@ calling back into the runtime):
 
 ```
 max_pony_climaxes, close_hint, summary_hud, cycle_heat
-y_pink, hud_readouts, hud_controls
+y_pink, hud_readouts, hud_controls, form_hint
 auto_on, auto_layer_open, auto_min_depth, auto_max_depth, auto_pace, auto_shape
 hole_ready, oral_ready
 ```

@@ -113,18 +113,21 @@ Providers must stay scene-free. `tests/test_source_hygiene.gd` rejects `extends 
 
 `integrations/shape_change.gd` is a duck-typed contract plus a small manager. A source is any
 object with `is_active()`, `handles_pony(pony)`, `is_changing()`, `old_actor()`, `new_actor()`,
-`target()`, `claims_body(pony)`, `request_true_form()`, `request_shape(id)`, `poll()`,
-`source_name()` and `requested_by_player()`. `request_appear()`, `prepare_pony()`,
-`installed_character_ids()` and the phase-3 text hooks are optional. The manager's `source_for(pony)`
-returns the first active source that handles the pony; `prepare_pony()` runs every active source's
-hook before the anatomy bind; `installed_character_ids()` merges the sources' away lists.
+`target()`, `current_shape()`, `claims_body(pony)`, `request_true_form()`, `request_shape(id)`,
+`poll()`, `source_name()`, and `requested_by_player()`. `request_appear()`, `prepare_pony()`,
+`installed_character_ids()`, `set_player_request()`, `asks_form_change()`, `named_form()` and
+`named_form_note()` are optional. The manager's `source_for(pony)` returns the first active source
+that handles the pony; `prepare_pony()` runs every active source's hook before the anatomy bind;
+`installed_character_ids()` merges the sources' away lists.
 
 The runtime polls the source at `0.1 s` while an act is live. It suspends when the source's
 `old_actor()` is the act pony and `is_changing()` becomes true; the act state and the one teardown
 are `docs/runtime.md`. The source claims the spawned body through `claims_body()`, so the entry
 adopts the act runtime before it creates another. `request_true_form()` and `request_shape()` are
-the only start calls; `target()` is empty for a return to the owner's own form. A future regular
-changelings mod implements the same surface and registers its source; no core file changes.
+the only start calls; `target()` is empty for a return to the owner's own form, and `current_shape()`
+is empty while she is in it. `set_player_request()` marks the change just started as the player's
+own ask. A future regular changelings mod implements the same surface and registers its source; no
+core file changes.
 
 ## Kissing provider
 
@@ -240,11 +243,19 @@ integration does not depend on a new signal or a rebuilt pack.
 
 The adapter is also the pack's shape-change source. It watches the pack's public `busy`, `actor`
 and `disguised_as`: `request_true_form()` captures the current actor and calls `reveal()`;
-`request_shape(id)` calls `disguise(id)`; `poll()` reads `actor` and clears the change when `busy`
-falls. `claims_body()` accepts her own body for a true form and the `changeling=<id>` variant for a
-named shape. `request_appear()` calls `bring_out()` for the idle debug action. The player's own
-words remain phase 3: `asks_form_change()` and `named_form()` are the source hooks and currently
-return no match. The pack needs no rebuild and no new signal.
+`request_shape(id)` calls `disguise(id)`; `set_player_request()` marks the change as the player's;
+`poll()` reads `actor` and clears the change when `busy` falls. `claims_body()` accepts her own body
+for a true form and the `changeling=<id>` variant for a named shape. `request_appear()` calls
+`bring_out()` for the idle debug action.
+
+The player's own words are the adapter's: `asks_form_change(text)` matches its reveal phrase set
+(“true form”, “real you”, “drop the disguise”, “unmask” and similar). `named_form(text)` matches an
+adult mare's display name or id against the base roster and the entry's live off-roster/provider
+list; it excludes the shape she already wears and herself, refuses a tied ambiguous name, and
+returns a shape only when the game's population has a scene the pack can copy. `named_form_note()`
+returns a short status when the line names a shape she already wears, herself, a known young or male
+body, or an uncopyable pony, and returns nothing for ordinary talk. The pack needs no rebuild and no
+new signal.
 
 ## Settings
 
@@ -300,7 +311,7 @@ overlay reads them.
 | `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
 | `main._on_pony()` | runs the manager's `prepare_pony()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
 | `main.live_character_ids()` | merges the manager's `installed_character_ids()` |
-| `runtime.request_form_change()` | the act-side start of a source change; the watcher owns the suspension |
+| `runtime.request_form_change()` | the act-side start of a source change; the watcher owns the suspension and the player flag marks an exceptional reveal |
 | `runtime.adopt_body()` / `attach_to_body()` | moves the suspended act under the claimed body |
 | `Mods.is_active("changelings")` | the adapter's installation gate |
 
@@ -340,7 +351,9 @@ overlay reads them.
   on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
   the body-fit/custom-tail metadata for her own body, a disguise and an unrelated pony. It also
   pins the shape-change source through the manager: the actor/old/new/target state, the true-form
-  and named requests, the claimed body, the idle appear hook and the completion poll.
+  and named requests, the claimed body, the idle appear hook and the completion poll. The player
+  hooks cover the reveal phrases, adult base/live names, ambiguous names, the worn shape and self,
+  known ineligible bodies, and the population's copyable check.
 - `tests/handover/test_body_swap.gd` — the generic handover the source drives; `docs/runtime.md`
   owns its rules.
 - `tests/test_settings.gd` — the Integrations tab draws every provider header, flag and the Debug
@@ -377,6 +390,14 @@ overlay reads them.
   and **Form: next named shape** drive the source outside an act. During a standing and a
   missionary act the same two actions exercise the body handover: the flame plays, the act
   re-poses on the new body and continues, and a second change is refused until the first finishes.
+- Disguised during a standing or missionary act, say the reveal ask in the game's talk turn
+  (`T`/microphone): the flame plays, the act re-poses on her own body and continues, the readiness
+  spike and the reveal impression/peak/comfort appear once, and a second ask does nothing. Her own
+  AI reveal must get the handover but not the exceptional event.
+- After one climax in her own form, wait for the offer line and the HUD hint; name a base adult
+  mare and check the act re-poses on that disguise with no comfort or peak boost. Name a young or
+  male body and check the short status and the unchanged act.
+- Leave the offer unanswered through an act end: no change, and the next act may offer again.
 
 ## Related docs
 

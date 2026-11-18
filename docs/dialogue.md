@@ -104,8 +104,10 @@ afterglow-beat reads, so the module has no scene access.
 
 A reaction is `memory.reaction_line`: a `LineRequest` with `LineKind.REACTION`. It never waits for
 a quiet channel, but `note_reaction()` resets the shared gap so a cue cannot follow immediately.
-The act's reactions are climax, intentional early end, history refusal and the tolerance
-warning/stop.
+The act's reactions are climax, intentional early end, history refusal, the tolerance
+warning/stop and the shape-change offer (`form_offer`). The offer uses the code-owned runtime
+prompt when the mare has no `event_form_offer` setting, and it is queued once per act from
+`runtime._shape_offer_tick()`.
 
 The bystander pass is always on. It uses `memory.observers()` and the modern witness perception.
 It starts after 12 s, repeats every 20 s, has a 70 % roll and caps at three lines. Its validity
@@ -183,8 +185,10 @@ story journal (a cue-word match, then the most recent player exchange), then old
 events. Intimacy events and private brain notes are skipped. The memory is colour, not a script. A
 peak memory quotes her answer only when she spoke during the act.
 
-Talk is scored when the player actually uses the game's talk turn. There is no act
-talk-invitation line or HUD hint.
+Talk is scored when the player actually uses the game's talk turn. The turn also carries the
+shape-change interaction: the runtime reads the same text for the reveal ask and the named shape,
+and the act HUD shows one code-owned hint for it (`docs/hud.md`). There is no talk-invitation line
+for ordinary cues.
 
 Unprompted cue and reaction lines are always on. The line-angle note adds one fresh angle and the
 “use something from today if it fits” hint to a cue line, and the recent-line anti-repeat window

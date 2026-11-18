@@ -154,12 +154,13 @@ are therefore dictionary reads, not a rebuild per check. The table is built only
 reads `tolerance.normal_cooldown_s` or `tolerance.strict_cooldown_s`, the same values the
 readiness meter uses, so the two systems cannot disagree.
 
-Only good and bad acts move the points. Neutral acts change no history.
+Only good and bad acts move the points, plus the exceptional requested reveal.
 
 | Event | Effect |
 |---|---|
 | Good act | `comfort +1`, `hurt -1` |
 | Great act | `comfort +2`, `hurt -2` |
+| Requested form reveal | `comfort +2` on top of a non-bad act |
 | Bad act | `hurt +1`, `comfort -1` |
 | Severe bad act | `hurt +2`, `comfort -1` |
 | Neutral early end | `hurt +1` |
@@ -168,6 +169,10 @@ Only good and bad acts move the points. Neutral acts change no history.
 | Stay close and caress after a bad act | `hurt -1` |
 
 `hurt` and `comfort` are capped at `8`.
+
+The player-requested reveal (`docs/runtime.md`, `## Body swap`) is an exceptional positive beat:
+the summary input `form_reveal` adds the great-act comfort after the grade's own change and does
+not change the grade or soften a bad act. Her own reveal and a named shape add nothing.
 
 ## Tiers
 
@@ -278,9 +283,9 @@ block. They are debug numbers, so stored values are never clamped. See `docs/set
 
 - `tests/summary/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike
   neutrality, severe handling, early end, stopped-by-her severe outcome, forced stop, short act,
-  motion and touch misses.
+  motion and touch misses, and the reveal input carried into the outcome.
 - `tests/summary/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
-  sanitising, pending lines, reset and the write revision.
+  sanitising, pending lines, reset, the write revision and the reveal's extra comfort.
 - `tests/summary/test_act_flow.gd` — runtime snapshot and afterglow HUD summary.
 - `tests/summary/test_history.gd` — facade: summary commit and peak memory.
 - `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.

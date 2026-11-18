@@ -25,11 +25,11 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy/service.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement editor |
-| `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat and appearance forwards, act lifecycle and the typed-facts boundary |
+| `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat and appearance forwards, the player-part handle, act lifecycle and the typed-facts boundary |
 | `anatomy/attach.gd` | persistent attachment: mesh/anchor/dock, visibility, dock restore, the fluid node and idle discharge |
-| `anatomy/facts.gd` | typed runtime context: state, pose, depth, bed frame, cycle phase and the host callbacks |
+| `anatomy/facts.gd` | typed runtime context: state, pose, depth, bed frame, cycle phase, the contact/family/frame predicates and the host callbacks |
 | `anatomy/placement.gd` | saved offset/pitch/scale, the calibrated lift and the missionary trims |
-| `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads the typed act facts and the pose view's contact, and returns its opening normal and lid shape |
+| `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads the typed act facts and their contact predicates, and returns its opening normal and lid shape |
 | `anatomy/act_bridge.gd` | per-act handle the runtime owns: the persistent controller handle, the per-act handle, the typed context, the missionary body, the VR controller, the action gates and the aim/gaze reads |
 | `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
 | `anatomy/act/oral.gd` | the mouth/contact provider: mouth point, base opening, D viseme and clear |
@@ -43,7 +43,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/body_fit.gd` | carries a part modelled on the mare body onto another body's skin binds |
 | `anatomy/udder.gd` | the generated two-lobe teats, grown from her own belly surface |
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
-| `anatomy/player.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
+| `anatomy/player.gd` | player part mesh, placement, the act's aim/bed-inset write seam, girth/head/length shaping, throb and the hip-offset handshake |
 | `shared/anatomy_placement.gd` | pure placement schema, merge/sanitize/diff and the one-time legacy migration |
 | `shared/body_profile.gd` | the winking body profiles, the body-fit key and the standing entrance offset |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
@@ -65,8 +65,9 @@ The internal entry points are:
   creates the player part, and the placement debug buttons forward to the service.
 - `anatomy/service.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
   placement editor. It supplies the typed facts, the service, consent, status and the dock
-  refresh to each controller. Runtime and pose systems use its methods; no other system needs the
-  player node or a controller handle.
+  refresh to each controller, and pushes the live player part to every controller on a player
+  rebuild. Runtime and pose systems use its methods; no other system needs the player node or a
+  controller handle.
 - `runtime.gd` resolves the controller through the service, passes the typed facts object,
   asks it to begin/end the act, ticks the act handle, and supplies the body-coat jiggle handoff.
 - `poses/missionary_anon.gd` and `poses/standing_anon.gd` use the service's player methods for the hip
@@ -77,7 +78,8 @@ The internal entry points are:
 
 The controller reads the typed `anatomy/facts.gd` object and host callbacks; it never reads the
 runtime node. `anatomy/attach.gd` owns the mesh, dock, visibility and fluid, so the controller is
-a thin shell.
+a thin shell. The act reads the controller's `part()` handle and `player_track()` forward; it has
+no service dependency.
 
 ## Internal API
 
@@ -95,7 +97,7 @@ placement_debug(op, value), placement_show()
 consent(pony, key), status(text)
 garment_hull(pony), garment_transform(pony), garment_visible(pony), garment_parent(pony)
 garment_hull_rebuild(), note_act_started(pony)
-player_encounter(on), player_track(...), player_showing()
+player_encounter(on), player_showing()
 player_prepare(), player_root_now(), player_shaft_length_m()
 player_hip_offset(), player_note_hip_offset(offset), player_debug_scale()
 ```
@@ -103,8 +105,9 @@ player_hip_offset(), player_note_hip_offset(offset), player_debug_scale()
 `main.anatomy.controller(pony)` (per-pony handle):
 
 ```gdscript
-setup(pony, facts, service, consent, status, dock_refresh)
+setup(pony, facts, service, consent, status, dock_refresh, eligible)
 set_facts(facts)
+set_part(node), part(), player_track(...)
 refresh(), detach(), apply_live()
 begin_act() -> Node, end_act()
 apply_part_visibility(show, teats_on, strip_on)
@@ -318,7 +321,9 @@ fade. The hull block is in the copied compatibility shaders under
   scaled, then mapped through the `pony_hips` bind. A princess profile scales the origin and basis
   about the body. `Dock style` is visibility/colour only and never moves the mesh.
 - `vulva_out_mm` pushes the whole mesh out along its own normal; it exists for a pose that tucks
-  the anatomy into the coat.
+  the anatomy into the coat. `placement.read_settings()` caches `vulva_out_mm` and the per-size
+  trims on attach and `apply_live()`; a live edit applies at that refresh, not on the per-frame
+  trim.
 - Missionary adds the per-size vulva trims from `presentation.missionary.size.<preset>`:
   `vulva_shift_mm` (world up/down), `vulva_pitch_deg` (about the bed's lateral axis) and
   `vulva_depth_shift_mm` (starts at 20% depth and reaches its signed value at full thrust). They
@@ -341,12 +346,20 @@ fade. The hull block is in the copied compatibility shaders under
 
 The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `pose_view`, `depth`,
 `penetration_m`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`, `penetration_reach`,
-`bed_frame` and `cycle_phase`. The act and the persistent controller read that object and the
+`bed_frame` and `cycle_phase`. The bridge owns that one object; the act keeps it across ticks and
+`reset()` never allocates another. The act and the persistent controller read the object and the
 host callbacks; neither reads the runtime node. The act no longer writes pose keys or a facing: the
-pose-owned oral turn owns the frame, the facing and the neck keys, and the act reads the pose
-view's contact for its part target and shape drive and its `frame` for the bed-only inset.
+pose-owned oral turn owns the frame, the facing and the neck keys, and the act reads the facts
+contact predicates for its part target and shape drive and its `frame` for the bed-only inset.
 The per-act handle is created without a start pose id. It returns the mouth point and opening through
 `oral_mouth_point()`/`hole_point()` for the runtime's pose host callbacks.
+
+The controller's `part()` handle is the one player-part seam. The service pushes the live part to
+every controller on `player_ready()`, `refresh_player()` and `clear_player()`; the act caches the
+handle from `anatomy.part()` in `setup()`, refreshes an invalid handle in `tick()`, and calls
+`anatomy.player_track()` for the per-tick track. The act writes the aim and the bed inset through
+`player.set_aim()` and `player.set_bed_inset()` instead of setting fields by name. The missionary
+`part_inset_m` is read once in `setup()`; a live debug edit applies at the next act.
 
 The bridge also writes `perf_on` from the host's `perf_enabled`, so the persistent controller takes
 no idle perf clock while the debug probe is off. See `docs/perf.md`.
@@ -376,8 +389,9 @@ The host is a plain dictionary of callables. The runtime supplies `main`, `pony`
 The bridge never reads `runtime` or `main` private fields and never preloads either host. The
 action keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the
 bridge only routes them. `oral_ready()` is the feature, the standing pose family and an active act;
-`hole_ready()` reads the pose view's mouth and face contacts so V is refused while either owns the
-contact. The VR left `by_button` emits the `oral`
+`hole_ready()` reads the facts `mouth_contact()`/`face_contact()` predicates so V is refused while
+either owns the contact. The bridge's own contact reads and `pose_family()` use the same facts
+helpers, so the bridge and the act share one predicate. The VR left `by_button` emits the `oral`
 command through the host's `command` callback.
 
 The face contact has a real provider. `face_point()` is the act body's `mouth_point()` — his
@@ -419,6 +433,9 @@ wrapper resolve against the body that is actually there.
 
 ### Shape drive
 
+- The grip and anal tuning is cached by `shapes.read_settings()` on `set_mesh()` and
+  `controller.apply_live()`: the vulva hug (global and missionary), the anal hug, the anal aim and
+  the anal scale. A live edit applies at that refresh, not mid-tick.
 - The act reads the player part's girth at the opening. Without a part, the width comes from the
   depth scale. `_wide` is the local girth ratio and drives the vulva stretch, the anal shape and
   the shader cut.
@@ -507,7 +524,9 @@ wrapper resolve against the body that is actually there.
 - `POSING_IN`, `ACTIVE` and `CLIMAX` suppress the idle display because the act owns the mesh.
   `AFTERGLOW`, `RESTORE` and `IDLE` may display it.
 - The idle display requires the anatomy mesh to be shown and not a far mesh.
-- In heat she rests at `heat_rest_open` of the open shape. Each idle burst uses
+- In heat she rests at `heat_rest_open` of the open shape. The rest is cached by
+  `heat.read_settings()` on setup and `controller.apply_live()`; a live edit applies at that
+  refresh, not mid-tween. Each idle burst uses
   `cycle.wink_burst_count()`: 70% single, 25% double, 5% triple. The gap is
   `wink_min_s…wink_max_s`.
 - Each beat opens to the `wink_open_min…wink_open_max` range of the open shape with an
@@ -559,7 +578,9 @@ wrapper resolve against the body that is actually there.
   `anal_still` the anal zone, `still_oval` the vertical half-axis, `still_fade` the rim fade,
   `still_height_mm` the vulva zone's vertical placement and `vulva_out_mm` the mesh push.
   `draw_still_zones` overlays the two ellipsoids and their fully-still cores. The coat reads the
-  oval and fade into its ring fields from the uniform pass; it holds no default for them.
+  oval and fade into its ring fields from the uniform pass; it holds no default for them. The
+  deform and draw-still-zone toggles are cached on the visibility poll; the per-frame ring check
+  reads the fields.
 - The per-pony rig duplicate and its outline, plus the patched merged near materials, are added
   back to the game's jiggle target list after every `_start_jiggle()`. The anatomy also re-adds
   them on a stock flank smack through `physical_reaction("flank_smack")`.
@@ -614,7 +635,9 @@ sample of the body coat.
   retries every two seconds while it cannot be built. The line does not tick while the anatomy
   mesh is hidden.
 - **Anatomy → Debug → Coat line** gates the whole line. Off uploads `line_count = 0` and keeps
-  the mesh rigid; **Draw coat line** only controls the overlay.
+  the mesh rigid; **Draw coat line** only controls the overlay. The controller caches both toggles
+  in `_read_toggles()` on setup, `refresh()` and `apply_live()`, so a live edit applies there and
+  the per-frame path only reads fields.
 - With **Anatomy → Debug → Draw coat line** on, `anatomy/coat_line_debug.gd` draws the rest line,
   the live line and one cross-section marker per sample under the anatomy mesh. Live segments
   warm up when stretched and cool down when compressed.
@@ -650,6 +673,9 @@ sample of the body coat.
   lips. The attached aim pulls his pelvis to `opening - normal × (shaft - penetration)`; the
   sliding aim puts the tip there; the bed holder sits `shaft - penetration` behind her. The
   applied value is eased by `PENETRATION_SMOOTH_S = 0.06 s`.
+- The act writes the part's per-frame aim through `set_aim(normal, opening, pitch)` and the
+  missionary slide through `set_bed_inset(metres)`. `bed_inset_m` comes from the act's
+  once-per-act `part_inset_m`; a live debug edit applies at the next act.
 - The hip-offset handshake is two-way: the part publishes `hip_offset_wanted` and accepts
   `hip_offset_applied` after the pose moves his pelvis. `reset_state()` clears the offset, aim,
   bend, squash, shader squish, throb, bed inset and the smoothed penetration, so a following act
@@ -762,6 +788,12 @@ sample of the body coat.
 The declarations are in `settings/service.gd` and their values in
 `settings/defaults.json`; this section is the anatomy-specific contract. The settings page is
 built from the declarations, so the label, help and bounds are not restated here.
+
+The frame-path values are snapshotted: the coat-line and draw toggles, the anatomy mode, the
+grip/aim/scale tuning, the placement trims, the part standoff and the idle rest are read on
+`setup()`, `apply_live()` or the visibility poll. A live edit applies at that refresh;
+`part_inset_m` applies at the next act. The wink burst shape/timing and the action feature flags
+stay event-time reads.
 
 - `anatomy.anatomy_mode`: `never`, `act` or `always`. It replaced the old master
   switch and `act_only`, and drives `SETTINGS.anatomy_on()`. While `never` is selected the settings
@@ -884,13 +916,13 @@ Current suites:
   generated teats' own material with `sway_custom`.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, the stable-id override
   against the body-fit default, dock visibility, the regular tail seat, idle heat, mesh refinement,
-  act calls, the player part's idempotent `prepare()`, the rig and near coat patch, the drawn
-  coat choice over a hidden game body, the vulva cut and still zones, the face contact's parked
-  part and restored opening, plus the provider's
-  `eligible` assertion and the participation gate). The source-owned tail wrapper is
+  act calls, the controller's part handle and track forward, the player part's idempotent
+  `prepare()`, the rig and near coat patch, the drawn coat choice over a hidden game body, the
+  vulva cut and still zones, the face contact's parked part and restored opening, plus the
+  provider's `eligible` assertion and the participation gate). The source-owned tail wrapper is
   `tests/integrations/test_changelings.gd`.
-- `tests/anatomy/test_facts.gd`: the typed context defaults and its optional perf/log/smack
-  callbacks.
+- `tests/anatomy/test_facts.gd`: the typed context defaults, the contact/family/frame predicates
+  and the optional perf/log/smack callbacks; `reset()` keeps the context it was given.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.
 - `tests/anatomy/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
 - `tests/anatomy/test_tail_hide.gd`: the debug tail collapse and restore.
@@ -963,9 +995,10 @@ The anatomy migration is complete:
 - The player part and tail seating are under `anatomy/`; `main` keeps only thin debug/button
   forwards and the HUD status gateway. The player body, the dock refresh, the perf sink and the
   debug logger are injected into the anatomy modules.
-- The act and the persistent controller receive the typed `anatomy/facts.gd` context from the
-  runtime instead of reading runtime private fields, and return the oral pose delta and facing
-  instead of writing the runtime's pose config.
+- The bridge owns the one typed `anatomy/facts.gd` context; the act and the persistent controller
+  read it instead of runtime private fields and never allocate a second object. The act reads the
+  controller's player-part handle and returns its opening normal and mouth point through its
+  public reads.
 - Tests live under `tests/anatomy/`, split pure vs facade. The boundary is enforced by
   `tests/test_source_hygiene.gd`.
 

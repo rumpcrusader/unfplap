@@ -649,6 +649,9 @@ func _adopt_pending_swap(pony: Node) -> bool:
 	var duplicate: Variant = _runtimes.get(pony)
 	if is_instance_valid(duplicate) and duplicate != runtime:
 		# A runtime created before adoption could only be a race; the suspended act is the owner.
+		# Its anatomy controller holds the duplicate's facts, so drop it before the bind below.
+		if is_instance_valid(anatomy) and anatomy.has_method("detach_controller"):
+			anatomy.call("detach_controller", pony)
 		if duplicate.has_method("force_stop"):
 			duplicate.call("force_stop")
 		duplicate.queue_free()

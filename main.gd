@@ -30,6 +30,8 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
 const SHAPE_CHANGE := preload("res://mods/unfplap/integrations/shape_change.gd")
+const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
+const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/audio/stock_smack.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
@@ -1990,6 +1992,23 @@ func refresh_anatomy() -> void:
 		anatomy.call("refresh_all")
 		anatomy.call("apply_live")
 		anatomy.call("player_apply_live")
+
+
+func refresh_body_lod(pony: Node) -> void:
+	if not is_instance_valid(pony):
+		return
+	HYBRID_NEAR_MESH.cache.erase(HYBRID_NEAR_MESH.key(pony))
+	var far_key: String = HYBRID_FAR_MESH._id(pony)
+	HYBRID_FAR_MESH.cache.erase(far_key)
+	HYBRID_FAR_MESH.shadow_cache.erase(far_key)
+	HYBRID_FAR_MESH.eyes_cache.erase(far_key)
+	if not pony.has_method("set_near_mesh"):
+		return
+	var enabled: Variant = pony.get("near_mesh_enabled")
+	if enabled != null and not bool(enabled):
+		return
+	pony.call("set_near_mesh", false)
+	pony.call("set_near_mesh", true)
 
 
 ## integration: the chat box refuses while the act holds the controls; open it past that lock.

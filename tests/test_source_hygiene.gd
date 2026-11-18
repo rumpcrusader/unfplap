@@ -1283,6 +1283,12 @@ func _check_integrations_isolation(files: Array[String]) -> void:
 		"the changelings adapter exposes the installed list and body hooks")
 	check(changelings.contains("func _observe("),
 		"the changelings adapter observes a change its own AI starts")
+	check(changelings.contains("func _change_shape_for(")
+		and changelings.contains("_change_fit_done"),
+		"the changelings adapter fits a named change's new body before its variant")
+	check(changelings.contains("func _prepare_change_body(")
+		and changelings.contains("refresh_body_lod"),
+		"the changelings adapter refits the settled shape and rebuilds its LOD")
 
 
 ## The integrations contract is linked from the docs that own the lifecycle, settings and tests.
@@ -1335,6 +1341,12 @@ func _check_body_swap() -> void:
 	var swap_tick := _func_body(runtime, "_body_swap_tick")
 	check(swap_tick.contains("State.RESTORE") and swap_tick.contains("_restore_shape_change_tick()"),
 		"the watcher finishes a restore before a shape change can free the body")
+	check(swap_tick.contains("_body_swap_ready") and swap_tick.contains("BODY_SWAP_WATCHDOG_S"),
+		"the watcher resumes only on the shape, the source's end or the watchdog")
+	check(not _func_body(runtime, "adopt_body").contains("_resume_after_body_swap"),
+		"adoption binds the new body without resuming the act")
+	check(_func_body(runtime, "_body_swap_ready").contains("_swap_shape_confirmed"),
+		"the shape wait records whether the target was seen")
 	check(_func_body(runtime, "_late_body_pending").contains("adopt_pending_body"),
 		"the late body waits for the entry's adoption")
 	var suspend := _func_body(runtime, "_suspend_for_body_swap")
@@ -1350,14 +1362,21 @@ func _check_body_swap() -> void:
 	for name: String in ["_climax", "_afterglow_begin", "_restore_begin"]:
 		check(_func_body(runtime, name).contains("_form_hint_tick()"),
 			"%s clears the cached form hint" % name)
-	check(_func_body(runtime, "_complete_form_change").contains("_shape_offer_pending = true"),
+	check(_func_body(runtime, "_restore_shape_offer").contains("_shape_offer_pending = true"),
 		"a failed named change restores the offer")
+	check(_func_body(runtime, "_complete_form_change").contains("shape = target"),
+		"the completion uses the passed target when the shape did not report")
 	check(_func_body(runtime, "_complete_form_change").contains(
 		"if by_player and not shape.is_empty():"),
 		"only the player's named shape spends the offer")
 	check(_func_body(runtime, "_complete_form_change").contains(
 		"if by_player and target.is_empty() and shape.is_empty()"),
 		"a named change with no reported shape is not a reveal")
+	var main_refresh := _func_body(main, "refresh_body_lod")
+	for token: String in ["HYBRID_NEAR_MESH.cache.erase", "HYBRID_FAR_MESH.cache.erase",
+			"HYBRID_FAR_MESH.shadow_cache.erase", "HYBRID_FAR_MESH.eyes_cache.erase",
+			"set_near_mesh"]:
+		check(main_refresh.contains(token), "the entry LOD refresh keeps %s" % token)
 	check(_func_body(runtime, "_end_session").contains("clear_body_swap"),
 		"the one exit clears a pending swap")
 	check(_func_body(runtime, "_exit_tree").contains("_swapping_parent"),

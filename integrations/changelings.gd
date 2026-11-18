@@ -89,6 +89,8 @@ var _change_old: Node = null
 var _change_new: Node = null
 var _change_target := ""
 var _change_by_player := false
+var _change_fit_done := false
+var _change_refit_done := false
 ## The last body the act asked about. The runtime resolves its source through `handles_pony`
 ## before every poll, so this is the act pony without a new contract method.
 var _act_pony: Node = null
@@ -275,6 +277,13 @@ func poll() -> void:
 				shape = str(mod.get("disguised_as")).strip_edges()
 			if not shape.is_empty():
 				_change_target = shape
+	if not _change_target.is_empty() and not _change_refit_done \
+			and is_instance_valid(_change_new):
+		if _pack_shape(_change_new, mod) == _change_target:
+			_change_refit_done = true
+			_change_fit_done = true
+			_apply_fit(_change_new, _change_target, null)
+			_prepare_change_body(_change_new)
 	if not bool(mod.get("busy")):
 		_end_change()
 
@@ -393,6 +402,15 @@ func refresh() -> void:
 ## shape without a crash.
 func prepare_pony(pony: Node) -> void:
 	if not active() or not is_instance_valid(pony):
+		return
+	if _changing and not _change_target.is_empty():
+		var named := _change_shape_for(pony)
+		if named.is_empty():
+			return
+		_change_new = pony
+		if not _change_fit_done:
+			_apply_fit(pony, named, null)
+			_change_fit_done = true
 		return
 	if _is_disguise(pony):
 		var shape := _shape_of(pony)
@@ -639,6 +657,34 @@ func _is_disguise(pony: Node) -> bool:
 	return str(pony.get_meta("geometry_variant", "")).begins_with(SHAPE_PREFIX)
 
 
+func _change_shape_for(pony: Node) -> String:
+	if not _changing or _change_target.is_empty() or not is_instance_valid(pony):
+		return ""
+	if is_instance_valid(_change_new):
+		return _change_target if pony == _change_new else ""
+	if pony == _change_old:
+		return ""
+	var mod := _source_mod()
+	if mod == null:
+		return ""
+	var actor: Variant = mod.get("actor")
+	if actor is Node and is_instance_valid(actor) and pony == actor:
+		return _change_target
+	return ""
+
+
+func _pack_shape(pony: Node, mod: Node) -> String:
+	var shape := _shape_of(pony)
+	if not shape.is_empty():
+		return shape
+	if mod == null:
+		return ""
+	var actor: Variant = mod.get("actor")
+	if actor is Node and is_instance_valid(actor) and pony == actor:
+		return str(mod.get("disguised_as")).strip_edges()
+	return ""
+
+
 ## The copied pony's id from the pack's own geometry variant, or "".
 func _shape_of(pony: Node) -> String:
 	var variant := str(pony.get_meta("geometry_variant", ""))
@@ -819,6 +865,8 @@ func _begin_change(old: Node, shape_id: String, by_player: bool) -> void:
 	_change_new = null
 	_change_target = shape_id
 	_change_by_player = by_player
+	_change_fit_done = false
+	_change_refit_done = false
 	# The pack is busy from here; the next rising edge is a new change, not this one.
 	_busy_seen = true
 	set_process(true)
@@ -827,9 +875,22 @@ func _begin_change(old: Node, shape_id: String, by_player: bool) -> void:
 ## The pack has finished (or vanished). The old/new handles stay readable for the act watcher.
 func _end_change() -> void:
 	_changing = false
+	_change_fit_done = false
+	_change_refit_done = false
 	set_process(false)
 	var mod := _source_mod()
 	_busy_seen = mod != null and bool(mod.get("busy"))
+
+
+func _prepare_change_body(pony: Node) -> void:
+	if not is_instance_valid(main) or not is_instance_valid(pony):
+		return
+	if main.has_method("prepare_pony_late"):
+		main.call("prepare_pony_late", pony)
+	if main.has_method("refresh_anatomy"):
+		main.call("refresh_anatomy")
+	if main.has_method("refresh_body_lod"):
+		main.call("refresh_body_lod", pony)
 
 
 ## The pack's world node. The pack registers this group in its own `_ready`.

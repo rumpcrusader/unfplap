@@ -182,6 +182,7 @@ var _swap_new_pony: Node = null
 var _swap_pose := ""
 var _swap_target := ""
 var _swap_by_player := false
+var _swap_shape_confirmed := false
 var _swap_elapsed := 0.0
 var _swap_clock := 0.0
 ## Form-change interaction: the exceptional reveal is once per act, the offer is once per act,
@@ -2221,17 +2222,26 @@ func _body_swap_tick(delta: float) -> void:
 		var source: Variant = _swap_source
 		if is_instance_valid(source) and source.has_method("poll"):
 			source.call("poll")
-		if is_instance_valid(_swap_new_pony):
-			# Adoption normally resumes at once; this is the fallback for a late handover.
-			_resume_after_body_swap()
-			return
+		if _swap_target.is_empty() and is_instance_valid(source) and source.has_method("target"):
+			var reported := str(source.call("target")).strip_edges()
+			if not reported.is_empty():
+				_swap_target = reported
 		var changing: bool = is_instance_valid(source) and source.has_method("is_changing") \
 			and bool(source.call("is_changing"))
 		if is_instance_valid(source) and source.has_method("is_active") \
 				and not bool(source.call("is_active")):
 			changing = false
+		if is_instance_valid(_swap_new_pony):
+			if _body_swap_ready(source, changing):
+				_resume_after_body_swap()
+			elif _swap_elapsed >= BODY_SWAP_WATCHDOG_S:
+				_log("body swap watchdog; the new body never reported the shape, resuming")
+				_resume_after_body_swap()
+			return
 		if not changing:
 			if _late_body_pending(source):
+				if is_instance_valid(_swap_new_pony) and _body_swap_ready(source, changing):
+					_resume_after_body_swap()
 				return
 			if is_instance_valid(pony) and pony == _swap_old_pony:
 				_log("body swap failed; the old body survives, resuming pony=%s" % str(pony.name))
@@ -2262,6 +2272,19 @@ func _body_swap_tick(delta: float) -> void:
 	if not source.has_method("old_actor") or source.call("old_actor") != pony:
 		return
 	_suspend_for_body_swap(source)
+
+
+func _body_swap_ready(source: Variant, changing: bool) -> bool:
+	var shape := _source_current_shape(source) if is_instance_valid(source) else ""
+	if _swap_target.is_empty():
+		if shape.is_empty():
+			_swap_shape_confirmed = true
+			return true
+		return not changing
+	if shape == _swap_target:
+		_swap_shape_confirmed = true
+		return true
+	return not changing
 
 
 ## The source finished before the new body's spawn reached the entry. Keep the act suspended
@@ -2314,6 +2337,7 @@ func _suspend_for_body_swap(source: Variant) -> void:
 	_swap_old_pony = pony
 	_swap_new_pony = null
 	_swap_target = ""
+	_swap_shape_confirmed = false
 	if source.has_method("target"):
 		_swap_target = str(source.call("target")).strip_edges()
 	_swap_by_player = source.has_method("requested_by_player") \
@@ -2375,7 +2399,8 @@ func adopt_body(new_pony: Node) -> void:
 		_log("body swap ended: the new body is not an adult mare pony=%s" % str(new_pony.name))
 		force_stop()
 		return
-	_resume_after_body_swap()
+	if is_instance_valid(main) and main.has_method("refresh_body_lod"):
+		main.call("refresh_body_lod", new_pony)
 
 
 ## Resume the same act on the adopted body: anatomy, pose, camera, ownership and the body-bound
@@ -2389,6 +2414,7 @@ func _resume_after_body_swap() -> void:
 	var changed := is_instance_valid(_swap_new_pony)
 	var by_player := _swap_by_player
 	var target := _swap_target
+	var confirmed := _swap_shape_confirmed
 	var source: Variant = _swap_source
 	_suspended = false
 	_swap_source = null
@@ -2396,6 +2422,7 @@ func _resume_after_body_swap() -> void:
 	_swap_old_pony = null
 	_swap_target = ""
 	_swap_by_player = false
+	_swap_shape_confirmed = false
 	_swap_elapsed = 0.0
 	_swap_clock = BODY_SWAP_POLL_S
 	if is_instance_valid(main) and main.has_method("clear_body_swap"):
@@ -2439,7 +2466,7 @@ func _resume_after_body_swap() -> void:
 		main.hud.update_from(_act_facts)
 	_log("body swap resumed pony=%s id=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
 		str(pony.name), _id, state, _swap_pose, depth, pony_climaxes])
-	_complete_form_change(source, changed, by_player, target)
+	_complete_form_change(source, changed, by_player, target, confirmed)
 
 
 ## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is
@@ -2511,6 +2538,7 @@ func _failed_body_swap(reason: String) -> void:
 	_swap_old_pony = null
 	_swap_target = ""
 	_swap_by_player = false
+	_swap_shape_confirmed = false
 	_suspended = false
 	force_stop()
 
@@ -3448,14 +3476,21 @@ func _form_hint_tick() -> void:
 ## any other change (her own or a named shape) is a neutral continuation. A named change that
 ## failed before the new body arrived puts the offer back so the player gets a second chance.
 ## Her own change never spends the player's offer; only the call the player made does.
-func _complete_form_change(source: Variant, changed: bool, by_player: bool, target := "") -> void:
+func _complete_form_change(source: Variant, changed: bool, by_player: bool, target := "",
+		confirmed := false) -> void:
 	if not changed:
-		if not target.is_empty() and _shape_offer_done and not _shape_offer_pending:
-			_shape_offer_pending = true
-			_log("form change failed; the shape offer stands again id=%s" % _id)
+		_restore_shape_offer(target, by_player)
 		_form_hint_tick()
 		return
 	var shape := _source_current_shape(source) if is_instance_valid(source) else ""
+	if shape.is_empty() and not target.is_empty() and confirmed:
+		shape = target
+	if not target.is_empty() and shape != target:
+		_restore_shape_offer(target, by_player)
+		_form_hint_tick()
+		_log("form change failed id=%s target=%s shape=%s exceptional=false" % [
+			_id, target, shape if not shape.is_empty() else "self"])
+		return
 	if by_player and target.is_empty() and shape.is_empty() and is_instance_valid(source):
 		if not _form_reveal_done:
 			_commit_form_reveal()
@@ -3467,6 +3502,15 @@ func _complete_form_change(source: Variant, changed: bool, by_player: bool, targ
 	_form_hint_tick()
 	_log("form changed id=%s shape=%s exceptional=false" % [
 		_id, shape if not shape.is_empty() else "self"])
+
+
+func _restore_shape_offer(target: String, by_player: bool) -> void:
+	if not by_player or target.is_empty():
+		return
+	if not _shape_offer_done or _shape_offer_pending:
+		return
+	_shape_offer_pending = true
+	_log("form change failed; the shape offer stands again id=%s" % _id)
 
 
 ## Once per act: a large readiness spike, one special impression and world event, one peak, and
@@ -4181,6 +4225,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_swap_old_pony = null
 	_swap_target = ""
 	_swap_by_player = false
+	_swap_shape_confirmed = false
 	_swap_elapsed = 0.0
 	_shape_offer_pending = false
 	_form_hint = ""

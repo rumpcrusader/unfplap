@@ -192,6 +192,7 @@ class FakeMain extends Node:
 	var stock_smack: Variant = null
 	var source: Variant = null
 	var memory: Variant = null
+	var lod_refreshes: Array[Node] = []
 
 	func begin_body_swap(runtime: Node, old_pony: Node, id: String, source: Variant,
 			target: String) -> void:
@@ -227,6 +228,9 @@ class FakeMain extends Node:
 
 	func adopt_pending_body(pony: Node) -> bool:
 		return _adopt_pending_swap(pony)
+
+	func refresh_body_lod(pony: Node) -> void:
+		lod_refreshes.append(pony)
 
 	func _adopt_pending_swap(pony: Node) -> bool:
 		if _pending_swap.is_empty() or not is_instance_valid(pony):
@@ -345,6 +349,8 @@ func run() -> void:
 	_check_world_close()
 	_check_form_reveal()
 	_check_shape_offer()
+	_check_named_shape_gate()
+	_check_watchdog_with_body()
 	_check_offer_gate()
 	_check_hint_states()
 	_check_failed_named_offer()
@@ -379,6 +385,7 @@ func _check_handover() -> void:
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	main._on_pony(new_pony)
+	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the new body resumes the act")
 	check(runtime.pony == new_pony, "the runtime owns the new body")
 	check(runtime.get_parent() == new_pony, "the runtime moved under the new body")
@@ -430,6 +437,9 @@ func _check_ai_change() -> void:
 	source.new_pony = new_pony
 	source.shape = "rarity"
 	main._on_pony(new_pony)
+	check(runtime._suspended, "the AI change waits for the new body's shape")
+	source.changing = false
+	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the AI change resumes on the new body")
 	check(runtime.pony == new_pony, "the AI change keeps the act on the new body")
 	check(not runtime._form_reveal_done, "an AI change is neutral")
@@ -555,6 +565,7 @@ func _check_form_reveal() -> void:
 	source.new_pony = new_pony
 	source.shape = ""
 	main._on_pony(new_pony)
+	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the reveal resumes the same act")
 	check(runtime.pony == new_pony, "the reveal keeps the act on the new body")
 	check(runtime._form_reveal_done, "the requested reveal is recorded once")
@@ -616,11 +627,89 @@ func _check_shape_offer() -> void:
 	source.new_pony = new_pony
 	source.shape = "rarity"
 	main._on_pony(new_pony)
+	runtime._body_swap_tick(0.1)
 	check(not runtime._form_reveal_done, "a named shape is not an exceptional reveal")
 	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
 	var memory: FakeMemory = main.memory
 	check(memory.impressions.is_empty(), "a named shape writes no reveal memory")
 	check(memory.peaks.is_empty(), "a named shape records no reveal peak")
+	runtime.force_stop()
+	director.queue_free()
+	_free_fixture(f)
+
+
+## A named shape waits for the new body's variant before resuming. The player's offer is spent
+## only once the shape is on the body, and the adopted body's LOD is rebuilt during the wait.
+func _check_named_shape_gate() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	source.shape = ""
+	runtime._shape_offer_tick()
+	check(runtime._shape_offer_pending, "the offer is pending before the name")
+	var director := FakeDirector.new()
+	director.name = "FakeDirector"
+	root.add_child(director)
+	source.named = "rarity"
+	director._turn_id = 1
+	director._player_text = "Rarity"
+	runtime._talk_tick(0.016)
+	runtime._body_swap_tick(0.1)
+	check(runtime._suspended, "the named change suspends the act")
+	check(str(runtime._swap_target) == "rarity", "the target survives the suspension")
+	var new_pony := _pony("Test Mare", "ShapeGateBody")
+	root.add_child(new_pony)
+	source.new_pony = new_pony
+	source.shape = ""
+	main._on_pony(new_pony)
+	check(runtime._suspended, "the new body binds without resuming")
+	check(runtime.pony == new_pony, "the runtime owns the new body during the wait")
+	check(runtime.get_parent() == new_pony, "the runtime moves under the new body")
+	check(not main.body_swap_pending(), "the adoption clears the pending swap")
+	check(main.lod_refreshes.has(new_pony), "the adopted body's LOD is rebuilt")
+	runtime._body_swap_tick(0.1)
+	check(runtime._suspended, "a missing shape keeps the act suspended")
+	source.shape = "rarity"
+	runtime._body_swap_tick(0.1)
+	check(not runtime._suspended, "the target shape resumes the act")
+	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the act state survives the shape wait")
+	check(absf(float(runtime.depth) - 0.42) < 0.0001, "depth survives the shape wait")
+	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
+	runtime.force_stop()
+	director.queue_free()
+	_free_fixture(f)
+
+
+## The new body exists but never reports the shape before the watchdog: the act resumes on the
+## adult body and the failed shape restores the offer instead of ending through the exit.
+func _check_watchdog_with_body() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	source.shape = ""
+	runtime._shape_offer_tick()
+	var director := FakeDirector.new()
+	director.name = "FakeDirector"
+	root.add_child(director)
+	source.named = "rarity"
+	director._turn_id = 1
+	director._player_text = "Rarity"
+	runtime._talk_tick(0.016)
+	runtime._body_swap_tick(0.1)
+	var new_pony := _pony("Test Mare", "WatchdogShapeBody")
+	root.add_child(new_pony)
+	source.new_pony = new_pony
+	source.shape = ""
+	main._on_pony(new_pony)
+	check(runtime._suspended, "the watchdog body adopts suspended")
+	check(runtime.pony == new_pony, "the watchdog body is the new body")
+	runtime._body_swap_tick(RUNTIME.BODY_SWAP_WATCHDOG_S + 1.0)
+	check(not runtime._suspended, "the watchdog resumes a body that never took the shape")
+	check(runtime.pony == new_pony, "the watchdog keeps the adopted body")
+	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the watchdog does not end a live body")
+	check(runtime._shape_offer_pending, "the failed watchdog shape restores the offer")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)
@@ -716,8 +805,8 @@ func _check_failed_named_offer() -> void:
 	_free_fixture(f)
 
 
-## A player-named change whose new body reports no shape is neutral, not a reveal. The offer is
-## still the player's choice, so it is spent.
+## A player-named change whose new body never reports the shape is a failed change: the act
+## resumes on the body but the offer comes back, so the player can name another shape.
 func _check_named_without_shape() -> void:
 	var f := _fixture()
 	var main: FakeMain = f["main"]
@@ -740,10 +829,16 @@ func _check_named_without_shape() -> void:
 	source.new_pony = new_pony
 	source.shape = ""
 	main._on_pony(new_pony)
+	check(runtime._suspended, "a new body with no shape does not resume")
+	source.changing = false
+	runtime._body_swap_tick(0.1)
+	check(not runtime._suspended, "the settled failed shape resumes the new body")
+	check(runtime.pony == new_pony, "the failed shape keeps the new body")
 	check(not runtime._form_reveal_done, "a named change with no shape is not a reveal")
 	var memory: FakeMemory = main.memory
 	check(memory.impressions.is_empty(), "a named change with no shape writes no reveal memory")
-	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
+	check(runtime._shape_offer_pending, "a failed named shape restores the offer")
+	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE, "the hint returns with the offer")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)
@@ -769,6 +864,7 @@ func _check_ai_change_keeps_offer() -> void:
 	source.shape = "fluttershy"
 	source.changing = false
 	main._on_pony(ai_body)
+	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "her own change resumes the act")
 	check(runtime._shape_offer_pending, "her own change keeps the player's offer")
 	runtime._form_hint_tick()

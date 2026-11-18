@@ -26,12 +26,20 @@ class FakeMain extends Node:
 	var game: Variant = null
 	var eligibility: Variant = null
 	var late_prepares: Array[Node] = []
+	var anatomy_refreshes := 0
+	var lod_refreshes: Array[Node] = []
 
 	func live_character_ids() -> Array[String]:
 		return live_ids.duplicate()
 
 	func prepare_pony_late(pony: Node) -> void:
 		late_prepares.append(pony)
+
+	func refresh_anatomy() -> void:
+		anatomy_refreshes += 1
+
+	func refresh_body_lod(pony: Node) -> void:
+		lod_refreshes.append(pony)
 
 
 class FakePopulation extends Node:
@@ -378,6 +386,67 @@ func run() -> void:
 	adapter.call("poll")
 	check(not bool(adapter.call("is_changing")), "the named change completes")
 
+	# A named change's new body can spawn before the pack writes its variant. Its first prepare
+	# must fit the requested shape, not her own, and it must not take the own tail wrapper.
+	pack.actor = own
+	pack.disguised_as = ""
+	check(bool(adapter.call("request_shape", "rarity")), "a second named change starts")
+	var early := FakePony.new()
+	early.identity = _identity("chrysalis", "")
+	var early_rig := Node3D.new()
+	early_rig.name = "Skeleton3D"
+	early.add_child(early_rig)
+	early.skeleton = early_rig
+	var early_hair := Node3D.new()
+	early_hair.name = "ChrysalisHair"
+	early.add_child(early_hair)
+	var early_attach := Node3D.new()
+	early_attach.name = "Hair_tail"
+	early_rig.add_child(early_attach)
+	var early_chain := Node3D.new()
+	early_chain.name = "Chain"
+	early_attach.add_child(early_chain)
+	early.own_meshes = [MeshInstance3D.new()]
+	root.add_child(early)
+	pack.actor = early
+	adapter.call("prepare_pony", early)
+	check(str(early.get_meta("body_fit_id", "")) == "rarity",
+		"the new body is fitted as the target before its variant")
+	check(not early.has_meta("tail_pose_root"), "the target fit exposes no own tail root")
+	check(not early.has_meta("anatomy_owned_meta"), "the target fit keeps no own body marker")
+	check(early_chain.get_parent() == early_attach,
+		"the target fit adds no own tail wrapper")
+	var own_fit := str(own.get_meta("body_fit_id", ""))
+	adapter.call("prepare_pony", own)
+	check(str(own.get_meta("body_fit_id", "")) == own_fit,
+		"the old body is not refitted during the change")
+	var untouched := FakePony.new()
+	untouched.identity = _identity("fluttershy")
+	root.add_child(untouched)
+	adapter.call("prepare_pony", untouched)
+	check(not untouched.has_meta("body_fit_id"),
+		"an unrelated pony is not fitted during the change")
+
+	# The variant appears: one late fit for the shape, with the anatomy and LOD refresh.
+	early.set_meta("geometry_variant", "changeling=rarity")
+	var late_before := main.late_prepares.size()
+	var anatomy_before := main.anatomy_refreshes
+	adapter.call("poll")
+	check(str(adapter.call("target")) == "rarity", "the delayed named change keeps its target")
+	check(str(early.get_meta("body_fit_id", "")) == "rarity",
+		"the settled shape refits the new body as the target")
+	check(main.late_prepares.size() == late_before + 1 and main.late_prepares.back() == early,
+		"the settled shape asks main for the late prepare once")
+	check(main.anatomy_refreshes == anatomy_before + 1,
+		"the settled shape refreshes the anatomy once")
+	check(main.lod_refreshes.has(early), "the settled shape rebuilds the body's LOD")
+	adapter.call("poll")
+	check(main.late_prepares.size() == late_before + 1,
+		"the settled shape is not refitted again")
+	pack.busy = false
+	adapter.call("poll")
+	check(not bool(adapter.call("is_changing")), "the delayed named change completes")
+
 	# The player's own words: the reveal ask, then an adult mare's name.
 	pack.actor = true_new
 	pack.disguised_as = ""
@@ -579,7 +648,8 @@ func run() -> void:
 	adapter.call("shutdown")
 	root.remove_child(adapter)
 	adapter.free()
-	for node: Node in [own, disguise, other, true_new, shape_new, wrong_shape, ai_shape, ai_own, pack]:
+	for node: Node in [own, disguise, other, true_new, shape_new, wrong_shape, ai_shape, ai_own,
+			early, untouched, pack]:
 		root.remove_child(node)
 		node.free()
 	api.call("_shutdown")

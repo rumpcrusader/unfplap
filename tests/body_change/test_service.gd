@@ -751,6 +751,21 @@ func _check_service() -> void:
 	service.notify_body_ready(pony)
 	check(source.prepared.is_empty(), "a body the source does not claim is left alone")
 
+	# The pack may free the old body before the new body's ready hook runs. Indexing the change
+	# must skip the freed handle instead of failing the typed call.
+	var freed_old := FakePony.new()
+	freed_old.name = "FreedOldBody"
+	var freed_change := BODY_CHANGE.new()
+	freed_change.source = source
+	freed_change.previous_body = freed_old
+	freed_change.target_form_id = "borrowed_form"
+	freed_change.state = BODY_CHANGE.State.ADOPTED
+	freed_old.free()
+	source.change = freed_change
+	service.notify_body_ready(second)
+	check(service.active_change_for(second) == freed_change,
+		"a freed old body does not break the new body's change index")
+
 	service.unregister_source(source)
 	check(service.active_sources().is_empty(), "an unregistered source leaves the registry")
 	check(service.active_change() == null,

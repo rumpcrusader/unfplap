@@ -401,8 +401,12 @@ func _untrack_change(change: BODY_CHANGE) -> void:
 
 
 func _index_change(change: BODY_CHANGE) -> void:
-	_index_body(change.previous_body, change)
-	_index_body(change.next_body, change)
+	# The pack may free the old body before the new body's ready hook runs. `is_instance_valid`
+	# must gate the typed call: a freed Node3D argument fails before the callee can test it.
+	if is_instance_valid(change.previous_body):
+		_index_body(change.previous_body, change)
+	if is_instance_valid(change.next_body):
+		_index_body(change.next_body, change)
 
 
 ## A body keeps the change it already has while that change is live; a second provider cannot

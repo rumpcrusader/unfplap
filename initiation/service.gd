@@ -121,7 +121,7 @@ func tick(delta: float) -> void:
 	if not is_instance_valid(main):
 		return
 	if _episode != null:
-		_tick_episode(delta)
+		_tick_episode()
 		return
 	if _reasoning_pending:
 		return
@@ -136,7 +136,7 @@ func tick(delta: float) -> void:
 ## Reset session state for a world close. Cooldowns stay in the world's mod state.
 func reset() -> void:
 	if _episode != null:
-		_close_episode(false, "")
+		_close_episode("")
 	_reasoning_serial += 1
 	_reasoning_pending = false
 	if is_instance_valid(_adapter) and not _reasoning_scope.is_empty():
@@ -161,7 +161,7 @@ func force(runtime: Node, pose := "") -> ForceResult:
 		out.reject = "no_runtime"
 		return out
 	if _episode != null:
-		_close_episode(false, "force")
+		_close_episode("force")
 	var reasons: Array = []
 	var candidate := _candidate_for(runtime, true, pose, reasons)
 	out.reject = ",".join(PackedStringArray(reasons))
@@ -170,11 +170,7 @@ func force(runtime: Node, pose := "") -> ForceResult:
 			_runtime_name(runtime), "any" if pose.is_empty() else pose, out.reject])
 		return out
 	out.reject = ""
-	candidate.forced = true
-	candidate.option = _forced_option(candidate.options, pose)
-	if candidate.option == null:
-		out.reject = "pose:%s" % pose
-		return out
+	candidate.option = candidate.options[0]
 	candidate.context = _context(candidate.pony)
 	_serial += 1
 	var formed := _formed_serial
@@ -208,7 +204,7 @@ func on_negotiation_outcome(terminal: RefCounted) -> void:
 func cancel_approach() -> void:
 	if _episode == null:
 		return
-	_close_episode(false, "interrupted")
+	_close_episode("interrupted")
 
 
 ## Debug: drop one mare's offer cooldown, short retry and last skip reason. False without an id.
@@ -325,7 +321,7 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	var eligible: bool = service != null and bool(service.call("eligible", pony,
 		ELIGIBILITY.Target.ACT))
 	var relationship: bool = service != null and bool(service.call("relationship_ok", pony))
-	var base := CLEARANCE.evaluate(eligible, relationship, _available(runtime, pony))
+	var base := CLEARANCE.evaluate(eligible, relationship, _available(pony))
 	if not base.ok():
 		reasons.append("clearance:%s" % base.reasons_text())
 		return null
@@ -334,14 +330,10 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 		reasons.append("no_form")
 		return null
 	var placement: POSE_OPTIONS.Placement = _venue.placement_for(runtime)
-	var options := _options_for(placement, view, pose_request, pony, reasons)
+	var options := _options_for(placement, view, pose_request, reasons)
 	if options.is_empty():
 		return null
-	var cuddle_option := _cuddle_option(options)
-	var cuddle := placement.cuddle and cuddle_option != null
-	if cuddle:
-		var only: Array[POSE_OPTIONS.Option] = [cuddle_option]
-		options = only
+	if placement.cuddle:
 		if bool(_cuddle_asked.get(id, false)) and not forced:
 			reasons.append("cuddle:asked")
 			return null
@@ -373,7 +365,7 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 ## The placeable options for this mare and the requested pose filter. The cuddle option comes
 ## only from an active cuddle's bed; a bed or standing offer comes from the venue.
 func _options_for(placement: POSE_OPTIONS.Placement, view: Variant, pose_request: String,
-		_pony: Node3D, reasons: Array) -> Array[POSE_OPTIONS.Option]:
+		reasons: Array) -> Array[POSE_OPTIONS.Option]:
 	var built := POSE_OPTIONS.build(str(view.form), str(view.view), placement)
 	var out: Array[POSE_OPTIONS.Option] = []
 	for option: POSE_OPTIONS.Option in built:
@@ -387,20 +379,6 @@ func _options_for(placement: POSE_OPTIONS.Placement, view: Variant, pose_request
 	elif out.is_empty():
 		reasons.append("no_option")
 	return out
-
-
-func _cuddle_option(options: Array[POSE_OPTIONS.Option]) -> POSE_OPTIONS.Option:
-	for option: POSE_OPTIONS.Option in options:
-		if option.cuddle:
-			return option
-	return null
-
-
-func _forced_option(options: Array[POSE_OPTIONS.Option], pose_request: String) -> POSE_OPTIONS.Option:
-	for option: POSE_OPTIONS.Option in options:
-		if pose_request.is_empty() or option.pose == pose_request:
-			return option
-	return null
 
 
 ## One bounded Mare Initiation Reasoning call. A reasoning "no" applies the full pacing cooldown;
@@ -552,7 +530,7 @@ func _start_approach(candidate: Candidate) -> void:
 	_episode = candidate
 	var claim: Dictionary = _venue.claim_nav(pony, candidate.token, true)
 	if claim.is_empty():
-		_close_episode(false, "approach nav claim")
+		_close_episode("approach nav claim")
 		return
 	_apply_claim(candidate, claim)
 	_venue.stand(pony)
@@ -565,35 +543,35 @@ func _start_approach(candidate: Candidate) -> void:
 	if goal is Vector3 and (goal as Vector3).is_finite() \
 			and absf((goal as Vector3).y - pony.global_position.y) <= 3.0:
 		if not bool(nav.call("command_destination", goal, "trot")):
-			_close_episode(false, "approach destination")
+			_close_episode("approach destination")
 		return
-	_close_episode(false, "approach goal")
+	_close_episode("approach goal")
 
 
 func _tick_approach() -> void:
 	var pony: Node3D = _episode.pony
 	var nav: Node = _episode.nav
 	if not is_instance_valid(pony) or not is_instance_valid(nav):
-		_close_episode(false, "approach lost")
+		_close_episode("approach lost")
 		return
 	if not _episode.forced and is_instance_valid(_adapter) \
 			and not bool(_adapter.call("quiet", POLICY.QUIET_CHAT_GAP_S)):
-		_close_episode(false, "approach quiet")
+		_close_episode("approach quiet")
 		return
 	var player: Node3D = _venue.player()
 	if not is_instance_valid(player):
-		_close_episode(false, "approach player lost")
+		_close_episode("approach player lost")
 		return
 	if str(_venue.region_of(player.global_position)) != _episode.region \
 			or player.global_position.distance_to(_episode.player_start) \
 			> POLICY.PLAYER_MOVE_CANCEL_M:
-		_close_episode(false, "approach player moved")
+		_close_episode("approach player moved")
 		return
 	if not bool(_venue.nav_owned(nav, _episode.token)):
-		_close_episode(false, "approach owner")
+		_close_episode("approach owner")
 		return
 	if _now() > _episode.started_at + POLICY.APPROACH_TIMEOUT_S:
-		_close_episode(false, "approach timeout")
+		_close_episode("approach timeout")
 		return
 	if player.global_position.distance_to(pony.global_position) > POLICY.ARRIVE_RANGE_M:
 		return
@@ -603,7 +581,7 @@ func _tick_approach() -> void:
 func _arrive() -> void:
 	var nav: Node = _episode.nav
 	if not is_instance_valid(_episode.pony) or not is_instance_valid(nav):
-		_close_episode(false, "arrive lost")
+		_close_episode("arrive lost")
 		return
 	_venue.stay(nav)
 	_episode.phase = Phase.ARRIVE
@@ -614,14 +592,14 @@ func _tick_arrive() -> void:
 	var pony: Node3D = _episode.pony
 	var runtime: Node = _episode.runtime
 	if not is_instance_valid(pony) or not is_instance_valid(runtime):
-		_close_episode(false, "arrive pony lost")
+		_close_episode("arrive pony lost")
 		return
 	var player: Node3D = _venue.player()
 	if not is_instance_valid(player) \
 			or player.global_position.distance_to(pony.global_position) \
 			> POLICY.ARRIVE_RANGE_M + 0.75:
 		if _now() >= _episode.arrive_until:
-			_close_episode(false, "arrive target moved")
+			_close_episode("arrive target moved")
 		return
 	if _now() < _episode.arrive_until:
 		return
@@ -649,7 +627,7 @@ func _start_bed_approach(candidate: Candidate) -> void:
 	_episode = candidate
 	var claim: Dictionary = _venue.claim_nav(candidate.pony, candidate.token, true)
 	if claim.is_empty():
-		_close_episode(false, "bed approach nav claim")
+		_close_episode("bed approach nav claim")
 		return
 	_apply_claim(candidate, claim)
 	_venue.ensure_stand(candidate.pony)
@@ -658,7 +636,7 @@ func _start_bed_approach(candidate: Candidate) -> void:
 		_start_ask_handoff()
 		return
 	if not bool(candidate.nav.call("command_destination", front, "trot")):
-		_close_episode(false, "bed approach destination")
+		_close_episode("bed approach destination")
 
 
 func _tick_bed_approach() -> void:
@@ -666,13 +644,13 @@ func _tick_bed_approach() -> void:
 	var nav: Node = _episode.nav
 	var front: Variant = _episode.bed_front
 	if not is_instance_valid(pony) or not is_instance_valid(nav) or not front is Vector3:
-		_close_episode(false, "bed approach lost")
+		_close_episode("bed approach lost")
 		return
 	if not bool(_venue.nav_owned(nav, _episode.token)):
-		_close_episode(false, "bed approach owner")
+		_close_episode("bed approach owner")
 		return
 	if _now() - _episode.started_at > POLICY.BED_LEAD_TIMEOUT_S:
-		_close_episode(false, "bed approach timeout")
+		_close_episode("bed approach timeout")
 		return
 	if pony.global_position.distance_to(front) <= 1.4 \
 			or not bool(_venue.nav_has_target(nav)):
@@ -695,7 +673,7 @@ func _start_ask(candidate: Candidate) -> void:
 	if not candidate.option.cuddle:
 		var claim: Dictionary = _venue.claim_nav(candidate.pony, candidate.token, true)
 		if claim.is_empty():
-			_close_episode(false, "ask nav claim")
+			_close_episode("ask nav claim")
 			return
 		_apply_claim(candidate, claim)
 		if candidate.option.pose == CATALOG.STANDING:
@@ -713,14 +691,14 @@ func _start_ask_handoff() -> void:
 	var pony: Node3D = _episode.pony
 	var option: POSE_OPTIONS.Option = _episode.option
 	if not is_instance_valid(runtime) or not is_instance_valid(pony) or option == null:
-		_close_episode(false, "ask lost")
+		_close_episode("ask lost")
 		return
 	# The place can have changed since the scan; only a hard scene failure closes the ask. An
 	# unfilled bed gate or a player not yet in position is the Agreement's live condition.
 	var verdict: Variant = runtime.call("scene_only_verdict", option.pose, option.source,
 		option.bed, null)
 	if verdict == null or not bool(verdict.hard_ok):
-		_close_episode(false, "ask scene")
+		_close_episode("ask scene")
 		return
 	_episode.private = _private_now(pony, option.cuddle)
 	var request := _request(_episode.private, option, _episode.context)
@@ -737,7 +715,7 @@ func _start_ask_handoff() -> void:
 	_venue.restore_limits(episode.nav, episode.prev_limit, episode.prev_pace)
 	var handed := bool(main.call("form_mare_offer", fields))
 	if not handed:
-		_close_episode(false, "handoff refused")
+		_close_episode("handoff refused")
 		return
 	_formed_serial += 1
 	_episode = null
@@ -749,7 +727,7 @@ func _start_ask_handoff() -> void:
 	if not started and is_instance_valid(_adapter):
 		var key := "%s:%s:%d:ask" % [KEY_PREFIX, episode.id, episode.serial]
 		_adapter.call("queue", episode.id, PROMPTS.ask_purpose(request), key,
-			Callable(self, "_line_valid").bind(episode.id, runtime), true)
+			Callable(self, "_line_valid").bind(runtime), true)
 	if is_instance_valid(_adapter):
 		_adapter.call("record_situation", PROMPTS.situation_ask(request), [episode.id],
 			"%s:%s:%d:situation" % [KEY_PREFIX, episode.id, episode.serial])
@@ -765,17 +743,11 @@ func _offer_line(option: POSE_OPTIONS.Option) -> String:
 
 
 ## The ask line is still worth speaking while she is there and idle.
-func _line_valid(id: String, runtime: Node) -> bool:
+func _line_valid(runtime: Node) -> bool:
 	if not is_instance_valid(runtime) or int(runtime.get("state")) != 0:
 		return false
-	return _mare_by_id(id) != null
-
-
-func _mare_by_id(id: String) -> Node:
-	for node: Variant in _venue.mares():
-		if is_instance_valid(node) and _venue.pony_id(node) == id:
-			return node
-	return null
+	var pony: Variant = runtime.get("pony")
+	return is_instance_valid(pony) and (pony as Node).is_inside_tree()
 
 
 # --------------------------------------------------------------------------- privacy and context
@@ -821,23 +793,22 @@ func _apply_claim(episode: Candidate, claim: Dictionary) -> void:
 
 ## The one request close path. The negotiator owns the lease after a successful handoff, so this
 ## only handles the request's own episodes.
-func _close_episode(retry: bool, reason: String) -> void:
+func _close_episode(reason: String) -> String:
 	if _episode == null:
-		return
-	var pony: Node = _episode.pony
+		return reason
 	var id := _episode.id
 	var phase := _phase_name(_episode.phase)
 	if is_instance_valid(_episode.nav):
 		_venue.release_nav(_episode.nav, _episode.token, _episode.prev_owner,
 			_episode.prev_wander, _episode.prev_limit, _episode.prev_pace)
-	if retry or not reason.is_empty():
-		_retry_at[id] = _now() + POLICY.RETRY_S
 	if not reason.is_empty():
+		_retry_at[id] = _now() + POLICY.RETRY_S
 		_debug("request end %s phase=%s reason=%s" % [id, phase, reason])
 	_episode = null
+	return reason
 
 
-func _tick_episode(_delta: float) -> void:
+func _tick_episode() -> void:
 	match _episode.phase:
 		Phase.APPROACH:
 			_tick_approach()
@@ -845,20 +816,14 @@ func _tick_episode(_delta: float) -> void:
 			_tick_arrive()
 		Phase.BED_APPROACH:
 			_tick_bed_approach()
-		Phase.ASK:
-			_start_ask_handoff()
 		_:
-			_close_episode(false, "unknown phase")
+			_close_episode("unknown phase")
 
 
 # --------------------------------------------------------------------------- helpers
 
-func _available(runtime: Node, pony: Node3D) -> bool:
-	if not is_instance_valid(runtime) or not is_instance_valid(pony):
-		return false
-	if int(runtime.get("state")) != 0:
-		return false
-	return not bool(pony.get("sleeping"))
+func _available(pony: Node3D) -> bool:
+	return is_instance_valid(pony) and not bool(pony.get("sleeping"))
 
 
 func _in_heat(runtime: Variant) -> bool:

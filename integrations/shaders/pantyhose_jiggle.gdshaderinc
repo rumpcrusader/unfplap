@@ -2,9 +2,10 @@
 // `res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc` spring, driven by
 // `integrations/garment_jiggle.gd` from the live values on her coat material, mapped into this
 // garment's model space. The adapter writes the six instance uniforms per node, so two mares never
-// share a wobble. The two copied shaders evaluate it at the rest cloth position, then run the hull
-// lift and add the offset, so the lift keeps sampling its rest UVs. With the amount at 0 every
-// vertex pays one uniform branch. See `docs/integrations.md`.
+// share a wobble, and they plus the ten hull ones are exactly Godot's sixteen. The two copied
+// shaders evaluate it at the rest cloth position, then run the hull lift and add the offset, so the
+// lift keeps sampling its rest UVs. With the amount at 0 every vertex pays one uniform branch. See
+// `docs/integrations.md`.
 instance uniform float garment_jiggle_amount = 0.0;  // metres of the first push; 0 = off
 instance uniform float garment_jiggle_time = 0.0;    // seconds since the smack
 instance uniform vec3 garment_jiggle_center = vec3(0.0, 0.0, 0.0);  // hit spot, garment-local

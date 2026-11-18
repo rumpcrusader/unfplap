@@ -2,7 +2,8 @@ shader_type spatial;
 // Opaque black fabrics with real holes (fishnet, lace, cotton, satin, ribbed): a self-contained
 // copy of Pantyhose & Panties 0.1.1's cut shader by mitty
 // (`res://mods/pantyhose/shaders/hosiery_cut.gdshader`), plus Unfplap's garment hull lift and
-// worn cloth jiggle.
+// worn cloth jiggle. The jiggle is measured at the rest cloth vertex and added after the lift, so
+// the field matches the coat's and the lift keeps sampling its rest UVs.
 // The look parameters and render modes are unchanged; see `docs/integrations.md`, `CREDITS.md`.
 render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
 #include "res://mods/unfplap/integrations/shaders/pantyhose_common.gdshaderinc"

@@ -3,20 +3,22 @@ extends RefCounted
 ## wobble through six per-node instance uniforms the copied shaders displace their vertices with.
 ##
 ## The coat is the only simulator. This helper reads the `jiggle_*` uniforms `FlankTouch` writes
-## into a live `_jiggle_targets` material every frame and carries them into the worn node's own
-## model space, so the cloth moves by the coat's world displacement in the same frame instead of
-## running a second spring that can land out of phase.
+## into a live `_jiggle_targets` material every frame (a visible target first, then the game body,
+## then the first live pair) and carries them into the worn node's own model space, so the cloth
+## moves by the coat's world displacement in the same frame instead of running a second spring that
+## can land out of phase. The world adapter processes after `FlankTouch`, so these are the values
+## the rendered coat uses.
 ##
-## The world adapter calls `begin_frame()` once per garment pass, `sample(pony)` for each tracked
-## node (the pony's wobble is read once and cached for the rest of the pass) and `apply(node)` for
-## every worn node of a pony that is wobbling; `clear(node)` and `reset()` undo it. Every read of
-## the game's `FlankTouch` is duck-typed and guarded, so a renamed field, a missing target or a
-## malformed value leaves the cloth rigid instead of raising an error. No dictionary is allocated
-## per frame.
+## The adapter calls `begin_frame()` once per garment pass, `sample(pony)` for each tracked node
+## (the pony's wobble is read once and cached for the rest of the pass) and `apply(node)` for every
+## worn node of a pony that is wobbling; `clear(node)` and `reset()` undo it. Every read of the
+## game's `FlankTouch` is duck-typed and guarded, so a renamed field, a missing target or a malformed
+## value leaves the cloth rigid instead of raising an error. No dictionary is allocated per frame.
 ##
 ## See `docs/integrations.md` (`## Pantyhose & Panties`).
 
-## The stock `flank_jiggle.gdshaderinc` spread, in the target mesh's local units.
+## The stock `flank_jiggle.gdshaderinc` spread, in the target mesh's local units, until an act's
+## reactions widen the coat's own.
 const DEFAULT_RADIUS_M := 0.12
 ## Below this a basis carries no usable scale.
 const MIN_SCALE := 0.000001
@@ -67,10 +69,10 @@ func sample(pony: Node3D) -> bool:
 	return _live
 
 
-## Converts the coat's field into `node`'s own model space, where the shader displaces vertices. The
-## centre, the normal and the up axis are mapped through the target mesh's live transform; the
-## amplitude and the radius go through the target/garment scale ratio, so a trimmed piece keeps the
-## coat's world amplitude and spread.
+## Converts the coat's field into `node`'s own model space, where the shader displaces vertices at
+## the rest cloth position. The centre, the outward normal and the body's up are mapped through the
+## target mesh's live transform; the amplitude and the radius go through the target/garment scale
+## ratio, so a trimmed, rotated or scaled piece keeps the coat's world amplitude and spread.
 func apply(node: MeshInstance3D) -> void:
 	if not _live or not is_instance_valid(node) or not node.is_inside_tree():
 		return
@@ -102,7 +104,7 @@ static func clear(node: MeshInstance3D) -> void:
 
 ## The pair the cloth follows: a visible mesh with live values, otherwise the game body, otherwise
 ## the first pair with live values. Everything `FlankTouch._end_jiggle()` leaves behind (a null
-## amount) is not a wobble.
+## amount) and every malformed or renamed field is not a wobble.
 func _read(pony: Node3D) -> bool:
 	var flank := pony.get_node_or_null("FlankTouch")
 	if flank == null:

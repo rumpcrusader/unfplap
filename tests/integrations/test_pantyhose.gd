@@ -1,6 +1,6 @@
 extends SceneTree
 ## The Pantyhose & Panties world adapter and the garment hull: the depth field, the transform
-## mapping, the surface overrides, the cloth jiggle, the act-start undress and the debug controls.
+## mapping, the surface overrides, the cloth follower, the act-start undress and the debug controls.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_pantyhose.gd
 
 const HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")

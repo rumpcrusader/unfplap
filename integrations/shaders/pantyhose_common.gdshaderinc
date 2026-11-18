@@ -4,7 +4,8 @@
 // The pattern functions are adapted from Pantyhose & Panties 0.1.1 by mitty
 // (`res://mods/pantyhose/shaders/hosiery_common.gdshaderinc`). The hull uniforms and
 // `HOSIERY_HULL_VERTEX` are Unfplap's, and so is the jiggle include at the end
-// (`pantyhose_jiggle.gdshaderinc`, written by `integrations/garment_jiggle.gd`); see
+// (`pantyhose_jiggle.gdshaderinc`, written by `integrations/garment_jiggle.gd`); the ten hull
+// instance uniforms and that include's six are exactly Godot's sixteen per shader. See
 // `docs/integrations.md` and `CREDITS.md`.
 //
 // Coordinates are the body's REST pose (CUSTOM0.xyz, about metres on a mare), so patterns stay

@@ -5,7 +5,7 @@ extends Node
 ## anatomy mesh pokes through the cloth. This adapter samples a depth field built from the
 ## anatomy mesh (see `anatomy/garment_hull.gd`) and lifts each garment surface over it with a
 ## self-contained copy of the 0.1.1 look shaders. While the cloth-jiggle flag is on, the same
-## copied shaders carry the pony's live flank wobble into the worn piece through
+## copied shaders make the worn piece follow the pony's live flank wobble through
 ## `integrations/garment_jiggle.gd`. It also takes the lower garment off when an
 ## anatomy act starts, through the game's own `take_off` action, so the pack's `pony_off` state and
 ## the outcome her dialogue prompt reads are the same as when she takes it off herself.
@@ -33,7 +33,9 @@ const KIND_PREFIXES := ["panties-", "pantyhose-"]
 const DISCOVER_S := 0.5
 ## A precision edit waits for the drag to settle before the one-time rebuild.
 const REBUILD_DELAY_S := 0.3
-## The garment pass runs after the coat's own wobble, so both read the same frame's values.
+## The garment pass runs at this priority, after the coat's own `FlankTouch._process` (priority 0),
+## so it reads the wobble the rendered coat uses in the same frame. `main`'s 100 does not reach a
+## child, and a game change that moves `FlankTouch` later must move this with it.
 const PROCESS_PRIORITY := 100
 ## The debug heatmap sits this far in front of the field surface (anatomy-local metres).
 const OVERLAY_Z_LIFT := 0.0015
@@ -46,7 +48,7 @@ class Applied:
 	var mesh_id := 0
 	var count := 0
 	var originals: Array = []
-	## True while the five cloth-jiggle uniforms are this adapter's, so every restore clears them.
+	## True while the six cloth-jiggle uniforms are this adapter's, so every restore clears them.
 	var jiggling := false
 
 
@@ -58,7 +60,7 @@ var _game: Node
 var _discover_clock := 0.0
 var _undress: bool
 var _bulge: bool
-## The cloth jiggle every worn node reads; it caches one pony's sample per garment pass.
+## The per-node cloth follower every worn node reads; it caches one pony's coat sample per pass.
 var _jiggle := GARMENT_JIGGLE.new()
 var _jiggle_enabled: bool
 var _hull_width: int

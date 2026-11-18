@@ -2,7 +2,8 @@ shader_type spatial;
 // See-through black fabrics (sheer pantyhose, mesh, polka-dot sheer): a self-contained copy of
 // Pantyhose & Panties 0.1.1's sheer shader by mitty
 // (`res://mods/pantyhose/shaders/hosiery_sheer.gdshader`), plus Unfplap's garment hull lift and
-// worn cloth jiggle.
+// worn cloth jiggle. The jiggle is measured at the rest cloth vertex and added after the lift, so
+// the field matches the coat's and the lift keeps sampling its rest UVs.
 // Like nylon, it looks darker where the fabric turns away from you (more layers in the line of
 // sight). The look parameters and render modes are unchanged; see `docs/integrations.md`,
 // `CREDITS.md`.

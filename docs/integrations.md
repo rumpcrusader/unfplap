@@ -11,9 +11,9 @@ whether or not the other mod is installed.
   it lifts a worn piece over the anatomy, carries the coat's rump wobble into the worn cloth and
   takes the lower garment off at an act start. The pack is never edited; the compatibility shaders
   are a pinned copy under `integrations/shaders/`.
-- `integrations/garment_jiggle.gd` is the adapter's scene-side cloth-jiggle helper: it mirrors one
-  pony's live flank wobble onto one worn node through per-node instance uniforms and preloads
-  nothing.
+- `integrations/garment_jiggle.gd` is the adapter's scene-side cloth-jiggle helper: it reads the
+  coat's live wobble off a `FlankTouch` target material and carries it into one worn node's own
+  model space through per-node instance uniforms; it preloads nothing.
 - `shared/integrations.gd` is the provider catalog: mod identity, verified version, feature names
   and binding paths.
 - `integrations/provider.gd`, `context.gd`, `action.gd` and `kissing.gd` are pure service
@@ -231,22 +231,41 @@ The compatibility shaders are `integrations/shaders/pantyhose_common.gdshaderinc
 wobble added. The catalog's `verified_version` pins the copy. A renamed or changed pack shader is
 left alone and logged once; the adapter never edits the pack.
 
-**Jiggle the cloth** (`features.pantyhose_jiggle`) mirrors the game's own rump wobble instead of
-inventing a second one. `integrations/garment_jiggle.gd` reads the pony's `FlankTouch`: the active
-redness mark, the wobble age and the coat amplitude, then the mark's hit spot and outward normal.
-One pony is sampled once per garment pass; every worn node of that pony is written with five
-instance uniforms (`garment_jiggle_amount`, `_time`, `_center`, `_normal` and `_radius`) in its own
-model space. The copied shaders displace the cloth with the same damped spring, the same ripple out
-from the hit and the same vertical bob the coat's `flank_jiggle.gdshaderinc` runs, with no normal
-tilt. The amplitude and the falloff radius are converted through the garment node's own uniform
-scale, so a trimmed piece keeps the coat's world amplitude, and the radius is the coat's live
-`jiggle_radius` while the act's reactions have widened it on a `_jiggle_targets` material, the stock
-coat spread otherwise. Because one smack outside an act and a thrust or a smack during one all start
-the game's own wobble, the cloth follows all three; the adapter wires no smack event of its own. A
-missing `FlankTouch`, a renamed game field, a missing mark or a malformed value leaves the cloth
-rigid, silently. A finished wobble clears only the uniforms, so the lift stays, and every restore
-path clears them while the compatibility material is still the override, because the pack's shader
-does not know the names.
+**Jiggle the cloth** (`features.pantyhose_jiggle`) makes the cloth follow the game's own rump wobble
+instead of running a second one. `FlankTouch` is the only simulator: every rendered frame it writes
+`jiggle_amount`, `jiggle_time`, `jiggle_center` and `jiggle_normal` into the materials of its
+`_jiggle_targets` pairs, in each mesh's own space, and `_end_jiggle()` returns them to null when the
+wobble ends. `integrations/garment_jiggle.gd` reads those live values — not the redness decal and
+not the raw age and amount — once per pony per garment pass.
+
+The reference pair is the first one that carries a live field and whose mesh is visible, otherwise
+the game body (`_body`), otherwise the first pair with a live field. That keeps the cloth on the coat
+the player sees; a visible source-body mesh that never enters `_jiggle_targets` is not followed. A
+missing `FlankTouch`, a missing or renamed field, a mesh outside the tree, or a null, zero or
+negative amount is not a wobble: the cloth stays rigid, keeps its lift and logs nothing.
+
+The coat's field is in its target mesh's local space, so the helper maps it into the worn node's own
+space through the two live transforms: the centre through `garment⁻¹ × target`, the outward normal
+and the body's up through their bases. The amount and the radius are multiplied by the target mesh's
+mean axis scale over the garment node's, so a trimmed, rotated or differently scaled piece moves by
+the coat's world amplitude and spread. The radius is the live `jiggle_radius` on that same coat
+material while an act's reactions widen it, the stock `flank_jiggle.gdshaderinc` spread otherwise.
+The world adapter runs its garment pass at process priority 100, after `FlankTouch`'s default 0, so
+it reads the values the rendered coat uses in that same frame; a game change that moves `FlankTouch`
+later has to move that constant with it. Every worn node of a pony carries six per-node instance
+uniforms (`garment_jiggle_amount`, `_time`, `_center`, `_normal`, `_radius` and `_up`), so two mares
+never share a wobble.
+
+The copied shaders run the coat's own damped spring, ripple and vertical bob on the cloth, evaluated
+at the rest cloth vertex and added after the hull lift, so the lift keeps sampling its rest UVs and
+there is no normal tilt. The bob runs along the body's up as the coat's does, not along a trimmed
+piece's own axis. Because one smack outside an act and a thrust or a smack during one all start the
+game's own wobble, the cloth follows all three; the adapter wires no smack event of its own and the
+follower works with the anatomy shown or hidden and with the lift on or off. A finished wobble clears
+only the six uniforms, so the lift stays, and every restore path clears them while the compatibility
+material is still the override, because the pack's shader does not know the names. The six jiggle
+uniforms plus the ten hull ones are exactly Godot's sixteen instance uniforms per shader, so a new
+per-node value has to be packed into an existing one or replace it.
 
 ## Queen Chrysalis
 
@@ -426,10 +445,13 @@ overlay reads them.
   bond cap, the pause fade, afterglow, an Affection kiss and the full-fidget restore/suppress.
 - `tests/integrations/test_pantyhose.gd` — the hull builder (fixture and real anatomy mesh), the
   transform mapping, the surface overrides and restore, the shared mesh, multi-mare independence,
-  the cloth jiggle (the mark spot and outward normal in the garment node's own space, the amplitude
-  and radius through the node scale, the borrowed coat radius and its stock fallback, the frame
-  age, two mares on one source material, a finished wobble, the hidden-anatomy and lift-off paths,
-  the flag off, and the dropped-piece, world-close and shutdown clears),
+  the cloth follower (the live coat material values over the decal and the raw fields, the visible,
+  then body, then first-pair target choice, the centre, normal and up mapping from a rotated body
+  and a trimmed garment, the target/garment scale ratio, a null or malformed field clearing the
+  cloth, the process order after `FlankTouch`, and the six jiggle plus ten hull uniforms at Godot's
+  sixteen with the rest-vertex-then-lift order in both copied shaders, two mares on one source
+  material, a finished wobble, the hidden-anatomy and lift-off paths, the flag off, and the
+  dropped-piece, world-close and shutdown clears),
   the act-start undress (the `take_off` commit with the director's turn, the identity-id key, the
   wardrobe's season, the direct fallback and the nothing-worn no-op), the feature/pack/wardrobe
   guards and the debug rebuild/overlay.
@@ -477,14 +499,15 @@ overlay reads them.
   undressed; turn each flag off; remove the pack; check the original materials come back and two
   mares keep independent transforms. Use **Show hull** and **Rebuild** to inspect the field; the
   overlay is desktop-only and is skipped headless.
-- Smack a mare outside an act in each of the eight kinds and check the cloth wobbles with the coat
-  on cut and sheer, with the anatomy shown, with it hidden and with the lift off; check the
-  amplitude, the ripple and the vertical bob read on the cloth and that the sheer fabric stays
-  readable. Smack two mares side by side and check the wobbles stay independent. Start an act with
-  the undress off and check thrusts and act smacks wobble the cloth, and that the borrowed act
-  radius spreads the wobble as the coat's own does. Turn **Jiggle the cloth** off: the cloth is
-  rigid, the pack materials return with the lift off, and `last-run.log` holds no shader or uniform
-  warning.
+- Smack a mare outside an act in each of the eight kinds and check the cloth and the coat move
+  together: no gap opens between them at the peaks and troughs and the anatomy never shows through
+  the cloth. Do it on cut and sheer, with the anatomy shown, with it hidden and with the lift off,
+  and check the cloth's bob runs up and down with the rump's rather than along a trimmed piece's own
+  axis. Smack two mares side by side and check the wobbles stay independent. At 60 and at 90 fps,
+  start an act with the undress off and check thrusts and act smacks wobble the cloth in step with
+  the coat, and that the borrowed act radius spreads both the same way. Turn **Jiggle the cloth**
+  off: the cloth is rigid, the pack materials return with the lift off, and `last-run.log` holds no
+  shader or uniform warning.
 - With Queen Chrysalis 0.2.12 installed, open Settings → Characters: **Queen Chrysalis** is under
   **Other mares** with the approved profile, before she visits. Turn the pack off: the entry and
   the provider layer are gone and the base roster still reads 103.

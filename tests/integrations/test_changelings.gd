@@ -164,10 +164,13 @@ func run() -> void:
 	check(str(preferences.get("tolerance", "")) == "normal", "approved tolerance")
 	check(str(preferences.get("notes", "")).begins_with("You "), "second-person notes")
 	var placed := SETTINGS.anatomy_placement_default("chrysalis")
-	check(near(float(placed.get("offset_y", 0.0)), 0.485), "provider placement Y")
+	check(near(float(placed.get("offset_y", 0.0)), 0.49), "provider placement Y")
 	check(near(float(placed.get("offset_z", 0.0)), 0.271), "provider placement Z")
 	check(near(float(placed.get("pitch_deg", 0.0)), 8.0), "provider placement pitch")
 	check(near(float(placed.get("scale", 0.0)), 0.422), "provider placement scale")
+	check(near(float(placed.get("tail_y", 0.0)), 0.035), "provider tail Y")
+	check(near(float(placed.get("tail_z", 0.0)), 0.0), "provider tail Z")
+	check(near(float(placed.get("tail_tilt_deg", 0.0)), 0.0), "provider tail tilt")
 
 	# No base-catalog change, and no ghost entry once the pack is off.
 	check(PROFILES.ORDER.size() == 103, "the base roster stays 103")
@@ -198,17 +201,16 @@ func run() -> void:
 		"her own body reports a source-owned tail placement")
 	check(IDENTITY.body_fit_id(own) == "chrysalis", "the body-fit fallback reads the metadata")
 	check(near(float(SETTINGS.anatomy_placement("chrysalis", "chrysalis")
-		.get("offset_y", 0.0)), 0.485), "her fit resolves the provider placement")
+		.get("offset_y", 0.0)), 0.49), "her fit resolves the provider placement")
 
-	# The tail keys move the wrapper as a delta from the resolved default; the chain itself is
-	# left for the act modifiers to rotate and restore.
+	# The tail keys apply from the pack's modelled root, like the seat from its reference dock.
+	check(near(wrapper.position.y, 0.035), "her baked tail default is applied")
 	var reseat_before := SETTINGS.reseat_tails.get_bool()
 	SETTINGS.reseat_tails.set_bool(true)
 	var tail_values := SETTINGS.anatomy_placement("chrysalis", "chrysalis")
-	var tail_base := SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis")
-	tail_values["tail_y"] = float(tail_base.get("tail_y", 0.0)) + 0.05
-	tail_values["tail_z"] = float(tail_base.get("tail_z", 0.0)) + 0.02
-	tail_values["tail_tilt_deg"] = float(tail_base.get("tail_tilt_deg", 0.0)) + 10.0
+	tail_values["tail_y"] = 0.05
+	tail_values["tail_z"] = 0.02
+	tail_values["tail_tilt_deg"] = 10.0
 	SETTINGS.save_anatomy_placement("chrysalis", tail_values, "chrysalis")
 	adapter.call("apply_tail_placement", own)
 	check(near(wrapper.position.y, 0.05) and near(wrapper.position.z, 0.02),
@@ -230,6 +232,7 @@ func run() -> void:
 	SETTINGS.save_anatomy_placement("chrysalis",
 		SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis"), "chrysalis")
 	adapter.call("apply_tail_placement", own)
+	check(near(wrapper.position.y, 0.035), "reset returns her tail to the baked default")
 	SETTINGS.reseat_tails.set_bool(reseat_before)
 
 	# Her hair can arrive after the first prepare, even before the body has an identity. The
@@ -320,8 +323,7 @@ func run() -> void:
 	check(bool(adapter.call("handles_pony", disguise)), "the source handles a disguise")
 	check(not bool(adapter.call("handles_pony", other)), "the source leaves other mares alone")
 	var manager_tail := SETTINGS.anatomy_placement("chrysalis", "chrysalis")
-	var manager_base := SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis")
-	manager_tail["tail_y"] = float(manager_base.get("tail_y", 0.0)) + 0.03
+	manager_tail["tail_y"] = 0.03
 	SETTINGS.save_anatomy_placement("chrysalis", manager_tail, "chrysalis")
 	check(bool(manager.call("has_tail_placement", own)),
 		"the manager forwards the tail-placement check")

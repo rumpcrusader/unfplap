@@ -71,7 +71,10 @@ const DESCRIPTOR := {
 		"tolerance": "normal",
 		"notes": "You are proud, theatrical and possessive, and you enjoy an audience. Kindness that asks nothing unsettles you, though you would never admit it. You show affection more in staying than in saying, and you remember who stayed.",
 	},
-	"placement": {"offset_y": 0.485, "offset_z": 0.271, "pitch_deg": 8.0, "scale": 0.422},
+	"placement": {
+		"offset_y": 0.49, "offset_z": 0.271, "pitch_deg": 8.0, "scale": 0.422,
+		"tail_y": 0.035, "tail_z": 0.0, "tail_tilt_deg": 0.0,
+	},
 }
 
 var main: Node
@@ -518,12 +521,9 @@ func _apply_tail_placement_now(pony: Node, root: Node3D) -> bool:
 		wrapper.set_meta("unfplap_tail_offset", Vector3.ZERO)
 		return true
 	var placement := SETTINGS.anatomy_placement(ID, ID)
-	var base := SETTINGS.anatomy_placement_default(ID, false, ID)
-	var offset := Vector3(0.0,
-		float(placement.get("tail_y", 0.0)) - float(base.get("tail_y", 0.0)),
-		float(placement.get("tail_z", 0.0)) - float(base.get("tail_z", 0.0)))
-	var tilt := deg_to_rad(float(placement.get("tail_tilt_deg", 0.0))
-		- float(base.get("tail_tilt_deg", 0.0)))
+	var offset := Vector3(0.0, float(placement.get("tail_y", 0.0)),
+		float(placement.get("tail_z", 0.0)))
+	var tilt := deg_to_rad(float(placement.get("tail_tilt_deg", 0.0)))
 	var parent := wrapper.get_parent() as Node3D
 	if not is_instance_valid(parent):
 		return false

@@ -159,34 +159,38 @@ func form_for(pony: Node) -> BODY_FORM.BodyForm:
 ## seat's row. The body-change service calls this before `tail_ready` and before the runtime
 ## attaches, so the anatomy and tail measure the form that is already on the body.
 func bind_body(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
-	if not is_instance_valid(pony) or form == null:
-		return
-	_forms[pony] = form
-	var handle := controller_for(pony, null)
-	if is_instance_valid(handle):
-		handle.call("refresh_form", form)
-	if is_instance_valid(tail_seat):
-		tail_seat.call("refresh_form", pony, form)
+	_apply_body_form(pony, form)
 
 
 ## The same body carries a revised form: update its controller and tail row without creating a
 ## second controller.
 func refresh_body(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
+	_apply_body_form(pony, form)
+
+
+## One write path for a body's form: the controller reads a new body's stored form when it is
+## created, and an existing controller is refreshed once. The tail row follows the same call.
+func _apply_body_form(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
 	if not is_instance_valid(pony) or form == null:
 		return
 	_forms[pony] = form
-	var handle := controller_for(pony, null)
-	if is_instance_valid(handle):
-		handle.call("refresh_form", form)
+	var known := controller(pony)
+	if is_instance_valid(known):
+		known.call("refresh_form", form)
+	else:
+		controller_for(pony, null)
 	if is_instance_valid(tail_seat):
 		tail_seat.call("refresh_form", pony, form)
 
 
-## The body is leaving: drop its form and controller. The tail seat's own row is released by its
-## tree-exiting hook.
+## The body is leaving: release its tail seat row here instead of waiting for the node's
+## tree-exiting hook, then drop its form and controller. A body that stays in the tree must not
+## keep the old fit's seated tail.
 func unbind_body(pony: Node3D) -> void:
 	if not is_instance_valid(pony):
 		return
+	if is_instance_valid(tail_seat):
+		tail_seat.call("release", pony)
 	_forms.erase(pony)
 	detach_controller(pony)
 

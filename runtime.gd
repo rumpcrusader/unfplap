@@ -34,6 +34,7 @@ const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
+const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
@@ -2160,8 +2161,9 @@ func request_form_change(true_form: bool, shape_id := "", by_player := false) ->
 	return {"ok": true, "reason": "", "message": "Changing to %s." % label}
 
 
-## One watcher/swap tick. A live act polls its source for a change; a suspended act waits for the
-## adopted body's shape, the source's completion, or the watchdog.
+## One watcher/swap tick. The provider observes its own pack and pushes the change; a live act
+## reads the body-change service's active change, and a suspended act waits for the adopted
+## body's shape, the source's completion, or the watchdog.
 func _body_swap_tick(delta: float) -> void:
 	if state == State.RESTORE:
 		_restore_shape_change_tick()
@@ -2169,14 +2171,11 @@ func _body_swap_tick(delta: float) -> void:
 	if _suspended:
 		_swap_elapsed += delta
 		var source: Variant = _swap_source
-		if is_instance_valid(source) and source.has_method("poll"):
-			source.call("poll")
 		if _swap_target.is_empty() and is_instance_valid(source) and source.has_method("target"):
 			var reported := str(source.call("target")).strip_edges()
 			if not reported.is_empty():
 				_swap_target = reported
-		var changing: bool = is_instance_valid(source) and source.has_method("is_changing") \
-			and bool(source.call("is_changing"))
+		var changing := _source_changing(source)
 		if is_instance_valid(source) and source.has_method("is_active") \
 				and not bool(source.call("is_active")):
 			changing = false
@@ -2211,16 +2210,49 @@ func _body_swap_tick(delta: float) -> void:
 	if _swap_clock > 0.0:
 		return
 	_swap_clock = BODY_SWAP_POLL_S
-	var source: Variant = _shape_source()
+	var source: Variant = _body_change_source()
 	if source == null:
-		return
-	if source.has_method("poll"):
-		source.call("poll")
-	if not source.has_method("is_changing") or not bool(source.call("is_changing")):
 		return
 	if not source.has_method("old_actor") or source.call("old_actor") != pony:
 		return
 	_suspend_for_body_swap(source)
+
+
+## The provider whose change is in progress, read from the body-change service. The provider
+## observes its own pack and pushes; the watcher only reads, and a completed change stays readable
+## there, so the source's own in-progress gate decides. `old_actor()` still names the body to
+## suspend until the typed handover lands.
+func _body_change_source() -> Variant:
+	if not is_instance_valid(main):
+		return null
+	var service: Variant = main.get("body_change")
+	if service == null or not service.has_method("active_change"):
+		return null
+	var change: Variant = service.call("active_change")
+	if change == null:
+		return null
+	var change_state: int = int(change.get("state"))
+	if change_state != BODY_CHANGE.State.REQUESTED \
+			and change_state != BODY_CHANGE.State.PREPARING \
+			and change_state != BODY_CHANGE.State.ADOPTED:
+		return null
+	var provider: Variant = change.get("source")
+	if not is_instance_valid(provider):
+		return null
+	if provider.has_method("change_in_progress") \
+			and not bool(provider.call("change_in_progress")):
+		return null
+	return provider
+
+
+## True while a provider reports its change in progress. The typed source base names it
+## `change_in_progress()`; `is_changing()` is the compatibility read for the installed adapter.
+func _source_changing(source: Variant) -> bool:
+	if not is_instance_valid(source):
+		return false
+	if source.has_method("change_in_progress"):
+		return bool(source.call("change_in_progress"))
+	return source.has_method("is_changing") and bool(source.call("is_changing"))
 
 
 ## True when the new body is ready to resume the act: the shape it wears is the requested target,
@@ -2259,12 +2291,8 @@ func _late_body_pending(source: Variant) -> bool:
 func _restore_shape_change_tick() -> void:
 	if not is_instance_valid(pony):
 		return
-	var source: Variant = _shape_source()
-	if source == null or not source.has_method("is_changing"):
-		return
-	if source.has_method("poll"):
-		source.call("poll")
-	if not bool(source.call("is_changing")):
+	var source: Variant = _body_change_source()
+	if source == null:
 		return
 	if not source.has_method("old_actor") or source.call("old_actor") != pony:
 		return

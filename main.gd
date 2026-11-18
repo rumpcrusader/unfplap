@@ -29,6 +29,9 @@ const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
+const GARMENT_BINDING := preload("res://mods/unfplap/body_change/garment_binding.gd")
+const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
@@ -90,7 +93,7 @@ var anatomy: Node
 var body_change: Node
 ## The Pantyhose & Panties world adapter; inert when that pack is absent.
 var pantyhose: Node
-## The changelings (Queen Chrysalis) world adapter; inert when that pack is absent.
+## The changelings world adapter; inert when that pack is absent.
 var changelings: Node
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
 var stool: Node
@@ -291,10 +294,16 @@ func _ready() -> void:
 	var anatomy_binding: RefCounted = ANATOMY_BINDING.new()
 	anatomy_binding.call("setup", anatomy)
 	body_change.call("register_binding", anatomy_binding)
+	var lod_binding: RefCounted = LOD_BINDING.new()
+	lod_binding.call("setup", self)
+	body_change.call("register_binding", lod_binding)
 	pantyhose = PANTYHOSE.new()
 	pantyhose.name = "UnfplapPantyhose"
 	pantyhose.call("setup", self)
 	add_child(pantyhose)
+	var garment_binding: RefCounted = GARMENT_BINDING.new()
+	garment_binding.call("setup", pantyhose)
+	body_change.call("register_binding", garment_binding)
 	stool = STOOL.new()
 	stool.name = "UnfplapStool"
 	stool.call("setup", self)
@@ -303,6 +312,9 @@ func _ready() -> void:
 	stock_smack.name = "UnfplapStockSmack"
 	stock_smack.set("log", Callable(self, "debug"))
 	add_child(stock_smack)
+	var smack_binding: RefCounted = SMACK_BINDING.new()
+	smack_binding.call("setup", stock_smack)
+	body_change.call("register_binding", smack_binding)
 	api = API.new()
 	api.name = "UnfplapAPI"
 	api.call("_bind", self)

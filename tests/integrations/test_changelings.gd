@@ -174,6 +174,7 @@ func run() -> void:
 	gate.on = true
 	adapter.call("refresh")
 	check(REGISTRY.has("chrysalis"), "the adapter registers Queen Chrysalis")
+	check(adapter.is_processing(), "an active pack arms the adapter's own observation")
 	var installed: Array = adapter.call("installed_character_ids")
 	check(installed.size() == 1 and str(installed[0]) == "chrysalis",
 		"the installed list names her while the pack is on")
@@ -736,6 +737,23 @@ func run() -> void:
 	pack.busy = false
 	adapter.call("poll")
 
+	# The adapter observes the pack on its own 0.1 s cadence; no runtime or base service pumps it.
+	adapter.call("handles_pony", own)
+	pack.actor = own
+	pack.busy = false
+	adapter.call("poll")
+	adapter.set("_observe_clock", 0.0)
+	pack.busy = true
+	adapter.call("_process", CHANGELINGS.OBSERVE_S * 0.6)
+	check(not bool(adapter.call("is_changing")),
+		"the adapter observes the pack only at its cadence")
+	adapter.call("_process", CHANGELINGS.OBSERVE_S * 0.6)
+	check(bool(adapter.call("is_changing")), "the adapter observes the pack on the cadence tick")
+	pack.busy = false
+	adapter.call("_process", CHANGELINGS.OBSERVE_S * 2.0)
+	check(not bool(adapter.call("is_changing")),
+		"the adapter's own observation completes the change")
+
 	# An AI reveal keeps the empty target: the new body is her own form, not a disguise.
 	adapter.call("handles_pony", ai_shape)
 	pack.actor = ai_shape
@@ -765,6 +783,7 @@ func run() -> void:
 	gate.on = false
 	body_change.call("refresh_sources")
 	check(not REGISTRY.has("chrysalis"), "the layer is gone when the pack is off")
+	check(not adapter.is_processing(), "a missing pack stops the adapter's observation")
 	check((adapter.call("installed_character_ids") as Array).is_empty(),
 		"no ghost entry without the pack")
 	check(not bool(body_change.call("active")), "the service sees no active source")
@@ -778,6 +797,7 @@ func run() -> void:
 	body_change.call("refresh_sources")
 	body_change.call("refresh_sources")
 	check(REGISTRY.has("chrysalis"), "the layer returns with the pack")
+	check(adapter.is_processing(), "the adapter observes again once the pack returns")
 	var again: Array = adapter.call("installed_character_ids")
 	check(again.size() == 1 and str(again[0]) == "chrysalis",
 		"the installed entry returns once")

@@ -235,6 +235,13 @@ func run() -> void:
 	seat.call("refresh_form", rigged, source_form)
 	check(seat.row(rigged) == null, "a source-owned tail root drops the seat row")
 	source_form.tail_root.free()
+	# An explicit release drops the row for a body that stays in the tree; the tree-exiting hook
+	# alone would keep the old fit until the node is freed.
+	seat.call("attach", rigged)
+	check(seat.row(rigged) != null, "the seat remembers the body again")
+	seat.call("release", rigged)
+	check(seat.row(rigged) == null,
+		"an explicit release drops the row without a tree exit")
 	SETTINGS.reseat_tails.set_bool(reseat_before)
 	rigged.free()
 	seat.free()

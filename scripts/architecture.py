@@ -122,6 +122,14 @@ TEST_DEFAULT_FALLBACK = {
     ("tests/poses/test_session.gd", "SETTINGS.chin_up_deg.default"),
 }
 
+# The base mechanism never names the installed provider's characters or its mesh marker. The
+# provider and its policy are the only source files that may; the base roster catalog names a
+# base-game mare and is game data, not integration vocabulary.
+CHANGELINGS_VOCAB = re.compile(
+    r"chrysalis|shoeshine|queen_chrysalis|chrysalis_own", re.IGNORECASE)
+CHANGELINGS_SOURCE = "integrations/changelings"
+CHANGELINGS_CATALOG = {"shared/character_preferences.gd"}
+
 ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
 # Service files another owner may extend or preload as a documented extension point. The source
 # base is a provider contract, not a second facade.
@@ -852,6 +860,41 @@ def check_sources(failure: Failure) -> None:
         for call in POSE_ACT_EXIT_CALLS:
             if call in text:
                 failure.add("%s must not reach the act exit: %s" % (rel(path), call))
+
+    # One body-change fan-out: only the service dispatches to registered body bindings, through
+    # its one bind/refresh/unbind loop each. A second dispatcher would bypass the form store.
+    for needle in ("binding.bind_body(", "binding.refresh_body(", "binding.unbind_body("):
+        callers = [rel(path) for path in shipped_sources()
+                   if needle in path.read_text(encoding="utf-8")]
+        if callers != ["body_change/service.gd"]:
+            failure.add("%s must only be dispatched from body_change/service.gd (found %s)" % (
+                needle, ", ".join(callers) or "none"))
+    service = (ROOT / "body_change" / "service.gd").read_text(encoding="utf-8")
+    for name in ("_notify_bind", "_notify_refresh"):
+        if service.count("func %s(" % name) != 1:
+            failure.add("body_change/service.gd must define one %s()" % name)
+
+    # One resume: the runtime keeps the only resume path, and adoption never resumes by itself.
+    resumes = re.findall(r"^func _resume_after_body_swap\(", runtime, re.MULTILINE)
+    if len(resumes) != 1:
+        failure.add("runtime.gd must define exactly one _resume_after_body_swap()")
+    for path in shipped_sources():
+        if path == ROOT / "runtime.gd":
+            continue
+        if "_resume_after_body_swap(" in path.read_text(encoding="utf-8"):
+            failure.add("%s must not resume a body swap" % rel(path))
+    if "_resume_after_body_swap(" in function_body(runtime, "adopt_body"):
+        failure.add("adopt_body() must not resume; the watcher owns the one resume")
+
+    # The base mechanism never names the installed provider's characters or its mesh marker.
+    for path in shipped_sources():
+        name = rel(path)
+        if name.startswith(CHANGELINGS_SOURCE) or name in CHANGELINGS_CATALOG:
+            continue
+        match = CHANGELINGS_VOCAB.search(path.read_text(encoding="utf-8"))
+        if match:
+            failure.add("%s names changelings vocabulary outside its provider: %s" % (
+                name, match.group(0)))
 
     # Every bash entry point runs under errexit, so a failing tool stops it.
     shell_paths = [ROOT / name for name in SHELL_ENTRIES]

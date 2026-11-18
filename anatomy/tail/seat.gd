@@ -228,6 +228,18 @@ func attach(pony: Node, form: BODY_FORM.BodyForm = null) -> void:
 		row.applied.x, row.applied.y, row.applied.z])
 
 
+## Release one body's seat without waiting for its tree-exiting hook. A binding can unbind a body
+## that stays in the tree, so the tail and dock must go back and the row must drop its old fit.
+func release(pony: Node) -> void:
+	if not is_instance_valid(pony):
+		return
+	var row: SeatRow = _rows.get(pony) as SeatRow
+	if row == null:
+		return
+	_restore(row)
+	_forget(pony)
+
+
 ## The same body carries a revised form. A source-owned tail returns to its provider; a regular
 ## hair tail re-resolves its placement row and re-seats the tail and dock when the fit changed.
 func refresh_form(pony: Node, form: BODY_FORM.BodyForm) -> void:

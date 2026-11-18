@@ -39,6 +39,9 @@ const OWN_RIG := "celestia"
 ## lookup for a short grace so the wrapper can attach once the chain exists.
 const LATE_TAIL_TRIES := 6
 const LATE_TAIL_STEP_S := 0.05
+## The provider's own pack read. The base service never polls; this adapter observes its pack at
+## the same 0.1 s cadence the act watcher uses and pushes the change through the service.
+const OBSERVE_S := 0.1
 ## The player's own words for the reveal ask, lower-case and matched inside the line. The core
 ## owns no phrasing; a later source brings its own.
 const REVEAL_PHRASES := [
@@ -108,6 +111,8 @@ var _act_pony: Node = null
 ## The pack's `busy` on the previous poll. A rising edge with the act pony as `actor` is a change
 ## her own AI started, which no `request_*` call announced.
 var _busy_seen := false
+## The provider's observation clock; the pack read runs once per `OBSERVE_S`, not per frame.
+var _observe_clock := 0.0
 ## Pony -> attempts used while her spring chain is still being built.
 var _late_tail: Dictionary = {}
 var _late_tail_timer: Timer
@@ -472,12 +477,17 @@ func named_form_note(text: String) -> String:
 	return ""
 
 
-## Register or drop the provider layer after a pack check. Idempotent.
+## Register or drop the provider layer after a pack check. Idempotent. The adapter observes its
+## pack only while the pack is active; a change still running when it goes away is ended here.
 func refresh() -> void:
 	if active():
 		_register()
+		set_process(true)
 	else:
+		if _changing:
+			_end_change()
 		_unregister()
+		set_process(false)
 
 
 ## Compatibility for the old prepare hook. The body-change service owns the form application.
@@ -742,6 +752,7 @@ func shutdown() -> void:
 	_clear_change_read()
 	_unregister()
 	_clear_late_tail()
+	set_process(false)
 	_tail_wrappers.clear()
 	_form_signatures.clear()
 	_form_revisions.clear()
@@ -984,7 +995,6 @@ func _begin_change(old: Node, shape_id: String, origin: BODY_CHANGE.Origin) -> v
 	_change.started_s = Time.get_ticks_msec() / 1000.0
 	# The pack is busy from here; the next rising edge is a new change, not this one.
 	_busy_seen = true
-	set_process(true)
 	_notify_source_changed()
 
 
@@ -993,7 +1003,6 @@ func _begin_change(old: Node, shape_id: String, origin: BODY_CHANGE.Origin) -> v
 func _end_change() -> void:
 	_changing = false
 	_change_variant_done = false
-	set_process(false)
 	if _change != null:
 		_change.state = BODY_CHANGE.State.SETTLED if is_instance_valid(_change_new) \
 			else BODY_CHANGE.State.FAILED
@@ -1048,7 +1057,12 @@ func _source_mod() -> Node:
 	return get_tree().get_first_node_in_group(GROUP)
 
 
-func _process(_delta: float) -> void:
+## The provider's own 10 Hz pack read. No runtime or base-service call pumps this.
+func _process(delta: float) -> void:
+	_observe_clock += maxf(0.0, delta)
+	if _observe_clock < OBSERVE_S:
+		return
+	_observe_clock = 0.0
 	poll()
 
 

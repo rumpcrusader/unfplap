@@ -15,6 +15,12 @@ const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WIRE := preload("res://mods/unfplap/body_change/wire.gd")
 
+## The game's pony `set_body_scale()` clamps its capsule to this range. A provider's form carries
+## the same value the capsule takes, so the descriptor, the mesh scale and the capsule never
+## disagree.
+const BODY_SCALE_MIN := 0.25
+const BODY_SCALE_MAX := 4.0
+
 var main: Node = null
 ## The host's debug sink. `main.debug()` carries the mod id and obeys the debug toggle.
 var _log: Callable = Callable()
@@ -192,6 +198,7 @@ func default_form(body: Node3D) -> BODY_FORM.BodyForm:
 func apply_form(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 	if not is_instance_valid(body) or form == null:
 		return
+	form.body_scale = _valid_scale(form.body_scale)
 	var stored: Variant = _forms.get(body)
 	var previous: BODY_FORM.BodyForm = stored if stored is BODY_FORM.BodyForm else null
 	var was_bound := _bound.has(body)
@@ -206,6 +213,9 @@ func apply_form(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 	_log_apply(body, form, previous, action)
 	if action == "bind":
 		_bound[body] = true
+		# A body that leaves the tree releases its bindings once. The seat's own exiting hook only
+		# covers its tree life; an explicit unbind that keeps the body is the binding's call.
+		body.tree_exiting.connect(_unbind_on_exit.bind(body), CONNECT_ONE_SHOT)
 		_notify_bind(body, form)
 	elif action == "refresh":
 		_notify_refresh(body, form)
@@ -325,6 +335,18 @@ func _adopt_change(source: BODY_CHANGE_SOURCE) -> void:
 	if change.source == null:
 		change.source = source
 	_active_change = change
+
+
+func _unbind_on_exit(body: Node3D) -> void:
+	unbind_body(body)
+
+
+## A provider scale that is not finite falls back to the body's ordinary scale; anything outside
+## the game's clamp is the nearest value the capsule can take.
+static func _valid_scale(value: float) -> float:
+	if not is_finite(value):
+		return 1.0
+	return clampf(value, BODY_SCALE_MIN, BODY_SCALE_MAX)
 
 
 ## The same typed values, so a provider form that arrives after the default still refreshes when a

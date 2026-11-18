@@ -9,8 +9,11 @@ const BODY_BINDING := preload("res://mods/unfplap/shared/body_binding.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
+const GARMENT_BINDING := preload("res://mods/unfplap/body_change/garment_binding.gd")
+const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
 
 var failures := 0
 var checks := 0
@@ -31,6 +34,27 @@ class FakeHost extends Node:
 
 	func debug(text: String) -> void:
 		lines.append(text)
+
+
+class FakeLodHost extends Node:
+	var refreshes: Array[Node] = []
+
+	func refresh_body_lod(body: Node) -> void:
+		refreshes.append(body)
+
+
+class FakeGarments extends Node:
+	var scans := 0
+
+	func scan() -> void:
+		scans += 1
+
+
+class FakeSmack extends Node:
+	var handed_over: Array[Node] = []
+
+	func pony_ready(body: Node) -> void:
+		handed_over.append(body)
 
 
 class FakeSource extends "res://mods/unfplap/body_change/source.gd":
@@ -151,6 +175,8 @@ func run() -> void:
 	_check_body_change()
 	_check_binding()
 	_check_policy()
+	_check_world_bindings()
+	_check_scale_clamp()
 	_check_service()
 	print("BODY_CHANGE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
@@ -327,6 +353,100 @@ func _check_policy() -> void:
 	empty.comfort = 1
 	check(not empty.is_empty(), "a comfort mark makes the effects non-empty")
 	body.free()
+
+
+func _check_world_bindings() -> void:
+	var host := FakeHost.new()
+	var service := SERVICE.new()
+	service.setup(host)
+	var lod_target := FakeLodHost.new()
+	var lod: RefCounted = LOD_BINDING.new()
+	lod.call("setup", lod_target)
+	var garment_target := FakeGarments.new()
+	var garments: RefCounted = GARMENT_BINDING.new()
+	garments.call("setup", garment_target)
+	var smack_target := FakeSmack.new()
+	var smack: RefCounted = SMACK_BINDING.new()
+	smack.call("setup", smack_target)
+	check(str(lod.call("binding_id")) == "lod", "the LOD binding names itself")
+	check(str(garments.call("binding_id")) == "garments", "the garment binding names itself")
+	check(str(smack.call("binding_id")) == "stock_smack",
+		"the stock smack binding names itself")
+	check(service.register_binding(lod), "the LOD binding registers")
+	check(service.register_binding(garments), "the garment binding registers")
+	check(service.register_binding(smack), "the stock smack binding registers")
+
+	var body := FakePony.new()
+	body.name = "WorldBody"
+	body.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
+	service.bind_body(body)
+	check(lod_target.refreshes == [body], "the LOD binding refreshes the adopted body")
+	check(garment_target.scans == 1, "the garment binding re-scans for the adopted body")
+	check(smack_target.handed_over == [body], "the smack binding hands the adopted body over")
+	var line := host.lines[host.lines.size() - 1] if not host.lines.is_empty() else ""
+	check(line.contains("bindings=lod,garments,stock_smack"),
+		"the service log names the world bindings in registration order")
+
+	var revised := service.form_for(body)
+	revised.revision = 1
+	service.apply_form(body, revised)
+	check(lod_target.refreshes.size() == 2, "a revised form refreshes the LOD once")
+	check(garment_target.scans == 2, "a revised form re-scans the garments once")
+	check(smack_target.handed_over.size() == 2, "a revised form re-readies the smack layer once")
+
+	service.unbind_body(body)
+	check(lod_target.refreshes.size() == 2 and garment_target.scans == 2
+		and smack_target.handed_over.size() == 2,
+		"an unbind does not refresh the world systems again")
+
+	service.free()
+	host.free()
+	lod_target.free()
+	garment_target.free()
+	smack_target.free()
+	body.free()
+
+
+func _check_scale_clamp() -> void:
+	var host := FakeHost.new()
+	var service := SERVICE.new()
+	service.setup(host)
+	var pony := FakePony.new()
+	pony.name = "ScaleBody"
+	pony.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
+
+	var huge := service.default_form(pony)
+	huge.form_id = "huge"
+	huge.body_scale = 99.0
+	service.apply_form(pony, huge)
+	check(is_equal_approx(huge.body_scale, SERVICE.BODY_SCALE_MAX),
+		"an oversized provider scale is clamped to the game capsule's range")
+	check(is_equal_approx(pony.body_scale, SERVICE.BODY_SCALE_MAX),
+		"the descriptor and the body take the same clamped scale")
+	check(is_equal_approx(pony.scale_calls.back(), SERVICE.BODY_SCALE_MAX),
+		"the clamped scale goes through the game setter")
+
+	var tiny := service.default_form(pony)
+	tiny.form_id = "tiny"
+	tiny.revision = 1
+	tiny.body_scale = 0.01
+	service.apply_form(pony, tiny)
+	check(is_equal_approx(tiny.body_scale, SERVICE.BODY_SCALE_MIN),
+		"an undersized provider scale is clamped to the game capsule's range")
+
+	var broken := service.default_form(pony)
+	broken.form_id = "broken"
+	broken.revision = 2
+	broken.body_scale = NAN
+	service.apply_form(pony, broken)
+	check(is_equal_approx(broken.body_scale, 1.0),
+		"a non-finite provider scale falls back to the ordinary scale")
+	check(is_equal_approx(pony.body_scale, 1.0),
+		"the fallback scale reaches the body too")
+
+	service.free()
+	host.free()
+	pony.free()
 
 
 func _check_service() -> void:
@@ -532,6 +652,18 @@ func _check_service() -> void:
 	check(service.active_sources().is_empty(), "an unregistered source leaves the registry")
 	check(service.active_change() == null,
 		"unregistering the change's source clears the active read")
+
+	var leaving := FakePony.new()
+	leaving.name = "LeavingBody"
+	leaving.identity = {"id": "rainbow_dash", "display_name": "Rainbow Dash"}
+	root.add_child(leaving)
+	service.bind_body(leaving)
+	journal.clear()
+	root.remove_child(leaving)
+	check(journal == ["one:unbind", "two:unbind"],
+		"a body leaving the tree unbinds through the service")
+	check(service.form_for(leaving).is_own(), "the leaving body drops its stored source form")
+	leaving.free()
 
 	service.free()
 	host.free()

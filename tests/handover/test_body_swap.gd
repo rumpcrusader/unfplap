@@ -8,6 +8,7 @@ extends SceneTree
 ## suite cannot load.
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -75,6 +76,8 @@ class FakeSource extends Node:
 	var shape_requests: Array[String] = []
 	var player_marks: Array[bool] = []
 	var player_request := false
+	var poll_calls := 0
+	var change: BODY_CHANGE = null
 
 	func is_active() -> bool:
 		return active_flag
@@ -82,8 +85,22 @@ class FakeSource extends Node:
 	func handles_pony(_pony: Node) -> bool:
 		return true
 
+	func change_in_progress() -> bool:
+		return changing
+
 	func is_changing() -> bool:
 		return changing
+
+	## The provider's typed read. A change the test starts by setting `changing` reads as the one
+	## request the adapter would have announced.
+	func active_change() -> BODY_CHANGE:
+		if change == null and changing:
+			change = BODY_CHANGE.new()
+			change.source = self
+			change.previous_body = old_pony as Node3D
+			change.target_form_id = shape_id
+			change.state = BODY_CHANGE.State.REQUESTED
+		return change
 
 	func old_actor() -> Node:
 		return old_pony if is_instance_valid(old_pony) else null
@@ -101,7 +118,7 @@ class FakeSource extends Node:
 		return changing and is_instance_valid(new_pony) and pony == new_pony
 
 	func poll() -> void:
-		pass
+		poll_calls += 1
 
 	func source_name() -> String:
 		return "fake"
@@ -177,6 +194,17 @@ class FakeEligibility extends RefCounted:
 		return allow
 
 
+## The body-change service's read half: the provider pushes, the watcher reads. The fake carries
+## the one source's typed change so the runtime never polls the source itself.
+class FakeBodyChange extends Node:
+	var source: Variant = null
+
+	func active_change() -> Variant:
+		if not is_instance_valid(source):
+			return null
+		return source.call("active_change")
+
+
 ## The pending-swap half of `main.gd`, without the autoload dependency. The runtime is the code
 ## under test; this only routes the spawned body to it.
 class FakeMain extends Node:
@@ -191,10 +219,13 @@ class FakeMain extends Node:
 	var stock_smack: Variant = null
 	var source: Variant = null
 	var memory: Variant = null
+	var body_change: Variant = null
+	var begins := 0
 	var lod_refreshes: Array[Node] = []
 
 	func begin_body_swap(runtime: Node, old_pony: Node, id: String, source: Variant,
 			target: String) -> void:
+		begins += 1
 		_pending_swap = {"runtime": runtime, "old_pony": old_pony, "id": id,
 			"source": source, "target": target}
 		if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
@@ -331,7 +362,13 @@ func _fixture() -> Dictionary:
 	source.old_pony = old_pony
 	source.changing = false
 	main.source = source
-	return {"main": main, "runtime": runtime, "old": old_pony, "source": source}
+	var body_change := FakeBodyChange.new()
+	body_change.name = "FakeBodyChange"
+	main.add_child(body_change)
+	body_change.source = source
+	main.body_change = body_change
+	return {"main": main, "runtime": runtime, "old": old_pony, "source": source,
+		"body_change": body_change}
 
 
 func _free_fixture(made: Dictionary) -> void:
@@ -352,6 +389,7 @@ func _free_fixture(made: Dictionary) -> void:
 
 
 func run() -> void:
+	_check_observation()
 	_check_handover()
 	_check_ai_change()
 	_check_failed_change()
@@ -374,6 +412,32 @@ func run() -> void:
 	_check_held_guard()
 	print("BODY_SWAP_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+
+## The watcher reads the service at the existing cadence and never pumps the provider. The
+## provider's own observation is the only pack read.
+func _check_observation() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	source.poll_calls = 0
+	runtime._swap_clock = 0.0
+	runtime._body_swap_tick(0.1)
+	check(not runtime._suspended, "no change leaves the act live")
+	check(source.poll_calls == 0, "the watcher never polls the provider")
+	source.changing = true
+	runtime._swap_clock = RUNTIME.BODY_SWAP_POLL_S * 0.5
+	runtime._body_swap_tick(RUNTIME.BODY_SWAP_POLL_S * 0.1)
+	check(not runtime._suspended, "the watcher reads the change only at its cadence")
+	runtime._body_swap_tick(RUNTIME.BODY_SWAP_POLL_S)
+	check(runtime._suspended, "the announced change suspends on the cadence tick")
+	check(main.begins == 1, "the suspend records one pending swap")
+	runtime._body_swap_tick(0.1)
+	check(main.begins == 1, "a suspended tick does not start a second handover")
+	check(source.poll_calls == 0, "the suspended wait never polls the provider either")
+	runtime.force_stop()
+	_free_fixture(f)
 
 
 ## One complete suspend → adopt → resume, then the one exit.

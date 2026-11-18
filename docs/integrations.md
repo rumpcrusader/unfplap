@@ -20,7 +20,7 @@ whether or not the other mod is installed.
 - `integrations/changelings.gd` is a world-side adapter for the Queen Chrysalis 0.2.12 pack
   (`changelings`): it lists her as an installed provider mare, gives the bodies the pack brings
   the generic body-fit and custom-tail metadata, and is the pack's shape-change source. It is not
-  a catalog entry, has no settings and needs no pack rebuild.
+  a catalog entry, has no settings, adds no Integrations tab section and needs no pack rebuild.
 - Two integrations are supported by the per-act service: the Kissing 1.2.9 reaction layer and the
   Pantyhose & Panties 0.1.1 world garment adapter. Kissing's own kiss driver, guard, rear, reach,
   approach, step-back and memory recorder stay out of this service.
@@ -120,16 +120,23 @@ object with `is_active()`, `handles_pony(pony)`, `is_changing()`, `old_actor()`,
 that handles the pony; `prepare_pony()` runs every active source's hook before the anatomy bind;
 `installed_character_ids()` merges the sources' away lists.
 
+A source is constructed and registered by `main`. A future regular-changelings pack gets its own
+world adapter under `integrations/`, constructed and registered the same way; it reads that pack's
+own public fields and leaves the runtime core and this contract unchanged. No second real source is
+registered now, and no future pack id is added to unfplap. A signal API is a later option; the
+shipped path stays the polling watcher, which needs no pack rebuild and sees a change the source's
+own AI starts.
+
 The runtime polls the source at `0.1 s` while an act is live. It suspends when the source's
-`old_actor()` is the act pony and `is_changing()` becomes true; the act state and the one teardown
-are `docs/runtime.md`. A source may start a change from its own AI as well as from a `request_*`
-call: `poll()` sets the source's changing state, and the runtime reads `is_changing()` and
-`old_actor()` after the poll. The source claims the spawned body through `claims_body()`, so the
-entry adopts the act runtime before it creates another. `request_true_form()` and `request_shape()`
-are the start calls; `target()` is empty for a return to the owner's own form, and `current_shape()`
-is empty while she is in it. `set_player_request()` marks the change just started as the player's
-own ask. A future regular changelings mod implements the same surface and registers its source; no
-core file changes.
+`old_actor()` is the act pony and `is_changing()` becomes true; the act state, the one teardown,
+the late-body adoption and the restore guard are `docs/runtime.md`. A source may start a change from
+its own AI as well as from a `request_*` call: `poll()` sets the source's changing state, and the
+runtime reads `is_changing()` and `old_actor()` after the poll. The source claims the spawned body
+through `claims_body()`, so the entry adopts the act runtime before it creates another.
+`request_true_form()` and `request_shape()` are the start calls; `target()` is empty for a return
+to the owner's own form, and `current_shape()` is empty while she is in it. `set_player_request()`
+marks the change just started as the player's own ask. A source that stalls without a new body is
+covered by the watchdog; a source that goes inactive restores the old body.
 
 ## Kissing provider
 
@@ -241,7 +248,9 @@ bind. The adapter sets `body_fit_id` and `tail_pose_root` on the two kinds of bo
   chain.
 
 A missing node is a quiet no-op, so a pack update can change the shape without a crash. The
-integration does not depend on a new signal or a rebuilt pack.
+integration does not depend on a new signal or a rebuilt pack. `body_fit_id` and `tail_pose_root`
+are internal adapter metadata: they are not a `docs/api.md` convention and another mod must not
+depend on them.
 
 The adapter is also the pack's shape-change source. It watches the pack's public `busy`, `actor`
 and `disguised_as`: `request_true_form()` captures the current actor and calls `reveal()`;
@@ -256,19 +265,24 @@ the new body's `changeling=<id>` variant or `disguised_as`. `claims_body()` acce
 for a true form and the `changeling=<id>` variant for a named shape. `request_appear()` calls
 `bring_out()` for the idle debug action. A `busy` from a visit end or another action that removes
 her follows the old-body/watchdog path in `docs/runtime.md`; a young or male shape ends the act
-cleanly instead of resuming it.
+cleanly instead of resuming it. Her own change never spends the player's post-climax offer: the
+offer stays pending and only a shape the player names clears it.
 
 The player's own words are the adapter's: `asks_form_change(text)` matches its reveal phrase set
 (“true form”, “real you”, “real her”, “drop the disguise”, “unmask” and similar). `named_form(text)`
 matches an adult mare's display name or id against the base roster and the entry's live
 off-roster/provider list; it excludes the shape she already wears and herself, refuses an ambiguous
 name (a tie or two whole names), and returns a shape only when the game's population has a scene the
-pack can copy. A one-word name only counts when the line is the name or asks for a shape (“wear”,
-“become”, “want”, “name” and similar), so “you are a rarity” is ordinary talk. `named_form_note()`
+pack can copy. A line is a choice only when it is a whole name or carries an imperative request
+(“wear”, “become”, “turn into”, “change into”, “name yourself” or a leading “name”); a name mentioned
+inside a sentence without one is ordinary talk, and a negated or descriptive line (“I don't want
+Rarity”, “your name is Rarity”) never selects a shape. Names are matched as whole words, so an id
+word does not match inside another word. `named_form_note()`
 returns a short status when the line names a shape she already wears, herself, a known young or male
 body, or an uncopyable pony, and returns nothing for ordinary talk. The young/male list is the base
 game 0.3.1 roster; a pack update may add more, and the live candidate list still gates every real
-choice. The pack needs no rebuild and no new signal.
+choice. The reveal uses the existing talk turn and offer line; it adds no dedicated reaction line.
+The pack needs no rebuild and no new signal.
 
 ## Settings
 
@@ -323,8 +337,9 @@ overlay reads them.
 | `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` |
 | `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
 | `main._on_pony()` | runs the manager's `prepare_pony()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
+| `main.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
 | `main.live_character_ids()` | merges the manager's `installed_character_ids()` |
-| `runtime.request_form_change()` | the act-side start of a source change; the watcher owns the suspension and the player flag marks an exceptional reveal |
+| `runtime.request_form_change()` | the act-side start of a source change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
 | `runtime.adopt_body()` / `attach_to_body()` | moves the suspended act under the claimed body |
 | `Mods.is_active("changelings")` | the adapter's installation gate |
 
@@ -367,9 +382,9 @@ overlay reads them.
   and named requests, the claimed body, the idle appear hook and the completion poll. An AI-started
   change is observed from a rising `busy`, claimed by identity before the shape is known and
   completed from the new body's variant; a `busy` on another body is ignored. The player hooks
-  cover the reveal phrases (including the hint's own “real her”), adult base/live names, ambiguous
-  names, a name without a shape verb, the worn shape and self, known young and male bodies, and the
-  population's copyable check.
+  cover the reveal phrases (including the hint's own “real her”), whole adult base/live names, the
+  imperative request phrases, negated and descriptive lines, names inside other words, ambiguous
+  names, the worn shape and self, known young and male bodies, and the population's copyable check.
 - `tests/handover/test_body_swap.gd` — the generic handover the source drives; `docs/runtime.md`
   owns its rules.
 - `tests/test_settings.gd` — the Integrations tab draws every provider header, flag and the Debug
@@ -416,10 +431,14 @@ overlay reads them.
   act cleanly.
 - After one climax in her own form, wait for the offer line and the HUD hint; name a base adult
   mare and check the act re-poses on that disguise with no comfort or peak boost. Name a young or
-  male body and check the short status and the unchanged act. Say a name without a shape verb
-  (“you are a rarity”) and check it is ordinary talk.
+  male body and check the short status and the unchanged act. Say a name without an imperative
+  (“you are a rarity”, “your name is Rarity”, “I don't want Rarity”) and check it is ordinary talk.
+- Let her own AI change shape while the offer waits: the act re-poses neutrally and the offer and
+  its HUD hint stay pending; naming a shape afterwards still works.
 - Leave the offer unanswered through an act end: no change, and the next act may offer again. A
   named change that fails before a new body arrives puts the offer back.
+- Let her AI start a change during the restore window: the act finishes its teardown through the
+  one exit instead of leaving the body to be freed under the runtime.
 - Check the hint clears at the climax, afterglow and restore, and that a held body refuses the
   request.
 

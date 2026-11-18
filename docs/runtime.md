@@ -160,6 +160,12 @@ new body, `anatomy.bind()` runs, the runtime is reparented under the new body, a
 anatomy controller is detached first, so the act never keeps two controllers or two owners. The stable id is the act's id: a borrowed shape keeps the same
 relationship, preferences, history and summary; only the display name follows the new identity.
 
+A source may clear its changing state before the new body's spawn hook reaches `main`. The watcher
+keeps the act suspended while the source still reports a new body through `new_actor()`, then calls
+`main.adopt_pending_body()` to run the same prepare-and-adopt path after a short grace. The old body
+is not resumed while that new body exists, so the late spawn cannot attach a second runtime. A
+source that stops without a new body still follows the old-body or watchdog path below.
+
 A live settings edit while suspended refreshes the snapshot and returns; the resume applies it
 with the rest of the rebuilt state instead of touching a released pose or the old body.
 
@@ -174,7 +180,8 @@ re-frame is the accepted behavior, not a zero-frame swap.
 
 Failure paths keep the one exit:
 
-- the source stops with the old body alive: the same runtime resumes on the old body;
+- the source stops with no new body and the old body alive: the same runtime resumes on the old
+  body;
 - a named shape fails before a new body arrives: the pending offer is restored so the player can
   name another;
 - no body arrives: the `8 s` watchdog ends the act through `force_stop()`;
@@ -182,9 +189,10 @@ Failure paths keep the one exit:
 - the world closes or the act is force-stopped while suspended: `_end_session()` clears the
   pending record and runs the normal teardown.
 
-A change that starts while the act is already in `RESTORE` is not suspended; the end finishes.
-`request_form_change()` refuses a body another system is holding, and the suspend path releases a
-carried body before the flame.
+A change that starts while the act is already in `RESTORE` is not suspended. The restore finishes
+through `force_stop()` and the one exit before the pack can free the body under the runtime, so the
+borrowed scene state is returned instead of a world-close. `request_form_change()` refuses a body
+another system is holding, and the suspend path releases a carried body before the flame.
 
 `reparent()` runs `_exit_tree()`. The runtime's `_swapping_parent` flag makes that signal a no-op
 during the handover, so a move between bodies cannot run the world-close teardown. `attach_to_body()`
@@ -199,8 +207,8 @@ readiness classifier scores, and passes its text to the source:
 - a source that wears another shape consumes a reveal ask through `asks_form_change(text)`; a
   successful `runtime.request_form_change(true, "", true)` marks the change as the player's;
 - with the post-climax offer pending, a line that names an adult mare through `named_form(text)`
-  starts `request_form_change(false, id)`; `named_form_note(text)` supplies a short status for a
-  worn, own, young/male or uncopyable name and returns nothing for ordinary talk;
+  starts `request_form_change(false, id, true)`; `named_form_note(text)` supplies a short status
+  for a worn, own, young/male or uncopyable name and returns nothing for ordinary talk;
 - anything else is ordinary talk and is left to readiness and dialogue.
 
 The offer is made once per act after the first pony climax, in her own form and in `ACTIVE`:
@@ -217,6 +225,10 @@ summary/act-history commit reads for an extra great-act comfort. It is recorded 
 effects, so a second ask in the same act does nothing. Her own reveal and any named shape are
 neutral: the handover runs, the act continues, and none of the exceptional effects apply. The same
 runtime keeps the flags across the swap; `_end_session()` clears the pending offer and hint.
+
+The player's offer survives her own change. An AI-origin shape change leaves `_shape_offer_pending`
+set, and only the shape the player names through the offer clears it; a player-requested reveal
+leaves it set too. The offer is therefore still available after her AI takes or leaves a shape.
 
 `_form_hint_tick()` caches the act's one hint for the HUD: the reveal ask while she wears another
 shape and the reveal is unused, the name prompt while the offer is pending, otherwise nothing. It
@@ -292,8 +304,10 @@ callable.
 
 `request_form_change(true_form, shape_id, by_player)` is the act-side shape request the debug block
 uses and the player interaction calls; the watcher turns it into the suspension, and `by_player`
-marks a requested reveal as exceptional. `body_swap_pending()` is true between suspension and
-resume. `main` and the debug actions use these; no presentation module reads them.
+marks the change as the player's (only a player-requested true form is exceptional).
+`body_swap_pending()` is true between suspension and resume. `main.adopt_pending_body(pony)` runs
+the entry's prepare and pending-swap adoption for a body the watcher found before its spawn hook.
+`main` and the debug actions use these; no presentation module reads them.
 
 The runtime does not mirror a service's act state. It reads it through the owning facade
 (`_readiness`, `_act_camera`, `_afterglow`, `_hold`, `_pose_session`, `_summary_service`, `_face`)
@@ -347,8 +361,10 @@ pose override still wins.
   pose bind, a change the source started on its own, a repeated change, a failed change resumes
   the old body, a source that goes inactive, the watchdog and an ineligible body end through the
   one exit, a world close during the swap is safe, the hint clears on the state changes, a failed
-  named change restores the offer, and a held body refuses the request. The entry's adoption rules
-  are pinned in `tests/test_source_hygiene.gd`.
+  named change restores the offer, her own change keeps the player's offer, a late body is adopted
+  once after the grace instead of resuming the old body, a change during the restore finishes the
+  act through the one exit, and a held body refuses the request. The entry's adoption rules are
+  pinned in `tests/test_source_hygiene.gd`.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
 - The service suites indexed in `docs/README.md`.

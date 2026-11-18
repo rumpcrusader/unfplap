@@ -139,7 +139,10 @@ first caress path, not the per-tick contact.
 The body-swap watcher runs before the act chunks: one source `poll()` per `0.1 s` while an act is
 live, plus a read of the same source's changing state. It allocates nothing per frame, so it stays
 in the `runtime_physics` self row rather than a named chunk. A suspend/resume is one-time per change
-and the watchdog covers a source that never settles.
+and the watchdog covers a source that never settles. The comparison is a manual lab step: with
+**Enable debug** + **Print perf logs** on, record a steady act window and an idle window and compare
+`runtime_physics`, `runtime_talk` and the `self` row around the watcher. The headless perf suites pin
+the probe's own behavior, not the live frame cost.
 
 ## Idle probe API
 

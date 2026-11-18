@@ -37,13 +37,22 @@ wanted.
 
 ## Shell scripts
 
-Every bash entry point starts with `set -euo pipefail`. Rely on the options instead of probing
-dependencies: a script that needs `godot` or `python3` calls it; `set -e` stops at the failing
-command and the shell or tool prints the reason. A `command -v` guard is only for a failure that
-would otherwise continue or act unsafely.
+Every bash entry point starts with `set -euo pipefail`; `tests/test_source_hygiene.gd` pins that
+prelude for every root and `scripts/*.sh`. Rely on the options instead of probing dependencies: a
+script that needs `godot` or `python3` calls it; `set -e` stops at the failing command and the shell
+or tool prints the reason. A `command -v` guard is only for a failure that would otherwise continue
+or act unsafely: the parallel gate keeps its Godot probe so a missing interpreter cannot report a
+false pass with empty logs, and `lab-vr.sh` keeps its Monado-service and runtime-manifest guards
+because it starts that service itself and would otherwise run a VR lab without a runtime.
 
 A script that must observe a failure captures the status at that call (`if cmd; then ...; else
-status=$?; fi`) and keeps `-e`; it does not drop `-e` so a loop can continue.
+status=$?; fi`) and keeps `-e`; it does not drop `-e` so a loop can continue. The gate runners read
+a tool's output after an expected non-zero exit, so `scripts/check.sh`, `scripts/test.sh` and
+`scripts/smoke.sh` allow exactly that call (`|| true` or the if/else capture) and stay under `-e`.
+
+The manual labs pick the session display driver: `DISPLAY_DRIVER` first, then Wayland when
+`WAYLAND_DISPLAY` is set, else X11. `lab-vr.sh` additionally sets its own XR runtime. The labs rely
+on `-e` for the Godot and asset checks instead of repeating a dependency probe.
 
 More than 25 non-empty, non-comment lines is a smell: extract a shared prelude or move the logic
 into the tool the script wraps. The threshold is a review prompt, not a gate.

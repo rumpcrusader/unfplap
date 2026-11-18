@@ -100,8 +100,6 @@ func run() -> void:
 		"VR body tracker API")
 	check(not ClassDB.class_has_method("XRBodyTracker", "get_have_tracking_data"),
 		"old VR tracker API absent")
-	check(not FileAccess.get_file_as_string("res://mods/unfplap/vr/service.gd").contains(
-		"get_have_tracking_data"), "VR source uses the engine method")
 	var player := Node3D.new()
 	player.name = "Player"
 	root.add_child(player)

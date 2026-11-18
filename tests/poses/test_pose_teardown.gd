@@ -9,11 +9,6 @@ const SESSION := preload("res://mods/unfplap/poses/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-const SERVICE_PATH := "res://mods/unfplap/poses/service.gd"
-## The runtime's act-exit names a pose-scope step must never call.
-const ACT_EXIT := ["release_pose(", "_end_session(", "_unlock_player(", "_restore_pony_bones(",
-	"_restore_camera(", "_restore_look(", "_release_nav(", "_free_pose("]
-
 var failures := 0
 var checks := 0
 
@@ -65,7 +60,6 @@ func run() -> void:
 	_check_body_tail_scope()
 	_check_transition_path()
 	_check_facesit_transition()
-	_check_no_act_exit()
 	print("POSE_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_TEARDOWN_PASS")
@@ -315,13 +309,6 @@ func _check_transition_path() -> void:
 		"the transition completes steady on the target")
 	check(session._started and is_same(session.pose_config, config),
 		"the transition completion keeps the session and the live config")
-	var text := FileAccess.get_file_as_string(SERVICE_PATH)
-	for name: String in ["request_pose", "tick", "_fill_transition_view", "_absorb_switches",
-			"_absorb_events"]:
-		var body := _func_body(text, name)
-		check(not body.is_empty(), "poses/service.gd exposes %s()" % name)
-		for call: String in ACT_EXIT:
-			check(not body.contains(call), "%s does not call %s" % [name, call])
 	_free_fixture(made)
 	check(act_body.is_queued_for_deletion(), "the act exit frees the act body once")
 
@@ -381,24 +368,3 @@ func _check_facesit_transition() -> void:
 		"the face-sit act exit leaves the driver inactive")
 	check(act_body.is_queued_for_deletion(), "the face-sit act exit frees the act body once")
 	_free_fixture(made)
-
-
-## The pose-scope steps are the seam a transition calls: they must not reach an act exit.
-func _check_no_act_exit() -> void:
-	var text := FileAccess.get_file_as_string(SERVICE_PATH)
-	for name: String in ["leave_pose_start", "leave_pose_body"]:
-		var body := _func_body(text, name)
-		check(not body.is_empty(), "poses/service.gd exposes %s()" % name)
-		for call: String in ACT_EXIT:
-			check(not body.contains(call), "%s does not call %s" % [name, call])
-
-
-func _func_body(text: String, name: String) -> String:
-	var needle := "func " + name + "("
-	var start := text.find(needle)
-	if start < 0:
-		return ""
-	var next := text.find("\nfunc ", start + needle.length())
-	if next < 0:
-		next = text.length()
-	return text.substr(start, next - start)

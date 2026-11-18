@@ -96,6 +96,32 @@ POSE_FANOUT_ORDER = (
 SETTINGS_DECLARATION = re.compile(
     r"^\s*static var \w+.*:=\s*(?:flag|num|choice|list|color)\(", re.MULTILINE)
 
+TESTS = ROOT / "tests"
+TEST_SUITE_CHECK = re.compile(r"^func check\(", re.MULTILINE)
+TEST_SUITE_RESULT = re.compile(r"_RESULT checks=")
+TEST_TRUE_CALL = re.compile(r"\bcheck\(\s*true\b")
+TEST_NUMERIC_LITERAL = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])")
+TEST_SETTING_DEFAULT = re.compile(r"[A-Za-z_][\w.]*\.default\b")
+
+# The only suites that read a shipped file, and the document each reads: a data document with no
+# loader, a fixture or a copied asset whose bytes are the contract. The map is the whole allow-list,
+# so a new read is a review instead of a copy-paste, and no suite greps production source or docs.
+TEST_FILE_READS = {
+    "tests/test_settings.gd": "the shipped defaults document and its backups",
+    "tests/test_api.gd": "docs/api.md",
+    "tests/poses/test_pose_bake.gd": "the shipped standing asset bytes",
+    "tests/poses/test_pose_edge.gd": "the pose edge JSON fixtures",
+    "tests/hands/test_caress.gd": "the areas JSON fixture",
+    "tests/anatomy/test_geometry.gd": "the coat shader's sample count",
+    "tests/integrations/test_pantyhose.gd": "the copied shader includes",
+}
+
+# A fallback-to-default check is behaviour, not a copied default: the literal is the caller's
+# fallback argument. Only this pair is allowed to name a declaration default next to a literal.
+TEST_DEFAULT_FALLBACK = {
+    ("tests/poses/test_session.gd", "SETTINGS.chin_up_deg.default"),
+}
+
 ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
 SHARED_KINDS = {
     "act_history.gd": "store",
@@ -685,6 +711,73 @@ def project_game_version() -> str:
     return match.group(1) if match else ""
 
 
+def is_lab(path: Path) -> bool:
+    return path.name.startswith("test_lab") or path.name == "test_stress_lab.gd"
+
+
+def test_suites() -> list[Path]:
+    """The runner's discovery: tests/<name>.gd and tests/<dir>/<name>.gd, no manual labs."""
+    return sorted(
+        path for path in TESTS.rglob("test_*.gd")
+        if len(path.relative_to(TESTS).parts) <= 2 and not is_lab(path)
+    )
+
+
+def line_of(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+
+def check_calls(text: str) -> list[tuple[int, str]]:
+    """Every check(...) call with its line, parentheses balanced across lines."""
+    calls: list[tuple[int, str]] = []
+    for match in re.finditer(r"\bcheck\(", text):
+        depth = 1
+        cursor = match.end()
+        while cursor < len(text) and depth:
+            if text[cursor] == "(":
+                depth += 1
+            elif text[cursor] == ")":
+                depth -= 1
+            cursor += 1
+        calls.append((line_of(text, match.start()), text[match.start():cursor]))
+    return calls
+
+
+def check_tests(failure: Failure) -> None:
+    # The runner contract: a suite defines the check() helper and prints its result line.
+    for path in test_suites():
+        text = path.read_text(encoding="utf-8")
+        name = rel(path)
+        if not TEST_SUITE_CHECK.search(text):
+            failure.add("%s does not define a check() helper" % name)
+        if not TEST_SUITE_RESULT.search(text):
+            failure.add("%s does not print a _RESULT check summary" % name)
+
+    for path in sorted(TESTS.rglob("*.gd")):
+        text = path.read_text(encoding="utf-8")
+        name = rel(path)
+        # check(true, ...) cannot fail, whatever the text says.
+        for match in TEST_TRUE_CALL.finditer(text):
+            failure.add("%s:%d calls check(true, ...): assert the observed value" % (
+                name, line_of(text, match.start())))
+        # The settings schema check owns the one read of the shipped defaults document.
+        if name != "tests/test_settings.gd":
+            for match in re.finditer(r"defaults\.json|DEFAULTS_FILE", text):
+                failure.add("%s:%d reads the shipped defaults outside test_settings.gd" % (
+                    name, line_of(text, match.start())))
+        # Reading a file is reading a document; source and doc purity scans are the gate's job.
+        if not is_lab(path) and "get_file_as_string" in text and name not in TEST_FILE_READS:
+            failure.add("%s reads a shipped file with FileAccess.get_file_as_string" % name)
+        # A declaration default next to a numeric literal is a copied value, not a behaviour.
+        for line, call in check_calls(text):
+            if ".default" not in call or not TEST_NUMERIC_LITERAL.search(call):
+                continue
+            refs = set(TEST_SETTING_DEFAULT.findall(call))
+            if any((name, ref) in TEST_DEFAULT_FALLBACK for ref in refs):
+                continue
+            failure.add("%s:%d compares a declaration default to a numeric literal" % (name, line))
+
+
 def check_sources(failure: Failure) -> None:
     runtime = (ROOT / "runtime.gd").read_text(encoding="utf-8")
 
@@ -834,6 +927,7 @@ def check() -> int:
     check_docs(failure)
     check_typing(failure)
     check_sources(failure)
+    check_tests(failure)
     failures = len(failure.messages)
     for message in failure.messages:
         print("FAIL", message)

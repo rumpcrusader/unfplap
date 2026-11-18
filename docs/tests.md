@@ -157,6 +157,15 @@ in `_physics_tick`.
 
 - The shipped defaults schema and the bounds belong to `tests/test_settings.gd`. A suite names a
   setting and its behaviour, not a copied number.
+- `scripts/architecture.py` owns the test-file rules. Every suite defines `check(` and prints a
+  line containing `_RESULT checks=`; no suite calls `check(true, …)`; no check compares a
+  `Setting.default` to a numeric literal; only `tests/test_settings.gd` reads
+  `settings/defaults.json`; and `FileAccess.get_file_as_string` is limited to the allow-list in
+  the checker — `tests/test_settings.gd`, `tests/test_api.gd`, `tests/poses/test_pose_bake.gd`,
+  `tests/poses/test_pose_edge.gd`, `tests/hands/test_caress.gd`,
+  `tests/anatomy/test_geometry.gd` and `tests/integrations/test_pantyhose.gd` — so no suite scans
+  production source or docs for text. The labs (`tests/test_lab*.gd`,
+  `tests/test_stress_lab.gd`) are exempt from the helper, result-line and file-read rules.
 - Pass counts are never copied into a doc; the suite path is.
 - A regression test stays after the fix. Deleting it re-opens the bug.
 - A suite does not assert another service's private state; it calls that service's facade.

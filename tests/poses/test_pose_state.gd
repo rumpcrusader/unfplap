@@ -7,7 +7,6 @@ extends SceneTree
 
 const STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
-const SOURCE := "res://mods/unfplap/poses/pose_state.gd"
 
 var failures := 0
 var checks := 0
@@ -42,7 +41,6 @@ func run() -> void:
 	_check_interrupt()
 	_check_reuse()
 	_check_base()
-	_check_pure_source()
 
 	print("POSE_STATE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -577,24 +575,3 @@ func _check_base() -> void:
 		run.tick(0.0)
 		check(run.switches() == ["presentation"] and near(run.weight, 1.0),
 			"the switch fires without moving the hold weight")
-
-
-func _check_pure_source() -> void:
-	var source := FileAccess.get_file_as_string(SOURCE)
-	check(not source.is_empty(), "poses/pose_state.gd exists")
-	check(source.begins_with("extends RefCounted"), "the module is a RefCounted")
-	for token: String in ["extends Node", "get_tree(", "FileAccess", "SETTINGS",
-			"preload(\"res://world/",
-			"preload(\"res://mods/unfplap/runtime.gd\")",
-			"preload(\"res://mods/unfplap/main.gd\")",
-			"preload(\"res://mods/unfplap/settings/service.gd\")",
-			"preload(\"res://mods/unfplap/poses/service.gd\")",
-			"_end_session", "release_pose", "leave_pose_start", "leave_pose_body",
-			"_unlock_player"]:
-		check(not source.contains(token), "the pose state stays pure: %s" % token)
-	var stray_preloads := 0
-	for line: String in source.split("\n"):
-		if line.contains("preload(") and not line.contains("shared/pose_view.gd"):
-			stray_preloads += 1
-	check(stray_preloads == 0, "the only preload is the shared pose view")
-	check(not source.contains("/service.gd\""), "the module preloads no service")

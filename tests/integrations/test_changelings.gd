@@ -405,12 +405,16 @@ func run() -> void:
 	# leaves the typed change readable for the act's watcher.
 	pack.actor = own
 	pack.disguised_as = "fluttershy"
-	check(bool(adapter.call("request_true_form")), "the source starts a true-form change")
-	check(bool(adapter.call("is_changing")) and adapter.call("old_actor") == own,
+	check(bool(body_change.call("request_own_form", own, BODY_CHANGE.Origin.PROVIDER)),
+		"the typed service starts a true-form change")
+	check(bool(adapter.call("change_in_progress"))
+		and adapter.call("active_change").previous_body == own,
 		"the old body is held for the act")
-	check(str(adapter.call("target")).is_empty(), "a true-form change has no shape target")
+	check(adapter.call("active_change").origin == BODY_CHANGE.Origin.PROVIDER,
+		"the true-form change keeps its provider origin")
+	check(adapter.call("target_form_id").is_empty(), "a true-form change has no shape target")
 	check(pack.revealed == 1, "the source calls the pack's reveal")
-	var begun: BODY_CHANGE = body_change.call("active_change")
+	var begun: BODY_CHANGE = body_change.call("active_change_for", own)
 	check(begun == adapter.call("active_change") and begun.source == adapter,
 		"the provider announcement publishes the typed change")
 	check(begun.state == BODY_CHANGE.State.REQUESTED and begun.target_form_id.is_empty(),
@@ -421,11 +425,13 @@ func run() -> void:
 	pack.actor = true_new
 	pack.busy = false
 	adapter.call("poll")
-	check(adapter.call("new_actor") == true_new, "the new body is readable")
-	check(not bool(adapter.call("is_changing")), "poll ends the change when the pack is free")
-	var settled: BODY_CHANGE = body_change.call("active_change")
-	check(settled == adapter.call("active_change") and settled.state == BODY_CHANGE.State.SETTLED,
-		"the completed change is published as settled")
+	check(adapter.call("active_change").next_body == true_new, "the new body is recorded")
+	check(not bool(adapter.call("change_in_progress")),
+		"poll ends the change when the pack is free")
+	check(adapter.call("active_change").state == BODY_CHANGE.State.SETTLED,
+		"the completed change keeps its settled read")
+	check(body_change.call("active_change_for", true_new) == null,
+		"the service clears a settled change from the active map")
 	var true_form: BODY_FORM.BodyForm = body_change.call("form_for", true_new)
 	check(true_form.is_own() and true_form.fit_id == "chrysalis",
 		"the new own body presents her own form")
@@ -433,8 +439,10 @@ func run() -> void:
 	# A named shape: the copied body's variant is its claim, not any changeling body.
 	pack.actor = own
 	pack.disguised_as = ""
-	check(bool(adapter.call("request_shape", "rarity")), "the source starts a named change")
-	check(str(adapter.call("target")) == "rarity", "the requested shape is held")
+	check(bool(body_change.call("request_form", true_new, "rarity", BODY_CHANGE.Origin.PROVIDER)),
+		"the typed service starts a named change")
+	check(adapter.call("active_change").previous_body == true_new, "the current body is held")
+	check(adapter.call("active_change").target_form_id == "rarity", "the requested shape is held")
 	check(adapter.call("target_form_id") == "rarity", "the typed target reads the same shape")
 	check(pack.disguised_to == "rarity", "the source calls the pack's disguise")
 	var shape_new := FakePony.new()
@@ -451,13 +459,14 @@ func run() -> void:
 	pack.actor = shape_new
 	pack.busy = false
 	adapter.call("poll")
-	check(not bool(adapter.call("is_changing")), "the named change completes")
+	check(not bool(adapter.call("change_in_progress")), "the named change completes")
 
 	# A named change's new body can spawn before the pack writes its variant. Its first prepare
 	# must fit the requested shape, not her own, and it must not take the own tail wrapper.
 	pack.actor = own
 	pack.disguised_as = ""
-	check(bool(adapter.call("request_shape", "rarity")), "a second named change starts")
+	check(bool(body_change.call("request_form", own, "rarity", BODY_CHANGE.Origin.PROVIDER)),
+		"a second named change starts")
 	var early := FakePony.new()
 	early.identity = _identity("chrysalis", "")
 	var early_rig := Node3D.new()
@@ -508,7 +517,8 @@ func run() -> void:
 	var late_before := main.late_prepares.size()
 	var anatomy_before := main.anatomy_refreshes
 	adapter.call("poll")
-	check(str(adapter.call("target")) == "rarity", "the delayed named change keeps its target")
+	check(adapter.call("active_change").target_form_id == "rarity",
+		"the delayed named change keeps its target")
 	check(str(early.get_meta("body_fit_id", "")) == "rarity",
 		"the settled shape refits the new body as the target")
 	check(main.late_prepares.size() == late_before + 1 and main.late_prepares.back() == early,
@@ -521,14 +531,15 @@ func run() -> void:
 		"the settled shape is not refitted again")
 	pack.busy = false
 	adapter.call("poll")
-	check(not bool(adapter.call("is_changing")), "the delayed named change completes")
+	check(not bool(adapter.call("change_in_progress")), "the delayed named change completes")
 
 	# A body prepared before the pack exposes the requested shape first reads as her own form;
 	# once the target becomes known the descriptor changes and the revision bumps for that body.
 	pack.actor = own
 	pack.disguised_as = ""
 	pack.busy = false
-	check(bool(adapter.call("request_shape", "rarity")), "a late-variant change starts")
+	check(bool(body_change.call("request_form", own, "rarity", BODY_CHANGE.Origin.PROVIDER)),
+		"a late-variant change starts")
 	var late_variant := _own_body()
 	root.add_child(late_variant)
 	body_change.call("notify_body_ready", late_variant)
@@ -544,7 +555,7 @@ func run() -> void:
 		"the late variant bumps only that body's form revision")
 	pack.busy = false
 	adapter.call("poll")
-	check(not bool(adapter.call("is_changing")), "the late-variant change completes")
+	check(not bool(adapter.call("change_in_progress")), "the late-variant change completes")
 
 	# The player's own words: the reveal ask, then an adult mare's name.
 	pack.actor = true_new
@@ -689,16 +700,18 @@ func run() -> void:
 	root.remove_child(game)
 	game.free()
 
-	# The player flag travels on the change just started.
+	# The player origin travels on the change just started.
 	pack.actor = own
 	pack.disguised_as = "fluttershy"
-	check(not bool(adapter.call("requested_by_player")), "a request starts as hers")
-	check(bool(adapter.call("request_true_form")), "the true-form request starts")
-	adapter.call("set_player_request", true)
-	check(bool(adapter.call("requested_by_player")), "the player flag marks the change")
+	check(bool(body_change.call("request_own_form", own, BODY_CHANGE.Origin.PLAYER)),
+		"the player-requested true-form change starts")
+	check(adapter.call("active_change").origin == BODY_CHANGE.Origin.PLAYER,
+		"the player origin marks the change")
 	pack.busy = false
 	adapter.call("poll")
-	check(not bool(adapter.call("is_changing")), "the marked change completes")
+	check(not bool(adapter.call("change_in_progress")), "the marked change completes")
+	check(body_change.call("active_change_for", own) == null,
+		"the service clears the player's completed change")
 
 	# Her own AI starts a change: a busy edge with the act body as actor is observed without a
 	# request call. The new disguise is claimed by identity before its shape is known.
@@ -709,9 +722,10 @@ func run() -> void:
 	adapter.call("poll")
 	pack.busy = true
 	adapter.call("poll")
-	check(bool(adapter.call("is_changing")), "an AI-started change is observed")
-	check(adapter.call("old_actor") == own, "the AI change holds the old body")
-	check(not bool(adapter.call("requested_by_player")), "the AI change is not the player's")
+	check(bool(adapter.call("change_in_progress")), "an AI-started change is observed")
+	check(adapter.call("active_change").previous_body == own, "the AI change holds the old body")
+	check(adapter.call("active_change").origin == BODY_CHANGE.Origin.AI,
+		"the AI change is not the player's")
 	var ai_shape := FakePony.new()
 	ai_shape.identity = _identity("chrysalis", "")
 	ai_shape.set_meta("geometry_variant", "changeling=rarity")
@@ -720,10 +734,11 @@ func run() -> void:
 		"the AI body is claimed by identity before the shape is known")
 	pack.actor = ai_shape
 	adapter.call("poll")
-	check(str(adapter.call("target")) == "rarity", "the AI target fills from the new body")
+	check(adapter.call("active_change").target_form_id == "rarity",
+		"the AI target fills from the new body")
 	pack.busy = false
 	adapter.call("poll")
-	check(not bool(adapter.call("is_changing")), "the AI change completes")
+	check(not bool(adapter.call("change_in_progress")), "the AI change completes")
 
 	# A busy on a body that is not the act pony never reaches the act.
 	adapter.call("handles_pony", own)
@@ -732,7 +747,7 @@ func run() -> void:
 	adapter.call("poll")
 	pack.busy = true
 	adapter.call("poll")
-	check(not bool(adapter.call("is_changing")),
+	check(not bool(adapter.call("change_in_progress")),
 		"a busy on another body is not the act's change")
 	pack.busy = false
 	adapter.call("poll")
@@ -745,13 +760,13 @@ func run() -> void:
 	adapter.set("_observe_clock", 0.0)
 	pack.busy = true
 	adapter.call("_process", CHANGELINGS.OBSERVE_S * 0.6)
-	check(not bool(adapter.call("is_changing")),
+	check(not bool(adapter.call("change_in_progress")),
 		"the adapter observes the pack only at its cadence")
 	adapter.call("_process", CHANGELINGS.OBSERVE_S * 0.6)
-	check(bool(adapter.call("is_changing")), "the adapter observes the pack on the cadence tick")
+	check(bool(adapter.call("change_in_progress")), "the adapter observes the pack on the cadence tick")
 	pack.busy = false
 	adapter.call("_process", CHANGELINGS.OBSERVE_S * 2.0)
-	check(not bool(adapter.call("is_changing")),
+	check(not bool(adapter.call("change_in_progress")),
 		"the adapter's own observation completes the change")
 
 	# An AI reveal keeps the empty target: the new body is her own form, not a disguise.
@@ -761,22 +776,23 @@ func run() -> void:
 	adapter.call("poll")
 	pack.busy = true
 	adapter.call("poll")
-	check(bool(adapter.call("is_changing")), "an AI reveal is observed")
+	check(bool(adapter.call("change_in_progress")), "an AI reveal is observed")
 	var ai_own := _own_body()
 	root.add_child(ai_own)
 	pack.actor = ai_own
 	adapter.call("poll")
-	check(str(adapter.call("target")).is_empty(), "an AI reveal keeps no shape target")
+	check(adapter.call("active_change").target_form_id.is_empty(),
+		"an AI reveal keeps no shape target")
 	check(bool(adapter.call("claims_body", ai_own)), "the AI true-form body is claimed")
 	pack.busy = false
 	adapter.call("poll")
-	check(not bool(adapter.call("is_changing")), "the AI reveal completes")
+	check(not bool(adapter.call("change_in_progress")), "the AI reveal completes")
 
 	# The idle helper only asks the pack to bring her out; it is not a shape change.
 	pack.actor = null
 	pack.busy = false
 	check(bool(adapter.call("request_appear")), "the idle action asks her out")
-	check(pack.brought == 1 and not bool(adapter.call("is_changing")),
+	check(pack.brought == 1 and not bool(adapter.call("change_in_progress")),
 		"bringing her out is not a change")
 
 	# The pack off unregisters the provider and empties the installed list.

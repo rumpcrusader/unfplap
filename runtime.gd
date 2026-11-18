@@ -35,6 +35,8 @@ const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
@@ -179,15 +181,12 @@ var _cycle_heat := false
 var _climax_left := 0.0
 var _restore_left := 0.0
 var _check_clock := 0.0
-## A body swap keeps the act alive but stops its ticks. The old body, the source and the current
-## pose id are held until the new body adopts the runtime; `_end_session()` is still the only exit.
+## A body swap keeps the act alive but stops its ticks. The typed change, the adopted body and the
+## current pose id are held until the one resume; `_end_session()` is still the only exit.
 var _suspended := false
-var _swap_source: Variant = null
-var _swap_old_pony: Node = null
+var _swap_change: BODY_CHANGE = null
 var _swap_new_pony: Node = null
 var _swap_pose := ""
-var _swap_target := ""
-var _swap_by_player := false
 var _swap_shape_confirmed := false
 var _swap_elapsed := 0.0
 var _swap_clock := 0.0
@@ -2130,33 +2129,31 @@ func request_form_change(true_form: bool, shape_id := "", by_player := false) ->
 			"message": "A form change is already in progress."}
 	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		return {"ok": false, "reason": "no live act", "message": "No live act."}
-	if not is_instance_valid(pony):
+	if not is_instance_valid(pony) or not pony is Node3D:
 		return {"ok": false, "reason": "no body", "message": "No body to change."}
-	if pony.has_method("is_held") and bool(pony.call("is_held")):
+	var body: Node3D = pony
+	if body.has_method("is_held") and bool(body.call("is_held")):
 		return {"ok": false, "reason": "she is held", "message": "She is being held right now."}
-	var source: Variant = _shape_source()
-	if source == null:
+	var service := _body_change_service()
+	if service == null:
 		return {"ok": false, "reason": "no shape-changing source",
 			"message": "No shape-changing mare."}
-	if source.has_method("is_changing") and bool(source.call("is_changing")):
+	if _active_body_change_for(body) != null:
 		return {"ok": false, "reason": "the source is already changing",
 			"message": "She is already changing."}
+	var origin := BODY_CHANGE.Origin.PLAYER if by_player else BODY_CHANGE.Origin.PROVIDER
 	var started := false
 	if true_form:
-		started = source.has_method("request_true_form") \
-			and bool(source.call("request_true_form"))
+		started = service.request_own_form(body, origin)
 	else:
-		started = source.has_method("request_shape") \
-			and bool(source.call("request_shape", shape_id))
+		started = service.request_form(body, shape_id, origin)
 	if not started:
 		return {"ok": false, "reason": "the source refused",
 			"message": "She cannot take that form now."}
-	if source.has_method("set_player_request"):
-		source.call("set_player_request", by_player)
 	var label := "her true form" if true_form else SETTINGS.character_name(shape_id)
-	_log("body swap requested target=%s form=%s by_player=%s pose=%s depth=%.3f climaxes=%d" % [
+	_log("body swap requested target=%s form=%s origin=%d pose=%s depth=%.3f climaxes=%d" % [
 		shape_id if not shape_id.is_empty() else "self",
-		"true" if true_form else "named", str(by_player), str(_start_row().get("id", "")),
+		"true" if true_form else "named", int(origin), str(_start_row().get("id", "")),
 		depth, pony_climaxes])
 	return {"ok": true, "reason": "", "message": "Changing to %s." % label}
 
@@ -2170,35 +2167,29 @@ func _body_swap_tick(delta: float) -> void:
 		return
 	if _suspended:
 		_swap_elapsed += delta
-		var source: Variant = _swap_source
-		if _swap_target.is_empty() and is_instance_valid(source) and source.has_method("target"):
-			var reported := str(source.call("target")).strip_edges()
-			if not reported.is_empty():
-				_swap_target = reported
-		var changing := _source_changing(source)
-		if is_instance_valid(source) and source.has_method("is_active") \
-				and not bool(source.call("is_active")):
-			changing = false
+		var change := _swap_change
+		var changing := _change_changing(change)
+		var old_body: Node3D = change.previous_body if change != null else null
 		if is_instance_valid(_swap_new_pony):
-			if _body_swap_ready(source, changing):
+			if _body_swap_ready(change, changing):
 				_resume_after_body_swap()
 			elif _swap_elapsed >= BODY_SWAP_WATCHDOG_S:
 				_log("body swap watchdog; the new body never reported the shape, resuming")
 				_resume_after_body_swap()
 			return
 		if not changing:
-			if _late_body_pending(source):
-				if is_instance_valid(_swap_new_pony) and _body_swap_ready(source, changing):
+			if _late_body_pending(change):
+				if is_instance_valid(_swap_new_pony) and _body_swap_ready(change, changing):
 					_resume_after_body_swap()
 				return
-			if is_instance_valid(pony) and pony == _swap_old_pony:
+			if is_instance_valid(pony) and pony == old_body:
 				_log("body swap failed; the old body survives, resuming pony=%s" % str(pony.name))
 				_resume_after_body_swap()
 			else:
 				_failed_body_swap("the source stopped without a new body")
 			return
 		if _swap_elapsed >= BODY_SWAP_WATCHDOG_S:
-			if is_instance_valid(pony) and pony == _swap_old_pony:
+			if is_instance_valid(pony) and pony == old_body:
 				_log("body swap watchdog; the old body survives, resuming")
 				_resume_after_body_swap()
 			else:
@@ -2210,74 +2201,85 @@ func _body_swap_tick(delta: float) -> void:
 	if _swap_clock > 0.0:
 		return
 	_swap_clock = BODY_SWAP_POLL_S
-	var source: Variant = _body_change_source()
-	if source == null:
+	var change := _active_body_change_for(pony)
+	if change == null or change.previous_body != pony:
 		return
-	if not source.has_method("old_actor") or source.call("old_actor") != pony:
+	if not _change_changing(change):
 		return
-	_suspend_for_body_swap(source)
+	_suspend_for_body_swap(change)
 
 
-## The provider whose change is in progress, read from the body-change service. The provider
-## observes its own pack and pushes; the watcher only reads, and a completed change stays readable
-## there, so the source's own in-progress gate decides. `old_actor()` still names the body to
-## suspend until the typed handover lands.
-func _body_change_source() -> Variant:
+## The world body-change service, or null on a host without it (a suite or a lab harness).
+func _body_change_service() -> BODY_CHANGE_SERVICE:
 	if not is_instance_valid(main):
 		return null
 	var service: Variant = main.get("body_change")
-	if service == null or not service.has_method("active_change"):
-		return null
-	var change: Variant = service.call("active_change")
-	if change == null:
-		return null
-	var change_state: int = int(change.get("state"))
-	if change_state != BODY_CHANGE.State.REQUESTED \
-			and change_state != BODY_CHANGE.State.PREPARING \
-			and change_state != BODY_CHANGE.State.ADOPTED:
-		return null
-	var provider: Variant = change.get("source")
-	if not is_instance_valid(provider):
-		return null
-	if provider.has_method("change_in_progress") \
-			and not bool(provider.call("change_in_progress")):
-		return null
-	return provider
+	if service is BODY_CHANGE_SERVICE:
+		return service
+	return null
 
 
-## True while a provider reports its change in progress. The typed source base names it
-## `change_in_progress()`; `is_changing()` is the compatibility read for the installed adapter.
-func _source_changing(source: Variant) -> bool:
-	if not is_instance_valid(source):
-		return false
-	if source.has_method("change_in_progress"):
-		return bool(source.call("change_in_progress"))
-	return source.has_method("is_changing") and bool(source.call("is_changing"))
+## The active change for one presented body, through the service's typed per-body read.
+func _active_body_change_for(body: Node3D) -> BODY_CHANGE:
+	var service := _body_change_service()
+	if service == null or not is_instance_valid(body):
+		return null
+	return service.active_change_for(body)
+
+
+## The typed provider behind a change, or null when the handle is not the source base.
+func _change_source(change: BODY_CHANGE) -> BODY_CHANGE_SOURCE:
+	if change == null or not is_instance_valid(change.source):
+		return null
+	if not change.source is BODY_CHANGE_SOURCE:
+		return null
+	return change.source
+
+
+## True while the typed provider reports its own change in progress and its pack active.
+func _change_changing(change: BODY_CHANGE) -> bool:
+	var source := _change_source(change)
+	return source != null and source.is_active() and source.change_in_progress()
+
+
+## The form the adopted body actually presents, through the typed provider hook.
+func _change_presented_shape(change: BODY_CHANGE, body: Node3D) -> String:
+	var source := _change_source(change)
+	if source == null or not is_instance_valid(body):
+		return ""
+	return source.presented_form_id(body).strip_edges()
+
+
+func _change_form_id(change: BODY_CHANGE) -> String:
+	if change == null or change.form == null:
+		return ""
+	return change.form.form_id.strip_edges()
 
 
 ## True when the new body is ready to resume the act: the shape it wears is the requested target,
 ## or the source has finished. A true-form target is empty, so an own body is ready at once.
-func _body_swap_ready(source: Variant, changing: bool) -> bool:
-	var shape := _source_current_shape(source) if is_instance_valid(source) else ""
-	if _swap_target.is_empty():
+func _body_swap_ready(change: BODY_CHANGE, changing: bool) -> bool:
+	var target := change.target_form_id.strip_edges() if change != null else ""
+	var shape := _change_presented_shape(change, _swap_new_pony)
+	if target.is_empty():
 		if shape.is_empty():
 			_swap_shape_confirmed = true
 			return true
 		return not changing
-	if shape == _swap_target:
+	if shape == target:
 		_swap_shape_confirmed = true
 		return true
 	return not changing
 
 
 ## The source finished before the new body's spawn reached the entry. Keep the act suspended
-## while the source reports a new body, then let the entry adopt it through the same pending-swap
-## path; resuming the old body here would attach a second runtime to the new one.
-func _late_body_pending(source: Variant) -> bool:
-	if not is_instance_valid(source) or not source.has_method("new_actor"):
+## while the typed change reports a new body, then let the entry adopt it through the same
+## pending-swap path; resuming the old body here would attach a second runtime to the new one.
+func _late_body_pending(change: BODY_CHANGE) -> bool:
+	if change == null:
 		return false
-	var newcomer: Variant = source.call("new_actor")
-	if not is_instance_valid(newcomer) or newcomer == _swap_old_pony:
+	var newcomer := change.next_body
+	if not is_instance_valid(newcomer) or newcomer == change.previous_body:
 		return false
 	if _swap_elapsed < BODY_SWAP_ADOPT_GRACE_S:
 		return true
@@ -2289,12 +2291,12 @@ func _late_body_pending(source: Variant) -> bool:
 ## the one exit has returned the act's borrowed state. Finish the restore now instead; the act is
 ## already ending, so the change is not suspended.
 func _restore_shape_change_tick() -> void:
-	if not is_instance_valid(pony):
+	if not is_instance_valid(pony) or not pony is Node3D:
 		return
-	var source: Variant = _body_change_source()
-	if source == null:
+	var change := _active_body_change_for(pony)
+	if change == null or change.previous_body != pony:
 		return
-	if not source.has_method("old_actor") or source.call("old_actor") != pony:
+	if not _change_changing(change):
 		return
 	_log("body swap during restore; ending through the one exit")
 	force_stop()
@@ -2302,36 +2304,35 @@ func _restore_shape_change_tick() -> void:
 
 ## Stop the act's ticks without ending it. The runtime leaves the old body here; the old body may
 ## still be alive inside the flame. The outer act state, depth, climaxes, summary and event stay.
-func _suspend_for_body_swap(source: Variant) -> void:
-	if _suspended or not is_instance_valid(pony):
+func _suspend_for_body_swap(change: BODY_CHANGE) -> void:
+	if _suspended or not is_instance_valid(pony) or change == null:
+		return
+	if not pony is Node3D or change.previous_body != pony:
 		return
 	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
+		return
+	if not _change_changing(change):
 		return
 	# Another system holding her would keep the old body as the act's owner. Release it before
 	# the flame takes the body; a failed release is logged and the watchdog still decides.
 	if pony.has_method("is_held") and bool(pony.call("is_held")) and not _release_carry():
 		_log("body swap: could not release the held body")
 	_suspended = true
-	_swap_source = source
-	_swap_old_pony = pony
+	_swap_change = change
 	_swap_new_pony = null
-	_swap_target = ""
 	_swap_shape_confirmed = false
-	if source.has_method("target"):
-		_swap_target = str(source.call("target")).strip_edges()
-	_swap_by_player = source.has_method("requested_by_player") \
-		and bool(source.call("requested_by_player"))
 	_swap_elapsed = 0.0
 	var view: Variant = _pose_service().view()
 	_swap_pose = str(view.id) if view != null and not str(view.id).is_empty() \
 		else str(_start_row().get("id", ""))
 	if is_instance_valid(main) and main.has_method("begin_body_swap"):
-		main.call("begin_body_swap", self, pony, _id, source, _swap_target)
+		main.call("begin_body_swap", self, pony, _id, change)
 	# Leave the old body before it is freed. `main` keeps the act; the new body adopts the node.
 	attach_to_body(main)
-	_log("body swap suspend source=%s target=%s by_player=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
-		str(source.call("source_name")) if source.has_method("source_name") else "?",
-		_swap_target, str(_swap_by_player), state, _swap_pose, depth, pony_climaxes])
+	var source := _change_source(change)
+	_log("body swap suspend source=%s target=%s origin=%d form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
+		source.source_id() if source != null else "?", change.target_form_id,
+		int(change.origin), _change_form_id(change), state, _swap_pose, depth, pony_climaxes])
 	# The old body's contact and input state must not survive the flame. The new pose owns the
 	# contact after resume; a held key or a running auto stroke would otherwise fire on it.
 	_kiss_controller().reset()
@@ -2390,17 +2391,12 @@ func _resume_after_body_swap() -> void:
 	if not is_instance_valid(pony):
 		_failed_body_swap("no body to resume on")
 		return
+	var change := _swap_change
 	var changed := is_instance_valid(_swap_new_pony)
-	var by_player := _swap_by_player
-	var target := _swap_target
 	var confirmed := _swap_shape_confirmed
-	var source: Variant = _swap_source
 	_suspended = false
-	_swap_source = null
+	_swap_change = null
 	_swap_new_pony = null
-	_swap_old_pony = null
-	_swap_target = ""
-	_swap_by_player = false
 	_swap_shape_confirmed = false
 	_swap_elapsed = 0.0
 	_swap_clock = BODY_SWAP_POLL_S
@@ -2445,9 +2441,9 @@ func _resume_after_body_swap() -> void:
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		_sync_hud_facts()
 		main.hud.update_from(_act_facts)
-	_log("body swap resumed pony=%s id=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
-		str(pony.name), _id, state, _swap_pose, depth, pony_climaxes])
-	_complete_form_change(source, changed, by_player, target, confirmed)
+	_log("body swap resumed pony=%s id=%s form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
+		str(pony.name), _id, _change_form_id(change), state, _swap_pose, depth, pony_climaxes])
+	_complete_form_change(change, changed, confirmed)
 
 
 ## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is
@@ -2525,22 +2521,20 @@ func _failed_body_swap(reason: String) -> void:
 	_log("body swap failed: %s" % reason)
 	if is_instance_valid(main) and main.has_method("clear_body_swap"):
 		main.call("clear_body_swap", self)
-	_swap_source = null
+	_swap_change = null
 	_swap_new_pony = null
-	_swap_old_pony = null
-	_swap_target = ""
-	_swap_by_player = false
 	_swap_shape_confirmed = false
 	_suspended = false
 	force_stop()
 
 
-## The act pony's source, through the entry's manager. The runtime knows the contract, not the
-## installed pack.
-func _shape_source() -> Variant:
-	if not is_instance_valid(main) or not main.has_method("shape_source_for"):
+## The act pony's provider, through the body-change service's typed source lookup. The runtime
+## knows the contract, not the installed pack.
+func _shape_source() -> BODY_CHANGE_SOURCE:
+	var service := _body_change_service()
+	if service == null or not is_instance_valid(pony) or not pony is Node3D:
 		return null
-	return main.call("shape_source_for", pony)
+	return service.source_for(pony)
 
 
 ## The new body's name for the act caption and dialogue. The stable id stays the act's id: a
@@ -3451,8 +3445,8 @@ func _talk_turn(director: Node) -> int:
 func _on_player_line(text: String) -> void:
 	if state != State.ACTIVE or _suspended:
 		return
-	var source: Variant = _shape_source()
-	if source == null or not source.has_method("current_shape"):
+	var source := _shape_source()
+	if source == null:
 		return
 	if _shape_offer_pending:
 		var shape := _source_named_form(source, text)
@@ -3486,8 +3480,8 @@ func _on_player_line(text: String) -> void:
 func _shape_offer_tick() -> void:
 	if _shape_offer_done or _suspended or state != State.ACTIVE or pony_climaxes < 1:
 		return
-	var source: Variant = _shape_source()
-	if source == null or not source.has_method("current_shape"):
+	var source := _shape_source()
+	if source == null:
 		# This pony has no shape source, and one cannot join a live act; stop asking every tick.
 		_shape_offer_done = true
 		return
@@ -3516,8 +3510,8 @@ func _shape_offer_tick() -> void:
 func _form_hint_tick() -> void:
 	var next := ""
 	if _form_hint_debug and state == State.ACTIVE and not _suspended:
-		var source: Variant = _shape_source()
-		if source != null and source.has_method("current_shape"):
+		var source := _shape_source()
+		if source != null:
 			if _shape_offer_pending:
 				next = FORM_HINT_SHAPE
 			elif not _form_reveal_done and not _source_current_shape(source).is_empty():
@@ -3535,13 +3529,17 @@ func _form_hint_tick() -> void:
 ## failed before the new body arrived, or a new body that never reported the named shape, puts the
 ## offer back so the player gets a second chance. Her own change never spends the player's offer;
 ## only the call the player made does.
-func _complete_form_change(source: Variant, changed: bool, by_player: bool, target := "",
-		confirmed := false) -> void:
+func _complete_form_change(change: BODY_CHANGE, changed: bool, confirmed := false) -> void:
+	var source := _change_source(change)
+	var target := change.target_form_id.strip_edges() if change != null else ""
+	var by_player := change != null and change.origin == BODY_CHANGE.Origin.PLAYER
 	if not changed:
 		_restore_shape_offer(target, by_player)
 		_form_hint_tick()
 		return
-	var shape := _source_current_shape(source) if is_instance_valid(source) else ""
+	var shape := _source_current_shape(source)
+	if shape.is_empty() and confirmed and change != null and change.form != null:
+		shape = change.form.form_id.strip_edges()
 	if shape.is_empty() and not target.is_empty() and confirmed:
 		shape = target
 	if not target.is_empty() and shape != target:
@@ -3550,7 +3548,7 @@ func _complete_form_change(source: Variant, changed: bool, by_player: bool, targ
 		_log("form change failed id=%s target=%s shape=%s exceptional=false" % [
 			_id, target, shape if not shape.is_empty() else "self"])
 		return
-	if by_player and target.is_empty() and shape.is_empty() and is_instance_valid(source):
+	if by_player and target.is_empty() and shape.is_empty() and source != null:
 		if not _form_reveal_done:
 			_commit_form_reveal()
 		_form_hint_tick()
@@ -3594,24 +3592,24 @@ func _form_status(text: String) -> void:
 		main.hud.call("toast", text, 2.5)
 
 
-func _source_current_shape(source: Variant) -> String:
-	if source == null or not source.has_method("current_shape"):
+func _source_current_shape(source: BODY_CHANGE_SOURCE) -> String:
+	if source == null or not is_instance_valid(pony) or not pony is Node3D:
 		return ""
-	return str(source.call("current_shape")).strip_edges()
+	return source.presented_form_id(pony).strip_edges()
 
 
-func _source_asks_form_change(source: Variant, text: String) -> bool:
+func _source_asks_form_change(source: BODY_CHANGE_SOURCE, text: String) -> bool:
 	return source != null and source.has_method("asks_form_change") \
 		and bool(source.call("asks_form_change", text))
 
 
-func _source_named_form(source: Variant, text: String) -> String:
+func _source_named_form(source: BODY_CHANGE_SOURCE, text: String) -> String:
 	if source == null or not source.has_method("named_form"):
 		return ""
 	return str(source.call("named_form", text)).strip_edges()
 
 
-func _source_named_note(source: Variant, text: String) -> String:
+func _source_named_note(source: BODY_CHANGE_SOURCE, text: String) -> String:
 	if source == null or not source.has_method("named_form_note"):
 		return ""
 	return str(source.call("named_form_note", text)).strip_edges()
@@ -4246,11 +4244,8 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	# A suspended act may end here (world close, a failed swap or an invalid body). Drop the
 	# handover before the normal teardown; it is not a second exit path.
 	_suspended = false
-	_swap_source = null
+	_swap_change = null
 	_swap_new_pony = null
-	_swap_old_pony = null
-	_swap_target = ""
-	_swap_by_player = false
 	_swap_shape_confirmed = false
 	_swap_elapsed = 0.0
 	_shape_offer_pending = false

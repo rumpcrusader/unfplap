@@ -33,7 +33,10 @@ var _forms: Dictionary = {}
 ## mutation still refreshes; comparing the stored form's own field would compare the new value.
 var _revisions: Dictionary = {}
 var _bound: Dictionary = {}
-var _active_change: BODY_CHANGE = null
+## Active changes by provider and by presented body. A provider runs one change at a time, so the
+## source key is unique; the body key makes the runtime's lookup O(1) for the old and new body.
+var _active_by_source: Dictionary = {}
+var _active_by_body: Dictionary = {}
 
 
 func setup(host: Node) -> void:
@@ -58,9 +61,8 @@ func unregister_source(source: Node) -> void:
 	if not is_instance_valid(source) or not source is BODY_CHANGE_SOURCE:
 		return
 	var typed: BODY_CHANGE_SOURCE = source
+	_untrack_source(typed)
 	_sources.erase(typed)
-	if _active_change != null and _active_change.source == typed:
-		_active_change = null
 
 
 ## Register one body-bound system. The binding base is RefCounted, so the argument is checked
@@ -163,10 +165,29 @@ func policy_for(body: Node3D) -> BODY_CHANGE_POLICY:
 	return source.policy()
 
 
-## The last change a provider announced, or null. The provider observes its pack and pushes; the
-## runtime's existing act watcher only reads this value.
+## The active change for one presented body, or null. The provider observes its pack and pushes;
+## the runtime's act watcher reads this value at its own cadence.
+func active_change_for(body: Node3D) -> BODY_CHANGE:
+	if not is_instance_valid(body):
+		return null
+	var stored: Variant = _active_by_body.get(body)
+	if stored is BODY_CHANGE and _is_live_change(stored):
+		return stored
+	# The provider may have filled a typed field without a notification; a miss is not per frame.
+	for change: BODY_CHANGE in _active_by_source.values():
+		if _is_live_change(change) and (change.previous_body == body or change.next_body == body):
+			return change
+	return null
+
+
+## Compatibility read: the first active change in source registration order, or null. The runtime
+## uses `active_change_for()`; this stays for diagnostics and older callers.
 func active_change() -> BODY_CHANGE:
-	return _active_change
+	for source: BODY_CHANGE_SOURCE in _sources:
+		var stored: Variant = _active_by_source.get(source)
+		if stored is BODY_CHANGE and _is_live_change(stored):
+			return stored
+	return null
 
 
 ## The form the body presents now. A body without a stored form gets the cached default own form;
@@ -255,10 +276,11 @@ func unbind_body(body: Node3D) -> void:
 				binding.unbind_body(body)
 	_forms.erase(body)
 	_revisions.erase(body)
+	_prune_body_change(body)
 
 
 ## The provider reports that its own observed state changed. Only a registered source may move the
-## active-change read; an unknown source cannot inject one.
+## active-change maps; an unknown source cannot inject one. A settled or failed change is cleared.
 func notify_source_changed(source: Node) -> void:
 	if not is_instance_valid(source) or not source is BODY_CHANGE_SOURCE:
 		return
@@ -277,22 +299,41 @@ func notify_body_ready(body: Node3D) -> void:
 	if source == null:
 		return
 	var change := source.active_change()
-	if change == null and _active_change != null and _active_change.source == source:
-		change = _active_change
+	if change == null:
+		var stored: Variant = _active_by_source.get(source)
+		if stored is BODY_CHANGE:
+			change = stored
 	if change != null and change.source == null:
 		change.source = source
+	var live := change != null and _is_live_change(change)
+	var owns := false
+	if live and change.next_body == null and body != change.previous_body:
+		owns = true
+	elif live and change.next_body == body:
+		owns = true
+	elif live and change.next_body == null and body == change.previous_body \
+			and change.state == BODY_CHANGE.State.ADOPTED:
+		# Same-node in-place revision: the presented body is both the old and the new one.
+		owns = true
+	elif change != null and change.next_body == body:
+		# The provider finished before the spawn hook: keep the late body's form on the change.
+		owns = true
+	elif change != null and not live:
+		# A completed change stays a read-only record; an unrelated body never rewrites it.
+		change = null
+	if change != null and owns and change.state == BODY_CHANGE.State.REQUESTED:
+		change.state = BODY_CHANGE.State.PREPARING
 	var form := source.prepare_body(body, change)
 	if form == null:
 		return
-	if change != null:
+	if change != null and owns:
 		change.next_body = body
 		change.form = form
-		if change.state == BODY_CHANGE.State.REQUESTED:
-			change.state = BODY_CHANGE.State.PREPARING
-		_active_change = change
+		if live:
+			change.state = BODY_CHANGE.State.ADOPTED
 	apply_form(body, form)
-	if change != null and change.state == BODY_CHANGE.State.PREPARING:
-		change.state = BODY_CHANGE.State.ADOPTED
+	if live and owns:
+		_track_change(source, change)
 
 
 ## Forward a borrowed/custom form request to the handling provider, then adopt the change it starts.
@@ -327,14 +368,78 @@ func _claiming_source(body: Node3D) -> BODY_CHANGE_SOURCE:
 
 
 func _adopt_change(source: BODY_CHANGE_SOURCE) -> void:
-	var change := source.active_change()
-	if change == null:
-		if _active_change != null and _active_change.source == source:
-			_active_change = null
+	_track_change(source, source.active_change())
+
+
+## Store one live change for its provider and index it by both presented bodies. A terminal change
+## clears the provider's entry instead; a change that claims another source is refused.
+func _track_change(source: BODY_CHANGE_SOURCE, change: BODY_CHANGE) -> void:
+	if change == null or not _is_live_change(change):
+		_untrack_source(source)
 		return
 	if change.source == null:
 		change.source = source
-	_active_change = change
+	elif change.source != source:
+		return
+	_untrack_source(source)
+	_active_by_source[source] = change
+	_index_change(change)
+
+
+func _untrack_source(source: BODY_CHANGE_SOURCE) -> void:
+	var stored: Variant = _active_by_source.get(source)
+	if stored is BODY_CHANGE:
+		_drop_body_index(stored)
+	_active_by_source.erase(source)
+
+
+func _untrack_change(change: BODY_CHANGE) -> void:
+	for source: Variant in _active_by_source.keys():
+		if _active_by_source[source] == change:
+			_active_by_source.erase(source)
+	_drop_body_index(change)
+
+
+func _index_change(change: BODY_CHANGE) -> void:
+	_index_body(change.previous_body, change)
+	_index_body(change.next_body, change)
+
+
+## A body keeps the change it already has while that change is live; a second provider cannot
+## overwrite an act's change with an idle one for the same body.
+func _index_body(body: Node3D, change: BODY_CHANGE) -> void:
+	if not is_instance_valid(body) or not _is_live_change(change):
+		return
+	var existing: Variant = _active_by_body.get(body)
+	if existing is BODY_CHANGE and existing != change and _is_live_change(existing):
+		return
+	_active_by_body[body] = change
+
+
+func _drop_body_index(change: BODY_CHANGE) -> void:
+	for body: Variant in _active_by_body.keys():
+		if _active_by_body[body] == change:
+			_active_by_body.erase(body)
+
+
+## A body that leaves releases only the change keyed to it. The old body of an adopted change keeps
+## the change on the new body; a new body that leaves cannot settle and clears it.
+func _prune_body_change(body: Node3D) -> void:
+	var stored: Variant = _active_by_body.get(body)
+	if not stored is BODY_CHANGE:
+		return
+	var change: BODY_CHANGE = stored
+	_active_by_body.erase(body)
+	if change.next_body == body:
+		_untrack_change(change)
+	elif change.previous_body == body and not is_instance_valid(change.next_body):
+		_untrack_change(change)
+
+
+static func _is_live_change(change: BODY_CHANGE) -> bool:
+	return change != null and (change.state == BODY_CHANGE.State.REQUESTED
+		or change.state == BODY_CHANGE.State.PREPARING
+		or change.state == BODY_CHANGE.State.ADOPTED)
 
 
 func _unbind_on_exit(body: Node3D) -> void:

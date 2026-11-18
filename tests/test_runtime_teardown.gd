@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_teardown.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const CATALOG_STANDING := "standing"
 const CATALOG_STANDING_TEST := "standing_test"
@@ -617,7 +618,21 @@ func run() -> void:
 	check(player9.global_transform.is_equal_approx(player_start9),
 		"headset start leaves the player in place")
 
-	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9]:
+	# The one exit leaves no suspended typed change or adopted body behind.
+	var f10 := _fixture()
+	var runtime10: Node = f10["runtime"]
+	var suspended := BODY_CHANGE.new()
+	suspended.state = BODY_CHANGE.State.ADOPTED
+	runtime10._suspended = true
+	runtime10._swap_change = suspended
+	runtime10._swap_new_pony = f10["pony"]
+	runtime10._swap_elapsed = 1.0
+	runtime10._end_session(false)
+	check(runtime10._swap_change == null and not runtime10._suspended
+		and int(runtime10.state) == RUNTIME.State.IDLE,
+		"the one exit clears a suspended typed body change")
+
+	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10]:
 		(item["runtime"] as Node).free()
 	print("RUNTIME_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

@@ -618,9 +618,40 @@ func _check_service() -> void:
 	source.change = change
 	service.notify_source_changed(source)
 	check(service.active_change() == change, "a provider notification publishes the active change")
+	check(service.active_change_for(second) == change,
+		"the active change is readable for its old body")
+
+	var idle_source := FakeSource.new()
+	idle_source.name = "IdleSource"
+	idle_source.handled = pony
+	check(service.register_source(idle_source), "a second provider registers")
+	var idle_change := BODY_CHANGE.new()
+	idle_change.source = idle_source
+	idle_change.origin = BODY_CHANGE.Origin.PROVIDER
+	idle_change.previous_body = pony
+	idle_change.state = BODY_CHANGE.State.REQUESTED
+	idle_source.change = idle_change
+	service.notify_source_changed(idle_source)
+	check(service.active_change_for(pony) == idle_change,
+		"the idle body's change is readable for that body")
+	check(service.active_change_for(second) == change,
+		"an idle body's change never overwrites an act's change")
+	check(service.active_change() == change, "the compatibility read keeps the first live change")
+	idle_change.state = BODY_CHANGE.State.SETTLED
+	service.notify_source_changed(idle_source)
+	check(service.active_change_for(pony) == null,
+		"a settled change is cleared from the active map")
+	check(service.active_change_for(second) == change,
+		"another provider's settled change leaves the act's change")
+	idle_source.change = null
+	service.unregister_source(idle_source)
+	idle_source.free()
+
 	source.change = null
 	service.notify_source_changed(source)
 	check(service.active_change() == null, "a cleared provider change clears the active read")
+	check(service.active_change_for(second) == null,
+		"a cleared provider change clears its body entry")
 
 	var late := service.default_form(second)
 	late.form_id = "borrowed_form"
@@ -658,11 +689,28 @@ func _check_service() -> void:
 	leaving.identity = {"id": "rainbow_dash", "display_name": "Rainbow Dash"}
 	root.add_child(leaving)
 	service.bind_body(leaving)
+	var leaving_source := FakeSource.new()
+	leaving_source.handled = leaving
+	leaving_source.claimed = leaving
+	check(service.register_source(leaving_source), "the leaving body's source registers")
+	var leaving_change := BODY_CHANGE.new()
+	leaving_change.source = leaving_source
+	leaving_change.previous_body = leaving
+	leaving_change.state = BODY_CHANGE.State.REQUESTED
+	leaving_source.change = leaving_change
+	service.notify_source_changed(leaving_source)
+	check(service.active_change_for(leaving) == leaving_change,
+		"the leaving body's change is active before it leaves")
 	journal.clear()
 	root.remove_child(leaving)
 	check(journal == ["one:unbind", "two:unbind"],
 		"a body leaving the tree unbinds through the service")
 	check(service.form_for(leaving).is_own(), "the leaving body drops its stored source form")
+	check(service.active_change_for(leaving) == null,
+		"a body leaving clears its active change")
+	leaving_source.change = null
+	service.unregister_source(leaving_source)
+	leaving_source.free()
 	leaving.free()
 
 	service.free()

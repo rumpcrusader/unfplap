@@ -28,6 +28,7 @@ const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const PERF_VIEW := preload("res://mods/unfplap/debug/perf_view.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
+const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const GARMENT_BINDING := preload("res://mods/unfplap/body_change/garment_binding.gd")
@@ -614,16 +615,14 @@ func _on_pony(pony: Node) -> void:
 
 ## Record the act's one pending body swap. The runtime keeps the act; this record only lets the
 ## new body's spawn find it before a second runtime is created.
-func begin_body_swap(runtime: Node, old_pony: Node, id: String, source: Variant,
-		target: String) -> void:
-	if not is_instance_valid(runtime):
+func begin_body_swap(runtime: Node, old_pony: Node, id: String, change: BODY_CHANGE) -> void:
+	if not is_instance_valid(runtime) or change == null:
 		return
 	_pending_swap = {
 		"runtime": runtime,
 		"old_pony": old_pony,
 		"id": id,
-		"source": source,
-		"target": target,
+		"change": change,
 	}
 	if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
 		_runtimes.erase(old_pony)
@@ -706,7 +705,10 @@ func _adopt_pending_swap(pony: Node) -> bool:
 	if not is_instance_valid(runtime):
 		_pending_swap = {}
 		return false
-	var source: Variant = _pending_swap.get("source")
+	var change: Variant = _pending_swap.get("change")
+	var source: Node = null
+	if change is BODY_CHANGE and is_instance_valid((change as BODY_CHANGE).source):
+		source = (change as BODY_CHANGE).source
 	var claimed: bool = is_instance_valid(source) and source.has_method("claims_body") \
 		and bool(source.call("claims_body", pony))
 	if not claimed:
@@ -1555,18 +1557,31 @@ func _form_change_request(true_form: bool, shape_id: String) -> String:
 			_debug("form change %s: %s" % [label, str(answer.get("reason", ""))])
 			return str(answer.get("message", answer.get("reason", "")))
 		return "Form change refused."
-	var source: Variant = _form_source()
-	if source == null:
+	var body := _form_body()
+	if body == null or not is_instance_valid(body_change):
 		return "No shape-changing mare."
 	var started := false
-	if true_form and source.has_method("request_true_form"):
-		started = bool(source.call("request_true_form"))
-	elif not true_form and source.has_method("request_shape"):
-		started = bool(source.call("request_shape", shape_id))
+	if true_form:
+		started = bool(body_change.call("request_own_form", body, BODY_CHANGE.Origin.PROVIDER))
+	else:
+		started = bool(body_change.call("request_form", body, shape_id,
+			BODY_CHANGE.Origin.PROVIDER))
 	_debug("form change idle %s started=%s" % [label, str(started)])
 	if started:
 		return "Changing to %s." % label
 	return "She cannot take that form now."
+
+
+## The aimed mare's body, else a live body an active source handles, for the idle debug request.
+func _form_body() -> Node3D:
+	var view: Camera3D = camera()
+	var target: Node = _debug_target(view) if is_instance_valid(view) else null
+	if target is Node3D and shape_source_for(target) != null:
+		return target
+	for pony: Variant in _runtimes.keys():
+		if pony is Node3D and is_instance_valid(pony) and shape_source_for(pony) != null:
+			return pony
+	return null
 
 
 ## The aimed mare's source, else the first active one. The idle action only needs a source.

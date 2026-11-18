@@ -9,6 +9,8 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -62,10 +64,21 @@ class FakePony extends Node3D:
 		global_transform = transform
 
 
-class FakeSource extends Node:
-	var changing := false
+class FakeSource extends "res://mods/unfplap/body_change/source.gd":
+	var changing := false:
+		set(value):
+			changing = value
+			if value:
+				_ensure_change()
+			else:
+				_settle_change()
 	var old_pony: Node = null
-	var new_pony: Node = null
+	var new_pony: Node = null:
+		set(value):
+			new_pony = value
+			if change != null:
+				change.next_body = value as Node3D
+				_notify()
 	var shape_id := ""
 	var active_flag := true
 	var shape := ""
@@ -74,54 +87,36 @@ class FakeSource extends Node:
 	var note := ""
 	var true_requests := 0
 	var shape_requests: Array[String] = []
-	var player_marks: Array[bool] = []
-	var player_request := false
 	var poll_calls := 0
 	var change: BODY_CHANGE = null
+	var service: BODY_CHANGE_SERVICE = null
+
+	func source_id() -> String:
+		return "fake"
 
 	func is_active() -> bool:
 		return active_flag
 
-	func handles_pony(_pony: Node) -> bool:
+	func handles_pony(_pony: Node3D) -> bool:
 		return true
 
 	func change_in_progress() -> bool:
 		return changing
 
-	func is_changing() -> bool:
-		return changing
-
-	## The provider's typed read. A change the test starts by setting `changing` reads as the one
-	## request the adapter would have announced.
 	func active_change() -> BODY_CHANGE:
-		if change == null and changing:
-			change = BODY_CHANGE.new()
-			change.source = self
-			change.previous_body = old_pony as Node3D
-			change.target_form_id = shape_id
-			change.state = BODY_CHANGE.State.REQUESTED
 		return change
 
-	func old_actor() -> Node:
-		return old_pony if is_instance_valid(old_pony) else null
-
-	func new_actor() -> Node:
-		return new_pony if is_instance_valid(new_pony) else null
-
-	func target() -> String:
+	func target_form_id() -> String:
 		return shape_id
 
-	func current_shape() -> String:
-		return shape
+	func presented_form_id(_body: Node3D) -> String:
+		return shape.strip_edges()
 
-	func claims_body(pony: Node) -> bool:
+	func claims_body(pony: Node3D) -> bool:
 		return changing and is_instance_valid(new_pony) and pony == new_pony
 
 	func poll() -> void:
 		poll_calls += 1
-
-	func source_name() -> String:
-		return "fake"
 
 	func asks_form_change(_text: String) -> bool:
 		return asks
@@ -132,26 +127,57 @@ class FakeSource extends Node:
 	func named_form_note(_text: String) -> String:
 		return note
 
-	func set_player_request(by_player: bool) -> void:
-		player_request = by_player
-		player_marks.append(by_player)
+	func request_form(_body: Node3D, form_id: String, origin: BODY_CHANGE.Origin) -> bool:
+		shape_requests.append(form_id)
+		_begin(form_id, origin)
+		return true
 
-	func requested_by_player() -> bool:
-		return player_request
-
-	func request_true_form() -> bool:
+	func request_own_form(_body: Node3D, origin: BODY_CHANGE.Origin) -> bool:
 		true_requests += 1
-		shape_id = ""
+		_begin("", origin)
 		shape = ""
-		changing = true
 		return true
 
-	func request_shape(shape: String) -> bool:
-		shape_requests.append(shape)
-		shape_id = shape
-		shape = shape
+	func prepare_body(body: Node3D, change: BODY_CHANGE) -> BODY_FORM.BodyForm:
+		if change != null and change.state == BODY_CHANGE.State.REQUESTED:
+			change.state = BODY_CHANGE.State.PREPARING
+		var form := BODY_FORM.default_form(body)
+		if change != null and not change.target_form_id.is_empty():
+			form.form_id = change.target_form_id
+			form.fit_id = change.target_form_id
+		return form
+
+	func _begin(form_id: String, origin: BODY_CHANGE.Origin) -> void:
+		shape_id = form_id
+		shape = form_id
+		change = null
 		changing = true
-		return true
+		if change != null:
+			change.origin = origin
+			_notify()
+
+	func _ensure_change() -> void:
+		var old_body: Node3D = old_pony as Node3D
+		if change == null or change.state in [BODY_CHANGE.State.SETTLED, BODY_CHANGE.State.FAILED] \
+				or change.previous_body != old_body:
+			change = BODY_CHANGE.new()
+			change.source = self
+			change.origin = BODY_CHANGE.Origin.AI
+			change.previous_body = old_body
+			change.target_form_id = shape_id
+			change.state = BODY_CHANGE.State.REQUESTED
+		_notify()
+
+	func _settle_change() -> void:
+		if change == null or change.state in [BODY_CHANGE.State.SETTLED, BODY_CHANGE.State.FAILED]:
+			return
+		change.state = BODY_CHANGE.State.SETTLED if is_instance_valid(change.next_body) \
+			else BODY_CHANGE.State.FAILED
+		_notify()
+
+	func _notify() -> void:
+		if service != null:
+			service.notify_source_changed(self)
 
 
 class FakeMemory extends RefCounted:
@@ -194,17 +220,6 @@ class FakeEligibility extends RefCounted:
 		return allow
 
 
-## The body-change service's read half: the provider pushes, the watcher reads. The fake carries
-## the one source's typed change so the runtime never polls the source itself.
-class FakeBodyChange extends Node:
-	var source: Variant = null
-
-	func active_change() -> Variant:
-		if not is_instance_valid(source):
-			return null
-		return source.call("active_change")
-
-
 ## The pending-swap half of `main.gd`, without the autoload dependency. The runtime is the code
 ## under test; this only routes the spawned body to it.
 class FakeMain extends Node:
@@ -223,11 +238,9 @@ class FakeMain extends Node:
 	var begins := 0
 	var lod_refreshes: Array[Node] = []
 
-	func begin_body_swap(runtime: Node, old_pony: Node, id: String, source: Variant,
-			target: String) -> void:
+	func begin_body_swap(runtime: Node, old_pony: Node, id: String, change: BODY_CHANGE) -> void:
 		begins += 1
-		_pending_swap = {"runtime": runtime, "old_pony": old_pony, "id": id,
-			"source": source, "target": target}
+		_pending_swap = {"runtime": runtime, "old_pony": old_pony, "id": id, "change": change}
 		if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
 			_runtimes.erase(old_pony)
 
@@ -237,11 +250,6 @@ class FakeMain extends Node:
 
 	func body_swap_pending() -> bool:
 		return not _pending_swap.is_empty()
-
-	func shape_source_for(_pony: Node) -> Variant:
-		if not _pending_swap.is_empty():
-			return _pending_swap.get("source")
-		return source
 
 	func camera() -> Camera3D:
 		return null
@@ -254,13 +262,19 @@ class FakeMain extends Node:
 		return 1
 
 	func _on_pony(pony: Node) -> void:
+		_prepare_pony(pony)
 		_adopt_pending_swap(pony)
 
 	func adopt_pending_body(pony: Node) -> bool:
+		_prepare_pony(pony)
 		return _adopt_pending_swap(pony)
 
 	func refresh_body_lod(pony: Node) -> void:
 		lod_refreshes.append(pony)
+
+	func _prepare_pony(pony: Node) -> void:
+		if is_instance_valid(body_change) and pony is Node3D:
+			body_change.call("notify_body_ready", pony)
 
 	func _adopt_pending_swap(pony: Node) -> bool:
 		if _pending_swap.is_empty() or not is_instance_valid(pony):
@@ -269,7 +283,10 @@ class FakeMain extends Node:
 		if not is_instance_valid(runtime):
 			_pending_swap = {}
 			return false
-		var source: Variant = _pending_swap.get("source")
+		var change: Variant = _pending_swap.get("change")
+		var source: Node = null
+		if change is BODY_CHANGE and is_instance_valid((change as BODY_CHANGE).source):
+			source = (change as BODY_CHANGE).source
 		var claimed: bool = is_instance_valid(source) and source.has_method("claims_body") \
 			and bool(source.call("claims_body", pony))
 		if not claimed:
@@ -356,17 +373,19 @@ func _fixture() -> Dictionary:
 	runtime._preferences = SETTINGS.preferences("test_mare")
 	runtime._features = {}
 	runtime._form_hint_debug = true
+	var body_change := BODY_CHANGE_SERVICE.new()
+	body_change.name = "FakeBodyChange"
+	body_change.call("setup", main)
+	main.add_child(body_change)
+	main.body_change = body_change
 	var source := FakeSource.new()
 	source.name = "FakeSource"
 	root.add_child(source)
 	source.old_pony = old_pony
+	source.service = body_change
 	source.changing = false
 	main.source = source
-	var body_change := FakeBodyChange.new()
-	body_change.name = "FakeBodyChange"
-	main.add_child(body_change)
-	body_change.source = source
-	main.body_change = body_change
+	body_change.call("register_source", source)
 	return {"main": main, "runtime": runtime, "old": old_pony, "source": source,
 		"body_change": body_change}
 
@@ -451,7 +470,7 @@ func _check_handover() -> void:
 	main.anatomy = anatomy
 
 	source.changing = true
-	runtime._suspend_for_body_swap(source)
+	runtime._suspend_for_body_swap(source.active_change())
 	check(runtime._suspended, "the act suspends")
 	check(runtime.get_parent() == main, "the runtime leaves the old body for main")
 	check(main.body_swap_pending(), "main records the pending swap")
@@ -506,12 +525,12 @@ func _check_ai_change() -> void:
 	var source: FakeSource = f["source"]
 	main.memory = FakeMemory.new()
 	source.shape = "fluttershy"
-	# Nothing called request_shape: the source is already changing, as her own AI leaves it.
+	# Nothing called request_form: the source is already changing, as her own AI leaves it.
 	source.changing = true
 	runtime._swap_clock = 0.0
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "an AI-started change suspends the live act")
-	check(runtime._swap_by_player == false, "an AI change is not the player's")
+	check(runtime._swap_change.origin == BODY_CHANGE.Origin.AI, "an AI change is not the player's")
 	var new_pony := _pony("New Mare", "AiBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
@@ -542,7 +561,8 @@ func _check_failed_change() -> void:
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
-	runtime._suspend_for_body_swap(source)
+	source.changing = true
+	runtime._suspend_for_body_swap(source.active_change())
 	source.changing = false
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "a stopped change resumes")
@@ -559,7 +579,8 @@ func _check_source_gone() -> void:
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
-	runtime._suspend_for_body_swap(source)
+	source.changing = true
+	runtime._suspend_for_body_swap(source.active_change())
 	source.active_flag = false
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "a source that goes inactive resumes the old body")
@@ -576,9 +597,9 @@ func _check_watchdog() -> void:
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
-	runtime._suspend_for_body_swap(source)
-	old_pony.free()
 	source.changing = true
+	runtime._suspend_for_body_swap(source.active_change())
+	old_pony.free()
 	runtime._body_swap_tick(RUNTIME.BODY_SWAP_WATCHDOG_S + 1.0)
 	check(int(runtime.state) == RUNTIME.State.IDLE, "the watchdog ends the act")
 	check(main.active_runtime == null, "the watchdog clears the active runtime")
@@ -595,7 +616,8 @@ func _check_invalid_shape() -> void:
 	var eligibility := FakeEligibility.new()
 	eligibility.allow = false
 	main.eligibility = eligibility
-	runtime._suspend_for_body_swap(source)
+	source.changing = true
+	runtime._suspend_for_body_swap(source.active_change())
 	var new_pony := _pony("Young Shape", "YoungBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
@@ -612,7 +634,8 @@ func _check_world_close() -> void:
 	var main: FakeMain = f["main"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
-	runtime._suspend_for_body_swap(source)
+	source.changing = true
+	runtime._suspend_for_body_swap(source.active_change())
 	runtime.force_stop()
 	check(int(runtime.state) == RUNTIME.State.IDLE, "a world close during a swap ends the act")
 	check(not main.body_swap_pending(), "a world close clears the pending swap")
@@ -636,7 +659,8 @@ func _check_form_reveal() -> void:
 	director._player_text = "show me the real you"
 	runtime._talk_tick(0.016)
 	check(source.true_requests == 1, "the ask starts a true-form change")
-	check(source.player_request, "the ask marks the change as the player's")
+	check(source.active_change().origin == BODY_CHANGE.Origin.PLAYER,
+		"the ask marks the change as the player's")
 	check(source.changing, "the source is changing after the ask")
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "the act suspends for the reveal")
@@ -701,7 +725,8 @@ func _check_shape_offer() -> void:
 	runtime._talk_tick(0.016)
 	check(source.shape_requests == ["rarity"], "the named mare starts the change")
 	check(not runtime._shape_offer_pending, "the offer is consumed by the name")
-	check(source.player_marks.has(true), "a named shape is the player's ask")
+	check(source.active_change().origin == BODY_CHANGE.Origin.PLAYER,
+		"a named shape is the player's ask")
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "the named change suspends the act")
 	var new_pony := _pony("Test Mare", "ShapeBody")
@@ -739,7 +764,7 @@ func _check_named_shape_gate() -> void:
 	runtime._talk_tick(0.016)
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "the named change suspends the act")
-	check(str(runtime._swap_target) == "rarity", "the target survives the suspension")
+	check(runtime._swap_change.target_form_id == "rarity", "the target survives the suspension")
 	var new_pony := _pony("Test Mare", "ShapeGateBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
@@ -1004,7 +1029,8 @@ func _check_ai_change_keeps_offer() -> void:
 	director._player_text = "Rarity"
 	runtime._talk_tick(0.016)
 	check(source.shape_requests == ["rarity"], "the player's name reaches the source")
-	check(source.player_marks.has(true), "the player's name is marked as the player's")
+	check(source.active_change().origin == BODY_CHANGE.Origin.PLAYER,
+		"the player's name is marked as the player's")
 	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
 	runtime.force_stop()
 	director.queue_free()
@@ -1021,7 +1047,7 @@ func _check_late_adoption() -> void:
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
 	source.changing = true
-	runtime._suspend_for_body_swap(source)
+	runtime._suspend_for_body_swap(source.active_change())
 	var late_pony := _pony("Late Mare", "LateBody")
 	root.add_child(late_pony)
 	source.new_pony = late_pony
@@ -1051,19 +1077,20 @@ func _check_restore_change() -> void:
 	runtime._restore_left = RUNTIME.RESTORE_SECONDS
 	var other := _pony("Other Mare", "OtherBody")
 	root.add_child(other)
-	source.changing = true
 	source.old_pony = other
+	source.changing = true
 	runtime._body_swap_tick(0.1)
 	check(int(runtime.state) == RUNTIME.State.RESTORE,
 		"another body's change leaves the restore alone")
 	check(not main.body_swap_pending(), "another body's change records no pending swap")
 	source.old_pony = runtime.pony
+	source.changing = true
 	runtime._body_swap_tick(0.1)
 	check(int(runtime.state) == RUNTIME.State.IDLE,
 		"the act pony's change during restore finishes the act")
 	check(not runtime._suspended, "a change during restore never suspends")
 	check(not main.body_swap_pending(), "a change during restore records no pending swap")
-	check(runtime._swap_source == null, "the one exit drops the swap source")
+	check(runtime._swap_change == null, "the one exit drops the typed swap change")
 	check(main.active_runtime == null, "the one exit clears the active runtime")
 	other.queue_free()
 	_free_fixture(f)

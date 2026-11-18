@@ -97,7 +97,6 @@ var _changing := false
 var _change_old: Node = null
 var _change_new: Node = null
 var _change_target := ""
-var _change_by_player := false
 ## A named change's variant is refitted and announced once when it settles.
 var _change_variant_done := false
 ## Presented body -> the signature of the last form the provider returned and its revision.
@@ -201,31 +200,15 @@ func change_in_progress() -> bool:
 	return _changing
 
 
-## Compatibility for the runtime's existing watcher until the typed change read lands.
-func is_changing() -> bool:
-	return change_in_progress()
-
-
+## The last announced change. A completed change keeps its terminal state as a read-only record;
+## `change_in_progress()` is the in-progress gate.
 func active_change() -> BODY_CHANGE:
 	return _change
-
-
-func old_actor() -> Node:
-	return _change_old if is_instance_valid(_change_old) else null
-
-
-func new_actor() -> Node:
-	return _change_new if is_instance_valid(_change_new) else null
 
 
 ## The requested shape id; empty while she returns to her own form.
 func target_form_id() -> String:
 	return _change_target
-
-
-## Compatibility for the runtime's existing watcher until the typed change read lands.
-func target() -> String:
-	return target_form_id()
 
 
 ## The shape the presented body wears; empty for her own form.
@@ -261,21 +244,6 @@ func current_shape() -> String:
 	return str(mod.get("disguised_as")).strip_edges()
 
 
-## Mark the change just started as the player's ask. The runtime requests the change first and
-## sets the flag before its watcher sees the change, so the reveal event can tell it apart.
-func set_player_request(by_player: bool) -> void:
-	if not _changing:
-		return
-	_change_by_player = by_player
-	if _change != null:
-		_change.origin = BODY_CHANGE.Origin.PLAYER if by_player else BODY_CHANGE.Origin.AI
-		_notify_source_changed()
-
-
-func requested_by_player() -> bool:
-	return _change_by_player
-
-
 ## Ask for a borrowed or custom form. The pack owns whether that shape is available.
 func request_form(body: Node3D, form_id: String, origin: BODY_CHANGE.Origin) -> bool:
 	return _start_shape(body, form_id, origin)
@@ -284,16 +252,6 @@ func request_form(body: Node3D, form_id: String, origin: BODY_CHANGE.Origin) -> 
 ## Ask for the identity's own form. The pack plays the flame and replaces the body.
 func request_own_form(body: Node3D, origin: BODY_CHANGE.Origin) -> bool:
 	return _start_own_form(body, origin)
-
-
-## Compatibility for the runtime's existing request path until the typed change hook lands.
-func request_true_form() -> bool:
-	return _start_own_form(null, BODY_CHANGE.Origin.PROVIDER)
-
-
-## Compatibility for the runtime's existing request path until the typed change hook lands.
-func request_shape(shape_id: String) -> bool:
-	return _start_shape(null, shape_id, BODY_CHANGE.Origin.PROVIDER)
 
 
 func _start_own_form(body: Node3D, origin: BODY_CHANGE.Origin) -> bool:
@@ -400,10 +358,6 @@ func _observe(mod: Node) -> void:
 	_begin_change(old, "", BODY_CHANGE.Origin.AI)
 
 
-func source_name() -> String:
-	return MOD_ID
-
-
 ## True when the player's own words ask her to drop the shape and show herself.
 func asks_form_change(text: String) -> bool:
 	if not active():
@@ -502,6 +456,8 @@ func prepare_pony(pony: Node) -> void:
 func prepare_body(body: Node3D, change: BODY_CHANGE) -> BODY_FORM.BodyForm:
 	if not is_instance_valid(body):
 		return null
+	if change != null and change.state == BODY_CHANGE.State.REQUESTED:
+		change.state = BODY_CHANGE.State.PREPARING
 	var form := _build_form(body, _form_shape_for(body, change))
 	var signature := _form_signature(form)
 	var previous := str(_form_signatures.get(body, ""))
@@ -984,7 +940,6 @@ func _begin_change(old: Node, shape_id: String, origin: BODY_CHANGE.Origin) -> v
 	_change_old = old
 	_change_new = null
 	_change_target = shape_id
-	_change_by_player = origin == BODY_CHANGE.Origin.PLAYER
 	_change_variant_done = false
 	_change = BODY_CHANGE.new()
 	_change.source = self
@@ -998,8 +953,8 @@ func _begin_change(old: Node, shape_id: String, origin: BODY_CHANGE.Origin) -> v
 	_notify_source_changed()
 
 
-## The pack has finished (or vanished). The old/new handles stay readable for the act watcher;
-## the per-change variant flag resets for the next change.
+## The pack has finished (or vanished). The typed change keeps its terminal state for the held
+## runtime; the service clears its active entry. The per-change variant flag resets.
 func _end_change() -> void:
 	_changing = false
 	_change_variant_done = false

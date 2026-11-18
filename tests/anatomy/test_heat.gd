@@ -48,10 +48,12 @@ func run() -> void:
 	heat_facts.state = 0
 	heat_anatomy.call("_heat_idle_tick", 2.1)
 	check(heat_anatomy.heat.phase() == CYCLE.HEAT, "the idle heat poll adopts the phase")
+	# The poll rolls the interval, then subtracts this tick's delta; advance by the remaining clock
+	# so the wink fires and re-rolls it before the bound is read.
+	heat_anatomy.call("_heat_idle_tick", heat_anatomy.heat.wink_clock() + 0.01)
 	var gap_lo := minf(SETTINGS.wink_min_s.get_num(), SETTINGS.wink_max_s.get_num())
 	check(heat_anatomy.heat.wink_clock() >= gap_lo,
 		"an idle heat wink resets the interval")
-	heat_anatomy.call("_heat_idle_tick", heat_anatomy.heat.wink_clock() + 0.01)
 	check(heat_anatomy.shapes.tween_running(), "an idle heat wink builds its tween")
 	heat_anatomy.set_idle_wink(0.0)
 	check(is_equal_approx(float(heat_anatomy.shapes.wink_amount()), 0.0),

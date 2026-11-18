@@ -37,6 +37,33 @@ static func resolve(pony: Variant) -> Dictionary:
 	return {}
 
 
+## A visible tail that is not on either game skeleton: an integration sets the pony's
+## `tail_pose_root` metadata (or property) to the `Node3D` whose transform carries it. The tail
+## modifiers rotate and restore that node instead of the bone chain.
+static func custom_root(pony: Variant) -> Node3D:
+	if not is_instance_valid(pony):
+		return null
+	var value: Variant = null
+	if pony.has_method("get_meta"):
+		value = pony.get_meta("tail_pose_root", null)
+	if not value is Node3D:
+		value = pony.get("tail_pose_root")
+	return value as Node3D if is_instance_valid(value) else null
+
+
+## The tail direction in a custom root's own space, from the root's skeleton when it has one.
+## A root without bones keeps the model's rearward axis.
+static func root_direction(root: Node3D) -> Vector3:
+	var skeleton := root as Skeleton3D
+	if skeleton != null and skeleton.get_bone_count() > 1:
+		var first := skeleton.get_bone_global_pose(0).origin
+		var last := skeleton.get_bone_global_pose(skeleton.get_bone_count() - 1).origin
+		var direction: Vector3 = last - first
+		if direction.length_squared() > 0.000001:
+			return direction.normalized()
+	return Vector3.BACK
+
+
 static func _bones(skeleton: Skeleton3D, names: Array[String]) -> Array[int]:
 	var result: Array[int] = []
 	for name: String in names:

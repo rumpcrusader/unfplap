@@ -50,6 +50,11 @@ var aside_sign := 1.0
 var _bones: Array[int] = []
 var _saved: Dictionary = {}
 var _cached := false
+## A visible tail that is not on the game skeleton: its own root is rotated and restored instead.
+var _root: Node3D
+var _root_saved := Transform3D.IDENTITY
+var _root_direction := Vector3.BACK
+var _root_ready := false
 var _flick_time := -1.0
 var _flick_cycles := 2.0
 var _rock := 0.0
@@ -87,6 +92,11 @@ func _ready() -> void:
 
 func _cache() -> void:
 	_cached = true
+	_root = TAIL_CHAIN.custom_root(mare)
+	_root_ready = is_instance_valid(_root)
+	if _root_ready:
+		_root_saved = _root.transform
+		_root_direction = TAIL_CHAIN.root_direction(_root)
 	var sk := get_skeleton()
 	if sk == null:
 		return
@@ -125,10 +135,12 @@ func choose_side(anchor := Vector3.INF) -> void:
 ## resumes on top of it next frame.
 func restore_tail() -> void:
 	var sk := get_skeleton()
-	if sk == null:
-		return
-	for bone: Variant in _saved:
-		sk.set_bone_pose(int(bone), _saved[bone])
+	if sk != null:
+		for bone: Variant in _saved:
+			sk.set_bone_pose(int(bone), _saved[bone])
+	if _root_ready and is_instance_valid(_root):
+		_root.transform = _root_saved
+		_root_ready = false
 
 
 ## A thrust restarts the tail's short jiggle at the same strength as the rump shader.
@@ -162,21 +174,26 @@ func _process_modification_with_delta(delta: float) -> void:
 
 
 func _apply(delta: float) -> void:
-	var sk := get_skeleton()
-	if sk == null or not is_instance_valid(mare):
+	if not is_instance_valid(mare):
 		return
 	if not _cached:
 		_cache()
-	if _bones.is_empty():
+	if _root_ready and not is_instance_valid(_root):
+		_root_ready = false
+	if _bones.is_empty() and not _root_ready:
 		return
+	var sk := get_skeleton()
 	var speed := 0.6 if target_amount > amount else 0.4
 	amount = move_toward(amount, target_amount, delta / maxf(speed, 0.01))
 	var flick := _flick_angle(delta)
 	if amount <= 0.001:
 		return
 	var weight := smoothstep(0.0, 1.0, amount)
-	var up := (sk.global_basis.inverse() * mare.global_basis.y).normalized()
-	var right := (sk.global_basis.inverse() * mare.global_basis.x).normalized()
+	var up := mare.global_basis.y.normalized()
+	var right := mare.global_basis.x.normalized()
+	if sk != null:
+		up = (sk.global_basis.inverse() * mare.global_basis.y).normalized()
+		right = (sk.global_basis.inverse() * mare.global_basis.x).normalized()
 	# The body sway already rocks the spine; let the tail carry the same thrust cadence with a
 	# damped spring so it swings back/forth and slightly up/down instead of staying rigid.
 	var depth_value := 0.0
@@ -200,6 +217,10 @@ func _apply(delta: float) -> void:
 		var world_up := mare.global_basis.y.normalized()
 		base_offset = (world_back * (wave * JIGGLE_BASE_NORMAL) + world_up * bob) \
 			* (JIGGLE_BASE_M * _thrust_strength * weight)
+	var flicking := absf(flick) > 0.0001
+	if _root_ready and is_instance_valid(_root):
+		_apply_root(weight, flick, flicking, base_offset)
+		return
 	if base_offset.length_squared() > 0.0000001 and _pelvis >= 0:
 		var mane_poses: Array = []
 		for bone in _mane:
@@ -210,7 +231,6 @@ func _apply(delta: float) -> void:
 		# The mane is copied from the head link; keep it where that link put it.
 		for entry: Array in mane_poses:
 			sk.set_bone_global_pose(entry[0], entry[1])
-	var flicking := absf(flick) > 0.0001
 	for i: int in _bones.size():
 		if base_pivot and i > 0:
 			# The children keep their unchanged local transforms; rotating mTail1 moves them.
@@ -236,3 +256,33 @@ func _apply(delta: float) -> void:
 			pose.basis = Basis(right, lift_sign * impulse * JIGGLE_PITCH) * pose.basis
 			pose.basis = Basis(up, impulse * JIGGLE_YAW) * pose.basis
 		sk.set_bone_global_pose(bone, pose)
+
+
+## Rotate a custom tail root by the same lift/aside/rock/flick the bone path applies. The saved
+## local transform is the base every frame, so the rotation never accumulates.
+func _apply_root(weight: float, flick: float, flicking: bool,
+		base_offset: Vector3) -> void:
+	var parent := _root.get_parent() as Node3D
+	var parent_basis := Basis.IDENTITY
+	if is_instance_valid(parent):
+		parent_basis = parent.global_transform.basis
+	var local_up := (parent_basis.inverse() * mare.global_basis.y).normalized()
+	var local_right := (parent_basis.inverse() * mare.global_basis.x).normalized()
+	var world_up := mare.global_basis.y.normalized()
+	var world_right := mare.global_basis.x.normalized()
+	var world_direction := (parent_basis * (_root_saved.basis * _root_direction)).normalized()
+	var lift_sign := 1.0 if world_right.cross(world_direction).dot(world_up) >= 0.0 else -1.0
+	var rotation := Basis(local_up, aside_angle * weight * aside_sign)
+	var lift := lift_angle * weight + (flick * weight if flicking else 0.0)
+	rotation = Basis(local_right, lift_sign * lift) * rotation
+	rotation = Basis(local_right, lift_sign * _rock * ROCK_PITCH * weight) * rotation
+	rotation = Basis(local_up, _rock * ROCK_YAW * weight) * rotation
+	if _thrust_strength > 0.001:
+		var impulse := _thrust_strength * exp(-_thrust_clock * JIGGLE_DECAY) \
+			* sin(_thrust_clock * JIGGLE_FREQ) * weight
+		rotation = Basis(local_right, lift_sign * impulse * JIGGLE_PITCH) * rotation
+		rotation = Basis(local_up, impulse * JIGGLE_YAW) * rotation
+	var origin := _root_saved.origin
+	if base_offset.length_squared() > 0.0000001:
+		origin += parent_basis.inverse() * base_offset
+	_root.transform = Transform3D(rotation * _root_saved.basis, origin)

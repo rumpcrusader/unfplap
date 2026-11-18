@@ -1351,9 +1351,14 @@ func _install_tail() -> void:
 	if is_instance_valid(tail) or not is_instance_valid(pony):
 		return
 	var found: Dictionary = TAIL_CHAIN.resolve(pony)
-	if found.is_empty():
+	var custom := TAIL_CHAIN.custom_root(pony)
+	if found.is_empty() and custom == null:
 		return
-	var skeleton: Skeleton3D = found["skeleton"]
+	var skeleton: Skeleton3D = found.get("skeleton") as Skeleton3D
+	if skeleton == null:
+		skeleton = pony.get("skeleton") as Skeleton3D
+	if skeleton == null:
+		return
 	tail = TAIL.new()
 	tail.name = "UnfplapTail"
 	tail.mare = pony
@@ -1374,9 +1379,14 @@ func _install_tail_lay() -> void:
 	if not is_instance_valid(pony):
 		return
 	var found: Dictionary = TAIL_CHAIN.resolve(pony)
-	if found.is_empty():
+	var custom := TAIL_CHAIN.custom_root(pony)
+	if found.is_empty() and custom == null:
 		return
-	var skeleton: Skeleton3D = found["skeleton"]
+	var skeleton: Skeleton3D = found.get("skeleton") as Skeleton3D
+	if skeleton == null:
+		skeleton = pony.get("skeleton") as Skeleton3D
+	if skeleton == null:
+		return
 	tail_lay = TAIL_LAY.new()
 	tail_lay.name = "UnfplapTailLay"
 	tail_lay.mare = pony

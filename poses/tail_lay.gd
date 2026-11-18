@@ -20,6 +20,11 @@ var target_amount := 1.0
 var _bones: Array[int] = []
 var _saved: Dictionary = {}
 var _cached := false
+## A visible tail that is not on the game skeleton: its own root is turned and restored instead.
+var _root: Node3D
+var _root_saved := Transform3D.IDENTITY
+var _root_direction := Vector3.BACK
+var _root_ready := false
 var _hook_family := ""
 var _hook_profile := ""
 var _hook_seen := false
@@ -49,6 +54,11 @@ func _ready() -> void:
 func _cache() -> void:
 	_cached = true
 	_bones.clear()
+	_root = TAIL_CHAIN.custom_root(mare)
+	_root_ready = is_instance_valid(_root)
+	if _root_ready:
+		_root_saved = _root.transform
+		_root_direction = TAIL_CHAIN.root_direction(_root)
 	var sk := get_skeleton()
 	if sk == null:
 		return
@@ -65,19 +75,22 @@ func _cache() -> void:
 ## resumes on top of it next frame.
 func restore_tail() -> void:
 	var sk := get_skeleton()
-	if sk == null:
-		return
-	for bone: Variant in _saved:
-		sk.set_bone_pose(int(bone), _saved[bone])
+	if sk != null:
+		for bone: Variant in _saved:
+			sk.set_bone_pose(int(bone), _saved[bone])
+	if _root_ready and is_instance_valid(_root):
+		_root.transform = _root_saved
+		_root_ready = false
 
 
 func _process_modification_with_delta(delta: float) -> void:
-	var sk := get_skeleton()
-	if sk == null or not is_instance_valid(mare):
+	if not is_instance_valid(mare):
 		return
 	if not _cached:
 		_cache()
-	if _bones.is_empty():
+	if _root_ready and not is_instance_valid(_root):
+		_root_ready = false
+	if _bones.is_empty() and not _root_ready:
 		return
 	if amount <= 0.0 and target_amount <= 0.0:
 		return
@@ -94,9 +107,15 @@ func _process_modification_with_delta(delta: float) -> void:
 	if world_back.length_squared() < 0.000001:
 		return
 	world_back = world_back.normalized()
+	var weight := smoothstep(0.0, 1.0, amount)
+	if _root_ready and is_instance_valid(_root):
+		_lay_root(weight, world_back)
+		return
+	var sk := get_skeleton()
+	if sk == null:
+		return
 	var to_sk := sk.global_transform.affine_inverse()
 	var target := (to_sk.basis * world_back).normalized()
-	var weight := smoothstep(0.0, 1.0, amount)
 	for i: int in _bones.size():
 		var bone := _bones[i]
 		var pose := sk.get_bone_global_pose(bone)
@@ -110,3 +129,18 @@ func _process_modification_with_delta(delta: float) -> void:
 		var turn := Quaternion(direction.normalized(), target)
 		pose.basis = Basis(Quaternion.IDENTITY.slerp(turn, weight)) * pose.basis
 		RIG.set_global(sk, bone, pose)
+
+
+## Turn a custom tail root toward the bed frame, the same target the bone path uses.
+func _lay_root(weight: float, world_back: Vector3) -> void:
+	var parent := _root.get_parent() as Node3D
+	var parent_basis := Basis.IDENTITY
+	if is_instance_valid(parent):
+		parent_basis = parent.global_transform.basis
+	var direction := (_root_saved.basis * _root_direction).normalized()
+	var target := (parent_basis.inverse() * world_back).normalized()
+	if direction.length_squared() < 0.000001 or target.length_squared() < 0.000001:
+		return
+	var turn := Quaternion(direction, target)
+	var rotation := Basis(Quaternion.IDENTITY.slerp(turn, weight))
+	_root.transform = Transform3D(rotation * _root_saved.basis, _root_saved.origin)

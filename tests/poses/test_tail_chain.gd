@@ -113,6 +113,65 @@ func run() -> void:
 	body.remove_child(lay)
 	lay.free()
 
+	# A custom tail root (an integration's own visible tail) replaces the bone path: the standing
+	# modifier and the lay rotate that node and restore it, and never touch the body chain.
+	var holder := Node3D.new()
+	pony.add_child(holder)
+	var chain := Skeleton3D.new()
+	chain.name = "Chain"
+	holder.add_child(chain)
+	for i: int in 5:
+		var bone := chain.add_bone("tail_%d" % i)
+		if i > 0:
+			chain.set_bone_parent(bone, bone - 1)
+		chain.set_bone_rest(bone, Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, -0.04)))
+	chain.reset_bone_poses()
+	var saved_root := Transform3D(Basis.from_euler(Vector3(0.1, 0.2, 0.3)),
+		Vector3(0.1, 0.2, 0.3))
+	chain.transform = saved_root
+	pony.set_meta("tail_pose_root", chain)
+	check(TAIL_CHAIN.custom_root(pony) == chain, "the custom tail root resolves from metadata")
+	check(TAIL_CHAIN.root_direction(chain).length_squared() > 0.9,
+		"the custom root has a tail direction")
+	var root_tail: SkeletonModifier3D = TAIL_POSE.new()
+	root_tail.mare = pony
+	root_tail.aside_angle = 0.6
+	root_tail.lift_angle = 0.3
+	root_tail.amount = 1.0
+	root_tail.target_amount = 1.0
+	body.add_child(root_tail)
+	var body_before := body.get_bone_pose(tail1)
+	root_tail.call("_apply", 0.1)
+	check(not chain.transform.is_equal_approx(saved_root),
+		"the standing tail rotates the custom root")
+	check(body.get_bone_pose(tail1).is_equal_approx(body_before),
+		"the standing tail leaves the body chain alone with a custom root")
+	root_tail.call("restore_tail")
+	check(chain.transform.is_equal_approx(saved_root),
+		"the standing tail restores the custom root")
+	body.remove_child(root_tail)
+	root_tail.free()
+
+	var root_lay: SkeletonModifier3D = TAIL_LAY.new()
+	root_lay.mare = pony
+	root_lay.facts = facts
+	root_lay.amount = 1.0
+	root_lay.target_amount = 1.0
+	body.add_child(root_lay)
+	body_before = body.get_bone_pose(tail1)
+	root_lay.call("_process_modification_with_delta", 0.5)
+	check(not chain.transform.is_equal_approx(saved_root),
+		"the tail lay turns the custom root")
+	check(body.get_bone_pose(tail1).is_equal_approx(body_before),
+		"the tail lay leaves the body chain alone with a custom root")
+	root_lay.call("restore_tail")
+	check(chain.transform.is_equal_approx(saved_root),
+		"the tail lay restores the custom root")
+	body.remove_child(root_lay)
+	root_lay.free()
+	pony.remove_meta("tail_pose_root")
+	check(TAIL_CHAIN.custom_root(pony) == null, "no metadata means no custom root")
+
 	var tuck: Node = TAIL_TUCK.new()
 	tuck.set("pony", pony)
 	root.add_child(tuck)

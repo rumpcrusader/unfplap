@@ -1107,6 +1107,10 @@ func apply_live_settings() -> void:
 	# pushes the new policy into the voice player below.
 	var previous_mute := _feature("mute_ponese_audio")
 	_snapshot_settings()
+	if _suspended:
+		# The resume re-reads the snapshot and rebuilds the body-bound services; an edit during
+		# the flame must not touch a released pose or the old body.
+		return
 	if state == State.IDLE:
 		# The idle standing presentation has its own live values, so a settings edit reaches it
 		# before the act-only work is skipped.

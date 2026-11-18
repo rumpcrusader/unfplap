@@ -283,6 +283,8 @@ func run() -> void:
 		"a descriptive multi-word name is not a choice")
 	check(str(adapter.call("named_form", "Apple")).is_empty(),
 		"an ambiguous name resolves to nothing")
+	check(str(adapter.call("named_form", "wear Applesauce")).is_empty(),
+		"a name word inside another word does not match")
 	check(str(adapter.call("named_form", "Rarity or Fluttershy")).is_empty(),
 		"two whole names resolve to nothing")
 	check(str(adapter.call("named_form", "Chrysalis")).is_empty(),

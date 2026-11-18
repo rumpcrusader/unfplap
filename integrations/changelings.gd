@@ -521,10 +521,11 @@ func _name_score(key: String, id: String) -> int:
 	var ident := _normalize(id.replace("_", " "))
 	var best := 0
 	var request := _has_shape_request(key)
+	var padded := " %s " % key
 	# A whole line is a name on its own; a name inside a sentence needs the imperative.
-	if not name.is_empty() and (key == name or (request and key.contains(name))):
+	if not name.is_empty() and (key == name or (request and padded.contains(" %s " % name))):
 		best = 1000 + name.length()
-	if not ident.is_empty() and (key == ident or (request and key.contains(ident))):
+	if not ident.is_empty() and (key == ident or (request and padded.contains(" %s " % ident))):
 		best = maxi(best, 900 + ident.length())
 	# A single word of a name is common enough to appear in ordinary talk; it only counts on its
 	# own line or with an imperative.

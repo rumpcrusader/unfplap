@@ -3446,7 +3446,7 @@ func _complete_form_change(source: Variant, changed: bool, by_player: bool, targ
 		_form_hint_tick()
 		return
 	var shape := _source_current_shape(source) if is_instance_valid(source) else ""
-	if by_player and shape.is_empty() and is_instance_valid(source):
+	if by_player and target.is_empty() and shape.is_empty() and is_instance_valid(source):
 		if not _form_reveal_done:
 			_commit_form_reveal()
 		_form_hint_tick()

@@ -348,6 +348,7 @@ func run() -> void:
 	_check_offer_gate()
 	_check_hint_states()
 	_check_failed_named_offer()
+	_check_named_without_shape()
 	_check_ai_change_keeps_offer()
 	_check_late_adoption()
 	_check_restore_change()
@@ -710,6 +711,39 @@ func _check_failed_named_offer() -> void:
 	check(runtime.pony == old_pony, "the old body keeps the act")
 	check(runtime._shape_offer_pending, "a failed named change puts the offer back")
 	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE, "the hint returns with the offer")
+	runtime.force_stop()
+	director.queue_free()
+	_free_fixture(f)
+
+
+## A player-named change whose new body reports no shape is neutral, not a reveal. The offer is
+## still the player's choice, so it is spent.
+func _check_named_without_shape() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	main.memory = FakeMemory.new()
+	source.shape = ""
+	runtime._shape_offer_tick()
+	var director := FakeDirector.new()
+	director.name = "FakeDirector"
+	root.add_child(director)
+	source.named = "rarity"
+	director._turn_id = 1
+	director._player_text = "Rarity"
+	runtime._talk_tick(0.016)
+	runtime._body_swap_tick(0.1)
+	check(runtime._suspended, "the named change suspends the act")
+	var new_pony := _pony("Test Mare", "EmptyShapeBody")
+	root.add_child(new_pony)
+	source.new_pony = new_pony
+	source.shape = ""
+	main._on_pony(new_pony)
+	check(not runtime._form_reveal_done, "a named change with no shape is not a reveal")
+	var memory: FakeMemory = main.memory
+	check(memory.impressions.is_empty(), "a named change with no shape writes no reveal memory")
+	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)

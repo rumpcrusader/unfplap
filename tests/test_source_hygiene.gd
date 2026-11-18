@@ -1355,6 +1355,9 @@ func _check_body_swap() -> void:
 	check(_func_body(runtime, "_complete_form_change").contains(
 		"if by_player and not shape.is_empty():"),
 		"only the player's named shape spends the offer")
+	check(_func_body(runtime, "_complete_form_change").contains(
+		"if by_player and target.is_empty() and shape.is_empty()"),
+		"a named change with no reported shape is not a reveal")
 	check(_func_body(runtime, "_end_session").contains("clear_body_swap"),
 		"the one exit clears a pending swap")
 	check(_func_body(runtime, "_exit_tree").contains("_swapping_parent"),

@@ -307,18 +307,27 @@ func run() -> void:
 	unpatched.code = "shader_type spatial;"
 	check(COAT_PATCH.patched(unpatched) == null, "a shader without the hooks is left alone")
 	var game_body: Shader = load("res://addons/cel-shader/cel-shader-base.gdshader")
+	var game_cutout: Shader = load("res://addons/cel-shader/cel-shader-cutout.gdshader")
+	var game_occlusion: Shader = load("res://addons/cel-shader/cel-shader-occlusion.gdshader")
 	var game_near: Shader = load("res://world/characters/hybrid_mare/near_pony.gdshader")
 	var game_near_occlusion: Shader = load(
 		"res://world/characters/hybrid_mare/near_pony_occlusion.gdshader")
 	var game_near_outline: Shader = load(
 		"res://world/characters/hybrid_mare/near_pony_outline.gdshader")
 	check(COAT_PATCH.patched(game_body) != null, "the real body shader patches")
+	check(COAT_PATCH.patched(game_cutout) != null,
+		"the alpha-cutout body shader gets the coat hook")
+	check(COAT_PATCH.patched(game_occlusion) != null,
+		"the occlusion body shader gets the coat hook")
 	check(COAT_PATCH.patched(game_near) != null, "the real near pony shader patches")
 	var compiled := ShaderMaterial.new()
-	for source: Shader in [game_body, game_near, game_near_occlusion, game_near_outline]:
+	for source: Shader in [game_body, game_cutout, game_occlusion, game_near,
+			game_near_occlusion, game_near_outline]:
 		var real_patch := COAT_PATCH.patched(source)
 		check(real_patch != null, "the real coat shader compiles")
 		if real_patch != null:
+			check(real_patch.code.contains("body_coat_vulva_cut(body_coat_vertex)"),
+				"the real coat shader carries the vulva cut")
 			compiled.shader = real_patch
 	var near_pony := NearCoatPony.new()
 	root.add_child(near_pony)

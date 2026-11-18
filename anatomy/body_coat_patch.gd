@@ -2,9 +2,11 @@ extends RefCounted
 ## Runtime shader patch for the rig coat (MareBody) and its outline hull. The game body uses
 ## addons/cel-shader/cel-shader-base.gdshader and the hull uses cel-outline-lit or
 ## outline-tinted; all three already include flank_jiggle.gdshaderinc and call
-## `VERTEX += flank_jiggle(VERTEX);`. We duplicate the Shader resource and swap those two
-## strings for the mod's extended include and deform call, then add the vulva coat cut to the
-## fragment. No game source file is edited and no full shader is copied into the mod.
+## `VERTEX += flank_jiggle(VERTEX);`. The cel cutout and occlusion variants use the base include
+## without that hook, so the patch injects the include and call into their duplicate. We duplicate
+## the Shader resource and swap those strings for the mod's extended include and deform call, then
+## add the vulva coat cut to the fragment. No game source file is edited and no full shader is
+## copied into the mod.
 ##
 ## The merged near pony uses near_pony, near_pony_occlusion and near_pony_outline. Their
 ## jiggle call is multiplied by `jiggle_entry[pal]`; the patch keeps the rig body entries and
@@ -16,6 +18,8 @@ extends RefCounted
 const GAME_INCLUDE := "res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc"
 const GAME_INCLUDE_LINE := "#include \"" + GAME_INCLUDE + "\""
 const MOD_INCLUDE := "res://mods/unfplap/anatomy/body_coat_deform.gdshaderinc"
+const BASE_INCLUDE_LINE := "#include \"includes/base-cel-shader.gdshaderinc\""
+const VERTEX_HOOK := "void vertex() {"
 const GAME_CALL := "VERTEX += flank_jiggle(VERTEX);"
 const NEAR_CALL := "VERTEX += flank_jiggle(VERTEX) * jiggle_entry[pal];"
 const PATCHED_CALL := "body_coat_vertex = (body_coat_anatomy_inverse * vec4(VERTEX, 1.0)).xyz;\n\tVERTEX += body_coat_deform(VERTEX);"
@@ -34,9 +38,26 @@ static func patched(source: Shader) -> Shader:
 	if _cache.has(key):
 		return _cache[key] as Shader
 	var code: String = source.code
-	if not code.contains(GAME_INCLUDE_LINE):
-		_cache[key] = null
-		return null
+	var game_hook := code.contains(GAME_INCLUDE_LINE)
+	if not game_hook:
+		# The cel cutout and occlusion variants use the same base include but omit the game's
+		# flank_jiggle hook. Add the hook in the duplicate, then run the same deform/cut patch.
+		if not code.contains(BASE_INCLUDE_LINE) or not code.contains(VERTEX_HOOK) \
+				or not code.contains(FRAGMENT_HOOK):
+			_cache[key] = null
+			return null
+		var injected := BASE_INCLUDE_LINE + "\n" + GAME_INCLUDE_LINE \
+			+ "\n#include \"" + MOD_INCLUDE + "\""
+		var injected_code := code.replace(BASE_INCLUDE_LINE, injected)
+		injected_code = injected_code.replace(VERTEX_HOOK,
+			VERTEX_HOOK + "\n\t" + PATCHED_CALL)
+		injected_code = injected_code.replace(FRAGMENT_HOOK, PATCHED_FRAGMENT)
+		injected_code = injected_code.replace("#include \"includes/",
+			"#include \"res://addons/cel-shader/includes/")
+		var injected_shader := Shader.new()
+		injected_shader.code = injected_code
+		_cache[key] = injected_shader
+		return injected_shader
 	var near := code.contains(NEAR_CALL)
 	if not near and not code.contains(GAME_CALL):
 		_cache[key] = null

@@ -20,6 +20,9 @@ var pony: Node3D
 var mesh: MeshInstance3D
 var skeleton: Skeleton3D
 var shapes: RefCounted
+## The host debug sink, used only on a body/material change. A missing sink is a no-op.
+var log := Callable()
+var _patch_log := ""
 
 var _body_mesh: MeshInstance3D
 var _body_surface := 0
@@ -97,12 +100,14 @@ func apply() -> void:
 		return
 	var found := BODY_COAT.resolve(pony)
 	if found.is_empty():
+		_log_once("body coat skipped: no drawn coat")
 		restore()
 		return
 	var body := found.get("mesh") as MeshInstance3D
 	var surface := int(found.get("surface", -1))
 	if not is_instance_valid(body) or body.mesh == null or surface < 0 \
 			or surface >= body.mesh.get_surface_count():
+		_log_once("body coat skipped: invalid body surface")
 		restore()
 		return
 	if _body_mesh != body or _body_surface != surface or not is_instance_valid(_body_material) \
@@ -115,6 +120,9 @@ func apply() -> void:
 			flank.call("_own_body_materials")
 		var source := body.get_active_material(surface) as ShaderMaterial
 		if source == null:
+			var active := body.get_active_material(surface)
+			_log_once("body coat skipped: body=%s surface=%d material=%s" % [
+				str(body.name), surface, active.get_class() if active != null else "none"])
 			return
 		if not source.has_meta("jiggle_own"):
 			source = source.duplicate() as ShaderMaterial
@@ -131,8 +139,14 @@ func apply() -> void:
 		_body_outline = hull
 		_body_outline_original_shader = hull.shader if hull != null else null
 	if not _body_patched:
+		var shader_path := _body_original_shader.resource_path \
+			if is_instance_valid(_body_original_shader) and not _body_original_shader.resource_path.is_empty() \
+			else "inline"
 		var patched := BODY_COAT_PATCH.patched(_body_original_shader)
 		if patched == null:
+			_log_once("body coat skipped: body=%s surface=%d shader=%s" % [
+				str(_body_mesh.name) if is_instance_valid(_body_mesh) else "?",
+				_body_surface, shader_path])
 			return
 		_body_material.shader = patched
 		if _body_outline != null and _body_outline_original_shader != null:
@@ -140,6 +154,9 @@ func apply() -> void:
 			if hull_patched != null:
 				_body_outline.shader = hull_patched
 		_body_patched = true
+		_log_patch("body coat patched body=%s surface=%d shader=%s" % [
+			str(_body_mesh.name) if is_instance_valid(_body_mesh) else "?",
+			_body_surface, shader_path])
 	_refresh_near()
 	_rebuild_materials()
 	_ensure_zone_debug()
@@ -439,3 +456,24 @@ func _ensure_zone_debug() -> void:
 	_zone_debug = STILL_ZONE_DEBUG.new()
 	pony.add_child(_zone_debug)
 	_zone_debug.call("setup")
+
+
+## One coat-patch line per distinct body/material state, so a form change is visible and a
+## steady frame is silent. A skipped patch is also a warning: without it the vulva cut and spread
+## do not exist on the drawn coat even though the anatomy mesh is correct.
+func _log_once(text: String) -> void:
+	if _patch_log == text:
+		return
+	_patch_log = text
+	if log.is_valid():
+		log.call(text)
+	push_warning("[unfplap] " + text)
+
+
+## A successful patch is a debug line, not a warning.
+func _log_patch(text: String) -> void:
+	if _patch_log == text:
+		return
+	_patch_log = text
+	if log.is_valid():
+		log.call(text)

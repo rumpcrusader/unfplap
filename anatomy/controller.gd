@@ -109,6 +109,7 @@ func _init() -> void:
 	shapes.setup(null, self)
 	coat = COAT.new()
 	coat.setup(null, shapes)
+	coat.log = Callable(self, "_log")
 	coat_line = COAT_LINE.new()
 	heat = HEAT.new()
 	heat.setup(shapes)

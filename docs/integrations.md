@@ -250,11 +250,13 @@ bind. The adapter sets `body_fit_id` and `tail_pose_root` on the two kinds of bo
   the chain under the game rig's `Hair_tail` attachment as the tail root. `ChrysalisHair` is the
   pack's hair controller; the attachment and its `Chain` are built on `pony.skeleton` (`Hair_` +
   part), not under the controller. The adapter owns one `UnfplapTailPlacement` node between
-  `Hair_tail` and `Chain`; `tail_y`, `tail_z` and `tail_tilt_deg` move and tilt that wrapper as a
-  delta from the resolved default, so the pack's modelled tail is the zero. The act modifiers
-  keep saving, rotating and restoring `Chain` itself. `Re-seat tails and docks` off returns the
-  wrapper to identity; the dock keys do not apply. The chain is not a tail-seat row and has no
-  dock;
+  `Hair_tail` and `Chain`; the resolved `tail_y`, `tail_z` and `tail_tilt_deg` move and tilt that
+  wrapper from the pack's modelled tail, the same absolute-offset rule the seat uses from its
+  reference dock. Her provider placement bakes her own tail reference, so the global tail default
+  stays a game-dock value and does not move her spring tail; a reset keeps her look. The act
+  modifiers keep saving, rotating and restoring `Chain` itself. `Re-seat tails and docks` off
+  returns the wrapper to identity; the dock keys do not apply. The chain is not a tail-seat row
+  and has no dock;
 - a disguise (`geometry_variant` `changeling=<pony id>` in 0.2.12) uses that pony's id as the body
   fit and has no tail wrapper, so it uses the copied pony's placement and the normal hair chain.
 
@@ -408,9 +410,9 @@ overlay reads them.
 - `tests/integrations/test_changelings.gd` — the installed list and provider layer while the pack is
   on, the approved profile and placement, the unchanged base roster, no entry when it is off, and
   the body-fit/tail/anatomy-marker metadata for her own body, a disguise and an unrelated pony,
-  including the `UnfplapTailPlacement` wrapper's creation, reuse, saved-offset apply, reset and
-  report, a late chain that arrives after an identity-less first prepare, and the manager's tail
-  forwards. It also
+  including the `UnfplapTailPlacement` wrapper's creation, reuse, baked default, saved-offset
+  apply, reset and report, a late chain that arrives after an identity-less first prepare, and
+  the manager's tail forwards. It also
   pins the shape-change source through the manager: the actor/old/new/target state, the true-form
   and named requests, the claimed body, the idle appear hook and the completion poll. An AI-started
   change is observed from a rising `busy`, claimed by identity before the shape is known and

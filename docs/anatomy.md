@@ -718,10 +718,11 @@ sample of the body coat.
   new tail only for shape or silhouette; the seat remains this controller's job.
 - The seat is the game hair-tail/dock path only. A visible tail that is not on either game
   skeleton is owned by the body source that brings it; the changelings adapter puts an
-  `UnfplapTailPlacement` wrapper above Queen Chrysalis's spring chain and applies
-  `tail_y`/`tail_z`/`tail_tilt_deg` as a delta from the modelled root, with the resolved seat
-  default subtracted. The wrapper is not a seat row and has no dock. `Re-seat tails and docks`
-  off returns it to identity. `docs/poses.md` owns how the act modifiers rotate and restore the
+  `UnfplapTailPlacement` wrapper above Queen Chrysalis's spring chain and applies the resolved
+  `tail_y`/`tail_z`/`tail_tilt_deg` from the modelled root, the same rule the seat uses from its
+  reference dock. Her provider placement carries her own tail reference, so the global tail
+  default does not move her spring tail. The wrapper is not a seat row and has no dock. `Re-seat
+  tails and docks` off returns it to identity. `docs/poses.md` owns how the act modifiers rotate and restore the
   chain itself, so a placement edit and an act never overwrite each other. The Anatomy editor's
   tail actions accept a source-owned tail through `can_place_tail()` and forward
   `main.apply_custom_tail()`; a dock action still answers `no dock on this tail.` The princesses'

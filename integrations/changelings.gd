@@ -520,6 +520,8 @@ func _apply_tail_placement_now(pony: Node, root: Node3D) -> bool:
 		wrapper.transform = Transform3D.IDENTITY
 		wrapper.set_meta("unfplap_tail_offset", Vector3.ZERO)
 		return true
+	# The resolved tail keys are absolute from the pack's modelled chain, like the seat's from
+	# its reference dock; her provider placement bakes her own tail reference.
 	var placement := SETTINGS.anatomy_placement(ID, ID)
 	var offset := Vector3(0.0, float(placement.get("tail_y", 0.0)),
 		float(placement.get("tail_z", 0.0)))

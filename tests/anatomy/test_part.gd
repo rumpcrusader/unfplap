@@ -272,8 +272,57 @@ func _check_face_contact() -> void:
 	host.free()
 
 
+## The anatomy mesh's own +Z is the outward normal. It must not be flipped by the hips sign: a
+## body fit or a shape can put the opening in front of the hip bone as the measurement sees it.
+func _check_normal_source() -> void:
+	var anatomy := FakeFaceAnatomy.new()
+	anatomy.opening = Vector3(0.0, 0.5, -0.3)
+	root.add_child(anatomy)
+	var pony := _pony("twilight_sparkle")
+	root.add_child(pony)
+	var sk := Skeleton3D.new()
+	sk.add_bone("pony_hips")
+	pony.add_child(sk)
+	pony.skeleton = sk
+	var act: Node = ANATOMY_ACT.new()
+	root.add_child(act)
+	act.setup(pony, anatomy)
+	var normal: Variant = act.call("_compute_normal", null)
+	check(normal is Vector3 and (normal as Vector3).is_equal_approx(Vector3(0.0, 0.0, 1.0)),
+		"the anatomy rear stays outward even with the opening in front of the hips")
+	act.call("teardown")
+	act.free()
+	root.remove_child(pony)
+	pony.free()
+	root.remove_child(anatomy)
+	anatomy.free()
+
+
+## A body swap clears the pelvis handshake without touching the act's mesh or throb state.
+func _check_pelvis_reset() -> void:
+	var part: Node = PLAYER_PART.new()
+	part.set("hip_offset_applied", Vector3(0.1, 0.0, 0.2))
+	part.set("aim_normal", Vector3.BACK)
+	part.set("aim_opening", Vector3.ONE)
+	part.set("aim_pitch_deg", 3.0)
+	part.set("_p_smooth", 0.12)
+	part.set("_p_started", true)
+	part.call("reset_pelvis")
+	check((part.get("hip_offset_applied") as Vector3).is_zero_approx(),
+		"the pelvis reset clears the applied offset")
+	check((part.call("hip_offset_wanted") as Vector3).is_zero_approx(),
+		"the pelvis reset clears the wanted offset")
+	check((part.get("aim_normal") as Vector3).is_zero_approx()
+		and (part.get("aim_opening") as Vector3).is_zero_approx(),
+		"the pelvis reset clears the aim")
+	check(not bool(part.get("_p_started")), "the pelvis reset reseeds the next penetration")
+	part.free()
+
+
 func run() -> void:
 	_check_face_contact()
+	_check_normal_source()
+	_check_pelvis_reset()
 
 	# Climax clears the shape once and arms the wink pulses; the tick keeps driving the hug so
 	# the lips stay on the shaft through the climax instead of closing on nothing.

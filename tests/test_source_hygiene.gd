@@ -1359,6 +1359,20 @@ func _check_body_swap() -> void:
 		"the resume re-anchors the player for a standing shape")
 	for name: String in ["_reset_swap_input_state", "_reanchor_player_after_swap"]:
 		check(runtime.contains("func %s(" % name), "the runtime keeps %s" % name)
+	check(_func_body(runtime, "_resume_after_body_swap").contains("_reset_player_pelvis"),
+		"a body swap clears the part's old pelvis handshake")
+	check(_func_body(runtime, "_reanchor_player_after_swap").contains("_reset_player_pelvis"),
+		"the rebuilt standing pose starts from a clean handshake before the fit")
+	check(_func_body(runtime, "_begin_standing_placement").contains("_standing_part_shift"),
+		"the standing start fits Anon's whole body to her entrance")
+	check(_func_body(runtime, "_begin_standing_placement").contains("_reset_player_pelvis"),
+		"the standing start clears the handshake after the fit")
+	check(_func_body(runtime, "_standing_part_shift").contains("player_root_natural"),
+		"the placement fit measures the part's natural pivot")
+	check(_func_body(runtime, "_form_hint_tick").contains("_form_hint_debug"),
+		"only debug mode labels the form state")
+	check(_func_body(runtime, "_form_hint_tick").contains("_form_hint = \"\""),
+		"the form state never reaches the HUD")
 	for name: String in ["_climax", "_afterglow_begin", "_restore_begin"]:
 		check(_func_body(runtime, name).contains("_form_hint_tick()"),
 			"%s clears the cached form hint" % name)
@@ -1488,6 +1502,13 @@ func _check_anatomy_isolation(files: Array[String]) -> void:
 	var act := FileAccess.get_file_as_string(ROOT.path_join("anatomy/act.gd"))
 	check(not act.contains("runtime.get("), "the anatomy act does not read runtime fields")
 	check(not act.contains("runtime.call(\"_"), "the anatomy act does not call runtime private helpers")
+	var act_normal := _func_body(act, "_compute_normal")
+	check(act_normal.contains("return normal.normalized()")
+		and not act_normal.contains("return -normal if"),
+		"the anatomy rear is the authoritative outward normal")
+	var player_part := FileAccess.get_file_as_string(ROOT.path_join("anatomy/player.gd"))
+	check(player_part.contains("func root_natural(") and player_part.contains("func reset_pelvis("),
+		"the player part exposes the natural pivot and the body-swap reset")
 	var bridge := FileAccess.get_file_as_string(ROOT.path_join("anatomy/act_bridge.gd"))
 	check(bridge.contains("func bind(host_in: Dictionary)") and bridge.contains("func context("),
 		"the anatomy bridge takes a host dictionary and owns the typed context")

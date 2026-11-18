@@ -473,6 +473,25 @@ func hip_offset_wanted() -> Vector3:
 	return _hip_offset_wanted
 
 
+## Drop the pelvis handshake and the smoothed penetration between two bodies. The old body's
+## `hip_offset_applied` belongs to another Hips pose; keeping it would make the next aim subtract a
+## displacement from the wrong pivot. The act state, the mesh and the throb are untouched.
+func reset_pelvis() -> void:
+	hip_offset_applied = Vector3.ZERO
+	_hip_offset_wanted = Vector3.ZERO
+	aim_normal = Vector3.ZERO
+	aim_opening = Vector3.ZERO
+	aim_pitch_deg = 0.0
+	_bend = Vector3.ZERO
+	_bend_speed = Vector3.ZERO
+	_last_root = Vector3.INF
+	_last_velocity = Vector3.ZERO
+	_p_smooth = 0.0
+	_p_started = false
+	if _in_tree():
+		_apply_place()
+
+
 func _set_bend(turn: Vector3) -> void:
 	var material := _mesh.get_surface_override_material(0) as ShaderMaterial
 	if material != null:
@@ -565,6 +584,16 @@ func root_now() -> Vector3:
 	if not _in_tree():
 		return Vector3.INF
 	return _mesh.global_transform * PIVOT
+
+
+## The pivot with the last applied Hips offset taken out: where the part sits when the pose's
+## pelvis handshake is zero. A standing start measures its contact distance from this, so a stale
+## offset from the previous body cannot warp the fit.
+func root_natural() -> Vector3:
+	var root := root_now()
+	if not root.is_finite():
+		return Vector3.INF
+	return root - hip_offset_applied
 
 
 ## Build the hidden part mesh so a gate can measure its natural root before an encounter.

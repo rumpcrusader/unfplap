@@ -9,6 +9,7 @@ const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 
 const WINKING_REST_OPEN := 0.6
 const WINKING_OPEN_AT := 0.3
@@ -67,6 +68,9 @@ var _normal := Vector3.ZERO
 var _contact_point := Vector3.ZERO
 var _contact_normal := Vector3.ZERO
 var _contact_rear := Vector3.ZERO
+## The aim diagnostic: the normal, the hips reference and the pelvis handshake. Debug mode only.
+var _debug_aim := false
+var _aim_debug_left := 0.0
 var _debug: RefCounted
 
 
@@ -88,6 +92,7 @@ func setup(pony_node: Node3D, anatomy_node: Node,
 	_oral = ORAL.new()
 	_oral.call("setup", pony, anatomy)
 	reset()
+	_debug_aim = SETTINGS.debug_mode.get_bool()
 	_debug = DEBUG.new()
 	_debug.setup(anatomy, anatomy)
 
@@ -359,6 +364,7 @@ func tick(delta: float, facts: RefCounted) -> void:
 		anatomy.call("player_track", _contact_point, _contact_rear,
 			frame.basis.y.normalized(), false, shown, delta, (mesh as Node3D).get_parent(),
 			true)
+	_aim_debug_tick(delta, part)
 	if _debug != null:
 		_debug.tick(part)
 	_facts.perf("anatomy_tick", Time.get_ticks_usec() - started)
@@ -433,21 +439,52 @@ func _start_wink(seconds: float, beats: float) -> void:
 	_wink_beats = beats
 
 
-## The vulva plane's normal, oriented toward Anon. `hole_rear()` is the anatomy mesh's own axis;
-## its sign depends on how the asset was authored, so it is resolved against his pelvis position.
+## The vulva plane's normal, oriented out of her. The V2 mesh authors the vulva's outward side on
+## its own +Z (the coat shader reads the same axis), so the mesh is authoritative: a body fit or a
+## body swap may move the hips reference, but it cannot reverse the authored mesh. The hips sign is
+## only the fallback for a degenerate rear axis.
 func _compute_normal(_part: Variant) -> Vector3:
 	if not is_instance_valid(anatomy):
 		return Vector3.ZERO
 	var normal: Vector3 = hole_rear()
-	if normal.length_squared() < 0.000001:
-		return Vector3.ZERO
-	normal = normal.normalized()
-	# Resolve the sign against *her own body*, never against Anon: the outward normal points away
-	# from her hip centre, and that reference does not move when his pelvis does.
+	if normal.is_finite() and normal.length_squared() > 0.000001:
+		return normal.normalized()
+	var fallback := Vector3.BACK
 	var hips := _hips_point()
-	if hips == Vector3.ZERO:
-		return normal
-	return -normal if normal.dot(hole_point() - hips) < 0.0 else normal
+	if hips != Vector3.ZERO and fallback.dot(hole_point() - hips) < 0.0:
+		fallback = -fallback
+	return fallback
+
+
+## Debug: one aim line every two seconds, so a wrong side or a large pelvis handshake is visible in
+## the run log without logging the per-frame path. Enable debug reads the flag at act start.
+func _aim_debug_tick(delta: float, part: Variant) -> void:
+	if not _debug_aim:
+		return
+	_aim_debug_left -= delta
+	if _aim_debug_left > 0.0:
+		return
+	_aim_debug_left = 2.0
+	if _facts == null or not is_instance_valid(pony):
+		return
+	var root := Vector3.INF
+	var hip := Vector3.ZERO
+	if is_instance_valid(part):
+		if part.has_method("root_now"):
+			var root_value: Variant = part.call("root_now")
+			if root_value is Vector3:
+				root = root_value
+		if part.has_method("hip_offset_wanted"):
+			var hip_value: Variant = part.call("hip_offset_wanted")
+			if hip_value is Vector3:
+				hip = hip_value
+	var scale := 1.0
+	var scale_value: Variant = pony.get("body_scale")
+	if scale_value != null:
+		scale = float(scale_value)
+	_facts.log("anatomy aim normal=%s hole=%s rear=%s hips=%s root=%s hip=%s fit=%s scale=%.2f pen=%.3f" % [
+		str(_normal), str(hole_point()), str(hole_rear()), str(_hips_point()), str(root),
+		str(hip), BODY_PROFILE.body_fit_id(pony), scale, float(_facts.penetration_m)])
 
 
 ## Her pelvis bone in world space, the stable reference for the opening's outward direction.

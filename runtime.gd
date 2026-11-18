@@ -77,9 +77,13 @@ const BODY_SWAP_ADOPT_GRACE_S := 0.5
 ## impression and peak, and extra comfort at the act's record. Magnitudes are lab-tuned.
 const FORM_REVEAL_HEAT := 30.0
 const FORM_REVEAL_PEAK_SCORE := 150.0
-## The one act-HUD hint. It names the existing dialogue channel, never a new key.
+## Debug log labels for the form state. A release never publishes a HUD hint: the player finds
+## the reveal and the gift by probing her, so the debug build may name the state in the log only.
 const FORM_HINT_ASK := "Say to her: ask to see the real her."
 const FORM_HINT_SHAPE := "Say to her: name the pony she should wear."
+## The standing start may place Anon closer or farther so the shaft rests at her entrance before
+## the act. Beyond this the offer cone would be wrong and the fit is left to the hip offset.
+const STANDING_FIT_MAX_M := 0.6
 ## She offers the change in her own voice; the note is code-owned and short.
 const FORM_OFFER_PROMPT := "Offer him a gift: for the rest of this, you will wear any adult mare's shape he names. Say it in one short line, at most 24 words, in your own voice, as a proud indulgence rather than a plea. Do not explain how it works and do not list names."
 ## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
@@ -192,6 +196,11 @@ var _shape_offer_done := false
 var _shape_offer_pending := false
 var _form_talk_turn := -1
 var _form_hint := ""
+## The debug log label for the current form state. It is never copied to the act facts, so no
+## debug build can put the reveal or the gift back on the HUD.
+var _form_hint_log := ""
+## Debug mode at the act's settings snapshot: only then may the run log name the form state.
+var _form_hint_debug := false
 ## `reparent()` runs `_exit_tree()`. The handover moves the live runtime between bodies, so that
 ## signal must not run the world-close teardown it exists for.
 var _swapping_parent := false
@@ -1102,6 +1111,7 @@ func _snapshot_settings() -> void:
 	_thrust_travel = snap.thrust_travel
 	_max_pony_climaxes = snap.max_pony_climaxes
 	_pelvis_gap_m = snap.pelvis_gap_m
+	_form_hint_debug = SETTINGS.debug_mode.get_bool()
 	_readiness.configure_auto(snap.auto_pace, snap.auto_max_depth, snap.auto_curve,
 		snap.auto_min_depth)
 	_reactions.configure({
@@ -2006,6 +2016,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_shape_offer_done = false
 	_shape_offer_pending = false
 	_form_hint = ""
+	_form_hint_log = ""
 	_end_tail_tuck()
 	_summary_service.reset_act()
 	_prepare_vocal()
@@ -2446,6 +2457,8 @@ func _resume_after_body_swap() -> void:
 	_rebuild_pose_for_swap(_swap_pose)
 	_sync_start_pose_config()
 	_reanchor_player_after_swap()
+	# The bed path has no placement fit; clear the old body's Hips handshake for every resume.
+	_reset_player_pelvis()
 	_reset_swap_input_state()
 	_camera_service().call("reset_lean_state")
 	_camera_service().call("apply_eye_override", _start_family(), _player_pony)
@@ -2515,8 +2528,19 @@ func _reset_swap_input_state() -> void:
 func _reanchor_player_after_swap() -> void:
 	if _pose_family() != "standing":
 		return
+	# The rebuilt pose starts with a zero Hips offset, so the part's applied offset from the old
+	# body is stale before the fit measures the natural pivot.
+	_reset_player_pelvis()
 	var standing := _begin_standing_placement()
 	_standing_camera_controller().begin_facing(standing)
+
+
+## Drop the part's pelvis handshake after the placement fit or a new body. The service owns the
+## part; a missing service (a suite or the anatomy off) is a no-op.
+func _reset_player_pelvis() -> void:
+	var service: Variant = _anatomy_service()
+	if service != null and service.has_method("player_reset_pelvis"):
+		service.call("player_reset_pelvis")
 
 
 ## The new body must still pass the act's adult-mare gate. A missing service reads as allowed,
@@ -2599,7 +2623,8 @@ func _begin_standing_placement() -> Transform3D:
 	if not is_finite(floor_y) or absf(floor_y - body.global_position.y) > 1.0:
 		floor_y = body.global_position.y
 	target.y = body.global_position.y
-	if stool != null and bool(stool.get("active")):
+	var stool_active := stool != null and bool(stool.get("active"))
+	if stool_active:
 		var raised: Variant = stool.call("place", target, body.rotation.y, floor_y)
 		if raised is Vector3:
 			target = raised
@@ -2609,11 +2634,61 @@ func _begin_standing_placement() -> Transform3D:
 	# Do not inherit the previous act's view: face him along her forward, so his body is in front
 	# of the camera instead of off to one side after a missionary restore.
 	body.rotation.y = atan2(-forward.x, -forward.z)
+	# The stance is the pre-act view; the contact distance is hers. Fit the whole body once before
+	# the act so the shaft starts at her entrance instead of pulling the Hips bone across the gap.
+	var fit := Vector3.ZERO if stool_active else _standing_part_shift()
+	if fit.length_squared() > 0.000001:
+		body.global_position += fit
+	# The fit has measured the natural pivot; clear the old handshake before the first act tick
+	# reseeds the penetration from the fitted stance.
+	_reset_player_pelvis()
 	body.reset_physics_interpolation()
-	_log("standing keeps pony at=%s and places Anon at=%s yaw=%.3f stool=%s" % [
-		str(pony.global_position), str(target), body.rotation.y,
-		str(stool != null and bool(stool.get("active")))])
+	_log("standing keeps pony at=%s and places Anon at=%s yaw=%.3f fit=%+.3f stool=%s" % [
+		str(pony.global_position), str(body.global_position), body.rotation.y,
+		fit.dot(forward), str(stool_active)])
 	return standing
+
+
+## The horizontal shift that puts the part's natural pivot one shaft behind her entrance, so a
+## standing start touches her instead of asking the Hips bone to carry the pre-act gap. The fit
+## moves Anon's whole body before the act; the per-frame aim still owns the stroke correction.
+func _standing_part_shift() -> Vector3:
+	var service: Variant = _anatomy_service()
+	if service == null or not service.has_method("player_prepare") \
+			or not service.has_method("player_root_natural") \
+			or not service.has_method("player_shaft_length_m") \
+			or not service.has_method("controller"):
+		return Vector3.ZERO
+	if not bool(service.call("player_prepare")):
+		return Vector3.ZERO
+	var length := float(service.call("player_shaft_length_m"))
+	if not is_finite(length) or length <= 0.001:
+		return Vector3.ZERO
+	var root_value: Variant = service.call("player_root_natural")
+	if not (root_value is Vector3) or not (root_value as Vector3).is_finite():
+		return Vector3.ZERO
+	var controller: Variant = service.call("controller", pony)
+	if not is_instance_valid(controller) or not controller.has_method("hole_point") \
+			or not controller.has_method("hole_rear"):
+		return Vector3.ZERO
+	if controller.has_method("is_attached") and not bool(controller.call("is_attached")):
+		return Vector3.ZERO
+	var opening: Variant = controller.call("hole_point", 0.0)
+	var rear: Variant = controller.call("hole_rear", 0.0)
+	if not (opening is Vector3) or not (opening as Vector3).is_finite():
+		return Vector3.ZERO
+	if not (rear is Vector3) or not (rear as Vector3).is_finite():
+		return Vector3.ZERO
+	var flat := Vector3((rear as Vector3).x, 0.0, (rear as Vector3).z)
+	if flat.length_squared() < 0.000001:
+		return Vector3.ZERO
+	# The mesh's outward rear points at Anon, so one shaft along it is the rest pivot.
+	var pivot_target: Vector3 = (opening as Vector3) + flat.normalized() * length
+	var shift: Vector3 = pivot_target - (root_value as Vector3)
+	shift.y = 0.0
+	if not shift.is_finite() or shift.length() > STANDING_FIT_MAX_M:
+		return Vector3.ZERO
+	return shift
 
 
 ## Dispatch the spec's closed `start.setup` vocabulary to its placement adapter. It never selects
@@ -3457,21 +3532,24 @@ func _shape_offer_tick() -> void:
 	_log("utterance kind=reaction key=%s" % key)
 
 
-## The one act-HUD hint. The cached string is what `_sync_act_facts` copies, so a frame never
-## looks the source up and the HUD never probes the runtime.
+## The form state's debug label. It is never copied to the act facts: the HUD keeps no form row
+## text in a release or a debug build. The cached label only stops the log repeating itself, and
+## the HUD still reads an empty `_form_hint` every frame.
 func _form_hint_tick() -> void:
 	var next := ""
-	if state == State.ACTIVE and not _suspended:
+	if _form_hint_debug and state == State.ACTIVE and not _suspended:
 		var source: Variant = _shape_source()
 		if source != null and source.has_method("current_shape"):
 			if _shape_offer_pending:
 				next = FORM_HINT_SHAPE
 			elif not _form_reveal_done and not _source_current_shape(source).is_empty():
 				next = FORM_HINT_ASK
-	if next == _form_hint:
+	_form_hint = ""
+	if next == _form_hint_log:
 		return
-	_form_hint = next
-	_log("form hint \"%s\"" % next)
+	_form_hint_log = next
+	if not next.is_empty():
+		_log("form hint suppressed \"%s\"" % next)
 
 
 ## The new body is up. A player-requested return to her own form is the act's exceptional beat;

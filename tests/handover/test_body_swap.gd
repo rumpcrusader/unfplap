@@ -258,6 +258,18 @@ class FakeMain extends Node:
 		return true
 
 
+## A service with only the player handshake: the body swap must clear the old body's offset even
+## when no anatomy controller is available.
+class FakePlayerAnatomy extends RefCounted:
+	var reset_calls := 0
+
+	func controller_for(_pony: Node, _runtime: Node) -> Node:
+		return null
+
+	func player_reset_pelvis() -> void:
+		reset_calls += 1
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -313,6 +325,7 @@ func _fixture() -> Dictionary:
 	runtime._serial = 1
 	runtime._preferences = SETTINGS.preferences("test_mare")
 	runtime._features = {}
+	runtime._form_hint_debug = true
 	var source := FakeSource.new()
 	source.name = "FakeSource"
 	root.add_child(source)
@@ -352,6 +365,7 @@ func run() -> void:
 	_check_named_shape_gate()
 	_check_watchdog_with_body()
 	_check_offer_gate()
+	_check_no_player_hint()
 	_check_hint_states()
 	_check_failed_named_offer()
 	_check_named_without_shape()
@@ -370,6 +384,8 @@ func _check_handover() -> void:
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
+	var anatomy := FakePlayerAnatomy.new()
+	main.anatomy = anatomy
 
 	source.changing = true
 	runtime._suspend_for_body_swap(source)
@@ -387,6 +403,7 @@ func _check_handover() -> void:
 	main._on_pony(new_pony)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the new body resumes the act")
+	check(anatomy.reset_calls >= 1, "the new body clears the part's old pelvis handshake")
 	check(runtime.pony == new_pony, "the runtime owns the new body")
 	check(runtime.get_parent() == new_pony, "the runtime moved under the new body")
 	check(main._runtimes.get(new_pony) == runtime, "main maps the new body to the same runtime")
@@ -609,7 +626,9 @@ func _check_shape_offer() -> void:
 	check(runtime._shape_offer_done and runtime._shape_offer_pending,
 		"a true-form climax offers the shape change")
 	runtime._form_hint_tick()
-	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE, "the offer names the pony in the hint")
+	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_SHAPE,
+		"the offer names the pony in the debug log")
+	check(str(runtime._form_hint).is_empty(), "the offer stays off the HUD")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -735,16 +754,45 @@ func _check_offer_gate() -> void:
 	runtime._shape_offer_pending = false
 	runtime._form_reveal_done = false
 	runtime._form_hint_tick()
-	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_ASK,
-		"a disguise invites the reveal ask")
+	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_ASK,
+		"a disguise invites the reveal ask in the debug log")
+	check(str(runtime._form_hint).is_empty(), "the reveal ask stays off the HUD")
 	runtime._form_reveal_done = true
 	runtime._form_hint_tick()
-	check(str(runtime._form_hint).is_empty(), "a used reveal hides the hint")
+	check(str(runtime._form_hint_log).is_empty(), "a used reveal hides the debug log")
+	check(str(runtime._form_hint).is_empty(), "a used reveal hides the HUD hint")
 	runtime._form_reveal_done = false
 	runtime._shape_offer_pending = true
 	runtime.force_stop()
 	check(not runtime._shape_offer_pending, "the act end drops the pending offer")
-	check(str(runtime._form_hint).is_empty(), "the act end hides the hint")
+	check(str(runtime._form_hint_log).is_empty(), "the act end hides the debug log")
+	check(str(runtime._form_hint).is_empty(), "the act end hides the HUD hint")
+	_free_fixture(f)
+
+
+## A release never publishes the form hint: the player finds the reveal and the gift by probing
+## her, not by a HUD row that names the dialogue channel.
+func _check_no_player_hint() -> void:
+	var f := _fixture()
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	runtime._form_hint_debug = false
+	source.shape = ""
+	runtime._shape_offer_tick()
+	runtime._form_hint_tick()
+	check(runtime._shape_offer_pending, "the offer is still made")
+	check(str(runtime._form_hint).is_empty(), "the release offer publishes no hint")
+	source.shape = "fluttershy"
+	runtime._shape_offer_pending = false
+	runtime._form_reveal_done = false
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint).is_empty(), "a disguise publishes no reveal hint")
+	runtime._form_hint_debug = true
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_ASK,
+		"debug mode can name the ask in the log")
+	check(str(runtime._form_hint).is_empty(), "debug mode still publishes no HUD hint")
+	runtime.force_stop()
 	_free_fixture(f)
 
 
@@ -756,19 +804,22 @@ func _check_hint_states() -> void:
 	source.shape = "fluttershy"
 	runtime._form_reveal_done = false
 	runtime._form_hint_tick()
-	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_ASK, "a disguise invites the ask")
+	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_ASK,
+		"a disguise invites the ask in the debug log")
 	runtime.state = RUNTIME.State.CLIMAX
 	runtime._form_hint_tick()
-	check(str(runtime._form_hint).is_empty(), "the climax state clears the hint")
+	check(str(runtime._form_hint_log).is_empty(), "the climax state clears the debug log")
 	runtime.state = RUNTIME.State.AFTERGLOW
 	runtime._form_hint_tick()
-	check(str(runtime._form_hint).is_empty(), "the afterglow state clears the hint")
+	check(str(runtime._form_hint_log).is_empty(), "the afterglow state clears the debug log")
 	runtime.state = RUNTIME.State.RESTORE
 	runtime._form_hint_tick()
-	check(str(runtime._form_hint).is_empty(), "the restore state clears the hint")
+	check(str(runtime._form_hint_log).is_empty(), "the restore state clears the debug log")
 	runtime.state = RUNTIME.State.ACTIVE
 	runtime._form_hint_tick()
-	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_ASK, "the active state restores the ask")
+	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_ASK,
+		"the active state restores the debug log")
+	check(str(runtime._form_hint).is_empty(), "the HUD hint stays empty through every state")
 	runtime.force_stop()
 	_free_fixture(f)
 
@@ -799,7 +850,12 @@ func _check_failed_named_offer() -> void:
 	check(not runtime._suspended, "the failed named change resumes the old body")
 	check(runtime.pony == old_pony, "the old body keeps the act")
 	check(runtime._shape_offer_pending, "a failed named change puts the offer back")
-	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE, "the hint returns with the offer")
+	runtime._form_hint_debug = true
+	runtime._form_hint_tick()
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_SHAPE,
+		"the hint returns with the offer in the debug log")
+	check(str(runtime._form_hint).is_empty(), "the offer stays off the HUD")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)
@@ -838,7 +894,12 @@ func _check_named_without_shape() -> void:
 	var memory: FakeMemory = main.memory
 	check(memory.impressions.is_empty(), "a named change with no shape writes no reveal memory")
 	check(runtime._shape_offer_pending, "a failed named shape restores the offer")
-	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE, "the hint returns with the offer")
+	runtime._form_hint_debug = true
+	runtime._form_hint_tick()
+	runtime._form_hint_tick()
+	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_SHAPE,
+		"the hint returns with the offer in the debug log")
+	check(str(runtime._form_hint).is_empty(), "the offer stays off the HUD")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)
@@ -867,9 +928,11 @@ func _check_ai_change_keeps_offer() -> void:
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "her own change resumes the act")
 	check(runtime._shape_offer_pending, "her own change keeps the player's offer")
+	runtime._form_hint_debug = true
 	runtime._form_hint_tick()
-	check(str(runtime._form_hint) == RUNTIME.FORM_HINT_SHAPE,
-		"the hint still names the player's offer")
+	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_SHAPE,
+		"the debug log still names the player's offer")
+	check(str(runtime._form_hint).is_empty(), "the player's offer stays off the HUD")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)

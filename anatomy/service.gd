@@ -414,6 +414,21 @@ func player_root_now() -> Vector3:
 	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
 
 
+## The pivot without the pose's last Hips offset. The standing placement fit uses it, so a stale
+## offset from an earlier body cannot look like a contact distance.
+func player_root_natural() -> Vector3:
+	if not is_instance_valid(_player_part):
+		return Vector3.INF
+	var value: Variant = _player_part.call("root_natural")
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
+
+
+## Clear the part's pelvis handshake and smoothed penetration after a body swap or a re-anchor.
+func player_reset_pelvis() -> void:
+	if is_instance_valid(_player_part) and _player_part.has_method("reset_pelvis"):
+		_player_part.call("reset_pelvis")
+
+
 func player_hip_offset() -> Vector3:
 	if not is_instance_valid(_player_part) or not bool(_player_part.call("showing")):
 		return Vector3.ZERO

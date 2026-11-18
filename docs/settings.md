@@ -593,7 +593,7 @@ Debug commands are entries in `debug/service.gd`:
 
 The **Debug** block of the tab named by the entry's `tab` (`general` by default, or `anatomy`/
 `world`/`integrations`; the Poses tab carries none) draws a button for it and calls `method` on the
-entry node. An action on a wheel page sets
+debug actions node the entry adds. An action on a wheel page sets
 `"panel": false`; the Debug block skips it, so the settings blocks draw only the settings-only
 actions. Entries that share `"row"` are drawn compactly on one line under that caption (`"short"`
 is the button text), so related settings-only actions stay together; adding an action is one entry

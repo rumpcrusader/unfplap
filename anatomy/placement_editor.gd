@@ -1,7 +1,8 @@
 extends RefCounted
-## The Anatomy Placement editor: the debug target resolution, the draft/save/reset actions and the
-## text report for the Placement buttons. The facade owns one instance; the editor calls back into
-## the service for the tail capability and the tail refresh.
+## The Anatomy Placement editor: the draft/save/reset actions and the text report for the Placement
+## buttons. The pointed mare is the debug facade's aim rule, so the wheel and the editor agree on
+## who is targeted. The facade owns one instance; the editor calls back into the service for the
+## tail capability and the tail refresh.
 ##
 ## See `docs/anatomy.md` (`## Placement`).
 

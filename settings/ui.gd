@@ -84,7 +84,7 @@ class KeyCaptureButton extends Button:
 ##
 ## The Debug section is always built and its visibility follows `debug_mode`, so the toggle takes
 ## effect without rebuilding the panel. `actions_builder` is called with the Debug body, the font
-## size and the tab; `main` passes the `debug/ui.gd` builder. `debug_only` keeps only the Debug
+## size and the tab; `main` passes the `debug/ui.gd` builder bound to its debug actions node. `debug_only` keeps only the Debug
 ## block, for a tab whose player-facing content another builder already drew. Returns the Debug
 ## section, or null when the tab has no debug settings.
 static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,

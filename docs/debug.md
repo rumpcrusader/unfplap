@@ -6,15 +6,17 @@ overlay and the log switches. The lab scripts are in `WORKFLOW.md`; the settings
 
 ## Scope
 
-`debug/service.gd` owns the action registry and the wheel page order. `debug/ui.gd` draws the
-Debug block buttons. `debug/wheel.gd` is the hold-middle wheel. `shared/perf_view.gd` draws the
-perf panel for `shared/log.gd`. `debug/bed.gd` is the stock bed cuddle helper behind the wheel's Bed cuddle
-action and Show data's BED section. `debug/pony.gd` is the debug pony-preparation helper shared by
-the bed cuddle and the wheel's Sex ready action. `debug/idle_stretch.gd` is the Idle Life
-deep-stretch bridge behind the wheel's Force deep stretch action. `debug/skeleton.gd` draws the
-skeleton overlay. `settings/ui.gd` injects the Unfplap tab and calls `debug/ui.gd` for each Debug
-block. `main.gd` owns the console gate, the wheel gate and the skeleton-flag sync; the log switches
-and the perf panel are `shared/log.gd`'s.
+`debug/service.gd` is the facade: the action registry, the wheel page order, the aimed-mare rule,
+the wheel's open gate and the labels. `debug/actions.gd` is the one node that runs every action,
+collects Show data, gates the wheel, dispatches its slots and syncs the skeleton overlay; it is
+private to this service. `debug/ui.gd` draws the Debug block buttons. `debug/wheel.gd` is the
+hold-middle wheel. `shared/perf_view.gd` draws the perf panel for `shared/log.gd`. `debug/bed.gd`
+is the stock bed cuddle helper behind the wheel's Bed cuddle action and Show data's BED section.
+`debug/pony.gd` is the debug pony-preparation helper shared by the bed cuddle and the wheel's Sex
+ready action. `debug/idle_stretch.gd` is the Idle Life deep-stretch bridge behind the wheel's Force
+deep stretch action. `debug/skeleton.gd` draws the skeleton overlay. `settings/ui.gd` injects the
+Unfplap tab and calls `debug/ui.gd` for each Debug block. The console gate is the game's; the log
+switches and the perf panel are `shared/log.gd`'s.
 
 ## Console
 
@@ -26,13 +28,17 @@ and the perf panel are `shared/log.gd`'s.
 
 ## Debug actions
 
-Debug actions live in `debug/service.gd` and render as buttons in the **Debug** block of the tab
-their `tab` names (`general` by default, `anatomy`, `world` or `integrations`); the Poses tab
-carries none. Adding an action is one entry plus one method. An action on a wheel page sets
-`panel: false`, so the settings blocks draw only the settings-only actions and the wheel is the
-only trigger for the rest; those wheel-backed actions are desktop-only. An action may declare
-`requires: "shape_source"`; both the settings block and the wheel drop it unless the entry's
-`shape_source_active()` is true.
+Actions are one table in `debug/service.gd` and one method on `debug/actions.gd`. Each renders as
+a button in the **Debug** block of the tab its `tab` names (`general` by default, `anatomy`,
+`world` or `integrations`); the Poses tab carries none. Adding an action is one entry plus one
+method. An action on a wheel page sets `panel: false`, so the settings blocks draw only the
+settings-only actions and the wheel is the only trigger for the rest; those wheel-backed actions
+are desktop-only. An action may declare `requires: "shape_source"`; both the settings block and
+the wheel drop it unless the actions node reports that a shape-changing source is active.
+
+The facade resolves the actions node through its `target`, which the node sets when it enters the
+tree: `run_action(name)`, the labels, the availability gate and the wheel/skeleton forwards all
+reach it without a caller passing it in. A button or a wheel slot that has no node is a no-op.
 
 The registry declares no global hotkeys: the game's own dev keys (`F4` render breakdown, `F9`
 trace, `F10` FPS overlay, `F11` free camera) must stay usable while the mod is loaded, so a Debug
@@ -154,7 +160,9 @@ wheel is drawn at 75% opacity.
   closes. **Left click** over a slot also runs it. **Right click** and **Escape** close. The
   game's `F4`/`F9`/`F10`/`F11` dev keys close the wheel and pass through.
 - Opening needs **Enable debug**, captured desktop play, a focused window, no pause/menu/text
-  field and the left mouse button released. With debug off the middle press is not consumed.
+  field and the left mouse button released. That decision is the facade's one `wheel_gate()` over
+  the frame's facts, so a headless display, a paused tree, a free mouse or a focused text field
+  each close it on their own. With debug off the middle press is not consumed.
   While open, mouse motion, mouse buttons and keys are consumed; the act does not thrust or
   free-look.
 - An action closes the wheel, writes its one-line result to the HUD toast and its name/result to
@@ -164,7 +172,7 @@ wheel is drawn at 75% opacity.
 
 ## Show data
 
-`main.debug_data(target)` returns the stable sections `TARGET`, `CYCLE`, `GATE`, `REQUEST`,
+`debug/actions.gd`'s `debug_data(target)` returns the stable sections `TARGET`, `CYCLE`, `GATE`, `REQUEST`,
 `NEGOTIATION`, `ACT`,
 `STOOL`, `HISTORY`, `PROMPT` and `BED`; `ACT` is present only while this target owns the live act.
 The Show data action prints them as one tab-indented log entry. `BED` is the same row builder the
@@ -239,6 +247,22 @@ themselves are `docs/perf.md`'s.
   `./lab-stress.sh` uses `unfplap-stress` and writes `last-run-stress.log`.
   `./lab-vr.sh` runs room-scale VR under Monado and writes `last-run-vr.log`.
 
+## Host boundary
+
+The entry adds the actions node and hands it the services it acts through as typed fields
+(`body_change`, `initiation`, `negotiation`, `anatomy`, `pantyhose`, and the HUD once the player rig
+arrives). The entry's own live act state is these named reads, bound once at construction:
+
+| Callback | Type | Purpose |
+|---|---|---|
+| `host.act` | `Callable() -> Node` | the live act's runtime, or null |
+| `host.runtime_for` | `Callable(Node) -> Node` | the runtime of one pony |
+| `host.runtimes` | `Callable() -> Array` | every live runtime node |
+| `host.act_target` | `Callable(Variant) -> bool` | the act-target capability |
+| `host.reload_posed_base` | `Callable() -> String` | re-read the authored pose file when no act is live |
+
+`ponies` takes the first four when the runtime registry moves out of the entry.
+
 ## Dependencies
 
 ### Uses
@@ -262,27 +286,34 @@ themselves are `docs/perf.md`'s.
 
 ## Lifecycle
 
-- Scope: process (registry), world (wheel node), pure static (bed and pony helpers)
-- Constructed by: static initialization; `main` creates the wheel lazily and the skeleton on the
-  first enabled sync
-- Begin: none for the registry; Node `_ready()` for the wheel
-- End: `main` closes the wheel on world close, debug-off and teardown
+- Scope: process (registry and actions node), world (wheel and skeleton nodes), pure static (the
+  aim rule, the bed and pony helpers)
+- Constructed by: static initialization for the registry; `main._ready()` for the actions node,
+  which creates the wheel lazily on the first middle press and the skeleton on the first enabled
+  sync
+- Begin: none for the registry; Node `_ready()` for the actions node and the wheel
+- End: the actions node closes the wheel on world close, debug-off and teardown and clears the
+  registry's `target` when it leaves the tree
 - Idempotent: yes
 
 ## Tests
 
 `tests/test_debug_wheel.gd` pins the wheel page order, the nine-slot cap, the settings-only split
 (wheel actions are `panel: false`, settings-only actions stay on the panel), the retired action
-ids, the dynamic cycle labels and the hold-middle input contract (middle press opens, release over
-a slot runs it, release in the centre only closes). The form actions' `shape_source` gate is the
+ids, the dynamic cycle labels, the open gate (a free mouse, a paused tree, a focused text field,
+debug off, a headless display, a headset eye, an open menu and a held left button each refuse it),
+the registry dispatch (the actions node registers itself, `run_action` and the labels reach it, and
+a freed node is no target) and the hold-middle input contract (middle press opens, release over a
+slot runs it, release in the centre only closes). The form actions' `shape_source` gate is the
 same one the settings block and the wheel use. `tests/test_deep_stretch.gd` pins the Idle Life
 bridge: its entry path and idle id, the missing-entry and missing-pony refusals, the forced play
 call, interrupting a running idle and a refused play. `tests/test_debug_pony.gd` pins the shared
 preparation helper: upright and idle, busy clearing, the raise-only sex-ready record, its floors
 and cleared fields, the refusal paths and the log/toast text. `tests/test_settings.gd` covers the
 skeleton flag, the Debug block labels that remain and the absence of every wheel action from the
-blocks. The overlay, the hover cue and the lab pass are manual. `tests/test_perf_panel.gd` pins the
-perf panel's row height, colour targets, caption and clear.
+blocks. `tests/test_face_sit_action.gd` runs the face-sit action through `run_action()` on the
+built actions node. The overlay, the hover cue and the lab pass are manual.
+`tests/test_perf_panel.gd` pins the perf panel's row height, colour targets, caption and clear.
 
 ## Related docs
 

@@ -62,7 +62,7 @@ label.
 
 ## Data ownership
 
-Nothing is saved. The service reads `main.active_runtime`, `main.debug_wheel_open()`,
+Nothing is saved. The service reads `main.active_runtime`, the debug facade's `wheel_open()`,
 `WORLD.player`, `WORLD.menu_panel_open()` and the viewport focus owner, plus the `act_key` and
 `act_input_shield` settings. It does not store runtime state.
 
@@ -152,9 +152,10 @@ actions outside the pose command set and keep their direct runtime methods.
 
 The controls table is `docs/runtime.md`. Debug actions and the wheel are in `docs/debug.md`.
 
-- A **middle mouse button press or release** is forwarded to `main.debug_wheel_input()`. The press
-  opens the wheel while allowed; the release runs the hovered slot, or closes in the centre. With
-  debug off, or while a menu/text field/headset owns the input, the event is not consumed.
+- A **middle mouse button press or release** is forwarded through `debug/service.gd`'s
+  `wheel_input()` to the debug actions node. The press opens the wheel while allowed; the release
+  runs the hovered slot, or closes in the centre. With debug off, or while a menu/text field/headset
+  owns the input, the event is not consumed.
 - While the wheel is open every event is forwarded to it first. When it consumes the event the
   input service sets it handled and returns, so act keys, smack, recapture, the auto-thrust wheel
   and the skeleton click never see it.

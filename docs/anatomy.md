@@ -359,8 +359,9 @@ fade. The hull block is in the copied compatibility shaders under
   tail tilt** (1° per press) and **Placement file** edit, save, reset or log the selected target.
   A default edit is staged until Save; a mare override is written directly.
   `anatomy/placement_editor.gd` owns the target resolution (`WORLD.camera()` →
-  `main.debug_target()` → `main.nearest_pony()`) and the draft/save/reset calls; the facade keeps
-  `placement_debug()`/`placement_show()` as one-line delegates.
+  `debug/service.gd`'s `aimed_pony()` → `nearest_pony()`) and the draft/save/reset calls; the
+  facade keeps `placement_debug()`/`placement_show()` as one-line delegates. The aim rule is one
+  implementation shared with the debug action wheel.
 - `anatomy/placement.gd` and the player part keep only the live placement fields: `load()` and
   `_apply_values()` take the complete resolved block and index it, so neither carries a copy of a
   placement default.

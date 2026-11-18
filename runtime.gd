@@ -1555,10 +1555,6 @@ func _eyes_tick() -> void:
 
 # --------------------------------------------------------------------------- gates
 
-func can_show_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	return bool(start_verdict(pose, act_source, bed_in).get("show", false))
-
-
 func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
 	return _scene_gate().report_reasons(start_verdict(pose, act_source, bed_in).get("rows", []))
 

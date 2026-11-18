@@ -779,7 +779,8 @@ func run() -> void:
 	plant_body.free()
 
 	var gate_runtime: Node = RUNTIME.new()
-	check(not gate_runtime.can_show_start(CATALOG.MISSIONARY, "bed_side"), "missing pony blocks start")
+	check(not bool(gate_runtime.start_verdict(CATALOG.MISSIONARY, "bed_side").get("show", false)),
+		"missing pony blocks start")
 	var gate: Variant = gate_runtime.call("_scene_gate")
 	check(not bool(gate.call("offer_verdict", CATALOG.STANDING, "", null).get("ok", false)),
 		"missing pony blocks offer")

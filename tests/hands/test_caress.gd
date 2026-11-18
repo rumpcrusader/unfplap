@@ -499,6 +499,22 @@ func run() -> void:
 	local_surface.call("update_pose", true)
 	check(int(local_surface.call("face_count")) == full_faces,
 		"turning the local window off restores the full patch")
+	check(int(SURFACE.LOCAL_FACE_BUDGET) > 0, "the caress local window has a face budget")
+	check(local_faces <= int(SURFACE.LOCAL_FACE_BUDGET),
+		"the local window stays within the face budget")
+	var dense: Variant = SURFACE.new()
+	var dense_indices := PackedInt32Array()
+	var dense_faces: Array = []
+	for i in 1000:
+		dense_indices.append_array(PackedInt32Array([0, 1, 2]))
+		dense_faces.append(i)
+	dense.set("_indices", dense_indices)
+	dense.set("_rest_positions", PackedVector3Array([
+		Vector3.ZERO, Vector3.RIGHT * 0.001, Vector3.UP * 0.001]))
+	dense.set("_cells", {Vector3i.ZERO: dense_faces})
+	var collected: PackedInt32Array = dense.call("_collect_faces", Vector3.ZERO)
+	check(collected.size() <= int(SURFACE.LOCAL_FACE_BUDGET),
+		"a dense local window is thinned to the face budget")
 	var local_facts := ACT_FACTS.new()
 	local_facts.features = {"caress_local": true}
 	var split_engine: Variant = SYSTEM.new(local_facts)

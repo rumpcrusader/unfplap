@@ -336,6 +336,7 @@ selection and starts the swing.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
 
 ## Tests
 

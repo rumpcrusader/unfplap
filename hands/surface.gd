@@ -6,6 +6,11 @@ extends RefCounted
 ## posed positions belong to one patch.
 
 const CACHE_LIMIT := 12
+## The local window keeps at most this many faces. A dense source body (the changelings pack's
+## body is more than twice the hybrid mare's) would otherwise pay for every face in the window
+## on each closest query and skin.
+const LOCAL_FACE_BUDGET := 480
+const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")
 ## The patch is skinned at most once per update_ms, and the blur walks blur_depth rings. The
 ## caress quality setting lowers both; the default keeps the exact miss fallback.
 const BLUR_RING_RADIUS_M := 0.03
@@ -575,6 +580,13 @@ func _collect_faces(local_point: Vector3) -> PackedInt32Array:
 					if centroid.distance_squared_to(local_point) > r2:
 						continue
 					out.append(f)
+	if out.size() > LOCAL_FACE_BUDGET:
+		var stride := float(out.size()) / float(LOCAL_FACE_BUDGET)
+		var capped := PackedInt32Array()
+		capped.resize(LOCAL_FACE_BUDGET)
+		for i in LOCAL_FACE_BUDGET:
+			capped[i] = out[int(float(i) * stride)]
+		return capped
 	return out
 
 
@@ -727,16 +739,13 @@ static func find_mesh(pony: Variant, region: String) -> Dictionary:
 		if mesh == null:
 			return {}
 		return {"mesh": mesh, "skeleton": sk}
-	var model: Node = pony.get("_model")
-	if not is_instance_valid(model):
+	return _found_mesh(BODY_COAT.resolve(pony))
+
+
+static func _found_mesh(found: Dictionary) -> Dictionary:
+	if found.is_empty():
 		return {}
-	var body := model.find_child("MareBody", true, false) as MeshInstance3D
-	if body == null:
-		return {}
-	var sk: Variant = body.get_node_or_null(body.skeleton)
-	if not sk is Skeleton3D:
-		sk = pony.get("skeleton")
-	return {"mesh": body, "skeleton": sk}
+	return {"mesh": found["mesh"], "skeleton": found["skeleton"]}
 
 
 func _gather(mesh: MeshInstance3D, region: String, center: Vector3,

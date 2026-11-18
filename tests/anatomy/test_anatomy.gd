@@ -17,6 +17,7 @@ const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
+const BODY_COAT_SURFACE := preload("res://mods/unfplap/shared/body_coat.gd")
 const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
@@ -52,6 +53,10 @@ class FakeMain extends Node:
 
 class NearCoatPony extends Node3D:
 	var _near: Dictionary = {}
+
+
+class FakeCoatPony extends Node3D:
+	var _model: Node3D
 
 
 class FakeAnatomy extends Node:
@@ -959,6 +964,44 @@ func run() -> void:
 	check(real_body.get_surface_override_material(0) == null,
 		"the coat clear removes the surface override")
 	real_body.free()
+
+	# The drawn coat: a source body that hides the game MareBody still resolves its visible
+	# coat, and the game body wins while it is visible.
+	var coat_shader := Shader.new()
+	coat_shader.code = "shader_type spatial;\n" \
+		+ "#include \"res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc\"\n" \
+		+ "void vertex() { VERTEX += flank_jiggle(VERTEX); }\n"
+	var coat_material := ShaderMaterial.new()
+	coat_material.shader = coat_shader
+	var coat_mesh := ArrayMesh.new()
+	var coat_arrays := []
+	coat_arrays.resize(Mesh.ARRAY_MAX)
+	coat_arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array([Vector3.ZERO, Vector3.RIGHT, Vector3.UP])
+	coat_arrays[Mesh.ARRAY_NORMAL] = PackedVector3Array([Vector3.UP, Vector3.UP, Vector3.UP])
+	coat_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, coat_arrays)
+	coat_mesh.surface_set_material(0, coat_material)
+	var coat_model := Node3D.new()
+	get_root().add_child(coat_model)
+	var hidden_game_body := MeshInstance3D.new()
+	hidden_game_body.name = "MareBody"
+	hidden_game_body.mesh = coat_mesh
+	hidden_game_body.visible = false
+	coat_model.add_child(hidden_game_body)
+	var source_body := MeshInstance3D.new()
+	source_body.name = "ChrysalisBody"
+	source_body.mesh = coat_mesh
+	coat_model.add_child(source_body)
+	var coat_pony := FakeCoatPony.new()
+	coat_pony._model = coat_model
+	var drawn := BODY_COAT_SURFACE.resolve(coat_pony)
+	check(drawn.get("mesh") == source_body,
+		"a hidden game body falls back to the drawn source coat")
+	check(int(drawn.get("surface", -1)) == 0, "the drawn coat surface is found")
+	hidden_game_body.visible = true
+	var drawn_game := BODY_COAT_SURFACE.resolve(coat_pony)
+	check(drawn_game.get("mesh") == hidden_game_body, "a visible game body is the drawn coat")
+	coat_pony.free()
+	coat_model.queue_free()
 
 	var patch_source := Shader.new()
 	patch_source.code = "shader_type spatial;\n" \

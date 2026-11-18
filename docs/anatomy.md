@@ -848,6 +848,7 @@ built from the declarations, so the label, help and bounds are not restated here
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | vr | `vr/service.gd` | VR act controls |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
+| shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
 | shared | body_profile | `shared/body_profile.gd` | princess body profile and fit key |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |

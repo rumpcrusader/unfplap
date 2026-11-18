@@ -8,6 +8,7 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const BODY_COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
+const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")
 const STILL_ZONE_DEBUG := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 
 const WINKING_OPENING := Vector3(0.0, -0.012, 0.02)
@@ -23,6 +24,7 @@ var skeleton: Skeleton3D
 var shapes: RefCounted
 
 var _body_mesh: MeshInstance3D
+var _body_surface := 0
 var _body_material: ShaderMaterial
 var _body_outline: ShaderMaterial
 var _body_original_shader: Shader
@@ -55,12 +57,13 @@ func set_mesh(mesh_node: MeshInstance3D, skeleton_node: Skeleton3D) -> void:
 func clear_mesh() -> void:
 	var body := _body_mesh
 	var material := _body_material
+	var surface := _body_surface
 	restore()
-	# A despawned pony can already be a surface-less mesh; releasing surface 0 then errors in the
-	# rendering server.
+	# A despawned pony can already be a surface-less mesh; releasing the surface then errors in
+	# the rendering server.
 	if is_instance_valid(body) and is_instance_valid(material) \
-			and body.mesh != null and body.mesh.get_surface_count() > 0:
-		body.set_surface_override_material(0, null)
+			and body.mesh != null and body.mesh.get_surface_count() > surface:
+		body.set_surface_override_material(surface, null)
 	mesh = null
 	skeleton = null
 
@@ -93,26 +96,25 @@ func apply() -> void:
 	if not is_instance_valid(pony):
 		restore()
 		return
-	var model: Variant = pony.get("_model")
-	if not model is Node:
+	var found := BODY_COAT.resolve(pony)
+	if found.is_empty():
 		restore()
 		return
-	var body := (model as Node).find_child("MareBody", true, false) as MeshInstance3D
-	if not is_instance_valid(body) or body.mesh == null:
+	var body := found.get("mesh") as MeshInstance3D
+	var surface := int(found.get("surface", -1))
+	if not is_instance_valid(body) or body.mesh == null or surface < 0 \
+			or surface >= body.mesh.get_surface_count():
 		restore()
 		return
-	if body.mesh.get_surface_count() == 0:
-		restore()
-		return
-	if _body_mesh != body or not is_instance_valid(_body_material) \
-			or body.get_active_material(0) != _body_material:
+	if _body_mesh != body or _body_surface != surface or not is_instance_valid(_body_material) \
+			or body.get_active_material(surface) != _body_material:
 		restore()
 		# The body material is shared between ponies of one identity. FlankTouch owns the
 		# per-pony copies and keeps the outline in the pony's outline list.
 		var flank := pony.get_node_or_null("FlankTouch")
 		if flank != null and flank.has_method("_own_body_materials"):
 			flank.call("_own_body_materials")
-		var source := body.get_active_material(0) as ShaderMaterial
+		var source := body.get_active_material(surface) as ShaderMaterial
 		if source == null:
 			return
 		if not source.has_meta("jiggle_own"):
@@ -121,8 +123,9 @@ func apply() -> void:
 			if own_hull != null:
 				source.next_pass = own_hull.duplicate()
 			source.set_meta("jiggle_own", true)
-			body.set_surface_override_material(0, source)
+			body.set_surface_override_material(surface, source)
 		_body_mesh = body
+		_body_surface = surface
 		_body_material = source
 		_body_original_shader = source.shader
 		var hull := source.next_pass as ShaderMaterial
@@ -161,6 +164,7 @@ func restore() -> void:
 	_body_material = null
 	_body_outline = null
 	_body_mesh = null
+	_body_surface = 0
 	_body_original_shader = null
 	_body_outline_original_shader = null
 

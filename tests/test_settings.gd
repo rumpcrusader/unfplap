@@ -100,23 +100,34 @@ func _check_registry() -> void:
 		check(int(tabs.get(tab, 0)) > 0, "%s tab has settings" % tab)
 	# Poses holds every pose row: the two player switches at the top and the debug tuning blocks.
 	# A feature flag that belongs to a pose section follows that section into Poses.
+	var not_in_poses: Array = []
+	var not_debug: Array = []
+	var misrouted: Array = []
 	for setting: Variant in all:
 		var path := str(setting.path)
 		var pose_row := path.begins_with("presentation.missionary.") \
 			or path.begins_with("presentation.standing.")
 		if pose_row:
-			check(str(setting.tab) == SETTINGS.POSES, "%s is a Poses row" % path)
-			check(bool(setting.debug), "%s is debug-only in Poses" % path)
+			if str(setting.tab) != SETTINGS.POSES:
+				not_in_poses.append(path)
+			if not bool(setting.debug):
+				not_debug.append(path)
 		elif path.begins_with("features.") and (str(setting.group) == "Missionary"
 				or str(setting.group).begins_with("Standing")):
-			check(str(setting.tab) == SETTINGS.POSES,
-				"%s follows its pose section to Poses" % path)
+			if str(setting.tab) != SETTINGS.POSES:
+				misrouted.append(path)
+	check(not_in_poses.is_empty(), "every pose row is in Poses: %s" % str(not_in_poses))
+	check(not_debug.is_empty(), "every pose row is debug-only in Poses: %s" % str(not_debug))
+	check(misrouted.is_empty(), "every pose feature follows its section to Poses: %s" % str(misrouted))
 	# Auto Thrust is a player section, not part of the Debug block.
+	var misplaced_thrust: Array = []
 	for name: String in ["min_depth", "max_depth", "pace", "curve"]:
 		var row: Variant = SETTINGS.by_name(name)
-		check(row != null and str(row.tab) == SETTINGS.GENERAL
-			and str(row.group) == "Auto Thrust" and not bool(row.debug),
-			"%s is a player row in the Auto Thrust section" % name)
+		if row == null or str(row.tab) != SETTINGS.GENERAL \
+				or str(row.group) != "Auto Thrust" or bool(row.debug):
+			misplaced_thrust.append(name)
+	check(misplaced_thrust.is_empty(),
+		"Auto Thrust stays a player section in General: %s" % str(misplaced_thrust))
 	var climax: Variant = SETTINGS.by_path("presentation.act.climax_mode")
 	check(climax != null and str(climax.tab) == SETTINGS.GENERAL,
 		"the climax face stays in General")
@@ -335,9 +346,12 @@ func _check_catalog() -> void:
 		var expected_prompts: Array = SETTINGS.MARE_REGISTRY.PROMPT_KEYS.duplicate()
 		expected_prompts.sort()
 		check(prompt_keys == expected_prompts, "act_prompts has exactly the prompt keys")
+		var empty_prompts: Array = []
 		for key: Variant in prompt_keys:
-			check(not str((prompts as Dictionary)[key]).strip_edges().is_empty(),
-				"act_prompts.%s is not empty" % str(key))
+			if str((prompts as Dictionary)[key]).strip_edges().is_empty():
+				empty_prompts.append(str(key))
+		check(empty_prompts.is_empty(), "act_prompts entries are not empty: %s"
+			% str(empty_prompts))
 
 	var templates: Variant = catalog.get("character_templates")
 	check(templates is Dictionary, "the catalog has a character_templates block")
@@ -347,52 +361,86 @@ func _check_catalog() -> void:
 		var expected_ids: Array = SETTINGS.CHARACTER_ORDER.duplicate()
 		expected_ids.sort()
 		check(ids == expected_ids, "character_templates covers the whole roster")
+		var bad_blocks: Array = []
+		var bad_fields: Array = []
+		var bad_preferences: Array = []
+		var bad_preference_fields: Array = []
+		var bad_pose_blocks: Array = []
+		var bad_pose_ids: Array = []
+		var bad_event_keys: Array = []
 		for id: Variant in ids:
 			var entry: Variant = (templates as Dictionary)[id]
-			check(entry is Dictionary, "character_templates.%s is a block" % str(id))
 			if not entry is Dictionary:
+				bad_blocks.append(str(id))
 				continue
 			for key: Variant in (entry as Dictionary).keys():
-				check(str(key) in SETTINGS.MARE_REGISTRY.TEMPLATE_KEYS,
-					"character_templates.%s.%s is a template field" % [str(id), str(key)])
+				if not str(key) in SETTINGS.MARE_REGISTRY.TEMPLATE_KEYS:
+					bad_fields.append("%s.%s" % [str(id), str(key)])
 			var preferences: Variant = (entry as Dictionary).get("preferences")
-			check(preferences is Dictionary, "character_templates.%s has preferences" % str(id))
-			if preferences is Dictionary:
+			if not preferences is Dictionary:
+				bad_preferences.append(str(id))
+			else:
 				for key: Variant in (preferences as Dictionary).keys():
-					check(str(key) in SETTINGS.PREFERENCES.KEYS,
-						"character_templates.%s.preferences.%s is a profile field"
-						% [str(id), str(key)])
+					if not str(key) in SETTINGS.PREFERENCES.KEYS:
+						bad_preference_fields.append("%s.preferences.%s"
+							% [str(id), str(key)])
 			var poses: Variant = (entry as Dictionary).get("poses", {})
-			check(poses is Dictionary, "character_templates.%s.poses is a block" % str(id))
-			if poses is Dictionary:
+			if not poses is Dictionary:
+				bad_pose_blocks.append(str(id))
+			else:
 				for pose_id: Variant in (poses as Dictionary).keys():
-					check(str(pose_id) in SETTINGS.CATALOG.all(),
-						"character_templates.%s.poses.%s is a pose" % [str(id), str(pose_id)])
+					if not str(pose_id) in SETTINGS.CATALOG.all():
+						bad_pose_ids.append("%s.poses.%s" % [str(id), str(pose_id)])
 			var events: Variant = (entry as Dictionary).get("event_prompts", {})
 			if events is Dictionary:
 				for key: Variant in (events as Dictionary).keys():
-					check(str(key) in SETTINGS.MARE_REGISTRY.EVENT_PROMPT_KEYS,
-						"character_templates.%s.event_prompts.%s is an event"
-						% [str(id), str(key)])
+					if not str(key) in SETTINGS.MARE_REGISTRY.EVENT_PROMPT_KEYS:
+						bad_event_keys.append("%s.event_prompts.%s"
+							% [str(id), str(key)])
+		check(bad_blocks.is_empty(), "every character template is a block: %s"
+			% str(bad_blocks))
+		check(bad_fields.is_empty(), "every template key is a template field: %s"
+			% str(bad_fields))
+		check(bad_preferences.is_empty(), "every template has preferences: %s"
+			% str(bad_preferences))
+		check(bad_preference_fields.is_empty(), "every preference key is a profile field: %s"
+			% str(bad_preference_fields))
+		check(bad_pose_blocks.is_empty(), "every template poses block is a block: %s"
+			% str(bad_pose_blocks))
+		check(bad_pose_ids.is_empty(), "every template pose is a catalog pose: %s"
+			% str(bad_pose_ids))
+		check(bad_event_keys.is_empty(), "every event prompt key is an event: %s"
+			% str(bad_event_keys))
 
 	var anatomy: Variant = catalog.get("anatomy", {})
 	var placement: Variant = (anatomy as Dictionary).get("placement") \
 		if anatomy is Dictionary else null
 	check(placement is Dictionary, "the catalog has a placement block")
 	if placement is Dictionary:
+		var reserved_ids: Array = []
+		var bad_blocks: Array = []
+		var bad_keys: Array = []
+		var bad_values: Array = []
 		for id: Variant in (placement as Dictionary).keys():
-			check(not str(id) in SETTINGS.MARE_REGISTRY.RESERVED_IDS,
-				"placement.%s is not a reserved id" % str(id))
+			if str(id) in SETTINGS.MARE_REGISTRY.RESERVED_IDS:
+				reserved_ids.append(str(id))
 			var row: Variant = (placement as Dictionary)[id]
-			check(row is Dictionary, "placement.%s is a block" % str(id))
 			if not row is Dictionary:
+				bad_blocks.append(str(id))
 				continue
 			for key: Variant in (row as Dictionary).keys():
-				check(str(key) in SETTINGS.PLACEMENT.KEYS,
-					"placement.%s.%s is a placement key" % [str(id), str(key)])
+				if not str(key) in SETTINGS.PLACEMENT.KEYS:
+					bad_keys.append("%s.%s" % [str(id), str(key)])
 				var value: Variant = (row as Dictionary)[key]
-				check(value is int or value is float,
-					"placement.%s.%s is a number" % [str(id), str(key)])
+				if not (value is int or value is float):
+					bad_values.append("%s.%s" % [str(id), str(key)])
+		check(reserved_ids.is_empty(), "no placement row is a reserved id: %s"
+			% str(reserved_ids))
+		check(bad_blocks.is_empty(), "every placement row is a block: %s" % str(bad_blocks))
+		check(bad_keys.is_empty(), "every placement key is a placement key: %s"
+			% str(bad_keys))
+		check(bad_values.is_empty(), "every placement value is a number: %s"
+			% str(bad_values))
 
 
 ## The player file stores declared settings but only the `default` differences; an untouched
@@ -925,10 +973,16 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 		else:
 			player_headings[heading] = true
 	check(missing.is_empty(), "%s tab draws every setting (%s)" % [tab, str(missing)])
+	var missing_player: Array = []
 	for heading: String in player_headings:
-		check(labels.has(heading), "%s tab heading for %s" % [tab, heading])
+		if not labels.has(heading):
+			missing_player.append(heading)
+	check(missing_player.is_empty(), "%s player headings (%s)" % [tab, str(missing_player)])
+	var missing_debug: Array = []
 	for heading: String in debug_headings:
-		check(labels.has(heading), "%s Debug heading for %s" % [tab, heading])
+		if not labels.has(heading):
+			missing_debug.append(heading)
+	check(missing_debug.is_empty(), "%s Debug headings (%s)" % [tab, str(missing_debug)])
 	if debug_section == null:
 		check(SETTINGS.tab_settings(tab).is_empty(), "%s has no Debug block without debug settings" % tab)
 	else:
@@ -943,18 +997,23 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 					expected = ["Pitch +", "Up", "Pointed mare", "Show skeleton overlay"]
 				SETTINGS.WORLD:
 					expected = ["Resume auto", "Reset", "Clear cooldown"]
+			var missing_actions: Array = []
 			for action: String in expected:
-				check(labels.has(action), "%s Debug block has the %s action" % [tab, action])
-			var wheeled: Array[String] = []
+				if not labels.has(action):
+					missing_actions.append(action)
+			check(missing_actions.is_empty(), "%s Debug actions (%s)"
+				% [tab, str(missing_actions)])
 			for page: String in ["mare", "act"]:
+				var unexpected: Array = []
 				for name: String in DEBUG_ACTIONS.wheel_actions(page):
-					if not wheeled.has(name):
-						wheeled.append(name)
-			for name: String in wheeled:
-				check(not labels.has(DEBUG_ACTIONS.action_label(name, null)),
-					"%s Debug block leaves the wheel action %s off" % [tab, name])
-				check(not labels.has(DEBUG_ACTIONS.action_short(name, null)),
-					"%s Debug block leaves the wheel short label %s off" % [tab, name])
+					var action_label := DEBUG_ACTIONS.action_label(name, null)
+					var short_label := DEBUG_ACTIONS.action_short(name, null)
+					if labels.has(action_label):
+						unexpected.append(action_label)
+					if labels.has(short_label):
+						unexpected.append(short_label)
+				check(unexpected.is_empty(), "%s Debug block leaves the %s wheel actions off (%s)"
+					% [tab, page, str(unexpected)])
 	# An action lives in exactly one tab's block. "Heat" is also the Anatomy section heading, so
 	# the World guard uses its row caption "Cycle" instead of the action's short label.
 	if tab != SETTINGS.ANATOMY:

@@ -79,8 +79,6 @@ var _episode: Candidate = null
 var _scan_clock := 0.0
 var _serial := 0
 var _scan_cursor := 0
-## id -> whether she was cuddling on the last scan.
-var _cuddle_seen: Dictionary = {}
 ## id -> whether this cuddle has already produced an ask.
 var _cuddle_asked: Dictionary = {}
 ## id -> the short retry deadline after a failed walk-over, reasoning failure or refused handoff.
@@ -139,7 +137,6 @@ func reset() -> void:
 	if is_instance_valid(_adapter) and not _reasoning_scope.is_empty():
 		_adapter.call("cancel_scope", _reasoning_scope)
 	_reasoning_scope = ""
-	_cuddle_seen.clear()
 	_cuddle_asked.clear()
 	_retry_at.clear()
 	_quiet_reason = ""
@@ -239,14 +236,11 @@ func _tick_cuddle_edges() -> void:
 		if id.is_empty():
 			continue
 		var active := bool(runtime.call("cuddle_active"))
-		var seen := bool(_cuddle_seen.get(id, false))
-		if active and not seen:
-			_cuddle_seen[id] = true
+		if active and not _cuddle_asked.has(id):
 			_cuddle_asked[id] = false
 			COOLDOWNS.clear(id)
-		elif not active and seen:
-			_cuddle_seen[id] = false
-			_cuddle_asked[id] = false
+		elif not active and _cuddle_asked.has(id):
+			_cuddle_asked.erase(id)
 
 
 # --------------------------------------------------------------------------- scan and reasoning
@@ -310,8 +304,7 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	if id.is_empty():
 		reasons.append("no_id")
 		return null
-	if not forced and not COOLDOWNS.ready(COOLDOWNS.section(), id,
-			Time.get_unix_time_from_system(), _in_heat(runtime)):
+	if not forced and not COOLDOWNS.ready_for(id, _in_heat(runtime)):
 		reasons.append("cooldown")
 		return null
 	if not forced and not POLICY.retry_ready(_now(), float(_retry_at.get(id, -100000.0))):
@@ -491,8 +484,7 @@ func debug_rows(pony: Node) -> Array[String]:
 	var wait := COOLDOWNS.wait_seconds(section, id, heat)
 	var last := COOLDOWNS.last(section, id)
 	rows.append("id=%s" % id)
-	rows.append("cooldown ready=%s" % str(COOLDOWNS.ready(section, id,
-		Time.get_unix_time_from_system(), heat)))
+	rows.append("cooldown ready=%s" % str(COOLDOWNS.ready_for(id, heat)))
 	rows.append("last request=%s" % (
 		Time.get_datetime_string_from_unix_time(int(last), true) if last > 0.0 else "never"))
 	rows.append("wait seconds=%.0f" % wait)

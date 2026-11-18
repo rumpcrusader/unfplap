@@ -35,6 +35,10 @@ static func ready(section_data: Dictionary, id: String, now: float, in_heat: boo
 		wait_seconds(section_data, id, in_heat))
 
 
+static func ready_for(id: String, in_heat: bool) -> bool:
+	return ready(section(), id, Time.get_unix_time_from_system(), in_heat)
+
+
 ## The effective per-mare wait: the history offer cooldown, quartered in heat.
 static func wait_seconds(section_data: Dictionary, id: String, in_heat: bool) -> float:
 	var history := ACT_HISTORY.effective_row(section_data, id, ACT_HISTORY.day_now())

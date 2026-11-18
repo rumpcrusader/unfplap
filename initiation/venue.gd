@@ -81,7 +81,7 @@ func can_approach(pony: Node3D) -> bool:
 		return false
 	if region_of(node.global_position) != region_of(pony.global_position):
 		return false
-	if node.global_position.distance_to(pony.global_position) > POLICY.APPROACH_RADIUS_M:
+	if node.global_position.distance_to(pony.global_position) > POLICY.STANDING_RANGE_M:
 		return false
 	return true
 

@@ -25,7 +25,7 @@ func run() -> void:
 	check(POLICY.HEAT_COOLDOWN == 0.25, "heat cuts the offer cooldown to a quarter")
 	check(POLICY.SCAN_INTERVAL_S == 0.5, "the scan runs twice a second")
 	check(POLICY.QUIET_CHAT_GAP_S == 45.0, "a recent chat keeps the scan quiet")
-	check(POLICY.APPROACH_RADIUS_M == 24.0, "the approach radius is 24 m")
+	check(POLICY.STANDING_RANGE_M == 24.0, "the standing offer reaches 24 m")
 	check(POLICY.APPROACH_GOAL_M == 2.0, "the ask spot is 2 m ahead of Anon")
 	check(POLICY.ARRIVE_RANGE_M == 2.8, "she is near enough at 2.8 m")
 	check(POLICY.ARRIVE_WAIT_S == 2.0, "the arrival settles for two seconds")

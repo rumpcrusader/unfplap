@@ -273,10 +273,10 @@ func placement_id() -> String:
 	return CONTROLLER.pony_id(target)
 
 
-func placement_values(id: String) -> Dictionary:
+func placement_values(id: String, fit_id: String = "") -> Dictionary:
 	if id == "default":
 		return SETTINGS.anatomy_placement_draft_values()
-	return SETTINGS.anatomy_placement(id)
+	return SETTINGS.anatomy_placement(id, fit_id)
 
 
 func placement_refresh() -> void:
@@ -289,10 +289,14 @@ func placement_debug(op: String, value := 0.0) -> String:
 	var id := placement_id()
 	if id.is_empty():
 		return "No placement pony targeted."
+	var target := placement_target()
+	var fit_id := ""
+	if id != "default" and is_instance_valid(target):
+		fit_id = CONTROLLER.body_fit_id(target)
 	if id != "default" and (op.begins_with("tail_") or op.begins_with("dock_")):
-		if not can_seat(placement_target()):
+		if not can_seat(target):
 			return "%s: tail seat unavailable (no hair tail or dock)." % id
-	var values := placement_values(id)
+	var values := placement_values(id, fit_id)
 	match op:
 		"save":
 			if id == "default":
@@ -300,7 +304,7 @@ func placement_debug(op: String, value := 0.0) -> String:
 				if is_instance_valid(main):
 					main.call("apply_settings_changed")
 			else:
-				SETTINGS.save_anatomy_placement(id, values)
+				SETTINGS.save_anatomy_placement(id, values, fit_id)
 				placement_refresh()
 			return "%s saved %s" % [id, PLACEMENT.text(values)]
 		"reset":
@@ -308,9 +312,9 @@ func placement_debug(op: String, value := 0.0) -> String:
 				SETTINGS.reset_anatomy_placement_default()
 			else:
 				SETTINGS.save_anatomy_placement(id,
-					SETTINGS.anatomy_placement_default(id, false))
+					SETTINGS.anatomy_placement_default(id, false, fit_id), fit_id)
 			placement_refresh()
-			return "%s %s" % [id, PLACEMENT.text(placement_values(id))]
+			return "%s %s" % [id, PLACEMENT.text(placement_values(id, fit_id))]
 		"text":
 			return "%s %s" % [id, PLACEMENT.text(values)]
 		_:
@@ -319,7 +323,7 @@ func placement_debug(op: String, value := 0.0) -> String:
 			if id == "default":
 				SETTINGS.set_anatomy_placement_draft(values)
 			else:
-				SETTINGS.save_anatomy_placement(id, values)
+				SETTINGS.save_anatomy_placement(id, values, fit_id)
 			placement_refresh()
 			return "%s %s" % [id, PLACEMENT.text(values)]
 

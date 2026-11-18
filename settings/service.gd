@@ -488,14 +488,18 @@ static func _placement_default_values() -> Dictionary:
 
 ## The placement a mare gets from the global default and the shipped per-mare table, before any
 ## player override. `use_draft` includes the unsaved default preview from the Placement
-## actions; saving a per-mare override compares against the persisted default instead.
-static func anatomy_placement_default(id: String, use_draft := true) -> Dictionary:
+## actions; saving a per-mare override compares against the persisted default instead. `fit_id`
+## selects the body-fit row (a pony's metadata, else her character id, else her own id); an empty
+## value uses `id`, so every existing caller is unchanged.
+static func anatomy_placement_default(id: String, use_draft: bool = true,
+		fit_id: String = "") -> Dictionary:
+	var key := fit_id if not fit_id.is_empty() else id
 	var base := _persisted_placement_default_values()
 	if use_draft:
 		base = _placement_default_values()
-	var shipped: Variant = DEFAULTS.catalog_block("anatomy.placement." + id)
+	var shipped: Variant = DEFAULTS.catalog_block("anatomy.placement." + key)
 	var placed := PLACEMENT.merge(base, shipped)
-	var provided := MARE_REGISTRY.placement(id)
+	var provided := MARE_REGISTRY.placement(key)
 	if provided.is_empty():
 		return placed
 	return PLACEMENT.merge(placed, provided)
@@ -518,9 +522,10 @@ static func _persisted_placement_default_values() -> Dictionary:
 
 
 ## The placement a mare actually uses: her player override, then the shipped per-mare default,
-## then the global default.
-static func anatomy_placement(id: String) -> Dictionary:
-	var base := anatomy_placement_default(id)
+## then the global default. The override is keyed by her stable id; `fit_id` only selects the
+## catalog/provider default, so a changed body keeps the player's edit on the same mare.
+static func anatomy_placement(id: String, fit_id: String = "") -> Dictionary:
+	var base := anatomy_placement_default(id, true, fit_id)
 	var data := _read()
 	var anatomy: Variant = data.get("anatomy", {})
 	if not anatomy is Dictionary:
@@ -532,7 +537,7 @@ static func anatomy_placement(id: String) -> Dictionary:
 	return PLACEMENT.merge(base, over)
 
 
-static func anatomy_placement_has_override(id: String) -> bool:
+static func anatomy_placement_has_override(id: String, fit_id: String = "") -> bool:
 	var data := _read()
 	var anatomy: Variant = data.get("anatomy", {})
 	if not anatomy is Dictionary:
@@ -543,7 +548,7 @@ static func anatomy_placement_has_override(id: String) -> bool:
 	var over: Variant = (placement as Dictionary).get(id, {})
 	if not over is Dictionary or (over as Dictionary).is_empty():
 		return false
-	var base := anatomy_placement_default(id, false)
+	var base := anatomy_placement_default(id, false, fit_id)
 	return not PLACEMENT.same(PLACEMENT.merge(base, over), base)
 
 
@@ -565,10 +570,11 @@ static func anon_placement() -> Dictionary:
 
 
 ## Store only the keys that differ from the mare's default. An empty diff removes the override.
-static func save_anatomy_placement(id: String, values: Dictionary) -> void:
+static func save_anatomy_placement(id: String, values: Dictionary,
+		fit_id: String = "") -> void:
 	if id.is_empty() or id == "default" or id == "anon":
 		return
-	var base := anatomy_placement_default(id, false)
+	var base := anatomy_placement_default(id, false, fit_id)
 	var current := PLACEMENT.sanitize(values, base)
 	var over := PLACEMENT.diff(current, base)
 	var data := _draft()

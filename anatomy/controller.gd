@@ -87,6 +87,11 @@ static func body_profile(identity: Variant) -> Array:
 	return IDENTITY.body_profile(identity)
 
 
+## The body-fit key for a pony's placement row.
+static func body_fit_id(pony_node: Node) -> String:
+	return IDENTITY.body_fit_id(pony_node)
+
+
 ## Deduplicated ids outside the base roster. The caller owns the eligibility filter and the live
 ## source ordering; this helper only deduplicates.
 static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:

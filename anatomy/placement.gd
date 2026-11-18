@@ -7,6 +7,7 @@ extends RefCounted
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 
 const WINKING_REAR_Y := 0.541
 const WINKING_REAR_Z := 0.2961
@@ -41,7 +42,7 @@ func clear_mesh() -> void:
 
 
 func load() -> void:
-	var saved := SETTINGS.anatomy_placement(_pony_id())
+	var saved := SETTINGS.anatomy_placement(_pony_id(), _body_fit_id())
 	_apply_values(saved)
 	_place_revision = SETTINGS.placement_revision
 	_place_dirty = false
@@ -144,7 +145,8 @@ func nudge(axis: String, amount: float) -> void:
 
 func place_text() -> String:
 	var id := _pony_id()
-	var source := "override" if SETTINGS.anatomy_placement_has_override(id) else "default"
+	var source := "override" if SETTINGS.anatomy_placement_has_override(id, _body_fit_id()) \
+		else "default"
 	if _place_dirty:
 		source += "/unsaved"
 	return "position=(%.3f,%.3f,%.3f) pitch=%.1f scale=%.3f source=%s" % [
@@ -155,13 +157,13 @@ func save() -> void:
 	var id := _pony_id()
 	if id.is_empty():
 		return
-	SETTINGS.save_anatomy_placement(id, values())
+	SETTINGS.save_anatomy_placement(id, values(), _body_fit_id())
 	_place_dirty = false
 	_place_revision = SETTINGS.placement_revision
 
 
 func reset() -> void:
-	_apply_values(SETTINGS.anatomy_placement_default(_pony_id(), false))
+	_apply_values(SETTINGS.anatomy_placement_default(_pony_id(), false, _body_fit_id()))
 	_place_dirty = true
 	_place_revision = SETTINGS.placement_revision
 
@@ -176,3 +178,7 @@ func _apply_values(placement: Dictionary) -> void:
 func _pony_id() -> String:
 	return PONY_ID.from(str(pony.get_meta("relationship_id", "")),
 		pony.get("identity")) if is_instance_valid(pony) else ""
+
+
+func _body_fit_id() -> String:
+	return IDENTITY.body_fit_id(pony)

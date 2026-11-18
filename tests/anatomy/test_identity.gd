@@ -10,6 +10,10 @@ var failures := 0
 var checks := 0
 
 
+class FakePony extends Node3D:
+	var identity: Variant = null
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -30,6 +34,20 @@ func run() -> void:
 	check(IDENTITY.body_profile({"id": "not_a_base_mare"}).is_empty(),
 		"an ordinary modded mare uses the normal body profile")
 	check(IDENTITY.body_profile(null).is_empty(), "no identity has no body profile")
+
+	# The body-fit key: an integration's metadata, then character_id, then the identity id.
+	var pony := FakePony.new()
+	pony.identity = {"id": "chrysalis", "character_id": "celestia"}
+	pony.set_meta("body_fit_id", "chrysalis")
+	check(IDENTITY.body_fit_id(pony) == "chrysalis", "metadata wins the body fit")
+	pony.remove_meta("body_fit_id")
+	check(IDENTITY.body_fit_id(pony) == "celestia", "character_id is the body fit fallback")
+	pony.identity = {"id": "fluttershy", "character_id": ""}
+	check(IDENTITY.body_fit_id(pony) == "fluttershy", "the identity id is the last fallback")
+	pony.identity = null
+	check(IDENTITY.body_fit_id(pony).is_empty(), "no identity has no body fit")
+	check(IDENTITY.body_fit_id(null).is_empty(), "no pony has no body fit")
+	pony.free()
 
 	# Deduplicated off-roster ids, excluding the base roster.
 	var ids: Array[String] = ["not_a_base_mare", "twilight_sparkle", "not_a_base_mare", ""]

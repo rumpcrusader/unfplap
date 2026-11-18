@@ -30,6 +30,26 @@ static func body_profile(identity: Variant) -> Array:
 	return profile.duplicate() if profile is Array else []
 
 
+## The body-fit key a placement row resolves against. An integration sets `body_fit_id` on the
+## pony when the visible body is not the identity's usual one; otherwise the identity's
+## `character_id` names the copied body and the identity id is the last fallback.
+static func body_fit_id(pony: Variant) -> String:
+	if not is_instance_valid(pony):
+		return ""
+	var meta := str(pony.get_meta("body_fit_id", "")).strip_edges()
+	if not meta.is_empty():
+		return meta
+	var identity: Variant = pony.get("identity")
+	if identity == null:
+		return ""
+	var character: Variant = identity.get("character_id")
+	var key := str(character) if character != null else ""
+	if key.is_empty():
+		var identity_id: Variant = identity.get("id")
+		key = str(identity_id) if identity_id != null else ""
+	return key
+
+
 ## Deduplicated ids that are not in the base roster. The caller owns the eligibility filter, the
 ## live-pony source and its ordering; this helper only filters and deduplicates.
 static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:

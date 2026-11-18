@@ -16,6 +16,7 @@ extends Node
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
@@ -224,7 +225,8 @@ func refresh_all() -> void:
 			_apply(row)
 			rebuilt += 1
 			continue
-		var placement := SETTINGS.anatomy_placement(str(row["id"]))
+		var placement := SETTINGS.anatomy_placement(str(row["id"]),
+			str(row.get("fit_id", "")))
 		var changed := false
 		var tail_moved := false
 		var dock_stale := false
@@ -274,7 +276,8 @@ func report_all() -> String:
 		var row: Dictionary = _rows[pony]
 		if not _seated(row):
 			continue
-		var placement := SETTINGS.anatomy_placement(str(row["id"]))
+		var placement := SETTINGS.anatomy_placement(str(row["id"]),
+			str(row.get("fit_id", "")))
 		var reference_anchor := reference(pony)
 		var target := reference_anchor + Vector3(0.0, float(placement.get("tail_y", 0.0)),
 			float(placement.get("tail_z", 0.0)))
@@ -365,7 +368,8 @@ func _prepare(pony: Node) -> Dictionary:
 	var id := str(pony.get_meta("relationship_id", ""))
 	if id.is_empty():
 		id = str(identity.get("id"))
-	var placement := SETTINGS.anatomy_placement(id)
+	var fit_id := IDENTITY.body_fit_id(pony)
+	var placement := SETTINGS.anatomy_placement(id, fit_id)
 	var hair: Skeleton3D = pony.get("hair_skeleton") as Skeleton3D
 	var original_skin: Skin = dock.skin
 	# A far pony's dock may be parked by the game's rig parking: the path is empty and the real
@@ -376,6 +380,7 @@ func _prepare(pony: Node) -> Dictionary:
 	return {
 		"pony": pony,
 		"id": id,
+		"fit_id": fit_id,
 		"body": "stallion" if bool(identity.get("stallion")) else "mare",
 		"link": link,
 		"dock": dock,
@@ -705,7 +710,8 @@ func _log_perf() -> void:
 func _source(row: Dictionary) -> String:
 	if not SETTINGS.reseat_tails.get_bool():
 		return "off"
-	if SETTINGS.anatomy_placement_has_override(str(row["id"])):
+	if SETTINGS.anatomy_placement_has_override(str(row["id"]),
+			str(row.get("fit_id", ""))):
 		return "override"
 	return "auto"
 

@@ -28,7 +28,7 @@
     {
       "service": "anatomy",
       "func": "placement_values",
-      "signature": "func placement_values(id: String) -> Dictionary:"
+      "signature": "func placement_values(id: String, fit_id: String = \"\") -> Dictionary:"
     },
     {
       "service": "anatomy",
@@ -438,12 +438,12 @@
     {
       "service": "settings",
       "func": "anatomy_placement",
-      "signature": "static func anatomy_placement(id: String) -> Dictionary:"
+      "signature": "static func anatomy_placement(id: String, fit_id: String = \"\") -> Dictionary:"
     },
     {
       "service": "settings",
       "func": "anatomy_placement_default",
-      "signature": "static func anatomy_placement_default(id: String, use_draft := true) -> Dictionary:"
+      "signature": "static func anatomy_placement_default(id: String, use_draft: bool = true, fit_id: String = \"\") -> Dictionary:"
     },
     {
       "service": "settings",
@@ -533,7 +533,7 @@
     {
       "service": "settings",
       "func": "save_anatomy_placement",
-      "signature": "static func save_anatomy_placement(id: String, values: Dictionary) -> void:"
+      "signature": "static func save_anatomy_placement(id: String, values: Dictionary, fit_id: String = \"\") -> void:"
     },
     {
       "service": "settings",

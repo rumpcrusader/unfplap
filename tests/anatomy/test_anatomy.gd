@@ -451,6 +451,33 @@ func run() -> void:
 	check(not SETTINGS.anatomy_placement_has_override(placed_id),
 		"clearing the player placement returns to the global default")
 
+	# A body fit selects the provider/catalog default while the player override stays on the
+	# stable pony id. A disguise therefore uses the copied pony's fit, not her own.
+	var fit_owner := "chrysalis"
+	MARE_REGISTRY.register(3, {"id": fit_owner, "source": "anatomy_test",
+		"placement": {"offset_y": 0.51, "offset_z": 0.271, "scale": 0.462}})
+	var own_fit := SETTINGS.anatomy_placement(fit_owner, fit_owner)
+	check(near(float(own_fit.get("offset_y", 0.0)), 0.51),
+		"the body fit resolves the provider placement")
+	var disguise_fit := SETTINGS.anatomy_placement(fit_owner, "fluttershy")
+	check(disguise_fit == SETTINGS.anatomy_placement("fluttershy"),
+		"a copied body uses the target pony's fit")
+	check(SETTINGS.anatomy_placement("fluttershy", "fluttershy")
+		== SETTINGS.anatomy_placement("fluttershy"),
+		"the fit default leaves a base mare unchanged")
+	own_fit["offset_y"] = float(own_fit.get("offset_y", 0.0)) + 0.02
+	SETTINGS.save_anatomy_placement(fit_owner, own_fit, fit_owner)
+	check(near(float(SETTINGS.anatomy_placement(fit_owner, fit_owner).get("offset_y", 0.0)),
+		0.53), "the player override follows the stable id")
+	check(SETTINGS.anatomy_placement("fluttershy", "fluttershy")
+		== SETTINGS.anatomy_placement("fluttershy"),
+		"another mare's fit stays unchanged by the override")
+	SETTINGS.save_anatomy_placement(fit_owner,
+		SETTINGS.anatomy_placement_default(fit_owner, false, fit_owner), fit_owner)
+	check(not SETTINGS.anatomy_placement_has_override(fit_owner, fit_owner),
+		"clearing the fit override returns to the provider placement")
+	MARE_REGISTRY.unregister(3, fit_owner)
+
 	# Tail seat: with Re-seat tails and docks off, attach only remembers her id. A disabled seat
 	# must not measure the tail or rebuild the dock, and a settings tick must not write either.
 	var seat := TAIL_SEAT.new()

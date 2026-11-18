@@ -38,8 +38,6 @@ static func impression_suffix(slot: int) -> String:
 	match slot:
 		FACTS.ImpressionSlot.ACT_EARLY:
 			return ":summary"
-		FACTS.ImpressionSlot.REFUSAL:
-			return ":mood"
 		FACTS.ImpressionSlot.STAY_CLOSE:
 			return ":stay_close_gain"
 		FACTS.ImpressionSlot.FORM_REVEAL:
@@ -48,19 +46,11 @@ static func impression_suffix(slot: int) -> String:
 			return ":gain"
 
 
-## The world-context event kind for one impression slot. A refusal is a refusal, not a
-## relationship summary; the act summary is a relationship event.
-static func event_kind(slot: int) -> String:
-	return "intimacy" if slot == FACTS.ImpressionSlot.REFUSAL else "relationship"
-
-
-## The idempotent event-id suffix for one impression slot. A refusal keeps its bare id; the act
-## summary keeps its own `:summary` id so a later prompt can recall the act. The reveal is its own
-## beat, so it never collides with the summary written at the act's end.
+## The idempotent event-id suffix for one impression slot. The act summary keeps its own
+## `:summary` id so a later prompt can recall the act. The reveal is its own beat, so it never
+## collides with the summary written at the act's end.
 static func event_suffix(slot: int) -> String:
 	match slot:
-		FACTS.ImpressionSlot.REFUSAL:
-			return ""
 		FACTS.ImpressionSlot.FORM_REVEAL:
 			return ":form_reveal"
 		_:
@@ -155,18 +145,6 @@ static func stop_text(reason: int) -> String:
 
 static func apology_text() -> String:
 	return "Anon apologized for last time."
-
-
-static func refusal_text(bucked: bool) -> String:
-	if bucked:
-		return "She refused him, and bucked when he would not stop."
-	return "She refused him when he wanted more."
-
-
-static func refusal_thought(bucked: bool) -> String:
-	if bucked:
-		return "He kept pushing after I said no, so I bucked him off. I need space."
-	return "He wanted more than I did. I said no and turned him away."
 
 
 static func witness_kind(young: bool) -> String:

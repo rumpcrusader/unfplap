@@ -57,12 +57,7 @@ func commit(impression: Impression) -> void:
 	var romance := impression.romance
 	var thought := impression.thought.strip_edges()
 	var text := impression.event_text.strip_edges()
-	if impression.slot == ImpressionSlot.REFUSAL:
-		var bucked := mood == "angry"
-		text = TEXT.refusal_text(bucked)
-		if thought.is_empty():
-			thought = TEXT.refusal_thought(bucked)
-	elif impression.slot == ImpressionSlot.STAY_CLOSE:
+	if impression.slot == ImpressionSlot.STAY_CLOSE:
 		thought = TEXT.stay_close_thought(romance > 0, mood == "happy")
 	var data: Dictionary = {}
 	if not mood.is_empty():
@@ -74,7 +69,7 @@ func commit(impression: Impression) -> void:
 	WORLD.commit_impression(game, impression.id, data,
 		impression.event_id + TEXT.impression_suffix(impression.slot))
 	if not text.is_empty():
-		WORLD.record(game, TEXT.event_kind(impression.slot), text,
+		WORLD.record(game, "relationship", text,
 			[impression.id, "player"], [impression.id, "player"],
 			impression.event_id + TEXT.event_suffix(impression.slot))
 

@@ -134,38 +134,6 @@ func run() -> void:
 	check(str(context.events[-1].kind) == "relationship", "an apology is recorded as a relationship event")
 	check(str(context.events[-1].text).contains("apologized"), "the apology event says what happened")
 
-	var refused := MEMORY.Impression.new()
-	refused.id = "rarity"
-	refused.event_id = "refusal_1"
-	refused.slot = MEMORY.ImpressionSlot.REFUSAL
-	refused.mood = "annoyed"
-	memory.commit(refused)
-	var turned_away: Dictionary = impressions.calls[5]
-	check(str((turned_away["data"] as Dictionary).get("mood", "")) == "annoyed",
-		"a plain refusal is annoyed")
-	check(not (turned_away["data"] as Dictionary).has("romance"),
-		"a refusal never changes romance")
-	check(not str((turned_away["data"] as Dictionary).get("thought", "")).is_empty(),
-		"a refusal keeps a private thought")
-	check(str(turned_away.get("event_id", "")).ends_with(":mood"),
-		"the refusal mood uses its own commit id")
-	check(str(context.events[-1].kind) == "intimacy", "a refusal is recorded as an intimacy event")
-	check(str(context.events[-1].id) == "refusal_1", "the refusal event keeps its bare id")
-	check(str(context.events[-1].text).contains("refused him"),
-		"the refusal event says what happened")
-
-	var bucked := MEMORY.Impression.new()
-	bucked.id = "rarity"
-	bucked.event_id = "refusal_2"
-	bucked.slot = MEMORY.ImpressionSlot.REFUSAL
-	bucked.mood = "angry"
-	memory.commit(bucked)
-	var bucked_row: Dictionary = impressions.calls[6]
-	check(str((bucked_row["data"] as Dictionary).get("mood", "")) == "angry",
-		"a buck is angry")
-	check(str((bucked_row["data"] as Dictionary).get("thought", "")).contains("bucked"),
-		"the buck thought names the buck")
-
 	var reveal: Variant = memory.form_reveal_impression("rarity", "intimacy_1")
 	memory.commit(reveal)
 	var reveal_row: Dictionary = impressions.calls[-1]

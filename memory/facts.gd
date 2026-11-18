@@ -15,7 +15,7 @@ enum NoteKind { CANCELLED, CLIMAXED, STOPPED, APOLOGY }
 ## Why an act stopped. Only reachable reasons are listed.
 enum StopReason { NONE, UNWILLING, PICKED_UP, INTERRUPTED, FORM_CHANGE, WITHDREW }
 ## The impression slot, which owns the idempotent event-id suffix.
-enum ImpressionSlot { ACT, ACT_EARLY, REFUSAL, STAY_CLOSE, FORM_REVEAL }
+enum ImpressionSlot { ACT, ACT_EARLY, STAY_CLOSE, FORM_REVEAL }
 ## How an observer perceived the act.
 enum Sense { SIGHT, SOUND }
 

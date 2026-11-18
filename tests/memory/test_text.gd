@@ -84,20 +84,13 @@ func run() -> void:
 	check(TEXT.impression_suffix(FACTS.ImpressionSlot.ACT) == ":gain", "act impression suffix")
 	check(TEXT.impression_suffix(FACTS.ImpressionSlot.ACT_EARLY) == ":summary",
 		"early act impression suffix")
-	check(TEXT.impression_suffix(FACTS.ImpressionSlot.REFUSAL) == ":mood",
-		"refusal impression suffix")
 	check(TEXT.impression_suffix(FACTS.ImpressionSlot.STAY_CLOSE) == ":stay_close_gain",
 		"stay-close impression suffix")
 	check(TEXT.impression_suffix(FACTS.ImpressionSlot.FORM_REVEAL) == ":form_reveal",
 		"reveal impression suffix")
-	check(TEXT.event_suffix(FACTS.ImpressionSlot.REFUSAL) == "", "refusal event keeps its bare id")
 	check(TEXT.event_suffix(FACTS.ImpressionSlot.ACT) == ":summary", "act event suffix")
 	check(TEXT.event_suffix(FACTS.ImpressionSlot.FORM_REVEAL) == ":form_reveal",
 		"the reveal keeps its own event id")
-	check(TEXT.event_kind(FACTS.ImpressionSlot.REFUSAL) == "intimacy", "refusal is an intimacy event")
-	check(TEXT.event_kind(FACTS.ImpressionSlot.ACT) == "relationship", "act is a relationship event")
-	check(TEXT.event_kind(FACTS.ImpressionSlot.FORM_REVEAL) == "relationship",
-		"the reveal is a relationship event")
 
 	check(TEXT.stay_close_thought(true, true).contains("caressed"),
 		"a positive stay-close caress names the caress")
@@ -105,11 +98,6 @@ func run() -> void:
 		"a positive stay-close without a caress reads as cared for")
 	check(TEXT.stay_close_thought(false, false).contains("hurt"),
 		"a bad stay-close reads as a repair beat")
-
-	check(TEXT.refusal_text(false).contains("refused him"), "plain refusal wording")
-	check(TEXT.refusal_text(true).contains("bucked"), "buck refusal wording")
-	check(TEXT.refusal_thought(false).contains("turned him away"), "plain refusal thought")
-	check(TEXT.refusal_thought(true).contains("bucked"), "buck refusal thought")
 
 	check(TEXT.stop_name(FACTS.StopReason.WITHDREW) == "withdrew", "withdrew stop name")
 	check(TEXT.stop_text(FACTS.StopReason.WITHDREW).contains("did not like"),

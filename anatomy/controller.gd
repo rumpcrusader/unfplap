@@ -650,26 +650,5 @@ func _clear_part() -> void:
 	_apply_body_coat_uniforms()
 
 
-## integration: local placement calibration for the debug actions.
-func nudge(axis: String, amount: float) -> void:
-	placement.nudge(axis, amount)
-	_apply_place()
-
-
-func place_text() -> String:
-	return placement.place_text()
-
-
-func save_place() -> void:
-	placement.save()
-
-
-## Preview the mare's resolved default. Save writes the preview as her override, or removes it
-## when it matches the default.
-func reset_place() -> void:
-	placement.reset()
-	_apply_place()
-
-
 func _log(text: String) -> void:
 	facts.write_log(text)

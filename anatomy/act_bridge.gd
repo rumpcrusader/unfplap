@@ -325,22 +325,6 @@ func status(text: String, seconds := 2.0) -> void:
 		status_cb.call(text, seconds)
 
 
-## The placement debug controls. The controller owns the placement.
-func place(op: String, value := 0.0) -> String:
-	if not is_instance_valid(controller):
-		return "Anatomy is not attached."
-	match op:
-		"save":
-			controller.call("save_place")
-		"reset":
-			controller.call("reset_place")
-		"text":
-			return str(controller.call("place_text"))
-		_:
-			controller.call("nudge", op, value)
-	return str(controller.call("place_text"))
-
-
 ## The missionary Anon body is the act's own body. The host creates it in the camera mode; the
 ## bridge owns its handle and the reads.
 func set_missionary_anon(node: Variant) -> void:

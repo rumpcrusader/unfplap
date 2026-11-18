@@ -3047,11 +3047,6 @@ func anatomy_status(text: String, seconds := 2.0) -> void:
 	_anatomy_bridge.status(text, seconds)
 
 
-## integration: debug placement controls for the local anatomy asset.
-func anatomy_place(op: String, value := 0.0) -> String:
-	_anatomy_bridge.bind(_anatomy_host())
-	return _anatomy_bridge.place(op, value)
-
 ## Idempotent stop for every state exit. It never moves the depth.
 func _stop_auto() -> void:
 	_readiness.stop_auto()

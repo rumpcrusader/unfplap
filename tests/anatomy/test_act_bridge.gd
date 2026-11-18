@@ -440,8 +440,6 @@ func _check_lifecycle() -> void:
 	controller.free()
 	bridge.controller = null
 	host.values["main"] = null
-	var line: String = bridge.place("text")
-	check(line == "Anatomy is not attached.", "place without a controller reports it")
 	var direct := FakeAct.new()
 	bridge.act = direct
 	bridge.end()

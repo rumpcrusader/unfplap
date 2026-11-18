@@ -122,53 +122,6 @@ func revision() -> int:
 	return _place_revision
 
 
-func values() -> Dictionary:
-	return {
-		"offset_x": _pos.x, "offset_y": _pos.y, "offset_z": _pos.z,
-		"pitch_deg": _pitch, "scale": _scale,
-	}
-
-
-func nudge(axis: String, amount: float) -> void:
-	match axis:
-		"y":
-			_pos.y += amount
-		"z":
-			_pos.z += amount
-		"x":
-			_pos.x += amount
-		"pitch":
-			_pitch += amount
-		"scale":
-			_scale = maxf(0.05, _scale + amount)
-	_place_dirty = true
-
-
-func place_text() -> String:
-	var id := _pony_id()
-	var source := "override" if SETTINGS.anatomy_placement_has_override(id, _body_fit_id()) \
-		else "default"
-	if _place_dirty:
-		source += "/unsaved"
-	return "position=(%.3f,%.3f,%.3f) pitch=%.1f scale=%.3f source=%s" % [
-		_pos.x, _pos.y, _pos.z, _pitch, _scale, source]
-
-
-func save() -> void:
-	var id := _pony_id()
-	if id.is_empty():
-		return
-	SETTINGS.save_anatomy_placement(id, values(), _body_fit_id())
-	_place_dirty = false
-	_place_revision = SETTINGS.placement_revision
-
-
-func reset() -> void:
-	_apply_values(SETTINGS.anatomy_placement_default(_pony_id(), false, _body_fit_id()))
-	_place_dirty = true
-	_place_revision = SETTINGS.placement_revision
-
-
 func _apply_values(placement: Dictionary) -> void:
 	_pos = Vector3(float(placement["offset_x"]), float(placement["offset_y"]),
 		float(placement["offset_z"]))

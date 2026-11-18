@@ -166,6 +166,14 @@ func run() -> void:
 		"her body names the marker its hide pass keeps")
 	var chain: Node = own.get_node_or_null("ChrysalisHair/Hair_tail/Chain")
 	check(own.get_meta("tail_pose_root", null) == chain, "her spring tail root is exposed")
+	var holder: Node = own.get_node_or_null("ChrysalisHair/Hair_tail")
+	var wrapper := Node3D.new()
+	wrapper.name = "UnfplapTailPlacement"
+	holder.add_child(wrapper)
+	(chain as Node3D).reparent(wrapper, true)
+	adapter.call("prepare_pony", own)
+	check(own.get_meta("tail_pose_root", null) == chain,
+		"a wrapped tail root keeps the metadata")
 	check(IDENTITY.body_fit_id(own) == "chrysalis", "the body-fit fallback reads the metadata")
 	check(near(float(SETTINGS.anatomy_placement("chrysalis", "chrysalis")
 		.get("offset_y", 0.0)), 0.51), "her fit resolves the provider placement")

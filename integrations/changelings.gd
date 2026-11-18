@@ -395,6 +395,11 @@ func prepare_pony(pony: Node) -> void:
 		return
 	if _is_own_body(pony):
 		var root := pony.get_node_or_null(TAIL_ROOT) as Node3D
+		# The anatomy tail seat may have put its placement wrapper above the chain; the
+		# metadata still names the chain, which a repeated prepare must keep.
+		if not is_instance_valid(root):
+			var held: Variant = pony.get_meta("tail_pose_root", null)
+			root = held as Node3D if held is Node3D else null
 		_apply_fit(pony, ID, root)
 		return
 	var identity: Variant = pony.get("identity")

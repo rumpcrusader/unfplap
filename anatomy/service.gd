@@ -246,6 +246,11 @@ func can_seat(pony: Node) -> bool:
 	return is_instance_valid(tail_seat) and bool(tail_seat.call("can_seat", pony))
 
 
+## True when this pony has a dock the placement controls can move.
+func can_dock(pony: Node) -> bool:
+	return is_instance_valid(tail_seat) and bool(tail_seat.call("can_dock", pony))
+
+
 func tail_report() -> String:
 	if not is_instance_valid(tail_seat):
 		return ""
@@ -294,6 +299,8 @@ func placement_debug(op: String, value := 0.0) -> String:
 	if id != "default" and is_instance_valid(target):
 		fit_id = CONTROLLER.body_fit_id(target)
 	if id != "default" and (op.begins_with("tail_") or op.begins_with("dock_")):
+		if op.begins_with("dock_") and not can_dock(target):
+			return "%s: no dock on this tail." % id
 		if not can_seat(target):
 			return "%s: tail seat unavailable (no hair tail or dock)." % id
 	var values := placement_values(id, fit_id)

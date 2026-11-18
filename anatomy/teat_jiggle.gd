@@ -15,6 +15,10 @@ var skeleton: Skeleton3D
 var perf_note := Callable()
 ## integration: bigger ones swing further.
 var swing := 1.0
+## integration: a heavier pair (the princesses) settles slower: the spring and its damping are
+## scaled, so the sway rings a little longer and swings a little lower.
+var stiffness_scale := 1.0
+var damping_scale := 1.0
 
 var _hips := -1
 var _sides := [{"uniform": "sway_left", "lag": Vector3.ZERO, "speed": Vector3.ZERO},
@@ -49,7 +53,8 @@ func _physics_process(delta: float) -> void:
 	for side: Dictionary in _sides:
 		var lag: Vector3 = side.lag
 		var speed: Vector3 = side.speed
-		speed += (-acceleration * INERTIA * swing - lag * STIFFNESS - speed * DAMPING) * delta
+		speed += (-acceleration * INERTIA * swing - lag * STIFFNESS * stiffness_scale
+			- speed * DAMPING * damping_scale) * delta
 		lag = (lag + speed * delta).limit_length(MAX_SWAY_M * swing)
 		side.lag = lag
 		side.speed = speed

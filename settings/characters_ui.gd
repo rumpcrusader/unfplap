@@ -76,6 +76,8 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 		"How fast arousal builds.")
 	var tolerance := _preference_pills(form, "Neglect tolerance", PREFERENCES.TOLERANCES, font_size, {},
 		"How she responds to things she dislikes.")
+	var teat_size := _preference_pills(form, "Teat size", PREFERENCES.TEAT_SIZES, font_size, {},
+		"Auto keeps the size picked for her. Applies the next time she appears.")
 	var touch: Dictionary = {}
 	for action: String in PREFERENCES.TOUCHES:
 		touch[action] = _preference_pills(form, action.capitalize(), PREFERENCE_STATES, font_size,
@@ -118,6 +120,7 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 		"pattern": pattern,
 		"warmth": warmth,
 		"tolerance": tolerance,
+		"teat_size": teat_size,
 		"touch": touch,
 		"talk": talk,
 		"notes": notes,
@@ -138,7 +141,7 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 		last_id = str(selector.get_item_metadata(index))
 		_refresh_preference_form(refs)
 		_show_selector_name(selector))
-	for pills: HBoxContainer in [intensity, pattern, warmth, tolerance]:
+	for pills: HBoxContainer in [intensity, pattern, warmth, tolerance, teat_size]:
 		for pill: Node in pills.get_children():
 			(pill as Button).pressed.connect(_choose_preference_pill.bind(
 				pills, str(pill.get_meta("value")), refs))
@@ -323,6 +326,7 @@ static func _refresh_preference_form(refs: Dictionary) -> void:
 	_select_preference_value(refs.get("pattern"), str(preferences.get("pattern", "steady")))
 	_select_preference_value(refs.get("warmth"), str(preferences.get("warmth", "normal")))
 	_select_preference_value(refs.get("tolerance"), str(preferences.get("tolerance", "normal")))
+	_select_preference_value(refs.get("teat_size"), str(preferences.get("teat_size", "auto")))
 	_set_preference_actions(refs.get("touch"), preferences.get("touch", []), PREFERENCES.TOUCHES,
 		preferences.get("dislikes", []))
 	_set_preference_actions(refs.get("talk"), preferences.get("talk", []), PREFERENCES.TALKS,
@@ -428,6 +432,7 @@ static func _preference_form_values(refs: Dictionary) -> Dictionary:
 		"talk": talk_likes,
 		"warmth": _picked_preference_value(refs.get("warmth"), "normal"),
 		"tolerance": _picked_preference_value(refs.get("tolerance"), "normal"),
+		"teat_size": _picked_preference_value(refs.get("teat_size"), "auto"),
 		"notes": str((notes as TextEdit).text).strip_edges() if notes is TextEdit else "",
 	}
 

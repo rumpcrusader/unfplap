@@ -24,6 +24,12 @@ const RIG_VERSION := 1
 const RIG_BONES := 30
 const ANON_RIG := "Anon3"
 
+## How far the body under a skeleton sinks below the support in this pose, per unit of body scale:
+## the pose is authored on the mare body, which lies on the mattress (about 4 mm in, like the soft
+## top). A bed pose only.
+const BED_SINK_M := 0.004
+const BED_LIFT_MIN_M := 0.005
+
 ## The body bones the act owns, in the pose lab's order. Version 7 must carry every one of them,
 ## including the ones left at rest: the runtime writes only what the file holds and never resets
 ## the rig, so a missing bone keeps the game's pose and breaks the chain it hangs from.
@@ -90,12 +96,19 @@ var anon_frame := Transform3D.IDENTITY
 ## against it, so "Reload posed base" re-checks the bones against the new asset in the same act.
 static var revision := 0
 static var _shared: Dictionary = {}
+static var _clearance: Dictionary = {}   # "<body mesh rid>|<pose>|<variant>|<revision>" -> lift
 
 var _indices: Dictionary = {}
 var _index_skeleton := 0
 var _selected_name := ""
 var _selected: Dictionary = {}
 var _parse_bad := ""
+## The last bed clearance measured for this instance's skeleton, variant and asset revision, so a
+## steady pose write is a few comparisons instead of a string key and a child search.
+var _clearance_skeleton := 0
+var _clearance_variant := ""
+var _clearance_revision := -1
+var _clearance_value := -1.0
 
 
 ## The one parsed instance for a path. A pose row's `poses/...` path is resolved against the mod.
@@ -375,6 +388,11 @@ func apply_pony(sk: Skeleton3D, weight: float, world_frame: Transform3D, body_sc
 	var root_index := root_bone(sk)
 	if root_index >= 0:
 		var wanted := placed_root(world_frame, body_scale)
+		# A bigger body (the princesses' own) hangs further from its armature root than the mare
+		# the pose was authored on, so the mare's root placement sinks her into the mattress.
+		# Lift her by the measured amount (0 for the mare and any body that already clears it).
+		if frame == "bed":
+			wanted.origin += Vector3.UP * bed_clearance(sk) * body_scale
 		var desired := sk.global_transform.affine_inverse() * wanted
 		var current := sk.get_bone_global_pose(root_index)
 		sk.set_bone_global_pose(root_index, current.interpolate_with(desired, weight))
@@ -387,6 +405,94 @@ func apply_pony(sk: Skeleton3D, weight: float, world_frame: Transform3D, body_sc
 			continue
 		_write_bone(sk, int(_indices[key]), entry, weight)
 	return true
+
+
+## How far the body under `sk` sinks below the support in this pose, per unit of body scale: the
+## pose is authored on the mare body, which lies on the mattress. Measured once per body mesh and
+## variant by posing her rest skeleton with the authored bones in frame space and skinning her body
+## on the CPU; 0 when she clears the support already or no body mesh is found. A bed pose only.
+func bed_clearance(sk: Skeleton3D) -> float:
+	if sk == null:
+		return 0.0
+	if _clearance_value >= 0.0 and sk.get_instance_id() == _clearance_skeleton \
+			and variant == _clearance_variant and revision == _clearance_revision:
+		return _clearance_value
+	var body := sk.find_child("MareBody", true, false) as MeshInstance3D
+	if body == null or body.mesh == null or body.skin == null \
+			or body.mesh.get_surface_count() == 0:
+		return 0.0
+	var key := "%d|%s|%s|%d" % [body.mesh.get_rid().get_id(), path, variant, revision]
+	if _clearance.has(key):
+		return float(_clearance[key])
+	var lift := 0.0
+	var root_index := root_bone(sk)
+	if root_index >= 0:
+		# Every bone's frame-space pose at scale 1: the authored root, the authored bones by the
+		# local-rest rule (as _write_bone at weight 1) and the rest pose for the rest.
+		var bones := active_bones()
+		var poses: Array[Transform3D] = []
+		poses.resize(sk.get_bone_count())
+		var done: Array[bool] = []
+		done.resize(sk.get_bone_count())
+		var root_pose := placed_root(Transform3D.IDENTITY, 1.0)
+		for i in sk.get_bone_count():
+			_frame_pose(sk, i, root_index, root_pose, bones, poses, done)
+		var arrays := body.mesh.surface_get_arrays(0)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var vb: PackedInt32Array = arrays[Mesh.ARRAY_BONES] \
+			if arrays[Mesh.ARRAY_BONES] != null else PackedInt32Array()
+		var vw: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS] \
+			if arrays[Mesh.ARRAY_WEIGHTS] != null else PackedFloat32Array()
+		if not verts.is_empty() and not vb.is_empty():
+			var per := vb.size() / verts.size()
+			var skin_mats: Array[Transform3D] = []
+			for b in body.skin.get_bind_count():
+				var bone := body.skin.get_bind_bone(b)
+				if bone < 0:
+					bone = sk.find_bone(body.skin.get_bind_name(b))
+				skin_mats.append((poses[bone] * body.skin.get_bind_pose(b))
+					if bone >= 0 else Transform3D.IDENTITY)
+			var low := INF
+			for v in verts.size():
+				var y := 0.0
+				for k in per:
+					var wt := vw[v * per + k]
+					if wt > 0.0:
+						y += (skin_mats[vb[v * per + k]] * verts[v]).y * wt
+				low = minf(low, y)
+			if is_finite(low):
+				var need := (support() - BED_SINK_M) - low
+				if need > BED_LIFT_MIN_M:
+					lift = need
+	_clearance[key] = lift
+	_clearance_skeleton = sk.get_instance_id()
+	_clearance_variant = variant
+	_clearance_revision = revision
+	_clearance_value = lift
+	if lift > 0.0:
+		print("[unfplap] bed pose %s: body sits %.3f m into the mattress, lifted" % [id, lift])
+	return lift
+
+
+## One bone's frame-space pose at scale 1: the root's authored placement, the authored bones by the
+## local-rest rule, and the rest local transform for every other bone.
+func _frame_pose(sk: Skeleton3D, bone: int, root_index: int, root_pose: Transform3D,
+		bones: Dictionary, poses: Array[Transform3D], done: Array[bool]) -> Transform3D:
+	if done[bone]:
+		return poses[bone]
+	var local := sk.get_bone_rest(bone)
+	var entry: Variant = bones.get(sk.get_bone_name(bone))
+	if entry is Dictionary:
+		var rotation: Quaternion = (entry as Dictionary)["rotation"]
+		var position: Vector3 = (entry as Dictionary)["position"]
+		local = Transform3D(local.basis * Basis(rotation), local.basis * position + local.origin)
+	var parent := sk.get_bone_parent(bone)
+	var global := root_pose if bone == root_index else \
+		((_frame_pose(sk, parent, root_index, root_pose, bones, poses, done) * local)
+			if parent >= 0 else local)
+	poses[bone] = global
+	done[bone] = true
+	return global
 
 
 ## Applies a bone block (the Anon act body) through the same local-rest rule. Version 6 entries are

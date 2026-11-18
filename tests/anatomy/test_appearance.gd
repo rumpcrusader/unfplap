@@ -87,6 +87,30 @@ func run() -> void:
 		"a non-missionary rebuild restores the fold coloring")
 	SETTINGS.disable_fold_coloring.set_bool(saved_fold)
 
+	# The generated teats carry their sway weight in CUSTOM0.x, so they get their own material with
+	# `sway_custom` on; the old mare-shaped asset keeps the vertex-alpha sway.
+	var teats := MeshInstance3D.new()
+	teats.mesh = BoxMesh.new()
+	pony.add_child(teats)
+	appearance.teats_mesh = teats
+	appearance.generated_teats = true
+	appearance.apply_teats_material(material)
+	var teats_material := teats.get_surface_override_material(0) as ShaderMaterial
+	check(teats_material != null and teats_material != material,
+		"the generated teats get their own material")
+	if teats_material != null:
+		check(is_equal_approx(float(teats_material.get_shader_parameter("sway_custom")), 1.0),
+			"the generated teats use their own sway weight")
+	appearance.generated_teats = false
+	appearance.apply_teats_material(material)
+	teats_material = teats.get_surface_override_material(0) as ShaderMaterial
+	if teats_material != null:
+		var sway: Variant = teats_material.get_shader_parameter("sway_custom")
+		check(sway == null or is_zero_approx(float(sway)),
+			"the old teats asset keeps the vertex-alpha sway")
+	appearance.teats_mesh = null
+	teats.queue_free()
+
 	pony.queue_free()
 	print("ANATOMY_APPEARANCE_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

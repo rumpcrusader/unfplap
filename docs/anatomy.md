@@ -40,9 +40,12 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/coat_line_debug.gd` | debug overlay for the rest/live coat line and its cross-sections |
 | `anatomy/garment_hull.gd` | the worn-garment rear-facing outer depth field, shared by every mare |
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
+| `anatomy/body_fit.gd` | carries a part modelled on the mare body onto another body's skin binds |
+| `anatomy/udder.gd` | the generated two-lobe teats, grown from her own belly surface |
 | `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
 | `anatomy/player.gd` | player part mesh, placement, aim, girth/head/length shaping, throb and the hip-offset handshake |
 | `shared/anatomy_placement.gd` | pure placement schema, merge/sanitize/diff and the one-time legacy migration |
+| `shared/body_profile.gd` | the winking body profiles, the body-fit key and the standing entrance offset |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
 | `anatomy/tail/dock_attach.gd` | builds the dock's two-bind GPU skin on the hair skeleton |
 | `anatomy/tail/dock_seat.gd` | snaps the dock base ring to the rumen and measures the tail-cap seat |
@@ -180,20 +183,23 @@ resulting `view.contact_kind`/`view.contact_target`.
   same value.
 - The princess body profile applies to `celestia` and `luna` and to a modded copy that sets
   `character_id` to either. It supplies the body scale and the placement anchor; an ordinary
-  off-roster mare uses the normal profile.
+  off-roster mare uses the normal profile. `shared/body_profile.gd` owns the table and the anchor;
+  `anatomy/identity.gd` delegates to it, and the act camera reads the same module.
 - The body-fit key names the body a pony's placement row belongs to: her `body_fit_id` metadata
   when an integration set one, else her identity's `character_id`, else her own id. The provider or
   catalog row resolves by that key; the player's placement override stays keyed by the stable id,
   so it follows the mare rather than a temporary body. A disguise copied onto another pony's body
   therefore uses that pony's fit, and the changelings adapter gives Queen Chrysalis her own
-  `chrysalis` fit while she wears her own body.
+  `chrysalis` fit while she wears her own body. The teats and the standing entrance follow the same
+  key, so they fit the body that is actually rendered.
 - A body may hide every mesh under its model unless the mesh carries a marker of the body's own.
   It names that marker on the pony as `anatomy_owned_meta`; attachment copies it onto the anatomy
   mesh and its parts, which ride the same skeleton. Queen Chrysalis's body uses this so its
   `chrysalis_own` hide pass leaves the anatomy alone. The marker is adapter metadata, not a
   `docs/api.md` convention.
-- The mare bits mesh, teats and skin strip ship with the pack, so a missing mesh is a broken
-  build, not a state the controller handles.
+- The mare bits mesh and skin strip ship with the pack, so a missing mesh is a broken build, not a
+  state the controller handles. The teats are generated from her body; the old mare-shaped
+  `teats.scn` is the fallback when her belly cannot be measured.
 - The winking mesh is rebuilt once per source mesh and shared. The rebuild masks the anal rim out
   of the authored `closed` and `wink` shapes, so those shapes move only the vulva.
 - Attachment loads the mare bits scene, moves its `MeshInstance3D` under a `BoneAttachment3D` on
@@ -222,10 +228,22 @@ resulting `view.contact_kind`/`view.contact_target`.
   non-missionary build restores the authored colors.
 - `coat_color` and `coat_shadow` on the anatomy material are her coat colours. The dock and the
   strip edges read that fallback; leaving it at zero made those vertices black.
-- Teats are a skinned part from `teats.scn`, bound to the mare's own skin. The id hash selects the
-  `mid`/`full` blend weights and the jiggle swing. `anatomy/teat_jiggle.gd` is parented under the
-  teats
-  and only physics-processes while they are visible.
+- Teats are grown from her own belly (`anatomy/udder.gd`), not laid on as a mare-shaped part. An
+  oval patch of her rest belly surface is found with vertical rays, pushed out into two rounded
+  lobes with nipples, and skinned with her own weights at each point, so it rides with her belly.
+  The outer ring stays on her coat and fades to the coat colour, so there is no rim. Her size comes
+  from the **Teat size** per-mare preference (Auto, Small, Medium, Large, Huge); Auto keeps the
+  princess look or a size from her name. The mesh is cached per body and rounded size, so a town of
+  mares shares a handful of builds.
+- `anatomy/body_fit.gd` carries the old mare-shaped part onto a body it was not modelled on: it
+  scales the skin binds about her anatomy anchor and moves the part so its top meets her belly the
+  way it meets the mare's. Celestia's pair also sits 7.6 cm further back. `PRINCESS_TEATS` carries
+  her size, extra bounce and slower spring; only Celestia has a hand-placed look, so Luna uses Auto.
+- `anatomy/teat_jiggle.gd` is parented under the teats and only physics-processes while they are
+  visible. The generated pair carries its sway weight in `CUSTOM0.x` (0 at the base, 1 at the tip)
+  and the material sets `sway_custom`, so the tips swing while the base stays on her belly; the old
+  asset fades with the vertex alpha instead. `swing`, `stiffness_scale` and `damping_scale` set the
+  travel and the spring.
 - The skin strip is `skin_bridge.scn`, also skinned to the mare. Its span is measured from the
   dock AABB and the teat strip end; its gap is measured from the hip bind and the authored slit.
   `strip_scale` scales the strip in model-space X around the midline.
@@ -589,7 +607,8 @@ sample of the body coat.
 - The line is independent of `features.body_coat_deform` and the body coat's skin. It needs the
   `pony_hips` bone and at least one hind-leg tip; a missing leg bone leaves the line straight.
 - The teats and skin strip are already engine-skinned and the dock rides the hair skeleton, so
-  their copies of the anatomy material set `line_count` to zero.
+  their copies of the anatomy material set `line_count` to zero. The generated teats' copy also sets
+  `sway_custom`; the shader then uses `CUSTOM0.x` for their sway instead of the vertex alpha.
 - The line is per pony and is rebuilt when the anatomy mesh changes or the placement changes. It
   retries every two seconds while it cannot be built. The line does not tick while the anatomy
   mesh is hidden.
@@ -749,6 +768,8 @@ built from the declarations, so the label, help and bounds are not restated here
 - `anatomy.dock_style`: `hide`, `coat` or `genitals`. The old `show_dock` and
   `dock_color` keys migrate in that order, with a hidden dock winning over its colour.
 - `anatomy.teats`, `anatomy.skin_strip`: optional teats and the ventral midline strip.
+- Her **Teat size** is a per-mare preference, not a setting: it lives in her Characters profile
+  (`docs/preferences.md`) and applies the next time she appears.
 - `features.anatomy_fluid`: climax and idle droplets.
 - `features.body_coat_deform`: runtime coat patch; debug.
 - `anatomy.skin_tone`, `anatomy.vulva_height`, `anatomy.anal_scale`, `anatomy.vulva_inner_color`,
@@ -827,17 +848,22 @@ built from the declarations, so the label, help and bounds are not restated here
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | vr | `vr/service.gd` | VR act controls |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
+| shared | body_profile | `shared/body_profile.gd` | princess body profile and fit key |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
+| shared | preferences | `shared/preferences.gd` | teat size preset |
 
 ## Tests
 
 Current suites:
 
-- `tests/anatomy/test_identity.gd`: the princess body profile, the body-fit key (metadata, then
-  `character_id`, then the identity id) and the off-roster list; the stable id is
-  `tests/test_pony_id.gd`. The adult capability is tested with the eligibility service in
-  `tests/eligibility/`.
+- `tests/anatomy/test_identity.gd`: the princess body profile, the profile of the body a pony is
+  wearing, the body-fit key (metadata, then `character_id`, then the identity id) and the off-roster
+  list; the stable id is `tests/test_pony_id.gd`. The adult capability is tested with the
+  eligibility service in `tests/eligibility/`.
+- `tests/anatomy/test_teats.gd`: the generated teat size curve (monotonic and clamped), the build
+  guards, the mare-rest to her-rest fit (identity for the mare, Celestia's scale and 7.59 cm back
+  offset) and the body-profile key.
 - `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
   radius, the V2 anal ring weights/centre, the coat line targets/bend/frames and the shader
   sample-count sync.
@@ -852,7 +878,8 @@ Current suites:
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
   live opening aim, follows the pose view's mouth anchor while the contact holds, returns to the
   opening once it is released, and clears the missionary inset outside the bed pose.
-- `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path.
+- `tests/anatomy/test_appearance.gd`: the anatomy material, shader and V2 rebuild path, and the
+  generated teats' own material with `sway_custom`.
 - `tests/anatomy/test_anatomy.gd`: the legacy integration suite (placement, the stable-id override
   against the body-fit default, dock visibility, the regular tail seat, idle heat, mesh refinement,
   act calls, the player part's idempotent `prepare()`, the rig and near coat patch, the vulva cut
@@ -892,6 +919,12 @@ split when the suite is next touched.
   shader, so the shaft tracks the visible opening.
 - The princesses' fitted bodies have no hair skeleton; their tail seat is unavailable and their
   pre-hidden dock stays hidden.
+- Only Celestia has a hand-placed teat look (`PRINCESS_TEATS`); Luna uses the Auto size and the
+  measured belly fit. The generated shape and its coat blend are verified in the lab by eye; the
+  headless suites pin the size curve, the guards and the fit map, not the rendered surface.
+- The generated teats need her `MareBody` mesh and skin; a body without them falls back to the old
+  mare-shaped `teats.scn`, which is placed by `anatomy/body_fit.gd` and does not blend into a
+  princess's own coat the same way.
 - The act's idle wink and the climax pulse share one countdown; adding a second scheduler would
   make them overlap.
 - The garment hull is the **rest appearance**; an idle heat wink or an act with `pantyhose_undress`
@@ -921,7 +954,8 @@ The anatomy migration is complete:
   `anatomy.gd.new_act(host)`, it keeps the controller/act handles, the typed context, the
   missionary Anon body, the VR controller, the action gates and the aim/gaze reads. The runtime
   binds a cached host dictionary and never preloads the bridge.
-- `anatomy/identity.gd`, `geometry.gd`, `garment_hull.gd`, `act/state.gd` and `facts.gd` are pure.
+- `anatomy/identity.gd`, `geometry.gd`, `garment_hull.gd`, `body_fit.gd`, `udder.gd`,
+  `act/state.gd` and `facts.gd` are pure.
   `shared/anatomy_placement.gd` stays a shared pure schema.
 - The player part and tail seating are under `anatomy/`; `main` keeps only thin debug/button
   forwards and the HUD status gateway. The player body, the dock refresh, the perf sink and the

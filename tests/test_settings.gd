@@ -9,6 +9,7 @@ extends SceneTree
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
+const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
@@ -72,6 +73,7 @@ func run() -> void:
 	_check_placement_strip()
 	_check_api_names()
 	_check_profiles()
+	_check_characters_form()
 	_check_provider_precedence()
 	_check_character_overrides()
 	_check_participation()
@@ -281,12 +283,17 @@ func _check_default_profile(profile: Variant) -> void:
 	var preferences: Variant = block.get("preferences")
 	check(preferences is Dictionary, "default.preferences is a block")
 	if preferences is Dictionary:
-		var preference_keys: Array = (preferences as Dictionary).keys()
-		preference_keys.sort()
-		var expected_preferences: Array = SETTINGS.PREFERENCES.KEYS.duplicate()
-		expected_preferences.sort()
-		check(preference_keys == expected_preferences,
-			"default.preferences has exactly the profile keys")
+		# The shipped profile carries the fields a player file inherits. A field whose neutral
+		# value is the resolver's own fallback (the teat size's `auto`) may be absent; it still
+		# resolves, so the schema check runs on the resolver's output.
+		for key: Variant in (preferences as Dictionary).keys():
+			check(str(key) in SETTINGS.PREFERENCES.KEYS,
+				"default.preferences has no unknown field: %s" % str(key))
+		var resolved: Dictionary = SETTINGS.PREFERENCES.resolve({})
+		for key: String in SETTINGS.PREFERENCES.KEYS:
+			check(resolved.has(key), "the profile resolver fills %s" % key)
+		check(str(resolved.get("teat_size", "")) == "auto",
+			"an unsaved profile keeps the automatic teat size")
 		check(str((preferences as Dictionary).get("intensity", ""))
 			in SETTINGS.PREFERENCES.INTENSITIES, "default.preferences.intensity is an option")
 		check(str((preferences as Dictionary).get("pattern", ""))
@@ -1307,6 +1314,26 @@ func _check_api_names() -> void:
 	check(clashes.is_empty(), "no settings API name shadows a Script built-in: %s" % str(clashes))
 
 
+## The Characters form draws the teat-size row in its approved place: after Neglect tolerance,
+## before the touch rows, with Auto first and the four named sizes.
+func _check_characters_form() -> void:
+	var list := VBoxContainer.new()
+	CHARACTERS_UI.build(list, 16, Callable(), Callable(), Callable())
+	var labels: Array = []
+	_collect_labels(list, labels)
+	check(labels.has("Teat size"), "the Characters form has a Teat size row")
+	for option: String in ["Auto", "Small", "Medium", "Large", "Huge"]:
+		check(labels.has(option), "the Teat size row offers %s" % option)
+	var tolerance_index := labels.find("Neglect tolerance")
+	var teat_index := labels.find("Teat size")
+	var touch_index := labels.find("Smack")
+	check(tolerance_index >= 0 and teat_index > tolerance_index,
+		"Teat size follows Neglect tolerance")
+	check(touch_index >= 0 and teat_index < touch_index,
+		"Teat size comes before the touch rows")
+	list.free()
+
+
 ## Per-mare profiles share the file and the merge; a few representative checks.
 func _check_profiles() -> void:
 	var base: Dictionary = SETTINGS._filled_default()
@@ -1319,7 +1346,8 @@ func _check_profiles() -> void:
 	var maud: Dictionary = SETTINGS.profile_for(base, SETTINGS.CHARACTER_TEMPLATES, "maud_pie")
 	check((maud["preferences"].get("talk", []) as Array).is_empty(), "Maud is quiet")
 	var modded: Dictionary = SETTINGS.profile_for(base, {}, "a_modded_mare")
-	check((modded["preferences"] as Dictionary) == (base["preferences"] as Dictionary),
+	check((modded["preferences"] as Dictionary)
+		== SETTINGS.default_preferences_for(base, "a_modded_mare"),
 		"an off-roster mare uses the global preference profile")
 	check(not str(modded.get("act_prompts", {}).get("cue", "")).is_empty(),
 		"an off-roster mare gets the built-in prompts")
@@ -1497,6 +1525,23 @@ func _check_character_overrides() -> void:
 	check(stored.has("intensity") and not stored.has("notes"),
 		"a save stores only the preference difference")
 	SETTINGS.reset_preferences("fluttershy")
+
+	# The teat size is a per-mare field: it saves as its own difference, merges over the template
+	# and resets with the rest of the profile.
+	SETTINGS.save_preferences("fluttershy", {"teat_size": "large"})
+	saved = SETTINGS.data().get("characters", {})
+	entry = (saved as Dictionary).get("fluttershy", {})
+	stored = entry.get("preferences", {})
+	check(str(stored.get("teat_size", "")) == "large" and not stored.has("notes"),
+		"a saved teat size stores only its own difference")
+	check(str(SETTINGS.preferences("fluttershy").get("teat_size", "")) == "large",
+		"the saved teat size merges over the template")
+	check(not SETTINGS.preferences_match(SETTINGS.preferences("fluttershy"),
+		SETTINGS.default_preferences("fluttershy")),
+		"a changed teat size is a real preset difference")
+	SETTINGS.reset_preferences("fluttershy")
+	check(str(SETTINGS.preferences("fluttershy").get("teat_size", "")) == "auto",
+		"a reset restores the automatic teat size")
 
 	var consent := SETTINGS.consent("fluttershy")
 	var mutated := consent.duplicate(true)

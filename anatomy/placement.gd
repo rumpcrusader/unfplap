@@ -8,9 +8,10 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
+const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 
-const WINKING_REAR_Y := 0.541
-const WINKING_REAR_Z := 0.2961
+const WINKING_REAR_Y := BODY_PROFILE.WINKING_REAR_Y
+const WINKING_REAR_Z := BODY_PROFILE.WINKING_REAR_Z
 const LIFT := 0.03
 
 var pony: Node3D

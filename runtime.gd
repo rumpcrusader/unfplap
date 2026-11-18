@@ -2686,7 +2686,11 @@ func _standing_gap() -> float:
 	var base: float = float(gaps.get(size, gaps["same height"]))
 	var gap := base * float(_camera_service().call("same_height_scale"))
 	gap += SETTINGS.gap_offset_m.get_num()
-	_log("standing size=%s gap=%.2f" % [size, gap])
+	# The gap is from her centre; a princess body's entrance sits further back or forward than
+	# the mare's the gaps were tuned on, so Anon keeps the same distance from her entrance.
+	var entrance: Vector2 = ACT_CAMERA.entrance_offset(pony)
+	gap += entrance.y
+	_log("standing size=%s gap=%.2f entrance_shift=%+.3f" % [size, gap, entrance.y])
 	return gap
 
 

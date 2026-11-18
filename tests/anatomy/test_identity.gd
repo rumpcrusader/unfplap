@@ -47,6 +47,28 @@ func run() -> void:
 	pony.identity = null
 	check(IDENTITY.body_fit_id(pony).is_empty(), "no identity has no body fit")
 	check(IDENTITY.body_fit_id(null).is_empty(), "no pony has no body fit")
+
+	# The profile follows the body she is wearing now, so a copy on a princess body fits that body
+	# and a princess wearing an ordinary body does not.
+	pony.identity = {"id": "celestia"}
+	check(IDENTITY.body_profile_for(pony).size() == 3,
+		"her own princess body names the profile")
+	pony.set_meta("body_fit_id", "chrysalis")
+	check(IDENTITY.body_profile_for(pony).is_empty(),
+		"a princess wearing an ordinary body drops the princess profile")
+	pony.remove_meta("body_fit_id")
+	pony.identity = {"id": "chrysalis", "character_id": "celestia"}
+	check(IDENTITY.body_profile_for(pony).size() == 3,
+		"a copied princess body names the profile")
+	check(IDENTITY.body_profile(pony.identity).size() == 3,
+		"the identity path keeps the copied body profile")
+	pony.set_meta("body_fit_id", "chrysalis")
+	check(IDENTITY.body_profile_for(pony).is_empty(),
+		"the body-fit metadata wins over the identity profile")
+	pony.remove_meta("body_fit_id")
+	pony.identity = null
+	check(IDENTITY.body_profile_for(pony).is_empty(), "no identity has no worn body profile")
+	check(IDENTITY.body_profile_for(null).is_empty(), "no pony has no worn body profile")
 	pony.free()
 
 	# Deduplicated off-roster ids, excluding the base roster.

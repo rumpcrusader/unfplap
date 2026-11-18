@@ -14,6 +14,7 @@ class FakePony extends Node3D:
 	var face_turn_rate := 0.45
 	var sleeping := false
 	var body_scale := 1.0
+	var identity: Variant = null
 	var skeleton: Variant = null
 	var posture: Variant = null
 	var expressions: Variant = null
@@ -349,6 +350,13 @@ func run() -> void:
 	behind6.y = player_start.origin.y
 	check(player6.global_position.is_equal_approx(behind6),
 		"standing start places Anon behind her at the act gap")
+	# A princess body's entrance sits further back than the mare's, so the same start keeps Anon
+	# the same distance from her entrance.
+	pony6.identity = {"id": "celestia"}
+	var princess_gap: float = float(runtime6.call("_standing_gap"))
+	check(absf((princess_gap - gap6) - 0.0368) < 0.0001,
+		"a princess entrance adds its back offset to the standing gap")
+	pony6.identity = null
 	var placed6: Transform3D = player6.global_transform
 	var placed_yaw6 := player6.rotation.y
 	runtime6._act_camera.look_captured = true

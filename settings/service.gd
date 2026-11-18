@@ -2026,7 +2026,7 @@ static func default_preferences(id: String) -> Dictionary:
 static func preferences_match(a: Dictionary, b: Dictionary) -> bool:
 	var left := PREFERENCES.resolve(a)
 	var right := PREFERENCES.resolve(b)
-	for key: String in ["intensity", "pattern", "warmth", "tolerance", "notes"]:
+	for key: String in ["intensity", "pattern", "warmth", "tolerance", "notes", "teat_size"]:
 		if str(left.get(key, "")) != str(right.get(key, "")):
 			return false
 	for key: String in ["touch", "talk", "dislikes"]:
@@ -2041,7 +2041,7 @@ static func _preferences_diff(values: Dictionary, base: Dictionary) -> Dictionar
 	var left := PREFERENCES.resolve(values)
 	var right := PREFERENCES.resolve(base)
 	var out: Dictionary = {}
-	for key: String in ["intensity", "pattern", "warmth", "tolerance", "notes"]:
+	for key: String in ["intensity", "pattern", "warmth", "tolerance", "notes", "teat_size"]:
 		if str(left.get(key, "")) != str(right.get(key, "")):
 			out[key] = left[key]
 	for key: String in ["touch", "talk", "dislikes"]:

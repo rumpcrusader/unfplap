@@ -114,6 +114,8 @@ class FakeStandingCamera extends RefCounted:
 class FakePony extends Node3D:
 	var skeleton: Variant = null
 	var secondary: Variant = null
+	var identity: Variant = null
+	var body_scale := 1.0
 
 
 class FakeSecondary extends RefCounted:
@@ -194,6 +196,7 @@ func run() -> void:
 	_check_retarget()
 	_check_lock_and_eye()
 	_check_eye_line()
+	_check_entrance()
 	_check_look()
 	_check_free_look()
 	_check_motion()
@@ -543,6 +546,18 @@ func _check_eye_line() -> void:
 		"the live eye line is relative to the raised player root")
 	camera.call("restore_eye_override")
 
+	# A head parented under the neck reads its rest line in skeleton space: the neck's rest offset
+	# is part of the line, so a pose that moves the neck carries the eye with it.
+	player.global_position.y = 0.0
+	skeleton.set_bone_rest(head, Transform3D(Basis.IDENTITY, Vector3(0.0, 0.4, 0.0)))
+	var local_eye: float = camera.call("pony_eye_height")
+	var neck := skeleton.add_bone("pony_neck1")
+	skeleton.set_bone_parent(head, neck)
+	skeleton.set_bone_rest(neck, Transform3D(Basis.IDENTITY, Vector3(0.0, 1.2, 0.0)))
+	var parented_eye: float = camera.call("pony_eye_height")
+	check(near(parented_eye - local_eye, 1.2, 0.001),
+		"a parented head measures its global rest line")
+
 	root.remove_child(pony)
 	pony.free()
 	main.remove_child(player)
@@ -550,6 +565,47 @@ func _check_eye_line() -> void:
 	player.free()
 	(main.view as Camera3D).free()
 	main.free()
+
+
+## A princess body's entrance sits higher or lower and further back than the mare's, and the
+## offset follows the body she is wearing and her live scale.
+func _check_entrance() -> void:
+	var mare := FakePony.new()
+	mare.identity = {"id": "an_ordinary_mare"}
+	check(CAMERA.entrance_offset(mare).is_equal_approx(Vector2.ZERO),
+		"an ordinary mare keeps the tuned entrance")
+	check(CAMERA.entrance_offset(null).is_equal_approx(Vector2.ZERO),
+		"no pony has no entrance offset")
+	mare.free()
+
+	var celestia := FakePony.new()
+	celestia.identity = {"id": "celestia"}
+	var cel := CAMERA.entrance_offset(celestia)
+	check(near(cel.x, 0.312) and near(cel.y, 0.0368),
+		"Celestia's entrance is higher and further back")
+	celestia.body_scale = 1.5
+	check(near(CAMERA.entrance_offset(celestia).x, 0.312 * 1.5),
+		"the entrance offset follows her live body scale")
+	celestia.free()
+
+	var luna := FakePony.new()
+	luna.identity = {"id": "luna"}
+	var lun := CAMERA.entrance_offset(luna)
+	check(near(lun.x, 0.055) and near(lun.y, -0.0696),
+		"Luna's entrance is lower and further forward")
+	luna.free()
+
+	# The offset follows the visible body: a copy on a princess body takes that body's entrance,
+	# and a princess wearing an ordinary body takes the mare's.
+	var copy := FakePony.new()
+	copy.identity = {"id": "chrysalis", "character_id": "celestia"}
+	copy.set_meta("body_fit_id", "chrysalis")
+	check(CAMERA.entrance_offset(copy).is_equal_approx(Vector2.ZERO),
+		"a princess wearing an ordinary body uses the mare's entrance")
+	copy.set_meta("body_fit_id", "luna")
+	check(near(CAMERA.entrance_offset(copy).x, 0.055),
+		"a copy on a princess body uses that body's entrance")
+	copy.free()
 
 
 func _check_look() -> void:

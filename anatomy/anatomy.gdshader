@@ -57,6 +57,9 @@ uniform vec4 coat_color: source_color;
 uniform vec4 coat_shadow: source_color;
 uniform vec3 sway_left = vec3(0.0);
 uniform vec3 sway_right = vec3(0.0);
+// integration: the generated teats (anatomy/udder.gd) carry their own sway weight in CUSTOM0.x,
+// 0 at the base and 1 at the tip, so the tips swing and the base stays on her belly.
+uniform float sway_custom = 0.0;
 // integration: the skin strip is trimmed by UV.x along her midline.
 uniform float span_from = -1.0;
 uniform float span_to = 2.0;
@@ -122,7 +125,8 @@ void vertex() {
 		VERTEX.x *= strip_scale;
 	}
 	apply_coat_line(VERTEX, NORMAL);
-	VERTEX += (VERTEX.x < 0.0 ? sway_left : sway_right) * (1.0 - COLOR.b);
+	float sway_weight = sway_custom > 0.5 ? CUSTOM0.x : (1.0 - COLOR.b);
+	VERTEX += (VERTEX.x < 0.0 ? sway_left : sway_right) * sway_weight;
 	if (hole_target > lip_radius) {
 		vec3 spread = VERTEX - vulva_centre;
 		float radius = length(spread.xy);

@@ -235,11 +235,6 @@ func tail_ready(pony: Node) -> void:
 func refresh_tails() -> void:
 	if is_instance_valid(tail_seat):
 		tail_seat.call("refresh_all")
-	if not is_instance_valid(main) or not main.has_method("apply_custom_tail"):
-		return
-	for pony: Variant in _controllers.keys():
-		if is_instance_valid(pony):
-			main.call("apply_custom_tail", pony)
 
 
 func refresh_dock_color(pony: Node) -> void:
@@ -336,7 +331,8 @@ func placement_debug(op: String, value := 0.0) -> String:
 				SETTINGS.save_anatomy_placement(id,
 					SETTINGS.anatomy_placement_default(id, false, fit_id), fit_id)
 			placement_refresh()
-			_apply_custom_tail(target)
+			if id != "default":
+				_apply_custom_tail(target)
 			return "%s %s" % [id, PLACEMENT.text(placement_values(id, fit_id))]
 		"text":
 			return "%s %s" % [id, PLACEMENT.text(values)]
@@ -348,7 +344,8 @@ func placement_debug(op: String, value := 0.0) -> String:
 			else:
 				SETTINGS.save_anatomy_placement(id, values, fit_id)
 			placement_refresh()
-			_apply_custom_tail(target)
+			if id != "default":
+				_apply_custom_tail(target)
 			return "%s %s" % [id, PLACEMENT.text(values)]
 
 

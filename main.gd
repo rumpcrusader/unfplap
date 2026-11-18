@@ -513,6 +513,10 @@ func _apply_settings_changed() -> void:
 	refresh_anatomy()
 	if is_instance_valid(anatomy):
 		anatomy.call("refresh_tails")
+	if shape_change != null:
+		for pony: Variant in _runtimes.keys():
+			if is_instance_valid(pony):
+				apply_custom_tail(pony)
 	if is_instance_valid(pantyhose):
 		pantyhose.call("apply_live_settings")
 	if is_instance_valid(stock_smack):

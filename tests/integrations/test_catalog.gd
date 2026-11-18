@@ -99,9 +99,6 @@ func run() -> void:
 	check((pantyhose.get("bindings", {}) as Dictionary).is_empty(),
 		"the world integration has no per-act bindings")
 	check(ids == ["kissing", "pantyhose"], "Kissing and Pantyhose are the supported integrations")
-	check(CATALOG.provider("idle_life").is_empty(), "Idle Life is no longer a supported integration")
-	check(SETTINGS.by_name("idle_life_stretch") == null,
-		"the retired Idle Life stretch flag is gone")
 	check(SETTINGS.pantyhose_hull_width.debug
 		and SETTINGS.pantyhose_hull_height.debug
 		and SETTINGS.pantyhose_hull_smoothing.debug

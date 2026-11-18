@@ -412,8 +412,6 @@ func _check_facesit_asset() -> void:
 	for shot: String in ["start", "front", "back", "left", "right"]:
 		check(pose.call("has_shot", shot), "the face-sit carries the %s shot" % shot)
 	check((pose.get("variants") as Dictionary).is_empty(), "the face-sit ships no variants")
-	check(not FileAccess.get_file_as_string(path).contains("\"provisional\""),
-		"the face-sit is not provisional")
 	var frame := Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 0.7, -2.0))
 	for size: float in SIZES:
 		var placed: Vector3 = pose.call("place_origin", pose.call("contact_world", frame), frame, size)

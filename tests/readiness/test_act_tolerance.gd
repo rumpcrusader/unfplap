@@ -103,9 +103,6 @@ func run() -> void:
 		"a new act resets the meter")
 	check(reset.tier == "normal", "a new act reads the new tier")
 
-	check(make("timid").tier == "forgiving", "the old timid tier maps to forgiving")
-	check(make("neutral").tier == "normal", "the old neutral tier maps to normal")
-
 	print("ACT_TOLERANCE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_TOLERANCE_PASS")

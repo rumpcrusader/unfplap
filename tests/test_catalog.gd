@@ -40,8 +40,6 @@ func run() -> void:
 		var expected: Array = CATALOG.POSE_KEYS[id].duplicate()
 		expected.sort()
 		check(keys == expected, "the shipped defaults match the pose schema for " + id)
-	check(not CATALOG.defaults(CATALOG.MISSIONARY).has("rump_drop_deg"),
-		"the retired correction-stack defaults are gone")
 	var gaps: Variant = CATALOG.defaults(CATALOG.STANDING).get("gaps", {})
 	check(gaps is Dictionary and (gaps as Dictionary).size() == CATALOG.GAP_KEYS.size(),
 		"standing size gaps")

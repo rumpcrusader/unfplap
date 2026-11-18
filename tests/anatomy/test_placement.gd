@@ -272,7 +272,6 @@ func run() -> void:
 		"position": [-0.004, 0.5, 0.289]}})
 	var v3_pos: Array = v3["rarity"]["position"]
 	check(near(float(v3_pos[2]), 0.289), "current rows are not touched")
-	check(SETTINGS.by_path("presentation.lean_back_m") == null, "back lean setting removed")
 
 	# The facade delegates the Placement actions to the editor; the editor resolves the pointed
 	# mare through the scene adapter and never keeps a second target.

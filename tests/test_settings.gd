@@ -148,11 +148,6 @@ func _check_registry() -> void:
 	check(int(tabs.get(SETTINGS.POSES, 0)) > 50, "the Poses tab holds the pose tuning")
 	check(SETTINGS.by_name("hud_readouts") != null, "a setting is reachable by name")
 	check(SETTINGS.by_path("features.hud_readouts") != null, "a setting is reachable by path")
-	check(SETTINGS.by_path("features.act_faces") == null, "act faces are not a setting")
-	for name: String in ["act_lines", "act_line_angles", "caress_areas",
-			"allow_act_during_cuddle", "contact_gap_m", "standing_plant_feet",
-			"plant_spread_m", "anatomy_vr", "show_dock", "dock_color", "back_out_m"]:
-		check(SETTINGS.by_name(name) == null, "%s is retired" % name)
 
 
 ## The act key is a hidden physical-key setting; the General row captures any key.

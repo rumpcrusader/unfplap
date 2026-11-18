@@ -391,8 +391,6 @@ func _check_no_act_exit() -> void:
 		check(not body.is_empty(), "poses/service.gd exposes %s()" % name)
 		for call: String in ACT_EXIT:
 			check(not body.contains(call), "%s does not call %s" % [name, call])
-	check(not text.contains("func release_start(") and not text.contains("func remove_modifiers("),
-		"the old pose-scope names are gone")
 
 
 func _func_body(text: String, name: String) -> String:

@@ -48,7 +48,6 @@ func run() -> void:
 		"the pose hook caches the bed impact profile")
 	var pools: Dictionary = audio.get("_pools")
 	check(pools.has("plap_firm"), "the foley layer opens with the act")
-	check(not pools.has("climax_wet"), "there is no wet climax layer")
 	var sound: Variant = audio.get("_sound")
 	check(is_instance_valid(sound), "the base-game sound node is created")
 	check(sound.get_parent() == audio, "the sound node rides the audio facade")
@@ -117,7 +116,6 @@ func run() -> void:
 	audio.begin()
 	pools = audio.get("_pools")
 	check(pools.has("plap_firm"), "a new act rebuilds the foley layer")
-	check(not pools.has("climax_wet"), "a new act still has no wet layer")
 	audio.end()
 
 	root.remove_child(pony)

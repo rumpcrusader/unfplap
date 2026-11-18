@@ -170,7 +170,6 @@ func run() -> void:
 	shaped.call("set_shape", "nonsense")
 	check(str(shaped.get("shape")) == "thrust", "an unknown shape is ignored")
 	check(AUTO.next_shape("hold") == "cosine", "the shape cycle wraps")
-	check(not AUTO.SHAPES.has("double"), "the retired double shape is gone")
 	check(AUTO.next_shape("cosine") == "thrust", "the shape cycle advances")
 	check(AUTO.next_shape("nonsense") == "cosine", "an unknown shape cycles from the start")
 

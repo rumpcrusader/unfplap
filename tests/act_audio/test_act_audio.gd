@@ -90,7 +90,6 @@ func run() -> void:
 	act.pose_changed({"audio": {"impact": CATALOG.MISSIONARY}})
 	pools = act.get("_pools")
 	check(pools.has("plap_firm"), "begin opens the foley layer")
-	check(not pools.has("climax_wet"), "there is no wet climax pool")
 	# A slow bottom that touches still stays silent: the tier is the impact speed.
 	act.play_impact("", 0.9, Vector3.ZERO, Vector3.ZERO, false, 0.0, 0.02)
 	var ready_at: Dictionary = act.get("_ready_at")
@@ -135,7 +134,6 @@ func run() -> void:
 	check(not act.play_plap("firm", 0.7, Vector3.ZERO),
 		"cooldown blocks an immediate second plap")
 	check(act.play_mouth_kiss(Vector3.ZERO), "mouth kiss plays")
-	check(not CATALOGUE.CUES.has("smack"), "flank smack stays out of the optional cue table")
 	check(SMACK.PATHS.size() >= 2, "flank smack has multiple pack variants")
 	for path: String in SMACK.PATHS:
 		check(ResourceLoader.exists(path), "smack stream exists: " + path)

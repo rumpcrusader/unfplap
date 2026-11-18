@@ -444,12 +444,6 @@ func refresh() -> void:
 		set_process(false)
 
 
-## Compatibility forward for a caller with only the old prepare hook. The body-change service owns
-## the form application.
-func prepare_pony(pony: Node) -> void:
-	_notify_body_ready(pony)
-
-
 ## Build one presented body's form. Her own body carries her rig, fit, marker and spring-tail
 ## root; a borrowed form carries the copied pony's fit and rig, keeps the source marker and has no
 ## own tail root. The old body and unrelated ponies never receive the new body's form, and a late

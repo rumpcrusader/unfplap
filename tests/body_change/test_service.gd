@@ -359,7 +359,6 @@ func _check_policy() -> void:
 	check(base.offer_prompt().is_empty(), "the base policy has no offer prompt")
 	check(base.on_offer_accepted(context).is_empty(), "the base offer has no effects")
 	check(base.on_reveal(context).is_empty(), "the base reveal has no effects")
-	check(base.on_offer_accepted(context).comfort == 0, "a fresh effect marks no comfort")
 
 	var policy := RecordingPolicy.new()
 	policy.on_act_event(POLICY.ActEvent.CLIMAX_END, context)
@@ -375,8 +374,8 @@ func _check_policy() -> void:
 
 	var empty := POLICY.BodyChangeEffects.new()
 	check(empty.is_empty(), "a fresh effects value is empty")
-	empty.comfort = 1
-	check(not empty.is_empty(), "a comfort mark makes the effects non-empty")
+	empty.heat = 1.0
+	check(not empty.is_empty(), "a heat mark makes the effects non-empty")
 	body.free()
 
 

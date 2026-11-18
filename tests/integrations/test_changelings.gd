@@ -681,7 +681,6 @@ func run() -> void:
 	var reveal := policy.on_reveal(offer_context)
 	check(near(reveal.heat, 30.0), "the reveal adds the readiness heat")
 	check(near(reveal.peak, 150.0), "the reveal records the peak")
-	check(reveal.comfort == 1, "the reveal marks one comfort beat")
 	check(reveal.memory_kind == "form_reveal" and not reveal.cue.is_empty(),
 		"the reveal names its memory and cue")
 

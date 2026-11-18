@@ -98,6 +98,7 @@ class FakeSource extends "res://mods/unfplap/body_change/source.gd":
 	var shape_id := ""
 	var active_flag := true
 	var shape := ""
+	var form_name := ""
 	var asks := false
 	var named := ""
 	var note := ""
@@ -165,6 +166,8 @@ class FakeSource extends "res://mods/unfplap/body_change/source.gd":
 		if change != null and not change.target_form_id.is_empty():
 			form.form_id = change.target_form_id
 			form.fit_id = change.target_form_id
+		if not form_name.is_empty():
+			form.form_name = form_name
 		return form
 
 	func _begin(form_id: String, origin: BODY_CHANGE.Origin) -> void:
@@ -212,9 +215,15 @@ class FakePolicy extends "res://mods/unfplap/shared/body_change_policy.gd":
 	var prompt_calls := 0
 	var accepted_calls := 0
 	var reveal_calls := 0
+	var events: Array[int] = []
 	var last_offer: Dictionary = {}
 	var last_accepted: Dictionary = {}
 	var last_reveal: Dictionary = {}
+	var last_event: Dictionary = {}
+
+	func on_act_event(event: POLICY.ActEvent, context: POLICY.BodyChangeActContext) -> void:
+		events.append(int(event))
+		last_event = _snapshot(context)
 
 	func should_offer(context: POLICY.BodyChangeActContext) -> bool:
 		offer_calls += 1
@@ -278,6 +287,9 @@ class FakeMemory extends RefCounted:
 
 	func note(kind: int, id: String, event_id: String) -> void:
 		notes.append({"kind": kind, "id": id, "event_id": event_id})
+
+	func witnesses(_id: String, _name: String, _serial: int, _pony: Variant) -> Array:
+		return []
 
 
 ## The talk turn the player's line arrives on. The runtime reads the same director fields the
@@ -503,6 +515,8 @@ func _free_fixture(made: Dictionary) -> void:
 func run() -> void:
 	_check_observation()
 	_check_handover()
+	_check_form_display_name()
+	_check_policy_events()
 	_check_ai_change()
 	_check_failed_change()
 	_check_source_gone()
@@ -607,6 +621,102 @@ func _check_handover() -> void:
 	check(not new_pony.has_meta("sex_active"), "the one exit clears the new body's flag")
 	check(runtime._hold.nav == null and runtime._hold.token.is_empty(),
 		"the one exit gives up the act's navigator lease")
+	_free_fixture(f)
+
+
+## The presented form's name drives the act caption, not the identity's display name. The stable
+## id and event stay the act's; an empty form name falls back to the identity display name.
+func _check_form_display_name() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	var body_change: BODY_CHANGE_SERVICE = f["body_change"]
+	source.form_name = "Borrowed Form"
+	check(bool(runtime.request_form_change(false, "rarity", true).get("ok", false)),
+		"a player-named borrowed form starts")
+	runtime._suspend_for_body_swap(source.active_change())
+	var new_pony := _pony("Identity Name", "BorrowedBody")
+	root.add_child(new_pony)
+	source.new_pony = new_pony
+	source.shape = "rarity"
+	main._on_pony(new_pony)
+	runtime._body_swap_tick(0.1)
+	check(not runtime._suspended, "the borrowed form resumes the act")
+	check(str(runtime._display_name) == "Borrowed Form",
+		"the act caption takes the presented form's name")
+	check(str(runtime._act_facts.display_name) == "Borrowed Form",
+		"the act facts carry the presented form's name")
+	check(str(runtime._id) == "test_mare", "the borrowed form keeps the stable pony id")
+	check(str(runtime._event_id) == "intimacy_test_mare_1",
+		"the borrowed form keeps the act's event id")
+	var stored := body_change.form_for(new_pony)
+	check(stored != null and stored.form_name == "Borrowed Form",
+		"the service stores the presented form's name")
+	var previous_revision := stored.revision if stored != null else 0
+	runtime.state = RUNTIME.State.IDLE
+	var fallback := body_change.default_form(new_pony)
+	fallback.form_name = ""
+	fallback.revision = previous_revision + 1
+	body_change.apply_form(new_pony, fallback)
+	check(str(runtime._display_name) == "Identity Name",
+		"an empty form name falls back to the identity display name")
+	check(str(runtime._act_facts.display_name) == "Identity Name",
+		"the fallback reaches the act facts")
+	_free_fixture(f)
+
+
+## Every generic act milestone reaches the provider policy through the runtime's one dispatch
+## helper, in the act's own order.
+func _check_policy_events() -> void:
+	var f := _fixture()
+	var main: FakeMain = f["main"]
+	var runtime: Node = f["runtime"]
+	var source: FakeSource = f["source"]
+	var policy: FakePolicy = f["policy"]
+	main.memory = FakeMemory.new()
+	runtime.state = RUNTIME.State.POSING_IN
+	runtime._enter_active()
+	runtime.state = RUNTIME.State.CLIMAX
+	runtime.pony_climaxes = 1
+	runtime._finish_climax()
+	runtime._enter_afterglow()
+
+	source.shape = ""
+	var named: Dictionary = runtime.request_form_change(false, "rarity", true)
+	check(bool(named.get("ok", false)), "a player-named change starts after the afterglow entry")
+	runtime._suspend_for_body_swap(source.active_change())
+	var named_body := _pony("Named Identity", "NamedBody")
+	root.add_child(named_body)
+	source.new_pony = named_body
+	source.shape = "rarity"
+	main._on_pony(named_body)
+	runtime._body_swap_tick(0.1)
+	check(not runtime._suspended, "the named change resumes")
+	source.changing = false
+
+	source.old_pony = named_body
+	source.shape = ""
+	var reveal: Dictionary = runtime.request_form_change(true, "", true)
+	check(bool(reveal.get("ok", false)), "a player-requested reveal starts")
+	runtime._suspend_for_body_swap(source.active_change())
+	var own_body := _pony("Own Identity", "OwnBody")
+	root.add_child(own_body)
+	source.new_pony = own_body
+	main._on_pony(own_body)
+	runtime._body_swap_tick(0.1)
+	check(not runtime._suspended, "the reveal resumes")
+
+	var expected: Array[int] = [
+		int(POLICY.ActEvent.ACTIVE), int(POLICY.ActEvent.CLIMAX_END),
+		int(POLICY.ActEvent.AFTERGLOW), int(POLICY.ActEvent.OFFER_ACCEPTED),
+		int(POLICY.ActEvent.FORM_SETTLED), int(POLICY.ActEvent.REVEALED),
+		int(POLICY.ActEvent.FORM_SETTLED),
+	]
+	check(policy.events == expected, "the policy receives the six act milestones in order")
+	check(int(policy.last_event.get("origin", -1)) == int(BODY_CHANGE.Origin.PLAYER),
+		"the settled form event carries the player's origin")
+	runtime.force_stop()
 	_free_fixture(f)
 
 
@@ -1272,10 +1382,15 @@ func _check_idle_body_binding() -> void:
 	var revised := body_change.default_form(old_pony)
 	revised.form_id = "rarity"
 	revised.fit_id = "rarity"
+	revised.form_name = "Idle Borrowed Form"
 	revised.revision = 1
 	body_change.apply_form(old_pony, revised)
 	check(int(runtime.state) == RUNTIME.State.IDLE, "a same-node revision keeps the idle state")
 	check(body_change.form_for(old_pony) == revised, "the idle body takes the revised form")
+	check(str(runtime._display_name) == "Idle Borrowed Form",
+		"an idle form revision takes the presented form's name")
+	check(str(runtime._act_facts.display_name) == "Idle Borrowed Form",
+		"the idle act facts carry the presented form's name")
 	check(not runtime._suspended and not main.body_swap_pending(),
 		"a same-node revision never starts a swap")
 	_free_fixture(f)

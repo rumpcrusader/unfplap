@@ -1512,7 +1512,7 @@ func _physics_tick(delta: float) -> void:
 	if state == State.POSING_IN:
 		_pose_in_left -= delta
 		if _pose_in_left <= 0.0:
-			state = State.ACTIVE
+			_enter_active()
 			# The start snapshot caught Anon mid stand-up, so his eye height was the reclined one; the
 			# scene is settled now, and restoring to this is what puts the camera back correctly.
 			if _pose_family() == "bed":
@@ -1732,9 +1732,7 @@ func _read_id() -> bool:
 		_id = PONY_ID.from("", pony.get("identity"))
 	if _id.is_empty():
 		return false
-	var identity: Variant = pony.get("identity")
-	if identity != null:
-		_display_name = str(identity.get("display_name")) if identity.get("display_name") != null else _id
+	_adopt_display_name(pony)
 	return true
 
 func _suppress_auto_cuddle() -> void:
@@ -2412,6 +2410,7 @@ func _is_presented_body(body: Node3D) -> bool:
 ## One idempotent rebind for the body-change path. The act resume owns its own ordered rebuild;
 ## this is the idle and in-place revision refresh and never touches the act state.
 func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
+	_apply_form_display_name(form)
 	_pose_service().bind(self, pony)
 	_face.bind(pony, self)
 	_bind_act_view()
@@ -2428,6 +2427,9 @@ func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 	_integrations_controller()
 	if state != State.IDLE:
 		_camera_service().call("apply_eye_override", _start_family(), _player_pony, form)
+		if not _features.is_empty() and is_instance_valid(main) and is_instance_valid(main.hud):
+			_sync_hud_facts()
+			main.hud.update_from(_act_facts)
 
 
 ## Resume the same act on the adopted body: anatomy, pose, camera, ownership and the body-bound
@@ -2451,6 +2453,7 @@ func _resume_after_body_swap() -> void:
 		main.call("clear_body_swap", self)
 	_pose_service().bind(self, pony)
 	_face.bind(pony, self)
+	_adopt_display_name(pony)
 	_sync_act_facts()
 	pony.sleeping = false
 	if pony.has_method("set_sim_tier"):
@@ -2491,6 +2494,8 @@ func _resume_after_body_swap() -> void:
 	_log("body swap resumed pony=%s id=%s form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
 		str(pony.name), _id, _change_form_id(change), state, _swap_pose, depth, pony_climaxes])
 	_complete_form_change(change, changed, confirmed)
+	if changed:
+		_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.FORM_SETTLED, change)
 
 
 ## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is
@@ -2584,17 +2589,25 @@ func _shape_source() -> BODY_CHANGE_SOURCE:
 	return service.source_for(pony)
 
 
-## The new body's name for the act caption and dialogue. The stable id stays the act's id: a
-## borrowed shape still belongs to the same relationship, preferences and history.
+## The presented body's name for the act caption and dialogue. The form's presentation name wins;
+## the identity's display name is the fallback. The stable id stays the act's id: a borrowed shape
+## still belongs to the same relationship, preferences and history.
 func _adopt_display_name(new_pony: Node) -> void:
 	if not is_instance_valid(new_pony):
 		return
-	var identity: Variant = new_pony.get("identity")
-	if identity == null:
-		_display_name = _id
-		return
-	var name: Variant = identity.get("display_name")
-	_display_name = str(name) if name != null and not str(name).is_empty() else _id
+	_apply_form_display_name(_body_form(), new_pony)
+
+
+## Apply one presented form's name. An empty form name falls back to the identity's display name,
+## then to the stable act id.
+func _apply_form_display_name(form: BODY_FORM.BodyForm, new_pony: Node = null) -> void:
+	var name := form.form_name.strip_edges() if form != null else ""
+	if name.is_empty():
+		var body: Node = new_pony if is_instance_valid(new_pony) else pony
+		var identity: Variant = body.get("identity") if is_instance_valid(body) else null
+		var display: Variant = identity.get("display_name") if identity != null else null
+		name = str(display).strip_edges() if display != null else ""
+	_display_name = name if not name.is_empty() else _id
 
 
 func _begin_standing_placement() -> Transform3D:
@@ -3637,6 +3650,7 @@ func _commit_form_reveal(change: BODY_CHANGE) -> void:
 	_form_reveal_done = true
 	_set_face(0.85, FACE.ACT_LIDS)
 	_apply_form_effects(effects)
+	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.REVEALED, change)
 	_log("form reveal id=%s event=%s readiness=%.0f" % [_id, _event_id, satisfaction])
 
 
@@ -3648,6 +3662,7 @@ func _apply_offer_accepted(change: BODY_CHANGE) -> void:
 		return
 	_apply_form_effects(policy.on_offer_accepted(_form_context_for(_body_form(),
 		BODY_CHANGE.Origin.PLAYER, change)))
+	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.OFFER_ACCEPTED, change)
 
 
 ## Execute one typed effect value. `0`/`""` means none, so a neutral value is a no-op.
@@ -3702,6 +3717,17 @@ func _form_context_for(form: BODY_FORM.BodyForm, origin: BODY_CHANGE.Origin,
 	context.max_climaxes = _max_pony_climaxes
 	context.act_active = state == State.ACTIVE and not _suspended
 	return context
+
+
+## Dispatch one generic act milestone to the provider policy. The context is the reused act value;
+## a provider that does not care keeps the base no-op.
+func _dispatch_policy_event(event: BODY_CHANGE_POLICY.ActEvent,
+		change: BODY_CHANGE = null) -> void:
+	var policy := _shape_policy(_change_source(change))
+	if policy == null:
+		return
+	var origin := change.origin if change != null else BODY_CHANGE.Origin.PROVIDER
+	policy.on_act_event(event, _form_context_for(_body_form(), origin, change))
 
 
 func _form_status(text: String) -> void:
@@ -4143,9 +4169,16 @@ func _queue_climax_reaction() -> void:
 	_dialogue_service().note_reaction(key, cue, now + _cue_reaction_max_age_s)
 	_log("utterance kind=reaction key=%s" % key)
 
+## The first ACTIVE entry after the pose settles. Later returns from a climax are CLIMAX_END.
+func _enter_active() -> void:
+	state = State.ACTIVE
+	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
+
+
 ## The pony climax ends on its own. It returns to ACTIVE unless the configured limit was
 ## reached; afterglow is the player's choice, not the climax state's automatic exit.
 func _finish_climax() -> void:
+	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.CLIMAX_END)
 	if _max_pony_climaxes > 0 and pony_climaxes >= _max_pony_climaxes:
 		_enter_afterglow()
 		return
@@ -4263,6 +4296,7 @@ func _afterglow_begin() -> void:
 	_commit_afterglow()
 	state = State.AFTERGLOW
 	_form_hint_tick()
+	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.AFTERGLOW)
 	_sync_act_facts()
 	# The oral afterglow releases the mouth contact and keeps the turned pose. The pose row's
 	# afterglow profile is passive, so no standing close window opens.

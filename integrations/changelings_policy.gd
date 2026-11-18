@@ -13,7 +13,6 @@ const REVEAL_HEAT := 30.0
 const REVEAL_PEAK := 150.0
 const REVEAL_CUE := "She shows you the real her."
 const REVEAL_MEMORY := "form_reveal"
-const REVEAL_COMFORT := 1
 
 
 ## The offer waits until the act is active, after at least one pony climax, and only while she
@@ -41,5 +40,4 @@ func on_reveal(_context: POLICY.BodyChangeActContext) -> POLICY.BodyChangeEffect
 	effects.peak = REVEAL_PEAK
 	effects.cue = REVEAL_CUE
 	effects.memory_kind = REVEAL_MEMORY
-	effects.comfort = REVEAL_COMFORT
 	return effects

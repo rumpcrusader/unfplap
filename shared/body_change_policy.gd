@@ -15,13 +15,12 @@ enum ActEvent { ACTIVE, CLIMAX_END, AFTERGLOW, OFFER_ACCEPTED, REVEALED, FORM_SE
 class BodyChangeEffects extends RefCounted:
 	var heat: float = 0.0
 	var peak: float = 0.0
-	var comfort: int = 0
 	var cue: String = ""
 	var memory_kind: String = ""
 
 	## True when this value asks for no effect.
 	func is_empty() -> bool:
-		return is_zero_approx(heat) and is_zero_approx(peak) and comfort == 0 \
+		return is_zero_approx(heat) and is_zero_approx(peak) \
 			and cue.is_empty() and memory_kind.is_empty()
 
 

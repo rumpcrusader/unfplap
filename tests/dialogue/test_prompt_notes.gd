@@ -30,6 +30,7 @@ func run() -> void:
 	_check_outside()
 	_check_act()
 	_check_afterglow()
+	_check_body()
 	print("PROMPT_NOTES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("PROMPT_NOTES_PASS")
@@ -84,3 +85,33 @@ func _check_afterglow() -> void:
 	check(not quiet.contains("-  "), "an empty beat adds no stray row")
 	var history := PROMPTS.note({"state": STATE_AFTERGLOW, "history": "- a good act"})
 	check(not history.contains("- a good act"), "the history note is not recited in afterglow")
+
+
+## The live body line tells the model which body Anon can see, independently of stale event history.
+## It appears only for a pony a body-change source handles.
+func _check_body() -> void:
+	var borrowed := PROMPTS.note({"state": STATE_IDLE, "form_source": true,
+		"form_name": "Luna", "form_borrowed": true})
+	check(borrowed.contains("Luna") and borrowed.contains("not your own body"),
+		"a borrowed form names the presented body")
+	var own := PROMPTS.note({"state": STATE_IDLE, "form_source": true,
+		"form_name": "Queen Chrysalis", "form_borrowed": false})
+	check(own.contains("your own body") and own.contains("Queen Chrysalis"),
+		"the own form says the body is her own")
+	check(PROMPTS.note({"state": STATE_IDLE, "form_name": "Luna", "form_borrowed": true}) == "",
+		"a pony with no body-change source adds no body line")
+	var active := PROMPTS.note({"state": STATE_ACTIVE, "form_source": true,
+		"form_name": "Luna", "form_borrowed": true})
+	check(active.contains("Luna") and active.contains("having sex"),
+		"the body line rides with the act note")
+	var afterglow := PROMPTS.note({"state": STATE_AFTERGLOW, "form_source": true,
+		"form_name": "Luna", "form_borrowed": true})
+	check(afterglow.contains("Luna") and afterglow.contains("afterglow"),
+		"the body line rides with the afterglow note")
+	var unnamed := PROMPTS.note({"state": STATE_IDLE, "form_source": true,
+		"form_name": "", "form_borrowed": true})
+	check(unnamed.contains("borrowed shape"), "an unnamed borrowed form still reads as borrowed")
+	var history := PROMPTS.note({"state": STATE_IDLE, "form_source": true,
+		"form_name": "Luna", "form_borrowed": true, "history": "- a good act"})
+	check(history.contains("Luna") and history.contains("- a good act"),
+		"the body line keeps the idle history")

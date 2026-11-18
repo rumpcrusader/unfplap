@@ -653,6 +653,9 @@ func _check_form_display_name() -> void:
 	var stored := body_change.form_for(new_pony)
 	check(stored != null and stored.form_name == "Borrowed Form",
 		"the service stores the presented form's name")
+	var note := str(runtime.prompt_note())
+	check(note.contains("Borrowed Form") and note.contains("not your own body"),
+		"the dialogue note names the borrowed body")
 	var previous_revision := stored.revision if stored != null else 0
 	runtime.state = RUNTIME.State.IDLE
 	var fallback := body_change.default_form(new_pony)
@@ -663,6 +666,8 @@ func _check_form_display_name() -> void:
 		"an empty form name falls back to the identity display name")
 	check(str(runtime._act_facts.display_name) == "Identity Name",
 		"the fallback reaches the act facts")
+	check(str(runtime.prompt_note()).contains("your own body"),
+		"the dialogue note follows the return to the own body")
 	_free_fixture(f)
 
 

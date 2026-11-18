@@ -4258,6 +4258,7 @@ func _relationship_note() -> String:
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.
 func prompt_note() -> String:
 	_read_id()
+	var form := _body_form()
 	return _dialogue_service().prompt_note({
 		"state": state,
 		"warm": _face.warm_note,
@@ -4267,6 +4268,9 @@ func prompt_note() -> String:
 		"caressing": _hand_controller().any_active(),
 		"leaning": _act_camera.lean_forward >= 0.35 or _act_camera.lean_action_active or _kiss_controller().leaning_close(),
 		"missionary": _pose_family() == "bed",
+		"form_source": _shape_source() != null,
+		"form_name": form.form_name.strip_edges() if form != null else "",
+		"form_borrowed": form != null and not form.is_own(),
 	})
 
 

@@ -490,20 +490,25 @@ func run() -> void:
 	var reseat_before := SETTINGS.reseat_tails.get_bool()
 	SETTINGS.reseat_tails.set_bool(false)
 	seat.call("attach", rigged)
-	var rows: Dictionary = seat.get("_rows")
-	var off_row: Dictionary = rows.get(rigged, {})
-	check(not off_row.is_empty(), "the seat remembers a pony while it is off")
-	check(not bool(off_row.get("seated", true)), "the off row is not measured")
-	check(not off_row.has("dock"), "the off row caches no dock")
+	var off_row: TAIL_SEAT.SeatRow = seat.row(rigged)
+	check(off_row != null, "the seat remembers a pony while it is off")
+	check(not off_row.seated, "the off row is not measured")
+	check(off_row.dock == null, "the off row caches no dock")
 	check(bool(seat.call("can_seat", rigged)), "the seat still reports the pony as seatable")
 	seat.call("refresh_all")
-	check(rows.has(rigged), "a settings tick with the seat off keeps the remembered pony")
-	check((seat.get("_dirty") as Array).is_empty(), "no dock rebuild is queued while off")
+	check(seat.row(rigged) != null, "a settings tick with the seat off keeps the remembered pony")
+	check(seat.pending_rebuilds() == 0, "no dock rebuild is queued while off")
+	off_row.tail_y = 0.01
+	off_row.tail_z = -0.02
+	check(off_row.target(Vector3(0.1, 0.2, 0.3)).is_equal_approx(Vector3(0.1, 0.21, 0.28)),
+		"the row target adds its tail trims to the reference")
+	off_row.tail_y = 0.0
+	off_row.tail_z = 0.0
 	# The settle queue drains without rebuilding a row that was never measured.
 	seat.call("_mark_dirty", off_row)
-	check((seat.get("_dirty") as Array).size() == 1, "a placement edit queues one dock rebuild")
+	check(seat.pending_rebuilds() == 1, "a placement edit queues one dock rebuild")
 	seat.call("_flush_dirty")
-	check((seat.get("_dirty") as Array).is_empty(), "the settle pass drains the queue")
+	check(seat.pending_rebuilds() == 0, "the settle pass drains the queue")
 	SETTINGS.reseat_tails.set_bool(reseat_before)
 	rigged.free()
 	seat.free()

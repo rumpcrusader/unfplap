@@ -146,6 +146,40 @@ CHANGELINGS_SOURCE = "integrations/changelings"
 CHANGELINGS_CATALOG = {"shared/character_preferences.gd"}
 
 ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
+# runtime.gd is the per-pony host: it composes and orders the systems and implements no system's
+# rules. These four shapes are the invariant. The two allow-lists are compared both ways, so a new
+# read or node fails and a row that no longer exists fails too.
+RUNTIME_STATE_WRITER = "_set_state"
+# Every `SETTINGS.<member>` read, keyed by its enclosing function (`<module>` for the field block)
+# and the reason it is a snapshot boundary rather than a per-frame read. A new read is a new row,
+# added on purpose with the service that owns the value; removing a read removes its row.
+RUNTIME_SETTINGS_READS = {
+    ("<module>", "ActSnapshot"): "the typed `_snapshot` field's zeroed default",
+    ("_shape_name", "character_name"): "the static character-name lookup, not an act tunable",
+    ("_snapshot_settings", "act_snapshot"): "the act's one bulk snapshot",
+    ("_snapshot_settings", "camera_mode"): "the camera mode, cached for the render write",
+    ("_snapshot_settings", "debug_mode"): "the form-hint probe flag, read once per act",
+    ("apply_live_settings", "preferences"): "the pre-edit preference refresh",
+    ("_begin_act", "template_for"): "the act's profile template",
+    ("_begin_act", "pose"): "the start pose's config",
+    ("_begin_act", "preferences"): "the act's preference block",
+    ("_begin_act", "cue_gap_value"): "the profile's cue gap",
+    ("_resume_after_body_swap", "pose"): "the rebuilt pose's config",
+}
+# The only child nodes the runtime parents: both are system-owned, and the runtime is the host that
+# adds and frees them. A new node is an allow-list row, not a line in a tick.
+RUNTIME_CHILD_NODES = {
+    "_audio_service": "the one act audio node, run by audio/service.gd",
+    "_start_tail_tuck": "the pose-scope tail tuck afterglow/service.gd asks for",
+}
+RUNTIME_RAW_INPUT = (
+    re.compile(r"\bInput\."),
+    re.compile(r"\bInputMap\."),
+    re.compile(r"\bInputEvent\w*"),
+    re.compile(r"\bKEY_[A-Z0-9_]+\b"),
+    re.compile(r"\bMOUSE_MODE_[A-Z0-9_]+\b"),
+    re.compile(r"^func\s+_(?:unhandled_|gui_)?input\(", re.MULTILINE),
+)
 # Service files another owner may extend or preload as a documented extension point. The source
 # base is a provider contract, not a second facade; the anatomy body binding is the attachment
 # contract the body-change service constructs from the anatomy facade it is handed.
@@ -737,6 +771,22 @@ def call_lines(text: str, needle: str) -> list[str]:
     ]
 
 
+def function_offsets(text: str) -> list[tuple[int, str]]:
+    """Every top-level function's start offset and name, in source order."""
+    return [(match.start(), match.group(1)) for match in
+            re.finditer(r"^(?:static\s+)?func\s+(\w+)\(", text, re.MULTILINE)]
+
+
+def enclosing_function(offsets: list[tuple[int, str]], at: int) -> str:
+    """The top-level function around `at`, or `<module>` for the field and constant block."""
+    name = "<module>"
+    for start, function in offsets:
+        if start > at:
+            break
+        name = function
+    return name
+
+
 def doc_tests_section(text: str) -> str | None:
     heading = re.search(r"^## Tests[^\n]*\n", text, re.MULTILINE)
     if not heading:
@@ -1105,6 +1155,66 @@ def check_boundaries(failure: Failure) -> None:
         failure.add("world/service.gd:%d may not import %s" % (line_of(text, at), target))
 
 
+def check_runtime_shape(failure: Failure) -> None:
+    """The thin-runtime invariant: a host composes and orders; it implements no system's rules.
+
+    Four shapes a regression cannot hide: one `state` writer, no raw input decoding, settings at
+    the act's snapshot boundaries only, and only the documented system-owned child nodes. The
+    allow-lists are compared both ways so a new use and a stale row both fail.
+    """
+    path = ROOT / "runtime.gd"
+    if not path.is_file():
+        failure.add("missing runtime.gd")
+        return
+    text = path.read_text(encoding="utf-8")
+    offsets = function_offsets(text)
+
+    # The state machine has one writer: its guards and transition side effects live in _set_state(),
+    # so an assignment anywhere else skips them.
+    if len(re.findall(r"^func _set_state\(", text, re.MULTILINE)) != 1:
+        failure.add("runtime.gd must define exactly one _set_state()")
+    if not re.search(r"^var state:\s*int\b", text, re.MULTILINE):
+        failure.add("runtime.gd must declare the typed `state` field once")
+    for match in re.finditer(r"^\s*(?:self\.)?state\s*=(?!=)", text, re.MULTILINE):
+        if enclosing_function(offsets, match.start()) != RUNTIME_STATE_WRITER:
+            failure.add("runtime.gd:%d assigns `state` outside %s(); it is the one writer" % (
+                line_of(text, match.start()), RUNTIME_STATE_WRITER))
+
+    # Raw input has one owner: input/service.gd decodes keys, buttons, motion and capture.
+    for pattern in RUNTIME_RAW_INPUT:
+        for match in pattern.finditer(text):
+            failure.add("runtime.gd:%d decodes raw input (%s); input/service.gd owns it" % (
+                line_of(text, match.start()), match.group(0).strip()))
+
+    # Settings arrive once per act and again on apply_live_settings(), never per frame.
+    reads: dict[tuple[str, str], int] = {}
+    for match in re.finditer(r"SETTINGS\.(\w+)", text):
+        key = (enclosing_function(offsets, match.start()), match.group(1))
+        reads.setdefault(key, line_of(text, match.start()))
+    for key, line in sorted(reads.items()):
+        if key not in RUNTIME_SETTINGS_READS:
+            failure.add(
+                "runtime.gd:%d reads SETTINGS.%s in %s(); take a snapshot value or add an "
+                "allow-list row only at an act boundary" % (line, key[1], key[0]))
+    for key, reason in sorted(RUNTIME_SETTINGS_READS.items()):
+        if key not in reads:
+            failure.add("the runtime settings allow-list row %s -> %s is stale (%s)" % (
+                key[0], key[1], reason))
+
+    # The runtime parents only the nodes a system owns; it constructs no scene of its own.
+    children: dict[str, int] = {}
+    for match in re.finditer(r"\badd_child\(", text):
+        owner = enclosing_function(offsets, match.start())
+        children.setdefault(owner, line_of(text, match.start()))
+    for owner, line in sorted(children.items()):
+        if owner not in RUNTIME_CHILD_NODES:
+            failure.add("runtime.gd:%d creates a child node in %s(); only the documented "
+                        "system-owned nodes are parented here" % (line, owner))
+    for owner, reason in sorted(RUNTIME_CHILD_NODES.items()):
+        if owner not in children:
+            failure.add("the runtime child-node allow-list row %s is stale (%s)" % (owner, reason))
+
+
 def check_entry_shape(failure: Failure) -> None:
     """The entry constructs and binds; it never dispatches by string or assigns a service's fields."""
     main_path = ROOT / "main.gd"
@@ -1131,6 +1241,7 @@ def check() -> int:
     check_typing(failure)
     check_sources(failure)
     check_boundaries(failure)
+    check_runtime_shape(failure)
     check_entry_shape(failure)
     check_owners(failure)
     check_tests(failure)

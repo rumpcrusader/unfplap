@@ -66,6 +66,13 @@ func find_bed_under() -> Node3D:
 	return scene.find_bed_under()
 
 
+## The debug status line: the scene gate owns the row and verdict assembly.
+func debug_line(pose: String, act_source: String, bed_in: Variant = null,
+		distance: float = -1.0, dot: float = -1.0) -> String:
+	session.refresh_identity()
+	return scene.debug_line(pose, act_source, bed_in, distance, dot)
+
+
 func cuddle_active() -> bool:
 	return scene.cuddle_active()
 

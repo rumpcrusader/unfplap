@@ -94,7 +94,7 @@ func run() -> void:
 	check(HUD_LINES.cue_line_for(_hud_view(runtime), true).contains("Great"),
 		"missionary afterglow cue shows the summary")
 	runtime._afterglow.beat = "You are warm and quiet."
-	var afterglow_note := str(runtime.call("prompt_note"))
+	var afterglow_note := str(runtime.act.prompt_note())
 	check(afterglow_note.contains("You are warm and quiet"), "afterglow uses its private beat")
 	check(not afterglow_note.contains("I felt wanted") and not afterglow_note.contains("This act"),
 		"afterglow does not recite the act summary")

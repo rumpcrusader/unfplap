@@ -286,11 +286,11 @@ func _process_entry(delta: float, timed: bool) -> void:
 			_on_player(body)
 	if is_instance_valid(active):
 		var camera_started := Time.get_ticks_usec()
-		active.apply_camera_motion()
-		active.perf_note("camera_motion", Time.get_ticks_usec() - camera_started)
+		active.act.apply_camera_motion()
+		active.act.host.perf_note("camera_motion", Time.get_ticks_usec() - camera_started)
 		var hud_started := Time.get_ticks_usec()
 		hud.update_from(active.act.facts())
-		active.perf_note("hud", Time.get_ticks_usec() - hud_started)
+		active.act.host.perf_note("hud", Time.get_ticks_usec() - hud_started)
 		offer.hide_hint()
 		return
 

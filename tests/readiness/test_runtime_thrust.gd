@@ -188,7 +188,7 @@ func run() -> void:
 	check(not runtime.act.input.auto_active(), "thrust reset clears auto for the next act")
 	# The depth scale is physical: his shaft length decides a full stroke, and the tip rests at her
 	# entrance so the resting contact sits at zero depth.
-	check(near(runtime.penetration_reach(), THRUST_STATE.NOMINAL_SHAFT_M),
+	check(near(runtime.act.penetration_reach(), THRUST_STATE.NOMINAL_SHAFT_M),
 		"the nominal shaft sets the depth scale with no part")
 	check(near(runtime.penetration_m, 0.0), "the reset rests the tip at her entrance")
 	runtime._impact.set_penetration(-1.0, 0.0)

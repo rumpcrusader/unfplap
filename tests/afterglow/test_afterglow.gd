@@ -80,19 +80,19 @@ func run() -> void:
 	var note_runtime: Node = _runtime("standing")
 	note_runtime._id = "fluttershy"
 	note_runtime._act.pony_id = "fluttershy"
-	var idle_note: String = str(note_runtime.prompt_note())
+	var idle_note: String = str(note_runtime.act.prompt_note())
 	check(idle_note.contains("afterglow") and idle_note.contains("still close"),
 		"afterglow prompt note carries the live state")
 	check(not idle_note.contains("[stay:"), "afterglow prompt note does not advertise a stay tag")
 	var note_caress: Variant = note_runtime.call("_hand_controller")
 	note_caress._caress_active = {"L": true, "R": false}
-	check(note_runtime.prompt_note().contains("caressing your flank"), "caress note")
+	check(note_runtime.act.prompt_note().contains("caressing your flank"), "caress note")
 	note_caress._caress_active = {"L": false, "R": false}
 	note_runtime._act_camera.lean_forward = 0.8
-	check(note_runtime.prompt_note().contains("leaning in close"), "lean note")
+	check(note_runtime.act.prompt_note().contains("leaning in close"), "lean note")
 	note_runtime.act._set_state(2) # ACTIVE
 	note_runtime._act_camera.lean_forward = 0.0
-	check(note_runtime.prompt_note().contains("having sex"), "active prompt note")
+	check(note_runtime.act.prompt_note().contains("having sex"), "active prompt note")
 	note_runtime.free()
 
 	# The oral afterglow holds the turned pose but opens no standing close window.
@@ -140,10 +140,10 @@ func run() -> void:
 	var runtime_hint: Node = _runtime("standing")
 	runtime_hint._afterglow.bind_view(_view("standing"))
 	runtime_hint._afterglow.begin({})
-	check(str(runtime_hint.call("close_hint")).contains("Stay close"),
+	check(str(runtime_hint.get("act").close_hint()).contains("Stay close"),
 		"the runtime forwards the close cue")
 	runtime_hint._act.pose_id = "missionary"
-	check(str(runtime_hint.call("close_hint")) == "", "the runtime hides the missionary cue")
+	check(str(runtime_hint.get("act").close_hint()) == "", "the runtime hides the missionary cue")
 	runtime_hint.free()
 
 	# The facade owns the presentation row; the runtime only applies it. The row names no pose:

@@ -181,7 +181,7 @@ func _push_pose() -> void:
 func _forward() -> Vector3:
 	var runtime := _runtime()
 	if is_instance_valid(runtime) and runtime.has_method("vr_forward"):
-		var forward: Variant = runtime.call("vr_forward")
+		var forward: Variant = runtime.get("act").vr_forward()
 		if forward is Vector3 and (forward as Vector3).length_squared() > 0.0001:
 			return forward
 	var pony := _pony()

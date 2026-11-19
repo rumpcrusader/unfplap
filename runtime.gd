@@ -12,10 +12,8 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/poses/placement.gd")
-const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
@@ -33,8 +31,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const State := ACT_STATE.State
 
 const READINESS_MAX := 100.0
-const CLIMAX_SECONDS := ACT_SESSION.CLIMAX_SECONDS
-const POSE_IN_SECONDS := ACT_SESSION.POSE_IN_SECONDS
 const RESTORE_SECONDS := ACT_SESSION.RESTORE_SECONDS
 ## A player-requested reveal is the act's one exceptional beat; its heat, peak, cue and memory
 ## mark are the provider policy's, not the base runtime's. The handover owns the form flags.
@@ -151,10 +147,6 @@ var _placement_facts: PLACEMENT.Facts = null
 
 ## The act's dialogue service: scheduler, prompt assembly, reactions and the bystander line.
 var _act_dialogue: RefCounted = null
-## Debug perf probe: timed chunks report here and one summary prints per window. Built by the
-## composition root once the systems exist, because the host binds their live reads. See
-## `shared/perf.gd`.
-var _perf_probe = null
 ## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
 ## no tick reads the entry node's flags.
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
@@ -238,7 +230,6 @@ func _init() -> void:
 	_integrations = _bundle.integrations
 	_kiss = _bundle.kiss
 	_missionary_camera_ctl = _bundle.missionary_camera
-	_perf_probe = _bundle.perf_probe
 	_phases = _bundle.phases
 	_placement = _bundle.placement
 	_placement_facts = _bundle.placement_facts
@@ -258,10 +249,8 @@ func _init() -> void:
 	_wings = _bundle.wings
 
 
-
 ## The typed host the anatomy bridge reads, built once by `act/build.gd`.
 var _anatomy_host_cache = null
-
 
 
 func _pony() -> Variant:
@@ -407,7 +396,7 @@ func _ready() -> void:
 	# the pony enters the tree, so read it now and once more after the first frame.
 	_act.refresh_identity()
 	_bundle.bind_pony(pony)
-	call_deferred("refresh_identity")
+	_act.call_deferred("refresh_identity")
 	_face.bind(pony, self)
 	# integration: anatomy is persistent outside acts. Retry once after the first frame for a mod
 	# that assigns the pony's identity after she enters the tree.
@@ -420,16 +409,6 @@ func _ready() -> void:
 func _anatomy_refresh() -> void:
 	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.refresh()
-
-
-func anatomy_facts() -> RefCounted:
-	return _anatomy_bridge.context()
-
-
-## Public hook for the anatomy's stock flank smack. The controller calls it through the context
-## callback instead of reaching into the reaction facade.
-func body_coat_jiggle_target() -> void:
-	_reactions.body_coat_target()
 
 
 func _anatomy_act_refresh() -> void:
@@ -449,26 +428,14 @@ func _eligibility_service() -> Variant:
 ## glance; the captured look snapshot is the camera facade's.
 
 
-
-
-
-
-
-
 func _log(text: String) -> void:
 	LOG.debug(text)
 
 
-## Debug perf probe. Timed chunks report microseconds here; `perf_note()` forwards to `shared/perf.gd`,
-## which prints one summary a second so a pony-specific stall can be attributed to a modifier
-## without a live profiler.
+## Debug perf probe. Timed chunks report microseconds here; the probe prints one summary a second
+## so a pony-specific stall can be attributed to a modifier without a live profiler.
 func _perf_enabled() -> bool:
 	return LOG.debug_logs and LOG.debug_perf
-
-
-## Called by every timed chunk (runtime, skeleton modifiers, HUD). Cheap no-op with both windows off.
-func perf_note(key: String, usec: int) -> void:
-	_perf_probe.note(key, usec)
 
 
 ## Time one call site for the probes (callers take the start stamp themselves).
@@ -533,26 +500,6 @@ func _pose_service() -> RefCounted:
 	return _pose_session
 
 
-## The pose read model, for the debug action and the suites.
-func pose_view() -> RefCounted:
-	return _pose_service().view()
-
-
-## Why the face-sit debug action cannot toggle right now, or "" when it is ready: an active act, a
-## live missionary or face-sit view, a steady pose, no running kiss and the anatomy's act body.
-## The pose owner keeps the rule; the act state is the runtime's.
-func face_sit_error() -> String:
-	return _pose_service().face_sit_error(_act.state)
-
-
-## Re-read the active pose's authored asset in place. The debug action uses this; a running act
-## sees the new file on its next frame.
-func reload_pose_asset() -> String:
-	var view := pose_view()
-	var candidate := str(view.id) if view != null else ""
-	return _pose_service().reload_authored(candidate)
-
-
 ## One pose request. The runtime supplies the act values; the session refuses or starts the edge.
 
 
@@ -573,17 +520,6 @@ func _refresh_scene_gate() -> void:
 	_scene.configure(_act.state, _id, _act.features)
 
 
-## Optional HUD cue and readiness readouts. The act continues without them.
-func hud_readouts() -> bool:
-	return bool(_act.feature("hud_readouts"))
-
-
-## Optional act control card, separate from the pony state readouts.
-func hud_controls() -> bool:
-	return bool(_act.feature("act_controls"))
-
-
-
 func _process(delta: float) -> void:
 	_act.render(delta)
 
@@ -602,13 +538,7 @@ func _physics_tick(delta: float) -> void:
 	_act.tick(delta)
 
 
-
 # --------------------------------------------------------------------------- gates
-
-
-
-
-
 
 
 ## The live act values the debug status line reads. The debug pony helper owns the scene gather;
@@ -617,30 +547,11 @@ func _debug_context() -> Dictionary:
 	return _act.debug_context()
 
 
-## The debug status line. The scene gate owns the row and verdict assembly.
-func debug_line(pose: String, act_source: String, bed_in: Variant = null, distance := -1.0, dot := -1.0) -> String:
-	_act.refresh_identity()
-	return _scene_gate().debug_line(pose, act_source, bed_in, distance, dot)
-
 ## The stable pony id the act is on, read from the live body. `ponies` matches a prompt note
 ## to its one runtime through this; the id itself stays private to the act.
 func live_id() -> String:
 	_act.refresh_identity()
 	return _act.pony_id
-
-
-## The deferred identity retry after the first frame, for a mod that assigns it late.
-func refresh_identity() -> void:
-	_act.refresh_identity()
-
-
-
-
-
-
-
-
-
 
 
 func _claim_nav() -> bool:
@@ -649,18 +560,12 @@ func _claim_nav() -> bool:
 	return _hold.claim_nav(_id)
 
 
-
 func _scene_hold_compatible(pose: String, source: String) -> bool:
 	return _hold.accepts_hold(pose, source)
 
 
 ## Standing keeps her body turned away and planted. Stop the standing face-turn response so a
 ## player conversation cannot make her take turn steps, without pausing locomotion or emotions.
-
-
-
-
-
 
 
 ## Suite seam: the handover's one action tick. The swap module owns the dispatch.
@@ -717,11 +622,6 @@ func _standing_gap(form: BODY_FORM.BodyForm = null) -> float:
 	return _act_context.placement.gap_act()
 
 
-## The parsed authored missionary pose, for the shot camera and the debug action.
-func authored_pose_asset() -> Variant:
-	return _pose_service().authored_asset()
-
-
 func _oral_mouth_point() -> Vector3:
 	_anatomy_bridge.bind(_anatomy_host_cache)
 	return _anatomy_bridge.mouth_point()
@@ -747,26 +647,6 @@ func _oral_viseme(value: String) -> void:
 	_anatomy_bridge.set_oral_viseme(value)
 
 
-
-
-## integration: anatomy action entry points for the input service. They are no-ops when the
-## per-act controller is absent, so the keys behave exactly like master with the feature off.
-func toggle_anatomy_hole() -> void:
-	_anatomy_bridge.bind(_anatomy_host_cache)
-	_anatomy_bridge.toggle_hole()
-
-
-## The `oral` command: request the standing oral pose, or the return edge when it is already
-## active. The per-mare consent string is passed only when the anatomy service says yes.
-func toggle_anatomy_oral() -> void:
-	_anatomy_bridge.bind(_anatomy_host_cache)
-	_anatomy_bridge.toggle_oral(_pose_service(), _act.display_name, _act.features)
-
-
-func missionary_anon_body() -> Variant:
-	return _anatomy_bridge.missionary_anon_body()
-
-
 ## Her gaze target in missionary: the authored Anon's face. The game camera is on his standing
 ## player rig, metres off the bed, and aiming there had her looking at empty air.
 func _missionary_gaze_point() -> Vector3:
@@ -786,56 +666,15 @@ func _start_vr_act() -> void:
 	_anatomy_bridge.vr_start()
 
 
-func vr_forward() -> Vector3:
-	_anatomy_bridge.bind(_anatomy_host_cache)
-	return _anatomy_bridge.vr_forward()
-
-
-func vr_depth(value: float) -> void:
-	_anatomy_bridge.bind(_anatomy_host_cache)
-	_anatomy_bridge.vr_depth(value)
-
-
-func anatomy_normal() -> Vector3:
-	return _anatomy_bridge.normal()
-
-
-## integration: her entrance point during an anatomy act, in world space.
-func anatomy_opening() -> Vector3:
-	return _anatomy_bridge.opening()
-
-
-## integration: the standing part aims itself in `player.gd`'s track; only the optional bed body
-## still needs the wrapper hook.
-## The bed pose writes his hip itself, so the marker alignment is only for other rigs (VR).
-func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
-	pass
-
-
-func anatomy_status(text: String, seconds := 2.0) -> void:
-	_anatomy_bridge.bind(_anatomy_host_cache)
-	_anatomy_bridge.status(text, seconds)
-
-
 ## Idempotent stop for every state exit. It never moves the depth.
 func _stop_auto() -> void:
 	_readiness.stop_auto()
-
-
-## The mouse's vertical travel as hip travel; the input service hands over the relative motion.
-func penetration_reach() -> float:
-	return _readiness.reach()
 
 
 func _director() -> Node:
 	if not is_inside_tree():
 		return null
 	return get_tree().get_first_node_in_group("conversation_director")
-
-
-## The debug read of the voice routing she has; the audio owner reports nothing before an act.
-func voice_status_line() -> String:
-	return _audio.voice_status_line(_id)
 
 
 ## The anatomy service's visible shaft length, or zero when the part is not showing. The readiness
@@ -891,11 +730,7 @@ func _readiness_anatomy_react() -> void:
 
 
 func _readiness_heat() -> bool:
-	return cycle_phase() == CYCLE.HEAT
-
-
-func debug_force_tolerance(kind: String) -> bool:
-	return _consent.force(kind)
+	return _act.cycle_phase() == CYCLE.HEAT
 
 
 ## A smack has already started the native cheek jiggle. The reaction facade carries it into the
@@ -904,44 +739,12 @@ func _on_smack_impact(strength: float) -> void:
 	_reactions.smack(strength)
 
 
-
-func cycle_phase() -> String:
-	_act.refresh_identity()
-	if not is_instance_valid(pony):
-		return CYCLE.NORMAL
-	return ELIGIBILITY.cycle_phase_for(pony, _id)
-
-
-## The session override currently in force, or "" when the automatic cycle owns the phase.
-func cycle_override() -> String:
-	_act.refresh_identity()
-	return CYCLE.override_for(_id)
-
-
-## Private heat/diestrus note for the normal dialogue prompt, outside and during acts. The
-## eligibility owner keeps the gate check and the note.
-func cycle_note() -> String:
-	if not is_instance_valid(pony):
-		return ""
-	var service: Variant = _eligibility_service()
-	return service.cycle_note(pony) if service != null else ""
-
-
-## Live context for the normal dialogue prompt. The entry node joins the game's
-## `pony_prompt_notes` group and forwards to the active runtime for that pony.
-func prompt_note() -> String:
-	return _act.prompt_note()
-
-
 func _afterglow_caressing() -> bool:
 	return _hand_controller().any_active()
 
 func _enter_afterglow() -> void:
 	_act.begin_afterglow()
 
-
-func close_hint() -> String:
-	return _view.close_hint(_act, _pose_family())
 
 func _rest_service() -> RefCounted:
 	_rest.bind(pony, _act.bed)
@@ -970,28 +773,12 @@ func _write_satisfaction(value: float) -> void:
 
 # --------------------------------------------------------------------------- act face
 
-## Debug preview: set one base-game face on the current act. A speaking line still wins.
-func force_act_face(face: String) -> bool:
-	_face.sync_settings(_act.feature("face_debug"))
-	return _face.force_face(face)
-
-
-## Debug view for the "Show act face" action.
-func act_face_rows() -> Array[String]:
-	return _act.act_face_rows()
-
 
 # --------------------------------------------------------------------------- checks
 
 ## A forced stop from a scene verdict. The gate returned the reason; this applies the one stop.
 
 # --------------------------------------------------------------------------- camera
-
-## Open the act's shot. The camera owns the leaves and returns whether the standing VR act needs
-## the anatomy bridge started.
-func shot_lean_forward() -> float:
-	return _act_camera.shot_lean_forward()
-
 
 
 ## Publish or clear the pose session's opaque Anon body handle on the anatomy bridge. The session
@@ -1006,30 +793,12 @@ func _idle_pose_sample() -> void:
 	_pose_service().idle_sample(_act.state)
 
 
-## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where
-## the live pose actually put her (world and bed space).
-func pose_state_rows() -> Array:
-	return _pose_service().state_rows(_act.state)
-
-
 ## One line with where the pose actually put her, once the weight settles.
-
-
-func apply_camera_motion() -> void:
-	_act.apply_camera_motion()
 
 
 ## Shared desktop hand driver for the caress and the standing body wrapper.
 func _desktop_pose_driver() -> Node:
 	return _standing_anon_controller().driver()
-
-
-func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
-	_standing_anon_controller().apply_anon_thrust(hip, facing)
-
-
-func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
-	_standing_anon_controller().apply_anon_lean(hip, facing)
 
 
 ## The kiss foreleg overrides are global AffectionPose settings. Restore them if the world

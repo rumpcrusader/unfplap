@@ -74,10 +74,10 @@ func run() -> void:
 	runtime.pony = pony
 	var was_on := SETTINGS.estrus_cycle.get_bool()
 	SETTINGS.estrus_cycle.set_bool(true)
-	check(str(runtime.call("cycle_phase")) == CYCLE.NORMAL,
+	check(str(runtime.act.cycle_phase()) == CYCLE.NORMAL,
 		"a pony without a relationship runtime reads a normal phase")
 	SETTINGS.estrus_cycle.set_bool(false)
-	check(str(runtime.call("cycle_phase")) == CYCLE.NORMAL, "estrus off reads a normal phase")
+	check(str(runtime.act.cycle_phase()) == CYCLE.NORMAL, "estrus off reads a normal phase")
 	SETTINGS.estrus_cycle.set_bool(was_on)
 	root.remove_child(pony)
 	pony.free()

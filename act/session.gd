@@ -21,6 +21,8 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
 const State := ACT_STATE.State
 const CLIMAX_SECONDS := ACT_SETTINGS.CLIMAX_SECONDS
@@ -342,6 +344,128 @@ func _is_presented_body(body: Node3D) -> bool:
 func request_form_change(true_form: bool, shape_id: String = "",
 		by_player: bool = false) -> Dictionary:
 	return context.handover.request(true_form, shape_id, by_player)
+
+
+## The pose view the debug rows read.
+func pose_view() -> Variant:
+	return context.pose.view()
+
+
+## The readiness reach the anatomy host and the thrust suite read.
+func penetration_reach() -> float:
+	return context.readiness.reach()
+
+
+## The afterglow close cue the HUD and the suite read.
+func close_hint() -> String:
+	return view.close_hint(self, pose_family())
+
+
+## The pose diagnostic rows for the debug panel.
+func pose_state_rows() -> Array:
+	return context.pose.state_rows(state)
+
+
+## The debug face-fit refusal, or "" when the pose can be entered.
+func face_sit_error() -> String:
+	return context.pose.face_sit_error(state)
+
+
+## Reload the current pose's source asset from disk.
+func reload_pose_asset() -> String:
+	var live: Variant = context.pose.view()
+	var candidate := str(live.id) if live != null else ""
+	return context.pose.reload_authored(candidate)
+
+
+## The debug face preview. A speaking line still wins.
+func force_act_face(face: String) -> bool:
+	context.face.sync_settings(feature("face_debug"))
+	return context.face.force_face(face)
+
+
+## The debug tolerance trigger through the consent owner.
+func force_tolerance(kind: String) -> bool:
+	return context.consent.force(kind)
+
+
+## The audio owner's voice routing line for the debug panel.
+func voice_status_line() -> String:
+	return context.audio.voice_status_line(pony_id)
+
+
+## The anatomy facts object for the persistent anatomy service.
+func anatomy_facts() -> RefCounted:
+	return context.anatomy.context()
+
+
+## The anatomy part's normal and opening points for the camera and facts callbacks.
+func anatomy_normal() -> Vector3:
+	return context.anatomy.normal()
+
+
+func anatomy_opening() -> Vector3:
+	return context.anatomy.opening()
+
+
+## The missionary body handle the pose service reads.
+func missionary_anon_body() -> Variant:
+	return context.anatomy.missionary_anon_body()
+
+
+## The optional anatomy toggles the debug panel drives.
+func toggle_anatomy_hole() -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.toggle_hole()
+
+
+func toggle_anatomy_oral() -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.toggle_oral(context.pose, display_name, features)
+
+
+## The VR depth read and write, routed through the anatomy bridge.
+func vr_forward() -> Vector3:
+	context.anatomy.bind(context.anatomy_host)
+	return context.anatomy.vr_forward()
+
+
+func vr_depth(value: float) -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.vr_depth(value)
+
+
+## The desktop Anon pose driver's act hooks.
+func apply_anon_thrust(hip: Node3D, facing: Basis) -> void:
+	context.standing_anon.apply_anon_thrust(hip, facing)
+
+
+func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
+	context.standing_anon.apply_anon_lean(hip, facing)
+
+
+func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
+	pass
+
+
+## The cycle reads the entry, prompt notes and debug use.
+func cycle_phase() -> String:
+	refresh_identity()
+	if not is_instance_valid(host.pony):
+		return CYCLE.NORMAL
+	return ELIGIBILITY.cycle_phase_for(host.pony, pony_id)
+
+
+func cycle_override() -> String:
+	refresh_identity()
+	return CYCLE.override_for(pony_id)
+
+
+func cycle_note() -> String:
+	if not is_instance_valid(host.pony):
+		return ""
+	var service: Variant = PONIES.eligibility
+	return service.cycle_note(host.pony) if service != null else ""
 
 func reset_thrust_state() -> void:
 	view.reset_act_state(self)

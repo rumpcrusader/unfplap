@@ -552,7 +552,7 @@ func run() -> void:
 	pony8.global_position = Vector3(2.0, 0.0, 3.0)
 	var oral_from: Vector3 = pony8.global_position
 	runtime8._start._build_pose()
-	runtime8.call("toggle_anatomy_oral")
+	runtime8.act.toggle_anatomy_oral()
 	check(anatomy8.consents == ["oral"], "the oral command asks the anatomy service for consent")
 	check(runtime8._pose_session.view().pose_state == 3
 		and runtime8._pose_session.view().edge_id == "standing__standing_oral",
@@ -577,7 +577,7 @@ func run() -> void:
 	runtime8._start._build_pose()
 	anatomy8.allow = false
 	var refused_from: Vector3 = pony8.global_position
-	runtime8.call("toggle_anatomy_oral")
+	runtime8.act.toggle_anatomy_oral()
 	check(runtime8._pose_session._run == null
 		and runtime8._pose_session.view().id == CATALOG_STANDING,
 		"the missing oral consent starts no edge")
@@ -585,7 +585,7 @@ func run() -> void:
 		"the missing oral consent moves nothing")
 	anatomy8.allow = true
 	runtime8._act.features = {}
-	runtime8.call("toggle_anatomy_oral")
+	runtime8.act.toggle_anatomy_oral()
 	check(runtime8._pose_session._run == null,
 		"the oral feature gate refuses before the edge starts")
 	runtime8._exit.run(false)

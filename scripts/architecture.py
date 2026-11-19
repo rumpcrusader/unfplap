@@ -195,6 +195,13 @@ ACT_SETTINGS_READS = {
 # The only child nodes the runtime parents: both are system-owned, and the runtime is the host that
 # adds and frees them. A new node is an allow-list row, not a line in a tick.
 RUNTIME_CHILD_NODES = {}
+# The runtime node's public functions: the entry's lifetime ops. `act`, `gate` and `pony` are
+# properties, not rows. A new public function is a facade regrowth; the comparison runs both ways.
+NODE_SURFACE = {
+    "live_id": "the stable pony id the entry and ponies read",
+    "attach_to_body": "the handover's reparent off the old body",
+    "adopt_body": "the handover's reparent onto the new body",
+}
 # A file over this many lines is reported as a smell, never as a failure. Size is a hint that a
 # module may be mixing concerns; the ownership and boundary rules below are the hard gates.
 LARGE_FILE_LINES = 1000
@@ -1401,6 +1408,15 @@ def check_runtime_shape(failure: Failure) -> None:
     for match in re.finditer(r"^\s*(?:self\.)?state\s*=(?!=)", text, re.MULTILINE):
         failure.add("runtime.gd:%d assigns `state`; %s is the one writer" % (
             line_of(text, match.start()), RUNTIME_STATE_WRITER))
+
+    # The node's public surface is the entry's lifetime ops; a new public function is a facade
+    # regression. The allow-list is compared both ways.
+    public_funcs = set(re.findall(r"^func ([A-Za-z]\w*)\(", text, re.MULTILINE))
+    for name in sorted(public_funcs - set(NODE_SURFACE)):
+        failure.add("runtime.gd:%s() is a new public function; the node surface is fixed" % name)
+    for name, reason in sorted(NODE_SURFACE.items()):
+        if name not in public_funcs:
+            failure.add("the node surface allow-list row %s is stale (%s)" % (name, reason))
 
     # Raw input has one owner: input/service.gd decodes keys, buttons, motion and capture.
     for pattern in RUNTIME_RAW_INPUT:

@@ -47,6 +47,13 @@ class FakeInput extends RefCounted:
 
 class FakeAct extends RefCounted:
 	var input: FakeInput = FakeInput.new()
+	var rt: Variant = null
+
+	func face_sit_error() -> String:
+		return rt.face_sit_error()
+
+	func pose_view() -> Variant:
+		return rt.pose_view()
 
 
 class FakeRuntime extends Node:
@@ -58,6 +65,7 @@ class FakeRuntime extends Node:
 
 	func _init() -> void:
 		act.input.rt = self
+		act.rt = self
 
 	func face_sit_error() -> String:
 		return error
@@ -107,7 +115,9 @@ func _fixture() -> Dictionary:
 	bridge.missionary_anon = Node.new()
 	runtime.act._set_state(2)
 	runtime._pose_session = pose
+	runtime._act.context.pose = pose
 	runtime._anatomy_bridge = bridge
+	runtime._act.context.anatomy = bridge
 	runtime._act_facts.kiss_active = false
 	root.add_child(runtime)
 	return {"runtime": runtime, "pose": pose, "bridge": bridge, "view": view}
@@ -134,40 +144,40 @@ func _check_helper() -> void:
 	var bridge: FakeBridge = made["bridge"]
 	var view: Variant = made["view"]
 	runtime.act._set_state(0)
-	check(runtime.face_sit_error() == "no active act", "no idle act is refused")
+	check(runtime.act.face_sit_error() == "no active act", "no idle act is refused")
 	runtime.act._set_state(5)
-	check(runtime.face_sit_error() == "no active act", "a restoring act is refused")
+	check(runtime.act.face_sit_error() == "no active act", "a restoring act is refused")
 	runtime.act._set_state(2)
 	view.id = CATALOG.STANDING
-	check(runtime.face_sit_error() == "only in a missionary act",
+	check(runtime.act.face_sit_error() == "only in a missionary act",
 		"a standing view is refused")
 	view.id = CATALOG.MISSIONARY
 	runtime.act._set_state(1)
-	check(runtime.face_sit_error() == "the act is not active",
+	check(runtime.act.face_sit_error() == "the act is not active",
 		"a posing act is refused")
 	runtime.act._set_state(2)
-	check(runtime.face_sit_error() == "", "a steady missionary act is ready")
+	check(runtime.act.face_sit_error() == "", "a steady missionary act is ready")
 	view.pose_state = VIEW.TRANSITIONING
-	check(runtime.face_sit_error() == "the pose is changing",
+	check(runtime.act.face_sit_error() == "the pose is changing",
 		"a changing pose is refused")
 	view.pose_state = VIEW.STEADY
 	runtime._act_facts.kiss_active = true
-	check(runtime.face_sit_error() == "a kiss is running", "a running kiss is refused")
+	check(runtime.act.face_sit_error() == "a kiss is running", "a running kiss is refused")
 	runtime._act_facts.kiss_active = false
 	SETTINGS.anatomy_mode.set_choice("never")
-	check(runtime.face_sit_error() == "the anatomy is not available",
+	check(runtime.act.face_sit_error() == "the anatomy is not available",
 		"the anatomy master off is refused")
 	SETTINGS.anatomy_mode.set_choice("act")
 	pose.act_body = null
-	check(runtime.face_sit_error() == "the anatomy is not available",
+	check(runtime.act.face_sit_error() == "the anatomy is not available",
 		"a missing act body is refused")
 	pose.act_body = Node.new()
 	bridge.missionary_anon = null
-	check(runtime.face_sit_error() == "the anatomy is not available",
+	check(runtime.act.face_sit_error() == "the anatomy is not available",
 		"a missing bridge handle is refused")
 	bridge.missionary_anon = Node.new()
 	view.id = CATALOG.BED_FACESIT
-	check(runtime.face_sit_error() == "", "a steady face-sit act is ready")
+	check(runtime.act.face_sit_error() == "", "a steady face-sit act is ready")
 	view.id = CATALOG.MISSIONARY
 	_free_fixture(made)
 	SETTINGS.anatomy_mode.set_choice(previous)

@@ -158,8 +158,11 @@ static func prompt_note(id: String) -> String:
 				runtime_id = ANATOMY.pony_id(target)
 		if runtime_id != id:
 			continue
-		var note := str(live.call("prompt_note"))
-		var cycle := str(live.call("cycle_note"))
+		var session: Variant = live.get("act")
+		if session == null:
+			continue
+		var note := str(session.prompt_note())
+		var cycle := str(session.cycle_note())
 		if not cycle.is_empty():
 			note = cycle if note.is_empty() else note + " " + cycle
 		return note

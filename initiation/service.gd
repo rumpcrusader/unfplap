@@ -869,8 +869,10 @@ func _available(pony: Node3D) -> bool:
 
 
 func _in_heat(runtime: Variant) -> bool:
-	return is_instance_valid(runtime) and runtime.has_method("cycle_phase") \
-		and str(runtime.call("cycle_phase")) == CYCLE.HEAT
+	if not is_instance_valid(runtime):
+		return false
+	var session: Variant = runtime.get("act")
+	return session != null and str(session.cycle_phase()) == CYCLE.HEAT
 
 
 func _eligibility() -> ELIGIBILITY:

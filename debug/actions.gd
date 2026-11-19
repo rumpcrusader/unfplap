@@ -36,6 +36,11 @@ func _gate(runtime: Node) -> Variant:
 	return runtime.get("gate")
 
 
+## The per-pony act session: the state, the pose view and the act reads.
+func _session(runtime: Variant) -> Variant:
+	return runtime.get("act") if is_instance_valid(runtime) else null
+
+
 ## The live act state. The node builds these reads itself from the facades in `_ready()`; a suite
 ## may bind its own before the node enters the tree.
 class Host extends RefCounted:
@@ -217,7 +222,7 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 	var runtime: Node = _runtime_for(target)
 	if not is_instance_valid(runtime):
 		return "No runtime for %s." % str(target.name)
-	var current := str(runtime.call("cycle_phase"))
+	var current := str(_session(runtime).cycle_phase())
 	var next := CYCLE.NORMAL if current == phase_name else phase_name
 	CYCLE.set_override(_debug_pony_id(target), next)
 	var verb := "cleared" if next == CYCLE.NORMAL else "forced"
@@ -233,9 +238,10 @@ func debug_cycle_phase() -> String:
 	if not is_instance_valid(target):
 		return ""
 	var runtime: Node = _runtime_for(target)
-	if not is_instance_valid(runtime) or not runtime.has_method("cycle_phase"):
+	var session: Variant = _session(runtime)
+	if not is_instance_valid(runtime) or session == null:
 		return ""
-	return str(runtime.call("cycle_phase"))
+	return str(session.cycle_phase())
 
 
 func _debug_cycle_request(phase_name: String) -> String:
@@ -364,7 +370,7 @@ func action_reload_pose() -> String:
 	var error := ""
 	var act: Node = _act()
 	if is_instance_valid(act):
-		error = str(act.call("reload_pose_asset"))
+		error = str(_session(act).reload_pose_asset())
 	else:
 		error = _reload_posed_base()
 	if not error.is_empty():
@@ -382,7 +388,7 @@ func action_pose_test_variant() -> String:
 	var act: Node = _act()
 	if not is_instance_valid(act):
 		return "No act."
-	var view: Variant = act.call("pose_view")
+	var view: Variant = _session(act).pose_view()
 	var active := str(view.id) if view != null else ""
 	if active.is_empty():
 		return "No act."
@@ -407,11 +413,11 @@ func action_facesit_variant() -> String:
 	var act: Node = _act()
 	if not is_instance_valid(act):
 		return "No act."
-	var error := str(act.call("face_sit_error"))
+	var error := str(_session(act).face_sit_error())
 	if not error.is_empty():
 		LOG.debug("face-sit refused: %s" % error)
 		return "Face-sit refused: %s." % error
-	var view: Variant = act.call("pose_view")
+	var view: Variant = _session(act).pose_view()
 	var active := str(view.id) if view != null else ""
 	var target := CATALOG.BED_FACESIT if active == CATALOG.MISSIONARY else CATALOG.MISSIONARY
 	var input: Variant = _act_input(act)
@@ -493,8 +499,11 @@ func _debug_target_rows(target: Node, runtime: Variant, id: String) -> Array[Str
 func _debug_cycle_rows(runtime: Variant) -> Array[String]:
 	if not is_instance_valid(runtime):
 		return ["no runtime"]
-	var phase := str(runtime.call("cycle_phase")) if runtime.has_method("cycle_phase") else "?"
-	var override := str(runtime.call("cycle_override")) if runtime.has_method("cycle_override") else "?"
+	var session: Variant = _session(runtime)
+	if session == null:
+		return ["no runtime"]
+	var phase := str(session.cycle_phase())
+	var override := str(session.cycle_override())
 	return ["phase=%s override=%s" % [phase, override if not override.is_empty() else "none"],
 		"heat=%s" % str(phase == CYCLE.HEAT)]
 
@@ -519,8 +528,8 @@ func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
 		pose = CATALOG.MISSIONARY
 		source = "already_lying"
 		bed = _gate(runtime).find_bed_under()
-	var line := str(runtime.call("debug_line", pose, source, bed, dist, dot)) \
-		if runtime.has_method("debug_line") else "no debug line"
+	var line := str(_gate(runtime).debug_line(pose, source, bed, dist, dot)) \
+		if _gate(runtime) != null else "no debug line"
 	return [line]
 
 
@@ -533,13 +542,12 @@ func _debug_act_rows(runtime: Variant) -> Array[String]:
 		"climaxes=%d satisfaction=%.2f" % [
 			int(runtime.get("pony_climaxes")), float(runtime.get("satisfaction"))],
 	]
-	if runtime.has_method("act_face_rows"):
+	if session != null:
 		rows.append("face:")
-		for row: Variant in runtime.call("act_face_rows"):
+		for row: Variant in session.act_face_rows():
 			rows.append("  " + str(row))
-	if runtime.has_method("pose_state_rows"):
 		rows.append("pose state:")
-		for row: Variant in runtime.call("pose_state_rows"):
+		for row: Variant in session.pose_state_rows():
 			rows.append("  " + str(row))
 	return rows
 
@@ -564,8 +572,9 @@ func action_force_act_face() -> String:
 	var face := str(ACT_FACE.FACES[_debug_face_index])
 	var runtime: Node = _runtime_for(target)
 	var shown := false
-	if is_instance_valid(runtime) and runtime.has_method("force_act_face"):
-		shown = bool(runtime.call("force_act_face", face))
+	var session: Variant = _session(runtime)
+	if session != null:
+		shown = bool(session.force_act_face(face))
 	if not shown:
 		shown = ACT_FACE.react(target, face, 3.0)
 	LOG.debug("act face %s=%s shown=%s" % [str(target.name), face, str(shown)])
@@ -663,8 +672,8 @@ func _debug_prompt_rows(target: Node) -> Array[String]:
 	if not is_instance_valid(runtime):
 		rows.append("no runtime")
 		return rows
-	rows.append("prompt_note: " + str(runtime.call("prompt_note")))
-	rows.append("cycle_note: " + str(runtime.call("cycle_note")))
+	rows.append("prompt_note: " + str(_session(runtime).prompt_note()))
+	rows.append("cycle_note: " + str(_session(runtime).cycle_note()))
 	var history_row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
 	var history_note := ACT_HISTORY.prompt_note(history_row)
 	rows.append("history_note: " + (history_note if not history_note.is_empty() else "none"))
@@ -728,9 +737,10 @@ func _debug_force_tolerance(kind: String) -> String:
 	var act: Node = _act()
 	if not is_instance_valid(act):
 		return "No act is active."
-	if not act.has_method("debug_force_tolerance"):
+	var session: Variant = _session(act)
+	if session == null:
 		return "The act cannot force a neglect warning."
-	if not bool(act.call("debug_force_tolerance", kind)):
+	if not bool(session.force_tolerance(kind)):
 		return "Neglect forcing is only available during a live act."
 	return "Neglect %s queued." % kind
 

@@ -10,13 +10,12 @@ func apply_torso_pose(hip: Node3D, facing: Basis) -> void:
 	if is_instance_valid(original) and original.has_method("apply_torso_pose"):
 		original.call("apply_torso_pose", hip, facing)
 	if is_instance_valid(runtime):
-		if runtime.has_method("apply_anon_thrust"):
-			runtime.call("apply_anon_thrust", hip, facing)
-		if runtime.has_method("apply_anon_lean"):
-			runtime.call("apply_anon_lean", hip, facing)
-		# integration: the optional anatomy alignment runs last on the hip target.
-		if runtime.has_method("apply_anon_align"):
-			runtime.call("apply_anon_align", hip, facing)
+		var session: Variant = runtime.get("act")
+		if session != null:
+			session.apply_anon_thrust(hip, facing)
+			session.apply_anon_lean(hip, facing)
+			# integration: the optional anatomy alignment runs last on the hip target.
+			session.apply_anon_align(hip, facing)
 
 
 func set_rest_hand_targets(left: Node3D, right: Node3D) -> void:

@@ -56,7 +56,7 @@ func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	runtime.act._set_state(0) # IDLE
 	runtime._face.warm_note = true
-	var note := str(runtime.call("prompt_note"))
+	var note := str(runtime.act.prompt_note())
 	check(note.contains("after making love with Anon"), "the warm note names the act")
 	check(note.contains("warm") and note.contains("relaxed"), "the warm note is warm")
 	check(not note.to_lower().contains("sex"), "the warm note has no bare sex word")

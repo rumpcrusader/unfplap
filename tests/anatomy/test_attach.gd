@@ -45,6 +45,10 @@ class FakeMain extends Node:
 
 class FakeRuntime extends Node:
 	var context: RefCounted
+	var act: Variant = null
+
+	func _init() -> void:
+		act = self
 
 	func anatomy_facts() -> RefCounted:
 		return context

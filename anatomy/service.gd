@@ -114,8 +114,10 @@ func controller_for(pony: Node, runtime: Node) -> Node:
 	if not is_instance_valid(pony):
 		return null
 	var facts: Variant = null
-	if is_instance_valid(runtime) and runtime.has_method("anatomy_facts"):
-		facts = runtime.call("anatomy_facts")
+	if is_instance_valid(runtime):
+		var session: Variant = runtime.get("act")
+		if session != null:
+			facts = session.anatomy_facts()
 	var existing: Variant = _controllers.get(pony)
 	if is_instance_valid(existing):
 		var known: Node = existing

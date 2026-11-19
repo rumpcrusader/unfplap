@@ -6,6 +6,8 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/readiness/test_oral_quiet.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const WING := preload("res://mods/unfplap/poses/wing_control.gd")
+const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -25,7 +27,7 @@ class FakeBridge extends RefCounted:
 	var mouth := Vector3(0.2, 1.3, 0.5)
 	var point := Vector3(0.9, 0.0, 1.1)
 
-	func bind(_host: Dictionary) -> void:
+	func bind(_host: Variant) -> void:
 		pass
 
 	func refresh() -> void:
@@ -62,7 +64,7 @@ class FakeCamera extends RefCounted:
 		ends += 1
 
 
-class FakeKiss extends RefCounted:
+class FakeKiss extends KISS:
 	var ends := 0
 
 	func end_lean_kiss() -> void:
@@ -93,7 +95,7 @@ class FakeReactions extends RefCounted:
 		return Vector3.ZERO
 
 
-class FakeWings extends RefCounted:
+class FakeWings extends WING:
 	var thrusts := 0
 
 	func on_thrust(_impact: float) -> void:

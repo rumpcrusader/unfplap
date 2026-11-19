@@ -109,7 +109,15 @@ const AGREEMENT_WAIT := 0
 const AGREEMENT_STARTED := 1
 const AGREEMENT_FAILED := 2
 
-var pony
+## The pony this runtime presents. Assigning a body rebinds the pose session's pony once.
+var pony: Node:
+	get:
+		return _pony_node
+	set(value):
+		_pony_node = value
+		_pose_session.bind(self, value if is_instance_valid(value) else null)
+
+var _pony_node: Node = null
 
 var state: int = State.IDLE
 var pose_id := ""
@@ -290,7 +298,7 @@ var _presentation_cfg: Dictionary = {}
 ## This act's footstool handle: the case loans, the placed stack and the player lift. See
 ## `stool/act.gd` and docs/stool.md.
 var _stool: RefCounted = null
-var _wings
+var _wings: WING = null
 var _act_seconds := 0.0
 ## Processed-time clock. It only advances while the runtime ticks, so a paused tree freezes
 ## act timing and stroke memory instead of aging them by the pause length.
@@ -309,13 +317,13 @@ var _satisfaction_tween: Tween
 ## settings keeps her forehooves planted for the kiss and restores them when it ends.
 ## The act's stare is released once when a kiss starts so the regular kiss can drive the eyes.
 var _climax_progress := 0.0
-var _hands
-var _kiss
-var _integrations
-var _missionary_camera_ctl
-var _standing_camera_ctl
-var _standing_anon_ctl
-var _standing_presentation_ctl
+var _hands: HANDS = null
+var _kiss: KISS = null
+var _integrations: INTEGRATIONS = null
+var _missionary_camera_ctl: MISSIONARY_CAMERA = null
+var _standing_camera_ctl: STANDING_CAMERA = null
+var _standing_anon_ctl: STANDING_ANON = null
+var _standing_presentation_ctl: STANDING_PRESENTATION = null
 var _act_audio: Variant = null
 var _bed_soft := false
 ## Shared act-level excitement Beat holds. The kiss controller holds "kiss" for a base kiss; an
@@ -325,7 +333,40 @@ var _excitement_beat: Timer
 var _excitement_beat_saved := false
 var _excitement_beat_paused := false
 
+## Construct the per-pony controllers once. Only the audio node waits for the tree.
+func _build_systems() -> void:
+	_wings = WING.new(_act_facts)
+	_wings.log = Callable(self, "_log")
+	_hands = HANDS.new(_act_facts)
+	_kiss = KISS.new(_act_facts)
+	_integrations = INTEGRATIONS.new(_act_facts)
+	_missionary_camera_ctl = MISSIONARY_CAMERA.new(_act_facts)
+	_standing_camera_ctl = STANDING_CAMERA.new(_act_facts)
+	_standing_anon_ctl = STANDING_ANON.new(_act_facts)
+	_standing_presentation_ctl = STANDING_PRESENTATION.new(_act_facts)
+
+
+## Bind the pose session's host callbacks once. The body paths rebind the pony itself.
+func _bind_pose_hosts() -> void:
+	_pose_session.bind(self, pony if is_instance_valid(pony) else null)
+	_pose_session.id = _id
+	_pose_session.hide_avatar = Callable(self, "_hide_act_avatar")
+	_pose_session.set_act_body = Callable(self, "_set_missionary_anon_handle")
+	_pose_session.eye_camera = Callable(self, "_missionary_eye_tick")
+	_pose_session.perf = Callable(self, "perf_note")
+	_pose_session.facts = _act_facts
+	_pose_session.mouth_point = Callable(self, "_oral_mouth_point")
+	_pose_session.opening_point = Callable(self, "_oral_opening_point")
+	_pose_session.face_point = Callable(self, "_anatomy_face_point")
+	_pose_session.oral_kiss = Callable(self, "_oral_kiss")
+	_pose_session.oral_speech_stop = Callable(self, "_oral_speech_stop")
+	_pose_session.oral_viseme = Callable(self, "_oral_viseme")
+	_pose_session.oral_status = Callable(self, "_anatomy_status")
+
+
 func _init() -> void:
+	_build_systems()
+	_bind_pose_hosts()
 	_anatomy_bridge.bind(_anatomy_host())
 	_act_facts.perf_note = Callable(self, "perf_note")
 	_act_facts.log = Callable(self, "_log")
@@ -565,6 +606,7 @@ func _ready() -> void:
 	# Identity is the key for per-mare preferences, poses, prompts and memory. It can arrive after
 	# the pony enters the tree, so read it now and once more after the first frame.
 	_read_id()
+	_bind_pose_hosts()
 	call_deferred("_read_id")
 	_face.bind(pony, self)
 	# integration: anatomy is persistent outside acts. Retry once after the first frame for a mod
@@ -838,32 +880,16 @@ func _bind_act_view() -> void:
 	facts.physics_delta = get_physics_process_delta_time()
 
 
-## Lazily create the wing controller. Tests instantiate the runtime without entering the tree.
-func _wings_controller():
-	if _wings == null:
-		_wings = WING.new(_act_facts)
-		_wings.log = Callable(self, "_log")
-	_bind_act_view()
+func _wings_controller() -> WING:
 	return _wings
 
-func _hand_controller():
-	if _hands == null:
-		_hands = HANDS.new(_act_facts)
-	_bind_act_view()
+func _hand_controller() -> HANDS:
 	return _hands
 
-## Lazily create the kiss controller, including outside the tree in tests.
-func _kiss_controller():
-	if _kiss == null:
-		_kiss = KISS.new(_act_facts)
-	_bind_act_view()
+func _kiss_controller() -> KISS:
 	return _kiss
 
-## Lazily create the optional mod-integration bridge, including outside the tree in tests.
-func _integrations_controller():
-	if _integrations == null:
-		_integrations = INTEGRATIONS.new(_act_facts)
-	_bind_act_view()
+func _integrations_controller() -> INTEGRATIONS:
 	return _integrations
 
 ## Acquire a named hold on the game's excitement Beat. The first successful holder saves the
@@ -914,31 +940,16 @@ func _reset_excitement_hold() -> void:
 	_excitement_holders.clear()
 	_restore_excitement_beat()
 
-## Lazily create the missionary camera controller, including outside the tree in tests.
-func _missionary_camera_controller():
-	if _missionary_camera_ctl == null:
-		_missionary_camera_ctl = MISSIONARY_CAMERA.new(_act_facts)
-	_bind_act_view()
+func _missionary_camera_controller() -> MISSIONARY_CAMERA:
 	return _missionary_camera_ctl
 
-## Lazily create the standing camera controller, including outside the tree in tests.
-func _standing_camera_controller():
-	if _standing_camera_ctl == null:
-		_standing_camera_ctl = STANDING_CAMERA.new(_act_facts)
+func _standing_camera_controller() -> STANDING_CAMERA:
 	return _standing_camera_ctl
 
-## Lazily create the standing Anon body controller, including outside the tree in tests.
-func _standing_anon_controller():
-	if _standing_anon_ctl == null:
-		_standing_anon_ctl = STANDING_ANON.new(_act_facts)
-	_bind_act_view()
+func _standing_anon_controller() -> STANDING_ANON:
 	return _standing_anon_ctl
 
-## Lazily create the idle standing presentation controller.
-func _standing_presentation_controller():
-	if _standing_presentation_ctl == null:
-		_standing_presentation_ctl = STANDING_PRESENTATION.new(_act_facts)
-	_bind_act_view()
+func _standing_presentation_controller() -> STANDING_PRESENTATION:
 	return _standing_presentation_ctl
 
 ## Feature flag from the act snapshot. Unknown flags read as off.
@@ -947,29 +958,11 @@ func _feature(name: String) -> bool:
 
 
 func _dialogue_service() -> RefCounted:
-	_act_facts.pony_id = _id
 	return _act_dialogue
 
 
-## The pose session, bound to this runtime and its pony. Suites build a runtime without entering
-## the tree, so the binding is refreshed on every access instead of only in `_ready()`.
+## The pose session. Its host binding is one pass in `_init`; a body swap rebinds the pony itself.
 func _pose_service() -> RefCounted:
-	# A lost body (world close mid-swap) leaves a freed reference; the session must not carry it
-	# into a release or a fan-out.
-	_pose_session.bind(self, pony if is_instance_valid(pony) else null)
-	_pose_session.id = _id
-	_pose_session.hide_avatar = Callable(self, "_hide_act_avatar")
-	_pose_session.set_act_body = Callable(self, "_set_missionary_anon_handle")
-	_pose_session.eye_camera = Callable(self, "_missionary_eye_tick")
-	_pose_session.perf = Callable(self, "perf_note")
-	_pose_session.facts = _act_facts
-	_pose_session.mouth_point = Callable(self, "_oral_mouth_point")
-	_pose_session.opening_point = Callable(self, "_oral_opening_point")
-	_pose_session.face_point = Callable(self, "_anatomy_face_point")
-	_pose_session.oral_kiss = Callable(self, "_oral_kiss")
-	_pose_session.oral_speech_stop = Callable(self, "_oral_speech_stop")
-	_pose_session.oral_viseme = Callable(self, "_oral_viseme")
-	_pose_session.oral_status = Callable(self, "_anatomy_status")
 	return _pose_session
 
 
@@ -1737,6 +1730,7 @@ func _read_id() -> bool:
 		_id = PONY_ID.from("", pony.get("identity"))
 	if _id.is_empty():
 		return false
+	_pose_session.id = _id
 	_adopt_display_name(pony)
 	return true
 
@@ -2955,6 +2949,8 @@ func _restore_pony_bones() -> void:
 ## the act-scope releases between them, then the session's final pose clear. A later pose
 ## transition calls only the pose-scope steps; it never calls this function.
 func _free_pose() -> void:
+	# A lost body must not reach the pose session's oral/face bindings.
+	_pose_session.bind(self, pony if is_instance_valid(pony) else null)
 	_pose_service().leave_pose_start()
 	clear_presentation()
 	_camera_service().call("end_lean_action")

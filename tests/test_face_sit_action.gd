@@ -49,7 +49,7 @@ class FakePose extends RefCounted:
 class FakeBridge extends RefCounted:
 	var missionary_anon: Variant = null
 
-	func bind(_host: Dictionary) -> void:
+	func bind(_host: Variant) -> void:
 		pass
 
 	func refresh() -> void:

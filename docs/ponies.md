@@ -151,15 +151,15 @@ None. The act key belongs to `docs/input.md` and the idle scan to `docs/offer.md
 
 ## Debug
 
-The Debug block reads `active()`, `runtime_for()` and `live_ponies()` through the entry's host
-bindings, and the idle perf block's header counts come from `runtime_count()` and
-`mare_count()`. See `docs/debug.md`.
+The Debug block builds its own `Host` from the `PONIES` facade in `debug/actions.gd` and reads
+`active()`, `runtime_for()` and `live_ponies()` through it; the entry binds none of them. The idle
+perf block's header counts come from `runtime_count()` and `mare_count()`. See `docs/debug.md`.
 
 ## Lifecycle
 
 - Scope: world
 - Constructed by: static initialization
-- Begin: the entry binds its host, factory and services; `attach()` per spawned body
+- Begin: the entry calls `PONIES.bind(...)` and sets `factory`; `attach()` per spawned body
 - End: `shutdown()` on process exit, `close_world()` on a world close
 - Idempotent: yes
 

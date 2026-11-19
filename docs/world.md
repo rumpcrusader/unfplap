@@ -37,6 +37,7 @@ same answer, so a service never names the entry to ask whether the scene is live
 | `interactor()` | the player rig's reach node, resolved once per body |
 | `desktop()` | the desktop interactions node in the world |
 | `player_body()` | the rig body the game shows for Anon |
+| `game_player()` | the game's own player property, read defensively; null when absent or not a `Node3D` |
 | `mares()` | the world's live mare list, unchanged |
 | `bed_under(point, exclude)` | the bed a downward probe finds under a point |
 | `real_bed(node)` | the bed behind a mattress or temporary support hit |
@@ -64,6 +65,7 @@ static func camera() -> Camera3D
 static func interactor() -> Node
 static func desktop() -> Node
 static func player_body() -> Node3D
+static func game_player() -> Node3D
 static func mares() -> Array
 static func bed_under(point: Vector3, exclude: RID = RID()) -> Node3D
 static func real_bed(node: Node) -> Node3D
@@ -79,7 +81,9 @@ static func open_act_chat() -> bool
 
 `Bind` runs in this order from the entry: `bind_world()` on world ready (it clears the resolved
 handles), `bind_player()` when the player rig arrives, `unbind()` on world close. An unbound
-facade answers `null` and `false`; that is the "no world yet" answer, not a rule.
+facade answers `null` and `false`; that is the "no world yet" answer, not a rule. `game_player()`
+reads the game's own `player` property through `get("player")`, so a renamed or missing property
+is null instead of a crash.
 
 ## Data ownership
 

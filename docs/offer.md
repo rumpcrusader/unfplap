@@ -171,17 +171,15 @@ The start path adds `hotkey no context pose`, `hotkey exact match id=<id> pose=<
 
 | Callback | Type | Contract |
 |---|---|---|
-| `runtime_for` | `Callable(pony: Node) -> Node` | a pony's live runtime, or null; the entry binds `PONIES.runtime_for` |
-| `act_target` | `Callable(pony: Node) -> bool` | the adult act-target capability; the entry binds `PONIES.act_target` |
-| `act_live` | `Callable() -> bool` | true while an act owns the frame; the entry binds `PONIES.act_running` |
 | `negotiation` | `Node` | the Negotiation service; only its public `handle()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
 | `privacy` | `privacy/service.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
 | `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through `HUD.toast()`) |
 
 `_ready()` joins the settings change notification and `_exit_tree()` leaves it, so an edit reaches
-`apply_settings()` with no entry path. A missing callable reads as "no runtime", "not a target" and
-"no act", so an unbound service scans and starts nothing. A missing privacy provider reads as public, so a private Agreement does not
-start on a stale answer.
+`apply_settings()` with no entry path. The live runtime, act-target and act-running reads are the
+preloaded `PONIES` facade; a missing registry reads as no runtime, no act target and no act, so an
+unbound service scans and starts nothing. A missing privacy provider reads as public, so a private
+Agreement does not start on a stale answer.
 
 ## Dependencies
 

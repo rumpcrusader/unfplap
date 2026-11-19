@@ -10,7 +10,8 @@ window is tabled in the top-left corner; see `docs/debug.md`.
 ## Ownership
 
 - `shared/perf.gd` is a pure `RefCounted` module owned by the runtime. It holds the act's window,
-  chunk rows, header facts, the act parent table and summary formatting.
+  chunk rows, the act parent table, summary formatting and the typed `Host` one runtime fills: the
+  switch gate, the log and panel sinks, the header values and the idle forward.
 - `shared/perf_idle.gd` is a pure `RefCounted` module owned by `shared/log.gd`. It holds the idle
   window, aggregated rows, worst owner per chunk, counts, the idle parent table and block
   formatting.
@@ -18,8 +19,11 @@ window is tabled in the top-left corner; see `docs/debug.md`.
   parent table into the display order and the `self` residuals; it knows no chunk on its own.
 - `shared/perf_view.gd` draws the panel. It owns no gate, no data and no setting: a probe hands it
   one laid-out window and its facts, and `shared/log.gd` hides it when either switch goes off.
-- The runtime supplies the act probe's two gates (`enabled`, `active`), the header facts and the
-  log and panel callbacks.
+- The runtime fills the host once in `_init()`, after the pony systems exist: the switch gate, the
+  log and panel sinks, the id/pose/state reads, the live header values and the idle window's sink;
+  `PERF.build(host)` binds the probe to it. The module derives `active` and `idle` from the act
+  state it is handed, formats the header strings and forwards each chunk to the idle window while
+  that one owns the pony, so no runtime holds a second probe.
 - `shared/log.gd` supplies the idle probe's gate (`enabled`), the header counts and the log and
   panel callbacks, and keeps the panel to the two debug switches: `perf_block()` creates the view
   on the first window. Its two scene-free unknowns, the act gate and the counts, are entry
@@ -79,15 +83,28 @@ measured `refresh` rate in Hz: the interval between the last two panels.
 
 | Member | Contract |
 |---|---|
+| `Host` | the runtime's typed boundary: the gates, the sinks, the header reads and the idle sink |
+| `build(host)` | static: one probe with its host bound once |
 | `enabled: Callable` | both debug switches are on |
 | `active: Callable` | true while an act is running; the window clears outside it |
 | `header: Callable` | returns `{pony, pose, state, lean, hands, near_mesh, tier, wings}` |
 | `log: Callable` | writes one summary block |
 | `show: Callable` | hands one window to the panel: the laid-out rows with each `max`, the header facts and `frames` |
-| `note(key, usec)` | record one timed chunk; a cheap no-op when off |
+| `idle: Callable` | the idle window's gate: both switches on and no act running |
+| `idle_note: Callable` | the idle window's forwarding sink: `(key, usec, owner)` |
+| `idle_on()` | the idle gate |
+| `note(key, usec)` | record one timed chunk and forward it to the idle window while that one owns the frame; a cheap no-op with both off |
 | `time(key, started_usec)` | close one call site; the caller takes the start stamp |
 | `reset()` | clear the window, the rows and the physics mark |
 | `tick(delta)` | accumulate a frame and print at the window boundary |
+
+The host's callbacks are `enabled_cb`, `log_cb` and `show_cb`, the header reads `id`, `pose`,
+`state`, `lean_forward`, `lean_side`, `hand_left`, `hand_right`, `near_mesh`, `tier`,
+`wing_hold` and `winged`, and the idle sink `idle_note_cb`. The module composes the header's
+`lean` (`<forward>/<side>`), `hands` (`LR`, `L`, `R` or `-`) and `wings` (`held`, `winged` or
+`no`) strings, prints a missing engine value as `?`, and derives both gates from the shared act
+state. The header is read only when a window closes, so its live scene reads cost once a second,
+never per note.
 
 The probe also reads `Engine.get_physics_frames()`, `Engine.get_frames_per_second()`, the
 `Performance` process/physics monitors and the renderer's draw-call and primitive counters. Those
@@ -228,10 +245,12 @@ offerable pose assets are parsed at world ready, so their load is not inside a f
 - The idle probe prints only while no act is running (`LOG.act_running` reads false). It resets
   when an act starts, when a switch goes off, on world start, on world close and on entry teardown
   (`LOG.reset()`/`LOG.detach()`). `LOG.tick(delta)` runs first in `_process`, so a window prints at
-  the frame boundary and the entry closes `entry_process` after its body.
-- With a switch off, no clock is taken in the idle path, the runtime's forward is one bool branch
-  and `note`/`tick` early-return. Rows are updated in place; nothing allocates per frame. The tree
-  layout runs once per window, not per note.
+  the frame boundary and the entry closes `entry_process` after its body. An idle runtime forwards
+  its chunks through `runtime.perf_note()`, which reaches the idle window through the probe's own
+  `note()` and labels them with the pony's id.
+- With a switch off, no clock is taken in the idle path, the runtime's forward is one call whose
+  gates early-return, and `note`/`tick` do nothing. Rows are updated in place; nothing allocates per
+  frame. The tree layout runs once per window, not per note.
 - The probes are debug tools, not settings: no declaration and no persisted value.
 
 ## Debug
@@ -273,7 +292,8 @@ and allocates nothing, and the pose write is the only new per-frame cost.
 ## Tests
 
 - `tests/perf/test_perf.gd` — the act probe's on/active gates, window reset, row aggregation,
-  parent and child rows, per-level order, the self residual and summary formatting.
+  parent and child rows, per-level order, the self residual and summary formatting, plus the typed
+  host it is built from: the header strings shaped from the runtime's values and the idle forward.
 - `tests/perf/test_log.gd` — the module around both probes: the switch gate, the block text, one
   idle window a second and the panel created lazily under `attach()`.
 - `tests/perf/test_perf_idle.gd` — the idle probe's gate, window boundary, per-owner aggregation,

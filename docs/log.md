@@ -21,7 +21,9 @@ two switch reads, the act gate and the header counts.
 - `debug_logs` gates every line; `debug_perf` only gates the perf window and the panel, and it
   needs `debug_logs` on too.
 - The idle probe's own text, rows, tree and one-second window are `shared/perf_idle.gd`'s; this
-  module supplies its gate, counts, log and panel sinks. See `docs/perf.md`.
+  module supplies its gate, counts, log and panel sinks. See `docs/perf.md`. A runtime binds
+  `note()` once through its perf host, so an idle chunk arrives with the pony's id and no runtime
+  holds a second probe.
 
 ## API
 

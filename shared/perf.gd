@@ -2,8 +2,8 @@ extends RefCounted
 ## The act's debug perf probe: timed chunks report microseconds here and one summary prints per
 ## window so a pony-specific stall can be attributed to a modifier without a live profiler.
 ##
-## The host supplies the two gates and the header facts, so this module has no scene access. See
-## `docs/perf.md` and `docs/settings.md`.
+## The typed `Host` supplies the gates, the sinks, the header values and the idle forward, so this
+## module has no scene access. See `docs/perf.md` and `docs/settings.md`.
 
 const TREE := preload("res://mods/unfplap/shared/perf_tree.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")

@@ -196,6 +196,24 @@ ACT_SETTINGS_READS = {
 # The only child nodes the runtime parents: both are system-owned, and the runtime is the host that
 # adds and frees them. A new node is an allow-list row, not a line in a tick.
 RUNTIME_CHILD_NODES = {}
+# The act modules' line ceilings. The session is the state, timer and clock owner and the
+# dispatcher; each other module is a ledger or a thin adapter. A module over its row has taken
+# behaviour back from an owner, so the row is an invariant, not a style preference. The map is
+# compared both ways: a new act module needs a budget and a removed one drops its row.
+ACT_LINE_CAPS = {
+    "act/session.gd": 400,
+    "act/start.gd": 300,
+    "act/exit.gd": 300,
+    "act/view.gd": 300,
+    "act/consent.gd": 300,
+    "act/impact.gd": 300,
+    "act/agreement.gd": 300,
+    "act/setup.gd": 300,
+    "act/settings.gd": 300,
+    "act/context.gd": 300,
+    "act/host.gd": 300,
+    "act/idle.gd": 300,
+}
 RUNTIME_RAW_INPUT = (
     re.compile(r"\bInput\."),
     re.compile(r"\bInputMap\."),
@@ -1322,6 +1340,31 @@ def check_runtime_shape(failure: Failure) -> None:
             failure.add("the runtime child-node allow-list row %s is stale (%s)" % (owner, reason))
 
 
+def check_act_budgets(failure: Failure) -> None:
+    """The act modules' line ceilings, compared both ways.
+
+    `act/session.gd` owns the state, timers, clock and act values and dispatches to the owner
+    services; a body that grows there is the "session v2" failure. Every other act module is a
+    ledger or a thin adapter, so the ceilings keep each phase's distribution honest.
+    """
+    act_dir = ROOT / "act"
+    if not act_dir.is_dir():
+        failure.add("missing act/: the runtime's own act modules")
+        return
+    files = sorted(rel(path) for path in act_dir.glob("*.gd"))
+    for name in files:
+        cap = ACT_LINE_CAPS.get(name)
+        if cap is None:
+            failure.add("%s has no act line budget; add a row to ACT_LINE_CAPS" % name)
+            continue
+        lines = len((ROOT / name).read_text(encoding="utf-8").splitlines())
+        if lines > cap:
+            failure.add("%s has %d lines; the act budget is %d" % (name, lines, cap))
+    for name, cap in sorted(ACT_LINE_CAPS.items()):
+        if name not in files:
+            failure.add("the act line budget row %s -> %d is stale" % (name, cap))
+
+
 def check_entry_shape(failure: Failure) -> None:
     """The entry constructs and binds; it never dispatches by string or assigns a service's fields."""
     main_path = ROOT / "main.gd"
@@ -1349,6 +1392,7 @@ def check() -> int:
     check_sources(failure)
     check_boundaries(failure)
     check_runtime_shape(failure)
+    check_act_budgets(failure)
     check_entry_shape(failure)
     check_owners(failure)
     check_tests(failure)

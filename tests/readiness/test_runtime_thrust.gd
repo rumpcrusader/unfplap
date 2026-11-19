@@ -5,6 +5,7 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
+const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 var failures := 0
 var checks := 0
@@ -67,7 +68,7 @@ func run() -> void:
 	runtime._score_thrust()
 	check(runtime.satisfaction > 1.0, "matching both axes adds readiness")
 	# Heat multiplies the same matching chunk; the debug override bypasses the world day.
-	runtime.set_cycle_override("heat")
+	CYCLE.set_override(runtime.live_id(), "heat")
 	runtime.satisfaction = 0.0
 	runtime._readiness.last_intensity = "firm"
 	runtime._readiness.last_pattern = "steady"
@@ -81,7 +82,7 @@ func run() -> void:
 	check(HUD_LINES.readiness_line_for(_view(runtime), false).is_empty(),
 		"readouts off hide the heat line")
 	runtime._cycle_heat = false
-	runtime.set_cycle_override("")
+	CYCLE.set_override(runtime.live_id(), "")
 	var before: float = runtime.satisfaction
 	runtime._readiness_tick(10.0)
 	check(near(runtime.satisfaction, before), "readiness does not decay on its own")

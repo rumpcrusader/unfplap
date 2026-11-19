@@ -1390,10 +1390,6 @@ func _eyes_tick() -> void:
 
 # --------------------------------------------------------------------------- gates
 
-func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) -> PackedStringArray:
-	return _scene_gate().report_reasons(start_verdict(pose, act_source, bed_in).get("rows", []))
-
-
 func _stool_act() -> Variant:
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(pony):
 		return null
@@ -1411,19 +1407,12 @@ func _stool_failed() -> bool:
 	return _stool_act() != null and bool(_stool_act().call("has_failed"))
 
 
-## Whether the footstool rule can apply at all. See docs/stool.md.
-func stool_applies() -> bool:
-	return _stool_act() != null and bool(_stool_act().call("applies"))
-
 ## The live vertical gap; NAN when the rule or the anatomy is unavailable.
 func stool_gap_m() -> float:
 	return float(_stool_act().call("gap_m")) if _stool_act() != null else NAN
 
 func stool_needed_count() -> int:
 	return int(_stool_act().call("needed_count")) if _stool_act() != null else 0
-
-func stool_required() -> bool:
-	return _stool_act() != null and bool(_stool_act().call("required"))
 
 func stool_case_count() -> int:
 	return int(_stool_act().call("case_count")) if _stool_act() != null else 0
@@ -2509,10 +2498,6 @@ func anatomy_oral_ready() -> bool:
 	return _anatomy_bridge.oral_ready()
 
 
-func anatomy_actions_ready() -> bool:
-	return _anatomy_bridge.actions_ready()
-
-
 func missionary_anon_body() -> Variant:
 	return _anatomy_bridge.missionary_anon_body()
 
@@ -3249,13 +3234,6 @@ func cycle_phase() -> String:
 func cycle_override() -> String:
 	_read_id()
 	return CYCLE.override_for(_id)
-
-
-## Session-only estrus override: heat, diestrus, normal, or "" to resume the automatic cycle. The
-## debug action is the shipped writer; the runtime keeps the protocol for its suites.
-func set_cycle_override(phase_name: String) -> void:
-	_read_id()
-	CYCLE.set_override(_id, phase_name)
 
 
 ## Private heat/diestrus note for the normal dialogue prompt, outside and during acts. The

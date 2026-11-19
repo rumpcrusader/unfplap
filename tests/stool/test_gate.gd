@@ -136,10 +136,12 @@ func run() -> void:
 	runtime._anatomy_bridge.controller = FakeController.new()
 	var controller: Node = runtime._anatomy_bridge.controller
 	controller.set("opening_y", 1.30)
+	var stool: Variant = main.stool.new_act()
+	stool.bind(main.stool, pony, player, controller)
 
 	check(main.stool.enabled() == SETTINGS.standing_stool.get_bool(),
 		"the facade reads the feature switch")
-	check(runtime.stool_applies(), "the gate applies with anatomy and a human player")
+	check(stool.applies(), "the gate applies with anatomy and a human player")
 	check(is_equal_approx(runtime.stool_gap_m(), 0.40), "the live gap is 40 cm")
 	check(runtime.stool_needed_count() == 2, "40 cm needs two 20 cm steps")
 	check(runtime.stool_case_count() == 0, "no case footstool")
@@ -182,7 +184,7 @@ func run() -> void:
 		"the recovered scene reads Base clearance once")
 
 	SETTINGS.anatomy_mode.set_choice("never")
-	check(not runtime.stool_required(), "anatomy off disables the gate")
+	check(not stool.required(), "anatomy off disables the gate")
 	SETTINGS.anatomy_mode.set_choice("always")
 	SETTINGS.stool_gap_m.set_num(0.20)
 	SETTINGS.stool_height_m.set_num(0.20)

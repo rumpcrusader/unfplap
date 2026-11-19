@@ -11,22 +11,23 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
+const ACT_SETUP := preload("res://mods/unfplap/act/setup.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
-const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
 var session: ACT_SESSION = null
 var exit: ACT_EXIT = null
 var view: ACT_VIEW = null
+## The closed start.setup adapters. A leaf: the ledger owns the order, this owns the scene moves.
+var setup: ACT_SETUP = null
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
@@ -36,6 +37,8 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
 	session = session_in
 	exit = exit_in
 	view = view_in
+	setup = ACT_SETUP.new()
+	setup.bind(host, context, session, view)
 
 
 ## The shared start body after every gate. The act key's policy path and the scene-only
@@ -45,18 +48,19 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 			and context.presentation.presentation_active() \
 			and not context.presentation.presentation_settled():
 		host.log("start blocked presentation turn pose=%s source=%s pony=%s" % [
-			pose, act_source, _pony_name()])
+			pose, act_source, host.pony_name()])
 		return false
-	_reset_stool_state()
+	session.reset_stool_state()
 	_anatomy_refresh()
 	if bool(POSE_SPECS.scene(pose).get("stool", false)):
-		var stool_need := int(stool().call("needed_count")) if stool() != null else 0
+		var stool_need := int(session.stool().call("needed_count")) \
+			if session.stool() != null else 0
 		if stool_need > 0:
-			var stool_act: Variant = stool()
+			var stool_act: Variant = session.stool()
 			if stool_act == null or int(stool_act.call("case_count")) < stool_need \
 					or not bool(stool_act.call("take_items", stool_need)):
 				host.log("start blocked stool pose=%s pony=%s need=%d" % [
-					pose, _pony_name(), stool_need])
+					pose, host.pony_name(), stool_need])
 				return false
 	context.camera.begin_session(session.start_family())
 	session.posture_owned = false
@@ -141,8 +145,8 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 
 	# The act is its own state for both of them: the setup adapter places the bodies before the
 	# snapshot and the lock. The bed only supplies the frame their bodies are placed in.
-	var setup := POSE_SPECS.start_setup(pose)
-	if not _run_start_setup(setup):
+	var setup_name := POSE_SPECS.start_setup(pose)
+	if not setup.run(setup_name):
 		abort()
 		return false
 
@@ -184,7 +188,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 		HUD.instance.show_act(context.facts)
 		HUD.instance.hide_prompt()
 	host.log("started pose=%s setup=%s source=%s pony=%s eye=%.2f" % [
-		pose, setup, act_source, _pony_name(), context.camera.camera_target_eye])
+		pose, setup_name, act_source, host.pony_name(), context.camera.camera_target_eye])
 	return true
 
 
@@ -209,98 +213,6 @@ func _build_pose() -> void:
 	context.reactions.bind_tail(context.pose.tail)
 
 
-## Dispatch the spec's closed `start.setup` vocabulary to its placement adapter. It never selects
-## on a pose id: a new pose row adds its setup name and data, not a branch here. A missing or
-## unknown name is a data error after the gate passed; `run()` aborts the partial act.
-func _run_start_setup(setup: String) -> bool:
-	match setup:
-		"bed_stand_up":
-			return _start_bed_stand_up()
-		"bed_keep_lying":
-			return _start_bed_keep_lying()
-		"standing_place":
-			return _start_standing_place()
-		_:
-			host.log("start blocked setup=%s source=%s pony=%s" % [
-				setup if not setup.is_empty() else "missing", session.source, _pony_name()])
-			return false
-
-
-## The bed stand-up start: Anon leaves the mattress before the player snapshot and the lock, and
-## she leaves the game's lying state. The bed rest/cradle release already ran in the common
-## prelude; the authored body owns her pose from here.
-func _start_bed_stand_up() -> bool:
-	if session.bed == null:
-		return false
-	if not session.player_pony:
-		var body: Variant = WORLD.player
-		if body != null and body.has_method("force_stand_up"):
-			body.call("force_stand_up")
-	if session.source == "cradle":
-		context.rest.bind(host.pony, session.bed)
-		context.rest.place_on_start()
-	else:
-		host.pony.reset_physics_interpolation()
-	if host.pony.get("posture") != null:
-		host.pony.request_posture("stand")
-	return true
-
-
-## The bed lying start: Anon does not stand up, and the authored act body takes over her pose.
-## The riding pose is the first intended consumer; no shipped row uses this setup yet.
-func _start_bed_keep_lying() -> bool:
-	if session.bed == null:
-		return false
-	if session.source == "dialogue" and not REST.release_managed(host.pony):
-		return false
-	host.pony.reset_physics_interpolation()
-	if host.pony.get("posture") != null:
-		host.pony.request_posture("stand")
-	return true
-
-
-## The standing start: keep her where she stands, place Anon behind her at the act gap, take the
-## stool items and start the facing lock.
-func _start_standing_place() -> bool:
-	context.placement.bind_act(session.placement_values())
-	var standing: Transform3D = context.placement.begin_act()
-	var stool_act: Variant = stool()
-	if stool_act != null and bool(stool_act.call("has_failed")):
-		return false
-	host.pony.request_posture("stand")
-	view.refresh(context.facts, session)
-	context.standing_camera.begin_facing(standing)
-	return true
-
-
-## This act's footstool handle: the case loans, the placed stack and the player lift. The start
-## binds it before the first stool question; the exit releases the same handle.
-func stool() -> Variant:
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(host.pony):
-		return null
-	var service: Variant = STOOL.instance
-	if service == null or not service.has_method("new_act"):
-		return null
-	if context.stool == null:
-		context.stool = service.call("new_act")
-		context.stool.log = Callable(host, "log")
-	context.stool.call("bind", service, host.pony, WORLD.player, context.anatomy.controller)
-	return context.stool
-
-
-## Remove the act prop and put every case item back. Every exit path releases it.
-func release_stool() -> void:
-	var act: Variant = stool()
-	if act != null:
-		act.call("release")
-
-
-func _reset_stool_state() -> void:
-	var act: Variant = stool()
-	if act != null:
-		act.call("reset")
-
-
 func _claim_nav() -> bool:
 	if context.hold.holds_negotiation():
 		return context.hold.adopt_hold()
@@ -315,109 +227,3 @@ func _anatomy_refresh() -> void:
 func _anatomy_act_refresh() -> void:
 	context.anatomy.bind(context.anatomy_host)
 	context.anatomy.begin_act()
-
-
-func _pony_name() -> String:
-	return str(host.pony.name) if is_instance_valid(host.pony) else "?"
-
-
-## The Agreement start's answer: a transient row or an unsettled presentation keeps waiting; a
-## technical rollback is a start failure.
-const AGREEMENT_WAIT := 0
-const AGREEMENT_STARTED := 1
-const AGREEMENT_FAILED := 2
-
-
-## The scene-only Agreement start. Negotiation froze the policy and the pose capability; only the
-## world rows run. `WAIT` keeps the Agreement live; `STARTED` and `FAILED` are reported by the offer.
-func start_agreement(handle: Variant, skip_presentation := false) -> int:
-	if handle == null or not bool(handle.call("valid")):
-		return AGREEMENT_FAILED
-	var option: Variant = handle.get("option")
-	if option == null:
-		return AGREEMENT_FAILED
-	session.refresh_identity()
-	var pose := str(option.pose)
-	var act_source := str(option.source)
-	var verdict: Variant = context.gate.scene_only_verdict(pose, act_source, option.bed,
-		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
-	if verdict == null or not bool(verdict.hard_ok):
-		host.log("agreement start blocked pose=%s source=%s pony=%s reasons=%s" % [
-			pose, act_source, _pony_name(),
-			"none" if verdict == null else ",".join(verdict.reasons)])
-		return AGREEMENT_FAILED
-	if not bool(verdict.ok):
-		host.log("agreement start waiting pose=%s source=%s transient=%s" % [
-			pose, act_source, ",".join(verdict.transient)])
-		return AGREEMENT_WAIT
-	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
-			and context.presentation.presentation_active() \
-			and not context.presentation.presentation_settled():
-		host.log("agreement start waiting pose=%s source=%s presentation" % [pose, act_source])
-		return AGREEMENT_WAIT
-	_clear_aftercare()
-	var started := run(pose, option.bed, act_source, skip_presentation)
-	host.log("agreement start %s pose=%s source=%s" % [
-		"started" if started else "failed", pose, act_source])
-	return AGREEMENT_STARTED if started else AGREEMENT_FAILED
-
-
-## True when the scene-only rows pass and, for a standing option, the presentation is settled.
-func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
-	if handle == null or not bool(handle.call("valid")):
-		return false
-	var option: Variant = handle.option
-	if option == null:
-		return false
-	session.refresh_identity()
-	var pose := str(option.pose)
-	var verdict: Variant = context.gate.scene_only_verdict(pose, str(option.source), option.bed,
-		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
-	if verdict == null or not bool(verdict.ok):
-		return false
-	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
-			and context.presentation.presentation_active() \
-			and not context.presentation.presentation_settled():
-		return false
-	return true
-
-
-## The hotkey's readiness: the scene-only rows plus Base clearance. The act key never bucks.
-func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	session.refresh_identity()
-	var stool_act: Variant = stool()
-	var pair := Vector2i(-1, -1)
-	if stool_act != null:
-		pair = stool_act.call("hotkey_pair", pose)
-	var started := Time.get_ticks_usec()
-	var allowed: bool = context.gate.hotkey_ready(pose, act_source, bed_in, pair)
-	host.perf_note("offer_rows", Time.get_ticks_usec() - started)
-	return allowed
-
-
-## The footstool pair this call's gate used, so the blocked standing note does not repeat the
-## reach and case reads.
-func hint_stool() -> Dictionary:
-	var stool_act: Variant = stool()
-	if stool_act == null:
-		return {"need": 0, "have": 0}
-	return stool_act.call("hint_pair")
-
-
-## The act key's immediate attempt, with no Agreement and no presentation wait.
-func start_hotkey(pose: String, bed_in: Variant, act_source: String,
-		skip_presentation := false) -> bool:
-	if not hotkey_ready(pose, act_source, bed_in):
-		host.log("hotkey blocked pose=%s source=%s pony=%s" % [pose, act_source, _pony_name()])
-		return false
-	_clear_aftercare()
-	var started := run(pose, bed_in, act_source, skip_presentation)
-	host.log("hotkey start %s pose=%s source=%s" % [
-		"started" if started else "failed", pose, act_source])
-	return started
-
-
-## Clear the visual aftercare before a new start: the face and tail state, the meta and the
-## aftercare navigator lease.
-func _clear_aftercare() -> void:
-	context.afterglow.clear_post_act(host.pony if is_instance_valid(host.pony) else null)

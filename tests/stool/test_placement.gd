@@ -82,7 +82,7 @@ func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = pony
 	root.add_child(runtime)
-	var act: Variant = runtime._start.stool()
+	var act: Variant = runtime._act.stool()
 	act.set("active", true)
 	act.set("count", 2)
 	runtime._act_context.placement.bind_act(runtime._act.placement_values())
@@ -100,7 +100,7 @@ func run() -> void:
 		"the stack ignores the pony")
 	check(pony.get_collision_exceptions().has(prop), "the pony ignores the stack")
 
-	runtime._start.release_stool()
+	runtime._act.release_stool()
 	check(absf(player.global_position.y) < 0.01, "the player is lowered to the floor")
 	check(not (act.get("node") is Node3D), "the stool is removed on release")
 	check(not pony.get_collision_exceptions().has(prop), "the pony exception is released")

@@ -22,6 +22,7 @@ const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
@@ -252,6 +253,41 @@ func placement_values(form: BODY_FORM.BodyForm = null) -> PLACEMENT.ActBind:
 	values.headset_view = WORLD.headset_view()
 	values.log = host.log_sink
 	return values
+
+
+## This act's footstool handle: the case loans, the placed stack and the player lift. The start
+## binds it before the first stool question; the exit releases the same handle.
+func stool() -> Variant:
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(host.pony):
+		return null
+	var service: Variant = STOOL.instance
+	if service == null or not service.has_method("new_act"):
+		return null
+	if context.stool == null:
+		context.stool = service.call("new_act")
+		context.stool.log = Callable(host, "log")
+	context.stool.call("bind", service, host.pony, WORLD.player, context.anatomy.controller)
+	return context.stool
+
+
+## Remove the act prop and put every case item back. Every exit path releases it.
+func release_stool() -> void:
+	var act: Variant = stool()
+	if act != null:
+		act.call("release")
+
+
+## Drop the previous act's stool state before the new start asks the first question.
+func reset_stool_state() -> void:
+	var act: Variant = stool()
+	if act != null:
+		act.call("reset")
+
+
+## Clear the visual aftercare before a new start: the face and tail state, the meta and the
+## aftercare navigator lease.
+func clear_aftercare() -> void:
+	context.afterglow.clear_post_act(host.pony if is_instance_valid(host.pony) else null)
 
 
 func state_name() -> String:

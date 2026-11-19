@@ -261,7 +261,7 @@ func run() -> void:
 	check(ended_pony.has_meta("sex_aftercare"), "the aftercare marks the pony")
 	check(is_instance_valid(ended._face.mood_face), "the post-act face is held")
 	check(ended._afterglow.get("_decay") != null, "the satisfaction decay runs")
-	ended._start._clear_aftercare()
+	ended._act.clear_aftercare()
 	check(not ended_pony.has_meta("sex_aftercare"), "a new start clears the aftercare")
 	ended._act.stopped_by_her = true
 	ended._exit.reset_after_act()

@@ -64,6 +64,7 @@ const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const ACT_IDLE := preload("res://mods/unfplap/act/idle.gd")
 const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
 const ACT_START := preload("res://mods/unfplap/act/start.gd")
+const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
@@ -77,9 +78,9 @@ const POSE_IN_SECONDS := ACT_SESSION.POSE_IN_SECONDS
 const RESTORE_SECONDS := ACT_SESSION.RESTORE_SECONDS
 ## A player-requested reveal is the act's one exceptional beat; its heat, peak, cue and memory
 ## mark are the provider policy's, not the base runtime's. The handover owns the form flags.
-const AGREEMENT_WAIT := ACT_START.AGREEMENT_WAIT
-const AGREEMENT_STARTED := ACT_START.AGREEMENT_STARTED
-const AGREEMENT_FAILED := ACT_START.AGREEMENT_FAILED
+const AGREEMENT_WAIT := ACT_AGREEMENT.AGREEMENT_WAIT
+const AGREEMENT_STARTED := ACT_AGREEMENT.AGREEMENT_STARTED
+const AGREEMENT_FAILED := ACT_AGREEMENT.AGREEMENT_FAILED
 
 ## The pony this runtime presents. Assigning a body rebinds the pose session's pony once.
 var pony: Node:
@@ -104,6 +105,7 @@ var _impact: ACT_IMPACT = null
 var _idle: ACT_IDLE = null
 var _exit: ACT_EXIT = null
 var _start: ACT_START = null
+var _agreement: ACT_AGREEMENT = null
 
 ## Temporary read-only forward: the act session owns the live state; remove in R4.
 var state: int:
@@ -311,6 +313,8 @@ func _bind_act_frame() -> void:
 	_exit.bind(_act_host, _act_context, _act)
 	_start = ACT_START.new()
 	_start.bind(_act_host, _act_context, _act, _exit, _view)
+	_agreement = ACT_AGREEMENT.new()
+	_agreement.bind(_act_host, _act_context, _act, _start)
 	_act.start = _start
 	_act.view = _view
 	_exit.start = _start
@@ -1147,17 +1151,17 @@ func _physics_tick(delta: float) -> void:
 
 ## The live vertical gap; NAN when the rule or the anatomy is unavailable.
 func stool_gap_m() -> float:
-	return float(_start.stool().call("gap_m")) if _start.stool() != null else NAN
+	return float(_act.stool().call("gap_m")) if _act.stool() != null else NAN
 
 func stool_needed_count() -> int:
-	return int(_start.stool().call("needed_count")) if _start.stool() != null else 0
+	return int(_act.stool().call("needed_count")) if _act.stool() != null else 0
 
 func stool_case_count() -> int:
-	return int(_start.stool().call("case_count")) if _start.stool() != null else 0
+	return int(_act.stool().call("case_count")) if _act.stool() != null else 0
 
 
 func stool_state_text() -> String:
-	return str(_start.stool().call("state_text")) if _start.stool() != null else "stool unavailable"
+	return str(_act.stool().call("state_text")) if _act.stool() != null else "stool unavailable"
 
 func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
 		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
@@ -1218,30 +1222,30 @@ func _free_of_affection() -> bool:
 func find_bed_under() -> Node3D:
 	return _scene_gate().find_bed_under()
 
-## The Agreement start's answer. The start ledger owns the rows and the start body.
+## The Agreement start's answer. The start protocol owns the rows; the start ledger owns the body.
 func start_agreement(handle: Variant, skip_presentation := false) -> int:
-	return _start.start_agreement(handle, skip_presentation)
+	return _agreement.start_agreement(handle, skip_presentation)
 
 
 ## True when the scene-only rows pass and, for a standing option, the presentation is settled.
 func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
-	return _start.agreement_offer_ready(handle, skip_presentation)
+	return _agreement.agreement_offer_ready(handle, skip_presentation)
 
 
 ## The hotkey's readiness: the scene-only rows plus Base clearance.
 func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	return _start.hotkey_ready(pose, act_source, bed_in)
+	return _agreement.hotkey_ready(pose, act_source, bed_in)
 
 
 ## The footstool pair this call's gate used.
 func hint_stool() -> Dictionary:
-	return _start.hint_stool()
+	return _agreement.hint_stool()
 
 
 ## The act key's immediate attempt, with no Agreement and no presentation wait.
 func start_hotkey(pose: String, bed_in: Variant, act_source: String,
 		skip_presentation := false) -> bool:
-	return _start.start_hotkey(pose, bed_in, act_source, skip_presentation)
+	return _agreement.start_hotkey(pose, bed_in, act_source, skip_presentation)
 
 
 func _claim_nav() -> bool:
@@ -2190,7 +2194,7 @@ func _exit_tree() -> void:
 		return
 	PONIES.clear_body_swap(self)
 	_kiss_controller().restore_forelegs()
-	_start.release_stool()
+	_act.release_stool()
 	_act_host.end_tail_tuck()
 	_afterglow.clear_post_act(pony if is_instance_valid(pony) else null)
 	# integration: never leave the anatomy nodes or the per-act controller behind.

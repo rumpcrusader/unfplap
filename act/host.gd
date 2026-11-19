@@ -26,6 +26,11 @@ func tree() -> SceneTree:
 	return node.get_tree() if is_instance_valid(node) else null
 
 
+## The presented body's node name, for the act's diagnostic lines.
+func pony_name() -> String:
+	return str(pony.name) if is_instance_valid(pony) else "?"
+
+
 func viewport() -> Viewport:
 	return node.get_viewport() if is_instance_valid(node) else null
 

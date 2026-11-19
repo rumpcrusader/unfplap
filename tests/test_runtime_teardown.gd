@@ -272,7 +272,7 @@ func run() -> void:
 	check(not runtime.agreement_offer_ready(null),
 		"a missing Agreement is never ready")
 	pony.set_meta("sex_aftercare", true)
-	runtime._start._clear_aftercare()
+	runtime._act.clear_aftercare()
 	check(not pony.has_meta("sex_aftercare"), "the Agreement start clears aftercare")
 
 	runtime._end_session(false)

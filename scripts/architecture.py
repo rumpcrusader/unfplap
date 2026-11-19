@@ -103,12 +103,12 @@ POSE_FANOUT_ORDER = (
 # live state it sets.
 START_LEDGER_ORDER = (
     'POSE_SPECS.start_setup(pose) == "standing_place"',
-    "_reset_stool_state()",
+    "session.reset_stool_state()",
     "context.camera.begin_session(",
     "session.posture_owned = false",
     "session.profile = SETTINGS.template_for(",
     "session.bed = context.gate.resolve_bed(",
-    "var setup := POSE_SPECS.start_setup(pose)",
+    "var setup_name := POSE_SPECS.start_setup(pose)",
     "_build_pose()",
     "context.camera.capture_look()",
     "context.audio.start(",

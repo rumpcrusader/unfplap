@@ -99,7 +99,7 @@ func _check_dispatch() -> void:
 	var keep_runtime: Node = keep["runtime"]
 	var keep_pony: FakePony = keep["pony"]
 	var keep_player: FakePlayer = keep["player"]
-	check(bool(keep_runtime._start._run_start_setup("bed_keep_lying")),
+	check(bool(keep_runtime._start.setup.run("bed_keep_lying")),
 		"the dispatcher runs the bed_keep_lying adapter")
 	check(keep_pony.posture_requests == ["stand"],
 		"bed_keep_lying gives the authored body her pose")
@@ -110,7 +110,7 @@ func _check_dispatch() -> void:
 	var stand_runtime: Node = stand["runtime"]
 	var stand_pony: FakePony = stand["pony"]
 	var stand_player: FakePlayer = stand["player"]
-	check(bool(stand_runtime._start._run_start_setup("bed_stand_up")),
+	check(bool(stand_runtime._start.setup.run("bed_stand_up")),
 		"the dispatcher runs the bed_stand_up adapter")
 	check(stand_player.stood == 1, "bed_stand_up stands Anon up")
 	check(stand_pony.posture_requests == ["stand"], "bed_stand_up asks her to stand")
@@ -120,7 +120,7 @@ func _check_dispatch() -> void:
 	var unknown_runtime: Node = unknown["runtime"]
 	var unknown_pony: FakePony = unknown["pony"]
 	var unknown_player: FakePlayer = unknown["player"]
-	check(not bool(unknown_runtime._start._run_start_setup("bench_place")),
+	check(not bool(unknown_runtime._start.setup.run("bench_place")),
 		"an unknown setup aborts the start")
 	check(unknown_pony.posture_requests.is_empty() and unknown_player.stood == 0,
 		"an unknown setup touches nobody")

@@ -20,6 +20,7 @@ const FACTS := preload("res://mods/unfplap/initiation/facts.gd")
 const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
 const REASONING := preload("res://mods/unfplap/initiation/reasoning.gd")
 const VENUE := preload("res://mods/unfplap/initiation/venue.gd")
+const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const COOLDOWNS := preload("res://mods/unfplap/initiation/cooldowns.gd")
@@ -30,6 +31,7 @@ const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
+const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 const KEY_PREFIX := "unfplap:request"
@@ -84,6 +86,8 @@ class ForceResult extends RefCounted:
 
 
 var main: Node
+## Set by the entry: the live eligibility service, rebuilt on every world enter.
+var eligibility: ELIGIBILITY = null
 var _episode: Candidate = null
 var _scan_clock := 0.0
 var _serial := 0
@@ -103,8 +107,14 @@ var _venue: VENUE
 var _privacy: PRIVACY
 ## The idle offer service: the cuddle offer must match the offer the act key would start.
 var _offer: OFFER
-## The injected director bridge and model host. `main` owns it; see `negotiation/adapter.gd`.
+## The Negotiation service: the exchange, the lock, the form view and the Context both stages read.
+var _negotiation: NEGOTIATION = null
+## The director bridge and model host. The Negotiation service owns it; see
+## `negotiation/adapter.gd`.
 var _adapter: Node
+## This service's bounded classifier: the negotiation model calls and both reasoning stages go
+## through it.
+var _classifier: CLASSIFIER = null
 ## One reasoning call at a time. A new scan never starts a second; a terminal transition bumps
 ## the serial so a late reply cannot form an offer.
 var _reasoning_pending := false
@@ -112,18 +122,40 @@ var _reasoning_serial := 0
 var _reasoning_scope := ""
 
 
-func setup(main_node: Node, privacy_node: PRIVACY = null, adapter_node: Node = null,
+func setup(main_node: Node, privacy_node: PRIVACY = null, negotiation_node: NEGOTIATION = null,
 		offer_node: OFFER = null) -> void:
 	main = main_node
 	_privacy = privacy_node if is_instance_valid(privacy_node) else PRIVACY.new()
 	if not is_instance_valid(privacy_node):
 		_privacy.setup(main_node)
-	_adapter = adapter_node if is_instance_valid(adapter_node) else main.get("adapter")
+	_negotiation = negotiation_node
+	var adapter: Variant = _negotiation.adapter() if is_instance_valid(_negotiation) else null
+	_adapter = adapter as Node if is_instance_valid(adapter) else null
 	_offer = offer_node
+	_classifier = CLASSIFIER.new()
+	_classifier.name = "UnfplapClassifier"
+	add_child(_classifier)
 	_venue = VENUE.new()
 	_venue.name = "UnfplapRequestPlace"
 	_venue.bind(main_node, _privacy)
 	add_child(_venue)
+
+
+## The bounded classifier this service owns, or null. The negotiation's adapter makes the one
+## bounded call on it; no other service imports `initiation/classifier.gd`.
+func classifier_node() -> Node:
+	return _classifier if is_instance_valid(_classifier) else null
+
+
+## True while a model call can be made: the Anon-offer watch asks this before it forms anything.
+func classifier_available() -> bool:
+	return is_instance_valid(_classifier) and bool(_classifier.available())
+
+
+## A world enter or a teardown: every classifier scope belongs to the world that is gone.
+func cancel_classifier() -> void:
+	if is_instance_valid(_classifier):
+		_classifier.cancel_all()
 
 
 func tick(delta: float) -> void:
@@ -262,8 +294,7 @@ func _tick_cuddle_edges() -> void:
 func _consider_start() -> void:
 	if not is_instance_valid(_adapter):
 		return
-	if is_instance_valid(main) and main.has_method("negotiation_locked") \
-			and bool(main.call("negotiation_locked")):
+	if is_instance_valid(_negotiation) and _negotiation.is_locked():
 		return
 	var quiet := str(_adapter.call("quiet_reason", POLICY.QUIET_CHAT_GAP_S))
 	if not quiet.is_empty():
@@ -276,11 +307,11 @@ func _consider_start() -> void:
 	if not is_instance_valid(player):
 		return
 	var candidates: Array = []
-	var eligibility := _eligibility()
+	var service := _eligibility()
 	for node: Variant in _venue.mares():
 		if not is_instance_valid(node):
 			continue
-		if eligibility == null or not eligibility.eligible(node, ELIGIBILITY.Target.ACT):
+		if service == null or not service.eligible(node, ELIGIBILITY.Target.ACT):
 			continue
 		var runtime: Node = PONIES.runtime_for(node)
 		if not is_instance_valid(runtime):
@@ -325,17 +356,16 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 		reasons.append("retry")
 		return null
 	var service := _eligibility()
-	var eligible: bool = service != null and bool(service.call("eligible", pony,
-		ELIGIBILITY.Target.ACT))
-	var relationship: bool = service != null and bool(service.call("relationship_ok", pony))
+	var eligible: bool = service != null and service.eligible(pony, ELIGIBILITY.Target.ACT)
+	var relationship: bool = service != null and service.relationship_ok(pony)
 	var base := CLEARANCE.evaluate(eligible, relationship, _available(pony))
 	if not base.ok():
 		reasons.append("clearance:%s" % base.reasons_text())
 		return null
-	var view: Variant = main.call("form_view")
-	if view == null:
+	if not is_instance_valid(_negotiation):
 		reasons.append("no_form")
 		return null
+	var view := _negotiation.form_view()
 	var placement: POSE_OPTIONS.Placement = _venue.placement_for(runtime)
 	var options := _options_for(placement, view, pose_request, reasons)
 	if options.is_empty():
@@ -424,8 +454,7 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 		return
 	if int(runtime.get("state")) != 0:
 		return
-	if is_instance_valid(main) and main.has_method("negotiation_locked") \
-			and bool(main.call("negotiation_locked")):
+	if is_instance_valid(_negotiation) and _negotiation.is_locked():
 		return
 	var decision := REASONING.parse(reply, error, candidate.options.size())
 	_debug("request reasoning result id=%s offer=%s option=%d failed=%s reply=%s error=%s" % [
@@ -691,17 +720,20 @@ func _start_ask_handoff() -> String:
 	_episode.private = _private_now(pony, option.cuddle)
 	var request := _request(_episode.private, option, _episode.context)
 	var line := PROMPTS.ask_context(request)
-	var fields := {
-		"runtime": runtime, "pony": pony, "option": option,
-		"base": _episode.base, "private": _episode.private,
-		"hold_token": "" if option.cuddle else _episode.token,
-		"hold_old_wander": _episode.prev_wander,
-		"line": _offer_line(option), "cuddle": option.cuddle,
-	}
+	var offer := NEGOTIATION.MareOffer.new()
+	offer.runtime = runtime
+	offer.pony = pony
+	offer.option = option
+	offer.base = _episode.base
+	offer.private = _episode.private
+	offer.hold_token = "" if option.cuddle else _episode.token
+	offer.hold_old_wander = _episode.prev_wander
+	offer.line = _offer_line(option)
+	offer.cuddle = option.cuddle
 	var episode := _episode
 	# The request's speed and pace overrides are not part of the negotiation lease.
 	_venue.restore_limits(episode.nav, episode.prev_limit, episode.prev_pace)
-	var handed := bool(main.call("form_mare_offer", fields))
+	var handed := is_instance_valid(_negotiation) and _negotiation.begin_mare_offer(offer)
 	if not handed:
 		return _close_episode("handoff refused")
 	_episode = null
@@ -751,9 +783,12 @@ func _offer_targets_pony(pony: Node) -> bool:
 	return is_instance_valid(target) and target == pony
 
 
+## The Context snapshot the reasoning reads: the same facts the Negotiation judges, from its one
+## bridge.
 func _context(pony: Node) -> CONTEXT.Context:
-	var facts: Variant = main.call("context_facts", pony) if is_instance_valid(main) else null
-	return CONTEXT.build(facts if facts is Dictionary else {})
+	if not is_instance_valid(_negotiation):
+		return CONTEXT.build({})
+	return _negotiation.context(pony)
 
 
 ## The pure request facts for one wording call.
@@ -820,10 +855,8 @@ func _in_heat(runtime: Variant) -> bool:
 		and str(runtime.call("cycle_phase")) == CYCLE.HEAT
 
 
-func _eligibility() -> RefCounted:
-	if not is_instance_valid(main):
-		return null
-	return main.get("eligibility")
+func _eligibility() -> ELIGIBILITY:
+	return eligibility if is_instance_valid(eligibility) else null
 
 
 func _phase_name(phase: int) -> String:

@@ -10,7 +10,9 @@ const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 
-var main: Node
+## Set by the service that owns this node: () -> the bounded classifier node the Proactive service
+## owns, or null. The classifier file is not this service's to import.
+var classifier_source := Callable()
 ## The director's player-line fields when the answer watch began, and the newest line seen since.
 ## An old line left in `_player_text` is not the answer to this offer.
 var _baseline_text := ""
@@ -29,8 +31,8 @@ var _offer_pending := ""
 var _offer_clock := 0.0
 
 
-func bind(main_node: Node) -> void:
-	main = main_node
+## The director exists once this node is in the world, so the transcript hook is taken here.
+func _ready() -> void:
 	hook()
 
 
@@ -103,7 +105,7 @@ func quiet(chat_gap_s: float) -> bool:
 ## Why the automatic scan may not begin now, or "" when it may. The strings are the debug log's
 ## stable reason names and follow the same order as the gate itself.
 func quiet_reason(chat_gap_s: float) -> String:
-	if not is_instance_valid(main) or not is_inside_tree():
+	if not is_inside_tree():
 		return "unavailable"
 	if get_tree().paused:
 		return "paused"
@@ -239,8 +241,6 @@ func cancel_keys(keys: Array) -> void:
 ## Record a situation event for the director's world context: `ids` is the subject list and `key`
 ## the replaceable event key.
 func record_situation(text: String, ids: Array, key: String) -> void:
-	if not is_instance_valid(main):
-		return
 	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return
@@ -355,7 +355,7 @@ func _reply_text(reply: String) -> String:
 
 
 func _classifier() -> Node:
-	if not is_instance_valid(main):
+	if not classifier_source.is_valid():
 		return null
-	var classifier: Variant = main.get("classifier")
-	return classifier if is_instance_valid(classifier) else null
+	var classifier: Variant = classifier_source.call()
+	return classifier as Node if is_instance_valid(classifier) else null

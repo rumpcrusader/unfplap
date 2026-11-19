@@ -7,8 +7,11 @@ extends SceneTree
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const INIT := preload("res://mods/unfplap/initiation/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
+const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -41,11 +44,14 @@ class FakeView extends RefCounted:
 	var view := "desktop"
 
 
-class FakeEligibility extends RefCounted:
+class FakeEligibility extends ELIGIBILITY:
 	var act := true
 	var relationship := true
 
-	func eligible(_pony: Node, _target: int) -> bool:
+	func setup(_main_node: Node) -> void:
+		pass
+
+	func eligible(_pony: Node, _target: int = ELIGIBILITY.Target.ACT) -> bool:
 		return act
 
 	func relationship_ok(_pony: Node) -> bool:
@@ -55,33 +61,32 @@ class FakeEligibility extends RefCounted:
 class FakeMain extends Node:
 	var player: Node3D
 	var game: Node
-	var eligibility: Variant
-	var view := FakeView.new()
-	var offer: Dictionary = {}
-	var handoff_ok := true
-	var locked := false
 
-	func negotiation_locked() -> bool:
+
+## The Negotiation facade as the Proactive service sees it: the lock, the form view, the Context,
+## the typed Mare offer and the one adapter.
+class FakeNegotiation extends NEGOTIATION:
+	var view := NEGOTIATION.FormView.new()
+	var locked := false
+	var handed: NEGOTIATION.MareOffer = null
+	var handoff_ok := true
+	var adapter_node: Node = null
+
+	func is_locked() -> bool:
 		return locked
 
-	func menu_open() -> bool:
-		return false
-
-	func camera() -> Camera3D:
-		return null
-
-	func bed_occupied(_bed: Node3D, _target: Node) -> bool:
-		return false
-
-	func form_view() -> Variant:
+	func form_view() -> NEGOTIATION.FormView:
 		return view
 
-	func context_facts(_pony: Node) -> Dictionary:
-		return {"willingness": true, "history": {"offer_weight": 0.7}}
+	func context(_pony: Node) -> CONTEXT.Context:
+		return CONTEXT.build({"willingness": true, "history": {"offer_weight": 0.7}})
 
-	func form_mare_offer(fields: Dictionary) -> bool:
-		offer = fields
+	func begin_mare_offer(mare_offer: NEGOTIATION.MareOffer) -> bool:
+		handed = mare_offer
 		return handoff_ok
+
+	func adapter() -> Node:
+		return adapter_node
 
 
 class FakeGame extends Node:
@@ -246,25 +251,29 @@ func _fixture() -> Dictionary:
 	WORLD.bind_player(main.player)
 	main.game = game
 	WORLD.bind_world(main.game)
-	main.eligibility = eligibility
+	var negotiation := FakeNegotiation.new()
+	negotiation.adapter_node = adapter
 	PONIES.shutdown()
 	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
 	PONIES.attach(target)
-	for node: Node in [game, player, target, adapter, offer]:
+	for node: Node in [game, player, target, adapter, negotiation, offer]:
 		root.add_child(node)
 	root.add_child(main)
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
-	service.call("setup", main, privacy, adapter, offer)
+	service.eligibility = eligibility
+	service.setup(main, privacy, negotiation, offer)
 	root.add_child(service)
 	return {"main": main, "game": game, "context": context, "player": player,
 		"target": target, "nav": nav, "runtime": runtime, "eligibility": eligibility,
-		"adapter": adapter, "privacy": privacy, "service": service, "offer": offer}
+		"adapter": adapter, "privacy": privacy, "service": service, "offer": offer,
+		"negotiation": negotiation}
 
 
 func _free(made: Dictionary) -> void:
 	PONIES.shutdown()
-	for key: String in ["service", "main", "game", "player", "target", "adapter", "offer"]:
+	for key: String in ["service", "main", "game", "player", "target", "adapter", "offer",
+			"negotiation"]:
 		var node: Node = made[key]
 		root.remove_child(node)
 		node.free()
@@ -303,6 +312,7 @@ func run() -> void:
 func _check_force() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
+	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var main: FakeMain = made["main"]
 	var nav: FakeNavigator = made["nav"]
@@ -317,11 +327,11 @@ func _check_force() -> void:
 	check(nav.command_owner == "unfplap:request:rarity",
 		"the ask owns the navigator")
 	check(not nav.wander_enabled and not nav._has_target, "the ask holds her still")
-	check(not main.offer.is_empty(), "the offer is handed to the negotiation")
-	check(str(main.offer.get("hold_token", "")) == "unfplap:request:rarity",
+	check(negotiation.handed != null, "the offer is handed to the negotiation")
+	check(negotiation.handed.hold_token == "unfplap:request:rarity",
 		"the handoff carries the request lease")
-	check(bool(main.offer.get("private", false)), "a quiet house forms a private offer")
-	check(bool(main.offer.get("cuddle", true)) == false, "a standing offer is not a cuddle")
+	check(negotiation.handed.private, "a quiet house forms a private offer")
+	check(not negotiation.handed.cuddle, "a standing offer is not a cuddle")
 	check(adapter.greetings.size() == 1 and adapter.greetings[0][0] == "rarity",
 		"the ask line opens with the greeting")
 	check(adapter.situations.size() == 1 and adapter.situations[0]["key"].ends_with(":situation"),
@@ -368,6 +378,7 @@ func _check_force() -> void:
 func _check_clearance_and_options() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
+	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var eligibility: FakeEligibility = made["eligibility"]
 	var main: FakeMain = made["main"]
@@ -385,11 +396,11 @@ func _check_clearance_and_options() -> void:
 	var internal_pose: INIT.ForceResult = service.force(runtime, CATALOG.STANDING_ORAL)
 	check(not internal_pose.ok and internal_pose.reject.contains("pose:standing_oral"),
 		"an internal pose is never offered")
-	main.view.view = "vr"
+	negotiation.view.view = "vr"
 	var vr_bed: INIT.ForceResult = service.force(runtime, CATALOG.MISSIONARY)
 	check(not vr_bed.ok and vr_bed.reject.contains("pose:missionary"),
 		"a pose the display cannot place is never offered")
-	main.view.view = "desktop"
+	negotiation.view.view = "desktop"
 	runtime.hard_ok = false
 	runtime.scene_reasons = ["affection"]
 	var blocked: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)
@@ -402,6 +413,7 @@ func _check_clearance_and_options() -> void:
 func _check_reasoning() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
+	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var adapter: FakeAdapter = made["adapter"]
 	var main: FakeMain = made["main"]
@@ -415,7 +427,7 @@ func _check_reasoning() -> void:
 		"the scan sends the one placeable option")
 	check((payload.get("context", {}) as Dictionary).get("willing") == true,
 		"the reasoning payload carries Context")
-	check(main.offer.is_empty(), "a no-offer reasoning forms nothing")
+	check(negotiation.handed == null, "a no-offer reasoning forms nothing")
 
 	service.reset()
 	log_sink.lines.clear()
@@ -429,7 +441,7 @@ func _check_reasoning() -> void:
 	adapter.reason_payloads.clear()
 	adapter.reason_reply = "{\"offer\":true,\"option\":0}"
 	service.tick(0.5)
-	check(not main.offer.is_empty(), "a reasoning yes forms the offer")
+	check(negotiation.handed != null, "a reasoning yes forms the offer")
 	check(adapter.greetings.size() == 1, "the reasoning yes asks")
 	_free(made)
 
@@ -437,11 +449,12 @@ func _check_reasoning() -> void:
 func _check_handoff_failure() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
+	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var main: FakeMain = made["main"]
 	var nav: FakeNavigator = made["nav"]
 	var adapter: FakeAdapter = made["adapter"]
-	main.handoff_ok = false
+	negotiation.handoff_ok = false
 	var result: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)
 	check(not result.ok, "a refused handoff forms no offer")
 	check(result.reject == "handoff refused", "a refused handoff reports the close reason")
@@ -455,6 +468,7 @@ func _check_handoff_failure() -> void:
 func _check_cuddle() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
+	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var main: FakeMain = made["main"]
 	var nav: FakeNavigator = made["nav"]
@@ -464,8 +478,8 @@ func _check_cuddle() -> void:
 	runtime.bed_under = bed
 	var result: INIT.ForceResult = service.force(runtime)
 	check(result.ok, "a cuddle offer forms")
-	check(bool(main.offer.get("cuddle", false)), "the handoff marks the cuddle")
-	check(str(main.offer.get("hold_token", "x")).is_empty(),
+	check(negotiation.handed.cuddle, "the handoff marks the cuddle")
+	check(negotiation.handed.hold_token.is_empty(),
 		"the cuddle handoff carries no navigator lease")
 	check(nav.command_owner.is_empty(), "the cuddle keeps the session's navigator")
 	service.reset()
@@ -479,6 +493,7 @@ func _check_cuddle() -> void:
 func _check_cuddle_target() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
+	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var main: FakeMain = made["main"]
 	var adapter: FakeAdapter = made["adapter"]
@@ -498,15 +513,15 @@ func _check_cuddle_target() -> void:
 	check(offer.reads > 0, "the scan reads the offer facade's current target")
 	check(adapter.reason_payloads.is_empty(),
 		"a cuddle the act key would not start reasons nothing")
-	check(main.offer.is_empty(), "a cuddle the act key would not start forms nothing")
+	check(negotiation.handed == null, "a cuddle the act key would not start forms nothing")
 	check(_debug_count("request scan skip id=rarity reasons=cuddle:target") == 1,
 		"the skipped cuddle names the offer target")
 
 	# The act key's current offer is her, so the same scan asks.
 	offer.target = target
 	service.tick(0.5)
-	check(not main.offer.is_empty(), "a cuddle the act key would start forms the offer")
-	check(bool(main.offer.get("cuddle", false)), "the non-forced handoff marks the cuddle")
+	check(negotiation.handed != null, "a cuddle the act key would start forms the offer")
+	check(negotiation.handed.cuddle, "the non-forced handoff marks the cuddle")
 	service.reset()
 	root.remove_child(bed)
 	bed.free()
@@ -541,6 +556,7 @@ func _check_outcome_and_reset() -> void:
 func _check_scan_logs() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
+	var negotiation: FakeNegotiation = made["negotiation"]
 	var adapter: FakeAdapter = made["adapter"]
 	var main: FakeMain = made["main"]
 	adapter.quiet_reason_value = "chat"
@@ -551,9 +567,9 @@ func _check_scan_logs() -> void:
 	check(_debug_count("request scan quiet reason=chat") == 1,
 		"the same quiet reason logs once")
 	adapter.quiet_reason_value = ""
-	main.locked = true
+	negotiation.locked = true
 	adapter.reason_payloads.clear()
 	service.tick(0.5)
 	check(adapter.reason_payloads.is_empty(), "a live negotiation keeps the scan quiet")
-	main.locked = false
+	negotiation.locked = false
 	_free(made)

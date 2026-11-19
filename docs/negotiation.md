@@ -297,13 +297,21 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | eligibility | `eligibility/service.gd` | the act target, the relationship row and the Context facts |
+| service | hud | `hud/service.gd` | the one toast sink |
+| service | memory | `memory/service.gd` | the relationship note in Context |
+| service | ponies | `ponies/service.gd` | the runtime of the outcome, the Agreement and the mare the watch asks |
+| service | privacy | `privacy/service.gd` | live offer and cuddle privacy |
 | shared | clearance | `shared/clearance.gd` | Base clearance result |
 | shared | context | `shared/context.gd` | typed Context snapshot |
 | shared | log | `shared/log.gd` | log sink, perf entry and panel |
 | shared | pony_id | `shared/pony_id.gd` | stable mare id |
+| shared | pose_catalog | `shared/pose_catalog.gd` | the standing pose the Agreement presents |
 | shared | pose_options | `shared/pose_options.gd` | the available options and exact match |
 | shared | pose_placement | `shared/pose_placement.gd` | the frozen source capability |
 | shared | pose_specs | `shared/pose_specs.gd` | the frozen pose capability |
+| shared | relationship_cue | `shared/relationship_cue.gd` | the relationship prompt note |
+| store | act_history | `shared/act_history.gd` | the offer history note |
 
 ## Tests
 

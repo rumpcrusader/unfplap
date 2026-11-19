@@ -121,7 +121,6 @@ class FakeClassifier extends Node:
 class FakeMain extends Node:
 	var player: Variant = null
 	var game: Variant = null
-	var classifier: Node = null
 
 
 class LogSink extends RefCounted:
@@ -140,7 +139,6 @@ func _fixture() -> Dictionary:
 	WORLD.bind_player(main.player)
 	main.game = game
 	WORLD.bind_world(main.game)
-	main.classifier = classifier
 	var director := FakeDirector.new()
 	director.add_to_group("conversation_director")
 	root.add_child(director)
@@ -150,7 +148,7 @@ func _fixture() -> Dictionary:
 	main.add_child(classifier)
 	var adapter: Node = ADAPTER.new()
 	root.add_child(adapter)
-	adapter.bind(main)
+	adapter.classifier_source = func() -> Node: return classifier
 	return {"main": main, "player": player, "game": game, "classifier": classifier,
 		"director": director, "adapter": adapter}
 

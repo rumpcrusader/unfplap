@@ -7,17 +7,28 @@ extends Node
 ## The Act Negotiation: Anon offers, the Anon decision, the Mare response, pose re-checks,
 ## privacy sampling, Agreement formation and ownership, the one global lock and the terminal
 ## outcome. The service owns the whole negotiation and the Agreement window; the Act service
-## receives an opaque handle and never mutates the package. `main` mediates the per-pony hold, the
-## director and the model calls through the typed `Host` below.
+## receives an opaque handle and never mutates the package. `negotiation/host.gd` is the bridge to
+## the live world and `negotiation/adapter.gd` the one director and model host: this file builds
+## the typed `Host` from them and runs the exchange on it.
 
 const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
+const HOST := preload("res://mods/unfplap/negotiation/host.gd")
+const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const POSE_PLACEMENT := preload("res://mods/unfplap/shared/pose_placement.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
 enum Phase { NONE, OFFERED, AGREEMENT }
 enum Outcome { ACCEPTED, REFUSED, EXPIRED, INTERRUPTED, START_FAILED, NO_OFFER, OCCUPIED, STARTED }
@@ -131,6 +142,8 @@ class Offer:
 	var expires_at := 0.0
 
 var _host: Host
+var _bridge: HOST = null
+var _adapter: ADAPTER = null
 var _phase := Phase.NONE
 var _locked := false
 var _offer: Offer = null
@@ -140,6 +153,92 @@ var _generation := 0
 var _serial := 0
 var _deadline := 0.0
 var _privacy_clock := 0.0
+
+## The services the bridge reads, bound once by the entry. `eligibility` is rebuilt on every world
+## enter, so the entry rebinds it there and calls `on_world()`; `initiation` and `offer` are plain
+## nodes because each of them preloads this facade.
+var eligibility: ELIGIBILITY = null
+var memory: MEMORY = null
+var privacy: PRIVACY = null
+var initiation: Node = null
+var offer: Node = null
+
+
+## The entry's one call: the services the bridge reads. The adapter and the bridge are built here
+## and nowhere else, so the entry never assembles a `Host`.
+func bind(eligibility_service: ELIGIBILITY, memory_service: MEMORY, privacy_service: PRIVACY,
+		initiation_service: Node, offer_service: Node) -> void:
+	eligibility = eligibility_service
+	memory = memory_service
+	privacy = privacy_service
+	initiation = initiation_service
+	offer = offer_service
+	if not is_instance_valid(_adapter):
+		_adapter = ADAPTER.new()
+		_adapter.name = "UnfplapNegotiationAdapter"
+		_adapter.classifier_source = Callable(self, "_classifier")
+		add_child(_adapter)
+	if _bridge == null:
+		_bridge = HOST.new()
+	_bridge.service = self
+	_bridge.adapter = _adapter
+	_bridge.eligibility = eligibility
+	_bridge.memory = memory
+	_bridge.privacy = privacy
+	_bridge.initiation = initiation
+	_bridge.offer = offer
+	_bind_host()
+
+
+## The adapter is this service's; the Proactive service and the model calls reach it here.
+func adapter() -> Node:
+	return _adapter if is_instance_valid(_adapter) else null
+
+
+## A world started: the entry rebuilt the eligibility service and bound it, so the bridge is
+## re-read. The reset comes first, then the new host, then the watch of the world that is gone.
+func on_world() -> void:
+	reset()
+	if _bridge == null:
+		return
+	_bridge.eligibility = eligibility
+	_bind_host()
+	_bridge.disarm()
+
+
+## Build the typed host from the bridge. Every model callback is the one adapter; every world read
+## is the bridge or the form view below.
+func _bind_host() -> void:
+	if _bridge == null:
+		return
+	var host := Host.new()
+	host.now = Callable(_bridge, "now")
+	host.eligible = Callable(_bridge, "eligible")
+	host.relationship_ok = Callable(_bridge, "relationship_ok")
+	host.context_facts = Callable(_bridge, "context_facts")
+	host.privacy_private = Callable(_bridge, "privacy_private")
+	host.placement_for = Callable(_bridge, "placement_for")
+	host.pose_placed = Callable(_bridge, "pose_placed")
+	host.form_view = Callable(self, "_form_view")
+	host.hold_for = Callable(_bridge, "hold_for")
+	host.classify = Callable(_bridge, "classify")
+	host.reason = Callable(_bridge, "reason")
+	host.await_answer = Callable(_bridge, "await_answer")
+	host.cancel_scope = Callable(_bridge, "cancel_scope")
+	host.toast = Callable(_bridge, "toast")
+	host.log = Callable(_bridge, "log")
+	host.react = Callable(self, "_react_line")
+	host.on_outcome = Callable(self, "_on_outcome_terminal")
+	host.on_agreement = Callable(self, "_on_agreement_handle")
+	_host = host
+
+
+## The classifier is the Proactive service's; this side only calls it.
+func _classifier() -> Node:
+	if not is_instance_valid(initiation) or not initiation.has_method("classifier_node"):
+		return null
+	var node: Variant = initiation.call("classifier_node")
+	return node as Node if is_instance_valid(node) else null
 
 
 func setup(host: Host) -> void:
@@ -154,6 +253,7 @@ func reset() -> void:
 	_release_hold()
 	_clear_state()
 	_host = null
+
 
 
 func phase() -> Phase:
@@ -174,8 +274,19 @@ func agreement() -> AGREEMENT.Package:
 	return _agreement if _phase == Phase.AGREEMENT else null
 
 
-## The TTL and the privacy sample, driven by `main.tick`.
+## The entry's idle frame: the TTL and the privacy sample, then the bridge's global watch. The
+## watch keeps its own perf chunk, so a stalled watch stays visible next to the exchange.
 func tick(delta: float) -> void:
+	_tick_offer(delta)
+	var timed := LOG.idle_on()
+	var started := Time.get_ticks_usec() if timed else 0
+	if _bridge != null:
+		_bridge.tick_watch()
+	if timed:
+		LOG.close("entry_watch", started)
+
+
+func _tick_offer(delta: float) -> void:
 	if _host == null or _phase == Phase.NONE:
 		return
 	if _now() >= _deadline:
@@ -330,6 +441,109 @@ func debug_rows(pony: Node) -> Array[String]:
 			_agreement.id, _agreement.option_key(), str(_agreement.private)])
 		rows.append("agreement expires in %.1fs" % maxf(0.0, _agreement.expires_at() - _now()))
 	return rows
+
+
+## The Context snapshot the Proactive service's reasoning reads. Both stages judge the same mare
+## from the same facts, so the bridge is the only source.
+func context(pony: Node) -> CONTEXT.Context:
+	if _host == null:
+		return CONTEXT.build({})
+	return _context(pony)
+
+
+## The player's live form and display for the pose option builder; the Proactive filters its own
+## candidates on the same view.
+func form_view() -> FormView:
+	return _form_view()
+
+
+func _form_view() -> FormView:
+	var out := FormView.new()
+	out.form = "pony" if PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())) else "human"
+	out.view = "vr" if WORLD.headset_view() else "desktop"
+	return out
+
+
+# --------------------------------------------------------------------------- terminal handoffs
+
+## The shared terminal line. The purpose follows the close reason: a counter-offer still wants
+## him, a privacy loss lets the moment go, and every other close is the generic release. It is a
+## short generated line, queued and not delaying the clear.
+func _react_line(pony: Node, reason: String) -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(_adapter):
+		return
+	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+	if id.is_empty():
+		return
+	var purpose := ""
+	match reason:
+		AGREEMENT.REASON_COUNTER_OFFER:
+			purpose = "Anon just offered sex and she said no only to the place or the timing, " \
+				+ "because she still wants him. Say one short, in-character line declining that " \
+				+ "place or moment and making that clear. Do not ask again and do not narrate actions."
+		AGREEMENT.REASON_PRIVACY:
+			purpose = "The moment was interrupted. Say one short, in-character line letting it " \
+				+ "go, without anger. Do not ask again and do not narrate actions."
+		_:
+			purpose = "The offer ended. Say one short, in-character line letting it go, without " \
+				+ "anger. Do not ask again and do not narrate actions."
+	var key := "unfplap:negotiation:react:%d" % Time.get_ticks_usec()
+	_adapter.call("queue", id, purpose,
+		key, func() -> bool: return is_instance_valid(pony) and pony.is_inside_tree(), false)
+
+
+## Every terminal outcome reaches the Proactive pacing and the runtime's presentation; a start
+## that already happened belongs to the act, so it is not forwarded.
+func _on_outcome_terminal(terminal: Variant) -> void:
+	if terminal == null:
+		return
+	LOG.debug("negotiation outcome id=%s outcome=%d reason=%s cooldown=%.0f" % [
+		str(_field(terminal, "pony_id", "")), int(_field(terminal, "outcome", 0)),
+		str(_field(terminal, "reason", "")) if not str(_field(terminal, "reason", "")).is_empty()
+			else "none", float(_field(terminal, "cooldown_s", 0.0))])
+	var pony: Variant = _field(terminal, "pony")
+	if is_instance_valid(pony):
+		var runtime: Variant = PONIES.runtime_for(pony)
+		if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):
+			runtime.call("clear_presentation")
+	if int(_field(terminal, "outcome", -1)) != Outcome.STARTED \
+			and is_instance_valid(initiation) and initiation.has_method("on_negotiation_outcome"):
+		initiation.call("on_negotiation_outcome", terminal)
+
+
+## The Agreement is ready: the target runtime consumes it through its one start path.
+func _on_agreement_handle(handle: Variant) -> void:
+	if handle == null:
+		return
+	var pony: Variant = _field(handle, "pony")
+	var pony_id := str(_field(handle, "pony_id", ""))
+	if pony_id.is_empty() and is_instance_valid(pony):
+		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+	var option: Variant = _field(handle, "option")
+	LOG.debug("agreement formed id=%s trigger=%s pose=%s private=%s" % [
+		pony_id, str(_field(handle, "trigger", "")),
+		str(_field(option, "pose", "none")) if option != null else "none",
+		str(_field(handle, "private", false))])
+	var runtime: Variant = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
+	if not is_instance_valid(runtime) or not runtime.has_method("start_agreement"):
+		cancel(handle, "cancelled")
+		return
+	# The presentation is act-owned: it starts now, and the auto-start waits for it to settle.
+	if option != null and str(option.pose) == CATALOG.STANDING \
+			and not bool(runtime.call("present_standing")):
+		LOG.debug("agreement present failed pony=%s" % str(pony.name))
+	if is_instance_valid(offer):
+		offer.call("clear_current")
+
+
+## Read a typed field from the production handle/terminal or a test dictionary.
+func _field(value: Variant, key: String, fallback: Variant = null) -> Variant:
+	if value is Dictionary:
+		return (value as Dictionary).get(key, fallback)
+	if value == null:
+		return fallback
+	var got: Variant = value.get(key)
+	return fallback if got == null else got
 
 
 # --------------------------------------------------------------------------- state

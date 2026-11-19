@@ -109,6 +109,10 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   check the change. Gate the code once per task, not per commit: `scripts/test.sh <touched>`,
   `scripts/check.sh` and `scripts/lint.sh` before each commit, `scripts/test_all.sh` once when the
   code phase is done.
+- **Symbol work goes through the language server.** On a file over ~300 lines, find a function
+  with `gd_outline`, its contract with `gd_hover` and its call sites with `gd_references` instead
+  of `grep -n` + `sed -n`. The `gd_*` tools are optional harness tooling: the mod never depends
+  on them, and `grep` still answers everything else.
 - Use one whole-file write for a file that changes heavily, and send independent edits together in
   one turn. A chain of single-line edits costs a round trip each.
 - Plans live outside the repo. Resolve the path with

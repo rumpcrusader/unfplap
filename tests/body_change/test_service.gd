@@ -5,6 +5,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/body_change/test_service.gd
 
+const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
+const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const BODY_BINDING := preload("res://mods/unfplap/shared/body_binding.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -12,7 +14,7 @@ const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const GARMENT_BINDING := preload("res://mods/unfplap/body_change/garment_binding.gd")
 const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
-const RUNTIME_BINDING := preload("res://mods/unfplap/runtime/body_binding.gd")
+const RUNTIME_BINDING := preload("res://mods/unfplap/body_change/runtime_binding.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -58,13 +60,6 @@ class FakeRuntime extends Node:
 		journal.append("refresh")
 		last_body = body
 		last_form = form
-
-
-class FakeLodHost extends Node:
-	var refreshes: Array[Node] = []
-
-	func refresh_body_lod(body: Node) -> void:
-		refreshes.append(body)
 
 
 class FakeGarments extends Node:
@@ -193,6 +188,11 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+## The last body-change line the sink received, or "" before the first apply.
+func _last_line() -> String:
+	return log_sink.lines[log_sink.lines.size() - 1] if not log_sink.lines.is_empty() else ""
+
+
 func run() -> void:
 	# Both debug switches on, with the sink collecting the raw lines the service asserts on.
 	LOG.debug_logs = true
@@ -202,7 +202,7 @@ func run() -> void:
 	_check_body_change()
 	_check_binding()
 	_check_policy()
-	_check_world_bindings()
+	_check_wire()
 	_check_runtime_binding()
 	_check_scale_clamp()
 	_check_service()
@@ -382,56 +382,97 @@ func _check_policy() -> void:
 	body.free()
 
 
-func _check_world_bindings() -> void:
+## `wire()` builds the whole chain from the facades the entry hands over, in the fan-out order:
+## anatomy, runtime, LOD, garments, stock smack. A facade the build did not provide registers no
+## binding, so the rest of the chain still runs; a binding added after the wire joins the same
+## fan-out, so a new body-bound system needs no entry line.
+func _check_wire() -> void:
+	log_sink.lines.clear()
 	var host := FakeHost.new()
+	var bare := SERVICE.new()
+	bare.setup(host)
+	bare.wire(null, null, null)
+	var faceless := FakePony.new()
+	faceless.name = "FacelessBody"
+	faceless.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
+	bare.bind_body(faceless)
+	check(_last_line().contains("bindings=runtime,lod"),
+		"a wire without facades keeps the runtime and LOD bindings in order")
+	check(not _last_line().contains("anatomy") and not _last_line().contains("garments")
+		and not _last_line().contains("stock_smack"),
+		"a missing facade registers no binding and the chain still runs")
+
+	var anatomy := ANATOMY_SERVICE.new()
+	anatomy.name = "WireAnatomy"
+	root.add_child(anatomy)
+	anatomy.call("setup", host)
+	var wired := SERVICE.new()
+	wired.setup(host)
+	wired.wire(anatomy, null, null)
+	var seated := FakePony.new()
+	seated.name = "WiredBody"
+	seated.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
+	wired.bind_body(seated)
+	check(_last_line().contains("bindings=anatomy,runtime,lod"),
+		"the anatomy binding is the first link of the wired chain")
+	check(anatomy.call("form_for", seated) != null,
+		"the wired anatomy binding forwards the form to its facade")
+
+	var garment_target := FakeGarments.new()
+	var smack_target := FakeSmack.new()
 	var service := SERVICE.new()
 	service.setup(host)
-	var lod_target := FakeLodHost.new()
-	var lod: RefCounted = LOD_BINDING.new()
-	lod.call("setup", lod_target)
-	var garment_target := FakeGarments.new()
-	var garments: RefCounted = GARMENT_BINDING.new()
-	garments.call("setup", garment_target)
-	var smack_target := FakeSmack.new()
-	var smack: RefCounted = SMACK_BINDING.new()
-	smack.call("setup", smack_target)
-	check(str(lod.call("binding_id")) == "lod", "the LOD binding names itself")
-	check(str(garments.call("binding_id")) == "garments", "the garment binding names itself")
-	check(str(smack.call("binding_id")) == "stock_smack",
+	service.wire(null, garment_target, smack_target)
+	check(str(LOD_BINDING.new().call("binding_id")) == "lod", "the LOD binding names itself")
+	check(str(GARMENT_BINDING.new().call("binding_id")) == "garments",
+		"the garment binding names itself")
+	check(str(SMACK_BINDING.new().call("binding_id")) == "stock_smack",
 		"the stock smack binding names itself")
-	check(service.register_binding(lod), "the LOD binding registers")
-	check(service.register_binding(garments), "the garment binding registers")
-	check(service.register_binding(smack), "the stock smack binding registers")
+	check(str(ANATOMY_BINDING.new().call("binding_id")) == "anatomy",
+		"the anatomy binding names itself")
 
 	var body := FakePony.new()
 	body.name = "WorldBody"
 	body.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
 	service.bind_body(body)
-	check(lod_target.refreshes == [body], "the LOD binding refreshes the adopted body")
-	check(garment_target.scans == 1, "the garment binding re-scans for the adopted body")
-	check(smack_target.handed_over == [body], "the smack binding hands the adopted body over")
-	var line := log_sink.lines[log_sink.lines.size() - 1] if not log_sink.lines.is_empty() else ""
-	check(line.contains("bindings=lod,garments,stock_smack"),
-		"the service log names the world bindings in registration order")
+	check(_last_line().contains("bindings=runtime,lod,garments,stock_smack"),
+		"the wire registers the runtime, LOD, garments and stock smack in order")
+	check(garment_target.scans == 1, "the wired garment binding re-scans for the adopted body")
+	check(smack_target.handed_over == [body],
+		"the wired smack binding hands the adopted body over")
 
 	var revised := service.form_for(body)
 	revised.revision = 1
 	service.apply_form(body, revised)
-	check(lod_target.refreshes.size() == 2, "a revised form refreshes the LOD once")
 	check(garment_target.scans == 2, "a revised form re-scans the garments once")
 	check(smack_target.handed_over.size() == 2, "a revised form re-readies the smack layer once")
 
 	service.unbind_body(body)
-	check(lod_target.refreshes.size() == 2 and garment_target.scans == 2
-		and smack_target.handed_over.size() == 2,
-		"an unbind does not refresh the world systems again")
+	check(garment_target.scans == 2 and smack_target.handed_over.size() == 2,
+		"an unbind does not refresh the wired systems again")
+
+	var extra := RecordingBinding.new()
+	extra.id = "extra"
+	check(service.register_binding(extra), "a binding the wire did not build still registers")
+	var late := FakePony.new()
+	late.name = "LateBody"
+	late.identity = {"id": "rarity", "display_name": "Rarity"}
+	service.bind_body(late)
+	check(extra.calls == ["bind"], "a binding added after the wire joins the one fan-out")
+	check(_last_line().contains("bindings=runtime,lod,garments,stock_smack,extra"),
+		"a late binding joins the end of the chain")
 
 	service.free()
+	bare.free()
+	wired.free()
+	anatomy.free()
 	host.free()
-	lod_target.free()
 	garment_target.free()
 	smack_target.free()
 	body.free()
+	faceless.free()
+	seated.free()
+	late.free()
 
 
 ## The runtime binding dispatches through the pony registry and never owns the act: a body

@@ -8,11 +8,16 @@ extends Node
 ## and binding registries, the active-change read and the legacy metadata mirror. A source provider
 ## owns its pack and its own observation; the service never polls.
 
+const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
 const BODY_BINDING := preload("res://mods/unfplap/shared/body_binding.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const GARMENT_BINDING := preload("res://mods/unfplap/body_change/garment_binding.gd")
+const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
+const RUNTIME_BINDING := preload("res://mods/unfplap/body_change/runtime_binding.gd")
+const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
 const WIRE := preload("res://mods/unfplap/body_change/wire.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -43,6 +48,27 @@ var _active_by_body: Dictionary = {}
 func setup(host: Node) -> void:
 	main = host
 	_log = Callable(LOG, "debug")
+
+
+## Construct and register every body-bound system from the facades the entry built. The order is
+## the fan-out order and the service log's order: anatomy, runtime, LOD, garments, stock smack. A
+## facade the build or the player did not provide registers no binding, so an absent pack leaves
+## the rest of the chain running.
+func wire(anatomy: Node, pantyhose: Node, stock_smack: Node) -> void:
+	if is_instance_valid(anatomy):
+		var anatomy_binding: RefCounted = ANATOMY_BINDING.new()
+		anatomy_binding.call("setup", anatomy)
+		register_binding(anatomy_binding)
+	register_binding(RUNTIME_BINDING.new())
+	register_binding(LOD_BINDING.new())
+	if is_instance_valid(pantyhose):
+		var garment_binding: RefCounted = GARMENT_BINDING.new()
+		garment_binding.call("setup", pantyhose)
+		register_binding(garment_binding)
+	if is_instance_valid(stock_smack):
+		var smack_binding: RefCounted = SMACK_BINDING.new()
+		smack_binding.call("setup", stock_smack)
+		register_binding(smack_binding)
 
 
 ## Register one provider. The shared `BodyChange.source` handle is a narrow `Node`; this is the

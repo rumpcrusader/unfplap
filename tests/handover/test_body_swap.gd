@@ -17,7 +17,6 @@ const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd"
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
-const RUNTIME_BINDING := preload("res://mods/unfplap/runtime/body_binding.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -440,8 +439,9 @@ func _fixture() -> Dictionary:
 	source.policy_value = policy
 	host.source = source
 	body_change.call("register_source", source)
-	var runtime_binding: RefCounted = RUNTIME_BINDING.new()
-	body_change.call("register_binding", runtime_binding)
+	# The service builds its own bindings from the facades the entry hands it; this fixture has
+	# none, so the chain is the runtime and LOD links an idle or live act runs on.
+	body_change.call("wire", null, null, null)
 	return {"host": host, "runtime": runtime, "old": old_pony, "source": source,
 		"body_change": body_change, "policy": policy}
 

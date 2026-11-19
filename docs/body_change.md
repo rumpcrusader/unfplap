@@ -455,6 +455,9 @@ suspension, adoption, resume and failure phases.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | anatomy | `anatomy/body_binding.gd` | the anatomy body binding this service constructs from the anatomy facade |
+| service | ponies | `ponies/service.gd` | the runtime binding's per-pony runtime lookup |
+| service | world | `world/service.gd` | the LOD binding's near/far cache refresh |
 | shared | body_binding | `shared/body_binding.gd` | typed body-bound system base |
 | shared | body_change | `shared/body_change.gd` | body change type, state and origin |
 | shared | body_change_policy | `shared/body_change_policy.gd` | provider offer/reveal policy base |

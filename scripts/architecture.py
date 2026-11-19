@@ -2,8 +2,12 @@
 """Architecture gate for unfplap.
 
 The service docs are the dependency manifest. This script compares each service's
-``### Uses`` table with the preload graph, enforces the layer and privacy rules, and
-tracks temporary boundary/typing debt.
+``### Uses`` table with the preload graph, enforces the layer, owner and privacy
+rules, and tracks temporary boundary/typing debt.
+
+Every shipped ``.gd`` must resolve to an owner — a service, ``shared/`` or one of the
+three orchestrators — so a directory without a ``service.gd`` cannot add code whose
+edges the boundary rules would classify as external and allow.
 
 Usage:
     scripts/architecture.py --check
@@ -136,8 +140,18 @@ CHANGELINGS_CATALOG = {"shared/character_preferences.gd"}
 
 ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
 # Service files another owner may extend or preload as a documented extension point. The source
-# base is a provider contract, not a second facade.
-PUBLIC_SERVICE_FILES = {"body_change/source.gd"}
+# base is a provider contract, not a second facade; the anatomy body binding is the attachment
+# contract the body-change service constructs from the anatomy facade it is handed.
+PUBLIC_SERVICE_FILES = {"body_change/source.gd", "anatomy/body_binding.gd"}
+# The five body-bound systems `body_change.wire()` builds and registers. The entry names none of
+# them: a new binding adds a preload to the service, not to the composition root.
+BODY_BINDINGS = (
+    "anatomy/body_binding.gd",
+    "body_change/runtime_binding.gd",
+    "body_change/lod_binding.gd",
+    "body_change/garment_binding.gd",
+    "body_change/smack_binding.gd",
+)
 SHARED_KINDS = {
     "act_history.gd": "store",
     "act_facts.gd": "read model",
@@ -911,25 +925,34 @@ def check_sources(failure: Failure) -> None:
     if ".on_offer_accepted(" not in function_body(runtime, "_apply_offer_accepted"):
         failure.add("_apply_offer_accepted() must execute the typed policy's on_offer_accepted()")
 
-    # One runtime binding: the entry registers it, the runtime exposes the two typed hooks, and
-    # the binding never runs the act exit or a second resume.
-    binding_path = ROOT / "runtime" / "body_binding.gd"
+    # One runtime binding: the body-change service builds it with the rest of the chain, the
+    # runtime exposes the two typed hooks, and the binding never runs the act exit or a second
+    # resume.
+    binding_path = ROOT / "body_change" / "runtime_binding.gd"
     if not binding_path.is_file():
-        failure.add("missing runtime/body_binding.gd")
+        failure.add("missing body_change/runtime_binding.gd")
     else:
         binding = binding_path.read_text(encoding="utf-8")
         if 'extends "res://mods/unfplap/shared/body_binding.gd"' not in binding:
-            failure.add("runtime/body_binding.gd must extend the typed body binding")
+            failure.add("body_change/runtime_binding.gd must extend the typed body binding")
         if 'return "runtime"' not in binding:
-            failure.add('runtime/body_binding.gd must name itself "runtime"')
+            failure.add('body_change/runtime_binding.gd must name itself "runtime"')
         for needle in ("_end_session(", "_resume_after_body_swap("):
             if call_lines(binding, needle):
-                failure.add("runtime/body_binding.gd must not call %s" % needle)
+                failure.add("body_change/runtime_binding.gd must not call %s" % needle)
+    # The service builds every binding from the facades the entry hands it, so a new body-bound
+    # system adds a preload and a register call to the service and no line to the entry.
+    service_source = (ROOT / "body_change" / "service.gd").read_text(encoding="utf-8")
+    if "func wire(" not in service_source:
+        failure.add("body_change/service.gd must build its bindings in wire()")
+    for needle in BODY_BINDINGS:
+        if service_source.count(needle) != 1:
+            failure.add("body_change/service.gd must name the body binding %s once" % needle)
     main_source = (ROOT / "main.gd").read_text(encoding="utf-8")
-    if main_source.count("runtime/body_binding.gd") != 1:
-        failure.add("main.gd must preload one runtime/body_binding.gd")
-    if main_source.count('register_binding", runtime_binding') != 1:
-        failure.add("main.gd must register one runtime binding")
+    for number, line in enumerate(main_source.splitlines(), start=1):
+        if "_binding.gd" in line or "register_binding" in line:
+            failure.add(
+                "main.gd:%d builds a body binding; body_change.wire() owns the chain" % number)
     for name in ("bind_body_services", "refresh_body_services"):
         if len(re.findall(r"^func %s\(" % name, runtime, re.MULTILINE)) != 1:
             failure.add("runtime.gd must define exactly one %s()" % name)
@@ -1016,6 +1039,19 @@ def check_sources(failure: Failure) -> None:
             failure.add("docs/%s.md names no test path that exists" % sid)
 
 
+def check_owners(failure: Failure) -> None:
+    """Every shipped `.gd` has an owner: a service, `shared/` or an orchestrator.
+
+    `owner_of()` answers None for any other path, and every edge to or from an unowned file is
+    classified "external" and allowed. A directory without a `service.gd` therefore grows code
+    outside the boundary rules; the mod root's former `runtime/` did exactly that.
+    """
+    orphans = [rel(path) for path in shipped_sources() if owner_of(rel(path)) is None]
+    for name in orphans:
+        failure.add("%s has no owner: a shipped .gd belongs to a service, to shared/ or to "
+                    "main.gd, runtime.gd, api.gd" % name)
+
+
 def check_boundaries(failure: Failure) -> None:
     """The composition-root rules: no reach-in into the entry, and a scene-only world facade."""
     # A private reach-in is `get("_name")`/`call("_name")` through the entry or a runtime. A
@@ -1056,6 +1092,7 @@ def check() -> int:
     check_typing(failure)
     check_sources(failure)
     check_boundaries(failure)
+    check_owners(failure)
     check_tests(failure)
     failures = len(failure.messages)
     for message in failure.messages:

@@ -334,8 +334,7 @@ func _report_ok(rows_in: Array) -> bool:
 	return true
 
 
-## The failed reasons of a row list. The runtime's `_start_reasons` reads it; the gate's own debug
-## line uses it too.
+## The failed reasons of a row list. The gate's debug line and the offer's status reads use it.
 func report_reasons(rows_in: Array) -> PackedStringArray:
 	var reasons: PackedStringArray = []
 	for row: ELIGIBILITY.Row in rows_in:

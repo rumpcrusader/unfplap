@@ -24,7 +24,7 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 | File | Role |
 |---|---|
 | `stool/service.gd` | facade: the only other systems preload or call; owns the supply child, `new_act()` and the stateless helpers |
-| `stool/act.gd` | per-act handle: the live rule, case loans, placed stack, player lift, failed flag and the hotkey pair (`hotkey_pair`, `hint_pair`); the runtime owns one per act and forwards its queries one line each |
+| `stool/act.gd` | per-act handle: the live rule, case loans, placed stack, player lift, failed flag and the hotkey pair (`hotkey_pair`, `hint_pair`); the runtime owns one per pony, resets it per act and forwards its queries one line each |
 | `stool/measure.gd` | pure reach-gap, threshold and stack-count arithmetic |
 | `stool/item.gd` | pure `goods:footstool` case-slot, case-count, owned-count and free-slot checks |
 | `stool/prop.gd` | scene adapter: builds the stacked static act stool and its pony collision exception |
@@ -57,8 +57,8 @@ new_act() -> RefCounted
 floor_y_at(at, body) -> float
 ```
 
-`new_act()` creates one per-act handle; the runtime keeps it for the act and drops it with the
-runtime. `floor_y_at()` is the stateless standing-spot floor probe, with the player capsule
+`new_act()` creates one per-act handle; the runtime keeps one for its whole lifetime, resets it per
+act and drops it with the runtime. `floor_y_at()` is the stateless standing-spot floor probe, with the player capsule
 excluded.
 
 The handle's internal API:
@@ -84,8 +84,10 @@ floor_y_at(at, body) -> float
 `place()` builds the stack under the runtime's standing spot and returns the raised player
 target; `release()` frees the prop, lowers the player and returns every case unit. The handle also
 owns the hotkey pair: `hotkey_pair(pose)` reads the reach and case counts once and keeps them, and
-`hint_pair()` returns that pair for the blocked note. The runtime's stool queries are one-line
-forwards to the handle; the handle owns the rule, the case reads and the failed flag.
+`hint_pair()` returns that pair for the blocked note. The runtime's stool forwards are
+`stool_gap_m()`, `stool_needed_count()`, `stool_case_count()` and `stool_state_text()`, one line
+each; `applies()` and `required()` stay on the handle. The handle owns the rule, the case reads
+and the failed flag.
 
 `build_prop()` returns `{"node": StaticBody3D, "height": float, "count": int, "step": float}`.
 `ignore` is the partner pony; the stack must not collide with her.
@@ -229,9 +231,9 @@ idle hint and the act start.
   stack-count cases.
 - `tests/stool/test_item.gd`: case slot, case count, owned count, free slots, take/put and placed
   loans.
-- `tests/stool/test_gate.gd`: the facade's feature read, the runtime forwards' live gap, two-step
-  requirement, case count, the hotkey readiness and the blocked hint's reuse of the first gate's
-  pair.
+- `tests/stool/test_gate.gd`: the facade's feature read, the act handle's `applies()`/`required()`,
+  the runtime forwards' live gap, two-step requirement, case count, the hotkey readiness and the
+  blocked hint's reuse of the first gate's pair.
 - `tests/stool/test_act.gd`: the per-act handle's rule, case loans, stack placement/release,
   reset and the missing-stool-only block.
 - `tests/stool/test_prop.gd`: the stacked visuals, total height, box top and both pony collision

@@ -29,8 +29,8 @@ added to the tree. It owns no saved data. Its state is transient:
 - `_suppress_q`, `_old_q` — the seated-player guard;
 - `_mouse_recapture_logged` — the one recapture log per act.
 
-The entry owns construction, the service list and world teardown. `runtime.gd` owns act state.
-`debug/service.gd` owns the action registry.
+The entry owns construction, the service list and world teardown. `runtime.gd` owns the per-pony
+act state and exposes the protocol this service calls; `debug/service.gd` owns the action registry.
 
 ## Internal API
 
@@ -149,6 +149,13 @@ left `by_button` emits the same `oral` command through the bridge's host callbac
 The continuous `thrust`, `lean`, `caress` and `kiss` inputs stay on their polled `RAW_KEYS`/mouse
 path, and the act-key hold owns `end`. Smack, auto-thrust and the debug wheel are body/camera
 actions outside the pose command set and keep their direct runtime methods.
+
+The runtime protocol the service calls is small and typed: `look_motion(relative)`,
+`thrust_motion(relative_y)`, `toggle_auto_thrust()`, `auto_thrust_wheel(direction)`,
+`auto_panel_input(delta, x_down, keys)`, `command(id)`, `toggle_anatomy_hole()`,
+`toggle_anatomy_oral()`, `cancel()`, `request_afterglow()`, `end_afterglow()`, `smack()`,
+`vr_y_held()`, `body_swap_pending()` and the `state` read. The runtime never sees an
+`InputEvent`.
 
 ## Controls and debug
 

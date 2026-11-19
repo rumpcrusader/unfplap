@@ -1,5 +1,8 @@
 extends Node
-## One per pony. Holds the act state machine and all per-act state. It never edits game files.
+## One per pony. The per-pony host and act orchestrator: lifetime, the act state machine, the
+## session, the one composition and bind pass, the ordered idle/physics/render schedules, the
+## start/teardown ledgers and the typed act view. It owns no system's rules or mutable state and
+## never edits game files.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -200,6 +203,8 @@ var _snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
 var _features: Dictionary = {}
 var _preferences: Dictionary = {}
 var _act_prompts: Dictionary = {}
+## The snapshot's climax limit, kept as a field because the thrust and handover suites set it
+## directly; `_snapshot_settings()` is its act-start writer.
 var _max_pony_climaxes: int
 var _cue_gap: float
 var _act_spoken_at := -1e9
@@ -236,6 +241,8 @@ var _face: RefCounted = FACE.new()
 ## `reactions/service.gd` and `docs/reactions.md`.
 var _reactions: RefCounted = REACTIONS.new()
 var _first_time := false
+## The snapshot's climax mode, kept as a field because the face suite sets it directly;
+## `_snapshot_settings()` is its act-start writer.
 var _act_climax_mode: String
 ## The act's camera mode, snapshotted with the rest: the render write runs every rendered frame and
 ## must not read settings there.
@@ -1834,8 +1841,8 @@ func body_swap_pending() -> bool:
 	return _suspended
 
 
-## The act-side form request. The handover decides whether a source can take the form; the watcher
-## suspends the act on a later tick, so the act's state, depth and climaxes are never handed to a
+## The act-side form request. The handover decides whether a source can take the form; a later
+## handover tick suspends the act, so the act's state, depth and climaxes are never handed to a
 ## second runtime.
 func request_form_change(true_form: bool, shape_id := "", by_player := false) -> Dictionary:
 	return _handover.request(true_form, shape_id, by_player)
@@ -1914,7 +1921,7 @@ func attach_to_body(parent: Node) -> void:
 
 
 ## `ponies` calls this when the source's new body spawns. The runtime is already under the entry;
-## it moves under the new body, binds its pose, face and anatomy, and waits for the watcher's resume.
+## it moves under the new body, binds its pose, face and anatomy, and waits for the handover's resume.
 ## A body that is not an adult mare ends the act through the one exit.
 func adopt_body(new_pony: Node) -> void:
 	if not _suspended or not is_instance_valid(new_pony):

@@ -1,6 +1,6 @@
 extends RefCounted
 ## One act's footstool state: the live reach rule, the case loans, the placed stack and the player
-## lift. The runtime creates one per act and keeps the standing placement decision; this handle
+## lift. The runtime creates one per pony, resets it per act and keeps the placement decision; this handle
 ## owns the stack lifetime and the item return. Contract: `docs/stool.md`.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")

@@ -15,9 +15,9 @@ and `tick()`; readiness owns the counters the summary reads and the one-second i
 also owns the auto-thrust generator, the hold-X panel policy and their defaults.
 
 `readiness/thrust.gd`, `readiness/auto_thrust.gd`, `readiness/auto_panel.gd` and
-`readiness/tolerance.gd` are pure modules behind the facade. The runtime
-keeps the input reads (`Input`, mouse motion, wheel, the shape key) and applies the depth through
-`_thrust_move` so audio, camera, jiggle and presentation keep one path.
+`readiness/tolerance.gd` are pure modules behind the facade. `input/service.gd` reads the input
+and calls the runtime's protocol; the runtime forwards the mouse travel and the sampled keys and
+applies the depth through `_thrust_move`, so audio, camera, jiggle and presentation keep one path.
 
 The auto surface:
 
@@ -204,8 +204,9 @@ testing.
   `reset()` takes all four explicitly.
 - `readiness/auto_panel.gd` is the pure hold-X layer: tap/hold detection, the 0.28 s grace, key repeats and
   the four live rows.
-- The runtime reads `Input` and passes the key states to readiness; readiness returns the actions
-  and the generated depth. The mouse does nothing while auto is on. The wheel sets pace.
+- `input/service.gd` reads `Input` and passes the key states to `runtime.auto_panel_input()`;
+  readiness returns the actions and the generated depth. The mouse does nothing while auto is on.
+  The wheel sets pace through `runtime.auto_thrust_wheel()`.
 - The panel's `toggle` and min/max/pace nudges are applied inside readiness. The one remaining
   action is `shape_next`: the runtime writes `SETTINGS.curve` and calls `auto_set_shape()`.
 - The debug log prints one `auto layer` line per player adjustment, never per frame; a shape

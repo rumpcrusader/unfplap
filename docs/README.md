@@ -23,12 +23,14 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 ## Orchestrators
 
 `main.gd` and `runtime.gd` compose services; they are not services. `main.gd` holds the one ordered
-service list, which is the lifecycle order of every broadcast.
+service list, which is the lifecycle order of every broadcast. `runtime.gd` is the per-pony host:
+it exists for every non-player pony, idle and in an act, and owns lifetime, state, the session,
+the schedules, the ledgers and the typed act view.
 
 | Part | Entry | Contract | Tests |
 |---|---|---|---|
 | Entry | `main.gd` | `../ARCHITECTURE.md` | `tests/entry/` |
-| Act runtime | `runtime.gd` | `docs/runtime.md` | `tests/` |
+| Per-pony act host | `runtime.gd` | `docs/runtime.md` | `tests/` |
 
 ## Services
 
@@ -75,6 +77,7 @@ only stable external surface is `docs/api.md`.
 | Module | Path | Contract | Tests |
 |---|---|---|---|
 | Act keys | `shared/act_keys.gd` | `docs/input.md` | `tests/test_input.gd` |
+| Act state | `shared/act_state.gd` | `docs/runtime.md` | `tests/hud/test_hud_lines.gd`, `tests/act_audio/test_audio.gd` |
 | Typed act view | `shared/act_facts.gd` | `docs/act_facts.md` | `tests/act_facts/` |
 | Log and perf entry | `shared/log.gd` | `docs/log.md` | `tests/perf/` |
 | Settings change notification | `shared/settings_change.gd` | `docs/settings.md` | `tests/test_settings_change.gd` |

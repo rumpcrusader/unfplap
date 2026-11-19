@@ -140,9 +140,9 @@ A provider owns its own pack read and its own forms:
 
 The provider observes its own pack. The shipped provider reads it at 10 Hz and calls
 `body_change.notify_source_changed(self)` and `notify_body_ready(body)`; the base service never
-polls and never scans every frame. The runtime's `0.1 s` act watcher reads the service's active
-change only for suspension, late adoption, the restore guard and the watchdog
-(`docs/runtime.md`).
+polls and never scans every frame. The act handover reads the service's active change only for
+suspension, late adoption, the restore guard and the watchdog (`docs/body_change.md`,
+`docs/runtime.md`).
 
 The provider-policy execution is `docs/body_change.md`'s; the shipped policy's contents are
 `## Queen Chrysalis` below. Bonus climax has no implementation.

@@ -29,8 +29,9 @@ through `facts.gaze_point`.
 ## Typed view
 
 Every camera, shot and body module reads `shared/act_facts.gd` and never the runtime node. The runtime
-binds the view, refreshes it in `_sync_act_facts()` and before it hands a controller out, and the
-modules read the camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`,
+binds the view and refreshes it once per phase (idle, physics after the pose tick and before the
+fan-out, render before the camera work, and `apply_camera_motion()`), and the modules read the
+camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`,
 `look_*`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`, `missionary_body()`,
 `authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. `authored_pose_asset()` returns
 the live rendered asset, so the bed camera holds the source shots through an edge and reads the
@@ -261,7 +262,8 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
 
 `presentation.missionary.free_look` (debug) turns the act view where it stands — his head in
 **Anon eyes**, the authored shot otherwise — instead of holding the authored orientation: mouse look
-works, and `runtime._input` stops feeding mouse motion into thrust. The pose and act keep running.
+works, and `input/service.gd` sends the motion to `runtime.look_motion()` instead of
+`thrust_motion()`. The pose and act keep running.
 Standing has no separate view, so the standing camera controller simply leaves the player camera
 alone. The setting is live through `apply_live_settings`; the settings page pauses the world, so it
 takes effect when the panel closes.

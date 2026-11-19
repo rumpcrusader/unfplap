@@ -144,8 +144,7 @@ and debug; no prompt sends it to the model.
 
 `shared/act_history.gd` also keeps a process-wide `revision`, bumped by every stored-row write
 (`commit`, `repair`, `apology_repair`, `reset` and `mark_announced`). Reads, sanitising and time
-decay do not bump it. The runtime's idle hotkey cache joins it into its invalidation key; a stored
-write rebuilds the Base-clearance answer.
+decay do not bump it, so a stored write always advances the counter a reader can compare.
 
 The live rule table is memoised per `SETTINGS.generation`: `rules()` returns the same table until a
 settings write rebuilds it, and every caller treats it as read-only. Tier and offer-weight checks

@@ -13,8 +13,8 @@ The runtime still:
   summary), `act_face_rows()` (state, HUD mood, the game's cue mood, climax mode and the blush
   flag), `_read_first_time()` and `_climax_quality_inputs()`;
 - calls `_act_face_beat()` at the start, close, warning, climax, afterglow and stop moments;
-- calls `_start_post_act_face()` from `_begin_aftercare()` and `_start_upset()` from a stop or
-  refusal;
+- calls `_face.start_post_act()` from `_reset_after_act()` when the aftercare starts, and
+  `_start_upset()` from a stop or refusal;
 - calls `_eyes_tick()` late in the tick and `_set_face()`/`_clear_face()` at the transitions;
 - forwards the face values to `_act_presentation()`.
 
@@ -28,7 +28,7 @@ The runtime still:
 | `face/service.gd` | the act face, the line-face owner, the stare release, the lids and smile with their timer, the climax quality shape, the mood-face lifetime and the warm note |
 | `shared/act_face.gd` | pure: beat plans, climax style, blush, summary faces, prompt hints |
 | `face/mood_face.gd` | the 300 s held base-game face, its own `finished` signal and its blush |
-| `runtime.gd` | the state, the scene reads, the blush, the kiss, the HUD and the summary grade |
+| `runtime.gd` | the state, the scene reads, the blush, the kiss, the HUD wiring and the summary grade |
 
 Host callbacks, all optional so a test can build the facade without a runtime:
 

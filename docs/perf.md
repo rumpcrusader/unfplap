@@ -156,12 +156,12 @@ render-time pose write and the sway replay, which is where the modifier pass rep
 `caress_path` only reports on a build tick; a large max there with every other chunk steady is the
 first caress path, not the per-tick contact.
 
-The body-swap watcher runs before the act chunks: one source `poll()` per `0.1 s` while an act is
-live, plus a read of the same source's changing state. It allocates nothing per frame, so it stays
-in the `runtime_physics` self row rather than a named chunk. A suspend/resume is one-time per change
+The body-change handover runs before the act chunks: one service read per `0.1 s` while an act is
+live, with the decision in the body-change handover and no per-frame allocation, so it stays in the
+`runtime_physics` self row rather than a named chunk. A suspend/resume is one-time per change
 and the watchdog covers a source that never settles. The comparison is a manual lab step: with
 **Enable debug** + **Print perf logs** on, record a steady act window and an idle window and compare
-`runtime_physics`, `runtime_talk` and the `self` row around the watcher. The headless perf suites pin
+`runtime_physics`, `runtime_talk` and the `self` row around the handover. The headless perf suites pin
 the probe's own behavior, not the live frame cost.
 
 ## Idle probe API
@@ -205,7 +205,7 @@ total, largest first, so the first row is the chunk to fix.
 | `offer_policy` | `eligible()` and `relationship_ok()` after the rows pass | `offer_gate` |
 | `runtime_physics` | one pony's idle `_physics_process` | root |
 | `runtime_anatomy_sync` | the one `_sync_anatomy_facts()` call after the physics tick | `runtime_physics` |
-| `runtime_facts` | `_sync_act_facts()` in the physics tick | `runtime_physics` |
+| `runtime_facts` | `refresh_view()` in the physics tick | `runtime_physics` |
 | `runtime_presentation` | `_standing_presentation_controller().physics(delta)` | `runtime_physics` |
 | `runtime_history` | `_history_tick(delta)` | `runtime_physics` |
 | `runtime_process` | one pony's idle `_process_tick` | root |

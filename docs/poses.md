@@ -921,8 +921,8 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 ## Timing domains
 
-- `runtime._process`: view-depth travel, lean, climax wave, breath, look point, pose climax flag.
-  `_process_tick` calls `poses/service.gd`'s `render_write()`, which owns the render-time order:
+- `runtime._process_tick`: the render-time pose write, the climax progress, the shot tick and the
+  breath. `poses/service.gd`'s `render_write()` owns the render-time order:
   for the bed family, park the game presentation and place the act's Anon body, write her pose,
   replay the prone sway, then the eye-shot camera tick; for the standing family, sync the ground
   frame, write her pose and replay the body sway after every game writer. It then calls

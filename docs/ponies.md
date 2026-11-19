@@ -33,7 +33,7 @@ It does not cover the act itself (`docs/runtime.md`), the attach-time anatomy an
 | `set_active(runtime)` / `clear_active(runtime)` / `active()` / `act_running()` | the one live act and its two side effects: the idle offer is dropped and the stock smack layer opens and closes its act |
 | `begin_body_swap(runtime, old_pony, id, change)` | the act's one pending swap, and the old body's registry entry going with it |
 | `clear_body_swap(runtime)` / `body_swap_pending()` | the swap's one end, scoped to its runtime |
-| `adopt_pending_body(pony)` | the prepare and adoption the runtime's watcher asks for after the adoption grace |
+| `adopt_pending_body(pony)` | the prepare and adoption the act handover asks for after the adoption grace |
 | `apply_live_settings()` | the live settings pass over every runtime, not only the act's |
 | `prompt_note(id)` | the live act/afterglow note and the cycle line for one stable id |
 | `live_character_ids()` / `installed_character_ids()` | the off-roster mares the Characters tab lists |
@@ -66,8 +66,8 @@ subset.
 
 ## The body swap
 
-The runtime suspends the act and calls `begin_body_swap()` before it leaves the old body, so the
-new body's spawn finds the record instead of creating a second act owner. The record is
+The act handover records the pending swap through `begin_body_swap()` before the runtime leaves the
+old body, so the new body's spawn finds the record instead of creating a second act owner. The record is
 `{runtime, old_pony, id, change}`; the old body's entry is dropped there and then.
 
 `attach()` adopts when the change's typed source `claims_body()` the newcomer or the newcomer's
@@ -75,12 +75,12 @@ stable id (`shared/pony_id.gd`) matches the record. A body with another id is at
 leaves the record alone. The adoption order is: detach a duplicate runtime's anatomy controller and
 stop and free that duplicate (a race can only mean the suspended act is the owner), drop the old
 body's entry, map the new body, bind anatomy to it, reparent the runtime under it, clear the record
-and hand the body to `runtime.adopt_body()`. The adoption never resumes the act; the runtime's
-watcher owns the one resume (`docs/runtime.md`).
+and hand the body to `runtime.adopt_body()`. The adoption never resumes the act; the act handover
+owns the one resume (`docs/runtime.md`).
 
 `adopt_pending_body(pony)` is the same prepare-and-adopt path for a body whose spawn hook never
-reached `attach()`: a provider may clear its changing state before the new body appears, so the
-watcher waits out the grace and then asks here.
+reached `attach()`: a provider may clear its changing state before the new body appears, so the act
+handover waits out the grace and then asks here.
 
 ## The live act
 

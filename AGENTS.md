@@ -23,6 +23,7 @@ restate a contract.
 | `tests/offer/**` | `docs/tests.md`, `docs/offer.md` |
 | `*.sh`, `.gdlintrc`, `scripts/requirements-lint.txt` | `docs/quality.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
+| `shared/act_state.gd` | `docs/runtime.md` |
 | `shared/act_keys.gd` | `docs/input.md` |
 | `shared/integrations.gd` | `docs/integrations.md` |
 | `shared/act_face.gd` | `docs/face.md` |

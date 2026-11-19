@@ -92,7 +92,8 @@ executor, so that action does not control the phase.
   and whether the act summary was positive; the runtime writes the memory and history effect.
 - `hint()` is `Stay close · Ns · caress` while the window runs and `She seems content.` after the
   reward. An early end calls `cancel_close()`, which never rewards.
-- `hud_y_pink()` still reads the earned flag to turn the control card's `End` fully pink.
+- The view's raw `close_earned` is read by `hud/lines.gd:y_pink()` to turn the control card's
+  `End` fully pink.
 
 ## Player afterglow
 

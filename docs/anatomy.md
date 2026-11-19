@@ -404,8 +404,8 @@ no idle perf clock while the debug probe is off. See `docs/perf.md`.
 ## Act bridge
 
 `anatomy/act_bridge.gd` is the per-act handle the runtime owns. It is a `RefCounted`, created by
-`anatomy.gd.new_act(host)`; the runtime creates one per act, binds it on every access and keeps
-the orchestration. It owns:
+`anatomy.gd.new_act(host)` with the typed `anatomy/act_host.gd`; the runtime creates one per pony,
+binds it on every access and keeps the orchestration. It owns:
 
 - the persistent controller handle and the per-act `anatomy/act.gd` handle;
 - the reused `anatomy/facts.gd` context;
@@ -416,15 +416,17 @@ the orchestration. It owns:
 - the act hooks (`tick`, `on_climax`, `afterglow_tick`, `end`, `apply_live`, `detach`);
 - the VR hooks (`vr_start`, `vr_stop`, `vr_y_held`, `vr_forward`, `vr_depth`).
 
-The host is a plain dictionary of callables. The runtime supplies `pony`, `runtime`, `reactions`,
-`anatomy_service`, `eligibility_service`, the live state (`state`, `pose_view`, `depth`,
-`penetration_m`, `penetration_reach`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`,
-`cycle_phase`, `bed_frame`), the callbacks (`log`, `perf_note`, `perf_enabled`, `body_coat_smack`,
-`status`, `command`, `missionary_camera`, `kiss_controller`, `pose`, `thrust_move`, `now_s`,
-`set_penetration_m`, `align`, `touch`) and `vr_scene`. A missing callable is a no-op. `vr_scene` is
-the runtime's one scene read: `{player, avatar, camera, origin, hip_target}`, or null when the
-player or the XR rig is absent. The bridge wires `vr/service.gd` from that dictionary and does no
-`find_child`/`find_children` lookup itself.
+The host is the typed `anatomy/act_host.gd`: named methods over callables the runtime binds once.
+The runtime supplies `pony()`, `runtime()`, `reactions()`, `anatomy_service()`,
+`eligibility_service()`, the live state (`state()`, `pose_view()`, `depth()`, `penetration_m()`,
+`penetration_reach()`, `climaxes()`, `size_scale()`, `auto_pace()`, `fluid_ground_y()`,
+`cycle_phase()`, `bed_frame()`), the callbacks (`log()`, `perf_note()`, `perf_enabled()`,
+`body_coat_smack()`, `status()`, `command()`, `missionary_camera()`, `kiss_controller()`,
+`pose()`, `thrust_move()`, `now_s()`, `set_penetration_m()`, `align()`, `touch()`) and
+`vr_scene()`. A missing callable is a no-op. `vr_scene()` is the runtime's one scene read:
+`{player, avatar, camera, origin, hip_target}`, or null when the player or the XR rig is absent.
+The bridge wires `vr/service.gd` from that host and does no `find_child`/`find_children` lookup
+itself.
 
 The bridge never reads the runtime node's private fields and never preloads a host. The action
 keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the bridge

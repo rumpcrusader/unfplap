@@ -36,8 +36,8 @@ const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
 
-## The typed act view. Presentation modules read it; the camera writes its live values here only
-## through `runtime._sync_act_facts()`.
+## The typed act view. Presentation modules read it; the runtime refreshes it once per phase
+## through `refresh_view()`.
 var facts: Variant = null
 ## The controllers the camera drives and asks. The runtime binds them on every service call.
 var hands: Variant = null

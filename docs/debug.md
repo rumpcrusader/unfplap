@@ -102,8 +102,8 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   aimed mare's current phase; Clear sets the session phase to **normal**. **Resume automatic
   cycle** clears the override and is settings-only. The action writes the session override into
   `shared/cycle.gd`'s per-pony map and the eligibility service resolves the phase from it; the
-  runtime keeps one-line forwards for its suites and the anatomy bridge. See the cycle section of
-  `docs/eligibility.md`.
+  runtime keeps the `cycle_phase()` and `cycle_override()` reads for the HUD, the debug block and
+  the anatomy bridge. See the cycle section of `docs/eligibility.md`.
 - **Reset act history** clears the stored row; **Force neglect warning/stop** act on the live act
   and are consumed on the next unpaused frame.
 - **Clear offer cooldown** clears the aimed mare's proactive-offer cooldown, short retry and last

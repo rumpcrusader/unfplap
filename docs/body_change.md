@@ -305,8 +305,9 @@ A change runs as follows:
 5. The provider settles its pack. If a late variant changed the descriptor, it bumps the revision
    and notifies the body again; the service fans out `refresh_body()` on the same body. It then
    marks the change `SETTLED` or `FAILED` and notifies the service.
-6. A live act resumes once through `runtime._resume_after_body_swap()`. The act state, depth,
-   climaxes, history and event id survive.
+6. A live act resumes once through `runtime._resume_after_body_swap()`, after
+   `body_change/act.gd` returns the `RESUME` action. The act state, depth, climaxes, history and
+   event id survive.
 7. A failed change leaves the previous body and form in place (or restores them through the
    provider) and leaves the runtime's offer logic to restore the player's offer.
 8. An idle change runs steps 2–5 without an act; the entry's normal `_on_pony` path may attach a
@@ -363,9 +364,10 @@ timer or signal and calls `body_change.notify_source_changed(self)` when its cha
 `notify_body_ready(body)` when a body spawns or a variant settles. The shipped provider observes at
 10 Hz.
 
-The runtime keeps its existing `0.1 s` act watcher only for suspension, adoption, the restore guard
-and the watchdog. It reads `body_change.active_change_for(pony)` at that cadence; it does not poll
-the provider and it does not scan every frame. The base service performs no every-frame scan either.
+The act handover `body_change/act.gd` reads `body_change.active_change_for(pony)` on a `0.1 s`
+cadence for suspension, adoption, the restore guard and the watchdog, and returns one typed action;
+the runtime applies it. Neither polls the provider, and neither scans every frame. The base service
+performs no every-frame scan either.
 
 ## Provider policy
 

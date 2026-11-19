@@ -8,10 +8,12 @@ orchestrator and the scene adapters.
 ## Ownership
 
 - `shared/act_facts.gd` defines the fields and the no-op host callbacks.
-- `runtime.gd` creates it, binds the callbacks in `_init()`, refreshes the live values in
-  `_sync_act_facts()` at the head of each act tick, and refreshes them again in `_bind_act_view()`
-  before it hands a presentation controller out. The second refresh exists because the idle
-  standing invitation, the debug actions and the suites call the controllers outside the act tick.
+- `runtime.gd` creates it and binds the callbacks once in `_init()`, then refreshes the live values
+  with `refresh_view()` once per phase: idle before the idle systems, physics after the pose tick
+  and before the fan-out, render before the camera work, and the entry's `apply_camera_motion()`
+  hand-off. `_sync_act_facts()` is the one-shot alias for the start, resume, teardown and live-edit
+  paths. The idle standing invitation, the debug actions and the suites therefore read the view
+  the phase boundary just wrote, not a per-getter rebind.
 - The consumers are `poses/missionary_anon.gd`, `camera/missionary_camera.gd`, `poses/standing_anon.gd`,
   `camera/standing_camera.gd`, `poses/standing_presentation.gd`, `kiss/service.gd`, `hands/service.gd`, the
   hands internals (`hands/placement.gd`, `hands/surface.gd`, `hands/path_base.gd` and its paths)
@@ -80,11 +82,14 @@ HUD card (the runtime fills these once per rendered frame; `hud/service.gd` read
 calling back into the runtime):
 
 ```
-max_pony_climaxes, close_hint, summary_hud, cycle_heat
-y_pink, hud_readouts, hud_controls, form_hint (kept empty by the runtime)
+max_pony_climaxes, close_hint, summary_hud, cycle_heat, close_earned
+hud_readouts, hud_controls, form_hint (kept empty by the runtime)
 auto_on, auto_layer_open, auto_min_depth, auto_max_depth, auto_pace, auto_shape
 hole_ready, oral_ready
 ```
+
+`close_earned` and `auto_shape` are raw values: the HUD module formats the `End` tint and the auto
+readout, not the runtime.
 
 Scene handles:
 

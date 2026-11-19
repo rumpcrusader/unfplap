@@ -120,7 +120,7 @@ START_LEDGER_ORDER = (
 POSE_LEDGER_CALLERS = {
     ("act/exit.gd", "run"),
     ("act/start.gd", "_build_pose"),
-    ("runtime.gd", "_handover_release_pose"),
+    ("act/swap.gd", "release_pose"),
 }
 # Rule 1, full form: only the entry names the entry. A service that needs another service
 # preloads its facade, one that needs the scene reads `WORLD`, and one that needs a callback takes
@@ -182,7 +182,6 @@ RUNTIME_STATE_OWNER = ROOT / "act" / "session.gd"
 RUNTIME_SETTINGS_READS = {
     ("<module>", "ActSnapshot"): "the typed `_snapshot` forward's zeroed default",
     ("_shape_name", "character_name"): "the static character-name lookup, not an act tunable",
-    ("_handover_set_act_pose_config", "pose"): "the rebuilt pose's config",
 }
 # The act session's settings owner holds the one snapshot, so its boundaries are checked the same
 # way: the bulk snapshot and the pre-edit preference refresh, never a per-frame read.
@@ -214,6 +213,7 @@ ACT_LINE_CAPS = {
     "act/host.gd": 300,
     "act/idle.gd": 300,
     "act/input.gd": 300,
+    "act/swap.gd": 300,
 }
 RUNTIME_RAW_INPUT = (
     re.compile(r"\bInput\."),
@@ -1059,16 +1059,21 @@ def check_sources(failure: Failure) -> None:
         if service.count("func %s(" % name) != 1:
             failure.add("body_change/service.gd must define one %s()" % name)
 
-    # One resume: the runtime keeps the only resume path, and adoption never resumes by itself.
-    resumes = re.findall(r"^func _resume_after_body_swap\(", runtime, re.MULTILINE)
-    if len(resumes) != 1:
-        failure.add("runtime.gd must define exactly one _resume_after_body_swap()")
+    # One resume: the swap module keeps the only resume path, and adoption never resumes itself.
+    swap_path = ROOT / "act" / "swap.gd"
+    if not swap_path.is_file():
+        failure.add("missing act/swap.gd: it owns the body-swap seams and the one resume")
+        swap_text = ""
+    else:
+        swap_text = swap_path.read_text(encoding="utf-8")
+    if len(re.findall(r"^func resume\(", swap_text, re.MULTILINE)) != 1:
+        failure.add("act/swap.gd must define exactly one resume()")
     for path in shipped_sources():
-        if path == ROOT / "runtime.gd":
+        if path == swap_path:
             continue
-        if "_resume_after_body_swap(" in path.read_text(encoding="utf-8"):
+        if "_swap.resume(" in path.read_text(encoding="utf-8"):
             failure.add("%s must not resume a body swap" % rel(path))
-    if "_resume_after_body_swap(" in function_body(runtime, "adopt_body"):
+    if ".resume(" in function_body(runtime, "adopt_body"):
         failure.add("adopt_body() must not resume; the watcher owns the one resume")
 
     # The provider policy owns the offer prompt and the reveal magnitudes. The act handover only

@@ -6,6 +6,7 @@ extends RefCounted
 ## See `docs/runtime.md`.
 
 const TAIL_TUCK: GDScript = preload("res://mods/unfplap/poses/tail_tuck.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 
 var node: Node
 ## The presented body. The runtime's pony setter keeps it in step.
@@ -46,6 +47,13 @@ func add_child(child: Node) -> void:
 
 func tween() -> Tween:
 	return node.create_tween() if is_instance_valid(node) else null
+
+
+## Move the runtime node under the world before a freed body is dropped. The runtime owns the
+## reparent and its `_swapping_parent` flag; the host only names the world.
+func attach_to_world() -> void:
+	if is_instance_valid(node) and is_instance_valid(WORLD.game):
+		node.call("attach_to_body", WORLD.game)
 
 
 func log(text: String) -> void:

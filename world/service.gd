@@ -124,6 +124,17 @@ static func player_body() -> Node3D:
 	return player
 
 
+## The game's own player property, read defensively: a game that renames it returns null instead of
+## crashing. The entry uses this when the player rig arrives before `bind_player()`.
+static func game_player() -> Node3D:
+	if not is_instance_valid(game):
+		return null
+	var body: Variant = game.get("player")
+	if body is Node3D and is_instance_valid(body):
+		return body
+	return null
+
+
 ## The world's live mare list, which the game owns and mutates in place.
 static func mares() -> Array:
 	if is_instance_valid(game):

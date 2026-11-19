@@ -34,6 +34,7 @@ class FakeGame extends Node:
 	var headset_view := false
 	var inventory: Variant = null
 	var save_menu: Variant = null
+	var player: Variant = null
 	var find_calls := 0
 
 	func _find_camera(_body: Variant) -> Variant:
@@ -103,6 +104,7 @@ class FakeForm extends RefCounted:
 func run() -> void:
 	_check_unbound()
 	_check_binding()
+	_check_game_player()
 	_check_camera()
 	_check_player_body()
 	_check_real_bed()
@@ -153,6 +155,29 @@ func _check_binding() -> void:
 	WORLD.bind_world(game)
 	WORLD.bind_player(null)
 	check(WORLD.game == game and WORLD.player == null, "the player leaves on its own")
+	game.queue_free()
+	WORLD.unbind()
+
+
+## The game's own player read stays defensive: a missing or renamed property is null, not a crash.
+func _check_game_player() -> void:
+	WORLD.unbind()
+	check(WORLD.game_player() == null, "an unbound facade has no game player")
+	var game := FakeGame.new()
+	root.add_child(game)
+	WORLD.bind_world(game)
+	check(WORLD.game_player() == null, "a game without a player read has no game player")
+	var player := FakePlayer.new()
+	root.add_child(player)
+	game.player = player
+	check(WORLD.game_player() == player, "the game's player property is read defensively")
+	var wrong := Node.new()
+	root.add_child(wrong)
+	game.player = wrong
+	check(WORLD.game_player() == null, "a non-Node3D player reads as null")
+	game.player = null
+	player.queue_free()
+	wrong.queue_free()
 	game.queue_free()
 	WORLD.unbind()
 

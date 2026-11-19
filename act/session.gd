@@ -39,6 +39,8 @@ var start: Variant = null
 var view: Variant = null
 ## The act's input protocol; the input service reaches it through the session's handle.
 var input: Variant = null
+## The ordered frame schedule; the entry's two hooks forward here.
+var ticker: Variant = null
 ## The act's settings snapshot and live apply, owned by `act/settings.gd`.
 var settings: ACT_SETTINGS = ACT_SETTINGS.new()
 ## The live act state. `_set_state()` is the only writer.
@@ -101,6 +103,8 @@ var _check_clock := 0.0
 var _climax_progress := 0.0
 var _clock_s := 0.0
 var _act_seconds := 0.0
+## True while the idle window's perf probe is enabled; set by the settings apply and `_ready`.
+var idle_perf := false
 func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 	host = host_in
 	context = context_in
@@ -122,6 +126,17 @@ func refresh_gate() -> void:
 
 func act_seconds() -> float:
 	return _act_seconds
+
+func climax_progress() -> float:
+	return _climax_progress
+
+## The one physics frame, owned by `act/tick.gd`.
+func tick(delta: float) -> void:
+	ticker.tick(delta)
+
+## The one render frame, owned by `act/tick.gd`.
+func render(delta: float) -> void:
+	ticker.render(delta)
 
 func clock_s() -> float:
 	return _clock_s
@@ -312,23 +327,6 @@ func prompt_note() -> String:
 
 func debug_context() -> Dictionary:
 	return view.debug_context(self)
-
-## The oral edge's speech stop: her authored line, the shared director turn and her own voice end
-## once when the edge starts. The mouth shape follows through the separate viseme event.
-func oral_speech_stop() -> void:
-	context.dialogue.end_act(event_id, false)
-	context.dialogue.stop_oral_turn(pony_id)
-	stop_speech()
-
-## Stop her own voice. `stop_speaking()` restores the rest viseme, so the oral turn re-asserts its
-## mouth shape; the turn is the only owner of the open mouth.
-func stop_speech() -> void:
-	if not is_instance_valid(host.pony):
-		return
-	if host.pony.has_method("is_speaking") and bool(host.pony.call("is_speaking")):
-		if host.pony.has_method("stop_speaking"):
-			host.pony.call("stop_speaking")
-		context.anatomy.hold_oral_mouth()
 
 func act_input() -> SUMMARY.ActInput:
 	return view.summary_input(self)

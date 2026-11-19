@@ -90,12 +90,12 @@ POSE_LEDGER_ORDER = (
     "context.pose.release_pose()",
 )
 POSE_FANOUT_ORDER = (
-    "_pose_service()",
-    "_camera_service()",
-    "_hand_controller()",
-    "_kiss_controller()",
-    "_anatomy_bridge",
-    "_audio",
+    "context.pose",
+    "context.camera",
+    "context.hands",
+    "context.kiss",
+    "context.anatomy",
+    "context.audio",
 )
 # The start ledger's recipe, in the order the act depends on: the presentation guard, the stool,
 # the camera session, the borrows, the placement, the pose build, the camera open, the audio,
@@ -214,6 +214,8 @@ ACT_LINE_CAPS = {
     "act/idle.gd": 300,
     "act/input.gd": 300,
     "act/swap.gd": 300,
+    "act/tick.gd": 300,
+    "act/phases.gd": 300,
 }
 RUNTIME_RAW_INPUT = (
     re.compile(r"\bInput\."),
@@ -1016,28 +1018,41 @@ def check_sources(failure: Failure) -> None:
     if release_calls != {"act/exit.gd"} or "release_pose()" not in free:
         failure.add("release_pose() must be called only from the pose ledger")
 
-    # The physics tick advances the pose edge before the view refresh, then fans the change out;
-    # the fixed owner order is the seam, and neither body is a second teardown.
-    tick = function_body(runtime, "_physics_tick")
-    tick_at = tick.find("_pose_service().tick(delta)")
-    facts_at = tick.find("refresh_view()")
-    fanout_at = tick.find("_pose_fanout()", facts_at if facts_at >= 0 else 0)
+    # The frame schedule advances the pose edge before the view refresh, then fans the change out;
+    # the fixed owner order is the seam, and neither body is a second teardown. The schedule is
+    # `act/tick.gd`'s; `act/session.gd` is the entry that forwards one frame to it.
+    tick_path = ROOT / "act" / "tick.gd"
+    session_path = ROOT / "act" / "session.gd"
+    if not tick_path.is_file():
+        failure.add("missing act/tick.gd: it owns the ordered frame schedule")
+        tick_text = ""
+    else:
+        tick_text = tick_path.read_text(encoding="utf-8")
+    if session_path.is_file():
+        for name in ("tick", "render"):
+            body = function_body(session_path.read_text(encoding="utf-8"), name)
+            if "ticker." not in body:
+                failure.add("act/session.gd:%s() must forward to the frame schedule" % name)
+    tick = function_body(tick_text, "_tick")
+    tick_at = tick.find("context.pose.tick(delta)")
+    facts_at = tick.find("session.refresh_view()")
+    fanout_at = tick.find("_fanout()", facts_at if facts_at >= 0 else 0)
     if tick_at < 0 or facts_at < 0 or tick_at > facts_at:
-        failure.add("_physics_tick() must tick the pose before the view refresh")
+        failure.add("act/tick.gd:_tick() must tick the pose before the view refresh")
     if facts_at < 0 or fanout_at < facts_at:
-        failure.add("_physics_tick() must fan the pose change out after the view refresh")
-    fanout = function_body(runtime, "_pose_fanout")
+        failure.add("act/tick.gd:_tick() must fan the pose change out after the view refresh")
+    fanout = function_body(tick_text, "_fanout")
     cursor = 0
     for owner in POSE_FANOUT_ORDER:
         at = fanout.find(owner, cursor)
         if at < 0:
-            failure.add("_pose_fanout() must name %s in order" % owner)
+            failure.add("act/tick.gd:_fanout() must name %s in order" % owner)
             break
         cursor = at + len(owner)
-    for name, body in (("_physics_tick", tick), ("_pose_fanout", fanout)):
+    for name, body in (("_tick", tick), ("_fanout", fanout)):
         for call in ACT_EXIT_CALLS:
             if call in body:
-                failure.add("%s() must not call %s" % (name, call))
+                failure.add("act/tick.gd:%s() must not call %s" % (name, call))
 
     # The pose system never reaches an act exit; its scope is the live pose and its own release.
     for path in (ROOT / "poses").rglob("*.gd"):

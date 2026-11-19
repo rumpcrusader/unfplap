@@ -60,6 +60,8 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_CONSENT := preload("res://mods/unfplap/act/consent.gd")
 const ACT_INPUT := preload("res://mods/unfplap/act/input.gd")
 const ACT_SWAP := preload("res://mods/unfplap/act/swap.gd")
+const ACT_TICK := preload("res://mods/unfplap/act/tick.gd")
+const ACT_PHASES := preload("res://mods/unfplap/act/phases.gd")
 const AUDIO_ACT := preload("res://mods/unfplap/audio/act.gd")
 const ACT_IMPACT := preload("res://mods/unfplap/act/impact.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
@@ -105,6 +107,8 @@ var _view: ACT_VIEW = null
 var _consent: RefCounted = null
 var _input: ACT_INPUT = ACT_INPUT.new()
 var _swap: ACT_SWAP = ACT_SWAP.new()
+var _tick: ACT_TICK = ACT_TICK.new()
+var _phases: ACT_PHASES = ACT_PHASES.new()
 var _impact: ACT_IMPACT = null
 var _idle: ACT_IDLE = null
 var _exit: ACT_EXIT = null
@@ -191,7 +195,6 @@ var _act_dialogue: RefCounted = ACT_DIALOGUE.new(_act_facts)
 var _perf_probe: PERF = null
 ## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
 ## no tick reads the entry node's flags.
-var idle_perf := false
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
 ## the HUD card reads the cached flag.
 ## A body swap keeps the act alive but stops its ticks. The handover owns the typed change, the
@@ -328,6 +331,12 @@ func _bind_act_frame() -> void:
 	_act.input = _input
 	_swap.bind(_act_host, _act_context, _act)
 	_swap.exit = _exit
+	_phases.bind(_act_host, _act_context, _act)
+	_tick.bind(_act_host, _act_context, _act, _idle)
+	_tick.swap = _swap
+	_tick.exit = _exit
+	_tick.phases = _phases
+	_act.ticker = _tick
 	_start = ACT_START.new()
 	_start.bind(_act_host, _act_context, _act, _exit, _view)
 	_agreement = ACT_AGREEMENT.new()
@@ -350,7 +359,7 @@ func _bind_pose_hosts() -> void:
 	_pose_session.opening_point = Callable(self, "_oral_opening_point")
 	_pose_session.face_point = Callable(self, "_anatomy_face_point")
 	_pose_session.oral_kiss = Callable(_audio, "oral_kiss")
-	_pose_session.oral_speech_stop = Callable(_act, "oral_speech_stop")
+	_pose_session.oral_speech_stop = Callable(_phases, "oral_speech_stop")
 	_pose_session.oral_viseme = Callable(self, "_oral_viseme")
 	_pose_session.oral_status = Callable(self, "_anatomy_status")
 
@@ -364,9 +373,9 @@ func _init() -> void:
 	_act_facts.body_coat_smack = Callable(self, "body_coat_jiggle_target")
 	_act_facts.kiss = Callable(self, "_kiss_controller")
 	_act_facts.neck_point = Callable(_act_camera, "neck_midpoint")
-	_act_facts.set_look = Callable(self, "_act_set_look")
-	_act_facts.set_forced_glance = Callable(self, "_act_set_forced_glance")
-	_act_facts.set_camera_basis_ready = Callable(self, "_act_set_camera_basis_ready")
+	_act_facts.set_look = Callable(_phases, "set_look")
+	_act_facts.set_forced_glance = Callable(_phases, "set_forced_glance")
+	_act_facts.set_camera_basis_ready = Callable(_phases, "set_camera_basis_ready")
 	_act_facts.director = Callable(self, "_director")
 	_act_facts.now = Callable(self, "_now_s")
 	_readiness.log = Callable(self, "_log")
@@ -377,8 +386,8 @@ func _init() -> void:
 	_readiness.on_face = Callable(_act, "face_beat")
 	_readiness.on_anatomy_react = Callable(self, "_readiness_anatomy_react")
 	_readiness.heat_cycle = Callable(self, "_readiness_heat")
-	_readiness.on_cue = Callable(self, "_readiness_cue")
-	_readiness.shaft_length = Callable(self, "_player_shaft_length_m")
+	_readiness.on_cue = Callable(_phases, "cue")
+	_readiness.shaft_length = Callable(_phases, "shaft_length_m")
 	_readiness.pose_family = Callable(self, "_pose_family")
 	_summary_service.log = Callable(self, "_log")
 	_afterglow.log = Callable(self, "_log")
@@ -417,8 +426,8 @@ func _init() -> void:
 	_act_facts.desktop_pose_driver = Callable(self, "_desktop_pose_driver")
 	_act_facts.cuddle_active = Callable(self, "cuddle_active")
 	_act_facts.free_of_affection = Callable(self, "free_of_affection")
-	_act_facts.pause_face_turn = Callable(self, "_pause_face_turn")
-	_act_facts.restore_face_turn = Callable(self, "_restore_face_turn")
+	_act_facts.pause_face_turn = Callable(_hold, "pause_face_turn")
+	_act_facts.restore_face_turn = Callable(_hold, "restore_face_turn")
 	_act_facts.hold_excitement = Callable(_audio, "hold_excitement")
 	_act_facts.release_excitement = Callable(_audio, "release_excitement")
 	_act_facts.mod_enabled = Callable(self, "_mod_enabled")
@@ -426,6 +435,7 @@ func _init() -> void:
 	_act_facts.on_smack = Callable(self, "_on_smack_impact")
 	_act_facts.pose_host = Callable(self, "_runtime")
 	_perf_probe = PERF.build(_perf_host())
+	_tick.probe = _perf_probe
 	_refresh_scene_gate()
 
 
@@ -451,7 +461,7 @@ func _anatomy_host() -> ACT_HOST:
 	host.climaxes_cb = Callable(self, "_climaxes")
 	host.size_scale_cb = Callable(_act_camera, "size_scale")
 	host.auto_pace_cb = Callable(self, "_auto_pace")
-	host.fluid_ground_y_cb = Callable(self, "_anatomy_fluid_ground_y")
+	host.fluid_ground_y_cb = Callable(_phases, "fluid_ground_y")
 	host.cycle_phase_cb = Callable(self, "cycle_phase")
 	host.bed_frame_cb = Callable(self, "_bed_frame")
 	host.log_cb = Callable(self, "_log")
@@ -688,7 +698,7 @@ func _anatomy_status(text: String, seconds := 2.0) -> void:
 func _ready() -> void:
 	set_process(true)
 	set_physics_process(true)
-	idle_perf = _perf_enabled()
+	_act.idle_perf = _perf_enabled()
 	# Run after locomotion/navigator/attention so the body facing lock and head glance win.
 	process_physics_priority = 100
 	# Identity is the key for per-mare preferences, poses, prompts and memory. It can arrive after
@@ -734,45 +744,18 @@ func _eligibility_service() -> Variant:
 
 
 ## Write the state the persistent controller polls outside the act. The bridge owns the facts.
-func _sync_anatomy_facts() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.sync_facts()
-
-
-## Refresh the typed act view. `act/view.gd` composes it; the runtime keeps this one call so the
-## phase ordering and the existing callers stay unchanged.
 func refresh_view() -> void:
 	_view.refresh(_act_facts, _act)
 
 
 ## Typed write-backs for the presentation controllers. The runtime keeps ownership of the forced
 ## glance; the captured look snapshot is the camera facade's.
-func _act_set_look(yaw: float, pitch: float) -> void:
-	_act_camera.look_yaw = yaw
-	_act_camera.look_pitch = pitch
-	_act_facts.look_yaw = yaw
-	_act_facts.look_pitch = pitch
 
 
-func _act_set_forced_glance(side: String) -> void:
-	_act.forced_glance = side
-	_act_facts.forced_glance = side
 
 
-func _act_set_camera_basis_ready() -> void:
-	_act_camera.camera_basis_ready = true
 
 
-func _anatomy_fluid_ground_y() -> float:
-	var ground: float = pony.global_position.y if is_instance_valid(pony) else 0.0
-	if _pose_family() != "bed":
-		return ground
-	var camera: Variant = _missionary_camera_controller()
-	if camera != null and camera.has_method("bed_surface_top"):
-		var top: Variant = camera.call("bed_surface_top")
-		if top is float and is_finite(top):
-			return top
-	return ground
 
 
 func _log(text: String) -> void:
@@ -792,16 +775,8 @@ func perf_note(key: String, usec: int) -> void:
 
 
 ## Time one call site for the probes (callers take the start stamp themselves).
-func _timed(key: String, started: int) -> void:
-	_perf_probe.time(key, started)
 
 
-func _perf_tick(delta: float) -> void:
-	_perf_probe.tick(delta)
-
-
-## The act probe's typed host. Built once: the callables are bound methods, so a per-frame rebind
-## must not allocate. See `shared/perf.gd`.
 var _perf_host_cache: PERF.Host = null
 
 func _perf_host() -> PERF.Host:
@@ -907,23 +882,8 @@ func reload_pose_asset() -> String:
 
 
 ## One pose request. The runtime supplies the act values; the session refuses or starts the edge.
-func _pose_fanout() -> void:
-	var view: Variant = _pose_service().view()
-	_pose_service().pose_changed(view)
-	_call_pose_changed(_camera_service(), view)
-	_call_pose_changed(_hand_controller(), view)
-	_call_pose_changed(_kiss_controller(), view)
-	_anatomy_bridge.bind(_anatomy_host())
-	_call_pose_changed(_anatomy_bridge, view)
-	_call_pose_changed(_audio, view)
 
 
-static func _call_pose_changed(owner: Variant, view: Variant) -> void:
-	if owner != null and owner.has_method("pose_changed"):
-		owner.call("pose_changed", view)
-
-
-## The act camera session, bound once with the other per-pony controllers.
 func _camera_service() -> RefCounted:
 	return _act_camera
 
@@ -959,175 +919,31 @@ func act_view() -> RefCounted:
 
 ## The entry's live settings fan-out; the session owns the snapshot, the view and the voice policy.
 func apply_live_settings() -> void:
-	idle_perf = _act.apply_live_settings()
+	_act.idle_perf = _act.apply_live_settings()
 
 
 ## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
 func auto_active() -> bool:
 	return _readiness.auto_active()
 
-func _act_presentation(delta: float) -> void:
-	if not is_instance_valid(pony):
-		return
-	_act.advance_act_seconds(delta)
-	if _pose_family() == "bed":
-		_missionary_camera_controller().hide_avatar()
-		_aim_missionary_eyes()
-	var boop: Variant = pony.get("boop_node")
-	if boop != null and boop.has_method("sustain_blush"):
-		boop.call("sustain_blush", ACT_FACE.blush_for(ACT_FACE.phase_for(state), satisfaction,
-			_act.feature("blush_arc")))
-	var wings_started := Time.get_ticks_usec()
-	_wings_controller().tick(delta, str(_pose_service().view().family), satisfaction, _act._act_seconds)
-	_timed("wings_tick", wings_started)
-	_integrations_controller().tick(delta)
-
 func _process(delta: float) -> void:
-	var started := Time.get_ticks_usec()
-	_process_tick(delta)
-	if _perf_probe.on():
-		perf_note("runtime_process", Time.get_ticks_usec() - started)
-		_perf_tick(delta)
+	_act.render(delta)
 
 
+## Suite seam: the one render frame.
 func _process_tick(delta: float) -> void:
-	if state == State.IDLE:
-		_standing_presentation_controller().process()
-		return
-	if _suspended:
-		return
-	refresh_view()
-	_pose_service().sync_frame(_pose_family())
-	_act.pose_render_write()
-	_idle_pose_sample()
-	_standing_camera_controller().clamp_look()
-	_camera_service().call("write_look_target", _pose_session.pose())
-	if state == State.CLIMAX:
-		_act.refresh_climax_progress()
-	_camera_service().call("tick_shot", delta, state,
-		_standing_camera_controller().speed(), _act._climax_progress)
-	_audio.tick(delta, state, _readiness.thrusts_per_second())
+	_act.render(delta)
 
-## Debug free look: the input service hands over the relative motion instead of a thrust.
-func look_motion(relative: Vector2) -> void:
-	_camera_service().call("look_input", relative)
-
-
-func _headset_view() -> bool:
-	return is_instance_valid(WORLD.game) and bool(WORLD.game.get("headset_view"))
 
 func _physics_process(delta: float) -> void:
-	var started := Time.get_ticks_usec()
-	var idle := idle_perf and state == State.IDLE
-	_physics_tick(delta)
-	var sync_started := Time.get_ticks_usec() if idle else 0
-	_sync_anatomy_facts()
-	if idle:
-		perf_note("runtime_anatomy_sync", Time.get_ticks_usec() - sync_started)
-	if _perf_probe.on():
-		perf_note("runtime_physics", Time.get_ticks_usec() - started)
+	_act.tick(delta)
 
 
+## Suite seam: the one physics frame.
 func _physics_tick(delta: float) -> void:
-	# The handover owns the pause overlay: a suspended act runs no act work until the one resume.
-	_body_swap_tick(delta)
-	if _suspended:
-		return
-	_act.tick_clock(delta)
-	# The pose edge advances before the view refresh reads it; the fan-out runs after that read and
-	# before any presentation tick. An edge keeps ticking through CLIMAX and AFTERGLOW.
-	if state != State.IDLE:
-		var pose_started := Time.get_ticks_usec()
-		_pose_service().tick(delta)
-		_timed("pose_tick", pose_started)
-	var facts_started := Time.get_ticks_usec()
-	refresh_view()
-	_timed("runtime_facts", facts_started)
-	if state != State.IDLE:
-		var fanout_started := Time.get_ticks_usec()
-		_pose_fanout()
-		_timed("pose_fanout", fanout_started)
-	if state == State.IDLE:
-		_idle.tick(delta, idle_perf)
-		return
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
-		force_stop()
-		return
-	_act.cycle_heat = cycle_phase() == CYCLE.HEAT
-	_pose_service().sync_frame(_pose_family())
-	if pony.sleeping:
-		pony.sleeping = false
-	_audio.tick_vocal(delta)
-	_keep_nav()
-	_camera_service().call("tick_free_look")
-	_keep_act_attention()
-	_pause_face_turn()
-	_camera_service().call("tick_lean", delta, get_tree().paused, _input.auto_panel_open())
-	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		var presentation_started := Time.get_ticks_usec()
-		_act_presentation(delta)
-		_timed("runtime_presentation", presentation_started)
-	if state in [State.POSING_IN, State.ACTIVE]:
-		if _consent.tick(delta) == ACT_CONSENT.STOP:
-			_consent.stop_with_her(_consent.stop_kind)
-	_log_pose_settled()
-	var kiss_started := Time.get_ticks_usec()
-	_kiss_controller().tick(delta)
-	_timed("kiss_tick", kiss_started)
-	if state in [State.ACTIVE, State.CLIMAX]:
-		var ai_started := Time.get_ticks_usec()
-		_impact.auto_advance(delta)
-		_impact.tick()
-		_timed("runtime_ai", ai_started)
-		if _anatomy_bridge.act_available():
-			_anatomy_bridge.bind(_anatomy_host())
-			_anatomy_bridge.tick(delta)
-		if state == State.ACTIVE:
-			var talk_started := Time.get_ticks_usec()
-			_readiness.tick(delta)
-			_talk_tick(delta)
-			_handover.offer_tick()
-			_bystander_tick(delta)
-			_timed("runtime_talk", talk_started)
-	if state in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.RESTORE]:
-		_utterance_tick()
-	var phase: int = _act.tick_timers(delta)
-	if state == State.CLIMAX:
-		_reactions.hearts_tick(delta)
-	match phase:
-		ACT_SESSION.ENTER_ACTIVE:
-			_act.enter_active_act()
-			# The start snapshot caught Anon mid stand-up, so his eye height was the reclined one; the
-			# scene is settled now, and restoring to this is what puts the camera back correctly.
-			if _pose_family() == "bed":
-				_missionary_camera_controller().resnapshot()
-			_handover.hint_tick()
-		ACT_SESSION.FINISH_CLIMAX:
-			_act.finish_climax()
-		ACT_SESSION.FINISH_RESTORE:
-			_exit.finish_restore()
-	if state == State.AFTERGLOW:
-		_act_context.afterglow.phase_tick(delta, _anatomy_bridge, _anatomy_host(),
-			_pose_family() == "standing")
-	var camera_started := Time.get_ticks_usec()
-	_standing_camera_controller().lock_facing()
-	_standing_camera_controller().drive_glance(delta)
-	_suppress_auto_cuddle()
-	_standing_camera_controller().clamp_look()
-	_standing_camera_controller().tick_depth(delta)
-	_standing_anon_controller().tick_phase(delta)
-	_reactions.blush_tick(delta)
-	apply_camera_motion()
-	_timed("runtime_camera", camera_started)
-	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW] \
-			and _act.consume_check_clock(delta):
-		var verdict: SCENE_GATE.RunningVerdict = _scene_gate().running_verdict(
-			_hold.nav, _act.bed, _act.player_pony, _kiss_controller().base_active())
-		if not verdict.ok:
-			_exit.stop(verdict.reason)
-	var face_started := Time.get_ticks_usec()
-	_face.eyes_for(state, _afterglow.close_rewarded, _kiss_controller().eyes_active())
-	_timed("runtime_face", face_started)
+	_act.tick(delta)
+
+
 
 # --------------------------------------------------------------------------- gates
 
@@ -1240,12 +1056,8 @@ func _scene_hold_compatible(pose: String, source: String) -> bool:
 
 ## Standing keeps her body turned away and planted. Stop the standing face-turn response so a
 ## player conversation cannot make her take turn steps, without pausing locomotion or emotions.
-func _pause_face_turn(force := false) -> void:
-	_hold.pause_face_turn(force)
 
 
-func _restore_face_turn() -> void:
-	_hold.restore_face_turn()
 
 func present_standing() -> bool:
 	return bool(_standing_presentation_controller().present_standing())
@@ -1259,19 +1071,6 @@ func presentation_settled() -> bool:
 func clear_presentation() -> void:
 	_standing_presentation_controller().clear_presentation()
 
-func _keep_nav() -> void:
-	_hold.keep_nav()
-
-
-## Keep the act's attention while another character talks to Anon. Clearing the listener every
-## tick stops the director from turning her away or pinning her gaze; speech, emotions and
-## locomotion keep running, and `_check_running` does not treat conversation as a stop.
-func _keep_act_attention() -> void:
-	_hold.keep_attention()
-
-
-## True while a shape change has the act suspended. `ponies` keeps the act's pending record and
-## the debug actions see one change at a time.
 func body_swap_pending() -> bool:
 	return _suspended
 
@@ -1488,24 +1287,13 @@ func voice_status_line() -> String:
 
 ## The anatomy service's visible shaft length, or zero when the part is not showing. The readiness
 ## stroke state turns zero into the nominal length, so the mouse feel is the same with it off.
-func _player_shaft_length_m() -> float:
-	var service: Variant = _anatomy_service()
-	if service != null and service.has_method("player_shaft_length_m"):
-		var length: Variant = service.call("player_shaft_length_m")
-		if length is float and (length as float) > 0.001:
-			return length as float
-	return 0.0
-
-
-## One real touch event. The readiness system applies the cooldown, heat and tolerance meter.
 func _set_cue_override(text: String, seconds := -1.0) -> void:
 	_readiness.set_cue_override(text, seconds)
 
 
-func _talk_tick(_delta: float) -> void:
-	var director := _director()
-	_handover.player_line_tick(director)
-	_readiness.talk_tick(director)
+## Suite seam: one talk turn. The schedule owns the ordered call.
+func _talk_tick(delta: float) -> void:
+	_tick.talk(delta)
 
 
 ## The body-change handover's host callbacks: the form interaction lives there and the runtime
@@ -1553,31 +1341,6 @@ func _readiness_heat() -> bool:
 	return cycle_phase() == CYCLE.HEAT
 
 
-func _readiness_cue(mood_value: String, cue_value: String, is_override: bool) -> void:
-	_act_facts.mood = mood_value
-	_act_facts.cue = cue_value
-	_act_facts.cue_override = is_override
-	_dialogue_service().admit_cue(_act.clock_s())
-
-
-## Free a delivered line and expire a queued one at its max age. See `dialogue/service.gd`.
-func _utterance_tick() -> void:
-	_dialogue_service().tick()
-
-
-## integration: one adult observer may say a short line, using the modern witness perception.
-func _bystander_tick(delta: float) -> void:
-	_dialogue_service().bystander_tick(delta)
-
-
-## A real consent stop. It ends the act without the normal afterglow/cuddle restore, commits a
-## severe bad summary, and only Strict additionally bucks and requests space. The consent owner
-## presents the warning, the space request and the stop line; the one exit stays here.
-func _history_tick(delta: float) -> void:
-	_idle.history_tick(delta)
-
-
-## Debug actions run from the paused settings page; the request is consumed on the next frame.
 func debug_force_tolerance(kind: String) -> bool:
 	return _consent.force(kind)
 
@@ -1696,14 +1459,6 @@ func pose_state_rows() -> Array:
 
 
 ## One line with where the pose actually put her, once the weight settles.
-func _log_pose_settled() -> void:
-	_pose_service().log_settled(state, Callable(self, "_anon_pose_diag_row"))
-
-
-## The posed Anon body's diagnostic row, or silence when the act has no Anon body.
-func _anon_pose_diag_row() -> String:
-	return _anatomy_bridge.diag_row(_act_camera.missionary_face_point(),
-		_act_camera.missionary_vulva_point())
 
 
 func apply_camera_motion() -> void:

@@ -37,11 +37,27 @@ class FakeBridge extends RefCounted:
 		return missionary_anon
 
 
+## The act input protocol the debug action reaches through the runtime's session handle.
+class FakeInput extends RefCounted:
+	var rt: Variant = null
+
+	func request_pose(target_id: String, trigger := "", request: Dictionary = {}) -> Dictionary:
+		return rt.request_pose(target_id, trigger, request)
+
+
+class FakeAct extends RefCounted:
+	var input: FakeInput = FakeInput.new()
+
+
 class FakeRuntime extends Node:
 	var error := ""
 	var target := ""
 	var view_id := CATALOG.MISSIONARY
 	var requests := 0
+	var act := FakeAct.new()
+
+	func _init() -> void:
+		act.input.rt = self
 
 	func face_sit_error() -> String:
 		return error

@@ -26,6 +26,23 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+## The one frame handle the schedule binds: it records the frame the session forwards.
+class FakeTicker extends RefCounted:
+	var frames: Array[String] = []
+	var delta := 0.0
+
+	func _init(log: Array[String]) -> void:
+		frames = log
+
+	func tick(value: float) -> void:
+		delta = value
+		frames.append("tick")
+
+	func render(value: float) -> void:
+		delta = value
+		frames.append("render")
+
+
 func _frame() -> Dictionary:
 	var host: RefCounted = HOST.new()
 	var context: RefCounted = CONTEXT.new()
@@ -73,10 +90,21 @@ func run() -> void:
 	session.refresh_climax_progress()
 	check(is_equal_approx(float(session._climax_progress), 0.5),
 		"the climax progress is one minus the remaining half")
+	check(is_equal_approx(session.climax_progress(), 0.5),
+		"the typed progress read is what the render frame passes to the camera")
 	check(int(session.tick_timers(SESSION.CLIMAX_SECONDS)) == SESSION.FINISH_CLIMAX,
 		"the elapsed climax timer finishes the climax")
 	session.enter_active()
 	check(int(session.state) == State.ACTIVE, "the climax returns to ACTIVE by its own verb")
+
+	# The two frame forwards hand the whole frame to the schedule and nothing else.
+	var frames: Array[String] = []
+	var ticker := FakeTicker.new(frames)
+	session.ticker = ticker
+	session.tick(0.02)
+	session.render(0.02)
+	check(frames == ["tick", "render"] and is_equal_approx(ticker.delta, 0.02),
+		"the session forwards both frames to the one schedule")
 
 	# AFTERGLOW then RESTORE: the restore timer has its own verb and a clean exit.
 	session.enter_afterglow()

@@ -372,7 +372,7 @@ func run() -> void:
 	director.state = "speaking"
 	director._current = "rarity"
 	pony.speaking = true
-	runtime._act.oral_speech_stop()
+	runtime._phases.oral_speech_stop()
 	check(dialogue.ends.size() == 1 and not bool(dialogue.ends[0][1]),
 		"the speech stop cancels her act line without letting it finish")
 	check(director.interrupts == 1, "the speech stop interrupts her own director turn")

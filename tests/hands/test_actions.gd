@@ -98,9 +98,9 @@ func _check_perf_probe() -> void:
 	probe.call("_set_state", 2)
 	probe.call("perf_note", "probe_chunk", 1200)
 	probe.call("perf_note", "probe_chunk", 800)
-	probe.call("_perf_tick", 0.4)
+	probe._perf_probe.tick(0.4)
 	check(sink.lines.is_empty(), "perf window waits for a full second")
-	probe.call("_perf_tick", 0.7)
+	probe._perf_probe.tick(0.7)
 	check(sink.lines.size() == 1, "perf prints one block a second")
 	if not sink.lines.is_empty():
 		var line := sink.lines[0]
@@ -110,12 +110,12 @@ func _check_perf_probe() -> void:
 		check(line.contains("2.00ms/s"), "perf block totals the window")
 	LOG.debug_logs = false
 	probe.call("perf_note", "hidden_chunk", 500)
-	probe.call("_perf_tick", 1.1)
+	probe._perf_probe.tick(1.1)
 	check(sink.lines.size() == 1, "perf is silent with debug logs off")
 	LOG.debug_logs = true
 	LOG.debug_perf = false
 	probe.call("perf_note", "hidden_chunk", 500)
-	probe.call("_perf_tick", 1.1)
+	probe._perf_probe.tick(1.1)
 	check(sink.lines.size() == 1, "perf is silent with perf logs off")
 	probe.free()
 	LOG.debug_perf = true

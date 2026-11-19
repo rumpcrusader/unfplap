@@ -12,6 +12,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
@@ -959,8 +960,8 @@ func _check_form_reveal() -> void:
 	if not memory.peaks.is_empty():
 		check(is_equal_approx(float(memory.peaks[0].score), policy.peak),
 			"the reveal peak uses the policy's score")
-	var values: Dictionary = runtime._act.summary_values()
-	check(bool(values.get("form_reveal", false)), "the summary sees the reveal")
+	var values: SUMMARY.ActInput = runtime._act.act_input()
+	check(values.form_reveal, "the summary sees the reveal")
 	# Once per act: a second ask while disguised again does nothing.
 	source.shape = "rarity"
 	source.true_requests = 0

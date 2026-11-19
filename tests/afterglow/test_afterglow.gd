@@ -15,13 +15,13 @@ var checks := 0
 
 class Host extends RefCounted:
 	var caressing := false
-	var rewards: Array = []
+	var logs: Array[String] = []
 
 	func is_caressing() -> bool:
 		return caressing
 
-	func stay_close(caressed: bool, reward: bool) -> void:
-		rewards.append({"caressed": caressed, "reward": reward})
+	func log_line(text: String) -> void:
+		logs.append(text)
 
 
 class HostNode extends Node:
@@ -51,10 +51,19 @@ func _facade(pose: String) -> Dictionary:
 	var host := Host.new()
 	var phase: RefCounted = AFTERGLOW.new()
 	phase.caress_active = Callable(host, "is_caressing")
-	phase.on_stay_close = Callable(host, "stay_close")
+	phase.log = Callable(host, "log_line")
 	phase.bind_view(_view(pose))
 	phase.begin({"reward": true})
 	return {"phase": phase, "host": host}
+
+
+## The reward's one report line: the facade logs it as it grants the window.
+func _reward_lines(host: Host) -> Array[String]:
+	var found: Array[String] = []
+	for line: String in host.logs:
+		if line.begins_with("stay close reward"):
+			found.append(line)
+	return found
 
 
 func _runtime(pose: String) -> Node:
@@ -110,13 +119,14 @@ func run() -> void:
 	standing_phase.close_caress_seconds = 3.0
 	standing_phase.close_tick(0.02)
 	check(standing_phase.close_rewarded, "reaching the window grants the reward")
-	check(standing["host"].rewards.size() == 1, "the reward is reported once")
-	var reward: Dictionary = standing["host"].rewards[0]
-	check(bool(reward.get("caressed", false)) and bool(reward.get("reward", false)),
+	var standing_host: Host = standing["host"]
+	var rewards: Array[String] = _reward_lines(standing_host)
+	check(rewards.size() == 1, "the reward is reported once")
+	check(rewards[0].contains("caressed=true") and rewards[0].contains("positive=true"),
 		"the reward carries the caress and the positive act")
 	check(standing_phase.hint() == "She seems content.", "reward cue")
 	standing_phase.close_tick(1.0)
-	check(standing["host"].rewards.size() == 1, "reward is not granted twice")
+	check(_reward_lines(standing_host).size() == 1, "reward is not granted twice")
 
 	var early := _facade("standing")
 	early["phase"].cancel_close()
@@ -169,7 +179,9 @@ func run() -> void:
 	held._pose_session.pose_node = fake_pose
 	held._pose_session.view().id = "standing"
 	held._pose_session.view().pose_state = VIEW.STEADY
-	held._act.apply_afterglow_presentation(standing_row)
+	held._afterglow.bind_view(held._pose_session.view())
+	var wings_row: bool = held._afterglow.apply_presentation(held._pose_session)
+	check(wings_row, "the afterglow row asks the session for the wing return")
 	check(fake_pose.written.is_empty(), "the afterglow runtime writes no pose mode")
 	check(near(fake_pose.amount, 1.0) and near(fake_pose.target_amount, 1.0),
 		"the afterglow runtime re-asserts the pose weight")

@@ -4,6 +4,7 @@ extends RefCounted
 
 const FACE_POSES := preload("res://world/characters/hybrid_mare/face_poses.gd")
 const TAGS := preload("res://world/ai/pony_dialogue_tags.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 
 const FACES := TAGS.NAMES
 
@@ -35,6 +36,20 @@ const OVERWHELMED_HOLD_S := 2.5
 
 static func valid_face(face: String) -> bool:
 	return FACE_POSES.LINE_FACES.has(face)
+
+
+## The act state as the phase name the blush and the beat table read.
+static func phase_for(state: int) -> String:
+	match state:
+		ACT_STATE.State.POSING_IN:
+			return "posing_in"
+		ACT_STATE.State.ACTIVE:
+			return "active"
+		ACT_STATE.State.CLIMAX:
+			return "climax"
+		ACT_STATE.State.AFTERGLOW:
+			return "afterglow"
+	return ""
 
 
 static func mood_face(mood: String) -> String:

@@ -60,6 +60,21 @@ class ActPose extends RefCounted:
 			"size_name": size_name,
 		}
 
+	## Fill from the act's live values. The session owns them; this record is the one build input
+	## the start ledger and the body-swap rebuild share.
+	func fill(pose: String, id_value: String, features_block: Dictionary, bed_node: Node3D,
+			presentation_block: Dictionary, config: Dictionary, look: Vector3,
+			camera_at: Vector3, size_value: String) -> void:
+		pose_id = pose
+		id = id_value
+		features = features_block
+		bed = bed_node
+		presentation = presentation_block
+		pose_config = config
+		look_point = look
+		camera_position = camera_at
+		size_name = size_value
+
 
 ## The runtime node that parents the debug nodes and receives their `runtime` field. It is the
 ## host boundary; the session never reads the runtime's fields.
@@ -172,6 +187,11 @@ var oral_status := Callable()
 func bind(host_node: Variant, pony_node: Variant) -> void:
 	host = host_node
 	pony = pony_node
+
+
+## The act's stable id, for the pose request rows and the per-mare pose config.
+func set_id(value: String) -> void:
+	id = value
 
 
 func _init() -> void:
@@ -1535,6 +1555,25 @@ func render_write(context: Dictionary) -> void:
 func trigger_ear_twitch(impact: float) -> void:
 	if is_instance_valid(ear_twitch):
 		ear_twitch.call("try_trigger", impact)
+
+
+## The pose frame the live family reads: the bed frame or the ground frame.
+func sync_frame(family: String) -> void:
+	if family == "bed":
+		sync_bed_frame()
+	else:
+		sync_ground_frame()
+
+
+## The render-time step's typed entry. The bed frame is this session's own live frame; the
+## session supplies the body scale, the size name and the eye-camera mode.
+func write_render_frame(body_scale: float, size_name: String, eye_camera_active: bool) -> void:
+	render_write({
+		"bed_frame": bed_frame,
+		"body_scale": body_scale,
+		"size_name": size_name,
+		"eye_camera_active": eye_camera_active,
+	})
 
 
 func set_tail_target(value: float) -> void:

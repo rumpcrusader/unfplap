@@ -210,6 +210,13 @@ class FakeDialogue extends ACT_DIALOGUE:
 		reaction_calls += 1
 		return "unfplap:test:reaction"
 
+	func climax_line(mouth_busy: bool, _cue: String, _act_id: String, _count: int,
+			_max_age: float) -> String:
+		if mouth_busy:
+			return ""
+		reaction_calls += 1
+		return "unfplap:test:climax"
+
 	func note_reaction(_key: String, _cue_text: String, _until: float) -> void:
 		notes += 1
 
@@ -246,6 +253,7 @@ func _fixture() -> Dictionary:
 	var pose := FakePose.new()
 	var audio := FakeAudio.new()
 	var dialogue := FakeDialogue.new()
+	dialogue.facts = runtime._act_facts
 	var act_camera := FakeCamera.new()
 	var kiss := FakeKiss.new()
 	runtime.pony = pony
@@ -392,10 +400,10 @@ func run() -> void:
 	# Her climax line is skipped while the mouth contact is live, and returns once released.
 	dialogue.reaction_calls = 0
 	runtime.pony_climaxes = 1
-	runtime._act.queue_climax_reaction()
+	runtime._view.climax_line(runtime._act)
 	check(dialogue.reaction_calls == 0, "no climax line is queued during the mouth contact")
 	view.contact_kind = "opening"
-	runtime._act.queue_climax_reaction()
+	runtime._view.climax_line(runtime._act)
 	check(dialogue.reaction_calls == 1, "the climax line returns with the mouth contact off")
 
 	# Both withdrawal slides still fire: the mouth contact keeps the slide.

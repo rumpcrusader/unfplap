@@ -367,7 +367,7 @@ func _init() -> void:
 	_summary_service.log = Callable(self, "_log")
 	_afterglow.log = Callable(self, "_log")
 	_afterglow.caress_active = Callable(self, "_afterglow_caressing")
-	_afterglow.on_stay_close = Callable(_act, "on_stay_close")
+	_afterglow.bind_act(_face, _reactions, _readiness)
 	_afterglow.bind_host(self)
 	_afterglow.write_satisfaction = Callable(self, "_write_satisfaction")
 	_face.log = Callable(self, "_log")
@@ -399,8 +399,8 @@ func _init() -> void:
 	_act_facts.gaze_point = Callable(self, "_missionary_gaze_point")
 	_act_facts.free_look_rotation = Callable(_act_camera, "free_look_rotation")
 	_act_facts.desktop_pose_driver = Callable(self, "_desktop_pose_driver")
-	_act_facts.cuddle_active = Callable(self, "_cuddle_active")
-	_act_facts.free_of_affection = Callable(self, "_free_of_affection")
+	_act_facts.cuddle_active = Callable(self, "cuddle_active")
+	_act_facts.free_of_affection = Callable(self, "free_of_affection")
 	_act_facts.pause_face_turn = Callable(self, "_pause_face_turn")
 	_act_facts.restore_face_turn = Callable(self, "_restore_face_turn")
 	_act_facts.hold_excitement = Callable(_audio, "hold_excitement")
@@ -994,7 +994,7 @@ func _act_presentation(delta: float) -> void:
 		_aim_missionary_eyes()
 	var boop: Variant = pony.get("boop_node")
 	if boop != null and boop.has_method("sustain_blush"):
-		boop.call("sustain_blush", ACT_FACE.blush_for(_act.act_phase(), satisfaction,
+		boop.call("sustain_blush", ACT_FACE.blush_for(ACT_FACE.phase_for(state), satisfaction,
 			_act.feature("blush_arc")))
 	var wings_started := Time.get_ticks_usec()
 	_wings_controller().tick(delta, str(_pose_service().view().family), satisfaction, _act._act_seconds)
@@ -1016,7 +1016,7 @@ func _process_tick(delta: float) -> void:
 	if _suspended:
 		return
 	refresh_view()
-	_act.sync_pose_frame()
+	_pose_service().sync_frame(_pose_family())
 	_act.pose_render_write()
 	_idle_pose_sample()
 	_standing_camera_controller().clamp_look()
@@ -1073,7 +1073,7 @@ func _physics_tick(delta: float) -> void:
 		force_stop()
 		return
 	_act.cycle_heat = cycle_phase() == CYCLE.HEAT
-	_act.sync_pose_frame()
+	_pose_service().sync_frame(_pose_family())
 	if pony.sleeping:
 		pony.sleeping = false
 	_audio.tick_vocal(delta)
@@ -1144,7 +1144,7 @@ func _physics_tick(delta: float) -> void:
 		if not verdict.ok:
 			_stop(verdict.reason)
 	var face_started := Time.get_ticks_usec()
-	_act.eyes_tick()
+	_face.eyes_for(state, _afterglow.close_rewarded, _kiss_controller().eyes_active())
 	_timed("runtime_face", face_started)
 
 # --------------------------------------------------------------------------- gates
@@ -1206,17 +1206,9 @@ func _suppress_auto_cuddle() -> void:
 	_scene_gate().suppress_auto_cuddle()
 
 func cuddle_active() -> bool:
-	return _cuddle_active()
-
-
-func _cuddle_active() -> bool:
 	return _scene_gate().cuddle_active()
 
 func free_of_affection() -> bool:
-	return _free_of_affection()
-
-
-func _free_of_affection() -> bool:
 	return _scene_gate().free_of_affection()
 
 func find_bed_under() -> Node3D:
@@ -1595,8 +1587,8 @@ func _handover_pause_face_turn() -> void:
 
 
 func _handover_reset_face() -> void:
-	_act.clear_face()
-	_act.set_face(0.45, FACE.ACT_LIDS)
+	_face.clear_face()
+	_face.set_face(0.45, FACE.ACT_LIDS)
 
 
 func _handover_apply_voice_policy() -> void:
@@ -1695,14 +1687,16 @@ func request_afterglow() -> void:
 ## integration: anatomy action entry points for input.gd. They are no-ops when the per-act
 ## controller is absent, so the keys behave exactly like master with the feature off.
 func toggle_anatomy_hole() -> void:
-	_act.toggle_anatomy_hole()
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.toggle_hole()
 
 
 ## The `oral` command: request the standing oral pose, or the return edge when it is already
 ## active. The per-mare consent string is passed only when the anatomy service says yes; the
 ## feature is checked by the edge requirements, not here.
 func toggle_anatomy_oral() -> void:
-	_act.toggle_anatomy_oral()
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.toggle_oral(_pose_service(), _act.display_name, _act.features)
 
 func _oral_mouth_point() -> Vector3:
 	_anatomy_bridge.bind(_anatomy_host())
@@ -1789,7 +1783,8 @@ func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
 
 
 func anatomy_status(text: String, seconds := 2.0) -> void:
-	_act.anatomy_status(text, seconds)
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.status(text, seconds)
 
 
 ## Idempotent stop for every state exit. It never moves the depth.
@@ -1860,7 +1855,7 @@ func _form_cue_override(text: String) -> void:
 
 
 func _form_set_face(smile: float) -> void:
-	_act.set_face(smile, FACE.ACT_LIDS)
+	_face.set_face(smile, FACE.ACT_LIDS)
 
 
 func _form_status(text: String) -> void:
@@ -2054,8 +2049,8 @@ func _restore_begin() -> void:
 	_handover.hint_tick()
 	# integration: act-only anatomy hides as soon as the act starts restoring.
 	_anatomy_bridge.apply_live()
-	_act.clear_face()
-	_act.end_act_face()
+	_face.clear_face()
+	_face.end_face()
 	_wings_controller().release()
 	if is_instance_valid(_pose_session.pose()):
 		_pose_session.pose().target_amount = 0.0
@@ -2110,7 +2105,8 @@ func _write_satisfaction(value: float) -> void:
 
 ## Debug preview: set one base-game face on the current act. A speaking line still wins.
 func force_act_face(face: String) -> bool:
-	return _act.force_act_face(face)
+	_face.sync_settings(_act.feature("face_debug"))
+	return _face.force_face(face)
 
 
 ## Debug view for the "Show act face" action.

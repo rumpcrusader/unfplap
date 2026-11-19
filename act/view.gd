@@ -11,6 +11,13 @@ const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const FACE := preload("res://mods/unfplap/face/service.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
+const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
+const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
+const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
 
@@ -150,3 +157,139 @@ func close_hint(session: ACT_SESSION, pose_family: String) -> String:
 	if context.afterglow == null:
 		return ""
 	return context.afterglow.hint()
+
+
+func apply_live(session: ACT_SESSION) -> bool:
+	var perf := LOG.debug_logs and LOG.debug_perf
+	var settings: Variant = session.settings
+	# Read the pre-edit mute before the snapshot replaces `features`.
+	var previous_mute: bool = settings.muted()
+	session.snapshot_settings()
+	if settings.suspended():
+		return perf
+	if session.state == State.IDLE:
+		refresh(context.facts, session)
+		settings.apply_idle_live()
+		return perf
+	settings.apply_act_live_pre()
+	refresh(context.facts, session)
+	var live_preferences: Dictionary = settings.live_preferences(session.pony_id)
+	if not live_preferences.is_empty():
+		session.preferences = live_preferences
+	settings.apply_act_live(session.pose_family(), session.pony_id,
+		previous_mute != settings.muted())
+	if is_instance_valid(HUD.instance):
+		sync_hud(context.facts, session, settings.max_pony_climaxes, session.cycle_heat,
+			session.pose_family())
+		HUD.instance.update_from(context.facts)
+	return perf
+
+
+func reset_act_state(session: ACT_SESSION) -> void:
+	context.readiness.reset_thrust()
+	context.readiness.reset_auto()
+	context.readiness.reset(session.preferences)
+	context.standing_anon.reset_phase()
+	context.standing_camera.reset_depth()
+	context.facts.standing_sway_offset = Vector3.ZERO
+	context.afterglow.reset()
+	context.dialogue.reset(session.clock_s(), session.cue_gap)
+	session.settings.configure_dialogue()
+	session.clear_phase()
+
+
+func _face_values(session: ACT_SESSION) -> FACE.ActValues:
+	var values := FACE.ActValues.new()
+	values.state = session.state
+	values.pony_id = session.pony_id
+	values.event_id = session.event_id
+	values.first_time = session.first_time
+	values.tolerance = str(session.preferences.get("tolerance", "normal"))
+	values.climax_mode = session.climax_mode
+	values.summary = context.summary.summary
+	values.blush_arc = session.feature("blush_arc")
+	return values
+
+
+func face_beat(moment: String, session: ACT_SESSION) -> void:
+	context.face.ensure_bound(host.pony, host.node)
+	context.face.act_beat_for(moment, _face_values(session), context.readiness,
+		session.settings.debug_face())
+
+
+func face_rows(session: ACT_SESSION) -> Array[String]:
+	context.face.ensure_bound(host.pony, host.node)
+	return context.face.act_rows(_face_values(session), context.readiness)
+
+
+func pose_render(session: ACT_SESSION) -> void:
+	var body_scale: Variant = host.pony.get("body_scale") if is_instance_valid(host.pony) else null
+	context.pose.write_render_frame(float(body_scale) if body_scale != null else 1.0,
+		context.facts.size_name, context.camera.free_camera_active and session.eye_camera_mode)
+
+
+func camera_motion(session: ACT_SESSION) -> void:
+	if context.handover != null and context.handover.suspended:
+		return
+	refresh(context.facts, session)
+	sync_hud(context.facts, session, session.max_pony_climaxes, session.cycle_heat,
+		session.pose_family())
+	if context.camera.motion_ready():
+		context.camera.apply_motion()
+
+
+func prompt_note(session: ACT_SESSION) -> String:
+	var form: Variant = context.handover.form()
+	var values := DIALOGUE.ActValues.new()
+	values.state = session.state
+	values.pony_id = session.pony_id
+	values.event_id = session.event_id
+	values.warm = context.face.warm_note
+	values.beat = context.afterglow.beat
+	values.caressing = context.hands.any_active()
+	values.leaning = context.camera.lean_forward >= 0.35 \
+		or context.camera.lean_action_active or context.kiss.leaning_close()
+	values.missionary = session.pose_family() == "bed"
+	values.form_source = context.handover.source() != null
+	values.form_name = form.form_name.strip_edges() if form != null else ""
+	values.form_borrowed = form != null and not form.is_own()
+	return context.dialogue.act_prompt(values)
+
+
+func debug_context(session: ACT_SESSION) -> Dictionary:
+	return DEBUG_PONY.context(host.pony, session.pony_id, {
+		"state": session.state,
+		"presenting": context.presentation.presentation_active(),
+		"cuddle": context.gate.cuddle_active(),
+		"max_pony_climaxes": session.max_pony_climaxes,
+		"satisfaction": context.readiness.satisfaction,
+		"pony_climaxes": context.readiness.pony_climaxes,
+		"last_intensity": context.readiness.last_intensity,
+		"last_pattern": context.readiness.last_pattern,
+		"cue": context.readiness.cue,
+		"thrust_up": context.readiness.up_is_deep,
+		"penetration_m": context.readiness.penetration_m,
+		"penetration_reach": context.readiness.reach(),
+		"preferences": PREFERENCES.describe(session.preferences),
+		"voice_status_line": context.audio.voice_status_line(session.pony_id),
+	})
+
+
+func climax_line(session: ACT_SESSION) -> void:
+	var live: Variant = context.pose.view()
+	var mouth_busy := live != null and str(live.contact_kind) == "mouth"
+	context.dialogue.climax_line(mouth_busy, context.readiness.cue, session.event_id,
+		context.readiness.pony_climaxes, session.snapshot.cue_reaction_max_age_s)
+
+
+func summary_input(session: ACT_SESSION) -> SUMMARY.ActInput:
+	var values := SUMMARY.ActInput.new()
+	values.pony_id = session.pony_id
+	values.event_id = session.event_id
+	values.preferences = session.preferences
+	values.seconds = session.act_seconds()
+	values.ended_early = session.ended_early
+	values.stopped_by_her = session.stopped_by_her
+	values.form_reveal = context.handover.reveal_done
+	values.act_spoken_at = session.act_spoken_at
+	return values

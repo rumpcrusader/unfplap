@@ -7,6 +7,14 @@ extends RefCounted
 
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
+const FACE := preload("res://mods/unfplap/face/service.gd")
+const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
+const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 
 ## The close window only exists in the standing afterglow.
 const STAY_CLOSE_SECONDS := 8.0
@@ -55,17 +63,36 @@ var positive := false
 ## Host boundary. Missing callbacks are no-ops.
 var log := Callable()
 var caress_active := Callable()
-## The close window elapsed: `(caressed, positive)`.
-var on_stay_close := Callable()
 ## The host node the post-act children join. The runtime binds itself (D24: it owns the tree).
 var host: Node = null
 ## The satisfaction decay's write: `(value: float)`. The runtime clamps into the meter's range.
 var write_satisfaction := Callable()
+## The phase's act collaborators, bound once by the runtime. The close reward writes through
+## them; an unbound facade (a pure suite) skips the presentation.
+var face: FACE = null
+var reactions: REACTIONS = null
+var readiness: READINESS = null
+## The act the reward records. The session sets both at the phase start.
+var pony_id := ""
+var event_id := ""
 
 ## The live aftercare node the host parented, or null. It frees itself after its beat.
 var aftercare: Node = null
 ## The satisfaction decay tween the runtime's node created for the facade.
 var _decay: Tween = null
+
+
+## Bind the phase's act collaborators once. The runtime composes; the session sets the ids.
+func bind_act(face_in: FACE, reactions_in: REACTIONS, readiness_in: READINESS) -> void:
+	face = face_in
+	reactions = reactions_in
+	readiness = readiness_in
+
+
+## The act the close reward records.
+func set_act(pony_id_in: String, event_id_in: String) -> void:
+	pony_id = pony_id_in
+	event_id = event_id_in
 
 
 ## Bind the host node whose tree the post-act children join. The runtime binds once.
@@ -94,9 +121,9 @@ func begin(summary: Dictionary) -> void:
 
 ## The presentation the runtime applies when the act enters the held afterglow. The facade owns
 ## the phase decisions; the runtime applies the row in this order and owns the scene calls the
-## row cannot make (the wings, the face beat, the summary commit). The tail targets follow the
-## active view family, not the act's start pose. The held pose is the act's current pose: the row
-## names no pose mode and no afterglow pose.
+## row cannot make (the face beat, the summary commit). The tail targets follow the active view
+## family, not the act's start pose. The held pose is the act's current pose: the row names no
+## pose mode and no afterglow pose.
 func presentation() -> Dictionary:
 	var standing := view != null and str(view.family) == "standing"
 	return {
@@ -105,6 +132,23 @@ func presentation() -> Dictionary:
 		"hud_state": "AFTERGLOW",
 		"wings": true,
 	}
+
+
+## Apply the row in the built order: the held pose weight, the tail target and flicks, then the
+## HUD state. Returns whether the row asks for the wing return, which the session starts through
+## the wing owner.
+func apply_presentation(pose: POSE_SESSION) -> bool:
+	var row := presentation()
+	if is_instance_valid(pose.pose()):
+		pose.pose().target_amount = 1.0
+		pose.pose().amount = 1.0
+	pose.set_tail_target(float(row.get("tail_target", 0.35)))
+	var flicks := int(row.get("tail_flicks", 0))
+	if flicks > 0:
+		pose.flick_tail(flicks)
+	if is_instance_valid(HUD.instance):
+		HUD.instance.set_state(str(row.get("hud_state", "AFTERGLOW")))
+	return bool(row.get("wings", false))
 
 
 ## Clear every value for the next act. The callbacks stay.
@@ -193,10 +237,31 @@ func _finish_close() -> void:
 	close_left = 0.0
 	var caressed := close_caress_seconds >= STAY_CLOSE_CARESS_SECONDS
 	close_caress_earned = caressed
-	_write_log("stay close reward caressed=%s caress_seconds=%.1f" % [
-		str(caressed), close_caress_seconds])
-	if on_stay_close.is_valid():
-		on_stay_close.call(caressed, positive)
+	_write_log("stay close reward caressed=%s positive=%s caress_seconds=%.1f" % [
+		str(caressed), str(positive), close_caress_seconds])
+	_reward(caressed, positive)
+
+
+## The close window's reward. The facade decided it; the bound face, reactions and meter present
+## it, and the memory and history write one impression and one repair.
+func _reward(caressed: bool, reward: bool) -> void:
+	if is_instance_valid(WORLD.game):
+		var impression := MEMORY.Impression.new()
+		impression.id = pony_id
+		impression.event_id = event_id
+		impression.slot = MEMORY.ImpressionSlot.STAY_CLOSE
+		impression.mood = "happy" if reward else ""
+		impression.romance = 1 if reward and caressed else 0
+		MEMORY.instance.commit(impression)
+	if not reward and caressed:
+		if ACT_HISTORY.repair(ACT_HISTORY.section(), pony_id, 1, ACT_HISTORY.day_now()):
+			ACT_HISTORY.save()
+	if face != null:
+		face.set_face(0.9, FACE.AFTERGLOW_CLOSE_LIDS)
+	if reactions != null:
+		reactions.hearts_burst()
+	if readiness != null:
+		readiness.clear_cues()
 
 
 ## Leaving afterglow early closes the window without a reward.

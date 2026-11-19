@@ -117,13 +117,15 @@ the main handle and the `log` callback from the facade; it never reads the runti
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the world root |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | memory | `memory/service.gd` | the game's cue mood |
+| service | readiness | `readiness/service.gd` | the climax shape's counters |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | act_state | `shared/act_state.gd` | act state constants |
+| service | world | `world/service.gd` | the live world root |
 | shared | act_face | `shared/act_face.gd` | face beat data |
+| shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 
 ## Lifecycle

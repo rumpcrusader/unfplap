@@ -52,6 +52,26 @@ class ActBind:
 	var headset_view := false
 	var log := Callable()
 
+	## Fill from the act's live values. The act session owns them; the start adapter and the body
+	## swap both place Anon from this one record.
+	func fill(pony_node: Node, player_node: Node, bed_node: Node3D, stool_handle: RefCounted,
+			asked_form: Variant, current_form: Variant, id_value: String, gaps_value: Dictionary,
+			camera_handle: Variant, anatomy_handle: Variant, pony_player: bool,
+			headset: bool, log_sink: Callable) -> void:
+		pony = pony_node
+		player = player_node
+		bed = bed_node
+		stool = stool_handle
+		form = asked_form
+		body_form = current_form
+		id = id_value
+		gaps = gaps_value
+		camera = camera_handle
+		anatomy = anatomy_handle
+		player_pony = pony_player
+		headset_view = headset
+		log = log_sink
+
 
 ## The one placement record this handle reuses, so a placement pass allocates no facts.
 var facts := Facts.new()

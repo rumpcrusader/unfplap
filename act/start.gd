@@ -69,7 +69,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.presentation.clear_presentation()
 	context.face.ensure_bound(host.pony, host.node)
 	context.face.end_mood_face()
-	session.end_act_face()
+	context.face.end_face()
 	session.pose_id = pose
 	session.source = act_source
 	session.profile = SETTINGS.template_for(session.pony_id)
@@ -95,8 +95,8 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	session.reset_act()
 	context.reactions.begin_act()
 	context.camera.reset_lean_state()
-	session.clear_face()
-	session.set_face(0.45, context.face.ACT_LIDS)
+	context.face.clear_face()
+	context.face.set_face(0.45, context.face.ACT_LIDS)
 	session.serial = PONIES.allocate_serial()
 	session.event_id = "intimacy_%s_%d" % [session.pony_id, session.serial]
 	session.first_time = MEMORY.instance.first_time(session.pony_id, session.event_id)
@@ -111,7 +111,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.summary.reset_act()
 	context.dialogue.prepare_vocal(session.pony_id)
 	context.afterglow.stop_decay()
-	session.remember_talk_turn()
+	_remember_talk_turn()
 	session.act_spoken_at = context.dialogue.last_spoken_at()
 	if session.source == "cradle":
 		if not context.hold.release_carry():
@@ -217,6 +217,15 @@ func _claim_nav() -> bool:
 	if context.hold.holds_negotiation():
 		return context.hold.adopt_hold()
 	return context.hold.claim_nav(session.pony_id)
+
+
+## The start's one talk-turn reset: readiness and the handover keep their own last-turn state.
+func _remember_talk_turn() -> void:
+	var tree: SceneTree = host.tree()
+	var director: Node = tree.get_first_node_in_group("conversation_director") \
+		if tree != null else null
+	context.readiness.remember_talk_turn(director)
+	context.handover.remember_talk_turn(director)
 
 
 func _anatomy_refresh() -> void:

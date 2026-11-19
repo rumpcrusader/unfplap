@@ -10,6 +10,44 @@ const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
+const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
+
+## The act values one summary records. The session fills one at each commit boundary; the
+## readiness and dialogue facades supply the action counters and the spoken line.
+class ActInput extends RefCounted:
+	var pony_id := ""
+	var event_id := ""
+	var preferences: Dictionary = {}
+	var seconds := 0.0
+	var ended_early := false
+	var stopped_by_her := false
+	var form_reveal := false
+	var act_spoken_at := -1e9
+
+	## The flat context `summary_inputs()` takes. The readiness meter owns the counters.
+	func as_context(readiness: READINESS) -> Dictionary:
+		return {
+			"pony_id": pony_id,
+			"event_id": event_id,
+			"preferences": preferences,
+			"seconds": seconds,
+			"thrusts": readiness.act_thrusts,
+			"pony_climaxes": readiness.pony_climaxes,
+			"talk_liked": readiness.act_liked_talk,
+			"talk_dislikes": readiness.act_talk_dislikes,
+			"touches_liked": readiness.act_liked_touch,
+			"touch_dislikes": readiness.act_touch_dislikes,
+			"player_lines": readiness.act_player_lines,
+			"intensity_total": readiness.act_intensity_total,
+			"intensity_right": readiness.act_intensity_right,
+			"pattern_total": readiness.act_pattern_total,
+			"pattern_right": readiness.act_pattern_right,
+			"ended_early": ended_early,
+			"stopped_by_her": stopped_by_her,
+			"form_reveal": form_reveal,
+		}
+
 
 ## The committed summary, empty until one is written.
 var summary: Dictionary = {}
@@ -63,6 +101,38 @@ func summary_context(context: Dictionary) -> Dictionary:
 		"event_id": str(context.get("event_id", "")),
 		"inputs": summary_inputs(context),
 	}
+
+
+## Score one act from its typed input. The readiness meter owns the counters.
+func commit_act(values: ActInput, readiness: READINESS, real_act: bool) -> void:
+	commit_summary(real_act, summary_context(values.as_context(readiness)))
+
+
+## Store the strongest clean act per mare from the typed input and the last spoken line.
+func record_act_peak(values: ActInput, readiness: READINESS, dialogue: DIALOGUE) -> void:
+	record_peak_memory({
+		"pony_id": values.pony_id,
+		"event_id": values.event_id,
+		"satisfaction": readiness.peak_satisfaction,
+		"both_matches": readiness.act_both_matches,
+		"dislikes": readiness.act_dislikes,
+		"liked_touch": readiness.act_liked_touch,
+		"liked_talk": readiness.act_liked_talk,
+		"player_talk": readiness.last_player_talk,
+		"her_at": dialogue.last_spoken_at(),
+		"her_line": dialogue.last_spoken_line(),
+	}, values.act_spoken_at)
+
+
+## The after-act record in one place: the summary, the peak and the witness pass.
+func commit_after_act(values: ActInput, readiness: READINESS, dialogue: DIALOGUE,
+		pony_name: String, serial: int, pony: Node) -> void:
+	commit_act(values, readiness, true)
+	record_act_peak(values, readiness, dialogue)
+	if not is_instance_valid(WORLD.game):
+		return
+	for row: MEMORY.Witness in MEMORY.instance.witnesses(values.pony_id, pony_name, serial, pony):
+		_write_log("witness " + str(row.to_dict()))
 
 
 ## One summary per act. It is scored from the action counters, stored in the world's module

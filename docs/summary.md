@@ -270,11 +270,13 @@ block. They are debug numbers, so stored values are never clamped. See `docs/set
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the world root |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | dialogue | `dialogue/service.gd` | the last spoken line and the peak text |
 | service | memory | `memory/service.gd` | act memory and witness pass |
+| service | readiness | `readiness/service.gd` | the act counters and the peak meter |
+| service | world | `world/service.gd` | the live world root |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |

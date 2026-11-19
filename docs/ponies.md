@@ -182,6 +182,7 @@ perf block's header counts come from `runtime_count()` and `mare_count()`. See `
 | service | world | `world/service.gd` | live scene reads |
 | shared | log | `shared/log.gd` | log sink and perf entry |
 | shared | body_change | `shared/body_change.gd` | typed body swap record |
+| shared | body_form | `shared/body_form.gd` | the presented form's name |
 | shared | pony_id | `shared/pony_id.gd` | stable pony ids |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 

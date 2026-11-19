@@ -131,7 +131,8 @@ func run() -> void:
 	probe._act.ended_early = false
 	probe.pony_climaxes = 1
 	probe._act._act_seconds = 90.0
-	var inputs: Dictionary = probe._summary_service.summary_inputs(probe._act.summary_values())
+	var inputs: Dictionary = probe._summary_service.summary_inputs(
+		probe._act.act_input().as_context(probe._readiness))
 	check(int(inputs.get("thrusts", 0)) == 5, "snapshot carries real thrusts")
 	check(int((inputs.get("touch_dislikes", {}) as Dictionary).get("smack", 0)) == 2,
 		"snapshot carries disliked touch kinds")

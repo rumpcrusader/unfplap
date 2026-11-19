@@ -18,6 +18,24 @@ const HOUSE := preload("res://world/buildings/house_interior.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 
 const RECENT_LINES := 8
+## The climax reaction's instruction. One short sentence in her own voice; silence is allowed.
+const CLIMAX_PROMPT := "You have just climaxed. Say one short sentence, at most 12 words, in " \
+	+ "your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine."
+
+## The normal prompt note's act values. The session fills one instance per note; the history and
+## relationship notes are read here.
+class ActValues extends RefCounted:
+	var state := 0
+	var pony_id := ""
+	var event_id := ""
+	var warm := false
+	var beat := ""
+	var caressing := false
+	var leaning := false
+	var missionary := false
+	var form_source := false
+	var form_name := ""
+	var form_borrowed := false
 const ANGLES_REMEMBERED := 7
 const LINE_ANGLES := [
 	"say something about a thing you two talked about earlier.",
@@ -64,6 +82,8 @@ var _history_scan := 0.0
 var _history_reminder_at := -1000.0
 var _last_cue_log_text := ""
 var _last_cue_log_reason := ""
+## The last queued climax line, read by its own validity window after the queue call.
+var _climax_key := ""
 
 
 func _init(facts_context: Variant = null) -> void:
@@ -422,6 +442,72 @@ func reaction_line(reaction: int, event_id: String, fallback: String, valid: Cal
 ## Reserve the shared utterance slot for an already queued reaction.
 func note_reaction(key: String, cue_text: String, until: float) -> void:
 	scheduler().note_reaction_queued(_now(), key, cue_text, until)
+
+
+## One generated climax line, or none when her mouth is busy or the roll is silent. The act view
+## supplies the identity the validity window re-reads when the line is delivered.
+func climax_line(mouth_busy: bool, cue: String, act_id: String, count: int, max_age: float) -> String:
+	if mouth_busy or facts == null or not _game_ok():
+		return ""
+	var climax_id := "%s:pony_climax:%d" % [act_id, count]
+	var expires := _now() + max_age
+	var valid := func() -> bool:
+		if not is_instance_valid(facts.pony) or str(facts.event_id) != act_id \
+				or int(facts.pony_climaxes) != count:
+			return false
+		if _now() <= expires:
+			return true
+		return MEMORY.instance.line_state(_climax_key) == MEMORY.LineState.SPEAKING
+	_climax_key = reaction_line(MEMORY.Reaction.CLIMAX, climax_id, CLIMAX_PROMPT, valid)
+	if _climax_key.is_empty():
+		return ""
+	note_reaction(_climax_key, cue, _now() + max_age)
+	_log("utterance kind=reaction key=%s" % _climax_key)
+	return _climax_key
+
+
+## Interrupt the shared director only when it is driving this mare, so a bystander's turn is not
+## cut by her mouth being busy.
+func stop_oral_turn(pony_id: String) -> void:
+	var director := _director()
+	if director == null or not director.has_method("interrupt"):
+		return
+	if str(director.get("state")) == "idle":
+		return
+	if str(director.get("_current")) != pony_id:
+		return
+	director.call("interrupt")
+
+
+## The stored-history note while a hurt history is active.
+func history_note(pony_id: String) -> String:
+	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now())
+	return ACT_HISTORY.prompt_note(row)
+
+
+## Short private relationship facts for normal dialogue. Empty outside a relationship runtime.
+func relationship_note(pony_id: String, event_id: String) -> String:
+	if not _game_ok():
+		return ""
+	return RELATIONSHIP_CUE.note(MEMORY.instance.cue_facts(pony_id, event_id).to_dict())
+
+
+## The normal dialogue prompt note from the session's act values. The history and relationship
+## notes are read here; the wording and precedence stay in `dialogue/prompts.gd`.
+func act_prompt(values: ActValues) -> String:
+	return prompt_note({
+		"state": values.state,
+		"warm": values.warm,
+		"history": history_note(values.pony_id),
+		"beat": values.beat,
+		"relation": relationship_note(values.pony_id, values.event_id),
+		"caressing": values.caressing,
+		"leaning": values.leaning,
+		"missionary": values.missionary,
+		"form_source": values.form_source,
+		"form_name": values.form_name,
+		"form_borrowed": values.form_borrowed,
+	})
 
 
 ## True while the director or the pony is actually speaking. Unlike `channel_free`, this ignores

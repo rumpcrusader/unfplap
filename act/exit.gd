@@ -59,8 +59,8 @@ func run(rejoin_cuddle: bool) -> void:
 	context.hold.restore_face_turn()
 	context.camera.restore_eye_override()
 	if is_instance_valid(host.pony):
-		session.clear_face()
-		session.end_act_face()
+		context.face.clear_face()
+		context.face.end_face()
 		context.wings.release()
 	context.hold.unlock_player()
 	if context.camera.camera_owned:
@@ -153,7 +153,7 @@ func reset_after_act() -> void:
 	if plan.tail_tuck:
 		host.start_tail_tuck()
 	elif is_instance_valid(host.pony) and context.afterglow.start_aftercare(host.pony, plan):
-		session.bind_face()
+		context.face.ensure_bound(host.pony, host.node)
 		context.face.start_post_act(plan.face_context(context.summary.summary))
 
 
@@ -180,4 +180,12 @@ func _start_frame() -> String:
 ## ended session instead of the values from the call that started it.
 func _rejoin_wanted() -> bool:
 	context.rest.bind(host.pony, session.bed)
-	return context.rest.rejoin_wanted(session.rest_context())
+	return context.rest.rejoin_wanted({
+		"serial": session.serial,
+		"state": session.state,
+		"player_pony": session.player_pony,
+		"headset": WORLD.headset_view(),
+		"summary": context.summary.summary,
+		"satisfaction": context.readiness.satisfaction,
+		"aftercare_min": session.aftercare_min,
+	})

@@ -7,6 +7,37 @@ extends RefCounted
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
+
+## The act values one face moment reads. The session fills one instance per pony; this facade
+## owns the beat table and the shape it is given.
+class ActValues extends RefCounted:
+	var state := 0
+	var pony_id := ""
+	var event_id := ""
+	var first_time := false
+	var tolerance := "normal"
+	var climax_mode := ""
+	var summary: Dictionary = {}
+	var blush_arc := false
+
+## The live climax shape's inputs. The readiness meter owns the counters; this facade owns the
+## shape `shared/act_face.gd` reads. Presentation only: it never writes the summary or history.
+class ActQuality extends RefCounted:
+	var intensity_total := 0.0
+	var intensity_right := 0.0
+	var pattern_total := 0.0
+	var pattern_right := 0.0
+	var both_matches := 0.0
+	var liked_touch := 0.0
+	var liked_talk := 0.0
+	var dislikes_total := 0
+	var distress := 0.0
+	var seeks_touch := false
+	var seeks_talk := false
+	var overwhelmed := false
 
 ## The act's eyelid values, applied outside a kiss. Afterglow reads the close variant when the
 ## close window was rewarded.
@@ -90,6 +121,13 @@ func clear_face() -> void:
 		expressions.call("release_touch", "unfplap_state")
 
 
+## The act's lids from the session's typed values; the runtime sets them at every transition and
+## calls this late in the tick.
+func eyes_for(state_value: int, close_rewarded: bool, eyes_active: bool) -> void:
+	eyes_tick({"state": state_value, "close_rewarded": close_rewarded,
+		"eyes_active": eyes_active})
+
+
 ## The act owns the lids outside a kiss. The runtime sets them at every transition and calls this
 ## late in the tick so a climax return or fluster peek cannot leave her wide-eyed while leaning.
 ## Context: `state`, `close_rewarded`, `eyes_active`.
@@ -126,6 +164,80 @@ func eyes_tick(context: Dictionary) -> void:
 func act_beat(moment: String, context: Dictionary, debug: bool) -> void:
 	debug_enabled = debug
 	beat(moment, context)
+
+
+## One act moment from the session's typed act values. The facade gathers the climax shape from
+## the meter and owns the beat table; the session keeps only its own values.
+func act_beat_for(moment: String, values: ActValues, readiness: READINESS, debug: bool) -> void:
+	var context := {
+		"first_time": values.first_time,
+		"tolerance": values.tolerance,
+	}
+	if moment == "climax":
+		context["climax_mode"] = values.climax_mode
+		context["quality"] = _quality_dict(quality_for(readiness))
+	elif moment == "afterglow":
+		context["summary"] = values.summary
+	act_beat(moment, context, debug)
+
+
+## The live climax shape's inputs, gathered from the readiness meter.
+func quality_for(readiness: READINESS) -> ActQuality:
+	var values := ActQuality.new()
+	var touch_dislikes := 0
+	for count: Variant in readiness.act_touch_dislikes.values():
+		touch_dislikes += int(count)
+	values.intensity_total = float(readiness.act_intensity_total)
+	values.intensity_right = float(readiness.act_intensity_right)
+	values.pattern_total = float(readiness.act_pattern_total)
+	values.pattern_right = float(readiness.act_pattern_right)
+	values.both_matches = float(readiness.act_both_matches)
+	values.liked_touch = float(readiness.act_liked_touch)
+	values.liked_talk = float(readiness.act_liked_talk)
+	values.dislikes_total = touch_dislikes + readiness.act_talk_dislikes
+	values.distress = readiness.distress()
+	values.seeks_touch = PREFERENCES.seeks_touch(readiness.preferences)
+	values.seeks_talk = PREFERENCES.seeks_talk(readiness.preferences)
+	values.overwhelmed = readiness.overwhelmed > 0.0
+	return values
+
+
+## The act-face rows for Show data's ACT section. The game's cue mood is read here; the state,
+## the HUD mood and the flags come from the session and the meter.
+func act_rows(values: ActValues, readiness: READINESS) -> Array[String]:
+	var base_mood := ""
+	if is_instance_valid(WORLD.game) and not values.pony_id.is_empty():
+		base_mood = MEMORY.instance.cue_facts(values.pony_id, values.event_id).mood
+	return rows({
+		"state": values.state,
+		"hud_mood": readiness.mood,
+		"base_mood": base_mood,
+		"climax_mode": values.climax_mode,
+		"blush_arc": values.blush_arc,
+	})
+
+
+## Drop the stare release without touching the act face. A climax return and the afterglow start
+## re-assert the lids after it.
+func release_stare() -> void:
+	stare_release_until = 0.0
+
+
+func _quality_dict(values: ActQuality) -> Dictionary:
+	return {
+		"intensity_total": values.intensity_total,
+		"intensity_right": values.intensity_right,
+		"pattern_total": values.pattern_total,
+		"pattern_right": values.pattern_right,
+		"both_matches": values.both_matches,
+		"liked_touch": values.liked_touch,
+		"liked_talk": values.liked_talk,
+		"dislikes_total": values.dislikes_total,
+		"distress": values.distress,
+		"seeks_touch": values.seeks_touch,
+		"seeks_talk": values.seeks_talk,
+		"overwhelmed": values.overwhelmed,
+	}
 
 
 ## Live presentation score for the auto climax face. The runtime gathers its counters; the facade

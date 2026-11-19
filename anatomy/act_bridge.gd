@@ -11,6 +11,7 @@ const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
@@ -254,6 +255,35 @@ func toggle_hole() -> void:
 		act.call("toggle_hole", host.state())
 
 
+## The `oral` command: request the standing oral pose, or the return edge when it is already
+## active. The per-mare consent string is passed only when the anatomy service says yes; the
+## feature is checked by the edge requirements, not here.
+func toggle_oral(pose: Variant, display_name: String, features_block: Dictionary) -> void:
+	var live: Variant = pose.view()
+	var from_id := str(live.id) if live != null else ""
+	var target := CATALOG.STANDING_ORAL if from_id == CATALOG.STANDING else CATALOG.STANDING
+	var request := {}
+	var consent := false
+	var service: Variant = host.anatomy_service()
+	if service != null and service.has_method("consent") and target == CATALOG.STANDING_ORAL:
+		consent = bool(service.call("consent", host.pony(), "oral"))
+		if consent:
+			request["consent"] = "oral"
+	request["act_state"] = host.state()
+	request["features"] = features_block
+	var result: Dictionary = pose.request_pose(target, "oral", request)
+	if bool(result.get("ok", false)):
+		_write_log("oral pose %s -> %s: ok" % [from_id, target])
+		return
+	_write_log("oral pose %s -> %s refused: %s (%s)" % [
+		from_id, target, str(result.get("code", "")), str(result.get("reason", ""))])
+	if target == CATALOG.STANDING_ORAL and not consent:
+		status("%s is not into that" % display_name)
+	elif service != null:
+		status(str(result.get("reason", "")))
+
+
+
 ## The stock flank smack reaction on the persistent controller.
 func react() -> void:
 	if is_instance_valid(controller):
@@ -305,6 +335,11 @@ func status(text: String, seconds := 2.0) -> void:
 	var status_cb: Callable = host.status()
 	if status_cb.is_valid():
 		status_cb.call(text, seconds)
+
+
+func _write_log(text: String) -> void:
+	if facts.log.is_valid():
+		facts.log.call(text)
 
 
 ## The missionary Anon body is the act's own body. The host creates it in the camera mode; the

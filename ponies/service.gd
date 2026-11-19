@@ -25,6 +25,7 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 
 ## (`Node pony`) -> Node, the entry's runtime factory. The runtime file stays the entry's preload.
 static var factory := Callable()
@@ -408,3 +409,15 @@ static func identity_of(body: Node) -> Identity:
 	var meta_id := str(body.get_meta("relationship_id", "")) if body.has_meta("relationship_id") else ""
 	out.id = meta_id if not meta_id.is_empty() else PONY_ID.from("", body.get("identity"))
 	return out
+
+
+## The presented body's name for the act caption and dialogue. The form's presentation name
+## wins, the identity's display name is the fallback and the stable id is the last resort. A
+## borrowed shape still belongs to the same relationship, preferences and history.
+static func display_name_for(form: BODY_FORM.BodyForm, body: Node, id: String) -> String:
+	var presented := str(form.form_name).strip_edges() if form != null else ""
+	if presented.is_empty() and is_instance_valid(body):
+		var identity: Variant = body.get("identity")
+		var display: Variant = identity.get("display_name") if identity != null else null
+		presented = str(display).strip_edges() if display != null else ""
+	return presented if not presented.is_empty() else id

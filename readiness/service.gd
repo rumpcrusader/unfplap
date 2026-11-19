@@ -377,6 +377,43 @@ func configure(profile: Dictionary, override_s: float, overwhelmed_s: float,
 	receptive_seconds = receptive_s
 
 
+## The pony's climax moment: one count, her climax mood and cue, and the log line. The session
+## owns the state transition and the presentation order.
+func begin_climax(pose_id: String, pony_name: String, climax_seconds: float) -> int:
+	pony_climaxes += 1
+	mood = "climax"
+	set_cue_override("She is climaxing.", climax_seconds)
+	_log("pony climax=%d pose=%s pony=%s readiness=%.0f" % [
+		pony_climaxes, pose_id, pony_name, satisfaction])
+	return pony_climaxes
+
+
+## The climax effect ended and the act returns to ACTIVE: the meter, the stroke memory and the
+## cues restart from zero. `max_climaxes` is the configured limit, for the log line only.
+func end_climax(max_climaxes: int) -> void:
+	satisfaction = 0.0
+	mood = "warming"
+	cue = ""
+	cue_override = ""
+	cue_until = 0.0
+	overwhelmed = 0.0
+	last_intensity = ""
+	last_pattern = ""
+	stroke_window.clear()
+	last_stroke_at = -1000.0
+	last_thrust_score_at = -1000.0
+	receptive_until = 0.0
+	var limit_text := "∞" if max_climaxes <= 0 else str(max_climaxes)
+	_log("pony climax end=%d/%s readiness=0" % [pony_climaxes, limit_text])
+
+
+## Drop the live cue without touching the meter. The held afterglow and the close reward use it.
+func clear_cues() -> void:
+	cue = ""
+	cue_override = ""
+	cue_until = 0.0
+
+
 ## Each real thrust lands as a discrete chunk. Matching both axes is best, one axis still
 ## helps, and a mismatch makes no progress. This is what makes thrusting essential.
 func add_heat(amount: float) -> void:

@@ -4,31 +4,18 @@ extends Node
 ## the schedule, the presentation, the input protocol, the swap seams, the ledgers and the view; the
 ## node owns no system's rules or mutable state and never edits game files.
 
+const ACT_BUILD := preload("res://mods/unfplap/act/build.gd")
+const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/poses/placement.gd")
-const REST_REJOIN := preload("res://mods/unfplap/rest/service.gd")
-const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
-const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
-const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
-const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
-const REST := preload("res://mods/unfplap/rest/control.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
-const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
-const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
-const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
-const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
-const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
+const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
@@ -37,42 +24,10 @@ const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
-const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
-const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
-const BODY_CHANGE_ACT_HOST := preload("res://mods/unfplap/body_change/act_host.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
-const WING := preload("res://mods/unfplap/poses/wing_control.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
-const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
-const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
-const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
-const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
-const READINESS := preload("res://mods/unfplap/readiness/service.gd")
-const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
-const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
+const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
-const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const STOOL := preload("res://mods/unfplap/stool/service.gd")
-const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
-const ACT_CONSENT := preload("res://mods/unfplap/act/consent.gd")
-const ACT_INPUT := preload("res://mods/unfplap/act/input.gd")
-const ACT_SWAP := preload("res://mods/unfplap/act/swap.gd")
-const ACT_TICK := preload("res://mods/unfplap/act/tick.gd")
-const ACT_PHASES := preload("res://mods/unfplap/act/phases.gd")
-const AUDIO_ACT := preload("res://mods/unfplap/audio/act.gd")
-const ACT_IMPACT := preload("res://mods/unfplap/act/impact.gd")
-const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
-const ACT_IDLE := preload("res://mods/unfplap/act/idle.gd")
-const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
-const ACT_START := preload("res://mods/unfplap/act/start.gd")
-const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
-const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
-const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
-## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
-const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
 
 const State := ACT_STATE.State
 
@@ -86,34 +41,36 @@ const AGREEMENT_WAIT := ACT_AGREEMENT.AGREEMENT_WAIT
 const AGREEMENT_STARTED := ACT_AGREEMENT.AGREEMENT_STARTED
 const AGREEMENT_FAILED := ACT_AGREEMENT.AGREEMENT_FAILED
 
-## The pony this runtime presents. Assigning a body rebinds the pose session's pony once.
+## The pony this runtime presents. Assigning a body rebinds the pose session and the act host
+## through the bundle; nothing else is rebound per frame.
 var pony: Node:
 	get:
 		return _pony_node
 	set(value):
 		_pony_node = value
-		_pose_session.bind(self, value if is_instance_valid(value) else null)
-		if _act_host != null:
-			_act_host.pony = value
+		_bundle.bind_pony(value)
 
 var _pony_node: Node = null
+## The per-pony composition root's product. `_init()` builds it once and the field aliases below
+## point at its objects; the builder owns construction, the node owns the aliases for the step.
+var _bundle: ACT_BUILD.Bundle = null
 
 ## The act's one state, timer, clock and value owner; created once per pony and reset per act.
 var _act: ACT_SESSION = null
-## The act modules' node operations and typed collaborator set, bound once in `_build_systems()`.
-var _act_host: ACT_NODE = null
-var _act_context: ACT_CONTEXT = null
-var _view: ACT_VIEW = null
+## The act modules' node operations and typed collaborator set, built by `act/build.gd`.
+var _act_host = null
+var _act_context = null
+var _view = null
 var _consent: RefCounted = null
-var _input: ACT_INPUT = ACT_INPUT.new()
-var _swap: ACT_SWAP = ACT_SWAP.new()
-var _tick: ACT_TICK = ACT_TICK.new()
-var _phases: ACT_PHASES = ACT_PHASES.new()
-var _impact: ACT_IMPACT = null
-var _idle: ACT_IDLE = null
-var _exit: ACT_EXIT = null
-var _start: ACT_START = null
-var _agreement: ACT_AGREEMENT = null
+var _input = null
+var _swap = null
+var _tick = null
+var _phases = null
+var _impact = null
+var _idle = null
+var _exit = null
+var _start = null
+var _agreement = null
 
 ## Temporary read-only forward: the act session owns the live state; remove in R4.
 var state: int:
@@ -127,7 +84,7 @@ var act: ACT_SESSION:
 
 
 ## The act's readiness system; see `readiness/service.gd`. The public act values below forward to it.
-var _readiness: RefCounted = READINESS.new()
+var _readiness: RefCounted = null
 ## Her arousal/readiness, 0..100. At 100 she climaxes; the player chooses afterglow.
 var satisfaction: float:
 	get:
@@ -168,31 +125,32 @@ var penetration_m: float:
 
 ## The act's pose session: the pose modifier, the authored missionary base, the bed frame, the
 ## extra modifiers, the bone snapshots and the pose diagnostics. See `poses/service.gd`.
-var _pose_session: RefCounted = POSE_SESSION.new()
+var _pose_session: RefCounted = null
 ## The scene gate: the live state, navigator, bed, cuddle, player and pose rows. See
 ## `scene_gate/service.gd` and `docs/scene_gate.md`.
-var _scene: RefCounted = SCENE_GATE.new()
+var _scene: RefCounted = null
 ## The bed/couch rest and cuddle rejoin. See `rest/service.gd` and `docs/rest.md`.
-var _rest: RefCounted = REST_REJOIN.new()
+var _rest: RefCounted = null
 ## The act camera session: the lean, the shot smoothing, the free look, the free-camera lock, the
 ## standing eye override and the captured player look. See `camera/service.gd` and `docs/camera.md`.
-var _act_camera: RefCounted = ACT_CAMERA.new()
+var _act_camera: RefCounted = null
 ## The per-act anatomy bridge: the persistent controller, the per-act handle, the typed context,
 ## the missionary body and the VR controller. See `docs/anatomy.md`.
-var _anatomy_bridge: RefCounted = ANATOMY.new_act(_anatomy_host())
+var _anatomy_bridge: RefCounted = null
 ## Reused typed act context. The runtime writes it; the presentation controllers read it instead of
 ## reaching into this node. See `shared/act_facts.gd`.
-var _act_facts: RefCounted = ACT_FACTS.new()
+var _act_facts: RefCounted = null
 ## The standing placement math. The runtime fills its facts and keeps the ordered start adapters.
 var _placement: PLACEMENT = null
 ## Reused placement facts. One object per runtime; the runtime writes it before each call.
 var _placement_facts: PLACEMENT.Facts = null
 
 ## The act's dialogue service: scheduler, prompt assembly, reactions and the bystander line.
-var _act_dialogue: RefCounted = ACT_DIALOGUE.new(_act_facts)
-## Debug perf probe: timed chunks report here and one summary prints per window. Built in `_init()`
-## once the systems exist, because the host binds their live reads. See `shared/perf.gd`.
-var _perf_probe: PERF = null
+var _act_dialogue: RefCounted = null
+## Debug perf probe: timed chunks report here and one summary prints per window. Built by the
+## composition root once the systems exist, because the host binds their live reads. See
+## `shared/perf.gd`.
+var _perf_probe = null
 ## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
 ## no tick reads the entry node's flags.
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
@@ -200,7 +158,7 @@ var _perf_probe: PERF = null
 ## A body swap keeps the act alive but stops its ticks. The handover owns the typed change, the
 ## adopted body and the current pose id until the one resume; `act/exit.gd:run()` is still the only
 ## exit.
-var _handover: BODY_CHANGE_ACT = null
+var _handover = null
 ## The handover's pause overlay, read-only here: the handover is its one writer.
 var _suspended: bool:
 	get:
@@ -212,10 +170,10 @@ var _suspended: bool:
 var _swapping_parent := false
 ## The act's afterglow phase: the standing close window and the presentation it asks for.
 ## See `afterglow/service.gd` and `docs/afterglow.md`.
-var _afterglow: RefCounted = AFTERGLOW.new()
+var _afterglow: RefCounted = null
 ## The act's scene ownership. The runtime keeps the act state and the teardown order; the service
 ## owns the flags. See `scene_hold/service.gd`.
-var _hold: RefCounted = SCENE_HOLD.new()
+var _hold: RefCounted = null
 ## The stable act identity, owned by the session; this is the runtime's read-through handle.
 var _id: String:
 	get:
@@ -231,14 +189,14 @@ var _snapshot: SETTINGS.ActSnapshot:
 		return _act.snapshot
 ## The act's summary, grade and peak record; see `summary/service.gd`. The runtime reads it as
 ## `_summary_service.summary`.
-var _summary_service: RefCounted = SUMMARY.new()
+var _summary_service: RefCounted = null
 var _wings: WING = null
 ## The act's face owner: beats, line-face ownership, the stare release and the post-act mood
 ## face. See `face/service.gd` and `docs/face.md`.
-var _face: RefCounted = FACE.new()
+var _face: RefCounted = null
 ## Thrust and climax presentation: jiggle, smack reaction, rump blush and hearts. See
 ## `reactions/service.gd` and `docs/reactions.md`.
-var _reactions: RefCounted = REACTIONS.new()
+var _reactions: RefCounted = null
 var _hands: HANDS = null
 var _kiss: KISS = null
 var _integrations: INTEGRATIONS = null
@@ -247,313 +205,59 @@ var _standing_camera_ctl: STANDING_CAMERA = null
 var _standing_anon_ctl: STANDING_ANON = null
 var _standing_presentation_ctl: STANDING_PRESENTATION = null
 ## One runtime's act audio: the lazy node, the voice policy and the excitement Beat holds.
-var _audio: AUDIO_ACT = null
+var _audio = null
 
-## Construct the per-pony controllers once. Only the audio node waits for the tree.
-func _build_systems() -> void:
-	_handover = BODY_CHANGE_ACT.new(_handover_host())
-	_placement = PLACEMENT.new()
-	_placement_facts = PLACEMENT.Facts.new()
-	_wings = WING.new(_act_facts)
-	_wings.log = Callable(self, "_log")
-	_hands = HANDS.new(_act_facts)
-	_kiss = KISS.new(_act_facts)
-	_integrations = INTEGRATIONS.new(_act_facts)
-	_missionary_camera_ctl = MISSIONARY_CAMERA.new(_act_facts)
-	_standing_camera_ctl = STANDING_CAMERA.new(_act_facts)
-	_standing_anon_ctl = STANDING_ANON.new(_act_facts)
-	_standing_presentation_ctl = STANDING_PRESENTATION.new(_act_facts)
-	_act_camera.bind(_act_facts, _hands, _kiss, _standing_camera_ctl, _missionary_camera_ctl)
-	_act_camera.standing_anon = _standing_anon_ctl
-	_audio = AUDIO_ACT.new()
-	_audio.bind(self)
-	_audio.log = Callable(self, "_log")
-	_bind_act_frame()
-
-
-## The typed collaborator set the view and idle modules read. Built once, after the systems.
-func _build_act_context() -> ACT_CONTEXT:
-	var context := ACT_CONTEXT.new()
-	context.pose = _pose_session
-	context.camera = _act_camera
-	context.readiness = _readiness
-	context.afterglow = _afterglow
-	context.face = _face
-	context.reactions = _reactions
-	context.dialogue = _act_dialogue
-	context.anatomy = _anatomy_bridge
-	context.handover = _handover
-	context.gate = _scene
-	context.facts = _act_facts
-	context.kiss = _kiss
-	context.summary = _summary_service
-	context.presentation = _standing_presentation_ctl
-	context.standing_anon = _standing_anon_ctl
-	context.standing_camera = _standing_camera_ctl
-	context.wings = _wings
-	context.hands = _hands
-	context.integrations = _integrations
-	context.hold = _hold
-	context.rest = _rest
-	context.placement = _placement
-	context.anatomy_host = _anatomy_host()
-	context.missionary_camera = _missionary_camera_ctl
-	return context
-
-
-## Build the act's own host, context and modules once. The runtime node keeps the ordered ticks;
-## these objects own the state, the view and the idle schedule.
-func _bind_act_frame() -> void:
-	_act_host = ACT_NODE.new()
-	_act_host.bind(self)
-	_act_host.log_sink = Callable(self, "_log")
-	_act_host.perf_sink = Callable(self, "perf_note")
-	_act_context = _build_act_context()
-	_act = ACT_SESSION.new()
-	_act.bind(_act_host, _act_context)
-	_consent = ACT_CONSENT.new()
-	_consent.bind(_act_host, _act_context, _act)
-	_act_context.consent = _consent
-	_impact = ACT_IMPACT.new()
-	_impact.bind(_act_host, _act_context, _act)
-	_act_context.impact = _impact
-	_act_context.audio = _audio
-	_view = ACT_VIEW.new()
-	_view.bind(_act_host, _act_context)
-	_idle = ACT_IDLE.new()
-	_idle.bind(_act_host, _act_context, _act)
-	_exit = ACT_EXIT.new()
-	_exit.bind(_act_host, _act_context, _act)
-	_input = ACT_INPUT.new()
-	_input.bind(_act_host, _act_context, _act)
-	_input.exit = _exit
-	_consent.exit = _exit
-	_act.input = _input
-	_swap.bind(_act_host, _act_context, _act)
-	_swap.exit = _exit
-	_phases.bind(_act_host, _act_context, _act)
-	_tick.bind(_act_host, _act_context, _act, _idle)
-	_tick.swap = _swap
-	_tick.exit = _exit
-	_tick.phases = _phases
-	_act.ticker = _tick
-	_start = ACT_START.new()
-	_start.bind(_act_host, _act_context, _act, _exit, _view)
-	_agreement = ACT_AGREEMENT.new()
-	_agreement.bind(_act_host, _act_context, _act, _start)
-	_act.start = _start
-	_act.view = _view
-	_exit.start = _start
-
-
-## Bind the pose session's host callbacks once. The body paths rebind the pony itself.
-func _bind_pose_hosts() -> void:
-	_pose_session.bind(self, pony if is_instance_valid(pony) else null)
-	_pose_session.id = _act.pony_id
-	_pose_session.hide_avatar = Callable(_missionary_camera_ctl, "hide_avatar")
-	_pose_session.set_act_body = Callable(self, "_set_missionary_anon_handle")
-	_pose_session.eye_camera = Callable(_missionary_camera_ctl, "tick")
-	_pose_session.perf = Callable(self, "perf_note")
-	_pose_session.facts = _act_facts
-	_pose_session.mouth_point = Callable(self, "_oral_mouth_point")
-	_pose_session.opening_point = Callable(self, "_oral_opening_point")
-	_pose_session.face_point = Callable(self, "_anatomy_face_point")
-	_pose_session.oral_kiss = Callable(_audio, "oral_kiss")
-	_pose_session.oral_speech_stop = Callable(_phases, "oral_speech_stop")
-	_pose_session.oral_viseme = Callable(self, "_oral_viseme")
-	_pose_session.oral_status = Callable(self, "_anatomy_status")
-
-
+## Build the per-pony composition root once and point the runtime's field aliases at its objects.
+## The builder owns construction and the one bind pass; every method below still reads its alias.
 func _init() -> void:
-	_build_systems()
-	_bind_pose_hosts()
-	_anatomy_bridge.bind(_anatomy_host())
-	_act_facts.perf_note = Callable(self, "perf_note")
-	_act_facts.log = Callable(self, "_log")
-	_act_facts.body_coat_smack = Callable(self, "body_coat_jiggle_target")
-	_act_facts.kiss = Callable(self, "_kiss_controller")
-	_act_facts.neck_point = Callable(_act_camera, "neck_midpoint")
-	_act_facts.set_look = Callable(_phases, "set_look")
-	_act_facts.set_forced_glance = Callable(_phases, "set_forced_glance")
-	_act_facts.set_camera_basis_ready = Callable(_phases, "set_camera_basis_ready")
-	_act_facts.director = Callable(self, "_director")
-	_act_facts.now = Callable(_act, "clock_s")
-	_readiness.log = Callable(self, "_log")
-	_readiness.clock = Callable(_act, "clock_s")
-	_readiness.state = Callable(self, "_readiness_state")
-	_readiness.on_climax = Callable(_act, "climax")
-	_readiness.on_close = Callable(self, "_readiness_close")
-	_readiness.on_face = Callable(_act, "face_beat")
-	_readiness.on_anatomy_react = Callable(self, "_readiness_anatomy_react")
-	_readiness.heat_cycle = Callable(self, "_readiness_heat")
-	_readiness.on_cue = Callable(_phases, "cue")
-	_readiness.shaft_length = Callable(_phases, "shaft_length_m")
-	_readiness.pose_family = Callable(self, "_pose_family")
-	_summary_service.log = Callable(self, "_log")
-	_afterglow.log = Callable(self, "_log")
-	_afterglow.caress_active = Callable(self, "_afterglow_caressing")
-	_afterglow.bind_act(_face, _reactions, _readiness)
-	_afterglow.bind_host(self)
-	_afterglow.write_satisfaction = Callable(self, "_write_satisfaction")
-	_face.log = Callable(self, "_log")
-	_face.clock = Callable(_act, "clock_s")
-	_reactions.log = Callable(self, "_log")
-	_pose_session.log = Callable(self, "_log")
-	_scene.stool_need = Callable(self, "stool_needed_count")
-	_scene.stool_count = Callable(self, "stool_case_count")
-	_scene.presentation_active = Callable(self, "presentation_active")
-	_scene.hold_compatible = Callable(self, "_scene_hold_compatible")
-	_scene.debug_context = Callable(self, "_debug_context")
-	_rest.context = Callable(self, "_rest_context")
-	_rest.restore_scene = Callable(self, "_rest_restore_scene")
-	_rest.log = Callable(self, "_log")
-	_hold.bind({
-		"pony": Callable(self, "_pony"),
-		"state": Callable(self, "_state"),
-		"pose_family": Callable(self, "_pose_family"),
-	})
-	_act_facts.play_mouth_kiss = Callable(_audio, "play_mouth_kiss")
-	_act_facts.act_actions_allowed = Callable(_act_camera, "at_actions_allowed")
-	_act_facts.auto_panel_open = Callable(_input, "auto_panel_open")
-	_act_facts.standing_camera = Callable(self, "_standing_camera_controller")
-	_act_facts.missionary_anon = Callable(self, "missionary_anon_body")
-	_act_facts.anatomy_normal = Callable(self, "anatomy_normal")
-	_act_facts.anatomy_opening = Callable(self, "anatomy_opening")
-	_act_facts.authored_pose_asset = Callable(_pose_session, "authored_asset")
-	_act_facts.missionary_face_point = Callable(_act_camera, "missionary_face_point")
-	_act_facts.gaze_point = Callable(self, "_missionary_gaze_point")
-	_act_facts.free_look_rotation = Callable(_act_camera, "free_look_rotation")
-	_act_facts.desktop_pose_driver = Callable(self, "_desktop_pose_driver")
-	_act_facts.cuddle_active = Callable(self, "cuddle_active")
-	_act_facts.free_of_affection = Callable(self, "free_of_affection")
-	_act_facts.pause_face_turn = Callable(_hold, "pause_face_turn")
-	_act_facts.restore_face_turn = Callable(_hold, "restore_face_turn")
-	_act_facts.hold_excitement = Callable(_audio, "hold_excitement")
-	_act_facts.release_excitement = Callable(_audio, "release_excitement")
-	_act_facts.mod_enabled = Callable(self, "_mod_enabled")
-	_act_facts.on_touch = Callable(_readiness, "touch")
-	_act_facts.on_smack = Callable(self, "_on_smack_impact")
-	_act_facts.pose_host = Callable(self, "_runtime")
-	_perf_probe = PERF.build(_perf_host())
-	_tick.probe = _perf_probe
-	_refresh_scene_gate()
+	_bundle = ACT_BUILD.build(null, self)
+	_act = _bundle.act
+	_act_host = _bundle.host
+	_act_context = _bundle.context
+	_act_facts = _bundle.facts
+	_act_camera = _bundle.camera
+	_act_dialogue = _bundle.dialogue
+	_afterglow = _bundle.afterglow
+	_agreement = _bundle.agreement
+	_anatomy_bridge = _bundle.anatomy_bridge
+	_anatomy_host_cache = _bundle.anatomy_host
+	_audio = _bundle.audio
+	_consent = _bundle.consent
+	_exit = _bundle.exit
+	_face = _bundle.face
+	_hands = _bundle.hands
+	_handover = _bundle.handover
+	_hold = _bundle.hold
+	_idle = _bundle.idle
+	_impact = _bundle.impact
+	_input = _bundle.input
+	_integrations = _bundle.integrations
+	_kiss = _bundle.kiss
+	_missionary_camera_ctl = _bundle.missionary_camera
+	_perf_probe = _bundle.perf_probe
+	_phases = _bundle.phases
+	_placement = _bundle.placement
+	_placement_facts = _bundle.placement_facts
+	_pose_session = _bundle.pose
+	_readiness = _bundle.readiness
+	_reactions = _bundle.reactions
+	_rest = _bundle.rest
+	_scene = _bundle.gate
+	_start = _bundle.start
+	_standing_anon_ctl = _bundle.standing_anon
+	_standing_camera_ctl = _bundle.standing_camera
+	_standing_presentation_ctl = _bundle.presentation
+	_summary_service = _bundle.summary
+	_swap = _bundle.swap
+	_tick = _bundle.tick
+	_view = _bundle.view
+	_wings = _bundle.wings
 
 
-## The typed host for the per-act anatomy bridge. The bridge reads the scene, the live state and
-## the callbacks through named methods; it never reads the runtime's private fields. Built once:
-## the callables are bound methods, so a per-frame rebind must not allocate.
-var _anatomy_host_cache: ACT_HOST = null
 
-func _anatomy_host() -> ACT_HOST:
-	if _anatomy_host_cache != null:
-		return _anatomy_host_cache
-	var host := ACT_HOST.new()
-	host.pony_cb = Callable(self, "_pony")
-	host.runtime_cb = Callable(self, "_runtime")
-	host.reactions_cb = Callable(self, "_reactions_service")
-	host.anatomy_service_cb = Callable(self, "_anatomy_service")
-	host.eligibility_service_cb = Callable(self, "_eligibility_service")
-	host.state_cb = Callable(self, "_state")
-	host.pose_view_cb = Callable(self, "_pose_view_value")
-	host.depth_cb = Callable(self, "_depth")
-	host.penetration_m_cb = Callable(self, "_penetration_m")
-	host.penetration_reach_cb = Callable(self, "penetration_reach")
-	host.climaxes_cb = Callable(self, "_climaxes")
-	host.size_scale_cb = Callable(_act_camera, "size_scale")
-	host.auto_pace_cb = Callable(self, "_auto_pace")
-	host.fluid_ground_y_cb = Callable(_phases, "fluid_ground_y")
-	host.cycle_phase_cb = Callable(self, "cycle_phase")
-	host.bed_frame_cb = Callable(self, "_bed_frame")
-	host.log_cb = Callable(self, "_log")
-	host.perf_note_cb = Callable(self, "perf_note")
-	host.perf_enabled_cb = Callable(self, "_perf_enabled")
-	host.body_coat_smack_cb = Callable(self, "body_coat_jiggle_target")
-	host.status_cb = Callable(self, "_anatomy_status")
-	host.command_cb = Callable(_input, "command")
-	host.missionary_camera_cb = Callable(self, "_missionary_camera_controller")
-	host.kiss_controller_cb = Callable(self, "_kiss_controller")
-	host.pose_cb = Callable(self, "_pose_service")
-	host.thrust_move_cb = Callable(_impact, "move")
-	host.now_s_cb = Callable(_act, "clock_s")
-	host.set_penetration_m_cb = Callable(_impact, "set_depth")
-	host.align_cb = Callable(self, "apply_anon_align")
-	host.touch_cb = Callable(_readiness, "touch")
-	host.vr_scene_cb = Callable(self, "_vr_scene")
-	_anatomy_host_cache = host
-	return _anatomy_host_cache
+## The typed host the anatomy bridge reads, built once by `act/build.gd`.
+var _anatomy_host_cache = null
 
-
-## The typed host for the act's body-change handover. Built once: the callables are bound methods,
-## so a per-frame rebind must not allocate.
-## The typed host for the act's body-change handover. Built once: the callables are bound methods,
-## so a per-frame rebind must not allocate.
-var _handover_host_cache: BODY_CHANGE_ACT_HOST = null
-
-func _handover_host() -> BODY_CHANGE_ACT_HOST:
-	if _handover_host_cache != null:
-		return _handover_host_cache
-	var host := BODY_CHANGE_ACT_HOST.new()
-	host.runtime_cb = Callable(self, "_runtime")
-	host.pony_cb = Callable(self, "_pony")
-	host.id_cb = Callable(self, "_act_id")
-	host.act_live_cb = Callable(self, "_act_live")
-	host.restoring_cb = Callable(self, "_act_restoring")
-	host.state_cb = Callable(self, "_state")
-	host.event_id_cb = Callable(self, "_event_id_value")
-	host.depth_cb = Callable(self, "_depth")
-	host.climaxes_cb = Callable(self, "_climaxes")
-	host.max_climaxes_cb = Callable(self, "_max_climaxes_value")
-	host.satisfaction_cb = Callable(self, "_satisfaction_value")
-	host.cue_cb = Callable(self, "_cue_value")
-	host.pose_view_cb = Callable(self, "_pose_view_value")
-	host.start_pose_cb = Callable(self, "_start_pose_id")
-	host.shape_name_cb = Callable(self, "_shape_name")
-	host.reaction_line_cb = Callable(self, "_form_reaction_line")
-	host.note_reaction_cb = Callable(self, "_form_note_reaction")
-	host.add_heat_cb = Callable(self, "_form_add_heat")
-	host.cue_override_cb = Callable(self, "_form_cue_override")
-	host.set_face_cb = Callable(self, "_form_set_face")
-	host.status_cb = Callable(self, "_form_status")
-	host.now_cb = Callable(_act, "clock_s")
-	host.reaction_max_age_cb = Callable(self, "_cue_reaction_max_age_value")
-	host.attach_to_world_cb = Callable(_swap, "attach_to_world")
-	host.release_carry_cb = Callable(_swap, "release_carry")
-	host.release_contacts_cb = Callable(_swap, "release_contacts")
-	host.remember_auto_cb = Callable(_swap, "remember_auto")
-	host.release_act_body_cb = Callable(_swap, "release_act_body")
-	host.release_scene_cb = Callable(_swap, "release_scene")
-	host.free_pose_cb = Callable(_swap, "release_pose")
-	host.restore_camera_cb = Callable(_swap, "restore_camera")
-	host.stop_breath_cb = Callable(_swap, "stop_breath")
-	host.resume_body_cb = Callable(_swap, "resume_body")
-	host.prepare_anatomy_act_cb = Callable(_swap, "prepare_anatomy_act")
-	host.apply_resume_settings_cb = Callable(_swap, "apply_resume_settings")
-	host.rebind_reactions_cb = Callable(_swap, "rebind_reactions")
-	host.set_act_pose_config_cb = Callable(_swap, "set_act_pose_config")
-	host.rebuild_act_pose_cb = Callable(_swap, "rebuild_act_pose")
-	host.sync_start_config_cb = Callable(_swap, "sync_start_config")
-	host.reset_visual_for_form_cb = Callable(_swap, "reset_visual_for_form")
-	host.reset_player_pelvis_cb = Callable(_swap, "reset_pelvis")
-	host.reset_lean_cb = Callable(_swap, "reset_lean")
-	host.prepare_start_camera_cb = Callable(_swap, "prepare_start_camera")
-	host.open_camera_cb = Callable(_swap, "open_camera")
-	host.hide_avatar_cb = Callable(_swap, "hide_avatar")
-	host.reset_wings_cb = Callable(_swap, "reset_wings")
-	host.claim_nav_cb = Callable(_swap, "claim_nav")
-	host.pause_face_turn_cb = Callable(_swap, "pause_face_turn")
-	host.reset_face_cb = Callable(_swap, "reset_face")
-	host.apply_voice_policy_cb = Callable(_swap, "apply_voice_policy")
-	host.apply_pose_change_cb = Callable(_swap, "apply_pose_change")
-	host.apply_anatomy_live_cb = Callable(_swap, "apply_anatomy_live")
-	host.begin_integrations_cb = Callable(_swap, "begin_integrations")
-	host.sync_hud_cb = Callable(_swap, "sync_hud")
-	host.resume_auto_cb = Callable(_swap, "resume_auto")
-	host.rebind_body_cb = Callable(_swap, "rebind_body")
-	host.prepare_standing_camera_cb = Callable(_swap, "prepare_standing_camera")
-	host.new_body_adult_cb = Callable(_swap, "new_body_is_adult")
-	host.log_cb = Callable(self, "_log")
-	_handover_host_cache = host
-	return _handover_host_cache
 
 
 func _pony() -> Variant:
@@ -704,7 +408,7 @@ func _ready() -> void:
 	# Identity is the key for per-mare preferences, poses, prompts and memory. It can arrive after
 	# the pony enters the tree, so read it now and once more after the first frame.
 	_act.refresh_identity()
-	_bind_pose_hosts()
+	_bundle.bind_pony(pony)
 	call_deferred("refresh_identity")
 	_face.bind(pony, self)
 	# integration: anatomy is persistent outside acts. Retry once after the first frame for a mod
@@ -716,7 +420,7 @@ func _ready() -> void:
 ## integration: resolve the persistent anatomy controller through the world service. The bridge
 ## owns the controller handle; the service owns the controller.
 func _anatomy_refresh() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.refresh()
 
 
@@ -731,7 +435,7 @@ func body_coat_jiggle_target() -> void:
 
 
 func _anatomy_act_refresh() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.begin_act()
 
 
@@ -775,31 +479,6 @@ func perf_note(key: String, usec: int) -> void:
 
 
 ## Time one call site for the probes (callers take the start stamp themselves).
-
-
-var _perf_host_cache: PERF.Host = null
-
-func _perf_host() -> PERF.Host:
-	if _perf_host_cache != null:
-		return _perf_host_cache
-	var host := PERF.Host.new()
-	host.enabled_cb = Callable(self, "_perf_enabled")
-	host.log_cb = Callable(self, "_log")
-	host.show_cb = Callable(LOG, "perf_block")
-	host.id_cb = Callable(self, "_act_id")
-	host.pose_cb = Callable(self, "_perf_pose_id")
-	host.state_cb = Callable(self, "_state")
-	host.lean_forward_cb = Callable(_act_camera, "shot_lean_forward")
-	host.lean_side_cb = Callable(self, "_perf_lean_side")
-	host.hand_left_cb = Callable(_hands, "active").bind("L")
-	host.hand_right_cb = Callable(_hands, "active").bind("R")
-	host.near_mesh_cb = Callable(self, "_perf_near_mesh")
-	host.tier_cb = Callable(self, "_perf_tier")
-	host.wing_hold_cb = Callable(self, "_perf_wing_hold")
-	host.winged_cb = Callable(self, "_perf_winged")
-	host.idle_note_cb = Callable(LOG, "note")
-	_perf_host_cache = host
-	return _perf_host_cache
 
 
 func _perf_pose_id() -> String:
@@ -1162,27 +841,27 @@ func authored_pose_asset() -> Variant:
 
 
 func _oral_mouth_point() -> Vector3:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	return _anatomy_bridge.mouth_point()
 
 
 ## The opening the pose turn captures before the turn.
 func _oral_opening_point() -> Vector3:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	return _anatomy_bridge.opening()
 
 
 ## The face contact's real anchor on the act body. The pose service's face driver uses it; a
 ## missing or inactive body is Vector3.INF.
 func _anatomy_face_point() -> Vector3:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	var point: Variant = _anatomy_bridge.face_point()
 	return point if point is Vector3 else Vector3.INF
 
 
 ## The edge viseme event: the D shape, or the clear on contact release.
 func _oral_viseme(value: String) -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.set_oral_viseme(value)
 
 
@@ -1199,14 +878,14 @@ func anatomy_oral_ready() -> bool:
 ## integration: anatomy action entry points for the input service. They are no-ops when the
 ## per-act controller is absent, so the keys behave exactly like master with the feature off.
 func toggle_anatomy_hole() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.toggle_hole()
 
 
 ## The `oral` command: request the standing oral pose, or the return edge when it is already
 ## active. The per-mare consent string is passed only when the anatomy service says yes.
 func toggle_anatomy_oral() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.toggle_oral(_pose_service(), _act.display_name, _act.features)
 
 
@@ -1217,29 +896,29 @@ func missionary_anon_body() -> Variant:
 ## Her gaze target in missionary: the authored Anon's face. The game camera is on his standing
 ## player rig, metres off the bed, and aiming there had her looking at empty air.
 func _missionary_gaze_point() -> Vector3:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	return _anatomy_bridge.gaze_point()
 
 
 ## The game's eye modifier still points wherever the standing player rig left it; in missionary the
 ## pupils follow the same gaze target the head solve uses, so the eyes do not sit above his face.
 func _aim_missionary_eyes() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.aim_eyes()
 
 
 func _start_vr_act() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.vr_start()
 
 
 func vr_forward() -> Vector3:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	return _anatomy_bridge.vr_forward()
 
 
 func vr_depth(value: float) -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.vr_depth(value)
 
 
@@ -1260,7 +939,7 @@ func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
 
 
 func anatomy_status(text: String, seconds := 2.0) -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.status(text, seconds)
 
 
@@ -1455,7 +1134,7 @@ func smack() -> void:
 ## Publish or clear the pose session's opaque Anon body handle on the anatomy bridge. The session
 ## owns the body; the bridge only reads it.
 func _set_missionary_anon_handle(body: Variant) -> void:
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.set_missionary_anon(body)
 
 
@@ -1501,7 +1180,7 @@ func _exit_tree() -> void:
 	_act_host.end_tail_tuck()
 	_afterglow.clear_post_act(pony if is_instance_valid(pony) else null)
 	# integration: never leave the anatomy nodes or the per-act controller behind.
-	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.bind(_anatomy_host_cache)
 	_anatomy_bridge.end()
 	_anatomy_bridge.detach()
 	_face.shutdown()

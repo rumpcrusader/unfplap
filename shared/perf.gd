@@ -151,11 +151,16 @@ var show := Callable()
 ## forwarding sink.
 var idle := Callable()
 var idle_note := Callable()
+## The typed host owns the callbacks this probe binds; keeping it here keeps those Callables
+## valid, because a Callable does not hold its RefCounted receiver alive.
+var host: Host = null
 
 
 ## Build one runtime's probe with its host boundary bound once. Missing callables keep it off.
-static func build(host: Host) -> RefCounted:
+static func build(host_in: Host) -> RefCounted:
 	var probe := new()
+	probe.host = host_in
+	var host := host_in
 	probe.enabled = Callable(host, "enabled")
 	probe.active = Callable(host, "active")
 	probe.header = Callable(host, "header")

@@ -217,6 +217,9 @@ ACT_LINE_CAPS = {
     "act/tick.gd": 300,
     "act/phases.gd": 300,
 }
+# `act/build.gd` is the composition root: one typed struct and one construction pass, not a
+# behaviour module. It has no line budget, so it is exempt from ACT_LINE_CAPS rather than capped.
+ACT_NO_BUDGET = {"act/build.gd"}
 RUNTIME_RAW_INPUT = (
     re.compile(r"\bInput\."),
     re.compile(r"\bInputMap\."),
@@ -908,6 +911,24 @@ def check_callable_targets(failure: Failure) -> None:
                 failure.add("%s:%d binds Callable(%s, \"%s\") but %s defines no %s()" % (
                     rel(path), line, receiver, method, rel(script), method))
 
+    # The composition root receives the runtime node as a parameter, so its node callables have no
+    # typed field to resolve against. They name methods on `runtime.gd`; check them there, or a
+    # renamed host method silently returns its fallback forever.
+    builder = ROOT / "act" / "build.gd"
+    runtime_path = ROOT / "runtime.gd"
+    if builder.is_file() and runtime_path.is_file():
+        runtime_funcs = set(re.findall(
+            r"^(?:static\s+)?func\s+(\w+)\(",
+            _code_lines(runtime_path.read_text(encoding="utf-8")), re.MULTILINE))
+        builder_text = _code_lines(builder.read_text(encoding="utf-8"))
+        for match in CALLABLE_TARGET.finditer(builder_text):
+            if match.group(1) != "node":
+                continue
+            if match.group(2) not in runtime_funcs:
+                failure.add(
+                    "act/build.gd:%d binds Callable(node, \"%s\") but runtime.gd defines no %s()" % (
+                        line_of(builder_text, match.start()), match.group(2), match.group(2)))
+
 
 
 def enclosing_function(offsets: list[tuple[int, str]], at: int) -> str:
@@ -1470,6 +1491,8 @@ def check_act_budgets(failure: Failure) -> None:
         return
     files = sorted(rel(path) for path in act_dir.glob("*.gd"))
     for name in files:
+        if name in ACT_NO_BUDGET:
+            continue
         cap = ACT_LINE_CAPS.get(name)
         if cap is None:
             failure.add("%s has no act line budget; add a row to ACT_LINE_CAPS" % name)
@@ -1480,6 +1503,9 @@ def check_act_budgets(failure: Failure) -> None:
     for name, cap in sorted(ACT_LINE_CAPS.items()):
         if name not in files:
             failure.add("the act line budget row %s -> %d is stale" % (name, cap))
+    for name in sorted(ACT_NO_BUDGET):
+        if name not in files:
+            failure.add("the act no-budget row %s is stale" % name)
 
 
 def check_entry_shape(failure: Failure) -> None:

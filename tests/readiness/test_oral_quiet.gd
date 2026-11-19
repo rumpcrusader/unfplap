@@ -276,6 +276,7 @@ func _fixture() -> Dictionary:
 	runtime._reactions = reactions
 	runtime._wings = wings
 	runtime._pose_session = pose
+	pose.facts = runtime._act_facts
 	runtime._audio.node = audio
 	runtime._act_dialogue = dialogue
 	runtime._act_camera = act_camera

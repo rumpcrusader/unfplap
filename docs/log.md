@@ -50,6 +50,7 @@ two switch reads, the act gate and the header counts.
 | Host call | Purpose |
 |---|---|
 | the entry's `_ready()` | binds `debug_read`, `perf_read`, `act_running` and `counts`, then `attach()` |
+| the entry's `_ready()` | `BUILD_STAMP.log_stamp()` after construction: the one build-proof line |
 | `PONIES.act_running()` | the act gate: a live act owns the frame |
 | `PONIES.runtime_count()`, `PONIES.mare_count()` | the header counts: the live runtimes and `WORLD.mares()` |
 | `SETTINGS.debug_mode` / `SETTINGS.debug_perf` | the two switch reads: `Callable(setting, "get_bool")` |
@@ -65,6 +66,13 @@ two switch reads, the act gate and the header counts.
 own `entry_process` chunk after the body, which is what that row measures, so the block's ordering
 and format are unchanged. A chunk noted during a frame lands in the window that frame opened.
 
+## Build stamp
+
+`shared/build_stamp.gd` owns the seven-path mtime scan the entry logs once at construction. Its
+`newest(mtimes)` is the pure max logic; `source_mtime()` scans `PATHS`; `log_stamp()` writes the
+one `entry ready (debug logs …, runtime_mtime=…)` line. A real source file has a non-zero mtime; a
+pack/PCK reports 0. The entry calls `log_stamp()` and keeps no scan of its own.
+
 ## Debug
 
 **Enable debug** is General's last row; **Print perf logs** sits in the same Debug block. With both
@@ -75,6 +83,7 @@ listed in `docs/debug.md`. A suite sets `sink` to read the block text instead of
 
 - `tests/perf/test_log.gd` — the switch gate, the host callable, the block text, one idle window a
   second, the act gate and the panel created lazily under `attach()`.
+- `tests/log/test_build_stamp.gd` — the pure max logic and the source scan.
 - `tests/perf/test_perf_idle.gd` — the aggregator behind the idle window: gate, boundary, per-owner
   aggregation, worst owner, tree block text and reset-on-disable.
 - `tests/test_perf_panel.gd` — the panel's row height, colour targets, caption and clear.

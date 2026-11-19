@@ -34,6 +34,7 @@ restate a contract.
 | `shared/defaults_data.gd` | `docs/settings.md` |
 | `shared/hands_*.gd` | `docs/hands.md` |
 | `shared/log.gd` | `docs/log.md` |
+| `shared/build_stamp.gd` | `docs/log.md` |
 | `shared/perf.gd`, `shared/perf_idle.gd`, `shared/perf_view.gd` | `docs/perf.md` |
 | `shared/pose_catalog.gd` | `docs/poses.md` |
 | `shared/settings_change.gd` | `docs/settings.md` |

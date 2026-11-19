@@ -32,7 +32,7 @@ state and the act values, the start recipe, the one teardown, the view and the i
 |---|---|---|---|
 | Entry | `main.gd` | `../ARCHITECTURE.md` | `tests/entry/` |
 | Per-pony act host | `runtime.gd` | `docs/runtime.md` | `tests/` |
-| Per-pony act modules | `act/build.gd`, `act/session.gd`, `act/settings.gd`, `act/start.gd`, `act/setup.gd`, `act/agreement.gd`, `act/exit.gd`, `act/host.gd`, `act/context.gd`, `act/view.gd`, `act/idle.gd`, `act/consent.gd`, `act/impact.gd` | `docs/runtime.md` | `tests/` |
+| Per-pony act modules | `act/build.gd`, `act/session.gd`, `act/settings.gd`, `act/start.gd`, `act/setup.gd`, `act/agreement.gd`, `act/gate.gd`, `act/exit.gd`, `act/host.gd`, `act/context.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/swap.gd`, `act/phases.gd`, `act/tick.gd`, `act/consent.gd`, `act/impact.gd` | `docs/runtime.md` | `tests/` |
 
 ## Services
 
@@ -169,7 +169,7 @@ checker parses `Uses` and compares it with the preload graph. `Kind` is one of `
 | service | memory | `memory/service.gd` | cue facts and witness pass |
 | shared | preferences | `shared/preferences.gd` | tolerance tier |
 | store | act_history | `shared/act_history.gd` | stored history rows |
-| read model | act_view | `shared/act_facts.gd` | act state for presentation |
+| read model | act_facts | `runtime.act.facts()` | act state for presentation |
 | host | runtime | `bind(SummaryHost)` | clock, idle state, scene callbacks |
 | game | pony_director | `res://world/ai/...` | speak one line |
 ```

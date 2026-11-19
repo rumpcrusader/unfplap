@@ -37,12 +37,12 @@ state. The act's settings snapshot is `act/settings.gd`, the act's read composit
 |---|---|
 | Lifetime | attach, `_ready`, tree parenting, despawn, world close, reparent across a body swap |
 | State machine | the transition bodies and their side effects; `act/session.gd` owns `state`, the one `_set_state()` writer, the timers, the clock and the `tick`/`render` forwards; `act/tick.gd` owns the order of the frame |
-| Session values | `act/session.gd` owns the pose id, source, bed, id/display, event/serial, preferences/profile/prompts and the act bookkeeping; `act/settings.gd` owns the settings snapshot and its read-throughs; the runtime keeps read-through handles (`_id`, `_snapshot`) and delegates `refresh_identity()` |
-| Composition | `_build_systems()`, `_bind_act_frame()` and `_bind_pose_hosts()`, one typed field per system, one bind pass |
+| Session values | `act/session.gd` owns the pose id, source, bed, pony id, event/serial, preferences/profile and the act flags; `act/settings.gd` owns the snapshot. The runtime reads them through `act`. |
+| Composition | `act/build.gd` builds every component, session, host and context once per pony; `runtime.gd` stores the bundle and aliases its handles. |
 | Schedules | `act/tick.gd` the ordered physics and render frames and the one pose fan-out; `act/idle.gd` the idle block; `act/phases.gd` the presentation frame and its write-backs |
 | Ledgers | `act/start.gd` the ordered start, its setup adapters and its partial-start abort, `act/agreement.gd` the scene-only Agreement and act-key rows, `act/exit.gd` the one exit and its cancel/afterglow/restore/stop routes, `act/swap.gd` the body-swap release and resume seams |
-| View | the typed act view composed by `act/view.gd` once per phase |
-| Protocol | the `act` handle: start request/answer, force stop, cancel/afterglow, the input protocol (`act/input.gd`), `live_id`, `act_view`, `prompt_note` |
+| View | the typed act view composed by `act/view.gd` once per phase; `act` exposes the facts object |
+| Protocol | `runtime.act` (the session) and `runtime.gate` (the offer gate); `live_id()` and the body-lifetime ops stay on the node |
 
 The runtime never owns:
 
@@ -74,10 +74,10 @@ IDLE → POSING_IN → ACTIVE → CLIMAX → AFTERGLOW → RESTORE → IDLE
 
 `shared/act_state.gd` is the one typed definition (`ACT_STATE.State`), aliased in the session and the
 runtime as `State`. `act/session.gd` declares `state` and is its one writer, `_set_state(next)`; it
-also refreshes the scene gate's live state. `runtime.state` is a read-only forward until R4. The
-session's transition helpers write the state and arm its timer (`begin_pose_in`, `enter_active`,
-`enter_climax`, `enter_afterglow`, `begin_restore`, `finish_restore`, `enter_idle`); the runtime
-keeps the transition side effects. States change from the ordered tick:
+also refreshes the scene gate's live state. The entry reads `runtime.act.state`; the node has no
+`state` field. The session's transition helpers write the state and arm its timer (`begin_pose_in`,
+`enter_active`, `enter_climax`, `enter_afterglow`, `begin_restore`, `finish_restore`, `enter_idle`);
+the session keeps the transition side effects. States change from the ordered tick:
 
 | From | To | Trigger |
 |---|---|---|
@@ -319,7 +319,7 @@ resumes by itself.
 `act/exit.gd:run(rejoin_cuddle)` is the only exit body. The exit's own routes are its only
 callers, plus `act/consent.gd:stop_with_her()` for a partner stop: `cancel()`, `end_afterglow()`,
 `restore_begin()`, `finish_restore()`, `restore_now()`, `force_stop()` and `stop(reason)`.
-`runtime.force_stop()` is the one-line node delegate `ponies` calls. It gives back, in order: the auto
+`act/session.gd:force_stop()` is the one-line session delegate `ponies` calls. It gives back, in order: the auto
 stroke, the handover, the inventory HUD, kiss forelegs, face-turn rate, eye override, face and
 wings, player lock, camera, stool, `sex_active`, navigator, player look, posture/cuddle, pose,
 audio, HUD and the active runtime. Every step checks the ownership flag it restores, so a failed
@@ -450,49 +450,33 @@ afterglow, restore, suspension and act end.
 
 ## Protocol and public surface
 
-The cross-mod surface is `docs/api.md`. The internal reads the HUD, labs and tests use (`state`,
-`pose_id`, `pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`,
-`thrust_up`) stay callable.
+The cross-mod surface is `docs/api.md`. The node's public surface is fixed by the
+`NODE_SURFACE` allow-list: `act`, `gate`, `pony`, `live_id()`, `attach_to_body()`, `adopt_body()`
+and the engine callbacks. A new public function is a regression; everything else reads the session,
+the gate or the owning service.
 
-- **Start and gate:** `start_verdict`, `scene_only_verdict`, `hotkey_ready`, `start_hotkey`,
-  `start_agreement`, `agreement_offer_ready`, `find_bed_under`, `hint_stool`, `debug_line`,
-  `live_id`. The gate math and the verdict rows live in `scene_gate/service.gd`; the runtime keeps
-  the ordered start ledger.
-- **Stool queries:** `stool_gap_m`, `stool_needed_count`, `stool_case_count` and
-  `stool_state_text`. The applies/required predicates are the per-act handle's
-  (`stool/act.gd`), which `act/session.gd:stool()` binds and `act/session.gd:release_stool()`
-  releases.
-- **View and HUD:** `act_view`, `refresh_view`, `pose_view`, `hud_readouts`, `hud_controls`,
-  `close_hint`, `act_face_rows`, `pose_state_rows`, `face_sit_error`,
-  `reload_pose_asset`.
-- **Input:** `runtime.act.input` (`act/input.gd`) — `look_motion`, `thrust_motion`,
-  `toggle_auto_thrust`, `auto_thrust_wheel`, `auto_panel_input`, `auto_panel_open`, `vr_y_held`,
-  `free_look_active`, `request_pose`, `request_command`, `command`, `cancel`,
-  `request_afterglow`, `end_afterglow`, `smack`, `body_swap_pending`, `auto_active`,
-  `anatomy_hole_ready`, `anatomy_oral_ready` and `climaxes`. The input service reads the session
-  state through the session handle it already resolves; the node exposes none of these.
-- **Presentation:** `present_standing`, `presentation_active`, `presentation_settled`,
-  `clear_presentation`, `hold_handle`, `free_look_active`, `free_look_rotation`,
-  `missionary_anon_body`, `authored_pose_asset`, `missionary_face_point`,
-  `missionary_vulva_point`, `shot_lean_forward`, `rump_anchor`, `force_act_face`,
-  `debug_force_tolerance`, `voice_status_line`, `anatomy_facts`, `anatomy_normal`,
-  `anatomy_opening`, `body_coat_jiggle_target`.
-- **Pose-host write-backs:** `apply_anon_thrust`, `apply_anon_lean`, `apply_anon_align`,
-  `apply_camera_motion` and `perf_note` are the callbacks the presentation controllers and the
-  entry already call.
-- **Body form:** `request_form_change`, `attach_to_body`, `adopt_body`,
-  `bind_body_services`, `refresh_body_services`.
-- **Exit:** `force_stop`, `apply_live_settings`.
+- **Act handle (`runtime.act`):** the `ActSession` owns the state, the timers, the clock, the
+  settings snapshot, the view/facts, the start and exit ledgers, the input protocol, the swap
+  seams, the pose and face reads and the lifecycle delegates (`force_stop`, `request_form_change`,
+  `bind_body_services`, `refresh_body_services`, `apply_live_settings`).
+- **Gate handle (`runtime.gate`):** the per-pony `SceneGate` handle (`act/gate.gd`) owns the scene
+  verdicts, the Agreement start, the hotkey readiness, the stool/rump hints, the standing
+  presentation reads and `debug_line`.
+- **Identity and lifetime:** `live_id()` is the act's stable pony id; `attach_to_body()` and
+  `adopt_body()` are the handover's reparent ops; `pony` is the presented body.
+- **Facts:** `runtime.act.facts()` is the typed act view (`shared/act_facts.gd`) the HUD and the
+  entry read.
 
 `live_id()` is the act's stable pony id, refreshed from the live body; `ponies` matches a dialogue
-prompt note to its one runtime through it. `request_form_change(true_form, shape_id, by_player)`
-is the act-side form request the debug block and the player interaction call. The suspension flag
-is the input protocol's `body_swap_pending()`, true between suspension and resume.
+prompt note to its one runtime through it. `runtime.act.request_form_change(true_form, shape_id,
+by_player)` is the act-side form request the debug block and the player interaction call. The
+suspension flag is the input protocol's `body_swap_pending()`, true between suspension and resume.
 `PONIES.adopt_pending_body(pony)` runs the registry's
 prepare and pending-swap adoption for a body the handover found before its spawn hook.
 
-The pose surface is `pose_view()` and the input protocol's `request_pose(target_id, trigger,
-request)`, `request_command(command_id)` and `command(command_id)`. The session supplies the state
+The pose surface is `runtime.act.pose_view()` and the input protocol's `request_pose(target_id,
+trigger, request)`, `request_command(command_id)` and `command(command_id)`. The session supplies the
+state
 and features; the pose service refuses or starts the edge. `request_command(id)` is the pure allow
 check: `end` is reserved and always allowed, otherwise the id must be in the active pose's control
 profile and the live edge lock must not deny it. `command(id)` runs that check first, then
@@ -506,7 +490,7 @@ by the same snapshot, and `act/session.gd:pose_render_write()` reads that field.
 ## View
 
 `act/view.gd` composes the typed act view (`shared/act_facts.gd`) from the session, the context and
-the host. `runtime.refresh_view()` and `session.refresh_view()` are the same one call: the physics
+the host. `session.refresh_view()` is the one call: the physics
 frame, the render frame, the idle pass and the `apply_camera_motion()` hand-off all call it. It
 runs once per phase: idle before the idle systems, physics after the pose tick and before the
 fan-out, render before the camera work, and the entry's `apply_camera_motion()` hand-off.
@@ -538,20 +522,22 @@ a standing start no longer pulls the Hips bone across the gap.
 `scripts/architecture.py --check` enforces the host shape in addition to the exit, pose-ledger and
 fan-out invariants:
 
-- `state` is declared and written only in `act/session.gd` (`_set_state()`); `runtime.gd` keeps a
-  read-only `state` forward and contains no `state` assignment;
+- `state` is declared and written only in `act/session.gd` (`_set_state()`); `runtime.gd` has no
+  `state` field and contains no `state` assignment;
 - no `Input.`/`InputMap.`/input event/keycode read and no input callback in `runtime.gd`;
 - `SETTINGS.<member>` reads only at the documented snapshot boundaries
   (`act/settings.gd:snapshot_values`, `live_preferences` and the static character-name lookup);
-  the start recipe's own reads moved to `act/start.gd` and the rebuilt pose's config to
+  the start recipe's own reads moved to `act/start.gd` and the swapped pose's config to
   `act/swap.gd` with their owners;
-- the act modules' line ceilings: `act/session.gd` at 400 and every other act module at 300; the
-  composition root `act/build.gd` is exempt because it holds no behaviour;
+- the node's public surface is the lifetime ops (`live_id`, `attach_to_body`, `adopt_body`); the
+  `NODE_SURFACE` allow-list fails a new public function and a stale row;
+- a file over 1,000 lines prints `SMELL large file` and does not fail; size is information, not a
+  hard gate;
 - child nodes only from the act audio owner (the act audio node) and the host's `start_tail_tuck`
   (the pose-scope tail tuck);
 - the one teardown (`act/exit.gd:run()`, called only by the exit's own routes and
-  `act/consent.gd:stop_with_her()`, with `runtime.force_stop()` exactly one line calling
-  `_exit.force_stop()`), the `free_pose()` order and its three exact callers (`act/exit.gd:run`,
+  `act/consent.gd:stop_with_her()`, with `act/session.gd:force_stop()` exactly one line calling
+  `exit.force_stop()`), the `free_pose()` order and its three exact callers (`act/exit.gd:run`,
   `act/start.gd:_build_pose`, `act/swap.gd:release_pose`), the start recipe's order,
   the pose-before-facts write and the fan-out owner order in `act/tick.gd`, the session's two
   frame forwards, and the one `act/swap.gd:resume()`.
@@ -565,8 +551,8 @@ The allow-lists are compared both ways: a new read or node fails, and a stale ro
 
 - `tests/act/test_session.gd` — the one state writer and its scene-gate refresh, the phase timer
   verdicts (`POSING_IN` → `ACTIVE`, `CLIMAX`, `RESTORE`), the clock and act-seconds reset rules, the
-  running-check cadence and the typed host/context no-op seam. The act line ceilings are
-  `scripts/architecture.py`'s (`check_act_budgets`).
+  running-check cadence and the typed host/context no-op seam. Line counts are information: a file
+  over 1,000 lines prints `SMELL large file` and does not fail.
 - `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags, the oral edge's
   consent/feature refusals and its abort through the exit, the standing gap's princess
   entrance shift, and the whole-body fit that rests the shaft at her entrance with a stale Hips

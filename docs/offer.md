@@ -191,6 +191,7 @@ start on a stale answer.
 |---|---|---|---|
 | service | hud | `hud/service.gd` | the prompt row unit, the HUD fallback and the toasts |
 | service | negotiation | `negotiation/service.gd` | the live Agreement offer, the exact match and the start report |
+| service | ponies | `ponies/service.gd` | the live runtime, the act-target rule and the act-running gate |
 | service | poses | `poses/service.gd` | the warmed authored pose assets |
 | service | privacy | `privacy/service.gd` | the fresh sample before a private Agreement auto-starts |
 | service | settings | `settings/service.gd` | the act key's cap label |

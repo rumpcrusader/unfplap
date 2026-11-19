@@ -139,6 +139,11 @@ func setup(privacy_node: PRIVACY = null, negotiation_node: NEGOTIATION = null,
 	add_child(_venue)
 
 
+## Set by the entry: the live eligibility service, rebuilt on every world enter.
+func bind(eligibility_service: ELIGIBILITY) -> void:
+	eligibility = eligibility_service
+
+
 ## The bounded classifier this service owns, or null. The negotiation's adapter makes the one
 ## bounded call on it; no other service imports `initiation/classifier.gd`.
 func classifier_node() -> Node:

@@ -172,6 +172,11 @@ func _exit_tree() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
 
 
+## Set by the entry: the act's debug logger. `HUD.instance` stays the entry's explicit one-liner.
+func bind(log_sink: Callable) -> void:
+	log = log_sink
+
+
 ## The mod's settings, applied once by the entry at construction and on every settings edit through
 ## the change notification: the act-key row's cap and the cached caption mode.
 func apply_settings() -> void:

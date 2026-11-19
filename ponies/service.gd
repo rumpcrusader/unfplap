@@ -255,6 +255,19 @@ static func bind_settings() -> void:
 	CHANGE.on_changed(_listener)
 
 
+## Bind the services one attached body passes through. The entry builds every service first and
+## calls this once at the end of its list, so a body spawned during construction still reads a
+## complete set.
+static func bind(anatomy_service: Node, body_change_service: Node, offer_service: Node,
+		stock_smack_service: Node, eligibility_service: ELIGIBILITY, api_service: Node) -> void:
+	anatomy = anatomy_service
+	body_change = body_change_service
+	offer = offer_service
+	stock_smack = stock_smack_service
+	eligibility = eligibility_service
+	api = api_service
+
+
 ## A settings edit: the pass above, and the act a pending body swap has taken out of the registry.
 static func _on_settings_changed() -> void:
 	apply_live_settings()

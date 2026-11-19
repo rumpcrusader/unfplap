@@ -47,6 +47,11 @@ func _exit_tree() -> void:
 		InputMap.erase_action(ACT_KEYS.ACTION)
 
 
+## Set by the entry: the idle offer the act key hands its press to.
+func bind(offer_node: OFFER) -> void:
+	offer = offer_node
+
+
 ## Rebuild the mod-owned act action from the captured `act_key` keycode and cache the input
 ## shield flag. The game's typing guard stashes every non-`ui_` InputMap action while a text
 ## field has focus, so a real action keeps the act key out of chat without a second focus check

@@ -73,6 +73,17 @@ func _ready() -> void:
 	CHANGE.on_changed(Callable(self, "apply_settings"))
 
 
+## Set by the entry: the services the buttons act through. The anatomy facade stays a plain handle
+## because the placement rule would create a service cycle.
+func bind(body_change_service: BODY_CHANGE_SERVICE, initiation_service: INITIATION,
+		negotiation_service: NEGOTIATION, anatomy_service: Node, pantyhose_service: Node) -> void:
+	body_change = body_change_service
+	initiation = initiation_service
+	negotiation = negotiation_service
+	anatomy = anatomy_service
+	pantyhose = pantyhose_service
+
+
 func _exit_tree() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
 	if DEBUG_ACTIONS.target == self:

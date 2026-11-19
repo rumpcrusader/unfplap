@@ -11,6 +11,8 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
@@ -140,28 +142,11 @@ class FakePrivacy extends PRIVACY:
 		return private
 
 
-## The entry's act-live read.
-class ActState extends RefCounted:
-	var live := false
-
-	func is_live() -> bool:
-		return live
-
-
-## The entry's runtime read over a fixture dictionary.
-class Runtimes extends RefCounted:
-	var by_pony: Dictionary = {}
-
-	func of(pony: Node) -> Node:
-		var runtime: Variant = by_pony.get(pony)
-		return runtime if is_instance_valid(runtime) else null
-
-
-## The entry's act-target rule: the ponies this fixture allows.
-class Targets extends RefCounted:
+## The act-target rule: the ponies this fixture allows.
+class Targets extends ELIGIBILITY:
 	var allowed: Array = []
 
-	func allows(pony: Variant) -> bool:
+	func eligible(pony: Node, _target: Target = Target.ACT) -> bool:
 		return allowed.has(pony)
 
 
@@ -226,12 +211,11 @@ func check_act_key() -> void:
 	var service: OFFER = made["service"]
 	var runtime: FakeRuntime = made["runtime"]
 	var hud: FakeHud = made["hud"]
-	var act: ActState = made["act"]
-	act.live = true
+	PONIES.set_active(runtime)
 	check(not service.try_start(), "a live act takes the act key")
 	check(runtime.hotkey_starts == 0, "a live act starts nothing")
 	check(service.current() == null, "the act key does not scan while an act is live")
-	act.live = false
+	PONIES.clear_active(runtime)
 	check(service.try_start(), "the act key starts the scanned offer")
 	check(runtime.hotkey_starts == 1, "the press runs the one hotkey attempt")
 	check(hud.hides > 0, "a started press clears the hint")
@@ -370,16 +354,15 @@ func check_auto_start() -> void:
 	var pony: FakePony = made["pony"]
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var privacy: FakePrivacy = made["privacy"]
-	var act: ActState = made["act"]
 	var game: FakeGame = made["game"]
 	var menu: FakeMenu = made["menu"]
 
 	# The clock waits for the cadence, and a live act does not advance it.
 	service.tick(OFFER.AGREEMENT_START_S * 0.5)
 	check(runtime.agreement_handles.is_empty(), "the clock waits for the cadence")
-	act.live = true
+	PONIES.set_active(runtime)
 	service.tick(1.0)
-	act.live = false
+	PONIES.clear_active(runtime)
 	check(runtime.agreement_handles.is_empty(), "a live act holds the auto-start")
 	check(float(service.get("_agreement_clock")) < OFFER.AGREEMENT_START_S,
 		"a live act does not advance the clock")
@@ -452,14 +435,13 @@ func _fixture(with_world := true) -> Dictionary:
 	pony.name = "Rarity"
 	root.add_child(pony)
 	var runtime := FakeRuntime.new()
-	runtime.name = "Runtime"
-	root.add_child(runtime)
+	runtime.name = "UnfplapRuntime"
+	pony.add_child(runtime)
 	var negotiation := FakeNegotiation.new()
 	root.add_child(negotiation)
 	var hud := FakeHud.new()
 	root.add_child(hud)
 	var privacy := FakePrivacy.new()
-	var act := ActState.new()
 	var game := FakeGame.new()
 	game.name = "FakeGame"
 	var menu := FakeMenu.new()
@@ -481,23 +463,18 @@ func _fixture(with_world := true) -> Dictionary:
 		world_nodes = [player]
 		WORLD.bind_world(game)
 		WORLD.bind_player(player)
-	var runtimes := Runtimes.new()
-	runtimes.by_pony[pony] = runtime
 	var targets := Targets.new()
 	targets.allowed = [pony]
+	PONIES.eligibility = targets
+	PONIES.stock_smack = null
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.runtime_for = Callable(runtimes, "of")
-	service.act_target = Callable(targets, "allows")
-	service.act_live = Callable(act, "is_live")
-	service.negotiation = negotiation
-	service.privacy = privacy
-	service.hud = hud
+	service.bind(negotiation, privacy, hud)
+	PONIES.offer = service
 	HUD.instance = hud
 	root.add_child(service)
 	return {"service": service, "pony": pony, "runtime": runtime, "game": game, "menu": menu,
-		"negotiation": negotiation, "hud": hud, "privacy": privacy, "act": act,
-		"nodes": world_nodes, "registry": runtimes, "targets": targets}
+		"negotiation": negotiation, "hud": hud, "privacy": privacy, "nodes": world_nodes}
 
 
 func _handle(runtime: Node, pony: Node3D) -> POSE_OFFER:
@@ -528,6 +505,10 @@ func _agreement(pony: Node3D, pose := CATALOG.MISSIONARY, cuddle := false,
 func _free(made: Dictionary) -> void:
 	var service: Node = made["service"]
 	service.on_world_closed()
+	PONIES.stock_smack = null
+	PONIES.clear_active(made["runtime"])
+	PONIES.eligibility = null
+	PONIES.offer = null
 	WORLD.unbind()
 	HUD.instance = null
 	var nodes: Array[Node] = [made["game"], made["negotiation"], made["hud"], made["pony"],

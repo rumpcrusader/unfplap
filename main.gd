@@ -50,22 +50,22 @@ const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 var _services: Array = []
 
 var hud: HUD
-var input
+var input: INPUT
 ## Cross-mod API facade; see docs/api.md.
-var api: Node
+var api: API
 ## Anatomy system facade: per-pony controllers, the player part and tail seating.
-var anatomy: Node
+var anatomy: ANATOMY
 ## Base body-change service: the per-body form store and the source/binding registries. Inert until
 ## `wire()` builds the bindings from the facades above and the providers register with it.
-var body_change: Node
+var body_change: BODY_CHANGE_SERVICE
 ## The Pantyhose & Panties world adapter; inert when that pack is absent.
-var pantyhose: Node
+var pantyhose: PANTYHOSE
 ## The changelings world adapter; inert when that pack is absent.
-var changelings: Node
+var changelings: CHANGELINGS
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
-var stool: Node
+var stool: STOOL
 ## Outside-act stock smack sound layer; see `docs/audio.md`.
-var stock_smack: Node
+var stock_smack: STOCK_SMACK
 var initiation: INITIATION
 var privacy: PRIVACY
 ## The Act Negotiation service: the Anon offer, the Mare exchange, the Agreement, the lock, the
@@ -121,10 +121,6 @@ func _ready() -> void:
 	# one factory, so no other entry member holds a runtime.
 	PONIES.factory = Callable(self, "_new_runtime")
 	PONIES.bind_settings()
-	PONIES.anatomy = anatomy
-	PONIES.offer = offer
-	PONIES.stock_smack = stock_smack
-	PONIES.eligibility = eligibility
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [
@@ -157,8 +153,8 @@ func _ready() -> void:
 
 
 ## The one ordered service list: each line constructs its service and joins it to the tree and to
-## `_services`; the lines under a construction bind the facades that service reads. The order is
-## load-bearing: a consumer is built after the services it reads.
+## `_services`; its `bind()` hands it the facades it reads. The order is load-bearing: a consumer is
+## built after the services it reads, and the static `PONIES` registry binds last.
 func _build_services() -> void:
 	eligibility = _add(ELIGIBILITY.new())
 	memory = _add(MEMORY.new())
@@ -169,55 +165,45 @@ func _build_services() -> void:
 	# move and the one-time key notice, and it is the one sink the rest of the mod reaches
 	# through `HUD.toast()`.
 	hud = _add(HUD.new(), "UnfplapHUD")
-	hud.log = Callable(LOG, "debug")
+	hud.bind(Callable(LOG, "debug"))
 	HUD.instance = hud
 	hud.apply_settings()
 	offer = _add(OFFER.new(), "UnfplapOffer")
-	offer.runtime_for = Callable(PONIES, "runtime_for")
-	offer.act_target = Callable(PONIES, "act_target")
-	offer.act_live = Callable(PONIES, "act_running")
-	offer.negotiation = negotiation
-	offer.privacy = privacy
-	offer.hud = hud
+	offer.bind(negotiation, privacy, hud)
 	offer.apply_settings()
 	# The act key and the seated-player guard exist before the player does; the offer above is
 	# the one service the input policy hands its press to.
 	input = _add(INPUT.new(), "UnfplapInput")
-	input.offer = offer
+	input.bind(offer)
 	# The Proactive service owns the bounded classifier and takes the Negotiation facade: its
 	# adapter, lock, form view and Context. The bridge reads this service back, so it is bound
 	# once both exist.
 	initiation = _add(INITIATION.new(), "UnfplapInitiation")
-	initiation.eligibility = eligibility
+	initiation.bind(eligibility)
 	initiation.setup(privacy, negotiation, offer)
 	negotiation.bind(eligibility, memory, privacy, initiation, offer)
 	anatomy = _add(ANATOMY.new(), "UnfplapAnatomy")
-	anatomy.call("setup")
+	anatomy.setup()
 	body_change = _add(BODY_CHANGE_SERVICE.new(), "UnfplapBodyChange")
-	body_change.call("setup")
-	PONIES.body_change = body_change
+	body_change.setup()
 	pantyhose = _add(PANTYHOSE.new(), "UnfplapPantyhose")
-	pantyhose.call("setup")
+	pantyhose.setup()
 	stool = _add(STOOL.new(), "UnfplapStool")
-	stool.call("setup")
+	stool.setup()
 	STOOL.instance = stool
 	stock_smack = _add(STOCK_SMACK.new(), "UnfplapStockSmack")
-	stock_smack.set("log", Callable(LOG, "debug"))
-	body_change.call("wire", anatomy, pantyhose, stock_smack)
+	stock_smack.log = Callable(LOG, "debug")
+	body_change.wire(anatomy, pantyhose, stock_smack)
 	changelings = _add(CHANGELINGS.new(), "UnfplapChangelings")
-	changelings.call("setup")
-	body_change.call("register_source", changelings)
+	changelings.setup()
+	body_change.register_source(changelings)
 	api = _add(API.new(), "UnfplapAPI")
-	PONIES.api = api
 	# The debug actions run against the services above, so they are built last. They read the live
 	# act through the facades themselves; the entry hands them only the services they act through.
 	debug_actions = _add(DEBUG_ACTIONS.new(), "UnfplapDebugActions")
-	debug_actions.body_change = body_change
-	debug_actions.initiation = initiation
-	debug_actions.negotiation = negotiation
-	debug_actions.anatomy = anatomy
-	debug_actions.pantyhose = pantyhose
+	debug_actions.bind(body_change, initiation, negotiation, anatomy, pantyhose)
 	debug_actions.sync_skeleton_overlay()
+	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, api)
 
 
 ## Join one service to the tree and to the ordered list. A RefCounted service only joins the list:

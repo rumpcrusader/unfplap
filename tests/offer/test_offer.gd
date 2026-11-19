@@ -14,6 +14,8 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
 var failures := 0
 var checks := 0
@@ -105,20 +107,11 @@ class FakeHud extends Node:
 		hides += 1
 
 
-## The entry's runtime read over a fixture dictionary.
-class Runtimes extends RefCounted:
-	var by_pony: Dictionary = {}
-
-	func of(pony: Node) -> Node:
-		var runtime: Variant = by_pony.get(pony)
-		return runtime if is_instance_valid(runtime) else null
-
-
-## The entry's act-target rule: the ponies this fixture allows.
-class Targets extends RefCounted:
+## The act-target rule: the ponies this fixture allows.
+class Targets extends ELIGIBILITY:
 	var allowed: Array = []
 
-	func allows(pony: Variant) -> bool:
+	func eligible(pony: Node, _target: Target = Target.ACT) -> bool:
 		return allowed.has(pony)
 
 
@@ -368,16 +361,20 @@ func _fixture(with_row := true) -> Dictionary:
 	# Her backward axis faces away from Anon, so he is outside her rear fan.
 	outside.basis = Basis(Vector3.UP, PI)
 	game.mares = [near, far, stallion, outside]
-	var runtimes := Runtimes.new()
 	var targets := Targets.new()
 	targets.allowed = [near, far, outside]
+	PONIES.eligibility = targets
+	PONIES.stock_smack = null
 	var runtime_nodes: Array[Node] = []
+	var near_runtime: FakeRuntime = null
 	for mare: FakeMare in [near, far, stallion, outside]:
 		var runtime := FakeRuntime.new()
-		runtime.name = "Runtime"
+		runtime.name = "UnfplapRuntime"
 		runtime.rump = mare.global_position
-		runtimes.by_pony[mare] = runtime
+		mare.add_child(runtime)
 		runtime_nodes.append(runtime)
+		if mare == near:
+			near_runtime = runtime
 	var holder: Control = null
 	var row: HBoxContainer = null
 	if with_row:
@@ -393,23 +390,19 @@ func _fixture(with_row := true) -> Dictionary:
 	var negotiation := FakeNegotiation.new()
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.runtime_for = Callable(runtimes, "of")
-	service.act_target = Callable(targets, "allows")
-	service.negotiation = negotiation
-	service.hud = hud
+	service.bind(negotiation, null, hud)
+	PONIES.offer = service
 	HUD.instance = hud
 	root.add_child(game)
 	root.add_child(hud)
 	root.add_child(negotiation)
 	root.add_child(service)
-	for runtime: Node in runtime_nodes:
-		root.add_child(runtime)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	return {"service": service, "game": game, "player": player, "hud": hud,
 		"negotiation": negotiation, "near": near, "far": far, "stallion": stallion,
-		"near_runtime": runtimes.by_pony[near], "row": row, "holder": holder,
-		"runtimes": runtime_nodes, "registry": runtimes, "targets": targets}
+		"near_runtime": near_runtime, "row": row, "holder": holder,
+		"runtimes": runtime_nodes}
 
 
 func _mare(mare_name: String, at: Vector3) -> FakeMare:
@@ -423,13 +416,19 @@ func _mare(mare_name: String, at: Vector3) -> FakeMare:
 func _free(made: Dictionary) -> void:
 	var service: Node = made["service"]
 	service.on_world_closed()
+	PONIES.stock_smack = null
+	PONIES.clear_active(made["near_runtime"])
+	PONIES.eligibility = null
+	PONIES.offer = null
 	WORLD.unbind()
 	HUD.instance = null
 	var nodes: Array[Node] = [made["negotiation"], made["hud"], made["player"], made["game"],
 		made["far"], made["stallion"], made["near"]]
-	nodes.append_array(made["runtimes"])
 	for node: Node in nodes:
-		root.remove_child(node)
+		if not is_instance_valid(node):
+			continue
+		if node.get_parent() != null:
+			node.get_parent().remove_child(node)
 		node.free()
 	root.remove_child(service)
 	service.free()

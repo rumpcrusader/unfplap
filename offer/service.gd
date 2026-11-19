@@ -5,25 +5,22 @@ extends Node
 ## Import: offer/service.gd only
 ##
 ##   offer = OFFER.new()
-##   offer.runtime_for = Callable(PONIES, "runtime_for")
-##   offer.act_target = Callable(PONIES, "act_target")
-##   offer.act_live = Callable(PONIES, "act_running")
-##   offer.negotiation = negotiation
-##   offer.privacy = privacy
+##   offer.bind(negotiation, privacy, hud)
 ##   add_child(offer)
 ##
 ## The idle act offer: the one-second scene scan, the standing gate behind it, the typed offer the
 ## act key would start, the footstool block and the "Make love" hint beside the game's prompt row.
 ## It also owns the act start that follows a scan: the act key's press, the hotkey attempt, the
-## live Agreement start and the Agreement's own auto-start. Every scene read is `WORLD`; the
-## pony registry, the act-target rule and the live act reach this service as the callables the
-## entry binds, so it never preloads the runtime or the registry.
+## live Agreement start and the Agreement's own auto-start. Every scene read is `WORLD`; the pony
+## registry, the act-target rule and the live act are the preloaded `PONIES` facade, so this
+## service never preloads the runtime.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
@@ -56,19 +53,14 @@ const AGREEMENT_START_S := 0.25
 const AGREEMENT_WAIT := 0
 const AGREEMENT_STARTED := 1
 
-## Set by the entry: (Node pony) -> its live runtime, or null.
-var runtime_for := Callable()
-## Set by the entry: (Variant pony) -> bool, the act-target capability.
-var act_target := Callable()
-## Set by the entry: () -> bool, true while an act owns the frame.
-var act_live := Callable()
-## Set by the entry: the Negotiation service, whose live Agreement is offered before the scan. A
-## plain handle because this side only calls its public reads, and `agreement_offer()` keeps the
-## typed `AGREEMENT.Handle` contract.
+## Set by the entry's `bind()`: the Negotiation service, whose live Agreement is offered before the
+## scan. A plain handle because this side only calls its public reads, and `agreement_offer()`
+## keeps the typed `AGREEMENT.Handle` contract.
 var negotiation: Node = null
-## Set by the entry: the privacy provider, resampled before a private Agreement auto-starts.
+## Set by the entry's `bind()`: the privacy provider, resampled before a private Agreement
+## auto-starts.
 var privacy: PRIVACY = null
-## Set by the entry: the HUD, once the player rig arrives.
+## Set by the entry's `bind()`: the HUD, once the player rig arrives.
 var hud: Node = null
 
 ## The idle scan's playable offer and its blocked variant. Both are typed `PoseOffer` handles;
@@ -101,6 +93,14 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
+
+
+## Set by the entry: the Negotiation and privacy facades this offer reads and the HUD its hint
+## falls back to. The registry and the act reads are the preloaded `PONIES` facade.
+func bind(negotiation_node: Node, privacy_node: PRIVACY, hud_node: Node) -> void:
+	negotiation = negotiation_node
+	privacy = privacy_node
+	hud = hud_node
 
 
 ## One idle frame: the scan cadence, the hint that follows it and the Agreement auto-start clock.
@@ -156,7 +156,7 @@ func hide_hint() -> void:
 ## The act key's one start entry. The act key is the hotkey: it always accepts, never bucks or
 ## refuses, and a missing context pose is no attempt. The tolerance stop owns the refusal path.
 func try_start() -> bool:
-	if _act_live():
+	if PONIES.act_running():
 		return false
 	scan()
 	if _offer == null:
@@ -249,7 +249,7 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 ## loose cursor holds it. A private Agreement takes a fresh privacy sample; the exact hotkey match
 ## does not, because a live Agreement's own visibility wins for that press.
 func _tick_agreement_auto_start(delta: float) -> void:
-	if _act_live() or not is_instance_valid(negotiation):
+	if PONIES.act_running() or not is_instance_valid(negotiation):
 		return
 	# The clock runs before the handle read so the common frame pays one arithmetic step: a
 	# handle that appears between polls is consumed on the next one, 0.25 s later at most.
@@ -266,7 +266,7 @@ func _tick_agreement_auto_start(delta: float) -> void:
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	var pony: Variant = handle.pony
-	var runtime: Node = _runtime_for(pony) if is_instance_valid(pony) else null
+	var runtime: Node = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
 	if not is_instance_valid(runtime) or not runtime.has_method("agreement_offer_ready"):
 		return
 	var typed: POSE_OFFER = agreement_offer(handle)
@@ -380,7 +380,7 @@ func scan() -> void:
 	if not pony_form and is_instance_valid(WORLD.player) and WORLD.player.get("seat") != null:
 		var lying: Node = _bedside_pony(view)
 		if is_instance_valid(lying):
-			var runtime: Node = _runtime_for(lying)
+			var runtime: Node = PONIES.runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
 				if bed != null and bool(runtime.call("hotkey_ready", CATALOG.MISSIONARY, "bed_side", bed)):
@@ -392,7 +392,7 @@ func scan() -> void:
 	if pony_form:
 		var lying: Node = _nearest_lying(view)
 		if is_instance_valid(lying):
-			var runtime: Node = _runtime_for(lying)
+			var runtime: Node = PONIES.runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = runtime.find_bed_under()
 				if bed != null and bool(runtime.call("hotkey_ready", CATALOG.MISSIONARY, "already_lying", bed)):
@@ -408,7 +408,7 @@ func scan() -> void:
 	if timed:
 		LOG.note("offer_cone", Time.get_ticks_usec() - cone_started)
 	if is_instance_valid(standing):
-		var runtime: Node = _runtime_for(standing)
+		var runtime: Node = PONIES.runtime_for(standing)
 		if is_instance_valid(runtime):
 			var gate_started := Time.get_ticks_usec() if timed else 0
 			var ready := _standing_ready(standing, runtime)
@@ -437,26 +437,6 @@ func _hint_text() -> String:
 	_last_offer_key = ""
 	_last_blocked_key = ""
 	return ""
-
-
-## A pony's live runtime, through the bound read.
-func _runtime_for(pony: Node) -> Node:
-	if not runtime_for.is_valid() or not is_instance_valid(pony):
-		return null
-	var runtime: Variant = runtime_for.call(pony)
-	return runtime if is_instance_valid(runtime) else null
-
-
-## The act-target capability, through the bound read.
-func _act_target(pony: Variant) -> bool:
-	if not act_target.is_valid() or not is_instance_valid(pony):
-		return false
-	return bool(act_target.call(pony))
-
-
-## True while an act owns the frame, through the bound read. An unbound read means no act.
-func _act_live() -> bool:
-	return act_live.is_valid() and bool(act_live.call())
 
 
 ## The standing gate, with its verdict reused while the same mare stays the cone target. The full
@@ -517,7 +497,7 @@ func _rump_cone_target(view: Camera3D) -> Node:
 			continue
 		if str(actor.posture_status().get("requested", "")) != "stand":
 			continue
-		var runtime: Node = _runtime_for(actor)
+		var runtime: Node = PONIES.runtime_for(actor)
 		if not is_instance_valid(runtime):
 			continue
 		var anchor: Variant = runtime.call("rump_anchor")
@@ -532,7 +512,7 @@ func _rump_cone_target(view: Camera3D) -> Node:
 		var distance := flat.length()
 		if distance > RUMP_CONE.REACH_M or distance >= best_distance:
 			continue
-		if not _act_target(actor):
+		if not PONIES.act_target(actor):
 			continue
 		best_distance = distance
 		best = actor
@@ -659,7 +639,7 @@ func agreement_offer(handle: NEGOTIATION.AGREEMENT.Handle) -> POSE_OFFER:
 	if handle == null:
 		return null
 	var pony: Variant = handle.pony
-	var runtime: Node = _runtime_for(pony) if is_instance_valid(pony) else null
+	var runtime: Node = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
 	if not is_instance_valid(runtime) or not runtime.has_method("agreement_offer_ready"):
 		return null
 	if not bool(runtime.call("agreement_offer_ready", handle)):
@@ -701,7 +681,7 @@ func _bedside_pony(_view: Camera3D) -> Node:
 			var couch: Variant = seat.get_meta("couch")
 			if is_instance_valid(couch) and couch.has_method("partner"):
 				var partner: Variant = couch.call("partner", seat)
-				if partner is Node and is_instance_valid(partner) and _act_target(partner):
+				if partner is Node and is_instance_valid(partner) and PONIES.act_target(partner):
 					return partner
 	return null
 
@@ -718,7 +698,7 @@ func _nearest_lying(view: Camera3D) -> Node:
 		var actor: Node3D = node as Node3D
 		if actor == null or not actor.has_method("posture_status"):
 			continue
-		if not _act_target(actor):
+		if not PONIES.act_target(actor):
 			continue
 		var status: Dictionary = actor.posture_status()
 		if str(status.get("requested", "")) != "lie_down":

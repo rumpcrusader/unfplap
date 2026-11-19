@@ -1,0 +1,2082 @@
+#!/usr/bin/env python3
+"""gd-lsp-mcp — MCP tools for exact GDScript navigation through Godot's own language server.
+
+The GDScript knowledge stays where it belongs: in `godot --headless --editor --lsp-port N`.
+This file is a supervisor (one headless editor per project root, reused across sessions), an
+LSP client (fresh buffers before every query), and a protocol relay (MCP over stdio; and an
+LSP-over-stdio bridge for editors that only speak stdio).
+
+Modes:
+  gd-lsp-mcp                 MCP server on stdin/stdout (what OpenCode starts)
+  gd-lsp-mcp --self-test     end-to-end check against a throwaway project in /tmp
+  gd-lsp-mcp --probe TOOL '{"path": ...}'
+                             one-shot tool call, for iterating without an editor
+  gd-lsp-mcp --stdio-relay   LSP stdio <-> TCP bridge, reusing the same daemon
+
+State and logs live in $XDG_RUNTIME_DIR/gd-lsp (mode 0700): <hash>.json is the record of a
+running daemon, <hash>.log its output, <hash>.lock serialises booting.
+"""
+
+import fcntl
+import hashlib
+import json
+import os
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import traceback
+import urllib.parse
+
+VERSION = "1.0.0"
+SERVER_NAME = "gd-lsp-mcp"
+
+# Generous enough for a cold editor boot and a cold workspace load, which happen once per
+# project per machine boot; warm calls are 5-300 ms.
+BOOT_READY_TIMEOUT = 240.0
+INIT_TIMEOUT = 300.0
+REQUEST_TIMEOUT = 10.0
+DIAG_WAIT = 2.5
+MAX_OPEN_DOCUMENTS = 200
+SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
+
+MOD_FILTER = "mods/unfplap"  # the default scope of `gd_diagnostics` with no path
+
+
+# --------------------------------------------------------------------------------------
+# logging
+
+
+_LOG_LOCK = threading.Lock()
+_LOG_PATH = None
+
+
+def runtime_dir():
+    base = os.environ.get("XDG_RUNTIME_DIR") or "/tmp/gd-lsp-%d" % os.getuid()
+    path = os.path.join(base, "gd-lsp")
+    try:
+        os.makedirs(path, mode=0o700, exist_ok=True)
+        os.chmod(path, 0o700)
+    except OSError:
+        path = os.path.join(tempfile.gettempdir(), "gd-lsp-%d" % os.getuid())
+        os.makedirs(path, mode=0o700, exist_ok=True)
+    return path
+
+
+def log_path():
+    global _LOG_PATH
+    if _LOG_PATH is None:
+        _LOG_PATH = os.path.join(runtime_dir(), "mcp.log")
+    return _LOG_PATH
+
+
+def log(msg):
+    line = "%s [%d] %s\n" % (time.strftime("%H:%M:%S"), os.getpid(), msg)
+    try:
+        with _LOG_LOCK:
+            with open(log_path(), "a", encoding="utf-8") as f:
+                f.write(line)
+    except OSError:
+        pass
+
+
+def _trim_log():
+    try:
+        if os.path.getsize(log_path()) > 2 * 1024 * 1024:
+            os.replace(log_path(), log_path() + ".1")
+    except OSError:
+        pass
+
+
+# --------------------------------------------------------------------------------------
+# errors
+
+
+class GdlspError(Exception):
+    """Base error; the message is shown to the agent."""
+
+
+class ToolError(GdlspError):
+    """Bad arguments or a missing file — never retried."""
+
+
+class TransportError(GdlspError):
+    """Dead socket, timeout, daemon gone — retried once, then reported."""
+
+
+class ServerError(GdlspError):
+    """The language server returned a JSON-RPC error for a well-formed request."""
+
+
+# --------------------------------------------------------------------------------------
+# paths
+
+
+_ROOT_CACHE = {}
+
+
+def discover_root(start):
+    """Nearest ancestor holding project.godot; `start` may be a file or a directory."""
+    start = os.path.abspath(start)
+    if start in _ROOT_CACHE:
+        return _ROOT_CACHE[start]
+    path = start if os.path.isdir(start) else os.path.dirname(start)
+    seen = []
+    root = None
+    while True:
+        if path in _ROOT_CACHE:
+            root = _ROOT_CACHE[path]
+            break
+        seen.append(path)
+        if os.path.isfile(os.path.join(path, "project.godot")):
+            root = path
+            break
+        parent = os.path.dirname(path)
+        if parent == path:
+            break
+        path = parent
+    for p in seen:
+        _ROOT_CACHE[p] = root
+    _ROOT_CACHE[start] = root
+    return root
+
+
+def path_to_uri(path):
+    return "file://" + urllib.parse.quote(os.path.abspath(path), safe="/")
+
+
+def uri_to_path(uri):
+    parsed = urllib.parse.urlparse(uri)
+    return urllib.parse.unquote(parsed.path)
+
+
+def read_text(path):
+    with open(path, "rb") as f:
+        return f.read().decode("utf-8", "replace")
+
+
+def rel_path(path, root):
+    path = os.path.abspath(path)
+    root = os.path.abspath(root)
+    if path == root:
+        return "."
+    if path.startswith(root + os.sep):
+        return path[len(root) + 1:]
+    return path
+
+
+def resolve_file(path):
+    """Accept absolute paths and paths relative to cwd or to the game project root."""
+    if not path:
+        raise ToolError("pass a path")
+    path = os.path.expanduser(str(path))
+    if os.path.isabs(path):
+        return path
+    candidate = os.path.join(os.getcwd(), path)
+    if os.path.exists(candidate):
+        return os.path.abspath(candidate)
+    root = discover_root(os.getcwd())
+    if root:
+        candidate = os.path.join(root, path)
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    return os.path.abspath(os.path.join(os.getcwd(), path))
+
+
+def process_rss(pid):
+    try:
+        with open("/proc/%d/status" % pid, encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) * 1024
+    except OSError:
+        return 0
+    return 0
+
+
+def human_bytes(n):
+    if n <= 0:
+        return "?"
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return "%.1f %s" % (n, unit) if unit != "B" else "%d B" % n
+        n /= 1024.0
+    return "%d B" % n
+
+
+def human_age(seconds):
+    seconds = int(max(0, seconds))
+    if seconds < 90:
+        return "%ds" % seconds
+    if seconds < 5400:
+        return "%dm %ds" % (seconds // 60, seconds % 60)
+    return "%dh %dm" % (seconds // 3600, (seconds % 3600) // 60)
+
+
+def process_alive(pid):
+    if pid <= 0:
+        return False
+    try:
+        with open("/proc/%d/stat" % pid, encoding="utf-8", errors="replace") as f:
+            stat = f.read()
+    except OSError:
+        return False
+    try:
+        state = stat[stat.rindex(")") + 2]
+    except (ValueError, IndexError):
+        return True
+    return state != "Z"  # a zombie we spawned is gone for our purposes
+
+
+def pid_is_our_daemon(pid, root=None):
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            cmdline = f.read().decode("utf-8", "replace")
+    except OSError:
+        return False
+    if "--lsp-port" not in cmdline or "godot" not in cmdline:
+        return False
+    if root is not None:
+        # A recorded pid can be reused by another project's daemon; only ever stop the one
+        # whose --path is this project.
+        return os.path.realpath(root) in cmdline
+    return True
+
+
+def godot_binary():
+    override = os.environ.get("GDLSP_GODOT")
+    if override:
+        return override
+    found = shutil.which("godot")
+    if not found:
+        raise GdlspError(
+            "the `godot` binary was not found on PATH; set GDLSP_GODOT to it"
+        )
+    return found
+
+
+def free_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+    finally:
+        s.close()
+
+
+def port_open(port, timeout=0.6):
+    try:
+        with socket.create_connection(("127.0.0.1", int(port)), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+# --------------------------------------------------------------------------------------
+# LSP framing
+
+
+def write_frame(sock, message):
+    body = json.dumps(message).encode("utf-8")
+    sock.sendall(b"Content-Length: %d\r\n\r\n" % len(body) + body)
+
+
+def read_frame(stream):
+    """Read one Content-Length framed message; None on a clean EOF."""
+    headers = {}
+    while True:
+        line = stream.readline()
+        if not line:
+            return None
+        line = line.strip()
+        if not line:
+            break
+        if b":" in line:
+            key, value = line.split(b":", 1)
+            headers[key.strip().lower()] = value.strip()
+    length = int(headers.get(b"content-length", b"0") or 0)
+    if length <= 0:
+        return None
+    body = stream.read(length)
+    if not body or len(body) < length:
+        return None
+    return json.loads(body.decode("utf-8", "replace"))
+
+
+def write_frame_stream(stream, message):
+    body = json.dumps(message).encode("utf-8")
+    stream.write(b"Content-Length: %d\r\n\r\n" % len(body) + body)
+    stream.flush()
+
+
+# --------------------------------------------------------------------------------------
+# LSP client (one connection to one daemon)
+
+
+class LspClient:
+    """A single LSP connection. Requests are serialised by the caller; the reader thread
+    dispatches responses by id so batched requests overlap their round trips."""
+
+    def __init__(self, root, port):
+        self.root = root
+        self.port = port
+        self.sock = socket.create_connection(("127.0.0.1", int(port)), timeout=10.0)
+        self.sock.settimeout(None)
+        self.stream = self.sock.makefile("rb")
+        self.write_lock = threading.Lock()
+        self.state_lock = threading.Lock()
+        self.pending = {}
+        self.next_id = 0
+        self.documents = {}  # uri -> [version, digest]
+        self.document_order = []
+        self.diagnostics = {}  # path -> (seq, [diagnostic])
+        self.diag_seq = 0
+        self.closed = False
+        self.reader = threading.Thread(target=self._read_loop, daemon=True)
+        self.reader.start()
+
+    # -- transport ------------------------------------------------------------------
+
+    def alive(self):
+        return not self.closed and self.reader.is_alive()
+
+    def close(self):
+        self.closed = True
+        # Only the socket is closed: closing the buffered reader under a thread blocked in
+        # readline() would deadlock on its internal lock. Shutting the socket down wakes that
+        # thread, which then sees EOF and exits.
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
+    def send(self, message):
+        with self.write_lock:
+            if self.closed:
+                raise TransportError("the language server connection is closed")
+            try:
+                write_frame(self.sock, message)
+            except OSError as exc:
+                self.closed = True
+                raise TransportError("writing to the language server failed: %s" % exc)
+
+    def _read_loop(self):
+        while not self.closed:
+            try:
+                message = read_frame(self.stream)
+            except (OSError, ValueError):
+                break
+            if message is None:
+                break
+            try:
+                self._dispatch(message)
+            except Exception:  # a malformed notification must never kill the reader
+                log("dispatch failed: %s" % traceback.format_exc())
+        self.closed = True
+        with self.state_lock:
+            pending = list(self.pending.values())
+            self.pending.clear()
+        for entry in pending:
+            entry[1] = TransportError("the language server connection dropped")
+            entry[0].set()
+
+    def _dispatch(self, message):
+        method = message.get("method")
+        if method is None:
+            request_id = message.get("id")
+            with self.state_lock:
+                entry = self.pending.pop(request_id, None)
+            if entry is not None:
+                if "error" in message:
+                    entry[1] = ServerError(
+                        "%s: %s" % (message["error"].get("code"), message["error"].get("message"))
+                    )
+                else:
+                    entry[1] = message.get("result")
+                entry[0].set()
+            return
+        if "id" in message:
+            # server -> client request: answer "nothing" so the server never blocks on us
+            try:
+                self.send({"jsonrpc": "2.0", "id": message["id"], "result": None})
+            except TransportError:
+                pass
+            return
+        if method == "textDocument/publishDiagnostics":
+            params = message.get("params") or {}
+            path = uri_to_path(params.get("uri") or "")
+            with self.state_lock:
+                self.diag_seq += 1
+                self.diagnostics[path] = (self.diag_seq, params.get("diagnostics") or [])
+            return
+        if method in ("window/logMessage", "window/showMessage"):
+            params = message.get("params") or {}
+            log("godot %s: %s" % (method, str(params.get("message"))[:400]))
+            return
+        if method == "gdscript/capabilities":
+            return
+        log("ignored notification %s" % method)
+
+    # -- requests -------------------------------------------------------------------
+
+    def request_async(self, method, params):
+        with self.state_lock:
+            self.next_id += 1
+            request_id = self.next_id
+            entry = [threading.Event(), None]
+            self.pending[request_id] = entry
+        try:
+            self.send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params})
+        except TransportError:
+            with self.state_lock:
+                self.pending.pop(request_id, None)
+            raise
+        return request_id, entry
+
+    def wait(self, request_id, entry, timeout=REQUEST_TIMEOUT):
+        if not entry[0].wait(timeout):
+            with self.state_lock:
+                self.pending.pop(request_id, None)
+            raise TransportError("the language server did not answer within %.0fs" % timeout)
+        if isinstance(entry[1], BaseException):
+            raise entry[1]
+        return entry[1]
+
+    def request(self, method, params, timeout=REQUEST_TIMEOUT):
+        request_id, entry = self.request_async(method, params)
+        return self.wait(request_id, entry, timeout)
+
+    def notify(self, method, params):
+        self.send({"jsonrpc": "2.0", "method": method, "params": params})
+
+    def initialize(self):
+        result = self.request(
+            "initialize",
+            {
+                "processId": None,
+                "clientInfo": {"name": SERVER_NAME, "version": VERSION},
+                "rootPath": self.root,
+                "rootUri": path_to_uri(self.root),
+                "capabilities": {
+                    "textDocument": {
+                        "documentSymbol": {"hierarchicalDocumentSymbolSupport": True},
+                        "hover": {"contentFormat": ["markdown", "plaintext"]},
+                        "definition": {"linkSupport": False},
+                    },
+                    "workspace": {"workspaceFolders": False},
+                },
+            },
+            timeout=INIT_TIMEOUT,
+        )
+        self.notify("initialized", {})
+        return result or {}
+
+    # -- documents ------------------------------------------------------------------
+
+    def sync_document(self, path):
+        path = os.path.abspath(path)
+        if not os.path.isfile(path):
+            raise ToolError("no such file: %s" % path)
+        text = read_text(path)
+        uri = path_to_uri(path)
+        digest = hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()
+        with self.state_lock:
+            known = self.documents.get(uri)
+            if known is None:
+                send_open, changed, version = True, False, 1
+                self.documents[uri] = [version, digest]
+                self.document_order.append(uri)
+            else:
+                send_open = False
+                version = known[0] + 1
+                changed = known[1] != digest
+                if changed:
+                    known[0] = version
+                    known[1] = digest
+                try:
+                    self.document_order.remove(uri)
+                except ValueError:
+                    pass
+                self.document_order.append(uri)
+            evicted = []
+            while len(self.document_order) > MAX_OPEN_DOCUMENTS:
+                old = self.document_order.pop(0)
+                self.documents.pop(old, None)
+                evicted.append(old)
+        for old in evicted:
+            try:
+                self.notify("textDocument/didClose", {"textDocument": {"uri": old}})
+            except TransportError:
+                pass
+        if send_open:
+            self.notify(
+                "textDocument/didOpen",
+                {
+                    "textDocument": {
+                        "uri": uri,
+                        "languageId": "gdscript",
+                        "version": version,
+                        "text": text,
+                    }
+                },
+            )
+        elif changed:
+            self.notify(
+                "textDocument/didChange",
+                {"textDocument": {"uri": uri, "version": version}, "contentChanges": [{"text": text}]},
+            )
+        return uri, "open" if send_open else ("change" if changed else None)
+
+    def document_count(self):
+        with self.state_lock:
+            return len(self.documents)
+
+    def diagnostic_snapshot(self):
+        with self.state_lock:
+            return self.diag_seq
+
+    def wait_for_diagnostics(self, path, since, timeout=DIAG_WAIT, quiet=0.15):
+        """(diagnostics, fresh): fresh means a publish arrived after `since`.
+
+        The server republishes whole scripts while it reloads them, so a publish older than
+        the change being asked about can land first; wait for the stream to go quiet rather
+        than for the first publish."""
+        path = os.path.abspath(path)
+        deadline = time.time() + timeout
+        best = None
+        last_seq = None
+        quiet_until = None
+        while time.time() < deadline:
+            with self.state_lock:
+                entry = self.diagnostics.get(path)
+            if entry is not None and entry[0] > since:
+                if entry[0] != last_seq:
+                    last_seq = entry[0]
+                    best = entry[1]
+                    quiet_until = time.time() + quiet
+            if quiet_until is not None and time.time() >= quiet_until:
+                return best, True
+            time.sleep(0.01)
+        if best is not None:
+            return best, True
+        with self.state_lock:
+            entry = self.diagnostics.get(path)
+        return (entry[1] if entry is not None else None), False
+
+    def diagnostic_entry(self, path):
+        with self.state_lock:
+            return self.diagnostics.get(os.path.abspath(path))
+
+    def all_diagnostics(self):
+        with self.state_lock:
+            return dict(self.diagnostics)
+
+
+# --------------------------------------------------------------------------------------
+# project supervisor (one daemon per project root)
+
+
+class Project:
+    def __init__(self, root):
+        self.root = os.path.realpath(root)
+        digest = hashlib.sha1(self.root.encode("utf-8")).hexdigest()[:12]
+        self.hash = digest
+        base = runtime_dir()
+        self.state_path = os.path.join(base, digest + ".json")
+        self.log_path = os.path.join(base, digest + ".log")
+        self.lock_path = os.path.join(base, digest + ".lock")
+        self.lock = threading.RLock()
+        self.client = None
+        self.proc = None
+
+    # -- state file -----------------------------------------------------------------
+
+    def read_state(self):
+        try:
+            with open(self.state_path, encoding="utf-8") as f:
+                state = json.load(f)
+        except (OSError, ValueError):
+            return None
+        if not isinstance(state, dict) or not state.get("port"):
+            return None
+        return state
+
+    def write_state(self, state):
+        tmp = self.state_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=1, sort_keys=True)
+        os.replace(tmp, self.state_path)
+
+    def clear_state(self):
+        try:
+            os.unlink(self.state_path)
+        except OSError:
+            pass
+
+    def state_or_none(self):
+        """The running daemon recorded on disk, if it is still the one we started."""
+        state = self.read_state()
+        if state and process_alive(int(state.get("pid") or 0)) and port_open(state["port"]):
+            return state
+        return None
+
+    # -- daemon ---------------------------------------------------------------------
+
+    def _reap(self, pid):
+        proc = self.proc
+        if proc is not None and proc.pid == pid:
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass
+            self.proc = None
+
+    def _stop_pid(self, pid, grace=5.0):
+        if not pid or not pid_is_our_daemon(pid, self.root):
+            return False
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            return False
+        deadline = time.time() + grace
+        while time.time() < deadline:
+            if not process_alive(pid):
+                self._reap(pid)
+                return True
+            time.sleep(0.05)
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+        deadline = time.time() + 3.0
+        while time.time() < deadline:
+            if not process_alive(pid):
+                self._reap(pid)
+                return True
+            time.sleep(0.05)
+        self._reap(pid)
+        return not process_alive(pid)
+
+    def _spawn(self, port):
+        binary = godot_binary()
+        try:
+            if os.path.getsize(self.log_path) > 5 * 1024 * 1024:
+                os.replace(self.log_path, self.log_path + ".1")
+        except OSError:
+            pass
+        logfile = open(self.log_path, "ab")
+        try:
+            logfile.write(
+                b"\n=== gd-lsp-mcp: booting %s --path %s --lsp-port %d ===\n"
+                % (binary.encode(), self.root.encode(), port)
+            )
+            logfile.flush()
+            proc = subprocess.Popen(
+                [binary, "--headless", "--editor", "--lsp-port", str(port), "--path", self.root],
+                stdin=subprocess.DEVNULL,
+                stdout=logfile,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                cwd=self.root,
+                close_fds=True,
+            )
+        finally:
+            logfile.close()
+        return proc
+
+    def _wait_ready(self, proc, port, timeout=BOOT_READY_TIMEOUT):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                return False
+            if port_open(port, timeout=0.3):
+                return True
+            time.sleep(0.2)
+        return False
+
+    def _log_tail(self, lines=12):
+        try:
+            with open(self.log_path, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                size = f.tell()
+                f.seek(max(0, size - 4000))
+                text = f.read().decode("utf-8", "replace")
+        except OSError:
+            return ""
+        stripped = [l for l in text.splitlines() if l.strip()]
+        return "\n".join(stripped[-lines:])
+
+    def daemon(self):
+        """Return the state dict of a listening daemon, booting one if needed."""
+        with self.lock:
+            state = self.state_or_none()
+            if state:
+                return state
+            with open(self.lock_path, "a+") as lock_file:
+                fcntl.flock(lock_file, fcntl.LOCK_EX)
+                try:
+                    state = self.state_or_none()
+                    if state:
+                        return state
+                    stale = self.read_state()
+                    if stale:
+                        pid = int(stale.get("pid") or 0)
+                        if process_alive(pid) and pid_is_our_daemon(pid, self.root):
+                            if self._wait_ready_proc(pid, stale["port"], 90.0):
+                                return stale
+                            self._stop_pid(pid)
+                        self.clear_state()
+                    return self._boot()
+                finally:
+                    fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+    def _wait_ready_proc(self, pid, port, timeout):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if port_open(port, timeout=0.3):
+                return True
+            if not process_alive(pid):
+                return False
+            time.sleep(0.2)
+        return False
+
+    def _boot(self):
+        last_error = None
+        for attempt in range(3):
+            port = free_port()
+            log("booting godot for %s on port %d (attempt %d)" % (self.root, port, attempt + 1))
+            try:
+                proc = self._spawn(port)
+                self.proc = proc
+            except OSError as exc:
+                raise GdlspError("could not start godot: %s (see %s)" % (exc, self.log_path))
+            if self._wait_ready(proc, port):
+                state = {
+                    "root": self.root,
+                    "port": port,
+                    "pid": proc.pid,
+                    "started_at": time.time(),
+                    "log": self.log_path,
+                    "godot": godot_binary(),
+                    "mcp_pid": os.getpid(),
+                }
+                self.write_state(state)
+                log("godot listening on port %d (pid %d)" % (port, proc.pid))
+                return state
+            last_error = self._log_tail()
+            try:
+                proc.kill()
+            except OSError:
+                pass
+            self._reap(proc.pid)
+            log("boot attempt %d failed for %s" % (attempt + 1, self.root))
+        raise GdlspError(
+            "godot did not start a language server for %s. Log: %s\n%s"
+            % (self.root, self.log_path, last_error or "")
+        )
+
+    # -- client ---------------------------------------------------------------------
+
+    def ensure_client(self, force_new=False):
+        with self.lock:
+            if self.client is not None and not force_new and self.client.alive():
+                return self.client
+            if self.client is not None:
+                self.client.close()
+                self.client = None
+            state = self.daemon()
+            client = LspClient(self.root, state["port"])
+            try:
+                client.initialize()
+            except GdlspError:
+                client.close()
+                raise
+            self.client = client
+            return client
+
+    def drop_client(self):
+        with self.lock:
+            if self.client is not None:
+                self.client.close()
+                self.client = None
+
+    def restart(self):
+        """Kill the daemon and forget it; the next ensure_client boots a fresh one."""
+        with self.lock:
+            self.drop_client()
+            state = self.read_state()
+            self.clear_state()
+            if state:
+                self._stop_pid(int(state.get("pid") or 0))
+
+    def run(self, paths, fn):
+        """Sync the documents a query reads, run fn(client), and recover from a dead or
+        wedged connection: reconnect once, then restart the daemon once."""
+        paths = [p for p in paths if p]
+        attempts = []
+        for force_new in (False, True):
+            try:
+                client = self.ensure_client(force_new=force_new)
+                for path in paths:
+                    client.sync_document(path)
+                return fn(client)
+            except TransportError as exc:
+                attempts.append(str(exc))
+                log("query failed on %s: %s" % (self.root, exc))
+                self.drop_client()
+        self.restart()
+        client = self.ensure_client()
+        try:
+            for path in paths:
+                client.sync_document(path)
+            return fn(client)
+        except TransportError as exc:
+            attempts.append(str(exc))
+            raise GdlspError(
+                "the language server for %s keeps failing (%s). Daemon log: %s"
+                % (self.root, "; ".join(attempts) or exc, self.log_path)
+            )
+
+    def status_text(self):
+        lines = []
+        # Status must never boot a 3.6 GB editor as a side effect: report what is running.
+        state = self.state_or_none()
+        if not state:
+            lines.append("root     %s" % self.root)
+            lines.append("state    not running")
+            lines.append("log      %s" % self.log_path)
+            return "\n".join(lines)
+        pid = int(state.get("pid") or 0)
+        started = float(state.get("started_at") or 0)
+        client = self.client
+        lines.append("root     %s" % self.root)
+        lines.append("port     %s" % state.get("port", "?"))
+        lines.append("pid      %s" % (pid or "?"))
+        if started:
+            lines.append("uptime   %s" % human_age(time.time() - started))
+        lines.append("rss      %s" % human_bytes(process_rss(pid)))
+        if client is not None:
+            known = client.all_diagnostics()
+            flagged = sum(1 for _, (_, diags) in known.items() if diags)
+            lines.append(
+                "buffers  %d open, %d known files with diagnostics"
+                % (client.document_count(), flagged)
+            )
+        lines.append("log      %s" % self.log_path)
+        lines.append("state    %s" % self.state_path)
+        return "\n".join(lines)
+
+
+_PROJECTS = {}
+_PROJECTS_LOCK = threading.Lock()
+
+
+def project_for(root):
+    root = os.path.realpath(root)
+    with _PROJECTS_LOCK:
+        project = _PROJECTS.get(root)
+        if project is None:
+            project = Project(root)
+            _PROJECTS[root] = project
+        return project
+
+
+def project_for_path(path):
+    resolved = resolve_file(path)
+    root = discover_root(resolved if os.path.isdir(resolved) else os.path.dirname(resolved))
+    if not root:
+        raise ToolError(
+            "%s is not inside a Godot project (no project.godot found above it)" % resolved
+        )
+    return project_for(root), resolved
+
+
+def project_for_cwd():
+    root = discover_root(os.getcwd())
+    if not root:
+        raise ToolError("the current directory is not inside a Godot project (no project.godot)")
+    return project_for(root)
+
+
+# --------------------------------------------------------------------------------------
+# positions and output
+
+
+_IDENT = re.compile(r"[A-Za-z0-9_]")
+
+
+def position_from_symbol(text, symbol):
+    lines = text.splitlines()
+    for number, line in enumerate(lines, 1):
+        start = 0
+        while True:
+            index = line.find(symbol, start)
+            if index < 0:
+                break
+            before = line[index - 1] if index > 0 else " "
+            after = line[index + len(symbol)] if index + len(symbol) < len(line) else " "
+            if not _IDENT.match(before) and not _IDENT.match(after):
+                return number, index + 1
+            start = index + 1
+    raise ToolError("symbol %r does not appear in the file" % symbol)
+
+
+def resolve_position(path, args):
+    if not os.path.isfile(path):
+        raise ToolError("no such file: %s" % path)
+    text = read_text(path)
+    if args.get("symbol"):
+        line, column = position_from_symbol(text, str(args["symbol"]))
+        return line, column
+    if args.get("line") is None:
+        raise ToolError("pass `line` (+ optional `column`) or `symbol`")
+    try:
+        line = int(args["line"])
+    except (TypeError, ValueError):
+        raise ToolError("`line` must be an integer (1-based)")
+    column = args.get("column")
+    column = int(column) if column not in (None, "") else 1
+    total = len(text.splitlines()) or 1
+    if line < 1 or line > total:
+        raise ToolError("line %d is outside %s (%d lines)" % (line, os.path.basename(path), total))
+    return line, max(1, column)
+
+
+def hover_text(result):
+    contents = (result or {}).get("contents")
+    value = ""
+    if isinstance(contents, dict):
+        value = contents.get("value") or ""
+    elif isinstance(contents, str):
+        value = contents
+    elif isinstance(contents, list):
+        parts = []
+        for item in contents:
+            parts.append(item.get("value") or "" if isinstance(item, dict) else str(item))
+        value = "\n".join(parts)
+    out = []
+    for raw in value.splitlines():
+        line = raw.strip()
+        if line.startswith("Defined in"):
+            break
+        if line and set(line) <= set("-*_ "):
+            continue
+        out.append(line)
+    while out and not out[0]:
+        out.pop(0)
+    while out and not out[-1]:
+        out.pop()
+    return out
+
+
+def location_list(result):
+    if result is None:
+        return []
+    if isinstance(result, dict):
+        return [result]
+    return [item for item in result if isinstance(item, dict)]
+
+
+def format_location(loc, root):
+    uri = loc.get("uri") or (loc.get("targetUri") or "")
+    rng = loc.get("range") or loc.get("targetSelectionRange") or loc.get("targetRange") or {}
+    start = rng.get("start") or {}
+    return "%s:%d:%d" % (
+        rel_path(uri_to_path(uri), root),
+        int(start.get("line", 0)) + 1,
+        int(start.get("character", 0)) + 1,
+    )
+
+
+def format_diagnostic(path, diagnostic, root):
+    rng = diagnostic.get("range") or {}
+    start = rng.get("start") or {}
+    severity = {1: "error", 2: "warning", 3: "info", 4: "hint"}.get(
+        int(diagnostic.get("severity") or 1), "error"
+    )
+    code = diagnostic.get("code")
+    tag = severity if code in (None, -1) else "%s[%s]" % (severity, code)
+    return "%s:%d:%d  %s: %s" % (
+        rel_path(path, root),
+        int(start.get("line", 0)) + 1,
+        int(start.get("character", 0)) + 1,
+        tag,
+        (diagnostic.get("message") or "").strip().replace("\n", " "),
+    )
+
+
+# --------------------------------------------------------------------------------------
+# tools
+
+
+def _position_args(args, path):
+    line, column = resolve_position(path, args)
+    return {"line": line - 1, "character": column - 1}, line, column
+
+
+def tool_gd_hover(args):
+    project, path = project_for_path(args.get("path"))
+    position, line, column = _position_args(args, path)
+    uri = path_to_uri(path)
+
+    def run(client):
+        return client.request(
+            "textDocument/hover", {"textDocument": {"uri": uri}, "position": position}
+        )
+
+    result = project.run([path], run)
+    lines = hover_text(result)
+    head = "%s:%d:%d" % (rel_path(path, project.root), line, column)
+    if not lines:
+        return "%s  (no hover information)" % head
+    out = ["%s  %s" % (head, lines[0])]
+    for extra in lines[1:9]:
+        out.append("    %s" % extra if extra else "")
+    if len(lines) > 9:
+        out.append("    ...")
+    return "\n".join(out).rstrip("\n")
+
+
+def tool_gd_definition(args):
+    project, path = project_for_path(args.get("path"))
+    position, line, column = _position_args(args, path)
+    uri = path_to_uri(path)
+
+    def run(client):
+        return client.request(
+            "textDocument/definition", {"textDocument": {"uri": uri}, "position": position}
+        )
+
+    result = project.run([path], run)
+    locations = [format_location(loc, project.root) for loc in location_list(result)]
+    seen = []
+    for item in locations:
+        if item not in seen:
+            seen.append(item)
+    head = "%s:%d:%d" % (rel_path(path, project.root), line, column)
+    if not seen:
+        return "%s  no definition found" % head
+    return "\n".join([head + "  ->"] + seen)
+
+
+def tool_gd_references(args):
+    project, path = project_for_path(args.get("path"))
+    position, line, column = _position_args(args, path)
+    uri = path_to_uri(path)
+    include = args.get("include_declaration", True)
+    if isinstance(include, str):
+        include = include.lower() not in ("false", "0", "no")
+    try:
+        maximum = int(args.get("max") or 50)
+    except (TypeError, ValueError):
+        raise ToolError("`max` must be an integer")
+
+    def run(client):
+        references = client.request(
+            "textDocument/references",
+            {
+                "textDocument": {"uri": uri},
+                "position": position,
+                "context": {"includeDeclaration": bool(include)},
+            },
+        )
+        declaration = None
+        if not include:
+            # Godot ignores includeDeclaration, so the declaration is filtered here.
+            try:
+                declaration = client.request(
+                    "textDocument/definition", {"textDocument": {"uri": uri}, "position": position}
+                )
+            except ServerError:
+                declaration = None
+        return references, declaration
+
+    references, declaration = project.run([path], run)
+    declared = set()
+    for loc in location_list(declaration):
+        start = (loc.get("range") or {}).get("start") or {}
+        declared.add(
+            (
+                os.path.abspath(uri_to_path(loc.get("uri") or "")),
+                int(start.get("line", -1)),
+                int(start.get("character", -1)),
+            )
+        )
+    sites = []
+    for loc in location_list(references):
+        start = (loc.get("range") or {}).get("start") or {}
+        target = os.path.abspath(uri_to_path(loc.get("uri") or ""))
+        if not include and (
+            target,
+            int(start.get("line", -1)),
+            int(start.get("character", -1)),
+        ) in declared:
+            continue
+        sites.append((target, loc))
+    sites.sort(key=lambda item: (
+        rel_path(item[0], project.root),
+        int(((item[1].get("range") or {}).get("start") or {}).get("line", 0)),
+        int(((item[1].get("range") or {}).get("start") or {}).get("character", 0)),
+    ))
+    head = "%s:%d:%d" % (rel_path(path, project.root), line, column)
+    if not sites:
+        return "%s  no references found" % head
+    files = len({item[0] for item in sites})
+    title = "%s  %d reference%s in %d file%s%s" % (
+        head,
+        len(sites),
+        "" if len(sites) == 1 else "s",
+        files,
+        "" if files == 1 else "s",
+        "" if include else " (declaration excluded)",
+    )
+    out = [title]
+    for target, loc in sites[:maximum]:
+        out.append("  " + format_location(loc, project.root))
+    if len(sites) > maximum:
+        out.append("  ... %d more (raise max)" % (len(sites) - maximum))
+    return "\n".join(out)
+
+
+def _flatten_symbols(symbols, depth=0):
+    for symbol in symbols:
+        yield symbol, depth
+        children = symbol.get("children") or []
+        if children:
+            yield from _flatten_symbols(children, depth + 1)
+
+
+def _symbol_label(symbol):
+    detail = (symbol.get("detail") or "").strip()
+    label = detail or (symbol.get("name") or "?")
+    label = " ".join(label.split())
+    if len(label) > 110:
+        label = label[:109] + "…"
+    return label
+
+
+def tool_gd_outline(args):
+    project, path = project_for_path(args.get("path"))
+    uri = path_to_uri(path)
+    filter_text = args.get("filter")
+    docs = bool(args.get("docs"))
+    try:
+        maximum = int(args.get("max") or 100)
+    except (TypeError, ValueError):
+        raise ToolError("`max` must be an integer")
+    pattern = None
+    if filter_text:
+        try:
+            pattern = re.compile(str(filter_text))
+        except re.error as exc:
+            raise ToolError("`filter` is not a valid regular expression: %s" % exc)
+
+    def run(client):
+        return client.request("textDocument/documentSymbol", {"textDocument": {"uri": uri}})
+
+    result = project.run([path], run) or []
+    symbols = list(result) if isinstance(result, list) else []
+    header_note = ""
+    if len(symbols) == 1 and (symbols[0].get("children") or []):
+        root_symbol = symbols[0]
+        symbols = root_symbol.get("children") or []
+        header_note = " (in %s)" % (root_symbol.get("name") or "class")
+    entries = list(_flatten_symbols(symbols))
+    if pattern is not None:
+        def keep(items, depth):
+            out = []
+            for symbol in items:
+                children = symbol.get("children") or []
+                if pattern.search(symbol.get("name") or ""):
+                    out.append((symbol, depth))
+                    out.extend(_flatten_symbols(children, depth + 1))
+                else:
+                    out.extend(keep(children, depth))
+            return out
+
+        entries = keep(symbols, 0)
+    total = len(entries)
+    out = ["%s  %d symbol%s%s" % (
+        rel_path(path, project.root),
+        total,
+        "" if total == 1 else "s",
+        header_note,
+    )]
+    for symbol, depth in entries[:maximum]:
+        rng = symbol.get("range") or {}
+        start = int((rng.get("start") or {}).get("line", 0)) + 1
+        end = int((rng.get("end") or {}).get("line", 0)) + 1
+        label = _symbol_label(symbol)
+        if docs:
+            text = " ".join((symbol.get("documentation") or "").split())
+            if text:
+                label += "  — %s" % (text[:120] + ("…" if len(text) > 120 else ""))
+        out.append("%sL%d-%d  %s" % ("  " * depth, start, end, label))
+    if total > maximum:
+        out.append("... %d more (raise max)" % (total - maximum))
+    return "\n".join(out)
+
+
+def _diagnostics_for_path(project, path):
+    path = os.path.abspath(path)
+    if not os.path.isfile(path):
+        raise ToolError("no such file: %s" % path)
+
+    def run(client):
+        known = client.diagnostic_entry(path)
+        since = client.diagnostic_snapshot()
+        uri, sent = client.sync_document(path)
+        if sent is None and known is not None:
+            return known[1]
+        diagnostics, fresh = client.wait_for_diagnostics(path, since)
+        if not fresh:
+            # No new publish: either the file really is clean or the connection stopped
+            # answering (a wedged editor thread looks exactly like this). A cheap request
+            # tells the two apart; a timeout raises TransportError and `run` reconnects.
+            client.request(
+                "textDocument/documentSymbol", {"textDocument": {"uri": uri}}, timeout=5.0
+            )
+        return diagnostics
+
+    # fn syncs the document itself, so `run` must not sync it first: a second sync would
+    # see "unchanged" and the shortcut above would answer from the pre-change publish.
+    return project.run([], run)
+
+
+_MOD_SCAN_CACHE = {}
+_MOD_SCAN_LOCK = threading.Lock()
+
+
+def _mod_files(root):
+    base = os.path.join(root, MOD_FILTER)
+    files = []
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for name in filenames:
+            if name.endswith(".gd"):
+                files.append(os.path.join(dirpath, name))
+    return sorted(files)
+
+
+def tool_gd_diagnostics(args):
+    if args.get("path"):
+        project, path = project_for_path(args["path"])
+        diagnostics = _diagnostics_for_path(project, path)
+        rel = rel_path(path, project.root)
+        if diagnostics is None:
+            return "%s  no diagnostics published" % rel
+        if not diagnostics:
+            return "%s  no diagnostics" % rel
+        out = ["%s  %d diagnostic%s" % (rel, len(diagnostics), "" if len(diagnostics) == 1 else "s")]
+        for diagnostic in diagnostics:
+            out.append("  " + format_diagnostic(path, diagnostic, project.root))
+        return "\n".join(out)
+
+    project = project_for_cwd()
+    budget = float(args.get("budget") or 30.0)
+    started = time.time()
+    prefix = os.path.join(project.root, MOD_FILTER) + os.sep
+    try:
+        client = project.ensure_client()
+        known_paths = {os.path.abspath(p) for p in client.all_diagnostics()}
+    except GdlspError as exc:
+        # `run` below owns recovery; a cold or wedged connection must not fail the scan here.
+        log("diagnostics scan: %s" % exc)
+        known_paths = set()
+    covered = sum(1 for p in known_paths if p.startswith(prefix))
+    state = project.read_state() or {}
+    booted_at = float(state.get("started_at") or 0)
+    files = _mod_files(project.root)
+    scanned = [0]
+
+    def scan(client):
+        fresh = []
+        for path in files:
+            try:
+                stat = os.stat(path)
+            except OSError:
+                continue
+            key = (stat.st_mtime_ns, stat.st_size)
+            if path in known_paths and booted_at and stat.st_mtime < booted_at - 5:
+                # this connection already has the daemon's verdict for an unchanged file
+                with _MOD_SCAN_LOCK:
+                    _MOD_SCAN_CACHE[path] = key
+                continue
+            with _MOD_SCAN_LOCK:
+                if _MOD_SCAN_CACHE.get(path) == key:
+                    continue
+            fresh.append((path, key))
+        batch = []
+        deadline = started + budget
+        for path, key in fresh:
+            if time.time() > deadline:
+                break
+            batch.append((path, key))
+            if len(batch) >= 25:
+                _flush_mod_batch(client, batch)
+                scanned[0] += len(batch)
+                batch = []
+        if batch:
+            _flush_mod_batch(client, batch)
+            scanned[0] += len(batch)
+
+    project.run([], scan)
+    known = project.client.all_diagnostics() if project.client else {}
+    rows = []
+    errors = warnings = others = 0
+    for path, (_seq, diagnostics) in sorted(known.items()):
+        if not diagnostics or not os.path.abspath(path).startswith(prefix):
+            continue
+        for diagnostic in diagnostics:
+            severity = int(diagnostic.get("severity") or 1)
+            if severity == 1:
+                errors += 1
+            elif severity == 2:
+                warnings += 1
+            else:
+                others += 1
+            start = (diagnostic.get("range") or {}).get("start") or {}
+            rows.append(
+                (
+                    severity,
+                    rel_path(path, project.root),
+                    int(start.get("line", 0)),
+                    format_diagnostic(path, diagnostic, project.root),
+                )
+            )
+    # Errors first: a project-wide scan is mostly pre-existing warnings, and the one new
+    # error must not be buried under them.
+    rows.sort(key=lambda row: (row[0], row[1], row[2]))
+    took = time.time() - started
+    summary = "%d files, %d reparsed, %.1fs" % (len(files), scanned[0], took)
+    if not rows:
+        return "no diagnostics under %s/** (%s)%s" % (
+            MOD_FILTER,
+            summary,
+            "" if covered else "; the daemon has not scanned the workspace yet",
+        )
+    counts = "%d error%s, %d warning%s" % (
+        errors,
+        "" if errors == 1 else "s",
+        warnings,
+        "" if warnings == 1 else "s",
+    )
+    if others:
+        counts += ", %d other" % others
+    out = [
+        "%d diagnostic%s under %s/** (%s; %s)"
+        % (len(rows), "" if len(rows) == 1 else "s", MOD_FILTER, counts, summary)
+    ]
+    out.extend(row[3] for row in rows[:400])
+    if len(rows) > 400:
+        out.append("... %d more" % (len(rows) - 400))
+    return "\n".join(out)
+
+
+def _flush_mod_batch(client, batch):
+    for path, _key in batch:
+        client.sync_document(path)
+    deadline = time.time() + 3.0
+    pending = list(batch)
+    while pending and time.time() < deadline:
+        pending = [(path, key) for path, key in pending if client.diagnostic_entry(path) is None]
+        if pending:
+            time.sleep(0.02)
+    with _MOD_SCAN_LOCK:
+        for path, key in batch:
+            _MOD_SCAN_CACHE[path] = key
+
+
+def tool_gd_status(args):
+    project = project_for_cwd() if not args.get("path") else project_for_path(args["path"])[0]
+    return project.status_text()
+
+
+def tool_gd_shutdown(args):
+    if args.get("path"):
+        project = project_for_path(args["path"])[0]
+    else:
+        root = discover_root(os.getcwd())
+        if not root:
+            raise ToolError("the current directory is not inside a Godot project")
+        project = project_for(root)
+    state = project.read_state()
+    if not state:
+        return "no daemon recorded for %s" % project.root
+    pid = int(state.get("pid") or 0)
+    port = state.get("port")
+    project.drop_client()
+    stopped = project._stop_pid(pid)
+    project.clear_state()
+    _MOD_SCAN_CACHE.clear()
+    if not stopped:
+        return "daemon for %s (pid %d) did not exit" % (project.root, pid)
+    return "stopped daemon for %s (pid %d, port %s)" % (project.root, pid, port)
+
+
+TOOL_DEFINITIONS = [
+    {
+        "name": "gd_hover",
+        "description": (
+            "Signature and doc comment of the symbol at a position, from Godot's own GDScript "
+            "language server. Positions are 1-based line/column, matching `read` and `grep -n`; "
+            "pass `symbol` (a literal identifier) instead of counting columns."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "GDScript file, absolute or relative to the project"},
+                "line": {"type": "integer", "description": "1-based line"},
+                "column": {"type": "integer", "description": "1-based column (default 1)"},
+                "symbol": {"type": "string", "description": "identifier to locate in the file (first match)"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "gd_definition",
+        "description": (
+            "Where the symbol at a position is declared (path:line:column), across files. "
+            "Replaces following a call by hand."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "line": {"type": "integer"},
+                "column": {"type": "integer"},
+                "symbol": {"type": "string"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "gd_references",
+        "description": (
+            "Every real reference to the symbol at a position, exact (no comments, no strings). "
+            "Replaces `grep -rn` for a function, constant or variable name."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "line": {"type": "integer"},
+                "column": {"type": "integer"},
+                "symbol": {"type": "string"},
+                "include_declaration": {
+                    "type": "boolean",
+                    "description": "include the declaration itself (default true)",
+                },
+                "max": {"type": "integer", "description": "maximum sites to print (default 50)"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "gd_outline",
+        "description": (
+            "The symbol tree of one file: every function, constant, variable, signal and nested "
+            "class with its line range. Replaces reading a large file to find one function, and "
+            "`sed -n 'A,Bp'` to see a range. `docs=true` adds each symbol's first doc line."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "filter": {"type": "string", "description": "regular expression on the symbol name"},
+                "docs": {"type": "boolean", "description": "append the first documentation line"},
+                "max": {"type": "integer", "description": "maximum symbols to print (default 100)"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "gd_diagnostics",
+        "description": (
+            "GDScript errors and warnings. With `path`, parses the current file text and returns "
+            "its diagnostics; with no path, reports every diagnostic under mods/unfplap/**."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "one file; omit to check mods/unfplap/**"},
+            },
+        },
+    },
+    {
+        "name": "gd_status",
+        "description": (
+            "The headless editor serving this project: root, port, pid, uptime, RSS, open "
+            "documents and the paths of its log and state file. Boots it if it is not running."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "gd_shutdown",
+        "description": "Stop the headless editor for a project root to reclaim its memory.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "any file inside the project"}},
+        },
+    },
+]
+
+TOOL_FUNCTIONS = {
+    "gd_hover": tool_gd_hover,
+    "gd_definition": tool_gd_definition,
+    "gd_references": tool_gd_references,
+    "gd_outline": tool_gd_outline,
+    "gd_diagnostics": tool_gd_diagnostics,
+    "gd_status": tool_gd_status,
+    "gd_shutdown": tool_gd_shutdown,
+}
+
+
+def call_tool(name, args):
+    function = TOOL_FUNCTIONS.get(name)
+    if function is None:
+        raise ToolError("unknown tool %r; available: %s" % (name, ", ".join(TOOL_FUNCTIONS)))
+    if not isinstance(args, dict):
+        args = {}
+    return function(args)
+
+
+# --------------------------------------------------------------------------------------
+# MCP over stdio
+
+
+def mcp_send(message):
+    data = json.dumps(message).encode("utf-8")
+    out = sys.stdout.buffer
+    out.write(data + b"\n")
+    out.flush()
+
+
+def mcp_result(request_id, result):
+    return {"jsonrpc": "2.0", "id": request_id, "result": result}
+
+
+def mcp_error(request_id, code, message):
+    return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
+
+
+def tool_content(text, is_error=False):
+    return {"content": [{"type": "text", "text": text}], "isError": is_error}
+
+
+def warm_up():
+    """Boot and initialize the daemon for the current project in the background, so the
+    first real call does not pay for a cold editor."""
+    try:
+        root = discover_root(os.getcwd())
+        if not root:
+            log("warm-up: cwd is not inside a Godot project, skipping")
+            return
+        started = time.time()
+        project_for(root).ensure_client()
+        log("warm-up: %s ready in %.1fs" % (root, time.time() - started))
+    except Exception as exc:
+        log("warm-up failed: %s" % exc)
+
+
+def serve_mcp():
+    _trim_log()
+    log("mcp server started (cwd %s)" % os.getcwd())
+    threading.Thread(target=warm_up, daemon=True).start()
+    stream = sys.stdin.buffer
+    for line in stream:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            message = json.loads(line.decode("utf-8", "replace"))
+        except ValueError:
+            mcp_send(mcp_error(None, -32700, "parse error"))
+            continue
+        method = message.get("method")
+        request_id = message.get("id")
+        is_notification = request_id is None
+        try:
+            if method == "initialize":
+                params = message.get("params") or {}
+                requested = params.get("protocolVersion")
+                version = requested if requested in SUPPORTED_PROTOCOLS else SUPPORTED_PROTOCOLS[0]
+                mcp_send(
+                    mcp_result(
+                        request_id,
+                        {
+                            "protocolVersion": version,
+                            "capabilities": {"tools": {"listChanged": False}},
+                            "serverInfo": {"name": SERVER_NAME, "version": VERSION},
+                        },
+                    )
+                )
+            elif method == "tools/list":
+                mcp_send(mcp_result(request_id, {"tools": TOOL_DEFINITIONS}))
+            elif method == "tools/call":
+                params = message.get("params") or {}
+                name = params.get("name") or ""
+                arguments = params.get("arguments") or {}
+                log("tools/call %s %s" % (name, json.dumps(arguments)[:200]))
+                started = time.time()
+                try:
+                    text = call_tool(name, arguments)
+                    mcp_send(mcp_result(request_id, tool_content(text)))
+                except GdlspError as exc:
+                    # `isError` already marks this as a failure; a second "error:" prefix
+                    # would reach the agent as "Error: error: ...".
+                    mcp_send(mcp_result(request_id, tool_content(str(exc), True)))
+                except Exception:
+                    detail = traceback.format_exc()
+                    log("tools/call %s crashed: %s" % (name, detail))
+                    mcp_send(
+                        mcp_result(
+                            request_id,
+                            tool_content(
+                                "%s failed: %s (log: %s)"
+                                % (name, detail.strip().splitlines()[-1], log_path()),
+                                True,
+                            ),
+                        )
+                    )
+                finally:
+                    log("tools/call %s took %.2fs" % (name, time.time() - started))
+            elif method == "ping":
+                mcp_send(mcp_result(request_id, {}))
+            elif method == "shutdown":
+                mcp_send(mcp_result(request_id, None))
+            elif method == "exit":
+                break
+            elif is_notification:
+                pass
+            else:
+                mcp_send(mcp_error(request_id, -32601, "method not found: %s" % method))
+        except BrokenPipeError:
+            break
+        except Exception:
+            log("mcp loop error: %s" % traceback.format_exc())
+            if not is_notification:
+                mcp_send(mcp_error(request_id, -32603, "internal error"))
+    log("mcp server exiting")
+
+
+# --------------------------------------------------------------------------------------
+# LSP stdio <-> TCP relay
+
+
+class Relay:
+    """Forwards an editor's stdio LSP session to the shared daemon, rewriting the workspace
+    root (the editor's root is often a sub-directory of the game project)."""
+
+    def __init__(self, root):
+        self.root = root
+        self.project = project_for(root)
+        self.sock = None
+        self.stream = None
+        self.documents = {}
+        self.write_lock = threading.Lock()
+        self.docs_lock = threading.Lock()
+        self.out_lock = threading.Lock()
+
+    def connect(self):
+        if self.sock is not None:
+            return
+        state = self.project.daemon()
+        for _ in range(3):
+            try:
+                self.sock = socket.create_connection(("127.0.0.1", int(state["port"])), timeout=15.0)
+                self.sock.settimeout(None)
+                self.stream = self.sock.makefile("rb")
+                return
+            except OSError:
+                time.sleep(0.2)
+                state = self.project.daemon()
+        raise GdlspError("could not connect to the daemon on port %s" % state.get("port"))
+
+    def send_upstream(self, message):
+        with self.write_lock:
+            write_frame(self.sock, message)
+
+    def _rewrite_initialize(self, message):
+        params = dict(message.get("params") or {})
+        params["rootPath"] = self.root
+        params["rootUri"] = path_to_uri(self.root)
+        if "workspaceFolders" in params:
+            params["workspaceFolders"] = [{"uri": path_to_uri(self.root), "name": os.path.basename(self.root)}]
+        return dict(message, params=params)
+
+    def _track(self, message):
+        method = message.get("method")
+        params = message.get("params") or {}
+        if method in ("textDocument/didOpen", "textDocument/didChange"):
+            document = params.get("textDocument") or {}
+            uri = document.get("uri")
+            changes = params.get("contentChanges") or []
+            text = changes[-1].get("text") if changes else None
+            if method == "textDocument/didOpen":
+                text = (document.get("text") if text is None else text)
+            if not uri:
+                return
+            with self.docs_lock:
+                entry = self.documents.setdefault(uri, {"text": "", "languageId": "gdscript"})
+                if text is not None:
+                    entry["text"] = text
+        elif method == "textDocument/didClose":
+            uri = (params.get("textDocument") or {}).get("uri")
+            with self.docs_lock:
+                self.documents.pop(uri, None)
+
+    def _replay(self):
+        """After a reconnect the daemon has no buffers for this session: re-open them."""
+        with self.docs_lock:
+            documents = dict(self.documents)
+        for uri, entry in documents.items():
+            try:
+                self.send_upstream(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "textDocument/didOpen",
+                        "params": {
+                            "textDocument": {
+                                "uri": uri,
+                                "languageId": entry.get("languageId") or "gdscript",
+                                "version": 1,
+                                "text": entry.get("text") or read_text(uri_to_path(uri)),
+                            }
+                        },
+                    }
+                )
+            except GDLSP_RELAY_ERRORS:
+                return
+
+    def up(self):
+        stdin = sys.stdin.buffer
+        while True:
+            try:
+                message = read_frame(stdin)
+            except (OSError, ValueError):
+                break
+            if message is None:
+                break
+            if message.get("method") == "initialize":
+                message = self._rewrite_initialize(message)
+                try:
+                    self.connect()
+                except GdlspError as exc:
+                    log("relay: %s" % exc)
+                    with self.out_lock:
+                        write_frame_stream(
+                            sys.stdout.buffer,
+                            {
+                                "jsonrpc": "2.0",
+                                "id": message.get("id"),
+                                "error": {"code": -32002, "message": str(exc)},
+                            },
+                        )
+                    continue
+            self._track(message)
+            try:
+                if self.sock is None:
+                    self.connect()
+                self.send_upstream(message)
+            except GDLSP_RELAY_ERRORS:
+                log("relay: upstream write failed, reconnecting")
+                self.sock = None
+                try:
+                    self.connect()
+                    self.send_upstream(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": -1,
+                            "method": "initialize",
+                            "params": {
+                                "rootPath": self.root,
+                                "rootUri": path_to_uri(self.root),
+                                "capabilities": {},
+                            },
+                        }
+                    )
+                    self.send_upstream({"jsonrpc": "2.0", "method": "initialized", "params": {}})
+                    self._replay()
+                    self.send_upstream(message)
+                except GDLSP_RELAY_ERRORS:
+                    log("relay: reconnect failed")
+                    break
+            if message.get("method") == "exit":
+                break
+        log("relay: stdin closed")
+
+    def down(self):
+        while True:
+            try:
+                message = read_frame(self.stream)
+            except (OSError, ValueError):
+                break
+            if message is None:
+                break
+            if message.get("id") == -1 and message.get("method") is None:
+                # the relay's own reconnect handshake, not something the editor asked for
+                continue
+            try:
+                with self.out_lock:
+                    write_frame_stream(sys.stdout.buffer, message)
+            except (BrokenPipeError, OSError):
+                break
+        log("relay: daemon closed")
+
+
+GDLSP_RELAY_ERRORS = (OSError, ValueError, GdlspError)
+
+
+def serve_relay(root):
+    _trim_log()
+    log("relay started for %s (cwd %s)" % (root, os.getcwd()))
+    relay = Relay(root)
+    relay.connect()
+    threading.Thread(target=relay.down, daemon=True).start()
+    relay.up()
+
+
+# --------------------------------------------------------------------------------------
+# self-test
+
+
+def self_test():
+    """Prove the whole path against a throwaway project; never touches a real checkout."""
+    failures = []
+
+    def check(name, condition, detail=""):
+        print("%-52s %s%s" % (name, "ok" if condition else "FAIL", "" if condition else "  " + detail))
+        if not condition:
+            failures.append(name)
+
+    base = tempfile.mkdtemp(prefix="gdtest-", dir=_self_test_parent())
+    project = None
+    origin = os.getcwd()
+    try:
+        with open(os.path.join(base, "project.godot"), "w", encoding="utf-8") as f:
+            f.write(
+                'config_version=5\n\n[application]\n\nconfig/name="gdtest"\n'
+                'config/features=PackedStringArray("4.5")\n'
+            )
+        with open(os.path.join(base, "a.gd"), "w", encoding="utf-8") as f:
+            f.write(
+                "extends Node\n"
+                "\n"
+                "\n"
+                "## Adds two numbers.\n"
+                "func add(left: int, right: int) -> int:\n"
+                "\treturn left + right\n"
+                "\n"
+                "\n"
+                "func call_it() -> int:\n"
+                "\treturn add(1, 2)\n"
+            )
+        with open(os.path.join(base, "b.gd"), "w", encoding="utf-8") as f:
+            f.write(
+                "extends Node\n"
+                "\n"
+                "\n"
+                "func other() -> int:\n"
+                '\tvar a: Node = preload("res://a.gd").new()\n'
+                '\treturn a.call("add", 3, 4)\n'
+            )
+        with open(os.path.join(base, "broken.gd"), "w", encoding="utf-8") as f:
+            f.write("extends Node\n\n\nfunc broken( -> void:\n")
+
+        project = Project(base)
+        os.chdir(base)
+        started = time.time()
+        project.ensure_client()
+        boot = time.time() - started
+        check("daemon boots for a fresh project", True, "")
+
+        status = tool_gd_status({})
+        check("gd_status names the root and the log", base in status and ".log" in status, status)
+        check("gd_status reports a port", "port" in status, status)
+
+        hover = tool_gd_hover({"path": os.path.join(base, "a.gd"), "symbol": "call_it"})
+        check("gd_hover returns a signature", "func call_it() -> int" in hover, hover)
+
+        hover_add = tool_gd_hover({"path": os.path.join(base, "a.gd"), "line": 10, "column": 9})
+        check("gd_hover returns the doc comment", "Adds two numbers" in hover_add, hover_add)
+
+        definition = tool_gd_definition({"path": os.path.join(base, "a.gd"), "line": 10, "column": 9})
+        check("gd_definition points at the declaration", "a.gd:5:6" in definition, definition)
+
+        references = tool_gd_references({"path": os.path.join(base, "a.gd"), "line": 10, "column": 9})
+        check("gd_references counts 2 sites", "2 references" in references, references)
+        references_clean = tool_gd_references(
+            {"path": os.path.join(base, "a.gd"), "line": 10, "column": 9, "include_declaration": False}
+        )
+        check("gd_references honours include_declaration", "1 reference " in references_clean, references_clean)
+
+        outline = tool_gd_outline({"path": os.path.join(base, "a.gd")})
+        check("gd_outline lists both functions", "func add(" in outline and "func call_it(" in outline, outline)
+        filtered = tool_gd_outline({"path": os.path.join(base, "a.gd"), "filter": "^add$"})
+        check("gd_outline filters by name", "func add(" in filtered and "call_it" not in filtered, filtered)
+        documented = tool_gd_outline({"path": os.path.join(base, "a.gd"), "docs": True})
+        check("gd_outline docs=true shows the doc line", "Adds two numbers" in documented, documented)
+
+        diagnostics = tool_gd_diagnostics({"path": os.path.join(base, "broken.gd")})
+        check("gd_diagnostics reports the parse error", "Expected parameter name" in diagnostics, diagnostics)
+        check(
+            "gd_diagnostics uses 1-based lines",
+            "broken.gd:4:" in diagnostics,
+            diagnostics,
+        )
+        clean = tool_gd_diagnostics({"path": os.path.join(base, "a.gd")})
+        check("gd_diagnostics is quiet on a good file", "no diagnostics" in clean, clean)
+
+        # freshness: rewrite the call site on disk, the answer must follow
+        with open(os.path.join(base, "a.gd"), "a", encoding="utf-8") as f:
+            f.write("\n\nfunc later() -> int:\n\treturn add(5, 6)\n")
+        after = tool_gd_references({"path": os.path.join(base, "a.gd"), "line": 10, "column": 9})
+        check("gd_references sees a new call site on disk", "3 references" in after, after)
+
+        with open(os.path.join(base, "broken.gd"), "w", encoding="utf-8") as f:
+            f.write("extends Node\n\n\nfunc fixed() -> void:\n\tpass\n")
+        fixed = tool_gd_diagnostics({"path": os.path.join(base, "broken.gd")})
+        check("gd_diagnostics clears after the fix", "no diagnostics" in fixed, fixed)
+
+        mod_scope = os.path.join(base, "mods", "unfplap")
+        os.makedirs(mod_scope, exist_ok=True)
+        with open(os.path.join(mod_scope, "check.gd"), "w", encoding="utf-8") as f:
+            f.write("extends Node\n\n\nfunc oops(a: int) -> int:\n\treturn a\n")
+        result = call_tool("gd_diagnostics", {})
+        check("gd_diagnostics with no path scans the mod", "check.gd" in result or "no diagnostics" in result, result)
+
+        state = project.read_state()
+        pid = int(state.get("pid") or 0) if state else 0
+        shutdown = tool_gd_shutdown({"path": os.path.join(base, "a.gd")})
+        time.sleep(0.3)
+        check("gd_shutdown stops the daemon", "stopped daemon" in shutdown, shutdown)
+        check("gd_shutdown removes the state file", project.read_state() is None)
+        check("the daemon process is gone", not process_alive(pid) or not pid_is_our_daemon(pid, base))
+        check("the port is closed", state is None or not port_open(state["port"]))
+        print("boot+initialize %.1fs" % boot)
+    finally:
+        try:
+            os.chdir(origin)
+        except OSError:
+            pass
+        if project is not None:
+            try:
+                project.restart()
+            except Exception:
+                pass
+            for path in (project.log_path, project.lock_path):
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+        shutil.rmtree(base, ignore_errors=True)
+        check("the temporary project is gone", not os.path.exists(base), base)
+
+    if failures:
+        print("\nSELF-TEST FAILED: %d check(s): %s" % (len(failures), ", ".join(failures)))
+        print("server log: %s" % log_path())
+        return 1
+    print("\nSELF-TEST PASSED")
+    return 0
+
+
+def _self_test_parent():
+    parent = "/tmp/opencode"
+    if not os.path.isdir(parent):
+        parent = tempfile.gettempdir()
+    return parent
+
+
+# --------------------------------------------------------------------------------------
+# probe
+
+
+def probe(tool_name, args_json, root=None):
+    if root:
+        os.chdir(root)
+    args = json.loads(args_json) if args_json else {}
+    started = time.time()
+    try:
+        text = call_tool(tool_name, args)
+    except GdlspError as exc:
+        print("error: %s" % exc)
+        print("log: %s" % log_path())
+        return 1
+    except OSError as exc:
+        print("error: %s" % exc)
+        return 1
+    print(text)
+    sys.stderr.write("(%s took %.2fs)\n" % (tool_name, time.time() - started))
+    return 0
+
+
+# --------------------------------------------------------------------------------------
+# entry point
+
+
+def usage():
+    print(
+        "usage: gd-lsp-mcp [--self-test | --probe TOOL [JSON] [--root DIR] | --stdio-relay [--root DIR]]\n"
+        "\n"
+        "  (no arguments)        MCP server over stdin/stdout\n"
+        "  --self-test           end-to-end check against a throwaway project in /tmp\n"
+        "  --probe TOOL [JSON]   run one tool and print its output\n"
+        "  --stdio-relay         bridge an LSP stdio client to the shared daemon\n"
+        "\n"
+        "environment: GDLSP_GODOT (godot binary), XDG_RUNTIME_DIR (state and logs)"
+    )
+
+
+def main(argv):
+    if "--help" in argv or "-h" in argv:
+        usage()
+        return 0
+    if "--version" in argv:
+        print("%s %s" % (SERVER_NAME, VERSION))
+        return 0
+    root = None
+    if "--root" in argv:
+        index = argv.index("--root")
+        if index + 1 < len(argv):
+            root = os.path.abspath(argv[index + 1])
+
+    if "--self-test" in argv:
+        return self_test()
+    if "--stdio-relay" in argv:
+        project_root = root or discover_root(os.getcwd())
+        if not project_root:
+            sys.stderr.write("gd-lsp-mcp: not inside a Godot project (no project.godot)\n")
+            return 2
+        serve_relay(project_root)
+        return 0
+    if "--probe" in argv:
+        index = argv.index("--probe")
+        if index + 1 >= len(argv):
+            sys.stderr.write("gd-lsp-mcp: --probe needs a tool name\n")
+            return 2
+        tool_name = argv[index + 1]
+        rest = list(argv[index + 2:])
+        if "--root" in rest:
+            position = rest.index("--root")
+            del rest[position:position + 2]
+        args_json = rest[0] if rest else "{}"
+        return probe(tool_name, args_json, root)
+    serve_mcp()
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except KeyboardInterrupt:
+        sys.exit(130)

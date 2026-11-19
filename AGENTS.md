@@ -67,6 +67,7 @@ restate a contract.
 | `summary/**` | `docs/summary.md` |
 | `vr/**` | `docs/vr.md` |
 | `offer/**` | `docs/offer.md` |
+| `ponies/**` | `docs/ponies.md` |
 | `world/**` | `docs/world.md` |
 | `assets/**`, `scripts/asset_pack*` | `assets/README.md`, `CREDITS.md` |
 

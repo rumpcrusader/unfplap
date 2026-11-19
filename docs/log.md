@@ -15,8 +15,8 @@ both switches, the act gate and the header counts.
   `Callable(LOG, "debug")`.
 - The switches are the entry's `settings` read and nothing else reads `settings` for them:
   `main._ready()` sets them once and `apply_settings_changed()` again.
-- The act gate and the counts are entry callables, because the active runtime and the runtime
-  registry belong to the entry.
+- The act gate and the counts are `ponies` callables, because the active runtime and the runtime
+  registry belong to that service.
 - `debug_logs` gates every line; `debug_perf` only gates the perf window and the panel, and it
   needs `debug_logs` on too.
 - The idle probe's own text, rows, tree and one-second window are `shared/perf_idle.gd`'s; this
@@ -47,8 +47,8 @@ both switches, the act gate and the header counts.
 | Host call | Purpose |
 |---|---|
 | `main._ready()` | `attach()`, the two switches, `act_running` and `counts` |
-| `main._perf_act_running()` | the act gate: a live `active_runtime` |
-| `main._perf_counts()` | the header counts: the live runtimes and `WORLD.mares()` |
+| `PONIES.act_running()` | the act gate: a live act owns the frame |
+| `PONIES._counts()` | the header counts: the live runtimes and `WORLD.mares()` |
 | `main._apply_settings_changed()` | re-reads the switches and clears the panel when one goes off |
 | `main._on_world()` | `reset()` |
 | `main._on_world_closed()` | `reset()` and `clear_panel()` |

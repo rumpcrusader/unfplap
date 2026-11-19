@@ -2125,8 +2125,8 @@ func _abort_start() -> void:
 
 # --------------------------------------------------------------------------- body swap
 
-## True while a shape change has the act suspended. `main` reads it to keep the act's pending
-## record and the debug actions see one change at a time.
+## True while a shape change has the act suspended. `ponies` keeps the act's pending record and
+## the debug actions see one change at a time.
 func body_swap_pending() -> bool:
 	return _suspended
 
@@ -2371,8 +2371,8 @@ func attach_to_body(parent: Node) -> void:
 	_swapping_parent = false
 
 
-## `main` calls this when the source's new body spawns. The runtime is already under `main`; it
-## moves under the new body, binds its pose, face and anatomy, and waits for the watcher's resume.
+## `ponies` calls this when the source's new body spawns. The runtime is already under the entry;
+## it moves under the new body, binds its pose, face and anatomy, and waits for the watcher's resume.
 ## A body that is not an adult mare ends the act through the one exit.
 func adopt_body(new_pony: Node) -> void:
 	if not _suspended or not is_instance_valid(new_pony):

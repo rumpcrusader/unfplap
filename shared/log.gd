@@ -17,10 +17,10 @@ static var debug_logs := false
 ## The game setting PRINT PERF LOGS: needs `debug_logs` too.
 static var debug_perf := false
 ## True while an act owns the frame. The idle window stays off inside an act; the entry installs
-## the read, because the act belongs to it and a shared module never sees the runtime.
+## `ponies`' read, because a shared module never sees the runtime.
 static var act_running := Callable()
 ## The idle block's header counts, `{runtimes, mares}`, read once per window. The entry installs
-## it: the live runtimes are its registry and the mares come from the world facade.
+## `ponies`' read: the live runtimes are its registry and the mares come from the world facade.
 static var counts := Callable()
 ## The idle (outside-act) debug perf probe; see `docs/perf.md`.
 static var _probe := _new_probe()

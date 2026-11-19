@@ -40,7 +40,7 @@ The live start paths share the one body (`runtime._begin_act()`):
   `AGREEMENT_WAIT`, `AGREEMENT_STARTED` or `AGREEMENT_FAILED` and the offer, its only caller,
   reports `Started` or `StartFailed` to the Negotiation service. `AGREEMENT_WAIT` means a
   transient row or an unsettled presentation, and the Agreement stays live. The presentation is
-  act-owned and starts when `main` receives the Agreement.
+  act-owned and starts when the entry forms the Agreement.
 - **Auto-start:** the offer's clock samples the live Agreement at `0.25 s`. When the presentation
   is settled and the scene-only rows pass, with no menu, no pause and no live act, it starts with
   no key press. A private Agreement takes a fresh privacy sample first; a public one does not
@@ -135,17 +135,17 @@ A body-change provider can replace the act pony's presented body without ending 
 mechanism, the typed form and the source/binding contracts are `docs/body_change.md`; this section
 owns the act side.
 
-The provider observes its own pack and pushes the change through `main.body_change`; the runtime
-does not poll it. `_body_swap_tick()` reads `active_change_for(pony)` on its existing `0.1 s`
-cadence. One provider that handles the act pony and reports a live `BodyChange` whose
+The provider observes its own pack and pushes the change through the body-change service's
+bindings; the runtime does not poll it. `_body_swap_tick()` reads `active_change_for(pony)` on its
+existing `0.1 s` cadence. One provider that handles the act pony and reports a live `BodyChange` whose
 `previous_body` is the act pony starts the handover. A provider may start a change from its own AI
 as well as from a `request_*` call; the typed change carries its origin. A change whose old body is
 not the act pony never reaches the act.
 
 `_suspend_for_body_swap(change)` keeps the act and stops its work:
 
-- one pending swap is recorded in `main`; a second change is refused until it clears;
-- the runtime is reparented to `main` before the old body is freed;
+- one pending swap is recorded in `ponies`; a second change is refused until it clears;
+- the runtime is reparented to the entry before the old body is freed;
 - the pose session, the anatomy act handle, the navigator lease, the face-turn hold, the camera
   shot and the body-bound controllers are released; the kiss and hand contact are reset, a held
   body is released, the act-key hold stops and the auto stroke is interrupted without resetting
@@ -155,12 +155,12 @@ not the act pony never reaches the act.
   serial, settings snapshot and dialogue state stay in the runtime. The player stays locked, the
   HUD stays up and the outer camera is not restored to the player as an idle camera.
 
-`main._on_pony(new_pony)` adopts the suspended runtime before it creates a runtime. The entry runs
-the body-change `notify_body_ready()` first, so the service asks the provider for the new body's
-form, applies it and fans it out before the tail seat and the anatomy bind; the placement and tail
-then read the presented form. The entry adopts when the change's typed source `claims_body()` or
-the stable id matches, then `anatomy.bind()` runs, the runtime is reparented under the new body,
-and `runtime.adopt_body()` binds the new body, pose, face and anatomy but does not resume. The
+`PONIES.attach(new_pony)` adopts the suspended runtime before it creates a runtime. It runs the
+body-change `notify_body_ready()` first, so the service asks the provider for the new body's form,
+applies it and fans it out before the tail seat and the anatomy bind; the placement and tail then
+read the presented form. It adopts when the change's typed source `claims_body()` or the stable
+id matches, then `anatomy.bind()` runs, the runtime is reparented under the new body, and
+`runtime.adopt_body()` binds the new body, pose, face and anatomy but does not resume. The
 watcher resumes once the new body reports the requested form or the provider has finished; a
 true-form change (an empty target) is ready at once, and a target the provider fills in after the
 suspension is read from the typed change's `target_form_id` on the same ticks. A named form that
@@ -177,11 +177,11 @@ game's near and far caches are dropped and the near mesh is re-armed, so the vis
 form variant rather than the old body's near mesh. A rebuilt near mesh that still shows her own
 materials is a pack-side look issue, not a game-file edit.
 
-A provider may clear its changing state before the new body's spawn hook reaches `main`. The
-watcher keeps the act suspended while the change still reports a `next_body`, then calls
-`main.adopt_pending_body()` to run the same prepare-and-adopt path after a short grace. The old body
-is not resumed while that new body exists, so the late spawn cannot attach a second runtime. A
-provider that stops without a new body still follows the old-body or watchdog path below.
+A provider may clear its changing state before the new body's spawn hook reaches the registry.
+The watcher keeps the act suspended while the change still reports a `next_body`, then calls
+`PONIES.adopt_pending_body()` to run the same prepare-and-adopt path after a short grace. The old
+body is not resumed while that new body exists, so the late spawn cannot attach a second runtime.
+A provider that stops without a new body still follows the old-body or watchdog path below.
 
 A live settings edit while suspended refreshes the snapshot and returns; the resume applies it
 with the rest of the rebuilt state instead of touching a released pose or the old body.
@@ -195,7 +195,7 @@ the camera, re-claims the new navigator, pauses the new face-turn rate, rebinds 
 wings and integrations, and refreshes the HUD facts. The body-change service has already applied
 the presented form and bound the world systems; the resume is the act's own ordered rebuild of the
 runtime's sub-services, not a second binding fan-out. The runtime binding looks the runtime up
-through `main.runtime_for(body)` and forwards the form; it never creates a runtime, starts an act
+through `PONIES.runtime_for(body)` and forwards the form; it never creates a runtime, starts an act
 or runs the act exit. `_resume_after_body_swap()` stays the one resume path and runs after the
 form is ready, so the standing re-anchor, the eye override and the pose use the new body's form.
 A same-node revision takes the same `_reset_visual_for_form()` path through the runtime binding,
@@ -334,26 +334,29 @@ failed start runs the same function and restores only what it took.
   family places its Anon body and eye camera; the standing family syncs its ground frame and
   writes the same pose), the camera lean and motion, the climax wave, the breath,
   the face and the HUD.
-- `main._process` calls `active_runtime.apply_camera_motion()` every rendered frame. Keep this
-  single owner.
+- `main._process` calls `PONIES.active()` and then `apply_camera_motion()` on it every rendered
+  frame. Keep this single owner.
 - Do not merge these timing domains blindly. The pose/camera timing is in `docs/poses.md` and
   `docs/camera.md`.
 
 ## Public surface
 
-The runtime keeps thin forwards for `main.gd`, `hud/service.gd`, `input/service.gd`, the labs, `initiation/service.gd`,
-`anatomy/service.gd`, `poses/standing_presentation.gd` and the tests. The stable
-cross-mod surface is `docs/api.md`; the internal reads the HUD/tests use (`state`, `pose_id`,
-`pony`, `pony_climaxes`, `satisfaction`, `mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay
-callable.
+The runtime keeps thin forwards for `main.gd`, `ponies/service.gd`, `hud/service.gd`,
+`input/service.gd`, the labs, `initiation/service.gd`, `anatomy/service.gd`,
+`poses/standing_presentation.gd` and the tests. The stable cross-mod surface is `docs/api.md`; the
+internal reads the HUD/tests use (`state`, `pose_id`, `pony`, `pony_climaxes`, `satisfaction`,
+`mood`, `cue`, `depth`, `penetration_m`, `thrust_up`) stay callable.
+
+`live_id()` is the act's stable pony id, refreshed from the live body; `ponies` matches a
+dialogue prompt note to its one runtime through it and the id itself stays private to the act.
 
 `request_form_change(true_form, shape_id, by_player)` is the act-side form request the debug block
 uses and the player interaction calls; `by_player` becomes the typed `BodyChange.Origin`, and the
 watcher turns the request into the suspension. Only a player-requested own form is exceptional.
 `body_swap_pending()` is true between suspension and resume.
-`main.adopt_pending_body(pony)` runs the entry's prepare and pending-swap adoption for a body the
-watcher found before its spawn hook. `main` and the debug actions use these; no presentation module
-reads them.
+`PONIES.adopt_pending_body(pony)` runs the registry's prepare and pending-swap adoption for a body
+the watcher found before its spawn hook. `runtime.gd` is the only caller; no presentation module
+reads it.
 
 The runtime does not mirror a service's act state. It reads it through the owning facade
 (`_readiness`, `_act_camera`, `_afterglow`, `_hold`, `_pose_session`, `_summary_service`, `_face`)
@@ -429,8 +432,9 @@ standing start no longer pulls the Hips bone across the gap. The fit log line ca
   instead of resuming the old body, a change during the restore finishes the act through the one
   exit, a held body refuses the request, the presented form's name drives the act facts with the
   identity fallback while the stable id and event id survive, and the fake policy records all six
-  generic act milestones in order. The entry's own adoption order is review-only: the suite fakes
-  the entry because `main.gd` names the `Mods` autoload, which a `--script` suite cannot load.
+  generic act milestones in order. The suite binds the real `ponies` registry and fakes only the
+  runtime's host handle and the body-change service, because `main.gd` names the `Mods` autoload,
+  which a `--script` suite cannot load.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
 - `scripts/architecture.py --check` — the one exit, the pose ledger order and its three callers,

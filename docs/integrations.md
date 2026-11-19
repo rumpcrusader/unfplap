@@ -290,7 +290,7 @@ registered. `body_change.installed_character_ids()` merges that with the live of
 the Characters selector, so she is listed under **Other mares** even while she is away in the
 Badlands. The base roster stays 103, and removing the pack removes the entry.
 
-`main._prepare_pony()` calls `body_change.notify_body_ready(pony)` before the tail seat and the
+`PONIES.attach(pony)` calls `body_change.notify_body_ready(pony)` before the tail seat and the
 anatomy bind. The service asks the provider's `prepare_body()` for the body's typed form and
 mirrors it. Her own body (the pack's own meshes or its spring tail) gets:
 
@@ -319,7 +319,7 @@ before the chain is readable or before the body has an identity. The adapter own
 six tries at 50 ms, scheduled from her own-body path and from an identity-less early body. It
 finds the chain under `pony.skeleton` and, when that rig is not exposed, by searching for the
 `Hair_tail` attachment. When the chain appears it re-prepares the body (the form's `tail_root`
-changes its signature, so the revision bumps) and calls `main.prepare_pony_late(pony)` once for the
+changes its signature, so the revision bumps) and calls `PONIES.prepare_late(pony)` once for the
 late anatomy/tail pass. The check does not depend on the anatomy seat, `tail_ready()` or a dock.
 
 Her own body's hide pass runs every half second and hides every mesh under her model that lacks
@@ -351,7 +351,7 @@ profile, the marker is kept and there is no own `tail_root` or wrapper. The old 
 ponies keep their own forms. When observation sees the new body's variant or `disguised_as` report
 the target, the adapter calls `prepare_body()` again; if the descriptor changed, its per-body
 signature bumps the revision, the service refreshes the bound body, and the adapter runs
-`main.prepare_pony_late()` and `WORLD.refresh_body_lod()`. The per-body revision and signature
+`PONIES.prepare_late()` and `WORLD.refresh_body_lod()`. The per-body revision and signature
 reset when the change ends.
 
 The new body is claimed by its stable identity before the shape is known, and observation fills
@@ -444,13 +444,13 @@ overlay reads them.
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
 | `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` and re-applies each live source-owned tail after a settings edit |
 | `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
-| `main._prepare_pony()` | calls `body_change.notify_body_ready()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
-| `main.prepare_pony_late(pony)` | re-runs the body-change prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late form/ownership only, no runtime and no tail wrapper |
+| `PONIES._prepare(pony)` | calls `body_change.notify_body_ready()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
+| `PONIES.prepare_late(pony)` | re-runs the body-change prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late form/ownership only, no runtime and no tail wrapper |
 | `main.refresh_anatomy()` | refreshes the live anatomy controllers and the player part after the settled form |
 | `WORLD.refresh_body_lod(pony)` | drops the new body's near/far LOD caches and re-arms its near mesh after a form or an adoption |
 | `main.custom_tail_ready(pony)` / `main.apply_custom_tail(pony)` / `main.custom_tail_report()` | forward the anatomy editor to the provider that owns a body's tail placement |
-| `main.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
-| `main.live_character_ids()` | merges the body-change service's `installed_character_ids()` |
+| `PONIES.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
+| `PONIES.live_character_ids()` | merges the body-change service's `installed_character_ids()` |
 | `runtime.request_form_change()` | the act-side start of a body change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
 | `runtime.adopt_body()` / `attach_to_body()` | moves the suspended act under the claimed body |
 | `Mods.is_active("changelings")` | the adapter's installation gate |

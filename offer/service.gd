@@ -15,9 +15,9 @@ extends Node
 ## The idle act offer: the one-second scene scan, the standing gate behind it, the typed offer the
 ## act key would start, the footstool block and the "Make love" hint beside the game's prompt row.
 ## It also owns the act start that follows a scan: the act key's press, the hotkey attempt, the
-## live Agreement start and the Agreement's own auto-start. Every scene read is `WORLD`; a pony's
-## runtime, the act-target rule and the live act are the entry's reads until `ponies` owns the
-## registry, so the entry binds them here as callables.
+## live Agreement start and the Agreement's own auto-start. Every scene read is `WORLD`; the
+## pony registry, the act-target rule and the live act reach this service as the callables the
+## entry binds, so it never preloads the runtime or the registry.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")

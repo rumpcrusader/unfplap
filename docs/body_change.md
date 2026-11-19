@@ -326,7 +326,7 @@ The service's debug line names them in the same order.
 | `body_change/smack_binding.gd` | `main` | body | hands the body to the outside-act stock smack layer |
 
 The runtime owns its sub-services behind one binding; they have no separate public binding files.
-The runtime binding looks the runtime up through `main.runtime_for(body)` and never runs an act
+The runtime binding looks the runtime up through `PONIES.runtime_for(body)` and never runs an act
 exit. `bind_body()` and `refresh_body()` both forward to the runtime's idempotent rebind; a body
 without a runtime is inert.
 
@@ -442,8 +442,8 @@ suspension, adoption, resume and failure phases.
 |---|---|
 | `main._ready()` | constructs the service, registers the bindings and the providers |
 | `main._on_world()` | calls `refresh_sources()` so each provider re-reads its pack |
-| `main._prepare_pony()` | calls `notify_body_ready()` before the tail seat, the stock smack layer and a runtime |
-| `main.runtime_for(pony)` | the runtime binding's public lookup |
+| `PONIES._prepare(pony)` | calls `notify_body_ready()` before the tail seat, the stock smack layer and a runtime |
+| `PONIES.runtime_for(pony)` | the runtime binding's public lookup |
 | `WORLD.refresh_body_lod(pony)` | the LOD binding's public refresh |
 | `pantyhose.scan()` | the garment binding's public scan |
 | `stock_smack.pony_ready(pony)` | the stock smack binding's public prepare |

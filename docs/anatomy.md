@@ -64,8 +64,9 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 
 The internal entry points are:
 
-- `main.gd` creates `main.anatomy`. `_on_pony` binds the controller and tail seat, `_on_player`
-  creates the player part, and the placement debug buttons forward to the service.
+- `main.gd` creates `main.anatomy`. `ponies` binds the controller on attach and seats the tail on
+  every prepare, `_on_player` creates the player part, and the placement debug buttons forward to
+  the service.
 - `anatomy/service.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
   placement editor. It supplies the typed facts, the service, consent, status and the dock
   refresh to each controller, and pushes the live player part to every controller on a player
@@ -211,8 +212,8 @@ resulting `view.contact_kind`/`view.contact_target`.
   and attachment copies it onto the anatomy mesh and its parts, which ride the same skeleton. Queen
   Chrysalis's body uses this so its `chrysalis_own` hide pass leaves the anatomy alone. The marker
   is provider metadata, not a `docs/api.md` convention.
-- The anatomy body binding (`anatomy/body_binding.gd`) is registered by `main` with
-  `main.body_change`. `bind_body()` stores the form, creates the per-pony controller with it and
+- The anatomy body binding (`anatomy/body_binding.gd`) is registered by `main` with the
+  body-change service. `bind_body()` stores the form, creates the per-pony controller with it and
   refreshes the tail row; `refresh_body()` re-reads the same body's revised form; `unbind_body()`
   releases the tail row and detaches the controller even when the node stays in the tree. The
   controller's `refresh_form()` re-fits the placement and rebuilds the appearance, marker and

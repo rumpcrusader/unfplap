@@ -253,7 +253,8 @@ themselves are `docs/perf.md`'s.
 
 The entry adds the actions node and hands it the services it acts through as typed fields
 (`body_change`, `initiation`, `negotiation`, `anatomy`, `pantyhose`, and the HUD once the player rig
-arrives). The entry's own live act state is these named reads, bound once at construction:
+arrives). The live act state is these named reads, bound once at construction; they read the
+`ponies` registry and the act-target rule:
 
 | Callback | Type | Purpose |
 |---|---|---|
@@ -263,7 +264,7 @@ arrives). The entry's own live act state is these named reads, bound once at con
 | `host.act_target` | `Callable(Variant) -> bool` | the act-target capability |
 | `host.reload_posed_base` | `Callable() -> String` | re-read the authored pose file when no act is live |
 
-`ponies` takes the first four when the runtime registry moves out of the entry.
+The first three read `ponies`; `act_target` and `reload_posed_base` stay the entry's.
 
 ## Dependencies
 

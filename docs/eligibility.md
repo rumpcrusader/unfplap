@@ -87,7 +87,7 @@ Rules:
 ## Public API
 
 `eligibility/service.gd` extends `RefCounted`. `main.gd` creates one instance and exposes it as
-`main.eligibility`. The types are declared in the facade, so a consumer names them
+`main.eligibility`; `ponies` gets the same instance to answer the character target. The types are declared in the facade, so a consumer names them
 `ELIGIBILITY.Verdict`, `ELIGIBILITY.Target`, and so on.
 
 ```gdscript
@@ -151,7 +151,7 @@ shape-identity cache used by `eligible_id()`.
 | `offer/service.gd` `scan()` | a live Agreement's scene-only rows, else `runtime.hotkey_ready()` | candidate discovery; the Agreement offer wins, the idle scan uses Base clearance plus the scene-only rows |
 | `offer.try_start()` | `runtime.hotkey_ready()` | the act key; no policy row, no buck |
 | `offer/service.gd` scan | `eligible(pony, Target.ACT)` through the entry's `act_target` callback | candidate discovery |
-| `main.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
+| `PONIES.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
 | `initiation` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` + the scene-only formation rows | cooldown, approach, bed search, privacy, Mare Initiation Reasoning; see `docs/initiation.md` |
 | `runtime.start_agreement()` | none; the scene-only rows and the frozen pose capability | the Agreement start; the policy was frozen at formation |
 | `anatomy/act` | `get_profile(id).consent` | feature flags |

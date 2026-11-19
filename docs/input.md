@@ -63,7 +63,7 @@ label.
 
 ## Data ownership
 
-Nothing is saved. The service reads `main.active_runtime`, the debug facade's `wheel_open()`,
+Nothing is saved. The service reads `PONIES.active()`, the debug facade's `wheel_open()`,
 `WORLD.player`, `WORLD.menu_panel_open()` and the viewport focus owner, plus the `act_key` and
 `act_input_shield` settings. It does not store runtime state.
 

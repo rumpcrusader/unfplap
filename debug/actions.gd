@@ -27,8 +27,8 @@ const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "twilight_sparkle"]
 
 
-## The entry's live act state. It is the entry's until `ponies` owns it, so the entry binds these
-## named reads once instead of handing over itself.
+## The live act state. The entry binds these named reads once instead of handing over the
+## registry, so the actions node never preloads `ponies`.
 class Host extends RefCounted:
 	## -> the live act's runtime, or null.
 	var act := Callable()

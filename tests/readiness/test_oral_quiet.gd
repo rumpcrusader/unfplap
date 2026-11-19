@@ -140,20 +140,30 @@ class FakePose extends RefCounted:
 class FakeAudio extends RefCounted:
 	var impacts: Array = []
 	var withdraws := 0
+	var vocals := 0
+	var oral_kisses := 0
 
 	func pose_changed(_view: Variant) -> void:
 		pass
 
-	func play_impact(tier: String, strength: float, _rump: Vector3,
-			_bed_at: Vector3, _soft_bed: bool, _gap: float, _eps: float, plap := true) -> void:
+	func impact(tier: String, strength: float, _rump: Vector3,
+			_gap: float, _eps: float, plap := true) -> void:
 		impacts.append({"tier": tier, "strength": strength, "plap": plap})
 
 	func crossed(_before: float, _after: float) -> bool:
 		return true
 
-	func withdraw_crossed(_before: float, _after: float, _strength: float,
-			_rump: Vector3, _bed_at: Vector3, _soft_bed: bool) -> void:
+	func withdraw(_before: float, _after: float, _strength: float, _rump: Vector3) -> void:
 		withdraws += 1
+
+	func play_vocal() -> void:
+		vocals += 1
+
+	func tick_vocal(_delta: float) -> void:
+		pass
+
+	func oral_kiss() -> void:
+		oral_kisses += 1
 
 
 class FakeBoop extends Node:
@@ -180,18 +190,9 @@ class FakePony extends Node3D:
 		speaking = false
 
 
-class FakeVocal extends RefCounted:
-	var plays := 0
-
-	func play(_id: String, _kind: String, _pony_node: Variant, _db: float) -> bool:
-		plays += 1
-		return true
-
-
 class FakeDirector extends Node:
 	var state := "idle"
 	var _current := ""
-	var vocal: Variant = null
 	var interrupts := 0
 
 	func interrupt() -> void:
@@ -250,8 +251,6 @@ func _fixture() -> Dictionary:
 	pony.boop_node = boop
 	var main := FakeMain.new()
 	var director := FakeDirector.new()
-	var vocal := FakeVocal.new()
-	director.vocal = vocal
 	director.add_to_group("conversation_director")
 	var bridge := FakeBridge.new()
 	var reactions := FakeReactions.new()
@@ -291,8 +290,8 @@ func _fixture() -> Dictionary:
 	root.add_child(pony)
 	root.add_child(runtime)
 	return {
-		"runtime": runtime, "pony": pony, "boop": boop, "main": main,
-		"director": director, "vocal": vocal, "bridge": bridge,
+		"runtime": runtime, "pony": pony, "boop": boop, "director": director,
+		"main": main, "bridge": bridge,
 		"reactions": reactions, "wings": wings, "pose": pose,
 		"audio": audio, "dialogue": dialogue, "camera": act_camera, "kiss": kiss,
 	}
@@ -325,7 +324,6 @@ func run() -> void:
 	var boop: FakeBoop = made["boop"]
 	var main: FakeMain = made["main"]
 	var director: FakeDirector = made["director"]
-	var vocal: FakeVocal = made["vocal"]
 	var bridge: FakeBridge = made["bridge"]
 	var reactions: FakeReactions = made["reactions"]
 	var wings: FakeWings = made["wings"]
@@ -342,7 +340,6 @@ func run() -> void:
 	pose_facts.pose_view = view
 	pose.facts = pose_facts
 	runtime._act_facts.pose_view = view
-	runtime._vocal_cooldown = 0.0
 	runtime._on_impact(_impact())
 	check(audio.impacts.size() == 1 and bool(audio.impacts[0]["plap"]),
 		"a regular impact keeps the plap")
@@ -351,11 +348,10 @@ func run() -> void:
 	check(wings.thrusts == 1, "a regular impact flaps the wings")
 	check(reactions.blushes == 1, "a regular impact blushes")
 	check(pose.ear_checks == 1, "a regular impact twitches the ear")
-	check(vocal.plays == 1, "a regular impact plays the vocal")
+	check(audio.vocals == 1, "a regular impact plays the vocal")
 
 	# The mouth contact keeps the reactions, drops the plap and skips the rump/tail jiggle.
 	view.contact_kind = "mouth"
-	runtime._vocal_cooldown = 0.0
 	runtime._on_impact(_impact())
 	check(audio.impacts.size() == 2 and not bool(audio.impacts[1]["plap"]),
 		"an oral impact drops the plap")
@@ -364,7 +360,7 @@ func run() -> void:
 	check(wings.thrusts == 2, "an oral impact keeps the wings")
 	check(reactions.blushes == 2, "an oral impact keeps the blush")
 	check(pose.ear_checks == 2, "an oral impact keeps the ear twitch")
-	check(vocal.plays == 2, "an oral impact keeps the vocal")
+	check(audio.vocals == 2, "an oral impact keeps the vocal")
 	check(boop.kisses == 0, "an oral stroke plays no kiss")
 
 	# The speech stop host action: her act line, director turn and voice stop, and the mouth is
@@ -391,13 +387,11 @@ func run() -> void:
 	check(runtime._oral_opening_point().is_equal_approx(bridge.point),
 		"the pose turn reads the provider's opening")
 
-	# The soft kiss cue is one base-game soft kiss at the stock volume.
+	# The soft kiss cue is one base-game soft kiss; the audio facade owns the cue and its level
+	# (`test_audio.gd` covers the stock volume and the soft variant).
 	boop.kisses = 0
 	runtime._oral_kiss()
-	check(boop.kisses == 1, "the soft kiss plays one base-game kiss")
-	check(boop.volumes.size() == 1 and is_equal_approx(boop.volumes[0], runtime.ORAL_KISS_DB),
-		"the idle kiss uses the stock soft volume")
-	check(boop.softs.size() == 1 and bool(boop.softs[0]), "the idle kiss is the soft variant")
+	check(audio.oral_kisses == 1, "the soft kiss reaches the audio facade")
 
 	# Her climax line is skipped while the mouth contact is live, and returns once released.
 	dialogue.reaction_calls = 0
@@ -422,15 +416,14 @@ func run() -> void:
 	var face_thrusts := reactions.thrusts
 	var face_tails := reactions.tails
 	var face_wings := wings.thrusts
-	var face_vocal := vocal.plays
+	var face_vocal := audio.vocals
 	view.contact_kind = "face"
-	runtime._vocal_cooldown = 0.0
 	runtime._on_impact(_impact())
 	check(audio.impacts.size() == 3 and not bool(audio.impacts[2]["plap"]),
 		"a face-sit impact drops the plap")
 	check(reactions.thrusts == face_thrusts and reactions.tails == face_tails,
 		"a face-sit impact skips the rump and tail jiggle")
-	check(wings.thrusts == face_wings + 1 and vocal.plays == face_vocal + 1,
+	check(wings.thrusts == face_wings + 1 and audio.vocals == face_vocal + 1,
 		"a face-sit impact keeps the wings and the vocal")
 	var face_withdraws := audio.withdraws
 	runtime._thrust_move(-0.4, 0.3)

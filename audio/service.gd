@@ -1,11 +1,13 @@
 extends Node
-## The act audio facade: the pack foley layer, the base-game breath and squee climax, and the
-## Ponese mute policy. The runtime creates one node and keeps it for the process; `begin()` opens
-## the layer for an act and `end()` closes it.
+## The act audio facade: the pack foley layer, the base-game breath and squee climax, the Ponese
+## mute policy and her own generated vocal. The runtime creates one node and keeps it for the
+## process; `bind()` names the act's pony, id and bed and `begin()` opens the layer for an act,
+## `end()` closes it.
 ##
 ## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. The base-game breath, Ponese
 ## voice and `squee_*` climax are separate and always on. See `docs/audio.md`.
 
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
@@ -17,9 +19,15 @@ const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 const WITHDRAW_DEPTH := 0.22
 ## Full-strength cue level is lowered by this much at strength 0.
 const STRENGTH_GAIN_DB := 10.0
+## The base game's own soft kiss level at her snout.
+const ORAL_KISS_DB := -22.0
+## One generated vocal per this many seconds of act, however fast the stroke.
+const VOCAL_COOLDOWN_S := 3.0
+## Her body's own vocal level under the spoken line.
+const VOCAL_DB := -34.0
 
-## The active impact profile, from the pose view's `audio.impact` (`missionary` or `standing`).
-## `pose_changed()` caches it; the impact and withdraw calls use the cache instead of the start id.
+## The active impact profile, from the pose view's `impact` (`missionary` or `standing`).
+## `pose_changed()` sets it; the impact and withdraw calls read it instead of the pose id.
 var _impact_profile := ""
 var _pools: Dictionary = {}
 var _next: Dictionary = {}
@@ -28,6 +36,15 @@ var _ready_at: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 ## The base-game breath and squee players, one child node for the act.
 var _sound: Node
+## The act's pony, its stable id and its bed. `bind()` sets them; they resolve the snout, the bed
+## point, the soft-bed flag, the oral kiss and the director's vocal cache key, so the call sites
+## carry only the stroke facts.
+var _pony: Node3D
+var _id := ""
+var _bed: Node3D
+var _bed_soft := false
+## The generated-vocal cooldown runs on processed time: a paused tree freezes it with the act.
+var _vocal_cooldown := 0.0
 ## Ponese mute policy state. Kept on the persistent facade, so a settings edit at IDLE can still
 ## give the voice player its volume back.
 var _voice_player: AudioStreamPlayer3D
@@ -38,11 +55,25 @@ var _text_only_voice := false
 var log := Callable()
 
 
-## Open the act's layer. The impact profile is cleared here and set by the first pose fan-out of
-## the act.
+## Name the act's pony, its stable id and the bed it plays on. Couch, sofa and cloth are the soft
+## surfaces that get the fabric layer; every other bed is wood and plays none.
+func bind(pony_in: Node3D, id: String, bed_in: Node3D) -> void:
+	_pony = pony_in
+	_id = id
+	_bed = bed_in
+	_bed_soft = is_instance_valid(bed_in) and soft_surface(str(bed_in.name).to_lower())
+
+
+static func soft_surface(name_lower: String) -> bool:
+	return "couch" in name_lower or "sofa" in name_lower or "cloth" in name_lower
+
+
+## Open the act's layer. The impact profile and the vocal cooldown are cleared here and the first
+## pose fan-out of the act fills the profile.
 func begin() -> void:
 	_rng.randomize()
 	_impact_profile = ""
+	_vocal_cooldown = 0.0
 	_build_group("foley")
 	if not is_instance_valid(_sound):
 		_sound = SOUND.new()
@@ -53,7 +84,7 @@ func begin() -> void:
 
 ## One pose-change hook: the impact profile follows the live view, so an internal pose (`standing_test`)
 ## or a later oral edge never inherits the act's start pose. A missing profile falls back to the bed
-## profile; standing and standing_test carry `audio.impact = "standing"`.
+## profile; standing and standing_test carry `impact = "standing"`.
 func pose_changed(view: Variant) -> void:
 	var audio: Variant = view.audio if view != null else null
 	_impact_profile = str((audio as Dictionary).get("impact", "")) if audio is Dictionary else ""
@@ -75,26 +106,62 @@ func stop_breath() -> void:
 		_sound.call("stop_breath")
 
 
-## The base-game squee climax.
-func climax(snout: Vector3) -> void:
+## The base-game squee climax at her snout.
+func climax() -> void:
 	if is_instance_valid(_sound):
-		_sound.call("play_climax", snout)
+		_sound.call("play_climax", snout())
 
 
 ## Breath follows the plap rate and the act phase. `phase` is empty outside the act.
-## One breath frame: `phase` is `active`, `climax`, `afterglow` or empty for silence.
-func tick(delta: float, phase: String, rate: float, snout: Vector3) -> void:
+func tick(delta: float, phase: String, rate: float) -> void:
 	if is_instance_valid(_sound):
-		_sound.call("breath_tick", delta, phase, rate, snout)
+		_sound.call("breath_tick", delta, phase, rate, snout())
+
+
+## The breath phase for one act state. Posing in and restore are silent; the base-game breath is
+## loud in `ACTIVE`, jumps at `CLIMAX` and fades through `AFTERGLOW`.
+static func phase_for_state(act_state: int) -> String:
+	match act_state:
+		ACT_STATE.State.ACTIVE:
+			return "active"
+		ACT_STATE.State.CLIMAX:
+			return "climax"
+		ACT_STATE.State.AFTERGLOW:
+			return "afterglow"
+	return ""
+
+
+## Her snout, the base game's own kiss point. A lost body has no point: the cues are dropped
+## rather than played at a guessed position.
+func snout() -> Vector3:
+	if not is_instance_valid(_pony):
+		return Vector3.ZERO
+	var boop: Variant = _pony.get("boop_node")
+	if is_instance_valid(boop) and boop.has_method("nose_world"):
+		return boop.call("nose_world")
+	return _pony.global_position + Vector3.UP * 1.0
+
+
+## The bed's surface point for the fabric layer. Without a bed the caller's rump point keeps the
+## cue where the stroke is.
+func bed_point(rump: Vector3) -> Vector3:
+	if is_instance_valid(_bed):
+		return _bed.global_position + Vector3.UP * 0.35
+	return rump
+
+
+func bed_soft() -> bool:
+	return _bed_soft
 
 
 ## `mute_ponese_audio`: keep the generated line and text HUD, but silence the Ponese audio for
-## this act. A generated-voice pony is left alone. `info` is `VOICE.classify()`.
-func apply_voice_policy(pony_node: Variant, id: String, mute: bool, info: Dictionary) -> void:
+## this act. A generated-voice pony is left alone.
+func apply_voice_policy(mute: bool, pony_in: Node3D, id: String) -> void:
+	var info := VOICE.classify(_voice_profile(id), _tts_node(), _tts_enabled())
 	_text_only_voice = mute and bool(info.get("effective_ponese", false))
 	if not _text_only_voice:
 		return
-	_voice_player = _find_voice_player(pony_node)
+	_voice_player = _find_voice_player(pony_in)
 	if not is_instance_valid(_voice_player):
 		write_log("voice text-only: no voice player pony=%s" % id)
 		return
@@ -115,7 +182,47 @@ func voice_text_only() -> bool:
 	return _text_only_voice
 
 
-func _find_voice_player(pony_node: Variant) -> AudioStreamPlayer3D:
+## The debug read: the routing the director's profile and the game's TTS switch give her.
+func voice_status_line(id: String) -> String:
+	return "voice " + VOICE.describe(VOICE.classify(_voice_profile(id), _tts_node(), _tts_enabled()))
+
+
+func _voice_profile(id: String) -> Dictionary:
+	var director := _director()
+	if director == null:
+		return {}
+	var characters: Variant = director.get("characters")
+	if characters is Dictionary and (characters as Dictionary).has(id):
+		var entry: Variant = (characters as Dictionary)[id]
+		if entry is Dictionary:
+			var profile: Variant = (entry as Dictionary).get("profile", {})
+			if profile is Dictionary:
+				return profile
+	return {}
+
+
+func _tts_node() -> Node:
+	var director := _director()
+	if director == null:
+		return null
+	var tts: Variant = director.get("tts")
+	return tts as Node if is_instance_valid(tts) else null
+
+
+func _tts_enabled() -> bool:
+	var settings := get_node_or_null("/root/Settings")
+	if settings != null and settings.has_method("tts_enabled"):
+		return bool(settings.call("tts_enabled"))
+	return true
+
+
+func _director() -> Node:
+	if not is_inside_tree():
+		return null
+	return get_tree().get_first_node_in_group("conversation_director")
+
+
+func _find_voice_player(pony_node: Node3D) -> AudioStreamPlayer3D:
 	if not is_instance_valid(pony_node):
 		return null
 	var head: Variant = pony_node.get("head")
@@ -218,6 +325,14 @@ func play_plap(tier: String, strength: float, at: Vector3, extra_db := 0.0) -> b
 	return play(cue_for_plap(tier), at, 1.0, extra_db, pitch_for(strength))
 
 
+## The act's impact fan-out: the plap, the bed layer and the slide at one bottom. The facade
+## resolves the bed point and the soft-bed flag from its bound bed, so the call site passes only
+## the stroke facts and the rump point the reactions computed.
+func impact(tier: String, strength: float, rump: Vector3,
+		gap: float, eps: float, plap := true) -> void:
+	play_impact(tier, strength, rump, bed_point(rump), _bed_soft, gap, eps, plap)
+
+
 ## Called from the tracker's impact event: the deepest point of the stroke, so it also catches
 ## shallow strokes that never crossed a fixed depth. `tier` is empty below the firm impact speed,
 ## and `gap` is how far his skin still is from her coat in metres; `eps` is the contact epsilon.
@@ -250,8 +365,9 @@ func play_slide(direction: String, strength: float, at: Vector3, extra_db := -6.
 	return play(cue, at, strength, extra_db)
 
 
-func play_mouth_kiss(at: Vector3) -> bool:
-	return play("mouth_kiss", at, 0.55)
+## The kiss cue at her snout, for the kiss that lands without the mouth contact.
+func play_mouth_kiss() -> bool:
+	return play("mouth_kiss", snout(), 0.55)
 
 
 ## True only on the frames that will fire the withdraw layer. The caller uses this before asking
@@ -260,15 +376,66 @@ func crossed(before: float, after: float) -> bool:
 	return before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH
 
 
-## Withdraw only. The impact layer is fired from play_impact() on the tracker's impact event.
-func withdraw_crossed(before: float, after: float, strength: float,
-		rump: Vector3, bed_at: Vector3, soft_bed: bool) -> void:
-	if not (before > WITHDRAW_DEPTH and after <= WITHDRAW_DEPTH):
+## Withdraw only. The impact layer is fired from `impact()` on the tracker's impact event.
+func withdraw(before: float, after: float, strength: float, rump: Vector3) -> void:
+	if not crossed(before, after):
 		return
 	var level := clampf(strength, 0.0, 1.0)
 	play_slide("out", level, rump, -4.0)
 	if uses_bed(_impact_profile):
-		play_bed(level, bed_at, soft_bed)
+		play_bed(level, bed_point(rump), _bed_soft)
+
+
+## Her own generated vocal on a stroke, at most once per `VOCAL_COOLDOWN_S`. The director must be
+## idle, or the stroke stays silent and the next one tries again.
+func play_vocal() -> void:
+	if _vocal_cooldown > 0.0:
+		return
+	var director := _director()
+	if director == null or str(director.get("state")) != "idle" or not is_instance_valid(_pony):
+		return
+	var vocal: Variant = director.get("vocal")
+	if not vocal is Node:
+		return
+	var vocal_node: Node = vocal
+	if not vocal_node.has_method("play"):
+		return
+	prune_freed_vocal(vocal_node)
+	if bool(vocal_node.call("play", _id, "m", _pony, VOCAL_DB)):
+		_vocal_cooldown = VOCAL_COOLDOWN_S
+
+
+func tick_vocal(delta: float) -> void:
+	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
+
+
+## The base game's vocal cache maps a pony id to an AudioStreamPlayer3D parented to her body.
+## A body swap frees that body and leaves a freed instance in the cache; the game's typed read at
+## `vocal_noises.gd:play()` then fails before its own validity guard. Clear only this act's stable
+## id so the game can create the player on the presented body. Guarded for a changed cache.
+func prune_freed_vocal(vocal: Node) -> void:
+	if not is_instance_valid(vocal):
+		return
+	var players: Variant = vocal.get("_players")
+	if not players is Dictionary:
+		return
+	if not (players as Dictionary).has(_id):
+		return
+	# An untyped read of a freed object normalizes to null; the game's typed read is what errors.
+	# The cache never stores a legitimate null, so an existing null slot is stale and safe to drop.
+	var cached: Variant = (players as Dictionary).get(_id)
+	if cached == null or not is_instance_valid(cached):
+		(players as Dictionary).erase(_id)
+
+
+## The base game's soft kiss at her snout: the same cue a stock kiss plays. The oral turn owns its
+## idle timer and the mouth shape.
+func oral_kiss() -> void:
+	if not is_instance_valid(_pony):
+		return
+	var boop: Variant = _pony.get("boop_node")
+	if boop != null and boop.has_method("play_kiss"):
+		boop.call("play_kiss", ORAL_KISS_DB, true)
 
 
 func stop() -> void:
@@ -290,7 +457,7 @@ static func cue_for_plap(tier: String) -> String:
 
 
 ## Bed and fabric only belong to the bed profile. The standing pose and the internal standing_test
-## carry `audio.impact = "standing"` and play no bed/fabric.
+## carry `impact = "standing"` and play no bed/fabric.
 static func uses_bed(profile: String) -> bool:
 	return profile == "missionary"
 

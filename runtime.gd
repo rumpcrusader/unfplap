@@ -56,16 +56,12 @@ const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
-const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
 const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
 
 const State := ACT_STATE.State
 
 const READINESS_MAX := 100.0
-## The oral segment replaces her speech with the base game's soft kiss on an idle timer owned by
-## the pose turn; the runtime supplies only the cue level.
-const ORAL_KISS_DB := -22.0
 const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
@@ -210,7 +206,6 @@ var _preferences: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _max_pony_climaxes: int
 var _cue_gap: float
-var _vocal_cooldown := 0.0
 ## The cue/utterance pacing and the oral soft-kiss cue. The oral turn owns its idle timer.
 var _cue_override_seconds: float
 var _cue_base_stable_s: float
@@ -275,7 +270,6 @@ var _standing_camera_ctl: STANDING_CAMERA = null
 var _standing_anon_ctl: STANDING_ANON = null
 var _standing_presentation_ctl: STANDING_PRESENTATION = null
 var _act_audio: Variant = null
-var _bed_soft := false
 ## Shared act-level excitement Beat holds. The kiss controller holds "kiss" for a base kiss; an
 ## integration holds its provider id while it runs. The last release restores the saved pause state.
 var _excitement_holders: Array[String] = []
@@ -1367,7 +1361,7 @@ func _physics_tick(delta: float) -> void:
 	_sync_pose_frame()
 	if pony.sleeping:
 		pony.sleeping = false
-	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
+	_vocal_tick(delta)
 	_keep_nav()
 	_camera_service().call("tick_free_look")
 	_keep_act_attention()
@@ -2098,6 +2092,7 @@ func adopt_body(new_pony: Node) -> void:
 	pony = new_pony
 	_pose_service().bind(self, pony)
 	_face.bind(pony, self)
+	_bind_audio_identity()
 	_adopt_display_name(pony)
 	_anatomy_refresh()
 	if not _new_body_is_adult():
@@ -2133,6 +2128,7 @@ func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 	_apply_form_display_name(form)
 	_pose_service().bind(self, pony)
 	_face.bind(pony, self)
+	_bind_audio_identity()
 	refresh_view()
 	_anatomy_refresh()
 	_camera_service()
@@ -2670,7 +2666,6 @@ func _reset_thrust_state() -> void:
 	_afterglow.reset()
 	_dialogue_service().reset(_now_s(), _cue_gap)
 	_configure_utterance_scheduler()
-	_vocal_cooldown = 0.0
 	_act_spoken_at = -1e9
 	_act_ended_early = false
 
@@ -2882,45 +2877,29 @@ func _director() -> Node:
 		return null
 	return get_tree().get_first_node_in_group("conversation_director")
 
-func _voice_profile() -> Dictionary:
-	var director := _director()
-	if director == null:
-		return {}
-	var characters: Variant = director.get("characters")
-	if characters is Dictionary and (characters as Dictionary).has(_id):
-		var entry: Variant = (characters as Dictionary)[_id]
-		if entry is Dictionary:
-			var profile: Variant = (entry as Dictionary).get("profile", {})
-			if profile is Dictionary:
-				return profile
-	return {}
 
-func _tts_node() -> Node:
-	var director := _director()
-	if director == null:
-		return null
-	var tts: Variant = director.get("tts")
-	return tts as Node if is_instance_valid(tts) else null
-
-func _tts_enabled() -> bool:
-	var settings := get_node_or_null("/root/Settings")
-	if settings != null and settings.has_method("tts_enabled"):
-		return bool(settings.call("tts_enabled"))
-	return true
-
+## The debug read of the voice routing she has. `audio/service.gd` owns the classification; the
+## facade is created for an act, so an idle runtime reports nothing instead of loading the pack.
 func voice_status_line() -> String:
-	return "voice " + VOICE.describe(VOICE.classify(_voice_profile(), _tts_node(), _tts_enabled()))
+	if not is_instance_valid(_act_audio):
+		return ""
+	return str(_act_audio.voice_status_line(_id))
 
+
+## Keep the generated line and the text HUD, but silence her Ponese audio for this act. The
+## setting is live, so `apply_live_settings()` re-applies it when it changes mid-act.
 func _apply_voice_policy() -> void:
 	var audio: Variant = _audio_service()
 	if audio != null:
-		audio.apply_voice_policy(pony, _id, _feature("mute_ponese_audio"),
-			VOICE.classify(_voice_profile(), _tts_node(), _tts_enabled()))
+		audio.apply_voice_policy(_feature("mute_ponese_audio"), pony, _id)
 
 
+## The pose ledger's step: give the voice player its saved volume back. The policy state itself
+## lives on the audio facade.
 func _restore_voice_volume() -> void:
 	if is_instance_valid(_act_audio):
 		_act_audio.restore_voice_policy()
+
 
 ## The idle safety check. `hud/service.gd` owns the borrowed quick-slot state, so every idle
 ## sibling runtime sees the same hidden flag; only restore it when no other runtime is mid-act.
@@ -2993,8 +2972,8 @@ func _thrust_tick() -> void:
 func _finish_stroke(before: float, now: float, events: Array[THRUST_STATE.StrokeEvent]) -> void:
 	if is_instance_valid(_act_audio) and state in [State.ACTIVE, State.CLIMAX] \
 			and not _face_contact() and _act_audio.crossed(before, depth):
-		_act_audio.withdraw_crossed(before, depth, _readiness.live_strength(now),
-			_reactions.rump_point(), _bed_audio_point(), _bed_soft)
+		_act_audio.withdraw(before, depth, _readiness.live_strength(now),
+			_reactions.rump_point())
 	_dispatch_events(events)
 
 
@@ -3048,44 +3027,24 @@ func _on_impact(event: THRUST_STATE.StrokeEvent) -> void:
 	_readiness.note_impact()
 	_play_vocal()
 	if is_instance_valid(_act_audio):
-		_act_audio.play_impact(event.tier, event.strength, _reactions.rump_point(),
-			_bed_audio_point(), _bed_soft, event.gap, THRUST_STATE.CONTACT_GAP_M, not quiet)
+		_act_audio.impact(event.tier, event.strength, _reactions.rump_point(),
+			event.gap, THRUST_STATE.CONTACT_GAP_M, not quiet)
 	_log("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d oral=%d face=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
 		event.gap, event.impact_speed, event.tier if not event.tier.is_empty() else "-",
 		1 if event.plap else 0, 1 if oral else 0, 1 if face else 0, satisfaction,
 		_readiness.thrusts_per_second(), event.strength, event.visual, event.jiggle,
 		_readiness.last_intensity, _readiness.last_pattern])
 
+## Her own generated vocal on a stroke. `audio/service.gd` owns the cooldown and the cache repair.
 func _play_vocal() -> void:
-	if _vocal_cooldown > 0.0:
-		return
-	var director := _director()
-	if director == null or str(director.get("state")) != "idle" or not is_instance_valid(pony):
-		return
-	var vocal: Variant = director.get("vocal")
-	if vocal != null and vocal.has_method("play"):
-		_prune_freed_vocal(vocal)
-		if bool(vocal.call("play", _id, "m", pony, -34.0)):
-			_vocal_cooldown = 3.0
+	if is_instance_valid(_act_audio):
+		_act_audio.play_vocal()
 
 
-## The base game's vocal cache maps a pony id to an AudioStreamPlayer3D parented to her body.
-## A body swap frees that body and leaves a freed instance in the cache; the game's typed read at
-## `vocal_noises.gd:play()` then fails before its own validity guard. Clear only this runtime's
-## stable id so the game can create the player on the presented body. Guarded for a changed cache.
-func _prune_freed_vocal(vocal: Variant) -> void:
-	if not is_instance_valid(vocal):
-		return
-	var players: Variant = vocal.get("_players")
-	if not players is Dictionary:
-		return
-	if not (players as Dictionary).has(_id):
-		return
-	# An untyped read of a freed object normalizes to null; the game's typed read is what errors.
-	# The cache never stores a legitimate null, so an existing null slot is stale and safe to drop.
-	var cached: Variant = (players as Dictionary).get(_id)
-	if cached == null or not is_instance_valid(cached):
-		(players as Dictionary).erase(_id)
+## The generated-vocal cooldown runs on processed time. `audio/service.gd` owns it.
+func _vocal_tick(delta: float) -> void:
+	if is_instance_valid(_act_audio):
+		_act_audio.tick_vocal(delta)
 
 
 ## Live mouth contact from the pose view. The pose service owns the contact switch; the runtime
@@ -3126,13 +3085,10 @@ func _stop_pony_speech() -> void:
 		_anatomy_bridge.hold_oral_mouth()
 
 
-## The base game's soft kiss at her snout: the same cue a stock kiss plays.
+## The base game's soft kiss at her snout. The audio facade owns the cue and its level.
 func _oral_kiss() -> void:
-	if not is_instance_valid(pony):
-		return
-	var boop: Variant = pony.get("boop_node")
-	if boop != null and boop.has_method("play_kiss"):
-		boop.call("play_kiss", ORAL_KISS_DB, true)
+	if is_instance_valid(_act_audio):
+		_act_audio.oral_kiss()
 
 
 ## Readiness never decays on its own; the readiness system owns the values and counters.
@@ -4199,7 +4155,7 @@ func _lean_action_tick() -> void:
 
 func _play_mouth_kiss() -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.play_mouth_kiss(_snout())
+		_act_audio.play_mouth_kiss()
 
 
 func _neck_midpoint() -> Vector3:
@@ -4351,8 +4307,9 @@ func _restore_camera() -> void:
 
 # --------------------------------------------------------------------------- audio
 
-## The act audio node. One per runtime for the process; `begin()` opens an act and `end()`
-## closes it, so the Ponese mute policy keeps its saved volume across the act boundary.
+## The act audio node. One per runtime for the process; `bind()` names the act's pony, id and bed,
+## `begin()` opens it and `end()` closes it, so the Ponese mute policy keeps its saved volume
+## across the act boundary.
 func _audio_service() -> Node:
 	if is_instance_valid(_act_audio):
 		return _act_audio
@@ -4368,12 +4325,17 @@ func _audio_service() -> Node:
 
 func _start_audio() -> void:
 	_stop_audio()
-	_bed_soft = is_instance_valid(bed) \
-		and ("couch" in bed.name.to_lower() or "sofa" in bed.name.to_lower()
-			or "cloth" in bed.name.to_lower())
 	var audio: Variant = _audio_service()
 	if audio != null:
+		audio.bind(pony, _id, bed)
 		audio.begin()
+
+
+## The audio facade reads her snout, the bed point and the director's vocal cache key from its
+## bind, so a new presented body rebinds it without restarting the act's layer.
+func _bind_audio_identity() -> void:
+	if is_instance_valid(_act_audio):
+		_act_audio.bind(pony, _id, bed)
 
 
 func _stop_audio() -> void:
@@ -4388,32 +4350,13 @@ func _stop_breath() -> void:
 
 func _play_climax() -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.climax(_snout())
+		_act_audio.climax()
 
 
 func _breath_tick(delta: float) -> void:
-	var phase := ""
-	if state == State.ACTIVE:
-		phase = "active"
-	elif state == State.CLIMAX:
-		phase = "climax"
-	elif state == State.AFTERGLOW:
-		phase = "afterglow"
 	if is_instance_valid(_act_audio):
-		_act_audio.tick(delta, phase, _readiness.thrusts_per_second(), _snout())
-
-
-func _bed_audio_point() -> Vector3:
-	if is_instance_valid(bed):
-		return bed.global_position + Vector3.UP * 0.35
-	return _reactions.rump_point()
-
-
-func _snout() -> Vector3:
-	var boop: Variant = pony.get("boop_node")
-	if is_instance_valid(boop) and boop.has_method("nose_world"):
-		return boop.call("nose_world")
-	return pony.global_position + Vector3.UP * 1.0
+		_act_audio.tick(delta, _act_audio.phase_for_state(state),
+			_readiness.thrusts_per_second())
 
 ## The kiss foreleg overrides are global AffectionPose settings. Restore them if the world
 ## closes or the mod is switched off mid-kiss.

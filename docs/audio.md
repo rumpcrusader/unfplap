@@ -119,6 +119,7 @@ new player under the presented body. It never edits the game file or another pon
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | the outside-act smack switch |
+| shared | act_state | `shared/act_state.gd` | the act state the breath phase follows |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 

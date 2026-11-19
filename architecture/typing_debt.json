@@ -27,11 +27,6 @@
     },
     {
       "service": "audio",
-      "func": "apply_voice_policy",
-      "signature": "func apply_voice_policy(pony_node: Variant, id: String, mute: bool, info: Dictionary) -> void:"
-    },
-    {
-      "service": "audio",
       "func": "pose_changed",
       "signature": "func pose_changed(view: Variant) -> void:"
     },

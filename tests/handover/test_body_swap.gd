@@ -638,12 +638,14 @@ func _check_auto_survives_swap() -> void:
 	_free_fixture(f)
 
 
-## The base game's vocal cache must not keep a freed player from the old body. The runtime clears
-## only its own stable id and leaves every valid entry alone.
+## The base game's vocal cache must not keep a freed player from the old body. The audio facade
+## clears only the act's stable id and leaves every valid entry alone.
 func _check_vocal_cache() -> void:
 	var f := _fixture()
 	var runtime: Node = f["runtime"]
 	runtime._id = "test_mare"
+	var audio: Node = runtime._audio_service()
+	audio.bind(null, "test_mare", null)
 	var vocal := FakeVocal.new()
 	root.add_child(vocal)
 	var freed := Node3D.new()
@@ -652,11 +654,11 @@ func _check_vocal_cache() -> void:
 	var kept := Node3D.new()
 	root.add_child(kept)
 	vocal._players["kept"] = kept
-	runtime._prune_freed_vocal(vocal)
+	audio.prune_freed_vocal(vocal)
 	check(not vocal._players.has("test_mare"), "a freed vocal cache entry is cleared")
 	check(vocal._players.get("kept") == kept, "another id's valid player is left alone")
 	vocal._players["test_mare"] = kept
-	runtime._prune_freed_vocal(vocal)
+	audio.prune_freed_vocal(vocal)
 	check(vocal._players.has("test_mare"), "a valid cached player is kept")
 	vocal.free()
 	kept.free()

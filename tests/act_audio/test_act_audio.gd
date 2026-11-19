@@ -133,7 +133,7 @@ func run() -> void:
 	check(act.play_plap("firm", 0.7, Vector3.ZERO), "foley plap starts a player")
 	check(not act.play_plap("firm", 0.7, Vector3.ZERO),
 		"cooldown blocks an immediate second plap")
-	check(act.play_mouth_kiss(Vector3.ZERO), "mouth kiss plays")
+	check(act.play_mouth_kiss(), "mouth kiss plays")
 	check(SMACK.PATHS.size() >= 2, "flank smack has multiple pack variants")
 	for path: String in SMACK.PATHS:
 		check(ResourceLoader.exists(path), "smack stream exists: " + path)

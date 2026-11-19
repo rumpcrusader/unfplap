@@ -6,6 +6,7 @@ extends RefCounted
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
 ## The global stool facade (`STOOL.instance`). It holds the settings reads and the pure/item
@@ -26,6 +27,12 @@ var floor_y := 0.0
 var node: Node3D = null
 var tokens: Array[String] = []
 var slots: Array[int] = []
+
+## The hotkey's last pair: the reach need and case count read for one scan. The offer's blocked
+## note reads it instead of repeating the reads.
+var _hotkey_stool_valid := false
+var _hotkey_stool_need := 0
+var _hotkey_stool_have := 0
 
 ## Host boundary. A missing callback is a no-op.
 var log := Callable()
@@ -118,6 +125,25 @@ func case_count() -> int:
 	if not bool(facade.call("writable", store)):
 		return 0
 	return maxi(0, int(facade.call("case_count", store)))
+
+
+## The footstool pair for this call. A non-stool pose returns `(-1, -1)`, which tells the gate to
+## skip the row. The pair is kept for `hint_pair()` so the blocked note does not repeat the reads.
+func hotkey_pair(pose: String) -> Vector2i:
+	if not bool(POSE_SPECS.scene(pose).get("stool", false)):
+		return Vector2i(-1, -1)
+	_hotkey_stool_need = needed_count()
+	_hotkey_stool_have = case_count()
+	_hotkey_stool_valid = true
+	return Vector2i(_hotkey_stool_need, _hotkey_stool_have)
+
+
+## The footstool pair this call's gate used, so the blocked standing note does not repeat the
+## reach and case reads. Before the first pair it falls back to the live reads.
+func hint_pair() -> Dictionary:
+	if _hotkey_stool_valid:
+		return {"need": _hotkey_stool_need, "have": _hotkey_stool_have}
+	return {"need": needed_count(), "have": case_count()}
 
 
 ## True only when the footstool stack is the one thing keeping the Make love hint away.

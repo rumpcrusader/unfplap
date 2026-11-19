@@ -6,6 +6,7 @@ extends RefCounted
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -27,8 +28,8 @@ var features: Dictionary = {}
 var stool_need := Callable()
 var stool_count := Callable()
 var presentation_active := Callable()
-## The policy verdict and the debug context. The runtime supplies both; the gate never reads
-## eligibility's own logic or the runtime's private fields.
+## The policy verdict override and the debug context. The host may supply either; without the
+## override the gate reads the eligibility service itself.
 var policy_verdict := Callable()
 var debug_context := Callable()
 ## The negotiation hold's compatibility predicate. The host binds it; it returns true when the
@@ -37,6 +38,8 @@ var hold_compatible := Callable()
 
 ## The transient scene-only rows: the auto-start waits on them inside the Agreement TTL.
 const SCENE_ONLY_TRANSIENT := ["player", "bed_gate"]
+## The default "no stool pair" for a gate call that did not read one.
+const NO_STOOL_PAIR := Vector2i(-1, -1)
 
 
 ## The Agreement's frozen pose capability. It is recorded at formation; a settings or form change
@@ -244,6 +247,24 @@ func _scene_only_result(rows_in: Array[ELIGIBILITY.Row]) -> SceneVerdict:
 	return out
 
 
+## The act key's readiness: the scene-only rows, then the eligibility service's act and
+## relationship read. No policy verdict, no offer cooldown and no history refusal. The scene runs
+## first, so a blocked scene never pays for the eligibility reads. `stool_pair` is the footstool
+## pair the host read for this call; `(-1, -1)` skips the row.
+func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null,
+		stool_pair: Vector2i = NO_STOOL_PAIR) -> bool:
+	var frozen := FrozenPose.new(true, true)
+	var verdict := scene_only_verdict(pose, act_source, bed_in, frozen,
+		stool_pair.x, stool_pair.y)
+	if verdict == null or not verdict.ok:
+		return false
+	var service: Variant = PONIES.eligibility
+	if service == null or not is_instance_valid(service):
+		return false
+	return bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT)) \
+		and bool(service.call("relationship_ok", pony))
+
+
 func _hold_exempt(pose: String, act_source: String) -> bool:
 	if not hold_compatible.is_valid():
 		return false
@@ -267,7 +288,7 @@ func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
 		return {"rows": structural, "policy": null, "scene_ok": false}
 	var policy_mode: ELIGIBILITY.Mode = ELIGIBILITY.Mode.OFFER if mode == "offer" \
 		else ELIGIBILITY.Mode.START
-	var policy: ELIGIBILITY.Verdict = _policy_verdict(policy_mode, verdict_in)
+	var policy: ELIGIBILITY.Verdict = policy_verdict_for(policy_mode, verdict_in)
 	var scene_rows: Array = rows(pose, act_source, bed_in, mode, forced)
 	var rows_all: Array = structural.duplicate()
 	if policy != null:
@@ -282,13 +303,20 @@ func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
 	}
 
 
-func _policy_verdict(mode: ELIGIBILITY.Mode,
+## The policy verdict. The host may override it for a suite; otherwise the gate reads the
+## eligibility service's verdict for the bound pony.
+func policy_verdict_for(mode: ELIGIBILITY.Mode,
 		verdict_in: ELIGIBILITY.Verdict = null) -> ELIGIBILITY.Verdict:
 	if verdict_in != null:
 		return verdict_in
 	if policy_verdict.is_valid():
 		return policy_verdict.call(mode, verdict_in)
-	return null
+	if not is_instance_valid(WORLD.game):
+		return null
+	var service: ELIGIBILITY = PONIES.eligibility
+	if service == null:
+		return null
+	return service.get_verdict(pony, mode)
 
 
 func _gate_row(rows_out: Array, key: String, ok: bool, reason := "") -> void:

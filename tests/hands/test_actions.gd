@@ -808,10 +808,10 @@ func run() -> void:
 	var cuddle_pony := Node3D.new()
 	cuddle_pony.set_meta("couch_cuddle", true)
 	cuddle_runtime.pony = cuddle_pony
-	cuddle_runtime.state = 0 # IDLE
+	cuddle_runtime._set_state(0) # IDLE
 	cuddle_runtime._suppress_auto_cuddle()
 	check(cuddle_pony.has_meta("couch_cuddle"), "idle runtime leaves native bed cuddles alone")
-	cuddle_runtime.state = 2 # ACTIVE
+	cuddle_runtime._set_state(2) # ACTIVE
 	cuddle_runtime._suppress_auto_cuddle()
 	check(not cuddle_pony.has_meta("couch_cuddle"), "active runtime suppresses auto cuddle")
 	cuddle_pony.free()

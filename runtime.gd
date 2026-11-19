@@ -160,10 +160,6 @@ var idle_perf := false
 ## cleanly.
 ## The `POSING_IN` timer: the pose settles into the act after this many seconds.
 var _pose_in_left := 0.0
-## The footstool pair the standing call's scene row used, for the blocked note.
-var _hotkey_stool_valid := false
-var _hotkey_stool_need := 0
-var _hotkey_stool_have := 0
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
 ## the HUD card reads the cached flag.
 var _cycle_heat := false
@@ -350,6 +346,7 @@ func _init() -> void:
 	_scene.stool_count = Callable(self, "stool_case_count")
 	_scene.presentation_active = Callable(self, "presentation_active")
 	_scene.hold_compatible = Callable(self, "_scene_hold_compatible")
+	_scene.debug_context = Callable(self, "_debug_context")
 	_rest.context = Callable(self, "_rest_context")
 	_rest.restore_scene = Callable(self, "_rest_restore_scene")
 	_rest.log = Callable(self, "_log")
@@ -385,6 +382,7 @@ func _init() -> void:
 	_perf_probe.header = Callable(self, "_perf_header")
 	_perf_probe.log = Callable(self, "_log")
 	_perf_probe.show = Callable(self, "_perf_show")
+	_refresh_scene_gate()
 
 
 ## The typed host for the per-act anatomy bridge. The bridge reads the scene, the live state and
@@ -539,6 +537,7 @@ func _state() -> int:
 ## The one act-state writer. Consumers read `state`; transitions call this.
 func _set_state(next: int) -> void:
 	state = next
+	_refresh_scene_gate()
 
 
 ## The live pose family, or the start spec's family before the first view fill.
@@ -1073,14 +1072,17 @@ func _camera_service() -> RefCounted:
 	return _act_camera
 
 
-## The scene gate, bound to this runtime's pony, main node and pose session. Refreshed on every
-## call so suites work without entering the tree.
+## The scene gate. Its callables are bound once in `_init`; only its live scene handles and act
+## values refresh.
 func _scene_gate() -> RefCounted:
+	return _scene
+
+
+## Rebind the scene gate's pony and pose session and refresh its act values. The host calls this
+## wherever the bound body or the act state changes, never per gate access.
+func _refresh_scene_gate() -> void:
 	_scene.bind(pony, _pose_service())
 	_scene.configure(state, _id, _features)
-	_scene.policy_verdict = Callable(self, "_policy_verdict")
-	_scene.debug_context = Callable(self, "_debug_context")
-	return _scene
 
 
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these
@@ -1136,6 +1138,7 @@ func _snapshot_settings() -> void:
 	_presentation_cfg = snap.presentation
 	_act_climax_mode = snap.climax_mode
 	_configure_utterance_scheduler()
+	_refresh_scene_gate()
 
 ## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
 ## idempotent so repeated edits do not stack modifiers.
@@ -1514,17 +1517,10 @@ func scene_only_verdict(pose: String, act_source: String, bed_in: Variant = null
 		stool_need, stool_have)
 
 
-## The policy verdict. The runtime reads the eligibility service; the scene gate composes it.
+## The policy verdict. The scene gate reads the eligibility service and composes it.
 func _policy_verdict(mode: ELIGIBILITY.Mode,
 		verdict_in: ELIGIBILITY.Verdict = null) -> ELIGIBILITY.Verdict:
-	if verdict_in != null:
-		return verdict_in
-	if not is_instance_valid(WORLD.game):
-		return null
-	var service: ELIGIBILITY = PONIES.eligibility
-	if service == null:
-		return null
-	return service.get_verdict(pony, mode)
+	return _scene_gate().policy_verdict_for(mode, verdict_in)
 
 
 ## The live act values the debug status line reads. The scene gate owns the string.
@@ -1609,6 +1605,7 @@ func live_id() -> String:
 
 func _read_id() -> bool:
 	if not is_instance_valid(pony):
+		_refresh_scene_gate()
 		return false
 	# The relationship id is the stable key used by eligibility, preferences and memory. Prefer
 	# the meta value whenever it appears; a mod may assign it after the pony enters the tree.
@@ -1618,9 +1615,11 @@ func _read_id() -> bool:
 	elif _id.is_empty():
 		_id = PONY_ID.from("", pony.get("identity"))
 	if _id.is_empty():
+		_refresh_scene_gate()
 		return false
 	_pose_session.id = _id
 	_adopt_display_name(pony)
+	_refresh_scene_gate()
 	return true
 
 func _suppress_auto_cuddle() -> void:
@@ -1701,50 +1700,28 @@ func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
 	return true
 
 
-## The hotkey's readiness: the scene-only rows plus Base clearance. No policy verdict, no offer
-## cooldown and no history refusal. The act key never bucks; the tolerance stop owns refusal.
-## The scene runs first, so a blocked scene never pays for the eligibility reads.
+## The hotkey's readiness: the scene-only rows plus Base clearance. The scene gate owns the
+## predicate; the act key never bucks and the tolerance stop owns refusal.
 func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	_read_id()
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
-		return false
-	if state != State.IDLE or pony.sleeping:
-		return false
-	var service: Variant = PONIES.eligibility
-	if service == null or not is_instance_valid(service):
-		return false
-	var stool := _hotkey_stool_for(pose)
-	var rows_started := Time.get_ticks_usec() if idle_perf else 0
-	var verdict: Variant = scene_only_verdict(pose, act_source, bed_in, null, stool.x, stool.y)
+	var stool: Variant = _stool_act()
+	var pair := Vector2i(-1, -1)
+	if stool != null:
+		pair = stool.call("hotkey_pair", pose)
+	var started := Time.get_ticks_usec() if idle_perf else 0
+	var allowed: bool = _scene_gate().hotkey_ready(pose, act_source, bed_in, pair)
 	if idle_perf:
-		_idle_perf_note("offer_rows", Time.get_ticks_usec() - rows_started)
-	if verdict == null or not bool(verdict.ok):
-		return false
-	var policy_started := Time.get_ticks_usec() if idle_perf else 0
-	var ready := bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT)) \
-		and bool(service.call("relationship_ok", pony))
-	if idle_perf:
-		_idle_perf_note("offer_policy", Time.get_ticks_usec() - policy_started)
-	return ready
-
-
-## The footstool pair for this call. A non-stool pose returns `(-1, -1)`, which tells the gate to
-## skip the row.
-func _hotkey_stool_for(pose: String) -> Vector2i:
-	if not bool(POSE_SPECS.scene(pose).get("stool", false)):
-		return Vector2i(-1, -1)
-	_hotkey_stool_need = stool_needed_count()
-	_hotkey_stool_have = stool_case_count()
-	_hotkey_stool_valid = true
-	return Vector2i(_hotkey_stool_need, _hotkey_stool_have)
+		_idle_perf_note("offer_rows", Time.get_ticks_usec() - started)
+	return allowed
 
 
 ## The footstool pair this call's gate used, so the blocked standing note does not repeat the
 ## reach and case reads.
 func hint_stool() -> Dictionary:
-	if _hotkey_stool_valid:
-		return {"need": _hotkey_stool_need, "have": _hotkey_stool_have}
-	return {"need": stool_needed_count(), "have": stool_case_count()}
+	var stool: Variant = _stool_act()
+	if stool == null:
+		return {"need": 0, "have": 0}
+	return stool.call("hint_pair")
 
 
 ## The act key's immediate attempt, with no Agreement and no presentation wait.
@@ -2085,6 +2062,7 @@ func adopt_body(new_pony: Node) -> void:
 	_bind_audio_identity()
 	_adopt_display_name(pony)
 	_anatomy_refresh()
+	_refresh_scene_gate()
 	if not _new_body_is_adult():
 		_log("body swap ended: the new body is not an adult mare pony=%s" % str(new_pony.name))
 		force_stop()
@@ -2116,6 +2094,7 @@ func _is_presented_body(body: Node3D) -> bool:
 ## this is the idle and in-place revision refresh and never touches the act state.
 func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 	_apply_form_display_name(form)
+	_refresh_scene_gate()
 	_pose_service().bind(self, pony)
 	_face.bind(pony, self)
 	_bind_audio_identity()

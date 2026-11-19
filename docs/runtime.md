@@ -19,7 +19,8 @@ state. The act's settings snapshot is `act/settings.gd`, the act's read composit
 - Constructed by: `ponies/service.gd` through the entry's one factory, on the body's attach hook.
 - Parented under the pony; `ponies` records it in its registry and drops the record on
   `tree_exiting`.
-- `_init()` builds the per-pony systems once and binds their typed hosts and callables.
+- `_init()` builds the per-pony bundle through `act/build.gd` once and binds the typed hosts and
+  callables there.
 - `_ready()` reads the identity, binds the pose hosts and face, starts the process and physics
   hooks at priority `100` (after locomotion, the navigator and attention), then refreshes the
   persistent anatomy controller and retries the identity read after the first frame.
@@ -134,29 +135,37 @@ row and the close reward; `summary/service.gd` owns the score, the peak and the 
 
 ## Composition
 
-`_init()` runs the one construction and bind pass:
+`act/build.gd` is the per-pony composition root. `runtime.gd:_init()` calls one
+`ACT_BUILD.build(null, self)` and stores the returned `Bundle`; the node keeps one field alias per
+bundle field, so its remaining methods read the same names they did before.
 
-- `_build_systems()` constructs the handover, placement, wings, hands, kiss, integrations, the two
-  camera controllers, the two standing body controllers, the camera session and the act audio
-  owner, then binds the camera's sessions and calls `_bind_act_frame()`.
-- `_bind_act_frame()` builds the act's own modules once: `act/host.gd` (the node operations, the
-  log/perf sinks and the tail-tuck pair), `act/context.gd` (the typed collaborators),
-  `act/settings.gd` (the settings snapshot and live apply), `act/session.gd` (the state, timers,
-  clock, values, stool handle, start entry and the two frame forwards), `act/view.gd`,
-  `act/idle.gd`, `act/consent.gd`, `act/impact.gd`, `act/exit.gd`, `act/input.gd`, `act/swap.gd`,
-  `act/phases.gd`, `act/tick.gd`, `act/setup.gd`, `act/start.gd` and `act/agreement.gd`. The
-  schedule, swap and phase modules are pointed at the exit, the session and their siblings, and
-  `act/session.gd:ticker`/`input` are the handles the entry and the input service read.
-- `_init()` hands the perf probe to `act/tick.gd` after `PERF.build()`, so the frame's labels are
-  the schedule's.
-- `_bind_pose_hosts()` binds the pose session's host callbacks (the scene, the pose host reads and
-  the oral/face callbacks).
-- `_init()` binds the remaining facades and callables: the anatomy bridge host, the act view
-  callbacks, the readiness host, the summary, afterglow, face, reactions, scene gate, rest and
-  scene hold. `PERF.build(_perf_host())` builds the probe, and the scene gate is configured once.
+- `act/build.gd:build()` constructs, in order: the four act modules that the anatomy host is bound
+  against, the pose session, the scene gate, the rest facade, the camera session, readiness, the
+  summary, the face, reactions, the typed act view, the dialogue owner, the afterglow and the scene
+  hold; the anatomy host and bridge; the handover host and the body-change handover, the placement
+  handle and its facts, wings, hands, kiss, integrations, the two camera controllers, the two
+  standing body controllers, the camera session's bindings and the act audio owner; then the act's
+  own host, context and modules, the pose session's host callbacks, the act view, readiness,
+  afterglow, face, scene gate, rest and scene-hold bindings, the perf probe, and the scene gate's
+  one configuration.
+- `act/build.gd:_bind_act_frame()` builds the act's own modules once: `act/host.gd` (the node
+  operations, the log/perf sinks and the tail-tuck pair), `act/context.gd` (the typed
+  collaborators), `act/settings.gd` (the settings snapshot and live apply), `act/session.gd` (the
+  state, timers, clock, values, stool handle, start entry and the two frame forwards),
+  `act/view.gd`, `act/idle.gd`, `act/consent.gd`, `act/impact.gd`, `act/exit.gd`, `act/input.gd`,
+  `act/swap.gd`, `act/phases.gd`, `act/tick.gd`, `act/setup.gd`, `act/start.gd` and
+  `act/agreement.gd`. The schedule, swap and phase modules are pointed at the exit, the session and
+  their siblings, and `act/session.gd:ticker`/`input` are the handles the entry and the input
+  service read.
+- The bundle holds fields only, plus `bind_pony(value)`: the `pony` setter and `_ready()` call it to
+  rebind the pose session's body and stable id and the act host's pony. Construction is one pass;
+  nothing is rebound per frame.
+- A callable the runtime used to bind as `Callable(self, "method")` is `Callable(node, "method")`
+  in the builder, which receives the runtime node. `scripts/architecture.py` checks every
+  `Callable(node, ...)` in `act/build.gd` against `runtime.gd`'s functions.
 - The per-act systems (readiness, pose session, camera, face, afterglow, summary, reactions,
-  scene hold, rest, dialogue, hands, kiss, cards, integrations) are typed fields constructed once
-  per pony and reset per act.
+  scene hold, rest, dialogue, hands, kiss, cards, integrations) are constructed once per pony and
+  reset per act.
 
 The anatomy bridge receives the typed `anatomy/act_host.gd`, not a dictionary; `body_change/act.gd`
 receives the typed `body_change/act_host.gd`. No service locator or host dictionary is passed.
@@ -534,7 +543,8 @@ fan-out invariants:
   (`act/settings.gd:snapshot_values`, `live_preferences` and the static character-name lookup);
   the start recipe's own reads moved to `act/start.gd` and the rebuilt pose's config to
   `act/swap.gd` with their owners;
-- the act modules' line ceilings: `act/session.gd` at 400 and every other act module at 300;
+- the act modules' line ceilings: `act/session.gd` at 400 and every other act module at 300; the
+  composition root `act/build.gd` is exempt because it holds no behaviour;
 - child nodes only from the act audio owner (the act audio node) and the host's `start_tail_tuck`
   (the pose-scope tail tuck);
 - the one teardown (`act/exit.gd:run()`, called only by the exit's own routes and

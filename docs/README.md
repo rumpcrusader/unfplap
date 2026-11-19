@@ -32,7 +32,7 @@ state and the act values, the start recipe, the one teardown, the view and the i
 |---|---|---|---|
 | Entry | `main.gd` | `../ARCHITECTURE.md` | `tests/entry/` |
 | Per-pony act host | `runtime.gd` | `docs/runtime.md` | `tests/` |
-| Per-pony act modules | `act/session.gd`, `act/settings.gd`, `act/start.gd`, `act/setup.gd`, `act/agreement.gd`, `act/exit.gd`, `act/host.gd`, `act/context.gd`, `act/view.gd`, `act/idle.gd`, `act/consent.gd`, `act/impact.gd` | `docs/runtime.md` | `tests/` |
+| Per-pony act modules | `act/build.gd`, `act/session.gd`, `act/settings.gd`, `act/start.gd`, `act/setup.gd`, `act/agreement.gd`, `act/exit.gd`, `act/host.gd`, `act/context.gd`, `act/view.gd`, `act/idle.gd`, `act/consent.gd`, `act/impact.gd` | `docs/runtime.md` | `tests/` |
 
 ## Services
 

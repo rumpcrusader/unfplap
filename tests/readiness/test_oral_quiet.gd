@@ -9,7 +9,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
+const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -284,7 +284,6 @@ func _fixture() -> Dictionary:
 	runtime._act_dialogue = dialogue
 	runtime._act_camera = act_camera
 	runtime._kiss = kiss
-	runtime._thrust_tracker = THRUST.new()
 	runtime._reset_thrust_state()
 	root.add_child(main)
 	WORLD.bind_world(main)
@@ -299,12 +298,24 @@ func _fixture() -> Dictionary:
 	}
 
 
-func _impact() -> Dictionary:
-	return {
-		"direction": 1, "thrust": true, "travel": 0.5, "duration": 0.5,
-		"speed": 1.0, "peak_speed": 1.0, "impact_speed": 2.0, "strength": 0.8,
-		"end_depth": 1.0,
-	}
+func _impact() -> RefCounted:
+	var event := THRUST_STATE.StrokeEvent.new()
+	event.kind = "impact"
+	event.direction = 1
+	event.thrust = true
+	event.travel = 0.5
+	event.duration = 0.5
+	event.speed = 1.0
+	event.peak_speed = 1.0
+	event.impact_speed = 2.0
+	event.strength = 0.8
+	event.end_depth = 1.0
+	event.tier = "firm"
+	event.plap = true
+	event.gap = 0.0
+	event.jiggle = 0.4
+	event.visual = 1.0
+	return event
 
 
 func run() -> void:

@@ -24,8 +24,8 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
-const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
+const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
@@ -66,12 +66,6 @@ const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
 const State := ACT_STATE.State
 
 const READINESS_MAX := 100.0
-## Visual impact = physical strength × this, so normal and fast thrusts keep their tuned
-## reaction while slow or shallow strokes stay lighter. Readiness scoring lives in
-## `readiness/service.gd`.
-const THRUST_IMPACT_GAIN := 2.0
-## The body slap fires only when his skin has actually reached her coat.
-const CONTACT_GAP_M := 0.0
 ## The oral segment replaces her speech with the base game's soft kiss on an idle timer owned by
 ## the pose turn; the runtime supplies only the cue level.
 const ORAL_KISS_DB := -22.0
@@ -83,9 +77,6 @@ const RESTORE_SECONDS := 0.4
 ## The standing start may place Anon closer or farther so the shaft rests at her entrance before
 ## the act. Beyond this the offer cone would be wrong and the fit is left to the hip offset.
 const STANDING_FIT_MAX_M := 0.6
-## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
-## feel is the same with the anatomy off. Close to the default part's visible length.
-const NOMINAL_SHAFT_M := 0.2
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
 const HOLD_ACT_SECONDS := 0.35
 ## The Agreement start's answer: a transient row or an unsettled presentation keeps waiting; a
@@ -134,12 +125,19 @@ var pony_climaxes: int:
 		return _readiness.pony_climaxes
 	set(value):
 		_readiness.pony_climaxes = value
-## Public: penetration 0..1 and the same orientation flag used by mouse input.
-var depth := 0.0
+## Public: penetration 0..1, forwarded to the readiness stroke state.
+var depth: float:
+	get:
+		return _readiness.depth
+	set(value):
+		_readiness.depth = value
 ## Public: how far the tip has passed her lips, in metres. It never goes behind them: the tip rests
 ## at her entrance and the depth stays at zero there.
-var penetration_m := 0.0
-var thrust_up: bool
+var penetration_m: float:
+	get:
+		return _readiness.penetration_m
+	set(value):
+		_readiness.penetration_m = value
 
 ## The act's pose session: the pose modifier, the authored missionary base, the bed frame, the
 ## extra modifiers, the bone snapshots and the pose diagnostics. See `poses/service.gd`.
@@ -218,13 +216,7 @@ var _features: Dictionary = {}
 var _caress_quality: String
 var _preferences: Dictionary = {}
 var _act_prompts: Dictionary = {}
-var _thrust_tracker
-## Auto thrust uses the one tracker: the generated depth only replaces the mouse movement.
-var _thrust_pixels_per_cm: float
-var _thrust_travel: float
 var _max_pony_climaxes: int
-## The pose standoff, taken from the act snapshot so a stroke never reads a setting per impact.
-var _pelvis_gap_m: float
 var _cue_gap: float
 var _vocal_cooldown := 0.0
 ## The cue/utterance pacing and the oral soft-kiss cue. The oral turn owns its idle timer.
@@ -355,6 +347,8 @@ func _init() -> void:
 	_readiness.on_anatomy_react = Callable(self, "_readiness_anatomy_react")
 	_readiness.heat_cycle = Callable(self, "_readiness_heat")
 	_readiness.on_cue = Callable(self, "_readiness_cue")
+	_readiness.shaft_length = Callable(self, "_player_shaft_length_m")
+	_readiness.pose_family = Callable(self, "_pose_family")
 	_summary_service.log = Callable(self, "_log")
 	_afterglow.log = Callable(self, "_log")
 	_afterglow.caress_active = Callable(self, "_afterglow_caressing")
@@ -771,7 +765,7 @@ func refresh_view() -> void:
 	facts.lean_sway = cam.lean_sway
 	facts.lean = cam.lean
 	facts.shot_lean_forward = shot_lean_forward()
-	facts.thrust_travel = _thrust_travel
+	facts.thrust_travel = _readiness.thrust_travel
 	facts.same_height_scale = float(_camera_service().call("same_height_scale"))
 	facts.anon_height_scale = float(_camera_service().call("anon_height_scale"))
 	facts.palm_scale_factor = float(_camera_service().call("palm_scale_factor"))
@@ -1122,11 +1116,9 @@ func _snapshot_settings() -> void:
 	var snap := SETTINGS.act_snapshot(_start_group())
 	_features = snap.features
 	_caress_quality = snap.caress_quality
-	thrust_up = snap.thrust_up
-	_thrust_pixels_per_cm = snap.thrust_pixels_per_cm
-	_thrust_travel = snap.thrust_travel
+	_readiness.configure_thrust(snap.thrust_pixels_per_cm, snap.thrust_up,
+		snap.thrust_travel, snap.pelvis_gap_m)
 	_max_pony_climaxes = snap.max_pony_climaxes
-	_pelvis_gap_m = snap.pelvis_gap_m
 	_handover.set_form_hint_debug(SETTINGS.debug_mode.get_bool())
 	_readiness.configure_auto(snap.auto_pace, snap.auto_max_depth, snap.auto_curve,
 		snap.auto_min_depth, _preserve_auto_shape_on_snapshot)
@@ -1341,9 +1333,8 @@ func _input(event: InputEvent) -> void:
 	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if state in [State.ACTIVE, State.CLIMAX]:
-		if not _readiness.auto_active() and _thrust_tracker != null:
-			var travel: float = THRUST.pixels_to_metres(motion.relative.y, _thrust_pixels_per_cm,
-				thrust_up)
+		if not _readiness.auto_active():
+			var travel: float = _readiness.mouse_travel(motion.relative.y)
 			_set_penetration(penetration_m + travel, _now_s())
 		get_viewport().set_input_as_handled()
 
@@ -1674,7 +1665,8 @@ func _debug_context() -> Dictionary:
 		"mouse": str(Input.mouse_mode), "paused": get_tree().paused,
 		"max_pony_climaxes": _max_pony_climaxes, "satisfaction": satisfaction,
 		"pony_climaxes": pony_climaxes, "last_intensity": _readiness.last_intensity,
-		"last_pattern": _readiness.last_pattern, "cue": cue, "thrust_up": thrust_up,
+		"last_pattern": _readiness.last_pattern, "cue": cue,
+		"thrust_up": _readiness.up_is_deep,
 		"penetration_m": penetration_m, "penetration_reach": penetration_reach(),
 		"preferences": PREFERENCES.describe(_preferences), "voice_status_line": voice_status_line(),
 	}
@@ -1889,7 +1881,6 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_act_prompts = _profile.get("act_prompts", {})
 	_snapshot_settings()
 	_reactions.apply_radius()
-	_thrust_tracker = THRUST.new()
 	_aftercare_min = int(_profile["aftercare_min"])
 	_cue_gap = SETTINGS.cue_gap_value(float(_profile["cue_gap"]))
 	_standing_camera_controller().reset()
@@ -2741,8 +2732,7 @@ func _now_s() -> float:
 	return _clock_s
 
 func _reset_thrust_state() -> void:
-	depth = 0.0
-	penetration_m = 0.0
+	_readiness.reset_thrust()
 	_readiness.reset_auto()
 	_standing_anon_controller().reset_phase()
 	_standing_camera_controller().reset_depth()
@@ -2755,9 +2745,6 @@ func _reset_thrust_state() -> void:
 	_vocal_cooldown = 0.0
 	_act_spoken_at = -1e9
 	_act_ended_early = false
-	if _thrust_tracker == null:
-		_thrust_tracker = THRUST.new()
-	_thrust_tracker.reset()
 
 ## Switch the automatic stroke on or off. X is the only caller. Turning it on starts from the
 ## hand's current depth, so the shot does not snap; turning it off leaves the depth where it is.
@@ -2957,13 +2944,10 @@ func _stop_auto() -> void:
 ## Feed the generated depth through the same tracker as the mouse. Strength, readiness,
 ## intensity, pattern, audio, camera and presentation therefore need no auto-specific path.
 func _auto_tick(delta: float) -> void:
-	if _thrust_tracker == null:
-		return
-	var next_depth: float = _readiness.auto_step(delta)
-	if is_nan(next_depth):
-		return
-	_thrust_move(next_depth - depth, _now_s())
-	penetration_m = depth * penetration_reach()
+	var before := depth
+	var now := _now_s()
+	var events: Array[THRUST_STATE.StrokeEvent] = _readiness.auto_advance(delta, now)
+	_finish_stroke(before, now, events)
 
 func _prepare_vocal() -> void:
 	var director := _director()
@@ -3039,67 +3023,72 @@ func _set_inventory_hud_hidden(hidden: bool) -> void:
 			and HUD.instance.has_method("set_inventory_hidden"):
 		HUD.instance.set_inventory_hidden(hidden)
 
-## Anon's visible shaft length in metres, measured from the placed part. With the anatomy off the
-## nominal length keeps the mouse feel identical.
+## Anon's visible shaft length in metres. The readiness stroke state owns the nominal fallback.
 func _shaft_length_m() -> float:
+	return _readiness.shaft_length_m()
+
+
+## The anatomy service's visible shaft length, or zero when the part is not showing. The readiness
+## stroke state turns zero into the nominal length, so the mouse feel is the same with it off.
+func _player_shaft_length_m() -> float:
 	var service: Variant = _anatomy_service()
 	if service != null and service.has_method("player_shaft_length_m"):
 		var length: Variant = service.call("player_shaft_length_m")
 		if length is float and (length as float) > 0.001:
 			return length as float
-	return NOMINAL_SHAFT_M
+	return 0.0
 
 
-## The deepest the tip can reach, in metres. Both poses carry his body on the stroke, so
-## `Pelvis gap` keeps his pelvis that far behind her rear surface; a detached placement is limited
-## by the shaft alone.
+## The deepest the tip can reach, in metres. The readiness stroke state owns the placement math.
 func penetration_reach() -> float:
-	var length := _shaft_length_m()
-	if _pose_family() in ["standing", "bed"]:
-		return maxf(length - _pelvis_gap_m, 0.02)
-	return maxf(length, 0.02)
+	return _readiness.reach()
 
 
-## Move the physical penetration and mirror it into the public 0..1 depth. The tip rests at her
-## entrance when it is out, and the depth stays at zero there, so no standoff eats a stroke.
+## Move the physical penetration and mirror it into the public 0..1 depth. The readiness stroke
+## state owns the clamp, the depth mapping and the events.
 func _set_penetration(target_m: float, now: float) -> void:
-	var reach := penetration_reach()
-	penetration_m = clampf(target_m, 0.0, reach)
-	_thrust_move(THRUST.penetration_to_depth(penetration_m, reach) - depth, now)
+	var before := depth
+	var events: Array[THRUST_STATE.StrokeEvent] = _readiness.set_penetration(target_m, now)
+	_finish_stroke(before, now, events)
 
 
 func _thrust_move(amount: float, now: float) -> void:
-	if _thrust_tracker == null:
-		return
 	var before := depth
-	var events: Array = _thrust_tracker.move(amount, now)
-	depth = _thrust_tracker.depth
-	if is_instance_valid(_act_audio) and state in [State.ACTIVE, State.CLIMAX] \
-			and not _face_contact() and _act_audio.crossed(before, depth):
-		_act_audio.withdraw_crossed(before, depth, _thrust_tracker.live_strength(now),
-			_reactions.rump_point(), _bed_audio_point(), _bed_soft)
-	for event: Dictionary in events:
-		_dispatch_stroke_event(event)
+	var events: Array[THRUST_STATE.StrokeEvent] = _readiness.move(amount, now)
+	_finish_stroke(before, now, events)
+
 
 func _thrust_tick() -> void:
-	if _thrust_tracker == null:
-		return
-	var events: Array = _thrust_tracker.tick(_now_s())
-	depth = _thrust_tracker.depth
-	for event: Dictionary in events:
+	_dispatch_events(_readiness.stroke_tick(_now_s()))
+
+
+## The one post-move path: the withdrawal slide when the tip crosses her lips outward, then the
+## ordered stroke/impact fan-out.
+func _finish_stroke(before: float, now: float, events: Array[THRUST_STATE.StrokeEvent]) -> void:
+	if is_instance_valid(_act_audio) and state in [State.ACTIVE, State.CLIMAX] \
+			and not _face_contact() and _act_audio.crossed(before, depth):
+		_act_audio.withdraw_crossed(before, depth, _readiness.live_strength(now),
+			_reactions.rump_point(), _bed_audio_point(), _bed_soft)
+	_dispatch_events(events)
+
+
+func _dispatch_events(events: Array[THRUST_STATE.StrokeEvent]) -> void:
+	for event: THRUST_STATE.StrokeEvent in events:
 		_dispatch_stroke_event(event)
+
 
 ## The tracker reports the bottom of a stroke and its close. Presentation belongs to the bottom
 ## so the plap and the body land with the motion; the score belongs to the close.
-func _dispatch_stroke_event(event: Dictionary) -> void:
-	if str(event.get("kind", "stroke")) == "impact":
+func _dispatch_stroke_event(event: THRUST_STATE.StrokeEvent) -> void:
+	if event.kind == "impact":
 		_on_impact(event)
 	else:
 		_on_stroke(event)
 
+
 ## Score one closed inward thrust through the readiness system. Presentation stays in
 ## `_on_impact`; this only updates the two preference axes and the act counters.
-func _on_stroke(event: Dictionary) -> void:
+func _on_stroke(event: THRUST_STATE.StrokeEvent) -> void:
 	_readiness.stroke(event)
 
 
@@ -3114,45 +3103,32 @@ func _add_heat(amount: float) -> void:
 
 
 ## The stroke's bottom: the plap, the wobble, the wings, her blush and the ear twitch all land
-## here, with the motion. Fired once per real thrust from the tracker's `impact` event. The body
-## slap needs two physical facts: his skin has to reach her coat (`gap <= the contact epsilon`), and the
-## bottom has to be fast enough to be a slap rather than a slow press. Tier comes from the speed
-## over the deepest part of the stroke, never from the readiness intensity band. The oral segment
-## keeps the slide, vocal, wings, blush and ear twitch but drops the plap and the rump/tail jiggle.
-func _on_impact(result: Dictionary) -> void:
+## here, with the motion. The readiness stroke state supplies the physical facts: the gap to her
+## coat, the impact tier and speed, the wobble and the visual impact. The oral segment keeps the
+## slide, vocal, wings, blush and ear twitch but drops the plap and the rump/tail jiggle.
+func _on_impact(event: THRUST_STATE.StrokeEvent) -> void:
 	if state not in [State.ACTIVE, State.CLIMAX]:
 		return
-	var strength := clampf(float(result.get("strength", 0.0)), 0.0, 1.0)
-	var impact := clampf(strength * THRUST_IMPACT_GAIN, 0.0, 1.0)
-	var jiggle := THRUST.jiggle_amount(float(result.get("travel", 0.0)), strength)
-	var reach := penetration_reach()
-	var gap := THRUST.skin_gap_m(float(result.get("end_depth", 0.0)) * reach, reach)
-	var impact_speed := float(result.get("impact_speed", 0.0))
-	var tier := THRUST.plap_tier(impact_speed)
-	var plap := THRUST.plap_touching(gap, CONTACT_GAP_M) and not tier.is_empty()
 	var oral := _mouth_contact()
 	var face := _face_contact()
 	var quiet := oral or face
-	var now := _now_s()
-	_wings_controller().on_thrust(impact)
+	_wings_controller().on_thrust(event.visual)
 	if not quiet:
-		_reactions.thrust(jiggle)
-		_reactions.tail_thrust(jiggle)
+		_reactions.thrust(event.jiggle)
+		_reactions.tail_thrust(event.jiggle)
 	if _pose_family() == "standing":
-		_reactions.add_blush(impact)
-		_pose_service().trigger_ear_twitch(impact)
-	_readiness.thrust_times.append(now)
-	while not _readiness.thrust_times.is_empty() \
-			and now - float(_readiness.thrust_times[0]) > 1.0:
-		_readiness.thrust_times.pop_front()
+		_reactions.add_blush(event.visual)
+		_pose_service().trigger_ear_twitch(event.visual)
+	_readiness.note_impact()
 	_play_vocal()
 	if is_instance_valid(_act_audio):
-		_act_audio.play_impact(tier, strength, _reactions.rump_point(),
-			_bed_audio_point(), _bed_soft, gap, CONTACT_GAP_M, not quiet)
+		_act_audio.play_impact(event.tier, event.strength, _reactions.rump_point(),
+			_bed_audio_point(), _bed_soft, event.gap, THRUST_STATE.CONTACT_GAP_M, not quiet)
 	_log("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d oral=%d face=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s" % [
-		gap, impact_speed, tier if not tier.is_empty() else "-", 1 if plap else 0,
-		1 if oral else 0, 1 if face else 0, satisfaction, _readiness.thrusts_per_second(),
-		strength, impact, jiggle, _readiness.last_intensity, _readiness.last_pattern])
+		event.gap, event.impact_speed, event.tier if not event.tier.is_empty() else "-",
+		1 if event.plap else 0, 1 if oral else 0, 1 if face else 0, satisfaction,
+		_readiness.thrusts_per_second(), event.strength, event.visual, event.jiggle,
+		_readiness.last_intensity, _readiness.last_pattern])
 
 func _play_vocal() -> void:
 	if _vocal_cooldown > 0.0:

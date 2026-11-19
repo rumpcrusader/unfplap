@@ -302,11 +302,6 @@
     },
     {
       "service": "readiness",
-      "func": "stroke",
-      "signature": "func stroke(event: Dictionary) -> void:"
-    },
-    {
-      "service": "readiness",
       "func": "take_tolerance_decision",
       "signature": "func take_tolerance_decision() -> Dictionary:"
     },

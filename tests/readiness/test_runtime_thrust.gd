@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_runtime_thrust.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
+const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 var failures := 0
@@ -43,7 +43,6 @@ func _runtime() -> Node:
 		"warmth": "normal",
 	})
 	runtime._snapshot_settings()
-	runtime._thrust_tracker = THRUST.new()
 	runtime.state = 2 # ACTIVE
 	runtime._readiness.last_touch_at = -1000.0
 	runtime._readiness.last_talk_at = -1000.0
@@ -121,10 +120,16 @@ func run() -> void:
 	check(int(runtime.state) == 3, "100 readiness starts a pony climax")
 	check(runtime.pony_climaxes == 1, "pony climax count increments")
 	var climax_readiness: float = runtime.satisfaction
-	runtime._on_stroke({
-		"direction": 1, "thrust": true, "travel": 0.5, "duration": 0.5,
-		"speed": 1.0, "peak_speed": 1.0, "impact_speed": 1.0, "strength": 0.5,
-	})
+	var stroke := THRUST_STATE.StrokeEvent.new()
+	stroke.kind = "stroke"
+	stroke.direction = 1
+	stroke.thrust = true
+	stroke.travel = 0.5
+	stroke.duration = 0.5
+	stroke.speed = 1.0
+	stroke.peak_speed = 1.0
+	stroke.strength = 0.5
+	runtime._on_stroke(stroke)
 	check(near(runtime.satisfaction, climax_readiness), "thrusting during climax does not score")
 	check(int(runtime.state) == 3, "thrusting during climax does not end it")
 
@@ -173,7 +178,7 @@ func run() -> void:
 	check(not runtime.auto_active(), "thrust reset clears auto for the next act")
 	# The depth scale is physical: his shaft length decides a full stroke, and the tip rests at her
 	# entrance so the resting contact sits at zero depth.
-	check(near(runtime.penetration_reach(), runtime.NOMINAL_SHAFT_M),
+	check(near(runtime.penetration_reach(), THRUST_STATE.NOMINAL_SHAFT_M),
 		"the nominal shaft sets the depth scale with no part")
 	check(near(runtime.penetration_m, 0.0), "the reset rests the tip at her entrance")
 	runtime._set_penetration(-1.0, 0.0)
@@ -182,7 +187,21 @@ func run() -> void:
 	runtime._set_penetration(0.1, 0.2)
 	check(near(runtime.depth, 0.5), "half the reach reads as half depth")
 	runtime._set_penetration(1.0, 0.4)
-	check(near(runtime.penetration_m, runtime.NOMINAL_SHAFT_M), "full depth stops at the reach")
+	check(near(runtime.penetration_m, THRUST_STATE.NOMINAL_SHAFT_M), "full depth stops at the reach")
+	# The readiness stroke state fills the physical facts presentation reads: the tier, the
+	# contact, the gap, the wobble and the visual impact all arrive on the typed event.
+	runtime._reset_thrust_state()
+	runtime._readiness.move(2.0, 0.0)
+	var impacts: Array = runtime._readiness.move(-2.0, 0.05)
+	check(not impacts.is_empty() and str(impacts[0].kind) == "impact",
+		"the stroke bottom is one impact event")
+	if not impacts.is_empty():
+		var impact: RefCounted = impacts[0]
+		check(str(impact.tier) == "rough" and bool(impact.plap),
+			"a fast bottomed stroke plaps rough")
+		check(near(float(impact.gap), 0.0), "a bottomed-out stroke leaves no skin gap")
+		check(near(float(impact.visual), 1.0), "a full fast stroke reaches full visual impact")
+		check(float(impact.jiggle) > 0.9, "a full stroke wobbles the flank")
 	runtime._reset_thrust_state()
 	runtime.free()
 

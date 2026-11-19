@@ -9,6 +9,7 @@ const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/dialogue/utterance_sche
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/readiness/auto_panel.gd")
 const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
+const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 
 const READINESS_MAX := 100.0
 const PONY_CLIMAX_AT := READINESS_MAX
@@ -104,6 +105,95 @@ var auto_default_pace: float
 var auto_default_depth: float
 var auto_default_min: float
 var auto_default_shape: String
+
+## The act's stroke and penetration state. Its tracker is the only stroke authority; the mouse,
+## auto thrust and the anatomy bridge all feed this one object.
+var _thrust: RefCounted = THRUST_STATE.new()
+## Host reads for the depth scale. The runtime supplies his visible shaft length and the live
+## pose family; a missing callback falls back to the nominal length.
+var shaft_length := Callable()
+var pose_family := Callable()
+
+## The runtime forwards the public stroke values; HUD and presentation read them here.
+var depth: float:
+	get:
+		return _thrust.depth
+	set(value):
+		_thrust.depth = value
+var penetration_m: float:
+	get:
+		return _thrust.penetration_m
+	set(value):
+		_thrust.penetration_m = value
+var thrust_travel: float:
+	get:
+		return _thrust.travel
+var up_is_deep: bool:
+	get:
+		return _thrust.up_is_deep
+
+
+## The act's depth scale, pushed once per act and again on every live settings apply.
+func configure_thrust(pixels_per_cm: float, up_is_deep_in: bool, travel: float,
+		pelvis_gap_m: float) -> void:
+	_thrust.shaft_length = shaft_length
+	_thrust.pose_family = pose_family
+	_thrust.configure(pixels_per_cm, up_is_deep_in, travel, pelvis_gap_m)
+
+
+## A fresh act: the tracker, the public depth and the physical penetration go back to rest.
+func reset_thrust() -> void:
+	_thrust.reset()
+
+
+func shaft_length_m() -> float:
+	return _thrust.shaft_length_m()
+
+
+func reach() -> float:
+	return _thrust.reach()
+
+
+## Mouse motion as hip travel in metres. Input still owns the event; the scale and orientation
+## are the act's.
+func mouse_travel(dy_pixels: float) -> float:
+	return _thrust.mouse_travel(dy_pixels)
+
+
+func live_strength(now: float) -> float:
+	return _thrust.live_strength(now)
+
+
+## Move the measured depth and return the strokes it closed or bottomed.
+func move(amount: float, now: float) -> Array[THRUST_STATE.StrokeEvent]:
+	return _thrust.move(amount, now)
+
+
+## One idle tracker frame: a held bottom or a timed-out stroke produces its event here.
+func stroke_tick(now: float) -> Array[THRUST_STATE.StrokeEvent]:
+	return _thrust.tick(now)
+
+
+func set_penetration(target_m: float, now: float) -> Array[THRUST_STATE.StrokeEvent]:
+	return _thrust.set_penetration(target_m, now)
+
+
+## One auto frame: the generated depth through the same tracker, or no events while auto is off.
+func auto_advance(delta: float, now: float) -> Array[THRUST_STATE.StrokeEvent]:
+	var next_depth := auto_step(delta)
+	if is_nan(next_depth):
+		return []
+	var events: Array[THRUST_STATE.StrokeEvent] = _thrust.move(next_depth - _thrust.depth, now)
+	_thrust.penetration_m = _thrust.depth * _thrust.reach()
+	return events
+
+
+## One impact in the live one-second rate window.
+func note_impact() -> void:
+	var now := _now()
+	thrust_times.append(now)
+	while not thrust_times.is_empty() and now - float(thrust_times[0]) > 1.0:
+		thrust_times.pop_front()
 
 
 ## The runtime forwards the public values; these are the auto readouts.
@@ -300,29 +390,34 @@ func set_cue_override(text: String, seconds := -1.0) -> void:
 
 ## Only real thrusts update the pattern window and score. Upward strokes, tiny jitter and
 ## pullbacks are presentation only.
-func stroke(event: Dictionary) -> void:
+func stroke(event: THRUST_STATE.StrokeEvent) -> void:
 	if not _state_in([STATE_ACTIVE, STATE_CLIMAX]):
 		return
-	if int(event.get("direction", 0)) <= 0:
+	if event.direction <= 0:
 		return
-	if not bool(event.get("thrust", false)):
+	if not event.thrust:
 		return
 	act_thrusts += 1
 	if _state() == STATE_CLIMAX:
 		# The player can keep thrusting through her climax; only the score stays off.
 		return
-	last_stroke = event.duplicate(true)
+	last_stroke = {
+		"travel": event.travel,
+		"duration": event.duration,
+		"speed": event.speed,
+		"peak_speed": event.peak_speed,
+		"strength": event.strength,
+	}
 	last_stroke_at = _now()
 	stroke_window.append(last_stroke)
 	while stroke_window.size() > 4:
 		stroke_window.pop_front()
 	# The preference axis is the stroke's depth; the physical strength stays the audio/foley
 	# impact value. Keeping the two axes independent lets the player choose depth and tempo.
-	last_intensity = PREFERENCES.intensity_for_travel(float(event.get("travel", 0.0)))
+	last_intensity = PREFERENCES.intensity_for_travel(event.travel)
 	last_pattern = PREFERENCES.pattern_for(stroke_window)
 	_log("thrust stroke travel=%.2f speed=%.2f peak=%.2f strength=%.2f intensity=%s pattern=%s readiness=%.0f" % [
-		float(event.get("travel", 0.0)), float(event.get("speed", 0.0)),
-		float(event.get("peak_speed", 0.0)), float(event.get("strength", 0.0)),
+		event.travel, event.speed, event.peak_speed, event.strength,
 		last_intensity, last_pattern, satisfaction])
 	score_thrust()
 

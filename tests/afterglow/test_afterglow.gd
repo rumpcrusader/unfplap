@@ -7,7 +7,6 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
-const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 var failures := 0
@@ -61,7 +60,6 @@ func _runtime(pose: String) -> Node:
 	runtime.state = 4 # AFTERGLOW
 	runtime._preferences = PREF.resolve({})
 	runtime._snapshot_settings()
-	runtime._thrust_tracker = THRUST.new()
 	return runtime
 
 

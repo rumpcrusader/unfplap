@@ -7,6 +7,7 @@ extends Node
 const ACT_BUILD := preload("res://mods/unfplap/act/build.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
+const ACT_GATE := preload("res://mods/unfplap/act/gate.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -81,6 +82,13 @@ var state: int:
 var act: ACT_SESSION:
 	get:
 		return _act
+
+
+## The offer-facing gate handle: scene verdicts, the Agreement start, the hotkey readiness and the
+## stool/rump/presentation reads. `offer`, `negotiation` and `initiation` use this handle.
+var gate: ACT_GATE:
+	get:
+		return _bundle.act_gate if _bundle != null else null
 
 
 ## The act's readiness system; see `readiness/service.gd`. The public act values below forward to it.
@@ -623,34 +631,10 @@ func _physics_tick(delta: float) -> void:
 
 # --------------------------------------------------------------------------- gates
 
-## The live vertical gap; NAN when the rule or the anatomy is unavailable.
-func stool_gap_m() -> float:
-	return float(_act.stool().call("gap_m")) if _act.stool() != null else NAN
-
-func stool_needed_count() -> int:
-	return int(_act.stool().call("needed_count")) if _act.stool() != null else 0
-
-func stool_case_count() -> int:
-	return int(_act.stool().call("case_count")) if _act.stool() != null else 0
 
 
-func stool_state_text() -> String:
-	return str(_act.stool().call("state_text")) if _act.stool() != null else "stool unavailable"
-
-func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
-		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
-	_act.refresh_identity()
-	return _scene_gate().start_verdict(pose, act_source, bed_in, verdict_in)
 
 
-## The scene-only start of an accepted Agreement: no policy verdict, no formation row, no
-## aftercare. `frozen` carries the pose capability recorded at formation.
-func scene_only_verdict(pose: String, act_source: String, bed_in: Variant = null,
-		frozen: Variant = null, stool_need: int = -1, stool_have: int = -1) -> Variant:
-	_act.refresh_identity()
-	var capability: Variant = frozen if frozen != null else SCENE_GATE.FrozenPose.new(true, true)
-	return _scene_gate().scene_only_verdict(pose, act_source, bed_in, capability,
-		stool_need, stool_have)
 
 
 ## The live act values the debug status line reads. The debug pony helper owns the scene gather;
@@ -676,42 +660,13 @@ func refresh_identity() -> void:
 	_act.refresh_identity()
 
 
-func _suppress_auto_cuddle() -> void:
-	_scene_gate().suppress_auto_cuddle()
-
-func cuddle_active() -> bool:
-	return _scene_gate().cuddle_active()
-
-func free_of_affection() -> bool:
-	return _scene_gate().free_of_affection()
-
-func find_bed_under() -> Node3D:
-	return _scene_gate().find_bed_under()
-
-## The Agreement start's answer. The start protocol owns the rows; the start ledger owns the body.
-func start_agreement(handle: Variant, skip_presentation := false) -> int:
-	return _agreement.start_agreement(handle, skip_presentation)
 
 
-## True when the scene-only rows pass and, for a standing option, the presentation is settled.
-func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
-	return _agreement.agreement_offer_ready(handle, skip_presentation)
 
 
-## The hotkey's readiness: the scene-only rows plus Base clearance.
-func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	return _agreement.hotkey_ready(pose, act_source, bed_in)
 
 
-## The footstool pair this call's gate used.
-func hint_stool() -> Dictionary:
-	return _agreement.hint_stool()
 
-
-## The act key's immediate attempt, with no Agreement and no presentation wait.
-func start_hotkey(pose: String, bed_in: Variant, act_source: String,
-		skip_presentation := false) -> bool:
-	return _agreement.start_hotkey(pose, bed_in, act_source, skip_presentation)
 
 
 func _claim_nav() -> bool:
@@ -719,11 +674,6 @@ func _claim_nav() -> bool:
 		return _hold.adopt_hold()
 	return _hold.claim_nav(_id)
 
-
-## The per-pony negotiation hold handle. The Negotiation's bridge calls this through the runtime;
-## it does not read `_hold`.
-func hold_handle() -> RefCounted:
-	return _hold
 
 
 func _scene_hold_compatible(pose: String, source: String) -> bool:
@@ -735,17 +685,8 @@ func _scene_hold_compatible(pose: String, source: String) -> bool:
 
 
 
-func present_standing() -> bool:
-	return bool(_standing_presentation_controller().present_standing())
 
-func presentation_active() -> bool:
-	return bool(_standing_presentation_controller().presentation_active())
 
-func presentation_settled() -> bool:
-	return bool(_standing_presentation_controller().presentation_settled())
-
-func clear_presentation() -> void:
-	_standing_presentation_controller().clear_presentation()
 
 
 ## The act-side form request. The handover decides whether a source can take the form; a later
@@ -1015,10 +956,6 @@ func debug_force_tolerance(kind: String) -> bool:
 func _on_smack_impact(strength: float) -> void:
 	_reactions.smack(strength)
 
-
-## Public rump anchor for the standing offer's rear cone.
-func rump_anchor() -> Vector3:
-	return _reactions.rump_point()
 
 
 func cycle_phase() -> String:

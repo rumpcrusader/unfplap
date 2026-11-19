@@ -31,6 +31,10 @@ const HUD := preload("res://mods/unfplap/hud/service.gd")
 ## without a text prompt. Player-named shapes belong to the dialogue path.
 const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "twilight_sparkle"]
 
+## The per-pony gate handle: the scene verdicts and the offer readiness reads.
+func _gate(runtime: Node) -> Variant:
+	return runtime.get("gate")
+
 
 ## The live act state. The node builds these reads itself from the facades in `_ready()`; a suite
 ## may bind its own before the node enters the tree.
@@ -512,7 +516,7 @@ func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
 	if str(status.get("requested", "")) == "lie_down":
 		pose = CATALOG.MISSIONARY
 		source = "already_lying"
-		bed = runtime.call("find_bed_under")
+		bed = _gate(runtime).find_bed_under()
 	var line := str(runtime.call("debug_line", pose, source, bed, dist, dot)) \
 		if runtime.has_method("debug_line") else "no debug line"
 	return [line]
@@ -538,9 +542,10 @@ func _debug_act_rows(runtime: Variant) -> Array[String]:
 func _debug_stool_rows(runtime: Variant) -> Array[String]:
 	if not is_instance_valid(runtime):
 		return ["no runtime"]
-	if not runtime.has_method("stool_state_text"):
+	var gate: Variant = _gate(runtime)
+	if gate == null or not gate.has_method("stool_state_text"):
 		return ["stool unavailable"]
-	return [str(runtime.call("stool_state_text"))]
+	return [str(gate.stool_state_text())]
 
 
 ## Debug: cycle the game's expression faces on the active act or the aimed mare.

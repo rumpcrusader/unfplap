@@ -48,6 +48,10 @@ const PHASE_NAMES := {
 	Phase.BED_APPROACH: POLICY.PHASE_BED_APPROACH,
 }
 
+## The per-pony gate handle: the scene verdicts and the offer readiness reads.
+func _gate(runtime: Node) -> Variant:
+	return runtime.get("gate")
+
 
 ## One mare's offer candidate and, once `_begin_route` starts it, the live attempt: the placeable
 ## choices, the chosen option and the walk/ask route state. The scan builds candidates for several
@@ -281,12 +285,15 @@ func _tick_cuddle_edges() -> void:
 		if not is_instance_valid(node):
 			continue
 		var runtime: Node = PONIES.runtime_for(node)
-		if not is_instance_valid(runtime) or not runtime.has_method("cuddle_active"):
+		if not is_instance_valid(runtime):
+			continue
+		var gate: Variant = _gate(runtime)
+		if gate == null:
 			continue
 		var id: String = _venue.pony_id(node)
 		if id.is_empty():
 			continue
-		var active := bool(runtime.call("cuddle_active"))
+		var active := bool(gate.cuddle_active())
 		if active and not _cuddle_asked.has(id):
 			_cuddle_asked[id] = false
 			COOLDOWNS.clear(id)
@@ -384,7 +391,7 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 			return null
 	var placeable: Array[POSE_OPTIONS.Option] = []
 	for option: POSE_OPTIONS.Option in options:
-		var verdict: Variant = runtime.call("scene_only_verdict", option.pose, option.source,
+		var verdict: Variant = _gate(runtime).scene_only_verdict(option.pose, option.source,
 			option.bed, null)
 		if verdict == null:
 			continue
@@ -718,7 +725,7 @@ func _start_ask_handoff() -> String:
 		return _close_episode("ask lost")
 	# The place can have changed since the scan; only a hard scene failure closes the ask. An
 	# unfilled bed gate or a player not yet in position is the Agreement's live condition.
-	var verdict: Variant = runtime.call("scene_only_verdict", option.pose, option.source,
+	var verdict: Variant = _gate(runtime).scene_only_verdict(option.pose, option.source,
 		option.bed, null)
 	if verdict == null or not bool(verdict.hard_ok):
 		return _close_episode("ask scene")

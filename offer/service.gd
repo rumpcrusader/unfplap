@@ -53,6 +53,10 @@ const AGREEMENT_START_S := 0.25
 const AGREEMENT_WAIT := 0
 const AGREEMENT_STARTED := 1
 
+## The per-pony gate handle: the scene verdicts and the offer readiness reads.
+func _gate(runtime: Node) -> Variant:
+	return runtime.get("gate")
+
 ## Set by the entry's `bind()`: the Negotiation service, whose live Agreement is offered before the
 ## scan. A plain handle because this side only calls its public reads, and `agreement_offer()`
 ## keeps the typed `AGREEMENT.Handle` contract.
@@ -205,7 +209,7 @@ func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 			LOG.debug("hotkey interrupt negotiation id=%s" % id)
 			negotiation.call("interrupt_for_hotkey")
 	LOG.debug("hotkey immediate id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
-	var started := bool(runtime.call("start_hotkey", offer.pose, offer.bed, offer.source))
+	var started := bool(_gate(runtime).start_hotkey(offer.pose, offer.bed, offer.source))
 	if not started:
 		LOG.debug("hotkey start blocked id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
 		return false
@@ -231,7 +235,7 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 	if handle == null or not is_instance_valid(offer.runtime):
 		_clear_offer_hint()
 		return false
-	var result := int(offer.runtime.call("start_agreement", handle, skip_presentation))
+	var result := int(_gate(offer.runtime).start_agreement(handle, skip_presentation))
 	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
 		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
 	LOG.debug("agreement start id=%s pose=%s skip_presentation=%s result=%d" % [
@@ -267,7 +271,8 @@ func _tick_agreement_auto_start(delta: float) -> void:
 		return
 	var pony: Variant = handle.pony
 	var runtime: Node = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
-	if not is_instance_valid(runtime) or not runtime.has_method("agreement_offer_ready"):
+	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
+	if gate == null:
 		return
 	var typed: POSE_OFFER = agreement_offer(handle)
 	if typed == null:
@@ -382,8 +387,8 @@ func scan() -> void:
 		if is_instance_valid(lying):
 			var runtime: Node = PONIES.runtime_for(lying)
 			if is_instance_valid(runtime):
-				var bed: Node3D = runtime.find_bed_under()
-				if bed != null and bool(runtime.call("hotkey_ready", CATALOG.MISSIONARY, "bed_side", bed)):
+				var bed: Node3D = _gate(runtime).find_bed_under()
+				if bed != null and bool(_gate(runtime).hotkey_ready(CATALOG.MISSIONARY, "bed_side", bed)):
 					_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
 					_log_offer()
 					return
@@ -394,8 +399,8 @@ func scan() -> void:
 		if is_instance_valid(lying):
 			var runtime: Node = PONIES.runtime_for(lying)
 			if is_instance_valid(runtime):
-				var bed: Node3D = runtime.find_bed_under()
-				if bed != null and bool(runtime.call("hotkey_ready", CATALOG.MISSIONARY, "already_lying", bed)):
+				var bed: Node3D = _gate(runtime).find_bed_under()
+				if bed != null and bool(_gate(runtime).hotkey_ready(CATALOG.MISSIONARY, "already_lying", bed)):
 					_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "already_lying", bed)
 					_log_offer()
 					return
@@ -450,11 +455,11 @@ func _standing_ready(target: Node, runtime: Node) -> bool:
 		return _gate_ready
 	_gate_target = target
 	_gate_at = now
-	_gate_ready = bool(runtime.call("hotkey_ready", CATALOG.STANDING, "", null))
+	_gate_ready = bool(_gate(runtime).hotkey_ready(CATALOG.STANDING, "", null))
 	_gate_stool_need = 0
 	_gate_stool_have = 0
 	if not _gate_ready:
-		var stool: Dictionary = runtime.call("hint_stool")
+		var stool: Dictionary = _gate(runtime).hint_stool()
 		_gate_stool_need = int(stool.get("need", 0))
 		_gate_stool_have = int(stool.get("have", 0))
 	return _gate_ready
@@ -500,7 +505,7 @@ func _rump_cone_target(view: Camera3D) -> Node:
 		var runtime: Node = PONIES.runtime_for(actor)
 		if not is_instance_valid(runtime):
 			continue
-		var anchor: Variant = runtime.call("rump_anchor")
+		var anchor: Variant = _gate(runtime).rump_anchor()
 		if not anchor is Vector3:
 			continue
 		var rump: Vector3 = anchor
@@ -621,10 +626,10 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 	if key == _last_blocked_key:
 		return
 	_last_blocked_key = key
-	var gap: Variant = runtime.call("stool_gap_m")
+	var gap: Variant = _gate(runtime).stool_gap_m()
 	var gap_text := "n/a" if not (gap is float or gap is int) \
 		or not is_finite(float(gap)) else "%.3f" % float(gap)
-	var have := int(runtime.call("stool_case_count"))
+	var have := int(_gate(runtime).stool_case_count())
 	LOG.debug("OFFER blocked pony=%s reason=needs_stool gap=%s need=%d have=%d" % [
 		str(target.name), gap_text, need, have])
 	if not _stool_hint_toast_shown:
@@ -640,9 +645,10 @@ func agreement_offer(handle: NEGOTIATION.AGREEMENT.Handle) -> POSE_OFFER:
 		return null
 	var pony: Variant = handle.pony
 	var runtime: Node = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
-	if not is_instance_valid(runtime) or not runtime.has_method("agreement_offer_ready"):
+	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
+	if gate == null:
 		return null
-	if not bool(runtime.call("agreement_offer_ready", handle)):
+	if not bool(gate.agreement_offer_ready(handle)):
 		return null
 	var option: Variant = handle.option
 	if option == null:

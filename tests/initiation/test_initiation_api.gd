@@ -136,6 +136,10 @@ class FakeRuntime extends Node:
 	var hard_ok := true
 	var phase := "normal"
 	var scene_reasons: Array = []
+	var gate: Variant = null
+
+	func _init() -> void:
+		gate = self
 
 	func scene_only_verdict(_pose: String, _source: String, _bed: Variant,
 			_frozen: Variant) -> Dictionary:

@@ -48,6 +48,7 @@ const ACT_PHASES := preload("res://mods/unfplap/act/phases.gd")
 const ACT_TICK := preload("res://mods/unfplap/act/tick.gd")
 const ACT_START := preload("res://mods/unfplap/act/start.gd")
 const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
+const ACT_GATE := preload("res://mods/unfplap/act/gate.gd")
 
 
 ## The constructed per-pony objects. Fields only, plus the one pony rebind the runtime's setter and
@@ -99,6 +100,7 @@ class Bundle extends RefCounted:
 	var exit: ACT_EXIT = null
 	var start: ACT_START = null
 	var agreement: ACT_AGREEMENT = null
+	var act_gate: ACT_GATE = null
 	var input: ACT_INPUT = null
 	var swap: ACT_SWAP = null
 	var phases: ACT_PHASES = null
@@ -216,6 +218,8 @@ static func _bind_act_frame(node: Node, b: Bundle) -> void:
 	b.start.bind(b.host, b.context, b.act, b.exit, b.view)
 	b.agreement = ACT_AGREEMENT.new()
 	b.agreement.bind(b.host, b.context, b.act, b.start)
+	b.act_gate = ACT_GATE.new()
+	b.act_gate.bind(b.gate, b.agreement, b.act, b.reactions)
 	b.act.start = b.start
 	b.act.view = b.view
 	b.exit.start = b.start
@@ -302,9 +306,9 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.face.log = Callable(node, "_log")
 	b.face.clock = Callable(b.act, "clock_s")
 	b.reactions.log = Callable(node, "_log")
-	b.gate.stool_need = Callable(node, "stool_needed_count")
-	b.gate.stool_count = Callable(node, "stool_case_count")
-	b.gate.presentation_active = Callable(node, "presentation_active")
+	b.gate.stool_need = Callable(b.act_gate, "stool_needed_count")
+	b.gate.stool_count = Callable(b.act_gate, "stool_case_count")
+	b.gate.presentation_active = Callable(b.act, "presentation_active")
 	b.gate.hold_compatible = Callable(node, "_scene_hold_compatible")
 	b.gate.debug_context = Callable(node, "_debug_context")
 	b.rest.context = Callable(node, "_rest_context")
@@ -327,8 +331,8 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.gaze_point = Callable(node, "_missionary_gaze_point")
 	b.facts.free_look_rotation = Callable(b.camera, "free_look_rotation")
 	b.facts.desktop_pose_driver = Callable(node, "_desktop_pose_driver")
-	b.facts.cuddle_active = Callable(node, "cuddle_active")
-	b.facts.free_of_affection = Callable(node, "free_of_affection")
+	b.facts.cuddle_active = Callable(b.act_gate, "cuddle_active")
+	b.facts.free_of_affection = Callable(b.act_gate, "free_of_affection")
 	b.facts.pause_face_turn = Callable(b.hold, "pause_face_turn")
 	b.facts.restore_face_turn = Callable(b.hold, "restore_face_turn")
 	b.facts.hold_excitement = Callable(b.audio, "hold_excitement")

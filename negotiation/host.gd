@@ -22,6 +22,10 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 ## The longest player line the Anon-offer classifier reads; a longer line is not an ask.
 const MAX_LINE := 600
 
+## The per-pony gate handle: the scene verdicts and the offer readiness reads.
+func _gate(runtime: Node) -> Variant:
+	return runtime.get("gate")
+
 ## The negotiation service: the lock read, the Anon answer and the Agreement cancel.
 var service: Node = null
 ## The one director bridge and model host, built by the service that owns it.
@@ -68,17 +72,18 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 ## The live placement re-check the Agreement asks for: the chosen option's scene-only rows, with
 ## no frozen capability and no hold exemption. It is a scene check, not a new policy read.
 func pose_placed(runtime: Node, option: POSE_OPTIONS.Option) -> bool:
-	if not is_instance_valid(runtime) or option == null \
-			or not runtime.has_method("scene_only_verdict"):
+	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
+	if gate == null or option == null or not gate.has_method("scene_only_verdict"):
 		return false
-	var verdict: Variant = runtime.call("scene_only_verdict", option.pose, option.source,
+	var verdict: Variant = gate.scene_only_verdict(option.pose, option.source,
 		option.bed, null)
 	return verdict != null and bool(verdict.hard_ok)
 
 
 func hold_for(runtime: Node) -> RefCounted:
-	if is_instance_valid(runtime) and runtime.has_method("hold_handle"):
-		var hold: Variant = runtime.call("hold_handle")
+	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
+	if gate != null and gate.has_method("hold_handle"):
+		var hold: Variant = gate.hold_handle()
 		return hold as RefCounted if hold is RefCounted else null
 	return null
 

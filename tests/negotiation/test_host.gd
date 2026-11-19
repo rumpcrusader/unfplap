@@ -55,6 +55,10 @@ class FakeRuntime extends Node:
 	var presented := 0
 	var cleared := 0
 	var started := 0
+	var gate: Variant = null
+
+	func _init() -> void:
+		gate = self
 
 	func scene_only_verdict(_pose: String, _source: String, _bed: Variant,
 			_frozen: Variant) -> Dictionary:

@@ -52,6 +52,10 @@ class FakeRuntime extends Node:
 	var agreement_handles: Array = []
 	var agreement_skips: Array = []
 	var agreement_ready := true
+	var gate: Variant = null
+
+	func _init() -> void:
+		gate = self
 
 	func rump_anchor() -> Vector3:
 		return rump

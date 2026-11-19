@@ -59,6 +59,10 @@ class FakeRuntime extends Node:
 	var gap: Variant = 0.0
 	var case_count := 0
 	var agreement_ready := true
+	var gate: Variant = null
+
+	func _init() -> void:
+		gate = self
 
 	func rump_anchor() -> Vector3:
 		return rump

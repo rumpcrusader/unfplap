@@ -396,3 +396,25 @@ func finish_climax() -> void:
 	context.face.set_face(0.45, context.face.ACT_LIDS)
 	context.handover.hint_tick()
 	context.readiness.end_climax(max_pony_climaxes)
+
+
+## The act's scene ownership handle: the negotiation asks for it.
+func hold_handle() -> RefCounted:
+	return context.hold
+
+
+## The standing presentation the offer's standing path reads and clears.
+func present_standing() -> bool:
+	return context.presentation.present_standing()
+
+
+func presentation_active() -> bool:
+	return context.presentation.presentation_active()
+
+
+func presentation_settled() -> bool:
+	return context.presentation.presentation_settled()
+
+
+func clear_presentation() -> void:
+	context.presentation.clear_presentation()

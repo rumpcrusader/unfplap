@@ -58,7 +58,7 @@ class FakeEligibility extends ELIGIBILITY:
 		return relationship
 
 
-class FakeMain extends Node:
+class FixtureHost extends Node:
 	var player: Node3D
 	var game: Node
 
@@ -228,7 +228,7 @@ class FakeOffer extends OFFER:
 
 
 func _fixture() -> Dictionary:
-	var main := FakeMain.new()
+	var main := FixtureHost.new()
 	var game := FakeGame.new()
 	var context := FakeWorldContext.new()
 	var player := Node3D.new()
@@ -314,7 +314,7 @@ func _check_force() -> void:
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	var nav: FakeNavigator = made["nav"]
 	var context: FakeWorldContext = made["context"]
 	var adapter: FakeAdapter = made["adapter"]
@@ -381,7 +381,7 @@ func _check_clearance_and_options() -> void:
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var eligibility: FakeEligibility = made["eligibility"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	eligibility.relationship = false
 	var rejected: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)
 	check(not rejected.ok and rejected.reject.contains("clearance:relationship"),
@@ -416,7 +416,7 @@ func _check_reasoning() -> void:
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var adapter: FakeAdapter = made["adapter"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	var target: FakePony = made["target"]
 	target.global_position = Vector3.ZERO
 	adapter.reason_reply = "{\"offer\":false}"
@@ -451,7 +451,7 @@ func _check_handoff_failure() -> void:
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	var nav: FakeNavigator = made["nav"]
 	var adapter: FakeAdapter = made["adapter"]
 	negotiation.handoff_ok = false
@@ -470,7 +470,7 @@ func _check_cuddle() -> void:
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	var nav: FakeNavigator = made["nav"]
 	var bed := Node3D.new()
 	root.add_child(bed)
@@ -495,7 +495,7 @@ func _check_cuddle_target() -> void:
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	var adapter: FakeAdapter = made["adapter"]
 	var target: FakePony = made["target"]
 	var offer: FakeOffer = made["offer"]
@@ -558,7 +558,7 @@ func _check_scan_logs() -> void:
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var adapter: FakeAdapter = made["adapter"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	adapter.quiet_reason_value = "chat"
 	service.tick(0.5)
 	check(_debug_count("request scan quiet reason=chat") == 1,

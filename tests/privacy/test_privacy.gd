@@ -42,13 +42,13 @@ class FakePony extends Node3D:
 		name = id
 
 
-class FakeMain extends Node:
+class FixtureHost extends Node:
 	var player: Node3D
 	var game: Node
 
 
 func run() -> void:
-	var main := FakeMain.new()
+	var main := FixtureHost.new()
 	var game := FakeGame.new()
 	var player := Node3D.new()
 	var target := FakePony.new("target")

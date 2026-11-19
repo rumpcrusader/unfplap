@@ -171,7 +171,7 @@ func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 		frozen: FrozenPose = null, stool_need: int = -1, stool_have: int = -1) -> SceneVerdict:
 	var rows_out: Array[ELIGIBILITY.Row] = []
 	_gate_row(rows_out, "invalid_pony", is_instance_valid(pony), "invalid_pony")
-	_gate_row(rows_out, "no_main", is_instance_valid(WORLD.game), "no_main")
+	_gate_row(rows_out, "no_world", is_instance_valid(WORLD.game), "no_world")
 	_gate_row(rows_out, "no_player", is_instance_valid(WORLD.player),
 		"no_player")
 	_gate_row(rows_out, "no_game", is_instance_valid(WORLD.game),
@@ -255,7 +255,7 @@ func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
 	_gate_row(structural, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	if not is_instance_valid(pony):
 		return {"rows": structural, "policy": null, "scene_ok": false}
-	_gate_row(structural, "no_main", is_instance_valid(WORLD.game), "no_main")
+	_gate_row(structural, "no_world", is_instance_valid(WORLD.game), "no_world")
 	if not is_instance_valid(WORLD.game):
 		return {"rows": structural, "policy": null, "scene_ok": false}
 	_gate_row(structural, "no_player", is_instance_valid(WORLD.player), "no_player")

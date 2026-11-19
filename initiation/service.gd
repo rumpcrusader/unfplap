@@ -341,7 +341,7 @@ func _consider_start() -> void:
 func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 		reasons: Array = []) -> Candidate:
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(runtime):
-		reasons.append("no_main")
+		reasons.append("no_world")
 		return null
 	var pony: Variant = runtime.get("pony")
 	if not is_instance_valid(pony):

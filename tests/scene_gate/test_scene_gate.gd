@@ -67,7 +67,7 @@ class FakeGame extends Node:
 	var headset_view := false
 
 
-class FakeMain extends Node:
+class FixtureHost extends Node:
 	var player: Variant = null
 	var game: Variant = null
 
@@ -150,7 +150,7 @@ func _fixture() -> Dictionary:
 	var player := FakePlayer.new()
 	var game := FakeGame.new()
 	game.inventory = FakeInventory.new()
-	var main := FakeMain.new()
+	var main := FixtureHost.new()
 	main.player = player
 	WORLD.bind_player(main.player)
 	main.game = game
@@ -194,7 +194,7 @@ func _fixture() -> Dictionary:
 
 func _free(made: Dictionary) -> void:
 	var pony: FakePony = made["pony"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	var player: FakePlayer = made["player"]
 	var game: FakeGame = made["game"]
 	var bed: Node3D = made["bed"]
@@ -235,7 +235,7 @@ func _check_conversation() -> void:
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
 	var player: FakePlayer = made["player"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	check(bool(gate.call("conversation_ok")), "no conversation target is free")
 	pony.conversation_target = player
 	check(bool(gate.call("conversation_ok")), "talking to Anon is free")
@@ -568,7 +568,7 @@ func _check_profiles() -> void:
 	var made := await _fixture()
 	var gate: RefCounted = made["gate"]
 	var pony: FakePony = made["pony"]
-	var main: FakeMain = made["main"]
+	var main: FixtureHost = made["main"]
 	var bed: Node3D = made["bed"]
 	var standing: Array = gate.call("rows", "standing", "", null, "start", false)
 	check(_row_ok(standing, "pose_profile"), "the public standing profile passes")
@@ -665,7 +665,7 @@ func _check_verdicts() -> void:
 	var keys: Array[String] = []
 	for entry: ELIGIBILITY.Row in start.get("rows", []):
 		keys.append(entry.key)
-	check("invalid_pony" in keys and "no_main" in keys and "no_player" in keys \
+	check("invalid_pony" in keys and "no_world" in keys and "no_player" in keys \
 		and "no_game" in keys, "the structural rows are appended")
 	check("relation" in keys, "the policy rows are appended")
 	check("state" in keys, "the scene rows are appended")

@@ -55,7 +55,7 @@ class FakeAnatomy extends Node:
 		rebuilds += 1
 
 
-class FakeMain extends Node:
+class FixtureHost extends Node:
 	var anatomy: Node
 	var game: Node
 
@@ -368,7 +368,7 @@ func _check_transform() -> void:
 # --------------------------------------------------------------------------- world adapter
 
 func _make_world() -> Dictionary:
-	var fake_main := FakeMain.new()
+	var fake_main := FixtureHost.new()
 	var game := FakeGame.new()
 	var anatomy := FakeAnatomy.new()
 	fake_main.anatomy = anatomy

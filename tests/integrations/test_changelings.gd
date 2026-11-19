@@ -30,7 +30,7 @@ class FakeEligibility extends RefCounted:
 		return false
 
 
-class FakeMain extends Node:
+class FixtureHost extends Node:
 	var api: Node
 	var body_change: Node
 	var game: Variant = null
@@ -158,8 +158,8 @@ func _own_body() -> FakePony:
 
 func run() -> void:
 	REGISTRY.reset()
-	var main := FakeMain.new()
-	main.name = "FakeMain"
+	var main := FixtureHost.new()
+	main.name = "FixtureHost"
 	main.eligibility = FakeEligibility.new()
 	root.add_child(main)
 	# The provider's world reads are the live scene: a bare world node is enough here.

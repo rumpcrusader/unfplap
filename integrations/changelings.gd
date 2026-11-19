@@ -636,7 +636,7 @@ func _apply_tail_placement_now(pony: Node, root: Node3D) -> bool:
 
 
 ## Her own body arrives before the pack's hair. Retry until the chain exists, then apply the
-## wrapper and ask main for the late fit/ownership prepare.
+## wrapper and ask the registry for the late fit/ownership prepare.
 func _schedule_late_tail(pony: Node) -> void:
 	if not is_instance_valid(pony) or not pony.is_inside_tree() or _late_tail.has(pony):
 		return

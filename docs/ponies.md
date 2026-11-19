@@ -119,13 +119,13 @@ so the entry rebinds that one:
 
 | Bound by `main._ready()` | Purpose |
 |---|---|
-| `host` | the entry node: `prepare_late()` checks it is still in the tree |
 | `factory` | `(Node pony) -> Node`, the entry's one runtime construction |
 | `anatomy` | `bind(pony, runtime)`, `tail_ready(pony)`, `detach_controller(pony)` |
 | `body_change` | `notify_body_ready(pony)` and `installed_character_ids()` |
 | `offer` | `clear_current()` on an act start |
 | `stock_smack` | `pony_ready(pony)`, `act_start(pony)`, `act_end(pony)` |
 | `eligibility` | `eligible(pony, Target.CHARACTER)` for the Characters tab, and `Target.ACT` behind `act_target()` |
+| `api` | the cross-mod facade an integration registers its mare through |
 
 `bind_settings()` joins the settings change notification and `shutdown()` leaves it: a settings edit
 re-runs `apply_live_settings()` over every runtime and the act a pending body swap has taken out of

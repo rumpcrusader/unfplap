@@ -2,7 +2,7 @@ extends RefCounted
 ## Pure pose state and edge math: the state transitions, the request-acceptance codes and one
 ## running edge with per-channel tracks, easing, switch points, `after` constraints, edge events,
 ## completion and the interrupt policy. It is scene-free and reads no settings, files, service,
-## runtime or main; it only names the shared pose view's state constants. It owns the pose
+## runtime or the entry; it only names the shared pose view's state constants. It owns the pose
 ## session's state machine and edge clock; the session passes the runtime's act state as a value.
 ## Contract: `docs/poses.md`.
 

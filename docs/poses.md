@@ -920,7 +920,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
   the authored-Anon fallback) and the pose's kiss and climax weights.
 - `runtime._physics_process`: presentation, timers, facing lock, glances,
   auto-cuddle suppression.
-- `main._process`: calls `active_runtime.apply_camera_motion()` every rendered frame.
+- the entry's `_process`: calls `active_runtime.apply_camera_motion()` every rendered frame.
   Keep this single owner.
 - Do not merge these timing domains blindly.
 

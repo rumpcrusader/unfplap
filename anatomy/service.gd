@@ -1,5 +1,5 @@
 extends Node
-## The anatomy system's world facade. One service under `main` owns the per-pony controllers, the
+## The anatomy system's world facade. One world service owns the per-pony controllers, the
 ## player part, the tail seating and the placement editor delegate. Other systems call this facade,
 ## never a controller's internals.
 ##
@@ -442,7 +442,7 @@ func _warm_player_part() -> void:
 		_player_warm_part = _player_part
 
 
-## The Anon body the player part binds to. The facade resolves it; the part never reads `main`.
+## The Anon body the player part binds to. The facade resolves it; the part never reads the entry.
 func _player_body() -> Node3D:
 	if not is_instance_valid(player):
 		return null

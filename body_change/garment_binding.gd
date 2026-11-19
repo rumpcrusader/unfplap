@@ -4,7 +4,7 @@ extends "res://mods/unfplap/shared/body_binding.gd"
 ## discovery fallback. The adapter is world-side and exposes a full `scan()`; it has no per-pony
 ## rebind, and a body change is rare enough for the one pass.
 ##
-## Scope: world. `main.gd` registers one instance with `main.body_change` after the Pantyhose
+## Scope: world. `body_change.wire()` registers one instance after the Pantyhose
 ## adapter exists. The target is a narrow host handle, so this file never preloads the adapter.
 ##
 ## See `docs/body_change.md` (`## Bindings`) and `docs/integrations.md`.

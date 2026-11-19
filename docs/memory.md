@@ -25,7 +25,7 @@ writes the facts those systems read.
 
 | File | Role |
 |---|---|
-| `memory/service.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `WORLD.game` and `main.eligibility` per call |
+| `memory/service.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `WORLD.game` and `PONIES.eligibility` per call |
 | `memory/facts.gd` | pure typed boundary data: `LineState`, `LineKind`, `Reaction`, `NoteKind`, `StopReason`, `ImpressionSlot`, `Sense`, and the `Impression`, `Peak`, `Witness`, `Observer`, `CueFacts`, `MemoryHit`, `Line`, `LineRequest` types |
 | `memory/text.gd` | pure wording and ids: the director key and its prefix, the keep-active rule, the impression/event suffixes, the event kinds, the stop names, the event texts, the witness texts |
 | `memory/world.gd` | scene adapter: the only reader of `world_context` and `impressions`, and the builder of the private cue facts and the shared-memory hit |
@@ -51,13 +51,13 @@ The purity boundary is deliberate:
 - `store.gd` owns the `Mods` lookup and the save. No other memory file writes the section.
 - The facade is the only file that preloads `memory/*`; no file outside `memory/service.gd` and
   `memory/` preloads `memory/*`.
-- `main.gd` creates the service (`setup(self)`) and exposes it as `main.memory`. The facade
-  reads `WORLD.game` and `main.eligibility` per call and stores nothing. It is a RefCounted,
+- The entry creates the service and binds it as `MEMORY.instance`. The facade reads `WORLD.game`
+  and `PONIES.eligibility` per call and stores nothing. It is a RefCounted,
   not a Node, so it has no world lifecycle.
 
 ## Internal API
 
-`main.memory`:
+`MEMORY.instance`:
 
 ```gdscript
 enum LineState { ABSENT, QUEUED, GENERATING, SPEAKING, DELIVERED, UNKNOWN }
@@ -79,7 +79,6 @@ class MemoryHit:    id, text; found()
 class Line:         key, queued
 class LineRequest:  kind, id, event_id, suffix, purpose, reaction, valid, finished
 
-func setup(main_node: Node) -> void
 
 func commit(impression: Impression) -> void
 func form_reveal_impression(id: String, event_id: String) -> Impression

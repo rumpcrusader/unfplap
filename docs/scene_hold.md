@@ -29,7 +29,7 @@ negotiation runs before the act.
 
 ## Public API
 
-- `bind(host)` — the host context: `pony`, `main`, `pose_family`, `state`.
+- `bind(host)` — the host context: `pony`, `pose_family`, `state`.
 - `claim_nav(owner_id)` — takes the navigator for the act, records the old wander flag, builds the
   `unfplap:<id>` token and returns whether the lease is owned.
 - `claim_negotiation(owner_id)` — claims `unfplap:negotiation:<id>` while the runtime is `IDLE`.

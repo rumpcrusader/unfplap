@@ -86,10 +86,11 @@ Rules:
 
 ## Public API
 
-`eligibility/service.gd` extends `RefCounted`. `main.gd` creates one instance and exposes it as
-`main.eligibility`; `ponies`, `initiation` and `negotiation` get the same instance. The instance is
-rebuilt on every world enter, so the entry rebinds those three and `ponies` is the only one that
-also sees it at boot. The types are declared in the facade, so a consumer names them
+`eligibility/service.gd` extends `RefCounted`. The entry creates one instance per world and binds
+it as `PONIES.eligibility`; `initiation` and `negotiation` get the same instance. The instance is
+rebuilt on every world enter, so the entry rebinds the registry and those two, and `ponies` is
+the only one that also sees it at boot. `clear()` makes the service answer no to every read and
+`setup()` makes it live again. The types are declared in the facade, so a consumer names them
 `ELIGIBILITY.Verdict`, `ELIGIBILITY.Target`, and so on.
 
 ```gdscript
@@ -112,7 +113,7 @@ class Verdict: mode, base, show, offer, offer_weight, facts, actions, relations,
                reasons() -> PackedStringArray
                rows_text() -> String
 
-func setup(main_node: Node) -> void
+func setup() -> void
 func clear() -> void
 
 func eligible(pony: Node, target: Target = Target.ACT) -> bool

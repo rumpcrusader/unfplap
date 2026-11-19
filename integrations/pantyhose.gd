@@ -12,7 +12,7 @@ extends Node
 ##
 ## Scope: world. `main.gd` constructs it once, calls `on_world()`/`on_world_closed()` with the
 ## world and `apply_live_settings()` on every settings edit. It never preloads `main.gd`,
-## `runtime.gd` or an anatomy private file; it reads `main.anatomy` through the host and the
+## `runtime.gd` or an anatomy private file; it reads the anatomy facade and the
 ## scene's public nodes. The pack itself is never edited.
 ##
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Garment hull`).
@@ -37,7 +37,8 @@ const DISCOVER_S := 0.5
 ## A precision edit waits for the drag to settle before the one-time rebuild.
 const REBUILD_DELAY_S := 0.3
 ## The garment pass runs at this priority, after the coat's own `FlankTouch._process` (priority 0),
-## so it reads the wobble the rendered coat uses in the same frame. `main`'s 100 does not reach a
+## so it reads the wobble the rendered coat uses in the same frame. The entry's 100 does not
+## reach a
 ## child, and a game change that moves `FlankTouch` later must move this with it.
 const PROCESS_PRIORITY := 100
 ## The debug heatmap sits this far in front of the field surface (anatomy-local metres).
@@ -98,7 +99,7 @@ func setup() -> void:
 	CHANGE.on_changed(Callable(self, "apply_live_settings"))
 
 
-## The host's world entry. Called from `main._on_world`.
+## The world entered. Called from the entry's `_on_world`.
 func on_world(host: Node) -> void:
 	_game = host
 	_discover_clock = 0.0

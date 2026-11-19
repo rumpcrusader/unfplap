@@ -33,15 +33,15 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 | `tests/stool/` | pure measurement/item tests, prop/stack tests and the facade API test |
 
 The facade is the only non-test file outside `stool/` that may preload `stool/*`. `runtime.gd`
-reads it from `main.stool`; `main.gd` creates it. `stool/measure.gd` and `stool/item.gd` stay pure:
+reads it from `STOOL.instance`; `main.gd` creates it. `stool/measure.gd` and `stool/item.gd` stay pure:
 no `Node`, tree, time, file or game-scene access.
 
 ## Internal API
 
-`main.stool`:
+`STOOL.instance`:
 
 ```gdscript
-setup(main), shutdown(), on_world(game), on_world_closed()
+setup(), shutdown(), on_world(game), on_world_closed()
 enabled(), threshold_m(), height_m()
 gap(her_opening_y, her_hoof_y, his_root_y, his_foot_y) -> float
 required(gap_m) -> bool
@@ -88,10 +88,12 @@ target; `release()` frees the prop, lowers the player and returns every case uni
 
 `runtime.gd` supplies the scene values, calls the handle and composes the gate; it does not read
 a controller's private state. The live opening comes from the per-pony anatomy controller, the
-part root from `main.anatomy.player_root_now()`, and `main.anatomy.player_prepare()` builds the
+part root from `PONIES.anatomy.player_root_now()`, and `PONIES.anatomy.player_prepare()` builds
+the
 hidden part first. The part is normally warmed when the player part is created, so the first
 standing offer does not load it (`docs/anatomy.md`); `player_prepare()` remains the idempotent
-fallback. The handle reads `main.stool` for the settings/item/measure calls and `main.anatomy` for
+fallback. The handle reads `STOOL.instance` for the settings/item/measure calls and
+`PONIES.anatomy` for
 the player part.
 
 ## Rule

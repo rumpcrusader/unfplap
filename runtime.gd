@@ -2836,7 +2836,8 @@ func _standing_gap(form: BODY_FORM.BodyForm = null) -> float:
 	return gap
 
 
-## The presented body's form, through `main.body_change`; a host without the service (a suite or
+## The presented body's form, through `PONIES.body_change`; a host without the service (a suite
+## or
 ## a lab harness) falls back to the identity's typed default own form.
 func _body_form() -> BODY_FORM.BodyForm:
 	var service := _body_change_service()

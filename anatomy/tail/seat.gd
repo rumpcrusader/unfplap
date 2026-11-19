@@ -188,7 +188,7 @@ static func _bind_for(mesh: MeshInstance3D, bone_name: String) -> Transform3D:
 	return Transform3D.IDENTITY
 
 
-## Called by main when a pony is ready. Idempotent. `form` is the presented body's form, so a
+## Called by the anatomy service when a pony is ready. Idempotent. `form` is the presented body's form, so a
 ## borrowed shape seats its own fit and a source-owned tail is left to its provider.
 func attach(pony: Node, form: BODY_FORM.BodyForm = null) -> void:
 	if not is_instance_valid(pony) or _rows.has(pony) or not _eligible(pony):

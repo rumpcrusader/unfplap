@@ -8,7 +8,8 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
-## The global stool facade (`main.stool`). It holds the settings reads and the pure/item calls.
+## The global stool facade (`STOOL.instance`). It holds the settings reads and the pure/item
+## calls.
 var facade: Variant = null
 var pony: Variant = null
 var player: Variant = null

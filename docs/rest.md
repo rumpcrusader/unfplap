@@ -23,7 +23,7 @@ The runtime keeps the act state and the one teardown ledger: the cradle start ca
 `aftercare_min`. It reads `_posture_owned` itself. `rest/control.gd` stays the small static
 release helper for a managed bed/couch rest.
 
-The facade binds the scene (`main`, `pony`, the act bed) on every access, and reads the live act
+The facade binds the scene (`pony`, the act bed) on every access, and reads the live act
 values through one `context` callback (`serial`, `state`, `player_pony`, `headset`, `summary`,
 `satisfaction`, `aftercare_min`). The async paths re-read that context after every await, so a new
 act, a forced stop or a stood-up player cancels the rejoin instead of acting on stale values.

@@ -334,14 +334,14 @@ failed start runs the same function and restores only what it took.
   family places its Anon body and eye camera; the standing family syncs its ground frame and
   writes the same pose), the camera lean and motion, the climax wave, the breath,
   the face and the HUD.
-- `main._process` calls `PONIES.active()` and then `apply_camera_motion()` on it every rendered
+- the entry's `_process` calls `PONIES.active()` and then `apply_camera_motion()` on it every
   frame. Keep this single owner.
 - Do not merge these timing domains blindly. The pose/camera timing is in `docs/poses.md` and
   `docs/camera.md`.
 
 ## Public surface
 
-The runtime keeps thin forwards for `main.gd`, `ponies/service.gd`, `hud/service.gd`,
+The runtime keeps thin forwards for the entry, `ponies/service.gd`, `hud/service.gd`,
 `input/service.gd`, the labs, `initiation/service.gd`, `anatomy/service.gd`,
 `poses/standing_presentation.gd` and the tests. The stable cross-mod surface is `docs/api.md`; the
 internal reads the HUD/tests use (`state`, `pose_id`, `pony`, `pony_climaxes`, `satisfaction`,

@@ -89,7 +89,7 @@ hole_ready, oral_ready
 Scene handles:
 
 ```
-main, pony, camera, pose, viewport
+pony, camera, pose, viewport
 ```
 
 A presentation module is a scene adapter, so it may receive the nodes it works on. It must not read

@@ -41,15 +41,13 @@ predicates; `private_for(cuddle)` picks the predicate for the offer kind.
 
 ## Internal API
 
-`main.privacy`:
+`privacy/service.gd`:
 
 ```gdscript
 class State:  player, house, indoors, house_alone, others_near, offer_private, cuddle_private,
               in_house, nearby
               private_for(cuddle: bool) -> bool
 
-setup(main_node: Node) -> void
-reset() -> void
 state_for(target: Node) -> State
 private_for(target: Node, cuddle := false) -> bool
 offer_private(target: Node) -> bool
@@ -90,8 +88,9 @@ phase.
 
 ## Host boundary
 
-`setup(main_node)` stores the entry node. The provider calls only plain values:
-`WORLD.player` and `WORLD.game`. It never calls a service or a runtime.
+The provider calls only plain values: `WORLD.player` and `WORLD.game`, and the main loop's tree
+for the house lookup. It never calls a service or a runtime, and with no world bound every
+answer is public.
 
 ## Dependencies
 

@@ -64,7 +64,8 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 
 The internal entry points are:
 
-- `main.gd` creates `main.anatomy`. `ponies` binds the controller on attach and seats the tail on
+- The entry creates the service and `ponies` hands it out as `PONIES.anatomy`. `ponies` binds the
+  controller on attach and seats the tail on
   every prepare, `_on_player` creates the player part, and the placement debug buttons forward to
   the service.
 - `anatomy/service.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
@@ -87,10 +88,10 @@ no service dependency.
 
 ## Internal API
 
-`main.anatomy` (world service):
+`PONIES.anatomy` (world service):
 
 ```gdscript
-setup(main)
+setup()
 player_ready(body), clear_player(), refresh_player(), player_apply_live()
 controller_for(pony, runtime), bind(pony, runtime), controller(pony)
 form_for(pony), bind_body(pony, form), refresh_body(pony, form), unbind_body(pony)
@@ -116,7 +117,7 @@ draft/save/reset calls and the report; it calls back into the facade for `can_do
 `can_place_tail()`, `apply_settings()` and `tail_report()`, and calls `SETTINGS.apply_live()` when it
 saves the default row.
 
-`main.anatomy.controller(pony)` (per-pony handle):
+`PONIES.anatomy.controller(pony)` (per-pony handle):
 
 ```gdscript
 setup(pony, facts, service, consent, status, dock_refresh, eligible)
@@ -133,7 +134,7 @@ garment_hull(), garment_transform(), garment_visible(), garment_parent()
 garment_transform_for(body, mesh), garment_margin_local(transform, millimetres)
 ```
 
-The `main.anatomy` `act_started(pony)` signal is emitted by `note_act_started()` when a
+The `PONIES.anatomy` `act_started(pony)` signal is emitted by `note_act_started()` when a
 controller builds its per-act handle, before the pose starts. A world integration uses it to take
 a worn garment off before the first rendered act frame. `garment_hull_rebuild()` clears the shared
 hull cache; the next read rebuilds once.
@@ -841,7 +842,7 @@ sample of the body coat.
   tails and docks` off returns it to identity. `docs/poses.md` owns how the act modifiers rotate and restore the
   chain itself, so a placement edit and an act never overwrite each other. The Anatomy editor's
   tail actions accept a source-owned tail through `can_place_tail()` and forward
-  `main.apply_custom_tail()`; a dock action still answers `no dock on this tail.` The princesses'
+  `PONIES.body_change.apply_tail_placement()`; a dock action still answers `no dock on this tail.` The princesses'
   fitted bodies keep their body-rig tail and have no seat or wrapper.
 
 The per-pony seat state is the inner `SeatRow` class: the pony, the stable id, the presented form
@@ -1075,7 +1076,8 @@ keep for their suites.
 
 The anatomy migration is complete:
 
-- `anatomy/service.gd` is the world facade owned by `main` as `main.anatomy`. It owns the per-pony
+- `anatomy/service.gd` is the world facade the entry constructs and `ponies` exposes as
+  `PONIES.anatomy`. It owns the per-pony
   controllers, the player part, tail seating and the placement editor delegate.
 - `anatomy/placement_editor.gd` owns the Placement target resolution and the draft/save/reset
   actions; the facade keeps the debug entry points as delegates.
@@ -1092,7 +1094,7 @@ The anatomy migration is complete:
 - `anatomy/identity.gd`, `geometry.gd`, `garment_hull.gd`, `body_fit.gd`, `udder.gd`,
   `act/state.gd` and `facts.gd` are pure.
   `shared/anatomy_placement.gd` stays a shared pure schema.
-- The player part and tail seating are under `anatomy/`; `main` keeps only thin debug/button
+- The player part and tail seating are under `anatomy/`; the entry keeps only thin debug/button
   forwards. The status line goes through `HUD.anatomy_status()` (`docs/hud.md`); the player body,
   the dock refresh, the perf sink and the debug logger are injected into the anatomy modules.
 - The bridge owns the one typed `anatomy/facts.gd` context; the act and the persistent controller

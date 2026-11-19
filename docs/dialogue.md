@@ -40,8 +40,9 @@ face beats (`docs/face.md`).
 | `docs/dialogue.md` | this contract |
 | `tests/dialogue/` | the pure scheduler/formatting suites and the facade suite |
 
-The facade reads no runtime field and preloads neither `runtime.gd` nor `main.gd`. It receives
-`main` through `setup()` and every act value through `shared/act_facts.gd`. The director is a callable
+The facade reads no runtime field and preloads neither `runtime.gd` nor the entry. It reads the
+mod's line channel through `MEMORY.instance` and every act value through
+`shared/act_facts.gd`. The director is a callable
 on the facts; the processed-time clock is a second callable, so line pacing freezes with a paused
 tree.
 
@@ -49,7 +50,6 @@ tree.
 
 | Method | Contract |
 |---|---|
-| `setup(main)` | bind the mod entry node; the memory facade is read per call |
 | `configure(pacing)` | push the seven pacing values once per settings snapshot |
 | `reset(now, gap)` | start a fresh act: clear the slot, serial, recent angles, memories and bystander state; keep the pacing |
 | `admit_cue(now)` | observe the cue, apply the gates in order, log a change, queue one cue prompt; returns the key or `""` |

@@ -61,7 +61,7 @@ The purity boundary is deliberate:
   `shared/act_history.gd`.
 - No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
-- `main.gd` creates the service (`setup(self, privacy, negotiation, offer)`), binds the live
+- `main.gd` creates the service (`setup(privacy, negotiation, offer)`), binds the live
   `eligibility` instance and drives it: `tick`, `reset`, `force`, `cancel_approach`,
   `placement_for` and the outcome handoff. `runtime.gd` exposes `cuddle_active()` and the
   scene-only verdict; the offer facade answers which pony the act key would start
@@ -69,7 +69,7 @@ The purity boundary is deliberate:
 
 ## Internal API
 
-`main.initiation`:
+`initiation/service.gd`:
 
 ```gdscript
 enum Phase { NONE, APPROACH, ARRIVE, ASK, BED_APPROACH }
@@ -80,7 +80,7 @@ class Candidate:
     prev_limit, prev_pace, player_start, region, bed_front
 class ForceResult: ok, id, pose, reject
 
-func setup(main_node: Node, privacy_node: Privacy = null, negotiation_node: Negotiation = null,
+func setup(privacy_node: Privacy = null, negotiation_node: Negotiation = null,
         offer_node: Offer = null) -> void
 func tick(delta: float) -> void
 func reset() -> void

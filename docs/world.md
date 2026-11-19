@@ -22,6 +22,11 @@ service facade and no runtime.
 
 ## Ownership
 
+The facade is also the mod's one "is there a world" read: a pure guard is
+`is_instance_valid(WORLD.game)`. It replaces the entry handle every service used to hold for the
+same answer, so a service never names the entry to ask whether the scene is live.
+
+
 `world/service.gd` owns the bound scene handles:
 
 | Read | Why it is a read, not a rule |

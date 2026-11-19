@@ -75,7 +75,7 @@ a caress: only the shoulder reach and the smack use `coat_frame()` / `hands/cont
 `hands/service.gd` and every hands internal read `shared/act_facts.gd`, never the runtime node. The
 controller takes the view in `_init(facts)`, the engine and each path receive the same view, and
 they read `state`, `lean_forward`, `lean_side`, `size_name`, `size_scale`,
-`same_height_scale`, `physics_delta`, `presentation_config`, `profile`, `camera` and `main`, plus
+`same_height_scale`, `physics_delta`, `presentation_config`, `profile` and `camera`, plus
 the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, `touch()` and
 `smack_hit()` callbacks. The pose path and the contact come from `facts.pose_view`: the
 controller reads `view.hands.path` and `view.contact_kind`, not a start pose id or a contact mirror. The

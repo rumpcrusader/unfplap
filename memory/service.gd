@@ -4,8 +4,8 @@ extends RefCounted
 ## game's per-pony story summary forms her memory from it. The event id makes both
 ## world_context.record and impressions.commit idempotent.
 ##
-## This is the only file another system may preload or call. `main.gd` creates it and exposes it
-## as `main.memory`. It reads `main.game` and `main.eligibility` per call and stores nothing;
+## This is the only file another system may preload or call. The entry creates it and binds it as
+## `MEMORY.instance`. It reads `WORLD.game` and `PONIES.eligibility` per call and stores nothing;
 ## `memory/store.gd` owns the only persisted value, the per-world peak memories.
 ##
 ## The boundary is deliberately small: three writes (`commit`, `note`, `record_peak`), two pure

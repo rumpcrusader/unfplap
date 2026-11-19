@@ -44,18 +44,20 @@ the runtime's private fields.
 The world adapter owns its every-frame hull update, its cloth-jiggle pass and its fixed-fallback
 node discovery, the per-node material overrides, its cached feature/debug values and the act-start
 undress. The undress is the game's own `take_off` action when her executor exists, with the direct
-wardrobe calls as its fallback. It reads the anatomy through `main.anatomy` and the game through
+wardrobe calls as its fallback. It reads the anatomy through `PONIES.anatomy` and the game
+through
 `WORLD.game`; it never preloads either host and never edits the pack.
 
 The changelings adapter owns its provider layer registration, the installed-mare list, the typed
 body form it returns for each of the pack's bodies, the `UnfplapTailPlacement` wrapper above her
-spring chain and the pack's own change state. It reads the API through `main.api`, and the pack's
+spring chain and the pack's own change state. It reads the API through `PONIES.api`, and the
+pack's
 own public nodes and fields; it never edits the pack and never preloads a host. Its policy object
 owns the offer timing, prompt and reveal effects; the adapter's text hooks own the player's reveal
 and named-form words. Neither owns the form store or the binding fan-out.
 
 The body-change service owns the source list, the form store, the apply path and the optional
-forwards. `main` registers the providers and asks the service for the source that handles a pony;
+forwards. The entry registers the providers and the service answers which source handles a pony;
 the runtime and the debug block see the typed source and policy surfaces, never the pack.
 
 The runtime constructs one service per act through `_integrations_controller()` and passes its typed
@@ -180,7 +182,7 @@ in scope. The act's own wing controller creates the open-wing node the shiver ne
 
 ## Pantyhose & Panties
 
-`integrations/pantyhose.gd` is the world adapter, created by `main` as `main.pantyhose`. It is
+`integrations/pantyhose.gd` is the world adapter the entry creates. It is
 world-side rather than per-act: every frame it updates the hull transform and instance uniforms for
 each worn piece, so the cloth follows the anatomy with no scan lag. It re-discovers the
 `Wear_panties-*` and `Wear_pantyhose-*` nodes on a fixed fallback (0.5 s), and while the anatomy
@@ -438,17 +440,17 @@ overlay reads them.
 | `reset()` | restore every saved value after the base kiss reset in `_free_pose()` |
 | `shared/act_facts.gd` | typed read model passed to the constructor; no per-frame settings read |
 | `hold_beat(owner)` / `release_beat(owner)` | acquire or release the runtime's shared excitement Beat hold |
-| `main.anatomy` | the controller's `garment_hull()`, `garment_transform()`, `garment_visible()`, `garment_parent()`, `garment_hull_rebuild()` and the `act_started` signal |
+| `PONIES.anatomy` | the controller's `garment_hull()`, `garment_transform()`, `garment_visible()`, `garment_parent()`, `garment_hull_rebuild()` and the `act_started` signal |
 | `WORLD.game.mares` | the loaded mares the world adapter scans |
 | `pony_wardrobe` group | the wardrobe's `wanted()`, `_season()`, `set_worn()` and `dress()` for the act undress |
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
 | `shared/settings_change.gd` | calls the world adapter's `apply_live_settings()` after a settings edit, and the body-change service's per-body tail pass |
-| `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
+| `PONIES.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
 | `PONIES._prepare(pony)` | calls `body_change.notify_body_ready()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
 | `PONIES.prepare_late(pony)` | re-runs the body-change prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late form/ownership only, no runtime and no tail wrapper |
 | `SETTINGS.apply_live()` | one settings pass after the settled form: the live anatomy controllers, the player part and the tail seats re-read, the body's LOD rebuilds |
 | `WORLD.refresh_body_lod(pony)` | drops the new body's near/far LOD caches and re-arms its near mesh after a form or an adoption |
-| `main.custom_tail_ready(pony)` / `main.apply_custom_tail(pony)` / `main.custom_tail_report()` | forward the anatomy editor to the provider that owns a body's tail placement |
+| `PONIES.body_change` `has_tail_placement()` / `apply_tail_placement()` / `tail_placement_report()` | the anatomy editor's read of the provider that owns a body's tail placement |
 | `PONIES.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
 | `PONIES.live_character_ids()` | merges the body-change service's `installed_character_ids()` |
 | `runtime.request_form_change()` | the act-side start of a body change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |

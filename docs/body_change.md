@@ -54,7 +54,8 @@ the live-change indexes and the default-form cache. A source owns its pack, the 
 its own observation cadence and its optional policy. A binding owns its attachment to the body.
 
 The service never owns the act state, the pose, the camera or the teardown, and it never calls
-`force_stop()` or an act exit. The runtime owns suspension, adoption and the one resume; `main` owns
+`force_stop()` or an act exit. The runtime owns suspension, adoption and the one resume; the
+service owns
 service construction and the idle path, and the service builds its own bindings from the facades
 `main` hands it. The identity's social state (memory, dialogue, preferences, eligibility, history
 and summary) is owned elsewhere and reads `pony_id`, not the form.
@@ -173,10 +174,10 @@ names, its shape lookup and whether a named form is copyable and adult.
 
 ## Internal API
 
-`main.body_change` (`body_change/service.gd`):
+`PONIES.body_change` (`body_change/service.gd`):
 
 ```gdscript
-setup(host)
+setup()
 wire(anatomy, pantyhose, stock_smack)
 register_source(source) -> bool
 unregister_source(source)
@@ -288,14 +289,14 @@ binding reads `BodyForm`.
 
 - Scope: world
 - Constructed by: `main._ready()`
-- Begin: `setup(host)` and then `wire(anatomy, pantyhose, stock_smack)` in `main._ready()`; the
+- Begin: `setup()` and then `wire(anatomy, pantyhose, stock_smack)` in `main._ready()`; the
   providers are registered after their own setup
-- End: world close; the service node, its forms and its registries are freed with `main`
+- End: world close; the service node, its forms and its registries are freed with the entry
 - Idempotent: yes
 
 A change runs as follows:
 
-1. The runtime (a live act) or `main` (idle) asks the service for a named or own form.
+1. The runtime (a live act) or the debug block (idle) asks the service for a named or own form.
 2. The provider accepts and creates a `BodyChange` in `REQUESTED`; the service adopts it.
 3. The provider prepares the next body and returns its `BodyForm`; the state becomes `PREPARING`.
    This happens before anatomy, tail, camera and pose attach.
@@ -398,7 +399,8 @@ extend the policy once its behavior is specified.
 
 `body_change/source.gd` is the documented base-mod extension point for a new form provider,
 including a provider added to the base game. A provider extends the file by path (no `class_name`),
-is constructed by `main`, and is registered with `main.body_change.register_source()`. The service
+is constructed by the entry, and is registered with `PONIES.body_change.register_source()`. The
+service
 validates the base type before registration, so a source outside the contract cannot enter the
 registry.
 
@@ -459,7 +461,7 @@ suspension, adoption, resume and failure phases.
 | `WORLD.refresh_body_lod(pony)` | the LOD binding's public refresh |
 | `pantyhose.scan()` | the garment binding's public scan |
 | `stock_smack.pony_ready(pony)` | the stock smack binding's public prepare |
-| `main.body_change` | the runtime's and the debug block's service handle |
+| `PONIES.body_change` | the runtime's, the anatomy editor's and the debug block's service handle |
 | `shared/settings_change.gd` | `apply_settings()` re-applies the handling source's tail wrapper for every live body after a settings edit |
 
 ## Dependencies
@@ -482,7 +484,7 @@ suspension, adoption, resume and failure phases.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| host | main | `main.body_change` | construction, the facades `wire()` builds from, and the idle path |
+| host | ponies | `PONIES.body_change` | the runtime's, the anatomy editor's and the debug block's handle |
 | host | runtime | `_body_change_service()` | act suspension, adoption and provider policy |
 | service | integrations | `integrations/changelings.gd` | the shipped provider base and policy |
 

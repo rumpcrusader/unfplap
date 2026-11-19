@@ -20,6 +20,10 @@ session and reads its `pose()`, `pose_config` and `bed_frame` for
 the start/teardown and the standing gap, not as the consumer contract. Presentation modules read
 the pose view through `shared/act_facts.gd`.
 
+`poses/placement.gd` owns the standing start's placement math: her forward, the act gap, the floor
+probe, the whole-body fit, the pelvis handshake and the camera-rig transform. The runtime keeps the
+ordered start adapters and the stool handle, fills the live facts and calls one placement method.
+
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/tail_chain.gd` resolves the
 visible tail chain: the devkit hair chain `mTail1..mTail6` when present, otherwise the fitted body
 chain `pony_tail_01..pony_tail_05`. `poses/authored_pose.gd` loads a
@@ -786,8 +790,9 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   `face_turn_rate` is held at `0` for the act; locomotion and emotions keep running.
   Conversation attention is not a stop condition: another character addressing Anon can talk
   while `_keep_act_attention()` clears her listener each tick.
-- Act start keeps her where she stands. For desktop human Anon, `_begin_standing_placement()`
-  builds the act transform from her current facing and places him at
+- Act start keeps her where she stands. `poses/placement.gd` owns the placement math; the
+  runtime's `_begin_standing_placement()` fills the live facts and calls it. For desktop human
+  Anon it builds the act transform from her current facing and places him at
   `pony_position - forward * _standing_gap()`, then sets his yaw along her forward so a standing
   act after a missionary restore does not inherit the old view. The 2 m Y cone bounds that
   correction. The act end leaves him there and leaves his yaw/pitch at the last act aim; it
@@ -809,8 +814,8 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   Same Height preset follows Anon's `player/height_cm`, so that gap, the lean scale and the
   caress offsets follow `Settings.anon_height_scale()` as described in `docs/hands.md`.
   For desktop human Anon the gap is measured from her root along her backward axis after he is
-  placed behind her. The runtime keeps no gap table: `_standing_gap()` reads the pose config's
-  `gaps`, then `SETTINGS.pose(id, "standing")` when the session has none.
+  placed behind her. The placement handle keeps no gap table: `_standing_gap()` reads the pose
+  config's `gaps`, then `SETTINGS.pose(id, "standing")` when the session has none.
 - The idle invitation (`poses/standing_presentation.gd`) builds its own standing config. The
   presentation chin/neck and tail values, the glance keys and the two tail angles are read by key
   from the complete block, with no fallback literals. It keeps that config when the pose session has

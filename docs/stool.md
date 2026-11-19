@@ -24,7 +24,7 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 | File | Role |
 |---|---|
 | `stool/service.gd` | facade: the only other systems preload or call; owns the supply child, `new_act()` and the stateless helpers |
-| `stool/act.gd` | per-act handle: the live rule, case loans, placed stack and player lift; the runtime owns one per act |
+| `stool/act.gd` | per-act handle: the live rule, case loans, placed stack, player lift and failed flag; the runtime owns one per act and forwards its queries one line each |
 | `stool/measure.gd` | pure reach-gap, threshold and stack-count arithmetic |
 | `stool/item.gd` | pure `goods:footstool` case-slot, case-count, owned-count and free-slot checks |
 | `stool/prop.gd` | scene adapter: builds the stacked static act stool and its pony collision exception |
@@ -73,6 +73,7 @@ case_slot() -> int
 case_count() -> int
 blocks_start(reasons) -> bool
 state_text() -> String
+has_failed() -> bool
 take_items(need) -> bool
 place(target, yaw, floor) -> Vector3
 release()
@@ -81,7 +82,9 @@ floor_y_at(at, body) -> float
 ```
 
 `place()` builds the stack under the runtime's standing spot and returns the raised player
-target; `release()` frees the prop, lowers the player and returns every case unit.
+target; `release()` frees the prop, lowers the player and returns every case unit. The runtime's
+stool queries are one-line forwards to the handle; the handle owns the rule, the case reads and
+the failed flag.
 
 `build_prop()` returns `{"node": StaticBody3D, "height": float, "count": int, "step": float}`.
 `ignore` is the partner pony; the stack must not collide with her.

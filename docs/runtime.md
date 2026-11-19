@@ -80,7 +80,7 @@ pose id. The names and their placement:
 |---|---|---|
 | `bed_stand_up` | `_start_bed_stand_up()` | a human Anon `force_stand_up()`; the cradle or bed rest release already ran in the prelude; `request_posture("stand")`; the bed frame |
 | `bed_keep_lying` | `_start_bed_keep_lying()` | no `force_stand_up()`; a `dialogue` source releases managed rest; `request_posture("stand")` so the authored act body owns her pose; the bed frame |
-| `standing_place` | `_start_standing_place()` | `_begin_standing_placement()`; a failed stool aborts; `request_posture("stand")`; the facts sync; `begin_facing()` |
+| `standing_place` | `_start_standing_place()` | `_begin_standing_placement()` (delegates to `poses/placement.gd`); a failed stool aborts; `request_posture("stand")`; the facts sync; `begin_facing()` |
 
 A missing bed fails the two bed adapters closed; a failed cradle/bed rest release already aborted
 in the prelude. An unknown or missing setup logs one `start blocked setup=...` line and aborts
@@ -388,17 +388,17 @@ IDLE early return, so a read outside an act sees the current settings after the 
 
 The standing start/offer gap is read from `_pose_session.pose_config["gaps"]`; a session without a
 config falls back to `SETTINGS.pose(id, "standing")["gaps"]`. The shipped values live under
-`default.poses.standing.gaps`; the runtime keeps no gap table or numeric fallback, and a per-mare
-pose override still wins. The gap is measured from her centre, and a princess body's entrance sits
-further back or forward than the mare's the gaps were tuned on, so `_standing_gap()` adds the
-entrance's back offset (`camera/service.gd:entrance_offset()`).
+`default.poses.standing.gaps`; the placement handle keeps no gap table or numeric fallback, and a
+per-mare pose override still wins. The gap is measured from her centre, and a princess body's
+entrance sits further back or forward than the mare's the gaps were tuned on, so `_standing_gap()`
+adds the entrance's back offset (`camera/service.gd:entrance_offset()`).
 
-That gap is the pre-act view, not the contact distance. Before the act, `_begin_standing_placement()`
-fits Anon's whole body: it takes the part's natural pivot (`player_root_natural()`, the applied Hips
+That gap is the pre-act view, not the contact distance. Before the act, `poses/placement.gd` fits
+Anon's whole body: it takes the part's natural pivot (`player_root_natural()`, the applied Hips
 offset removed), her live opening and outward rear, and shifts his horizontal position so the pivot
-starts one shaft behind her entrance. The fit is bounded by `STANDING_FIT_MAX_M`, skipped on a
-stool, and repeated by `_reanchor_player_for_form()` on a body resume or a same-node form revision,
-with the presented form passed in for the entrance gap. It clears the
+starts one shaft behind her entrance. The fit is bounded by `poses/placement.gd:FIT_MAX_M`, skipped
+on a stool, and repeated by `_reanchor_player_for_form()` on a body resume or a same-node form
+revision, with the presented form passed in for the entrance gap. It clears the
 part's old Hips handshake (`player_reset_pelvis()`) after measuring, so a body swap cannot carry the
 previous body's offset into the fit. The per-frame aim then owns the stroke's pelvis correction; a
 standing start no longer pulls the Hips bone across the gap. The fit log line carries

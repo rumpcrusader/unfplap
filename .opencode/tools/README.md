@@ -44,6 +44,7 @@ cover the first call, which boots the editor.
 
 Positions are 1-based line and column, matching `read` and `grep -n`. Every position tool also
 accepts `symbol` (a literal identifier, first match in the file), so no column counting.
+OpenCode exposes these as `gdlsp_gd_outline` and so on: the server name plus the tool name.
 
 | Tool | Answers |
 |---|---|

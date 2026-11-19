@@ -110,9 +110,9 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   `scripts/check.sh` and `scripts/lint.sh` before each commit, `scripts/test_all.sh` once when the
   code phase is done.
 - **Symbol work goes through the language server.** On a file over ~300 lines, find a function
-  with `gd_outline`, its contract with `gd_hover` and its call sites with `gd_references` instead
-  of `grep -n` + `sed -n`. The `gd_*` tools are optional harness tooling: the mod never depends
-  on them, and `grep` still answers everything else.
+  with `gdlsp_gd_outline`, its contract with `gdlsp_gd_hover` and its call sites with
+  `gdlsp_gd_references` instead of `grep -n` + `sed -n`. The `gdlsp_gd_*` tools are optional
+  harness tooling: the mod never depends on them, and `grep` still answers everything else.
 - Use one whole-file write for a file that changes heavily, and send independent edits together in
   one turn. A chain of single-line edits costs a round trip each.
 - **The shell already runs in the mod directory.** Never prefix a command with `cd`; pass

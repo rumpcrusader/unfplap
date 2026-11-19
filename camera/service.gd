@@ -30,10 +30,11 @@ const HOLD_SWAY_HZ := 0.80
 ## Anon's spine length used by the standing torso hinge.
 const ANON_TORSO_LEN_M := 0.65
 
-const STATE_IDLE := 0
-const STATE_ACTIVE := 2
-const STATE_CLIMAX := 3
-const STATE_AFTERGLOW := 4
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_IDLE := ACT_STATE.State.IDLE
+const STATE_ACTIVE := ACT_STATE.State.ACTIVE
+const STATE_CLIMAX := ACT_STATE.State.CLIMAX
+const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
 
 ## The typed act view. Presentation modules read it; the camera writes its live values here only
 ## through `runtime._sync_act_facts()`.

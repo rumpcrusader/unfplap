@@ -3,9 +3,10 @@ extends RefCounted
 ## the history note, the relationship note, the afterglow beat and the live caress/lean reads;
 ## this module owns the wording and the precedence. Contract: `docs/dialogue.md`.
 
-const STATE_ACTIVE := 2
-const STATE_CLIMAX := 3
-const STATE_AFTERGLOW := 4
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_ACTIVE := ACT_STATE.State.ACTIVE
+const STATE_CLIMAX := ACT_STATE.State.CLIMAX
+const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
 
 const WARM_NOTE := "- You are still warm and relaxed after making love with Anon. Keep an affectionate tone; do not act stiff or businesslike."
 const ACT_NOTE := "- You are having sex with Anon right now."

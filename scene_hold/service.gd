@@ -5,9 +5,10 @@ extends RefCounted
 ## Contract: `docs/scene_hold.md`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const STATE_IDLE := 0
-const STATE_AFTERGLOW := 4
-const STATE_RESTORE := 5
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_IDLE := ACT_STATE.State.IDLE
+const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
+const STATE_RESTORE := ACT_STATE.State.RESTORE
 
 ## The two owner namespaces: an act lease and a negotiation lease. The scene gate accepts both
 ## through the hold's compatibility predicate.

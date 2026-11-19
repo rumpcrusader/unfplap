@@ -43,10 +43,11 @@ const BYSTANDER_PROMPT := "You can see Anon and %s having sex right in front of 
 const BYSTANDER_OUTDOORS := "out in the open where anypony could walk past."
 const BYSTANDER_INDOORS := "indoors, in a house you are also in."
 
-const STATE_IDLE := 0
-const STATE_POSING_IN := 1
-const STATE_ACTIVE := 2
-const STATE_CLIMAX := 3
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_IDLE := ACT_STATE.State.IDLE
+const STATE_POSING_IN := ACT_STATE.State.POSING_IN
+const STATE_ACTIVE := ACT_STATE.State.ACTIVE
+const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
 var facts: Variant
 

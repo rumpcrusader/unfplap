@@ -11,7 +11,8 @@ const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")
 const CUDDLE_REJOIN_SETTLE_S := 1.5
 const CUDDLE_REJOIN_RETRY_S := 0.5
 const CUDDLE_REJOIN_WINDOW_S := 30.0
-const STATE_IDLE := 0
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_IDLE := ACT_STATE.State.IDLE
 
 ## Scene handles. The runtime binds them on every access.
 var pony: Variant = null

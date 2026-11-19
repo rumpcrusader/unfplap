@@ -9,8 +9,9 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 
-const STATE_ACTIVE := 2
-const STATE_CLIMAX := 3
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_ACTIVE := ACT_STATE.State.ACTIVE
+const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
 ## The host callbacks. The runtime supplies the scene, the live state and the callbacks; a
 ## missing callback is a no-op. The bridge never reads the runtime's private fields.

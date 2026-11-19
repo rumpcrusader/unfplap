@@ -121,6 +121,7 @@ the main handle and the `log` callback from the facade; it never reads the runti
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_face | `shared/act_face.gd` | face beat data |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 

@@ -25,7 +25,8 @@ const FALL_RATE := 0.25
 ## The climax pins her to the cap quickly instead of waiting for the close ramp.
 const CLIMAX_RATE := 1.5
 
-const STATE_CLIMAX := 3
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
 var _start_until := ACTION.set_value("excitement", "_until", 0.0)
 var _bind_root := ACTION.bind_value("fidgets", "_root", -1, true)

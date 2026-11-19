@@ -53,8 +53,9 @@ const SMACK_HIND_M := 0.10
 ## The stock flank slap is bright and compressed. Install a peak-normalised pack hand-smack
 ## variant on the native FlankTouch player; the stock stream, level and pitch are restored at
 ## act end.
-const STATE_ACTIVE := 2
-const STATE_CLIMAX := 3
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_ACTIVE := ACT_STATE.State.ACTIVE
+const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
 ## Pure palm geometry for tests and the controller.
 static func palm_clearance_for(body_scale: float, distance := 0.02) -> float:

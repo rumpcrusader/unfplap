@@ -22,8 +22,9 @@ const ASSIST_CAP := 60.0
 const TOUCH_HEAT := 6.0
 const TALK_HEAT := 6.0
 const STROKE_MEMORY_S := 1.2
-const STATE_ACTIVE := 2
-const STATE_CLIMAX := 3
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_ACTIVE := ACT_STATE.State.ACTIVE
+const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
 ## Public act state, forwarded by the runtime.
 var satisfaction := 0.0

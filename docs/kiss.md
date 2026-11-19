@@ -120,6 +120,7 @@ matching `player/player_mouth.gd`. See `docs/settings.md` for the settings frame
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
 
 ## Tests

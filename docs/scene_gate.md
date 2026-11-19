@@ -190,6 +190,7 @@ runtime's `debug_line()` is a thin forward. No scene row is recomputed twice in 
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | pose_specs | `shared/pose_specs.gd` | scene block, support lists and offerability |
 
 ## Lifecycle

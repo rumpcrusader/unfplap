@@ -271,6 +271,7 @@ takes effect when the panel closes.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
 | shared | body_form | `shared/body_form.gd` | presented body rig and scale for the entrance offset |
 | shared | body_profile | `shared/body_profile.gd` | rig entrance offset math |

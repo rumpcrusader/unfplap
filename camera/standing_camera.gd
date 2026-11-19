@@ -11,8 +11,9 @@ const MOUNTING_STANDING_CAMERA_LIFT_M := 0.10
 const LOOK_YAW_LIMIT := 0.785398
 const LOOK_PITCH_LIMIT := 0.785398
 const CAM_SPEED_SMOOTH_S := 0.06
-const STATE_IDLE := 0
-const STATE_RESTORE := 5
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_IDLE := ACT_STATE.State.IDLE
+const STATE_RESTORE := ACT_STATE.State.RESTORE
 
 var facts: Variant
 var pony: Variant

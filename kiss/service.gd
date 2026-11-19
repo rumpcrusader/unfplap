@@ -7,8 +7,9 @@ const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 const KISS_LEGS := preload("res://mods/unfplap/kiss/legs.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 
-const STATE_ACTIVE := 2
-const STATE_CLIMAX := 3
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_ACTIVE := ACT_STATE.State.ACTIVE
+const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const KISS_FADE_IN := 0.35
 const KISS_FADE_OUT := 0.45
 const KISS_SOUND_MIN := 2.0

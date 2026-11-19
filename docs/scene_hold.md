@@ -114,6 +114,7 @@ No controls. The debug log reports the ownership state on the `debug_line` call 
 |---|---|---|---|
 | service | world | `world/service.gd` | Anon's body and reach |
 
+| shared | act_state | `shared/act_state.gd` | act state constants |
 ## Tests
 
 `tests/scene_hold/` covers the claim/keep/release, the negotiation lease in `IDLE`, the token the

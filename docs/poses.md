@@ -934,6 +934,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | ponies | `ponies/service.gd` | the eligibility and anatomy handles |
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
 | shared | hands_reach_plan | `shared/hands_reach_plan.gd` | reach planning math |
 | shared | hands_scale | `shared/hands_scale.gd` | palm scale |

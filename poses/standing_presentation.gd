@@ -34,7 +34,8 @@ const TURN_YAW := "yaw"
 ## Safety cap: the invitation owns her body, so no missed end path may leave the pose on forever.
 ## Longer than the invite wait plus the turn.
 const PRESENT_MAX_SECONDS := 75.0
-const STATE_IDLE := 0
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_IDLE := ACT_STATE.State.IDLE
 
 var facts: Variant
 var pony: Variant

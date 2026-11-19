@@ -47,6 +47,7 @@ const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
@@ -62,7 +63,7 @@ const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
 const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
 
-enum State { IDLE, POSING_IN, ACTIVE, CLIMAX, AFTERGLOW, RESTORE }
+const State := ACT_STATE.State
 
 const READINESS_MAX := 100.0
 ## Visual impact = physical strength × this, so normal and fast thrusts keep their tuned
@@ -484,6 +485,11 @@ func _mod_enabled(id: String) -> bool:
 
 func _state() -> int:
 	return state
+
+
+## The one act-state writer. Consumers read `state`; transitions call this.
+func _set_state(next: int) -> void:
+	state = next
 
 
 ## The live pose family, or the start spec's family before the first view fill.
@@ -2015,7 +2021,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	var service: Variant = _anatomy_service()
 	if service != null and service.has_method("player_encounter"):
 		service.call("player_encounter", true)
-	state = State.POSING_IN
+	_set_state(State.POSING_IN)
 	_integrations_controller()
 	_sync_act_facts()
 	# The pose session installs the act body and reconciles the modifiers for the start view, before
@@ -4143,7 +4149,7 @@ func _climax() -> void:
 	pony_climaxes += 1
 	_log("pony climax=%d pose=%s pony=%s readiness=%.0f" % [
 		pony_climaxes, str(_start_row().get("id", "")), str(pony.name), satisfaction])
-	state = State.CLIMAX
+	_set_state(State.CLIMAX)
 	_climax_left = CLIMAX_SECONDS
 	_climax_progress = 0.0
 	mood = "climax"
@@ -4191,7 +4197,7 @@ func _queue_climax_reaction() -> void:
 
 ## The first ACTIVE entry after the pose settles. Later returns from a climax are CLIMAX_END.
 func _enter_active() -> void:
-	state = State.ACTIVE
+	_set_state(State.ACTIVE)
 	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
 
 
@@ -4202,7 +4208,7 @@ func _finish_climax() -> void:
 	if _max_pony_climaxes > 0 and pony_climaxes >= _max_pony_climaxes:
 		_enter_afterglow()
 		return
-	state = State.ACTIVE
+	_set_state(State.ACTIVE)
 	_face.stare_release_until = 0.0
 	_set_face(0.45, FACE.ACT_LIDS)
 	satisfaction = 0.0
@@ -4318,7 +4324,7 @@ func _afterglow_begin() -> void:
 	if _pose_family() != "standing":
 		_kiss_controller().end_lean_kiss()
 	_commit_afterglow()
-	state = State.AFTERGLOW
+	_set_state(State.AFTERGLOW)
 	_form_hint_tick()
 	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.AFTERGLOW)
 	_sync_act_facts()
@@ -4392,7 +4398,7 @@ func _restore_begin() -> void:
 	_stop_auto()
 	_end_act_lines(true)
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
-	state = State.RESTORE
+	_set_state(State.RESTORE)
 	_form_hint_tick()
 	# integration: act-only anatomy hides as soon as the act starts restoring.
 	_anatomy_bridge.apply_live()
@@ -4472,7 +4478,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 		if is_instance_valid(HUD.instance):
 			HUD.instance.hide_all()
 		PONIES.clear_active(self)
-	state = State.IDLE
+	_set_state(State.IDLE)
 	pose_id = ""
 	source = ""
 	bed = null

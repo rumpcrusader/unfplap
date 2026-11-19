@@ -15,10 +15,11 @@ const CLIMAX_LIDS := 0.0
 const AFTERGLOW_LIDS := 0.9
 const AFTERGLOW_CLOSE_LIDS := 0.95
 ## The act states the lids answer. The runtime owns the enum; these are its values.
-const STATE_POSING_IN := 1
-const STATE_ACTIVE := 2
-const STATE_CLIMAX := 3
-const STATE_AFTERGLOW := 4
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_POSING_IN := ACT_STATE.State.POSING_IN
+const STATE_ACTIVE := ACT_STATE.State.ACTIVE
+const STATE_CLIMAX := ACT_STATE.State.CLIMAX
+const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
 
 ## The face the act set. A spoken line face always wins until it ends.
 var act_face := ""

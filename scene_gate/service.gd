@@ -10,7 +10,8 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
-const STATE_IDLE := 0
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const STATE_IDLE := ACT_STATE.State.IDLE
 
 ## The act's scene handles. The runtime binds them on every gate call.
 var pony: Variant = null

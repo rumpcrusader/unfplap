@@ -4,6 +4,7 @@ extends Node
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SPAWN_COUNT := 3
 const RANGE_M := 80.0
 const RETRY_S := 2.0
@@ -57,7 +58,7 @@ func _tick() -> void:
 	var tree := get_tree()
 	if tree == null or tree.paused:
 		return
-	if main.get("active_runtime") != null:
+	if PONIES.act_running():
 		return
 	var player: Variant = game.get("player")
 	if not is_instance_valid(player):

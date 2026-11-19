@@ -4,12 +4,14 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/handover/test_body_swap.gd
 ##
-## The entry node is faked here because `main.gd` names the `Mods` autoload, which a `--script`
-## suite cannot load.
+## The registry, the pending swap and the adoption are the real `ponies` service; only the
+## runtime's host handle and the body-change service are faked here, because `main.gd` itself
+## names the `Mods` autoload, which a `--script` suite cannot load.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -324,12 +326,9 @@ class FakeEligibility extends RefCounted:
 		return allow
 
 
-## The pending-swap half of `main.gd`, without the autoload dependency. The runtime is the code
-## under test; this only routes the spawned body to it.
-class FakeMain extends Node:
-	var _runtimes: Dictionary = {}
-	var _pending_swap: Dictionary = {}
-	var active_runtime: Variant = null
+## The runtime's host handle: the scene services it reads and nothing the registry owns. The
+## registry, the pending swap and the adoption are the real `ponies` service.
+class FakeHost extends Node:
 	var eligibility: Variant = null
 	var hud: Variant = null
 	var player: Variant = null
@@ -339,85 +338,22 @@ class FakeMain extends Node:
 	var source: Variant = null
 	var memory: Variant = null
 	var body_change: Variant = null
-	var begins := 0
-
-	func begin_body_swap(runtime: Node, old_pony: Node, id: String, change: BODY_CHANGE) -> void:
-		begins += 1
-		_pending_swap = {"runtime": runtime, "old_pony": old_pony, "id": id, "change": change}
-		if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
-			_runtimes.erase(old_pony)
-
-	func clear_body_swap(runtime: Node) -> void:
-		if _pending_swap.get("runtime") == runtime:
-			_pending_swap = {}
-
-	func body_swap_pending() -> bool:
-		return not _pending_swap.is_empty()
-
-	func runtime_for(body: Node) -> Node:
-		if not is_instance_valid(body):
-			return null
-		var runtime: Variant = _runtimes.get(body)
-		if is_instance_valid(runtime):
-			return runtime
-		var child: Node = body.get_node_or_null("UnfplapRuntime")
-		return child if is_instance_valid(child) else null
 
 	func camera() -> Camera3D:
 		return null
 
-	func clear_active(runtime: Node) -> void:
-		if active_runtime == runtime:
-			active_runtime = null
-
-	func allocate_serial() -> int:
-		return 1
-
-	func _on_pony(pony: Node) -> void:
-		_prepare_pony(pony)
-		_adopt_pending_swap(pony)
-
-	func adopt_pending_body(pony: Node) -> bool:
-		_prepare_pony(pony)
-		return _adopt_pending_swap(pony)
-
-	func _prepare_pony(pony: Node) -> void:
-		if is_instance_valid(body_change) and pony is Node3D:
-			body_change.call("notify_body_ready", pony)
-
-	func _adopt_pending_swap(pony: Node) -> bool:
-		if _pending_swap.is_empty() or not is_instance_valid(pony):
-			return false
-		var runtime: Variant = _pending_swap.get("runtime")
-		if not is_instance_valid(runtime):
-			_pending_swap = {}
-			return false
-		var change: Variant = _pending_swap.get("change")
-		var source: Node = null
-		if change is BODY_CHANGE and is_instance_valid((change as BODY_CHANGE).source):
-			source = (change as BODY_CHANGE).source
-		var claimed: bool = is_instance_valid(source) and source.has_method("claims_body") \
-			and bool(source.call("claims_body", pony))
-		if not claimed:
-			var new_id := PONY_ID.from(str(pony.get_meta("relationship_id", "")),
-				pony.get("identity"))
-			if new_id != str(_pending_swap.get("id", "")):
-				return false
-		var old_pony: Variant = _pending_swap.get("old_pony")
-		if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
-			_runtimes.erase(old_pony)
-		_runtimes[pony] = runtime
-		if runtime.get_parent() != pony:
-			runtime.call("attach_to_body", pony)
-		_pending_swap = {}
-		runtime.call("adopt_body", pony)
-		return true
-
 
 ## A service with only the player handshake: the body swap must clear the old body's offset even
 ## when no anatomy controller is available.
-class FakePlayerAnatomy extends RefCounted:
+class FakePlayerAnatomy extends Node:
 	var reset_calls := 0
+
+	## The registry's two bind calls: a body takes a runtime and its tail is seated.
+	func bind(_pony: Node, _runtime: Node) -> Node:
+		return null
+
+	func tail_ready(_pony: Node) -> void:
+		pass
 
 	func controller_for(_pony: Node, _runtime: Node) -> Node:
 		return null
@@ -455,20 +391,21 @@ func _pony(display_name: String, node_name := "Pony") -> FakePony:
 	return pony
 
 
-## A live act without the start sequence: the handover is the code under test, not the gate.
+## A live act without the start sequence: the handover is the code under test, not the gate. The
+## old body joins the registry through the real attach path, before the body-change service exists,
+## so the fixture keeps the act's form store empty like a running world does at spawn.
 func _fixture() -> Dictionary:
-	var main := FakeMain.new()
-	main.name = "FakeMain"
-	root.add_child(main)
+	PONIES.shutdown()
+	var host := FakeHost.new()
+	host.name = "FakeHost"
+	root.add_child(host)
 	var old_pony := _pony("Test Mare", "OldBody")
 	root.add_child(old_pony)
 	var runtime: Node = RUNTIME.new()
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = old_pony
-	runtime.main = main
+	runtime.main = host
 	old_pony.add_child(runtime)
-	main._runtimes[old_pony] = runtime
-	main.active_runtime = runtime
 	runtime._id = "test_mare"
 	runtime._display_name = "Test Mare"
 	runtime.pose_id = CATALOG.STANDING
@@ -483,11 +420,16 @@ func _fixture() -> Dictionary:
 	runtime._preferences = SETTINGS.preferences("test_mare")
 	runtime._features = {}
 	runtime._form_hint_debug = true
+	PONIES.host = host
+	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
+	PONIES.attach(old_pony)
+	PONIES.set_active(runtime)
 	var body_change := BODY_CHANGE_SERVICE.new()
 	body_change.name = "FakeBodyChange"
-	body_change.call("setup", main)
-	main.add_child(body_change)
-	main.body_change = body_change
+	body_change.call("setup", host)
+	host.add_child(body_change)
+	host.body_change = body_change
+	PONIES.body_change = body_change
 	var source := FakeSource.new()
 	source.name = "FakeSource"
 	root.add_child(source)
@@ -496,30 +438,28 @@ func _fixture() -> Dictionary:
 	source.changing = false
 	var policy := FakePolicy.new()
 	source.policy_value = policy
-	main.source = source
+	host.source = source
 	body_change.call("register_source", source)
 	var runtime_binding: RefCounted = RUNTIME_BINDING.new()
-	runtime_binding.call("setup", main)
 	body_change.call("register_binding", runtime_binding)
-	return {"main": main, "runtime": runtime, "old": old_pony, "source": source,
+	return {"host": host, "runtime": runtime, "old": old_pony, "source": source,
 		"body_change": body_change, "policy": policy}
 
 
 func _free_fixture(made: Dictionary) -> void:
-	var main: Variant = made["main"]
+	var host: Variant = made["host"]
 	var runtime: Variant = made["runtime"]
 	var old: Variant = made["old"]
 	var source: Variant = made["source"]
-	if is_instance_valid(runtime) and runtime.get_parent() == main:
-		runtime.queue_free()
-	if is_instance_valid(old):
-		old.queue_free()
-	if is_instance_valid(source):
-		source.queue_free()
-	if is_instance_valid(main):
-		main.queue_free()
+	PONIES.shutdown()
 	if is_instance_valid(runtime) and not runtime.is_queued_for_deletion():
 		runtime.free()
+	if is_instance_valid(old):
+		old.free()
+	if is_instance_valid(source):
+		source.free()
+	if is_instance_valid(host):
+		host.free()
 
 
 func run() -> void:
@@ -559,7 +499,7 @@ func run() -> void:
 ## provider's own observation is the only pack read.
 func _check_observation() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.poll_calls = 0
@@ -573,9 +513,9 @@ func _check_observation() -> void:
 	check(not runtime._suspended, "the watcher reads the change only at its cadence")
 	runtime._body_swap_tick(RUNTIME.BODY_SWAP_POLL_S)
 	check(runtime._suspended, "the announced change suspends on the cadence tick")
-	check(main.begins == 1, "the suspend records one pending swap")
+	check(PONIES.body_swap_pending(), "the suspend records one pending swap")
 	runtime._body_swap_tick(0.1)
-	check(main.begins == 1, "a suspended tick does not start a second handover")
+	check(PONIES.body_swap_pending(), "a suspended tick does not start a second handover")
 	check(source.poll_calls == 0, "the suspended wait never polls the provider either")
 	runtime.force_stop()
 	_free_fixture(f)
@@ -584,18 +524,19 @@ func _check_observation() -> void:
 ## One complete suspend → adopt → resume, then the one exit.
 func _check_handover() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
 	var anatomy := FakePlayerAnatomy.new()
-	main.anatomy = anatomy
+	PONIES.anatomy = anatomy
+	host.anatomy = anatomy
 
 	source.changing = true
 	runtime._suspend_for_body_swap(source.active_change())
 	check(runtime._suspended, "the act suspends")
-	check(runtime.get_parent() == main, "the runtime leaves the old body for main")
-	check(main.body_swap_pending(), "main records the pending swap")
+	check(runtime.get_parent() == host, "the runtime leaves the old body for the host")
+	check(PONIES.body_swap_pending(), "ponies records the pending swap")
 	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the act state survives suspension")
 	check(absf(float(runtime.depth) - 0.42) < 0.0001, "depth survives suspension")
 	check(int(runtime.pony_climaxes) == 1, "climaxes survive suspension")
@@ -604,15 +545,15 @@ func _check_handover() -> void:
 	var new_pony := _pony("New Mare", "NewBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the new body resumes the act")
 	check(anatomy.reset_calls >= 1, "the new body clears the part's old pelvis handshake")
 	check(runtime.pony == new_pony, "the runtime owns the new body")
 	check(runtime.get_parent() == new_pony, "the runtime moved under the new body")
-	check(main._runtimes.get(new_pony) == runtime, "main maps the new body to the same runtime")
-	check(not main._runtimes.has(old_pony), "the old body's map entry is gone")
-	check(not main.body_swap_pending(), "the pending swap is cleared")
+	check(PONIES.runtime_for(new_pony) == runtime, "ponies maps the new body to the same runtime")
+	check(PONIES.runtime_for(old_pony) == null, "the old body's map entry is gone")
+	check(not PONIES.body_swap_pending(), "the pending swap is cleared")
 	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the act state survives resume")
 	check(absf(float(runtime.depth) - 0.42) < 0.0001, "depth survives resume")
 	check(int(runtime.pony_climaxes) == 1, "climaxes survive resume")
@@ -629,18 +570,19 @@ func _check_handover() -> void:
 
 	runtime.force_stop()
 	check(int(runtime.state) == RUNTIME.State.IDLE, "the one exit ends the act")
-	check(main.active_runtime == null, "the one exit clears the active runtime")
+	check(not PONIES.act_running(), "the one exit clears the active runtime")
 	check(not new_pony.has_meta("sex_active"), "the one exit clears the new body's flag")
 	check(runtime._hold.nav == null and runtime._hold.token.is_empty(),
 		"the one exit gives up the act's navigator lease")
 	_free_fixture(f)
+	anatomy.free()
 
 
 ## A transform interrupts the automatic stroke for the new pose but keeps its live settings and
 ## resumes it on the adopted body at the same depth.
 func _check_auto_survives_swap() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	runtime._readiness.configure_auto(1.5, 0.8, "cosine", 0.2)
@@ -656,7 +598,7 @@ func _check_auto_survives_swap() -> void:
 	var new_pony := _pony("Auto Mare", "AutoBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	runtime._body_swap_tick(0.1)
 	check(runtime._readiness.auto_active(), "auto resumes after the adopted body")
 	check(absf(runtime._readiness.auto_pace() - 2.75) < 0.0001,
@@ -699,7 +641,7 @@ func _check_vocal_cache() -> void:
 ## id and event stay the act's; an empty form name falls back to the identity display name.
 func _check_form_display_name() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	var body_change: BODY_CHANGE_SERVICE = f["body_change"]
@@ -711,7 +653,7 @@ func _check_form_display_name() -> void:
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	source.shape = "rarity"
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the borrowed form resumes the act")
 	check(str(runtime._display_name) == "Borrowed Form",
@@ -746,11 +688,11 @@ func _check_form_display_name() -> void:
 ## helper, in the act's own order.
 func _check_policy_events() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
-	main.memory = FakeMemory.new()
+	host.memory = FakeMemory.new()
 	runtime.state = RUNTIME.State.POSING_IN
 	runtime._enter_active()
 	runtime.state = RUNTIME.State.CLIMAX
@@ -766,7 +708,7 @@ func _check_policy_events() -> void:
 	root.add_child(named_body)
 	source.new_pony = named_body
 	source.shape = "rarity"
-	main._on_pony(named_body)
+	PONIES.attach(named_body)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the named change resumes")
 	source.changing = false
@@ -779,7 +721,7 @@ func _check_policy_events() -> void:
 	var own_body := _pony("Own Identity", "OwnBody")
 	root.add_child(own_body)
 	source.new_pony = own_body
-	main._on_pony(own_body)
+	PONIES.attach(own_body)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the reveal resumes")
 
@@ -801,11 +743,11 @@ func _check_policy_events() -> void:
 ## change after the resume is a new pending swap.
 func _check_ai_change() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
-	main.memory = FakeMemory.new()
+	host.memory = FakeMemory.new()
 	source.shape = "fluttershy"
 	# Nothing called request_form: the source is already changing, as her own AI leaves it.
 	source.changing = true
@@ -817,14 +759,14 @@ func _check_ai_change() -> void:
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	source.shape = "rarity"
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	check(runtime._suspended, "the AI change waits for the new body's shape")
 	source.changing = false
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the AI change resumes on the new body")
 	check(runtime.pony == new_pony, "the AI change keeps the act on the new body")
 	check(not runtime._form_reveal_done, "an AI change is neutral")
-	var memory: FakeMemory = main.memory
+	var memory: FakeMemory = host.memory
 	check(memory.impressions.is_empty(), "an AI change writes no reveal memory")
 	# A second change after the resume is a fresh handover, not a stale pending swap.
 	source.old_pony = new_pony
@@ -833,7 +775,7 @@ func _check_ai_change() -> void:
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "a second change after resume suspends again")
 	runtime.force_stop()
-	check(not main.body_swap_pending(), "the one exit clears the repeated swap")
+	check(not PONIES.body_swap_pending(), "the one exit clears the repeated swap")
 	_free_fixture(f)
 
 
@@ -875,7 +817,7 @@ func _check_source_gone() -> void:
 ## No new body and no old body: the watchdog ends through the one exit.
 func _check_watchdog() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
@@ -884,28 +826,28 @@ func _check_watchdog() -> void:
 	old_pony.free()
 	runtime._body_swap_tick(RUNTIME.BODY_SWAP_WATCHDOG_S + 1.0)
 	check(int(runtime.state) == RUNTIME.State.IDLE, "the watchdog ends the act")
-	check(main.active_runtime == null, "the watchdog clears the active runtime")
-	check(not main.body_swap_pending(), "the watchdog clears the pending swap")
+	check(not PONIES.act_running(), "the watchdog clears the active runtime")
+	check(not PONIES.body_swap_pending(), "the watchdog clears the pending swap")
 	_free_fixture(f)
 
 
 ## A new body that is not an adult mare ends cleanly instead of resuming.
 func _check_invalid_shape() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	var eligibility := FakeEligibility.new()
 	eligibility.allow = false
-	main.eligibility = eligibility
+	host.eligibility = eligibility
 	source.changing = true
 	runtime._suspend_for_body_swap(source.active_change())
 	var new_pony := _pony("Young Shape", "YoungBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	check(int(runtime.state) == RUNTIME.State.IDLE, "an ineligible shape ends the act")
-	check(main.active_runtime == null, "an ineligible shape clears the active runtime")
+	check(not PONIES.act_running(), "an ineligible shape clears the active runtime")
 	check(not new_pony.has_meta("sex_active"), "an ineligible shape keeps no act flag")
 	_free_fixture(f)
 
@@ -913,14 +855,14 @@ func _check_invalid_shape() -> void:
 ## Closing the world while the act is suspended is the same one exit, not a second teardown.
 func _check_world_close() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.changing = true
 	runtime._suspend_for_body_swap(source.active_change())
 	runtime.force_stop()
 	check(int(runtime.state) == RUNTIME.State.IDLE, "a world close during a swap ends the act")
-	check(not main.body_swap_pending(), "a world close clears the pending swap")
+	check(not PONIES.body_swap_pending(), "a world close clears the pending swap")
 	_free_fixture(f)
 
 
@@ -928,11 +870,11 @@ func _check_world_close() -> void:
 ## exceptional beat is recorded once, with the spike, the impression and the peak.
 func _check_form_reveal() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
-	main.memory = FakeMemory.new()
+	host.memory = FakeMemory.new()
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -951,7 +893,7 @@ func _check_form_reveal() -> void:
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	source.shape = ""
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the reveal resumes the same act")
 	check(runtime.pony == new_pony, "the reveal keeps the act on the new body")
@@ -969,7 +911,7 @@ func _check_form_reveal() -> void:
 		"the reveal spikes readiness by the policy's heat")
 	check(runtime._readiness.cue_override == policy.cue,
 		"the reveal cue comes from the policy")
-	var memory: FakeMemory = main.memory
+	var memory: FakeMemory = host.memory
 	check(memory.impressions.size() == 1, "the reveal writes one special impression")
 	if not memory.impressions.is_empty():
 		var impression: Variant = memory.impressions[0]
@@ -1002,11 +944,11 @@ func _check_form_reveal() -> void:
 ## exceptional beat.
 func _check_shape_offer() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
-	main.memory = FakeMemory.new()
+	host.memory = FakeMemory.new()
 	source.shape = ""
 	runtime._shape_offer_tick()
 	check(runtime._shape_offer_done and runtime._shape_offer_pending,
@@ -1047,14 +989,14 @@ func _check_shape_offer() -> void:
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	source.shape = "rarity"
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._form_reveal_done, "a named shape is not an exceptional reveal")
 	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
 	check(policy.accepted_calls == 1, "the named shape asks the accepted-offer policy")
 	check(int(policy.last_accepted.get("origin", -1)) == int(BODY_CHANGE.Origin.PLAYER),
 		"the accepted offer context is the player's origin")
-	var memory: FakeMemory = main.memory
+	var memory: FakeMemory = host.memory
 	check(memory.impressions.is_empty(), "a named shape writes no reveal memory")
 	check(memory.peaks.is_empty(), "a named shape records no reveal peak")
 	runtime.force_stop()
@@ -1066,7 +1008,7 @@ func _check_shape_offer() -> void:
 ## only once the shape is on the body, and the adopted body's LOD is rebuilt during the wait.
 func _check_named_shape_gate() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
@@ -1088,11 +1030,11 @@ func _check_named_shape_gate() -> void:
 	source.shape = ""
 	var near_key: String = HYBRID_NEAR_MESH.key(new_pony)
 	HYBRID_NEAR_MESH.cache[near_key] = true
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	check(runtime._suspended, "the new body binds without resuming")
 	check(runtime.pony == new_pony, "the runtime owns the new body during the wait")
 	check(runtime.get_parent() == new_pony, "the runtime moves under the new body")
-	check(not main.body_swap_pending(), "the adoption clears the pending swap")
+	check(not PONIES.body_swap_pending(), "the adoption clears the pending swap")
 	check(not HYBRID_NEAR_MESH.cache.has(near_key), "the adopted body's LOD is rebuilt")
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "a missing shape keeps the act suspended")
@@ -1111,7 +1053,7 @@ func _check_named_shape_gate() -> void:
 ## adult body and the failed shape restores the offer instead of ending through the exit.
 func _check_watchdog_with_body() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
@@ -1128,7 +1070,7 @@ func _check_watchdog_with_body() -> void:
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	source.shape = ""
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	check(runtime._suspended, "the watchdog body adopts suspended")
 	check(runtime.pony == new_pony, "the watchdog body is the new body")
 	runtime._body_swap_tick(RUNTIME.BODY_SWAP_WATCHDOG_S + 1.0)
@@ -1280,10 +1222,10 @@ func _check_failed_named_offer() -> void:
 ## resumes on the body but the offer comes back, so the player can name another shape.
 func _check_named_without_shape() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
-	main.memory = FakeMemory.new()
+	host.memory = FakeMemory.new()
 	source.shape = ""
 	runtime._shape_offer_tick()
 	var director := FakeDirector.new()
@@ -1299,14 +1241,14 @@ func _check_named_without_shape() -> void:
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	source.shape = ""
-	main._on_pony(new_pony)
+	PONIES.attach(new_pony)
 	check(runtime._suspended, "a new body with no shape does not resume")
 	source.changing = false
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the settled failed shape resumes the new body")
 	check(runtime.pony == new_pony, "the failed shape keeps the new body")
 	check(not runtime._form_reveal_done, "a named change with no shape is not a reveal")
-	var memory: FakeMemory = main.memory
+	var memory: FakeMemory = host.memory
 	check(memory.impressions.is_empty(), "a named change with no shape writes no reveal memory")
 	check(runtime._shape_offer_pending, "a failed named shape restores the offer")
 	runtime._form_hint_debug = true
@@ -1324,7 +1266,7 @@ func _check_named_without_shape() -> void:
 ## keeps the offer. The shape the player names still spends it.
 func _check_ai_change_keeps_offer() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
@@ -1339,7 +1281,7 @@ func _check_ai_change_keeps_offer() -> void:
 	source.new_pony = ai_body
 	source.shape = "fluttershy"
 	source.changing = false
-	main._on_pony(ai_body)
+	PONIES.attach(ai_body)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "her own change resumes the act")
 	check(runtime._shape_offer_pending, "her own change keeps the player's offer")
@@ -1369,7 +1311,7 @@ func _check_ai_change_keeps_offer() -> void:
 ## reports; no second runtime attaches to it.
 func _check_late_adoption() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
@@ -1382,13 +1324,13 @@ func _check_late_adoption() -> void:
 	runtime._body_swap_tick(RUNTIME.BODY_SWAP_ADOPT_GRACE_S * 0.5)
 	check(runtime._suspended, "a late body keeps the act suspended")
 	check(runtime.pony == old_pony, "the old body is not resumed while the new body exists")
-	check(not main._runtimes.has(late_pony), "no runtime attaches to the late body yet")
+	check(PONIES.runtime_for(late_pony) == null, "no runtime attaches to the late body yet")
 	runtime._body_swap_tick(RUNTIME.BODY_SWAP_ADOPT_GRACE_S)
 	check(not runtime._suspended, "the entry adopts the late body after the grace")
 	check(runtime.pony == late_pony, "the act resumes on the late body")
 	check(runtime.get_parent() == late_pony, "the runtime moves under the late body")
-	check(main._runtimes.get(late_pony) == runtime, "the late body maps to the same runtime")
-	check(main._runtimes.size() == 1, "the late adoption creates no second runtime")
+	check(PONIES.runtime_for(late_pony) == runtime, "the late body maps to the same runtime")
+	check(PONIES.live_ponies().size() == 1, "the late adoption creates no second runtime")
 	runtime.force_stop()
 	_free_fixture(f)
 
@@ -1397,7 +1339,7 @@ func _check_late_adoption() -> void:
 ## one exit; the change is not suspended and leaves no pending swap or stale source.
 func _check_restore_change() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	runtime.state = RUNTIME.State.RESTORE
@@ -1409,16 +1351,16 @@ func _check_restore_change() -> void:
 	runtime._body_swap_tick(0.1)
 	check(int(runtime.state) == RUNTIME.State.RESTORE,
 		"another body's change leaves the restore alone")
-	check(not main.body_swap_pending(), "another body's change records no pending swap")
+	check(not PONIES.body_swap_pending(), "another body's change records no pending swap")
 	source.old_pony = runtime.pony
 	source.changing = true
 	runtime._body_swap_tick(0.1)
 	check(int(runtime.state) == RUNTIME.State.IDLE,
 		"the act pony's change during restore finishes the act")
 	check(not runtime._suspended, "a change during restore never suspends")
-	check(not main.body_swap_pending(), "a change during restore records no pending swap")
+	check(not PONIES.body_swap_pending(), "a change during restore records no pending swap")
 	check(runtime._swap_change == null, "the one exit drops the typed swap change")
-	check(main.active_runtime == null, "the one exit clears the active runtime")
+	check(not PONIES.act_running(), "the one exit clears the active runtime")
 	other.queue_free()
 	_free_fixture(f)
 
@@ -1440,7 +1382,7 @@ func _check_held_guard() -> void:
 ## A form change on an idle body binds the runtime's systems without an act resume or an exit.
 func _check_idle_body_binding() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var body_change: BODY_CHANGE_SERVICE = f["body_change"]
@@ -1454,7 +1396,7 @@ func _check_idle_body_binding() -> void:
 	check(runtime.pony == old_pony, "the idle body keeps its runtime")
 	check(runtime._pose_session.pony == old_pony, "the idle form bind binds the pose session")
 	check(runtime._face.pony == old_pony, "the idle form bind binds the face")
-	check(main._runtimes.size() == 1, "the idle form bind creates no second runtime")
+	check(PONIES.live_ponies().size() == 1, "the idle form bind creates no second runtime")
 	check(is_zero_approx(runtime._act_camera.camera_target_eye),
 		"an idle form bind applies no act eye override")
 	var revised := body_change.default_form(old_pony)
@@ -1469,7 +1411,7 @@ func _check_idle_body_binding() -> void:
 		"an idle form revision takes the presented form's name")
 	check(str(runtime._act_facts.display_name) == "Idle Borrowed Form",
 		"the idle act facts carry the presented form's name")
-	check(not runtime._suspended and not main.body_swap_pending(),
+	check(not runtime._suspended and not PONIES.body_swap_pending(),
 		"a same-node revision never starts a swap")
 	_free_fixture(f)
 
@@ -1477,15 +1419,15 @@ func _check_idle_body_binding() -> void:
 ## A live act's same-node revision refreshes the eye, pose and camera without a resume.
 func _check_same_node_refresh() -> void:
 	var f := _fixture()
-	var main: FakeMain = f["main"]
+	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var body_change: BODY_CHANGE_SERVICE = f["body_change"]
 	var player := FakePlayer.new()
 	player.name = "FakePlayer"
-	main.add_child(player)
-	main.player = player
-	WORLD.bind_player(main.player)
+	host.add_child(player)
+	host.player = player
+	WORLD.bind_player(host.player)
 	var base := body_change.default_form(old_pony)
 	body_change.apply_form(old_pony, base)
 	var revised := body_change.default_form(old_pony)
@@ -1498,9 +1440,9 @@ func _check_same_node_refresh() -> void:
 	body_change.apply_form(old_pony, revised)
 	check(int(runtime.state) == RUNTIME.State.ACTIVE,
 		"a live same-node revision keeps the act state")
-	check(not runtime._suspended and not main.body_swap_pending(),
+	check(not runtime._suspended and not PONIES.body_swap_pending(),
 		"a live same-node revision starts no swap")
-	check(main.begins == 0, "a live same-node revision starts no handover")
+	check(not PONIES.body_swap_pending(), "a live same-node revision starts no handover")
 	check(runtime._pose_session.pony == old_pony, "the live revision keeps the pose bound")
 	check(runtime._act_camera.camera_target_eye > 0.0,
 		"the live revision refreshes the eye target")

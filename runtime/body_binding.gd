@@ -1,20 +1,15 @@
 extends "res://mods/unfplap/shared/body_binding.gd"
 ## The runtime body binding: one world binding owns the per-pony runtime's body-bound systems.
-## It looks the runtime up through the entry's public `runtime_for(pony)` and hands it the form;
-## the runtime decides whether it is idle, live or suspended and never creates a second runtime.
+## It looks the runtime up through `ponies` and hands it the form; the runtime decides whether it
+## is idle, live or suspended and never creates a second runtime.
 ##
 ## Scope: world. `main.gd` registers one instance with `main.body_change` after the service and the
-## entry exist. The target is a narrow host handle, so this file never preloads `main.gd` or
-## `runtime.gd`, and an unbind never runs the act exit.
+## entry exist. This file never preloads `main.gd` or `runtime.gd`, and an unbind never runs the
+## act exit.
 ##
 ## See `docs/runtime.md` (`## Body swap`) and `docs/body_change.md`.
 
-## The entry node, for its public `runtime_for(pony)` and nothing else.
-var host: Node = null
-
-
-func setup(host_node: Node) -> void:
-	host = host_node
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 
 func binding_id() -> String:
@@ -42,10 +37,9 @@ func _dispatch(method: StringName, body: Node3D, form: BODY_FORM.BodyForm) -> vo
 
 
 func _runtime_for(body: Node3D) -> Node:
-	if not is_instance_valid(body) or not is_instance_valid(host) \
-			or not host.has_method("runtime_for"):
+	if not is_instance_valid(body):
 		return null
-	var runtime: Variant = host.call("runtime_for", body)
-	if runtime is Node and is_instance_valid(runtime) and not (runtime as Node).is_queued_for_deletion():
-		return runtime as Node
+	var runtime: Node = PONIES.runtime_for(body)
+	if is_instance_valid(runtime) and not runtime.is_queued_for_deletion():
+		return runtime
 	return null

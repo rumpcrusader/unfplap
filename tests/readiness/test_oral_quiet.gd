@@ -226,10 +226,6 @@ class FakeMain extends Node:
 	var anatomy: Variant = null
 	var hud: Variant = null
 	var game: Variant = null
-	var active_runtime: Variant = null
-
-	func clear_active(_runtime: Node) -> void:
-		pass
 
 
 func _initialize() -> void:

@@ -19,6 +19,7 @@ const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const CHANGELINGS_POLICY := preload("res://mods/unfplap/integrations/changelings_policy.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 const MOD_ID := "changelings"
 const GROUP := "changelings_mod"
@@ -680,8 +681,7 @@ func _late_tail_one(pony: Variant) -> void:
 	var root := _tail_root(node)
 	if is_instance_valid(root):
 		_notify_body_ready(node)
-		if is_instance_valid(main) and main.has_method("prepare_pony_late"):
-			main.call("prepare_pony_late", pony)
+		PONIES.prepare_late(pony)
 		_late_tail.erase(pony)
 		return
 	var tries := int(_late_tail.get(pony, 0)) + 1
@@ -814,13 +814,9 @@ func _shape_candidates() -> Array[String]:
 	for id: String in SETTINGS.CHARACTER_ORDER:
 		if not id.is_empty() and not out.has(id):
 			out.append(id)
-	if is_instance_valid(main) and main.has_method("live_character_ids"):
-		var live: Variant = main.call("live_character_ids")
-		if live is Array:
-			for raw: Variant in live:
-				var id := str(raw).strip_edges()
-				if not id.is_empty() and not out.has(id):
-					out.append(id)
+	for id: String in PONIES.live_character_ids():
+		if not id.is_empty() and not out.has(id):
+			out.append(id)
 	return out
 
 
@@ -994,8 +990,7 @@ func _notify_body_ready(pony: Node) -> void:
 func _prepare_change_body(pony: Node) -> void:
 	if not is_instance_valid(main) or not is_instance_valid(pony):
 		return
-	if main.has_method("prepare_pony_late"):
-		main.call("prepare_pony_late", pony)
+	PONIES.prepare_late(pony)
 	if main.has_method("refresh_anatomy"):
 		main.call("refresh_anatomy")
 	WORLD.refresh_body_lod(pony)

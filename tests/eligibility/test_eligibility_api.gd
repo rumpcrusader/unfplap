@@ -68,12 +68,7 @@ class FakeGame extends Node:
 class FakeMain extends Node:
 	var game: Node
 	var player: Node
-	var runtimes: Dictionary = {}
 	var eligibility: ELIGIBILITY
-
-	func runtime_for(pony: Node) -> Node:
-		var runtime: Variant = runtimes.get(pony)
-		return runtime if is_instance_valid(runtime) else null
 
 
 func _initialize() -> void:

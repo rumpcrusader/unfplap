@@ -25,6 +25,7 @@ const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 ## Capability targets. A consumer asks about its own target; it never inspects age, sex or the
 ## provider assertion. See `docs/eligibility.md` (`## Capability targets`).
@@ -429,9 +430,7 @@ func _read_player(out: Dictionary) -> void:
 
 func _read_cycle(pony: Node, out: Dictionary) -> void:
 	var phase := CYCLE.NORMAL
-	var runtime: Variant = null
-	if is_instance_valid(main) and main.has_method("runtime_for"):
-		runtime = main.call("runtime_for", pony)
+	var runtime: Node = PONIES.runtime_for(pony)
 	if runtime != null and is_instance_valid(runtime) and runtime.has_method("cycle_phase"):
 		phase = str(runtime.call("cycle_phase"))
 	out["cycle_phase"] = phase

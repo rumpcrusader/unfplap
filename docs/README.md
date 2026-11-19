@@ -34,6 +34,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | Service | Facade | Contract | Tests |
 |---|---|---|---|
 | World reads | `world/service.gd` | `docs/world.md` | `tests/world/` |
+| Pony runtimes | `ponies/service.gd` | `docs/ponies.md` | `tests/ponies/` |
 | Eligibility and consent | `eligibility/service.gd` | `docs/eligibility.md` | `tests/eligibility/` |
 | Scene gate and refusal | `scene_gate/service.gd` | `docs/scene_gate.md` | `tests/scene_gate/` |
 | Act scene hold | `scene_hold/service.gd` | `docs/scene_hold.md` | `tests/scene_hold/` |

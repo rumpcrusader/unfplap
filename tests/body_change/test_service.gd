@@ -13,6 +13,7 @@ const GARMENT_BINDING := preload("res://mods/unfplap/body_change/garment_binding
 const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const RUNTIME_BINDING := preload("res://mods/unfplap/runtime/body_binding.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
@@ -40,13 +41,7 @@ class FakePony extends Node3D:
 
 
 class FakeHost extends Node:
-	var runtimes: Dictionary = {}
-
-	func runtime_for(body: Node) -> Node:
-		if not is_instance_valid(body):
-			return null
-		var runtime: Variant = runtimes.get(body)
-		return runtime if runtime is Node else null
+	var body_change: Variant = null
 
 
 class FakeRuntime extends Node:
@@ -439,13 +434,13 @@ func _check_world_bindings() -> void:
 	body.free()
 
 
-## The runtime binding dispatches through the entry's public runtime lookup and never owns the
-## act: a body without a runtime is inert, and an unbind is not a teardown.
+## The runtime binding dispatches through the pony registry and never owns the act: a body
+## without a runtime is inert, and an unbind is not a teardown.
 func _check_runtime_binding() -> void:
+	PONIES.shutdown()
 	var host := FakeHost.new()
 	host.name = "RuntimeBindingHost"
 	var binding: RefCounted = RUNTIME_BINDING.new()
-	binding.call("setup", host)
 	check(str(binding.call("binding_id")) == "runtime", "the runtime binding names itself")
 
 	var body := FakePony.new()
@@ -454,7 +449,8 @@ func _check_runtime_binding() -> void:
 	var form := BODY_FORM.default_form(body)
 	var runtime := FakeRuntime.new()
 	runtime.name = "FakeRuntime"
-	host.runtimes[body] = runtime
+	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
+	PONIES.attach(body)
 	binding.call("bind_body", body, form)
 	check(runtime.journal == ["bind"], "a body with a runtime binds that runtime")
 	check(runtime.last_body == body, "the runtime receives the presented body")
@@ -474,15 +470,18 @@ func _check_runtime_binding() -> void:
 	check(runtime.journal == ["bind", "refresh"],
 		"a body without a runtime is left alone")
 
-	host.runtimes[idle] = runtime
-	runtime.name = "SecondRuntime"
+	var second := FakeRuntime.new()
+	second.name = "SecondRuntime"
+	PONIES.factory = func(_pony_node: Node) -> Node: return second
+	PONIES.attach(idle)
 	binding.call("bind_body", idle, form)
-	check(runtime.journal == ["bind", "refresh", "bind"],
-		"the binding follows the entry's runtime lookup")
-	check(runtime.last_body == idle, "the second body's runtime is the target")
+	check(second.journal == ["bind"], "the binding follows the registry's runtime lookup")
+	check(second.last_body == idle, "the second body's runtime is the target")
 
+	PONIES.shutdown()
 	host.free()
 	runtime.free()
+	second.free()
 	body.free()
 	idle.free()
 

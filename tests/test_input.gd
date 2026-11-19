@@ -10,16 +10,10 @@ const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 var failures := 0
 var checks := 0
-
-
-class FakeMain extends Node:
-	var active_runtime: Node = null
-
-	func skeleton_click() -> bool:
-		return false
 
 
 ## The offer facade the act key hands its one press. Its own act-live rule is
@@ -172,7 +166,7 @@ func _check_action() -> void:
 	var before := int(SETTINGS.act_key.get_num())
 	SETTINGS.act_key.set_num(float(KEY_6))
 	var scene := _world()
-	var main := FakeMain.new()
+	var main := Node.new()
 	root.add_child(main)
 	var offer := FakeOffer.new()
 	root.add_child(offer)
@@ -205,7 +199,7 @@ func _check_action() -> void:
 
 	var runtime := FakeRuntime.new()
 	offer.live = true
-	main.active_runtime = runtime
+	PONIES.set_active(runtime)
 	service.call("_input", key)
 	check(offer.starts == 1, "the act key does not start a second act while one is live")
 	offer.live = false
@@ -224,6 +218,7 @@ func _check_action() -> void:
 		"the act action returns after typing")
 
 	service.queue_free()
+	PONIES.clear_active(runtime)
 	main.queue_free()
 	offer.queue_free()
 	runtime.queue_free()
@@ -237,14 +232,14 @@ func _check_shield() -> void:
 	var before := SETTINGS.act_input_shield.get_bool()
 	SETTINGS.act_input_shield.set_bool(true)
 	var scene := _world()
-	var main := FakeMain.new()
+	var main := Node.new()
 	root.add_child(main)
 	var service := INPUT.new()
 	service.main = main
 	main.add_child(service)
 	var runtime := FakeRuntime.new()
 	runtime.state = 2
-	main.active_runtime = runtime
+	PONIES.set_active(runtime)
 	await process_frame
 	check(bool(service.get("_shield")), "the shield follows its setting")
 
@@ -334,6 +329,7 @@ func _check_shield() -> void:
 	check(not Input.is_physical_key_pressed(KEY_N), "N's raw state is cleared")
 
 	service.queue_free()
+	PONIES.clear_active(runtime)
 	main.queue_free()
 	runtime.queue_free()
 	SETTINGS.act_input_shield.set_bool(before)
@@ -346,14 +342,14 @@ func _check_act_commands() -> void:
 	var before := SETTINGS.act_input_shield.get_bool()
 	SETTINGS.act_input_shield.set_bool(true)
 	var scene := _world()
-	var main := FakeMain.new()
+	var main := Node.new()
 	root.add_child(main)
 	var service := INPUT.new()
 	service.main = main
 	main.add_child(service)
 	var runtime := FakeRuntime.new()
 	runtime.state = 2
-	main.active_runtime = runtime
+	PONIES.set_active(runtime)
 	await process_frame
 
 	for case: Array in [[KEY_V, ACT_COMMANDS.HOLE], [KEY_N, ACT_COMMANDS.ORAL]]:
@@ -398,6 +394,7 @@ func _check_act_commands() -> void:
 	await _release(KEY_V)
 
 	service.queue_free()
+	PONIES.clear_active(runtime)
 	main.queue_free()
 	runtime.queue_free()
 	SETTINGS.act_input_shield.set_bool(before)

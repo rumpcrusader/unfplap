@@ -23,7 +23,6 @@ const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/actions.gd")
 const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
-const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const GARMENT_BINDING := preload("res://mods/unfplap/body_change/garment_binding.gd")
@@ -37,6 +36,7 @@ const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
@@ -75,17 +75,12 @@ var classifier
 var adapter: Node
 ## The Act Negotiation service: the Anon offer, the Mare exchange, the Agreement and the lock.
 var negotiation: Node
-var active_runtime
 ## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
 var eligibility: ELIGIBILITY
 ## Internal memory service: act events, impressions, witnesses and the mod's own lines.
 ## See docs/memory.md. Never part of the cross-mod API.
 var memory: MEMORY
 
-var _runtimes: Dictionary = {}
-## One suspended act waiting for the body its source is building. The runtime reparents itself to
-## `main` before the old body goes; the new body's spawn adopts it here.
-var _pending_swap: Dictionary = {}
 ## The idle act offer and its hint; see docs/offer.md.
 var offer: OFFER
 var _dance_hint_shown := false
@@ -99,27 +94,11 @@ var _captions_on_top: bool
 var _watching_player := false
 
 
-## Live act/afterglow context for the game's normal dialogue prompt (pony_prompt_notes).
+## Live act/afterglow context for the game's normal dialogue prompt (pony_prompt_notes). The
+## game calls a Node in the group, so the entry keeps the group join and this forward;
+## `ponies` is a RefCounted facade and owns the note.
 func prompt_note(pony: String) -> String:
-	if pony.is_empty():
-		return ""
-	for runtime: Variant in _runtimes.values():
-		if not is_instance_valid(runtime):
-			continue
-		runtime.call("_read_id")
-		var runtime_id := str(runtime.get("_id"))
-		if runtime_id.is_empty():
-			var target: Variant = runtime.get("pony")
-			if is_instance_valid(target):
-				runtime_id = ANATOMY.pony_id(target)
-		if runtime_id != pony:
-			continue
-		var note := str(runtime.call("prompt_note"))
-		var cycle := str(runtime.call("cycle_note"))
-		if not cycle.is_empty():
-			note = cycle if note.is_empty() else note + " " + cycle
-		return note
-	return ""
+	return PONIES.prompt_note(pony)
 
 
 func _ready() -> void:
@@ -138,8 +117,8 @@ func _ready() -> void:
 	# LOG, so no frame reads `settings` for them.
 	LOG.debug_logs = SETTINGS.debug_mode.get_bool()
 	LOG.debug_perf = SETTINGS.debug_perf.get_bool()
-	LOG.act_running = Callable(self, "_perf_act_running")
-	LOG.counts = Callable(self, "_perf_counts")
+	LOG.act_running = Callable(PONIES, "act_running")
+	LOG.counts = Callable(PONIES, "_counts")
 	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
@@ -185,7 +164,6 @@ func _ready() -> void:
 	anatomy_binding.call("setup", anatomy)
 	body_change.call("register_binding", anatomy_binding)
 	var runtime_binding: RefCounted = RUNTIME_BINDING.new()
-	runtime_binding.call("setup", self)
 	body_change.call("register_binding", runtime_binding)
 	var lod_binding: RefCounted = LOD_BINDING.new()
 	lod_binding.call("setup", self)
@@ -243,6 +221,15 @@ func _ready() -> void:
 		source_mtime = maxi(source_mtime, FileAccess.get_modified_time(path))
 	LOG.debug("entry ready (debug logs %s) runtime_mtime=%d" % [
 		"ON" if LOG.debug_logs else "OFF", source_mtime])
+	# The per-pony registry binds the services above once and builds its runtimes through the
+	# one factory, so no other entry member holds a runtime.
+	PONIES.host = self
+	PONIES.factory = Callable(self, "_new_runtime")
+	PONIES.anatomy = anatomy
+	PONIES.body_change = body_change
+	PONIES.offer = offer
+	PONIES.stock_smack = stock_smack
+	PONIES.eligibility = eligibility
 	Mods.world_ready.connect(_on_world)
 	Mods.world_closed.connect(_on_world_closed)
 	Mods.player_ready.connect(_on_player)
@@ -271,13 +258,14 @@ func _on_world(host: Node) -> void:
 	if not is_instance_valid(eligibility):
 		eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
+	PONIES.eligibility = eligibility
 	if is_instance_valid(stool):
 		stool.call("on_world", host)
 	if is_instance_valid(pantyhose):
 		pantyhose.call("on_world", host)
 	if is_instance_valid(body_change):
 		body_change.call("refresh_sources")
-	_pending_swap = {}
+	PONIES.reset()
 	LOG.reset()
 	if is_instance_valid(initiation):
 		initiation.reset()
@@ -307,10 +295,7 @@ func _on_world_closed(_host: Node) -> void:
 		negotiation.call("reset")
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
-	if is_instance_valid(active_runtime):
-		active_runtime.force_stop()
-	active_runtime = null
-	_pending_swap = {}
+	PONIES.close_world()
 	if is_instance_valid(stock_smack):
 		stock_smack.call("clear_world")
 	WORLD.unbind()
@@ -328,9 +313,10 @@ func _on_world_closed(_host: Node) -> void:
 func _caption_top_enabled() -> bool:
 	if not _captions_on_top:
 		return false
-	if not is_instance_valid(active_runtime):
+	var active: Node = PONIES.active()
+	if not is_instance_valid(active):
 		return false
-	var state: int = int(active_runtime.get("state"))
+	var state: int = int(active.get("state"))
 	if state not in [RUNTIME.State.POSING_IN, RUNTIME.State.ACTIVE, RUNTIME.State.CLIMAX]:
 		return false
 	var settings := get_node_or_null("/root/Settings")
@@ -381,8 +367,9 @@ func _on_game_setting_changed(key: String) -> void:
 
 
 func _apply_live_settings() -> void:
-	if is_instance_valid(active_runtime) and active_runtime.has_method("apply_live_settings"):
-		active_runtime.call("apply_live_settings")
+	var active: Node = PONIES.active()
+	if is_instance_valid(active) and active.has_method("apply_live_settings"):
+		active.call("apply_live_settings")
 
 
 ## One path for every control edit: refresh the cached flags, the caption position and the live
@@ -416,7 +403,7 @@ func _apply_settings_changed() -> void:
 	if is_instance_valid(body_change):
 		# A settings edit can change the re-seat toggle or a saved tail; the source applies its
 		# own wrapper once for each live body.
-		for pony: Variant in _runtimes.keys():
+		for pony: Variant in PONIES.live_ponies():
 			if is_instance_valid(pony):
 				apply_custom_tail(pony)
 	if is_instance_valid(pantyhose):
@@ -471,52 +458,21 @@ func _act_key_label() -> String:
 	return ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
 
 
+## Every body the game spawns arrives here. `ponies` owns the registry, the prepare hooks
+## and the pending-swap adoption; the factory below is the entry's only runtime
+## construction.
 func _on_pony(pony: Node) -> void:
-	if not is_instance_valid(pony):
-		return
-	# The player's own AnonPony is a pony_locomotion too. Never attach an intimacy runtime to her.
-	if pony.name == "PlayerPony" or is_instance_valid(pony.get("rig")):
-		return
-	_prepare_pony(pony)
-	if _adopt_pending_swap(pony):
-		return
-	if _runtimes.has(pony):
-		return
+	PONIES.attach(pony)
+
+
+## The entry's one runtime construction: `ponies` calls it once per attached body. The
+## runtime file is the entry's preload, so the registry never imports it.
+func _new_runtime(pony: Node) -> Node:
 	var runtime: Node = RUNTIME.new()
 	runtime.name = "UnfplapRuntime"
 	runtime.set("pony", pony)
 	runtime.set("main", self)
-	if is_instance_valid(anatomy):
-		anatomy.call("bind", pony, runtime)
-	pony.add_child(runtime)
-	_runtimes[pony] = runtime
-	LOG.debug("runtime attached %s id=%s" % [str(pony.name), str(pony.get_meta("relationship_id", ""))])
-	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
-
-
-## Record the act's one pending body swap. The runtime keeps the act; this record only lets the
-## new body's spawn find it before a second runtime is created.
-func begin_body_swap(runtime: Node, old_pony: Node, id: String, change: BODY_CHANGE) -> void:
-	if not is_instance_valid(runtime) or change == null:
-		return
-	_pending_swap = {
-		"runtime": runtime,
-		"old_pony": old_pony,
-		"id": id,
-		"change": change,
-	}
-	if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
-		_runtimes.erase(old_pony)
-
-
-## The swap finished, failed or the act ended. Idempotent and scoped to the runtime.
-func clear_body_swap(runtime: Node) -> void:
-	if _pending_swap.get("runtime") == runtime:
-		_pending_swap = {}
-
-
-func body_swap_pending() -> bool:
-	return not _pending_swap.is_empty()
+	return runtime
 
 
 ## The first active source that handles this pony, or null.
@@ -549,109 +505,11 @@ func custom_tail_report() -> String:
 	return str(body_change.call("tail_placement_report"))
 
 
-## Fit and prepare a new body before it can take a runtime or an act. The body-change service asks
-## the handling provider for the body's form and mirrors it before anatomy attaches.
-func _prepare_pony(pony: Node) -> void:
-	if is_instance_valid(body_change):
-		body_change.call("notify_body_ready", pony)
-	if is_instance_valid(anatomy):
-		anatomy.call("tail_ready", pony)
-	if is_instance_valid(stock_smack):
-		stock_smack.call("pony_ready", pony)
-
-
-## A mod that adds a node the first prepare needed, such as the changelings tail chain, calls
-## this once it exists. Every prepare hook is idempotent, and this never creates a runtime.
-func prepare_pony_late(pony: Node) -> void:
-	if not is_instance_valid(pony) or not is_inside_tree():
-		return
-	_prepare_pony(pony)
-
-
-## Adopt the body the suspended act's source reports when the spawn hook arrives too late for the
-## pending swap. The runtime calls this from its watcher after the adoption grace.
-func adopt_pending_body(pony: Node) -> bool:
-	if not is_instance_valid(pony):
-		return false
-	_prepare_pony(pony)
-	return _adopt_pending_swap(pony)
-
-
-## Adopt the suspended act onto a newly spawned body. Runs after the adapter fitted it but before
-## a runtime is created, so there is never a second act owner. Returns true when it adopted.
-func _adopt_pending_swap(pony: Node) -> bool:
-	if _pending_swap.is_empty() or not is_instance_valid(pony):
-		return false
-	var runtime: Variant = _pending_swap.get("runtime")
-	if not is_instance_valid(runtime):
-		_pending_swap = {}
-		return false
-	var change: Variant = _pending_swap.get("change")
-	var source: Node = null
-	if change is BODY_CHANGE and is_instance_valid((change as BODY_CHANGE).source):
-		source = (change as BODY_CHANGE).source
-	var claimed: bool = is_instance_valid(source) and source.has_method("claims_body") \
-		and bool(source.call("claims_body", pony))
-	if not claimed:
-		var identity: Variant = pony.get("identity")
-		var new_id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), identity)
-		if new_id != str(_pending_swap.get("id", "")):
-			return false
-	var duplicate: Variant = _runtimes.get(pony)
-	if is_instance_valid(duplicate) and duplicate != runtime:
-		# A runtime created before adoption could only be a race; the suspended act is the owner.
-		# Its anatomy controller holds the duplicate's facts, so drop it before the bind below.
-		if is_instance_valid(anatomy) and anatomy.has_method("detach_controller"):
-			anatomy.call("detach_controller", pony)
-		if duplicate.has_method("force_stop"):
-			duplicate.call("force_stop")
-		duplicate.queue_free()
-	var old_pony: Variant = _pending_swap.get("old_pony")
-	if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
-		_runtimes.erase(old_pony)
-	_runtimes[pony] = runtime
-	if is_instance_valid(anatomy):
-		anatomy.call("bind", pony, runtime)
-	if runtime.get_parent() != pony:
-		runtime.call("attach_to_body", pony)
-	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
-	_pending_swap = {}
-	runtime.call("adopt_body", pony)
-	return true
-
-
-## Live adult mares that are not in the base roster, for the Characters selector. A modded mare
-## appears while she is in the world; her saved preset stays in settings.json when she despawns.
-## Installed-profile sources also list their mares while they are away.
-func live_character_ids() -> Array[String]:
-	var ids: Array[String] = []
-	for pony: Variant in _runtimes.keys():
-		if pony is Node3D and is_instance_valid(pony) and is_instance_valid(eligibility) \
-				and eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER):
-			ids.append(ANATOMY.pony_id(pony))
-	var out: Array[String] = ANATOMY.off_roster_ids(ids, SETTINGS.CHARACTER_ORDER)
-	for id: String in installed_character_ids():
-		if not id in SETTINGS.CHARACTER_ORDER and not out.has(id):
-			out.append(id)
-	out.sort_custom(func(a: String, b: String) -> bool:
-		return SETTINGS.character_name(a).naturalnocasecmp_to(
-			SETTINGS.character_name(b)) < 0)
-	return out
-
-
-## Mares an active installed-profile source lists even while she is away. The source owns the
-## installation gate; the base roster stays the base roster.
-func installed_character_ids() -> Array[String]:
-	if not is_instance_valid(body_change):
-		return []
-	return body_change.call("installed_character_ids")
-
-
 ## The settings page hook. No game-script extension is used. Opening the page re-reads
 ## settings.json; the settings UI owns the deferred injection and the sub-tabs.
 func _on_settings_page(page: Node) -> void:
 	SETTINGS_UI.inject(page, Callable(self, "_build_settings_actions"),
-		Callable(self, "live_character_ids"), Callable(self, "_character_participation"),
+		Callable(PONIES, "live_character_ids"), Callable(self, "_character_participation"),
 		Callable(self, "_apply_settings_changed"), Callable(LOG, "debug"))
 
 
@@ -668,28 +526,13 @@ func _character_participation(id: String) -> Dictionary:
 	return {}
 
 
-## The idle probe's act gate. The runtime belongs to the entry until the pony registry moves out,
-## so the entry is the one place that can answer it.
-func _perf_act_running() -> bool:
-	return is_instance_valid(active_runtime)
-
-
-## The idle block's header counts. Read once per window, never per note.
-func _perf_counts() -> Dictionary:
-	var runtimes := 0
-	for runtime: Variant in _runtimes.values():
-		if is_instance_valid(runtime):
-			runtimes += 1
-	return {"runtimes": runtimes, "mares": WORLD.mares().size()}
-
-
-## The debug actions' reads of the live act. The runtime registry is the entry's until `ponies`
-## owns it, so these named reads are the one place it hands them over.
+## The debug actions' reads of the live act. The runtime registry is `ponies`', so these named
+## reads are the one place the entry hands them over.
 func _debug_host() -> DEBUG_ACTIONS.Host:
 	var host := DEBUG_ACTIONS.Host.new()
-	host.act = func() -> Node: return active_runtime if is_instance_valid(active_runtime) else null
-	host.runtime_for = Callable(self, "runtime_for")
-	host.runtimes = func() -> Array: return _runtimes.keys()
+	host.act = func() -> Node: return PONIES.active()
+	host.runtime_for = Callable(PONIES, "runtime_for")
+	host.runtimes = func() -> Array: return PONIES.live_ponies()
 	host.act_target = func(pony: Variant) -> bool: return _is_act_target(pony)
 	host.reload_posed_base = func() -> String: return AUTHORED.reload_file()
 	return host
@@ -707,20 +550,21 @@ func _process(delta: float) -> void:
 ## here is load-bearing.
 func _process_entry(delta: float, timed: bool) -> void:
 	# The caption move is an act-only path; the two reads behind it are not worth a per-frame call.
-	if _captions_on_top and is_instance_valid(active_runtime):
+	var active: Node = PONIES.active()
+	if _captions_on_top and is_instance_valid(active):
 		_caption_top_tick()
 	if not is_instance_valid(WORLD.player) and is_instance_valid(WORLD.game):
 		var body: Variant = WORLD.game.get("player")
 		if is_instance_valid(body):
 			_on_player(body)
-	if is_instance_valid(active_runtime):
+	if is_instance_valid(active):
 		var camera_started := Time.get_ticks_usec()
-		active_runtime.apply_camera_motion()
-		active_runtime.call("perf_note", "camera_motion", Time.get_ticks_usec() - camera_started)
+		active.call("apply_camera_motion")
+		active.call("perf_note", "camera_motion", Time.get_ticks_usec() - camera_started)
 		if is_instance_valid(hud):
 			var hud_started := Time.get_ticks_usec()
-			hud.update_from(active_runtime.call("act_view"))
-			active_runtime.call("perf_note", "hud", Time.get_ticks_usec() - hud_started)
+			hud.update_from(active.call("act_view"))
+			active.call("perf_note", "hud", Time.get_ticks_usec() - hud_started)
 		offer.hide_hint()
 		return
 
@@ -774,36 +618,12 @@ func refresh_api_state() -> void:
 
 ## integration: keep the anatomy feature live when the player edits a flag.
 func refresh_anatomy() -> void:
-	for runtime: Variant in _runtimes.values():
-		if is_instance_valid(runtime) and runtime.has_method("apply_live_settings"):
-			runtime.call("apply_live_settings")
+	PONIES.apply_live_settings()
 	if is_instance_valid(anatomy):
 		anatomy.call("refresh_player")
 		anatomy.call("refresh_all")
 		anatomy.call("apply_live")
 		anatomy.call("player_apply_live")
-
-
-func allocate_serial() -> int:
-	var section: Dictionary = Mods.state("unfplap")
-	var value: int = int(section.get("serial", 0)) + 1
-	section["serial"] = value
-	Mods.save_changed()
-	return value
-
-
-func set_active(runtime: Node) -> void:
-	active_runtime = runtime
-	offer.clear_current()
-	if is_instance_valid(stock_smack):
-		stock_smack.call("act_start", runtime.get("pony"))
-
-
-func clear_active(runtime: Node) -> void:
-	if active_runtime == runtime:
-		active_runtime = null
-		if is_instance_valid(stock_smack):
-			stock_smack.call("act_end", runtime.get("pony"))
 
 
 ## The act-target capability. The eligibility service owns the rule; a scan uses this before
@@ -816,17 +636,7 @@ func _is_act_target(pony: Variant) -> bool:
 ## The offer's act-live read: a live act owns the frame, so the act key starts nothing and no
 ## Agreement auto-starts.
 func _act_live() -> bool:
-	return is_instance_valid(active_runtime)
-
-
-func runtime_for(pony: Node) -> Node:
-	if not is_instance_valid(pony):
-		return null
-	var runtime: Variant = _runtimes.get(pony)
-	if is_instance_valid(runtime):
-		return runtime
-	var child: Node = pony.get_node_or_null("UnfplapRuntime")
-	return child if is_instance_valid(child) else null
+	return PONIES.act_running()
 
 
 ## Bind the Negotiation service's typed host. `reset()` drops it on a world close;
@@ -1008,7 +818,7 @@ func _negotiation_react(pony: Node, reason: String) -> void:
 func _tick_negotiation_watch() -> void:
 	if not is_instance_valid(adapter) or not is_instance_valid(negotiation):
 		return
-	var free := not is_instance_valid(active_runtime) and not bool(negotiation.call("is_locked"))
+	var free := not PONIES.act_running() and not bool(negotiation.call("is_locked"))
 	if free:
 		if not _watching_player:
 			_watching_player = true
@@ -1019,7 +829,7 @@ func _tick_negotiation_watch() -> void:
 		_watching_player = false
 		adapter.call("unwatch_player")
 		LOG.debug("anon_watch disarmed reason=%s" % [
-			"act" if is_instance_valid(active_runtime) else "locked"])
+			"act" if PONIES.act_running() else "locked"])
 
 
 ## The first new player line while he talks to a mare: an Anon offer. The Negotiation service
@@ -1043,7 +853,7 @@ func _on_anon_line(text: String) -> void:
 	if not is_instance_valid(pony):
 		LOG.debug("anon_line skip reason=no_target")
 		return
-	var runtime: Variant = runtime_for(pony)
+	var runtime: Variant = PONIES.runtime_for(pony)
 	if not is_instance_valid(runtime) or int(runtime.get("state")) != 0:
 		LOG.debug("anon_line skip reason=runtime_state state=%s" % [
 			str(runtime.get("state")) if is_instance_valid(runtime) else "none"])
@@ -1090,7 +900,7 @@ func _on_negotiation_outcome(terminal: Variant) -> void:
 			else "none", float(_field(terminal, "cooldown_s", 0.0))])
 	var pony: Variant = _field(terminal, "pony")
 	if is_instance_valid(pony):
-		var runtime: Variant = runtime_for(pony)
+		var runtime: Variant = PONIES.runtime_for(pony)
 		if is_instance_valid(runtime) and runtime.has_method("clear_presentation"):
 			runtime.call("clear_presentation")
 	if int(_field(terminal, "outcome", -1)) != NEGOTIATION.Outcome.STARTED \
@@ -1111,7 +921,7 @@ func _on_agreement(handle: Variant) -> void:
 		pony_id, str(_field(handle, "trigger", "")),
 		str(_field(option, "pose", "none")) if option != null else "none",
 		str(_field(handle, "private", false))])
-	var runtime: Variant = runtime_for(pony) if is_instance_valid(pony) else null
+	var runtime: Variant = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
 	if not is_instance_valid(runtime) or not runtime.has_method("start_agreement"):
 		if is_instance_valid(negotiation):
 			negotiation.call("cancel", handle, "cancelled")
@@ -1153,15 +963,7 @@ func _exit_tree() -> void:
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
 		classifier.queue_free()
-	if is_instance_valid(active_runtime):
-		active_runtime.force_stop()
-	active_runtime = null
-	_pending_swap = {}
-	for runtime: Variant in _runtimes.values():
-		if is_instance_valid(runtime):
-			runtime.force_stop()
-			runtime.queue_free()
-	_runtimes.clear()
+	PONIES.shutdown()
 	if is_instance_valid(stool):
 		stool.call("shutdown")
 		stool.queue_free()

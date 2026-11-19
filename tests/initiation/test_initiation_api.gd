@@ -11,6 +11,7 @@ const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 var failures := 0
 var checks := 0
@@ -54,7 +55,6 @@ class FakeEligibility extends RefCounted:
 class FakeMain extends Node:
 	var player: Node3D
 	var game: Node
-	var runtimes: Dictionary = {}
 	var eligibility: Variant
 	var view := FakeView.new()
 	var offer: Dictionary = {}
@@ -63,10 +63,6 @@ class FakeMain extends Node:
 
 	func negotiation_locked() -> bool:
 		return locked
-
-	func runtime_for(pony: Node) -> Node:
-		var runtime: Variant = runtimes.get(pony)
-		return runtime if is_instance_valid(runtime) else null
 
 	func menu_open() -> bool:
 		return false
@@ -239,6 +235,7 @@ func _fixture() -> Dictionary:
 	target.add_child(nav)
 	var runtime := FakeRuntime.new()
 	runtime.pony = target
+	target.add_child(runtime)
 	var eligibility := FakeEligibility.new()
 	var adapter := FakeAdapter.new()
 	var privacy := FakePrivacy.new()
@@ -250,8 +247,10 @@ func _fixture() -> Dictionary:
 	main.game = game
 	WORLD.bind_world(main.game)
 	main.eligibility = eligibility
-	main.runtimes[target] = runtime
-	for node: Node in [game, player, target, runtime, adapter, offer]:
+	PONIES.shutdown()
+	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
+	PONIES.attach(target)
+	for node: Node in [game, player, target, adapter, offer]:
 		root.add_child(node)
 	root.add_child(main)
 	var service := INIT.new()
@@ -264,8 +263,8 @@ func _fixture() -> Dictionary:
 
 
 func _free(made: Dictionary) -> void:
-	for key: String in ["service", "main", "game", "player", "target", "runtime", "adapter",
-			"offer"]:
+	PONIES.shutdown()
+	for key: String in ["service", "main", "game", "player", "target", "adapter", "offer"]:
 		var node: Node = made[key]
 		root.remove_child(node)
 		node.free()

@@ -17,6 +17,8 @@ const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PROFILES := preload("res://mods/unfplap/shared/character_preferences.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
 var failures := 0
 var checks := 0
@@ -30,20 +32,26 @@ class FakeEligibility extends RefCounted:
 class FakeMain extends Node:
 	var api: Node
 	var body_change: Node
-	var live_ids: Array[String] = []
 	var game: Variant = null
 	var eligibility: Variant = null
-	var late_prepares: Array[Node] = []
 	var anatomy_refreshes := 0
-
-	func live_character_ids() -> Array[String]:
-		return live_ids.duplicate()
-
-	func prepare_pony_late(pony: Node) -> void:
-		late_prepares.append(pony)
 
 	func refresh_anatomy() -> void:
 		anatomy_refreshes += 1
+
+
+## The registry's prepare hook, forwarded to the real service and recorded: the adapter's late
+## prepare and installed list both reach `ponies`.
+class RecordingBodyChange extends Node:
+	var service: Node = null
+	var prepared: Array[Node] = []
+
+	func notify_body_ready(pony: Node) -> void:
+		prepared.append(pony)
+		service.call("notify_body_ready", pony)
+
+	func installed_character_ids() -> Array[String]:
+		return service.call("installed_character_ids")
 
 
 class FakePopulation extends Node:
@@ -57,6 +65,8 @@ class FakeGame extends Node:
 class FakeIdentity extends Resource:
 	var id := ""
 	var character_id := ""
+	var filly := false
+	var stallion := false
 
 
 class FakePony extends Node3D:
@@ -152,6 +162,15 @@ func run() -> void:
 	body_change.call("setup", main)
 	root.add_child(body_change)
 	main.body_change = body_change
+	PONIES.shutdown()
+	var recorder := RecordingBodyChange.new()
+	recorder.name = "RecordingBodyChange"
+	recorder.service = body_change
+	root.add_child(recorder)
+	PONIES.host = main
+	PONIES.body_change = recorder
+	PONIES.eligibility = ELIGIBILITY.new()
+	PONIES.eligibility.setup(main)
 	var api := API.new()
 	api.name = "UnfplapAPI"
 	root.add_child(api)
@@ -309,7 +328,7 @@ func run() -> void:
 		"the late retry finds the tail root")
 	check(bool(adapter.call("has_tail_placement", late_body)),
 		"the late body reports a source-owned tail placement")
-	check(main.late_prepares.has(late_body),
+	check(recorder.prepared.has(late_body),
 		"the late retry asks main to prepare the body again")
 	late_body.free()
 
@@ -517,7 +536,7 @@ func run() -> void:
 
 	# The variant appears: one late fit for the shape, with the anatomy and LOD refresh.
 	early.set_meta("geometry_variant", "changeling=rarity")
-	var late_before := main.late_prepares.size()
+	var late_before := recorder.prepared.size()
 	var anatomy_before := main.anatomy_refreshes
 	var lod_key: String = HYBRID_NEAR_MESH.key(early)
 	HYBRID_NEAR_MESH.cache[lod_key] = true
@@ -526,13 +545,13 @@ func run() -> void:
 		"the delayed named change keeps its target")
 	check(str(early.get_meta("body_fit_id", "")) == "rarity",
 		"the settled shape refits the new body as the target")
-	check(main.late_prepares.size() == late_before + 1 and main.late_prepares.back() == early,
-		"the settled shape asks main for the late prepare once")
+	check(recorder.prepared.size() == late_before + 1 and recorder.prepared.back() == early,
+		"the settled shape asks ponies for the late prepare once")
 	check(main.anatomy_refreshes == anatomy_before + 1,
 		"the settled shape refreshes the anatomy once")
 	check(not HYBRID_NEAR_MESH.cache.has(lod_key), "the settled shape rebuilds the body's LOD")
 	adapter.call("poll")
-	check(main.late_prepares.size() == late_before + 1,
+	check(recorder.prepared.size() == late_before + 1,
 		"the settled shape is not refitted again")
 	pack.busy = false
 	adapter.call("poll")
@@ -643,11 +662,21 @@ func run() -> void:
 	root.remove_child(note_game)
 	note_game.free()
 
-	# A live off-roster adult mare is a candidate through the entry's list.
-	main.live_ids = ["sunny_star"]
+	# A live off-roster adult mare is a candidate through the registry's own list.
+	var live_mare := FakePony.new()
+	live_mare.name = "SunnyStar"
+	live_mare.identity = _identity("sunny_star")
+	root.add_child(live_mare)
+	var live_runtime := Node.new()
+	live_runtime.name = "LiveRuntime"
+	PONIES.factory = func(_pony_node: Node) -> Node: return live_runtime
+	PONIES.attach(live_mare)
 	check(str(adapter.call("named_form", "Sunny Star")) == "sunny_star",
 		"a live off-roster adult mare resolves")
-	main.live_ids = []
+	PONIES.shutdown()
+	live_runtime.free()
+	root.remove_child(live_mare)
+	live_mare.free()
 
 	# The provider policy owns the offer timing, prompt and reveal effects.
 	var policy: POLICY = adapter.call("policy")
@@ -849,6 +878,9 @@ func run() -> void:
 	api.call("_shutdown")
 	root.remove_child(api)
 	api.free()
+	PONIES.shutdown()
+	root.remove_child(recorder)
+	recorder.free()
 	root.remove_child(main)
 	main.free()
 	REGISTRY.reset()

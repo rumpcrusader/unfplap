@@ -30,6 +30,7 @@ const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 const KEY_PREFIX := "unfplap:request"
 
@@ -242,7 +243,7 @@ func _tick_cuddle_edges() -> void:
 	for node: Variant in _venue.mares():
 		if not is_instance_valid(node):
 			continue
-		var runtime: Variant = main.call("runtime_for", node)
+		var runtime: Node = PONIES.runtime_for(node)
 		if not is_instance_valid(runtime) or not runtime.has_method("cuddle_active"):
 			continue
 		var id: String = _venue.pony_id(node)
@@ -281,7 +282,7 @@ func _consider_start() -> void:
 			continue
 		if eligibility == null or not eligibility.eligible(node, ELIGIBILITY.Target.ACT):
 			continue
-		var runtime: Variant = main.call("runtime_for", node)
+		var runtime: Node = PONIES.runtime_for(node)
 		if not is_instance_valid(runtime):
 			continue
 		var reasons: Array = []
@@ -492,7 +493,7 @@ func debug_rows(pony: Node) -> Array[String]:
 	if id.is_empty():
 		rows.append("no relationship id")
 		return rows
-	var runtime: Variant = main.call("runtime_for", pony) if is_instance_valid(main) else null
+	var runtime: Node = PONIES.runtime_for(pony)
 	var section := COOLDOWNS.section()
 	var heat := _in_heat(runtime)
 	var wait := COOLDOWNS.wait_seconds(section, id, heat)

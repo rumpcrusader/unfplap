@@ -6,6 +6,7 @@ extends Node
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -62,7 +63,7 @@ func apply_settings() -> void:
 func _physics_process(_delta: float) -> void:
 	if not is_instance_valid(main):
 		return
-	var runtime: Variant = main.get("active_runtime")
+	var runtime: Node = PONIES.active()
 	if is_instance_valid(runtime):
 		# Pause/settings must not end the act; the runtime simply stops processing while the
 		# tree is paused and resumes when the menu closes.
@@ -171,7 +172,7 @@ func _input(event: InputEvent) -> void:
 	# A panel that does not pause the tree (the map, the inventory) keeps its own keys.
 	if WORLD.menu_panel_open():
 		return
-	var runtime: Variant = main.get("active_runtime")
+	var runtime: Node = PONIES.active()
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT \

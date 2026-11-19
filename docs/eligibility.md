@@ -448,6 +448,7 @@ refusal status (`docs/integrations.md`).
 | shared | participation | `shared/participation.gd` | participation keys and defaults |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | store | act_history | `shared/act_history.gd` | stored history rows |
+| service | ponies | `ponies/service.gd` | the live runtime's cycle phase |
 
 ## Lifecycle
 

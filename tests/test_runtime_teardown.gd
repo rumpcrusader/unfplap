@@ -6,6 +6,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const CATALOG_STANDING := "standing"
 const CATALOG_STANDING_TEST := "standing_test"
@@ -108,14 +109,9 @@ class FakeMain extends Node:
 	var hud: Variant = null
 	var game: Variant = null
 	var memory: Variant = null
-	var active_runtime: Variant = null
 	var view: Camera3D = null
 	var anatomy: Variant = null
 	var eligibility: Variant = null
-	var cleared: Array = []
-
-	func clear_active(runtime: Node) -> void:
-		cleared.append(runtime)
 
 	func camera() -> Camera3D:
 		return view
@@ -235,6 +231,7 @@ func _fixture() -> Dictionary:
 	runtime.pose_id = CATALOG_STANDING
 	runtime.source = "test"
 	runtime.state = 2
+	PONIES.set_active(runtime)
 	runtime.toggle_auto_thrust()
 	runtime._hold.nav = nav
 	nav.command_owner = "unfplap:test_mare"
@@ -291,7 +288,7 @@ func run() -> void:
 	check(int(runtime.state) == 0, "state returns to IDLE")
 	check(runtime.pose_id == "" and runtime.source == "" and runtime.bed == null,
 		"act ids cleared")
-	check(main.cleared.size() == 1 and main.cleared[0] == runtime, "main clears the active runtime")
+	check(not PONIES.act_running(), "the one exit clears the active runtime")
 
 	# A second teardown is a no-op, not a second restore.
 	runtime._end_session(false)
@@ -363,7 +360,7 @@ func run() -> void:
 	check(not runtime4._hold.locked_player, "invalid pony still unlocks the player")
 	check(nav4.command_owner == "", "invalid pony still releases the navigator")
 	check(int(runtime4.state) == 0, "invalid pony ends in IDLE")
-	check(main4.cleared.size() == 1, "invalid pony still clears the active runtime")
+	check(not PONIES.act_running(), "invalid pony still clears the active runtime")
 
 	# Finalize is idempotent.
 	var f5 := _fixture()
@@ -455,14 +452,14 @@ func run() -> void:
 	var acting7: Node = RUNTIME.new()
 	acting7.main = main7
 	acting7.state = 2 # ACTIVE
-	main7.active_runtime = acting7
+	PONIES.set_active(acting7)
 	idle7.call("_restore_stray_inventory_hud")
 	check(hud7.inventory_hidden(), "idle sibling leaves the active act's inventory HUD hidden")
 	acting7.state = 0 # IDLE
 	idle7.call("_restore_stray_inventory_hud")
 	check(not hud7.inventory_hidden(), "idle safety restores the HUD once no act is active")
 	hud7.set_inventory_hidden(true)
-	main7.active_runtime = null
+	PONIES.clear_active(acting7)
 	idle7.call("_restore_stray_inventory_hud")
 	check(not hud7.inventory_hidden(), "idle safety restores the HUD with no active runtime")
 	acting7.free()
@@ -650,7 +647,7 @@ func run() -> void:
 	check(not runtime11._suspended, "a body bind never suspends the act")
 	check(runtime11._pose_session.pony == pony11, "the body bind binds the pose session")
 	check(runtime11._face.pony == pony11, "the body bind binds the face")
-	check(main11.cleared.is_empty(), "a body bind never runs the act exit")
+	check(PONIES.active() == runtime11, "a body bind never runs the act exit")
 	form11.form_id = "rarity"
 	form11.fit_id = "rarity"
 	form11.revision = 1
@@ -658,7 +655,7 @@ func run() -> void:
 	check(int(runtime11.state) == 2, "a same-node refresh leaves a live act live")
 	check(runtime11._act_camera.camera_target_eye > 0.0,
 		"a same-node refresh reapplies the eye target")
-	check(main11.cleared.is_empty(), "a same-node refresh never runs the act exit")
+	check(PONIES.active() == runtime11, "a same-node refresh never runs the act exit")
 	runtime11._form_context.form = form11
 	runtime11._form_context.change = BODY_CHANGE.new()
 	runtime11._end_session(false)

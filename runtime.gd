@@ -2,6 +2,7 @@ extends Node
 ## One per pony. Holds the act state machine and all per-act state. It never edits game files.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const REST_REJOIN := preload("res://mods/unfplap/rest/service.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
@@ -1724,6 +1725,13 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null, distan
 	_read_id()
 	return _scene_gate().debug_line(pose, act_source, bed_in, distance, dot)
 
+## The stable pony id the act is on, read from the live body. `ponies` matches a prompt note
+## to its one runtime through this; the id itself stays private to the act.
+func live_id() -> String:
+	_read_id()
+	return _id
+
+
 func _read_id() -> bool:
 	if not is_instance_valid(pony):
 		return false
@@ -2031,7 +2039,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	# integration: act-only visibility updates at the state change, not on the next poll.
 	_anatomy_bridge.apply_live()
 	_pose_in_left = POSE_IN_SECONDS
-	main.set_active(self)
+	PONIES.set_active(self)
 	if is_instance_valid(main) and is_instance_valid(main.hud):
 		_sync_hud_facts()
 		main.hud.show_act(_act_facts)
@@ -2041,9 +2049,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	return true
 
 func _next_serial() -> int:
-	if is_instance_valid(main) and main.has_method("allocate_serial"):
-		return int(main.call("allocate_serial"))
-	return 1
+	return PONIES.allocate_serial()
 
 func _end_cuddle_session() -> void:
 	_hold.end_cuddle()
@@ -2288,8 +2294,7 @@ func _late_body_pending(change: BODY_CHANGE) -> bool:
 		return false
 	if _swap_elapsed < BODY_SWAP_ADOPT_GRACE_S:
 		return true
-	return is_instance_valid(main) and main.has_method("adopt_pending_body") \
-		and bool(main.call("adopt_pending_body", newcomer))
+	return PONIES.adopt_pending_body(newcomer)
 
 
 ## A change her AI starts inside the restore window can free the body under the runtime before
@@ -2330,8 +2335,7 @@ func _suspend_for_body_swap(change: BODY_CHANGE) -> void:
 	var view: Variant = _pose_service().view()
 	_swap_pose = str(view.id) if view != null and not str(view.id).is_empty() \
 		else str(_start_row().get("id", ""))
-	if is_instance_valid(main) and main.has_method("begin_body_swap"):
-		main.call("begin_body_swap", self, pony, _id, change)
+	PONIES.begin_body_swap(self, pony, _id, change)
 	# Leave the old body before it is freed. `main` keeps the act; the new body adopts the node.
 	attach_to_body(main)
 	var source := _change_source(change)
@@ -2377,8 +2381,7 @@ func adopt_body(new_pony: Node) -> void:
 	pony = new_pony
 	_pose_service().bind(self, pony)
 	_face.bind(pony, self)
-	if is_instance_valid(main) and main.has_method("clear_body_swap"):
-		main.call("clear_body_swap", self)
+	PONIES.clear_body_swap(self)
 	_adopt_display_name(pony)
 	_anatomy_refresh()
 	if not _new_body_is_adult():
@@ -2462,8 +2465,7 @@ func _resume_after_body_swap() -> void:
 	_swap_shape_confirmed = false
 	_swap_elapsed = 0.0
 	_swap_clock = BODY_SWAP_POLL_S
-	if is_instance_valid(main) and main.has_method("clear_body_swap"):
-		main.call("clear_body_swap", self)
+	PONIES.clear_body_swap(self)
 	_pose_service().bind(self, pony)
 	_face.bind(pony, self)
 	_adopt_display_name(pony)
@@ -2588,8 +2590,7 @@ func _new_body_is_adult() -> bool:
 ## Clear the swap and end the act through the one exit. A lost body is not an act to resume.
 func _failed_body_swap(reason: String) -> void:
 	_log("body swap failed: %s" % reason)
-	if is_instance_valid(main) and main.has_method("clear_body_swap"):
-		main.call("clear_body_swap", self)
+	PONIES.clear_body_swap(self)
 	_swap_change = null
 	_swap_new_pony = null
 	_swap_shape_confirmed = false
@@ -3288,7 +3289,7 @@ func _restore_stray_inventory_hud() -> void:
 		return
 	if not main.hud.inventory_hidden():
 		return
-	var owner: Variant = main.get("active_runtime")
+	var owner: Node = PONIES.active()
 	if is_instance_valid(owner) and owner != self:
 		var owner_state: Variant = owner.get("state")
 		if owner_state != null and int(owner_state) != State.IDLE:
@@ -4446,8 +4447,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_form_hint = ""
 	_form_context.form = null
 	_form_context.change = null
-	if is_instance_valid(main) and main.has_method("clear_body_swap"):
-		main.call("clear_body_swap", self)
+	PONIES.clear_body_swap(self)
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
 	# returns Anon and her to it, but only when it did not go badly.
 	var rejoin_bed: Node3D = null
@@ -4490,7 +4490,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	if is_instance_valid(main):
 		if is_instance_valid(main.hud):
 			main.hud.hide_all()
-		main.clear_active(self)
+		PONIES.clear_active(self)
 	state = State.IDLE
 	pose_id = ""
 	source = ""
@@ -5054,8 +5054,7 @@ func _snout() -> Vector3:
 func _exit_tree() -> void:
 	if _swapping_parent:
 		return
-	if is_instance_valid(main) and main.has_method("clear_body_swap"):
-		main.call("clear_body_swap", self)
+	PONIES.clear_body_swap(self)
 	_kiss_controller().restore_forelegs()
 	_release_stool()
 	_end_tail_tuck()

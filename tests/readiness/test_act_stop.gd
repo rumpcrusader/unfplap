@@ -139,10 +139,6 @@ class FakeMain extends Node:
 	var game: Variant = null
 	var hud: Variant = null
 	var memory: Variant = null
-	var cleared: Array = []
-
-	func clear_active(runtime: Node) -> void:
-		cleared.append(runtime)
 
 	func player_body() -> Node3D:
 		return player as Node3D

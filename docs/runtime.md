@@ -8,7 +8,8 @@ ticks and owns the lifetime, the composition, the one view call site and the exi
 protocol (`act/agreement.gd`), the one teardown (`act/exit.gd`), the typed collaborator set
 (`act/context.gd`), the node operations (`act/host.gd`), the view composition (`act/view.gd`) and
 the idle schedule (`act/idle.gd`). It implements no system's rules and owns no system's mutable
-state. The service contracts are indexed in `docs/README.md`.
+state. The act's settings snapshot is `act/settings.gd`, the act's read composition is
+`act/view.gd`, and the service contracts are indexed in `docs/README.md`.
 
 ## Lifetime
 
@@ -33,7 +34,7 @@ state. The service contracts are indexed in `docs/README.md`.
 |---|---|
 | Lifetime | attach, `_ready`, tree parenting, despawn, world close, reparent across a body swap |
 | State machine | the transition bodies and their side effects; `act/session.gd` owns `state`, the one `_set_state()` writer, the timers and the clock |
-| Session values | `act/session.gd` owns the pose id, source, bed, id/display, event/serial, preferences/profile/prompts/features, the settings snapshot and the act bookkeeping; the runtime keeps read-through handles (`_id`, `_snapshot`) and delegates `refresh_identity()` |
+| Session values | `act/session.gd` owns the pose id, source, bed, id/display, event/serial, preferences/profile/prompts and the act bookkeeping; `act/settings.gd` owns the settings snapshot and its read-throughs; the runtime keeps read-through handles (`_id`, `_snapshot`) and delegates `refresh_identity()` |
 | Composition | `_build_systems()`, `_bind_act_frame()` and `_bind_pose_hosts()`, one typed field per system, one bind pass |
 | Schedules | idle (`act/idle.gd`), physics and render, each an ordered list of one-line calls |
 | Ledgers | `act/start.gd` the ordered start, its setup adapters and its partial-start abort, `act/agreement.gd` the scene-only Agreement and act-key rows, `act/exit.gd` the one exit and finalize-once; the runtime keeps the suspend release and the resume rebuild |
@@ -99,23 +100,31 @@ the act's own values live in `act/session.gd`:
   reads; the view and the idle schedule never read the fields.
 - values: `pose_id` (the start identity), `source`, `bed`, `pony_id`, `display_name`,
   `event_id` and `serial` from `PONIES.allocate_serial()`, `preferences`, `act_prompts`,
-  `features`, `profile`, `presentation_config`, `caress_quality`, `player_pony`, `forced_glance`;
-- act bookkeeping: `aftercare_min`, `cue_gap`, `first_time`, `stopped_by_her`,
-  `tolerance_warning_key`, `act_spoken_at`, and the two ownership flags `posture_owned` and
-  `finalized`.
+  `profile`, `player_pony`, `forced_glance`;
+- act bookkeeping: `aftercare_min`, `cue_gap`, `first_time`, `stopped_by_her`, `act_spoken_at`,
+  `ended_early`, `cycle_heat`, `preserve_auto_shape`, and the two ownership flags `posture_owned`
+  and `finalized`.
 
 `refresh_identity()` re-reads the stable identity from the presented body, adopts its display name
-and refreshes the scene gate; `live_id()` and the runtime's `_id` handle read `pony_id`. The act
-settings snapshot is `snapshot_settings()`, run at act start and again at the top of
-`apply_live_settings()`, before the `IDLE` early return; its one writer is the session and
-`_snapshot` is the runtime's read-through handle. A consumer reads `_snapshot.<value>` at the use
-site; no second per-frame settings read exists. A zeroed snapshot stands in until the first start
-or settings edit, so an idle read sees the same zero values the old fields defaulted to.
+through `PONIES.display_name_for()` and refreshes the scene gate; `live_id()` and the runtime's
+`_id` handle read `pony_id`.
 
-The session keeps the climax limit and the eye-camera mode (`max_pony_climaxes`,
-`eye_camera_mode`), which the thrust, handover and face suites read through the runtime's typed
-delegates. `act/context.gd` carries the live systems only; the view reads the act values through
-the session.
+The act settings snapshot lives in `act/settings.gd`: the one `SETTINGS.ActSnapshot`, the feature
+flags, the pose presentation block, the caress quality, the climax limit and mode, and the
+eye-camera mode. `act/session.gd:snapshot_settings()` is the one bulk snapshot at act start and
+again at the top of `apply_live_settings()`, before the `IDLE` early return. The session exposes
+typed read-throughs (`snapshot`, `features`, `presentation_config`, `caress_quality`,
+`max_pony_climaxes`, `climax_mode`, `eye_camera_mode`) and `_snapshot` is the runtime's handle.
+No second per-frame settings read exists. A zeroed snapshot stands in until the first start or
+settings edit.
+
+The session dispatches; the owners keep the bodies. `act/view.gd` composes the act values the
+owners read: the face beat and rows (`face/service.gd`), the climax line (`dialogue/service.gd`),
+the summary input (`summary/service.gd`), the normal prompt note, the debug context and the render
+pose write. The session's transitions call the owners: `readiness.begin_climax()`/`end_climax()`
+own the climax count, mood and cue; `afterglow/service.gd` owns the phase values, the presentation
+row and the close reward; `summary/service.gd` owns the score, the peak and the witness pass.
+`act/context.gd` carries the live systems only.
 
 ## Composition
 
@@ -126,9 +135,9 @@ the session.
   owner, then binds the camera's sessions and calls `_bind_act_frame()`.
 - `_bind_act_frame()` builds the act's own modules once: `act/host.gd` (the node operations, the
   log/perf sinks and the tail-tuck pair), `act/context.gd` (the typed collaborators),
-  `act/session.gd` (the state, timers, clock, values, stool handle and start entry), `act/view.gd`,
-  `act/idle.gd`, `act/consent.gd`, `act/impact.gd`, `act/setup.gd`, `act/start.gd`,
-  `act/agreement.gd` and `act/exit.gd`.
+  `act/settings.gd` (the settings snapshot and live apply), `act/session.gd` (the state, timers,
+  clock, values, stool handle and start entry), `act/view.gd`, `act/idle.gd`, `act/consent.gd`,
+  `act/impact.gd`, `act/setup.gd`, `act/start.gd`, `act/agreement.gd` and `act/exit.gd`.
 - `_bind_pose_hosts()` binds the pose session's host callbacks (the scene, the pose host reads and
   the oral/face callbacks).
 - `_init()` binds the remaining facades and callables: the anatomy bridge host, the act view
@@ -500,15 +509,16 @@ fan-out invariants:
   read-only `state` forward and contains no `state` assignment;
 - no `Input.`/`InputMap.`/input event/keycode read and no input callback in `runtime.gd`;
 - `SETTINGS.<member>` reads only at the documented snapshot boundaries
-  (`act/session.gd:snapshot_settings`, `apply_live_settings`, the resume pose config and the static
+  (`act/settings.gd:snapshot_values`, `live_preferences`, the resume pose config and the static
   character-name lookup); the start recipe's own reads moved to `act/start.gd` with the ledger;
+- the act modules' line ceilings: `act/session.gd` at 400 and every other act module at 300;
 - child nodes only from the act audio owner (the act audio node) and the host's `start_tail_tuck`
   (the pose-scope tail tuck);
 - the one teardown (`act/exit.gd:run()`, with `runtime._end_session()` exactly one line calling
   `_exit.run(`), the `free_pose()` order and its three exact callers
   (`act/exit.gd:run`, `act/start.gd:_build_pose`, `runtime._handover_release_pose`), the start
   recipe's order, the pose-before-facts write and the fan-out owner order, and the one
-  `_resume_after_body_swap()`;
+  `_resume_after_body_swap()`.
 
 `owner_of()` treats every `act/**` file as the runtime's own orchestrator module: an act module may
 preload a service, and a service that preloads `act/` fails as a host import.
@@ -519,7 +529,8 @@ The allow-lists are compared both ways: a new read or node fails, and a stale ro
 
 - `tests/act/test_session.gd` — the one state writer and its scene-gate refresh, the phase timer
   verdicts (`POSING_IN` → `ACTIVE`, `CLIMAX`, `RESTORE`), the clock and act-seconds reset rules, the
-  running-check cadence and the typed host/context no-op seam.
+  running-check cadence and the typed host/context no-op seam. The act line ceilings are
+  `scripts/architecture.py`'s (`check_act_budgets`).
 - `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags, the oral edge's
   consent/feature refusals and its abort through `_end_session`, the standing gap's princess
   entrance shift, and the whole-body fit that rests the shaft at her entrance with a stale Hips

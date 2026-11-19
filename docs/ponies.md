@@ -92,10 +92,11 @@ idle probe, the act key, the offer and the stool supply gate on.
 
 ## Identity
 
-`identity_of(body)` returns the typed `Identity` (`id`, `display_name`) from the body's
+`identity_of(body)` returns the typed `Identity` (`id`) from the body's
 `relationship_id`/character name, with the runtime's fallback read when the body has no stable id.
-`act/session.gd:refresh_identity()` is the act's one consumer: it keeps the last id across a freed
-body, adopts the display name and refreshes the scene gate.
+`display_name_for(form, body, id)` resolves the presented form's name, then her own display name,
+then the stable id. `act/session.gd:refresh_identity()` is the act's one consumer: it keeps the
+last id across a freed body, adopts the display name and refreshes the scene gate.
 
 ## The serial
 

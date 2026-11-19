@@ -7,16 +7,12 @@ line-face ownership rule, the stare release, the eyelids, the smile and its hold
 quality shape, the held post-act mood face node and the warm prompt note. It does not own the
 runtime state, the blush, the kiss, the HUD or the summary grade.
 
-`act/session.gd` still:
-
-- gathers the act values for `face_beat()` (state, first-time flag, tolerance, climax mode,
-  summary), `act_face_rows()` (state, HUD mood, the game's cue mood, climax mode and the blush
-  flag), the first-time read and the climax quality inputs;
-- calls `face_beat()` at the start, close, warning, climax, afterglow and stop moments;
-- calls `_face.start_post_act()` from the exit's aftercare when it starts, and starts the upset
-  face from a stop or refusal;
-- calls `eyes_tick()` late in the tick and `set_face()`/`clear_face()` at the transitions;
-- forwards the face values into the act view.
+`act/view.gd` gathers the act values for `act_beat_for()` (state, first-time flag, tolerance,
+climax mode, summary, blush flag) and `act_rows()`, and the climax shape from the readiness meter
+(`quality_for()`). `act/session.gd` calls `face_beat()` at the start, close, warning, climax,
+afterglow and stop moments; the runtime calls `eyes_for()` late in the tick, and the start and exit
+ledgers call `set_face()`/`clear_face()`/`end_face()` at the transitions. The aftercare's
+`start_post_act()` and the upset face are the ledgers' calls.
 
 `face/service.gd` is the facade and the only module another system calls. There is no private
 `face/` directory: `shared/act_face.gd` stays pure and `face/mood_face.gd` stays the held-face node.
@@ -38,7 +34,7 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 | `clock() -> float` | the runtime's act clock (`_now_s()`) |
 
 The facade also binds `pony` and `host` once. `bind()` is called from `_ready`; a suite that builds
-a runtime without entering the tree calls `act/session.gd:bind_face()` on the first facade call.
+a runtime without entering the tree calls `ensure_bound()` on its first facade call.
 
 ## Internal API
 
@@ -46,6 +42,10 @@ a runtime without entering the tree calls `act/session.gd:bind_face()` on the fi
 |---|---|
 | `bind(pony, host)` | bind the pony and the runtime node that parents the mood face and the hold timer |
 | `beat(moment, context)` | run the beat table for one moment; `context` carries `first_time`, `tolerance`, and `climax_mode`/`quality` or `summary` |
+| `act_beat_for(moment, values, readiness, debug)` | the typed beat call: the values come from `act/view.gd`, the climax shape from the meter |
+| `quality_for(readiness)` | the typed climax shape's inputs |
+| `act_rows(values, readiness)` | the act-face rows, including the game's cue mood |
+| `eyes_for(state, close_rewarded, eyes_active)` | the typed lid call |
 | `act_beat(moment, context, debug)` | the runtime's beat call: applies the debug flag, then the beat table |
 | `set_face(smile, lids, hold_seconds)` | write the act's smile and lids; a hold starts the face timer |
 | `clear_face()` | stop the hold, release the stare and release the act's touch layer |

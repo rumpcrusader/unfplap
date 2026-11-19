@@ -61,7 +61,11 @@ tree.
 | `note_reaction(key, cue_text, until)` | reserve the shared slot for that reaction |
 | `busy()` | the director or the pony is actually speaking |
 | `recent_lines()` / `last_spoken_line()` / `last_spoken_at()` | read the director's recent speech |
-| `prompt_note(values)` | the normal dialogue note: state, warm, history, beat, relation, caress/lean, pose, presented form |
+| `act_prompt(values)` | the normal note from the act's typed values; the history and relationship notes are read here |
+| `history_note(pony_id)` / `relationship_note(pony_id, event_id)` | the stored-history and private relationship notes |
+| `climax_line(mouth_busy, cue, act_id, count, max_age)` | the one generated climax line and its validity window |
+| `stop_oral_turn(pony_id)` | interrupt the shared director only when it drives this mare |
+| `prompt_note(values)` | the pure note assembly's facade entry |
 | `scheduler()` | the pure scheduler, for the facade's own calls and the facade suite |
 
 ## Admission
@@ -81,8 +85,8 @@ marked used only after the line was accepted.
 
 Entering oral ends the act's own lines with `keep_speaking = false`: a queued or already speaking
 act line is cancelled, `act/session.gd:oral_speech_stop()` stops her base-game voice and re-asserts
-the oral mouth shape, and `act/session.gd:queue_climax_reaction()` queues nothing while oral
-lasts. Bystanders keep their own turns.
+the oral mouth shape, and `climax_line()` queues nothing while oral lasts. Bystanders keep their own
+turns.
 
 `readiness/service.gd` owns `mood`, `cue` and the override lifetime; the runtime forwards those values and
 sets them on `act_facts` immediately before calling the facade.

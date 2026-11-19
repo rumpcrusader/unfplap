@@ -144,6 +144,7 @@ hull cache; the next read rebuilds once.
 ```gdscript
 tick(delta, facts)
 toggle_hole(state)
+toggle_oral(pose, display_name, features)
 hold_oral_mouth(), set_oral_viseme(letter), oral_mouth_point()
 opening_normal(), hole_point(), hole_rear()
 on_climax(), afterglow_tick(delta, facts)
@@ -167,6 +168,9 @@ The controller's `consent` callback is bound to its pony and takes the key only
   With both flags off the keys are not consumed and the act is the master act.
 - With `anatomy_mode = never` the keys pass through: the act controller does not exist.
 - `V` toggles the anal hole. The mare bits mesh carries the anal shape keys.
+- `N` runs the act bridge's `toggle_oral()`: the per-mare `oral` consent, the `standing`/
+  `standing_oral` edge request and the refusal line through the pose host. The act session only
+  calls it; the edge requirements still check the feature.
 - Anal and oral need the mare's per-mare consent (`get_profile(id).consent.anal` / `.oral`); a
   refusal shows the anatomy status line and changes nothing. The oral consent is the `consent`
   requirement on the forward pose edge.

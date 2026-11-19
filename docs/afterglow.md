@@ -3,19 +3,16 @@
 ## Scope
 
 `afterglow/service.gd` owns the held post-act phase: the private afterglow beat, the standing
-close window with its caress reward, and the presentation row the phase asks for. It does not own
-the `AFTERGLOW` state value, when the phase ends, the scene calls themselves or the memory commit.
+close window with its caress reward, the presentation row the phase asks for, and the reward's
+memory, history, face, heart and cue writes. It does not own the `AFTERGLOW` state or the phase's
+other presentation.
 
-The runtime still:
+`act/session.gd` guards and dispatches the transition: `begin_afterglow()` orders the phase's calls
+and `_afterglow_tick()` calls `close_tick()`. The facade applies its own presentation row through
+`apply_presentation(pose)`; the session starts the wing return when the row asks for it. The
+facade's reward writes through its bound `face`, `reactions` and `readiness` and the act ids
+`set_act()` records.
 
-- sets `State.AFTERGLOW` and calls `begin()`;
-- calls `close_tick()` from `_afterglow_tick()` after the anatomy afterglow tick;
-- applies `presentation()` in the built order through `_apply_afterglow_presentation()`: the pose
-  weight, tail target and flicks, HUD state, wings; then `act/session.gd:set_face()`,
-  `act/session.gd:face_beat()` and the act summary;
-- carries out the close reward: the `STAY_CLOSE` memory impression, the history repair, the
-  content face, the heart burst and the cue clear;
-- calls `cancel_close()` from `end_afterglow()` and `_restore_begin()`.
 
 `afterglow/service.gd` is the facade and the only module another system calls. There is no private
 `afterglow/` directory: the phase has no pure sub-module that is useful on its own.
@@ -33,7 +30,11 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 |---|---|
 | `log(text)` | debug log |
 | `caress_active() -> bool` | the hand controller has an active caress |
-| `on_stay_close(caressed, positive)` | the close window elapsed; the runtime presents the reward |
+| `write_satisfaction(value)` | the aftercare decay's meter write |
+
+The phase's act collaborators are bound once by the runtime (`bind_act(face, reactions, readiness)`)
+and the act ids by the session (`set_act(pony_id, event_id)`); the close reward writes through
+them.
 
 ## Internal API
 
@@ -45,6 +46,7 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 | `reset()` | clear every per-act value; the callbacks stay |
 | `close_tick(delta)` | count caress time and run the window down |
 | `cancel_close()` | drop the window without a reward |
+| `apply_presentation(pose)` | apply the row: the held pose weight, the tail target and flicks and the HUD state; returns whether the row asks for the wing return |
 | `hint()` | the close prompt, or the content line after the reward |
 
 ## Ending
@@ -57,7 +59,7 @@ close window without its reward.
 ## Held pose
 
 The afterglow holds the current pose: the pose the act ended in, unchanged. The presentation row
-carries no pose mode and no afterglow pose id, and `_apply_afterglow_presentation()` only re-asserts
+carries no pose mode and no afterglow pose id, and `apply_presentation()` only re-asserts
 `target_amount`/`amount` alongside the tail, HUD and wings. The pose evaluator keeps its current
 driver/delta pair and config; nothing rebuilds, releases or re-poses the body at the phase change.
 The close window comes from the view's `afterglow.close_window`. The phase has no `pose_changed`
@@ -88,8 +90,9 @@ executor, so that action does not control the phase.
 - `close_tick()` adds to `close_caress_seconds` while the hand controller has an active caress and
   subtracts the same delta from `close_left`.
 - At zero the window grants exactly one reward. `close_caress_earned` is true only with at least
-  `STAY_CLOSE_CARESS_SECONDS` (2.5 s) of caress. `on_stay_close()` receives both the caress result
-  and whether the act summary was positive; the runtime writes the memory and history effect.
+  `STAY_CLOSE_CARESS_SECONDS` (2.5 s) of caress. The facade's own reward writes the `STAY_CLOSE`
+  memory impression, the history repair, the content face, the heart burst and the cue clear, with
+  every write guarded on its bound collaborator.
 - `hint()` is `Stay close · Ns · caress` while the window runs and `She seems content.` after the
   reward. An early end calls `cancel_close()`, which never rewards.
 - The view's raw `close_earned` is read by `hud/lines.gd:y_pink()` to turn the control card's

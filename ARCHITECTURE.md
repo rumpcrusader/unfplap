@@ -231,13 +231,15 @@ and it:
 
 - owns the pony lifetime and the transition bodies; `act/session.gd` owns the act state
   (`shared/act_state.gd`: `IDLE`, `POSING_IN`, `ACTIVE`, `CLIMAX`, `AFTERGLOW`, `RESTORE`), the
-  timers, the per-act clock and the act's own values (pose id, source, bed, id/display, event and
-  serial, the preferences/profile/prompts/features profile and the act bookkeeping), and is the
-  one `state` writer;
+  timers, the per-act clock, the act's own values (pose id, source, bed, id/display, event and
+  serial, the preferences/profile/prompts profile and the act bookkeeping) and is the one `state`
+  writer. It dispatches; the owner services keep the behaviour. `act/settings.gd` owns the act's
+  settings snapshot and its live apply, and `act/view.gd` composes the values the owners read;
 - composes and binds the per-pony systems once, with one typed host per service that needs one;
   `_build_systems()` calls `_bind_act_frame()`, which builds `act/host.gd`, `act/context.gd`,
-  `act/session.gd`, `act/view.gd`, `act/idle.gd`, `act/consent.gd`, `act/impact.gd`,
-  `act/setup.gd`, `act/start.gd`, `act/agreement.gd` and `act/exit.gd` once per pony;
+  `act/settings.gd`, `act/session.gd`, `act/view.gd`, `act/idle.gd`, `act/consent.gd`,
+  `act/impact.gd`, `act/setup.gd`, `act/start.gd`, `act/agreement.gd` and `act/exit.gd` once per
+  pony;
 - owns the ordered physics and process ticks as visible one-line calls; `act/idle.gd` owns the
   idle branch and `act/view.gd` composes the typed act view once per phase;
 - keeps the start and exit entries (`_begin_act()` and `_end_session()` delegates), the suspend
@@ -250,8 +252,9 @@ shots, hand/kiss/wing behaviour, body-change detection or provider policy, raw i
 audio creation, aftercare nodes, HUD strings, eligibility or gate rules, debug formatting,
 settings declarations or per-frame settings reads. `scripts/architecture.py --check` enforces the
 shape: one `state` writer in `act/session.gd`, no raw input, only the documented snapshot
-boundaries and the two system-owned child nodes, plus the one exit, the start recipe's order, the
-pose ledger's three callers, the fan-out order and the one resume. `owner_of()` treats every `act/**` file as the runtime's own module: it
+boundaries in `act/settings.gd` and the two system-owned child nodes, the act modules' line
+ceilings, plus the one exit, the start recipe's order, the pose ledger's three callers, the fan-out
+order and the one resume. `owner_of()` treats every `act/**` file as the runtime's own module: it
 may preload a service, and a service that preloads it fails as a host import.
 
 The state flow, start, suspend/resume, tick and exit orders are documented in `docs/runtime.md`.

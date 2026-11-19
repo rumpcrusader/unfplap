@@ -9,8 +9,9 @@ are `docs/dialogue.md`; the HUD text is `docs/hud.md`; the camera response is `d
 
 `readiness/service.gd` is the system facade. It owns the scoring state, the public act values
 `satisfaction`, `mood`, `cue` and `pony_climaxes`, and the neglect-tolerance meter; the act session
-keeps the state machine, the climax transition and the face beats, and `act/consent.gd` presents a
-tolerance decision. The runtime calls `readiness.stroke()`, `touch()`, `talk()` and `tick()`;
+keeps the state machine and the face beats, and `act/consent.gd` presents a tolerance decision.
+`begin_climax()` owns the climax count, mood and cue; `end_climax()` owns the post-climax reset;
+`clear_cues()` drops the live cue for the held afterglow and the close reward. The runtime calls `readiness.stroke()`, `touch()`, `talk()` and `tick()`;
 readiness owns the counters the summary reads and the one-second impact window. It
 also owns the auto-thrust generator, the hold-X panel policy and their defaults.
 
@@ -152,7 +153,8 @@ overwhelmed   a disliked touch/talk landed recently
 
 - At 100 readiness she climaxes. The user-facing `thrust.max_pony_climaxes` setting
   sets the limit; `0` is unlimited.
-- The act enters `CLIMAX` for `CLIMAX_SECONDS = 5`.
+- The act enters `CLIMAX` for `CLIMAX_SECONDS = 5`; `readiness.begin_climax()` counts the climax
+  and sets its cue, and `end_climax()` resets the meter when the state returns to `ACTIVE`.
 - The player can keep thrusting during those 5 s. The thrust is presentation only: it does not
   update intensity, pattern or readiness.
 - Each climax sends a unique world-context event and a unique generated reaction.

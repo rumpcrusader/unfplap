@@ -99,7 +99,7 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
 ### Memory and rewards
 
 - **First pony climax:** one world-context event; every climax gets a generated reaction.
-- **Once at afterglow:** `act/session.gd:commit_summary()` scores the act,
+- **Once at afterglow:** `summary/service.gd:commit_after_act()` scores the act,
   `MEMORY.instance.commit()` writes the grade-aware romance and mood, and
   `MEMORY.instance.witnesses()` follows.
 - **Standing close reward:** `MEMORY.instance.commit()` (the `STAY_CLOSE` slot) records a private

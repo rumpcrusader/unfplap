@@ -796,8 +796,8 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   Conversation attention is not a stop condition: another character addressing Anon can talk
   while `_keep_act_attention()` clears her listener each tick.
 - Act start keeps her where she stands. `poses/placement.gd` owns the placement math;
-  `act/session.gd:placement_values()` feeds `bind_act()` and `act/setup.gd:standing_place()` calls
-  `begin_act()`. For desktop human
+  `act/session.gd:placement_values()` fills `PLACEMENT.ActBind` (its `fill()`) and feeds
+  `bind_act()`; `act/setup.gd:standing_place()` calls `begin_act()`. For desktop human
   Anon it builds the act transform from her current facing and places him at
   `pony_position - forward * _standing_gap()`, then sets his yaw along her forward so a standing
   act after a missionary restore does not inherit the old view. The 2 m Y cone bounds that
@@ -923,10 +923,12 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 ## Timing domains
 
 - `runtime._process_tick`: the render-time pose write, the climax progress, the shot tick and the
-  breath. `poses/service.gd`'s `render_write()` owns the render-time order:
-  for the bed family, park the game presentation and place the act's Anon body, write her pose,
-  replay the prone sway, then the eye-shot camera tick; for the standing family, sync the ground
-  frame, write her pose and replay the body sway after every game writer. It then calls
+  breath. `act/view.gd:pose_render()` supplies the body scale, the size name and the eye-camera
+  mode to `poses/service.gd:write_render_frame()`. `render_write()` owns the render-time order:
+  `sync_frame(family)` picks the bed or ground frame; for the bed family it parks the game
+  presentation and places the act's Anon body, writes her pose, replays the prone sway, then ticks
+  the eye-shot camera; for the standing family it writes her pose and replays the body sway after
+  every game writer. It then calls
   `camera/service.gd`'s
   `write_look_target()`, which owns the look point (the missionary gaze, the kissing-mouth blend and
   the authored-Anon fallback) and the pose's kiss and climax weights.

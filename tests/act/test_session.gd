@@ -1,0 +1,136 @@
+extends SceneTree
+## What this suite pins: the act session's one state writer, its timer verbs, its clock and its
+## reset, plus the typed host/context seam and its no-op host. No tree and no act are needed.
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act/test_session.gd
+
+const SESSION := preload("res://mods/unfplap/act/session.gd")
+const HOST := preload("res://mods/unfplap/act/host.gd")
+const CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
+
+const State := ACT_STATE.State
+
+var failures := 0
+var checks := 0
+
+
+func _initialize() -> void:
+	run.call_deferred()
+
+
+func check(ok: bool, text: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		print("FAIL ", text)
+
+
+func _frame() -> Dictionary:
+	var host: RefCounted = HOST.new()
+	var context: RefCounted = CONTEXT.new()
+	context.gate = SCENE_GATE.new()
+	var session: RefCounted = SESSION.new()
+	session.bind(host, context)
+	return {"session": session, "host": host, "context": context}
+
+
+func run() -> void:
+	var made := _frame()
+	var session: RefCounted = made["session"]
+	var host: RefCounted = made["host"]
+	var context: RefCounted = made["context"]
+
+	check(int(session.state) == State.IDLE, "a new session starts IDLE")
+	check(session.state_name() == "IDLE", "the state name follows the state")
+	check(session.host == host and session.context == context, "bind keeps the typed host and context")
+	check(context.gate == context.gate and int(context.gate.state) == State.IDLE,
+		"the gate is configured from the initial state")
+
+	session._set_state(State.ACTIVE)
+	check(int(session.state) == State.ACTIVE and session.state_name() == "ACTIVE",
+		"_set_state writes the state")
+	check(int(context.gate.state) == State.ACTIVE, "every state write refreshes the gate")
+
+	# POSING_IN: the timer only reports its verdict; the runtime applies it.
+	session.begin_pose_in()
+	check(int(session.state) == State.POSING_IN, "begin_pose_in enters POSING_IN")
+	check(is_equal_approx(float(session._pose_in_left), SESSION.POSE_IN_SECONDS),
+		"begin_pose_in arms the pose timer")
+	check(int(session.tick_timers(0.1)) == SESSION.PHASE_NONE, "a pending pose timer has no verdict")
+	check(int(session.state) == State.POSING_IN, "tick_timers never writes the state")
+	check(int(session.tick_timers(1.0)) == SESSION.ENTER_ACTIVE, "the elapsed pose timer enters ACTIVE")
+	session.enter_active()
+	check(int(session.state) == State.ACTIVE, "enter_active applies the verdict")
+
+	# CLIMAX: the state, its whole timer and a zeroed progress.
+	session.enter_climax()
+	check(int(session.state) == State.CLIMAX, "enter_climax enters CLIMAX")
+	check(is_equal_approx(float(session._climax_left), SESSION.CLIMAX_SECONDS),
+		"enter_climax arms the climax timer")
+	check(is_zero_approx(float(session._climax_progress)), "enter_climax clears the progress")
+	session.tick_timers(SESSION.CLIMAX_SECONDS * 0.5)
+	session.refresh_climax_progress()
+	check(is_equal_approx(float(session._climax_progress), 0.5),
+		"the climax progress is one minus the remaining half")
+	check(int(session.tick_timers(SESSION.CLIMAX_SECONDS)) == SESSION.FINISH_CLIMAX,
+		"the elapsed climax timer finishes the climax")
+	session.enter_active()
+	check(int(session.state) == State.ACTIVE, "the climax returns to ACTIVE by its own verb")
+
+	# AFTERGLOW then RESTORE: the restore timer has its own verb and a clean exit.
+	session.enter_afterglow()
+	check(int(session.state) == State.AFTERGLOW and session.state_name() == "AFTERGLOW",
+		"enter_afterglow enters AFTERGLOW")
+	check(int(session.tick_timers(1.0)) == SESSION.PHASE_NONE, "the afterglow has no phase timer")
+	session.begin_restore()
+	check(int(session.state) == State.RESTORE, "begin_restore enters RESTORE")
+	check(is_equal_approx(float(session._restore_left), SESSION.RESTORE_SECONDS),
+		"begin_restore arms the restore timer")
+	check(int(session.tick_timers(1.0)) == SESSION.FINISH_RESTORE,
+		"the elapsed restore timer finishes the restore")
+	session.finish_restore()
+	check(int(session.state) == State.IDLE, "finish_restore returns to IDLE")
+	check(is_zero_approx(float(session._restore_left)), "finish_restore clears the restore timer")
+
+	# The clock is monotonic and the check cadence fires once per interval.
+	session.tick_clock(0.25)
+	session.tick_clock(-1.0)
+	check(is_equal_approx(float(session._clock_s), 0.25), "the clock clamps a negative delta")
+	session.advance_act_seconds(2.0)
+	check(is_equal_approx(float(session._act_seconds), 2.0), "the act seconds advance")
+	check(not session.consume_check_clock(0.1) and not session.consume_check_clock(0.1),
+		"the running check waits for its interval")
+	check(session.consume_check_clock(0.1), "the running check fires on the interval")
+	check(not session.consume_check_clock(0.1), "the running check restarts its accumulator")
+
+	# reset_act clears the act's own values and keeps the processed clock.
+	session.reset_act()
+	check(is_zero_approx(float(session._act_seconds)), "reset_act clears the act seconds")
+	check(is_zero_approx(float(session._pose_in_left)) and is_zero_approx(float(session._climax_left))
+		and is_zero_approx(float(session._restore_left)), "reset_act clears every phase timer")
+	check(is_equal_approx(float(session._clock_s), 0.25), "reset_act keeps the processed clock")
+
+	session.clear_phase()
+	session.enter_climax()
+	session.clear_phase()
+	check(is_zero_approx(float(session._climax_left)) and is_zero_approx(float(session._climax_progress)),
+		"clear_phase drops a phase timer after a stop")
+	session.enter_idle()
+	check(int(session.state) == State.IDLE, "enter_idle ends the act")
+
+	# The host is the only node surface and a node-less host is a quiet no-op.
+	check(host.tree() == null, "a node-less host has no tree")
+	check(host.viewport() == null, "a node-less host has no viewport")
+	check(is_zero_approx(float(host.physics_delta())), "a node-less host has no physics delta")
+	check(host.tween() == null, "a node-less host has no tween")
+	var orphan := Node.new()
+	host.add_child(orphan)
+	check(orphan.get_parent() == null, "a node-less host parents nothing")
+	host.log("not a test")
+	host.perf_note("runtime_absent", 1)
+	check(host.log_sink.is_null() and host.perf_sink.is_null(), "nothing binds a log or perf sink")
+	orphan.free()
+
+	print("ACT_SESSION_RESULT checks=%d failures=%d" % [checks, failures])
+	quit(0 if failures == 0 else 1)

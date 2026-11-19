@@ -6,6 +6,7 @@ extends RefCounted
 ## `docs/perf.md` and `docs/settings.md`.
 
 const TREE := preload("res://mods/unfplap/shared/perf_tree.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const WINDOW_S := 1.0
 
 ## Chunk containment inside one act tick. A chunk without an entry, or whose parent did not print
@@ -42,6 +43,95 @@ const PARENTS := {
 	"tail_pose": "runtime_process",
 }
 
+## One runtime's side of the act probe: the gates, the sinks, the live header values and the idle
+## window its chunks also feed. The runtime fills the named callbacks once; this module owns the
+## header line's shape and display strings, and never reads a scene. See `docs/perf.md`.
+class Host extends RefCounted:
+	## Both debug switches are on.
+	var enabled_cb := Callable()
+	var log_cb := Callable()
+	## The panel sink for one window.
+	var show_cb := Callable()
+	## The pony, the act's start pose and its state, as the header line names them. The act's
+	## running gate and the idle window's gate both come from that state.
+	var id_cb := Callable()
+	var pose_cb := Callable()
+	var state_cb := Callable()
+	## The live header values, read only when a window closes: the shot's forward and smoothed
+	## side lean, the latched caress hands, and the pony's near-mesh flag and simulation tier.
+	var lean_forward_cb := Callable()
+	var lean_side_cb := Callable()
+	var hand_left_cb := Callable()
+	var hand_right_cb := Callable()
+	var near_mesh_cb := Callable()
+	var tier_cb := Callable()
+	var wing_hold_cb := Callable()
+	var winged_cb := Callable()
+	## The idle window this pony's chunks also feed while no act runs: the log module's sink. The
+	## aggregator itself is `shared/perf_idle.gd`'s.
+	var idle_note_cb := Callable()
+
+	static func _value(callback: Callable, fallback: Variant = null) -> Variant:
+		return callback.call() if callback.is_valid() else fallback
+
+	func id() -> String:
+		return str(_value(id_cb, ""))
+
+	func enabled() -> bool:
+		return bool(_value(enabled_cb, false))
+
+	func state() -> int:
+		return int(_value(state_cb, ACT_STATE.STATE_IDLE))
+
+	## True while an act is running; the window clears outside it.
+	func active() -> bool:
+		return state() != ACT_STATE.STATE_IDLE
+
+	## True while the idle window owns this pony's chunks: the switches are on and no act runs.
+	func idle() -> bool:
+		return enabled() and state() == ACT_STATE.STATE_IDLE
+
+	## Header facts for one summary line. The runtime supplies the live values; the keys and the
+	## display strings are this module's.
+	func header() -> Dictionary:
+		return {
+			"pony": id(),
+			"pose": str(_value(pose_cb, "")),
+			"state": state(),
+			"lean": "%.2f/%.2f" % [float(_value(lean_forward_cb, 0.0)),
+				float(_value(lean_side_cb, 0.0))],
+			"hands": hands(),
+			"near_mesh": label(near_mesh_cb),
+			"tier": label(tier_cb),
+			"wings": wings(),
+		}
+
+	## The latched caress hands: `LR`, `L`, `R` or `-`.
+	func hands() -> String:
+		var left := bool(_value(hand_left_cb, false))
+		var right := bool(_value(hand_right_cb, false))
+		return "LR" if left and right else ("L" if left else ("R" if right else "-"))
+
+	## The wing state: a hold wins over a winged body, a body without wings reads `no`.
+	func wings() -> String:
+		if bool(_value(wing_hold_cb, false)):
+			return "held"
+		if bool(_value(winged_cb, false)):
+			return "winged"
+		return "no"
+
+	## One nullable engine value as the header prints it; `?` when the game build has none.
+	static func label(callback: Callable) -> String:
+		var value: Variant = _value(callback)
+		return str(value) if value != null else "?"
+
+	## One idle chunk for this pony, keyed by its id like the row's owner. The log module owns the
+	## one shared window; a missing sink keeps the chunk out.
+	func note_idle(key: String, usec: int) -> void:
+		if idle_note_cb.is_valid():
+			idle_note_cb.call(key, usec, id())
+
+
 var _rows: Dictionary = {}
 var _clock := 0.0
 var _frames := 0
@@ -57,26 +147,50 @@ var header := Callable()
 var log := Callable()
 ## The panel sink for one window: the laid-out rows plus the header and engine facts as data.
 var show := Callable()
+## The idle window this pony's chunks also feed while no act runs: its gate and the host's
+## forwarding sink.
+var idle := Callable()
+var idle_note := Callable()
+
+
+## Build one runtime's probe with its host boundary bound once. Missing callables keep it off.
+static func build(host: Host) -> RefCounted:
+	var probe := new()
+	probe.enabled = Callable(host, "enabled")
+	probe.active = Callable(host, "active")
+	probe.header = Callable(host, "header")
+	probe.log = host.log_cb
+	probe.show = host.show_cb
+	probe.idle = Callable(host, "idle")
+	probe.idle_note = Callable(host, "note_idle")
+	return probe
 
 
 func on() -> bool:
 	return enabled.is_valid() and bool(enabled.call())
 
 
-## Record one timed chunk. Cheap no-op with the probe off.
+## True while the idle window owns this pony's chunks.
+func idle_on() -> bool:
+	return idle.is_valid() and bool(idle.call())
+
+
+## Record one timed chunk, and forward it to the idle window while that one owns the frame. Cheap
+## no-op with both windows off.
 func note(key: String, usec: int) -> void:
-	if not on():
-		return
-	var row: Array = _rows.get(key, [0, 0, 0])
-	row[0] = int(row[0]) + 1
-	row[1] = int(row[1]) + usec
-	row[2] = maxi(int(row[2]), usec)
-	_rows[key] = row
+	if on():
+		var row: Array = _rows.get(key, [0, 0, 0])
+		row[0] = int(row[0]) + 1
+		row[1] = int(row[1]) + usec
+		row[2] = maxi(int(row[2]), usec)
+		_rows[key] = row
+	if idle_on():
+		idle_note.call(key, usec)
 
 
 ## Close one call site: callers take the start stamp themselves.
 func time(key: String, started_usec: int) -> void:
-	if on():
+	if on() or idle_on():
 		note(key, Time.get_ticks_usec() - started_usec)
 
 

@@ -45,6 +45,56 @@ class Sink extends RefCounted:
 		panel_info = info
 
 
+## The live values a runtime's perf host supplies; the probe shapes them into the header line.
+class HostValues extends RefCounted:
+	var state_value := 2
+	var hold := false
+	var winged := true
+	var near_mesh: Variant = null
+	var tier: Variant = "near"
+
+	func id() -> String:
+		return "twilight_sparkle"
+
+	func pose() -> String:
+		return "standing"
+
+	func state() -> int:
+		return state_value
+
+	func lean_forward() -> float:
+		return 1.25
+
+	func lean_side() -> float:
+		return -0.5
+
+	func hand_left() -> bool:
+		return false
+
+	func hand_right() -> bool:
+		return true
+
+	func mesh() -> Variant:
+		return near_mesh
+
+	func tier_value() -> Variant:
+		return tier
+
+	func wing_hold() -> bool:
+		return hold
+
+	func has_wings() -> bool:
+		return winged
+
+
+## The idle window's sink: the rows one pony forwarded, with their owner id.
+class IdleSink extends RefCounted:
+	var rows: Array = []
+
+	func note(key: String, usec: int, owner: String) -> void:
+		rows.append([key, usec, owner])
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -170,7 +220,69 @@ func run() -> void:
 	check(is_equal_approx(float(panel_row(sink.panel_entries, "pose_tick").get("max", 0.0)), 2.0),
 		"the panel receives each row's worst call")
 
+	run_host()
 	print("PERF_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("PERF_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+## The typed host boundary: the runtime's raw values shaped into the header, and the idle window
+## the same chunks feed.
+func run_host() -> void:
+	var values := HostValues.new()
+	var sink := Sink.new()
+	sink.enabled = true
+	var idle_sink := IdleSink.new()
+	var host := PERF.Host.new()
+	host.enabled_cb = Callable(sink, "is_enabled")
+	host.log_cb = Callable(sink, "write")
+	host.show_cb = Callable(sink, "panel")
+	host.id_cb = Callable(values, "id")
+	host.pose_cb = Callable(values, "pose")
+	host.state_cb = Callable(values, "state")
+	host.lean_forward_cb = Callable(values, "lean_forward")
+	host.lean_side_cb = Callable(values, "lean_side")
+	host.hand_left_cb = Callable(values, "hand_left")
+	host.hand_right_cb = Callable(values, "hand_right")
+	host.near_mesh_cb = Callable(values, "mesh")
+	host.tier_cb = Callable(values, "tier_value")
+	host.wing_hold_cb = Callable(values, "wing_hold")
+	host.winged_cb = Callable(values, "has_wings")
+	host.idle_note_cb = Callable(idle_sink, "note")
+	var probe := PERF.build(host)
+	check(not probe.idle_on(), "the host keeps the idle window off until it opens")
+	probe.note("pose_tick", 1000)
+	probe.tick(1.1)
+	check(sink.text.begins_with("perf pony=twilight_sparkle pose=standing state=2"),
+		"the host supplies the header identity")
+	check(sink.text.contains("lean=1.25/-0.50"), "the host's lean prints as forward/side")
+	check(sink.text.contains("hands=R"), "a single latched hand prints its side")
+	check(sink.text.contains("near_mesh=? tier=near"),
+		"a null host value prints as ? and the tier still reads")
+	check(sink.text.contains("wings=winged"), "a winged body prints winged")
+	check(idle_sink.rows.is_empty(), "an acting pony forwards no idle chunk")
+
+	values.hold = true
+	probe.note("pose_tick", 1000)
+	probe.tick(1.1)
+	check(sink.text.contains("wings=held"), "a wing hold wins over the winged body")
+
+	values.state_value = 0
+	probe.note("runtime_physics", 900)
+	check(idle_sink.rows.size() == 1, "an idle chunk reaches the idle window")
+	check(idle_sink.rows[0] == ["runtime_physics", 900, "twilight_sparkle"],
+		"the idle row carries the chunk, its time and the owner id")
+
+	var gated := PERF.Host.new()
+	gated.enabled_cb = Callable(sink, "is_enabled")
+	gated.state_cb = Callable(values, "state")
+	gated.idle_note_cb = Callable(idle_sink, "note")
+	var idle_probe := PERF.build(gated)
+	idle_sink.rows.clear()
+	idle_probe.time("runtime_facts", Time.get_ticks_usec() - 250)
+	check(idle_sink.rows.size() == 1 and str(idle_sink.rows[0][0]) == "runtime_facts",
+		"time() reaches the idle window while the pony is idle")
+	values.state_value = 2
+	idle_probe.note("runtime_facts", 500)
+	check(idle_sink.rows.size() == 1, "a running act closes the idle window")

@@ -151,8 +151,9 @@ var _placement_facts: PLACEMENT.Facts = null
 
 ## The act's dialogue service: scheduler, prompt assembly, reactions and the bystander line.
 var _act_dialogue: RefCounted = ACT_DIALOGUE.new(_act_facts)
-## Debug perf probe: timed chunks report here and one summary prints per window. See `shared/perf.gd`.
-var _perf_probe := PERF.new()
+## Debug perf probe: timed chunks report here and one summary prints per window. Built in `_init()`
+## once the systems exist, because the host binds their live reads. See `shared/perf.gd`.
+var _perf_probe: PERF = null
 ## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
 ## no tick reads the entry node's flags.
 var idle_perf := false
@@ -375,11 +376,7 @@ func _init() -> void:
 	_act_facts.on_touch = Callable(self, "_on_touch")
 	_act_facts.on_smack = Callable(self, "_on_smack_impact")
 	_act_facts.pose_host = Callable(self, "_runtime")
-	_perf_probe.enabled = Callable(self, "_perf_enabled")
-	_perf_probe.active = Callable(self, "_perf_active")
-	_perf_probe.header = Callable(self, "_perf_header")
-	_perf_probe.log = Callable(self, "_log")
-	_perf_probe.show = Callable(self, "_perf_show")
+	_perf_probe = PERF.build(_perf_host())
 	_refresh_scene_gate()
 
 
@@ -810,11 +807,6 @@ func _log(text: String) -> void:
 	LOG.debug(text)
 
 
-## Forward one act window to the corner panel, which owns the drawing.
-func _perf_show(entries: Array, info: Dictionary) -> void:
-	LOG.perf_block(entries, info)
-
-
 ## Debug perf probe. Timed chunks report microseconds here; `perf_note()` forwards to `shared/perf.gd`,
 ## which prints one summary a second so a pony-specific stall can be attributed to a modifier
 ## without a live profiler.
@@ -822,71 +814,70 @@ func _perf_enabled() -> bool:
 	return LOG.debug_logs and LOG.debug_perf
 
 
-func _perf_active() -> bool:
-	return state != State.IDLE
-
-
-## Called by every timed chunk (runtime, skeleton modifiers, HUD). Cheap no-op with logs off.
+## Called by every timed chunk (runtime, skeleton modifiers, HUD). Cheap no-op with both windows off.
 func perf_note(key: String, usec: int) -> void:
 	_perf_probe.note(key, usec)
-	if idle_perf and state == State.IDLE:
-		_idle_perf_note(key, usec)
 
 
-## Forward one idle chunk to the log module's aggregator. Only reachable while the idle probe is on.
-func _idle_perf_note(key: String, usec: int) -> void:
-	LOG.note(key, usec, _id)
-
-
-## Time one call site for the perf probe (callers take the start stamp themselves).
+## Time one call site for the probes (callers take the start stamp themselves).
 func _timed(key: String, started: int) -> void:
-	if not _perf_probe.on() and not idle_perf:
-		return
-	var usec := Time.get_ticks_usec() - started
-	_perf_probe.note(key, usec)
-	if idle_perf and state == State.IDLE:
-		_idle_perf_note(key, usec)
+	_perf_probe.time(key, started)
 
 
 func _perf_tick(delta: float) -> void:
 	_perf_probe.tick(delta)
 
 
-## Header facts for one perf summary line.
-func _perf_header() -> Dictionary:
-	var near_mesh := "?"
-	var tier := "?"
-	if is_instance_valid(pony):
-		var value: Variant = pony.get("near_mesh_enabled")
-		near_mesh = str(value) if value != null else "?"
-		value = pony.get("sim_tier")
-		tier = str(value) if value != null else "?"
-	var wings: Variant = _wings_controller()
-	var wing_state := "no"
-	if wings != null:
-		if bool(wings.get("_wing_hold")):
-			wing_state = "held"
-		elif bool(wings.get("_winged")):
-			wing_state = "winged"
-	# The lean is what the drop was reported against, and the latched hands are what the caress
-	# costs, so both belong in the line the reader compares across windows.
-	var lean := "%.2f/%.2f" % [shot_lean_forward(), _act_camera.lean_view_side]
-	var hands := "-"
-	var controller: Variant = _hand_controller()
-	if controller != null:
-		var left := bool(controller.call("active", "L"))
-		var right := bool(controller.call("active", "R"))
-		hands = "LR" if left and right else ("L" if left else ("R" if right else "-"))
-	return {
-		"pony": _id,
-		"pose": pose_id,
-		"state": state,
-		"lean": lean,
-		"hands": hands,
-		"near_mesh": near_mesh,
-		"tier": tier,
-		"wings": wing_state,
-	}
+## The act probe's typed host. Built once: the callables are bound methods, so a per-frame rebind
+## must not allocate. See `shared/perf.gd`.
+var _perf_host_cache: PERF.Host = null
+
+func _perf_host() -> PERF.Host:
+	if _perf_host_cache != null:
+		return _perf_host_cache
+	var host := PERF.Host.new()
+	host.enabled_cb = Callable(self, "_perf_enabled")
+	host.log_cb = Callable(self, "_log")
+	host.show_cb = Callable(LOG, "perf_block")
+	host.id_cb = Callable(self, "_act_id")
+	host.pose_cb = Callable(self, "_perf_pose_id")
+	host.state_cb = Callable(self, "_state")
+	host.lean_forward_cb = Callable(self, "shot_lean_forward")
+	host.lean_side_cb = Callable(self, "_perf_lean_side")
+	host.hand_left_cb = Callable(_hands, "active").bind("L")
+	host.hand_right_cb = Callable(_hands, "active").bind("R")
+	host.near_mesh_cb = Callable(self, "_perf_near_mesh")
+	host.tier_cb = Callable(self, "_perf_tier")
+	host.wing_hold_cb = Callable(self, "_perf_wing_hold")
+	host.winged_cb = Callable(self, "_perf_winged")
+	host.idle_note_cb = Callable(LOG, "note")
+	_perf_host_cache = host
+	return _perf_host_cache
+
+
+func _perf_pose_id() -> String:
+	return pose_id
+
+
+func _perf_lean_side() -> float:
+	return _act_camera.lean_view_side
+
+
+## The pony build's near-mesh flag and simulation tier, or null when the game has neither.
+func _perf_near_mesh() -> Variant:
+	return pony.get("near_mesh_enabled") if is_instance_valid(pony) else null
+
+
+func _perf_tier() -> Variant:
+	return pony.get("sim_tier") if is_instance_valid(pony) else null
+
+
+func _perf_wing_hold() -> bool:
+	return _wings != null and bool(_wings.get("_wing_hold"))
+
+
+func _perf_winged() -> bool:
+	return _wings != null and bool(_wings.get("_winged"))
 
 
 func _wings_controller() -> WING:
@@ -1302,7 +1293,7 @@ func _physics_process(delta: float) -> void:
 	var sync_started := Time.get_ticks_usec() if idle else 0
 	_sync_anatomy_facts()
 	if idle:
-		_idle_perf_note("runtime_anatomy_sync", Time.get_ticks_usec() - sync_started)
+		perf_note("runtime_anatomy_sync", Time.get_ticks_usec() - sync_started)
 	if _perf_probe.on():
 		perf_note("runtime_physics", Time.get_ticks_usec() - started)
 
@@ -1333,12 +1324,12 @@ func _physics_tick(delta: float) -> void:
 		var presentation_started := Time.get_ticks_usec() if idle_perf else 0
 		_standing_presentation_controller().physics(delta)
 		if idle_perf:
-			_idle_perf_note("runtime_presentation",
+			perf_note("runtime_presentation",
 				Time.get_ticks_usec() - presentation_started)
 		var history_started := Time.get_ticks_usec() if idle_perf else 0
 		_history_tick(delta)
 		if idle_perf:
-			_idle_perf_note("runtime_history", Time.get_ticks_usec() - history_started)
+			perf_note("runtime_history", Time.get_ticks_usec() - history_started)
 		return
 	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		force_stop()
@@ -1638,7 +1629,7 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> b
 	var started := Time.get_ticks_usec() if idle_perf else 0
 	var allowed: bool = _scene_gate().hotkey_ready(pose, act_source, bed_in, pair)
 	if idle_perf:
-		_idle_perf_note("offer_rows", Time.get_ticks_usec() - started)
+		perf_note("offer_rows", Time.get_ticks_usec() - started)
 	return allowed
 
 

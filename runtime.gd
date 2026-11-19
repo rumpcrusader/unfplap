@@ -46,6 +46,7 @@ const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
@@ -436,47 +437,47 @@ func _init() -> void:
 	_perf_probe.show = Callable(self, "_perf_show")
 
 
-## The host callbacks for the per-act anatomy bridge. The bridge reads the scene, the live state
-## and the callbacks through this dictionary; it never reads the runtime's private fields. Built
-## once: the callables are bound methods, so a per-frame rebind must not allocate.
-var _anatomy_host_cache: Dictionary = {}
+## The typed host for the per-act anatomy bridge. The bridge reads the scene, the live state and
+## the callbacks through named methods; it never reads the runtime's private fields. Built once:
+## the callables are bound methods, so a per-frame rebind must not allocate.
+var _anatomy_host_cache: ACT_HOST = null
 
-func _anatomy_host() -> Dictionary:
-	if not _anatomy_host_cache.is_empty():
+func _anatomy_host() -> ACT_HOST:
+	if _anatomy_host_cache != null:
 		return _anatomy_host_cache
-	_anatomy_host_cache = {
-		"pony": Callable(self, "_pony"),
-		"runtime": Callable(self, "_runtime"),
-		"reactions": Callable(self, "_reactions_service"),
-		"anatomy_service": Callable(self, "_anatomy_service"),
-		"eligibility_service": Callable(self, "_eligibility_service"),
-		"state": Callable(self, "_state"),
-		"pose_view": Callable(self, "_pose_view_value"),
-		"depth": Callable(self, "_depth"),
-		"penetration_m": Callable(self, "_penetration_m"),
-		"penetration_reach": Callable(self, "penetration_reach"),
-		"climaxes": Callable(self, "_climaxes"),
-		"size_scale": Callable(self, "_size_scale"),
-		"auto_pace": Callable(self, "_auto_pace"),
-		"fluid_ground_y": Callable(self, "_anatomy_fluid_ground_y"),
-		"cycle_phase": Callable(self, "cycle_phase"),
-		"bed_frame": Callable(self, "_bed_frame"),
-		"log": Callable(self, "_log"),
-		"perf_note": Callable(self, "perf_note"),
-		"perf_enabled": Callable(self, "_perf_enabled"),
-		"body_coat_smack": Callable(self, "body_coat_jiggle_target"),
-		"status": Callable(self, "_anatomy_status"),
-		"command": Callable(self, "command"),
-		"missionary_camera": Callable(self, "_missionary_camera_controller"),
-		"kiss_controller": Callable(self, "_kiss_controller"),
-		"pose": Callable(self, "_pose_service"),
-		"thrust_move": Callable(self, "_thrust_move"),
-		"now_s": Callable(self, "_now_s"),
-		"set_penetration_m": Callable(self, "_set_penetration_m"),
-		"align": Callable(self, "apply_anon_align"),
-		"touch": Callable(self, "_on_touch"),
-		"vr_scene": Callable(self, "_vr_scene"),
-	}
+	var host := ACT_HOST.new()
+	host.pony_cb = Callable(self, "_pony")
+	host.runtime_cb = Callable(self, "_runtime")
+	host.reactions_cb = Callable(self, "_reactions_service")
+	host.anatomy_service_cb = Callable(self, "_anatomy_service")
+	host.eligibility_service_cb = Callable(self, "_eligibility_service")
+	host.state_cb = Callable(self, "_state")
+	host.pose_view_cb = Callable(self, "_pose_view_value")
+	host.depth_cb = Callable(self, "_depth")
+	host.penetration_m_cb = Callable(self, "_penetration_m")
+	host.penetration_reach_cb = Callable(self, "penetration_reach")
+	host.climaxes_cb = Callable(self, "_climaxes")
+	host.size_scale_cb = Callable(self, "_size_scale")
+	host.auto_pace_cb = Callable(self, "_auto_pace")
+	host.fluid_ground_y_cb = Callable(self, "_anatomy_fluid_ground_y")
+	host.cycle_phase_cb = Callable(self, "cycle_phase")
+	host.bed_frame_cb = Callable(self, "_bed_frame")
+	host.log_cb = Callable(self, "_log")
+	host.perf_note_cb = Callable(self, "perf_note")
+	host.perf_enabled_cb = Callable(self, "_perf_enabled")
+	host.body_coat_smack_cb = Callable(self, "body_coat_jiggle_target")
+	host.status_cb = Callable(self, "_anatomy_status")
+	host.command_cb = Callable(self, "command")
+	host.missionary_camera_cb = Callable(self, "_missionary_camera_controller")
+	host.kiss_controller_cb = Callable(self, "_kiss_controller")
+	host.pose_cb = Callable(self, "_pose_service")
+	host.thrust_move_cb = Callable(self, "_thrust_move")
+	host.now_s_cb = Callable(self, "_now_s")
+	host.set_penetration_m_cb = Callable(self, "_set_penetration_m")
+	host.align_cb = Callable(self, "apply_anon_align")
+	host.touch_cb = Callable(self, "_on_touch")
+	host.vr_scene_cb = Callable(self, "_vr_scene")
+	_anatomy_host_cache = host
 	return _anatomy_host_cache
 
 

@@ -5,6 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/anatomy/test_act_bridge.gd
 
 const BRIDGE := preload("res://mods/unfplap/anatomy/act_bridge.gd")
+const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -210,27 +211,38 @@ func _view(family: String) -> RefCounted:
 	return view
 
 
-func _host(host: FakeHost, extra: Dictionary = {}) -> Dictionary:
-	var out: Dictionary = {
-		"state": Callable(host, "call_host").bind("state"),
-		"pose_view": Callable(host, "call_host").bind("pose_view"),
-		"depth": Callable(host, "call_host").bind("depth"),
-		"penetration_m": Callable(host, "call_host").bind("penetration_m"),
-		"penetration_reach": Callable(host, "call_host").bind("penetration_reach"),
-		"climaxes": Callable(host, "call_host").bind("climaxes"),
-		"size_scale": Callable(host, "call_host").bind("size_scale"),
-		"auto_pace": Callable(host, "call_host").bind("auto_pace"),
-		"fluid_ground_y": Callable(host, "call_host").bind("fluid_ground_y"),
-		"cycle_phase": Callable(host, "call_host").bind("cycle_phase"),
-		"bed_frame": Callable(host, "call_host").bind("bed_frame"),
-		"anatomy_facing": Callable(host, "anatomy_facing"),
-		"status": Callable(host, "anatomy_status"),
-		"thrust_move": Callable(host, "thrust_move"),
-		"set_penetration_m": Callable(host, "set_penetration_m"),
-		"missionary_camera": Callable(host, "camera"),
-		"now_s": Callable(host, "now_s"),
-	}
-	out.merge(extra, true)
+func _host(host: FakeHost, extra: Dictionary = {}) -> ACT_HOST:
+	var out := ACT_HOST.new()
+	out.state_cb = Callable(host, "call_host").bind("state")
+	out.pose_view_cb = Callable(host, "call_host").bind("pose_view")
+	out.depth_cb = Callable(host, "call_host").bind("depth")
+	out.penetration_m_cb = Callable(host, "call_host").bind("penetration_m")
+	out.penetration_reach_cb = Callable(host, "call_host").bind("penetration_reach")
+	out.climaxes_cb = Callable(host, "call_host").bind("climaxes")
+	out.size_scale_cb = Callable(host, "call_host").bind("size_scale")
+	out.auto_pace_cb = Callable(host, "call_host").bind("auto_pace")
+	out.fluid_ground_y_cb = Callable(host, "call_host").bind("fluid_ground_y")
+	out.cycle_phase_cb = Callable(host, "call_host").bind("cycle_phase")
+	out.bed_frame_cb = Callable(host, "call_host").bind("bed_frame")
+	out.status_cb = Callable(host, "anatomy_status")
+	out.thrust_move_cb = Callable(host, "thrust_move")
+	out.set_penetration_m_cb = Callable(host, "set_penetration_m")
+	out.missionary_camera_cb = Callable(host, "camera")
+	out.now_s_cb = Callable(host, "now_s")
+	for key: String in extra:
+		match key:
+			"pony":
+				out.pony_cb = extra[key]
+			"runtime":
+				out.runtime_cb = extra[key]
+			"reactions":
+				out.reactions_cb = extra[key]
+			"anatomy_service":
+				out.anatomy_service_cb = extra[key]
+			"eligibility_service":
+				out.eligibility_service_cb = extra[key]
+			"vr_scene":
+				out.vr_scene_cb = extra[key]
 	return out
 
 

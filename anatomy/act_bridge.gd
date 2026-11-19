@@ -7,15 +7,16 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
-## The host callbacks. The runtime supplies the scene, the live state and the callbacks; a
-## missing callback is a no-op. The bridge never reads the runtime's private fields.
-var host: Dictionary = {}
+## The typed host. The runtime supplies the scene, the live state and the callbacks; a missing
+## callback is a no-op. The bridge never reads the runtime's private fields.
+var host: ACT_HOST = null
 ## The typed per-act context. The persistent controller reads it; the act writes it.
 var facts: RefCounted = FACTS.new()
 ## The persistent anatomy controller, the per-act handle and the act's own bodies.
@@ -33,37 +34,23 @@ var _contact_seen := false
 
 ## Bind the host callbacks. The bridge is created once per act; the runtime re-binds it on every
 ## access so a suite can build a runtime without entering the tree.
-func bind(host_in: Dictionary) -> void:
+func bind(host_in: ACT_HOST) -> void:
 	host = host_in
-	facts.perf_note = host.get("perf_note", Callable())
-	facts.perf_on = bool(_host("perf_enabled", false))
-	facts.log = host.get("log", Callable())
-	facts.body_coat_smack = host.get("body_coat_smack", Callable())
-
-
-## The host's live value, or the fallback. The callbacks are the only read path.
-func _host(key: String, fallback: Variant = null) -> Variant:
-	var value: Variant = host.get(key, null)
-	if value is Callable:
-		return (value as Callable).call()
-	return fallback
-
-
-## A host callback with arguments. `_host` is for zero-argument reads; this is the raw callable.
-func _callback(key: String) -> Callable:
-	var value: Variant = host.get(key, null)
-	return value as Callable if value is Callable else Callable()
+	facts.perf_note = host.perf_note()
+	facts.perf_on = host.perf_enabled()
+	facts.log = host.log()
+	facts.body_coat_smack = host.body_coat_smack()
 
 
 ## The persistent controller's refresh. The facade owns the service; the bridge only keeps the
 ## handle. A missing or ineligible controller detaches the old one.
 func refresh() -> void:
-	var pony: Variant = _host("pony")
+	var pony: Variant = host.pony()
 	if not is_instance_valid(pony):
 		_bind_reactions(pony, null)
 		return
-	var service: Variant = _host("anatomy_service")
-	var eligibility_service: Variant = _host("eligibility_service")
+	var service: Variant = host.anatomy_service()
+	var eligibility_service: Variant = host.eligibility_service()
 	var target_ok: bool = eligibility_service != null \
 		and eligibility_service.call("eligible", pony, ELIGIBILITY.Target.ANATOMY)
 	if not SETTINGS.anatomy_on() or not target_ok:
@@ -79,7 +66,7 @@ func refresh() -> void:
 		controller = null
 		_bind_reactions(pony, null)
 		return
-	controller = service.call("controller_for", pony, _host("runtime"))
+	controller = service.call("controller_for", pony, host.runtime())
 	_bind_reactions(pony, controller)
 	if is_instance_valid(controller):
 		controller.call("refresh")
@@ -88,7 +75,7 @@ func refresh() -> void:
 ## Hand the reactions facade her node and the anatomy controller. The facade keeps the scene it
 ## jiggles and smacks; the runtime's rump anchor and the standing offer read it outside an act.
 func _bind_reactions(pony_node: Variant, controller_in: Variant) -> void:
-	var reactions: Variant = _host("reactions")
+	var reactions: Variant = host.reactions()
 	if reactions != null and reactions.has_method("bind_scene"):
 		reactions.call("bind_scene", pony_node, controller_in)
 
@@ -105,14 +92,14 @@ func act_available() -> bool:
 
 ## The pose view the act reads for the mouth contact.
 func _mouth_contact() -> bool:
-	facts.pose_view = _host("pose_view")
+	facts.pose_view = host.pose_view()
 	return facts.mouth_contact()
 
 
 ## True while the view names the face contact. The pose service's future face driver reads the
 ## view; the geometry owner reads this helper.
 func _face_contact() -> bool:
-	facts.pose_view = _host("pose_view")
+	facts.pose_view = host.pose_view()
 	return facts.face_contact()
 
 
@@ -133,16 +120,16 @@ func begin_act() -> void:
 ## Write the live act state the persistent controller polls outside the act. The host supplies
 ## `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`.
 func sync_facts() -> void:
-	facts.state = _host("state", 0)
-	facts.pose_view = _host("pose_view")
-	facts.depth = _host("depth", 0.0)
-	facts.bed_frame = _host("bed_frame", null)
-	facts.cycle_phase = _host("cycle_phase", "normal")
+	facts.state = host.state()
+	facts.pose_view = host.pose_view()
+	facts.depth = host.depth()
+	facts.bed_frame = host.bed_frame()
+	facts.cycle_phase = host.cycle_phase()
 
 
 ## The pose family from the runtime's pose view: `bed` for missionary, `standing` for standing.
 func pose_family() -> String:
-	facts.pose_view = _host("pose_view")
+	facts.pose_view = host.pose_view()
 	return facts.family()
 
 
@@ -164,12 +151,12 @@ func pose_changed(view: Variant) -> void:
 ## penetration, climax, size and auto values.
 func context() -> RefCounted:
 	sync_facts()
-	facts.penetration_m = _host("penetration_m", 0.0)
-	facts.climaxes = _host("climaxes", 0)
-	facts.size_scale = _host("size_scale", 1.0)
-	facts.auto_pace = _host("auto_pace", 1.0)
-	facts.fluid_ground_y = _host("fluid_ground_y", 0.0)
-	facts.penetration_reach = _host("penetration_reach", 0.2)
+	facts.penetration_m = host.penetration_m()
+	facts.climaxes = host.climaxes()
+	facts.size_scale = host.size_scale()
+	facts.auto_pace = host.auto_pace()
+	facts.fluid_ground_y = host.fluid_ground_y()
+	facts.penetration_reach = host.penetration_reach()
 	return facts
 
 
@@ -206,8 +193,8 @@ func apply_live() -> void:
 
 ## Detach the persistent controller. The world's anatomy service owns the detach.
 func detach() -> void:
-	var pony: Variant = _host("pony")
-	var service: Variant = _host("anatomy_service")
+	var pony: Variant = host.pony()
+	var service: Variant = host.anatomy_service()
 	if service != null and service.has_method("detach_controller"):
 		service.call("detach_controller", pony)
 	elif is_instance_valid(controller):
@@ -218,14 +205,14 @@ func detach() -> void:
 
 ## The action gates. The host supplies the state; the bridge reads the settings.
 func hole_ready() -> bool:
-	return is_instance_valid(act) and _host("state", 0) in [STATE_ACTIVE, STATE_CLIMAX] \
+	return is_instance_valid(act) and host.state() in [STATE_ACTIVE, STATE_CLIMAX] \
 		and SETTINGS.anatomy_holes.get_bool() and not _mouth_contact() and not _face_contact()
 
 
 ## The oral command's gate: the feature, the standing pose family and an active act. It stays
 ## open in either direction so N can request the return.
 func oral_ready() -> bool:
-	return is_instance_valid(act) and _host("state", 0) == STATE_ACTIVE \
+	return is_instance_valid(act) and host.state() == STATE_ACTIVE \
 		and pose_family() == "standing" and SETTINGS.anatomy_oral.get_bool()
 
 
@@ -264,7 +251,7 @@ func face_point() -> Vector3:
 
 func toggle_hole() -> void:
 	if is_instance_valid(act):
-		act.call("toggle_hole", _host("state", 0))
+		act.call("toggle_hole", host.state())
 
 
 ## The stock flank smack reaction on the persistent controller.
@@ -315,7 +302,7 @@ func rear() -> Vector3:
 ## The standing camera's facing override used to live here. It now reads the pose view's
 ## `facing`/`facing_amount` directly, so the bridge no longer carries a facing path.
 func status(text: String, seconds := 2.0) -> void:
-	var status_cb: Callable = _callback("status")
+	var status_cb: Callable = host.status()
 	if status_cb.is_valid():
 		status_cb.call(text, seconds)
 
@@ -348,7 +335,7 @@ func bed_active() -> bool:
 ## Her gaze target in missionary: the authored Anon's face. The host supplies the camera and the
 ## kiss; the bridge supplies the offset and the fallback.
 func gaze_point() -> Vector3:
-	var camera: Variant = _host("missionary_camera")
+	var camera: Variant = host.missionary_camera()
 	if is_instance_valid(missionary_anon) and bool(missionary_anon.get("active")):
 		var point: Variant = missionary_anon.call("eye_point")
 		if point is Vector3 and (point as Vector3).is_finite():
@@ -357,7 +344,7 @@ func gaze_point() -> Vector3:
 			if camera != null and camera.has_method("head_look_point_at"):
 				return camera.call("head_look_point_at", aim)
 	if camera != null and camera.has_method("head_look_point"):
-		var kiss: Variant = _host("kiss_controller")
+		var kiss: Variant = host.kiss_controller()
 		if kiss != null and kiss.has_method("mouth_view"):
 			return camera.call("head_look_point", kiss.call("mouth_view"))
 	return Vector3.ZERO
@@ -366,11 +353,11 @@ func gaze_point() -> Vector3:
 ## The game's eye modifier still points at the standing player rig. In missionary the pupils
 ## follow the same gaze target the head solve uses.
 func aim_eyes() -> void:
-	var pony: Variant = _host("pony")
+	var pony: Variant = host.pony()
 	if not is_instance_valid(pony):
 		return
 	var target := gaze_point()
-	var pose: Variant = _host("pose")
+	var pose: Variant = host.pose()
 	if pose != null and pose.has_method("get"):
 		var value: Variant = pose.get("look_point")
 		if value is Vector3 and (value as Vector3).is_finite() \
@@ -389,10 +376,10 @@ func aim_eyes() -> void:
 ## handle and the headset's forward and depth.
 func vr_start() -> void:
 	vr_stop()
-	var scene: Variant = _host("vr_scene")
+	var scene: Variant = host.vr_scene()
 	if not scene is Dictionary:
 		return
-	var runtime: Variant = _host("runtime")
+	var runtime: Variant = host.runtime()
 	if not is_instance_valid(runtime):
 		return
 	var player: Variant = (scene as Dictionary).get("player")
@@ -405,10 +392,10 @@ func vr_start() -> void:
 	vr_act = VR_ACT.new()
 	vr_act.name = "UnfplapVrAct"
 	vr_act.set("bridge", self)
-	vr_act.set("align", _callback("align"))
-	vr_act.set("touch", _callback("touch"))
-	vr_act.set("pony_source", _callback("pony"))
-	vr_act.set("command", _callback("command"))
+	vr_act.set("align", host.align())
+	vr_act.set("touch", host.touch())
+	vr_act.set("pony_source", host.pony_callable())
+	vr_act.set("command", host.command())
 	vr_act.set("player", player)
 	vr_act.set("hip_target", (scene as Dictionary).get("hip_target"))
 	vr_act.set("camera", camera)
@@ -432,18 +419,18 @@ func vr_forward() -> Vector3:
 		var forward := Vector3(-rear.x, 0.0, -rear.z).normalized()
 		if forward.length_squared() > 0.001:
 			return forward
-	var pony: Variant = _host("pony")
+	var pony: Variant = host.pony()
 	if is_instance_valid(pony):
 		return -pony.global_basis.z.normalized()
 	return Vector3.FORWARD
 
 
 func vr_depth(value: float) -> void:
-	if _host("state", 0) not in [STATE_ACTIVE, STATE_CLIMAX]:
+	if host.state() not in [STATE_ACTIVE, STATE_CLIMAX]:
 		return
-	var thrust := _callback("thrust_move")
+	var thrust := host.thrust_move()
 	if thrust.is_valid():
-		thrust.call(value - float(_host("depth", 0.0)), float(_host("now_s", 0.0)))
-	var set_penetration := _callback("set_penetration_m")
+		thrust.call(value - float(host.depth()), float(host.now_s()))
+	var set_penetration := host.set_penetration_m()
 	if set_penetration.is_valid():
-		set_penetration.call(float(_host("depth", 0.0)) * float(_host("penetration_reach", 0.2)))
+		set_penetration.call(float(host.depth()) * float(host.penetration_reach()))

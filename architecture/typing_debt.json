@@ -17,11 +17,6 @@
     },
     {
       "service": "anatomy",
-      "func": "new_act",
-      "signature": "static func new_act(host: Dictionary) -> RefCounted:"
-    },
-    {
-      "service": "anatomy",
       "func": "off_roster_ids",
       "signature": "static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:"
     },

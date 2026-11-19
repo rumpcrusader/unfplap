@@ -12,6 +12,7 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const ACT_BRIDGE := preload("res://mods/unfplap/anatomy/act_bridge.gd")
+const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/anatomy/tail/visibility.gd")
@@ -198,7 +199,7 @@ func unbind_body(pony: Node3D) -> void:
 
 
 ## One act's anatomy bridge. The runtime creates one per act and binds the host callbacks.
-static func new_act(host: Dictionary) -> RefCounted:
+static func new_act(host: ACT_HOST) -> RefCounted:
 	var bridge: RefCounted = ACT_BRIDGE.new()
 	bridge.bind(host)
 	return bridge

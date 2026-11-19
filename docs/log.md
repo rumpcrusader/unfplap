@@ -51,7 +51,7 @@ two switch reads, the act gate and the header counts.
 |---|---|
 | the entry's `_ready()` | binds `debug_read`, `perf_read`, `act_running` and `counts`, then `attach()` |
 | `PONIES.act_running()` | the act gate: a live act owns the frame |
-| `PONIES._counts()` | the header counts: the live runtimes and `WORLD.mares()` |
+| `PONIES.runtime_count()`, `PONIES.mare_count()` | the header counts: the live runtimes and `WORLD.mares()` |
 | `SETTINGS.debug_mode` / `SETTINGS.debug_perf` | the two switch reads: `Callable(setting, "get_bool")` |
 | `shared/settings_change.gd` | calls `apply_settings()` on every settings edit: re-reads the switches and clears the panel when one goes off |
 | the entry's `_on_world(host)` | `reset()` after the service list |

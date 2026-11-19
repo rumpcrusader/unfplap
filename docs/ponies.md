@@ -131,7 +131,8 @@ re-runs `apply_live_settings()` over every runtime and the act a pending body sw
 the registry. `act_target(pony)` is the act-target rule the offer and the debug block read through
 the entry.
 
-`LOG.act_running` and `LOG.counts` are bound to `act_running()` and `_counts()`. A missing service
+`LOG.act_running`, `LOG.runtime_count` and `LOG.mare_count` are bound to `act_running()`,
+`runtime_count()` and `mare_count()`. A missing service
 reads as "no prepare", "no character list" and "no side effect", so a suite binds only what it
 tests.
 
@@ -149,7 +150,8 @@ None. The act key belongs to `docs/input.md` and the idle scan to `docs/offer.md
 ## Debug
 
 The Debug block reads `active()`, `runtime_for()` and `live_ponies()` through the entry's host
-bindings, and the idle perf block's header counts come from `_counts()`. See `docs/debug.md`.
+bindings, and the idle perf block's header counts come from `runtime_count()` and
+`mare_count()`. See `docs/debug.md`.
 
 ## Lifecycle
 

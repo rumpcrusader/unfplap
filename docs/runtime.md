@@ -388,11 +388,13 @@ The act-tunable values (the thrust values, the caress quality, the cue/talk paci
 camera and climax values) live in one typed `SETTINGS.ActSnapshot`. `_snapshot_settings()` is its
 only writer and runs at act start and again at the top of `apply_live_settings()`, before the IDLE
 early return; a consumer reads `_snapshot.<value>` at the use site instead of keeping a second
-copy. A zeroed snapshot stands in until the first start or settings edit, so an idle read sees the
-same zero values the removed fields defaulted to. `_features` and `_presentation_cfg` stay as
-references into the snapshot because the idle view refresh, the start sequence and the suites read
-them outside or across an act; the climax limit and the climax mode stay runtime fields that the
-acts and suites set directly.
+copy. The camera mode is read per rendered frame, so it is cached in `_eye_camera_mode` by the same
+snapshot and `_pose_render_write()` reads that field, never the setting. A zeroed snapshot stands
+in until the first start or settings edit, so an idle read sees the same zero values the removed
+fields defaulted to. `_features` and `_presentation_cfg` stay as references into the snapshot
+because the idle view refresh, the start sequence and the suites read them outside or across an
+act; the climax limit and the climax mode stay runtime fields that the acts and suites set
+directly.
 
 The standing start/offer gap is read from `_pose_session.pose_config["gaps"]`; a session without a
 config falls back to `SETTINGS.pose(id, "standing")["gaps"]`. The shipped values live under
@@ -446,7 +448,9 @@ standing start no longer pulls the Hips bone across the gap. The fit log line ca
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
 - `scripts/architecture.py --check` — the one exit, the pose ledger order and its three callers,
-  the fan-out order and the pose-before-facts write in `_physics_tick`.
+  the fan-out order and the pose-before-facts write in `_physics_tick`, and the thin-runtime
+  shape: the one `state` writer, no raw input, the settings snapshot boundaries and the two
+  system-owned child nodes.
 - The service suites indexed in `docs/README.md`.
 
 ## Verification / lab

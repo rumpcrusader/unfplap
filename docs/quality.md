@@ -38,7 +38,7 @@ wanted.
 ## Architecture gate
 
 `scripts/architecture.py --check` compares each service's `docs/` `### Uses` table with the preload
-graph and enforces the layer and privacy rules. Two rules exist so code cannot grow back outside
+graph and enforces the layer and privacy rules. These rules exist so code cannot grow back outside
 the gate:
 
 - **Every mod path has an owner.** A shipped `.gd` must resolve through `owner_of()` to a service
@@ -55,6 +55,14 @@ the gate:
   `main.<member>`, `var main`, a `main.gd` preload or a `main` argument; `tests/` is exempt. A
   consumer preloads the facade it needs, reads `WORLD` for the scene, or takes a typed host
   parameter.
+- **The runtime is a host, not a system.** `runtime.gd` assigns `state` only inside `_set_state()`,
+  decodes no raw input (`Input.`, `InputMap.`, `InputEvent*`, `KEY_*`, `MOUSE_MODE_*`, an input
+  callback), reads `SETTINGS.` only at the act's snapshot boundaries — `_snapshot_settings()`,
+  `apply_live_settings()`, the start and resume paths, the `_snapshot` field's typed default and
+  `_shape_name()`'s static character-name lookup — and calls `add_child()` only for the two
+  system-owned nodes: the act audio node and the tail tuck. Both allow-lists live in the checker
+  and are compared in both directions, so a new settings read or node fails the gate and a row
+  whose code is gone fails as stale.
 
 The rest — one body-change fan-out, one body-swap resume, one `_end_session()`, the runtime's tick
 and fan-out order, the scene-only world facade and the suite allow-lists — is the checker's own

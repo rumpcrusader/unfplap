@@ -231,7 +231,8 @@ refuses string dispatch in the entry: no `.call(`, `.get("` or `.set("`, and no 
 - owns the start sequence, the tick order and the one teardown ledger;
 - creates or binds the act services and passes them typed contexts;
 - forwards input commands and publishes a typed act view;
-- does not own scoring math, pose math, settings declarations, debug actions or a service's
+- does not own scoring math, pose math, settings declarations, debug actions, raw input decoding,
+  node construction outside the two system-owned nodes, a per-frame settings read or a service's
   mutable state.
 
 The state flow, start order and teardown order are documented in `docs/runtime.md`. The tick
@@ -415,10 +416,11 @@ is typed.
 
 `scripts/architecture.py --check` owns the static invariants: one `_end_session`, the pose ledger's
 order and its three callers, the `_pose_fanout()` owner order and the pose-before-facts write in
-`_physics_tick`, the act-exit ban under `poses/`, the shell `errexit` prelude, the release files and
-the manifest, one settings declaration module, and the test-file rules in `docs/tests.md`. The
-typed act view boundary is a review rule: presentation modules read `shared/act_facts.gd`, not the
-runtime node.
+`_physics_tick`, the thin-runtime shape (one `state` writer, no raw input, settings reads only at
+the act's snapshot boundaries, only the two system-owned child nodes), the act-exit ban under
+`poses/`, the shell `errexit` prelude, the release files and the manifest, one settings declaration
+module, and the test-file rules in `docs/tests.md`. The typed act view boundary is a review rule:
+presentation modules read `shared/act_facts.gd`, not the runtime node.
 
 Suites are not services: their layout, isolation, discovery and runner are `docs/tests.md`.
 

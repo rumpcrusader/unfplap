@@ -148,15 +148,16 @@ left `by_button` emits the same `oral` command through the bridge's host callbac
 
 The continuous `thrust`, `lean`, `caress` and `kiss` inputs stay on their polled `RAW_KEYS`/mouse
 path, and the act-key hold owns `end`. Smack, auto-thrust and the debug wheel are body/camera
-actions outside the pose command set and keep their direct runtime methods.
+actions outside the pose command set and keep their direct act-input methods.
 
 The act input protocol the service calls is `act/input.gd`, reached as `runtime.act.input`:
 `look_motion(relative)`, `thrust_motion(relative_y)`, `toggle_auto_thrust()`,
 `auto_thrust_wheel(direction)`, `auto_panel_input(delta, x_down, keys)`, `auto_panel_open()`,
 `free_look_active()`, `command(id)`, `request_pose()`, `cancel()`, `request_afterglow()`,
-`end_afterglow()` and `vr_y_held()`. `smack()`, `body_swap_pending()`, `auto_active()` and the
-`state` read stay on the runtime node until R4. Neither the node nor the protocol sees an
-`InputEvent`; the service owns every decode, hold and key sample.
+`end_afterglow()` and `vr_y_held()`. `smack()`, `body_swap_pending()`, `auto_active()`,
+`anatomy_hole_ready()`, `anatomy_oral_ready()` and `climaxes()` are on the same protocol; the
+service reads the session state through the session handle it resolves. Neither the node nor the
+protocol sees an `InputEvent`; the service owns every decode, hold and key sample.
 
 ## Controls and debug
 

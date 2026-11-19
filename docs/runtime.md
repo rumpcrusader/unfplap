@@ -463,30 +463,32 @@ The cross-mod surface is `docs/api.md`. The internal reads the HUD, labs and tes
   (`stool/act.gd`), which `act/session.gd:stool()` binds and `act/session.gd:release_stool()`
   releases.
 - **View and HUD:** `act_view`, `refresh_view`, `pose_view`, `hud_readouts`, `hud_controls`,
-  `auto_active`, `close_hint`, `act_face_rows`, `pose_state_rows`, `face_sit_error`,
+  `close_hint`, `act_face_rows`, `pose_state_rows`, `face_sit_error`,
   `reload_pose_asset`.
 - **Input:** `runtime.act.input` (`act/input.gd`) — `look_motion`, `thrust_motion`,
   `toggle_auto_thrust`, `auto_thrust_wheel`, `auto_panel_input`, `auto_panel_open`, `vr_y_held`,
   `free_look_active`, `request_pose`, `request_command`, `command`, `cancel`,
-  `request_afterglow`, `end_afterglow`. `anatomy_hole_ready`, `anatomy_oral_ready`,
-  `toggle_anatomy_hole` and `toggle_anatomy_oral` stay on the node until R4.
+  `request_afterglow`, `end_afterglow`, `smack`, `body_swap_pending`, `auto_active`,
+  `anatomy_hole_ready`, `anatomy_oral_ready` and `climaxes`. The input service reads the session
+  state through the session handle it already resolves; the node exposes none of these.
 - **Presentation:** `present_standing`, `presentation_active`, `presentation_settled`,
   `clear_presentation`, `hold_handle`, `free_look_active`, `free_look_rotation`,
   `missionary_anon_body`, `authored_pose_asset`, `missionary_face_point`,
-  `missionary_vulva_point`, `shot_lean_forward`, `rump_anchor`, `smack`, `force_act_face`,
+  `missionary_vulva_point`, `shot_lean_forward`, `rump_anchor`, `force_act_face`,
   `debug_force_tolerance`, `voice_status_line`, `anatomy_facts`, `anatomy_normal`,
   `anatomy_opening`, `body_coat_jiggle_target`.
 - **Pose-host write-backs:** `apply_anon_thrust`, `apply_anon_lean`, `apply_anon_align`,
   `apply_camera_motion` and `perf_note` are the callbacks the presentation controllers and the
   entry already call.
-- **Body form:** `body_swap_pending`, `request_form_change`, `attach_to_body`, `adopt_body`,
+- **Body form:** `request_form_change`, `attach_to_body`, `adopt_body`,
   `bind_body_services`, `refresh_body_services`.
 - **Exit:** `force_stop`, `apply_live_settings`.
 
 `live_id()` is the act's stable pony id, refreshed from the live body; `ponies` matches a dialogue
 prompt note to its one runtime through it. `request_form_change(true_form, shape_id, by_player)`
-is the act-side form request the debug block and the player interaction call. `body_swap_pending()`
-is true between suspension and resume. `PONIES.adopt_pending_body(pony)` runs the registry's
+is the act-side form request the debug block and the player interaction call. The suspension flag
+is the input protocol's `body_swap_pending()`, true between suspension and resume.
+`PONIES.adopt_pending_body(pony)` runs the registry's
 prepare and pending-swap adoption for a body the handover found before its spawn hook.
 
 The pose surface is `pose_view()` and the input protocol's `request_pose(target_id, trigger,

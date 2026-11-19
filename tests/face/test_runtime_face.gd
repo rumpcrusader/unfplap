@@ -71,6 +71,21 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+## The runtime's post-act face path without the runtime wrapper: the afterglow's plan carries
+## the values, the face facade owns the face.
+func _start_post_act_face(runtime: Node) -> void:
+	var summary: Dictionary = runtime._summary_service.summary
+	var plan: RefCounted = runtime._afterglow.post_act(false, runtime.satisfaction,
+		runtime._aftercare_min, not summary.is_empty(), bool(summary.get("positive", false)))
+	runtime._bind_face()
+	runtime._face.start_post_act(plan.face_context(summary))
+
+
+func _end_mood_face(runtime: Node) -> void:
+	runtime._bind_face()
+	runtime._face.end_mood_face()
+
+
 func _fixture() -> Dictionary:
 	var runtime: Node = RUNTIME.new()
 	var pony := FakePony.new()
@@ -149,26 +164,26 @@ func run() -> void:
 	runtime._aftercare_min = 10
 	runtime._summary_service.summary = {"grade": "great", "positive": true, "reward": true,
 		"severe": false, "early": false, "mood": "happy"}
-	runtime.call("_start_post_act_face")
+	_start_post_act_face(runtime)
 	check(is_instance_valid(runtime._face.mood_face), "positive act starts the mood face")
 	check(expressions.dialogue_face == "relaxed", "positive mood face is relaxed")
 	check(bool(runtime._face.warm_note), "positive mood face sets the warm note")
 	if is_instance_valid(runtime._face.mood_face):
 		runtime._face.mood_face.set_physics_process(false)
-	runtime.call("_end_mood_face")
+	_end_mood_face(runtime)
 	check(runtime._face.mood_face == null and not bool(runtime._face.warm_note),
 		"mood face clears on a new act")
 
 	expressions.dialogue_face = ""
 	runtime._summary_service.summary = {"grade": "bad", "positive": false, "reward": false,
 		"severe": false, "early": false, "mood": "sad"}
-	runtime.call("_start_post_act_face")
+	_start_post_act_face(runtime)
 	check(is_instance_valid(runtime._face.mood_face), "bad act starts the mood face")
 	check(expressions.dialogue_face == "sad", "bad mood face is sad")
 	check(not bool(runtime._face.warm_note), "bad mood face has no warm note")
 	if is_instance_valid(runtime._face.mood_face):
 		runtime._face.mood_face.set_physics_process(false)
-	runtime.call("_end_mood_face")
+	_end_mood_face(runtime)
 
 	# The lids and the smile live in the facade: the runtime only gathers the state.
 	runtime.state = 2 # ACTIVE

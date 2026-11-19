@@ -24,6 +24,10 @@ class Host extends RefCounted:
 		rewards.append({"caressed": caressed, "reward": reward})
 
 
+class HostNode extends Node:
+	pass
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -194,6 +198,84 @@ func run() -> void:
 	check(not winged._wing_returning and winged._wings_node == null,
 		"wing return state clears on release")
 	wings.free()
+
+	# The post-act decision and its hosted node. A partner stop keeps the tail tucked; otherwise
+	# the healthy summary or a satisfied meter gives the aftercare its body language.
+	var post := AFTERGLOW.new()
+	var tucked: RefCounted = post.post_act(true, 90.0, 10, true, true)
+	check(tucked.tail_tuck and not tucked.body_language,
+		"a partner stop keeps the tail tucked instead of an aftercare")
+	var warm: RefCounted = post.post_act(false, 90.0, 10, true, true)
+	check(not warm.tail_tuck and warm.body_language, "a healthy act gets the aftercare")
+	var cold: RefCounted = post.post_act(false, 4.0, 10, false, false)
+	check(not cold.body_language, "an unsatisfied act without a summary gets no body language")
+	check(not post.post_act(false, 4.0, 10, true, true).body_language,
+		"a healthy summary still needs the meter over her threshold")
+	check(post.post_act(false, 40.0, 10, false, false).body_language,
+		"a satisfied meter alone carries the aftercare")
+
+	var host_node := HostNode.new()
+	root.add_child(host_node)
+	post.bind_host(host_node)
+	var pony := Node3D.new()
+	root.add_child(pony)
+	check(post.start_aftercare(pony, warm), "the aftercare node is hosted")
+	check(post.aftercare != null and post.aftercare.get_parent() == host_node,
+		"the aftercare rides the host node")
+	check(bool(post.aftercare.get("body_language")), "the plan sets the aftercare body language")
+	check(pony.has_meta("sex_aftercare"), "the aftercare marks the pony")
+	check(not post.start_aftercare(pony, warm), "a running aftercare is never replaced")
+	post.clear_post_act(pony)
+	check(post.aftercare == null and not pony.has_meta("sex_aftercare"),
+		"clearing the aftercare drops the node and the mark")
+
+	# The satisfaction decay belongs to the facade: the host node creates the tween and a new
+	# act stops it.
+	var written: Array[float] = []
+	post.write_satisfaction = func(value: float) -> void: written.append(value)
+	post.decay_satisfaction(50.0)
+	check(post.get("_decay") != null, "the decay tween runs after the act")
+	await process_frame
+	await process_frame
+	check(not written.is_empty() and written[written.size() - 1] < 50.0,
+		"the decay writes the meter down")
+	post.stop_decay()
+	check(post.get("_decay") == null, "a new act stops the decay")
+	var stopped_at := written.size()
+	await process_frame
+	check(written.size() == stopped_at, "a stopped decay writes nothing more")
+
+	# The runtime hosts the plan: an act that ended well starts the aftercare and its post-act
+	# face and the meter decays; a partner stop tucks the tail instead.
+	var ended: Node = _runtime("standing")
+	var ended_pony: Node3D = ended.pony
+	root.add_child(ended_pony)
+	root.add_child(ended)
+	ended.satisfaction = 80.0
+	ended._aftercare_min = 10
+	ended._summary_service.summary = {"grade": "great", "positive": true, "reward": true,
+		"severe": false, "early": false, "mood": "happy"}
+	ended.call("_reset_after_act")
+	check(ended._afterglow.aftercare != null, "a healthy act starts the aftercare")
+	check(ended_pony.has_meta("sex_aftercare"), "the aftercare marks the pony")
+	check(is_instance_valid(ended._face.mood_face), "the post-act face is held")
+	check(ended._afterglow.get("_decay") != null, "the satisfaction decay runs")
+	ended.call("_clear_aftercare")
+	check(not ended_pony.has_meta("sex_aftercare"), "a new start clears the aftercare")
+	ended._stopped_by_her = true
+	ended.call("_reset_after_act")
+	check(ended._afterglow.aftercare == null, "a partner stop starts no aftercare")
+	check(ended._tail_tuck != null, "a partner stop tucks her tail")
+	ended.call("_end_tail_tuck")
+	check(ended._tail_tuck == null, "the tuck is released")
+	ended._afterglow.stop_decay()
+	root.remove_child(ended)
+	ended.free()
+	root.remove_child(ended_pony)
+	ended_pony.free()
+
+	pony.free()
+	host_node.free()
 
 	print("AFTERGLOW_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

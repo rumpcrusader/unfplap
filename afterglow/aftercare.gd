@@ -13,7 +13,6 @@ const FLICK_MIN := 1.4
 const FLICK_MAX := 2.4
 
 var pony: Node3D
-var runtime: Node
 var body_language := true
 
 var _left := DURATION

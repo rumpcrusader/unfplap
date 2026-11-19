@@ -14,14 +14,13 @@ const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
-const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
-const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
+const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -248,7 +247,6 @@ var _act_seconds := 0.0
 ## Processed-time clock. It only advances while the runtime ticks, so a paused tree freezes
 ## act timing and stroke memory instead of aging them by the pause length.
 var _clock_s := 0.0
-var _aftercare: Node
 ## The act's face owner: beats, line-face ownership, the stare release and the post-act mood
 ## face. See `face/service.gd` and `docs/face.md`.
 var _face: RefCounted = FACE.new()
@@ -257,7 +255,6 @@ var _face: RefCounted = FACE.new()
 var _reactions: RefCounted = REACTIONS.new()
 var _first_time := false
 var _act_climax_mode: String
-var _satisfaction_tween: Tween
 ## The act's base kiss normally rears and lifts both forelegs; zeroing those two shared
 ## settings keeps her forehooves planted for the kiss and restores them when it ends.
 ## The act's stare is released once when a kiss starts so the regular kiss can drive the eyes.
@@ -339,6 +336,8 @@ func _init() -> void:
 	_afterglow.log = Callable(self, "_log")
 	_afterglow.caress_active = Callable(self, "_afterglow_caressing")
 	_afterglow.on_stay_close = Callable(self, "_on_stay_close")
+	_afterglow.bind_host(self)
+	_afterglow.write_satisfaction = Callable(self, "_write_satisfaction")
 	_face.log = Callable(self, "_log")
 	_face.clock = Callable(self, "_now_s")
 	_reactions.log = Callable(self, "_log")
@@ -1770,11 +1769,7 @@ func start_hotkey(pose: String, bed_in: Variant, act_source: String,
 ## Clear the visual aftercare before a new start: the face and tail state, the meta and the
 ## aftercare navigator lease. The node restores its own nav only while it still owns it.
 func _clear_aftercare() -> void:
-	if is_instance_valid(_aftercare):
-		_aftercare.queue_free()
-		_aftercare = null
-	if is_instance_valid(pony) and pony.has_meta("sex_aftercare"):
-		pony.remove_meta("sex_aftercare")
+	_afterglow.clear_post_act(pony if is_instance_valid(pony) else null)
 
 
 ## The shared start body after every gate. The act key's policy path and the scene-only
@@ -1800,7 +1795,8 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_session_finalized = false
 	# Remove the idle standing presentation and its face before the act builds its own pose.
 	clear_presentation()
-	_end_mood_face()
+	_bind_face()
+	_face.end_mood_face()
 	_end_act_face()
 	pose_id = pose
 	source = act_source
@@ -1843,8 +1839,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_end_tail_tuck()
 	_summary_service.reset_act()
 	_prepare_vocal()
-	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
-		_satisfaction_tween.kill()
+	_afterglow.stop_decay()
 	_remember_talk_turn()
 	_act_spoken_at = _dialogue_service().last_spoken_at()
 	if source == "cradle":
@@ -3389,6 +3384,8 @@ func _queue_stop_line(strict: bool) -> void:
 	_dialogue_service().reaction_line(MEMORY.Reaction.TOLERANCE_STOP, event_id, fallback, valid)
 
 
+## The tail tuck after a partner stop: `poses/tail_tuck.gd` is a pose-scope node, so the runtime
+## hosts it. The afterglow facade owns the decision that asks for it.
 func _start_tail_tuck() -> void:
 	_end_tail_tuck()
 	if not is_inside_tree() or not is_instance_valid(pony):
@@ -3893,66 +3890,37 @@ func _restore_now() -> void:
 	_end_session(false)
 	_finalize_session(true)
 
+## The after-act. The order is the act exit's: the stroke state resets, the meter runs down, and
+## the act ends in either the tail tuck after a partner stop or the aftercare beat. The afterglow
+## facade owns the decisions and the values; this hosts the nodes.
 func _reset_after_act() -> void:
 	if not is_inside_tree():
 		return
 	_reset_thrust_state()
-	if _satisfaction_tween != null and _satisfaction_tween.is_valid():
-		_satisfaction_tween.kill()
-	var from := float(satisfaction)
-	_satisfaction_tween = create_tween()
-	_satisfaction_tween.tween_method(func(value: float) -> void: satisfaction = clampf(value, 0.0, READINESS_MAX), from, 0.0, 30.0)
-	if _stopped_by_her:
+	_afterglow.decay_satisfaction(satisfaction)
+	var plan: AFTERGLOW.PostAct = _afterglow.post_act(_stopped_by_her, satisfaction,
+		_aftercare_min, not _summary_service.summary.is_empty(),
+		bool(_summary_service.summary.get("positive", false)))
+	if plan.tail_tuck:
 		_start_tail_tuck()
-	else:
-		_begin_aftercare()
+	elif is_instance_valid(pony) and _afterglow.start_aftercare(pony, plan):
+		_bind_face()
+		_face.start_post_act(plan.face_context(_summary_service.summary))
 
-func _begin_aftercare() -> void:
-	if not is_inside_tree() or not is_instance_valid(pony):
-		return
-	if is_instance_valid(_aftercare):
-		return
-	var has_summary: bool = not _summary_service.summary.is_empty()
-	var healthy := bool(_summary_service.summary.get("positive", false)) if has_summary \
-		else satisfaction >= _aftercare_min
-	_aftercare = AFTERCARE.new()
-	_aftercare.set("pony", pony)
-	_aftercare.set("runtime", self)
-	_aftercare.set("body_language", healthy and satisfaction >= _aftercare_min)
-	add_child(_aftercare)
-	_start_post_act_face()
 
-## The post-act face. The facade owns the lifetime and the warm note; the runtime gathers the
-## scene values.
-func _start_post_act_face() -> void:
-	_bind_face()
-	_face.start_post_act({
-		"stopped": _stopped_by_her,
-		"summary": _summary_service.summary,
-		"satisfied": satisfaction,
-		"aftercare_min": _aftercare_min,
-	})
+## The afterglow's satisfaction decay writes here; the meter's range is readiness's.
+func _write_satisfaction(value: float) -> void:
+	satisfaction = clampf(value, 0.0, READINESS_MAX)
 
-func _start_mood_face(mood: String, face: String, blush: float, warm_note: bool) -> void:
-	_bind_face()
-	_face.start_mood_face(mood, face, blush, warm_note)
 
-func _end_mood_face() -> void:
-	_bind_face()
-	_face.end_mood_face()
-
-## Compatibility aliases: the lab's anger keys and the old call sites still use these names.
+## Compatibility aliases: the lab's anger keys still use these names.
 func _start_upset(mood: String) -> void:
 	_bind_face()
 	_face.start_upset(mood)
 
 func _end_upset() -> void:
 	_bind_face()
-	_face.end_mood_face()
-
-func _end_satisfied() -> void:
-	_bind_face()
-	_face.end_mood_face()
+	_face.end_upset()
 
 # --------------------------------------------------------------------------- act face
 
@@ -4367,6 +4335,7 @@ func _exit_tree() -> void:
 	_kiss_controller().restore_forelegs()
 	_release_stool()
 	_end_tail_tuck()
+	_clear_aftercare()
 	# integration: never leave the anatomy nodes or the per-act controller behind.
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.end()

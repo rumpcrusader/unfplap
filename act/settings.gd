@@ -1,0 +1,157 @@
+extends RefCounted
+## The act's settings snapshot and its live-settings apply. One per pony, owned by
+## `act/session.gd`: the session is the only reader of the act tunables, through this module.
+## Values arrive once per act and again on `apply_live()`, never per frame.
+##
+## See `docs/runtime.md` and `docs/settings.md`.
+
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
+const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
+
+## The `CLIMAX` length the reaction window and the face beat read.
+const CLIMAX_SECONDS := 5.0
+
+## The one bulk snapshot. A consumer reads `<settings>.<value>` at the use site; a zeroed
+## snapshot stands in until the first act.
+var snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
+## The snapshot values the act itself reads: the feature flags, the pose presentation block,
+## the caress quality, the climax limit and mode, and the camera mode.
+var features: Dictionary = {}
+var presentation_config: Dictionary = {}
+var caress_quality := ""
+var max_pony_climaxes := 0
+var climax_mode := ""
+## Cached because the render write runs every rendered frame.
+var eye_camera_mode := false
+
+var host: ACT_HOST = null
+var context: ACT_CONTEXT = null
+
+
+func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT) -> void:
+	host = host_in
+	context = context_in
+
+
+## Snapshot every tunable the act reads per stroke or per frame and push it to its owners.
+## `group` is the start spec's settings group: an internal pose has no block of its own and must
+## never be passed here.
+func snapshot_values(group: String, family: String, preferences: Dictionary,
+		preserve_auto_shape: bool) -> void:
+	snapshot = SETTINGS.act_snapshot(group)
+	features = snapshot.features
+	context.readiness.configure_thrust(snapshot.thrust_pixels_per_cm, snapshot.thrust_up,
+		snapshot.thrust_travel, snapshot.pelvis_gap_m)
+	max_pony_climaxes = snapshot.max_pony_climaxes
+	context.readiness.configure_auto(snapshot.auto_pace, snapshot.auto_max_depth,
+		snapshot.auto_curve, snapshot.auto_min_depth, preserve_auto_shape)
+	context.reactions.configure({
+		"jiggle": snapshot.jiggle,
+		"pose_family": family,
+		"size_scale": context.camera.jiggle_size_scale(),
+		"climax_seconds": CLIMAX_SECONDS,
+	})
+	context.camera.configure(snapshot.camera_thrust)
+	context.readiness.configure(preferences, snapshot.cue_override_seconds,
+		snapshot.cue_overwhelmed_s, snapshot.touch_cooldown_s, snapshot.talk_cooldown_s,
+		snapshot.receptive_seconds)
+	presentation_config = snapshot.presentation
+	climax_mode = snapshot.climax_mode
+	eye_camera_mode = str(SETTINGS.camera_mode.get_value()) == "eye"
+	caress_quality = snapshot.caress_quality
+	configure_dialogue()
+
+
+## The pre-edit Ponese mute, compared after the new snapshot to spot a voice-policy edit.
+func muted() -> bool:
+	return bool(features.get("mute_ponese_audio", false))
+
+
+func debug_face() -> bool:
+	return bool(features.get("face_debug", false))
+
+
+## The act's live body is released; the one resume re-reads the snapshot and rebuilds the
+## body-bound services, so an edit during the flame must touch neither.
+func suspended() -> bool:
+	return context.handover != null and context.handover.suspended
+
+
+## The live edit outside an act: the standing presentation has its own values, and the anatomy
+## feature is live outside acts too.
+func apply_idle_live() -> void:
+	context.presentation.apply_live_settings()
+	_anatomy_refresh()
+
+
+## The live edit's pre-view half inside an act.
+func apply_act_live_pre() -> void:
+	_anatomy_refresh()
+
+
+## The live preference refresh for a live id, or an empty dictionary when there is none.
+func live_preferences(pony_id: String) -> Dictionary:
+	return SETTINGS.preferences(pony_id) if not pony_id.is_empty() else {}
+
+
+## The live edit's post-view half: the integrations, the pose family's config, the modifiers,
+## the face and the voice policy. `mute_changed` re-applies the voice policy.
+func apply_act_live(family: String, pony_id: String, mute_changed: bool) -> void:
+	context.integrations.apply_live_settings()
+	context.reactions.apply_radius()
+	if family == "standing":
+		context.kiss.apply_live_settings()
+		context.pose.sync_standing_config(presentation_config)
+		context.presentation.apply_live_settings()
+	elif family == "bed":
+		context.pose.sync_missionary_config()
+	# A running edge's target snapshot follows the same edit.
+	context.pose.apply_live_settings()
+	_refresh_live_modifiers(family)
+	context.face.ensure_bound(host.pony, host.node)
+	context.face.sync_settings(debug_face())
+	if mute_changed:
+		_refresh_live_voice(pony_id)
+
+
+## Push the debug talk/cue pacing settings into the pure scheduler.
+func configure_dialogue() -> void:
+	context.dialogue.configure({
+		"base_stable": snapshot.cue_base_stable_s,
+		"override_stable": snapshot.cue_override_stable_s,
+		"utterance_gap": snapshot.cue_utterance_gap_s,
+		"demand_gap": snapshot.cue_demand_gap_s,
+		"demand_repeat": snapshot.cue_demand_repeat_s,
+		"max_age": snapshot.cue_max_age_s,
+		"release_hold": snapshot.cue_release_hold_s,
+	})
+
+
+func _refresh_live_modifiers(family: String) -> void:
+	if not is_instance_valid(host.pony):
+		return
+	var skeleton_value: Variant = host.pony.get("skeleton")
+	if not skeleton_value is Skeleton3D:
+		return
+	context.pose.refresh_modifiers(features)
+	if family == "standing":
+		context.standing_anon.refresh_palm()
+	elif family == "bed":
+		context.anatomy.bind(context.anatomy_host)
+		context.anatomy.refresh_palm()
+
+
+## A live voice-policy edit: give the player its saved volume back, then apply the new policy.
+func _refresh_live_voice(pony_id: String) -> void:
+	if host.node == null or not host.node.is_inside_tree():
+		return
+	if not is_instance_valid(context.audio):
+		return
+	context.audio.restore_voice_policy()
+	context.audio.apply_voice_policy(muted(), host.pony, pony_id)
+
+
+func _anatomy_refresh() -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.refresh()

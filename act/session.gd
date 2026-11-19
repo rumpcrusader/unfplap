@@ -8,6 +8,7 @@ extends RefCounted
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const ACT_SETTINGS := preload("res://mods/unfplap/act/settings.gd")
 const PLACEMENT := preload("res://mods/unfplap/poses/placement.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
@@ -31,7 +32,7 @@ const READINESS_MAX := 100.0
 
 const State := ACT_STATE.State
 
-const CLIMAX_SECONDS := 5.0
+const CLIMAX_SECONDS := ACT_SETTINGS.CLIMAX_SECONDS
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
 ## The scene gate's running-check cadence while the act is live.
@@ -52,15 +53,42 @@ var start: Variant = null
 ## The act view composition. Bound once with the start ledger; the live settings pass refreshes it.
 var view: Variant = null
 
-## The act's settings snapshot. This module is its only writer; the act tunables are read through
-## `snapshot.<name>`, never copied into a second field. A zeroed snapshot stands in until the first
-## act, so an idle read sees the same zero values the old fields defaulted to.
-var snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
-## The snapshot's climax limit and mode, read by the climax and face rules.
-var max_pony_climaxes := 0
-var climax_mode := ""
-## The camera mode, cached with the rest because the render write runs every rendered frame.
-var eye_camera_mode := false
+## The act's settings snapshot and its live-apply. Bound once with the host and context; this
+## module is its only writer and the act tunables are read through it.
+var settings: ACT_SETTINGS = ACT_SETTINGS.new()
+
+## The snapshot the runtime and the start ledger read, through this module.
+var snapshot: SETTINGS.ActSnapshot:
+	get:
+		return settings.snapshot
+## The snapshot values the act reads. The settings module is their one owner; these are the
+## read-throughs the act values, the view and the gate use.
+var features: Dictionary:
+	get:
+		return settings.features
+	set(value):
+		settings.features = value
+var presentation_config: Dictionary:
+	get:
+		return settings.presentation_config
+	set(value):
+		settings.presentation_config = value
+var caress_quality: String:
+	get:
+		return settings.caress_quality
+var max_pony_climaxes: int:
+	get:
+		return settings.max_pony_climaxes
+	set(value):
+		settings.max_pony_climaxes = value
+var climax_mode: String:
+	get:
+		return settings.climax_mode
+	set(value):
+		settings.climax_mode = value
+var eye_camera_mode: bool:
+	get:
+		return settings.eye_camera_mode
 
 ## The live act state. `_set_state()` is the only writer.
 var state: int = State.IDLE
@@ -78,11 +106,8 @@ var pony_id := ""
 var display_name := "the pony"
 var preferences: Dictionary = {}
 var act_prompts: Dictionary = {}
-var features: Dictionary = {}
 var player_pony := false
-var presentation_config: Dictionary = {}
 var profile: Dictionary = {}
-var caress_quality := ""
 var forced_glance := ""
 ## Act-scope bookkeeping the ledgers read: what this act borrowed, what it finalized, and the
 ## values the aftercare plan is built from. `finalized` makes the post-act bookkeeping one-shot.
@@ -119,6 +144,7 @@ var _act_seconds := 0.0
 func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 	host = host_in
 	context = context_in
+	settings.bind(host_in, context_in)
 
 
 ## Start one act. The ledger owns the recipe and the order; the session only enters it.
@@ -398,123 +424,41 @@ func enter_idle() -> void:
 
 
 ## Snapshot every tunable the act reads per stroke or per frame. `apply_live_settings()` re-runs
-## it so a settings edit applies without a new act.
+## it so a settings edit applies without a new act. The settings module owns the body.
 func snapshot_settings() -> void:
-	# The start spec's settings group selects the pose presentation block; an internal pose
-	# (`standing_test`, `standing_oral`) has no block of its own and must never be passed here.
-	snapshot = SETTINGS.act_snapshot(start_group())
-	features = snapshot.features
-	context.readiness.configure_thrust(snapshot.thrust_pixels_per_cm, snapshot.thrust_up,
-		snapshot.thrust_travel, snapshot.pelvis_gap_m)
-	max_pony_climaxes = snapshot.max_pony_climaxes
-	context.readiness.configure_auto(snapshot.auto_pace, snapshot.auto_max_depth,
-		snapshot.auto_curve, snapshot.auto_min_depth, preserve_auto_shape)
-	context.reactions.configure({
-		"jiggle": snapshot.jiggle,
-		"pose_family": start_family(),
-		"size_scale": context.camera.jiggle_size_scale(),
-		"climax_seconds": CLIMAX_SECONDS,
-	})
-	context.camera.configure(snapshot.camera_thrust)
-	context.readiness.configure(preferences, snapshot.cue_override_seconds,
-		snapshot.cue_overwhelmed_s, snapshot.touch_cooldown_s, snapshot.talk_cooldown_s,
-		snapshot.receptive_seconds)
-	presentation_config = snapshot.presentation
-	climax_mode = snapshot.climax_mode
-	eye_camera_mode = str(SETTINGS.camera_mode.get_value()) == "eye"
-	caress_quality = snapshot.caress_quality
-	_configure_utterance_scheduler()
+	settings.snapshot_values(start_group(), start_family(), preferences, preserve_auto_shape)
 	refresh_gate()
 
 
 ## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
-## idempotent so repeated edits do not stack modifiers. Returns the perf flag the runtime caches.
+## idempotent so repeated edits do not stack modifiers. The view refresh sits at its place in the
+## order; the settings module owns every other step. Returns the perf flag the runtime caches.
 func apply_live_settings() -> bool:
 	# Snapshot before the IDLE early return too, so the act tunables apply as soon as they are
 	# edited rather than only at the next act start.
 	var perf := LOG.debug_logs and LOG.debug_perf
 	# Read the pre-edit mute before the snapshot replaces `features`: a live Ponese mute edit is
 	# only visible as a change against the value the act started with.
-	var previous_mute := feature("mute_ponese_audio")
+	var previous_mute := settings.muted()
 	snapshot_settings()
-	if context.handover != null and context.handover.suspended:
-		# The resume re-reads the snapshot and rebuilds the body-bound services; an edit during
-		# the flame must not touch a released pose or the old body.
+	# The resume re-reads the snapshot and rebuilds the body-bound services; an edit during the
+	# flame must not touch a released pose or the old body.
+	if settings.suspended():
 		return perf
 	if state == State.IDLE:
-		# The idle standing presentation has its own live values, so a settings edit reaches it
-		# before the act-only work is skipped.
 		refresh_view()
-		context.presentation.apply_live_settings()
-		# integration: the anatomy feature is live outside acts too.
-		_anatomy_refresh()
+		settings.apply_idle_live()
 		return perf
-	_anatomy_refresh()
+	settings.apply_act_live_pre()
 	refresh_view()
-	context.integrations.apply_live_settings()
-	context.reactions.apply_radius()
-	if pose_family() == "standing":
-		context.kiss.apply_live_settings()
-		context.pose.sync_standing_config(presentation_config)
-		context.presentation.apply_live_settings()
-	elif pose_family() == "bed":
-		context.pose.sync_missionary_config()
-	# A running edge's target snapshot follows the same edit; the start pose's config sync above
-	# stays for the compatibility readers.
-	context.pose.apply_live_settings()
-	if not pony_id.is_empty():
-		preferences = SETTINGS.preferences(pony_id)
-	_refresh_live_modifiers()
-	context.face.ensure_bound(host.pony, host.node)
-	context.face.sync_settings(feature("face_debug"))
-	if previous_mute != feature("mute_ponese_audio"):
-		_refresh_live_voice()
+	var live_preferences := settings.live_preferences(pony_id)
+	if not live_preferences.is_empty():
+		preferences = live_preferences
+	settings.apply_act_live(pose_family(), pony_id, previous_mute != settings.muted())
 	if is_instance_valid(HUD.instance):
 		sync_hud()
 		HUD.instance.update_from(context.facts)
 	return perf
-
-
-func _refresh_live_modifiers() -> void:
-	if not is_instance_valid(host.pony):
-		return
-	var skeleton_value: Variant = host.pony.get("skeleton")
-	if not skeleton_value is Skeleton3D:
-		return
-	context.pose.refresh_modifiers(features)
-	if pose_family() == "standing":
-		context.standing_anon.refresh_palm()
-	elif pose_family() == "bed":
-		context.anatomy.bind(context.anatomy_host)
-		context.anatomy.refresh_palm()
-
-
-## A live voice-policy edit: give the player its saved volume back, then apply the new policy.
-func _refresh_live_voice() -> void:
-	if host.node == null or not host.node.is_inside_tree():
-		return
-	if not is_instance_valid(context.audio):
-		return
-	context.audio.restore_voice_policy()
-	context.audio.apply_voice_policy(feature("mute_ponese_audio"), host.pony, pony_id)
-
-
-func _anatomy_refresh() -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.refresh()
-
-
-## Push the debug talk/cue pacing settings into the pure scheduler.
-func _configure_utterance_scheduler() -> void:
-	context.dialogue.configure({
-		"base_stable": snapshot.cue_base_stable_s,
-		"override_stable": snapshot.cue_override_stable_s,
-		"utterance_gap": snapshot.cue_utterance_gap_s,
-		"demand_gap": snapshot.cue_demand_gap_s,
-		"demand_repeat": snapshot.cue_demand_repeat_s,
-		"max_age": snapshot.cue_max_age_s,
-		"release_hold": snapshot.cue_release_hold_s,
-	})
 
 
 ## The HUD card's live values through the view.
@@ -527,14 +471,14 @@ func sync_hud() -> void:
 func reset_thrust_state() -> void:
 	context.readiness.reset_thrust()
 	context.readiness.reset_auto()
+	context.readiness.reset(preferences)
 	context.standing_anon.reset_phase()
 	context.standing_camera.reset_depth()
 	context.facts.standing_sway_offset = Vector3.ZERO
-	context.readiness.reset(preferences)
 	clear_phase()
 	context.afterglow.reset()
 	context.dialogue.reset(clock_s(), cue_gap)
-	_configure_utterance_scheduler()
+	settings.configure_dialogue()
 	act_spoken_at = -1e9
 	ended_early = false
 

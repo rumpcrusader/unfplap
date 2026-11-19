@@ -184,13 +184,14 @@ RUNTIME_SETTINGS_READS = {
     ("_shape_name", "character_name"): "the static character-name lookup, not an act tunable",
     ("_handover_set_act_pose_config", "pose"): "the rebuilt pose's config",
 }
-# The act session owns the one snapshot, so its boundaries are checked the same way: the bulk
-# snapshot and the pre-edit preference refresh, never a per-frame read.
-SESSION_SETTINGS_READS = {
+# The act session's settings owner holds the one snapshot, so its boundaries are checked the same
+# way: the bulk snapshot and the pre-edit preference refresh, never a per-frame read.
+ACT_SETTINGS_OWNER = ROOT / "act" / "settings.gd"
+ACT_SETTINGS_READS = {
     ("<module>", "ActSnapshot"): "the typed `snapshot` field's zeroed default",
-    ("snapshot_settings", "act_snapshot"): "the act's one bulk snapshot",
-    ("snapshot_settings", "camera_mode"): "the camera mode, cached for the render write",
-    ("apply_live_settings", "preferences"): "the live preference refresh",
+    ("snapshot_values", "act_snapshot"): "the act's one bulk snapshot",
+    ("snapshot_values", "camera_mode"): "the camera mode, cached for the render write",
+    ("live_preferences", "preferences"): "the live preference refresh",
 }
 # The only child nodes the runtime parents: both are system-owned, and the runtime is the host that
 # adds and frees them. A new node is an allow-list row, not a line in a tick.
@@ -1140,7 +1141,10 @@ def check_sources(failure: Failure) -> None:
         source = path.read_text(encoding="utf-8")
         if SETTINGS_DECLARATION.search(source):
             declaring.append(rel(path))
-        if path.name == "settings.gd" and path.parent.name != "settings":
+        # `act/settings.gd` is the act's snapshot owner, not a declaration module: it holds the
+        # one bulk copy of the act tunables and the live apply. Any other `settings.gd` outside
+        # `settings/` is a second declaration surface.
+        if path.name == "settings.gd" and path.parent.name not in ("settings", "act"):
             failure.add("no per-service settings module: %s" % rel(path))
     if declaring != ["settings/service.gd"]:
         failure.add("only settings/service.gd may declare settings (found %s)" % declaring)
@@ -1282,23 +1286,27 @@ def check_runtime_shape(failure: Failure) -> None:
             failure.add("the runtime settings allow-list row %s -> %s is stale (%s)" % (
                 key[0], key[1], reason))
 
-    # The act session owns the one snapshot; its boundary reads are checked the same way, so a
-    # new per-frame settings read there fails too.
-    session_source = (ROOT / "act" / "session.gd").read_text(encoding="utf-8")
-    session_offsets = function_offsets(session_source)
-    session_reads: dict[tuple[str, str], int] = {}
-    for match in re.finditer(r"SETTINGS\.(\w+)", session_source):
-        key = (enclosing_function(session_offsets, match.start()), match.group(1))
-        session_reads.setdefault(key, line_of(session_source, match.start()))
-    for key, line in sorted(session_reads.items()):
-        if key not in SESSION_SETTINGS_READS:
-            failure.add(
-                "act/session.gd:%d reads SETTINGS.%s in %s(); take a snapshot value or add an "
-                "allow-list row only at an act boundary" % (line, key[1], key[0]))
-    for key, reason in sorted(SESSION_SETTINGS_READS.items()):
-        if key not in session_reads:
-            failure.add("the session settings allow-list row %s -> %s is stale (%s)" % (
-                key[0], key[1], reason))
+    # The act's settings owner holds the one snapshot; its boundary reads are checked the same
+    # way, so a new per-frame settings read there fails too.
+    settings_path = ACT_SETTINGS_OWNER
+    if not settings_path.is_file():
+        failure.add("missing act/settings.gd: it owns the act's settings snapshot")
+    else:
+        settings_source = settings_path.read_text(encoding="utf-8")
+        settings_offsets = function_offsets(settings_source)
+        settings_reads: dict[tuple[str, str], int] = {}
+        for match in re.finditer(r"SETTINGS\.(\w+)", settings_source):
+            key = (enclosing_function(settings_offsets, match.start()), match.group(1))
+            settings_reads.setdefault(key, line_of(settings_source, match.start()))
+        for key, line in sorted(settings_reads.items()):
+            if key not in ACT_SETTINGS_READS:
+                failure.add(
+                    "act/settings.gd:%d reads SETTINGS.%s in %s(); take a snapshot value or add "
+                    "an allow-list row only at an act boundary" % (line, key[1], key[0]))
+        for key, reason in sorted(ACT_SETTINGS_READS.items()):
+            if key not in settings_reads:
+                failure.add("the act settings allow-list row %s -> %s is stale (%s)" % (
+                    key[0], key[1], reason))
 
     # The runtime parents only the nodes a system owns; it constructs no scene of its own.
     children: dict[str, int] = {}

@@ -361,11 +361,18 @@ static func _mods() -> Node:
 	return loop.root.get_node_or_null("Mods")
 
 
-## The idle perf block's header counts, `{runtimes, mares}`. The entry binds this to `LOG.counts`
+## The idle perf block's header counts, `{runtimes, mares}`. The entry binds the two counters to
+## `LOG.runtime_count` and `LOG.mare_count`
 ## and it is read once per window, never per note.
-static func _counts() -> Dictionary:
+## The live runtimes, for the idle perf block's header.
+static func runtime_count() -> int:
 	var runtimes := 0
 	for runtime: Variant in _runtimes.values():
 		if is_instance_valid(runtime):
 			runtimes += 1
-	return {"runtimes": runtimes, "mares": WORLD.mares().size()}
+	return runtimes
+
+
+## The live mares, for the idle perf block's header.
+static func mare_count() -> int:
+	return WORLD.mares().size()

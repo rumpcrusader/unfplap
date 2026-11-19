@@ -114,7 +114,8 @@ func _ready() -> void:
 	LOG.perf_read = Callable(SETTINGS.debug_perf, "get_bool")
 	LOG.attach(self)
 	LOG.act_running = Callable(PONIES, "act_running")
-	LOG.counts = Callable(PONIES, "_counts")
+	LOG.runtime_count = Callable(PONIES, "runtime_count")
+	LOG.mare_count = Callable(PONIES, "mare_count")
 	_build_services()
 	# The per-pony registry binds the services above once and builds its runtimes through the
 	# one factory, so no other entry member holds a runtime.

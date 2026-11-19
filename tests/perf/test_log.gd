@@ -15,8 +15,11 @@ class Sink extends RefCounted:
 	func write(text: String) -> void:
 		lines.append(text)
 
-	func counts() -> Dictionary:
-		return {"runtimes": 2, "mares": 3}
+	func runtime_count() -> int:
+		return 2
+
+	func mare_count() -> int:
+		return 3
 
 
 class ActState extends RefCounted:
@@ -50,7 +53,8 @@ func _reset_module() -> void:
 	LOG.debug_read = Callable()
 	LOG.perf_read = Callable()
 	LOG.act_running = Callable()
-	LOG.counts = Callable()
+	LOG.runtime_count = Callable()
+	LOG.mare_count = Callable()
 	LOG.sink = Callable()
 	LOG.detach()
 
@@ -98,7 +102,8 @@ func _check_idle_window() -> void:
 	var sink := Sink.new()
 	var act := ActState.new()
 	LOG.sink = Callable(sink, "write")
-	LOG.counts = Callable(sink, "counts")
+	LOG.runtime_count = Callable(sink, "runtime_count")
+	LOG.mare_count = Callable(sink, "mare_count")
 	LOG.act_running = Callable(act, "is_running")
 	check(not LOG.idle_on(), "the idle probe is off with both switches off")
 	LOG.debug_logs = true

@@ -28,8 +28,10 @@ static var _listener := func() -> void: apply_settings()
 ## `ponies`' read, because a shared module never sees the runtime.
 static var act_running := Callable()
 ## The idle block's header counts, `{runtimes, mares}`, read once per window. The entry installs
-## `ponies`' read: the live runtimes are its registry and the mares come from the world facade.
-static var counts := Callable()
+## `ponies`' two reads: the live runtimes are its registry and the mares come from the world
+## facade. Two counters rather than one dictionary keeps the header out of a service's privates.
+static var runtime_count := Callable()
+static var mare_count := Callable()
 ## The idle (outside-act) debug perf probe; see `docs/perf.md`.
 static var _probe := _new_probe()
 ## The line sink: empty in game, where every line goes to the console. A suite binds one to read
@@ -152,4 +154,7 @@ static func _probe_on() -> bool:
 
 ## Header counts for one idle block. Read once per window, never per note.
 static func _probe_counts() -> Dictionary:
-	return counts.call() if counts.is_valid() else {}
+	return {
+		"runtimes": int(runtime_count.call()) if runtime_count.is_valid() else 0,
+		"mares": int(mare_count.call()) if mare_count.is_valid() else 0,
+	}

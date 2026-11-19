@@ -12,7 +12,6 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
@@ -1305,31 +1304,9 @@ func _process_tick(delta: float) -> void:
 		_standing_camera_controller().speed(), _climax_progress)
 	_breath_tick(delta)
 
-## Mouse input. Vertical motion thrusts; the act camera intentionally ignores it for look.
-## Auto thrust owns the stroke, so the mouse does nothing there: depth is set from the hold-X layer.
-func _input(event: InputEvent) -> void:
-	if state == State.IDLE or _suspended:
-		return
-	# The debug wheel owns the mouse while it is open: its virtual reticle must not thrust or
-	# free-look the live act.
-	if DEBUG_ACTIONS.wheel_open():
-		return
-	var motion := event as InputEventMouseMotion
-	if motion == null:
-		return
-	# Debug free look: the mouse looks around instead of driving depth. The act owns
-	# `controls_locked`, so the stock player look is dead and this has to drive it.
-	if free_look_active():
-		_camera_service().call("look_input", motion.relative)
-		get_viewport().set_input_as_handled()
-		return
-	if get_tree().paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return
-	if state in [State.ACTIVE, State.CLIMAX]:
-		if not _readiness.auto_active():
-			var travel: float = _readiness.mouse_travel(motion.relative.y)
-			_set_penetration(penetration_m + travel, _now_s())
-		get_viewport().set_input_as_handled()
+## Debug free look: the input service hands over the relative motion instead of a thrust.
+func look_motion(relative: Vector2) -> void:
+	_camera_service().call("look_input", relative)
 
 
 func _headset_view() -> bool:
@@ -2985,6 +2962,12 @@ func _player_shaft_length_m() -> float:
 ## The deepest the tip can reach, in metres. The readiness stroke state owns the placement math.
 func penetration_reach() -> float:
 	return _readiness.reach()
+
+
+## The mouse's vertical travel as hip travel. Readiness converts the pixels and owns the clamp;
+## the one post-move path carries the events to the ordered fan-out.
+func thrust_motion(relative_y: float) -> void:
+	_set_penetration(penetration_m + _readiness.mouse_travel(relative_y), _now_s())
 
 
 ## Move the physical penetration and mirror it into the public 0..1 depth. The readiness stroke

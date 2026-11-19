@@ -163,6 +163,7 @@ func run() -> void:
 	await _check_shield()
 	await _check_act_hold()
 	await _check_auto_layer()
+	await _check_mouse()
 	await _check_act_commands()
 	print("INPUT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -501,6 +502,47 @@ func _check_auto_layer() -> void:
 
 	await _release(KEY_X)
 	await _release(KEY_Q)
+	service.queue_free()
+	PONIES.clear_active(runtime)
+	main.queue_free()
+	runtime.queue_free()
+	await process_frame
+
+
+## Mouse motion: free look drives the camera and is consumed; a free cursor (or an idle/suspended
+## act) leaves the event and the stroke alone. Headless cannot capture the mouse, so the capture
+## gate is the default state here.
+func _check_mouse() -> void:
+	_world()
+	var main := Node.new()
+	root.add_child(main)
+	var service := INPUT.new()
+	main.add_child(service)
+	var runtime := FakeRuntime.new()
+	runtime.state = 2
+	PONIES.set_active(runtime)
+	await process_frame
+
+	var motion := InputEventMouseMotion.new()
+	motion.relative = Vector2(6.0, -8.0)
+	runtime.free_look = true
+	_reset_handled()
+	service.call("_input", motion)
+	check(runtime.looks == [Vector2(6.0, -8.0)],
+		"free look hands the motion to the camera")
+	check(root.is_input_handled(), "free look consumes the motion")
+	runtime.free_look = false
+	runtime.looks.clear()
+	_reset_handled()
+	service.call("_input", motion)
+	check(runtime.looks.is_empty() and runtime.thrusts.is_empty(),
+		"a free cursor never thrusts or free-looks")
+	check(not root.is_input_handled(), "a free cursor leaves the motion alone")
+	runtime.state = 0
+	_reset_handled()
+	service.call("_input", motion)
+	check(not root.is_input_handled(), "an idle runtime ignores the motion")
+
 	service.queue_free()
 	PONIES.clear_active(runtime)
 	main.queue_free()

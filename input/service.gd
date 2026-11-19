@@ -238,6 +238,9 @@ func _input(event: InputEvent) -> void:
 		if DEBUG_ACTIONS.wheel_input(event):
 			get_viewport().set_input_as_handled()
 			return
+	# While the wheel is open it owns every event, even one it did not consume.
+	if DEBUG_ACTIONS.wheel_open():
+		return
 	if event is InputEventKey:
 		var debug_key := event as InputEventKey
 		# A debug action may declare a hotkey in DEBUG_ACTIONS.ACTIONS (none do today). Do not claim
@@ -283,6 +286,9 @@ func _input(event: InputEvent) -> void:
 		if is_instance_valid(runtime):
 			get_viewport().set_input_as_handled()
 		return
+	if event is InputEventMouseMotion and is_instance_valid(runtime):
+		_act_motion(runtime, event as InputEventMouseMotion)
+		return
 	if not event is InputEventKey:
 		return
 	var key := event as InputEventKey
@@ -300,6 +306,27 @@ func _input(event: InputEvent) -> void:
 			return
 		if is_instance_valid(offer) and offer.try_start():
 			get_viewport().set_input_as_handled()
+
+
+## Mouse motion while an act is live. Debug free look drives the act camera; otherwise the
+## vertical travel is thrust. Auto thrust owns the stroke, so the mouse does nothing while it
+## runs. Pause and the menu are already gated above.
+func _act_motion(runtime: Node, motion: InputEventMouseMotion) -> void:
+	var state := int(runtime.get("state"))
+	if state == ACT_STATE.State.IDLE:
+		return
+	if bool(runtime.call("body_swap_pending")):
+		return
+	if bool(runtime.call("free_look_active")):
+		runtime.call("look_motion", motion.relative)
+		get_viewport().set_input_as_handled()
+		return
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+	if state in [ACT_STATE.State.ACTIVE, ACT_STATE.State.CLIMAX]:
+		if not bool(runtime.call("auto_active")):
+			runtime.call("thrust_motion", motion.relative.y)
+		get_viewport().set_input_as_handled()
 
 
 ## Route one key press while an act is live. The act's own keys act here; with the shield on,

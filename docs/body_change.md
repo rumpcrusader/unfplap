@@ -11,7 +11,9 @@ the base service never polls.
 binding registries, the per-body active-change read and the legacy metadata mirror.
 `body_change/source.gd` is the documented provider base, `body_change/wire.gd` writes the legacy
 keys from the typed form, and `integrations/changelings.gd` plus
-`integrations/changelings_policy.gd` are the one shipped provider.
+`integrations/changelings_policy.gd` are the one shipped provider. `body_change/wire()` builds the
+five body-bound systems — `anatomy/body_binding.gd` and the service's own `runtime_binding.gd`,
+`lod_binding.gd`, `garment_binding.gd` and `smack_binding.gd` — from the facades the entry hands it.
 
 The mechanism covers:
 
@@ -53,9 +55,9 @@ its own observation cadence and its optional policy. A binding owns its attachme
 
 The service never owns the act state, the pose, the camera or the teardown, and it never calls
 `force_stop()` or an act exit. The runtime owns suspension, adoption and the one resume; `main` owns
-service construction, registration and the idle path. The identity's social state (memory,
-dialogue, preferences, eligibility, history and summary) is owned elsewhere and reads `pony_id`,
-not the form.
+service construction and the idle path, and the service builds its own bindings from the facades
+`main` hands it. The identity's social state (memory, dialogue, preferences, eligibility, history
+and summary) is owned elsewhere and reads `pony_id`, not the form.
 
 ## Types
 
@@ -175,6 +177,7 @@ names, its shape lookup and whether a named form is copyable and adult.
 
 ```gdscript
 setup(host)
+wire(anatomy, pantyhose, stock_smack)
 register_source(source) -> bool
 unregister_source(source)
 register_binding(binding) -> bool
@@ -204,7 +207,9 @@ request_own_form(body, origin) -> bool
 ```
 
 Registration rejects an object that is not the typed base. Registration order is the binding
-fan-out order and the source lookup order.
+fan-out order and the source lookup order. `wire()` is the one call that builds the built-in
+binding chain; `register_binding()` stays public for a provider or a test that adds its own
+binding, which joins the end of the same fan-out.
 
 ### Form store and apply path
 
@@ -283,7 +288,8 @@ binding reads `BodyForm`.
 
 - Scope: world
 - Constructed by: `main._ready()`
-- Begin: `setup(host)` in `main._ready()`; the providers are registered after their own setup
+- Begin: `setup(host)` and then `wire(anatomy, pantyhose, stock_smack)` in `main._ready()`; the
+  providers are registered after their own setup
 - End: world close; the service node, its forms and its registries are freed with `main`
 - Idempotent: yes
 
@@ -314,16 +320,22 @@ ignores the runtime binding until the one resume; see `docs/runtime.md` (`## Bod
 
 ## Bindings
 
-`main` registers the world bindings in this order: anatomy, runtime, LOD, garments, stock smack.
-The service's debug line names them in the same order.
+`body_change.wire()` constructs and registers the five body-bound systems from the facades the
+entry hands it, in this order: anatomy, runtime, LOD, garments, stock smack. The registration order
+is the fan-out order and the order the service's debug line names. A facade the build or the player
+did not provide — an absent anatomy or Pantyhose pack — registers no binding and the rest of the
+chain still runs. A binding a provider or a test adds with `register_binding()` joins the end of
+the same fan-out, and no binding adds a line to the entry.
 
-| Binding | Registered by | Reads | Refreshes |
+| Binding | Built from | Reads | Refreshes |
 |---|---|---|---|
-| `anatomy/body_binding.gd` | `main` | `fit_id`, `rig`, `owned_mesh_meta`, `tail_root` | anatomy placement and rig, appearance, owned marker and the tail seat row |
-| `runtime/body_binding.gd` | `main` | body, form | the live runtime's pose, face, hands, kiss, camera, reactions, wings, audio and eye override; a suspended act is left to the one resume |
-| `body_change/lod_binding.gd` | `main` | body | drops the near/far LOD caches and re-arms the near mesh |
-| `body_change/garment_binding.gd` | `main` | body | one worn-garment scan; the adapter has no per-pony rebind |
-| `body_change/smack_binding.gd` | `main` | body | hands the body to the outside-act stock smack layer |
+| `anatomy/body_binding.gd` | the anatomy facade | `fit_id`, `rig`, `owned_mesh_meta`, `tail_root` | anatomy placement and rig, appearance, owned marker and the tail seat row |
+| `body_change/runtime_binding.gd` | `PONIES.runtime_for()` | body, form | the live runtime's pose, face, hands, kiss, camera, reactions, wings, audio and eye override; a suspended act is left to the one resume |
+| `body_change/lod_binding.gd` | `WORLD.refresh_body_lod()` | body | drops the near/far LOD caches and re-arms the near mesh |
+| `body_change/garment_binding.gd` | the Pantyhose adapter | body | one worn-garment scan; the adapter has no per-pony rebind |
+| `body_change/smack_binding.gd` | the stock smack layer | body | hands the body to the outside-act stock smack layer |
+
+Every binding is scene-free: it reads the facade it was built from and preloads nothing else.
 
 The runtime owns its sub-services behind one binding; they have no separate public binding files.
 The runtime binding looks the runtime up through `PONIES.runtime_for(body)` and never runs an act
@@ -440,7 +452,7 @@ suspension, adoption, resume and failure phases.
 
 | Host call | Purpose |
 |---|---|
-| `main._ready()` | constructs the service, registers the bindings and the providers |
+| `main._ready()` | constructs the service, hands it the anatomy, Pantyhose and stock smack facades in one `wire()` call, and registers the providers |
 | `main._on_world()` | calls `refresh_sources()` so each provider re-reads its pack |
 | `PONIES._prepare(pony)` | calls `notify_body_ready()` before the tail seat, the stock smack layer and a runtime |
 | `PONIES.runtime_for(pony)` | the runtime binding's public lookup |
@@ -468,7 +480,7 @@ suspension, adoption, resume and failure phases.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| host | main | `main.body_change` | construction, registration and the idle path |
+| host | main | `main.body_change` | construction, the facades `wire()` builds from, and the idle path |
 | host | runtime | `_body_change_service()` | act suspension, adoption and provider policy |
 | service | integrations | `integrations/changelings.gd` | the shipped provider base and policy |
 
@@ -477,8 +489,8 @@ suspension, adoption, resume and failure phases.
 - `tests/body_change/test_service.gd` — the typed data, `RigProfile` mapping, the default form, the
   legacy mirror (fit, marker, tail root, scale through the game setter), the form store, the
   bind/refresh/unbind order, same-node revisions, the source/binding registries, the per-body
-  active-change read, provider-owned notification and request forwarding, the world bindings and
-  the runtime binding.
+  active-change read, provider-owned notification and request forwarding, the `wire()` construction
+  order, a missing facade as a quiet no-op, a binding added after the wire, and the runtime binding.
 - `tests/integrations/test_changelings.gd` — the shipped provider's forms, markers, per-body fit,
   late revision and policy.
 - `tests/handover/test_body_swap.gd` — the act handover, one resume, the stable id, the presented
@@ -488,8 +500,8 @@ suspension, adoption, resume and failure phases.
 - `tests/test_runtime_teardown.gd` — the one exit and the body-change bind/refresh ordering.
 - `tests/anatomy/test_attach.gd`, `test_coat.gd`, `test_part.gd`, `test_placement.gd` — the anatomy
   binding, form rig/fit, marker, appearance and tail row.
-- `scripts/architecture.py --check` — one body-change fan-out, one resume, one teardown and no
-  provider vocabulary in the core.
+- `scripts/architecture.py --check` — one body-change fan-out, one resume, one teardown, every
+  shipped `.gd` with an owner, no body binding in the entry and no provider vocabulary in the core.
 
 ## Verification / lab
 

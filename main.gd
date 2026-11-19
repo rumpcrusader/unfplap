@@ -51,7 +51,7 @@ var api: Node
 ## Anatomy system facade: per-pony controllers, the player part and tail seating.
 var anatomy: Node
 ## Base body-change service: the per-body form store and the source/binding registries. Inert until
-## the runtime and the providers register with it.
+## `wire()` builds the bindings from the facades above and the providers register with it.
 var body_change: Node
 ## The Pantyhose & Panties world adapter; inert when that pack is absent.
 var pantyhose: Node

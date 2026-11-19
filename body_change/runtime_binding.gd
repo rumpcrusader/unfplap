@@ -3,9 +3,9 @@ extends "res://mods/unfplap/shared/body_binding.gd"
 ## It looks the runtime up through `ponies` and hands it the form; the runtime decides whether it
 ## is idle, live or suspended and never creates a second runtime.
 ##
-## Scope: world. `main.gd` registers one instance with `main.body_change` after the service and the
-## entry exist. This file never preloads `main.gd` or `runtime.gd`, and an unbind never runs the
-## act exit.
+## Scope: world. `body_change.wire()` builds one instance with the rest of the chain from the
+## facades the entry hands it. This file never preloads `main.gd` or `runtime.gd`, and an unbind
+## never runs the act exit.
 ##
 ## See `docs/runtime.md` (`## Body swap`) and `docs/body_change.md`.
 

@@ -35,6 +35,24 @@ valid GDScript code, discards every expression so and/or are not counted, has no
 options, and exits 0 on failure. Use a parser-based baseline ratchet if complexity gating is
 wanted.
 
+## Architecture gate
+
+`scripts/architecture.py --check` compares each service's `docs/` `### Uses` table with the preload
+graph and enforces the layer and privacy rules. Two rules exist so code cannot grow back outside
+the gate:
+
+- **Every mod path has an owner.** A shipped `.gd` must resolve through `owner_of()` to a service
+  (`<id>/service.gd` and everything under `<id>/`), `shared/`, or one of the three orchestrators
+  `main.gd`, `runtime.gd` and `api.gd`. Any other path has no owner, so every edge to and from it
+  is classified external and allowed; the mod root's former `runtime/` grew a file that way.
+- **The entry builds no binding.** `main.gd` may not name a `*_binding.gd` or call
+  `register_binding`: the body-change service constructs and registers its chain from the facades
+  the entry hands it, so a new body-bound system adds no line to the composition root.
+
+The rest — one body-change fan-out, one body-swap resume, one `_end_session()`, the runtime's tick
+and fan-out order, the scene-only world facade and the suite allow-lists — is the checker's own
+source of truth; read `scripts/architecture.py` before changing the tree it guards.
+
 ## Shell scripts
 
 Every bash entry point starts with `set -euo pipefail`; `scripts/architecture.py --check` pins that

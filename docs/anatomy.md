@@ -212,12 +212,13 @@ resulting `view.contact_kind`/`view.contact_target`.
   and attachment copies it onto the anatomy mesh and its parts, which ride the same skeleton. Queen
   Chrysalis's body uses this so its `chrysalis_own` hide pass leaves the anatomy alone. The marker
   is provider metadata, not a `docs/api.md` convention.
-- The anatomy body binding (`anatomy/body_binding.gd`) is registered by `main` with the
-  body-change service. `bind_body()` stores the form, creates the per-pony controller with it and
-  refreshes the tail row; `refresh_body()` re-reads the same body's revised form; `unbind_body()`
-  releases the tail row and detaches the controller even when the node stays in the tree. The
-  controller's `refresh_form()` re-fits the placement and rebuilds the appearance, marker and
-  placement only when the rig or fit changed; a same-rig revision re-applies the live placement.
+- The anatomy body binding (`anatomy/body_binding.gd`) is the anatomy extension point of the
+  body-change binding chain: `body_change.wire()` builds it from the anatomy facade the entry hands
+  over. `bind_body()` stores the form, creates the per-pony controller with it and refreshes the
+  tail row; `refresh_body()` re-reads the same body's revised form; `unbind_body()` releases the
+  tail row and detaches the controller even when the node stays in the tree. The controller's
+  `refresh_form()` re-fits the placement and rebuilds the appearance, marker and placement only
+  when the rig or fit changed; a same-rig revision re-applies the live placement.
   `docs/body_change.md` owns the binding and lifecycle contract.
 - The mare bits mesh and skin strip ship with the pack, so a missing mesh is a broken build, not a
   state the controller handles. The teats are generated from her body; the old mare-shaped

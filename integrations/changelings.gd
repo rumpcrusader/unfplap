@@ -9,8 +9,8 @@ extends "res://mods/unfplap/body_change/source.gd"
 ## shape. It reads the pack's public nodes and state; it never edits the pack and never requires a
 ## rebuild.
 ##
-## Scope: world. `main.gd` constructs it once and registers it with `main.body_change`. It never
-## preloads `main.gd` or `runtime.gd`.
+## Scope: world. The entry constructs it once and registers it with the body-change service.
+## It never preloads the entry or `runtime.gd`.
 ##
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Placement`, `## Tail seating`).
 

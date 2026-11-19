@@ -2714,7 +2714,7 @@ static func bump_placement_revision() -> void:
 static var _placement_draft: Dictionary = {}
 
 
-## Parse, migrate, merge and write the player file once per process. `main._ready()` calls this
+## Parse, migrate, merge and write the player file once per process. The entry's `_ready()` calls this
 ## before any getter, so the hot read path never touches the disk. Returns false when the shipped
 ## defaults or catalog document is invalid; the caller then refuses to install the mod.
 static func load_settings() -> bool:

@@ -321,15 +321,15 @@ func apply_settings() -> void:
 ## The world entered: drop the old scan and parse the two offerable pose assets while the world is
 ## still under its loading cover, so the first hint never loads them inside its scan.
 func on_world(_host: Node) -> void:
-	reset()
+	on_world_closed()
 	for pose: String in [POSE_SPECS.MISSIONARY, POSE_SPECS.STANDING]:
 		var asset_path := str(POSE_SPECS.spec(pose).get("asset", ""))
 		POSES.warm_asset(asset_path)
 
 
-## The world closed: no offer, no gate verdict, no one-shot flags, and the hint row is detached
-## from the old world's prompts.
-func reset() -> void:
+## A world enter or a world close: no offer, no gate verdict, no one-shot flags, and the hint row
+## is detached from the world that is gone.
+func on_world_closed() -> void:
 	_offer = null
 	_offer_blocked = null
 	_offer_clock = 0.0

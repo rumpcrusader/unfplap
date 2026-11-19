@@ -1,0 +1,188 @@
+extends SceneTree
+## The entry's ordered service list: every lifecycle broadcast walks the list in order, the scene
+## facade is bound around it, and a world close and the process exit share one release sequence.
+##   godot --headless --xr-mode off --path <project> \
+##     --script res://mods/unfplap/tests/entry/test_services.gd
+##
+## The suite loads `main.gd` with the service list replaced by stand-ins, so it proves the entry's
+## own loops; the real services are each tested by their own contract suite.
+
+const MAIN := preload("res://mods/unfplap/main.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
+
+var failures := 0
+var checks := 0
+## Every hook call, in the order the entry made it: `<id>.<hook>`.
+var order: Array = []
+
+
+## A stand-in with all four hooks. It records the hook, and the world root and player the scene
+## facade held at that moment, so a broadcast that runs outside the bind or the unbind shows.
+class StandIn extends RefCounted:
+	const WORLD := preload("res://mods/unfplap/world/service.gd")
+
+	var id: String
+	var sink: Array
+	var seen_world: Array = []
+	var seen_player: Array = []
+
+	func on_world(_host: Node) -> void:
+		sink.append("%s.on_world" % id)
+		seen_world.append(WORLD.game)
+		seen_player.append(WORLD.player)
+
+	func on_world_closed() -> void:
+		sink.append("%s.on_world_closed" % id)
+		seen_world.append(WORLD.game)
+		seen_player.append(WORLD.player)
+
+	func on_player(_body: Node) -> void:
+		sink.append("%s.on_player" % id)
+		seen_world.append(WORLD.game)
+		seen_player.append(WORLD.player)
+
+	func shutdown() -> void:
+		sink.append("%s.shutdown" % id)
+		seen_world.append(WORLD.game)
+		seen_player.append(WORLD.player)
+
+
+## A service with no hooks at all: the broadcasts skip it instead of failing.
+class Silent extends RefCounted:
+	var calls := 0
+
+
+## A service with only a close hook.
+class CloseOnly extends RefCounted:
+	var sink: Array
+	var id: String
+
+	func on_world_closed() -> void:
+		sink.append("%s.on_world_closed" % id)
+
+
+func _initialize() -> void:
+	run.call_deferred()
+
+
+func check(ok: bool, text: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		print("FAIL ", text)
+
+
+func _stand_in(id: String) -> StandIn:
+	var service := StandIn.new()
+	service.id = id
+	service.sink = order
+	return service
+
+
+func run() -> void:
+	var entry: Variant = MAIN.new()
+	entry.name = "Unfplap"
+	# The entry never enters the tree here: `_ready()` would build the real services. The list is
+	# the only entry state the broadcasts read, so stand-ins drive it directly.
+	var first := _stand_in("first")
+	var silent := Silent.new()
+	var middle := CloseOnly.new()
+	middle.sink = order
+	middle.id = "middle"
+	var last := _stand_in("last")
+	entry.set("_services", [first, silent, middle, last])
+
+	var host := Node.new()
+	host.name = "FakeWorld"
+	root.add_child(host)
+	var body := Node3D.new()
+	body.name = "FakePlayer"
+	root.add_child(body)
+
+	_check_world(entry, first, last, host, silent)
+	_check_player(entry, first, last, host, body, silent)
+	_check_close(entry, first, last, host, silent)
+	_check_exit(entry, first, last, middle, host, silent)
+	_check_add()
+
+	root.remove_child(body)
+	body.free()
+	root.remove_child(host)
+	host.free()
+	entry.free()
+	WORLD.unbind()
+	print("ENTRY_SERVICES_RESULT checks=%d failures=%d" % [checks, failures])
+	quit(0 if failures == 0 else 1)
+
+
+## `_on_world`: every `on_world` in list order, each one with the scene facade already bound.
+func _check_world(entry: Variant, first: StandIn, last: StandIn, host: Node, silent: Silent) -> void:
+	order.clear()
+	entry.call("_on_world", host)
+	check(order == ["first.on_world", "last.on_world"], "the entry broadcasts on_world in list order")
+	check(first.seen_world == [host] and last.seen_world == [host],
+		"the scene facade is bound before the first service's on_world")
+	check(first.seen_player == [null], "the first world enter has no player yet")
+	check(silent.calls == 0, "a service without the hook is skipped")
+	entry.call("_on_world", host)
+	check(order.size() == 4, "a second world enter broadcasts again")
+
+
+## `_on_player`: every `on_player` in list order, each one with the player already bound.
+func _check_player(entry: Variant, first: StandIn, last: StandIn, host: Node, body: Node3D,
+		silent: Silent) -> void:
+	order.clear()
+	entry.call("_on_player", body)
+	check(order == ["first.on_player", "last.on_player"], "the entry broadcasts on_player in list order")
+	check(first.seen_player.back() == body and last.seen_player.back() == body,
+		"the scene facade holds the player before the first service's on_player")
+	check(silent.calls == 0, "on_player skips a service without the hook")
+
+
+## `_on_world_closed`: every `on_world_closed` in list order while the facade is still bound, and
+## the unbind after the last one.
+func _check_close(entry: Variant, first: StandIn, last: StandIn, host: Node,
+		silent: Silent) -> void:
+	order.clear()
+	entry.call("_on_world_closed", host)
+	check(order == ["first.on_world_closed", "middle.on_world_closed", "last.on_world_closed"],
+		"the entry broadcasts on_world_closed in list order and skips a service without the hook")
+	check(first.seen_world.back() == host and last.seen_world.back() == host,
+		"the scene facade stays bound until the last service has closed")
+	check(WORLD.game == null, "the unbind follows the whole list")
+	check(silent.calls == 0, "on_world_closed skips a service without the hook")
+
+
+## `_exit_tree`: the same release sequence a world close runs, then every `shutdown()` in reverse
+## list order.
+func _check_exit(entry: Variant, first: StandIn, last: StandIn, middle: CloseOnly, host: Node,
+		silent: Silent) -> void:
+	WORLD.bind_world(host)
+	order.clear()
+	var mark: int = first.seen_world.size()
+	var last_mark: int = last.seen_world.size()
+	entry.call("_exit_tree")
+	check(order == [
+		"first.on_world_closed", "middle.on_world_closed", "last.on_world_closed",
+		"last.shutdown", "first.shutdown",
+	], "the process exit runs the world-close sequence, then shutdown in reverse list order")
+	check(first.seen_world[mark] == host and last.seen_world[last_mark] == host,
+		"the process exit releases the services with the scene facade still bound")
+	check(first.seen_world.back() == null, "the process exit unbinds the scene facade")
+	check(silent.calls == 0, "the process exit skips a service without the hooks")
+	check((entry.get("_services") as Array).is_empty(), "the process exit empties the list")
+
+
+## `_add`: a Node service is named and parented; a RefCounted service only joins the list.
+func _check_add() -> void:
+	var builder: Variant = MAIN.new()
+	var node := Node.new()
+	check(builder.call("_add", node, "UnfplapFake") == node, "_add returns the service it took")
+	check(node.name == "UnfplapFake", "_add names a Node service")
+	check(node.get_parent() == builder, "_add parents a Node service under the entry")
+	var plain := Silent.new()
+	check(builder.call("_add", plain) == plain, "_add returns a RefCounted service")
+	check((builder.get("_services") as Array).size() == 2, "_add joins both to the one list")
+	builder.remove_child(node)
+	node.free()
+	builder.free()

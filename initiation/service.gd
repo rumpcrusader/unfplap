@@ -150,12 +150,6 @@ func classifier_available() -> bool:
 	return is_instance_valid(_classifier) and bool(_classifier.available())
 
 
-## A world enter or a teardown: every classifier scope belongs to the world that is gone.
-func cancel_classifier() -> void:
-	if is_instance_valid(_classifier):
-		_classifier.cancel_all()
-
-
 func tick(delta: float) -> void:
 	if not is_instance_valid(WORLD.game):
 		return
@@ -172,8 +166,14 @@ func tick(delta: float) -> void:
 	_consider_start()
 
 
+## A world enter or a world close: the live attempt and every classifier scope belong to the world
+## that is gone.
+func on_world(_host: Node) -> void:
+	on_world_closed()
+
+
 ## Reset session state for a world close. Cooldowns stay in the world's mod state.
-func reset() -> void:
+func on_world_closed() -> void:
 	if _episode != null:
 		_close_episode("")
 	_reasoning_serial += 1
@@ -188,6 +188,8 @@ func reset() -> void:
 	_scan_log_at.clear()
 	_scan_clock = 0.0
 	_scan_cursor = 0
+	if is_instance_valid(_classifier):
+		_classifier.cancel_all()
 
 
 ## Manual lab/debug entry point: bypass the quiet, cooldown, retry and reasoning; keep Base

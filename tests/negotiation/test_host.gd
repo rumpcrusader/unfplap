@@ -455,7 +455,7 @@ func _check_watch() -> void:
 	watch = adapter.get("_offer_watch")
 	check(not watch.is_valid(), "the adapter drops the watch")
 	PONIES.clear_active(runtime)
-	service.on_world()
+	service.on_world(null)
 	service.tick(0.0)
 	check(_count_log(sink.lines, "anon_watch armed") == 2, "a world enter re-arms the watch")
 	_free_service(made)

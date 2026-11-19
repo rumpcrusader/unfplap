@@ -48,26 +48,6 @@ class FakeWorld extends Node:
 	var mares: Array = []
 
 
-class FakeMain extends Node:
-	var eligibility: Variant
-	var _view: Camera3D
-
-	func camera() -> Camera3D:
-		if _view == null:
-			_view = Camera3D.new()
-			add_child(_view)
-		return _view
-
-	func custom_tail_ready(_pony: Node) -> bool:
-		return false
-
-	func apply_custom_tail(_pony: Node) -> void:
-		pass
-
-	func custom_tail_report() -> String:
-		return ""
-
-
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -328,11 +308,10 @@ func run() -> void:
 
 	# The facade delegates the Placement actions to the editor; the editor resolves the pointed
 	# mare through the debug facade's aim rule and never keeps a second target.
-	var editor_main := FakeMain.new()
-	root.add_child(editor_main)
 	var editor_player := FakePlayer.new()
 	root.add_child(editor_player)
-	editor_player.camera = editor_main.camera()
+	editor_player.camera = Camera3D.new()
+	root.add_child(editor_player.camera)
 	WORLD.bind_player(editor_player)
 	var editor_pony := _pony("editor_mare")
 	root.add_child(editor_pony)
@@ -358,8 +337,8 @@ func run() -> void:
 	service.free()
 	root.remove_child(editor_pony)
 	editor_pony.free()
-	root.remove_child(editor_main)
-	editor_main.free()
+	root.remove_child(editor_player.camera)
+	(editor_player.camera as Camera3D).free()
 	root.remove_child(editor_player)
 	editor_player.free()
 	root.remove_child(editor_world)

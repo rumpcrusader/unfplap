@@ -179,7 +179,7 @@ func apply_settings() -> void:
 	_apply_caption_top()
 
 
-func on_world() -> void:
+func on_world(_host: Node) -> void:
 	_dance_hint_shown = false
 	hide_all()
 

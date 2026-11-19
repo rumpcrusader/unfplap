@@ -344,7 +344,7 @@ func _check_force() -> void:
 	nav.wander_enabled = true
 
 	# A fallback queue path when the greeting cannot open the line.
-	service.reset()
+	service.on_world_closed()
 	check(nav.command_owner.is_empty() and nav.wander_enabled,
 		"reset leaves the released lease untouched")
 	adapter.greeting_ok = false
@@ -356,7 +356,7 @@ func _check_force() -> void:
 	adapter.greeting_ok = true
 
 	# A distant Anon starts the walk, not the ask.
-	service.reset()
+	service.on_world_closed()
 	nav.command_owner = ""
 	nav.wander_enabled = true
 	adapter.greetings.clear()
@@ -429,7 +429,7 @@ func _check_reasoning() -> void:
 		"the reasoning payload carries Context")
 	check(negotiation.handed == null, "a no-offer reasoning forms nothing")
 
-	service.reset()
+	service.on_world_closed()
 	log_sink.lines.clear()
 	adapter.reason_payloads.clear()
 	service.tick(0.5)
@@ -482,7 +482,7 @@ func _check_cuddle() -> void:
 	check(negotiation.handed.hold_token.is_empty(),
 		"the cuddle handoff carries no navigator lease")
 	check(nav.command_owner.is_empty(), "the cuddle keeps the session's navigator")
-	service.reset()
+	service.on_world_closed()
 	root.remove_child(bed)
 	bed.free()
 	_free(made)
@@ -522,7 +522,7 @@ func _check_cuddle_target() -> void:
 	service.tick(0.5)
 	check(negotiation.handed != null, "a cuddle the act key would start forms the offer")
 	check(negotiation.handed.cuddle, "the non-forced handoff marks the cuddle")
-	service.reset()
+	service.on_world_closed()
 	root.remove_child(bed)
 	bed.free()
 	_free(made)

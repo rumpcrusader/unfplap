@@ -206,11 +206,13 @@ var _live := true
 var _shape_identities: Dictionary = {}
 
 
-func setup() -> void:
+## A world enter: every capability read answers again.
+func on_world(_host: Node) -> void:
 	_live = true
 
 
-func clear() -> void:
+## The process exit: every capability read answers no.
+func shutdown() -> void:
 	_live = false
 	_shape_identities.clear()
 

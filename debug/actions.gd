@@ -843,6 +843,15 @@ func debug_wheel_open() -> bool:
 	return is_instance_valid(_debug_wheel) and bool(_debug_wheel.call("is_open"))
 
 
+## A world enter or a world close: a wheel opened on a world that is gone closes with it.
+func on_world(_host: Node) -> void:
+	close_debug_wheel()
+
+
+func on_world_closed() -> void:
+	close_debug_wheel()
+
+
 func close_debug_wheel() -> void:
 	if is_instance_valid(_debug_wheel):
 		_debug_wheel.call("close")

@@ -242,7 +242,7 @@ func _check_blocked_need_two() -> void:
 		"the hint counts two footstools")
 	check(hud.toasts == ["Find 2 footstools in a house."], "the toast counts two footstools")
 	check(_count("gap=n/a need=2 have=1") == 1, "an infinite gap logs as n/a")
-	service.reset()
+	service.on_world_closed()
 	service.tick(OFFER.OFFER_SCAN_S)
 	check(hud.toasts.size() == 2, "a world reset re-arms the one-shot toast")
 	_free(made)
@@ -422,7 +422,7 @@ func _mare(mare_name: String, at: Vector3) -> FakeMare:
 
 func _free(made: Dictionary) -> void:
 	var service: Node = made["service"]
-	service.reset()
+	service.on_world_closed()
 	WORLD.unbind()
 	HUD.instance = null
 	var nodes: Array[Node] = [made["negotiation"], made["hud"], made["player"], made["game"],

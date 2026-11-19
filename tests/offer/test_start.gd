@@ -527,7 +527,7 @@ func _agreement(pony: Node3D, pose := CATALOG.MISSIONARY, cuddle := false,
 
 func _free(made: Dictionary) -> void:
 	var service: Node = made["service"]
-	service.reset()
+	service.on_world_closed()
 	WORLD.unbind()
 	HUD.instance = null
 	var nodes: Array[Node] = [made["game"], made["negotiation"], made["hud"], made["pony"],

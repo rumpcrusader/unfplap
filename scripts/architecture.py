@@ -97,6 +97,13 @@ POSE_FANOUT_ORDER = (
     "_anatomy_bridge",
     "_act_audio",
 )
+# Rule 1, full form: only the entry names the entry. A service that needs another service
+# preloads its facade, one that needs the scene reads `WORLD`, and one that needs a callback takes
+# a host parameter. `tests/` and the prose literal `main.gd` are allowed.
+ENTRY_MEMBER = re.compile(r"(?<![\w.])main\.(?!gd\b)[A-Za-z_]\w*")
+ENTRY_DECLARATION = re.compile(r"^\s*(?:var|const)\s+main\b", re.MULTILINE)
+ENTRY_PRELOAD = re.compile(r'(?:preload|load)\(\s*"[^"]*main\.gd"')
+ENTRY_ARGUMENT = re.compile(r"[(,]\s*main\s*[:,)]")
 # The world facade is the scene read surface: the game, the player rig and the shared modules.
 WORLD_ALLOWED = ("res://world/", "res://player/", "res://mods/unfplap/shared/")
 WORLD_IMPORT = re.compile(r'(?:preload|load)\("(res://[^"]+\.gd)"\)')
@@ -539,20 +546,20 @@ def replace_uses(text: str, block: str) -> str:
 
 LIFECYCLES = {
     "world": ("world", "static initialization", "`bind_world()`/`bind_player()`", "`unbind()`/world close", "yes"),
-    "offer": ("world", "`main._ready()`", "`on_world()`", "`reset()`/world close", "yes"),
+    "offer": ("world", "the entry's service list", "`on_world(host)`", "`on_world_closed()`", "yes"),
     "ponies": ("world", "static initialization", "the entry binds its factory and services", "`shutdown()`", "yes"),
-    "settings": ("world", "`main._ready()`", "registry load", "process exit", "yes"),
+    "settings": ("world", "static initialization", "registry load", "process exit", "yes"),
     "registry": ("process", "static initialization", "none", "`reset()`", "yes"),
-    "eligibility": ("world", "`main._ready()`", "`setup()`", "`clear()`", "yes"),
+    "eligibility": ("world", "the entry's service list", "`on_world(host)`", "`shutdown()`", "yes"),
     "scene_gate": ("per-pony", "`runtime._init()`", "`bind()`/`configure()`", "act teardown", "yes"),
     "scene_hold": ("per-pony", "`runtime._init()`", "`bind()`/`claim_nav()`", "runtime free", "yes"),
     "rest": ("per-act", "`runtime._init()`", "`bind()`", "act teardown", "yes"),
     "hands": ("per-act", "`runtime`", "`bind()`/`begin()`", "act teardown", "yes"),
-    "anatomy": ("world + per-act bridge", "`main._ready()`", "`setup()`/`new_act()`", "`shutdown()`", "yes"),
+    "anatomy": ("world + per-act bridge", "the entry's service list", "`setup()`/`new_act()`", "`on_world_closed()`/`shutdown()`", "yes"),
     "vr": ("per-act", "`anatomy` act bridge", "act start", "act end", "yes"),
-    "initiation": ("world", "`main._ready()`", "`setup()`", "`reset()`/world close", "yes"),
-    "negotiation": ("world", "`main._ready()`", "`setup(host)`", "`reset()`/world close", "yes"),
-    "memory": ("world", "`main._ready()`", "`setup()`", "`clear()`", "yes"),
+    "initiation": ("world", "the entry's service list", "`setup()`", "`on_world_closed()`", "yes"),
+    "negotiation": ("world", "the entry's service list", "`bind()`/`on_world(host)`", "`on_world_closed()`", "yes"),
+    "memory": ("world", "the entry's service list", "none", "freed with the entry", "yes"),
     "dialogue": ("per-act", "`runtime`", "`setup()`/`configure()`", "`reset()`/act end", "yes"),
     "readiness": ("per-act", "`runtime._init()`", "`configure()`", "`reset()`", "yes"),
     "poses": ("per-act", "`runtime._init()`", "`bind()`/`begin()`", "`release_pose()`", "yes"),
@@ -563,17 +570,17 @@ LIFECYCLES = {
     "afterglow": ("per-act", "`runtime._init()`", "`begin()`", "`reset()`", "yes"),
     "face": ("per-act", "`runtime._init()`", "`bind()`", "`shutdown()`", "yes"),
     "reactions": ("per-act", "`runtime._init()`", "`bind_scene()`/`begin_act()`", "`end_act()`", "yes"),
-    "stool": ("world + per-act handle", "`main._ready()`", "`setup()`/`new_act()`", "`shutdown()`", "yes"),
+    "stool": ("world + per-act handle", "the entry's service list", "`setup()`/`new_act()`", "`on_world_closed()`/`shutdown()`", "yes"),
     "audio": ("per-pony", "`runtime`", "`begin()`", "`end()`", "yes"),
-    "hud": ("world", "`main._ready()`", "`_ready()`", "freed with main", "yes"),
-    "input": ("world", "`main._ready()`", "`_ready()`", "freed with main", "yes"),
+    "hud": ("world", "the entry's service list", "`on_world(host)`", "`on_world_closed()`; freed with the entry", "yes"),
+    "input": ("world", "the entry's service list", "`_ready()`", "freed with the entry", "yes"),
     "debug": ("process", "static initialization", "none", "none", "yes"),
 }
 
 
 def render_lifecycle(sid: str) -> str:
     scope, constructed, begin, end, idem = LIFECYCLES.get(
-        sid, ("world", "`main`", "none", "world close", "yes"))
+        sid, ("world", "the entry's service list", "none", "world close", "yes"))
     return (
         "## Lifecycle\n\n"
         f"- Scope: {scope}\n"
@@ -1054,11 +1061,18 @@ def check_owners(failure: Failure) -> None:
 
 
 def check_boundaries(failure: Failure) -> None:
-    """The composition-root rules: no reach-in into the entry, and a scene-only world facade."""
+    """The composition-root rules: nothing but the entry names the entry, no reach-in into the
+    entry, and a scene-only world facade."""
     # A private reach-in is `get("_name")`/`call("_name")` through the entry or a runtime. A
-    # public member reached by string is still a locator; the full rule lands with the last
-    # owner (the service list replaces the string lookups).
+    # public member reached by string is still a locator, and naming the entry by member is the
+    # same locator without the string, so both are refused outside `main.gd` and `tests/`.
     reach_in = re.compile(r'\b(?:main|runtime)\.(?:call|get)\("_')
+    entry_rules = (
+        (ENTRY_MEMBER, "a preloaded facade, a `WORLD` read or a host parameter"),
+        (ENTRY_DECLARATION, "a preloaded facade, a `WORLD` read or a host parameter"),
+        (ENTRY_PRELOAD, "the facade it needs or `WORLD`"),
+        (ENTRY_ARGUMENT, "a typed host parameter"),
+    )
     for path in shipped_sources():
         if path == ROOT / "main.gd":
             continue
@@ -1066,6 +1080,11 @@ def check_boundaries(failure: Failure) -> None:
         for match in reach_in.finditer(text):
             failure.add("%s:%d reaches into a private member: %s" % (
                 rel(path), line_of(text, match.start()), match.group(0)))
+        for pattern, instead in entry_rules:
+            for match in pattern.finditer(text):
+                failure.add(
+                    "%s:%d names the entry (%s): use %s; only main.gd and tests/ may name `main`"
+                    % (rel(path), line_of(text, match.start()), match.group(0).strip(), instead))
 
     # The world facade answers where and what from the scene alone: it imports the game and the
     # shared pure modules, never a service facade, the runtime or the entry.

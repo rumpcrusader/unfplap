@@ -101,7 +101,7 @@ func run() -> void:
 	root.add_child(main.game.population)
 	root.add_child(main.player)
 	main.eligibility = ELIGIBILITY.new()
-	main.eligibility.setup()
+	main.eligibility.on_world(null)
 
 	var pony := FakePony.new()
 	pony.name = "Rarity"
@@ -310,9 +310,9 @@ func run() -> void:
 	check(not bool(available_unwilling.show), "an unwilling mare has no legacy hint")
 	relation.bonds.welcome = true
 
-	main.eligibility.clear()
+	main.eligibility.shutdown()
 	check(not main.eligibility.eligible(pony), "cleared service rejects every pony")
-	main.eligibility.setup()
+	main.eligibility.on_world(null)
 	check(main.eligibility.eligible(pony), "setup after clear restores the service")
 	var restored: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
 	check(bool(restored.show), "setup after clear restores the verdict")

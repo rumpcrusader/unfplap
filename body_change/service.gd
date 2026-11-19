@@ -139,8 +139,8 @@ func active() -> bool:
 	return false
 
 
-## Re-read every provider's own installation state. The providers own their gates.
-func refresh_sources() -> void:
+## A world entered: re-read every provider's own installation state. The providers own their gates.
+func on_world(_host: Node) -> void:
 	for source: BODY_CHANGE_SOURCE in _sources:
 		if is_instance_valid(source):
 			source.refresh()

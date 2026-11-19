@@ -73,9 +73,9 @@ func act_end(pony: Node) -> void:
 	_install(pony)
 
 
-## A world is closing: put every stock player back and forget its ponies. The loaded pack streams
-## stay for the next world.
-func clear_world() -> void:
+## A world enter or a world close: put every stock player back and forget its ponies. The loaded
+## pack streams stay for the next world.
+func on_world_closed() -> void:
 	_restore_all()
 	_ponies.clear()
 	_act_pony = null
@@ -83,7 +83,7 @@ func clear_world() -> void:
 
 func shutdown() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
-	clear_world()
+	on_world_closed()
 	log = Callable()
 
 

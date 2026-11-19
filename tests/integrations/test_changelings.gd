@@ -858,7 +858,7 @@ func run() -> void:
 
 	# The pack off unregisters the provider and empties the installed list.
 	gate.on = false
-	body_change.call("refresh_sources")
+	body_change.call("on_world", null)
 	check(not REGISTRY.has("chrysalis"), "the layer is gone when the pack is off")
 	check(not adapter.is_processing(), "a missing pack stops the adapter's observation")
 	check((adapter.call("installed_character_ids") as Array).is_empty(),
@@ -871,8 +871,8 @@ func run() -> void:
 
 	# On again: idempotent registration and listing.
 	gate.on = true
-	body_change.call("refresh_sources")
-	body_change.call("refresh_sources")
+	body_change.call("on_world", null)
+	body_change.call("on_world", null)
 	check(REGISTRY.has("chrysalis"), "the layer returns with the pack")
 	check(adapter.is_processing(), "the adapter observes again once the pack returns")
 	var again: Array = adapter.call("installed_character_ids")

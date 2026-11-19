@@ -196,10 +196,10 @@ func adapter() -> Node:
 	return _adapter if is_instance_valid(_adapter) else null
 
 
-## A world started: the entry rebuilt the eligibility service and bound it, so the bridge is
-## re-read. The reset comes first, then the new host, then the watch of the world that is gone.
-func on_world() -> void:
-	reset()
+## A world started: the close of the world that is gone comes first, then the bridge is bound to
+## the new one and its Anon-offer watch is armed.
+func on_world(_host: Node) -> void:
+	on_world_closed()
 	if _bridge == null:
 		return
 	_bridge.eligibility = eligibility
@@ -246,9 +246,9 @@ func setup(host: Host) -> void:
 	_host = host
 
 
-## Clear the live Act Negotiation on a world close. It releases the hold and cancels every
-## classifier scope; it reports no terminal outcome.
-func reset() -> void:
+## A world enter or a world close. It releases the hold and cancels every classifier scope; a
+## close reports no terminal outcome.
+func on_world_closed() -> void:
 	_cancel_scope(_offer.scope if _offer != null else "")
 	_cancel_scope(_agreement.classifier_scope if _agreement != null else "")
 	_release_hold()

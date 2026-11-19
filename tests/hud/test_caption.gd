@@ -262,7 +262,7 @@ func _check_dance_notice() -> void:
 	var label := hud.get("_toast_label") as Label
 	var key_label := ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
 
-	hud.call("on_world")
+	hud.call("on_world", null)
 	hud.call("on_player", null)
 	var shown: int = int(hud.get("_toast_serial"))
 	hud.call("on_player", null)
@@ -274,13 +274,13 @@ func _check_dance_notice() -> void:
 			"the notice names the act key")
 
 	# A world re-enter arms the note again.
-	hud.call("on_world")
+	hud.call("on_world", null)
 	hud.call("on_player", null)
 	check(int(hud.get("_toast_serial")) == shown + 1, "a new world shows the notice once more")
 
 	# The Dance Mod off: nothing to warn about.
 	mods.active = []
-	hud.call("on_world")
+	hud.call("on_world", null)
 	var quiet: int = int(hud.get("_toast_serial"))
 	hud.call("on_player", null)
 	check(int(hud.get("_toast_serial")) == quiet, "no notice without the Dance Mod")

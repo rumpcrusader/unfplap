@@ -92,7 +92,7 @@ func run() -> void:
 	service.call("pony_ready", bare)
 	check(bare.is_inside_tree(), "a pony without FlankTouch is ignored")
 
-	service.call("clear_world")
+	service.call("on_world_closed")
 	check(player.stream == stock_stream and other_player.stream == other_stock
 		and late_player.stream == late_stock, "a world close puts every stock player back")
 

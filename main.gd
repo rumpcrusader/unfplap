@@ -1,7 +1,23 @@
 extends Node
-## unfplap mod entry.
-## The entry node owns the player HUD/input and one lightweight runtime per pony. It never edits
-## game files; it only reads the game's pony, relationship, memory and bed APIs.
+## unfplap mod entry: the primitives, the ordered service list, the frame order and one teardown.
+##
+## `_ready()` loads the settings, attaches the log sink and builds every long-running service in
+## the one list `_build_services()` writes. The list order is the call order of every broadcast:
+##
+## - `_on_world(host)`: `WORLD.bind_world`, every `on_world(host)` in list order, then the two
+##   static facades that are not list members (`PONIES.reset()`, `LOG.reset()`);
+## - `_on_player(body)`: `WORLD.bind_player`, every `on_player(body)` in list order;
+## - `_on_world_closed()`: the "world closed" line, then `_release()`;
+## - `_exit_tree()`: `_release()`, the registry shutdown, every `shutdown()` in reverse list order.
+##
+## `_release()` is the one release sequence: every service's `on_world_closed()`, then
+## `WORLD.unbind()`, then the log window. A world close and the process exit both run it, so a
+## service cannot be released in one path and forgotten in the other. `WORLD` stays outside the
+## loop because it is the scene read every service makes: bound before the first service and
+## unbound after the last.
+##
+## A service takes part in a broadcast by naming the hook (`on_world(host)`, `on_world_closed()`,
+## `on_player(body)`, `shutdown()`); a hook it does not implement is skipped.
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -20,7 +36,6 @@ const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/audio/stock_smack.gd")
-const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
@@ -29,6 +44,10 @@ const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
+
+## The long-running services in construction order. The list is the lifecycle: `_on_world`,
+## `_on_player`, `_release` and `_shutdown` walk it, so a service joins a broadcast by being here.
+var _services: Array = []
 
 var hud: HUD
 var input
@@ -47,7 +66,6 @@ var changelings: Node
 var stool: Node
 ## Outside-act stock smack sound layer; see `docs/audio.md`.
 var stock_smack: Node
-var _anatomy_status_label: Label
 var initiation: INITIATION
 var privacy: PRIVACY
 ## The Act Negotiation service: the Anon offer, the Mare exchange, the Agreement, the lock, the
@@ -75,6 +93,13 @@ func prompt_note(pony: String) -> String:
 func _ready() -> void:
 	process_priority = 100
 	set_process(true)
+	# The loader owns this node; the lookup rather than the autoload name keeps the entry loadable
+	# by a suite, the way `runtime.gd` and `api.gd` reach the same node.
+	var mods: Variant = get_node_or_null("/root/Mods")
+	if mods == null:
+		push_error("unfplap: the Mods autoload is missing; the mod is not loading")
+		set_process(false)
+		return
 	# Load, migrate, merge and write the player file before any getter runs: the hot read path
 	# must never touch the disk. A broken shipped document is a build error, so log it once and
 	# install no hooks; the settings module already named the first offending path.
@@ -90,93 +115,15 @@ func _ready() -> void:
 	LOG.attach(self)
 	LOG.act_running = Callable(PONIES, "act_running")
 	LOG.counts = Callable(PONIES, "_counts")
-	eligibility = ELIGIBILITY.new()
-	eligibility.setup()
-	memory = MEMORY.new()
-	MEMORY.instance = memory
-	privacy = PRIVACY.new()
-	negotiation = NEGOTIATION.new()
-	negotiation.name = "UnfplapNegotiation"
-	add_child(negotiation)
-	# The HUD exists before the player does: it owns the act card, the toast line, the caption
-	# move and the one-time key notice, and it is the one sink the rest of the mod reaches
-	# through `HUD.toast()`.
-	hud = HUD.new()
-	hud.name = "UnfplapHUD"
-	hud.log = Callable(LOG, "debug")
-	HUD.instance = hud
-	add_child(hud)
-	hud.apply_settings()
-	# The idle offer is built before the Proactive service, which asks it which pony the act key
-	# would start. Its entry reads are the runtime registry, the act-target rule and the live act.
-	offer = OFFER.new()
-	offer.name = "UnfplapOffer"
-	offer.runtime_for = Callable(self, "runtime_for")
-	offer.act_target = Callable(self, "_is_act_target")
-	offer.act_live = Callable(self, "_act_live")
-	offer.negotiation = negotiation
-	offer.privacy = privacy
-	offer.hud = hud
-	offer.apply_settings()
-	add_child(offer)
-	# The act key and the seated-player guard exist before the player does; the offer above is
-	# the one service the input policy hands its press to.
-	input = INPUT.new()
-	input.name = "UnfplapInput"
-	input.offer = offer
-	add_child(input)
-	# The Proactive service owns the bounded classifier and takes the Negotiation facade: its
-	# adapter, lock, form view and Context. The bridge reads this service back, so it is bound
-	# once both exist.
-	initiation = INITIATION.new()
-	initiation.name = "UnfplapInitiation"
-	initiation.eligibility = eligibility
-	initiation.setup(privacy, negotiation, offer)
-	add_child(initiation)
-	negotiation.bind(eligibility, memory, privacy, initiation, offer)
-	anatomy = ANATOMY.new()
-	anatomy.name = "UnfplapAnatomy"
-	anatomy.call("setup")
-	add_child(anatomy)
-	body_change = BODY_CHANGE_SERVICE.new()
-	body_change.name = "UnfplapBodyChange"
-	body_change.call("setup")
-	add_child(body_change)
-	PONIES.body_change = body_change
-	pantyhose = PANTYHOSE.new()
-	pantyhose.name = "UnfplapPantyhose"
-	pantyhose.call("setup")
-	add_child(pantyhose)
-	stool = STOOL.new()
-	stool.name = "UnfplapStool"
-	stool.call("setup")
-	STOOL.instance = stool
-	add_child(stool)
-	stock_smack = STOCK_SMACK.new()
-	stock_smack.name = "UnfplapStockSmack"
-	stock_smack.set("log", Callable(LOG, "debug"))
-	add_child(stock_smack)
-	body_change.call("wire", anatomy, pantyhose, stock_smack)
-	api = API.new()
-	api.name = "UnfplapAPI"
-	add_child(api)
-	PONIES.api = api
-	changelings = CHANGELINGS.new()
-	changelings.name = "UnfplapChangelings"
-	changelings.call("setup")
-	add_child(changelings)
-	body_change.call("register_source", changelings)
-	# The debug actions run against the services above, so they are built last. They read the live
-	# act through the facades themselves; the entry hands them only the services they act through.
-	debug_actions = DEBUG_ACTIONS.new()
-	debug_actions.name = "UnfplapDebugActions"
-	debug_actions.body_change = body_change
-	debug_actions.initiation = initiation
-	debug_actions.negotiation = negotiation
-	debug_actions.anatomy = anatomy
-	debug_actions.pantyhose = pantyhose
-	add_child(debug_actions)
-	debug_actions.sync_skeleton_overlay()
+	_build_services()
+	# The per-pony registry binds the services above once and builds its runtimes through the
+	# one factory, so no other entry member holds a runtime.
+	PONIES.factory = Callable(self, "_new_runtime")
+	PONIES.bind_settings()
+	PONIES.anatomy = anatomy
+	PONIES.offer = offer
+	PONIES.stock_smack = stock_smack
+	PONIES.eligibility = eligibility
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
 	var source_mtime := 0
 	for path: String in [
@@ -191,89 +138,130 @@ func _ready() -> void:
 		source_mtime = maxi(source_mtime, FileAccess.get_modified_time(path))
 	LOG.debug("entry ready (debug logs %s) runtime_mtime=%d" % [
 		"ON" if LOG.debug_logs else "OFF", source_mtime])
-	# The per-pony registry binds the services above once and builds its runtimes through the
-	# one factory, so no other entry member holds a runtime.
-	PONIES.factory = Callable(self, "_new_runtime")
-	PONIES.bind_settings()
-	PONIES.anatomy = anatomy
-	PONIES.offer = offer
-	PONIES.stock_smack = stock_smack
-	PONIES.eligibility = eligibility
-	Mods.world_ready.connect(_on_world)
-	Mods.world_closed.connect(_on_world_closed)
-	Mods.player_ready.connect(_on_player)
-	Mods.on_node(PONY_PATH, _on_pony)
-	Mods.on_node(SETTINGS_PAGE_PATH, _on_settings_page)
+	mods.world_ready.connect(_on_world)
+	mods.world_closed.connect(_on_world_closed)
+	mods.player_ready.connect(_on_player)
+	mods.on_node(PONY_PATH, _on_pony)
+	mods.on_node(SETTINGS_PAGE_PATH, _on_settings_page)
 	# The HUD owns the caption path, the tracking and the move; the entry only registers the game
 	# hook. See `docs/hud.md`.
-	Mods.on_node(HUD.CAPTION_PATH, Callable(hud, "caption_node"))
-	Mods.on_node(DEBUG_STRETCH.ENTRY_PATH, Callable(debug_actions, "on_idle_life"))
+	mods.on_node(HUD.CAPTION_PATH, Callable(hud, "caption_node"))
+	mods.on_node(DEBUG_STRETCH.ENTRY_PATH, Callable(debug_actions, "on_idle_life"))
 	# Switched on mid-game: the world and player already exist.
-	if is_instance_valid(Mods.game):
-		_on_world(Mods.game)
-		var existing: Variant = Mods.game.get("player")
+	if is_instance_valid(mods.game):
+		_on_world(mods.game)
+		var existing: Variant = mods.game.get("player")
 		if is_instance_valid(existing):
 			_on_player(existing)
 
 
-func _on_world(host: Node) -> void:
-	debug_actions.close_debug_wheel()
-	offer.on_world(host)
-	WORLD.bind_world(host)
-	if not is_instance_valid(eligibility):
-		eligibility = ELIGIBILITY.new()
-	eligibility.setup()
-	PONIES.eligibility = eligibility
+## The one ordered service list: each line constructs its service and joins it to the tree and to
+## `_services`; the lines under a construction bind the facades that service reads. The order is
+## load-bearing: a consumer is built after the services it reads.
+func _build_services() -> void:
+	eligibility = _add(ELIGIBILITY.new())
+	memory = _add(MEMORY.new())
+	MEMORY.instance = memory
+	privacy = _add(PRIVACY.new())
+	negotiation = _add(NEGOTIATION.new(), "UnfplapNegotiation")
+	# The HUD exists before the player does: it owns the act card, the toast line, the caption
+	# move and the one-time key notice, and it is the one sink the rest of the mod reaches
+	# through `HUD.toast()`.
+	hud = _add(HUD.new(), "UnfplapHUD")
+	hud.log = Callable(LOG, "debug")
+	HUD.instance = hud
+	hud.apply_settings()
+	offer = _add(OFFER.new(), "UnfplapOffer")
+	offer.runtime_for = Callable(PONIES, "runtime_for")
+	offer.act_target = Callable(PONIES, "act_target")
+	offer.act_live = Callable(PONIES, "act_running")
+	offer.negotiation = negotiation
+	offer.privacy = privacy
+	offer.hud = hud
+	offer.apply_settings()
+	# The act key and the seated-player guard exist before the player does; the offer above is
+	# the one service the input policy hands its press to.
+	input = _add(INPUT.new(), "UnfplapInput")
+	input.offer = offer
+	# The Proactive service owns the bounded classifier and takes the Negotiation facade: its
+	# adapter, lock, form view and Context. The bridge reads this service back, so it is bound
+	# once both exist.
+	initiation = _add(INITIATION.new(), "UnfplapInitiation")
 	initiation.eligibility = eligibility
-	negotiation.eligibility = eligibility
-	if is_instance_valid(stool):
-		stool.call("on_world", host)
-	if is_instance_valid(pantyhose):
-		pantyhose.call("on_world", host)
-	if is_instance_valid(body_change):
-		body_change.call("refresh_sources")
+	initiation.setup(privacy, negotiation, offer)
+	negotiation.bind(eligibility, memory, privacy, initiation, offer)
+	anatomy = _add(ANATOMY.new(), "UnfplapAnatomy")
+	anatomy.call("setup")
+	body_change = _add(BODY_CHANGE_SERVICE.new(), "UnfplapBodyChange")
+	body_change.call("setup")
+	PONIES.body_change = body_change
+	pantyhose = _add(PANTYHOSE.new(), "UnfplapPantyhose")
+	pantyhose.call("setup")
+	stool = _add(STOOL.new(), "UnfplapStool")
+	stool.call("setup")
+	STOOL.instance = stool
+	stock_smack = _add(STOCK_SMACK.new(), "UnfplapStockSmack")
+	stock_smack.set("log", Callable(LOG, "debug"))
+	body_change.call("wire", anatomy, pantyhose, stock_smack)
+	changelings = _add(CHANGELINGS.new(), "UnfplapChangelings")
+	changelings.call("setup")
+	body_change.call("register_source", changelings)
+	api = _add(API.new(), "UnfplapAPI")
+	PONIES.api = api
+	# The debug actions run against the services above, so they are built last. They read the live
+	# act through the facades themselves; the entry hands them only the services they act through.
+	debug_actions = _add(DEBUG_ACTIONS.new(), "UnfplapDebugActions")
+	debug_actions.body_change = body_change
+	debug_actions.initiation = initiation
+	debug_actions.negotiation = negotiation
+	debug_actions.anatomy = anatomy
+	debug_actions.pantyhose = pantyhose
+	debug_actions.sync_skeleton_overlay()
+
+
+## Join one service to the tree and to the ordered list. A RefCounted service only joins the list:
+## it has no node, no name and no teardown beyond its references.
+func _add(service: Variant, node_name := "") -> Variant:
+	_services.append(service)
+	if not service is Node:
+		return service
+	service.name = node_name
+	add_child(service)
+	return service
+
+
+func _on_world(host: Node) -> void:
+	WORLD.bind_world(host)
+	for service: Variant in _services:
+		if is_instance_valid(service) and service.has_method("on_world"):
+			service.on_world(host)
+	# The two static facades are not list members: the registry drops the swap of the world that is
+	# gone and the log opens a fresh probe window.
 	PONIES.reset()
 	LOG.reset()
-	if is_instance_valid(initiation):
-		initiation.reset()
-	if is_instance_valid(negotiation):
-		negotiation.on_world()
-	if is_instance_valid(initiation):
-		initiation.cancel_classifier()
-	hud.on_world()
 
 
 func _on_world_closed(_host: Node) -> void:
 	LOG.debug("world closed")
-	debug_actions.close_debug_wheel()
-	if is_instance_valid(pantyhose):
-		pantyhose.call("on_world_closed")
-	if is_instance_valid(anatomy):
-		anatomy.call("clear_player")
-	offer.reset()
-	if is_instance_valid(initiation):
-		initiation.reset()
-	if is_instance_valid(negotiation):
-		negotiation.reset()
-	if is_instance_valid(initiation):
-		initiation.cancel_classifier()
-	PONIES.close_world()
-	if is_instance_valid(stock_smack):
-		stock_smack.call("clear_world")
+	_release()
+
+
+## The one release sequence, shared by the world close and the process exit.
+func _release() -> void:
+	for service: Variant in _services:
+		if is_instance_valid(service) and service.has_method("on_world_closed"):
+			service.on_world_closed()
 	WORLD.unbind()
 	LOG.reset()
 	LOG.clear_panel()
-	if is_instance_valid(stool):
-		stool.call("on_world_closed")
-	hud.on_world_closed()
 
 
 func _on_player(body: Node) -> void:
 	WORLD.bind_player(body)
 	LOG.debug("player ready")
-	if is_instance_valid(anatomy):
-		anatomy.call("player_ready", body)
-	hud.on_player(body)
+	for service: Variant in _services:
+		if is_instance_valid(service) and service.has_method("on_player"):
+			service.on_player(body)
 
 
 ## Every body the game spawns arrives here. `ponies` owns the registry, the prepare hooks
@@ -290,36 +278,6 @@ func _new_runtime(pony: Node) -> Node:
 	runtime.name = "UnfplapRuntime"
 	runtime.set("pony", pony)
 	return runtime
-
-
-## The first active source that handles this pony, or null.
-func shape_source_for(pony: Node) -> Variant:
-	if not is_instance_valid(body_change):
-		return null
-	return body_change.call("source_for", pony)
-
-
-## Any active shape-changing source, for the debug block's visibility gate.
-func shape_source_active() -> bool:
-	return is_instance_valid(body_change) and bool(body_change.call("active"))
-
-
-## True when the body's source owns a tail placement the anatomy editor can move.
-func custom_tail_ready(pony: Node) -> bool:
-	return is_instance_valid(body_change) and bool(body_change.call("has_tail_placement", pony))
-
-
-## Re-apply the source's current tail placement after an anatomy edit or a settings change.
-func apply_custom_tail(pony: Node) -> void:
-	if is_instance_valid(body_change):
-		body_change.call("apply_tail_placement", pony)
-
-
-## The live source-owned tail lines, one per wrapper.
-func custom_tail_report() -> String:
-	if not is_instance_valid(body_change):
-		return ""
-	return str(body_change.call("tail_placement_report"))
 
 
 ## The settings page hook. No game-script extension is used. Opening the page re-reads
@@ -373,66 +331,27 @@ func _process_entry(delta: float, timed: bool) -> void:
 			LOG.close("entry_negotiation", negotiation_started)
 
 
-## The act-target capability. `ponies` holds the live registry and the eligibility service that
-## owns the rule; the offer takes this read as its callable.
-func _is_act_target(pony: Variant) -> bool:
-	return pony is Node and PONIES.act_target(pony)
-
-
-## The offer's act-live read: a live act owns the frame, so the act key starts nothing and no
-## Agreement auto-starts.
-func _act_live() -> bool:
-	return PONIES.act_running()
-
-
 func _exit_tree() -> void:
-	if is_instance_valid(debug_actions):
-		debug_actions.close_debug_wheel()
-	if is_instance_valid(eligibility):
-		eligibility.clear()
-		eligibility = null
-	if is_instance_valid(changelings):
-		changelings.call("shutdown")
-		changelings.queue_free()
-		changelings = null
-	if is_instance_valid(api):
-		api.call("_shutdown")
-		api.queue_free()
-		api = null
-	offer.reset()
-	SETTINGS_UI.clear_pages()
-	if is_instance_valid(initiation):
-		initiation.reset()
-		initiation.cancel_classifier()
-		initiation.queue_free()
-	# The adapter is the negotiation's child; it goes with it.
-	if is_instance_valid(negotiation):
-		negotiation.reset()
-		negotiation.queue_free()
-	negotiation = null
-	privacy = null
+	_release()
+	_shutdown()
+
+
+## The process-only release: the registry goes first, so every runtime is stopped and freed while
+## the services it reads are still alive; then each service's `shutdown()` runs in reverse list
+## order and the nodes leave the tree.
+func _shutdown() -> void:
 	PONIES.shutdown()
-	if is_instance_valid(stool):
-		stool.call("shutdown")
-		stool.queue_free()
-		stool = null
-	if is_instance_valid(pantyhose):
-		pantyhose.call("shutdown")
-		pantyhose.queue_free()
-		pantyhose = null
-	if is_instance_valid(anatomy):
-		anatomy.call("shutdown")
-		anatomy.queue_free()
-		anatomy = null
-	if is_instance_valid(stock_smack):
-		stock_smack.call("shutdown")
-		stock_smack.queue_free()
-		stock_smack = null
+	for index: int in range(_services.size() - 1, -1, -1):
+		var service: Variant = _services[index]
+		if not is_instance_valid(service):
+			continue
+		if service.has_method("shutdown"):
+			service.shutdown()
+		if service is Node:
+			service.queue_free()
+	_services.clear()
+	SETTINGS_UI.clear_pages()
 	LOG.detach()
-	HUD.instance = null
 	MEMORY.instance = null
+	HUD.instance = null
 	STOOL.instance = null
-	if is_instance_valid(hud):
-		hud.queue_free()
-	if is_instance_valid(input):
-		input.queue_free()

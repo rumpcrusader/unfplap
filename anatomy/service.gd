@@ -373,7 +373,7 @@ func shutdown() -> void:
 				controller.queue_free()
 	_controllers.clear()
 	_forms.clear()
-	clear_player()
+	on_world_closed()
 	tail_seat = null
 	tail_visibility = null
 	placement_editor = null
@@ -381,7 +381,8 @@ func shutdown() -> void:
 
 # --------------------------------------------------------------------------- player part
 
-func player_ready(body: Node) -> void:
+## The player rig arrived.
+func on_player(body: Node) -> void:
 	if player != body:
 		_player_warm_part = null
 		_player_warm_queued = false
@@ -389,7 +390,8 @@ func player_ready(body: Node) -> void:
 	refresh_player()
 
 
-func clear_player() -> void:
+## A world enter or a world close: the player part belongs to the world that is gone.
+func on_world_closed() -> void:
 	if is_instance_valid(_player_part):
 		_player_part.call("encounter", false)
 		_player_part.queue_free()

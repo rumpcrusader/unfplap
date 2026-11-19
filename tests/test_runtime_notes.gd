@@ -31,10 +31,10 @@ func run() -> void:
 	root.add_child(pony)
 	var id_runtime: Node = RUNTIME.new()
 	id_runtime.pony = pony
-	check(bool(id_runtime.call("_read_id")), "identity fallback reads a runtime id")
+	check(bool(id_runtime._act.refresh_identity()), "identity fallback reads a runtime id")
 	check(str(id_runtime.get("_id")) == "identity_id", "identity id is the fallback")
 	pony.set_meta("relationship_id", "rarity")
-	id_runtime.call("_read_id")
+	id_runtime._act.refresh_identity()
 	check(str(id_runtime.get("_id")) == "rarity", "relationship metadata wins when it appears")
 	check(str(id_runtime._act.display_name) == "Identity", "display name is kept")
 	id_runtime.free()

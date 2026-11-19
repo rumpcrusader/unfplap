@@ -303,7 +303,7 @@ static func menu_open() -> bool:
 ## The eye is in a headset. There is no desktop cursor to capture, and the stock game leaves the
 ## mouse visible, so the "cursor is visible" gates must not read that as a menu owning the input.
 static func headset_view() -> bool:
-	return is_instance_valid(game) and bool(game.get("headset_view"))
+	return is_instance_valid(game) and game.get("headset_view") == true
 
 
 ## Drop the merged LOD caches for a body whose shape changed and re-arm its near mesh, so the

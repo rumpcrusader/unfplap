@@ -8,6 +8,10 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
+const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
+const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
+const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -52,9 +56,8 @@ class FakeBridge extends RefCounted:
 		pass
 
 
-class FakeCamera extends RefCounted:
+class FakeCamera extends ACT_CAMERA:
 	var ends := 0
-	var camera: Variant = null
 
 	func bind(_facts: Variant, _hands: Variant, _kiss: Variant, _standing: Variant,
 			_missionary: Variant) -> void:
@@ -74,7 +77,7 @@ class FakeKiss extends KISS:
 		pass
 
 
-class FakeReactions extends RefCounted:
+class FakeReactions extends REACTIONS:
 	var thrusts := 0
 	var tails := 0
 	var blushes := 0
@@ -102,29 +105,14 @@ class FakeWings extends WING:
 		thrusts += 1
 
 
-class FakePose extends RefCounted:
+class FakePose extends POSE_SESSION:
 	var ear_checks := 0
 	var pose_id := ""
-	var id := ""
-	var hide_avatar := Callable()
-	var set_act_body := Callable()
-	var eye_camera := Callable()
-	var perf := Callable()
-	var facts: Variant = null
-	var pose_config: Dictionary = {}
-	var log := Callable()
-	var mouth_point := Callable()
-	var opening_point := Callable()
-	var face_point := Callable()
-	var oral_kiss := Callable()
-	var oral_speech_stop := Callable()
-	var oral_viseme := Callable()
-	var oral_status := Callable()
 
 	func bind(_runtime: Variant, _pony_node: Variant) -> void:
 		pass
 
-	func view() -> Variant:
+	func view() -> RefCounted:
 		return facts.pose_view if facts != null else null
 
 	func pose_changed(_view: Variant) -> void:
@@ -200,7 +188,7 @@ class FakeDirector extends Node:
 		state = "idle"
 
 
-class FakeDialogue extends RefCounted:
+class FakeDialogue extends ACT_DIALOGUE:
 	var ends: Array = []
 	var reaction_calls := 0
 	var notes := 0
@@ -284,6 +272,13 @@ func _fixture() -> Dictionary:
 	runtime._act_dialogue = dialogue
 	runtime._act_camera = act_camera
 	runtime._kiss = kiss
+	runtime._act_context.reactions = reactions
+	runtime._act_context.wings = wings
+	runtime._act_context.pose = pose
+	runtime._act_context.camera = act_camera
+	runtime._act_context.audio = audio
+	runtime._act_context.dialogue = dialogue
+	runtime._act_context.anatomy = bridge
 	runtime._act.reset_thrust_state()
 	root.add_child(main)
 	WORLD.bind_world(main)
@@ -369,7 +364,7 @@ func run() -> void:
 	director.state = "speaking"
 	director._current = "rarity"
 	pony.speaking = true
-	runtime._oral_speech_stop()
+	runtime._act.oral_speech_stop()
 	check(dialogue.ends.size() == 1 and not bool(dialogue.ends[0][1]),
 		"the speech stop cancels her act line without letting it finish")
 	check(director.interrupts == 1, "the speech stop interrupts her own director turn")
@@ -391,16 +386,16 @@ func run() -> void:
 	# The soft kiss cue is one base-game soft kiss; the audio facade owns the cue and its level
 	# (`test_audio.gd` covers the stock volume and the soft variant).
 	boop.kisses = 0
-	runtime._oral_kiss()
+	runtime._audio.oral_kiss()
 	check(audio.oral_kisses == 1, "the soft kiss reaches the audio facade")
 
 	# Her climax line is skipped while the mouth contact is live, and returns once released.
 	dialogue.reaction_calls = 0
 	runtime.pony_climaxes = 1
-	runtime._queue_climax_reaction()
+	runtime._act.queue_climax_reaction()
 	check(dialogue.reaction_calls == 0, "no climax line is queued during the mouth contact")
 	view.contact_kind = "opening"
-	runtime._queue_climax_reaction()
+	runtime._act.queue_climax_reaction()
 	check(dialogue.reaction_calls == 1, "the climax line returns with the mouth contact off")
 
 	# Both withdrawal slides still fire: the mouth contact keeps the slide.

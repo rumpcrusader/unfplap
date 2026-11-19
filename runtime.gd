@@ -14,7 +14,6 @@ const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
-const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -35,7 +34,6 @@ const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.
 const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
-const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
@@ -195,27 +193,17 @@ var _posture_owned := false
 var _session_finalized := false
 var _id := ""
 var _profile: Dictionary = {}
+## The act's settings snapshot. `_snapshot_settings()` is its only writer; the act tunables are read
+## through `_snapshot.<name>`, never copied into a second field. A zeroed snapshot stands in until
+## the first act, so an idle runtime reads the same zero values the fields used to default to.
+var _snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
+## The feature flags. `_snapshot_settings()` fills it from the act snapshot; an idle read before the
+## first act sees an empty block instead of a missing one.
 var _features: Dictionary = {}
-## The act's caress surface level, snapshotted from the settings so the engine never reads them.
-var _caress_quality: String
 var _preferences: Dictionary = {}
 var _act_prompts: Dictionary = {}
 var _max_pony_climaxes: int
 var _cue_gap: float
-## The cue/utterance pacing and the oral soft-kiss cue. The oral turn owns its idle timer.
-var _cue_override_seconds: float
-var _cue_base_stable_s: float
-var _cue_override_stable_s: float
-var _cue_utterance_gap_s: float
-var _cue_demand_gap_s: float
-var _cue_demand_repeat_s: float
-var _cue_max_age_s: float
-var _cue_reaction_max_age_s: float
-var _cue_release_hold_s: float
-var _cue_overwhelmed_s: float
-var _touch_cooldown_s: float
-var _talk_cooldown_s: float
-var _receptive_seconds: float
 var _act_spoken_at := -1e9
 var _act_ended_early := false
 ## The act's summary, grade and peak record; see `summary/service.gd`. The runtime reads it as
@@ -230,7 +218,6 @@ var _aftercare_min: int
 var _display_name := "the pony"
 var _serial := 0
 var _event_id := ""
-var _started_at := 0.0
 
 ## The forced over-the-shoulder glance of a standing reach; the camera facade writes it back
 ## through the typed act view.
@@ -600,7 +587,7 @@ func _event_id_value() -> String:
 
 
 func _cue_reaction_max_age_value() -> float:
-	return _cue_reaction_max_age_s
+	return _snapshot.cue_reaction_max_age_s
 
 
 func _auto_pace() -> float:
@@ -667,12 +654,6 @@ func _eligibility_service() -> Variant:
 	return PONIES.eligibility
 
 
-## The typed act/context the anatomy reads. The bridge owns the per-act facts.
-func _anatomy_context() -> RefCounted:
-	_anatomy_bridge.bind(_anatomy_host())
-	return _anatomy_bridge.context()
-
-
 ## Write the state the persistent controller polls outside the act. The bridge owns the facts.
 func _sync_anatomy_facts() -> void:
 	_anatomy_bridge.bind(_anatomy_host())
@@ -705,7 +686,7 @@ func refresh_view() -> void:
 	facts.preferences = _preferences
 	facts.act_prompts = _act_prompts
 	facts.features = _features
-	facts.caress_quality = _caress_quality
+	facts.caress_quality = _snapshot.caress_quality
 	facts.player_pony = _player_pony
 	facts.bed = bed
 	facts.presentation_config = _presentation_cfg
@@ -1059,17 +1040,17 @@ func _refresh_scene_gate() -> void:
 	_scene.configure(state, _id, _features)
 
 
-## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these
-## fields, so `_reset_thrust_state()` only has to reset the act's timing state.
+## Push the debug talk/cue pacing settings into the pure scheduler. The scheduler keeps them, so
+## `_reset_thrust_state()` only has to reset the act's timing state.
 func _configure_utterance_scheduler() -> void:
 	_dialogue_service().configure({
-		"base_stable": _cue_base_stable_s,
-		"override_stable": _cue_override_stable_s,
-		"utterance_gap": _cue_utterance_gap_s,
-		"demand_gap": _cue_demand_gap_s,
-		"demand_repeat": _cue_demand_repeat_s,
-		"max_age": _cue_max_age_s,
-		"release_hold": _cue_release_hold_s,
+		"base_stable": _snapshot.cue_base_stable_s,
+		"override_stable": _snapshot.cue_override_stable_s,
+		"utterance_gap": _snapshot.cue_utterance_gap_s,
+		"demand_gap": _snapshot.cue_demand_gap_s,
+		"demand_repeat": _snapshot.cue_demand_repeat_s,
+		"max_age": _snapshot.cue_max_age_s,
+		"release_hold": _snapshot.cue_release_hold_s,
 	})
 
 
@@ -1078,39 +1059,26 @@ func _configure_utterance_scheduler() -> void:
 func _snapshot_settings() -> void:
 	# The start spec's settings group selects the pose presentation block; an internal pose
 	# (`standing_test`, `standing_oral`) has no block of its own and must never be passed here.
-	var snap := SETTINGS.act_snapshot(_start_group())
-	_features = snap.features
-	_caress_quality = snap.caress_quality
-	_readiness.configure_thrust(snap.thrust_pixels_per_cm, snap.thrust_up,
-		snap.thrust_travel, snap.pelvis_gap_m)
-	_max_pony_climaxes = snap.max_pony_climaxes
+	_snapshot = SETTINGS.act_snapshot(_start_group())
+	_features = _snapshot.features
+	_readiness.configure_thrust(_snapshot.thrust_pixels_per_cm, _snapshot.thrust_up,
+		_snapshot.thrust_travel, _snapshot.pelvis_gap_m)
+	_max_pony_climaxes = _snapshot.max_pony_climaxes
 	_handover.set_form_hint_debug(SETTINGS.debug_mode.get_bool())
-	_readiness.configure_auto(snap.auto_pace, snap.auto_max_depth, snap.auto_curve,
-		snap.auto_min_depth, _preserve_auto_shape_on_snapshot)
+	_readiness.configure_auto(_snapshot.auto_pace, _snapshot.auto_max_depth, _snapshot.auto_curve,
+		_snapshot.auto_min_depth, _preserve_auto_shape_on_snapshot)
 	_reactions.configure({
-		"jiggle": snap.jiggle,
+		"jiggle": _snapshot.jiggle,
 		"pose_family": _start_family(),
 		"size_scale": _camera_service().call("jiggle_size_scale"),
 		"climax_seconds": CLIMAX_SECONDS,
 	})
-	_camera_service().call("configure", snap.camera_thrust)
-	_cue_override_seconds = snap.cue_override_seconds
-	_cue_base_stable_s = snap.cue_base_stable_s
-	_cue_override_stable_s = snap.cue_override_stable_s
-	_cue_utterance_gap_s = snap.cue_utterance_gap_s
-	_cue_demand_gap_s = snap.cue_demand_gap_s
-	_cue_demand_repeat_s = snap.cue_demand_repeat_s
-	_cue_max_age_s = snap.cue_max_age_s
-	_cue_reaction_max_age_s = snap.cue_reaction_max_age_s
-	_cue_release_hold_s = snap.cue_release_hold_s
-	_cue_overwhelmed_s = snap.cue_overwhelmed_s
-	_touch_cooldown_s = snap.touch_cooldown_s
-	_talk_cooldown_s = snap.talk_cooldown_s
-	_receptive_seconds = snap.receptive_seconds
-	_readiness.configure(_preferences, _cue_override_seconds, _cue_overwhelmed_s,
-		_touch_cooldown_s, _talk_cooldown_s, _receptive_seconds)
-	_presentation_cfg = snap.presentation
-	_act_climax_mode = snap.climax_mode
+	_camera_service().call("configure", _snapshot.camera_thrust)
+	_readiness.configure(_preferences, _snapshot.cue_override_seconds,
+		_snapshot.cue_overwhelmed_s, _snapshot.touch_cooldown_s, _snapshot.talk_cooldown_s,
+		_snapshot.receptive_seconds)
+	_presentation_cfg = _snapshot.presentation
+	_act_climax_mode = _snapshot.climax_mode
 	_configure_utterance_scheduler()
 	_refresh_scene_gate()
 
@@ -1457,16 +1425,8 @@ func stool_needed_count() -> int:
 func stool_required() -> bool:
 	return _stool_act() != null and bool(_stool_act().call("required"))
 
-func stool_case_slot() -> int:
-	return int(_stool_act().call("case_slot")) if _stool_act() != null else -1
-
 func stool_case_count() -> int:
 	return int(_stool_act().call("case_count")) if _stool_act() != null else 0
-
-## True only when the footstool stack is the one thing keeping the Make love hint away.
-func stool_blocks_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	return _stool_act() != null \
-		and bool(_stool_act().call("blocks_start", _start_reasons(pose, act_source, bed_in)))
 
 
 func stool_state_text() -> String:
@@ -1556,9 +1516,6 @@ func free_of_affection() -> bool:
 
 func _free_of_affection() -> bool:
 	return _scene_gate().free_of_affection()
-
-func _nav_pose_gate(pose: String, act_source: String) -> bool:
-	return _scene_gate().nav_pose_gate(pose, act_source)
 
 func find_bed_under() -> Node3D:
 	return _scene_gate().find_bed_under()
@@ -1718,7 +1675,6 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_serial = _next_serial()
 	_event_id = "intimacy_%s_%d" % [_id, _serial]
 	_first_time = _read_first_time()
-	_started_at = Time.get_unix_time_from_system()
 	satisfaction = 0.0
 	mood = "warming"
 	cue = ""
@@ -2215,13 +2171,6 @@ func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
 	return _placement.begin(_placement_facts_for(form))
 
 
-## The horizontal shift that puts the part's natural pivot one shaft behind her entrance, so a
-## standing start touches her instead of asking the Hips bone to carry the pre-act gap. The fit
-## moves Anon's whole body before the act; the per-frame aim still owns the stroke correction.
-func _standing_part_shift() -> Vector3:
-	return _placement.part_shift(_placement_facts_for())
-
-
 ## Dispatch the spec's closed `start.setup` vocabulary to its placement adapter. It never selects
 ## on a pose id: a new pose row adds its setup name and data, not a branch here. A missing or
 ## unknown name is a data error after the gate passed; `start()` aborts the partial act.
@@ -2298,13 +2247,6 @@ func _reset_stool_state() -> void:
 func _take_stool_items(need: int) -> bool:
 	var act: Variant = _stool_act()
 	return act != null and bool(act.call("take_items", need))
-
-## The floor under a standing spot; the stool handle owns the probe.
-func _floor_y_at(at: Vector3, body: Node3D) -> float:
-	return _placement.floor_y_at(_placement_facts_for(), at, body)
-
-func _standing_transform() -> Transform3D:
-	return _placement.transform(_placement_facts_for())
 
 func _standing_gap(form: BODY_FORM.BodyForm = null) -> float:
 	return _placement.gap(_placement_facts_for(form))
@@ -2594,10 +2536,6 @@ func _start_vr_act() -> void:
 	_anatomy_bridge.vr_start()
 
 
-func _stop_vr_act() -> void:
-	_anatomy_bridge.vr_stop()
-
-
 func vr_forward() -> Vector3:
 	_anatomy_bridge.bind(_anatomy_host())
 	return _anatomy_bridge.vr_forward()
@@ -2677,11 +2615,6 @@ func _apply_voice_policy() -> void:
 func _restore_voice_volume() -> void:
 	if is_instance_valid(_act_audio):
 		_act_audio.restore_voice_policy()
-
-
-## Anon's visible shaft length in metres. The readiness stroke state owns the nominal fallback.
-func _shaft_length_m() -> float:
-	return _readiness.shaft_length_m()
 
 
 ## The anatomy service's visible shaft length, or zero when the part is not showing. The readiness
@@ -2894,7 +2827,7 @@ func _form_add_heat(amount: float) -> void:
 
 
 func _form_cue_override(text: String) -> void:
-	_set_cue_override(text, _cue_override_seconds)
+	_set_cue_override(text, _snapshot.cue_override_seconds)
 
 
 func _form_set_face(smile: float) -> void:
@@ -3191,7 +3124,7 @@ func cancel() -> void:
 		# review or a next-time list.
 		if randf() >= 0.5:
 			var act_id := _event_id
-			var expires := _now_s() + _cue_reaction_max_age_s
+			var expires := _now_s() + _cue_reaction_max_age_value()
 			var valid := func() -> bool:
 				if not is_instance_valid(pony) or _event_id != act_id:
 					return false
@@ -3202,7 +3135,7 @@ func cancel() -> void:
 			_end_early_key = key
 			if not key.is_empty():
 				var now := _now_s()
-				_dialogue_service().note_reaction(key, "", now + _cue_reaction_max_age_s)
+				_dialogue_service().note_reaction(key, "", now + _cue_reaction_max_age_value())
 				_log("utterance kind=reaction key=%s" % key)
 			# The stopped act gets one post-act beat at most: suppress the later history line
 			# for the same act, even when the roll chose silence. A skipped summary must not
@@ -3256,7 +3189,7 @@ func _queue_climax_reaction() -> void:
 	var act_id := _event_id
 	var count := pony_climaxes
 	var climax_id := "%s:pony_climax:%d" % [act_id, count]
-	var expires := _now_s() + _cue_reaction_max_age_s
+	var expires := _now_s() + _cue_reaction_max_age_value()
 	var valid := func() -> bool:
 		if not is_instance_valid(pony) or _event_id != act_id or pony_climaxes != count:
 			return false
@@ -3268,7 +3201,7 @@ func _queue_climax_reaction() -> void:
 	if key.is_empty():
 		return
 	var now := _now_s()
-	_dialogue_service().note_reaction(key, cue, now + _cue_reaction_max_age_s)
+	_dialogue_service().note_reaction(key, cue, now + _cue_reaction_max_age_value())
 	_log("utterance kind=reaction key=%s" % key)
 
 ## The first ACTIVE entry after the pose settles. Later returns from a climax are CLIMAX_END.
@@ -3597,10 +3530,6 @@ func _finish_restore() -> void:
 	_end_session(true)
 	_finalize_session(true)
 
-func _stand_after_pose() -> void:
-	if is_instance_valid(pony) and pony.get("posture") != null:
-		pony.request_posture("stand")
-
 func force_stop() -> void:
 	# Defensive: every stop path must leave the quick slots in their pre-act state.
 	if state == State.IDLE:
@@ -3711,11 +3640,6 @@ func _act_face_beat(moment: String) -> void:
 	elif moment == "afterglow":
 		ctx["summary"] = _summary_service.summary
 	_face.act_beat(moment, ctx, _feature("face_debug"))
-
-
-func _current_dialogue_face() -> String:
-	_bind_face()
-	return _face.dialogue_face()
 
 
 func _set_act_face(face: String, hold_s: float) -> bool:
@@ -3832,16 +3756,8 @@ func shot_lean_forward() -> float:
 	return float(_camera_service().call("shot_lean_forward"))
 
 
-func _jiggle_size_scale() -> float:
-	return float(_camera_service().call("jiggle_size_scale"))
-
-
 func smack() -> void:
 	_hand_controller().smack()
-
-
-func _lean_action_tick() -> void:
-	_camera_service().call("tick_lean_action")
 
 
 func _play_mouth_kiss() -> void:

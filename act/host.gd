@@ -42,6 +42,7 @@ class Ledger extends RefCounted:
 	var end_act_lines := Callable()
 	var rest_context := Callable()
 	var reset_thrust := Callable()
+	var begin_standing_placement := Callable()
 
 
 func bind(host_node: Node) -> void:

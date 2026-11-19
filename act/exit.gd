@@ -18,6 +18,8 @@ const HUD := preload("res://mods/unfplap/hud/service.gd")
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
 var session: ACT_SESSION = null
+## The start ledger owns the pose build's bone snapshot and its restore.
+var start: RefCounted = null
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -> void:
@@ -77,7 +79,7 @@ func run(rejoin_cuddle: bool) -> void:
 	if session.posture_owned:
 		restore_posture(_start_frame(), rejoin_cuddle)
 	free_pose()
-	context.pose.restore_bones()
+	start.restore_bones()
 	host.ledger.stop_audio.call()
 	if is_instance_valid(WORLD.game):
 		if is_instance_valid(HUD.instance):

@@ -97,11 +97,29 @@ POSE_FANOUT_ORDER = (
     "_anatomy_bridge",
     "_act_audio",
 )
+# The start ledger's recipe, in the order the act depends on: the presentation guard, the stool,
+# the camera session, the borrows, the placement, the pose build, the camera open, the audio,
+# POSING_IN and the HUD card. `begin_pose_in()` precedes `show_act()` because the HUD reads the
+# live state it sets.
+START_LEDGER_ORDER = (
+    'POSE_SPECS.start_setup(pose) == "standing_place"',
+    "_reset_stool_state()",
+    "context.camera.begin_session(",
+    "session.posture_owned = false",
+    "session.profile = SETTINGS.template_for(",
+    "session.bed = context.gate.resolve_bed(",
+    "var setup := POSE_SPECS.start_setup(pose)",
+    "_build_pose()",
+    "context.camera.capture_look()",
+    "host.ledger.start_audio.call()",
+    "session.begin_pose_in()",
+    "HUD.instance.show_act(context.facts)",
+)
 # The pose ledger's callers: the one act exit, the new-act prep and the body-swap suspension.
 # A new caller is a design decision, so the set is exact and compared both ways.
 POSE_LEDGER_CALLERS = {
     ("act/exit.gd", "run"),
-    ("runtime.gd", "_build_pose"),
+    ("act/start.gd", "_build_pose"),
     ("runtime.gd", "_suspend_for_body_swap"),
 }
 # Rule 1, full form: only the entry names the entry. A service that needs another service
@@ -168,10 +186,6 @@ RUNTIME_SETTINGS_READS = {
     ("_snapshot_settings", "camera_mode"): "the camera mode, cached for the render write",
     ("_snapshot_settings", "debug_mode"): "the form-hint probe flag, read once per act",
     ("apply_live_settings", "preferences"): "the pre-edit preference refresh",
-    ("_begin_act", "template_for"): "the act's profile template",
-    ("_begin_act", "pose"): "the start pose's config",
-    ("_begin_act", "preferences"): "the act's preference block",
-    ("_begin_act", "cue_gap_value"): "the profile's cue gap",
     ("_resume_after_body_swap", "pose"): "the rebuilt pose's config",
 }
 # The only child nodes the runtime parents: both are system-owned, and the runtime is the host that
@@ -909,7 +923,7 @@ def check_sources(failure: Failure) -> None:
                  if line.strip() and not line.strip().startswith("#")]
     if end_lines != ["_exit.run(rejoin_cuddle)"]:
         failure.add("runtime._end_session() must be the one-line _exit.run(rejoin_cuddle) delegate")
-    for name in ("_abort_start", "_finish_restore", "_restore_now", "force_stop"):
+    for name in ("_finish_restore", "_restore_now", "force_stop"):
         body = function_body(runtime, name)
         if not body:
             failure.add("runtime.gd is missing %s()" % name)
@@ -921,6 +935,20 @@ def check_sources(failure: Failure) -> None:
                 failure.add("%s must not call %s directly" % (name, call))
     if "_restore_now()" not in function_body(runtime, "force_stop"):
         failure.add("force_stop must restore through _restore_now()")
+
+    # The start ledger's recipe keeps its order; the checker reads the tokens, not the prose.
+    start_path = ROOT / "act" / "start.gd"
+    if not start_path.is_file():
+        failure.add("missing act/start.gd: it owns the ordered start")
+    else:
+        run_body = function_body(start_path.read_text(encoding="utf-8"), "run")
+        cursor = 0
+        for step in START_LEDGER_ORDER:
+            at = run_body.find(step, cursor)
+            if at < 0:
+                failure.add("act/start.gd run() must keep %s at its position" % step)
+                break
+            cursor = at + len(step)
 
     # The pose ledger keeps its pose-scope steps and act-scope resets in their current order, and
     # only the act exit, the new-act prep and the body-swap suspension call it.

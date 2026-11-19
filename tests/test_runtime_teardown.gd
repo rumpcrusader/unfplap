@@ -471,7 +471,7 @@ func run() -> void:
 	var body8 := Skeleton3D.new()
 	body8.add_bone("pony_hips")
 	pony8.skeleton = body8
-	runtime8.call("_build_pose")
+	runtime8._start._build_pose()
 	var built := 0
 	for child: Node in body8.get_children():
 		if str(child.name).begins_with("Unfplap"):
@@ -492,7 +492,7 @@ func run() -> void:
 
 	# The one act exit runs the same pose ledger: the view returns to IDLE and a second exit is
 	# safe with no pose left behind.
-	runtime8.call("_build_pose")
+	runtime8._start._build_pose()
 	check(runtime8._pose_session.view().pose_state == 2, "a new act fills the pose view again")
 	runtime8._end_session(false)
 	var after_exit := 0
@@ -517,7 +517,7 @@ func run() -> void:
 	runtime8._act.pose_id = CATALOG_STANDING
 	runtime8._set_state(2)
 	runtime8._act.features = {"standing_body_sway": true}
-	runtime8.call("_build_pose")
+	runtime8._start._build_pose()
 	var act_body8 := Node.new()
 	runtime8._pose_session.act_body = act_body8
 	check(runtime8._pose_session.body_sway != null,
@@ -545,7 +545,7 @@ func run() -> void:
 	PONIES.anatomy = anatomy8
 	pony8.global_position = Vector3(2.0, 0.0, 3.0)
 	var oral_from: Vector3 = pony8.global_position
-	runtime8.call("_build_pose")
+	runtime8._start._build_pose()
 	runtime8.call("toggle_anatomy_oral")
 	check(anatomy8.consents == ["oral"], "the oral command asks the anatomy service for consent")
 	check(runtime8._pose_session.view().pose_state == 3
@@ -568,7 +568,7 @@ func run() -> void:
 	runtime8._act.pose_id = CATALOG_STANDING
 	runtime8._set_state(2)
 	runtime8._act.features = {"anatomy_oral": true}
-	runtime8.call("_build_pose")
+	runtime8._start._build_pose()
 	anatomy8.allow = false
 	var refused_from: Vector3 = pony8.global_position
 	runtime8.call("toggle_anatomy_oral")

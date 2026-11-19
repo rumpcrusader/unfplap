@@ -24,9 +24,11 @@ const ENTER_ACTIVE := 1
 const FINISH_CLIMAX := 2
 const FINISH_RESTORE := 3
 
-## Bound once by the runtime. Both are per-pony and outlive one act.
+## Bound once by the runtime. All are per-pony and outlive one act.
 var host: ACT_NODE = null
 var context: ACT_CONTEXT = null
+## The ordered start ledger. Set once by the runtime; `begin()` is its one entry.
+var start: Variant = null
 
 ## The live act state. `_set_state()` is the only writer.
 var state: int = State.IDLE
@@ -78,6 +80,13 @@ var _act_seconds := 0.0
 func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 	host = host_in
 	context = context_in
+
+
+## Start one act. The ledger owns the recipe and the order; the session only enters it.
+func begin(pose: String, bed_in: Variant, act_source: String, skip_presentation := false) -> bool:
+	if start == null:
+		return false
+	return bool(start.run(pose, bed_in, act_source, skip_presentation))
 
 
 ## The one state writer. The scene gate's live values follow every transition.

@@ -24,6 +24,7 @@ const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
+const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 
 
@@ -54,4 +55,5 @@ var wings: WING = null
 var hands: HANDS = null
 var integrations: INTEGRATIONS = null
 var standing_camera: STANDING_CAMERA = null
+var missionary_camera: MISSIONARY_CAMERA = null
 var rest: REST = null

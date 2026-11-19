@@ -74,12 +74,12 @@ func _check_tail_tuning() -> void:
 	tail_runtime._act.pose_id = CATALOG.STANDING
 	tail_runtime._pose_session._view.settings_group = CATALOG.STANDING
 	tail_runtime._act.presentation_config = {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}}
-	tail_runtime.call("_sync_standing_pose_config")
+	tail_runtime._start.sync_standing_config()
 	var cfg: Dictionary = tail_runtime._pose_session.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(40.0)), "tail yaw tunable reaches the pose")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(10.0)), "tail pitch tunable reaches the pose")
 	tail_runtime._act.presentation_config = {}
-	tail_runtime.call("_sync_standing_pose_config")
+	tail_runtime._start.sync_standing_config()
 	cfg = tail_runtime._pose_session.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(35.0)), "tail yaw default")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(25.0)), "tail pitch default")
@@ -94,7 +94,7 @@ func _check_perf_probe() -> void:
 	LOG.sink = Callable(sink, "write")
 	var probe: Node = RUNTIME.new()
 	probe.set("_id", "twilight_sparkle")
-	probe.set("pose_id", CATALOG.STANDING)
+	probe._act.pose_id = CATALOG.STANDING
 	probe.call("_set_state", 2)
 	probe.call("perf_note", "probe_chunk", 1200)
 	probe.call("perf_note", "probe_chunk", 800)

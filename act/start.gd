@@ -1,0 +1,438 @@
+extends RefCounted
+## The act's ordered start ledger. One recipe: the presentation guard, the stool, the camera
+## session, the borrows, the id/profile snapshot, the placement, the pose build and the act open,
+## in that order. A failed step runs the one partial-start abort and restores only what the act
+## took.
+##
+## See `docs/runtime.md`.
+
+const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
+const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
+const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
+const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
+const PLAYER_FORM := preload("res://world/life/player_form.gd")
+const REST := preload("res://mods/unfplap/rest/control.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
+
+var host: ACT_HOST = null
+var context: ACT_CONTEXT = null
+var session: ACT_SESSION = null
+var exit: ACT_EXIT = null
+var view: ACT_VIEW = null
+
+
+func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
+		exit_in: ACT_EXIT, view_in: ACT_VIEW) -> void:
+	host = host_in
+	context = context_in
+	session = session_in
+	exit = exit_in
+	view = view_in
+
+
+## The shared start body after every gate. The act key's policy path and the scene-only
+## Agreement path both land here; the one teardown still owns every failure.
+func run(pose: String, bed_in: Variant, act_source: String, skip_presentation := false) -> bool:
+	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
+			and context.presentation.presentation_active() \
+			and not context.presentation.presentation_settled():
+		host.log("start blocked presentation turn pose=%s source=%s pony=%s" % [
+			pose, act_source, _pony_name()])
+		return false
+	_reset_stool_state()
+	_anatomy_refresh()
+	if bool(POSE_SPECS.scene(pose).get("stool", false)):
+		var stool_need := stool_needed_count()
+		if stool_need > 0:
+			if stool_case_count() < stool_need or not take_stool_items(stool_need):
+				host.log("start blocked stool pose=%s pony=%s need=%d" % [
+					pose, _pony_name(), stool_need])
+				return false
+	context.camera.begin_session(_start_family())
+	session.posture_owned = false
+	session.finalized = false
+	# Remove the idle standing presentation and its face before the act builds its own pose.
+	context.presentation.clear_presentation()
+	host.ledger.bind_face.call()
+	context.face.end_mood_face()
+	host.ledger.end_act_face.call()
+	session.pose_id = pose
+	session.source = act_source
+	session.profile = SETTINGS.template_for(session.pony_id)
+	context.pose.set_pose_config(SETTINGS.pose(session.pony_id, _start_group()))
+	session.preferences = SETTINGS.preferences(session.pony_id)
+	session.act_prompts = session.profile.get("act_prompts", {})
+	host.ledger.snapshot_settings.call()
+	context.reactions.apply_radius()
+	session.aftercare_min = int(session.profile["aftercare_min"])
+	session.cue_gap = SETTINGS.cue_gap_value(float(session.profile["cue_gap"]))
+	context.standing_camera.reset()
+	session.bed = context.gate.resolve_bed(pose, act_source, bed_in)
+	if bool(POSE_SPECS.scene(pose).get("requires_bed", false)) and session.bed == null:
+		# Nothing else is borrowed yet, but the jiggle radius was just applied.
+		context.reactions.restore_radius()
+		session.pose_id = ""
+		session.source = ""
+		session.bed = null
+		return false
+	session.player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(host.tree()))
+	context.camera.apply_eye_override(_start_family(), session.player_pony, context.handover.form())
+	context.wings.reset()
+	session.reset_act()
+	context.reactions.begin_act()
+	context.camera.reset_lean_state()
+	host.ledger.clear_face.call()
+	host.ledger.set_face.call(0.45, context.face.ACT_LIDS)
+	session.serial = PONIES.allocate_serial()
+	session.event_id = "intimacy_%s_%d" % [session.pony_id, session.serial]
+	session.first_time = _read_first_time()
+	context.readiness.satisfaction = 0.0
+	context.readiness.mood = "warming"
+	context.readiness.cue = ""
+	host.ledger.reset_thrust.call()
+	session.stopped_by_her = false
+	session.tolerance_warning_key = ""
+	context.handover.reset_act()
+	host.ledger.end_tail_tuck.call()
+	context.summary.reset_act()
+	_prepare_vocal()
+	context.afterglow.stop_decay()
+	_remember_talk_turn()
+	session.act_spoken_at = context.dialogue.last_spoken_at()
+	if session.source == "cradle":
+		if not context.hold.release_carry():
+			abort()
+			return false
+	elif session.source == "already_lying":
+		if not REST.release_managed(host.pony):
+			abort()
+			return false
+	elif session.source == "bed_side":
+		context.hold.end_cuddle()
+		if not REST.release_managed(host.pony):
+			abort()
+			return false
+	if context.gate.cuddle_active() and session.source not in ["bed_side", "already_lying"]:
+		context.hold.end_cuddle()
+		REST.release_managed(host.pony)
+	if not _claim_nav():
+		abort()
+		return false
+
+	snapshot_bones()
+	session.posture_owned = true
+	var body: Variant = host.pony
+	body.sleeping = false
+	body.set_sim_tier(body.SimTier.HERO)
+	body.set_meta("sex_active", true)
+	# integration: build the per-act anatomy controller before the pose reads its config.
+	_anatomy_refresh()
+	_anatomy_act_refresh()
+
+	# The act is its own state for both of them: the setup adapter places the bodies before the
+	# snapshot and the lock. The bed only supplies the frame their bodies are placed in.
+	var setup := POSE_SPECS.start_setup(pose)
+	if not _run_start_setup(setup):
+		abort()
+		return false
+
+	_build_pose()
+	context.reactions.clear_stock_marks()
+	sync_start_pose_config()
+	context.camera.reset_lean_state()
+	prepare_start_camera()
+	context.camera.capture_look()
+	context.hold.lock_player()
+	context.hold.pause_face_turn(false)
+	host.ledger.begin_camera_mode.call()
+	context.missionary_camera.hide_avatar()
+	host.ledger.start_audio.call()
+	host.ledger.apply_voice_policy.call()
+	if is_instance_valid(HUD.instance):
+		HUD.instance.set_inventory_hidden(true)
+	# integration: show the player part for the encounter.
+	var service: Variant = PONIES.anatomy
+	if service != null and service.has_method("player_encounter"):
+		service.call("player_encounter", true)
+	session.begin_pose_in()
+	view.refresh(context.facts, session)
+	# The pose session installs the act body and reconciles the modifiers for the start view,
+	# before the first rendered frame; every later change arrives through the pose fan-out.
+	context.pose.pose_changed(context.pose.view())
+	context.integrations.begin()
+	host.ledger.act_face_beat.call("start")
+	# integration: act-only visibility updates at the state change, not on the next poll.
+	context.anatomy.apply_live()
+	PONIES.set_active(host.node)
+	if is_instance_valid(HUD.instance):
+		host.ledger.sync_hud_facts.call()
+		HUD.instance.show_act(context.facts)
+		HUD.instance.hide_prompt()
+	host.log("started pose=%s setup=%s source=%s pony=%s eye=%.2f" % [
+		pose, setup, act_source, _pony_name(), context.camera.camera_target_eye])
+	return true
+
+
+## The one partial-start funnel: end the act's lines, run the one exit and finalize it as a
+## failed start.
+func abort() -> void:
+	exit.abort()
+
+
+## The new-act prep: run the one pose teardown first so a pose left from the offer cannot stack,
+## then build the act's pose.
+func _build_pose() -> void:
+	exit.free_pose()
+	var pose_session: Variant = context.pose
+	var camera: Camera3D = WORLD.camera()
+	var look: Vector3 = host.pony.global_position
+	var camera_at := Vector3.INF
+	if camera is Camera3D:
+		look = (camera as Camera3D).global_position
+		camera_at = look
+	# The act facts only carry the derived size inside an act, and the session starts before the
+	# state leaves IDLE; supply the live size so the variant selection does not capture an empty
+	# name.
+	var size_name := context.camera.size_name()
+	pose_session.begin({
+		"pose_id": session.pose_id,
+		"id": session.pony_id,
+		"features": session.features,
+		"bed": session.bed,
+		"presentation": session.presentation_config,
+		"pose_config": context.pose.pose_config,
+		"look_point": look,
+		"camera_position": camera_at,
+		"size_name": size_name,
+	})
+	context.reactions.bind_tail(pose_session.tail)
+
+
+## Snapshot before the act changes her posture or the pose writes bones.
+func snapshot_bones() -> void:
+	context.pose.snapshot_bones()
+
+
+## Put every pony bone back before the game's animation re-poses her. The act's pose modifier is
+## already freed when this runs, so nothing rewrites the act pose on top.
+func restore_bones() -> void:
+	context.pose.restore_bones()
+
+
+## Dispatch the spec's closed `start.setup` vocabulary to its placement adapter. It never selects
+## on a pose id: a new pose row adds its setup name and data, not a branch here. A missing or
+## unknown name is a data error after the gate passed; `run()` aborts the partial act.
+func _run_start_setup(setup: String) -> bool:
+	match setup:
+		"bed_stand_up":
+			return _start_bed_stand_up()
+		"bed_keep_lying":
+			return _start_bed_keep_lying()
+		"standing_place":
+			return _start_standing_place()
+		_:
+			host.log("start blocked setup=%s source=%s pony=%s" % [
+				setup if not setup.is_empty() else "missing", session.source, _pony_name()])
+			return false
+
+
+## The bed stand-up start: Anon leaves the mattress before the player snapshot and the lock, and
+## she leaves the game's lying state. The bed rest/cradle release already ran in the common
+## prelude; the authored body owns her pose from here.
+func _start_bed_stand_up() -> bool:
+	if session.bed == null:
+		return false
+	if not session.player_pony:
+		var body: Variant = WORLD.player
+		if body != null and body.has_method("force_stand_up"):
+			body.call("force_stand_up")
+	if session.source == "cradle":
+		context.rest.bind(host.pony, session.bed)
+		context.rest.place_on_start()
+	else:
+		host.pony.reset_physics_interpolation()
+	if host.pony.get("posture") != null:
+		host.pony.request_posture("stand")
+	return true
+
+
+## The bed lying start: Anon does not stand up, and the authored act body takes over her pose.
+## The riding pose is the first intended consumer; no shipped row uses this setup yet.
+func _start_bed_keep_lying() -> bool:
+	if session.bed == null:
+		return false
+	if session.source == "dialogue" and not REST.release_managed(host.pony):
+		return false
+	host.pony.reset_physics_interpolation()
+	if host.pony.get("posture") != null:
+		host.pony.request_posture("stand")
+	return true
+
+
+## The standing start: keep her where she stands, place Anon behind her at the act gap, take the
+## stool items and start the facing lock.
+func _start_standing_place() -> bool:
+	var standing: Transform3D = host.ledger.begin_standing_placement.call()
+	if _stool_failed():
+		return false
+	host.pony.request_posture("stand")
+	view.refresh(context.facts, session)
+	context.standing_camera.begin_facing(standing)
+	return true
+
+
+## The start pose's settings-group sync after the pose build. This is a group dispatch, not a pose
+## branch: a new group adds its own sync with its pose row. An unknown group keeps the config
+## `run()` already set from its settings block.
+func sync_start_pose_config() -> void:
+	match _start_group():
+		"missionary":
+			sync_missionary_config()
+		_:
+			pass
+
+
+## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
+## first keeps the other pose overrides, then the presentation neck/head controls win.
+func sync_standing_config() -> void:
+	context.pose.sync_standing_config(session.presentation_config)
+
+
+## The missionary recipe reads these from pose_config every frame. Re-reading the character's
+## pose keeps its nuzzle overrides live.
+func sync_missionary_config() -> void:
+	context.pose.sync_missionary_config()
+
+
+## Prepare the start pose's camera profile before the look is captured. The bed shot camera reads
+## the authored asset; the standing camera starts in its placement adapter instead.
+func prepare_start_camera() -> void:
+	var camera: Variant = _start_row().get("camera", {})
+	var profile := str((camera as Dictionary).get("profile", "")) if camera is Dictionary else ""
+	if profile == "missionary_shots":
+		context.missionary_camera.prepare()
+
+
+## This act's footstool handle: the case loans, the placed stack and the player lift. The start
+## binds it before the first stool question; the exit releases the same handle.
+func stool() -> Variant:
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(host.pony):
+		return null
+	var service: Variant = STOOL.instance
+	if service == null or not service.has_method("new_act"):
+		return null
+	if context.stool == null:
+		context.stool = service.call("new_act")
+		context.stool.log = Callable(host, "log")
+	context.stool.call("bind", service, host.pony, WORLD.player, context.anatomy.controller)
+	return context.stool
+
+
+func stool_failed() -> bool:
+	var act: Variant = stool()
+	return act != null and bool(act.call("has_failed"))
+
+
+func stool_needed_count() -> int:
+	var act: Variant = stool()
+	return int(act.call("needed_count")) if act != null else 0
+
+
+func stool_case_count() -> int:
+	var act: Variant = stool()
+	return int(act.call("case_count")) if act != null else 0
+
+
+func take_stool_items(need: int) -> bool:
+	var act: Variant = stool()
+	return act != null and bool(act.call("take_items", need))
+
+
+## Remove the act prop and put every case item back. Every exit path releases it.
+func release_stool() -> void:
+	var act: Variant = stool()
+	if act != null:
+		act.call("release")
+
+
+func _reset_stool_state() -> void:
+	var act: Variant = stool()
+	if act != null:
+		act.call("reset")
+
+
+func _stool_failed() -> bool:
+	return stool_failed()
+
+
+## First time uses the durable act history plus the world context, the same fact the cue prompt
+## already gets.
+func _read_first_time() -> bool:
+	if not is_instance_valid(WORLD.game) or session.pony_id.is_empty():
+		return false
+	var facts: MEMORY.CueFacts = MEMORY.instance.cue_facts(session.pony_id, session.event_id)
+	return facts.first_time
+
+
+## The start's generated-vocal preparation: the director prepares her voice cache for the act.
+func _prepare_vocal() -> void:
+	var director: Node = _director()
+	if director == null:
+		return
+	var vocal: Variant = director.get("vocal")
+	if vocal != null and vocal.has_method("prepare"):
+		vocal.call("prepare", session.pony_id)
+
+
+## The start's one talk-turn reset: readiness and the handover keep their own last-turn state.
+func _remember_talk_turn() -> void:
+	var director: Node = _director()
+	context.readiness.remember_talk_turn(director)
+	context.handover.remember_talk_turn(director)
+
+
+func _director() -> Node:
+	var tree: SceneTree = host.tree()
+	return tree.get_first_node_in_group("conversation_director") if tree != null else null
+
+
+func _claim_nav() -> bool:
+	if context.hold.holds_negotiation():
+		return context.hold.adopt_hold()
+	return context.hold.claim_nav(session.pony_id)
+
+
+func _anatomy_refresh() -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.refresh()
+
+
+func _anatomy_act_refresh() -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.begin_act()
+
+
+## The start spec row, read from the act's pose id.
+func _start_row() -> Dictionary:
+	return POSE_SPECS.spec(session.pose_id)
+
+
+## The start spec's family. Start-time decisions read this before the view exists.
+func _start_family() -> String:
+	return str(_start_row().get("family", ""))
+
+
+## The start spec's settings group. The internal poses share the standing group.
+func _start_group() -> String:
+	return str(_start_row().get("settings_group", ""))
+
+
+func _pony_name() -> String:
+	return str(host.pony.name) if is_instance_valid(host.pony) else "?"

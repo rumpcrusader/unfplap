@@ -136,7 +136,7 @@ func _ready() -> void:
 	# Switched on mid-game: the world and player already exist.
 	if is_instance_valid(mods.game):
 		_on_world(mods.game)
-		var existing: Variant = mods.game.get("player")
+		var existing: Variant = mods.game.player
 		if is_instance_valid(existing):
 			_on_player(existing)
 
@@ -250,9 +250,9 @@ func _on_pony(pony: Node) -> void:
 ## The entry's one runtime construction: `ponies` calls it once per attached body. The
 ## runtime file is the entry's preload, so the registry never imports it.
 func _new_runtime(pony: Node) -> Node:
-	var runtime: Node = RUNTIME.new()
+	var runtime: RUNTIME = RUNTIME.new()
 	runtime.name = "UnfplapRuntime"
-	runtime.set("pony", pony)
+	runtime.pony = pony
 	return runtime
 
 
@@ -281,7 +281,7 @@ func _process_entry(delta: float, timed: bool) -> void:
 	var active: RUNTIME = PONIES.active() as RUNTIME
 	hud.caption_tick(active.state if is_instance_valid(active) else RUNTIME.State.IDLE)
 	if not is_instance_valid(WORLD.player) and is_instance_valid(WORLD.game):
-		var body: Variant = WORLD.game.get("player")
+		var body: Variant = WORLD.game.player
 		if is_instance_valid(body):
 			_on_player(body)
 	if is_instance_valid(active):

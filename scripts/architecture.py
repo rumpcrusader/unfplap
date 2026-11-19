@@ -1104,6 +1104,24 @@ def check_boundaries(failure: Failure) -> None:
         failure.add("world/service.gd:%d may not import %s" % (line_of(text, at), target))
 
 
+def check_entry_shape(failure: Failure) -> None:
+    """The entry constructs and binds; it never dispatches by string or assigns a service's fields."""
+    main_path = ROOT / "main.gd"
+    if not main_path.is_file():
+        failure.add("missing main.gd")
+        return
+    text = main_path.read_text(encoding="utf-8")
+    for needle in (".call(", '.get("', '.set("'):
+        for match in re.finditer(re.escape(needle), text):
+            failure.add(
+                "main.gd:%d dispatches by string (%s); name the typed member"
+                % (line_of(text, match.start()), needle))
+    for match in re.finditer(r"\baction_[A-Za-z0-9_]", text):
+        failure.add(
+            "main.gd:%d registers an action handler; the debug service owns its actions"
+            % line_of(text, match.start()))
+
+
 def check() -> int:
     failure = Failure()
     violations = scan_violations()
@@ -1112,6 +1130,7 @@ def check() -> int:
     check_typing(failure)
     check_sources(failure)
     check_boundaries(failure)
+    check_entry_shape(failure)
     check_owners(failure)
     check_tests(failure)
     failures = len(failure.messages)

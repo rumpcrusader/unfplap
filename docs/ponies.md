@@ -125,7 +125,12 @@ so the entry rebinds that one:
 | `body_change` | `notify_body_ready(pony)` and `installed_character_ids()` |
 | `offer` | `clear_current()` on an act start |
 | `stock_smack` | `pony_ready(pony)`, `act_start(pony)`, `act_end(pony)` |
-| `eligibility` | `eligible(pony, Target.CHARACTER)` for the Characters tab |
+| `eligibility` | `eligible(pony, Target.CHARACTER)` for the Characters tab, and `Target.ACT` behind `act_target()` |
+
+`bind_settings()` joins the settings change notification and `shutdown()` leaves it: a settings edit
+re-runs `apply_live_settings()` over every runtime and the act a pending body swap has taken out of
+the registry. `act_target(pony)` is the act-target rule the offer and the debug block read through
+the entry.
 
 `LOG.act_running` and `LOG.counts` are bound to `act_running()` and `_counts()`. A missing service
 reads as "no prepare", "no character list" and "no side effect", so a suite binds only what it

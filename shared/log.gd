@@ -6,8 +6,9 @@ extends RefCounted
 ##   const LOG := preload("res://mods/unfplap/shared/log.gd")
 ##   LOG.debug("offer pony=%s pose=%s" % [str(pony.name), pose])
 ##
-## The entry reads the switches from `settings` once and again on a settings edit; nothing else
-## reads `settings` for them. See `docs/log.md`.
+## The entry binds the two switch reads, because a shared module never imports a service; the
+## settings change notification re-reads them on every edit and nothing else reads `settings` for
+## them. See `docs/log.md`.
 
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")

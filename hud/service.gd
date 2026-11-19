@@ -172,8 +172,8 @@ func _exit_tree() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
 
 
-## The mod's settings, applied once by the entry at construction and again on every settings edit:
-## the act-key row's cap and the cached caption mode.
+## The mod's settings, applied once by the entry at construction and on every settings edit through
+## the change notification: the act-key row's cap and the cached caption mode.
 func apply_settings() -> void:
 	set_act_key(_act_key_label())
 	_apply_caption_top()

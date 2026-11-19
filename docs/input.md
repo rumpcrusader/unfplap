@@ -52,8 +52,8 @@ The service is a Node; its contract is the Node lifecycle and the input callback
 - `_suppress_raw(key)` — the HACK: injects a matching release event;
 - `_exit_tree()` — removes the action.
 
-`apply_settings()` is how a live setting change reaches the `InputMap`; `main._apply_settings_changed()`
-calls it. The action is a real `InputMap` action rather than a physical keycode check because the
+`apply_settings()` is how a live setting change reaches the `InputMap`; the settings change
+notification (`shared/settings_change.gd`) calls it, and `_exit_tree()` leaves that list. The action is a real `InputMap` action rather than a physical keycode check because the
 game's typing guard (`world/ui/typing_guard.gd`) stashes every non-`ui_` action while a text field
 has focus. A raw `Input.is_physical_key_pressed()` poll would keep firing in chat.
 
@@ -82,7 +82,7 @@ Nothing is saved. The service reads `PONIES.active()`, the debug facade's `wheel
   setting; `settings/ui.gd` draws its hand-built **Act Key** capture row because a key capture is
   not one of the declaration widgets.
   Press the row, then press any key; `Esc` cancels. The captured keycode is stored in
-  `settings.json` and `main._apply_settings_changed()` rebuilds the action.
+  `settings.json` and the settings change notification rebuilds the action.
 - `Y` is not special in the setting: it can be captured, but it is the bundled Dance Mod's key, so
   the HUD shows its one-time notice when the act key is not `Y` (`docs/hud.md`).
 - `act_input_shield` (General, **Block other mods' hotkeys during act**, no hint, on by default): the act input

@@ -72,9 +72,9 @@ pitch so its own pitch variation applies. The decal, blush, jiggle and reaction 
 impact. Each changed player's stream, volume and pitch are saved and restored when the switch goes
 off, when the pony starts an act, or when the world closes.
 
-`main.gd` calls `pony_ready()` for every pony, `apply_settings()` on every settings edit,
-`act_start()`/`act_end()` with the act pony, `clear_world()` on a world close and `shutdown()` on
-mod exit. An act pony is skipped: `set_active()` gives her stock player back so the hands' own
+The entry constructs the layer and calls `pony_ready()` for every pony, `act_start()`/`act_end()`
+with the act pony, `clear_world()` on a world close and `shutdown()` on mod exit. Its own settings
+listener calls `apply_settings()` on every edit, so the switch needs no entry path. An act pony is skipped: `set_active()` gives her stock player back so the hands' own
 per-impact swap owns it, and `clear_active()` re-installs the pack layer after the hands restore.
 The layer remembers a pony seen while the switch is off, so turning it on reaches her too. It does
 no per-frame work.

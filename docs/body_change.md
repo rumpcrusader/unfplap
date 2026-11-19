@@ -460,6 +460,7 @@ suspension, adoption, resume and failure phases.
 | `pantyhose.scan()` | the garment binding's public scan |
 | `stock_smack.pony_ready(pony)` | the stock smack binding's public prepare |
 | `main.body_change` | the runtime's and the debug block's service handle |
+| `shared/settings_change.gd` | `apply_settings()` re-applies the handling source's tail wrapper for every live body after a settings edit |
 
 ## Dependencies
 

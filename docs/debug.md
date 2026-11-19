@@ -252,9 +252,10 @@ themselves are `docs/perf.md`'s.
 ## Host boundary
 
 The entry adds the actions node and hands it the services it acts through as typed fields
-(`body_change`, `initiation`, `negotiation`, `anatomy`, `pantyhose`). The wheel's one-line result
-goes to `HUD.toast()`, not through a HUD handle. The live act state is these named reads, bound
-once at construction; they read the `ponies` registry and the act-target rule:
+(`body_change`, `initiation`, `negotiation`, `anatomy`, `pantyhose`) and the settings page's Debug
+block builder (`build_settings_block()`). The wheel's one-line result goes to `HUD.toast()`, not
+through a HUD handle. The live act state is these named reads, built by the node itself in
+`_ready()` from the facades, so the entry binds none of them:
 
 | Callback | Type | Purpose |
 |---|---|---|
@@ -264,7 +265,10 @@ once at construction; they read the `ponies` registry and the act-target rule:
 | `host.act_target` | `Callable(Variant) -> bool` | the act-target capability |
 | `host.reload_posed_base` | `Callable() -> String` | re-read the authored pose file when no act is live |
 
-The first three read `ponies`; `act_target` and `reload_posed_base` stay the entry's.
+All five are facade reads: the `ponies` registry for the first four (`act_target` asks its
+eligibility rule) and `poses/service.gd`'s `reload_authored_base()` for the last. `apply_settings()`
+is the node's settings change listener: it closes the wheel when debug mode goes off and re-syncs
+the skeleton overlay; `_ready()` joins that list and `_exit_tree()` leaves it.
 
 ## Dependencies
 

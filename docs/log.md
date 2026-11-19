@@ -7,14 +7,15 @@ any module prints a line through a preload instead of a reference to the entry.
 ## Ownership
 
 `shared/log.gd` owns the switches, the line format, the block format, the idle window and the panel
-node. It owns no rule and no scene read, so the entry installs the three live facts it cannot know:
-both switches, the act gate and the header counts.
+node. It owns no rule and no scene read, so the entry installs the live facts it cannot know: the
+two switch reads, the act gate and the header counts.
 
 - A module never carries `main` to log a line: it preloads `LOG` and calls `LOG.debug()`. The three
   hosts that take a sink callable (`hud`, `stock_smack` and the negotiation host) are handed
   `Callable(LOG, "debug")`.
-- The switches are the entry's `settings` read and nothing else reads `settings` for them:
-  `main._ready()` sets them once and `apply_settings_changed()` again.
+- The switches are two `settings` reads the entry binds (`debug_read`, `perf_read`), because a
+  shared module never imports a service. `attach()` reads them once and the settings change
+  notification (`shared/settings_change.gd`) calls `apply_settings()` on every later edit.
 - The act gate and the counts are `ponies` callables, because the active runtime and the runtime
   registry belong to that service.
 - `debug_logs` gates every line; `debug_perf` only gates the perf window and the panel, and it
@@ -26,12 +27,14 @@ both switches, the act gate and the header counts.
 
 | Member | Contract |
 |---|---|
-| `debug_logs`, `debug_perf` | the two game settings, set by the entry |
+| `debug_logs`, `debug_perf` | the two game settings, read at `attach()` and on every settings edit |
+| `debug_read`, `perf_read` | the two switch reads, bound by the entry |
+| `apply_settings()` | re-read the switches and close a panel that is no longer both on |
 | `act_running: Callable` | true while an act owns the frame; the idle window stays off |
 | `counts: Callable` | `{runtimes, mares}` for the idle header, read once per window |
 | `sink: Callable` | empty in game, where lines go to the console; a suite binds one to read the text it asserts |
-| `attach(entry)` | the node that parents the lazy panel |
-| `detach()` | the entry left the tree: drops the panel reference and clears the window |
+| `attach(entry)` | the node that parents the lazy panel; joins the settings notification and reads the switches |
+| `detach()` | the entry left the tree: leaves the notification, drops the panel reference and clears the window |
 | `debug(text)` | one line, or one entry with one prefix per line; silent with the switch off |
 | `block(title, rows)` | the title, then one tab-indented row each, empty rows dropped |
 | `note(key, usec, owner)` | one idle chunk with its microseconds |
@@ -46,10 +49,11 @@ both switches, the act gate and the header counts.
 
 | Host call | Purpose |
 |---|---|
-| `main._ready()` | `attach()`, the two switches, `act_running` and `counts` |
+| `main._ready()` | binds `debug_read`, `perf_read`, `act_running` and `counts`, then `attach()` |
 | `PONIES.act_running()` | the act gate: a live act owns the frame |
 | `PONIES._counts()` | the header counts: the live runtimes and `WORLD.mares()` |
-| `main._apply_settings_changed()` | re-reads the switches and clears the panel when one goes off |
+| `SETTINGS.debug_mode` / `SETTINGS.debug_perf` | the two switch reads: `Callable(setting, "get_bool")` |
+| `shared/settings_change.gd` | calls `apply_settings()` on every settings edit: re-reads the switches and clears the panel when one goes off |
 | `main._on_world()` | `reset()` |
 | `main._on_world_closed()` | `reset()` and `clear_panel()` |
 | `main._process(delta)` | `tick(delta)` first, and `close("entry_process", started)` after the body |

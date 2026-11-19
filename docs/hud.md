@@ -179,6 +179,8 @@ world enter and never repeats inside one world.
 - Begin: `_ready()` builds the card; `apply_settings()` applies the act key and the caption mode
 - World: `on_world()` and `on_world_closed()` (the notice is armed again and the card is hidden)
 - Player: `on_player(body)` shows the once-per-world key notice
+- Settings: `_ready()` joins the settings change notification, so `apply_settings()` runs on every
+  edit without the entry; `_exit_tree()` leaves it
 - End: `_exit_tree()` unsubscribes from the game setting; the entry frees the node and clears
   `HUD.instance`
 - Idempotent: yes

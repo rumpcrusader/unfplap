@@ -32,8 +32,8 @@ const HUD := preload("res://mods/unfplap/hud/service.gd")
 const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "twilight_sparkle"]
 
 
-## The live act state. The entry binds these named reads once instead of handing over the
-## registry, so the actions node never preloads `ponies`.
+## The live act state. The node builds these reads itself from the facades in `_ready()`; a suite
+## may bind its own before the node enters the tree.
 class Host extends RefCounted:
 	## -> the live act's runtime, or null.
 	var act := Callable()
@@ -47,7 +47,7 @@ class Host extends RefCounted:
 	var reload_posed_base := Callable()
 
 
-## Set by the entry at construction.
+## The live act reads. Built in `_ready()` unless a suite bound its own.
 var host: Host = null
 ## Set by the entry: the body-change service, the offer service and the Negotiation service.
 var body_change: BODY_CHANGE_SERVICE = null

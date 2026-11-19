@@ -53,7 +53,9 @@ document. `poses/authored_pose.gd` is the one loader; it reads version 7 and the
 migration path, and never converts a pose per frame. `poses/service.gd` exposes `warm_asset(path)`
 so a caller parses one authored asset into the shared cache before it reads it: the two offerable
 assets are warmed at world ready, under the loading cover, so the idle hint's `pose_asset` row does
-not load them inside its first scan.
+not load them inside its first scan. `reload_authored_base()` is the debug block's **Reload posed
+base**: it re-reads the base document from disk and returns the loader's complaint, or "" on
+success.
 
 Version 7 stores `space: "local_rest"`, the pose's `frame` (`bed` or `ground`), the `rig` name,
 version and bone count, the bake `reference` (`size`, `body_scale`, the config the base was authored

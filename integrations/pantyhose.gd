@@ -135,8 +135,8 @@ func _exit_tree() -> void:
 	on_world_closed()
 
 
-## Cache every setting this adapter reads. The settings service calls this through
-## `main._apply_settings_changed()`; there is no per-frame settings read.
+## Cache every setting this adapter reads. The settings change notification calls this on every
+## edit; there is no per-frame settings read.
 func apply_live_settings() -> void:
 	_undress = SETTINGS.pantyhose_undress.get_bool()
 	_bulge = SETTINGS.pantyhose_bulge.get_bool()

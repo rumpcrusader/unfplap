@@ -46,10 +46,11 @@ declaration there, one value in the shipped document, and then reads the typed h
 
 `settings/ui.gd` is the only file that draws the declaration rows; it also owns the settings-page
 injection and the Debug block visibility. `settings/characters_ui.gd` is the interim home of the
-Characters form. `main.gd` keeps the `Mods` hook, the `_apply_settings_changed()` callback and the
-one guard that refuses to install the mod when the shipped document is invalid. The runtime takes
-the settings service's typed `ActSnapshot` in `_snapshot_settings()`; the settings file never reads
-a live act.
+Characters form. `main.gd` keeps the `Mods` hook to the settings page, the construction bindings the
+page and the log sink read, and the one guard that refuses to install the mod when the shipped
+document is invalid. An edit reaches the services through the change notification below, never
+through the entry. The runtime takes the settings service's typed `ActSnapshot` in
+`_snapshot_settings()`; the settings file never reads a live act.
 
 ## Contributing a setting
 
@@ -207,6 +208,42 @@ prefixes pre-emptively.
 - Every section remembers whether it is open in the player file under `ui.sections`, keyed
   `tab/group`; the Debug block and its subsections use the `Debug/` prefix. Read and write that
   state through `SETTINGS.section_open(tab, group)` and `SETTINGS.set_section_open(tab, group, open)`.
+
+## Change notification
+
+Every edit ends in one pass, and that pass is the only way a settings change reaches a service.
+`shared/settings_change.gd` holds one static listener list — GDScript has no static signals — and
+`SETTINGS.apply_live()` notifies it:
+
+```gdscript
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
+
+CHANGE.on_changed(Callable(self, "apply_settings"))    # construction
+CHANGE.off_changed(Callable(self, "apply_settings"))   # shutdown
+SETTINGS.apply_live()                                  # one pass, after the value is written
+```
+
+| Rule | Meaning |
+|---|---|
+| One pass | `SETTINGS.apply_live()` is the edit's one notification; no service fans an edit out and the entry never relays one |
+| Registration order | listeners are called in the order they registered, which is the construction order of the service list |
+| One place per callable | the same callable registered twice keeps one place; an empty or freed callable is never registered |
+| A release is free | `off_changed()` drops the place; a listener that is freed without leaving is dropped on the next pass instead of called |
+| Safe mid-pass | a listener that leaves during the pass is not called in that pass |
+
+The subscribers, in construction order: `log` (the two debug switches, through the reads the entry
+binds), `hud` (the act-key cap and the caption mode), `offer`, `input` (the act action and the
+shield), `anatomy` (the player part, every live controller and the tail seats), `body_change` (the
+source's tail wrapper for every live body), `pantyhose`, `stock_smack`, `ponies` (every runtime, and
+the act a pending body swap has taken out of the registry), the debug actions (the wheel and the
+skeleton overlay) and the settings UI (the Debug blocks). `stool`, `initiation` and `negotiation`
+read their settings live and subscribe to nothing.
+
+`api.gd`, `eligibility.set_profile()` and a provider's settled body change call
+`SETTINGS.apply_live()` too: a provider layer is a live input like a panel edit. The list lives in
+`shared/` rather than in `settings/service.gd` because a shared module may not import a service and
+the log sink joins the same list.
 
 ## Persistence, defaults and migration
 
@@ -644,6 +681,9 @@ debug tools, not settings: no declaration, no persisted value. See `docs/perf.md
   drawing every declaration in its tab (and the Debug block only in debug mode), built-in name
   clashes, the per-mare merge, provider precedence for preferences/poses/prompts/placement and the
   consent cache's detached copy/invalidation.
+- `tests/test_settings_change.gd` is the notification contract: registration order, one place per
+  callable, a released listener skipped, a mid-pass leave, and the last listener leaving the list.
+  `hud/test_caption.gd` proves a live service re-reads through `apply_live()` with no entry.
 - `scripts/architecture.py --check` enforces the single declaration module and the absent
   per-service settings modules and root composition shims. The suite is a schema and API contract:
   it never asserts a shipped value.

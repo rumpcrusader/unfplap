@@ -166,8 +166,8 @@ func _ready() -> void:
 	changelings.call("setup", self)
 	add_child(changelings)
 	body_change.call("register_source", changelings)
-	# The debug actions run against the services above, so they are built last. Their exact reads
-	# of the entry's act state are bound here and nowhere else.
+	# The debug actions run against the services above, so they are built last. They read the live
+	# act through the facades themselves; the entry hands them only the services they act through.
 	debug_actions = DEBUG_ACTIONS.new()
 	debug_actions.name = "UnfplapDebugActions"
 	debug_actions.body_change = body_change

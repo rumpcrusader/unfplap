@@ -94,7 +94,7 @@ setup(main)
 player_ready(body), clear_player(), refresh_player(), player_apply_live()
 controller_for(pony, runtime), bind(pony, runtime), controller(pony)
 form_for(pony), bind_body(pony, form), refresh_body(pony, form), unbind_body(pony)
-refresh_all(), apply_live(), detach_controller(pony), shutdown()
+refresh_all(), apply_live(), apply_settings(), detach_controller(pony), shutdown()
 tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), can_dock(pony),
 can_place_tail(pony), tail_report()
 placement_debug(op, value), placement_show()
@@ -106,11 +106,15 @@ player_prepare(), player_root_now(), player_root_natural(), player_shaft_length_
 player_hip_offset(), player_note_hip_offset(offset), player_reset_pelvis(), player_debug_scale()
 ```
 
+`apply_settings()` is the facade's settings change listener: the player part, every live controller
+and the tail seats re-read the switches in one pass.
+
 The Placement editor is `anatomy/placement_editor.gd`, owned by the facade as `placement_editor`.
 `placement_debug()` and `placement_show()` are one-line delegates. The editor owns
 `placement_target()`, `placement_id()`, `placement_values(id, fit_id)`, `placement_refresh()`, the
 draft/save/reset calls and the report; it calls back into the facade for `can_dock()`,
-`can_place_tail()`, `refresh_tails()` and `tail_report()`.
+`can_place_tail()`, `apply_settings()` and `tail_report()`, and calls `SETTINGS.apply_live()` when it
+saves the default row.
 
 `main.anatomy.controller(pony)` (per-pony handle):
 

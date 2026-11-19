@@ -442,11 +442,11 @@ overlay reads them.
 | `WORLD.game.mares` | the loaded mares the world adapter scans |
 | `pony_wardrobe` group | the wardrobe's `wanted()`, `_season()`, `set_worn()` and `dress()` for the act undress |
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
-| `main._apply_settings_changed()` | calls the world adapter's `apply_live_settings()` and re-applies each live source-owned tail after a settings edit |
+| `shared/settings_change.gd` | calls the world adapter's `apply_live_settings()` after a settings edit, and the body-change service's per-body tail pass |
 | `main.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
 | `PONIES._prepare(pony)` | calls `body_change.notify_body_ready()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
 | `PONIES.prepare_late(pony)` | re-runs the body-change prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late form/ownership only, no runtime and no tail wrapper |
-| `main.refresh_anatomy()` | refreshes the live anatomy controllers and the player part after the settled form |
+| `SETTINGS.apply_live()` | one settings pass after the settled form: the live anatomy controllers, the player part and the tail seats re-read, the body's LOD rebuilds |
 | `WORLD.refresh_body_lod(pony)` | drops the new body's near/far LOD caches and re-arms its near mesh after a form or an adoption |
 | `main.custom_tail_ready(pony)` / `main.apply_custom_tail(pony)` / `main.custom_tail_report()` | forward the anatomy editor to the provider that owns a body's tail placement |
 | `PONIES.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |

@@ -121,7 +121,7 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
 - typed reads the host bindings use instead of reading a field: `state_value()`, `act_live()`,
   `restoring()`, `suspended()`, `act_id()`, `start_id()`, `event_id_value()`, `climax_limit()`,
   `cue_reaction_max_age()`, `current_pose_id()`, `in_heat()`, `rest_context()` and the service
-  handles `pose_service()`, `kiss_service()`, `reactions_service()`.
+  handles `kiss_service()`, `reactions_service()`.
 
 `refresh_identity()` re-reads the stable identity from the presented body, adopts its display name
 through `PONIES.display_name_for()` and refreshes the scene gate. `live_id()` is its one Node

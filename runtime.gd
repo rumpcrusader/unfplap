@@ -4,6 +4,7 @@ extends Node
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
+const PLACEMENT := preload("res://mods/unfplap/poses/placement.gd")
 const REST_REJOIN := preload("res://mods/unfplap/rest/service.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
@@ -66,9 +67,6 @@ const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
 ## A player-requested reveal is the act's one exceptional beat; its heat, peak, cue and memory
 ## mark are the provider policy's, not the base runtime's. The handover owns the form flags.
-## The standing start may place Anon closer or farther so the shaft rests at her entrance before
-## the act. Beyond this the offer cone would be wrong and the fit is left to the hip offset.
-const STANDING_FIT_MAX_M := 0.6
 ## The Agreement start's answer: a transient row or an unsettled presentation keeps waiting; a
 ## technical rollback is a start failure.
 const AGREEMENT_WAIT := 0
@@ -146,6 +144,10 @@ var _anatomy_bridge: RefCounted = ANATOMY.new_act(_anatomy_host())
 ## Reused typed act context. The runtime writes it; the presentation controllers read it instead of
 ## reaching into this node. See `shared/act_facts.gd`.
 var _act_facts: RefCounted = ACT_FACTS.new()
+## The standing placement math. The runtime fills its facts and keeps the ordered start adapters.
+var _placement: PLACEMENT = null
+## Reused placement facts. One object per runtime; the runtime writes it before each call.
+var _placement_facts: PLACEMENT.Facts = null
 
 ## The act's dialogue service: scheduler, prompt assembly, reactions and the bystander line.
 var _act_dialogue: RefCounted = ACT_DIALOGUE.new(_act_facts)
@@ -277,6 +279,8 @@ var _excitement_beat_paused := false
 ## Construct the per-pony controllers once. Only the audio node waits for the tree.
 func _build_systems() -> void:
 	_handover = BODY_CHANGE_ACT.new(_handover_host())
+	_placement = PLACEMENT.new()
+	_placement_facts = PLACEMENT.Facts.new()
 	_wings = WING.new(_act_facts)
 	_wings.log = Callable(self, "_log")
 	_hands = HANDS.new(_act_facts)
@@ -1462,46 +1466,37 @@ func _stool_act() -> Variant:
 
 
 func _stool_failed() -> bool:
-	var act: Variant = _stool_act()
-	return act != null and bool(act.get("failed"))
+	return _stool_act() != null and bool(_stool_act().call("has_failed"))
 
 
 ## Whether the footstool rule can apply at all. See docs/stool.md.
 func stool_applies() -> bool:
-	var act: Variant = _stool_act()
-	return act != null and bool(act.call("applies"))
+	return _stool_act() != null and bool(_stool_act().call("applies"))
 
 ## The live vertical gap; NAN when the rule or the anatomy is unavailable.
 func stool_gap_m() -> float:
-	var act: Variant = _stool_act()
-	return float(act.call("gap_m")) if act != null else NAN
+	return float(_stool_act().call("gap_m")) if _stool_act() != null else NAN
 
 func stool_needed_count() -> int:
-	var act: Variant = _stool_act()
-	return int(act.call("needed_count")) if act != null else 0
+	return int(_stool_act().call("needed_count")) if _stool_act() != null else 0
 
 func stool_required() -> bool:
-	return stool_needed_count() > 0
+	return _stool_act() != null and bool(_stool_act().call("required"))
 
 func stool_case_slot() -> int:
-	var act: Variant = _stool_act()
-	return int(act.call("case_slot")) if act != null else -1
+	return int(_stool_act().call("case_slot")) if _stool_act() != null else -1
 
 func stool_case_count() -> int:
-	var act: Variant = _stool_act()
-	return int(act.call("case_count")) if act != null else 0
+	return int(_stool_act().call("case_count")) if _stool_act() != null else 0
 
 ## True only when the footstool stack is the one thing keeping the Make love hint away.
 func stool_blocks_start(pose: String, act_source: String, bed_in: Variant = null) -> bool:
-	var act: Variant = _stool_act()
-	if act == null:
-		return false
-	return bool(act.call("blocks_start", _start_reasons(pose, act_source, bed_in)))
+	return _stool_act() != null \
+		and bool(_stool_act().call("blocks_start", _start_reasons(pose, act_source, bed_in)))
 
 
 func stool_state_text() -> String:
-	var act: Variant = _stool_act()
-	return str(act.call("state_text")) if act != null else "stool unavailable"
+	return str(_stool_act().call("state_text")) if _stool_act() != null else "stool unavailable"
 
 func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
 		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
@@ -2255,35 +2250,46 @@ func _reset_swap_input_state() -> void:
 	_readiness.stop_auto()
 
 
+## Fill the reused placement facts for one pass. The handle reads the same object; the runtime
+## writes the live scene values before each call.
+func _placement_facts_for(form: BODY_FORM.BodyForm = null) -> PLACEMENT.Facts:
+	var facts := _placement_facts
+	var body_form: Variant = _body_form()
+	facts.pony = pony if is_instance_valid(pony) else null
+	facts.player = WORLD.player if is_instance_valid(WORLD.player) else null
+	facts.bed = bed
+	facts.stool = _stool_act()
+	facts.form = form if form != null else body_form
+	facts.body_form = body_form
+	facts.id = _id
+	var configured: Variant = _pose_session.pose_config.get("gaps", {})
+	facts.gaps = configured if configured is Dictionary else {}
+	facts.camera = _camera_service()
+	facts.anatomy = _anatomy_service()
+	facts.player_pony = _player_pony
+	facts.headset_view = _headset_view()
+	facts.log = Callable(self, "_log")
+	return facts
+
+
 ## A standing act places Anon at the body's gap. A different body form needs that pass again;
 ## the bed act keeps him where he is and its authored shot re-reads the live body scale.
 func _reanchor_player_for_form(form: BODY_FORM.BodyForm = null) -> void:
-	if _pose_family() != "standing":
-		return
-	# The rebuilt pose starts with a zero Hips offset, so the part's applied offset from the old
-	# body is stale before the fit measures the natural pivot.
-	_reset_player_pelvis()
-	var standing := _begin_standing_placement(form)
-	_standing_camera_controller().begin_facing(standing)
+	var standing: Variant = _placement.reanchor(_placement_facts_for(form), _pose_family())
+	if standing is Transform3D:
+		_standing_camera_controller().begin_facing(standing)
 
 
 ## Drop the part's pelvis handshake after the placement fit or a new body. The service owns the
 ## part; a missing service (a suite or the anatomy off) is a no-op.
 func _reset_player_pelvis() -> void:
-	var service: Variant = _anatomy_service()
-	if service != null and service.has_method("player_reset_pelvis"):
-		service.call("player_reset_pelvis")
+	_placement.reset_pelvis(_placement_facts_for())
 
 
 ## The new body must still pass the act's adult-mare gate. A missing service reads as allowed,
 ## so a suite can drive the handover without the world's eligibility graph.
 func _new_body_is_adult() -> bool:
-	if not is_instance_valid(WORLD.game):
-		return true
-	var service: Variant = PONIES.eligibility
-	if service == null or not service.has_method("eligible"):
-		return true
-	return bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT))
+	return _placement.new_body_is_adult(_placement_facts_for())
 
 
 ## The presented body's name for the act caption and dialogue. The form's presentation name wins;
@@ -2308,104 +2314,14 @@ func _apply_form_display_name(form: BODY_FORM.BodyForm, new_pony: Node = null) -
 
 
 func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
-	var forward: Vector3 = -pony.global_basis.z
-	forward.y = 0.0
-	var has_player := is_instance_valid(WORLD.player) \
-		and WORLD.player is Node3D
-	if forward.length_squared() < 0.0001 and has_player:
-		forward = -WORLD.player.global_basis.z
-	forward = forward.normalized()
-	var standing := Transform3D(Basis.looking_at(forward, Vector3.UP), pony.global_position)
-	var stool: Variant = _stool_act()
-	if _player_pony or _headset_view():
-		# Her rig is the camera rig (headset) or another body (AnonPony), so she goes in front of
-		# the player instead of the player going behind her.
-		if stool != null and bool(stool.get("active")):
-			stool.set("failed", true)
-		var placed: Transform3D = _standing_transform() if has_player else standing
-		pony.reset_motion(placed)
-		pony.reset_physics_interpolation()
-		return placed
-	if not has_player:
-		if stool != null and bool(stool.get("active")):
-			stool.set("failed", true)
-		pony.reset_motion(standing)
-		pony.reset_physics_interpolation()
-		return standing
-	# The offer cone already requires him within 0.8 m of her rump, so the correction is small.
-	# The act end leaves him there instead of snapping him back.
-	var body: Variant = WORLD.player
-	var target: Vector3 = pony.global_position - forward * _standing_gap(form)
-	var floor_y := _floor_y_at(Vector3(target.x, body.global_position.y + 0.4, target.z), body)
-	if not is_finite(floor_y) or absf(floor_y - body.global_position.y) > 1.0:
-		floor_y = body.global_position.y
-	target.y = body.global_position.y
-	var stool_active := stool != null and bool(stool.get("active"))
-	if stool_active:
-		var raised: Variant = stool.call("place", target, body.rotation.y, floor_y)
-		if raised is Vector3:
-			target = raised
-	body.global_position = target
-	if stool != null and bool(stool.get("lifted")) and body.get("velocity") != null:
-		body.set("velocity", Vector3.ZERO)
-	# Do not inherit the previous act's view: face him along her forward, so his body is in front
-	# of the camera instead of off to one side after a missionary restore.
-	body.rotation.y = atan2(-forward.x, -forward.z)
-	# The stance is the pre-act view; the contact distance is hers. Fit the whole body once before
-	# the act so the shaft starts at her entrance instead of pulling the Hips bone across the gap.
-	var fit := Vector3.ZERO if stool_active else _standing_part_shift()
-	if fit.length_squared() > 0.000001:
-		body.global_position += fit
-	# The fit has measured the natural pivot; clear the old handshake before the first act tick
-	# reseeds the penetration from the fitted stance.
-	_reset_player_pelvis()
-	body.reset_physics_interpolation()
-	_log("standing keeps pony at=%s and places Anon at=%s yaw=%.3f fit=%+.3f stool=%s" % [
-		str(pony.global_position), str(body.global_position), body.rotation.y,
-		fit.dot(forward), str(stool_active)])
-	return standing
+	return _placement.begin(_placement_facts_for(form))
 
 
 ## The horizontal shift that puts the part's natural pivot one shaft behind her entrance, so a
 ## standing start touches her instead of asking the Hips bone to carry the pre-act gap. The fit
 ## moves Anon's whole body before the act; the per-frame aim still owns the stroke correction.
 func _standing_part_shift() -> Vector3:
-	var service: Variant = _anatomy_service()
-	if service == null or not service.has_method("player_prepare") \
-			or not service.has_method("player_root_natural") \
-			or not service.has_method("player_shaft_length_m") \
-			or not service.has_method("controller"):
-		return Vector3.ZERO
-	if not bool(service.call("player_prepare")):
-		return Vector3.ZERO
-	var length := float(service.call("player_shaft_length_m"))
-	if not is_finite(length) or length <= 0.001:
-		return Vector3.ZERO
-	var root_value: Variant = service.call("player_root_natural")
-	if not (root_value is Vector3) or not (root_value as Vector3).is_finite():
-		return Vector3.ZERO
-	var controller: Variant = service.call("controller", pony)
-	if not is_instance_valid(controller) or not controller.has_method("hole_point") \
-			or not controller.has_method("hole_rear"):
-		return Vector3.ZERO
-	if controller.has_method("is_attached") and not bool(controller.call("is_attached")):
-		return Vector3.ZERO
-	var opening: Variant = controller.call("hole_point", 0.0)
-	var rear: Variant = controller.call("hole_rear", 0.0)
-	if not (opening is Vector3) or not (opening as Vector3).is_finite():
-		return Vector3.ZERO
-	if not (rear is Vector3) or not (rear as Vector3).is_finite():
-		return Vector3.ZERO
-	var flat := Vector3((rear as Vector3).x, 0.0, (rear as Vector3).z)
-	if flat.length_squared() < 0.000001:
-		return Vector3.ZERO
-	# The mesh's outward rear points at Anon, so one shaft along it is the rest pivot.
-	var pivot_target: Vector3 = (opening as Vector3) + flat.normalized() * length
-	var shift: Vector3 = pivot_target - (root_value as Vector3)
-	shift.y = 0.0
-	if not shift.is_finite() or shift.length() > STANDING_FIT_MAX_M:
-		return Vector3.ZERO
-	return shift
+	return _placement.part_shift(_placement_facts_for())
 
 
 ## Dispatch the spec's closed `start.setup` vocabulary to its placement adapter. It never selects
@@ -2485,46 +2401,15 @@ func _take_stool_items(need: int) -> bool:
 	var act: Variant = _stool_act()
 	return act != null and bool(act.call("take_items", need))
 
-## The floor under a standing spot; the stool facade owns the probe.
+## The floor under a standing spot; the stool handle owns the probe.
 func _floor_y_at(at: Vector3, body: Node3D) -> float:
-	var service: Variant = STOOL.instance
-	if service == null or not service.has_method("floor_y_at"):
-		return NAN
-	return float(service.call("floor_y_at", at, body))
+	return _placement.floor_y_at(_placement_facts_for(), at, body)
 
 func _standing_transform() -> Transform3D:
-	var view: Camera3D = WORLD.camera()
-	var forward := Vector3.FORWARD
-	if view != null:
-		forward = -view.global_basis.z
-	forward.y = 0.0
-	if forward.length_squared() < 0.0001:
-		forward = -WORLD.player.global_basis.z
-	forward = forward.normalized()
-	var at: Vector3 = WORLD.player.global_position + forward * _standing_gap()
-	at.y = WORLD.player.global_position.y
-	return Transform3D(Basis.looking_at(forward, Vector3.UP), at)
+	return _placement.transform(_placement_facts_for())
 
 func _standing_gap(form: BODY_FORM.BodyForm = null) -> float:
-	var size := "same height"
-	var settings: Node = get_node_or_null("/root/Settings")
-	if settings != null:
-		size = str(settings.call("get_value", "ponies/size"))
-	var gaps: Dictionary = {}
-	var configured: Variant = _pose_session.pose_config.get("gaps", {})
-	if configured is Dictionary:
-		gaps = configured
-	if gaps.is_empty():
-		gaps = SETTINGS.pose(str(_id), CATALOG.STANDING).get("gaps", {})
-	var base: float = float(gaps.get(size, gaps["same height"]))
-	var gap := base * float(_camera_service().call("same_height_scale"))
-	gap += SETTINGS.gap_offset_m.get_num()
-	# The gap is from her centre; a princess body's entrance sits further back or forward than
-	# the mare's the gaps were tuned on, so Anon keeps the same distance from her entrance.
-	var entrance: Vector2 = ACT_CAMERA.entrance_offset_for(form if form != null else _body_form())
-	gap += entrance.y
-	_log("standing size=%s gap=%.2f entrance_shift=%+.3f" % [size, gap, entrance.y])
-	return gap
+	return _placement.gap(_placement_facts_for(form))
 
 
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose

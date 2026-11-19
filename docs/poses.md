@@ -931,6 +931,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | camera | `camera/service.gd` | the entrance offset and the standing size scale |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | ponies | `ponies/service.gd` | the eligibility and anatomy handles |
 | service | settings | `settings/service.gd` | settings declarations and live values |

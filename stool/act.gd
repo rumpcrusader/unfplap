@@ -96,6 +96,11 @@ func required() -> bool:
 	return needed_count() > 0
 
 
+## Whether the last placement attempt failed. The runtime reads it after a standing start.
+func has_failed() -> bool:
+	return failed
+
+
 ## The first writable case slot that holds a footstool, or -1.
 func case_slot() -> int:
 	var store: Variant = inventory_store()

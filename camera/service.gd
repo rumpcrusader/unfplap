@@ -561,6 +561,64 @@ func neck_midpoint() -> Vector3:
 	return Vector3.INF
 
 
+## Her missionary face point for the shot: the head bone carried forward from the neck by a
+## twelfth of her body scale. A missing head bone falls back to the neck midpoint.
+func missionary_face_point() -> Vector3:
+	var pony: Variant = facts.pony if facts != null else null
+	if not is_instance_valid(pony):
+		return Vector3.INF
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D:
+		return Vector3.INF
+	var skeleton := sk as Skeleton3D
+	var head := skeleton.find_bone("pony_head")
+	if head < 0:
+		return neck_midpoint()
+	var at := skeleton.global_transform * skeleton.get_bone_global_pose(head).origin
+	var neck := skeleton.find_bone("pony_neck2")
+	if neck < 0:
+		return at
+	var base := skeleton.global_transform * skeleton.get_bone_global_pose(neck).origin
+	var direction := at - base
+	if direction.length_squared() < 0.000001:
+		return at
+	return at + direction.normalized() * 0.12 * _body_scale_of(pony)
+
+
+## The pulled-back shot's target: the vulva when the anatomy is showing, otherwise a point between
+## her hind femurs lifted toward her belly.
+func missionary_vulva_point() -> Vector3:
+	var point := Vector3.ZERO
+	if facts != null:
+		var value: Variant = facts.call_value(facts.anatomy_opening, Vector3.ZERO)
+		if value is Vector3:
+			point = value
+	if point != Vector3.ZERO:
+		return point
+	var pony: Variant = facts.pony if facts != null else null
+	if not is_instance_valid(pony):
+		return Vector3.INF
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D:
+		return Vector3.INF
+	var skeleton := sk as Skeleton3D
+	var left := skeleton.find_bone("pony_femur_L")
+	var right := skeleton.find_bone("pony_femur_R")
+	if left < 0 or right < 0:
+		return neck_midpoint()
+	var a := skeleton.global_transform * skeleton.get_bone_global_pose(left).origin
+	var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
+	return (a + b) * 0.5 + Vector3.UP * 0.10 * _body_scale_of(pony)
+
+
+## The presented body's scale, or the default when the pony does not expose one.
+func _body_scale_of(pony: Object) -> float:
+	if not is_instance_valid(pony):
+		return 1.0
+	var value: Variant = pony.get("body_scale")
+	return float(value) if value != null else 1.0
+
+
 ## Dispatch the act shot. Missionary owns its own view; standing applies the player-camera
 ## offsets. Debug free look leaves the stock player camera alone.
 func apply_motion() -> void:

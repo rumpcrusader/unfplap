@@ -13,6 +13,7 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
@@ -20,7 +21,6 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
-const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
@@ -193,8 +193,6 @@ var _hold: RefCounted = SCENE_HOLD.new()
 var _posture_owned := false
 var _session_finalized := false
 var _id := ""
-## Debug-only estrus phase override. Empty means derive the phase from the world day and her id.
-var _cycle_override := ""
 var _profile: Dictionary = {}
 var _features: Dictionary = {}
 ## The act's caress surface level, snapshotted from the settings so the engine never reads them.
@@ -984,24 +982,9 @@ func pose_view() -> RefCounted:
 
 ## Why the face-sit debug action cannot toggle right now, or "" when it is ready: an active act, a
 ## live missionary or face-sit view, a steady pose, no running kiss and the anatomy's act body.
+## The pose owner keeps the rule; the act state is the runtime's.
 func face_sit_error() -> String:
-	if state == State.IDLE or state == State.RESTORE:
-		return "no active act"
-	var view := pose_view()
-	if view == null:
-		return "no active act"
-	if str(view.id) != CATALOG.MISSIONARY and str(view.id) != CATALOG.BED_FACESIT:
-		return "only in a missionary act"
-	if state != State.ACTIVE:
-		return "the act is not active"
-	if int(view.pose_state) != POSE_VIEW.STEADY:
-		return "the pose is changing"
-	if _act_facts.kiss_active:
-		return "a kiss is running"
-	if not SETTINGS.anatomy_on() or not is_instance_valid(_pose_service().act_body) \
-			or not is_instance_valid(_anatomy_bridge.missionary_anon):
-		return "the anatomy is not available"
-	return ""
+	return _pose_service().face_sit_error(state)
 
 
 ## Re-read the active pose's authored asset in place. The debug action uses this; a running act
@@ -1517,78 +1500,25 @@ func scene_only_verdict(pose: String, act_source: String, bed_in: Variant = null
 		stool_need, stool_have)
 
 
-## The policy verdict. The scene gate reads the eligibility service and composes it.
-func _policy_verdict(mode: ELIGIBILITY.Mode,
-		verdict_in: ELIGIBILITY.Verdict = null) -> ELIGIBILITY.Verdict:
-	return _scene_gate().policy_verdict_for(mode, verdict_in)
-
-
-## The live act values the debug status line reads. The scene gate owns the string.
+## The live act values the debug status line reads. The debug pony helper owns the scene gather;
+## the act's session values are the runtime's own.
 func _debug_context() -> Dictionary:
-	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
-	var id := _id if not _id.is_empty() else PONY_ID.from("", identity)
-	var display := "?"
-	if identity != null:
-		display = str(identity.get("display_name")) if identity.get("display_name") != null else id
-	var policy: ELIGIBILITY.Verdict = _policy_verdict(ELIGIBILITY.Mode.START)
-	var relations: ELIGIBILITY.Relations = policy.relations if policy != null \
-		else ELIGIBILITY.Relations.new()
-	var love_name := "?"
-	var rel: Variant = null
-	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
-		rel = pony.get_meta("relationship_runtime")
-	if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
-		var ladder: Variant = rel.call("ladder", id)
-		if ladder is Dictionary:
-			var love: Variant = (ladder as Dictionary).get("love", {})
-			if love is Dictionary:
-				love_name = str((love as Dictionary).get("name", "?"))
-	var mood := "?"
-	if is_instance_valid(WORLD.game):
-		var ctx: Variant = WORLD.game.get("world_context")
-		if ctx != null and is_instance_valid(ctx):
-			var impressions: Variant = ctx.get("impressions")
-			if impressions != null and is_instance_valid(impressions) and impressions.has_method("profile"):
-				var prof: Dictionary = impressions.call("profile", id)
-				mood = str(prof.get("mood", "?"))
-	var status: Dictionary = pony.posture_status() if is_instance_valid(pony) and pony.has_method("posture_status") else {}
-	var nav: Node = pony.get_node_or_null("Navigator") if is_instance_valid(pony) else null
-	var owner := ""
-	var target := false
-	var reserved := ""
-	if nav != null:
-		owner = str(nav.get("command_owner"))
-		target = bool(nav.get("_has_target"))
-		reserved = str(nav.get("reserved_by"))
-	var body: Variant = WORLD.player if is_instance_valid(WORLD.game) else null
-	return {
-		"id": id, "display": display, "stage": relations.stage,
-		"love_name": love_name, "love_level": relations.love_level,
-		"welcomes": relations.willing,
-		"mood": mood,
+	return DEBUG_PONY.context(pony, _id, {
 		"state": state,
 		"presenting": _standing_presentation_controller().presentation_active(),
-		"sleeping": bool(pony.get("sleeping")) if is_instance_valid(pony) else false,
-		"held": bool(pony.is_held()) if is_instance_valid(pony) else false,
-		"grounded": bool(pony.grounded()) if is_instance_valid(pony) else false,
-		"seated": pony.has_meta("seated") if is_instance_valid(pony) else false,
 		"cuddle": _cuddle_active(),
-		"motion": bool(pony.get("motion_paused")) if is_instance_valid(pony) else false,
-		"speed": float(pony.get("actual_speed")) if is_instance_valid(pony) else 0.0,
-		"posture": str(status.get("requested", "")),
-		"interrupt": str(pony.action_interruption_reason()) if is_instance_valid(pony) else "",
-		"owner": owner, "target": target, "reserved": reserved,
-		"body_controls_locked": str(body.get("controls_locked")) if body != null else "?",
-		"body_flying": str(body.get("flying")) if body != null else "?",
-		"body_seat": str(body.get("seat")) if body != null else "?",
-		"mouse": str(Input.mouse_mode), "paused": get_tree().paused,
-		"max_pony_climaxes": _max_pony_climaxes, "satisfaction": satisfaction,
-		"pony_climaxes": pony_climaxes, "last_intensity": _readiness.last_intensity,
-		"last_pattern": _readiness.last_pattern, "cue": cue,
+		"max_pony_climaxes": _max_pony_climaxes,
+		"satisfaction": satisfaction,
+		"pony_climaxes": pony_climaxes,
+		"last_intensity": _readiness.last_intensity,
+		"last_pattern": _readiness.last_pattern,
+		"cue": cue,
 		"thrust_up": _readiness.up_is_deep,
-		"penetration_m": penetration_m, "penetration_reach": penetration_reach(),
-		"preferences": PREFERENCES.describe(_preferences), "voice_status_line": voice_status_line(),
-	}
+		"penetration_m": penetration_m,
+		"penetration_reach": penetration_reach(),
+		"preferences": PREFERENCES.describe(_preferences),
+		"voice_status_line": voice_status_line(),
+	})
 
 
 ## The debug status line. The scene gate owns the row and verdict assembly.
@@ -3431,49 +3361,35 @@ func _finish_climax() -> void:
 	var limit_text := "∞" if _max_pony_climaxes <= 0 else str(_max_pony_climaxes)
 	_log("pony climax end=%d/%s readiness=0" % [pony_climaxes, limit_text])
 
-## Estrus phase. Derived from the world day and her id; the debug override wins even when the
-## feature is off so the lab can test heat and diestrus without waiting in-game days.
+## Estrus phase. The eligibility owner resolves the debug override, the feature flag and the
+## world day; the validity guard keeps a body freed during teardown from reaching it.
 func cycle_phase() -> String:
-	if not _cycle_override.is_empty():
-		return _cycle_override
-	if not SETTINGS.estrus_cycle.get_bool():
+	_read_id()
+	if not is_instance_valid(pony):
 		return CYCLE.NORMAL
-	if not is_instance_valid(pony) or not _read_id():
-		return CYCLE.NORMAL
-	# A pony that has only just spawned has no relationship runtime yet, and the anatomy bridge
-	# asks for the phase during its own bind.
-	if not pony.has_meta("relationship_runtime"):
-		return CYCLE.NORMAL
-	var relationship: Variant = pony.get_meta("relationship_runtime")
-	if relationship == null or not is_instance_valid(relationship):
-		return CYCLE.NORMAL
-	var bonds: Variant = relationship.get("bonds")
-	if bonds == null or not is_instance_valid(bonds) or not bonds.has_method("day"):
-		return CYCLE.NORMAL
-	return CYCLE.phase(float(bonds.call("day")), _id)
+	return ELIGIBILITY.cycle_phase_for(pony, _id)
 
 
 ## The session override currently in force, or "" when the automatic cycle owns the phase.
 func cycle_override() -> String:
-	return _cycle_override
+	_read_id()
+	return CYCLE.override_for(_id)
 
 
-## Debug-only session override: heat, diestrus, normal, or "" to resume the automatic cycle.
+## Session-only estrus override: heat, diestrus, normal, or "" to resume the automatic cycle. The
+## debug action is the shipped writer; the runtime keeps the protocol for its suites.
 func set_cycle_override(phase_name: String) -> void:
-	if phase_name in [CYCLE.HEAT, CYCLE.DIESTRUS, CYCLE.NORMAL]:
-		_cycle_override = phase_name
-	elif phase_name.is_empty():
-		_cycle_override = ""
+	_read_id()
+	CYCLE.set_override(_id, phase_name)
 
 
-## Private heat/diestrus note for the normal dialogue prompt, outside and during acts.
+## Private heat/diestrus note for the normal dialogue prompt, outside and during acts. The
+## eligibility owner keeps the gate check and the note.
 func cycle_note() -> String:
 	if not is_instance_valid(pony):
 		return ""
-	var verdict := _policy_verdict(ELIGIBILITY.Mode.START)
-	if verdict == null or not verdict.base:
-		return ""
-	return CYCLE.prompt_note(cycle_phase())
+	var service: Variant = _eligibility_service()
+	return service.cycle_note(pony) if service != null else ""
 
 
 ## Short private relationship facts for normal dialogue. Empty outside a relationship runtime.
@@ -4045,44 +3961,16 @@ func _anon_pose_diag_row() -> String:
 	return _anatomy_bridge.diag_row(missionary_face_point(), missionary_vulva_point())
 
 
+## The camera owner resolves the missionary face point and the vulva target; they are shot
+## geometry. The anatomy diagnostic row and the shot camera read the runtime's forwards.
 func missionary_face_point() -> Vector3:
-	if not is_instance_valid(pony):
-		return Vector3.INF
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
-		return Vector3.INF
-	var skeleton := sk as Skeleton3D
-	var head := skeleton.find_bone("pony_head")
-	if head < 0:
-		return _neck_midpoint()
-	var at := skeleton.global_transform * skeleton.get_bone_global_pose(head).origin
-	var neck := skeleton.find_bone("pony_neck2")
-	if neck < 0:
-		return at
-	var base := skeleton.global_transform * skeleton.get_bone_global_pose(neck).origin
-	var direction := at - base
-	if direction.length_squared() < 0.000001:
-		return at
-	return at + direction.normalized() * 0.12 * _body_scale_value()
+	return _camera_service().missionary_face_point()
 
 
 ## The pulled-back shot's target: the vulva when the anatomy is showing, otherwise a point between
 ## her hind femurs lifted toward her belly.
 func missionary_vulva_point() -> Vector3:
-	var point: Vector3 = _anatomy_bridge.opening()
-	if point != Vector3.ZERO:
-		return point
-	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	if not sk is Skeleton3D:
-		return Vector3.INF
-	var skeleton := sk as Skeleton3D
-	var left := skeleton.find_bone("pony_femur_L")
-	var right := skeleton.find_bone("pony_femur_R")
-	if left < 0 or right < 0:
-		return _neck_midpoint()
-	var a := skeleton.global_transform * skeleton.get_bone_global_pose(left).origin
-	var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
-	return (a + b) * 0.5 + Vector3.UP * 0.10 * _body_scale_value()
+	return _camera_service().missionary_vulva_point()
 
 
 func _body_scale_value() -> float:

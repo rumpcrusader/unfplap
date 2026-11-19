@@ -9,41 +9,13 @@ extends SceneTree
 var MAIN: Variant = null
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const POSES := preload("res://mods/unfplap/poses/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
 var checks := 0
-
-
-class FakePose extends RefCounted:
-	var _view: Variant = null
-	var act_body: Variant = null
-	var id := ""
-	var hide_avatar := Callable()
-	var set_act_body := Callable()
-	var eye_camera := Callable()
-	var perf := Callable()
-	var facts: Variant = null
-	var pose_config: Dictionary = {}
-	var log := Callable()
-	var mouth_point := Callable()
-	var opening_point := Callable()
-	var face_point := Callable()
-	var oral_kiss := Callable()
-	var oral_speech_stop := Callable()
-	var oral_viseme := Callable()
-	var oral_status := Callable()
-
-	func bind(_runtime: Variant, _pony_node: Variant) -> void:
-		pass
-
-	func view() -> Variant:
-		return _view
-
-	func pose() -> Variant:
-		return _view
 
 
 class FakeBridge extends RefCounted:
@@ -60,6 +32,9 @@ class FakeBridge extends RefCounted:
 
 	func detach() -> void:
 		pass
+
+	func missionary_anon_body() -> Variant:
+		return missionary_anon
 
 
 class FakeRuntime extends Node:
@@ -107,7 +82,9 @@ func _fixture() -> Dictionary:
 	var view: Variant = VIEW.new()
 	view.id = CATALOG.MISSIONARY
 	view.pose_state = VIEW.STEADY
-	var pose := FakePose.new()
+	var pose: RefCounted = POSES.new()
+	pose.bind(runtime, null)
+	pose.facts = runtime._act_facts
 	pose._view = view
 	pose.act_body = Node.new()
 	var bridge := FakeBridge.new()
@@ -122,7 +99,7 @@ func _fixture() -> Dictionary:
 
 func _free_fixture(made: Dictionary) -> void:
 	var runtime: Node = made["runtime"]
-	var pose: FakePose = made["pose"]
+	var pose: RefCounted = made["pose"]
 	var bridge: FakeBridge = made["bridge"]
 	root.remove_child(runtime)
 	runtime.free()
@@ -137,7 +114,7 @@ func _check_helper() -> void:
 	SETTINGS.anatomy_mode.set_choice("act")
 	var made := _fixture()
 	var runtime: Node = made["runtime"]
-	var pose: FakePose = made["pose"]
+	var pose: RefCounted = made["pose"]
 	var bridge: FakeBridge = made["bridge"]
 	var view: Variant = made["view"]
 	runtime.state = 0

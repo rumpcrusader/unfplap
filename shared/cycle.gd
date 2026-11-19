@@ -16,6 +16,11 @@ const DIESTRUS_DAYS := 2.0
 const WINK_TRIPLE_BELOW := 0.05
 const WINK_DOUBLE_BELOW := 0.30
 
+## Debug-only session overrides, by pony id. Never saved: the debug actions write them and the
+## phase readers honour them even when the feature is off, so the lab can test heat and diestrus
+## without waiting in-game days.
+static var _overrides: Dictionary = {}
+
 
 ## Stable per-mare offset in days, so the whole town does not cycle together.
 static func offset(id: String) -> float:
@@ -65,3 +70,16 @@ static func prompt_note(phase_name: String) -> String:
 		DIESTRUS:
 			return "- Your heat has just ended and you are completely turned off for a couple of days. You feel irritable and touchy, and you turn down anything sexual, though you are still fond of Anon."
 	return ""
+
+
+## The debug override in force for one pony, or "" when the automatic cycle owns the phase.
+static func override_for(id: String) -> String:
+	return str(_overrides.get(id, ""))
+
+
+## Set one pony's session override, or clear it with "". Any other value is ignored.
+static func set_override(id: String, phase_name: String) -> void:
+	if phase_name in [HEAT, DIESTRUS, NORMAL]:
+		_overrides[id] = phase_name
+	elif phase_name.is_empty():
+		_overrides.erase(id)

@@ -211,11 +211,11 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 	if not is_instance_valid(target):
 		return "No mare under the crosshair."
 	var runtime: Node = _runtime_for(target)
-	if not is_instance_valid(runtime) or not runtime.has_method("set_cycle_override"):
+	if not is_instance_valid(runtime):
 		return "No runtime for %s." % str(target.name)
-	var current := str(runtime.call("cycle_phase")) if runtime.has_method("cycle_phase") else ""
+	var current := str(runtime.call("cycle_phase"))
 	var next := CYCLE.NORMAL if current == phase_name else phase_name
-	runtime.call("set_cycle_override", next)
+	CYCLE.set_override(_debug_pony_id(target), next)
 	var verb := "cleared" if next == CYCLE.NORMAL else "forced"
 	LOG.debug("cycle %s %s=%s" % [phase_name, str(target.name), next])
 	return "%s %s for %s." % [phase_name.capitalize(), verb, str(target.name)]
@@ -241,9 +241,9 @@ func _debug_cycle_request(phase_name: String) -> String:
 	if not is_instance_valid(target):
 		return "No mare under the crosshair."
 	var runtime: Node = _runtime_for(target)
-	if not is_instance_valid(runtime) or not runtime.has_method("set_cycle_override"):
+	if not is_instance_valid(runtime):
 		return "No runtime for %s." % str(target.name)
-	runtime.call("set_cycle_override", phase_name)
+	CYCLE.set_override(_debug_pony_id(target), phase_name)
 	var label := "automatic" if phase_name.is_empty() else phase_name
 	LOG.debug("cycle override %s=%s" % [str(target.name), label])
 	return "Cycle for %s: %s." % [str(target.name), label]

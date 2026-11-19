@@ -277,6 +277,7 @@ the skeleton overlay; `_ready()` joins that list and `_exit_tree()` leaves it.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | body_change | `body_change/service.gd` | the form actions and the shape-source gate |
+| service | eligibility | `eligibility/service.gd` | the target's relationship values and the cycle override |
 | service | hud | `hud/service.gd` | the one-line wheel result |
 | service | initiation | `initiation/service.gd` | the forced offer, the cooldown and Show data's REQUEST rows |
 | service | negotiation | `negotiation/service.gd` | the Anon offer and Show data's NEGOTIATION rows |

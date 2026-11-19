@@ -8,6 +8,8 @@ extends RefCounted
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
 ## The bond stages the sex-ready write never lowers: an engaged or married mare keeps her stage.
 const KEPT_STAGES := ["dating", "engaged", "married"]
@@ -15,6 +17,69 @@ const KEPT_STAGES := ["dating", "engaged", "married"]
 const FAMILIARITY_FLOOR := 80.0
 const TRUST_FLOOR := 40.0
 const TOGETHER_FLOOR_S := 3600.0
+
+
+## The live scene values the scene gate's debug status line reads. `act` carries the runtime's own
+## act-session values (state, readiness, penetration, preferences, voice); everything else is
+## gathered from the pony, the world, the relationship and the player body.
+static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
+	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
+	var pony_id := id if not id.is_empty() else PONY_ID.from("", identity)
+	var display := "?"
+	if identity != null:
+		display = str(identity.get("display_name")) \
+			if identity.get("display_name") != null else pony_id
+	var relations: Variant = _relations(pony)
+	var love_name := "?"
+	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
+		var rel: Variant = pony.get_meta("relationship_runtime")
+		if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
+			var ladder: Variant = rel.call("ladder", pony_id)
+			if ladder is Dictionary:
+				var love: Variant = (ladder as Dictionary).get("love", {})
+				if love is Dictionary:
+					love_name = str((love as Dictionary).get("name", "?"))
+	var mood := "?"
+	if is_instance_valid(WORLD.game):
+		var ctx: Variant = WORLD.game.get("world_context")
+		if ctx != null and is_instance_valid(ctx):
+			var impressions: Variant = ctx.get("impressions")
+			if impressions != null and is_instance_valid(impressions) \
+					and impressions.has_method("profile"):
+				var prof: Dictionary = impressions.call("profile", pony_id)
+				mood = str(prof.get("mood", "?"))
+	var status: Dictionary = pony.posture_status() \
+		if is_instance_valid(pony) and pony.has_method("posture_status") else {}
+	var nav: Node = pony.get_node_or_null("Navigator") if is_instance_valid(pony) else null
+	var owner := ""
+	var target := false
+	var reserved := ""
+	if nav != null:
+		owner = str(nav.get("command_owner"))
+		target = bool(nav.get("_has_target"))
+		reserved = str(nav.get("reserved_by"))
+	var body: Variant = WORLD.player if is_instance_valid(WORLD.game) else null
+	var out := act.duplicate()
+	out.merge({
+		"id": pony_id, "display": display, "stage": relations.stage,
+		"love_name": love_name, "love_level": relations.love_level,
+		"welcomes": relations.willing,
+		"mood": mood,
+		"sleeping": bool(pony.get("sleeping")) if is_instance_valid(pony) else false,
+		"held": bool(pony.is_held()) if is_instance_valid(pony) else false,
+		"grounded": bool(pony.grounded()) if is_instance_valid(pony) else false,
+		"seated": pony.has_meta("seated") if is_instance_valid(pony) else false,
+		"motion": bool(pony.get("motion_paused")) if is_instance_valid(pony) else false,
+		"speed": float(pony.get("actual_speed")) if is_instance_valid(pony) else 0.0,
+		"posture": str(status.get("requested", "")),
+		"interrupt": str(pony.action_interruption_reason()) if is_instance_valid(pony) else "",
+		"owner": owner, "target": target, "reserved": reserved,
+		"body_controls_locked": str(body.get("controls_locked")) if body != null else "?",
+		"body_flying": str(body.get("flying")) if body != null else "?",
+		"body_seat": str(body.get("seat")) if body != null else "?",
+		"mouse": str(Input.mouse_mode), "paused": _paused(pony),
+	}, true)
+	return out
 
 
 ## A saved test-world actor can carry a non-yaw transform from an old throw or cuddle. Reset the
@@ -195,6 +260,21 @@ static func _neutral_mood(host: Node, pony: Node3D, id: String) -> String:
 	if after_profile is Dictionary:
 		after = str((after_profile as Dictionary).get("mood", "neutral"))
 	return "%s -> %s" % [before, after]
+
+
+## The eligibility owner's relationship values for the debug line, or the empty defaults outside
+## a live service.
+static func _relations(pony: Node) -> Variant:
+	var service: Variant = PONIES.eligibility
+	if not is_instance_valid(pony) or not is_instance_valid(service):
+		return ELIGIBILITY.Relations.new()
+	var verdict: Variant = service.get_verdict(pony, ELIGIBILITY.Mode.START)
+	return verdict.relations if verdict != null else ELIGIBILITY.Relations.new()
+
+
+## The tree's pause state, read from the pony's tree so a runtime outside one cannot error.
+static func _paused(pony: Node) -> bool:
+	return pony.get_tree().paused if is_instance_valid(pony) and pony.is_inside_tree() else false
 
 
 ## Print the detail block and return the one-line wheel toast.

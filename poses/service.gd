@@ -19,6 +19,7 @@ const PRONE_SWAY := preload("res://mods/unfplap/poses/prone_sway.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 const ORAL_TURN := preload("res://mods/unfplap/poses/oral_turn.gd")
 const FACE_CONTACT := preload("res://mods/unfplap/poses/face_contact.gd")
@@ -1755,6 +1756,28 @@ func diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:
 				str(other.call("posture_status").get("requested", "?")), str(hips_at)])
 	rows.append("nearby=%d %s" % [nearest.size(), "; ".join(nearest)])
 	return rows
+
+
+## Why the face-sit debug action cannot toggle right now, or "" when it is ready: an active act, a
+## live missionary or face-sit view, a steady pose, no running kiss and the anatomy's act body.
+func face_sit_error(act_state: int) -> String:
+	if act_state == ACT_STATE.State.IDLE or act_state == ACT_STATE.State.RESTORE:
+		return "no active act"
+	if _view == null:
+		return "no active act"
+	if str(_view.id) != CATALOG.MISSIONARY and str(_view.id) != CATALOG.BED_FACESIT:
+		return "only in a missionary act"
+	if act_state != ACT_STATE.State.ACTIVE:
+		return "the act is not active"
+	if int(_view.pose_state) != POSE_VIEW.STEADY:
+		return "the pose is changing"
+	if facts != null and bool(facts.kiss_active):
+		return "a kiss is running"
+	var anatomy_body: Variant = facts.missionary_body() if facts != null else null
+	if not SETTINGS.anatomy_on() or not is_instance_valid(act_body) \
+			or not is_instance_valid(anatomy_body):
+		return "the anatomy is not available"
+	return ""
 
 
 ## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where

@@ -110,6 +110,8 @@ class FakePony extends Node3D:
 	var motion_paused := false
 	var requested := ""
 	var requests := 0
+	var sleeping := false
+	var actual_speed := 0.0
 
 	func posture_status() -> Dictionary:
 		return {"requested": requested}
@@ -117,6 +119,15 @@ class FakePony extends Node3D:
 	func request_posture(name: String) -> void:
 		requested = name
 		requests += 1
+
+	func is_held() -> bool:
+		return false
+
+	func grounded() -> bool:
+		return true
+
+	func action_interruption_reason() -> String:
+		return ""
 
 
 class Fixture extends RefCounted:
@@ -153,6 +164,7 @@ func run() -> void:
 	_check_upright()
 	_check_idle()
 	_check_clear_busy()
+	_check_context()
 	_check_sex_ready()
 	_check_sex_ready_kept()
 	_check_sex_ready_floors()
@@ -297,6 +309,47 @@ func _check_clear_busy() -> void:
 	var clean := _pony("Clean")
 	check(DEBUG_PONY.clear_busy(clean) == "none", "a clean pony reports none")
 	clean.free()
+
+
+func _check_context() -> void:
+	var fixture := _fixture("Pony")
+	fixture.pony.set("identity", {"display_name": "Applejack"})
+	var nav := FakeNavigator.new()
+	nav.name = "Navigator"
+	nav.command_owner = "life:graze"
+	nav.reserved_by = "rest_spot"
+	nav._has_target = true
+	fixture.pony.add_child(nav)
+	fixture.pony.requested = "stand"
+	fixture.pony.motion_paused = true
+	fixture.pony.actual_speed = 1.5
+	fixture.pony.set_meta("seated", true)
+	fixture.impressions.moods["applejack"] = "happy"
+	var act := {
+		"state": 2, "presenting": true, "cuddle": false, "max_pony_climaxes": 2,
+		"satisfaction": 12.5, "pony_climaxes": 1, "last_intensity": "firm",
+		"last_pattern": "steady", "cue": "warm", "thrust_up": true,
+		"penetration_m": 0.12, "penetration_reach": 0.2, "preferences": "touch=caress",
+		"voice_status_line": "voice ok",
+	}
+	var context := DEBUG_PONY.context(fixture.pony, "applejack", act)
+	check(str(context.get("id", "")) == "applejack", "the context carries the pony id")
+	check(str(context.get("display", "")) == "Applejack",
+		"the display name comes from the identity")
+	check(str(context.get("mood", "")) == "happy", "the mood comes from the impressions profile")
+	check(str(context.get("posture", "")) == "stand", "the posture is her requested posture")
+	check(float(context.get("speed", 0.0)) == 1.5, "the speed is the live value")
+	check(bool(context.get("seated", false)), "the seated meta is reported")
+	check(bool(context.get("target", false)) and str(context.get("owner", "")) == "life:graze",
+		"the navigator row is reported")
+	check(int(context.get("state", 0)) == 2 and int(context.get("pony_climaxes", 0)) == 1,
+		"the act values pass through")
+	check(not bool(context.get("paused", true)), "the tree is not paused")
+	check(bool(context.get("presenting", false)) and str(context.get("cue", "")) == "warm",
+		"the act-session values are kept")
+	check(str(context.get("stage", "")) == "",
+		"no live eligibility service reads empty relations")
+	fixture.clear()
 
 
 func _check_sex_ready() -> void:

@@ -25,7 +25,6 @@ const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 ## Capability targets. A consumer asks about its own target; it never inspects age, sex or the
 ## provider assertion. See `docs/eligibility.md` (`## Capability targets`).
@@ -430,11 +429,39 @@ func _read_player(out: Dictionary) -> void:
 	out["player_pony"] = PLAYER_FORM.is_pony(form)
 
 
+## The debug override wins even when the feature is off, so the lab can test heat and diestrus
+## without waiting in-game days. A pony that has only just spawned has no relationship runtime yet,
+## and the anatomy bridge asks for the phase during its own bind, so that reads as normal.
+static func cycle_phase_for(pony: Node, id: String) -> String:
+	var override := CYCLE.override_for(id)
+	if not override.is_empty():
+		return override
+	if not SETTINGS.estrus_cycle.get_bool() or id.is_empty() or not is_instance_valid(pony):
+		return CYCLE.NORMAL
+	if not pony.has_meta("relationship_runtime"):
+		return CYCLE.NORMAL
+	var relationship: Variant = pony.get_meta("relationship_runtime")
+	if relationship == null or not is_instance_valid(relationship):
+		return CYCLE.NORMAL
+	var bonds: Variant = relationship.get("bonds")
+	if bonds == null or not is_instance_valid(bonds) or not bonds.has_method("day"):
+		return CYCLE.NORMAL
+	return CYCLE.phase(float(bonds.call("day")), id)
+
+
+## Private heat/diestrus note for the normal dialogue prompt, outside and during acts. Empty when
+## the act gate would not open.
+func cycle_note(pony: Node) -> String:
+	if not is_instance_valid(pony):
+		return ""
+	var verdict := get_verdict(pony, Mode.START)
+	if verdict == null or not verdict.base:
+		return ""
+	return CYCLE.prompt_note(cycle_phase_for(pony, _pony_id(pony)))
+
+
 func _read_cycle(pony: Node, out: Dictionary) -> void:
-	var phase := CYCLE.NORMAL
-	var runtime: Node = PONIES.runtime_for(pony)
-	if runtime != null and is_instance_valid(runtime) and runtime.has_method("cycle_phase"):
-		phase = str(runtime.call("cycle_phase"))
+	var phase := cycle_phase_for(pony, str(out.get("id", "")))
 	out["cycle_phase"] = phase
 	out["cycle_allows"] = CYCLE.allows_sex(phase)
 	out["heat"] = phase == CYCLE.HEAT

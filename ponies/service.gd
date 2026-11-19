@@ -389,3 +389,22 @@ static func runtime_count() -> int:
 ## The live mares, for the idle perf block's header.
 static func mare_count() -> int:
 	return WORLD.mares().size()
+
+
+## The stable act identity of one presented body: the relationship id when it is ready, the
+## pony-identity fallback otherwise. The act reads id and display name through this one record.
+class Identity extends RefCounted:
+	var id := ""
+	var body: Node = null
+
+
+## Read one body's stable act identity. The relationship meta is preferred whenever it appears;
+## a mod may assign it after the pony enters the tree.
+static func identity_of(body: Node) -> Identity:
+	var out := Identity.new()
+	out.body = body
+	if not is_instance_valid(body):
+		return out
+	var meta_id := str(body.get_meta("relationship_id", "")) if body.has_meta("relationship_id") else ""
+	out.id = meta_id if not meta_id.is_empty() else PONY_ID.from("", body.get("identity"))
+	return out

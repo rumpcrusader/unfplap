@@ -155,9 +155,9 @@ func run() -> void:
 	runtime.pony = Node3D.new()
 	runtime._act.bed = Node3D.new()
 	root.add_child(runtime)
-	runtime._start_audio()
+	runtime._audio.start(runtime.pony, "", runtime._act.bed)
 	check(runtime.has_node("UnfplapActAudio"), "the act starts the pack audio node")
-	runtime._stop_audio()
+	runtime._audio.stop()
 	root.remove_child(runtime)
 	runtime.free()
 

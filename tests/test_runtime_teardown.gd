@@ -105,6 +105,9 @@ class FakeMemory extends RefCounted:
 	func line_state(_key: Variant = null) -> int:
 		return 0
 
+	func observers(_partner: Variant = null) -> Array:
+		return []
+
 
 class FakeMain extends Node:
 	var player: Variant = null
@@ -221,6 +224,7 @@ func _fixture() -> Dictionary:
 	HUD.instance = hud
 	runtime.pony = pony
 	runtime._id = "test_mare"
+	runtime._act.pony_id = "test_mare"
 	runtime._hold.face_turn_rate_saved = 0.45
 	runtime._hold.face_turn_rate_owned = true
 	pony.face_turn_rate = 0.0
@@ -268,7 +272,7 @@ func run() -> void:
 	check(not runtime.agreement_offer_ready(null),
 		"a missing Agreement is never ready")
 	pony.set_meta("sex_aftercare", true)
-	runtime._clear_aftercare()
+	runtime._start._clear_aftercare()
 	check(not pony.has_meta("sex_aftercare"), "the Agreement start clears aftercare")
 
 	runtime._end_session(false)
@@ -383,7 +387,8 @@ func run() -> void:
 	player6.rotation.y = 0.1
 	var pony_start: Transform3D = pony6.global_transform
 	var player_start: Transform3D = player6.global_transform
-	var standing6: Transform3D = runtime6.call("_begin_standing_placement")
+	runtime6._act_context.placement.bind_act(runtime6._act.placement_values())
+	var standing6: Transform3D = runtime6._act_context.placement.begin_act()
 	check(pony6.global_transform.is_equal_approx(pony_start),
 		"standing start keeps her in place")
 	check(standing6.origin.is_equal_approx(pony6.global_position),
@@ -404,7 +409,7 @@ func run() -> void:
 	var placed_yaw6 := player6.rotation.y
 	runtime6._act_camera.look_captured = true
 	runtime6._act_camera.look_restore_yaw = false
-	runtime6.call("_restore_look")
+	runtime6._act_camera.restore_look(runtime6._act.start_family())
 	check(player6.global_position.is_equal_approx(placed6.origin),
 		"standing end leaves Anon in place")
 	check(is_equal_approx(player6.rotation.y, placed_yaw6),
@@ -433,7 +438,8 @@ func run() -> void:
 	anatomy6b.part = part6b
 	anatomy6b.controller_node = controller6b
 	PONIES.anatomy = anatomy6b
-	runtime6b.call("_begin_standing_placement")
+	runtime6b._act_context.placement.bind_act(runtime6b._act.placement_values())
+	runtime6b._act_context.placement.begin_act()
 	var fit_target6b: Vector3 = controller6b.opening + controller6b.rear * anatomy6b.shaft_m
 	var fit_want6b: Vector3 = fit_target6b - part6b.root_natural()
 	fit_want6b.y = 0.0
@@ -602,7 +608,8 @@ func run() -> void:
 	player9.global_position = Vector3(5.0, 0.2, 6.0)
 	player9.rotation.y = 1.1
 	var player_start9: Transform3D = player9.global_transform
-	var headset9: Transform3D = runtime9.call("_begin_standing_placement")
+	runtime9._act_context.placement.bind_act(runtime9._act.placement_values())
+	var headset9: Transform3D = runtime9._act_context.placement.begin_act()
 	var gap9: float = float(runtime9.call("_standing_gap"))
 	var forward9: Vector3 = -cam9.global_basis.z
 	forward9.y = 0.0

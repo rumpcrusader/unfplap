@@ -204,6 +204,7 @@ func fixture(kind: String) -> Dictionary:
 	root.add_child(impressions)
 	runtime.pony = pony
 	runtime._id = "rarity"
+	runtime._act.pony_id = "rarity"
 	runtime._act.display_name = "Rarity"
 	runtime._act.event_id = "intimacy_stop_test"
 	runtime._act.preferences = {"tolerance": kind, "intensity": "soft", "pattern": "steady",
@@ -211,7 +212,7 @@ func fixture(kind: String) -> Dictionary:
 	runtime._summary_service.summary_done = false
 	runtime._set_state(2) # ACTIVE
 	runtime._act.pose_id = "standing"
-	runtime._snapshot_settings()
+	runtime._act.snapshot_settings()
 	runtime.pony_climaxes = 1
 	runtime._act._act_seconds = 90.0
 	runtime._readiness.act_thrusts = 10

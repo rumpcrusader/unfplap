@@ -63,13 +63,14 @@ func _runtime(pose: String) -> Node:
 	runtime._act.pose_id = pose
 	runtime._set_state(4) # AFTERGLOW
 	runtime._act.preferences = PREF.resolve({})
-	runtime._snapshot_settings()
+	runtime._act.snapshot_settings()
 	return runtime
 
 
 func run() -> void:
 	var note_runtime: Node = _runtime("standing")
 	note_runtime._id = "fluttershy"
+	note_runtime._act.pony_id = "fluttershy"
 	var idle_note: String = str(note_runtime.prompt_note())
 	check(idle_note.contains("afterglow") and idle_note.contains("still close"),
 		"afterglow prompt note carries the live state")

@@ -1,52 +1,25 @@
 extends RefCounted
-## The node operations the act's own modules use. One per pony, built and bound once by the
-## runtime node; a module never reaches back into that node. Node ops, the scene handles and the
-## two sinks live here and nowhere else.
-##
-## `Ledger` is the migration seam the start and exit ledgers call: the steps the runtime node
-## still owns (the settings snapshot, the face transitions, the camera open, the audio start, the
-## tail tuck, the rest context and the placement fit). They are named callbacks, never a
-## dictionary, and a missing one is a no-op. R3/R4 move them to their owners.
+## The node operations the act modules need from the runtime node. One per pony, built and bound
+## by the runtime. The host owns the scene node, the presented pony and the two sinks; a module
+## that needs the node reads a typed method here instead of reaching into the runtime.
 ##
 ## See `docs/runtime.md`.
 
-var node: Node = null
-## The presented body, refreshed by the runtime's `pony` setter.
-var pony: Node = null
-## Named sinks the runtime binds once; a missing sink is a no-op.
+const TAIL_TUCK: GDScript = preload("res://mods/unfplap/poses/tail_tuck.gd")
+
+var node: Node
+## The presented body. The runtime's pony setter keeps it in step.
+var pony: Node
+## Named sinks the runtime binds; a missing sink is a no-op.
 var log_sink: Callable = Callable()
 var perf_sink: Callable = Callable()
-## The runtime-bound ledger steps.
-var ledger: Ledger = Ledger.new()
+## The tail-tuck node the exit starts and the runtime clears. It needs the runtime node to host
+## the pose-scope node, so it stays a typed host op rather than a service call.
+var _tail_tuck: Node = null
 
 
-## The runtime-bound steps the start and exit ledgers call until their owners take them.
-class Ledger extends RefCounted:
-	var snapshot_settings := Callable()
-	var bind_face := Callable()
-	var clear_face := Callable()
-	var set_face := Callable()
-	var end_act_face := Callable()
-	var act_face_beat := Callable()
-	var begin_camera_mode := Callable()
-	var restore_look := Callable()
-	var restore_camera := Callable()
-	var start_audio := Callable()
-	var apply_voice_policy := Callable()
-	var stop_audio := Callable()
-	var restore_voice_volume := Callable()
-	var reset_excitement_hold := Callable()
-	var sync_hud_facts := Callable()
-	var start_tail_tuck := Callable()
-	var end_tail_tuck := Callable()
-	var end_act_lines := Callable()
-	var rest_context := Callable()
-	var reset_thrust := Callable()
-	var begin_standing_placement := Callable()
-
-
-func bind(host_node: Node) -> void:
-	node = host_node
+func bind(node_in: Node) -> void:
+	node = node_in
 
 
 func tree() -> SceneTree:
@@ -62,7 +35,7 @@ func physics_delta() -> float:
 
 
 func add_child(child: Node) -> void:
-	if is_instance_valid(node) and child != null:
+	if is_instance_valid(node) and is_instance_valid(child):
 		node.add_child(child)
 
 
@@ -78,3 +51,23 @@ func log(text: String) -> void:
 func perf_note(key: String, usec: int) -> void:
 	if perf_sink.is_valid():
 		perf_sink.call(key, usec)
+
+
+## Start the aftercare tail tuck on the host's node. The pose-scope node needs the runtime as its
+## parent, so the host owns the create/free pair.
+func start_tail_tuck() -> void:
+	end_tail_tuck()
+	if not is_instance_valid(node) or not is_instance_valid(pony):
+		return
+	var tuck: Node = TAIL_TUCK.new()
+	tuck.name = "UnfplapTailTuck"
+	tuck.set("pony", pony)
+	tuck.set("runtime", node)
+	add_child(tuck)
+	_tail_tuck = tuck
+
+
+func end_tail_tuck() -> void:
+	if is_instance_valid(_tail_tuck):
+		_tail_tuck.queue_free()
+	_tail_tuck = null

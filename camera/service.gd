@@ -44,6 +44,9 @@ var hands: Variant = null
 var kiss: Variant = null
 var standing_camera: Variant = null
 var missionary_camera: Variant = null
+## The standing act's Anon body controller: the shot installs it, the shot removes it, and the
+## standing eye override drives its phase.
+var standing_anon: Variant = null
 
 ## Act-session ownership. Each flag marks external state this act took and must give back.
 var camera_owned := false
@@ -230,6 +233,55 @@ func begin_session(family: String) -> void:
 	free_camera_active = false
 	camera_basis_ready = false
 	reset_shot()
+
+
+## Begin the act's opening shot in the order it is built. Returns true when the standing VR act
+## must start: the act starts it on the anatomy bridge, because the camera never reaches that system.
+func begin_act_shot(family: String, player_pony: bool, headset: bool) -> bool:
+	open_shot()
+	if standing_anon != null:
+		standing_anon.reset_phase()
+	if missionary_camera != null:
+		missionary_camera.reset_look()
+	if headset and not player_pony and family == "standing":
+		return true
+	if player_pony or headset:
+		return false
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+		return false
+	begin_free()
+	if family == "standing" and is_instance_valid(camera):
+		standing_camera.prepare()
+		standing_anon.install()
+	apply_free_camera_lock()
+	return false
+
+
+## Give the act shot back, first half: the leaves that do not need the act view refreshed.
+func release_act_shot() -> void:
+	if not camera_owned:
+		return
+	camera_owned = false
+	end_lean_action()
+	if hands != null:
+		hands.reset()
+	release_free_camera_lock()
+	if standing_anon != null:
+		standing_anon.remove()
+	restore_eye_override()
+	if missionary_camera != null:
+		missionary_camera.release()
+
+
+## Give the act shot back, second half: after the act view has been refreshed for the idle frame.
+func finish_act_shot() -> void:
+	if standing_camera != null:
+		standing_camera.restore()
+	close_shot()
+	if standing_anon != null:
+		standing_anon.reset_phase()
+
+
 
 
 ## Open the shot before the first camera frame. AnonPony and headset/VR keep the stock camera and
@@ -923,7 +975,9 @@ func settings_node() -> Node:
 	var node: Node = null
 	if facts != null and is_instance_valid(facts.pony):
 		node = facts.pony
-	return node.get_node_or_null("/root/Settings") if node != null else null
+	if node == null or not node.is_inside_tree():
+		return null
+	return node.get_node_or_null("/root/Settings")
 
 
 func feature(name: String) -> bool:

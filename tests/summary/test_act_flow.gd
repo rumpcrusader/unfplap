@@ -73,7 +73,7 @@ func check(ok: bool, text: String) -> void:
 
 func _hud_view(runtime: Node) -> RefCounted:
 	runtime.call("refresh_view")
-	runtime.call("_sync_hud_facts")
+	runtime._act.sync_hud()
 	return runtime.call("act_view")
 
 
@@ -84,7 +84,7 @@ func run() -> void:
 	runtime._act.preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
 	runtime._set_state(4) # AFTERGLOW
 	runtime._act.pose_id = CATALOG.MISSIONARY
-	runtime._snapshot_settings()
+	runtime._act.snapshot_settings()
 	runtime.pony_climaxes = 2
 	runtime._summary_service.summary = {
 		"hud": "Great · she felt adored",
@@ -128,10 +128,10 @@ func run() -> void:
 	probe._readiness.act_pattern_right = 1
 	probe._readiness.act_liked_touch = 0
 	probe._readiness.act_liked_talk = 0
-	probe._act_ended_early = false
+	probe._act.ended_early = false
 	probe.pony_climaxes = 1
 	probe._act._act_seconds = 90.0
-	var inputs: Dictionary = probe.call("_summary_inputs")
+	var inputs: Dictionary = probe._summary_service.summary_inputs(probe._act.summary_values())
 	check(int(inputs.get("thrusts", 0)) == 5, "snapshot carries real thrusts")
 	check(int((inputs.get("touch_dislikes", {}) as Dictionary).get("smack", 0)) == 2,
 		"snapshot carries disliked touch kinds")
@@ -254,6 +254,7 @@ func _check_commit() -> void:
 	root.add_child(main)
 	var runtime: Node = RUNTIME.new()
 	runtime._id = "rarity"
+	runtime._act.pony_id = "rarity"
 	runtime._act.display_name = "Rarity"
 	runtime._act.event_id = "intimacy_test"
 	runtime._act.preferences = {"intensity": "firm", "pattern": "steady", "talk": [],
@@ -269,8 +270,8 @@ func _check_commit() -> void:
 	runtime._readiness.act_liked_talk = 0
 	runtime._readiness.act_liked_touch = 0
 	runtime._readiness.act_touch_dislikes = {}
-	runtime._act_ended_early = false
-	runtime.call("_commit_summary", true)
+	runtime._act.ended_early = false
+	runtime._act.commit_summary(true)
 	check(not (runtime._summary_service.summary as Dictionary).is_empty(), "the runtime commits one summary")
 	check(str((runtime._summary_service.summary as Dictionary).get("grade", "")) == "good",
 		"a clean act summary is good")
@@ -285,7 +286,7 @@ func _check_commit() -> void:
 		check(int((impressions.calls[0]["data"] as Dictionary).get("romance", 0)) == 2,
 			"a good summary gives romance +2")
 	check(context.events.size() == 1, "the summary relationship event is written once")
-	runtime.call("_commit_summary", true)
+	runtime._act.commit_summary(true)
 	check(int((rows.get("rarity", {}) as Dictionary).get("acts", 0)) == 1,
 		"a second commit is a no-op")
 	check(impressions.calls.size() == 1, "a second commit writes no second impression")
@@ -298,7 +299,7 @@ func _check_commit() -> void:
 	runtime._readiness.act_talk_dislikes = 0
 	runtime._act.preferences = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
-	runtime.call("_commit_summary", false)
+	runtime._act.commit_summary(false)
 	var stopped_summary: Dictionary = runtime._summary_service.summary
 	check(str(stopped_summary.get("grade", "")) == "bad", "a partner stop is a bad summary")
 	check(bool(stopped_summary.get("severe", false)), "a partner stop is severe")

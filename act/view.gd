@@ -117,27 +117,36 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 ## calling back into the runtime.
 func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 		cycle_heat: bool, pose_family: String) -> void:
+	var features: Dictionary = session.features if session.features is Dictionary else {}
+	var summary: Dictionary = {}
+	if context.summary != null and context.summary.summary is Dictionary:
+		summary = context.summary.summary
+	var afterglow: Variant = context.afterglow
+	var anatomy: Variant = context.anatomy
+	var readiness: Variant = context.readiness
 	facts.max_pony_climaxes = max_climaxes
 	facts.close_hint = close_hint(session, pose_family)
-	facts.summary_hud = str(context.summary.summary.get("hud", ""))
+	facts.summary_hud = str(summary.get("hud", ""))
 	facts.cycle_heat = cycle_heat
-	facts.close_earned = context.afterglow.close_caress_earned
-	facts.hud_readouts = bool(session.features.get("hud_readouts", false))
-	facts.hud_controls = bool(session.features.get("act_controls", false))
-	facts.hole_ready = context.anatomy.hole_ready()
-	facts.oral_ready = context.anatomy.oral_ready()
-	facts.auto_on = context.readiness.auto_active()
+	facts.close_earned = bool(afterglow.close_caress_earned) if afterglow != null else false
+	facts.hud_readouts = bool(features.get("hud_readouts", false))
+	facts.hud_controls = bool(features.get("act_controls", false))
+	facts.hole_ready = bool(anatomy.hole_ready()) if anatomy != null else false
+	facts.oral_ready = bool(anatomy.oral_ready()) if anatomy != null else false
+	facts.auto_on = bool(readiness.auto_active()) if readiness != null else false
 	if facts.auto_on:
-		facts.auto_min_depth = context.readiness.auto_min_depth()
-		facts.auto_max_depth = context.readiness.auto_max_depth()
-		facts.auto_pace = context.readiness.auto_pace()
-		facts.auto_shape = context.readiness.auto_shape()
-	facts.auto_layer_open = context.readiness.auto_panel_open()
+		facts.auto_min_depth = readiness.auto_min_depth()
+		facts.auto_max_depth = readiness.auto_max_depth()
+		facts.auto_pace = readiness.auto_pace()
+		facts.auto_shape = readiness.auto_shape()
+	facts.auto_layer_open = bool(readiness.auto_panel_open()) if readiness != null else false
 
 
 ## The standing close prompt, or "" outside the standing afterglow. The runtime passes its live pose
 ## family so the start-spec fallback stays the one source.
 func close_hint(session: ACT_SESSION, pose_family: String) -> String:
 	if session.state != State.AFTERGLOW or pose_family != "standing":
+		return ""
+	if context.afterglow == null:
 		return ""
 	return context.afterglow.hint()

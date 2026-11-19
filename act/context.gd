@@ -32,7 +32,7 @@ var pose: POSE_SESSION = null
 var camera: ACT_CAMERA = null
 var readiness: READINESS = null
 ## The lazy per-act audio node; the view and idle schedule do not read it.
-var audio: Node = null
+var audio: Variant = null
 var afterglow: AFTERGLOW = null
 var face: FACE = null
 var reactions: REACTIONS = null
@@ -48,6 +48,8 @@ var hold: SCENE_HOLD = null
 var stool: RefCounted = null
 ## The act's consent response: the tolerance warning, its line and the stop presentation.
 var consent: RefCounted = null
+## The act's stroke presentation and its one post-move path.
+var impact: RefCounted = null
 ## The standing placement handle. The start adapter and the body swap fill its typed values.
 var placement: RefCounted = null
 var facts: ACT_FACTS = null

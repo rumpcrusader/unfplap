@@ -431,6 +431,7 @@ func _fixture() -> Dictionary:
 	runtime.pony = old_pony
 	old_pony.add_child(runtime)
 	runtime._id = "test_mare"
+	runtime._act.pony_id = "test_mare"
 	runtime._act.display_name = "Test Mare"
 	runtime._act.pose_id = CATALOG.STANDING
 	runtime._act.source = "test"
@@ -438,7 +439,7 @@ func _fixture() -> Dictionary:
 	runtime.depth = 0.42
 	runtime.penetration_m = 0.11
 	runtime.pony_climaxes = 1
-	runtime._max_pony_climaxes = 3
+	runtime._act.max_pony_climaxes = 3
 	runtime._act.event_id = "intimacy_test_mare_1"
 	runtime._act.serial = 1
 	runtime._act.preferences = SETTINGS.preferences("test_mare")
@@ -644,7 +645,8 @@ func _check_vocal_cache() -> void:
 	var f := _fixture()
 	var runtime: Node = f["runtime"]
 	runtime._id = "test_mare"
-	var audio: Node = runtime._audio_service()
+	runtime._act.pony_id = "test_mare"
+	var audio: Node = runtime._audio.service()
 	audio.bind(null, "test_mare", null)
 	var vocal := FakeVocal.new()
 	root.add_child(vocal)
@@ -957,7 +959,7 @@ func _check_form_reveal() -> void:
 	if not memory.peaks.is_empty():
 		check(is_equal_approx(float(memory.peaks[0].score), policy.peak),
 			"the reveal peak uses the policy's score")
-	var values: Dictionary = runtime._summary_values()
+	var values: Dictionary = runtime._act.summary_values()
 	check(bool(values.get("form_reveal", false)), "the summary sees the reveal")
 	# Once per act: a second ask while disguised again does nothing.
 	source.shape = "rarity"
@@ -992,7 +994,7 @@ func _check_shape_offer() -> void:
 		"the offer context is the active stage")
 	check(int(policy.last_offer.get("pony_climaxes", -1)) == 1,
 		"the offer context carries the climax count")
-	check(int(policy.last_offer.get("max_climaxes", -1)) == runtime._max_pony_climaxes,
+	check(int(policy.last_offer.get("max_climaxes", -1)) == runtime._act.max_pony_climaxes,
 		"the offer context carries the act's climax cap")
 	check(int(policy.last_offer.get("origin", -1)) == int(BODY_CHANGE.Origin.PROVIDER),
 		"the offer context is the provider's origin")

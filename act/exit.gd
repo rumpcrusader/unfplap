@@ -59,12 +59,14 @@ func run(rejoin_cuddle: bool) -> void:
 	context.hold.restore_face_turn()
 	context.camera.restore_eye_override()
 	if is_instance_valid(host.pony):
-		host.ledger.clear_face.call()
-		host.ledger.end_act_face.call()
+		session.clear_face()
+		session.end_act_face()
 		context.wings.release()
 	context.hold.unlock_player()
 	if context.camera.camera_owned:
-		host.ledger.restore_camera.call()
+		context.camera.release_act_shot()
+		session.refresh_view()
+		context.camera.finish_act_shot()
 	if context.stool != null:
 		context.stool.call("release")
 	if is_instance_valid(host.pony):
@@ -75,12 +77,12 @@ func run(rejoin_cuddle: bool) -> void:
 		anatomy_service.call("player_encounter", false)
 	context.hold.release_nav()
 	if context.camera.look_captured:
-		host.ledger.restore_look.call()
+		context.camera.restore_look(session.start_family())
 	if session.posture_owned:
 		restore_posture(_start_frame(), rejoin_cuddle)
 	free_pose()
 	start.restore_bones()
-	host.ledger.stop_audio.call()
+	context.audio.stop()
 	if is_instance_valid(WORLD.game):
 		if is_instance_valid(HUD.instance):
 			HUD.instance.hide_all()
@@ -110,7 +112,7 @@ func finalize(real_act: bool) -> void:
 ## The one partial-start funnel: end the act's lines, run the one exit and finalize it as a
 ## failed start. A caller that returns false must come through here.
 func abort() -> void:
-	host.ledger.end_act_lines.call(true)
+	context.dialogue.end_act(session.event_id, true)
 	run(false)
 	finalize(false)
 
@@ -127,11 +129,11 @@ func free_pose() -> void:
 	context.hands.reset()
 	context.kiss.reset()
 	context.integrations.reset()
-	host.ledger.reset_excitement_hold.call()
+	context.audio.reset_excitement_hold()
 	context.camera.release_free_camera_lock()
 	context.standing_anon.remove()
 	context.pose.leave_pose_body()
-	host.ledger.restore_voice_volume.call()
+	context.audio.restore_voice_policy()
 	context.reactions.end_act()
 	context.pose.release_pose()
 
@@ -142,16 +144,16 @@ func free_pose() -> void:
 func reset_after_act() -> void:
 	if not is_instance_valid(host.node) or not host.node.is_inside_tree():
 		return
-	host.ledger.reset_thrust.call()
+	session.reset_thrust_state()
 	context.afterglow.decay_satisfaction(context.readiness.satisfaction)
 	var plan: AFTERGLOW.PostAct = context.afterglow.post_act(session.stopped_by_her,
 		context.readiness.satisfaction, session.aftercare_min,
 		not context.summary.summary.is_empty(),
 		bool(context.summary.summary.get("positive", false)))
 	if plan.tail_tuck:
-		host.ledger.start_tail_tuck.call()
+		host.start_tail_tuck()
 	elif is_instance_valid(host.pony) and context.afterglow.start_aftercare(host.pony, plan):
-		host.ledger.bind_face.call()
+		session.bind_face()
 		context.face.start_post_act(plan.face_context(context.summary.summary))
 
 
@@ -177,7 +179,5 @@ func _start_frame() -> String:
 ## The live act values the rejoin decides on, read fresh so an async path sees a new act or an
 ## ended session instead of the values from the call that started it.
 func _rejoin_wanted() -> bool:
-	if not host.ledger.rest_context.is_valid():
-		return false
 	context.rest.bind(host.pony, session.bed)
-	return context.rest.rejoin_wanted(host.ledger.rest_context.call())
+	return context.rest.rejoin_wanted(session.rest_context())

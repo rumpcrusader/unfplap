@@ -14,6 +14,12 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+
+const READINESS_MAX := 100.0
 
 const State := ACT_STATE.State
 
@@ -35,6 +41,18 @@ var host: ACT_NODE = null
 var context: ACT_CONTEXT = null
 ## The ordered start ledger. Set once by the runtime; `begin()` is its one entry.
 var start: Variant = null
+## The act view composition. Bound once with the start ledger; the live settings pass refreshes it.
+var view: Variant = null
+
+## The act's settings snapshot. This module is its only writer; the act tunables are read through
+## `snapshot.<name>`, never copied into a second field. A zeroed snapshot stands in until the first
+## act, so an idle read sees the same zero values the old fields defaulted to.
+var snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
+## The snapshot's climax limit and mode, read by the climax and face rules.
+var max_pony_climaxes := 0
+var climax_mode := ""
+## The camera mode, cached with the rest because the render write runs every rendered frame.
+var eye_camera_mode := false
 
 ## The live act state. `_set_state()` is the only writer.
 var state: int = State.IDLE
@@ -67,6 +85,12 @@ var aftercare_min := 0
 var cue_gap := 0.0
 var first_time := false
 var act_spoken_at := -1e9
+## A cancelled act: the summary and the early-stop line read it.
+var ended_early := false
+## The estrus heat signal, resolved once per tick and carried in the HUD card.
+var cycle_heat := false
+## The resume re-reads the snapshot on the live shape; that is not a settings edit.
+var preserve_auto_shape := false
 
 ## The `POSING_IN` timer: the pose settles into the act after this many seconds.
 var _pose_in_left := 0.0
@@ -97,6 +121,11 @@ func begin(pose: String, bed_in: Variant, act_source: String, skip_presentation 
 ## The one state writer. The scene gate's live values follow every transition.
 func _set_state(next: int) -> void:
 	state = next
+	refresh_gate()
+
+
+## Rebind the scene gate's body and pose session and push the act values it reads.
+func refresh_gate() -> void:
 	if context == null or context.gate == null:
 		return
 	var pony_node: Variant = host.pony if host != null else null
@@ -154,13 +183,45 @@ func pose_values(pose: String, look: Vector3, camera_at: Vector3, size_name: Str
 ## The presented body's name for the act caption and dialogue. The form's presentation name wins;
 ## the identity's display name is the fallback. The stable id stays the act's id: a borrowed shape
 ## still belongs to the same relationship, preferences and history.
-func adopt_display_name(form: BODY_FORM.BodyForm, body: Node) -> void:
+func adopt_display_name(form: BODY_FORM.BodyForm, body: Variant) -> void:
 	var presented := form.form_name.strip_edges() if form != null else ""
 	if presented.is_empty() and is_instance_valid(body):
 		var identity: Variant = body.get("identity")
 		var display: Variant = identity.get("display_name") if identity != null else null
 		presented = str(display).strip_edges() if display != null else ""
 	display_name = presented if not presented.is_empty() else pony_id
+
+
+## Re-read the stable identity from the presented body. True once an id exists; the scene gate
+## follows every read so a late `relationship_id` reaches the offer rows. The id is the key for
+## preferences, poses, prompts and memory; it is never derived twice.
+func refresh_identity() -> bool:
+	# A body freed during teardown must not reach the typed identity read; keep the last id.
+	var identity: PONIES.Identity = PONIES.Identity.new()
+	if is_instance_valid(host.pony):
+		identity = PONIES.identity_of(host.pony)
+	if not identity.id.is_empty():
+		pony_id = identity.id
+	if pony_id.is_empty():
+		refresh_gate()
+		return false
+	context.pose.id = pony_id
+	adopt_display_name(context.handover.form(), host.pony)
+	refresh_gate()
+	return true
+
+
+## The live pose family, or the start spec's family before the first view fill. The start-time
+## rules read this before the view exists.
+func pose_family() -> String:
+	var live: Variant = context.pose.view() if context.pose != null else null
+	var family := str(live.family) if live != null else ""
+	return family if not family.is_empty() else start_family()
+
+
+func refresh_view() -> void:
+	if view != null:
+		view.refresh(context.facts, self)
 
 
 ## The placement handle's live act values. The start adapter and the body swap both place Anon
@@ -289,3 +350,365 @@ func enter_idle() -> void:
 	_climax_left = 0.0
 	_restore_left = 0.0
 	_climax_progress = 0.0
+
+
+## Snapshot every tunable the act reads per stroke or per frame. `apply_live_settings()` re-runs
+## it so a settings edit applies without a new act.
+func snapshot_settings() -> void:
+	# The start spec's settings group selects the pose presentation block; an internal pose
+	# (`standing_test`, `standing_oral`) has no block of its own and must never be passed here.
+	snapshot = SETTINGS.act_snapshot(start_group())
+	features = snapshot.features
+	context.readiness.configure_thrust(snapshot.thrust_pixels_per_cm, snapshot.thrust_up,
+		snapshot.thrust_travel, snapshot.pelvis_gap_m)
+	max_pony_climaxes = snapshot.max_pony_climaxes
+	context.readiness.configure_auto(snapshot.auto_pace, snapshot.auto_max_depth,
+		snapshot.auto_curve, snapshot.auto_min_depth, preserve_auto_shape)
+	context.reactions.configure({
+		"jiggle": snapshot.jiggle,
+		"pose_family": start_family(),
+		"size_scale": context.camera.jiggle_size_scale(),
+		"climax_seconds": CLIMAX_SECONDS,
+	})
+	context.camera.configure(snapshot.camera_thrust)
+	context.readiness.configure(preferences, snapshot.cue_override_seconds,
+		snapshot.cue_overwhelmed_s, snapshot.touch_cooldown_s, snapshot.talk_cooldown_s,
+		snapshot.receptive_seconds)
+	presentation_config = snapshot.presentation
+	climax_mode = snapshot.climax_mode
+	eye_camera_mode = str(SETTINGS.camera_mode.get_value()) == "eye"
+	caress_quality = snapshot.caress_quality
+	_configure_utterance_scheduler()
+	refresh_gate()
+
+
+## Re-read the settings tab's live-editable values during an act. Feature installs/removals are
+## idempotent so repeated edits do not stack modifiers. Returns the perf flag the runtime caches.
+func apply_live_settings() -> bool:
+	# Snapshot before the IDLE early return too, so the act tunables apply as soon as they are
+	# edited rather than only at the next act start.
+	var perf := LOG.debug_logs and LOG.debug_perf
+	# Read the pre-edit mute before the snapshot replaces `features`: a live Ponese mute edit is
+	# only visible as a change against the value the act started with.
+	var previous_mute := feature("mute_ponese_audio")
+	snapshot_settings()
+	if context.handover != null and context.handover.suspended:
+		# The resume re-reads the snapshot and rebuilds the body-bound services; an edit during
+		# the flame must not touch a released pose or the old body.
+		return perf
+	if state == State.IDLE:
+		# The idle standing presentation has its own live values, so a settings edit reaches it
+		# before the act-only work is skipped.
+		refresh_view()
+		context.presentation.apply_live_settings()
+		# integration: the anatomy feature is live outside acts too.
+		_anatomy_refresh()
+		return perf
+	_anatomy_refresh()
+	refresh_view()
+	context.integrations.apply_live_settings()
+	context.reactions.apply_radius()
+	if pose_family() == "standing":
+		context.kiss.apply_live_settings()
+		start.sync_standing_config()
+		context.presentation.apply_live_settings()
+	elif pose_family() == "bed":
+		start.sync_missionary_config()
+	# A running edge's target snapshot follows the same edit; the start pose's config sync above
+	# stays for the compatibility readers.
+	context.pose.apply_live_settings()
+	if not pony_id.is_empty():
+		preferences = SETTINGS.preferences(pony_id)
+	_refresh_live_modifiers()
+	context.face.ensure_bound(host.pony, host.node)
+	context.face.sync_settings(feature("face_debug"))
+	if previous_mute != feature("mute_ponese_audio"):
+		_refresh_live_voice()
+	if is_instance_valid(HUD.instance):
+		sync_hud()
+		HUD.instance.update_from(context.facts)
+	return perf
+
+
+func _refresh_live_modifiers() -> void:
+	if not is_instance_valid(host.pony):
+		return
+	var skeleton_value: Variant = host.pony.get("skeleton")
+	if not skeleton_value is Skeleton3D:
+		return
+	context.pose.refresh_modifiers(features)
+	if pose_family() == "standing":
+		context.standing_anon.refresh_palm()
+	elif pose_family() == "bed":
+		context.anatomy.bind(context.anatomy_host)
+		context.anatomy.refresh_palm()
+
+
+## A live voice-policy edit: give the player its saved volume back, then apply the new policy.
+func _refresh_live_voice() -> void:
+	if host.node == null or not host.node.is_inside_tree():
+		return
+	if not is_instance_valid(context.audio):
+		return
+	context.audio.restore_voice_policy()
+	context.audio.apply_voice_policy(feature("mute_ponese_audio"), host.pony, pony_id)
+
+
+func _anatomy_refresh() -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.refresh()
+
+
+## Push the debug talk/cue pacing settings into the pure scheduler.
+func _configure_utterance_scheduler() -> void:
+	context.dialogue.configure({
+		"base_stable": snapshot.cue_base_stable_s,
+		"override_stable": snapshot.cue_override_stable_s,
+		"utterance_gap": snapshot.cue_utterance_gap_s,
+		"demand_gap": snapshot.cue_demand_gap_s,
+		"demand_repeat": snapshot.cue_demand_repeat_s,
+		"max_age": snapshot.cue_max_age_s,
+		"release_hold": snapshot.cue_release_hold_s,
+	})
+
+
+## The HUD card's live values through the view.
+func sync_hud() -> void:
+	view.sync_hud(context.facts, self, max_pony_climaxes, cycle_heat, pose_family())
+
+
+## A fresh act's stroke, auto, presentation and dialogue state. The settings snapshot is already
+## applied; this clears only the act's own counters.
+func reset_thrust_state() -> void:
+	context.readiness.reset_thrust()
+	context.readiness.reset_auto()
+	context.standing_anon.reset_phase()
+	context.standing_camera.reset_depth()
+	context.facts.standing_sway_offset = Vector3.ZERO
+	context.readiness.reset(preferences)
+	clear_phase()
+	context.afterglow.reset()
+	context.dialogue.reset(clock_s(), cue_gap)
+	_configure_utterance_scheduler()
+	act_spoken_at = -1e9
+	ended_early = false
+
+
+## The scene values the summary scores. The history facade owns the shape; the session owns the
+## act values it reads.
+func summary_values() -> Dictionary:
+	return {
+		"pony_id": pony_id,
+		"event_id": event_id,
+		"preferences": preferences,
+		"seconds": act_seconds(),
+		"thrusts": context.readiness.act_thrusts,
+		"pony_climaxes": context.readiness.pony_climaxes,
+		"talk_liked": context.readiness.act_liked_talk,
+		"talk_dislikes": context.readiness.act_talk_dislikes,
+		"touches_liked": context.readiness.act_liked_touch,
+		"touch_dislikes": context.readiness.act_touch_dislikes,
+		"player_lines": context.readiness.act_player_lines,
+		"intensity_total": context.readiness.act_intensity_total,
+		"intensity_right": context.readiness.act_intensity_right,
+		"pattern_total": context.readiness.act_pattern_total,
+		"pattern_right": context.readiness.act_pattern_right,
+		"ended_early": ended_early,
+		"stopped_by_her": stopped_by_her,
+		"form_reveal": context.handover.reveal_done,
+	}
+
+
+## Score and store the act's summary. The summary service owns the grade and the prose.
+func commit_summary(real_act: bool) -> void:
+	context.summary.commit_summary(real_act, context.summary.summary_context(summary_values()))
+
+
+## Store the strongest clean act per mare. The history system owns the eligibility and the text.
+func record_peak_memory() -> void:
+	context.summary.record_peak_memory({
+		"pony_id": pony_id,
+		"event_id": event_id,
+		"satisfaction": context.readiness.peak_satisfaction,
+		"both_matches": context.readiness.act_both_matches,
+		"dislikes": context.readiness.act_dislikes,
+		"liked_touch": context.readiness.act_liked_touch,
+		"liked_talk": context.readiness.act_liked_talk,
+		"player_talk": context.readiness.last_player_talk,
+		"her_at": context.dialogue.last_spoken_at(),
+		"her_line": context.dialogue.last_spoken_line(),
+	}, act_spoken_at)
+
+
+## The live act values the rejoin decisions need, read fresh on every check.
+func rest_context() -> Dictionary:
+	return {
+		"serial": serial,
+		"state": state,
+		"player_pony": player_pony,
+		"headset": WORLD.headset_view(),
+		"summary": context.summary.summary,
+		"satisfaction": context.readiness.satisfaction,
+		"aftercare_min": aftercare_min,
+	}
+
+
+## Bind the face owner to the presented body once; every act beat and face write goes through it.
+func bind_face() -> void:
+	_face()
+
+
+func _face() -> void:
+	context.face.ensure_bound(host.pony, host.node)
+
+
+## One warning, close or act moment. The session gathers the act values; the face owner applies
+## the beat table.
+func face_beat(moment: String) -> void:
+	_face()
+	var ctx := {
+		"first_time": first_time,
+		"tolerance": str(preferences.get("tolerance", "normal")),
+	}
+	if moment == "climax":
+		ctx["climax_mode"] = climax_mode
+		ctx["quality"] = climax_quality_inputs()
+	elif moment == "afterglow":
+		ctx["summary"] = context.summary.summary
+	context.face.act_beat(moment, ctx, feature("face_debug"))
+
+
+## The act's smile and lids with an optional hold; the face owner owns the timer.
+func set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
+	_face()
+	context.face.set_face(smile, lids, hold_seconds)
+
+
+## Clear the act's smile and lids.
+func clear_face() -> void:
+	_face()
+	context.face.clear_face()
+
+
+## The act owns the lids outside a kiss. Set at every transition, then reasserted late so a
+## climax return or fluster peek cannot leave her wide-eyed while leaning.
+func eyes_tick() -> void:
+	_face()
+	context.face.eyes_tick({
+		"state": state,
+		"close_rewarded": context.afterglow.close_rewarded,
+		"eyes_active": context.kiss.eyes_active(),
+	})
+
+
+## The act's phase name for the face table.
+func act_phase() -> String:
+	match state:
+		State.POSING_IN:
+			return "posing_in"
+		State.ACTIVE:
+			return "active"
+		State.CLIMAX:
+			return "climax"
+		State.AFTERGLOW:
+			return "afterglow"
+	return ""
+
+
+## Live presentation score for the auto climax face; it never writes the summary or history.
+func climax_quality_inputs() -> Dictionary:
+	_face()
+	return context.face.climax_quality({
+		"intensity_total": context.readiness.act_intensity_total,
+		"intensity_right": context.readiness.act_intensity_right,
+		"pattern_total": context.readiness.act_pattern_total,
+		"pattern_right": context.readiness.act_pattern_right,
+		"both_matches": context.readiness.act_both_matches,
+		"liked_touch": context.readiness.act_liked_touch,
+		"liked_talk": context.readiness.act_liked_talk,
+		"touch_dislikes": context.readiness.act_touch_dislikes,
+		"talk_dislikes": context.readiness.act_talk_dislikes,
+		"distress": context.readiness.distress(),
+		"preferences": preferences,
+		"overwhelmed": context.readiness.overwhelmed > 0.0,
+	})
+
+
+func set_act_face(face_id: String, hold_s: float) -> bool:
+	_face()
+	context.face.debug_enabled = feature("face_debug")
+	return context.face.set_act_face(face_id, hold_s)
+
+
+func end_act_face() -> void:
+	_face()
+	context.face.debug_enabled = feature("face_debug")
+	context.face.end_face()
+
+
+func sync_act_face_settings() -> void:
+	_face()
+	context.face.sync_settings(feature("face_debug"))
+
+
+## Debug preview: set one base-game face on the current act. A speaking line still wins.
+func force_act_face(face_id: String) -> bool:
+	_face()
+	context.face.debug_enabled = feature("face_debug")
+	return context.face.force_face(face_id)
+
+
+## Debug view for the "Show act face" action.
+func act_face_rows() -> Array[String]:
+	_face()
+	var base_mood := ""
+	if is_instance_valid(WORLD.game) and not pony_id.is_empty():
+		var facts: MEMORY.CueFacts = MEMORY.instance.cue_facts(pony_id, event_id)
+		base_mood = facts.mood
+	return context.face.rows({
+		"state": state,
+		"hud_mood": context.readiness.mood,
+		"base_mood": base_mood,
+		"climax_mode": climax_mode,
+		"blush_arc": feature("blush_arc"),
+	})
+
+
+func start_upset(mood_value: String) -> void:
+	_face()
+	context.face.start_upset(mood_value)
+
+
+func end_upset() -> void:
+	_face()
+	context.face.end_upset()
+
+
+## The pose frame the live family reads: the bed frame or the ground frame.
+func sync_pose_frame() -> void:
+	if pose_family() == "bed":
+		context.pose.sync_bed_frame()
+	else:
+		context.pose.sync_ground_frame()
+
+
+## The render-time pose write, with the camera's eye mode and the live body scale.
+func pose_render_write() -> void:
+	var body_scale: Variant = host.pony.get("body_scale") if is_instance_valid(host.pony) else null
+	context.pose.render_write({
+		"bed_frame": context.pose.bed_frame,
+		"body_scale": float(body_scale) if body_scale != null else 1.0,
+		"size_name": context.facts.size_name,
+		"eye_camera_active": context.camera.free_camera_active and eye_camera_mode,
+	})
+
+
+## Dispatch the act shot through the camera facade. The facts are refreshed first so the shot
+## reads this frame's lean and look.
+func apply_camera_motion() -> void:
+	if context.handover != null and context.handover.suspended:
+		return
+	refresh_view()
+	sync_hud()
+	if context.camera.motion_ready():
+		context.camera.apply_motion()

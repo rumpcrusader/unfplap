@@ -262,6 +262,7 @@ func _fixture() -> Dictionary:
 	var kiss := FakeKiss.new()
 	runtime.pony = pony
 	runtime._id = "rarity"
+	runtime._act.pony_id = "rarity"
 	runtime._act.display_name = "Rarity"
 	runtime._act.event_id = "unfplap:test"
 	runtime._set_state(STATE_ACTIVE)
@@ -274,16 +275,16 @@ func _fixture() -> Dictionary:
 		"talk": ["praise"],
 		"warmth": "normal",
 	})
-	runtime._snapshot_settings()
+	runtime._act.snapshot_settings()
 	runtime._anatomy_bridge = bridge
 	runtime._reactions = reactions
 	runtime._wings = wings
 	runtime._pose_session = pose
-	runtime._act_audio = audio
+	runtime._audio.node = audio
 	runtime._act_dialogue = dialogue
 	runtime._act_camera = act_camera
 	runtime._kiss = kiss
-	runtime._reset_thrust_state()
+	runtime._act.reset_thrust_state()
 	root.add_child(main)
 	WORLD.bind_world(main)
 	root.add_child(director)
@@ -340,7 +341,7 @@ func run() -> void:
 	pose_facts.pose_view = view
 	pose.facts = pose_facts
 	runtime._act_facts.pose_view = view
-	runtime._on_impact(_impact())
+	runtime._impact.impact(_impact())
 	check(audio.impacts.size() == 1 and bool(audio.impacts[0]["plap"]),
 		"a regular impact keeps the plap")
 	check(reactions.thrusts == 1 and reactions.tails == 1,
@@ -352,7 +353,7 @@ func run() -> void:
 
 	# The mouth contact keeps the reactions, drops the plap and skips the rump/tail jiggle.
 	view.contact_kind = "mouth"
-	runtime._on_impact(_impact())
+	runtime._impact.impact(_impact())
 	check(audio.impacts.size() == 2 and not bool(audio.impacts[1]["plap"]),
 		"an oral impact drops the plap")
 	check(reactions.thrusts == 1 and reactions.tails == 1,
@@ -404,11 +405,11 @@ func run() -> void:
 
 	# Both withdrawal slides still fire: the mouth contact keeps the slide.
 	view.contact_kind = "mouth"
-	runtime._thrust_move(-0.4, 0.1)
+	runtime._impact.move(-0.4, 0.1)
 	var oral_withdraws := audio.withdraws
 	check(oral_withdraws >= 1, "the withdrawal slide still fires during oral")
 	view.contact_kind = "opening"
-	runtime._thrust_move(0.4, 0.2)
+	runtime._impact.move(0.4, 0.2)
 	check(audio.withdraws > oral_withdraws, "the regular withdrawal slide is unchanged")
 
 	# The bed face-sit contact uses the same quiet branch: no plap, no rump/tail jiggle, no
@@ -418,7 +419,7 @@ func run() -> void:
 	var face_wings := wings.thrusts
 	var face_vocal := audio.vocals
 	view.contact_kind = "face"
-	runtime._on_impact(_impact())
+	runtime._impact.impact(_impact())
 	check(audio.impacts.size() == 3 and not bool(audio.impacts[2]["plap"]),
 		"a face-sit impact drops the plap")
 	check(reactions.thrusts == face_thrusts and reactions.tails == face_tails,
@@ -426,10 +427,10 @@ func run() -> void:
 	check(wings.thrusts == face_wings + 1 and audio.vocals == face_vocal + 1,
 		"a face-sit impact keeps the wings and the vocal")
 	var face_withdraws := audio.withdraws
-	runtime._thrust_move(-0.4, 0.3)
+	runtime._impact.move(-0.4, 0.3)
 	check(audio.withdraws == face_withdraws, "a face-sit withdraw plays no withdrawal cue")
 	view.contact_kind = "opening"
-	runtime._thrust_move(0.4, 0.4)
+	runtime._impact.move(0.4, 0.4)
 	check(audio.withdraws > face_withdraws, "the regular withdrawal cue returns after the face-sit")
 
 	root.remove_child(runtime)

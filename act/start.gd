@@ -20,6 +20,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -60,16 +61,16 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	session.finalized = false
 	# Remove the idle standing presentation and its face before the act builds its own pose.
 	context.presentation.clear_presentation()
-	host.ledger.bind_face.call()
+	context.face.ensure_bound(host.pony, host.node)
 	context.face.end_mood_face()
-	host.ledger.end_act_face.call()
+	session.end_act_face()
 	session.pose_id = pose
 	session.source = act_source
 	session.profile = SETTINGS.template_for(session.pony_id)
 	context.pose.set_pose_config(SETTINGS.pose(session.pony_id, _start_group()))
 	session.preferences = SETTINGS.preferences(session.pony_id)
 	session.act_prompts = session.profile.get("act_prompts", {})
-	host.ledger.snapshot_settings.call()
+	session.snapshot_settings()
 	context.reactions.apply_radius()
 	session.aftercare_min = int(session.profile["aftercare_min"])
 	session.cue_gap = SETTINGS.cue_gap_value(float(session.profile["cue_gap"]))
@@ -88,19 +89,19 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	session.reset_act()
 	context.reactions.begin_act()
 	context.camera.reset_lean_state()
-	host.ledger.clear_face.call()
-	host.ledger.set_face.call(0.45, context.face.ACT_LIDS)
+	session.clear_face()
+	session.set_face(0.45, context.face.ACT_LIDS)
 	session.serial = PONIES.allocate_serial()
 	session.event_id = "intimacy_%s_%d" % [session.pony_id, session.serial]
 	session.first_time = _read_first_time()
 	context.readiness.satisfaction = 0.0
 	context.readiness.mood = "warming"
 	context.readiness.cue = ""
-	host.ledger.reset_thrust.call()
+	session.reset_thrust_state()
 	session.stopped_by_her = false
 	context.consent.reset()
 	context.handover.reset_act()
-	host.ledger.end_tail_tuck.call()
+	host.end_tail_tuck()
 	context.summary.reset_act()
 	_prepare_vocal()
 	context.afterglow.stop_decay()
@@ -151,10 +152,12 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.camera.capture_look()
 	context.hold.lock_player()
 	context.hold.pause_face_turn(false)
-	host.ledger.begin_camera_mode.call()
+	if context.camera.begin_act_shot(_start_family(), session.player_pony, WORLD.headset_view()):
+		context.anatomy.bind(context.anatomy_host)
+		context.anatomy.vr_start()
 	context.missionary_camera.hide_avatar()
-	host.ledger.start_audio.call()
-	host.ledger.apply_voice_policy.call()
+	context.audio.start(host.pony, session.pony_id, session.bed)
+	context.audio.apply_voice_policy(session.feature("mute_ponese_audio"), host.pony, session.pony_id)
 	if is_instance_valid(HUD.instance):
 		HUD.instance.set_inventory_hidden(true)
 	# integration: show the player part for the encounter.
@@ -167,12 +170,12 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	# before the first rendered frame; every later change arrives through the pose fan-out.
 	context.pose.pose_changed(context.pose.view())
 	context.integrations.begin()
-	host.ledger.act_face_beat.call("start")
+	session.face_beat("start")
 	# integration: act-only visibility updates at the state change, not on the next poll.
 	context.anatomy.apply_live()
 	PONIES.set_active(host.node)
 	if is_instance_valid(HUD.instance):
-		host.ledger.sync_hud_facts.call()
+		session.sync_hud()
 		HUD.instance.show_act(context.facts)
 		HUD.instance.hide_prompt()
 	host.log("started pose=%s setup=%s source=%s pony=%s eye=%.2f" % [
@@ -279,7 +282,8 @@ func _start_bed_keep_lying() -> bool:
 ## The standing start: keep her where she stands, place Anon behind her at the act gap, take the
 ## stool items and start the facing lock.
 func _start_standing_place() -> bool:
-	var standing: Transform3D = host.ledger.begin_standing_placement.call()
+	context.placement.bind_act(session.placement_values())
+	var standing: Transform3D = context.placement.begin_act()
 	if _stool_failed():
 		return false
 	host.pony.request_posture("stand")
@@ -436,3 +440,105 @@ func _start_group() -> String:
 
 func _pony_name() -> String:
 	return str(host.pony.name) if is_instance_valid(host.pony) else "?"
+
+
+## The Agreement start's answer: a transient row or an unsettled presentation keeps waiting; a
+## technical rollback is a start failure.
+const AGREEMENT_WAIT := 0
+const AGREEMENT_STARTED := 1
+const AGREEMENT_FAILED := 2
+
+
+## The scene-only Agreement start. Negotiation froze the policy and the pose capability; only the
+## world rows run. `WAIT` keeps the Agreement live; `STARTED` and `FAILED` are reported by the offer.
+func start_agreement(handle: Variant, skip_presentation := false) -> int:
+	if handle == null or not bool(handle.call("valid")):
+		return AGREEMENT_FAILED
+	var option: Variant = handle.get("option")
+	if option == null:
+		return AGREEMENT_FAILED
+	session.refresh_identity()
+	var pose := str(option.pose)
+	var act_source := str(option.source)
+	var verdict: Variant = context.gate.scene_only_verdict(pose, act_source, option.bed,
+		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
+	if verdict == null or not bool(verdict.hard_ok):
+		host.log("agreement start blocked pose=%s source=%s pony=%s reasons=%s" % [
+			pose, act_source, _pony_name(),
+			"none" if verdict == null else ",".join(verdict.reasons)])
+		return AGREEMENT_FAILED
+	if not bool(verdict.ok):
+		host.log("agreement start waiting pose=%s source=%s transient=%s" % [
+			pose, act_source, ",".join(verdict.transient)])
+		return AGREEMENT_WAIT
+	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
+			and context.presentation.presentation_active() \
+			and not context.presentation.presentation_settled():
+		host.log("agreement start waiting pose=%s source=%s presentation" % [pose, act_source])
+		return AGREEMENT_WAIT
+	_clear_aftercare()
+	var started := run(pose, option.bed, act_source, skip_presentation)
+	host.log("agreement start %s pose=%s source=%s" % [
+		"started" if started else "failed", pose, act_source])
+	return AGREEMENT_STARTED if started else AGREEMENT_FAILED
+
+
+## True when the scene-only rows pass and, for a standing option, the presentation is settled.
+func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
+	if handle == null or not bool(handle.call("valid")):
+		return false
+	var option: Variant = handle.option
+	if option == null:
+		return false
+	session.refresh_identity()
+	var pose := str(option.pose)
+	var verdict: Variant = context.gate.scene_only_verdict(pose, str(option.source), option.bed,
+		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
+	if verdict == null or not bool(verdict.ok):
+		return false
+	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
+			and context.presentation.presentation_active() \
+			and not context.presentation.presentation_settled():
+		return false
+	return true
+
+
+## The hotkey's readiness: the scene-only rows plus Base clearance. The act key never bucks.
+func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
+	session.refresh_identity()
+	var stool_act: Variant = stool()
+	var pair := Vector2i(-1, -1)
+	if stool_act != null:
+		pair = stool_act.call("hotkey_pair", pose)
+	var started := Time.get_ticks_usec()
+	var allowed: bool = context.gate.hotkey_ready(pose, act_source, bed_in, pair)
+	host.perf_note("offer_rows", Time.get_ticks_usec() - started)
+	return allowed
+
+
+## The footstool pair this call's gate used, so the blocked standing note does not repeat the
+## reach and case reads.
+func hint_stool() -> Dictionary:
+	var stool_act: Variant = stool()
+	if stool_act == null:
+		return {"need": 0, "have": 0}
+	return stool_act.call("hint_pair")
+
+
+## The act key's immediate attempt, with no Agreement and no presentation wait.
+func start_hotkey(pose: String, bed_in: Variant, act_source: String,
+		skip_presentation := false) -> bool:
+	if not hotkey_ready(pose, act_source, bed_in):
+		host.log("hotkey blocked pose=%s source=%s pony=%s" % [pose, act_source, _pony_name()])
+		return false
+	_clear_aftercare()
+	var started := run(pose, bed_in, act_source, skip_presentation)
+	host.log("hotkey start %s pose=%s source=%s" % [
+		"started" if started else "failed", pose, act_source])
+	return started
+
+
+## Clear the visual aftercare before a new start: the face and tail state, the meta and the
+## aftercare navigator lease.
+func _clear_aftercare() -> void:
+	context.afterglow.clear_post_act(host.pony if is_instance_valid(host.pony) else null)

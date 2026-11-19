@@ -81,11 +81,11 @@ POSE_LEDGER_ORDER = (
     "context.hands.reset()",
     "context.kiss.reset()",
     "context.integrations.reset()",
-    "host.ledger.reset_excitement_hold.call()",
+    "context.audio.reset_excitement_hold()",
     "context.camera.release_free_camera_lock()",
     "context.standing_anon.remove()",
     "context.pose.leave_pose_body()",
-    "host.ledger.restore_voice_volume.call()",
+    "context.audio.restore_voice_policy()",
     "context.reactions.end_act()",
     "context.pose.release_pose()",
 )
@@ -95,7 +95,7 @@ POSE_FANOUT_ORDER = (
     "_hand_controller()",
     "_kiss_controller()",
     "_anatomy_bridge",
-    "_act_audio",
+    "_audio",
 )
 # The start ledger's recipe, in the order the act depends on: the presentation guard, the stool,
 # the camera session, the borrows, the placement, the pose build, the camera open, the audio,
@@ -111,7 +111,7 @@ START_LEDGER_ORDER = (
     "var setup := POSE_SPECS.start_setup(pose)",
     "_build_pose()",
     "context.camera.capture_look()",
-    "host.ledger.start_audio.call()",
+    "context.audio.start(",
     "session.begin_pose_in()",
     "HUD.instance.show_act(context.facts)",
 )
@@ -180,20 +180,21 @@ RUNTIME_STATE_OWNER = ROOT / "act" / "session.gd"
 # and the reason it is a snapshot boundary rather than a per-frame read. A new read is a new row,
 # added on purpose with the service that owns the value; removing a read removes its row.
 RUNTIME_SETTINGS_READS = {
-    ("<module>", "ActSnapshot"): "the typed `_snapshot` field's zeroed default",
+    ("<module>", "ActSnapshot"): "the typed `_snapshot` forward's zeroed default",
     ("_shape_name", "character_name"): "the static character-name lookup, not an act tunable",
-    ("_snapshot_settings", "act_snapshot"): "the act's one bulk snapshot",
-    ("_snapshot_settings", "camera_mode"): "the camera mode, cached for the render write",
-    ("_snapshot_settings", "debug_mode"): "the form-hint probe flag, read once per act",
-    ("apply_live_settings", "preferences"): "the pre-edit preference refresh",
     ("_handover_set_act_pose_config", "pose"): "the rebuilt pose's config",
+}
+# The act session owns the one snapshot, so its boundaries are checked the same way: the bulk
+# snapshot and the pre-edit preference refresh, never a per-frame read.
+SESSION_SETTINGS_READS = {
+    ("<module>", "ActSnapshot"): "the typed `snapshot` field's zeroed default",
+    ("snapshot_settings", "act_snapshot"): "the act's one bulk snapshot",
+    ("snapshot_settings", "camera_mode"): "the camera mode, cached for the render write",
+    ("apply_live_settings", "preferences"): "the live preference refresh",
 }
 # The only child nodes the runtime parents: both are system-owned, and the runtime is the host that
 # adds and frees them. A new node is an allow-list row, not a line in a tick.
-RUNTIME_CHILD_NODES = {
-    "_audio_service": "the one act audio node, run by audio/service.gd",
-    "_start_tail_tuck": "the pose-scope tail tuck afterglow/service.gd asks for",
-}
+RUNTIME_CHILD_NODES = {}
 RUNTIME_RAW_INPUT = (
     re.compile(r"\bInput\."),
     re.compile(r"\bInputMap\."),
@@ -1279,6 +1280,24 @@ def check_runtime_shape(failure: Failure) -> None:
     for key, reason in sorted(RUNTIME_SETTINGS_READS.items()):
         if key not in reads:
             failure.add("the runtime settings allow-list row %s -> %s is stale (%s)" % (
+                key[0], key[1], reason))
+
+    # The act session owns the one snapshot; its boundary reads are checked the same way, so a
+    # new per-frame settings read there fails too.
+    session_source = (ROOT / "act" / "session.gd").read_text(encoding="utf-8")
+    session_offsets = function_offsets(session_source)
+    session_reads: dict[tuple[str, str], int] = {}
+    for match in re.finditer(r"SETTINGS\.(\w+)", session_source):
+        key = (enclosing_function(session_offsets, match.start()), match.group(1))
+        session_reads.setdefault(key, line_of(session_source, match.start()))
+    for key, line in sorted(session_reads.items()):
+        if key not in SESSION_SETTINGS_READS:
+            failure.add(
+                "act/session.gd:%d reads SETTINGS.%s in %s(); take a snapshot value or add an "
+                "allow-list row only at an act boundary" % (line, key[1], key[0]))
+    for key, reason in sorted(SESSION_SETTINGS_READS.items()):
+        if key not in session_reads:
+            failure.add("the session settings allow-list row %s -> %s is stale (%s)" % (
                 key[0], key[1], reason))
 
     # The runtime parents only the nodes a system owns; it constructs no scene of its own.

@@ -1,7 +1,7 @@
 extends RefCounted
-## The typed collaborators and plain act values the runtime's own modules read. One per pony,
-## built once by the runtime; the runtime points the fields at the live systems and refreshes the
-## plain values at the boundaries where they change. No callables and no scene node.
+## The typed collaborators the runtime's own modules read. One per pony, built once by the runtime;
+## the runtime points the fields at the live systems. No callables and no scene node. The act's own
+## values live on `act/session.gd`, not here.
 ##
 ## See `docs/runtime.md`.
 
@@ -20,28 +20,10 @@ const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presen
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 
 
-## The plain act values the view composes until the session owns them. A read model, refreshed by
-## the runtime where the value changes.
-class Values extends RefCounted:
-	var source := ""
-	var bed: Node3D = null
-	var event_id := ""
-	var pony_id := ""
-	var display_name := "the pony"
-	var preferences: Dictionary = {}
-	var act_prompts: Dictionary = {}
-	var features: Dictionary = {}
-	var player_pony := false
-	var presentation_config: Dictionary = {}
-	var profile: Dictionary = {}
-	var caress_quality := ""
-	var forced_glance := ""
-
-
 var pose: POSE_SESSION = null
 var camera: ACT_CAMERA = null
 var readiness: READINESS = null
-## The lazy per-act audio node; the view and idle schedule do not read it in R1.
+## The lazy per-act audio node; the view and idle schedule do not read it.
 var audio: Node = null
 var afterglow: AFTERGLOW = null
 var face: FACE = null
@@ -57,4 +39,3 @@ var facts: ACT_FACTS = null
 var kiss: KISS = null
 var summary: SUMMARY = null
 var presentation: STANDING_PRESENTATION = null
-var values: Values = Values.new()

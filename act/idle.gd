@@ -41,6 +41,5 @@ func tick(delta: float, idle_perf: bool) -> void:
 ## Idle-only history scan. `dialogue/service.gd` reads the scene and owns the decisions and the
 ## line queueing.
 func history_tick(delta: float) -> void:
-	var values: ACT_CONTEXT.Values = context.values
-	context.dialogue.history_tick(delta, host.pony as Node3D, values.pony_id, values.event_id,
-		session._clock_s)
+	context.dialogue.history_tick(delta, host.pony as Node3D, session.pony_id, session.event_id,
+		session.clock_s())

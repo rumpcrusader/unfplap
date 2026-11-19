@@ -229,8 +229,8 @@ func _fixture() -> Dictionary:
 	player.set_meta("kiss_hold", true)
 	pony.set_meta("sex_active", true)
 	runtime._posture_owned = true
-	runtime.pose_id = CATALOG_STANDING
-	runtime.source = "test"
+	runtime._act.pose_id = CATALOG_STANDING
+	runtime._act.source = "test"
 	runtime._set_state(2)
 	PONIES.set_active(runtime)
 	runtime.toggle_auto_thrust()
@@ -287,7 +287,7 @@ func run() -> void:
 	check(not runtime._posture_owned, "posture ownership cleared")
 	check(not runtime.auto_active(), "teardown clears auto thrust")
 	check(int(runtime.state) == 0, "state returns to IDLE")
-	check(runtime.pose_id == "" and runtime.source == "" and runtime.bed == null,
+	check(runtime._act.pose_id == "" and runtime._act.source == "" and runtime._act.bed == null,
 		"act ids cleared")
 	check(not PONIES.act_running(), "the one exit clears the active runtime")
 
@@ -514,9 +514,9 @@ func run() -> void:
 	# An edge aborted by the one act exit: the run is dropped, the view returns to IDLE and the
 	# pose node, the extra modifiers and the service-owned act body are freed, with no second exit
 	# path.
-	runtime8.pose_id = CATALOG_STANDING
+	runtime8._act.pose_id = CATALOG_STANDING
 	runtime8._set_state(2)
-	runtime8._features = {"standing_body_sway": true}
+	runtime8._act.features = {"standing_body_sway": true}
 	runtime8.call("_build_pose")
 	var act_body8 := Node.new()
 	runtime8._pose_session.act_body = act_body8
@@ -538,9 +538,9 @@ func run() -> void:
 
 	# The oral command requests the authored edge with the per-mare consent, and the one act exit
 	# aborts it: the root and the facing come back once and the view is idle.
-	runtime8.pose_id = CATALOG_STANDING
+	runtime8._act.pose_id = CATALOG_STANDING
 	runtime8._set_state(2)
-	runtime8._features = {"anatomy_oral": true}
+	runtime8._act.features = {"anatomy_oral": true}
 	var anatomy8 := FakeAnatomyService.new()
 	PONIES.anatomy = anatomy8
 	pony8.global_position = Vector3(2.0, 0.0, 3.0)
@@ -565,9 +565,9 @@ func run() -> void:
 		"the act exit erases the oral keys")
 
 	# A missing consent or feature refuses before the edge starts and leaves her where she is.
-	runtime8.pose_id = CATALOG_STANDING
+	runtime8._act.pose_id = CATALOG_STANDING
 	runtime8._set_state(2)
-	runtime8._features = {"anatomy_oral": true}
+	runtime8._act.features = {"anatomy_oral": true}
 	runtime8.call("_build_pose")
 	anatomy8.allow = false
 	var refused_from: Vector3 = pony8.global_position
@@ -578,7 +578,7 @@ func run() -> void:
 	check(pony8.global_position.is_equal_approx(refused_from),
 		"the missing oral consent moves nothing")
 	anatomy8.allow = true
-	runtime8._features = {}
+	runtime8._act.features = {}
 	runtime8.call("toggle_anatomy_oral")
 	check(runtime8._pose_session._run == null,
 		"the oral feature gate refuses before the edge starts")
@@ -637,7 +637,7 @@ func run() -> void:
 	var pony11: FakePony = f11["pony"]
 	var main11: FakeMain = f11["main"]
 	runtime11._set_state(2)
-	runtime11.pose_id = CATALOG_STANDING
+	runtime11._act.pose_id = CATALOG_STANDING
 	var form11 := BODY_FORM.default_form(pony11)
 	runtime11.bind_body_services(pony11, form11)
 	check(int(runtime11.state) == 2, "a body bind leaves a live act live")

@@ -60,9 +60,9 @@ func _facade(pose: String) -> Dictionary:
 func _runtime(pose: String) -> Node:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
-	runtime.pose_id = pose
+	runtime._act.pose_id = pose
 	runtime._set_state(4) # AFTERGLOW
-	runtime._preferences = PREF.resolve({})
+	runtime._act.preferences = PREF.resolve({})
 	runtime._snapshot_settings()
 	return runtime
 
@@ -131,7 +131,7 @@ func run() -> void:
 	runtime_hint._afterglow.begin({})
 	check(str(runtime_hint.call("close_hint")).contains("Stay close"),
 		"the runtime forwards the close cue")
-	runtime_hint.pose_id = "missionary"
+	runtime_hint._act.pose_id = "missionary"
 	check(str(runtime_hint.call("close_hint")) == "", "the runtime hides the missionary cue")
 	runtime_hint.free()
 

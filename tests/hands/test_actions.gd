@@ -71,14 +71,14 @@ func _check_tail_tuning() -> void:
 	var tail_pony := Node3D.new()
 	tail_runtime.set("pony", tail_pony)
 	tail_runtime.set("_id", "twilight_sparkle")
-	tail_runtime.set("pose_id", CATALOG.STANDING)
+	tail_runtime._act.pose_id = CATALOG.STANDING
 	tail_runtime._pose_session._view.settings_group = CATALOG.STANDING
-	tail_runtime.set("_presentation_cfg", {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}})
+	tail_runtime._act.presentation_config = {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}}
 	tail_runtime.call("_sync_standing_pose_config")
 	var cfg: Dictionary = tail_runtime._pose_session.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(40.0)), "tail yaw tunable reaches the pose")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(10.0)), "tail pitch tunable reaches the pose")
-	tail_runtime.set("_presentation_cfg", {})
+	tail_runtime._act.presentation_config = {}
 	tail_runtime.call("_sync_standing_pose_config")
 	cfg = tail_runtime._pose_session.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(35.0)), "tail yaw default")
@@ -521,9 +521,9 @@ func run() -> void:
 
 	var live_runtime: Node = RUNTIME.new()
 	live_runtime._set_state(2) # ACTIVE
-	live_runtime.pose_id = CATALOG.STANDING
+	live_runtime._act.pose_id = CATALOG.STANDING
 	live_runtime.call("apply_live_settings")
-	check(live_runtime._features.has("hud_readouts"), "live settings refresh feature flags")
+	check(live_runtime._act.features.has("hud_readouts"), "live settings refresh feature flags")
 	check(live_runtime._act_camera.camera_surge >= 0.0 and live_runtime._act_camera.camera_surge <= 1.0,
 		"live settings refresh camera thrust")
 	live_runtime.free()

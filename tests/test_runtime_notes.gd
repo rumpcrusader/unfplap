@@ -36,7 +36,7 @@ func run() -> void:
 	pony.set_meta("relationship_id", "rarity")
 	id_runtime.call("_read_id")
 	check(str(id_runtime.get("_id")) == "rarity", "relationship metadata wins when it appears")
-	check(str(id_runtime.get("_display_name")) == "Identity", "display name is kept")
+	check(str(id_runtime._act.display_name) == "Identity", "display name is kept")
 	id_runtime.free()
 
 	var ready_pony := FakePony.new()
@@ -48,7 +48,7 @@ func run() -> void:
 	ready_pony.add_child(ready_runtime)
 	await process_frame
 	check(str(ready_runtime.get("_id")) == "ready_id", "a runtime reads its id on ready")
-	check(str(ready_runtime.get("_display_name")) == "Identity",
+	check(str(ready_runtime._act.display_name) == "Identity",
 		"a runtime keeps its display name on ready")
 	ready_runtime.free()
 	ready_pony.free()

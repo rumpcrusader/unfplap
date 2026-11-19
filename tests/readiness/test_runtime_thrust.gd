@@ -35,7 +35,7 @@ func _view(runtime: Node) -> RefCounted:
 func _runtime() -> Node:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
-	runtime._preferences = PREF.resolve({
+	runtime._act.preferences = PREF.resolve({
 		"intensity": "firm",
 		"pattern": "steady",
 		"touch": ["caress"],

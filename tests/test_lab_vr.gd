@@ -205,7 +205,7 @@ func _log_tick(delta: float) -> void:
 		_seen_state = state
 		print("[unfplap vr] state=%s thrusts=%d readiness=%d" % [
 			state_name, int(runtime._readiness.act_thrusts), int(runtime.get("satisfaction"))])
-	var wants: Variant = runtime.get("_preferences")
+	var wants: Variant = runtime._act.preferences
 	var wanted_intensity := str((wants as Dictionary).get("intensity", "")) if wants is Dictionary else ""
 	var wanted_pattern := str((wants as Dictionary).get("pattern", "")) if wants is Dictionary else ""
 	print("[unfplap vr] waist depth=%.0f%% auto=%s state=%s thrusts=%d readiness=%d wants=%s/%s you=%s/%s" % [

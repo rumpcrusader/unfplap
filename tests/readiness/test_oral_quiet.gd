@@ -262,11 +262,11 @@ func _fixture() -> Dictionary:
 	var kiss := FakeKiss.new()
 	runtime.pony = pony
 	runtime._id = "rarity"
-	runtime._display_name = "Rarity"
-	runtime._event_id = "unfplap:test"
+	runtime._act.display_name = "Rarity"
+	runtime._act.event_id = "unfplap:test"
 	runtime._set_state(STATE_ACTIVE)
-	runtime.pose_id = CATALOG.STANDING
-	runtime._preferences = PREF.resolve({
+	runtime._act.pose_id = CATALOG.STANDING
+	runtime._act.preferences = PREF.resolve({
 		"intensity": "firm",
 		"pattern": "steady",
 		"touch": ["caress"],

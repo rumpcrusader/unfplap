@@ -1,7 +1,7 @@
 extends RefCounted
-## The act's one state, timer and clock owner. One per pony, created once and reset per act. It
-## writes `state` through `_set_state()`; the runtime keeps the transition bodies and the side
-## effects and asks this owner for the timer verdict and the clock values.
+## The act's one state, timer, clock and value owner. One per pony, created once and reset per act.
+## It writes `state` through `_set_state()`; the runtime keeps the transition bodies and the side
+## effects and asks this owner for the timer verdict, the clock values and the act's own values.
 ##
 ## See `docs/runtime.md`.
 
@@ -30,6 +30,27 @@ var context: ACT_CONTEXT = null
 
 ## The live act state. `_set_state()` is the only writer.
 var state: int = State.IDLE
+
+## The act's own values, written at the start boundary and read by the view, the idle schedule,
+## the scene gate and the ledgers. `pony_id` is the stable id; `display_name` is the presented
+## form's name.
+var pose_id := ""
+var source := ""
+var bed: Node3D = null
+var event_id := ""
+## The act's serial from `ponies`' allocator; `event_id` embeds it.
+var serial := 0
+var pony_id := ""
+var display_name := "the pony"
+var preferences: Dictionary = {}
+var act_prompts: Dictionary = {}
+var features: Dictionary = {}
+var player_pony := false
+var presentation_config: Dictionary = {}
+var profile: Dictionary = {}
+var caress_quality := ""
+var forced_glance := ""
+
 ## The `POSING_IN` timer: the pose settles into the act after this many seconds.
 var _pose_in_left := 0.0
 var _climax_left := 0.0
@@ -56,7 +77,17 @@ func _set_state(next: int) -> void:
 		return
 	var pony_node: Variant = host.pony if host != null else null
 	context.gate.bind(pony_node, context.pose)
-	context.gate.configure(state, context.values.pony_id, context.values.features)
+	context.gate.configure(state, pony_id, features)
+
+
+## Elapsed act time, in seconds. The view reads it; `reset_act()` clears it.
+func act_seconds() -> float:
+	return _act_seconds
+
+
+## The processed-time clock. It is monotonic across acts.
+func clock_s() -> float:
+	return _clock_s
 
 
 func state_name() -> String:

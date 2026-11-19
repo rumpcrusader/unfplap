@@ -103,9 +103,6 @@ var _idle: ACT_IDLE = null
 var state: int:
 	get:
 		return _act.state if _act != null else State.IDLE
-var pose_id := ""
-var source := ""
-var bed: Node3D
 ## The act's readiness system; see `readiness/service.gd`. The public act values below forward to it.
 var _readiness: RefCounted = READINESS.new()
 ## Her arousal/readiness, 0..100. At 100 she climaxes; the player chooses afterglow.
@@ -196,7 +193,6 @@ var _swapping_parent := false
 ## The act's afterglow phase: the standing close window and the presentation it asks for.
 ## See `afterglow/service.gd` and `docs/afterglow.md`.
 var _afterglow: RefCounted = AFTERGLOW.new()
-var _player_pony := false
 ## The act's scene ownership. The runtime keeps the act state and the teardown order; the service
 ## owns the flags. See `scene_hold/service.gd`.
 var _hold: RefCounted = SCENE_HOLD.new()
@@ -206,16 +202,10 @@ var _hold: RefCounted = SCENE_HOLD.new()
 var _posture_owned := false
 var _session_finalized := false
 var _id := ""
-var _profile: Dictionary = {}
 ## The act's settings snapshot. `_snapshot_settings()` is its only writer; the act tunables are read
 ## through `_snapshot.<name>`, never copied into a second field. A zeroed snapshot stands in until
 ## the first act, so an idle runtime reads the same zero values the fields used to default to.
 var _snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
-## The feature flags. `_snapshot_settings()` fills it from the act snapshot; an idle read before the
-## first act sees an empty block instead of a missing one.
-var _features: Dictionary = {}
-var _preferences: Dictionary = {}
-var _act_prompts: Dictionary = {}
 ## The snapshot's climax limit, kept as a field because the thrust and handover suites set it
 ## directly; `_snapshot_settings()` is its act-start writer.
 var _max_pony_climaxes: int
@@ -231,14 +221,6 @@ var _end_early_key := ""
 var _climax_reaction_key := ""
 var _tail_tuck: Node
 var _aftercare_min: int
-var _display_name := "the pony"
-var _serial := 0
-var _event_id := ""
-
-## The forced over-the-shoulder glance of a standing reach; the camera facade writes it back
-## through the typed act view.
-var _forced_glance := ""
-var _presentation_cfg: Dictionary = {}
 ## This act's footstool handle: the case loans, the placed stack and the player lift. See
 ## `stool/act.gd` and docs/stool.md.
 var _stool: RefCounted = null
@@ -584,7 +566,7 @@ func _pose_family() -> String:
 ## The start spec row. Start-time decisions read this before the view exists; the raw read is kept
 ## in this one helper so the start identity stays the only pose-id input.
 func _start_row() -> Dictionary:
-	return POSE_SPECS.spec(pose_id)
+	return POSE_SPECS.spec(_act.pose_id)
 
 
 ## The start spec's family. Start-time decisions read this before the view exists.
@@ -635,7 +617,7 @@ func _cue_value() -> String:
 
 
 func _event_id_value() -> String:
-	return _event_id
+	return _act.event_id
 
 
 func _cue_reaction_max_age_value() -> float:
@@ -728,9 +710,8 @@ func _act_set_look(yaw: float, pitch: float) -> void:
 
 
 func _act_set_forced_glance(side: String) -> void:
-	_forced_glance = side
+	_act.forced_glance = side
 	_act_facts.forced_glance = side
-	_act_context.values.forced_glance = side
 
 
 func _act_set_camera_basis_ready() -> void:
@@ -802,7 +783,7 @@ func _perf_host() -> PERF.Host:
 
 
 func _perf_pose_id() -> String:
-	return pose_id
+	return _act.pose_id
 
 
 func _perf_lean_side() -> float:
@@ -900,7 +881,7 @@ func _standing_presentation_controller() -> STANDING_PRESENTATION:
 
 ## Feature flag from the act snapshot. Unknown flags read as off.
 func _feature(name: String) -> bool:
-	return bool(_features.get(name, false))
+	return bool(_act.features.get(name, false))
 
 
 func _dialogue_service() -> RefCounted:
@@ -938,7 +919,7 @@ func request_pose(target_id: String, trigger := "", context: Dictionary = {}) ->
 	if not request.has("act_state"):
 		request["act_state"] = state
 	if not request.has("features"):
-		request["features"] = _features
+		request["features"] = _act.features
 	return _pose_service().request_pose(target_id, trigger, request)
 
 
@@ -1002,7 +983,7 @@ func _scene_gate() -> RefCounted:
 ## wherever the bound body or the act state changes, never per gate access.
 func _refresh_scene_gate() -> void:
 	_scene.bind(pony, _pose_service())
-	_scene.configure(state, _id, _features)
+	_scene.configure(state, _id, _act.features)
 
 
 ## Push the debug talk/cue pacing settings into the pure scheduler. The scheduler keeps them, so
@@ -1025,7 +1006,7 @@ func _snapshot_settings() -> void:
 	# The start spec's settings group selects the pose presentation block; an internal pose
 	# (`standing_test`, `standing_oral`) has no block of its own and must never be passed here.
 	_snapshot = SETTINGS.act_snapshot(_start_group())
-	_features = _snapshot.features
+	_act.features = _snapshot.features
 	_readiness.configure_thrust(_snapshot.thrust_pixels_per_cm, _snapshot.thrust_up,
 		_snapshot.thrust_travel, _snapshot.pelvis_gap_m)
 	_max_pony_climaxes = _snapshot.max_pony_climaxes
@@ -1039,15 +1020,13 @@ func _snapshot_settings() -> void:
 		"climax_seconds": CLIMAX_SECONDS,
 	})
 	_camera_service().call("configure", _snapshot.camera_thrust)
-	_readiness.configure(_preferences, _snapshot.cue_override_seconds,
+	_readiness.configure(_act.preferences, _snapshot.cue_override_seconds,
 		_snapshot.cue_overwhelmed_s, _snapshot.touch_cooldown_s, _snapshot.talk_cooldown_s,
 		_snapshot.receptive_seconds)
-	_presentation_cfg = _snapshot.presentation
+	_act.presentation_config = _snapshot.presentation
 	_act_climax_mode = _snapshot.climax_mode
 	_eye_camera_mode = str(SETTINGS.camera_mode.get_value()) == "eye"
-	_act_context.values.features = _features
-	_act_context.values.presentation_config = _presentation_cfg
-	_act_context.values.caress_quality = _snapshot.caress_quality
+	_act.caress_quality = _snapshot.caress_quality
 	_configure_utterance_scheduler()
 	_refresh_scene_gate()
 
@@ -1057,7 +1036,7 @@ func apply_live_settings() -> void:
 	# Snapshot before the IDLE early return too, so mouse sensitivity and the other act tunables
 	# apply as soon as they are edited rather than only at the next act start.
 	idle_perf = _perf_enabled()
-	# Read the pre-edit mute before the snapshot replaces `_features`: a live Ponese mute edit is
+	# Read the pre-edit mute before the snapshot replaces `_act.features`: a live Ponese mute edit is
 	# only visible as a change against the value the act started with, and that change is what
 	# pushes the new policy into the voice player below.
 	var previous_mute := _feature("mute_ponese_audio")
@@ -1091,8 +1070,7 @@ func apply_live_settings() -> void:
 	# edit does not snap the shot. Move by the delta instead of recomputing from the pony: she
 	# has settled since the start anchor was taken and the bed reference may be gone.
 	if not _id.is_empty():
-		_preferences = SETTINGS.preferences(_id)
-		_act_context.values.preferences = _preferences
+		_act.preferences = SETTINGS.preferences(_id)
 	_refresh_live_modifiers()
 	_sync_act_face_settings()
 	if previous_mute != _feature("mute_ponese_audio"):
@@ -1107,7 +1085,7 @@ func _refresh_live_modifiers() -> void:
 	var skeleton_value: Variant = pony.get("skeleton")
 	if not skeleton_value is Skeleton3D:
 		return
-	_pose_service().refresh_modifiers(_features)
+	_pose_service().refresh_modifiers(_act.features)
 	if _pose_family() == "standing":
 		_standing_anon_controller().refresh_palm()
 	elif _pose_family() == "bed":
@@ -1122,12 +1100,12 @@ func _refresh_live_voice() -> void:
 
 ## Optional HUD cue and readiness readouts. The act continues without them.
 func hud_readouts() -> bool:
-	return bool(_features["hud_readouts"])
+	return bool(_act.features["hud_readouts"])
 
 
 ## Optional act control card, separate from the pony state readouts.
 func hud_controls() -> bool:
-	return bool(_features["act_controls"])
+	return bool(_act.features["act_controls"])
 
 
 ## The typed act view `main.gd` and `hud/service.gd` read. The runtime owns it; the HUD never
@@ -1392,7 +1370,7 @@ func _debug_context() -> Dictionary:
 		"thrust_up": _readiness.up_is_deep,
 		"penetration_m": penetration_m,
 		"penetration_reach": penetration_reach(),
-		"preferences": PREFERENCES.describe(_preferences),
+		"preferences": PREFERENCES.describe(_act.preferences),
 		"voice_status_line": voice_status_line(),
 	})
 
@@ -1424,7 +1402,7 @@ func _read_id() -> bool:
 		_refresh_scene_gate()
 		return false
 	_pose_session.id = _id
-	_act_context.values.pony_id = _id
+	_act.pony_id = _id
 	_adopt_display_name(pony)
 	_refresh_scene_gate()
 	return true
@@ -1574,44 +1552,35 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_bind_face()
 	_face.end_mood_face()
 	_end_act_face()
-	pose_id = pose
-	source = act_source
-	_profile = SETTINGS.template_for(_id)
+	_act.pose_id = pose
+	_act.source = act_source
+	_act.profile = SETTINGS.template_for(_id)
 	_pose_service().set_pose_config(SETTINGS.pose(_id, _start_group()))
-	_preferences = SETTINGS.preferences(_id)
-	_act_context.values.preferences = _preferences
-	_act_prompts = _profile.get("act_prompts", {})
+	_act.preferences = SETTINGS.preferences(_id)
+	_act.act_prompts = _act.profile.get("act_prompts", {})
 	_snapshot_settings()
 	_reactions.apply_radius()
-	_aftercare_min = int(_profile["aftercare_min"])
-	_cue_gap = SETTINGS.cue_gap_value(float(_profile["cue_gap"]))
+	_aftercare_min = int(_act.profile["aftercare_min"])
+	_cue_gap = SETTINGS.cue_gap_value(float(_act.profile["cue_gap"]))
 	_standing_camera_controller().reset()
-	bed = _scene_gate().resolve_bed(pose, act_source, bed_in)
-	if bool(POSE_SPECS.scene(pose).get("requires_bed", false)) and bed == null:
+	_act.bed = _scene_gate().resolve_bed(pose, act_source, bed_in)
+	if bool(POSE_SPECS.scene(pose).get("requires_bed", false)) and _act.bed == null:
 		# Nothing else is borrowed yet, but the jiggle radius was just applied.
 		_reactions.restore_radius()
-		pose_id = ""
-		source = ""
-		bed = null
-		_act_context.values.source = ""
-		_act_context.values.bed = null
+		_act.pose_id = ""
+		_act.source = ""
+		_act.bed = null
 		return false
-	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
-	_camera_service().call("apply_eye_override", _start_family(), _player_pony, _body_form())
+	_act.player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
+	_camera_service().call("apply_eye_override", _start_family(), _act.player_pony, _body_form())
 	_wings_controller().reset()
 	_act.reset_act()
 	_reactions.begin_act()
 	_camera_service().call("reset_lean_state")
 	_clear_face()
 	_set_face(0.45, FACE.ACT_LIDS)
-	_serial = _next_serial()
-	_event_id = "intimacy_%s_%d" % [_id, _serial]
-	_act_context.values.source = source
-	_act_context.values.bed = bed
-	_act_context.values.event_id = _event_id
-	_act_context.values.profile = _profile
-	_act_context.values.act_prompts = _act_prompts
-	_act_context.values.player_pony = _player_pony
+	_act.serial = _next_serial()
+	_act.event_id = "intimacy_%s_%d" % [_id, _act.serial]
 	_first_time = _read_first_time()
 	satisfaction = 0.0
 	mood = "warming"
@@ -1626,20 +1595,20 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_afterglow.stop_decay()
 	_remember_talk_turn()
 	_act_spoken_at = _dialogue_service().last_spoken_at()
-	if source == "cradle":
+	if _act.source == "cradle":
 		if not _release_carry():
 			_abort_start()
 			return false
-	elif source == "already_lying":
+	elif _act.source == "already_lying":
 		if not REST.release_managed(pony):
 			_abort_start()
 			return false
-	elif source == "bed_side":
+	elif _act.source == "bed_side":
 		_end_cuddle_session()
 		if not REST.release_managed(pony):
 			_abort_start()
 			return false
-	if _cuddle_active() and source not in ["bed_side", "already_lying"]:
+	if _cuddle_active() and _act.source not in ["bed_side", "already_lying"]:
 		_end_cuddle_session()
 		REST.release_managed(pony)
 	if not _claim_nav():
@@ -1926,7 +1895,7 @@ func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 		if _pose_family() == "standing":
 			_standing_camera_controller().prepare()
 		refresh_view()
-		if not _features.is_empty() and is_instance_valid(HUD.instance):
+		if not _act.features.is_empty() and is_instance_valid(HUD.instance):
 			_sync_hud_facts()
 			HUD.instance.update_from(_act_facts)
 
@@ -1935,7 +1904,7 @@ func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 ## undone before the new form is measured, then the standing placement is re-fitted. The act state,
 ## depth and climaxes are untouched; the pose session owns its own rebuild on a new body.
 func _reset_visual_for_form(form: BODY_FORM.BodyForm) -> void:
-	_camera_service().call("reset_for_form", _start_family(), _player_pony, form)
+	_camera_service().call("reset_for_form", _start_family(), _act.player_pony, form)
 	_reanchor_player_for_form(form)
 	refresh_view()
 
@@ -2020,9 +1989,9 @@ func _rebuild_pose_for_swap(pose: String) -> void:
 	var started: bool = _pose_service().begin({
 		"pose_id": pose if not pose.is_empty() else str(_start_row().get("id", "")),
 		"id": _id,
-		"features": _features,
-		"bed": bed,
-		"presentation": _presentation_cfg,
+		"features": _act.features,
+		"bed": _act.bed,
+		"presentation": _act.presentation_config,
 		"pose_config": _pose_session.pose_config,
 		"look_point": look,
 		"camera_position": camera_at,
@@ -2048,7 +2017,7 @@ func _placement_facts_for(form: BODY_FORM.BodyForm = null) -> PLACEMENT.Facts:
 	var body_form: Variant = _body_form()
 	facts.pony = pony if is_instance_valid(pony) else null
 	facts.player = WORLD.player if is_instance_valid(WORLD.player) else null
-	facts.bed = bed
+	facts.bed = _act.bed
 	facts.stool = _stool_act()
 	facts.form = form if form != null else body_form
 	facts.body_form = body_form
@@ -2057,7 +2026,7 @@ func _placement_facts_for(form: BODY_FORM.BodyForm = null) -> PLACEMENT.Facts:
 	facts.gaps = configured if configured is Dictionary else {}
 	facts.camera = _camera_service()
 	facts.anatomy = _anatomy_service()
-	facts.player_pony = _player_pony
+	facts.player_pony = _act.player_pony
 	facts.headset_view = _headset_view()
 	facts.log = Callable(self, "_log")
 	return facts
@@ -2101,8 +2070,7 @@ func _apply_form_display_name(form: BODY_FORM.BodyForm, new_pony: Node = null) -
 		var identity: Variant = body.get("identity") if is_instance_valid(body) else null
 		var display: Variant = identity.get("display_name") if identity != null else null
 		name = str(display).strip_edges() if display != null else ""
-	_display_name = name if not name.is_empty() else _id
-	_act_context.values.display_name = _display_name
+	_act.display_name = name if not name.is_empty() else _id
 
 
 func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
@@ -2122,7 +2090,7 @@ func _run_start_setup(setup: String) -> bool:
 			return _start_standing_place()
 		_:
 			_log("start blocked setup=%s source=%s pony=%s" % [
-				setup if not setup.is_empty() else "missing", source,
+				setup if not setup.is_empty() else "missing", _act.source,
 				str(pony.name) if is_instance_valid(pony) else "?"])
 			return false
 
@@ -2131,13 +2099,13 @@ func _run_start_setup(setup: String) -> bool:
 ## she leaves the game's lying state. The bed rest/cradle release already ran in the common
 ## prelude; the authored body owns her pose from here.
 func _start_bed_stand_up() -> bool:
-	if bed == null:
+	if _act.bed == null:
 		return false
-	if not _player_pony:
+	if not _act.player_pony:
 		var body: Variant = WORLD.player
 		if body != null and body.has_method("force_stand_up"):
 			body.call("force_stand_up")
-	if source == "cradle":
+	if _act.source == "cradle":
 		_rest_service().call("place_on_start")
 	else:
 		pony.reset_physics_interpolation()
@@ -2149,9 +2117,9 @@ func _start_bed_stand_up() -> bool:
 ## The bed lying start: Anon does not stand up, and the authored act body takes over her pose. The
 ## riding pose is the first intended consumer; no shipped row uses this setup yet.
 func _start_bed_keep_lying() -> bool:
-	if bed == null:
+	if _act.bed == null:
 		return false
-	if source == "dialogue" and not REST.release_managed(pony):
+	if _act.source == "dialogue" and not REST.release_managed(pony):
 		return false
 	pony.reset_physics_interpolation()
 	if pony.get("posture") != null:
@@ -2193,7 +2161,7 @@ func _standing_gap(form: BODY_FORM.BodyForm = null) -> float:
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
 ## first keeps the other pose overrides, then the presentation neck/head controls win.
 func _sync_standing_pose_config() -> void:
-	_pose_service().sync_standing_config(_presentation_cfg)
+	_pose_service().sync_standing_config(_act.presentation_config)
 
 
 ## The missionary recipe reads these from pose_config every frame. Re-reading the character's
@@ -2263,11 +2231,11 @@ func _build_pose() -> void:
 	# name.
 	var size_name := str(_camera_service().call("size_name"))
 	session.begin({
-		"pose_id": pose_id,
+		"pose_id": _act.pose_id,
 		"id": _id,
-		"features": _features,
-		"bed": bed,
-		"presentation": _presentation_cfg,
+		"features": _act.features,
+		"bed": _act.bed,
+		"presentation": _act.presentation_config,
 		"pose_config": _pose_session.pose_config,
 		"look_point": look,
 		"camera_position": camera_at,
@@ -2319,7 +2287,7 @@ func _reset_thrust_state() -> void:
 	_standing_anon_controller().reset_phase()
 	_standing_camera_controller().reset_depth()
 	_act_facts.standing_sway_offset = Vector3.ZERO
-	_readiness.reset(_preferences)
+	_readiness.reset(_act.preferences)
 	_act.clear_phase()
 	_afterglow.reset()
 	_dialogue_service().reset(_now_s(), _cue_gap)
@@ -2388,7 +2356,7 @@ func toggle_anatomy_oral() -> void:
 	_log("oral pose %s -> %s refused: %s (%s)" % [
 		from_id, target, str(result.get("code", "")), str(result.get("reason", ""))])
 	if target == CATALOG.STANDING_ORAL and not consent:
-		_oral_status("%s is not into that" % _display_name)
+		_oral_status("%s is not into that" % _act.display_name)
 	elif service != null:
 		_oral_status(str(result.get("reason", "")))
 
@@ -2825,7 +2793,7 @@ func _stop_reason(reason: String) -> int:
 
 
 func _end_act_lines(keep_speaking := true) -> void:
-	_dialogue_service().end_act(_event_id, keep_speaking)
+	_dialogue_service().end_act(_act.event_id, keep_speaking)
 
 
 func _commit_summary(real_act: bool) -> void:
@@ -2836,9 +2804,9 @@ func _commit_summary(real_act: bool) -> void:
 func _summary_values() -> Dictionary:
 	return {
 		"pony_id": _id,
-		"event_id": _event_id,
-		"preferences": _preferences,
-		"seconds": _act._act_seconds,
+		"event_id": _act.event_id,
+		"preferences": _act.preferences,
+		"seconds": _act.act_seconds(),
 		"thrusts": _readiness.act_thrusts,
 		"pony_climaxes": pony_climaxes,
 		"talk_liked": _readiness.act_liked_talk,
@@ -2906,7 +2874,7 @@ func _tolerance_warn(level: int) -> void:
 	_act_face_beat("warning")
 	_queue_tolerance_warning(level)
 	_log("neglect warning=%d tier=%s distress=%.1f kind=%s" % [
-		level, str(_preferences.get("tolerance", "normal")),
+		level, str(_act.preferences.get("tolerance", "normal")),
 		_readiness.distress(), _readiness.last_dislike()])
 
 
@@ -2915,11 +2883,11 @@ func _queue_tolerance_warning(level: int) -> void:
 		return
 	if not _tolerance_warning_key.is_empty():
 		MEMORY.instance.cancel_line(_tolerance_warning_key)
-	var act_id := _event_id
-	var event_id := "%s:tolerance_warning:%d" % [_event_id, Time.get_ticks_usec()]
+	var act_id := _act.event_id
+	var event_id := "%s:tolerance_warning:%d" % [_act.event_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
 		return is_instance_valid(pony) and state in [State.POSING_IN, State.ACTIVE] \
-			and _event_id == act_id
+			and _act.event_id == act_id
 	var fallback := ("Don't do that." if level <= 1 else "I said stop that.") \
 		+ " Begin with [annoyed] or [calm]."
 	_tolerance_warning_key = _dialogue_service().reaction_line(MEMORY.Reaction.TOLERANCE_WARNING, event_id, fallback, valid)
@@ -2937,7 +2905,7 @@ func _stop_with_her(reason: String) -> void:
 	if _stopped_by_her or state not in [State.POSING_IN, State.ACTIVE]:
 		return
 	_stopped_by_her = true
-	var strict := str(_preferences.get("tolerance", "normal")) == "strict"
+	var strict := str(_act.preferences.get("tolerance", "normal")) == "strict"
 	# The teardown resets readiness; keep the value that caused the stop for the log below.
 	var distress: float = _readiness.distress()
 	_cancel_tolerance_warning()
@@ -2945,7 +2913,7 @@ func _stop_with_her(reason: String) -> void:
 	# The stopped summary already says why. The basic event is the fallback when the summary was
 	# skipped, so one partner stop is never two memories.
 	if _summary_service.summary.is_empty() and is_instance_valid(WORLD.game):
-		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _event_id, MEMORY.StopReason.WITHDREW)
+		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _act.event_id, MEMORY.StopReason.WITHDREW)
 	if _pose_family() == "bed":
 		REST.release_managed(pony)
 	_end_act_lines(true)
@@ -2959,7 +2927,7 @@ func _stop_with_her(reason: String) -> void:
 		_start_upset("angry" if strict else "annoyed")
 	_queue_stop_line(strict)
 	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
-		str(_preferences.get("tolerance", "normal")), distress,
+		str(_act.preferences.get("tolerance", "normal")), distress,
 		reason, str(strict)])
 
 
@@ -3019,7 +2987,7 @@ func debug_force_tolerance(kind: String) -> bool:
 func _record_peak_memory() -> void:
 	_summary_service.record_peak_memory({
 		"pony_id": _id,
-		"event_id": _event_id,
+		"event_id": _act.event_id,
 		"satisfaction": _readiness.peak_satisfaction,
 		"both_matches": _readiness.act_both_matches,
 		"dislikes": _readiness.act_dislikes,
@@ -3050,17 +3018,17 @@ func cancel() -> void:
 		# The early summary already records this end. Keep the basic event only when the summary
 		# was skipped, so the story never holds the same end twice.
 		if _summary_service.summary.is_empty():
-			MEMORY.instance.note(MEMORY.NoteKind.CANCELLED, _id, _event_id)
+			MEMORY.instance.note(MEMORY.NoteKind.CANCELLED, _id, _act.event_id)
 		# Cancel act lines before restoring, then queue the intentional early-stop reaction.
 		_end_act_lines(true)
 		_restore_begin()
 		# Half the time she says nothing at all. When she does speak, it is a moment, not a
 		# review or a next-time list.
 		if randf() >= 0.5:
-			var act_id := _event_id
+			var act_id := _act.event_id
 			var expires := _now_s() + _cue_reaction_max_age_value()
 			var valid := func() -> bool:
-				if not is_instance_valid(pony) or _event_id != act_id:
+				if not is_instance_valid(pony) or _act.event_id != act_id:
 					return false
 				if _now_s() <= expires:
 					return true
@@ -3103,7 +3071,7 @@ func _climax() -> void:
 	_act_face_beat("climax")
 	_end_act_lines(true)
 	if is_instance_valid(WORLD.game) and pony_climaxes == 1:
-		MEMORY.instance.note(MEMORY.NoteKind.CLIMAXED, _id, _event_id)
+		MEMORY.instance.note(MEMORY.NoteKind.CLIMAXED, _id, _act.event_id)
 	_queue_climax_reaction()
 	_play_climax()
 	# integration: her fluid hook.
@@ -3118,12 +3086,12 @@ func _queue_climax_reaction() -> void:
 		return
 	if not is_instance_valid(WORLD.game):
 		return
-	var act_id := _event_id
+	var act_id := _act.event_id
 	var count := pony_climaxes
 	var climax_id := "%s:pony_climax:%d" % [act_id, count]
 	var expires := _now_s() + _cue_reaction_max_age_value()
 	var valid := func() -> bool:
-		if not is_instance_valid(pony) or _event_id != act_id or pony_climaxes != count:
+		if not is_instance_valid(pony) or _act.event_id != act_id or pony_climaxes != count:
 			return false
 		if _now_s() <= expires:
 			return true
@@ -3197,7 +3165,7 @@ func _relationship_note() -> String:
 	if not is_instance_valid(WORLD.game):
 		return ""
 	_read_id()
-	return RELATIONSHIP_CUE.note(MEMORY.instance.cue_facts(_id, _event_id).to_dict())
+	return RELATIONSHIP_CUE.note(MEMORY.instance.cue_facts(_id, _act.event_id).to_dict())
 
 
 ## Live context for the normal dialogue prompt. The entry node joins the game's
@@ -3231,13 +3199,13 @@ func _commit_afterglow() -> void:
 		return
 	_commit_summary(true)
 	_record_peak_memory()
-	for row: MEMORY.Witness in MEMORY.instance.witnesses(_id, _display_name, _serial, pony):
+	for row: MEMORY.Witness in MEMORY.instance.witnesses(_id, _act.display_name, _act.serial, pony):
 		_log("witness " + str(row.to_dict()))
 
 ## Both poses share the held afterglow; standing adds the close window and a slightly lifted
 ## tail.
 func _afterglow_begin() -> void:
-	_log("afterglow pose=%s pony=%s" % [pose_id, str(pony.name)])
+	_log("afterglow pose=%s pony=%s" % [_act.pose_id, str(pony.name)])
 	_stop_auto()
 	_end_act_lines(true)
 	# Bed afterglow keeps only lean and caress; standing keeps its kiss.
@@ -3293,7 +3261,7 @@ func _on_stay_close(caressed: bool, reward: bool) -> void:
 	if is_instance_valid(WORLD.game):
 		var impression := MEMORY.Impression.new()
 		impression.id = _id
-		impression.event_id = _event_id
+		impression.event_id = _act.event_id
 		impression.slot = MEMORY.ImpressionSlot.STAY_CLOSE
 		impression.mood = "happy" if reward else ""
 		impression.romance = 1 if reward and caressed else 0
@@ -3347,11 +3315,11 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
 	# returns Anon and her to it, but only when it did not go badly.
 	var rejoin_bed: Node3D = null
-	var rejoin_serial := _serial
+	var rejoin_serial := _act.serial
 	if rejoin_cuddle and _start_frame() == "bed" \
-			and source in ["bed_side", "already_lying"] and not _stopped_by_her \
+			and _act.source in ["bed_side", "already_lying"] and not _stopped_by_her \
 			and bool(_rest_service().call("rejoin_wanted", _rest_context())):
-		rejoin_bed = bed
+		rejoin_bed = _act.bed
 	# integration: close the anatomy act once, before the pose is freed.
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.end()
@@ -3389,11 +3357,9 @@ func _end_session(rejoin_cuddle: bool) -> void:
 			HUD.instance.hide_all()
 		PONIES.clear_active(self)
 	_act.finish_restore()
-	pose_id = ""
-	source = ""
-	bed = null
-	_act_context.values.source = ""
-	_act_context.values.bed = null
+	_act.pose_id = ""
+	_act.source = ""
+	_act.bed = null
 	# integration: act-only anatomy hides immediately when the act ends.
 	_anatomy_bridge.apply_live()
 	# Deferred so `_finalize_session()` has started aftercare (and its navigator hold) first; the
@@ -3412,7 +3378,7 @@ func _finalize_session(real_act: bool) -> void:
 
 ## The bed/couch rest and cuddle rejoin. See `rest/service.gd` and `docs/rest.md`.
 func _rest_service() -> RefCounted:
-	_rest.bind(pony, bed)
+	_rest.bind(pony, _act.bed)
 	return _rest
 
 
@@ -3420,9 +3386,9 @@ func _rest_service() -> RefCounted:
 ## see a new act or an ended session instead of the values from the call that started them.
 func _rest_context() -> Dictionary:
 	return {
-		"serial": _serial,
+		"serial": _act.serial,
 		"state": state,
-		"player_pony": _player_pony,
+		"player_pony": _act.player_pony,
 		"headset": _headset_view(),
 		"summary": _summary_service.summary,
 		"satisfaction": satisfaction,
@@ -3519,7 +3485,7 @@ func _act_phase() -> String:
 func _read_first_time() -> bool:
 	if not is_instance_valid(WORLD.game) or _id.is_empty():
 		return false
-	var facts: MEMORY.CueFacts = MEMORY.instance.cue_facts(_id, _event_id)
+	var facts: MEMORY.CueFacts = MEMORY.instance.cue_facts(_id, _act.event_id)
 	return facts.first_time
 
 
@@ -3538,7 +3504,7 @@ func _climax_quality_inputs() -> Dictionary:
 		"touch_dislikes": _readiness.act_touch_dislikes,
 		"talk_dislikes": _readiness.act_talk_dislikes,
 		"distress": _readiness.distress(),
-		"preferences": _preferences,
+		"preferences": _act.preferences,
 		"overwhelmed": _readiness.overwhelmed > 0.0,
 	})
 
@@ -3556,7 +3522,7 @@ func _act_face_beat(moment: String) -> void:
 	_bind_face()
 	var ctx := {
 		"first_time": _first_time,
-		"tolerance": str(_preferences.get("tolerance", "normal")),
+		"tolerance": str(_act.preferences.get("tolerance", "normal")),
 	}
 	if moment == "climax":
 		ctx["climax_mode"] = _act_climax_mode
@@ -3595,7 +3561,7 @@ func act_face_rows() -> Array[String]:
 	_bind_face()
 	var base_mood := ""
 	if is_instance_valid(WORLD.game) and not _id.is_empty():
-		var facts: MEMORY.CueFacts = MEMORY.instance.cue_facts(_id, _event_id)
+		var facts: MEMORY.CueFacts = MEMORY.instance.cue_facts(_id, _act.event_id)
 		base_mood = facts.mood
 	return _face.rows({
 		"state": state,
@@ -3630,17 +3596,17 @@ func _check_running() -> void:
 	if _hold.nav != null and is_instance_valid(_hold.nav) and str(_hold.nav.get("reserved_by")) != "":
 		_stop("interrupted")
 		return
-	if _pose_family() == "bed" and bed != null and WORLD.bed_occupied(bed, pony):
+	if _pose_family() == "bed" and _act.bed != null and WORLD.bed_occupied(_act.bed, pony):
 		_stop("interrupted")
 		return
-	if _player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
+	if _act.player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
 		_stop("form change")
 		return
 
 func _stop(reason: String) -> void:
 	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
-		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _event_id, _stop_reason(reason))
+		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _act.event_id, _stop_reason(reason))
 	_restore_begin()
 
 # --------------------------------------------------------------------------- camera
@@ -3656,9 +3622,9 @@ func _begin_camera_mode() -> void:
 	# The act's own Anon body is created by the pose session on its first pose change (desktop human
 	# only; AnonPony and VR have their own bodies).
 	# integration: the VR standing act; it uses the headset rig and no desktop camera.
-	if _headset_view() and not _player_pony and _pose_family() == "standing":
+	if _headset_view() and not _act.player_pony and _pose_family() == "standing":
 		_start_vr_act()
-	if _player_pony or _headset_view():
+	if _act.player_pony or _headset_view():
 		return
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return
@@ -3829,7 +3795,7 @@ func _start_audio() -> void:
 	_stop_audio()
 	var audio: Variant = _audio_service()
 	if audio != null:
-		audio.bind(pony, _id, bed)
+		audio.bind(pony, _id, _act.bed)
 		audio.begin()
 
 
@@ -3837,7 +3803,7 @@ func _start_audio() -> void:
 ## bind, so a new presented body rebinds it without restarting the act's layer.
 func _bind_audio_identity() -> void:
 	if is_instance_valid(_act_audio):
-		_act_audio.bind(pony, _id, bed)
+		_act_audio.bind(pony, _id, _act.bed)
 
 
 func _stop_audio() -> void:

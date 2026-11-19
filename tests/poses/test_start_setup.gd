@@ -136,14 +136,14 @@ func _fixture() -> Dictionary:
 	main.player = player
 	WORLD.bind_player(main.player)
 	runtime.pony = pony
-	runtime.bed = Node3D.new()
-	runtime.source = "bed_side"
+	runtime._act.bed = Node3D.new()
+	runtime._act.source = "bed_side"
 	return {"runtime": runtime, "pony": pony, "main": main, "player": player}
 
 
 func _free_fixture(made: Dictionary) -> void:
 	var runtime: Node = made["runtime"]
-	var bed: Node3D = runtime.bed
+	var bed: Node3D = runtime._act.bed
 	var pony: FakePony = made["pony"]
 	var main: FakeMain = made["main"]
 	var player: FakePlayer = made["player"]

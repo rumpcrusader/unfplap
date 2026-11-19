@@ -81,9 +81,9 @@ func run() -> void:
 	_check_summary_shapes()
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
-	runtime._preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
+	runtime._act.preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
 	runtime._set_state(4) # AFTERGLOW
-	runtime.pose_id = CATALOG.MISSIONARY
+	runtime._act.pose_id = CATALOG.MISSIONARY
 	runtime._snapshot_settings()
 	runtime.pony_climaxes = 2
 	runtime._summary_service.summary = {
@@ -102,7 +102,7 @@ func run() -> void:
 		"afterglow drops the mechanical next-time line")
 	check(HUD_LINES.readiness_line_for(_hud_view(runtime), true).is_empty(),
 		"missionary afterglow does not duplicate the summary")
-	runtime.pose_id = CATALOG.STANDING
+	runtime._act.pose_id = CATALOG.STANDING
 	runtime._afterglow.close_left = 8.0
 	check(HUD_LINES.cue_line_for(_hud_view(runtime), true).contains("Stay close"),
 		"standing afterglow cue keeps the close prompt")
@@ -254,9 +254,9 @@ func _check_commit() -> void:
 	root.add_child(main)
 	var runtime: Node = RUNTIME.new()
 	runtime._id = "rarity"
-	runtime._display_name = "Rarity"
-	runtime._event_id = "intimacy_test"
-	runtime._preferences = {"intensity": "firm", "pattern": "steady", "talk": [],
+	runtime._act.display_name = "Rarity"
+	runtime._act.event_id = "intimacy_test"
+	runtime._act.preferences = {"intensity": "firm", "pattern": "steady", "talk": [],
 		"touch": [], "dislikes": []}
 	runtime._act._act_seconds = 90.0
 	runtime._readiness.act_thrusts = 10
@@ -296,7 +296,7 @@ func _check_commit() -> void:
 	runtime._summary_service.summary_done = false
 	runtime._readiness.act_touch_dislikes = {"smack": 2}
 	runtime._readiness.act_talk_dislikes = 0
-	runtime._preferences = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
+	runtime._act.preferences = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
 	runtime.call("_commit_summary", false)
 	var stopped_summary: Dictionary = runtime._summary_service.summary

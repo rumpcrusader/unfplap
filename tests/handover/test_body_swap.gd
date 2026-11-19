@@ -431,18 +431,18 @@ func _fixture() -> Dictionary:
 	runtime.pony = old_pony
 	old_pony.add_child(runtime)
 	runtime._id = "test_mare"
-	runtime._display_name = "Test Mare"
-	runtime.pose_id = CATALOG.STANDING
-	runtime.source = "test"
+	runtime._act.display_name = "Test Mare"
+	runtime._act.pose_id = CATALOG.STANDING
+	runtime._act.source = "test"
 	runtime._set_state(RUNTIME.State.ACTIVE)
 	runtime.depth = 0.42
 	runtime.penetration_m = 0.11
 	runtime.pony_climaxes = 1
 	runtime._max_pony_climaxes = 3
-	runtime._event_id = "intimacy_test_mare_1"
-	runtime._serial = 1
-	runtime._preferences = SETTINGS.preferences("test_mare")
-	runtime._features = {}
+	runtime._act.event_id = "intimacy_test_mare_1"
+	runtime._act.serial = 1
+	runtime._act.preferences = SETTINGS.preferences("test_mare")
+	runtime._act.features = {}
 	runtime._handover.set_form_hint_debug(true)
 	WORLD.bind_world(host)
 	MEMORY.instance = FakeMemory.new()
@@ -566,7 +566,7 @@ func _check_handover() -> void:
 	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the act state survives suspension")
 	check(absf(float(runtime.depth) - 0.42) < 0.0001, "depth survives suspension")
 	check(int(runtime.pony_climaxes) == 1, "climaxes survive suspension")
-	check(str(runtime._event_id) == "intimacy_test_mare_1", "the event id survives suspension")
+	check(str(runtime._act.event_id) == "intimacy_test_mare_1", "the event id survives suspension")
 
 	var new_pony := _pony("New Mare", "NewBody")
 	root.add_child(new_pony)
@@ -583,8 +583,8 @@ func _check_handover() -> void:
 	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the act state survives resume")
 	check(absf(float(runtime.depth) - 0.42) < 0.0001, "depth survives resume")
 	check(int(runtime.pony_climaxes) == 1, "climaxes survive resume")
-	check(str(runtime._event_id) == "intimacy_test_mare_1", "the event id survives resume")
-	check(str(runtime._display_name) == "New Mare", "the act takes the new display name")
+	check(str(runtime._act.event_id) == "intimacy_test_mare_1", "the event id survives resume")
+	check(str(runtime._act.display_name) == "New Mare", "the act takes the new display name")
 	check(new_pony.has_meta("sex_active"), "the new body carries the act flag")
 	var nav: FakeNav = new_pony.get_node("Navigator")
 	check(nav.command_owner == "unfplap:test_mare", "the new navigator is claimed")
@@ -684,12 +684,12 @@ func _check_form_display_name() -> void:
 	PONIES.attach(new_pony)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the borrowed form resumes the act")
-	check(str(runtime._display_name) == "Borrowed Form",
+	check(str(runtime._act.display_name) == "Borrowed Form",
 		"the act caption takes the presented form's name")
 	check(str(runtime._act_facts.display_name) == "Borrowed Form",
 		"the act facts carry the presented form's name")
 	check(str(runtime._id) == "test_mare", "the borrowed form keeps the stable pony id")
-	check(str(runtime._event_id) == "intimacy_test_mare_1",
+	check(str(runtime._act.event_id) == "intimacy_test_mare_1",
 		"the borrowed form keeps the act's event id")
 	var stored := body_change.form_for(new_pony)
 	check(stored != null and stored.form_name == "Borrowed Form",
@@ -703,7 +703,7 @@ func _check_form_display_name() -> void:
 	fallback.form_name = ""
 	fallback.revision = previous_revision + 1
 	body_change.apply_form(new_pony, fallback)
-	check(str(runtime._display_name) == "Identity Name",
+	check(str(runtime._act.display_name) == "Identity Name",
 		"an empty form name falls back to the identity display name")
 	check(str(runtime._act_facts.display_name) == "Identity Name",
 		"the fallback reaches the act facts")
@@ -1421,8 +1421,8 @@ func _check_idle_body_binding() -> void:
 	var old_pony: FakePony = f["old"]
 	var body_change: BODY_CHANGE_SERVICE = f["body_change"]
 	runtime._set_state(RUNTIME.State.IDLE)
-	runtime.pose_id = ""
-	runtime.source = ""
+	runtime._act.pose_id = ""
+	runtime._act.source = ""
 	var own := body_change.default_form(old_pony)
 	body_change.apply_form(old_pony, own)
 	check(int(runtime.state) == RUNTIME.State.IDLE, "an idle form bind leaves the state idle")
@@ -1441,7 +1441,7 @@ func _check_idle_body_binding() -> void:
 	body_change.apply_form(old_pony, revised)
 	check(int(runtime.state) == RUNTIME.State.IDLE, "a same-node revision keeps the idle state")
 	check(body_change.form_for(old_pony) == revised, "the idle body takes the revised form")
-	check(str(runtime._display_name) == "Idle Borrowed Form",
+	check(str(runtime._act.display_name) == "Idle Borrowed Form",
 		"an idle form revision takes the presented form's name")
 	check(str(runtime._act_facts.display_name) == "Idle Borrowed Form",
 		"the idle act facts carry the presented form's name")

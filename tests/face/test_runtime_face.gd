@@ -94,8 +94,8 @@ func _fixture() -> Dictionary:
 	pony.expressions = expressions
 	root.add_child(pony)
 	runtime.pony = pony
-	runtime._features = {}
-	runtime._preferences = {"tolerance": "normal", "intensity": "firm",
+	runtime._act.features = {}
+	runtime._act.preferences = {"tolerance": "normal", "intensity": "firm",
 		"pattern": "steady", "touch": [], "talk": []}
 	runtime._readiness.tolerance = FakeTolerance.new()
 	runtime._act_climax_mode = "auto"
@@ -119,7 +119,7 @@ func run() -> void:
 
 	runtime.call("_act_face_beat", "warning")
 	check(expressions.dialogue_face == "annoyed", "normal warning is annoyed")
-	runtime._preferences["tolerance"] = "forgiving"
+	runtime._act.preferences["tolerance"] = "forgiving"
 	runtime.call("_act_face_beat", "warning")
 	check(expressions.dialogue_face == "sad", "forgiving warning is sad")
 
@@ -128,7 +128,7 @@ func run() -> void:
 	runtime.call("_act_face_beat", "afterglow")
 	check(expressions.dialogue_face == "affectionate", "positive afterglow is affectionate")
 
-	runtime._preferences["tolerance"] = "normal"
+	runtime._act.preferences["tolerance"] = "normal"
 	runtime._readiness.act_intensity_total = 6
 	runtime._readiness.act_intensity_right = 6
 	runtime._readiness.act_pattern_total = 6

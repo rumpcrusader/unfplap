@@ -29,10 +29,9 @@ func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	var pose_session: Variant = context.pose
 	var pose_view: Variant = pose_session.view()
-	var values: ACT_CONTEXT.Values = context.values
 	facts.state = session.state
 	facts.pose_view = pose_view
-	facts.source = values.source
+	facts.source = session.source
 	facts.satisfaction = context.readiness.satisfaction
 	facts.mood = context.readiness.mood
 	facts.cue = context.readiness.cue
@@ -44,24 +43,24 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.camera = context.camera.camera
 	facts.viewport = host.viewport()
 	facts.pose = pose_session.pose()
-	facts.event_id = values.event_id
-	facts.pony_id = values.pony_id
-	facts.display_name = values.display_name
-	facts.preferences = values.preferences
-	facts.act_prompts = values.act_prompts
-	facts.features = values.features
-	facts.caress_quality = values.caress_quality
-	facts.player_pony = values.player_pony
-	facts.bed = values.bed
-	facts.presentation_config = values.presentation_config
-	facts.profile = values.profile
+	facts.event_id = session.event_id
+	facts.pony_id = session.pony_id
+	facts.display_name = session.display_name
+	facts.preferences = session.preferences
+	facts.act_prompts = session.act_prompts
+	facts.features = session.features
+	facts.caress_quality = session.caress_quality
+	facts.player_pony = session.player_pony
+	facts.bed = session.bed
+	facts.presentation_config = session.presentation_config
+	facts.profile = session.profile
 	facts.physics_delta = host.physics_delta()
 	if session.state == State.IDLE:
 		# No presentation module reads the derived values outside an act; skipping the settings and
 		# geometry lookups keeps an idle town from paying for every runtime every frame.
 		return
-	facts.act_seconds = session._act_seconds
-	facts.seconds_since_stroke = maxf(0.0, session._clock_s - context.readiness.last_stroke_at)
+	facts.act_seconds = session.act_seconds()
+	facts.seconds_since_stroke = maxf(0.0, session.clock_s() - context.readiness.last_stroke_at)
 	facts.last_intensity = context.readiness.last_intensity
 	facts.last_pattern = context.readiness.last_pattern
 	facts.last_touch = context.readiness.last_touch
@@ -100,7 +99,7 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.bob = cam.bob
 	facts.back = cam.back
 	facts.back_target = cam.back_target
-	facts.forced_glance = values.forced_glance
+	facts.forced_glance = session.forced_glance
 	facts.bed_frame = pose_session.bed_frame
 	var kiss: Variant = context.kiss
 	if kiss != null:
@@ -123,8 +122,8 @@ func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 	facts.summary_hud = str(context.summary.summary.get("hud", ""))
 	facts.cycle_heat = cycle_heat
 	facts.close_earned = context.afterglow.close_caress_earned
-	facts.hud_readouts = bool(context.values.features["hud_readouts"])
-	facts.hud_controls = bool(context.values.features["act_controls"])
+	facts.hud_readouts = bool(session.features["hud_readouts"])
+	facts.hud_controls = bool(session.features["act_controls"])
 	facts.hole_ready = context.anatomy.hole_ready()
 	facts.oral_ready = context.anatomy.oral_ready()
 	facts.auto_on = context.readiness.auto_active()

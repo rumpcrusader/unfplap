@@ -257,7 +257,7 @@ func _check_live_mute() -> void:
 	runtime.pony = pony
 	runtime._id = "rarity"
 	runtime._set_state(2) # ACTIVE
-	runtime.pose_id = CATALOG.STANDING
+	runtime._act.pose_id = CATALOG.STANDING
 	var before := SETTINGS.mute_ponese_audio.get_bool()
 	SETTINGS.mute_ponese_audio.set_bool(false)
 	runtime.call("apply_live_settings")

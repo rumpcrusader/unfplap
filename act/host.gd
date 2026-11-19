@@ -3,6 +3,11 @@ extends RefCounted
 ## runtime node; a module never reaches back into that node. Node ops, the scene handles and the
 ## two sinks live here and nowhere else.
 ##
+## `Ledger` is the one exception in R2: the start and exit ledgers still call a few steps the
+## runtime node owns (the settings snapshot, the face transitions, the camera open, the audio
+## start, the tail tuck and the rest context). They are named callbacks, never a dictionary, and
+## a missing one is a no-op. R3/R4 move them to their owners.
+##
 ## See `docs/runtime.md`.
 
 var node: Node = null
@@ -11,6 +16,32 @@ var pony: Node = null
 ## Named sinks the runtime binds once; a missing sink is a no-op.
 var log_sink: Callable = Callable()
 var perf_sink: Callable = Callable()
+## The runtime-bound ledger steps.
+var ledger: Ledger = Ledger.new()
+
+
+## The runtime-bound steps the start and exit ledgers call until their owners take them.
+class Ledger extends RefCounted:
+	var snapshot_settings := Callable()
+	var bind_face := Callable()
+	var clear_face := Callable()
+	var set_face := Callable()
+	var end_act_face := Callable()
+	var act_face_beat := Callable()
+	var begin_camera_mode := Callable()
+	var restore_look := Callable()
+	var restore_camera := Callable()
+	var start_audio := Callable()
+	var apply_voice_policy := Callable()
+	var stop_audio := Callable()
+	var restore_voice_volume := Callable()
+	var reset_excitement_hold := Callable()
+	var sync_hud_facts := Callable()
+	var start_tail_tuck := Callable()
+	var end_tail_tuck := Callable()
+	var end_act_lines := Callable()
+	var rest_context := Callable()
+	var reset_thrust := Callable()
 
 
 func bind(host_node: Node) -> void:

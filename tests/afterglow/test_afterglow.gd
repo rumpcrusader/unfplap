@@ -252,18 +252,18 @@ func run() -> void:
 	root.add_child(ended_pony)
 	root.add_child(ended)
 	ended.satisfaction = 80.0
-	ended._aftercare_min = 10
+	ended._act.aftercare_min = 10
 	ended._summary_service.summary = {"grade": "great", "positive": true, "reward": true,
 		"severe": false, "early": false, "mood": "happy"}
-	ended.call("_reset_after_act")
+	ended._exit.reset_after_act()
 	check(ended._afterglow.aftercare != null, "a healthy act starts the aftercare")
 	check(ended_pony.has_meta("sex_aftercare"), "the aftercare marks the pony")
 	check(is_instance_valid(ended._face.mood_face), "the post-act face is held")
 	check(ended._afterglow.get("_decay") != null, "the satisfaction decay runs")
 	ended.call("_clear_aftercare")
 	check(not ended_pony.has_meta("sex_aftercare"), "a new start clears the aftercare")
-	ended._stopped_by_her = true
-	ended.call("_reset_after_act")
+	ended._act.stopped_by_her = true
+	ended._exit.reset_after_act()
 	check(ended._afterglow.aftercare == null, "a partner stop starts no aftercare")
 	check(ended._tail_tuck != null, "a partner stop tucks her tail")
 	ended.call("_end_tail_tuck")

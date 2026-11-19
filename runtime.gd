@@ -60,6 +60,7 @@ const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const ACT_IDLE := preload("res://mods/unfplap/act/idle.gd")
+const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
@@ -98,6 +99,7 @@ var _act_host: ACT_NODE = null
 var _act_context: ACT_CONTEXT = null
 var _view: ACT_VIEW = null
 var _idle: ACT_IDLE = null
+var _exit: ACT_EXIT = null
 
 ## Temporary read-only forward: the act session owns the live state; remove in R4.
 var state: int:
@@ -199,8 +201,6 @@ var _hold: RefCounted = SCENE_HOLD.new()
 ## Act-session ownership: each flag marks external state this act took and must give back.
 ## `_end_session()` checks them, so a start that failed early restores only what it took. The
 ## camera flags live on `_act_camera`; the navigator and player flags on `_hold`.
-var _posture_owned := false
-var _session_finalized := false
 var _id := ""
 ## The act's settings snapshot. `_snapshot_settings()` is its only writer; the act tunables are read
 ## through `_snapshot.<name>`, never copied into a second field. A zeroed snapshot stands in until
@@ -209,18 +209,13 @@ var _snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
 ## The snapshot's climax limit, kept as a field because the thrust and handover suites set it
 ## directly; `_snapshot_settings()` is its act-start writer.
 var _max_pony_climaxes: int
-var _cue_gap: float
-var _act_spoken_at := -1e9
 var _act_ended_early := false
 ## The act's summary, grade and peak record; see `summary/service.gd`. The runtime reads it as
 ## `_summary_service.summary`.
 var _summary_service: RefCounted = SUMMARY.new()
-var _stopped_by_her := false
-var _tolerance_warning_key := ""
 var _end_early_key := ""
 var _climax_reaction_key := ""
 var _tail_tuck: Node
-var _aftercare_min: int
 ## This act's footstool handle: the case loans, the placed stack and the player lift. See
 ## `stool/act.gd` and docs/stool.md.
 var _stool: RefCounted = null
@@ -231,7 +226,6 @@ var _face: RefCounted = FACE.new()
 ## Thrust and climax presentation: jiggle, smack reaction, rump blush and hearts. See
 ## `reactions/service.gd` and `docs/reactions.md`.
 var _reactions: RefCounted = REACTIONS.new()
-var _first_time := false
 ## The snapshot's climax mode, kept as a field because the face suite sets it directly;
 ## `_snapshot_settings()` is its act-start writer.
 var _act_climax_mode: String
@@ -288,6 +282,14 @@ func _build_act_context() -> ACT_CONTEXT:
 	context.kiss = _kiss
 	context.summary = _summary_service
 	context.presentation = _standing_presentation_ctl
+	context.standing_anon = _standing_anon_ctl
+	context.standing_camera = _standing_camera_ctl
+	context.wings = _wings
+	context.hands = _hands
+	context.integrations = _integrations
+	context.hold = _hold
+	context.rest = _rest
+	context.anatomy_host = _anatomy_host()
 	return context
 
 
@@ -305,6 +307,21 @@ func _bind_act_frame() -> void:
 	_view.bind(_act_host, _act_context)
 	_idle = ACT_IDLE.new()
 	_idle.bind(_act_host, _act_context, _act)
+	_exit = ACT_EXIT.new()
+	_exit.bind(_act_host, _act_context, _act)
+	var ops := _act_host.ledger
+	ops.clear_face = Callable(self, "_clear_face")
+	ops.end_act_face = Callable(self, "_end_act_face")
+	ops.bind_face = Callable(self, "_bind_face")
+	ops.restore_camera = Callable(self, "_restore_camera")
+	ops.restore_look = Callable(self, "_restore_look")
+	ops.stop_audio = Callable(self, "_stop_audio")
+	ops.restore_voice_volume = Callable(self, "_restore_voice_volume")
+	ops.reset_excitement_hold = Callable(self, "_reset_excitement_hold")
+	ops.start_tail_tuck = Callable(self, "_start_tail_tuck")
+	ops.end_act_lines = Callable(self, "_end_act_lines")
+	ops.rest_context = Callable(self, "_rest_context")
+	ops.reset_thrust = Callable(self, "_reset_thrust_state")
 
 
 
@@ -1545,8 +1562,8 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 					pose, str(pony.name) if is_instance_valid(pony) else "?", stool_need])
 				return false
 	_camera_service().call("begin_session", _start_family())
-	_posture_owned = false
-	_session_finalized = false
+	_act.posture_owned = false
+	_act.finalized = false
 	# Remove the idle standing presentation and its face before the act builds its own pose.
 	clear_presentation()
 	_bind_face()
@@ -1560,8 +1577,8 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_act.act_prompts = _act.profile.get("act_prompts", {})
 	_snapshot_settings()
 	_reactions.apply_radius()
-	_aftercare_min = int(_act.profile["aftercare_min"])
-	_cue_gap = SETTINGS.cue_gap_value(float(_act.profile["cue_gap"]))
+	_act.aftercare_min = int(_act.profile["aftercare_min"])
+	_act.cue_gap = SETTINGS.cue_gap_value(float(_act.profile["cue_gap"]))
 	_standing_camera_controller().reset()
 	_act.bed = _scene_gate().resolve_bed(pose, act_source, bed_in)
 	if bool(POSE_SPECS.scene(pose).get("requires_bed", false)) and _act.bed == null:
@@ -1581,20 +1598,20 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_set_face(0.45, FACE.ACT_LIDS)
 	_act.serial = _next_serial()
 	_act.event_id = "intimacy_%s_%d" % [_id, _act.serial]
-	_first_time = _read_first_time()
+	_act.first_time = _read_first_time()
 	satisfaction = 0.0
 	mood = "warming"
 	cue = ""
 	_reset_thrust_state()
-	_stopped_by_her = false
-	_tolerance_warning_key = ""
+	_act.stopped_by_her = false
+	_act.tolerance_warning_key = ""
 	_handover.reset_act()
 	_end_tail_tuck()
 	_summary_service.reset_act()
 	_prepare_vocal()
 	_afterglow.stop_decay()
 	_remember_talk_turn()
-	_act_spoken_at = _dialogue_service().last_spoken_at()
+	_act.act_spoken_at = _dialogue_service().last_spoken_at()
 	if _act.source == "cradle":
 		if not _release_carry():
 			_abort_start()
@@ -1616,7 +1633,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 		return false
 
 	_snapshot_pony_bones()
-	_posture_owned = true
+	_act.posture_owned = true
 	pony.sleeping = false
 	pony.set_sim_tier(pony.SimTier.HERO)
 	pony.set_meta("sex_active", true)
@@ -1741,7 +1758,7 @@ func _unlock_player() -> void:
 func _abort_start() -> void:
 	_end_act_lines(true)
 	_end_session(false)
-	_finalize_session(false)
+	_exit.finalize(false)
 
 # --------------------------------------------------------------------------- body swap
 
@@ -1813,7 +1830,7 @@ func _suspend_for_body_swap(change: BODY_CHANGE) -> void:
 	_anatomy_bridge.end()
 	_release_nav()
 	_restore_face_turn()
-	_free_pose()
+	_exit.free_pose()
 	_restore_pony_bones()
 	if _act_camera.camera_owned:
 		_restore_camera()
@@ -2218,7 +2235,7 @@ func _sync_pose_frame() -> void:
 ## The new-act prep: run the one pose teardown first so a pose left from the offer cannot stack,
 ## then build the act's pose.
 func _build_pose() -> void:
-	_free_pose()
+	_exit.free_pose()
 	var session := _pose_service()
 	var view: Camera3D = WORLD.camera()
 	var look: Vector3 = pony.global_position
@@ -2255,29 +2272,6 @@ func _restore_pony_bones() -> void:
 	_pose_service().restore_bones()
 
 
-## The one pose teardown ledger: the pose-scope start and body steps at their current positions,
-## the act-scope releases between them, then the session's final pose clear. A later pose
-## transition calls only the pose-scope steps; it never calls this function.
-func _free_pose() -> void:
-	# A lost body must not reach the pose session's oral/face bindings.
-	_pose_session.bind(self, pony if is_instance_valid(pony) else null)
-	_pose_service().leave_pose_start()
-	clear_presentation()
-	_camera_service().call("end_lean_action")
-	_hand_controller().reset()
-	_kiss_controller().reset()
-	_integrations_controller().reset()
-	_reset_excitement_hold()
-	_camera_service().call("release_free_camera_lock")
-	_standing_anon_controller().remove()
-	_pose_service().leave_pose_body()
-	_restore_voice_volume()
-	_reactions.end_act()
-	_pose_service().release_pose()
-
-
-# --------------------------------------------------------------------------- thrust
-
 func _now_s() -> float:
 	return _act._clock_s
 
@@ -2290,9 +2284,9 @@ func _reset_thrust_state() -> void:
 	_readiness.reset(_act.preferences)
 	_act.clear_phase()
 	_afterglow.reset()
-	_dialogue_service().reset(_now_s(), _cue_gap)
+	_dialogue_service().reset(_now_s(), _act.cue_gap)
 	_configure_utterance_scheduler()
-	_act_spoken_at = -1e9
+	_act.act_spoken_at = -1e9
 	_act_ended_early = false
 
 ## Switch the automatic stroke on or off. X is the only caller. Turning it on starts from the
@@ -2819,7 +2813,7 @@ func _summary_values() -> Dictionary:
 		"pattern_total": _readiness.act_pattern_total,
 		"pattern_right": _readiness.act_pattern_right,
 		"ended_early": _act_ended_early,
-		"stopped_by_her": _stopped_by_her,
+		"stopped_by_her": _act.stopped_by_her,
 		"form_reveal": _handover.reveal_done,
 	}
 
@@ -2858,7 +2852,7 @@ func _tolerance_tick(delta: float) -> void:
 
 ## Present one collected tolerance decision.
 func _present_tolerance(decision: Dictionary) -> void:
-	if decision.is_empty() or _stopped_by_her:
+	if decision.is_empty() or _act.stopped_by_her:
 		return
 	var warning := int(decision.get("warning", 0))
 	if warning > 0:
@@ -2881,8 +2875,8 @@ func _tolerance_warn(level: int) -> void:
 func _queue_tolerance_warning(level: int) -> void:
 	if not is_instance_valid(WORLD.game):
 		return
-	if not _tolerance_warning_key.is_empty():
-		MEMORY.instance.cancel_line(_tolerance_warning_key)
+	if not _act.tolerance_warning_key.is_empty():
+		MEMORY.instance.cancel_line(_act.tolerance_warning_key)
 	var act_id := _act.event_id
 	var event_id := "%s:tolerance_warning:%d" % [_act.event_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
@@ -2890,21 +2884,21 @@ func _queue_tolerance_warning(level: int) -> void:
 			and _act.event_id == act_id
 	var fallback := ("Don't do that." if level <= 1 else "I said stop that.") \
 		+ " Begin with [annoyed] or [calm]."
-	_tolerance_warning_key = _dialogue_service().reaction_line(MEMORY.Reaction.TOLERANCE_WARNING, event_id, fallback, valid)
+	_act.tolerance_warning_key = _dialogue_service().reaction_line(MEMORY.Reaction.TOLERANCE_WARNING, event_id, fallback, valid)
 
 
 func _cancel_tolerance_warning() -> void:
-	if not _tolerance_warning_key.is_empty() and is_instance_valid(WORLD.game):
-		MEMORY.instance.cancel_line(_tolerance_warning_key)
-	_tolerance_warning_key = ""
+	if not _act.tolerance_warning_key.is_empty() and is_instance_valid(WORLD.game):
+		MEMORY.instance.cancel_line(_act.tolerance_warning_key)
+	_act.tolerance_warning_key = ""
 
 
 ## A real consent stop. It ends the act without the normal afterglow/cuddle restore, commits a
 ## severe bad summary, and only Strict additionally bucks and requests space.
 func _stop_with_her(reason: String) -> void:
-	if _stopped_by_her or state not in [State.POSING_IN, State.ACTIVE]:
+	if _act.stopped_by_her or state not in [State.POSING_IN, State.ACTIVE]:
 		return
-	_stopped_by_her = true
+	_act.stopped_by_her = true
 	var strict := str(_act.preferences.get("tolerance", "normal")) == "strict"
 	# The teardown resets readiness; keep the value that caused the stop for the log below.
 	var distress: float = _readiness.distress()
@@ -2918,7 +2912,7 @@ func _stop_with_her(reason: String) -> void:
 		REST.release_managed(pony)
 	_end_act_lines(true)
 	_end_session(false)
-	_finalize_session(true)
+	_exit.finalize(true)
 	if strict:
 		_request_space()
 		bool(_scene_gate().buck_or_push())
@@ -2996,7 +2990,7 @@ func _record_peak_memory() -> void:
 		"player_talk": _readiness.last_player_talk,
 		"her_at": _dialogue_service().last_spoken_at(),
 		"her_line": _dialogue_service().last_spoken_line(),
-	}, _act_spoken_at)
+	}, _act.act_spoken_at)
 
 
 ## A smack has already started the native cheek jiggle. The reaction facade carries it into the
@@ -3300,81 +3294,10 @@ func _restore_begin() -> void:
 	if is_instance_valid(HUD.instance):
 		HUD.instance.hide_act()
 
-## Give back everything the act borrowed, in the order the pose and camera were built. Every step
-## checks its own ownership flag, so a start that failed early runs the same function and restores
-## only what it took. Keep this the only exit path. `_end_act_lines()` is deliberately outside:
-## `cancel()` queues the early-stop reaction after `_restore_begin()`, and `_finish_restore()` must
-## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
+## The one act exit. The order and every ownership check live in `act/exit.gd`; this node keeps
+## the one entry the exit routes call.
 func _end_session(rejoin_cuddle: bool) -> void:
-	_stop_auto()
-	# A suspended act may end here (world close, a failed swap or an invalid body). Drop the
-	# handover before the normal teardown; it is not a second exit path.
-	_handover.abort()
-	_handover.end_act()
-	PONIES.clear_body_swap(self)
-	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
-	# returns Anon and her to it, but only when it did not go badly.
-	var rejoin_bed: Node3D = null
-	var rejoin_serial := _act.serial
-	if rejoin_cuddle and _start_frame() == "bed" \
-			and _act.source in ["bed_side", "already_lying"] and not _stopped_by_her \
-			and bool(_rest_service().call("rejoin_wanted", _rest_context())):
-		rejoin_bed = _act.bed
-	# integration: close the anatomy act once, before the pose is freed.
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.end()
-	# The oral turn's facing override must not outlive the act, even on a direct forced stop.
-	_standing_camera_controller().reset_facing()
-	if is_instance_valid(HUD.instance):
-		HUD.instance.set_inventory_hidden(false)
-	_kiss_controller().restore_forelegs()
-	_restore_face_turn()
-	_camera_service().call("restore_eye_override")
-	if is_instance_valid(pony):
-		_clear_face()
-		_end_act_face()
-		_wings_controller().release()
-	_unlock_player()
-	if _act_camera.camera_owned:
-		_restore_camera()
-	_release_stool()
-	if is_instance_valid(pony):
-		pony.remove_meta("sex_active")
-	# integration: hide the player part when the act ends.
-	var service: Variant = _anatomy_service()
-	if service != null and service.has_method("player_encounter"):
-		service.call("player_encounter", false)
-	_release_nav()
-	if _act_camera.look_captured:
-		_restore_look()
-	if _posture_owned:
-		_restore_posture(_start_frame(), rejoin_cuddle)
-	_free_pose()
-	_restore_pony_bones()
-	_stop_audio()
-	if is_instance_valid(WORLD.game):
-		if is_instance_valid(HUD.instance):
-			HUD.instance.hide_all()
-		PONIES.clear_active(self)
-	_act.finish_restore()
-	_act.pose_id = ""
-	_act.source = ""
-	_act.bed = null
-	# integration: act-only anatomy hides immediately when the act ends.
-	_anatomy_bridge.apply_live()
-	# Deferred so `_finalize_session()` has started aftercare (and its navigator hold) first; the
-	# rejoin retries until that hold and the bed's guest cooldown are gone.
-	if rejoin_bed != null:
-		_rejoin_bed_cuddle.call_deferred(rejoin_bed, rejoin_serial)
-
-## One-time bookkeeping after the borrowed state is back. Idempotent: a failed start has no act
-## to reset and must not start aftercare.
-func _finalize_session(real_act: bool) -> void:
-	if _session_finalized:
-		return
-	_session_finalized = true
-	if real_act:
-		_reset_after_act()
+	_exit.run(rejoin_cuddle)
 
 ## The bed/couch rest and cuddle rejoin. See `rest/service.gd` and `docs/rest.md`.
 func _rest_service() -> RefCounted:
@@ -3392,24 +3315,12 @@ func _rest_context() -> Dictionary:
 		"headset": _headset_view(),
 		"summary": _summary_service.summary,
 		"satisfaction": satisfaction,
-		"aftercare_min": _aftercare_min,
+		"aftercare_min": _act.aftercare_min,
 	}
 
 
 func _rest_restore_scene() -> void:
 	_missionary_camera_controller().restore_scene()
-
-
-## Give the bed back: restore the pre-act scene and stand her. A bed missionary act that ended well
-## is re-seated and re-invited by `_rejoin_bed_cuddle()` after the session is fully back to IDLE.
-## A forced stop never reaches it; the world is going away or the pony is already invalid.
-func _restore_posture(frame: String, rejoin_cuddle: bool) -> void:
-	_posture_owned = false
-	_rest_service().call("restore_posture", frame, rejoin_cuddle)
-
-
-func _rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
-	await _rest_service().call("rejoin_bed_cuddle", bed_node, act_serial)
 
 
 func _finish_restore() -> void:
@@ -3418,7 +3329,7 @@ func _finish_restore() -> void:
 	else:
 		_log("restore finished with invalid pony")
 	_end_session(true)
-	_finalize_session(true)
+	_exit.finalize(true)
 
 func force_stop() -> void:
 	# Defensive: every stop path must leave the quick slots in their pre-act state.
@@ -3430,25 +3341,7 @@ func force_stop() -> void:
 func _restore_now() -> void:
 	_end_act_lines(true)
 	_end_session(false)
-	_finalize_session(true)
-
-## The after-act. The order is the act exit's: the stroke state resets, the meter runs down, and
-## the act ends in either the tail tuck after a partner stop or the aftercare beat. The afterglow
-## facade owns the decisions and the values; this hosts the nodes.
-func _reset_after_act() -> void:
-	if not is_inside_tree():
-		return
-	_reset_thrust_state()
-	_afterglow.decay_satisfaction(satisfaction)
-	var plan: AFTERGLOW.PostAct = _afterglow.post_act(_stopped_by_her, satisfaction,
-		_aftercare_min, not _summary_service.summary.is_empty(),
-		bool(_summary_service.summary.get("positive", false)))
-	if plan.tail_tuck:
-		_start_tail_tuck()
-	elif is_instance_valid(pony) and _afterglow.start_aftercare(pony, plan):
-		_bind_face()
-		_face.start_post_act(plan.face_context(_summary_service.summary))
-
+	_exit.finalize(true)
 
 ## The afterglow's satisfaction decay writes here; the meter's range is readiness's.
 func _write_satisfaction(value: float) -> void:
@@ -3521,7 +3414,7 @@ func _bind_face() -> void:
 func _act_face_beat(moment: String) -> void:
 	_bind_face()
 	var ctx := {
-		"first_time": _first_time,
+		"first_time": _act.first_time,
 		"tolerance": str(_act.preferences.get("tolerance", "normal")),
 	}
 	if moment == "climax":

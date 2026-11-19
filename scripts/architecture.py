@@ -75,19 +75,19 @@ POSE_ACT_EXIT_CALLS = (
     "_free_pose(",
 )
 POSE_LEDGER_ORDER = (
-    "_pose_service().leave_pose_start()",
-    "clear_presentation()",
-    '_camera_service().call("end_lean_action")',
-    "_hand_controller().reset()",
-    "_kiss_controller().reset()",
-    "_integrations_controller().reset()",
-    "_reset_excitement_hold()",
-    '_camera_service().call("release_free_camera_lock")',
-    "_standing_anon_controller().remove()",
-    "_pose_service().leave_pose_body()",
-    "_restore_voice_volume()",
-    "_reactions.end_act()",
-    "_pose_service().release_pose()",
+    "context.pose.leave_pose_start()",
+    "context.presentation.clear_presentation()",
+    "context.camera.end_lean_action()",
+    "context.hands.reset()",
+    "context.kiss.reset()",
+    "context.integrations.reset()",
+    "host.ledger.reset_excitement_hold.call()",
+    "context.camera.release_free_camera_lock()",
+    "context.standing_anon.remove()",
+    "context.pose.leave_pose_body()",
+    "host.ledger.restore_voice_volume.call()",
+    "context.reactions.end_act()",
+    "context.pose.release_pose()",
 )
 POSE_FANOUT_ORDER = (
     "_pose_service()",
@@ -97,6 +97,13 @@ POSE_FANOUT_ORDER = (
     "_anatomy_bridge",
     "_act_audio",
 )
+# The pose ledger's callers: the one act exit, the new-act prep and the body-swap suspension.
+# A new caller is a design decision, so the set is exact and compared both ways.
+POSE_LEDGER_CALLERS = {
+    ("act/exit.gd", "run"),
+    ("runtime.gd", "_build_pose"),
+    ("runtime.gd", "_suspend_for_body_swap"),
+}
 # Rule 1, full form: only the entry names the entry. A service that needs another service
 # preloads its facade, one that needs the scene reads `WORLD`, and one that needs a callback takes
 # a host parameter. `tests/` and the prose literal `main.gd` are allowed.
@@ -881,11 +888,27 @@ def check_tests(failure: Failure) -> None:
 
 def check_sources(failure: Failure) -> None:
     runtime = (ROOT / "runtime.gd").read_text(encoding="utf-8")
+    exit_path = ROOT / "act" / "exit.gd"
+    if not exit_path.is_file():
+        failure.add("missing act/exit.gd: it owns the one teardown and the pose ledger")
+        exit_text = ""
+    else:
+        exit_text = exit_path.read_text(encoding="utf-8")
 
-    # One teardown: every exit route goes through _end_session, and no stop path repeats a
-    # borrowed-state restore itself.
+    # One teardown: `act/exit.gd:run()` is the only scene-restoring body, the runtime keeps a
+    # one-line delegate, and every exit route ends through it without repeating a step.
+    if exit_text and len(re.findall(r"^func run\(", exit_text, re.MULTILINE)) != 1:
+        failure.add("act/exit.gd must define exactly one run()")
     if len(re.findall(r"^func _end_session\(", runtime, re.MULTILINE)) != 1:
         failure.add("runtime.gd must define exactly one _end_session()")
+    end_body = function_body(runtime, "_end_session")
+    end_lines = end_body.splitlines()
+    while end_lines and not (end_lines[0].strip().endswith(":") and ")" in end_lines[0]):
+        end_lines.pop(0)
+    end_lines = [line.strip() for line in end_lines[1:]
+                 if line.strip() and not line.strip().startswith("#")]
+    if end_lines != ["_exit.run(rejoin_cuddle)"]:
+        failure.add("runtime._end_session() must be the one-line _exit.run(rejoin_cuddle) delegate")
     for name in ("_abort_start", "_finish_restore", "_restore_now", "force_stop"):
         body = function_body(runtime, name)
         if not body:
@@ -901,22 +924,35 @@ def check_sources(failure: Failure) -> None:
 
     # The pose ledger keeps its pose-scope steps and act-scope resets in their current order, and
     # only the act exit, the new-act prep and the body-swap suspension call it.
-    free = function_body(runtime, "_free_pose")
+    free = function_body(exit_text, "free_pose")
     cursor = 0
     for call in POSE_LEDGER_ORDER:
         at = free.find(call, cursor)
         if at < 0:
-            failure.add("_free_pose() must keep %s at its position" % call)
+            failure.add("act/exit.gd free_pose() must keep %s at its position" % call)
             break
         cursor = at + len(call)
-    ledger_calls = call_lines(runtime, "_free_pose()")
-    if len(ledger_calls) != 3:
-        failure.add("the pose ledger must have exactly three callers (found %d)" % len(ledger_calls))
-    for name in ("_end_session", "_build_pose", "_suspend_for_body_swap"):
-        if "_free_pose()" not in function_body(runtime, name):
-            failure.add("%s must call the pose ledger" % name)
-    release_calls = call_lines(runtime, "_pose_service().release_pose()")
-    if len(release_calls) != 1 or "_pose_service().release_pose()" not in free:
+    ledger_callers: set[tuple[str, str]] = set()
+    for path in shipped_sources():
+        text = path.read_text(encoding="utf-8")
+        offsets = function_offsets(text)
+        for match in re.finditer(r"(?<![\w])free_pose\(\)", text):
+            line = text[text.rfind("\n", 0, match.start()) + 1:match.start()]
+            if line.lstrip().startswith(("#", "func ")):
+                continue
+            ledger_callers.add((rel(path), enclosing_function(offsets, match.start())))
+    for caller in sorted(ledger_callers):
+        if caller not in POSE_LEDGER_CALLERS:
+            failure.add("the pose ledger has an unexpected caller: %s:%s" % caller)
+    for caller in sorted(POSE_LEDGER_CALLERS):
+        if caller not in ledger_callers:
+            failure.add("the pose ledger is missing its caller: %s:%s" % caller)
+    release_calls = set()
+    for path in shipped_sources():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if "release_pose()" in line and not line.lstrip().startswith(("#", "func ")):
+                release_calls.add(rel(path))
+    if release_calls != {"act/exit.gd"} or "release_pose()" not in free:
         failure.add("release_pose() must be called only from the pose ledger")
 
     # The physics tick advances the pose edge before the view refresh, then fans the change out;

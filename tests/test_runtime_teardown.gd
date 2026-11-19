@@ -228,7 +228,7 @@ func _fixture() -> Dictionary:
 	runtime._hold.had_kiss_hold = false
 	player.set_meta("kiss_hold", true)
 	pony.set_meta("sex_active", true)
-	runtime._posture_owned = true
+	runtime._act.posture_owned = true
 	runtime._act.pose_id = CATALOG_STANDING
 	runtime._act.source = "test"
 	runtime._set_state(2)
@@ -284,7 +284,7 @@ func run() -> void:
 	check(inventory.placed == 1, "inventory re-places the hotbar")
 	check(pony.posture_requests.size() == 1 and pony.posture_requests[0] == "stand",
 		"standing posture requested once")
-	check(not runtime._posture_owned, "posture ownership cleared")
+	check(not runtime._act.posture_owned, "posture ownership cleared")
 	check(not runtime.auto_active(), "teardown clears auto thrust")
 	check(int(runtime.state) == 0, "state returns to IDLE")
 	check(runtime._act.pose_id == "" and runtime._act.source == "" and runtime._act.bed == null,
@@ -366,10 +366,10 @@ func run() -> void:
 	# Finalize is idempotent.
 	var f5 := _fixture()
 	var runtime5: Node = f5["runtime"]
-	runtime5._finalize_session(false)
-	check(runtime5._session_finalized, "finalize marks the session done")
-	runtime5._finalize_session(false)
-	check(runtime5._session_finalized, "double finalize is a no-op")
+	runtime5._exit.finalize(false)
+	check(runtime5._act.finalized, "finalize marks the session done")
+	runtime5._exit.finalize(false)
+	check(runtime5._act.finalized, "double finalize is a no-op")
 
 	# Desktop standing start keeps her in place and places Anon behind her; act end restores him.
 	var f6 := _fixture()
@@ -480,7 +480,7 @@ func run() -> void:
 	check(runtime8._pose_session.view().id == CATALOG_STANDING
 		and runtime8._pose_session.view().pose_state == 2,
 		"the act fills the pose view")
-	runtime8.call("_free_pose")
+	runtime8._exit.free_pose()
 	check(runtime8._pose_session.view().id == ""
 		and runtime8._pose_session.view().pose_state == 0,
 		"the act teardown clears the pose view")

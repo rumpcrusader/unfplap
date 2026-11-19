@@ -50,6 +50,16 @@ var presentation_config: Dictionary = {}
 var profile: Dictionary = {}
 var caress_quality := ""
 var forced_glance := ""
+## Act-scope bookkeeping the ledgers read: what this act borrowed, what it finalized, and the
+## values the aftercare plan is built from. `finalized` makes the post-act bookkeeping one-shot.
+var posture_owned := false
+var finalized := false
+var stopped_by_her := false
+var aftercare_min := 0
+var cue_gap := 0.0
+var first_time := false
+var tolerance_warning_key := ""
+var act_spoken_at := -1e9
 
 ## The `POSING_IN` timer: the pose settles into the act after this many seconds.
 var _pose_in_left := 0.0

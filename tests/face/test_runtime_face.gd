@@ -76,7 +76,7 @@ func check(ok: bool, text: String) -> void:
 func _start_post_act_face(runtime: Node) -> void:
 	var summary: Dictionary = runtime._summary_service.summary
 	var plan: RefCounted = runtime._afterglow.post_act(false, runtime.satisfaction,
-		runtime._aftercare_min, not summary.is_empty(), bool(summary.get("positive", false)))
+		runtime._act.aftercare_min, not summary.is_empty(), bool(summary.get("positive", false)))
 	runtime._bind_face()
 	runtime._face.start_post_act(plan.face_context(summary))
 
@@ -99,7 +99,7 @@ func _fixture() -> Dictionary:
 		"pattern": "steady", "touch": [], "talk": []}
 	runtime._readiness.tolerance = FakeTolerance.new()
 	runtime._act_climax_mode = "auto"
-	runtime._first_time = true
+	runtime._act.first_time = true
 	runtime._set_state(2) # ACTIVE
 	return {"runtime": runtime, "pony": pony, "expressions": expressions}
 
@@ -161,7 +161,7 @@ func run() -> void:
 	runtime.set_physics_process(false)
 	expressions.dialogue_face = ""
 	runtime.satisfaction = 100.0
-	runtime._aftercare_min = 10
+	runtime._act.aftercare_min = 10
 	runtime._summary_service.summary = {"grade": "great", "positive": true, "reward": true,
 		"severe": false, "early": false, "mood": "happy"}
 	_start_post_act_face(runtime)

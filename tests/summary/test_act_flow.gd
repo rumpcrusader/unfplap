@@ -291,7 +291,7 @@ func _check_commit() -> void:
 	check(impressions.calls.size() == 1, "a second commit writes no second impression")
 
 	# A partner stop forces a severe bad summary and a history cooldown.
-	runtime._stopped_by_her = true
+	runtime._act.stopped_by_her = true
 	runtime._summary_service.summary = {}
 	runtime._summary_service.summary_done = false
 	runtime._readiness.act_touch_dislikes = {"smack": 2}

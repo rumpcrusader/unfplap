@@ -215,7 +215,7 @@ func fixture(kind: String) -> Dictionary:
 	runtime.pony_climaxes = 1
 	runtime._act._act_seconds = 90.0
 	runtime._readiness.act_thrusts = 10
-	runtime._posture_owned = true
+	runtime._act.posture_owned = true
 	runtime._hold.nav = nav
 	runtime._hold.token = "unfplap:test"
 	nav.command_owner = "unfplap:test"
@@ -235,7 +235,7 @@ func run() -> void:
 	var normal_runtime: Node = normal["runtime"]
 	normal_runtime.call("_stop_with_her", "smack")
 	check(int(normal_runtime.state) == 0, "a normal stop ends the act")
-	check(bool(normal_runtime.get("_stopped_by_her")), "a normal stop is flagged")
+	check(bool(normal_runtime._act.stopped_by_her), "a normal stop is flagged")
 	var normal_summary: Dictionary = normal_runtime._summary_service.summary
 	check(str(normal_summary.get("grade", "")) == "bad", "a normal stop commits a bad summary")
 	check(int(normal["bonds"].requests) == 0, "a normal stop does not request space")
@@ -266,7 +266,7 @@ func run() -> void:
 	var strict := fixture("strict")
 	var strict_runtime: Node = strict["runtime"]
 	strict_runtime.call("_stop_with_her", "smack")
-	check(bool(strict_runtime.get("_stopped_by_her")), "a strict stop is flagged")
+	check(bool(strict_runtime._act.stopped_by_her), "a strict stop is flagged")
 	var strict_summary: Dictionary = strict_runtime._summary_service.summary
 	check(str(strict_summary.get("mood", "")) == "angry", "a strict stop is angry")
 	var strict_calls: Array = (strict["impressions"] as Node).calls

@@ -630,10 +630,6 @@ func in_heat() -> bool:
 	return cycle_phase() == CYCLE.HEAT
 
 
-func pose_service() -> Variant:
-	return context.pose
-
-
 func kiss_service() -> Variant:
 	return context.kiss
 

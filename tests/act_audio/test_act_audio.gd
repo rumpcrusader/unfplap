@@ -153,11 +153,11 @@ func run() -> void:
 	# Runtime integration: the pack node is created for every act.
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
-	runtime._act.bed = Node3D.new()
+	runtime.act.bed = Node3D.new()
 	root.add_child(runtime)
-	runtime._audio.start(runtime.pony, "", runtime._act.bed)
+	runtime._bundle.audio.start(runtime.pony, "", runtime.act.bed)
 	check(runtime.has_node("UnfplapActAudio"), "the act starts the pack audio node")
-	runtime._audio.stop()
+	runtime._bundle.audio.stop()
 	root.remove_child(runtime)
 	runtime.free()
 

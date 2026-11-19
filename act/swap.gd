@@ -97,6 +97,12 @@ func bind_placement(form: BODY_FORM.BodyForm = null) -> void:
 	context.placement.bind_act(session.placement_values(form))
 
 
+## The live standing gap for the offer and the suites. The placement handle owns the value.
+func standing_gap(form: BODY_FORM.BodyForm = null) -> float:
+	bind_placement(form)
+	return context.placement.gap_act()
+
+
 ## A standing act places Anon at the body's gap. A different body form needs that pass again; the
 ## bed act keeps him where he is and its authored shot re-reads the live body scale.
 func reanchor(form: BODY_FORM.BodyForm = null) -> void:
@@ -116,6 +122,12 @@ func reset_pelvis() -> void:
 func new_body_is_adult() -> bool:
 	bind_placement()
 	return context.placement.new_body_is_adult_act()
+
+
+## The adopted body failed the act's adult-mare gate: log it and leave through the one exit.
+func end_non_adult(body: Node) -> void:
+	host.log("body swap ended: the new body is not an adult mare pony=%s" % str(body.name))
+	session.force_stop()
 
 
 ## The swap's ordered release steps the handover calls.

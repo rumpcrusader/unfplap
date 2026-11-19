@@ -427,6 +427,32 @@ func add_heat(amount: float) -> void:
 		_log("readiness=%.0f mood=%s" % [satisfaction, mood])
 
 
+## The typed reads the host-callback bindings use: the meter, the stroke depth and the climax count.
+func satisfaction_value() -> float:
+	return satisfaction
+
+
+func cue_value() -> String:
+	return cue
+
+
+func depth_value() -> float:
+	return depth
+
+
+func penetration_m_value() -> float:
+	return penetration_m
+
+
+func climax_count() -> int:
+	return pony_climaxes
+
+
+## The afterglow's decay write. The meter's range is this module's rule, not the caller's.
+func write_satisfaction(value: float) -> void:
+	satisfaction = clampf(value, 0.0, READINESS_MAX)
+
+
 func set_cue_override(text: String, seconds := -1.0) -> void:
 	if seconds < 0.0:
 		seconds = override_seconds

@@ -247,3 +247,12 @@ func _clear_wing_sweep() -> void:
 func _log(text: String) -> void:
 	if log.is_valid():
 		log.call(text)
+
+
+## The two flags the perf probe prints. The wing state is this controller's, not the node's.
+func wing_hold() -> bool:
+	return _wing_hold
+
+
+func winged() -> bool:
+	return _winged

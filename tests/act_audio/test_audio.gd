@@ -255,14 +255,14 @@ func _check_live_mute() -> void:
 	var runtime: Node = RUNTIME.new()
 	root.add_child(runtime)
 	runtime.pony = pony
-	runtime._id = "rarity"
-	runtime._act.pony_id = "rarity"
+	runtime.act.pony_id = "rarity"
+	runtime.act.pony_id = "rarity"
 	runtime.act._set_state(2) # ACTIVE
-	runtime._act.pose_id = CATALOG.STANDING
+	runtime.act.pose_id = CATALOG.STANDING
 	var before := SETTINGS.mute_ponese_audio.get_bool()
 	SETTINGS.mute_ponese_audio.set_bool(false)
 	runtime.act.apply_live_settings()
-	var voice_audio: Node = runtime._audio.service()
+	var voice_audio: Node = runtime._bundle.audio.service()
 	check(is_instance_valid(voice_audio) and not bool(voice_audio.call("voice_text_only")),
 		"the act opens with the Ponese voice live")
 	SETTINGS.mute_ponese_audio.set_bool(true)

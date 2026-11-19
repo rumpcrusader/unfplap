@@ -20,6 +20,7 @@ extends Node
 ## `on_player(body)`, `shutdown()`); a hook it does not implement is skipped.
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
@@ -279,7 +280,7 @@ func _process_entry(delta: float, timed: bool) -> void:
 	# The caption move is an act-only path the HUD owns: the entry only reports the live state,
 	# and the HUD's process priority keeps the move after the caption's own _process.
 	var active: RUNTIME = PONIES.active() as RUNTIME
-	hud.caption_tick(active.act.state if is_instance_valid(active) else RUNTIME.State.IDLE)
+	hud.caption_tick(active.act.state if is_instance_valid(active) else ACT_STATE.State.IDLE)
 	if not is_instance_valid(WORLD.player) and is_instance_valid(WORLD.game):
 		var body: Variant = WORLD.game_player()
 		if is_instance_valid(body):

@@ -990,6 +990,20 @@ func write_log(text: String) -> void:
 		facts.write_log(text)
 
 
+## The typed handles and reads the host-callback bindings use: the two pose cameras and the live
+## lean the perf probe reports.
+func missionary_controller() -> RefCounted:
+	return missionary_camera
+
+
+func standing_controller() -> RefCounted:
+	return standing_camera
+
+
+func lean_side_value() -> float:
+	return lean_view_side
+
+
 ## Prepare the start pose's camera profile before the look is captured. The bed shot camera reads
 ## the authored asset; the standing camera starts in its placement adapter instead.
 func prepare_start(profile: String) -> void:

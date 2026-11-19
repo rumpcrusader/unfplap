@@ -108,17 +108,17 @@ func _fixture() -> Dictionary:
 	view.pose_state = VIEW.STEADY
 	var pose: RefCounted = POSES.new()
 	pose.bind(runtime, null)
-	pose.facts = runtime._act_facts
+	pose.facts = runtime._bundle.facts
 	pose._view = view
 	pose.act_body = Node.new()
 	var bridge := FakeBridge.new()
 	bridge.missionary_anon = Node.new()
 	runtime.act._set_state(2)
-	runtime._pose_session = pose
-	runtime._act.context.pose = pose
-	runtime._anatomy_bridge = bridge
-	runtime._act.context.anatomy = bridge
-	runtime._act_facts.kiss_active = false
+	runtime._bundle.pose = pose
+	runtime.act.context.pose = pose
+	runtime._bundle.anatomy_bridge = bridge
+	runtime.act.context.anatomy = bridge
+	runtime._bundle.facts.kiss_active = false
 	root.add_child(runtime)
 	return {"runtime": runtime, "pose": pose, "bridge": bridge, "view": view}
 
@@ -161,9 +161,9 @@ func _check_helper() -> void:
 	check(runtime.act.face_sit_error() == "the pose is changing",
 		"a changing pose is refused")
 	view.pose_state = VIEW.STEADY
-	runtime._act_facts.kiss_active = true
+	runtime._bundle.facts.kiss_active = true
 	check(runtime.act.face_sit_error() == "a kiss is running", "a running kiss is refused")
-	runtime._act_facts.kiss_active = false
+	runtime._bundle.facts.kiss_active = false
 	SETTINGS.anatomy_mode.set_choice("never")
 	check(runtime.act.face_sit_error() == "the anatomy is not available",
 		"the anatomy master off is refused")

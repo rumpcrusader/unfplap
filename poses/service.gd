@@ -1978,3 +1978,13 @@ func _write_log(text: String) -> void:
 func sync_start_config(group: String) -> void:
 	if group == "missionary":
 		sync_missionary_config()
+
+
+## The moments the host-callback bindings need: the bed frame the anatomy bridge mirrors, and the
+## pose handle the bridge calls.
+func _bed_frame_value() -> Variant:
+	return bed_frame
+
+
+func self_handle() -> RefCounted:
+	return self

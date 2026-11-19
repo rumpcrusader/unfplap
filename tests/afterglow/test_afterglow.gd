@@ -69,29 +69,29 @@ func _reward_lines(host: Host) -> Array[String]:
 func _runtime(pose: String) -> Node:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
-	runtime._act.pose_id = pose
+	runtime.act.pose_id = pose
 	runtime.act._set_state(4) # AFTERGLOW
-	runtime._act.preferences = PREF.resolve({})
-	runtime._act.snapshot_settings()
+	runtime.act.preferences = PREF.resolve({})
+	runtime.act.snapshot_settings()
 	return runtime
 
 
 func run() -> void:
 	var note_runtime: Node = _runtime("standing")
-	note_runtime._id = "fluttershy"
-	note_runtime._act.pony_id = "fluttershy"
+	note_runtime.act.pony_id = "fluttershy"
+	note_runtime.act.pony_id = "fluttershy"
 	var idle_note: String = str(note_runtime.act.prompt_note())
 	check(idle_note.contains("afterglow") and idle_note.contains("still close"),
 		"afterglow prompt note carries the live state")
 	check(not idle_note.contains("[stay:"), "afterglow prompt note does not advertise a stay tag")
-	var note_caress: Variant = note_runtime.call("_hand_controller")
+	var note_caress: Variant = note_runtime._bundle.hands
 	note_caress._caress_active = {"L": true, "R": false}
 	check(note_runtime.act.prompt_note().contains("caressing your flank"), "caress note")
 	note_caress._caress_active = {"L": false, "R": false}
-	note_runtime._act_camera.lean_forward = 0.8
+	note_runtime._bundle.camera.lean_forward = 0.8
 	check(note_runtime.act.prompt_note().contains("leaning in close"), "lean note")
 	note_runtime.act._set_state(2) # ACTIVE
-	note_runtime._act_camera.lean_forward = 0.0
+	note_runtime._bundle.camera.lean_forward = 0.0
 	check(note_runtime.act.prompt_note().contains("having sex"), "active prompt note")
 	note_runtime.free()
 
@@ -138,11 +138,11 @@ func run() -> void:
 	check(mission["phase"].hint() == "", "missionary has no close cue")
 
 	var runtime_hint: Node = _runtime("standing")
-	runtime_hint._afterglow.bind_view(_view("standing"))
-	runtime_hint._afterglow.begin({})
+	runtime_hint._bundle.afterglow.bind_view(_view("standing"))
+	runtime_hint._bundle.afterglow.begin({})
 	check(str(runtime_hint.get("act").close_hint()).contains("Stay close"),
 		"the runtime forwards the close cue")
-	runtime_hint._act.pose_id = "missionary"
+	runtime_hint.act.pose_id = "missionary"
 	check(str(runtime_hint.get("act").close_hint()) == "", "the runtime hides the missionary cue")
 	runtime_hint.free()
 
@@ -176,17 +176,17 @@ func run() -> void:
 	# The runtime writes no pose mode: the evaluator pair holds and only the weight is re-asserted.
 	var held: Node = _runtime("standing")
 	var fake_pose := FakePose.new()
-	held._pose_session.pose_node = fake_pose
-	held._pose_session.view().id = "standing"
-	held._pose_session.view().pose_state = VIEW.STEADY
-	held._afterglow.bind_view(held._pose_session.view())
-	var wings_row: bool = held._afterglow.apply_presentation(held._pose_session)
+	held._bundle.pose.pose_node = fake_pose
+	held._bundle.pose.view().id = "standing"
+	held._bundle.pose.view().pose_state = VIEW.STEADY
+	held._bundle.afterglow.bind_view(held._bundle.pose.view())
+	var wings_row: bool = held._bundle.afterglow.apply_presentation(held._bundle.pose)
 	check(wings_row, "the afterglow row asks the session for the wing return")
 	check(fake_pose.written.is_empty(), "the afterglow runtime writes no pose mode")
 	check(near(fake_pose.amount, 1.0) and near(fake_pose.target_amount, 1.0),
 		"the afterglow runtime re-asserts the pose weight")
-	check(held._pose_session.view().id == "standing"
-		and held._pose_session.view().pose_state == VIEW.STEADY,
+	check(held._bundle.pose.view().id == "standing"
+		and held._bundle.pose.view().pose_state == VIEW.STEADY,
 		"the pose view stays on the current pose")
 	fake_pose.free()
 	held.free()
@@ -264,24 +264,24 @@ func run() -> void:
 	var ended_pony: Node3D = ended.pony
 	root.add_child(ended_pony)
 	root.add_child(ended)
-	ended.satisfaction = 80.0
-	ended._act.aftercare_min = 10
-	ended._summary_service.summary = {"grade": "great", "positive": true, "reward": true,
+	ended._bundle.readiness.satisfaction = 80.0
+	ended.act.aftercare_min = 10
+	ended._bundle.summary.summary = {"grade": "great", "positive": true, "reward": true,
 		"severe": false, "early": false, "mood": "happy"}
-	ended._exit.reset_after_act()
-	check(ended._afterglow.aftercare != null, "a healthy act starts the aftercare")
+	ended.act.exit.reset_after_act()
+	check(ended._bundle.afterglow.aftercare != null, "a healthy act starts the aftercare")
 	check(ended_pony.has_meta("sex_aftercare"), "the aftercare marks the pony")
-	check(is_instance_valid(ended._face.mood_face), "the post-act face is held")
-	check(ended._afterglow.get("_decay") != null, "the satisfaction decay runs")
-	ended._act.clear_aftercare()
+	check(is_instance_valid(ended._bundle.face.mood_face), "the post-act face is held")
+	check(ended._bundle.afterglow.get("_decay") != null, "the satisfaction decay runs")
+	ended.act.clear_aftercare()
 	check(not ended_pony.has_meta("sex_aftercare"), "a new start clears the aftercare")
-	ended._act.stopped_by_her = true
-	ended._exit.reset_after_act()
-	check(ended._afterglow.aftercare == null, "a partner stop starts no aftercare")
-	check(ended._act_host._tail_tuck != null, "a partner stop tucks her tail")
-	ended._act_host.end_tail_tuck()
-	check(ended._act_host._tail_tuck == null, "the tuck is released")
-	ended._afterglow.stop_decay()
+	ended.act.stopped_by_her = true
+	ended.act.exit.reset_after_act()
+	check(ended._bundle.afterglow.aftercare == null, "a partner stop starts no aftercare")
+	check(ended._bundle.host._tail_tuck != null, "a partner stop tucks her tail")
+	ended._bundle.host.end_tail_tuck()
+	check(ended._bundle.host._tail_tuck == null, "the tuck is released")
+	ended._bundle.afterglow.stop_decay()
 	root.remove_child(ended)
 	ended.free()
 	root.remove_child(ended_pony)

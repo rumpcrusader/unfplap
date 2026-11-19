@@ -14,6 +14,7 @@ const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
@@ -199,12 +200,12 @@ func run() -> void:
 ## The offer restates the runtime's Agreement answer, because a service never preloads the
 ## runtime; the check that the two agree is here.
 func check_answers() -> void:
-	check(OFFER.AGREEMENT_WAIT == RUNTIME.AGREEMENT_WAIT,
+	check(OFFER.AGREEMENT_WAIT == ACT_AGREEMENT.AGREEMENT_WAIT,
 		"the offer's wait answer is the runtime's")
-	check(OFFER.AGREEMENT_STARTED == RUNTIME.AGREEMENT_STARTED,
+	check(OFFER.AGREEMENT_STARTED == ACT_AGREEMENT.AGREEMENT_STARTED,
 		"the offer's started answer is the runtime's")
 	check(OFFER.AGREEMENT_WAIT != OFFER.AGREEMENT_STARTED
-		and RUNTIME.AGREEMENT_FAILED != OFFER.AGREEMENT_STARTED,
+		and ACT_AGREEMENT.AGREEMENT_FAILED != OFFER.AGREEMENT_STARTED,
 		"the answers are distinct")
 
 
@@ -307,7 +308,7 @@ func check_start_outcomes() -> void:
 	check(hud.hides == hides + 1, "a started Agreement clears the hint")
 	check(negotiation.reports.size() == 1 and bool(negotiation.reports[0][1]),
 		"the started Agreement is reported")
-	runtime.agreement_result = RUNTIME.AGREEMENT_FAILED
+	runtime.agreement_result = ACT_AGREEMENT.AGREEMENT_FAILED
 	check(not service.start_pose_offer(agreement), "a failed Agreement starts nothing")
 	check(negotiation.reports.size() == 2 and not bool(negotiation.reports[1][1]),
 		"the failed Agreement is reported")

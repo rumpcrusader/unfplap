@@ -61,6 +61,64 @@ func log(text: String) -> void:
 		log_sink.call(text)
 
 
+## The presented body as a value, for a host callback that needs it rather than a field read.
+func pony_value() -> Node:
+	return pony if is_instance_valid(pony) else null
+
+
+## The runtime node itself, for the anatomy host's VR controller.
+func runtime() -> Node:
+	return node
+
+
+## The conversation director, when this runtime is in a tree.
+func director() -> Node:
+	if not is_instance_valid(node) or not node.is_inside_tree():
+		return null
+	return node.get_tree().get_first_node_in_group("conversation_director")
+
+
+## Whether another mod's entry is active in this launch.
+func mod_enabled(id: String) -> bool:
+	if id.is_empty() or not is_instance_valid(node) or not node.is_inside_tree():
+		return false
+	var mods: Node = node.get_node_or_null("/root/Mods")
+	if mods == null or not mods.has_method("is_active"):
+		return false
+	return bool(mods.call("is_active", id))
+
+
+## The VR scene handles the anatomy bridge wires into the VR act: the player, the avatar and the
+## two XR nodes. A desktop launch returns null.
+func vr_scene() -> Variant:
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+		return null
+	var player: Node = WORLD.player
+	var avatar := player.find_child("AnonBody", true, false) as Node3D
+	if not is_instance_valid(avatar):
+		return null
+	var cameras: Array = player.find_children("*", "XRCamera3D", true, false)
+	var origins: Array = player.find_children("*", "XROrigin3D", true, false)
+	if cameras.is_empty() or origins.is_empty():
+		return null
+	return {
+		"player": player,
+		"avatar": avatar,
+		"camera": cameras[0],
+		"origin": origins[0],
+		"hip_target": avatar.get("_hip_target"),
+	}
+
+
+## The pony build's near-mesh flag and simulation tier, or null when the game has neither.
+func near_mesh() -> Variant:
+	return pony.get("near_mesh_enabled") if is_instance_valid(pony) else null
+
+
+func tier() -> Variant:
+	return pony.get("sim_tier") if is_instance_valid(pony) else null
+
+
 func perf_note(key: String, usec: int) -> void:
 	if perf_sink.is_valid():
 		perf_sink.call(key, usec)

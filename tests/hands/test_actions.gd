@@ -70,17 +70,17 @@ func _check_tail_tuning() -> void:
 	var tail_runtime: Node = RUNTIME.new()
 	var tail_pony := Node3D.new()
 	tail_runtime.set("pony", tail_pony)
-	tail_runtime.set("_id", "twilight_sparkle")
-	tail_runtime._act.pose_id = CATALOG.STANDING
-	tail_runtime._pose_session._view.settings_group = CATALOG.STANDING
-	tail_runtime._act.presentation_config = {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}}
-	tail_runtime._act_context.pose.sync_standing_config(tail_runtime._act.presentation_config)
-	var cfg: Dictionary = tail_runtime._pose_session.pose_config
+	tail_runtime.act.pony_id = "twilight_sparkle"
+	tail_runtime.act.pose_id = CATALOG.STANDING
+	tail_runtime._bundle.pose._view.settings_group = CATALOG.STANDING
+	tail_runtime.act.presentation_config = {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}}
+	tail_runtime._bundle.context.pose.sync_standing_config(tail_runtime.act.presentation_config)
+	var cfg: Dictionary = tail_runtime._bundle.pose.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(40.0)), "tail yaw tunable reaches the pose")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(10.0)), "tail pitch tunable reaches the pose")
-	tail_runtime._act.presentation_config = {}
-	tail_runtime._act_context.pose.sync_standing_config(tail_runtime._act.presentation_config)
-	cfg = tail_runtime._pose_session.pose_config
+	tail_runtime.act.presentation_config = {}
+	tail_runtime._bundle.context.pose.sync_standing_config(tail_runtime.act.presentation_config)
+	cfg = tail_runtime._bundle.pose.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(35.0)), "tail yaw default")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(25.0)), "tail pitch default")
 	tail_pony.free()
@@ -93,8 +93,8 @@ func _check_perf_probe() -> void:
 	LOG.debug_perf = true
 	LOG.sink = Callable(sink, "write")
 	var probe: Node = RUNTIME.new()
-	probe.set("_id", "twilight_sparkle")
-	probe._act.pose_id = CATALOG.STANDING
+	probe.act.pony_id = "twilight_sparkle"
+	probe.act.pose_id = CATALOG.STANDING
 	probe.act._set_state(2)
 	probe.act.host.perf_note("probe_chunk", 1200)
 	probe.act.host.perf_note("probe_chunk", 800)
@@ -521,10 +521,10 @@ func run() -> void:
 
 	var live_runtime: Node = RUNTIME.new()
 	live_runtime.act._set_state(2) # ACTIVE
-	live_runtime._act.pose_id = CATALOG.STANDING
+	live_runtime.act.pose_id = CATALOG.STANDING
 	live_runtime.act.apply_live_settings()
-	check(live_runtime._act.features.has("hud_readouts"), "live settings refresh feature flags")
-	check(live_runtime._act_camera.camera_surge >= 0.0 and live_runtime._act_camera.camera_surge <= 1.0,
+	check(live_runtime.act.features.has("hud_readouts"), "live settings refresh feature flags")
+	check(live_runtime._bundle.camera.camera_surge >= 0.0 and live_runtime._bundle.camera.camera_surge <= 1.0,
 		"live settings refresh camera thrust")
 	live_runtime.free()
 
@@ -782,9 +782,9 @@ func run() -> void:
 	plant_body.free()
 
 	var gate_runtime: Node = RUNTIME.new()
-	check(not bool(gate_runtime.gate.start_verdict(CATALOG.MISSIONARY, "bed_side").get("show", false)),
+	check(not bool(gate_runtime._bundle.gate.start_verdict(CATALOG.MISSIONARY, "bed_side").get("show", false)),
 		"missing pony blocks start")
-	var gate: Variant = gate_runtime.call("_scene_gate")
+	var gate: Variant = gate_runtime._bundle.gate
 	check(not bool(gate.call("offer_verdict", CATALOG.STANDING, "", null).get("ok", false)),
 		"missing pony blocks offer")
 	var gate_rows: Array = gate.call("start_verdict", CATALOG.MISSIONARY, "bed_side").get("rows", [])
@@ -810,10 +810,10 @@ func run() -> void:
 	cuddle_pony.set_meta("couch_cuddle", true)
 	cuddle_runtime.pony = cuddle_pony
 	cuddle_runtime.act._set_state(0) # IDLE
-	cuddle_runtime.gate.suppress_auto_cuddle()
+	cuddle_runtime._bundle.gate.suppress_auto_cuddle()
 	check(cuddle_pony.has_meta("couch_cuddle"), "idle runtime leaves native bed cuddles alone")
 	cuddle_runtime.act._set_state(2) # ACTIVE
-	cuddle_runtime.gate.suppress_auto_cuddle()
+	cuddle_runtime._bundle.gate.suppress_auto_cuddle()
 	check(not cuddle_pony.has_meta("couch_cuddle"), "active runtime suppresses auto cuddle")
 	cuddle_pony.free()
 	cuddle_runtime.free()

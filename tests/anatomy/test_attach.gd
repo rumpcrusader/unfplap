@@ -261,7 +261,7 @@ func run() -> void:
 	runtime.pony = rump_pony
 	check(not runtime.gate.rump_anchor().is_finite(),
 		"no refresh leaves the rump anchor unbound")
-	runtime.call("_anatomy_refresh")
+	runtime.act.refresh_anatomy()
 	check(runtime.gate.rump_anchor().is_finite(),
 		"the anatomy refresh binds the reactions scene for the rump anchor")
 	get_root().remove_child(rump_pony)

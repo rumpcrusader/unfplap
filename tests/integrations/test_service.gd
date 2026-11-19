@@ -361,47 +361,47 @@ func _check_runtime_beat_hold() -> void:
 	var scene := _runtime_beat()
 	var runtime: Node = scene["runtime"]
 	var beat: Timer = scene["beat"]
-	runtime._audio.hold_excitement("same")
-	runtime._audio.hold_excitement("same")
-	runtime._audio.release_excitement("same")
+	runtime._bundle.audio.hold_excitement("same")
+	runtime._bundle.audio.hold_excitement("same")
+	runtime._bundle.audio.release_excitement("same")
 	check(not beat.paused, "a repeated owner releases once")
 	_free_runtime_beat(scene)
 
 	scene = _runtime_beat(true)
 	runtime = scene["runtime"]
 	beat = scene["beat"]
-	runtime._audio.hold_excitement("first")
-	runtime._audio.release_excitement("first")
+	runtime._bundle.audio.hold_excitement("first")
+	runtime._bundle.audio.release_excitement("first")
 	check(beat.paused, "an already-paused Beat stays paused")
 	_free_runtime_beat(scene)
 
 	scene = _runtime_beat()
 	runtime = scene["runtime"]
 	beat = scene["beat"]
-	runtime._audio.hold_excitement("first")
-	runtime._audio.hold_excitement("second")
-	runtime._audio.release_excitement("first")
+	runtime._bundle.audio.hold_excitement("first")
+	runtime._bundle.audio.hold_excitement("second")
+	runtime._bundle.audio.release_excitement("first")
 	check(beat.paused, "one remaining owner keeps the Beat paused")
-	runtime._audio.release_excitement("second")
+	runtime._bundle.audio.release_excitement("second")
 	check(not beat.paused, "the last release restores the Beat")
 	_free_runtime_beat(scene)
 
 	scene = _runtime_beat()
 	runtime = scene["runtime"]
 	beat = scene["beat"]
-	runtime._audio.hold_excitement("first")
-	runtime._audio.hold_excitement("second")
-	runtime._audio.reset_excitement_hold()
+	runtime._bundle.audio.hold_excitement("first")
+	runtime._bundle.audio.hold_excitement("second")
+	runtime._bundle.audio.reset_excitement_hold()
 	check(not beat.paused, "act teardown restores the Beat even with owners left")
 	_free_runtime_beat(scene)
 
 	scene = _runtime_beat(false, false)
 	runtime = scene["runtime"]
-	runtime._audio.hold_excitement("first")
-	runtime._audio.release_excitement("first")
-	check((runtime._audio._holders as Array).is_empty(),
+	runtime._bundle.audio.hold_excitement("first")
+	runtime._bundle.audio.release_excitement("first")
+	check((runtime._bundle.audio._holders as Array).is_empty(),
 		"a scene without a Beat releases the hold without an owner left")
-	check(runtime._audio._beat == null,
+	check(runtime._bundle.audio._beat == null,
 		"a scene without a Beat leaves no resolved timer")
 	_free_runtime_beat(scene)
 

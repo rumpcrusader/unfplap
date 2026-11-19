@@ -31,12 +31,12 @@ func run() -> void:
 	root.add_child(pony)
 	var id_runtime: Node = RUNTIME.new()
 	id_runtime.pony = pony
-	check(bool(id_runtime._act.refresh_identity()), "identity fallback reads a runtime id")
-	check(str(id_runtime.get("_id")) == "identity_id", "identity id is the fallback")
+	check(bool(id_runtime.act.refresh_identity()), "identity fallback reads a runtime id")
+	check(str(id_runtime.act.pony_id) == "identity_id", "identity id is the fallback")
 	pony.set_meta("relationship_id", "rarity")
-	id_runtime._act.refresh_identity()
-	check(str(id_runtime.get("_id")) == "rarity", "relationship metadata wins when it appears")
-	check(str(id_runtime._act.display_name) == "Identity", "display name is kept")
+	id_runtime.act.refresh_identity()
+	check(str(id_runtime.act.pony_id) == "rarity", "relationship metadata wins when it appears")
+	check(str(id_runtime.act.display_name) == "Identity", "display name is kept")
 	id_runtime.free()
 
 	var ready_pony := FakePony.new()
@@ -47,20 +47,20 @@ func run() -> void:
 	ready_runtime.pony = ready_pony
 	ready_pony.add_child(ready_runtime)
 	await process_frame
-	check(str(ready_runtime.get("_id")) == "ready_id", "a runtime reads its id on ready")
-	check(str(ready_runtime._act.display_name) == "Identity",
+	check(str(ready_runtime.act.pony_id) == "ready_id", "a runtime reads its id on ready")
+	check(str(ready_runtime.act.display_name) == "Identity",
 		"a runtime keeps its display name on ready")
 	ready_runtime.free()
 	ready_pony.free()
 
 	var runtime: Node = RUNTIME.new()
 	runtime.act._set_state(0) # IDLE
-	runtime._face.warm_note = true
+	runtime._bundle.face.warm_note = true
 	var note := str(runtime.act.prompt_note())
 	check(note.contains("after making love with Anon"), "the warm note names the act")
 	check(note.contains("warm") and note.contains("relaxed"), "the warm note is warm")
 	check(not note.to_lower().contains("sex"), "the warm note has no bare sex word")
-	runtime._face.warm_note = false
+	runtime._bundle.face.warm_note = false
 	runtime.free()
 
 	print("RUNTIME_NOTES_RESULT checks=%d failures=%d" % [checks, failures])

@@ -39,6 +39,16 @@ static var eligibility: ELIGIBILITY = null
 ## The cross-mod API facade, bound once by the entry. An integration registers its mare here.
 static var api: Node = null
 
+
+## The two persistent services the anatomy host reads. A static read is the script's, so a caller
+## can bind it without naming the runtime node.
+static func anatomy_service() -> Node:
+	return anatomy
+
+
+static func eligibility_service() -> ELIGIBILITY:
+	return eligibility
+
 ## pony -> its one runtime.
 static var _runtimes: Dictionary = {}
 ## One suspended act waiting for the body its source is building. The runtime reparents itself to

@@ -133,8 +133,8 @@ func run() -> void:
 	root.add_child(inventory)
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = pony
-	runtime._anatomy_bridge.controller = FakeController.new()
-	var controller: Node = runtime._anatomy_bridge.controller
+	runtime._bundle.anatomy_bridge.controller = FakeController.new()
+	var controller: Node = runtime._bundle.anatomy_bridge.controller
 	controller.set("opening_y", 1.30)
 	var stool: Variant = main.stool.new_act()
 	stool.bind(main.stool, pony, player, controller)

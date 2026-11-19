@@ -82,11 +82,11 @@ func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = pony
 	root.add_child(runtime)
-	var act: Variant = runtime._act.stool()
+	var act: Variant = runtime.act.stool()
 	act.set("active", true)
 	act.set("count", 2)
-	runtime._act_context.placement.bind_act(runtime._act.placement_values())
-	var standing: Variant = runtime._act_context.placement.begin_act()
+	runtime._bundle.context.placement.bind_act(runtime.act.placement_values())
+	var standing: Variant = runtime._bundle.context.placement.begin_act()
 	check(standing is Transform3D, "the standing transform is returned")
 	var prop: Variant = act.get("node")
 	check(prop is Node3D and is_instance_valid(prop), "the standing stool stack is built")
@@ -100,7 +100,7 @@ func run() -> void:
 		"the stack ignores the pony")
 	check(pony.get_collision_exceptions().has(prop), "the pony ignores the stack")
 
-	runtime._act.release_stool()
+	runtime.act.release_stool()
 	check(absf(player.global_position.y) < 0.01, "the player is lowered to the floor")
 	check(not (act.get("node") is Node3D), "the stool is removed on release")
 	check(not pony.get_collision_exceptions().has(prop), "the pony exception is released")

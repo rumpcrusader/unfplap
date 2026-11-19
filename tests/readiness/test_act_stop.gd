@@ -203,26 +203,26 @@ func fixture(kind: String) -> Dictionary:
 	root.add_child(context)
 	root.add_child(impressions)
 	runtime.pony = pony
-	runtime._id = "rarity"
-	runtime._act.pony_id = "rarity"
-	runtime._act.display_name = "Rarity"
-	runtime._act.event_id = "intimacy_stop_test"
-	runtime._act.preferences = {"tolerance": kind, "intensity": "soft", "pattern": "steady",
+	runtime.act.pony_id = "rarity"
+	runtime.act.pony_id = "rarity"
+	runtime.act.display_name = "Rarity"
+	runtime.act.event_id = "intimacy_stop_test"
+	runtime.act.preferences = {"tolerance": kind, "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
-	runtime._summary_service.summary_done = false
+	runtime._bundle.summary.summary_done = false
 	runtime.act._set_state(2) # ACTIVE
-	runtime._act.pose_id = "standing"
-	runtime._act.snapshot_settings()
-	runtime.pony_climaxes = 1
-	runtime._act._act_seconds = 90.0
-	runtime._readiness.act_thrusts = 10
-	runtime._act.posture_owned = true
-	runtime._hold.nav = nav
-	runtime._hold.token = "unfplap:test"
+	runtime.act.pose_id = "standing"
+	runtime.act.snapshot_settings()
+	runtime._bundle.readiness.pony_climaxes = 1
+	runtime.act._act_seconds = 90.0
+	runtime._bundle.readiness.act_thrusts = 10
+	runtime.act.posture_owned = true
+	runtime._bundle.hold.nav = nav
+	runtime._bundle.hold.token = "unfplap:test"
 	nav.command_owner = "unfplap:test"
 	pony.face_turn_rate = 0.0
-	runtime._hold.face_turn_rate_saved = 0.45
-	runtime._hold.face_turn_rate_owned = true
+	runtime._bundle.hold.face_turn_rate_saved = 0.45
+	runtime._bundle.hold.face_turn_rate_owned = true
 	pony.set_meta("sex_active", true)
 	return {
 		"runtime": runtime, "pony": pony, "main": main, "game": game,
@@ -234,10 +234,10 @@ func fixture(kind: String) -> Dictionary:
 func run() -> void:
 	var normal := fixture("normal")
 	var normal_runtime: Node = normal["runtime"]
-	normal_runtime._consent.stop_with_her("smack")
+	normal_runtime._bundle.consent.stop_with_her("smack")
 	check(int(normal_runtime.act.state) == 0, "a normal stop ends the act")
-	check(bool(normal_runtime._act.stopped_by_her), "a normal stop is flagged")
-	var normal_summary: Dictionary = normal_runtime._summary_service.summary
+	check(bool(normal_runtime.act.stopped_by_her), "a normal stop is flagged")
+	var normal_summary: Dictionary = normal_runtime._bundle.summary.summary
 	check(str(normal_summary.get("grade", "")) == "bad", "a normal stop commits a bad summary")
 	check(int(normal["bonds"].requests) == 0, "a normal stop does not request space")
 	check(int(normal["affection"].bucks) == 0, "a normal stop does not buck")
@@ -250,7 +250,7 @@ func run() -> void:
 	var normal_impression: Dictionary = normal_calls[0]
 	check(str((normal_impression.get("data", {}) as Dictionary).get("mood", "")) == "annoyed",
 		"the stop impression carries the summary mood")
-	check(normal_runtime._face.mood_face == null,
+	check(normal_runtime._bundle.face.mood_face == null,
 		"the stop face waits for a runtime in the tree")
 	var normal_events: Array = normal["context"].events
 	check(normal_events.size() == 1, "a partner stop writes one world event")
@@ -266,9 +266,9 @@ func run() -> void:
 
 	var strict := fixture("strict")
 	var strict_runtime: Node = strict["runtime"]
-	strict_runtime._consent.stop_with_her("smack")
-	check(bool(strict_runtime._act.stopped_by_her), "a strict stop is flagged")
-	var strict_summary: Dictionary = strict_runtime._summary_service.summary
+	strict_runtime._bundle.consent.stop_with_her("smack")
+	check(bool(strict_runtime.act.stopped_by_her), "a strict stop is flagged")
+	var strict_summary: Dictionary = strict_runtime._bundle.summary.summary
 	check(str(strict_summary.get("mood", "")) == "angry", "a strict stop is angry")
 	var strict_calls: Array = (strict["impressions"] as Node).calls
 	check(strict_calls.size() == 1, "a strict stop writes one impression")
@@ -294,7 +294,7 @@ func run() -> void:
 	var paused_runtime: Node = paused_fixture["runtime"]
 	root.add_child(paused_runtime)
 	paused = true
-	var gate: Variant = paused_runtime.call("_scene_gate")
+	var gate: Variant = paused_runtime._bundle.gate
 	var blocked_rows: Array = gate.call("offer_verdict", "standing", "", null).get("rows", [])
 	var blocked: PackedStringArray = gate.call("report_reasons", blocked_rows)
 	check("paused" in blocked, "a paused tree rejects a normal offer")

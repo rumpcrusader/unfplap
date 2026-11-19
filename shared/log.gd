@@ -145,6 +145,11 @@ static func clear_panel() -> void:
 		_panel.call("clear")
 
 
+## Both debug switches on: an act's perf probe and the idle window read this once at a boundary.
+static func perf_on() -> bool:
+	return debug_logs and debug_perf
+
+
 ## Enabled only while both debug switches are on and no act is running.
 static func _probe_on() -> bool:
 	if not debug_logs or not debug_perf:

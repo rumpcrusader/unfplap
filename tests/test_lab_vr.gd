@@ -199,20 +199,20 @@ func _log_tick(delta: float) -> void:
 	if not is_instance_valid(runtime):
 		_seen_state = -1
 		return
-	var state := int(runtime.get("state"))
+	var state := int(runtime.act.state)
 	var state_name: String = STATE_NAMES[state] if state >= 0 and state < STATE_NAMES.size() else str(state)
 	if state != _seen_state:
 		_seen_state = state
 		print("[unfplap vr] state=%s thrusts=%d readiness=%d" % [
-			state_name, int(runtime._readiness.act_thrusts), int(runtime.get("satisfaction"))])
-	var wants: Variant = runtime._act.preferences
+			state_name, int(runtime._bundle.readiness.act_thrusts), int(runtime._bundle.readiness.satisfaction)])
+	var wants: Variant = runtime.act.preferences
 	var wanted_intensity := str((wants as Dictionary).get("intensity", "")) if wants is Dictionary else ""
 	var wanted_pattern := str((wants as Dictionary).get("pattern", "")) if wants is Dictionary else ""
 	print("[unfplap vr] waist depth=%.0f%% auto=%s state=%s thrusts=%d readiness=%d wants=%s/%s you=%s/%s" % [
 		_depth_m / HIP_RANGE_M * 100.0, str(_auto), state_name,
-		int(runtime._readiness.act_thrusts), int(runtime.get("satisfaction")),
+		int(runtime._bundle.readiness.act_thrusts), int(runtime._bundle.readiness.satisfaction),
 		wanted_intensity, wanted_pattern,
-		str(runtime._readiness.last_intensity), str(runtime._readiness.last_pattern)])
+		str(runtime._bundle.readiness.last_intensity), str(runtime._bundle.readiness.last_pattern)])
 
 
 ## F9: the offer cone needs Anon on the ground behind her rump, and XR locomotion is stick-only

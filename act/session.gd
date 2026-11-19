@@ -23,6 +23,7 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
 const CLIMAX_SECONDS := ACT_SETTINGS.CLIMAX_SECONDS
@@ -581,3 +582,110 @@ func presentation_settled() -> bool:
 
 func clear_presentation() -> void:
 	context.presentation.clear_presentation()
+
+
+## The typed reads the host-callback bindings use. Each one names the value's owner: the state and
+## the act values here, the meter on readiness, the handles on their service.
+func state_value() -> int:
+	return state
+
+
+func act_live() -> bool:
+	return state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]
+
+
+func restoring() -> bool:
+	return state == State.RESTORE
+
+
+func suspended() -> bool:
+	return context.handover != null and context.handover.suspended
+
+
+func act_id() -> String:
+	return pony_id
+
+
+func start_id() -> String:
+	return str(start_row().get("id", ""))
+
+
+func event_id_value() -> String:
+	return event_id
+
+
+func climax_limit() -> int:
+	return max_pony_climaxes
+
+
+func cue_reaction_max_age() -> float:
+	return snapshot.cue_reaction_max_age_s
+
+
+func current_pose_id() -> String:
+	return pose_id
+
+
+func in_heat() -> bool:
+	return cycle_phase() == CYCLE.HEAT
+
+
+func pose_service() -> Variant:
+	return context.pose
+
+
+func kiss_service() -> Variant:
+	return context.kiss
+
+
+func reactions_service() -> Variant:
+	return context.reactions
+
+
+## The rest facade's live act values, built on demand for its one decision.
+func rest_context() -> Dictionary:
+	return {
+		"state": state,
+		"serial": serial,
+		"player_pony": player_pony,
+		"headset": WORLD.headset_view(),
+		"summary": context.summary.summary,
+		"satisfaction": context.readiness.satisfaction,
+		"aftercare_min": aftercare_min,
+	}
+
+
+## The form handover's cue override uses the act's own duration, not a fresh settings read.
+func form_cue_override(text: String) -> void:
+	context.readiness.set_cue_override(text, snapshot.cue_override_seconds)
+
+
+func form_set_face(smile: float) -> void:
+	context.face.set_face(smile, context.face.ACT_LIDS)
+
+
+func form_status(text: String) -> void:
+	HUD.toast(text, 2.5)
+
+
+## The idle probe's one cached flag. The node sets it on ready and `apply_live_settings()` again.
+func prepare_idle_perf() -> void:
+	idle_perf = LOG.perf_on()
+
+
+## The anatomy bridge's persistent refresh: bind its host and let the controller re-resolve.
+func refresh_anatomy() -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.refresh()
+
+
+## The adopted body's bind before the handover's one resume: the pose, face, identity name, view,
+## anatomy and scene gate. It never resumes by itself.
+func bind_adopted_body(body: Node) -> void:
+	context.pose.bind(host.node, body)
+	context.face.bind(body, host.node)
+	context.audio.bind_identity(body, pony_id, bed)
+	adopt_display_name(context.handover.form(), body)
+	refresh_view()
+	refresh_anatomy()
+	refresh_gate()

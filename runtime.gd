@@ -58,6 +58,8 @@ const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
+const ACT_IDLE := preload("res://mods/unfplap/act/idle.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
@@ -94,6 +96,8 @@ var _act: ACT_SESSION = null
 ## The act modules' node operations and typed collaborator set, bound once in `_build_systems()`.
 var _act_host: ACT_NODE = null
 var _act_context: ACT_CONTEXT = null
+var _view: ACT_VIEW = null
+var _idle: ACT_IDLE = null
 
 ## Temporary read-only forward: the act session owns the live state; remove in R4.
 var state: int:
@@ -315,6 +319,10 @@ func _bind_act_frame() -> void:
 	_act_context = _build_act_context()
 	_act = ACT_SESSION.new()
 	_act.bind(_act_host, _act_context)
+	_view = ACT_VIEW.new()
+	_view.bind(_act_host, _act_context)
+	_idle = ACT_IDLE.new()
+	_idle.bind(_act_host, _act_context, _act)
 
 
 
@@ -703,98 +711,10 @@ func _sync_anatomy_facts() -> void:
 	_anatomy_bridge.sync_facts()
 
 
-## Refresh the typed act context the presentation controllers read. The tick refreshes it once per
-## phase: idle before the idle systems, physics after the pose tick and before the fan-out, render
-## before the camera work, and the entry's `apply_camera_motion()` hand-off.
+## Refresh the typed act view. `act/view.gd` composes it; the runtime keeps this one call so the
+## phase ordering and the existing callers stay unchanged.
 func refresh_view() -> void:
-	var facts := _act_facts
-	var view: Variant = _pose_service().view()
-	facts.state = state
-	facts.pose_view = view
-	facts.source = source
-	facts.satisfaction = satisfaction
-	facts.mood = mood
-	facts.cue = cue
-	facts.form_hint = _handover.form_hint()
-	facts.pony_climaxes = pony_climaxes
-	facts.depth = depth
-	facts.penetration_m = penetration_m
-	facts.pony = pony
-	facts.camera = _act_camera.camera
-	facts.viewport = get_viewport()
-	facts.pose = _pose_session.pose()
-	facts.event_id = _event_id
-	facts.pony_id = _id
-	facts.display_name = _display_name
-	facts.preferences = _preferences
-	facts.act_prompts = _act_prompts
-	facts.features = _features
-	facts.caress_quality = _snapshot.caress_quality
-	facts.player_pony = _player_pony
-	facts.bed = bed
-	facts.presentation_config = _presentation_cfg
-	facts.profile = _profile
-	facts.physics_delta = get_physics_process_delta_time()
-	if state == State.IDLE:
-		# No presentation module reads the derived values outside an act; skipping the settings and
-		# geometry lookups keeps an idle town from paying for every runtime every frame.
-		return
-	facts.act_seconds = _act._act_seconds
-	facts.seconds_since_stroke = maxf(0.0, _act._clock_s - _readiness.last_stroke_at)
-	facts.last_intensity = _readiness.last_intensity
-	facts.last_pattern = _readiness.last_pattern
-	facts.last_touch = _readiness.last_touch
-	facts.last_talk = _readiness.last_talk
-	facts.cue_override = not _readiness.cue_override.is_empty()
-	facts.thrust_pace = _readiness.thrusts_per_second()
-	# The pose view is the one contact source; the mouth/contact provider reads `contact_kind`.
-	facts.penetration_reach = penetration_reach()
-	var cam: RefCounted = _camera_service()
-	facts.size_name = cam.call("size_name")
-	facts.size_scale = cam.call("size_scale")
-	facts.lean_size_scale = cam.call("lean_size_scale")
-	facts.standing_lean_scale = cam.call("standing_lean_scale")
-	facts.player_eye_height = cam.call("player_eye_height")
-	facts.anon_torso_forward = cam.call("anon_torso_forward")
-	facts.anon_torso_drop = cam.call("anon_torso_drop")
-	facts.headset_view = _headset_view()
-	facts.free_camera_active = cam.free_camera_active
-	facts.free_look_active = cam.call("free_look_active")
-	facts.camera_owned = cam.camera_owned
-	facts.look_captured = cam.look_captured
-	facts.look_yaw = cam.look_yaw
-	facts.look_pitch = cam.look_pitch
-	facts.lean_forward = cam.lean_forward
-	facts.lean_side = cam.lean_side
-	facts.lean_action_side = cam.lean_action_side
-	facts.lean_view_forward = cam.lean_view_forward
-	facts.lean_view_side = cam.lean_view_side
-	facts.lean_sway = cam.lean_sway
-	facts.lean = cam.lean
-	facts.shot_lean_forward = shot_lean_forward()
-	facts.thrust_travel = _readiness.thrust_travel
-	facts.same_height_scale = float(_camera_service().call("same_height_scale"))
-	facts.anon_height_scale = float(_camera_service().call("anon_height_scale"))
-	facts.palm_scale_factor = float(_camera_service().call("palm_scale_factor"))
-	facts.bob = cam.bob
-	facts.back = cam.back
-	facts.back_target = cam.back_target
-	facts.forced_glance = _forced_glance
-	facts.bed_frame = _pose_session.bed_frame
-	var kiss: Variant = _kiss
-	if kiss != null:
-		facts.kiss_amount = float(kiss.amount())
-		facts.kiss_active = bool(kiss.leaning_close())
-		facts.kiss_side = float(kiss.side())
-	else:
-		facts.kiss_amount = 0.0
-		facts.kiss_active = false
-		facts.kiss_side = 0.0
-
-
-## One-shot alias for the start, resume and teardown paths.
-func _sync_act_facts() -> void:
-	refresh_view()
+	_view.refresh(_act_facts, _act)
 
 
 ## Typed write-backs for the presentation controllers. The runtime keeps ownership of the forced
@@ -1219,23 +1139,7 @@ func act_view() -> RefCounted:
 ## once per rendered frame just before `hud.update_from()`, so this runs once a frame and the card
 ## reads fields instead of calling back into the runtime.
 func _sync_hud_facts() -> void:
-	var facts := _act_facts
-	facts.max_pony_climaxes = _max_pony_climaxes
-	facts.close_hint = close_hint()
-	facts.summary_hud = str(_summary_service.summary.get("hud", ""))
-	facts.cycle_heat = _cycle_heat
-	facts.close_earned = _afterglow.close_caress_earned
-	facts.hud_readouts = hud_readouts()
-	facts.hud_controls = hud_controls()
-	facts.hole_ready = _anatomy_bridge.hole_ready()
-	facts.oral_ready = _anatomy_bridge.oral_ready()
-	facts.auto_on = _readiness.auto_active()
-	if facts.auto_on:
-		facts.auto_min_depth = _readiness.auto_min_depth()
-		facts.auto_max_depth = _readiness.auto_max_depth()
-		facts.auto_pace = _readiness.auto_pace()
-		facts.auto_shape = _readiness.auto_shape()
-	facts.auto_layer_open = _readiness.auto_panel_open()
+	_view.sync_hud(_act_facts, _act, _max_pony_climaxes, _cycle_heat, _pose_family())
 
 
 ## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
@@ -1335,18 +1239,7 @@ func _physics_tick(delta: float) -> void:
 		_pose_fanout()
 		_timed("pose_fanout", fanout_started)
 	if state == State.IDLE:
-		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
-		if is_instance_valid(HUD.instance):
-			HUD.instance.ensure_act_inventory_visible(PONIES.active())
-		var presentation_started := Time.get_ticks_usec() if idle_perf else 0
-		_standing_presentation_controller().physics(delta)
-		if idle_perf:
-			perf_note("runtime_presentation",
-				Time.get_ticks_usec() - presentation_started)
-		var history_started := Time.get_ticks_usec() if idle_perf else 0
-		_history_tick(delta)
-		if idle_perf:
-			perf_note("runtime_history", Time.get_ticks_usec() - history_started)
+		_idle.tick(delta, idle_perf)
 		return
 	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		force_stop()
@@ -2974,7 +2867,7 @@ func _history_note() -> String:
 ## Idle-only history scan. `dialogue/service.gd` reads the scene and owns the decisions and the
 ## line queueing.
 func _history_tick(delta: float) -> void:
-	_dialogue_service().history_tick(delta, pony as Node3D, _id, _event_id, _now_s())
+	_idle.history_tick(delta)
 
 
 ## The meter only advances during an act. A forced debug warning or stop runs here so it lands
@@ -3412,9 +3305,7 @@ func _on_stay_close(caressed: bool, reward: bool) -> void:
 	cue = ""
 
 func close_hint() -> String:
-	if state != State.AFTERGLOW or _pose_family() != "standing":
-		return ""
-	return _afterglow.hint()
+	return _view.close_hint(_act, _pose_family())
 
 func _restore_begin() -> void:
 	if state == State.IDLE or state == State.RESTORE:

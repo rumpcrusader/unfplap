@@ -299,7 +299,7 @@ the skeleton overlay; `_ready()` joins that list and `_exit_tree()` leaves it.
 
 - Scope: process (registry and actions node), world (wheel and skeleton nodes), pure static (the
   aim rule, the bed and pony helpers)
-- Constructed by: static initialization for the registry; `main._ready()` for the actions node,
+- Constructed by: static initialization for the registry; the entry's service list for the actions node,
   which creates the wheel lazily on the first middle press and the skeleton on the first enabled
   sync
 - Begin: none for the registry; Node `_ready()` for the actions node and the wheel

@@ -15,8 +15,9 @@ whether the *scene* is ready right now.
 - the player predicate: controls, flight, wing flight, knockdown, swimming, mouse capture, held
   item/case, seat and bed-side recline;
 - the cuddle and affection predicates, and the live auto-cuddle suppression;
-- the structural rows (`invalid_pony`, `no_main`, `no_player`, `no_game`), the policy/scene merge,
-  `start_verdict` / `offer_verdict`, the debug status line and the reason list;
+- the structural rows (`invalid_pony`, `no_main` — the missing game root — `no_player`,
+  `no_game`), the policy/scene merge, `start_verdict` / `offer_verdict`, the debug status line and
+  the reason list;
 - the physical buck/push (`buck_or_push`), which the tolerance strict stop uses.
 
 `runtime.gd` keeps the policy and the live context: it supplies `policy_verdict` (the

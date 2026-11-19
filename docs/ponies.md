@@ -114,10 +114,9 @@ matched through its body's identity (`anatomy/service.gd`'s `pony_id()`).
 
 ## Host boundary
 
-The entry binds these once, before the first hook; `eligibility` is rebuilt on every world enter,
-so the entry rebinds that one:
+The entry binds these once, before the first hook, in its `_build_services()` list:
 
-| Bound by `main._ready()` | Purpose |
+| Bound by the entry's service list | Purpose |
 |---|---|
 | `factory` | `(Node pony) -> Node`, the entry's one runtime construction |
 | `anatomy` | `bind(pony, runtime)`, `tail_ready(pony)`, `detach_controller(pony)` |

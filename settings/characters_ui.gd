@@ -2,9 +2,10 @@ extends RefCounted
 ## The hand-built Characters preference form. It borrows the setting rows' card, switch and pill
 ## pieces so it does not read as a different panel, and fills its own Characters sub-tab.
 ##
-## This is the interim home until a characters service owns the per-mare profile. `main.gd` supplies
-## the live off-roster ids and the resolved participation block through host callbacks; the form
-## itself uses the settings facade for the profile reads and writes. See docs/preferences.md.
+## This is the interim home until a characters service owns the per-mare profile. The entry
+## supplies the live off-roster ids and the resolved participation block through host callbacks;
+## the form itself uses the settings facade for the profile reads and writes. See
+## docs/preferences.md.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")

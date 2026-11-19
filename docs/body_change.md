@@ -57,7 +57,7 @@ The service never owns the act state, the pose, the camera or the teardown, and 
 `force_stop()` or an act exit. The runtime owns suspension, adoption and the one resume; the
 service owns
 service construction and the idle path, and the service builds its own bindings from the facades
-`main` hands it. The identity's social state (memory, dialogue, preferences, eligibility, history
+the entry hands it. The identity's social state (memory, dialogue, preferences, eligibility, history
 and summary) is owned elsewhere and reads `pony_id`, not the form.
 
 ## Types
@@ -185,7 +185,7 @@ register_binding(binding) -> bool
 unregister_binding(binding)
 active_sources() -> Array[BodyChangeSource]
 active() -> bool
-refresh_sources()
+on_world(host)
 installed_character_ids() -> Array[String]
 has_tail_placement(body) -> bool
 apply_tail_placement(body)
@@ -288,9 +288,9 @@ binding reads `BodyForm`.
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
-- Begin: `setup()` and then `wire(anatomy, pantyhose, stock_smack)` in `main._ready()`; the
-  providers are registered after their own setup
+- Constructed by: the entry's service list (`_build_services()`)
+- Begin: `setup()` and then `wire(anatomy, pantyhose, stock_smack)` in the same list; the providers
+  are registered after their own setup
 - End: world close; the service node, its forms and its registries are freed with the entry
 - Idempotent: yes
 
@@ -454,8 +454,8 @@ suspension, adoption, resume and failure phases.
 
 | Host call | Purpose |
 |---|---|
-| `main._ready()` | constructs the service, hands it the anatomy, Pantyhose and stock smack facades in one `wire()` call, and registers the providers |
-| `main._on_world()` | calls `refresh_sources()` so each provider re-reads its pack |
+| `_build_services()` | constructs the service, hands it the anatomy, Pantyhose and stock smack facades in one `wire()` call, and registers the providers |
+| `on_world(host)` | re-reads every provider's own installation state, so each one re-reads its pack |
 | `PONIES._prepare(pony)` | calls `notify_body_ready()` before the tail seat, the stock smack layer and a runtime |
 | `PONIES.runtime_for(pony)` | the runtime binding's public lookup |
 | `WORLD.refresh_body_lod(pony)` | the LOD binding's public refresh |

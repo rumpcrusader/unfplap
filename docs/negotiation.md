@@ -58,11 +58,11 @@ class Host:           the named callbacks below
 bind(eligibility: Eligibility, memory: Memory, privacy: Privacy, initiation: Node, offer: Node)
   -> void
 setup(host: Host) -> void
-on_world() -> void
+on_world(host: Node) -> void
+on_world_closed() -> void
 adapter() -> Node
 context(pony: Node) -> Context
 form_view() -> FormView
-reset() -> void
 tick(delta: float) -> void
 phase() -> Phase
 is_locked() -> bool
@@ -314,9 +314,9 @@ the Proactive applies it. No reasoning record and no history write happens on a 
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
-- Begin: `bind()`/`on_world()`; `setup(host)` in the suites
-- End: `reset()`/world close
+- Constructed by: the entry's service list (`_build_services()`)
+- Begin: `bind()`/`on_world(host)`; `setup(host)` in the suites
+- End: `on_world_closed()` on a world enter or close
 - Idempotent: yes
 
 ## Settings

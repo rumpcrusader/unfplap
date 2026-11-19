@@ -48,6 +48,10 @@ the gate:
 - **The entry builds no binding.** `main.gd` may not name a `*_binding.gd` or call
   `register_binding`: the body-change service constructs and registers its chain from the facades
   the entry hands it, so a new body-bound system adds no line to the composition root.
+- **Only the entry names the entry.** No shipped `.gd` outside `main.gd` may contain
+  `main.<member>`, `var main`, a `main.gd` preload or a `main` argument; `tests/` is exempt. A
+  consumer preloads the facade it needs, reads `WORLD` for the scene, or takes a typed host
+  parameter.
 
 The rest — one body-change fan-out, one body-swap resume, one `_end_session()`, the runtime's tick
 and fan-out order, the scene-only world facade and the suite allow-lists — is the checker's own

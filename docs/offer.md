@@ -39,8 +39,8 @@ gate (`docs/scene_gate.md`).
 | `clear_current()` | drop the playable offer after a start or a formed Agreement |
 | `hide_hint()` | drop both offers and take the hint away while an act owns the frame |
 | `apply_settings()` | drop the resolved prompt row so the act key's cap is rebuilt |
-| `on_world(host)` | the world entry: reset the old scan, warm the two offerable assets |
-| `reset()` | the world close: no offer, no gate verdict, no one-shot flag, no hint row |
+| `on_world(host)` | the world entry: close the old world, then warm the two offerable assets |
+| `on_world_closed()` | the world enter and close: no offer, no gate verdict, no one-shot flag, no hint row |
 
 The scan runs one second apart because the cone geometry and the gate are cheap enough to keep
 live and expensive enough not to pay per frame. The gate behind it is the expensive half: its
@@ -112,7 +112,7 @@ func clear_current() -> void
 func hide_hint() -> void
 func apply_settings() -> void
 func on_world(_host: Node) -> void
-func reset() -> void
+func on_world_closed() -> void
 ```
 
 The entry ticks the offer first in the idle branch, before `initiation.tick()` and
@@ -122,22 +122,22 @@ live Agreement as the previous frame's `negotiation.tick()` left it.
 
 `offer_target()` reads the current scan result and never rescans: the loop owns the cadence, and
 a press is the only immediate rescan. The invalidation rules are the entry's: a world enter and a
-world close call `reset()`, an act start and a formed Agreement call `clear_current()`, and an act
-live in the frame calls `hide_hint()`.
+world close call `on_world_closed()`, an act start and a formed Agreement call `clear_current()`,
+and an act live in the frame calls `hide_hint()`.
 
 ## Data ownership
 
 Nothing is persisted. The scan result, the gate verdict with its footstool pair, the two logged
 keys, the one-shot toast flag, the resolved hints node and prompt row and the auto-start clock live
-for one world; `reset()` clears all but the clock, which is a frame timer that self-corrects on the
-next poll.
+for one world; `on_world_closed()` clears all but the clock, which is a frame timer that
+self-corrects on the next poll.
 
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
-- Begin: `on_world()`
-- End: `reset()`/world close
+- Constructed by: the entry's service list (`_build_services()`)
+- Begin: `on_world(host)`
+- End: `on_world_closed()` on a world enter or close
 - Idempotent: yes
 
 ## Settings
@@ -172,8 +172,8 @@ The start path adds `hotkey no context pose`, `hotkey exact match id=<id> pose=<
 | Callback | Type | Contract |
 |---|---|---|
 | `runtime_for` | `Callable(pony: Node) -> Node` | a pony's live runtime, or null; the entry binds `PONIES.runtime_for` |
-| `act_target` | `Callable(pony: Variant) -> bool` | the adult act-target capability: the entry binds `main._is_act_target`, which asks `PONIES.act_target()` |
-| `act_live` | `Callable() -> bool` | true while an act owns the frame |
+| `act_target` | `Callable(pony: Node) -> bool` | the adult act-target capability; the entry binds `PONIES.act_target` |
+| `act_live` | `Callable() -> bool` | true while an act owns the frame; the entry binds `PONIES.act_running` |
 | `negotiation` | `Node` | the Negotiation service; only its public `handle()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
 | `privacy` | `privacy/service.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
 | `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through `HUD.toast()`) |

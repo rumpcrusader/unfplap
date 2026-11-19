@@ -5,9 +5,9 @@ extends Node
 ## Import: offer/service.gd only
 ##
 ##   offer = OFFER.new()
-##   offer.runtime_for = Callable(self, "runtime_for")
-##   offer.act_target = Callable(self, "_is_act_target")
-##   offer.act_live = Callable(self, "_act_live")
+##   offer.runtime_for = Callable(PONIES, "runtime_for")
+##   offer.act_target = Callable(PONIES, "act_target")
+##   offer.act_live = Callable(PONIES, "act_running")
 ##   offer.negotiation = negotiation
 ##   offer.privacy = privacy
 ##   add_child(offer)
@@ -439,7 +439,7 @@ func _hint_text() -> String:
 	return ""
 
 
-## A pony's live runtime, through the entry's read.
+## A pony's live runtime, through the bound read.
 func _runtime_for(pony: Node) -> Node:
 	if not runtime_for.is_valid() or not is_instance_valid(pony):
 		return null
@@ -447,14 +447,14 @@ func _runtime_for(pony: Node) -> Node:
 	return runtime if is_instance_valid(runtime) else null
 
 
-## The act-target capability, through the entry's read.
+## The act-target capability, through the bound read.
 func _act_target(pony: Variant) -> bool:
 	if not act_target.is_valid() or not is_instance_valid(pony):
 		return false
 	return bool(act_target.call(pony))
 
 
-## True while an act owns the frame, through the entry's read. An unbound read means no act.
+## True while an act owns the frame, through the bound read. An unbound read means no act.
 func _act_live() -> bool:
 	return act_live.is_valid() and bool(act_live.call())
 

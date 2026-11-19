@@ -2349,7 +2349,7 @@ func _suspend_for_body_swap(change: BODY_CHANGE) -> void:
 
 
 ## Move the live runtime under another node without running its world-close `_exit_tree()`. The
-## handover uses this for `main` and then for the new body.
+## handover moves it off the old body and then onto the new one.
 func attach_to_body(parent: Node) -> void:
 	if not is_instance_valid(parent) or get_parent() == parent:
 		return

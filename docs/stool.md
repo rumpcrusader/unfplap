@@ -33,7 +33,7 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 | `tests/stool/` | pure measurement/item tests, prop/stack tests and the facade API test |
 
 The facade is the only non-test file outside `stool/` that may preload `stool/*`. `runtime.gd`
-reads it from `STOOL.instance`; `main.gd` creates it. `stool/measure.gd` and `stool/item.gd` stay pure:
+reads it from `STOOL.instance`; the entry's service list creates it. `stool/measure.gd` and `stool/item.gd` stay pure:
 no `Node`, tree, time, file or game-scene access.
 
 ## Internal API
@@ -64,7 +64,7 @@ excluded.
 The handle's internal API:
 
 ```gdscript
-bind(facade, main, pony, player, anatomy_ctl)
+bind(facade, pony, player, anatomy)
 applies() -> bool
 gap_m() -> float
 needed_count() -> int
@@ -187,9 +187,9 @@ idle hint and the act start.
 ## Lifecycle
 
 - Scope: world + per-act handle
-- Constructed by: `main._ready()`
+- Constructed by: the entry's service list (`_build_services()`)
 - Begin: `setup()`/`new_act()`
-- End: `shutdown()`
+- End: `on_world_closed()`/`shutdown()`
 - Idempotent: yes
 
 

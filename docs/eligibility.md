@@ -153,7 +153,7 @@ shape-identity cache used by `eligible_id()`.
 | `runtime.hotkey_ready()` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` | Base clearance for the idle hint and the hotkey; the scene-only rows. The hint reads Base clearance live after the scene passes; a press runs the same path. |
 | `offer/service.gd` `scan()` | a live Agreement's scene-only rows, else `runtime.hotkey_ready()` | candidate discovery; the Agreement offer wins, the idle scan uses Base clearance plus the scene-only rows |
 | `offer.try_start()` | `runtime.hotkey_ready()` | the act key; no policy row, no buck |
-| `offer/service.gd` scan | `eligible(pony, Target.ACT)` through the entry's `act_target` callback | candidate discovery |
+| `offer/service.gd` scan | `eligible(pony, Target.ACT)` through the bound `act_target` callback (`PONIES.act_target`) | candidate discovery |
 | `PONIES.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
 | `initiation` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` + the scene-only formation rows | cooldown, approach, bed search, privacy, Mare Initiation Reasoning; see `docs/initiation.md` |
 | `negotiation` bridge | `eligible(pony, Target.ACT)`, `relationship_ok(pony)` and `get_verdict(pony, Mode.OFFER)` for the Context facts | the act target, the Anon-offer mare, Base clearance and the Context both reasoning stages read; see `docs/negotiation.md` |
@@ -457,9 +457,9 @@ refusal status (`docs/integrations.md`).
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
-- Begin: `setup()`
-- End: `clear()`
+- Constructed by: the entry's service list (`_build_services()`)
+- Begin: `on_world(host)`
+- End: `shutdown()`
 - Idempotent: yes
 
 

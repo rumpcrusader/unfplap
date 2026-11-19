@@ -46,7 +46,7 @@ declaration there, one value in the shipped document, and then reads the typed h
 
 `settings/ui.gd` is the only file that draws the declaration rows; it also owns the settings-page
 injection and the Debug block visibility. `settings/characters_ui.gd` is the interim home of the
-Characters form. `main.gd` keeps the `Mods` hook to the settings page, the construction bindings the
+Characters form. The entry keeps the `Mods` hook to the settings page, the construction bindings the
 page and the log sink read, and the one guard that refuses to install the mod when the shipped
 document is invalid. An edit reaches the services through the change notification below, never
 through the entry. The runtime takes the settings service's typed `ActSnapshot` in
@@ -262,7 +262,7 @@ the log sink joins the same list.
   (`ui.sections`), detached and with no player values. `SETTINGS.data()` returns that base with the
   player's values merged on top, detached. These are the only two loaders; `_shipped()` and
   `_catalog()` are internal.
-- On mod load, `main._ready()` calls `SETTINGS.load_settings()` before any getter: the player file
+- On mod load, the entry's `_ready()` calls `SETTINGS.load_settings()` before any getter: the player file
   is parsed, migrated, merged over the defaults (the player wins, and an absent player key is
   filled from the default) and written back once. Declared settings are therefore materialised in
   the player file on first run. **A changed shipped declared default is a migration event for an
@@ -285,7 +285,7 @@ the log sink joins the same list.
   the backup is the recovery path. A missing or malformed value in `settings/defaults.json` or
   `settings/catalogs.json` is a **shipped-data** error: `_shipped()`/`_catalog()` log the first
   problem, `defaults()` and `data()` return an empty document, `_load()` refuses to write and
-  `main.gd._ready()` logs one line and installs no hooks. The game keeps running.
+  the entry's `_ready()` logs one line and installs no hooks. The game keeps running.
 - The schema test `_check_shipped_defaults()` enforces the exact declared path set (every
   declaration has a value, and there is no undeclared path outside `default.*`), the exact JSON
   type per kind, a choice/list value inside its declared options, a colour in `rrggbb`/`rrggbbaa`
@@ -353,7 +353,7 @@ the log sink joins the same list.
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
+- Constructed by: static initialization; the entry's `_ready()` loads it
 - Begin: `SETTINGS.load_settings()` — registry, shipped defaults and the player file
 - End: process exit
 - Idempotent: yes

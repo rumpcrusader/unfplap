@@ -11,7 +11,7 @@ that service's purpose, API, state, settings, controls, debug actions, dependenc
 
 | Part | Role |
 |---|---|
-| Entry | `main.gd`: the `Mods` hooks, world/player lifecycle, service construction and the top-level services. |
+| Entry | `main.gd`: the mod's primitives, the one ordered service list, the `Mods` hooks, the frame order and the one teardown. |
 | Orchestrator | `runtime.gd`: one per pony. The act state machine, tick order, start sequence, the single teardown ledger and the composition of act services. |
 | Service | An isolated unit that owns one authority over mutable state and exposes it through one facade. |
 | Service internals | Private modules under `<service>/`. Nothing outside the service imports them. |
@@ -24,6 +24,18 @@ that service's purpose, API, state, settings, controls, debug actions, dependenc
 
 `main.gd` and `runtime.gd` are not services. They compose services and own order. They may hold
 per-world or per-pony orchestration state, but they do not implement another service's rules.
+
+The entry has four jobs and nothing else:
+
+1. the primitives: the settings load, the log sink's reads and the loader lookup;
+2. the one ordered service list (`_build_services()`), a line or two per service;
+3. the broadcasts and the frame loop, in a visible order;
+4. the one teardown (`_release()` then `_shutdown()`).
+
+A service takes part in a broadcast by naming the hook — `on_world(host)`, `on_world_closed()`,
+`on_player(body)`, `shutdown()` — and the list order is the call order. The entry is not a service
+locator: nothing outside `main.gd` (and `tests/`) names `main`, so a consumer preloads the facade it
+needs, reads `WORLD` for the scene, or takes a host parameter.
 
 ## Layers and allowed imports
 
@@ -50,7 +62,9 @@ res://world/..., res://player/...   game and engine
 
 Rules:
 
-- A service never preloads `runtime.gd`, `main.gd` or `api.gd`.
+- A service never preloads `runtime.gd`, `main.gd` or `api.gd`, and no file outside `main.gd` and
+  `tests/` names the entry at all: no `main.<member>`, no `var main`, no `main.gd` preload and no
+  `main` argument.
 - A service never imports another service's private files.
 - A service never receives another service through a host dictionary. A host passes scene
   handles, plain values and callbacks only. Service-to-service dependencies are visible as a
@@ -171,8 +185,8 @@ give the mod two entry points and hide the real dependency.
 
 | Scope | Constructed by | Begun / ended by | Examples |
 |---|---|---|---|
-| World | `main` on ready or world entry | `main` on world close | settings, registry, anatomy, stool, initiation, privacy, negotiation, input, debug |
-| Per-pony | `main` when a runtime attaches | pony despawn or world close | the runtime itself |
+| World | the entry's service list, at boot | the list order on world enter, close and exit | eligibility, memory, negotiation, hud, offer, input, initiation, anatomy, body_change, the world adapters, stool, stock smack, api, debug actions |
+| Per-pony | `ponies` through the entry's one factory | pony despawn or world close | the runtime itself |
 | Per-pony handle | the runtime, once per pony | the runtime ledger or the negotiation hold | pose, camera, hands, kiss, face, history, afterglow, scene hold, rest |
 | Pure / read model | its owner | no teardown | preferences math, act view, perf probe |
 
@@ -191,14 +205,21 @@ steps or the act exit; it retargets through `pose_changed(view)` and leaves the 
 
 ### `main.gd`
 
-`main.gd` is the mod entry and composition root:
+`main.gd` is the mod entry and composition root. It owns four things:
 
-- receives the `Mods` hooks and the world/player lifecycle;
-- constructs world services and exposes them to the game and the API;
-- creates per-pony runtimes and attaches them to ponies;
-- delegates the settings-page injection and the Characters form to the settings service's UI files;
-- ticks world services and the active runtime;
-- does not own domain rules, debug action implementations or a service's private state.
+- **the primitives**: the settings load, the log sink's reads and the loader lookup;
+- **the ordered service list**: `_build_services()` constructs every long-running service in one
+  literal list, a line or two each, and binds the facades that service reads. The list order is the
+  construction order and the broadcast order, so a consumer is built after the services it reads;
+- **the broadcasts and the frame order**: `_on_world`, `_on_player` and the release walk the list;
+  `_process` keeps the frame order visible;
+- **the one teardown**: `_exit_tree` runs the same `_release()` a world close runs, then
+  `_shutdown()`, which stops the registry and calls every service's `shutdown()` in reverse list
+  order. `WORLD` is bound before the first service and unbound after the last.
+
+It also keeps the `Mods` hooks, the group join, the three-line `prompt_note` forward, the settings
+page injection and the one runtime factory. It does not own domain rules, debug action
+implementations, a service's private state or a second exit path.
 
 ### `runtime.gd`
 
@@ -242,11 +263,14 @@ It owns its `Mods.state` key and its pure policy; it does not own scene behavior
 
 ## Host boundary
 
-A host is the object that gives a service its scene and live values: usually `main` or `runtime`.
-The relationship is not a service dependency and is not drawn as one.
+A host is the object that gives a service its live values: a runtime for its act services, and the
+entry only for the callbacks it wires at construction. The relationship is not a service
+dependency and is not drawn as one.
 
-A service that needs the live scene does not receive it from its host: it reads `WORLD`
-(`world/service.gd`), the one scene read facade the entry binds. A host passes:
+The entry is not a locator. Nothing outside `main.gd` and `tests/` names it, so a consumer that
+needs another service preloads that facade, a consumer that needs the live scene reads `WORLD`
+(`world/service.gd`), the one scene read facade the entry binds, and a consumer that needs a write
+takes a named callback. A host passes:
 
 - scene handles the service is allowed to touch;
 - plain values and typed read models;
@@ -375,6 +399,8 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
 - compares the source graph with the `### Uses` tables in the service docs;
 - rejects a private import, a service -> `runtime`/`main`/`api` import, a shared -> service import
   and a service cycle;
+- rejects any shipped file outside `main.gd` that names the entry (`main.<member>`, `var main`, a
+  `main.gd` preload or `main` as an argument); `tests/` is exempt;
 - checks that every service has a facade, doc, test directory and index row;
 - checks that every service doc has the required sections and that no other doc names its private
   files;
@@ -417,9 +443,11 @@ probe before and after, with **Enable debug** + **Print perf logs**.
 6. Contribute the service's settings as declarations in `settings/service.gd` and its debug
    actions to `debug/service.gd`; document the behavior in the service contract.
 7. Add the service and its facade to `docs/README.md`.
-8. Run the architecture checker and the full gate.
-9. Add an exception only if the boundary cannot be fixed in the same change. An exception needs
-   an owner, a reason and an expiry; a stale exception fails.
+8. Name the lifecycle hooks it needs (`on_world(host)`, `on_world_closed()`, `on_player(body)`,
+   `shutdown()`) and add one line to the entry's `_build_services()` list.
+9. Run the architecture checker and the full gate.
+10. Add an exception only if the boundary cannot be fixed in the same change. An exception needs
+    an owner, a reason and an expiry; a stale exception fails.
 
 ## Migration policy
 

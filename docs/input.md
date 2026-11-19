@@ -22,14 +22,14 @@ to the idle offer service (`offer.try_start()`).
 
 ## Ownership
 
-`input/service.gd` is a world-scoped Node built by `main._ready()`, before any player exists, and
+`input/service.gd` is a world-scoped Node built by the entry's service list, before any player exists, and
 added to the tree. It owns no saved data. Its state is transient:
 
 - `_shield` — the cached `features.act_input_shield`;
 - `_suppress_q`, `_old_q` — the seated-player guard;
 - `_mouse_recapture_logged` — the one recapture log per act.
 
-`main.gd` owns construction, the service list and world teardown. `runtime.gd` owns act state.
+The entry owns construction, the service list and world teardown. `runtime.gd` owns act state.
 `debug/service.gd` owns the action registry.
 
 ## Internal API
@@ -70,9 +70,9 @@ Nothing is saved. The service reads `PONIES.active()`, the debug facade's `wheel
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
+- Constructed by: the entry's service list (`_build_services()`)
 - Begin: Node `_ready()`
-- End: freed with `main` or the world
+- End: freed with the entry
 - Idempotent: yes; the Node lifecycle owns setup and release
 
 ## Settings

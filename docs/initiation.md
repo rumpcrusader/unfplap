@@ -61,11 +61,12 @@ The purity boundary is deliberate:
   `shared/act_history.gd`.
 - No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
-- `main.gd` creates the service (`setup(privacy, negotiation, offer)`), binds the live
-  `eligibility` instance and drives it: `tick`, `reset`, `force`, `cancel_approach`,
-  `placement_for` and the outcome handoff. `runtime.gd` exposes `cuddle_active()` and the
-  scene-only verdict; the offer facade answers which pony the act key would start
-  (`docs/offer.md`), and the Negotiation facade answers the lock, the form view and the Context.
+- The entry's service list creates the service (`setup(privacy, negotiation, offer)`), binds the
+  live `eligibility` instance and drives it: `tick`, `on_world`/`on_world_closed`, `force`,
+  `cancel_approach`, `placement_for` and the outcome handoff. `runtime.gd` exposes
+  `cuddle_active()` and the scene-only verdict; the offer facade answers which pony the act key
+  would start (`docs/offer.md`), and the Negotiation facade answers the lock, the form view and
+  the Context.
 
 ## Internal API
 
@@ -83,7 +84,8 @@ class ForceResult: ok, id, pose, reject
 func setup(privacy_node: Privacy = null, negotiation_node: Negotiation = null,
         offer_node: Offer = null) -> void
 func tick(delta: float) -> void
-func reset() -> void
+func on_world(host: Node) -> void
+func on_world_closed() -> void
 func force(runtime: Node, pose := "") -> ForceResult
 func cancel_approach() -> void
 func on_negotiation_outcome(terminal: RefCounted) -> void
@@ -92,13 +94,13 @@ func placement_for(runtime: Node) -> PoseOptions.Placement
 func debug_rows(pony: Node) -> Array[String]
 func classifier_node() -> Node
 func classifier_available() -> bool
-func cancel_classifier() -> void
 ```
 
-`eligibility` is the entry's live instance, rebound on every world enter. `classifier_node()` is the
-node the Negotiation adapter runs its one bounded call on, `classifier_available()` is the
-Anon-offer watch's gate and `cancel_classifier()` ends every scope on a world enter, a world close
-and a teardown.
+`eligibility` is the entry's live instance, bound once at construction and read for the whole
+process. `classifier_node()` is the node the Negotiation adapter runs its one bounded call on, and
+`classifier_available()` is the Anon-offer watch's gate. `on_world` and `on_world_closed` are the
+same close: a world enter and a world close both end every scope, because a scope belongs to the
+world that is gone.
 
 `force()` is the debug/lab entry: it bypasses the quiet, cooldown, retry and reasoning checks but
 keeps Base clearance, the placeable options and the scene-only formation rows. An empty `pose` lets
@@ -132,7 +134,7 @@ Rules:
 - No eligibility block and no request block is written to `settings.json`.
 - The cooldown is the only persisted value; `initiation/cooldowns.gd` is its only reader and
   writer.
-- The live attempt never survives a world close; `reset()` closes it and clears the session maps.
+- The live attempt never survives a world close; `on_world_closed()` closes it and clears the session maps.
 - The request lease leaves this service at formation; after that the Negotiation service owns the
   hold and the terminal path.
 
@@ -270,13 +272,13 @@ stored history cooldown above remains the effective per-mare wait.
 1. hand the navigator back with its saved owner, wander, speed and pace (when this service still
    owns it);
 2. set the `30 s` retry when the close has a reason — any non-empty reason, including `force` and
-   `interrupted`; a silent `reset()` close stamps none;
+   `interrupted`; a silent `on_world_closed()` close stamps none;
 3. log the reason;
 4. clear the attempt.
 
 A successful handoff is not a close: the attempt clears and the lease moves to the Negotiation
-service. `force()` closes any live attempt first; `reset()` closes it, cancels the pending reasoning
-scope and clears the session maps on a world close. `cancel_approach()` closes a live pre-formation
+service. `force()` closes any live attempt first; `on_world_closed()` closes it, cancels the
+pending reasoning scope and clears the session maps on a world enter or close. `cancel_approach()` closes a live pre-formation
 attempt when a new Anon offer or hotkey interrupts her walk.
 
 ## Prompts
@@ -327,9 +329,9 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
+- Constructed by: the entry's service list (`_build_services()`)
 - Begin: `setup()`
-- End: `reset()`/world close
+- End: `on_world_closed()` on a world enter or close
 - Idempotent: yes
 
 ## Tests

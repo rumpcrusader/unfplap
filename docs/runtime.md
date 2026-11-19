@@ -433,8 +433,8 @@ standing start no longer pulls the Hips bone across the gap. The fit log line ca
   exit, a held body refuses the request, the presented form's name drives the act facts with the
   identity fallback while the stable id and event id survive, and the fake policy records all six
   generic act milestones in order. The suite binds the real `ponies` registry and fakes only the
-  runtime's host handle and the body-change service, because `main.gd` names the `Mods` autoload,
-  which a `--script` suite cannot load.
+  runtime's host handle and the body-change service, because it drives the runtime through that
+  handle and never starts a world. The entry itself is `tests/entry/test_services.gd`.
 - `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
 - `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
 - `scripts/architecture.py --check` — the one exit, the pose ledger order and its three callers,

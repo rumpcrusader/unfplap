@@ -176,7 +176,7 @@ total, largest first, so the first row is the chunk to fix.
 
 | Chunk | Source | Parent |
 |---|---|---|
-| `entry_process` | the whole `main._process` body, closed after it | root |
+| `entry_process` | the whole entry `_process` body, closed after it | root |
 | `entry_initiation` | `initiation.tick(delta)` | `entry_process` |
 | `entry_negotiation` | `negotiation.tick(delta)` | `entry_process` |
 | `entry_watch` | the bridge's Anon-offer watch, closed inside `negotiation.tick()` after the exchange | `entry_process` |

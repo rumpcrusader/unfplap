@@ -3,9 +3,10 @@ extends Node
 ## jiggle and reaction; this layer swaps only its stream, level and pitch for the pack hand-smack
 ## variants while the pony is not in an act. The act hands path keeps its own per-impact swap.
 ##
-## Scope: world. `main.gd` creates one, calls `pony_ready()` for every pony, `apply_settings()` on
-## every settings edit, `act_start()`/`act_end()` with the act pony, `clear_world()` on a world
-## close and `shutdown()` on mod exit. See `docs/audio.md`.
+## Scope: world. The entry's service list creates one; the entry calls `pony_ready()` for every
+## pony, `apply_settings()` on every settings edit and `act_start()`/`act_end()` with the act pony,
+## the list calls `on_world_closed()` on a world enter and close, and `shutdown()` runs on mod exit.
+## See `docs/audio.md`.
 
 const CUES := preload("res://mods/unfplap/audio/smack_cues.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

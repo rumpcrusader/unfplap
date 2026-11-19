@@ -8,7 +8,7 @@ lifecycle; this doc owns their shape and their runner.
 
 ## Scope
 
-- `tests/` holds every headless suite. The full gate runs all 124 of them.
+- `tests/` holds every headless suite. The full gate runs every one of them.
 - A suite is a scene-free `SceneTree` script that prints one machine-readable result line.
 - Anything that needs a live world, a person at the keyboard, a headset or the HUD belongs to a
   manual lab, not here.
@@ -20,7 +20,7 @@ lifecycle; this doc owns their shape and their runner.
 |---|---|
 | `tests/<service>/test_<topic>.gd` | the suites for one service's facade or internals |
 | `tests/test_<topic>.gd` | a root suite that crosses services, or a shared/pure module's suite |
-| `tests/<topic>/test_<topic>.gd` | a cross-service concern with its own name; `handover/` is the act body swap |
+| `tests/<topic>/test_<topic>.gd` | a cross-service concern with its own name; `handover/` is the act body swap, `entry/` the entry's service list |
 
 One suite per file, and the directory mirrors the facade it exercises. A small pure module folds
 into the suite that owns its facade instead of adding a file of its own. The suite-to-service map

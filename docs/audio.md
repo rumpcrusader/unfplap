@@ -64,7 +64,7 @@ The runtime keeps the call sites and the director/vocal prepare.
 
 ## Outside acts
 
-`audio/stock_smack.gd` is one world-scope Node that `main.gd` creates in `_ready()`. While
+`audio/stock_smack.gd` is one world-scope Node that the entry's service list creates. While
 `features.pack_smack_sound` is on, it gives the native `FlankTouch` sound player an
 `AudioStreamRandomizer` over the two pack hand-smack variants. The randomizer runs in no-repeat
 mode, at its own level (`STOCK_VOLUME_DB`, a little louder than the act's hand smack) and a neutral
@@ -73,8 +73,9 @@ impact. Each changed player's stream, volume and pitch are saved and restored wh
 off, when the pony starts an act, or when the world closes.
 
 The entry constructs the layer and calls `pony_ready()` for every pony, `act_start()`/`act_end()`
-with the act pony, `clear_world()` on a world close and `shutdown()` on mod exit. Its own settings
-listener calls `apply_settings()` on every edit, so the switch needs no entry path. An act pony is skipped: `set_active()` gives her stock player back so the hands' own
+with the act pony and `shutdown()` on mod exit; the list calls `on_world_closed()` on a world enter
+and close. Its own settings listener calls `apply_settings()` on every edit, so the switch needs no
+entry path. An act pony is skipped: `set_active()` gives her stock player back so the hands' own
 per-impact swap owns it, and `clear_active()` re-installs the pack layer after the hands restore.
 The layer remembers a pony seen while the switch is off, so turning it on reaches her too. It does
 no per-frame work.
@@ -129,9 +130,9 @@ new player under the presented body. It never edits the game file or another pon
 - End: `end()`
 - Idempotent: yes
 
-The outside-act layer is world-scope: `main._ready()` constructs it, `_ready()` reads the switch,
-`clear_world()` restores every player on a world close and `shutdown()` runs on mod exit. It is
-idempotent.
+The outside-act layer is world-scope: the entry's service list constructs it, `_ready()` reads
+the switch, `on_world_closed()` restores every player on a world enter and close and `shutdown()`
+runs on mod exit. It is idempotent.
 
 ## Tests
 

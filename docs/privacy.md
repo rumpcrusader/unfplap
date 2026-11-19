@@ -57,7 +57,7 @@ house_at(at: Vector3) -> Node3D
 ```
 
 `offer_private()` is the bed/standing offer rule; `cuddle_private()` is the stricter cuddle rule.
-Both exclude the target. A missing main fails closed to not-private.
+Both exclude the target. A missing world root fails closed to not-private.
 
 ## Data ownership
 
@@ -67,9 +67,9 @@ fresh value; a caller reads it immediately and never stores it.
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
-- Begin: `setup()`
-- End: `reset()`/world close
+- Constructed by: the entry's service list (`_build_services()`)
+- Begin: none; every read samples the live scene
+- End: freed with the entry
 - Idempotent: yes
 
 ## Settings

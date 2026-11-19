@@ -10,8 +10,8 @@ any module prints a line through a preload instead of a reference to the entry.
 node. It owns no rule and no scene read, so the entry installs the live facts it cannot know: the
 two switch reads, the act gate and the header counts.
 
-- A module never carries `main` to log a line: it preloads `LOG` and calls `LOG.debug()`. The three
-  hosts that take a sink callable (`hud`, `stock_smack` and the negotiation host) are handed
+- A module never carries the entry to log a line: it preloads `LOG` and calls `LOG.debug()`. The
+  three hosts that take a sink callable (`hud`, `stock_smack` and the negotiation host) are handed
   `Callable(LOG, "debug")`.
 - The switches are two `settings` reads the entry binds (`debug_read`, `perf_read`), because a
   shared module never imports a service. `attach()` reads them once and the settings change
@@ -49,15 +49,15 @@ two switch reads, the act gate and the header counts.
 
 | Host call | Purpose |
 |---|---|
-| `main._ready()` | binds `debug_read`, `perf_read`, `act_running` and `counts`, then `attach()` |
+| the entry's `_ready()` | binds `debug_read`, `perf_read`, `act_running` and `counts`, then `attach()` |
 | `PONIES.act_running()` | the act gate: a live act owns the frame |
 | `PONIES._counts()` | the header counts: the live runtimes and `WORLD.mares()` |
 | `SETTINGS.debug_mode` / `SETTINGS.debug_perf` | the two switch reads: `Callable(setting, "get_bool")` |
 | `shared/settings_change.gd` | calls `apply_settings()` on every settings edit: re-reads the switches and clears the panel when one goes off |
-| `main._on_world()` | `reset()` |
-| `main._on_world_closed()` | `reset()` and `clear_panel()` |
-| `main._process(delta)` | `tick(delta)` first, and `close("entry_process", started)` after the body |
-| `main._exit_tree()` | `detach()` |
+| the entry's `_on_world(host)` | `reset()` after the service list |
+| the entry's `_release()` | `reset()` and `clear_panel()`; a world close and the process exit both run it |
+| the entry's `_process(delta)` | `tick(delta)` first, and `close("entry_process", started)` after the body |
+| the entry's `_exit_tree()` | `detach()` |
 
 ## Frame order
 

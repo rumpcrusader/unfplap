@@ -27,7 +27,7 @@ The service owns:
 
 The runtime gathers the live values into the typed act view (`shared/act_facts.gd`): state, climax
 count and limit, cue, close hint, summary, the preference axes, heat, the `End` tint, the auto
-readout and the anatomy row gates. `main.gd` calls `runtime.act_view()` once per rendered frame and
+readout and the anatomy row gates. The entry calls `runtime.act_view()` once per rendered frame and
 passes that object to `hud/service.gd`, which reads fields and never probes the runtime for a
 method. The control visibility reads `view.pose_view.family` (`bed` for missionary, `standing` for
 standing) instead of a raw pose id. The pure module has no Node, tree, `Settings` or game access,
@@ -175,9 +175,9 @@ world enter and never repeats inside one world.
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`, before any player exists; the entry keeps it as `HUD.instance`
+- Constructed by: the entry's service list, before any player exists; the entry keeps it as `HUD.instance`
 - Begin: `_ready()` builds the card; `apply_settings()` applies the act key and the caption mode
-- World: `on_world()` and `on_world_closed()` (the notice is armed again and the card is hidden)
+- World: `on_world(host)` and `on_world_closed()` (the notice is armed again and the card is hidden)
 - Player: `on_player(body)` shows the once-per-world key notice
 - Settings: `_ready()` joins the settings change notification, so `apply_settings()` runs on every
   edit without the entry; `_exit_tree()` leaves it

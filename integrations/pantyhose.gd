@@ -10,10 +10,10 @@ extends Node
 ## anatomy act starts, through the game's own `take_off` action, so the pack's `pony_off` state and
 ## the outcome her dialogue prompt reads are the same as when she takes it off herself.
 ##
-## Scope: world. `main.gd` constructs it once, calls `on_world()`/`on_world_closed()` with the
-## world and `apply_live_settings()` on every settings edit. It never preloads `main.gd`,
-## `runtime.gd` or an anatomy private file; it reads the anatomy facade and the
-## scene's public nodes. The pack itself is never edited.
+## Scope: world. The entry's service list constructs it once and calls
+## `on_world(host)`/`on_world_closed()` with the world; `apply_live_settings()` runs on every
+## settings edit. It never preloads the entry, `runtime.gd` or an anatomy private file; it reads
+## the anatomy facade and the scene's public nodes. The pack itself is never edited.
 ##
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Garment hull`).
 

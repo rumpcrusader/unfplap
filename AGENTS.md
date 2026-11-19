@@ -36,6 +36,7 @@ restate a contract.
 | `shared/log.gd` | `docs/log.md` |
 | `shared/perf.gd`, `shared/perf_idle.gd`, `shared/perf_view.gd` | `docs/perf.md` |
 | `shared/pose_catalog.gd` | `docs/poses.md` |
+| `shared/settings_change.gd` | `docs/settings.md` |
 | `shared/relationship_cue.gd` | `docs/dialogue.md` |
 | `shared/rump_cone.gd` | `docs/scene_gate.md` |
 | `afterglow/**` | `docs/afterglow.md` |
@@ -144,6 +145,11 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   not call `runtime.get("_…")` / `runtime.call("_…")`, and reuses `act_facts` and event
   dictionaries instead of allocating per frame. Presentation modules read `shared/act_facts.gd` or
   the owning facade.
+- **The entry is not a locator.** A service that needs another service preloads its facade; a
+  service that needs the scene reads `WORLD`; nothing but `main.gd` names `main`
+  (`scripts/architecture.py --check` fails on any other shipped file, `tests/` excepted). A new
+  long-running service joins the lifecycle with `on_world(host)`, `on_world_closed()`,
+  `on_player(body)` and `shutdown()`, and one line in the entry's service list.
 - **Settings snapshot.** Values arrive once per act and again on `apply_live_settings()`; no
   per-frame `Settings` reads. One declaration in `settings/service.gd`, one shipped value in
   `settings/defaults.json`, one typed read; the framework is `docs/settings.md`.

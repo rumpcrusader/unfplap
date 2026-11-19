@@ -123,8 +123,8 @@ Providers must stay scene-free and must not preload a service, `runtime.gd` or `
 
 `integrations/changelings.gd` extends `body_change/source.gd`, the typed provider base
 (`docs/body_change.md`, `## Source extension point`). A provider implements the base's virtual
-methods by path; it has no `class_name` and is registered by `main`. The base answers the neutral
-default, so a provider overrides only what it supports.
+methods by path; it has no `class_name` and is registered by the entry's service list. The base
+answers the neutral default, so a provider overrides only what it supports.
 
 A provider owns its own pack read and its own forms:
 
@@ -419,12 +419,12 @@ overlay reads them.
 
 - Scope: per-act service + world adapters/providers
 - Constructed by: `runtime._integrations_controller()` for the per-act facade;
-  `main._ready()` for the body-change provider and each world adapter
+  the entry's service list for the body-change provider and each world adapter
 - Begin: `begin()` at `State.POSING_IN`; `on_world(host)` on world entry; the provider refreshes
   its pack and registration on world entry; the changelings adapter registers its provider layer
   in `_ready()` and on `refresh()`
-- End: `reset()` in `_free_pose()`; `on_world_closed()` on world close and `shutdown()` in
-  `main._exit_tree()`; the changelings layer leaves with its owner, and its shutdown clears the
+- End: `reset()` in `_free_pose()`; `on_world_closed()` on world close and `shutdown()` in the
+  entry's process exit; the changelings layer leaves with its owner, and its shutdown clears the
   observation state and wrapper map while the wrapper node is freed with the body
 - Idempotent: yes. A world adapter is inert when its pack is absent.
 
@@ -478,7 +478,7 @@ overlay reads them.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | host | runtime | `_integrations_controller()` | act lifecycle and typed facts |
-| host | main | `main.pantyhose` | world lifecycle and the debug Rebuild button |
+| host | the entry | the service list | world lifecycle and the debug Rebuild button |
 | service | settings | `settings/ui.gd` | Integrations tab catalog |
 
 ## Tests

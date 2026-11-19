@@ -14,7 +14,7 @@ talk keyword map. The global profile default lives under `default.preferences` i
 selector order and reads those templates once. `settings/service.gd` stores the per-mare overrides
 under `characters.<id>` and resolves the provider layer. `settings/characters_ui.gd` builds the
 Characters form (interim home until a characters service owns it); `settings/ui.gd` owns the
-declaration rows for the global settings. `main.gd` supplies the live-mares list and the resolved
+declaration rows for the global settings. The entry supplies the live-mares list and the resolved
 participation block through host callbacks.
 
 A known mare's base is her catalog template, then any mod provider layer (`docs/api.md`), then the

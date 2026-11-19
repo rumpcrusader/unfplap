@@ -92,7 +92,7 @@ no service dependency.
 
 ```gdscript
 setup()
-player_ready(body), clear_player(), refresh_player(), player_apply_live()
+on_player(body), on_world_closed(), refresh_player(), player_apply_live()
 controller_for(pony, runtime), bind(pony, runtime), controller(pony)
 form_for(pony), bind_body(pony, form), refresh_body(pony, form), unbind_body(pony)
 refresh_all(), apply_live(), apply_settings(), detach_controller(pony), shutdown()
@@ -392,7 +392,7 @@ The per-act handle is created without a start pose id. It returns the mouth poin
 `oral_mouth_point()`/`hole_point()` for the runtime's pose host callbacks.
 
 The controller's `part()` handle is the one player-part seam. The service pushes the live part to
-every controller on `player_ready()`, `refresh_player()` and `clear_player()`; the act caches the
+every controller on `on_player()`, `refresh_player()` and `on_world_closed()`; the act caches the
 handle from `anatomy.part()` in `setup()`, refreshes an invalid handle in `tick()`, and calls
 `anatomy.player_track()` for the per-tick track. The act writes the aim and the bed inset through
 `player.set_aim()` and `player.set_bed_inset()` instead of setting fields by name. The missionary
@@ -464,7 +464,7 @@ appearance, including the missionary-only fold hack, when the pose family change
 
 A body swap changes the controller, not the act. The old bridge ends its act handle at suspension;
 the body-change service has already applied the new body's form and the anatomy binding has stored
-it before `main` calls `anatomy.bind(new_pony, runtime)`, so the placement and the tail seat
+it before the registry calls `anatomy.bind(new_pony, runtime)`, so the placement and the tail seat
 resolve the body that is actually there. The resumed runtime calls `begin_act()` on the new
 controller. The new act starts at the current depth and readiness; the next `context()` carries the
 live penetration and climaxes. The player part stays shown because the encounter continues. A late
@@ -855,9 +855,9 @@ rule.
 ## Lifecycle
 
 - Scope: world + per-act bridge
-- Constructed by: `main._ready()`
+- Constructed by: the entry's service list (`_build_services()`)
 - Begin: `setup()`/`new_act()`
-- End: `shutdown()`
+- End: `on_world_closed()`/`shutdown()`
 - Idempotent: yes
 
 

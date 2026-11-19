@@ -233,9 +233,9 @@ memory is marked used only after the caller queues the line.
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
-- Begin: `setup()`
-- End: `clear()`
+- Constructed by: the entry's service list (`_build_services()`)
+- Begin: none; its events are reset per act by the act's own services
+- End: freed with the entry
 - Idempotent: yes
 
 

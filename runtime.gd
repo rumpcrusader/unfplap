@@ -8,7 +8,6 @@ const REST_REJOIN := preload("res://mods/unfplap/rest/service.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
-const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
@@ -1199,16 +1198,14 @@ func act_view() -> RefCounted:
 
 ## Gather the HUD card's live values into the act view. `main.gd` calls `apply_camera_motion()`
 ## once per rendered frame just before `hud.update_from()`, so this runs once a frame and the card
-## reads fields instead of calling back into the runtime. The accessors below refresh it on demand
-## for the suites.
+## reads fields instead of calling back into the runtime.
 func _sync_hud_facts() -> void:
 	var facts := _act_facts
 	facts.max_pony_climaxes = _max_pony_climaxes
 	facts.close_hint = close_hint()
 	facts.summary_hud = str(_summary_service.summary.get("hud", ""))
 	facts.cycle_heat = _cycle_heat
-	facts.y_pink = HUD_LINES.y_pink(_pose_family() == "standing", state == State.AFTERGLOW,
-		_afterglow.close_caress_earned, pony_climaxes, _max_pony_climaxes)
+	facts.close_earned = _afterglow.close_caress_earned
 	facts.hud_readouts = hud_readouts()
 	facts.hud_controls = hud_controls()
 	facts.hole_ready = _anatomy_bridge.hole_ready()
@@ -1218,50 +1215,13 @@ func _sync_hud_facts() -> void:
 		facts.auto_min_depth = _readiness.auto_min_depth()
 		facts.auto_max_depth = _readiness.auto_max_depth()
 		facts.auto_pace = _readiness.auto_pace()
-		facts.auto_shape = auto_shape_name()
+		facts.auto_shape = _readiness.auto_shape()
 	facts.auto_layer_open = _readiness.auto_panel_open()
-
-
-## One compact HUD line: hearts, cue, then her preference versus yours. The close prompt is
-## always kept in afterglow even when the optional readouts are off.
-func hud_cue_line(show_readouts := true) -> String:
-	_sync_hud_facts()
-	return HUD_LINES.cue_line(state, pony_climaxes, _max_pony_climaxes, cue,
-		_act_facts.close_hint, _act_facts.summary_hud, show_readouts)
-
-
-## Separate readiness/preference line under the cue. In the afterglow it carries the act summary
-## when the cue already shows the standing close prompt.
-func hud_readiness_line(show_readouts := true) -> String:
-	# Estrus is derived from the world day and her relationship, so it is resolved here rather
-	# than once per facts pass; `_physics_tick` caches the same value for the frame.
-	_cycle_heat = cycle_phase() == CYCLE.HEAT
-	_sync_hud_facts()
-	return HUD_LINES.readiness_line(state, show_readouts, _readiness.last_intensity,
-		_readiness.last_pattern,
-		str(_preferences.get("intensity", "firm")), str(_preferences.get("pattern", "steady")),
-		_cycle_heat, _act_facts.close_hint, _act_facts.summary_hud)
 
 
 ## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
 func auto_active() -> bool:
 	return _readiness.auto_active()
-
-
-## Pink shade for the control card's `End`: one step per climax, capped below full so only the
-## earned standing afterglow caress turns it fully pink.
-func hud_y_pink() -> float:
-	_sync_hud_facts()
-	return _act_facts.y_pink
-
-
-## HUD control readout under the Wants/You line. Empty while manual.
-func auto_hud_text() -> String:
-	_sync_hud_facts()
-	if not _act_facts.auto_on:
-		return ""
-	return HUD_LINES.auto_text(_act_facts.auto_min_depth, _act_facts.auto_max_depth,
-		_act_facts.auto_pace, _act_facts.auto_shape)
 
 func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
@@ -3000,29 +2960,6 @@ func auto_cycle_shape() -> void:
 	var next: String = AUTO_THRUST.next_shape(_readiness.auto_shape())
 	SETTINGS.curve.set_choice(next)
 	_readiness.auto_set_shape(next)
-
-
-## The `Auto shape` label for the current generator value, matching the settings row.
-func auto_shape_name() -> String:
-	var value: String = _readiness.auto_shape()
-	var index := SETTINGS.curve.options.find(value)
-	if index >= 0 and index < SETTINGS.curve.labels.size():
-		return str(SETTINGS.curve.labels[index])
-	return value
-
-
-## Live text for one hold-X control row.
-func auto_panel_label(kind: String) -> String:
-	match kind:
-		"min":
-			return "Min depth %d%%" % roundi(_readiness.auto_min_depth() * 100.0)
-		"max":
-			return "Max depth %d%%" % roundi(_readiness.auto_max_depth() * 100.0)
-		"pace":
-			return "Pace %.2f/s" % _readiness.auto_pace()
-		"shape":
-			return "Shape: %s" % auto_shape_name()
-	return ""
 
 
 ## integration: anatomy action entry points for input.gd. They are no-ops when the per-act

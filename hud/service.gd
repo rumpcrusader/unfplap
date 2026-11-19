@@ -531,6 +531,14 @@ func _dance_mod_active() -> bool:
 	return is_instance_valid(mods) and bool(mods.call("is_active", "dance_mod"))
 
 
+## The auto shape's display label, from the raw generator value in the act view.
+func _auto_shape_label(value: String) -> String:
+	var index := SETTINGS.curve.options.find(value)
+	if index >= 0 and index < SETTINGS.curve.labels.size():
+		return str(SETTINGS.curve.labels[index])
+	return value
+
+
 ## Refresh the card from the typed act view the runtime owns. The view carries every value the
 ## card draws, so this reads fields and never probes the runtime for a method.
 func update_from(view: RefCounted) -> void:
@@ -539,6 +547,7 @@ func update_from(view: RefCounted) -> void:
 	var state := int(view.state)
 	var climaxes := int(view.pony_climaxes)
 	var readouts := bool(view.hud_readouts)
+	var shape_label := _auto_shape_label(str(view.auto_shape))
 	_hint.visible = state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
 	_apply_control_visibility(state, view)
 	if _y_label != null:
@@ -550,21 +559,17 @@ func update_from(view: RefCounted) -> void:
 		_y_label.text = y_text
 		var pink := 0.0
 		if y_text == "End":
-			pink = clampf(float(view.y_pink), 0.0, 1.0)
+			pink = clampf(HUD_LINES.y_pink_for(view), 0.0, 1.0)
 		_y_label.add_theme_color_override("font_color", INK.lerp(ACCENT, pink))
 
 	var line := ""
 	if _hint.visible:
-		line = HUD_LINES.cue_line(state, climaxes, int(view.max_pony_climaxes), str(view.cue),
-			str(view.close_hint), str(view.summary_hud), readouts)
+		line = HUD_LINES.cue_line_for(view, readouts)
 	_hint_status.text = line
 	_hint_status.visible = not line.is_empty()
 	var readiness_line := ""
 	if _hint.visible:
-		readiness_line = HUD_LINES.readiness_line(state, readouts, str(view.last_intensity),
-			str(view.last_pattern), str(view.preferences.get("intensity", "firm")),
-			str(view.preferences.get("pattern", "steady")), bool(view.cycle_heat),
-			str(view.close_hint), str(view.summary_hud))
+		readiness_line = HUD_LINES.readiness_line_for(view, readouts)
 	_hint_readiness.text = readiness_line
 	_hint_readiness.visible = not readiness_line.is_empty()
 	var form_text := ""
@@ -574,8 +579,7 @@ func update_from(view: RefCounted) -> void:
 	_hint_form.visible = not form_text.is_empty()
 	var auto_text := ""
 	if _hint.visible and bool(view.auto_on):
-		auto_text = HUD_LINES.auto_text(float(view.auto_min_depth), float(view.auto_max_depth),
-			float(view.auto_pace), str(view.auto_shape))
+		auto_text = HUD_LINES.auto_text_for(view, shape_label)
 	_hint_auto.text = auto_text
 	_hint_auto.visible = not auto_text.is_empty()
 	if _auto_label != null:
@@ -585,7 +589,7 @@ func update_from(view: RefCounted) -> void:
 			var label := _layer_labels.get(kind) as Label
 			if label != null:
 				label.text = HUD_LINES.auto_panel_label(kind, float(view.auto_min_depth),
-					float(view.auto_max_depth), float(view.auto_pace), str(view.auto_shape))
+					float(view.auto_max_depth), float(view.auto_pace), shape_label)
 
 
 ## Hide or restore the game's quick-slot card for the act. Idempotent, and it gives back exactly

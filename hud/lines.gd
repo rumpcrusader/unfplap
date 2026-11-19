@@ -81,3 +81,33 @@ static func auto_panel_label(kind: String, min_depth: float, max_depth: float, p
 		"shape":
 			return "Shape: %s" % shape_name
 	return ""
+
+
+## The cue/hearts line from the typed act view.
+static func cue_line_for(view: Variant, show_readouts: bool) -> String:
+	return cue_line(int(view.state), int(view.pony_climaxes), int(view.max_pony_climaxes),
+		str(view.cue), str(view.close_hint), str(view.summary_hud), show_readouts)
+
+
+## The readiness/preference line from the typed act view.
+static func readiness_line_for(view: Variant, show_readouts: bool) -> String:
+	return readiness_line(int(view.state), show_readouts, str(view.last_intensity),
+		str(view.last_pattern), str(view.preferences.get("intensity", "firm")),
+		str(view.preferences.get("pattern", "steady")), bool(view.cycle_heat),
+		str(view.close_hint), str(view.summary_hud))
+
+
+## The auto readout from the typed act view, or "" while manual.
+static func auto_text_for(view: Variant, shape_label: String) -> String:
+	if not bool(view.auto_on):
+		return ""
+	return auto_text(float(view.auto_min_depth), float(view.auto_max_depth),
+		float(view.auto_pace), shape_label)
+
+
+## The control card's `End` tint from the typed act view's raw fields.
+static func y_pink_for(view: Variant) -> float:
+	var pose_view: Variant = view.pose_view
+	var standing := pose_view != null and str(pose_view.family) == "standing"
+	return y_pink(standing, int(view.state) == STATE_AFTERGLOW, bool(view.close_earned),
+		int(view.pony_climaxes), int(view.max_pony_climaxes))

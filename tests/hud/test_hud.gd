@@ -25,7 +25,7 @@ func _view() -> RefCounted:
 	facts.preferences = {"intensity": "soft", "pattern": "steady"}
 	facts.hud_readouts = true
 	facts.hud_controls = true
-	facts.auto_shape = "Normal"
+	facts.auto_shape = "cosine"
 	facts.auto_min_depth = 0.2
 	facts.auto_max_depth = 0.9
 	facts.auto_pace = 1.5
@@ -169,6 +169,8 @@ func _check_controls() -> void:
 	view.auto_on = true
 	hud.call("update_from", view)
 	check((hud.get("_hint_auto") as Control).visible, "auto readout shows while auto is on")
+	check((hud.get("_hint_auto") as Label).text == "Auto · 20–90% · 1.50/s · Normal",
+		"the auto readout maps the raw shape to its settings label")
 	check(not (rows.get("thrust") as Control).visible,
 		"auto hides the mouse thrust row, which no longer sets depth")
 	check((rows.get("auto_settings") as Control).visible,
@@ -209,7 +211,6 @@ func _check_controls() -> void:
 		"closing the layer hides its rows")
 	check((rows.get("lean") as Control).visible, "the normal card returns")
 	view.pony_climaxes = 1
-	view.y_pink = 0.25
 	hud.call("update_from", view)
 	check(y_label.text == "End", "the act key offers the end after a climax")
 	view.state = 3

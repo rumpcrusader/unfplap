@@ -10,6 +10,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 
 var failures := 0
 var checks := 0
@@ -70,6 +71,12 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+func _hud_view(runtime: Node) -> RefCounted:
+	runtime.call("refresh_view")
+	runtime.call("_sync_hud_facts")
+	return runtime.call("act_view")
+
+
 func run() -> void:
 	_check_summary_shapes()
 	var runtime: Node = RUNTIME.new()
@@ -84,7 +91,8 @@ func run() -> void:
 		"thought": "He gave me what I needed; I felt wanted.",
 		"positive": true, "reward": true, "grade": "great",
 	}
-	check(str(runtime.call("hud_cue_line", true)).contains("Great"), "missionary afterglow cue shows the summary")
+	check(HUD_LINES.cue_line_for(_hud_view(runtime), true).contains("Great"),
+		"missionary afterglow cue shows the summary")
 	runtime._afterglow.beat = "You are warm and quiet."
 	var afterglow_note := str(runtime.call("prompt_note"))
 	check(afterglow_note.contains("You are warm and quiet"), "afterglow uses its private beat")
@@ -92,18 +100,18 @@ func run() -> void:
 		"afterglow does not recite the act summary")
 	check(not afterglow_note.contains("Next time you want"),
 		"afterglow drops the mechanical next-time line")
-	check(str(runtime.call("hud_readiness_line", true)).is_empty(),
+	check(HUD_LINES.readiness_line_for(_hud_view(runtime), true).is_empty(),
 		"missionary afterglow does not duplicate the summary")
 	runtime.pose_id = CATALOG.STANDING
 	runtime._afterglow.close_left = 8.0
-	check(str(runtime.call("hud_cue_line", true)).contains("Stay close"),
+	check(HUD_LINES.cue_line_for(_hud_view(runtime), true).contains("Stay close"),
 		"standing afterglow cue keeps the close prompt")
-	check(str(runtime.call("hud_readiness_line", true)).contains("Great"),
+	check(HUD_LINES.readiness_line_for(_hud_view(runtime), true).contains("Great"),
 		"standing afterglow readiness line shows the summary")
-	check(str(runtime.call("hud_readiness_line", false)).contains("Great"),
+	check(HUD_LINES.readiness_line_for(_hud_view(runtime), false).contains("Great"),
 		"the afterglow summary ignores the readouts toggle")
 	runtime.state = 2 # ACTIVE
-	check(not str(runtime.call("hud_readiness_line", true)).is_empty(),
+	check(not HUD_LINES.readiness_line_for(_hud_view(runtime), true).is_empty(),
 		"active readiness line still works")
 	runtime.free()
 

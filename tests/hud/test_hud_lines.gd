@@ -3,6 +3,9 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_hud_lines.gd
 
 const LINES := preload("res://mods/unfplap/hud/lines.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var failures := 0
 var checks := 0
@@ -23,11 +26,31 @@ func near(a: float, b: float) -> bool:
 	return absf(a - b) <= 0.0001
 
 
+func _view() -> RefCounted:
+	var view := ACT_FACTS.new()
+	var pose := POSE_VIEW.new()
+	pose.family = "standing"
+	view.pose_view = pose
+	view.state = ACT_STATE.State.ACTIVE
+	view.pony_climaxes = 1
+	view.max_pony_climaxes = 3
+	view.cue = "She wants it firmer."
+	view.last_intensity = "soft"
+	view.last_pattern = "quick"
+	view.preferences = {"intensity": "firm", "pattern": "steady"}
+	view.auto_on = true
+	view.auto_min_depth = 0.2
+	view.auto_max_depth = 0.8
+	view.auto_pace = 1.5
+	return view
+
+
 func run() -> void:
 	_check_cue()
 	_check_readiness()
 	_check_auto()
 	_check_y()
+	_check_view_helpers()
 
 	print("HUD_LINES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -85,3 +108,19 @@ func _check_y() -> void:
 		"the earned standing afterglow caress is full pink")
 	check(near(LINES.y_pink(true, true, false, 1, 3), LINES.Y_END_TINT_MAX / 3.0),
 		"an unearned standing afterglow keeps the normal tint")
+
+
+func _check_view_helpers() -> void:
+	var view := _view()
+	check(LINES.cue_line_for(view, true).ends_with("She wants it firmer."),
+		"the view cue line carries the raw cue")
+	check(LINES.readiness_line_for(view, true) == "Wants: firm & steady | You: soft & quick",
+		"the view readiness line reads its raw values")
+	check(LINES.auto_text_for(view, "Normal") == "Auto · 20–80% · 1.50/s · Normal",
+		"the view auto readout reads its raw values")
+	check(near(LINES.y_pink_for(view), LINES.Y_END_TINT_MAX / 3.0),
+		"the view tint reads the raw climax count")
+	view.state = ACT_STATE.State.AFTERGLOW
+	view.close_earned = true
+	check(near(LINES.y_pink_for(view), 1.0),
+		"the view tint reads the earned afterglow caress")

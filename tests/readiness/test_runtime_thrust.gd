@@ -5,6 +5,7 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
+const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 var failures := 0
 var checks := 0
 
@@ -22,6 +23,12 @@ func check(ok: bool, text: String) -> void:
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
+
+
+func _view(runtime: Node) -> RefCounted:
+	runtime.call("refresh_view")
+	runtime.call("_sync_hud_facts")
+	return runtime.call("act_view")
 
 
 func _runtime() -> Node:
@@ -69,8 +76,12 @@ func run() -> void:
 	runtime._readiness.receptive_until = 0.0
 	runtime._score_thrust()
 	check(near(runtime.satisfaction, 1.4 * 1.6), "heat multiplies the thrust chunk")
-	check(runtime.hud_readiness_line(true).contains("In heat"), "heat shows on the readiness line")
-	check(runtime.hud_readiness_line(false).is_empty(), "readouts off hide the heat line")
+	runtime._cycle_heat = true
+	check(HUD_LINES.readiness_line_for(_view(runtime), true).contains("In heat"),
+		"heat shows on the readiness line")
+	check(HUD_LINES.readiness_line_for(_view(runtime), false).is_empty(),
+		"readouts off hide the heat line")
+	runtime._cycle_heat = false
 	runtime._cycle_override = ""
 	var before: float = runtime.satisfaction
 	runtime._readiness_tick(10.0)
@@ -131,14 +142,14 @@ func run() -> void:
 	runtime._max_pony_climaxes = 0
 	runtime.state = 2
 	runtime.pony_climaxes = 5
-	check(runtime.hud_cue_line(true).begins_with("❤ 5/∞"),
+	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 5/∞"),
 		"unlimited climax limit uses the infinity display")
 	runtime._finish_climax()
 	check(int(runtime.state) == 2, "zero climax limit keeps the act going")
 	runtime._max_pony_climaxes = 2
 	runtime.state = 2
 	runtime.pony_climaxes = 2
-	check(runtime.hud_cue_line(true).begins_with("❤ 2/2"),
+	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 2/2"),
 		"configured climax limit shows the denominator")
 	runtime._finish_climax()
 	check(int(runtime.state) == 4, "configured climax limit enters AFTERGLOW")

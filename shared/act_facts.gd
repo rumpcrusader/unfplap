@@ -90,7 +90,8 @@ var max_pony_climaxes := 0
 var close_hint := ""
 var summary_hud := ""
 var cycle_heat := false
-var y_pink := 0.0
+## The earned standing afterglow caress, which makes the `End` tint fully pink.
+var close_earned := false
 var auto_on := false
 var auto_layer_open := false
 var auto_min_depth := 0.0

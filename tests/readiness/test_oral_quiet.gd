@@ -6,6 +6,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/readiness/test_oral_quiet.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
@@ -201,7 +202,7 @@ class FakeDialogue extends RefCounted:
 	var reaction_calls := 0
 	var notes := 0
 
-	func setup(_main_node: Node) -> void:
+	func setup() -> void:
 		pass
 
 	func reset(_now: float, _gap: float) -> void:
@@ -259,7 +260,6 @@ func _fixture() -> Dictionary:
 	var act_camera := FakeCamera.new()
 	var kiss := FakeKiss.new()
 	runtime.pony = pony
-	runtime.main = main
 	runtime._id = "rarity"
 	runtime._display_name = "Rarity"
 	runtime._event_id = "unfplap:test"
@@ -280,12 +280,12 @@ func _fixture() -> Dictionary:
 	runtime._pose_session = pose
 	runtime._act_audio = audio
 	runtime._act_dialogue = dialogue
-	runtime._act_dialogue_main = main
 	runtime._act_camera = act_camera
 	runtime._kiss = kiss
 	runtime._thrust_tracker = THRUST.new()
 	runtime._reset_thrust_state()
 	root.add_child(main)
+	WORLD.bind_world(main)
 	root.add_child(director)
 	root.add_child(pony)
 	root.add_child(runtime)

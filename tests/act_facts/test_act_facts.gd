@@ -95,7 +95,7 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	var facts := FACTS.new()
 	check(facts.state == 0, "state starts idle")
-	check(facts.pose_view == null and facts.main == null,
+	check(facts.pose_view == null and facts.pony == null,
 		"the scene handles start absent")
 	check(facts.mood == "" and facts.cue == "", "mood and cue start empty")
 	check(facts.pony_climaxes == 0, "climaxes start at zero")

@@ -3,6 +3,7 @@ extends RefCounted
 ## is not the act: no camera, player lock, HUD or sex_active. The runtime only forwards the public
 ## calls.
 
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
@@ -36,7 +37,6 @@ const PRESENT_MAX_SECONDS := 75.0
 const STATE_IDLE := 0
 
 var facts: Variant
-var main: Variant
 var pony: Variant
 var _pose_cfg: Dictionary = {}
 
@@ -72,13 +72,13 @@ func present_standing() -> bool:
 	_sync()
 	if _presenting or _present_turning:
 		return true
-	if int(facts.state) != STATE_IDLE or not is_instance_valid(pony) or not is_instance_valid(main):
+	if int(facts.state) != STATE_IDLE or not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		return false
 	if pony.is_held() or pony.sleeping or bool(facts.call_value(facts.cuddle_active, false)):
 		return false
 	if not bool(facts.call_value(facts.free_of_affection, true)):
 		return false
-	var service: ELIGIBILITY = main.get("eligibility") if is_instance_valid(main) else null
+	var service: ELIGIBILITY = PONIES.eligibility
 	if service == null or not service.eligible(pony, ELIGIBILITY.Target.ACT):
 		return false
 	# No pre-turn offer gate here: she has faced Anon for the ask line, so the rump-sensitive
@@ -157,11 +157,9 @@ func _attach_present_pose() -> void:
 		_present_tail.amount = 0.0
 		_present_tail.target_amount = 1.0
 		var side_anchor := Vector3.INF
-		var main_v: Variant = facts.main if facts != null else null
-		if main_v != null and main_v.has_method("camera"):
-			var view: Variant = main_v.call("camera")
-			if view is Camera3D:
-				side_anchor = (view as Camera3D).global_position
+		var view: Camera3D = WORLD.camera()
+		if is_instance_valid(view):
+			side_anchor = view.global_position
 		_present_tail.call("choose_side", side_anchor)
 		(hair as Skeleton3D).add_child(_present_tail)
 	_presenting = true
@@ -326,7 +324,7 @@ func clear_presentation() -> void:
 func _presentation_valid() -> bool:
 	if not _presenting or int(facts.state) != STATE_IDLE:
 		return false
-	if not is_instance_valid(pony) or not is_instance_valid(main):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		return false
 	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
 		return false
@@ -411,7 +409,7 @@ func _presentation_turn_physics(delta: float) -> void:
 func _presentation_turn_valid() -> bool:
 	if not _present_turning or int(facts.state) != STATE_IDLE:
 		return false
-	if not is_instance_valid(pony) or not is_instance_valid(main):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		return false
 	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
 		return false
@@ -512,7 +510,7 @@ func _presentation_process() -> void:
 	if not _presentation_valid():
 		clear_presentation()
 		return
-	var view: Camera3D = WORLD.camera() if is_instance_valid(main) else null
+	var view: Camera3D = WORLD.camera() if is_instance_valid(WORLD.game) else null
 	if is_instance_valid(_present_pose) and is_instance_valid(view):
 		_present_pose.look_point = view.global_position
 		_present_pose.head_back = 0.0
@@ -532,7 +530,7 @@ func _present_glance_angles() -> Vector3:
 	if pony.has_method("listen_point"):
 		head = pony.call("listen_point")
 	var target: Vector3 = head
-	if is_instance_valid(main) and is_instance_valid(WORLD.player):
+	if is_instance_valid(WORLD.player):
 		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			target = view.global_position
@@ -558,7 +556,7 @@ func _present_aim_eyes() -> void:
 	var eye_motion: Variant = pony.get("eye_motion")
 	if eye_motion == null or not is_instance_valid(eye_motion):
 		return
-	var view: Camera3D = WORLD.camera() if is_instance_valid(main) else null
+	var view: Camera3D = WORLD.camera() if is_instance_valid(WORLD.game) else null
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
 	eye_motion.set("target_world", target)
 	eye_motion.set("target_weight", 1.0)
@@ -570,11 +568,9 @@ func _present_aim_eyes() -> void:
 ## the view before it hands the controller out, so this is a copy, not a read of the runtime node.
 func _sync() -> void:
 	if facts == null:
-		main = null
 		pony = null
 		_pose_cfg = {}
 		return
-	main = facts.main
 	pony = facts.pony
 	var view: Variant = facts.pose_view
 	var cfg: Variant = view.pose_config if view != null else null

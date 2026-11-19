@@ -35,16 +35,6 @@ class State:
 	func private_for(cuddle: bool) -> bool:
 		return cuddle_private if cuddle else offer_private
 
-var main: Node
-
-
-## Bind the world entry. A missing main makes every answer public (fail closed to not-private).
-func setup(main_node: Node) -> void:
-	main = main_node
-
-
-func reset() -> void:
-	main = null
 
 
 ## The live privacy facts for `target`. The target itself is excluded from the other-mare checks.
@@ -111,20 +101,21 @@ func report(target: Node) -> String:
 
 ## The house at a world point, or null outdoors. One scene read for the provider and the bed scan.
 func house_at(at: Vector3) -> Node3D:
-	if not is_instance_valid(main) or not main.is_inside_tree():
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
 		return null
-	return HOUSE.at(main.get_tree(), at)
+	return HOUSE.at(tree, at)
 
 
 func player() -> Node3D:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return null
 	var node: Variant = WORLD.player
 	return node as Node3D if is_instance_valid(node) else null
 
 
 func _mares() -> Array:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return []
 	var game: Variant = WORLD.game
 	if not is_instance_valid(game):

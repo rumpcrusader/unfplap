@@ -91,11 +91,10 @@ func _ready() -> void:
 	LOG.act_running = Callable(PONIES, "act_running")
 	LOG.counts = Callable(PONIES, "_counts")
 	eligibility = ELIGIBILITY.new()
-	eligibility.setup(self)
+	eligibility.setup()
 	memory = MEMORY.new()
-	memory.setup(self)
+	MEMORY.instance = memory
 	privacy = PRIVACY.new()
-	privacy.setup(self)
 	negotiation = NEGOTIATION.new()
 	negotiation.name = "UnfplapNegotiation"
 	add_child(negotiation)
@@ -124,7 +123,6 @@ func _ready() -> void:
 	# the one service the input policy hands its press to.
 	input = INPUT.new()
 	input.name = "UnfplapInput"
-	input.main = self
 	input.offer = offer
 	add_child(input)
 	# The Proactive service owns the bounded classifier and takes the Negotiation facade: its
@@ -133,24 +131,26 @@ func _ready() -> void:
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
 	initiation.eligibility = eligibility
-	initiation.setup(self, privacy, negotiation, offer)
+	initiation.setup(privacy, negotiation, offer)
 	add_child(initiation)
 	negotiation.bind(eligibility, memory, privacy, initiation, offer)
 	anatomy = ANATOMY.new()
 	anatomy.name = "UnfplapAnatomy"
-	anatomy.call("setup", self)
+	anatomy.call("setup")
 	add_child(anatomy)
 	body_change = BODY_CHANGE_SERVICE.new()
 	body_change.name = "UnfplapBodyChange"
-	body_change.call("setup", self)
+	body_change.call("setup")
 	add_child(body_change)
+	PONIES.body_change = body_change
 	pantyhose = PANTYHOSE.new()
 	pantyhose.name = "UnfplapPantyhose"
-	pantyhose.call("setup", self)
+	pantyhose.call("setup")
 	add_child(pantyhose)
 	stool = STOOL.new()
 	stool.name = "UnfplapStool"
-	stool.call("setup", self)
+	stool.call("setup")
+	STOOL.instance = stool
 	add_child(stool)
 	stock_smack = STOCK_SMACK.new()
 	stock_smack.name = "UnfplapStockSmack"
@@ -159,11 +159,11 @@ func _ready() -> void:
 	body_change.call("wire", anatomy, pantyhose, stock_smack)
 	api = API.new()
 	api.name = "UnfplapAPI"
-	api.call("_bind", self)
 	add_child(api)
+	PONIES.api = api
 	changelings = CHANGELINGS.new()
 	changelings.name = "UnfplapChangelings"
-	changelings.call("setup", self)
+	changelings.call("setup")
 	add_child(changelings)
 	body_change.call("register_source", changelings)
 	# The debug actions run against the services above, so they are built last. They read the live
@@ -193,11 +193,9 @@ func _ready() -> void:
 		"ON" if LOG.debug_logs else "OFF", source_mtime])
 	# The per-pony registry binds the services above once and builds its runtimes through the
 	# one factory, so no other entry member holds a runtime.
-	PONIES.host = self
 	PONIES.factory = Callable(self, "_new_runtime")
 	PONIES.bind_settings()
 	PONIES.anatomy = anatomy
-	PONIES.body_change = body_change
 	PONIES.offer = offer
 	PONIES.stock_smack = stock_smack
 	PONIES.eligibility = eligibility
@@ -224,7 +222,7 @@ func _on_world(host: Node) -> void:
 	WORLD.bind_world(host)
 	if not is_instance_valid(eligibility):
 		eligibility = ELIGIBILITY.new()
-	eligibility.setup(self)
+	eligibility.setup()
 	PONIES.eligibility = eligibility
 	initiation.eligibility = eligibility
 	negotiation.eligibility = eligibility
@@ -291,7 +289,6 @@ func _new_runtime(pony: Node) -> Node:
 	var runtime: Node = RUNTIME.new()
 	runtime.name = "UnfplapRuntime"
 	runtime.set("pony", pony)
-	runtime.set("main", self)
 	return runtime
 
 
@@ -433,6 +430,8 @@ func _exit_tree() -> void:
 		stock_smack = null
 	LOG.detach()
 	HUD.instance = null
+	MEMORY.instance = null
+	STOOL.instance = null
 	if is_instance_valid(hud):
 		hud.queue_free()
 	if is_instance_valid(input):

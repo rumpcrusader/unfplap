@@ -13,6 +13,7 @@ extends RefCounted
 ## channel, four reads, and `setup`. Variants live in the typed objects in `memory/facts.gd`, never
 ## in extra functions. See `docs/memory.md`.
 
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
@@ -40,11 +41,9 @@ const MemoryHit = FACTS.MemoryHit
 const Line = FACTS.Line
 const LineRequest = FACTS.LineRequest
 
-var main: Node
-
-
-func setup(main_node: Node) -> void:
-	main = main_node
+## The one memory service the entry built. A null instance makes every read a quiet no-op
+## and lets a suite bind its own.
+static var instance: Variant = null
 
 
 ## Write one impression and, when its slot carries a world event, that event.
@@ -231,8 +230,6 @@ func witnesses(partner_id: String, name: String, serial: int,
 
 ## The game node for the current world, or null outside one.
 func _game() -> Node:
-	if not is_instance_valid(main):
-		return null
 	var node: Variant = WORLD.game
 	if node is Node and is_instance_valid(node):
 		return node
@@ -241,7 +238,5 @@ func _game() -> Node:
 
 ## The eligibility service, or null before it exists. This is the one-way capability read.
 func _eligibility() -> ELIGIBILITY:
-	if not is_instance_valid(main):
-		return null
-	var service: Variant = main.get("eligibility")
-	return service if service is ELIGIBILITY and is_instance_valid(service) else null
+	var service: ELIGIBILITY = PONIES.eligibility
+	return service if is_instance_valid(service) else null

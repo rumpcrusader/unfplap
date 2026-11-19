@@ -203,8 +203,7 @@ func release_nav() -> void:
 ## an attention reassignment and returns false, so the negotiation can end with `target_left`.
 func keep_target() -> bool:
 	var pony: Variant = _host("pony")
-	var main: Variant = _host("main")
-	if not is_instance_valid(pony) or not is_instance_valid(main):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		return false
 	var player: Variant = WORLD.player
 	if not is_instance_valid(player):
@@ -297,8 +296,7 @@ func keep_attention() -> void:
 ## Hold the player's movement with the game's `kiss_hold` meta, not `controls_locked`: the camera
 ## stays free. The game's kisser removes the meta every physics tick, so its physics is paused.
 func lock_player() -> void:
-	var main: Variant = _host("main")
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return
 	var body: Variant = WORLD.player
 	if not is_instance_valid(body):
@@ -325,8 +323,7 @@ func unlock_player() -> void:
 		kisser.set_physics_process(kisser_processing)
 	kisser = null
 	kisser_processing = false
-	var main: Variant = _host("main")
-	if is_instance_valid(main) and is_instance_valid(WORLD.player):
+	if is_instance_valid(WORLD.player):
 		var body: Variant = WORLD.player
 		if not had_kiss_hold and body.has_meta("kiss_hold"):
 			body.remove_meta("kiss_hold")
@@ -336,8 +333,7 @@ func unlock_player() -> void:
 ## Release the held carry and return whether the carry was ours. A refused cradle start uses the
 ## false answer to abort.
 func release_carry() -> bool:
-	var main: Variant = _host("main")
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return false
 	var reach: Node = WORLD.interactor()
 	var pony: Variant = _host("pony")

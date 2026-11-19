@@ -193,12 +193,12 @@ func _check_peak_commit() -> void:
 	main.game = game
 	WORLD.bind_world(main.game)
 	main.memory = sink
+	MEMORY.instance = sink
 	root.add_child(main)
 	var summary := SUMMARY.new()
 	check(not summary.peak_recorded, "the peak flag starts clear")
 	summary.summary = {"positive": true, "grade": "good"}
 	summary.record_peak_memory({
-		"main": main,
 		"pony_id": "rarity",
 		"event_id": "intimacy_test",
 		"satisfaction": 95.0,
@@ -242,10 +242,9 @@ func _check_commit() -> void:
 	main.game = game
 	WORLD.bind_world(main.game)
 	main.memory = MEMORY.new()
-	main.memory.setup(main)
+	MEMORY.instance = main.memory
 	root.add_child(main)
 	var runtime: Node = RUNTIME.new()
-	runtime.main = main
 	runtime._id = "rarity"
 	runtime._display_name = "Rarity"
 	runtime._event_id = "intimacy_test"

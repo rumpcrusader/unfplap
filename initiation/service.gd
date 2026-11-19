@@ -16,6 +16,7 @@ extends Node
 ##
 ## Automatic requests are background AI turns, so they require AI usage Full.
 
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const FACTS := preload("res://mods/unfplap/initiation/facts.gd")
 const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
@@ -86,7 +87,6 @@ class ForceResult extends RefCounted:
 	var reject := ""
 
 
-var main: Node
 ## Set by the entry: the live eligibility service, rebuilt on every world enter.
 var eligibility: ELIGIBILITY = null
 var _episode: Candidate = null
@@ -123,12 +123,9 @@ var _reasoning_serial := 0
 var _reasoning_scope := ""
 
 
-func setup(main_node: Node, privacy_node: PRIVACY = null, negotiation_node: NEGOTIATION = null,
+func setup(privacy_node: PRIVACY = null, negotiation_node: NEGOTIATION = null,
 		offer_node: OFFER = null) -> void:
-	main = main_node
 	_privacy = privacy_node if is_instance_valid(privacy_node) else PRIVACY.new()
-	if not is_instance_valid(privacy_node):
-		_privacy.setup(main_node)
 	_negotiation = negotiation_node
 	var adapter: Variant = _negotiation.adapter() if is_instance_valid(_negotiation) else null
 	_adapter = adapter as Node if is_instance_valid(adapter) else null
@@ -138,7 +135,7 @@ func setup(main_node: Node, privacy_node: PRIVACY = null, negotiation_node: NEGO
 	add_child(_classifier)
 	_venue = VENUE.new()
 	_venue.name = "UnfplapRequestPlace"
-	_venue.bind(main_node, _privacy)
+	_venue.bind(_privacy)
 	add_child(_venue)
 
 
@@ -160,7 +157,7 @@ func cancel_classifier() -> void:
 
 
 func tick(delta: float) -> void:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return
 	if _episode != null:
 		_tick_episode()
@@ -198,7 +195,7 @@ func reset() -> void:
 ## first option decide. A route that ends before the ask reports its reason in `reject`.
 func force(runtime: Node, pose := "") -> ForceResult:
 	var out := ForceResult.new()
-	if not is_instance_valid(main) or not is_instance_valid(runtime):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(runtime):
 		out.reject = "no_runtime"
 		return out
 	if _episode != null:
@@ -336,7 +333,7 @@ func _consider_start() -> void:
 ## list, the cuddle target and the scene-only formation rows; the reasoning is the caller's.
 func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 		reasons: Array = []) -> Candidate:
-	if not is_instance_valid(main) or not is_instance_valid(runtime):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(runtime):
 		reasons.append("no_main")
 		return null
 	var pony: Variant = runtime.get("pony")

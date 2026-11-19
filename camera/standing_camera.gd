@@ -15,7 +15,6 @@ const STATE_IDLE := 0
 const STATE_RESTORE := 5
 
 var facts: Variant
-var main: Variant
 var pony: Variant
 var camera: Camera3D
 var _presentation_cfg: Dictionary = {}
@@ -58,7 +57,7 @@ func _apply_standing_lean_look() -> void:
 	if not bool(facts.free_camera_active) or _pose_family() != "standing" \
 			or bool(facts.player_pony) or bool(facts.headset_view):
 		return
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.player) or kiss == null:
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player) or kiss == null:
 		return
 	var body: Node = WORLD.player
 	var lean_scale := float(facts.standing_lean_scale)
@@ -98,7 +97,7 @@ func _standing_neck_point() -> Vector3:
 func _apply_standing_base_look() -> void:
 	if bool(facts.player_pony) or bool(facts.headset_view):
 		return
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return
 	var body: Node = WORLD.player
 	var view: Camera3D = WORLD.camera()
@@ -131,7 +130,7 @@ func _apply_standing_base_look() -> void:
 func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> void:
 	if not is_instance_valid(camera):
 		return
-	var seated := is_instance_valid(main) and is_instance_valid(WORLD.player) and WORLD.player.get("seat") != null
+	var seated := is_instance_valid(WORLD.player) and WORLD.player.get("seat") != null
 	var eye_height := _standing_eye_height()
 	if _standing_base_saved and not camera.top_level and not seated:
 		camera.position = Vector3(
@@ -269,7 +268,7 @@ func _aim_eyes_at_player() -> void:
 	var eye_motion: Variant = pony.get("eye_motion")
 	if eye_motion == null or not is_instance_valid(eye_motion):
 		return
-	var view: Camera3D = WORLD.camera() if is_instance_valid(main) else null
+	var view: Camera3D = WORLD.camera() if is_instance_valid(WORLD.game) else null
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
 	eye_motion.set("target_world", target)
 	eye_motion.set("target_weight", 1.0)
@@ -279,7 +278,7 @@ func _glance_angles() -> Vector3:
 	if pony.has_method("listen_point"):
 		head = pony.call("listen_point")
 	var target: Vector3 = head
-	if is_instance_valid(main) and is_instance_valid(WORLD.player):
+	if is_instance_valid(WORLD.player):
 		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			target = view.global_position
@@ -305,7 +304,7 @@ func _clamp_look() -> void:
 	if _pose_family() == "bed":
 		# Missionary uses the mod-owned view; the player's body look is left alone.
 		return
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return
 	var body: Node = WORLD.player
 	var form: Variant = body.get("form_driver")
@@ -329,7 +328,6 @@ func _clamp_look() -> void:
 		view.rotation.x = want
 
 func _sync() -> void:
-	main = facts.main if facts != null else null
 	pony = facts.pony if facts != null else null
 	camera = facts.camera if facts != null else null
 	var cfg: Variant = facts.presentation_config if facts != null else null

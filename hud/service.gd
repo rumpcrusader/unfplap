@@ -585,9 +585,6 @@ func update_from(view: RefCounted) -> void:
 ## Hide or restore the game's quick-slot card for the act. Idempotent, and it gives back exactly
 ## the state it found, so a start that failed early runs the same call.
 func set_inventory_hidden(hidden: bool) -> void:
-	var main := get_parent()
-	if not is_instance_valid(main):
-		return
 	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return

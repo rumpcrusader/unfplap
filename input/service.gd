@@ -23,7 +23,6 @@ const PASS_KEYS := [KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE, KEY_T,
 	KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10,
 	KEY_F11, KEY_F12]
 
-var main: Node
 ## The idle offer's facade: the act key hands it the start.
 var offer: OFFER = null
 
@@ -64,8 +63,6 @@ func apply_settings() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	if not is_instance_valid(main):
-		return
 	var runtime: Node = PONIES.active()
 	if is_instance_valid(runtime):
 		# Pause/settings must not end the act; the runtime simply stops processing while the
@@ -148,8 +145,6 @@ func _hold_movement() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not is_instance_valid(main):
-		return
 	# The debug wheel owns every event while it is open, and a middle press opens it. With debug
 	# off the wheel returns false, so the middle button is not consumed.
 	var wheel_middle := event is InputEventMouseButton \

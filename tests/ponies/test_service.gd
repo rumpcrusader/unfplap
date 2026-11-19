@@ -5,6 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/ponies/test_service.gd
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
@@ -142,7 +143,7 @@ func _bind() -> Dictionary:
 	offer.name = "FakeOffer"
 	root.add_child(offer)
 	var made: Array[FakeRuntime] = []
-	PONIES.host = host
+	WORLD.bind_world(host)
 	PONIES.anatomy = anatomy
 	PONIES.body_change = body_change
 	PONIES.stock_smack = smack
@@ -310,10 +311,10 @@ func _check_prepare() -> void:
 	check(anatomy.journal.size() == 2, "a second late prepare runs again")
 	check(PONIES.runtime_for(pony) == null, "a prepare never creates a runtime")
 	var host: Node = f["host"]
-	PONIES.host = null
+	WORLD.unbind()
 	PONIES.prepare_late(pony)
 	check(anatomy.journal.size() == 2, "a prepare without the entry does nothing")
-	PONIES.host = host
+	WORLD.bind_world(host)
 	PONIES.shutdown()
 	root.remove_child(pony)
 	pony.free()
@@ -447,8 +448,8 @@ func _check_world_close() -> void:
 	PONIES.shutdown()
 	check(runtime.is_queued_for_deletion(), "the teardown frees the runtime")
 	check(PONIES.live_ponies().is_empty(), "the teardown empties the registry")
-	check(PONIES.host == null and not PONIES.factory.is_valid(),
-		"the teardown drops the entry's bindings")
+	check(PONIES.anatomy == null and not PONIES.factory.is_valid(),
+		"the teardown drops the bound services")
 	source.free()
 	root.remove_child(pony)
 	pony.free()
@@ -465,7 +466,6 @@ func _check_character_lists() -> void:
 	check(PONIES.live_character_ids().has("chrysalis"),
 		"an installed mare is listed without a live body")
 	PONIES.eligibility = ELIGIBILITY.new()
-	PONIES.eligibility.setup(f["host"])
 	var pony := _pony("sunny_star", "SunnyBody")
 	root.add_child(pony)
 	PONIES.attach(pony)

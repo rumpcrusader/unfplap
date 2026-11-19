@@ -27,7 +27,6 @@ const MISSIONARY_KISS_LEAN := 0.90
 
 var facts: Variant
 var pony: Variant
-var main: Variant
 var _presentation_cfg: Dictionary = {}
 var _pose_cfg: Dictionary = {}
 ## The last pose-change profile the hook saw, so a steady tick does nothing.
@@ -148,8 +147,8 @@ func _start_base_kiss() -> bool:
 	# head aim instead.
 	if _pose_family() == "bed":
 		return false
-	if not is_instance_valid(pony) or not is_instance_valid(main) \
-			or not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game) \
+			or not is_instance_valid(WORLD.player):
 		return false
 	var affection: Variant = pony.get_node_or_null("Affection")
 	var kisser: Variant = WORLD.game.get("kisser")
@@ -194,13 +193,13 @@ func _end_base_kiss() -> void:
 			affection.call("end")
 		# Even if the affection already ended itself, clear its 60 s stare afterglow.
 		affection.call("cancel_afterglow")
-	if is_instance_valid(main) and is_instance_valid(WORLD.game):
+	if is_instance_valid(WORLD.game):
 		var kisser: Variant = WORLD.game.get("kisser")
 		if is_instance_valid(kisser):
 			kisser.set("_active", null)
 			kisser.set("_her_kiss", false)
 			kisser.set("_used_hold", false)
-	if is_instance_valid(main) and is_instance_valid(WORLD.player) \
+	if is_instance_valid(WORLD.player) \
 			and int(facts.state) in [STATE_ACTIVE, STATE_CLIMAX]:
 		WORLD.player.set_meta("kiss_hold", true)
 	_base_kiss_releasing = is_instance_valid(_base_kiss_pose)
@@ -510,7 +509,7 @@ func _target(view: Camera3D) -> Vector3:
 ## Anon's actual mouth camera. Missionary frames the shot through a separate view, so using that as
 ## the kiss target aimed her at the camera instead of at him.
 func _mouth_view() -> Camera3D:
-	if is_instance_valid(main):
+	if is_instance_valid(WORLD.game):
 		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			return view
@@ -562,12 +561,10 @@ func end_lean_kiss() -> void:
 func _sync() -> void:
 	if facts == null:
 		pony = null
-		main = null
 		_presentation_cfg = {}
 		_pose_cfg = {}
 		return
 	pony = facts.pony
-	main = facts.main
 	var cfg: Variant = facts.presentation_config
 	_presentation_cfg = cfg if cfg is Dictionary else {}
 	var view: Variant = facts.pose_view

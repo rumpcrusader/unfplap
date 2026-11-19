@@ -9,24 +9,22 @@ const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 
-var main: Node
 var _privacy: RefCounted
 
 
-func bind(main_node: Node, privacy_node: RefCounted) -> void:
-	main = main_node
+func bind(privacy_node: RefCounted) -> void:
 	_privacy = privacy_node
 
 
 func player() -> Node3D:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return null
 	var node: Variant = WORLD.player
 	return node as Node3D if is_instance_valid(node) else null
 
 
 func mares() -> Array:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return []
 	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
@@ -49,7 +47,7 @@ func region_of(at: Vector3) -> String:
 func camera_forward() -> Vector3:
 	var node := player()
 	var forward := Vector3.FORWARD
-	if is_instance_valid(main):
+	if is_instance_valid(WORLD.game):
 		var view: Variant = WORLD.camera()
 		if is_instance_valid(view) and view is Camera3D:
 			forward = -(view as Camera3D).global_basis.z
@@ -232,7 +230,7 @@ func bed_row(bed: Node3D, pony: Node3D, node: Node3D) -> Dictionary:
 		return {}
 	if is_instance_valid(rest.get("_sleeper")):
 		return {}
-	if is_instance_valid(main) and bool(WORLD.bed_occupied(bed, pony)):
+	if bool(WORLD.bed_occupied(bed, pony)):
 		return {}
 	var front: Variant = rest_front(rest, pony)
 	if not front is Vector3 or not (front as Vector3).is_finite():

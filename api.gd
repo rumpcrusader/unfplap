@@ -10,6 +10,7 @@ extends Node
 ## V1 is deliberately small: register a mare template, remove it, and read everything resolved
 ## for one mare. Signals, act events and live-state queries are additive later.
 
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
@@ -26,7 +27,6 @@ const CAPABILITIES := {"registry.mare": 1, "mare.read": 1, "profile.mare": 1}
 ## contract so a future deprecation is data, not a code change in every consumer.
 const DEPRECATIONS := []
 
-var _main: Node
 ## owner instance id -> true, for the auto-unregister on tree exit.
 var _owners: Dictionary = {}
 
@@ -118,7 +118,7 @@ func describe_mare(id: String) -> Dictionary:
 		smack_radius = maxf(0.0, float(smack_value))
 	# The identity slice is read through the eligibility service so its rules and the registry
 	# stay in one place.
-	var service: ELIGIBILITY = _main.get("eligibility") if is_instance_valid(_main) else null
+	var service: ELIGIBILITY = PONIES.eligibility
 	var profile: ELIGIBILITY.Profile = service.get_profile(mare_id) if service != null else null
 	var consent: Dictionary = profile.consent.to_dict() if profile != null else {}
 	var eligible: Variant = profile.eligible_value() if profile != null else null
@@ -143,11 +143,6 @@ func describe_mare(id: String) -> Dictionary:
 		"aftercare_min": SETTINGS.aftercare_min(mare_id),
 		"smack_zone_radius": smack_radius,
 	}
-
-
-## Internal binding to the entry node; the facade needs it only for live refresh and debug logs.
-func _bind(main_node: Node) -> void:
-	_main = main_node
 
 
 ## Internal teardown, also called by the entry before it frees this node.

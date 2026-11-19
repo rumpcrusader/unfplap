@@ -61,7 +61,7 @@ func run() -> void:
 	WORLD.bind_world(main.game)
 	root.add_child(main)
 	var memory := MEMORY.new()
-	memory.setup(main)
+	MEMORY.instance = memory
 
 	var good := MEMORY.Impression.new()
 	good.id = "rarity"
@@ -154,6 +154,7 @@ func run() -> void:
 	game.queue_free()
 	context.queue_free()
 	impressions.queue_free()
+	MEMORY.instance = null
 	main.queue_free()
 
 	print("MEMORY_API_RESULT checks=%d failures=%d" % [checks, failures])

@@ -8,6 +8,7 @@ extends Node
 ##
 ## See `docs/anatomy.md`.
 
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const ACT_BRIDGE := preload("res://mods/unfplap/anatomy/act_bridge.gd")
@@ -28,7 +29,6 @@ const HUD := preload("res://mods/unfplap/hud/service.gd")
 ## integration uses it to take a worn garment off before the first rendered act frame.
 signal act_started(pony: Node3D)
 
-var main: Node
 var player: Node
 var tail_seat: Node
 var tail_visibility: Node
@@ -46,10 +46,9 @@ var _player_warm_part: Node = null
 var _player_warm_queued := false
 
 
-func setup(main_node: Node) -> void:
-	main = main_node
+func setup() -> void:
 	placement_editor = PLACEMENT_EDITOR.new()
-	placement_editor.setup(self, main_node)
+	placement_editor.setup(self)
 	tail_visibility = TAIL_VISIBILITY.new()
 	tail_visibility.name = "UnfplapTailVisibility"
 	add_child(tail_visibility)
@@ -71,9 +70,9 @@ func setup(main_node: Node) -> void:
 ## Host consent lookup for the act's V/N actions. The facade is the scene adapter; the act
 ## receives this as a callback.
 func consent(pony_node: Node, key: String) -> bool:
-	if not is_instance_valid(main) or not is_instance_valid(pony_node):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(pony_node):
 		return false
-	var service: ELIGIBILITY = main.get("eligibility")
+	var service: ELIGIBILITY = PONIES.eligibility
 	if service == null:
 		return false
 	var id := CONTROLLER.pony_id(pony_node)
@@ -99,9 +98,9 @@ func status(text: String) -> void:
 ## Host capability lookup. The eligibility service owns the rule; anatomy only names its target
 ## and never inspects identity or participation itself.
 func _eligible_target(pony_node: Node, target: ELIGIBILITY.Target) -> bool:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return false
-	var service: ELIGIBILITY = main.get("eligibility")
+	var service: ELIGIBILITY = PONIES.eligibility
 	if service == null:
 		return false
 	return service.eligible(pony_node, target)
@@ -330,8 +329,8 @@ func can_seat(pony: Node) -> bool:
 func can_place_tail(pony: Node) -> bool:
 	if can_seat(pony):
 		return true
-	return is_instance_valid(main) and main.has_method("custom_tail_ready") \
-		and bool(main.call("custom_tail_ready", pony))
+	var change: Node = PONIES.body_change
+	return is_instance_valid(change) and bool(change.call("has_tail_placement", pony))
 
 
 ## True when this pony has a dock the placement controls can move.
@@ -378,7 +377,6 @@ func shutdown() -> void:
 	tail_seat = null
 	tail_visibility = null
 	placement_editor = null
-	main = null
 
 
 # --------------------------------------------------------------------------- player part

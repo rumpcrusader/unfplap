@@ -2,6 +2,7 @@ extends RefCounted
 ## Standing Anon body: the hip thrust wrapper, the pelvis-sway follow and palm scale. The runtime
 ## owns readiness and scoring; this controller only poses the player rig.
 
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ANON_THRUST := preload("res://mods/unfplap/poses/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
@@ -12,7 +13,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const THRUST_MAX_M := 0.045
 
 var facts: Variant
-var main: Variant
 var pony: Variant
 var _hip_phase := 0.0
 var _anon_thrust_driver: Node3D
@@ -122,10 +122,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 func _anatomy_service() -> Variant:
 	if facts == null:
 		return null
-	var scene: Variant = facts.main
-	if not is_instance_valid(scene):
-		return null
-	return scene.get("anatomy")
+	return PONIES.anatomy
 
 
 ## Lower Anon's standing hips; use this when his body sits too high.
@@ -161,7 +158,7 @@ func _lower_body_of(hip: Node3D) -> Node:
 
 func _install_anon_thrust() -> void:
 	_remove_anon_thrust()
-	if not _standing_family() or bool(facts.player_pony) or not is_instance_valid(main) or not is_instance_valid(WORLD.player):
+	if not _standing_family() or bool(facts.player_pony) or not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return
 	var avatar := WORLD.player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
@@ -264,7 +261,7 @@ func _remove_anon_thrust() -> void:
 func _desktop_pose_driver() -> Node:
 	if is_instance_valid(_anon_thrust_driver):
 		return _anon_thrust_driver
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return null
 	var avatar: Node = WORLD.player.find_child("AnonBody", true, false)
 	if not is_instance_valid(avatar):
@@ -279,10 +276,8 @@ func _desktop_pose_driver() -> Node:
 ## it hands the controller out, so this is a copy, not a read of the runtime node.
 func _sync() -> void:
 	if facts == null:
-		main = null
 		pony = null
 		return
-	main = facts.main
 	pony = facts.pony
 
 

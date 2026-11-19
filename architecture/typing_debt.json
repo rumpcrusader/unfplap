@@ -338,7 +338,7 @@
     {
       "service": "rest",
       "func": "bind",
-      "signature": "func bind(main_node: Variant, pony_node: Variant, bed_node: Variant) -> void:"
+      "signature": "func bind(pony_node: Variant, bed_node: Variant) -> void:"
     },
     {
       "service": "rest",
@@ -363,7 +363,7 @@
     {
       "service": "scene_gate",
       "func": "bind",
-      "signature": "func bind(pony_node: Variant, main_node: Variant, session: Variant) -> void:"
+      "signature": "func bind(pony_node: Variant, session: Variant) -> void:"
     },
     {
       "service": "scene_gate",

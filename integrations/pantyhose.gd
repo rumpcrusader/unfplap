@@ -17,6 +17,7 @@ extends Node
 ##
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Garment hull`).
 
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -54,7 +55,6 @@ class Applied:
 	var jiggling := false
 
 
-var main: Node
 ## Test seam for the pack-active check. Production sets it in `setup()`.
 var mod_active := Callable()
 
@@ -88,8 +88,7 @@ var _overlay_parent: Node3D = null
 var _overlay_reason := ""
 
 
-func setup(main_node: Node) -> void:
-	main = main_node
+func setup() -> void:
 	process_priority = PROCESS_PRIORITY
 	if mod_active.is_null():
 		mod_active = Callable(self, "_mod_active")
@@ -128,7 +127,6 @@ func shutdown() -> void:
 	CHANGE.off_changed(Callable(self, "apply_live_settings"))
 	on_world_closed()
 	_disconnect_anatomy()
-	main = null
 
 
 func _exit_tree() -> void:
@@ -753,9 +751,7 @@ func _hull_mesh(hull: Variant) -> ArrayMesh:
 # --------------------------------------------------------------------------- host
 
 func _anatomy() -> Node:
-	if not is_instance_valid(main):
-		return null
-	var value: Variant = main.get("anatomy")
+	var value: Node = PONIES.anatomy
 	if value is Node:
 		return value as Node
 	return null

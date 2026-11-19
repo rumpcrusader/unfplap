@@ -136,7 +136,6 @@ func _fixture() -> Dictionary:
 	main.player = player
 	WORLD.bind_player(main.player)
 	runtime.pony = pony
-	runtime.main = main
 	runtime.bed = Node3D.new()
 	runtime.source = "bed_side"
 	return {"runtime": runtime, "pony": pony, "main": main, "player": player}

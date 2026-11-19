@@ -92,9 +92,7 @@ func _check_perf_probe() -> void:
 	LOG.debug_logs = true
 	LOG.debug_perf = true
 	LOG.sink = Callable(sink, "write")
-	var host := Node.new()
 	var probe: Node = RUNTIME.new()
-	probe.set("main", host)
 	probe.set("_id", "twilight_sparkle")
 	probe.set("pose_id", CATALOG.STANDING)
 	probe.set("state", 2)
@@ -120,7 +118,6 @@ func _check_perf_probe() -> void:
 	probe.call("_perf_tick", 1.1)
 	check(sink.lines.size() == 1, "perf is silent with perf logs off")
 	probe.free()
-	host.free()
 	LOG.debug_perf = true
 	LOG.sink = Callable()
 	LOG.debug_logs = false

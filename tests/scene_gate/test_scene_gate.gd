@@ -176,7 +176,7 @@ func _fixture() -> Dictionary:
 	root.add_child(main)
 	main.add_child(player)
 	main.add_child(game)
-	gate.bind(pony, main, pose)
+	gate.bind(pony, pose)
 	gate.configure(STATE_IDLE, "rarity", {})
 	gate.stool_need = Callable(stool, "stool_need")
 	gate.stool_count = Callable(stool, "stool_count")

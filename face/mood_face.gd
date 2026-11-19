@@ -15,7 +15,6 @@ signal finished(reason: String)
 
 var pony: Node3D
 ## The scene handle the freshness check reads, and the debug log. Both are optional.
-var main: Variant = null
 var log := Callable()
 var mood := ""
 var face := ""
@@ -84,8 +83,6 @@ func _mood_still_ours() -> bool:
 		return true
 	var id := str(pony.get_meta("relationship_id", ""))
 	if id.is_empty():
-		return true
-	if not is_instance_valid(main):
 		return true
 	var game: Variant = WORLD.game
 	if game == null or not is_instance_valid(game):

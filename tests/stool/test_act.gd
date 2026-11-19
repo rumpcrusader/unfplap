@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_act.gd
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT := preload("res://mods/unfplap/stool/act.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -121,6 +122,7 @@ func _fixture() -> Dictionary:
 	main.game = game
 	WORLD.bind_world(main.game)
 	main.anatomy = FakeService.new()
+	PONIES.anatomy = main.anatomy
 	var ctl := FakeController.new()
 	root.add_child(main)
 	root.add_child(pony)
@@ -128,7 +130,7 @@ func _fixture() -> Dictionary:
 	root.add_child(game)
 	root.add_child(inventory)
 	var act: RefCounted = ACT.new()
-	act.bind(facade, main, pony, player, ctl)
+	act.bind(facade, pony, player, ctl)
 	return {
 		"act": act, "facade": facade, "pony": pony, "player": player, "main": main,
 		"game": game, "inventory": inventory, "store": store, "ctl": ctl,

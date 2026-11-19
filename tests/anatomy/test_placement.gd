@@ -344,7 +344,7 @@ func run() -> void:
 	WORLD.bind_world(editor_world)
 	var service: Node = ANATOMY_SERVICE.new()
 	root.add_child(service)
-	service.call("setup", editor_main)
+	service.call("setup")
 	var target_before := SETTINGS.edit_target.get_choice()
 	SETTINGS.edit_target.set_choice("mare")
 	check(service.placement_editor != null, "the facade owns the placement editor")

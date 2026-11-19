@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_api.gd
 
 const API := preload("res://mods/unfplap/api.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
@@ -54,12 +55,11 @@ func run() -> void:
 	var main := FakeMain.new()
 	main.name = "FakeMain"
 	main.eligibility = ELIGIBILITY.new()
-	main.eligibility.setup(main)
+	PONIES.eligibility = main.eligibility
 	root.add_child(main)
 	api = API.new()
 	api.name = "UnfplapAPI"
 	root.add_child(api)
-	api.call("_bind", main)
 	owner = Node.new()
 	owner.name = "TestProvider"
 	root.add_child(owner)

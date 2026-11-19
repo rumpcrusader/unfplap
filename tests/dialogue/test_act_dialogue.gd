@@ -122,6 +122,7 @@ func run() -> void:
 	var facts := FACTS.new()
 	var main := FakeMain.new()
 	WORLD.bind_world(main.game)
+	MEMORY.instance = main.memory
 	var pony := FakePony.new()
 	var director := FakeDirector.new()
 	director.characters = {
@@ -156,7 +157,6 @@ func run() -> void:
 	facts.now = Callable(host, "clock_now")
 
 	var dialogue := DIALOGUE.new(facts)
-	dialogue.setup(main)
 	check(dialogue.scheduler() != null, "the facade owns a scheduler")
 	dialogue.configure({
 		"base_stable": 2.0, "override_stable": 0.5, "utterance_gap": 18.0,
@@ -223,7 +223,6 @@ func run() -> void:
 		"fluttershy": {"hurt": 3, "last_apology_day": -1.0, "reminder_pending": false},
 	}
 	var history := DIALOGUE.new(facts)
-	history.setup(main)
 	history.history_tick(0.0, context)
 	context["turn"] = 3
 	context["text"] = "I'm sorry"
@@ -243,7 +242,6 @@ func run() -> void:
 			"complaint_pending": false},
 	}
 	history = DIALOGUE.new(facts)
-	history.setup(main)
 	context["text"] = ""
 	context["target_is_player"] = false
 	history.history_tick(1.1, context)
@@ -257,7 +255,6 @@ func run() -> void:
 		"fluttershy": {"hurt": 2, "last_at": 0.0, "complaint_pending": true},
 	}
 	history = DIALOGUE.new(facts)
-	history.setup(main)
 	context["speech_busy"] = true
 	history.history_tick(1.1, context)
 	check(main.memory.requests.size() == queued_before + 1, "a busy scene queues no reminder")

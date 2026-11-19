@@ -162,9 +162,13 @@ func run() -> void:
 	main.name = "FakeMain"
 	main.eligibility = FakeEligibility.new()
 	root.add_child(main)
+	# The provider's world reads are the live scene: a bare world node is enough here.
+	var world := FakeGame.new()
+	root.add_child(world)
+	WORLD.bind_world(world)
 	var body_change := BODY_CHANGE_SERVICE.new()
 	body_change.name = "UnfplapBodyChange"
-	body_change.call("setup", main)
+	body_change.call("setup")
 	root.add_child(body_change)
 	main.body_change = body_change
 	PONIES.shutdown()
@@ -172,15 +176,12 @@ func run() -> void:
 	recorder.name = "RecordingBodyChange"
 	recorder.service = body_change
 	root.add_child(recorder)
-	PONIES.host = main
 	PONIES.body_change = recorder
 	PONIES.eligibility = ELIGIBILITY.new()
-	PONIES.eligibility.setup(main)
 	var api := API.new()
 	api.name = "UnfplapAPI"
 	root.add_child(api)
-	api.call("_bind", main)
-	main.api = api
+	PONIES.api = api
 	var gate := Gate.new()
 	var pack := FakeSourceMod.new()
 	pack.name = "FakeChangelingsMod"
@@ -188,7 +189,7 @@ func run() -> void:
 	var adapter := CHANGELINGS.new()
 	adapter.name = "UnfplapChangelings"
 	adapter.set("mod_active", Callable(gate, "active"))
-	adapter.call("setup", main)
+	adapter.call("setup")
 	root.add_child(adapter)
 	check(bool(body_change.call("register_source", adapter)),
 		"the adapter registers as a typed body-change source")
@@ -551,13 +552,17 @@ func run() -> void:
 		"the delayed named change keeps its target")
 	check(str(early.get_meta("body_fit_id", "")) == "rarity",
 		"the settled shape refits the new body as the target")
-	check(recorder.prepared.size() == late_before + 1 and recorder.prepared.back() == early,
-		"the settled shape asks ponies for the late prepare once")
+	# The settle notifies the service once and the registry's late prepare notifies it again: the
+	# adapter and the registry now read the one body-change handle the entry bound.
+	# The settle notifies the service for the change and again for the late variant, then the
+	# registry's one late prepare notifies it a third time: every path reads the one service.
+	check(recorder.prepared.size() == late_before + 3 and recorder.prepared.back() == early,
+		"the settled shape's one late prepare reaches the service")
 	check(spy.calls == 1, "the settled shape runs one settings pass")
 	CHANGE.off_changed(Callable(spy, "_on_changed"))
 	check(not HYBRID_NEAR_MESH.cache.has(lod_key), "the settled shape rebuilds the body's LOD")
 	adapter.call("poll")
-	check(recorder.prepared.size() == late_before + 1,
+	check(recorder.prepared.size() == late_before + 3,
 		"the settled shape is not refitted again")
 	pack.busy = false
 	adapter.call("poll")
@@ -680,6 +685,8 @@ func run() -> void:
 	check(str(adapter.call("named_form", "Sunny Star")) == "sunny_star",
 		"a live off-roster adult mare resolves")
 	PONIES.shutdown()
+	# The teardown drops the registry's handles; the rest of the suite still reads the API.
+	PONIES.api = api
 	live_runtime.free()
 	root.remove_child(live_mare)
 	live_mare.free()

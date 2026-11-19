@@ -178,7 +178,6 @@ func _fixture() -> Dictionary:
 	player.camera = main.view
 	root.add_child(main)
 	var facts: RefCounted = FACTS.new()
-	facts.main = main
 	facts.player_pony = false
 	facts.state = STATE_ACTIVE
 	facts.features = {"idle_camera_sway": false}

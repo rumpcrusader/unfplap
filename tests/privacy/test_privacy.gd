@@ -64,7 +64,6 @@ func run() -> void:
 	WORLD.bind_world(main.game)
 
 	var provider := PRIVACY.new()
-	provider.setup(main)
 
 	# Outdoors with nobody near.
 	game.mares = [target]
@@ -114,9 +113,12 @@ func run() -> void:
 	check(house_alone_near.offer_private, "house solitude allows the offer")
 	check(house_alone_near.cuddle_private, "an indoor cuddle ignores the outdoor mare")
 
-	# A missing main fails closed to not-private.
+	# No world bound: every answer is public (fail closed to not-private).
+	WORLD.unbind()
 	var unbound := PRIVACY.new()
-	check(not unbound.offer_private(target), "an unbound provider is not private")
+	check(not unbound.offer_private(target), "a provider outside a world is not private")
+	WORLD.bind_world(main.game)
+	WORLD.bind_player(main.player)
 
 	# The pure cuddle rule: outdoors only the nearby mares matter, indoors only the house.
 	check(PRIVACY_RULES.cuddle_private(false, false, false),

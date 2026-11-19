@@ -50,7 +50,7 @@ func run() -> void:
 	WORLD.bind_world(main.game)
 	root.add_child(main)
 	var memory := MEMORY.new()
-	memory.setup(main)
+	MEMORY.instance = memory
 
 	var request := MEMORY.LineRequest.new()
 	request.kind = MEMORY.LineKind.UTTERANCE
@@ -119,6 +119,7 @@ func run() -> void:
 	memory.cancel_line("unfplap:act:line:queued")
 	check("unfplap:act:line:queued" in director.cancelled, "cancel_line drops one line")
 
+	MEMORY.instance = null
 	main.queue_free()
 	director.queue_free()
 

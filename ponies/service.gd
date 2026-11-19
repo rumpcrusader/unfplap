@@ -26,9 +26,6 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 
-## The entry node: its tree membership is what `prepare_late()` checks, and nothing else here
-## reads it.
-static var host: Node = null
 ## (`Node pony`) -> Node, the entry's runtime factory. The runtime file stays the entry's preload.
 static var factory := Callable()
 ## The services one attached body passes through, bound once by the entry. `eligibility` is rebuilt
@@ -38,6 +35,8 @@ static var body_change: Node = null
 static var stock_smack: Node = null
 static var offer: Node = null
 static var eligibility: ELIGIBILITY = null
+## The cross-mod API facade, bound once by the entry. An integration registers its mare here.
+static var api: Node = null
 
 ## pony -> its one runtime.
 static var _runtimes: Dictionary = {}
@@ -82,7 +81,7 @@ static func attach(pony: Node) -> void:
 ## A mod that adds a node the first prepare needed, such as the changelings tail chain, calls this
 ## once it exists. Every prepare hook is idempotent, and this never creates a runtime.
 static func prepare_late(pony: Node) -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(host) or not host.is_inside_tree():
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		return
 	_prepare(pony)
 
@@ -289,13 +288,13 @@ static func shutdown() -> void:
 			runtime.call("force_stop")
 		(runtime as Node).queue_free()
 	_runtimes.clear()
-	host = null
 	factory = Callable()
 	anatomy = null
 	body_change = null
 	stock_smack = null
 	offer = null
 	eligibility = null
+	api = null
 
 
 ## Fit and prepare a new body before it can take a runtime or an act. The body-change service asks

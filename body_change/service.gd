@@ -29,7 +29,6 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const BODY_SCALE_MIN := 0.25
 const BODY_SCALE_MAX := 4.0
 
-var main: Node = null
 ## The log sink. `LOG.debug()` carries the mod id and obeys the debug toggle.
 var _log: Callable = Callable()
 ## Registration order is the binding fan-out order and the source lookup order.
@@ -47,8 +46,7 @@ var _active_by_source: Dictionary = {}
 var _active_by_body: Dictionary = {}
 
 
-func setup(host: Node) -> void:
-	main = host
+func setup() -> void:
 	_log = Callable(LOG, "debug")
 	CHANGE.on_changed(Callable(self, "apply_settings"))
 

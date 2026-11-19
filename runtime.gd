@@ -57,6 +57,7 @@ const FACE := preload("res://mods/unfplap/face/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
 const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
@@ -108,7 +109,6 @@ const AGREEMENT_STARTED := 1
 const AGREEMENT_FAILED := 2
 
 var pony
-var main
 
 var state: int = State.IDLE
 var pose_id := ""
@@ -167,7 +167,6 @@ var _act_facts: RefCounted = ACT_FACTS.new()
 
 ## The act's dialogue service: scheduler, prompt assembly, reactions and the bystander line.
 var _act_dialogue: RefCounted = ACT_DIALOGUE.new(_act_facts)
-var _act_dialogue_main: Node
 ## Debug perf probe: timed chunks report here and one summary prints per window. See `shared/perf.gd`.
 var _perf_probe := PERF.new()
 ## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
@@ -352,7 +351,6 @@ func _init() -> void:
 	_afterglow.on_stay_close = Callable(self, "_on_stay_close")
 	_face.log = Callable(self, "_log")
 	_face.clock = Callable(self, "_now_s")
-	_face.main_source = Callable(self, "_main")
 	_reactions.log = Callable(self, "_log")
 	_pose_session.log = Callable(self, "_log")
 	_scene.stool_need = Callable(self, "stool_needed_count")
@@ -364,7 +362,6 @@ func _init() -> void:
 	_rest.log = Callable(self, "_log")
 	_hold.bind({
 		"pony": Callable(self, "_pony"),
-		"main": Callable(self, "_main"),
 		"state": Callable(self, "_state"),
 		"pose_family": Callable(self, "_pose_family"),
 	})
@@ -441,10 +438,6 @@ func _anatomy_host() -> Dictionary:
 	return _anatomy_host_cache
 
 
-func _main() -> Variant:
-	return main
-
-
 func _pony() -> Variant:
 	return pony
 
@@ -460,7 +453,7 @@ func _reactions_service() -> Variant:
 ## The VR scene handles the anatomy bridge wires into the VR act. The runtime owns the player
 ## scene; the bridge receives the nodes and never searches for them.
 func _vr_scene() -> Variant:
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return null
 	var player: Node = WORLD.player
 	var avatar := player.find_child("AnonBody", true, false) as Node3D
@@ -597,11 +590,11 @@ func _anatomy_act_refresh() -> void:
 
 
 func _anatomy_service() -> Variant:
-	return main.get("anatomy") if is_instance_valid(main) else null
+	return PONIES.anatomy
 
 
 func _eligibility_service() -> Variant:
-	return main.get("eligibility") if is_instance_valid(main) else null
+	return PONIES.eligibility
 
 
 ## The typed act/context the anatomy reads. The bridge owns the per-act facts.
@@ -631,7 +624,6 @@ func _sync_act_facts() -> void:
 	facts.pony_climaxes = pony_climaxes
 	facts.depth = depth
 	facts.penetration_m = penetration_m
-	facts.main = main
 	facts.pony = pony
 	facts.camera = _act_camera.camera
 	facts.viewport = get_viewport()
@@ -824,7 +816,6 @@ func _perf_header() -> Dictionary:
 func _bind_act_view() -> void:
 	var facts := _act_facts
 	var view: Variant = _pose_session.view()
-	facts.main = main
 	facts.pony = pony
 	facts.state = state
 	facts.pose_view = view
@@ -950,9 +941,6 @@ func _feature(name: String) -> bool:
 
 
 func _dialogue_service() -> RefCounted:
-	if _act_dialogue_main != main:
-		_act_dialogue_main = main
-		_act_dialogue.setup(main)
 	_act_facts.pony_id = _id
 	return _act_dialogue
 
@@ -1074,7 +1062,6 @@ static func _call_pose_changed(owner: Variant, view: Variant) -> void:
 ## values it reads are written here rather than waiting for the next facts sync.
 func _camera_service() -> RefCounted:
 	var view: Variant = _pose_session.view()
-	_act_facts.main = main
 	_act_facts.pony = pony
 	_act_facts.state = state
 	_act_facts.player_pony = _player_pony
@@ -1086,7 +1073,7 @@ func _camera_service() -> RefCounted:
 ## The scene gate, bound to this runtime's pony, main node and pose session. Refreshed on every
 ## call so suites work without entering the tree.
 func _scene_gate() -> RefCounted:
-	_scene.bind(pony, main, _pose_service())
+	_scene.bind(pony, _pose_service())
 	_scene.configure(state, _id, _features)
 	_scene.policy_verdict = Callable(self, "_policy_verdict")
 	_scene.debug_context = Callable(self, "_debug_context")
@@ -1194,9 +1181,9 @@ func apply_live_settings() -> void:
 	_sync_act_face_settings()
 	if previous_mute != _feature("mute_ponese_audio"):
 		_refresh_live_voice()
-	if is_instance_valid(main) and is_instance_valid(main.hud):
+	if is_instance_valid(HUD.instance):
 		_sync_hud_facts()
-		main.hud.update_from(_act_facts)
+		HUD.instance.update_from(_act_facts)
 
 func _refresh_live_modifiers() -> void:
 	if not is_instance_valid(pony):
@@ -1381,7 +1368,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _headset_view() -> bool:
-	return is_instance_valid(main) and is_instance_valid(WORLD.game) and bool(WORLD.game.get("headset_view"))
+	return is_instance_valid(WORLD.game) and bool(WORLD.game.get("headset_view"))
 
 ## The act key is a deliberate hold, matching the game's 0.35 s bridal-carry hold. A tap does
 ## nothing, and the trigger latches until release so a held key cannot fire twice.
@@ -1466,7 +1453,7 @@ func _physics_tick(delta: float) -> void:
 		if idle_perf:
 			_idle_perf_note("runtime_history", Time.get_ticks_usec() - history_started)
 		return
-	if not is_instance_valid(pony) or not is_instance_valid(main):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		force_stop()
 		return
 	_cycle_heat = cycle_phase() == CYCLE.HEAT
@@ -1570,15 +1557,15 @@ func _start_reasons(pose: String, act_source: String, bed_in: Variant = null) ->
 
 
 func _stool_act() -> Variant:
-	if not is_instance_valid(main) or not is_instance_valid(pony):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(pony):
 		return null
-	var service: Variant = main.get("stool") if is_instance_valid(main) else null
+	var service: Variant = STOOL.instance
 	if service == null or not service.has_method("new_act"):
 		return null
 	if _stool == null:
 		_stool = service.call("new_act")
 		_stool.log = Callable(self, "_log")
-	_stool.call("bind", service, main, pony, WORLD.player, _anatomy_bridge.controller)
+	_stool.call("bind", service, pony, WORLD.player, _anatomy_bridge.controller)
 	return _stool
 
 
@@ -1645,9 +1632,9 @@ func _policy_verdict(mode: ELIGIBILITY.Mode,
 		verdict_in: ELIGIBILITY.Verdict = null) -> ELIGIBILITY.Verdict:
 	if verdict_in != null:
 		return verdict_in
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return null
-	var service: ELIGIBILITY = main.get("eligibility")
+	var service: ELIGIBILITY = PONIES.eligibility
 	if service == null:
 		return null
 	return service.get_verdict(pony, mode)
@@ -1674,7 +1661,7 @@ func _debug_context() -> Dictionary:
 			if love is Dictionary:
 				love_name = str((love as Dictionary).get("name", "?"))
 	var mood := "?"
-	if is_instance_valid(main) and is_instance_valid(WORLD.game):
+	if is_instance_valid(WORLD.game):
 		var ctx: Variant = WORLD.game.get("world_context")
 		if ctx != null and is_instance_valid(ctx):
 			var impressions: Variant = ctx.get("impressions")
@@ -1690,7 +1677,7 @@ func _debug_context() -> Dictionary:
 		owner = str(nav.get("command_owner"))
 		target = bool(nav.get("_has_target"))
 		reserved = str(nav.get("reserved_by"))
-	var body: Variant = WORLD.player if is_instance_valid(main) else null
+	var body: Variant = WORLD.player if is_instance_valid(WORLD.game) else null
 	return {
 		"id": id, "display": display, "stage": relations.stage,
 		"love_name": love_name, "love_level": relations.love_level,
@@ -1830,11 +1817,11 @@ func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
 ## The scene runs first, so a blocked scene never pays for the eligibility reads.
 func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	_read_id()
-	if not is_instance_valid(pony) or not is_instance_valid(main):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		return false
 	if state != State.IDLE or pony.sleeping:
 		return false
-	var service: Variant = main.get("eligibility")
+	var service: Variant = PONIES.eligibility
 	if service == null or not is_instance_valid(service):
 		return false
 	var stool := _hotkey_stool_for(pose)
@@ -2040,10 +2027,10 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_anatomy_bridge.apply_live()
 	_pose_in_left = POSE_IN_SECONDS
 	PONIES.set_active(self)
-	if is_instance_valid(main) and is_instance_valid(main.hud):
+	if is_instance_valid(HUD.instance):
 		_sync_hud_facts()
-		main.hud.show_act(_act_facts)
-		main.hud.hide_prompt()
+		HUD.instance.show_act(_act_facts)
+		HUD.instance.hide_prompt()
 	_log("started pose=%s setup=%s source=%s pony=%s eye=%.2f" % [
 		pose, setup, act_source, str(pony.name), _act_camera.camera_target_eye])
 	return true
@@ -2222,9 +2209,9 @@ func _body_swap_tick(delta: float) -> void:
 
 ## The world body-change service, or null on a host without it (a suite or a lab harness).
 func _body_change_service() -> BODY_CHANGE_SERVICE:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return null
-	var service: Variant = main.get("body_change")
+	var service: Variant = PONIES.body_change
 	if service is BODY_CHANGE_SERVICE:
 		return service
 	return null
@@ -2336,8 +2323,8 @@ func _suspend_for_body_swap(change: BODY_CHANGE) -> void:
 	_swap_pose = str(view.id) if view != null and not str(view.id).is_empty() \
 		else str(_start_row().get("id", ""))
 	PONIES.begin_body_swap(self, pony, _id, change)
-	# Leave the old body before it is freed. `main` keeps the act; the new body adopts the node.
-	attach_to_body(main)
+	# Leave the old body before it is freed. The world keeps the act; the new body adopts the node.
+	attach_to_body(WORLD.game)
 	var source := _change_source(change)
 	_log("body swap suspend source=%s target=%s origin=%d form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
 		source.source_id() if source != null else "?", change.target_form_id,
@@ -2434,9 +2421,9 @@ func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 		if _pose_family() == "standing":
 			_standing_camera_controller().prepare()
 		_sync_act_facts()
-		if not _features.is_empty() and is_instance_valid(main) and is_instance_valid(main.hud):
+		if not _features.is_empty() and is_instance_valid(HUD.instance):
 			_sync_hud_facts()
-			main.hud.update_from(_act_facts)
+			HUD.instance.update_from(_act_facts)
 
 
 ## Recompute the act's visual frame after a presented-form revision. The camera's old offset is
@@ -2504,9 +2491,9 @@ func _resume_after_body_swap() -> void:
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.apply_live()
 	_integrations_controller().begin()
-	if is_instance_valid(main) and is_instance_valid(main.hud):
+	if is_instance_valid(HUD.instance):
 		_sync_hud_facts()
-		main.hud.update_from(_act_facts)
+		HUD.instance.update_from(_act_facts)
 	if _swap_auto_on and state in [State.ACTIVE, State.CLIMAX]:
 		_readiness.toggle_auto(depth)
 	_swap_auto_on = false
@@ -2579,9 +2566,9 @@ func _reset_player_pelvis() -> void:
 ## The new body must still pass the act's adult-mare gate. A missing service reads as allowed,
 ## so a suite can drive the handover without the world's eligibility graph.
 func _new_body_is_adult() -> bool:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return true
-	var service: Variant = main.get("eligibility")
+	var service: Variant = PONIES.eligibility
 	if service == null or not service.has_method("eligible"):
 		return true
 	return bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT))
@@ -2632,7 +2619,7 @@ func _apply_form_display_name(form: BODY_FORM.BodyForm, new_pony: Node = null) -
 func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
 	var forward: Vector3 = -pony.global_basis.z
 	forward.y = 0.0
-	var has_player := is_instance_valid(main) and is_instance_valid(WORLD.player) \
+	var has_player := is_instance_valid(WORLD.player) \
 		and WORLD.player is Node3D
 	if forward.length_squared() < 0.0001 and has_player:
 		forward = -WORLD.player.global_basis.z
@@ -2809,7 +2796,7 @@ func _take_stool_items(need: int) -> bool:
 
 ## The floor under a standing spot; the stool facade owns the probe.
 func _floor_y_at(at: Vector3, body: Node3D) -> float:
-	var service: Variant = main.get("stool") if is_instance_valid(main) else null
+	var service: Variant = STOOL.instance
 	if service == null or not service.has_method("floor_y_at"):
 		return NAN
 	return float(service.call("floor_y_at", at, body))
@@ -3285,9 +3272,9 @@ func _restore_voice_volume() -> void:
 ## The idle safety check. `hud/service.gd` owns the borrowed quick-slot state, so every idle
 ## sibling runtime sees the same hidden flag; only restore it when no other runtime is mid-act.
 func _restore_stray_inventory_hud() -> void:
-	if not is_instance_valid(main) or not is_instance_valid(main.hud):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(HUD.instance):
 		return
-	if not main.hud.inventory_hidden():
+	if not HUD.instance.inventory_hidden():
 		return
 	var owner: Node = PONIES.active()
 	if is_instance_valid(owner) and owner != self:
@@ -3299,9 +3286,9 @@ func _restore_stray_inventory_hud() -> void:
 ## The act hides the game's quick-slot card for its whole run. `hud/service.gd` owns the borrowed
 ## state and restores exactly what it found, so every exit path can call this unconditionally.
 func _set_inventory_hud_hidden(hidden: bool) -> void:
-	if is_instance_valid(main) and is_instance_valid(main.hud) \
-			and main.hud.has_method("set_inventory_hidden"):
-		main.hud.set_inventory_hidden(hidden)
+	if is_instance_valid(HUD.instance) \
+			and HUD.instance.has_method("set_inventory_hidden"):
+		HUD.instance.set_inventory_hidden(hidden)
 
 ## Anon's visible shaft length in metres, measured from the placed part. With the anatomy off the
 ## nominal length keeps the mouse feel identical.
@@ -3597,7 +3584,7 @@ func _shape_offer_tick() -> void:
 	_shape_offer_pending = true
 	_form_hint_tick()
 	_log("form shape offer id=%s climaxes=%d" % [_id, pony_climaxes])
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return
 	var act_id := _event_id
 	var valid := func() -> bool:
@@ -3796,9 +3783,7 @@ func _source_named_note(source: BODY_CHANGE_SOURCE, text: String) -> String:
 
 
 func _memory_service() -> Variant:
-	if not is_instance_valid(main):
-		return null
-	return main.get("memory")
+	return MEMORY.instance
 
 
 func _talk_tick(_delta: float) -> void:
@@ -3881,7 +3866,6 @@ func _commit_summary(real_act: bool) -> void:
 ## The scene values the summary scores. The history facade owns the shape; this only gathers.
 func _summary_values() -> Dictionary:
 	return {
-		"main": main,
 		"pony_id": _id,
 		"event_id": _event_id,
 		"preferences": _preferences,
@@ -3915,7 +3899,7 @@ func _history_note() -> String:
 ## Idle-only history scan. The scene values are gathered here; `dialogue/service.gd` owns the
 ## decisions and the line queueing.
 func _history_tick(delta: float) -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(main) \
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game) \
 			or not is_instance_valid(WORLD.player):
 		return
 	var director := _director()
@@ -3924,7 +3908,6 @@ func _history_tick(delta: float) -> void:
 	var target: Variant = pony.get("conversation_target")
 	var body: Variant = WORLD.player_body()
 	_dialogue_service().history_tick(delta, {
-		"main": main,
 		"pony": pony,
 		"director": director,
 		"pony_id": _id,
@@ -3980,10 +3963,10 @@ func _tolerance_warn(level: int) -> void:
 
 
 func _queue_tolerance_warning(level: int) -> void:
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.game):
 		return
 	if not _tolerance_warning_key.is_empty():
-		main.memory.cancel_line(_tolerance_warning_key)
+		MEMORY.instance.cancel_line(_tolerance_warning_key)
 	var act_id := _event_id
 	var event_id := "%s:tolerance_warning:%d" % [_event_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
@@ -3995,8 +3978,8 @@ func _queue_tolerance_warning(level: int) -> void:
 
 
 func _cancel_tolerance_warning() -> void:
-	if not _tolerance_warning_key.is_empty() and is_instance_valid(main) and is_instance_valid(WORLD.game):
-		main.memory.cancel_line(_tolerance_warning_key)
+	if not _tolerance_warning_key.is_empty() and is_instance_valid(WORLD.game):
+		MEMORY.instance.cancel_line(_tolerance_warning_key)
 	_tolerance_warning_key = ""
 
 
@@ -4013,8 +3996,8 @@ func _stop_with_her(reason: String) -> void:
 	_commit_summary(false)
 	# The stopped summary already says why. The basic event is the fallback when the summary was
 	# skipped, so one partner stop is never two memories.
-	if _summary_service.summary.is_empty() and is_instance_valid(main) and is_instance_valid(WORLD.game):
-		main.memory.note(MEMORY.NoteKind.STOPPED, _id, _event_id, MEMORY.StopReason.WITHDREW)
+	if _summary_service.summary.is_empty() and is_instance_valid(WORLD.game):
+		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _event_id, MEMORY.StopReason.WITHDREW)
 	if _pose_family() == "bed":
 		REST.release_managed(pony)
 	_end_act_lines(true)
@@ -4045,7 +4028,7 @@ func _request_space() -> void:
 
 
 func _queue_stop_line(strict: bool) -> void:
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.game):
 		return
 	var fallback := "Stop. I don't want to continue. Not now. Begin with [angry] or [sad]."
 	if strict:
@@ -4085,7 +4068,6 @@ func debug_force_tolerance(kind: String) -> bool:
 ## Store the strongest clean act per mare. The history system owns the eligibility and the text.
 func _record_peak_memory() -> void:
 	_summary_service.record_peak_memory({
-		"main": main,
 		"pony_id": _id,
 		"event_id": _event_id,
 		"satisfaction": _readiness.peak_satisfaction,
@@ -4118,7 +4100,7 @@ func cancel() -> void:
 		# The early summary already records this end. Keep the basic event only when the summary
 		# was skipped, so the story never holds the same end twice.
 		if _summary_service.summary.is_empty():
-			main.memory.note(MEMORY.NoteKind.CANCELLED, _id, _event_id)
+			MEMORY.instance.note(MEMORY.NoteKind.CANCELLED, _id, _event_id)
 		# Cancel act lines before restoring, then queue the intentional early-stop reaction.
 		_end_act_lines(true)
 		_restore_begin()
@@ -4132,7 +4114,7 @@ func cancel() -> void:
 					return false
 				if _now_s() <= expires:
 					return true
-				return main.memory.line_state(_end_early_key) == MEMORY.LineState.SPEAKING
+				return MEMORY.instance.line_state(_end_early_key) == MEMORY.LineState.SPEAKING
 			var key: String = _dialogue_service().reaction_line(MEMORY.Reaction.END_EARLY, act_id, ACT_SUMMARY.early_end_prompt(_summary_service.summary), valid)
 			_end_early_key = key
 			if not key.is_empty():
@@ -4172,21 +4154,21 @@ func _climax() -> void:
 	_set_face(0.3, FACE.CLIMAX_LIDS)
 	_act_face_beat("climax")
 	_end_act_lines(true)
-	if is_instance_valid(main) and pony_climaxes == 1:
-		main.memory.note(MEMORY.NoteKind.CLIMAXED, _id, _event_id)
+	if is_instance_valid(WORLD.game) and pony_climaxes == 1:
+		MEMORY.instance.note(MEMORY.NoteKind.CLIMAXED, _id, _event_id)
 	_queue_climax_reaction()
 	_play_climax()
 	# integration: her fluid hook.
 	_anatomy_bridge.on_climax()
-	if is_instance_valid(main) and is_instance_valid(main.hud):
-		main.hud.set_state("CLIMAX")
+	if is_instance_valid(HUD.instance):
+		HUD.instance.set_state("CLIMAX")
 
 
 func _queue_climax_reaction() -> void:
 	# Her mouth is busy during oral; the climax line waits for a later act.
 	if _mouth_contact():
 		return
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return
 	var act_id := _event_id
 	var count := pony_climaxes
@@ -4197,7 +4179,7 @@ func _queue_climax_reaction() -> void:
 			return false
 		if _now_s() <= expires:
 			return true
-		return main.memory.line_state(_climax_reaction_key) == MEMORY.LineState.SPEAKING
+		return MEMORY.instance.line_state(_climax_reaction_key) == MEMORY.LineState.SPEAKING
 	var key: String = _dialogue_service().reaction_line(MEMORY.Reaction.CLIMAX, climax_id, "You have just climaxed. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine.", valid)
 	_climax_reaction_key = key
 	if key.is_empty():
@@ -4285,10 +4267,10 @@ func cycle_note() -> String:
 
 ## Short private relationship facts for normal dialogue. Empty outside a relationship runtime.
 func _relationship_note() -> String:
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.game):
 		return ""
 	_read_id()
-	return RELATIONSHIP_CUE.note(main.memory.cue_facts(_id, _event_id).to_dict())
+	return RELATIONSHIP_CUE.note(MEMORY.instance.cue_facts(_id, _event_id).to_dict())
 
 
 ## Live context for the normal dialogue prompt. The entry node joins the game's
@@ -4318,11 +4300,11 @@ func _enter_afterglow() -> void:
 	_afterglow_begin()
 
 func _commit_afterglow() -> void:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return
 	_commit_summary(true)
 	_record_peak_memory()
-	for row: MEMORY.Witness in main.memory.witnesses(_id, _display_name, _serial, pony):
+	for row: MEMORY.Witness in MEMORY.instance.witnesses(_id, _display_name, _serial, pony):
 		_log("witness " + str(row.to_dict()))
 
 ## Both poses share the held afterglow; standing adds the close window and a slightly lifted
@@ -4364,8 +4346,8 @@ func _apply_afterglow_presentation(row: Dictionary) -> void:
 	var flicks := int(row.get("tail_flicks", 0))
 	if flicks > 0:
 		_pose_service().flick_tail(flicks)
-	if is_instance_valid(main) and is_instance_valid(main.hud):
-		main.hud.set_state(str(row.get("hud_state", "AFTERGLOW")))
+	if is_instance_valid(HUD.instance):
+		HUD.instance.set_state(str(row.get("hud_state", "AFTERGLOW")))
 	if bool(row.get("wings", false)):
 		_wings_controller().begin_afterglow()
 
@@ -4381,14 +4363,14 @@ func _afterglow_tick(delta: float) -> void:
 
 ## The standing close window elapsed. The facade decided the reward; the runtime presents it.
 func _on_stay_close(caressed: bool, reward: bool) -> void:
-	if is_instance_valid(main):
+	if is_instance_valid(WORLD.game):
 		var impression := MEMORY.Impression.new()
 		impression.id = _id
 		impression.event_id = _event_id
 		impression.slot = MEMORY.ImpressionSlot.STAY_CLOSE
 		impression.mood = "happy" if reward else ""
 		impression.romance = 1 if reward and caressed else 0
-		main.memory.commit(impression)
+		MEMORY.instance.commit(impression)
 	if not reward and caressed:
 		if ACT_HISTORY.repair(ACT_HISTORY.section(), _id, 1, ACT_HISTORY.day_now()):
 			ACT_HISTORY.save()
@@ -4423,8 +4405,8 @@ func _restore_begin() -> void:
 	_stop_breath()
 	_camera_service().call("release_back")
 	_standing_camera_controller().reset_facing()
-	if is_instance_valid(main) and is_instance_valid(main.hud):
-		main.hud.hide_act()
+	if is_instance_valid(HUD.instance):
+		HUD.instance.hide_act()
 
 ## Give back everything the act borrowed, in the order the pose and camera were built. Every step
 ## checks its own ownership flag, so a start that failed early runs the same function and restores
@@ -4485,9 +4467,9 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_free_pose()
 	_restore_pony_bones()
 	_stop_audio()
-	if is_instance_valid(main):
-		if is_instance_valid(main.hud):
-			main.hud.hide_all()
+	if is_instance_valid(WORLD.game):
+		if is_instance_valid(HUD.instance):
+			HUD.instance.hide_all()
 		PONIES.clear_active(self)
 	state = State.IDLE
 	pose_id = ""
@@ -4511,7 +4493,7 @@ func _finalize_session(real_act: bool) -> void:
 
 ## The bed/couch rest and cuddle rejoin. See `rest/service.gd` and `docs/rest.md`.
 func _rest_service() -> RefCounted:
-	_rest.bind(main, pony, bed)
+	_rest.bind(pony, bed)
 	return _rest
 
 
@@ -4649,9 +4631,9 @@ func _act_phase() -> String:
 ## First time uses the durable act history plus the world context, the same fact the cue prompt
 ## already gets.
 func _read_first_time() -> bool:
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.game) or _id.is_empty():
+	if not is_instance_valid(WORLD.game) or _id.is_empty():
 		return false
-	var facts: MEMORY.CueFacts = main.memory.cue_facts(_id, _event_id)
+	var facts: MEMORY.CueFacts = MEMORY.instance.cue_facts(_id, _event_id)
 	return facts.first_time
 
 
@@ -4731,8 +4713,8 @@ func force_act_face(face: String) -> bool:
 func act_face_rows() -> Array[String]:
 	_bind_face()
 	var base_mood := ""
-	if is_instance_valid(main) and is_instance_valid(WORLD.game) and not _id.is_empty():
-		var facts: MEMORY.CueFacts = main.memory.cue_facts(_id, _event_id)
+	if is_instance_valid(WORLD.game) and not _id.is_empty():
+		var facts: MEMORY.CueFacts = MEMORY.instance.cue_facts(_id, _event_id)
 		base_mood = facts.mood
 	return _face.rows({
 		"state": state,
@@ -4777,7 +4759,7 @@ func _check_running() -> void:
 func _stop(reason: String) -> void:
 	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
-		main.memory.note(MEMORY.NoteKind.STOPPED, _id, _event_id, _stop_reason(reason))
+		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _event_id, _stop_reason(reason))
 	_restore_begin()
 
 # --------------------------------------------------------------------------- camera
@@ -4797,7 +4779,7 @@ func _begin_camera_mode() -> void:
 		_start_vr_act()
 	if _player_pony or _headset_view():
 		return
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return
 	_camera_service().call("begin_free")
 	_sync_act_facts()

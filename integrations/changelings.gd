@@ -88,7 +88,6 @@ const DESCRIPTOR := {
 	},
 }
 
-var main: Node
 ## Test seam for the pack-active check. Production sets it in `setup()`.
 var mod_active := Callable()
 
@@ -122,8 +121,7 @@ var _late_tail_timer: Timer
 var _tail_wrappers: Dictionary = {}
 
 
-func setup(main_node: Node) -> void:
-	main = main_node
+func setup() -> void:
 	if mod_active.is_null():
 		mod_active = Callable(self, "_mod_active")
 
@@ -709,7 +707,6 @@ func shutdown() -> void:
 	_tail_wrappers.clear()
 	_form_signatures.clear()
 	_form_revisions.clear()
-	main = null
 
 
 func _exit_tree() -> void:
@@ -825,7 +822,7 @@ func _shape_candidates() -> Array[String]:
 ## has to pass `_is_adult_shape()` and the copyable check.
 func _all_shape_ids(candidates: Array[String]) -> Array[String]:
 	var out := candidates.duplicate()
-	if is_instance_valid(main):
+	if is_instance_valid(WORLD.game):
 		var game: Variant = WORLD.game
 		if game is Node and is_instance_valid(game):
 			var population: Variant = (game as Node).get("population")
@@ -844,19 +841,16 @@ func _all_shape_ids(candidates: Array[String]) -> Array[String]:
 func _is_adult_shape(id: String, candidates: Array[String]) -> bool:
 	if candidates.has(id):
 		return true
-	if not is_instance_valid(main):
+	var eligibility := PONIES.eligibility
+	if not is_instance_valid(eligibility):
 		return false
-	var eligibility: Variant = main.get("eligibility")
-	if eligibility == null or not is_instance_valid(eligibility) \
-			or not eligibility.has_method("eligible_id"):
-		return false
-	return bool(eligibility.call("eligible_id", id))
+	return eligibility.eligible_id(id)
 
 
 ## The pack copies a shape by the game's population entry. Without a population (the lab's
 ## `--character` starts) the adult roster is still a valid choice.
 func _copyable(shape_id: String) -> bool:
-	if not is_instance_valid(main):
+	if not is_instance_valid(WORLD.game):
 		return true
 	var game: Variant = WORLD.game
 	if not game is Node or not is_instance_valid(game):
@@ -965,10 +959,7 @@ func _clear_change_read() -> void:
 
 
 func _body_change() -> Node:
-	if not is_instance_valid(main):
-		return null
-	var value: Variant = main.get("body_change")
-	return value as Node if value is Node else null
+	return PONIES.body_change
 
 
 func _notify_source_changed() -> void:
@@ -988,7 +979,7 @@ func _notify_body_ready(pony: Node) -> void:
 ## The new body's shape is on it now: fit it as the target and let the anatomy, tail and LOD
 ## rebuild against the body that is actually rendered.
 func _prepare_change_body(pony: Node) -> void:
-	if not is_instance_valid(main) or not is_instance_valid(pony):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(pony):
 		return
 	PONIES.prepare_late(pony)
 	SETTINGS.apply_live()
@@ -1042,10 +1033,7 @@ func _unregister() -> void:
 
 
 func _api() -> Node:
-	if not is_instance_valid(main):
-		return null
-	var value: Variant = main.get("api")
-	return value as Node if value is Node else null
+	return PONIES.api
 
 
 func _mod_active() -> bool:

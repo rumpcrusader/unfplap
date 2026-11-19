@@ -201,7 +201,6 @@ static func _triangle_barycentric(a: Vector3, b: Vector3, c: Vector3, p: Vector3
 
 
 var facts: Variant
-var main: Variant
 var pony: Variant
 var _presentation_cfg: Dictionary = {}
 var _profile: Dictionary = {}
@@ -995,7 +994,7 @@ func _smack() -> void:
 		if not standing_target.is_empty():
 			at = standing_target.get("local", at)
 			normal = standing_target.get("normal", normal)
-	if at.is_finite() and is_instance_valid(main) and is_instance_valid(WORLD.player):
+	if at.is_finite() and is_instance_valid(WORLD.player):
 		if is_instance_valid(driver) and from_frame.is_finite():
 			var world_centre: Vector3 = _flank_frame() * at
 			var target: Transform3D = _engine().coat_frame(pony, hand_side, world_centre, normal,
@@ -1041,12 +1040,10 @@ func _smack_height_m() -> float:
 func _sync() -> void:
 	if facts == null:
 		pony = null
-		main = null
 		_presentation_cfg = {}
 		_profile = {}
 		return
 	pony = facts.pony
-	main = facts.main
 	var cfg: Variant = facts.presentation_config
 	_presentation_cfg = cfg if cfg is Dictionary else {}
 	var profile: Variant = facts.profile

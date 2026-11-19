@@ -48,7 +48,7 @@ class FakeEligibility extends ELIGIBILITY:
 	var act := true
 	var relationship := true
 
-	func setup(_main_node: Node) -> void:
+	func setup() -> void:
 		pass
 
 	func eligible(_pony: Node, _target: int = ELIGIBILITY.Target.ACT) -> bool:
@@ -154,7 +154,7 @@ class FakeRuntime extends Node:
 class FakePrivacy extends PRIVACY:
 	var private := true
 
-	func setup(_main_node: Node) -> void:
+	func setup() -> void:
 		pass
 
 	func offer_private(_except: Node = null) -> bool:
@@ -262,7 +262,7 @@ func _fixture() -> Dictionary:
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
 	service.eligibility = eligibility
-	service.setup(main, privacy, negotiation, offer)
+	service.setup(privacy, negotiation, offer)
 	root.add_child(service)
 	return {"main": main, "game": game, "context": context, "player": player,
 		"target": target, "nav": nav, "runtime": runtime, "eligibility": eligibility,

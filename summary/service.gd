@@ -59,7 +59,6 @@ func summary_inputs(context: Dictionary) -> Dictionary:
 ## The context `commit_summary()` takes: the scene handles plus the inputs above.
 func summary_context(context: Dictionary) -> Dictionary:
 	return {
-		"main": context.get("main"),
 		"pony_id": str(context.get("pony_id", "")),
 		"event_id": str(context.get("event_id", "")),
 		"inputs": summary_inputs(context),
@@ -72,8 +71,7 @@ func commit_summary(real_act: bool, context: Dictionary) -> void:
 	if summary_done:
 		return
 	summary_done = true
-	var main: Variant = context.get("main")
-	if not _game_ok(main):
+	if not _game_ok():
 		return
 	var inputs: Dictionary = context.get("inputs", {})
 	var outcome: Dictionary = ACT_SUMMARY.evaluate(inputs, ACT_SUMMARY.rules())
@@ -96,7 +94,7 @@ func commit_summary(real_act: bool, context: Dictionary) -> void:
 	impression.romance = int(outcome.get("romance", 0))
 	impression.thought = str(outcome.get("thought", ""))
 	impression.event_text = str(outcome.get("text", ""))
-	main.memory.commit(impression)
+	MEMORY.instance.commit(impression)
 	var row: Dictionary = result.get("row", {})
 	var events: PackedStringArray = []
 	var raw_events: Variant = result.get("events", [])
@@ -116,8 +114,7 @@ func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:
 	if peak_recorded:
 		return
 	peak_recorded = true
-	var main: Variant = context.get("main")
-	if not _game_ok(main):
+	if not _game_ok():
 		return
 	if not summary.is_empty() and not bool(summary.get("positive", false)):
 		return
@@ -148,7 +145,7 @@ func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:
 	peak.event_id = str(context.get("event_id", ""))
 	peak.text = text
 	peak.score = score
-	main.memory.record_peak(peak)
+	MEMORY.instance.record_peak(peak)
 
 
 func _reasons(outcome: Dictionary) -> String:
@@ -160,8 +157,8 @@ func _reasons(outcome: Dictionary) -> String:
 	return ",".join(parts)
 
 
-func _game_ok(main: Variant) -> bool:
-	return is_instance_valid(main) and is_instance_valid(WORLD.game)
+func _game_ok() -> bool:
+	return is_instance_valid(WORLD.game)
 
 
 func _write_log(text: String) -> void:

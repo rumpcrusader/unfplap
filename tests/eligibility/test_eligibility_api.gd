@@ -101,7 +101,7 @@ func run() -> void:
 	root.add_child(main.game.population)
 	root.add_child(main.player)
 	main.eligibility = ELIGIBILITY.new()
-	main.eligibility.setup(main)
+	main.eligibility.setup()
 
 	var pony := FakePony.new()
 	pony.name = "Rarity"
@@ -312,7 +312,7 @@ func run() -> void:
 
 	main.eligibility.clear()
 	check(not main.eligibility.eligible(pony), "cleared service rejects every pony")
-	main.eligibility.setup(main)
+	main.eligibility.setup()
 	check(main.eligibility.eligible(pony), "setup after clear restores the service")
 	var restored: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
 	check(bool(restored.show), "setup after clear restores the verdict")

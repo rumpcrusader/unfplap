@@ -200,17 +200,18 @@ class Verdict extends RefCounted:
 				return ""
 
 
-var main: Node
+## False once the entry clears the service: every capability read answers no.
+var _live := true
 ## Shape id -> its scene identity, for the id-only capability. Cleared with the world.
 var _shape_identities: Dictionary = {}
 
 
-func setup(main_node: Node) -> void:
-	main = main_node
+func setup() -> void:
+	_live = true
 
 
 func clear() -> void:
-	main = null
+	_live = false
 	_shape_identities.clear()
 
 
@@ -218,7 +219,7 @@ func clear() -> void:
 ## and the target's participation veto, never the full snapshot. This is called in per-frame
 ## discovery loops.
 func eligible(pony: Node, target: Target = Target.ACT) -> bool:
-	if not is_instance_valid(main) or not is_instance_valid(pony):
+	if not _live or not is_instance_valid(pony):
 		return false
 	if not TARGET_KEYS.has(target):
 		return false
@@ -234,7 +235,7 @@ func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 ## shape source asks about a player-named body.
 func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
 	var mare_id := id.strip_edges()
-	if mare_id.is_empty() or not is_instance_valid(main) or not TARGET_KEYS.has(target):
+	if mare_id.is_empty() or not _live or not TARGET_KEYS.has(target):
 		return false
 	var pony := _live_pony(mare_id)
 	if is_instance_valid(pony):
@@ -259,7 +260,7 @@ func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
 ## eligibility and the Promiscuity floor. Reads only those facts; willingness, history, cycle,
 ## player form and consent belong to the full verdict and are not built here.
 func relationship_ok(pony: Node) -> bool:
-	if not is_instance_valid(main) or not is_instance_valid(pony):
+	if not _live or not is_instance_valid(pony):
 		return false
 	var rel: Variant = pony.get_meta("relationship_runtime") \
 		if pony.has_meta("relationship_runtime") else null
@@ -296,7 +297,7 @@ func _love_level(rel: Variant, id: String) -> int:
 
 ## The game's per-pony level cache, or an empty dictionary outside a live world.
 func _bond_levels() -> Dictionary:
-	if not is_instance_valid(main):
+	if not _live:
 		return {}
 	var game: Variant = WORLD.game
 	if game == null or not is_instance_valid(game):
@@ -314,7 +315,7 @@ func _bond_levels() -> Dictionary:
 ## The witness age category. This is the only place a consumer needs the age instead of a
 ## capability.
 func witness_age(pony: Node) -> Age:
-	if not is_instance_valid(main) or not is_instance_valid(pony):
+	if not _live or not is_instance_valid(pony):
 		return Age.NONE
 	match POLICY.age_kind(_identity_facts(pony)):
 		FACTS.AgeKind.ADULT:
@@ -367,7 +368,7 @@ func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:
 	var source := _owner_source(owner)
 	var result := MARE_REGISTRY.set_profile(owner.get_instance_id(), source, mare_id,
 		_profile_descriptor(profile))
-	if bool(result.get("ok", false)) and is_instance_valid(main):
+	if bool(result.get("ok", false)) and _live:
 		SETTINGS.apply_live()
 	return result
 
@@ -637,7 +638,7 @@ func _owner_source(owner: Node) -> String:
 ## The live body for a shape id, when one is loaded. It is the authority for a provider mod's
 ## off-roster mare.
 func _live_pony(id: String) -> Node:
-	if not is_instance_valid(main):
+	if not _live:
 		return null
 	var game: Variant = WORLD.game
 	if game == null or not is_instance_valid(game):
@@ -657,7 +658,7 @@ func _shape_identity(id: String) -> Resource:
 	if _shape_identities.has(id):
 		return _shape_identities[id] as Resource
 	var identity: Resource = null
-	var game: Variant = WORLD.game if is_instance_valid(main) else null
+	var game: Variant = WORLD.game
 	if game == null or not is_instance_valid(game):
 		_shape_identities[id] = identity
 		return null
@@ -700,6 +701,4 @@ func _is_player_pony(pony: Node) -> bool:
 
 
 func _tree() -> SceneTree:
-	if is_instance_valid(main) and main.is_inside_tree():
-		return main.get_tree()
 	return Engine.get_main_loop() as SceneTree

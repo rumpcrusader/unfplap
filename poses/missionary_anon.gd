@@ -7,6 +7,7 @@ extends Node
 ##
 ## The asset carries every bone of his rig, so the file is the whole pose (see `poses/pose_lab.gd`).
 
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
@@ -34,7 +35,6 @@ const HOLD_RELEASE_S := 0.35
 ## The typed act view. Every live value and callback comes through it; the runtime node is never
 ## read directly.
 var facts: Variant
-var main: Variant
 var avatar: Node3D
 var skeleton: Skeleton3D
 ## True once a body was found and is being driven by this controller.
@@ -101,8 +101,7 @@ var _palm_scale: SkeletonModifier3D
 
 func install(context: Variant) -> bool:
 	facts = context
-	main = facts.main if facts != null else null
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return false
 	avatar = WORLD.player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
@@ -926,7 +925,7 @@ func _log(text: String) -> void:
 
 
 func _anatomy_service() -> Variant:
-	return main.get("anatomy") if is_instance_valid(main) else null
+	return PONIES.anatomy
 
 
 ## The pelvis offset the attached alignment asked for this frame, in world space.

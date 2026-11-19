@@ -3,7 +3,7 @@ extends RefCounted
 ## lines and the bystander line. The runtime keeps the act state machine and passes its typed
 ## `shared/act_facts.gd` view; this system owns the scheduler, the recent-line memory and the line text.
 ##
-## It reads the mod's own line channel through `main.memory` and the conversation director from
+## It reads the mod's own line channel through `MEMORY.instance` and the conversation director from
 ## the act facts. See `docs/dialogue.md`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -48,7 +48,6 @@ const STATE_POSING_IN := 1
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 
-var main: Node
 var facts: Variant
 
 var _scheduler
@@ -68,10 +67,6 @@ var _last_cue_log_reason := ""
 
 func _init(facts_context: Variant = null) -> void:
 	facts = facts_context
-
-
-func setup(main_node: Node) -> void:
-	main = main_node
 
 
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these fields.
@@ -152,7 +147,7 @@ func tick() -> void:
 	var at := _now()
 	var line: int = MEMORY.LineState.UNKNOWN
 	if _game_ok():
-		line = main.memory.line_state(key)
+		line = MEMORY.instance.line_state(key)
 	if line == MEMORY.LineState.ABSENT:
 		_log("utterance absent key=%s" % key)
 		lines.drop_pending()
@@ -192,7 +187,7 @@ func bystander_tick(delta: float) -> void:
 	_bystander_wait = BYSTANDER_GAP_S
 	if randf() > BYSTANDER_CHANCE:
 		return
-	var seen: Array = main.memory.observers(facts.pony) \
+	var seen: Array = MEMORY.instance.observers(facts.pony) \
 		.filter(func(row: MEMORY.Observer) -> bool:
 			return not str(row.id) in _bystander_spoken and str(row.id) != facts.pony_id)
 	if seen.is_empty():
@@ -221,9 +216,10 @@ func bystander_tick(delta: float) -> void:
 func history_tick(delta: float, context: Dictionary) -> void:
 	if facts == null:
 		return
-	var main_node: Variant = context.get("main")
+	if not is_instance_valid(WORLD.game):
+		return
 	var pony: Variant = context.get("pony")
-	if not is_instance_valid(main_node) or not is_instance_valid(pony):
+	if not is_instance_valid(pony):
 		return
 	if bool(context.get("paused", false)):
 		return
@@ -242,9 +238,8 @@ func history_tick(delta: float, context: Dictionary) -> void:
 			var id := str(context.get("pony_id", ""))
 			if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), id, ACT_HISTORY.day_now()):
 				ACT_HISTORY.save()
-				if is_instance_valid(main_node.game):
-					main_node.memory.note(MEMORY.NoteKind.APOLOGY, id,
-						str(context.get("event_id", "")))
+				MEMORY.instance.note(MEMORY.NoteKind.APOLOGY, id,
+					str(context.get("event_id", "")))
 				_log("history apology id=%s" % id)
 	_history_scan += delta
 	if _history_scan < 1.0:
@@ -310,7 +305,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	}
 	var memory_id := ""
 	if kind == "cue":
-		var mem: Variant = main.memory
+		var mem: Variant = MEMORY.instance
 		var cue_facts: MEMORY.CueFacts = mem.cue_facts(facts.pony_id, facts.event_id)
 		var facts_dict := cue_facts.to_dict()
 		var tone_name := RELATIONSHIP_CUE.tone(facts_dict)
@@ -387,7 +382,7 @@ func _cancel_pending_utterance(reason := "") -> void:
 	var age: float = maxf(0.0, _now() - float(lines.pending_since()))
 	var line: int = MEMORY.LineState.UNKNOWN
 	if not key.is_empty() and _game_ok():
-		line = main.memory.line_state(key)
+		line = MEMORY.instance.line_state(key)
 	var director := _director()
 	var director_state := str(director.get("state")) if director != null else "?"
 	lines.drop_pending()
@@ -397,7 +392,7 @@ func _cancel_pending_utterance(reason := "") -> void:
 		reason if not reason.is_empty() else "manual", key, pending_cue, age,
 		_line_state_name(line), director_state, str(_speech_busy())])
 	if _game_ok():
-		main.memory.cancel_line(key)
+		MEMORY.instance.cancel_line(key)
 
 
 ## Drop all act lines that have not started speaking. A line that is already speaking may
@@ -405,7 +400,7 @@ func _cancel_pending_utterance(reason := "") -> void:
 ## climax/afterglow boundary and every act end, so a delayed line cannot start afterward.
 func end_act(event_id: String, keep_speaking := true) -> void:
 	if _game_ok():
-		var cancelled: int = main.memory.cancel_act(event_id, keep_speaking)
+		var cancelled: int = MEMORY.instance.cancel_act(event_id, keep_speaking)
 		if cancelled > 0:
 			_log("act lines cancelled=%d" % cancelled)
 	scheduler().drop_pending()
@@ -422,7 +417,7 @@ func reaction_line(reaction: int, event_id: String, fallback: String, valid: Cal
 	request.purpose = fallback
 	request.reaction = reaction
 	request.valid = valid
-	var line: MEMORY.Line = main.memory.line(request)
+	var line: MEMORY.Line = MEMORY.instance.line(request)
 	return line.key if line.queued else ""
 
 
@@ -504,7 +499,7 @@ func _utterance_line(event_id: String, suffix: String, purpose: String,
 	request.purpose = purpose
 	request.valid = valid
 	request.finished = finished
-	var line: MEMORY.Line = main.memory.line(request)
+	var line: MEMORY.Line = MEMORY.instance.line(request)
 	return line.key if line.queued else ""
 
 
@@ -519,7 +514,7 @@ func _bystander_line(id: String, event_id: String, purpose: String,
 	request.event_id = event_id
 	request.purpose = purpose
 	request.valid = valid
-	return main.memory.line(request).queued
+	return MEMORY.instance.line(request).queued
 
 
 ## integration: without a fresh angle she answers the same prompt the same way.
@@ -596,7 +591,7 @@ func _speech_busy() -> bool:
 
 
 func _game_ok() -> bool:
-	return is_instance_valid(main) and is_instance_valid(WORLD.game)
+	return is_instance_valid(WORLD.game)
 
 
 func _now() -> float:

@@ -3,13 +3,13 @@ extends RefCounted
 ## lift. The runtime creates one per act and keeps the standing placement decision; this handle
 ## owns the stack lifetime and the item return. Contract: `docs/stool.md`.
 
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
 ## The global stool facade (`main.stool`). It holds the settings reads and the pure/item calls.
 var facade: Variant = null
-var main: Variant = null
 var pony: Variant = null
 var player: Variant = null
 ## The per-act anatomy controller; the player part comes from the anatomy service.
@@ -32,10 +32,9 @@ var log := Callable()
 
 ## Bind the scene nodes for this act. The runtime refreshes them on every access, so a suite can
 ## build a runtime without entering the tree.
-func bind(facade_node: Variant, main_node: Variant, pony_node: Variant, player_node: Variant,
+func bind(facade_node: Variant, pony_node: Variant, player_node: Variant,
 		anatomy_node: Variant) -> void:
 	facade = facade_node
-	main = main_node
 	pony = pony_node
 	player = player_node
 	anatomy_ctl = anatomy_node
@@ -50,7 +49,7 @@ func applies() -> bool:
 		return false
 	if not SETTINGS.anatomy_on():
 		return false
-	if not is_instance_valid(main) or not is_instance_valid(pony) or not pony is Node3D:
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(pony) or not pony is Node3D:
 		return false
 	if not is_instance_valid(player) or not player is Node3D:
 		return false
@@ -69,7 +68,7 @@ func applies() -> bool:
 func gap_m() -> float:
 	if not applies():
 		return NAN
-	var service: Variant = main.get("anatomy")
+	var service: Node = PONIES.anatomy
 	if service == null or not service.has_method("player_prepare") \
 			or not service.has_method("player_root_now"):
 		return NAN
@@ -136,7 +135,7 @@ func state_text() -> String:
 		var value: Variant = anatomy_ctl.call("hole_point", 0.0)
 		if value is Vector3:
 			opening = value
-	var service: Variant = main.get("anatomy") if is_instance_valid(main) else null
+	var service: Node = PONIES.anatomy
 	var part := Vector3.ZERO
 	var part_ok := false
 	if service != null and service.has_method("player_prepare") \
@@ -296,7 +295,7 @@ func floor_y_at(at: Vector3, body: Variant) -> float:
 
 
 func inventory_store() -> Variant:
-	if not is_instance_valid(main) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.game):
 		return null
 	var inventory: Variant = WORLD.game.get("inventory")
 	if not is_instance_valid(inventory):
@@ -305,7 +304,7 @@ func inventory_store() -> Variant:
 
 
 func headset_view() -> bool:
-	return is_instance_valid(main) and is_instance_valid(WORLD.game) \
+	return is_instance_valid(WORLD.game) \
 		and bool(WORLD.game.get("headset_view"))
 
 

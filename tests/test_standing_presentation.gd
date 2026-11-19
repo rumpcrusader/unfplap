@@ -7,6 +7,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/test_standing_presentation.gd
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -97,6 +98,11 @@ class FakePony extends Node3D:
 		return {"requested": posture}
 
 
+## The live player rig as the world facade reads it: the camera hangs off the body.
+class FakePlayer extends Node3D:
+	var camera: Variant = null
+
+
 class FakeMain extends Node:
 	var eligibility: Variant
 	var player: Node3D
@@ -125,10 +131,13 @@ func run() -> void:
 	var main := FakeMain.new()
 	root.add_child(main)
 	main.eligibility = ELIGIBILITY.new()
-	main.eligibility.setup(main)
-	main.player = Node3D.new()
+	PONIES.eligibility = main.eligibility
+	main.player = FakePlayer.new()
 	WORLD.bind_player(main.player)
 	root.add_child(main.player)
+	var game := Node.new()
+	root.add_child(game)
+	WORLD.bind_world(game)
 
 	var pony := FakePony.new()
 	pony.identity = FakeIdentity.new()
@@ -149,12 +158,12 @@ func run() -> void:
 	var nav := FakeNavigator.new()
 	nav.name = "Navigator"
 	pony.add_child(nav)
-	main.view = Camera3D.new()
-	main.add_child(main.view)
-	main.view.global_position = Vector3.ZERO
+	var view := Camera3D.new()
+	main.add_child(view)
+	view.global_position = Vector3.ZERO
+	(main.player as FakePlayer).camera = view
 
 	var facts: RefCounted = ACT_FACTS.new()
-	facts.main = main
 	facts.pony = pony
 	facts.cuddle_active = func() -> bool: return false
 	facts.free_of_affection = func() -> bool: return true
@@ -206,7 +215,7 @@ func run() -> void:
 	check(secondary.looks > 0 and secondary.last_angles.x > 0.5,
 		"the first look is the stronger over-the-shoulder glance")
 	check(near(eye_motion.target_weight, 1.0)
-		and eye_motion.target_world == main.view.global_position,
+		and eye_motion.target_world == view.global_position,
 		"the eyes stay aimed at Anon through the glance")
 
 	clock["now"] = float(PRESENTATION.PRESENT_GLANCE_BACK_S) + 0.1

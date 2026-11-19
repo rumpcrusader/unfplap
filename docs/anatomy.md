@@ -957,6 +957,7 @@ stay event-time reads.
 | service | debug | `debug/service.gd` | the aimed-mare target rule |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | hud | `hud/service.gd` | the anatomy status line |
+| service | ponies | `ponies/service.gd` | the eligibility and body-change handles |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | vr | `vr/service.gd` | VR act controls |
 | service | world | `world/service.gd` | the player body and the live scene |

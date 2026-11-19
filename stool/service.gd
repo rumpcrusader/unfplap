@@ -11,17 +11,17 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const ID := ITEM.ID
 
-var main: Node
+## The one footstool facade the entry built.
+static var instance: Node = null
 var _supply: Node
 
 
-func setup(main_node: Node) -> void:
-	main = main_node
+func setup() -> void:
 	if is_instance_valid(_supply):
 		return
 	_supply = SUPPLY.new()
 	_supply.name = "UnfplapStoolSupply"
-	_supply.call("setup", main_node, self)
+	_supply.call("setup", self)
 	add_child(_supply)
 
 
@@ -41,7 +41,6 @@ func shutdown() -> void:
 		_supply.call("reset")
 		_supply.queue_free()
 		_supply = null
-	main = null
 
 
 func enabled() -> bool:

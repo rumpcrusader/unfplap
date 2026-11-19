@@ -9,6 +9,7 @@ extends SceneTree
 ## names the `Mods` autoload, which a `--script` suite cannot load.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -286,6 +287,7 @@ class FakeMemory extends RefCounted:
 	var impressions: Array = []
 	var peaks: Array = []
 	var notes: Array = []
+	var lines: Array = []
 	var _service: Variant = MEMORY.new()
 
 	func form_reveal_impression(id: String, event_id: String) -> Variant:
@@ -303,6 +305,28 @@ class FakeMemory extends RefCounted:
 	func note(kind: int, id: String, event_id: String) -> void:
 		notes.append({"kind": kind, "id": id, "event_id": event_id})
 
+	func cancel_act(_event_id: String, _keep_speaking := true) -> int:
+		return 0
+
+	func cancel_line(_key: String) -> void:
+		pass
+
+	func line_state(_key: String) -> int:
+		return 0
+
+	func cue_facts(_id: String, _event_id: String) -> MEMORY.CueFacts:
+		return MEMORY.CueFacts.new()
+
+	func line(request: MEMORY.LineRequest) -> MEMORY.Line:
+		var out := MEMORY.Line.new()
+		lines.append(request)
+		out.key = "line:%d" % lines.size()
+		out.queued = true
+		return out
+
+	func observers(_pony: Variant) -> Array:
+		return []
+
 	func witnesses(_id: String, _name: String, _serial: int, _pony: Variant) -> Array:
 		return []
 
@@ -318,16 +342,17 @@ class FakeDirector extends Node:
 		add_to_group("conversation_director")
 
 
-class FakeEligibility extends RefCounted:
+class FakeEligibility extends ELIGIBILITY:
 	var allow := true
 
-	func eligible(_pony: Variant, _target: int) -> bool:
+	func eligible(_pony: Node, _target: ELIGIBILITY.Target = ELIGIBILITY.Target.ACT) -> bool:
 		return allow
 
 
 ## The runtime's host handle: the scene services it reads and nothing the registry owns. The
 ## registry, the pending swap and the adoption are the real `ponies` service.
 class FakeHost extends Node:
+	var headset_view := false
 	var eligibility: Variant = null
 	var hud: Variant = null
 	var player: Variant = null
@@ -403,7 +428,6 @@ func _fixture() -> Dictionary:
 	var runtime: Node = RUNTIME.new()
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = old_pony
-	runtime.main = host
 	old_pony.add_child(runtime)
 	runtime._id = "test_mare"
 	runtime._display_name = "Test Mare"
@@ -419,13 +443,14 @@ func _fixture() -> Dictionary:
 	runtime._preferences = SETTINGS.preferences("test_mare")
 	runtime._features = {}
 	runtime._form_hint_debug = true
-	PONIES.host = host
+	WORLD.bind_world(host)
+	MEMORY.instance = FakeMemory.new()
 	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
 	PONIES.attach(old_pony)
 	PONIES.set_active(runtime)
 	var body_change := BODY_CHANGE_SERVICE.new()
 	body_change.name = "FakeBodyChange"
-	body_change.call("setup", host)
+	body_change.call("setup")
 	host.add_child(body_change)
 	host.body_change = body_change
 	PONIES.body_change = body_change
@@ -693,6 +718,7 @@ func _check_policy_events() -> void:
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
 	host.memory = FakeMemory.new()
+	MEMORY.instance = host.memory
 	runtime.state = RUNTIME.State.POSING_IN
 	runtime._enter_active()
 	runtime.state = RUNTIME.State.CLIMAX
@@ -748,6 +774,7 @@ func _check_ai_change() -> void:
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
 	host.memory = FakeMemory.new()
+	MEMORY.instance = host.memory
 	source.shape = "fluttershy"
 	# Nothing called request_form: the source is already changing, as her own AI leaves it.
 	source.changing = true
@@ -840,6 +867,7 @@ func _check_invalid_shape() -> void:
 	var eligibility := FakeEligibility.new()
 	eligibility.allow = false
 	host.eligibility = eligibility
+	PONIES.eligibility = eligibility
 	source.changing = true
 	runtime._suspend_for_body_swap(source.active_change())
 	var new_pony := _pony("Young Shape", "YoungBody")
@@ -875,6 +903,7 @@ func _check_form_reveal() -> void:
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
 	host.memory = FakeMemory.new()
+	MEMORY.instance = host.memory
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -949,6 +978,7 @@ func _check_shape_offer() -> void:
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
 	host.memory = FakeMemory.new()
+	MEMORY.instance = host.memory
 	source.shape = ""
 	runtime._shape_offer_tick()
 	check(runtime._shape_offer_done and runtime._shape_offer_pending,
@@ -1226,6 +1256,7 @@ func _check_named_without_shape() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	host.memory = FakeMemory.new()
+	MEMORY.instance = host.memory
 	source.shape = ""
 	runtime._shape_offer_tick()
 	var director := FakeDirector.new()

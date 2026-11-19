@@ -171,11 +171,11 @@ func pose_changed(view: Variant) -> void:
 ## after the pose session's render write and before the shot tick, so the head solves against
 ## this frame's lean. See `docs/poses.md`.
 func write_look_target(pose: Node) -> void:
-	if not is_instance_valid(pose) or facts == null or not is_instance_valid(facts.main):
+	if not is_instance_valid(pose) or facts == null or not is_instance_valid(WORLD.player):
 		return
 	if not is_instance_valid(kiss):
 		return
-	var view: Camera3D = facts.main.camera()
+	var view: Camera3D = WORLD.camera()
 	if camera_profile() == "missionary_shots" and is_instance_valid(missionary_camera) \
 			and is_instance_valid(missionary_camera.view()):
 		view = missionary_camera.view()
@@ -843,20 +843,16 @@ func invert_y() -> bool:
 
 ## The live player rig, or null outside a scene.
 func player_body() -> Variant:
-	if facts == null or not is_instance_valid(facts.main):
+	if facts == null:
 		return null
-	return (facts.main as Node).get("player")
+	return WORLD.player
 
 
 ## The player's eye camera, or null.
 func main_camera() -> Camera3D:
-	if facts == null or not is_instance_valid(facts.main):
+	if facts == null:
 		return null
-	var main_node: Node = facts.main
-	if not main_node.has_method("camera"):
-		return null
-	var view: Variant = main_node.call("camera")
-	return view as Camera3D
+	return WORLD.camera()
 
 
 func apply_standing_lean_look() -> void:
@@ -866,9 +862,7 @@ func apply_standing_lean_look() -> void:
 
 func settings_node() -> Node:
 	var node: Node = null
-	if facts != null and is_instance_valid(facts.main):
-		node = facts.main
-	elif facts != null and is_instance_valid(facts.pony):
+	if facts != null and is_instance_valid(facts.pony):
 		node = facts.pony
 	return node.get_node_or_null("/root/Settings") if node != null else null
 

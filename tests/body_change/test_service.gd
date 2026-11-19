@@ -390,7 +390,7 @@ func _check_wire() -> void:
 	log_sink.lines.clear()
 	var host := FakeHost.new()
 	var bare := SERVICE.new()
-	bare.setup(host)
+	bare.setup()
 	bare.wire(null, null, null)
 	var faceless := FakePony.new()
 	faceless.name = "FacelessBody"
@@ -405,9 +405,9 @@ func _check_wire() -> void:
 	var anatomy := ANATOMY_SERVICE.new()
 	anatomy.name = "WireAnatomy"
 	root.add_child(anatomy)
-	anatomy.call("setup", host)
+	anatomy.call("setup")
 	var wired := SERVICE.new()
-	wired.setup(host)
+	wired.setup()
 	wired.wire(anatomy, null, null)
 	var seated := FakePony.new()
 	seated.name = "WiredBody"
@@ -421,7 +421,7 @@ func _check_wire() -> void:
 	var garment_target := FakeGarments.new()
 	var smack_target := FakeSmack.new()
 	var service := SERVICE.new()
-	service.setup(host)
+	service.setup()
 	service.wire(null, garment_target, smack_target)
 	check(str(LOD_BINDING.new().call("binding_id")) == "lod", "the LOD binding names itself")
 	check(str(GARMENT_BINDING.new().call("binding_id")) == "garments",
@@ -530,7 +530,7 @@ func _check_runtime_binding() -> void:
 func _check_scale_clamp() -> void:
 	var host := FakeHost.new()
 	var service := SERVICE.new()
-	service.setup(host)
+	service.setup()
 	var pony := FakePony.new()
 	pony.name = "ScaleBody"
 	pony.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
@@ -573,7 +573,7 @@ func _check_service() -> void:
 	log_sink.lines.clear()
 	var host := FakeHost.new()
 	var service := SERVICE.new()
-	service.setup(host)
+	service.setup()
 
 	var journal: Array[String] = []
 	var one := RecordingBinding.new()

@@ -171,7 +171,6 @@ func _check_action() -> void:
 	var offer := FakeOffer.new()
 	root.add_child(offer)
 	var service := INPUT.new()
-	service.main = main
 	service.offer = offer
 	main.add_child(service)
 	await process_frame
@@ -235,7 +234,6 @@ func _check_shield() -> void:
 	var main := Node.new()
 	root.add_child(main)
 	var service := INPUT.new()
-	service.main = main
 	main.add_child(service)
 	var runtime := FakeRuntime.new()
 	runtime.state = 2
@@ -345,7 +343,6 @@ func _check_act_commands() -> void:
 	var main := Node.new()
 	root.add_child(main)
 	var service := INPUT.new()
-	service.main = main
 	main.add_child(service)
 	var runtime := FakeRuntime.new()
 	runtime.state = 2
@@ -403,11 +400,11 @@ func _check_act_commands() -> void:
 
 ## Hold a key's raw state without letting a parsed event reach the service's own `_input`.
 func _hold(service: Node, code: int) -> void:
-	var saved: Variant = service.main
-	service.main = null
+	# Mute the service's own `_input` so only the raw key state reaches the tree.
+	service.set_process_input(false)
 	Input.parse_input_event(_key(code))
 	await physics_frame
-	service.main = saved
+	service.set_process_input(true)
 
 
 func _release(code: int) -> void:

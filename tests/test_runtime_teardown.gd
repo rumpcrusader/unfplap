@@ -3,6 +3,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_teardown.gd
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -117,20 +119,20 @@ class FakeMain extends Node:
 		return view
 
 
-class FakeEligibility extends Node:
+class FakeEligibility extends ELIGIBILITY:
 	var eligible_calls := 0
 	var relationship_calls := 0
 
-	func eligible(_pony: Variant, _target: int) -> bool:
+	func eligible(_pony: Node, _target: ELIGIBILITY.Target = ELIGIBILITY.Target.ACT) -> bool:
 		eligible_calls += 1
 		return true
 
-	func relationship_ok(_pony: Variant) -> bool:
+	func relationship_ok(_pony: Node) -> bool:
 		relationship_calls += 1
 		return true
 
 
-class FakeAnatomyService extends RefCounted:
+class FakeAnatomyService extends Node:
 	var consents: Array[String] = []
 	var allow := true
 	var part: Variant = null
@@ -207,7 +209,7 @@ func _fixture() -> Dictionary:
 	WORLD.bind_player(main.player)
 	main.game = game
 	WORLD.bind_world(main.game)
-	main.memory = FakeMemory.new()
+	MEMORY.instance = FakeMemory.new()
 	runtime.add_child(pony)
 	runtime.add_child(nav)
 	runtime.add_child(main)
@@ -216,9 +218,8 @@ func _fixture() -> Dictionary:
 	var hud: CanvasLayer = HUD.new()
 	hud.name = "UnfplapHUD"
 	main.add_child(hud)
-	main.hud = hud
+	HUD.instance = hud
 	runtime.pony = pony
-	runtime.main = main
 	runtime._id = "test_mare"
 	runtime._hold.face_turn_rate_saved = 0.45
 	runtime._hold.face_turn_rate_owned = true
@@ -298,7 +299,7 @@ func run() -> void:
 
 	# Every hint scan reads Base clearance; a failing scene reads none.
 	var eligibility := FakeEligibility.new()
-	main.eligibility = eligibility
+	PONIES.eligibility = eligibility
 	runtime.state = 0
 	check(bool(runtime.call("hotkey_ready", CATALOG_STANDING, "")),
 		"the idle hint passes with the scene rows ready")
@@ -321,7 +322,7 @@ func run() -> void:
 		"the standing hint recovers")
 	check(eligibility.eligible_calls == 3 and eligibility.relationship_calls == 3,
 		"the recovered scene reads Base clearance once")
-	eligibility.free()
+	PONIES.eligibility = null
 
 	# A forced stop at IDLE must not touch the player's captured look.
 	var f2 := _fixture()
@@ -431,7 +432,7 @@ func run() -> void:
 	part6b.applied = Vector3(0.0, 0.0, 0.12)
 	anatomy6b.part = part6b
 	anatomy6b.controller_node = controller6b
-	main6b.anatomy = anatomy6b
+	PONIES.anatomy = anatomy6b
 	runtime6b.call("_begin_standing_placement")
 	var fit_target6b: Vector3 = controller6b.opening + controller6b.rear * anatomy6b.shaft_m
 	var fit_want6b: Vector3 = fit_target6b - part6b.root_natural()
@@ -450,7 +451,6 @@ func run() -> void:
 	var main7: FakeMain = f7["main"]
 	var hud7: CanvasLayer = f7["hud"]
 	var acting7: Node = RUNTIME.new()
-	acting7.main = main7
 	acting7.state = 2 # ACTIVE
 	PONIES.set_active(acting7)
 	idle7.call("_restore_stray_inventory_hud")
@@ -544,7 +544,7 @@ func run() -> void:
 	runtime8.state = 2
 	runtime8._features = {"anatomy_oral": true}
 	var anatomy8 := FakeAnatomyService.new()
-	(f8["main"] as FakeMain).anatomy = anatomy8
+	PONIES.anatomy = anatomy8
 	pony8.global_position = Vector3(2.0, 0.0, 3.0)
 	var oral_from: Vector3 = pony8.global_position
 	runtime8.call("_build_pose")

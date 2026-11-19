@@ -6,6 +6,8 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/anatomy/test_attach.gd
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
 const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
@@ -85,8 +87,9 @@ func run() -> void:
 	# the base-game roster is not an attachment whitelist.
 	var host := FakeMain.new()
 	root.add_child(host)
+	WORLD.bind_world(host)
 	host.eligibility = ELIGIBILITY.new()
-	host.eligibility.setup(host)
+	PONIES.eligibility = host.eligibility
 	var twilight := _pony("twilight_sparkle")
 	check(bool(host.eligibility.eligible(twilight, ELIGIBILITY.Target.ANATOMY)),
 		"base adult is eligible")
@@ -128,7 +131,7 @@ func run() -> void:
 	# handing it down; the two-argument lookup stays the world-level API.
 	var consent_service: Node = ANATOMY_SERVICE.new()
 	root.add_child(consent_service)
-	consent_service.call("setup", host)
+	consent_service.call("setup")
 	var consent_pony := _pony("fluttershy")
 	root.add_child(consent_pony)
 	var consent_controller: Node = consent_service.call("controller_for", consent_pony, null)
@@ -163,7 +166,7 @@ func run() -> void:
 	body_main.eligibility = host.eligibility
 	var body_service: Node = ANATOMY_SERVICE.new()
 	root.add_child(body_service)
-	body_service.call("setup", body_main)
+	body_service.call("setup")
 	var body_pony := _pony("fluttershy")
 	root.add_child(body_pony)
 	var own_form := BODY_FORM.default_form(body_pony)

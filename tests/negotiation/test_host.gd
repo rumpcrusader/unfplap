@@ -155,7 +155,7 @@ class FakeEligibility extends ELIGIBILITY:
 	var relationship := true
 	var facts: ELIGIBILITY.Facts = null
 
-	func setup(_main_node: Node) -> void:
+	func setup() -> void:
 		pass
 
 	func eligible(_pony: Node, _target: int = ELIGIBILITY.Target.ACT) -> bool:
@@ -174,7 +174,7 @@ class FakeEligibility extends ELIGIBILITY:
 class FakeMemory extends MEMORY:
 	var stage := "dating"
 
-	func setup(_main_node: Node) -> void:
+	func setup() -> void:
 		pass
 
 	func cue_facts(id: String, _event_id: String) -> MEMORY.CueFacts:
@@ -191,7 +191,7 @@ class FakeMemory extends MEMORY:
 class FakePrivacy extends PRIVACY:
 	var private := true
 
-	func setup(_main_node: Node) -> void:
+	func setup() -> void:
 		pass
 
 	func offer_private(_except: Node = null) -> bool:

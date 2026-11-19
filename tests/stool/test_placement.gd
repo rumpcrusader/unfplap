@@ -11,6 +11,12 @@ var failures := 0
 var checks := 0
 
 
+## A bare world root: the scene reads the standing placement makes.
+class FakeGame extends Node:
+	var headset_view := false
+	var inventory: Variant = null
+
+
 class FakeMain extends Node:
 	var player: Node3D
 	var stool: Node
@@ -64,13 +70,16 @@ func run() -> void:
 	var main := FakeMain.new()
 	main.player = player
 	WORLD.bind_player(main.player)
+	var game := FakeGame.new()
+	root.add_child(game)
+	WORLD.bind_world(game)
 	main.stool = STOOL.new()
-	main.stool.call("setup", main)
+	main.stool.call("setup")
+	STOOL.instance = main.stool
 	root.add_child(main)
 	root.add_child(main.stool)
 
 	var runtime: Node = RUNTIME.new()
-	runtime.main = main
 	runtime.pony = pony
 	root.add_child(runtime)
 	var act: Variant = runtime.call("_stool_act")

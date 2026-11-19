@@ -106,7 +106,6 @@ var form_hint := ""
 
 # Scene handles the act owns. Presentation modules are scene adapters, so they receive the nodes
 # they work on rather than reading the runtime's fields.
-var main: Variant = null
 var pony: Variant = null
 var camera: Camera3D = null
 var pose: Variant = null

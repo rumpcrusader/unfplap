@@ -123,6 +123,7 @@ func _fixture() -> Dictionary:
 	var main := FakeMain.new()
 	main.player = player
 	WORLD.bind_player(main.player)
+	WORLD.bind_world(main)
 	var bed := Node3D.new()
 	bed.name = "GuestBed"
 	bed.set_meta("mattress_top", 0.6)
@@ -130,7 +131,7 @@ func _fixture() -> Dictionary:
 	root.add_child(pony)
 	root.add_child(player)
 	root.add_child(bed)
-	facade.bind(main, pony, bed)
+	facade.bind(pony, bed)
 	facade.context = Callable(self, "ctx")
 	return {
 		"facade": facade, "pony": pony, "player": player, "main": main, "bed": bed, "nav": nav,

@@ -128,7 +128,7 @@ class FakePrivacy extends PRIVACY:
 	var offer_samples := 0
 	var cuddle_samples := 0
 
-	func setup(_main_node: Node) -> void:
+	func setup() -> void:
 		pass
 
 	func offer_private(_target: Node) -> bool:

@@ -10,7 +10,6 @@ const RANGE_M := 80.0
 const RETRY_S := 2.0
 const STOOL_PROBE := Vector3(0.62, 0.46, 0.5)
 
-var main: Node
 var system: Node
 var _clock := 0.0
 var _started := false
@@ -20,8 +19,7 @@ var _wait_logged := false
 var _full_logged := false
 
 
-func setup(main_node: Node, system_node: Node) -> void:
-	main = main_node
+func setup(system_node: Node) -> void:
 	system = system_node
 	set_process(true)
 
@@ -50,8 +48,6 @@ func _process(delta: float) -> void:
 
 
 func _tick() -> void:
-	if not is_instance_valid(main):
-		return
 	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return

@@ -6,6 +6,7 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Placement`).
 
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
@@ -13,12 +14,10 @@ const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 
 var service: Node
-var main: Node
 
 
-func setup(service_node: Node, main_node: Node) -> void:
+func setup(service_node: Node) -> void:
 	service = service_node
-	main = main_node
 
 
 func placement_target() -> Node:
@@ -104,17 +103,18 @@ func placement_show() -> String:
 	var report := str(service.call("tail_report")) if is_instance_valid(service) else ""
 	if not report.is_empty():
 		parts.append(report)
-	if is_instance_valid(main) and main.has_method("custom_tail_report"):
-		var custom := str(main.call("custom_tail_report"))
+	var change: Node = PONIES.body_change
+	if is_instance_valid(change):
+		var custom := str(change.call("tail_placement_report"))
 		if not custom.is_empty():
 			parts.append(custom)
 	return " | ".join(parts)
 
 
 func _apply_custom_tail(target: Node) -> void:
-	if is_instance_valid(target) and is_instance_valid(main) \
-			and main.has_method("apply_custom_tail"):
-		main.call("apply_custom_tail", target)
+	var change: Node = PONIES.body_change
+	if is_instance_valid(target) and is_instance_valid(change):
+		change.call("apply_tail_placement", target)
 
 
 static func _nudge_placement(placement: Dictionary, op: String, value: float) -> bool:

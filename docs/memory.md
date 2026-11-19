@@ -225,6 +225,7 @@ memory is marked used only after the caller queues the line.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | ponies | `ponies/service.gd` | the eligibility handle |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_face | `shared/act_face.gd` | face beat data |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |

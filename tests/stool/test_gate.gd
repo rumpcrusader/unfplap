@@ -3,6 +3,8 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_gate.gd
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -50,15 +52,15 @@ class FakeMain extends Node:
 	var eligibility: Node
 
 
-class FakeEligibility extends Node:
+class FakeEligibility extends ELIGIBILITY:
 	var eligible_calls := 0
 	var relationship_calls := 0
 
-	func eligible(_pony: Variant, _target: int) -> bool:
+	func eligible(_pony: Node, _target: ELIGIBILITY.Target = ELIGIBILITY.Target.ACT) -> bool:
 		eligible_calls += 1
 		return true
 
-	func relationship_ok(_pony: Variant) -> bool:
+	func relationship_ok(_pony: Node) -> bool:
 		relationship_calls += 1
 		return true
 
@@ -103,6 +105,7 @@ func run() -> void:
 	SETTINGS.standing_stool.set_bool(true)
 	SETTINGS.stool_gap_m.set_num(0.20)
 	SETTINGS.stool_height_m.set_num(0.20)
+	var fake_eligibility := FakeEligibility.new()
 	var main := FakeMain.new()
 	var pony := TestPony.new()
 	var nav := FakeNav.new()
@@ -120,15 +123,15 @@ func run() -> void:
 	WORLD.bind_world(main.game)
 	main.anatomy = FakeService.new()
 	main.stool = STOOL.new()
-	main.eligibility = FakeEligibility.new()
+	PONIES.anatomy = main.anatomy
+	PONIES.eligibility = fake_eligibility
+	STOOL.instance = main.stool
 	root.add_child(main)
 	root.add_child(pony)
 	root.add_child(player)
 	root.add_child(game)
 	root.add_child(inventory)
-	root.add_child(main.eligibility)
 	var runtime: Node = RUNTIME.new()
-	runtime.main = main
 	runtime.pony = pony
 	runtime._anatomy_bridge.controller = FakeController.new()
 	var controller: Node = runtime._anatomy_bridge.controller
@@ -151,7 +154,7 @@ func run() -> void:
 	check(runtime.stool_case_count() == 2, "two case footstools are counted")
 
 	# Each hint scan reads the reach and Base clearance; a failed scene reads no Base clearance.
-	var eligibility: FakeEligibility = main.eligibility
+	var eligibility: FakeEligibility = fake_eligibility
 	var anatomy_service: FakeService = main.anatomy
 	var prepare_before: int = anatomy_service.prepare_calls
 	check(runtime.hotkey_ready("standing", ""), "the standing hint is ready")
@@ -185,7 +188,7 @@ func run() -> void:
 	SETTINGS.stool_height_m.set_num(0.20)
 	runtime.free()
 	controller.free()
-	main.eligibility.free()
+	PONIES.eligibility = null
 	main.anatomy.free()
 	main.stool.free()
 	main.free()

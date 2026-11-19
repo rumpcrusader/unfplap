@@ -192,7 +192,7 @@ func fixture(kind: String) -> Dictionary:
 	WORLD.bind_world(main.game)
 	main.hud = hud
 	var memory := MEMORY.new()
-	memory.setup(main)
+	MEMORY.instance = memory
 	main.memory = memory
 	runtime.add_child(pony)
 	runtime.add_child(nav)
@@ -203,7 +203,6 @@ func fixture(kind: String) -> Dictionary:
 	root.add_child(context)
 	root.add_child(impressions)
 	runtime.pony = pony
-	runtime.main = main
 	runtime._id = "rarity"
 	runtime._display_name = "Rarity"
 	runtime._event_id = "intimacy_stop_test"

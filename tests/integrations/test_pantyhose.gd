@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_pantyhose.gd
 
 const HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const INTEGRATION := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -371,6 +372,7 @@ func _make_world() -> Dictionary:
 	var game := FakeGame.new()
 	var anatomy := FakeAnatomy.new()
 	fake_main.anatomy = anatomy
+	PONIES.anatomy = anatomy
 	fake_main.game = game
 	root.add_child(fake_main)
 	root.add_child(game)
@@ -378,7 +380,7 @@ func _make_world() -> Dictionary:
 	var integration := INTEGRATION.new()
 	integration.name = "TestPantyhose"
 	integration.mod_active = func() -> bool: return true
-	integration.setup(fake_main)
+	integration.setup()
 	root.add_child(integration)
 	integration.on_world(game)
 	# The suite drives the clock by hand; the engine must not run a scan between checks.
@@ -391,6 +393,7 @@ func _free_world(scene: Dictionary) -> void:
 	if is_instance_valid(integration):
 		integration.call("on_world_closed")
 		integration.free()
+	PONIES.anatomy = null
 	var anatomy: Node = scene["anatomy"]
 	if is_instance_valid(anatomy):
 		anatomy.free()

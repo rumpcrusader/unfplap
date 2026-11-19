@@ -14,7 +14,6 @@ const CUDDLE_REJOIN_WINDOW_S := 30.0
 const STATE_IDLE := 0
 
 ## Scene handles. The runtime binds them on every access.
-var main: Variant = null
 var pony: Variant = null
 var bed: Variant = null
 
@@ -25,8 +24,7 @@ var restore_scene := Callable()
 var log := Callable()
 
 
-func bind(main_node: Variant, pony_node: Variant, bed_node: Variant) -> void:
-	main = main_node
+func bind(pony_node: Variant, bed_node: Variant) -> void:
 	pony = pony_node
 	bed = bed_node
 
@@ -144,7 +142,7 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 	if int(ctx.get("serial", -1)) != act_serial:
 		return
 	var player: Variant = player_node()
-	if not is_instance_valid(main) or not is_instance_valid(player):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(player):
 		return
 	if not player.has_method("sit_on") or not player.has_method("toggle_couch_sleep"):
 		write_log("cuddle rejoin skipped reason=no_player_rest")
@@ -268,7 +266,7 @@ func rejoin_note(rest: Node) -> String:
 func rejoin_wanted(values: Dictionary) -> bool:
 	if bool(values.get("player_pony", false)) or bool(values.get("headset", false)):
 		return false
-	if not is_instance_valid(main) or not is_instance_valid(player_node()):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(player_node()):
 		return false
 	var summary: Variant = values.get("summary", {})
 	if summary is Dictionary and not (summary as Dictionary).is_empty():
@@ -290,7 +288,7 @@ func restore_posture(frame: String, _rejoin_cuddle: bool) -> void:
 
 
 func player_node() -> Variant:
-	return WORLD.player if is_instance_valid(main) else null
+	return WORLD.player
 
 
 func context_values() -> Dictionary:

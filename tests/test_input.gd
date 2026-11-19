@@ -73,12 +73,23 @@ func _world() -> Dictionary:
 
 class FakeRuntime extends Node:
 	var state := 4
+	var pony_climaxes := 0
+	var suspended := false
+	var auto := false
+	var free_look := false
+	var vr_held := false
 	var holes := 0
 	var orals := 0
 	var smacks := 0
+	var cancels := 0
+	var afterglows := 0
+	var afterglow_ends := 0
 	var commands: Array[String] = []
 	var action_ready := true
 	var command_ok := true
+	var thrusts: Array[float] = []
+	var looks: Array[Vector2] = []
+	var panels: Array = []
 
 	func anatomy_hole_ready() -> bool:
 		return action_ready
@@ -89,6 +100,36 @@ class FakeRuntime extends Node:
 	func command(command_id: String) -> bool:
 		commands.append(command_id)
 		return command_ok
+
+	func body_swap_pending() -> bool:
+		return suspended
+
+	func vr_y_held() -> bool:
+		return vr_held
+
+	func free_look_active() -> bool:
+		return free_look
+
+	func auto_active() -> bool:
+		return auto
+
+	func cancel() -> void:
+		cancels += 1
+
+	func request_afterglow() -> void:
+		afterglows += 1
+
+	func end_afterglow() -> void:
+		afterglow_ends += 1
+
+	func thrust_motion(relative_y: float) -> void:
+		thrusts.append(relative_y)
+
+	func look_motion(relative: Vector2) -> void:
+		looks.append(relative)
+
+	func auto_panel_input(_delta: float, x_down: bool, keys: Array) -> void:
+		panels.append([x_down, keys.duplicate()])
 
 	# The legacy anatomy path stays for the callers that still own it directly.
 	func toggle_anatomy_hole() -> void:
@@ -120,6 +161,8 @@ func run() -> void:
 	await _check_injection()
 	await _check_action()
 	await _check_shield()
+	await _check_act_hold()
+	await _check_auto_layer()
 	await _check_act_commands()
 	print("INPUT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -332,6 +375,150 @@ func _check_shield() -> void:
 	runtime.queue_free()
 	SETTINGS.act_input_shield.set_bool(before)
 	await process_frame
+
+
+## The act-key hold: the 0.35 s latch, one fire per press, the state outcomes, the VR hold and
+## the act/suspension resets. The input service owns the timer; the runtime owns the transition.
+func _check_act_hold() -> void:
+	_world()
+	var main := Node.new()
+	root.add_child(main)
+	var service := INPUT.new()
+	main.add_child(service)
+	var runtime := FakeRuntime.new()
+	runtime.state = 4
+	PONIES.set_active(runtime)
+	await process_frame
+
+	_arm_hold(service, runtime)
+	Input.action_press(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.2, runtime)
+	check(runtime.afterglow_ends == 0, "a short hold does nothing")
+	service.call("_hold_act_tick", 0.2, runtime)
+	check(runtime.afterglow_ends == 1, "AFTERGLOW ends after the full hold")
+	service.call("_hold_act_tick", 0.2, runtime)
+	check(runtime.afterglow_ends == 1, "a still-held key fires once")
+	Input.action_release(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.1, runtime)
+	Input.action_press(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.4, runtime)
+	check(runtime.afterglow_ends == 2, "a fresh press fires again after the release")
+	Input.action_release(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.1, runtime)
+
+	# ACTIVE: no climax cancels early; a climax behind the act requests the afterglow.
+	runtime.state = 2
+	runtime.pony_climaxes = 0
+	_arm_hold(service, runtime)
+	_fire_hold(service, runtime)
+	check(runtime.cancels == 1 and runtime.afterglows == 0,
+		"ACTIVE with no climax cancels")
+	runtime.pony_climaxes = 1
+	_arm_hold(service, runtime)
+	_fire_hold(service, runtime)
+	check(runtime.afterglows == 1 and runtime.cancels == 1,
+		"ACTIVE with a climax requests the afterglow")
+	runtime.state = 3
+	_arm_hold(service, runtime)
+	_fire_hold(service, runtime)
+	check(runtime.afterglows == 2, "CLIMAX requests the afterglow")
+	runtime.state = 1
+	_arm_hold(service, runtime)
+	_fire_hold(service, runtime)
+	check(runtime.cancels == 2, "POSING_IN cancels")
+
+	# A suspended act drops the latch and never fires.
+	runtime.state = 2
+	runtime.suspended = true
+	_arm_hold(service, runtime)
+	Input.action_press(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.5, runtime)
+	check(runtime.cancels == 2, "a suspended act never fires the hold")
+	Input.action_release(ACT_KEYS.ACTION)
+	runtime.suspended = false
+	service.call("_hold_act_tick", 0.1, runtime)
+
+	# The VR primary click is the same hold without the action.
+	runtime.pony_climaxes = 0
+	runtime.vr_held = true
+	service.call("_hold_act_tick", 0.4, runtime)
+	check(runtime.cancels == 3, "the VR act key hold fires")
+	runtime.vr_held = false
+	service.call("_hold_act_tick", 0.1, runtime)
+	_arm_hold(service, runtime)
+	_fire_hold(service, runtime)
+	check(runtime.cancels == 4, "the VR release rearms the hold")
+
+	# A new act drops a key still down from the last one.
+	PONIES.clear_active(runtime)
+	service.call("_physics_process", 0.1)
+	PONIES.set_active(runtime)
+	Input.action_press(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.5, runtime)
+	check(runtime.cancels == 4, "a new act needs a release before the hold")
+	Input.action_release(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.1, runtime)
+	_arm_hold(service, runtime)
+	_fire_hold(service, runtime)
+	check(runtime.cancels == 5, "the new act fires after the release")
+
+	service.queue_free()
+	PONIES.clear_active(runtime)
+	main.queue_free()
+	runtime.queue_free()
+	await process_frame
+
+
+## The hold-X layer: the input service samples the physical keys and hands them to the runtime
+## protocol; a suspended act samples nothing.
+func _check_auto_layer() -> void:
+	_world()
+	var main := Node.new()
+	root.add_child(main)
+	var service := INPUT.new()
+	main.add_child(service)
+	var runtime := FakeRuntime.new()
+	runtime.state = 2
+	PONIES.set_active(runtime)
+	await process_frame
+
+	await _hold(service, KEY_X)
+	await _hold(service, KEY_Q)
+	runtime.panels.clear()
+	service.call("_auto_layer_tick", 0.1, runtime)
+	check(runtime.panels.size() == 1, "the auto layer is one protocol call per tick")
+	var row: Array = runtime.panels[0]
+	check(bool(row[0]), "X reaches the layer as held")
+	var keys: Array = row[1]
+	check(keys.size() == 7 and bool(keys[0]), "Q is the first layer key")
+	check(not bool(keys[1]), "an unpressed layer key reads false")
+
+	runtime.suspended = true
+	runtime.panels.clear()
+	service.call("_physics_process", 0.1)
+	check(runtime.panels.is_empty(), "a suspended act samples no auto keys")
+	runtime.suspended = false
+
+	await _release(KEY_X)
+	await _release(KEY_Q)
+	service.queue_free()
+	PONIES.clear_active(runtime)
+	main.queue_free()
+	runtime.queue_free()
+	await process_frame
+
+
+## Arm the hold latch the way a release does, then press and release once.
+func _arm_hold(service: Node, runtime: Node) -> void:
+	Input.action_release(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.1, runtime)
+
+
+func _fire_hold(service: Node, runtime: Node) -> void:
+	Input.action_press(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.4, runtime)
+	Input.action_release(ACT_KEYS.ACTION)
+	service.call("_hold_act_tick", 0.1, runtime)
 
 
 ## V/N emit their command ids through the runtime; a non-ready or refused command does not

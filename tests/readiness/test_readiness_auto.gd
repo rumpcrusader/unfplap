@@ -8,6 +8,7 @@ extends SceneTree
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/readiness/auto_panel.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -123,16 +124,20 @@ func _check_panel() -> void:
 	check(readiness.auto_panel_open(), "the layer keeps its grace after release")
 	readiness.auto_panel_tick(0.3, false, [], 0.3)
 	check(not readiness.auto_panel_open(), "the layer closes after the grace")
-	# The shape cycle is the one action the runtime still carries out.
+	# The shape cycle is the layer's own settings write.
 	readiness.auto_set_shape("saw")
 	check(readiness.auto_shape() == "saw", "the shape can be set")
+	var saved_shape := SETTINGS.curve.get_choice()
 	var shape_keys := [false, false, false, false, false, false, true]
 	readiness.auto_panel_tick(0.1, true, [], 0.3)
 	readiness.auto_panel_tick(0.1, true, [], 0.3)
 	readiness.auto_panel_tick(0.1, true, [], 0.3)
 	actions = readiness.auto_panel_tick(0.1, true, shape_keys, 0.3)
-	check(actions == ["shape_next"], "Z requests the shape cycle")
-	check(readiness.auto_shape() == "saw", "the layer leaves the shape write to the runtime")
+	check(actions == ["shape_next"], "Z reports the shape cycle")
+	var next_shape: String = AUTO_THRUST.next_shape("saw")
+	check(readiness.auto_shape() == next_shape, "the layer advances the shape")
+	check(SETTINGS.curve.get_choice() == next_shape, "the shape write lands in settings")
+	SETTINGS.curve.set_choice(saved_shape)
 	# Leaving the act closes the layer and clears the keys.
 	state.value = STATE_IDLE
 	readiness.auto_panel_tick(0.1, true, [], 0.3)

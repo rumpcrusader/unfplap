@@ -9,6 +9,7 @@ const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -17,6 +18,8 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 ## caress (A/D, Z/C), the kiss (F) and the act-key hold. They are consumed but their pressed
 ## state is kept, or the act's own controls would die.
 const RAW_KEYS := [KEY_Q, KEY_W, KEY_E, KEY_A, KEY_S, KEY_D, KEY_Z, KEY_X, KEY_C, KEY_F]
+## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
+const HOLD_ACT_SECONDS := 0.35
 ## Keys that stay live during an act: typing, the game's talk turn, the pause menu and the game's
 ## save/settings/weather/debug F-keys.
 const PASS_KEYS := [KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE, KEY_T,
@@ -32,6 +35,12 @@ var _suppress_q := false
 var _old_q := false
 ## One recapture log per act. The cursor can take more than one physics tick to report captured.
 var _mouse_recapture_logged := false
+## The act-key hold. The latch belongs to one live act: a tap does nothing, and a held key cannot
+## fire twice until it is released. A body swap and a fresh act drop it.
+var _act_hold := 0.0
+var _act_hold_ready := false
+var _act_hold_fired := false
+var _hold_runtime: Variant = null
 
 
 func _ready() -> void:
@@ -67,7 +76,7 @@ func apply_settings() -> void:
 	InputMap.action_add_event(ACT_KEYS.ACTION, event)
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	var runtime: Node = PONIES.active()
 	if is_instance_valid(runtime):
 		# Pause/settings must not end the act; the runtime simply stops processing while the
@@ -78,9 +87,80 @@ func _physics_process(_delta: float) -> void:
 		# act's mouse input dead. The base game's own click-to-recapture is skipped while
 		# controls_locked owns the act, so the mod keeps the mouse captured itself.
 		_keep_mouse_captured()
+		# The runtime freezes its act tick while paused or suspended; the hold and the auto
+		# layer keep that same window.
+		if not get_tree().paused:
+			_hold_act_tick(delta, runtime)
+			if not bool(runtime.call("body_swap_pending")):
+				_auto_layer_tick(delta, runtime)
 	else:
 		_mouse_recapture_logged = false
 		_restore_seated_q()
+		_forget_hold()
+
+
+## The act key is a deliberate hold, matching the game's 0.35 s bridal-carry hold. The latch is
+## dropped between acts and on a body swap, so a key still down from the last act cannot fire.
+func _hold_act_tick(delta: float, runtime: Node) -> void:
+	if runtime != _hold_runtime:
+		_hold_runtime = runtime
+		_reset_hold()
+	if bool(runtime.call("body_swap_pending")):
+		_reset_hold()
+		return
+	var state := int(runtime.get("state"))
+	if state not in [ACT_STATE.State.POSING_IN, ACT_STATE.State.ACTIVE,
+			ACT_STATE.State.CLIMAX, ACT_STATE.State.AFTERGLOW]:
+		_reset_hold()
+		return
+	var held: bool = Input.is_action_pressed(ACT_KEYS.ACTION) or bool(runtime.call("vr_y_held"))
+	if not held:
+		_reset_hold()
+		_act_hold_ready = true
+		return
+	if not _act_hold_ready:
+		return
+	_act_hold += delta
+	if _act_hold < HOLD_ACT_SECONDS or _act_hold_fired:
+		return
+	_act_hold_fired = true
+	LOG.debug("hold act key state=%d climaxes=%d" % [
+		state, int(runtime.get("pony_climaxes"))])
+	if state == ACT_STATE.State.AFTERGLOW:
+		runtime.call("end_afterglow")
+	elif state == ACT_STATE.State.ACTIVE:
+		if int(runtime.get("pony_climaxes")) > 0:
+			runtime.call("request_afterglow")
+		else:
+			runtime.call("cancel")
+	elif state == ACT_STATE.State.CLIMAX:
+		runtime.call("request_afterglow")
+	else:
+		runtime.call("cancel")
+
+
+## Hold X for the auto settings layer. The policy, the rows and the shape write live in
+## `readiness/service.gd`; the input service samples the physical keys and the runtime applies
+## them through its protocol.
+func _auto_layer_tick(delta: float, runtime: Node) -> void:
+	var keys: Array[bool] = [
+		Input.is_physical_key_pressed(KEY_Q), Input.is_physical_key_pressed(KEY_A),
+		Input.is_physical_key_pressed(KEY_W), Input.is_physical_key_pressed(KEY_S),
+		Input.is_physical_key_pressed(KEY_E), Input.is_physical_key_pressed(KEY_D),
+		Input.is_physical_key_pressed(KEY_Z),
+	]
+	runtime.call("auto_panel_input", delta, Input.is_physical_key_pressed(KEY_X), keys)
+
+
+func _reset_hold() -> void:
+	_act_hold = 0.0
+	_act_hold_ready = false
+	_act_hold_fired = false
+
+
+func _forget_hold() -> void:
+	_hold_runtime = null
+	_reset_hold()
 
 
 ## Recapture the cursor during an act unless a menu panel still owns it. The base game's own
@@ -189,7 +269,8 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_RIGHT and is_instance_valid(runtime):
-			if int(runtime.get("state")) != 4: # AFTERGLOW keeps only close actions
+			# AFTERGLOW keeps only close actions.
+			if int(runtime.get("state")) != ACT_STATE.State.AFTERGLOW:
 				runtime.call("smack")
 			get_viewport().set_input_as_handled()
 			return
@@ -246,7 +327,8 @@ func _act_key(runtime: Variant, key: InputEventKey, state: int) -> void:
 		return
 	# G is the keyboard smack. RMB does the same; the act owns both.
 	if key.physical_keycode == KEY_G:
-		if state != 4: # AFTERGLOW keeps only close actions
+		# AFTERGLOW keeps only close actions.
+		if state != ACT_STATE.State.AFTERGLOW:
 			runtime.call("smack")
 		_consume(key)
 		return
@@ -259,7 +341,8 @@ func _act_key(runtime: Variant, key: InputEventKey, state: int) -> void:
 	if key.physical_keycode == KEY_H:
 		_consume(key)
 		return
-	if state == 4: # AFTERGLOW: act key, lean, caress and the standing kiss are live
+	# AFTERGLOW: the act key, lean, caress and the standing kiss are live.
+	if state == ACT_STATE.State.AFTERGLOW:
 		if key.is_action(ACT_KEYS.ACTION) or key.is_action("stand_up") \
 				or key.physical_keycode in [
 					KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_T, KEY_Z, KEY_C]:
@@ -267,7 +350,8 @@ func _act_key(runtime: Variant, key: InputEventKey, state: int) -> void:
 		elif _shield:
 			_consume(key)
 		return
-	if state in [3, 5]: # CLIMAX / RESTORE: only polled act actions
+	# CLIMAX / RESTORE: only the polled act actions.
+	if state in [ACT_STATE.State.CLIMAX, ACT_STATE.State.RESTORE]:
 		if key.is_action(ACT_KEYS.ACTION) or key.is_action("stand_up") \
 				or key.physical_keycode in [
 					KEY_Q, KEY_E, KEY_A, KEY_D, KEY_F, KEY_Z, KEY_C]:

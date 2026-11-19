@@ -24,7 +24,6 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
-const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
@@ -48,7 +47,6 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
-const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
@@ -77,8 +75,6 @@ const RESTORE_SECONDS := 0.4
 ## The standing start may place Anon closer or farther so the shaft rests at her entrance before
 ## the act. Beyond this the offer cone would be wrong and the fit is left to the hip offset.
 const STANDING_FIT_MAX_M := 0.6
-## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
-const HOLD_ACT_SECONDS := 0.35
 ## The Agreement start's answer: a transient row or an unsettled presentation keeps waiting; a
 ## technical rollback is a start failure.
 const AGREEMENT_WAIT := 0
@@ -204,9 +200,6 @@ var _hold: RefCounted = SCENE_HOLD.new()
 ## camera flags live on `_act_camera`; the navigator and player flags on `_hold`.
 var _posture_owned := false
 var _session_finalized := false
-var _act_hold := 0.0
-var _act_hold_ready := false
-var _act_hold_fired := false
 var _id := ""
 ## Debug-only estrus phase override. Empty means derive the phase from the world day and her id.
 var _cycle_override := ""
@@ -1342,39 +1335,6 @@ func _input(event: InputEvent) -> void:
 func _headset_view() -> bool:
 	return is_instance_valid(WORLD.game) and bool(WORLD.game.get("headset_view"))
 
-## The act key is a deliberate hold, matching the game's 0.35 s bridal-carry hold. A tap does
-## nothing, and the trigger latches until release so a held key cannot fire twice.
-func _hold_act_tick(delta: float) -> void:
-	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		_act_hold = 0.0
-		_act_hold_fired = false
-		return
-	var held: bool = Input.is_action_pressed(ACT_KEYS.ACTION) \
-		or _anatomy_bridge.vr_y_held()
-	if not held:
-		_act_hold = 0.0
-		_act_hold_fired = false
-		_act_hold_ready = true
-		return
-	if not _act_hold_ready:
-		return
-	_act_hold += delta
-	if _act_hold < HOLD_ACT_SECONDS or _act_hold_fired:
-		return
-	_act_hold_fired = true
-	_log("hold act key state=%d climaxes=%d" % [state, pony_climaxes])
-	if state == State.AFTERGLOW:
-		end_afterglow()
-	elif state == State.ACTIVE:
-		if pony_climaxes > 0:
-			_enter_afterglow()
-		else:
-			cancel()
-	elif state == State.CLIMAX:
-		_enter_afterglow()
-	else:
-		cancel()
-
 func _physics_process(delta: float) -> void:
 	var started := Time.get_ticks_usec()
 	var idle := idle_perf and state == State.IDLE
@@ -1435,8 +1395,6 @@ func _physics_tick(delta: float) -> void:
 	_camera_service().call("tick_free_look")
 	_keep_act_attention()
 	_pause_face_turn()
-	_hold_act_tick(delta)
-	_auto_layer_tick(delta)
 	_camera_service().call("tick_lean", delta, get_tree().paused, auto_panel_open())
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		var presentation_started := Time.get_ticks_usec()
@@ -1907,9 +1865,6 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	satisfaction = 0.0
 	mood = "warming"
 	cue = ""
-	_act_hold = 0.0
-	_act_hold_ready = false
-	_act_hold_fired = false
 	_reset_thrust_state()
 	_stopped_by_her = false
 	_tolerance_warning_key = ""
@@ -2326,13 +2281,9 @@ func _rebuild_pose_for_swap(pose: String) -> void:
 	_reactions.bind_tail(_pose_service().tail)
 
 
-## The front lean and the auto stroke belong to the hand and the old body. Drop the latch so a
-## held act key or a running auto does not fire into the new pose. The auto generator keeps its
-## pace, band and shape; only its running state is interrupted.
+## The front lean and the auto stroke belong to the hand and the old body. The auto generator
+## keeps its pace, band and shape; only its running state is interrupted.
 func _reset_swap_input_state() -> void:
-	_act_hold = 0.0
-	_act_hold_ready = false
-	_act_hold_fired = false
 	_readiness.stop_auto()
 
 
@@ -2763,28 +2714,20 @@ func auto_panel_open() -> bool:
 	return _readiness.auto_panel_open()
 
 
-## Hold X for the auto settings layer: a tap still toggles auto, a hold opens the four rows while
-## auto runs. The policy and every row nudge live in `readiness/service.gd`; the runtime supplies the key
-## states and carries out the one settings write.
-func _auto_layer_tick(delta: float) -> void:
-	var keys := [
-		Input.is_physical_key_pressed(KEY_Q), Input.is_physical_key_pressed(KEY_A),
-		Input.is_physical_key_pressed(KEY_W), Input.is_physical_key_pressed(KEY_S),
-		Input.is_physical_key_pressed(KEY_E), Input.is_physical_key_pressed(KEY_D),
-		Input.is_physical_key_pressed(KEY_Z),
-	]
-	var actions: Array[String] = _readiness.auto_panel_tick(delta,
-		Input.is_physical_key_pressed(KEY_X), keys, depth)
-	for action: String in actions:
-		if action == "shape_next":
-			auto_cycle_shape()
+## One hold-X policy frame. The input service samples the keys; readiness owns the tap, the
+## rows and the shape write.
+func auto_panel_input(delta: float, x_down: bool, keys: Array) -> void:
+	_readiness.auto_panel_tick(delta, x_down, keys, depth)
 
 
-## `Z` in the layer: next stroke shape, written to settings so an experiment survives the act.
-func auto_cycle_shape() -> void:
-	var next: String = AUTO_THRUST.next_shape(_readiness.auto_shape())
-	SETTINGS.curve.set_choice(next)
-	_readiness.auto_set_shape(next)
+## The VR act's right primary click is the act key's hold. The bridge owns the controller.
+func vr_y_held() -> bool:
+	return _anatomy_bridge.vr_y_held()
+
+
+## The act-key hold with a climax behind it enters the afterglow instead of cancelling.
+func request_afterglow() -> void:
+	_enter_afterglow()
 
 
 ## integration: anatomy action entry points for input.gd. They are no-ops when the per-act

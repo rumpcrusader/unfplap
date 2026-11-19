@@ -4,6 +4,7 @@ extends RefCounted
 ## and supplies the clock, the climax transition, the face beats and the cue admission; this
 ## module owns the scoring and tolerance state. See docs/readiness.md.
 
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
@@ -261,9 +262,9 @@ func auto_panel_open() -> bool:
 	return auto_panel.open
 
 
-## The hold-X layer. The runtime supplies the key states and the current depth; the layer owns
-## tap/hold, the grace and the key repeats. Returns the actions the runtime still has to carry out
-## (the shape cycle is a settings write).
+## The hold-X layer. The input service supplies the key states and the runtime the current
+## depth; the layer owns tap/hold, the grace, the key repeats, the row nudges and the shape
+## write. Returns the actions it applied for the one-per-adjustment log line.
 func auto_panel_tick(delta: float, x_down: bool, keys: Array,
 		current_depth: float) -> Array[String]:
 	if not _state_in([STATE_ACTIVE, STATE_CLIMAX]):
@@ -283,6 +284,8 @@ func auto_panel_tick(delta: float, x_down: bool, keys: Array,
 			"pace_up", "pace_down":
 				auto_thrust.nudge_pace(AUTO_PANEL.PACE_STEP if action == "pace_up"
 					else -AUTO_PANEL.PACE_STEP)
+			"shape_next":
+				auto_cycle_shape()
 	# One line per player adjustment, never per frame: the policy ticks every physics frame.
 	if not actions.is_empty():
 		_log("auto layer %s min=%.0f%% max=%.0f%% pace=%.2f/s" % [
@@ -302,6 +305,13 @@ func auto_set_shape(name: String) -> void:
 	auto_thrust.set_shape(name)
 	if auto_thrust.shape != before:
 		_log("auto shape %s" % auto_thrust.shape)
+
+
+## `Z` in the layer: next stroke shape, written to settings so an experiment survives the act.
+func auto_cycle_shape() -> void:
+	var next: String = AUTO_THRUST.next_shape(auto_thrust.shape)
+	SETTINGS.curve.set_choice(next)
+	auto_set_shape(next)
 
 
 func auto_pace() -> float:

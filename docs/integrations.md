@@ -62,8 +62,8 @@ the runtime and the debug block see the typed source and policy surfaces, never 
 
 The runtime constructs one service per act through `_integrations_controller()` and passes its typed
 `shared/act_facts.gd` view. The runtime calls `begin()`, `tick()`, `afterglow()`,
-`apply_live_settings()` and `reset()` at the ordered lifecycle points; `_end_session()` remains the
-only act teardown.
+`apply_live_settings()` and `reset()` at the ordered lifecycle points; `act/exit.gd:run()` remains
+the only act teardown.
 
 ## Catalog
 

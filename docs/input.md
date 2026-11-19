@@ -134,14 +134,14 @@ real state. This is a deliberate, global lie about key state, kept only for the 
 the continuous ids; the rest are discrete. `end` is reserved and always allowed, and
 `pose_back`/`pose_forward` are reserved for pose navigation with no key emitting them.
 
-The discrete act keys emit a command id through the active runtime instead of calling an anatomy
-toggle directly: `V` emits `hole` and `N` emits `oral`, each only when its `anatomy_*_ready()`
-gate is true. `runtime.command(id)` then checks the active pose's control
+The discrete act keys emit a command id through the active runtime's input protocol instead of
+calling an anatomy toggle directly: `V` emits `hole` and `N` emits `oral`, each only when its
+`anatomy_*_ready()` gate is true. `act/input.gd:command(id)` then checks the active pose's control
 profile and the live edge lock before dispatching, so a pose that does not allow the id does
 nothing. The key is consumed whether the command is allowed or refused.
 
-`N` is the standing oral request: `runtime.toggle_anatomy_oral()` requests `standing_oral` from
-`standing` with the per-mare `oral` consent, and the reverse edge from `standing_oral`. The oral
+`N` is the standing oral request: the `oral` command's anatomy toggle requests `standing_oral`
+from `standing` with the per-mare `oral` consent, and the reverse edge from `standing_oral`. The oral
 forward lock allows `oral`/`pose_back`/`end`, so `N` can return; the reverse lock allows only
 `end`. `V` is denied while the oral lock is live even when its feature gate is on. The VR
 left `by_button` emits the same `oral` command through the bridge's host callback.
@@ -150,12 +150,13 @@ The continuous `thrust`, `lean`, `caress` and `kiss` inputs stay on their polled
 path, and the act-key hold owns `end`. Smack, auto-thrust and the debug wheel are body/camera
 actions outside the pose command set and keep their direct runtime methods.
 
-The runtime protocol the service calls is small and typed: `look_motion(relative)`,
-`thrust_motion(relative_y)`, `toggle_auto_thrust()`, `auto_thrust_wheel(direction)`,
-`auto_panel_input(delta, x_down, keys)`, `command(id)`, `toggle_anatomy_hole()`,
-`toggle_anatomy_oral()`, `cancel()`, `request_afterglow()`, `end_afterglow()`, `smack()`,
-`vr_y_held()`, `body_swap_pending()` and the `state` read. The runtime never sees an
-`InputEvent`.
+The act input protocol the service calls is `act/input.gd`, reached as `runtime.act.input`:
+`look_motion(relative)`, `thrust_motion(relative_y)`, `toggle_auto_thrust()`,
+`auto_thrust_wheel(direction)`, `auto_panel_input(delta, x_down, keys)`, `auto_panel_open()`,
+`free_look_active()`, `command(id)`, `request_pose()`, `cancel()`, `request_afterglow()`,
+`end_afterglow()` and `vr_y_held()`. `smack()`, `body_swap_pending()`, `auto_active()` and the
+`state` read stay on the runtime node until R4. Neither the node nor the protocol sees an
+`InputEvent`; the service owns every decode, hold and key sample.
 
 ## Controls and debug
 

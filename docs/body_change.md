@@ -306,8 +306,8 @@ A change runs as follows:
    and notifies the body again; the service fans out `refresh_body()` on the same body. It then
    marks the change `SETTLED` or `FAILED` and notifies the service.
 6. A live act resumes once through `body_change/act.gd:resume()`, after the watcher returns the
-   `RESUME` action; `runtime._resume_after_body_swap()` is its delegate and ends the act through
-   the one exit when it fails. The act state, depth, climaxes, history and
+   `RESUME` action; `act/swap.gd:resume()` is its only caller and ends the act through the one exit
+   when it fails. The act state, depth, climaxes, history and
    event id survive.
 7. A failed change leaves the previous body and form in place (or restores them through the
    provider) and leaves the runtime's offer logic to restore the player's offer.
@@ -465,7 +465,7 @@ suspension, adoption, resume and failure phases.
 | `pantyhose.scan()` | the garment binding's public scan |
 | `stock_smack.pony_ready(pony)` | the stock smack binding's public prepare |
 | `PONIES.body_change` | the runtime's, the anatomy editor's and the debug block's service handle |
-| `body_change/act.gd` | the act's swap record and form request; it owns `release()`, `resume()`, `rebind()` and the offer/reveal timing, while the runtime keeps the reparent, `attach_to_body()`, `adopt_body()` and the one `_resume_after_body_swap()` delegate |
+| `body_change/act.gd` | the act's swap record and form request; it owns `release()`, `resume()`, `rebind()` and the offer/reveal timing, while `act/swap.gd` holds the typed release/resume seams and the one `resume()` caller, and the runtime keeps the reparent, `attach_to_body()`, `adopt_body()` and the two suite seams |
 | `shared/settings_change.gd` | `apply_settings()` re-applies the handling source's tail wrapper for every live body after a settings edit |
 
 ## Dependencies

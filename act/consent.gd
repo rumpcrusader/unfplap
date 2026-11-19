@@ -1,7 +1,7 @@
 extends RefCounted
 ## The act's consent response. One frame asks `readiness/service.gd` for the meter's decision and
-## turns it into the act's cue, face beat and one generated line; a stop decision is reported to
-## the runtime, which ends the act through the one exit. The meter's math and tiers stay in
+## turns it into the act's cue, face beat and one generated line; a stop decision ends the act
+## through the one exit and this owner presents it. The meter's math and tiers stay in
 ## `readiness/tolerance.gd`.
 ##
 ## See `docs/runtime.md` and `docs/readiness.md`.

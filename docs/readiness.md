@@ -206,18 +206,20 @@ testing.
   `reset()` takes all four explicitly.
 - `readiness/auto_panel.gd` is the pure hold-X layer: tap/hold detection, the 0.28 s grace, key repeats and
   the four live rows.
-- `input/service.gd` reads `Input` and passes the key states to `runtime.auto_panel_input()`;
-  readiness returns the actions and the generated depth. The mouse does nothing while auto is on.
-  The wheel sets pace through `runtime.auto_thrust_wheel()`.
+- `input/service.gd` reads `Input` and passes the key states to `act/input.gd:auto_panel_input()`
+  (`runtime.act.input`); readiness returns the actions and the generated depth. The mouse does
+  nothing while auto is on. The wheel sets pace through the same protocol's
+  `auto_thrust_wheel()`.
 - The panel's `toggle` and min/max/pace nudges are applied inside readiness. The one remaining
   action is `shape_next`: the runtime writes `SETTINGS.curve` and calls `auto_set_shape()`.
 - The debug log prints one `auto layer` line per player adjustment, never per frame; a shape
   change adds its own `auto shape` line.
-- `X` is live in `ACTIVE`/`CLIMAX`; `_afterglow_begin()`, `_restore_begin()` and `_end_session()`
-  stop it, and `_reset_thrust_state()` restores the act-start defaults.
+- `X` is live in `ACTIVE`/`CLIMAX`; `begin_afterglow()`, `act/exit.gd:restore_begin()` and the one
+  exit stop it, and `_reset_thrust_state()` restores the act-start defaults.
 - A body swap stops the running stroke but preserves the four live values and the on/off state.
-  `_reset_swap_input_state()` calls `stop_auto()`, the resume re-reads settings without replacing
-  the chosen `Z` shape, and the adopted body restarts auto at the current depth. A later fresh act
+  `act/swap.gd:remember_auto()` records the flag and calls `stop_auto()`, the resume re-reads
+  settings without replacing the chosen `Z` shape, and the adopted body restarts auto at the
+  current depth. A later fresh act
   still begins from the settings defaults.
 - The auto readout is `Auto · 20–80% · 1.50/s · Normal` (see `docs/hud.md`).
 

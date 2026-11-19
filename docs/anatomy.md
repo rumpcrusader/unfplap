@@ -178,8 +178,8 @@ The controller's `consent` callback is bound to its pony and takes the key only
 
 The keys reach the runtime through the `hole` and `oral` commands
 (`shared/act_commands.gd`); the active pose's control profile and live edge lock must allow the id
-first. `N` is a thin delegate: the runtime passes the per-mare oral consent to `request_pose`, which
-starts the authored `standing ↔ standing_oral` edge or refuses it. The anatomy act only reads the
+first. `N` is a thin delegate: `act/input.gd` passes the per-mare oral consent to the pose
+service's `request_pose`, which starts the authored `standing ↔ standing_oral` edge or refuses it. The anatomy act only reads the
 resulting `view.contact_kind`/`view.contact_target`.
 
 ## Attachment and identity
@@ -423,7 +423,8 @@ binds it on every access and keeps the orchestration. It owns:
 The host is the typed `anatomy/act_host.gd`: named methods over callables the runtime binds once.
 The runtime supplies `pony()`, `runtime()`, `reactions()`, `anatomy_service()`,
 `eligibility_service()`, the live state (`state()`, `pose_view()`, `depth()`, `penetration_m()`,
-`penetration_reach()`, `climaxes()`, `size_scale()`, `auto_pace()`, `fluid_ground_y()`,
+`penetration_reach()`, `climaxes()`, `size_scale()`, `auto_pace()`, `fluid_ground_y()` — the
+fluid ground and the readiness shaft length are `act/phases.gd`'s reads),
 `cycle_phase()`, `bed_frame()`), the callbacks (`log()`, `perf_note()`, `perf_enabled()`,
 `body_coat_smack()`, `status()`, `command()`, `missionary_camera()`, `kiss_controller()`,
 `pose()`, `thrust_move()`, `now_s()`, `set_penetration_m()`, `align()`, `touch()`) and

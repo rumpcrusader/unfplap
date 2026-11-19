@@ -1,7 +1,7 @@
 extends RefCounted
 ## The act's body-change handover: the swap record, the watcher decision and the form request.
-## The runtime keeps the ordered release, the adoption binding and the one resume; this handle only
-## decides when they run and owns the record they read.
+## `act/swap.gd` holds the ordered release/resume seams and the one resume caller, the runtime keeps
+## the reparent and the adoption binding; this handle decides when they run and owns the record.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")

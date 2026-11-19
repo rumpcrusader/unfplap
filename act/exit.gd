@@ -1,8 +1,8 @@
 extends RefCounted
 ## The act's one exit ledger. It gives back everything the act borrowed in the order the pose and
 ## camera were built; every step checks the ownership flag it restores, so a failed start runs the
-## same body and restores only what it took. `runtime._end_session()` is its only delegate and
-## `run()` is the only scene-restoring teardown in the mod.
+## same body and restores only what it took. `run()` is the only scene-restoring teardown in the
+## mod; this ledger's own routes and the consent stop are its only callers.
 ##
 ## See `docs/runtime.md` and `docs/poses.md`.
 
@@ -35,7 +35,8 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -
 ## Give back everything the act borrowed, in the order the pose and camera were built. Every step
 ## checks its own ownership flag, so a start that failed early runs the same function and restores
 ## only what it took. Keep this the only teardown. The act's end lines are deliberately outside:
-## `cancel()` queues the early-stop reaction after the restore begins, and `_finish_restore()` must
+## `act/input.gd:cancel()` queues the early-stop reaction after the restore begins, and
+## `finish_restore()` must
 ## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
 func run(rejoin_cuddle: bool) -> void:
 	context.readiness.stop_auto()

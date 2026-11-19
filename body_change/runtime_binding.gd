@@ -25,7 +25,7 @@ func refresh_body(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 
 
 ## A body leaving the tree takes its runtime with it; the runtime's own `_exit_tree()` restores
-## what it holds. This binding must never run `_end_session()`.
+## what it holds. This binding must never run the act exit.
 func unbind_body(_body: Node3D) -> void:
 	pass
 

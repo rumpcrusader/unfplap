@@ -7,8 +7,9 @@ close window with its caress reward, the presentation row the phase asks for, an
 memory, history, face, heart and cue writes. It does not own the `AFTERGLOW` state or the phase's
 other presentation.
 
-`act/session.gd` guards and dispatches the transition: `begin_afterglow()` orders the phase's calls
-and `_afterglow_tick()` calls `close_tick()`. The facade applies its own presentation row through
+`act/session.gd` guards and dispatches the transition: `begin_afterglow()` orders the phase's calls,
+and the frame schedule (`act/tick.gd`) calls the facade's `phase_tick()` while the act is
+`AFTERGLOW`. The facade applies its own presentation row through
 `apply_presentation(pose)`; the session starts the wing return when the row asks for it. The
 facade's reward writes through its bound `face`, `reactions` and `readiness` and the act ids
 `set_act()` records.
@@ -44,6 +45,7 @@ them.
 | `bind_view(view)` | carry the pose view whose `afterglow.close_window` decides that window |
 | `presentation()` | the afterglow presentation row: tail target and flicks from the active `view.family`, HUD state and the wings flag; the act's current pose holds |
 | `reset()` | clear every per-act value; the callbacks stay |
+| `phase_tick(delta, anatomy, anatomy_host, standing)` | one AFTERGLOW frame: the bed-body part's tracking, then `close_tick()` when the live pose family is standing |
 | `close_tick(delta)` | count caress time and run the window down |
 | `cancel_close()` | drop the window without a reward |
 | `apply_presentation(pose)` | apply the row: the held pose weight, the tail target and flicks and the HUD state; returns whether the row asks for the wing return |
@@ -51,8 +53,8 @@ them.
 
 ## Ending
 
-Only the player ends the afterglow: holding the act key calls `runtime.end_afterglow()`, and a cancel on
-the afterglow takes the same path. The pony never ends the phase herself and there is no end
+Only the player ends the afterglow: holding the act key calls `act/input.gd:end_afterglow()`, and a
+cancel on the afterglow takes the same path through `act/exit.gd:end_afterglow()`. The pony never ends the phase herself and there is no end
 timer, so the held moment lasts until the player leaves it. Leaving early cancels the standing
 close window without its reward.
 

@@ -203,12 +203,12 @@ total, largest first, so the first row is the chunk to fix.
 | `offer_gate` | the standing gate, `offer._standing_ready()` | `offer_scan` |
 | `offer_rows` | `scene_only_verdict()`, every scene row | `offer_gate` |
 | `offer_policy` | `eligible()` and `relationship_ok()` after the rows pass | `offer_gate` |
-| `runtime_physics` | one pony's idle `_physics_process` | root |
-| `runtime_anatomy_sync` | the one `_sync_anatomy_facts()` call after the physics tick | `runtime_physics` |
+| `runtime_physics` | one pony's `act/tick.gd:tick()`, the whole physics frame | root |
+| `runtime_anatomy_sync` | the anatomy `sync_facts()` write after the physics tick | `runtime_physics` |
 | `runtime_facts` | `act/view.gd:refresh()` through `runtime.refresh_view()` | `runtime_physics` |
 | `runtime_presentation` | `act/idle.gd:tick()` (`context.presentation.physics(delta)`) | `runtime_physics` |
 | `runtime_history` | `act/idle.gd:history_tick(delta)` | `runtime_physics` |
-| `runtime_process` | one pony's idle `_process_tick` | root |
+| `runtime_process` | one pony's `act/tick.gd:render()`, the whole render frame | root |
 | `anatomy_process` | the whole persistent `anatomy/controller.gd::_process`, reported outside an act | root |
 | `anatomy_coat_line`, `anatomy_visibility` | reported through `facts.perf` | `anatomy_process` |
 | `teat_jiggle`, `climax_fluid` | reported through `facts.perf` | root |

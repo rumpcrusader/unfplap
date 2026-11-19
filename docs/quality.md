@@ -64,9 +64,10 @@ the gate:
   and are compared in both directions, so a new settings read or node fails the gate and a row
   whose code is gone fails as stale.
 
-The rest — one body-change fan-out, one body-swap resume, one `_end_session()`, the runtime's tick
-and fan-out order, the scene-only world facade and the suite allow-lists — is the checker's own
-source of truth; read `scripts/architecture.py` before changing the tree it guards.
+The rest — one body-change fan-out, one `act/swap.gd:resume()`, one `act/exit.gd:run()`, the
+schedule's tick and fan-out order in `act/tick.gd`, the scene-only world facade and the suite
+allow-lists — is the checker's own source of truth; read `scripts/architecture.py` before changing
+the tree it guards.
 
 ## Shell scripts
 

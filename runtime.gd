@@ -1,8 +1,8 @@
 extends Node
-## One per pony. The per-pony host and act orchestrator: lifetime, the act's own `act/` modules
-## (state and clock, host, context, view, idle), the one composition and bind pass, the ordered
-## idle/physics/render schedules, the start/teardown ledgers and the one act view call. It owns no
-## system's rules or mutable state and never edits game files.
+## One per pony. The per-pony host and composition root: lifetime, the one bind pass, the two frame
+## forwards and the act's session, start, exit and view handles. The `act/` modules own the state,
+## the schedule, the presentation, the input protocol, the swap seams, the ledgers and the view; the
+## node owns no system's rules or mutable state and never edits game files.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -198,7 +198,7 @@ var _perf_probe: PERF = null
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
 ## the HUD card reads the cached flag.
 ## A body swap keeps the act alive but stops its ticks. The handover owns the typed change, the
-## adopted body and the current pose id until the one resume; `_end_session()` is still the only
+## adopted body and the current pose id until the one resume; `act/exit.gd:run()` is still the only
 ## exit.
 var _handover: BODY_CHANGE_ACT = null
 ## The handover's pause overlay, read-only here: the handover is its one writer.

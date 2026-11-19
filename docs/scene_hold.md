@@ -16,16 +16,16 @@ which ownership is taken, which is held, and in which order it is released.
 
 ## Ownership and boundary
 
-`scene_hold/service.gd` is the facade. It owns the ownership flags and the per-flag release. The runtime
-owns the act state machine, the one `_end_session` ledger and the call order; the service is
-called from the ledger and the tick, and it never touches the runtime's state.
+`scene_hold/service.gd` is the facade. It owns the ownership flags and the per-flag release. The
+act exit ledger (`act/exit.gd`), the start ledger, the frame schedule (`act/tick.gd`) and the
+body-swap seams (`act/swap.gd`) call it; the service never touches the act's state.
 
-The runtime keeps thin wrappers with their old names (`_claim_nav`, `_keep_nav`, `_release_nav`,
-`_lock_player`, `_unlock_player`, `_pause_face_turn`, `_restore_face_turn`,
-`_keep_act_attention`, `_release_carry`, `_end_cuddle_session`) and property views over the
-service flags for the teardown reports and the suites. The service owns the state, not the
-runtime's. It is created in `runtime._init()` and works while the runtime is `IDLE`, because the
-negotiation runs before the act.
+The act modules read `context.hold` directly for the ordered steps (`keep_nav`, `keep_attention`,
+`pause_face_turn`, `release_nav`, `restore_face_turn`, `release_carry`), and the start ledger
+claims the lease. The runtime keeps `hold_handle()` for the Negotiation bridge and property views
+over the service flags for the teardown reports and the suites. The service owns the state, not
+the runtime's. It is created in `runtime._init()` and works while the runtime is `IDLE`, because
+the negotiation runs before the act.
 
 ## Public API
 
@@ -97,8 +97,8 @@ No settings. The service is a control path, not a tuning surface.
 
 ## Controls and debug
 
-No controls. The debug log reports the ownership state on the `debug_line` call and the
-`_end_session` teardown. A failed start leaves the same ownership as a failed release today.
+No controls. The debug log reports the ownership state on the `debug_line` call and the act exit
+teardown. A failed start leaves the same ownership as a failed release today.
 
 ## Dependencies
 

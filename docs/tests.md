@@ -150,9 +150,9 @@ feature flags into the same reconcile. The hook suites are
 `tests/act_camera/test_camera.gd`, `tests/act_camera/test_kiss.gd`, `tests/hands/test_caress.gd`,
 `tests/hands/test_actions.gd`, `tests/anatomy/test_act_bridge.gd` and
 `tests/act_audio/test_audio.gd`. The pose ledger's order and its three callers, the
-`_pose_fanout()` owner order (pose service first, then camera, hands, kiss, anatomy and audio), the
-pose-before-facts order in `_physics_tick` and the ban on act-exit names under `poses/` are static
-rules in `scripts/architecture.py --check`. The contract is `docs/poses.md`; this doc only names
+`_fanout()` owner order in `act/tick.gd` (pose service first, then camera, hands, kiss, anatomy
+and audio), the pose-before-facts order in its `_tick()` and the ban on act-exit names under
+`poses/` are static rules in `scripts/architecture.py --check`. The contract is `docs/poses.md`; this doc only names
 the gate.
 
 The body-swap handover is `tests/handover/test_body_swap.gd`: suspend → adopt → resume with the
@@ -189,11 +189,11 @@ The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
 pins. `tests/test_act_commands.gd` pins the pure command vocabulary: unique lower_snake_case ids,
 the continuous/discrete partition of `ALL`, the helpers and the reserved `end`.
 `tests/poses/test_session.gd` reads those ids against the real `CONTROL_SETS` profiles, and
-`tests/test_input.gd` pins the `V`/`N`/`B` dispatch through `runtime.command()` (ready, refused and
-non-ready) plus the unchanged shield. The hook suites `tests/act_camera/test_camera.gd` and
+`tests/test_input.gd` pins the `V`/`N`/`B` dispatch through `act/input.gd:command()` (ready,
+refused and non-ready) plus the unchanged shield. The hook suites `tests/act_camera/test_camera.gd` and
 `tests/act_camera/test_kiss.gd` pin the view-only config; the pose-view contact and facing reads
 are review rules (`docs/act_facts.md`), and the `pose_tick`/`pose_fanout` order around the facts
-sync in `_physics_tick` is a static rule in `scripts/architecture.py --check`.
+sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
 
 ## What not to assert
 

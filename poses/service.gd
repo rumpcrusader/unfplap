@@ -1519,8 +1519,8 @@ func apply_render(skeleton: Skeleton3D) -> void:
 
 ## The whole render-time step for one frame, in order: park the game presentation and place the
 ## act's own Anon body over it, write her pose, replay the sway that pose write would erase, then
-## let the eye-shot camera read his posed head. The runtime owns the call site in `_process_tick`;
-## this facade owns the sequence.
+## let the eye-shot camera read his posed head. `act/tick.gd:render` owns the call site; this
+## facade owns the sequence.
 ## Context: `bed_frame`, `body_scale`, `eye_camera_active`. The view family is the active pose's.
 func render_write(context: Dictionary) -> void:
 	if not is_instance_valid(pony):

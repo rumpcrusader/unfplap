@@ -415,8 +415,8 @@ reserved and always allowed, and otherwise the id must be in the active view's `
 profile. A missing set allows only `end`. A lock channel's `block` list denies its commands and a
 non-empty `allow` list denies anything outside it; the lock is checked only inside the profile and
 cannot deny `end`. `pose_back`/`pose_forward` are reserved for pose navigation and no key emits them
-yet. `runtime.command("oral")` requests `standing_oral` from `standing` and the reverse edge from
-`standing_oral` through `request_pose`; it passes `consent: "oral"` only when the anatomy service's
+yet. The input protocol's `command("oral")` (`act/input.gd`) requests `standing_oral` from
+`standing` and the reverse edge from `standing_oral` through `request_pose`; it passes `consent: "oral"` only when the anatomy service's
 per-mare consent is true, and its refusal reason reaches the anatomy status label.
 
 `apply_live_settings()` refreshes the target snapshot in place on a live settings edit: the same
@@ -427,8 +427,8 @@ The debug pair holds `base`, `anon`, `contact`, `camera` and `audio`, and switch
 `presentation` at the start, so a request never rebuilds the pose, releases the pose or restores
 bones and the body does not move. The Debug **Pose: test variant** action is the proof; the pair is
 the evaluator's single path. A transition never calls
-`free_pose()`, `release_pose()`, `_end_session()` or any act exit; `act/exit.gd:run()` aborts a
-live edge through the one pose teardown.
+`free_pose()`, `release_pose()` or any act exit; `act/exit.gd:run()` aborts a live edge through
+the one pose teardown.
 
 ### The standing oral turn
 
@@ -557,7 +557,7 @@ and the audio. The pose service reconciles its modifier profile and applies the 
 channel; each following owner implements `pose_changed(view)` and caches the last id/profile/
 family/contact, so an unchanged view is a cheap no-op. The face, dialogue and HUD read the view
 through the facts and have no hook. The fan-out is a retarget seam, not a second teardown: it never
-calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `_end_session()`, `free_pose()`
+calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `free_pose()`
 or any act-scope restore. The eye-camera tick stays on the render write, after the pose write.
 
 `refresh_modifiers(feature_flags)` is the live settings edit's entry into the session's reconcile:
@@ -922,7 +922,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 ## Timing domains
 
-- `runtime._process_tick`: the render-time pose write, the climax progress, the shot tick and the
+- `act/tick.gd:render`: the render-time pose write, the climax progress, the shot tick and the
   breath. `act/view.gd:pose_render()` supplies the body scale, the size name and the eye-camera
   mode to `poses/service.gd:write_render_frame()`. `render_write()` owns the render-time order:
   `sync_frame(family)` picks the bed or ground frame; for the bed family it parks the game
@@ -932,8 +932,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
   `camera/service.gd`'s
   `write_look_target()`, which owns the look point (the missionary gaze, the kissing-mouth blend and
   the authored-Anon fallback) and the pose's kiss and climax weights.
-- `runtime._physics_process`: presentation, timers, facing lock, glances,
-  auto-cuddle suppression.
+- `act/tick.gd:_tick`: presentation, timers, facing lock, glances, auto-cuddle suppression.
 - the entry's `_process`: calls `active_runtime.apply_camera_motion()` every rendered frame.
   Keep this single owner.
 - Do not merge these timing domains blindly.
@@ -1004,8 +1003,7 @@ leaves the teardown to `free_pose()`.
 The exit ledger calls the two leave steps and the final release at their table positions, with
 the act-scope resets between them. `release_pose()` is called only from `free_pose()`.
 `act/exit.gd:run()` (the one act exit), `act/start.gd:_build_pose()` (the new-act prep) and
-`runtime._handover_release_pose()` (the act-preserving body handover) are the only `free_pose()`
-callers. A second `release_pose()` is a no-op.
+`act/swap.gd:release_pose()` (the act-preserving body handover) are the only `free_pose()` callers. A second `release_pose()` is a no-op.
 
 `context.camera.release_act_shot()`/`finish_act_shot()` also end the lean action, reset the hands,
 release the free-camera lock and remove the standing player-body Anon wrapper. That is the act's

@@ -263,8 +263,8 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
 
 `presentation.missionary.free_look` (debug) turns the act view where it stands — his head in
 **Anon eyes**, the authored shot otherwise — instead of holding the authored orientation: mouse look
-works, and `input/service.gd` sends the motion to `runtime.look_motion()` instead of
-`thrust_motion()`. The pose and act keep running.
+works, and `input/service.gd` sends the motion to `runtime.act.input.look_motion()` instead of
+`thrust_motion()` through the act input protocol (`act/input.gd`). The pose and act keep running.
 Standing has no separate view, so the standing camera controller simply leaves the player camera
 alone. The setting is live through `apply_live_settings`; the settings page pauses the world, so it
 takes effect when the panel closes.

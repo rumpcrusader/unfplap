@@ -206,7 +206,9 @@ static func _bind_act_frame(node: Node, b: Bundle) -> void:
 	b.input.exit = b.exit
 	b.consent.exit = b.exit
 	b.act.input = b.input
+	b.act.exit = b.exit
 	b.swap.bind(b.host, b.context, b.act)
+	b.act.swap = b.swap
 	b.swap.exit = b.exit
 	b.phases.bind(b.host, b.context, b.act)
 	b.tick.bind(b.host, b.context, b.act, b.idle)

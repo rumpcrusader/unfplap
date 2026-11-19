@@ -70,7 +70,7 @@ func _runtime(pose: String) -> Node:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime._act.pose_id = pose
-	runtime._set_state(4) # AFTERGLOW
+	runtime.act._set_state(4) # AFTERGLOW
 	runtime._act.preferences = PREF.resolve({})
 	runtime._act.snapshot_settings()
 	return runtime
@@ -90,7 +90,7 @@ func run() -> void:
 	note_caress._caress_active = {"L": false, "R": false}
 	note_runtime._act_camera.lean_forward = 0.8
 	check(note_runtime.prompt_note().contains("leaning in close"), "lean note")
-	note_runtime._set_state(2) # ACTIVE
+	note_runtime.act._set_state(2) # ACTIVE
 	note_runtime._act_camera.lean_forward = 0.0
 	check(note_runtime.prompt_note().contains("having sex"), "active prompt note")
 	note_runtime.free()

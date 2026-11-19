@@ -261,7 +261,7 @@ func _fixture() -> Dictionary:
 	runtime._act.pony_id = "rarity"
 	runtime._act.display_name = "Rarity"
 	runtime._act.event_id = "unfplap:test"
-	runtime._set_state(STATE_ACTIVE)
+	runtime.act._set_state(STATE_ACTIVE)
 	runtime._act.pose_id = CATALOG.STANDING
 	runtime._act.preferences = PREF.resolve({
 		"intensity": "firm",

@@ -646,7 +646,8 @@ func ensure_act_inventory_visible(act_owner: Node) -> void:
 	if not _inventory_hidden:
 		return
 	if is_instance_valid(act_owner):
-		var owner_state: Variant = act_owner.get("state")
+		var session: Variant = act_owner.get("act")
+		var owner_state: Variant = session.state if session != null else null
 		if owner_state != null and int(owner_state) != STATE_IDLE:
 			return
 	set_inventory_hidden(false)

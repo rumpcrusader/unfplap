@@ -1048,12 +1048,14 @@ def check_sources(failure: Failure) -> None:
         failure.add("the one teardown has an unexpected caller: %s:%s" % caller)
     for caller in sorted(expected_callers - teardown_callers):
         failure.add("the one teardown is missing its caller: %s:%s" % caller)
-    # The runtime node keeps one-line delegates for the entry, `ponies` and the suites.
-    stop_body = function_body(runtime, "force_stop")
+    # The act session keeps the one-line stop delegate for the entry, `ponies` and the suites.
+    session_path = ROOT / "act" / "session.gd"
+    session_text = session_path.read_text(encoding="utf-8") if session_path.is_file() else ""
+    stop_body = function_body(session_text, "force_stop")
     stop_lines = [line.strip() for line in stop_body.splitlines()[1:]
                   if line.strip() and not line.strip().startswith("#")]
-    if stop_lines != ["_exit.force_stop()"]:
-        failure.add("runtime.force_stop() must be the one-line _exit.force_stop() delegate")
+    if stop_lines != ["exit.force_stop()"]:
+        failure.add("act/session.gd:force_stop() must be the one-line exit.force_stop() delegate")
 
     # The start ledger's recipe keeps its order; the checker reads the tokens, not the prose.
     start_path = ROOT / "act" / "start.gd"
@@ -1219,8 +1221,8 @@ def check_sources(failure: Failure) -> None:
             failure.add(
                 "main.gd:%d builds a body binding; body_change.wire() owns the chain" % number)
     for name in ("bind_body_services", "refresh_body_services"):
-        if len(re.findall(r"^func %s\(" % name, runtime, re.MULTILINE)) != 1:
-            failure.add("runtime.gd must define exactly one %s()" % name)
+        if len(re.findall(r"^func %s\(" % name, session_text, re.MULTILINE)) != 1:
+            failure.add("act/session.gd must define exactly one %s()" % name)
 
     # The base mechanism never names the installed provider's characters or its mesh marker.
     for path in shipped_sources():

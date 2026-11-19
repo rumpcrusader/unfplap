@@ -72,9 +72,9 @@ func check(ok: bool, text: String) -> void:
 
 
 func _hud_view(runtime: Node) -> RefCounted:
-	runtime.call("refresh_view")
+	runtime.act.refresh_view()
 	runtime._act.sync_hud()
-	return runtime.call("act_view")
+	return runtime.act.facts()
 
 
 func run() -> void:
@@ -82,7 +82,7 @@ func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime._act.preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
-	runtime._set_state(4) # AFTERGLOW
+	runtime.act._set_state(4) # AFTERGLOW
 	runtime._act.pose_id = CATALOG.MISSIONARY
 	runtime._act.snapshot_settings()
 	runtime.pony_climaxes = 2
@@ -110,7 +110,7 @@ func run() -> void:
 		"standing afterglow readiness line shows the summary")
 	check(HUD_LINES.readiness_line_for(_hud_view(runtime), false).contains("Great"),
 		"the afterglow summary ignores the readouts toggle")
-	runtime._set_state(2) # ACTIVE
+	runtime.act._set_state(2) # ACTIVE
 	check(not HUD_LINES.readiness_line_for(_hud_view(runtime), true).is_empty(),
 		"active readiness line still works")
 	runtime.free()

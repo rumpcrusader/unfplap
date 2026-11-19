@@ -56,9 +56,11 @@ class FakeRuntime extends Node:
 	var cleared := 0
 	var started := 0
 	var gate: Variant = null
+	var act: Variant = null
 
 	func _init() -> void:
 		gate = self
+		act = self
 
 	func scene_only_verdict(_pose: String, _source: String, _bed: Variant,
 			_frozen: Variant) -> Dictionary:
@@ -77,6 +79,12 @@ class FakeRuntime extends Node:
 	func start_agreement(_handle: Variant) -> int:
 		started += 1
 		return 1
+
+	func force_stop() -> void:
+		pass
+
+	func apply_live_settings() -> void:
+		pass
 
 
 class FakeAdapter extends Node:

@@ -53,6 +53,12 @@ func _gate(runtime: Node) -> Variant:
 	return runtime.get("gate")
 
 
+## The act state through the runtime's session handle; an invalid runtime is IDLE.
+func _state_of(runtime: Node) -> int:
+	var session: Variant = runtime.get("act") if is_instance_valid(runtime) else null
+	return int(session.state) if session != null else 0
+
+
 ## One mare's offer candidate and, once `_begin_route` starts it, the live attempt: the placeable
 ## choices, the chosen option and the walk/ask route state. The scan builds candidates for several
 ## mares, so route-time privacy reads and lease fields stay in `_begin_route`, not in the scan.
@@ -354,8 +360,8 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	if not is_instance_valid(pony):
 		reasons.append("no_pony")
 		return null
-	if int(runtime.get("state")) != 0:
-		reasons.append("state=%d" % int(runtime.get("state")))
+	if _state_of(runtime) != 0:
+		reasons.append("state=%d" % _state_of(runtime))
 		return null
 	var id: String = _venue.pony_id(pony)
 	if id.is_empty():
@@ -464,7 +470,7 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 	var runtime: Node = candidate.runtime
 	if not is_instance_valid(candidate.pony) or not is_instance_valid(runtime):
 		return
-	if int(runtime.get("state")) != 0:
+	if _state_of(runtime) != 0:
 		return
 	if is_instance_valid(_negotiation) and _negotiation.is_locked():
 		return
@@ -775,7 +781,7 @@ func _offer_line(option: POSE_OPTIONS.Option) -> String:
 
 ## The ask line is still worth speaking while the runtime is idle and its pony is in the tree.
 func _line_valid(runtime: Node) -> bool:
-	if not is_instance_valid(runtime) or int(runtime.get("state")) != 0:
+	if not is_instance_valid(runtime) or _state_of(runtime) != 0:
 		return false
 	var pony: Variant = runtime.get("pony")
 	return is_instance_valid(pony) and (pony as Node).is_inside_tree()

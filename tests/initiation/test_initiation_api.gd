@@ -137,9 +137,11 @@ class FakeRuntime extends Node:
 	var phase := "normal"
 	var scene_reasons: Array = []
 	var gate: Variant = null
+	var act: Variant = null
 
 	func _init() -> void:
 		gate = self
+		act = self
 
 	func scene_only_verdict(_pose: String, _source: String, _bed: Variant,
 			_frozen: Variant) -> Dictionary:
@@ -147,6 +149,12 @@ class FakeRuntime extends Node:
 
 	func cuddle_active() -> bool:
 		return cuddle
+
+	func force_stop() -> void:
+		pass
+
+	func apply_live_settings() -> void:
+		pass
 
 	func find_bed_under() -> Node3D:
 		return bed_under

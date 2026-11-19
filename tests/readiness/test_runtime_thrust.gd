@@ -27,9 +27,9 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 
 
 func _view(runtime: Node) -> RefCounted:
-	runtime.call("refresh_view")
+	runtime.act.refresh_view()
 	runtime._act.sync_hud()
-	return runtime.call("act_view")
+	return runtime.act.facts()
 
 
 func _runtime() -> Node:
@@ -44,7 +44,7 @@ func _runtime() -> Node:
 		"warmth": "normal",
 	})
 	runtime._act.snapshot_settings()
-	runtime._set_state(2) # ACTIVE
+	runtime.act._set_state(2) # ACTIVE
 	runtime._readiness.last_touch_at = -1000.0
 	runtime._readiness.last_talk_at = -1000.0
 	runtime._act.reset_thrust_state()
@@ -127,7 +127,7 @@ func run() -> void:
 	runtime._readiness.add_heat(999.0)
 	check(near(runtime.satisfaction, 100.0), "readiness clamps at 100")
 	runtime._readiness.tick(0.1)
-	check(int(runtime.state) == 3, "100 readiness starts a pony climax")
+	check(int(runtime.act.state) == 3, "100 readiness starts a pony climax")
 	check(runtime.pony_climaxes == 1, "pony climax count increments")
 	var climax_readiness: float = runtime.satisfaction
 	var stroke := THRUST_STATE.StrokeEvent.new()
@@ -141,10 +141,10 @@ func run() -> void:
 	stroke.strength = 0.5
 	runtime._readiness.stroke(stroke)
 	check(near(runtime.satisfaction, climax_readiness), "thrusting during climax does not score")
-	check(int(runtime.state) == 3, "thrusting during climax does not end it")
+	check(int(runtime.act.state) == 3, "thrusting during climax does not end it")
 
 	runtime._act.finish_climax()
-	check(int(runtime.state) == 2, "first climax returns to ACTIVE")
+	check(int(runtime.act.state) == 2, "first climax returns to ACTIVE")
 	check(near(runtime.satisfaction, 0.0), "a climax resets readiness to zero")
 	check(runtime.pony_climaxes == 1, "climax count survives the return to ACTIVE")
 
@@ -152,26 +152,26 @@ func run() -> void:
 	runtime.satisfaction = 100.0
 	runtime._act.climax()
 	runtime._act.finish_climax()
-	check(int(runtime.state) == 4, "third climax auto-enters AFTERGLOW")
+	check(int(runtime.act.state) == 4, "third climax auto-enters AFTERGLOW")
 
 	runtime._act.max_pony_climaxes = 0
-	runtime._set_state(2)
+	runtime.act._set_state(2)
 	runtime.pony_climaxes = 5
 	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 5/∞"),
 		"unlimited climax limit uses the infinity display")
 	runtime._act.finish_climax()
-	check(int(runtime.state) == 2, "zero climax limit keeps the act going")
+	check(int(runtime.act.state) == 2, "zero climax limit keeps the act going")
 	runtime._act.max_pony_climaxes = 2
-	runtime._set_state(2)
+	runtime.act._set_state(2)
 	runtime.pony_climaxes = 2
 	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 2/2"),
 		"configured climax limit shows the denominator")
 	runtime._act.finish_climax()
-	check(int(runtime.state) == 4, "configured climax limit enters AFTERGLOW")
+	check(int(runtime.act.state) == 4, "configured climax limit enters AFTERGLOW")
 	runtime._act.max_pony_climaxes = 3
 
 	# Auto thrust feeds the same tracker and scores through it.
-	runtime._set_state(2)
+	runtime.act._set_state(2)
 	runtime._readiness.configure_auto(1.5, 0.9, "cosine", 0.0)
 	runtime._act.reset_thrust_state()
 	var auto_thrusts := int(runtime._readiness.act_intensity_total)

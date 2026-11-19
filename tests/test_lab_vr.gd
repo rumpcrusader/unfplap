@@ -235,8 +235,9 @@ func _stand_behind_target() -> Node3D:
 	# with room to spare instead of the 0.9 m that a body origin would need.
 	var anchor: Vector3 = (pony as Node3D).global_position
 	var runtime: Node = (pony as Node).get_node_or_null("UnfplapRuntime")
-	if runtime != null and runtime.has_method("rump_anchor"):
-		var reported: Variant = runtime.call("rump_anchor")
+	var gate: Variant = runtime.get("gate") if runtime != null else null
+	if gate != null and gate.has_method("rump_anchor"):
+		var reported: Variant = gate.rump_anchor()
 		if reported is Vector3 and (reported as Vector3).is_finite():
 			anchor = reported
 	var spot: Vector3 = anchor + back.normalized() * 0.8

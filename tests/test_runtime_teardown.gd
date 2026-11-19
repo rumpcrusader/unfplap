@@ -235,7 +235,7 @@ func _fixture() -> Dictionary:
 	runtime._act.posture_owned = true
 	runtime._act.pose_id = CATALOG_STANDING
 	runtime._act.source = "test"
-	runtime._set_state(2)
+	runtime.act._set_state(2)
 	PONIES.set_active(runtime)
 	runtime.act.input.toggle_auto_thrust()
 	runtime._hold.nav = nav
@@ -290,7 +290,7 @@ func run() -> void:
 		"standing posture requested once")
 	check(not runtime._act.posture_owned, "posture ownership cleared")
 	check(not runtime.act.input.auto_active(), "teardown clears auto thrust")
-	check(int(runtime.state) == 0, "state returns to IDLE")
+	check(int(runtime.act.state) == 0, "state returns to IDLE")
 	check(runtime._act.pose_id == "" and runtime._act.source == "" and runtime._act.bed == null,
 		"act ids cleared")
 	check(not PONIES.act_running(), "the one exit clears the active runtime")
@@ -304,7 +304,7 @@ func run() -> void:
 	# Every hint scan reads Base clearance; a failing scene reads none.
 	var eligibility := FakeEligibility.new()
 	PONIES.eligibility = eligibility
-	runtime._set_state(0)
+	runtime.act._set_state(0)
 	check(bool(runtime.gate.hotkey_ready(CATALOG_STANDING, "")),
 		"the idle hint passes with the scene rows ready")
 	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
@@ -332,10 +332,10 @@ func run() -> void:
 	var f2 := _fixture()
 	var runtime2: Node = f2["runtime"]
 	var player2: FakePlayer = f2["player"]
-	runtime2._set_state(0)
+	runtime2.act._set_state(0)
 	runtime2._act_camera.look_captured = false
 	player2.rotation.y = 0.7
-	runtime2.force_stop()
+	runtime2.act.force_stop()
 	check(absf(player2.rotation.y - 0.7) < 0.0001,
 		"IDLE force_stop leaves the player yaw alone")
 
@@ -360,11 +360,11 @@ func run() -> void:
 	var main4: FakeMain = f4["main"]
 	var nav4: FakeNav = runtime4._hold.nav
 	runtime4.pony = null
-	runtime4._set_state(4)
+	runtime4.act._set_state(4)
 	runtime4._exit.finish_restore()
 	check(not runtime4._hold.locked_player, "invalid pony still unlocks the player")
 	check(nav4.command_owner == "", "invalid pony still releases the navigator")
-	check(int(runtime4.state) == 0, "invalid pony ends in IDLE")
+	check(int(runtime4.act.state) == 0, "invalid pony ends in IDLE")
 	check(not PONIES.act_running(), "invalid pony still clears the active runtime")
 
 	# Finalize is idempotent.
@@ -455,11 +455,11 @@ func run() -> void:
 	var f7 := _fixture()
 	var hud7: CanvasLayer = f7["hud"]
 	var acting7: Node = RUNTIME.new()
-	acting7._set_state(2) # ACTIVE
+	acting7.act._set_state(2) # ACTIVE
 	PONIES.set_active(acting7)
 	hud7.ensure_act_inventory_visible(PONIES.active())
 	check(hud7.inventory_hidden(), "idle sibling leaves the active act's inventory HUD hidden")
-	acting7._set_state(0) # IDLE
+	acting7.act._set_state(0) # IDLE
 	hud7.ensure_act_inventory_visible(PONIES.active())
 	check(not hud7.inventory_hidden(), "idle safety restores the HUD once no act is active")
 	hud7.set_inventory_hidden(true)
@@ -521,7 +521,7 @@ func run() -> void:
 	# pose node, the extra modifiers and the service-owned act body are freed, with no second exit
 	# path.
 	runtime8._act.pose_id = CATALOG_STANDING
-	runtime8._set_state(2)
+	runtime8.act._set_state(2)
 	runtime8._act.features = {"standing_body_sway": true}
 	runtime8._start._build_pose()
 	var act_body8 := Node.new()
@@ -545,7 +545,7 @@ func run() -> void:
 	# The oral command requests the authored edge with the per-mare consent, and the one act exit
 	# aborts it: the root and the facing come back once and the view is idle.
 	runtime8._act.pose_id = CATALOG_STANDING
-	runtime8._set_state(2)
+	runtime8.act._set_state(2)
 	runtime8._act.features = {"anatomy_oral": true}
 	var anatomy8 := FakeAnatomyService.new()
 	PONIES.anatomy = anatomy8
@@ -572,7 +572,7 @@ func run() -> void:
 
 	# A missing consent or feature refuses before the edge starts and leaves her where she is.
 	runtime8._act.pose_id = CATALOG_STANDING
-	runtime8._set_state(2)
+	runtime8.act._set_state(2)
 	runtime8._act.features = {"anatomy_oral": true}
 	runtime8._start._build_pose()
 	anatomy8.allow = false
@@ -634,7 +634,7 @@ func run() -> void:
 	runtime10._handover.elapsed = 1.0
 	runtime10._exit.run(false)
 	check(runtime10._handover.change == null and not runtime10._suspended
-		and int(runtime10.state) == RUNTIME.State.IDLE,
+		and int(runtime10.act.state) == RUNTIME.State.IDLE,
 		"the one exit clears a suspended typed body change")
 
 	# The body-change binding path refreshes the runtime without an act exit or a resume.
@@ -643,11 +643,11 @@ func run() -> void:
 	root.add_child(runtime11)
 	var pony11: FakePony = f11["pony"]
 	var main11: FakeMain = f11["main"]
-	runtime11._set_state(2)
+	runtime11.act._set_state(2)
 	runtime11._act.pose_id = CATALOG_STANDING
 	var form11 := BODY_FORM.default_form(pony11)
-	runtime11.bind_body_services(pony11, form11)
-	check(int(runtime11.state) == 2, "a body bind leaves a live act live")
+	runtime11.act.bind_body_services(pony11, form11)
+	check(int(runtime11.act.state) == 2, "a body bind leaves a live act live")
 	check(not runtime11._suspended, "a body bind never suspends the act")
 	check(runtime11._pose_session.pony == pony11, "the body bind binds the pose session")
 	check(runtime11._face.pony == pony11, "the body bind binds the face")
@@ -655,8 +655,8 @@ func run() -> void:
 	form11.form_id = "rarity"
 	form11.fit_id = "rarity"
 	form11.revision = 1
-	runtime11.refresh_body_services(pony11, form11)
-	check(int(runtime11.state) == 2, "a same-node refresh leaves a live act live")
+	runtime11.act.refresh_body_services(pony11, form11)
+	check(int(runtime11.act.state) == 2, "a same-node refresh leaves a live act live")
 	check(runtime11._act_camera.camera_target_eye > 0.0,
 		"a same-node refresh reapplies the eye target")
 	check(PONIES.active() == runtime11, "a same-node refresh never runs the act exit")

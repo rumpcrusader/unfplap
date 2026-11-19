@@ -95,7 +95,7 @@ func _check_perf_probe() -> void:
 	var probe: Node = RUNTIME.new()
 	probe.set("_id", "twilight_sparkle")
 	probe._act.pose_id = CATALOG.STANDING
-	probe.call("_set_state", 2)
+	probe.act._set_state(2)
 	probe.call("perf_note", "probe_chunk", 1200)
 	probe.call("perf_note", "probe_chunk", 800)
 	probe._perf_probe.tick(0.4)
@@ -520,9 +520,9 @@ func run() -> void:
 		"hip phase clamps depth to zero")
 
 	var live_runtime: Node = RUNTIME.new()
-	live_runtime._set_state(2) # ACTIVE
+	live_runtime.act._set_state(2) # ACTIVE
 	live_runtime._act.pose_id = CATALOG.STANDING
-	live_runtime.call("apply_live_settings")
+	live_runtime.act.apply_live_settings()
 	check(live_runtime._act.features.has("hud_readouts"), "live settings refresh feature flags")
 	check(live_runtime._act_camera.camera_surge >= 0.0 and live_runtime._act_camera.camera_surge <= 1.0,
 		"live settings refresh camera thrust")
@@ -782,7 +782,7 @@ func run() -> void:
 	plant_body.free()
 
 	var gate_runtime: Node = RUNTIME.new()
-	check(not bool(gate_runtime.start_verdict(CATALOG.MISSIONARY, "bed_side").get("show", false)),
+	check(not bool(gate_runtime.gate.start_verdict(CATALOG.MISSIONARY, "bed_side").get("show", false)),
 		"missing pony blocks start")
 	var gate: Variant = gate_runtime.call("_scene_gate")
 	check(not bool(gate.call("offer_verdict", CATALOG.STANDING, "", null).get("ok", false)),
@@ -809,11 +809,11 @@ func run() -> void:
 	var cuddle_pony := Node3D.new()
 	cuddle_pony.set_meta("couch_cuddle", true)
 	cuddle_runtime.pony = cuddle_pony
-	cuddle_runtime._set_state(0) # IDLE
-	cuddle_runtime._suppress_auto_cuddle()
+	cuddle_runtime.act._set_state(0) # IDLE
+	cuddle_runtime.gate.suppress_auto_cuddle()
 	check(cuddle_pony.has_meta("couch_cuddle"), "idle runtime leaves native bed cuddles alone")
-	cuddle_runtime._set_state(2) # ACTIVE
-	cuddle_runtime._suppress_auto_cuddle()
+	cuddle_runtime.act._set_state(2) # ACTIVE
+	cuddle_runtime.gate.suppress_auto_cuddle()
 	check(not cuddle_pony.has_meta("couch_cuddle"), "active runtime suppresses auto cuddle")
 	cuddle_pony.free()
 	cuddle_runtime.free()

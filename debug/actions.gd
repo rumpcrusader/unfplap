@@ -280,13 +280,15 @@ func action_form_idle() -> String:
 func _form_change_request(true_form: bool, shape_id: String) -> String:
 	var label := "her true form" if true_form else SETTINGS.character_name(shape_id)
 	var act: Node = _act()
-	if is_instance_valid(act) and act.has_method("request_form_change"):
-		var result: Variant = act.call("request_form_change", true_form, shape_id)
-		if result is Dictionary:
-			var answer: Dictionary = result
-			LOG.debug("form change %s: %s" % [label, str(answer.get("reason", ""))])
-			return str(answer.get("message", answer.get("reason", "")))
-		return "Form change refused."
+	if is_instance_valid(act):
+		var session: Variant = act.get("act")
+		if session != null and session.has_method("request_form_change"):
+			var result: Variant = session.request_form_change(true_form, shape_id)
+			if result is Dictionary:
+				var answer: Dictionary = result
+				LOG.debug("form change %s: %s" % [label, str(answer.get("reason", ""))])
+				return str(answer.get("message", answer.get("reason", "")))
+			return "Form change refused."
 	var body := _form_body()
 	if body == null or not is_instance_valid(body_change):
 		return "No shape-changing mare."
@@ -523,8 +525,11 @@ func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
 
 
 func _debug_act_rows(runtime: Variant) -> Array[String]:
+	var session: Variant = runtime.get("act") if is_instance_valid(runtime) else null
+	var state := int(session.state) if session != null else 0
+	var pose_id := str(session.pose_id) if session != null else ""
 	var rows: Array[String] = [
-		"state=%d pose=%s" % [int(runtime.get("state")), str(runtime.get("pose_id"))],
+		"state=%d pose=%s" % [state, pose_id],
 		"climaxes=%d satisfaction=%.2f" % [
 			int(runtime.get("pony_climaxes")), float(runtime.get("satisfaction"))],
 	]

@@ -142,44 +142,44 @@ func run() -> void:
 	check(main.stool.enabled() == SETTINGS.standing_stool.get_bool(),
 		"the facade reads the feature switch")
 	check(stool.applies(), "the gate applies with anatomy and a human player")
-	check(is_equal_approx(runtime.stool_gap_m(), 0.40), "the live gap is 40 cm")
-	check(runtime.stool_needed_count() == 2, "40 cm needs two 20 cm steps")
-	check(runtime.stool_case_count() == 0, "no case footstool")
+	check(is_equal_approx(runtime.gate.stool_gap_m(), 0.40), "the live gap is 40 cm")
+	check(runtime.gate.stool_needed_count() == 2, "40 cm needs two 20 cm steps")
+	check(runtime.gate.stool_case_count() == 0, "no case footstool")
 	controller.set("opening_y", 1.09)
-	check(is_equal_approx(runtime.stool_gap_m(), 0.19), "the live gap follows her opening")
-	check(runtime.stool_needed_count() == 0, "19 cm does not need a stool")
+	check(is_equal_approx(runtime.gate.stool_gap_m(), 0.19), "the live gap follows her opening")
+	check(runtime.gate.stool_needed_count() == 0, "19 cm does not need a stool")
 	controller.set("opening_y", 1.25)
-	check(runtime.stool_needed_count() == 1, "35 cm needs one 20 cm step")
+	check(runtime.gate.stool_needed_count() == 1, "35 cm needs one 20 cm step")
 	store.slots[0] = {"id": STOOL.ID, "count": 1}
-	check(runtime.stool_case_count() == 1, "one case footstool is counted")
+	check(runtime.gate.stool_case_count() == 1, "one case footstool is counted")
 	store.slots[1] = {"id": STOOL.ID, "count": 1}
-	check(runtime.stool_case_count() == 2, "two case footstools are counted")
+	check(runtime.gate.stool_case_count() == 2, "two case footstools are counted")
 
 	# Each hint scan reads the reach and Base clearance; a failed scene reads no Base clearance.
 	var eligibility: FakeEligibility = fake_eligibility
 	var anatomy_service: FakeService = main.anatomy
 	var prepare_before: int = anatomy_service.prepare_calls
-	check(runtime.hotkey_ready("standing", ""), "the standing hint is ready")
+	check(runtime.gate.hotkey_ready("standing", ""), "the standing hint is ready")
 	check(anatomy_service.prepare_calls == prepare_before + 1,
 		"the hint reads the reach once")
 	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
 		"the hint reads Base clearance")
-	var hint_stool: Dictionary = runtime.hint_stool()
+	var hint_stool: Dictionary = runtime.gate.hint_stool()
 	check(int(hint_stool.get("need", -1)) == 1 and int(hint_stool.get("have", -1)) == 2,
 		"the blocked note reuses the gate's reach and case count")
 	check(anatomy_service.prepare_calls == prepare_before + 1,
 		"the blocked note does not repeat the reach read")
-	check(runtime.hotkey_ready("standing", ""), "the next hint scan stays ready")
+	check(runtime.gate.hotkey_ready("standing", ""), "the next hint scan stays ready")
 	check(anatomy_service.prepare_calls == prepare_before + 2,
 		"the next scan reads the reach again")
 	check(eligibility.eligible_calls == 2 and eligibility.relationship_calls == 2,
 		"the next scan reads Base clearance again")
 	pony.set_meta("seated", true)
-	check(not runtime.hotkey_ready("standing", ""), "a seated pony fails the standing hint")
+	check(not runtime.gate.hotkey_ready("standing", ""), "a seated pony fails the standing hint")
 	check(eligibility.eligible_calls == 2,
 		"a failed scene row reads no Base clearance")
 	pony.remove_meta("seated")
-	check(runtime.hotkey_ready("standing", ""), "the standing hint recovers")
+	check(runtime.gate.hotkey_ready("standing", ""), "the standing hint recovers")
 	check(eligibility.eligible_calls == 3,
 		"the recovered scene reads Base clearance once")
 

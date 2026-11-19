@@ -73,10 +73,6 @@ var _exit = null
 var _start = null
 var _agreement = null
 
-## Temporary read-only forward: the act session owns the live state; remove in R4.
-var state: int:
-	get:
-		return _act.state if _act != null else State.IDLE
 ## The act's one session handle: the state, the timers and the input protocol. The entry and the
 ## input service read it; the Node keeps lifetime and node operations.
 var act: ACT_SESSION:
@@ -278,11 +274,11 @@ func _act_id() -> String:
 
 ## True while the act can be suspended or asked for a form.
 func _act_live() -> bool:
-	return state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]
+	return _act.state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]
 
 
 func _act_restoring() -> bool:
-	return state == State.RESTORE
+	return _act.state == State.RESTORE
 
 
 func _start_pose_id() -> String:
@@ -333,15 +329,9 @@ func _mod_enabled(id: String) -> bool:
 	return bool(mods.call("is_active", id))
 
 
-## Temporary read-only forward: the session owns the state; remove in R4.
+## The session's live state, read by the anatomy host's typed callback.
 func _state() -> int:
 	return _act.state
-
-
-## Temporary migration delegate: the act session owns the one state writer. The suites use it;
-## R4 removes it with the rest of the facade.
-func _set_state(next: int) -> void:
-	_act._set_state(next)
 
 
 ## The live pose family, or the start spec's family before the first view fill.
@@ -455,11 +445,6 @@ func _eligibility_service() -> Variant:
 	return PONIES.eligibility
 
 
-## Write the state the persistent controller polls outside the act. The bridge owns the facts.
-func refresh_view() -> void:
-	_view.refresh(_act_facts, _act)
-
-
 ## Typed write-backs for the presentation controllers. The runtime keeps ownership of the forced
 ## glance; the captured look snapshot is the camera facade's.
 
@@ -557,7 +542,7 @@ func pose_view() -> RefCounted:
 ## live missionary or face-sit view, a steady pose, no running kiss and the anatomy's act body.
 ## The pose owner keeps the rule; the act state is the runtime's.
 func face_sit_error() -> String:
-	return _pose_service().face_sit_error(state)
+	return _pose_service().face_sit_error(_act.state)
 
 
 ## Re-read the active pose's authored asset in place. The debug action uses this; a running act
@@ -585,7 +570,7 @@ func _scene_gate() -> RefCounted:
 ## wherever the bound body or the act state changes, never per gate access.
 func _refresh_scene_gate() -> void:
 	_scene.bind(pony, _pose_service())
-	_scene.configure(state, _id, _act.features)
+	_scene.configure(_act.state, _id, _act.features)
 
 
 ## Optional HUD cue and readiness readouts. The act continues without them.
@@ -596,17 +581,6 @@ func hud_readouts() -> bool:
 ## Optional act control card, separate from the pony state readouts.
 func hud_controls() -> bool:
 	return bool(_act.feature("act_controls"))
-
-
-## The typed act view `main.gd` and `hud/service.gd` read. The runtime owns it; the HUD never
-## probes this node for a method.
-func act_view() -> RefCounted:
-	return _act_facts
-
-
-## The entry's live settings fan-out; the session owns the snapshot, the view and the voice policy.
-func apply_live_settings() -> void:
-	_act.idle_perf = _act.apply_live_settings()
 
 
 
@@ -689,13 +663,6 @@ func _scene_hold_compatible(pose: String, source: String) -> bool:
 
 
 
-## The act-side form request. The handover decides whether a source can take the form; a later
-## handover tick suspends the act, so the act's state, depth and climaxes are never handed to a
-## second runtime.
-func request_form_change(true_form: bool, shape_id := "", by_player := false) -> Dictionary:
-	return _handover.request(true_form, shape_id, by_player)
-
-
 ## Suite seam: the handover's one action tick. The swap module owns the dispatch.
 func _body_swap_tick(delta: float) -> void:
 	_swap.tick(delta)
@@ -727,29 +694,9 @@ func adopt_body(new_pony: Node) -> void:
 	_bind_adopted_body()
 	if not _swap.new_body_is_adult():
 		_log("body swap ended: the new body is not an adult mare pony=%s" % str(new_pony.name))
-		force_stop()
+		_act.force_stop()
 		return
 	WORLD.refresh_body_lod(new_pony)
-
-
-## The body-change binding's adopt hook. It runs only for a body this runtime already presents;
-## a suspended act is left to the one resume, and an idle runtime simply rebinds its sub-services.
-func bind_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
-	if _suspended or not _is_presented_body(body):
-		return
-	_handover.rebind(form)
-
-
-## The same presented body carries a revised form: refresh the eye/pose/camera and the other
-## body-bound systems without a resume, a second runtime or an act exit.
-func refresh_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
-	if _suspended or not _is_presented_body(body):
-		return
-	_handover.rebind(form)
-
-
-func _is_presented_body(body: Node3D) -> bool:
-	return is_instance_valid(body) and is_instance_valid(pony) and body == pony
 
 
 ## The adopted body's bind before the resume: the pose, face, identity name, view, anatomy and
@@ -759,7 +706,7 @@ func _bind_adopted_body() -> void:
 	_face.bind(pony, self)
 	_audio.bind_identity(pony, _id, _act.bed)
 	_act.adopt_display_name(_handover.form(), pony)
-	refresh_view()
+	_act.refresh_view()
 	_anatomy_refresh()
 	_refresh_scene_gate()
 
@@ -932,7 +879,7 @@ func _form_status(text: String) -> void:
 ## The readiness host boundary: scene values the pure scoring needs, and the presentation it
 ## triggers. The runtime keeps the state, the face beats, the tolerance meter and the cue line.
 func _readiness_state() -> int:
-	return state
+	return _act.state
 
 
 func _readiness_close() -> void:
@@ -1003,7 +950,7 @@ func _rest_service() -> RefCounted:
 
 func _rest_context() -> Dictionary:
 	return {
-		"state": state,
+		"state": _act.state,
 		"serial": _act.serial,
 		"player_pony": _act.player_pony,
 		"headset": WORLD.headset_view(),
@@ -1016,10 +963,6 @@ func _rest_context() -> Dictionary:
 func _rest_restore_scene() -> void:
 	_missionary_camera_controller().restore_scene()
 
-
-## Every stop path must leave the quick slots in their pre-act state; the exit owns the route.
-func force_stop() -> void:
-	_exit.force_stop()
 
 func _write_satisfaction(value: float) -> void:
 	satisfaction = clampf(value, 0.0, READINESS_MAX)
@@ -1060,13 +1003,13 @@ func _set_missionary_anon_handle(body: Variant) -> void:
 
 ## The render-time placement trace, driven by the pose session.
 func _idle_pose_sample() -> void:
-	_pose_service().idle_sample(state)
+	_pose_service().idle_sample(_act.state)
 
 
 ## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where
 ## the live pose actually put her (world and bed space).
 func pose_state_rows() -> Array:
-	return _pose_service().state_rows(state)
+	return _pose_service().state_rows(_act.state)
 
 
 ## One line with where the pose actually put her, once the weight settles.

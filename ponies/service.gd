@@ -246,8 +246,11 @@ static func adopt_pending_body(pony: Node) -> bool:
 ## change reaches each attached body.
 static func apply_live_settings() -> void:
 	for runtime: Variant in _runtimes.values():
-		if is_instance_valid(runtime) and runtime.has_method("apply_live_settings"):
-			runtime.call("apply_live_settings")
+		if not is_instance_valid(runtime):
+			continue
+		var session: Variant = runtime.get("act")
+		if session != null:
+			session.apply_live_settings()
 
 
 ## Join the settings change notification. It is one static facade, so the entry calls this once
@@ -273,7 +276,9 @@ static func bind(anatomy_service: Node, body_change_service: Node, offer_service
 static func _on_settings_changed() -> void:
 	apply_live_settings()
 	if is_instance_valid(_active) and not _runtimes.has(_active.get("pony")):
-		_active.call("apply_live_settings")
+		var session: Variant = _active.get("act")
+		if session != null:
+			session.apply_live_settings()
 
 
 ## A world started: the pending swap belongs to the world that is gone.
@@ -284,8 +289,10 @@ static func reset() -> void:
 ## The world closed: its act ends through the one exit and the pending swap goes with it. The
 ## runtimes leave with their bodies.
 static func close_world() -> void:
-	if is_instance_valid(_active) and _active.has_method("force_stop"):
-		_active.call("force_stop")
+	if is_instance_valid(_active):
+		var session: Variant = _active.get("act")
+		if session != null:
+			session.force_stop()
 	_active = null
 	_swap = {}
 
@@ -298,8 +305,9 @@ static func shutdown() -> void:
 	for runtime: Variant in _runtimes.values():
 		if not is_instance_valid(runtime):
 			continue
-		if runtime.has_method("force_stop"):
-			runtime.call("force_stop")
+		var session: Variant = runtime.get("act")
+		if session != null:
+			session.force_stop()
 		(runtime as Node).queue_free()
 	_runtimes.clear()
 	factory = Callable()
@@ -349,8 +357,9 @@ static func _adopt_pending(pony: Node) -> bool:
 		# Its anatomy controller holds the duplicate's facts, so drop it before the bind below.
 		if is_instance_valid(anatomy) and anatomy.has_method("detach_controller"):
 			anatomy.call("detach_controller", pony)
-		if duplicate.has_method("force_stop"):
-			duplicate.call("force_stop")
+		var session: Variant = duplicate.get("act")
+		if session != null:
+			session.force_stop()
 		duplicate.queue_free()
 	var old_pony: Variant = _swap.get("old_pony")
 	if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:

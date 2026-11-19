@@ -279,7 +279,7 @@ func _process_entry(delta: float, timed: bool) -> void:
 	# The caption move is an act-only path the HUD owns: the entry only reports the live state,
 	# and the HUD's process priority keeps the move after the caption's own _process.
 	var active: RUNTIME = PONIES.active() as RUNTIME
-	hud.caption_tick(active.state if is_instance_valid(active) else RUNTIME.State.IDLE)
+	hud.caption_tick(active.act.state if is_instance_valid(active) else RUNTIME.State.IDLE)
 	if not is_instance_valid(WORLD.player) and is_instance_valid(WORLD.game):
 		var body: Variant = WORLD.game_player()
 		if is_instance_valid(body):
@@ -289,7 +289,7 @@ func _process_entry(delta: float, timed: bool) -> void:
 		active.apply_camera_motion()
 		active.perf_note("camera_motion", Time.get_ticks_usec() - camera_started)
 		var hud_started := Time.get_ticks_usec()
-		hud.update_from(active.act_view())
+		hud.update_from(active.act.facts())
 		active.perf_note("hud", Time.get_ticks_usec() - hud_started)
 		offer.hide_hint()
 		return

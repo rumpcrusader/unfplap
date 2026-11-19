@@ -105,7 +105,7 @@ func _fixture() -> Dictionary:
 	pose.act_body = Node.new()
 	var bridge := FakeBridge.new()
 	bridge.missionary_anon = Node.new()
-	runtime._set_state(2)
+	runtime.act._set_state(2)
 	runtime._pose_session = pose
 	runtime._anatomy_bridge = bridge
 	runtime._act_facts.kiss_active = false
@@ -133,19 +133,19 @@ func _check_helper() -> void:
 	var pose: RefCounted = made["pose"]
 	var bridge: FakeBridge = made["bridge"]
 	var view: Variant = made["view"]
-	runtime._set_state(0)
+	runtime.act._set_state(0)
 	check(runtime.face_sit_error() == "no active act", "no idle act is refused")
-	runtime._set_state(5)
+	runtime.act._set_state(5)
 	check(runtime.face_sit_error() == "no active act", "a restoring act is refused")
-	runtime._set_state(2)
+	runtime.act._set_state(2)
 	view.id = CATALOG.STANDING
 	check(runtime.face_sit_error() == "only in a missionary act",
 		"a standing view is refused")
 	view.id = CATALOG.MISSIONARY
-	runtime._set_state(1)
+	runtime.act._set_state(1)
 	check(runtime.face_sit_error() == "the act is not active",
 		"a posing act is refused")
-	runtime._set_state(2)
+	runtime.act._set_state(2)
 	check(runtime.face_sit_error() == "", "a steady missionary act is ready")
 	view.pose_state = VIEW.TRANSITIONING
 	check(runtime.face_sit_error() == "the pose is changing",

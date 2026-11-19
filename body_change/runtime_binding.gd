@@ -32,8 +32,11 @@ func unbind_body(_body: Node3D) -> void:
 
 func _dispatch(method: StringName, body: Node3D, form: BODY_FORM.BodyForm) -> void:
 	var runtime := _runtime_for(body)
-	if runtime != null and runtime.has_method(method):
-		runtime.call(method, body, form)
+	if runtime == null:
+		return
+	var session: Variant = runtime.get("act")
+	if session != null and session.has_method(method):
+		session.call(method, body, form)
 
 
 func _runtime_for(body: Node3D) -> Node:

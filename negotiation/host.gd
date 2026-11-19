@@ -26,6 +26,12 @@ const MAX_LINE := 600
 func _gate(runtime: Node) -> Variant:
 	return runtime.get("gate")
 
+
+## The act state through the runtime's session handle; an invalid runtime is IDLE.
+func _state_of(runtime: Node) -> int:
+	var session: Variant = runtime.get("act") if is_instance_valid(runtime) else null
+	return int(session.state) if session != null else 0
+
 ## The negotiation service: the lock read, the Anon answer and the Agreement cancel.
 var service: Node = null
 ## The one director bridge and model host, built by the service that owns it.
@@ -223,9 +229,9 @@ func on_anon_line(text: String) -> void:
 		LOG.debug("anon_line skip reason=no_target")
 		return
 	var runtime: Variant = PONIES.runtime_for(pony)
-	if not is_instance_valid(runtime) or int(runtime.get("state")) != 0:
+	if not is_instance_valid(runtime) or _state_of(runtime) != 0:
 		LOG.debug("anon_line skip reason=runtime_state state=%s" % [
-			str(runtime.get("state")) if is_instance_valid(runtime) else "none"])
+			str(_state_of(runtime)) if is_instance_valid(runtime) else "none"])
 		return
 	if is_instance_valid(initiation) and initiation.has_method("cancel_approach"):
 		initiation.call("cancel_approach")

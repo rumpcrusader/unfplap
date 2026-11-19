@@ -210,7 +210,7 @@ func fixture(kind: String) -> Dictionary:
 	runtime._act.preferences = {"tolerance": kind, "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
 	runtime._summary_service.summary_done = false
-	runtime._set_state(2) # ACTIVE
+	runtime.act._set_state(2) # ACTIVE
 	runtime._act.pose_id = "standing"
 	runtime._act.snapshot_settings()
 	runtime.pony_climaxes = 1
@@ -235,7 +235,7 @@ func run() -> void:
 	var normal := fixture("normal")
 	var normal_runtime: Node = normal["runtime"]
 	normal_runtime._consent.stop_with_her("smack")
-	check(int(normal_runtime.state) == 0, "a normal stop ends the act")
+	check(int(normal_runtime.act.state) == 0, "a normal stop ends the act")
 	check(bool(normal_runtime._act.stopped_by_her), "a normal stop is flagged")
 	var normal_summary: Dictionary = normal_runtime._summary_service.summary
 	check(str(normal_summary.get("grade", "")) == "bad", "a normal stop commits a bad summary")

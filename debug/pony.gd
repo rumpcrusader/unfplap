@@ -137,7 +137,12 @@ static func clear_busy(pony: Node3D) -> String:
 			pony.remove_meta(meta)
 			notes.append("cleared " + meta)
 	var runtime: Node = pony.get_node_or_null("UnfplapRuntime")
-	if runtime != null and int(runtime.get("state")) == 0 and pony.has_meta("sex_active"):
+	var act_session: Variant = runtime.get("act") if runtime != null else null
+	# The suites build a fake runtime with its own `state` field; the live runtime owns it in the
+	# session.
+	var state: Variant = act_session.state if act_session != null \
+		else (runtime.get("state") if runtime != null else null)
+	if state != null and int(state) == 0 and pony.has_meta("sex_active"):
 		pony.remove_meta("sex_active")
 		notes.append("cleared sex_active")
 	return "none" if notes.is_empty() else ", ".join(notes)

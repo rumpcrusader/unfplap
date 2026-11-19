@@ -41,6 +41,10 @@ var view: Variant = null
 var input: Variant = null
 ## The ordered frame schedule; the entry's two hooks forward here.
 var ticker: Variant = null
+## The one exit handle. The node's world-close and the suites stop through it.
+var exit: Variant = null
+## The body-swap seams handle. The node's body binding and the suites read it.
+var swap: Variant = null
 ## The act's settings snapshot and live apply, owned by `act/settings.gd`.
 var settings: ACT_SETTINGS = ACT_SETTINGS.new()
 ## The live act state. `_set_state()` is the only writer.
@@ -302,7 +306,42 @@ func snapshot_settings() -> void:
 	refresh_gate()
 
 func apply_live_settings() -> bool:
-	return view.apply_live(self)
+	idle_perf = view.apply_live(self)
+	return idle_perf
+
+
+## The typed act view the HUD and the entry read: the facts object the view fills.
+func facts() -> RefCounted:
+	return context.facts
+
+
+## The one exit's force stop. The node's world-close and the suites call it here.
+func force_stop() -> void:
+	exit.force_stop()
+
+
+## A body binding's adopt callback: the presented body's revised services are rebound.
+func bind_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
+	if context.handover.suspended or not _is_presented_body(body):
+		return
+	context.handover.rebind(form)
+
+
+## A revised form on the same presented body: the same rebind, never a resume.
+func refresh_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
+	if context.handover.suspended or not _is_presented_body(body):
+		return
+	context.handover.rebind(form)
+
+
+func _is_presented_body(body: Node3D) -> bool:
+	return host != null and is_instance_valid(host.pony) and body == host.pony
+
+
+## The handover's request for a form change; the debug action and the suites call it here.
+func request_form_change(true_form: bool, shape_id: String = "",
+		by_player: bool = false) -> Dictionary:
+	return context.handover.request(true_form, shape_id, by_player)
 
 func reset_thrust_state() -> void:
 	view.reset_act_state(self)

@@ -50,6 +50,10 @@ class FakeRuntime extends Node:
 	var journal: Array[String] = []
 	var last_body: Node3D = null
 	var last_form: BODY_FORM.BodyForm = null
+	var act: Variant = null
+
+	func _init() -> void:
+		act = self
 
 	func bind_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 		journal.append("bind")
@@ -60,6 +64,12 @@ class FakeRuntime extends Node:
 		journal.append("refresh")
 		last_body = body
 		last_form = form
+
+	func force_stop() -> void:
+		pass
+
+	func apply_live_settings() -> void:
+		pass
 
 
 class FakeGarments extends Node:

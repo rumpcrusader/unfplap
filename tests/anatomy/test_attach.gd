@@ -255,10 +255,10 @@ func run() -> void:
 	var rump_pony := Node3D.new()
 	get_root().add_child(rump_pony)
 	runtime.pony = rump_pony
-	check(not runtime.call("rump_anchor").is_finite(),
+	check(not runtime.gate.rump_anchor().is_finite(),
 		"no refresh leaves the rump anchor unbound")
 	runtime.call("_anatomy_refresh")
-	check(runtime.call("rump_anchor").is_finite(),
+	check(runtime.gate.rump_anchor().is_finite(),
 		"the anatomy refresh binds the reactions scene for the rump anchor")
 	get_root().remove_child(rump_pony)
 	rump_pony.free()

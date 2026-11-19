@@ -257,21 +257,21 @@ func _check_live_mute() -> void:
 	runtime.pony = pony
 	runtime._id = "rarity"
 	runtime._act.pony_id = "rarity"
-	runtime._set_state(2) # ACTIVE
+	runtime.act._set_state(2) # ACTIVE
 	runtime._act.pose_id = CATALOG.STANDING
 	var before := SETTINGS.mute_ponese_audio.get_bool()
 	SETTINGS.mute_ponese_audio.set_bool(false)
-	runtime.call("apply_live_settings")
+	runtime.act.apply_live_settings()
 	var voice_audio: Node = runtime._audio.service()
 	check(is_instance_valid(voice_audio) and not bool(voice_audio.call("voice_text_only")),
 		"the act opens with the Ponese voice live")
 	SETTINGS.mute_ponese_audio.set_bool(true)
-	runtime.call("apply_live_settings")
+	runtime.act.apply_live_settings()
 	check(is_instance_valid(voice_audio) and bool(voice_audio.call("voice_text_only")),
 		"muting Ponese mid-act reaches the voice policy")
 	check(is_equal_approx(voice.volume_db, -80.0), "the live mute silences the voice player")
 	SETTINGS.mute_ponese_audio.set_bool(false)
-	runtime.call("apply_live_settings")
+	runtime.act.apply_live_settings()
 	check(is_instance_valid(voice_audio) and not bool(voice_audio.call("voice_text_only")),
 		"unmuting Ponese mid-act restores the voice")
 	check(is_equal_approx(voice.volume_db, -8.0), "the live unmute gives the volume back")

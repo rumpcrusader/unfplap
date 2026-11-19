@@ -845,7 +845,8 @@ func _current(live: Offer) -> bool:
 func _clearance_for(runtime: Node) -> CLEARANCE.Result:
 	var pony: Variant = runtime.get("pony")
 	var present := is_instance_valid(pony)
-	var state: Variant = runtime.get("state")
+	var session: Variant = runtime.get("act") if is_instance_valid(runtime) else null
+	var state: Variant = session.state if session != null else null
 	var in_act := state != null and int(state) != 0
 	var sleeping := present and bool((pony as Node).get("sleeping"))
 	var eligible := present and bool(_host.eligible.call(pony))

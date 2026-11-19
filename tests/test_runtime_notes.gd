@@ -54,7 +54,7 @@ func run() -> void:
 	ready_pony.free()
 
 	var runtime: Node = RUNTIME.new()
-	runtime._set_state(0) # IDLE
+	runtime.act._set_state(0) # IDLE
 	runtime._face.warm_note = true
 	var note := str(runtime.call("prompt_note"))
 	check(note.contains("after making love with Anon"), "the warm note names the act")

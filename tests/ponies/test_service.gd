@@ -31,6 +31,10 @@ class FakeRuntime extends Node:
 	var adopted: Array[Node] = []
 	var attached: Array[Node] = []
 	var live_settings := 0
+	var act: Variant = null
+
+	func _init() -> void:
+		act = self
 
 	func force_stop() -> void:
 		stopped += 1

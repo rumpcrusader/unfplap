@@ -251,11 +251,11 @@ themselves are `docs/perf.md`'s.
 
 ## Host boundary
 
-The entry adds the actions node and hands it the services it acts through as typed fields
-(`body_change`, `initiation`, `negotiation`, `anatomy`, `pantyhose`) and the settings page's Debug
-block builder (`build_settings_block()`). The wheel's one-line result goes to `HUD.toast()`, not
-through a HUD handle. The live act state is these named reads, built by the node itself in
-`_ready()` from the facades, so the entry binds none of them:
+The entry adds the actions node and hands it the services it acts through through `bind(body_change,
+initiation, negotiation, anatomy, pantyhose)` and the settings page's Debug block builder
+(`build_settings_block()`). The wheel's one-line result goes to `HUD.toast()`, not through a HUD
+handle. The live act state is these named reads, built by the node itself in `_ready()` from the
+facades, so the entry binds none of them:
 
 | Callback | Type | Purpose |
 |---|---|---|

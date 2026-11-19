@@ -83,6 +83,7 @@ class ForceResult: ok, id, pose, reject
 
 func setup(privacy_node: Privacy = null, negotiation_node: Negotiation = null,
         offer_node: Offer = null) -> void
+func bind(eligibility_service: Eligibility) -> void
 func tick(delta: float) -> void
 func on_world(host: Node) -> void
 func on_world_closed() -> void

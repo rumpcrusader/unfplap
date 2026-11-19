@@ -114,7 +114,9 @@ matched through its body's identity (`anatomy/service.gd`'s `pony_id()`).
 
 ## Host boundary
 
-The entry binds these once, before the first hook, in its `_build_services()` list:
+The entry's `bind(anatomy_service, body_change_service, offer_service, stock_smack_service,
+eligibility_service, api_service)` sets these once, before the first hook, from its
+`_build_services()` list:
 
 | Bound by the entry's service list | Purpose |
 |---|---|
@@ -129,7 +131,7 @@ The entry binds these once, before the first hook, in its `_build_services()` li
 `bind_settings()` joins the settings change notification and `shutdown()` leaves it: a settings edit
 re-runs `apply_live_settings()` over every runtime and the act a pending body swap has taken out of
 the registry. `act_target(pony)` is the act-target rule the offer and the debug block read through
-the entry.
+the preloaded `PONIES` facade.
 
 `LOG.act_running`, `LOG.runtime_count` and `LOG.mare_count` are bound to `act_running()`,
 `runtime_count()` and `mare_count()`. A missing service

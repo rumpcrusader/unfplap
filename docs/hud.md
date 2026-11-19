@@ -20,6 +20,7 @@ The service owns:
 |---|---|
 | `update_from(view)`, `show_act()`, `hide_act()`, `hide_all()`, `show_prompt()`, `hide_prompt()` | the act card and the offer hint's fallback row |
 | `set_act_key(label)`, `apply_settings()` | the act-key row's cap and the cached caption mode, re-read on every settings edit |
+| `bind(log_sink)` | the debug log sink the act's lines go through |
 | `toast(text, seconds)` / `anatomy_status(text, seconds)` | the one toast line; the only sink the rest of the mod uses |
 | `caption_node(node)` / `caption_tick(state)` | the game's `SpeechCaption` tracking and its act-only move to the top |
 | `on_world()` / `on_world_closed()` / `on_player(body)` | the world scoped begin and end, and the once-per-world Dance Mod key notice |

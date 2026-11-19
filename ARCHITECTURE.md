@@ -209,8 +209,9 @@ steps or the act exit; it retargets through `pose_changed(view)` and leaves the 
 
 - **the primitives**: the settings load, the log sink's reads and the loader lookup;
 - **the ordered service list**: `_build_services()` constructs every long-running service in one
-  literal list, a line or two each, and binds the facades that service reads. The list order is the
-  construction order and the broadcast order, so a consumer is built after the services it reads;
+  literal list, one construction line and one `bind()` per service; the entry never assigns a
+  service's fields. The list order is the construction order and the broadcast order, so a consumer
+  is built after the services it reads;
 - **the broadcasts and the frame order**: `_on_world`, `_on_player` and the release walk the list;
   `_process` keeps the frame order visible;
 - **the one teardown**: `_exit_tree` runs the same `_release()` a world close runs, then

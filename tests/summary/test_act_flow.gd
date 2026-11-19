@@ -82,7 +82,7 @@ func run() -> void:
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = Node3D.new()
 	runtime._preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
-	runtime.state = 4 # AFTERGLOW
+	runtime._set_state(4) # AFTERGLOW
 	runtime.pose_id = CATALOG.MISSIONARY
 	runtime._snapshot_settings()
 	runtime.pony_climaxes = 2
@@ -110,7 +110,7 @@ func run() -> void:
 		"standing afterglow readiness line shows the summary")
 	check(HUD_LINES.readiness_line_for(_hud_view(runtime), false).contains("Great"),
 		"the afterglow summary ignores the readouts toggle")
-	runtime.state = 2 # ACTIVE
+	runtime._set_state(2) # ACTIVE
 	check(not HUD_LINES.readiness_line_for(_hud_view(runtime), true).is_empty(),
 		"active readiness line still works")
 	runtime.free()
@@ -130,7 +130,7 @@ func run() -> void:
 	probe._readiness.act_liked_talk = 0
 	probe._act_ended_early = false
 	probe.pony_climaxes = 1
-	probe._act_seconds = 90.0
+	probe._act._act_seconds = 90.0
 	var inputs: Dictionary = probe.call("_summary_inputs")
 	check(int(inputs.get("thrusts", 0)) == 5, "snapshot carries real thrusts")
 	check(int((inputs.get("touch_dislikes", {}) as Dictionary).get("smack", 0)) == 2,
@@ -258,7 +258,7 @@ func _check_commit() -> void:
 	runtime._event_id = "intimacy_test"
 	runtime._preferences = {"intensity": "firm", "pattern": "steady", "talk": [],
 		"touch": [], "dislikes": []}
-	runtime._act_seconds = 90.0
+	runtime._act._act_seconds = 90.0
 	runtime._readiness.act_thrusts = 10
 	runtime.pony_climaxes = 1
 	runtime._readiness.act_intensity_total = 5

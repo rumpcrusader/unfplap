@@ -95,7 +95,7 @@ func _check_perf_probe() -> void:
 	var probe: Node = RUNTIME.new()
 	probe.set("_id", "twilight_sparkle")
 	probe.set("pose_id", CATALOG.STANDING)
-	probe.set("state", 2)
+	probe.call("_set_state", 2)
 	probe.call("perf_note", "probe_chunk", 1200)
 	probe.call("perf_note", "probe_chunk", 800)
 	probe.call("_perf_tick", 0.4)
@@ -520,7 +520,7 @@ func run() -> void:
 		"hip phase clamps depth to zero")
 
 	var live_runtime: Node = RUNTIME.new()
-	live_runtime.state = 2 # ACTIVE
+	live_runtime._set_state(2) # ACTIVE
 	live_runtime.pose_id = CATALOG.STANDING
 	live_runtime.call("apply_live_settings")
 	check(live_runtime._features.has("hud_readouts"), "live settings refresh feature flags")

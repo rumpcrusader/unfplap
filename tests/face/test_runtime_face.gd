@@ -100,7 +100,7 @@ func _fixture() -> Dictionary:
 	runtime._readiness.tolerance = FakeTolerance.new()
 	runtime._act_climax_mode = "auto"
 	runtime._first_time = true
-	runtime.state = 2 # ACTIVE
+	runtime._set_state(2) # ACTIVE
 	return {"runtime": runtime, "pony": pony, "expressions": expressions}
 
 
@@ -186,28 +186,28 @@ func run() -> void:
 	_end_mood_face(runtime)
 
 	# The lids and the smile live in the facade: the runtime only gathers the state.
-	runtime.state = 2 # ACTIVE
+	runtime._set_state(2) # ACTIVE
 	expressions.stare_calls = 0
 	runtime.call("_eyes_tick")
 	check(expressions.stare_on and is_equal_approx(expressions.stare_lids, FACE.ACT_LIDS),
 		"ACTIVE holds the act lids")
-	runtime.state = 3 # CLIMAX
+	runtime._set_state(3) # CLIMAX
 	expressions.stare_lids = -1.0
 	runtime.call("_eyes_tick")
 	check(expressions.stare_on and is_equal_approx(expressions.stare_lids, FACE.CLIMAX_LIDS),
 		"CLIMAX opens the lids")
-	runtime.state = 4 # AFTERGLOW
+	runtime._set_state(4) # AFTERGLOW
 	runtime._afterglow.close_rewarded = true
 	expressions.stare_lids = -1.0
 	runtime.call("_eyes_tick")
 	check(is_equal_approx(expressions.stare_lids, FACE.AFTERGLOW_CLOSE_LIDS),
 		"a rewarded close uses the sleepier afterglow lids")
 	runtime._afterglow.close_rewarded = false
-	runtime.state = 0 # IDLE
+	runtime._set_state(0) # IDLE
 	expressions.stare_calls = 0
 	runtime.call("_eyes_tick")
 	check(expressions.stare_calls == 0, "IDLE leaves the lids alone")
-	runtime.state = 2 # ACTIVE
+	runtime._set_state(2) # ACTIVE
 	expressions.touch_calls = 0
 	runtime.call("_set_face", 0.5, 0.4, 0.05)
 	check(expressions.touch_kind == "unfplap_state" and is_equal_approx(expressions.touch_amount, 0.5),

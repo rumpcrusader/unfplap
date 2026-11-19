@@ -264,7 +264,7 @@ func _fixture() -> Dictionary:
 	runtime._id = "rarity"
 	runtime._display_name = "Rarity"
 	runtime._event_id = "unfplap:test"
-	runtime.state = STATE_ACTIVE
+	runtime._set_state(STATE_ACTIVE)
 	runtime.pose_id = CATALOG.STANDING
 	runtime._preferences = PREF.resolve({
 		"intensity": "firm",

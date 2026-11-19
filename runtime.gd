@@ -57,15 +57,18 @@ const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 ## Loaded lazily so both audio flags off never load the pack streams or the catalogue.
 const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
 
 const State := ACT_STATE.State
 
 const READINESS_MAX := 100.0
-const CLIMAX_SECONDS := 5.0
-const POSE_IN_SECONDS := 0.6
-const RESTORE_SECONDS := 0.4
+const CLIMAX_SECONDS := ACT_SESSION.CLIMAX_SECONDS
+const POSE_IN_SECONDS := ACT_SESSION.POSE_IN_SECONDS
+const RESTORE_SECONDS := ACT_SESSION.RESTORE_SECONDS
 ## A player-requested reveal is the act's one exceptional beat; its heat, peak, cue and memory
 ## mark are the provider policy's, not the base runtime's. The handover owns the form flags.
 ## The Agreement start's answer: a transient row or an unsettled presentation keeps waiting; a
@@ -81,10 +84,21 @@ var pony: Node:
 	set(value):
 		_pony_node = value
 		_pose_session.bind(self, value if is_instance_valid(value) else null)
+		if _act_host != null:
+			_act_host.pony = value
 
 var _pony_node: Node = null
 
-var state: int = State.IDLE
+## The act's one state, timer and clock owner; created once per pony and reset per act.
+var _act: ACT_SESSION = null
+## The act modules' node operations and typed collaborator set, bound once in `_build_systems()`.
+var _act_host: ACT_NODE = null
+var _act_context: ACT_CONTEXT = null
+
+## Temporary read-only forward: the act session owns the live state; remove in R4.
+var state: int:
+	get:
+		return _act.state if _act != null else State.IDLE
 var pose_id := ""
 var source := ""
 var bed: Node3D
@@ -158,14 +172,9 @@ var _perf_probe: PERF = null
 ## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
 ## no tick reads the entry node's flags.
 var idle_perf := false
-## The `POSING_IN` timer: the pose settles into the act after this many seconds.
-var _pose_in_left := 0.0
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
 ## the HUD card reads the cached flag.
 var _cycle_heat := false
-var _climax_left := 0.0
-var _restore_left := 0.0
-var _check_clock := 0.0
 ## A body swap keeps the act alive but stops its ticks. The handover owns the typed change, the
 ## adopted body and the current pose id until the one resume; `_end_session()` is still the only
 ## exit.
@@ -230,10 +239,6 @@ var _presentation_cfg: Dictionary = {}
 ## `stool/act.gd` and docs/stool.md.
 var _stool: RefCounted = null
 var _wings: WING = null
-var _act_seconds := 0.0
-## Processed-time clock. It only advances while the runtime ticks, so a paused tree freezes
-## act timing and stroke memory instead of aging them by the pause length.
-var _clock_s := 0.0
 ## The act's face owner: beats, line-face ownership, the stare release and the post-act mood
 ## face. See `face/service.gd` and `docs/face.md`.
 var _face: RefCounted = FACE.new()
@@ -247,8 +252,6 @@ var _act_climax_mode: String
 ## The act's camera mode, snapshotted with the rest: the render write runs every rendered frame and
 ## must not read settings there.
 var _eye_camera_mode := false
-## The `CLIMAX` state's 0..1 progress, read by the shot camera.
-var _climax_progress := 0.0
 var _hands: HANDS = null
 var _kiss: KISS = null
 var _integrations: INTEGRATIONS = null
@@ -279,6 +282,40 @@ func _build_systems() -> void:
 	_standing_anon_ctl = STANDING_ANON.new(_act_facts)
 	_standing_presentation_ctl = STANDING_PRESENTATION.new(_act_facts)
 	_act_camera.bind(_act_facts, _hands, _kiss, _standing_camera_ctl, _missionary_camera_ctl)
+	_bind_act_frame()
+
+
+## The typed collaborator set the view and idle modules read. Built once, after the systems.
+func _build_act_context() -> ACT_CONTEXT:
+	var context := ACT_CONTEXT.new()
+	context.pose = _pose_session
+	context.camera = _act_camera
+	context.readiness = _readiness
+	context.afterglow = _afterglow
+	context.face = _face
+	context.reactions = _reactions
+	context.dialogue = _act_dialogue
+	context.anatomy = _anatomy_bridge
+	context.handover = _handover
+	context.gate = _scene
+	context.facts = _act_facts
+	context.kiss = _kiss
+	context.summary = _summary_service
+	context.presentation = _standing_presentation_ctl
+	return context
+
+
+## Build the act's own host, context and modules once. The runtime node keeps the ordered ticks;
+## these objects own the state, the view and the idle schedule.
+func _bind_act_frame() -> void:
+	_act_host = ACT_NODE.new()
+	_act_host.bind(self)
+	_act_host.log_sink = Callable(self, "_log")
+	_act_host.perf_sink = Callable(self, "perf_note")
+	_act_context = _build_act_context()
+	_act = ACT_SESSION.new()
+	_act.bind(_act_host, _act_context)
+
 
 
 ## Bind the pose session's host callbacks once. The body paths rebind the pony itself.
@@ -518,14 +555,14 @@ func _mod_enabled(id: String) -> bool:
 	return bool(mods.call("is_active", id))
 
 
+## Temporary read-only forward: the session owns the state; remove in R4.
 func _state() -> int:
-	return state
+	return _act.state
 
 
-## The one act-state writer. Consumers read `state`; transitions call this.
+## The act session's one state writer, kept as a delegate for the existing transition bodies.
 func _set_state(next: int) -> void:
-	state = next
-	_refresh_scene_gate()
+	_act._set_state(next)
 
 
 ## The live pose family, or the start spec's family before the first view fill.
@@ -702,8 +739,8 @@ func refresh_view() -> void:
 		# No presentation module reads the derived values outside an act; skipping the settings and
 		# geometry lookups keeps an idle town from paying for every runtime every frame.
 		return
-	facts.act_seconds = _act_seconds
-	facts.seconds_since_stroke = maxf(0.0, _clock_s - _readiness.last_stroke_at)
+	facts.act_seconds = _act._act_seconds
+	facts.seconds_since_stroke = maxf(0.0, _act._clock_s - _readiness.last_stroke_at)
 	facts.last_intensity = _readiness.last_intensity
 	facts.last_pattern = _readiness.last_pattern
 	facts.last_touch = _readiness.last_touch
@@ -772,6 +809,7 @@ func _act_set_look(yaw: float, pitch: float) -> void:
 func _act_set_forced_glance(side: String) -> void:
 	_forced_glance = side
 	_act_facts.forced_glance = side
+	_act_context.values.forced_glance = side
 
 
 func _act_set_camera_basis_ready() -> void:
@@ -1086,6 +1124,9 @@ func _snapshot_settings() -> void:
 	_presentation_cfg = _snapshot.presentation
 	_act_climax_mode = _snapshot.climax_mode
 	_eye_camera_mode = str(SETTINGS.camera_mode.get_value()) == "eye"
+	_act_context.values.features = _features
+	_act_context.values.presentation_config = _presentation_cfg
+	_act_context.values.caress_quality = _snapshot.caress_quality
 	_configure_utterance_scheduler()
 	_refresh_scene_gate()
 
@@ -1113,7 +1154,7 @@ func apply_live_settings() -> void:
 		_anatomy_refresh()
 		return
 	_anatomy_refresh()
-	_sync_act_facts()
+	refresh_view()
 	_integrations_controller().apply_live_settings()
 	_reactions.apply_radius()
 	if _pose_family() == "standing":
@@ -1130,6 +1171,7 @@ func apply_live_settings() -> void:
 	# has settled since the start anchor was taken and the bed reference may be gone.
 	if not _id.is_empty():
 		_preferences = SETTINGS.preferences(_id)
+		_act_context.values.preferences = _preferences
 	_refresh_live_modifiers()
 	_sync_act_face_settings()
 	if previous_mute != _feature("mute_ponese_audio"):
@@ -1203,7 +1245,7 @@ func auto_active() -> bool:
 func _act_presentation(delta: float) -> void:
 	if not is_instance_valid(pony):
 		return
-	_act_seconds += delta
+	_act.advance_act_seconds(delta)
 	if _pose_family() == "bed":
 		_missionary_camera_controller().hide_avatar()
 		_aim_missionary_eyes()
@@ -1212,7 +1254,7 @@ func _act_presentation(delta: float) -> void:
 		boop.call("sustain_blush", ACT_FACE.blush_for(_act_phase(), satisfaction,
 			_feature("blush_arc")))
 	var wings_started := Time.get_ticks_usec()
-	_wings_controller().tick(delta, str(_pose_service().view().family), satisfaction, _act_seconds)
+	_wings_controller().tick(delta, str(_pose_service().view().family), satisfaction, _act._act_seconds)
 	_timed("wings_tick", wings_started)
 	_integrations_controller().tick(delta)
 
@@ -1248,9 +1290,9 @@ func _process_tick(delta: float) -> void:
 	_standing_camera_controller().clamp_look()
 	_camera_service().call("write_look_target", _pose_session.pose())
 	if state == State.CLIMAX:
-		_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
+		_act.refresh_climax_progress()
 	_camera_service().call("tick_shot", delta, state,
-		_standing_camera_controller().speed(), _climax_progress)
+		_standing_camera_controller().speed(), _act._climax_progress)
 	_breath_tick(delta)
 
 ## Debug free look: the input service hands over the relative motion instead of a thrust.
@@ -1278,7 +1320,7 @@ func _physics_tick(delta: float) -> void:
 	_body_swap_tick(delta)
 	if _suspended:
 		return
-	_clock_s += maxf(0.0, delta)
+	_act.tick_clock(delta)
 	# The pose edge advances before the view refresh reads it; the fan-out runs after that read and
 	# before any presentation tick. An edge keeps ticking through CLIMAX and AFTERGLOW.
 	if state != State.IDLE:
@@ -1346,26 +1388,23 @@ func _physics_tick(delta: float) -> void:
 			_timed("runtime_talk", talk_started)
 	if state in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.RESTORE]:
 		_utterance_tick()
-	if state == State.POSING_IN:
-		_pose_in_left -= delta
-		if _pose_in_left <= 0.0:
+	var phase: int = _act.tick_timers(delta)
+	if state == State.CLIMAX:
+		_reactions.hearts_tick(delta)
+	match phase:
+		ACT_SESSION.ENTER_ACTIVE:
 			_enter_active()
 			# The start snapshot caught Anon mid stand-up, so his eye height was the reclined one; the
 			# scene is settled now, and restoring to this is what puts the camera back correctly.
 			if _pose_family() == "bed":
 				_missionary_camera_controller().resnapshot()
 			_handover.hint_tick()
-	elif state == State.CLIMAX:
-		_climax_left -= delta
-		_reactions.hearts_tick(delta)
-		if _climax_left <= 0.0:
+		ACT_SESSION.FINISH_CLIMAX:
 			_finish_climax()
-	elif state == State.AFTERGLOW:
-		_afterglow_tick(delta)
-	elif state == State.RESTORE:
-		_restore_left -= delta
-		if _restore_left <= 0.0:
+		ACT_SESSION.FINISH_RESTORE:
 			_finish_restore()
+	if state == State.AFTERGLOW:
+		_afterglow_tick(delta)
 	var camera_started := Time.get_ticks_usec()
 	_standing_camera_controller().lock_facing()
 	_standing_camera_controller().drive_glance(delta)
@@ -1376,11 +1415,9 @@ func _physics_tick(delta: float) -> void:
 	_reactions.blush_tick(delta)
 	apply_camera_motion()
 	_timed("runtime_camera", camera_started)
-	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		_check_clock += delta
-		if _check_clock >= 0.25:
-			_check_clock = 0.0
-			_check_running()
+	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW] \
+			and _act.consume_check_clock(delta):
+		_check_running()
 	var face_started := Time.get_ticks_usec()
 	_eyes_tick()
 	_timed("runtime_face", face_started)
@@ -1406,6 +1443,7 @@ func _stool_act() -> Variant:
 	if _stool == null:
 		_stool = service.call("new_act")
 		_stool.log = Callable(self, "_log")
+		_act_context.stool = _stool
 	_stool.call("bind", service, pony, WORLD.player, _anatomy_bridge.controller)
 	return _stool
 
@@ -1492,6 +1530,7 @@ func _read_id() -> bool:
 		_refresh_scene_gate()
 		return false
 	_pose_session.id = _id
+	_act_context.values.pony_id = _id
 	_adopt_display_name(pony)
 	_refresh_scene_gate()
 	return true
@@ -1646,6 +1685,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_profile = SETTINGS.template_for(_id)
 	_pose_service().set_pose_config(SETTINGS.pose(_id, _start_group()))
 	_preferences = SETTINGS.preferences(_id)
+	_act_context.values.preferences = _preferences
 	_act_prompts = _profile.get("act_prompts", {})
 	_snapshot_settings()
 	_reactions.apply_radius()
@@ -1659,17 +1699,25 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 		pose_id = ""
 		source = ""
 		bed = null
+		_act_context.values.source = ""
+		_act_context.values.bed = null
 		return false
 	_player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree()))
 	_camera_service().call("apply_eye_override", _start_family(), _player_pony, _body_form())
 	_wings_controller().reset()
-	_act_seconds = 0.0
+	_act.reset_act()
 	_reactions.begin_act()
 	_camera_service().call("reset_lean_state")
 	_clear_face()
 	_set_face(0.45, FACE.ACT_LIDS)
 	_serial = _next_serial()
 	_event_id = "intimacy_%s_%d" % [_id, _serial]
+	_act_context.values.source = source
+	_act_context.values.bed = bed
+	_act_context.values.event_id = _event_id
+	_act_context.values.profile = _profile
+	_act_context.values.act_prompts = _act_prompts
+	_act_context.values.player_pony = _player_pony
 	_first_time = _read_first_time()
 	satisfaction = 0.0
 	mood = "warming"
@@ -1738,9 +1786,9 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	var service: Variant = _anatomy_service()
 	if service != null and service.has_method("player_encounter"):
 		service.call("player_encounter", true)
-	_set_state(State.POSING_IN)
+	_act.begin_pose_in()
 	_integrations_controller()
-	_sync_act_facts()
+	refresh_view()
 	# The pose session installs the act body and reconciles the modifiers for the start view, before
 	# the first rendered frame; every later change arrives through `_pose_fanout()`.
 	_pose_service().pose_changed(_pose_service().view())
@@ -1748,7 +1796,6 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_act_face_beat("start")
 	# integration: act-only visibility updates at the state change, not on the next poll.
 	_anatomy_bridge.apply_live()
-	_pose_in_left = POSE_IN_SECONDS
 	PONIES.set_active(self)
 	if is_instance_valid(HUD.instance):
 		_sync_hud_facts()
@@ -1984,7 +2031,7 @@ func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 		_reset_visual_for_form(form)
 		if _pose_family() == "standing":
 			_standing_camera_controller().prepare()
-		_sync_act_facts()
+		refresh_view()
 		if not _features.is_empty() and is_instance_valid(HUD.instance):
 			_sync_hud_facts()
 			HUD.instance.update_from(_act_facts)
@@ -1996,7 +2043,7 @@ func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 func _reset_visual_for_form(form: BODY_FORM.BodyForm) -> void:
 	_camera_service().call("reset_for_form", _start_family(), _player_pony, form)
 	_reanchor_player_for_form(form)
-	_sync_act_facts()
+	refresh_view()
 
 
 ## Resume the same act on the adopted body: anatomy, pose, camera, ownership and the body-bound
@@ -2016,7 +2063,7 @@ func _resume_after_body_swap() -> void:
 	_pose_service().bind(self, pony)
 	_face.bind(pony, self)
 	_adopt_display_name(pony)
-	_sync_act_facts()
+	refresh_view()
 	pony.sleeping = false
 	if pony.has_method("set_sim_tier"):
 		pony.set_sim_tier(pony.SimTier.HERO)
@@ -2046,7 +2093,7 @@ func _resume_after_body_swap() -> void:
 	_clear_face()
 	_set_face(0.45, FACE.ACT_LIDS)
 	_apply_voice_policy()
-	_sync_act_facts()
+	refresh_view()
 	_pose_service().pose_changed(_pose_service().view())
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.apply_live()
@@ -2161,6 +2208,7 @@ func _apply_form_display_name(form: BODY_FORM.BodyForm, new_pony: Node = null) -
 		var display: Variant = identity.get("display_name") if identity != null else null
 		name = str(display).strip_edges() if display != null else ""
 	_display_name = name if not name.is_empty() else _id
+	_act_context.values.display_name = _display_name
 
 
 func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
@@ -2224,7 +2272,7 @@ func _start_standing_place() -> bool:
 	if _stool_failed():
 		return false
 	pony.request_posture("stand")
-	_sync_act_facts()
+	refresh_view()
 	_standing_camera_controller().begin_facing(standing)
 	return true
 
@@ -2369,7 +2417,7 @@ func _free_pose() -> void:
 # --------------------------------------------------------------------------- thrust
 
 func _now_s() -> float:
-	return _clock_s
+	return _act._clock_s
 
 func _reset_thrust_state() -> void:
 	_readiness.reset_thrust()
@@ -2378,7 +2426,7 @@ func _reset_thrust_state() -> void:
 	_standing_camera_controller().reset_depth()
 	_act_facts.standing_sway_offset = Vector3.ZERO
 	_readiness.reset(_preferences)
-	_climax_left = 0.0
+	_act.clear_phase()
 	_afterglow.reset()
 	_dialogue_service().reset(_now_s(), _cue_gap)
 	_configure_utterance_scheduler()
@@ -2896,7 +2944,7 @@ func _summary_values() -> Dictionary:
 		"pony_id": _id,
 		"event_id": _event_id,
 		"preferences": _preferences,
-		"seconds": _act_seconds,
+		"seconds": _act._act_seconds,
 		"thrusts": _readiness.act_thrusts,
 		"pony_climaxes": pony_climaxes,
 		"talk_liked": _readiness.act_liked_talk,
@@ -3150,9 +3198,7 @@ func _climax() -> void:
 	pony_climaxes += 1
 	_log("pony climax=%d pose=%s pony=%s readiness=%.0f" % [
 		pony_climaxes, str(_start_row().get("id", "")), str(pony.name), satisfaction])
-	_set_state(State.CLIMAX)
-	_climax_left = CLIMAX_SECONDS
-	_climax_progress = 0.0
+	_act.enter_climax()
 	mood = "climax"
 	cue = "She is climaxing."
 	_set_cue_override("She is climaxing.", CLIMAX_SECONDS)
@@ -3198,7 +3244,7 @@ func _queue_climax_reaction() -> void:
 
 ## The first ACTIVE entry after the pose settles. Later returns from a climax are CLIMAX_END.
 func _enter_active() -> void:
-	_set_state(State.ACTIVE)
+	_act.enter_active()
 	_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
 
 
@@ -3209,7 +3255,7 @@ func _finish_climax() -> void:
 	if _max_pony_climaxes > 0 and pony_climaxes >= _max_pony_climaxes:
 		_enter_afterglow()
 		return
-	_set_state(State.ACTIVE)
+	_act.enter_active()
 	_face.stare_release_until = 0.0
 	_set_face(0.45, FACE.ACT_LIDS)
 	satisfaction = 0.0
@@ -3304,10 +3350,10 @@ func _afterglow_begin() -> void:
 	if _pose_family() != "standing":
 		_kiss_controller().end_lean_kiss()
 	_commit_afterglow()
-	_set_state(State.AFTERGLOW)
+	_act.enter_afterglow()
 	_handover.hint_tick()
 	_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.AFTERGLOW)
-	_sync_act_facts()
+	refresh_view()
 	# The oral afterglow releases the mouth contact and keeps the turned pose. The pose row's
 	# afterglow profile is passive, so no standing close window opens.
 	_pose_service().release_mouth_contact()
@@ -3378,11 +3424,10 @@ func _restore_begin() -> void:
 	_stop_auto()
 	_end_act_lines(true)
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
-	_set_state(State.RESTORE)
+	_act.begin_restore()
 	_handover.hint_tick()
 	# integration: act-only anatomy hides as soon as the act starts restoring.
 	_anatomy_bridge.apply_live()
-	_restore_left = RESTORE_SECONDS
 	_clear_face()
 	_end_act_face()
 	_wings_controller().release()
@@ -3451,10 +3496,12 @@ func _end_session(rejoin_cuddle: bool) -> void:
 		if is_instance_valid(HUD.instance):
 			HUD.instance.hide_all()
 		PONIES.clear_active(self)
-	_set_state(State.IDLE)
+	_act.finish_restore()
 	pose_id = ""
 	source = ""
 	bed = null
+	_act_context.values.source = ""
+	_act_context.values.bed = null
 	# integration: act-only anatomy hides immediately when the act ends.
 	_anatomy_bridge.apply_live()
 	# Deferred so `_finalize_session()` has started aftercare (and its navigator hold) first; the
@@ -3724,7 +3771,7 @@ func _begin_camera_mode() -> void:
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return
 	_camera_service().call("begin_free")
-	_sync_act_facts()
+	refresh_view()
 	if _pose_family() == "standing" and is_instance_valid(_act_camera.camera):
 		_standing_camera_controller().prepare()
 		_standing_anon_controller().install()
@@ -3862,7 +3909,7 @@ func _restore_camera() -> void:
 	_standing_anon_controller().remove()
 	_camera_service().call("restore_eye_override")
 	_missionary_camera_controller().release()
-	_sync_act_facts()
+	refresh_view()
 	_standing_camera_controller().restore()
 	_camera_service().call("close_shot")
 	_standing_anon_controller().reset_phase()

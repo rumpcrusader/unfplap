@@ -149,7 +149,8 @@ ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
 # runtime.gd is the per-pony host: it composes and orders the systems and implements no system's
 # rules. These four shapes are the invariant. The two allow-lists are compared both ways, so a new
 # read or node fails and a row that no longer exists fails too.
-RUNTIME_STATE_WRITER = "_set_state"
+RUNTIME_STATE_WRITER = "act/session.gd:_set_state"
+RUNTIME_STATE_OWNER = ROOT / "act" / "session.gd"
 # Every `SETTINGS.<member>` read, keyed by its enclosing function (`<module>` for the field block)
 # and the reason it is a snapshot boundary rather than a per-frame read. A new read is a new row,
 # added on purpose with the service that owns the value; removing a read removes its row.
@@ -239,6 +240,10 @@ def owner_of(path: str) -> Owner | None:
     path = path.strip().lstrip("./")
     if path in ORCHESTRATORS:
         return Owner(path[:-3], path, False, "orchestrator")
+    # The act modules are the runtime's own files: they may preload services, and a service that
+    # preloads them is a host import, not a service edge.
+    if path.startswith("act/"):
+        return Owner("runtime", path, False, "orchestrator")
     if path.startswith("shared/"):
         name = path.split("/")[-1]
         kind = SHARED_KINDS.get(name, "shared")
@@ -1169,16 +1174,27 @@ def check_runtime_shape(failure: Failure) -> None:
     text = path.read_text(encoding="utf-8")
     offsets = function_offsets(text)
 
-    # The state machine has one writer: its guards and transition side effects live in _set_state(),
-    # so an assignment anywhere else skips them.
-    if len(re.findall(r"^func _set_state\(", text, re.MULTILINE)) != 1:
-        failure.add("runtime.gd must define exactly one _set_state()")
-    if not re.search(r"^var state:\s*int\b", text, re.MULTILINE):
-        failure.add("runtime.gd must declare the typed `state` field once")
+    # The act state has one owner: `act/session.gd` declares it and only `_set_state()` writes it.
+    # The runtime node keeps a read-only forward and must contain no assignment at all.
+    session_path = RUNTIME_STATE_OWNER
+    if not session_path.is_file():
+        failure.add("missing act/session.gd: it owns the act state")
+    else:
+        session_text = session_path.read_text(encoding="utf-8")
+        session_offsets = function_offsets(session_text)
+        if len(re.findall(r"^func _set_state\(", session_text, re.MULTILINE)) != 1:
+            failure.add("act/session.gd must define exactly one _set_state()")
+        if not re.search(r"^var state:\s*int\b", session_text, re.MULTILINE):
+            failure.add("act/session.gd must declare the typed `state` field once")
+        for match in re.finditer(r"^\s*(?:self\.)?state\s*=(?!=)", session_text,
+                                 re.MULTILINE):
+            if enclosing_function(session_offsets, match.start()) != "_set_state":
+                failure.add(
+                    "act/session.gd:%d assigns `state` outside %s(); it is the one writer" % (
+                        line_of(session_text, match.start()), RUNTIME_STATE_WRITER))
     for match in re.finditer(r"^\s*(?:self\.)?state\s*=(?!=)", text, re.MULTILINE):
-        if enclosing_function(offsets, match.start()) != RUNTIME_STATE_WRITER:
-            failure.add("runtime.gd:%d assigns `state` outside %s(); it is the one writer" % (
-                line_of(text, match.start()), RUNTIME_STATE_WRITER))
+        failure.add("runtime.gd:%d assigns `state`; %s is the one writer" % (
+            line_of(text, match.start()), RUNTIME_STATE_WRITER))
 
     # Raw input has one owner: input/service.gd decodes keys, buttons, motion and capture.
     for pattern in RUNTIME_RAW_INPUT:

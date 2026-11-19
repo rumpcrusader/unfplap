@@ -209,11 +209,11 @@ func fixture(kind: String) -> Dictionary:
 	runtime._preferences = {"tolerance": kind, "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
 	runtime._summary_service.summary_done = false
-	runtime.state = 2 # ACTIVE
+	runtime._set_state(2) # ACTIVE
 	runtime.pose_id = "standing"
 	runtime._snapshot_settings()
 	runtime.pony_climaxes = 1
-	runtime._act_seconds = 90.0
+	runtime._act._act_seconds = 90.0
 	runtime._readiness.act_thrusts = 10
 	runtime._posture_owned = true
 	runtime._hold.nav = nav

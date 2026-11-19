@@ -44,7 +44,7 @@ func _runtime() -> Node:
 		"warmth": "normal",
 	})
 	runtime._snapshot_settings()
-	runtime.state = 2 # ACTIVE
+	runtime._set_state(2) # ACTIVE
 	runtime._readiness.last_touch_at = -1000.0
 	runtime._readiness.last_talk_at = -1000.0
 	runtime._reset_thrust_state()
@@ -146,14 +146,14 @@ func run() -> void:
 	check(int(runtime.state) == 4, "third climax auto-enters AFTERGLOW")
 
 	runtime._max_pony_climaxes = 0
-	runtime.state = 2
+	runtime._set_state(2)
 	runtime.pony_climaxes = 5
 	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 5/∞"),
 		"unlimited climax limit uses the infinity display")
 	runtime._finish_climax()
 	check(int(runtime.state) == 2, "zero climax limit keeps the act going")
 	runtime._max_pony_climaxes = 2
-	runtime.state = 2
+	runtime._set_state(2)
 	runtime.pony_climaxes = 2
 	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 2/2"),
 		"configured climax limit shows the denominator")
@@ -162,14 +162,14 @@ func run() -> void:
 	runtime._max_pony_climaxes = 3
 
 	# Auto thrust feeds the same tracker and scores through it.
-	runtime.state = 2
+	runtime._set_state(2)
 	runtime._readiness.configure_auto(1.5, 0.9, "cosine", 0.0)
 	runtime._reset_thrust_state()
 	var auto_thrusts := int(runtime._readiness.act_intensity_total)
 	runtime.toggle_auto_thrust()
 	check(runtime.auto_active(), "X enables auto thrust in ACTIVE")
 	for _i: int in 240:
-		runtime._clock_s += 1.0 / 60.0
+		runtime._act._clock_s += 1.0 / 60.0
 		runtime._auto_tick(1.0 / 60.0)
 	check(int(runtime._readiness.act_intensity_total) > auto_thrusts, "auto thrust feeds the same tracker")
 	check(not str(runtime._readiness.last_intensity).is_empty(), "auto thrust classifies intensity")

@@ -434,7 +434,7 @@ func _fixture() -> Dictionary:
 	runtime._display_name = "Test Mare"
 	runtime.pose_id = CATALOG.STANDING
 	runtime.source = "test"
-	runtime.state = RUNTIME.State.ACTIVE
+	runtime._set_state(RUNTIME.State.ACTIVE)
 	runtime.depth = 0.42
 	runtime.penetration_m = 0.11
 	runtime.pony_climaxes = 1
@@ -698,7 +698,7 @@ func _check_form_display_name() -> void:
 	check(note.contains("Borrowed Form") and note.contains("not your own body"),
 		"the dialogue note names the borrowed body")
 	var previous_revision := stored.revision if stored != null else 0
-	runtime.state = RUNTIME.State.IDLE
+	runtime._set_state(RUNTIME.State.IDLE)
 	var fallback := body_change.default_form(new_pony)
 	fallback.form_name = ""
 	fallback.revision = previous_revision + 1
@@ -722,9 +722,9 @@ func _check_policy_events() -> void:
 	var policy: FakePolicy = f["policy"]
 	host.memory = FakeMemory.new()
 	MEMORY.instance = host.memory
-	runtime.state = RUNTIME.State.POSING_IN
+	runtime._set_state(RUNTIME.State.POSING_IN)
 	runtime._enter_active()
-	runtime.state = RUNTIME.State.CLIMAX
+	runtime._set_state(RUNTIME.State.CLIMAX)
 	runtime.pony_climaxes = 1
 	runtime._finish_climax()
 	runtime._enter_afterglow()
@@ -1196,16 +1196,16 @@ func _check_hint_states() -> void:
 	runtime._handover.hint_tick()
 	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"a disguise invites the ask in the debug log")
-	runtime.state = RUNTIME.State.CLIMAX
+	runtime._set_state(RUNTIME.State.CLIMAX)
 	runtime._handover.hint_tick()
 	check(str(runtime._handover.form_hint_log).is_empty(), "the climax state clears the debug log")
-	runtime.state = RUNTIME.State.AFTERGLOW
+	runtime._set_state(RUNTIME.State.AFTERGLOW)
 	runtime._handover.hint_tick()
 	check(str(runtime._handover.form_hint_log).is_empty(), "the afterglow state clears the debug log")
-	runtime.state = RUNTIME.State.RESTORE
+	runtime._set_state(RUNTIME.State.RESTORE)
 	runtime._handover.hint_tick()
 	check(str(runtime._handover.form_hint_log).is_empty(), "the restore state clears the debug log")
-	runtime.state = RUNTIME.State.ACTIVE
+	runtime._set_state(RUNTIME.State.ACTIVE)
 	runtime._handover.hint_tick()
 	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"the active state restores the debug log")
@@ -1376,8 +1376,8 @@ func _check_restore_change() -> void:
 	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
-	runtime.state = RUNTIME.State.RESTORE
-	runtime._restore_left = RUNTIME.RESTORE_SECONDS
+	runtime._set_state(RUNTIME.State.RESTORE)
+	runtime._act._restore_left = RUNTIME.RESTORE_SECONDS
 	var other := _pony("Other Mare", "OtherBody")
 	root.add_child(other)
 	source.old_pony = other
@@ -1420,7 +1420,7 @@ func _check_idle_body_binding() -> void:
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var body_change: BODY_CHANGE_SERVICE = f["body_change"]
-	runtime.state = RUNTIME.State.IDLE
+	runtime._set_state(RUNTIME.State.IDLE)
 	runtime.pose_id = ""
 	runtime.source = ""
 	var own := body_change.default_form(old_pony)

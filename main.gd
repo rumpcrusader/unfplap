@@ -28,6 +28,7 @@ const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const BUILD_STAMP := preload("res://mods/unfplap/shared/build_stamp.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/actions.gd")
 const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
@@ -122,19 +123,7 @@ func _ready() -> void:
 	PONIES.factory = Callable(self, "_new_runtime")
 	PONIES.bind_settings()
 	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
-	var source_mtime := 0
-	for path: String in [
-			"res://mods/unfplap/runtime.gd",
-			"res://mods/unfplap/readiness/thrust.gd",
-			"res://mods/unfplap/shared/preferences.gd",
-			"res://mods/unfplap/dialogue/utterance.gd",
-			"res://mods/unfplap/poses/skeleton_pose.gd",
-			"res://mods/unfplap/poses/missionary_recipe.gd",
-			"res://mods/unfplap/poses/standing_recipe.gd",
-	]:
-		source_mtime = maxi(source_mtime, FileAccess.get_modified_time(path))
-	LOG.debug("entry ready (debug logs %s) runtime_mtime=%d" % [
-		"ON" if LOG.debug_logs else "OFF", source_mtime])
+	BUILD_STAMP.log_stamp()
 	mods.world_ready.connect(_on_world)
 	mods.world_closed.connect(_on_world_closed)
 	mods.player_ready.connect(_on_player)

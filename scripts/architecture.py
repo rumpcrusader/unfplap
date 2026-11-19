@@ -864,16 +864,16 @@ def check_sources(failure: Failure) -> None:
     if len(release_calls) != 1 or "_pose_service().release_pose()" not in free:
         failure.add("release_pose() must be called only from the pose ledger")
 
-    # The physics tick advances the pose edge before the facts sync, then fans the change out; the
-    # fixed owner order is the seam, and neither body is a second teardown.
+    # The physics tick advances the pose edge before the view refresh, then fans the change out;
+    # the fixed owner order is the seam, and neither body is a second teardown.
     tick = function_body(runtime, "_physics_tick")
     tick_at = tick.find("_pose_service().tick(delta)")
-    facts_at = tick.find("_sync_act_facts()")
+    facts_at = tick.find("refresh_view()")
     fanout_at = tick.find("_pose_fanout()", facts_at if facts_at >= 0 else 0)
     if tick_at < 0 or facts_at < 0 or tick_at > facts_at:
-        failure.add("_physics_tick() must tick the pose before the first facts sync")
+        failure.add("_physics_tick() must tick the pose before the view refresh")
     if facts_at < 0 or fanout_at < facts_at:
-        failure.add("_physics_tick() must fan the pose change out after the facts sync")
+        failure.add("_physics_tick() must fan the pose change out after the view refresh")
     fanout = function_body(runtime, "_pose_fanout")
     cursor = 0
     for owner in POSE_FANOUT_ORDER:

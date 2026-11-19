@@ -345,6 +345,7 @@ func _build_systems() -> void:
 	_standing_camera_ctl = STANDING_CAMERA.new(_act_facts)
 	_standing_anon_ctl = STANDING_ANON.new(_act_facts)
 	_standing_presentation_ctl = STANDING_PRESENTATION.new(_act_facts)
+	_act_camera.bind(_act_facts, _hands, _kiss, _standing_camera_ctl, _missionary_camera_ctl)
 
 
 ## Bind the pose session's host callbacks once. The body paths rebind the pony itself.
@@ -658,9 +659,10 @@ func _sync_anatomy_facts() -> void:
 	_anatomy_bridge.sync_facts()
 
 
-## Write the typed act context the presentation controllers read. Called at the head of each tick
-## and again by `apply_camera_motion()`, because `main.gd` drives the camera after the act tick.
-func _sync_act_facts() -> void:
+## Refresh the typed act context the presentation controllers read. The tick refreshes it once per
+## phase: idle before the idle systems, physics after the pose tick and before the fan-out, render
+## before the camera work, and the entry's `apply_camera_motion()` hand-off.
+func refresh_view() -> void:
 	var facts := _act_facts
 	var view: Variant = _pose_service().view()
 	facts.state = state
@@ -684,6 +686,11 @@ func _sync_act_facts() -> void:
 	facts.act_prompts = _act_prompts
 	facts.features = _features
 	facts.caress_quality = _caress_quality
+	facts.player_pony = _player_pony
+	facts.bed = bed
+	facts.presentation_config = _presentation_cfg
+	facts.profile = _profile
+	facts.physics_delta = get_physics_process_delta_time()
 	if state == State.IDLE:
 		# No presentation module reads the derived values outside an act; skipping the settings and
 		# geometry lookups keeps an idle town from paying for every runtime every frame.
@@ -706,7 +713,6 @@ func _sync_act_facts() -> void:
 	facts.player_eye_height = cam.call("player_eye_height")
 	facts.anon_torso_forward = cam.call("anon_torso_forward")
 	facts.anon_torso_drop = cam.call("anon_torso_drop")
-	facts.player_pony = _player_pony
 	facts.headset_view = _headset_view()
 	facts.free_camera_active = cam.free_camera_active
 	facts.free_look_active = cam.call("free_look_active")
@@ -726,15 +732,11 @@ func _sync_act_facts() -> void:
 	facts.same_height_scale = float(_camera_service().call("same_height_scale"))
 	facts.anon_height_scale = float(_camera_service().call("anon_height_scale"))
 	facts.palm_scale_factor = float(_camera_service().call("palm_scale_factor"))
-	facts.bed = bed
-	facts.profile = _profile
 	facts.bob = cam.bob
 	facts.back = cam.back
 	facts.back_target = cam.back_target
 	facts.forced_glance = _forced_glance
-	facts.presentation_config = _presentation_cfg
 	facts.bed_frame = _pose_session.bed_frame
-	facts.physics_delta = get_physics_process_delta_time()
 	var kiss: Variant = _kiss
 	if kiss != null:
 		facts.kiss_amount = float(kiss.amount())
@@ -744,6 +746,11 @@ func _sync_act_facts() -> void:
 		facts.kiss_amount = 0.0
 		facts.kiss_active = false
 		facts.kiss_side = 0.0
+
+
+## One-shot alias for the start, resume and teardown paths.
+func _sync_act_facts() -> void:
+	refresh_view()
 
 
 ## Typed write-backs for the presentation controllers. The runtime keeps ownership of the forced
@@ -857,28 +864,6 @@ func _perf_header() -> Dictionary:
 		"tier": tier,
 		"wings": wing_state,
 	}
-
-
-## Refresh the live values the presentation controllers read, for the calls that arrive outside
-## the act tick: the idle standing invitation, the debug actions and the suites. The act tick's
-## `_sync_act_facts()` carries the rest. Cheap on purpose; it writes fields, never allocates.
-func _bind_act_view() -> void:
-	var facts := _act_facts
-	var view: Variant = _pose_session.view()
-	facts.pony = pony
-	facts.state = state
-	facts.pose_view = view
-	facts.pony_id = _id
-	facts.camera = _act_camera.camera
-	facts.viewport = get_viewport()
-	facts.pose = _pose_session.pose()
-	facts.player_pony = _player_pony
-	facts.bed = bed
-	facts.presentation_config = _presentation_cfg
-	facts.profile = _profile
-	facts.features = _features
-	facts.caress_quality = _caress_quality
-	facts.physics_delta = get_physics_process_delta_time()
 
 
 func _wings_controller() -> WING:
@@ -1057,16 +1042,8 @@ static func _call_pose_changed(owner: Variant, view: Variant) -> void:
 		owner.call("pose_changed", view)
 
 
-## The act camera session, bound to this runtime's typed act view and controllers. Suites build a
-## runtime without entering the tree, so the binding is refreshed on every access and the live
-## values it reads are written here rather than waiting for the next facts sync.
+## The act camera session, bound once with the other per-pony controllers.
 func _camera_service() -> RefCounted:
-	var view: Variant = _pose_session.view()
-	_act_facts.pony = pony
-	_act_facts.state = state
-	_act_facts.player_pony = _player_pony
-	_act_camera.bind(_act_facts, _hand_controller(), _kiss_controller(),
-		_standing_camera_controller(), _missionary_camera_controller())
 	return _act_camera
 
 
@@ -1154,7 +1131,7 @@ func apply_live_settings() -> void:
 	if state == State.IDLE:
 		# The idle standing presentation has its own live values, so a settings edit reaches it
 		# before the act-only work is skipped.
-		_bind_act_view()
+		refresh_view()
 		_standing_presentation_controller().apply_live_settings()
 		# integration: the anatomy feature is live outside acts too.
 		_anatomy_refresh()
@@ -1327,7 +1304,7 @@ func _process_tick(delta: float) -> void:
 		return
 	if _suspended:
 		return
-	_sync_act_facts()
+	refresh_view()
 	_sync_pose_frame()
 	_pose_render_write()
 	_idle_pose_sample()
@@ -1424,17 +1401,17 @@ func _physics_tick(delta: float) -> void:
 		_body_swap_tick(delta)
 		return
 	_body_swap_tick(delta)
-	if _suspended or state == State.IDLE:
+	if _suspended:
 		return
 	_clock_s += maxf(0.0, delta)
-	# The pose edge advances before the facts sync reads the view; the fan-out runs after that read
-	# and before any presentation tick. An edge keeps ticking through CLIMAX and AFTERGLOW.
+	# The pose edge advances before the view refresh reads it; the fan-out runs after that read and
+	# before any presentation tick. An edge keeps ticking through CLIMAX and AFTERGLOW.
 	if state != State.IDLE:
 		var pose_started := Time.get_ticks_usec()
 		_pose_service().tick(delta)
 		_timed("pose_tick", pose_started)
 	var facts_started := Time.get_ticks_usec()
-	_sync_act_facts()
+	refresh_view()
 	_timed("runtime_facts", facts_started)
 	if state != State.IDLE:
 		var fanout_started := Time.get_ticks_usec()
@@ -1468,9 +1445,6 @@ func _physics_tick(delta: float) -> void:
 	_hold_act_tick(delta)
 	_auto_layer_tick(delta)
 	_camera_service().call("tick_lean", delta, get_tree().paused, auto_panel_open())
-	facts_started = Time.get_ticks_usec()
-	_sync_act_facts()
-	_timed("runtime_facts", facts_started)
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		var presentation_started := Time.get_ticks_usec()
 		_act_presentation(delta)
@@ -1497,9 +1471,6 @@ func _physics_tick(delta: float) -> void:
 			_bystander_tick(delta)
 			_timed("runtime_talk", talk_started)
 	if state in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.RESTORE]:
-		facts_started = Time.get_ticks_usec()
-		_sync_act_facts()
-		_timed("runtime_facts", facts_started)
 		_utterance_tick()
 	if state == State.POSING_IN:
 		_pose_in_left -= delta
@@ -2405,8 +2376,7 @@ func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
 	_apply_form_display_name(form)
 	_pose_service().bind(self, pony)
 	_face.bind(pony, self)
-	_bind_act_view()
-	_sync_act_facts()
+	refresh_view()
 	_anatomy_refresh()
 	_camera_service()
 	_reactions.bind_scene(pony, _anatomy_bridge.controller)
@@ -4925,10 +4895,10 @@ func _body_scale_value() -> float:
 func apply_camera_motion() -> void:
 	if _suspended:
 		return
+	refresh_view()
 	_sync_hud_facts()
 	if not bool(_camera_service().call("motion_ready")):
 		return
-	_sync_act_facts()
 	_camera_service().call("apply_motion")
 
 

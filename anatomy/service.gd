@@ -21,6 +21,7 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
 
 ## Emitted when a pony's per-act anatomy handle is built, before the pose starts. A world
 ## integration uses it to take a worn garment off before the first rendered act frame.
@@ -88,10 +89,9 @@ func consent(pony_node: Node, key: String) -> bool:
 			return false
 
 
-## Host status line for the anatomy actions.
+## HUD status line for the anatomy actions.
 func status(text: String) -> void:
-	if is_instance_valid(main) and main.has_method("anatomy_status"):
-		main.call("anatomy_status", text, 2.0)
+	HUD.anatomy_status(text, 2.0)
 
 
 ## Host capability lookup. The eligibility service owns the rule; anatomy only names its target

@@ -15,7 +15,6 @@ const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
-const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
@@ -40,11 +39,8 @@ const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
-const CAPTION_PATH := "res://world/ui/speech_caption.gd"
-## The game's own bottom-caption margin; the mod keeps its card at this distance from the top.
-const CAPTION_TOP_MARGIN := 26.0
 
-var hud
+var hud: HUD
 var input
 ## Cross-mod API facade; see docs/api.md.
 var api: Node
@@ -78,13 +74,8 @@ var memory: MEMORY
 
 ## The idle act offer and its hint; see docs/offer.md.
 var offer: OFFER
-var _dance_hint_shown := false
 ## Every Debug block button and wheel slot; see `docs/debug.md`.
 var debug_actions: DEBUG_ACTIONS
-## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
-var _captions: Dictionary = {}
-## Cached captions_on_top so the per-frame caption tick never rereads settings.json.
-var _captions_on_top: bool
 ## True while the adapter's global Anon-offer watch is armed.
 var _watching_player := false
 
@@ -114,7 +105,6 @@ func _ready() -> void:
 	LOG.debug_perf = SETTINGS.debug_perf.get_bool()
 	LOG.act_running = Callable(PONIES, "act_running")
 	LOG.counts = Callable(PONIES, "_counts")
-	_captions_on_top = SETTINGS.captions_on_top.get_bool()
 	eligibility = ELIGIBILITY.new()
 	eligibility.setup(self)
 	memory = MEMORY.new()
@@ -132,6 +122,15 @@ func _ready() -> void:
 	negotiation.name = "UnfplapNegotiation"
 	add_child(negotiation)
 	_bind_negotiation_host()
+	# The HUD exists before the player does: it owns the act card, the toast line, the caption
+	# move and the one-time key notice, and it is the one sink the rest of the mod reaches
+	# through `HUD.toast()`.
+	hud = HUD.new()
+	hud.name = "UnfplapHUD"
+	hud.log = Callable(LOG, "debug")
+	HUD.instance = hud
+	add_child(hud)
+	hud.apply_settings()
 	# The idle offer is built before the Proactive service, which asks it which pony the act key
 	# would start. Its entry reads are the runtime registry, the act-target rule and the live act.
 	offer = OFFER.new()
@@ -141,8 +140,16 @@ func _ready() -> void:
 	offer.act_live = Callable(self, "_act_live")
 	offer.negotiation = negotiation
 	offer.privacy = privacy
+	offer.hud = hud
 	offer.apply_settings()
 	add_child(offer)
+	# The act key and the seated-player guard exist before the player does; the offer above is
+	# the one service the input policy hands its press to.
+	input = INPUT.new()
+	input.name = "UnfplapInput"
+	input.main = self
+	input.offer = offer
+	add_child(input)
 	initiation = INITIATION.new()
 	initiation.name = "UnfplapInitiation"
 	initiation.call("setup", self, privacy, adapter, offer)
@@ -217,13 +224,10 @@ func _ready() -> void:
 	Mods.player_ready.connect(_on_player)
 	Mods.on_node(PONY_PATH, _on_pony)
 	Mods.on_node(SETTINGS_PAGE_PATH, _on_settings_page)
-	Mods.on_node(CAPTION_PATH, _on_caption)
+	# The HUD owns the caption path, the tracking and the move; the entry only registers the game
+	# hook. See `docs/hud.md`.
+	Mods.on_node(HUD.CAPTION_PATH, Callable(hud, "caption_node"))
 	Mods.on_node(DEBUG_STRETCH.ENTRY_PATH, Callable(debug_actions, "on_idle_life"))
-	var settings := get_node_or_null("/root/Settings")
-	if settings != null and settings.has_signal("changed") \
-			and not settings.changed.is_connected(_on_game_setting_changed):
-		settings.changed.connect(_on_game_setting_changed)
-	_apply_caption_top.call_deferred()
 	# Switched on mid-game: the world and player already exist.
 	if is_instance_valid(Mods.game):
 		_on_world(Mods.game)
@@ -235,7 +239,6 @@ func _ready() -> void:
 func _on_world(host: Node) -> void:
 	debug_actions.close_debug_wheel()
 	offer.on_world(host)
-	_dance_hint_shown = false
 	WORLD.bind_world(host)
 	if not is_instance_valid(eligibility):
 		eligibility = ELIGIBILITY.new()
@@ -259,8 +262,7 @@ func _on_world(host: Node) -> void:
 		adapter.call("unwatch_player")
 	if is_instance_valid(classifier):
 		classifier.call("cancel_all")
-	if is_instance_valid(hud):
-		hud.hide_all()
+	hud.on_world()
 
 
 func _on_world_closed(_host: Node) -> void:
@@ -285,67 +287,7 @@ func _on_world_closed(_host: Node) -> void:
 	LOG.clear_panel()
 	if is_instance_valid(stool):
 		stool.call("on_world_closed")
-	if is_instance_valid(hud):
-		hud.hide_all()
-
-
-## Move the game's bottom dialogue caption to the top only during an act and only when the player
-## chose the explicit bottom-caption mode. "Over the pony's head" and "auto" are left untouched,
-## and afterglow returns the caption to the bottom.
-func _caption_top_enabled() -> bool:
-	if not _captions_on_top:
-		return false
-	var active: Node = PONIES.active()
-	if not is_instance_valid(active):
-		return false
-	var state: int = int(active.get("state"))
-	if state not in [RUNTIME.State.POSING_IN, RUNTIME.State.ACTIVE, RUNTIME.State.CLIMAX]:
-		return false
-	var settings := get_node_or_null("/root/Settings")
-	if settings == null:
-		return false
-	return str(settings.call("get_value", "access/speech_text")) == "caption"
-
-
-func _on_caption(node: Node) -> void:
-	if not is_instance_valid(node):
-		return
-	_captions[node.get_instance_id()] = weakref(node)
-	_caption_top_tick()
-
-
-func _apply_caption_top() -> void:
-	if not is_inside_tree():
-		return
-	_captions_on_top = SETTINGS.captions_on_top.get_bool()
-	_caption_top_tick()
-
-
-## Move the game's caption card after its own layout pass. The stock caption keeps its text,
-## wrapping, roll and fade; only its y position changes. Runs at process priority 100, after
-## the caption's own _process, and skips the settings-page preview.
-func _caption_top_tick() -> void:
-	if not _caption_top_enabled():
-		return
-	for id: int in _captions.keys():
-		var ref: Variant = _captions[id]
-		var node: Variant = ref.get_ref() if ref is WeakRef else null
-		if not is_instance_valid(node):
-			_captions.erase(id)
-			continue
-		if bool(node.get("preview")):
-			continue
-		var card: Variant = node.get("_card")
-		if not card is Control:
-			continue
-		var scale_value: Variant = node.get("_scale")
-		var scale := float(scale_value) if scale_value != null else 1.0
-		(card as Control).position.y = roundf(CAPTION_TOP_MARGIN * maxf(scale, 0.01))
-
-
-func _on_game_setting_changed(key: String) -> void:
-	if key == "access/speech_text":
-		_apply_caption_top()
+	hud.on_world_closed()
 
 
 func _apply_live_settings() -> void:
@@ -369,14 +311,12 @@ func _apply_settings_changed() -> void:
 		debug_actions.close_debug_wheel()
 	if is_instance_valid(input):
 		input.call("apply_settings")
-	if is_instance_valid(hud):
-		hud.call("set_act_key", _act_key_label())
+	hud.apply_settings()
 	# The native offer row and the fallback prompt carry the key cap; rebuild them with the new
 	# label on the next frame.
 	offer.apply_settings()
 	debug_actions.sync_skeleton_overlay()
 	SETTINGS_UI.refresh_debug_visibility()
-	_apply_caption_top()
 	_apply_live_settings()
 	# integration: anatomy switches are live outside acts too.
 	refresh_anatomy()
@@ -404,40 +344,9 @@ func refresh_dock_color(pony: Node) -> void:
 func _on_player(body: Node) -> void:
 	WORLD.bind_player(body)
 	LOG.debug("player ready")
-	if not is_instance_valid(hud):
-		hud = HUD.new()
-		hud.name = "UnfplapHUD"
-		hud.log = Callable(LOG, "debug")
-		add_child(hud)
-		debug_actions.hud = hud
 	if is_instance_valid(anatomy):
 		anatomy.call("player_ready", body)
-	if not is_instance_valid(input):
-		input = INPUT.new()
-		input.name = "UnfplapInput"
-		input.main = self
-		input.offer = offer
-		add_child(input)
-	offer.hud = hud
-	hud.call("set_act_key", _act_key_label())
-	if not _dance_hint_shown:
-		_dance_hint_shown = true
-		_dance_key_notice()
-
-
-## The bundled Dance Mod owns `Y`; one note when both mods are on and the act key is another key.
-func _dance_key_notice() -> void:
-	if int(SETTINGS.act_key.get_num()) == KEY_Y:
-		return
-	if not Mods.is_active("dance_mod"):
-		return
-	if is_instance_valid(hud) and hud.has_method("toast"):
-		hud.call("toast", "Dance Mod uses Y; %s starts the act." % _act_key_label(), 5.0)
-
-
-## The act key's key cap label, from the captured keycode.
-func _act_key_label() -> String:
-	return ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
+	hud.on_player(body)
 
 
 ## Every body the game spawns arrives here. `ponies` owns the registry, the prepare hooks
@@ -531,10 +440,10 @@ func _process(delta: float) -> void:
 ## The entry's per-frame body. `_process` above only times it for the idle probe; the call order
 ## here is load-bearing.
 func _process_entry(delta: float, timed: bool) -> void:
-	# The caption move is an act-only path; the two reads behind it are not worth a per-frame call.
+	# The caption move is an act-only path the HUD owns: the entry only reports the live state,
+	# and the HUD's process priority keeps the move after the caption's own _process.
 	var active: Node = PONIES.active()
-	if _captions_on_top and is_instance_valid(active):
-		_caption_top_tick()
+	hud.caption_tick(int(active.get("state")) if is_instance_valid(active) else RUNTIME.State.IDLE)
 	if not is_instance_valid(WORLD.player) and is_instance_valid(WORLD.game):
 		var body: Variant = WORLD.game.get("player")
 		if is_instance_valid(body):
@@ -543,10 +452,9 @@ func _process_entry(delta: float, timed: bool) -> void:
 		var camera_started := Time.get_ticks_usec()
 		active.call("apply_camera_motion")
 		active.call("perf_note", "camera_motion", Time.get_ticks_usec() - camera_started)
-		if is_instance_valid(hud):
-			var hud_started := Time.get_ticks_usec()
-			hud.update_from(active.call("act_view"))
-			active.call("perf_note", "hud", Time.get_ticks_usec() - hud_started)
+		var hud_started := Time.get_ticks_usec()
+		hud.update_from(active.call("act_view"))
+		active.call("perf_note", "hud", Time.get_ticks_usec() - hud_started)
 		offer.hide_hint()
 		return
 
@@ -577,14 +485,6 @@ func agreement_pose_placed(runtime: Node, option: POSE_OPTIONS.Option) -> bool:
 	var verdict: Variant = runtime.call("scene_only_verdict", option.pose, option.source,
 		option.bed, null)
 	return verdict != null and bool(verdict.hard_ok)
-
-
-## integration: anatomy hooks used by the runtime and input.
-func anatomy_status(text: String, seconds := 2.0) -> void:
-	if is_instance_valid(hud) and hud.has_method("toast"):
-		hud.call("toast", text, seconds)
-	else:
-		LOG.debug(text)
 
 
 ## Cross-mod API: a provider layer changed. Re-resolve the live anatomy, tail seat and act
@@ -656,7 +556,7 @@ func _bind_negotiation_host() -> void:
 	host.cancel_scope = func(scope) -> void:
 		if is_instance_valid(adapter):
 			adapter.call("cancel_scope", scope)
-	host.toast = Callable(self, "_toast")
+	host.toast = func(text: String) -> void: HUD.toast(text)
 	host.log = Callable(LOG, "debug")
 	host.react = Callable(self, "_negotiation_react")
 	host.on_outcome = Callable(self, "_on_negotiation_outcome")
@@ -751,12 +651,6 @@ func _relation_note(id: String) -> String:
 	if note.is_empty():
 		return ""
 	return note + " " + RELATIONSHIP_CUE.tone_line(RELATIONSHIP_CUE.tone(facts_dict))
-
-
-func _toast(text: String) -> void:
-	if text.is_empty() or not is_instance_valid(hud) or not hud.has_method("toast"):
-		return
-	hud.call("toast", text, 4.0)
 
 
 ## Read a typed field from the production handle/terminal or a test dictionary.
@@ -963,6 +857,7 @@ func _exit_tree() -> void:
 		stock_smack.queue_free()
 		stock_smack = null
 	LOG.detach()
+	HUD.instance = null
 	if is_instance_valid(hud):
 		hud.queue_free()
 	if is_instance_valid(input):

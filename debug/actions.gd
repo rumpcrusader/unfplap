@@ -22,6 +22,7 @@ const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
 ## The debug name action cycles these shipped adult mares, so the lab can test more than one fit
 ## without a text prompt. Player-named shapes belong to the dialogue path.
 const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "twilight_sparkle"]
@@ -52,8 +53,6 @@ var negotiation: NEGOTIATION = null
 ## reads its aim rule from `debug/service.gd`; a typed import here would close a service cycle.
 var anatomy: Node = null
 var pantyhose: Node = null
-## The HUD, once the player rig arrives.
-var hud: Node = null
 
 var _debug_skeleton: Node3D
 var _debug_wheel: CanvasLayer
@@ -861,8 +860,8 @@ func debug_wheel_context() -> Dictionary:
 func debug_wheel_action(name: String) -> String:
 	var result := DEBUG_ACTIONS.run_action(name, self)
 	LOG.debug("wheel %s: %s" % [name, result])
-	if not result.is_empty() and is_instance_valid(hud) and hud.has_method("toast"):
-		hud.call("toast", result, 3.0)
+	if not result.is_empty():
+		HUD.toast(result, 3.0)
 	return result
 
 

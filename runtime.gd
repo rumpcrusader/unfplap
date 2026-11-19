@@ -7,6 +7,7 @@ const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const REST_REJOIN := preload("res://mods/unfplap/rest/service.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
@@ -553,8 +554,7 @@ func _set_penetration_m(value: float) -> void:
 
 
 func _anatomy_status(text: String, seconds := 2.0) -> void:
-	if is_instance_valid(main) and main.has_method("anatomy_status"):
-		main.call("anatomy_status", text, seconds)
+	HUD.anatomy_status(text, seconds)
 
 
 func _ready() -> void:
@@ -3770,9 +3770,7 @@ func _dispatch_policy_event(event: BODY_CHANGE_POLICY.ActEvent,
 
 
 func _form_status(text: String) -> void:
-	if is_instance_valid(main) and is_instance_valid(main.hud) \
-			and main.hud.has_method("toast"):
-		main.hud.call("toast", text, 2.5)
+	HUD.toast(text, 2.5)
 
 
 func _source_current_shape(source: BODY_CHANGE_SOURCE) -> String:

@@ -273,6 +273,7 @@ The first three read `ponies`; `act_target` and `reload_posed_base` stay the ent
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | body_change | `body_change/service.gd` | the form actions and the shape-source gate |
+| service | hud | `hud/service.gd` | the one-line wheel result |
 | service | initiation | `initiation/service.gd` | the forced offer, the cooldown and Show data's REQUEST rows |
 | service | negotiation | `negotiation/service.gd` | the Anon offer and Show data's NEGOTIATION rows |
 | service | settings | `settings/service.gd` | action-button rows, the skeleton flag and the placement target pill |

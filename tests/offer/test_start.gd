@@ -6,6 +6,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/offer/test_start.gd
 
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -112,7 +113,7 @@ class FakeHud extends Node:
 	var prompts: Array[String] = []
 	var hides := 0
 
-	func toast(text: String, _seconds := 2.0) -> void:
+	func _show_toast(text: String, _seconds := 2.0) -> void:
 		toasts.append(text)
 
 	func show_prompt(text: String, _icon_name := "", _cap := "") -> void:
@@ -492,6 +493,7 @@ func _fixture(with_world := true) -> Dictionary:
 	service.negotiation = negotiation
 	service.privacy = privacy
 	service.hud = hud
+	HUD.instance = hud
 	root.add_child(service)
 	return {"service": service, "pony": pony, "runtime": runtime, "game": game, "menu": menu,
 		"negotiation": negotiation, "hud": hud, "privacy": privacy, "act": act,
@@ -527,6 +529,7 @@ func _free(made: Dictionary) -> void:
 	var service: Node = made["service"]
 	service.reset()
 	WORLD.unbind()
+	HUD.instance = null
 	var nodes: Array[Node] = [made["game"], made["negotiation"], made["hud"], made["pony"],
 		made["runtime"]]
 	nodes.append_array(made["nodes"])

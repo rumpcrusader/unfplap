@@ -4,11 +4,21 @@ extends CanvasLayer
 ## key cap or controller icon beside light words with a dark outline, never a drop shadow.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
+const STATE_IDLE := 0
+const STATE_POSING_IN := 1
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
+const STATE_RESTORE := 5
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const ICON_PATH := "res://world/ui/prompts/%s.png"
+## The game's own speech caption; the entry forwards every one to `caption_node()`.
+const CAPTION_PATH := "res://world/ui/speech_caption.gd"
+## The game's own bottom-caption margin; the mod keeps its card at this distance from the top.
+const CAPTION_TOP_MARGIN := 26.0
 ## The offer words are the mod's pink accent, like the control card's earned-caress `End`.
 const ACCENT := Color("ffa8c7")
 ## Prompt-row colours: ink words, a near-black outline, and muted words for modifiers.
@@ -26,6 +36,10 @@ const MODE_WIDTH := 38.0
 const PROMPT_ICON_EDGE := 52.0
 const PROMPT_FONT := 30
 const PROMPT_OUTLINE := 10
+
+## The one HUD the entry built. Every other part of the mod reaches the toast line through
+## `toast()` and `anatomy_status()`, and a nullable instance makes both a quiet no-op.
+static var instance: Node = null
 
 var _prompt: CenterContainer
 var _prompt_row: HBoxContainer
@@ -46,6 +60,14 @@ var _layer_rows := {}
 var _layer_labels := {}
 var _toast_label: Label
 var _toast_serial := 0
+## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
+var _captions: Dictionary = {}
+## Cached captions_on_top so the per-frame caption tick never rereads settings.json.
+var _captions_on_top := false
+## The live act state the entry last reported, so a caption that appears mid-act is placed.
+var _act_state := STATE_IDLE
+## The one "Dance Mod uses Y" note is shown once per world.
+var _dance_hint_shown := false
 ## The act's debug logger. Invalid outside an act; the restore message is then dropped.
 var log := Callable()
 ## The act borrowed the game's quick-slot card: what it found, so it can be put back.
@@ -136,6 +158,72 @@ func _ready() -> void:
 	_hint.move_child(_hint_form, 2)
 	_hint.move_child(_hint_auto, 3)
 	_hint.move_child(_hint_gap, 4)
+	# The game setting arrives as one subscription the HUD owns: only the speech setting concerns
+	# the caption move. The autoload is looked up, never assumed.
+	var settings := get_node_or_null("/root/Settings")
+	if settings != null and settings.has_signal("changed") \
+			and not settings.changed.is_connected(_on_game_setting_changed):
+		settings.changed.connect(_on_game_setting_changed)
+
+
+## The mod's settings, applied once by the entry at construction and again on every settings edit:
+## the act-key row's cap and the cached caption mode.
+func apply_settings() -> void:
+	set_act_key(_act_key_label())
+	_apply_caption_top()
+
+
+func on_world() -> void:
+	_dance_hint_shown = false
+	hide_all()
+
+
+func on_world_closed() -> void:
+	hide_all()
+
+
+## The player exists: one key note per world. The act key is the one control the player has to
+## find before the act, and the bundled Dance Mod already owns `Y` in the same world.
+func on_player(_body: Node) -> void:
+	if _dance_hint_shown:
+		return
+	_dance_hint_shown = true
+	if int(SETTINGS.act_key.get_num()) == KEY_Y or not _dance_mod_active():
+		return
+	_show_toast("Dance Mod uses Y; %s starts the act." % _act_key_label(), 5.0)
+
+
+## Every `SpeechCaption` the game builds, tracked so the act can move it to the top.
+func caption_node(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	_captions[node.get_instance_id()] = weakref(node)
+	_caption_top_tick()
+
+
+## One frame of the caption move. The entry reports the live act state and the HUD decides
+## whether anything moves; the entry's process priority keeps this after the caption's own
+## `_process`.
+func caption_tick(act_state: int) -> void:
+	_act_state = act_state
+	_caption_top_tick()
+
+
+## The toast sink every other part of the mod uses. It lasts four seconds unless the caller passes
+## its own duration, and it needs no HUD to be harmless.
+static func toast(text: String, seconds := 4.0) -> void:
+	if text.is_empty() or not is_instance_valid(instance):
+		return
+	instance.call("_show_toast", text, seconds)
+
+
+## integration: the anatomy status line, two seconds unless the caller says otherwise. The act's
+## own debug logger carries it when there is no HUD to show it.
+static func anatomy_status(text: String, seconds := 2.0) -> void:
+	if is_instance_valid(instance):
+		instance.call("_show_toast", text, seconds)
+	else:
+		LOG.debug(text)
 
 
 ## Words in the game's prompt style: light ink, dark outline, no shadow.
@@ -345,8 +433,8 @@ func hide_all() -> void:
 	hide_act()
 
 
-## integration: short anatomy status line in the corner.
-func toast(text: String, seconds := 2.0) -> void:
+## integration: short anatomy status line in the corner. The public sink is `toast()`.
+func _show_toast(text: String, seconds := 2.0) -> void:
 	if _toast_label == null:
 		return
 	_toast_serial += 1
@@ -366,6 +454,69 @@ func toast(text: String, seconds := 2.0) -> void:
 func set_state(_kind: String) -> void:
 	if _hint == null:
 		return
+
+
+## Move the game's bottom dialogue caption to the top only during an act and only when the player
+## chose the explicit bottom-caption mode. "Over the pony's head" and "auto" are left untouched,
+## and afterglow returns the caption to the bottom.
+func _caption_top_enabled() -> bool:
+	if not _captions_on_top:
+		return false
+	if _act_state not in [STATE_POSING_IN, STATE_ACTIVE, STATE_CLIMAX]:
+		return false
+	var settings := get_node_or_null("/root/Settings")
+	if settings == null:
+		return false
+	return str(settings.call("get_value", "access/speech_text")) == "caption"
+
+
+## Move the game's caption card after its own layout pass. The stock caption keeps its text,
+## wrapping, roll and fade; only its y position changes. The settings-page preview is skipped.
+func _caption_top_tick() -> void:
+	if not _caption_top_enabled():
+		return
+	for id: int in _captions.keys():
+		var ref: Variant = _captions[id]
+		var node: Variant = ref.get_ref() if ref is WeakRef else null
+		if not is_instance_valid(node):
+			_captions.erase(id)
+			continue
+		if bool(node.get("preview")):
+			continue
+		var card: Variant = node.get("_card")
+		if not card is Control:
+			continue
+		var scale_value: Variant = node.get("_scale")
+		var scale := float(scale_value) if scale_value != null else 1.0
+		(card as Control).position.y = roundf(CAPTION_TOP_MARGIN * maxf(scale, 0.01))
+
+
+## Re-read the mode the player chose, then place the captions it allows.
+func _apply_caption_top() -> void:
+	if not is_inside_tree():
+		return
+	_captions_on_top = SETTINGS.captions_on_top.get_bool()
+	_caption_top_tick()
+
+
+func _on_game_setting_changed(key: String) -> void:
+	if key == "access/speech_text":
+		_apply_caption_top()
+
+
+## The act key's key cap label, from the captured keycode.
+func _act_key_label() -> String:
+	return ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
+
+
+## True while the bundled Dance Mod is on. It is another pack, so the game's mods host answers;
+## the host is looked up rather than assumed.
+func _dance_mod_active() -> bool:
+	var loop := Engine.get_main_loop() as SceneTree
+	if loop == null or loop.root == null:
+		return false
+	var mods: Node = loop.root.get_node_or_null("Mods")
+	return is_instance_valid(mods) and bool(mods.call("is_active", "dance_mod"))
 
 
 ## Refresh the card from the typed act view the runtime owns. The view carries every value the

@@ -132,7 +132,10 @@ so a steady frame touches neither the tree nor the row.
 ## Dependencies
 
 ### Uses
+| service | settings | `settings/service.gd` | the caption mode and the act-key label |
 | service | world | `world/service.gd` | the world root |
+| shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
+| shared | log | `shared/log.gd` | the status fallback with no HUD |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|

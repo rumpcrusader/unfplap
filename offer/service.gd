@@ -299,9 +299,9 @@ func _clear_offer_hint() -> void:
 
 
 func _toast(text: String) -> void:
-	if text.is_empty() or not is_instance_valid(hud) or not hud.has_method("toast"):
+	if text.is_empty():
 		return
-	hud.call("toast", text, 4.0)
+	HUD.toast(text, 4.0)
 
 
 ## A settings edit: the key cap in the hint row is rebuilt on the next frame.
@@ -640,8 +640,7 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 		str(target.name), gap_text, need, have])
 	if not _stool_hint_toast_shown:
 		_stool_hint_toast_shown = true
-		if is_instance_valid(hud):
-			hud.call("toast", _stool_find_hint(need), 4.0)
+		HUD.toast(_stool_find_hint(need), 4.0)
 
 
 ## The live Agreement as the act key's own typed offer. It is a yes already, so the rump fan and

@@ -59,13 +59,13 @@ func _ready() -> void:
 	# the pony enters the tree, so read it now and once more after the first frame.
 	act.refresh_identity()
 	_bundle.bind_pony(pony)
-	act.call_deferred("refresh_identity")
+	act.refresh_identity.call_deferred()
 	act.prepare_idle_perf()
 	_bundle.face.bind(pony, self)
 	# integration: anatomy is persistent outside acts. Retry once after the first frame for a mod
 	# that assigns the pony's identity after she enters the tree.
 	act.refresh_anatomy()
-	act.call_deferred("refresh_anatomy")
+	act.refresh_anatomy.call_deferred()
 
 
 func _process(delta: float) -> void:

@@ -252,9 +252,9 @@ themselves are `docs/perf.md`'s.
 ## Host boundary
 
 The entry adds the actions node and hands it the services it acts through as typed fields
-(`body_change`, `initiation`, `negotiation`, `anatomy`, `pantyhose`, and the HUD once the player rig
-arrives). The live act state is these named reads, bound once at construction; they read the
-`ponies` registry and the act-target rule:
+(`body_change`, `initiation`, `negotiation`, `anatomy`, `pantyhose`). The wheel's one-line result
+goes to `HUD.toast()`, not through a HUD handle. The live act state is these named reads, bound
+once at construction; they read the `ponies` registry and the act-target rule:
 
 | Callback | Type | Purpose |
 |---|---|---|

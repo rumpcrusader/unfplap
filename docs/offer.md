@@ -176,7 +176,7 @@ The start path adds `hotkey no context pose`, `hotkey exact match id=<id> pose=<
 | `act_live` | `Callable() -> bool` | true while an act owns the frame |
 | `negotiation` | `Node` | the Negotiation service; only its public `handle()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
 | `privacy` | `privacy/service.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
-| `hud` | `Node` | the desktop HUD, set once the player rig arrives; `show_prompt`/`hide_prompt`/`toast` |
+| `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through `HUD.toast()`) |
 
 A missing callable reads as "no runtime", "not a target" and "no act", so an unbound service scans
 and starts nothing. A missing privacy provider reads as public, so a private Agreement does not

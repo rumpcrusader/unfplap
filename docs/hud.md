@@ -1,16 +1,29 @@
-# Act HUD contract
+# HUD
 
-The act's text readouts: the cue/hearts line, the readiness/preference line, the auto readout, the
-`End` tint and the control card. The card itself is `hud/service.gd`; the style rules are this doc. The
-readiness values are `docs/readiness.md`; the close window is `docs/afterglow.md`.
+The mod's one screen surface: the act's text readouts (the cue/hearts line, the readiness/preference
+line, the auto readout, the `End` tint and the control card), the single toast line, the game
+caption's act-only move to the top, and the one-time act-key notice. The card itself is
+`hud/service.gd`; the style rules are this doc. The readiness values are `docs/readiness.md`; the
+close window is `docs/afterglow.md`.
 
 ## Ownership
 
 | File | Role |
 |---|---|
 | `hud/lines.gd` | pure text and tint: `cue_line`, `readiness_line`, `auto_text`, `y_pink`, `auto_panel_label` |
-| `hud/service.gd` | the scene card: rows, key caps, prompt row, visibility, the act wiring and the borrowed quick-slot card |
+| `hud/service.gd` | the facade and the scene card: rows, key caps, prompt row, visibility, the act wiring, the borrowed quick-slot card, the toast line and the caption tracking and move |
 | `docs/hud.md` | this contract |
+
+The service owns:
+
+| Member | What it owns |
+|---|---|
+| `update_from(view)`, `show_act()`, `hide_act()`, `hide_all()`, `show_prompt()`, `hide_prompt()` | the act card and the offer hint's fallback row |
+| `set_act_key(label)`, `apply_settings()` | the act-key row's cap and the cached caption mode, re-read on every settings edit |
+| `toast(text, seconds)` / `anatomy_status(text, seconds)` | the one toast line; the only sink the rest of the mod uses |
+| `caption_node(node)` / `caption_tick(state)` | the game's `SpeechCaption` tracking and its act-only move to the top |
+| `on_world()` / `on_world_closed()` / `on_player(body)` | the world scoped begin and end, and the once-per-world Dance Mod key notice |
+| `set_inventory_hidden()`, `inventory_hidden()` | the borrowed quick-slot card |
 
 The runtime gathers the live values into the typed act view (`shared/act_facts.gd`): state, climax
 count and limit, cue, close hint, summary, the preference axes, heat, the `End` tint, the auto
@@ -94,12 +107,17 @@ caress. An unlimited limit uses the 3-climax reference.
   thrust, auto and smack are hidden.
 - `set_act_key(label)` swaps the act-key row's cap when the captured key changes, so the glyph
   follows any key without rebuilding the card.
-- Captions move to the top of the screen only while an act is in `POSING_IN`, `ACTIVE` or `CLIMAX`
-  and only when the game's speech setting is the explicit bottom caption; `captions_on_top`,
-  and afterglow returns them to the bottom. The mod owns this: `main.gd` finds
-  each `SpeechCaption` through `Mods.on_node`, then moves its private `_card` to the top margin
-  after the caption's own layout pass (process priority 100), scaled by the caption's own `_scale`.
-  It leaves the settings-page preview alone and does nothing if the card fields disappear.
+- Captions move to the top of the screen only while an act is in `POSING_IN`, `ACTIVE` or
+  `CLIMAX`, and only when the player picked **Move captions to top** (`captions_on_top`) and the
+  game's own speech setting is the explicit bottom caption; afterglow returns them to the bottom.
+  The entry registers one `Mods.on_node` hook on `CAPTION_PATH` and forwards every caption to
+  `caption_node()`, which tracks it by weak reference and places it at once if an act is live.
+  `caption_tick(state)` is the per-frame move: the entry reports the live act state and the HUD
+  decides whether anything moves. It sets the caption's private `_card` position to
+  `CAPTION_TOP_MARGIN` rounded, scaled by the caption's own `_scale`, which lands after the
+  caption's own `_process` because the entry runs at process priority 100. It leaves the
+  settings-page preview alone and does nothing if the card fields disappear. The HUD owns the
+  game `Settings.changed` subscription: only `access/speech_text` re-applies the mode.
 - **Enable debug** gates the detailed overlay and the mod's logging, not the HUD.
   **Print perf logs** separately gates the per-second performance block and needs it on too.
 
@@ -115,6 +133,19 @@ has no `key_6.png`, so the cap is drawn by `hud.keycap()` at the prompt-row scal
 caption line. `offer/service.gd` resolves the hints node and that row once per world and
 re-resolves them only when the row leaves the tree, and an unchanged hint text is not re-applied,
 so a steady frame touches neither the tree nor the row.
+
+## Toast and act-key notice
+
+`toast(text, seconds)` is the mod's only toast: a short line in the corner for four seconds unless
+the caller passes its own duration, replaced by the next one. It is a static sink on the facade, so
+a caller needs no HUD handle; with no HUD it is a quiet no-op. Callers: the Negotiation host's
+player feedback and the offer's block notes (four seconds), the wheel's one-line result (three),
+the runtime's form status (2.5) and `anatomy_status(text, seconds)`, the anatomy status line at two
+seconds, which falls back to the debug log when there is no HUD.
+
+The act-key notice is one toast per world: when the bundled Dance Mod is active and the act key is
+not its `Y`, the HUD says so once, as soon as the player exists. The note is re-armed on every
+world enter and never repeats inside one world.
 
 ## Gates
 
@@ -132,20 +163,23 @@ so a steady frame touches neither the tree nor the row.
 ## Dependencies
 
 ### Uses
+
+| Kind | Target | Entry point | Purpose |
+|---|---|---|---|
 | service | settings | `settings/service.gd` | the caption mode and the act-key label |
 | service | world | `world/service.gd` | the world root |
 | shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
 | shared | log | `shared/log.gd` | the status fallback with no HUD |
 
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-
 ## Lifecycle
 
 - Scope: world
-- Constructed by: `main._ready()`
-- Begin: `_ready()`
-- End: freed with main
+- Constructed by: `main._ready()`, before any player exists; the entry keeps it as `HUD.instance`
+- Begin: `_ready()` builds the card; `apply_settings()` applies the act key and the caption mode
+- World: `on_world()` and `on_world_closed()` (the notice is armed again and the card is hidden)
+- Player: `on_player(body)` shows the once-per-world key notice
+- End: `_exit_tree()` unsubscribes from the game setting; the entry frees the node and clears
+  `HUD.instance`
 - Idempotent: yes
 
 
@@ -153,8 +187,11 @@ so a steady frame touches neither the tree nor the row.
 
 `tests/hud/test_hud_lines.gd` covers the formats, the afterglow precedence, heat, the auto
 readout and the tint. `tests/hud/test_hud.gd` covers the card rows, the style helpers and the
-form-change hint.
-`tests/afterglow/test_afterglow.gd` drives the runtime's HUD forwards.
+form-change hint. `tests/hud/test_caption.gd` covers the caption move's five conditions (the mode,
+the three act states, the game's speech setting, the settings-page preview and a live card), the
+scale rounding, the moved-caption tracking, the two toast durations, the toast line's own timer and
+the once-per-world key notice. `tests/afterglow/test_afterglow.gd` drives the runtime's HUD
+forwards.
 
 ## Related docs
 
@@ -162,3 +199,5 @@ form-change hint.
 - `docs/afterglow.md` — the close prompt and the summary.
 - `docs/settings.md` — `hud_readouts`, `act_controls`, `captions_on_top`.
 - `docs/dialogue.md` — the cue text the HUD shortens.
+- `docs/input.md` — the act key the card and the notice name.
+- `docs/anatomy.md` — the status line it shows.

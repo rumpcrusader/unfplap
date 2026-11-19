@@ -82,7 +82,7 @@ The host callbacks are:
 | `reason` | `(PROMPTS.Request, scope, done) -> bool` | the Mare Response Reasoning |
 | `await_answer` | `(pony, scope, done) -> bool` | the first new line from the target |
 | `cancel_scope` | `(scope) -> void` | cancels one model scope |
-| `toast` / `log` | `(text) -> void` | player feedback and the debug line |
+| `toast` / `log` | `(text) -> void` | player feedback through the HUD toast sink and the debug line |
 | `react` | `(pony, reason) -> void` | the shared interruption line |
 | `on_outcome` | `(Terminal) -> void` | the Proactive pacing |
 | `on_agreement` | `(Handle) -> void` | hands the Agreement to the Act service through `main` |

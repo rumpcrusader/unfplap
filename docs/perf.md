@@ -204,7 +204,8 @@ that stays large is one call site and the `entry_process` `self` row is the body
 `offer_scan` and `entry_hint` are reported by `offer.tick()` and stay under `entry_process` because
 the entry calls it in its own body. The Agreement auto-start clock rides in the same `offer.tick()`
 and has no chunk of its own: it is one arithmetic step in the common frame. The caption move has
-no idle chunk: it only runs while an act owns the entry, and the idle probe is off during an act.
+no idle chunk: the entry only reports the live act state, the HUD moves nothing outside
+`POSING_IN`/`ACTIVE`/`CLIMAX`, and the idle probe is off during an act.
 
 `offer_cone` is the standing candidate search: geometry first, and Base clearance only for the
 candidates that beat the nearest eligible one already found, in one pass with no per-candidate

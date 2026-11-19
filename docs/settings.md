@@ -372,7 +372,8 @@ the switch that reveals the Debug sections. The retired **I just wanna plap!**
 The act's hold-X layer edits the same values live; these rows set the starting point.
 
 **Move captions to top** moves the explicit bottom dialogue caption only while an act is in
-`POSING_IN`, `ACTIVE` or `CLIMAX`; afterglow returns it to the bottom.
+`POSING_IN`, `ACTIVE` or `CLIMAX`; afterglow returns it to the bottom. The HUD re-reads the mode on
+every settings edit and moves the caption in the same frame (`docs/hud.md`).
 
 **Block other mods' hotkeys during act** shields an act's input; see the HACK note in
 `docs/input.md`.

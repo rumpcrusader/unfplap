@@ -22,8 +22,8 @@ to the idle offer service (`offer.try_start()`).
 
 ## Ownership
 
-`input/service.gd` is a world-scoped Node created by `main` and added to the tree. It owns no
-saved data. Its state is transient:
+`input/service.gd` is a world-scoped Node built by `main._ready()`, before any player exists, and
+added to the tree. It owns no saved data. Its state is transient:
 
 - `_shield` — the cached `features.act_input_shield`;
 - `_suppress_q`, `_old_q` — the seated-player guard;
@@ -84,7 +84,7 @@ Nothing is saved. The service reads `PONIES.active()`, the debug facade's `wheel
   Press the row, then press any key; `Esc` cancels. The captured keycode is stored in
   `settings.json` and `main._apply_settings_changed()` rebuilds the action.
 - `Y` is not special in the setting: it can be captured, but it is the bundled Dance Mod's key, so
-  the mod shows its one-time notice when the act key is not `Y`.
+  the HUD shows its one-time notice when the act key is not `Y` (`docs/hud.md`).
 - `act_input_shield` (General, **Block other mods' hotkeys during act**, no hint, on by default): the act input
   shield. `apply_settings()` caches it; the mechanism and its HACK note are below.
 

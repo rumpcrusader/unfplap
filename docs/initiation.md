@@ -32,8 +32,9 @@ or the act start: those are `docs/negotiation.md` and `docs/runtime.md`.
 | `initiation/prompts.gd` | pure wording: the ask context, the ask purpose, the situation text and the heat line |
 | `initiation/cooldowns.gd` | request cooldown store: `request_times`, the history wait and the heat shortening |
 | `initiation/venue.gd` | scene adapter: the only reader of navigators, posture, the bed search and the placement facts |
+| `initiation/classifier.gd` | the bounded classifier this service owns: one client, one queue, one deadline and the two reasoning budgets |
 | `privacy/service.gd` | world privacy provider: the house, the other mares, the radius and the offer/cuddle predicates |
-| `negotiation/adapter.gd` | the director bridge and model host `main` injects: the quiet gate, the ask queue, the situation record, the reasoning call |
+| `negotiation/adapter.gd` | the director bridge and model host the Negotiation service owns and hands over: the quiet gate, the ask queue, the situation record, the reasoning call |
 | `negotiation/service.gd` | the Act Negotiation: the answer, privacy, the Agreement and the global lock |
 | `docs/initiation.md` | this contract |
 | `tests/initiation/` | the pure rules, facts, reasoning and wording suites, plus the facade API suite |
@@ -50,17 +51,21 @@ The purity boundary is deliberate:
   `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the bed
   rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`), the player seat, the `couches` group and
   `WorldLayout`. It also builds the placement facts the option builder consumes.
-- The director bridge is the injected `negotiation/adapter.gd`; this service never reads the
-  director or the classifier. `main` owns one adapter and gives it to this service at `setup()`.
+- The director bridge is the `negotiation/adapter.gd` the Negotiation service owns and hands over
+  through its facade; this service never reads the director. The bounded classifier is this
+  service's own (`classifier.gd`), created in `setup()`: the Negotiation's adapter and both
+  reasoning stages make every model call on it, and no other service imports it.
 - The facade is the only file that preloads `eligibility/service.gd`, `privacy/service.gd`,
-  `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`, `shared/pose_catalog.gd`
-  and `shared/cycle.gd`; `cooldowns.gd` preloads `shared/act_history.gd`.
+  `negotiation/service.gd`, `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`,
+  `shared/pose_catalog.gd` and `shared/cycle.gd`; `cooldowns.gd` preloads
+  `shared/act_history.gd`.
 - No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
-- `main.gd` creates the service (`setup(self, privacy, adapter, offer)`) and drives it: `tick`,
-  `reset`, `force`, `cancel_approach`, `placement_for` and the outcome handoff. `runtime.gd`
-  exposes `cuddle_active()` and the scene-only verdict; the offer facade answers which pony the
-  act key would start (`docs/offer.md`).
+- `main.gd` creates the service (`setup(self, privacy, negotiation, offer)`), binds the live
+  `eligibility` instance and drives it: `tick`, `reset`, `force`, `cancel_approach`,
+  `placement_for` and the outcome handoff. `runtime.gd` exposes `cuddle_active()` and the
+  scene-only verdict; the offer facade answers which pony the act key would start
+  (`docs/offer.md`), and the Negotiation facade answers the lock, the form view and the Context.
 
 ## Internal API
 
@@ -75,7 +80,8 @@ class Candidate:
     prev_limit, prev_pace, player_start, region, bed_front
 class ForceResult: ok, id, pose, reject
 
-func setup(main_node: Node, privacy_node: Privacy = null, adapter_node: Node = null) -> void
+func setup(main_node: Node, privacy_node: Privacy = null, negotiation_node: Negotiation = null,
+        offer_node: Offer = null) -> void
 func tick(delta: float) -> void
 func reset() -> void
 func force(runtime: Node, pose := "") -> ForceResult
@@ -84,7 +90,15 @@ func on_negotiation_outcome(terminal: RefCounted) -> void
 func clear_cooldown(pony: Node) -> bool
 func placement_for(runtime: Node) -> PoseOptions.Placement
 func debug_rows(pony: Node) -> Array[String]
+func classifier_node() -> Node
+func classifier_available() -> bool
+func cancel_classifier() -> void
 ```
+
+`eligibility` is the entry's live instance, rebound on every world enter. `classifier_node()` is the
+node the Negotiation adapter runs its one bounded call on, `classifier_available()` is the
+Anon-offer watch's gate and `cancel_classifier()` ends every scope on a world enter, a world close
+and a teardown.
 
 `force()` is the debug/lab entry: it bypasses the quiet, cooldown, retry and reasoning checks but
 keeps Base clearance, the placeable options and the scene-only formation rows. An empty `pose` lets
@@ -144,8 +158,8 @@ presentation in this service. Timers come only from `initiation/policy.gd`;
 
 ## Admission
 
-An automatic scan runs every `0.5 s` and needs a quiet moment through the injected adapter. While
-an Act Negotiation owns the lock (`main.negotiation_locked()`), the scan stays quiet: no second
+An automatic scan runs every `0.5 s` and needs a quiet moment through the Negotiation's adapter.
+While an Act Negotiation owns the lock (`negotiation.is_locked()`), the scan stays quiet: no second
 mare starts a reasoning call, a walk or a handoff.
 
 - not paused, no menu panel with a free cursor, Anon not locked, flying or knocked down;
@@ -231,9 +245,10 @@ A non-cuddle offer claims the navigator (`unfplap:request:<id>`, wander off, no 
 approach or the ask, and asks her to stand; a cuddle keeps the session's own navigator owner. The
 request's speed and pace overrides are restored before the handoff.
 
-The handoff is one `main.form_mare_offer(fields)` call with plain values: the runtime, mare, option,
-Base clearance, visibility, the request lease token and release data, the offer line and the cuddle
-flag. `main` builds the typed package and calls the Negotiation service. Order:
+The handoff builds the Negotiation facade's typed `MareOffer` from the decided values: the
+runtime, mare, option, Base clearance, visibility, the request lease token and release data, the
+offer line and the cuddle flag. `begin_mare_offer(offer)` is the one call; the Negotiation service
+owns the typed package from there. Order:
 
 1. form the offer; a refusal releases the request lease and sets the `30 s` retry, and no line is
    spoken;
@@ -267,8 +282,9 @@ attempt when a new Anon offer or hotkey interrupts her walk.
 ## Prompts
 
 `initiation/prompts.gd` builds every line from a `FACTS.Request`. The facade supplies
-`relation_note` and `history_note` from `main.context_facts`, which reads the eligibility snapshot,
-act history and the memory cue (`docs/memory.md`). Wording mode is decided once per builder by
+`relation_note` and `history_note` from `negotiation.context()`, the Negotiation's one Context
+snapshot of the eligibility facts, act history and the memory cue (`docs/memory.md`); the
+reasoning payload carries the same Context. Wording mode is decided once per builder by
 `policy.wording_mode(private)`: `free` speaks plainly and asks clearly, `indirect` hints while other
 ponies are around. The heat line is appended only in heat and is empty otherwise.
 
@@ -332,7 +348,8 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
   handoff and a refused handoff's reject reason, the cuddle attention hold, the non-forced scan's
   cuddle gate reading the offer facade's current target, the outcome pacing, `clear_cooldown`,
   the debug rows and the scan logs.
-- `tests/negotiation/test_adapter.gd`: the injected bridge this service calls.
+- `tests/negotiation/test_adapter.gd`: the director bridge this service calls, with its
+  classifier source.
 
 The pure-core and facade-only import boundary is `scripts/architecture.py --check`.
 

@@ -179,7 +179,7 @@ total, largest first, so the first row is the chunk to fix.
 | `entry_process` | the whole `main._process` body, closed after it | root |
 | `entry_initiation` | `initiation.tick(delta)` | `entry_process` |
 | `entry_negotiation` | `negotiation.tick(delta)` | `entry_process` |
-| `entry_watch` | `_tick_negotiation_watch()` | `entry_process` |
+| `entry_watch` | the bridge's Anon-offer watch, closed inside `negotiation.tick()` after the exchange | `entry_process` |
 | `entry_hint` | the offer hint build and its prompt-row sync, in `offer.tick()` | `entry_process` |
 | `offer_scan` | the `OFFER_SCAN_S` `offer.scan()` call | `entry_process` |
 | `offer_cone` | the standing candidate search in `offer.scan()` | `offer_scan` |

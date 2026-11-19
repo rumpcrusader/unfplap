@@ -75,8 +75,9 @@ class Terminal:
 	var cooldown_s := 0.0
 
 
-## The host boundary. Every field is a named callback supplied by `main`; the service reads no
-## other service directly and never touches the runtime's private fields.
+## The host boundary. Every field is a named callback the service builds from its bridge and its
+## model host; nothing outside this service assembles one, and the service never touches the
+## runtime's private fields.
 class Host:
 	## Seconds. The service's one clock.
 	var now: Callable
@@ -264,7 +265,7 @@ func is_locked() -> bool:
 	return _locked
 
 
-## The live Agreement handle, or null. `main`/the Act service read it immediately.
+## The live Agreement handle, or null. The offer service reads it immediately.
 func handle() -> AGREEMENT.Handle:
 	return _handle if _phase == Phase.AGREEMENT else null
 
@@ -339,7 +340,7 @@ func begin_mare_offer(offer: MareOffer) -> bool:
 	return true
 
 
-## An Anon offer, classified from his line. The target runtime comes from `main`.
+## An Anon offer, classified from his line. The target runtime is the one the watch resolved.
 func begin_anon_offer(runtime: Node, text: String) -> bool:
 	if _host == null or not is_instance_valid(runtime):
 		return false
@@ -380,8 +381,8 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 	return true
 
 
-## `main` reports the Act service's start result. Started closes the Agreement without releasing
-## the adopted hold; StartFailed clears it and releases the hold.
+## The offer service reports the Act service's start result. Started closes the Agreement without
+## releasing the adopted hold; StartFailed clears it and releases the hold.
 func report(handle: AGREEMENT.Handle, started: bool) -> bool:
 	if handle == null or not _agreement_matches(handle):
 		return false

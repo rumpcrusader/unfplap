@@ -1,7 +1,8 @@
 extends RefCounted
 ## The negotiation model requests: the three instructions, the JSON payload builders and the
-## reply parsers. Pure data and strings; no service, scene, clock or file. `main`'s adapter owns
-## the LLM call and the cancel scope; this module owns what is asked and how a reply is read.
+## reply parsers. Pure data and strings; no service, scene, clock or file. The Negotiation's
+## adapter owns the LLM call and the cancel scope; this module owns what is asked and how a reply is
+## read.
 ## Contract: `docs/negotiation.md` (`## Decisions`).
 
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")

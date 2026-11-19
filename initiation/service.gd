@@ -11,7 +11,8 @@ extends Node
 ## for a route that ends before the ask. Rules are `initiation/policy.gd`, wording is
 ## `initiation/prompts.gd`, the reasoning request is `initiation/reasoning.gd`, and every scene
 ## read is behind `initiation/venue.gd` (navigators, posture, beds) or the
-## `negotiation/adapter.gd` director bridge that `main` injects. See `docs/initiation.md`.
+## `negotiation/adapter.gd` director bridge the Negotiation service owns and hands over. The
+## bounded classifier is this service's. See `docs/initiation.md`.
 ##
 ## Automatic requests are background AI turns, so they require AI usage Full.
 
@@ -261,8 +262,8 @@ func clear_cooldown(pony: Node) -> bool:
 	return true
 
 
-## The live placement facts for one runtime. `main` binds this into the Negotiation Host and the
-## scan uses the same pass to build the pose options.
+## The live placement facts for one runtime. The Negotiation's bridge reads this for the Host and
+## the scan uses the same pass to build the pose options.
 func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 	if not is_instance_valid(_venue):
 		return POSE_OPTIONS.Placement.new()

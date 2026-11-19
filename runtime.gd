@@ -2065,8 +2065,8 @@ func _claim_nav() -> bool:
 	return _hold.claim_nav(_id)
 
 
-## The per-pony negotiation hold handle. `main` and the Negotiation service call this through the
-## runtime; they do not read `_hold`.
+## The per-pony negotiation hold handle. The Negotiation's bridge calls this through the runtime;
+## it does not read `_hold`.
 func hold_handle() -> RefCounted:
 	return _hold
 

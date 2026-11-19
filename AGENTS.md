@@ -55,6 +55,7 @@ restate a contract.
 | `integrations/changelings.gd`, `integrations/changelings_policy.gd` | `docs/integrations.md`, `docs/body_change.md` (`## Source extension point`, `## Provider policy`) |
 | `kiss/**` | `docs/kiss.md` |
 | `memory/**` | `docs/memory.md` |
+| `negotiation/**` | `docs/negotiation.md` |
 | `poses/**` | `docs/poses.md` |
 | `reactions/**` | `docs/reactions.md` |
 | `readiness/**` | `docs/readiness.md` |

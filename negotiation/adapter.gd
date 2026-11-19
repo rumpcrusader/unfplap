@@ -1,8 +1,9 @@
 extends Node
-## The one conversation-director bridge and model host for the negotiation routes. `main` owns
-## one adapter, injects it into the Proactive service and binds the Negotiation `Host` model
-## callbacks to it. Every private director read, the one answer watch and the bounded classifier
-## calls live here; no service reads the director or the classifier directly.
+## The one conversation-director bridge and model host for the negotiation routes. The Negotiation
+## service owns one adapter as its child, wires the `Host` model callbacks to it and hands the same
+## instance to the Proactive service. Every private director read, the one answer watch and the
+## bounded classifier calls live here; no service reads the director directly, and the classifier
+## node arrives through `classifier_source`.
 ## Contract: `docs/negotiation.md` (`## Director and model host`).
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -271,8 +272,8 @@ func complete_raw(system: String, payload: Dictionary, scope: String, done: Call
 	return bool(classifier.call("complete_raw", system, payload, scope, done))
 
 
-## Watch the first new player line for an Anon offer. `main` enables it while no negotiation is
-## live; the callback receives the line once the director is idle again.
+## Watch the first new player line for an Anon offer. The negotiation service enables it while no
+## negotiation and no act is live; the callback receives the line once the director is idle again.
 func watch_player(callback: Callable) -> void:
 	if not callback.is_valid():
 		return

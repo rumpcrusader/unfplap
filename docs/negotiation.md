@@ -15,12 +15,14 @@ This contract covers:
 - the hold claim, transfer, keep and release;
 - the global lock across the offer and the Agreement window;
 - the Agreement package, its TTL, its opaque handle and its one close path;
+- the bridge to the live world: the typed host, the Context facts, the global Anon-offer watch,
+  the react line and the two terminal handoffs;
 - the terminal outcome to the Proactive service;
 - the debug rows.
 
-It does not cover pacing, the approach, the Mare Initiation Reasoning, the presentation, the act
-start, the scene rows or the pose placement gate. Those belong to `docs/initiation.md`,
-`docs/poses.md`, `docs/runtime.md` and `docs/scene_gate.md`.
+It does not cover pacing, the approach, the Mare Initiation Reasoning, the bounded classifier, the
+presentation, the act start, the scene rows or the pose placement gate. Those belong to
+`docs/initiation.md`, `docs/poses.md`, `docs/runtime.md` and `docs/scene_gate.md`.
 
 ## Ownership
 
@@ -29,12 +31,16 @@ start, the scene rows or the pose placement gate. Those belong to `docs/initiati
 - the one live Act Negotiation: phase, offer, generation, TTL and lock;
 - the Agreement package and its handle;
 - the classifier/reasoning scopes and their cancellation;
-- the terminal outcome and the offer cooldown.
+- the terminal outcome and the offer cooldown;
+- the typed `Host` it runs on and the one adapter (`negotiation/adapter.gd`) that answers the
+  model calls;
+- the Agreement handoff: the standing presentation, the one react line and the offer clear.
 
 `negotiation/agreement.gd` is the pure package and handle. The service is its only writer.
 `negotiation/prompts.gd` is the pure model request layer: the three instructions, the payload
-builders and the reply parsers. `main` mediates the per-pony hold, the director, the model calls
-and the Proactive handoff; the Act service gets only the handle.
+builders and the reply parsers. `negotiation/host.gd` is the service's private bridge to the live
+world (see `## Bridge`). The bounded classifier belongs to the Proactive service; this service
+asks its facade for the node the model calls run on. The Act service gets only the handle.
 
 ## Internal API
 
@@ -49,7 +55,13 @@ class Reply:          answer, option_index, failed, out_of_range
 class Terminal:       pony, pony_id, outcome, reason, trigger, cooldown_s
 class Host:           the named callbacks below
 
+bind(eligibility: Eligibility, memory: Memory, privacy: Privacy, initiation: Node, offer: Node)
+  -> void
 setup(host: Host) -> void
+on_world() -> void
+adapter() -> Node
+context(pony: Node) -> Context
+form_view() -> FormView
 reset() -> void
 tick(delta: float) -> void
 phase() -> Phase
@@ -65,7 +77,15 @@ interrupt_for_hotkey() -> bool
 debug_rows(pony: Node) -> Array[String]
 ```
 
-The host callbacks are:
+`bind()` is the entry's one call: the facades it reads are handed over once and the service builds
+the adapter and the `Host` from them. `on_world()` re-reads the eligibility service the entry
+rebuilds on every world enter, rebuilds the `Host` and drops the previous world's watch. `setup()`
+takes a `Host` directly and is the seam the suites use; the entry never calls it.
+
+`context(pony)` and `form_view()` are the two snapshots the Proactive service's reasoning reads, so
+both stages judge one mare from the same facts.
+
+The host callbacks are, in order:
 
 | Field | Signature | Purpose |
 |---|---|---|
@@ -85,19 +105,20 @@ The host callbacks are:
 | `toast` / `log` | `(text) -> void` | player feedback through the HUD toast sink and the debug line |
 | `react` | `(pony, reason) -> void` | the shared interruption line |
 | `on_outcome` | `(Terminal) -> void` | the Proactive pacing |
-| `on_agreement` | `(Handle) -> void` | hands the Agreement to the Act service through `main` |
+| `on_agreement` | `(Handle) -> void` | the Agreement handoff: the standing presentation and the offer clear |
 
 A model callback is called once. A late result after a terminal transition is ignored by the
 generation token.
 
 ## Director and model host
 
-`negotiation/adapter.gd` is the one director bridge and model host. `main` owns one instance,
-injects it into the Proactive service and binds the `Host` model callbacks to it. It owns every
-private director read (`state`, `config`, `_player_text`, `_held_text`, the group, the approach
-and hearing state), the transcript hook, one answer watch and the bounded classifier calls. No
-service reads the director or the classifier directly, and the Proactive does not keep a second
-copy.
+`negotiation/adapter.gd` is the one director bridge and model host. This service builds one
+instance as its child in `bind()` and wires the `Host` model callbacks to it; the Proactive service
+takes the same instance through `adapter()` and does not keep a second copy. It owns every private
+director read (`state`, `config`, `_player_text`, `_held_text`, the group, the approach and hearing
+state), the transcript hook, one answer watch and the bounded classifier calls. No service reads
+the director directly; the classifier is the Proactive service's, and the adapter reaches it only
+through `classifier_source`.
 
 The bridge methods are the pacing reads and the director writes: `quiet(chat_gap_s)`,
 `quiet_reason(chat_gap_s)`, `idle()`, `begin_greeting()`, `queue()`, `cancel_keys()`,
@@ -110,11 +131,39 @@ path for the Proactive's Mare Initiation Reasoning, which owns its own prompt; `
 baselines the director's player-line fields and reports the first new line; `cancel_scope()`
 drops the watch and cancels the classifier scope together.
 
-The shared classifier (`initiation/classifier.gd`, owned by `main`) bounds every call: one client,
-one queue, one deadline, `input_bytes` and `output_tokens` limits, a private-reasoning room on top
-of the visible output budget, and a raw completion that reports the text and the provider error
-without parsing it. The budget and deadline are sized for a reasoning model: a call that exhausts
-the budget returns no JSON and the route reports `NoOffer(classifier_unavailable)`.
+The shared classifier (`initiation/classifier.gd`, owned by the Proactive service) bounds every
+call: one client, one queue, one deadline, `input_bytes` and `output_tokens` limits, a
+private-reasoning room on top of the visible output budget, and a raw completion that reports the
+text and the provider error without parsing it. The budget and deadline are sized for a reasoning
+model: a call that exhausts the budget returns no JSON and the route reports
+`NoOffer(classifier_unavailable)`. The adapter reaches it through `classifier_source`, a callable
+the service sets to the Proactive facade's `classifier_node()`; the adapter imports no classifier
+file, and the Proactive's model calls and both reasoning stages use the same node.
+
+## Bridge
+
+`negotiation/host.gd` is the private bridge between this service and the live world. It owns what
+used to be the entry's assembly:
+
+- the `Host` callbacks that read another service or the scene: `now`, `eligible`,
+  `relationship_ok`, `context_facts`, `privacy_private`, `placement_for`, `pose_placed`,
+  `hold_for`, `classify`, `reason`, `await_answer`, `cancel_scope`, `toast` and `log`;
+- the Context facts both reasoning stages read: the eligibility snapshot, the act history, the
+  world-context mood and the relationship note;
+- the global Anon-offer watch, the runtime state guard and the mare the game's conversation
+  target names;
+- the adapter's model calls and the world-context situation record.
+
+It reads only service facades and `WORLD`, and the fields the entry binds once through `bind()`:
+`service` (this facade), `adapter`, `eligibility`, `memory`, `privacy`, `initiation` and `offer`.
+`initiation` and `offer` are plain nodes because each of them preloads this facade; everything
+else is the typed facade. `eligibility` is the one field a world enter rebinds, because the entry
+rebuilds that service.
+
+The watch is armed by `tick()`, which is the entry's idle frame: the exchange's TTL and privacy
+sample first, then the bridge's watch as its own `entry_watch` perf chunk. The watch is armed only
+while no act and no negotiation own the frame, and the previous world's watch is dropped on
+`on_world()`.
 
 ## Process
 
@@ -126,14 +175,15 @@ The routes:
 | Anon offer | this service (`begin_anon_offer`) | the Mare Response Reasoning |
 | Hotkey | the Act service (`hotkey_handle`) | accepted; no buck |
 
-The Anon offer is formed from the first new player line while Anon talks to a mare. `main` arms
-the adapter's global watch only while no negotiation and no act is live; the adapter captures the
-first new line and reports it once the director is idle again, so the classifier never races her
-reply to the same line. `main` resolves the mare from the game's conversation target
-(`conversation_target` bound to Anon), cancels an in-flight proactive approach that has not formed
-a Mare offer, and calls `begin_anon_offer(runtime, line)`. A line that is not a clear offer is
-silent: it reports no terminal outcome, shows no toast and writes no cooldown, so the Proactive
-pacing sees nothing.
+The Anon offer is formed from the first new player line while Anon talks to a mare. This service
+arms the adapter's global watch only while no negotiation and no act is live; the adapter captures
+the first new line and reports it once the director is idle again, so the classifier never races
+her reply to the same line. The bridge resolves the mare from the game's conversation target
+(`conversation_target` bound to Anon), drops an empty line, a line over `MAX_LINE`, a locked
+negotiation, an unavailable classifier and a busy runtime, cancels an in-flight proactive approach
+that has not formed a Mare offer, and calls `begin_anon_offer(runtime, line)`. A line that is not a
+clear offer is silent: it reports no terminal outcome, shows no toast and writes no cooldown, so
+the Proactive pacing sees nothing.
 
 1. Base clearance: `eligible?`, `relationship_ok` and availability; a failure is `NoOffer`.
 2. Pose options from `shared/pose_options.gd`; an empty list is `NoOffer`. The service stores the
@@ -179,9 +229,9 @@ request time.
 
 ## Agreement
 
-`main.form_mare_offer(fields)` builds the typed Mare offer from the Proactive service's plain
-values and calls `begin_mare_offer`. The Proactive owns the ask line and the request lease until
-formation; the Negotiation service owns them after it.
+The Proactive service builds the typed `MareOffer` from its decided values and calls
+`begin_mare_offer`. The Proactive owns the ask line and the request lease until formation; the
+Negotiation service owns them after it.
 
 `negotiation/agreement.gd:Package` is the frozen package:
 
@@ -199,9 +249,10 @@ The package is immutable: the service builds it once and never rewrites it. The 
 whose bound arguments make a late handle harmless. The offer service, the Act service's only
 caller, reports the `runtime.start_agreement()` answer as `Started`/`StartFailed` through
 `report(handle, started)`; the service closes the Agreement, releases the lock and releases the
-hold unless the Act adopted it on `Started`. `main._on_agreement()` starts the standing
-presentation (act-owned) and the act key and the auto-start consume the handle through
-`runtime.start_agreement()`; a wait keeps the Agreement live.
+hold unless the Act adopted it on `Started`. The service's Agreement handoff starts the standing
+presentation (act-owned) and clears the shared offer window, so the hint goes with the Agreement;
+the act key and the auto-start consume the handle through `runtime.start_agreement()`; a wait keeps
+the Agreement live. A handle whose runtime is gone is cancelled with `cancelled`.
 
 Formation runs the live placement re-check (`Host.pose_placed`, the scene-only rows) after the
 positive answer and before the package is built. A moved bed or a lost standing spot is
@@ -217,10 +268,10 @@ to the act.
 ## Lock
 
 One Act Negotiation at a time, including the Agreement window. A live offer or Agreement blocks a
-new Mare offer, Anon offer or proactive approach; the Proactive scan stays quiet while the lock is
-held, and an attempt that still reaches the service is reported `NoOffer` with reason `locked`,
-logged and toasted. The hotkey is the only break. The lock lasts at most 240 s (120 s
-negotiation + 120 s Agreement).
+new Mare offer, Anon offer or proactive approach; the Proactive scan stays quiet while
+`is_locked()` answers true, and an attempt that still reaches the service is reported `NoOffer`
+with reason `locked`, logged and toasted. The hotkey is the only break. The lock lasts at most
+240 s (120 s negotiation + 120 s Agreement).
 
 ## Privacy
 
@@ -233,25 +284,26 @@ cancels the Agreement with the same `privacy` reason and reaction.
 
 ## Hold
 
-`main` supplies the per-pony `scene_hold` ledger. The service claims
-`unfplap:negotiation:<id>` for an Anon offer, or takes the Proactive request's token over for a
-Mare offer, then takes the physical affection hold. A cuddle offer takes the attention and
-affection hold only (`claim_attention`): the cuddle session keeps its own navigator lease. Every tick it re-asserts the navigator and
-keeps Anon as the conversation target. A lost owner, a missing ledger or a target outside Anon's
-subtree is `Interrupted(target_left)`. Every terminal outcome calls `release_negotiation()`; `Started` leaves
-the adopted hold to the act.
+The bridge supplies the per-pony `scene_hold` ledger from the runtime's `hold_handle()`. The
+service claims `unfplap:negotiation:<id>` for an Anon offer, or takes the Proactive request's
+token over for a Mare offer, then takes the physical affection hold. A cuddle offer takes the
+attention and affection hold only (`claim_attention`): the cuddle session keeps its own navigator
+lease. Every tick it re-asserts the navigator and keeps Anon as the conversation target. A lost
+owner, a missing ledger or a target outside Anon's subtree is `Interrupted(target_left)`. Every
+terminal outcome calls `release_negotiation()`; `Started` leaves the adopted hold to the act.
 
 ## Feedback and cooldown
 
 Log + toast for `NoOffer`, `Occupied`, lock-blocked and every terminal outcome. A genuine
 non-offer is the exception for the player: no outcome, no toast and no pacing retry; the debug log
 still records `negotiation non-offer` and `state=none reason=non_offer`, so it is diagnosable
-without changing the pacing. `COOLDOWN_S` is the service's cooldown signal on a plain decline or an acceptance; the
-Proactive's stored history cooldown is the effective per-mare wait. A counter-offer, expiry,
-interruption and start failure write none. A counter-offer also queues one short generated line
-declining the place or timing while still wanting him; a plain refusal keeps the base-game
-dialogue and no extra line; privacy keeps its interruption line. The tolerance stop's `stop_until`
-is separate.
+without changing the pacing. `COOLDOWN_S` is the service's cooldown signal on a plain decline or
+an acceptance; the Proactive's stored history cooldown is the effective per-mare wait. A
+counter-offer, expiry, interruption and start failure write none. A counter-offer also queues one
+short generated line declining the place or timing while still wanting him; a plain refusal keeps
+the base-game dialogue and no extra line; privacy keeps its interruption line. The one react line
+is queued as `unfplap:negotiation:react:<usec>` and drops itself when the mare left the tree. The
+tolerance stop's `stop_until` is separate.
 
 ## Data ownership
 
@@ -263,14 +315,14 @@ the Proactive applies it. No reasoning record and no history write happens on a 
 
 - Scope: world
 - Constructed by: `main._ready()`
-- Begin: `setup(host)`
+- Begin: `bind()`/`on_world()`; `setup(host)` in the suites
 - End: `reset()`/world close
 - Idempotent: yes
 
 ## Settings
 
-No setting is read directly. The host's `relationship_ok` reads the Promiscuity floor, and the
-host's `context_facts` carries heat, public preference and the rest as Context. The retired
+No setting is read directly. The bridge's `relationship_ok` reads the Promiscuity floor, and its
+`context_facts` carries heat, public preference and the rest as Context. The retired
 `features.act_public_offer` and `relationship.sex_start` are never consulted.
 
 ## Controls and debug
@@ -325,7 +377,11 @@ host's `context_facts` carries heat, public preference and the rest as Context. 
   reply parsers, including the Anon offer's out-of-range marker.
 - `tests/negotiation/test_adapter.gd`: the quiet gate, the queue and the situation record, the
   answer watch and its cancel, the three model calls and the raw path, with a fake director and
-  classifier.
+  classifier source.
+- `tests/negotiation/test_host.gd`: the bridge — the host callbacks resolving to the service, the
+  Context and form view the Proactive reads, the watch arming only while idle and unlocked, the
+  Anon-line guard table, the react purpose per close reason, the outcome routing and the
+  Agreement handoff.
 
 ## Known limits
 

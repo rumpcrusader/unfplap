@@ -18,13 +18,14 @@ whether the *scene* is ready right now.
 - the structural rows (`invalid_pony`, `no_world` — the missing game root — `no_player`,
   `no_game`), the policy/scene merge, `start_verdict` / `offer_verdict`, the debug status line and
   the reason list;
+- the act key's readiness (`hotkey_ready`) and the policy verdict read (`policy_verdict_for`);
 - the physical buck/push (`buck_or_push`), which the tolerance strict stop uses.
 
-`runtime.gd` keeps the policy and the live context: it supplies `policy_verdict` (the
-`eligibility/service.gd` verdict) and `debug_context` (the act values the status line reads) through
-callbacks, and keeps the public forwards (`find_bed_under`, `free_of_affection`,
-`cuddle_active`). The tolerance stop owns its impression and face (`docs/summary.md`,
-`docs/face.md`).
+`runtime.gd` keeps the live context: it supplies `debug_context` (the act values the status line
+reads) through a callback and keeps the public forwards (`find_bed_under`, `free_of_affection`,
+`cuddle_active`, `hotkey_ready`, `hint_stool`). The gate reads `PONIES.eligibility` itself for the
+policy verdict; a suite may still override `policy_verdict`. The tolerance stop owns its
+impression and face (`docs/summary.md`, `docs/face.md`).
 
 The rows carry `ELIGIBILITY.Row` objects with the policy's own keys and reasons. The pure policy
 never sees a bed, a navigator, a pose asset or the player body.
@@ -36,10 +37,10 @@ against `PLAYER_FORM.active()` and the headset view. An unknown or internal pose
 `pose_profile`; an offer of a non-offerable pose also fails `pose`. The gate fails closed.
 
 `start_verdict()` and `offer_verdict()` accept a `verdict_in` policy snapshot. The idle hint no
-longer supplies one: its readiness is `runtime.hotkey_ready()` (the scene-only rows plus Base
-clearance), and it runs the scene rows first. `scene_only_verdict()` takes the footstool pair the
-runtime read for this call as an optional `stool_need`/`stool_have`; `-1` reads the live provider
-callbacks. The blocked standing hint reads the same pair through `runtime.hint_stool()`; it never
+longer supplies one: its readiness is `hotkey_ready()` (the scene-only rows plus Base clearance),
+and it runs the scene rows first. `scene_only_verdict()` takes the footstool pair the host read
+for this call as an optional `stool_need`/`stool_have`; `-1` reads the live provider callbacks.
+The blocked standing hint reads the same pair through the stool handle's `hint_pair()`; it never
 reruns the start gate. The live act key is the same scene-only plus Base-clearance path, and an
 accepted proactive offer starts through its Agreement's scene-only rows; the request handoff only
 changes hint discovery (`docs/initiation.md`).
@@ -75,10 +76,11 @@ A `start` gate adds the final scene rows; an `offer` gate uses the offer-safe su
 | `pose` | offer, not offerable | the pose is internal or unknown, so it cannot be offered |
 
 The footstool rule lives in the per-act handle `stool/act.gd` (`docs/stool.md`); the rows reach it
-through the runtime's `stool_needed_count` / `stool_case_count` forwards. The pose rows reach the
-pose session facade. `pose_asset`/`pose_rig` are emitted for a bed pose and for a ground pose: the
-candidate's own `asset` is resolved through its `base` chain, and a missing or frame-mismatched
-asset refuses the start. The ground family has no procedural fallback.
+through the host's `stool_needed_count` / `stool_case_count` forwards, and the hotkey pair comes
+from the handle's `hotkey_pair()`. The pose rows reach the pose session facade. `pose_asset` and
+`pose_rig` are emitted for a bed pose and for a ground pose: the candidate's own `asset` is resolved
+through its `base` chain, and a missing or frame-mismatched asset refuses the start. The ground
+family has no procedural fallback.
 
 ## Pose options and placement
 
@@ -211,4 +213,5 @@ player, bed and row sets, the structural rows, the policy/scene merge (including
 the frozen pose rows, the hold exemption and the transient/hard split), the debug line, the
 reason list, the buck/push and the auto-cuddle suppression with fake scene nodes.
 `tests/eligibility/` keeps the pure policy suites. The runtime suite
-(`tests/test_runtime_teardown.gd`) and the history stop suite drive the public forwards.
+(`tests/test_runtime_teardown.gd`) and the stool suite (`tests/stool/test_gate.gd`) drive the
+public forwards and the gate's hotkey readiness; the history stop suite drives the history row.

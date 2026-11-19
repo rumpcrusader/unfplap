@@ -30,11 +30,11 @@ names a pose and never reaches into a request or negotiation service.
 
 The live start paths share the one body (`runtime._begin_act()`):
 
-- **The hotkey** runs `runtime.start_hotkey()`: the scene-only rows plus Base clearance, then
-  `_begin_act()`. No policy row, no offer cooldown, no buck and no history refusal. The idle hint
-  scans once per second and reads Base clearance live after the scene rows pass; a real press runs
-  the same path. There is no eligibility cache, and a failing scene reads no Base clearance. A
-  transient failed gate leaves the offer and the hint alive.
+- **The hotkey** runs `runtime.start_hotkey()`: the scene gate's `hotkey_ready()` (the scene-only
+  rows plus Base clearance), then `_begin_act()`. No policy row, no offer cooldown, no buck and no
+  history refusal. The idle hint scans once per second and reads Base clearance live after the
+  scene rows pass; a real press runs the same path. There is no eligibility cache, and a failing
+  scene reads no Base clearance. A transient failed gate leaves the offer and the hint alive.
 - **The Agreement** runs `runtime.start_agreement(handle)`: only the scene-only rows with the
   frozen pose capability (`scene_only_verdict`), then `_begin_act()`. The runtime answers
   `AGREEMENT_WAIT`, `AGREEMENT_STARTED` or `AGREEMENT_FAILED` and the offer, its only caller,
@@ -413,9 +413,9 @@ standing start no longer pulls the Hips bone across the gap. The fit log line ca
 - `tests/test_runtime_notes.gd` — the prompt forwards.
 - `tests/poses/test_pose_offer.gd` — the typed offer, the Agreement/hotkey outcome table and the
   one start path. The idle hint no longer keeps a policy snapshot; its readiness is
-  `runtime.hotkey_ready()`, which reads Base clearance live after the scene rows pass
-  (`tests/test_runtime_teardown.gd`). The stool suite covers the per-scan reach pair and the
-  scene-first read (`tests/stool/test_gate.gd`).
+  `runtime.hotkey_ready()`, which forwards the scene gate's readiness and reads Base clearance live
+  after the scene rows pass (`tests/test_runtime_teardown.gd`). The stool suite covers the per-scan
+  reach pair and the scene-first read (`tests/stool/test_gate.gd`).
 - `tests/poses/test_start_setup.gd` — the closed setup vocabulary, the synthetic
   `auto`/`bed_keep_lying` row and the runtime dispatch for both bed adapters.
 - `tests/readiness/test_oral_quiet.gd` — the oral contact: the plap and rump/tail jiggle skip, the

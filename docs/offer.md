@@ -65,11 +65,11 @@ trigger, so it never names a pose. It dispatches:
 - `trigger == "agreement"` → the live Agreement start;
 - anything else → the hotkey attempt.
 
-**The hotkey attempt** is `runtime.start_hotkey()`: Base clearance plus the scene-only rows, with
-no policy snapshot, no offer cooldown and no buck. A live Agreement's exact `(pose, source, bed)`
-match starts immediately and skips the presentation; any other live Agreement or negotiation is
-interrupted with `Interrupted(hotkey)` and the immediate attempt still runs. A started attempt
-clears the hint; a blocked one keeps it.
+**The hotkey attempt** is `runtime.start_hotkey()`: the scene gate's `hotkey_ready()` (Base
+clearance plus the scene-only rows), with no policy snapshot, no offer cooldown and no buck. A live
+Agreement's exact `(pose, source, bed)` match starts immediately and skips the presentation; any
+other live Agreement or negotiation is interrupted with `Interrupted(hotkey)` and the immediate
+attempt still runs. A started attempt clears the hint; a blocked one keeps it.
 
 **The live Agreement start** is `runtime.start_agreement(handle)`: only the scene-only rows with
 the frozen pose capability. `AGREEMENT_WAIT` keeps the hint and the Agreement for the next press.

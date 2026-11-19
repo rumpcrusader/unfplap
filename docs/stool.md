@@ -24,7 +24,7 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 | File | Role |
 |---|---|
 | `stool/service.gd` | facade: the only other systems preload or call; owns the supply child, `new_act()` and the stateless helpers |
-| `stool/act.gd` | per-act handle: the live rule, case loans, placed stack, player lift and failed flag; the runtime owns one per act and forwards its queries one line each |
+| `stool/act.gd` | per-act handle: the live rule, case loans, placed stack, player lift, failed flag and the hotkey pair (`hotkey_pair`, `hint_pair`); the runtime owns one per act and forwards its queries one line each |
 | `stool/measure.gd` | pure reach-gap, threshold and stack-count arithmetic |
 | `stool/item.gd` | pure `goods:footstool` case-slot, case-count, owned-count and free-slot checks |
 | `stool/prop.gd` | scene adapter: builds the stacked static act stool and its pony collision exception |
@@ -82,9 +82,10 @@ floor_y_at(at, body) -> float
 ```
 
 `place()` builds the stack under the runtime's standing spot and returns the raised player
-target; `release()` frees the prop, lowers the player and returns every case unit. The runtime's
-stool queries are one-line forwards to the handle; the handle owns the rule, the case reads and
-the failed flag.
+target; `release()` frees the prop, lowers the player and returns every case unit. The handle also
+owns the hotkey pair: `hotkey_pair(pose)` reads the reach and case counts once and keeps them, and
+`hint_pair()` returns that pair for the blocked note. The runtime's stool queries are one-line
+forwards to the handle; the handle owns the rule, the case reads and the failed flag.
 
 `build_prop()` returns `{"node": StaticBody3D, "height": float, "count": int, "step": float}`.
 `ignore` is the partner pony; the stack must not collide with her.
@@ -136,15 +137,18 @@ idle hint and the act start.
 
 - The standing scene gate gets a `stool` row with reason `needs_stool` when the rule needs more
   case footstools than Anon has.
-- The scene-only formation rows, the Agreement's placement check and `runtime.hotkey_ready()` use
-  the same row, so a tall mare neither offers nor shows the hint when Anon cannot reach.
+- The scene-only formation rows, the Agreement's placement check and `scene_gate.hotkey_ready()`
+  (forwarded by the runtime) use the same row, so a tall mare neither offers nor shows the hint
+  when Anon cannot reach.
 - `offer/service.gd` shows **Make love** when the start is possible and **Needs a footstool** or
   **Needs N footstools** when the stack is the only missing thing. The blocked note has no act-key
   icon. A one-time toast points at houses.
-- The idle hint reads the reach and case pair once per scan (once per second) and hands it to the
-  scene row. The anatomy measurement and the inventory scan are not repeated inside the same scan.
-- The blocked hint reads that pair through `runtime.hint_stool()`; it does not repeat the reach or
-  case reads. Before the first hint the accessor falls back to the live pair.
+- The idle hint reads the reach and case pair once per scan (once per second) through
+  `hotkey_pair()` and hands it to the scene row. The anatomy measurement and the inventory scan are
+  not repeated inside the same scan.
+- The blocked hint reads that pair through `hint_pair()` (forwarded by `runtime.hint_stool()`); it
+  does not repeat the reach or case reads. Before the first hint the accessor falls back to the live
+  pair.
 - Pressing the act key on the blocked note does not start an act.
 - The normal start path takes exactly the required number of case units. A short or unwritable
   case blocks the start.
@@ -226,7 +230,8 @@ idle hint and the act start.
 - `tests/stool/test_item.gd`: case slot, case count, owned count, free slots, take/put and placed
   loans.
 - `tests/stool/test_gate.gd`: the facade's feature read, the runtime forwards' live gap, two-step
-  requirement, case count and the blocked hint's reuse of the first gate's rows.
+  requirement, case count, the hotkey readiness and the blocked hint's reuse of the first gate's
+  pair.
 - `tests/stool/test_act.gd`: the per-act handle's rule, case loans, stack placement/release,
   reset and the missing-stool-only block.
 - `tests/stool/test_prop.gd`: the stacked visuals, total height, box top and both pony collision

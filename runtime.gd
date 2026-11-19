@@ -217,7 +217,6 @@ var _snapshot: SETTINGS.ActSnapshot:
 ## `_summary_service.summary`.
 var _summary_service: RefCounted = SUMMARY.new()
 var _end_early_key := ""
-var _climax_reaction_key := ""
 var _wings: WING = null
 ## The act's face owner: beats, line-face ownership, the stare release and the post-act mood
 ## face. See `face/service.gd` and `docs/face.md`.
@@ -331,7 +330,7 @@ func _bind_pose_hosts() -> void:
 	_pose_session.opening_point = Callable(self, "_oral_opening_point")
 	_pose_session.face_point = Callable(self, "_anatomy_face_point")
 	_pose_session.oral_kiss = Callable(_audio, "oral_kiss")
-	_pose_session.oral_speech_stop = Callable(self, "_oral_speech_stop")
+	_pose_session.oral_speech_stop = Callable(_act, "oral_speech_stop")
 	_pose_session.oral_viseme = Callable(self, "_oral_viseme")
 	_pose_session.oral_status = Callable(self, "_anatomy_status")
 
@@ -353,7 +352,7 @@ func _init() -> void:
 	_readiness.log = Callable(self, "_log")
 	_readiness.clock = Callable(self, "_now_s")
 	_readiness.state = Callable(self, "_readiness_state")
-	_readiness.on_climax = Callable(self, "_climax")
+	_readiness.on_climax = Callable(_act, "climax")
 	_readiness.on_close = Callable(self, "_readiness_close")
 	_readiness.on_face = Callable(_act, "face_beat")
 	_readiness.on_anatomy_react = Callable(self, "_readiness_anatomy_react")
@@ -364,7 +363,7 @@ func _init() -> void:
 	_summary_service.log = Callable(self, "_log")
 	_afterglow.log = Callable(self, "_log")
 	_afterglow.caress_active = Callable(self, "_afterglow_caressing")
-	_afterglow.on_stay_close = Callable(self, "_on_stay_close")
+	_afterglow.on_stay_close = Callable(_act, "on_stay_close")
 	_afterglow.bind_host(self)
 	_afterglow.write_satisfaction = Callable(self, "_write_satisfaction")
 	_face.log = Callable(self, "_log")
@@ -1112,14 +1111,14 @@ func _physics_tick(delta: float) -> void:
 		_reactions.hearts_tick(delta)
 	match phase:
 		ACT_SESSION.ENTER_ACTIVE:
-			_enter_active()
+			_act.enter_active_act()
 			# The start snapshot caught Anon mid stand-up, so his eye height was the reclined one; the
 			# scene is settled now, and restoring to this is what puts the camera back correctly.
 			if _pose_family() == "bed":
 				_missionary_camera_controller().resnapshot()
 			_handover.hint_tick()
 		ACT_SESSION.FINISH_CLIMAX:
-			_finish_climax()
+			_act.finish_climax()
 		ACT_SESSION.FINISH_RESTORE:
 			_finish_restore()
 	if state == State.AFTERGLOW:
@@ -1179,22 +1178,7 @@ func scene_only_verdict(pose: String, act_source: String, bed_in: Variant = null
 ## The live act values the debug status line reads. The debug pony helper owns the scene gather;
 ## the act's session values are the runtime's own.
 func _debug_context() -> Dictionary:
-	return DEBUG_PONY.context(pony, _id, {
-		"state": state,
-		"presenting": _standing_presentation_controller().presentation_active(),
-		"cuddle": _cuddle_active(),
-		"max_pony_climaxes": _act.max_pony_climaxes,
-		"satisfaction": satisfaction,
-		"pony_climaxes": pony_climaxes,
-		"last_intensity": _readiness.last_intensity,
-		"last_pattern": _readiness.last_pattern,
-		"cue": cue,
-		"thrust_up": _readiness.up_is_deep,
-		"penetration_m": penetration_m,
-		"penetration_reach": penetration_reach(),
-		"preferences": PREFERENCES.describe(_act.preferences),
-		"voice_status_line": voice_status_line(),
-	})
+	return _act.debug_context()
 
 
 ## The debug status line. The scene gate owns the row and verdict assembly.
@@ -1260,14 +1244,6 @@ func start_hotkey(pose: String, bed_in: Variant, act_source: String,
 	return _start.start_hotkey(pose, bed_in, act_source, skip_presentation)
 
 
-func _end_cuddle_session() -> void:
-	_hold.end_cuddle()
-
-
-func _release_carry() -> bool:
-	return _hold.release_carry()
-
-
 func _claim_nav() -> bool:
 	if _hold.holds_negotiation():
 		return _hold.adopt_hold()
@@ -1315,17 +1291,6 @@ func _keep_nav() -> void:
 func _keep_act_attention() -> void:
 	_hold.keep_attention()
 
-
-func _release_nav() -> void:
-	_hold.release_nav()
-
-
-func _lock_player() -> void:
-	_hold.lock_player()
-
-
-func _unlock_player() -> void:
-	_hold.unlock_player()
 
 ## True while a shape change has the act suspended. `ponies` keeps the act's pending record and
 ## the debug actions see one change at a time.
@@ -1527,7 +1492,7 @@ func _handover_release_scene() -> void:
 ## caller; the act exit and the new-act prep are the other two.
 func _handover_release_pose() -> void:
 	_exit.free_pose()
-	_start.restore_bones()
+	_act_context.pose.restore_bones()
 
 
 func _handover_restore_camera() -> void:
@@ -1576,7 +1541,7 @@ func _handover_set_act_pose_config() -> void:
 ## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is
 ## skipped because the act is continuing, not entering.
 func _handover_rebuild_act_pose() -> void:
-	_start.snapshot_bones()
+	_act_context.pose.snapshot_bones()
 	var camera: Camera3D = WORLD.camera()
 	var look: Vector3 = pony.global_position
 	var camera_at := Vector3.INF
@@ -1591,7 +1556,7 @@ func _handover_rebuild_act_pose() -> void:
 
 
 func _handover_sync_start_config() -> void:
-	_start.sync_start_pose_config()
+	_act_context.pose.sync_start_config(_act.start_group())
 
 
 func _handover_reset_lean() -> void:
@@ -1599,7 +1564,9 @@ func _handover_reset_lean() -> void:
 
 
 func _handover_prepare_start_camera() -> void:
-	_start.prepare_start_camera()
+	var camera_row: Variant = _act.start_row().get("camera", {})
+	var profile := str((camera_row as Dictionary).get("profile", "")) if camera_row is Dictionary else ""
+	_act_context.camera.prepare_start(profile)
 
 
 func _handover_open_camera() -> void:
@@ -1724,47 +1691,15 @@ func request_afterglow() -> void:
 ## integration: anatomy action entry points for input.gd. They are no-ops when the per-act
 ## controller is absent, so the keys behave exactly like master with the feature off.
 func toggle_anatomy_hole() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.toggle_hole()
+	_act.toggle_anatomy_hole()
 
 
 ## The `oral` command: request the standing oral pose, or the return edge when it is already
 ## active. The per-mare consent string is passed only when the anatomy service says yes; the
 ## feature is checked by the edge requirements, not here.
 func toggle_anatomy_oral() -> void:
-	var view: RefCounted = _pose_service().view()
-	var from_id := str(view.id)
-	var target := CATALOG.STANDING_ORAL if from_id == CATALOG.STANDING else CATALOG.STANDING
-	var request := {}
-	var consent := false
-	var service: Variant = _anatomy_service()
-	if service != null and service.has_method("consent") and target == CATALOG.STANDING_ORAL:
-		consent = bool(service.call("consent", pony, "oral"))
-		if consent:
-			request["consent"] = "oral"
-	var result: Dictionary = request_pose(target, "oral", request)
-	if bool(result.get("ok", false)):
-		_log("oral pose %s -> %s: ok" % [from_id, target])
-		return
-	_log("oral pose %s -> %s refused: %s (%s)" % [
-		from_id, target, str(result.get("code", "")), str(result.get("reason", ""))])
-	if target == CATALOG.STANDING_ORAL and not consent:
-		_oral_status("%s is not into that" % _act.display_name)
-	elif service != null:
-		_oral_status(str(result.get("reason", "")))
+	_act.toggle_anatomy_oral()
 
-
-## The oral refusal line through the pose service's host callback, or the anatomy status when the
-## callback is absent.
-func _oral_status(text: String) -> void:
-	var session: RefCounted = _pose_service()
-	if session.oral_status.is_valid():
-		session.oral_status.call(text)
-	else:
-		_anatomy_status(text)
-
-
-## The mouth point the pose turn aims at once it has settled.
 func _oral_mouth_point() -> Vector3:
 	_anatomy_bridge.bind(_anatomy_host())
 	return _anatomy_bridge.mouth_point()
@@ -1788,14 +1723,6 @@ func _anatomy_face_point() -> Vector3:
 func _oral_viseme(value: String) -> void:
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.set_oral_viseme(value)
-
-
-## The edge's speech stop: her authored line, the shared director turn and her own voice end once
-## when the oral edge starts. The mouth shape follows through the separate `viseme` event.
-func _oral_speech_stop() -> void:
-	_dialogue_service().end_act(_act.event_id, false)
-	_stop_oral_director()
-	_stop_pony_speech()
 
 
 ## integration: precise action gates. With no act controller (feature off or no controller) the
@@ -1858,8 +1785,7 @@ func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
 
 
 func anatomy_status(text: String, seconds := 2.0) -> void:
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.status(text, seconds)
+	_act.anatomy_status(text, seconds)
 
 
 ## Idempotent stop for every state exit. It never moves the depth.
@@ -1897,30 +1823,6 @@ func _player_shaft_length_m() -> float:
 		if length is float and (length as float) > 0.001:
 			return length as float
 	return 0.0
-
-
-## Interrupt the shared director only when it is driving this mare, so a bystander's turn is not
-## cut by her mouth being busy.
-func _stop_oral_director() -> void:
-	var director := _director()
-	if director == null or not director.has_method("interrupt"):
-		return
-	if str(director.get("state")) == "idle":
-		return
-	if str(director.get("_current")) != _id:
-		return
-	director.call("interrupt")
-
-
-## Stop her own voice. `stop_speaking()` restores the rest viseme, so the oral turn re-asserts its
-## mouth shape; the turn is the only owner of the open mouth.
-func _stop_pony_speech() -> void:
-	if not is_instance_valid(pony):
-		return
-	if pony.has_method("is_speaking") and bool(pony.call("is_speaking")):
-		if pony.has_method("stop_speaking"):
-			pony.call("stop_speaking")
-		_anatomy_bridge.hold_oral_mouth()
 
 
 ## One real touch event. The readiness system applies the cooldown, heat and tolerance meter.
@@ -2021,11 +1923,6 @@ func _stop_with_her(reason: String) -> void:
 		reason, str(strict)])
 
 
-func _history_note() -> String:
-	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), _id, ACT_HISTORY.day_now())
-	return ACT_HISTORY.prompt_note(row)
-
-
 ## Idle-only history scan. `dialogue/service.gd` reads the scene and owns the decisions and the
 ## line queueing.
 func _history_tick(delta: float) -> void:
@@ -2092,89 +1989,6 @@ func end_afterglow() -> void:
 		_afterglow.cancel_close()
 		_restore_begin()
 
-func _climax() -> void:
-	if state != State.ACTIVE:
-		return
-	pony_climaxes += 1
-	_log("pony climax=%d pose=%s pony=%s readiness=%.0f" % [
-		pony_climaxes, str(_act.start_row().get("id", "")), str(pony.name), satisfaction])
-	_act.enter_climax()
-	mood = "climax"
-	cue = "She is climaxing."
-	_set_cue_override("She is climaxing.", CLIMAX_SECONDS)
-	_handover.hint_tick()
-	_reactions.schedule_hearts()
-	_reactions.hearts_burst_at(_reactions.dock_point())
-	_act.set_face(0.3, FACE.CLIMAX_LIDS)
-	_act.face_beat("climax")
-	_dialogue_service().end_act(_act.event_id, true)
-	if is_instance_valid(WORLD.game) and pony_climaxes == 1:
-		MEMORY.instance.note(MEMORY.NoteKind.CLIMAXED, _id, _act.event_id)
-	_queue_climax_reaction()
-	_audio.play_climax()
-	# integration: her fluid hook.
-	_anatomy_bridge.on_climax()
-	if is_instance_valid(HUD.instance):
-		HUD.instance.set_state("CLIMAX")
-
-
-func _queue_climax_reaction() -> void:
-	# Her mouth is busy during oral; the climax line waits for a later act.
-	var view: Variant = _pose_session.view()
-	if view != null and str(view.contact_kind) == "mouth":
-		return
-	if not is_instance_valid(WORLD.game):
-		return
-	var act_id := _act.event_id
-	var count := pony_climaxes
-	var climax_id := "%s:pony_climax:%d" % [act_id, count]
-	var expires := _act.clock_s() + _cue_reaction_max_age_value()
-	var valid := func() -> bool:
-		if not is_instance_valid(pony) or _act.event_id != act_id or pony_climaxes != count:
-			return false
-		if _act.clock_s() <= expires:
-			return true
-		return MEMORY.instance.line_state(_climax_reaction_key) == MEMORY.LineState.SPEAKING
-	var key: String = _dialogue_service().reaction_line(MEMORY.Reaction.CLIMAX, climax_id, "You have just climaxed. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine.", valid)
-	_climax_reaction_key = key
-	if key.is_empty():
-		return
-	var now := _act.clock_s()
-	_dialogue_service().note_reaction(key, cue, now + _cue_reaction_max_age_value())
-	_log("utterance kind=reaction key=%s" % key)
-
-## The first ACTIVE entry after the pose settles. Later returns from a climax are CLIMAX_END.
-func _enter_active() -> void:
-	_act.enter_active()
-	_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
-
-
-## The pony climax ends on its own. It returns to ACTIVE unless the configured limit was
-## reached; afterglow is the player's choice, not the climax state's automatic exit.
-func _finish_climax() -> void:
-	_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.CLIMAX_END)
-	if _act.max_pony_climaxes > 0 and pony_climaxes >= _act.max_pony_climaxes:
-		_enter_afterglow()
-		return
-	_act.enter_active()
-	_face.stare_release_until = 0.0
-	_act.set_face(0.45, FACE.ACT_LIDS)
-	satisfaction = 0.0
-	mood = "warming"
-	cue = ""
-	_handover.hint_tick()
-	_readiness.cue_override = ""
-	_readiness.cue_until = 0.0
-	_readiness.overwhelmed = 0.0
-	_readiness.last_intensity = ""
-	_readiness.last_pattern = ""
-	_readiness.stroke_window.clear()
-	_readiness.last_stroke_at = -1000.0
-	_readiness.last_thrust_score_at = -1000.0
-	_readiness.receptive_until = 0.0
-	var limit_text := "∞" if _act.max_pony_climaxes <= 0 else str(_act.max_pony_climaxes)
-	_log("pony climax end=%d/%s readiness=0" % [pony_climaxes, limit_text])
-
 ## Estrus phase. The eligibility owner resolves the debug override, the feature flag and the
 ## world day; the validity guard keeps a body freed during teardown from reaching it.
 func cycle_phase() -> String:
@@ -2199,91 +2013,17 @@ func cycle_note() -> String:
 	return service.cycle_note(pony) if service != null else ""
 
 
-## Short private relationship facts for normal dialogue. Empty outside a relationship runtime.
-func _relationship_note() -> String:
-	if not is_instance_valid(WORLD.game):
-		return ""
-	_act.refresh_identity()
-	return RELATIONSHIP_CUE.note(MEMORY.instance.cue_facts(_id, _act.event_id).to_dict())
-
-
 ## Live context for the normal dialogue prompt. The entry node joins the game's
 ## `pony_prompt_notes` group and forwards to the active runtime for that pony.
 func prompt_note() -> String:
-	_act.refresh_identity()
-	var form := _body_form()
-	return _dialogue_service().prompt_note({
-		"state": state,
-		"warm": _face.warm_note,
-		"history": _history_note(),
-		"beat": _afterglow.beat,
-		"relation": _relationship_note(),
-		"caressing": _hand_controller().any_active(),
-		"leaning": _act_camera.lean_forward >= 0.35 or _act_camera.lean_action_active or _kiss_controller().leaning_close(),
-		"missionary": _pose_family() == "bed",
-		"form_source": _handover.source() != null,
-		"form_name": form.form_name.strip_edges() if form != null else "",
-		"form_borrowed": form != null and not form.is_own(),
-	})
+	return _act.prompt_note()
 
 
 func _afterglow_caressing() -> bool:
 	return _hand_controller().any_active()
 
 func _enter_afterglow() -> void:
-	_afterglow_begin()
-
-func _commit_afterglow() -> void:
-	if not is_instance_valid(WORLD.game):
-		return
-	_act.commit_summary(true)
-	_act.record_peak_memory()
-	for row: MEMORY.Witness in MEMORY.instance.witnesses(_id, _act.display_name, _act.serial, pony):
-		_log("witness " + str(row.to_dict()))
-
-## Both poses share the held afterglow; standing adds the close window and a slightly lifted
-## tail.
-func _afterglow_begin() -> void:
-	_log("afterglow pose=%s pony=%s" % [_act.pose_id, str(pony.name)])
-	_stop_auto()
-	_dialogue_service().end_act(_act.event_id, true)
-	# Bed afterglow keeps only lean and caress; standing keeps its kiss.
-	if _pose_family() != "standing":
-		_kiss_controller().end_lean_kiss()
-	_commit_afterglow()
-	_act.enter_afterglow()
-	_handover.hint_tick()
-	_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.AFTERGLOW)
-	refresh_view()
-	# The oral afterglow releases the mouth contact and keeps the turned pose. The pose row's
-	# afterglow profile is passive, so no standing close window opens.
-	_pose_service().release_mouth_contact()
-	_integrations_controller().afterglow()
-	_afterglow.bind_view(_pose_session.view())
-	_afterglow.begin(_summary_service.summary)
-	cue = ""
-	_readiness.cue_override = ""
-	_readiness.cue_until = 0.0
-	_face.stare_release_until = 0.0
-	_act.set_face(0.85, FACE.AFTERGLOW_LIDS)
-	_act.face_beat("afterglow")
-	_apply_afterglow_presentation(_afterglow.presentation())
-
-
-## Apply the afterglow facade's presentation row in the built order: the pose weight, the tail,
-## the HUD state, then the wings. The evaluator keeps its current pair, so the pose holds.
-func _apply_afterglow_presentation(row: Dictionary) -> void:
-	if is_instance_valid(_pose_session.pose()):
-		_pose_session.pose().target_amount = 1.0
-		_pose_session.pose().amount = 1.0
-	_pose_service().set_tail_target(float(row.get("tail_target", 0.35)))
-	var flicks := int(row.get("tail_flicks", 0))
-	if flicks > 0:
-		_pose_service().flick_tail(flicks)
-	if is_instance_valid(HUD.instance):
-		HUD.instance.set_state(str(row.get("hud_state", "AFTERGLOW")))
-	if bool(row.get("wings", false)):
-		_wings_controller().begin_afterglow()
+	_act.begin_afterglow()
 
 func _afterglow_tick(delta: float) -> void:
 	if state != State.AFTERGLOW:
@@ -2294,23 +2034,6 @@ func _afterglow_tick(delta: float) -> void:
 	if state != State.AFTERGLOW or _pose_family() != "standing":
 		return
 	_afterglow.close_tick(delta)
-
-## The standing close window elapsed. The facade decided the reward; the runtime presents it.
-func _on_stay_close(caressed: bool, reward: bool) -> void:
-	if is_instance_valid(WORLD.game):
-		var impression := MEMORY.Impression.new()
-		impression.id = _id
-		impression.event_id = _act.event_id
-		impression.slot = MEMORY.ImpressionSlot.STAY_CLOSE
-		impression.mood = "happy" if reward else ""
-		impression.romance = 1 if reward and caressed else 0
-		MEMORY.instance.commit(impression)
-	if not reward and caressed:
-		if ACT_HISTORY.repair(ACT_HISTORY.section(), _id, 1, ACT_HISTORY.day_now()):
-			ACT_HISTORY.save()
-	_act.set_face(0.9, FACE.AFTERGLOW_CLOSE_LIDS)
-	_reactions.hearts_burst()
-	cue = ""
 
 func close_hint() -> String:
 	return _view.close_hint(_act, _pose_family())

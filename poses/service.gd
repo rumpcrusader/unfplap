@@ -1932,3 +1932,10 @@ func _num(value: Variant, fallback := 0.0) -> float:
 func _write_log(text: String) -> void:
 	if log.is_valid():
 		log.call(text)
+
+
+## The start pose's settings-group sync after the pose build. This is a group dispatch, not a pose
+## branch: a new group adds its own sync with its pose row.
+func sync_start_config(group: String) -> void:
+	if group == "missionary":
+		sync_missionary_config()

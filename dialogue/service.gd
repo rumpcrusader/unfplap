@@ -607,3 +607,13 @@ func _now() -> float:
 func _log(text: String) -> void:
 	if facts != null:
 		facts.write_log(text)
+
+
+## The start's generated-vocal preparation: the director prepares her voice cache for the act.
+func prepare_vocal(pony_id: String) -> void:
+	var director: Node = _director()
+	if director == null:
+		return
+	var vocal: Variant = director.get("vocal")
+	if vocal != null and vocal.has_method("prepare"):
+		vocal.call("prepare", pony_id)

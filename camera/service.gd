@@ -988,3 +988,10 @@ func feature(name: String) -> bool:
 func write_log(text: String) -> void:
 	if facts != null:
 		facts.write_log(text)
+
+
+## Prepare the start pose's camera profile before the look is captured. The bed shot camera reads
+## the authored asset; the standing camera starts in its placement adapter instead.
+func prepare_start(profile: String) -> void:
+	if profile == "missionary_shots" and missionary_camera != null:
+		missionary_camera.prepare()

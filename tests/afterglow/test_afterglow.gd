@@ -169,7 +169,7 @@ func run() -> void:
 	held._pose_session.pose_node = fake_pose
 	held._pose_session.view().id = "standing"
 	held._pose_session.view().pose_state = VIEW.STEADY
-	held.call("_apply_afterglow_presentation", standing_row)
+	held._act.apply_afterglow_presentation(standing_row)
 	check(fake_pose.written.is_empty(), "the afterglow runtime writes no pose mode")
 	check(near(fake_pose.amount, 1.0) and near(fake_pose.target_amount, 1.0),
 		"the afterglow runtime re-asserts the pose weight")
@@ -261,14 +261,14 @@ func run() -> void:
 	check(ended_pony.has_meta("sex_aftercare"), "the aftercare marks the pony")
 	check(is_instance_valid(ended._face.mood_face), "the post-act face is held")
 	check(ended._afterglow.get("_decay") != null, "the satisfaction decay runs")
-	ended.call("_clear_aftercare")
+	ended._start._clear_aftercare()
 	check(not ended_pony.has_meta("sex_aftercare"), "a new start clears the aftercare")
 	ended._act.stopped_by_her = true
 	ended._exit.reset_after_act()
 	check(ended._afterglow.aftercare == null, "a partner stop starts no aftercare")
-	check(ended._tail_tuck != null, "a partner stop tucks her tail")
-	ended.call("_end_tail_tuck")
-	check(ended._tail_tuck == null, "the tuck is released")
+	check(ended._act_host._tail_tuck != null, "a partner stop tucks her tail")
+	ended._act_host.end_tail_tuck()
+	check(ended._act_host._tail_tuck == null, "the tuck is released")
 	ended._afterglow.stop_decay()
 	root.remove_child(ended)
 	ended.free()

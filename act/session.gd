@@ -18,6 +18,13 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
+const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
+const FACE := preload("res://mods/unfplap/face/service.gd")
 
 const READINESS_MAX := 100.0
 
@@ -85,6 +92,8 @@ var aftercare_min := 0
 var cue_gap := 0.0
 var first_time := false
 var act_spoken_at := -1e9
+## The last generated climax reaction line, so it can be extended while she speaks.
+var climax_reaction_key := ""
 ## A cancelled act: the summary and the early-stop line read it.
 var ended_early := false
 ## The estrus heat signal, resolved once per tick and carried in the HUD card.
@@ -410,10 +419,10 @@ func apply_live_settings() -> bool:
 	context.reactions.apply_radius()
 	if pose_family() == "standing":
 		context.kiss.apply_live_settings()
-		start.sync_standing_config()
+		context.pose.sync_standing_config(presentation_config)
 		context.presentation.apply_live_settings()
 	elif pose_family() == "bed":
-		start.sync_missionary_config()
+		context.pose.sync_missionary_config()
 	# A running edge's target snapshot follows the same edit; the start pose's config sync above
 	# stays for the compatibility readers.
 	context.pose.apply_live_settings()
@@ -712,3 +721,319 @@ func apply_camera_motion() -> void:
 	sync_hud()
 	if context.camera.motion_ready():
 		context.camera.apply_motion()
+
+
+## The start's one talk-turn reset: readiness and the handover keep their own last-turn state.
+func remember_talk_turn() -> void:
+	var director: Node = _director()
+	context.readiness.remember_talk_turn(director)
+	context.handover.remember_talk_turn(director)
+
+
+func _director() -> Node:
+	var tree: SceneTree = host.tree()
+	return tree.get_first_node_in_group("conversation_director") if tree != null else null
+
+
+## The oral edge's speech stop: her authored line, the shared director turn and her own voice end
+## once when the edge starts. The mouth shape follows through the separate viseme event.
+func oral_speech_stop() -> void:
+	context.dialogue.end_act(event_id, false)
+	stop_oral_turn()
+	stop_speech()
+
+
+## Interrupt the shared director only when it is driving this mare, so a bystander's turn is not
+## cut by her mouth being busy.
+func stop_oral_turn() -> void:
+	var director: Node = _director()
+	if director == null or not director.has_method("interrupt"):
+		return
+	if str(director.get("state")) == "idle":
+		return
+	if str(director.get("_current")) != pony_id:
+		return
+	director.call("interrupt")
+
+
+## Stop her own voice. `stop_speaking()` restores the rest viseme, so the oral turn re-asserts its
+## mouth shape; the turn is the only owner of the open mouth.
+func stop_speech() -> void:
+	if not is_instance_valid(host.pony):
+		return
+	if host.pony.has_method("is_speaking") and bool(host.pony.call("is_speaking")):
+		if host.pony.has_method("stop_speaking"):
+			host.pony.call("stop_speaking")
+		context.anatomy.hold_oral_mouth()
+
+
+## The `oral` command: request the standing oral pose, or the return edge when it is already
+## active. The per-mare consent string is passed only when the anatomy service says yes; the
+## feature is checked by the edge requirements, not here.
+func toggle_anatomy_oral() -> void:
+	var live: Variant = context.pose.view()
+	var from_id := str(live.id) if live != null else ""
+	var target := CATALOG.STANDING_ORAL if from_id == CATALOG.STANDING else CATALOG.STANDING
+	var request := {}
+	var consent := false
+	var service: Variant = PONIES.anatomy
+	if service != null and service.has_method("consent") and target == CATALOG.STANDING_ORAL:
+		consent = bool(service.call("consent", host.pony, "oral"))
+		if consent:
+			request["consent"] = "oral"
+	var result: Dictionary = context.pose.request_pose(target, "oral", _pose_request(request))
+	if bool(result.get("ok", false)):
+		host.log("oral pose %s -> %s: ok" % [from_id, target])
+		return
+	host.log("oral pose %s -> %s refused: %s (%s)" % [
+		from_id, target, str(result.get("code", "")), str(result.get("reason", ""))])
+	if target == CATALOG.STANDING_ORAL and not consent:
+		oral_status("%s is not into that" % display_name)
+	elif service != null:
+		oral_status(str(result.get("reason", "")))
+
+
+func _pose_request(extra: Dictionary) -> Dictionary:
+	var request := extra.duplicate()
+	if not request.has("act_state"):
+		request["act_state"] = state
+	if not request.has("features"):
+		request["features"] = features
+	return request
+
+
+## The oral refusal line through the pose service's host callback, or the anatomy status when the
+## callback is absent.
+func oral_status(text: String) -> void:
+	var pose_session: Variant = context.pose
+	if pose_session != null and pose_session.oral_status.is_valid():
+		pose_session.oral_status.call(text)
+	else:
+		anatomy_status(text)
+
+
+func toggle_anatomy_hole() -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.toggle_hole()
+
+
+func anatomy_status(text: String, seconds := 2.0) -> void:
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.status(text, seconds)
+
+
+## The live act values the debug status line reads. The debug pony helper owns the scene gather;
+## the act's session values are the act's own.
+func debug_context() -> Dictionary:
+	return DEBUG_PONY.context(host.pony, pony_id, {
+		"state": state,
+		"presenting": context.presentation.presentation_active(),
+		"cuddle": context.gate.cuddle_active(),
+		"max_pony_climaxes": max_pony_climaxes,
+		"satisfaction": context.readiness.satisfaction,
+		"pony_climaxes": context.readiness.pony_climaxes,
+		"last_intensity": context.readiness.last_intensity,
+		"last_pattern": context.readiness.last_pattern,
+		"cue": context.readiness.cue,
+		"thrust_up": context.readiness.up_is_deep,
+		"penetration_m": context.readiness.penetration_m,
+		"penetration_reach": context.readiness.reach(),
+		"preferences": PREFERENCES.describe(preferences),
+		"voice_status_line": context.audio.voice_status_line(pony_id),
+	})
+
+
+## Live context for the normal dialogue prompt. The entry node joins the game's
+## `pony_prompt_notes` group and forwards to the active runtime for that pony.
+func prompt_note() -> String:
+	refresh_identity()
+	var form: Variant = context.handover.form()
+	return context.dialogue.prompt_note({
+		"state": state,
+		"warm": context.face.warm_note,
+		"history": _history_note(),
+		"beat": context.afterglow.beat,
+		"relation": _relationship_note(),
+		"caressing": context.hands.any_active(),
+		"leaning": context.camera.lean_forward >= 0.35 or context.camera.lean_action_active \
+			or context.kiss.leaning_close(),
+		"missionary": pose_family() == "bed",
+		"form_source": context.handover.source() != null,
+		"form_name": form.form_name.strip_edges() if form != null else "",
+		"form_borrowed": form != null and not form.is_own(),
+	})
+
+
+func _history_note() -> String:
+	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now())
+	return ACT_HISTORY.prompt_note(row)
+
+
+## Short private relationship facts for normal dialogue. Empty outside a relationship runtime.
+func _relationship_note() -> String:
+	if not is_instance_valid(WORLD.game):
+		return ""
+	refresh_identity()
+	return RELATIONSHIP_CUE.note(MEMORY.instance.cue_facts(pony_id, event_id).to_dict())
+
+
+## The after-act summary and the peak record, in one place.
+func commit_afterglow() -> void:
+	if not is_instance_valid(WORLD.game):
+		return
+	commit_summary(true)
+	record_peak_memory()
+	for row: MEMORY.Witness in MEMORY.instance.witnesses(pony_id, display_name, serial, host.pony):
+		host.log("witness " + str(row.to_dict()))
+
+
+## Both poses share the held afterglow; standing adds the close window and a slightly lifted tail.
+func begin_afterglow() -> void:
+	host.log("afterglow pose=%s pony=%s" % [pose_id, str(host.pony.name)])
+	context.readiness.stop_auto()
+	context.dialogue.end_act(event_id, true)
+	# Bed afterglow keeps only lean and caress; standing keeps its kiss.
+	if pose_family() != "standing":
+		context.kiss.end_lean_kiss()
+	commit_afterglow()
+	enter_afterglow()
+	context.handover.hint_tick()
+	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.AFTERGLOW)
+	refresh_view()
+	# The oral afterglow releases the mouth contact and keeps the turned pose. The pose row's
+	# afterglow profile is passive, so no standing close window opens.
+	context.pose.release_mouth_contact()
+	context.integrations.afterglow()
+	context.afterglow.bind_view(context.pose.view())
+	context.afterglow.begin(context.summary.summary)
+	context.readiness.cue = ""
+	context.readiness.cue_override = ""
+	context.readiness.cue_until = 0.0
+	context.face.stare_release_until = 0.0
+	set_face(0.85, FACE.AFTERGLOW_LIDS)
+	face_beat("afterglow")
+	apply_afterglow_presentation(context.afterglow.presentation())
+
+
+## Apply the afterglow facade's presentation row in the built order: the pose weight, the tail,
+## the HUD state, then the wings. The evaluator keeps its current pair, so the pose holds.
+func apply_afterglow_presentation(row: Dictionary) -> void:
+	if is_instance_valid(context.pose.pose()):
+		context.pose.pose().target_amount = 1.0
+		context.pose.pose().amount = 1.0
+	context.pose.set_tail_target(float(row.get("tail_target", 0.35)))
+	var flicks := int(row.get("tail_flicks", 0))
+	if flicks > 0:
+		context.pose.flick_tail(flicks)
+	if is_instance_valid(HUD.instance):
+		HUD.instance.set_state(str(row.get("hud_state", "AFTERGLOW")))
+	if bool(row.get("wings", false)):
+		context.wings.begin_afterglow()
+
+
+## The standing close window elapsed. The facade decided the reward; the act presents it.
+func on_stay_close(caressed: bool, reward: bool) -> void:
+	if is_instance_valid(WORLD.game):
+		var impression := MEMORY.Impression.new()
+		impression.id = pony_id
+		impression.event_id = event_id
+		impression.slot = MEMORY.ImpressionSlot.STAY_CLOSE
+		impression.mood = "happy" if reward else ""
+		impression.romance = 1 if reward and caressed else 0
+		MEMORY.instance.commit(impression)
+	if not reward and caressed:
+		if ACT_HISTORY.repair(ACT_HISTORY.section(), pony_id, 1, ACT_HISTORY.day_now()):
+			ACT_HISTORY.save()
+	set_face(0.9, FACE.AFTERGLOW_CLOSE_LIDS)
+	context.reactions.hearts_burst()
+	context.readiness.cue = ""
+
+
+## The pony climax: one state transition and its presentation. The readiness meter decides when;
+## this owner applies the act moment.
+func climax() -> void:
+	if state != State.ACTIVE:
+		return
+	context.readiness.pony_climaxes += 1
+	host.log("pony climax=%d pose=%s pony=%s readiness=%.0f" % [
+		context.readiness.pony_climaxes, str(start_row().get("id", "")),
+		str(host.pony.name), context.readiness.satisfaction])
+	enter_climax()
+	context.readiness.mood = "climax"
+	context.readiness.cue = "She is climaxing."
+	context.readiness.set_cue_override("She is climaxing.", CLIMAX_SECONDS)
+	context.handover.hint_tick()
+	context.reactions.schedule_hearts()
+	context.reactions.hearts_burst_at(context.reactions.dock_point())
+	set_face(0.3, FACE.CLIMAX_LIDS)
+	face_beat("climax")
+	context.dialogue.end_act(event_id, true)
+	if is_instance_valid(WORLD.game) and context.readiness.pony_climaxes == 1:
+		MEMORY.instance.note(MEMORY.NoteKind.CLIMAXED, pony_id, event_id)
+	queue_climax_reaction()
+	context.audio.play_climax()
+	# integration: her fluid hook.
+	context.anatomy.on_climax()
+	if is_instance_valid(HUD.instance):
+		HUD.instance.set_state("CLIMAX")
+
+
+## One generated climax line, or none when her mouth is busy or the roll is silent.
+func queue_climax_reaction() -> void:
+	var live: Variant = context.pose.view()
+	if live != null and str(live.contact_kind) == "mouth":
+		return
+	if not is_instance_valid(WORLD.game):
+		return
+	var act_id := event_id
+	var count := context.readiness.pony_climaxes
+	var climax_id := "%s:pony_climax:%d" % [act_id, count]
+	var expires := clock_s() + snapshot.cue_reaction_max_age_s
+	var valid := func() -> bool:
+		if not is_instance_valid(host.pony) or event_id != act_id \
+				or context.readiness.pony_climaxes != count:
+			return false
+		if clock_s() <= expires:
+			return true
+		return MEMORY.instance.line_state(climax_reaction_key) == MEMORY.LineState.SPEAKING
+	var key: String = context.dialogue.reaction_line(MEMORY.Reaction.CLIMAX, climax_id,
+		"You have just climaxed. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine.", valid)
+	climax_reaction_key = key
+	if key.is_empty():
+		return
+	context.dialogue.note_reaction(key, context.readiness.cue,
+		clock_s() + snapshot.cue_reaction_max_age_s)
+	host.log("utterance kind=reaction key=%s" % key)
+
+
+## The first ACTIVE entry after the pose settles. Later returns from a climax are CLIMAX_END.
+func enter_active_act() -> void:
+	enter_active()
+	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
+
+
+## The pony climax ends on its own. It returns to ACTIVE unless the configured limit was reached;
+## afterglow is the player's choice, not the climax state's automatic exit.
+func finish_climax() -> void:
+	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.CLIMAX_END)
+	if max_pony_climaxes > 0 and context.readiness.pony_climaxes >= max_pony_climaxes:
+		begin_afterglow()
+		return
+	enter_active()
+	context.face.stare_release_until = 0.0
+	set_face(0.45, FACE.ACT_LIDS)
+	context.readiness.satisfaction = 0.0
+	context.readiness.mood = "warming"
+	context.readiness.cue = ""
+	context.handover.hint_tick()
+	context.readiness.cue_override = ""
+	context.readiness.cue_until = 0.0
+	context.readiness.overwhelmed = 0.0
+	context.readiness.last_intensity = ""
+	context.readiness.last_pattern = ""
+	context.readiness.stroke_window.clear()
+	context.readiness.last_stroke_at = -1000.0
+	context.readiness.last_thrust_score_at = -1000.0
+	context.readiness.receptive_until = 0.0
+	var limit_text := "∞" if max_pony_climaxes <= 0 else str(max_pony_climaxes)
+	host.log("pony climax end=%d/%s readiness=0" % [context.readiness.pony_climaxes, limit_text])

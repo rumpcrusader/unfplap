@@ -134,15 +134,15 @@ func run() -> void:
 	check(near(runtime.satisfaction, climax_readiness), "thrusting during climax does not score")
 	check(int(runtime.state) == 3, "thrusting during climax does not end it")
 
-	runtime._finish_climax()
+	runtime._act.finish_climax()
 	check(int(runtime.state) == 2, "first climax returns to ACTIVE")
 	check(near(runtime.satisfaction, 0.0), "a climax resets readiness to zero")
 	check(runtime.pony_climaxes == 1, "climax count survives the return to ACTIVE")
 
 	runtime.pony_climaxes = 2
 	runtime.satisfaction = 100.0
-	runtime._climax()
-	runtime._finish_climax()
+	runtime._act.climax()
+	runtime._act.finish_climax()
 	check(int(runtime.state) == 4, "third climax auto-enters AFTERGLOW")
 
 	runtime._act.max_pony_climaxes = 0
@@ -150,14 +150,14 @@ func run() -> void:
 	runtime.pony_climaxes = 5
 	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 5/∞"),
 		"unlimited climax limit uses the infinity display")
-	runtime._finish_climax()
+	runtime._act.finish_climax()
 	check(int(runtime.state) == 2, "zero climax limit keeps the act going")
 	runtime._act.max_pony_climaxes = 2
 	runtime._set_state(2)
 	runtime.pony_climaxes = 2
 	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 2/2"),
 		"configured climax limit shows the denominator")
-	runtime._finish_climax()
+	runtime._act.finish_climax()
 	check(int(runtime.state) == 4, "configured climax limit enters AFTERGLOW")
 	runtime._act.max_pony_climaxes = 3
 

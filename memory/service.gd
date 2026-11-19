@@ -258,3 +258,11 @@ func _game() -> Node:
 func _eligibility() -> ELIGIBILITY:
 	var service: ELIGIBILITY = PONIES.eligibility
 	return service if is_instance_valid(service) else null
+
+
+## True when this act is her first with the player: the durable act history plus the world
+## context. The start and the cue prompt read the same fact.
+func first_time(pony_id: String, event_id: String) -> bool:
+	if not is_instance_valid(WORLD.game) or pony_id.is_empty():
+		return false
+	return cue_facts(pony_id, event_id).first_time

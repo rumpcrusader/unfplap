@@ -81,7 +81,7 @@ func run(rejoin_cuddle: bool) -> void:
 	if session.posture_owned:
 		restore_posture(_start_frame(), rejoin_cuddle)
 	free_pose()
-	start.restore_bones()
+	context.pose.restore_bones()
 	context.audio.stop()
 	if is_instance_valid(WORLD.game):
 		if is_instance_valid(HUD.instance):

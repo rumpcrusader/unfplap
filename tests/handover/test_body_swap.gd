@@ -725,10 +725,10 @@ func _check_policy_events() -> void:
 	host.memory = FakeMemory.new()
 	MEMORY.instance = host.memory
 	runtime._set_state(RUNTIME.State.POSING_IN)
-	runtime._enter_active()
+	runtime._act.enter_active_act()
 	runtime._set_state(RUNTIME.State.CLIMAX)
 	runtime.pony_climaxes = 1
-	runtime._finish_climax()
+	runtime._act.finish_climax()
 	runtime._enter_afterglow()
 
 	source.shape = ""

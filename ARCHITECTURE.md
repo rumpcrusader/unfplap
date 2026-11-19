@@ -220,7 +220,8 @@ steps or the act exit; it retargets through `pose_changed(view)` and leaves the 
 
 It also keeps the `Mods` hooks, the group join, the three-line `prompt_note` forward, the settings
 page injection and the one runtime factory. It does not own domain rules, debug action
-implementations, a service's private state or a second exit path.
+implementations, a service's private state or a second exit path. `scripts/architecture.py --check`
+refuses string dispatch in the entry: no `.call(`, `.get("` or `.set("`, and no `action_*` handler.
 
 ### `runtime.gd`
 

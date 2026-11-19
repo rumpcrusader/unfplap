@@ -48,6 +48,9 @@ the gate:
 - **The entry builds no binding.** `main.gd` may not name a `*_binding.gd` or call
   `register_binding`: the body-change service constructs and registers its chain from the facades
   the entry hands it, so a new body-bound system adds no line to the composition root.
+- **The entry constructs and binds.** `main.gd` may not contain `.call(`, `.get("` or `.set("`, nor
+  register an `action_*` handler: the entry constructs one service per line and calls its `bind()`,
+  and a service dispatches its own typed members. The gate fails on the first string dispatch.
 - **Only the entry names the entry.** No shipped `.gd` outside `main.gd` may contain
   `main.<member>`, `var main`, a `main.gd` preload or a `main` argument; `tests/` is exempt. A
   consumer preloads the facade it needs, reads `WORLD` for the scene, or takes a typed host

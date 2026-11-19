@@ -144,8 +144,9 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   `scripts/architecture.py --check` enforces it. Do not add a second exit sequence.
 - **No reach-ins, no allocation churn.** A system must not preload `runtime.gd` or `main.gd`, must
   not call `runtime.get("_…")` / `runtime.call("_…")`, and reuses `act_facts` and event
-  dictionaries instead of allocating per frame. Presentation modules read `shared/act_facts.gd` or
-  the owning facade.
+  dictionaries instead of allocating per frame. The entry constructs and binds; it never dispatches
+  by string or assigns a service's fields. Presentation modules read `shared/act_facts.gd` or the
+  owning facade.
 - **The entry is not a locator.** A service that needs another service preloads its facade; a
   service that needs the scene reads `WORLD`; nothing but `main.gd` names `main`
   (`scripts/architecture.py --check` fails on any other shipped file, `tests/` excepted). A new

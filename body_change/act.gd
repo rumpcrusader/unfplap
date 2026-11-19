@@ -114,6 +114,99 @@ func adopt(swap_body: Node) -> void:
 	PONIES.clear_body_swap(host.runtime())
 
 
+## Release the old body for a change. The act keeps its state; this stops its work in the order the
+## pose and camera were built, so the old body can be freed. Returns true only when this call
+## released the act; the runtime applies the one tick's action and never repeats the order.
+func release(swap: BODY_CHANGE) -> bool:
+	if suspended or not host.act_live() or swap == null:
+		return false
+	var body := host.pony()
+	if body == null or swap.previous_body != body:
+		return false
+	if not change_changing(swap):
+		return false
+	# Another system holding her would keep the old body as the act's owner. Release it before
+	# the flame takes the body; a failed release is logged and the watchdog still decides.
+	if body.has_method("is_held") and bool(body.call("is_held")) and not host.release_carry():
+		host.log("body swap: could not release the held body")
+	begin(swap)
+	# Leave the old body before it is freed. The world keeps the act; the new body adopts the node.
+	host.attach_to_world()
+	var source := change_source(swap)
+	host.log("body swap suspend source=%s target=%s origin=%d form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
+		source.source_id() if source != null else "?", swap.target_form_id,
+		int(swap.origin), change_form_id(swap), host.state(), pose, host.depth(),
+		host.climaxes()])
+	# The old body's contact and input state must not survive the flame. The new pose owns the
+	# contact after resume; a held key or a running auto stroke would otherwise fire on it.
+	host.release_contacts()
+	host.remember_auto()
+	host.release_act_body()
+	host.release_scene()
+	host.release_swap_pose()
+	host.restore_camera()
+	host.stop_breath()
+	return true
+
+
+## Resume the same act on the adopted body: anatomy, pose, camera, ownership and the body-bound
+## controllers are rebuilt in that order; the act's state and history are not. Returns false only
+## when there is no body to resume on, which the runtime ends through the one exit.
+func resume() -> bool:
+	if not suspended:
+		return false
+	if not is_instance_valid(host.pony()):
+		host.log("body swap failed: no body to resume on")
+		abort()
+		return false
+	var swap := change
+	var changed := is_instance_valid(new_pony)
+	var confirmed := shape_confirmed
+	finish()
+	host.resume_body()
+	host.prepare_anatomy_act()
+	host.apply_resume_settings()
+	host.rebind_reactions()
+	host.set_act_pose_config()
+	host.rebuild_act_pose()
+	host.sync_start_config()
+	host.reset_visual_for_form()
+	# The bed path has no placement fit; clear the old body's Hips handshake for every resume.
+	host.reset_player_pelvis()
+	host.reset_lean()
+	host.prepare_start_camera()
+	host.open_camera()
+	host.hide_avatar()
+	host.reset_wings()
+	host.claim_nav()
+	host.pause_face_turn()
+	host.reset_face()
+	host.apply_voice_policy()
+	host.apply_pose_change()
+	host.apply_anatomy_live()
+	host.begin_integrations()
+	host.sync_hud()
+	host.resume_auto()
+	host.log("body swap resumed form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
+		change_form_id(swap), host.state(), pose, host.depth(), host.climaxes()])
+	complete_resume(swap, changed, confirmed)
+	if changed:
+		dispatch_event(BODY_CHANGE_POLICY.ActEvent.FORM_SETTLED, swap)
+	return true
+
+
+## A revised form on the same presented body: refresh the eye, pose, camera and the other
+## body-bound systems without a resume, a second runtime or an act exit.
+func rebind(_form: BODY_FORM.BodyForm) -> void:
+	host.rebind_body()
+	if not host.act_live():
+		return
+	host.reset_visual_for_form()
+	host.prepare_standing_camera()
+	host.sync_hud()
+
+
+
 ## The new body is ready and the runtime resumes. The pose stays: the resume rebuilds it last. The
 ## cadence restarts so the first live tick does not read the service again.
 func finish() -> void:

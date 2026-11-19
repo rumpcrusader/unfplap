@@ -122,8 +122,8 @@ func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 	facts.summary_hud = str(context.summary.summary.get("hud", ""))
 	facts.cycle_heat = cycle_heat
 	facts.close_earned = context.afterglow.close_caress_earned
-	facts.hud_readouts = bool(session.features["hud_readouts"])
-	facts.hud_controls = bool(session.features["act_controls"])
+	facts.hud_readouts = bool(session.features.get("hud_readouts", false))
+	facts.hud_controls = bool(session.features.get("act_controls", false))
 	facts.hole_ready = context.anatomy.hole_ready()
 	facts.oral_ready = context.anatomy.oral_ready()
 	facts.auto_on = context.readiness.auto_active()

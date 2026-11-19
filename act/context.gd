@@ -48,6 +48,8 @@ var hold: SCENE_HOLD = null
 var stool: RefCounted = null
 ## The act's consent response: the tolerance warning, its line and the stop presentation.
 var consent: RefCounted = null
+## The standing placement handle. The start adapter and the body swap fill its typed values.
+var placement: RefCounted = null
 var facts: ACT_FACTS = null
 var kiss: KISS = null
 var summary: SUMMARY = null

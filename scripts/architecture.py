@@ -120,7 +120,7 @@ START_LEDGER_ORDER = (
 POSE_LEDGER_CALLERS = {
     ("act/exit.gd", "run"),
     ("act/start.gd", "_build_pose"),
-    ("runtime.gd", "_suspend_for_body_swap"),
+    ("runtime.gd", "_handover_release_pose"),
 }
 # Rule 1, full form: only the entry names the entry. A service that needs another service
 # preloads its facade, one that needs the scene reads `WORLD`, and one that needs a callback takes
@@ -186,7 +186,7 @@ RUNTIME_SETTINGS_READS = {
     ("_snapshot_settings", "camera_mode"): "the camera mode, cached for the render write",
     ("_snapshot_settings", "debug_mode"): "the form-hint probe flag, read once per act",
     ("apply_live_settings", "preferences"): "the pre-edit preference refresh",
-    ("_resume_after_body_swap", "pose"): "the rebuilt pose's config",
+    ("_handover_set_act_pose_config", "pose"): "the rebuilt pose's config",
 }
 # The only child nodes the runtime parents: both are system-owned, and the runtime is the host that
 # adds and frees them. A new node is an allow-list row, not a line in a tick.

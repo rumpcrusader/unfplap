@@ -35,6 +35,67 @@ class Facts:
 	var log := Callable()
 
 
+## One call's act values, filled by the act session (their owner) and copied into the reused
+## `Facts`. A start adapter and a body swap both place Anon from this same record.
+class ActBind:
+	var pony: Node = null
+	var player: Node = null
+	var bed: Node3D = null
+	var stool: RefCounted = null
+	var form: Variant = null
+	var body_form: Variant = null
+	var id := ""
+	var gaps: Dictionary = {}
+	var camera: Variant = null
+	var anatomy: Variant = null
+	var player_pony := false
+	var headset_view := false
+	var log := Callable()
+
+
+## The one placement record this handle reuses, so a placement pass allocates no facts.
+var facts := Facts.new()
+
+
+func bind_act(values: ActBind) -> void:
+	facts.pony = values.pony
+	facts.player = values.player
+	facts.bed = values.bed
+	facts.stool = values.stool
+	facts.form = values.form
+	facts.body_form = values.body_form
+	facts.id = values.id
+	facts.gaps = values.gaps
+	facts.camera = values.camera
+	facts.anatomy = values.anatomy
+	facts.player_pony = values.player_pony
+	facts.headset_view = values.headset_view
+	facts.log = values.log
+
+
+## The start's standing placement from the last `bind_act()` values.
+func begin_act() -> Transform3D:
+	return begin(facts)
+
+
+## A body resume or a same-node form revision: re-anchor a standing act from the last bind.
+func reanchor_act(family: String) -> Variant:
+	return reanchor(facts, family)
+
+
+## The current bind's standing gap, with the entrance offset folded in.
+func gap_act() -> float:
+	return gap(facts)
+
+
+func reset_pelvis_act() -> void:
+	reset_pelvis(facts)
+
+
+func new_body_is_adult_act() -> bool:
+	return new_body_is_adult(facts)
+
+
 ## Place the standing start and return the facing transform. Her rig is the camera rig (headset)
 ## or another body (AnonPony), so she goes in front of the player instead of the player going
 ## behind her; otherwise Anon goes behind her at the act gap.

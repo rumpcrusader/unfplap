@@ -27,6 +27,44 @@ var status_cb: Callable = Callable()
 var now_cb: Callable = Callable()
 var reaction_max_age_cb: Callable = Callable()
 var log_cb: Callable = Callable()
+## The suspend/resume steps the handover executes in order. Each is one act operation; the act
+## owns the order, this host owns how each reaches the live systems.
+var attach_to_world_cb: Callable = Callable()
+var release_carry_cb: Callable = Callable()
+var release_contacts_cb: Callable = Callable()
+var remember_auto_cb: Callable = Callable()
+var release_act_body_cb: Callable = Callable()
+var release_scene_cb: Callable = Callable()
+var free_pose_cb: Callable = Callable()
+var restore_camera_cb: Callable = Callable()
+var stop_breath_cb: Callable = Callable()
+var resume_body_cb: Callable = Callable()
+var prepare_anatomy_act_cb: Callable = Callable()
+var apply_resume_settings_cb: Callable = Callable()
+var rebind_reactions_cb: Callable = Callable()
+var set_act_pose_config_cb: Callable = Callable()
+var rebuild_act_pose_cb: Callable = Callable()
+var sync_start_config_cb: Callable = Callable()
+var reset_visual_for_form_cb: Callable = Callable()
+var reset_player_pelvis_cb: Callable = Callable()
+var reset_lean_cb: Callable = Callable()
+var prepare_start_camera_cb: Callable = Callable()
+var open_camera_cb: Callable = Callable()
+var hide_avatar_cb: Callable = Callable()
+var reset_wings_cb: Callable = Callable()
+var claim_nav_cb: Callable = Callable()
+var pause_face_turn_cb: Callable = Callable()
+var reset_face_cb: Callable = Callable()
+var apply_voice_policy_cb: Callable = Callable()
+var apply_pose_change_cb: Callable = Callable()
+var apply_anatomy_live_cb: Callable = Callable()
+var begin_integrations_cb: Callable = Callable()
+var sync_hud_cb: Callable = Callable()
+var resume_auto_cb: Callable = Callable()
+## The same-node revision: rebind every body-bound system for a revised form, without a resume.
+var rebind_body_cb: Callable = Callable()
+var prepare_standing_camera_cb: Callable = Callable()
+var new_body_adult_cb: Callable = Callable()
 
 
 static func _value(callback: Callable, fallback: Variant = null) -> Variant:
@@ -151,3 +189,166 @@ func reaction_max_age() -> float:
 func log(text: String) -> void:
 	if log_cb.is_valid():
 		log_cb.call(text)
+
+
+## Move the live runtime under the world before the old body is freed. The runtime owns the
+## reparent and the `_swapping_parent` flag.
+func attach_to_world() -> void:
+	_call(attach_to_world_cb)
+
+
+## Release a body another system holds. False means the release failed and the swap continues.
+func release_carry() -> bool:
+	return bool(_value(release_carry_cb, false))
+
+
+## The old body's contact state: the kiss and the hands must not survive the flame.
+func release_contacts() -> void:
+	_call(release_contacts_cb)
+
+
+## Record the auto stroke's on/off state, then stop it for the release.
+func remember_auto() -> void:
+	_call(remember_auto_cb)
+
+
+## The act body: the wings release and the anatomy act closes.
+func release_act_body() -> void:
+	_call(release_act_body_cb)
+
+
+## The navigator lease and the standing face-turn hold.
+func release_scene() -> void:
+	_call(release_scene_cb)
+
+
+## The one pose ledger plus the bone restore, in the act's order.
+func release_swap_pose() -> void:
+	_call(free_pose_cb)
+
+
+func restore_camera() -> void:
+	_call(restore_camera_cb)
+
+
+func stop_breath() -> void:
+	_call(stop_breath_cb)
+
+
+## Bind the adopted body to the pose, face and act view, and wake it.
+func resume_body() -> void:
+	_call(resume_body_cb)
+
+
+## Refresh the new body's persistent anatomy controller and open its act handle.
+func prepare_anatomy_act() -> void:
+	_call(prepare_anatomy_act_cb)
+
+
+## Re-read the settings snapshot on the adopted body without treating the live shape as an edit.
+func apply_resume_settings() -> void:
+	_call(apply_resume_settings_cb)
+
+
+func rebind_reactions() -> void:
+	_call(rebind_reactions_cb)
+
+
+func set_act_pose_config() -> void:
+	_call(set_act_pose_config_cb)
+
+
+## Rebuild the live pose on the new skeleton at the pose the act was in; the runtime reads the
+## swap record's live pose id.
+func rebuild_act_pose() -> void:
+	_call(rebuild_act_pose_cb)
+
+
+func sync_start_config() -> void:
+	_call(sync_start_config_cb)
+
+
+func reset_visual_for_form() -> void:
+	_call(reset_visual_for_form_cb)
+
+
+func reset_player_pelvis() -> void:
+	_call(reset_player_pelvis_cb)
+
+
+func reset_lean() -> void:
+	_call(reset_lean_cb)
+
+
+func prepare_start_camera() -> void:
+	_call(prepare_start_camera_cb)
+
+
+## The act camera open. The runtime starts the VR act when the shot asks for it.
+func open_camera() -> void:
+	_call(open_camera_cb)
+
+
+func hide_avatar() -> void:
+	_call(hide_avatar_cb)
+
+
+func reset_wings() -> void:
+	_call(reset_wings_cb)
+
+
+func claim_nav() -> void:
+	_call(claim_nav_cb)
+
+
+func pause_face_turn() -> void:
+	_call(pause_face_turn_cb)
+
+
+## The act lids: clear, then the steady act face.
+func reset_face() -> void:
+	_call(reset_face_cb)
+
+
+func apply_voice_policy() -> void:
+	_call(apply_voice_policy_cb)
+
+
+func apply_pose_change() -> void:
+	_call(apply_pose_change_cb)
+
+
+func apply_anatomy_live() -> void:
+	_call(apply_anatomy_live_cb)
+
+
+func begin_integrations() -> void:
+	_call(begin_integrations_cb)
+
+
+func sync_hud() -> void:
+	_call(sync_hud_cb)
+
+
+## Restore the preserved auto stroke when the act is live again.
+func resume_auto() -> void:
+	_call(resume_auto_cb)
+
+
+## A revised form on the same presented body: one idempotent rebind of every body-bound system.
+func rebind_body() -> void:
+	_call(rebind_body_cb)
+
+
+func prepare_standing_camera() -> void:
+	_call(prepare_standing_camera_cb)
+
+
+## The new body must still pass the act's adult-mare gate.
+func new_body_adult() -> bool:
+	return bool(_value(new_body_adult_cb, true))
+
+
+func _call(callback: Callable, args: Array = []) -> void:
+	if callback.is_valid():
+		callback.callv(args)

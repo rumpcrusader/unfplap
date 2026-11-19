@@ -287,6 +287,7 @@ func _build_act_context() -> ACT_CONTEXT:
 	context.integrations = _integrations
 	context.hold = _hold
 	context.rest = _rest
+	context.placement = _placement
 	context.anatomy_host = _anatomy_host()
 	context.missionary_camera = _missionary_camera_ctl
 	return context
@@ -507,6 +508,41 @@ func _handover_host() -> BODY_CHANGE_ACT_HOST:
 	host.status_cb = Callable(self, "_form_status")
 	host.now_cb = Callable(self, "_now_s")
 	host.reaction_max_age_cb = Callable(self, "_cue_reaction_max_age_value")
+	host.attach_to_world_cb = Callable(self, "_handover_attach_to_world")
+	host.release_carry_cb = Callable(self, "_handover_release_carry")
+	host.release_contacts_cb = Callable(self, "_handover_release_contacts")
+	host.remember_auto_cb = Callable(self, "_handover_remember_auto")
+	host.release_act_body_cb = Callable(self, "_handover_release_act_body")
+	host.release_scene_cb = Callable(self, "_handover_release_scene")
+	host.free_pose_cb = Callable(self, "_handover_release_pose")
+	host.restore_camera_cb = Callable(self, "_handover_restore_camera")
+	host.stop_breath_cb = Callable(self, "_handover_stop_breath")
+	host.resume_body_cb = Callable(self, "_handover_resume_body")
+	host.prepare_anatomy_act_cb = Callable(self, "_handover_prepare_anatomy_act")
+	host.apply_resume_settings_cb = Callable(self, "_handover_apply_resume_settings")
+	host.rebind_reactions_cb = Callable(self, "_handover_rebind_reactions")
+	host.set_act_pose_config_cb = Callable(self, "_handover_set_act_pose_config")
+	host.rebuild_act_pose_cb = Callable(self, "_handover_rebuild_act_pose")
+	host.sync_start_config_cb = Callable(self, "_handover_sync_start_config")
+	host.reset_visual_for_form_cb = Callable(self, "_handover_reset_visual")
+	host.reset_player_pelvis_cb = Callable(self, "_handover_reset_pelvis")
+	host.reset_lean_cb = Callable(self, "_handover_reset_lean")
+	host.prepare_start_camera_cb = Callable(self, "_handover_prepare_start_camera")
+	host.open_camera_cb = Callable(self, "_handover_open_camera")
+	host.hide_avatar_cb = Callable(self, "_handover_hide_avatar")
+	host.reset_wings_cb = Callable(self, "_handover_reset_wings")
+	host.claim_nav_cb = Callable(self, "_handover_claim_nav")
+	host.pause_face_turn_cb = Callable(self, "_handover_pause_face_turn")
+	host.reset_face_cb = Callable(self, "_handover_reset_face")
+	host.apply_voice_policy_cb = Callable(self, "_handover_apply_voice_policy")
+	host.apply_pose_change_cb = Callable(self, "_handover_apply_pose_change")
+	host.apply_anatomy_live_cb = Callable(self, "_handover_apply_anatomy_live")
+	host.begin_integrations_cb = Callable(self, "_handover_begin_integrations")
+	host.sync_hud_cb = Callable(self, "_handover_sync_hud")
+	host.resume_auto_cb = Callable(self, "_handover_resume_auto")
+	host.rebind_body_cb = Callable(self, "_handover_rebind_body")
+	host.prepare_standing_camera_cb = Callable(self, "_handover_prepare_standing_camera")
+	host.new_body_adult_cb = Callable(self, "_new_body_is_adult")
 	host.log_cb = Callable(self, "_log")
 	_handover_host_cache = host
 	return _handover_host_cache
@@ -530,7 +566,7 @@ func _act_restoring() -> bool:
 
 
 func _start_pose_id() -> String:
-	return str(_start_row().get("id", ""))
+	return str(_act.start_row().get("id", ""))
 
 
 func _shape_name(shape_id: String) -> String:
@@ -592,31 +628,14 @@ func _set_state(next: int) -> void:
 func _pose_family() -> String:
 	var view: Variant = _pose_session.view()
 	var family := str(view.family) if view != null else ""
-	return family if not family.is_empty() else _start_family()
-
-
-## The start spec row. Start-time decisions read this before the view exists; the raw read is kept
-## in this one helper so the start identity stays the only pose-id input.
-func _start_row() -> Dictionary:
-	return POSE_SPECS.spec(_act.pose_id)
-
-
-## The start spec's family. Start-time decisions read this before the view exists.
-func _start_family() -> String:
-	return str(_start_row().get("family", ""))
-
-
-## The start spec's settings group. The internal poses share the standing group.
-func _start_group() -> String:
-	return str(_start_row().get("settings_group", ""))
-
+	return family if not family.is_empty() else _act.start_family()
 
 
 ## The live pose frame, or the start spec's frame before the first view fill.
 func _start_frame() -> String:
 	var view: Variant = _pose_session.view()
 	var frame := str(view.frame) if view != null else ""
-	return frame if not frame.is_empty() else str(_start_row().get("frame", ""))
+	return frame if not frame.is_empty() else str(_act.start_row().get("frame", ""))
 
 
 ## The pose read model the anatomy context mirrors; the session owns the one object.
@@ -1037,7 +1056,7 @@ func _configure_utterance_scheduler() -> void:
 func _snapshot_settings() -> void:
 	# The start spec's settings group selects the pose presentation block; an internal pose
 	# (`standing_test`, `standing_oral`) has no block of its own and must never be passed here.
-	_snapshot = SETTINGS.act_snapshot(_start_group())
+	_snapshot = SETTINGS.act_snapshot(_act.start_group())
 	_act.features = _snapshot.features
 	_readiness.configure_thrust(_snapshot.thrust_pixels_per_cm, _snapshot.thrust_up,
 		_snapshot.thrust_travel, _snapshot.pelvis_gap_m)
@@ -1047,7 +1066,7 @@ func _snapshot_settings() -> void:
 		_snapshot.auto_min_depth, _preserve_auto_shape_on_snapshot)
 	_reactions.configure({
 		"jiggle": _snapshot.jiggle,
-		"pose_family": _start_family(),
+		"pose_family": _act.start_family(),
 		"size_scale": _camera_service().call("jiggle_size_scale"),
 		"climax_seconds": CLIMAX_SECONDS,
 	})
@@ -1421,7 +1440,7 @@ func _read_id() -> bool:
 		return false
 	_pose_session.id = _id
 	_act.pony_id = _id
-	_adopt_display_name(pony)
+	_act.adopt_display_name(_body_form(), pony)
 	_refresh_scene_gate()
 	return true
 
@@ -1630,12 +1649,13 @@ func request_form_change(true_form: bool, shape_id := "", by_player := false) ->
 	return _handover.request(true_form, shape_id, by_player)
 
 
-## Apply one handover action. The handover decides when; the ordered release, the adoption and the
-## one resume stay here, and a swap the act cannot resume from ends through the one exit.
+## Apply one handover action. The handover decides when and executes the ordered release, the
+## adoption and the one resume; the runtime applies each verdict and ends a failed swap through
+## the one exit.
 func _body_swap_tick(delta: float) -> void:
 	var action := _handover.tick(delta)
 	if action == BODY_CHANGE_ACT.Action.SUSPEND:
-		_suspend_for_body_swap(_handover.candidate)
+		_handover.release(_handover.candidate)
 	elif action == BODY_CHANGE_ACT.Action.RESUME:
 		_resume_after_body_swap()
 	elif action == BODY_CHANGE_ACT.Action.FAIL:
@@ -1650,46 +1670,9 @@ func _body_form() -> BODY_FORM.BodyForm:
 	return _handover.form()
 
 
-## Stop the act's ticks without ending it. The runtime leaves the old body here; the old body may
-## still be alive inside the flame. The outer act state, depth, climaxes, summary and event stay.
+## Suite seam for the watcher's suspend action; the handover owns the release order.
 func _suspend_for_body_swap(change: BODY_CHANGE) -> void:
-	if _suspended or not is_instance_valid(pony) or change == null:
-		return
-	if not pony is Node3D or change.previous_body != pony:
-		return
-	if state not in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		return
-	if not _handover.change_changing(change):
-		return
-	# Another system holding her would keep the old body as the act's owner. Release it before
-	# the flame takes the body; a failed release is logged and the watchdog still decides.
-	if pony.has_method("is_held") and bool(pony.call("is_held")) and not _release_carry():
-		_log("body swap: could not release the held body")
-	_handover.begin(change)
-	# Leave the old body before it is freed. The world keeps the act; the new body adopts the node.
-	attach_to_body(WORLD.game)
-	var source := _handover.change_source(change)
-	_log("body swap suspend source=%s target=%s origin=%d form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
-		source.source_id() if source != null else "?", change.target_form_id,
-		int(change.origin), _handover.change_form_id(change), state, _handover.pose, depth,
-		pony_climaxes])
-	# The old body's contact and input state must not survive the flame. The new pose owns the
-	# contact after resume; a held key or a running auto stroke would otherwise fire on it.
-	_kiss_controller().reset()
-	_hand_controller().reset()
-	_handover.remember_auto(_readiness.auto_active())
-	_reset_swap_input_state()
-	_handover.hint_tick()
-	_wings_controller().release()
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.end()
-	_release_nav()
-	_restore_face_turn()
-	_exit.free_pose()
-	_start.restore_bones()
-	if _act_camera.camera_owned:
-		_restore_camera()
-	_stop_breath()
+	_handover.release(change)
 
 
 ## Move the live runtime under another node without running its world-close `_exit_tree()`. The
@@ -1703,19 +1686,14 @@ func attach_to_body(parent: Node) -> void:
 
 
 ## `ponies` calls this when the source's new body spawns. The runtime is already under the entry;
-## it moves under the new body, binds its pose, face and anatomy, and waits for the handover's resume.
-## A body that is not an adult mare ends the act through the one exit.
+## it moves under the new body, binds its pose, face and anatomy, and waits for the handover's
+## resume. A body that is not an adult mare ends the act through the one exit.
 func adopt_body(new_pony: Node) -> void:
 	if not _suspended or not is_instance_valid(new_pony):
 		return
 	_handover.adopt(new_pony)
 	pony = new_pony
-	_pose_service().bind(self, pony)
-	_face.bind(pony, self)
-	_bind_audio_identity()
-	_adopt_display_name(pony)
-	_anatomy_refresh()
-	_refresh_scene_gate()
+	_bind_adopted_body()
 	if not _new_body_is_adult():
 		_log("body swap ended: the new body is not an adult mare pony=%s" % str(new_pony.name))
 		force_stop()
@@ -1728,7 +1706,7 @@ func adopt_body(new_pony: Node) -> void:
 func bind_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 	if _suspended or not _is_presented_body(body):
 		return
-	_rebind_body_services(form)
+	_handover.rebind(form)
 
 
 ## The same presented body carries a revised form: refresh the eye/pose/camera and the other
@@ -1736,120 +1714,181 @@ func bind_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 func refresh_body_services(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 	if _suspended or not _is_presented_body(body):
 		return
-	_rebind_body_services(form)
+	_handover.rebind(form)
 
 
 func _is_presented_body(body: Node3D) -> bool:
 	return is_instance_valid(body) and is_instance_valid(pony) and body == pony
 
 
-## One idempotent rebind for the body-change path. The act resume owns its own ordered rebuild;
-## this is the idle and in-place revision refresh and never touches the act state.
-func _rebind_body_services(form: BODY_FORM.BodyForm) -> void:
-	_apply_form_display_name(form)
+## The one resume. The handover owns the rebuild; the runtime applies a no-body failure through the
+## one exit. `_suspended` is read before the handover clears it.
+func _resume_after_body_swap() -> void:
+	var was_suspended := _suspended
+	if _handover.resume():
+		return
+	if was_suspended:
+		force_stop()
+
+
+## The adopted body's bind before the resume: the pose, face, identity name, view, anatomy and
+## scene gate. The handover resumes into it; this never resumes by itself.
+func _bind_adopted_body() -> void:
+	_pose_session.bind(self, pony)
+	_face.bind(pony, self)
+	_bind_audio_identity()
+	_act.adopt_display_name(_handover.form(), pony)
+	refresh_view()
+	_anatomy_refresh()
 	_refresh_scene_gate()
-	_pose_service().bind(self, pony)
+
+
+## One revised form's rebind for a presented body: every body-bound system in its order.
+func _handover_rebind_body() -> void:
+	var form := _body_form()
+	_act.adopt_display_name(form, pony)
+	_refresh_scene_gate()
+	_pose_session.bind(self, pony)
 	_face.bind(pony, self)
 	_bind_audio_identity()
 	refresh_view()
 	_anatomy_refresh()
-	_camera_service()
 	_reactions.bind_scene(pony, _anatomy_bridge.controller)
-	var view: Variant = _pose_service().view()
+	var view: Variant = _pose_session.view()
 	_call_pose_changed(_hand_controller(), view)
 	_call_pose_changed(_kiss_controller(), view)
 	if is_instance_valid(_act_audio):
 		_call_pose_changed(_act_audio, view)
-	_wings_controller()
-	_integrations_controller()
-	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		_reset_visual_for_form(form)
-		if _pose_family() == "standing":
-			_standing_camera_controller().prepare()
-		refresh_view()
-		if not _act.features.is_empty() and is_instance_valid(HUD.instance):
-			_sync_hud_facts()
-			HUD.instance.update_from(_act_facts)
 
 
 ## Recompute the act's visual frame after a presented-form revision. The camera's old offset is
 ## undone before the new form is measured, then the standing placement is re-fitted. The act state,
 ## depth and climaxes are untouched; the pose session owns its own rebuild on a new body.
 func _reset_visual_for_form(form: BODY_FORM.BodyForm) -> void:
-	_camera_service().call("reset_for_form", _start_family(), _act.player_pony, form)
+	_act_camera.reset_for_form(_act.start_family(), _act.player_pony, form)
 	_reanchor_player_for_form(form)
 	refresh_view()
 
 
-## Resume the same act on the adopted body: anatomy, pose, camera, ownership and the body-bound
-## controllers are rebuilt; the act's state and history are not.
-func _resume_after_body_swap() -> void:
-	if not _suspended:
-		return
-	if not is_instance_valid(pony):
-		_log("body swap failed: no body to resume on")
-		_handover.abort()
-		force_stop()
-		return
-	var change := _handover.change
-	var changed := is_instance_valid(_handover.new_pony)
-	var confirmed := _handover.shape_confirmed
-	_handover.finish()
-	_pose_service().bind(self, pony)
+## Bind the placement handle's act values, then place, re-anchor or measure from them. The
+## placement handle owns the math; the act session owns the values.
+func _bind_placement(form: BODY_FORM.BodyForm = null) -> void:
+	_act_context.placement.bind_act(_act.placement_values(form))
+
+
+func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
+	_bind_placement(form)
+	return _act_context.placement.begin_act()
+
+
+## A standing act places Anon at the body's gap. A different body form needs that pass again;
+## the bed act keeps him where he is and its authored shot re-reads the live body scale.
+func _reanchor_player_for_form(form: BODY_FORM.BodyForm = null) -> void:
+	_bind_placement(form)
+	var standing: Variant = _act_context.placement.reanchor_act(_pose_family())
+	if standing is Transform3D:
+		_standing_camera_controller().begin_facing(standing)
+
+
+func _reset_player_pelvis() -> void:
+	_bind_placement()
+	_act_context.placement.reset_pelvis_act()
+
+
+## The new body must still pass the act's adult-mare gate. A missing service reads as allowed, so
+## a suite can drive the handover without the world's eligibility graph.
+func _new_body_is_adult() -> bool:
+	_bind_placement()
+	return _act_context.placement.new_body_is_adult_act()
+
+
+func _standing_gap(form: BODY_FORM.BodyForm = null) -> float:
+	_bind_placement(form)
+	return _act_context.placement.gap_act()
+
+
+## The swap's ordered release steps the handover calls. Each is one act operation; the runtime
+## keeps the node and the services, the handover keeps the order.
+func _handover_attach_to_world() -> void:
+	attach_to_body(WORLD.game)
+
+
+func _handover_release_carry() -> bool:
+	return _hold.release_carry()
+
+
+func _handover_release_contacts() -> void:
+	_kiss_controller().reset()
+	_hand_controller().reset()
+
+
+func _handover_remember_auto() -> void:
+	_handover.remember_auto(_readiness.auto_active())
+	_readiness.stop_auto()
+
+
+func _handover_release_act_body() -> void:
+	_wings_controller().release()
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.end()
+
+
+func _handover_release_scene() -> void:
+	_hold.release_nav()
+	_hold.restore_face_turn()
+
+
+## The one pose ledger plus the bone restore. This is the body-swap suspension, the third ledger
+## caller; the act exit and the new-act prep are the other two.
+func _handover_release_pose() -> void:
+	_exit.free_pose()
+	_start.restore_bones()
+
+
+func _handover_restore_camera() -> void:
+	if _act_camera.camera_owned:
+		_restore_camera()
+
+
+func _handover_stop_breath() -> void:
+	_stop_breath()
+
+
+## The swap's ordered resume steps the handover calls.
+func _handover_resume_body() -> void:
+	_pose_session.bind(self, pony)
 	_face.bind(pony, self)
-	_adopt_display_name(pony)
+	_act.adopt_display_name(_handover.form(), pony)
 	refresh_view()
 	pony.sleeping = false
 	if pony.has_method("set_sim_tier"):
 		pony.set_sim_tier(pony.SimTier.HERO)
 	pony.set_meta("sex_active", true)
-	# integration: the old act handle is gone; fetch the new body's controller and start its act.
+
+
+func _handover_prepare_anatomy_act() -> void:
 	_anatomy_refresh()
 	_anatomy_act_refresh()
+
+
+func _handover_apply_resume_settings() -> void:
 	_preserve_auto_shape_on_snapshot = true
 	_snapshot_settings()
 	_preserve_auto_shape_on_snapshot = false
+
+
+func _handover_rebind_reactions() -> void:
 	_reactions.bind_scene(pony, _anatomy_bridge.controller)
 	_reactions.apply_radius()
-	_pose_service().set_pose_config(SETTINGS.pose(_id, _start_group()))
-	_rebuild_pose_for_swap(_handover.pose)
-	_start.sync_start_pose_config()
-	_reset_visual_for_form(_body_form())
-	# The bed path has no placement fit; clear the old body's Hips handshake for every resume.
-	_reset_player_pelvis()
-	_reset_swap_input_state()
-	_camera_service().call("reset_lean_state")
-	_start.prepare_start_camera()
-	_begin_camera_mode()
-	_missionary_camera_controller().hide_avatar()
-	_wings_controller().reset()
-	_claim_nav()
-	_pause_face_turn(true)
-	_clear_face()
-	_set_face(0.45, FACE.ACT_LIDS)
-	_apply_voice_policy()
-	refresh_view()
-	_pose_service().pose_changed(_pose_service().view())
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.apply_live()
-	_integrations_controller().begin()
-	if is_instance_valid(HUD.instance):
-		_sync_hud_facts()
-		HUD.instance.update_from(_act_facts)
-	if _handover.auto_on and state in [State.ACTIVE, State.CLIMAX]:
-		_readiness.toggle_auto(depth)
-	_handover.clear_auto()
-	_log("body swap resumed pony=%s id=%s form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
-		str(pony.name), _id, _handover.change_form_id(change), state, _handover.pose, depth,
-		pony_climaxes])
-	_handover.complete_resume(change, changed, confirmed)
-	if changed:
-		_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.FORM_SETTLED, change)
+
+
+func _handover_set_act_pose_config() -> void:
+	_pose_session.set_pose_config(SETTINGS.pose(_id, _act.start_group()))
 
 
 ## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is
 ## skipped because the act is continuing, not entering.
-func _rebuild_pose_for_swap(pose: String) -> void:
+func _handover_rebuild_act_pose() -> void:
 	_start.snapshot_bones()
 	var camera: Camera3D = WORLD.camera()
 	var look: Vector3 = pony.global_position
@@ -1857,100 +1896,90 @@ func _rebuild_pose_for_swap(pose: String) -> void:
 	if camera is Camera3D:
 		look = (camera as Camera3D).global_position
 		camera_at = look
-	var size_name := str(_camera_service().call("size_name"))
-	var started: bool = _pose_service().begin({
-		"pose_id": pose if not pose.is_empty() else str(_start_row().get("id", "")),
-		"id": _id,
-		"features": _act.features,
-		"bed": _act.bed,
-		"presentation": _act.presentation_config,
-		"pose_config": _pose_session.pose_config,
-		"look_point": look,
-		"camera_position": camera_at,
-		"size_name": size_name,
-	})
-	if not started:
+	var values := _act.pose_values(_handover.pose, look, camera_at, _act_camera.size_name())
+	if not _pose_session.rebuild_act(values):
 		_log("body swap: the new body has no pose skeleton")
 		return
-	_pose_service().settle()
-	_reactions.bind_tail(_pose_service().tail)
+	_reactions.bind_tail(_pose_session.tail)
 
 
-## The front lean and the auto stroke belong to the hand and the old body. The auto generator
-## keeps its pace, band and shape; only its running state is interrupted.
-func _reset_swap_input_state() -> void:
-	_readiness.stop_auto()
+func _handover_sync_start_config() -> void:
+	_start.sync_start_pose_config()
 
 
-## Fill the reused placement facts for one pass. The handle reads the same object; the runtime
-## writes the live scene values before each call.
-func _placement_facts_for(form: BODY_FORM.BodyForm = null) -> PLACEMENT.Facts:
-	var facts := _placement_facts
-	var body_form: Variant = _body_form()
-	facts.pony = pony if is_instance_valid(pony) else null
-	facts.player = WORLD.player if is_instance_valid(WORLD.player) else null
-	facts.bed = _act.bed
-	facts.stool = _start.stool()
-	facts.form = form if form != null else body_form
-	facts.body_form = body_form
-	facts.id = _id
-	var configured: Variant = _pose_session.pose_config.get("gaps", {})
-	facts.gaps = configured if configured is Dictionary else {}
-	facts.camera = _camera_service()
-	facts.anatomy = _anatomy_service()
-	facts.player_pony = _act.player_pony
-	facts.headset_view = _headset_view()
-	facts.log = Callable(self, "_log")
-	return facts
+func _handover_reset_lean() -> void:
+	_act_camera.reset_lean_state()
 
 
-## A standing act places Anon at the body's gap. A different body form needs that pass again;
-## the bed act keeps him where he is and its authored shot re-reads the live body scale.
-func _reanchor_player_for_form(form: BODY_FORM.BodyForm = null) -> void:
-	var standing: Variant = _placement.reanchor(_placement_facts_for(form), _pose_family())
-	if standing is Transform3D:
-		_standing_camera_controller().begin_facing(standing)
+func _handover_prepare_start_camera() -> void:
+	_start.prepare_start_camera()
 
 
-## Drop the part's pelvis handshake after the placement fit or a new body. The service owns the
-## part; a missing service (a suite or the anatomy off) is a no-op.
-func _reset_player_pelvis() -> void:
-	_placement.reset_pelvis(_placement_facts_for())
+func _handover_open_camera() -> void:
+	_begin_camera_mode()
 
 
-## The new body must still pass the act's adult-mare gate. A missing service reads as allowed,
-## so a suite can drive the handover without the world's eligibility graph.
-func _new_body_is_adult() -> bool:
-	return _placement.new_body_is_adult(_placement_facts_for())
+func _handover_hide_avatar() -> void:
+	_missionary_camera_controller().hide_avatar()
 
 
-## The presented body's name for the act caption and dialogue. The form's presentation name wins;
-## the identity's display name is the fallback. The stable id stays the act's id: a borrowed shape
-## still belongs to the same relationship, preferences and history.
-func _adopt_display_name(new_pony: Node) -> void:
-	if not is_instance_valid(new_pony):
-		return
-	_apply_form_display_name(_body_form(), new_pony)
+func _handover_reset_wings() -> void:
+	_wings_controller().reset()
 
 
-## Apply one presented form's name. An empty form name falls back to the identity's display name,
-## then to the stable act id.
-func _apply_form_display_name(form: BODY_FORM.BodyForm, new_pony: Node = null) -> void:
-	var name := form.form_name.strip_edges() if form != null else ""
-	if name.is_empty():
-		var body: Node = new_pony if is_instance_valid(new_pony) else pony
-		var identity: Variant = body.get("identity") if is_instance_valid(body) else null
-		var display: Variant = identity.get("display_name") if identity != null else null
-		name = str(display).strip_edges() if display != null else ""
-	_act.display_name = name if not name.is_empty() else _id
+func _handover_claim_nav() -> void:
+	_claim_nav()
 
 
-func _begin_standing_placement(form: BODY_FORM.BodyForm = null) -> Transform3D:
-	return _placement.begin(_placement_facts_for(form))
+func _handover_pause_face_turn() -> void:
+	_pause_face_turn(true)
 
 
-func _standing_gap(form: BODY_FORM.BodyForm = null) -> float:
-	return _placement.gap(_placement_facts_for(form))
+func _handover_reset_face() -> void:
+	_clear_face()
+	_set_face(0.45, FACE.ACT_LIDS)
+
+
+func _handover_apply_voice_policy() -> void:
+	_apply_voice_policy()
+
+
+func _handover_apply_pose_change() -> void:
+	_pose_session.pose_changed(_pose_session.view())
+
+
+func _handover_apply_anatomy_live() -> void:
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.apply_live()
+
+
+func _handover_begin_integrations() -> void:
+	_integrations_controller().begin()
+
+
+func _handover_sync_hud() -> void:
+	if is_instance_valid(HUD.instance):
+		_sync_hud_facts()
+		HUD.instance.update_from(_act_facts)
+
+
+func _handover_resume_auto() -> void:
+	if _handover.auto_on and state in [State.ACTIVE, State.CLIMAX]:
+		_readiness.toggle_auto(depth)
+	_handover.clear_auto()
+
+
+func _handover_reset_visual() -> void:
+	_reset_visual_for_form(_body_form())
+
+
+func _handover_reset_pelvis() -> void:
+	_reset_player_pelvis()
+
+
+func _handover_prepare_standing_camera() -> void:
+	if _pose_family() == "standing":
+		_standing_camera_controller().prepare()
 
 
 ## The parsed authored missionary pose, for the shot camera and the debug action.
@@ -2630,7 +2659,7 @@ func _climax() -> void:
 		return
 	pony_climaxes += 1
 	_log("pony climax=%d pose=%s pony=%s readiness=%.0f" % [
-		pony_climaxes, str(_start_row().get("id", "")), str(pony.name), satisfaction])
+		pony_climaxes, str(_act.start_row().get("id", "")), str(pony.name), satisfaction])
 	_act.enter_climax()
 	mood = "climax"
 	cue = "She is climaxing."
@@ -3186,7 +3215,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 
 
 func _restore_look() -> void:
-	_camera_service().call("restore_look", _start_family())
+	_camera_service().call("restore_look", _act.start_family())
 
 
 ## Give the camera back in the order the shot was built. The facade owns the leaves; the runtime

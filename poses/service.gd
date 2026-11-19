@@ -34,6 +34,33 @@ const NO_CHANNEL := {}
 ## The owner names in install order, matching `shared/pose_specs.gd`'s profile table.
 const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_lay"]
 
+## The values one act's pose build needs. The act's start ledger and the body swap both fill this
+## typed record from the same act values; the session never reads a runtime field for it.
+class ActPose extends RefCounted:
+	var pose_id := ""
+	var id := ""
+	var features: Dictionary = {}
+	var bed: Node3D = null
+	var presentation: Dictionary = {}
+	var pose_config: Dictionary = {}
+	var look_point := Vector3.ZERO
+	var camera_position := Vector3.INF
+	var size_name := ""
+
+	func as_context() -> Dictionary:
+		return {
+			"pose_id": pose_id,
+			"id": id,
+			"features": features,
+			"bed": bed,
+			"presentation": presentation,
+			"pose_config": pose_config,
+			"look_point": look_point,
+			"camera_position": camera_position,
+			"size_name": size_name,
+		}
+
+
 ## The runtime node that parents the debug nodes and receives their `runtime` field. It is the
 ## host boundary; the session never reads the runtime's fields.
 var host: Variant = null
@@ -171,6 +198,19 @@ func set_pose_config(config: Dictionary) -> void:
 ## `presentation`, `look_point` and `camera_position` from the runtime's start sequence. Returns
 ## false, before installing anything, when a pose is already live or the pony has no body skeleton;
 ## `_started` only follows a complete install.
+func begin_act(values: ActPose) -> bool:
+	return begin(values.as_context())
+
+
+## Rebuild the live pose on a new skeleton at the pose the act was in. The start ramp is skipped
+## because the act is continuing, not entering.
+func rebuild_act(values: ActPose) -> bool:
+	if not begin_act(values):
+		return false
+	settle()
+	return true
+
+
 func begin(context: Dictionary) -> bool:
 	if _started:
 		_write_log("pose session: begin refused, a pose is already live")

@@ -98,7 +98,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.readiness.cue = ""
 	host.ledger.reset_thrust.call()
 	session.stopped_by_her = false
-	session.tolerance_warning_key = ""
+	context.consent.reset()
 	context.handover.reset_act()
 	host.ledger.end_tail_tuck.call()
 	context.summary.reset_act()

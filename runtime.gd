@@ -58,6 +58,7 @@ const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const ACT_CONSENT := preload("res://mods/unfplap/act/consent.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const ACT_IDLE := preload("res://mods/unfplap/act/idle.gd")
 const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
@@ -99,6 +100,7 @@ var _act: ACT_SESSION = null
 var _act_host: ACT_NODE = null
 var _act_context: ACT_CONTEXT = null
 var _view: ACT_VIEW = null
+var _consent: RefCounted = null
 var _idle: ACT_IDLE = null
 var _exit: ACT_EXIT = null
 var _start: ACT_START = null
@@ -300,6 +302,9 @@ func _bind_act_frame() -> void:
 	_act_context = _build_act_context()
 	_act = ACT_SESSION.new()
 	_act.bind(_act_host, _act_context)
+	_consent = ACT_CONSENT.new()
+	_consent.bind(_act_host, _act_context, _act)
+	_act_context.consent = _consent
 	_view = ACT_VIEW.new()
 	_view.bind(_act_host, _act_context)
 	_idle = ACT_IDLE.new()
@@ -1265,7 +1270,8 @@ func _physics_tick(delta: float) -> void:
 		_act_presentation(delta)
 		_timed("runtime_presentation", presentation_started)
 	if state in [State.POSING_IN, State.ACTIVE]:
-		_tolerance_tick(delta)
+		if _consent.tick(delta) == ACT_CONSENT.STOP:
+			_stop_with_her(_consent.stop_kind)
 	_log_pose_settled()
 	var kiss_started := Time.get_ticks_usec()
 	_kiss_controller().tick(delta)
@@ -1316,7 +1322,10 @@ func _physics_tick(delta: float) -> void:
 	_timed("runtime_camera", camera_started)
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW] \
 			and _act.consume_check_clock(delta):
-		_check_running()
+		var verdict: SCENE_GATE.RunningVerdict = _scene_gate().running_verdict(
+			_hold.nav, _act.bed, _act.player_pony, _kiss_controller().base_active())
+		if not verdict.ok:
+			_stop(verdict.reason)
 	var face_started := Time.get_ticks_usec()
 	_eyes_tick()
 	_timed("runtime_face", face_started)
@@ -2452,29 +2461,37 @@ func _bystander_tick(delta: float) -> void:
 	_dialogue_service().bystander_tick(delta)
 
 
-## The typed stop reason for one `_stop()` reason string.
-func _stop_reason(reason: String) -> int:
-	match reason:
-		"unwilling":
-			return MEMORY.StopReason.UNWILLING
-		"picked up":
-			return MEMORY.StopReason.PICKED_UP
-		"interrupted":
-			return MEMORY.StopReason.INTERRUPTED
-		"form change":
-			return MEMORY.StopReason.FORM_CHANGE
-		"withdrew":
-			return MEMORY.StopReason.WITHDREW
-		_:
-			return MEMORY.StopReason.NONE
-
-
 func _end_act_lines(keep_speaking := true) -> void:
 	_dialogue_service().end_act(_act.event_id, keep_speaking)
 
 
 func _commit_summary(real_act: bool) -> void:
 	_summary_service.commit_summary(real_act, _summary_service.summary_context(_summary_values()))
+
+
+## A real consent stop. It ends the act without the normal afterglow/cuddle restore, commits a
+## severe bad summary, and only Strict additionally bucks and requests space. The consent owner
+## presents the warning, the space request and the stop line; the one exit stays here.
+func _stop_with_her(reason: String) -> void:
+	var stop: Dictionary = _consent.begin_stop(reason)
+	if stop.is_empty():
+		return
+	var strict := bool(stop.get("strict", false))
+	_commit_summary(false)
+	# The stopped summary already says why. The basic event is the fallback when the summary was
+	# skipped, so one partner stop is never two memories.
+	if _summary_service.summary.is_empty() and is_instance_valid(WORLD.game):
+		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _act.event_id,
+			MEMORY.StopReason.WITHDREW)
+	if _pose_family() == "bed":
+		REST.release_managed(pony)
+	_end_act_lines(true)
+	_end_session(false)
+	_exit.finalize(true)
+	_consent.finish_stop(strict, not _summary_service.summary.is_empty())
+	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
+		str(stop.get("tolerance", "normal")), float(stop.get("distress", 0.0)),
+		reason, str(strict)])
 
 
 ## The scene values the summary scores. The history facade owns the shape; this only gathers.
@@ -2501,10 +2518,6 @@ func _summary_values() -> Dictionary:
 	}
 
 
-func _summary_inputs() -> Dictionary:
-	return _summary_service.summary_inputs(_summary_values())
-
-
 func _history_note() -> String:
 	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), _id, ACT_HISTORY.day_now())
 	return ACT_HISTORY.prompt_note(row)
@@ -2514,122 +2527,6 @@ func _history_note() -> String:
 ## line queueing.
 func _history_tick(delta: float) -> void:
 	_idle.history_tick(delta)
-
-
-## The meter only advances during an act. A forced debug warning or stop runs here so it lands
-## on the next frame after the Debug panel is closed. The readiness system owns the meter and the
-## policy; this only carries out the cue, the face beat and the stop.
-func _tolerance_tick(delta: float) -> void:
-	if state not in [State.POSING_IN, State.ACTIVE]:
-		return
-	var action: String = _readiness.take_debug()
-	if not action.is_empty():
-		if action == "warning":
-			_tolerance_warn(1)
-		elif action == "stop":
-			_stop_with_her("debug")
-		return
-	_readiness.tolerance_tick(delta)
-	_present_tolerance(_readiness.take_tolerance_decision())
-
-
-## Present one collected tolerance decision.
-func _present_tolerance(decision: Dictionary) -> void:
-	if decision.is_empty() or _act.stopped_by_her:
-		return
-	var warning := int(decision.get("warning", 0))
-	if warning > 0:
-		_tolerance_warn(warning)
-		return
-	if bool(decision.get("stopped", false)) or bool(decision.get("stop", false)):
-		_stop_with_her(str(decision.get("kind", "")))
-
-
-func _tolerance_warn(level: int) -> void:
-	var cue := "She doesn't like that." if level <= 1 else "She is warning you."
-	_set_cue_override(cue, 4.0)
-	_act_face_beat("warning")
-	_queue_tolerance_warning(level)
-	_log("neglect warning=%d tier=%s distress=%.1f kind=%s" % [
-		level, str(_act.preferences.get("tolerance", "normal")),
-		_readiness.distress(), _readiness.last_dislike()])
-
-
-func _queue_tolerance_warning(level: int) -> void:
-	if not is_instance_valid(WORLD.game):
-		return
-	if not _act.tolerance_warning_key.is_empty():
-		MEMORY.instance.cancel_line(_act.tolerance_warning_key)
-	var act_id := _act.event_id
-	var event_id := "%s:tolerance_warning:%d" % [_act.event_id, Time.get_ticks_usec()]
-	var valid := func() -> bool:
-		return is_instance_valid(pony) and state in [State.POSING_IN, State.ACTIVE] \
-			and _act.event_id == act_id
-	var fallback := ("Don't do that." if level <= 1 else "I said stop that.") \
-		+ " Begin with [annoyed] or [calm]."
-	_act.tolerance_warning_key = _dialogue_service().reaction_line(MEMORY.Reaction.TOLERANCE_WARNING, event_id, fallback, valid)
-
-
-func _cancel_tolerance_warning() -> void:
-	if not _act.tolerance_warning_key.is_empty() and is_instance_valid(WORLD.game):
-		MEMORY.instance.cancel_line(_act.tolerance_warning_key)
-	_act.tolerance_warning_key = ""
-
-
-## A real consent stop. It ends the act without the normal afterglow/cuddle restore, commits a
-## severe bad summary, and only Strict additionally bucks and requests space.
-func _stop_with_her(reason: String) -> void:
-	if _act.stopped_by_her or state not in [State.POSING_IN, State.ACTIVE]:
-		return
-	_act.stopped_by_her = true
-	var strict := str(_act.preferences.get("tolerance", "normal")) == "strict"
-	# The teardown resets readiness; keep the value that caused the stop for the log below.
-	var distress: float = _readiness.distress()
-	_cancel_tolerance_warning()
-	_commit_summary(false)
-	# The stopped summary already says why. The basic event is the fallback when the summary was
-	# skipped, so one partner stop is never two memories.
-	if _summary_service.summary.is_empty() and is_instance_valid(WORLD.game):
-		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _act.event_id, MEMORY.StopReason.WITHDREW)
-	if _pose_family() == "bed":
-		REST.release_managed(pony)
-	_end_act_lines(true)
-	_end_session(false)
-	_exit.finalize(true)
-	if strict:
-		_request_space()
-		bool(_scene_gate().buck_or_push())
-	# The summary owns the impression, including a skipped summary.
-	if not _summary_service.summary.is_empty():
-		_start_upset("angry" if strict else "annoyed")
-	_queue_stop_line(strict)
-	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
-		str(_act.preferences.get("tolerance", "normal")), distress,
-		reason, str(strict)])
-
-
-func _request_space() -> void:
-	if not is_instance_valid(pony):
-		return
-	var rel: Variant = pony.get_meta("relationship_runtime") \
-		if pony.has_meta("relationship_runtime") else null
-	if rel == null or not is_instance_valid(rel):
-		return
-	var bonds: Variant = rel.get("bonds")
-	if bonds != null and is_instance_valid(bonds) and bonds.has_method("request_space"):
-		bonds.call("request_space", _id)
-
-
-func _queue_stop_line(strict: bool) -> void:
-	if not is_instance_valid(WORLD.game):
-		return
-	var fallback := "Stop. I don't want to continue. Not now. Begin with [angry] or [sad]."
-	if strict:
-		fallback = "I told you to stop. Get off me and give me space. Begin with [angry] or [sad]."
-	var event_id := "tolerance_stop_%s_%d" % [_id, Time.get_ticks_usec()]
-	var valid := func() -> bool:
-		return is_instance_valid(pony) and state == State.IDLE
-	_dialogue_service().reaction_line(MEMORY.Reaction.TOLERANCE_STOP, event_id, fallback, valid)
 
 
 ## The tail tuck after a partner stop: `poses/tail_tuck.gd` is a pose-scope node, so the runtime
@@ -2654,10 +2551,7 @@ func _end_tail_tuck() -> void:
 
 ## Debug actions run from the paused settings page; the request is consumed on the next frame.
 func debug_force_tolerance(kind: String) -> bool:
-	if state not in [State.POSING_IN, State.ACTIVE]:
-		return false
-	_readiness.request_debug(kind)
-	return true
+	return _consent.force(kind)
 
 
 ## Store the strongest clean act per mare. The history system owns the eligibility and the text.
@@ -3140,40 +3034,13 @@ func act_face_rows() -> Array[String]:
 
 # --------------------------------------------------------------------------- checks
 
-func _check_running() -> void:
-	if not is_instance_valid(pony):
-		force_stop()
-		return
-	if pony.is_held():
-		_stop("picked up")
-		return
-	# Conversation attention does not end an act. The runtime owns her body and clears the
-	# listener each tick, so a character addressing Anon can keep talking without cancelling it.
-	var affection: Node = pony.get_node_or_null("Affection")
-	if affection != null:
-		var kind := str(affection.get("kind"))
-		# The base-game kiss runs through Affection; it is part of the act, not an interruption.
-		var our_kiss: bool = _kiss_controller().base_active()
-		if not kind.is_empty() and not (our_kiss and kind == "kiss"):
-			_stop("interrupted")
-			return
-	if _cuddle_active():
-		_stop("interrupted")
-		return
-	if _hold.nav != null and is_instance_valid(_hold.nav) and str(_hold.nav.get("reserved_by")) != "":
-		_stop("interrupted")
-		return
-	if _pose_family() == "bed" and _act.bed != null and WORLD.bed_occupied(_act.bed, pony):
-		_stop("interrupted")
-		return
-	if _act.player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())):
-		_stop("form change")
-		return
-
+## A forced stop from a scene verdict. The gate returned the reason; this applies the one stop.
 func _stop(reason: String) -> void:
-	_log("stop reason=%s state=%d pony=%s" % [reason, state, str(pony.name) if is_instance_valid(pony) else "?"])
+	_log("stop reason=%s state=%d pony=%s" % [reason, state,
+		str(pony.name) if is_instance_valid(pony) else "?"])
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
-		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _act.event_id, _stop_reason(reason))
+		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _act.event_id,
+			MEMORY.stop_reason(reason))
 	_restore_begin()
 
 # --------------------------------------------------------------------------- camera

@@ -44,6 +44,17 @@ const NO_STOOL_PAIR := Vector2i(-1, -1)
 
 ## The Agreement's frozen pose capability. It is recorded at formation; a settings or form change
 ## does not rebuild it.
+## The running interrupt verdict. `ok` false means the act must stop; `reason` is the typed stop
+## text `runtime._stop()` applies.
+class RunningVerdict extends RefCounted:
+	var ok := true
+	var reason := ""
+
+	func _init(ok_in: bool = true, reason_in: String = "") -> void:
+		ok = ok_in
+		reason = reason_in
+
+
 class FrozenPose:
 	var pose_profile_ok := false
 	var pose_source_ok := false
@@ -522,6 +533,34 @@ func free_of_affection() -> bool:
 	if hoof != null and hoof.has_method("active") and bool(hoof.call("active")):
 		return false
 	return true
+
+
+## The running interrupt verdict: `{ok, reason}`. The runtime passes the four live values its own
+## systems hold; every other row is the gate's own scene read. A conversation is not an
+## interruption: the act clears the listener, so another character may talk to Anon.
+func running_verdict(nav: Node, bed: Node3D, player_pony: bool, our_kiss: bool) -> RunningVerdict:
+	if not is_instance_valid(pony):
+		return RunningVerdict.new(false, "picked up")
+	if pony.is_held():
+		return RunningVerdict.new(false, "picked up")
+	var affection: Node = pony.get_node_or_null("Affection")
+	if affection != null:
+		var kind := str(affection.get("kind"))
+		# The base-game kiss runs through Affection; it is part of the act, not an interruption.
+		if not kind.is_empty() and not (our_kiss and kind == "kiss"):
+			return RunningVerdict.new(false, "interrupted")
+	if cuddle_active():
+		return RunningVerdict.new(false, "interrupted")
+	if nav != null and is_instance_valid(nav) and str(nav.get("reserved_by")) != "":
+		return RunningVerdict.new(false, "interrupted")
+	var view: Variant = pose_session.view() if pose_session != null else null
+	if view != null and str(view.family) == "bed" and bed != null \
+			and WORLD.bed_occupied(bed, pony):
+		return RunningVerdict.new(false, "interrupted")
+	if pony.is_inside_tree() \
+			and player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(pony.get_tree())):
+		return RunningVerdict.new(false, "form change")
+	return RunningVerdict.new(true, "")
 
 
 func nav_owner_allows(pose: String, act_source: String, hold_exempt := false) -> bool:

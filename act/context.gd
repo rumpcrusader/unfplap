@@ -46,6 +46,8 @@ var gate: SCENE_GATE = null
 var hold: SCENE_HOLD = null
 ## The per-act footstool handle, bound by the start ledger and released by the exit.
 var stool: RefCounted = null
+## The act's consent response: the tolerance warning, its line and the stop presentation.
+var consent: RefCounted = null
 var facts: ACT_FACTS = null
 var kiss: KISS = null
 var summary: SUMMARY = null

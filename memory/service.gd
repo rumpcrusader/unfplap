@@ -46,6 +46,24 @@ const LineRequest = FACTS.LineRequest
 static var instance: Variant = null
 
 
+## The act's typed stop reason for one stop text. The enum is the game-facing memory vocabulary;
+## `runtime._stop()` reads this rather than owning the mapping.
+static func stop_reason(text: String) -> int:
+	match text:
+		"unwilling":
+			return FACTS.StopReason.UNWILLING
+		"picked up":
+			return FACTS.StopReason.PICKED_UP
+		"interrupted":
+			return FACTS.StopReason.INTERRUPTED
+		"form change":
+			return FACTS.StopReason.FORM_CHANGE
+		"withdrew":
+			return FACTS.StopReason.WITHDREW
+		_:
+			return FACTS.StopReason.NONE
+
+
 ## Write one impression and, when its slot carries a world event, that event.
 func commit(impression: Impression) -> void:
 	if impression == null or impression.id.is_empty():

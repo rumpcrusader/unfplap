@@ -60,7 +60,6 @@ var stopped_by_her := false
 var aftercare_min := 0
 var cue_gap := 0.0
 var first_time := false
-var tolerance_warning_key := ""
 var act_spoken_at := -1e9
 
 ## The `POSING_IN` timer: the pose settles into the act after this many seconds.
@@ -107,6 +106,11 @@ func act_seconds() -> float:
 ## The processed-time clock. It is monotonic across acts.
 func clock_s() -> float:
 	return _clock_s
+
+
+## One act feature flag from the snapshot. Unknown flags read as off.
+func feature(name: String) -> bool:
+	return bool(features.get(name, false))
 
 
 func state_name() -> String:

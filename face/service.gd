@@ -50,6 +50,13 @@ func bind(pony_in: Variant, host_in: Node) -> void:
 	host = host_in
 
 
+## Bind the act's presented body once; every call site can ask instead of holding the rule. A suite
+## that builds a face without entering the tree binds it on its first call this way.
+func ensure_bound(pony_in: Node, host_in: Node) -> void:
+	if pony != pony_in or host != host_in:
+		bind(pony_in, host_in)
+
+
 ## The act's smile and lids, with an optional hold that clears it again. The timer is created on
 ## the first call and parented to the host, so a facade built without a tree simply skips the hold.
 func set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:

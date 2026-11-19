@@ -640,6 +640,18 @@ func inventory_hidden() -> bool:
 	return _inventory_hidden
 
 
+## The idle safety check: restore the borrowed quick slots only when no runtime is mid-act. Every
+## idle sibling sees the same borrowed flag, so the live act owner decides.
+func ensure_act_inventory_visible(act_owner: Node) -> void:
+	if not _inventory_hidden:
+		return
+	if is_instance_valid(act_owner):
+		var owner_state: Variant = act_owner.get("state")
+		if owner_state != null and int(owner_state) != STATE_IDLE:
+			return
+	set_inventory_hidden(false)
+
+
 ## Afterglow is mostly passive: hide controls that cannot do anything in that state. Missionary
 ## afterglow keeps lean, caress and the act key; standing keeps lean, reach, caress, kiss and it.
 func _apply_control_visibility(state: int, view: RefCounted) -> void:

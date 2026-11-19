@@ -64,6 +64,7 @@ class FakeMain extends Node:
 
 class FakePony extends Node3D:
 	var speaking := false
+	var conversation_target: Variant = null
 
 	func is_speaking() -> bool:
 		return speaking
@@ -72,6 +73,8 @@ class FakePony extends Node3D:
 class FakeDirector extends Node:
 	var state := "idle"
 	var characters: Dictionary = {}
+	var _turn_id := 0
+	var _player_text := ""
 
 
 class Host extends RefCounted:
@@ -213,24 +216,23 @@ func run() -> void:
 	# The idle history scan: a sincere apology repairs one point and writes one note.
 	var mods := _mods()
 	facts.state = 0
-	var context := {
-		"main": main, "pony": pony, "director": director,
-		"pony_id": "fluttershy", "event_id": "evt1", "now": 100.0,
-		"turn": 2, "text": "", "paused": false, "speech_busy": false,
-		"director_state": "idle", "distance": 1.0, "target_is_player": false,
-	}
+	var player := FakePony.new()
+	player.name = "Player"
+	root.add_child(player)
+	WORLD.bind_player(player)
+	facts.pony = pony
 	mods.data["unfplap"]["act_history"] = {
 		"fluttershy": {"hurt": 3, "last_apology_day": -1.0, "reminder_pending": false},
 	}
 	var history := DIALOGUE.new(facts)
-	history.history_tick(0.0, context)
-	context["turn"] = 3
-	context["text"] = "I'm sorry"
-	context["target_is_player"] = true
-	history.history_tick(1.1, context)
+	history.history_tick(0.0, pony, "fluttershy", "evt1", 100.0)
+	director._turn_id = 3
+	director._player_text = "I'm sorry"
+	pony.conversation_target = player
+	history.history_tick(1.1, pony, "fluttershy", "evt1", 100.0)
 	var repair_row: Dictionary = (mods.data["unfplap"]["act_history"] as Dictionary)["fluttershy"]
 	check(int(repair_row.get("hurt", 3)) == 2, "a sincere apology repairs one point")
-	check(main.memory.notes.size() == 1, "the apology writes one note")
+	check(main.memory.notes.size() == 1, "the apology records a note")
 	if not main.memory.notes.is_empty():
 		check(int(main.memory.notes[0].get("kind", -1)) == MEMORY.NoteKind.APOLOGY,
 			"the apology note carries its kind")
@@ -242,9 +244,9 @@ func run() -> void:
 			"complaint_pending": false},
 	}
 	history = DIALOGUE.new(facts)
-	context["text"] = ""
-	context["target_is_player"] = false
-	history.history_tick(1.1, context)
+	director._player_text = ""
+	pony.conversation_target = null
+	history.history_tick(1.1, pony, "fluttershy", "evt1", 100.0)
 	check(main.memory.requests.size() == queued_before + 1, "a pending reminder queues one line")
 	var reminder_row: Dictionary = (mods.data["unfplap"]["act_history"] as Dictionary)["fluttershy"]
 	check(not bool(reminder_row.get("reminder_pending", true)),
@@ -255,9 +257,10 @@ func run() -> void:
 		"fluttershy": {"hurt": 2, "last_at": 0.0, "complaint_pending": true},
 	}
 	history = DIALOGUE.new(facts)
-	context["speech_busy"] = true
-	history.history_tick(1.1, context)
+	director.state = "speaking"
+	history.history_tick(1.1, pony, "fluttershy", "evt1", 100.0)
 	check(main.memory.requests.size() == queued_before + 1, "a busy scene queues no reminder")
+	director.state = "idle"
 
 	print("ACT_DIALOGUE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

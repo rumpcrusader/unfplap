@@ -447,20 +447,18 @@ func run() -> void:
 
 	# An idle sibling runtime must not take the borrowed quick slots from the act.
 	var f7 := _fixture()
-	var idle7: Node = f7["runtime"]
-	var main7: FakeMain = f7["main"]
 	var hud7: CanvasLayer = f7["hud"]
 	var acting7: Node = RUNTIME.new()
 	acting7.state = 2 # ACTIVE
 	PONIES.set_active(acting7)
-	idle7.call("_restore_stray_inventory_hud")
+	hud7.ensure_act_inventory_visible(PONIES.active())
 	check(hud7.inventory_hidden(), "idle sibling leaves the active act's inventory HUD hidden")
 	acting7.state = 0 # IDLE
-	idle7.call("_restore_stray_inventory_hud")
+	hud7.ensure_act_inventory_visible(PONIES.active())
 	check(not hud7.inventory_hidden(), "idle safety restores the HUD once no act is active")
 	hud7.set_inventory_hidden(true)
 	PONIES.clear_active(acting7)
-	idle7.call("_restore_stray_inventory_hud")
+	hud7.ensure_act_inventory_visible(PONIES.active())
 	check(not hud7.inventory_hidden(), "idle safety restores the HUD with no active runtime")
 	acting7.free()
 

@@ -1298,15 +1298,11 @@ func _headset_view() -> bool:
 func _physics_process(delta: float) -> void:
 	var started := Time.get_ticks_usec()
 	var idle := idle_perf and state == State.IDLE
-	var sync_started := started if idle else 0
-	_sync_anatomy_facts()
-	var sync_split := Time.get_ticks_usec() if idle else 0
 	_physics_tick(delta)
-	var tick_done := Time.get_ticks_usec() if idle else 0
+	var sync_started := Time.get_ticks_usec() if idle else 0
 	_sync_anatomy_facts()
 	if idle:
-		_idle_perf_note("runtime_anatomy_sync",
-			(sync_split - sync_started) + (Time.get_ticks_usec() - tick_done))
+		_idle_perf_note("runtime_anatomy_sync", Time.get_ticks_usec() - sync_started)
 	if _perf_probe.on():
 		perf_note("runtime_physics", Time.get_ticks_usec() - started)
 
@@ -1332,7 +1328,8 @@ func _physics_tick(delta: float) -> void:
 		_timed("pose_fanout", fanout_started)
 	if state == State.IDLE:
 		# Last-resort safety: a missed exit path must not leave the quick slots hidden.
-		_restore_stray_inventory_hud()
+		if is_instance_valid(HUD.instance):
+			HUD.instance.ensure_act_inventory_visible(PONIES.active())
 		var presentation_started := Time.get_ticks_usec() if idle_perf else 0
 		_standing_presentation_controller().physics(delta)
 		if idle_perf:
@@ -1792,7 +1789,8 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_missionary_camera_controller().hide_avatar()
 	_start_audio()
 	_apply_voice_policy()
-	_set_inventory_hud_hidden(true)
+	if is_instance_valid(HUD.instance):
+		HUD.instance.set_inventory_hidden(true)
 	# integration: show the player part for the encounter.
 	var service: Variant = _anatomy_service()
 	if service != null and service.has_method("player_encounter"):
@@ -2690,27 +2688,6 @@ func _restore_voice_volume() -> void:
 		_act_audio.restore_voice_policy()
 
 
-## The idle safety check. `hud/service.gd` owns the borrowed quick-slot state, so every idle
-## sibling runtime sees the same hidden flag; only restore it when no other runtime is mid-act.
-func _restore_stray_inventory_hud() -> void:
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(HUD.instance):
-		return
-	if not HUD.instance.inventory_hidden():
-		return
-	var owner: Node = PONIES.active()
-	if is_instance_valid(owner) and owner != self:
-		var owner_state: Variant = owner.get("state")
-		if owner_state != null and int(owner_state) != State.IDLE:
-			return
-	_set_inventory_hud_hidden(false)
-
-## The act hides the game's quick-slot card for its whole run. `hud/service.gd` owns the borrowed
-## state and restores exactly what it found, so every exit path can call this unconditionally.
-func _set_inventory_hud_hidden(hidden: bool) -> void:
-	if is_instance_valid(HUD.instance) \
-			and HUD.instance.has_method("set_inventory_hidden"):
-		HUD.instance.set_inventory_hidden(hidden)
-
 ## Anon's visible shaft length in metres. The readiness stroke state owns the nominal fallback.
 func _shaft_length_m() -> float:
 	return _readiness.shaft_length_m()
@@ -2962,11 +2939,6 @@ func _readiness_cue(mood_value: String, cue_value: String, is_override: bool) ->
 	_dialogue_service().admit_cue(_now_s())
 
 
-## True while the director or the pony is actually speaking.
-func _speech_busy() -> bool:
-	return _dialogue_service().busy()
-
-
 ## Free a delivered line and expire a queued one at its max age. See `dialogue/service.gd`.
 func _utterance_tick() -> void:
 	_dialogue_service().tick()
@@ -3035,31 +3007,10 @@ func _history_note() -> String:
 	return ACT_HISTORY.prompt_note(row)
 
 
-## Idle-only history scan. The scene values are gathered here; `dialogue/service.gd` owns the
-## decisions and the line queueing.
+## Idle-only history scan. `dialogue/service.gd` reads the scene and owns the decisions and the
+## line queueing.
 func _history_tick(delta: float) -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game) \
-			or not is_instance_valid(WORLD.player):
-		return
-	var director := _director()
-	if director == null:
-		return
-	var target: Variant = pony.get("conversation_target")
-	var body: Variant = WORLD.player_body()
-	_dialogue_service().history_tick(delta, {
-		"pony": pony,
-		"director": director,
-		"pony_id": _id,
-		"event_id": _event_id,
-		"now": _now_s(),
-		"turn": int(director.get("_turn_id")),
-		"text": str(director.get("_player_text")).strip_edges(),
-		"paused": get_tree().paused,
-		"speech_busy": _speech_busy(),
-		"director_state": str(director.get("state")),
-		"distance": WORLD.player.global_position.distance_to(pony.global_position),
-		"target_is_player": target == WORLD.player or target == body,
-	})
+	_dialogue_service().history_tick(delta, pony as Node3D, _id, _event_id, _now_s())
 
 
 ## The meter only advances during an act. A forced debug warning or stop runs here so it lands
@@ -3560,7 +3511,8 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	_anatomy_bridge.end()
 	# The oral turn's facing override must not outlive the act, even on a direct forced stop.
 	_standing_camera_controller().reset_facing()
-	_set_inventory_hud_hidden(false)
+	if is_instance_valid(HUD.instance):
+		HUD.instance.set_inventory_hidden(false)
 	_kiss_controller().restore_forelegs()
 	_restore_face_turn()
 	_camera_service().call("restore_eye_override")

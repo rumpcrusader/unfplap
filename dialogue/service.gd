@@ -212,65 +212,62 @@ func bystander_tick(delta: float) -> void:
 
 
 ## Idle-only: a sincere apology repairs once per in-game day, and a pending reminder or
-## complaint becomes one short line in a quiet moment. The runtime gathers the scene values; this
-## owns the decisions and the line queueing.
-func history_tick(delta: float, context: Dictionary) -> void:
+## complaint becomes one short line in a quiet moment. This module reads the scene values it
+## needs and owns the decisions and the line queueing.
+func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String, now: float) -> void:
 	if facts == null:
 		return
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return
-	var pony: Variant = context.get("pony")
 	if not is_instance_valid(pony):
 		return
-	if bool(context.get("paused", false)):
+	if _paused():
 		return
-	var director: Variant = context.get("director")
+	var director := _director()
 	if director == null:
 		return
-	var now := float(context.get("now", 0.0))
-	var turn := int(context.get("turn", 0))
-	var text := str(context.get("text", "")).strip_edges()
+	var turn := int(director.get("_turn_id"))
 	if _history_turn < 0:
 		_history_turn = turn
 	elif turn != _history_turn:
 		_history_turn = turn
+		var text := str(director.get("_player_text")).strip_edges()
+		var body: Variant = WORLD.player_body()
+		var target: Variant = pony.get("conversation_target")
 		if not text.is_empty() and PREFERENCES.apology_intent(text) \
-				and bool(context.get("target_is_player", false)):
-			var id := str(context.get("pony_id", ""))
-			if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), id, ACT_HISTORY.day_now()):
+				and (target == WORLD.player or target == body):
+			if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now()):
 				ACT_HISTORY.save()
-				MEMORY.instance.note(MEMORY.NoteKind.APOLOGY, id,
-					str(context.get("event_id", "")))
-				_log("history apology id=%s" % id)
+				MEMORY.instance.note(MEMORY.NoteKind.APOLOGY, pony_id, event_id)
+				_log("history apology id=%s" % pony_id)
 	_history_scan += delta
 	if _history_scan < 1.0:
 		return
 	_history_scan = 0.0
-	if now - _history_reminder_at < 15.0 or bool(context.get("speech_busy", false)):
+	if now - _history_reminder_at < 15.0 or _speech_busy():
 		return
-	if str(context.get("director_state", "")) != "idle":
+	if str(director.get("state")) != "idle":
 		return
-	if float(context.get("distance", 0.0)) > 5.0:
+	if WORLD.player.global_position.distance_to(pony.global_position) > 5.0:
 		return
-	var id := str(context.get("pony_id", ""))
-	var current := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
+	var current := ACT_HISTORY.effective_row(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now())
 	var kind := ACT_HISTORY.pending_line(current)
 	if kind.is_empty():
 		return
 	if Time.get_unix_time_from_system() - float(current.get("last_at", 0.0)) < 45.0:
 		return
-	var event_id := "history_%s_%d" % [id, Time.get_ticks_usec()]
+	var line_event := "history_%s_%d" % [pony_id, Time.get_ticks_usec()]
 	var valid := func() -> bool:
 		if not is_instance_valid(pony):
 			return false
 		return facts != null and facts.state == STATE_IDLE
 	var reaction := MEMORY.Reaction.HISTORY_REMINDER if kind == "reminder" \
 		else MEMORY.Reaction.HISTORY_COMPLAINT
-	var key: String = reaction_line(reaction, event_id,
+	var key: String = reaction_line(reaction, line_event,
 		ACT_HISTORY.line_purpose(current, kind), valid)
 	if key.is_empty():
 		return
-	ACT_HISTORY.mark_announced(ACT_HISTORY.section(), id, kind)
+	ACT_HISTORY.mark_announced(ACT_HISTORY.section(), pony_id, kind)
 	ACT_HISTORY.save()
 	_history_reminder_at = now
 	_log("history line kind=%s key=%s" % [kind, key])
@@ -593,6 +590,14 @@ func _speech_busy() -> bool:
 
 func _game_ok() -> bool:
 	return is_instance_valid(WORLD.game)
+
+
+## True while the game's tree is paused; the idle scan queues no line into a menu.
+func _paused() -> bool:
+	if not is_instance_valid(WORLD.game):
+		return false
+	var tree := WORLD.game.get_tree()
+	return tree != null and tree.paused
 
 
 func _now() -> float:

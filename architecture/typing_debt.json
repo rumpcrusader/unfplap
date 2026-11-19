@@ -57,11 +57,6 @@
     },
     {
       "service": "dialogue",
-      "func": "history_tick",
-      "signature": "func history_tick(delta: float, context: Dictionary) -> void:"
-    },
-    {
-      "service": "dialogue",
       "func": "prompt_note",
       "signature": "func prompt_note(values: Dictionary) -> String:"
     },

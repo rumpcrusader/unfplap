@@ -28,9 +28,9 @@ window is tabled in the top-left corner; see `docs/debug.md`.
   panel callbacks, and keeps the panel to the two debug switches: `perf_block()` creates the view
   on the first window. Its two scene-free unknowns, the act gate and the counts, are entry
   callables (`docs/log.md`). Idle runtimes forward their chunks through `runtime.perf_note()`.
-- Timed call sites in the runtime, the anatomy controller and the skeleton modifiers report to the
-  runtime; `main.gd` times its own process body and `offer/service.gd` times the scan and the hint
-  through `LOG.note()`/`LOG.close()`.
+- Timed call sites in the runtime, its `act/` modules, the anatomy controller and the skeleton
+  modifiers report to the runtime; `main.gd` times its own process body and `offer/service.gd` times
+  the scan and the hint through `LOG.note()`/`LOG.close()`.
 - `**Print perf logs**` is a separate debug switch; it needs **Enable debug** on too. One switch
   drives both probes.
 
@@ -146,9 +146,9 @@ The act probe's own chunks, in call order inside one physics tick: `pose_tick`, 
 `anatomy_tick`, `runtime_talk`, `runtime_camera`, `runtime_face`, all inside `runtime_physics`.
 `pose_tick` is the pose edge clock, the channel records, the switches/events and the oral turn;
 `pose_fanout` is the modifier reconcile, the `act_body`/`anon` channel and the
-camera/hands/kiss/anatomy/audio hooks. The facts sync carries the one `pose_view`; the standing
-camera reads its facing each physics tick, and the mouth/contact provider reads its
-`contact_kind`. The skeleton modifiers report `pose_recipe` (`UnfplapPose`), `pose_prone`
+camera/hands/kiss/anatomy/audio hooks. `act/view.gd` composes the facts, which carry the one
+`pose_view`; the standing camera reads its facing each physics tick, and the mouth/contact provider
+reads its `contact_kind`. The skeleton modifiers report `pose_recipe` (`UnfplapPose`), `pose_prone`
 (`UnfplapProneSway`), `body_sway`, `ear_twitch` and `tail_pose`; `runtime_process` covers the
 render-time pose write and the sway replay, which is where the modifier pass reports.
 `caress_tick` contains `caress_precise` → `caress_path` (the one-time path/anchor build) and
@@ -205,9 +205,9 @@ total, largest first, so the first row is the chunk to fix.
 | `offer_policy` | `eligible()` and `relationship_ok()` after the rows pass | `offer_gate` |
 | `runtime_physics` | one pony's idle `_physics_process` | root |
 | `runtime_anatomy_sync` | the one `_sync_anatomy_facts()` call after the physics tick | `runtime_physics` |
-| `runtime_facts` | `refresh_view()` in the physics tick | `runtime_physics` |
-| `runtime_presentation` | `_standing_presentation_controller().physics(delta)` | `runtime_physics` |
-| `runtime_history` | `_history_tick(delta)` | `runtime_physics` |
+| `runtime_facts` | `act/view.gd:refresh()` through `runtime.refresh_view()` | `runtime_physics` |
+| `runtime_presentation` | `act/idle.gd:tick()` (`context.presentation.physics(delta)`) | `runtime_physics` |
+| `runtime_history` | `act/idle.gd:history_tick(delta)` | `runtime_physics` |
 | `runtime_process` | one pony's idle `_process_tick` | root |
 | `anatomy_process` | the whole persistent `anatomy/controller.gd::_process`, reported outside an act | root |
 | `anatomy_coat_line`, `anatomy_visibility` | reported through `facts.perf` | `anatomy_process` |

@@ -24,13 +24,15 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 
 `main.gd` and `runtime.gd` compose services; they are not services. `main.gd` holds the one ordered
 service list, which is the lifecycle order of every broadcast. `runtime.gd` is the per-pony host:
-it exists for every non-player pony, idle and in an act, and owns lifetime, state, the session,
-the schedules, the ledgers and the typed act view.
+it exists for every non-player pony, idle and in an act, and owns lifetime, the ordered ticks, the
+composition, the ledgers and the one view call; its own `act/` modules own the state, the session
+values' read model, the view and the idle schedule.
 
 | Part | Entry | Contract | Tests |
 |---|---|---|---|
 | Entry | `main.gd` | `../ARCHITECTURE.md` | `tests/entry/` |
 | Per-pony act host | `runtime.gd` | `docs/runtime.md` | `tests/` |
+| Per-pony act modules | `act/session.gd`, `act/host.gd`, `act/context.gd`, `act/view.gd`, `act/idle.gd` | `docs/runtime.md` | `tests/act/` |
 
 ## Services
 

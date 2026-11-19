@@ -1,11 +1,12 @@
 # Act runtime
 
 `runtime.gd` is the per-pony host and act orchestrator. One Node exists per non-player pony,
-parented under the pony, and it is idle outside an act: it runs the standing presentation, the
-dialogue history scan, the anatomy sync and the inventory safety. It owns lifetime, the state
-machine, the act session, the one composition and bind pass, the ordered schedules, the
-start/suspend/exit ledgers and the typed act view. It implements no system's rules and owns no
-system's mutable state. The service contracts are indexed in `docs/README.md`.
+parented under the pony, and it is idle outside an act: it runs the ordered physics and process
+ticks and owns the lifetime, the ledgers, the composition and the one view call site. Its own
+`act/` modules own the act state, timers and clock (`act/session.gd`), the typed collaborator set
+(`act/context.gd`), the node operations (`act/host.gd`), the view composition (`act/view.gd`) and
+the idle schedule (`act/idle.gd`). It implements no system's rules and owns no system's mutable
+state. The service contracts are indexed in `docs/README.md`.
 
 ## Lifetime
 
@@ -29,12 +30,12 @@ system's mutable state. The service contracts are indexed in `docs/README.md`.
 | Runtime owns | Detail |
 |---|---|
 | Lifetime | attach, `_ready`, tree parenting, despawn, world close, reparent across a body swap |
-| State machine | states, the pause overlay, timers, one `_set_state()` writer |
-| Session | pony/id/display, `pose_id`, `source`, `bed`, `_event_id`, `_serial`, the act clock, the settings snapshot, preferences/profile/prompts/features |
-| Composition | `_build_systems()` and `_bind_pose_hosts()`, one typed field per system, one bind pass |
-| Schedules | idle, physics and render, each an ordered list of one-line calls |
+| State machine | the transition bodies and their side effects; `act/session.gd` owns `state`, the one `_set_state()` writer, the timers and the clock |
+| Session values | pony/id/display, `pose_id`, `source`, `bed`, `_event_id`, `_serial`, the settings snapshot, preferences/profile/prompts/features |
+| Composition | `_build_systems()`, `_bind_act_frame()` and `_bind_pose_hosts()`, one typed field per system, one bind pass |
+| Schedules | idle (`act/idle.gd`), physics and render, each an ordered list of one-line calls |
 | Ledgers | start, suspend release, resume rebuild, the one exit, finalize-once, partial-start safety |
-| View | the typed act view composed once per phase |
+| View | the typed act view composed by `act/view.gd` once per phase |
 | Protocol | start request/answer, force stop, cancel/afterglow, the input protocol, `live_id`, `act_view`, `prompt_note` |
 
 The runtime never owns:
@@ -65,16 +66,19 @@ IDLE → POSING_IN → ACTIVE → CLIMAX → AFTERGLOW → RESTORE → IDLE
 - `AFTERGLOW`: the held post-act phase, the standing close window and normal dialogue.
 - `RESTORE`: the teardown ledger runs; the runtime returns to `IDLE` at the end.
 
-`shared/act_state.gd` is the one typed definition (`ACT_STATE.State`), aliased in the runtime as
-`State`. `state` has exactly one writer, `_set_state(next)`; it also refreshes the scene gate's live
-state. States advance from the ordered ticks:
+`shared/act_state.gd` is the one typed definition (`ACT_STATE.State`), aliased in the session and the
+runtime as `State`. `act/session.gd` declares `state` and is its one writer, `_set_state(next)`; it
+also refreshes the scene gate's live state. `runtime.state` is a read-only forward until R4. The
+session's transition helpers write the state and arm its timer (`begin_pose_in`, `enter_active`,
+`enter_climax`, `enter_afterglow`, `begin_restore`, `finish_restore`, `enter_idle`); the runtime
+keeps the transition side effects. States change from the ordered tick:
 
 | From | To | Trigger |
 |---|---|---|
 | `IDLE` | `POSING_IN` | the end of `_begin_act()` |
-| `POSING_IN` | `ACTIVE` | the `POSE_IN_SECONDS` timer |
+| `POSING_IN` | `ACTIVE` | the `act/session.gd` pose-in timer |
 | `ACTIVE` | `CLIMAX` | a pony climax |
-| `CLIMAX` | `ACTIVE` | the `CLIMAX_SECONDS` timer while the player keeps going |
+| `CLIMAX` | `ACTIVE` | the session's climax timer while the player keeps going |
 | `ACTIVE` / `CLIMAX` | `AFTERGLOW` | `request_afterglow()` or the act-key hold with a climax behind it |
 | `AFTERGLOW` | `RESTORE` | `end_afterglow()` or a cancel |
 | any live state | `RESTORE` | `cancel()` or `force_stop()` |
@@ -83,16 +87,24 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
 
 ## Session
 
-The act session is the runtime's own state, reset at each start:
+The act session is the per-pony state the runtime applies. The state, the clock and the timers live
+in `act/session.gd`; the rest is held by the runtime and exposed through the typed context:
 
+- state and clock: `act/session.gd` owns `state`, its only writer `_set_state`, `_act_seconds`,
+  `_clock_s`, `_pose_in_left`, `_climax_left`, `_restore_left`, `_check_clock` and the climax
+  progress. `reset_act()` clears the act's clock and timers; `tick_timers(delta)` reports the one
+  transition verdict and the runtime applies it.
 - identity: `pony`, `_id`, `_display_name` (the presented form's name with the identity fallback);
 - pose: `pose_id` (the start identity), `source`, `bed`, and the pose session handle;
 - event: `_serial` from `PONIES.allocate_serial()`, `_event_id` as `intimacy_<id>_<serial>`;
-- clocks: `_act_seconds`, the processed-time `_clock_s`, the phase timers, `_check_clock`;
 - settings: `_snapshot`, `_features`, `_profile`, `_preferences`, `_act_prompts`,
   `_presentation_cfg`, `_eye_camera_mode`;
 - act values: the readiness forwarders (`satisfaction`, `mood`, `cue`, `pony_climaxes`, `depth`,
   `penetration_m`), `_max_pony_climaxes`, `_act_climax_mode`, `_cycle_heat`, the summary handle.
+
+`act/context.gd` carries the live systems and a `Values` read model of the plain act values above
+for the view. It is refreshed where those values change (start, settings snapshot, identity and
+display-name changes, teardown), so the view reads one typed object instead of the Node.
 
 `_snapshot_settings()` is the one writer of the `SETTINGS.ActSnapshot` and all derived scalars. It
 runs at act start and again at the top of `apply_live_settings()`, before the `IDLE` early return.
@@ -111,7 +123,10 @@ sequence and the suites read them outside or across an act.
 
 - `_build_systems()` constructs the handover, placement, wings, hands, kiss, integrations, the two
   camera controllers, the two standing body controllers and the camera session, then binds the
-  camera's sessions.
+  camera's sessions and calls `_bind_act_frame()`.
+- `_bind_act_frame()` builds the act's own modules once: `act/host.gd` (the node operations and the
+  log/perf sinks), `act/context.gd` (the typed collaborators and the plain-value read model),
+  `act/session.gd` (the state, timers and clock), `act/view.gd` and `act/idle.gd`.
 - `_bind_pose_hosts()` binds the pose session's host callbacks (the scene, the pose host reads and
   the oral/face callbacks).
 - `_init()` binds the remaining facades and callables: the anatomy bridge host, the act view
@@ -132,30 +147,32 @@ bed frame. `_process` runs `_process_tick(delta)` and the perf tick.
 
 Act physics, in call order:
 
-1. `_body_swap_tick(delta)` — one handover tick; a suspension returns here.
-2. `_clock_s` advances; `_pose_service().tick(delta)` advances the pose edge.
-3. `refresh_view()` — the typed act view, timed as `runtime_facts`.
-4. `_pose_fanout()` — pose service, camera, hands, kiss, anatomy and audio.
-5. Act-only work: the cycle heat flag, the pose frame sync, waking her, the vocal tick, the
+1. `_body_swap_tick(delta)` — the handover's one tick; a suspension returns here.
+2. `_act.tick_clock(delta)`; then `_pose_service().tick(delta)` when the state is not `IDLE`,
+   timed as `pose_tick`.
+3. `refresh_view()` → `act/view.gd`, timed as `runtime_facts`.
+4. `_pose_fanout()` when the state is not `IDLE`, timed as `pose_fanout`.
+5. `IDLE`: `act/idle.gd:tick(delta, idle_perf)` runs the inventory safety, the standing
+   presentation's physics and the dialogue history scan, then returns. It runs no pose tick or
+   fan-out.
+6. The act body: the cycle heat signal, the pose-frame sync, waking her, the vocal tick, the
    navigator keep-alive, free look, act attention, the face-turn pause, the lean tick, the act
-   presentation (blush, wings, integrations), tolerance, the settled log, kiss, auto/impact and
-   the anatomy tick; `ACTIVE` also runs readiness, talk, the form offer and bystanders.
-6. The utterance tick, then the state timers (`POSING_IN` → `ACTIVE`, `CLIMAX`, `AFTERGLOW`,
-   `RESTORE`).
-7. The camera block (facing lock, glance, auto-cuddle suppression, clamp, depth, Anon phase,
-   blush, `apply_camera_motion()`), the 0.25 s running check and `_eyes_tick()`.
-
-`IDLE` still follows steps 1–4, then runs the inventory safety, the standing presentation's
-physics, the dialogue history scan and their perf chunks, and returns. It runs no pose tick or
-fan-out.
+   presentation (timed `runtime_presentation`), tolerance, the settled log, the kiss tick, auto,
+   impact and the anatomy tick, and, in `ACTIVE`, readiness, talk, the form offer and the
+   bystanders (timed `runtime_talk`).
+7. The utterance tick, then `_act.tick_timers(delta)`: the returned phase verdict is applied by
+   `_enter_active`, `_finish_climax` or `_finish_restore`; the climax hearts tick while `CLIMAX`,
+   and `_afterglow_tick(delta)` runs while `AFTERGLOW`.
+8. The camera block (facing lock, glance, auto-cuddle suppression, clamp, depth, Anon phase,
+   blush, `apply_camera_motion()`), the session's 0.25 s check window and `_eyes_tick()`.
 
 Act render, in call order: `refresh_view()`, `_sync_pose_frame()`, `_pose_render_write()`,
 `_idle_pose_sample()`, the standing clamp, the camera look write, the climax progress, the shot
 tick and the breath. `IDLE` runs only the standing presentation's render tick.
 
 The entry's `_process` calls `PONIES.active()` and then `apply_camera_motion()` on it every
-frame; the runtime refreshes the view and the HUD card there. The pose/camera timing is
-`docs/poses.md` and `docs/camera.md`.
+frame; the runtime refreshes the view and the HUD card there through `act/view.gd`. The pose and
+camera timing is `docs/poses.md` and `docs/camera.md`.
 
 ## Ledgers
 
@@ -429,16 +446,20 @@ snapshot, and `_pose_render_write()` reads that field.
 
 ## View
 
-`refresh_view()` composes the typed act view (`shared/act_facts.gd`) from the session and the live
-system reads. It runs once per phase: idle before the idle systems, physics after the pose tick and
-before the fan-out, render before the camera work, and the entry's `apply_camera_motion()`
-hand-off. `_sync_act_facts()` is its one-shot alias for the start, resume, teardown and live-edit
-paths. `_sync_hud_facts()` adds the HUD card's live values and runs from `apply_camera_motion()`
-and those boundaries; the HUD reads fields and never probes the runtime.
+`act/view.gd` composes the typed act view (`shared/act_facts.gd`) from the session, the context and
+the host. `runtime.refresh_view()` is the single entry point: the physics tick, the process tick,
+the idle pass and the `apply_camera_motion()` hand-off all call it. It runs once per phase: idle
+before the idle systems, physics after the pose tick and before the fan-out, render before the
+camera work, and the entry's `apply_camera_motion()` hand-off. `_sync_hud_facts()` adds the HUD
+card's live values through `act/view.gd:sync_hud()` and runs from `apply_camera_motion()` and the
+act boundaries; the HUD reads fields and never probes the runtime. The start, resume, teardown and
+live-edit paths call `refresh_view()` directly (the old `_sync_act_facts()` alias is gone).
 
 The view keeps raw values; `shared/act_facts.gd` owns the field list. The HUD strings, the key caps
 and the panel labels live in `hud/service.gd` and `hud/lines.gd`. `close_earned` and `auto_shape`
-are raw values; the `End` tint and the auto readout are formatted by the HUD module.
+are raw values; the `End` tint and the auto readout are formatted by the HUD module. The view's
+`Values` read model in `act/context.gd` carries the plain act values the view still reads from the
+session side; it is refreshed only where those values change, not per frame.
 
 The standing start/offer gap is read from `_pose_session.pose_config["gaps"]`; a session without a
 config falls back to `SETTINGS.pose(id, "standing")["gaps"]`. The shipped values live under
@@ -459,7 +480,8 @@ a standing start no longer pulls the Hips bone across the gap.
 `scripts/architecture.py --check` enforces the host shape in addition to the exit, pose-ledger and
 fan-out invariants:
 
-- `state` is declared once and assigned only inside `_set_state()`;
+- `state` is declared and written only in `act/session.gd` (`_set_state()`); `runtime.gd` keeps a
+  read-only `state` forward and contains no `state` assignment;
 - no `Input.`/`InputMap.`/input event/keycode read and no input callback in `runtime.gd`;
 - `SETTINGS.<member>` reads only at the documented snapshot boundaries
   (`_snapshot_settings`, `apply_live_settings`, `_begin_act`, the resume pose config and the static
@@ -469,10 +491,16 @@ fan-out invariants:
 - the one `_end_session()`, the `_free_pose()` order and its three callers, the pose-before-facts
   write and the fan-out owner order, and the one `_resume_after_body_swap()`.
 
+`owner_of()` treats every `act/**` file as the runtime's own orchestrator module: an act module may
+preload a service, and a service that preloads `act/` fails as a host import.
+
 The allow-lists are compared both ways: a new read or node fails, and a stale row fails too.
 
 ## Tests
 
+- `tests/act/test_session.gd` — the one state writer and its scene-gate refresh, the phase timer
+  verdicts (`POSING_IN` → `ACTIVE`, `CLIMAX`, `RESTORE`), the clock and act-seconds reset rules, the
+  running-check cadence and the typed host/context no-op seam.
 - `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags, the oral edge's
   consent/feature refusals and its abort through `_end_session`, the standing gap's princess
   entrance shift, and the whole-body fit that rests the shaft at her entrance with a stale Hips

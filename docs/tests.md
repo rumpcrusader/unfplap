@@ -22,6 +22,9 @@ lifecycle; this doc owns their shape and their runner.
 | `tests/test_<topic>.gd` | a root suite that crosses services, or a shared/pure module's suite |
 | `tests/<topic>/test_<topic>.gd` | a cross-service concern with its own name; `handover/` is the act body swap, `entry/` the entry's service list |
 
+`tests/act/test_session.gd` covers the runtime's own `act/` modules: the one state writer, the
+phase timer verdicts, the clock and reset rules and the typed host/context seam.
+
 One suite per file, and the directory mirrors the facade it exercises. A small pure module folds
 into the suite that owns its facade instead of adding a file of its own. The suite-to-service map
 is the `Tests` column of `docs/README.md`. A pure module's suite uses plain values: for example

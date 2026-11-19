@@ -1,8 +1,8 @@
 extends Node
-## One per pony. The per-pony host and act orchestrator: lifetime, the act state machine, the
-## session, the one composition and bind pass, the ordered idle/physics/render schedules, the
-## start/teardown ledgers and the typed act view. It owns no system's rules or mutable state and
-## never edits game files.
+## One per pony. The per-pony host and act orchestrator: lifetime, the act's own `act/` modules
+## (state and clock, host, context, view, idle), the one composition and bind pass, the ordered
+## idle/physics/render schedules, the start/teardown ledgers and the one act view call. It owns no
+## system's rules or mutable state and never edits game files.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -568,7 +568,8 @@ func _state() -> int:
 	return _act.state
 
 
-## The act session's one state writer, kept as a delegate for the existing transition bodies.
+## Temporary migration delegate: the act session owns the one state writer. The suites use it;
+## R4 removes it with the rest of the facade.
 func _set_state(next: int) -> void:
 	_act._set_state(next)
 
@@ -1135,7 +1136,7 @@ func act_view() -> RefCounted:
 	return _act_facts
 
 
-## Gather the HUD card's live values into the act view. `main.gd` calls `apply_camera_motion()`
+## Delegate the HUD card's live values to the act view. `main.gd` calls `apply_camera_motion()`
 ## once per rendered frame just before `hud.update_from()`, so this runs once a frame and the card
 ## reads fields instead of calling back into the runtime.
 func _sync_hud_facts() -> void:

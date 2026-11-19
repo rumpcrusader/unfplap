@@ -26,7 +26,7 @@ The service owns:
 | `on_world()` / `on_world_closed()` / `on_player(body)` | the world scoped begin and end, and the once-per-world Dance Mod key notice |
 | `set_inventory_hidden()`, `inventory_hidden()`, `ensure_act_inventory_visible(owner)` | the borrowed quick-slot card and the idle safety that restores it |
 
-The runtime gathers the live values into the typed act view (`shared/act_facts.gd`): state, climax
+`act/view.gd` fills the typed act view (`shared/act_facts.gd`) with the live values: state, climax
 count and limit, cue, close hint, summary, heat, the raw `close_earned` flag, the auto values and
 the anatomy row gates. `hud/lines.gd` formats the text, the `End` tint and the auto readout. The
 entry calls `runtime.act_view()` once per rendered frame and passes that object to

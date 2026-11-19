@@ -1,19 +1,19 @@
 # Typed act view (`shared/act_facts.gd`)
 
-The shared, scene-free view of one act. The runtime owns one object per pony and rewrites it as the
-state, camera and line values change; presentation modules read it instead of the runtime node.
-It is not a system and it stores no save data: it is the value boundary between the runtime
-orchestrator and the scene adapters.
+The shared, scene-free view of one act. The runtime's `act/view.gd` owns one object per pony and
+rewrites it as the state, camera and line values change; presentation modules read it instead of
+the runtime node. It is not a system and it stores no save data: it is the value boundary between
+the runtime orchestrator and the scene adapters.
 
 ## Ownership
 
 - `shared/act_facts.gd` defines the fields and the no-op host callbacks.
-- `runtime.gd` creates it and binds the callbacks once in `_init()`, then refreshes the live values
-  with `refresh_view()` once per phase: idle before the idle systems, physics after the pose tick
-  and before the fan-out, render before the camera work, and the entry's `apply_camera_motion()`
-  hand-off. `_sync_act_facts()` is the one-shot alias for the start, resume, teardown and live-edit
-  paths. The idle standing invitation, the debug actions and the suites therefore read the view
-  the phase boundary just wrote, not a per-getter rebind.
+- `runtime.gd` creates it and binds the callbacks once in `_init()`. `act/view.gd` refreshes the
+  live values; `runtime.refresh_view()` keeps the one call site. It runs once per phase: idle
+  before the idle systems, physics after the pose tick and before the fan-out, render before the
+  camera work, and the entry's `apply_camera_motion()` hand-off. The start, resume, teardown and
+  live-edit paths call `refresh_view()` directly. The idle standing invitation, the debug actions
+  and the suites therefore read the view the phase boundary just wrote, not a per-getter rebind.
 - The consumers are `poses/missionary_anon.gd`, `camera/missionary_camera.gd`, `poses/standing_anon.gd`,
   `camera/standing_camera.gd`, `poses/standing_presentation.gd`, `kiss/service.gd`, `hands/service.gd`, the
   hands internals (`hands/placement.gd`, `hands/surface.gd`, `hands/path_base.gd` and its paths)
@@ -143,7 +143,8 @@ Helper methods: `perf()`, `write_log()`, `smack_body_coat()`, `touch()`, `smack_
 
 - No `Node`, `Time`, `SceneTree`, `FileAccess` or game scene preload. It is pure data and callables.
 - Reuse the object; never allocate a facts object per frame.
-- The runtime writes the fields; presentation modules only read them and call the callbacks.
+- `act/view.gd` writes the fields (through the runtime's one call); presentation modules only read
+  them and call the callbacks.
 - A field that only one module needs is still allowed here if it keeps that module off the runtime.
 - The object is not saved and has no version.
 - When a field moves out of the runtime, every consumer and test moves in the same commit.

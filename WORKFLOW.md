@@ -97,6 +97,21 @@ Tests and tools are excluded because gdtoolkit's parser rejects some valid test 
 and the disabled structural rules are in `.gdlintrc`; the formatting, linting and complexity policy
 is in `docs/quality.md`. The source-checks CI job runs the same command.
 
+## Language-server tools (optional)
+
+`.opencode/tools/gd-lsp-mcp` gives agents exact GDScript navigation — outline, hover, definition,
+references, diagnostics — from Godot's own language server. It is optional development tooling:
+the mod never depends on it and the pack never contains it.
+
+```bash
+.opencode/tools/install.sh
+```
+
+Run it once per machine. It copies the server to `~/.config/opencode/tools/`, merges the `gdlsp`
+MCP entry into the global OpenCode config and runs the self-test. Re-run it after pulling a newer
+copy. The tools, the cost (one headless editor per project root, about 3.5 GB) and the limits are
+in `.opencode/tools/README.md`.
+
 ## Commit messages
 
 ```text

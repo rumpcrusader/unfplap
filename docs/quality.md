@@ -57,7 +57,7 @@ the gate:
   parameter.
 - **The runtime is a host, not a system.** `runtime.gd` assigns `state` only inside `_set_state()`,
   decodes no raw input (`Input.`, `InputMap.`, `InputEvent*`, `KEY_*`, `MOUSE_MODE_*`, an input
-  callback), reads `SETTINGS.` only at the act's snapshot boundaries — `_snapshot_settings()`,
+  callback), reads `SETTINGS.` only at the act's snapshot boundaries — `act/session.gd:snapshot_settings()`,
   `apply_live_settings()`, the start and resume paths, the `_snapshot` field's typed default and
   `_shape_name()`'s static character-name lookup — and calls `add_child()` only for the two
   system-owned nodes: the act audio node and the tail tuck. Both allow-lists live in the checker

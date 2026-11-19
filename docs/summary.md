@@ -99,8 +99,9 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
 ### Memory and rewards
 
 - **First pony climax:** one world-context event; every climax gets a generated reaction.
-- **Once at afterglow:** `_commit_summary()` scores the act, `MEMORY.instance.commit()` writes the
-  grade-aware romance and mood, and `MEMORY.instance.witnesses()` follows.
+- **Once at afterglow:** `act/session.gd:commit_summary()` scores the act,
+  `MEMORY.instance.commit()` writes the grade-aware romance and mood, and
+  `MEMORY.instance.witnesses()` follows.
 - **Standing close reward:** `MEMORY.instance.commit()` (the `STAY_CLOSE` slot) records a private
   impression. On a good or non-early neutral act, staying and caressing adds a happy mood, a
   private thought and a small `romance` gain. After a bad act, staying and caressing repairs one

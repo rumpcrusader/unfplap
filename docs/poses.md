@@ -336,7 +336,7 @@ path without it. Every shipped row is `key`. The `auto` flag is stored on the of
 by the start path: the trigger owns its timing.
 
 `setup` is the closed placement vocabulary `bed_stand_up`, `bed_keep_lying` or `standing_place`.
-The start sequence dispatches on this name (`_run_start_setup`) and never on a pose id, so a new pose
+The start sequence dispatches on this name (`act/setup.gd:run()`) and never on a pose id, so a new pose
 adds a row, an asset and a recipe, not a start branch. The adapters and the start order are
 `docs/runtime.md`.
 
@@ -350,7 +350,7 @@ adds a row, an asset and a recipe, not a start branch. The adapters and the star
 
 `bed_keep_lying` has no shipped consumer yet: the riding pose is its first intended user. The
 focused `tests/poses/test_start_setup.gd` proves the vocabulary, the validator, the helpers and the
-runtime dispatcher with a synthetic `auto`/`bed_keep_lying` row; that row stays out of the shipped
+`act/setup.gd` dispatcher with a synthetic `auto`/`bed_keep_lying` row; that row stays out of the shipped
 table and the catalog. `poses/pose_spec.gd` rejects a missing block, an unknown mode or an unknown
 setup, and `poses/registry.gd`'s `check_table()` covers every shipped row.
 
@@ -795,8 +795,9 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   `face_turn_rate` is held at `0` for the act; locomotion and emotions keep running.
   Conversation attention is not a stop condition: another character addressing Anon can talk
   while `_keep_act_attention()` clears her listener each tick.
-- Act start keeps her where she stands. `poses/placement.gd` owns the placement math; the
-  runtime's `_begin_standing_placement()` fills the live facts and calls it. For desktop human
+- Act start keeps her where she stands. `poses/placement.gd` owns the placement math;
+  `act/session.gd:placement_values()` feeds `bind_act()` and `act/setup.gd:standing_place()` calls
+  `begin_act()`. For desktop human
   Anon it builds the act transform from her current facing and places him at
   `pony_position - forward * _standing_gap()`, then sets his yaw along her forward so a standing
   act after a missionary restore does not inherit the old view. The 2 m Y cone bounds that
@@ -868,7 +869,7 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   `JIGGLE_YAW = 0.08`) at the same strength as the rump shader, strongest at the tail root and
   lagging down the chain. A smack adds the same wave through `reactions/service.gd` at
   `1.0 × size_scale × smack_intensity`, where `size_scale` is the camera's `jiggle_size_scale()`
-  that `_snapshot_settings()` passes in; the thrust wave scales with `jiggle.intensity`.
+  that `act/session.gd:snapshot_settings()` passes in; the thrust wave scales with `jiggle.intensity`.
   The `jiggle` radius, intensity and smack amount, the stock-mark clear and the body-coat target
   are in `docs/reactions.md`. Stock marks are hidden and aged at act start, so a mark from an
   earlier regular smack cannot linger as a stale jiggle point. The game's tail anchor pins the
@@ -976,19 +977,19 @@ leaves the teardown to `free_pose()`.
 
 | Step | Scope | Owner |
 |---|---|---|
-| `leave_pose_start()` | pose: rig-check cache, tail lay, bed/ground frame | the session |
-| `clear_presentation()` | act | the runtime |
+| `leave_pose_start()` | pose: rig-check cache, tail lay, bed/ground frame | the pose session |
+| `clear_presentation()` | act | the presentation |
 | `end_lean_action` | act service, pose-local sub-state | the camera |
 | `hands.reset()` | act service, pose-local sub-state | the hands |
 | `kiss.reset()` | act service, pose-local sub-state | the kiss |
 | `integrations.reset()` | act | the integrations |
-| `_reset_excitement_hold()` | act | the runtime |
+| `audio.reset_excitement_hold()` | act | the act audio |
 | `release_free_camera_lock` | act | the camera |
-| `standing_anon.remove()` | pose: the standing player-body Anon wrapper | the runtime |
-| `leave_pose_body()` | pose: extra modifiers | the session |
-| `_restore_voice_volume()` | act | the runtime |
+| `standing_anon.remove()` | pose: the standing player-body Anon wrapper | the standing Anon |
+| `leave_pose_body()` | pose: extra modifiers | the pose session |
+| `audio.restore_voice_policy()` | act | the act audio |
 | `reactions.end_act()` | act | the reactions |
-| `release_pose()` | pose: final clear, act body | the session |
+| `release_pose()` | pose: final clear, act body | the pose session |
 
 - `leave_pose_start()` — the rig-check cache, `tail_lay`, the bed frame and the ground frame. It
   keeps the pose node, the modifiers, `pose_config` and the view.
@@ -1001,12 +1002,12 @@ leaves the teardown to `free_pose()`.
 The exit ledger calls the two leave steps and the final release at their table positions, with
 the act-scope resets between them. `release_pose()` is called only from `free_pose()`.
 `act/exit.gd:run()` (the one act exit), `act/start.gd:_build_pose()` (the new-act prep) and
-`runtime._suspend_for_body_swap()` (the act-preserving body handover) are the only `free_pose()`
+`runtime._handover_release_pose()` (the act-preserving body handover) are the only `free_pose()`
 callers. A second `release_pose()` is a no-op.
 
-`_restore_camera()` also ends the lean action, resets the hands, releases the free-camera lock and
-removes the standing player-body Anon wrapper. That is the act's camera restore path, not the pose
-teardown; it stays unchanged.
+`context.camera.release_act_shot()`/`finish_act_shot()` also end the lean action, reset the hands,
+release the free-camera lock and remove the standing player-body Anon wrapper. That is the act's
+camera restore path, not the pose teardown; it stays unchanged.
 
 ## Tests
 
@@ -1045,7 +1046,7 @@ teardown; it stays unchanged.
   the cancel/scope/auto fields. The start path that consumes it is the offer service's
   (`docs/offer.md`).
 - `tests/poses/test_start_setup.gd` — the closed start vocabulary and shipped table, the helper
-  defaults, the synthetic `auto`/`bed_keep_lying` row and the runtime's setup dispatch for both bed
+  defaults, the synthetic `auto`/`bed_keep_lying` row and the `act/setup.gd` dispatch for both bed
   adapters and an unknown name.
 - `tests/poses/test_pose_edge.gd` — the typed validator, the documents' requirement and policy
   rows and the debug, oral and face-sit forward/reverse run proofs.

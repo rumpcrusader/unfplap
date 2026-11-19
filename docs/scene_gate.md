@@ -19,14 +19,17 @@ whether the *scene* is ready right now.
   `no_game`), the policy/scene merge, `start_verdict` / `offer_verdict`, the debug status line and
   the reason list;
 - the act key's readiness (`hotkey_ready`) and the policy verdict read (`policy_verdict_for`);
+- the running verdict (`running_verdict()`), a `RunningVerdict` the act session applies through
+  the one stop;
 - the physical buck/push (`buck_or_push`), which the tolerance strict stop uses.
 
 `runtime.gd` keeps the live context: its `debug_context` callback forwards to `debug/pony.gd`,
 which gathers the pony, world, relationship and player facts, while the runtime adds its own act
 values. The runtime keeps the public forwards (`find_bed_under`, `free_of_affection`,
-`cuddle_active`, `hotkey_ready`, `hint_stool`). The gate reads `PONIES.eligibility` itself for the
-policy verdict; a suite may still override `policy_verdict`. The tolerance stop owns its
-impression and face (`docs/summary.md`, `docs/face.md`).
+`cuddle_active`); `hotkey_ready` and `hint_stool` forward to `act/agreement.gd`. The gate reads
+`PONIES.eligibility` itself for the policy verdict; a suite may still override
+`policy_verdict`. The tolerance stop owns its impression and face (`docs/summary.md`,
+`docs/face.md`).
 
 The rows carry `ELIGIBILITY.Row` objects with the policy's own keys and reasons. The pure policy
 never sees a bed, a navigator, a pose asset or the player body.
@@ -149,6 +152,10 @@ The host binds `hold_compatible(pose, source) -> bool`; it is true only while th
 and the affection hold belong to the live negotiation hold. A hard failure is a `StartFailed`; a
 failing transient row is waited on within the Agreement TTL. `runtime.start_agreement(handle)`
 consumes this verdict; the act key's general path still runs `start_verdict()`.
+
+`running_verdict(nav, bed, player_pony, kissing)` is the live act's periodic check. It returns a
+`RunningVerdict` with `ok` and a typed `reason`; the session applies a failed verdict through the
+one stop. It never rereads the start rows or the policy.
 
 ## Navigator owners
 

@@ -8,10 +8,10 @@ are `docs/dialogue.md`; the HUD text is `docs/hud.md`; the camera response is `d
 ## Ownership
 
 `readiness/service.gd` is the system facade. It owns the scoring state, the public act values
-`satisfaction`, `mood`, `cue` and `pony_climaxes`, and the neglect-tolerance meter; the runtime
-forwards the values and keeps the act state machine, the climax transition, the face beats and the
-presentation of a tolerance decision. The runtime calls `readiness.stroke()`, `touch()`, `talk()`
-and `tick()`; readiness owns the counters the summary reads and the one-second impact window. It
+`satisfaction`, `mood`, `cue` and `pony_climaxes`, and the neglect-tolerance meter; the act session
+keeps the state machine, the climax transition and the face beats, and `act/consent.gd` presents a
+tolerance decision. The runtime calls `readiness.stroke()`, `touch()`, `talk()` and `tick()`;
+readiness owns the counters the summary reads and the one-second impact window. It
 also owns the auto-thrust generator, the hold-X panel policy and their defaults.
 
 `readiness/thrust.gd`, `readiness/auto_thrust.gd`, `readiness/auto_panel.gd` and
@@ -186,11 +186,11 @@ a settings edit reaches warnings, relief, decay and both stop cooldowns on the n
 | Normal | at `tolerance.normal_warning_1`, then `normal_warning_2` | at `tolerance.normal_stop` |
 | Strict | at `tolerance.strict_warning` | at `tolerance.strict_stop` |
 
-Readiness queues at most one decision per frame (`take_tolerance_decision()`); the runtime presents
-it. A warning sets a HUD cue and queues one short spoken warning; a stop runs the runtime's
-`_stop_with_her`. Warnings and the stop line always speak. The
-stop's summary, memory note, cooldown and mood are in `docs/summary.md`; its buck/push is
-`docs/scene_gate.md`.
+Readiness queues at most one decision per frame (`take_tolerance_decision()`);
+`act/consent.gd:tick()` returns `NONE`, `WARN` or `STOP`. A warning presents itself as a HUD cue
+and one short spoken line; a stop is the one verb the runtime applies through `_stop_with_her()`.
+Warnings and the stop line always speak. The stop's summary, memory note, cooldown and mood are in
+`docs/summary.md`; its buck/push is `docs/scene_gate.md`.
 
 The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for
 testing.

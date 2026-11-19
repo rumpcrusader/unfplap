@@ -160,8 +160,9 @@ idle hint and the act start.
 - The standing state is unchanged when the rule does not apply.
 - When it applies, `act/start.gd:run()` asks the handle to check out `needed` case units
   (`take_items()` → `store.take(slot)`); the handle keeps every token and slot.
-- `_begin_standing_placement()` computes Anon's normal spot and calls `place()`; the handle builds
-  a stack of `needed` stools under it and raises his player root to
+- `act/setup.gd:standing_place()` binds the act values (`poses/placement.gd:bind_act()`) and
+  `begin_act()` computes Anon's normal spot and calls the stool handle's `place()`; the handle
+  builds a stack of `needed` stools under it and raises his player root to
   `floor + needed * step_height`. `AnonBody` then plants the feet and hips on the raised floor, so
   the standing pose, camera and anatomy aim use the same body.
 - Each stool uses the base-game shop visual (`world/shop/shop_items.gd` → `goods:footstool` →

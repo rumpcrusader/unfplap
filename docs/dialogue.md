@@ -80,8 +80,9 @@ speech-feel note and the line-angle note are appended in that order. The shared-
 marked used only after the line was accepted.
 
 Entering oral ends the act's own lines with `keep_speaking = false`: a queued or already speaking
-act line is cancelled, the runtime stops her base-game voice and re-asserts the oral mouth shape,
-and `_queue_climax_reaction()` queues nothing while oral lasts. Bystanders keep their own turns.
+act line is cancelled, `act/session.gd:oral_speech_stop()` stops her base-game voice and re-asserts
+the oral mouth shape, and `act/session.gd:queue_climax_reaction()` queues nothing while oral
+lasts. Bystanders keep their own turns.
 
 `readiness/service.gd` owns `mood`, `cue` and the override lifetime; the runtime forwards those values and
 sets them on `act_facts` immediately before calling the facade.

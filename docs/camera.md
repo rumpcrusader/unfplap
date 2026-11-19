@@ -17,8 +17,9 @@ anatomy bridge.
 
 `camera/missionary_camera.gd` and `camera/standing_camera.gd` stay the shot implementations;
 `poses/standing_anon.gd` and `poses/missionary_anon.gd` stay the Anon body wrappers. The runtime owns the tick
-order, the start sequence, the shot targets (stroke speed, climax wave) and the one teardown
-ledger; `_restore_camera()` is that ledger and calls the facade's leaves in the built order.
+order, the start sequence and the shot targets (stroke speed, climax wave); `act/exit.gd:run()`
+calls the camera facade's `release_act_shot()` and `finish_act_shot()`, which run the leaves in
+the built order.
 
 The look point is the camera's too: `write_look_target()` picks the missionary gaze, blends toward
 the kissing mouth by the kiss's own fade and writes the pose's `look_point`, `kiss` and `climaxing`
@@ -121,10 +122,10 @@ id, so a held debug pair does not snap. `tests/act_camera/test_camera.gd` pins t
 - `F` is not an act control in missionary. In standing, holding `F` at a full side lean
   (`abs(side) >= STANDING_KISS_LEAN = 0.90`) starts the same base-game kiss; outside an act it
   remains the game's flight key.
-- Teardown order in `_restore_camera()`: free-camera lock, Anon wrapper and palm scale, eye override
-  and avatar, missionary view, standing camera, then player look. `_restore_look()` only runs when
-  it captured the player (`look_captured`), so a forced stop at `IDLE` cannot reset the player's
-  facing.
+- Teardown order in `release_act_shot()`/`finish_act_shot()`: free-camera lock, Anon wrapper and
+  palm scale, eye override and avatar, missionary view, standing camera, then player look.
+  `restore_look()` only runs when the camera captured the player (`look_captured`), so a forced
+  stop at `IDLE` cannot reset the player's facing.
 
 ## Missionary camera
 

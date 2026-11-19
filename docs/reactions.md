@@ -71,7 +71,7 @@ already set its own impulse before the facade scales it.
   and re-runs `_process(0.0)` once so a soft stroke cannot flash at full amplitude.
 - `jiggle.intensity` scales the thrust amount; `jiggle.smack_intensity` scales the act smack.
   `size_scale` is the camera's `jiggle_size_scale()` (`clampf(size_scale(), 0.5, 1.2)`), which
-  `_snapshot_settings()` passes into `configure()`.
+  `act/session.gd:snapshot_settings()` passes into `configure()`.
 - The first thrust of an act logs the resolved center, targets and mark once.
 - A smack first calls `body_coat_target()` because the native `_start_jiggle()` rebuilt the target
   list, then scales the resolved amount by `smack_intensity` and runs the standing tail impulse at

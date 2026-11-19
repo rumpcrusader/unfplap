@@ -5,8 +5,9 @@ policy.
 
 ## Ownership
 
-| File | Role |
+| Module | Role |
 |---|---|
+| `audio/act.gd` | the per-act handle the act session and exit call: node lifetime, cues, voice policy and the shared excitement Beat holds |
 | `audio/service.gd` | the per-runtime audio facade: the pack layer, the base-game sound child, and the Ponese mute policy |
 | `audio/stock_smack.gd` | the world-scope outside-act replacement on the native `FlankTouch` player |
 | `audio/sound.gd` | base-game breath and `squee_*` climax players and their timing |
@@ -14,25 +15,29 @@ policy.
 | `audio/smack_cues.gd` | the hand-smack variants used by the hands system and the outside-act layer |
 | `docs/audio.md` | this contract |
 
-`audio/service.gd` is one Node per runtime. The runtime creates it lazily and keeps it for the
-process: `begin()` opens an act's layer, `end()` closes it. It never preloads `runtime.gd` or
-`main.gd`; the runtime passes the pony, the id and the classified voice info as arguments.
+`audio/service.gd` is one Node per runtime. `audio/act.gd` is the one act handle: the runtime
+creates the node lazily and keeps it for the process; `start()` opens an act's layer and `stop()`
+closes it. It never preloads `runtime.gd` or `main.gd`; the runtime passes the pony, the id and
+the classified voice info as arguments. The shared game excitement Beat is held by owner name
+(`hold_excitement(owner)`/`release_excitement(owner)`); the last release restores the saved pause
+state, and `reset_excitement_hold()` is the teardown fallback.
 
 ## Bridge
 
-The runtime calls one typed bridge, never a private field or a raw player:
+The runtime calls one typed act handle, never a private field or a raw player:
 
 | Method | Call site |
 |---|---|
-| `begin()` | the start sequence, after the vocal prepare |
-| `end()` | the one teardown ledger |
-| `climax(snout)` | the climax fan-out |
-| `tick(delta, phase, rate, snout)` | the breath path in the tick |
-| `apply_voice_policy(pony, id, mute, info)` | the act start and every live settings edit |
+| `start(pony, id, bed)` | the start sequence, after the vocal prepare |
+| `stop()` | the one teardown ledger |
+| `play_climax()` | the climax fan-out |
+| `tick(delta, state, rate)` | the breath path in the tick |
+| `apply_voice_policy(mute, pony, id)` | the act start and every live settings edit |
 | `restore_voice_policy()` | the act end and a mute-policy change |
 | `stop_breath()` | the restore begin |
-| `pose_changed(view)` | the fixed-order pose fan-out |
-| `play_impact`, `play_plap`, `play_bed`, `play_slide`, `crossed`, `withdraw_crossed`, `play_mouth_kiss` | the impact and kiss paths |
+| `impact(...)`, `crossed(...)`, `withdraw(...)` | the impact path |
+| `play_vocal()`, `tick_vocal()`, `oral_kiss()`, `play_mouth_kiss()` | the vocal and oral paths |
+| `hold_excitement(owner)`, `release_excitement(owner)`, `reset_excitement_hold()` | the shared game excitement Beat |
 
 The runtime keeps the call sites and the director/vocal prepare.
 

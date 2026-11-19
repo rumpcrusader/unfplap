@@ -742,7 +742,8 @@ sample of the body coat.
   pose. `reset_pelvis()` clears the applied/wanted offset, the aim, the bend and the smoothed
   penetration without touching the mesh, the act's throb or the act state; the body swap's resume
   and the standing start call it through the service.
-- A standing start fits Anon's whole body before the act: `_begin_standing_placement()` uses the
+- A standing start fits Anon's whole body before the act: `act/setup.gd:standing_place()` binds
+  the act values and `poses/placement.gd:begin_act()` uses the
   natural pivot, the live opening and the mesh rear to put his pivot one shaft behind her
   entrance, bounded by `STANDING_FIT_MAX_M` and skipped on a stool. The fit removes the old
   handshake after measuring, so the first act tick starts from a clean stance; the per-frame aim
@@ -1042,8 +1043,8 @@ keep for their suites.
 ## Known limits
 
 - The anatomy is per-pony and attaches after the pony enters the tree; a mod that assigns the
-  identity a frame later is caught by the deferred `_read_id()`/refresh retry. The service keeps
-  that timing.
+  identity a frame later is caught by the deferred `act/session.gd:refresh_identity()` retry. The
+  service keeps that timing.
 - The rig coat material is shared between ponies of one identity. A per-pony copy and its outline
   must stay owned by the anatomy; removing the copy would make one mare's still zone move every
   copy of that body.

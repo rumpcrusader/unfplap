@@ -49,8 +49,8 @@ injection and the Debug block visibility. `settings/characters_ui.gd` is the int
 Characters form. The entry keeps the `Mods` hook to the settings page, the construction bindings the
 page and the log sink read, and the one guard that refuses to install the mod when the shipped
 document is invalid. An edit reaches the services through the change notification below, never
-through the entry. The runtime takes the settings service's typed `ActSnapshot` in
-`_snapshot_settings()`; the settings file never reads a live act.
+through the entry. The act session takes the settings service's typed `ActSnapshot` in
+`act/session.gd:snapshot_settings()`; the settings file never reads a live act.
 
 ## Contributing a setting
 
@@ -100,12 +100,13 @@ mistyped name. That is the main safety net; the tests only cover what the compil
 **Per-act snapshot.** `SETTINGS.act_snapshot(group)` returns one typed `ActSnapshot` with every
 value an act reads per stroke or per frame: the feature dictionary, thrust, auto stroke, cue/talk
 pacing, jiggle, camera thrust, the presentation block for that settings group and the climax face.
-The runtime takes it in `_snapshot_settings()` with the start spec's `settings_group` and re-runs
-it in `apply_live_settings()`. An internal pose (`standing_test`, `standing_oral`) shares the
-standing group and has no `presentation` block or `default.poses` row of its own. There is no
-path-keyed read outside the settings service and no second cache. The runtime keeps the snapshot
-and reads `_snapshot.<value>` at the use site: `_snapshot_settings()` is its only writer, a
-consumer indexes the complete snapshot block, and no second field copies a snapshot scalar.
+The act session takes it in `act/session.gd:snapshot_settings()` with the start spec's
+`settings_group` and re-runs it in `apply_live_settings()`. An internal pose (`standing_test`,
+`standing_oral`) shares the standing group and has no `presentation` block or `default.poses` row
+of its own. There is no path-keyed read outside the settings service and no second cache. The
+session owns the snapshot and consumers read `_snapshot.<value>` at the use site: `snapshot_settings()`
+is its only writer, a consumer indexes the complete snapshot block, and no second field copies a
+snapshot scalar.
 
 ## Adding a setting: one declaration, one shipped value, one read
 
@@ -530,9 +531,9 @@ unbounded.
 ## Feature flags
 
 Feature flags are ordinary settings under `features.*` and are read through their typed accessor.
-The runtime snapshots them with every other act value in `_snapshot_settings()` at act start, and
-`apply_live_settings()` re-runs that snapshot after any settings edit. Their default values live in
-`settings/defaults.json`.
+The act session snapshots them with every other act value in `act/session.gd:snapshot_settings()`
+at act start, and `apply_live_settings()` re-runs that snapshot after any settings edit. Their
+default values live in `settings/defaults.json`.
 
 | Flag | Gates |
 |---|---|

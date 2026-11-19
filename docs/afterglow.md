@@ -11,8 +11,8 @@ The runtime still:
 - sets `State.AFTERGLOW` and calls `begin()`;
 - calls `close_tick()` from `_afterglow_tick()` after the anatomy afterglow tick;
 - applies `presentation()` in the built order through `_apply_afterglow_presentation()`: the pose
-  weight, tail target and flicks, HUD state, wings; then `_set_face`, `_act_face_beat` and the act
-  summary;
+  weight, tail target and flicks, HUD state, wings; then `act/session.gd:set_face()`,
+  `act/session.gd:face_beat()` and the act summary;
 - carries out the close reward: the `STAY_CLOSE` memory impression, the history repair, the
   content face, the heart burst and the cue clear;
 - calls `cancel_close()` from `end_afterglow()` and `_restore_begin()`.

@@ -197,7 +197,8 @@ act must release every node and subscription it created.
 The pose service is the worked example of the scope split: the session owns the pose-scope
 teardown steps (`leave_pose_start()`, `leave_pose_body()` and the final `release_pose()`), while
 `act/exit.gd:run()` owns the act exit and calls them through `free_pose()` between the
-cross-system resets before `act/start.gd:restore_bones()`. A pose transition calls none of the
+cross-system resets, then restores the pony bones through `context.pose.restore_bones()`. A pose
+transition calls none of the
 pose-scope steps or the act exit; it retargets through `pose_changed(view)` and leaves the
 teardown to `free_pose()`. The order is `docs/poses.md`.
 
@@ -235,12 +236,13 @@ and it:
   one `state` writer;
 - composes and binds the per-pony systems once, with one typed host per service that needs one;
   `_build_systems()` calls `_bind_act_frame()`, which builds `act/host.gd`, `act/context.gd`,
-  `act/session.gd`, `act/view.gd`, `act/idle.gd`, `act/start.gd` and `act/exit.gd` once per pony;
+  `act/session.gd`, `act/view.gd`, `act/idle.gd`, `act/consent.gd`, `act/impact.gd`,
+  `act/setup.gd`, `act/start.gd`, `act/agreement.gd` and `act/exit.gd` once per pony;
 - owns the ordered physics and process ticks as visible one-line calls; `act/idle.gd` owns the
   idle branch and `act/view.gd` composes the typed act view once per phase;
 - keeps the start and exit entries (`_begin_act()` and `_end_session()` delegates), the suspend
-  release, the adoption and the one resume; `act/start.gd` and `act/exit.gd` own the ordered
-  recipes and the finalize-once;
+  release, the adoption and the one resume; `act/agreement.gd`, `act/start.gd` and `act/exit.gd`
+  own the ordered recipes and the finalize-once;
 - keeps the protocol delegates outside systems already call.
 
 It implements no system's rules and owns no system's mutable state: no scoring, pose math, camera

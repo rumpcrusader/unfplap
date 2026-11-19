@@ -20,6 +20,7 @@ extends Node
 ## entry binds, so it never preloads the runtime or the registry.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
@@ -92,6 +93,14 @@ var _native_hints_node: Node
 var _native_hint_row: HBoxContainer
 ## The Agreement auto-start's readiness clock, in seconds since the last consumed handle.
 var _agreement_clock := 0.0
+
+
+func _ready() -> void:
+	CHANGE.on_changed(Callable(self, "apply_settings"))
+
+
+func _exit_tree() -> void:
+	CHANGE.off_changed(Callable(self, "apply_settings"))
 
 
 ## One idle frame: the scan cadence, the hint that follows it and the Agreement auto-start clock.

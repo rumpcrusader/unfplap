@@ -474,6 +474,7 @@ PURPOSE = {
     "shared/pose_view.gd": "pose read model",
     "shared/relationship_cue.gd": "relationship prompt note",
     "shared/rump_cone.gd": "standing offer zone",
+    "shared/settings_change.gd": "settings change notification",
 }
 
 

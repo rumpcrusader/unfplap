@@ -4,6 +4,7 @@ extends Node
 ## and the registry's `target` is this node. See `docs/debug.md`.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
@@ -13,6 +14,8 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const POSES := preload("res://mods/unfplap/poses/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
@@ -22,6 +25,7 @@ const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
+const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 ## The debug name action cycles these shipped adult mares, so the lab can test more than one fit
 ## without a text prompt. Player-named shapes belong to the dialogue path.
@@ -64,11 +68,39 @@ var _form_shape_index := 0
 
 func _ready() -> void:
 	DEBUG_ACTIONS.target = self
+	if host == null:
+		host = _host()
+	CHANGE.on_changed(Callable(self, "apply_settings"))
 
 
 func _exit_tree() -> void:
+	CHANGE.off_changed(Callable(self, "apply_settings"))
 	if DEBUG_ACTIONS.target == self:
 		DEBUG_ACTIONS.target = null
+
+
+## A settings edit: the wheel closes when debug mode goes off, and the skeleton overlay follows its
+## own switch.
+func apply_settings() -> void:
+	if not LOG.debug_logs:
+		close_debug_wheel()
+	sync_skeleton_overlay()
+
+
+## The settings page's Debug block builder: `debug/ui.gd`'s builder bound to this node.
+func build_settings_block(list: VBoxContainer, font_size: int, tab: String) -> void:
+	DEBUG_UI.build_actions(list, font_size, self, tab)
+
+
+## The live act reads the actions need. Every one is a facade read, so the node builds its own.
+func _host() -> Host:
+	var built := Host.new()
+	built.act = func() -> Node: return PONIES.active()
+	built.runtime_for = Callable(PONIES, "runtime_for")
+	built.runtimes = func() -> Array: return PONIES.live_ponies()
+	built.act_target = Callable(PONIES, "act_target")
+	built.reload_posed_base = Callable(POSES, "reload_authored_base")
+	return built
 
 
 ## The installed Idle Life entry node, when that mod is on; the deep-stretch action uses it.

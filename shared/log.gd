@@ -9,6 +9,7 @@ extends RefCounted
 ## The entry reads the switches from `settings` once and again on a settings edit; nothing else
 ## reads `settings` for them. See `docs/log.md`.
 
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
 const PERF_VIEW := preload("res://mods/unfplap/shared/perf_view.gd")
 
@@ -16,6 +17,12 @@ const PERF_VIEW := preload("res://mods/unfplap/shared/perf_view.gd")
 static var debug_logs := false
 ## The game setting PRINT PERF LOGS: needs `debug_logs` too.
 static var debug_perf := false
+## The two settings reads, bound by the entry: a shared module never imports a service.
+static var debug_read := Callable()
+static var perf_read := Callable()
+## The change notification's listener. A static module has no instance, so the callable is a
+## closure over this file's own `apply_settings()`.
+static var _listener := func() -> void: apply_settings()
 ## True while an act owns the frame. The idle window stays off inside an act; the entry installs
 ## `ponies`' read, because a shared module never sees the runtime.
 static var act_running := Callable()
@@ -42,16 +49,27 @@ static func _new_probe() -> PERF_IDLE:
 	return probe
 
 
-## Bind the entry node, which parents the lazy panel.
+## Bind the entry node, which parents the lazy panel, and join the settings change notification.
 static func attach(entry: Node) -> void:
 	_host = entry
+	CHANGE.on_changed(_listener)
+	apply_settings()
 
 
 ## The entry left the tree: the panel goes with it and the window starts empty.
 static func detach() -> void:
+	CHANGE.off_changed(_listener)
 	_host = null
 	_panel = null
 	_probe.reset()
+
+
+## Re-read the two debug switches. A panel that is no longer both on closes instead of drawing.
+static func apply_settings() -> void:
+	debug_logs = debug_read.is_valid() and bool(debug_read.call())
+	debug_perf = perf_read.is_valid() and bool(perf_read.call())
+	if not (debug_logs and debug_perf):
+		clear_panel()
 
 
 ## Every line carries the mod's id, so a block's continuation lines stay attributable after the

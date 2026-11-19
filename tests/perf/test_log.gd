@@ -30,6 +30,12 @@ func _initialize() -> void:
 	run.call_deferred()
 
 
+## The two switch reads the entry binds: always on.
+class Switch extends RefCounted:
+	func read() -> bool:
+		return true
+
+
 func check(ok: bool, text: String) -> void:
 	checks += 1
 	if not ok:
@@ -41,6 +47,8 @@ func check(ok: bool, text: String) -> void:
 func _reset_module() -> void:
 	LOG.debug_logs = false
 	LOG.debug_perf = false
+	LOG.debug_read = Callable()
+	LOG.perf_read = Callable()
 	LOG.act_running = Callable()
 	LOG.counts = Callable()
 	LOG.sink = Callable()
@@ -130,7 +138,13 @@ func _check_panel() -> void:
 	LOG.perf_block([], {})
 	check(host.get_node_or_null("UnfplapPerfView") == null,
 		"a window without a parent creates no panel")
+	# The entry binds the two switch reads before it attaches the sink. A plain object method,
+	# never a lambda: Godot corrupts the heap at exit when a runtime lambda sits in a static var.
+	var switches := Switch.new()
+	LOG.debug_read = Callable(switches, "read")
+	LOG.perf_read = Callable(switches, "read")
 	LOG.attach(host)
+	check(LOG.debug_logs and LOG.debug_perf, "attaching the sink reads the two switches")
 	LOG.debug_perf = false
 	LOG.perf_block([], {})
 	check(host.get_node_or_null("UnfplapPerfView") == null,

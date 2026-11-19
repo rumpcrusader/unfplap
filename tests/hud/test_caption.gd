@@ -5,6 +5,7 @@ extends SceneTree
 
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 
 ## Where the suite leaves the caption card before a move: any place but the top margin.
@@ -67,6 +68,7 @@ func run() -> void:
 	_check_toast_duration()
 	await _check_toast_line()
 	_check_dance_notice()
+	_check_live_settings()
 	print("CAPTION_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("CAPTION_PASS")
@@ -150,6 +152,33 @@ func _check_caption_conditions() -> void:
 	caption.free()
 	root.remove_child(hud)
 	hud.free()
+	root.remove_child(game)
+	game.free()
+	_restore(real_settings, "Settings")
+
+
+## The settings notification reaches the live node without the entry: one apply_live() re-reads the
+## caption mode, and a freed HUD leaves the list.
+func _check_live_settings() -> void:
+	var base := CHANGE.listener_count()
+	var real_settings := _hide("Settings")
+	var game := FakeGameSettings.new()
+	game.name = "Settings"
+	root.add_child(game)
+	var hud: CanvasLayer = HUD.new()
+	root.add_child(hud)
+	check(CHANGE.listener_count() == base + 1, "the HUD joins the settings notification")
+	var saved := SETTINGS.captions_on_top.get_bool()
+	hud.set("_captions_on_top", saved)
+	SETTINGS.captions_on_top.set_bool(not saved)
+	SETTINGS.apply_live()
+	check(bool(hud.get("_captions_on_top")) == (not saved),
+		"apply_live() re-reads the caption mode on the live HUD")
+	SETTINGS.captions_on_top.set_bool(saved)
+	root.remove_child(hud)
+	hud.free()
+	check(CHANGE.listener_count() == base, "a freed HUD leaves the settings notification")
+	SETTINGS.apply_live()
 	root.remove_child(game)
 	game.free()
 	_restore(real_settings, "Settings")

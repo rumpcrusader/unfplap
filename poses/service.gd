@@ -357,6 +357,12 @@ static func warm_asset(path: String) -> void:
 		AUTHORED.shared(path)
 
 
+## Re-read the authored missionary base from disk, for the debug block's Reload posed base action.
+## Returns "" on success and the reader's complaint otherwise.
+static func reload_authored_base() -> String:
+	return AUTHORED.reload_file()
+
+
 ## The spec a candidate names: the id's row, or the live view's row when the candidate is empty.
 func _candidate_spec(candidate := "") -> Variant:
 	var spec_id := str(candidate)

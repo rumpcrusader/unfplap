@@ -9,6 +9,7 @@ extends Node
 
 const CUES := preload("res://mods/unfplap/audio/smack_cues.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 
 
 class Applied extends RefCounted:
@@ -30,6 +31,7 @@ var _act_pony: Node
 
 func _ready() -> void:
 	_enabled = SETTINGS.pack_smack_sound.get_bool()
+	CHANGE.on_changed(Callable(self, "apply_settings"))
 
 
 ## A pony is ready in the world. Remember her even while the setting is off, so a later enable
@@ -80,6 +82,7 @@ func clear_world() -> void:
 
 
 func shutdown() -> void:
+	CHANGE.off_changed(Callable(self, "apply_settings"))
 	clear_world()
 	log = Callable()
 

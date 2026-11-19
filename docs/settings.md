@@ -633,6 +633,7 @@ debug tools, not settings: no declaration, no persisted value. See `docs/perf.md
 | shared | participation | `shared/participation.gd` | participation defaults |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
 | shared | preferences | `shared/preferences.gd` | profile schema and math |
+| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 
 ## Tests
 

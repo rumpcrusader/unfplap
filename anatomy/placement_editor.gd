@@ -45,10 +45,8 @@ func placement_values(id: String, fit_id: String = "") -> Dictionary:
 
 
 func placement_refresh() -> void:
-	if is_instance_valid(main):
-		main.call("refresh_anatomy")
 	if is_instance_valid(service):
-		service.call("refresh_tails")
+		service.call("apply_settings")
 
 
 func placement_debug(op: String, value := 0.0) -> String:
@@ -70,8 +68,7 @@ func placement_debug(op: String, value := 0.0) -> String:
 		"save":
 			if id == "default":
 				SETTINGS.save_anatomy_placement_default(values)
-				if is_instance_valid(main):
-					main.call("apply_settings_changed")
+				SETTINGS.apply_live()
 			else:
 				SETTINGS.save_anatomy_placement(id, values, fit_id)
 				placement_refresh()

@@ -10,6 +10,7 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Keys the act samples every frame: the lean (Q/E/W/S), the auto layer (Q A W S E D Z, X), the
@@ -38,9 +39,11 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	process_physics_priority = -100
 	apply_settings()
+	CHANGE.on_changed(Callable(self, "apply_settings"))
 
 
 func _exit_tree() -> void:
+	CHANGE.off_changed(Callable(self, "apply_settings"))
 	if InputMap.has_action(ACT_KEYS.ACTION):
 		InputMap.erase_action(ACT_KEYS.ACTION)
 

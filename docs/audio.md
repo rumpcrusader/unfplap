@@ -119,6 +119,7 @@ new player under the presented body. It never edits the game file or another pon
 |---|---|---|---|
 | service | settings | `settings/service.gd` | the outside-act smack switch |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
+| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 
 ## Lifecycle
 

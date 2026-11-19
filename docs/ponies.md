@@ -168,6 +168,7 @@ bindings, and the idle perf block's header counts come from `_counts()`. See `do
 | shared | log | `shared/log.gd` | log sink and perf entry |
 | shared | body_change | `shared/body_change.gd` | typed body swap record |
 | shared | pony_id | `shared/pony_id.gd` | stable pony ids |
+| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 
 The runtime itself is not a dependency: it is built by the entry's factory and called dynamically.
 

@@ -965,6 +965,7 @@ stay event-time reads.
 | shared | log | `shared/log.gd` | log sink, perf entry and panel |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | preferences | `shared/preferences.gd` | teat size preset |
+| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 
 ## Tests
 

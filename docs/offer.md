@@ -202,6 +202,7 @@ start on a stale answer.
 | shared | pose_options | `shared/pose_options.gd` | the exact option a hotkey match names |
 | shared | pose_specs | `shared/pose_specs.gd` | the two offerable assets |
 | shared | rump_cone | `shared/rump_cone.gd` | the standing offer zone |
+| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 
 ### Used by
 

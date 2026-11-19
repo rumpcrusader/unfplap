@@ -8,6 +8,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_settings.gd
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
@@ -18,6 +19,14 @@ const INTEGRATIONS := preload("res://mods/unfplap/shared/integrations.gd")
 var failures := 0
 var checks := 0
 var original := {}
+
+
+## A settings subscriber that counts its calls.
+class ChangeSpy extends RefCounted:
+	var calls := 0
+
+	func changed() -> void:
+		calls += 1
 
 
 func _initialize() -> void:
@@ -62,6 +71,7 @@ func run() -> void:
 	_check_placement_migration()
 	_check_placement_strip()
 	_check_api_names()
+	_check_change_notification()
 	_check_profiles()
 	_check_characters_form()
 	_check_provider_precedence()
@@ -1238,7 +1248,8 @@ func _check_default_profile_migration() -> void:
 ## exists on Script/GDScript would silently call the built-in instead of ours.
 func _check_api_names() -> void:
 	var names := ["all_settings", "by_name", "by_path", "tab_settings", "groups", "act_snapshot",
-		"get_value_at", "set_value_at", "default_at",
+		"get_value_at", "set_value_at", "default_at", "apply_live",
+		"on_changed", "off_changed", "notify", "listener_count",
 		"section_open", "set_section_open", "flag", "num", "choice", "list", "data", "defaults",
 		"load_settings", "reload_file",
 		"preferences", "pose", "template_for", "get_bool", "set_bool",
@@ -1249,6 +1260,32 @@ func _check_api_names() -> void:
 		if ClassDB.class_has_method("GDScript", name):
 			clashes.append(name)
 	check(clashes.is_empty(), "no settings API name shadows a Script built-in: %s" % str(clashes))
+
+
+## The change notification is the one path a settings edit takes to the services: `apply_live()`
+## reaches every subscriber once, `off_changed()` releases it, and a freed subscriber is dropped
+## instead of called. The order itself is `tests/test_settings_change.gd`.
+func _check_change_notification() -> void:
+	var base := CHANGE.listener_count()
+	var first := ChangeSpy.new()
+	var second := ChangeSpy.new()
+	var first_call := Callable(first, "changed")
+	CHANGE.on_changed(first_call)
+	CHANGE.on_changed(first_call)
+	CHANGE.on_changed(Callable(second, "changed"))
+	check(CHANGE.listener_count() == base + 2, "a settings listener keeps one place")
+	SETTINGS.apply_live()
+	check(first.calls == 1 and second.calls == 1, "apply_live() notifies every subscriber once")
+	CHANGE.off_changed(first_call)
+	CHANGE.off_changed(Callable(second, "changed"))
+	check(CHANGE.listener_count() == base, "off_changed() releases the place")
+	var released := ChangeSpy.new()
+	var released_call := Callable(released, "changed")
+	released = null
+	CHANGE.on_changed(released_call)
+	check(CHANGE.listener_count() == base, "a freed callable is never registered")
+	SETTINGS.apply_live()
+	check(CHANGE.listener_count() == base, "a settings pass leaves the list as it found it")
 
 
 ## The Characters form draws the teat-size row in its approved place: after Neglect tolerance,

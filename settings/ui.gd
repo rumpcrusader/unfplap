@@ -16,6 +16,7 @@ extends RefCounted
 ## the panel layout.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
 const INTEGRATIONS_CATALOG := preload("res://mods/unfplap/shared/integrations.gd")
@@ -36,6 +37,9 @@ static var _debug_sections: Array = []
 ## Anatomy tab content that depends on the visibility pill, so Never can grey it out live.
 static var _anatomy_gates: Array = []
 static var _switch_guard := false
+## The settings change listener. A static module has no instance, so the callable is a closure
+## over this file's own `refresh_debug_visibility()`.
+static var _listener := func() -> void: refresh_debug_visibility()
 
 
 ## The game's own Controls capture, reduced to the one button the mod needs. It owns the key
@@ -608,6 +612,8 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	page.set_meta("unfplap_ui", ui)
 	page.set_meta("unfplap_button", button)
 	_injected.append({"page": page, "button": button, "ui": ui})
+	# The Debug blocks follow `debug_mode` from now on, without asking the entry.
+	CHANGE.on_changed(_listener)
 	_debug(debug, "settings tab injected")
 
 
@@ -740,6 +746,7 @@ static func _set_native_settings_visible(page: Node, value: bool) -> void:
 
 ## Remove every injected tab. Called when the mod's entry node leaves the tree.
 static func clear_pages() -> void:
+	CHANGE.off_changed(_listener)
 	for entry: Dictionary in _injected:
 		var page: Variant = entry.get("page")
 		var ui: Variant = entry.get("ui")

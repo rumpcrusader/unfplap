@@ -18,6 +18,7 @@ extends Node
 ## See `docs/integrations.md` and `docs/anatomy.md` (`## Garment hull`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
@@ -95,6 +96,7 @@ func setup(main_node: Node) -> void:
 	set_process(false)
 	apply_live_settings()
 	_connect_anatomy()
+	CHANGE.on_changed(Callable(self, "apply_live_settings"))
 
 
 ## The host's world entry. Called from `main._on_world`.
@@ -123,6 +125,7 @@ func on_world_closed() -> void:
 
 ## The entry node's teardown. Idempotent.
 func shutdown() -> void:
+	CHANGE.off_changed(Callable(self, "apply_live_settings"))
 	on_world_closed()
 	_disconnect_anatomy()
 	main = null

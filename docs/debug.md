@@ -276,6 +276,8 @@ The first three read `ponies`; `act_target` and `reload_posed_base` stay the ent
 | service | hud | `hud/service.gd` | the one-line wheel result |
 | service | initiation | `initiation/service.gd` | the forced offer, the cooldown and Show data's REQUEST rows |
 | service | negotiation | `negotiation/service.gd` | the Anon offer and Show data's NEGOTIATION rows |
+| service | ponies | `ponies/service.gd` | the live act, the act-target rule and the pony registry |
+| service | poses | `poses/service.gd` | Reload posed base re-reads the authored pose |
 | service | settings | `settings/service.gd` | action-button rows, the skeleton flag and the placement target pill |
 | service | stool | `stool/service.gd` | the footstool the Give footstool action grants |
 | service | world | `world/service.gd` | the scene target, camera and beds |
@@ -285,6 +287,7 @@ The first three read `ponies`; `act_target` and `reload_posed_base` stay the ent
 | shared | log | `shared/log.gd` | log sink, perf entry and panel |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id in Show data's BED rows |
 | shared | pose_catalog | `shared/pose_catalog.gd` | the pose ids the actions name |
+| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 | store | act_history | `shared/act_history.gd` | Reset act history and Show data's HISTORY rows |
 | game | interaction_sounds | `res://world/audio/interaction_sounds.gd` | the hover `prop_ui_confirm` cue |
 

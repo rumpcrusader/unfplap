@@ -367,9 +367,8 @@ func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:
 	var source := _owner_source(owner)
 	var result := MARE_REGISTRY.set_profile(owner.get_instance_id(), source, mare_id,
 		_profile_descriptor(profile))
-	if bool(result.get("ok", false)) and is_instance_valid(main) \
-			and main.has_method("refresh_api_state"):
-		main.call("refresh_api_state")
+	if bool(result.get("ok", false)) and is_instance_valid(main):
+		SETTINGS.apply_live()
 	return result
 
 

@@ -991,8 +991,7 @@ func _prepare_change_body(pony: Node) -> void:
 	if not is_instance_valid(main) or not is_instance_valid(pony):
 		return
 	PONIES.prepare_late(pony)
-	if main.has_method("refresh_anatomy"):
-		main.call("refresh_anatomy")
+	SETTINGS.apply_live()
 	WORLD.refresh_body_lod(pony)
 
 

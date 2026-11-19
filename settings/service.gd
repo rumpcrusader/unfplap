@@ -13,7 +13,11 @@ extends RefCounted
 ##
 ## The same file owns the per-mare profile data (`preferences`, `poses`, `consent`, prompts),
 ## because it shares the file, the generation counter and the migration pipeline.
+##
+## A settings edit ends in one `apply_live()` pass: every subscriber of the change notification
+## (`shared/settings_change.gd`) re-reads the values it caches. No service fans the edit out.
 
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
@@ -354,6 +358,14 @@ static func by_path(path: String) -> Setting:
 static func by_name(n: String) -> Setting:
 	var found: Variant = _by_name.get(n)
 	return found as Setting
+
+
+# ---------------------------------------------------------------- change notification
+## One reload-and-notify pass: every subscriber re-reads what it caches, in registration order.
+## Called after a settings edit, from the API when a provider layer changes, and from a caller
+## that changed a value outside the panel.
+static func apply_live() -> void:
+	CHANGE.notify()
 
 
 static func _default_at(path: String) -> Variant:

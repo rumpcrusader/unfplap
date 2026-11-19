@@ -170,6 +170,7 @@ world enter and never repeats inside one world.
 | service | world | `world/service.gd` | the world root |
 | shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
 | shared | log | `shared/log.gd` | the status fallback with no HUD |
+| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 
 ## Lifecycle
 

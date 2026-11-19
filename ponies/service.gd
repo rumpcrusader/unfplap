@@ -18,6 +18,7 @@ extends RefCounted
 ## call into a runtime is dynamic on its `Node`.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
@@ -47,6 +48,9 @@ static var _swap: Dictionary = {}
 static var _active: Node = null
 ## The last serial this process issued, kept as a floor under the stored one.
 static var _serial_issued := 0
+## The settings change listener. A static facade has no instance, so the callable is a closure
+## over this file's own pass.
+static var _listener := func() -> void: _on_settings_changed()
 
 
 ## A body entered the world. The player's own AnonPony is a pony_locomotion too and never gets an
@@ -121,6 +125,13 @@ static func active() -> Node:
 ## True while an act owns the frame: the idle probe, the act key and the offer all gate on it.
 static func act_running() -> bool:
 	return is_instance_valid(_active)
+
+
+## The act-target capability. The eligibility service owns the rule; a scan checks it before
+## building a runtime gate for a stallion or a young pony.
+static func act_target(pony: Node) -> bool:
+	return is_instance_valid(pony) and is_instance_valid(eligibility) \
+		and eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
 
 
 ## The mares that hold a runtime, for the settings tail pass and the debug block. Allocation is
@@ -239,6 +250,19 @@ static func apply_live_settings() -> void:
 			runtime.call("apply_live_settings")
 
 
+## Join the settings change notification. It is one static facade, so the entry calls this once
+## while it binds the registry and `shutdown()` leaves.
+static func bind_settings() -> void:
+	CHANGE.on_changed(_listener)
+
+
+## A settings edit: the pass above, and the act a pending body swap has taken out of the registry.
+static func _on_settings_changed() -> void:
+	apply_live_settings()
+	if is_instance_valid(_active) and not _runtimes.has(_active.get("pony")):
+		_active.call("apply_live_settings")
+
+
 ## A world started: the pending swap belongs to the world that is gone.
 static func reset() -> void:
 	_swap = {}
@@ -256,6 +280,7 @@ static func close_world() -> void:
 ## The entry is leaving: close the act, stop and free every runtime and drop the bound handles, so
 ## a fresh entry binds its own.
 static func shutdown() -> void:
+	CHANGE.off_changed(_listener)
 	close_world()
 	for runtime: Variant in _runtimes.values():
 		if not is_instance_valid(runtime):

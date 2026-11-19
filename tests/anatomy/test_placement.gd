@@ -50,7 +50,6 @@ class FakeWorld extends Node:
 
 class FakeMain extends Node:
 	var eligibility: Variant
-	var refreshed := 0
 	var _view: Camera3D
 
 	func camera() -> Camera3D:
@@ -58,12 +57,6 @@ class FakeMain extends Node:
 			_view = Camera3D.new()
 			add_child(_view)
 		return _view
-
-	func refresh_anatomy() -> void:
-		refreshed += 1
-
-	func apply_settings_changed() -> void:
-		pass
 
 	func custom_tail_ready(_pony: Node) -> bool:
 		return false

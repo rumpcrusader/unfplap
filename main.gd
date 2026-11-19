@@ -26,9 +26,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
-const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
-const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 
@@ -85,11 +83,11 @@ func _ready() -> void:
 		set_process(false)
 		return
 	add_to_group("pony_prompt_notes")
+	# The two debug switches arrive through the log sink's own settings listener: the entry binds
+	# the reads once, and every later edit reaches `LOG.apply_settings()` through the notification.
+	LOG.debug_read = Callable(SETTINGS.debug_mode, "get_bool")
+	LOG.perf_read = Callable(SETTINGS.debug_perf, "get_bool")
 	LOG.attach(self)
-	# The two debug switches arrive here once and again on a settings edit; every other module asks
-	# LOG, so no frame reads `settings` for them.
-	LOG.debug_logs = SETTINGS.debug_mode.get_bool()
-	LOG.debug_perf = SETTINGS.debug_perf.get_bool()
 	LOG.act_running = Callable(PONIES, "act_running")
 	LOG.counts = Callable(PONIES, "_counts")
 	eligibility = ELIGIBILITY.new()
@@ -172,7 +170,6 @@ func _ready() -> void:
 	# of the entry's act state are bound here and nowhere else.
 	debug_actions = DEBUG_ACTIONS.new()
 	debug_actions.name = "UnfplapDebugActions"
-	debug_actions.host = _debug_host()
 	debug_actions.body_change = body_change
 	debug_actions.initiation = initiation
 	debug_actions.negotiation = negotiation
@@ -198,6 +195,7 @@ func _ready() -> void:
 	# one factory, so no other entry member holds a runtime.
 	PONIES.host = self
 	PONIES.factory = Callable(self, "_new_runtime")
+	PONIES.bind_settings()
 	PONIES.anatomy = anatomy
 	PONIES.body_change = body_change
 	PONIES.offer = offer
@@ -272,57 +270,6 @@ func _on_world_closed(_host: Node) -> void:
 	hud.on_world_closed()
 
 
-func _apply_live_settings() -> void:
-	var active: Node = PONIES.active()
-	if is_instance_valid(active) and active.has_method("apply_live_settings"):
-		active.call("apply_live_settings")
-
-
-## One path for every control edit: refresh the cached flags, the caption position and the live
-## act. Every tunable change goes through here, so a control never needs its own handler.
-func apply_settings_changed() -> void:
-	_apply_settings_changed()
-
-
-func _apply_settings_changed() -> void:
-	LOG.debug_logs = SETTINGS.debug_mode.get_bool()
-	LOG.debug_perf = SETTINGS.debug_perf.get_bool()
-	if not (LOG.debug_logs and LOG.debug_perf):
-		LOG.clear_panel()
-	if not LOG.debug_logs:
-		debug_actions.close_debug_wheel()
-	if is_instance_valid(input):
-		input.call("apply_settings")
-	hud.apply_settings()
-	# The native offer row and the fallback prompt carry the key cap; rebuild them with the new
-	# label on the next frame.
-	offer.apply_settings()
-	debug_actions.sync_skeleton_overlay()
-	SETTINGS_UI.refresh_debug_visibility()
-	_apply_live_settings()
-	# integration: anatomy switches are live outside acts too.
-	refresh_anatomy()
-	if is_instance_valid(anatomy):
-		anatomy.call("refresh_tails")
-	if is_instance_valid(body_change):
-		# A settings edit can change the re-seat toggle or a saved tail; the source applies its
-		# own wrapper once for each live body.
-		for pony: Variant in PONIES.live_ponies():
-			if is_instance_valid(pony):
-				apply_custom_tail(pony)
-	if is_instance_valid(pantyhose):
-		pantyhose.call("apply_live_settings")
-	if is_instance_valid(stock_smack):
-		stock_smack.call("apply_settings")
-
-
-## The anatomy controller owns the genitals material; refresh the dock after it attaches, changes
-## tone or detaches.
-func refresh_dock_color(pony: Node) -> void:
-	if is_instance_valid(anatomy):
-		anatomy.call("refresh_dock_color", pony)
-
-
 func _on_player(body: Node) -> void:
 	WORLD.bind_player(body)
 	LOG.debug("player ready")
@@ -379,36 +326,12 @@ func custom_tail_report() -> String:
 
 
 ## The settings page hook. No game-script extension is used. Opening the page re-reads
-## settings.json; the settings UI owns the deferred injection and the sub-tabs.
+## settings.json; the settings UI owns the deferred injection and the sub-tabs. Every call it
+## takes is a facade's, so the page never calls back into the entry.
 func _on_settings_page(page: Node) -> void:
-	SETTINGS_UI.inject(page, Callable(self, "_build_settings_actions"),
-		Callable(PONIES, "live_character_ids"), Callable(self, "_character_participation"),
-		Callable(self, "_apply_settings_changed"), Callable(LOG, "debug"))
-
-
-## The Debug block builder the settings panel inserts into each tab.
-func _build_settings_actions(list: VBoxContainer, font_size: int, tab: String) -> void:
-	DEBUG_UI.build_actions(list, font_size, debug_actions, tab)
-
-
-## The live participation block for one mare. The Characters form is a settings UI file, so the
-## eligibility service is reached through the entry node instead of a service dependency.
-func _character_participation(id: String) -> Dictionary:
-	if is_instance_valid(eligibility):
-		return eligibility.get_profile(id).participation.to_dict()
-	return {}
-
-
-## The debug actions' reads of the live act. The runtime registry is `ponies`', so these named
-## reads are the one place the entry hands them over.
-func _debug_host() -> DEBUG_ACTIONS.Host:
-	var host := DEBUG_ACTIONS.Host.new()
-	host.act = func() -> Node: return PONIES.active()
-	host.runtime_for = Callable(PONIES, "runtime_for")
-	host.runtimes = func() -> Array: return PONIES.live_ponies()
-	host.act_target = func(pony: Variant) -> bool: return _is_act_target(pony)
-	host.reload_posed_base = func() -> String: return AUTHORED.reload_file()
-	return host
+	SETTINGS_UI.inject(page, Callable(debug_actions, "build_settings_block"),
+		Callable(PONIES, "live_character_ids"), Callable(SETTINGS, "profile_participation"),
+		Callable(SETTINGS, "apply_live"), Callable(LOG, "debug"))
 
 
 func _process(delta: float) -> void:
@@ -453,32 +376,10 @@ func _process_entry(delta: float, timed: bool) -> void:
 			LOG.close("entry_negotiation", negotiation_started)
 
 
-## Cross-mod API: a provider layer changed. Re-resolve the live anatomy, tail seat and act
-## settings without writing the player's settings file.
-func refresh_api_state() -> void:
-	if not is_inside_tree():
-		return
-	_apply_live_settings()
-	refresh_anatomy()
-	if is_instance_valid(anatomy):
-		anatomy.call("refresh_tails")
-
-
-## integration: keep the anatomy feature live when the player edits a flag.
-func refresh_anatomy() -> void:
-	PONIES.apply_live_settings()
-	if is_instance_valid(anatomy):
-		anatomy.call("refresh_player")
-		anatomy.call("refresh_all")
-		anatomy.call("apply_live")
-		anatomy.call("player_apply_live")
-
-
-## The act-target capability. The eligibility service owns the rule; a scan uses this before
-## building a runtime gate for a stallion or a young pony.
+## The act-target capability. `ponies` holds the live registry and the eligibility service that
+## owns the rule; the offer takes this read as its callable.
 func _is_act_target(pony: Variant) -> bool:
-	return is_instance_valid(eligibility) \
-		and eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
+	return pony is Node and PONIES.act_target(pony)
 
 
 ## The offer's act-live read: a live act owns the frame, so the act key starts nothing and no

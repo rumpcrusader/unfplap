@@ -172,10 +172,11 @@ func _on_owner_tree_exiting(owner_id: int) -> void:
 
 
 func _refresh_live() -> void:
-	if not is_inside_tree() or not is_instance_valid(_main):
+	if not is_inside_tree():
 		return
-	if _main.has_method("refresh_api_state"):
-		_main.call("refresh_api_state")
+	# A provider layer changed: one settings pass re-reads every service that caches a value,
+	# the live anatomy and tail seat included. The entry is not asked.
+	SETTINGS.apply_live()
 
 
 func _failure(descriptor: Dictionary, error: String) -> Dictionary:

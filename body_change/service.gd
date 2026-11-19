@@ -19,6 +19,8 @@ const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const RUNTIME_BINDING := preload("res://mods/unfplap/body_change/runtime_binding.gd")
 const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
 const WIRE := preload("res://mods/unfplap/body_change/wire.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The game's pony `set_body_scale()` clamps its capsule to this range. A provider's form carries
@@ -48,6 +50,19 @@ var _active_by_body: Dictionary = {}
 func setup(host: Node) -> void:
 	main = host
 	_log = Callable(LOG, "debug")
+	CHANGE.on_changed(Callable(self, "apply_settings"))
+
+
+func _exit_tree() -> void:
+	CHANGE.off_changed(Callable(self, "apply_settings"))
+
+
+## A settings edit can change the re-seat toggle or a saved tail: the handling source applies its
+## own wrapper once for every live body.
+func apply_settings() -> void:
+	for pony: Variant in PONIES.live_ponies():
+		if is_instance_valid(pony):
+			apply_tail_placement(pony)
 
 
 ## Construct and register every body-bound system from the facades the entry built. The order is

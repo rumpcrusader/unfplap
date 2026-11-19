@@ -15,6 +15,7 @@ const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 const TAIL_VISIBILITY := preload("res://mods/unfplap/anatomy/tail/visibility.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const PLACEMENT_EDITOR := preload("res://mods/unfplap/anatomy/placement_editor.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -64,6 +65,7 @@ func setup(main_node: Node) -> void:
 	tail_seat.set("log", log_call)
 	tail_seat.set("eligible", eligible_tail)
 	add_child(tail_seat)
+	CHANGE.on_changed(Callable(self, "apply_settings"))
 
 
 ## Host consent lookup for the act's V/N actions. The facade is the scene adapter; the act
@@ -305,6 +307,16 @@ func refresh_tails() -> void:
 		tail_seat.call("refresh_all")
 
 
+## A settings edit: the player part and every live controller re-read their switches, then the
+## tail seats rebuild against them.
+func apply_settings() -> void:
+	refresh_player()
+	refresh_all()
+	apply_live()
+	player_apply_live()
+	refresh_tails()
+
+
 func refresh_dock_color(pony: Node) -> void:
 	if is_instance_valid(tail_seat):
 		tail_seat.call("refresh_dock_color", pony)
@@ -353,6 +365,7 @@ func detach_controller(pony: Node) -> void:
 
 
 func shutdown() -> void:
+	CHANGE.off_changed(Callable(self, "apply_settings"))
 	for pony: Variant in _controllers.keys():
 		if is_instance_valid(pony):
 			var controller: Variant = _controllers[pony]

@@ -19,6 +19,7 @@ const PROFILES := preload("res://mods/unfplap/shared/character_preferences.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 
 var failures := 0
 var checks := 0
@@ -34,10 +35,14 @@ class FakeMain extends Node:
 	var body_change: Node
 	var game: Variant = null
 	var eligibility: Variant = null
-	var anatomy_refreshes := 0
 
-	func refresh_anatomy() -> void:
-		anatomy_refreshes += 1
+
+## Records the settings pass the settled shape runs instead of reaching the entry.
+class ChangeSpy extends RefCounted:
+	var calls := 0
+
+	func _on_changed() -> void:
+		calls += 1
 
 
 ## The registry's prepare hook, forwarded to the real service and recorded: the adapter's late
@@ -537,7 +542,8 @@ func run() -> void:
 	# The variant appears: one late fit for the shape, with the anatomy and LOD refresh.
 	early.set_meta("geometry_variant", "changeling=rarity")
 	var late_before := recorder.prepared.size()
-	var anatomy_before := main.anatomy_refreshes
+	var spy := ChangeSpy.new()
+	CHANGE.on_changed(Callable(spy, "_on_changed"))
 	var lod_key: String = HYBRID_NEAR_MESH.key(early)
 	HYBRID_NEAR_MESH.cache[lod_key] = true
 	adapter.call("poll")
@@ -547,8 +553,8 @@ func run() -> void:
 		"the settled shape refits the new body as the target")
 	check(recorder.prepared.size() == late_before + 1 and recorder.prepared.back() == early,
 		"the settled shape asks ponies for the late prepare once")
-	check(main.anatomy_refreshes == anatomy_before + 1,
-		"the settled shape refreshes the anatomy once")
+	check(spy.calls == 1, "the settled shape runs one settings pass")
+	CHANGE.off_changed(Callable(spy, "_on_changed"))
 	check(not HYBRID_NEAR_MESH.cache.has(lod_key), "the settled shape rebuilds the body's LOD")
 	adapter.call("poll")
 	check(recorder.prepared.size() == late_before + 1,

@@ -5,6 +5,7 @@ extends CanvasLayer
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const STATE_IDLE := 0
@@ -164,6 +165,11 @@ func _ready() -> void:
 	if settings != null and settings.has_signal("changed") \
 			and not settings.changed.is_connected(_on_game_setting_changed):
 		settings.changed.connect(_on_game_setting_changed)
+	CHANGE.on_changed(Callable(self, "apply_settings"))
+
+
+func _exit_tree() -> void:
+	CHANGE.off_changed(Callable(self, "apply_settings"))
 
 
 ## The mod's settings, applied once by the entry at construction and again on every settings edit:

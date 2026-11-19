@@ -19,7 +19,6 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 

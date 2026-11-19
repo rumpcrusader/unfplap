@@ -115,6 +115,8 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   on them, and `grep` still answers everything else.
 - Use one whole-file write for a file that changes heavily, and send independent edits together in
   one turn. A chain of single-line edits costs a round trip each.
+- **The shell already runs in the mod directory.** Never prefix a command with `cd`; pass
+  `workdir` for the game project root (`../..`) or another checkout.
 - Plans live outside the repo. Resolve the path with
   `printf '%s\n' "$HOME/.opencode/plan/$OPENCODE_SESSION_ID.md"` and write there; never create a
   plan file in the repository.

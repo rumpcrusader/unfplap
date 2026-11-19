@@ -9,8 +9,11 @@ itself is `docs/kiss.md`; the hands are `docs/hands.md`.
 
 `camera/service.gd` is the act camera session. It owns the lean input and its smoothing, the
 speed-driven surge/bob response and the afterglow back-off, the debug free look, the free-camera
-`controls_locked` lock, the standing eye override, the form-reset path, the captured player look and
-every size/torso helper the shot and the hands read.
+`controls_locked` lock, the standing eye override, the form-reset path, the captured player look,
+every size/torso helper the shot and the hands read, and the shot's scene points: the neck
+midpoint, her missionary face point and the vulva target. The runtime forwards those point reads for
+the shot camera and the anatomy diagnostic row; the anatomy opening itself still comes from the
+anatomy bridge.
 
 `camera/missionary_camera.gd` and `camera/standing_camera.gd` stay the shot implementations;
 `poses/standing_anon.gd` and `poses/missionary_anon.gd` stay the Anon body wrappers. The runtime owns the tick

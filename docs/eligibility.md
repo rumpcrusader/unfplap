@@ -197,9 +197,10 @@ promiscuity, player_young, player_pony,
 cycle_phase, cycle_allows, heat, history, consent
 ```
 
-`cycle_phase` comes from `runtime.cycle_phase()`, so the debug heat/diestrus override applies. A
-pony that has only just spawned has no relationship runtime yet, so the read is a normal phase
-until one exists; the anatomy bridge asks for it during its own bind.
+`cycle_phase` is resolved by the eligibility service (`cycle_phase_for()`): the debug action's
+session override in `shared/cycle.gd`, else the feature flag and the world day. A pony that has
+only just spawned has no relationship runtime yet, so the read is a normal phase until one exists;
+the anatomy bridge asks for it during its own bind. `runtime.cycle_phase()` is a one-line forward.
 `history` is resolved by `shared/act_history.gd`; `consent` by `SETTINGS.consent(id)`.
 `eligible` is the provider's tri-state assertion (`null` means the identity decides); `participation`
 is the resolved per-mare capability block (`acts`, `anatomy`, `tail`), both by
@@ -379,7 +380,11 @@ offer weight is Context for her reasoning.
 
 `cycle.allows_sex()` is Context on the negotiation routes and a row on the pure policy table.
 Heat does not change visibility; it changes readiness, the offer cooldown and the reasoning
-Context.
+Context. `cycle_phase_for()` owns the resolution: the debug action's session override (a
+per-pony map in `shared/cycle.gd`, never saved), the `features.estrus_cycle` flag and the world
+day from her relationship bonds. The runtime's `cycle_phase()`, `cycle_override()` and
+`cycle_note()` are one-line forwards for the anatomy bridge, the initiation heat read, the
+dialogue prompt and the debug actions.
 
 ## Per-mare action consent
 

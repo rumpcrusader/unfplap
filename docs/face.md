@@ -10,7 +10,8 @@ runtime state, the blush, the kiss, the HUD or the summary grade.
 The runtime still:
 
 - gathers the act values for `_act_face_beat()` (state, first-time flag, tolerance, climax mode,
-  summary), `_act_face_rows()`, `_read_first_time()` and `_climax_quality_inputs()`;
+  summary), `act_face_rows()` (state, HUD mood, the game's cue mood, climax mode and the blush
+  flag), `_read_first_time()` and `_climax_quality_inputs()`;
 - calls `_act_face_beat()` at the start, close, warning, climax, afterglow and stop moments;
 - calls `_start_post_act_face()` from `_begin_aftercare()` and `_start_upset()` from a stop or
   refusal;

@@ -130,6 +130,11 @@ and no `provisional` flag. The asset's `--pose bed_facesit --check` round-trip a
 `pose_runtime_check` face-sit case are the automated proof; the arrangement is authored through
 `tools/pose_lab.gd` and saved as this asset.
 
+The pose session's `face_sit_error(act_state)` owns the Debug action's refusal order — no active
+act, a non-missionary view, a non-active act, a changing pose, a running kiss and missing anatomy —
+and `runtime.face_sit_error()` forwards it. `state_rows(state)` owns the pose diagnostic rows the
+Show data action reads, so neither rule is repeated in the runtime.
+
 - The bake input is the **body rig's rest pose**, plus `apply_reference()` at the reference config.
   The game's own settled standing pose is `pony_gait_profile.gd`'s `standing`, bound from the same
   rest (`standing = rest.duplicate()`, returned at zero gait blend), so this is exactly the pose the

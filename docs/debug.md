@@ -12,8 +12,9 @@ collects Show data, gates the wheel, dispatches its slots and syncs the skeleton
 private to this service. `debug/ui.gd` draws the Debug block buttons. `debug/wheel.gd` is the
 hold-middle wheel. `shared/perf_view.gd` draws the perf panel for `shared/log.gd`. `debug/bed.gd`
 is the stock bed cuddle helper behind the wheel's Bed cuddle action and Show data's BED section.
-`debug/pony.gd` is the debug pony-preparation helper shared by the bed cuddle and the wheel's Sex
-ready action. `debug/idle_stretch.gd` is the Idle Life deep-stretch bridge behind the wheel's Force
+`debug/pony.gd` is the debug pony-state helper: the bed cuddle and wheel's Sex ready preparation,
+and the scene gate's debug status line gather (the pony, world, relationship and player facts).
+`debug/idle_stretch.gd` is the Idle Life deep-stretch bridge behind the wheel's Force
 deep stretch action. `debug/skeleton.gd` draws the skeleton overlay. `settings/ui.gd` injects the
 Unfplap tab and calls `debug/ui.gd` for each Debug block. The console gate is the game's; the log
 switches and the perf panel are `shared/log.gd`'s.
@@ -99,7 +100,9 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   file that names the other mod's entry.
 - **Force/Clear heat** and **Force/Clear diestrus** are one slot each. The label follows the
   aimed mare's current phase; Clear sets the session phase to **normal**. **Resume automatic
-  cycle** clears the override and is settings-only. See the cycle section of
+  cycle** clears the override and is settings-only. The action writes the session override into
+  `shared/cycle.gd`'s per-pony map and the eligibility service resolves the phase from it; the
+  runtime keeps one-line forwards for its suites and the anatomy bridge. See the cycle section of
   `docs/eligibility.md`.
 - **Reset act history** clears the stored row; **Force neglect warning/stop** act on the live act
   and are consumed on the next unpaused frame.
@@ -320,11 +323,13 @@ slot runs it, release in the centre only closes). The form actions' `shape_sourc
 same one the settings block and the wheel use. `tests/test_deep_stretch.gd` pins the Idle Life
 bridge: its entry path and idle id, the missing-entry and missing-pony refusals, the forced play
 call, interrupting a running idle and a refused play. `tests/test_debug_pony.gd` pins the shared
-preparation helper: upright and idle, busy clearing, the raise-only sex-ready record, its floors
-and cleared fields, the refusal paths and the log/toast text. `tests/test_settings.gd` covers the
+helper: upright and idle, busy clearing, the raise-only sex-ready record, its floors and cleared
+fields, the refusal paths, the log/toast text and the debug status-line gather (the identity,
+mood, posture, navigator and act-value passthrough). `tests/test_settings.gd` covers the
 skeleton flag, the Debug block labels that remain and the absence of every wheel action from the
-blocks. `tests/test_face_sit_action.gd` runs the face-sit action through `run_action()` on the
-built actions node. The overlay, the hover cue and the lab pass are manual.
+blocks. `tests/test_face_sit_action.gd` runs the face-sit refusal rule through the real pose
+session and the action through `run_action()` on the built actions node. The overlay, the hover
+cue and the lab pass are manual.
 `tests/test_perf_panel.gd` pins the perf panel's row height, colour targets, caption and clear.
 
 ## Related docs

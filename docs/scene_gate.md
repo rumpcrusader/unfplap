@@ -21,8 +21,9 @@ whether the *scene* is ready right now.
 - the act key's readiness (`hotkey_ready`) and the policy verdict read (`policy_verdict_for`);
 - the physical buck/push (`buck_or_push`), which the tolerance strict stop uses.
 
-`runtime.gd` keeps the live context: it supplies `debug_context` (the act values the status line
-reads) through a callback and keeps the public forwards (`find_bed_under`, `free_of_affection`,
+`runtime.gd` keeps the live context: its `debug_context` callback forwards to `debug/pony.gd`,
+which gathers the pony, world, relationship and player facts, while the runtime adds its own act
+values. The runtime keeps the public forwards (`find_bed_under`, `free_of_affection`,
 `cuddle_active`, `hotkey_ready`, `hint_stool`). The gate reads `PONIES.eligibility` itself for the
 policy verdict; a suite may still override `policy_verdict`. The tolerance stop owns its
 impression and face (`docs/summary.md`, `docs/face.md`).
@@ -179,9 +180,10 @@ live act key never bucks, and no eligibility verdict carries a refusal.
 
 ## Debug
 
-`scene_gate.debug_line()` owns the status string: it reads the live act values through the
-runtime's `debug_context` callback, the row/verdict assembly, and the policy row reads. The
-runtime's `debug_line()` is a thin forward. No scene row is recomputed twice in different ways.
+`scene_gate.debug_line()` owns the status string: it reads the live values through the
+`debug_context` callback (`debug/pony.gd`'s gather plus the runtime's act values), the
+row/verdict assembly, and the policy row reads. The runtime's `debug_line()` is a thin forward. No
+scene row is recomputed twice in different ways.
 
 ## Dependencies
 

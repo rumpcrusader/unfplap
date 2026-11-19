@@ -50,6 +50,35 @@ func auto_panel_open() -> bool:
 	return context.readiness.auto_panel_open()
 
 
+## True while the auto stroke owns the act; the input service's mouse thrust is off.
+func auto_active() -> bool:
+	return context.readiness.auto_active()
+
+
+## The act's pause overlay. The input service's hold and auto layer stop in the same window.
+func body_swap_pending() -> bool:
+	return context.handover.suspended
+
+
+## The keyboard and right-mouse smack both land here; the hands owner swings the caress hand.
+func smack() -> void:
+	context.hands.smack()
+
+
+## The anatomy action gates the input service's V/N keys read.
+func anatomy_hole_ready() -> bool:
+	return context.anatomy.hole_ready()
+
+
+func anatomy_oral_ready() -> bool:
+	return context.anatomy.oral_ready()
+
+
+## How many pony climaxes this act has had; the act-key hold picks afterglow or cancel.
+func climaxes() -> int:
+	return context.readiness.pony_climaxes
+
+
 ## The VR act's right primary click is the act key's hold. The anatomy bridge owns the controller.
 func vr_y_held() -> bool:
 	return context.anatomy.vr_y_held()

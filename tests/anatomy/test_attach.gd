@@ -246,10 +246,10 @@ func run() -> void:
 
 	# No act controller means all anatomy action gates are closed.
 	var runtime: Node = RUNTIME.new()
-	check(not bool(runtime.call("anatomy_hole_ready")), "hole gate closed without an act")
-	check(not bool(runtime.call("anatomy_oral_ready")), "oral gate closed without an act")
-	check(not (bool(runtime.call("anatomy_hole_ready"))
-		or bool(runtime.call("anatomy_oral_ready"))), "all anatomy gates closed without an act")
+	check(not bool(runtime.act.input.anatomy_hole_ready()), "hole gate closed without an act")
+	check(not bool(runtime.act.input.anatomy_oral_ready()), "oral gate closed without an act")
+	check(not (bool(runtime.act.input.anatomy_hole_ready())
+		or bool(runtime.act.input.anatomy_oral_ready())), "all anatomy gates closed without an act")
 	# The refresh binds the reactions facade to her node, which is what the standing offer's rump
 	# anchor reads. Without it the act-key hint never appears.
 	var rump_pony := Node3D.new()

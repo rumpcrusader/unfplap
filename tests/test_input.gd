@@ -106,8 +106,30 @@ class FakeActInput extends RefCounted:
 	func auto_thrust_wheel(direction: int) -> void:
 		rt.wheels.append(direction)
 
+	func body_swap_pending() -> bool:
+		return rt.suspended
+
+	func auto_active() -> bool:
+		return rt.auto
+
+	func anatomy_hole_ready() -> bool:
+		return rt.action_ready
+
+	func anatomy_oral_ready() -> bool:
+		return rt.action_ready
+
+	func smack() -> void:
+		rt.smacks += 1
+
+	func climaxes() -> int:
+		return rt.pony_climaxes
+
 
 class FakeAct extends RefCounted:
+	var rt: Variant = null
+	var state: int:
+		get:
+			return int(rt.state) if rt != null else 4
 	var input: FakeActInput = FakeActInput.new()
 
 
@@ -134,6 +156,7 @@ class FakeRuntime extends Node:
 	var act := FakeAct.new()
 
 	func _init() -> void:
+		act.rt = self
 		act.input.rt = self
 
 	func anatomy_hole_ready() -> bool:

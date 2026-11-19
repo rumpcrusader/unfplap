@@ -176,16 +176,16 @@ func run() -> void:
 	runtime._act.reset_thrust_state()
 	var auto_thrusts := int(runtime._readiness.act_intensity_total)
 	runtime.act.input.toggle_auto_thrust()
-	check(runtime.auto_active(), "X enables auto thrust in ACTIVE")
+	check(runtime.act.input.auto_active(), "X enables auto thrust in ACTIVE")
 	for _i: int in 240:
 		runtime._act._clock_s += 1.0 / 60.0
 		runtime._impact.auto_advance(1.0 / 60.0)
 	check(int(runtime._readiness.act_intensity_total) > auto_thrusts, "auto thrust feeds the same tracker")
 	check(not str(runtime._readiness.last_intensity).is_empty(), "auto thrust classifies intensity")
 	runtime._stop_auto()
-	check(not runtime.auto_active(), "stopping auto clears the mode")
+	check(not runtime.act.input.auto_active(), "stopping auto clears the mode")
 	runtime._act.reset_thrust_state()
-	check(not runtime.auto_active(), "thrust reset clears auto for the next act")
+	check(not runtime.act.input.auto_active(), "thrust reset clears auto for the next act")
 	# The depth scale is physical: his shaft length decides a full stroke, and the tip rests at her
 	# entrance so the resting contact sits at zero depth.
 	check(near(runtime.penetration_reach(), THRUST_STATE.NOMINAL_SHAFT_M),

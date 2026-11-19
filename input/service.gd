@@ -94,7 +94,7 @@ func _physics_process(delta: float) -> void:
 		# layer keep that same window.
 		if not get_tree().paused:
 			_hold_act_tick(delta, runtime)
-			if not bool(runtime.call("body_swap_pending")):
+			if not bool(_act_for(runtime).body_swap_pending()):
 				_auto_layer_tick(delta, runtime)
 	else:
 		_mouse_recapture_logged = false
@@ -108,10 +108,10 @@ func _hold_act_tick(delta: float, runtime: Node) -> void:
 	if runtime != _hold_runtime:
 		_hold_runtime = runtime
 		_reset_hold()
-	if bool(runtime.call("body_swap_pending")):
+	if bool(_act_for(runtime).body_swap_pending()):
 		_reset_hold()
 		return
-	var state := int(runtime.get("state"))
+	var state := _state_for(runtime)
 	if state not in [ACT_STATE.State.POSING_IN, ACT_STATE.State.ACTIVE,
 			ACT_STATE.State.CLIMAX, ACT_STATE.State.AFTERGLOW]:
 		_reset_hold()
@@ -128,11 +128,11 @@ func _hold_act_tick(delta: float, runtime: Node) -> void:
 		return
 	_act_hold_fired = true
 	LOG.debug("hold act key state=%d climaxes=%d" % [
-		state, int(runtime.get("pony_climaxes"))])
+		state, int(_act_for(runtime).climaxes())])
 	if state == ACT_STATE.State.AFTERGLOW:
 		_act_for(runtime).end_afterglow()
 	elif state == ACT_STATE.State.ACTIVE:
-		if int(runtime.get("pony_climaxes")) > 0:
+		if int(_act_for(runtime).climaxes()) > 0:
 			_act_for(runtime).request_afterglow()
 		else:
 			_act_for(runtime).cancel()
@@ -153,6 +153,12 @@ func _auto_layer_tick(delta: float, runtime: Node) -> void:
 		Input.is_physical_key_pressed(KEY_Z),
 	]
 	_act_for(runtime).auto_panel_input(delta, Input.is_physical_key_pressed(KEY_X), keys)
+
+
+## The live act state, or IDLE when the runtime has no session yet.
+func _state_for(runtime: Node) -> int:
+	var session: Variant = runtime.get("act")
+	return int(session.state) if session != null else ACT_STATE.State.IDLE
 
 
 ## The act's input handle. The session owns the protocol object; the input service only decodes.
@@ -287,8 +293,8 @@ func _input(event: InputEvent) -> void:
 			return
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_RIGHT and is_instance_valid(runtime):
 			# AFTERGLOW keeps only close actions.
-			if int(runtime.get("state")) != ACT_STATE.State.AFTERGLOW:
-				runtime.call("smack")
+			if _state_for(runtime) != ACT_STATE.State.AFTERGLOW:
+				_act_for(runtime).smack()
 			get_viewport().set_input_as_handled()
 			return
 		if mouse.pressed and mouse.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] \
@@ -313,7 +319,7 @@ func _input(event: InputEvent) -> void:
 	if focus is LineEdit or focus is TextEdit:
 		return
 	if is_instance_valid(runtime):
-		_act_key(runtime, key, int(runtime.get("state")))
+		_act_key(runtime, key, _state_for(runtime))
 		return
 	if key.is_action(ACT_KEYS.ACTION):
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not _headset():
@@ -326,10 +332,10 @@ func _input(event: InputEvent) -> void:
 ## vertical travel is thrust. Auto thrust owns the stroke, so the mouse does nothing while it
 ## runs. Pause and the menu are already gated above.
 func _act_motion(runtime: Node, motion: InputEventMouseMotion) -> void:
-	var state := int(runtime.get("state"))
+	var state := _state_for(runtime)
 	if state == ACT_STATE.State.IDLE:
 		return
-	if bool(runtime.call("body_swap_pending")):
+	if bool(_act_for(runtime).body_swap_pending()):
 		return
 	var act_input: Variant = _act_for(runtime)
 	if bool(act_input.free_look_active()):
@@ -339,7 +345,7 @@ func _act_motion(runtime: Node, motion: InputEventMouseMotion) -> void:
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if state in [ACT_STATE.State.ACTIVE, ACT_STATE.State.CLIMAX]:
-		if not bool(runtime.call("auto_active")):
+		if not bool(_act_for(runtime).auto_active()):
 			act_input.thrust_motion(motion.relative.y)
 		get_viewport().set_input_as_handled()
 
@@ -349,11 +355,11 @@ func _act_motion(runtime: Node, motion: InputEventMouseMotion) -> void:
 func _act_key(runtime: Node, key: InputEventKey, state: int) -> void:
 	# integration: optional anatomy actions, only when their act is live. The runtime checks the
 	# pose's control profile and the live edge lock; the key is consumed whether or not it allows.
-	if key.physical_keycode == KEY_V and bool(runtime.call("anatomy_hole_ready")):
+	if key.physical_keycode == KEY_V and bool(_act_for(runtime).anatomy_hole_ready()):
 		_act_for(runtime).command(ACT_COMMANDS.HOLE)
 		_consume(key)
 		return
-	if key.physical_keycode == KEY_N and bool(runtime.call("anatomy_oral_ready")):
+	if key.physical_keycode == KEY_N and bool(_act_for(runtime).anatomy_oral_ready()):
 		_act_for(runtime).command(ACT_COMMANDS.ORAL)
 		_consume(key)
 		return
@@ -371,7 +377,7 @@ func _act_key(runtime: Node, key: InputEventKey, state: int) -> void:
 	if key.physical_keycode == KEY_G:
 		# AFTERGLOW keeps only close actions.
 		if state != ACT_STATE.State.AFTERGLOW:
-			runtime.call("smack")
+			_act_for(runtime).smack()
 		_consume(key)
 		return
 	# Space must not jump or start a couch sleep while the act holds the player.

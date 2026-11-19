@@ -601,9 +601,6 @@ func apply_live_settings() -> void:
 	_act.idle_perf = _act.apply_live_settings()
 
 
-## True while the automatic stroke owns the depth. X only switches it in ACTIVE/CLIMAX.
-func auto_active() -> bool:
-	return _readiness.auto_active()
 
 func _process(delta: float) -> void:
 	_act.render(delta)
@@ -750,9 +747,6 @@ func presentation_settled() -> bool:
 func clear_presentation() -> void:
 	_standing_presentation_controller().clear_presentation()
 
-func body_swap_pending() -> bool:
-	return _suspended
-
 
 ## The act-side form request. The handover decides whether a source can take the form; a later
 ## handover tick suspends the act, so the act's state, depth and climaxes are never handed to a
@@ -865,14 +859,6 @@ func _oral_viseme(value: String) -> void:
 	_anatomy_bridge.set_oral_viseme(value)
 
 
-## integration: precise action gates. With no act controller (feature off or no controller) the
-## keys pass through and the HUD rows stay hidden.
-func anatomy_hole_ready() -> bool:
-	return _anatomy_bridge.hole_ready()
-
-
-func anatomy_oral_ready() -> bool:
-	return _anatomy_bridge.oral_ready()
 
 
 ## integration: anatomy action entry points for the input service. They are no-ops when the
@@ -1126,9 +1112,6 @@ func act_face_rows() -> Array[String]:
 func shot_lean_forward() -> float:
 	return _act_camera.shot_lean_forward()
 
-
-func smack() -> void:
-	_hand_controller().smack()
 
 
 ## Publish or clear the pose session's opaque Anon body handle on the anatomy bridge. The session

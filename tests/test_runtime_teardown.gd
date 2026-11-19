@@ -289,7 +289,7 @@ func run() -> void:
 	check(pony.posture_requests.size() == 1 and pony.posture_requests[0] == "stand",
 		"standing posture requested once")
 	check(not runtime._act.posture_owned, "posture ownership cleared")
-	check(not runtime.auto_active(), "teardown clears auto thrust")
+	check(not runtime.act.input.auto_active(), "teardown clears auto thrust")
 	check(int(runtime.state) == 0, "state returns to IDLE")
 	check(runtime._act.pose_id == "" and runtime._act.source == "" and runtime._act.bed == null,
 		"act ids cleared")

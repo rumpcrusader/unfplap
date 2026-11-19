@@ -3,10 +3,10 @@ extends RefCounted
 ## runtime node; a module never reaches back into that node. Node ops, the scene handles and the
 ## two sinks live here and nowhere else.
 ##
-## `Ledger` is the one exception in R2: the start and exit ledgers still call a few steps the
-## runtime node owns (the settings snapshot, the face transitions, the camera open, the audio
-## start, the tail tuck and the rest context). They are named callbacks, never a dictionary, and
-## a missing one is a no-op. R3/R4 move them to their owners.
+## `Ledger` is the migration seam the start and exit ledgers call: the steps the runtime node
+## still owns (the settings snapshot, the face transitions, the camera open, the audio start, the
+## tail tuck, the rest context and the placement fit). They are named callbacks, never a
+## dictionary, and a missing one is a no-op. R3/R4 move them to their owners.
 ##
 ## See `docs/runtime.md`.
 

@@ -92,9 +92,9 @@ state, and one aspect can hide two state machines. The test is:
 - every other consumer reads or writes through the facade.
 
 The service owns its setup and release: allocation, subscriptions, nodes and saved state. The
-orchestrator owns **when** and **in what order** setup and release run. `runtime._end_session` is
-the only act exit path; a service exposes idempotent begin/end or reset methods and never starts a
-second teardown sequence.
+orchestrator owns **when** and **in what order** setup and release run. `act/exit.gd:run()` is the
+one act exit body, entered through `runtime._end_session()`; a service exposes idempotent
+begin/end or reset methods and never starts a second teardown sequence.
 
 ### Facade
 
@@ -196,10 +196,10 @@ act must release every node and subscription it created.
 
 The pose service is the worked example of the scope split: the session owns the pose-scope
 teardown steps (`leave_pose_start()`, `leave_pose_body()` and the final `release_pose()`), while
-`runtime._end_session()` owns the act exit and calls them through `_free_pose()` between the
-cross-system resets before `_restore_pony_bones()`. A pose transition calls none of the pose-scope
-steps or the act exit; it retargets through `pose_changed(view)` and leaves the teardown to
-`_free_pose()`. The order is `docs/poses.md`.
+`act/exit.gd:run()` owns the act exit and calls them through `free_pose()` between the
+cross-system resets before `act/start.gd:restore_bones()`. A pose transition calls none of the
+pose-scope steps or the act exit; it retargets through `pose_changed(view)` and leaves the
+teardown to `free_pose()`. The order is `docs/poses.md`.
 
 ## Composition
 
@@ -230,16 +230,17 @@ and it:
 
 - owns the pony lifetime and the transition bodies; `act/session.gd` owns the act state
   (`shared/act_state.gd`: `IDLE`, `POSING_IN`, `ACTIVE`, `CLIMAX`, `AFTERGLOW`, `RESTORE`), the
-  timers and the per-act clock, and is the one `state` writer; the runtime and its session keep
-  the rest of the act session (identity, pose spec, source, bed, event/serial and the settings
-  snapshot);
+  timers, the per-act clock and the act's own values (pose id, source, bed, id/display, event and
+  serial, the preferences/profile/prompts/features profile and the act bookkeeping), and is the
+  one `state` writer;
 - composes and binds the per-pony systems once, with one typed host per service that needs one;
   `_build_systems()` calls `_bind_act_frame()`, which builds `act/host.gd`, `act/context.gd`,
-  `act/session.gd`, `act/view.gd` and `act/idle.gd` once per pony;
+  `act/session.gd`, `act/view.gd`, `act/idle.gd`, `act/start.gd` and `act/exit.gd` once per pony;
 - owns the ordered physics and process ticks as visible one-line calls; `act/idle.gd` owns the
   idle branch and `act/view.gd` composes the typed act view once per phase;
-- owns the start ledger, the suspend release, the adoption and the one resume, and the one exit
-  with finalize-once;
+- keeps the start and exit entries (`_begin_act()` and `_end_session()` delegates), the suspend
+  release, the adoption and the one resume; `act/start.gd` and `act/exit.gd` own the ordered
+  recipes and the finalize-once;
 - keeps the protocol delegates outside systems already call.
 
 It implements no system's rules and owns no system's mutable state: no scoring, pose math, camera
@@ -247,8 +248,8 @@ shots, hand/kiss/wing behaviour, body-change detection or provider policy, raw i
 audio creation, aftercare nodes, HUD strings, eligibility or gate rules, debug formatting,
 settings declarations or per-frame settings reads. `scripts/architecture.py --check` enforces the
 shape: one `state` writer in `act/session.gd`, no raw input, only the documented snapshot
-boundaries and the two system-owned child nodes, plus the one exit, the pose ledger, the fan-out
-order and the one resume. `owner_of()` treats every `act/**` file as the runtime's own module: it
+boundaries and the two system-owned child nodes, plus the one exit, the start recipe's order, the
+pose ledger's three callers, the fan-out order and the one resume. `owner_of()` treats every `act/**` file as the runtime's own module: it
 may preload a service, and a service that preloads it fails as a host import.
 
 The state flow, start, suspend/resume, tick and exit orders are documented in `docs/runtime.md`.
@@ -431,10 +432,12 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
 `scripts/architecture.py --write-debt` is the deliberate way to update the debt after a service
 is typed.
 
-`scripts/architecture.py --check` owns the static invariants: one `_end_session`, the pose ledger's
-order and its three callers, the `_pose_fanout()` owner order and the pose-before-facts write in
-`_physics_tick`, the thin-runtime shape (one `state` writer in `act/session.gd`, no raw input,
-settings reads only at the act's snapshot boundaries, only the two system-owned child nodes), the
+`scripts/architecture.py --check` owns the static invariants: one teardown body in
+`act/exit.gd:run()` entered through a one-line `runtime._end_session()`, the start recipe's
+order, the pose ledger's order and its three exact callers, the `_pose_fanout()` owner order and
+the pose-before-facts write in `_physics_tick`, the thin-runtime shape (one `state` writer in
+`act/session.gd`, no raw input, settings reads only at the act's snapshot boundaries, only the two
+system-owned child nodes), the
 act-exit ban under `poses/`, the shell `errexit` prelude, the release files and the manifest, one
 settings declaration
 module, and the test-file rules in `docs/tests.md`. The typed act view boundary is a review rule:

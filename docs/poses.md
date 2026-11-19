@@ -427,8 +427,8 @@ The debug pair holds `base`, `anon`, `contact`, `camera` and `audio`, and switch
 `presentation` at the start, so a request never rebuilds the pose, releases the pose or restores
 bones and the body does not move. The Debug **Pose: test variant** action is the proof; the pair is
 the evaluator's single path. A transition never calls
-`_free_pose()`, `release_pose()`, `_end_session()` or any act exit; `runtime._end_session()` aborts
-a live edge through the one pose teardown.
+`free_pose()`, `release_pose()`, `_end_session()` or any act exit; `act/exit.gd:run()` aborts a
+live edge through the one pose teardown.
 
 ### The standing oral turn
 
@@ -557,7 +557,7 @@ and the audio. The pose service reconciles its modifier profile and applies the 
 channel; each following owner implements `pose_changed(view)` and caches the last id/profile/
 family/contact, so an unchanged view is a cheap no-op. The face, dialogue and HUD read the view
 through the facts and have no hook. The fan-out is a retarget seam, not a second teardown: it never
-calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `_end_session()`, `_free_pose()`
+calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `_end_session()`, `free_pose()`
 or any act-scope restore. The eye-camera tick stays on the render write, after the pose write.
 
 `refresh_modifiers(feature_flags)` is the live settings edit's entry into the session's reconcile:
@@ -969,10 +969,10 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 ### Teardown scope
 
-`runtime._free_pose()` is the one pose teardown ledger. It is the one ledger across two lifetimes:
-the pose scope the session owns and the act scope the runtime owns. A pose transition calls none of
-the pose-scope steps or the act exit; it retargets through `pose_changed(view)` and leaves the
-teardown to `_free_pose()`.
+`act/exit.gd:free_pose()` is the one pose teardown ledger. It is the one ledger across two
+lifetimes: the pose scope the session owns and the act scope the runtime owns. A pose transition
+calls none of the pose-scope steps or the act exit; it retargets through `pose_changed(view)` and
+leaves the teardown to `free_pose()`.
 
 | Step | Scope | Owner |
 |---|---|---|
@@ -998,11 +998,11 @@ teardown to `_free_pose()`.
   node and the standing tail, the act identity, the features, the live config, the rig caches, the
   bed and ground frames and the view. Safe to repeat.
 
-The runtime calls the two leave steps and the final release at their table positions, with the
-act-scope resets between them. `release_pose()` is called only from `_free_pose()`. `_end_session()`
-(the one act exit), `_build_pose()` (the new-act prep) and `_suspend_for_body_swap()` (the
-act-preserving body handover) are the only `_free_pose()` callers. A second `release_pose()` is a
-no-op.
+The exit ledger calls the two leave steps and the final release at their table positions, with
+the act-scope resets between them. `release_pose()` is called only from `free_pose()`.
+`act/exit.gd:run()` (the one act exit), `act/start.gd:_build_pose()` (the new-act prep) and
+`runtime._suspend_for_body_swap()` (the act-preserving body handover) are the only `free_pose()`
+callers. A second `release_pose()` is a no-op.
 
 `_restore_camera()` also ends the lean action, resets the hands, releases the free-camera lock and
 removes the standing player-body Anon wrapper. That is the act's camera restore path, not the pose

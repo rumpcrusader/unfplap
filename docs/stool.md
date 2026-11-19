@@ -158,7 +158,7 @@ idle hint and the act start.
 ## Act flow
 
 - The standing state is unchanged when the rule does not apply.
-- When it applies, `runtime._begin_act()` asks the handle to check out `needed` case units
+- When it applies, `act/start.gd:run()` asks the handle to check out `needed` case units
   (`take_items()` → `store.take(slot)`); the handle keeps every token and slot.
 - `_begin_standing_placement()` computes Anon's normal spot and calls `place()`; the handle builds
   a stack of `needed` stools under it and raises his player root to
@@ -172,7 +172,7 @@ idle hint and the act start.
   is added to the body's collision exceptions in both directions, so the stack supports Anon
   without lifting or tilting her; the exceptions are removed with the prop. The player still
   collides with it.
-- The act stays on the stack through `AFTERGLOW`. `_end_session()` is the one exit path that
+- The act stays on the stack through `AFTERGLOW`. `act/exit.gd:run()` is the one exit path that
   removes the prop, lowers the player to the saved floor and returns every unit to its case slot.
   `_exit_tree()` repeats the release as a last resort.
 - If an item cannot be put back, its loan is left without a world transform; the game inventory

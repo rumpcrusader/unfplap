@@ -93,7 +93,7 @@ var pony: Node:
 
 var _pony_node: Node = null
 
-## The act's one state, timer and clock owner; created once per pony and reset per act.
+## The act's one state, timer, clock and value owner; created once per pony and reset per act.
 var _act: ACT_SESSION = null
 ## The act modules' node operations and typed collaborator set, bound once in `_build_systems()`.
 var _act_host: ACT_NODE = null
@@ -200,9 +200,6 @@ var _afterglow: RefCounted = AFTERGLOW.new()
 ## The act's scene ownership. The runtime keeps the act state and the teardown order; the service
 ## owns the flags. See `scene_hold/service.gd`.
 var _hold: RefCounted = SCENE_HOLD.new()
-## Act-session ownership: each flag marks external state this act took and must give back.
-## `_end_session()` checks them, so a start that failed early restores only what it took. The
-## camera flags live on `_act_camera`; the navigator and player flags on `_hold`.
 var _id := ""
 ## The act's settings snapshot. `_snapshot_settings()` is its only writer; the act tunables are read
 ## through `_snapshot.<name>`, never copied into a second field. A zeroed snapshot stands in until

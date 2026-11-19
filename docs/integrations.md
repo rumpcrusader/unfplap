@@ -423,7 +423,7 @@ overlay reads them.
 - Begin: `begin()` at `State.POSING_IN`; `on_world(host)` on world entry; the provider refreshes
   its pack and registration on world entry; the changelings adapter registers its provider layer
   in `_ready()` and on `refresh()`
-- End: `reset()` in `_free_pose()`; `on_world_closed()` on world close and `shutdown()` in the
+- End: `reset()` in `act/exit.gd:free_pose()`; `on_world_closed()` on world close and `shutdown()` in the
   entry's process exit; the changelings layer leaves with its owner, and its shutdown clears the
   observation state and wrapper map while the wrapper node is freed with the body
 - Idempotent: yes. A world adapter is inert when its pack is absent.
@@ -437,7 +437,7 @@ overlay reads them.
 | `tick(delta)` | update context, watch optional bindings and apply provider tick actions |
 | `afterglow()` | apply the one afterglow action before Kissing's hold/fade |
 | `apply_live_settings()` | restart or stop providers after a settings edit; refresh the world adapter's cached flags |
-| `reset()` | restore every saved value after the base kiss reset in `_free_pose()` |
+| `reset()` | restore every saved value after the base kiss reset in `act/exit.gd:free_pose()` |
 | `shared/act_facts.gd` | typed read model passed to the constructor; no per-frame settings read |
 | `hold_beat(owner)` / `release_beat(owner)` | acquire or release the runtime's shared excitement Beat hold |
 | `PONIES.anatomy` | the controller's `garment_hull()`, `garment_transform()`, `garment_visible()`, `garment_parent()`, `garment_hull_rebuild()` and the `act_started` signal |

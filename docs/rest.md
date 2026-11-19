@@ -18,9 +18,9 @@ floor beside the bed and the restore posture.
 - `rejoin_wanted`: the desktop-human, good-act decision;
 - `restore_posture`: the bed-frame scene restore and the `stand` request.
 
-The runtime keeps the act state and the one teardown ledger: the cradle start call, the
-`_end_session` restore call, the deferred `_rejoin_bed_cuddle` trigger, `_serial`/`state` and the
-`aftercare_min`. It reads `_posture_owned` itself. `rest/control.gd` stays the small static
+The runtime keeps the act state and the one teardown ledger: `act/start.gd` makes the cradle
+start call, `act/exit.gd:run()` makes the restore call and the deferred `rejoin_bed_cuddle`
+trigger, and the session holds `serial`/`state`, `aftercare_min` and `posture_owned`. `rest/control.gd` stays the small static
 release helper for a managed bed/couch rest.
 
 The facade binds the scene (`pony`, the act bed) on every access, and reads the live act
@@ -50,12 +50,12 @@ therefore calls `invite(pony, seats[1])` explicitly.
 - A normal end calls `restore_posture(frame)`. For a `bed` frame it restores the pre-act player,
   pony and camera snapshot (`runtime._rest_restore_scene`), then requests `stand`. A `ground`
   frame does not restore the scene; it keeps Anon where the act ended.
-- A forced stop never reaches the rejoin. `_end_session()` only captures the bed when the act was
+- A forced stop never reaches the rejoin. `act/exit.gd:run()` only captures the bed when the act was
   a normal bed-sourced end that did not go badly and `rejoin_wanted()` is true.
 
 ## Cuddle rejoin
 
-`rejoin_bed_cuddle(bed, serial)` runs deferred from `_end_session`:
+`rejoin_bed_cuddle(bed, serial)` runs deferred from `act/exit.gd:run()`:
 
 1. Refuse a missing pony/tree/bed, a stale `serial`, a missing player rest, a bed with no live
    rest, or fewer than two seats. Every exit logs its reason.

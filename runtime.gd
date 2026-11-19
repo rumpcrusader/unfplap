@@ -237,6 +237,9 @@ var _face: RefCounted = FACE.new()
 var _reactions: RefCounted = REACTIONS.new()
 var _first_time := false
 var _act_climax_mode: String
+## The act's camera mode, snapshotted with the rest: the render write runs every rendered frame and
+## must not read settings there.
+var _eye_camera_mode := false
 ## The `CLIMAX` state's 0..1 progress, read by the shot camera.
 var _climax_progress := 0.0
 var _hands: HANDS = null
@@ -1075,6 +1078,7 @@ func _snapshot_settings() -> void:
 		_snapshot.receptive_seconds)
 	_presentation_cfg = _snapshot.presentation
 	_act_climax_mode = _snapshot.climax_mode
+	_eye_camera_mode = str(SETTINGS.camera_mode.get_value()) == "eye"
 	_configure_utterance_scheduler()
 	_refresh_scene_gate()
 
@@ -3771,8 +3775,7 @@ func _pose_render_write() -> void:
 		"bed_frame": _pose_session.bed_frame,
 		"body_scale": _body_scale_value(),
 		"size_name": _act_facts.size_name,
-		"eye_camera_active": _act_camera.free_camera_active \
-			and str(SETTINGS.camera_mode.get_value()) == "eye",
+		"eye_camera_active": _act_camera.free_camera_active and _eye_camera_mode,
 	})
 
 

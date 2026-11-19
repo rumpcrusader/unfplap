@@ -155,8 +155,6 @@ var _perf_probe: PERF = null
 ## Cached gate for the idle probe. Set once in `_ready()` and again on every live settings edit, so
 ## no tick reads the entry node's flags.
 var idle_perf := false
-## Idle standing invitation. Kept separate from the act's pose/tail so the act key can take over
-## cleanly.
 ## The `POSING_IN` timer: the pose settles into the act after this many seconds.
 var _pose_in_left := 0.0
 ## Estrus is derived from the world day and her relationship, so it is resolved once per tick and
@@ -239,9 +237,7 @@ var _face: RefCounted = FACE.new()
 var _reactions: RefCounted = REACTIONS.new()
 var _first_time := false
 var _act_climax_mode: String
-## The act's base kiss normally rears and lifts both forelegs; zeroing those two shared
-## settings keeps her forehooves planted for the kiss and restores them when it ends.
-## The act's stare is released once when a kiss starts so the regular kiss can drive the eyes.
+## The `CLIMAX` state's 0..1 progress, read by the shot camera.
 var _climax_progress := 0.0
 var _hands: HANDS = null
 var _kiss: KISS = null

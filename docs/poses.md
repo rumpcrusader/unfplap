@@ -802,8 +802,8 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   act after a missionary restore does not inherit the old view. The 2 m Y cone bounds that
   correction. The act end leaves him there and leaves his yaw/pitch at the last act aim; it
   does not snap the pre-act view back. AnonPony and headset/VR still move her in front of the
-  camera rig with `_standing_transform()`, because their rig is the camera or another body, and
-  the player is never moved for them.
+  camera rig with `poses/placement.gd:transform()`, because their rig is the camera or another
+  body, and the player is never moved for them.
 - `apply_anon_lean()` pins both foot targets at their live stepping pose while a lean moves the
   hip and camera/head forward, sideways or down, so the torso hinges over her instead of walking
   through the lean. With no lean the game's stepping feet are left alone; the capture clears on
@@ -867,7 +867,8 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   adds a short decaying wave (`JIGGLE_DECAY = 3.6`, `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`,
   `JIGGLE_YAW = 0.08`) at the same strength as the rump shader, strongest at the tail root and
   lagging down the chain. A smack adds the same wave through `reactions/service.gd` at
-  `1.0 × _jiggle_size_scale() × smack_intensity`; the thrust wave scales with `jiggle.intensity`.
+  `1.0 × size_scale × smack_intensity`, where `size_scale` is the camera's `jiggle_size_scale()`
+  that `_snapshot_settings()` passes in; the thrust wave scales with `jiggle.intensity`.
   The `jiggle` radius, intensity and smack amount, the stock-mark clear and the body-coat target
   are in `docs/reactions.md`. Stock marks are hidden and aged at act start, so a mark from an
   earlier regular smack cannot linger as a stale jiggle point. The game's tail anchor pins the

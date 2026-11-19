@@ -103,9 +103,9 @@ pacing, jiggle, camera thrust, the presentation block for that settings group an
 The runtime takes it in `_snapshot_settings()` with the start spec's `settings_group` and re-runs
 it in `apply_live_settings()`. An internal pose (`standing_test`, `standing_oral`) shares the
 standing group and has no `presentation` block or `default.poses` row of its own. There is no
-path-keyed read outside the settings service and no second cache. The runtime's act fields carry
-no code default: `_snapshot_settings()` is their only writer, and a consumer indexes the complete
-snapshot block.
+path-keyed read outside the settings service and no second cache. The runtime keeps the snapshot
+and reads `_snapshot.<value>` at the use site: `_snapshot_settings()` is its only writer, a
+consumer indexes the complete snapshot block, and no second field copies a snapshot scalar.
 
 ## Adding a setting: one declaration, one shipped value, one read
 

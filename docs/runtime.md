@@ -384,10 +384,15 @@ the teardown; the pose view is the active pose. `_end_session()` aborts a live e
 one pose teardown. `apply_live_settings()` also refreshes a running edge's target snapshot after
 the start pose's own config sync.
 
-The act-tunable fields (the thrust values, the caress quality, the cue/talk pacing, the jiggle,
-camera and climax values) are declared without a code default. `_snapshot_settings()` is their
-only writer and runs at act start and again at the top of `apply_live_settings()`, before the
-IDLE early return, so a read outside an act sees the current settings after the first snapshot.
+The act-tunable values (the thrust values, the caress quality, the cue/talk pacing, the jiggle,
+camera and climax values) live in one typed `SETTINGS.ActSnapshot`. `_snapshot_settings()` is its
+only writer and runs at act start and again at the top of `apply_live_settings()`, before the IDLE
+early return; a consumer reads `_snapshot.<value>` at the use site instead of keeping a second
+copy. A zeroed snapshot stands in until the first start or settings edit, so an idle read sees the
+same zero values the removed fields defaulted to. `_features` and `_presentation_cfg` stay as
+references into the snapshot because the idle view refresh, the start sequence and the suites read
+them outside or across an act; the climax limit and the climax mode stay runtime fields that the
+acts and suites set directly.
 
 The standing start/offer gap is read from `_pose_session.pose_config["gaps"]`; a session without a
 config falls back to `SETTINGS.pose(id, "standing")["gaps"]`. The shipped values live under

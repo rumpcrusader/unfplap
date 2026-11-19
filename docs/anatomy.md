@@ -458,8 +458,10 @@ the act. The hip offset still comes from the part; a parked part reports a zero
 placement.
 
 `apply_live()` re-reads the host's `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`
-before it refreshes the controller. The per-tick facts sync writes the same values, but it does
-not rebuild the anatomy material; the explicit refresh is what restores the pose-specific
+before it refreshes the controller. The runtime writes the typed facts once per physics tick,
+after the tick, so the persistent controller's own `_process` poll — the placement trim and the
+idle heat tick — reads the frame's live pose, depth and bed frame. The per-tick write does not
+rebuild the anatomy material; the explicit refresh is what restores the pose-specific
 appearance, including the missionary-only fold hack, when the pose family changes.
 
 A body swap changes the controller, not the act. The old bridge ends its act handle at suspension;

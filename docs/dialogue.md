@@ -55,7 +55,7 @@ tree.
 | `admit_cue(now)` | observe the cue, apply the gates in order, log a change, queue one cue prompt; returns the key or `""` |
 | `tick()` | release a delivered line, drop an absent row and expire a queued/generating row at its max age |
 | `bystander_tick(delta)` | one adult observer line per interval, at most three per act |
-| `history_tick(delta, context)` | the idle history scan: repair on a sincere apology, queue one pending reminder/complaint line |
+| `history_tick(delta, pony, pony_id, event_id, now)` | the idle history scan: repair on a sincere apology, queue one pending reminder/complaint line |
 | `end_act(event_id, keep_speaking)` | cancel the act's queued/generating lines; a speaking line may finish |
 | `reaction_line(reaction, event_id, fallback, valid)` | queue a reaction through the memory channel |
 | `note_reaction(key, cue_text, until)` | reserve the shared slot for that reaction |
@@ -103,9 +103,9 @@ sets them on `act_facts` immediately before calling the facade.
   advertise a stay instruction.
 
 The runtime supplies plain values and keeps the history, relationship, caress, lean, pose and
-afterglow-beat reads, so the module has no scene access. `form_name` is the presented form's
-presentation name and `form_borrowed` is `not form.is_own()`; the runtime reads both from the
-body-change service's stored form.
+afterglow-beat reads, so the pure module has no scene access of its own. `form_name` is the
+presented form's presentation name and `form_borrowed` is `not form.is_own()`; the runtime reads
+both from the body-change service's stored form.
 
 ## Reactions and bystanders
 
@@ -123,9 +123,12 @@ closure checks the observer, the act event id and `ACTIVE`/`CLIMAX`. Indoors/out
 
 ## Idle history scan
 
-`history_tick()` runs only while the runtime is `IDLE`; the runtime gathers the scene values (the
-director, the paused tree, the player turn, the distance and the conversation target) and passes
-them in one context dictionary.
+`history_tick()` runs only while the runtime is `IDLE`. The runtime passes the pony, its id, the
+act event id and the act's processed clock; the service reads the rest itself: the director through
+the typed facts callback, the player turn and text, the paused tree, whether she or the director is
+speaking, the director's state, the distance to Anon and whether she is talking to him
+(`conversation_target` is his rig or his body). A missing game, player, pony or director ends the
+scan.
 
 - A sincere apology is detected locally by `preferences.apology_intent()`; only the pony currently
   in conversation with the player repairs, and only once per in-game day. The repair is

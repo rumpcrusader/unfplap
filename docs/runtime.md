@@ -11,7 +11,7 @@ services. It never holds a service's implementation. The service contracts are i
 IDLE → POSING_IN → ACTIVE → CLIMAX → AFTERGLOW → RESTORE → IDLE
 ```
 
-- `IDLE`: no act; the runtime is attached and may show the start hint.
+- `IDLE`: no act; the runtime is attached, runs its idle schedule and may show the start hint.
 - `POSING_IN`: the start sequence has run and the pose is building.
 - `ACTIVE`: thrusting, readiness, cues, caress and the pose actions are live.
 - `CLIMAX`: the pony's 5 s climax; the player may keep thrusting but it does not score.
@@ -314,26 +314,29 @@ failed start runs the same function and restores only what it took.
 
 ## Tick order
 
-- `_physics_process`: `_physics_tick(delta)` — the body-swap watcher, the pose tick, the facts sync,
-  the pose fan-out, the
-  act timer, the readiness tick, the dialogue service, the form offer, the history scan, the
+- `_physics_process`: `_physics_tick(delta)` — the body-swap watcher, the pose tick, the facts
+  refresh, the pose fan-out, the
+  act timer, the readiness tick, the dialogue service, the form offer, the
   tolerance, the scene
   keep-alives, the anatomy tick, the thrust tracker and the presentation modules (wings and mod
-  integrations). `_sync_pose_frame()` follows the bed or the pony root ground frame before the
+  integrations); the anatomy facts sync runs once, after the tick, so the persistent controller's
+  own `_process` poll reads the frame's live state, pose, depth and bed frame. `_sync_pose_frame()`
+  follows the bed or the pony root ground frame before the
   render write. The pose tick advances the oral turn and the edge's switches and events; the
   anatomy tick only reads the resulting contact.
-- `_physics_tick` times `_pose_service().tick(delta)` as the `pose_tick` chunk before the first
-  `_sync_act_facts()` in every phase above `IDLE`, then times the fixed-order `_pose_fanout()` as
-  the `pose_fanout` chunk after that sync: the pose service first (modifier reconcile and the
+- `_physics_tick` times `_pose_service().tick(delta)` as the `pose_tick` chunk before the
+  `refresh_view()` in every phase above `IDLE`, then times the fixed-order `_pose_fanout()` as
+  the `pose_fanout` chunk after that refresh: the pose service first (modifier reconcile and the
   `act_body`/`anon` channel), then camera, hands, kiss, anatomy and audio. An edge keeps ticking
-  through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still follows the first facts sync and runs
-  no pose tick or fan-out.
+  through `CLIMAX`/`AFTERGLOW`. The `IDLE` early return still follows the facts refresh and runs
+  no pose tick or fan-out: its schedule is the inventory safety, the standing presentation's
+  physics, the dialogue history scan and its perf chunks.
 - A suspended act returns before the pose tick: `_body_swap_tick()` owns the wait and the resume,
   and no act work runs until the new body adopts the runtime and its form is ready.
 - `_process`: `_process_tick(delta)` — the render-time pose write after every game writer (the bed
   family places its Anon body and eye camera; the standing family syncs its ground frame and
   writes the same pose), the camera lean and motion, the climax wave, the breath,
-  the face and the HUD.
+  the face and the HUD. `IDLE` runs only the standing presentation's render tick.
 - the entry's `_process` calls `PONIES.active()` and then `apply_camera_motion()` on it every
   frame. Keep this single owner.
 - Do not merge these timing domains blindly. The pose/camera timing is in `docs/poses.md` and

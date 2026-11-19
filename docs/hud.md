@@ -24,7 +24,7 @@ The service owns:
 | `toast(text, seconds)` / `anatomy_status(text, seconds)` | the one toast line; the only sink the rest of the mod uses |
 | `caption_node(node)` / `caption_tick(state)` | the game's `SpeechCaption` tracking and its act-only move to the top |
 | `on_world()` / `on_world_closed()` / `on_player(body)` | the world scoped begin and end, and the once-per-world Dance Mod key notice |
-| `set_inventory_hidden()`, `inventory_hidden()` | the borrowed quick-slot card |
+| `set_inventory_hidden()`, `inventory_hidden()`, `ensure_act_inventory_visible(owner)` | the borrowed quick-slot card and the idle safety that restores it |
 
 The runtime gathers the live values into the typed act view (`shared/act_facts.gd`): state, climax
 count and limit, cue, close hint, summary, the preference axes, heat, the `End` tint, the auto
@@ -157,9 +157,12 @@ world enter and never repeats inside one world.
 - The afterglow summary is independent of `hud_readouts` and is always shown.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
   hotbar's `set_hud_visible(false)`. `hud/service.gd` owns the borrowed state
-  (`set_inventory_hidden()`, `inventory_hidden()`) and restores exactly what it found, so every exit
-  path can call it unconditionally. The runtime's idle safety check restores it only while no other
-  runtime is mid-act, because every idle sibling sees the same borrowed flag.
+  (`set_inventory_hidden()`, `inventory_hidden()`) and restores exactly what it found, so the act
+  start and the one exit call it unconditionally. The idle safety is the HUD's too:
+  `ensure_act_inventory_visible(owner)` restores the card only while the registry's live act owner
+  is absent or `IDLE`, because every idle sibling runtime sees the same borrowed flag and must not
+  take it from a running act. Each idle runtime passes `PONIES.active()` in its idle tick; the HUD
+  reads that owner's public `state` and does not import the registry.
 
 ## Dependencies
 
@@ -196,7 +199,8 @@ form-change hint. `tests/hud/test_caption.gd` covers the caption move's five con
 the three act states, the game's speech setting, the settings-page preview and a live card), the
 scale rounding, the moved-caption tracking, the two toast durations, the toast line's own timer and
 the once-per-world key notice. `tests/afterglow/test_afterglow.gd` drives the runtime's HUD
-forwards.
+forwards. `tests/test_runtime_teardown.gd` drives the idle inventory safety against a live act
+owner inside the fixture.
 
 ## Related docs
 

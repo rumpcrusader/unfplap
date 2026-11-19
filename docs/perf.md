@@ -187,7 +187,7 @@ total, largest first, so the first row is the chunk to fix.
 | `offer_rows` | `scene_only_verdict()`, every scene row | `offer_gate` |
 | `offer_policy` | `eligible()` and `relationship_ok()` after the rows pass | `offer_gate` |
 | `runtime_physics` | one pony's idle `_physics_process` | root |
-| `runtime_anatomy_sync` | the two `_sync_anatomy_facts()` calls per physics tick, summed | `runtime_physics` |
+| `runtime_anatomy_sync` | the one `_sync_anatomy_facts()` call after the physics tick | `runtime_physics` |
 | `runtime_facts` | `_sync_act_facts()` in the physics tick | `runtime_physics` |
 | `runtime_presentation` | `_standing_presentation_controller().physics(delta)` | `runtime_physics` |
 | `runtime_history` | `_history_tick(delta)` | `runtime_physics` |

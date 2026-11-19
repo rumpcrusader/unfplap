@@ -38,6 +38,11 @@ var _hotkey_stool_have := 0
 var log := Callable()
 
 
+## The act's log sink. The session binds it once per created handle; a missing sink is a no-op.
+func set_log(sink: Callable) -> void:
+	log = sink
+
+
 ## Bind the scene nodes for this act. The runtime refreshes them on every access, so a suite can
 ## build a runtime without entering the tree.
 func bind(facade_node: Variant, pony_node: Variant, player_node: Variant,

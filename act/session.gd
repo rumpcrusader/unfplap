@@ -190,7 +190,7 @@ func stool() -> Variant:
 		return null
 	if context.stool == null:
 		context.stool = service.call("new_act")
-		context.stool.log = host.log_sink
+		context.stool.call("set_log", host.log_sink)
 	context.stool.call("bind", service, host.pony, WORLD.player, context.anatomy.controller)
 	return context.stool
 

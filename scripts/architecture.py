@@ -179,10 +179,7 @@ RUNTIME_STATE_OWNER = ROOT / "act" / "session.gd"
 # Every `SETTINGS.<member>` read, keyed by its enclosing function (`<module>` for the field block)
 # and the reason it is a snapshot boundary rather than a per-frame read. A new read is a new row,
 # added on purpose with the service that owns the value; removing a read removes its row.
-RUNTIME_SETTINGS_READS = {
-    ("<module>", "ActSnapshot"): "the typed `_snapshot` forward's zeroed default",
-    ("_shape_name", "character_name"): "the static character-name lookup, not an act tunable",
-}
+RUNTIME_SETTINGS_READS = {}
 # The act session's settings owner holds the one snapshot, so its boundaries are checked the same
 # way: the bulk snapshot and the pre-edit preference refresh, never a per-frame read.
 ACT_SETTINGS_OWNER = ROOT / "act" / "settings.gd"
@@ -201,6 +198,13 @@ NODE_SURFACE = {
     "live_id": "the stable pony id the entry and ponies read",
     "attach_to_body": "the handover's reparent off the old body",
     "adopt_body": "the handover's reparent onto the new body",
+}
+# The runtime node's public properties: the two handles and the presented body. They are properties
+# rather than rows because the entry reads them without a call; the comparison runs both ways.
+NODE_PROPERTIES = {
+    "act": "the act's one session handle",
+    "gate": "the offer-facing act gate handle",
+    "pony": "the presented body; its setter rebinds the bundle",
 }
 # A file over this many lines is reported as a smell, never as a failure. Size is a hint that a
 # module may be mixing concerns; the ownership and boundary rules below are the hard gates.
@@ -1417,6 +1421,14 @@ def check_runtime_shape(failure: Failure) -> None:
     for name, reason in sorted(NODE_SURFACE.items()):
         if name not in public_funcs:
             failure.add("the node surface allow-list row %s is stale (%s)" % (name, reason))
+
+    # The same both-ways rule for the node's properties: `act`, `gate` and `pony` only.
+    properties = set(re.findall(r"^var ([A-Za-z]\w*)\s*:", text, re.MULTILINE))
+    for name in sorted(properties - set(NODE_PROPERTIES)):
+        failure.add("runtime.gd:%s is a new public property; the node surface is fixed" % name)
+    for name, reason in sorted(NODE_PROPERTIES.items()):
+        if name not in properties:
+            failure.add("the node property allow-list row %s is stale (%s)" % (name, reason))
 
     # Raw input has one owner: input/service.gd decodes keys, buttons, motion and capture.
     for pattern in RUNTIME_RAW_INPUT:

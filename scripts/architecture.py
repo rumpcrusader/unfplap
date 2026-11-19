@@ -826,6 +826,90 @@ def function_offsets(text: str) -> list[tuple[int, str]]:
             re.finditer(r"^(?:static\s+)?func\s+(\w+)\(", text, re.MULTILINE)]
 
 
+CALLABLE_TARGET = re.compile(
+    r"Callable\(\s*([A-Za-z_]\w*)\s*,\s*\"([A-Za-z_]\w*)\"\s*\)")
+PRELOAD_CONST = re.compile(
+    r"^const\s+(\w+)\s*(?::\s*[\w.\[\]]+\s*)?(?::=|=)\s*preload\(\s*\"(res://[^\"]+\.gd)\"\s*\)",
+    re.MULTILINE)
+TYPED_VAR = re.compile(r"^var\s+(\w+)\s*:\s*([A-Za-z_]\w*)", re.MULTILINE)
+INFERRED_VAR = re.compile(r"^var\s+(\w+)\s*:=\s*([A-Za-z_]\w*)\.new\(", re.MULTILINE)
+MOD_EXTENDS = re.compile(r'^extends\s+"(res://mods/unfplap/[^"]+\.gd)"', re.MULTILINE)
+
+
+def _code_lines(text: str) -> str:
+    """Source with comment lines and end-of-line comments removed, so a doc example is not a
+    binding. A `#` inside a string can truncate a line, which only makes the scan miss a site."""
+    lines = []
+    for line in text.splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        cut = line.find("#")
+        lines.append(line if cut < 0 else line[:cut])
+    return "\n".join(lines)
+
+
+def _script_methods(path: Path, seen: set[Path]) -> tuple[bool, set[str]]:
+    """(fully_scanned, functions) for one mod script and its mod ancestors."""
+    if path in seen or not path.is_file():
+        return False, set()
+    seen.add(path)
+    text = _code_lines(path.read_text(encoding="utf-8"))
+    names = set(re.findall(r"^(?:static\s+)?func\s+(\w+)\(", text, re.MULTILINE))
+    parent = MOD_EXTENDS.search(text)
+    if parent:
+        target = ROOT / parent.group(1).replace("res://mods/unfplap/", "")
+        nested, inherited = _script_methods(target, seen)
+        return nested, names | inherited
+    if re.search(r"^extends\b", text, re.MULTILINE):
+        return False, names
+    return True, names
+
+
+def check_callable_targets(failure: Failure) -> None:
+    """A named callback must name a method that exists.
+
+    `Callable(self, "name")` is checked against the same file. `Callable(obj, "name")` is checked
+    when `obj` is a module-level field or constant whose declared or inferred type is one of the
+    mod's preloaded scripts; an unresolvable receiver is skipped. This is the guard that keeps a
+    renamed helper from silently returning its fallback forever.
+    """
+    cache: dict[Path, tuple[bool, set[str]]] = {}
+    for path in shipped_sources():
+        text = _code_lines(path.read_text(encoding="utf-8"))
+        funcs = set(re.findall(r"^(?:static\s+)?func\s+(\w+)\(", text, re.MULTILINE))
+        consts = {m.group(1): m.group(2) for m in PRELOAD_CONST.finditer(text)}
+        types: dict[str, str] = {}
+        for match in TYPED_VAR.finditer(text):
+            name, declared = match.group(1), match.group(2)
+            if declared in consts:
+                types[name] = consts[declared]
+        for match in INFERRED_VAR.finditer(text):
+            name, declared = match.group(1), match.group(2)
+            if declared in consts:
+                types.setdefault(name, consts[declared])
+        for match in CALLABLE_TARGET.finditer(text):
+            receiver, method = match.group(1), match.group(2)
+            line = line_of(text, match.start())
+            if receiver == "self":
+                if method not in funcs:
+                    failure.add("%s:%d binds Callable(self, \"%s\") but defines no %s()" % (
+                        rel(path), line, method, method))
+                continue
+            target = types.get(receiver)
+            if not target:
+                continue
+            script = ROOT / target.replace("res://mods/unfplap/", "")
+            if not script.is_file():
+                continue
+            if script not in cache:
+                cache[script] = _script_methods(script, set())
+            scanned, names = cache[script]
+            if scanned and method not in names:
+                failure.add("%s:%d binds Callable(%s, \"%s\") but %s defines no %s()" % (
+                    rel(path), line, receiver, method, rel(script), method))
+
+
+
 def enclosing_function(offsets: list[tuple[int, str]], at: int) -> str:
     """The top-level function around `at`, or `<module>` for the field and constant block."""
     name = "<module>"
@@ -1423,6 +1507,7 @@ def check() -> int:
     check_docs(failure)
     check_typing(failure)
     check_sources(failure)
+    check_callable_targets(failure)
     check_boundaries(failure)
     check_runtime_shape(failure)
     check_act_budgets(failure)

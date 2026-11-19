@@ -53,6 +53,15 @@ func _runtime() -> Node:
 
 func run() -> void:
 	var runtime: Node = _runtime()
+	# A dangling clock binding returns 0.0 forever and freezes the timers; the three consumers
+	# must read the session's clock and advance with it.
+	runtime._act.tick_clock(0.25)
+	check(runtime._readiness.clock.is_valid(), "readiness binds the session clock")
+	check(near(runtime._readiness._now(), 0.25), "readiness clock advances with the session")
+	check(runtime._face.clock.is_valid(), "face binds the session clock")
+	check(near(runtime._face._now(), 0.25), "face clock advances with the session")
+	check(runtime._act_facts.now.is_valid(), "act facts bind the session clock")
+	check(near(float(runtime._act_facts.now.call()), 0.25), "act facts clock advances with the session")
 	runtime._impact.move(0.10, 0.0)
 	runtime._impact.move(-0.15, 0.1)
 	check(str(runtime._readiness.last_intensity).is_empty(), "tiny stroke does not feed the axes")

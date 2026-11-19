@@ -377,9 +377,9 @@ func _init() -> void:
 	_act_facts.set_forced_glance = Callable(_phases, "set_forced_glance")
 	_act_facts.set_camera_basis_ready = Callable(_phases, "set_camera_basis_ready")
 	_act_facts.director = Callable(self, "_director")
-	_act_facts.now = Callable(self, "_now_s")
+	_act_facts.now = Callable(_act, "clock_s")
 	_readiness.log = Callable(self, "_log")
-	_readiness.clock = Callable(self, "_now_s")
+	_readiness.clock = Callable(_act, "clock_s")
 	_readiness.state = Callable(self, "_readiness_state")
 	_readiness.on_climax = Callable(_act, "climax")
 	_readiness.on_close = Callable(self, "_readiness_close")
@@ -396,7 +396,7 @@ func _init() -> void:
 	_afterglow.bind_host(self)
 	_afterglow.write_satisfaction = Callable(self, "_write_satisfaction")
 	_face.log = Callable(self, "_log")
-	_face.clock = Callable(self, "_now_s")
+	_face.clock = Callable(_act, "clock_s")
 	_reactions.log = Callable(self, "_log")
 	_pose_session.log = Callable(self, "_log")
 	_scene.stool_need = Callable(self, "stool_needed_count")
@@ -474,7 +474,7 @@ func _anatomy_host() -> ACT_HOST:
 	host.kiss_controller_cb = Callable(self, "_kiss_controller")
 	host.pose_cb = Callable(self, "_pose_service")
 	host.thrust_move_cb = Callable(_impact, "move")
-	host.now_s_cb = Callable(self, "_now_s")
+	host.now_s_cb = Callable(_act, "clock_s")
 	host.set_penetration_m_cb = Callable(_impact, "set_depth")
 	host.align_cb = Callable(self, "apply_anon_align")
 	host.touch_cb = Callable(_readiness, "touch")
@@ -514,7 +514,7 @@ func _handover_host() -> BODY_CHANGE_ACT_HOST:
 	host.cue_override_cb = Callable(self, "_form_cue_override")
 	host.set_face_cb = Callable(self, "_form_set_face")
 	host.status_cb = Callable(self, "_form_status")
-	host.now_cb = Callable(self, "_now_s")
+	host.now_cb = Callable(_act, "clock_s")
 	host.reaction_max_age_cb = Callable(self, "_cue_reaction_max_age_value")
 	host.attach_to_world_cb = Callable(_swap, "attach_to_world")
 	host.release_carry_cb = Callable(_swap, "release_carry")
@@ -1397,6 +1397,18 @@ func close_hint() -> String:
 func _rest_service() -> RefCounted:
 	_rest.bind(pony, _act.bed)
 	return _rest
+
+
+func _rest_context() -> Dictionary:
+	return {
+		"state": state,
+		"serial": _act.serial,
+		"player_pony": _act.player_pony,
+		"headset": WORLD.headset_view(),
+		"summary": _summary_service.summary,
+		"satisfaction": _readiness.satisfaction,
+		"aftercare_min": _act.aftercare_min,
+	}
 
 
 func _rest_restore_scene() -> void:

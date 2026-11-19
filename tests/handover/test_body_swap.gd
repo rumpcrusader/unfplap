@@ -443,7 +443,7 @@ func _fixture() -> Dictionary:
 	runtime._serial = 1
 	runtime._preferences = SETTINGS.preferences("test_mare")
 	runtime._features = {}
-	runtime._form_hint_debug = true
+	runtime._handover.set_form_hint_debug(true)
 	WORLD.bind_world(host)
 	MEMORY.instance = FakeMemory.new()
 	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
@@ -793,7 +793,7 @@ func _check_ai_change() -> void:
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the AI change resumes on the new body")
 	check(runtime.pony == new_pony, "the AI change keeps the act on the new body")
-	check(not runtime._form_reveal_done, "an AI change is neutral")
+	check(not runtime._handover.reveal_done, "an AI change is neutral")
 	var memory: FakeMemory = host.memory
 	check(memory.impressions.is_empty(), "an AI change writes no reveal memory")
 	# A second change after the resume is a fresh handover, not a stale pending swap.
@@ -927,7 +927,7 @@ func _check_form_reveal() -> void:
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the reveal resumes the same act")
 	check(runtime.pony == new_pony, "the reveal keeps the act on the new body")
-	check(runtime._form_reveal_done, "the requested reveal is recorded once")
+	check(runtime._handover.reveal_done, "the requested reveal is recorded once")
 	check(policy.reveal_calls == 1, "the reveal asks the provider policy once")
 	check(int(policy.last_reveal.get("origin", -1)) == int(BODY_CHANGE.Origin.PLAYER),
 		"the reveal context is the player's origin")
@@ -981,8 +981,8 @@ func _check_shape_offer() -> void:
 	host.memory = FakeMemory.new()
 	MEMORY.instance = host.memory
 	source.shape = ""
-	runtime._shape_offer_tick()
-	check(runtime._shape_offer_done and runtime._shape_offer_pending,
+	runtime._handover.offer_tick()
+	check(runtime._handover.offer_done and runtime._handover.offer_pending,
 		"a true-form climax offers the shape change")
 	check(policy.offer_calls == 1, "the offer tick asks the policy once")
 	check(policy.prompt_calls == 1, "the offer prompt comes from the policy")
@@ -997,12 +997,12 @@ func _check_shape_offer() -> void:
 	check(bool(policy.last_offer.get("own", false)), "the offer context uses the own form")
 	check(not bool(policy.last_offer.get("offer_pending", true)),
 		"the offer context is read before the offer is marked")
-	runtime._shape_offer_tick()
+	runtime._handover.offer_tick()
 	check(policy.offer_calls == 1, "a made offer is not asked again")
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_SHAPE,
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
 		"the offer names the pony in the debug log")
-	check(str(runtime._form_hint).is_empty(), "the offer stays off the HUD")
+	check(str(runtime._handover.form_hint()).is_empty(), "the offer stays off the HUD")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1011,7 +1011,7 @@ func _check_shape_offer() -> void:
 	director._player_text = "Rarity"
 	runtime._talk_tick(0.016)
 	check(source.shape_requests == ["rarity"], "the named mare starts the change")
-	check(not runtime._shape_offer_pending, "the offer is consumed by the name")
+	check(not runtime._handover.offer_pending, "the offer is consumed by the name")
 	check(source.active_change().origin == BODY_CHANGE.Origin.PLAYER,
 		"a named shape is the player's ask")
 	runtime._body_swap_tick(0.1)
@@ -1022,8 +1022,8 @@ func _check_shape_offer() -> void:
 	source.shape = "rarity"
 	PONIES.attach(new_pony)
 	runtime._body_swap_tick(0.1)
-	check(not runtime._form_reveal_done, "a named shape is not an exceptional reveal")
-	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
+	check(not runtime._handover.reveal_done, "a named shape is not an exceptional reveal")
+	check(not runtime._handover.offer_pending, "the player's named shape spends the offer")
 	check(policy.accepted_calls == 1, "the named shape asks the accepted-offer policy")
 	check(int(policy.last_accepted.get("origin", -1)) == int(BODY_CHANGE.Origin.PLAYER),
 		"the accepted offer context is the player's origin")
@@ -1043,8 +1043,8 @@ func _check_named_shape_gate() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
-	runtime._shape_offer_tick()
-	check(runtime._shape_offer_pending, "the offer is pending before the name")
+	runtime._handover.offer_tick()
+	check(runtime._handover.offer_pending, "the offer is pending before the name")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1074,7 +1074,7 @@ func _check_named_shape_gate() -> void:
 	check(not runtime._suspended, "the target shape resumes the act")
 	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the act state survives the shape wait")
 	check(absf(float(runtime.depth) - 0.42) < 0.0001, "depth survives the shape wait")
-	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
+	check(not runtime._handover.offer_pending, "the player's named shape spends the offer")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)
@@ -1088,7 +1088,7 @@ func _check_watchdog_with_body() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
-	runtime._shape_offer_tick()
+	runtime._handover.offer_tick()
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1108,7 +1108,7 @@ func _check_watchdog_with_body() -> void:
 	check(not runtime._suspended, "the watchdog resumes a body that never took the shape")
 	check(runtime.pony == new_pony, "the watchdog keeps the adopted body")
 	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the watchdog does not end a live body")
-	check(runtime._shape_offer_pending, "the failed watchdog shape restores the offer")
+	check(runtime._handover.offer_pending, "the failed watchdog shape restores the offer")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)
@@ -1125,36 +1125,36 @@ func _check_offer_gate() -> void:
 	borrowed.form_id = "rarity"
 	borrowed.fit_id = "rarity"
 	body_change.apply_form(runtime.pony, borrowed)
-	runtime._shape_offer_tick()
-	check(not runtime._shape_offer_done, "a disguise gets no shape offer")
+	runtime._handover.offer_tick()
+	check(not runtime._handover.offer_done, "a disguise gets no shape offer")
 	source.shape = ""
 	var own := body_change.default_form(runtime.pony)
 	own.revision = borrowed.revision + 1
 	body_change.apply_form(runtime.pony, own)
 	runtime.pony_climaxes = 0
-	runtime._shape_offer_tick()
-	check(not runtime._shape_offer_done, "the offer waits for a climax")
+	runtime._handover.offer_tick()
+	check(not runtime._handover.offer_done, "the offer waits for a climax")
 	runtime.pony_climaxes = 1
-	runtime._shape_offer_tick()
-	check(runtime._shape_offer_done and runtime._shape_offer_pending,
+	runtime._handover.offer_tick()
+	check(runtime._handover.offer_done and runtime._handover.offer_pending,
 		"the offer is made once after a climax")
 	source.shape = "fluttershy"
-	runtime._shape_offer_pending = false
-	runtime._form_reveal_done = false
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_ASK,
+	runtime._handover.offer_pending = false
+	runtime._handover.reveal_done = false
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"a disguise invites the reveal ask in the debug log")
-	check(str(runtime._form_hint).is_empty(), "the reveal ask stays off the HUD")
-	runtime._form_reveal_done = true
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log).is_empty(), "a used reveal hides the debug log")
-	check(str(runtime._form_hint).is_empty(), "a used reveal hides the HUD hint")
-	runtime._form_reveal_done = false
-	runtime._shape_offer_pending = true
+	check(str(runtime._handover.form_hint()).is_empty(), "the reveal ask stays off the HUD")
+	runtime._handover.reveal_done = true
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log).is_empty(), "a used reveal hides the debug log")
+	check(str(runtime._handover.form_hint()).is_empty(), "a used reveal hides the HUD hint")
+	runtime._handover.reveal_done = false
+	runtime._handover.offer_pending = true
 	runtime.force_stop()
-	check(not runtime._shape_offer_pending, "the act end drops the pending offer")
-	check(str(runtime._form_hint_log).is_empty(), "the act end hides the debug log")
-	check(str(runtime._form_hint).is_empty(), "the act end hides the HUD hint")
+	check(not runtime._handover.offer_pending, "the act end drops the pending offer")
+	check(str(runtime._handover.form_hint_log).is_empty(), "the act end hides the debug log")
+	check(str(runtime._handover.form_hint()).is_empty(), "the act end hides the HUD hint")
 	_free_fixture(f)
 
 
@@ -1164,22 +1164,22 @@ func _check_no_player_hint() -> void:
 	var f := _fixture()
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
-	runtime._form_hint_debug = false
+	runtime._handover.set_form_hint_debug(false)
 	source.shape = ""
-	runtime._shape_offer_tick()
-	runtime._form_hint_tick()
-	check(runtime._shape_offer_pending, "the offer is still made")
-	check(str(runtime._form_hint).is_empty(), "the release offer publishes no hint")
+	runtime._handover.offer_tick()
+	runtime._handover.hint_tick()
+	check(runtime._handover.offer_pending, "the offer is still made")
+	check(str(runtime._handover.form_hint()).is_empty(), "the release offer publishes no hint")
 	source.shape = "fluttershy"
-	runtime._shape_offer_pending = false
-	runtime._form_reveal_done = false
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint).is_empty(), "a disguise publishes no reveal hint")
-	runtime._form_hint_debug = true
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_ASK,
+	runtime._handover.offer_pending = false
+	runtime._handover.reveal_done = false
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint()).is_empty(), "a disguise publishes no reveal hint")
+	runtime._handover.set_form_hint_debug(true)
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"debug mode can name the ask in the log")
-	check(str(runtime._form_hint).is_empty(), "debug mode still publishes no HUD hint")
+	check(str(runtime._handover.form_hint()).is_empty(), "debug mode still publishes no HUD hint")
 	runtime.force_stop()
 	_free_fixture(f)
 
@@ -1190,24 +1190,24 @@ func _check_hint_states() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = "fluttershy"
-	runtime._form_reveal_done = false
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_ASK,
+	runtime._handover.reveal_done = false
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"a disguise invites the ask in the debug log")
 	runtime.state = RUNTIME.State.CLIMAX
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log).is_empty(), "the climax state clears the debug log")
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log).is_empty(), "the climax state clears the debug log")
 	runtime.state = RUNTIME.State.AFTERGLOW
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log).is_empty(), "the afterglow state clears the debug log")
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log).is_empty(), "the afterglow state clears the debug log")
 	runtime.state = RUNTIME.State.RESTORE
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log).is_empty(), "the restore state clears the debug log")
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log).is_empty(), "the restore state clears the debug log")
 	runtime.state = RUNTIME.State.ACTIVE
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_ASK,
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"the active state restores the debug log")
-	check(str(runtime._form_hint).is_empty(), "the HUD hint stays empty through every state")
+	check(str(runtime._handover.form_hint()).is_empty(), "the HUD hint stays empty through every state")
 	runtime.force_stop()
 	_free_fixture(f)
 
@@ -1219,8 +1219,8 @@ func _check_failed_named_offer() -> void:
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
-	runtime._shape_offer_tick()
-	check(runtime._shape_offer_pending, "the offer is pending before the name")
+	runtime._handover.offer_tick()
+	check(runtime._handover.offer_pending, "the offer is pending before the name")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1229,7 +1229,7 @@ func _check_failed_named_offer() -> void:
 	director._player_text = "Rarity"
 	runtime._talk_tick(0.016)
 	check(source.shape_requests == ["rarity"], "the named mare starts the change")
-	check(not runtime._shape_offer_pending, "the name consumes the offer")
+	check(not runtime._handover.offer_pending, "the name consumes the offer")
 	runtime._handover.clock = 0.0
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "the named change suspends the act")
@@ -1237,13 +1237,13 @@ func _check_failed_named_offer() -> void:
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the failed named change resumes the old body")
 	check(runtime.pony == old_pony, "the old body keeps the act")
-	check(runtime._shape_offer_pending, "a failed named change puts the offer back")
-	runtime._form_hint_debug = true
-	runtime._form_hint_tick()
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_SHAPE,
+	check(runtime._handover.offer_pending, "a failed named change puts the offer back")
+	runtime._handover.set_form_hint_debug(true)
+	runtime._handover.hint_tick()
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
 		"the hint returns with the offer in the debug log")
-	check(str(runtime._form_hint).is_empty(), "the offer stays off the HUD")
+	check(str(runtime._handover.form_hint()).is_empty(), "the offer stays off the HUD")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)
@@ -1259,7 +1259,7 @@ func _check_named_without_shape() -> void:
 	host.memory = FakeMemory.new()
 	MEMORY.instance = host.memory
 	source.shape = ""
-	runtime._shape_offer_tick()
+	runtime._handover.offer_tick()
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1279,16 +1279,16 @@ func _check_named_without_shape() -> void:
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "the settled failed shape resumes the new body")
 	check(runtime.pony == new_pony, "the failed shape keeps the new body")
-	check(not runtime._form_reveal_done, "a named change with no shape is not a reveal")
+	check(not runtime._handover.reveal_done, "a named change with no shape is not a reveal")
 	var memory: FakeMemory = host.memory
 	check(memory.impressions.is_empty(), "a named change with no shape writes no reveal memory")
-	check(runtime._shape_offer_pending, "a failed named shape restores the offer")
-	runtime._form_hint_debug = true
-	runtime._form_hint_tick()
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_SHAPE,
+	check(runtime._handover.offer_pending, "a failed named shape restores the offer")
+	runtime._handover.set_form_hint_debug(true)
+	runtime._handover.hint_tick()
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
 		"the hint returns with the offer in the debug log")
-	check(str(runtime._form_hint).is_empty(), "the offer stays off the HUD")
+	check(str(runtime._handover.form_hint()).is_empty(), "the offer stays off the HUD")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)
@@ -1302,8 +1302,8 @@ func _check_ai_change_keeps_offer() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
-	runtime._shape_offer_tick()
-	check(runtime._shape_offer_pending, "the offer is pending before her change")
+	runtime._handover.offer_tick()
+	check(runtime._handover.offer_pending, "the offer is pending before her change")
 	source.changing = true
 	runtime._handover.clock = 0.0
 	runtime._body_swap_tick(0.1)
@@ -1316,12 +1316,12 @@ func _check_ai_change_keeps_offer() -> void:
 	PONIES.attach(ai_body)
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "her own change resumes the act")
-	check(runtime._shape_offer_pending, "her own change keeps the player's offer")
-	runtime._form_hint_debug = true
-	runtime._form_hint_tick()
-	check(str(runtime._form_hint_log) == RUNTIME.FORM_HINT_SHAPE,
+	check(runtime._handover.offer_pending, "her own change keeps the player's offer")
+	runtime._handover.set_form_hint_debug(true)
+	runtime._handover.hint_tick()
+	check(str(runtime._handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
 		"the debug log still names the player's offer")
-	check(str(runtime._form_hint).is_empty(), "the player's offer stays off the HUD")
+	check(str(runtime._handover.form_hint()).is_empty(), "the player's offer stays off the HUD")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1332,7 +1332,7 @@ func _check_ai_change_keeps_offer() -> void:
 	check(source.shape_requests == ["rarity"], "the player's name reaches the source")
 	check(source.active_change().origin == BODY_CHANGE.Origin.PLAYER,
 		"the player's name is marked as the player's")
-	check(not runtime._shape_offer_pending, "the player's named shape spends the offer")
+	check(not runtime._handover.offer_pending, "the player's named shape spends the offer")
 	runtime.force_stop()
 	director.queue_free()
 	_free_fixture(f)

@@ -40,7 +40,6 @@ const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presen
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
-const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
 const BODY_CHANGE_ACT_HOST := preload("res://mods/unfplap/body_change/act_host.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -80,14 +79,7 @@ const CLIMAX_SECONDS := 5.0
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
 ## A player-requested reveal is the act's one exceptional beat; its heat, peak, cue and memory
-## mark are the provider policy's, not the base runtime's.
-## Debug log labels for the form state. A release never publishes a HUD hint: the player finds
-## the reveal and the gift by probing her, so the debug build may name the state in the log only.
-const FORM_HINT_ASK := "Say to her: ask to see the real her."
-const FORM_HINT_SHAPE := "Say to her: name the pony she should wear."
-## The memory mark a generic reveal may name. The memory facade owns the one exceptional reveal
-## builder and its wording; the runtime only routes the kind.
-const FORM_REVEAL_MEMORY := "form_reveal"
+## mark are the provider policy's, not the base runtime's. The handover owns the form flags.
 ## The standing start may place Anon closer or farther so the shaft rests at her entrance before
 ## the act. Beyond this the offer cone would be wrong and the fit is left to the hip offset.
 const STANDING_FIT_MAX_M := 0.6
@@ -199,21 +191,6 @@ var _suspended: bool:
 ## Keep the live `Z` shape when the resume re-reads settings instead of treating it as a settings
 ## edit. The next act's snapshot still follows the saved setting.
 var _preserve_auto_shape_on_snapshot := false
-## Form-change interaction: the exceptional reveal is once per act, the offer is once per act,
-## and the HUD hint is cached so a frame never looks the source up.
-var _form_reveal_done := false
-var _shape_offer_done := false
-var _shape_offer_pending := false
-## Reused typed policy context. The offer tick runs every ACTIVE frame, so the runtime writes
-## this value instead of allocating one per ask.
-var _form_context: BODY_CHANGE_POLICY.BodyChangeActContext = BODY_CHANGE_POLICY.BodyChangeActContext.new()
-var _form_talk_turn := -1
-var _form_hint := ""
-## The debug log label for the current form state. It is never copied to the act facts, so no
-## debug build can put the reveal or the gift back on the HUD.
-var _form_hint_log := ""
-## Debug mode at the act's settings snapshot: only then may the run log name the form state.
-var _form_hint_debug := false
 ## `reparent()` runs `_exit_tree()`. The handover moves the live runtime between bodies, so that
 ## signal must not run the world-close teardown it exists for.
 var _swapping_parent := false
@@ -484,11 +461,24 @@ func _handover_host() -> BODY_CHANGE_ACT_HOST:
 	host.id_cb = Callable(self, "_act_id")
 	host.act_live_cb = Callable(self, "_act_live")
 	host.restoring_cb = Callable(self, "_act_restoring")
+	host.state_cb = Callable(self, "_state")
+	host.event_id_cb = Callable(self, "_event_id_value")
 	host.depth_cb = Callable(self, "_depth")
 	host.climaxes_cb = Callable(self, "_climaxes")
+	host.max_climaxes_cb = Callable(self, "_max_climaxes_value")
+	host.satisfaction_cb = Callable(self, "_satisfaction_value")
+	host.cue_cb = Callable(self, "_cue_value")
 	host.pose_view_cb = Callable(self, "_pose_view_value")
 	host.start_pose_cb = Callable(self, "_start_pose_id")
 	host.shape_name_cb = Callable(self, "_shape_name")
+	host.reaction_line_cb = Callable(self, "_form_reaction_line")
+	host.note_reaction_cb = Callable(self, "_form_note_reaction")
+	host.add_heat_cb = Callable(self, "_form_add_heat")
+	host.cue_override_cb = Callable(self, "_form_cue_override")
+	host.set_face_cb = Callable(self, "_form_set_face")
+	host.status_cb = Callable(self, "_form_status")
+	host.now_cb = Callable(self, "_now_s")
+	host.reaction_max_age_cb = Callable(self, "_cue_reaction_max_age_value")
 	host.log_cb = Callable(self, "_log")
 	_handover_host_cache = host
 	return _handover_host_cache
@@ -616,6 +606,26 @@ func _climaxes() -> int:
 	return pony_climaxes
 
 
+func _max_climaxes_value() -> int:
+	return _max_pony_climaxes
+
+
+func _satisfaction_value() -> float:
+	return satisfaction
+
+
+func _cue_value() -> String:
+	return cue
+
+
+func _event_id_value() -> String:
+	return _event_id
+
+
+func _cue_reaction_max_age_value() -> float:
+	return _cue_reaction_max_age_s
+
+
 func _auto_pace() -> float:
 	return _readiness.auto_pace()
 
@@ -704,7 +714,7 @@ func refresh_view() -> void:
 	facts.satisfaction = satisfaction
 	facts.mood = mood
 	facts.cue = cue
-	facts.form_hint = _form_hint
+	facts.form_hint = _handover.form_hint()
 	facts.pony_climaxes = pony_climaxes
 	facts.depth = depth
 	facts.penetration_m = penetration_m
@@ -1117,7 +1127,7 @@ func _snapshot_settings() -> void:
 	_thrust_travel = snap.thrust_travel
 	_max_pony_climaxes = snap.max_pony_climaxes
 	_pelvis_gap_m = snap.pelvis_gap_m
-	_form_hint_debug = SETTINGS.debug_mode.get_bool()
+	_handover.set_form_hint_debug(SETTINGS.debug_mode.get_bool())
 	_readiness.configure_auto(snap.auto_pace, snap.auto_max_depth, snap.auto_curve,
 		snap.auto_min_depth, _preserve_auto_shape_on_snapshot)
 	_reactions.configure({
@@ -1459,7 +1469,7 @@ func _physics_tick(delta: float) -> void:
 			var talk_started := Time.get_ticks_usec()
 			_readiness_tick(delta)
 			_talk_tick(delta)
-			_shape_offer_tick()
+			_handover.offer_tick()
 			_bystander_tick(delta)
 			_timed("runtime_talk", talk_started)
 	if state in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.RESTORE]:
@@ -1472,7 +1482,7 @@ func _physics_tick(delta: float) -> void:
 			# scene is settled now, and restoring to this is what puts the camera back correctly.
 			if _pose_family() == "bed":
 				_missionary_camera_controller().resnapshot()
-			_form_hint_tick()
+			_handover.hint_tick()
 	elif state == State.CLIMAX:
 		_climax_left -= delta
 		_reactions.hearts_tick(delta)
@@ -1912,13 +1922,7 @@ func _begin_act(pose: String, bed_in: Variant, act_source: String,
 	_reset_thrust_state()
 	_stopped_by_her = false
 	_tolerance_warning_key = ""
-	_form_reveal_done = false
-	_shape_offer_done = false
-	_shape_offer_pending = false
-	_form_context.form = null
-	_form_context.change = null
-	_form_hint = ""
-	_form_hint_log = ""
+	_handover.reset_act()
 	_end_tail_tuck()
 	_summary_service.reset_act()
 	_prepare_vocal()
@@ -2109,11 +2113,6 @@ func _body_form() -> BODY_FORM.BodyForm:
 	return _handover.form()
 
 
-## The act pony's provider, through the handover's typed source lookup.
-func _shape_source() -> BODY_CHANGE_SOURCE:
-	return _handover.source()
-
-
 ## Stop the act's ticks without ending it. The runtime leaves the old body here; the old body may
 ## still be alive inside the flame. The outer act state, depth, climaxes, summary and event stay.
 func _suspend_for_body_swap(change: BODY_CHANGE) -> void:
@@ -2143,7 +2142,7 @@ func _suspend_for_body_swap(change: BODY_CHANGE) -> void:
 	_hand_controller().reset()
 	_handover.remember_auto(_readiness.auto_active())
 	_reset_swap_input_state()
-	_form_hint_tick()
+	_handover.hint_tick()
 	_wings_controller().release()
 	_anatomy_bridge.bind(_anatomy_host())
 	_anatomy_bridge.end()
@@ -2302,9 +2301,9 @@ func _resume_after_body_swap() -> void:
 	_log("body swap resumed pony=%s id=%s form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
 		str(pony.name), _id, _handover.change_form_id(change), state, _handover.pose, depth,
 		pony_climaxes])
-	_complete_form_change(change, changed, confirmed)
+	_handover.complete_resume(change, changed, confirmed)
 	if changed:
-		_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.FORM_SETTLED, change)
+		_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.FORM_SETTLED, change)
 
 
 ## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is
@@ -3252,300 +3251,43 @@ func _on_talk(text: String) -> void:
 	_readiness.talk(text)
 
 
-## The game's talk turn is the one interaction channel: no new key and no picker. The readiness
-## service already scores a new turn; this reads the same turn for the source's own words.
-func _player_line_tick(director: Node) -> void:
-	if state != State.ACTIVE or _suspended or director == null:
-		return
-	var turn := _talk_turn(director)
-	if turn == _form_talk_turn:
-		return
-	_form_talk_turn = turn
-	var text := str(director.get("_player_text")).strip_edges()
-	if text.is_empty():
-		return
-	_on_player_line(text)
-
-
-func _talk_turn(director: Node) -> int:
-	if director == null:
-		return -1
-	var value: Variant = director.get("_turn_id")
-	return int(value) if value != null else -1
-
-
-## One player line during a live act. A pending shape offer consumes a named adult mare; a
-## source wearing another shape consumes a reveal ask. Everything else is ordinary talk and is
-## left alone.
-func _on_player_line(text: String) -> void:
-	if state != State.ACTIVE or _suspended:
-		return
-	var source := _shape_source()
-	if source == null:
-		return
-	if _shape_offer_pending:
-		var shape := _source_named_form(source, text)
-		if not shape.is_empty():
-			var answer: Dictionary = request_form_change(false, shape, true)
-			if bool(answer.get("ok", false)):
-				_shape_offer_pending = false
-				_form_hint_tick()
-				_log("form change named by player id=%s shape=%s" % [_id, shape])
-				return
-			_log("form change named by player refused id=%s shape=%s reason=%s" % [
-				_id, shape, str(answer.get("reason", ""))])
-		var note := _source_named_note(source, text)
-		if not note.is_empty():
-			_form_status(note)
-	if not _source_current_shape(source).is_empty():
-		if _form_reveal_done or not _source_asks_form_change(source, text):
-			return
-		var result: Dictionary = request_form_change(true, "", true)
-		if bool(result.get("ok", false)):
-			_log("form reveal requested id=%s" % _id)
-		else:
-			_log("form reveal refused id=%s reason=%s" % [
-				_id, str(result.get("reason", ""))])
-
-
-## The provider policy owns the offer timing and the prompt. The runtime keeps the once-per-act
-## gate and the dialogue reaction; a false before the provider's trigger does not spend the offer.
-func _shape_offer_tick() -> void:
-	if _shape_offer_done or _suspended or state != State.ACTIVE:
-		return
-	var source := _shape_source()
-	if source == null:
-		# This pony has no shape source, and one cannot join a live act; stop asking every tick.
-		_shape_offer_done = true
-		return
-	var policy := _shape_policy(source)
-	if policy == null:
-		# A provider without a policy never offers; one cannot join a live act.
-		_shape_offer_done = true
-		return
-	if not policy.should_offer(_form_context_for(_body_form(),
-			BODY_CHANGE.Origin.PROVIDER, null)):
-		return
-	var prompt := policy.offer_prompt().strip_edges()
-	if prompt.is_empty():
-		_shape_offer_done = true
-		return
-	_shape_offer_done = true
-	_shape_offer_pending = true
-	_form_hint_tick()
-	_log("form shape offer id=%s climaxes=%d" % [_id, pony_climaxes])
-	if not is_instance_valid(WORLD.game):
-		return
-	var act_id := _event_id
-	var valid := func() -> bool:
-		return not _suspended and _event_id == act_id and _shape_offer_pending
-	var key: String = _dialogue_service().reaction_line(MEMORY.Reaction.FORM_OFFER,
-		"%s:form_offer" % act_id, prompt, valid)
-	if key.is_empty():
-		return
-	_dialogue_service().note_reaction(key, cue, _now_s() + _cue_reaction_max_age_s)
-	_log("utterance kind=reaction key=%s" % key)
-
-
-## The form state's debug label. It is never copied to the act facts: the HUD keeps no form row
-## text in a release or a debug build. The cached label only stops the log repeating itself, and
-## the HUD still reads an empty `_form_hint` every frame.
-func _form_hint_tick() -> void:
-	var next := ""
-	if _form_hint_debug and state == State.ACTIVE and not _suspended:
-		var source := _shape_source()
-		if source != null:
-			if _shape_offer_pending:
-				next = FORM_HINT_SHAPE
-			elif not _form_reveal_done and not _source_current_shape(source).is_empty():
-				next = FORM_HINT_ASK
-	_form_hint = ""
-	if next == _form_hint_log:
-		return
-	_form_hint_log = next
-	if not next.is_empty():
-		_log("form hint suppressed \"%s\"" % next)
-
-
-## The new body is up. A player-requested return to her own form is the act's exceptional beat;
-## any other change (her own or a named shape) is a neutral continuation. A named change that
-## failed before the new body arrived, or a new body that never reported the named shape, puts the
-## offer back so the player gets a second chance. Her own change never spends the player's offer;
-## only the call the player made does.
-func _complete_form_change(change: BODY_CHANGE, changed: bool, confirmed := false) -> void:
-	var source := _handover.change_source(change)
-	var target := change.target_form_id.strip_edges() if change != null else ""
-	var by_player := change != null and change.origin == BODY_CHANGE.Origin.PLAYER
-	if not changed:
-		_restore_shape_offer(target, by_player)
-		_form_hint_tick()
-		return
-	var shape := _source_current_shape(source)
-	if shape.is_empty() and confirmed and change != null and change.form != null:
-		shape = change.form.form_id.strip_edges()
-	if shape.is_empty() and not target.is_empty() and confirmed:
-		shape = target
-	if not target.is_empty() and shape != target:
-		_restore_shape_offer(target, by_player)
-		_form_hint_tick()
-		_log("form change failed id=%s target=%s shape=%s exceptional=false" % [
-			_id, target, shape if not shape.is_empty() else "self"])
-		return
-	if by_player and target.is_empty() and shape.is_empty() and source != null:
-		if not _form_reveal_done:
-			_commit_form_reveal(change)
-		_form_hint_tick()
-		_shape_offer_tick()
-		return
-	if by_player and not shape.is_empty():
-		_shape_offer_pending = false
-		_apply_offer_accepted(change)
-	_form_hint_tick()
-	_log("form changed id=%s shape=%s exceptional=false" % [
-		_id, shape if not shape.is_empty() else "self"])
-
-
-func _restore_shape_offer(target: String, by_player: bool) -> void:
-	if not by_player or target.is_empty():
-		return
-	if not _shape_offer_done or _shape_offer_pending:
-		return
-	_shape_offer_pending = true
-	_log("form change failed; the shape offer stands again id=%s" % _id)
-
-
-## Once per act: the provider's typed effects become the readiness spike, cue, special impression
-## and peak. The private thought says he wanted her, not the shape; the world event stays
-## non-graphic. The summary's generic `form_reveal` input carries the comfort; the effects do not.
-func _commit_form_reveal(change: BODY_CHANGE) -> void:
-	var policy := _shape_policy(_handover.change_source(change))
-	var effects: BODY_CHANGE_POLICY.BodyChangeEffects = null
-	if policy != null:
-		effects = policy.on_reveal(_form_context_for(_body_form(),
-			BODY_CHANGE.Origin.PLAYER, change))
-	_form_reveal_done = true
-	_set_face(0.85, FACE.ACT_LIDS)
-	_apply_form_effects(effects)
-	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.REVEALED, change)
-	_log("form reveal id=%s event=%s readiness=%.0f" % [_id, _event_id, satisfaction])
-
-
-## A player-named shape is the provider's accepted offer. The changelings policy is neutral; a
-## future provider may supply its own generic effects.
-func _apply_offer_accepted(change: BODY_CHANGE) -> void:
-	var policy := _shape_policy(_handover.change_source(change))
-	if policy == null:
-		return
-	_apply_form_effects(policy.on_offer_accepted(_form_context_for(_body_form(),
-		BODY_CHANGE.Origin.PLAYER, change)))
-	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.OFFER_ACCEPTED, change)
-
-
-## Execute one typed effect value. `0`/`""` means none, so a neutral value is a no-op.
-func _apply_form_effects(effects: BODY_CHANGE_POLICY.BodyChangeEffects) -> void:
-	if effects == null or effects.is_empty():
-		return
-	if state == State.ACTIVE:
-		if effects.heat > 0.0:
-			_readiness.add_heat(minf(effects.heat, READINESS_MAX - satisfaction))
-		if not effects.cue.is_empty():
-			_set_cue_override(effects.cue, _cue_override_seconds)
-	if effects.memory_kind.is_empty() and effects.peak <= 0.0:
-		return
-	var memory: Variant = _memory_service()
-	if memory == null:
-		return
-	if effects.memory_kind == FORM_REVEAL_MEMORY:
-		memory.commit(memory.form_reveal_impression(_id, _event_id))
-	if effects.peak > 0.0:
-		memory.record_peak(memory.form_reveal_peak(_id, _event_id, effects.peak))
-
-
-## The provider's typed offer/reveal policy, or null. The base runtime knows the contract, not
-## the installed pack.
-func _shape_policy(source: BODY_CHANGE_SOURCE = null) -> BODY_CHANGE_POLICY:
-	var service := _handover.service()
-	if service != null and is_instance_valid(pony) and pony is Node3D:
-		var policy := service.policy_for(pony)
-		if policy != null:
-			return policy
-	if source == null:
-		source = _shape_source()
-	if source == null:
-		return null
-	return source.policy()
-
-
-## Fill the reused typed act context the provider policy reads. The offer tick runs every ACTIVE
-## frame, so this writes fields and never allocates.
-func _form_context_for(form: BODY_FORM.BodyForm, origin: BODY_CHANGE.Origin,
-		change: BODY_CHANGE) -> BODY_CHANGE_POLICY.BodyChangeActContext:
-	var context := _form_context
-	context.pony_id = _id
-	context.form = form
-	context.change = change
-	context.origin = origin
-	context.state = change.state if change != null else BODY_CHANGE.State.REQUESTED
-	context.offer_pending = _shape_offer_pending
-	context.reveal_used = _form_reveal_done
-	context.by_player = origin == BODY_CHANGE.Origin.PLAYER
-	context.pony_climaxes = pony_climaxes
-	context.max_climaxes = _max_pony_climaxes
-	context.act_active = state == State.ACTIVE and not _suspended
-	return context
-
-
-## Dispatch one generic act milestone to the provider policy. The context is the reused act value;
-## a provider that does not care keeps the base no-op.
-func _dispatch_policy_event(event: BODY_CHANGE_POLICY.ActEvent,
-		change: BODY_CHANGE = null) -> void:
-	var policy := _shape_policy(_handover.change_source(change))
-	if policy == null:
-		return
-	var origin := change.origin if change != null else BODY_CHANGE.Origin.PROVIDER
-	policy.on_act_event(event, _form_context_for(_body_form(), origin, change))
-
-
-func _form_status(text: String) -> void:
-	HUD.toast(text, 2.5)
-
-
-func _source_current_shape(source: BODY_CHANGE_SOURCE) -> String:
-	if source == null or not is_instance_valid(pony) or not pony is Node3D:
-		return ""
-	return source.presented_form_id(pony).strip_edges()
-
-
-func _source_asks_form_change(source: BODY_CHANGE_SOURCE, text: String) -> bool:
-	return source != null and source.asks_form_change(text)
-
-
-func _source_named_form(source: BODY_CHANGE_SOURCE, text: String) -> String:
-	if source == null:
-		return ""
-	return source.named_form(text).strip_edges()
-
-
-func _source_named_note(source: BODY_CHANGE_SOURCE, text: String) -> String:
-	if source == null:
-		return ""
-	return source.named_form_note(text).strip_edges()
-
-
-func _memory_service() -> Variant:
-	return MEMORY.instance
-
-
 func _talk_tick(_delta: float) -> void:
 	var director := _director()
-	_player_line_tick(director)
+	_handover.player_line_tick(director)
 	_readiness.talk_tick(director)
 
 
 func _remember_talk_turn() -> void:
 	var director := _director()
 	_readiness.remember_talk_turn(director)
-	_form_talk_turn = _talk_turn(director)
+	_handover.remember_talk_turn(director)
+
+
+## The body-change handover's host callbacks: the form interaction lives there and the runtime
+## supplies the dialogue reaction, the readiness spike and the act's expression beat.
+func _form_reaction_line(reaction: int, event_id: String, fallback: String,
+		valid: Callable) -> String:
+	return _dialogue_service().reaction_line(reaction, event_id, fallback, valid)
+
+
+func _form_note_reaction(key: String, cue_text: String, until: float) -> void:
+	_dialogue_service().note_reaction(key, cue_text, until)
+
+
+func _form_add_heat(amount: float) -> void:
+	_readiness.add_heat(minf(amount, READINESS_MAX - satisfaction))
+
+
+func _form_cue_override(text: String) -> void:
+	_set_cue_override(text, _cue_override_seconds)
+
+
+func _form_set_face(smile: float) -> void:
+	_set_face(smile, FACE.ACT_LIDS)
+
+
+func _form_status(text: String) -> void:
+	HUD.toast(text, 2.5)
 
 
 ## The readiness host boundary: scene values the pure scoring needs, and the presentation it
@@ -3633,7 +3375,7 @@ func _summary_values() -> Dictionary:
 		"pattern_right": _readiness.act_pattern_right,
 		"ended_early": _act_ended_early,
 		"stopped_by_her": _stopped_by_her,
-		"form_reveal": _form_reveal_done,
+		"form_reveal": _handover.reveal_done,
 	}
 
 
@@ -3898,7 +3640,7 @@ func _climax() -> void:
 	mood = "climax"
 	cue = "She is climaxing."
 	_set_cue_override("She is climaxing.", CLIMAX_SECONDS)
-	_form_hint_tick()
+	_handover.hint_tick()
 	_reactions.schedule_hearts()
 	_reactions.hearts_burst_at(_reactions.dock_point())
 	_set_face(0.3, FACE.CLIMAX_LIDS)
@@ -3941,13 +3683,13 @@ func _queue_climax_reaction() -> void:
 ## The first ACTIVE entry after the pose settles. Later returns from a climax are CLIMAX_END.
 func _enter_active() -> void:
 	_set_state(State.ACTIVE)
-	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
+	_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
 
 
 ## The pony climax ends on its own. It returns to ACTIVE unless the configured limit was
 ## reached; afterglow is the player's choice, not the climax state's automatic exit.
 func _finish_climax() -> void:
-	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.CLIMAX_END)
+	_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.CLIMAX_END)
 	if _max_pony_climaxes > 0 and pony_climaxes >= _max_pony_climaxes:
 		_enter_afterglow()
 		return
@@ -3957,7 +3699,7 @@ func _finish_climax() -> void:
 	satisfaction = 0.0
 	mood = "warming"
 	cue = ""
-	_form_hint_tick()
+	_handover.hint_tick()
 	_readiness.cue_override = ""
 	_readiness.cue_until = 0.0
 	_readiness.overwhelmed = 0.0
@@ -4037,7 +3779,7 @@ func prompt_note() -> String:
 		"caressing": _hand_controller().any_active(),
 		"leaning": _act_camera.lean_forward >= 0.35 or _act_camera.lean_action_active or _kiss_controller().leaning_close(),
 		"missionary": _pose_family() == "bed",
-		"form_source": _shape_source() != null,
+		"form_source": _handover.source() != null,
 		"form_name": form.form_name.strip_edges() if form != null else "",
 		"form_borrowed": form != null and not form.is_own(),
 	})
@@ -4068,8 +3810,8 @@ func _afterglow_begin() -> void:
 		_kiss_controller().end_lean_kiss()
 	_commit_afterglow()
 	_set_state(State.AFTERGLOW)
-	_form_hint_tick()
-	_dispatch_policy_event(BODY_CHANGE_POLICY.ActEvent.AFTERGLOW)
+	_handover.hint_tick()
+	_handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.AFTERGLOW)
 	_sync_act_facts()
 	# The oral afterglow releases the mouth contact and keeps the turned pose. The pose row's
 	# afterglow profile is passive, so no standing close window opens.
@@ -4142,7 +3884,7 @@ func _restore_begin() -> void:
 	_end_act_lines(true)
 	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
 	_set_state(State.RESTORE)
-	_form_hint_tick()
+	_handover.hint_tick()
 	# integration: act-only anatomy hides as soon as the act starts restoring.
 	_anatomy_bridge.apply_live()
 	_restore_left = RESTORE_SECONDS
@@ -4168,10 +3910,7 @@ func _end_session(rejoin_cuddle: bool) -> void:
 	# A suspended act may end here (world close, a failed swap or an invalid body). Drop the
 	# handover before the normal teardown; it is not a second exit path.
 	_handover.abort()
-	_shape_offer_pending = false
-	_form_hint = ""
-	_form_context.form = null
-	_form_context.change = null
+	_handover.end_act()
 	PONIES.clear_body_swap(self)
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
 	# returns Anon and her to it, but only when it did not go badly.

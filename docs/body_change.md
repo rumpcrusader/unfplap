@@ -471,8 +471,10 @@ suspension, adoption, resume and failure phases.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | anatomy | `anatomy/body_binding.gd` | the anatomy body binding this service constructs from the anatomy facade |
+| service | memory | `memory/service.gd` | the reveal impression and peak marks, and the form-offer reaction |
 | service | ponies | `ponies/service.gd` | the runtime binding's per-pony runtime lookup |
 | service | world | `world/service.gd` | the LOD binding's near/far cache refresh |
+| shared | act_state | `shared/act_state.gd` | the act state gate for the offer, reveal and player line |
 | shared | body_binding | `shared/body_binding.gd` | typed body-bound system base |
 | shared | body_change | `shared/body_change.gd` | body change type, state and origin |
 | shared | body_change_policy | `shared/body_change_policy.gd` | provider offer/reveal policy base |

@@ -655,10 +655,11 @@ func run() -> void:
 	check(runtime11._act_camera.camera_target_eye > 0.0,
 		"a same-node refresh reapplies the eye target")
 	check(PONIES.active() == runtime11, "a same-node refresh never runs the act exit")
-	runtime11._form_context.form = form11
-	runtime11._form_context.change = BODY_CHANGE.new()
+	runtime11._handover.context.form = form11
+	runtime11._handover.context.change = BODY_CHANGE.new()
 	runtime11._end_session(false)
-	check(runtime11._form_context.form == null and runtime11._form_context.change == null,
+	check(runtime11._handover.context.form == null
+		and runtime11._handover.context.change == null,
 		"the one exit clears the reused policy context")
 
 	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11]:

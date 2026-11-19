@@ -6,10 +6,13 @@ extends RefCounted
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
+const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_HOST := preload("res://mods/unfplap/body_change/act_host.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 ## The act watcher reads the body-change service at this cadence and gives up after the watchdog.
 ## The provider observes its own pack; the flame and the spawn are well inside it, so a longer wait
@@ -19,6 +22,12 @@ const BODY_SWAP_WATCHDOG_S := 8.0
 ## The source may clear its changing state before the spawn hook reaches the entry. Keep the act
 ## suspended while the source still reports a new body; after this grace the entry adopts it.
 const BODY_SWAP_ADOPT_GRACE_S := 0.5
+
+## The debug log's form-state labels. They are never copied to the act facts.
+const FORM_HINT_ASK := "Say to her: ask to see the real her."
+const FORM_HINT_SHAPE := "Say to her: name the pony she should wear."
+## The effects memory kind the provider may carry for the reveal's impression.
+const FORM_REVEAL_MEMORY := "form_reveal"
 
 ## What the runtime does after one watcher tick.
 enum Action { NONE, SUSPEND, RESUME, FAIL, END_RESTORE }
@@ -38,6 +47,18 @@ var auto_on := false
 ## The change the watcher just found for the `SUSPEND` action.
 var candidate: BODY_CHANGE = null
 var fail_reason := ""
+## The form interaction: one offer and one reveal per act, the reused policy context and the
+## player's line turn. The runtime calls these through the same handle that decides the swap.
+var reveal_done := false
+var offer_done := false
+var offer_pending := false
+var context: BODY_CHANGE_POLICY.BodyChangeActContext = \
+	BODY_CHANGE_POLICY.BodyChangeActContext.new()
+var talk_turn := -1
+## The debug log's cached form label; an unchanged label is not logged again.
+var form_hint_log := ""
+## Debug mode at the act's settings snapshot: only then may the log name the form state.
+var form_hint_debug := false
 
 
 func _init(act_host: ACT_HOST) -> void:
@@ -319,3 +340,312 @@ func _fail(reason: String) -> int:
 	shape_confirmed = false
 	auto_on = false
 	return Action.FAIL
+
+# ------------------------------------------------------------------------- form interaction
+
+## Debug mode at the act's settings snapshot. The runtime writes this once per snapshot; the log
+## probe reads it, and no other state depends on it.
+func set_form_hint_debug(enabled: bool) -> void:
+	form_hint_debug = enabled
+
+
+## A fresh act: the reveal and the offer are once-per-act, and the reused context and debug label
+## start empty. The debug flag comes from the settings snapshot and survives.
+func reset_act() -> void:
+	reveal_done = false
+	offer_done = false
+	offer_pending = false
+	context.form = null
+	context.change = null
+	form_hint_log = ""
+
+
+## The act ended through the one exit: drop the pending offer and the reused context. The debug
+## label clears so the log never names an action the player can no longer take.
+func end_act() -> void:
+	offer_pending = false
+	context.form = null
+	context.change = null
+	form_hint_log = ""
+
+
+## The HUD's form hint. It is always empty in a release and a debug build: the reveal and the gift
+## are for the player to discover, so the dialogue channel never becomes a HUD row.
+func form_hint() -> String:
+	return ""
+
+
+## The game's talk turn is the one interaction channel: no new key and no picker. The readiness
+## service scores the same turn; this reads it for the source's own words.
+func player_line_tick(director: Node) -> void:
+	if host.state() != ACT_STATE.State.ACTIVE or suspended or director == null:
+		return
+	var turn := _talk_turn(director)
+	if turn == talk_turn:
+		return
+	talk_turn = turn
+	var text := str(director.get("_player_text")).strip_edges()
+	if text.is_empty():
+		return
+	_on_player_line(text)
+
+
+## The new act's first talk turn is already seen, so the opening line is not read as fresh input.
+func remember_talk_turn(director: Node) -> void:
+	talk_turn = _talk_turn(director)
+
+
+func _talk_turn(director: Node) -> int:
+	if director == null:
+		return -1
+	var value: Variant = director.get("_turn_id")
+	return int(value) if value != null else -1
+
+
+## One player line during a live act. A pending shape offer consumes a named adult mare; a
+## source wearing another shape consumes a reveal ask. Everything else is ordinary talk.
+func _on_player_line(text: String) -> void:
+	if host.state() != ACT_STATE.State.ACTIVE or suspended:
+		return
+	var provider := source()
+	if provider == null:
+		return
+	if offer_pending:
+		var shape := _source_named_form(provider, text)
+		if not shape.is_empty():
+			var answer: Dictionary = request(false, shape, true)
+			if bool(answer.get("ok", false)):
+				offer_pending = false
+				hint_tick()
+				host.log("form change named by player id=%s shape=%s" % [host.id(), shape])
+				return
+			host.log("form change named by player refused id=%s shape=%s reason=%s" % [
+				host.id(), shape, str(answer.get("reason", ""))])
+		var note := _source_named_note(provider, text)
+		if not note.is_empty():
+			host.status(note)
+	if not _source_current_shape(provider).is_empty():
+		if reveal_done or not _source_asks_form_change(provider, text):
+			return
+		var result: Dictionary = request(true, "", true)
+		if bool(result.get("ok", false)):
+			host.log("form reveal requested id=%s" % host.id())
+		else:
+			host.log("form reveal refused id=%s reason=%s" % [
+				host.id(), str(result.get("reason", ""))])
+
+
+## The provider policy owns the offer timing and the prompt. The once-per-act gate stays here; a
+## false before the provider's trigger does not spend the offer.
+func offer_tick() -> void:
+	if offer_done or suspended or host.state() != ACT_STATE.State.ACTIVE:
+		return
+	var provider := source()
+	if provider == null:
+		# This pony has no shape source, and one cannot join a live act; stop asking every tick.
+		offer_done = true
+		return
+	var policy := _policy(provider)
+	if policy == null:
+		# A provider without a policy never offers; one cannot join a live act.
+		offer_done = true
+		return
+	if not policy.should_offer(_form_context_for(form(), BODY_CHANGE.Origin.PROVIDER, null)):
+		return
+	var prompt := policy.offer_prompt().strip_edges()
+	if prompt.is_empty():
+		offer_done = true
+		return
+	offer_done = true
+	offer_pending = true
+	hint_tick()
+	host.log("form shape offer id=%s climaxes=%d" % [host.id(), host.climaxes()])
+	if not is_instance_valid(WORLD.game):
+		return
+	var act_id := host.event_id()
+	var valid := func() -> bool:
+		return not suspended and host.event_id() == act_id and offer_pending
+	var key: String = host.reaction_line(MEMORY.Reaction.FORM_OFFER,
+		"%s:form_offer" % act_id, prompt, valid)
+	if key.is_empty():
+		return
+	host.note_reaction(key, host.cue(), host.now() + host.reaction_max_age())
+	host.log("utterance kind=reaction key=%s" % key)
+
+
+## The form state's debug label. It is never copied to the act facts: the HUD keeps no form row
+## text in a release or a debug build. The cached label only stops the log repeating itself.
+func hint_tick() -> void:
+	var next := ""
+	if form_hint_debug and host.state() == ACT_STATE.State.ACTIVE and not suspended:
+		var provider := source()
+		if provider != null:
+			if offer_pending:
+				next = FORM_HINT_SHAPE
+			elif not reveal_done and not _source_current_shape(provider).is_empty():
+				next = FORM_HINT_ASK
+	if next == form_hint_log:
+		return
+	form_hint_log = next
+	if not next.is_empty():
+		host.log("form hint suppressed \"%s\"" % next)
+
+
+## The new body is up. A player-requested return to her own form is the act's exceptional beat;
+## any other change is a neutral continuation. A named change that failed before the new body
+## arrived, or a new body that never reported the named shape, puts the offer back. Her own change
+## never spends the player's offer; only the call the player made does.
+func complete_resume(change: BODY_CHANGE, changed: bool, confirmed := false) -> void:
+	var provider := change_source(change)
+	var target := change.target_form_id.strip_edges() if change != null else ""
+	var by_player := change != null and change.origin == BODY_CHANGE.Origin.PLAYER
+	if not changed:
+		_restore_shape_offer(target, by_player)
+		hint_tick()
+		return
+	var shape := _source_current_shape(provider)
+	if shape.is_empty() and confirmed and change != null and change.form != null:
+		shape = change.form.form_id.strip_edges()
+	if shape.is_empty() and not target.is_empty() and confirmed:
+		shape = target
+	if not target.is_empty() and shape != target:
+		_restore_shape_offer(target, by_player)
+		hint_tick()
+		host.log("form change failed id=%s target=%s shape=%s exceptional=false" % [
+			host.id(), target, shape if not shape.is_empty() else "self"])
+		return
+	if by_player and target.is_empty() and shape.is_empty() and provider != null:
+		if not reveal_done:
+			_commit_form_reveal(change)
+		hint_tick()
+		offer_tick()
+		return
+	if by_player and not shape.is_empty():
+		offer_pending = false
+		_apply_offer_accepted(change)
+	hint_tick()
+	host.log("form changed id=%s shape=%s exceptional=false" % [
+		host.id(), shape if not shape.is_empty() else "self"])
+
+
+func _restore_shape_offer(target: String, by_player: bool) -> void:
+	if not by_player or target.is_empty():
+		return
+	if not offer_done or offer_pending:
+		return
+	offer_pending = true
+	host.log("form change failed; the shape offer stands again id=%s" % host.id())
+
+
+## Once per act: the provider's typed effects become the readiness spike, cue, special impression
+## and peak. The private thought says he wanted her, not the shape; the world event stays
+## non-graphic. The summary's generic `form_reveal` input carries the comfort; the effects do not.
+func _commit_form_reveal(change: BODY_CHANGE) -> void:
+	var policy := _policy(change_source(change))
+	var effects: BODY_CHANGE_POLICY.BodyChangeEffects = null
+	if policy != null:
+		effects = policy.on_reveal(_form_context_for(form(), BODY_CHANGE.Origin.PLAYER, change))
+	reveal_done = true
+	host.set_face(0.85)
+	_apply_form_effects(effects)
+	dispatch_event(BODY_CHANGE_POLICY.ActEvent.REVEALED, change)
+	host.log("form reveal id=%s event=%s readiness=%.0f" % [
+		host.id(), host.event_id(), host.satisfaction()])
+
+
+## A player-named shape is the provider's accepted offer. The changelings policy is neutral; a
+## future provider may supply its own generic effects.
+func _apply_offer_accepted(change: BODY_CHANGE) -> void:
+	var policy := _policy(change_source(change))
+	if policy == null:
+		return
+	_apply_form_effects(policy.on_offer_accepted(_form_context_for(form(),
+		BODY_CHANGE.Origin.PLAYER, change)))
+	dispatch_event(BODY_CHANGE_POLICY.ActEvent.OFFER_ACCEPTED, change)
+
+
+## Execute one typed effect value. `0`/`""` means none, so a neutral value is a no-op.
+func _apply_form_effects(effects: BODY_CHANGE_POLICY.BodyChangeEffects) -> void:
+	if effects == null or effects.is_empty():
+		return
+	if host.state() == ACT_STATE.State.ACTIVE:
+		if effects.heat > 0.0:
+			host.add_heat(effects.heat)
+		if not effects.cue.is_empty():
+			host.set_cue_override(effects.cue)
+	if effects.memory_kind.is_empty() and effects.peak <= 0.0:
+		return
+	var memory: Variant = MEMORY.instance
+	if memory == null:
+		return
+	if effects.memory_kind == FORM_REVEAL_MEMORY:
+		memory.commit(memory.form_reveal_impression(host.id(), host.event_id()))
+	if effects.peak > 0.0:
+		memory.record_peak(memory.form_reveal_peak(host.id(), host.event_id(), effects.peak))
+
+
+## The provider's typed offer/reveal policy, or null. The handover knows the contract, not the
+## installed pack.
+func _policy(candidate: BODY_CHANGE_SOURCE = null) -> BODY_CHANGE_POLICY:
+	var owner := service()
+	if owner != null and is_instance_valid(host.pony()):
+		var policy := owner.policy_for(host.pony())
+		if policy != null:
+			return policy
+	if candidate == null:
+		candidate = source()
+	if candidate == null:
+		return null
+	return candidate.policy()
+
+
+## Fill the reused typed act context the provider policy reads. The offer tick runs every ACTIVE
+## frame, so this writes fields and never allocates.
+func _form_context_for(form: BODY_FORM.BodyForm, origin: BODY_CHANGE.Origin,
+		change: BODY_CHANGE) -> BODY_CHANGE_POLICY.BodyChangeActContext:
+	var value := context
+	value.pony_id = host.id()
+	value.form = form
+	value.change = change
+	value.origin = origin
+	value.state = change.state if change != null else BODY_CHANGE.State.REQUESTED
+	value.offer_pending = offer_pending
+	value.reveal_used = reveal_done
+	value.by_player = origin == BODY_CHANGE.Origin.PLAYER
+	value.pony_climaxes = host.climaxes()
+	value.max_climaxes = host.max_climaxes()
+	value.act_active = host.state() == ACT_STATE.State.ACTIVE and not suspended
+	return value
+
+
+## Dispatch one generic act milestone to the provider policy. The context is the reused act value;
+## a provider that does not care keeps the base no-op.
+func dispatch_event(event: BODY_CHANGE_POLICY.ActEvent, change: BODY_CHANGE = null) -> void:
+	var policy := _policy(change_source(change))
+	if policy == null:
+		return
+	var origin := change.origin if change != null else BODY_CHANGE.Origin.PROVIDER
+	policy.on_act_event(event, _form_context_for(form(), origin, change))
+
+
+func _source_current_shape(provider: BODY_CHANGE_SOURCE) -> String:
+	var body := host.pony()
+	if provider == null or body == null:
+		return ""
+	return provider.presented_form_id(body).strip_edges()
+
+
+func _source_asks_form_change(provider: BODY_CHANGE_SOURCE, text: String) -> bool:
+	return provider != null and provider.asks_form_change(text)
+
+
+func _source_named_form(provider: BODY_CHANGE_SOURCE, text: String) -> String:
+	if provider == null:
+		return ""
+	return provider.named_form(text).strip_edges()
+
+
+func _source_named_note(provider: BODY_CHANGE_SOURCE, text: String) -> String:
+	if provider == null:
+		return ""
+	return provider.named_form_note(text).strip_edges()

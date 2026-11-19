@@ -919,18 +919,19 @@ def check_sources(failure: Failure) -> None:
     if "_resume_after_body_swap(" in function_body(runtime, "adopt_body"):
         failure.add("adopt_body() must not resume; the watcher owns the one resume")
 
-    # The provider policy owns the offer prompt and the reveal magnitudes. The runtime only asks
-    # the typed policy and executes its generic effects.
+    # The provider policy owns the offer prompt and the reveal magnitudes. The act handover only
+    # asks the typed policy and executes its generic effects.
+    handover = (ROOT / "body_change" / "act.gd").read_text(encoding="utf-8")
     for name in ("FORM_OFFER_PROMPT", "FORM_REVEAL_HEAT", "FORM_REVEAL_PEAK_SCORE"):
-        if name in runtime:
-            failure.add("runtime.gd must not own the provider policy value %s" % name)
-    offer = function_body(runtime, "_shape_offer_tick")
+        if name in runtime or name in handover:
+            failure.add("the act handover must not own the provider policy value %s" % name)
+    offer = function_body(handover, "offer_tick")
     for needle in (".should_offer(", ".offer_prompt()"):
         if needle not in offer:
-            failure.add("_shape_offer_tick() must ask the typed policy for %s" % needle)
-    if ".on_reveal(" not in function_body(runtime, "_commit_form_reveal"):
+            failure.add("body_change/act.gd offer_tick() must ask the typed policy for %s" % needle)
+    if ".on_reveal(" not in function_body(handover, "_commit_form_reveal"):
         failure.add("_commit_form_reveal() must execute the typed policy's on_reveal()")
-    if ".on_offer_accepted(" not in function_body(runtime, "_apply_offer_accepted"):
+    if ".on_offer_accepted(" not in function_body(handover, "_apply_offer_accepted"):
         failure.add("_apply_offer_accepted() must execute the typed policy's on_offer_accepted()")
 
     # One runtime binding: the body-change service builds it with the rest of the chain, the

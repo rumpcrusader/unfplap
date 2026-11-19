@@ -58,6 +58,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_CONSENT := preload("res://mods/unfplap/act/consent.gd")
+const ACT_INPUT := preload("res://mods/unfplap/act/input.gd")
 const AUDIO_ACT := preload("res://mods/unfplap/audio/act.gd")
 const ACT_IMPACT := preload("res://mods/unfplap/act/impact.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
@@ -101,6 +102,7 @@ var _act_host: ACT_NODE = null
 var _act_context: ACT_CONTEXT = null
 var _view: ACT_VIEW = null
 var _consent: RefCounted = null
+var _input: ACT_INPUT = null
 var _impact: ACT_IMPACT = null
 var _idle: ACT_IDLE = null
 var _exit: ACT_EXIT = null
@@ -111,6 +113,13 @@ var _agreement: ACT_AGREEMENT = null
 var state: int:
 	get:
 		return _act.state if _act != null else State.IDLE
+## The act's one session handle: the state, the timers and the input protocol. The entry and the
+## input service read it; the Node keeps lifetime and node operations.
+var act: ACT_SESSION:
+	get:
+		return _act
+
+
 ## The act's readiness system; see `readiness/service.gd`. The public act values below forward to it.
 var _readiness: RefCounted = READINESS.new()
 ## Her arousal/readiness, 0..100. At 100 she climaxes; the player chooses afterglow.
@@ -218,7 +227,6 @@ var _snapshot: SETTINGS.ActSnapshot:
 ## The act's summary, grade and peak record; see `summary/service.gd`. The runtime reads it as
 ## `_summary_service.summary`.
 var _summary_service: RefCounted = SUMMARY.new()
-var _end_early_key := ""
 var _wings: WING = null
 ## The act's face owner: beats, line-face ownership, the stare release and the post-act mood
 ## face. See `face/service.gd` and `docs/face.md`.
@@ -311,6 +319,11 @@ func _bind_act_frame() -> void:
 	_idle.bind(_act_host, _act_context, _act)
 	_exit = ACT_EXIT.new()
 	_exit.bind(_act_host, _act_context, _act)
+	_input = ACT_INPUT.new()
+	_input.bind(_act_host, _act_context, _act)
+	_input.exit = _exit
+	_consent.exit = _exit
+	_act.input = _input
 	_start = ACT_START.new()
 	_start.bind(_act_host, _act_context, _act, _exit, _view)
 	_agreement = ACT_AGREEMENT.new()
@@ -389,7 +402,7 @@ func _init() -> void:
 	})
 	_act_facts.play_mouth_kiss = Callable(_audio, "play_mouth_kiss")
 	_act_facts.act_actions_allowed = Callable(_act_camera, "at_actions_allowed")
-	_act_facts.auto_panel_open = Callable(self, "auto_panel_open")
+	_act_facts.auto_panel_open = Callable(_input, "auto_panel_open")
 	_act_facts.standing_camera = Callable(self, "_standing_camera_controller")
 	_act_facts.missionary_anon = Callable(self, "missionary_anon_body")
 	_act_facts.anatomy_normal = Callable(self, "anatomy_normal")
@@ -889,43 +902,6 @@ func reload_pose_asset() -> String:
 
 
 ## One pose request. The runtime supplies the act values; the session refuses or starts the edge.
-func request_pose(target_id: String, trigger := "", context: Dictionary = {}) -> Dictionary:
-	var request := context.duplicate()
-	if not request.has("act_state"):
-		request["act_state"] = state
-	if not request.has("features"):
-		request["features"] = _act.features
-	return _pose_service().request_pose(target_id, trigger, request)
-
-
-## One command check: the pose's control profile and the live edge lock. `end` is reserved.
-func request_command(command_id: String) -> bool:
-	return _pose_service().request_command(command_id)
-
-
-## Run one discrete command after the pose's control set and the live edge lock allow it.
-## Returns true only when a command was dispatched. `end` is reserved; the act-key hold owns it.
-func command(command_id: String) -> bool:
-	if not request_command(command_id):
-		return false
-	match command_id:
-		ACT_COMMANDS.HOLE:
-			toggle_anatomy_hole()
-			return true
-		ACT_COMMANDS.ORAL:
-			toggle_anatomy_oral()
-			return true
-		ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD:
-			return false
-		ACT_COMMANDS.END:
-			return true
-	return false
-
-
-## The fixed-order pose-change fan-out. The pose service reconciles its modifier profile and the
-## act body first, then the camera, hands, kiss, anatomy and audio retarget in that order. Each
-## owner's `pose_changed(view)` is cheap and idempotent. The face, dialogue and HUD read the view
-## through the act facts and have no hook.
 func _pose_fanout() -> void:
 	var view: Variant = _pose_service().view()
 	_pose_service().pose_changed(view)
@@ -1081,14 +1057,14 @@ func _physics_tick(delta: float) -> void:
 	_camera_service().call("tick_free_look")
 	_keep_act_attention()
 	_pause_face_turn()
-	_camera_service().call("tick_lean", delta, get_tree().paused, auto_panel_open())
+	_camera_service().call("tick_lean", delta, get_tree().paused, _input.auto_panel_open())
 	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
 		var presentation_started := Time.get_ticks_usec()
 		_act_presentation(delta)
 		_timed("runtime_presentation", presentation_started)
 	if state in [State.POSING_IN, State.ACTIVE]:
 		if _consent.tick(delta) == ACT_CONSENT.STOP:
-			_stop_with_her(_consent.stop_kind)
+			_consent.stop_with_her(_consent.stop_kind)
 	_log_pose_settled()
 	var kiss_started := Time.get_ticks_usec()
 	_kiss_controller().tick(delta)
@@ -1124,9 +1100,10 @@ func _physics_tick(delta: float) -> void:
 		ACT_SESSION.FINISH_CLIMAX:
 			_act.finish_climax()
 		ACT_SESSION.FINISH_RESTORE:
-			_finish_restore()
+			_exit.finish_restore()
 	if state == State.AFTERGLOW:
-		_afterglow_tick(delta)
+		_act_context.afterglow.phase_tick(delta, _anatomy_bridge, _anatomy_host(),
+			_pose_family() == "standing")
 	var camera_started := Time.get_ticks_usec()
 	_standing_camera_controller().lock_facing()
 	_standing_camera_controller().drive_glance(delta)
@@ -1142,7 +1119,7 @@ func _physics_tick(delta: float) -> void:
 		var verdict: SCENE_GATE.RunningVerdict = _scene_gate().running_verdict(
 			_hold.nav, _act.bed, _act.player_pony, _kiss_controller().base_active())
 		if not verdict.ok:
-			_stop(verdict.reason)
+			_exit.stop(verdict.reason)
 	var face_started := Time.get_ticks_usec()
 	_face.eyes_for(state, _afterglow.close_rewarded, _kiss_controller().eyes_active())
 	_timed("runtime_face", face_started)
@@ -1641,62 +1618,6 @@ func authored_pose_asset() -> Variant:
 ## Debug: the player camera replaces the act shot so the pose can be inspected. The mouse stops
 ## feeding thrust while it is on and drives this look instead, because the act holds
 ## `controls_locked` (the stock mouse look is dead during an act).
-func free_look_active() -> bool:
-	return bool(_camera_service().call("free_look_active"))
-
-
-## Accumulated free-look rotation as (pitch, yaw), radians, from the act's starting view.
-func free_look_rotation() -> Vector3:
-	var rotation: Variant = _camera_service().call("free_look_rotation")
-	return rotation if rotation is Vector3 else Vector3.ZERO
-
-
-## Switch the automatic stroke on or off. X is the only caller. Turning it on starts from the
-## hand's current depth, so the shot does not snap; turning it off leaves the depth where it is.
-func toggle_auto_thrust() -> void:
-	_readiness.toggle_auto(depth)
-
-
-## One wheel notch while auto owns the stroke.
-func auto_thrust_wheel(direction: int) -> void:
-	_readiness.auto_wheel(direction)
-
-
-## True while the hold-X auto settings layer is open. The lean, the caress input and the kiss
-## read this so W/S/Q/E/A/D/Z/F belong to the layer instead of the act.
-func auto_panel_open() -> bool:
-	return _readiness.auto_panel_open()
-
-
-## One hold-X policy frame. The input service samples the keys; readiness owns the tap, the
-## rows and the shape write.
-func auto_panel_input(delta: float, x_down: bool, keys: Array) -> void:
-	_readiness.auto_panel_tick(delta, x_down, keys, depth)
-
-
-## The VR act's right primary click is the act key's hold. The bridge owns the controller.
-func vr_y_held() -> bool:
-	return _anatomy_bridge.vr_y_held()
-
-
-## The act-key hold with a climax behind it enters the afterglow instead of cancelling.
-func request_afterglow() -> void:
-	_enter_afterglow()
-
-
-## integration: anatomy action entry points for input.gd. They are no-ops when the per-act
-## controller is absent, so the keys behave exactly like master with the feature off.
-func toggle_anatomy_hole() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.toggle_hole()
-
-
-## The `oral` command: request the standing oral pose, or the return edge when it is already
-## active. The per-mare consent string is passed only when the anatomy service says yes; the
-## feature is checked by the edge requirements, not here.
-func toggle_anatomy_oral() -> void:
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.toggle_oral(_pose_service(), _act.display_name, _act.features)
 
 func _oral_mouth_point() -> Vector3:
 	_anatomy_bridge.bind(_anatomy_host())
@@ -1731,6 +1652,20 @@ func anatomy_hole_ready() -> bool:
 
 func anatomy_oral_ready() -> bool:
 	return _anatomy_bridge.oral_ready()
+
+
+## integration: anatomy action entry points for the input service. They are no-ops when the
+## per-act controller is absent, so the keys behave exactly like master with the feature off.
+func toggle_anatomy_hole() -> void:
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.toggle_hole()
+
+
+## The `oral` command: request the standing oral pose, or the return edge when it is already
+## active. The per-mare consent string is passed only when the anatomy service says yes.
+func toggle_anatomy_oral() -> void:
+	_anatomy_bridge.bind(_anatomy_host())
+	_anatomy_bridge.toggle_oral(_pose_service(), _act.display_name, _act.features)
 
 
 func missionary_anon_body() -> Variant:
@@ -1793,11 +1728,6 @@ func _stop_auto() -> void:
 
 
 ## The mouse's vertical travel as hip travel; the input service hands over the relative motion.
-func thrust_motion(relative_y: float) -> void:
-	_impact.motion(relative_y)
-
-
-## The deepest the tip can reach, in metres. The readiness stroke state owns the placement math.
 func penetration_reach() -> float:
 	return _readiness.reach()
 
@@ -1900,30 +1830,6 @@ func _bystander_tick(delta: float) -> void:
 ## A real consent stop. It ends the act without the normal afterglow/cuddle restore, commits a
 ## severe bad summary, and only Strict additionally bucks and requests space. The consent owner
 ## presents the warning, the space request and the stop line; the one exit stays here.
-func _stop_with_her(reason: String) -> void:
-	var stop: Dictionary = _consent.begin_stop(reason)
-	if stop.is_empty():
-		return
-	var strict := bool(stop.get("strict", false))
-	_act.commit_summary(false)
-	# The stopped summary already says why. The basic event is the fallback when the summary was
-	# skipped, so one partner stop is never two memories.
-	if _summary_service.summary.is_empty() and is_instance_valid(WORLD.game):
-		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _act.event_id,
-			MEMORY.StopReason.WITHDREW)
-	if _pose_family() == "bed":
-		REST.release_managed(pony)
-	_dialogue_service().end_act(_act.event_id, true)
-	_end_session(false)
-	_exit.finalize(true)
-	_consent.finish_stop(strict, not _summary_service.summary.is_empty())
-	_log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
-		str(stop.get("tolerance", "normal")), float(stop.get("distress", 0.0)),
-		reason, str(strict)])
-
-
-## Idle-only history scan. `dialogue/service.gd` reads the scene and owns the decisions and the
-## line queueing.
 func _history_tick(delta: float) -> void:
 	_idle.history_tick(delta)
 
@@ -1944,52 +1850,7 @@ func rump_anchor() -> Vector3:
 	return _reactions.rump_point()
 
 
-func cancel() -> void:
-	_log("cancel state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
-	if state in [State.POSING_IN, State.ACTIVE]:
-		_act.ended_early = true
-		_act.commit_summary(false)
-		# The early summary already records this end. Keep the basic event only when the summary
-		# was skipped, so the story never holds the same end twice.
-		if _summary_service.summary.is_empty():
-			MEMORY.instance.note(MEMORY.NoteKind.CANCELLED, _id, _act.event_id)
-		# Cancel act lines before restoring, then queue the intentional early-stop reaction.
-		_dialogue_service().end_act(_act.event_id, true)
-		_restore_begin()
-		# Half the time she says nothing at all. When she does speak, it is a moment, not a
-		# review or a next-time list.
-		if randf() >= 0.5:
-			var act_id := _act.event_id
-			var expires := _act.clock_s() + _cue_reaction_max_age_value()
-			var valid := func() -> bool:
-				if not is_instance_valid(pony) or _act.event_id != act_id:
-					return false
-				if _act.clock_s() <= expires:
-					return true
-				return MEMORY.instance.line_state(_end_early_key) == MEMORY.LineState.SPEAKING
-			var key: String = _dialogue_service().reaction_line(MEMORY.Reaction.END_EARLY, act_id, ACT_SUMMARY.early_end_prompt(_summary_service.summary), valid)
-			_end_early_key = key
-			if not key.is_empty():
-				var now := _act.clock_s()
-				_dialogue_service().note_reaction(key, "", now + _cue_reaction_max_age_value())
-				_log("utterance kind=reaction key=%s" % key)
-			# The stopped act gets one post-act beat at most: suppress the later history line
-			# for the same act, even when the roll chose silence. A skipped summary must not
-			# clear an older act's pending reminder.
-			if not _summary_service.summary.is_empty() \
-					and ACT_HISTORY.mark_announced(ACT_HISTORY.section(), _id, "complaint"):
-				ACT_HISTORY.save()
-	elif state == State.AFTERGLOW:
-		end_afterglow()
 
-func end_afterglow() -> void:
-	if state == State.AFTERGLOW:
-		_log("afterglow end pony=%s" % str(pony.name))
-		_afterglow.cancel_close()
-		_restore_begin()
-
-## Estrus phase. The eligibility owner resolves the debug override, the feature flag and the
-## world day; the validity guard keeps a body freed during teardown from reaching it.
 func cycle_phase() -> String:
 	_act.refresh_identity()
 	if not is_instance_valid(pony):
@@ -2024,49 +1885,10 @@ func _afterglow_caressing() -> bool:
 func _enter_afterglow() -> void:
 	_act.begin_afterglow()
 
-func _afterglow_tick(delta: float) -> void:
-	if state != State.AFTERGLOW:
-		return
-	# integration: keep the optional bed-body part tracking through afterglow.
-	_anatomy_bridge.bind(_anatomy_host())
-	_anatomy_bridge.afterglow_tick(delta)
-	if state != State.AFTERGLOW or _pose_family() != "standing":
-		return
-	_afterglow.close_tick(delta)
 
 func close_hint() -> String:
 	return _view.close_hint(_act, _pose_family())
 
-func _restore_begin() -> void:
-	if state == State.IDLE or state == State.RESTORE:
-		return
-	_act.record_peak_memory()
-	_afterglow.cancel_close()
-	_stop_auto()
-	_dialogue_service().end_act(_act.event_id, true)
-	_log("restore begin from state=%d pony=%s" % [state, str(pony.name) if is_instance_valid(pony) else "?"])
-	_act.begin_restore()
-	_handover.hint_tick()
-	# integration: act-only anatomy hides as soon as the act starts restoring.
-	_anatomy_bridge.apply_live()
-	_face.clear_face()
-	_face.end_face()
-	_wings_controller().release()
-	if is_instance_valid(_pose_session.pose()):
-		_pose_session.pose().target_amount = 0.0
-	_pose_service().set_tail_target(0.0)
-	_audio.stop_breath()
-	_camera_service().call("release_back")
-	_standing_camera_controller().reset_facing()
-	if is_instance_valid(HUD.instance):
-		HUD.instance.hide_act()
-
-## The one act exit. The order and every ownership check live in `act/exit.gd`; this node keeps
-## the one entry the exit routes call.
-func _end_session(rejoin_cuddle: bool) -> void:
-	_exit.run(rejoin_cuddle)
-
-## The bed/couch rest and cuddle rejoin. See `rest/service.gd` and `docs/rest.md`.
 func _rest_service() -> RefCounted:
 	_rest.bind(pony, _act.bed)
 	return _rest
@@ -2076,27 +1898,11 @@ func _rest_restore_scene() -> void:
 	_missionary_camera_controller().restore_scene()
 
 
-func _finish_restore() -> void:
-	if is_instance_valid(pony):
-		_log("restore finished pony=%s" % str(pony.name))
-	else:
-		_log("restore finished with invalid pony")
-	_end_session(true)
-	_exit.finalize(true)
 
+## Every stop path must leave the quick slots in their pre-act state; the exit owns the route.
 func force_stop() -> void:
-	# Defensive: every stop path must leave the quick slots in their pre-act state.
-	if state == State.IDLE:
-		_end_session(false)
-		return
-	_restore_now()
+	_exit.force_stop()
 
-func _restore_now() -> void:
-	_dialogue_service().end_act(_act.event_id, true)
-	_end_session(false)
-	_exit.finalize(true)
-
-## The afterglow's satisfaction decay writes here; the meter's range is readiness's.
 func _write_satisfaction(value: float) -> void:
 	satisfaction = clampf(value, 0.0, READINESS_MAX)
 
@@ -2117,13 +1923,6 @@ func act_face_rows() -> Array[String]:
 # --------------------------------------------------------------------------- checks
 
 ## A forced stop from a scene verdict. The gate returned the reason; this applies the one stop.
-func _stop(reason: String) -> void:
-	_log("stop reason=%s state=%d pony=%s" % [reason, state,
-		str(pony.name) if is_instance_valid(pony) else "?"])
-	if state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
-		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, _id, _act.event_id,
-			MEMORY.stop_reason(reason))
-	_restore_begin()
 
 # --------------------------------------------------------------------------- camera
 

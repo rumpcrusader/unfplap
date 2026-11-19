@@ -166,7 +166,7 @@ func run() -> void:
 	runtime._readiness.configure_auto(1.5, 0.9, "cosine", 0.0)
 	runtime._act.reset_thrust_state()
 	var auto_thrusts := int(runtime._readiness.act_intensity_total)
-	runtime.toggle_auto_thrust()
+	runtime.act.input.toggle_auto_thrust()
 	check(runtime.auto_active(), "X enables auto thrust in ACTIVE")
 	for _i: int in 240:
 		runtime._act._clock_s += 1.0 / 60.0

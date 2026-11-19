@@ -230,6 +230,18 @@ func close_tick(delta: float) -> void:
 		_finish_close()
 
 
+## One AFTERGLOW frame: the optional bed-body part keeps tracking while the front two thirds of
+## the phase is presentable, then the standing close window counts its caress time. The tick owner
+## calls this only in AFTERGLOW, so the phase guard stays there.
+func phase_tick(delta: float, anatomy: RefCounted, anatomy_host: RefCounted,
+		standing: bool) -> void:
+	# integration: keep the optional bed-body part tracking through afterglow.
+	anatomy.bind(anatomy_host)
+	anatomy.afterglow_tick(delta)
+	if standing:
+		close_tick(delta)
+
+
 func _finish_close() -> void:
 	if close_rewarded:
 		return

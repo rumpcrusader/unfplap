@@ -234,7 +234,7 @@ func fixture(kind: String) -> Dictionary:
 func run() -> void:
 	var normal := fixture("normal")
 	var normal_runtime: Node = normal["runtime"]
-	normal_runtime.call("_stop_with_her", "smack")
+	normal_runtime._consent.stop_with_her("smack")
 	check(int(normal_runtime.state) == 0, "a normal stop ends the act")
 	check(bool(normal_runtime._act.stopped_by_her), "a normal stop is flagged")
 	var normal_summary: Dictionary = normal_runtime._summary_service.summary
@@ -266,7 +266,7 @@ func run() -> void:
 
 	var strict := fixture("strict")
 	var strict_runtime: Node = strict["runtime"]
-	strict_runtime.call("_stop_with_her", "smack")
+	strict_runtime._consent.stop_with_her("smack")
 	check(bool(strict_runtime._act.stopped_by_her), "a strict stop is flagged")
 	var strict_summary: Dictionary = strict_runtime._summary_service.summary
 	check(str(strict_summary.get("mood", "")) == "angry", "a strict stop is angry")

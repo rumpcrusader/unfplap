@@ -213,6 +213,7 @@ ACT_LINE_CAPS = {
     "act/context.gd": 300,
     "act/host.gd": 300,
     "act/idle.gd": 300,
+    "act/input.gd": 300,
 }
 RUNTIME_RAW_INPUT = (
     re.compile(r"\bInput\."),
@@ -929,32 +930,44 @@ def check_sources(failure: Failure) -> None:
     else:
         exit_text = exit_path.read_text(encoding="utf-8")
 
-    # One teardown: `act/exit.gd:run()` is the only scene-restoring body, the runtime keeps a
-    # one-line delegate, and every exit route ends through it without repeating a step.
+    # One teardown: `act/exit.gd:run()` is the only scene-restoring body, and the exit's own
+    # routes plus the consent stop are its only callers. No route repeats a teardown step.
     if exit_text and len(re.findall(r"^func run\(", exit_text, re.MULTILINE)) != 1:
         failure.add("act/exit.gd must define exactly one run()")
-    if len(re.findall(r"^func _end_session\(", runtime, re.MULTILINE)) != 1:
-        failure.add("runtime.gd must define exactly one _end_session()")
-    end_body = function_body(runtime, "_end_session")
-    end_lines = end_body.splitlines()
-    while end_lines and not (end_lines[0].strip().endswith(":") and ")" in end_lines[0]):
-        end_lines.pop(0)
-    end_lines = [line.strip() for line in end_lines[1:]
-                 if line.strip() and not line.strip().startswith("#")]
-    if end_lines != ["_exit.run(rejoin_cuddle)"]:
-        failure.add("runtime._end_session() must be the one-line _exit.run(rejoin_cuddle) delegate")
-    for name in ("_finish_restore", "_restore_now", "force_stop"):
-        body = function_body(runtime, name)
+    for name in ("finish_restore", "restore_now", "force_stop"):
+        body = function_body(exit_text, name)
         if not body:
-            failure.add("runtime.gd is missing %s()" % name)
+            failure.add("act/exit.gd is missing %s()" % name)
             continue
-        if "_end_session(" not in body:
-            failure.add("%s must end through _end_session()" % name)
+        if "run(" not in body:
+            failure.add("act/exit.gd:%s() must end through run()" % name)
         for call in TEARDOWN_STEPS:
             if call in body:
-                failure.add("%s must not call %s directly" % (name, call))
-    if "_restore_now()" not in function_body(runtime, "force_stop"):
-        failure.add("force_stop must restore through _restore_now()")
+                failure.add("act/exit.gd:%s() must not call %s directly" % (name, call))
+    if "restore_now()" not in function_body(exit_text, "force_stop"):
+        failure.add("act/exit.gd:force_stop() must restore through restore_now()")
+    teardown_callers: set[tuple[str, str]] = set()
+    for path in shipped_sources():
+        text = path.read_text(encoding="utf-8")
+        offsets = function_offsets(text)
+        for match in re.finditer(r"(?<![\w])run\((?:true|false|rejoin_cuddle)\)", text):
+            line = text[text.rfind("\n", 0, match.start()) + 1:match.start()]
+            if line.lstrip().startswith(("#", "func ")):
+                continue
+            teardown_callers.add((rel(path), enclosing_function(offsets, match.start())))
+    expected_callers = {("act/exit.gd", "abort"), ("act/exit.gd", "finish_restore"),
+                        ("act/exit.gd", "restore_now"), ("act/exit.gd", "force_stop"),
+                        ("act/consent.gd", "stop_with_her")}
+    for caller in sorted(teardown_callers - expected_callers):
+        failure.add("the one teardown has an unexpected caller: %s:%s" % caller)
+    for caller in sorted(expected_callers - teardown_callers):
+        failure.add("the one teardown is missing its caller: %s:%s" % caller)
+    # The runtime node keeps one-line delegates for the entry, `ponies` and the suites.
+    stop_body = function_body(runtime, "force_stop")
+    stop_lines = [line.strip() for line in stop_body.splitlines()[1:]
+                  if line.strip() and not line.strip().startswith("#")]
+    if stop_lines != ["_exit.force_stop()"]:
+        failure.add("runtime.force_stop() must be the one-line _exit.force_stop() delegate")
 
     # The start ledger's recipe keeps its order; the checker reads the tokens, not the prose.
     start_path = ROOT / "act" / "start.gd"

@@ -383,7 +383,10 @@ func action_pose_test_variant() -> String:
 	if active != CATALOG.STANDING and active != CATALOG.STANDING_TEST:
 		return "Only in a standing act."
 	var target := CATALOG.STANDING_TEST if active == CATALOG.STANDING else CATALOG.STANDING
-	var result: Variant = act.call("request_pose", target, "debug")
+	var input: Variant = _act_input(act)
+	if input == null:
+		return "No act."
+	var result: Variant = input.request_pose(target, "debug")
 	if result is Dictionary:
 		var code := str((result as Dictionary).get("code", ""))
 		LOG.debug("pose test variant %s -> %s: %s" % [active, target, code])
@@ -405,7 +408,10 @@ func action_facesit_variant() -> String:
 	var view: Variant = act.call("pose_view")
 	var active := str(view.id) if view != null else ""
 	var target := CATALOG.BED_FACESIT if active == CATALOG.MISSIONARY else CATALOG.MISSIONARY
-	var result: Variant = act.call("request_pose", target, "facesit")
+	var input: Variant = _act_input(act)
+	if input == null:
+		return "No act."
+	var result: Variant = input.request_pose(target, "facesit")
 	if result is Dictionary:
 		var code := str((result as Dictionary).get("code", ""))
 		LOG.debug("pose face-sit %s -> %s: %s" % [active, target, code])
@@ -933,6 +939,13 @@ func _act() -> Node:
 		return null
 	var runtime: Node = host.act.call()
 	return runtime if is_instance_valid(runtime) else null
+
+
+## The act's input protocol through the runtime's session handle. The debug actions are the only
+## non-key caller of the pose request.
+func _act_input(act: Node) -> Variant:
+	var session: Variant = act.get("act")
+	return session.input if session != null else null
 
 
 func _runtime_for(pony: Node) -> Node:

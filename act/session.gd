@@ -37,6 +37,8 @@ var host: ACT_NODE = null
 var context: ACT_CONTEXT = null
 var start: Variant = null
 var view: Variant = null
+## The act's input protocol; the input service reaches it through the session's handle.
+var input: Variant = null
 ## The act's settings snapshot and live apply, owned by `act/settings.gd`.
 var settings: ACT_SETTINGS = ACT_SETTINGS.new()
 ## The live act state. `_set_state()` is the only writer.

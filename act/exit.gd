@@ -9,11 +9,15 @@ extends RefCounted
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+
+const State := ACT_STATE.State
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -189,3 +193,75 @@ func _rejoin_wanted() -> bool:
 		"satisfaction": context.readiness.satisfaction,
 		"aftercare_min": session.aftercare_min,
 	})
+
+
+## Close the standing afterglow window and begin the one restore.
+func end_afterglow() -> void:
+	if session.state != State.AFTERGLOW:
+		return
+	host.log("afterglow end pony=%s" % host.pony_name())
+	context.afterglow.cancel_close()
+	restore_begin()
+
+
+## Begin RESTORE: keep the peak memory, stop the act's work and hand the scene back to the pose's
+## release. The state change is the session's; this is its side-effect ledger.
+func restore_begin() -> void:
+	if session.state == State.IDLE or session.state == State.RESTORE:
+		return
+	session.record_peak_memory()
+	context.afterglow.cancel_close()
+	context.readiness.stop_auto()
+	context.dialogue.end_act(session.event_id, true)
+	host.log("restore begin from state=%d pony=%s" % [session.state, host.pony_name()])
+	session.begin_restore()
+	context.handover.hint_tick()
+	# integration: act-only anatomy hides as soon as the act starts restoring.
+	context.anatomy.bind(context.anatomy_host)
+	context.anatomy.apply_live()
+	context.face.clear_face()
+	context.face.end_face()
+	context.wings.release()
+	var pose: Variant = context.pose.pose()
+	if is_instance_valid(pose):
+		pose.target_amount = 0.0
+	context.pose.set_tail_target(0.0)
+	context.audio.stop_breath()
+	context.camera.release_back()
+	context.standing_camera.reset_facing()
+	if is_instance_valid(HUD.instance):
+		HUD.instance.hide_act()
+
+
+## The RESTORE timer's end: the normal act end, then the one finalize.
+func finish_restore() -> void:
+	if is_instance_valid(host.pony):
+		host.log("restore finished pony=%s" % host.pony_name())
+	else:
+		host.log("restore finished with invalid pony")
+	run(true)
+	finalize(true)
+
+
+## End the act now without the normal afterglow or cuddle rejoin. Failure paths keep this route.
+func restore_now() -> void:
+	context.dialogue.end_act(session.event_id, true)
+	run(false)
+	finalize(true)
+
+
+## The defensive stop every route must leave the quick slots in their pre-act state through.
+func force_stop() -> void:
+	if session.state == State.IDLE:
+		run(false)
+		return
+	restore_now()
+
+
+## A forced stop from a scene verdict. The gate returned the reason; this applies the one stop.
+func stop(reason: String) -> void:
+	host.log("stop reason=%s state=%d pony=%s" % [reason, session.state, host.pony_name()])
+	if session.state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
+		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, session.pony_id, session.event_id,
+			MEMORY.stop_reason(reason))
+	restore_begin()

@@ -41,6 +41,9 @@ var _act_hold := 0.0
 var _act_hold_ready := false
 var _act_hold_fired := false
 var _hold_runtime: Variant = null
+## The act's input protocol for the active runtime, resolved once per runtime and not per frame.
+var _act_input: Variant = null
+var _input_runtime: Variant = null
 
 
 func _ready() -> void:
@@ -113,7 +116,7 @@ func _hold_act_tick(delta: float, runtime: Node) -> void:
 			ACT_STATE.State.CLIMAX, ACT_STATE.State.AFTERGLOW]:
 		_reset_hold()
 		return
-	var held: bool = Input.is_action_pressed(ACT_KEYS.ACTION) or bool(runtime.call("vr_y_held"))
+	var held: bool = Input.is_action_pressed(ACT_KEYS.ACTION) or bool(_act_for(runtime).vr_y_held())
 	if not held:
 		_reset_hold()
 		_act_hold_ready = true
@@ -127,16 +130,16 @@ func _hold_act_tick(delta: float, runtime: Node) -> void:
 	LOG.debug("hold act key state=%d climaxes=%d" % [
 		state, int(runtime.get("pony_climaxes"))])
 	if state == ACT_STATE.State.AFTERGLOW:
-		runtime.call("end_afterglow")
+		_act_for(runtime).end_afterglow()
 	elif state == ACT_STATE.State.ACTIVE:
 		if int(runtime.get("pony_climaxes")) > 0:
-			runtime.call("request_afterglow")
+			_act_for(runtime).request_afterglow()
 		else:
-			runtime.call("cancel")
+			_act_for(runtime).cancel()
 	elif state == ACT_STATE.State.CLIMAX:
-		runtime.call("request_afterglow")
+		_act_for(runtime).request_afterglow()
 	else:
-		runtime.call("cancel")
+		_act_for(runtime).cancel()
 
 
 ## Hold X for the auto settings layer. The policy, the rows and the shape write live in
@@ -149,7 +152,16 @@ func _auto_layer_tick(delta: float, runtime: Node) -> void:
 		Input.is_physical_key_pressed(KEY_E), Input.is_physical_key_pressed(KEY_D),
 		Input.is_physical_key_pressed(KEY_Z),
 	]
-	runtime.call("auto_panel_input", delta, Input.is_physical_key_pressed(KEY_X), keys)
+	_act_for(runtime).auto_panel_input(delta, Input.is_physical_key_pressed(KEY_X), keys)
+
+
+## The act's input handle. The session owns the protocol object; the input service only decodes.
+func _act_for(runtime: Node) -> Variant:
+	if runtime != _input_runtime:
+		_input_runtime = runtime
+		var session: Variant = runtime.get("act")
+		_act_input = session.input if session != null else null
+	return _act_input
 
 
 func _reset_hold() -> void:
@@ -160,6 +172,8 @@ func _reset_hold() -> void:
 
 func _forget_hold() -> void:
 	_hold_runtime = null
+	_input_runtime = null
+	_act_input = null
 	_reset_hold()
 
 
@@ -279,7 +293,7 @@ func _input(event: InputEvent) -> void:
 			return
 		if mouse.pressed and mouse.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] \
 				and is_instance_valid(runtime):
-			runtime.call("auto_thrust_wheel",
+			_act_for(runtime).auto_thrust_wheel(
 				1 if mouse.button_index == MOUSE_BUTTON_WHEEL_UP else -1)
 			get_viewport().set_input_as_handled()
 			return
@@ -317,29 +331,30 @@ func _act_motion(runtime: Node, motion: InputEventMouseMotion) -> void:
 		return
 	if bool(runtime.call("body_swap_pending")):
 		return
-	if bool(runtime.call("free_look_active")):
-		runtime.call("look_motion", motion.relative)
+	var act_input: Variant = _act_for(runtime)
+	if bool(act_input.free_look_active()):
+		act_input.look_motion(motion.relative)
 		get_viewport().set_input_as_handled()
 		return
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if state in [ACT_STATE.State.ACTIVE, ACT_STATE.State.CLIMAX]:
 		if not bool(runtime.call("auto_active")):
-			runtime.call("thrust_motion", motion.relative.y)
+			act_input.thrust_motion(motion.relative.y)
 		get_viewport().set_input_as_handled()
 
 
 ## Route one key press while an act is live. The act's own keys act here; with the shield on,
 ## every other key is taken from the game and from other mods (`docs/input.md`).
-func _act_key(runtime: Variant, key: InputEventKey, state: int) -> void:
+func _act_key(runtime: Node, key: InputEventKey, state: int) -> void:
 	# integration: optional anatomy actions, only when their act is live. The runtime checks the
 	# pose's control profile and the live edge lock; the key is consumed whether or not it allows.
 	if key.physical_keycode == KEY_V and bool(runtime.call("anatomy_hole_ready")):
-		runtime.call("command", ACT_COMMANDS.HOLE)
+		_act_for(runtime).command(ACT_COMMANDS.HOLE)
 		_consume(key)
 		return
 	if key.physical_keycode == KEY_N and bool(runtime.call("anatomy_oral_ready")):
-		runtime.call("command", ACT_COMMANDS.ORAL)
+		_act_for(runtime).command(ACT_COMMANDS.ORAL)
 		_consume(key)
 		return
 	# Enter opens the act chat and then hands the keyboard to the text field.

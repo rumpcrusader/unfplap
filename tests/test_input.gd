@@ -71,6 +71,46 @@ func _world() -> Dictionary:
 	return {"world": world, "chat": world.get_node("ChatBox"), "menu": menu}
 
 
+## The act input protocol the fake runtime exposes through its session handle.
+class FakeActInput extends RefCounted:
+	var rt: Variant = null
+
+	func vr_y_held() -> bool:
+		return rt.vr_held
+
+	func free_look_active() -> bool:
+		return rt.free_look
+
+	func cancel() -> void:
+		rt.cancels += 1
+
+	func request_afterglow() -> void:
+		rt.afterglows += 1
+
+	func end_afterglow() -> void:
+		rt.afterglow_ends += 1
+
+	func thrust_motion(relative_y: float) -> void:
+		rt.thrusts.append(relative_y)
+
+	func look_motion(relative: Vector2) -> void:
+		rt.looks.append(relative)
+
+	func auto_panel_input(_delta: float, x_down: bool, keys: Array) -> void:
+		rt.panels.append([x_down, keys.duplicate()])
+
+	func command(command_id: String) -> bool:
+		rt.commands.append(command_id)
+		return rt.command_ok
+
+	func auto_thrust_wheel(direction: int) -> void:
+		rt.wheels.append(direction)
+
+
+class FakeAct extends RefCounted:
+	var input: FakeActInput = FakeActInput.new()
+
+
 class FakeRuntime extends Node:
 	var state := 4
 	var pony_climaxes := 0
@@ -85,11 +125,16 @@ class FakeRuntime extends Node:
 	var afterglows := 0
 	var afterglow_ends := 0
 	var commands: Array[String] = []
+	var wheels: Array[int] = []
 	var action_ready := true
 	var command_ok := true
 	var thrusts: Array[float] = []
 	var looks: Array[Vector2] = []
 	var panels: Array = []
+	var act := FakeAct.new()
+
+	func _init() -> void:
+		act.input.rt = self
 
 	func anatomy_hole_ready() -> bool:
 		return action_ready
@@ -97,39 +142,11 @@ class FakeRuntime extends Node:
 	func anatomy_oral_ready() -> bool:
 		return action_ready
 
-	func command(command_id: String) -> bool:
-		commands.append(command_id)
-		return command_ok
-
 	func body_swap_pending() -> bool:
 		return suspended
 
-	func vr_y_held() -> bool:
-		return vr_held
-
-	func free_look_active() -> bool:
-		return free_look
-
 	func auto_active() -> bool:
 		return auto
-
-	func cancel() -> void:
-		cancels += 1
-
-	func request_afterglow() -> void:
-		afterglows += 1
-
-	func end_afterglow() -> void:
-		afterglow_ends += 1
-
-	func thrust_motion(relative_y: float) -> void:
-		thrusts.append(relative_y)
-
-	func look_motion(relative: Vector2) -> void:
-		looks.append(relative)
-
-	func auto_panel_input(_delta: float, x_down: bool, keys: Array) -> void:
-		panels.append([x_down, keys.duplicate()])
 
 	# The legacy anatomy path stays for the callers that still own it directly.
 	func toggle_anatomy_hole() -> void:
@@ -141,8 +158,6 @@ class FakeRuntime extends Node:
 	func smack() -> void:
 		smacks += 1
 
-	func auto_thrust_wheel(_direction: int) -> void:
-		pass
 
 
 func _initialize() -> void:

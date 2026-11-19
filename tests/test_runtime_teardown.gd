@@ -237,7 +237,7 @@ func _fixture() -> Dictionary:
 	runtime._act.source = "test"
 	runtime._set_state(2)
 	PONIES.set_active(runtime)
-	runtime.toggle_auto_thrust()
+	runtime.act.input.toggle_auto_thrust()
 	runtime._hold.nav = nav
 	nav.command_owner = "unfplap:test_mare"
 	nav.wander_enabled = false
@@ -275,7 +275,7 @@ func run() -> void:
 	runtime._act.clear_aftercare()
 	check(not pony.has_meta("sex_aftercare"), "the Agreement start clears aftercare")
 
-	runtime._end_session(false)
+	runtime._exit.run(false)
 	check(pony.face_turn_rate == 0.45, "face-turn rate restored")
 	check(not runtime._hold.face_turn_rate_owned, "face-turn ownership cleared")
 	check(nav.command_owner == "", "navigator ownership released")
@@ -296,7 +296,7 @@ func run() -> void:
 	check(not PONIES.act_running(), "the one exit clears the active runtime")
 
 	# A second teardown is a no-op, not a second restore.
-	runtime._end_session(false)
+	runtime._exit.run(false)
 	check(pony.face_turn_rate == 0.45, "double teardown keeps the saved face-turn rate")
 	check(not pony.has_meta("sex_active"), "double teardown is safe")
 	check(inventory.placed == 1, "double teardown does not re-place the hotbar")
@@ -350,7 +350,7 @@ func run() -> void:
 	runtime3._act_camera.saved_eye_height = 1.6
 	player3._stand_eye = 2.1
 	player3._eye_height = 2.1
-	runtime3._end_session(false)
+	runtime3._exit.run(false)
 	check(absf(player3._stand_eye - 1.6) < 0.0001, "aborted start restores the eye override")
 	check(absf(player3._eye_height - 1.6) < 0.0001, "aborted start restores the eye height")
 
@@ -361,7 +361,7 @@ func run() -> void:
 	var nav4: FakeNav = runtime4._hold.nav
 	runtime4.pony = null
 	runtime4._set_state(4)
-	runtime4._finish_restore()
+	runtime4._exit.finish_restore()
 	check(not runtime4._hold.locked_player, "invalid pony still unlocks the player")
 	check(nav4.command_owner == "", "invalid pony still releases the navigator")
 	check(int(runtime4.state) == 0, "invalid pony ends in IDLE")
@@ -500,7 +500,7 @@ func run() -> void:
 	# safe with no pose left behind.
 	runtime8._start._build_pose()
 	check(runtime8._pose_session.view().pose_state == 2, "a new act fills the pose view again")
-	runtime8._end_session(false)
+	runtime8._exit.run(false)
 	var after_exit := 0
 	for child: Node in body8.get_children():
 		if str(child.name).begins_with("Unfplap"):
@@ -509,7 +509,7 @@ func run() -> void:
 		and runtime8._pose_session.view().pose_state == 0,
 		"the act exit leaves the pose view idle")
 	check(after_exit == 0, "the act exit leaves no act modifier on the body skeleton")
-	runtime8._end_session(false)
+	runtime8._exit.run(false)
 	after_exit = 0
 	for child: Node in body8.get_children():
 		if str(child.name).begins_with("Unfplap"):
@@ -528,11 +528,11 @@ func run() -> void:
 	runtime8._pose_session.act_body = act_body8
 	check(runtime8._pose_session.body_sway != null,
 		"the act body test installs the standing body sway")
-	var edge: Dictionary = runtime8.call("request_pose", CATALOG_STANDING_TEST, "test")
+	var edge: Dictionary = runtime8.act.input.request_pose(CATALOG_STANDING_TEST, "test")
 	check(str(edge.get("code", "")) == "ok", "the runtime starts the debug edge")
 	check(runtime8._pose_session.view().pose_state == 3,
 		"the running edge puts the view in the transition state")
-	runtime8._end_session(false)
+	runtime8._exit.run(false)
 	check(runtime8._pose_session._run == null, "the act exit aborts the running edge")
 	check(runtime8._pose_session.view().id == ""
 		and runtime8._pose_session.view().pose_state == 0,
@@ -560,7 +560,7 @@ func run() -> void:
 	runtime8._pose_session.tick(0.8)
 	check(pony8.global_position.distance_to(oral_from) > 0.001,
 		"the oral turn moves her during the edge")
-	runtime8._end_session(false)
+	runtime8._exit.run(false)
 	check(runtime8._pose_session._run == null, "the act exit aborts the oral edge")
 	check(pony8.global_position.is_equal_approx(oral_from),
 		"the act exit restores the captured oral root once")
@@ -588,7 +588,7 @@ func run() -> void:
 	runtime8.call("toggle_anatomy_oral")
 	check(runtime8._pose_session._run == null,
 		"the oral feature gate refuses before the edge starts")
-	runtime8._end_session(false)
+	runtime8._exit.run(false)
 
 	# AnonPony and headset/VR move her in front of the player; the player stays where he is.
 	var f9 := _fixture()
@@ -632,7 +632,7 @@ func run() -> void:
 	runtime10._handover.begin(suspended)
 	runtime10._handover.adopt(f10["pony"])
 	runtime10._handover.elapsed = 1.0
-	runtime10._end_session(false)
+	runtime10._exit.run(false)
 	check(runtime10._handover.change == null and not runtime10._suspended
 		and int(runtime10.state) == RUNTIME.State.IDLE,
 		"the one exit clears a suspended typed body change")
@@ -662,7 +662,7 @@ func run() -> void:
 	check(PONIES.active() == runtime11, "a same-node refresh never runs the act exit")
 	runtime11._handover.context.form = form11
 	runtime11._handover.context.change = BODY_CHANGE.new()
-	runtime11._end_session(false)
+	runtime11._exit.run(false)
 	check(runtime11._handover.context.form == null
 		and runtime11._handover.context.change == null,
 		"the one exit clears the reused policy context")

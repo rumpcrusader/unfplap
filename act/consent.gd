@@ -11,6 +11,7 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const REST := preload("res://mods/unfplap/rest/control.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 
 const State := ACT_STATE.State
@@ -23,6 +24,8 @@ const STOP := 2
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
 var session: ACT_SESSION = null
+## The one exit: the stop's presentation runs after it, never through a second teardown.
+var exit: Variant = null
 ## The queued warning line, so a later warning or a stop can cancel it. Consent owns its one line.
 var warning_key := ""
 ## The reason text of the last stop decision (`smack`, `debug`, ...).
@@ -135,6 +138,31 @@ func finish_stop(strict: bool, upset: bool) -> void:
 	if upset:
 		context.face.start_upset("angry" if strict else "annoyed")
 	queue_stop_line(strict)
+
+
+## A real consent stop. It ends the act without the normal afterglow/cuddle restore, commits a
+## severe bad summary, and only Strict additionally bucks and requests space. This owner presents
+## the warning, the space request and the stop line; the one exit stays the exit's.
+func stop_with_her(reason: String) -> void:
+	var stop: Dictionary = begin_stop(reason)
+	if stop.is_empty():
+		return
+	var strict := bool(stop.get("strict", false))
+	session.commit_summary(false)
+	# The stopped summary already says why. The basic event is the fallback when the summary was
+	# skipped, so one partner stop is never two memories.
+	if context.summary.summary.is_empty() and is_instance_valid(WORLD.game):
+		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, session.pony_id, session.event_id,
+			MEMORY.StopReason.WITHDREW)
+	if session.pose_family() == "bed":
+		REST.release_managed(host.pony)
+	context.dialogue.end_act(session.event_id, true)
+	exit.run(false)
+	exit.finalize(true)
+	finish_stop(strict, not context.summary.summary.is_empty())
+	host.log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
+		str(stop.get("tolerance", "normal")), float(stop.get("distress", 0.0)),
+		reason, str(strict)])
 
 
 ## Strict only: withdraw the bond's standing invitation. A body without the relationship runtime

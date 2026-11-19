@@ -22,9 +22,9 @@ body-swap seams (`act/swap.gd`) call it; the service never touches the act's sta
 
 The act modules read `context.hold` directly for the ordered steps (`keep_nav`, `keep_attention`,
 `pause_face_turn`, `release_nav`, `restore_face_turn`, `release_carry`), and the start ledger
-claims the lease. The runtime keeps `hold_handle()` for the Negotiation bridge and property views
+claims the lease. The session keeps `hold_handle()` for the Negotiation bridge and property views
 over the service flags for the teardown reports and the suites. The service owns the state, not
-the runtime's. It is created in `runtime._init()` and works while the runtime is `IDLE`, because
+the runtime's. It is created by `act/build.gd` and works while the runtime is `IDLE`, because
 the negotiation runs before the act.
 
 ## Public API
@@ -79,13 +79,13 @@ The service owns the flags:
 - `locked_player`, `kisser`, `kisser_processing`, `had_kiss_hold`.
 
 The carry and the cuddle are released, not flagged: both are idempotent and read the scene. The
-runtime owns the act state, the pose, the serial and the teardown ledger. The service fields stay
+`act/session.gd` owns the act state, the pose, the serial and the teardown ledger. The service fields stay
 cleared on every act end, so a failed start releases the same ownership as a normal end.
 
 ## Lifecycle
 
 - Scope: per-pony
-- Constructed by: `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`
 - Begin: `bind()` / `claim_nav()` / `claim_negotiation()`
 - End: act teardown or `release_negotiation()`
 - Idempotent: yes

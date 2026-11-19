@@ -33,7 +33,7 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 | `caress_active() -> bool` | the hand controller has an active caress |
 | `write_satisfaction(value)` | the aftercare decay's meter write |
 
-The phase's act collaborators are bound once by the runtime (`bind_act(face, reactions, readiness)`)
+The phase's act collaborators are bound once by the builder (`bind_act(face, reactions, readiness)`)
 and the act ids by the session (`set_act(pony_id, event_id)`); the close reward writes through
 them.
 
@@ -67,7 +67,7 @@ driver/delta pair and config; nothing rebuilds, releases or re-poses the body at
 The close window comes from the view's `afterglow.close_window`. The phase has no `pose_changed`
 hook. The runtime and facade source must not name a pose mode.
 
-For `standing_oral` the held pose is the turned frame and the neck keys. On entry the runtime calls
+For `standing_oral` the held pose is the turned frame and the neck keys. On entry the session calls
 `release_mouth_contact()`: the contact returns to the opening, the viseme clears, the soft-kiss
 timer stops, and the turned root/facing stay until the one act exit restores them. No reverse edge
 runs implicitly, and the pose row's passive afterglow opens no close window.
@@ -145,7 +145,7 @@ Hold the act key:
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`
 - Begin: `begin()`
 - End: `reset()`
 - Idempotent: yes

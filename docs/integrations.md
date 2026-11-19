@@ -60,8 +60,8 @@ The body-change service owns the source list, the form store, the apply path and
 forwards. The entry registers the providers and the service answers which source handles a pony;
 the runtime and the debug block see the typed source and policy surfaces, never the pack.
 
-The runtime constructs one service per act through `_integrations_controller()` and passes its typed
-`shared/act_facts.gd` view. The runtime calls `begin()`, `tick()`, `afterglow()`,
+The builder constructs one service per pony (`act/build.gd`) and passes its typed
+`shared/act_facts.gd` view. The act modules call `begin()`, `tick()`, `afterglow()`,
 `apply_live_settings()` and `reset()` at the ordered lifecycle points; `act/exit.gd:run()` remains
 the only act teardown.
 
@@ -418,8 +418,9 @@ overlay reads them.
 ## Lifecycle
 
 - Scope: per-act service + world adapters/providers
-- Constructed by: `runtime._integrations_controller()` for the per-act facade;
-  the entry's service list for the body-change provider and each world adapter
+- Constructed by: `act/build.gd` for the per-pony act facade
+  (`runtime.act.context.integrations`); the entry's service list for the body-change provider and
+  each world adapter
 - Begin: `begin()` at `State.POSING_IN`; `on_world(host)` on world entry; the provider refreshes
   its pack and registration on world entry; the changelings adapter registers its provider layer
   in `_ready()` and on `refresh()`
@@ -432,7 +433,7 @@ overlay reads them.
 
 | Host call | Purpose |
 |---|---|
-| `runtime._integrations_controller()` | one service per runtime, lazily created like the kiss and hands controllers |
+| `runtime.act.context.integrations` | the per-pony act facade, built once by `act/build.gd` |
 | `begin()` | resolve bindings and start available providers after the act reaches `POSING_IN` |
 | `tick(delta)` | update context, watch optional bindings and apply provider tick actions |
 | `afterglow()` | apply the one afterglow action before Kissing's hold/fade |
@@ -453,7 +454,7 @@ overlay reads them.
 | `PONIES.body_change` `has_tail_placement()` / `apply_tail_placement()` / `tail_placement_report()` | the anatomy editor's read of the provider that owns a body's tail placement |
 | `PONIES.adopt_pending_body(pony)` | the runtime's late-body path: prepare and adopt a body the spawn hook did not claim in time |
 | `PONIES.live_character_ids()` | merges the body-change service's `installed_character_ids()` |
-| `runtime.request_form_change()` | the act-side start of a body change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
+| `runtime.act.request_form_change()` | the act-side start of a body change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
 | `runtime.adopt_body()` / `attach_to_body()` | moves the suspended act under the claimed body |
 | `Mods.is_active("changelings")` | the adapter's installation gate |
 
@@ -478,7 +479,7 @@ overlay reads them.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| host | runtime | `_integrations_controller()` | act lifecycle and typed facts |
+| host | runtime | `act/build.gd` | act lifecycle and typed facts |
 | host | the entry | the service list | world lifecycle and the debug Rebuild button |
 | service | settings | `settings/ui.gd` | Integrations tab catalog |
 

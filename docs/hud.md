@@ -29,7 +29,7 @@ The service owns:
 `act/view.gd` fills the typed act view (`shared/act_facts.gd`) with the live values: state, climax
 count and limit, cue, close hint, summary, heat, the raw `close_earned` flag, the auto values and
 the anatomy row gates. `hud/lines.gd` formats the text, the `End` tint and the auto readout. The
-entry calls `runtime.act_view()` once per rendered frame and passes that object to
+entry calls `runtime.act.facts()` once per rendered frame and passes that object to
 `hud/service.gd`, which reads fields and never probes the runtime for a method. The control visibility reads `view.pose_view.family` (`bed` for missionary, `standing` for
 standing) instead of a raw pose id. The pure module has no Node, tree, `Settings` or game access,
 so the formats are testable without a scene.

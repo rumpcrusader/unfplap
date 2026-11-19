@@ -212,7 +212,7 @@ The available options are computed **before** reasoning, from one placement pass
 and a forced request naming them is rejected rather than falling back to another pose. A cuddle is
 the only option considered while she is in the cuddle.
 
-Each option then passes the scene-only formation rows (`runtime.scene_only_verdict` with the live
+Each option then passes the scene-only formation rows (`runtime.gate.scene_only_verdict` with the live
 pose capability): a hard failure drops the option. The `player` and `bed_gate` rows are transient
 at formation because Anon is not in position yet; the Agreement's own start waits for them. A
 candidate with no game root or no runtime is rejected as `no_world`.

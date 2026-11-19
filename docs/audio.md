@@ -15,16 +15,17 @@ policy.
 | `audio/smack_cues.gd` | the hand-smack variants used by the hands system and the outside-act layer |
 | `docs/audio.md` | this contract |
 
-`audio/service.gd` is one Node per runtime. `audio/act.gd` is the one act handle: the runtime
-creates the node lazily and keeps it for the process; `start()` opens an act's layer and `stop()`
-closes it. It never preloads `runtime.gd` or `main.gd`; the runtime passes the pony, the id and
+`audio/service.gd` is one Node per runtime. `audio/act.gd` is the one act handle: the builder
+binds it once and it creates its node lazily, keeping it for the process; `start()` opens an act's layer and `stop()`
+closes it. It never preloads `runtime.gd` or `main.gd`; the builder passes the node and the act
+passes the pony, the id and
 the classified voice info as arguments. The shared game excitement Beat is held by owner name
 (`hold_excitement(owner)`/`release_excitement(owner)`); the last release restores the saved pause
 state, and `reset_excitement_hold()` is the teardown fallback.
 
 ## Bridge
 
-The runtime calls one typed act handle, never a private field or a raw player:
+The act modules call one typed handle, never a private field or a raw player:
 
 | Method | Call site |
 |---|---|
@@ -93,12 +94,12 @@ mutes only when the effective voice is Ponese (`effective_ponese`). A generated/
 left alone. The saved volume is restored by `restore_voice_policy()` at the act end or when the
 setting changes.
 
-The setting is live: `runtime.apply_live_settings()` reads the pre-edit
+The setting is live: `act/view.gd:apply_live()` reads the pre-edit
 `mute_ponese_audio` **before** it snapshots the new feature flags, and re-applies the policy only
 when the two differ. The order matters — a snapshot read first would compare the new value with
 itself, and a mid-act edit would never reach the voice player.
 
-The classification itself stays `audio/voice_status.gd` (pure); the runtime's `voice_status_line()` is
+The classification itself stays `audio/voice_status.gd` (pure); the session's `voice_status_line()` is
 the debug read.
 
 ## Base-game vocal cache
@@ -106,7 +107,7 @@ the debug read.
 The runtime keeps the director/vocal call sites. The game's `world/ai/vocal_noises.gd` caches one
 `AudioStreamPlayer3D` per pony id under `_players`, parented to her body. A body change frees the
 old body and leaves a freed instance in that cache; the game's typed read at `play()` fails before
-its own `is_instance_valid()` guard. `runtime._prune_freed_vocal()` clears only this runtime's
+its own `is_instance_valid()` guard. `audio/service.gd:prune_freed_vocal()` clears only this runtime's
 stable id before the next `play`, guarded against a changed or missing cache, so the game creates a
 new player under the presented body. It never edits the game file or another pony's entry.
 
@@ -131,7 +132,7 @@ new player under the presented body. It never edits the game file or another pon
 ## Lifecycle
 
 - Scope: per-pony
-- Constructed by: `runtime`
+- Constructed by: `act/build.gd`
 - Begin: `begin()`
 - End: `end()`
 - Idempotent: yes

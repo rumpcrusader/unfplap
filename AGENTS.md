@@ -145,11 +145,12 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 ## Non-negotiables
 
-- **Order is load-bearing.** `_physics_tick`, `_process_tick` (render-time pose write), the start
-  sequence, `_end_session` and the impact fan-out keep their call order until a change deliberately
-  moves one call.
-- **One teardown.** `_end_session` stays in `runtime.gd` and is the only exit path;
-  `scripts/architecture.py --check` enforces it. Do not add a second exit sequence.
+- **Order is load-bearing.** `act/tick.gd:tick` and its `render` (render-time pose write), the
+  start sequence, `act/exit.gd:run` and the impact fan-out keep their call order until a change
+  deliberately moves one call.
+- **One teardown.** `act/exit.gd:run` is the only exit path and its own routes plus the consent stop
+  are its only callers; `scripts/architecture.py --check` enforces it. Do not add a second exit
+  sequence.
 - **No reach-ins, no allocation churn.** A system must not preload `runtime.gd` or `main.gd`, must
   not call `runtime.get("_…")` / `runtime.call("_…")`, and reuses `act_facts` and event
   dictionaries instead of allocating per frame. The entry constructs and binds; it never dispatches

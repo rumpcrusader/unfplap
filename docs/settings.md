@@ -104,7 +104,7 @@ The act session takes it in `act/session.gd:snapshot_settings()` with the start 
 `settings_group` and re-runs it in `apply_live_settings()`. An internal pose (`standing_test`,
 `standing_oral`) shares the standing group and has no `presentation` block or `default.poses` row
 of its own. There is no path-keyed read outside the settings service and no second cache. The
-session owns the snapshot and consumers read `_snapshot.<value>` at the use site: `snapshot_settings()`
+session owns the snapshot and consumers read `snapshot.<value>` at the use site: `snapshot_settings()`
 is its only writer, a consumer indexes the complete snapshot block, and no second field copies a
 snapshot scalar.
 

@@ -24,7 +24,8 @@ ledgers call `set_face()`/`clear_face()`/`end_face()` at the transitions. The af
 | `face/service.gd` | the act face, the line-face owner, the stare release, the lids and smile with their timer, the climax quality shape, the mood-face lifetime and the warm note |
 | `shared/act_face.gd` | pure: beat plans, climax style, blush, summary faces, prompt hints |
 | `face/mood_face.gd` | the 300 s held base-game face, its own `finished` signal and its blush |
-| `runtime.gd` | the state, the scene reads, the blush, the kiss, the HUD wiring and the summary grade |
+| `act/session.gd` | the act state and values the beats read |
+| `runtime.gd` | the Node host: it binds the face once and owns the node that parents the mood face and the hold timer |
 
 Host callbacks, all optional so a test can build the facade without a runtime:
 
@@ -50,7 +51,7 @@ a runtime without entering the tree calls `ensure_bound()` on its first facade c
 | `set_face(smile, lids, hold_seconds)` | write the act's smile and lids; a hold starts the face timer |
 | `clear_face()` | stop the hold, release the stare and release the act's touch layer |
 | `eyes_tick(context)` | the late lid owner; `context` carries `state`, `close_rewarded` and `eyes_active` |
-| `climax_quality(context)` | the climax presentation score shape; the runtime gathers the counters |
+| `climax_quality(context)` | the climax presentation score shape; `act/view.gd` gathers the counters |
 | `set_act_face(face, hold_s)` | set one face unless a spoken line owns it; returns whether it applied |
 | `end_face()` | clear only the face this owner set; a spoken line face is never cleared |
 | `dialogue_face()` | the face a director line currently owns, or empty |
@@ -131,7 +132,7 @@ the main handle and the `log` callback from the facade; it never reads the runti
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`
 - Begin: `bind()`
 - End: `shutdown()`
 - Idempotent: yes

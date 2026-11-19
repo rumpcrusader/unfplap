@@ -247,11 +247,11 @@ Negotiation service owns them after it.
 The package is immutable: the service builds it once and never rewrites it. The Act service gets
 `Handle`: the id, the generation, the operational frozen values, and one `cancel(reason)` callback
 whose bound arguments make a late handle harmless. The offer service, the Act service's only
-caller, reports the `runtime.start_agreement()` answer as `Started`/`StartFailed` through
+caller, reports the `runtime.gate.start_agreement()` answer as `Started`/`StartFailed` through
 `report(handle, started)`; the service closes the Agreement, releases the lock and releases the
 hold unless the Act adopted it on `Started`. The service's Agreement handoff starts the standing
 presentation (act-owned) and clears the shared offer window, so the hint goes with the Agreement;
-the act key and the auto-start consume the handle through `runtime.start_agreement()`; a wait keeps
+the act key and the auto-start consume the handle through `runtime.gate.start_agreement()`; a wait keeps
 the Agreement live. A handle whose runtime is gone is cancelled with `cancelled`.
 
 Formation runs the live placement re-check (`Host.pose_placed`, the scene-only rows) after the

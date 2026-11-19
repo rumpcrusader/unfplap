@@ -171,9 +171,10 @@ CHANGELINGS_SOURCE = "integrations/changelings"
 CHANGELINGS_CATALOG = {"shared/character_preferences.gd"}
 
 ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
-# runtime.gd is the per-pony host: it composes and orders the systems and implements no system's
-# rules. These four shapes are the invariant. The two allow-lists are compared both ways, so a new
-# read or node fails and a row that no longer exists fails too.
+# runtime.gd is the per-pony Node host: it owns lifetime and node operations and implements no
+# system's rules. The state-writer rule, the fixed public surface and the settings/child-node
+# allow-lists are the invariant. The allow-lists are compared both ways, so a new read or node
+# fails and a row that no longer exists fails too.
 RUNTIME_STATE_WRITER = "act/session.gd:_set_state"
 RUNTIME_STATE_OWNER = ROOT / "act" / "session.gd"
 # Every `SETTINGS.<member>` read, keyed by its enclosing function (`<module>` for the field block)
@@ -189,8 +190,8 @@ ACT_SETTINGS_READS = {
     ("snapshot_values", "camera_mode"): "the camera mode, cached for the render write",
     ("live_preferences", "preferences"): "the live preference refresh",
 }
-# The only child nodes the runtime parents: both are system-owned, and the runtime is the host that
-# adds and frees them. A new node is an allow-list row, not a line in a tick.
+# The runtime node parents no child: the act audio node and the pose-scope tail tuck are created by
+# their owners. A row is added only for a system-owned node the host itself must add.
 RUNTIME_CHILD_NODES = {}
 # The runtime node's public functions: the entry's lifetime ops. `act`, `gate` and `pony` are
 # properties, not rows. A new public function is a facade regrowth; the comparison runs both ways.

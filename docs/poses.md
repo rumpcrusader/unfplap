@@ -132,7 +132,7 @@ and no `provisional` flag. The asset's `--pose bed_facesit --check` round-trip a
 
 The pose session's `face_sit_error(act_state)` owns the Debug action's refusal order — no active
 act, a non-missionary view, a non-active act, a changing pose, a running kiss and missing anatomy —
-and `runtime.face_sit_error()` forwards it. `state_rows(state)` owns the pose diagnostic rows the
+and `runtime.act.face_sit_error()` forwards it. `state_rows(state)` owns the pose diagnostic rows the
 Show data action reads, so neither rule is repeated in the runtime.
 
 - The bake input is the **body rig's rest pose**, plus `apply_reference()` at the reference config.
@@ -551,7 +551,7 @@ and the runtime only re-asserts the pose weight, the tail, the HUD state and the
 
 ## Retarget hooks and the pose change
 
-`runtime._pose_fanout()` runs after the pose tick and the facts sync in every act phase above
+`act/tick.gd:_fanout()` runs after the pose tick and the facts sync in every act phase above
 `IDLE`, in one fixed order: the pose service, the camera, the hands, the kiss, the anatomy bridge
 and the audio. The pose service reconciles its modifier profile and applies the `act_body`/`anon`
 channel; each following owner implements `pose_changed(view)` and caches the last id/profile/
@@ -799,7 +799,7 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   `act/session.gd:placement_values()` fills `PLACEMENT.ActBind` (its `fill()`) and feeds
   `bind_act()`; `act/setup.gd:standing_place()` calls `begin_act()`. For desktop human
   Anon it builds the act transform from her current facing and places him at
-  `pony_position - forward * _standing_gap()`, then sets his yaw along her forward so a standing
+  `pony_position - forward * runtime.act.swap.standing_gap()`, then sets his yaw along her forward so a standing
   act after a missionary restore does not inherit the old view. The 2 m Y cone bounds that
   correction. The act end leaves him there and leaves his yaw/pitch at the last act aim; it
   does not snap the pre-act view back. AnonPony and headset/VR still move her in front of the
@@ -820,7 +820,7 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   Same Height preset follows Anon's `player/height_cm`, so that gap, the lean scale and the
   caress offsets follow `Settings.anon_height_scale()` as described in `docs/hands.md`.
   For desktop human Anon the gap is measured from her root along her backward axis after he is
-  placed behind her. The placement handle keeps no gap table: `_standing_gap()` reads the pose
+  placed behind her. The placement handle keeps no gap table: `act/swap.gd:standing_gap()` reads the pose
   config's `gaps`, then `SETTINGS.pose(id, "standing")` when the session has none.
 - The idle invitation (`poses/standing_presentation.gd`) builds its own standing config. The
   presentation chin/neck and tail values, the glance keys and the two tail angles are read by key
@@ -933,7 +933,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
   `write_look_target()`, which owns the look point (the missionary gaze, the kissing-mouth blend and
   the authored-Anon fallback) and the pose's kiss and climax weights.
 - `act/tick.gd:_tick`: presentation, timers, facing lock, glances, auto-cuddle suppression.
-- the entry's `_process`: calls `active_runtime.apply_camera_motion()` every rendered frame.
+- the entry's `_process`: calls `active_runtime.act.apply_camera_motion()` every rendered frame.
   Keep this single owner.
 - Do not merge these timing domains blindly.
 
@@ -959,7 +959,8 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 ## Lifecycle
 
 - Scope: per runtime, one per pony; the session is not rebuilt for each act
-- Constructed by: `runtime._init()`; `bind()` points it at the runtime and its pony
+- Constructed by: `act/build.gd` through `runtime._init()`; `bind()` points it at the node and
+  its pony
 - Begin: `begin(context)` builds the act's pose once, enters `ENTERING`, fills the pose view and
   settles `STEADY`, and returns `false`, before installing anything, when a pose is already live or
   the pony has no body skeleton

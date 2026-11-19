@@ -226,7 +226,7 @@ testing.
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`
 - Begin: `configure()`
 - End: `reset()`
 - Idempotent: yes

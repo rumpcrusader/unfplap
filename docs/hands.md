@@ -228,7 +228,7 @@ does not scale the skin and closest query with its full coat.
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime`
+- Constructed by: `act/build.gd`
 - Begin: `bind()`/`begin()`
 - End: act teardown
 - Idempotent: yes

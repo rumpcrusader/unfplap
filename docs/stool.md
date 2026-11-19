@@ -148,7 +148,7 @@ idle hint and the act start.
 - The idle hint reads the reach and case pair once per scan (once per second) through
   `hotkey_pair()` and hands it to the scene row. The anatomy measurement and the inventory scan are
   not repeated inside the same scan.
-- The blocked hint reads that pair through `hint_pair()` (forwarded by `runtime.hint_stool()`); it
+- The blocked hint reads that pair through `hint_pair()` (forwarded by `runtime.gate.hint_stool()`); it
   does not repeat the reach or case reads. Before the first hint the accessor falls back to the live
   pair.
 - Pressing the act key on the blocked note does not start an act.

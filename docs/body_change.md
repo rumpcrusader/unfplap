@@ -446,7 +446,7 @@ is written through `LOG.debug()` and obeys **Enable debug**.
 
 The Debug block's **Form: true form**, **Form: next named shape** and **Form: bring her out** drive
 the shipped provider from `docs/debug.md`. In a live act the two form actions go through
-`runtime.request_form_change()` and the body handover; outside an act they ask the service, which
+`runtime.act.request_form_change()` and the body handover; outside an act they ask the service, which
 forwards to the provider and runs the idle change path. Bring-out is not a change.
 
 The debug log's `body change` line carries the body, stable id, form, fit, rig, marker, scale,
@@ -465,7 +465,7 @@ suspension, adoption, resume and failure phases.
 | `pantyhose.scan()` | the garment binding's public scan |
 | `stock_smack.pony_ready(pony)` | the stock smack binding's public prepare |
 | `PONIES.body_change` | the runtime's, the anatomy editor's and the debug block's service handle |
-| `body_change/act.gd` | the act's swap record and form request; it owns `release()`, `resume()`, `rebind()` and the offer/reveal timing, while `act/swap.gd` holds the typed release/resume seams and the one `resume()` caller, and the runtime keeps the reparent, `attach_to_body()`, `adopt_body()` and the two suite seams |
+| `body_change/act.gd` | the act's swap record and form request; it owns `release()`, `resume()`, `rebind()` and the offer/reveal timing, while `act/swap.gd` holds the typed release/resume seams and the one `resume()` caller, and the runtime node keeps only the reparent, `attach_to_body()` and `adopt_body()` |
 | `shared/settings_change.gd` | `apply_settings()` re-applies the handling source's tail wrapper for every live body after a settings edit |
 
 ## Dependencies
@@ -491,7 +491,7 @@ suspension, adoption, resume and failure phases.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | host | ponies | `PONIES.body_change` | the runtime's, the anatomy editor's and the debug block's handle |
-| host | runtime | `_body_change_service()` | act suspension, adoption and provider policy |
+| host | runtime | `act/build.gd` | act suspension, adoption and provider policy |
 | service | integrations | `integrations/changelings.gd` | the shipped provider base and policy |
 
 ## Tests

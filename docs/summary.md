@@ -11,9 +11,10 @@ Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; th
 `summary/service.gd` is the system facade. It owns the summary trigger and commit, the summary input and
 context shape the pure scorer reads (`summary_inputs()`, `summary_context()`) and the peak-memory
 record. The stored ledger is read from `shared/act_history.gd` directly, by this facade and by every
-other consumer. The runtime keeps the act state machine, gathers the action counters and the scene
-values into one dictionary, runs the scene stop executor (`_stop_with_her`: bed release, session
-end, space, buck, tail tuck) and owns the face and line presentation. `summary/score.gd` and
+other consumer. `act/session.gd` keeps the act state machine; `act/view.gd` gathers the action
+counters and the scene values into the typed input the scorer reads; `act/exit.gd` owns the stop
+ledger, and the face and line presentation belong to `docs/face.md` and `docs/dialogue.md`.
+`summary/score.gd` and
 `shared/act_history.gd` remain the pure scoring and stored-row modules behind the facade. The
 neglect-tolerance meter is readiness and the idle history scan is dialogue; see
 `docs/readiness.md` and `docs/dialogue.md`.
@@ -143,9 +144,10 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
 `feel satisfied`), never a direct instruction or a stroke mechanic. It is kept for the summary
 and debug; no prompt sends it to the model.
 
-`shared/act_history.gd` also keeps a process-wide `revision`, bumped by every stored-row write
-(`commit`, `repair`, `apology_repair`, `reset` and `mark_announced`). Reads, sanitising and time
-decay do not bump it, so a stored write always advances the counter a reader can compare.
+`shared/act_history.gd` also keeps a process-wide `revision`, its mutation counter, bumped by every
+stored-row write (`commit`, `repair`, `apology_repair`, `reset` and `mark_announced`). Reads,
+sanitising and time decay do not bump it. Its reader is `tests/summary/test_act_history.gd`, which
+pins both halves of that contract.
 
 The live rule table is memoised per `SETTINGS.generation`: `rules()` returns the same table until a
 settings write rebuilds it, and every caller treats it as read-only. Tier and offer-weight checks
@@ -256,7 +258,7 @@ navigator and blocks nothing; the gates above do that.
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`
 - Begin: `reset_act()`
 - End: act teardown
 - Idempotent: yes

@@ -1,8 +1,8 @@
 extends RefCounted
 ## The per-pony composition root. One `Bundle` per runtime node, built once by `runtime.gd:_init()`:
-## it constructs every system, host, collaborator set and act module, and binds every callable, in
-## the order the runtime used to. It contains no behaviour: no gate, input, start, exit, tick or view
-## wrapper and no forwarder. Construction and the pony rebind are all it does.
+## it constructs every system, host, collaborator set and act module and binds every callable to its
+## owner. It contains no behaviour: no gate, input, start, exit, tick or view wrapper and no
+## forwarder. Construction and the pony rebind are all it does.
 ##
 ## See `docs/runtime.md`.
 
@@ -126,8 +126,8 @@ static func build(pony: Node, node: Node) -> Bundle:
 	var b := Bundle.new()
 	b.node = node
 	b.pony = pony if is_instance_valid(pony) else null
-	# The runtime's former field initializers, in their order. The four act modules exist before
-	# the frame binds them because the anatomy host is built against the early instances.
+	# The early modules, in construction order. They exist before the act frame binds them because
+	# the anatomy bridge and the handover are built against these instances.
 	b.input = ACT_INPUT.new()
 	b.swap = ACT_SWAP.new()
 	b.tick = ACT_TICK.new()
@@ -144,9 +144,10 @@ static func build(pony: Node, node: Node) -> Bundle:
 	b.dialogue = ACT_DIALOGUE.new(b.facts)
 	b.afterglow = AFTERGLOW.new()
 	b.hold = SCENE_HOLD.new()
-	# The two hosts that read the act values are created now, so the bridge and the handover can
-	# hold them, and their callables are bound after the act frame exists. The anatomy host is
-	# built against the early module instances; `bind_pony()` carries the body instead.
+	# The anatomy bridge and its host are created now, so the act context can hold them; the
+	# handover host is created with the other systems. Both hosts are filled after the act frame
+	# exists, because their callbacks read the session and the modules. `bind_pony()` carries the
+	# body instead of binding it here.
 	b.anatomy_host = ACT_HOST.new()
 	b.anatomy_bridge = ANATOMY.new_act(b.anatomy_host)
 	_build_systems(node, b)
@@ -167,7 +168,7 @@ static func build(pony: Node, node: Node) -> Bundle:
 	return b
 
 
-## The components `_build_systems()` used to construct, in its order.
+## The per-act systems, in construction order.
 static func _build_systems(node: Node, b: Bundle) -> void:
 	b.handover_host = BODY_CHANGE_ACT_HOST.new()
 	b.handover = BODY_CHANGE_ACT.new(b.handover_host)

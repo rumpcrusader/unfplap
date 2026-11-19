@@ -112,7 +112,7 @@ id, so a held debug pair does not snap. `tests/act_camera/test_camera.gd` pins t
   the explicit `S` shoulder recentre uses `return_to_zero`. The act end and paused paths still
   return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
 - With `idle_camera_sway` enabled the camera lean gets a small, slow forward rock
-  (`0.010`). It is a **separate offset** (`runtime.shot_lean_forward()`), never added into
+  (`0.010`). It is a **separate offset** (`camera/service.gd:shot_lean_forward()`), never added into
   `lean_view_forward`: folded in, the inertia smoother amplified it about twelvefold and the shot
   crept while nobody was leaning. There is no side sway. Pressing `S` arms a gradual side return,
   so the shoulder roll decays to neutral without leaning the other way.
@@ -219,12 +219,12 @@ lateral/drop are added. Off, the authored transform plus the surge/bob is the wh
 - A presented body's entrance follows its `BodyForm`: `form.rig` supplies the rear anchor and scale
   and `form.body_scale` the live scale (`camera/service.gd:entrance_offset_for()` delegates the
   math to `shared/body_profile.gd`). The preset moves by the entrance height, a raise capped at
-  Anon's own eye or at a preset that is already higher; `runtime._standing_gap()` adds the back
-  offset, so Anon keeps the same distance from her entrance. The runtime passes the presented form
+  Anon's own eye or at a preset that is already higher; `runtime.act.swap.standing_gap()` adds the
+  back offset, so Anon keeps the same distance from her entrance. The runtime passes the presented form
   to `apply_eye_override()` at start and every body-form refresh; the camera has no separate body
   binding. A re-application derives its target from the saved true base, not from the eye it
   already lowered, and a form that needs no crouch gives the true eye back. `camera.reset_for_form()`
-  undoes the old override and shot state before applying the new form; `runtime._reset_visual_for_form()`
+  undoes the old override and shot state before applying the new form; `act/swap.gd:reset_visual_for_form()`
   re-fits a standing Anon with `_reanchor_player_for_form()` and then prepares the shot. A same-node
   revision runs the same reset as a resume (`docs/runtime.md`, `docs/body_change.md`).
 - The bed shot needs no placement pass: `missionary_anon.apply()` and the authored camera read the
@@ -286,7 +286,7 @@ takes effect when the panel closes.
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`
 - Begin: `bind()`/`begin_session(family)`
 - End: act teardown
 - Idempotent: yes

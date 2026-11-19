@@ -8,8 +8,10 @@ the runtime orchestrator and the scene adapters.
 ## Ownership
 
 - `shared/act_facts.gd` defines the fields and the no-op host callbacks.
-- `runtime.gd` creates it and binds the callbacks once in `_init()`. `act/view.gd` refreshes the
-  live values; `runtime.refresh_view()` keeps the one call site. It runs once per phase: idle
+- `act/build.gd` creates it once per pony and binds each callback to its owner — a service method,
+  a session accessor or an `act/host.gd` node op — so no callback names a runtime node method.
+  `act/view.gd` refreshes the live values through `act/session.gd:refresh_view()`, the one call
+  site. It runs once per phase: idle
   before the idle systems, physics after the pose tick and before the fan-out, render before the
   camera work, and the entry's `apply_camera_motion()` hand-off. The start, resume, teardown and
   live-edit paths call `refresh_view()` directly. The idle standing invitation, the debug actions

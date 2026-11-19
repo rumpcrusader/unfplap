@@ -115,7 +115,7 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 - **Form: true form**, **Form: next named shape** and **Form: bring her out** are the generic
   body-change actions. They are drawn only while `shape_source_active()` is true, so a launch
   without an installed provider has no dead buttons. In a live act the first two go through
-  `runtime.request_form_change()` and the body handover continues the act; outside an act they ask
+  `runtime.act.request_form_change()` and the body handover continues the act; outside an act they ask
   `body_change`, which forwards to the provider and runs the idle change path. The named action
   cycles the shipped adult mares in `FORM_DEBUG_SHAPES` and
   names the next one in its result. Bring-out only asks the provider to put an away actor in the

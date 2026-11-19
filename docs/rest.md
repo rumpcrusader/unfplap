@@ -48,7 +48,7 @@ therefore calls `invite(pony, seats[1])` explicitly.
   frames while the state is not `IDLE`, stop on `grounded()`, then request `stand`. The act poses
   her body itself; the placement only puts her in bed space.
 - A normal end calls `restore_posture(frame)`. For a `bed` frame it restores the pre-act player,
-  pony and camera snapshot (`runtime._rest_restore_scene`), then requests `stand`. A `ground`
+  pony and camera snapshot (`missionary_camera.restore_scene()`), then requests `stand`. A `ground`
   frame does not restore the scene; it keeps Anon where the act ended.
 - A forced stop never reaches the rejoin. `act/exit.gd:run()` only captures the bed when the act was
   a normal bed-sourced end that did not go badly and `rejoin_wanted()` is true.
@@ -94,7 +94,7 @@ The facade never preloads `runtime.gd` or `main.gd` and never reads their privat
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`
 - Begin: `bind()`
 - End: act teardown
 - Idempotent: yes

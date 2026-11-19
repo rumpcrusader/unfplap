@@ -75,7 +75,7 @@ controller.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | shared | act_commands | `shared/act_commands.gd` | the oral command id the left `by_button` emits |
-| host | runtime | `command` callback | the one discrete command dispatcher |
+| host | runtime | `act/input.gd` | the one discrete command dispatcher |
 
 ## Lifecycle
 

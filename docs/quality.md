@@ -55,14 +55,16 @@ the gate:
   `main.<member>`, `var main`, a `main.gd` preload or a `main` argument; `tests/` is exempt. A
   consumer preloads the facade it needs, reads `WORLD` for the scene, or takes a typed host
   parameter.
-- **The runtime is a host, not a system.** `runtime.gd` assigns `state` only inside `_set_state()`,
-  decodes no raw input (`Input.`, `InputMap.`, `InputEvent*`, `KEY_*`, `MOUSE_MODE_*`, an input
-  callback), reads `SETTINGS.` only at the act's snapshot boundaries — `act/session.gd:snapshot_settings()`,
-  `apply_live_settings()`, the start and resume paths, the `_snapshot` field's typed default and
-  `_shape_name()`'s static character-name lookup — and calls `add_child()` only for the two
-  system-owned nodes: the act audio node and the tail tuck. Both allow-lists live in the checker
-  and are compared in both directions, so a new settings read or node fails the gate and a row
-  whose code is gone fails as stale.
+- **The runtime is a host, not a system.** `runtime.gd` declares no `state` field and assigns no
+  `state` (the one writer is `act/session.gd:_set_state()`), decodes no raw input (`Input.`,
+  `InputMap.`, `InputEvent*`, `KEY_*`, `MOUSE_MODE_*`, an input callback), reads no `SETTINGS.`
+  value, and calls no `add_child()`. Its public functions and properties are fixed by
+  `NODE_SURFACE` and `NODE_PROPERTIES`. The act's settings reads live in `act/settings.gd` at its
+  two snapshot boundaries (`snapshot_values`, `live_preferences`), each with a named allow-list row;
+  the act audio node and the pose-scope tail tuck are created by their owners. Both allow-lists live
+  in the checker and are compared in both directions, so a new settings read or node fails the gate
+  and a row whose code is gone fails as stale. File size is reported as `SMELL large file`, never as
+  a cap.
 
 The rest — one body-change fan-out, one `act/swap.gd:resume()`, one `act/exit.gd:run()`, the
 schedule's tick and fan-out order in `act/tick.gd`, the scene-only world facade and the suite

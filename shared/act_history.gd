@@ -15,8 +15,8 @@ const MAX_RECENT := 6
 const MAX_TEXT := 180
 const MAX_WANTS := 120
 
-## Bumped by every stored-row write, so a read-only policy snapshot can tell when its history
-## facts are stale. Reads and decay never bump it.
+## The store's mutation counter: every stored-row write bumps it and reads or decay never do.
+## `tests/summary/test_act_history.gd` is its reader and asserts that contract.
 static var revision := 0
 
 ## The live setting behind each rule key, declared once so `rules()` needs no path strings.

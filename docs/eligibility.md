@@ -149,15 +149,15 @@ shape-identity cache used by `eligible_id()`.
 
 | Caller | API | Scene work it keeps |
 |---|---|---|
-| `runtime.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate/service.gd` rows; the hint helper and the debug line |
-| `runtime.hotkey_ready()` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` | Base clearance for the idle hint and the hotkey; the scene-only rows. The hint reads Base clearance live after the scene passes; a press runs the same path. |
-| `offer/service.gd` `scan()` | a live Agreement's scene-only rows, else `runtime.hotkey_ready()` | candidate discovery; the Agreement offer wins, the idle scan uses Base clearance plus the scene-only rows |
-| `offer.try_start()` | `runtime.hotkey_ready()` | the act key; no policy row, no buck |
+| `runtime.gate.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate/service.gd` rows; the hint helper and the debug line |
+| `runtime.gate.hotkey_ready()` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` | Base clearance for the idle hint and the hotkey; the scene-only rows. The hint reads Base clearance live after the scene passes; a press runs the same path. |
+| `offer/service.gd` `scan()` | a live Agreement's scene-only rows, else `runtime.gate.hotkey_ready()` | candidate discovery; the Agreement offer wins, the idle scan uses Base clearance plus the scene-only rows |
+| `offer.try_start()` | `runtime.gate.hotkey_ready()` | the act key; no policy row, no buck |
 | `offer/service.gd` scan | `eligible(pony, Target.ACT)` through the bound `act_target` callback (`PONIES.act_target`) | candidate discovery |
 | `PONIES.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
 | `initiation` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` + the scene-only formation rows | cooldown, approach, bed search, privacy, Mare Initiation Reasoning; see `docs/initiation.md` |
 | `negotiation` bridge | `eligible(pony, Target.ACT)`, `relationship_ok(pony)` and `get_verdict(pony, Mode.OFFER)` for the Context facts | the act target, the Anon-offer mare, Base clearance and the Context both reasoning stages read; see `docs/negotiation.md` |
-| `runtime.start_agreement()` | none; the scene-only rows and the frozen pose capability | the Agreement start; the policy was frozen at formation |
+| `runtime.gate.start_agreement()` | none; the scene-only rows and the frozen pose capability | the Agreement start; the policy was frozen at formation |
 | `anatomy/act` | `get_profile(id).consent` | feature flags |
 | `integrations/changelings` | `eligible_id(id)` | a player-named disguise body that may not be live |
 | `anatomy` facade | `eligible(pony, Target.ANATOMY)` | rig, assets, dock; forwards to its controllers |
@@ -200,7 +200,7 @@ cycle_phase, cycle_allows, heat, history, consent
 `cycle_phase` is resolved by the eligibility service (`cycle_phase_for()`): the debug action's
 session override in `shared/cycle.gd`, else the feature flag and the world day. A pony that has
 only just spawned has no relationship runtime yet, so the read is a normal phase until one exists;
-the anatomy bridge asks for it during its own bind. `runtime.cycle_phase()` is a one-line forward.
+the anatomy bridge asks for it during its own bind. `runtime.act.cycle_phase()` is a one-line forward.
 `history` is resolved by `shared/act_history.gd`; `consent` by `SETTINGS.consent(id)`.
 `eligible` is the provider's tri-state assertion (`null` means the identity decides); `participation`
 is the resolved per-mare capability block (`acts`, `anatomy`, `tail`), both by
@@ -352,7 +352,7 @@ uses is `docs/face.md`.
 ## The act key
 
 `relationship.sex_start` (**Show start button**) is retired. The act key is the hotkey: it always
-attempts, and its readiness is Base clearance plus the scene-only rows (`runtime.hotkey_ready`).
+attempts, and its readiness is Base clearance plus the scene-only rows (`runtime.gate.hotkey_ready`).
 There is no willingness, history, cycle or mode row on that path. `get_verdict()` and its policy
 rows remain the pure truth table behind the hint helper and the debug line; no live start route
 consumes a refusal.
@@ -434,7 +434,7 @@ refusal status (`docs/integrations.md`).
 
 ## Debug
 
-- `runtime.debug_line()` prints the live context, `show`, `offer`, the scene rows, `can_start` and
+- `runtime.gate.debug_line()` prints the live context, `show`, `offer`, the scene rows, `can_start` and
   the reasons. It does not re-derive the gate.
 - `Verdict.rows_text()` returns the same policy view without scene rows.
 - The Debug actions **Trigger bed offer** and **Trigger standing offer** use the same service.

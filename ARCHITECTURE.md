@@ -12,7 +12,7 @@ that service's purpose, API, state, settings, controls, debug actions, dependenc
 | Part | Role |
 |---|---|
 | Entry | `main.gd`: the mod's primitives, the one ordered service list, the `Mods` hooks, the frame order and the one teardown. |
-| Per-pony host | `runtime.gd`: one per non-player pony, idle and in an act. Lifetime, the one composition, the ordered physics and process ticks, the ledgers and the one view call; its own `act/` modules own the state, timers and clock, the collaborator set, the view and the idle schedule. |
+| Per-pony host | `runtime.gd`: one per non-player pony, idle and in an act. Lifetime, parenting, the two engine-frame forwards, the reparent across a body swap and the world-close release; its own `act/` modules own the state, timers and clock, the ledgers, the schedule, the collaborator set, the view and the idle schedule. |
 | Service | An isolated unit that owns one authority over mutable state and exposes it through one facade. |
 | Service internals | Private modules under `<service>/`. Nothing outside the service imports them. |
 | Shared pure module | Deterministic data or math in `shared/`. No scene, no lifecycle, no service dependency. |
@@ -93,8 +93,8 @@ state, and one aspect can hide two state machines. The test is:
 
 The service owns its setup and release: allocation, subscriptions, nodes and saved state. The
 orchestrator owns **when** and **in what order** setup and release run. `act/exit.gd:run()` is the
-one act exit body, entered through `runtime._end_session()`; a service exposes idempotent
-begin/end or reset methods and never starts a second teardown sequence.
+one act exit body, entered only through the exit's own routes and the consent stop; a service
+exposes idempotent begin/end or reset methods and never starts a second teardown sequence.
 
 ### Facade
 
@@ -226,41 +226,45 @@ refuses string dispatch in the entry: no `.call(`, `.get("` or `.set("`, and no 
 
 ### `runtime.gd`
 
-`runtime.gd` is the per-pony host. One Node exists for every non-player pony, idle and in an act,
-and it:
+`runtime.gd` is the per-pony Node host. One Node exists for every non-player pony, idle and in an
+act, and it:
 
-- owns the pony lifetime and the transition bodies; `act/session.gd` owns the act state
-  (`shared/act_state.gd`: `IDLE`, `POSING_IN`, `ACTIVE`, `CLIMAX`, `AFTERGLOW`, `RESTORE`), the
-  timers, the per-act clock, the act's own values (pose id, source, bed, id/display, event and
-  serial, the preferences/profile/prompts profile and the act bookkeeping) and is the one `state`
-  writer. It dispatches; the owner services keep the behaviour. `act/settings.gd` owns the act's
-  settings snapshot and its live apply, and `act/view.gd` composes the values the owners read;
-- composes and binds the per-pony systems once, with one typed host per service that needs one;
-  `_build_systems()` calls `_bind_act_frame()`, which builds `act/host.gd`, `act/context.gd`,
-  `act/settings.gd`, `act/session.gd`, `act/view.gd`, `act/idle.gd`, `act/consent.gd`,
-  `act/impact.gd`, `act/setup.gd`, `act/start.gd`, `act/agreement.gd` and `act/exit.gd` once per
-  pony;
-- owns the ordered physics and process ticks as visible one-line calls; `act/idle.gd` owns the
-  idle branch and `act/view.gd` composes the typed act view once per phase;
-- keeps the start and exit entries (`_begin_act()` and `_end_session()` delegates), the suspend
-  release, the adoption and the one resume; `act/agreement.gd`, `act/start.gd` and `act/exit.gd`
-  own the ordered recipes and the finalize-once;
-- keeps the protocol delegates outside systems already call.
+- owns existence, parenting, the reparent across a body swap, the two engine-frame forwards and the
+  world-close release. `_init()` builds the bundle once; `_ready()` binds the pony, the face and the
+  anatomy; `_physics_process` is one `act.tick()`, `_process` one `act.render()`, and `_exit_tree()`
+  releases the kiss forelegs, the stool, the tail tuck, the aftercare, the anatomy act and the face;
+- exposes exactly `act` (the `ActSession`), `gate` (the offer `SceneGate`), `pony`, `live_id()`,
+  `attach_to_body()`, `adopt_body()` and the engine callbacks. `NODE_SURFACE` and `NODE_PROPERTIES`
+  in `scripts/architecture.py` compare both directions, so a new public member and a stale row both
+  fail;
+- hands all composition to `act/build.gd`, a plain struct builder with typed fields and
+  `bind_pony()`. It constructs the session, the modules, the typed hosts, the context and every
+  callback once per pony. `runtime.gd` stores the `Bundle`; it keeps no per-system field alias and
+  no private host callback;
+- keeps the act state in `act/session.gd`: the one `state` writer `_set_state()`, the timers, the
+  clock, the act values and the two frame forwards. `act/settings.gd` owns the act's settings
+  snapshot and its live apply; `act/view.gd` composes the values the owners read; the ledgers
+  (`act/start.gd`, `act/exit.gd`) own the ordered start and the one teardown; the modules own the
+  schedule, the presentation, the input protocol, the consent meter and the swap seams.
+
+Every host callback names its owner rather than a runtime method: act state and act values are
+session accessors, a system value is that service's method, node and scene operations are
+`act/host.gd`, logging is `shared/log.gd`, and anatomy reads are `anatomy/act_bridge.gd`.
 
 It implements no system's rules and owns no system's mutable state: no scoring, pose math, camera
 shots, hand/kiss/wing behaviour, body-change detection or provider policy, raw input decoding,
 audio creation, aftercare nodes, HUD strings, eligibility or gate rules, debug formatting,
 settings declarations or per-frame settings reads. `scripts/architecture.py --check` enforces the
-shape: one `state` writer in `act/session.gd`, no raw input, only the documented snapshot
-boundaries in `act/settings.gd` and the two system-owned child nodes, the act modules' line
-ceilings, plus the one exit, the start recipe's order, the pose ledger's three callers, the fan-out
-order and the one resume. `owner_of()` treats every `act/**` file as the runtime's own module: it
-may preload a service, and a service that preloads it fails as a host import.
+shape: one `state` writer in `act/session.gd`, the fixed Node surface, no raw input, no settings
+read in `runtime.gd`, no child node, plus the one exit, the start recipe's order, the pose ledger's
+three callers, the fan-out order and the one resume. File size is reported as a smell, never a
+cap. `owner_of()` treats every `act/**` file as the runtime's own module: it may preload a service,
+and a service that preloads it fails as a host import.
 
 The state flow, start, suspend/resume, tick and exit orders are documented in `docs/runtime.md`.
-The tick order is load-bearing: `_physics_tick`, `_process_tick` (render-time pose write), the
-start sequence and the impact fan-out keep their call order until a change deliberately moves one
-call.
+The tick order is load-bearing: `act/tick.gd:tick` (physics), its `render` (the render-time pose
+write), the start sequence and the impact fan-out keep their call order until a change deliberately
+moves one call.
 
 ### `api.gd`
 
@@ -438,11 +442,12 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
 is typed.
 
 `scripts/architecture.py --check` owns the static invariants: one teardown body in
-`act/exit.gd:run()` entered through a one-line `runtime._end_session()`, the start recipe's
-order, the pose ledger's order and its three exact callers, the `_pose_fanout()` owner order and
-the pose-before-facts write in `_physics_tick`, the thin-runtime shape (one `state` writer in
-`act/session.gd`, no raw input, settings reads only at the act's snapshot boundaries, only the two
-system-owned child nodes), the
+`act/exit.gd:run()` entered only through the exit's routes and the consent stop, with
+`act/session.gd:force_stop()` as the one-line delegate, the start recipe's order, the pose ledger's
+order and its three exact callers, the `act/tick.gd` fan-out order and the pose-before-facts write
+in its physics frame, the thin-runtime shape (one `state` writer in `act/session.gd`, the fixed
+`NODE_SURFACE`/`NODE_PROPERTIES`, no raw input, no settings read in `runtime.gd`, no runtime child
+node), the
 act-exit ban under `poses/`, the shell `errexit` prelude, the release files and the manifest, one
 settings declaration
 module, and the test-file rules in `docs/tests.md`. The typed act view boundary is a review rule:

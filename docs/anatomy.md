@@ -33,7 +33,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/facts.gd` | typed runtime context: state, pose, depth, bed frame, cycle phase, the contact/family/frame predicates and the host callbacks |
 | `anatomy/placement.gd` | saved offset/pitch/scale, the calibrated lift and the missionary trims |
 | `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads the typed act facts and their contact predicates, and returns its opening normal and lid shape |
-| `anatomy/act_bridge.gd` | per-act handle the runtime owns: the persistent controller handle, the per-act handle, the typed context, the missionary body, the VR controller, the action gates and the aim/gaze reads |
+| `anatomy/act_bridge.gd` | per-act handle the act owns: the persistent controller handle, the per-act handle, the typed context, the missionary body, the VR controller, the action gates and the aim/gaze reads |
 | `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
 | `anatomy/act/oral.gd` | the mouth/contact provider: mouth point, base opening, D viseme and clear |
 | `anatomy/act/debug.gd` | the three aim markers |
@@ -73,12 +73,14 @@ The internal entry points are:
   refresh to each controller, and pushes the live player part to every controller on a player
   rebuild. Runtime and pose systems use its methods; no other system needs the player node or a
   controller handle.
-- `runtime.gd` resolves the controller through the service, passes the typed facts object,
-  asks it to begin/end the act, ticks the act handle, and supplies the body-coat jiggle handoff.
+- `act/build.gd` builds the anatomy bridge and its typed host once per pony;
+  `act/session.gd:refresh_anatomy()` resolves the controller through the service, and the start
+  and exit ledgers ask it to begin/end the act. The act tick calls the per-act handle and the
+  bridge supplies the body-coat jiggle handoff.
 - `poses/missionary_anon.gd` and `poses/standing_anon.gd` use the service's player methods for the hip
   offset, root position and scale. The missionary act body is placed from the v7 hips anchor and
   mattress contact (`place_origin`), so a non-canon pony keeps him on the mattress at her size.
-- `input/service.gd` calls the runtime's anatomy action gates; `hud/service.gd` renders the matching rows.
+- `input/service.gd` calls the act session's anatomy action gates; `hud/service.gd` renders the matching rows.
 - `settings/service.gd` and `registry/service.gd` use `shared/anatomy_placement.gd` as the shared pure schema.
 
 The controller reads the typed `anatomy/facts.gd` object and host callbacks; it never reads the
@@ -407,9 +409,9 @@ no idle perf clock while the debug probe is off. See `docs/perf.md`.
 
 ## Act bridge
 
-`anatomy/act_bridge.gd` is the per-act handle the runtime owns. It is a `RefCounted`, created by
-`anatomy.gd.new_act(host)` with the typed `anatomy/act_host.gd`; the runtime creates one per pony,
-binds it on every access and keeps the orchestration. It owns:
+`anatomy/act_bridge.gd` is the per-act handle the builder owns. It is a `RefCounted`, created by
+`anatomy.gd.new_act(host)` with the typed `anatomy/act_host.gd`; `act/build.gd` creates one per
+pony, and `act/session.gd:refresh_anatomy()` binds it and lets the controller re-resolve. It owns:
 
 - the persistent controller handle and the per-act `anatomy/act.gd` handle;
 - the reused `anatomy/facts.gd` context;
@@ -420,18 +422,16 @@ binds it on every access and keeps the orchestration. It owns:
 - the act hooks (`tick`, `on_climax`, `afterglow_tick`, `end`, `apply_live`, `detach`);
 - the VR hooks (`vr_start`, `vr_stop`, `vr_y_held`, `vr_forward`, `vr_depth`).
 
-The host is the typed `anatomy/act_host.gd`: named methods over callables the runtime binds once.
-The runtime supplies `pony()`, `runtime()`, `reactions()`, `anatomy_service()`,
-`eligibility_service()`, the live state (`state()`, `pose_view()`, `depth()`, `penetration_m()`,
-`penetration_reach()`, `climaxes()`, `size_scale()`, `auto_pace()`, `fluid_ground_y()` — the
-fluid ground and the readiness shaft length are `act/phases.gd`'s reads),
-`cycle_phase()`, `bed_frame()`), the callbacks (`log()`, `perf_note()`, `perf_enabled()`,
-`body_coat_smack()`, `status()`, `command()`, `missionary_camera()`, `kiss_controller()`,
-`pose()`, `thrust_move()`, `now_s()`, `set_penetration_m()`, `align()`, `touch()`) and
-`vr_scene()`. A missing callable is a no-op. `vr_scene()` is the runtime's one scene read:
-`{player, avatar, camera, origin, hip_target}`, or null when the player or the XR rig is absent.
-The bridge wires `vr/service.gd` from that host and does no `find_child`/`find_children` lookup
-itself.
+The host is the typed `anatomy/act_host.gd`: named methods over callables `act/build.gd` binds once.
+Each callback names its owner: the node operations and `vr_scene()` are `act/host.gd`; the live
+state and act values are session accessors (`state_value`, `pose_view`, `cycle_phase`,
+`kiss_service`, `reactions_service`); the anatomical service reads are the `ponies` statics; depth,
+penetration, climaxes and auto pace are readiness; size scale and the two camera controllers are
+the camera session; the bed frame is the pose session; fluid ground, shaft length and the pose
+handles are their modules. A missing callable is a no-op. `act/host.gd:vr_scene()` is the one
+scene read: `{player, avatar, camera, origin, hip_target}`, or null when the player or the XR rig is
+absent. The bridge wires `vr/service.gd` from that host and does no `find_child`/`find_children`
+lookup itself.
 
 The bridge never reads the runtime node's private fields and never preloads a host. The action
 keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the bridge

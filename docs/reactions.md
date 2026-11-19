@@ -110,7 +110,7 @@ already set its own impulse before the facade scales it.
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`
 - Begin: `bind_scene()`/`begin_act()`
 - End: `end_act()`
 - Idempotent: yes

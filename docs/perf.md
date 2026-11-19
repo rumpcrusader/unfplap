@@ -27,7 +27,7 @@ window is tabled in the top-left corner; see `docs/debug.md`.
 - `shared/log.gd` supplies the idle probe's gate (`enabled`), the header counts and the log and
   panel callbacks, and keeps the panel to the two debug switches: `perf_block()` creates the view
   on the first window. Its two scene-free unknowns, the act gate and the counts, are entry
-  callables (`docs/log.md`). Idle runtimes forward their chunks through `runtime.perf_note()`.
+  callables (`docs/log.md`). Idle runtimes forward their chunks through `act/host.gd:perf_note()`.
 - Timed call sites in the runtime, its `act/` modules, the anatomy controller and the skeleton
   modifiers report to the runtime; `main.gd` times its own process body and `offer/service.gd` times
   the scan and the hint through `LOG.note()`/`LOG.close()`.
@@ -205,7 +205,7 @@ total, largest first, so the first row is the chunk to fix.
 | `offer_policy` | `eligible()` and `relationship_ok()` after the rows pass | `offer_gate` |
 | `runtime_physics` | one pony's `act/tick.gd:tick()`, the whole physics frame | root |
 | `runtime_anatomy_sync` | the anatomy `sync_facts()` write after the physics tick | `runtime_physics` |
-| `runtime_facts` | `act/view.gd:refresh()` through `runtime.refresh_view()` | `runtime_physics` |
+| `runtime_facts` | `act/view.gd:refresh()` through `act/session.gd:refresh_view()` | `runtime_physics` |
 | `runtime_presentation` | `act/idle.gd:tick()` (`context.presentation.physics(delta)`) | `runtime_physics` |
 | `runtime_history` | `act/idle.gd:history_tick(delta)` | `runtime_physics` |
 | `runtime_process` | one pony's `act/tick.gd:render()`, the whole render frame | root |
@@ -213,7 +213,7 @@ total, largest first, so the first row is the chunk to fix.
 | `anatomy_coat_line`, `anatomy_visibility` | reported through `facts.perf` | `anatomy_process` |
 | `teat_jiggle`, `climax_fluid` | reported through `facts.perf` | root |
 
-The anatomy chunks need no extra forward: `facts.perf` already calls the runtime's `perf_note`,
+The anatomy chunks need no extra forward: `facts.perf` already calls `act/host.gd:perf_note`,
 which is the single forwarding point. `entry_process` contains the four entry chunks and
 `offer_scan`; `offer_scan` contains `offer_cone` and `offer_gate`, and `offer_gate` contains
 `offer_rows` and `offer_policy`. The entry chunks split the per-frame body at its calls, so a row
@@ -246,7 +246,7 @@ offerable pose assets are parsed at world ready, so their load is not inside a f
   when an act starts, when a switch goes off, on world start, on world close and on entry teardown
   (`LOG.reset()`/`LOG.detach()`). `LOG.tick(delta)` runs first in `_process`, so a window prints at
   the frame boundary and the entry closes `entry_process` after its body. An idle runtime forwards
-  its chunks through `runtime.perf_note()`, which reaches the idle window through the probe's own
+  its chunks through `act/host.gd:perf_note()`, which reaches the idle window through the probe's own
   `note()` and labels them with the pony's id.
 - With a switch off, no clock is taken in the idle path, the runtime's forward is one call whose
   gates early-return, and `note`/`tick` do nothing. Rows are updated in place; nothing allocates per

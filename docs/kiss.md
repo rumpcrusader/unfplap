@@ -97,7 +97,7 @@ turns her head across the mattress. Missionary always uses the custom head-aim p
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime`
+- Constructed by: `act/build.gd`
 - Begin: `bind()`
 - End: act teardown
 - Idempotent: yes

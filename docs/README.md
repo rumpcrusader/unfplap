@@ -23,16 +23,20 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 ## Orchestrators
 
 `main.gd` and `runtime.gd` compose services; they are not services. `main.gd` holds the one ordered
-service list, which is the lifecycle order of every broadcast. `runtime.gd` is the per-pony host:
-it exists for every non-player pony, idle and in an act, and owns lifetime, the ordered ticks, the
-composition, the start and exit entries and the one view call; its own `act/` modules own the
-state and the act values, the start recipe, the one teardown, the view and the idle schedule.
+service list, which is the lifecycle order of every broadcast. `runtime.gd` is the per-pony Node
+host: it exists for every non-player pony, idle and in an act, and owns lifetime, parenting, the two
+engine-frame forwards, the reparent across a body swap and the world-close release. Its own `act/`
+modules own the act state and values, the start recipe, the one teardown, the schedule, the view and
+the idle block; `act/build.gd` constructs and binds them once per pony.
 
 | Part | Entry | Contract | Tests |
 |---|---|---|---|
 | Entry | `main.gd` | `../ARCHITECTURE.md` | `tests/entry/` |
-| Per-pony act host | `runtime.gd` | `docs/runtime.md` | `tests/` |
-| Per-pony act modules | `act/build.gd`, `act/session.gd`, `act/settings.gd`, `act/start.gd`, `act/setup.gd`, `act/agreement.gd`, `act/gate.gd`, `act/exit.gd`, `act/host.gd`, `act/context.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/swap.gd`, `act/phases.gd`, `act/tick.gd`, `act/consent.gd`, `act/impact.gd` | `docs/runtime.md` | `tests/` |
+| Per-pony Node host | `runtime.gd` | `docs/runtime.md` | `tests/` |
+| Per-pony composition | `act/build.gd` | `docs/runtime.md` | `tests/act/`, `tests/test_runtime_teardown.gd` |
+| Act session | `act/session.gd` | `docs/runtime.md` | `tests/act/test_session.gd` |
+| Act ledgers | `act/start.gd`, `act/exit.gd` | `docs/runtime.md` | `tests/poses/test_start_setup.gd`, `tests/test_runtime_teardown.gd` |
+| Act modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/gate.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd`, `act/host.gd`, `act/context.gd` | `docs/runtime.md` | `tests/` |
 
 ## Services
 

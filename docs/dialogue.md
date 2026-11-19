@@ -88,7 +88,7 @@ act line is cancelled, `act/session.gd:oral_speech_stop()` stops her base-game v
 the oral mouth shape, and `climax_line()` queues nothing while oral lasts. Bystanders keep their own
 turns.
 
-`readiness/service.gd` owns `mood`, `cue` and the override lifetime; the runtime forwards those values and
+`readiness/service.gd` owns `mood`, `cue` and the override lifetime; the session forwards those values and
 sets them on `act_facts` immediately before calling the facade.
 
 ## Prompt notes
@@ -236,7 +236,7 @@ too-slow.
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `runtime`
+- Constructed by: `act/build.gd`
 - Begin: `setup()`/`configure()`
 - End: `reset()`/act end
 - Idempotent: yes

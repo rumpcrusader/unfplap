@@ -174,7 +174,7 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
   shield takes it; a text field's focus always passes everything. The rules are in the section
   above.
 - The act key starts the hinted act with a tap (`offer.try_start()`, `docs/offer.md`), and
-  holding it during an act is handled by `runtime.gd` (`docs/runtime.md`). The bundled Dance Mod
+  holding it during an act is handled by `act/input.gd` through `runtime.act.input` (`docs/runtime.md`). The bundled Dance Mod
   polls raw `Y`; the act input shield clears it during an act, and the shipped default act key
   keeps the collision out of idle play too.
 

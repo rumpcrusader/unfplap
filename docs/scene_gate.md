@@ -23,10 +23,11 @@ whether the *scene* is ready right now.
   the one stop;
 - the physical buck/push (`buck_or_push`), which the tolerance strict stop uses.
 
-`runtime.gd` keeps the live context: its `debug_context` callback forwards to `debug/pony.gd`,
-which gathers the pony, world, relationship and player facts, while the runtime adds its own act
-values. The runtime keeps the public forwards (`find_bed_under`, `free_of_affection`,
-`cuddle_active`); `hotkey_ready` and `hint_stool` forward to `act/agreement.gd`. The gate reads
+`runtime.gate` is the offer-facing handle. The live scene context comes through the gate's
+`debug_context` callback, bound by `act/build.gd` to `runtime.act.debug_context()`: that gathers
+`debug/pony.gd`'s pony, world, relationship and player facts and adds the session's act values. The
+handle exposes `find_bed_under`, `free_of_affection`, `cuddle_active`, `hotkey_ready`,
+`hint_stool` and the Agreement start. The gate reads
 `PONIES.eligibility` itself for the policy verdict; a suite may still override
 `policy_verdict`. The tolerance stop owns its impression and face (`docs/summary.md`,
 `docs/face.md`).
@@ -150,7 +151,7 @@ start rows. `aftercare` is removed; the Act service clears it at start. `SceneVe
 
 The host binds `hold_compatible(pose, source) -> bool`; it is true only while the navigator owner
 and the affection hold belong to the live negotiation hold. A hard failure is a `StartFailed`; a
-failing transient row is waited on within the Agreement TTL. `runtime.start_agreement(handle)`
+failing transient row is waited on within the Agreement TTL. `runtime.gate.start_agreement(handle)`
 consumes this verdict; the act key's general path still runs `start_verdict()`.
 
 `running_verdict(nav, bed, player_pony, kissing)` is the live act's periodic check. It returns a
@@ -189,7 +190,7 @@ live act key never bucks, and no eligibility verdict carries a refusal.
 
 `scene_gate.debug_line()` owns the status string: it reads the live values through the
 `debug_context` callback (`debug/pony.gd`'s gather plus the runtime's act values), the
-row/verdict assembly, and the policy row reads. The runtime's `debug_line()` is a thin forward. No
+row/verdict assembly, and the policy row reads. The offer handle's `debug_line()` is a thin forward. No
 scene row is recomputed twice in different ways.
 
 ## Dependencies
@@ -208,7 +209,7 @@ scene row is recomputed twice in different ways.
 ## Lifecycle
 
 - Scope: per-pony
-- Constructed by: `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`
 - Begin: `bind()`/`configure()`
 - End: act teardown
 - Idempotent: yes

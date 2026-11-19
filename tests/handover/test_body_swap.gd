@@ -1,6 +1,6 @@
 extends SceneTree
 ## The generic body-swap handover: suspend an act, adopt the runtime on a new body with the same
-## stable id, rebuild the pose and resume, and keep `_end_session()` the only exit.
+## stable id, rebuild the pose and resume, and keep `act/exit.gd:run()` the only exit.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/handover/test_body_swap.gd
 ##

@@ -15,6 +15,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
@@ -528,15 +529,15 @@ func _check_observation() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.poll_calls = 0
-	runtime._swap_clock = 0.0
+	runtime._handover.clock = 0.0
 	runtime._body_swap_tick(0.1)
 	check(not runtime._suspended, "no change leaves the act live")
 	check(source.poll_calls == 0, "the watcher never polls the provider")
 	source.changing = true
-	runtime._swap_clock = RUNTIME.BODY_SWAP_POLL_S * 0.5
-	runtime._body_swap_tick(RUNTIME.BODY_SWAP_POLL_S * 0.1)
+	runtime._handover.clock = BODY_CHANGE_ACT.BODY_SWAP_POLL_S * 0.5
+	runtime._body_swap_tick(BODY_CHANGE_ACT.BODY_SWAP_POLL_S * 0.1)
 	check(not runtime._suspended, "the watcher reads the change only at its cadence")
-	runtime._body_swap_tick(RUNTIME.BODY_SWAP_POLL_S)
+	runtime._body_swap_tick(BODY_CHANGE_ACT.BODY_SWAP_POLL_S)
 	check(runtime._suspended, "the announced change suspends on the cadence tick")
 	check(PONIES.body_swap_pending(), "the suspend records one pending swap")
 	runtime._body_swap_tick(0.1)
@@ -633,7 +634,7 @@ func _check_auto_survives_swap() -> void:
 	check(absf(runtime._readiness.auto_max_depth() - 0.7) < 0.0001,
 		"auto keeps its peak depth across the swap")
 	check(runtime._readiness.auto_shape() == "saw", "auto keeps its shape across the swap")
-	check(not runtime._swap_auto_on, "the pending auto restore is cleared")
+	check(not runtime._handover.auto_on, "the pending auto restore is cleared")
 	_free_fixture(f)
 
 
@@ -778,10 +779,10 @@ func _check_ai_change() -> void:
 	source.shape = "fluttershy"
 	# Nothing called request_form: the source is already changing, as her own AI leaves it.
 	source.changing = true
-	runtime._swap_clock = 0.0
+	runtime._handover.clock = 0.0
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "an AI-started change suspends the live act")
-	check(runtime._swap_change.origin == BODY_CHANGE.Origin.AI, "an AI change is not the player's")
+	check(runtime._handover.change.origin == BODY_CHANGE.Origin.AI, "an AI change is not the player's")
 	var new_pony := _pony("New Mare", "AiBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
@@ -798,7 +799,7 @@ func _check_ai_change() -> void:
 	# A second change after the resume is a fresh handover, not a stale pending swap.
 	source.old_pony = new_pony
 	source.changing = true
-	runtime._swap_clock = 0.0
+	runtime._handover.clock = 0.0
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "a second change after resume suspends again")
 	runtime.force_stop()
@@ -851,7 +852,7 @@ func _check_watchdog() -> void:
 	source.changing = true
 	runtime._suspend_for_body_swap(source.active_change())
 	old_pony.free()
-	runtime._body_swap_tick(RUNTIME.BODY_SWAP_WATCHDOG_S + 1.0)
+	runtime._body_swap_tick(BODY_CHANGE_ACT.BODY_SWAP_WATCHDOG_S + 1.0)
 	check(int(runtime.state) == RUNTIME.State.IDLE, "the watchdog ends the act")
 	check(not PONIES.act_running(), "the watchdog clears the active runtime")
 	check(not PONIES.body_swap_pending(), "the watchdog clears the pending swap")
@@ -1053,7 +1054,7 @@ func _check_named_shape_gate() -> void:
 	runtime._talk_tick(0.016)
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "the named change suspends the act")
-	check(runtime._swap_change.target_form_id == "rarity", "the target survives the suspension")
+	check(runtime._handover.change.target_form_id == "rarity", "the target survives the suspension")
 	var new_pony := _pony("Test Mare", "ShapeGateBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
@@ -1103,7 +1104,7 @@ func _check_watchdog_with_body() -> void:
 	PONIES.attach(new_pony)
 	check(runtime._suspended, "the watchdog body adopts suspended")
 	check(runtime.pony == new_pony, "the watchdog body is the new body")
-	runtime._body_swap_tick(RUNTIME.BODY_SWAP_WATCHDOG_S + 1.0)
+	runtime._body_swap_tick(BODY_CHANGE_ACT.BODY_SWAP_WATCHDOG_S + 1.0)
 	check(not runtime._suspended, "the watchdog resumes a body that never took the shape")
 	check(runtime.pony == new_pony, "the watchdog keeps the adopted body")
 	check(int(runtime.state) == RUNTIME.State.ACTIVE, "the watchdog does not end a live body")
@@ -1229,7 +1230,7 @@ func _check_failed_named_offer() -> void:
 	runtime._talk_tick(0.016)
 	check(source.shape_requests == ["rarity"], "the named mare starts the change")
 	check(not runtime._shape_offer_pending, "the name consumes the offer")
-	runtime._swap_clock = 0.0
+	runtime._handover.clock = 0.0
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "the named change suspends the act")
 	source.changing = false
@@ -1304,7 +1305,7 @@ func _check_ai_change_keeps_offer() -> void:
 	runtime._shape_offer_tick()
 	check(runtime._shape_offer_pending, "the offer is pending before her change")
 	source.changing = true
-	runtime._swap_clock = 0.0
+	runtime._handover.clock = 0.0
 	runtime._body_swap_tick(0.1)
 	check(runtime._suspended, "her own change suspends the offered act")
 	var ai_body := _pony("Test Mare", "AiOfferBody")
@@ -1352,11 +1353,11 @@ func _check_late_adoption() -> void:
 	root.add_child(late_pony)
 	source.new_pony = late_pony
 	source.changing = false
-	runtime._body_swap_tick(RUNTIME.BODY_SWAP_ADOPT_GRACE_S * 0.5)
+	runtime._body_swap_tick(BODY_CHANGE_ACT.BODY_SWAP_ADOPT_GRACE_S * 0.5)
 	check(runtime._suspended, "a late body keeps the act suspended")
 	check(runtime.pony == old_pony, "the old body is not resumed while the new body exists")
 	check(PONIES.runtime_for(late_pony) == null, "no runtime attaches to the late body yet")
-	runtime._body_swap_tick(RUNTIME.BODY_SWAP_ADOPT_GRACE_S)
+	runtime._body_swap_tick(BODY_CHANGE_ACT.BODY_SWAP_ADOPT_GRACE_S)
 	check(not runtime._suspended, "the entry adopts the late body after the grace")
 	check(runtime.pony == late_pony, "the act resumes on the late body")
 	check(runtime.get_parent() == late_pony, "the runtime moves under the late body")
@@ -1390,7 +1391,7 @@ func _check_restore_change() -> void:
 		"the act pony's change during restore finishes the act")
 	check(not runtime._suspended, "a change during restore never suspends")
 	check(not PONIES.body_swap_pending(), "a change during restore records no pending swap")
-	check(runtime._swap_change == null, "the one exit drops the typed swap change")
+	check(runtime._handover.change == null, "the one exit drops the typed swap change")
 	check(not PONIES.act_running(), "the one exit clears the active runtime")
 	other.queue_free()
 	_free_fixture(f)
@@ -1503,7 +1504,7 @@ func _check_origins() -> void:
 	check(source.active_change().origin == BODY_CHANGE.Origin.PROVIDER,
 		"a provider-origin request keeps its origin")
 	source.changing = false
-	runtime._swap_clock = 0.0
+	runtime._handover.clock = 0.0
 	runtime._body_swap_tick(0.1)
 	var player: Dictionary = runtime.request_form_change(false, "rarity", true)
 	check(bool(player.get("ok", false)), "a player-origin form request starts")

@@ -624,12 +624,11 @@ func run() -> void:
 	var runtime10: Node = f10["runtime"]
 	var suspended := BODY_CHANGE.new()
 	suspended.state = BODY_CHANGE.State.ADOPTED
-	runtime10._suspended = true
-	runtime10._swap_change = suspended
-	runtime10._swap_new_pony = f10["pony"]
-	runtime10._swap_elapsed = 1.0
+	runtime10._handover.begin(suspended)
+	runtime10._handover.adopt(f10["pony"])
+	runtime10._handover.elapsed = 1.0
 	runtime10._end_session(false)
-	check(runtime10._swap_change == null and not runtime10._suspended
+	check(runtime10._handover.change == null and not runtime10._suspended
 		and int(runtime10.state) == RUNTIME.State.IDLE,
 		"the one exit clears a suspended typed body change")
 

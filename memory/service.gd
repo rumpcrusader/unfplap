@@ -205,14 +205,10 @@ func cue_facts(id: String, event_id: String) -> CueFacts:
 
 
 ## One unused shared memory for the cue prompt, or a hit with `found()` false.
-func shared_memory(id: String, cue: String, event_id: String, used: Array) -> MemoryHit:
-	var out := MemoryHit.new()
+func shared_memory(id: String, cue: String, event_id: String, used: Array[String]) -> MemoryHit:
 	if id.is_empty():
-		return out
-	var data := MEMORY_WORLD.shared_memory(_game(), id, cue, event_id, used)
-	out.id = str(data.get("id", ""))
-	out.text = str(data.get("text", ""))
-	return out
+		return MemoryHit.new()
+	return MEMORY_WORLD.shared_memory(_game(), id, cue, event_id, used)
 
 
 ## Adults perceiving the act now; the read commits nothing.

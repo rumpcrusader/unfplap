@@ -1,6 +1,7 @@
 extends RefCounted
 ## The peak-memory store; the only memory file that saves.
 
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const MOD_ID := "unfplap"
 const KEY := "peak_memories"
 
@@ -24,10 +25,8 @@ static func record(id: String, event_id: String, text: String, score: float) -> 
 	var mods := _mods()
 	if mods == null:
 		return false
-	var state: Variant = mods.call("state", MOD_ID)
-	if not state is Dictionary:
-		return false
-	var rows: Variant = (state as Dictionary).get(KEY, {})
+	var state := GAME.mods_state(mods, MOD_ID).rows
+	var rows: Variant = state.get(KEY, {})
 	if not rows is Dictionary:
 		rows = {}
 	var old: Variant = (rows as Dictionary).get(id, {})
@@ -39,7 +38,7 @@ static func record(id: String, event_id: String, text: String, score: float) -> 
 		"event_id": event_id,
 		"at": Time.get_unix_time_from_system(),
 	}
-	(state as Dictionary)[KEY] = rows
+	state[KEY] = rows
 	save(mods)
 	return true
 
@@ -48,13 +47,12 @@ static func section() -> Dictionary:
 	var mods := _mods()
 	if mods == null:
 		return {}
-	var state: Variant = mods.call("state", MOD_ID)
-	return state if state is Dictionary else {}
+	return GAME.mods_state(mods, MOD_ID).rows
 
 
 static func save(mods: Node) -> void:
-	if is_instance_valid(mods) and mods.has_method("save_changed"):
-		mods.call("save_changed")
+	if is_instance_valid(mods):
+		GAME.mods_save(mods)
 
 
 static func _mods() -> Node:

@@ -2,6 +2,7 @@ extends RefCounted
 ## The director's authored-line queue, read through guarded calls.
 
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
 
 
@@ -10,8 +11,9 @@ static func queue(game: Node, id: String, purpose: String, key: String,
 	var director := _queue_director(game)
 	if director == null:
 		return false
-	return bool(director.call("queue_generated_intent", id, purpose, key, valid, finished,
-		true, false))
+	# The accessor's queue drops the finished callback, which UTTERANCE lines need.
+	var op := Callable(director, "queue_generated_intent")
+	return bool(op.call(id, purpose, key, valid, finished, true, false))
 
 
 static func cancel(game: Node, key: String) -> void:
@@ -19,7 +21,7 @@ static func cancel(game: Node, key: String) -> void:
 		return
 	var director := _line_director(game)
 	if director != null:
-		director.call("cancel_authored_line", key)
+		GAME.director_lines(director).cancel(key)
 
 
 ## What the director currently holds for one mod-owned key, as a `FACTS.LineState` value.
@@ -74,7 +76,7 @@ static func cancel_prefix(game: Node, prefix: String, keep_speaking: bool) -> in
 			continue
 		if TEXT.keep_active(state(game, key), key, active, keep_speaking):
 			continue
-		director.call("cancel_authored_line", key)
+		GAME.director_lines(director).cancel(key)
 		cancelled += 1
 	return cancelled
 

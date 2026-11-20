@@ -19,6 +19,13 @@ class FakeMain extends Node:
 	var game: Node
 
 
+class FakeMods extends Node:
+	var _state: Dictionary = {}
+
+	func state(_id: String) -> Dictionary:
+		return _state
+
+
 class FakeContext extends Node:
 	var impressions: Node
 	var events: Array = []
@@ -53,9 +60,15 @@ func run() -> void:
 	var impressions := FakeImpressions.new()
 	context.impressions = impressions
 	game.world_context = context
+	var existing: Node = root.get_node_or_null("Mods")
+	if existing != null:
+		existing.name = "ModsTestHidden"
+	var mods := FakeMods.new()
+	mods.name = "Mods"
 	root.add_child(game)
 	root.add_child(context)
 	root.add_child(impressions)
+	root.add_child(mods)
 	var main := FakeMain.new()
 	main.game = game
 	WORLD.bind_world(main.game)
@@ -151,9 +164,25 @@ func run() -> void:
 	check(str(peak.event_id) == "intimacy_1:form_reveal", "the reveal peak has its own event")
 	check(is_equal_approx(float(peak.score), 150.0), "the reveal peak keeps its score")
 
+	var used: Array[String] = []
+	var missing := memory.shared_memory("rarity", "", "", used)
+	check(missing is MEMORY.MemoryHit, "an absent memory is a typed hit")
+	check(not missing.found(), "an absent memory is not found")
+	mods._state["peak_memories"] = {"rarity": {"text": "The night we met.", "score": 10.0}}
+	var peak_hit := memory.shared_memory("rarity", "", "", used)
+	check(peak_hit.found(), "a stored peak is a found memory")
+	check(peak_hit.text == "The night we met.", "the peak text is the hit")
+	check(peak_hit.id == "peak:rarity", "the peak hit keeps its id")
+	used.append("peak:rarity")
+	var used_hit := memory.shared_memory("rarity", "", "", used)
+	check(not used_hit.found(), "a used peak is skipped")
+
 	game.queue_free()
 	context.queue_free()
 	impressions.queue_free()
+	mods.queue_free()
+	if existing != null and is_instance_valid(existing):
+		existing.name = "Mods"
 	MEMORY.instance = null
 	main.queue_free()
 

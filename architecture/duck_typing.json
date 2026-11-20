@@ -64,18 +64,6 @@
       "count": 2
     },
     {
-      "file": "memory/dialogue.gd",
-      "count": 3
-    },
-    {
-      "file": "memory/store.gd",
-      "count": 3
-    },
-    {
-      "file": "memory/world.gd",
-      "count": 11
-    },
-    {
       "file": "poses/anon_thrust.gd",
       "count": 6
     },

@@ -11,11 +11,6 @@
       "signature": "func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:"
     },
     {
-      "service": "memory",
-      "func": "shared_memory",
-      "signature": "func shared_memory(id: String, cue: String, event_id: String, used: Array) -> MemoryHit:"
-    },
-    {
       "service": "poses",
       "func": "begin",
       "signature": "func begin(context: Dictionary) -> bool:"

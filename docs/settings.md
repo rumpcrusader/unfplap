@@ -710,6 +710,10 @@ carries one retired key, with `into()` moving the stored value and `mapped()` re
 | shared | preferences | `shared/preferences.gd` | profile schema and math |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 
+The settings page's private builder, icon texture and redraw, the mods host's data folder and the
+game's size setting are read through `world/game.gd`; the layer edge is recorded in
+`architecture/exceptions.json`.
+
 ## Tests
 
 - `tests/test_settings.gd` is the API contract, tested once: unique names and paths, a tab/group/

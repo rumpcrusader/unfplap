@@ -248,16 +248,17 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.caress(touch)` | the VR touch bridge's `caress` event | — | no call |
 
 Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans`,
-`GAME.refresh_body_lod`, `GAME.mods_state`, `GAME.director_lines` and `GAME.llm_config` allocate;
-the first five are scan cadence and the rest are a saved-mod read, one authored line and one
-classifier configuration. The per-frame accessors copy nothing. `GAME` writes the rig's control
-hold, its eye line and its look pitch, the chat lock, her navigator's face point, conversation aim,
-owner, wander, speed, pace and destination, her posture request, her face-turn rate, the carry
-flags, the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's latch and side
-hold, the affection it feeds, the director's authored-line queue, the world-context situation
-record, the mod state section, the briefcase's slot writes and world drops, the inventory's quick-slot
-card and its bar, the HUD's toast line, the seated space and rest holds, and the VR touch bridge's
-caress event.
+`GAME.refresh_body_lod`, `GAME.mods_state`, `GAME.director_lines`, `GAME.llm_config`,
+`GAME._settings_page_button` and `GAME.settings_page_icon` allocate; the first five are scan
+cadence and the rest are a saved-mod read, one authored line, one classifier configuration and the
+settings page's own tab button and icon. The per-frame accessors copy nothing. `GAME` writes the
+rig's control hold, its eye line and its look pitch, the chat lock, her navigator's face point,
+conversation aim, owner, wander, speed, pace and destination, her posture request, her face-turn
+rate, the carry flags, the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's
+latch and side hold, the affection it feeds, the director's authored-line queue, the world-context
+situation record, the mod state section, the settings page's tab icon kind, the briefcase's slot
+writes and world drops, the inventory's quick-slot card and its bar, the HUD's toast line, the
+seated space and rest holds, and the VR touch bridge's caress event.
 
 ## Internal API
 
@@ -340,6 +341,8 @@ facade never calls back into the entry.
   real-bed walk, bed occupancy and Anon's seat, the menu/paused/headset gates, the player body and
   mare reads, the LOD rebuild and the act chat, the unbound and freed-handle answers, and every
   `GAME` accessor's live and absent answer, including the chat hold's save and restore.
+- `tests/test_settings.gd`: the settings page's tab button, icon texture and redraw and the mods
+  data folder, live and absent, and the size preset through the setting accessor.
 
 ## Related docs
 

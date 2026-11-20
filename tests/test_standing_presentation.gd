@@ -98,6 +98,14 @@ class FakePony extends Node3D:
 		return {"requested": posture}
 
 
+## An actor with the body's own locomotion turn and no navigator.
+class FakeTurnPony extends FakePony:
+	var facings: Array = []
+
+	func face_direction(direction: Vector3) -> void:
+		facings.append(direction)
+
+
 ## The live player rig as the world facade reads it: the camera hangs off the body.
 class FakePlayer extends Node3D:
 	var camera: Variant = null
@@ -272,6 +280,28 @@ func run() -> void:
 		"the fallback stops away enough")
 	check(is_equal_approx(pony.face_turn_rate, 0.45), "the fallback leaves her face turn rate intact")
 	presentation.call("clear_presentation")
+	await process_frame
+
+	# An actor with the body's own locomotion turn but no navigator: her body turns itself, and
+	# the settled turn hands the facing and her rate back.
+	var turn_pony := FakeTurnPony.new()
+	root.add_child(turn_pony)
+	turn_pony.global_position = Vector3(0.0, 0.0, 2.0)
+	turn_pony.identity = pony.identity
+	facts.pony = turn_pony
+	check(bool(presentation.call("present_standing")), "a body-only turn starts the presentation")
+	check(turn_pony.facings.size() == 1
+		and is_equal_approx(turn_pony.face_turn_rate, PRESENTATION.PRESENT_FACE_TURN_RATE),
+		"the turn asks her own locomotion facing and raises her rate")
+	turn_pony.rotation.y = AWAY_YAW - deg_to_rad(50.0)
+	presentation.call("physics", 0.016)
+	check(turn_pony.facings.size() == 3 and turn_pony.facings[-1] == Vector3.ZERO,
+		"the settled turn releases her facing")
+	check(is_equal_approx(turn_pony.face_turn_rate, 0.45), "the body-only turn restores her rate")
+	presentation.call("clear_presentation")
+	check(not turn_pony.has_meta("affection_active"), "closing releases the body-only hold")
+	facts.pony = pony
+	turn_pony.queue_free()
 	await process_frame
 
 	pony.add_child(nav)

@@ -249,6 +249,73 @@ class FakeForm extends RefCounted:
 	var avatar: Variant = null
 
 
+## The navigator the standing invitation turns with: the face point, the stay and the facing clear.
+class FakeNavigator extends Node:
+	var face_point := Vector3.INF
+	var conversation_target: Variant = null
+	var conversation_hold := true
+	var stays := 0
+
+	func stay() -> void:
+		stays += 1
+
+	func set_conversation_target(who: Variant, hold := true) -> void:
+		conversation_target = who
+		conversation_hold = hold
+
+
+## The body's own locomotion turn, for an actor without a navigator.
+class FakeTurnPony extends Node3D:
+	var face_turn_rate := 0.45
+	var facings: Array = []
+
+	func face_direction(direction: Vector3) -> void:
+		facings.append(direction)
+
+
+## An identity resource with wings.
+class FakeWingedIdentity extends Resource:
+	func has_wings() -> bool:
+		return true
+
+
+## The excitement Beat's wing members: the private node, the stock spread and the flutter.
+class FakeWingedExcitement extends FakeExcitement:
+	var wings: Variant = null
+	var spreads: Array = []
+	var flutters := 0
+
+	func _wings() -> Variant:
+		return wings
+
+	func spread(seconds: float) -> void:
+		spreads.append(seconds)
+
+	func flutter() -> void:
+		flutters += 1
+
+
+## The wing node the act holds: the hold lease, the open switch and the fold blends.
+class FakeWings extends Node:
+	var opened := false
+	var tuck := 0.0
+	var half := 0.0
+	var holds: Array = []
+	var releases: Array = []
+	var opens: Array = []
+
+	func hold_at(by: String, value: float) -> bool:
+		holds.append([by, value])
+		return true
+
+	func release_hold(by: String) -> void:
+		releases.append(by)
+
+	func set_open(open: bool) -> void:
+		opens.append(open)
+		opened = open
+
+
 func run() -> void:
 	_check_unbound()
 	_check_binding()
@@ -262,6 +329,7 @@ func run() -> void:
 	_check_menu_and_headset()
 	_check_open_act_chat()
 	_check_kiss_and_settings()
+	_check_turn_and_wing_accessors()
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
@@ -945,3 +1013,96 @@ func _check_kiss_and_settings() -> void:
 	check(mouth.faces == ["pout"], "the mouth expression reaches the rig")
 	GAME.set_expression(plain, "pout", 0.2)
 	GAME.set_expression(null, "pout", 0.2)
+
+
+## The turn and wing accessors the standing invitation and the wing controller read.
+func _check_turn_and_wing_accessors() -> void:
+	var plain := Node.new()
+	root.add_child(plain)
+	var nav := FakeNavigator.new()
+	root.add_child(nav)
+	GAME.set_face_point(nav, Vector3.ONE)
+	check(nav.face_point == Vector3.ONE, "the navigator's face point takes the write")
+	GAME.set_face_point(plain, Vector3.ONE)
+	check(not "face_point" in plain, "a node without the face point takes no write")
+	GAME.set_face_point(null, Vector3.ONE)
+	nav.conversation_target = nav
+	nav.conversation_hold = true
+	GAME.clear_conversation_target(nav)
+	check(nav.conversation_target == null and not nav.conversation_hold,
+		"the navigator's conversation facing is cleared without the hold")
+	GAME.clear_conversation_target(plain)
+	GAME.clear_conversation_target(null)
+
+	var pony := FakeTurnPony.new()
+	root.add_child(pony)
+	GAME.face_direction(pony, Vector3.RIGHT)
+	check(pony.facings == [Vector3.RIGHT], "her own locomotion turn takes the direction")
+	var bare := FakeMare.new()
+	root.add_child(bare)
+	GAME.face_direction(bare, Vector3.RIGHT)
+	GAME.face_direction(null, Vector3.RIGHT)
+	check(pony.facings.size() == 1, "a body without the turn takes no direction")
+
+	var winged := FakeWingedIdentity.new()
+	check(GAME.identity_has_wings(winged), "a winged identity answers its own op")
+	check(not GAME.identity_has_wings(FakeIdentity.new()),
+		"an identity without the op has no wings")
+	check(not GAME.identity_has_wings(null), "no identity has no wings")
+
+	var wings := FakeWings.new()
+	root.add_child(wings)
+	var excitement := FakeWingedExcitement.new()
+	root.add_child(excitement)
+	excitement.wings = wings
+	check(GAME.wings_of(excitement) == wings, "the Beat's private wing node is read")
+	var plain_excitement := FakeExcitement.new()
+	root.add_child(plain_excitement)
+	check(GAME.wings_of(plain_excitement) == null, "a Beat without the member has no wing node")
+	check(GAME.wings_of(null) == null, "no Beat has no wing node")
+
+	check(GAME.wing_hold_at(wings, "unfplap", 0.4), "the wing node takes the hold")
+	check(wings.holds == [["unfplap", 0.4]], "the hold reaches the wing node at the value")
+	check(not GAME.wing_hold_at(plain, "unfplap", 0.4), "a node without the hold answers false")
+	check(not GAME.wing_hold_at(null, "unfplap", 0.4), "no node takes no hold")
+	GAME.wing_release_hold(wings, "unfplap")
+	check(wings.releases == ["unfplap"], "the hold release reaches the wing node")
+	GAME.wing_release_hold(plain, "unfplap")
+	GAME.wing_release_hold(null, "unfplap")
+	GAME.wing_set_open(wings, false)
+	check(wings.opens == [false], "the open switch reaches the wing node")
+	GAME.wing_set_open(plain, true)
+	GAME.wing_set_open(null, true)
+	GAME.wing_spread(excitement, 4.0)
+	check(excitement.spreads == [4.0], "the stock spread reaches the Beat")
+	GAME.wing_spread(plain_excitement, 4.0)
+	GAME.wing_spread(null, 4.0)
+	GAME.wing_flutter(excitement)
+	check(excitement.flutters == 1, "the flutter reaches the Beat")
+	GAME.wing_flutter(plain_excitement)
+	GAME.wing_flutter(null)
+	check(excitement.flutters == 1, "a Beat without the flutter stays still")
+
+	check(not GAME.wing_opened(wings), "a folded wing node reads closed")
+	GAME.set_wing_opened(wings, true)
+	check(GAME.wing_opened(wings), "the open meshes follow the write")
+	GAME.set_wing_tuck(wings, 0.75)
+	GAME.set_wing_half(wings, 0.25)
+	check(is_equal_approx(wings.tuck, 0.75) and is_equal_approx(wings.half, 0.25),
+		"the fold blends take the writes")
+	check(not GAME.wing_opened(plain), "a node without the flag reads closed")
+	GAME.set_wing_opened(plain, true)
+	GAME.set_wing_tuck(plain, 0.5)
+	GAME.set_wing_half(plain, 0.5)
+	GAME.set_wing_opened(null, true)
+	GAME.set_wing_tuck(null, 0.5)
+	GAME.set_wing_half(null, 0.5)
+	check(not "opened" in plain and not "tuck" in plain and not "half" in plain,
+		"a node without the blends takes no write")
+	wings.queue_free()
+	excitement.queue_free()
+	plain_excitement.queue_free()
+	pony.queue_free()
+	bare.queue_free()
+	nav.queue_free()
+	plain.queue_free()

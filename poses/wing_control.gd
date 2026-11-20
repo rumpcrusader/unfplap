@@ -3,6 +3,7 @@ extends RefCounted
 ## only drives the pony's wing node and the wing-sweep skeleton modifier.
 
 const WING_SWEEP := preload("res://mods/unfplap/poses/wing_sweep.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const READINESS_MAX := 100.0
 const WING_FADE_SECONDS := 2.20
@@ -54,8 +55,7 @@ func _init(facts_context: Variant = null) -> void:
 func reset() -> void:
 	var pony: Variant = facts.pony if facts != null else null
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
-	_winged = identity != null and identity.has_method("has_wings") \
-		and bool(identity.call("has_wings"))
+	_winged = GAME.identity_has_wings(identity)
 	_wing_clock = 0.0
 	_flutter_clock = randf_range(1.0, 3.0)
 	_wing_hold = false
@@ -90,10 +90,10 @@ func tick(delta: float, family: String, satisfaction: float, act_seconds: float)
 		return
 	_wing_flick = move_toward(_wing_flick, 0.0, delta / WING_FLICK_DECAY)
 	if not _wing_hold:
-		var wings: Variant = excitement.call("_wings") if excitement.has_method("_wings") else null
+		var wings: Variant = GAME.wings_of(excitement) if excitement.has_method("_wings") else null
 		if wings is Node and (wings as Node).has_method("hold_at"):
 			_wings_node = wings as Node
-			_wing_hold = bool(_wings_node.call("hold_at", "unfplap", 1.0))
+			_wing_hold = GAME.wing_hold_at(_wings_node, "unfplap", 1.0)
 	if _wing_hold and is_instance_valid(_wings_node):
 		var level := sqrt(clampf(satisfaction / READINESS_MAX, 0.0, 1.0))
 		var spread_t := smoothstep(0.0, 1.0, clampf(act_seconds / WING_SPREAD_SECONDS, 0.0, 1.0))
@@ -112,7 +112,7 @@ func tick(delta: float, family: String, satisfaction: float, act_seconds: float)
 			_wing_hold_value = 1.0
 			_wing_hold_started = true
 		_wing_hold_value = move_toward(_wing_hold_value, target_hold, delta / WING_FADE_SECONDS)
-		_wings_node.call("hold_at", "unfplap", _wing_hold_value)
+		GAME.wing_hold_at(_wings_node, "unfplap", _wing_hold_value)
 		_ensure_wing_sweep(family)
 		return
 	# Fallback when the half-open wing pose is unavailable.
@@ -120,13 +120,13 @@ func tick(delta: float, family: String, satisfaction: float, act_seconds: float)
 		_wing_clock -= delta
 		if _wing_clock <= 0.0:
 			_wing_clock = 2.0
-			excitement.call("spread", 4.0)
+			GAME.wing_spread(excitement, 4.0)
 		return
 	_flutter_clock -= delta
 	if _flutter_clock <= 0.0 and excitement.has_method("flutter"):
 		var now: float = facts.clock() if facts != null else 0.0
 		if now - _last_wing_flutter >= WING_FLUTTER_COOLDOWN_S:
-			excitement.call("flutter")
+			GAME.wing_flutter(excitement)
 			_last_wing_flutter = now
 		_flutter_clock = randf_range(4.8, 9.2)
 
@@ -143,7 +143,7 @@ func on_thrust(impact: float) -> void:
 	var pony: Variant = facts.pony if facts != null else null
 	var excitement: Variant = pony.get("excitement") if is_instance_valid(pony) else null
 	if excitement != null and excitement.has_method("flutter"):
-		excitement.call("flutter")
+		GAME.wing_flutter(excitement)
 		_last_wing_flutter = now
 
 
@@ -161,7 +161,7 @@ func release() -> void:
 		_wings_node = null
 		return
 	if _wing_hold and is_instance_valid(_wings_node) and _wings_node.has_method("release_hold"):
-		_wings_node.call("release_hold", "unfplap")
+		GAME.wing_release_hold(_wings_node, "unfplap")
 	_clear_wing_sweep()
 	_wing_hold = false
 	_wing_hold_started = false
@@ -176,8 +176,8 @@ func begin_afterglow() -> void:
 		return
 	var wings: Node = _wings_node
 	_clear_wing_sweep()
-	wings.call("release_hold", "unfplap")
-	wings.call("set_open", false)
+	GAME.wing_release_hold(wings, "unfplap")
+	GAME.wing_set_open(wings, false)
 	var tuck_value: Variant = wings.get("tuck")
 	var half_value: Variant = wings.get("half")
 	_wing_return_from_tuck = float(tuck_value) if tuck_value != null else 0.0
@@ -186,7 +186,7 @@ func begin_afterglow() -> void:
 	_wing_return_progress = 0.0
 	_wing_return_done = false
 	_wing_returning = true
-	wings.set("opened", false)
+	GAME.set_wing_opened(wings, false)
 	wings.set_process(false)
 	_wing_hold = false
 	_wing_hold_started = false
@@ -205,9 +205,9 @@ func _wing_return_tick(delta: float) -> void:
 	_wing_return_progress = minf(1.0,
 		_wing_return_progress + delta / maxf(WING_AFTERGLOW_RETURN_SECONDS, 0.001))
 	var eased := smoothstep(0.0, 1.0, _wing_return_progress)
-	_wing_return_node.set("tuck", lerpf(_wing_return_from_tuck, 1.0, eased))
-	_wing_return_node.set("half", lerpf(_wing_return_from_half, 0.0, eased))
-	_wing_return_node.set("opened", false)
+	GAME.set_wing_tuck(_wing_return_node, lerpf(_wing_return_from_tuck, 1.0, eased))
+	GAME.set_wing_half(_wing_return_node, lerpf(_wing_return_from_half, 0.0, eased))
+	GAME.set_wing_opened(_wing_return_node, false)
 	_wing_return_node.set_process(false)
 	if _wing_return_progress >= 1.0:
 		_wing_return_done = true

@@ -2168,3 +2168,94 @@ class LlmConfig:
 	var status_path := ""
 	## The game's AI gate allows a model call and the director can hand over its section.
 	var enabled := false
+
+
+## Write the navigator's face point; a node without the member is left alone.
+static func set_face_point(nav: Node, point: Vector3) -> void:
+	if is_instance_valid(nav) and "face_point" in nav:
+		nav.set("face_point", point)
+
+
+## Drop the navigator's conversation facing; a node without the setter is left alone.
+static func clear_conversation_target(nav: Node) -> void:
+	if is_instance_valid(nav) and nav.has_method("set_conversation_target"):
+		nav.call("set_conversation_target", null, false)
+
+
+## Hand her own locomotion facing a direction; a body without the turn is left alone.
+static func face_direction(pony: Node, direction: Vector3) -> void:
+	if is_instance_valid(pony) and pony.has_method("face_direction"):
+		pony.call("face_direction", direction)
+
+
+## Whether an identity resource has wings; an absent op reads as no wings.
+static func identity_has_wings(identity: Object) -> bool:
+	if not is_instance_valid(identity) or not identity.has_method("has_wings"):
+		return false
+	return bool(identity.call("has_wings"))
+
+
+## The excitement Beat's wing node, through its private member; null when absent.
+static func wings_of(excitement: Node) -> Node:
+	if not is_instance_valid(excitement) or not excitement.has_method("_wings"):
+		return null
+	var wings: Variant = excitement.call("_wings")
+	if wings is Node and is_instance_valid(wings):
+		return wings
+	return null
+
+
+## Take the wing hold at `value`; false without the hold op or when it refuses.
+static func wing_hold_at(wings: Node, owner: String, value: float) -> bool:
+	if not is_instance_valid(wings) or not wings.has_method("hold_at"):
+		return false
+	return bool(wings.call("hold_at", owner, value))
+
+
+## Release the wing hold `owner` took; a node without the op is left alone.
+static func wing_release_hold(wings: Node, owner: String) -> void:
+	if is_instance_valid(wings) and wings.has_method("release_hold"):
+		wings.call("release_hold", owner)
+
+
+## Ask the wing node to open or close; a node without the op is left alone.
+static func wing_set_open(wings: Node, open: bool) -> void:
+	if is_instance_valid(wings) and wings.has_method("set_open"):
+		wings.call("set_open", open)
+
+
+## Fire the excitement Beat's stock wing spread; a Beat without the op is left alone.
+static func wing_spread(excitement: Node, seconds: float) -> void:
+	if is_instance_valid(excitement) and excitement.has_method("spread"):
+		excitement.call("spread", seconds)
+
+
+## Flutter her wings through the excitement Beat; a Beat without the op stays still.
+static func wing_flutter(excitement: Node) -> void:
+	if is_instance_valid(excitement) and excitement.has_method("flutter"):
+		excitement.call("flutter")
+
+
+## Whether the wing node shows its open meshes; an absent flag reads closed.
+static func wing_opened(wings: Node) -> bool:
+	if not is_instance_valid(wings):
+		return false
+	return wings.get("opened") == true
+
+
+## Show or hide the wing node's open meshes.
+static func set_wing_opened(wings: Node, open: bool) -> void:
+	if is_instance_valid(wings):
+		wings.set("opened", open)
+
+
+## Write the wing node's tuck blend.
+static func set_wing_tuck(wings: Node, value: float) -> void:
+	if is_instance_valid(wings):
+		wings.set("tuck", value)
+
+
+## Write the wing node's half-open blend.
+static func set_wing_half(wings: Node, value: float) -> void:
+	if is_instance_valid(wings):
+		wings.set("half", value)

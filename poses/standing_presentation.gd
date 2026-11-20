@@ -183,16 +183,15 @@ func _begin_present_turn() -> void:
 		_present_turn_mode = TURN_NAVIGATOR
 		_present_turn_nav = nav
 		_present_turn_point = pony.global_position + _present_face_direction * PRESENT_TURN_POINT_M
-		if nav.has_method("stay"):
-			# A pending route would keep the navigator out of its face_point branch.
-			nav.call("stay")
+		# A pending route would keep the navigator out of its face_point branch.
+		GAME.navigator_stay(nav)
 		_set_turn_nav_facing()
 		_raise_present_turn_rate()
 		return
 	if pony.has_method("face_direction"):
 		_present_turn_mode = TURN_FACE
 		_raise_present_turn_rate()
-		pony.call("face_direction", _present_face_direction)
+		GAME.face_direction(pony, _present_face_direction)
 		return
 	# Unusual actor without the game's locomotion turn: rotate before the pose attaches, never
 	# after it.
@@ -205,25 +204,24 @@ func _set_turn_nav_facing() -> void:
 	if not is_instance_valid(_present_turn_nav) or not _present_turn_point.is_finite():
 		return
 	if "face_point" in _present_turn_nav:
-		_present_turn_nav.set("face_point", _present_turn_point)
-	if _present_turn_nav.has_method("set_conversation_target"):
-		_present_turn_nav.call("set_conversation_target", null, false)
+		GAME.set_face_point(_present_turn_nav, _present_turn_point)
+	GAME.clear_conversation_target(_present_turn_nav)
 
 
 func _raise_present_turn_rate() -> void:
 	if _present_turn_rate_owned or not is_instance_valid(pony):
 		return
-	var rate: Variant = pony.get("face_turn_rate")
-	if rate == null:
+	var rate: float = GAME.face_turn_rate(pony)
+	if is_nan(rate):
 		return
-	_present_turn_rate_saved = float(rate)
+	_present_turn_rate_saved = rate
 	_present_turn_rate_owned = true
-	pony.set("face_turn_rate", maxf(_present_turn_rate_saved, PRESENT_FACE_TURN_RATE))
+	GAME.set_face_turn_rate(pony, maxf(_present_turn_rate_saved, PRESENT_FACE_TURN_RATE))
 
 
 func _restore_present_turn_rate() -> void:
 	if _present_turn_rate_owned and is_instance_valid(pony):
-		pony.set("face_turn_rate", _present_turn_rate_saved)
+		GAME.set_face_turn_rate(pony, _present_turn_rate_saved)
 	_present_turn_rate_owned = false
 	_present_turn_rate_saved = -1.0
 
@@ -234,14 +232,13 @@ func _end_present_turn() -> void:
 	if is_instance_valid(_present_turn_nav):
 		var face: Variant = _present_turn_nav.get("face_point") if "face_point" in _present_turn_nav else null
 		if face is Vector3 and _present_turn_point.is_finite() and (face as Vector3) == _present_turn_point:
-			_present_turn_nav.set("face_point", Vector3.INF)
-		if _present_turn_nav.has_method("set_conversation_target"):
-			_present_turn_nav.call("set_conversation_target", null, false)
+			GAME.set_face_point(_present_turn_nav, Vector3.INF)
+		GAME.clear_conversation_target(_present_turn_nav)
 	_present_turn_nav = null
 	_present_turn_point = Vector3.INF
 	_present_turn_mode = ""
-	if is_instance_valid(pony) and pony.has_method("face_direction"):
-		pony.call("face_direction", Vector3.ZERO)
+	if is_instance_valid(pony):
+		GAME.face_direction(pony, Vector3.ZERO)
 	_restore_present_turn_rate()
 	_present_turning = false
 	_present_turn_still = 0.0
@@ -355,12 +352,7 @@ func _presentation_physics(delta: float) -> void:
 	var scale := t.basis.get_scale()
 	t.basis = Basis(Vector3.UP, _present_yaw).scaled(scale)
 	pony.global_transform = t
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav != null:
-		if "face_point" in nav:
-			nav.set("face_point", Vector3.INF)
-		if nav.has_method("set_conversation_target"):
-			nav.call("set_conversation_target", null, false)
+	GAME.clear_facing(pony)
 	facts.pause_face(true)
 
 
@@ -375,8 +367,7 @@ func _presentation_turn_physics(delta: float) -> void:
 		TURN_NAVIGATOR:
 			_set_turn_nav_facing()
 		TURN_FACE:
-			if is_instance_valid(pony) and pony.has_method("face_direction"):
-				pony.call("face_direction", _present_face_direction)
+			GAME.face_direction(pony, _present_face_direction)
 		TURN_YAW:
 			_present_yaw = rotate_toward(_present_yaw, _present_target_yaw,
 				PRESENT_TURN_RATE * delta)
@@ -464,7 +455,7 @@ func _apply_present_face() -> void:
 		return
 	if not str(expressions.get("dialogue_face")).is_empty():
 		return
-	expressions.call("set_dialogue", PRESENT_FACE)
+	GAME.set_dialogue(expressions, PRESENT_FACE)
 	_present_face_owned = true
 
 
@@ -477,7 +468,7 @@ func _clear_present_face() -> void:
 	if expressions == null or not expressions.has_method("clear_dialogue"):
 		return
 	if str(expressions.get("dialogue_face")) == PRESENT_FACE:
-		expressions.call("clear_dialogue")
+		GAME.clear_dialogue(expressions)
 
 
 func _present_turn_process() -> void:
@@ -490,7 +481,7 @@ func _present_turn_process() -> void:
 			_set_turn_nav_facing()
 		TURN_FACE:
 			if pony.has_method("face_direction"):
-				pony.call("face_direction", _present_face_direction)
+				GAME.face_direction(pony, _present_face_direction)
 
 
 func _presentation_process() -> void:

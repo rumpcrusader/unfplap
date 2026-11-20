@@ -196,17 +196,8 @@ class FakeMemory extends MEMORY:
 		return out
 
 
-class FakePrivacy extends PRIVACY:
-	var private := true
-
-	func setup() -> void:
-		pass
-
-	func offer_private(_except: Node = null) -> bool:
-		return private
-
-	func cuddle_private(_pony: Node) -> bool:
-		return private
+class FakePrivacy extends "res://mods/unfplap/tests/support/fakes/fake_privacy.gd":
+	pass
 
 
 class FakeImpressions extends Node:

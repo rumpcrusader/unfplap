@@ -73,15 +73,8 @@ class FakeFacts extends ACT_FACTS:
 
 
 ## The face provider pair for the session edge: his mouth and her opening, mutable per tick.
-class FakeFacePoints:
-	var mouth := Vector3.ZERO
-	var opening := Vector3.ZERO
-
-	func mouth_point() -> Vector3:
-		return mouth
-
-	func opening_point() -> Vector3:
-		return opening
+class FakeFacePoints extends "res://mods/unfplap/tests/support/fakes/fake_face_points.gd":
+	pass
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:

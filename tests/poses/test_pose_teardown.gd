@@ -31,15 +31,8 @@ class FakeActBody extends "res://mods/unfplap/poses/missionary_anon.gd":
 
 
 ## The face provider pair for the transition: his mouth and her opening, mutable.
-class FakeFacePoints:
-	var mouth := Vector3.ZERO
-	var opening := Vector3.ZERO
-
-	func mouth_point() -> Vector3:
-		return mouth
-
-	func opening_point() -> Vector3:
-		return opening
+class FakeFacePoints extends "res://mods/unfplap/tests/support/fakes/fake_face_points.gd":
+	pass
 
 
 func _values(raw: Dictionary) -> SESSION.ActPose:

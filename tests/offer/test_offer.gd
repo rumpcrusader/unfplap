@@ -27,6 +27,10 @@ class FakeHints extends Node:
 	var _prompt2d: Variant = null
 
 
+class FakeForm extends Node:
+	var form := {"kind": "pony", "age": "adult"}
+
+
 class FakeGame extends Node:
 	var mares: Array = []
 	var headset_view := false
@@ -65,6 +69,7 @@ class FakeRuntime extends Node:
 	var case_count := 0
 	var gate: Variant = null
 	var mare: FakeMare = null
+	var bed: Node3D = null
 
 	func _init() -> void:
 		gate = self
@@ -91,6 +96,9 @@ class FakeRuntime extends Node:
 
 	func stool_pair(_pose: String) -> Vector2i:
 		return Vector2i(int(stool.get("need", 0)), int(stool.get("have", 0)))
+
+	func find_bed_under() -> Node3D:
+		return bed
 
 	func hint_stool() -> Dictionary:
 		return stool
@@ -166,6 +174,7 @@ func run() -> void:
 	_check_hint_row()
 	_check_hud_fallback()
 	_check_agreement_first()
+	_check_lying_act_target()
 	_check_hide_while_act_live()
 	print("OFFER_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -351,6 +360,37 @@ func _check_agreement_first() -> void:
 	check(service.current() != null and service.current().trigger.is_empty(),
 		"an Agreement that is not ready falls back to the scene scan")
 	negotiation.live = null
+	_free(made)
+
+
+## AnonPony's lying offer is an act target only: the same candidate is offered while eligible
+## and dropped when the capability answers no.
+func _check_lying_act_target() -> void:
+	var made := _fixture(false)
+	var service: OFFER = made["service"]
+	var near: FakeMare = made["near"]
+	var runtime: FakeRuntime = made["near_runtime"]
+	var form := FakeForm.new()
+	form.name = "FakeForm"
+	form.add_to_group("player_pony_form")
+	root.add_child(form)
+	near.requested = "lie_down"
+	runtime.bed = Node3D.new()
+	runtime.bed.name = "FakeBed"
+	service.tick(0.2)
+	check(service.current() != null and service.current().pony == near,
+		"a lying act target is offered")
+	check(service.current().pose == CATALOG.MISSIONARY
+		and service.current().source == "already_lying",
+		"the lying offer names the missionary source")
+	var targets: Targets = PONIES.eligibility
+	targets.allowed = []
+	service.reconsider()
+	check(service.current() == null, "a lying non-target is not offered")
+	root.remove_child(form)
+	form.free()
+	runtime.bed.free()
+	runtime.bed = null
 	_free(made)
 
 

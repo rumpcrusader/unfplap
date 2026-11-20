@@ -419,7 +419,7 @@ func _offer_lying(pony_form: bool) -> bool:
 	if not pony_form:
 		return false
 	var lying: Node3D = _sensor.lying()
-	if not is_instance_valid(lying):
+	if not is_instance_valid(lying) or not PONIES.act_target(lying):
 		return false
 	var runtime: Node = PONIES.runtime_for(lying)
 	if not is_instance_valid(runtime):

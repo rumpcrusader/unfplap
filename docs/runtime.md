@@ -127,7 +127,8 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
 
 `refresh_identity()` re-reads the stable identity from the presented body, adopts its display name
 through `PONIES.display_name_for()` and refreshes the scene gate. `live_id()` is one Node caller;
-`cycle_phase()` re-reads it only when the body's relationship meta moved.
+`cycle_phase()` re-reads it only when the body's relationship meta moved; the bond-day phase is
+cached for `CYCLE_REFRESH_S`, while the feature switch and the debug override stay live.
 
 The act settings snapshot lives in `act/settings.gd`: one `SETTINGS.ActSnapshot`, the feature
 flags, the presentation block, the caress quality, and the climax limit and mode.

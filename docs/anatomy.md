@@ -595,7 +595,8 @@ The settled form also rebuilds the body's near/far LOD through `WORLD.refresh_bo
 ## Idle heat
 
 - Idle heat uses the same phase as the estrus cycle. `cycle_phase()` is `normal` when the feature
-  is off or no relationship runtime exists; the debug cycle override still applies.
+  is off or no relationship runtime exists; the debug cycle override still applies. The bond-day
+  phase is rebuilt every `CYCLE_REFRESH_S`; the feature switch and the override are read live.
 - `POSING_IN`, `ACTIVE` and `CLIMAX` suppress the idle display because the act owns the mesh.
   `AFTERGLOW`, `RESTORE` and `IDLE` may display it.
 - The idle display requires the anatomy mesh to be shown and not a far mesh.

@@ -66,11 +66,8 @@ class FakeGame extends Node:
 	var population: Variant = null
 
 
-class FakeIdentity extends Resource:
-	var id := ""
-	var character_id := ""
-	var filly := false
-	var stallion := false
+class FakeIdentity extends "res://mods/unfplap/tests/support/fakes/fake_identity.gd":
+	pass
 
 
 class FakePony extends Node3D:

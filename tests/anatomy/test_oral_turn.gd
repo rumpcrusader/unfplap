@@ -23,15 +23,8 @@ class FakeBoop extends Node:
 		return pony.to_global(Vector3(0.0, 1.3, 0.6))
 
 
-class FakeMouth extends Node:
-	var visemes: Array[String] = []
-	var clears := 0
-
-	func set_viseme(letter: String, _blend := -1.0) -> void:
-		visemes.append(letter)
-
-	func clear() -> void:
-		clears += 1
+class FakeMouth extends "res://mods/unfplap/tests/support/fakes/fake_mouth.gd":
+	pass
 
 
 class FakeHead extends Node:

@@ -14,11 +14,8 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 
-class FakeIdentity extends Resource:
-	var id := ""
-	var character_id := ""
-	var filly := false
-	var stallion := false
+class FakeIdentity extends "res://mods/unfplap/tests/support/fakes/fake_identity.gd":
+	pass
 
 class FakePony extends Node3D:
 	var identity: Resource

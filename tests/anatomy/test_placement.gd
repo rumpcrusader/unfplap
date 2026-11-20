@@ -18,11 +18,8 @@ const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 
 
-class FakeIdentity extends Resource:
-	var id := ""
-	var character_id := ""
-	var filly := false
-	var stallion := false
+class FakeIdentity extends "res://mods/unfplap/tests/support/fakes/fake_identity.gd":
+	pass
 
 class FakePony extends Node3D:
 	var identity: Resource

@@ -13,8 +13,8 @@ removing the provider leaves the player's choices intact.
 - Registration, replacement and removal of a provider descriptor.
 - Validation of the descriptor schema and warnings for ignored fields.
 - The provider layers over the built-in character template.
-- The resolved name, preferences, consent, eligible assertion, participation, placement and pose
-  overrides for one stable id.
+- The resolved name, preferences, consent, eligible assertion, participation, placement, pose and
+  timing overrides for one stable id.
 - The owner-scoped removal used when another mod unregisters or leaves the tree.
 
 ## Ownership
@@ -81,9 +81,9 @@ No provider value is saved. Removing a provider leaves the player's saved differ
 ## Settings
 
 No global settings. Provider `preferences`, `consent`, `eligible`, `profile.participation`,
-`placement` and `poses` are layers; the player's `characters.<id>` block in `characters.json` is
-the sparse override. The per-mare prompt overrides are gone in API 1.2: a descriptor that still
-sends `act_prompts` or `event_prompts` warns as an unknown key and the value is ignored
+`placement`, `poses`, `cue_gap`, `aftercare_min` and `smack_zone_radius` are layers; the player's
+`characters.<id>` block in `characters.json` is the sparse override. The descriptor has no per-mare
+prompt fields: `act_prompts` and `event_prompts` are unknown keys that warn and change nothing
 (`docs/api.md`). The settings framework is `docs/settings.md`.
 
 ## Controls and debug

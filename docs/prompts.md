@@ -24,7 +24,7 @@ framework and the other shipped documents are `docs/settings.md`.
 `settings/prompts.json` is shipped data, not code: it is tracked, packed, read-only in a build and
 parsed once per process by `shared/defaults_data.gd`. It is never copied into a player file, never
 written by the mod, and it is not a promotion target for `scripts/settings_sync.py`; a provider
-cannot override it (the retired per-mare prompt fields are `docs/api.md`'s version history).
+cannot override it (`docs/api.md`).
 
 `shared/prompt_text.gd` is a pure shared module: no Node, clock, file or service preload. It owns
 graph construction, validation and rendering, and it is the only implementation of all three. A

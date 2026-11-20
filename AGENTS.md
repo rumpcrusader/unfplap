@@ -163,6 +163,9 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   per-frame `Settings` reads. One declaration in `settings/service.gd`, one shipped value in
   `settings/settings.json`, one typed read; the framework is `docs/settings.md`.
 - **No game-file edits and no JSON merges.** Everything lives under `res://mods/unfplap/`.
+- **The cross-mod API is frozen.** `api.gd`, `docs/api.md` and `tests/test_api.gd` are edited only
+  with the user's explicit approval; that approval starts the task, and the normal code/docs split
+  still applies.
 - **No global debug hotkeys.** `debug/service.gd` declares none; a debug action is a button in its
   Debug block and the game's dev keys stay the game's.
 - **Tests move with the code.** A change is not done while its suite reads the old private path,

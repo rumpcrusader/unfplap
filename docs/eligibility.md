@@ -87,7 +87,7 @@ Rules:
   key tables. Validation, the Characters form and the typed snapshots all iterate them.
 - `shared/pony_id.gd:from()` is the only stable-id rule: `relationship_id` metadata first, then the
   identity id. Runtime, eligibility, placement, memory and the anatomy internals call it.
-- `api.describe_mare()` keeps its static shape and is not extended with live eligibility.
+- The cross-mod read stays static (`docs/api.md`); it is not extended with live eligibility.
 
 ## Public API
 
@@ -152,8 +152,9 @@ what a shape source asks about a player-named body. `witness_age()` is the only 
 and only for witness wording. `get_verdict()` is the typed act gate. `get_profile()` reads the
 resolved provider/player profile for one id;
 `set_profile()` writes the provider layer's eligible assertion, participation and consent. The
-pair is the cross-mod read/write side. The service stores no eligibility state of its own: only the
-identity-record cache, its per-era warm marks and the shape-identity cache used by `eligible_id()`.
+pair is the internal typed read/write side; the cross-mod surface is `docs/api.md`. The service
+stores no eligibility state of its own: only the identity-record cache, its per-era warm marks and
+the shape-identity cache used by `eligible_id()`.
 
 ### Callers
 
@@ -512,6 +513,5 @@ refusal status (`docs/integrations.md`).
 - Public consent is not a general exhibitionism gate; it is a soft Context preference.
 - A Strict tolerance stop still ends the act, bucks and calls the game's `request_space`
   (`docs/readiness.md`).
-- The internal API is not part of `docs/api.md`; the cross-mod `profile.mare` capability reads
-  `get_profile(id)` and writes `set_profile(owner, id, profile)`. A live eligibility verdict is
-  not part of the API.
+- The internal typed API is not part of `docs/api.md`, which owns the cross-mod surface. A live
+  eligibility verdict is not part of the API.

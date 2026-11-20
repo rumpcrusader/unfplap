@@ -252,6 +252,35 @@ func run() -> void:
 	coat_pony.free()
 	coat_model.queue_free()
 
+	# A source mesh carries several cel surfaces, and every one of them includes the coat
+	# shader; the named coat surface must win over the first include match (her teeth).
+	var teeth_source := StandardMaterial3D.new()
+	teeth_source.resource_name = "cq_Teeth"
+	var body_source := StandardMaterial3D.new()
+	body_source.resource_name = "cq_Body"
+	var multi_mesh := ArrayMesh.new()
+	multi_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, coat_arrays)
+	multi_mesh.surface_set_material(0, teeth_source)
+	multi_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, coat_arrays)
+	multi_mesh.surface_set_material(1, body_source)
+	var multi_model := Node3D.new()
+	get_root().add_child(multi_model)
+	var multi_body := MeshInstance3D.new()
+	multi_body.name = "ChrysalisBody"
+	multi_body.mesh = multi_mesh
+	multi_body.set_surface_override_material(0, coat_material)
+	multi_model.add_child(multi_body)
+	var multi_pony := FakeCoatPony.new()
+	multi_pony._model = multi_model
+	var multi := BODY_COAT_SURFACE.resolve(multi_pony)
+	check(multi.get("mesh") == multi_body, "a multi-surface source body is the drawn coat")
+	check(int(multi.get("surface", -1)) == 1,
+		"the named coat surface wins over an earlier cel surface")
+	check(BODY_COAT_SURFACE.coat_surface(multi_body) == 1,
+		"a cel surface that includes the coat shader is not the coat")
+	multi_pony.free()
+	multi_model.queue_free()
+
 	# The rig coat patch only replaces the flank_jiggle include and one call; a shader without
 	# those hooks is left alone instead of being half-patched.
 	var patch_source := Shader.new()

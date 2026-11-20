@@ -22,7 +22,6 @@ var mesh: MeshInstance3D
 var skeleton: Skeleton3D
 var shapes: RefCounted
 var _patch_log := ""
-var _uniform_log_ms := 0
 
 var _body_mesh: MeshInstance3D
 var _body_surface := 0
@@ -413,8 +412,6 @@ func _apply_uniforms() -> void:
 	_zone_fade = SETTINGS.still_fade.get_num()
 	# Follow the extrapolated V2 extreme so the visible body mound wraps the same ring.
 	var anal_scale := SETTINGS.anal_scale.get_num() * (1.0 + anal_extreme)
-	_log_uniforms(lip, float(shapes.hole_target()), spread, reach, depth,
-		hole_radius, hole_vertical, scale)
 	for item: Array in _materials:
 		var material := item[0] as ShaderMaterial
 		if not is_instance_valid(material):
@@ -474,16 +471,3 @@ func _log_patch(text: String) -> void:
 		return
 	_patch_log = text
 	LOG.debug(text)
-
-
-## One uniform readout per second: the coat's grip target, its spread and both mesh scales.
-## A cut stuck at the rest spread while the grip target is larger names a break in the mapping.
-func _log_uniforms(lip: float, hole: float, spread: float, reach: float, depth: float,
-		hole_radius: float, hole_vertical: float, local_scale: float) -> void:
-	if not LOG.enabled or not is_instance_valid(mesh):
-		return
-	var now := Time.get_ticks_msec()
-	if now - _uniform_log_ms < 1000:
-		return
-	_uniform_log_ms = now
-	var global_scale := maxf(mesh.global_transform.basis.get_scale().x, 0.0001)

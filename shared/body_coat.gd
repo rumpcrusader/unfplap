@@ -53,14 +53,15 @@ static func coat_surface(body: MeshInstance3D) -> int:
 	if not is_instance_valid(body) or body.mesh == null:
 		return -1
 	for i in body.mesh.get_surface_count():
-		var active: Variant = body.get_active_material(i)
-		if active is ShaderMaterial:
-			var shader: Variant = (active as ShaderMaterial).shader
-			if shader is Shader and (shader as Shader).code.contains(BODY_INCLUDE):
-				return i
 		var source: Variant = body.mesh.surface_get_material(i)
 		if source is Material:
 			var name := String((source as Material).resource_name)
 			if name in BODY_MATERIAL_NAMES:
+				return i
+	for i in body.mesh.get_surface_count():
+		var active: Variant = body.get_active_material(i)
+		if active is ShaderMaterial:
+			var shader: Variant = (active as ShaderMaterial).shader
+			if shader is Shader and (shader as Shader).code.contains(BODY_INCLUDE):
 				return i
 	return -1

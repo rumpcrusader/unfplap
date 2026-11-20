@@ -339,7 +339,7 @@ func set_pose_config(config: SettingsBlock) -> void:
 		pose_config.merge(config.values, true)
 
 
-## Build the pose for a fresh act from the start context. A live pose or a pony with no body skeleton
+## Build the pose for a fresh act from its typed values. A live pose or a pony with no body skeleton
 ## returns false with nothing installed; the started flag only follows an install.
 func begin_act(values: ActPose) -> bool:
 	return begin(values)
@@ -593,8 +593,8 @@ func _live_spec_id() -> String:
 	return str(_view.id)
 
 
-## Request one authored edge and return the `PoseResult` `{ok, code, edge, reason}`. It leaves the act
-## running and touches neither the live pose nor the bones.
+## Request one authored edge and return the typed `PoseResult` (`ok`, `code`, `edge`, `reason`). It
+## leaves the act running and touches neither the live pose nor the bones.
 func request_pose(target_id: String, trigger: String, request: PoseRequest = null) -> PoseResult:
 	var from_id := str(_view.id)
 	var target_spec: POSE_SPEC = _registry.spec(target_id)
@@ -641,7 +641,7 @@ func request_pose(target_id: String, trigger: String, request: PoseRequest = nul
 	return PoseResult.make("ok", edge_id, "")
 
 
-## The request's form list: the context's own list, or the player's live form.
+## The request's form list: the request's own list, or the player's live form.
 func _request_forms(request: PoseRequest) -> Array[String]:
 	if request != null and not request.forms.is_empty():
 		return request.forms
@@ -650,7 +650,7 @@ func _request_forms(request: PoseRequest) -> Array[String]:
 	return forms
 
 
-## The request's view list: the context's own list, or the live display.
+## The request's view list: the request's own list, or the live display.
 func _request_views(request: PoseRequest) -> Array[String]:
 	if request != null and not request.views.is_empty():
 		return request.views
@@ -680,7 +680,7 @@ func _facts_features() -> FeatureFlags:
 	return FeatureFlags.from_dict(value as Dictionary if value is Dictionary else {})
 
 
-## The target spec and the edge requirements against the live request values, in the order
+## The target spec and the edge requirements against the request record, in the order
 ## `pose_state.request_code()` reports them. A missing flag passes.
 func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, request: PoseRequest,
 		forms: Array[String], views: Array[String], features: FeatureFlags) -> Dictionary:
@@ -1140,7 +1140,7 @@ func missionary_origin() -> Vector3:
 
 
 ## Bed space for the authored pose: the middle of the real mattress top, in the bed's axes, the
-## pillow end at -Z. `null` when no bed pose is live, so the procedural driver stays in charge.
+## pillow end at -Z. An absent frame means no bed pose is live, so the procedural driver stays out.
 func missionary_pose_frame() -> Transform3D:
 	if str(_view.frame) != "bed" or not is_instance_valid(bed_node):
 		return NO_FRAME

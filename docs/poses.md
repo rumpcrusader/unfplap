@@ -198,9 +198,11 @@ The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/st
 `shared/act_facts.gd`, never the runtime node. The view carries the pose config, the presentation config,
 the per-mare profile, the pose id and state, the live depth and bed frame, the scene handles, the
 lean and thrust values and the callbacks they call back through. `pose_config` is one live
-dictionary for the session: `set_pose_config()`, `sync_standing_config()` and
-`sync_missionary_config()` merge into it in place, so the pose modifier, `view.pose_config` and
-the standing camera's cached config all alias the same object. `poses/body_sway.gd` publishes its
+dictionary for the session: `set_pose_config()` and `sync_standing_config()` take the typed
+`SettingsBlock`, `refresh_modifiers()` the typed `FeatureFlags`, and every sync, including
+`sync_missionary_config()`, merges into the one dictionary in place, so the pose modifier,
+`view.pose_config` and the standing camera's cached config all alias the same object.
+`poses/body_sway.gd` publishes its
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
 standing Anon controller reads it from there. The session binds `facts`, `perf` and
 `log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module
@@ -408,15 +410,17 @@ setup, and `poses/registry.gd`'s `check_table()` covers every shipped row.
 through `EXITING` to `IDLE`; the pose-scope leave steps keep `STEADY`. A failed `begin()` leaves the
 state unchanged. For a ground view, `begin()` captures the pony root's ground frame before it
 installs the modifier; `leave_pose_start()` and `release_pose()` clear it. `sync_ground_frame()`
-follows the root's position and rotation each tick.
+follows the root's position and rotation each tick. `begin()` takes the act's typed `ActPose`
+values. `pose_frame()`, `missionary_pose_frame()` and `ground_pose_frame()` return a `Transform3D`
+and `has_frame()` separates a live frame from the absent one, whose origin is infinite.
 
-`request_pose(target_id, trigger, context)` returns the `PoseResult` `{ok, code, edge, reason}`. It
-checks the target against the act phase, the player's form/view, the edge requirements and the edge
-lock in the state module's order: `same`, `bad_phase`, `busy`, `not_steady`, `no_edge`,
-`unsupported_form`, `unsupported_view`, `refused`, `missing_asset`, `locked`, `ok`. A refused
-request changes nothing. The request context supplies `act_state` (the runtime passes its state),
-`features`, `consent`, `forms`, `views` and `locked`; absent values default to the act's live facts
-and the player's form/display.
+`request_pose(target_id, trigger, request)` returns the typed `PoseResult` record (`ok`, `code`,
+`edge`, `reason`). It checks the target against the act phase, the player's form/view, the edge
+requirements and the edge lock in the state module's order: `same`, `bad_phase`, `busy`,
+`not_steady`, `no_edge`, `unsupported_form`, `unsupported_view`, `refused`, `missing_asset`,
+`locked`, `ok`. A refused request changes nothing. The typed `PoseRequest` supplies `act_state`
+(the runtime passes its state), `features`, `consent`, `forms`, `views` and `locked`; absent values
+default to the act's live facts and the player's form/display.
 
 The checks, against the target spec and the edge:
 
@@ -612,7 +616,7 @@ calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `free_pose()`
 or any act-scope restore. The eye view's write stays on the render write, after the pose write.
 
 `refresh_modifiers(feature_flags)` is the live settings edit's entry into the session's reconcile:
-it replaces the session's feature flags and runs the same `pose_changed(view)` pass with the
+it replaces the session's typed `FeatureFlags` and runs the same `pose_changed(view)` pass with the
 unchanged view, so a live `standing_body_sway`, `missionary_body_motion` or `thrust_ear_twitch`
 change installs or removes its owner. The view supplies the profile; the call carries no pose id.
 The runtime calls it from its own live settings path.
@@ -667,7 +671,7 @@ keeps no start id of its own.
 
 A body swap rebuilds the live pose on the new skeleton at `view.id`; it is not a pose transition
 and not a new act. The runtime stages the settings pose config, calls `begin()` with the same
-context shape as the start, then `settle()` sets the pose and standing-tail amounts straight to 1
+typed values shape as the start, then `settle()` sets the pose and standing-tail amounts straight to 1
 inside the flame. The session's start ramp and the runtime's `POSING_IN` fade stay for a real
 entrance, so a resumed act does not visibly enter twice.
 
@@ -1015,7 +1019,8 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 - Scope: per runtime, one per pony; the session is not rebuilt for each act
 - Constructed by: `act/build.gd` through `runtime._init()`; `bind()` points it at the node and
   its pony
-- Begin: `begin(context)` builds the act's pose once, enters `ENTERING`, fills the pose view and
+- Begin: `begin(values)` builds the act's pose once from its typed values, enters `ENTERING`, fills
+  the pose view and
   settles `STEADY`, and returns `false`, before installing anything, when a pose is already live or
   the pony has no body skeleton
 - Request: `request_pose()` starts one authored edge without rebuilding the pose, `tick()` advances

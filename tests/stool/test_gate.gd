@@ -133,6 +133,8 @@ func run() -> void:
 	root.add_child(inventory)
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = pony
+	# The scene gate gets its body from the runtime's own refresh, as it does on the idle frame.
+	runtime.act.refresh_gate()
 	runtime._bundle.anatomy_bridge.controller = FakeController.new()
 	var controller: Node = runtime._bundle.anatomy_bridge.controller
 	controller.set("opening_y", 1.30)
@@ -159,7 +161,8 @@ func run() -> void:
 	var eligibility: FakeEligibility = fake_eligibility
 	var anatomy_service: FakeService = main.anatomy
 	var prepare_before: int = anatomy_service.prepare_calls
-	check(runtime.gate.hotkey_ready("standing", ""), "the standing hint is ready")
+	var pair: Vector2i = runtime.gate.stool_pair("standing")
+	check(runtime.gate.hotkey_ready("standing", "", null, pair), "the standing hint is ready")
 	check(anatomy_service.prepare_calls == prepare_before + 1,
 		"the hint reads the reach once")
 	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
@@ -169,17 +172,19 @@ func run() -> void:
 		"the blocked note reuses the gate's reach and case count")
 	check(anatomy_service.prepare_calls == prepare_before + 1,
 		"the blocked note does not repeat the reach read")
-	check(runtime.gate.hotkey_ready("standing", ""), "the next hint scan stays ready")
+	pair = runtime.gate.stool_pair("standing")
+	check(runtime.gate.hotkey_ready("standing", "", null, pair), "the next hint scan stays ready")
 	check(anatomy_service.prepare_calls == prepare_before + 2,
 		"the next scan reads the reach again")
 	check(eligibility.eligible_calls == 2 and eligibility.relationship_calls == 2,
 		"the next scan reads Base clearance again")
 	pony.set_meta("seated", true)
-	check(not runtime.gate.hotkey_ready("standing", ""), "a seated pony fails the standing hint")
+	check(not runtime.gate.hotkey_ready("standing", "", null, pair),
+		"a seated pony fails the standing hint")
 	check(eligibility.eligible_calls == 2,
 		"a failed scene row reads no Base clearance")
 	pony.remove_meta("seated")
-	check(runtime.gate.hotkey_ready("standing", ""), "the standing hint recovers")
+	check(runtime.gate.hotkey_ready("standing", "", null, pair), "the standing hint recovers")
 	check(eligibility.eligible_calls == 3,
 		"the recovered scene reads Base clearance once")
 

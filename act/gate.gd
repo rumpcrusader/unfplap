@@ -44,8 +44,42 @@ func scene_only_verdict(pose: String, act_source: String, bed_in: Node3D = null,
 	return scene.scene_only_verdict(pose, act_source, bed_in, capability, stool_need, stool_have)
 
 
-func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null) -> bool:
-	return agreement.hotkey_ready(pose, act_source, bed_in)
+func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null,
+		stool_pair: Vector2i = SCENE_GATE.NO_STOOL_PAIR) -> bool:
+	return scene.hotkey_ready(pose, act_source, bed_in, stool_pair)
+
+
+## The small scene checks, for the hint that builds no rows. `agreement_ready` takes the
+## Agreement's frozen pose capability.
+func available() -> bool:
+	return scene.available()
+
+
+func pose_supported(pose: String, act_source: String) -> bool:
+	return scene.pose_supported(pose, act_source)
+
+
+func navigator_allows(pose: String, act_source: String) -> bool:
+	return scene.navigator_allows(pose, act_source)
+
+
+func posture_allows(pose: String) -> bool:
+	return scene.posture_allows(pose)
+
+
+func player_ready(pose: String, act_source: String, bed_in: Node3D = null) -> bool:
+	return scene.player_ready(pose, act_source, bed_in)
+
+
+func agreement_ready(pose: String, act_source: String, bed_in: Node3D = null,
+		frozen: SCENE_GATE.FrozenPose = null) -> bool:
+	return scene.agreement_ready(pose, act_source, bed_in, frozen)
+
+
+## The footstool pair one scan reads and hands to `hotkey_ready`.
+func stool_pair(pose: String) -> Vector2i:
+	var stool := session.stool() as STOOL.ACT
+	return stool.hotkey_pair(pose) if stool != null else SCENE_GATE.NO_STOOL_PAIR
 
 
 func hint_stool() -> Dictionary:

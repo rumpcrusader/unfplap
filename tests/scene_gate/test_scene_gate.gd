@@ -8,6 +8,7 @@ extends SceneTree
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const STATE_IDLE := 0
@@ -65,6 +66,7 @@ class FakeInventory extends RefCounted:
 class FakeGame extends Node:
 	var inventory: Variant = null
 	var headset_view := false
+	var mares: Array = []
 
 
 class FixtureHost extends Node:
@@ -117,6 +119,18 @@ class FakePolicy extends RefCounted:
 	func verdict_for(_mode: int, _verdict_in: Variant = null) -> Variant:
 		calls += 1
 		return verdict
+
+
+## Base clearance for the hint: the capability and the relationship row, as the live service answers.
+class FakeEligibility extends ELIGIBILITY:
+	var act_ok := true
+	var relationship := true
+
+	func eligible(_pony: Node, _target: Target = Target.ACT) -> bool:
+		return act_ok
+
+	func relationship_ok(_pony: Node) -> bool:
+		return relationship
 
 
 class FakeContext extends RefCounted:
@@ -184,11 +198,14 @@ func _fixture() -> Dictionary:
 	var context := FakeContext.new()
 	gate.policy_verdict = Callable(policy, "verdict_for")
 	gate.debug_context = Callable(context, "context")
+	var eligibility := FakeEligibility.new()
+	PONIES.eligibility = eligibility
 	await physics_frame
 	return {
 		"gate": gate, "pony": pony, "nav": nav, "player": player, "game": game,
 		"main": main, "bed": bed, "pose": pose, "stool": stool,
 		"affection": affection, "policy": policy, "context": context,
+		"eligibility": eligibility,
 	}
 
 
@@ -208,6 +225,7 @@ func _free(made: Dictionary) -> void:
 	main.free()
 	root.remove_child(bed)
 	bed.free()
+	PONIES.eligibility = null
 
 
 func run() -> void:
@@ -219,6 +237,7 @@ func run() -> void:
 	await _check_bed()
 	await _check_rows()
 	await _check_scene_only()
+	await _check_small_checks()
 	await _check_profiles()
 	await _check_verdicts()
 	await _check_buck_or_push()
@@ -545,6 +564,174 @@ func _check_scene_only() -> void:
 	pony.interruption = ""
 	(made["affection"] as FakeAffection).kind = ""
 	_free(made)
+
+
+## The hint's small checks and the scene-only verdict answer the same question, and each check
+## answers its own row. Base clearance is the only half the verdict does not carry.
+func _check_small_checks() -> void:
+	var made := await _fixture()
+	var gate: RefCounted = made["gate"]
+	var pony: FakePony = made["pony"]
+	var nav: FakeNav = made["nav"]
+	var bed: Node3D = made["bed"]
+	var player: FakePlayer = made["player"]
+	var pose: FakePose = made["pose"]
+	var stool: FakeStool = made["stool"]
+	var eligibility: FakeEligibility = made["eligibility"]
+	var frozen := GATE.FrozenPose.new(true, true)
+
+	check(_agrees(gate, "standing", "", null), "the standing hint agrees with the verdict")
+	check(_agrees(gate, "missionary", "already_lying", bed),
+		"the bed hint agrees with the verdict")
+	check(bool(gate.call("agreement_ready", "missionary", "already_lying", bed, frozen))
+		== bool(_verdict(gate, "missionary", "already_lying", bed).ok),
+		"the Agreement check agrees with the verdict")
+	check(not bool(gate.call("agreement_ready", "missionary", "already_lying", bed, null)),
+		"the Agreement check needs its frozen capability")
+
+	gate.configure(STATE_ACTIVE, "rarity", GATE.Features.from_dict({}))
+	check(not bool(gate.call("available")), "a running act is not available")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "state"),
+		"a running act fails the state row")
+	check(_agrees(gate, "standing", "", null), "the state failure keeps both answers equal")
+	gate.configure(STATE_IDLE, "rarity", GATE.Features.from_dict({}))
+
+	pony.sleeping = true
+	check(not bool(gate.call("available")), "a sleeping pony is not available")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "sleeping"),
+		"a sleeping pony fails the sleeping row")
+	check(_agrees(gate, "standing", "", null), "the sleeping failure keeps both answers equal")
+	pony.sleeping = false
+
+	pony.set_meta("sex_active", true)
+	check(not bool(gate.call("available")), "a sex-active flag is not available")
+	check(_agrees(gate, "standing", "", null), "the sex flag keeps both answers equal")
+	pony.remove_meta("sex_active")
+
+	var other := Node3D.new()
+	root.add_child(other)
+	pony.conversation_target = other
+	check(not bool(gate.call("available")), "another's conversation is not available")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "conversation"),
+		"another's conversation fails the conversation row")
+	check(_agrees(gate, "standing", "", null), "the conversation keeps both answers equal")
+	pony.conversation_target = null
+	root.remove_child(other)
+	other.free()
+
+	(made["affection"] as FakeAffection).kind = "nuzzle"
+	check(not bool(gate.call("available")), "a live affection is not available")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "affection"),
+		"a live affection fails its row")
+	check(_agrees(gate, "standing", "", null), "the affection keeps both answers equal")
+	(made["affection"] as FakeAffection).kind = ""
+
+	nav.reserved_by = "someone"
+	check(not bool(gate.call("navigator_allows", "standing", "")), "a reserved navigator blocks")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "navigator_reserved"),
+		"a reservation fails its row")
+	check(_agrees(gate, "standing", "", null), "the reservation keeps both answers equal")
+	nav.reserved_by = ""
+
+	nav.command_owner = "weather:rain"
+	check(not bool(gate.call("navigator_allows", "standing", "")), "a weather lease blocks")
+	check(_agrees(gate, "standing", "", null), "the owner row keeps both answers equal")
+	nav.command_owner = ""
+
+	player.controls_locked = true
+	check(not bool(gate.call("player_ready", "standing", "", null)), "locked controls block")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "player"),
+		"locked controls fail the player row")
+	check(_agrees(gate, "standing", "", null), "the player row keeps both answers equal")
+	player.controls_locked = false
+
+	pony.held = true
+	check(not bool(gate.call("posture_allows", "standing")), "a held pony is not standing")
+	check(_agrees(gate, "standing", "", null), "the hold keeps both answers equal")
+	pony.held = false
+
+	pony.set_meta("seated", true)
+	check(not bool(gate.call("posture_allows", "standing")), "a seated pony is not standing")
+	check(_agrees(gate, "standing", "", null), "the seat keeps both answers equal")
+	pony.remove_meta("seated")
+
+	pony.posture = {"requested": "stand", "settled": false}
+	check(not bool(gate.call("posture_allows", "standing")), "an unsettled pony is not standing")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "nav_pose"),
+		"an unsettled pony fails the pose row")
+	check(_agrees(gate, "standing", "", null), "the posture keeps both answers equal")
+	pony.posture = {"requested": "stand", "settled": true}
+
+	pony.interruption = "Affection active"
+	check(not bool(gate.call("posture_allows", "standing")), "an interruption is not standing")
+	check(_agrees(gate, "standing", "", null), "the interruption keeps both answers equal")
+	pony.interruption = ""
+
+	pose.ready = false
+	check(not bool(gate.call("pose_supported", "standing", "")), "a missing asset blocks")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "pose_asset"),
+		"a missing asset fails its row")
+	check(_agrees(gate, "standing", "", null), "the asset keeps both answers equal")
+	pose.ready = true
+
+	pose.missing = ["pony_hip"]
+	check(not bool(gate.call("pose_supported", "standing", "")), "a missing rig bone blocks")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "pose_rig"),
+		"a missing rig bone fails its row")
+	check(_agrees(gate, "standing", "", null), "the rig keeps both answers equal")
+	pose.missing = []
+
+	stool.need = 2
+	stool.count = 0
+	check(not bool(gate.call("hotkey_ready", "standing", "", null)),
+		"too few footstools block the hint")
+	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "stool"),
+		"too few footstools fail their row")
+	check(_agrees(gate, "standing", "", null), "the footstools keep both answers equal")
+	stool.need = 0
+
+	pony.global_position = Vector3(40.0, 0.0, 40.0)
+	check(not bool(gate.call("player_ready", "missionary", "already_lying", null)),
+		"a bed pose with no bed blocks")
+	check(_agrees(gate, "missionary", "already_lying", null),
+		"the missing bed keeps both answers equal")
+	pony.global_position = Vector3.ZERO
+
+	var keeper := FakePony.new()
+	keeper.posture = {"requested": "lie_down", "settled": true}
+	root.add_child(keeper)
+	keeper.global_position = bed.global_position + Vector3.UP * 0.6
+	(made["game"] as FakeGame).mares = [keeper]
+	check(not bool(gate.call("player_ready", "missionary", "already_lying", bed)),
+		"an occupied bed blocks")
+	check(not _row_ok(_verdict(gate, "missionary", "already_lying", bed).rows, "bed_occupied"),
+		"an occupied bed fails its row")
+	check(_agrees(gate, "missionary", "already_lying", bed),
+		"the occupied bed keeps both answers equal")
+	(made["game"] as FakeGame).mares = []
+	root.remove_child(keeper)
+	keeper.free()
+
+	eligibility.act_ok = false
+	check(not bool(gate.call("hotkey_ready", "standing", "", null)),
+		"the act target gates the small checks")
+	eligibility.act_ok = true
+	eligibility.relationship = false
+	check(not bool(gate.call("hotkey_ready", "standing", "", null)),
+		"the relationship row gates the small checks")
+	eligibility.relationship = true
+	_free(made)
+
+
+## The scene-only verdict with a passing frozen capability.
+func _verdict(gate: RefCounted, pose: String, source: String, bed: Variant) -> Variant:
+	return gate.call("scene_only_verdict", pose, source, bed, GATE.FrozenPose.new(true, true))
+
+
+## True when the hint's small checks and the scene-only verdict agree.
+func _agrees(gate: RefCounted, pose: String, source: String, bed: Variant) -> bool:
+	return bool(gate.call("hotkey_ready", pose, source, bed)) == bool(_verdict(gate, pose, source,
+		bed).ok)
 
 
 ## One row's pass value, or false when the key is absent.

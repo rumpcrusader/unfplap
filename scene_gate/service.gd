@@ -264,19 +264,121 @@ func _scene_only_result(rows_in: Array[ELIGIBILITY.Row]) -> SceneVerdict:
 	return out
 
 
-## The act key's readiness: the scene rows first, then eligibility's act and relationship read.
-## The scene runs first so a blocked scene never pays for those reads.
+## The act key's and the hint's readiness: the same helpers the scene-only rows call, composed
+## with Base clearance and no row list. The matrix suite pins it equal to `scene_only_verdict().ok`.
 func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null,
 		stool_pair: Vector2i = NO_STOOL_PAIR) -> bool:
-	var frozen := FrozenPose.new(true, true)
-	var verdict := scene_only_verdict(pose, act_source, bed_in, frozen,
-		stool_pair.x, stool_pair.y)
-	if verdict == null or not verdict.ok:
+	if not available():
+		return false
+	if not pose_supported(pose, act_source):
+		return false
+	if not player_ready(pose, act_source, bed_in):
+		return false
+	if not navigator_allows(pose, act_source):
+		return false
+	if not posture_allows(pose):
+		return false
+	if not _stool_allows(pose, stool_pair):
 		return false
 	var service: ELIGIBILITY = PONIES.eligibility
 	if service == null or not is_instance_valid(service):
 		return false
 	return service.eligible(pony, ELIGIBILITY.Target.ACT) and service.relationship_ok(pony)
+
+
+## The runtime state and the standing scene rows that do not depend on a pose.
+func available() -> bool:
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+		return false
+	if not is_instance_valid(WORLD.player):
+		return false
+	var tree: SceneTree = pony.get_tree()
+	if state != STATE_IDLE or (tree != null and tree.paused):
+		return false
+	if not conversation_ok() or bool(pony.get("sleeping")):
+		return false
+	if bool(pony.get_meta("sex_active", false)):
+		return false
+	if not free_of_affection():
+		return false
+	return not cuddle_active() or cuddle_start_override("", "")
+
+
+## The pose's public profile, its authored source, and the asset and rig it needs.
+func pose_supported(pose: String, act_source: String) -> bool:
+	if not POSE_SPECS.is_public(pose) or str(_scene(pose).get("frame", "")).is_empty():
+		return false
+	if not _source_allowed(pose, act_source):
+		return false
+	return _pose_assets_ok(pose)
+
+
+## The navigator's existence, its reservation and the owner lease.
+func navigator_allows(pose: String, act_source: String) -> bool:
+	if not is_instance_valid(pony):
+		return false
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav == null or str(nav.get("reserved_by")) != "":
+		return false
+	return _hold_exempt(pose, act_source) or nav_owner_allows(pose, act_source)
+
+
+## Her standing posture: grounded, settled, still and unheld. A lying or cradle pose passes.
+func posture_allows(pose: String) -> bool:
+	if not is_instance_valid(pony):
+		return false
+	if not _is_standing_pose(pose):
+		return true
+	return nav_pose_gate(pose, "", _hold_exempt(pose, ""))
+
+
+## Anon's side: his readiness, and the free bed a bed pose needs.
+func player_ready(pose: String, act_source: String, bed_in: Node3D = null) -> bool:
+	if not player_ready_for(pose, act_source, bed_in):
+		return false
+	if not _is_bed_pose(pose):
+		return true
+	var found: Node3D = resolve_bed(pose, act_source, bed_in)
+	if found == null or WORLD.bed_occupied(found, pony):
+		return false
+	return bed_gate(pose, act_source, found)
+
+
+## The accepted Agreement's scene-only start without a row list. `frozen` is its pose capability.
+func agreement_ready(pose: String, act_source: String, bed_in: Node3D = null,
+		frozen: FrozenPose = null) -> bool:
+	if frozen == null or not frozen.pose_profile_ok or not frozen.pose_source_ok:
+		return false
+	if not available():
+		return false
+	if not player_ready(pose, act_source, bed_in):
+		return false
+	if not navigator_allows(pose, act_source):
+		return false
+	if not posture_allows(pose):
+		return false
+	if not _pose_assets_ok(pose):
+		return false
+	return _stool_allows(pose, NO_STOOL_PAIR)
+
+
+## The posed asset and rig rows: a bed or ground pose needs its authored asset.
+func _pose_assets_ok(pose: String) -> bool:
+	if not _is_bed_pose(pose) and str(_scene(pose).get("frame", "")) != "ground":
+		return true
+	return authored_ready(pose) and rig_missing(pose).is_empty()
+
+
+## The footstool row: a supplied pair is this call's read; `-1` reads the live callbacks.
+func _stool_allows(pose: String, stool_pair: Vector2i) -> bool:
+	if not bool(_scene(pose).get("stool", false)):
+		return true
+	var need := stool_pair.x
+	var have := stool_pair.y
+	if need < 0:
+		need = needed_stool()
+		have = owned_stools()
+	return need <= 0 or have >= need
 
 
 func _hold_exempt(pose: String, act_source: String) -> bool:

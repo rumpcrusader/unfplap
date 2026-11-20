@@ -35,13 +35,8 @@ class FakeIdentity extends Resource:
 	var display_name := ""
 
 
-class FakeNav extends Node:
-	var reserved_by := ""
-	var command_owner := ""
-	var wander_enabled := true
-
-	func stay() -> void:
-		pass
+class FakeNav extends "res://mods/unfplap/tests/support/fakes/fake_nav.gd":
+	pass
 
 
 class FakePony extends Node3D:

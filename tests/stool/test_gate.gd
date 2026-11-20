@@ -55,17 +55,8 @@ class FakeMain extends Node:
 	var eligibility: Node
 
 
-class FakeEligibility extends ELIGIBILITY:
-	var eligible_calls := 0
-	var relationship_calls := 0
-
-	func eligible(_pony: Node, _target: ELIGIBILITY.Target = ELIGIBILITY.Target.ACT) -> bool:
-		eligible_calls += 1
-		return true
-
-	func relationship_ok(_pony: Node) -> bool:
-		relationship_calls += 1
-		return true
+class FakeEligibility extends "res://mods/unfplap/tests/support/fakes/fake_eligibility.gd":
+	pass
 
 
 class TestPony extends Node3D:

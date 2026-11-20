@@ -54,13 +54,8 @@ class FakePony extends Node3D:
 		global_transform = transform
 
 
-class FakeNav extends Node:
-	var reserved_by := ""
-	var command_owner := ""
-	var wander_enabled := true
-
-	func stay() -> void:
-		pass
+class FakeNav extends "res://mods/unfplap/tests/support/fakes/fake_nav.gd":
+	pass
 
 
 class FakePlayer extends Node3D:
@@ -126,17 +121,8 @@ class FakeMain extends Node:
 		return view
 
 
-class FakeEligibility extends ELIGIBILITY:
-	var eligible_calls := 0
-	var relationship_calls := 0
-
-	func eligible(_pony: Node, _target: ELIGIBILITY.Target = ELIGIBILITY.Target.ACT) -> bool:
-		eligible_calls += 1
-		return true
-
-	func relationship_ok(_pony: Node) -> bool:
-		relationship_calls += 1
-		return true
+class FakeEligibility extends "res://mods/unfplap/tests/support/fakes/fake_eligibility.gd":
+	pass
 
 
 class FakeAnatomyService extends "res://mods/unfplap/anatomy/service.gd":

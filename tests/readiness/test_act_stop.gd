@@ -81,13 +81,8 @@ class FakePony extends Node3D:
 		return true
 
 
-class FakeNav extends Node:
-	var reserved_by := ""
-	var command_owner := ""
-	var wander_enabled := true
-
-	func stay() -> void:
-		pass
+class FakeNav extends "res://mods/unfplap/tests/support/fakes/fake_nav.gd":
+	pass
 
 
 class FakePlayer extends Node3D:

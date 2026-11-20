@@ -138,16 +138,15 @@ static func relationship_ok(pony: Node) -> bool:
 		and eligibility.relationship_ok(pony)
 
 
-## The nearest standing mare whose rear fan holds the eye, or null.
-## One pass over the game's own mare array: no copy, and eligibility only for the winner.
+## The nearest act target whose rear fan holds the eye, or null.
+## One pass over the game's own mare array: no copy, and the target read runs in distance order.
 static func cone_target(eye: Vector3) -> Node3D:
 	if not eye.is_finite() or not is_instance_valid(WORLD.game):
 		return null
 	var mares: Variant = WORLD.game.get("mares")
 	if not mares is Array:
 		return null
-	var best: Node3D = null
-	var best_distance := INF
+	var found: Array = []
 	for node: Variant in mares as Array:
 		if not node is Node3D or not is_instance_valid(node):
 			continue
@@ -157,17 +156,20 @@ static func cone_target(eye: Vector3) -> Node3D:
 		var rump := RUMP_CONE.approx_point(actor)
 		var delta := Vector3(eye.x - rump.x, 0.0, eye.z - rump.z)
 		var distance := delta.length_squared()
-		if distance > RUMP_CONE.REACH_SQ or distance >= best_distance:
+		if distance > RUMP_CONE.REACH_SQ:
 			continue
 		if str(actor.posture_status().get("requested", "")) != "stand":
 			continue
 		if not RUMP_CONE.contains(actor.global_basis.z, rump, eye):
 			continue
-		best_distance = distance
-		best = actor
-	if best == null or not act_target(best):
-		return null
-	return best
+		found.append({"pony": actor, "distance": distance})
+	found.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a["distance"]) < float(b["distance"]))
+	for candidate: Dictionary in found:
+		var actor: Node3D = candidate["pony"]
+		if act_target(actor):
+			return actor
+	return null
 
 
 ## The live bodies holding a runtime.

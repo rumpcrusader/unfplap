@@ -235,9 +235,9 @@ func _check_cone_target() -> void:
 	targets.calls = 0
 	game.mares = [stallion, farther]
 	targets.allowed = [farther]
-	check(PONIES.cone_target(eye) == null,
-		"a nearer body that is not an act target is the scan's answer")
-	check(targets.calls == 1, "a nearer non-target pays the one eligibility read")
+	check(PONIES.cone_target(eye) == farther,
+		"a nearer body that is not an act target is skipped")
+	check(targets.calls == 2, "the nearer non-target is checked before the target")
 	targets.calls = 0
 	game.mares = [farther, outside, lying, beyond]
 	check(PONIES.cone_target(eye) == farther,

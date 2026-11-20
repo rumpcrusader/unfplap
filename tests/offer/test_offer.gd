@@ -132,7 +132,6 @@ func run() -> void:
 	SETTINGS.load_settings()
 	_check_cadence_and_cone()
 	await _check_gate_reuse()
-	_check_nearer_non_target()
 	_check_blocked_stool()
 	_check_blocked_need_two()
 	_check_hint_row()
@@ -178,18 +177,6 @@ func _check_gate_reuse() -> void:
 	check(runtime.hotkey_calls == 1, "the first scan runs the gate")
 	service.scan()
 	check(runtime.hotkey_calls == 2, "the next scan runs the gate again")
-	_free(made)
-
-
-## The cone is the game's live mare array: a nearer body that is not an act target owns the
-## geometry, so the hint stays away. The press still gates.
-func _check_nearer_non_target() -> void:
-	var made := _fixture()
-	var service: OFFER = made["service"]
-	var stallion: FakeMare = made["stallion"]
-	stallion.rotation_degrees = Vector3.ZERO
-	service.scan()
-	check(service.current() == null, "a nearer non-target in the fan suppresses the hint")
 	_free(made)
 
 
@@ -362,9 +349,6 @@ func _fixture(with_row := true) -> Dictionary:
 	var near := _mare("Near", Vector3(0.0, 0.0, 2.2))
 	var far := _mare("Far", Vector3(0.0, 0.0, 1.2))
 	var stallion := _mare("Stallion", Vector3(0.0, 0.0, 2.6))
-	# He stands nearer but faces away, so he is outside the rear fan. The in-fan case is its own
-	# check.
-	stallion.basis = Basis(Vector3.UP, PI)
 	var outside := _mare("Outside", Vector3(0.0, 0.0, 1.6))
 	# Her backward axis faces away from Anon, so he is outside her rear fan.
 	outside.basis = Basis(Vector3.UP, PI)

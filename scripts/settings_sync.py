@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
-"""Compare the player's Unfplap settings with the shipped data, and promote values.
+"""Compare the player's Unfplap data with the shipped data, and promote values.
 
-Two shipped documents, two promotion targets:
+Three shipped documents, two promotion targets:
 
-    settings/defaults.json   declared settings and the global `default` profile
-    settings/catalogs.json   provider-overridable content: act prompts, character templates and
-                             per-mare placement rows
+    settings/settings.json     declared settings
+    settings/characters.json   the global `default` profile, the per-mare profiles and the
+                               per-mare placement rows
+    settings/prompts.json      the AI prompt text; read-only here, never a promotion target
 
     scripts/settings_sync.py diff    [--project-root DIR] [--settings PATH] [--json OUT]
     scripts/settings_sync.py promote PATH [PATH ...] [--project-root DIR] [--settings PATH] [--dry-run]
-    scripts/settings_sync.py diff --catalog    [...]
-    scripts/settings_sync.py promote --catalog PATH [PATH ...] [...]
+    scripts/settings_sync.py diff --characters    [...]
+    scripts/settings_sync.py promote --characters PATH [PATH ...] [...]
 
 `diff` is read-only. `promote` writes the player's value into the target document; it never edits
-the player's profile, so the player keeps the value they already have. This tool is pure JSON: it
-never launches Godot and never runs the migration. Launch the game once and close it before
-diffing, so the player's profile is current.
+the player's profile, so the player keeps the value they already have. `--settings` names the
+player's `settings.json`; the character mode reads the `characters.json` beside it. This tool is
+pure JSON: it never launches Godot and never runs the migration. Launch the game once and close it
+before diffing, so the player's profile is current.
 """
 
 from __future__ import annotations
@@ -31,14 +33,16 @@ from typing import Any
 MISSING = object()
 MOD_PREFIX = Path("mods/unfplap")
 NEVER_FILE = Path(".opencode/skills/sync-settings/never_sync.json")
-SETTINGS_FILE = Path("settings/defaults.json")
-CATALOG_FILE = Path("settings/catalogs.json")
+SETTINGS_FILE = Path("settings/settings.json")
+CHARACTERS_FILE = Path("settings/characters.json")
 # A list setting stores a set of names; order is not a difference.
 SET_PATHS = {"caress.ignore", "presentation.standing.caress.ignore"}
 # Player leaves that are never promoted: the schema version and the section open state.
 STRUCTURAL = ("version",)
-# Placement rows for these ids are declared settings, not per-mare catalog rows.
+# Placement rows for these ids are declared settings, not per-mare character rows.
 RESERVED_PLACEMENT_IDS = ("default", "anon")
+# Player roots that belong to the characters document; the path is the same on both sides.
+CHARACTER_ROOTS = ("default", "characters")
 
 
 def mod_root_for(project_root: Path) -> Path:
@@ -84,7 +88,7 @@ def set_path(data: dict[str, Any], path: str, value: Any, create: bool = False) 
         child = node.get(part)
         if not isinstance(child, dict):
             if not create:
-                raise SystemExit(f"not a block in the shipped defaults: {path}")
+                raise SystemExit(f"not a block in the shipped data: {path}")
             child = {}
             node[part] = child
         node = child
@@ -187,25 +191,10 @@ def is_mare_placement(path: str) -> bool:
         and parts[2] not in RESERVED_PLACEMENT_IDS
 
 
-def catalog_target(path: str) -> str | None:
-    """The catalog path a player override would promote to, or None for a settings path."""
-    if path.startswith("characters."):
-        return "character_templates." + path[len("characters."):]
-    if is_mare_placement(path):
+def character_target(path: str) -> str | None:
+    """The characters path a player override would promote to, or None for a settings path."""
+    if path.split(".", 1)[0] in CHARACTER_ROOTS or is_mare_placement(path):
         return path
-    if path.startswith("default.act_prompts."):
-        return "act_prompts." + path[len("default.act_prompts."):]
-    return None
-
-
-def player_source(target: str) -> str | None:
-    """The player path a catalog path is promoted from, or None for a non-catalog path."""
-    if target.startswith("character_templates."):
-        return "characters." + target[len("character_templates."):]
-    if is_mare_placement(target):
-        return target
-    if target.startswith("act_prompts."):
-        return "default.act_prompts." + target[len("act_prompts."):]
     return None
 
 
@@ -226,27 +215,27 @@ def compare_settings(shipped: dict[str, Any], player: dict[str, Any],
     shipped_paths = {path for path, _ in flatten(shipped)}
     player_only = [path for path, _ in flatten(player)
                    if path not in shipped_paths and not is_structural(path)]
-    catalog = [path for path in player_only if catalog_target(path) is not None]
-    dead = [path for path in player_only if catalog_target(path) is None]
+    characters = [path for path in player_only if character_target(path) is not None]
+    dead = [path for path in player_only if character_target(path) is None]
     return {
         "mode": "settings",
         "diffs": diffs,
         "missing": missing,
-        "catalog": catalog,
+        "characters": characters,
         "dead": dead,
         "never": sorted(never),
     }
 
 
-def compare_catalog(catalog: dict[str, Any], player: dict[str, Any],
-                    never: set[str]) -> dict[str, Any]:
+def compare_characters(shipped: dict[str, Any], player: dict[str, Any],
+                       never: set[str]) -> dict[str, Any]:
     diffs: list[dict[str, Any]] = []
     missing: list[str] = []
     for path, player_value in flatten(player):
-        target = catalog_target(path)
+        target = character_target(path)
         if target is None or target in never:
             continue
-        shipped_value = get_path(catalog, target)
+        shipped_value = get_path(shipped, target)
         if shipped_value is MISSING:
             missing.append(target)
             continue
@@ -254,10 +243,10 @@ def compare_catalog(catalog: dict[str, Any], player: dict[str, Any],
             continue
         diffs.append({"path": target, "player": player_value, "shipped": shipped_value})
     return {
-        "mode": "catalog",
+        "mode": "characters",
         "diffs": diffs,
         "missing": missing,
-        "catalog": [],
+        "characters": [],
         "dead": [],
         "never": sorted(never),
     }
@@ -267,13 +256,13 @@ def report(profile: Path, shipped: Path, result: dict[str, Any]) -> None:
     print(f"profile: {profile}")
     print(f"shipped: {shipped}")
     print("never synced: " + (", ".join(result["never"]) or "none"))
-    if result["mode"] == "catalog":
-        print(f"catalog differences: {len(result['diffs'])}")
+    if result["mode"] == "characters":
+        print(f"character differences: {len(result['diffs'])}")
         for index, item in enumerate(result["diffs"], 1):
             print(f"  {index}. {item['path']}")
             print(f"     player: {short(item['player'])}")
             print(f"     shipped: {short(item['shipped'])}")
-        print(f"missing from the catalog (promotable): {len(result['missing'])}")
+        print(f"missing from the character file (promotable): {len(result['missing'])}")
         for path in result["missing"][:12]:
             print("  - " + path)
         if len(result["missing"]) > 12:
@@ -289,10 +278,10 @@ def report(profile: Path, shipped: Path, result: dict[str, Any]) -> None:
         print("  - " + path)
     if len(result["missing"]) > 12:
         print("  …")
-    print(f"catalog overrides (promote with --catalog): {len(result['catalog'])}")
-    for path in result["catalog"][:12]:
+    print(f"character overrides (promote with --characters): {len(result['characters'])}")
+    for path in result["characters"][:12]:
         print("  - " + path)
-    if len(result["catalog"]) > 12:
+    if len(result["characters"]) > 12:
         print("  …")
     print(f"unknown player leaves: {len(result['dead'])}")
     for path in result["dead"]:
@@ -302,14 +291,16 @@ def report(profile: Path, shipped: Path, result: dict[str, Any]) -> None:
 def command_diff(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).expanduser().resolve()
     mod_root = mod_root_for(project_root)
-    shipped_path = mod_root / (CATALOG_FILE if args.catalog else SETTINGS_FILE)
+    shipped_path = mod_root / (CHARACTERS_FILE if args.characters else SETTINGS_FILE)
     profile = resolve_profile(args.settings)
-    player = read_json(profile)
     never = load_never(mod_root)
     shipped = read_json(shipped_path)
-    if args.catalog:
-        result = compare_catalog(shipped, player, never)
+    if args.characters:
+        profile = profile.with_name("characters.json")
+        player = read_json(profile) if profile.exists() else {}
+        result = compare_characters(shipped, player, never)
     else:
+        player = read_json(profile)
         result = compare_settings(shipped, player, never)
     report(profile, shipped_path, result)
     if args.json:
@@ -322,21 +313,23 @@ def command_diff(args: argparse.Namespace) -> int:
 def command_promote(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).expanduser().resolve()
     mod_root = mod_root_for(project_root)
-    shipped_path = mod_root / (CATALOG_FILE if args.catalog else SETTINGS_FILE)
+    shipped_path = mod_root / (CHARACTERS_FILE if args.characters else SETTINGS_FILE)
     shipped = read_json(shipped_path)
-    player = read_json(resolve_profile(args.settings))
+    profile = resolve_profile(args.settings)
+    if args.characters:
+        profile = profile.with_name("characters.json")
+    player = read_json(profile)
     never = load_never(mod_root)
     changed = 0
     for path in args.paths:
         if path in never:
             raise SystemExit(f"refusing to promote a never-sync path: {path}")
-        if args.catalog:
-            source = player_source(path)
-            if source is None:
-                raise SystemExit(f"not a catalog path: {path}")
-            player_value = get_path(player, source)
+        if args.characters:
+            if character_target(path) is None:
+                raise SystemExit(f"not a character path: {path}")
+            player_value = get_path(player, path)
             if player_value is MISSING:
-                raise SystemExit(f"the player has no value at {source} (for {path})")
+                raise SystemExit(f"the player has no value at {path}")
             shipped_value = get_path(shipped, path)
             if shipped_value is not MISSING:
                 if isinstance(shipped_value, dict):
@@ -361,7 +354,7 @@ def command_promote(args: argparse.Namespace) -> int:
         before = "missing" if shipped_value is MISSING else short(shipped_value)
         print(f"promote {path}: {before} -> {short(player_value)}")
         if not args.dry_run:
-            set_path(shipped, path, player_value, create=args.catalog)
+            set_path(shipped, path, player_value, create=args.characters)
         changed += 1
     if args.dry_run:
         print(f"dry run: {changed} path(s) would change")
@@ -377,14 +370,15 @@ def command_promote(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", default=str(project_root_default()))
-    parser.add_argument("--settings", default=None, help="player settings.json path")
+    parser.add_argument("--settings", default=None,
+                        help="player settings.json path; character mode reads its sibling")
     sub = parser.add_subparsers(dest="command", required=True)
 
     diff = sub.add_parser("diff", help="compare the player profile with the shipped data")
     diff.add_argument("--project-root", default=argparse.SUPPRESS)
     diff.add_argument("--settings", default=argparse.SUPPRESS)
-    diff.add_argument("--catalog", action="store_true",
-                      help="compare the per-mare overrides with settings/catalogs.json")
+    diff.add_argument("--characters", action="store_true",
+                      help="compare the character overrides with settings/characters.json")
     diff.add_argument("--json", default=None, help="write the report as JSON")
     diff.set_defaults(func=command_diff)
 
@@ -392,8 +386,8 @@ def main() -> int:
     promote.add_argument("paths", nargs="+", metavar="PATH")
     promote.add_argument("--project-root", default=argparse.SUPPRESS)
     promote.add_argument("--settings", default=argparse.SUPPRESS)
-    promote.add_argument("--catalog", action="store_true",
-                         help="write into settings/catalogs.json")
+    promote.add_argument("--characters", action="store_true",
+                         help="write into settings/characters.json")
     promote.add_argument("--dry-run", action="store_true")
     promote.set_defaults(func=command_promote)
 

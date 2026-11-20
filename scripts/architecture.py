@@ -144,6 +144,11 @@ TEST_SUITE_RESULT = re.compile(r"_RESULT checks=")
 TEST_TRUE_CALL = re.compile(r"\bcheck\(\s*true\b")
 TEST_NUMERIC_LITERAL = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])")
 TEST_SETTING_DEFAULT = re.compile(r"[A-Za-z_][\w.]*\.default\b")
+# The suites that name a shipped data document, and the names a read must go through a loader for.
+SHIPPED_DOCUMENT_TEST_READS = ("tests/test_settings.gd", "tests/test_prompts.gd")
+SHIPPED_DOCUMENT_NAME = re.compile(
+    r"DEFAULTS_FILE|SETTINGS_FILE|CHARACTERS_FILE|PROMPTS_FILE"
+    r"|settings\.json|characters\.json|prompts\.json")
 
 # The only suites that read a shipped file, and the document each reads: a data document with no
 # loader, a fixture or a copied asset whose bytes are the contract. The map is the whole allow-list,
@@ -1103,10 +1108,10 @@ def check_tests(failure: Failure) -> None:
         for match in TEST_TRUE_CALL.finditer(text):
             failure.add("%s:%d calls check(true, ...): assert the observed value" % (
                 name, line_of(text, match.start())))
-        # The settings schema check owns the one read of the shipped defaults document.
-        if name != "tests/test_settings.gd":
-            for match in re.finditer(r"defaults\.json|DEFAULTS_FILE", text):
-                failure.add("%s:%d reads the shipped defaults outside test_settings.gd" % (
+        # The schema test and the prompt graph test own the reads of the shipped documents.
+        if name not in SHIPPED_DOCUMENT_TEST_READS:
+            for match in SHIPPED_DOCUMENT_NAME.finditer(text):
+                failure.add("%s:%d reads a shipped data document outside its own suite" % (
                     name, line_of(text, match.start())))
         # Reading a file is reading a document; source and doc purity scans are the gate's job.
         if not is_lab(path) and "get_file_as_string" in text and name not in TEST_FILE_READS:

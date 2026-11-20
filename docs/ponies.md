@@ -184,6 +184,7 @@ The Debug block builds its own `Host` from the `PONIES` facade in `debug/actions
 | shared | body_change | `shared/body_change.gd` | typed body swap record |
 | shared | body_form | `shared/body_form.gd` | the presented form's name |
 | shared | pony_id | `shared/pony_id.gd` | stable pony ids |
+| shared | rump_cone | `shared/rump_cone.gd` | the standing cone target |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 
 The runtime itself is not a dependency: it is built by the entry's factory and called dynamically.

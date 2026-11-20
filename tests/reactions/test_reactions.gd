@@ -7,6 +7,7 @@ extends SceneTree
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 
 var failures := 0
@@ -124,6 +125,7 @@ func run() -> void:
 	_check_blush()
 	_check_hearts()
 	_check_accessors()
+	_check_rump_point()
 
 	print("REACTIONS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -348,6 +350,20 @@ func _check_hearts() -> void:
 	hair.free()
 	root.remove_child(boop)
 	boop.free()
+	root.remove_child(pony)
+	pony.free()
+
+
+## The skeleton-less rump fallback is the shared anchor the standing cone uses.
+func _check_rump_point() -> void:
+	var pony := FakePony.new()
+	root.add_child(pony)
+	pony.global_position = Vector3(1.0, 0.0, 2.0)
+	pony.rotation_degrees = Vector3(0.0, 35.0, 0.0)
+	var reactions := REACTIONS.new()
+	reactions.bind_scene(pony, null)
+	check(reactions.rump_point().is_equal_approx(RUMP_CONE.approx_point(pony)),
+		"the skeleton-less rump point is the shared approximate anchor")
 	root.remove_child(pony)
 	pony.free()
 

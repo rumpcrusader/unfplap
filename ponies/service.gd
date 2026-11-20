@@ -15,6 +15,7 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 
 ## (`Node pony`) -> Node, the entry's runtime factory. The runtime file stays the entry's preload.
 static var factory := Callable()
@@ -129,6 +130,38 @@ static func act_running() -> bool:
 static func act_target(pony: Node) -> bool:
 	return is_instance_valid(pony) and is_instance_valid(eligibility) \
 		and eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
+
+
+## The nearest standing mare whose rear fan holds the eye, or null.
+## One pass over the game's own mare array: no copy, and eligibility only for the winner.
+static func cone_target(eye: Vector3) -> Node3D:
+	if not eye.is_finite() or not is_instance_valid(WORLD.game):
+		return null
+	var mares: Variant = WORLD.game.get("mares")
+	if not mares is Array:
+		return null
+	var best: Node3D = null
+	var best_distance := INF
+	for node: Variant in mares as Array:
+		if not node is Node3D or not is_instance_valid(node):
+			continue
+		var actor := node as Node3D
+		if not actor.has_method("posture_status"):
+			continue
+		var rump := RUMP_CONE.approx_point(actor)
+		var delta := Vector3(eye.x - rump.x, 0.0, eye.z - rump.z)
+		var distance := delta.length_squared()
+		if distance > RUMP_CONE.REACH_SQ or distance >= best_distance:
+			continue
+		if str(actor.posture_status().get("requested", "")) != "stand":
+			continue
+		if not RUMP_CONE.contains(actor.global_basis.z, rump, eye):
+			continue
+		best_distance = distance
+		best = actor
+	if best == null or not act_target(best):
+		return null
+	return best
 
 
 ## The live bodies holding a runtime.

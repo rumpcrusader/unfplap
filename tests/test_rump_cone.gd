@@ -38,6 +38,20 @@ func run() -> void:
 		"uses her own backward axis")
 	check(not CONE.contains(Vector3(1.0, 0.0, 0.0), rump, Vector3(-0.6, 0.0, 0.0)),
 		"the opposite side of her axis is refused")
+
+	# The approximate anchor the discovery scan uses, on her own backward axis.
+	var actor := Node3D.new()
+	root.add_child(actor)
+	actor.global_position = Vector3(1.0, 0.5, -2.0)
+	actor.rotation_degrees = Vector3(0.0, 90.0, 0.0)
+	var expected := actor.global_position + Vector3.UP * CONE.APPROX_HEIGHT \
+		+ actor.global_basis.z.normalized() * CONE.APPROX_BACK
+	check(CONE.approx_point(actor).is_equal_approx(expected),
+		"the approximate rump follows her position and backward axis")
+	check(not CONE.approx_point(null).is_finite(), "no body has no approximate rump")
+	root.remove_child(actor)
+	actor.free()
+
 	print("RUMP_CONE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("RUMP_CONE_PASS")

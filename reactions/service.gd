@@ -8,10 +8,8 @@ const CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 
-## Fallback shader center when the skeleton's hind femurs are unavailable.
-const JIGGLE_HEIGHT := 0.78
-const JIGGLE_BACK := 0.12
 ## The stock jiggle clamps its own impulse to 0.3..1.0; this scales the resolved amount.
 const JIGGLE_RUMP_SCALE := 2.8
 
@@ -173,7 +171,8 @@ func thrust(weight: float) -> void:
 	var normal := back
 	if normal.length_squared() < 0.001:
 		return
-	var at: Vector3 = pony.global_position + Vector3.UP * JIGGLE_HEIGHT + back * JIGGLE_BACK
+	var at: Vector3 = pony.global_position + Vector3.UP * RUMP_CONE.APPROX_HEIGHT \
+		+ back * RUMP_CONE.APPROX_BACK
 	var sk: Variant = pony.get("skeleton")
 	if sk is Skeleton3D:
 		var skeleton := sk as Skeleton3D
@@ -350,7 +349,7 @@ func rump_point() -> Vector3:
 	if not is_instance_valid(pony):
 		return Vector3.INF
 	var back: Vector3 = pony.global_basis.z.normalized()
-	var point: Vector3 = pony.global_position + Vector3.UP * JIGGLE_HEIGHT + back * JIGGLE_BACK
+	var point: Vector3 = RUMP_CONE.approx_point(pony)
 	var sk: Variant = pony.get("skeleton")
 	if sk is Skeleton3D:
 		var skeleton := sk as Skeleton3D

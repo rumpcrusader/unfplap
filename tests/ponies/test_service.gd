@@ -25,6 +25,31 @@ class FakePony extends Node3D:
 	var rig: Variant = null
 
 
+## A standing body the cone scan reads; the hook lets a test grow the live mare array mid-pass.
+class ConePony extends Node3D:
+	var requested := "stand"
+	var hook := Callable()
+
+	func posture_status() -> Dictionary:
+		if hook.is_valid():
+			hook.call()
+		return {"requested": requested}
+
+
+## The act-target rule: the ponies this fixture allows, with one call per answer.
+class Targets extends ELIGIBILITY:
+	var allowed: Array = []
+	var calls := 0
+
+	func eligible(pony: Node, _target: Target = Target.ACT) -> bool:
+		calls += 1
+		return allowed.has(pony)
+
+
+class FakeGame extends Node:
+	var mares: Array = []
+
+
 class FakeRuntime extends Node:
 	var pony: Node = null
 	var stopped := 0
@@ -171,6 +196,7 @@ func _free(made: Dictionary) -> void:
 
 
 func run() -> void:
+	_check_cone_target()
 	_check_attach()
 	_check_detach()
 	_check_player_pony()
@@ -183,6 +209,68 @@ func run() -> void:
 	_check_character_lists()
 	print("PONIES_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+
+## The standing cone scan: one live pass over the game's mares, eligibility only for the winner.
+func _check_cone_target() -> void:
+	var game := FakeGame.new()
+	game.name = "ConeGame"
+	root.add_child(game)
+	WORLD.bind_world(game)
+	var targets := Targets.new()
+	PONIES.eligibility = targets
+	var eye := Vector3(0.0, 1.6, 3.2)
+	var near := _cone_mare(Vector3(0.0, 0.0, 2.6), "Near")
+	var farther := _cone_mare(Vector3(0.0, 0.0, 1.8), "Farther")
+	var stallion := _cone_mare(Vector3(0.0, 0.0, 2.8), "Stallion")
+	var outside := _cone_mare(Vector3(0.0, 0.0, 2.0), "Outside")
+	outside.rotation_degrees = Vector3(0.0, 180.0, 0.0)
+	var lying := _cone_mare(Vector3(0.0, 0.0, 2.4), "Lying")
+	lying.requested = "lie_down"
+	var beyond := _cone_mare(Vector3(0.0, 0.0, 0.5), "Beyond")
+	game.mares = [near, farther, outside, lying, beyond]
+	targets.allowed = [near, farther, outside, lying, beyond]
+	check(PONIES.cone_target(eye) == near, "the nearest standing mare in the fan wins")
+	check(targets.calls == 1, "eligibility is asked only for the winner")
+	targets.calls = 0
+	game.mares = [stallion, farther]
+	targets.allowed = [farther]
+	check(PONIES.cone_target(eye) == null,
+		"a nearer body that is not an act target is the scan's answer")
+	check(targets.calls == 1, "a nearer non-target pays the one eligibility read")
+	targets.calls = 0
+	game.mares = [farther, outside, lying, beyond]
+	check(PONIES.cone_target(eye) == farther,
+		"the nearer allowed standing mare wins over a lying or out-of-fan one")
+	check(targets.calls == 1, "the winner's eligibility is read once")
+
+	# The scan walks the game's own array: a mare appended during the pass is seen by it.
+	var grower := _cone_mare(Vector3(0.0, 0.0, 2.0), "Grower")
+	var newcomer := _cone_mare(Vector3(0.0, 0.0, 2.6), "Newcomer")
+	game.mares = [grower]
+	targets.allowed = [grower, newcomer]
+	grower.hook = func() -> void: game.mares.append(newcomer)
+	check(PONIES.cone_target(eye) == newcomer,
+		"the scan walks the game's live mare array, not a copy")
+	grower.hook = Callable()
+	game.mares = []
+
+	for pony: Node in [near, farther, stallion, outside, lying, beyond, grower, newcomer]:
+		if pony.get_parent() != null:
+			pony.get_parent().remove_child(pony)
+		pony.free()
+	PONIES.eligibility = null
+	root.remove_child(game)
+	game.free()
+	WORLD.unbind()
+
+
+func _cone_mare(at: Vector3, mare_name: String) -> ConePony:
+	var pony := ConePony.new()
+	pony.name = mare_name
+	root.add_child(pony)
+	pony.global_position = at
+	return pony
 
 
 ## A spawned body gets one runtime, bound to anatomy first, and the log names it.

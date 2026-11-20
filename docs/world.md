@@ -56,7 +56,8 @@ same answer, so a service never names the entry to ask whether the scene is live
 arguments, no bound state and no service preload. `world/service.gd` delegates its raw reads to it,
 and the act calls it directly for the eye line and the blush sustainer. Every accessor answers with
 a typed zero when the member is absent or renamed — `null` for a handle, `false` for a flag, `NAN`
-for a measurement. An argument that is not a live node is answered the same way, so a caller that
+for a measurement, a zero vector for a direction — and a clamp hands back the basis it was given.
+An argument that is not a live node is answered the same way, so a caller that
 holds a freed handle gets the absent answer instead of a crash.
 
 The private members below are quirks of this game version and its HUD: the accessor mirrors their
@@ -261,6 +262,13 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_wing_opened(wings, open)` | the wing node's `opened` | — | no write |
 | `GAME.set_wing_tuck(wings, value)` | the wing node's `tuck` | — | no write |
 | `GAME.set_wing_half(wings, value)` | the wing node's `half` | — | no write |
+| `GAME.apply_torso_pose(driver, hip, facing)` | the desktop driver's `apply_torso_pose` | — | no call |
+| `GAME.set_rest_hand_targets(driver, left, right)` | the desktop driver's `set_rest_hand_targets` | — | no call |
+| `GAME.clear_rest_hand_targets(driver, left, right)` | the desktop driver's `clear_rest_hand_targets` | — | no call |
+| `GAME.desktop_pose_driver(avatar)` | the Anon body's `desktop_pose_driver` | `Node` | `null` |
+| `GAME.set_desktop_pose_driver(avatar, driver)` | the Anon body's `desktop_pose_driver` | — | no write |
+| `GAME.awareness_forward(pony)` | the body's `awareness_forward` | `Vector3` | zero vector |
+| `GAME.joint_constrain(limits, bone, basis)` | the pony's `joint_limits.constrain` | `Basis` | the input basis |
 
 Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans`,
 `GAME.refresh_body_lod`, `GAME.mods_state`, `GAME.director_lines`, `GAME.llm_config`,

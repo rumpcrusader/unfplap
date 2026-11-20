@@ -34,7 +34,9 @@ pose spec row's `asset` document (version 7 with the version 6 migration path); 
 standing rows own their files and a base row supplies the asset to its internal inheritors.
 `poses/oral_turn.gd` is the pose-owned standing oral actor/frame turn,
 `poses/standing_oral_recipe.gd` its procedural delta and `poses/face_contact.gd` the bed face-sit
-contact driver. `shared/pose_catalog.gd` owns the pose ids
+contact driver. `poses/pose_driver.gd` is the typed driver protocol every recipe extends: the
+whole-pose `apply()`, the base/overlay split a delta needs and the delta entry point.
+`shared/pose_catalog.gd` owns the pose ids
 and the `POSE_KEYS` schema; the shipped per-pose values live under `default.poses` in
 `settings/defaults.json`.
 `poses/service.gd` owns the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action
@@ -530,11 +532,12 @@ pose pair rather than one string mode: `mode` is `MODE_SINGLE` or `MODE_BLEND`, 
 while `set_weight(weight)` carries the live edge weight. The session resolves the effective driver
 and delta from the spec: `driver` when the row has one, else the base chain's driver
 (`standing_test` resolves to `standing`), and `delta` for the procedural delta. A driver is a
-`RefCounted` with optional `apply()` (whole pose), `apply_base()` (base only; false when the pose
-owns no base on this rig), `apply_overlay()` (the moveable head/neck) and `apply_delta()` (the
-procedural delta). A missing method is a no-op. The shipped recipes implement `apply`,
-`apply_base` and `apply_overlay`; `apply_delta` is optional, for a pose that carries a procedural
-delta.
+`RefCounted` extending `poses/pose_driver.gd`: the base answers `apply()` (whole pose),
+`apply_base()` (base only; false when the pose owns no base on this rig), `apply_overlay()` (the
+moveable head/neck) and `apply_delta()` (the procedural delta) as no-ops, and `splits_base()`
+announces the base/overlay split. The evaluator holds typed driver handles and calls them directly,
+so a missing override is the base's no-op. The shipped recipes answer `splits_base()` true;
+`standing_oral_recipe` overrides only `apply_delta`.
 
 The single fast path is the same effective driver and delta with equal configs and the same
 authored asset on both sides (two null assets count as the same, and the presentation node carries
@@ -542,7 +545,9 @@ none). It calls the driver's `apply()` with the pose ramp (`smoothstep(amount)`)
 one-recipe node did, so
 the begin ramp, the normal missionary and standing acts and the diagnostics are unchanged. A standing `apply_base()` reads `authored` and `ground_frame` from the
 state and returns false without them; the shipped act never falls back to the procedural stance. A pose that carries a delta uses `apply_base()` → `apply_delta()` →
-`apply_overlay()` in that order; `standing_oral`'s settled pose runs that form with the standing
+`apply_overlay()` in that order; a whole-pose driver that carries one runs `apply()` → `apply_delta()`
+→ `apply_overlay()` instead, because it owns no split. `standing_oral`'s settled pose runs the split
+form with the standing
 driver and the oral recipe. The debug `standing ↔ standing_test` pair takes the single fast path:
 both effective drivers are the standing driver, both deltas are empty and the target snapshot is
 the standing group with the same presentation, so the body holds. The oral pair takes
@@ -989,7 +994,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | world | `world/service.gd` | player, camera and mares |
-| service | world | `world/game.gd` | the base-game accessors the presentation and the wing control read |
+| service | world | `world/game.gd` | the base-game accessors the presentation, the wing control, the Anon wrappers and the pose rig read |
 | service | anatomy | `anatomy/service.gd` | the player's anatomy handle: showing, hip offset and debug scale |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | ponies | `ponies/service.gd` | the eligibility and anatomy handles |
@@ -1077,10 +1082,10 @@ teardown.
   gates, the act-exit leave still removes all and the synthetic profile stays out of the shipped
   table.
 - `tests/poses/test_pose_blend.gd` — the typed single/blend modes, the single fast path and its
-  pose ramp, the base+delta order, the oral delta forcing the blend pair and settling into the
-  single delta path, the two-base capture/blend/overlay math and weights, the two-asset pair where
+  pose ramp, the base+delta order, a whole-pose driver that carries a delta, the oral delta forcing
+  the blend pair and settling into the single delta path, the two-base capture/blend/overlay math and weights, the two-asset pair where
   each side reads its own document, the reused capture buffers, the non-finite guard, the render
-  order and the shipped standing driver.
+  order and the shipped standing driver and oral delta resolved as typed driver handles.
 - `tests/poses/test_pose_teardown.gd` — the pose-scope/act-scope split: the leave steps keep the
   pose node, the config and the view, the final release clears them, the transition path keeps the
   pose alive, and no pose-scope or transition function reaches an act exit.

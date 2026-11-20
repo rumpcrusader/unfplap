@@ -100,6 +100,21 @@ immediately before it starts and is cancelled with the `privacy` reason when the
 public; a public one never samples. The steady 0.5 s privacy sample in the Negotiation tick is the
 path that cancels a private Agreement between auto-start polls.
 
+## Triggers
+
+| Trigger | Detection | Action |
+|---|---|---|
+| Enter or leave a standing fan | the sensor's per-frame loop | `reconsider()` |
+| A lying mare in front for AnonPony | the sensor's lying candidate | `reconsider()` |
+| The current target's scene state | the fingerprint at `SENSOR_POLL_S` | `reconsider()` |
+| The player sits or stands at a bed | the seat read once per frame | `reconsider()` |
+| A settings edit | `shared/settings_change.gd` | `apply_settings()` drops the row and resets the sensor |
+| A world enter or close | `on_world()`/`on_world_closed()` | the sensor reset |
+| A body swap or a new runtime | a new instance id | a new sense; the attach warm |
+| An act starts | the entry stops ticking the offer and calls `hide_hint()` | the sensor is idle |
+| The act key | `try_start()` | a forced sensor read and `reconsider()` |
+| A live Agreement becomes ready | the 0.25 s auto-start clock | `ready_offer()` |
+
 ## Internal API
 
 ```gdscript

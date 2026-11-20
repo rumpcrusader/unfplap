@@ -124,9 +124,16 @@ func run() -> void:
 
 `scripts/test.sh` runs the same prechecks as the gate (Godot on `PATH`, the fetched asset set,
 `scripts/architecture.py --check`), uses the same discovery and the same per-suite invocation, so a
-subset cannot disagree with the full gate. A subset ends in `TEST_PASS <n> suites`; `--all` ends in
-`TEST_ALL_PASS`, which is the marker the release check greps. Every suite must also leave no
-`SCRIPT ERROR` or `Parse Error` in its log.
+subset cannot disagree with the full gate.
+
+It prints only the suites that failed, each followed by its own failure lines, and ends in one
+status line: `TEST_PASS <n> suites, <n> checks` for a subset and `TEST_ALL_PASS <n> suites, <n>
+checks` for `--all`, which is the marker the release check greps. A failing run prints a `rerun:
+scripts/test.sh ...` line and ends in `TEST_FAIL <k> of <n> suites: <names>` (or `TEST_ALL_FAIL
+...`), so the last line names every failing suite and a trailing `tail` cannot hide the verdict.
+`--verbose` (`TEST_VERBOSE=1`) adds one `PASS` line per suite for a local run.
+
+Every suite must also leave no `SCRIPT ERROR` or `Parse Error` in its log.
 
 Discovery is `tests/**/test_*.gd`, two levels deep, excluding the manual labs (`test_lab*.gd`,
 `test_stress_lab.gd`). `TEST_JOBS` sets the parallelism (default 6).

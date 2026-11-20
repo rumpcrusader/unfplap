@@ -211,8 +211,8 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 ## Commands
 
 ```bash
-scripts/test.sh <suite>...   # touched suites; also --list, --all
-scripts/test_all.sh          # every suite, once per task
+scripts/test.sh <suite>...   # touched suites; also --list, --all (failures only)
+scripts/test_all.sh          # every suite, once per task; the last line is the status
 scripts/check.sh             # fast parse check; --all before done
 scripts/lint.sh              # gdlint over the shipped scripts
 ./lab.sh                     # manual lab; also lab-stress.sh, lab-vr.sh

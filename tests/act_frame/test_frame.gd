@@ -8,6 +8,7 @@ const FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 
 var failures := 0
@@ -50,6 +51,7 @@ func run() -> void:
 	_check_standing()
 	_check_missionary()
 	_check_head_clearance()
+	_check_publish()
 	_check_scene_token()
 	_check_canonical_start()
 	_check_world_aim()
@@ -118,6 +120,32 @@ func _check_head_clearance() -> void:
 	var stand_plan := frame.solve(FRAME.pose("standing"), standing)
 	check(near(stand_plan.head_clearance, 0.0),
 		"a standing act carries no head clearance")
+
+
+## The solved plan's player values reach the typed view the live modules read.
+func _check_publish() -> void:
+	var facts: RefCounted = FACTS.new()
+	var context := ACT_CONTEXT.new()
+	context.facts = facts
+	var frame := FRAME.new()
+	frame.bind(ACT_HOST.new(), context, ACT_SESSION.new())
+	var rig := FRAME.Rig.new()
+	rig.head_clearance = 0.05
+	frame.begin(FRAME.pose("missionary"), rig)
+	check(near(float(facts.head_clearance), 0.05),
+		"the bed plan publishes the head clearance for the live view")
+	frame.end()
+	var standing := FRAME.Rig.new()
+	standing.forward = Vector3(0.0, 0.0, -1.0)
+	standing.gap = 0.42
+	standing.eye = 1.6
+	standing.neck_height = 1.4
+	frame.begin(FRAME.pose("standing"), standing)
+	check(near(float(facts.player_eye_height), 1.6),
+		"the standing plan publishes his eye line")
+	check(near(float(facts.head_clearance), 0.0),
+		"a standing act publishes no head clearance")
+	frame.end()
 
 
 ## The frame keeps the scene the act found: the player, her and the bed, and a moving bed carries

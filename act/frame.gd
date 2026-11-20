@@ -161,6 +161,7 @@ func begin(pose_input: PoseInput = null, rig: Rig = null) -> PlayerPlan:
 	_active = true
 	_pose = input
 	_plan = solved
+	_publish(solved)
 	return solved
 
 
@@ -175,6 +176,7 @@ func refit(pose_input: PoseInput = null, form: Variant = null) -> PlayerPlan:
 	var solved := solve(input, values)
 	_apply_start(solved, input, values)
 	_plan = solved
+	_publish(solved)
 	return solved
 
 
@@ -523,8 +525,14 @@ func _write_look(plan: PlayerPlan) -> void:
 	if context == null or context.facts == null:
 		return
 	context.facts.write_look(plan.look_yaw, plan.look_pitch)
-	context.facts.head_clearance = plan.head_clearance
 	context.facts.mark_camera_basis_ready()
+
+
+## Publish the plan values the live view reads: the bed head clearance and the standing eye line.
+func _publish(plan: PlayerPlan) -> void:
+	if context == null or context.facts == null:
+		return
+	context.facts.head_clearance = plan.head_clearance
 	if plan.eye > 0.0:
 		context.facts.player_eye_height = plan.eye
 

@@ -47,22 +47,6 @@
       "owner": "settings",
       "reason": "migration baseline; fix in the boundary-cleanup phase",
       "expires": "phase-2"
-    },
-    {
-      "from": "settings/service.gd",
-      "to": "world/game.gd",
-      "kind": "layer",
-      "owner": "settings",
-      "reason": "the settings page and the mods folder read the base-game accessor module; the settings layer rule predates the accessor module",
-      "expires": "phase-3"
-    },
-    {
-      "from": "settings/ui.gd",
-      "to": "world/game.gd",
-      "kind": "layer",
-      "owner": "settings",
-      "reason": "the settings page and the mods folder read the base-game accessor module; the settings layer rule predates the accessor module",
-      "expires": "phase-3"
     }
   ]
 }

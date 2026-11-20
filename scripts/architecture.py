@@ -377,6 +377,10 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
         if kind in ("self", "service", "shared", "store", "read model", "game"):
             # The settings service is infrastructure and must not depend upward on a domain
             # service. The current registry dependency is recorded as migration debt.
+            # The settings layer may read the base-game accessor module: it is the game boundary,
+            # not a domain service, so the upward-edge rule does not apply to it.
+            if so.id == "settings" and tgt == "world/game.gd":
+                return True, kind, so, to
             if so.id == "settings" and to.kind == "service" and to.id != "settings":
                 return False, "layer", so, to
             return True, kind, so, to

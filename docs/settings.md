@@ -709,6 +709,7 @@ carries one retired key, with `into()` moving the stored value and `mapped()` re
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
 | shared | preferences | `shared/preferences.gd` | profile schema and math |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
+| service | world | `world/game.gd` | the base-game settings page, icon kind and mods folder |
 
 The settings page's private builder, icon texture and redraw, the mods host's data folder and the
 game's size setting are read through `world/game.gd`; the layer edge is recorded in

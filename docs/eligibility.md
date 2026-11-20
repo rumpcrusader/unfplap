@@ -124,7 +124,7 @@ func witness_age(pony: Node) -> Age
 func get_verdict(pony: Node, mode: Mode = Mode.START) -> Verdict
 
 func get_profile(id: String) -> Profile
-func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary
+func set_profile(owner: Node, id: String, profile: Profile) -> MARE_REGISTRY.Result
 ```
 
 `eligible()` is the capability answer. `relationship_ok()` is the Base clearance relationship row

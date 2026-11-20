@@ -134,6 +134,13 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.relationship_runtime(game)` | `relationship_runtime` | `Node` | `null` |
 | `GAME.relationship_bonds(runtime)` | the runtime's `bonds` | `Object` | `null` |
 | `GAME.relationship_ladder(runtime, id)` | `ladder` | `LADDER`, a typed view | absent view |
+| `GAME.bonds_of(pony)` | the relationship runtime's `bonds` | `Object` | `null` |
+| `GAME.bond_record_for(bonds, id)` | `record_for` | `BondRecord`, a typed view | absent view |
+| `GAME.bond_eligible_for_romance(bonds, id)` | `eligible_for_romance` | `bool` | `false` |
+| `GAME.bond_welcomes(bonds, id, kind)` | `welcomes` | `bool` | `false` |
+| `GAME.bond_day(bonds)` | `day` | `float` | `NAN` |
+| `GAME.body_scale_of(pony)` | `body_scale` | `float` | `1.0` |
+| `GAME.set_body_scale(pony, scale)` | `set_body_scale`, else `body_scale` | — | no write |
 | `GAME.story_of(context)` | the world context's `story` | `Object` | `null` |
 | `GAME.story_store(story)` | the journal's `store` | `Object` | `null` |
 | `GAME.story_open(story)` | `is_open` | `bool` | `false` |

@@ -113,6 +113,32 @@ on `-e` for the Godot and asset checks instead of repeating a dependency probe.
 More than 25 non-empty, non-comment lines is a smell: extract a shared prelude or move the logic
 into the tool the script wraps. The threshold is a review prompt, not a gate.
 
+## Pack report
+
+`scripts/pack_report.py` reports what ships and how big it is. It is a report, not a gate: no gate
+script runs it, and only `--strict` turns a pck diff into a failure. With no argument it reads the
+source tree; `--pck FILE` reads a built pack's own directory, and there is no pack discovery. A
+tree report counts source bytes; a pck report counts packed bytes, where imported textures and
+audio appear as their imported artifacts.
+
+Code lines still carry code after a comment is removed, so blank lines, `#`/`##` blocks and tail
+comments do not count. Comment stripping is string-aware: `#` inside a string is data, and JSON
+and shaders use `//` and `/* */` with the same awareness. The categories are gdscript, gdshader,
+json, other, binary and sidecar; sizes are printed per category and as a binary and sidecar split,
+and no other section repeats a size. `--min-lines`, `--top-json` and `--list-other` bound the
+listings.
+
+`--scope` chooses what a tree report counts: `shipped` (the manifest and asset contract's runtime
+files), `non-shipped` (tracked but not packed) and `total` (both). A pck report diffs the entries
+it reads against the manifest plus the imported artifacts and `mod.built.json`, printing the
+missing and extra entries; `--strict` fails on drift and `--no-manifest` skips the diff.
+`--format markdown` prints one value per cell for a job summary.
+
+`--self-test` runs the parser fixtures, and the source-checks CI job runs it before the build so a
+broken parser fails in seconds. The build job runs the pck report between `Build` and `Release` and
+appends it to the run's job summary, so every run, release or not, shows the composition of the
+pack it produced.
+
 ## Related docs
 
 - `docs/tests.md` — the behavioural suites and the runner.

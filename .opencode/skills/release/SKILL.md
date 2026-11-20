@@ -70,7 +70,8 @@ commit.
 Run `scripts/check_release.sh`. It checks the release commit, versions, changelog, target game and
 the fetched resource manifest, runs the test suites, and builds a self-verifying preflight pack.
 It requires Godot 4.5.2 and moves installed `unfplap*.pck` files to `.pck.bak` before the smoke
-test. Show its full review packet; do not summarize away warnings.
+test. Before the tag, run `scripts/pack_report.py --pck dist/unfplap-<version>.pck` and show its
+report. Show its full review packet; do not summarize away warnings.
 
 Stop. Ask the user to:
 

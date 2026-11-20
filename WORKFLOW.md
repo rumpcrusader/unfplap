@@ -79,6 +79,16 @@ manual labs use the local contract automatically when `dist/asset_pack.local.jso
 `fetch_assets.sh` and `--upload` always use `scripts/asset_pack.json`, and
 `scripts/check_release.sh` clears the variable. See `assets/README.md`.
 
+To preview what a pack contains, in packed bytes, and whether it matches the manifest:
+
+```bash
+scripts/pack_report.py --pck dist/unfplap-<version>.pck
+```
+
+With no argument the same tool reports the source tree, `--scope` picks `shipped`, `non-shipped` or
+`total`, and `--format markdown` is for a job summary. The report is not a gate; see
+`docs/quality.md`.
+
 - `res://tools/modding/build_mod.gd` is not a release path: it ignores `.pckignore` and recurses
   the whole mod folder. Use `build.sh` for anything you ship.
 - Do not leave a `.pck` in the source project's live mods folder while testing `--mod-src`; it

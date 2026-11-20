@@ -23,7 +23,7 @@ restate a contract.
 | `tests/**` | `docs/tests.md` |
 | `tests/body_change/**` | `docs/tests.md`, `docs/body_change.md` |
 | `tests/offer/**` | `docs/tests.md`, `docs/offer.md` |
-| `*.sh`, `.gdlintrc`, `scripts/requirements-lint.txt` | `docs/quality.md` |
+| `*.sh`, `.gdlintrc`, `scripts/requirements-lint.txt`, `scripts/pack_report.py` | `docs/quality.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
 | `shared/act_state.gd` | `docs/runtime.md` |
 | `shared/act_keys.gd` | `docs/input.md` |

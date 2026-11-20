@@ -242,11 +242,11 @@ func _check_shipped_defaults() -> void:
 	_check_default_profile(document.get("default"))
 	check(_flatten_paths(SETTINGS._shipped()) == leaves,
 		"the settings loader reads the shipped defaults document")
-	var copy := SETTINGS.defaults()
+	var copy := SETTINGS.defaults().raw()
 	check(not copy.is_empty(), "defaults() returns the shipped document")
 	if copy is Dictionary:
 		copy["debug_mode"] = not bool(copy.get("debug_mode", false))
-		check(bool(SETTINGS.defaults().get("debug_mode", false))
+		check(bool(SETTINGS.defaults().raw().get("debug_mode", false))
 			!= bool(copy.get("debug_mode", false)),
 			"defaults() is detached from the shipped document")
 
@@ -344,11 +344,11 @@ func _check_catalog() -> void:
 	var catalog := SETTINGS.DEFAULTS.catalog()
 	check(not catalog.is_empty(), "the shipped catalog document exists")
 	check(SETTINGS.DEFAULTS.catalog_valid(), "the shipped catalog parses")
-	var defaults := SETTINGS.defaults()
+	var defaults := SETTINGS.defaults().raw()
 	check(not defaults.has("act_prompts"), "the defaults document has no prompt catalog")
 	check(not defaults.has("character_templates"),
 		"the defaults document has no template catalog")
-	check(not SETTINGS.data().has("character_templates"),
+	check(not SETTINGS.data().raw().has("character_templates"),
 		"the merged view has no template catalog")
 
 	var prompts: Variant = catalog.get("act_prompts")
@@ -459,7 +459,7 @@ func _check_catalog() -> void:
 ## The player file stores declared settings but only the `default` differences; an untouched
 ## profile has no `default` block at all.
 func _check_player_document() -> void:
-	var shipped: Dictionary = SETTINGS.defaults()
+	var shipped: Dictionary = SETTINGS.defaults().raw()
 	var untouched := SETTINGS._player_document(shipped)
 	check(not untouched.has("default"), "an untouched profile stores no default block")
 	check(int(untouched.get("version", 0)) == SETTINGS.SCHEMA_VERSION,
@@ -528,9 +528,9 @@ func _check_snapshot() -> void:
 	var standing := SETTINGS.act_snapshot("standing")
 	check(standing.presentation.has("chin_up_deg") and standing.presentation.has("neck_down_deg"),
 		"the standing group carries its presentation block")
-	check(SETTINGS.pose("", "standing_oral").is_empty(),
+	check(SETTINGS.pose("", "standing_oral").raw().is_empty(),
 		"the internal oral pose has no settings block of its own")
-	check(SETTINGS.pose("", "bed_facesit").is_empty(),
+	check(SETTINGS.pose("", "bed_facesit").raw().is_empty(),
 		"the internal face-sit pose has no settings block of its own")
 	check(snap.climax_mode == SETTINGS.climax_mode.get_choice(),
 		"the act snapshot carries the climax face")
@@ -540,22 +540,22 @@ func _check_snapshot() -> void:
 
 ## Anatomy placement is one default block plus partial per-mare overrides.
 func _check_placement() -> void:
-	var base := SETTINGS.anatomy_placement_default("")
+	var base := SETTINGS.anatomy_placement_default("").raw()
 	for key: String in SETTINGS.PLACEMENT.KEYS:
 		check(base.has(key), "the placement default carries %s" % key)
 	var draft := base.duplicate(true)
 	draft["offset_y"] = float(base["offset_y"]) + 0.1
 	draft["scale"] = float(base["scale"]) + 0.1
-	SETTINGS.set_anatomy_placement_draft(draft)
-	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]),
+	SETTINGS.set_anatomy_placement_draft(ROWS.Rows.of(draft))
+	check(near(float(SETTINGS.anatomy_placement_default("").raw()["offset_y"]),
 		float(draft["offset_y"])), "the default draft previews")
-	check(near(float(SETTINGS.anatomy_placement_default("", false)["offset_y"]),
+	check(near(float(SETTINGS.anatomy_placement_default("", false).raw()["offset_y"]),
 		float(base["offset_y"])), "the persisted default stays while previewing")
 	SETTINGS.clear_anatomy_placement_draft()
-	check(near(float(SETTINGS.anatomy_placement_default("")["offset_y"]),
+	check(near(float(SETTINGS.anatomy_placement_default("").raw()["offset_y"]),
 		float(base["offset_y"])), "clearing the draft restores the default")
 
-	var anon := SETTINGS.anon_placement()
+	var anon := SETTINGS.anon_placement().raw()
 	for key: String in ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale"]:
 		check(anon.has(key), "the anon placement carries %s" % key)
 	check(float(anon["scale"]) > 0.0, "the anon placement keeps a positive scale")
@@ -563,18 +563,18 @@ func _check_placement() -> void:
 
 ## Tail and dock placement share the anatomy block and disappear at the default.
 func _check_tail_seat() -> void:
-	var default := SETTINGS.anatomy_placement_default("octavia_melody")
+	var default := SETTINGS.anatomy_placement_default("octavia_melody").raw()
 	for key: String in SETTINGS.PLACEMENT.KEYS:
 		check(default.has(key), "a mare with no override resolves %s" % key)
-	var maud_before := SETTINGS.anatomy_placement("maud_pie")
+	var maud_before := SETTINGS.anatomy_placement("maud_pie").raw()
 	var values := default.duplicate(true)
 	values["tail_y"] = float(default["tail_y"]) + 0.012
 	values["tail_z"] = float(default["tail_z"]) + 0.007
 	values["dock_y"] = float(default["dock_y"]) - 0.008
 	values["dock_scale"] = float(default["dock_scale"]) + 0.06
 	values["tail_tilt_deg"] = float(default["tail_tilt_deg"]) + 7.0
-	SETTINGS.save_anatomy_placement("octavia_melody", values)
-	var placed := SETTINGS.anatomy_placement("octavia_melody")
+	SETTINGS.save_anatomy_placement("octavia_melody", ROWS.Rows.of(values))
+	var placed := SETTINGS.anatomy_placement("octavia_melody").raw()
 	check(near(float(placed["tail_y"]), float(values["tail_y"]))
 		and near(float(placed["tail_z"]), float(values["tail_z"])),
 		"a tail placement override reads back")
@@ -585,13 +585,13 @@ func _check_tail_seat() -> void:
 		"a tail tilt override reads back")
 	check(SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"a non-default tail/dock placement is an override")
-	check(near(float(SETTINGS.anatomy_placement("maud_pie")["tail_y"]),
+	check(near(float(SETTINGS.anatomy_placement("maud_pie").raw()["tail_y"]),
 		float(maud_before["tail_y"])), "tail placement overrides are per mare")
 	SETTINGS.save_anatomy_placement("octavia_melody",
 		SETTINGS.anatomy_placement_default("octavia_melody", false))
 	check(not SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"returning to the default removes the override")
-	var data := SETTINGS.data()
+	var data := SETTINGS.data().raw()
 	var anatomy: Variant = data.get("anatomy", {})
 	var placement: Variant = (anatomy as Dictionary).get("placement", {}) \
 		if anatomy is Dictionary else {}
@@ -604,10 +604,10 @@ func _check_placement_migration() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
 	var mare_path := folder.path_join("anatomy_place.json")
 	var anon_path := folder.path_join("anon_place.json")
-	var fluttershy := SETTINGS.anatomy_placement_default("fluttershy", false)
+	var fluttershy := SETTINGS.anatomy_placement_default("fluttershy", false).raw()
 	fluttershy["offset_y"] = float(fluttershy["offset_y"]) + 0.005
-	var applejack := SETTINGS.anatomy_placement_default("applejack", false)
-	var dash := SETTINGS.anatomy_placement_default("rainbow_dash", false)
+	var applejack := SETTINGS.anatomy_placement_default("applejack", false).raw()
+	var dash := SETTINGS.anatomy_placement_default("rainbow_dash", false).raw()
 	dash["pitch_deg"] = float(dash["pitch_deg"]) + 3.0
 	var mare := FileAccess.open(mare_path, FileAccess.WRITE)
 	mare.store_string(JSON.stringify({"version": SETTINGS.PLACEMENT.LEGACY_VERSION,
@@ -616,7 +616,7 @@ func _check_placement_migration() -> void:
 		"rainbow_dash": _legacy_row(dash),
 	}, "\t"))
 	mare.close()
-	var anon_default := SETTINGS.anon_placement()
+	var anon_default := SETTINGS.anon_placement().raw()
 	anon_default["scale"] = float(anon_default["scale"]) + 0.1
 	var anon := FileAccess.open(anon_path, FileAccess.WRITE)
 	anon.store_string(JSON.stringify(_legacy_row(anon_default), "\t"))
@@ -639,7 +639,7 @@ func _check_placement_migration() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(mare_path + ".migrated"))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(anon_path + ".migrated"))
 	# A current schema still imports a legacy file that appears after the bump.
-	var late_values := SETTINGS.anatomy_placement_default("rarity", false)
+	var late_values := SETTINGS.anatomy_placement_default("rarity", false).raw()
 	late_values["pitch_deg"] = float(late_values["pitch_deg"]) + 3.0
 	var late := FileAccess.open(mare_path, FileAccess.WRITE)
 	late.store_string(JSON.stringify({"version": SETTINGS.PLACEMENT.LEGACY_VERSION,
@@ -647,7 +647,7 @@ func _check_placement_migration() -> void:
 	late.close()
 	SETTINGS.reload_file()
 	SETTINGS.data()
-	check(near(float(SETTINGS.anatomy_placement("rarity").get("pitch_deg", 0.0)),
+	check(near(float(SETTINGS.anatomy_placement("rarity").raw().get("pitch_deg", 0.0)),
 		float(late_values["pitch_deg"])),
 		"a current settings file still imports a late legacy placement")
 	check(not FileAccess.file_exists(mare_path), "the late legacy file is archived")
@@ -705,7 +705,7 @@ func _check_write_round_trip() -> void:
 ## caller cannot edit the live tree through it.
 func _check_read_view() -> void:
 	var live_flag := bool(SETTINGS._read().get("debug_mode", false))
-	var view := SETTINGS.data()
+	var view := SETTINGS.data().raw()
 	view["debug_mode"] = not live_flag
 	check(bool(SETTINGS._read().get("debug_mode", false)) == live_flag,
 		"the merged view is detached from the live cache")
@@ -1066,7 +1066,7 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 ## The player file loads eagerly and reports the shipped document's health.
 func _check_load() -> void:
 	check(SETTINGS.load_settings(), "the shipped defaults document loads")
-	check(not SETTINGS.data().is_empty(), "the player file is merged at load")
+	check(not SETTINGS.data().raw().is_empty(), "the player file is merged at load")
 
 
 ## A save from an older build migrates once; a retired key maps or is erased.
@@ -1238,7 +1238,7 @@ func _check_migration_diff() -> void:
 
 ## Schema 10 reduces a saved full `default` block to the player's differences.
 func _check_default_profile_migration() -> void:
-	var full: Dictionary = SETTINGS.defaults()["default"].duplicate(true)
+	var full: Dictionary = SETTINGS.defaults().raw()["default"].duplicate(true)
 	var untouched := {"version": SETTINGS.SCHEMA_VERSION - 2, "default": full}
 	var migrated := SETTINGS._migrate(untouched, SETTINGS.SCHEMA_VERSION - 2)
 	check(not migrated.has("default"), "a full shipped default normalizes away")
@@ -1362,8 +1362,8 @@ func _check_profiles() -> void:
 		"the typed profile carries her consent")
 	check(not modded_override.identity.has("eligible"),
 		"an off-roster mare has no provider assertion")
-	check(SETTINGS.anatomy_placement_default("a_modded_mare")
-		== SETTINGS.anatomy_placement_default(""),
+	check(SETTINGS.anatomy_placement_default("a_modded_mare").raw()
+		== SETTINGS.anatomy_placement_default("").raw(),
 		"an off-roster mare uses the global anatomy placement")
 	var override: Dictionary = SETTINGS._profile_merge(base.raw(),
 		{"fluttershy": {"cue_gap": 15.0}}, "fluttershy")
@@ -1441,12 +1441,12 @@ func _check_provider_precedence() -> void:
 	var standing: Dictionary = SETTINGS.template_for(id).rows("poses").raw().get("standing", {})
 	check(near(float(standing.get("bow", 0.0)), 9.0),
 		"the provider pose beats the catalog pose")
-	check(near(float(SETTINGS.anatomy_placement(id).get("tail_y", 0.0)), 0.09),
+	check(near(float(SETTINGS.anatomy_placement(id).raw().get("tail_y", 0.0)), 0.09),
 		"the provider placement beats the global default")
 
 	# The player's edit wins for the field it changed, and only that field.
 	SETTINGS.save_preferences(id, ROWS.Rows.of({"intensity": "soft", "warmth": "slow"}))
-	var live_characters: Dictionary = SETTINGS.data().get("characters", {})
+	var live_characters: Dictionary = SETTINGS.data().raw().get("characters", {})
 	var characters := ROWS.Rows.of(live_characters)
 	var player := SETTINGS.profile_for(base, characters, id)
 	check(player.preferences.str_value("intensity", "") == "soft",
@@ -1456,14 +1456,14 @@ func _check_provider_precedence() -> void:
 	check(SETTINGS.template_for(id).rows("act_prompts").str_value("cue", "") == "Provider cue.",
 		"the provider prompt still wins without a player override")
 
-	var placed := SETTINGS.anatomy_placement(id)
+	var placed := SETTINGS.anatomy_placement(id).raw()
 	placed["tail_y"] = 0.11
-	SETTINGS.save_anatomy_placement(id, placed)
-	check(near(float(SETTINGS.anatomy_placement(id).get("tail_y", 0.0)), 0.11),
+	SETTINGS.save_anatomy_placement(id, ROWS.Rows.of(placed))
+	check(near(float(SETTINGS.anatomy_placement(id).raw().get("tail_y", 0.0)), 0.11),
 		"a player placement beats the provider")
 
 	SETTINGS.MARE_REGISTRY.unregister(1, id)
-	check(near(float(SETTINGS.anatomy_placement(id).get("tail_y", 0.0)), 0.11),
+	check(near(float(SETTINGS.anatomy_placement(id).raw().get("tail_y", 0.0)), 0.11),
 		"the player placement survives the provider leaving")
 	SETTINGS.save_anatomy_placement(id, SETTINGS.anatomy_placement_default(id, false))
 	check(not SETTINGS.anatomy_placement_has_override(id),
@@ -1559,7 +1559,7 @@ func _check_character_overrides() -> void:
 		"built-in poses seed without a saved block")
 
 	SETTINGS.save_preferences("fluttershy", ROWS.Rows.of({"intensity": "soft"}))
-	var saved: Dictionary = SETTINGS.data().get("characters", {})
+	var saved: Dictionary = SETTINGS.data().raw().get("characters", {})
 	var entry: Dictionary = (saved as Dictionary).get("fluttershy", {})
 	var stored: Dictionary = entry.get("preferences", {})
 	check(stored.has("intensity") and not stored.has("notes"),
@@ -1569,7 +1569,7 @@ func _check_character_overrides() -> void:
 	# The teat size is a per-mare field: it saves as its own difference, merges over the template
 	# and resets with the rest of the profile.
 	SETTINGS.save_preferences("fluttershy", ROWS.Rows.of({"teat_size": "large"}))
-	saved = SETTINGS.data().get("characters", {})
+	saved = SETTINGS.data().raw().get("characters", {})
 	entry = (saved as Dictionary).get("fluttershy", {})
 	stored = entry.get("preferences", {})
 	check(str(stored.get("teat_size", "")) == "large" and not stored.has("notes"),
@@ -1589,13 +1589,13 @@ func _check_character_overrides() -> void:
 	check(SETTINGS.consent("fluttershy").raw() == consent.raw(),
 		"a consent caller cannot mutate the memoized block")
 	SETTINGS.save_consent("fluttershy", consent)
-	saved = SETTINGS.data().get("characters", {})
+	saved = SETTINGS.data().raw().get("characters", {})
 	entry = (saved as Dictionary).get("fluttershy", {})
 	check(not entry.has("consent"), "saving the resolved consent stores nothing")
 	var changed := consent.raw().duplicate(true)
 	changed["public"] = not consent.bool_value("public", false)
 	SETTINGS.save_consent("fluttershy", ROWS.Rows.of(changed))
-	saved = SETTINGS.data().get("characters", {})
+	saved = SETTINGS.data().raw().get("characters", {})
 	entry = (saved as Dictionary).get("fluttershy", {})
 	var consent_diff: Dictionary = entry.get("consent", {})
 	check(consent_diff.has("public") and not consent_diff.has("anal"),
@@ -1628,7 +1628,7 @@ func _check_participation() -> void:
 
 	SETTINGS.save_participation("fluttershy",
 		ROWS.Rows.of({"acts": false, "anatomy": true, "tail": true}))
-	var saved: Variant = SETTINGS.data().get("characters", {})
+	var saved: Variant = SETTINGS.data().raw().get("characters", {})
 	var saved_entry: Dictionary = (saved as Dictionary).get("fluttershy", {})
 	var saved_profile: Dictionary = (saved_entry.get("profile", {}) as Dictionary).get("participation", {})
 	check(not bool(saved_profile.get("acts", true)), "a saved opt-out is stored")
@@ -1637,7 +1637,7 @@ func _check_participation() -> void:
 	var opted_out := SETTINGS.profile_participation("fluttershy")
 	check(not opted_out.bool_value("acts", true), "the memoized profile invalidates on a save")
 	SETTINGS.reset_participation("fluttershy")
-	var after: Variant = SETTINGS.data().get("characters", {})
+	var after: Variant = SETTINGS.data().raw().get("characters", {})
 	check(not (after as Dictionary).has("fluttershy"), "reset removes the participation block")
 	var restored := SETTINGS.profile_participation("fluttershy")
 	check(restored.bool_value("acts", false), "the memoized profile invalidates on a reset")
@@ -1660,7 +1660,7 @@ func _check_player_file_recovery() -> void:
 	if backups.size() == 1:
 		check(FileAccess.get_file_as_string(backups[0]).contains("broken"),
 			"the malformed text is preserved")
-	check(not SETTINGS.data().is_empty(), "a malformed player file falls back to the defaults")
+	check(not SETTINGS.data().raw().is_empty(), "a malformed player file falls back to the defaults")
 	check(_settings_version(path) == SETTINGS.SCHEMA_VERSION,
 		"a malformed player file is replaced by a current document")
 	_clear_settings_backups(folder)

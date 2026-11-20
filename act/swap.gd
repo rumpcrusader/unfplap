@@ -191,7 +191,7 @@ func rebind_reactions() -> void:
 
 
 func set_act_pose_config() -> void:
-	context.pose.set_pose_config(SETTINGS.pose(session.pony_id, session.start_group()))
+	context.pose.set_pose_config(SETTINGS.pose(session.pony_id, session.start_group()).raw())
 
 
 ## Rebuild the live pose against the new skeleton, keeping the pose the act was already in; the

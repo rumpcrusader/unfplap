@@ -846,7 +846,7 @@ func _adopt_target_config() -> void:
 ## The pose block for a settings group plus that group's presentation values. Standing folds in the
 ## presentation chin, neck and tail; other groups use the live settings block unchanged.
 func _config_for_group(group: String, presentation: Dictionary) -> Dictionary:
-	var config := SETTINGS.pose(id, group)
+	var config := SETTINGS.pose(id, group).raw()
 	if group != CATALOG.STANDING:
 		return config
 	config["chin_up_deg"] = float(presentation.get("chin_up_deg",

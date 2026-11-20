@@ -15,6 +15,7 @@ const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const API := preload("res://mods/unfplap/api.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const PROFILES := preload("res://mods/unfplap/shared/character_preferences.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -216,7 +217,7 @@ func run() -> void:
 	check(str(preferences.get("warmth", "")) == "slow", "approved warmth")
 	check(str(preferences.get("tolerance", "")) == "normal", "approved tolerance")
 	check(str(preferences.get("notes", "")).begins_with("You "), "second-person notes")
-	var placed := SETTINGS.anatomy_placement_default("chrysalis")
+	var placed := SETTINGS.anatomy_placement_default("chrysalis").raw()
 	check(near(float(placed.get("offset_y", 0.0)), 0.49), "provider placement Y")
 	check(near(float(placed.get("offset_z", 0.0)), 0.271), "provider placement Z")
 	check(near(float(placed.get("pitch_deg", 0.0)), 8.0), "provider placement pitch")
@@ -253,7 +254,7 @@ func run() -> void:
 	check(bool(adapter.call("has_tail_placement", own)),
 		"her own body reports a source-owned tail placement")
 	check(IDENTITY.body_fit_id(own) == "chrysalis", "the body-fit fallback reads the metadata")
-	check(near(float(SETTINGS.anatomy_placement("chrysalis", "chrysalis")
+	check(near(float(SETTINGS.anatomy_placement("chrysalis", "chrysalis").raw()
 		.get("offset_y", 0.0)), 0.49), "her fit resolves the provider placement")
 	var own_form: BODY_FORM.BodyForm = body_change.call("form_for", own)
 	check(own_form.pony_id == "chrysalis" and own_form.is_own(),
@@ -273,11 +274,11 @@ func run() -> void:
 	check(near(wrapper.position.y, 0.04), "her baked tail default is applied")
 	var reseat_before := SETTINGS.reseat_tails.get_bool()
 	SETTINGS.reseat_tails.set_bool(true)
-	var tail_values := SETTINGS.anatomy_placement("chrysalis", "chrysalis")
+	var tail_values := SETTINGS.anatomy_placement("chrysalis", "chrysalis").raw()
 	tail_values["tail_y"] = 0.05
 	tail_values["tail_z"] = 0.02
 	tail_values["tail_tilt_deg"] = 10.0
-	SETTINGS.save_anatomy_placement("chrysalis", tail_values, "chrysalis")
+	SETTINGS.save_anatomy_placement("chrysalis", ROWS.Rows.of(tail_values), "chrysalis")
 	adapter.call("apply_tail_placement", own)
 	check(near(wrapper.position.y, 0.05) and near(wrapper.position.z, 0.02),
 		"the saved tail keys move the wrapper")
@@ -370,8 +371,8 @@ func run() -> void:
 		"a disguise has no source-owned tail placement")
 	check(adapter.call("presented_form_id", disguise) == "fluttershy",
 		"a disguise presents the copied form id")
-	check(SETTINGS.anatomy_placement("chrysalis", "fluttershy")
-		== SETTINGS.anatomy_placement("fluttershy"), "a disguise does not borrow her placement")
+	check(SETTINGS.anatomy_placement("chrysalis", "fluttershy").raw()
+		== SETTINGS.anatomy_placement("fluttershy").raw(), "a disguise does not borrow her placement")
 	var disguise_form: BODY_FORM.BodyForm = body_change.call("form_for", disguise)
 	check(disguise_form.pony_id == "chrysalis" and disguise_form.form_id == "fluttershy",
 		"a borrowed regular form keeps the stable identity and the shape id")
@@ -413,9 +414,9 @@ func run() -> void:
 	check(bool(adapter.call("handles_pony", own)), "the source handles her own body")
 	check(bool(adapter.call("handles_pony", disguise)), "the source handles a disguise")
 	check(not bool(adapter.call("handles_pony", other)), "the source leaves other mares alone")
-	var service_tail := SETTINGS.anatomy_placement("chrysalis", "chrysalis")
+	var service_tail := SETTINGS.anatomy_placement("chrysalis", "chrysalis").raw()
 	service_tail["tail_y"] = 0.03
-	SETTINGS.save_anatomy_placement("chrysalis", service_tail, "chrysalis")
+	SETTINGS.save_anatomy_placement("chrysalis", ROWS.Rows.of(service_tail), "chrysalis")
 	check(bool(body_change.call("has_tail_placement", own)),
 		"the service forwards the tail-placement check")
 	check(not bool(body_change.call("has_tail_placement", other)),

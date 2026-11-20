@@ -708,7 +708,7 @@ func encounter(on: bool) -> void:
 
 func _load_place() -> void:
 	var placement := SETTINGS.anon_placement()
-	_pos = Vector3(float(placement["offset_x"]), float(placement["offset_y"]),
-		float(placement["offset_z"]))
-	_pitch = float(placement["pitch_deg"])
-	_scale = maxf(0.05, float(placement["scale"]))
+	_pos = Vector3(placement.num("offset_x"), placement.num("offset_y"),
+		placement.num("offset_z"))
+	_pitch = placement.num("pitch_deg")
+	_scale = maxf(0.05, placement.num("scale"))

@@ -63,7 +63,8 @@ func load(fit_id: String = "") -> void:
 	read_settings()
 	var fit := fit_id if not fit_id.is_empty() else _body_fit_id()
 	var saved := SETTINGS.anatomy_placement(_pony_id(), fit)
-	_apply_values(saved)
+	_apply_values(Vector3(saved.num("offset_x"), saved.num("offset_y"),
+		saved.num("offset_z")), saved.num("pitch_deg"), saved.num("scale"))
 	_place_revision = SETTINGS.placement_revision
 
 
@@ -133,11 +134,10 @@ func revision() -> int:
 	return _place_revision
 
 
-func _apply_values(placement: Dictionary) -> void:
-	_pos = Vector3(float(placement["offset_x"]), float(placement["offset_y"]),
-		float(placement["offset_z"]))
-	_pitch = float(placement["pitch_deg"])
-	_scale = maxf(0.05, float(placement["scale"]))
+func _apply_values(pos: Vector3, pitch: float, scale: float) -> void:
+	_pos = pos
+	_pitch = pitch
+	_scale = maxf(0.05, scale)
 
 
 func _pony_id() -> String:

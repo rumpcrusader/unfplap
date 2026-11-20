@@ -1135,7 +1135,7 @@ func _check_settings_group_edge() -> void:
 	check(target.has("nuzzle_scale"), "the target snapshot uses the missionary settings block")
 	check(not target.has("gaps") and not target.has("chin_up_deg"),
 		"the target snapshot does not use the standing block")
-	check(_same_config(target, SETTINGS.pose("twilight_sparkle", CATALOG.MISSIONARY)),
+	check(_same_config(target, SETTINGS.pose("twilight_sparkle", CATALOG.MISSIONARY).raw()),
 		"the target snapshot is the target group's pose config")
 	target["stale_marker"] = 1
 	session.apply_live_settings()

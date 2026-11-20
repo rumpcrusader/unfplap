@@ -36,8 +36,8 @@ func placement_id() -> String:
 
 func placement_values(id: String, fit_id: String = "") -> Dictionary:
 	if id == "default":
-		return SETTINGS.anatomy_placement_draft_values()
-	return SETTINGS.anatomy_placement(id, fit_id)
+		return SETTINGS.anatomy_placement_draft_values().raw()
+	return SETTINGS.anatomy_placement(id, fit_id).raw()
 
 
 func placement_refresh() -> void:
@@ -59,14 +59,16 @@ func placement_debug(op: String, value := 0.0) -> String:
 	if id != "default" and op.begins_with("tail_"):
 		if not bool(service.call("can_place_tail", target)):
 			return "%s: tail seat unavailable (no hair tail or dock)." % id
-	var values := placement_values(id, fit_id)
+	var rows := (SETTINGS.anatomy_placement_draft_values() if id == "default"
+		else SETTINGS.anatomy_placement(id, fit_id))
+	var values := rows.raw()
 	match op:
 		"save":
 			if id == "default":
-				SETTINGS.save_anatomy_placement_default(values)
+				SETTINGS.save_anatomy_placement_default(rows)
 				SETTINGS.apply_live()
 			else:
-				SETTINGS.save_anatomy_placement(id, values, fit_id)
+				SETTINGS.save_anatomy_placement(id, rows, fit_id)
 				placement_refresh()
 				_apply_custom_tail(target)
 			return "%s saved %s" % [id, PLACEMENT.text(values)]
@@ -86,9 +88,9 @@ func placement_debug(op: String, value := 0.0) -> String:
 			if not _nudge_placement(values, op, value):
 				return "Unknown placement action."
 			if id == "default":
-				SETTINGS.set_anatomy_placement_draft(values)
+				SETTINGS.set_anatomy_placement_draft(rows)
 			else:
-				SETTINGS.save_anatomy_placement(id, values, fit_id)
+				SETTINGS.save_anatomy_placement(id, rows, fit_id)
 			placement_refresh()
 			if id != "default":
 				_apply_custom_tail(target)

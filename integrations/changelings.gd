@@ -597,9 +597,8 @@ func _apply_tail_placement_now(pony: Node, root: Node3D) -> bool:
 		return true
 	# The keys are absolute from the pack's modelled tail; her placement bakes that reference.
 	var placement := SETTINGS.anatomy_placement(ID, ID)
-	var offset := Vector3(0.0, float(placement.get("tail_y", 0.0)),
-		float(placement.get("tail_z", 0.0)))
-	var tilt := deg_to_rad(float(placement.get("tail_tilt_deg", 0.0)))
+	var offset := Vector3(0.0, placement.num("tail_y"), placement.num("tail_z"))
+	var tilt := deg_to_rad(placement.num("tail_tilt_deg"))
 	var parent := wrapper.get_parent() as Node3D
 	if not is_instance_valid(parent):
 		return false

@@ -240,7 +240,7 @@ func refresh_form(pony: Node, form: BODY_FORM.BodyForm) -> void:
 	var dock_stale := false
 	for pair: Array in PLACEMENT_KEYS:
 		var key := str(pair[0])
-		var value := float(placement.get(key, pair[1]))
+		var value := placement.num(key, float(pair[1]))
 		if is_equal_approx(value, _row_value(row, key)):
 			continue
 		_set_row_value(row, key, value)
@@ -320,7 +320,7 @@ func refresh_all() -> void:
 		var dock_stale := false
 		for pair: Array in PLACEMENT_KEYS:
 			var key := str(pair[0])
-			var value := float(placement.get(key, pair[1]))
+			var value := placement.num(key, float(pair[1]))
 			if is_equal_approx(value, _row_value(row, key)):
 				continue
 			_set_row_value(row, key, value)
@@ -368,13 +368,14 @@ func report_all() -> String:
 		var target := row.target(reference(pony))
 		lines.append("%s anchor=(%.3f,%.3f,%.3f) target=(%.3f,%.3f,%.3f) %s applied=(%.3f,%.3f,%.3f) source=%s" % [
 			row.id, row.anchor.x, row.anchor.y, row.anchor.z, target.x, target.y, target.z,
-			ANATOMY_PLACEMENT.text(placement), row.applied.x, row.applied.y, row.applied.z, source])
+			ANATOMY_PLACEMENT.text(placement.raw()), row.applied.x, row.applied.y, row.applied.z,
+			source])
 		count += 1
 		if source == "override":
 			exceptions += 1
 	if not lines.is_empty():
 		var base := SETTINGS.anatomy_placement_draft_values()
-		LOG.debug("tail seats default %s\n\t%s", [ANATOMY_PLACEMENT.text(base),
+		LOG.debug("tail seats default %s\n\t%s", [ANATOMY_PLACEMENT.text(base.raw()),
 			"\n\t".join(lines)])
 	return "tail seats: %d live, %d exceptions (see log)" % [count, exceptions]
 
@@ -495,11 +496,11 @@ func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
 	row.anchor = anchor
 	row.cap_centre = _tail_cap_centre(pony)
 	row.fit = fit.duplicate(true)
-	row.tail_y = float(placement.get("tail_y", 0.0))
-	row.tail_z = float(placement.get("tail_z", 0.0))
-	row.dock_y = float(placement.get("dock_y", 0.0))
-	row.dock_scale = float(placement.get("dock_scale", 1.0))
-	row.tail_tilt_deg = float(placement.get("tail_tilt_deg", 0.0))
+	row.tail_y = placement.num("tail_y")
+	row.tail_z = placement.num("tail_z")
+	row.dock_y = placement.num("dock_y")
+	row.dock_scale = placement.num("dock_scale", 1.0)
+	row.tail_tilt_deg = placement.num("tail_tilt_deg")
 	row.seated = true
 	row.attached = false
 	row.drop = 0.0

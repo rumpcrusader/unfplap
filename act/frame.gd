@@ -295,9 +295,8 @@ func pose_gaps() -> Dictionary:
 		var gaps: Variant = context.pose.pose_config.get("gaps", {})
 		if gaps is Dictionary and not (gaps as Dictionary).is_empty():
 			return gaps
-	var row: Dictionary = SETTINGS.pose(session.pony_id, CATALOG.STANDING)
-	var shipped: Variant = row.get("gaps", {})
-	return shipped if shipped is Dictionary else {}
+	var row := SETTINGS.pose(session.pony_id, CATALOG.STANDING)
+	return row.rows("gaps").raw()
 
 
 ## Her centre to Anon: the tuned gap, his height scale and the body's entrance offset.

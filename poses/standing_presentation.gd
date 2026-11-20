@@ -120,7 +120,7 @@ func present_standing() -> bool:
 func _attach_present_pose() -> void:
 	if not is_instance_valid(pony):
 		return
-	_pose_cfg = SETTINGS.pose(str(facts.pony_id), CATALOG.STANDING)
+	_pose_cfg = SETTINGS.pose(str(facts.pony_id), CATALOG.STANDING).raw()
 	# The act stance bows and bends the forelegs for the thrust; seen from behind it reads as her
 	# front legs tucked between her hind. The invitation is a natural stand with the rump
 	# presented, so the act-only bow, foreleg bend and wide hind stance are removed.

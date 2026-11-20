@@ -127,7 +127,7 @@ func describe_mare(id: String) -> Dictionary:
 		"consent": consent,
 		"eligible": eligible,
 		"profile": {"participation": participation},
-		"placement": SETTINGS.anatomy_placement(mare_id),
+		"placement": SETTINGS.anatomy_placement(mare_id).raw(),
 		"poses": poses,
 		"act_prompts": act_prompts,
 		"event_prompts": event_prompts,

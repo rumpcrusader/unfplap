@@ -12,6 +12,7 @@ const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
+const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
@@ -104,9 +105,9 @@ func run() -> void:
 	var meta_mesh := MeshInstance3D.new()
 	meta_mesh.mesh = BoxMesh.new()
 	meta_place.set_mesh(meta_mesh, Transform3D.IDENTITY, BODY_PROFILE.ordinary_rig())
-	var rel_override := SETTINGS.anatomy_placement("relationship_id")
+	var rel_override := SETTINGS.anatomy_placement("relationship_id").raw()
 	rel_override["offset_x"] = 0.321
-	SETTINGS.save_anatomy_placement("relationship_id", rel_override)
+	SETTINGS.save_anatomy_placement("relationship_id", ROWS.Rows.of(rel_override))
 	meta_place.load()
 	check(near(meta_place.base_place().origin.x, 0.321),
 		"anatomy placement uses the relationship id")
@@ -114,23 +115,23 @@ func run() -> void:
 		SETTINGS.anatomy_placement_default("relationship_id", false))
 	meta_mesh.free()
 
-	var default_place := SETTINGS.anatomy_placement_default("")
-	var modded_place := SETTINGS.anatomy_placement_default("not_a_base_mare")
+	var default_place := SETTINGS.anatomy_placement_default("").raw()
+	var modded_place := SETTINGS.anatomy_placement_default("not_a_base_mare").raw()
 	check(modded_place == default_place, "an off-roster mare uses the global anatomy placement")
 
 	# A provider placement wins over the catalog/global default; a player's sparse row still wins.
 	var placed_id := "provider_placement_mare"
 	MARE_REGISTRY.register(2, {"id": placed_id, "source": "anatomy_test",
 		"placement": {"tail_y": 0.09}})
-	check(near(float(SETTINGS.anatomy_placement(placed_id)["tail_y"]), 0.09),
+	check(near(float(SETTINGS.anatomy_placement(placed_id).raw()["tail_y"]), 0.09),
 		"a provider placement beats the global default")
-	var placement_override := SETTINGS.anatomy_placement(placed_id)
+	var placement_override := SETTINGS.anatomy_placement(placed_id).raw()
 	placement_override["tail_y"] = 0.11
-	SETTINGS.save_anatomy_placement(placed_id, placement_override)
-	check(near(float(SETTINGS.anatomy_placement(placed_id)["tail_y"]), 0.11),
+	SETTINGS.save_anatomy_placement(placed_id, ROWS.Rows.of(placement_override))
+	check(near(float(SETTINGS.anatomy_placement(placed_id).raw()["tail_y"]), 0.11),
 		"a player placement beats the provider")
 	MARE_REGISTRY.unregister(2, placed_id)
-	check(near(float(SETTINGS.anatomy_placement(placed_id)["tail_y"]), 0.11),
+	check(near(float(SETTINGS.anatomy_placement(placed_id).raw()["tail_y"]), 0.11),
 		"the player placement survives the provider leaving")
 	SETTINGS.save_anatomy_placement(placed_id,
 		SETTINGS.anatomy_placement_default(placed_id, false))
@@ -142,21 +143,21 @@ func run() -> void:
 	var fit_owner := "chrysalis"
 	MARE_REGISTRY.register(3, {"id": fit_owner, "source": "anatomy_test",
 		"placement": {"offset_y": 0.51, "offset_z": 0.271, "scale": 0.462}})
-	var own_fit := SETTINGS.anatomy_placement(fit_owner, fit_owner)
+	var own_fit := SETTINGS.anatomy_placement(fit_owner, fit_owner).raw()
 	check(near(float(own_fit.get("offset_y", 0.0)), 0.51),
 		"the body fit resolves the provider placement")
-	var disguise_fit := SETTINGS.anatomy_placement(fit_owner, "fluttershy")
-	check(disguise_fit == SETTINGS.anatomy_placement("fluttershy"),
+	var disguise_fit := SETTINGS.anatomy_placement(fit_owner, "fluttershy").raw()
+	check(disguise_fit == SETTINGS.anatomy_placement("fluttershy").raw(),
 		"a copied body uses the target pony's fit")
-	check(SETTINGS.anatomy_placement("fluttershy", "fluttershy")
-		== SETTINGS.anatomy_placement("fluttershy"),
+	check(SETTINGS.anatomy_placement("fluttershy", "fluttershy").raw()
+		== SETTINGS.anatomy_placement("fluttershy").raw(),
 		"the fit default leaves a base mare unchanged")
 	own_fit["offset_y"] = float(own_fit.get("offset_y", 0.0)) + 0.02
-	SETTINGS.save_anatomy_placement(fit_owner, own_fit, fit_owner)
-	check(near(float(SETTINGS.anatomy_placement(fit_owner, fit_owner).get("offset_y", 0.0)),
+	SETTINGS.save_anatomy_placement(fit_owner, ROWS.Rows.of(own_fit), fit_owner)
+	check(near(float(SETTINGS.anatomy_placement(fit_owner, fit_owner).raw().get("offset_y", 0.0)),
 		0.53), "the player override follows the stable id")
-	check(SETTINGS.anatomy_placement("fluttershy", "fluttershy")
-		== SETTINGS.anatomy_placement("fluttershy"),
+	check(SETTINGS.anatomy_placement("fluttershy", "fluttershy").raw()
+		== SETTINGS.anatomy_placement("fluttershy").raw(),
 		"another mare's fit stays unchanged by the override")
 	SETTINGS.save_anatomy_placement(fit_owner,
 		SETTINGS.anatomy_placement_default(fit_owner, false, fit_owner), fit_owner)

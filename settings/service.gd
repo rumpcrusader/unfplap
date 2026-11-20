@@ -15,6 +15,7 @@ const DEFAULTS := preload("res://mods/unfplap/shared/defaults_data.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const PROFILE := preload("res://mods/unfplap/settings/profile.gd")
+const DEPRECATION := preload("res://mods/unfplap/settings/deprecation.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## The shipped settings document: one value per declared setting and the global `default` profile.
@@ -483,7 +484,7 @@ static func _placement_default_values() -> Dictionary:
 ## The placement a mare gets from the global default and the shipped per-mare table, before any
 ## player override; `fit_id` picks the body-fit row, and an empty value falls back to `id`.
 static func anatomy_placement_default(id: String, use_draft: bool = true,
-		fit_id: String = "") -> Dictionary:
+		fit_id: String = "") -> ROWS.Rows:
 	var key := fit_id if not fit_id.is_empty() else id
 	var base := _persisted_placement_default_values()
 	if use_draft:
@@ -492,8 +493,8 @@ static func anatomy_placement_default(id: String, use_draft: bool = true,
 	var placed := PLACEMENT.merge(base, shipped)
 	var provided := MARE_REGISTRY.placement(key)
 	if provided.is_empty():
-		return placed
-	return PLACEMENT.merge(placed, provided)
+		return ROWS.Rows.of(placed)
+	return ROWS.Rows.of(PLACEMENT.merge(placed, provided))
 
 
 static func _persisted_placement_default_values() -> Dictionary:
@@ -514,17 +515,17 @@ static func _persisted_placement_default_values() -> Dictionary:
 
 ## The placement a mare actually uses: her player override, then the shipped per-mare default, then
 ## the global default. The override is keyed by her stable id, so a changed body keeps her edit.
-static func anatomy_placement(id: String, fit_id: String = "") -> Dictionary:
-	var base := anatomy_placement_default(id, true, fit_id)
+static func anatomy_placement(id: String, fit_id: String = "") -> ROWS.Rows:
+	var base := anatomy_placement_default(id, true, fit_id).raw()
 	var data := _read()
 	var anatomy: Variant = data.get("anatomy", {})
 	if not anatomy is Dictionary:
-		return base
+		return ROWS.Rows.of(base)
 	var placement: Variant = (anatomy as Dictionary).get("placement", {})
 	if not placement is Dictionary:
-		return base
+		return ROWS.Rows.of(base)
 	var over: Variant = (placement as Dictionary).get(id, {})
-	return PLACEMENT.merge(base, over)
+	return ROWS.Rows.of(PLACEMENT.merge(base, over))
 
 
 static func anatomy_placement_has_override(id: String, fit_id: String = "") -> bool:
@@ -538,13 +539,13 @@ static func anatomy_placement_has_override(id: String, fit_id: String = "") -> b
 	var over: Variant = (placement as Dictionary).get(id, {})
 	if not over is Dictionary or (over as Dictionary).is_empty():
 		return false
-	var base := anatomy_placement_default(id, false, fit_id)
+	var base := anatomy_placement_default(id, false, fit_id).raw()
 	return not PLACEMENT.same(PLACEMENT.merge(base, over), base)
 
 
 ## The player-part placement. It is one global block, never per-mare.
-static func anon_placement() -> Dictionary:
-	return PLACEMENT.sanitize({
+static func anon_placement() -> ROWS.Rows:
+	return ROWS.Rows.of(PLACEMENT.sanitize({
 		"offset_x": anon_offset_x.get_num(),
 		"offset_y": anon_offset_y.get_num(),
 		"offset_z": anon_offset_z.get_num(),
@@ -556,16 +557,16 @@ static func anon_placement() -> Dictionary:
 		"offset_z": float(anon_offset_z.default),
 		"pitch_deg": float(anon_pitch_deg.default),
 		"scale": float(anon_scale.default),
-	})
+	}))
 
 
 ## Store only the keys that differ from the mare's default. An empty diff removes the override.
-static func save_anatomy_placement(id: String, values: Dictionary,
+static func save_anatomy_placement(id: String, values: ROWS.Rows,
 		fit_id: String = "") -> void:
 	if id.is_empty() or id == "default" or id == "anon":
 		return
-	var base := anatomy_placement_default(id, false, fit_id)
-	var current := PLACEMENT.sanitize(values, base)
+	var base := anatomy_placement_default(id, false, fit_id).raw()
+	var current := PLACEMENT.sanitize(values.raw(), base)
 	var over := PLACEMENT.diff(current, base)
 	var data := _draft()
 	var anatomy: Variant = data.get("anatomy", {})
@@ -588,8 +589,8 @@ static func save_anatomy_placement(id: String, values: Dictionary,
 
 
 ## Persist the unsaved default preview.
-static func save_anatomy_placement_default(values: Dictionary) -> void:
-	var current := PLACEMENT.sanitize(values, _declared_placement_defaults())
+static func save_anatomy_placement_default(values: ROWS.Rows) -> void:
+	var current := PLACEMENT.sanitize(values.raw(), _declared_placement_defaults())
 	_placement_draft = {}
 	offset_x.set_num(float(current["offset_x"]))
 	offset_y.set_num(float(current["offset_y"]))
@@ -610,8 +611,8 @@ static func reset_anatomy_placement_default() -> void:
 	placement_revision += 1
 
 
-static func set_anatomy_placement_draft(values: Dictionary) -> void:
-	_placement_draft = PLACEMENT.sanitize(values, _declared_placement_defaults())
+static func set_anatomy_placement_draft(values: ROWS.Rows) -> void:
+	_placement_draft = PLACEMENT.sanitize(values.raw(), _declared_placement_defaults())
 	placement_revision += 1
 
 
@@ -626,8 +627,8 @@ static func has_anatomy_placement_draft() -> bool:
 	return not _placement_draft.is_empty()
 
 
-static func anatomy_placement_draft_values() -> Dictionary:
-	return _placement_default_values()
+static func anatomy_placement_draft_values() -> ROWS.Rows:
+	return ROWS.Rows.of(_placement_default_values())
 
 
 ## Settings in one tab, in declaration order.
@@ -1777,187 +1778,143 @@ const SCHEMA_VERSION := 10
 
 ## Retired settings, declared where their replacement lives. `map` turns the stored value into the
 ## dictionary to merge, or drops it; applied before the defaults merge, so no retired key lingers.
-static var _deprecated := [
+static var _deprecated: Array[DEPRECATION.Rule] = [
 	# Caress settings moved from pose blocks to one shared `caress.*` block.
-	deprecated("presentation.standing.caress.palm_distance",
-		func(value: Variant) -> Dictionary: return {"caress.hover_m": value}),
-	deprecated("presentation.missionary.caress.over_coat_m",
-		func(value: Variant) -> Dictionary: return {"caress.hover_m": value}),
-	deprecated("presentation.missionary.caress.normal_blur_m",
-		func(value: Variant) -> Dictionary: return {"caress.normal_blur_m": value}),
-	deprecated("presentation.missionary.caress.normal_deg_s",
-		func(value: Variant) -> Dictionary: return {"caress.normal_deg_s": value}),
-	deprecated("presentation.missionary.caress.contact_smooth",
-		func(value: Variant) -> Dictionary: return {"caress.contact_smooth": value}),
-	deprecated("presentation.standing.caress.ignore",
-		func(value: Variant) -> Dictionary: return {"caress.ignore": value}),
-	deprecated("presentation.standing.caress.oval_across_m",
-		func(value: Variant) -> Dictionary: return {"caress.oval_across_m": value}),
-	deprecated("presentation.standing.caress.oval_up_m",
-		func(value: Variant) -> Dictionary: return {"caress.oval_up_m": value}),
-	deprecated("presentation.standing.caress.palm_scale.canon",
-		func(value: Variant) -> Dictionary: return {"caress.palm_scale.canon": value}),
-	deprecated("presentation.standing.caress.palm_scale.mounting",
-		func(value: Variant) -> Dictionary: return {"caress.palm_scale.mounting": value}),
-	deprecated("presentation.standing.caress.palm_scale.same height",
-		func(value: Variant) -> Dictionary: return {"caress.palm_scale.same height": value}),
-	deprecated("presentation.standing.caress.palm_scale.hoers",
-		func(value: Variant) -> Dictionary: return {"caress.palm_scale.hoers": value}),
+	deprecated("presentation.standing.caress.palm_distance").into("caress.hover_m"),
+	deprecated("presentation.missionary.caress.over_coat_m").into("caress.hover_m"),
+	deprecated("presentation.missionary.caress.normal_blur_m").into("caress.normal_blur_m"),
+	deprecated("presentation.missionary.caress.normal_deg_s").into("caress.normal_deg_s"),
+	deprecated("presentation.missionary.caress.contact_smooth").into("caress.contact_smooth"),
+	deprecated("presentation.standing.caress.ignore").into("caress.ignore"),
+	deprecated("presentation.standing.caress.oval_across_m").into("caress.oval_across_m"),
+	deprecated("presentation.standing.caress.oval_up_m").into("caress.oval_up_m"),
+	deprecated("presentation.standing.caress.palm_scale.canon").into("caress.palm_scale.canon"),
+	deprecated("presentation.standing.caress.palm_scale.mounting").into("caress.palm_scale.mounting"),
+	deprecated("presentation.standing.caress.palm_scale.same height") \
+		.into("caress.palm_scale.same height"),
+	deprecated("presentation.standing.caress.palm_scale.hoers").into("caress.palm_scale.hoers"),
 	# Retired caress switches and tuning with no replacement. The caress always uses the posed
 	# coat surface now, so the old precise switch has no value to carry over.
-	deprecated("features.caress_surface",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("features.caress_hand_shape",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("features.caress_reach_body_m",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("features.caress_reach_stretch",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.caress.along_m",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.caress.oval_scale",
-		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.caress_surface"),
+	deprecated("features.caress_hand_shape"),
+	deprecated("features.caress_reach_body_m"),
+	deprecated("features.caress_reach_stretch"),
+	deprecated("presentation.missionary.caress.along_m"),
+	deprecated("presentation.missionary.caress.oval_scale"),
 	# The dock used to be hidden by a `true` switch; keep the player's choice across the rename.
-	deprecated("anatomy.hide_dock",
-		func(value: Variant) -> Dictionary: return {"anatomy.show_dock": not bool(value)}),
+	deprecated("anatomy.hide_dock").mapped(func(value: Variant) -> Dictionary:
+		return {"anatomy.show_dock": not bool(value)}),
 	# The dock visibility and colour switches merged into one style pill. The colour lands first,
 	# then `show_dock` overrides it with Hide when the dock was off.
-	deprecated("anatomy.dock_color",
-		func(value: Variant) -> Dictionary: return {"anatomy.dock_style": str(value)}),
-	deprecated("anatomy.show_dock", func(value: Variant) -> Dictionary:
+	deprecated("anatomy.dock_color").mapped(func(value: Variant) -> Dictionary:
+		return {"anatomy.dock_style": str(value)}),
+	deprecated("anatomy.show_dock").mapped(func(value: Variant) -> Dictionary:
 		return {} if bool(value) else {"anatomy.dock_style": "hide"}),
 	# The marked-area caress path is the only standing path; the switch is retired.
-	deprecated("features.caress_areas", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.caress_areas"),
 	# The act key always accepts and the Agreement owns visibility; both switches are retired.
-	deprecated("relationship.sex_start", func(_value: Variant) -> Dictionary: return {}),
-	deprecated("features.act_public_offer", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("relationship.sex_start"),
+	deprecated("features.act_public_offer"),
 	# The missionary view is his own eye now, so the eye/shot switch and its third-person deviation
 	# are retired with no value to carry over.
-	deprecated("presentation.missionary.camera_mode",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.third_person",
-		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.camera_mode"),
+	deprecated("presentation.missionary.third_person"),
 	# The relationship rows always decide; the one-switch bypass is retired.
-	deprecated("relationship.ignore_gates", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("relationship.ignore_gates"),
 	# Acts always end an active cuddle; the switch is retired.
-	deprecated("features.allow_act_during_cuddle",
-		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.allow_act_during_cuddle"),
 	# The body slap only fires at true contact; the gap epsilon is retired.
-	deprecated("thrust.contact_gap_m", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("thrust.contact_gap_m"),
 	# The tip rests at her entrance before the first thrust; the standoff is fixed at zero.
-	deprecated("anatomy.back_out_m", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("anatomy.back_out_m"),
 	# A climax has no inside/outside finish choice; the finish selection is retired.
-	deprecated("features.anatomy_finish", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.anatomy_finish"),
 	# Only the base-game squee plays at her climax; the pack wet layer is retired.
-	deprecated("features.act_climax", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.act_climax"),
 	# Her climax always runs the full Kissing fidget set; the switch is retired.
-	deprecated("features.kissing_full_fidgets", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.kissing_full_fidgets"),
 	# The pose framework no longer speaks to Idle Life; the stretch integration is retired.
-	deprecated("features.idle_life_stretch", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.idle_life_stretch"),
 	# Standing Anon always keeps the game's stepping feet; the planted-body switches are retired.
-	deprecated("features.standing_plant_feet", func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.standing.plant_spread_m",
-		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.standing_plant_feet"),
+	deprecated("presentation.standing.plant_spread_m"),
 	# Unprompted act lines and their fresh-angle wording are always on; both switches are retired.
-	deprecated("features.act_lines", func(_value: Variant) -> Dictionary: return {}),
-	deprecated("features.act_line_angles", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.act_lines"),
+	deprecated("features.act_line_angles"),
 	# The standing VR act always starts on a headset, so the switch has nothing left to gate.
-	deprecated("features.anatomy_vr", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.anatomy_vr"),
 	# One mare bits mesh ships with the pack; the mesh choice is retired.
-	deprecated("anatomy.mare_bits", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("anatomy.mare_bits"),
 	# The coat line always follows the body coat; the strength switch is retired.
-	deprecated("anatomy.coat_follow", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("anatomy.coat_follow"),
 	# The separate log switch folded into the debug switch.
-	deprecated("debug_logs", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("debug_logs"),
 	# The hull precision became separate width and height cells.
-	deprecated("debug.pantyhose_hull_resolution", func(value: Variant) -> Dictionary:
+	deprecated("debug.pantyhose_hull_resolution").mapped(func(value: Variant) -> Dictionary:
 		return {"debug.pantyhose_hull_width": value, "debug.pantyhose_hull_height": value}),
 	# The adapter rebuilds the hull every frame, so there is no refresh rate to tune.
-	deprecated("debug.pantyhose_update_hz", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("debug.pantyhose_update_hz"),
 	# Missionary is one authored pose and one authored shot now; the correction stack, its neck
 	# offsets and its frozen-shot tuning are retired.
-	deprecated("presentation.missionary.authored_base",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.forward", func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.height", func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.pitch_deg",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.pullback",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.side", func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.pose_hold",
-		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.authored_base"),
+	deprecated("presentation.missionary.forward"),
+	deprecated("presentation.missionary.height"),
+	deprecated("presentation.missionary.pitch_deg"),
+	deprecated("presentation.missionary.pullback"),
+	deprecated("presentation.missionary.side"),
+	deprecated("presentation.missionary.pose_hold"),
 	# The authored pose holds the belly; the tilt is retired.
-	deprecated("presentation.missionary.belly_down_deg",
-		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.belly_down_deg"),
 	# The authored shots are the whole framing now: the live shot offsets, the side-lean travel and
 	# the upper-body base lean are retired.
-	deprecated("presentation.missionary.side_lean",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.upper_lean_deg",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.shot_forward",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.shot_height",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.shot_side",
-		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.side_lean"),
+	deprecated("presentation.missionary.upper_lean_deg"),
+	deprecated("presentation.missionary.shot_forward"),
+	deprecated("presentation.missionary.shot_height"),
+	deprecated("presentation.missionary.shot_side"),
 	# The vulva trim moved from Anatomy to the Missionary section; keep a tuned value.
-	deprecated("anatomy.vulva_pose_shift_mm",
-		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.size.canon.vulva_shift_mm": float(value)}),
-	deprecated("anatomy.vulva_pose_pitch_deg",
-		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.size.canon.vulva_pitch_deg": float(value)}),
+	deprecated("anatomy.vulva_pose_shift_mm").mapped(func(value: Variant) -> Dictionary:
+		return {"presentation.missionary.size.canon.vulva_shift_mm": float(value)}),
+	deprecated("anatomy.vulva_pose_pitch_deg").mapped(func(value: Variant) -> Dictionary:
+		return {"presentation.missionary.size.canon.vulva_pitch_deg": float(value)}),
 	# The six missionary geometry values became per-size. The old single value seeds Canon.
-	deprecated("presentation.missionary.vulva_shift_mm",
-		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.size.canon.vulva_shift_mm": float(value)}),
-	deprecated("presentation.missionary.vulva_pitch_deg",
-		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.size.canon.vulva_pitch_deg": float(value)}),
-	deprecated("presentation.missionary.vulva_depth_shift_mm",
-		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.size.canon.vulva_depth_shift_mm": float(value)}),
-	deprecated("presentation.missionary.vulva_hug_mm",
-		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.size.canon.vulva_hug_mm": float(value)}),
-	deprecated("presentation.missionary.head_clearance_mm",
-		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.size.canon.head_clearance_mm": float(value)}),
-	deprecated("presentation.missionary.gaze_offset_mm",
-		func(value: Variant) -> Dictionary:
-			return {"presentation.missionary.size.canon.gaze_offset_mm": float(value)}),
+	deprecated("presentation.missionary.vulva_shift_mm").mapped(func(value: Variant) -> Dictionary:
+		return {"presentation.missionary.size.canon.vulva_shift_mm": float(value)}),
+	deprecated("presentation.missionary.vulva_pitch_deg").mapped(func(value: Variant) -> Dictionary:
+		return {"presentation.missionary.size.canon.vulva_pitch_deg": float(value)}),
+	deprecated("presentation.missionary.vulva_depth_shift_mm").mapped(func(value: Variant) -> Dictionary:
+		return {"presentation.missionary.size.canon.vulva_depth_shift_mm": float(value)}),
+	deprecated("presentation.missionary.vulva_hug_mm").mapped(func(value: Variant) -> Dictionary:
+		return {"presentation.missionary.size.canon.vulva_hug_mm": float(value)}),
+	deprecated("presentation.missionary.head_clearance_mm").mapped(func(value: Variant) -> Dictionary:
+		return {"presentation.missionary.size.canon.head_clearance_mm": float(value)}),
+	deprecated("presentation.missionary.gaze_offset_mm").mapped(func(value: Variant) -> Dictionary:
+		return {"presentation.missionary.size.canon.gaze_offset_mm": float(value)}),
 	# The act always shows and poses Anon's body, so the anatomy master no longer gates it.
-	deprecated("features.anatomy_bed_body", func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.head_pitch_deg",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.head_roll_deg",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.neck1_deg",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.neck2_deg",
-		func(_value: Variant) -> Dictionary: return {}),
-	deprecated("presentation.missionary.neck_roll_deg",
-		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.anatomy_bed_body"),
+	deprecated("presentation.missionary.head_pitch_deg"),
+	deprecated("presentation.missionary.head_roll_deg"),
+	deprecated("presentation.missionary.neck1_deg"),
+	deprecated("presentation.missionary.neck2_deg"),
+	deprecated("presentation.missionary.neck_roll_deg"),
 	# Pack foley is always on; the switch is retired.
-	deprecated("features.act_foley", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.act_foley"),
 	# The pack climax moan is gone; the wet finish keeps its own switch.
-	deprecated("features.act_vocals", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.act_vocals"),
 	# Act history is always recorded; the switch is retired.
-	deprecated("features.act_history", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.act_history"),
 	# Act faces always play; the switch is retired.
-	deprecated("features.act_faces", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.act_faces"),
 	# Bystander lines are always on and the body-yaw debug aid is gone; both switches are retired.
-	deprecated("features.act_bystanders", func(_value: Variant) -> Dictionary: return {}),
-	deprecated("player.body_yaw_deg", func(_value: Variant) -> Dictionary: return {}),
+	deprecated("features.act_bystanders"),
+	deprecated("player.body_yaw_deg"),
 	# Thrust sensitivity is now a physical scale: pixels per centimetre of hip travel. The old
 	# value was pixels for one full stroke; 20 cm is the reference shaft, so its feel is kept.
-	deprecated("thrust.pixels_per_full",
-		func(value: Variant) -> Dictionary: return {"thrust.pixels_per_cm": float(value) / 20.0}),
+	deprecated("thrust.pixels_per_full").mapped(func(value: Variant) -> Dictionary:
+		return {"thrust.pixels_per_cm": float(value) / 20.0}),
 	# The single wink multiplier became an explicit opening range. Map the old 45-88% authored
 	# spread through the saved multiplier so the same beats are kept.
-	deprecated("anatomy.wink_peak", func(value: Variant) -> Dictionary:
+	deprecated("anatomy.wink_peak").mapped(func(value: Variant) -> Dictionary:
 		var peak := maxf(float(value), 0.0)
 		return {
 			"anatomy.wink_open_min": clampf(0.45 * peak, 0.0, 1.0),
@@ -1967,8 +1924,8 @@ static var _deprecated := [
 
 
 ## One retired setting; list it with its replacement above.
-static func deprecated(path: String, map: Callable) -> Dictionary:
-	return {"path": path, "map": map}
+static func deprecated(path: String) -> DEPRECATION.Rule:
+	return DEPRECATION.Rule.new(path)
 
 static func _path() -> String:
 	var loop := Engine.get_main_loop() as SceneTree
@@ -2686,8 +2643,8 @@ static func reload_file() -> void:
 
 ## The merged settings view, detached from the live cache. Public callers (the tools, the suites)
 ## own the copy; the mod's internal readers use the shared view.
-static func data() -> Dictionary:
-	return _draft()
+static func data() -> ROWS.Rows:
+	return ROWS.Rows.of(_draft())
 
 
 static func aftercare_min(id: String) -> int:
@@ -2748,13 +2705,13 @@ static func _profile_merge(base: Dictionary, characters: Dictionary, id: String)
 	return _fill_pose_defaults(selected)
 
 
-static func pose(id: String, pose_id: String) -> Dictionary:
+static func pose(id: String, pose_id: String) -> ROWS.Rows:
 	var poses: Dictionary = template_for(id).rows("poses").raw()
 	if poses.has(pose_id):
 		var value: Variant = poses[pose_id]
 		if value is Dictionary:
-			return (value as Dictionary).duplicate(true)
-	return CATALOG.defaults(pose_id)
+			return ROWS.Rows.of((value as Dictionary).duplicate(true))
+	return ROWS.Rows.of(CATALOG.defaults(pose_id))
 
 
 ## The merged settings view, parsed, migrated and written back on the first call. Read-only:
@@ -2949,11 +2906,11 @@ static func _short_leaf(data: Dictionary, path: String) -> String:
 
 ## The shipped defaults document plus the code-owned section state. Detached, and empty when the
 ## shipped document is invalid.
-static func defaults() -> Dictionary:
+static func defaults() -> ROWS.Rows:
 	var base := _defaults()
 	if base.is_empty():
-		return {}
-	return base.duplicate(true)
+		return ROWS.Rows.of({})
+	return ROWS.Rows.of(base.duplicate(true))
 
 
 ## The shipped defaults document, parsed once by the defaults data module. Empty, plus one logged
@@ -3064,18 +3021,16 @@ static func _profile_characters(data: Dictionary) -> Dictionary:
 ## Retired settings, then the version-gated structural steps. The retired entries always run, so a
 ## retired key can never linger; each structural step runs once, on an older file.
 static func _migrate(data: Dictionary, version := 0) -> Dictionary:
-	for entry: Variant in _deprecated:
-		var path := str((entry as Dictionary).get("path", ""))
-		var value: Variant = _read_path(data, path, null)
+	for rule: DEPRECATION.Rule in _deprecated:
+		var value: Variant = _read_path(data, rule.path, null)
 		# A dictionary at a retired leaf is the new nested block that shares its name, not a value
 		# to convert; leave it for the declarations that own it.
 		if value == null or value is Dictionary:
 			continue
-		var mapped: Variant = ((entry as Dictionary).get("map") as Callable).call(value)
-		_erase_path(data, path)
-		if mapped is Dictionary:
-			for key: Variant in (mapped as Dictionary).keys():
-				_write_path(data, str(key), (mapped as Dictionary)[key])
+		var mapped := rule.apply(value)
+		_erase_path(data, rule.path)
+		for key: Variant in mapped.keys():
+			_write_path(data, str(key), mapped[key])
 	if version >= SCHEMA_VERSION:
 		return data
 	if version < 9:

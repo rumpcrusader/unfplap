@@ -432,7 +432,7 @@ func _start_reasoning(candidate: Candidate) -> void:
 	_reasoning_pending = true
 	LOG.debug("request reasoning start id=%s options=%d", [candidate.id, candidate.options.size()])
 	var payload := REASONING.payload(candidate.context, candidate.options)
-	var started := _adapter.complete_raw(REASONING.INSTRUCTION, payload,
+	var started := _adapter.complete_raw(REASONING.instruction(), payload,
 		_reasoning_scope,
 		func(reply: String, error: String) -> void:
 			_on_reasoning(candidate, serial, reply, error))

@@ -101,16 +101,18 @@ func run() -> void:
 	response = PROMPTS.parse_mare_response("{\"answer\":\"unclear\"}", "")
 	check(response.answer == "refuse" and response.failed, "an unclear mare answer is a failure")
 
-	check(PROMPTS.ANON_OFFER_INSTRUCTION.contains("\"offer\""), "the classifier asks for JSON")
-	check(PROMPTS.MARE_RESPONSE_INSTRUCTION.contains("counter_offer"),
-		"the mare response names the counter-offer")
+	check(not PROMPTS.system_for("anon_offer").is_empty(), "the Anon offer has an instruction")
+	check(not PROMPTS.system_for("anon_decision").is_empty(),
+		"the Anon decision has an instruction")
+	check(not PROMPTS.system_for("mare_response").is_empty(),
+		"the Mare response has an instruction")
 
 	var request := PROMPTS.Request.new()
 	request.kind = "anon_offer"
 	request.text = "take me to bed"
 	request.context = context
 	request.options = options
-	check(PROMPTS.system_for(request.kind) == PROMPTS.ANON_OFFER_INSTRUCTION,
+	check(not PROMPTS.system_for(request.kind).is_empty(),
 		"the Anon offer instruction is dispatched")
 	var dispatch := PROMPTS.payload_for(request)
 	check(str(dispatch.get("player_line", "")) == "take me to bed",

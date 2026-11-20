@@ -357,6 +357,7 @@ No setting is read directly. The bridge's `relationship_ok` reads the Promiscuit
 | service | world | `world/game.gd` | the director's clock, sub-systems and model configuration |
 | shared | clearance | `shared/clearance.gd` | Base clearance result |
 | shared | context | `shared/context.gd` | typed Context snapshot |
+| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
 | shared | log | `shared/log.gd` | log sink |
 | shared | perf | `shared/perf.gd` | one profiler |
 | shared | pony_id | `shared/pony_id.gd` | stable mare id |
@@ -364,6 +365,7 @@ No setting is read directly. The bridge's `relationship_ok` reads the Promiscuit
 | shared | pose_options | `shared/pose_options.gd` | the available options and exact match |
 | shared | pose_placement | `shared/pose_placement.gd` | the frozen source capability |
 | shared | pose_specs | `shared/pose_specs.gd` | the frozen pose capability |
+| shared | prompt_text | `shared/prompt_text.gd` | the prompt renderer |
 | shared | relationship_cue | `shared/relationship_cue.gd` | the relationship prompt note |
 | store | act_history | `shared/act_history.gd` | the offer history note |
 

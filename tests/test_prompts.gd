@@ -24,6 +24,8 @@ const CONSUMER_IDS := [
 	"ask.modes.context_public", "ask.modes.context_free", "ask.modes.context_free_bed",
 	"ask.modes.context_free_standing", "ask.modes.purpose_public", "ask.modes.purpose_free",
 	"ask.modes.purpose_free_bed", "ask.modes.purpose_free_standing",
+	"classify.anon_offer", "classify.anon_decision", "classify.mare_response",
+	"classify.mare_offer",
 	"history.tiers", "history.tiers.stop", "history.tiers.withdrawn", "history.tiers.hurt",
 	"history.tiers.hint", "history.lines", "history.lines.reminder", "history.lines.complaint",
 	"history.lines.ask", "history.lines.refusal_stop", "history.lines.refusal",

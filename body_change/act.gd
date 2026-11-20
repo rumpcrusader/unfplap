@@ -171,7 +171,6 @@ func resume() -> bool:
 	host.reset_lean()
 	host.prepare_start_camera()
 	host.open_camera()
-	host.hide_avatar()
 	host.reset_wings()
 	host.claim_nav()
 	host.pause_face_turn()

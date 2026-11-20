@@ -1,6 +1,6 @@
 extends RefCounted
-## The act camera session: the lean and its smoothing, the thrust camera, the debug free look,
-## the standing eye override and the captured player look.
+## The act camera session: the lean and its smoothing, the thrust camera, the debug free look and
+## the size/torso values the view and the hands read. The frame owns the player state.
 ## Contract: docs/camera.md.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -57,10 +57,6 @@ var look_restore_yaw := true
 var camera: Camera3D = null
 var free_camera_active := false
 var camera_basis_ready := false
-var restore_yaw := 0.0
-var restore_pitch := 0.0
-var controls_locked_saved := false
-var controls_locked_by_camera := false
 
 ## The lean. `lean_forward`/`lean_side` are the input target; `lean_view_*` the smoothed view and
 ## `lean_sway` the idle-breathing offset the shot adds on top (never folded into the view).
@@ -95,12 +91,6 @@ var camera_bob: float
 ## The player look the act captured and the live view it applies.
 var look_yaw := 0.0
 var look_pitch := 0.0
-
-## The standing eye override: the act raises or lowers the player's own eye height while it runs.
-var eye_override := false
-var saved_stand_eye := 0.0
-var saved_eye_height := 0.0
-var camera_target_eye := 0.0
 
 ## Debug free look: the player camera replaces the act shot and the mouse looks instead of
 ## thrusting. The rotation is held from the act's starting view.
@@ -236,8 +226,6 @@ func begin_act_shot(family: String, player_pony: bool, headset: bool) -> bool:
 	open_shot()
 	if standing_anon != null:
 		standing_anon.reset_phase()
-	if missionary_camera != null:
-		missionary_camera.reset_look()
 	if headset and not player_pony and family == "standing":
 		return true
 	if player_pony or headset:
@@ -248,7 +236,6 @@ func begin_act_shot(family: String, player_pony: bool, headset: bool) -> bool:
 	if family == "standing" and is_instance_valid(camera):
 		standing_camera.prepare()
 		standing_anon.install()
-	apply_free_camera_lock()
 	return false
 
 
@@ -260,10 +247,8 @@ func release_act_shot() -> void:
 	end_lean_action()
 	if hands != null:
 		hands.reset()
-	release_free_camera_lock()
 	if standing_anon != null:
 		standing_anon.remove()
-	restore_eye_override()
 	if missionary_camera != null:
 		missionary_camera.release()
 
@@ -556,28 +541,6 @@ func reset_lean_state() -> void:
 	hold_rock_clock = 0.0
 
 
-## Free camera owns the movement keys completely: Anon cannot walk, shift on the bed, jump or
-## start couch actions while the shot is active. The previous value is restored at act end.
-func apply_free_camera_lock() -> void:
-	var body: Variant = player_body()
-	if not is_instance_valid(body):
-		return
-	if not controls_locked_by_camera:
-		controls_locked_saved = bool(body.get("controls_locked"))
-		controls_locked_by_camera = true
-	body.set("controls_locked", true)
-
-
-func release_free_camera_lock() -> void:
-	if not controls_locked_by_camera:
-		return
-	var body: Variant = player_body()
-	if is_instance_valid(body):
-		body.set("controls_locked", controls_locked_saved)
-	controls_locked_by_camera = false
-	controls_locked_saved = false
-
-
 ## Middle of the neck chain: midpoint of pony_neck1 and pony_neck2 world origins.
 func neck_midpoint() -> Vector3:
 	var pony: Variant = facts.pony if facts != null else null
@@ -710,123 +673,14 @@ func tick_free_look() -> void:
 	LOG.debug("free look %s", [("on" if active else "off")])
 
 
-## Recompute the shot for a presented body form. The old override is undone first, so a revision
-## cannot compound it; the player frame re-applies the stance for the new form.
-func reset_for_form(family: String, _player_pony: bool,
-		_form: BODY_FORM.BodyForm = null) -> void:
+## Recompute the live view for a presented body form: the old shot state is dropped and the frame
+## re-applies the stance for the new form.
+func reset_for_form(family: String) -> void:
 	reset_shot()
 	camera_basis_ready = false
-	restore_eye_override()
-	camera_target_eye = 0.0
-	if facts != null:
-		facts.player_eye_height = player_eye_height()
 	if family == "standing":
-		if standing_camera != null:
-			if standing_camera.has_method("restore"):
-				standing_camera.call("restore")
-			if standing_camera.has_method("reset"):
-				standing_camera.call("reset")
-	elif family == "bed":
-		if missionary_camera != null and missionary_camera.has_method("reset_look"):
-			missionary_camera.call("reset_look")
-
-
-## Standing eye height follows the body preset, raised to her live rest eye line but never above
-## Anon's own eye; missionary and AnonPony keep their own heights.
-func apply_eye_override(family: String, player_pony: bool,
-		form: BODY_FORM.BodyForm = null) -> void:
-	camera_target_eye = 0.0
-	if family == "bed" or player_pony:
-		return
-	var body: Variant = player_body()
-	if not is_instance_valid(body):
-		return
-	if body.get("_stand_eye") == null or body.get("seat") != null:
-		return
-	# Re-applying the same form must read the player's true base, not the eye this function
-	# already lowered. A late body scale otherwise compounds the override on every revision.
-	var base := saved_stand_eye if eye_override else player_eye_height()
-	var her_eye := pony_eye_height()
-	var entrance := entrance_offset_for(form)
-	var target := BODY_PROFILE.standing_eye(base, size_scale(), her_eye, entrance)
-	camera_target_eye = target
-	if absf(target - base) > 0.001:
-		LOG.debug("eye line base=%.2f preset=%.2f her=%.2f shift=%+.3f target=%.2f", [
-			base, base * size_scale(), her_eye, entrance.x, target])
-	if absf(target - base) < 0.001:
-		# The new form needs no crouch. Give back any previous override instead of leaving the
-		# old lower eye in place.
-		restore_eye_override()
-		return
-	if eye_override and absf(target - float(body.get("_stand_eye"))) < 0.0001:
-		return
-	if not eye_override:
-		saved_stand_eye = float(body.get("_stand_eye"))
-		saved_eye_height = float(body.get("_eye_height"))
-		eye_override = true
-	body.set("_stand_eye", target)
-	body.set("_eye_height", target)
-	if body.has_method("_set_eye_y"):
-		body.call("_set_eye_y", target)
-	LOG.debug("eye override standing base=%.2f target=%.2f", [base, target])
-
-
-func restore_eye_override() -> void:
-	if not eye_override:
-		return
-	eye_override = false
-	var body: Variant = player_body()
-	if not is_instance_valid(body):
-		return
-	if body.get("_stand_eye") != null:
-		body.set("_stand_eye", saved_stand_eye)
-	if body.get("_eye_height") != null:
-		body.set("_eye_height", saved_eye_height)
-	if body.has_method("_set_eye_y"):
-		body.call("_set_eye_y", saved_stand_eye)
-
-
-## Snapshot the player look before the act turns the camera.
-func capture_look() -> void:
-	var body: Variant = player_body()
-	if not is_instance_valid(body):
-		return
-	restore_yaw = float(body.rotation.y)
-	var pitch: Variant = body.get("_pitch")
-	restore_pitch = float(pitch) if pitch != null else 0.0
-	look_yaw = restore_yaw
-	look_pitch = restore_pitch
-	look_captured = true
-
-
-## Restore the player look captured at act start; standing leaves Anon facing where the act left
-## him, since snapping the pre-act view back looks worse.
-func restore_look(family: String) -> void:
-	if not look_captured:
-		return
-	look_captured = false
-	var body: Variant = player_body()
-	if not is_instance_valid(body):
-		return
-	var yaw := restore_yaw
-	if look_restore_yaw:
-		# Missionary restores the exact start snapshot; use its rig yaw rather than the later
-		# capture.
-		if family == "bed" and missionary_camera != null:
-			var saved_yaw: float = missionary_camera.call("snapshot_yaw")
-			if not is_nan(saved_yaw):
-				yaw = saved_yaw
-		body.rotation.y = yaw
-		if body.get("_pitch") != null:
-			body.set("_pitch", restore_pitch)
-		if body.get("form_driver") == null:
-			var view := main_camera()
-			if is_instance_valid(view):
-				view.rotation.x = restore_pitch
-				view.rotation.z = 0.0
-	reset_lean_state()
-	LOG.debug("look restored yaw=%.3f (captured %.3f) pitch=%.3f restore=%s", [
-		yaw, restore_yaw, restore_pitch, str(look_restore_yaw)])
+		if standing_camera != null and standing_camera.has_method("reset"):
+			standing_camera.call("reset")
 
 
 ## The current body preset name, or "" when no Settings node is reachable (a suite runtime).
@@ -893,6 +747,12 @@ func pony_eye_height() -> float:
 	var body: Variant = player_body()
 	var floor_y := (body as Node3D).global_position.y if body is Node3D else 0.0
 	return eye.y - floor_y
+
+
+## The player-head clearance for the bed view: the pad over her skull and muzzle radii at the
+## current size preset.
+func head_clearance_m() -> float:
+	return SETTINGS.head_clearance_mm_for(SETTINGS.pony_size_name()) / 1000.0
 
 
 ## How far the presented form's entrance sits from the mare's every standing offset was tuned on,

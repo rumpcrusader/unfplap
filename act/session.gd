@@ -100,9 +100,6 @@ var climax_mode: String:
 		return settings.climax_mode
 	set(value):
 		settings.climax_mode = value
-var eye_camera_mode: bool:
-	get:
-		return settings.eye_camera_mode
 var _pose_in_left := 0.0
 var _climax_left := 0.0
 var _restore_left := 0.0

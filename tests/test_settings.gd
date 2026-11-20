@@ -521,7 +521,7 @@ func _check_snapshot() -> void:
 		"the act snapshot carries the feature flags")
 	check(snap.caress_quality == SETTINGS.quality.get_choice(),
 		"the act snapshot carries the caress quality")
-	check(snap.presentation.has("camera_mode"), "the act snapshot carries the pose presentation")
+	check(snap.presentation.has("free_look"), "the act snapshot carries the pose presentation")
 	var standing := SETTINGS.act_snapshot("standing")
 	check(standing.presentation.has("chin_up_deg") and standing.presentation.has("neck_down_deg"),
 		"the standing group carries its presentation block")
@@ -892,13 +892,13 @@ func _check_section_folding() -> void:
 	var list := VBoxContainer.new()
 	var fold: Array = [
 		SETTINGS.by_path("presentation.missionary.size.canon.gaze_offset_mm"),
-		SETTINGS.by_path("presentation.missionary.camera_mode"),
+		SETTINGS.by_path("presentation.missionary.anon_size_match"),
 	]
 	SETTINGS_UI._build_sections(list, SETTINGS.POSES, "", fold, 16, null, Callable())
 	var labels: Array = []
 	_collect_labels(list, labels)
 	check(labels.count("Missionary") == 1, "an interleaved section draws one heading")
-	check(labels.has("Gaze height") and labels.has("Camera"),
+	check(labels.has("Gaze height") and labels.has("Anon size match"),
 		"an interleaved section keeps every row")
 	check(labels.has("Size"), "the per-size section draws its dropdown")
 	check(not labels.has("Bob"), "the Poses sections draw no General camera row")

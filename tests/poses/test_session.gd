@@ -529,8 +529,8 @@ func _check_diagnostics() -> void:
 	pony.free()
 
 
-## The render-time step: the avatar park, the Anon placement, her pose write and the eye camera, in
-## that order, and nothing outside the bed family.
+## The render-time step: the Anon placement, her pose write and the live eye view, in that order,
+## and nothing outside the bed family.
 func _check_render_write() -> void:
 	var made := _session(CATALOG.MISSIONARY)
 	var session: RefCounted = made["session"]
@@ -541,25 +541,18 @@ func _check_render_write() -> void:
 	root.add_child(body)
 	session.act_body = body
 	session._view.family = "bed"
-	session.hide_avatar = func() -> void: order.append("hide")
 	session.eye_camera = func() -> void: order.append("eye")
-	session.render_write({"bed_frame": Transform3D.IDENTITY,
-		"body_scale": 0.66, "eye_camera_active": false})
-	check(order == ["hide", "anon"], "the render write parks the avatar and places the Anon body")
-	session.render_write({"bed_frame": Transform3D.IDENTITY,
-		"body_scale": 0.66, "eye_camera_active": true})
-	check(order == ["hide", "anon", "hide", "anon", "eye"],
-		"the eye camera runs after the pose write")
+	session.render_write({"bed_frame": Transform3D.IDENTITY, "body_scale": 0.66})
+	check(order == ["anon", "eye"], "the render write places the Anon body and then the eye view")
 	order.clear()
 	session._view.family = "standing"
-	session.render_write({"eye_camera_active": true})
-	check(order.is_empty(), "a standing render write places no Anon body or eye camera")
+	session.render_write({})
+	check(order.is_empty(), "a standing render write places no Anon body or eye view")
 	session._view.family = "bed"
 	session.act_body = null
-	session.hide_avatar = Callable()
 	session.eye_camera = Callable()
-	session.render_write({"eye_camera_active": true})
-	check(order.is_empty(), "absent render callbacks are no-ops")
+	session.render_write({})
+	check(order.is_empty(), "an absent eye callback is a no-op")
 	root.remove_child(body)
 	body.free()
 	root.remove_child(pony)

@@ -5,6 +5,9 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/act_frame/test_frame.gd
 
 const FRAME := preload("res://mods/unfplap/act/frame.gd")
+const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
+const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 
 var failures := 0
@@ -46,6 +49,8 @@ func near(a: float, b: float, epsilon := 0.0001) -> bool:
 func run() -> void:
 	_check_standing()
 	_check_missionary()
+	_check_head_clearance()
+	_check_scene_token()
 	_check_canonical_start()
 	_check_world_aim()
 	_check_round_trip()
@@ -95,6 +100,63 @@ func _check_missionary() -> void:
 		"the missionary plan places the act body from the asset")
 	check(plan.root_transform.is_equal_approx(Transform3D.IDENTITY),
 		"the missionary plan never moves the player rig")
+
+
+## The bed plan carries the pad his head keeps out of her skull and muzzle; a standing act has none.
+func _check_head_clearance() -> void:
+	var frame := FRAME.new()
+	var rig := FRAME.Rig.new()
+	rig.head_clearance = 0.05
+	rig.act_body_transform = Transform3D(Basis.IDENTITY, Vector3(1.0, 0.5, 2.0))
+	var plan := frame.solve(FRAME.pose("missionary"), rig)
+	check(near(plan.head_clearance, 0.05), "the bed plan carries the head clearance")
+	var standing := FRAME.Rig.new()
+	standing.head_clearance = 0.05
+	standing.forward = Vector3(0.0, 0.0, -1.0)
+	standing.eye = 1.6
+	standing.neck_height = 1.4
+	var stand_plan := frame.solve(FRAME.pose("standing"), standing)
+	check(near(stand_plan.head_clearance, 0.0),
+		"a standing act carries no head clearance")
+
+
+## The frame keeps the scene the act found: the player, her and the bed, and a moving bed carries
+## the whole restore with it.
+func _check_scene_token() -> void:
+	var player := FakePlayer.new()
+	player.camera = Camera3D.new()
+	player.add_child(player.camera)
+	root.add_child(player)
+	WORLD.bind_player(player)
+	var pony := Node3D.new()
+	root.add_child(pony)
+	var bed := Node3D.new()
+	root.add_child(bed)
+	var host := ACT_HOST.new()
+	host.bind(root)
+	host.pony = pony
+	var session := ACT_SESSION.new()
+	session.bed = bed
+	var frame := FRAME.new()
+	frame.bind(host, ACT_CONTEXT.new(), session)
+	player.global_position = Vector3(1.0, 0.0, 2.0)
+	pony.global_transform = Transform3D(Basis(Vector3.UP, 0.5), Vector3(3.0, 0.0, 4.0))
+	bed.global_position = Vector3(5.0, 0.0, 6.0)
+	frame.snapshot_scene()
+	player.global_position = Vector3.ZERO
+	pony.global_position = Vector3.ZERO
+	bed.global_position = Vector3(5.5, 0.0, 6.0)
+	frame.restore_scene()
+	check(player.global_position.is_equal_approx(Vector3(1.5, 0.0, 2.0)),
+		"the scene token puts the player back with the bed")
+	check(pony.global_position.is_equal_approx(Vector3(3.5, 0.0, 4.0)),
+		"the scene token puts her back with the bed")
+	root.remove_child(player)
+	root.remove_child(pony)
+	root.remove_child(bed)
+	player.free()
+	pony.free()
+	bed.free()
 
 
 ## Two starts from the same pony, pose and stance but from different pre-act positions and looks
@@ -222,6 +284,7 @@ func _check_plan_shape() -> void:
 		"the plan carries the player placement and look")
 	check(names.has("stand_eye") and names.has("eye_height"),
 		"the plan carries the standing stance")
+	check(names.has("head_clearance"), "the plan carries the head clearance")
 	check(not names.has("fit"),
 		"the plan carries no whole-body fit")
 	check(not names.has("camera_transform") and not names.has("shot"),

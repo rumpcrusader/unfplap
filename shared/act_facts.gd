@@ -71,6 +71,8 @@ var presentation_config: Dictionary = {}
 var kiss_amount := 0.0
 var kiss_active := false
 var kiss_side := 0.0
+## The pad the bed view keeps his head out of her skull and muzzle, in world metres.
+var head_clearance := 0.0
 var thrust_travel := 0.5
 var same_height_scale := 1.0
 var anon_height_scale := 1.0

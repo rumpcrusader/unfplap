@@ -126,7 +126,7 @@ func _tick(delta: float) -> void:
 			# The start snapshot caught Anon mid stand-up, so his eye height was the reclined one;
 			# the scene is settled now, and restoring to this is what puts the camera back right.
 			if session.pose_family() == "bed":
-				context.missionary_camera.resnapshot()
+				context.frame.resnapshot()
 			context.handover.hint_tick()
 		ACT_SESSION.FINISH_CLIMAX:
 			session.finish_climax()

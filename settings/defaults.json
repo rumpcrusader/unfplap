@@ -252,7 +252,6 @@
 		},
 		"missionary": {
 			"anon_size_match": 0.5,
-			"camera_mode": "shots",
 			"caress": {
 				"path_id": "two"
 			},
@@ -293,8 +292,7 @@
 					"vulva_shift_mm": 70.0
 				}
 			},
-			"size_group": "mounting",
-			"third_person": false
+			"size_group": "mounting"
 		},
 		"standing": {
 			"camera_forward_m": 0.0,

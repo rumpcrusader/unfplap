@@ -981,14 +981,6 @@ static var disable_fold_coloring := flag("disable_fold_coloring",
 	"Hack: Disable fold coloring",
 	"Draw the whole vulva in her outer skin color during the missionary act; the pink folds and clitoris colors are off.",
 	POSES, "Missionary").as_debug()
-static var camera_mode := choice("camera_mode", "presentation.missionary.camera_mode",
-	["eye", "shots"], ["Anon eyes", "Authored shots"], "Camera",
-	"Anon eyes: the view is his posed head, and leaning hinges his upper body at the spine. Authored shots: the eye follows the pose lab's camera positions.",
-	POSES, "Missionary").as_debug()
-static var third_person := flag("third_person", "presentation.missionary.third_person",
-	"Third-person views",
-	"Let the missionary shot lean and surge off the authored camera positions, so the eye drifts around the two bodies. Off keeps the camera on the authored trajectory.",
-	POSES, "Missionary").as_debug()
 static var free_look := flag("free_look", "presentation.missionary.free_look",
 	"Use free look",
 	"Turn the act shot where it stands, so the pose can be inspected. The mouse stops driving thrust.",
@@ -1837,6 +1829,12 @@ static var _deprecated := [
 	# The act key always accepts and the Agreement owns visibility; both switches are retired.
 	deprecated("relationship.sex_start", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("features.act_public_offer", func(_value: Variant) -> Dictionary: return {}),
+	# The missionary view is his own eye now, so the eye/shot switch and its third-person deviation
+	# are retired with no value to carry over.
+	deprecated("presentation.missionary.camera_mode",
+		func(_value: Variant) -> Dictionary: return {}),
+	deprecated("presentation.missionary.third_person",
+		func(_value: Variant) -> Dictionary: return {}),
 	# The relationship rows always decide; the one-switch bypass is retired.
 	deprecated("relationship.ignore_gates", func(_value: Variant) -> Dictionary: return {}),
 	# Acts always end an active cuddle; the switch is retired.

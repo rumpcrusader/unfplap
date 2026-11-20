@@ -1,6 +1,6 @@
 extends SceneTree
 ## The act camera facade: the lean and its smoothing, the shot response, the free look, the
-## free-camera lock, the eye override, the captured look and the shot geometry helpers.
+## missionary eye view, the head clearance and the live geometry helpers.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_camera/test_camera.gd
 
@@ -14,7 +14,6 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
 const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.gd")
-const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -32,15 +31,32 @@ class FakeMain extends Node:
 		return view
 
 
-## The two values the authored-shot path reads: the live bed frame and the pose asset callable.
-class FakeShotFacts extends RefCounted:
-	var bed_frame: Variant = null
-	var authored_pose_asset := Callable()
+class FakeGame extends Node:
+	var headset_view := false
 
-	func call_value(callback: Callable, fallback: Variant = null) -> Variant:
-		if callback.is_valid():
-			return callback.call()
-		return fallback
+
+## Her head surfaces, in world space: the skull sphere and the muzzle capsule.
+class FakeBoop extends RefCounted:
+	var skull := Vector3.ZERO
+	var nose := Vector3.ZERO
+	var muzzle := Vector3.ZERO
+
+	func skull_world() -> Vector3:
+		return skull
+
+	func nose_world() -> Vector3:
+		return nose
+
+	func muzzle_world() -> Vector3:
+		return muzzle
+
+
+## The posed Anon body's eye: the transform `missionary_anon.gd` caches for the frame.
+class FakeActBody extends RefCounted:
+	var eye := Transform3D.IDENTITY
+
+	func eye_transform() -> Transform3D:
+		return eye
 
 
 class FakePlayer extends Node3D:
@@ -95,6 +111,9 @@ class FakeKiss extends RefCounted:
 	func lateral_offset(_scale: float) -> float:
 		return 0.0
 
+	func camera_yaw_deg() -> float:
+		return 12.0
+
 	func standing_active() -> bool:
 		return false
 
@@ -143,6 +162,7 @@ class FakePony extends Node3D:
 	var skeleton: Variant = null
 	var secondary: Variant = null
 	var identity: Variant = null
+	var boop_node: Variant = null
 	var body_scale := 1.0
 
 
@@ -157,11 +177,11 @@ class FakeMissionaryCamera extends RefCounted:
 	func tick() -> void:
 		calls.append("tick")
 
-	func snapshot_yaw() -> float:
-		return NAN
+	func prepare() -> void:
+		calls.append("prepare")
 
-	func reset_look() -> void:
-		calls.append("reset_look")
+	func release() -> void:
+		calls.append("release")
 
 
 func _initialize() -> void:
@@ -221,16 +241,14 @@ func _pose(facts: RefCounted, family: String) -> void:
 func run() -> void:
 	_check_session()
 	_check_shot()
-	_check_missionary_shot_anchor()
-	_check_facesit_shot_anchor()
+	_check_missionary_eye()
+	_check_head_clearance()
 	_check_lean()
 	_check_oral_lean()
 	_check_standing_shot_offsets()
 	_check_retarget()
-	_check_lock_and_eye()
 	_check_eye_line()
 	_check_entrance()
-	_check_look()
 	_check_free_look()
 	_check_motion()
 	_check_neck()
@@ -311,41 +329,132 @@ func _check_shot() -> void:
 	check(near(camera.call("shot_lean_forward"), 1.0), "the shot lean clamps at one")
 
 
-## The authored missionary shot follows the asset's hips anchor and contact lift at every size;
-## canon is the authored transform within 0.1 mm.
-func _check_missionary_shot_anchor() -> void:
-	_check_shot_anchor("poses/missionary_pose.json", "missionary")
+## The missionary view is the act body's own eye, with no authored shot left to pick.
+func _check_missionary_eye() -> void:
+	var made := _eye_fixture()
+	var camera: RefCounted = made["camera"]
+	var body: FakeActBody = made["body"]
+	var view: Camera3D = camera.call("view")
+	check(is_instance_valid(view) and view.get_parent() == made["pony"],
+		"the act view is mounted once on her")
+	check(not camera.has_method("_tick_authored") and not camera.has_method("_shot_transform"),
+		"the authored shot path is gone")
+	check(not camera.has_method("_blend_shots") and not camera.has_method("_shot_position"),
+		"no shot transform is built")
+	var module: Script = MISSIONARY_CAMERA
+	check(not module.get_script_constant_map().has("SHOT_IDS"),
+		"the shot ids are gone from the view module")
+	body.eye = Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 2.0, 3.0))
+	camera.call("tick")
+	check(view.global_position.is_equal_approx(body.eye.origin),
+		"the view sits at the act body's eye")
+	check(view.global_basis.is_equal_approx(body.eye.basis.orthonormalized()),
+		"the view keeps the act body's eye basis")
+	# Free look turns the eye where it stands, and nothing else does.
+	made["facts"].free_look_active = true
+	made["facts"].free_look_rotation = func() -> Vector3: return Vector3(0.2, 0.3, 0.0)
+	camera.call("tick")
+	check(not view.global_basis.is_equal_approx(body.eye.basis.orthonormalized()),
+		"free look turns the eye")
+	made["facts"].free_look_active = false
+	made["facts"].free_look_rotation = Callable()
+	camera.call("release")
+	check(camera.call("view") == null, "the release drops the act view")
+	_free_eye_fixture(made)
 
 
-## The face-sit asset uses the same bed camera and the same anchor/contact rule; its five shots
-## are the ones the camera cuts to when the edge settles.
-func _check_facesit_shot_anchor() -> void:
-	_check_shot_anchor("poses/bed_facesit_pose.json", "face-sit")
+## His head is pushed out of her skull sphere and muzzle capsule by the frame's clearance.
+func _check_head_clearance() -> void:
+	var made := _eye_fixture()
+	var camera: RefCounted = made["camera"]
+	var body: FakeActBody = made["body"]
+	var pony: FakePony = made["pony"]
+	var facts: RefCounted = made["facts"]
+	var view: Camera3D = camera.call("view")
+	var boop := FakeBoop.new()
+	pony.boop_node = boop
+
+	# A clearance of zero leaves the eye exactly where the pose put it.
+	facts.head_clearance = 0.0
+	body.eye = Transform3D(Basis.IDENTITY, Vector3(1.0, 1.0, 1.0))
+	boop.skull = Vector3(1.0, 1.0, 1.0)
+	camera.call("tick")
+	check(view.global_position.is_equal_approx(Vector3(1.0, 1.0, 1.0)),
+		"no clearance leaves the eye on the pose")
+
+	# The skull sphere: the pad is the clearance over her own radius, scaled with her body.
+	facts.head_clearance = 0.05
+	camera.call("tick")
+	var pushed := view.global_position.distance_to(boop.skull)
+	check(near(pushed, 0.09 + 0.05), "the skull pushes the eye out by her radius and the pad")
+	pony.body_scale = 2.0
+	body.eye = Transform3D(Basis.IDENTITY, boop.skull)
+	camera.call("tick")
+	check(near(view.global_position.distance_to(boop.skull), 0.18 + 0.05),
+		"her body scale scales the skull radius")
+	pony.body_scale = 1.0
+
+	# The muzzle capsule: a point between her muzzle and nose is pushed off the segment.
+	boop.skull = Vector3(5.0, 5.0, 5.0)
+	boop.muzzle = Vector3(0.0, 0.0, 0.0)
+	boop.nose = Vector3(0.0, 0.0, 0.4)
+	body.eye = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.2))
+	camera.call("tick")
+	var to_axis := view.global_position.distance_to(Vector3(0.0, 0.0, 0.2))
+	check(near(to_axis, 0.04 + 0.05), "her muzzle pushes the eye off the capsule axis")
+	_free_eye_fixture(made)
 
 
-func _check_shot_anchor(asset_path: String, label: String) -> void:
-	var pose: Variant = AUTHORED.shared(asset_path)
-	check(bool(pose.get("available")), "the %s asset is available for the shot" % label)
-	if not bool(pose.get("available")):
-		return
-	var facts := FakeShotFacts.new()
-	var frame := Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 0.65, -2.0))
-	facts.bed_frame = frame
-	facts.authored_pose_asset = func() -> Variant: return pose
-	var camera: Variant = MISSIONARY_CAMERA.new(facts)
-	var here: Vector3 = pose.call("anchor_world", frame).origin
-	for shot_id: String in MISSIONARY_CAMERA.SHOT_IDS:
-		var authored: Transform3D = (pose.get("shots") as Dictionary)[shot_id]
-		var canon_world: Vector3 = (frame * authored).origin
-		for size: float in [1.0, 1.7]:
-			var lift := float(pose.call("body_lift", frame, size))
-			var expected := here + (canon_world - here) * size + Vector3.UP * lift
-			var got: Transform3D = camera.call("_shot_transform", shot_id, size)
-			check(got.origin.distance_to(expected) <= 0.0001,
-				"%s %s shot origin at %.2f follows the anchor" % [label, shot_id, size])
-			check(got.basis.orthonormalized().is_equal_approx(
-				(frame.basis * authored.basis).orthonormalized()),
-				"%s %s shot keeps the authored basis" % [label, shot_id])
+## One live scene for the missionary view: the player rig, the game, her and the posed act body.
+func _eye_fixture() -> Dictionary:
+	var main := FakeMain.new()
+	var player := FakePlayer.new()
+	main.add_child(player)
+	main.player = player
+	WORLD.bind_player(main.player)
+	main.view = Camera3D.new()
+	main.add_child(main.view)
+	player.camera = main.view
+	root.add_child(main)
+	var game := FakeGame.new()
+	root.add_child(game)
+	WORLD.bind_world(game)
+	var pony := FakePony.new()
+	root.add_child(pony)
+	var facts: RefCounted = FACTS.new()
+	facts.player_pony = false
+	facts.state = STATE_ACTIVE
+	facts.features = {}
+	facts.pony = pony
+	facts.viewport = root
+	facts.head_clearance = 0.0
+	var body := FakeActBody.new()
+	facts.missionary_anon = func() -> Variant: return body
+	var kiss := FakeKiss.new()
+	facts.kiss = func() -> Variant: return kiss
+	var camera: RefCounted = MISSIONARY_CAMERA.new(facts)
+	camera.call("prepare")
+	return {
+		"camera": camera, "facts": facts, "body": body, "pony": pony,
+		"main": main, "game": game, "player": player,
+	}
+
+
+func _free_eye_fixture(made: Dictionary) -> void:
+	var main: FakeMain = made["main"]
+	var player: FakePlayer = made["player"]
+	var pony: FakePony = made["pony"]
+	var game: FakeGame = made["game"]
+	WORLD.unbind()
+	root.remove_child(pony)
+	pony.free()
+	root.remove_child(game)
+	game.free()
+	main.remove_child(player)
+	main.remove_child(main.view)
+	player.free()
+	(main.view as Camera3D).free()
+	main.free()
 
 
 func _check_lean() -> void:
@@ -480,99 +589,8 @@ func _check_retarget() -> void:
 	camera.call("close_shot")
 
 
-func _check_lock_and_eye() -> void:
-	var made := _fixture()
-	var camera: Variant = made["camera"]
-	var main := made["main"] as FakeMain
-	var player := made["player"] as FakePlayer
-	player.controls_locked = false
-	camera.call("apply_free_camera_lock")
-	check(player.controls_locked, "the free shot locks the player controls")
-	camera.call("apply_free_camera_lock")
-	check(player.controls_locked, "a second lock is idempotent")
-	camera.call("release_free_camera_lock")
-	check(not player.controls_locked, "the release restores the saved controls")
-
-	# The standing eye override scales the player's eye with the body preset.
-	player._stand_eye = 2.4
-	player._eye_height = 2.4
-	var base: float = camera.call("player_eye_height")
-	var scale: float = camera.call("size_scale")
-	camera.call("apply_eye_override", "standing", false)
-	check(near(camera.camera_target_eye, base * scale),
-		"the standing eye target scales with the body preset")
-	if near(base * scale, base):
-		check(not camera.eye_override, "a unit size leaves the eye alone")
-	else:
-		check(camera.eye_override, "a size change owns the eye override")
-		camera.call("restore_eye_override")
-	check(near(player._stand_eye, 2.4), "the restored player keeps her own eye height")
-
-	# Re-applying the same form must derive the target from the true base, never from the eye
-	# this override already lowered. A custom low entrance forces a non-unit target in the suite.
-	var lowered := BODY_FORM.BodyForm.new()
-	lowered.rig = BODY_PROFILE.RigProfile.new("test_low",
-		BODY_PROFILE.WINKING_REAR_Y - 0.14, BODY_PROFILE.WINKING_REAR_Z, 1.0)
-	lowered.body_scale = 1.0
-	player._stand_eye = 1.8
-	player._eye_height = 1.8
-	camera.call("apply_eye_override", "standing", false, lowered)
-	var first_target: float = float(camera.camera_target_eye)
-	check(camera.eye_override and first_target < 1.7,
-		"a low entrance lowers the standing eye")
-	camera.call("apply_eye_override", "standing", false, lowered)
-	check(near(camera.camera_target_eye, first_target),
-		"re-applying the same form does not compound the eye offset")
-	camera.call("reset_for_form", "standing", false, lowered)
-	check(near(camera.camera_target_eye, 0.0),
-		"a form reset hands the standing stance back to the player frame")
-	var standing: FakeStandingCamera = made["standing"]
-	check(standing.calls.has("restore") and standing.calls.has("reset"),
-		"a standing form reset restores the old camera before resetting it")
-	var base_eye := 1.8
-	var eye_scale: float = camera.call("size_scale")
-	var neutral := BODY_FORM.BodyForm.new()
-	neutral.rig = BODY_PROFILE.RigProfile.new("test_neutral",
-		BODY_PROFILE.WINKING_REAR_Y + base_eye * (1.0 - eye_scale),
-		BODY_PROFILE.WINKING_REAR_Z, 1.0)
-	neutral.body_scale = 1.0
-	camera.call("apply_eye_override", "standing", false, neutral)
-	check(near(player._stand_eye, base_eye) and not camera.eye_override,
-		"a form that needs no crouch gives the true eye back")
-	player._stand_eye = 2.4
-	player._eye_height = 2.4
-	camera.call("apply_eye_override", "bed", false)
-	check(near(camera.camera_target_eye, 0.0), "missionary never edits the eye")
-	check(not camera.eye_override, "missionary never owns the eye override")
-
-	# An owned override restores the saved values exactly.
-	camera.eye_override = true
-	camera.saved_stand_eye = 1.6
-	camera.saved_eye_height = 1.6
-	player._stand_eye = 2.1
-	player._eye_height = 2.1
-	camera.call("restore_eye_override")
-	check(near(player._stand_eye, 1.6) and near(player._eye_height, 1.6),
-		"the eye override restores both saved heights")
-	check(not camera.eye_override, "the restore drops the ownership flag")
-
-	camera.call("apply_eye_override", "standing", true)
-	check(near(camera.camera_target_eye, 0.0) and not camera.eye_override,
-		"AnonPony keeps her own eye height")
-	player.seat = Node3D.new()
-	camera.call("apply_eye_override", "standing", false)
-	check(not camera.eye_override, "a seated player keeps the seat camera")
-	(player.seat as Node3D).free()
-	player.seat = null
-	main.remove_child(player)
-	main.remove_child(main.view)
-	player.free()
-	(main.view as Camera3D).free()
-	main.free()
-
-
-## Her live rest head line can raise the standing eye, never above Anon's own. The target is
-## relative to the player root, so a raised floor must not be read as a taller pony.
+## Her live rest head line is read relative to the player root, from the global rest pose. The
+## frame's stance target is the one that raises or caps it.
 func _check_eye_line() -> void:
 	var made := _fixture()
 	var camera: Variant = made["camera"]
@@ -589,29 +607,21 @@ func _check_eye_line() -> void:
 
 	var base: float = camera.call("player_eye_height")
 	var preset: float = base * float(camera.call("size_scale"))
-
-	camera.call("apply_eye_override", "standing", false)
-	check(near(camera.camera_target_eye, preset),
-		"a skeleton without her head bone keeps the preset eye")
-	camera.call("restore_eye_override")
+	check(not is_finite(float(camera.call("pony_eye_height"))),
+		"a skeleton without her head bone has no eye line")
 
 	var head := skeleton.add_bone("pony_head")
 	for line: float in [minf(preset, base) - 0.5, (preset + base) * 0.5, base + 0.5]:
 		skeleton.set_bone_rest(head, Transform3D(Basis.IDENTITY, Vector3(0.0, line, 0.0)))
-		var expected := maxf(preset, minf(base, line))
-		camera.call("apply_eye_override", "standing", false)
-		check(near(camera.camera_target_eye, expected),
-			"the standing eye follows her live line up to Anon's own eye")
-		camera.call("restore_eye_override")
+		check(near(float(camera.call("pony_eye_height")), line),
+			"her eye line is the global rest head height above his root")
 
 	# The same line from a raised player root is measured above that root, not in world space.
 	player.global_position.y = 0.4
 	var raised := base + 0.5
 	skeleton.set_bone_rest(head, Transform3D(Basis.IDENTITY, Vector3(0.0, raised + 0.4, 0.0)))
-	camera.call("apply_eye_override", "standing", false)
-	check(near(camera.camera_target_eye, maxf(preset, minf(base, raised))),
+	check(near(float(camera.call("pony_eye_height")), raised),
 		"the live eye line is relative to the raised player root")
-	camera.call("restore_eye_override")
 
 	# A head parented under the neck reads its rest line in skeleton space: the neck's rest offset
 	# is part of the line, so a pose that moves the neck carries the eye with it.
@@ -678,41 +688,6 @@ func _check_entrance() -> void:
 	check(near(CAMERA.entrance_offset_for(copy_form).x, 0.055),
 		"a copy on a princess body uses that body's entrance")
 	copy.free()
-
-
-func _check_look() -> void:
-	var made := _fixture()
-	var camera: Variant = made["camera"]
-	var main := made["main"] as FakeMain
-	var player := made["player"] as FakePlayer
-	player.rotation.y = 0.1
-	player._pitch = 0.2
-	camera.call("capture_look")
-	check(camera.look_captured, "the look snapshot is captured")
-	check(near(camera.restore_yaw, 0.1) and near(camera.restore_pitch, 0.2),
-		"the snapshot keeps the yaw and pitch")
-	player.rotation.y = 0.9
-	player._pitch = 0.8
-	camera.call("begin_session", "bed")
-	camera.call("capture_look")
-	player.rotation.y = 0.9
-	player._pitch = 0.8
-	camera.call("restore_look", "bed")
-	check(not camera.look_captured, "the restore consumes the snapshot")
-	check(near(player.rotation.y, 0.9), "missionary restores the captured yaw")
-	check(near(float(player._pitch), 0.8), "missionary restores the captured pitch")
-
-	# Standing leaves the act's final facing alone.
-	camera.call("begin_session", "standing")
-	camera.call("capture_look")
-	player.rotation.y = 1.4
-	camera.call("restore_look", "standing")
-	check(near(player.rotation.y, 1.4), "standing leaves Anon facing the act's end")
-	main.remove_child(player)
-	player.free()
-	main.remove_child(main.view)
-	(main.view as Camera3D).free()
-	main.free()
 
 
 func _check_free_look() -> void:

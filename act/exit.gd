@@ -58,7 +58,6 @@ func run(rejoin_cuddle: bool) -> void:
 	context.kiss.restore_forelegs()
 	context.hold.restore_face_turn()
 	context.frame.end()
-	context.camera.restore_eye_override()
 	if is_instance_valid(host.pony):
 		context.face.clear_face()
 		context.face.end_face()
@@ -128,7 +127,6 @@ func free_pose() -> void:
 	context.kiss.reset()
 	context.integrations.reset()
 	context.audio.reset_excitement_hold()
-	context.camera.release_free_camera_lock()
 	context.standing_anon.remove()
 	context.pose.leave_pose_body()
 	context.audio.restore_voice_policy()

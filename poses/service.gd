@@ -160,8 +160,6 @@ var saved_hair_skeleton: Skeleton3D
 
 ## The typed act view the pose modifiers read for the live depth, state and bed frame.
 var facts: Variant = null
-## Park the game presentation for the bed family, for `render_write()`.
-var hide_avatar := Callable()
 ## Publish or clear the opaque Anon handle on the anatomy bridge. The service owns the body.
 var set_act_body := Callable()
 ## The eye-shot camera tick, which must run after the render write.
@@ -1504,8 +1502,8 @@ func apply_target_once() -> bool:
 	return true
 
 
-## The whole render-time step for one frame, in order: park the presentation, place the act's own
-## Anon body, write her pose, replay the sway, then let the eye-shot camera read his posed head.
+## The whole render-time step for one frame, in order: place the act's own Anon body, write her
+## pose, replay the sway, then let the live view read his posed head.
 func render_write(context: Dictionary) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -1522,8 +1520,6 @@ func render_write(context: Dictionary) -> void:
 		return
 	if family != "bed":
 		return
-	if hide_avatar.is_valid():
-		hide_avatar.call()
 	var frame: Variant = context.get("bed_frame")
 	if is_instance_valid(act_body) and frame is Transform3D:
 		act_body.call("apply", frame as Transform3D, float(context.get("body_scale", 1.0)))
@@ -1532,7 +1528,7 @@ func render_write(context: Dictionary) -> void:
 		apply_render(sk as Skeleton3D)
 		if is_instance_valid(prone_sway):
 			prone_sway.call("apply_render", sk as Skeleton3D)
-	if bool(context.get("eye_camera_active", false)) and eye_camera.is_valid():
+	if eye_camera.is_valid():
 		eye_camera.call()
 
 
@@ -1549,14 +1545,13 @@ func sync_frame(family: String) -> void:
 		sync_ground_frame()
 
 
-## The typed entry for the render-time step: the session supplies its own bed frame plus the scale,
-## size name and eye-camera flag it read from the act.
-func write_render_frame(body_scale: float, size_name: String, eye_camera_active: bool) -> void:
+## The typed entry for the render-time step: the session supplies its own bed frame plus the scale
+## and size name it read from the act.
+func write_render_frame(body_scale: float, size_name: String) -> void:
 	render_write({
 		"bed_frame": bed_frame,
 		"body_scale": body_scale,
 		"size_name": size_name,
-		"eye_camera_active": eye_camera_active,
 	})
 
 

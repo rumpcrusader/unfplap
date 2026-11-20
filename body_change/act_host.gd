@@ -49,7 +49,6 @@ var reset_player_pelvis_cb: Callable = Callable()
 var reset_lean_cb: Callable = Callable()
 var prepare_start_camera_cb: Callable = Callable()
 var open_camera_cb: Callable = Callable()
-var hide_avatar_cb: Callable = Callable()
 var reset_wings_cb: Callable = Callable()
 var claim_nav_cb: Callable = Callable()
 var pause_face_turn_cb: Callable = Callable()
@@ -280,10 +279,6 @@ func prepare_start_camera() -> void:
 ## The act camera open. The runtime starts the VR act when the shot asks for it.
 func open_camera() -> void:
 	_call(open_camera_cb)
-
-
-func hide_avatar() -> void:
-	_call(hide_avatar_cb)
 
 
 func reset_wings() -> void:

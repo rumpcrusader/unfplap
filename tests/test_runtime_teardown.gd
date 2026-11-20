@@ -6,6 +6,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
@@ -299,25 +300,22 @@ func run() -> void:
 	var runtime2: Node = f2["runtime"]
 	var player2: FakePlayer = f2["player"]
 	runtime2.act._set_state(0)
-	runtime2._bundle.camera.look_captured = false
 	player2.rotation.y = 0.7
 	runtime2.act.force_stop()
 	check(absf(player2.rotation.y - 0.7) < 0.0001,
 		"IDLE force_stop leaves the player yaw alone")
 
-	# A failed standing start restores the player eye height without a camera step.
+	# A failed standing start gives back the eye line the frame captured.
 	var f3 := _fixture()
 	var runtime3: Node = f3["runtime"]
 	var player3: FakePlayer = f3["player"]
-	runtime3._bundle.camera.camera_owned = false
-	runtime3._bundle.camera.look_captured = false
-	runtime3._bundle.camera.eye_override = true
-	runtime3._bundle.camera.saved_stand_eye = 1.6
-	runtime3._bundle.camera.saved_eye_height = 1.6
+	player3._stand_eye = 1.6
+	player3._eye_height = 1.6
+	runtime3._bundle.frame.begin(FRAME.pose("standing"))
 	player3._stand_eye = 2.1
 	player3._eye_height = 2.1
 	runtime3.act.exit.run(false)
-	check(absf(player3._stand_eye - 1.6) < 0.0001, "aborted start restores the eye override")
+	check(absf(player3._stand_eye - 1.6) < 0.0001, "aborted start restores the eye line")
 	check(absf(player3._eye_height - 1.6) < 0.0001, "aborted start restores the eye height")
 
 	# An invalid pony still releases the player, navigator and active runtime.
@@ -353,15 +351,14 @@ func run() -> void:
 	player6.rotation.y = 0.1
 	var pony_start: Transform3D = pony6.global_transform
 	var player_start: Transform3D = player6.global_transform
-	runtime6._bundle.context.placement.bind_act(runtime6.act.placement_values())
-	var standing6: Transform3D = runtime6._bundle.context.placement.begin_act()
+	var plan6: Variant = runtime6._bundle.frame.begin(FRAME.pose("standing"))
 	check(pony6.global_transform.is_equal_approx(pony_start),
 		"standing start keeps her in place")
-	check(standing6.origin.is_equal_approx(pony6.global_position),
-		"standing act transform uses her position")
 	var gap6: float = float(runtime6.act.swap.standing_gap())
 	var behind6: Vector3 = pony6.global_position + pony6.global_basis.z.normalized() * gap6
 	behind6.y = player_start.origin.y
+	check((plan6 as FRAME.PlayerPlan).root_transform.origin.is_equal_approx(behind6),
+		"the standing plan places Anon behind her at the act gap")
 	check(player6.global_position.is_equal_approx(behind6),
 		"standing start places Anon behind her at the act gap")
 	# A princess body's entrance sits further back than the mare's, so the same start keeps Anon
@@ -373,9 +370,7 @@ func run() -> void:
 	pony6.identity = null
 	var placed6: Transform3D = player6.global_transform
 	var placed_yaw6 := player6.rotation.y
-	runtime6._bundle.camera.look_captured = true
-	runtime6._bundle.camera.look_restore_yaw = false
-	runtime6._bundle.camera.restore_look(runtime6.act.start_family())
+	runtime6._bundle.frame.end()
 	check(player6.global_position.is_equal_approx(placed6.origin),
 		"standing end leaves Anon in place")
 	check(is_equal_approx(player6.rotation.y, placed_yaw6),
@@ -394,8 +389,7 @@ func run() -> void:
 	var anatomy6b := FakeAnatomyService.new()
 	PONIES.anatomy = anatomy6b
 	var gap6b: float = float(runtime6b.act.swap.standing_gap())
-	runtime6b._bundle.context.placement.bind_act(runtime6b.act.placement_values())
-	runtime6b._bundle.context.placement.begin_act()
+	runtime6b._bundle.frame.begin(FRAME.pose("standing"))
 	var base6b := Vector3(pony6b.global_position.x, 0.0, pony6b.global_position.z + gap6b)
 	check(anatomy6b.reset_calls >= 1, "a standing start clears the part's old pelvis handshake")
 	check(player6b.global_position.is_equal_approx(base6b),
@@ -558,8 +552,8 @@ func run() -> void:
 	player9.global_position = Vector3(5.0, 0.2, 6.0)
 	player9.rotation.y = 1.1
 	var player_start9: Transform3D = player9.global_transform
-	runtime9._bundle.context.placement.bind_act(runtime9.act.placement_values())
-	var headset9: Transform3D = runtime9._bundle.context.placement.begin_act()
+	var headset9: Transform3D = \
+		(runtime9._bundle.frame.begin(FRAME.pose("standing")) as FRAME.PlayerPlan).root_transform
 	var gap9: float = float(runtime9.act.swap.standing_gap())
 	var forward9: Vector3 = -cam9.global_basis.z
 	forward9.y = 0.0
@@ -607,8 +601,8 @@ func run() -> void:
 	form11.revision = 1
 	runtime11.act.refresh_body_services(pony11, form11)
 	check(int(runtime11.act.state) == 2, "a same-node refresh leaves a live act live")
-	check(runtime11._bundle.camera.camera_target_eye > 0.0,
-		"a same-node refresh reapplies the eye target")
+	check(float(runtime11._bundle.facts.player_eye_height) > 0.0,
+		"a same-node refresh reapplies the stance")
 	check(PONIES.active() == runtime11, "a same-node refresh never runs the act exit")
 	runtime11._bundle.handover.context.form = form11
 	runtime11._bundle.handover.context.change = BODY_CHANGE.new()

@@ -86,7 +86,7 @@ func reset_visual_for_form() -> void:
 ## Recompute the act's visual frame after a presented-form revision. The camera's old offset is
 ## undone before the new form is measured, then the player frame is re-fitted.
 func reset_visual(form: BODY_FORM.BodyForm) -> void:
-	context.camera.reset_for_form(session.start_family(), session.player_pony, form)
+	context.camera.reset_for_form(session.start_family())
 	context.frame.refit(context.frame.pose_input(), form)
 	session.refresh_view()
 
@@ -250,10 +250,6 @@ func open_camera() -> void:
 			WORLD.headset_view()):
 		context.anatomy.bind(context.anatomy_host)
 		context.anatomy.vr_start()
-
-
-func hide_avatar() -> void:
-	context.missionary_camera.hide_avatar()
 
 
 func reset_wings() -> void:

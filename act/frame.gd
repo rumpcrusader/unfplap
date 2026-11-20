@@ -38,6 +38,8 @@ class PlayerPlan:
 	var stand_eye := 0.0
 	var eye_height := 0.0
 	var eye := 0.0
+	## The pad his head keeps out of her skull and muzzle, in world metres. Zero for a standing act.
+	var head_clearance := 0.0
 	var visible := true
 	var controls_locked := true
 	var body_visible := true
@@ -67,6 +69,7 @@ class Rig:
 	var eye := 0.0
 	var neck_height := 0.0
 	var neck_point := Vector3.INF
+	var head_clearance := 0.0
 	var act_body_transform := Transform3D.IDENTITY
 
 
@@ -84,6 +87,21 @@ var _saved_stand_eye := 0.0
 var _saved_eye_height := 0.0
 var _saved_yaw := 0.0
 var _saved_pitch := 0.0
+## The scene the act found: the player, her and the bed, so the rejoin starts in reach.
+var _scene_saved := false
+var _start_player := Transform3D.IDENTITY
+var _start_pony := Transform3D.IDENTITY
+var _start_bed := Transform3D.IDENTITY
+var _start_camera: Camera3D = null
+var _start_camera_transform := Transform3D.IDENTITY
+var _start_bed_saved := false
+## The game's desktop presentation, parked for a bed act and given back at the end.
+var _presentation: Node = null
+var _presentation_enabled := true
+var _presentation_processing := true
+## The player's own controls lock, taken for the act and restored exactly.
+var _controls_saved := false
+var _controls_by_frame := false
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -> void:
@@ -126,6 +144,8 @@ func begin(pose_input: PoseInput = null, rig: Rig = null) -> PlayerPlan:
 	var values := rig if rig != null else live_rig(input)
 	var solved := solve(input, values)
 	if rig == null:
+		_snapshot_scene(input, values)
+		_lock_player(values)
 		_apply_start(solved, input, values)
 	else:
 		_apply_plan(solved, values)
@@ -155,6 +175,8 @@ func end() -> void:
 	if not _active:
 		return
 	_active = false
+	_release_avatar()
+	_unlock_player()
 	_restore_player()
 	_plan = null
 	_pose = null
@@ -172,6 +194,7 @@ func solve(pose_input: PoseInput, rig: Rig) -> PlayerPlan:
 	plan.eye_height = rig.eye
 	plan.yaw = yaw_for(rig.forward)
 	if pose_input.family != "standing":
+		plan.head_clearance = rig.head_clearance
 		plan.act_body_transform = rig.act_body_transform
 		return plan
 	if rig.player_pony or rig.headset_view:
@@ -239,6 +262,7 @@ func live_rig(pose_input: PoseInput, form: Variant = null) -> Rig:
 	rig.size_scale = context.camera.size_scale()
 	rig.entrance = context.camera.entrance_offset_for(rig.form)
 	rig.her_eye = context.camera.pony_eye_height()
+	rig.head_clearance = context.camera.head_clearance_m()
 	rig.neck_height = neck_height_for(rig.pony)
 	_capture(rig, pose_input.family == "standing")
 	rig.eye = stance_eye(rig)
@@ -321,6 +345,7 @@ func _apply_start(plan: PlayerPlan, pose_input: PoseInput, rig: Rig) -> void:
 	if pose_input.family == "standing":
 		_apply_standing(plan, rig)
 		return
+	_park_avatar()
 	_place_act_body(plan)
 
 
@@ -370,7 +395,6 @@ func _place_act_body(plan: PlayerPlan) -> void:
 		"bed_frame": frame,
 		"body_scale": float(body_scale) if body_scale != null else 1.0,
 		"size_name": context.facts.size_name,
-		"eye_camera_active": false,
 	})
 	var body: Variant = context.pose.act_body
 	var avatar: Variant = body.get("avatar") if is_instance_valid(body) else null
@@ -412,14 +436,13 @@ func _write_stance(rig: Rig, eye: float, yaw: float, pitch: float) -> void:
 	var view := WORLD.camera()
 	if body.get("form_driver") == null and is_instance_valid(view):
 		view.rotation.x = pitch
-	if context != null and context.camera != null:
-		context.camera.camera_target_eye = eye
 
 
 func _write_look(plan: PlayerPlan) -> void:
 	if context == null or context.facts == null:
 		return
 	context.facts.write_look(plan.look_yaw, plan.look_pitch)
+	context.facts.head_clearance = plan.head_clearance
 	context.facts.mark_camera_basis_ready()
 	if plan.eye > 0.0:
 		context.facts.player_eye_height = plan.eye
@@ -454,7 +477,6 @@ func _restore_player() -> void:
 		if _player.has_method("_set_eye_y"):
 			_player.call("_set_eye_y", _saved_stand_eye)
 	if context != null and context.camera != null:
-		context.camera.camera_target_eye = 0.0
 		context.camera.reset_lean_state()
 	if _pose != null and _pose.family != "standing" and is_instance_valid(_player):
 		_player.rotation.y = _saved_yaw
@@ -463,6 +485,127 @@ func _restore_player() -> void:
 		var view := WORLD.camera()
 		if _player.get("form_driver") == null and is_instance_valid(view):
 			view.rotation.x = _saved_pitch
+
+
+## Take the player's own controls for the act; `end()` gives the exact prior value back.
+func _lock_player(rig: Rig) -> void:
+	if rig.player_pony or rig.headset_view:
+		return
+	var body: Node3D = WORLD.player
+	if not is_instance_valid(body):
+		return
+	if not _controls_by_frame:
+		var held: Variant = body.get("controls_locked")
+		_controls_saved = bool(held) if held != null else false
+		_controls_by_frame = true
+	body.set("controls_locked", true)
+
+
+func _unlock_player() -> void:
+	if not _controls_by_frame:
+		return
+	_controls_by_frame = false
+	var body: Node3D = WORLD.player
+	if is_instance_valid(body):
+		body.set("controls_locked", _controls_saved)
+
+
+## Park the game's desktop presentation for a bed act: it would otherwise show and drive his body
+## from the player rig, and the act's own body is posed over it.
+func _park_avatar() -> void:
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+		return
+	if is_instance_valid(_presentation):
+		if _presentation_enabled and bool(_presentation.get("_enabled")) == true:
+			_presentation.call("set_enabled", false)
+		return
+	var presentation: Variant = WORLD.game.get("desktop_presentation")
+	if not is_instance_valid(presentation):
+		return
+	_presentation = presentation as Node
+	var enabled: Variant = presentation.get("_enabled")
+	_presentation_enabled = bool(enabled) if enabled != null else true
+	if _presentation_enabled:
+		presentation.call("set_enabled", false)
+	# `set_enabled(false)` only hides his body; `advance()` keeps running and re-hides it every
+	# frame. Park the presentation's process too, so the act owns the avatar wholly.
+	_presentation_processing = presentation.is_processing()
+	presentation.set_process(false)
+
+
+func _release_avatar() -> void:
+	if is_instance_valid(_presentation):
+		_presentation.set_process(_presentation_processing)
+		if _presentation_enabled:
+			_presentation.call("set_enabled", true)
+	_presentation = null
+	_presentation_enabled = true
+	_presentation_processing = true
+
+
+## Remember the player, her and the bed at the act's start, so the bed rejoin starts in reach.
+func _snapshot_scene(pose_input: PoseInput, rig: Rig) -> void:
+	if pose_input.family == "standing" or not is_instance_valid(rig.pony):
+		return
+	snapshot_scene()
+
+
+## Capture the scene token. A moving bed carries the whole scene with it, so the restore applies
+## the bed's rigid delta since this capture.
+func snapshot_scene() -> void:
+	_scene_saved = false
+	_start_bed_saved = false
+	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.player):
+		return
+	_start_camera = WORLD.camera()
+	if is_instance_valid(_start_camera):
+		_start_camera_transform = _start_camera.global_transform
+	_start_player = WORLD.player.global_transform
+	_start_pony = host.pony.global_transform
+	_start_bed_saved = is_instance_valid(session.bed)
+	if _start_bed_saved:
+		_start_bed = (session.bed as Node3D).global_transform
+	_scene_saved = true
+
+
+## Refresh the token once the act is fully posed: `begin()` captures while Anon is still standing up
+## from the bed, so his eye height is the reclined one.
+func resnapshot() -> void:
+	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.player):
+		return
+	_start_player = WORLD.player.global_transform
+	_start_camera = WORLD.camera()
+	if is_instance_valid(_start_camera):
+		_start_camera_transform = _start_camera.global_transform
+	_start_pony = host.pony.global_transform
+	_start_bed_saved = is_instance_valid(session.bed)
+	if _start_bed_saved:
+		_start_bed = (session.bed as Node3D).global_transform
+	_scene_saved = true
+
+
+## Put the player, her and the camera back relative to the bed as the act found them; the runtime's
+## bed cuddle rejoin starts from this restored standing spot.
+func restore_scene() -> void:
+	if not _scene_saved or not is_instance_valid(host.pony) \
+			or not is_instance_valid(WORLD.player):
+		return
+	var delta := Transform3D.IDENTITY
+	var bed_shift := 0.0
+	if is_instance_valid(session.bed) and _start_bed_saved:
+		delta = (session.bed as Node3D).global_transform * _start_bed.affine_inverse()
+		bed_shift = (session.bed as Node3D).global_position.distance_to(_start_bed.origin)
+	# Player/pony first, camera last: setting the player yaw rotates a child camera, so the snapshot
+	# camera transform must be applied after the rig is back in place.
+	WORLD.player.global_transform = delta * _start_player
+	host.pony.global_transform = delta * _start_pony
+	host.pony.reset_physics_interpolation()
+	if is_instance_valid(_start_camera):
+		_start_camera.global_transform = delta * _start_camera_transform
+		_start_camera.make_current()
+	LOG.debug("frame restore: bed_shift=%.2f camera=%s player=%s pony=%s", [
+		bed_shift, str((delta * _start_camera_transform).origin),
+		str((delta * _start_player).origin), str((delta * _start_pony).origin)])
 
 
 func _check_stool(plan: PlayerPlan, rig: Rig) -> void:

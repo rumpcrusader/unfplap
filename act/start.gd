@@ -160,15 +160,13 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	if session.start_group() == "missionary":
 		context.pose.sync_missionary_config()
 	context.camera.reset_lean_state()
-	var camera_row: Variant = session.start_row().get("camera", {})
-	if camera_row is Dictionary and str((camera_row as Dictionary).get("profile", "")) == "missionary_shots":
+	if session.start_family() == "bed":
 		context.missionary_camera.prepare()
 	context.hold.lock_player()
 	context.hold.pause_face_turn(false)
 	if context.camera.begin_act_shot(session.start_family(), session.player_pony, WORLD.headset_view()):
 		context.anatomy.bind(context.anatomy_host)
 		context.anatomy.vr_start()
-	context.missionary_camera.hide_avatar()
 	context.audio.start(host.pony, session.pony_id, session.bed)
 	context.audio.apply_voice_policy(session.feature("mute_ponese_audio"), host.pony, session.pony_id)
 	if is_instance_valid(HUD.instance):

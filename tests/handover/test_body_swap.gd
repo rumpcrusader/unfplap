@@ -1436,8 +1436,8 @@ func _check_idle_body_binding() -> void:
 	check(runtime._bundle.pose.pony == old_pony, "the idle form bind binds the pose session")
 	check(runtime._bundle.face.pony == old_pony, "the idle form bind binds the face")
 	check(PONIES.live_ponies().size() == 1, "the idle form bind creates no second runtime")
-	check(is_zero_approx(runtime._bundle.camera.camera_target_eye),
-		"an idle form bind applies no act eye override")
+	check(is_zero_approx(float(runtime._bundle.facts.player_eye_height)),
+		"an idle form bind applies no act stance")
 	var revised := body_change.default_form(old_pony)
 	revised.form_id = "rarity"
 	revised.fit_id = "rarity"
@@ -1483,10 +1483,10 @@ func _check_same_node_refresh() -> void:
 		"a live same-node revision starts no swap")
 	check(not PONIES.body_swap_pending(), "a live same-node revision starts no handover")
 	check(runtime._bundle.pose.pony == old_pony, "the live revision keeps the pose bound")
-	check(runtime._bundle.camera.camera_target_eye > 0.0,
-		"the live revision refreshes the eye target")
+	check(float(runtime._bundle.facts.player_eye_height) > 0.0,
+		"the live revision refreshes the player stance")
 	check(body_change.form_for(old_pony) == revised, "the live body takes the revised form")
-	var first_target := float(runtime._bundle.camera.camera_target_eye)
+	var first_target := float(runtime._bundle.facts.player_eye_height)
 	var revised_two := BODY_FORM.default_form(old_pony)
 	revised_two.form_id = "rarity"
 	revised_two.fit_id = "rarity"
@@ -1495,7 +1495,7 @@ func _check_same_node_refresh() -> void:
 	revised_two.body_scale = 1.0
 	revised_two.revision = 2
 	body_change.apply_form(old_pony, revised_two)
-	check(absf(float(runtime._bundle.camera.camera_target_eye) - first_target) < 0.0001,
+	check(absf(float(runtime._bundle.facts.player_eye_height) - first_target) < 0.0001,
 		"a second revision does not compound the standing eye")
 	runtime.act.force_stop()
 	_free_fixture(f)

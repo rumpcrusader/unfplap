@@ -32,7 +32,6 @@ func presentation(delta: float) -> void:
 		return
 	session.advance_act_seconds(delta)
 	if session.pose_family() == "bed":
-		context.missionary_camera.hide_avatar()
 		context.anatomy.bind(context.anatomy_host)
 		context.anatomy.aim_eyes()
 	var boop: Variant = host.pony.get("boop_node")

@@ -82,7 +82,6 @@ POSE_LEDGER_ORDER = (
     "context.kiss.reset()",
     "context.integrations.reset()",
     "context.audio.reset_excitement_hold()",
-    "context.camera.release_free_camera_lock()",
     "context.standing_anon.remove()",
     "context.pose.leave_pose_body()",
     "context.audio.restore_voice_policy()",
@@ -187,7 +186,6 @@ ACT_SETTINGS_OWNER = ROOT / "act" / "settings.gd"
 ACT_SETTINGS_READS = {
     ("<module>", "ActSnapshot"): "the typed `snapshot` field's zeroed default",
     ("snapshot_values", "act_snapshot"): "the act's one bulk snapshot",
-    ("snapshot_values", "camera_mode"): "the camera mode, cached for the render write",
     ("live_preferences", "preferences"): "the live preference refresh",
 }
 # The runtime node parents no child: the act audio node and the pose-scope tail tuck are created by

@@ -262,7 +262,6 @@ static func _build_act_context(b: Bundle) -> ACT_CONTEXT:
 static func _bind_pose_hosts(node: Node, b: Bundle) -> void:
 	b.pose.bind(node, b.pony)
 	b.pose.id = b.act.pony_id
-	b.pose.hide_avatar = Callable(b.missionary_camera, "hide_avatar")
 	b.pose.set_act_body = Callable(b.anatomy_bridge, "set_missionary_anon")
 	b.pose.eye_camera = Callable(b.missionary_camera, "tick")
 	b.pose.facts = b.facts
@@ -417,7 +416,6 @@ static func _bind_handover_host(b: Bundle) -> void:
 	host.reset_lean_cb = Callable(b.swap, "reset_lean")
 	host.prepare_start_camera_cb = Callable(b.swap, "prepare_start_camera")
 	host.open_camera_cb = Callable(b.swap, "open_camera")
-	host.hide_avatar_cb = Callable(b.swap, "hide_avatar")
 	host.reset_wings_cb = Callable(b.swap, "reset_wings")
 	host.claim_nav_cb = Callable(b.swap, "claim_nav")
 	host.pause_face_turn_cb = Callable(b.swap, "pause_face_turn")

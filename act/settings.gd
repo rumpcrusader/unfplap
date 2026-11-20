@@ -22,8 +22,6 @@ var presentation_config: Dictionary = {}
 var caress_quality := ""
 var max_pony_climaxes := 0
 var climax_mode := ""
-## Cached because the render write runs every rendered frame.
-var eye_camera_mode := false
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -57,7 +55,6 @@ func snapshot_values(group: String, family: String, preferences: Dictionary,
 		snapshot.receptive_seconds)
 	presentation_config = snapshot.presentation
 	climax_mode = snapshot.climax_mode
-	eye_camera_mode = str(SETTINGS.camera_mode.get_value()) == "eye"
 	caress_quality = snapshot.caress_quality
 	configure_dialogue()
 

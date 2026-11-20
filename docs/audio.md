@@ -99,8 +99,9 @@ The setting is live: `act/view.gd:apply_live()` reads the pre-edit
 when the two differ. The order matters — a snapshot read first would compare the new value with
 itself, and a mid-act edit would never reach the voice player.
 
-The classification itself stays `audio/voice_status.gd` (pure); the session's `voice_status_line()` is
-the debug read.
+The classification itself stays `audio/voice_status.gd` (pure); the server probe is
+`GAME.tts_has_server(tts)`, which reads an absent node or op as no server. The session's
+`voice_status_line()` is the debug read.
 
 ## Base-game vocal cache
 
@@ -147,9 +148,11 @@ runs on mod exit. It is idempotent.
 ## Tests
 
 `tests/act_audio/test_audio.gd` covers the facade lifecycle, the sound child, the mute policy and
-the mid-act mute edit through `apply_live_settings()`.
+the mid-act mute edit through `apply_live_settings()`, plus the absent answers: a boop without a
+nose point or kiss op, a vocal node without a play op, and an absent settings autoload.
 `tests/act_audio/test_act_audio.gd` covers the pure catalogue, the pack cue
 selection, the profile-based `uses_bed`, the cached `pose_changed` impact and the oral
 `plap = false` path. `tests/act_audio/test_smack_sound.gd` covers the outside-act layer's install,
-restore, live switch, act handoff and world close. `tests/test_runtime_teardown.gd` drives the
+restore, live switch, act handoff and world close. `tests/test_voice.gd` covers the TTS node without
+a server probe and the missing TTS node. `tests/test_runtime_teardown.gd` drives the
 runtime's audio forwards.

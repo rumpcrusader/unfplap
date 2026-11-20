@@ -14,8 +14,8 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const API_MAJOR := 1
-const API_MINOR := 1
-const API_VERSION := "1.1"
+const API_MINOR := 2
+const API_VERSION := "1.2"
 const SCHEMA := 1
 const SCHEMAS := {"mare": 1, "preferences": 1, "placement": 1}
 const CAPABILITIES := {"registry.mare": 1, "mare.read": 1, "profile.mare": 1}
@@ -92,20 +92,11 @@ func unregister_mare(owner: Node, id: String) -> Dictionary:
 func describe_mare(id: String) -> Dictionary:
 	var mare_id := id.strip_edges()
 	var template: Dictionary = SETTINGS.template_for(mare_id).raw()
-	var event_prompts: Dictionary = {}
-	var raw_events: Variant = template.get("event_prompts", {})
-	for key: String in REGISTRY.EVENT_PROMPT_KEYS:
-		var value: Variant = (raw_events as Dictionary).get(key, "") if raw_events is Dictionary else ""
-		event_prompts[key] = str(value)
 	var poses: Dictionary = {}
 	var raw_poses: Variant = template.get("poses", {})
 	for pose_key: String in CATALOG.all():
 		var value: Variant = (raw_poses as Dictionary).get(pose_key, {}) if raw_poses is Dictionary else {}
 		poses[pose_key] = (value as Dictionary).duplicate(true) if value is Dictionary else {}
-	var act_prompts: Dictionary = {}
-	var raw_act: Variant = template.get("act_prompts", {})
-	if raw_act is Dictionary:
-		act_prompts = (raw_act as Dictionary).duplicate(true)
 	var smack_value: Variant = template.get("smack_zone_radius", 0.035)
 	var smack_radius := 0.035
 	if smack_value is float or smack_value is int:
@@ -131,8 +122,6 @@ func describe_mare(id: String) -> Dictionary:
 		"profile": {"participation": participation},
 		"placement": SETTINGS.anatomy_placement(mare_id).raw(),
 		"poses": poses,
-		"act_prompts": act_prompts,
-		"event_prompts": event_prompts,
 		"cue_gap": SETTINGS.cue_gap(mare_id),
 		"aftercare_min": SETTINGS.aftercare_min(mare_id),
 		"smack_zone_radius": smack_radius,

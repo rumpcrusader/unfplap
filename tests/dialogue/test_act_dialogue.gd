@@ -152,7 +152,6 @@ func run() -> void:
 		"intensity": "soft", "pattern": "steady",
 		"touch": [], "dislikes": [], "talk": [],
 	}
-	facts.act_prompts = {"cue": "Cue: {cue}. {seed}"}
 	facts.features = {
 		"act_speech_feel": false,
 	}
@@ -184,8 +183,8 @@ func run() -> void:
 	check(request.id == "fluttershy" and request.event_id == "evt1",
 		"the cue carries the pony and act ids")
 	check(not request.suffix.is_empty(), "the cue gets a unique suffix")
-	check(request.purpose.contains("Cue: She wants it firmer."),
-		"the provider cue override is applied")
+	check(request.purpose.strip_edges().length() > facts.cue.length(),
+		"the cue sends the shipped prompt, not the raw cue text")
 	check(request.valid.is_valid() and request.finished.is_valid(),
 		"the cue carries its validity and completion callbacks")
 
@@ -244,13 +243,12 @@ func run() -> void:
 	check(main.memory.cancel_act_calls == 1, "the act's lines are cancelled once")
 	check(dialogue.scheduler().pending_key() == "", "the pending slot is dropped")
 
-	facts.act_prompts = {}
 	dialogue.reset(40.0, 12.0)
 	check(dialogue.admit_cue(40.0) == "", "a shipped cue waits for stability")
-	check(dialogue.admit_cue(42.1) != "", "a shipped cue is admitted without an override")
+	check(dialogue.admit_cue(42.1) != "", "a shipped cue is admitted")
 	var shipped: MEMORY.LineRequest = main.memory.requests[-1]
 	check(not shipped.purpose.is_empty() and shipped.purpose != request.purpose,
-		"the shipped cue prompt is used when no override exists")
+		"the shipped cue prompt is rendered")
 	check(shipped.purpose.contains("[face:"), "the shipped cue carries the face hint")
 	var climax_key := dialogue.climax_line(false, "She is close.", "evt1", 1, 30.0)
 	check(not climax_key.is_empty(), "the climax line is queued")

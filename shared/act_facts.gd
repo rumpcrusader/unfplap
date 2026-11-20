@@ -30,7 +30,6 @@ var last_talk := ""
 var thrust_pace := 0.0
 var cue_override := false
 var preferences: Dictionary = {}
-var act_prompts: Dictionary = {}
 var features: Dictionary = {}
 ## The caress surface refresh level: `precise` or `fast`. Snapshotted once per act.
 var caress_quality := "precise"

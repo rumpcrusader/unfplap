@@ -11,7 +11,6 @@ const DIALOGUE := preload("res://mods/unfplap/memory/dialogue.gd")
 const MEMORY_WORLD := preload("res://mods/unfplap/memory/world.gd")
 const PERCEPTION := preload("res://mods/unfplap/memory/perception.gd")
 const STORE := preload("res://mods/unfplap/memory/store.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
@@ -154,11 +153,9 @@ func line(request: LineRequest) -> Line:
 	match request.kind:
 		LineKind.REACTION:
 			var name := TEXT.reaction_name(request.reaction)
-			var custom := SETTINGS.event_prompt(request.id, name)
-			var base := request.purpose
-			if base.strip_edges().is_empty():
-				base = _reaction_base(request.reaction)
-			var purpose := custom if not custom.is_empty() else base
+			var purpose := request.purpose
+			if purpose.strip_edges().is_empty():
+				purpose = _reaction_base(request.reaction)
 			if request.reaction == Reaction.CLIMAX:
 				purpose += " Include a private first-person [thought: ...] impression of this moment in your reply."
 			if not purpose.contains("[face"):

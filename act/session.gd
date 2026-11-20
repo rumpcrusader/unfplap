@@ -61,7 +61,6 @@ var serial := 0
 var pony_id := ""
 var display_name := "the pony"
 var preferences: Dictionary = {}
-var act_prompts: Dictionary = {}
 var player_pony := false
 var profile: Dictionary = {}
 var forced_glance := ""

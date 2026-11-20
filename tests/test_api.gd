@@ -18,12 +18,12 @@ const METHODS := ["contract", "describe_mare", "register_mare", "supports", "unr
 const DESCRIPTOR_KEYS := [
 	"schema", "id", "source", "name",
 	"preferences", "consent", "eligible", "profile", "placement", "poses",
-	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
+	"cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 const DESCRIPTION_KEYS := [
 	"schema", "id", "name", "known", "registered", "sources",
 	"preferences", "consent", "eligible", "profile", "placement", "poses",
-	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
+	"cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 
 var failures := 0
@@ -111,7 +111,8 @@ func _check_contract() -> void:
 	var contract: Dictionary = api.contract()
 	check(str(contract.get("provider", "")) == "unfplap", "provider id")
 	check(int(contract.get("api_major", 0)) == 1, "api major")
-	check(int(contract.get("api_minor", -1)) == 1, "api minor")
+	check(int(contract.get("api_minor", -1)) == 2, "api minor")
+	check(str(contract.get("api_version", "")) == "1.2", "api version")
 	check(int((contract.get("schemas", {}) as Dictionary).get("mare", 0)) == 1, "mare schema")
 	var capabilities: Dictionary = contract.get("capabilities", {})
 	check(int(capabilities.get("registry.mare", 0)) == 1, "registry capability")
@@ -134,7 +135,7 @@ func _check_docs() -> void:
 		check(text.contains(key), "docs mention descriptor " + key)
 	for key: String in DESCRIPTION_KEYS:
 		check(text.contains(key), "docs mention description " + key)
-	check(text.contains("1.1"), "docs carry the current API version")
+	check(text.contains("1.2"), "docs carry the current API version")
 
 
 func _check_base_description() -> void:
@@ -173,10 +174,6 @@ func _check_base_description() -> void:
 	check(near(float((data.get("placement", {}) as Dictionary).get("tail_tilt_deg", -1.0)), 0.0),
 		"placement keeps tail_tilt_deg")
 	check((data.get("poses", {}) as Dictionary).has("missionary"), "pose defaults resolve")
-	check(str((data.get("act_prompts", {}) as Dictionary).get("cue", "")).is_empty(),
-		"no built-in mare overrides the cue prompt")
-	check(str((data.get("event_prompts", {}) as Dictionary).get("climax", "")).is_empty(),
-		"no built-in mare overrides the climax prompt")
 	check(near(float(data.get("cue_gap", 0.0)), 12.0), "cue gap resolves")
 	check(int(data.get("aftercare_min", 0)) == 10, "aftercare minimum resolves")
 	check(near(float(data.get("smack_zone_radius", 0.0)), 0.035), "smack radius resolves")
@@ -212,7 +209,12 @@ func _check_custom_mare() -> void:
 	var result: Dictionary = api.register_mare(owner, descriptor)
 	check(bool(result.get("ok", false)), "custom mare registers")
 	check(not bool(result.get("replaced", true)), "first registration is not a replacement")
-	check((result.get("warnings", []) as Array).is_empty(), "clean descriptor has no warnings")
+	var warnings: Array = result.get("warnings", [])
+	check(warnings.size() == 2, "the retired prompt keys warn once each: %s" % str(warnings))
+	check(str(warnings).contains("act_prompts: unknown key"),
+		"act_prompts is an unknown key")
+	check(str(warnings).contains("event_prompts: unknown key"),
+		"event_prompts is an unknown key")
 	check((result.get("errors", []) as Array).is_empty(), "clean descriptor has no errors")
 
 	var data: Dictionary = api.describe_mare("test_mare")
@@ -241,10 +243,6 @@ func _check_custom_mare() -> void:
 	check(near(float(placement.get("dock_scale", 1.0)), 0.9), "provider dock scale")
 	check(near(float(((data.get("poses", {}) as Dictionary).get("missionary", {})
 		as Dictionary).get("nuzzle_scale", 0.0)), 0.5), "provider pose value")
-	check(str((data.get("act_prompts", {}) as Dictionary).get("cue", "")) == "Custom cue {seed}",
-		"provider act prompt")
-	check(str((data.get("event_prompts", {}) as Dictionary).get("climax", "")) == "Custom climax",
-		"provider event prompt")
 	check(near(float(data.get("cue_gap", 0.0)), 15.0), "provider cue gap")
 	check(int(data.get("aftercare_min", 0)) == 12, "provider aftercare")
 	check(near(float(data.get("smack_zone_radius", 0.0)), 0.04), "provider smack radius")
@@ -373,6 +371,25 @@ func _check_validation() -> void:
 	check(bool(warned.get("ok", false)), "an unknown key is a warning, not an error")
 	check(not (warned.get("warnings", []) as Array).is_empty(), "the unknown key is reported")
 	api.unregister_mare(owner, "warned_mare")
+
+	# The retired prompt keys are inert: the descriptor registers, warns once per key, and the
+	# mare resolves exactly as one without them.
+	var prompt_mare := {"id": "inert_prompts", "source": "test"}
+	var with_prompts: Dictionary = api.register_mare(owner, {
+		"id": "inert_prompts", "source": "test",
+		"act_prompts": {"cue": "Inert cue"}, "event_prompts": {"climax": "Inert climax"},
+	})
+	check(bool(with_prompts.get("ok", false)), "a descriptor with retired prompt keys registers")
+	check((with_prompts.get("warnings", []) as Array).size() == 2,
+		"each retired prompt key is one warning")
+	var with_description: Dictionary = api.describe_mare("inert_prompts")
+	check(not with_description.has("act_prompts") and not with_description.has("event_prompts"),
+		"describe_mare omits the retired prompt keys")
+	api.unregister_mare(owner, "inert_prompts")
+	api.register_mare(owner, prompt_mare)
+	check(api.describe_mare("inert_prompts") == with_description,
+		"the retired prompt keys change no resolved value")
+	api.unregister_mare(owner, "inert_prompts")
 
 	# `adult` is no longer a descriptor key: it warns as unknown and never sets the assertion.
 	var retired: Dictionary = api.register_mare(owner, {"id": "retired_adult", "source": "test",

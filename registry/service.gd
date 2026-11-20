@@ -12,16 +12,14 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SCHEMA := 1
 ## `default` and `anon` are reserved by the placement block, so they can never be mare ids.
 const RESERVED_IDS := ["default", "anon"]
-const PROMPT_KEYS := ["cue", "utterance"]
-const EVENT_PROMPT_KEYS := ["climax", "end_early"]
 const TEMPLATE_KEYS := [
 	"preferences", "consent", "eligible", "profile", "placement", "poses",
-	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
+	"cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 const TOP_KEYS := [
 	"schema", "id", "source", "name",
 	"preferences", "consent", "eligible", "profile", "placement", "poses",
-	"act_prompts", "event_prompts", "cue_gap", "aftercare_min", "smack_zone_radius",
+	"cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 
 ## mare id -> Array of layers, in registration order. A layer is
@@ -230,12 +228,6 @@ static func register(owner_id: int, descriptor: Descriptor) -> Result:
 				var clean := _validate_poses(raw, warnings, errors)
 				if not clean.is_empty() or raw is Dictionary:
 					template[key] = clean
-			"act_prompts":
-				template[key] = _validate_prompts(raw, PROMPT_KEYS,
-					"act_prompts", warnings, errors)
-			"event_prompts":
-				template[key] = _validate_prompts(raw, EVENT_PROMPT_KEYS,
-					"event_prompts", warnings, errors)
 			"cue_gap", "aftercare_min", "smack_zone_radius":
 				if not _valid_number(raw):
 					errors.append("%s: expected a finite number" % key)
@@ -597,25 +589,6 @@ static func _validate_poses(raw: Variant, warnings: Array[String], errors: Array
 			errors.append("poses.%s: expected an object" % name)
 		else:
 			out[name] = (value as Dictionary).duplicate(true)
-	return out
-
-
-static func _validate_prompts(raw: Variant, allowed: Array, label: String,
-		warnings: Array[String], errors: Array[String]) -> Dictionary:
-	var out: Dictionary = {}
-	if not raw is Dictionary:
-		errors.append("%s: expected an object" % label)
-		return out
-	for key: Variant in (raw as Dictionary).keys():
-		var name := str(key)
-		if not name in allowed:
-			warnings.append("%s.%s: unknown key" % [label, name])
-			continue
-		var value: Variant = (raw as Dictionary)[key]
-		if not value is String:
-			errors.append("%s.%s: expected a string" % [label, name])
-		else:
-			out[name] = str(value)
 	return out
 
 

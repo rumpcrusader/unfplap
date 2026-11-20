@@ -54,20 +54,6 @@ const LEGACY_SKIN_TONES := {
 	"darker": 0.5,
 	"dark": 1.0,
 }
-## One-release migration for act prompts that used to be written into settings.json. A saved value
-## that exactly matches one of these is removed so the current DEFAULT_ACT_PROMPTS applies.
-const LEGACY_ACT_PROMPTS := {
-	"cue": [
-		"During sex with Anon, your body and voice show: {cue} Say ONE short line in your own voice, at most 12 words. Begin with [whispering], [happy], [annoyed] or [surprised]. No narration, no stage directions, no anatomy. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
-		"During sex with Anon, your body and voice show that you {cue}. Say ONE short line in your own voice, at most 12 words. Begin with [whispering], [happy], [annoyed] or [surprised]. No narration, no stage directions, no anatomy. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
-		"During sex with Anon, the private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory} Say ONE short line in your own voice, at most 14 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Let the relationship and the memory color it without naming labels, levels, numbers, or the note. Do not invent a memory beyond the one given. Begin with [whispering] or [happy]. No narration, no stage directions, no anatomy. Your preferences: {preferences}. Do not repeat: {recent}.",
-	],
-	"utterance": [
-		"You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your taste is private, not a list to say. Current moment: {state}. Your taste: {taste}. Do not repeat: {recent}.",
-		"You are in the middle of sex with Anon, not kissing him. Say ONE short line in your own voice, at most 18 words. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed] or [surprised]. You may start with one [face:...] tag. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. These preferences are private feelings, not a list to say. Current moment: {state}. Your preferences: {preferences}. Do not repeat: {recent}.",
-	],
-}
-
 ## Character names, order and preference templates live in `shared/character_preferences.gd`; the settings view
 ## and the runtime merge read them through these aliases.
 const CHARACTERS := preload("res://mods/unfplap/shared/character_preferences.gd")
@@ -1719,10 +1705,6 @@ static var pantyhose_hull_show := flag("pantyhose_hull_show", "debug.pantyhose_h
 	"Show hull", "Draw the depth field over the anatomy as a heatmap.",
 	INTEGRATIONS, "Pantyhose").as_debug()
 
-## The built-in act prompts from the shipped catalog. The player file stores only overrides, and
-## the current built-ins are supplied at read time so a release can update them.
-static var DEFAULT_ACT_PROMPTS: Dictionary = DEFAULTS.catalog_block("act_prompts")
-
 ## Every spawnable adult mare's preference template lives in the same catalog. A provider layer is
 ## applied when the profile is read, never written here.
 static var CHARACTER_TEMPLATES: Dictionary = DEFAULTS.catalog_block("character_templates")
@@ -1889,16 +1871,6 @@ static func _path() -> String:
 		if mods != null and mods.has_method("data_folder"):
 			return GAME.mods_data_folder(mods, ID).path_join(FILE)
 	return "user://mods/data/%s/%s" % [ID, FILE]
-
-
-static func act_prompt(id: String, key: String) -> String:
-	var prompts: Dictionary = template_for(id).rows("act_prompts").raw()
-	return str(prompts.get(key, ""))
-
-
-static func event_prompt(id: String, event: String) -> String:
-	var prompts: Dictionary = template_for(id).rows("event_prompts").raw()
-	return str(prompts.get(event, ""))
 
 
 static func preferences(id: String) -> ROWS.Rows:
@@ -2310,52 +2282,6 @@ static func _normalize_line_variety(data: Dictionary) -> Dictionary:
 	return data
 
 
-## Drop obsolete prompt keys and known old built-ins so the current defaults apply. A custom value
-## for a current key is preserved.
-static func _normalize_act_prompts(data: Dictionary) -> Dictionary:
-	var blocks: Array = []
-	if data.get("default") is Dictionary:
-		blocks.append(data["default"])
-	if data.get("characters") is Dictionary:
-		for entry: Variant in (data["characters"] as Dictionary).values():
-			if entry is Dictionary:
-				blocks.append(entry)
-	for block: Dictionary in blocks:
-		var raw: Variant = block.get("act_prompts")
-		if not raw is Dictionary:
-			continue
-		var prompts: Dictionary = raw
-		for key: Variant in prompts.keys():
-			var name := str(key)
-			if not DEFAULT_ACT_PROMPTS.has(name):
-				prompts.erase(key)
-				continue
-			var legacy: Variant = LEGACY_ACT_PROMPTS.get(name, [])
-			if str(prompts[key]) in legacy:
-				prompts.erase(key)
-		if prompts.is_empty():
-			block.erase("act_prompts")
-	return data
-
-
-## Remove saved prompt overrides and return to the built-in prompts. Preferences, poses, consent
-## and event prompts are untouched.
-static func reset_act_prompts() -> bool:
-	var data := _draft()
-	var changed := false
-	if data.get("default") is Dictionary and (data["default"] as Dictionary).has("act_prompts"):
-		(data["default"] as Dictionary).erase("act_prompts")
-		changed = true
-	if data.get("characters") is Dictionary:
-		for entry: Variant in (data["characters"] as Dictionary).values():
-			if entry is Dictionary and (entry as Dictionary).has("act_prompts"):
-				(entry as Dictionary).erase("act_prompts")
-				changed = true
-	if changed:
-		_write(data)
-	return changed
-
-
 ## Move the old `taste` block onto `preferences` for the default template and every character.
 static func _normalize_character_preferences(data: Dictionary) -> Dictionary:
 	var blocks: Array = []
@@ -2428,7 +2354,7 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 					entry.erase("preferences")
 			# These blocks are kept whole once any part of them was edited. A provider update
 			# inside an edited block is an edge case; the player's block stays authoritative.
-			for field: String in ["poses", "act_prompts", "event_prompts"]:
+			for field: String in ["poses"]:
 				if entry.has(field) and entry[field] == template.get(field, null):
 					entry.erase(field)
 			for field: String in ["cue_gap", "aftercare_min", "smack_zone_radius"]:
@@ -2654,7 +2580,6 @@ static func _profile_merge(base: Dictionary, characters: Dictionary, id: String)
 		if over is Dictionary:
 			selected = _merge(selected, over)
 	selected["preferences"] = PREFERENCES.resolve(selected.get("preferences", {}))
-	selected = _fill_prompts(selected)
 	return _fill_pose_defaults(selected)
 
 
@@ -3003,7 +2928,6 @@ static func _migrate_to_9(data: Dictionary) -> Dictionary:
 	data = _normalize_presentation(data)
 	data = _normalize_tolerance(data)
 	data = _normalize_character_preferences(data)
-	data = _normalize_act_prompts(data)
 	data = _normalize_character_overrides(data)
 	data = _normalize_anatomy(data)
 	data = _normalize_retired_keys(data)
@@ -3330,23 +3254,6 @@ static func _normalize_retired_keys(data: Dictionary) -> Dictionary:
 		if node is Dictionary and (node as Dictionary).is_empty():
 			_erase_path(data, parent)
 	return data
-
-
-## Keep only explicit prompt overrides: the shipped prompts come from `prompts.json`, so an absent
-## key is no override. A custom value for a current key is preserved.
-static func _fill_prompts(template: Dictionary) -> Dictionary:
-	var out: Dictionary = template.duplicate(true)
-	var raw: Variant = out.get("act_prompts", {})
-	var prompts: Dictionary = {}
-	if raw is Dictionary:
-		for key: String in DEFAULT_ACT_PROMPTS:
-			if (raw as Dictionary).has(key):
-				prompts[key] = str((raw as Dictionary)[key])
-	if prompts.is_empty():
-		out.erase("act_prompts")
-	else:
-		out["act_prompts"] = prompts
-	return out
 
 
 static func _fill_pose_defaults(template: Dictionary) -> Dictionary:

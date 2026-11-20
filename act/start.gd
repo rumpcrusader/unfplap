@@ -77,7 +77,6 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.pose.set_pose_config(POSE_SESSION.SettingsBlock.from_dict(
 		SETTINGS.pose(session.pony_id, session.start_group()).raw()))
 	session.preferences = SETTINGS.preferences(session.pony_id).raw()
-	session.act_prompts = session.profile.get("act_prompts", {})
 	session.snapshot_settings()
 	context.reactions.apply_radius()
 	session.aftercare_min = int(session.profile["aftercare_min"])

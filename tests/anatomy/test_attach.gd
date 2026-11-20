@@ -242,17 +242,14 @@ func run() -> void:
 	check(live_ids.size() == 1 and live_ids[0] == "not_a_base_mare",
 		"the Characters selector lists live off-roster mares")
 
-	# A profile keeps its custom prompts and poses when consent is merged.
+	# A profile keeps its custom poses when consent is merged.
 	var base := ROWS.Rows.of(SETTINGS._filled_default())
 	var characters := {"twilight_sparkle": {
 		"consent": {"anal": true},
-		"event_prompts": {"climax": "custom"},
 		"poses": {"missionary": {"rump_drop_deg": 12.0}},
 	}}
 	var profile: Dictionary = SETTINGS._profile_merge(base.raw(), characters, "twilight_sparkle")
 	check(profile.has("consent"), "profile carries consent")
-	check(str((profile.get("event_prompts", {}) as Dictionary).get("climax", "")) == "custom",
-		"consent merge preserves event prompts")
 	check(absf(float(((profile.get("poses", {}) as Dictionary).get("missionary", {}) as Dictionary)
 		.get("rump_drop_deg", 0.0)) - 12.0) < 0.001, "consent merge preserves pose overrides")
 	var typed := SETTINGS.profile_for(base, ROWS.Rows.of(characters), "twilight_sparkle")

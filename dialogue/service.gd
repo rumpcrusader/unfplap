@@ -628,11 +628,6 @@ func _bystander_line(id: String, event_id: String, purpose: String,
 
 ## The provider or player override wins; otherwise the shipped prompt node for that id.
 func _prompt_node(key: String) -> Variant:
-	var override := str(facts.act_prompts.get(key, ""))
-	if override.strip_edges().is_empty():
-		override = str(facts.act_prompts.get("utterance", ""))
-	if not override.strip_edges().is_empty():
-		return override
 	var node: Dictionary = DEFAULTS_DATA.prompts_block("act." + key)
 	if node.is_empty():
 		node = DEFAULTS_DATA.prompts_block("act.utterance")

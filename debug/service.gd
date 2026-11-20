@@ -88,11 +88,6 @@ const ACTIONS := {
 		"help": "Add a footstool to Anon's briefcase.",
 		"method": "action_give_stool",
 	},
-	"reset_act_prompts": {
-		"label": "Reset act prompts",
-		"help": "Remove saved act-line prompt overrides and return to the built-in prompts.",
-		"method": "action_reset_act_prompts",
-	},
 	"pantyhose_rebuild": {
 		"label": "Pantyhose: rebuild hull",
 		"help": "Rebuild the worn-garment depth field from the anatomy mesh after changing its precision.",

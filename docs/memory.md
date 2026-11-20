@@ -226,7 +226,6 @@ memory is marked used only after the caller queues the line.
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | ponies | `ponies/service.gd` | the eligibility handle |
-| service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/game.gd` | the base-game events, bonds, story and mod-state reads |
 | shared | act_face | `shared/act_face.gd` | face beat data |
 | shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |

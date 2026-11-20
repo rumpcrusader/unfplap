@@ -686,11 +686,6 @@ func _debug_prompt_rows(target: Node) -> Array[String]:
 	return rows
 
 
-func action_reset_act_prompts() -> String:
-	SETTINGS.reset_act_prompts()
-	return "Act prompts reset to defaults."
-
-
 func action_give_stool() -> String:
 	if not is_instance_valid(WORLD.game):
 		return "Act system not ready."

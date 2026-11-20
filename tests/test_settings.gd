@@ -292,8 +292,8 @@ func _check_shipped_defaults() -> void:
 			"defaults() is detached from the shipped document")
 
 
-## The global `default` profile: three timing numbers, event prompts, an empty prompt override
-## block, the preference schema and the pose schema. It never asserts a value.
+## The global `default` profile: three timing numbers, the preference schema and the pose schema.
+## It never asserts a value.
 func _check_default_profile(profile: Variant) -> void:
 	check(profile is Dictionary, "the shipped document has a global default profile")
 	if not profile is Dictionary:
@@ -302,20 +302,6 @@ func _check_default_profile(profile: Variant) -> void:
 	for key: String in ["smack_zone_radius", "aftercare_min", "cue_gap"]:
 		check(block.get(key) is int or block.get(key) is float,
 			"default.%s is a number" % key)
-	var events: Variant = block.get("event_prompts")
-	check(events is Dictionary, "default.event_prompts is a block")
-	if events is Dictionary:
-		var event_keys: Array = (events as Dictionary).keys()
-		event_keys.sort()
-		var expected_events := SETTINGS.MARE_REGISTRY.EVENT_PROMPT_KEYS.duplicate()
-		expected_events.sort()
-		check(event_keys == expected_events, "default.event_prompts has exactly the event keys")
-		for key: Variant in event_keys:
-			check((events as Dictionary)[key] is String,
-				"default.event_prompts.%s is text" % str(key))
-	var prompts: Variant = block.get("act_prompts")
-	check(prompts is Dictionary and (prompts as Dictionary).is_empty(),
-		"the built-in prompts stay out of the default profile")
 	var preferences: Variant = block.get("preferences")
 	check(preferences is Dictionary, "default.preferences is a block")
 	if preferences is Dictionary:
@@ -392,21 +378,6 @@ func _check_catalog() -> void:
 	check(not SETTINGS.data().raw().has("character_templates"),
 		"the merged view has no template catalog")
 
-	var prompts: Variant = catalog.get("act_prompts")
-	check(prompts is Dictionary, "the catalog has an act_prompts block")
-	if prompts is Dictionary:
-		var prompt_keys: Array = (prompts as Dictionary).keys()
-		prompt_keys.sort()
-		var expected_prompts: Array = SETTINGS.MARE_REGISTRY.PROMPT_KEYS.duplicate()
-		expected_prompts.sort()
-		check(prompt_keys == expected_prompts, "act_prompts has exactly the prompt keys")
-		var empty_prompts: Array = []
-		for key: Variant in prompt_keys:
-			if str((prompts as Dictionary)[key]).strip_edges().is_empty():
-				empty_prompts.append(str(key))
-		check(empty_prompts.is_empty(), "act_prompts entries are not empty: %s"
-			% str(empty_prompts))
-
 	var templates: Variant = catalog.get("character_templates")
 	check(templates is Dictionary, "the catalog has a character_templates block")
 	if templates is Dictionary:
@@ -421,7 +392,6 @@ func _check_catalog() -> void:
 		var bad_preference_fields: Array = []
 		var bad_pose_blocks: Array = []
 		var bad_pose_ids: Array = []
-		var bad_event_keys: Array = []
 		for id: Variant in ids:
 			var entry: Variant = (templates as Dictionary)[id]
 			if not entry is Dictionary:
@@ -445,12 +415,6 @@ func _check_catalog() -> void:
 				for pose_id: Variant in (poses as Dictionary).keys():
 					if not str(pose_id) in SETTINGS.CATALOG.all():
 						bad_pose_ids.append("%s.poses.%s" % [str(id), str(pose_id)])
-			var events: Variant = (entry as Dictionary).get("event_prompts", {})
-			if events is Dictionary:
-				for key: Variant in (events as Dictionary).keys():
-					if not str(key) in SETTINGS.MARE_REGISTRY.EVENT_PROMPT_KEYS:
-						bad_event_keys.append("%s.event_prompts.%s"
-							% [str(id), str(key)])
 		check(bad_blocks.is_empty(), "every character template is a block: %s"
 			% str(bad_blocks))
 		check(bad_fields.is_empty(), "every template key is a template field: %s"
@@ -463,8 +427,6 @@ func _check_catalog() -> void:
 			% str(bad_pose_blocks))
 		check(bad_pose_ids.is_empty(), "every template pose is a catalog pose: %s"
 			% str(bad_pose_ids))
-		check(bad_event_keys.is_empty(), "every event prompt key is an event: %s"
-			% str(bad_event_keys))
 
 	var anatomy: Variant = catalog.get("anatomy", {})
 	var placement: Variant = (anatomy as Dictionary).get("placement") \
@@ -506,14 +468,12 @@ func _check_player_document() -> void:
 	check(int(untouched.get("version", 0)) == SETTINGS.SCHEMA_VERSION,
 		"the player document carries the current schema")
 	check(untouched.has("debug_mode"), "declared settings stay materialised")
-	check(not untouched.has("act_prompts"), "the player document has no prompt catalog")
 	check(not untouched.has("character_templates"), "the player document has no template catalog")
 
 	var changed := shipped.duplicate(true)
 	var profile: Dictionary = changed["default"]
 	(profile["preferences"] as Dictionary)["intensity"] = "rough"
 	(profile["poses"]["standing"] as Dictionary)["bow"] = 3.5
-	(profile["event_prompts"] as Dictionary)["climax"] = "a custom climax"
 	var sparse := SETTINGS._player_document(changed)
 	var diff: Dictionary = sparse.get("default", {})
 	var preference: Dictionary = diff.get("preferences", {})
@@ -523,9 +483,6 @@ func _check_player_document() -> void:
 	var standing: Dictionary = (diff.get("poses", {}) as Dictionary).get("standing", {})
 	check(near(float(standing.get("bow", 0.0)), 3.5), "a changed pose value is stored")
 	check(not standing.has("foreleg"), "an untouched pose key is not pinned")
-	check(str((diff.get("event_prompts", {}) as Dictionary).get("climax", ""))
-		== "a custom climax", "a changed event prompt is stored")
-	check(not diff.has("act_prompts"), "an empty prompt block is not written")
 
 	var resolved := SETTINGS._merge(shipped, sparse)
 	check(near(float((resolved["default"]["poses"]["standing"] as Dictionary)["bow"]), 3.5),
@@ -1074,7 +1031,7 @@ func _check_panel_tab(tab: String, debug_on: bool) -> void:
 			var expected: Array = []
 			match tab:
 				SETTINGS.GENERAL:
-					expected = ["Reload posed base", "Give footstool", "Reset act prompts"]
+					expected = ["Reload posed base", "Give footstool"]
 				SETTINGS.ANATOMY:
 					expected = ["Pitch +", "Up", "Pointed mare", "Show skeleton overlay"]
 				SETTINGS.WORLD:
@@ -1391,8 +1348,6 @@ func _check_profiles() -> void:
 	check((modded["preferences"] as Dictionary)
 		== SETTINGS.default_preferences_for(base, "a_modded_mare").raw(),
 		"an off-roster mare uses the global preference profile")
-	check(not modded.has("act_prompts"),
-		"an off-roster mare carries no prompt override")
 	check(not (modded.get("poses", {}) as Dictionary).is_empty(),
 		"an off-roster mare gets the pose defaults")
 	var modded_override := SETTINGS.profile_for(base,
@@ -1413,20 +1368,6 @@ func _check_profiles() -> void:
 		{"fluttershy": {"cue_gap": 15.0}}, "fluttershy")
 	check(near(float(override.get("cue_gap", 0.0)), 15.0), "a character override wins")
 	check(not SETTINGS.template_for("fluttershy").raw().is_empty(), "live template")
-	check(SETTINGS.act_prompt("fluttershy", "utterance").is_empty(),
-		"no shipped utterance prompt rides in the profile")
-	check(SETTINGS.act_prompt("fluttershy", "cue").is_empty(),
-		"no shipped cue prompt rides in the profile")
-	check(str(SETTINGS.DEFAULT_ACT_PROMPTS.get("cue", "")).contains("private, not a list to say"),
-		"the default cue prompt keeps preferences private")
-	var legacy_data := {"default": {"act_prompts": {"cue": SETTINGS.LEGACY_ACT_PROMPTS["cue"][-1]}}}
-	var normalized := SETTINGS._normalize_act_prompts(legacy_data)
-	check(not (normalized["default"] as Dictionary).has("act_prompts"),
-		"a saved old cue prompt is removed")
-	var custom_data := {"default": {"act_prompts": {"cue": "custom"}}}
-	var custom := SETTINGS._normalize_act_prompts(custom_data)
-	check(str(((custom["default"] as Dictionary)["act_prompts"] as Dictionary)["cue"]) == "custom",
-		"a custom cue prompt survives")
 
 
 ## The identity document is tri-state: a provider assertion is present, absence leaves the game the
@@ -1475,7 +1416,6 @@ func _check_provider_precedence() -> void:
 			"source": "precedence_test",
 			"preferences": {"intensity": "rough", "notes": "Provider note."},
 			"poses": {"standing": {"bow": 9.0}},
-			"act_prompts": {"cue": "Provider cue."},
 			"placement": {"tail_y": 0.09},
 		}))
 	check(registered.ok, "the precedence provider registers")
@@ -1483,8 +1423,6 @@ func _check_provider_precedence() -> void:
 	var profile := SETTINGS.profile_for(base, ROWS.Rows.of({}), id)
 	check(profile.preferences.str_value("intensity", "") == "rough",
 		"the provider preference beats the global default")
-	check(SETTINGS.template_for(id).rows("act_prompts").str_value("cue", "") == "Provider cue.",
-		"the provider act prompt beats the catalog prompt")
 	var standing: Dictionary = SETTINGS.template_for(id).rows("poses").raw().get("standing", {})
 	check(near(float(standing.get("bow", 0.0)), 9.0),
 		"the provider pose beats the catalog pose")
@@ -1500,8 +1438,6 @@ func _check_provider_precedence() -> void:
 		"a player preference beats the provider")
 	check(player.preferences.str_value("notes", "") == "Provider note.",
 		"the provider preference survives the player's edit")
-	check(SETTINGS.template_for(id).rows("act_prompts").str_value("cue", "") == "Provider cue.",
-		"the provider prompt still wins without a player override")
 
 	var placed := SETTINGS.anatomy_placement(id).raw()
 	placed["tail_y"] = 0.11
@@ -1521,8 +1457,6 @@ func _check_provider_precedence() -> void:
 	check(restored.preferences.str_value("notes", "")
 		== base.rows("preferences").str_value("notes", ""),
 		"the provider note falls back to the global default")
-	check(SETTINGS.template_for(id).rows("act_prompts").str_value("cue", "").is_empty(),
-		"the provider prompt falls back to no override")
 	var restored_standing: Dictionary = SETTINGS.template_for(id).rows("poses").raw().get(
 		"standing", {})
 	var base_standing: Dictionary = base.rows("poses").raw().get("standing", {})
@@ -1599,8 +1533,6 @@ func _check_character_overrides() -> void:
 
 	var base := ROWS.Rows.of(SETTINGS._filled_default())
 	var fluttershy: Dictionary = SETTINGS._profile_merge(base.raw(), {}, "fluttershy")
-	check(str((fluttershy.get("event_prompts", {}) as Dictionary).get("climax", "")).is_empty(),
-		"built-in mares use the generic climax fallback")
 	check(not (fluttershy.get("poses", {}) as Dictionary).is_empty(),
 		"built-in poses seed without a saved block")
 

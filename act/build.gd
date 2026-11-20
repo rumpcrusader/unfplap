@@ -271,6 +271,7 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.neck_point = Callable(b.camera, "neck_midpoint")
 	b.facts.set_look = Callable(b.phases, "set_look")
 	b.facts.set_forced_glance = Callable(b.phases, "set_forced_glance")
+	b.facts.set_head_back = Callable(b.pose, "set_head_back")
 	b.facts.set_camera_basis_ready = Callable(b.phases, "set_camera_basis_ready")
 	b.facts.director = Callable(b.host, "director")
 	b.facts.now = Callable(b.act, "clock_s")

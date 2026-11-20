@@ -38,7 +38,7 @@ var _wing_jitter_goal := 0.0
 var _wing_jitter_clock := 0.0
 var _last_wing_flutter := -1000.0
 var _wings_node: Node
-var _wing_sweep: SkeletonModifier3D
+var _wing_sweep: WING_SWEEP
 var _wing_returning := false
 var _wing_return_done := false
 var _wing_return_node: Node
@@ -226,16 +226,16 @@ func _ensure_wing_sweep(family: String) -> void:
 		return
 	var skeleton := sk as Skeleton3D
 	if not is_instance_valid(_wing_sweep):
-		var sweep: Node3D = WING_SWEEP.new()
+		var sweep := WING_SWEEP.new()
 		sweep.name = "UnfplapWingSweep"
 		skeleton.add_child(sweep)
-		sweep.call("setup", skeleton, WING_SWEEP_DEG)
-		_wing_sweep = sweep as SkeletonModifier3D
+		sweep.setup(skeleton, WING_SWEEP_DEG)
+		_wing_sweep = sweep
 		LOG.debug("wing sweep %.0f deg", [WING_SWEEP_DEG])
 	var last := skeleton.get_child_count() - 1
 	if _wing_sweep.get_index() != last:
 		skeleton.move_child(_wing_sweep, last)
-	_wing_sweep.set("amount", 1.0)
+	_wing_sweep.amount = 1.0
 
 
 func _clear_wing_sweep() -> void:

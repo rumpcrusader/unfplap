@@ -8,6 +8,7 @@ extends SceneTree
 const SESSION := preload("res://mods/unfplap/poses/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 var failures := 0
 var checks := 0
@@ -21,10 +22,10 @@ class FakePony extends Node3D:
 
 ## The act-body handle the transition test injects: the session owns it, so it must accept the
 ## service's pair binding and its act-exit restore.
-class FakeActBody extends Node:
+class FakeActBody extends "res://mods/unfplap/poses/missionary_anon.gd":
 	var pairs: Array = []
 
-	func set_pose_assets(from_value: Variant, to_value: Variant, weight: float) -> void:
+	func set_pose_assets(from_value: AUTHORED, to_value: AUTHORED, weight: float) -> void:
 		pairs.append([from_value, to_value, weight])
 
 	func remove() -> void:

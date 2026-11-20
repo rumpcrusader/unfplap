@@ -3,6 +3,9 @@ extends RefCounted
 ## The asset is the pose, with no correction stack and no fallback. The runtime owns the face, so the
 ## base resets the head bone to rest and the gaze solve aims its frame at Anon.
 
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
+
 var _config: Dictionary = {}
 
 
@@ -17,11 +20,11 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 ## unavailable; the overlay is then skipped too, exactly as the whole-pose path returns.
 func apply_base(_rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	_config = state.get("config", {})
-	var authored: Variant = state.get("authored")
+	var authored: AUTHORED = state.get("authored")
 	var frame: Variant = state.get("bed_frame")
-	if authored == null or not frame is Transform3D or not bool(authored.get("available")):
+	if authored == null or not frame is Transform3D or not authored.available:
 		return false
-	authored.call("apply_pony", sk, weight, frame, float(state.get("body_scale", 1.0)),
+	authored.apply_pony(sk, weight, frame as Transform3D, float(state.get("body_scale", 1.0)),
 		str(state.get("size_name", "")))
 	_apply_contact_offset(sk, weight, state)
 	_neutral_head(sk, weight)
@@ -94,12 +97,10 @@ func _head_gaze_frame(rig, sk: Skeleton3D) -> Dictionary:
 		# from the last update, then to the body bone.
 		if mare.has_method("awareness_forward"):
 			var forward: Variant = mare.call("awareness_forward")
-			var boop: Variant = mare.get("boop_node")
-			var origin: Variant = null
-			if boop != null and boop.has_method("skull_world"):
-				origin = boop.call("skull_world")
+			var boop: Node = mare.get("boop_node")
+			var origin := GAME.skull_world(boop)
 			if forward is Vector3 and (forward as Vector3).length_squared() > 0.000001 \
-					and origin is Vector3 and (origin as Vector3).is_finite():
+					and origin.is_finite():
 				return {"origin": origin, "forward": (forward as Vector3).normalized(),
 					"up": Vector3.UP}
 	return {"origin": world.origin, "forward": world.basis.z.normalized(),

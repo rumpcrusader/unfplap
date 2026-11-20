@@ -987,9 +987,11 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | world | `world/service.gd` | player, camera and mares |
+| service | world | `world/game.gd` | the base-game accessors the presentation reads |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | ponies | `ponies/service.gd` | the eligibility and anatomy handles |
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| read model | act_facts | `shared/act_facts.gd` | the typed act view |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
 | shared | hands_reach_plan | `shared/hands_reach_plan.gd` | reach planning math |

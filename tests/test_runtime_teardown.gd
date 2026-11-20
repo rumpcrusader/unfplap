@@ -6,6 +6,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
@@ -468,7 +469,7 @@ func run() -> void:
 	runtime8.act._set_state(2)
 	runtime8.act.features = {"standing_body_sway": true}
 	runtime8.act.start._build_pose()
-	var act_body8 := Node.new()
+	var act_body8 := MISSIONARY_ANON.new()
 	runtime8._bundle.pose.act_body = act_body8
 	check(runtime8._bundle.pose.body_sway != null,
 		"the act body test installs the standing body sway")

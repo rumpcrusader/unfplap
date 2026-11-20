@@ -53,14 +53,14 @@ class FakeExpressions extends RefCounted:
 		stares.append([on, lids])
 
 
-class FakeBoop extends RefCounted:
+class FakeBoop extends Node:
 	var blushes: Array = []
 
 	func sustain_blush(level := 1.0) -> void:
 		blushes.append(level)
 
 
-class FakeSecondary extends RefCounted:
+class FakeSecondary extends Node:
 	var last_angles := Vector3.ZERO
 	var looks := 0
 
@@ -69,7 +69,7 @@ class FakeSecondary extends RefCounted:
 		looks += 1
 
 
-class FakeEyeMotion extends RefCounted:
+class FakeEyeMotion extends Node:
 	var target_world := Vector3.ZERO
 	var target_weight := 0.0
 

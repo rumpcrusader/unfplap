@@ -3,6 +3,7 @@ extends SkeletonModifier3D
 ## Contract: `docs/poses.md`.
 
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
 const STANDING_ORAL := preload("res://mods/unfplap/poses/standing_oral_recipe.gd")
@@ -45,14 +46,14 @@ var climaxing := false
 var pose_config: Dictionary = {}
 ## Hand-authored base pose and the space it is placed in. A null asset or a missing frame leaves
 ## the recipe's correction stack as the fallback.
-var authored: Variant = null
+var authored: AUTHORED = null
 ## The face contact's world-space correction, written by the session's face driver and applied by
 ## the recipe to the armature root. Zero on every other contact.
 var contact_offset := Vector3.ZERO
 ## The authored assets of the two sides. A pair with different assets blends even when driver and
 ## config match; a null side reuses the live asset.
-var from_authored: Variant = null
-var to_authored: Variant = null
+var from_authored: AUTHORED = null
+var to_authored: AUTHORED = null
 var bed_frame: Variant = null
 ## The ground frame for a ground pose: the pony root's basis and position at pose start.
 var ground_frame: Variant = null
@@ -113,7 +114,7 @@ func _init() -> void:
 ## The trailing assets are the two sides' authored documents.
 func set_pose(from_path: String, to_path: String, from_delta_path: String, to_delta_path: String,
 		from_config: Dictionary, to_config: Dictionary,
-		from_asset: Variant = null, to_asset: Variant = null) -> void:
+		from_asset: AUTHORED = null, to_asset: AUTHORED = null) -> void:
 	from_driver = from_path
 	to_driver = to_path
 	from_delta = from_delta_path
@@ -246,11 +247,11 @@ func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 	}
 	if mode == MODE_SINGLE:
 		diag_last_base = "authored" if authored != null and _frame() is Transform3D \
-			and bool(authored.get("available")) else "none"
+			and authored.available else "none"
 	else:
 		diag_last_base = "blend"
 	var tracing := mode == MODE_SINGLE and trace and diag_trace < 3 and weight > 0.9 \
-		and authored != null and bool(authored.get("available")) and _frame() is Transform3D
+		and authored != null and authored.available and _frame() is Transform3D
 	if tracing:
 		_trace_before(sk, state)
 	if mode == MODE_SINGLE:
@@ -260,9 +261,9 @@ func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 	if _rig.hips >= 0:
 		_diag_wrote_hips = sk.get_bone_pose_rotation(_rig.hips)
 		_diag_wrote = true
-		if authored != null and bool(authored.get("available")):
-			var entries: Variant = authored.get("pony_bones")
-			var entry: Variant = (entries as Dictionary).get("pony_hips") if entries is Dictionary else null
+		if authored != null and authored.available:
+			var entries := authored.pony_bones
+			var entry: Variant = entries.get("pony_hips") if entries is Dictionary else null
 			if entry is Dictionary:
 				diag_after_write_deg = rad_to_deg(_diag_wrote_hips.angle_to(
 					(entry as Dictionary)["rotation"]))
@@ -410,8 +411,8 @@ func _trace_before(sk: Skeleton3D, state: Dictionary) -> void:
 	var g := sk.global_transform
 	diag_root = _trace_root(sk)
 	diag_asset_root = -1
-	if authored != null and authored.has_method("root_bone"):
-		diag_asset_root = int(authored.call("root_bone", sk))
+	if authored != null:
+		diag_asset_root = authored.root_bone(sk)
 	diag_root_name = sk.get_bone_name(diag_root) if diag_root >= 0 else "none"
 	if diag_root >= 0:
 		diag_root_start = g * sk.get_bone_global_pose(diag_root)
@@ -419,20 +420,19 @@ func _trace_before(sk: Skeleton3D, state: Dictionary) -> void:
 		diag_hips_start = g * sk.get_bone_global_pose(_rig.hips)
 	var frame: Transform3D = _frame()
 	var body_scale := float(state.get("body_scale", 1.0))
-	if int(authored.get("version")) >= 7 and authored.has_method("placed_root"):
-		diag_root_wanted = authored.call("placed_root", frame, body_scale)
+	if authored.version >= 7:
+		diag_root_wanted = authored.placed_root(frame, body_scale)
 	else:
-		var placement: Variant = authored.get("pony_frame")
-		if placement is Transform3D:
-			var scaled: Transform3D = placement
-			scaled.origin *= body_scale
-			scaled.basis = scaled.basis * Basis.from_scale(Vector3.ONE * body_scale)
-			diag_root_wanted = frame * scaled
-	var entries: Variant = authored.get("pony_bones")
-	var entry: Variant = (entries as Dictionary).get("pony_hips") if entries is Dictionary else null
+		var placement := authored.pony_frame
+		var scaled: Transform3D = placement
+		scaled.origin *= body_scale
+		scaled.basis = scaled.basis * Basis.from_scale(Vector3.ONE * body_scale)
+		diag_root_wanted = frame * scaled
+	var entries := authored.pony_bones
+	var entry: Variant = entries.get("pony_hips") if entries is Dictionary else null
 	if entry is Dictionary:
 		var local := Transform3D(Basis((entry as Dictionary)["rotation"]), (entry as Dictionary)["position"])
-		if int(authored.get("version")) >= 7 and _rig.hips >= 0:
+		if authored.version >= 7 and _rig.hips >= 0:
 			local = sk.get_bone_rest(_rig.hips) * local
 		diag_hips_wanted = diag_root_wanted * local
 

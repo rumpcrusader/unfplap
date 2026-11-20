@@ -12,6 +12,7 @@ const NOD_DAMPING := 15.0
 ## Flip if the slide should follow the other end of the bed on a given body orientation.
 const SLIDE_SIGN := -1.0
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var mare: Node3D
 ## The typed act view: the live state and depth. Absent outside an act.
@@ -32,14 +33,11 @@ var _hook_seen := false
 
 ## The pose-change hook: a family or profile change drops the cached local origin and the springs,
 ## so the next pose does not inherit the previous slide or nod. A shared keep is a cheap no-op.
-func pose_changed(view: Variant) -> void:
+func pose_changed(view: POSE_VIEW) -> void:
 	if view == null:
 		return
-	var family := str(view.family)
-	var modifiers_value: Variant = view.modifiers
-	var profile := ""
-	if modifiers_value is Dictionary:
-		profile = str((modifiers_value as Dictionary).get("profile", ""))
+	var family := view.family
+	var profile := str(view.modifiers.get("profile", ""))
 	if _hook_seen and family == _hook_family and profile == _hook_profile:
 		return
 	_hook_seen = true

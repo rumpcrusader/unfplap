@@ -8,6 +8,7 @@ const STANDING_FORELEG_SPREAD := 0.172
 const STANDING_HIND_SPREAD := 0.32
 const STANDING_CHIN_UP_DEG := 30.0
 const STANDING_NECK_DOWN_DEG := 30.0
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 var _config: Dictionary = {}
 
@@ -42,11 +43,11 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 ## the asset or the ground frame is unavailable; there is no procedural fallback.
 func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	_config = state.get("config", {})
-	var authored: Variant = state.get("authored")
+	var authored: AUTHORED = state.get("authored")
 	var frame: Variant = state.get("ground_frame")
-	if authored == null or not frame is Transform3D or not bool(authored.get("available")):
+	if authored == null or not frame is Transform3D or not authored.available:
 		return false
-	authored.call("apply_pony", sk, weight, frame, float(state.get("body_scale", 1.0)),
+	authored.apply_pony(sk, weight, frame as Transform3D, float(state.get("body_scale", 1.0)),
 		str(state.get("size_name", "")))
 	sk.force_update_all_bone_transforms()
 	_apply_difference(rig, sk, weight)

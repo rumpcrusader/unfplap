@@ -381,9 +381,9 @@ func _drive_glance(delta: float) -> void:
 	# The base kiss owns the head and gaze while it runs or releases. Clear the shoulder reach's
 	# forced over-the-shoulder look so the two head poses do not fight and clip.
 	if kiss.standing_active() or kiss.base_active():
-		if is_instance_valid(facts.pose):
+		if is_instance_valid(facts.pose) and facts.set_head_back.is_valid():
 			_glance_head_back = move_toward(_glance_head_back, 0.0, delta / _glance_back_fade())
-			GAME.set_head_back(facts.pose, _glance_head_back)
+			facts.set_head_back.call(_glance_head_back)
 		facts.write_forced_glance("")
 		_glance_left = 0.0
 		_glance_back = false
@@ -392,11 +392,11 @@ func _drive_glance(delta: float) -> void:
 	# look up at Anon instead of waiting for a random glance.
 	var lean_up: bool = float(facts.lean_forward) >= 0.95 \
 		and absf(float(facts.lean_side)) <= 0.2 and not kiss.standing_active()
-	if is_instance_valid(facts.pose):
+	if is_instance_valid(facts.pose) and facts.set_head_back.is_valid():
 		var back_target := 1.0 if (not str(facts.forced_glance).is_empty() or lean_up \
 			or (_glance_left > 0.0 and _glance_back)) else 0.0
 		_glance_head_back = move_toward(_glance_head_back, back_target, delta / _glance_back_fade())
-		GAME.set_head_back(facts.pose, _glance_head_back)
+		facts.set_head_back.call(_glance_head_back)
 	# The forced, lean-up and random glances all read the pose config. The standing placement can
 	# begin before the pose session builds, so wait for the config instead of indexing an empty one.
 	if _pose_cfg.is_empty():

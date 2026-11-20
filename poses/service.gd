@@ -6,6 +6,9 @@ extends RefCounted
 ## between them stay in the runtime's ledger.
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
+const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
+const BASE_INFO := preload("res://mods/unfplap/poses/pose_base_info.gd")
+const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
@@ -16,6 +19,7 @@ const PRONE_SWAY := preload("res://mods/unfplap/poses/prone_sway.gd")
 const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 const ORAL_TURN := preload("res://mods/unfplap/poses/oral_turn.gd")
@@ -26,7 +30,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 
 ## The empty sets the reconcile and the anon channel read, so a steady tick allocates nothing.
-const NO_OWNERS := []
+const NO_OWNERS: Array[String] = []
 const NO_CHANNEL := {}
 ## The owner names in install order, matching `shared/pose_specs.gd`'s profile table.
 const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_lay"]
@@ -76,53 +80,53 @@ class ActPose extends RefCounted:
 
 ## The runtime node that parents the debug nodes and receives their `runtime` field. It is the
 ## host boundary; the session never reads the runtime's fields.
-var host: Variant = null
-var pony: Variant = null
+var host: Node = null
+var pony: Node3D = null
 
 ## The act's identity and the live view's fields.
 var id := ""
 var features: Dictionary = {}
-var bed_node: Variant = null
+var bed_node: Node3D = null
 ## True between a successful `begin()` and `release_pose()`. The runtime keeps one session per pony.
 var _started := false
 ## Live pose config. The runtime reads it through `_pose_session.pose_config`.
 var pose_config: Dictionary = {}
 ## The one pose read model for the act, and the registry that validates the static spec table.
-var _view: RefCounted
-var _registry: RefCounted
+var _view: POSE_VIEW
+var _registry: REGISTRY
 
 ## The live state-machine value; the view mirrors it. `begin()` enters `ENTERING`, settles `STEADY`,
 ## a request enters `TRANSITIONING` and `release_pose()` exits through `EXITING` to `IDLE`.
 var _state := POSE_VIEW.IDLE
 ## The running edge, or null. A release aborts it without an act exit.
-var _run: Variant = null
+var _run: POSE_STATE.Run = null
 var _from_id := ""
 var _target_id := ""
-var _target_spec: Variant = null
+var _target_spec: POSE_SPEC = null
 ## The target's settings snapshot, by reference from the view's `to_config`.
 var _target_config: Dictionary = {}
 var _target_presentation: Dictionary = {}
 ## The authored asset on each side of the live edge, or the live pose's asset outside one; the
 ## target side is cached at request and adopted on completion.
-var _from_asset: Variant = null
-var _target_asset: Variant = null
+var _from_asset: AUTHORED = null
+var _target_asset: AUTHORED = null
 
 ## The pose modifier and the extra scene modifiers the act installs.
-var pose_node: Node
-var tail: Variant = null
-var tail_lay: Node
-var body_sway: SkeletonModifier3D
-var prone_sway: SkeletonModifier3D
-var ear_twitch: SkeletonModifier3D
+var pose_node: POSE = null
+var tail: TAIL = null
+var tail_lay: TAIL_LAY = null
+var body_sway: BODY_SWAY = null
+var prone_sway: PRONE_SWAY = null
+var ear_twitch: EAR_TWITCH = null
 ## The standing oral actor/frame turn the session owns. It preloads no scene and reads the host
 ## callables below; the edge weight drives it.
-var _oral_turn: RefCounted = null
+var _oral_turn: ORAL_TURN
 ## The bed face-sit contact driver. The contact switch to `face` begins it and the reverse switch
 ## or the one act exit restores it; it never ends the act.
-var _face_driver: RefCounted = null
+var _face_driver: FACE_CONTACT
 ## The act's own Anon body on the `act_body` specs, or null on the player-body specs. The session
 ## creates, installs and frees it; the anatomy bridge only receives the opaque handle.
-var act_body: Variant = null
+var act_body: MISSIONARY_ANON = null
 ## The authored profile table with a test seam: a synthetic profile can be added without touching
 ## the shipped const.
 var modifier_profiles: Dictionary = SPECS.MODIFIER_PROFILES.duplicate()
@@ -148,9 +152,9 @@ var rig_skeleton := 0
 var rig_revision := -1
 ## The asset path the rig verdict was computed against.
 var rig_asset_path := ""
-var rig_missing_bones: Array = []
+var rig_missing_bones: Array[String] = []
 ## A shared unavailable asset instance for a pose whose row supplies no asset.
-var _empty_asset: Variant = null
+var _empty_asset: AUTHORED = null
 
 ## The pony's pre-act bone snapshot.
 var saved_bones: Array[Transform3D] = []
@@ -159,7 +163,7 @@ var saved_skeleton: Skeleton3D
 var saved_hair_skeleton: Skeleton3D
 
 ## The typed act view the pose modifiers read for the live depth, state and bed frame.
-var facts: Variant = null
+var facts: ACT_FACTS = null
 ## Publish or clear the opaque Anon handle on the anatomy bridge. The service owns the body.
 var set_act_body := Callable()
 ## The eye-shot camera tick, which must run after the render write.
@@ -177,7 +181,7 @@ var oral_viseme := Callable()
 var oral_status := Callable()
 
 
-func bind(host_node: Variant, pony_node: Variant) -> void:
+func bind(host_node: Node, pony_node: Node3D) -> void:
 	host = host_node
 	pony = pony_node
 
@@ -196,7 +200,7 @@ func _init() -> void:
 
 ## The one pose read model the act view carries. `begin()` fills it and `release_pose()` clears it;
 ## the object is never re-created, so a consumer can keep the reference for the act.
-func view() -> RefCounted:
+func view() -> POSE_VIEW:
 	return _view
 
 
@@ -261,16 +265,16 @@ func begin(context: Dictionary) -> bool:
 	pose_node.pose_config = pose_config
 	# Resolve the start asset before the evaluator pair: the same instance is the live rendered
 	# asset and both sides of a pose that starts settled.
-	var start_asset: Variant = _asset_for_spec(start_spec)
-	if start_asset != null and bool(start_asset.get("available")) \
-			and bool(start_asset.call("usable", str(_view.frame))):
+	var start_asset: AUTHORED = _asset_for_spec(start_spec)
+	if start_asset != null and start_asset.available \
+			and start_asset.usable(str(_view.frame)):
 		pose_node.authored = start_asset
 	_from_asset = pose_node.authored
 	_target_asset = _from_asset
-	pose_node.call("set_pose", _effective_driver(start_spec), _effective_driver(start_spec),
+	pose_node.set_pose(_effective_driver(start_spec), _effective_driver(start_spec),
 		_effective_delta(start_spec), _effective_delta(start_spec), pose_config, pose_config,
 		_from_asset, _target_asset)
-	pose_node.call("set_weight", 1.0)
+	pose_node.set_weight(1.0)
 	var look: Variant = context.get("look_point")
 	pose_node.look_point = look if look is Vector3 else pony.global_position
 	pose_node.amount = 0.0
@@ -316,7 +320,7 @@ func begin(context: Dictionary) -> bool:
 	return true
 
 
-func _fill_view(spec: Variant) -> void:
+func _fill_view(spec: POSE_SPEC) -> void:
 	if spec == null:
 		_view.clear()
 		LOG.debug("pose view: no spec for the start pose")
@@ -326,7 +330,7 @@ func _fill_view(spec: Variant) -> void:
 
 ## The spec row's base contact kind (`opening` for standing and missionary, `mouth` for the
 ## internal oral pose). An edge switch overrides it while it runs; completion settles it here.
-func _spec_contact_kind(spec: Variant) -> String:
+func _spec_contact_kind(spec: POSE_SPEC) -> String:
 	if spec == null:
 		return "none"
 	var value: Variant = spec.contact
@@ -357,8 +361,8 @@ func _oral_pair(from_id: String, to_id: String) -> bool:
 
 ## The spec's driver, or the driver of a base further up; the first row that names one wins and a
 ## repeated base ends the search.
-func _effective_driver(spec: Variant) -> String:
-	var cursor: Variant = spec
+func _effective_driver(spec: POSE_SPEC) -> String:
+	var cursor: POSE_SPEC = spec
 	var seen: Dictionary = {}
 	while cursor != null:
 		var path := str(cursor.driver)
@@ -374,14 +378,14 @@ func _effective_driver(spec: Variant) -> String:
 
 ## The procedural delta path; empty for a pose whose row carries no delta. `standing_oral` is the
 ## first shipped row with one.
-func _effective_delta(spec: Variant) -> String:
+func _effective_delta(spec: POSE_SPEC) -> String:
 	return str(spec.delta) if spec != null else ""
 
 
 ## The authored pose document of a spec row, or the nearest base that supplies one. An internal row
 ## with no asset of its own inherits it from its base chain.
-func _effective_asset(spec: Variant) -> String:
-	var cursor: Variant = spec
+func _effective_asset(spec: POSE_SPEC) -> String:
+	var cursor: POSE_SPEC = spec
 	var seen: Dictionary = {}
 	while cursor != null:
 		var path := str(cursor.asset)
@@ -414,8 +418,8 @@ static func reload_authored_base() -> String:
 
 
 ## The spec a candidate names: the id's row, or the live view's row when the candidate is empty.
-func _candidate_spec(candidate := "") -> Variant:
-	var spec_id := str(candidate)
+func _candidate_spec(candidate: String = "") -> POSE_SPEC:
+	var spec_id := candidate
 	if spec_id.is_empty() and _view != null:
 		spec_id = str(_view.id)
 	if spec_id.is_empty():
@@ -424,8 +428,8 @@ func _candidate_spec(candidate := "") -> Variant:
 
 
 ## The parsed asset for a candidate spec, or null when the row and its chain supply none.
-func _asset_for(candidate := "") -> Variant:
-	var spec: Variant = _candidate_spec(candidate)
+func _asset_for(candidate: String = "") -> AUTHORED:
+	var spec: POSE_SPEC = _candidate_spec(candidate)
 	if spec == null:
 		return null
 	var path := _effective_asset(spec)
@@ -435,14 +439,14 @@ func _asset_for(candidate := "") -> Variant:
 
 
 ## The parsed asset for an already resolved spec.
-func _asset_for_spec(spec: Variant) -> Variant:
+func _asset_for_spec(spec: POSE_SPEC) -> AUTHORED:
 	var path := _effective_asset(spec)
 	return AUTHORED.shared(path) if not path.is_empty() else null
 
 
 ## The path the rig gate and diagnostics name for a candidate.
-func _asset_path_for(candidate := "") -> String:
-	var spec: Variant = _candidate_spec(candidate)
+func _asset_path_for(candidate: String = "") -> String:
+	var spec: POSE_SPEC = _candidate_spec(candidate)
 	return _effective_asset(spec) if spec != null else ""
 
 
@@ -457,9 +461,9 @@ func _live_spec_id() -> String:
 ## running and touches neither the live pose nor the bones.
 func request_pose(target_id: String, trigger: String, context: Dictionary = {}) -> Dictionary:
 	var from_id := str(_view.id)
-	var target_spec: Variant = _registry.spec(target_id)
+	var target_spec: POSE_SPEC = _registry.spec(target_id)
 	var edge_id := from_id + "__" + target_id
-	var edge: Variant = _registry.edge(edge_id)
+	var edge: TRANSITION_SPEC = _registry.edge(edge_id)
 	var act_state := int(context.get("act_state", facts.state if facts != null else 0))
 	var forms := _request_forms(context)
 	var views := _request_views(context)
@@ -469,7 +473,7 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 		edge != null, checks)
 	if code != "ok":
 		return POSE_STATE.result(code, edge_id, _reason(code, target_id))
-	var run: Variant = POSE_STATE.start_edge(edge.data, from_id, target_id)
+	var run: POSE_STATE.Run = POSE_STATE.start_edge(edge.data, from_id, target_id)
 	if run == null:
 		return POSE_STATE.result("missing_asset", edge_id, "the edge did not start")
 	# Cache the target by settings group, so a row with no blocks of its own (`standing_test`) still
@@ -487,11 +491,11 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 	_run = run
 	_state = POSE_STATE.next(_state, "request")
 	_fill_transition_view()
-	var from_spec: Variant = _registry.spec(_from_id)
-	pose_node.call("set_pose", _effective_driver(from_spec), _effective_driver(_target_spec),
+	var from_spec: POSE_SPEC = _registry.spec(_from_id)
+	pose_node.set_pose(_effective_driver(from_spec), _effective_driver(_target_spec),
 		_effective_delta(from_spec), _effective_delta(_target_spec),
 		pose_config, _target_config, _from_asset, _target_asset)
-	pose_node.call("set_weight", _run.weight)
+	pose_node.set_weight(_run.weight)
 	_bind_oral()
 	_bind_face()
 	if _oral_pair(from_id, target_id):
@@ -540,13 +544,11 @@ func _facts_features() -> Dictionary:
 
 ## The target spec and the edge requirements against the live request values, in the order
 ## `pose_state.request_code()` reports them. A missing flag passes.
-func _request_checks(target_spec: Variant, edge: Variant, context: Dictionary, forms: Array,
-		views: Array, features: Dictionary) -> Dictionary:
+func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, context: Dictionary,
+		forms: Array, views: Array, features: Dictionary) -> Dictionary:
 	var requires: Dictionary = {}
 	if edge != null:
-		var requires_value: Variant = edge.requires
-		if requires_value is Dictionary:
-			requires = requires_value
+		requires = edge.requires
 	var form_ok := false
 	var view_ok := false
 	var asset_ok := false
@@ -634,8 +636,7 @@ func tick(delta: float) -> void:
 	_bind_oral()
 	_bind_face()
 	if facts != null:
-		var pace_value: Variant = facts.get("auto_pace")
-		_oral_turn.pace = float(pace_value) if pace_value != null else 1.0
+		_oral_turn.pace = facts.auto_pace
 	if _run == null:
 		_oral_turn.tick(maxf(delta, 0.0), _view, 1.0)
 		_face_tick(delta)
@@ -644,7 +645,7 @@ func tick(delta: float) -> void:
 	_view.edge_t = _run.t
 	_view.weight = _run.weight
 	if is_instance_valid(pose_node):
-		pose_node.call("set_weight", _view.weight)
+		pose_node.set_weight(_view.weight)
 	_oral_turn.tick(maxf(delta, 0.0), _view, _view.weight)
 	_absorb_switches()
 	_face_tick(delta)
@@ -656,19 +657,19 @@ func tick(delta: float) -> void:
 	var completed_target := _target_id
 	var completed_driver := _effective_driver(_target_spec)
 	var completed_delta := _effective_delta(_target_spec)
-	var completed_asset: Variant = _target_asset
+	var completed_asset: AUTHORED = _target_asset
 	_adopt_target_config()
 	if is_instance_valid(pose_node):
 		pose_node.authored = completed_asset
 		pose_node.from_authored = completed_asset
 		pose_node.to_authored = completed_asset
-		pose_node.call("set_pose", completed_driver, completed_driver, completed_delta,
+		pose_node.set_pose(completed_driver, completed_driver, completed_delta,
 			completed_delta, pose_config, pose_config, completed_asset, completed_asset)
-		pose_node.call("set_weight", 1.0)
+		pose_node.set_weight(1.0)
 		pose_node.pose_config = pose_config
 	_from_asset = completed_asset
 	if is_instance_valid(act_body):
-		act_body.call("set_pose_assets", completed_asset, completed_asset, 1.0)
+		act_body.set_pose_assets(completed_asset, completed_asset, 1.0)
 	_state = POSE_STATE.next(_state, "complete")
 	_view.pose_state = _state
 	_view.contact_kind = _spec_contact_kind(_target_spec)
@@ -730,9 +731,7 @@ func _face_tick(delta: float) -> void:
 		return
 	var level := 0.0
 	if facts != null:
-		var value: Variant = facts.get("depth")
-		if value is float or value is int:
-			level = clampf(float(value), 0.0, 1.0)
+		level = clampf(facts.depth, 0.0, 1.0)
 	_face_driver.tick(maxf(delta, 0.0), _view, level, bed_frame, pose_node)
 
 
@@ -892,8 +891,8 @@ func sync_missionary_config() -> bool:
 
 ## The authored base for a candidate spec, else the live pose's, else the default missionary asset,
 ## parsed once per path. A row without its own asset still reads the default for diagnostics.
-func authored(candidate := "") -> Variant:
-	var asset: Variant = _asset_for(candidate)
+func authored(candidate: String = "") -> AUTHORED:
+	var asset: AUTHORED = _asset_for(candidate)
 	if asset != null:
 		return asset
 	# A row with no asset of its own reads the default missionary asset so diagnostics still have a
@@ -904,16 +903,16 @@ func authored(candidate := "") -> Variant:
 
 
 ## The asset the live rig is rendering: the source through an edge, the target once it settles.
-func live_authored() -> RefCounted:
-	if is_instance_valid(pose_node) and pose_node.authored is RefCounted:
-		return pose_node.authored as RefCounted
-	return authored("") as RefCounted
+func live_authored() -> AUTHORED:
+	if is_instance_valid(pose_node) and pose_node.authored != null:
+		return pose_node.authored
+	return authored("")
 
 
 ## The parsed authored pose for the debug action and the pose lab. With no candidate this is the
 ## live rendered asset, not the target of a running edge.
-func authored_asset(candidate := "") -> Variant:
-	if str(candidate).is_empty():
+func authored_asset(candidate: String = "") -> AUTHORED:
+	if candidate.is_empty():
 		return live_authored()
 	return authored(candidate)
 
@@ -928,46 +927,45 @@ func ground_pose_frame() -> Variant:
 
 ## The live size name from the facts, or "" when no act context is bound.
 func _size_name() -> String:
-	var value: Variant = facts.get("size_name") if facts != null else null
-	return str(value) if value != null else ""
+	return facts.size_name if facts != null else ""
 
 
 ## True when the candidate's own asset loaded and is usable for its frame. A row with no asset is
 ## never ready, even though `authored()` falls back for diagnostics.
-func authored_ready(candidate := "") -> bool:
-	var spec: Variant = _candidate_spec(candidate)
+func authored_ready(candidate: String = "") -> bool:
+	var spec: POSE_SPEC = _candidate_spec(candidate)
 	if spec == null:
 		return false
-	var asset: Variant = _asset_for_spec(spec)
-	if asset == null or not bool(asset.get("available")):
+	var asset: AUTHORED = _asset_for_spec(spec)
+	if asset == null or not asset.available:
 		return false
-	return bool(asset.call("usable", str(spec.frame)))
+	return asset.usable(str(spec.frame))
 
 
 ## Why the candidate's pose asset is unusable, for the gate row and the start log.
-func authored_reason(candidate := "") -> String:
-	var spec: Variant = _candidate_spec(candidate)
+func authored_reason(candidate: String = "") -> String:
+	var spec: POSE_SPEC = _candidate_spec(candidate)
 	if spec == null:
 		return "pose_asset: no pose"
-	var asset: Variant = _asset_for_spec(spec)
+	var asset: AUTHORED = _asset_for_spec(spec)
 	if asset == null:
 		return "pose_asset: no asset for %s" % str(spec.id)
-	if not bool(asset.get("available")):
-		var why := str(asset.get("error"))
+	if not asset.available:
+		var why := asset.error
 		return "pose_asset: %s" % (why if not why.is_empty() else "not loaded")
-	if not bool(asset.call("usable", str(spec.frame))):
-		return "pose_asset: %s asset in a %s pose" % [str(asset.get("frame")), str(spec.frame)]
+	if not asset.usable(str(spec.frame)):
+		return "pose_asset: %s asset in a %s pose" % [asset.frame, str(spec.frame)]
 	return ""
 
 
 ## Re-read the live pose's asset in place, plus the running edge's target, or the default
 ## missionary asset when no pose is live. A running act picks the new pose up on its next frame.
-func reload_authored(candidate := "") -> String:
+func reload_authored(candidate: String = "") -> String:
 	var paths: Array[String] = []
 	var seen: Dictionary = {}
 	_add_reload_path(paths, seen, _asset_path_for(candidate))
 	if is_instance_valid(pose_node) and pose_node.authored != null:
-		_add_reload_path(paths, seen, str(pose_node.authored.get("path")))
+		_add_reload_path(paths, seen, pose_node.authored.path)
 	if paths.is_empty():
 		_add_reload_path(paths, seen, AUTHORED.PATH)
 	for path: String in paths:
@@ -1093,10 +1091,10 @@ func leave_pose_start() -> void:
 	rig_skeleton = 0
 	rig_revision = -1
 	rig_missing_bones = []
-	if _face_driver != null and bool(_face_driver.get("active")):
+	if _face_driver != null and _face_driver.active:
 		_face_driver.restore(_view, pose_node)
 	if is_instance_valid(tail_lay):
-		tail_lay.call("restore_tail")
+		tail_lay.restore_tail()
 		_drop(tail_lay)
 	tail_lay = null
 	bed_frame = null
@@ -1140,7 +1138,7 @@ func release_pose() -> void:
 	_from_asset = null
 	_target_asset = null
 	if is_instance_valid(tail):
-		tail.call("restore_tail")
+		tail.restore_tail()
 		_drop(tail)
 	tail = null
 	_started = false
@@ -1165,13 +1163,13 @@ func release_pose() -> void:
 
 ## One pose-change fan-out: reconcile the modifier profile and apply the `act_body`/`anon` channel;
 ## the evaluator pair is already set. Idempotent, so a steady tick installs nothing.
-func pose_changed(view: Variant) -> void:
+func pose_changed(view: POSE_VIEW) -> void:
 	if not _started or view == null:
 		return
-	var to_spec: Variant = _registry.spec(str(view.to_id))
+	var to_spec: POSE_SPEC = _registry.spec(str(view.to_id))
 	if to_spec == null:
 		to_spec = _registry.spec(str(view.id))
-	var from_spec: Variant = _registry.spec(str(view.from_id))
+	var from_spec: POSE_SPEC = _registry.spec(str(view.from_id))
 	if from_spec == null:
 		from_spec = to_spec
 	_reconcile_modifiers(_profile_of(from_spec), _profile_of(to_spec), view)
@@ -1179,11 +1177,10 @@ func pose_changed(view: Variant) -> void:
 
 
 ## The spec's modifier profile name, or empty when the row has no block.
-func _profile_of(spec: Variant) -> String:
+func _profile_of(spec: POSE_SPEC) -> String:
 	if spec == null:
 		return ""
-	var value: Variant = spec.modifiers
-	return str((value as Dictionary).get("profile", "")) if value is Dictionary else ""
+	return str(spec.modifiers.get("profile", ""))
 
 
 ## The owner list of an authored profile. An unknown profile is the empty set.
@@ -1194,7 +1191,7 @@ func _profile_owners(profile: String) -> Array:
 
 ## Keep the shared owners, install the target-only ones and remove the source-only ones. The act
 ## exit's `leave_pose_body()` is still the full removal; this never calls it.
-func _reconcile_modifiers(from_profile: String, to_profile: String, view: Variant) -> void:
+func _reconcile_modifiers(from_profile: String, to_profile: String, view: POSE_VIEW) -> void:
 	var from_owners := _profile_owners(from_profile)
 	var to_owners := _profile_owners(to_profile)
 	var skeleton_value: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
@@ -1207,7 +1204,7 @@ func _reconcile_modifiers(from_profile: String, to_profile: String, view: Varian
 
 ## Install, keep and retarget, or remove one owner. A shared keep calls the owner's own idempotent
 ## `pose_changed(view)`; a feature edit that turns the owner off removes it even on a shared keep.
-func _sync_owner(owner: String, wanted: bool, retarget: bool, view: Variant,
+func _sync_owner(owner: String, wanted: bool, retarget: bool, view: POSE_VIEW,
 		skeleton: Skeleton3D) -> void:
 	var keep := wanted and _owner_feature(owner)
 	match owner:
@@ -1217,7 +1214,7 @@ func _sync_owner(owner: String, wanted: bool, retarget: bool, view: Variant,
 					if skeleton != null:
 						_install_body_sway(skeleton)
 				elif retarget:
-					body_sway.call("pose_changed", view)
+					body_sway.pose_changed(view)
 			elif is_instance_valid(body_sway):
 				_drop(body_sway)
 				body_sway = null
@@ -1227,7 +1224,7 @@ func _sync_owner(owner: String, wanted: bool, retarget: bool, view: Variant,
 					if skeleton != null:
 						_install_prone_sway(skeleton)
 				elif retarget:
-					prone_sway.call("pose_changed", view)
+					prone_sway.pose_changed(view)
 			elif is_instance_valid(prone_sway):
 				_drop(prone_sway)
 				prone_sway = null
@@ -1236,7 +1233,7 @@ func _sync_owner(owner: String, wanted: bool, retarget: bool, view: Variant,
 				if not is_instance_valid(ear_twitch):
 					_install_ear_twitch()
 				elif retarget:
-					ear_twitch.call("pose_changed", view)
+					ear_twitch.pose_changed(view)
 			elif is_instance_valid(ear_twitch):
 				_drop(ear_twitch)
 				ear_twitch = null
@@ -1245,9 +1242,9 @@ func _sync_owner(owner: String, wanted: bool, retarget: bool, view: Variant,
 				if not is_instance_valid(tail):
 					_install_tail()
 				elif retarget:
-					tail.call("pose_changed", view)
+					tail.pose_changed(view)
 			elif is_instance_valid(tail):
-				tail.call("restore_tail")
+				tail.restore_tail()
 				_drop(tail)
 				tail = null
 		"tail_lay":
@@ -1255,9 +1252,9 @@ func _sync_owner(owner: String, wanted: bool, retarget: bool, view: Variant,
 				if not is_instance_valid(tail_lay):
 					_install_tail_lay()
 				elif retarget:
-					tail_lay.call("pose_changed", view)
+					tail_lay.pose_changed(view)
 			elif is_instance_valid(tail_lay):
-				tail_lay.call("restore_tail")
+				tail_lay.restore_tail()
 				_drop(tail_lay)
 				tail_lay = null
 
@@ -1287,11 +1284,8 @@ func _anon_channel() -> Dictionary:
 
 ## Apply the `act_body` specs' Anon channel (`hold`, `blend`, `switch`) and bind the authored asset
 ## pair for it; the player-body specs never install the adapter.
-func _apply_anon_channel(view: Variant) -> void:
-	var anon_value: Variant = view.anon
-	if not anon_value is Dictionary:
-		return
-	var anon := anon_value as Dictionary
+func _apply_anon_channel(view: POSE_VIEW) -> void:
+	var anon := view.anon
 	if str(anon.get("mode", "")) != "act_body":
 		return
 	_install_act_body()
@@ -1299,39 +1293,34 @@ func _apply_anon_channel(view: Variant) -> void:
 		return
 	if _run == null:
 		# Outside an edge the spec's profile is the hold and both assets are the live one.
-		var live: Variant = live_authored()
-		act_body.call("set_pose_assets", live, live, 1.0)
-		act_body.call("pose_changed", str(anon.get("profile", "")), 1.0)
+		var live: AUTHORED = live_authored()
+		act_body.set_pose_assets(live, live, 1.0)
+		act_body.pose_changed(str(anon.get("profile", "")), 1.0)
 		return
 	var channel := _anon_channel()
 	match str(channel.get("kind", "hold")):
 		"blend":
-			act_body.call("set_pose_assets", _from_asset, _target_asset,
-				clampf(float(view.weight), 0.0, 1.0))
-			act_body.call("set_weight", clampf(float(view.weight), 0.0, 1.0))
+			act_body.set_pose_assets(_from_asset, _target_asset,
+				clampf(view.weight, 0.0, 1.0))
+			act_body.set_weight(clampf(view.weight, 0.0, 1.0))
 		"switch":
 			var switched := str(channel.get("profile", ""))
 			if switched.is_empty():
 				switched = str(channel.get("set", ""))
 			if switched.is_empty():
 				switched = str(anon.get("profile", ""))
-			act_body.call("set_pose_assets", _target_asset, _target_asset, 1.0)
-			act_body.call("pose_changed", switched, 1.0)
+			act_body.set_pose_assets(_target_asset, _target_asset, 1.0)
+			act_body.pose_changed(switched, 1.0)
 		_:
 			# A hold keeps the adapter's current profile, weight and asset pair.
 			pass
 
 
 ## The act body exists only on a bed spec's `act_body` mode for desktop human Anon.
-func _act_body_wanted(view: Variant) -> bool:
-	if facts == null:
+func _act_body_wanted(view: POSE_VIEW) -> bool:
+	if facts == null or str(view.anon.get("mode", "")) != "act_body":
 		return false
-	var anon_value: Variant = view.anon
-	if not anon_value is Dictionary:
-		return false
-	if str((anon_value as Dictionary).get("mode", "")) != "act_body":
-		return false
-	return not bool(facts.player_pony) and not bool(facts.headset_view)
+	return not facts.player_pony and not facts.headset_view
 
 
 ## The act's own Anon body, created on the runtime host and handed to the anatomy bridge as an
@@ -1339,17 +1328,16 @@ func _act_body_wanted(view: Variant) -> bool:
 func _install_act_body() -> void:
 	if is_instance_valid(act_body):
 		return
-	var parent := host as Node
-	if parent == null or not _act_body_wanted(_view):
+	if host == null or not _act_body_wanted(_view):
 		return
-	var body: Node = MISSIONARY_ANON.new()
+	var body := MISSIONARY_ANON.new()
 	body.name = "UnfplapMissionaryAnon"
-	parent.add_child(body)
-	if not bool(body.call("install", facts)):
-		parent.remove_child(body)
+	host.add_child(body)
+	if not body.install(facts):
+		host.remove_child(body)
 		body.queue_free()
 		return
-	body.call("set_pose_assets", live_authored(), live_authored(), 1.0)
+	body.set_pose_assets(live_authored(), live_authored(), 1.0)
 	act_body = body
 	if set_act_body.is_valid():
 		set_act_body.call(body)
@@ -1363,11 +1351,8 @@ func _release_act_body() -> void:
 	if not is_instance_valid(act_body):
 		act_body = null
 		return
-	var body := act_body as Node
-	if body != null:
-		if body.has_method("remove"):
-			body.call("remove")
-		_drop(body)
+	act_body.remove()
+	_drop(act_body)
 	act_body = null
 
 
@@ -1412,7 +1397,7 @@ func _install_tail() -> void:
 	var side_anchor: Variant = _tail_anchor
 	if not side_anchor is Vector3:
 		side_anchor = Vector3.INF
-	tail.call("choose_side", side_anchor)
+	tail.choose_side(side_anchor)
 	tail.process_priority = 20
 	skeleton.add_child(tail)
 
@@ -1442,8 +1427,8 @@ func _install_body_sway(skeleton: Skeleton3D) -> void:
 		return
 	body_sway = BODY_SWAY.new()
 	body_sway.name = "UnfplapBodySway"
-	body_sway.set("mare", pony)
-	body_sway.set("facts", facts)
+	body_sway.mare = pony
+	body_sway.facts = facts
 	skeleton.add_child(body_sway)
 	_reset_sway_base()
 
@@ -1451,37 +1436,37 @@ func _install_body_sway(skeleton: Skeleton3D) -> void:
 func _install_prone_sway(skeleton: Skeleton3D) -> void:
 	prone_sway = PRONE_SWAY.new()
 	prone_sway.name = "UnfplapProneSway"
-	prone_sway.set("mare", pony)
-	prone_sway.set("facts", facts)
+	prone_sway.mare = pony
+	prone_sway.facts = facts
 	skeleton.add_child(prone_sway)
 
 
 func _install_ear_twitch() -> void:
 	if not _feature("thrust_ear_twitch"):
 		return
-	var boop: Variant = pony.get("boop_node")
-	var head: Variant = head_skeleton(boop)
-	if not head is Skeleton3D:
+	var head := head_skeleton(pony.get("boop_node"))
+	if head == null:
 		return
 	ear_twitch = EAR_TWITCH.new()
 	ear_twitch.name = "UnfplapEarTwitch"
-	ear_twitch.set("mare", pony)
-	ear_twitch.set("facts", facts)
-	(head as Skeleton3D).add_child(ear_twitch)
+	ear_twitch.mare = pony
+	ear_twitch.facts = facts
+	head.add_child(ear_twitch)
 
 
 ## The head skeleton the ear twitch rides, or null.
-func head_skeleton(boop: Variant) -> Variant:
+func head_skeleton(boop: Node) -> Skeleton3D:
 	if boop == null:
 		return null
-	return boop.get("head_skeleton")
+	var head: Variant = boop.get("head_skeleton")
+	return head as Skeleton3D
 
 
 ## The render-time pose write. The runtime calls this after the game's own writers so the
 ## authored missionary pose survives to the renderer.
 func apply_render(skeleton: Skeleton3D) -> void:
 	if is_instance_valid(pose_node):
-		pose_node.call("apply_render", skeleton)
+		pose_node.apply_render(skeleton)
 
 
 ## Apply the live pose at its target amount for one start measurement, then put the entrance amount
@@ -1490,7 +1475,7 @@ func apply_target_once() -> bool:
 	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not is_instance_valid(pose_node) or not skeleton is Skeleton3D:
 		return false
-	var amount: float = float(pose_node.get("amount"))
+	var amount := pose_node.amount
 	pose_node.amount = 1.0
 	apply_render(skeleton as Skeleton3D)
 	pose_node.amount = amount
@@ -1516,25 +1501,25 @@ func render_write(context: Dictionary) -> void:
 		if is_instance_valid(pose_node) and standing_sk is Skeleton3D:
 			apply_render(standing_sk as Skeleton3D)
 			if is_instance_valid(body_sway):
-				body_sway.call("apply_render", standing_sk as Skeleton3D)
+				body_sway.apply_render(standing_sk as Skeleton3D)
 		return
 	if family != "bed":
 		return
 	var frame: Variant = context.get("bed_frame")
 	if is_instance_valid(act_body) and frame is Transform3D:
-		act_body.call("apply", frame as Transform3D, float(context.get("body_scale", 1.0)))
+		act_body.apply(frame as Transform3D, float(context.get("body_scale", 1.0)))
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(pose_node) and sk is Skeleton3D:
 		apply_render(sk as Skeleton3D)
 		if is_instance_valid(prone_sway):
-			prone_sway.call("apply_render", sk as Skeleton3D)
+			prone_sway.apply_render(sk as Skeleton3D)
 	if eye_camera.is_valid():
 		eye_camera.call()
 
 
 func trigger_ear_twitch(impact: float) -> void:
 	if is_instance_valid(ear_twitch):
-		ear_twitch.call("try_trigger", impact)
+		ear_twitch.try_trigger(impact)
 
 
 ## The pose frame the live family reads: the bed frame or the ground frame.
@@ -1560,12 +1545,18 @@ func set_tail_target(value: float) -> void:
 		tail.target_amount = value
 
 
+## The live standing glance's head throw-back; a released pose takes no write.
+func set_head_back(value: float) -> void:
+	if is_instance_valid(pose_node):
+		pose_node.head_back = value
+
+
 func flick_tail(count: int) -> void:
 	if is_instance_valid(tail):
-		tail.call("flick", count)
+		tail.flick(count)
 
 
-func pose() -> Variant:
+func pose() -> POSE:
 	return pose_node
 
 
@@ -1581,47 +1572,40 @@ func settle() -> void:
 
 
 func basis_amount() -> float:
-	return float(pose_node.get("amount")) if is_instance_valid(pose_node) else 0.0
+	return pose_node.amount if is_instance_valid(pose_node) else 0.0
 
 
-## Which missionary base is in charge and why, in one dictionary so the log, the settled line and the
+## Which missionary base is in charge and why, in one record so the log, the settled line and the
 ## debug action cannot drift apart.
-func base_info() -> Dictionary:
+func base_info() -> BASE_INFO:
+	var info := BASE_INFO.new()
 	var live_id := _live_spec_id()
-	var asset: Variant = authored_asset()
-	var bones: Variant = asset.get("pony_bones")
-	var live: Variant = pose_frame()
-	var live_path := _asset_path_for(live_id)
-	var target_path := _asset_path_for(_target_id) if _target_spec != null else live_path
-	var info := {
-		"base": "none",
-		"reason": "",
-		"version": int(asset.get("version")),
-		"bones": (bones as Dictionary).size() if bones is Dictionary else 0,
-		"available": bool(asset.get("available")),
-		"error": str(asset.get("error")),
-		"frame": live,
-		"frame_kind": str(_view.frame),
-		"shots": bool(asset.get("has_shots")),
-		"asset": asset,
-		"asset_path": live_path,
-		"live_path": live_path,
-		"target_path": target_path,
-		"asset_frame": str(asset.get("frame")),
-		"variant": str(asset.get("variant")),
-	}
+	var asset: AUTHORED = authored_asset()
+	info.asset = asset
+	info.version = asset.version
+	info.bones = asset.pony_bones.size()
+	info.available = asset.available
+	info.error = asset.error
+	info.frame = pose_frame()
+	info.frame_kind = str(_view.frame)
+	info.shots = asset.has_shots
+	info.asset_path = _asset_path_for(live_id)
+	info.live_path = info.asset_path
+	info.target_path = _asset_path_for(_target_id) if _target_spec != null else info.live_path
+	info.asset_frame = asset.frame
+	info.variant = asset.variant
 	if live_id.is_empty():
-		info["reason"] = "pose="
-	elif live_path.is_empty():
-		info["reason"] = "pose=%s" % live_id
-	elif not bool(asset.get("available")):
-		info["reason"] = authored_reason(live_id)
-	elif not live is Transform3D:
-		info["reason"] = "no %s frame" % str(_view.frame)
-	elif not bool(asset.call("usable", str(_view.frame))):
-		info["reason"] = authored_reason(live_id)
+		info.reason = "pose="
+	elif info.live_path.is_empty():
+		info.reason = "pose=%s" % live_id
+	elif not asset.available:
+		info.reason = authored_reason(live_id)
+	elif not info.frame is Transform3D:
+		info.reason = "no %s frame" % str(_view.frame)
+	elif not asset.usable(str(_view.frame)):
+		info.reason = authored_reason(live_id)
 	else:
-		info["base"] = "authored"
+		info.base = "authored"
 	return info
 
 
@@ -1636,7 +1620,7 @@ func pose_frame() -> Variant:
 
 ## The authored body bones the live rig lacks: the pose writes only the bones it holds, so a missing
 ## one leaves the game's pose on that link. Cached per skeleton instance and asset revision.
-func rig_missing(candidate := "") -> Array:
+func rig_missing(candidate: String = "") -> Array[String]:
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return []
@@ -1652,13 +1636,12 @@ func rig_missing(candidate := "") -> Array:
 	rig_skeleton = instance
 	rig_revision = AUTHORED.revision
 	rig_asset_path = asset_path
-	var missing: Variant = authored(candidate).call("missing_bones", skeleton)
-	rig_missing_bones = missing if missing is Array else []
+	rig_missing_bones = authored(candidate).missing_bones(skeleton)
 	return rig_missing_bones
 
 
 ## The gate row's reason, naming the first few bones and counting the rest.
-func rig_reason(missing: Array) -> String:
+func rig_reason(missing: Array[String]) -> String:
 	if missing.is_empty():
 		return ""
 	var names: PackedStringArray = []
@@ -1681,13 +1664,13 @@ func idle_sample(state: int) -> void:
 	if not sk is Skeleton3D:
 		return
 	var skeleton := sk as Skeleton3D
-	var root := int(pose_node.get("diag_root"))
+	var root := pose_node.diag_root
 	var hips := skeleton.find_bone("pony_hips")
 	var g := skeleton.global_transform
 	var render_root := g * skeleton.get_bone_global_pose(root) if root >= 0 else Transform3D.IDENTITY
 	var render_hips := g * skeleton.get_bone_global_pose(hips) if hips >= 0 else Transform3D.IDENTITY
-	var wanted_root: Transform3D = pose_node.get("diag_root_wanted")
-	var wanted_hips: Transform3D = pose_node.get("diag_hips_wanted")
+	var wanted_root := pose_node.diag_root_wanted
+	var wanted_hips := pose_node.diag_hips_wanted
 	var animation: Variant = pony.get("animation")
 	var clip := ""
 	var playing := false
@@ -1695,15 +1678,15 @@ func idle_sample(state: int) -> void:
 		clip = (animation as AnimationPlayer).current_animation
 		playing = (animation as AnimationPlayer).is_playing()
 	LOG.debug("pose trace f=%d root=%d:%s asset_root=%d trace=%d mode=%d clip=%s playing=%s G=%s", [
-		pose_trace_frames, root, str(pose_node.get("diag_root_name")), int(pose_node.get("diag_asset_root")),
-		int(pose_node.get("diag_trace")), skeleton.modifier_callback_mode_process, clip, str(playing),
+		pose_trace_frames, root, str(pose_node.diag_root_name), pose_node.diag_asset_root,
+		pose_node.diag_trace, skeleton.modifier_callback_mode_process, clip, str(playing),
 		str(g)])
 	LOG.debug("pose trace f=%d root start=%s after=%s render=%s wanted=%s d=%.3f/%.3f | hips start=%s render=%s wanted=%s d=%.3f", [
-		pose_trace_frames, str(pose_node.get("diag_root_start")), str(pose_node.get("diag_root_after")),
+		pose_trace_frames, str(pose_node.diag_root_start), str(pose_node.diag_root_after),
 		str(render_root), str(wanted_root),
 		render_root.origin.distance_to(wanted_root.origin),
 		_transform_angle(render_root, wanted_root),
-		str(pose_node.get("diag_hips_start")), str(render_hips), str(wanted_hips),
+		str(pose_node.diag_hips_start), str(render_hips), str(wanted_hips),
 		render_hips.origin.distance_to(wanted_hips.origin)])
 	pose_trace_frames += 1
 
@@ -1716,17 +1699,17 @@ func _transform_angle(a: Transform3D, b: Transform3D) -> float:
 
 ## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
 ## mesh is actually bound to, whether the pose survives between frames, and who else is near the bed.
-func diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:
-	var rows: Array = []
-	var modifier: Variant = pose_node
+func diagnostics(skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
+	var rows: Array[String] = []
+	var modifier := pose_node
 	var parent: Node = modifier.get_parent() if is_instance_valid(modifier) else null
 	rows.append("modifier=%s parent=%s match=%s frames=%d weight=%.2f base=%s readback=%.2f°" % [
 		"yes" if is_instance_valid(modifier) else "no",
 		"%s@%s" % [str(parent.name), str(parent.get_instance_id())] if parent != null else "none",
-		"yes" if parent == skeleton else "NO", int(_num(modifier.get("diag_frames"))) if is_instance_valid(modifier) else 0,
-		_num(modifier.get("diag_last_weight")) if is_instance_valid(modifier) else 0.0,
-		str(modifier.get("diag_last_base")) if is_instance_valid(modifier) else "",
-		_num(modifier.get("diag_readback_deg")) if is_instance_valid(modifier) else 0.0])
+		"yes" if parent == skeleton else "NO", modifier.diag_frames if is_instance_valid(modifier) else 0,
+		modifier.diag_last_weight if is_instance_valid(modifier) else 0.0,
+		modifier.diag_last_base if is_instance_valid(modifier) else "",
+		modifier.diag_readback_deg if is_instance_valid(modifier) else 0.0])
 	var modifiers: Array[String] = []
 	for child: Node in skeleton.get_children():
 		if child is SkeletonModifier3D:
@@ -1738,13 +1721,13 @@ func diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:
 				(" inf=%.2f" % float(influence)) if influence is float else ""])
 	rows.append("skeleton modifiers=%d [%s]" % [modifiers.size(), ", ".join(modifiers)])
 	rows.append("hips write check: after_write=%.2f° readback=%.2f° (%s)" % [
-		_num(modifier.get("diag_after_write_deg")) if is_instance_valid(modifier) else 0.0,
-		_num(modifier.get("diag_readback_deg")) if is_instance_valid(modifier) else 0.0,
+		modifier.diag_after_write_deg if is_instance_valid(modifier) else 0.0,
+		modifier.diag_readback_deg if is_instance_valid(modifier) else 0.0,
 		"write lands, survives" if is_instance_valid(modifier)
-			and _num(modifier.get("diag_after_write_deg")) < 1.0
-			and _num(modifier.get("diag_readback_deg")) < 1.0
+			and modifier.diag_after_write_deg < 1.0
+			and modifier.diag_readback_deg < 1.0
 		else "write lands, lost by next frame" if is_instance_valid(modifier)
-			and _num(modifier.get("diag_after_write_deg")) < 1.0
+			and modifier.diag_after_write_deg < 1.0
 		else "write does not land"])
 	rows.append("pony_skeleton=%s@%s actor=%s paused=%s visible=%s" % [
 		str(skeleton.name), str(skeleton.get_instance_id()), str(pony.global_position),
@@ -1779,10 +1762,10 @@ func diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:
 			("%s@%s" % [str((target as Node).name), str(instance)]) if target is Node else "none",
 			int(entry["count"]), str(entry["sample"]), str(entry["visible"]), str(hips)])
 	# Live hips pose vs the authored quaternion: proves whether the modifier's write is what lives.
-	var asset: Variant = info.get("asset")
+	var asset: AUTHORED = info.asset
 	var hips_bone := skeleton.find_bone("pony_hips")
 	if hips_bone >= 0 and asset != null:
-		var entry: Variant = (asset.get("pony_bones") as Dictionary).get("pony_hips")
+		var entry: Variant = asset.pony_bones.get("pony_hips")
 		if entry is Dictionary:
 			var wanted: Quaternion = (entry as Dictionary)["rotation"]
 			var live := skeleton.get_bone_pose_rotation(hips_bone)
@@ -1836,22 +1819,22 @@ func face_sit_error(act_state: int) -> String:
 
 ## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where
 ## the live pose actually put her (world and bed space).
-func state_rows(state: int) -> Array:
+func state_rows(state: int) -> Array[String]:
 	var info := base_info()
-	var frame: Variant = info["frame"]
-	var rows: Array = []
+	var frame: Variant = info.frame
+	var rows: Array[String] = []
 	rows.append("pony=%s pose=%s state=%d weight=%.2f" % [
 		str(pony.name) if is_instance_valid(pony) else "?", str(_view.id), state, basis_amount()])
 	rows.append("base=%s reason=%s asset=v%d %s path=%s frame=%s variant=%s bones=%d missing=%s shots=%s error=%s" % [
-		str(info["base"]), str(info["reason"]),
-		int(info["version"]), "ok" if bool(info["available"]) else "error",
-		str(info["asset_path"]), str(info["asset_frame"]), str(info["variant"]), int(info["bones"]),
-		str(rig_missing()), "yes" if bool(info["shots"]) else "no", str(info["error"])])
-	var target_path := str(info.get("target_path", ""))
-	if not target_path.is_empty() and target_path != str(info["asset_path"]):
+		info.base, info.reason,
+		info.version, "ok" if info.available else "error",
+		info.asset_path, info.asset_frame, info.variant, info.bones,
+		str(rig_missing()), "yes" if info.shots else "no", info.error])
+	var target_path := info.target_path
+	if not target_path.is_empty() and target_path != info.asset_path:
 		rows.append("target=%s" % target_path)
 	rows.append("frame=%s kind=%s scale=%.2f" % [
-		str(frame) if frame is Transform3D else "null", str(info["frame_kind"]), body_scale()])
+		str(frame) if frame is Transform3D else "null", info.frame_kind, body_scale()])
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return rows
@@ -1875,13 +1858,13 @@ func state_rows(state: int) -> Array:
 ## The base line written once when the act builds its pose.
 func log_base() -> void:
 	var info := base_info()
-	var frame: Variant = info["frame"]
+	var frame: Variant = info.frame
 	var missing := rig_missing()
 	LOG.debug("pose base=%s reason=%s asset=v%d %s path=%s frame=%s variant=%s bones=%d missing=%d shots=%s frame_pose=%s scale=%.2f", [
-		str(info["base"]), str(info["reason"]), int(info["version"]),
-		"ok" if bool(info["available"]) else "error", str(info["asset_path"]),
-		str(info["asset_frame"]), str(info["variant"]), int(info["bones"]),
-		missing.size(), "yes" if bool(info["shots"]) else "no",
+		info.base, info.reason, info.version,
+		"ok" if info.available else "error", info.asset_path,
+		info.asset_frame, info.variant, info.bones,
+		missing.size(), "yes" if info.shots else "no",
 		str(frame) if frame is Transform3D else "null", body_scale()])
 	if not missing.is_empty():
 		LOG.debug("pose rig %s", [rig_reason(missing)])
@@ -1914,8 +1897,8 @@ func log_settled(state: int, anon_diag: Callable) -> void:
 		parts.append("%s=w%s/b(%.3f,%.3f,%.3f)" % [
 			str(pair[0]), str(world), bed.x, bed.y, bed.z])
 	LOG.debug("missionary settled base=%s weight=%.2f %s", [
-		str(base_info()["base"]), basis_amount(), " ".join(parts)])
-	for row: Variant in diagnostics(skeleton, base_info()):
+		base_info().base, basis_amount(), " ".join(parts)])
+	for row: String in diagnostics(skeleton, base_info()):
 		LOG.debug("missionary diag %s", [str(row)])
 	if anon_diag.is_valid():
 		var text := str(anon_diag.call())
@@ -1931,7 +1914,7 @@ func body_scale() -> float:
 
 func _reset_sway_base() -> void:
 	if is_instance_valid(body_sway):
-		body_sway.call("reset_base")
+		body_sway.reset_base()
 
 
 func _feature(name: String) -> bool:

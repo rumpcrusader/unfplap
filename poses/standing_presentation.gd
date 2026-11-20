@@ -9,6 +9,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 
@@ -51,14 +52,14 @@ var _present_turn_rate_owned := false
 var _present_turn_nav: Node = null
 var _present_turn_point := Vector3.INF
 var _present_turn_mode := ""
-var _present_pose
+var _present_pose: POSE
 var _present_glance_back := false
 var _present_glance_until := 0.0
 var _present_glance_sign := 1.0
 var _present_glance_sign_set := false
 ## Set when this controller applied `PRESENT_FACE`, so close only clears its own face.
 var _present_face_owned := false
-var _present_tail
+var _present_tail: TAIL
 var _present_started := 0.0
 var _present_yaw := 0.0
 var _present_target_yaw := 0.0
@@ -161,7 +162,7 @@ func _attach_present_pose() -> void:
 		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			side_anchor = view.global_position
-		_present_tail.call("choose_side", side_anchor)
+		_present_tail.choose_side(side_anchor)
 		(hair as Skeleton3D).add_child(_present_tail)
 	_presenting = true
 	_present_glance_back = true
@@ -452,11 +453,7 @@ func _end_presentation_hold() -> void:
 ## Hold the approved affectionate face after the turn. A spoken line's own face wins until it
 ## clears; the nose blush stays at full.
 func _sustain_present_blush() -> void:
-	if not is_instance_valid(pony):
-		return
-	var boop: Variant = pony.get("boop_node")
-	if boop != null and boop.has_method("sustain_blush"):
-		boop.call("sustain_blush", PRESENT_BLUSH)
+	GAME.sustain_blush(GAME.boop_of(pony), PRESENT_BLUSH)
 
 
 func _apply_present_face() -> void:
@@ -506,18 +503,15 @@ func _presentation_process() -> void:
 		_present_pose.head_back = 0.0
 	if _present_glance_back and facts.clock() >= _present_glance_until:
 		_present_glance_back = false
-	var secondary: Variant = pony.get("secondary")
-	if secondary != null and is_instance_valid(secondary) and secondary.has_method("look_toward"):
-		secondary.call("look_toward", _present_glance_angles(), 0.45)
+	var secondary: Node = pony.get("secondary")
+	GAME.look_toward(secondary, _present_glance_angles(), 0.45)
 	_present_aim_eyes()
 	_sustain_present_blush()
 	_apply_present_face()
 
 
 func _present_glance_angles() -> Vector3:
-	var head: Vector3 = pony.global_position + Vector3.UP
-	if pony.has_method("listen_point"):
-		head = pony.call("listen_point")
+	var head: Vector3 = GAME.listen_point(pony)
 	var target: Vector3 = head
 	if is_instance_valid(WORLD.player):
 		var view: Camera3D = WORLD.camera()
@@ -541,13 +535,9 @@ func _present_glance_angles() -> Vector3:
 func _present_aim_eyes() -> void:
 	if not is_instance_valid(pony):
 		return
-	var eye_motion: Variant = pony.get("eye_motion")
-	if eye_motion == null or not is_instance_valid(eye_motion):
-		return
 	var view: Camera3D = WORLD.camera() if is_instance_valid(WORLD.game) else null
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
-	eye_motion.set("target_world", target)
-	eye_motion.set("target_weight", 1.0)
+	GAME.aim_eyes(pony.get("eye_motion"), target)
 
 
 ## Read the live scene handles and pose config from the typed act view. The runtime rewrites

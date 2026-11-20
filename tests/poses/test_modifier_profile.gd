@@ -9,6 +9,8 @@ const SESSION := preload("res://mods/unfplap/poses/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 
 var failures := 0
 var checks := 0
@@ -21,7 +23,7 @@ class FakePony extends Node3D:
 	var body_scale := 1.0
 
 
-class FakeActBody extends RefCounted:
+class FakeActBody extends "res://mods/unfplap/poses/missionary_anon.gd":
 	var profile := ""
 	var weight := 1.0
 
@@ -32,12 +34,12 @@ class FakeActBody extends RefCounted:
 	func set_weight(value: float) -> void:
 		weight = value
 
-	func set_pose_assets(_from_value: Variant, _to_value: Variant, _weight: float) -> void:
+	func set_pose_assets(_from_value: AUTHORED, _to_value: AUTHORED, _weight: float) -> void:
 		pass
 
 
-class FakeRun extends RefCounted:
-	var edge: Dictionary = {}
+class FakeRun extends POSE_STATE.Run:
+	pass
 
 
 func _initialize() -> void:

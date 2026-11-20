@@ -13,6 +13,7 @@ const COOLDOWN_MAX_S := 1.80
 const TWITCH_GAIN_MIN := 0.75
 const TWITCH_GAIN_MAX := 1.15
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var mare: Node3D
 ## The typed act view. Absent outside an act.
@@ -37,14 +38,11 @@ var _hook_seen := false
 
 ## The pose-change hook. A new family or profile drops the running twitch and the bone cache. A
 ## shared keep does nothing.
-func pose_changed(view: Variant) -> void:
+func pose_changed(view: POSE_VIEW) -> void:
 	if view == null:
 		return
-	var family := str(view.family)
-	var modifiers_value: Variant = view.modifiers
-	var profile := ""
-	if modifiers_value is Dictionary:
-		profile = str((modifiers_value as Dictionary).get("profile", ""))
+	var family := view.family
+	var profile := str(view.modifiers.get("profile", ""))
 	if _hook_seen and family == _hook_family and profile == _hook_profile:
 		return
 	_hook_seen = true

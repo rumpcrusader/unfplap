@@ -9,6 +9,7 @@ const BODY_SWAY_MAX_M := 0.035
 const SWAY_STIFFNESS := 90.0
 const SWAY_DAMPING := 16.0
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var mare: Node3D
 ## The typed act view: the live depth and the world-space sway the standing Anon reads.
@@ -50,14 +51,11 @@ func reset_base() -> void:
 
 ## The pose-change hook: a family or modifier-profile change invalidates the cached plant, so the
 ## sway never inherits a stale base from the previous pose. A shared keep is a cheap no-op.
-func pose_changed(view: Variant) -> void:
+func pose_changed(view: POSE_VIEW) -> void:
 	if view == null:
 		return
-	var family := str(view.family)
-	var modifiers_value: Variant = view.modifiers
-	var profile := ""
-	if modifiers_value is Dictionary:
-		profile = str((modifiers_value as Dictionary).get("profile", ""))
+	var family := view.family
+	var profile := str(view.modifiers.get("profile", ""))
 	if _hook_seen and family == _hook_family and profile == _hook_profile:
 		return
 	_hook_seen = true

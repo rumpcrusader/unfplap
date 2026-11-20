@@ -279,9 +279,7 @@ func run() -> void:
 
 ## A pose node with the weight fields and no pose mode: a write to `mode`/`afterglow_pose` lands
 ## in `written` instead of succeeding.
-class FakePose extends Node:
-	var target_amount := 0.0
-	var amount := 0.0
+class FakePose extends "res://mods/unfplap/poses/skeleton_pose.gd":
 	var written: Array[String] = []
 
 	func _set(property: StringName, _value: Variant) -> bool:

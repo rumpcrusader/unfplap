@@ -26,8 +26,8 @@ class FakePoints:
 		return opening
 
 
-class FakePoseNode:
-	var contact_offset := Vector3.ZERO
+class FakePoseNode extends "res://mods/unfplap/poses/skeleton_pose.gd":
+	pass
 
 
 func _initialize() -> void:

@@ -341,13 +341,6 @@ static func muzzle_world(boop: Node) -> Vector3:
 	return Vector3.INF
 
 
-## The act pose's standing head throw-back, the one mod-owned member here.
-static func set_head_back(pose: Node, value: float) -> void:
-	if not is_instance_valid(pose) or pose.get("head_back") == null:
-		return
-	pose.set("head_back", value)
-
-
 ## The eye line the rig reports; NAN when the rig cannot answer.
 static func eye_height(player: Node3D) -> float:
 	if not is_instance_valid(player) or not player.has_method("eye_height"):

@@ -5,6 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/poses/test_act_body.gd
 
 const ACT_BODY := preload("res://mods/unfplap/poses/missionary_anon.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 const HIPS := "Hips"
 const SPINE := "Spine"
@@ -168,24 +169,25 @@ func _check_bones() -> void:
 ## The pair setter stores the two assets and clamps the weight; the same pair is a no-op, a changed
 ## pair updates, and remove clears the pair with the rest of the state.
 func _check_pair() -> void:
-	var body: Node = ACT_BODY.new()
-	var asset_a: Dictionary = {"tag": "a"}
-	var asset_b: Dictionary = {"tag": "b"}
-	body.call("set_pose_assets", asset_a, asset_b, 0.5)
+	var body := ACT_BODY.new()
+	var asset_a := AUTHORED.new()
+	var asset_b := AUTHORED.new()
+	var other := AUTHORED.new()
+	body.set_pose_assets(asset_a, asset_b, 0.5)
 	check(is_same(body.from_asset, asset_a) and is_same(body.to_asset, asset_b),
 		"the setter stores the authored pair")
 	check(near(body.asset_weight, 0.5), "the setter stores the weight")
-	body.call("set_pose_assets", "other", "other_too", -2.0)
+	body.set_pose_assets(other, other, -2.0)
 	check(is_zero_approx(body.asset_weight), "the setter clamps a negative weight")
-	body.call("set_pose_assets", "other", "other_too", 3.0)
+	body.set_pose_assets(other, other, 3.0)
 	check(is_equal_approx(body.asset_weight, 1.0), "the setter clamps an oversized weight")
-	body.call("set_pose_assets", "other", "other_too", 3.0)
-	check(is_equal_approx(body.asset_weight, 1.0) and str(body.from_asset) == "other",
+	body.set_pose_assets(other, other, 3.0)
+	check(is_equal_approx(body.asset_weight, 1.0) and is_same(body.from_asset, other),
 		"the repeated pair keeps the cached fields")
-	body.call("set_pose_assets", asset_a, asset_b, 1.0)
+	body.set_pose_assets(asset_a, asset_b, 1.0)
 	check(is_same(body.from_asset, asset_a) and is_same(body.to_asset, asset_b),
 		"a changed pair updates the cache")
-	body.call("remove")
+	body.remove()
 	check(body.from_asset == null and body.to_asset == null and is_equal_approx(body.asset_weight, 1.0),
 		"remove clears the asset pair and the weight")
 	body.free()

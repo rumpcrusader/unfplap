@@ -6,6 +6,7 @@ extends SkeletonModifier3D
 ## The side is chosen per act by `choose_side()` so the tail does not always sweep the same way.
 
 const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const ASIDE_ANGLE := 0.55
 const LIFT_ANGLE := 0.42
 var aside_angle := ASIDE_ANGLE
@@ -69,14 +70,11 @@ var _hook_seen := false
 
 ## The pose-change hook: a shared keep leaves the chain, the side and the fade alone. A family or
 ## profile change drops the cached bones so the next pose's rig is read fresh.
-func pose_changed(view: Variant) -> void:
+func pose_changed(view: POSE_VIEW) -> void:
 	if view == null:
 		return
-	var family := str(view.family)
-	var modifiers_value: Variant = view.modifiers
-	var profile := ""
-	if modifiers_value is Dictionary:
-		profile = str((modifiers_value as Dictionary).get("profile", ""))
+	var family := view.family
+	var profile := str(view.modifiers.get("profile", ""))
 	if _hook_seen and family == _hook_family and profile == _hook_profile:
 		return
 	_hook_seen = true

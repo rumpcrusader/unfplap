@@ -9,6 +9,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
+const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
@@ -108,16 +109,16 @@ class FakePose extends POSE_SESSION:
 	var ear_checks := 0
 	var pose_id := ""
 
-	func bind(_runtime: Variant, _pony_node: Variant) -> void:
+	func bind(_runtime: Node, _pony_node: Node3D) -> void:
 		pass
 
-	func view() -> RefCounted:
-		return facts.pose_view if facts != null else null
+	func view() -> VIEW:
+		return facts.pose_view as VIEW if facts != null else null
 
-	func pose_changed(_view: Variant) -> void:
+	func pose_changed(_view: VIEW) -> void:
 		pass
 
-	func pose() -> Variant:
+	func pose() -> POSE:
 		return null
 
 	func trigger_ear_twitch(_impact: float) -> void:

@@ -1085,14 +1085,7 @@ func _check_accessors() -> void:
 	check(not GAME.nose_world(bare).is_finite(), "a body without head surfaces answers INF")
 	check(not GAME.muzzle_world(null).is_finite(), "no body has no muzzle")
 
-	var pose := FakePose.new()
-	root.add_child(pose)
-	GAME.set_head_back(pose, 0.75)
-	check(near(pose.head_back, 0.75), "the glance writes the pose's head throw-back")
-	GAME.set_head_back(bare, 1.0)
-	check(bare.get("head_back") == null, "a pose without the member takes no write")
-
-	for node: Node in [body, form, pony, bare, no_nav, secondary, eyes, listener, posed, boop, pose]:
+	for node: Node in [body, form, pony, bare, no_nav, secondary, eyes, listener, posed, boop]:
 		node.free()
 
 
@@ -1136,6 +1129,7 @@ func _check_view_writes() -> void:
 	facts.presentation_config = {"camera_pitch_deg": 0.0, "glance_back_speed": 1.0}
 	facts.kiss = func() -> Variant: return FakeKiss.new()
 	facts.pose = pose
+	facts.set_head_back = func(value: float) -> void: pose.head_back = value
 	var pose_view: RefCounted = VIEW.new()
 	pose_view.id = CATALOG.STANDING
 	pose_view.family = "standing"

@@ -152,43 +152,13 @@
     },
     {
       "service": "poses",
-      "func": "authored",
-      "signature": "func authored(candidate := \"\") -> Variant:"
-    },
-    {
-      "service": "poses",
-      "func": "authored_asset",
-      "signature": "func authored_asset(candidate := \"\") -> Variant:"
-    },
-    {
-      "service": "poses",
-      "func": "base_info",
-      "signature": "func base_info() -> Dictionary:"
-    },
-    {
-      "service": "poses",
       "func": "begin",
       "signature": "func begin(context: Dictionary) -> bool:"
     },
     {
       "service": "poses",
-      "func": "bind",
-      "signature": "func bind(host_node: Variant, pony_node: Variant) -> void:"
-    },
-    {
-      "service": "poses",
-      "func": "diagnostics",
-      "signature": "func diagnostics(skeleton: Skeleton3D, info: Dictionary) -> Array:"
-    },
-    {
-      "service": "poses",
       "func": "ground_pose_frame",
       "signature": "func ground_pose_frame() -> Variant:"
-    },
-    {
-      "service": "poses",
-      "func": "head_skeleton",
-      "signature": "func head_skeleton(boop: Variant) -> Variant:"
     },
     {
       "service": "poses",
@@ -199,16 +169,6 @@
       "service": "poses",
       "func": "missionary_pose_frame",
       "signature": "func missionary_pose_frame() -> Variant:"
-    },
-    {
-      "service": "poses",
-      "func": "pose",
-      "signature": "func pose() -> Variant:"
-    },
-    {
-      "service": "poses",
-      "func": "pose_changed",
-      "signature": "func pose_changed(view: Variant) -> void:"
     },
     {
       "service": "poses",
@@ -232,23 +192,8 @@
     },
     {
       "service": "poses",
-      "func": "rig_missing",
-      "signature": "func rig_missing(candidate := \"\") -> Array:"
-    },
-    {
-      "service": "poses",
-      "func": "rig_reason",
-      "signature": "func rig_reason(missing: Array) -> String:"
-    },
-    {
-      "service": "poses",
       "func": "set_pose_config",
       "signature": "func set_pose_config(config: Dictionary) -> void:"
-    },
-    {
-      "service": "poses",
-      "func": "state_rows",
-      "signature": "func state_rows(state: int) -> Array:"
     },
     {
       "service": "poses",

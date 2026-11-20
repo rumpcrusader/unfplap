@@ -13,6 +13,7 @@ const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 
 
@@ -26,7 +27,7 @@ class FakePony extends Node3D:
 	var body_scale := 0.66
 
 
-class FakeSway extends SkeletonModifier3D:
+class FakeSway extends "res://mods/unfplap/poses/body_sway.gd":
 	var calls := 0
 	var skeletons: Array = []
 
@@ -35,7 +36,16 @@ class FakeSway extends SkeletonModifier3D:
 		skeletons.append(sk)
 
 
-class FakeActBody extends Node:
+class FakeProneSway extends "res://mods/unfplap/poses/prone_sway.gd":
+	var calls := 0
+	var skeletons: Array = []
+
+	func apply_render(sk: Skeleton3D) -> void:
+		calls += 1
+		skeletons.append(sk)
+
+
+class FakeActBody extends "res://mods/unfplap/poses/missionary_anon.gd":
 	var sink: Array = []
 	var assets: Array = []
 	var profiles: Array = []
@@ -47,7 +57,7 @@ class FakeActBody extends Node:
 	func remove() -> void:
 		sink.append("remove")
 
-	func set_pose_assets(from_value: Variant, to_value: Variant, weight: float) -> void:
+	func set_pose_assets(from_value: AUTHORED, to_value: AUTHORED, weight: float) -> void:
 		assets.append([from_value, to_value, weight])
 
 	func pose_changed(profile := "", weight := 1.0) -> void:
@@ -58,12 +68,10 @@ class FakeActBody extends Node:
 
 
 ## The one field `body_sway` publishes at detach, plus the values a pose request reads.
-class FakeFacts extends RefCounted:
-	var standing_sway_offset := Vector3.ONE
-	var state := 2
-	var player_pony := false
-	var headset_view := false
-	var features: Dictionary = {}
+class FakeFacts extends ACT_FACTS:
+	func _init() -> void:
+		standing_sway_offset = Vector3.ONE
+		state = 2
 
 
 ## The face provider pair for the session edge: his mouth and her opening, mutable per tick.
@@ -258,7 +266,7 @@ func _check_begin() -> void:
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"the pose release clears the view")
 	check(session.view().pose_config.is_empty(), "the pose release drops the view config")
-	check(str(session.base_info().get("reason", "")) == "pose=",
+	check(str(session.base_info().reason) == "pose=",
 		"the released session names no pose")
 	body.free()
 	hair.free()
@@ -381,10 +389,10 @@ func _check_ground_frame() -> void:
 func _check_standing_asset() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: RefCounted = made["session"]
-	check(str(session.base_info().get("asset_path", "")) == "poses/standing_pose.json",
+	check(str(session.base_info().asset_path) == "poses/standing_pose.json",
 		"the standing session names the standing asset")
 	check(session.authored_ready(), "the standing asset is ready")
-	check(str(session.base_info().get("base", "")) == "authored",
+	check(str(session.base_info().base) == "authored",
 		"the standing base is the authored asset")
 	_free_live(made)
 
@@ -440,7 +448,7 @@ func _check_sway_render_write() -> void:
 	var bed := _live_session(CATALOG.MISSIONARY)
 	var bed_session: RefCounted = bed["session"]
 	var bed_body: Skeleton3D = bed["body"]
-	var prone := FakeSway.new()
+	var prone := FakeProneSway.new()
 	bed_session.prone_sway = prone
 	bed_session.pose_node.amount = 1.0
 	bed_session.pose_node.target_amount = 1.0
@@ -492,9 +500,9 @@ func _check_diagnostics() -> void:
 	var session: RefCounted = made["session"]
 	var pony: FakePony = made["pony"]
 	check(near(session.basis_amount(), 0.0), "a missing pose has no weight")
-	var info: Dictionary = session.base_info()
-	check(str(info.get("base", "")) == "none", "the base is none outside a missionary act")
-	check(str(info.get("reason", "")) == "no ground frame",
+	var info: Variant = session.base_info()
+	check(info.base == "none", "the base is none outside a missionary act")
+	check(info.reason == "no ground frame",
 		"the reason names the missing ground frame")
 	var rows: Array = session.state_rows(0)
 	check(rows.size() >= 3, "the state rows carry the base, frame and scale")
@@ -507,7 +515,7 @@ func _check_diagnostics() -> void:
 	check(str(session.rig_reason(missing)).begins_with("pose_rig: missing"),
 		"the rig reason names the missing bones")
 	check(session.rig_missing() == missing, "the rig check is cached per skeleton")
-	session.rig_missing_bones = ["poison"]
+	session.rig_missing_bones.assign(["poison"])
 	var before: int = AUTHORED.revision
 	check(AUTHORED.reload_file().is_empty(), "the posed base reloads")
 	check(AUTHORED.revision == before + 1, "a reload bumps the asset revision")
@@ -1182,10 +1190,10 @@ func _check_asset_adoption() -> void:
 	check(is_same(session.authored_asset(), missionary),
 		"the camera holds the source asset through the edge")
 	check(str(view.id) == target, "the view follows the target")
-	var info: Dictionary = session.base_info()
-	check(str(info.get("live_path", "")) == "poses/missionary_pose.json",
+	var info: Variant = session.base_info()
+	check(info.live_path == "poses/missionary_pose.json",
 		"the base info names the live missionary path")
-	check(str(info.get("target_path", "")) == "poses/standing_pose.json",
+	check(info.target_path == "poses/standing_pose.json",
 		"the base info names the target standing path")
 	session.tick(0.0)
 	session.tick(0.7)
@@ -1316,18 +1324,21 @@ func _check_anon_pair() -> void:
 	var result: Dictionary = session.request_pose(target, "test", {"act_state": 2})
 	check(str(result.get("code", "")) == "ok", "the anon blend edge starts")
 	view.anon = {"mode": "act_body", "profile": "missionary"}
-	session._from_asset = "source"
-	session._target_asset = "target"
+	var source_asset := AUTHORED.new()
+	var target_asset := AUTHORED.new()
+	session._from_asset = source_asset
+	session._target_asset = target_asset
 	var before_profiles := body.profiles.size()
 	for weight: float in [0.0, 0.5, 1.0]:
 		view.weight = weight
 		session.pose_changed(view)
 	var last := body.assets.size() - 1
 	check(last >= 2, "the anon blend binds the pair on every weight")
-	check(str(body.assets[last - 2][0]) == "source" and str(body.assets[last - 2][1]) == "target"
+	check(is_same(body.assets[last - 2][0], source_asset)
+		and is_same(body.assets[last - 2][1], target_asset)
 		and is_zero_approx(float(body.assets[last - 2][2])),
 		"the blend's source/target pair starts at weight zero")
-	check(str(body.assets[last][0]) == "source" and str(body.assets[last][1]) == "target"
+	check(is_same(body.assets[last][0], source_asset) and is_same(body.assets[last][1], target_asset)
 		and is_equal_approx(float(body.assets[last][2]), 1.0),
 		"the blend's source/target pair reaches weight one")
 	check(body.weights.size() >= 3 and is_equal_approx(float(body.weights[-1]), 1.0),
@@ -1349,11 +1360,12 @@ func _check_anon_pair() -> void:
 		{"act_state": 2})
 	check(str(switch_result.get("code", "")) == "ok", "the anon switch edge starts")
 	switch_view.anon = {"mode": "act_body", "profile": "missionary"}
-	switch_session._target_asset = "target"
+	var switch_asset := AUTHORED.new()
+	switch_session._target_asset = switch_asset
 	switch_session.pose_changed(switch_view)
 	check(switch_body.assets.size() == 1
-		and str(switch_body.assets[0][0]) == "target"
-		and str(switch_body.assets[0][1]) == "target"
+		and is_same(switch_body.assets[0][0], switch_asset)
+		and is_same(switch_body.assets[0][1], switch_asset)
 		and is_equal_approx(float(switch_body.assets[0][2]), 1.0),
 		"an anon switch binds the target asset twice at full weight")
 	check(switch_body.profiles.size() == 1

@@ -10,6 +10,7 @@ const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const HIP := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const REACH_PLAN := preload("res://mods/unfplap/shared/hands_reach_plan.gd")
 const PALM_SCALE := preload("res://mods/unfplap/shared/hands_scale.gd")
 
@@ -31,7 +32,7 @@ const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The typed act view. Every live value and callback comes through it; the runtime node is never
 ## read directly.
-var facts: Variant
+var facts: ACT_FACTS
 var avatar: Node3D
 var skeleton: Skeleton3D
 ## True once a body was found and is being driven by this controller.
@@ -41,8 +42,8 @@ var anon_profile := ""
 var anon_weight := 1.0
 ## The authored asset pair the service bound. Outside an edge both point at the live asset; during
 ## a blend they are the source and the target.
-var from_asset: Variant = null
-var to_asset: Variant = null
+var from_asset: AUTHORED = null
+var to_asset: AUTHORED = null
 var asset_weight := 1.0
 
 var _body_ik: SkeletonModifier3D
@@ -87,10 +88,10 @@ var _hand_offsets: Dictionary = {}
 ## Regular-arm pole state while a caress holds a hand, keyed "left"/"right".
 var _arm_poles: Dictionary = {}
 var _arm_axes: Dictionary = {}
-var _palm_scale: SkeletonModifier3D
+var _palm_scale: PALM_SCALE
 
 
-func install(context: Variant) -> bool:
+func install(context: ACT_FACTS) -> bool:
 	facts = context
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return false
@@ -143,8 +144,8 @@ func install(context: Variant) -> bool:
 	var leg_hide: Variant = avatar.find_child("LegHide", true, false)
 	if leg_hide is SkeletonModifier3D:
 		_leg_hide = leg_hide as SkeletonModifier3D
-		_leg_hide_influence = float(_leg_hide.get("influence"))
-		_leg_hide.set("influence", 0.0)
+		_leg_hide_influence = _leg_hide.influence
+		_leg_hide.influence = 0.0
 	# The desktop eye relative to the head bone, from the body's own values. `REST_FACING` is a
 	# 180° yaw, so its inverse is itself.
 	var offset: Variant = avatar.get("head_offset")
@@ -174,7 +175,7 @@ func remove() -> void:
 	_eye_cached = false
 	_remove_palm_scale()
 	if is_instance_valid(_leg_hide):
-		_leg_hide.set("influence", _leg_hide_influence)
+		_leg_hide.influence = _leg_hide_influence
 	if is_instance_valid(_body_ik):
 		_body_ik.active = _body_ik_was_active
 	_leg_hide = null
@@ -237,7 +238,7 @@ func set_weight(weight: float) -> void:
 
 ## The authored asset pair and its blend weight, bound by the pose service every fan-out, so an
 ## unchanged pair is a no-op and never touches the avatar, the eye cache or the hand holds.
-func set_pose_assets(from_value: Variant, to_value: Variant, weight: float) -> void:
+func set_pose_assets(from_value: AUTHORED, to_value: AUTHORED, weight: float) -> void:
 	var next_weight := clampf(weight, 0.0, 1.0)
 	if is_same(from_value, from_asset) and is_same(to_value, to_asset) \
 			and is_equal_approx(next_weight, asset_weight):
@@ -252,15 +253,15 @@ func set_pose_assets(from_value: Variant, to_value: Variant, weight: float) -> v
 func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	if not active or not is_instance_valid(avatar) or not is_instance_valid(skeleton):
 		return
-	var live: Variant = to_asset if asset_weight >= 1.0 else from_asset
+	var live: AUTHORED = to_asset if asset_weight >= 1.0 else from_asset
 	if live == null:
 		live = from_asset if to_asset == null else to_asset
 	if live == null:
 		# A suite or a pre-D2 caller that never set the pair keeps the process-wide asset.
 		live = AUTHORED.shared()
-	if not bool(live.get("available")):
+	if not live.available:
 		return
-	var v7 := int(live.get("version")) >= 7
+	var v7 := live.version >= 7
 	var pair := _asset_pair_ready()
 	var placed: Transform3D
 	if pair:
@@ -271,17 +272,17 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	else:
 		var placement: Transform3D
 		if v7:
-			if str(live.call("active_anon_mode")) != "act_body":
+			if live.active_anon_mode() != "act_body":
 				return
-			placement = live.call("active_anon_transform")
+			placement = live.active_anon_transform()
 		else:
-			placement = live.get("anon_frame")
+			placement = live.anon_frame
 		if v7:
 			# The anchor/contact rule: the Anon origin scales about her hips anchor and rides the
 			# contact lift; his basis is unchanged.
 			var world := bed_frame * placement
 			placed = Transform3D(world.basis,
-				live.call("place_origin", world.origin, bed_frame, body_scale))
+				live.place_origin(world.origin, bed_frame, body_scale))
 		else:
 			placement.origin *= body_scale
 			placed = bed_frame * placement
@@ -300,16 +301,16 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 		avatar.process_mode = Node.PROCESS_MODE_INHERIT
 	var plants := {}
 	if pair:
-		var from_bones: Dictionary = from_asset.call("active_anon_bones")
-		var to_bones: Dictionary = to_asset.call("active_anon_bones")
+		var from_bones: Dictionary = from_asset.active_anon_bones()
+		var to_bones: Dictionary = to_asset.active_anon_bones()
 		_cache_asset_indices(from_bones, to_bones)
 		blend_anon_bones(skeleton, from_bones, to_bones, asset_weight, _asset_indices)
 	else:
-		var bones: Dictionary = live.call("active_anon_bones") if v7 else live.get("anon_bones")
+		var bones: Dictionary = live.active_anon_bones() if v7 else live.anon_bones
 		if not bones.is_empty():
 			_cache_indices(bones)
 			if v7:
-				live.call("apply_bones", skeleton, bones, 1.0)
+				live.apply_bones(skeleton, bones, 1.0)
 			else:
 				for key: Variant in _indices:
 					var entry: Variant = bones.get(key)
@@ -347,19 +348,18 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 func _asset_pair_ready() -> bool:
 	if from_asset == null or to_asset == null:
 		return false
-	if int(from_asset.get("version")) < 7 or int(to_asset.get("version")) < 7:
+	if from_asset.version < 7 or to_asset.version < 7:
 		return false
-	if str(from_asset.call("active_anon_mode")) != "act_body":
+	if from_asset.active_anon_mode() != "act_body":
 		return false
-	return str(to_asset.call("active_anon_mode")) == "act_body"
+	return to_asset.active_anon_mode() == "act_body"
 
 
 ## One side's placed act body: the bed frame times the authored Anon transform, with the origin
 ## carried through the same anchor/contact rule as the single path.
-func _placed_asset(asset: Variant, bed_frame: Transform3D, body_scale: float) -> Transform3D:
-	var world: Transform3D = bed_frame * (asset.call("active_anon_transform") as Transform3D)
-	return Transform3D(world.basis,
-		asset.call("place_origin", world.origin, bed_frame, body_scale) as Vector3)
+func _placed_asset(asset: AUTHORED, bed_frame: Transform3D, body_scale: float) -> Transform3D:
+	var world: Transform3D = bed_frame * asset.active_anon_transform()
+	return Transform3D(world.basis, asset.place_origin(world.origin, bed_frame, body_scale))
 
 
 ## Blend two world placements: the basis slerps and the origin lerps. A non-finite side returns
@@ -606,16 +606,16 @@ func _install_palm_scale() -> void:
 		return
 	_palm_scale = PALM_SCALE.new()
 	_palm_scale.name = "UnfplapMissionaryPalmScale"
-	_palm_scale.set("skeleton", skeleton)
-	_palm_scale.set("factor", factor)
+	_palm_scale.skeleton = skeleton
+	_palm_scale.factor = factor
 	_palm_scale.process_priority = 10
 	skeleton.add_child(_palm_scale)
 
 
 func _remove_palm_scale() -> void:
 	if is_instance_valid(_palm_scale):
-		_palm_scale.set("active", false)
-		_palm_scale.call("restore")
+		_palm_scale.active = false
+		_palm_scale.restore()
 		_palm_scale.queue_free()
 	_palm_scale = null
 
@@ -878,7 +878,7 @@ func diag_row(face: Vector3, vulva: Vector3) -> String:
 		world.x, world.y, world.z, lo if lo < INF else 0.0, hi,
 		str(avatar.is_processing()),
 		str(_body_ik.active) if is_instance_valid(_body_ik) else "null",
-		float(_leg_hide.get("influence")) if is_instance_valid(_leg_hide) else -1.0]
+		_leg_hide.influence if is_instance_valid(_leg_hide) else -1.0]
 	if not odd.is_empty():
 		row += " odd=[%s]" % ", ".join(odd)
 	var service: Variant = _anatomy_service()

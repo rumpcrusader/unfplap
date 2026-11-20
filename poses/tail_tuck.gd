@@ -14,7 +14,7 @@ var runtime: Node
 var _left := DURATION
 var _fade := 0.0
 var _done := false
-var _tail: Node
+var _tail: TAIL
 
 
 func _ready() -> void:
@@ -27,14 +27,14 @@ func _ready() -> void:
 	var skeleton: Skeleton3D = found["skeleton"]
 	_tail = TAIL.new()
 	_tail.name = "UnfplapTuckedTail"
-	_tail.set("mare", pony)
-	_tail.set("aside_angle", 0.0)
-	_tail.set("lift_angle", TUCK_LIFT)
-	_tail.set("flick_amplitude", 0.0)
-	_tail.set("base_pivot", true)
-	_tail.set("amount", 0.0)
-	_tail.set("target_amount", 1.0)
-	_tail.set("process_priority", 20)
+	_tail.mare = pony
+	_tail.aside_angle = 0.0
+	_tail.lift_angle = TUCK_LIFT
+	_tail.flick_amplitude = 0.0
+	_tail.base_pivot = true
+	_tail.amount = 0.0
+	_tail.target_amount = 1.0
+	_tail.process_priority = 20
 	skeleton.add_child(_tail)
 
 
@@ -53,7 +53,7 @@ func _physics_process(delta: float) -> void:
 	if _left <= 0.0:
 		_fade = 1.0
 		if is_instance_valid(_tail):
-			_tail.set("target_amount", 0.0)
+			_tail.target_amount = 0.0
 
 
 func _finish() -> void:
@@ -61,7 +61,7 @@ func _finish() -> void:
 		return
 	_done = true
 	if is_instance_valid(_tail):
-		_tail.call("restore_tail")
+		_tail.restore_tail()
 		_tail.queue_free()
 		_tail = null
 	queue_free()

@@ -296,16 +296,12 @@
       "count": 2
     },
     {
-      "file": "poses/face_contact.gd",
-      "count": 7
-    },
-    {
       "file": "poses/missionary_anon.gd",
-      "count": 23
+      "count": 6
     },
     {
       "file": "poses/missionary_recipe.gd",
-      "count": 3
+      "count": 1
     },
     {
       "file": "poses/pose_rig.gd",
@@ -317,27 +313,19 @@
     },
     {
       "file": "poses/service.gd",
-      "count": 46
-    },
-    {
-      "file": "poses/skeleton_pose.gd",
-      "count": 10
-    },
-    {
-      "file": "poses/standing_anon.gd",
-      "count": 15
-    },
-    {
-      "file": "poses/standing_presentation.gd",
-      "count": 21
-    },
-    {
-      "file": "poses/standing_recipe.gd",
       "count": 1
     },
     {
-      "file": "poses/tail_tuck.gd",
-      "count": 10
+      "file": "poses/skeleton_pose.gd",
+      "count": 8
+    },
+    {
+      "file": "poses/standing_anon.gd",
+      "count": 5
+    },
+    {
+      "file": "poses/standing_presentation.gd",
+      "count": 15
     },
     {
       "file": "poses/transition_spec.gd",
@@ -345,7 +333,7 @@
     },
     {
       "file": "poses/wing_control.gd",
-      "count": 16
+      "count": 14
     },
     {
       "file": "reactions/service.gd",

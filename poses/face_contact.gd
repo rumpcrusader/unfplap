@@ -11,6 +11,8 @@ const PRESS_M := 0.025
 const ROCK_M := 0.012
 const ROCK_RATE := 2.4
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 
 var pony: Node3D = null
 var face_point := Callable()
@@ -44,7 +46,7 @@ func bind(pony_node: Node3D, face: Callable, opening: Callable) -> void:
 
 ## Capture the live frame, his mouth and her opening point. A missing frame or point still
 ## activates the driver, so a later tick can recover.
-func begin(view: Variant, frame: Variant) -> bool:
+func begin(view: POSE_VIEW, frame: Variant) -> bool:
 	active = true
 	captured = false
 	_target = Vector3.INF
@@ -60,7 +62,7 @@ func begin(view: Variant, frame: Variant) -> bool:
 	if not mouth.is_finite() or not opening.is_finite():
 		_log_once("face contact: no mouth/opening provider")
 		if view != null and mouth.is_finite():
-			(view as RefCounted).set("contact_target", mouth)
+			view.contact_target = mouth
 		return false
 	var inverse := _frame.affine_inverse()
 	var mouth_frame := inverse * mouth
@@ -73,16 +75,16 @@ func begin(view: Variant, frame: Variant) -> bool:
 	_target = mouth
 	captured = true
 	if view != null:
-		(view as RefCounted).set("contact_target", mouth)
+		view.contact_target = mouth
 	return true
 
 
 ## Follow the live mouth at the act's `depth`. A missing provider holds the last offset and logs
 ## once; it never writes an invalid point.
-func tick(delta: float, view: Variant, depth: float, frame: Variant, pose_node: Variant) -> void:
+func tick(delta: float, view: POSE_VIEW, depth: float, frame: Variant, pose_node: POSE) -> void:
 	if not active or not captured:
 		return
-	if view == null or str((view as RefCounted).get("contact_kind")) != "face":
+	if view == null or view.contact_kind != "face":
 		return
 	if not frame is Transform3D:
 		return
@@ -91,7 +93,7 @@ func tick(delta: float, view: Variant, depth: float, frame: Variant, pose_node: 
 		_log_once("face contact: mouth provider is unavailable; holding the last offset")
 		_write_offset(pose_node, frame as Transform3D)
 		if view != null and _target.is_finite():
-			(view as RefCounted).set("contact_target", _target)
+			view.contact_target = _target
 		return
 	_missing_logged = false
 	_frame = frame as Transform3D
@@ -109,15 +111,15 @@ func tick(delta: float, view: Variant, depth: float, frame: Variant, pose_node: 
 	_offset = _offset.lerp(wanted, clampf(blend, 0.0, 1.0))
 	_write_offset(pose_node, _frame)
 	_target = mouth
-	(view as RefCounted).set("contact_target", mouth)
+	view.contact_target = mouth
 
 
 ## Zero the offset and the view's contact target once. A second call is a no-op.
-func restore(view: Variant, pose_node: Variant) -> void:
+func restore(view: POSE_VIEW, pose_node: POSE) -> void:
 	if pose_node != null:
-		(pose_node as Object).set("contact_offset", Vector3.ZERO)
+		pose_node.contact_offset = Vector3.ZERO
 	if view != null:
-		(view as RefCounted).set("contact_target", Vector3.INF)
+		view.contact_target = Vector3.INF
 	reset()
 
 
@@ -145,10 +147,10 @@ func target() -> Vector3:
 	return _target
 
 
-func _write_offset(pose_node: Variant, frame: Transform3D) -> void:
+func _write_offset(pose_node: POSE, frame: Transform3D) -> void:
 	if pose_node == null:
 		return
-	(pose_node as Object).set("contact_offset", frame.basis * _offset)
+	pose_node.contact_offset = frame.basis * _offset
 
 
 func _log_once(text: String) -> void:

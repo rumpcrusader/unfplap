@@ -10,6 +10,7 @@ var MAIN: Variant = null
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
+const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -110,7 +111,7 @@ func _fixture() -> Dictionary:
 	pose.bind(runtime, null)
 	pose.facts = runtime._bundle.facts
 	pose._view = view
-	pose.act_body = Node.new()
+	pose.act_body = MISSIONARY_ANON.new()
 	var bridge := FakeBridge.new()
 	bridge.missionary_anon = Node.new()
 	runtime.act._set_state(2)
@@ -171,7 +172,7 @@ func _check_helper() -> void:
 	pose.act_body = null
 	check(runtime.act.face_sit_error() == "the anatomy is not available",
 		"a missing act body is refused")
-	pose.act_body = Node.new()
+	pose.act_body = MISSIONARY_ANON.new()
 	bridge.missionary_anon = null
 	check(runtime.act.face_sit_error() == "the anatomy is not available",
 		"a missing bridge handle is refused")

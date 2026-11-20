@@ -16,12 +16,12 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 var facts: Variant
 var pony: Variant
 var _hip_phase := 0.0
-var _anon_thrust_driver: Node3D
+var _anon_thrust_driver: ANON_THRUST
 var _anon_thrust_original: Node
 var _anon_thrust_avatar: Node3D
-var _hip_thrust: SkeletonModifier3D
-var _palm_scale: SkeletonModifier3D
-var _chest_back: SkeletonModifier3D
+var _hip_thrust: HIP_THRUST
+var _palm_scale: PALM_SCALE
+var _chest_back: CHEST_BACK
 var _lower_left := Transform3D.IDENTITY
 var _lower_right := Transform3D.IDENTITY
 var _lower_captured := false
@@ -69,12 +69,12 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	# Hips-bone offset carries the pelvis and the part together.
 	var service: Variant = _anatomy_service()
 	if service != null and bool(service.call("player_showing")):
-		var wanted: Variant = service.call("player_hip_offset")
-		if wanted is Vector3 and (wanted as Vector3).is_finite():
-			_hip_thrust.set("offset_world", wanted)
+		var wanted: Vector3 = service.call("player_hip_offset")
+		if wanted.is_finite():
+			_hip_thrust.offset_world = wanted
 			service.call("player_note_hip_offset", wanted)
 			return
-	_hip_thrust.set("offset_world", forward * hip_offset(_hip_phase, scale, travel))
+	_hip_thrust.offset_world = forward * hip_offset(_hip_phase, scale, travel)
 
 
 ## Phase-2 Anon body lean: the view goes forward, sideways or down, so his torso folds over her.
@@ -165,10 +165,10 @@ func _install_anon_thrust() -> void:
 	var original: Variant = avatar.get("desktop_pose_driver")
 	if not is_instance_valid(original):
 		return
-	var driver: Node3D = ANON_THRUST.new()
+	var driver := ANON_THRUST.new()
 	driver.name = "UnfplapAnonThrust"
-	driver.set("original", original)
-	driver.set("runtime", facts.driver_host())
+	driver.original = original
+	driver.runtime = facts.driver_host()
 	WORLD.player.add_child(driver)
 	avatar.set("desktop_pose_driver", driver)
 	_anon_thrust_driver = driver
@@ -182,7 +182,7 @@ func _install_anon_thrust() -> void:
 		skeleton.add_child(_hip_thrust)
 		_chest_back = CHEST_BACK.new()
 		_chest_back.name = "UnfplapChestBack"
-		_chest_back.set("player", WORLD.player)
+		_chest_back.player = WORLD.player
 		_chest_back.process_priority = 30
 		skeleton.add_child(_chest_back)
 	_install_palm_scale(avatar)
@@ -201,8 +201,8 @@ func _install_palm_scale(avatar: Node3D) -> void:
 		return
 	_palm_scale = PALM_SCALE.new()
 	_palm_scale.name = "UnfplapPalmScale"
-	_palm_scale.set("skeleton", skeleton)
-	_palm_scale.set("factor", factor)
+	_palm_scale.skeleton = skeleton
+	_palm_scale.factor = factor
 	_palm_scale.process_priority = 10
 	skeleton.add_child(_palm_scale)
 	LOG.debug("standing palm scale=%.2f size=%s", [factor, facts.size_name])
@@ -216,16 +216,16 @@ func _refresh_palm_scale() -> void:
 		_remove_palm_scale()
 		return
 	if is_instance_valid(_palm_scale):
-		if not is_equal_approx(float(_palm_scale.get("factor")), factor):
-			_palm_scale.set("factor", factor)
+		if not is_equal_approx(_palm_scale.factor, factor):
+			_palm_scale.factor = factor
 		return
 	_install_palm_scale(_anon_thrust_avatar)
 
 
 func _remove_palm_scale() -> void:
 	if is_instance_valid(_palm_scale):
-		_palm_scale.set("active", false)
-		_palm_scale.call("restore")
+		_palm_scale.active = false
+		_palm_scale.restore()
 		_palm_scale.queue_free()
 	_palm_scale = null
 

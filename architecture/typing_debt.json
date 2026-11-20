@@ -1,11 +1,6 @@
 {
   "debt": [
     {
-      "service": "eligibility",
-      "func": "set_profile",
-      "signature": "func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:"
-    },
-    {
       "service": "poses",
       "func": "begin",
       "signature": "func begin(context: Dictionary) -> bool:"

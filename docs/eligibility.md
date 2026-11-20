@@ -445,11 +445,12 @@ refusal status (`docs/integrations.md`).
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the world root |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | registry | `registry/service.gd` | provider layers and stable ids |
+| service | world | `world/service.gd` | the world root |
+| service | world | `world/game.gd` | the base-game bond, ladder and bond-clock reads |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | clearance | `shared/clearance.gd` | the Base clearance relationship row |
 | shared | consent | `shared/consent.gd` | consent keys and defaults |

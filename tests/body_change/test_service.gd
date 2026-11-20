@@ -19,6 +19,7 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
+const WIRE := preload("res://mods/unfplap/body_change/wire.gd")
 
 var failures := 0
 var checks := 0
@@ -76,6 +77,16 @@ class FakeSmack extends Node:
 
 	func pony_ready(body: Node) -> void:
 		handed_over.append(body)
+
+
+## A body that never grew the game's body-scale setter: the mirror writes the bare live field.
+class FakePlainScale extends Node3D:
+	var body_scale: Variant = 1.0
+
+
+## A body with neither the setter nor the field: the mirror leaves it alone.
+class FakeScaleLess extends Node3D:
+	pass
 
 
 class FakeSource extends "res://mods/unfplap/body_change/source.gd":
@@ -608,6 +619,23 @@ func _check_service() -> void:
 	check(is_equal_approx(pony.body_scale, 1.2), "the mirror writes the body scale")
 	check(pony.scale_calls == [1.2],
 		"the mirror resizes through the game's body-scale setter, not a bare field write")
+
+	# The scale write is one accessor: the game setter when the body has it, else the bare field,
+	# and an unchanged live scale is not written again.
+	pony.scale_calls.clear()
+	WIRE.apply(pony, borrowed)
+	check(pony.scale_calls.is_empty(), "an unchanged live scale is not written again")
+	var plain_scale := FakePlainScale.new()
+	plain_scale.name = "PlainScaleBody"
+	var plain_form := service.default_form(plain_scale)
+	plain_form.body_scale = 1.1
+	WIRE.apply(plain_scale, plain_form)
+	check(is_equal_approx(float(plain_scale.body_scale), 1.1),
+		"a body without the game setter takes the bare field write")
+	var scale_less := FakeScaleLess.new()
+	scale_less.name = "ScaleLessBody"
+	WIRE.apply(scale_less, plain_form)
+	check(scale_less.get("body_scale") == null, "a body with no scale field is left alone")
 
 	journal.clear()
 	borrowed.revision = 1

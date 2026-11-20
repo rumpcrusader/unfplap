@@ -26,4 +26,4 @@ func refresh_body(_body: Node3D, _form: BODY_FORM.BodyForm) -> void:
 
 func _scan() -> void:
 	if is_instance_valid(pantyhose) and pantyhose.has_method("scan"):
-		pantyhose.call("scan")
+		pantyhose.scan()

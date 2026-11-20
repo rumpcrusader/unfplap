@@ -26,4 +26,4 @@ func refresh_body(body: Node3D, _form: BODY_FORM.BodyForm) -> void:
 
 func _ready_pony(body: Node3D) -> void:
 	if is_instance_valid(adapter) and adapter.has_method("pony_ready"):
-		adapter.call("pony_ready", body)
+		adapter.pony_ready(body)

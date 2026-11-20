@@ -11,6 +11,8 @@ const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
+const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
+const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
 var failures := 0
 var checks := 0
@@ -43,6 +45,18 @@ class FakeBonds extends RefCounted:
 
 class FakeRelation extends Node:
 	var bonds: FakeBonds
+
+	func ladder(_id: String) -> Dictionary:
+		return {"love": {"level": 2}, "friendship": {"level": 3}}
+
+
+## A bond store that predates the reader methods: every accessor must answer its typed zero.
+class FakeBareBonds extends RefCounted:
+	pass
+
+
+class FakeBareRelation extends Node:
+	var bonds: FakeBareBonds = FakeBareBonds.new()
 
 	func ladder(_id: String) -> Dictionary:
 		return {"love": {"level": 2}, "friendship": {"level": 3}}
@@ -174,6 +188,27 @@ func run() -> void:
 		"an unrecorded pony falls back to the relationship ladder")
 	check(int(main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START).facts.love_level) == 2,
 		"the fallback fills the facts snapshot")
+
+	# A bond store without the reader ops answers each accessor's typed zero, and the ladder
+	# fallback still supplies the level.
+	var bare_relation := FakeBareRelation.new()
+	var bare_pony := FakePony.new()
+	bare_pony.name = "BareBonds"
+	bare_pony.identity = FakeIdentity.new()
+	bare_pony.set_meta("relationship_id", "rarity")
+	bare_pony.set_meta("relationship_runtime", bare_relation)
+	root.add_child(bare_pony)
+	var bare: ELIGIBILITY.Verdict = main.eligibility.get_verdict(bare_pony, ELIGIBILITY.Mode.START)
+	check(not bool(bare.facts.romance_eligible) and not bool(bare.facts.willing)
+		and str(bare.facts.stage).is_empty(),
+		"absent bond readers answer the typed zero")
+	check(int(bare.facts.love_level) == 2, "the ladder fallback survives absent bond readers")
+	check(not main.eligibility.relationship_ok(bare_pony),
+		"absent bond readers fail the clearance romance row")
+	SETTINGS.estrus_cycle.set_bool(true)
+	check(ELIGIBILITY.cycle_phase_for(bare_pony, "rarity") == CYCLE.NORMAL,
+		"an absent bond clock answers the normal cycle phase")
+	SETTINGS.estrus_cycle.set_bool(false)
 	SETTINGS.promiscuity.set_choice(saved_promiscuity)
 	relation.bonds.welcome = false
 	var unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
@@ -236,8 +271,9 @@ func run() -> void:
 	var layer := ELIGIBILITY.Profile.new()
 	layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
 	layer.participation.anatomy = false
-	var written := main.eligibility.set_profile(main, "rarity", layer)
-	check(bool(written.get("ok", false)), "set_profile writes a provider layer")
+	var written: MARE_REGISTRY.Result = main.eligibility.set_profile(main, "rarity", layer)
+	check(written is MARE_REGISTRY.Result, "set_profile answers the typed registry result")
+	check(written.ok, "set_profile writes a provider layer")
 	var read_back: ELIGIBILITY.Profile = main.eligibility.get_profile("rarity")
 	check(read_back.eligible == ELIGIBILITY.EligibilityAssertion.ELIGIBLE,
 		"set_profile stores the eligible assertion")
@@ -248,8 +284,12 @@ func run() -> void:
 		"the provider veto leaves the act target")
 	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER),
 		"the provider veto leaves the character target")
-	check(not bool(main.eligibility.set_profile(null, "rarity", layer).get("ok", false)),
-		"set_profile rejects a null owner")
+	var refused := main.eligibility.set_profile(null, "rarity", layer)
+	check(not refused.ok
+		and refused.errors == ["owner: must be a valid Node inside the scene tree"],
+		"set_profile rejects a null owner with the same validation string")
+	check(not main.eligibility.set_profile(main, "rarity", null).ok,
+		"set_profile rejects a missing profile")
 	check(main.eligibility.get_profile("rarity").eligible_value() == true,
 		"the cross-mod shape is the tri-state eligible value")
 
@@ -277,7 +317,7 @@ func run() -> void:
 
 	var filly_layer := ELIGIBILITY.Profile.new()
 	filly_layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
-	check(bool(main.eligibility.set_profile(main, "scootaloo", filly_layer).get("ok", false)),
+	check(main.eligibility.set_profile(main, "scootaloo", filly_layer).ok,
 		"set_profile writes the filly provider layer")
 	var filly_verdict: ELIGIBILITY.Verdict = main.eligibility.get_verdict(filly, ELIGIBILITY.Mode.START)
 	check(filly_verdict.facts.eligible == ELIGIBILITY.EligibilityAssertion.ELIGIBLE,
@@ -292,7 +332,7 @@ func run() -> void:
 
 	# A provider not-eligible assertion overrides a base-game registered adult.
 	layer.eligible = ELIGIBILITY.EligibilityAssertion.NOT_ELIGIBLE
-	check(bool(main.eligibility.set_profile(main, "rarity", layer).get("ok", false)),
+	check(main.eligibility.set_profile(main, "rarity", layer).ok,
 		"set_profile rewrites the eligible assertion")
 	var blocked: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
 	check(blocked.facts.eligible == ELIGIBILITY.EligibilityAssertion.NOT_ELIGIBLE,

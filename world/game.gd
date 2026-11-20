@@ -404,6 +404,28 @@ static func bond_record_for(bonds: Object, id: String) -> BondRecord:
 	return BondRecord.from_dict(row if row is Dictionary else {})
 
 
+## Whether the bond store calls one pony romance-eligible; false without the store's op.
+static func bond_eligible_for_romance(bonds: Object, id: String) -> bool:
+	if not is_instance_valid(bonds) or not bonds.has_method("eligible_for_romance"):
+		return false
+	return bool(bonds.call("eligible_for_romance", id))
+
+
+## Whether the bond store welcomes `kind` from one pony; false without the store's op.
+static func bond_welcomes(bonds: Object, id: String, kind: String) -> bool:
+	if not is_instance_valid(bonds) or not bonds.has_method("welcomes"):
+		return false
+	return bool(bonds.call("welcomes", id, kind))
+
+
+## The bond store's world day; NAN when the store has no clock.
+static func bond_day(bonds: Object) -> float:
+	if not is_instance_valid(bonds) or not bonds.has_method("day"):
+		return NAN
+	var value: Variant = bonds.call("day")
+	return float(value) if value is int or value is float else NAN
+
+
 ## Mark one pony as met through the store's own writer; false without the op.
 static func bond_mark_met(bonds: Object, id: String) -> bool:
 	if not is_instance_valid(bonds) or not bonds.has_method("mark_met"):
@@ -464,6 +486,19 @@ static func body_scale_of(pony: Node) -> float:
 		return 1.0
 	var value: Variant = pony.get("body_scale")
 	return float(value) if value != null else 1.0
+
+
+## Write a body's live scale through the game's setter when it has one, else the bare field.
+static func set_body_scale(pony: Node, scale: float) -> void:
+	if not is_instance_valid(pony):
+		return
+	var live: Variant = pony.get("body_scale")
+	if pony.has_method("set_body_scale"):
+		# The game setter moves the capsule and the pose calibration with the field.
+		if live == null or not is_equal_approx(float(live), scale):
+			pony.call("set_body_scale", scale)
+	elif live != null:
+		pony.set("body_scale", scale)
 
 
 ## The pony's body skeleton; null when the body has none.

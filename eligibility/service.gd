@@ -14,6 +14,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
@@ -250,15 +251,12 @@ func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
 func relationship_ok(pony: Node) -> bool:
 	if not _live or not is_instance_valid(pony):
 		return false
-	var rel: Variant = pony.get_meta("relationship_runtime") \
+	var rel: Node = pony.get_meta("relationship_runtime") \
 		if pony.has_meta("relationship_runtime") else null
 	if rel == null or not is_instance_valid(rel):
 		return false
 	var id := _pony_id(pony)
-	var romance := false
-	var bonds: Variant = rel.get("bonds")
-	if bonds != null and is_instance_valid(bonds) and bonds.has_method("eligible_for_romance"):
-		romance = bool(bonds.call("eligible_for_romance", id))
+	var romance := GAME.bond_eligible_for_romance(GAME.bonds_of(pony), id)
 	var love := _love_level(rel, id)
 	var floor_ok := POLICY.level_ok(str(SETTINGS.promiscuity.get_choice()), love)
 	return CLEARANCE.relationship_ok(true, romance, floor_ok)
@@ -266,16 +264,14 @@ func relationship_ok(pony: Node) -> bool:
 
 ## Her love level in one read, from the level cache the game keeps current.
 ## A player-form change is invisible here, so the romance row gates it first.
-func _love_level(rel: Variant, id: String) -> int:
+func _love_level(rel: Node, id: String) -> int:
 	var cached: Variant = _bond_levels().get(id)
 	if cached is Dictionary:
 		return int((cached as Dictionary).get("love", -1))
-	if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
-		var ladder: Variant = rel.call("ladder", id)
-		if ladder is Dictionary:
-			var love: Variant = (ladder as Dictionary).get("love", {})
-			if love is Dictionary:
-				return int((love as Dictionary).get("level", -1))
+	if rel != null and is_instance_valid(rel):
+		var ladder := GAME.relationship_ladder(rel, id)
+		if ladder.love_found:
+			return ladder.love_level
 	return -1
 
 
@@ -341,7 +337,7 @@ func get_profile(id: String) -> Profile:
 
 ## Write the provider layer for one owner: assertion, participation and consent.
 ## It lives in the registry; this service stores nothing and returns the registration result.
-func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:
+func set_profile(owner: Node, id: String, profile: Profile) -> MARE_REGISTRY.Result:
 	var mare_id := id.strip_edges()
 	if not is_instance_valid(owner) or not owner.is_inside_tree():
 		return _profile_result(mare_id, "", false,
@@ -353,7 +349,7 @@ func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:
 		mare_id, _profile_descriptor(profile))
 	if result.ok and _live:
 		SETTINGS.apply_live()
-	return result.to_dict()
+	return result
 
 
 func _facts_data(pony: Node) -> Dictionary:
@@ -381,22 +377,19 @@ func _registered_adult(id: String, adults: Variant) -> bool:
 
 
 func _read_relationship(pony: Node, id: String, out: Dictionary) -> void:
-	var rel: Variant = pony.get_meta("relationship_runtime") if pony.has_meta("relationship_runtime") else null
+	var rel: Node = pony.get_meta("relationship_runtime") if pony.has_meta("relationship_runtime") else null
 	if rel == null or not is_instance_valid(rel):
 		return
 	out["has_relationship"] = true
-	var bonds: Variant = rel.get("bonds")
-	if bonds != null and is_instance_valid(bonds):
+	var bonds: Object = GAME.bonds_of(pony)
+	if bonds != null:
 		var adults: Variant = bonds.get("adults")
 		out["registered_adult"] = _registered_adult(id, adults)
-		if bonds.has_method("eligible_for_romance"):
-			out["romance_eligible"] = bool(bonds.call("eligible_for_romance", id))
-		if bonds.has_method("welcomes"):
-			out["willing"] = bool(bonds.call("welcomes", id, "kiss"))
-		if bonds.has_method("record_for"):
-			var record: Variant = bonds.call("record_for", id)
-			if record is Dictionary:
-				out["stage"] = str((record as Dictionary).get("stage", ""))
+		out["romance_eligible"] = GAME.bond_eligible_for_romance(bonds, id)
+		out["willing"] = GAME.bond_welcomes(bonds, id, "kiss")
+		var record := GAME.bond_record_for(bonds, id)
+		if not record.rows.is_empty():
+			out["stage"] = record.stage
 	out["love_level"] = _love_level(rel, id)
 
 
@@ -420,13 +413,10 @@ static func cycle_phase_for(pony: Node, id: String) -> String:
 		return CYCLE.NORMAL
 	if not pony.has_meta("relationship_runtime"):
 		return CYCLE.NORMAL
-	var relationship: Variant = pony.get_meta("relationship_runtime")
-	if relationship == null or not is_instance_valid(relationship):
+	var day := GAME.bond_day(GAME.bonds_of(pony))
+	if is_nan(day):
 		return CYCLE.NORMAL
-	var bonds: Variant = relationship.get("bonds")
-	if bonds == null or not is_instance_valid(bonds) or not bonds.has_method("day"):
-		return CYCLE.NORMAL
-	return CYCLE.phase(float(bonds.call("day")), id)
+	return CYCLE.phase(day, id)
 
 
 ## The heat/diestrus note for the normal dialogue prompt, during and outside acts.
@@ -621,11 +611,14 @@ func _profile_descriptor(profile: Profile) -> MARE_REGISTRY.Identity:
 	return out
 
 
-func _profile_result(id: String, source: String, replaced: bool, errors: Array) -> Dictionary:
-	return {
-		"ok": false, "id": id, "source": source, "replaced": replaced,
-		"warnings": [], "errors": errors,
-	}
+func _profile_result(id: String, source: String, replaced: bool,
+		errors: Array[String]) -> MARE_REGISTRY.Result:
+	var out := MARE_REGISTRY.Result.new()
+	out.id = id
+	out.source = source
+	out.replaced = replaced
+	out.errors = errors
+	return out
 
 
 ## A provider source for an identity-only write. The existing layer keeps its source; a new layer

@@ -8,30 +8,6 @@
       "count": 1
     },
     {
-      "file": "body_change/act.gd",
-      "count": 2
-    },
-    {
-      "file": "body_change/garment_binding.gd",
-      "count": 1
-    },
-    {
-      "file": "body_change/service.gd",
-      "count": 3
-    },
-    {
-      "file": "body_change/smack_binding.gd",
-      "count": 1
-    },
-    {
-      "file": "body_change/wire.gd",
-      "count": 2
-    },
-    {
-      "file": "eligibility/service.gd",
-      "count": 6
-    },
-    {
       "file": "integrations/changelings.gd",
       "count": 8
     },

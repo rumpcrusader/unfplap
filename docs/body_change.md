@@ -480,6 +480,7 @@ suspension, adoption, resume and failure phases.
 | service | memory | `memory/service.gd` | the reveal impression and peak marks, and the form-offer reaction |
 | service | ponies | `ponies/service.gd` | the runtime binding's per-pony runtime lookup |
 | service | world | `world/service.gd` | the LOD binding's near/far cache refresh |
+| service | world | `world/game.gd` | the base-game held and body-scale reads and writes |
 | shared | act_state | `shared/act_state.gd` | the act state gate for the offer, reveal and player line |
 | shared | body_binding | `shared/body_binding.gd` | typed body-bound system base |
 | shared | body_change | `shared/body_change.gd` | body change type, state and origin |

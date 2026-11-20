@@ -56,18 +56,18 @@ func apply_settings() -> void:
 ## Builds the built-in binding chain in fan-out order; a missing facade registers none.
 func wire(anatomy: Node, pantyhose: Node, stock_smack: Node) -> void:
 	if is_instance_valid(anatomy):
-		var anatomy_binding: RefCounted = ANATOMY_BINDING.new()
-		anatomy_binding.call("setup", anatomy)
+		var anatomy_binding: ANATOMY_BINDING = ANATOMY_BINDING.new()
+		anatomy_binding.setup(anatomy)
 		register_binding(anatomy_binding)
 	register_binding(RUNTIME_BINDING.new())
 	register_binding(LOD_BINDING.new())
 	if is_instance_valid(pantyhose):
-		var garment_binding: RefCounted = GARMENT_BINDING.new()
-		garment_binding.call("setup", pantyhose)
+		var garment_binding: GARMENT_BINDING = GARMENT_BINDING.new()
+		garment_binding.setup(pantyhose)
 		register_binding(garment_binding)
 	if is_instance_valid(stock_smack):
-		var smack_binding: RefCounted = SMACK_BINDING.new()
-		smack_binding.call("setup", stock_smack)
+		var smack_binding: SMACK_BINDING = SMACK_BINDING.new()
+		smack_binding.setup(stock_smack)
 		register_binding(smack_binding)
 
 

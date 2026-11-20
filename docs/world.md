@@ -96,6 +96,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.identity_of(pony)` | `identity` | `Resource` | `null` |
 | `GAME.boop_of(pony)` | `boop_node` | `Node` | `null` |
 | `GAME.sustain_blush(boop, amount)` | `sustain_blush` | — | no call |
+| `GAME.celebrate(boop)` | `celebrate` | `bool` | `false` |
 | `GAME.eye_height(player)` | `eye_height` | `float` | `NAN` |
 | `GAME.set_eye_y(body, y)` | `_set_eye_y` (private) | — | no write |
 | `GAME.pitch(body)` | the rig's `_pitch` | `float` | `NAN` |
@@ -218,6 +219,11 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.flank_surface_update(surface, skeleton, frame)` | `FlankSurface.update_pose` | — | no call |
 | `GAME._flank_surface_contact(surface, point, palm, reach)` | `FlankSurface.contact` | `Dictionary` | empty |
 | `GAME.flank_impact(flank, index, at, strength)` | `FlankTouch.impact` | — | no call |
+| `GAME.flank_wake_tick(flank)` | `FlankTouch.wake_tick` | — | no call |
+| `GAME.flank_start_jiggle(flank, index, strength)` | `FlankTouch._start_jiggle` (private) | `bool` | `false` |
+| `GAME.flank_process(flank, delta)` | `FlankTouch._process` (private) | — | no call |
+| `GAME.flank_jiggle_amount(flank)` | `FlankTouch._jiggle_amount` (private) | `float` | `NAN` |
+| `GAME.set_flank_jiggle_amount(flank, amount)` | `FlankTouch._jiggle_amount` (private) | — | no write |
 | `GAME.set_hold_target(driver, side, frame, kind)` | the rig's `set_hold_target` | — | no call |
 | `GAME.clear_hold_target(driver, side)` | the rig's `clear_hold_target` | — | no call |
 | `GAME.hand_frame(driver, side)` | the rig's `hand_frame` | `Transform3D` | infinite origin |

@@ -23,11 +23,12 @@ audio facade (`docs/audio.md`).
 | Part | Rule |
 |---|---|
 | `reactions/service.gd` | the facade: scene handles, live blush/heart state and the per-act tuning |
+| `reactions/context.gd` | the typed act tuning: pose family, size, climax length and the five `jiggle.*` values |
 | `runtime.gd` | binds the scene, snapshots the settings, calls the facade from the stroke/climax paths |
 
 The facade is a `RefCounted` scene adapter. It reads Nodes and the `body_coat_deform` setting; the
 jiggle tuning is pushed in by `configure()` from the runtime's act snapshot. The block is complete,
-so `configure()` indexes its five keys and the facade holds no fallback value. The standing tail
+so the reaction context reads its five keys and the facade holds no fallback value. The standing tail
 modifier is bound by the pose builder because it changes with the pose. The flank is discovered
 lazily from the pony's `FlankTouch`, so a stock smack outside an act still reaches the patched
 body coat.
@@ -41,9 +42,9 @@ contains her body, its palette and outline materials.
 
 | Method | Purpose |
 |---|---|
-| `bind_scene(pony, anatomy, flank = null)` | set the act's pony, anatomy controller and (optional) flank |
+| `bind_scene(pony, anatomy, flank = null)` | set the act's pony (`Node3D`), anatomy controller and (optional) flank |
 | `bind_tail(tail)` | set the standing tail modifier, or null outside standing |
-| `configure(context)` | take `jiggle`, `pose_family`, `size_scale` and `climax_seconds` from the act snapshot |
+| `configure(context)` | take `pose_family`, `size_scale`, `climax_seconds` and the five `jiggle.*` values from the typed reaction context |
 | `begin_act()` | clear the per-act blush, jiggle log and heart pulses |
 | `end_act()` | free the blush decal, drop the tail and restore the stock shader radius |
 | `body_coat_target()` | re-add the patched rig and merged-near body materials to the jiggle targets |

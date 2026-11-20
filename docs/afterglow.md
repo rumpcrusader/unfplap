@@ -15,14 +15,18 @@ facade's reward writes through its bound `face`, `reactions` and `readiness` and
 `set_act()` records.
 
 
-`afterglow/service.gd` is the facade and the only module another system calls. There is no private
-`afterglow/` directory: the phase has no pure sub-module that is useful on its own.
+`afterglow/service.gd` is the facade and the only module another system calls. The private records
+are `afterglow/summary.gd` (the typed act summary the phase reads) and `afterglow/presentation.gd`
+(the typed presentation row); the phase has no other useful sub-module.
 
 ## Architecture
 
 | Piece | Owns |
 |---|---|
 | `afterglow/service.gd` | the private beat, the close-window timer and its reward decision, the presentation row |
+| `afterglow/summary.gd` | the typed summary the afterglow beat, the positive flag and the face context read |
+| `afterglow/presentation.gd` | the typed row: tail target and flicks, HUD state, wings |
+| `afterglow/aftercare.gd` | the ten-second hosted body language node |
 | `runtime.gd` | the state transition, the phase end, the scene presentation, the memory/history writes and the HUD refresh |
 
 Host callbacks, all optional so a test can build the facade without a runtime:
@@ -41,9 +45,9 @@ them.
 
 | Method | Meaning |
 |---|---|
-| `begin(summary)` | start the phase, roll the private beat and open the close window the view profile declares |
+| `begin(summary)` | start the phase from the typed summary record, roll the private beat and open the close window the view profile declares |
 | `bind_view(view)` | carry the pose view whose `afterglow.close_window` decides that window |
-| `presentation()` | the afterglow presentation row: tail target and flicks from the active `view.family`, HUD state and the wings flag; the act's current pose holds |
+| `presentation()` | the typed afterglow row: tail target and flicks from the active `view.family`, HUD state and the wings flag; the act's current pose holds |
 | `reset()` | clear every per-act value; the callbacks stay |
 | `phase_tick(delta, anatomy, anatomy_host, standing)` | one AFTERGLOW frame: the bed-body part's tracking, then `close_tick()` when the live pose family is standing |
 | `close_tick(delta)` | count caress time and run the window down |

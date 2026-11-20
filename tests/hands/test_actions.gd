@@ -25,7 +25,7 @@ const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 
-class FakeTail extends Node:
+class FakeTail extends SkeletonModifier3D:
 	var last_strength := 0.0
 
 	func thrust(strength: float) -> void:

@@ -5,6 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/reactions/test_reactions.gd
 
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 
@@ -33,7 +34,7 @@ class FakeFlank extends Node:
 		processed += 1
 
 
-class FakeTail extends Node:
+class FakeTail extends SkeletonModifier3D:
 	var last_strength := 0.0
 
 	func thrust(strength: float) -> void:
@@ -45,6 +46,7 @@ class FakeAnatomy extends Node:
 	var material: ShaderMaterial
 	var outline: ShaderMaterial
 	var target_pairs: Array = []
+	var refreshes := 0
 
 	func is_attached() -> bool:
 		return true
@@ -60,6 +62,9 @@ class FakeAnatomy extends Node:
 
 	func body_coat_targets() -> Array:
 		return target_pairs
+
+	func body_coat_refresh() -> void:
+		refreshes += 1
 
 
 class FakeBoop extends Node:
@@ -118,6 +123,7 @@ func run() -> void:
 	_check_smack()
 	_check_blush()
 	_check_hearts()
+	_check_accessors()
 
 	print("REACTIONS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -162,6 +168,7 @@ func _check_body_coat_target() -> void:
 	root.add_child(body)
 	reactions.body_coat_target()
 	check(flank._jiggle_targets.size() == 2, "body and outline join the jiggle targets")
+	check(anatomy.refreshes == 1, "an empty target list refreshes the anatomy coat")
 	reactions.body_coat_target()
 	check(flank._jiggle_targets.size() == 2, "the body target is not duplicated")
 	var near_mesh := MeshInstance3D.new()
@@ -343,3 +350,38 @@ func _check_hearts() -> void:
 	boop.free()
 	root.remove_child(pony)
 	pony.free()
+
+
+## The base-game accessors answer the absent flank and boop without a call or a write.
+func _check_accessors() -> void:
+	var absent := Node.new()
+	check(not GAME.celebrate(null), "an absent boop has no celebrate")
+	check(not GAME.celebrate(absent), "a node without celebrate has no celebrate")
+	check(not GAME.flank_start_jiggle(null, 0, 1.0), "an absent flank has no start jiggle")
+	check(not GAME.flank_start_jiggle(absent, 0, 1.0), "a flank without the op has no start jiggle")
+	check(is_nan(GAME.flank_jiggle_amount(null)), "an absent flank has no jiggle amount")
+	check(is_nan(GAME.flank_jiggle_amount(absent)), "a flank without the member has no jiggle amount")
+	GAME.flank_wake_tick(null)
+	GAME.flank_wake_tick(absent)
+	GAME.flank_process(null, 0.0)
+	GAME.flank_process(absent, 0.0)
+	GAME.set_flank_jiggle_amount(null, 1.0)
+	GAME.set_flank_jiggle_amount(absent, 1.0)
+	absent.free()
+
+	var flank := FakeFlank.new()
+	flank._jiggle_amount = 0.25
+	check(near(GAME.flank_jiggle_amount(flank), 0.25), "the flank's jiggle amount is read")
+	GAME.set_flank_jiggle_amount(flank, 0.5)
+	check(near(flank._jiggle_amount, 0.5), "the flank's jiggle amount is written")
+	check(GAME.flank_start_jiggle(flank, 0, 1.0), "a flank with the op starts its jiggle")
+	check(flank.jiggle_calls == 1, "the start jiggle accessor calls the op")
+	GAME.flank_wake_tick(flank)
+	GAME.flank_process(flank, 0.0)
+	check(flank.processed == 1, "the process accessor calls the op")
+	flank.free()
+
+	var boop := FakeBoop.new()
+	check(GAME.celebrate(boop), "a boop with celebrate answers")
+	check(boop._hearts.size() == 1, "the celebrate accessor bursts a heart")
+	boop.free()

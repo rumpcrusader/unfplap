@@ -706,6 +706,14 @@ static func sustain_blush(boop: Node, amount: float) -> void:
 	boop.call("sustain_blush", amount)
 
 
+## Fire the boop's own heart burst; false when the node has no celebrate op.
+static func celebrate(boop: Node) -> bool:
+	if not is_instance_valid(boop) or not boop.has_method("celebrate"):
+		return false
+	boop.call("celebrate")
+	return true
+
+
 ## The pony's expression controller; null when the body has none.
 static func expressions_of(pony: Node) -> Object:
 	if not is_instance_valid(pony):
@@ -1795,6 +1803,42 @@ static func flank_impact(flank: Node, index: int, at: Vector3, strength: float) 
 	if not is_instance_valid(flank) or not flank.has_method("impact"):
 		return
 	flank.call("impact", index, at, strength)
+
+
+## Wake the flank's own touch tick; a flank without the op is left alone.
+static func flank_wake_tick(flank: Node) -> void:
+	if is_instance_valid(flank) and flank.has_method("wake_tick"):
+		flank.call("wake_tick")
+
+
+## Start the flank's own jiggle; false when the flank has no op.
+static func flank_start_jiggle(flank: Node, index: int, strength: float) -> bool:
+	if not is_instance_valid(flank) or not flank.has_method("_start_jiggle"):
+		return false
+	flank.call("_start_jiggle", index, strength)
+	return true
+
+
+## Run one flank jiggle frame; a flank without the op is left alone.
+static func flank_process(flank: Node, delta: float) -> void:
+	if is_instance_valid(flank) and flank.has_method("_process"):
+		flank.call("_process", delta)
+
+
+## The flank's resolved jiggle amount; NAN when the member is absent.
+static func flank_jiggle_amount(flank: Node) -> float:
+	if not is_instance_valid(flank):
+		return NAN
+	var amount: Variant = flank.get("_jiggle_amount")
+	if amount == null:
+		return NAN
+	return float(amount)
+
+
+## Write the flank's resolved jiggle amount; a flank without the member is left alone.
+static func set_flank_jiggle_amount(flank: Node, amount: float) -> void:
+	if is_instance_valid(flank) and flank.get("_jiggle_amount") != null:
+		flank.set("_jiggle_amount", amount)
 
 
 ## Hand the desktop rig one palm target; a rig without the holder is left alone.

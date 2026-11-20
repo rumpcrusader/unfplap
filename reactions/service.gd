@@ -6,6 +6,7 @@ extends RefCounted
 
 const CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 ## Fallback shader center when the skeleton's hind femurs are unavailable.
@@ -25,7 +26,7 @@ var pony: Node3D = null
 var flank: Node = null
 var anatomy: Node = null
 ## The standing tail modifier, null outside a standing act.
-var tail: Node = null
+var tail: SkeletonModifier3D = null
 
 ## Per-act configuration. `configure()` receives the runtime's act snapshot.
 var pose_family := ""
@@ -57,7 +58,7 @@ func bind_scene(pony_node: Node3D, anatomy_ctl: Node, flank_ctl: Node = null) ->
 
 
 ## The standing tail modifier changes with the pose, so the pose builder binds it.
-func bind_tail(tail_ctl: Node) -> void:
+func bind_tail(tail_ctl: SkeletonModifier3D) -> void:
 	tail = tail_ctl
 
 
@@ -106,17 +107,15 @@ func body_coat_target() -> void:
 		flank = pony.get_node_or_null("FlankTouch")
 	if not is_instance_valid(flank) or not is_instance_valid(anatomy):
 		return
-	if anatomy.has_method("is_attached") and not bool(anatomy.call("is_attached")):
+	if not anatomy.is_attached():
 		return
 	var targets: Variant = flank.get("_jiggle_targets")
 	if not targets is Array:
 		return
-	var pairs: Variant = null
-	if anatomy.has_method("body_coat_targets"):
-		pairs = anatomy.call("body_coat_targets")
-		if pairs is Array and (pairs as Array).is_empty() and anatomy.has_method("body_coat_refresh"):
-			anatomy.call("body_coat_refresh")
-			pairs = anatomy.call("body_coat_targets")
+	var pairs: Variant = anatomy.body_coat_targets()
+	if pairs is Array and (pairs as Array).is_empty():
+		anatomy.body_coat_refresh()
+		pairs = anatomy.body_coat_targets()
 	if pairs is Array and not (pairs as Array).is_empty():
 		for pair_v: Variant in pairs as Array:
 			if not pair_v is Array:
@@ -128,21 +127,20 @@ func body_coat_target() -> void:
 			_add_coat_target(targets as Array, pair[0] as ShaderMaterial,
 				pair[1] as MeshInstance3D)
 		return
-	var body: Variant = anatomy.call("body_coat_mesh")
-	var mat: Variant = anatomy.call("body_coat_material")
+	var body: Variant = anatomy.body_coat_mesh()
+	var mat: Variant = anatomy.body_coat_material()
 	if not is_instance_valid(body) or not body is MeshInstance3D \
 			or not is_instance_valid(mat) or not mat is ShaderMaterial:
 		# The near mesh can be rebuilt between the anatomy's visibility polls. Catch up now
 		# instead of waiting for the next poll and losing a few thrusts of body wobble.
-		if anatomy.has_method("body_coat_refresh"):
-			anatomy.call("body_coat_refresh")
-		body = anatomy.call("body_coat_mesh")
-		mat = anatomy.call("body_coat_material")
+		anatomy.body_coat_refresh()
+		body = anatomy.body_coat_mesh()
+		mat = anatomy.body_coat_material()
 	if not is_instance_valid(body) or not body is MeshInstance3D \
 			or not is_instance_valid(mat) or not mat is ShaderMaterial:
 		return
 	_add_coat_target(targets as Array, mat as ShaderMaterial, body as MeshInstance3D)
-	var outline: Variant = anatomy.call("body_outline_material")
+	var outline: Variant = anatomy.body_outline_material()
 	if is_instance_valid(outline) and outline is ShaderMaterial:
 		_add_coat_target(targets as Array, outline as ShaderMaterial, body as MeshInstance3D)
 
@@ -164,8 +162,7 @@ func thrust(weight: float) -> void:
 		flank = pony.get_node_or_null("FlankTouch")
 	if not is_instance_valid(flank) or not flank.has_method("_start_jiggle"):
 		return
-	if flank.has_method("wake_tick"):
-		flank.call("wake_tick")
+	GAME.flank_wake_tick(flank)
 	var marks: Variant = flank.get("marks")
 	if not marks is Array or (marks as Array).size() < 2:
 		return
@@ -196,18 +193,17 @@ func thrust(weight: float) -> void:
 	# The stock jiggle clamps its own impulse to 0.3..1. Pass a full stroke and scale the
 	# resolved amount here, so a soft stroke can wobble almost not at all.
 	var wobble := clampf(weight, 0.0, 1.0)
-	flank.call("_start_jiggle", 0, 1.0)
+	GAME.flank_start_jiggle(flank, 0, 1.0)
 	body_coat_target()
 	# One shader center now covers both flanks, so scale the resolved amount up. Smaller ponies
 	# get less shader travel from the same thrust impulse.
-	var amount: Variant = flank.get("_jiggle_amount")
-	if amount != null:
-		flank.set("_jiggle_amount", float(amount) * wobble * JIGGLE_RUMP_SCALE
+	var amount := GAME.flank_jiggle_amount(flank)
+	if not is_nan(amount):
+		GAME.set_flank_jiggle_amount(flank, amount * wobble * JIGGLE_RUMP_SCALE
 			* size_scale * jiggle_intensity)
 		# The stock jiggle already ran a frame at the full amount; refresh it so a soft thrust does
 		# not pop.
-		if flank.has_method("_process"):
-			flank.call("_process", 0.0)
+		GAME.flank_process(flank, 0.0)
 	apply_radius()
 	if not _jiggle_logged:
 		_jiggle_logged = true
@@ -222,7 +218,7 @@ func thrust(weight: float) -> void:
 func tail_thrust(weight: float) -> void:
 	if pose_family != "standing" or not is_instance_valid(tail):
 		return
-	tail.call("thrust", weight * size_scale * jiggle_intensity)
+	tail.thrust(weight * size_scale * jiggle_intensity)
 
 
 ## A smack has already started the native cheek jiggle. Carry it into the same tail-base
@@ -232,12 +228,12 @@ func smack(_strength: float) -> void:
 		return
 	if is_instance_valid(flank):
 		body_coat_target()
-		var amount: Variant = flank.get("_jiggle_amount")
-		if amount != null:
-			flank.set("_jiggle_amount", float(amount) * jiggle_smack_intensity)
+		var amount := GAME.flank_jiggle_amount(flank)
+		if not is_nan(amount):
+			GAME.set_flank_jiggle_amount(flank, amount * jiggle_smack_intensity)
 	apply_radius()
 	if pose_family == "standing" and is_instance_valid(tail):
-		tail.call("thrust", size_scale * jiggle_smack_intensity)
+		tail.thrust(size_scale * jiggle_smack_intensity)
 
 
 ## Set the shared rump wobble radius on every active jiggle target material.
@@ -401,24 +397,23 @@ func hearts_tick(delta: float) -> void:
 ## Same effect as a boop (five drifting hearts, her heart colours) without counting a boop or
 ## restarting the blush/squeak reaction.
 func hearts_burst() -> void:
-	var boop: Variant = pony.get("boop_node") if is_instance_valid(pony) else null
-	if boop != null and boop.has_method("celebrate"):
-		boop.call("celebrate")
+	GAME.celebrate(GAME.boop_of(pony))
 
 
 ## A boop-heart burst moved to `origin` while keeping its random spread and drift.
 func hearts_burst_at(origin: Vector3) -> void:
 	if not is_instance_valid(pony) or not origin.is_finite():
 		return
-	var boop: Variant = pony.get("boop_node")
-	if boop == null or not boop.has_method("celebrate"):
+	var boop := GAME.boop_of(pony)
+	if boop == null:
 		return
 	var stored: Variant = boop.get("_hearts")
 	if not stored is Array:
 		return
 	var hearts: Array = stored
 	var before := hearts.size()
-	boop.call("celebrate")
+	if not GAME.celebrate(boop):
+		return
 	if hearts.size() <= before:
 		return
 	var first: Dictionary = hearts[before]

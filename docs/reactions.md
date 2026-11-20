@@ -107,6 +107,7 @@ already set its own impulse before the facade scales it.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/game.gd` | the base-game flank and boop accessors |
 | shared | log | `shared/log.gd` | log sink |
 
 ## Lifecycle

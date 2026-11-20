@@ -9,7 +9,8 @@ lifecycle; this doc owns their shape and their runner.
 ## Scope
 
 - `tests/` holds every headless suite. The full gate runs every one of them.
-- A suite is a scene-free `SceneTree` script that prints one machine-readable result line.
+- A suite is a scene-free script on the shared `SceneTree` base that prints one machine-readable
+  result line.
 - Anything that needs a live world, a person at the keyboard, a headset or the HUD belongs to a
   manual lab, not here.
 - The static source and test-file invariants are `scripts/architecture.py --check`, not a suite.
@@ -21,6 +22,8 @@ lifecycle; this doc owns their shape and their runner.
 | `tests/<service>/test_<topic>.gd` | the suites for one service's facade or internals |
 | `tests/test_<topic>.gd` | a root suite that crosses services, or a shared/pure module's suite |
 | `tests/<topic>/test_<topic>.gd` | a cross-service concern with its own name; `handover/` is the act body swap, `entry/` the entry's service list |
+| `tests/support/suite.gd` | the shared base: counters, `check()`, `_initialize`, the result line and `finish()` |
+| `tests/support/fakes/<family>.gd` | shared fakes for byte-identical bodies; a suite keeps a local class when its fake differs |
 
 `tests/act/test_session.gd` covers the runtime's own `act/` modules: the one state writer, the
 phase timer verdicts, the clock and reset rules and the typed host/context seam.
@@ -62,47 +65,45 @@ table, not a second owner: each rule has exactly one suite.
 
 ## Writing a suite
 
-A suite is `extends SceneTree` with no scene and no autoload beyond `Mods` and `Settings`:
+A suite extends the shared base and implements `run()`; it has no scene and no autoload beyond
+`Mods` and `Settings`:
 
 ```gdscript
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## What this suite pins. Run:
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_x.gd
 
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
 
 func run() -> void:
 	check(CLEARANCE.evaluate(true, true, true).ok(), "Base clearance passes when every row holds")
-	print("X_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 ```
 
-- `_initialize()` defers `run()` so the tree is up before the checks touch a node.
+The base owns `failures`, `checks`, `_initialize()`, `check(ok, text)`, the
+`…_RESULT checks=%d failures=%d` line and the `quit(0)`/`quit(1)` call; a suite implements `run()`
+and calls `finish()` at its end.
+
+- The base's `_initialize()` defers `run()` so the tree is up before the checks touch a node.
 - `check(ok, text)` prints only failures; the text names the rule, not the value.
-- The final `…_RESULT checks=%d failures=%d` line is the runner's result input. A suite that never
-  prints it is reported as `FAIL … (no result)`.
+- `finish()` prints the final `…_RESULT checks=%d failures=%d` line and quits. The runner reads that
+  line as its result input; a suite that never calls `finish()` is reported as `FAIL … (no result)`.
 - The runner also scans the suite log for `SCRIPT ERROR` and `Parse Error`; a suite that logs one
   fails even when the result line reports `failures=0`, so a script error cannot hide behind a
   passing check count.
-- `quit(0)` on success and `quit(1)` on failure; the runner reads the result line and the log, but
-  the exit code keeps a direct `godot … --script` run honest.
+- The exit code is `0` on success and `1` on failure; the runner reads the result line and the log,
+  but the exit code keeps a direct `godot … --script` run honest.
 - The header comment carries the direct command, so a suite can be run without the runner while
   debugging.
+
+### Result label
+
+The base derives the result label from the suite's path: a top-level `tests/test_<topic>.gd` prints
+`<TOPIC>`, and `tests/<dir>/test_<topic>.gd` prints `<DIR>_<TOPIC>`. When the topic equals the
+directory or one is a prefix or suffix of the other, the overlap collapses once:
+`privacy/privacy` → `PRIVACY`, `act_audio/audio` → `ACT_AUDIO`, `readiness/readiness_auto` →
+`READINESS_AUTO`. The label is cosmetic; the runner only greps `_RESULT checks=`.
 
 ## Isolation
 
@@ -232,8 +233,8 @@ sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
 
 `scripts/architecture.py --check` enforces these rules over `tests/`:
 
-- every discovered `tests/**/test_*.gd` defines a `check(` helper and prints a line containing
-  `_RESULT checks=`;
+- every discovered `tests/**/test_*.gd` defines a `check(` helper **or** extends
+  `tests/support/suite.gd`, and prints a line containing `_RESULT checks=` either way;
 - no suite calls `check(true, …)`;
 - only `tests/test_settings.gd` and `tests/test_prompts.gd` name a shipped data document
   (`settings.json`, `characters.json`, `prompts.json`, or a loader's path constant); every other

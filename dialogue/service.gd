@@ -63,6 +63,7 @@ const STATE_IDLE := ACT_STATE.State.IDLE
 const STATE_POSING_IN := ACT_STATE.State.POSING_IN
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: Variant
 
@@ -141,7 +142,7 @@ func admit_cue(now: float) -> String:
 	if facts.cue != _last_cue_log_text or decision != _last_cue_log_reason:
 		_last_cue_log_text = facts.cue
 		_last_cue_log_reason = decision
-		_log("cue text=\"%s\" admit=%s reason=%s override=%s" % [
+		LOG.debug("cue text=\"%s\" admit=%s reason=%s override=%s", [
 			facts.cue, "yes" if admit else "no", decision, str(is_override)])
 	if not admit:
 		return ""
@@ -167,14 +168,14 @@ func tick() -> void:
 	if _game_ok():
 		line = MEMORY.instance.line_state(key)
 	if line == MEMORY.LineState.ABSENT:
-		_log("utterance absent key=%s" % key)
+		LOG.debug("utterance absent key=%s", [key])
 		lines.drop_pending()
 		return
 	if line == MEMORY.LineState.DELIVERED:
 		# A released line keeps this state until speech stops and the hold passes. Log it once.
 		if key != _delivered_key:
 			_delivered_key = key
-			_log("utterance delivered key=%s age=%.1f" % [
+			LOG.debug("utterance delivered key=%s age=%.1f", [
 				key, maxf(0.0, at - lines.pending_since())])
 		lines.note_finished(at, key)
 		_release_finished_utterance()
@@ -225,7 +226,7 @@ func bystander_tick(delta: float) -> void:
 	purpose += ACT_FACE.prompt_note("bystander")
 	if _bystander_line(str(row.id), event_id, purpose, valid):
 		_bystander_spoken.append(str(row.id))
-		_log("bystander line from %s" % row.id)
+		LOG.debug("bystander line from %s", [row.id])
 
 
 ## Idle-only: the apology repair and the one pending reminder line; this module reads the scene
@@ -255,7 +256,7 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 			if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now()):
 				ACT_HISTORY.save()
 				MEMORY.instance.note(MEMORY.NoteKind.APOLOGY, pony_id, event_id)
-				_log("history apology id=%s" % pony_id)
+				LOG.debug("history apology id=%s", [pony_id])
 	_history_scan += delta
 	if _history_scan < 1.0:
 		return
@@ -286,7 +287,7 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 	ACT_HISTORY.mark_announced(ACT_HISTORY.section(), pony_id, kind)
 	ACT_HISTORY.save()
 	_history_reminder_at = now
-	_log("history line kind=%s key=%s" % [kind, key])
+	LOG.debug("history line kind=%s key=%s", [kind, key])
 
 
 func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> String:
@@ -301,7 +302,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	if template.strip_edges().is_empty():
 		template = str(facts.act_prompts.get("utterance", ""))
 	if template.strip_edges().is_empty():
-		_log("utterance missing prompt kind=%s" % kind)
+		LOG.debug("utterance missing prompt kind=%s", [kind])
 		return ""
 	var face_note := ""
 	if kind == "cue":
@@ -365,11 +366,11 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		_utterance_done(key)
 	var queued := _utterance_line(act_id, suffix, purpose, valid, finished)
 	if queued.is_empty():
-		_log("utterance queue failed kind=%s text=\"%s\"" % [kind, facts.cue])
+		LOG.debug("utterance queue failed kind=%s text=\"%s\"", [kind, facts.cue])
 		return ""
 	if not memory_id.is_empty():
 		_used_memory_ids.append(memory_id)
-	_log("utterance kind=%s text=\"%s\" key=%s" % [kind, facts.cue, queued])
+	LOG.debug("utterance kind=%s text=\"%s\" key=%s", [kind, facts.cue, queued])
 	return queued
 
 
@@ -402,7 +403,7 @@ func _cancel_pending_utterance(reason := "") -> void:
 	lines.drop_pending()
 	if key.is_empty():
 		return
-	_log("utterance cancel reason=%s key=%s text=\"%s\" age=%.1f line=%s director=%s speech=%s" % [
+	LOG.debug("utterance cancel reason=%s key=%s text=\"%s\" age=%.1f line=%s director=%s speech=%s", [
 		reason if not reason.is_empty() else "manual", key, pending_cue, age,
 		_line_state_name(line), director_state, str(_speech_busy())])
 	if _game_ok():
@@ -415,7 +416,7 @@ func end_act(event_id: String, keep_speaking := true) -> void:
 	if _game_ok():
 		var cancelled: int = MEMORY.instance.cancel_act(event_id, keep_speaking)
 		if cancelled > 0:
-			_log("act lines cancelled=%d" % cancelled)
+			LOG.debug("act lines cancelled=%d", [cancelled])
 	scheduler().drop_pending()
 
 
@@ -457,7 +458,7 @@ func climax_line(mouth_busy: bool, cue: String, act_id: String, count: int, max_
 	if _climax_key.is_empty():
 		return ""
 	note_reaction(_climax_key, cue, _now() + max_age)
-	_log("utterance kind=reaction key=%s" % _climax_key)
+	LOG.debug("utterance kind=reaction key=%s", [_climax_key])
 	return _climax_key
 
 
@@ -681,11 +682,6 @@ func _paused() -> bool:
 
 func _now() -> float:
 	return facts.clock() if facts != null else 0.0
-
-
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)
 
 
 ## The start's generated-vocal preparation: the director prepares her voice cache for the act.

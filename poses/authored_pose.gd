@@ -34,6 +34,7 @@ const PONY_BONES := [
 ## Bones the game or the act animates every frame: they are never baked.
 const BANNED_PREFIXES := ["pony_head", "pony_lid", "pony_ear", "pony_Wing", "pony_wing",
 	"pony_Feather", "pony_foldedWing", "pony_tail", "rd_", "jaw", "EYETARGET", "MOUNT_"]
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## True once a valid asset is parsed and `error` is empty.
 var available := false
@@ -450,7 +451,7 @@ func bed_clearance(sk: Skeleton3D) -> float:
 	_clearance_revision = revision
 	_clearance_value = lift
 	if lift > 0.0:
-		print("[unfplap] bed pose %s: body sits %.3f m into the mattress, lifted" % [id, lift])
+		LOG.debug("bed pose %s: body sits %.3f m into the mattress, lifted", [id, lift])
 	return lift
 
 

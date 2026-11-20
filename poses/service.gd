@@ -30,6 +30,7 @@ const NO_OWNERS := []
 const NO_CHANNEL := {}
 ## The owner names in install order, matching `shared/pose_specs.gd`'s profile table.
 const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_lay"]
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The values one act's pose build needs. The act's start ledger and the body swap both fill this
 ## typed record from the same act values; the session never reads a runtime field for it.
@@ -157,8 +158,6 @@ var saved_hair: Array[Transform3D] = []
 var saved_skeleton: Skeleton3D
 var saved_hair_skeleton: Skeleton3D
 
-## Host boundary. A missing callback is a no-op.
-var log := Callable()
 var perf := Callable()
 ## The typed act view the pose modifiers read for the live depth, state and bed frame.
 var facts: Variant = null
@@ -228,11 +227,11 @@ func rebuild_act(values: ActPose) -> bool:
 
 func begin(context: Dictionary) -> bool:
 	if _started:
-		_write_log("pose session: begin refused, a pose is already live")
+		LOG.debug("pose session: begin refused, a pose is already live")
 		return false
 	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not skeleton is Skeleton3D:
-		_write_log("pose session: no body skeleton to pose")
+		LOG.debug("pose session: no body skeleton to pose")
 		return false
 	# A fresh act starts with no edge and no target snapshot; a failed begin never gets here.
 	_abort_target()
@@ -251,7 +250,6 @@ func begin(context: Dictionary) -> bool:
 	pose_node = POSE.new()
 	pose_node.name = "UnfplapPose"
 	pose_node.mare = pony
-	pose_node.log = log
 	pose_node.perf = perf
 	# Fill the view first: the active settings group and family drive the start config sync, not the
 	# act's start id. One live object: the sync merges the character's pose into `pose_config` in
@@ -325,7 +323,7 @@ func begin(context: Dictionary) -> bool:
 func _fill_view(spec: Variant) -> void:
 	if spec == null:
 		_view.clear()
-		_write_log("pose view: no spec for the start pose")
+		LOG.debug("pose view: no spec for the start pose")
 		return
 	_view.fill(spec, pose_config)
 
@@ -352,7 +350,7 @@ func _bind_oral() -> void:
 func _bind_face() -> void:
 	if _face_driver == null:
 		_face_driver = FACE_CONTACT.new()
-	_face_driver.bind(pony, face_point, opening_point, log)
+	_face_driver.bind(pony, face_point, opening_point)
 
 
 ## True for the authored oral pair in either direction.
@@ -502,7 +500,7 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 	_bind_face()
 	if _oral_pair(from_id, target_id):
 		_oral_turn.begin(target_id == CATALOG.STANDING_ORAL, _view)
-	_write_log("pose request %s -> %s (%s): ok" % [from_id, target_id, trigger])
+	LOG.debug("pose request %s -> %s (%s): ok", [from_id, target_id, trigger])
 	return POSE_STATE.result("ok", edge_id, "")
 
 
@@ -700,7 +698,7 @@ func _absorb_switches() -> void:
 		var target := _switch_target(name)
 		if name == "contact":
 			_apply_contact_switch(target)
-		_write_log("pose switch %s: %s" % [name, target])
+		LOG.debug("pose switch %s: %s", [name, target])
 
 
 ## Point the view's contact at the authored kind. Leaving the mouth releases the viseme through
@@ -767,7 +765,7 @@ func _absorb_events() -> void:
 		var kind := str(event.get("kind", ""))
 		match kind:
 			"status":
-				_write_log("pose status %s: %s" % [_target_id, str(event.get("value", ""))])
+				LOG.debug("pose status %s: %s", [_target_id, str(event.get("value", ""))])
 			"speech_stop":
 				if oral_speech_stop.is_valid():
 					oral_speech_stop.call()
@@ -1686,11 +1684,11 @@ func idle_sample(state: int) -> void:
 	if animation is AnimationPlayer:
 		clip = (animation as AnimationPlayer).current_animation
 		playing = (animation as AnimationPlayer).is_playing()
-	_write_log("pose trace f=%d root=%d:%s asset_root=%d trace=%d mode=%d clip=%s playing=%s G=%s" % [
+	LOG.debug("pose trace f=%d root=%d:%s asset_root=%d trace=%d mode=%d clip=%s playing=%s G=%s", [
 		pose_trace_frames, root, str(pose_node.get("diag_root_name")), int(pose_node.get("diag_asset_root")),
 		int(pose_node.get("diag_trace")), skeleton.modifier_callback_mode_process, clip, str(playing),
 		str(g)])
-	_write_log("pose trace f=%d root start=%s after=%s render=%s wanted=%s d=%.3f/%.3f | hips start=%s render=%s wanted=%s d=%.3f" % [
+	LOG.debug("pose trace f=%d root start=%s after=%s render=%s wanted=%s d=%.3f/%.3f | hips start=%s render=%s wanted=%s d=%.3f", [
 		pose_trace_frames, str(pose_node.get("diag_root_start")), str(pose_node.get("diag_root_after")),
 		str(render_root), str(wanted_root),
 		render_root.origin.distance_to(wanted_root.origin),
@@ -1869,14 +1867,14 @@ func log_base() -> void:
 	var info := base_info()
 	var frame: Variant = info["frame"]
 	var missing := rig_missing()
-	_write_log("pose base=%s reason=%s asset=v%d %s path=%s frame=%s variant=%s bones=%d missing=%d shots=%s frame_pose=%s scale=%.2f" % [
+	LOG.debug("pose base=%s reason=%s asset=v%d %s path=%s frame=%s variant=%s bones=%d missing=%d shots=%s frame_pose=%s scale=%.2f", [
 		str(info["base"]), str(info["reason"]), int(info["version"]),
 		"ok" if bool(info["available"]) else "error", str(info["asset_path"]),
 		str(info["asset_frame"]), str(info["variant"]), int(info["bones"]),
 		missing.size(), "yes" if bool(info["shots"]) else "no",
 		str(frame) if frame is Transform3D else "null", body_scale()])
 	if not missing.is_empty():
-		_write_log("pose rig %s" % rig_reason(missing))
+		LOG.debug("pose rig %s", [rig_reason(missing)])
 
 
 ## One line with where the pose actually put her, in world and bed space, once the weight settles.
@@ -1905,14 +1903,14 @@ func log_settled(state: int, anon_diag: Callable) -> void:
 		var bed := space * world
 		parts.append("%s=w%s/b(%.3f,%.3f,%.3f)" % [
 			str(pair[0]), str(world), bed.x, bed.y, bed.z])
-	_write_log("missionary settled base=%s weight=%.2f %s" % [
+	LOG.debug("missionary settled base=%s weight=%.2f %s", [
 		str(base_info()["base"]), basis_amount(), " ".join(parts)])
 	for row: Variant in diagnostics(skeleton, base_info()):
-		_write_log("missionary diag %s" % str(row))
+		LOG.debug("missionary diag %s", [str(row)])
 	if anon_diag.is_valid():
 		var text := str(anon_diag.call())
 		if not text.is_empty():
-			_write_log("anon diag %s" % text)
+			LOG.debug("anon diag %s", [text])
 
 
 ## Absolute body scale from the rig's own pivot, 1.0 when the pony is gone.
@@ -1933,11 +1931,6 @@ func _feature(name: String) -> bool:
 ## Numeric read of a Variant property without tripping over a missing one.
 func _num(value: Variant, fallback := 0.0) -> float:
 	return float(value) if value is float or value is int else fallback
-
-
-func _write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)
 
 
 ## The start pose's settings-group sync after the pose build. This is a group dispatch, not a pose

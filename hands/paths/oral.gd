@@ -5,6 +5,7 @@ const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const ORAL_PALM_ROLL_DEG := 24.0
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var _paths: Dictionary = {}
 var _failed: Dictionary = {}
@@ -85,17 +86,17 @@ func _path_for(anchor_side: String) -> Variant:
 	report_path_build(started)
 	if not built:
 		_failed[anchor_side] = true
-		_log("caress oral head_side missing side=%s" % anchor_side)
+		LOG.debug("caress oral head_side missing side=%s", [anchor_side])
 		for note: Variant in (path.get("debug_notes") as Array):
-			_log("caress " + str(note))
+			LOG.debug("caress " + str(note))
 		return null
 	_paths[anchor_side] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
-		_log("caress path side=%s path=oral anchors=1 build_ms=%.1f" % [anchor_side,
+		LOG.debug("caress path side=%s path=oral anchors=1 build_ms=%.1f", [anchor_side,
 			float(Time.get_ticks_usec() - started) / 1000.0])
 		var world: Array = path.call("skinned")
 		for anchor: Dictionary in world:
-			_log("caress anchor %s pos=%s normal=%s" % [anchor["id"],
+			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor["id"],
 				str(anchor["position"]), str(anchor["normal"])])
 	return path
 
@@ -104,6 +105,3 @@ static func oral_palm_roll_deg(side: String) -> float:
 	return ORAL_PALM_ROLL_DEG if side == "right" else -ORAL_PALM_ROLL_DEG
 
 
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)

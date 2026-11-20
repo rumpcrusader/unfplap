@@ -171,7 +171,6 @@ static func _build_systems(node: Node, b: Bundle) -> void:
 	b.placement = PLACEMENT.new()
 	b.placement_facts = PLACEMENT.Facts.new()
 	b.wings = WING.new(b.facts)
-	b.wings.log = Callable(LOG, "debug")
 	b.hands = HANDS.new(b.facts)
 	b.kiss = KISS.new(b.facts)
 	b.integrations = INTEGRATIONS.new(b.facts)
@@ -183,14 +182,12 @@ static func _build_systems(node: Node, b: Bundle) -> void:
 	b.camera.standing_anon = b.standing_anon
 	b.audio = AUDIO_ACT.new()
 	b.audio.bind(node)
-	b.audio.log = Callable(LOG, "debug")
 
 
 ## The act's own host, context, session and modules, in binding order.
 static func _bind_act_frame(node: Node, b: Bundle) -> void:
 	b.host = ACT_NODE.new()
 	b.host.bind(node)
-	b.host.log_sink = Callable(LOG, "debug")
 	b.context = _build_act_context(b)
 	b.act = ACT_SESSION.new()
 	b.act.bind(b.host, b.context)
@@ -278,12 +275,10 @@ static func _bind_pose_hosts(node: Node, b: Bundle) -> void:
 	b.pose.oral_speech_stop = Callable(b.phases, "oral_speech_stop")
 	b.pose.oral_viseme = Callable(b.anatomy_bridge, "set_oral_viseme")
 	b.pose.oral_status = Callable(HUD, "anatomy_status")
-	b.pose.log = Callable(LOG, "debug")
 
 
 ## The act view, readiness, afterglow, face, scene gate, rest, scene hold and controller bindings.
 static func _bind_facts(node: Node, b: Bundle) -> void:
-	b.facts.log = Callable(LOG, "debug")
 	b.facts.body_coat_smack = Callable(b.reactions, "body_coat_target")
 	b.facts.kiss = Callable(b.act, "kiss_service")
 	b.facts.neck_point = Callable(b.camera, "neck_midpoint")
@@ -292,7 +287,6 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.set_camera_basis_ready = Callable(b.phases, "set_camera_basis_ready")
 	b.facts.director = Callable(b.host, "director")
 	b.facts.now = Callable(b.act, "clock_s")
-	b.readiness.log = Callable(LOG, "debug")
 	b.readiness.clock = Callable(b.act, "clock_s")
 	b.readiness.state = Callable(b.act, "state_value")
 	b.readiness.on_climax = Callable(b.act, "climax")
@@ -303,15 +297,11 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.readiness.on_cue = Callable(b.phases, "cue")
 	b.readiness.shaft_length = Callable(b.phases, "shaft_length_m")
 	b.readiness.pose_family = Callable(b.act, "pose_family")
-	b.summary.log = Callable(LOG, "debug")
-	b.afterglow.log = Callable(LOG, "debug")
 	b.afterglow.caress_active = Callable(b.hands, "any_active")
 	b.afterglow.bind_act(b.face, b.reactions, b.readiness)
 	b.afterglow.bind_host(node)
 	b.afterglow.write_satisfaction = Callable(b.readiness, "write_satisfaction")
-	b.face.log = Callable(LOG, "debug")
 	b.face.clock = Callable(b.act, "clock_s")
-	b.reactions.log = Callable(LOG, "debug")
 	b.gate.stool_need = Callable(b.act_gate, "stool_needed_count")
 	b.gate.stool_count = Callable(b.act_gate, "stool_case_count")
 	b.gate.presentation_active = Callable(b.act, "presentation_active")
@@ -319,7 +309,6 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.gate.debug_context = Callable(b.act, "debug_context")
 	b.rest.context = Callable(b.act, "rest_context")
 	b.rest.restore_scene = Callable(b.missionary_camera, "restore_scene")
-	b.rest.log = Callable(LOG, "debug")
 	b.hold.bind({
 		"pony": Callable(b.host, "pony_value"),
 		"state": Callable(b.act, "state_value"),
@@ -369,7 +358,6 @@ static func _bind_anatomy_host(b: Bundle) -> void:
 	host.fluid_ground_y_cb = Callable(b.phases, "fluid_ground_y")
 	host.cycle_phase_cb = Callable(b.act, "cycle_phase")
 	host.bed_frame_cb = Callable(b.pose, "_bed_frame_value")
-	host.log_cb = Callable(LOG, "debug")
 	host.perf_enabled_cb = Callable(LOG, "perf_on")
 	host.body_coat_smack_cb = Callable(b.reactions, "body_coat_target")
 	host.status_cb = Callable(HUD, "anatomy_status")
@@ -446,14 +434,12 @@ static func _bind_handover_host(b: Bundle) -> void:
 	host.rebind_body_cb = Callable(b.swap, "rebind_body")
 	host.prepare_standing_camera_cb = Callable(b.swap, "prepare_standing_camera")
 	host.new_body_adult_cb = Callable(b.swap, "new_body_is_adult")
-	host.log_cb = Callable(LOG, "debug")
 
 
 ## The debug perf probe's host: the live reads one summary window prints.
 static func _perf_host(b: Bundle) -> PERF.Host:
 	var host := PERF.Host.new()
 	host.enabled_cb = Callable(LOG, "perf_on")
-	host.log_cb = Callable(LOG, "debug")
 	host.show_cb = Callable(LOG, "perf_block")
 	host.id_cb = Callable(b.act, "act_id")
 	host.pose_cb = Callable(b.act, "current_pose_id")

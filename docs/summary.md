@@ -280,6 +280,7 @@ block. They are debug numbers, so stored values are never clamped. See `docs/set
 | service | readiness | `readiness/service.gd` | the act counters and the peak meter |
 | service | world | `world/service.gd` | the live world root |
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | log | `shared/log.gd` | log sink and perf entry |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
 | store | act_history | `shared/act_history.gd` | stored history rows |

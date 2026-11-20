@@ -996,7 +996,7 @@ func _register() -> void:
 	var result: Variant = api.call("register_mare", self, DESCRIPTOR.duplicate(true))
 	_registered = result is Dictionary and bool((result as Dictionary).get("ok", false))
 	if not _registered:
-		_log("provider registration failed")
+		LOG.debug("[changelings] " + "provider registration failed")
 
 
 func _unregister() -> void:
@@ -1020,5 +1020,3 @@ func _mod_active() -> bool:
 	return bool(mods.call("is_active", MOD_ID))
 
 
-func _log(text: String) -> void:
-	LOG.debug("[changelings] " + text)

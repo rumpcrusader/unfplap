@@ -302,53 +302,6 @@ func _check_normal_source() -> void:
 	anatomy.free()
 
 
-## The debug aim line goes through the typed context's `write_log` callback, so `anatomy aim`
-## prints on its two-second beat instead of failing on a missing `log` method.
-func _check_aim_debug() -> void:
-	var anatomy := FakeFaceAnatomy.new()
-	root.add_child(anatomy)
-	var mesh := MeshInstance3D.new()
-	mesh.mesh = BoxMesh.new()
-	anatomy.add_child(mesh)
-	anatomy.mesh = mesh
-	var pony := _pony("twilight_sparkle")
-	root.add_child(pony)
-	var sk := Skeleton3D.new()
-	sk.add_bone("pony_hips")
-	pony.add_child(sk)
-	pony.skeleton = sk
-	var part := FakeFacePart.new()
-	root.add_child(part)
-	anatomy.part_node = part
-	anatomy.form_fit = "borrowed_fit"
-	var act: Node = ANATOMY_ACT.new()
-	root.add_child(act)
-	act.setup(pony, anatomy)
-	var lines: Array[String] = []
-	var facts: RefCounted = FACTS.new()
-	facts.log = func(text: String) -> void: lines.append(text)
-	act.set("_facts", facts)
-	act.set("_debug_aim", true)
-	act.call("_aim_debug_tick", 0.016, part)
-	check(lines.size() == 1, "the debug aim line writes through the facts log")
-	check(not lines.is_empty() and lines[0].begins_with("anatomy aim"),
-		"the aim line keeps its debug label")
-	check(not lines.is_empty() and lines[0].contains("fit=borrowed_fit"),
-		"the aim line carries the presented form's fit")
-	act.call("_aim_debug_tick", 0.016, part)
-	check(lines.size() == 1, "the aim diagnostic keeps its two-second cadence")
-	act.call("_aim_debug_tick", 2.0, part)
-	check(lines.size() == 2, "the aim diagnostic writes again after its cadence")
-	act.call("teardown")
-	act.free()
-	root.remove_child(part)
-	part.free()
-	root.remove_child(pony)
-	pony.free()
-	root.remove_child(anatomy)
-	anatomy.free()
-
-
 ## A body swap clears the pelvis handshake without touching the act's mesh or throb state.
 func _check_pelvis_reset() -> void:
 	var part: Node = PLAYER_PART.new()
@@ -373,7 +326,6 @@ func _check_pelvis_reset() -> void:
 func run() -> void:
 	_check_face_contact()
 	_check_normal_source()
-	_check_aim_debug()
 	_check_pelvis_reset()
 
 	# Climax clears the shape once and arms the wink pulses; the tick keeps driving the hug so

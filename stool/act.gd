@@ -7,6 +7,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The global stool facade (`STOOL.instance`). It holds the settings reads and the pure/item
 ## calls.
@@ -32,14 +33,6 @@ var slots: Array[int] = []
 var _hotkey_stool_valid := false
 var _hotkey_stool_need := 0
 var _hotkey_stool_have := 0
-
-## Host boundary. A missing callback is a no-op.
-var log := Callable()
-
-
-## The act's log sink. The session binds it once per created handle; a missing sink is a no-op.
-func set_log(sink: Callable) -> void:
-	log = sink
 
 
 ## Bind the scene nodes for this act. The runtime refreshes them on every access, so a suite can
@@ -231,7 +224,7 @@ func take_items(need: int) -> bool:
 	count = take
 	active = true
 	failed = false
-	write_log("stool items taken count=%d" % take)
+	LOG.debug("stool items taken count=%d", [take])
 	return true
 
 
@@ -254,11 +247,11 @@ func place(target: Vector3, yaw: float, floor: float) -> Vector3:
 		height_m = float(built.get("height", 0.0))
 		floor_y = floor
 		lifted = true
-		write_log("stool placed count=%d height=%.3f floor=%.3f at=%s" % [
+		LOG.debug("stool placed count=%d height=%.3f floor=%.3f at=%s", [
 			count, height_m, floor, str(Vector3(target.x, floor, target.z))])
 		return Vector3(target.x, floor + height_m + 0.005, target.z)
 	failed = true
-	write_log("stool placement failed at=%s" % str(Vector3(target.x, floor, target.z)))
+	LOG.debug("stool placement failed at=%s", [str(Vector3(target.x, floor, target.z))])
 	return target
 
 
@@ -281,7 +274,7 @@ func release() -> void:
 		if player.get("velocity") != null:
 			player.set("velocity", Vector3.ZERO)
 		player.reset_physics_interpolation()
-		write_log("stool lowered player floor=%.3f" % floor)
+		LOG.debug("stool lowered player floor=%.3f", [floor])
 	if not tokens.is_empty():
 		var store: Variant = inventory_store()
 		for i: int in tokens.size():
@@ -293,13 +286,13 @@ func release() -> void:
 				if not returned:
 					returned = bool(store.call("put", token, -1))
 			if returned:
-				write_log("stool returned count=%d/%d slot=%d" % [i + 1, tokens.size(), slot])
+				LOG.debug("stool returned count=%d/%d slot=%d", [i + 1, tokens.size(), slot])
 			else:
-				write_log("stool item restore pending token=%s" % token)
+				LOG.debug("stool item restore pending token=%s", [token])
 		tokens.clear()
 		slots.clear()
 	if was_active:
-		write_log("stool released")
+		LOG.debug("stool released")
 	active = false
 	lifted = false
 	failed = false
@@ -344,6 +337,3 @@ func headset_view() -> bool:
 		and bool(WORLD.game.get("headset_view"))
 
 
-func write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

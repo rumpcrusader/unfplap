@@ -9,12 +9,11 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const DURATION := 300.0
 const MOOD_FACES := ACT_FACE.MOOD_FACES
 const MOOD_CHECK_SECONDS := 0.5
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 signal finished(reason: String)
 
 var pony: Node3D
-## The scene handle the freshness check reads, and the debug log. Both are optional.
-var log := Callable()
 var mood := ""
 var face := ""
 var blush := 0.0
@@ -34,7 +33,8 @@ func _ready() -> void:
 	pony.set_meta("unfplap_mood_face", true)
 	_apply_face()
 	_apply_blush()
-	_log("mood face start mood=%s face=%s blush=%.2f" % [mood, face, blush])
+	if SETTINGS.face_debug.get_bool():
+		LOG.debug("mood face start mood=%s face=%s blush=%.2f", [mood, face, blush])
 
 
 func _physics_process(delta: float) -> void:
@@ -124,16 +124,10 @@ func _finish(reason := "") -> void:
 	_clear_face()
 	if is_instance_valid(pony):
 		pony.remove_meta("unfplap_mood_face")
-	_log("mood face end reason=%s mood=%s face=%s" % [reason, mood, face])
+	if SETTINGS.face_debug.get_bool():
+		LOG.debug("mood face end reason=%s mood=%s face=%s", [reason, mood, face])
 	finished.emit(reason)
 	queue_free()
-
-
-func _log(text: String) -> void:
-	if not SETTINGS.face_debug.get_bool():
-		return
-	if log.is_valid():
-		log.call(text)
 
 
 func _exit_tree() -> void:

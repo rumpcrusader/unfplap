@@ -36,5 +36,5 @@ static func source_mtime() -> int:
 
 ## The one line the entry logs after construction.
 static func log_stamp() -> void:
-	LOG.debug("entry ready (debug logs %s) runtime_mtime=%d" % [
-		"ON" if LOG.debug_logs else "OFF", source_mtime()])
+	LOG.debug("entry ready (debug logs %s) runtime_mtime=%d", [
+		"ON" if LOG.enabled else "OFF", source_mtime()])

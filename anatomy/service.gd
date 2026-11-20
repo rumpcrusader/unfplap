@@ -51,12 +51,9 @@ func setup() -> void:
 	tail_seat.name = "UnfplapTailSeat"
 	var perf_call := func() -> bool:
 		return LOG.debug_perf
-	var log_call := func(text: String) -> void:
-		LOG.debug(text)
 	var eligible_tail := func(pony_node: Node) -> bool:
 		return _eligible_target(pony_node, ELIGIBILITY.Target.TAIL)
 	tail_seat.set("perf_on", perf_call)
-	tail_seat.set("log", log_call)
 	tail_seat.set("eligible", eligible_tail)
 	add_child(tail_seat)
 	CHANGE.on_changed(Callable(self, "apply_settings"))

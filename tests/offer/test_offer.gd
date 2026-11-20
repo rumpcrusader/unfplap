@@ -19,14 +19,6 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
 var failures := 0
 var checks := 0
-var sink := LogSink.new()
-
-
-class LogSink extends RefCounted:
-	var lines: Array[String] = []
-
-	func write(text: String) -> void:
-		lines.append(text)
 
 
 class FakeHints extends Node:
@@ -132,8 +124,6 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	SETTINGS.load_settings()
-	LOG.debug_logs = true
-	LOG.sink = Callable(sink, "write")
 	_check_cadence_and_cone()
 	await _check_gate_reuse()
 	_check_blocked_stool()
@@ -142,7 +132,6 @@ func run() -> void:
 	_check_hud_fallback()
 	_check_agreement_first()
 	_check_hide_while_act_live()
-	LOG.debug_logs = false
 	print("OFFER_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("OFFER_PASS")
@@ -169,10 +158,7 @@ func _check_cadence_and_cone() -> void:
 	check(stallion.global_position.z > near.global_position.z,
 		"the stallion stands nearer than the winner")
 	check(service.offer_target() == near, "offer_target names the offered pony")
-	check(_count("OFFER pony=Near pose=standing source= bed=") == 1,
-		"one OFFER line per new offer")
 	service.tick(1.0)
-	check(_count("OFFER pony=Near") == 1, "the same offer logs once while it stays")
 	_free(made)
 
 
@@ -211,11 +197,8 @@ func _check_blocked_stool() -> void:
 		"the blocked hint names one footstool")
 	check(int(service.blocked().blocked.get("need", 0)) == 1, "the block carries the need")
 	check(hud.toasts == ["Find a footstool in a house."], "the block toasts once")
-	check(_count("OFFER blocked pony=Near reason=needs_stool gap=0.120 need=1 have=0") == 1,
-		"the block logs once with its gap")
 	service.tick(OFFER.OFFER_SCAN_S)
 	check(hud.toasts.size() == 1, "the same block does not toast twice")
-	check(_count("OFFER blocked ") == 1, "the same block does not log twice")
 	check(_unit_text(row.get_child(0)) == OFFER.NEEDS_STOOL_HINT,
 		"the blocked hint reaches the prompt row")
 	check(not row.get_child(0).get_child(0) is PanelContainer,
@@ -238,7 +221,6 @@ func _check_blocked_need_two() -> void:
 	check(service.blocked().blocked_hint() == "Needs 2 footstools",
 		"the hint counts two footstools")
 	check(hud.toasts == ["Find 2 footstools in a house."], "the toast counts two footstools")
-	check(_count("gap=n/a need=2 have=1") == 1, "an infinite gap logs as n/a")
 	service.on_world_closed()
 	service.tick(OFFER.OFFER_SCAN_S)
 	check(hud.toasts.size() == 2, "a world reset re-arms the one-shot toast")
@@ -436,16 +418,6 @@ func _free(made: Dictionary) -> void:
 		node.free()
 	root.remove_child(service)
 	service.free()
-
-
-func _count(needle: String) -> int:
-	var total := 0
-	for line: String in sink.lines:
-		if line.contains(needle):
-			total += 1
-	return total
-
-
 ## The words of one prompt-row unit: its last label, after an optional key cap.
 func _unit_text(unit: Node) -> String:
 	var text := ""

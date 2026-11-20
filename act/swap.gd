@@ -13,6 +13,7 @@ const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
 
@@ -38,7 +39,7 @@ func tick(delta: float) -> void:
 	elif action == BODY_CHANGE_ACT.Action.RESUME:
 		resume()
 	elif action == BODY_CHANGE_ACT.Action.FAIL:
-		host.log("body swap failed: %s" % context.handover.fail_reason)
+		LOG.debug("body swap failed: %s", [context.handover.fail_reason])
 		exit.force_stop()
 	elif action == BODY_CHANGE_ACT.Action.END_RESTORE:
 		exit.force_stop()
@@ -125,7 +126,7 @@ func new_body_is_adult() -> bool:
 
 ## The adopted body failed the act's adult-mare gate: log it and leave through the one exit.
 func end_non_adult(body: Node) -> void:
-	host.log("body swap ended: the new body is not an adult mare pony=%s" % str(body.name))
+	LOG.debug("body swap ended: the new body is not an adult mare pony=%s", [str(body.name)])
 	session.force_stop()
 
 
@@ -224,7 +225,7 @@ func rebuild_act_pose() -> void:
 	var values := session.pose_values(context.handover.pose, look, camera_at,
 		context.camera.size_name())
 	if not context.pose.rebuild_act(values):
-		host.log("body swap: the new body has no pose skeleton")
+		LOG.debug("body swap: the new body has no pose skeleton")
 		return
 	context.reactions.bind_tail(context.pose.tail)
 

@@ -102,8 +102,6 @@ class Host:
 	var cancel_scope: Callable
 	## (text) -> void.
 	var toast: Callable
-	## (text) -> void.
-	var log: Callable
 	## (pony, reason) -> void: the shared reaction line.
 	var react: Callable
 	## (Terminal) -> void.
@@ -219,7 +217,6 @@ func _bind_host() -> void:
 	host.await_answer = Callable(_bridge, "await_answer")
 	host.cancel_scope = Callable(_bridge, "cancel_scope")
 	host.toast = Callable(_bridge, "toast")
-	host.log = Callable(_bridge, "log")
 	host.react = Callable(self, "_react_line")
 	host.on_outcome = Callable(self, "_on_outcome_terminal")
 	host.on_agreement = Callable(self, "_on_agreement_handle")
@@ -246,7 +243,6 @@ func on_world_closed() -> void:
 	_release_hold()
 	_clear_state()
 	_host = null
-
 
 
 func phase() -> Phase:
@@ -296,7 +292,7 @@ func _tick_offer(delta: float) -> void:
 	_privacy_clock = 0.0
 	var pony: Node = _pony()
 	if not is_instance_valid(pony) or not _private_now(pony, _cuddle_flag()):
-		_log_line("negotiation privacy lost id=%s" % _pony_id(pony))
+		LOG.debug("negotiation privacy lost id=%s", [_pony_id(pony)])
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_PRIVACY, 0.0, true)
 
 
@@ -314,10 +310,10 @@ func begin_mare_offer(offer: MareOffer) -> bool:
 	live.base = offer.base
 	live.private = offer.private
 	if not _claim_mare_hold(live, offer):
-		_log_line("negotiation hold claim id=%s trigger=mare result=false" % live.pony_id)
+		LOG.debug("negotiation hold claim id=%s trigger=mare result=false", [live.pony_id])
 		_close(Outcome.OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
 		return false
-	_log_line("negotiation hold claim id=%s trigger=mare result=true token=%s" % [
+	LOG.debug("negotiation hold claim id=%s trigger=mare result=true token=%s", [
 		live.pony_id, live.hold_token])
 	live.context = _context(live.pony)
 	var scope := _scope("answer")
@@ -327,7 +323,7 @@ func begin_mare_offer(offer: MareOffer) -> bool:
 	if not watching:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return false
-	_log_line("negotiation offer id=%s trigger=mare pose=%s private=%s" % [
+	LOG.debug("negotiation offer id=%s trigger=mare pose=%s private=%s", [
 		live.pony_id, live.option.key(), str(live.private)])
 	return true
 
@@ -356,7 +352,7 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 	live.base = base
 	live.options = options
 	live.context = _context(live.pony)
-	_log_line("negotiation classify start id=%s text_len=%d options=%d" % [
+	LOG.debug("negotiation classify start id=%s text_len=%d options=%d", [
 		live.pony_id, text.length(), options.size()])
 	var scope := _scope("anon_offer")
 	live.scope = scope
@@ -382,7 +378,7 @@ func report(handle: AGREEMENT.Handle, started: bool) -> bool:
 	if started:
 		_clear_state()
 		_report_outcome(package.pony, Outcome.STARTED, "", package.trigger, 0.0)
-		_log_line("negotiation started id=%d state=none" % package.id)
+		LOG.debug("negotiation started id=%d state=none", [package.id])
 	else:
 		_close(Outcome.START_FAILED, "", 0.0)
 	return true
@@ -406,7 +402,7 @@ func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Hand
 		return null
 	if not _agreement.matches(_agreement.pony, option):
 		return null
-	_log_line("negotiation hotkey match id=%s" % _agreement.pony_id)
+	LOG.debug("negotiation hotkey match id=%s", [_agreement.pony_id])
 	return _handle
 
 
@@ -415,7 +411,7 @@ func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Hand
 func interrupt_for_hotkey() -> bool:
 	if _phase == Phase.NONE:
 		return false
-	_log_line("negotiation hotkey interrupt id=%s" % _pony_id(_pony()))
+	LOG.debug("negotiation hotkey interrupt id=%s", [_pony_id(_pony())])
 	_close(Outcome.INTERRUPTED, AGREEMENT.REASON_HOTKEY, 0.0)
 	return true
 
@@ -489,7 +485,7 @@ func _react_line(pony: Node, reason: String) -> void:
 func _on_outcome_terminal(terminal: Variant) -> void:
 	if terminal == null:
 		return
-	LOG.debug("negotiation outcome id=%s outcome=%d reason=%s cooldown=%.0f" % [
+	LOG.debug("negotiation outcome id=%s outcome=%d reason=%s cooldown=%.0f", [
 		str(_field(terminal, "pony_id", "")), int(_field(terminal, "outcome", 0)),
 		str(_field(terminal, "reason", "")) if not str(_field(terminal, "reason", "")).is_empty()
 			else "none", float(_field(terminal, "cooldown_s", 0.0))])
@@ -513,7 +509,7 @@ func _on_agreement_handle(handle: Variant) -> void:
 	if pony_id.is_empty() and is_instance_valid(pony):
 		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	var option: Variant = _field(handle, "option")
-	LOG.debug("agreement formed id=%s trigger=%s pose=%s private=%s" % [
+	LOG.debug("agreement formed id=%s trigger=%s pose=%s private=%s", [
 		pony_id, str(_field(handle, "trigger", "")),
 		str(_field(option, "pose", "none")) if option != null else "none",
 		str(_field(handle, "private", false))])
@@ -525,7 +521,7 @@ func _on_agreement_handle(handle: Variant) -> void:
 	# The presentation is act-owned: it starts now, and the auto-start waits for it to settle.
 	if option != null and str(option.pose) == CATALOG.STANDING \
 			and not bool(gate.present_standing()):
-		LOG.debug("agreement present failed pony=%s" % str(pony.name))
+		LOG.debug("agreement present failed pony=%s", [str(pony.name)])
 	if is_instance_valid(offer):
 		offer.call("clear_current")
 
@@ -563,7 +559,7 @@ func _begin_state(live: Offer, runtime: Node, pony: Node3D, option: POSE_OPTIONS
 	_locked = true
 	_deadline = live.expires_at
 	_privacy_clock = 0.0
-	_log_line("negotiation state=offered id=%s serial=%d trigger=%s" % [
+	LOG.debug("negotiation state=offered id=%s serial=%d trigger=%s", [
 		live.pony_id, live.id, _trigger_name(trigger)])
 
 
@@ -590,7 +586,7 @@ func _close(outcome: int, reason: String, cooldown: float, reaction := false) ->
 		_cancel_scope(_agreement.classifier_scope)
 	_release_hold()
 	_clear_state()
-	_log_line("negotiation outcome=%s reason=%s cooldown=%.0f" % [
+	LOG.debug("negotiation outcome=%s reason=%s cooldown=%.0f", [
 		_outcome_name(outcome), "none" if reason.is_empty() else reason, cooldown])
 	_report_outcome(package_pony, outcome, reason, trigger, cooldown)
 	_notify(outcome, reason)
@@ -607,7 +603,7 @@ func _silent_close() -> void:
 		_cancel_scope(_agreement.classifier_scope)
 	_release_hold()
 	_clear_state()
-	_log_line("negotiation state=none reason=non_offer")
+	LOG.debug("negotiation state=none reason=non_offer")
 
 
 func _formation_failure(pony: Variant, outcome: int, reason: String, trigger: int) -> void:
@@ -658,10 +654,10 @@ func _accept(live: Offer) -> void:
 	_phase = Phase.AGREEMENT
 	_deadline = package.expires_at()
 	_privacy_clock = 0.0
-	_log_line("negotiation state=agreement id=%s" % package.pony_id)
-	_log_line("negotiation outcome=accepted cooldown=%.0f" % COOLDOWN_S)
+	LOG.debug("negotiation state=agreement id=%s", [package.pony_id])
+	LOG.debug("negotiation outcome=accepted cooldown=%.0f", [COOLDOWN_S])
 	_report_outcome(package.pony, Outcome.ACCEPTED, "", package.trigger, COOLDOWN_S)
-	_log_line("negotiation agreement id=%d trigger=%s pose=%s private=%s" % [
+	LOG.debug("negotiation agreement id=%d trigger=%s pose=%s private=%s", [
 		package.id, _trigger_name(package.trigger), package.option_key(), str(package.private)])
 	if _host.on_agreement.is_valid():
 		_host.on_agreement.call(_handle)
@@ -733,7 +729,7 @@ func _on_anon_decision(live: Offer, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
-	_log_line("negotiation answer id=%s kind=anon_decision answer=%s failed=%s" % [
+	LOG.debug("negotiation answer id=%s kind=anon_decision answer=%s failed=%s", [
 		live.pony_id, "none" if reply == null else reply.answer,
 		str(reply == null or reply.failed)])
 	if reply == null or reply.failed:
@@ -756,11 +752,11 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 		return
 	_cancel_scope(live.scope)
 	if reply != null:
-		_log_line("negotiation classify result id=%s answer=%s option=%d failed=%s out_of_range=%s" % [
+		LOG.debug("negotiation classify result id=%s answer=%s option=%d failed=%s out_of_range=%s", [
 			live.pony_id, reply.answer, reply.option_index, str(reply.failed),
 			str(reply.out_of_range)])
 	else:
-		_log_line("negotiation classify result id=%s answer=none failed=true" % live.pony_id)
+		LOG.debug("negotiation classify result id=%s answer=none failed=true", [live.pony_id])
 	if reply == null or reply.failed:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
@@ -768,7 +764,7 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
 		return
 	if reply.answer != CONTEXT.ANSWER_ACCEPT:
-		_log_line("negotiation non-offer id=%s answer=%s" % [live.pony_id, reply.answer])
+		LOG.debug("negotiation non-offer id=%s answer=%s", [live.pony_id, reply.answer])
 		_silent_close()
 		return
 	if reply.option_index < 0 or reply.option_index >= live.options.size():
@@ -781,13 +777,13 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_POSE, 0.0)
 		return
 	if not _claim_anon_hold(live):
-		_log_line("negotiation hold claim id=%s trigger=anon result=false" % live.pony_id)
+		LOG.debug("negotiation hold claim id=%s trigger=anon result=false", [live.pony_id])
 		_close(Outcome.OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
 		return
-	_log_line("negotiation hold claim id=%s trigger=anon result=true token=%s" % [
+	LOG.debug("negotiation hold claim id=%s trigger=anon result=true token=%s", [
 		live.pony_id, live.hold_token])
 	live.private = _private_now(live.pony, option.cuddle)
-	_log_line("negotiation offer id=%s trigger=anon pose=%s private=%s" % [
+	LOG.debug("negotiation offer id=%s trigger=anon pose=%s private=%s", [
 		live.pony_id, option.key(), str(live.private)])
 	var scope := _scope("mare_response")
 	live.scope = scope
@@ -806,7 +802,7 @@ func _on_mare_response(live: Offer, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
-	_log_line("negotiation answer id=%s kind=mare_response answer=%s failed=%s" % [
+	LOG.debug("negotiation answer id=%s kind=mare_response answer=%s failed=%s", [
 		live.pony_id, "none" if reply == null else reply.answer,
 		str(reply == null or reply.failed)])
 	if reply == null or reply.failed:
@@ -915,25 +911,25 @@ func _claim_anon_hold(live: Offer) -> bool:
 func _keep_hold() -> bool:
 	var hold: Variant = _hold()
 	if hold == null:
-		_log_line("negotiation hold lost id=%s reason=missing" % _pony_id(_pony()))
+		LOG.debug("negotiation hold lost id=%s reason=missing", [_pony_id(_pony())])
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	if _offer != null and not _offer.hold_claimed:
 		# The Anon offer is still being classified; there is no lease to keep yet, only attention.
 		if not bool(hold.keep_target()):
-			_log_line("negotiation hold lost id=%s reason=target_left target=%s" % [
+			LOG.debug("negotiation hold lost id=%s reason=target_left target=%s", [
 				_pony_id(_pony()), _target_name()])
 			_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 			return false
 		return true
 	hold.keep_nav()
 	if not bool(hold.keep_target()):
-		_log_line("negotiation hold lost id=%s reason=target_left target=%s" % [
+		LOG.debug("negotiation hold lost id=%s reason=target_left target=%s", [
 			_pony_id(_pony()), _target_name()])
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	if not bool(hold.accepts_hold(_pose(), _source())):
-		_log_line("negotiation hold lost id=%s reason=owner" % _pony_id(_pony()))
+		LOG.debug("negotiation hold lost id=%s reason=owner", [_pony_id(_pony())])
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	return true
@@ -1043,11 +1039,6 @@ func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
 
-func _log_line(text: String) -> void:
-	if _host != null and _host.log.is_valid():
-		_host.log.call(text)
-
-
 func _toast(text: String) -> void:
 	if _host != null and _host.toast.is_valid():
 		_host.toast.call(text)
@@ -1060,27 +1051,27 @@ func _react(pony: Node, reason: String) -> void:
 
 func _blocked(pony: Node) -> void:
 	_report_outcome(pony, Outcome.NO_OFFER, AGREEMENT.REASON_LOCKED, _trigger(), 0.0)
-	_log_line("negotiation blocked reason=locked")
+	LOG.debug("negotiation blocked reason=locked")
 	_toast("Another offer is already in progress.")
 
 
 func _notify(outcome: int, reason: String) -> void:
 	match outcome:
 		Outcome.OCCUPIED:
-			_log_line("negotiation occupied")
+			LOG.debug("negotiation occupied")
 			_toast("She is busy right now.")
 		Outcome.NO_OFFER:
-			_log_line("negotiation no offer reason=%s" % reason)
+			LOG.debug("negotiation no offer reason=%s", [reason])
 			_toast("She is not available for that.")
 		Outcome.REFUSED:
-			_log_line("negotiation refused reason=%s" % ("none" if reason.is_empty() else reason))
+			LOG.debug("negotiation refused reason=%s", [("none" if reason.is_empty() else reason)])
 			_toast("She said not here." if reason == AGREEMENT.REASON_COUNTER_OFFER else
 				"She said no.")
 		Outcome.EXPIRED:
-			_log_line("negotiation expired")
+			LOG.debug("negotiation expired")
 			_toast("The offer expired.")
 		Outcome.INTERRUPTED:
-			_log_line("negotiation interrupted reason=%s" % reason)
+			LOG.debug("negotiation interrupted reason=%s", [reason])
 			if reason == AGREEMENT.REASON_PRIVACY:
 				_toast("Someone came near; the offer ended.")
 			elif reason == AGREEMENT.REASON_HOTKEY:
@@ -1090,10 +1081,10 @@ func _notify(outcome: int, reason: String) -> void:
 			else:
 				_toast("The offer ended.")
 		Outcome.START_FAILED:
-			_log_line("negotiation start failed")
+			LOG.debug("negotiation start failed")
 			_toast("The act could not start.")
 		Outcome.STARTED:
-			_log_line("negotiation started")
+			LOG.debug("negotiation started")
 
 
 func _outcome_name(value: int) -> String:

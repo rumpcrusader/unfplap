@@ -497,6 +497,3 @@ func restore() -> void:
 	_depth_prev = 0.0
 	_depth_speed = 0.0
 
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)

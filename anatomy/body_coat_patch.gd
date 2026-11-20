@@ -18,6 +18,7 @@ const FRAGMENT_HOOK := "void fragment() {"
 const PATCHED_FRAGMENT := "void fragment() {\n\tif (body_coat_vulva_cut(body_coat_vertex)) { discard; }"
 const PATCHED_NEAR_FRAGMENT := "void fragment() {\n\tif (body_coat_entry[pal] > 0.5 && body_coat_vulva_cut(body_coat_vertex)) { discard; }"
 const NEAR_ENTRY_UNIFORM := "uniform float body_coat_entry[ENTRIES];"
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 static var _cache: Dictionary = {}
 
@@ -51,8 +52,8 @@ static func patched(source: Shader) -> Shader:
 	if not near and not code.contains(GAME_CALL):
 		_cache[key] = null
 		if not source.resource_path.is_empty():
-			push_warning("[unfplap] body coat patch skipped: unexpected shader %s"
-				% source.resource_path)
+			LOG.warning("body coat patch skipped: unexpected shader %s",
+				[source.resource_path])
 		return null
 	if near and not code.contains("const int ENTRIES"):
 		_cache[key] = null

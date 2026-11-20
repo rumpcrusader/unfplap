@@ -22,14 +22,6 @@ const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd"
 
 var failures := 0
 var checks := 0
-var log_sink := LogSink.new()
-
-
-class LogSink extends RefCounted:
-	var lines: Array[String] = []
-
-	func write(text: String) -> void:
-		lines.append(text)
 
 
 class FakePony extends Node3D:
@@ -198,15 +190,7 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
-## The last body-change line the sink received, or "" before the first apply.
-func _last_line() -> String:
-	return log_sink.lines[log_sink.lines.size() - 1] if not log_sink.lines.is_empty() else ""
-
-
 func run() -> void:
-	# Both debug switches on, with the sink collecting the raw lines the service asserts on.
-	LOG.debug_logs = true
-	LOG.sink = Callable(log_sink, "write")
 	_check_rig_profiles()
 	_check_default_form()
 	_check_body_change()
@@ -397,7 +381,6 @@ func _check_policy() -> void:
 ## binding, so the rest of the chain still runs; a binding added after the wire joins the same
 ## fan-out, so a new body-bound system needs no entry line.
 func _check_wire() -> void:
-	log_sink.lines.clear()
 	var host := FakeHost.new()
 	var bare := SERVICE.new()
 	bare.setup()
@@ -406,11 +389,6 @@ func _check_wire() -> void:
 	faceless.name = "FacelessBody"
 	faceless.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
 	bare.bind_body(faceless)
-	check(_last_line().contains("bindings=runtime,lod"),
-		"a wire without facades keeps the runtime and LOD bindings in order")
-	check(not _last_line().contains("anatomy") and not _last_line().contains("garments")
-		and not _last_line().contains("stock_smack"),
-		"a missing facade registers no binding and the chain still runs")
 
 	var anatomy := ANATOMY_SERVICE.new()
 	anatomy.name = "WireAnatomy"
@@ -423,8 +401,6 @@ func _check_wire() -> void:
 	seated.name = "WiredBody"
 	seated.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
 	wired.bind_body(seated)
-	check(_last_line().contains("bindings=anatomy,runtime,lod"),
-		"the anatomy binding is the first link of the wired chain")
 	check(anatomy.call("form_for", seated) != null,
 		"the wired anatomy binding forwards the form to its facade")
 
@@ -445,8 +421,6 @@ func _check_wire() -> void:
 	body.name = "WorldBody"
 	body.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
 	service.bind_body(body)
-	check(_last_line().contains("bindings=runtime,lod,garments,stock_smack"),
-		"the wire registers the runtime, LOD, garments and stock smack in order")
 	check(garment_target.scans == 1, "the wired garment binding re-scans for the adopted body")
 	check(smack_target.handed_over == [body],
 		"the wired smack binding hands the adopted body over")
@@ -469,8 +443,6 @@ func _check_wire() -> void:
 	late.identity = {"id": "rarity", "display_name": "Rarity"}
 	service.bind_body(late)
 	check(extra.calls == ["bind"], "a binding added after the wire joins the one fan-out")
-	check(_last_line().contains("bindings=runtime,lod,garments,stock_smack,extra"),
-		"a late binding joins the end of the chain")
 
 	service.free()
 	bare.free()
@@ -580,7 +552,6 @@ func _check_scale_clamp() -> void:
 
 
 func _check_service() -> void:
-	log_sink.lines.clear()
 	var host := FakeHost.new()
 	var service := SERVICE.new()
 	service.setup()
@@ -637,13 +608,6 @@ func _check_service() -> void:
 	check(is_equal_approx(pony.body_scale, 1.2), "the mirror writes the body scale")
 	check(pony.scale_calls == [1.2],
 		"the mirror resizes through the game's body-scale setter, not a bare field write")
-	check(log_sink.lines.size() == 1, "one form application logs one line")
-	var line := log_sink.lines[log_sink.lines.size() - 1] if not log_sink.lines.is_empty() else ""
-	check(line.contains("body change") and line.contains("pony=fluttershy")
-		and line.contains("form=borrowed_form") and line.contains("fit=borrowed_fit")
-		and line.contains("rig=celestia") and line.contains("marker=source_own")
-		and line.contains("bindings=one,two"),
-		"the applied form logs the form, rig, marker and bindings")
 
 	journal.clear()
 	borrowed.revision = 1

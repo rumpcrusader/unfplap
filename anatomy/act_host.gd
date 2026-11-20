@@ -18,7 +18,6 @@ var auto_pace_cb: Callable = Callable()
 var fluid_ground_y_cb: Callable = Callable()
 var cycle_phase_cb: Callable = Callable()
 var bed_frame_cb: Callable = Callable()
-var log_cb: Callable = Callable()
 var perf_note_cb: Callable = Callable()
 var perf_enabled_cb: Callable = Callable()
 var body_coat_smack_cb: Callable = Callable()
@@ -103,10 +102,6 @@ func cycle_phase() -> String:
 
 func bed_frame() -> Variant:
 	return _value(bed_frame_cb)
-
-
-func log() -> Callable:
-	return log_cb
 
 
 func perf_note() -> Callable:

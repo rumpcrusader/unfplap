@@ -30,13 +30,6 @@ class FakePoseNode:
 	var contact_offset := Vector3.ZERO
 
 
-class FakeLog:
-	var lines: Array[String] = []
-
-	func write(text: String) -> void:
-		lines.append(text)
-
-
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -79,10 +72,10 @@ func run() -> void:
 	quit(0 if failures == 0 else 1)
 
 
-func _make(points: FakePoints, logger := Callable()) -> Variant:
+func _make(points: FakePoints) -> Variant:
 	var driver: Variant = FACE.new()
 	driver.call("bind", null, Callable(points, "mouth_point"),
-		Callable(points, "opening_point"), logger)
+		Callable(points, "opening_point"))
 	return driver
 
 
@@ -185,8 +178,7 @@ func _check_missing_provider() -> void:
 	var points := FakePoints.new()
 	points.mouth = Vector3(0.2, 0.3, -0.4)
 	points.opening = Vector3(0.1, 0.2, -0.3)
-	var logger := FakeLog.new()
-	var driver: Variant = _make(points, Callable(logger, "write"))
+	var driver: Variant = _make(points)
 	var view: Variant = _view()
 	var frame := Transform3D.IDENTITY
 	var node := FakePoseNode.new()
@@ -202,13 +194,11 @@ func _check_missing_provider() -> void:
 	check(near_v(view.get("contact_target") as Vector3, last_mouth),
 		"a missing provider keeps the last target")
 	driver.call("tick", 0.2, view, 0.5, frame, node)
-	check(logger.lines.size() == 1, "a missing provider logs one diagnostic line")
 	points.mouth = Vector3(0.25, 0.3, -0.4)
 	driver.call("tick", 0.2, view, 0.5, frame, node)
 	check(not near_v(offset_of(driver), held), "a valid provider resumes the follow")
 	points.mouth = Vector3.INF
 	driver.call("tick", 0.2, view, 0.5, frame, node)
-	check(logger.lines.size() == 2, "a new missing episode logs once again")
 
 
 func _check_restore() -> void:

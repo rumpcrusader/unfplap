@@ -20,6 +20,7 @@ const IDLE_FLUID_SPEED := 0.9
 ## Ignore the body ellipsoid for this long after a discharge spawn, so a drop leaving the vulva
 ## flies instead of sticking to the rump and creeping down to the tail.
 const IDLE_FLUID_CLEAR_S := 0.2
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var controller: Node
 var pony: Node3D
@@ -71,7 +72,7 @@ func attach(mesh_path: String) -> bool:
 	var scene: PackedScene = load(mesh_path)
 	if scene == null:
 		last_error = "cannot load " + mesh_path
-		push_error("unfplap anatomy: " + last_error)
+		LOG.error("anatomy: " + last_error)
 		return false
 	var instance: Node = scene.instantiate()
 	var found: MeshInstance3D = instance as MeshInstance3D

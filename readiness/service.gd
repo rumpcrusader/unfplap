@@ -27,6 +27,7 @@ const STROKE_MEMORY_S := 1.2
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Public act state, forwarded by the runtime.
 var satisfaction := 0.0
@@ -83,8 +84,6 @@ var touch_cooldown: float
 var talk_cooldown: float
 var receptive_seconds: float
 
-## Host boundary. Missing callbacks are no-ops.
-var log := Callable()
 var clock := Callable()
 ## The runtime's `State` value.
 var state := Callable()
@@ -238,7 +237,7 @@ func toggle_auto(current_depth: float) -> bool:
 		auto_thrust.begin(current_depth)
 	else:
 		auto_thrust.stop()
-	_log("auto thrust %s pace=%.2f/s depth=%.0f%%" % [
+	LOG.debug("auto thrust %s pace=%.2f/s depth=%.0f%%", [
 		"on" if auto_on else "off", auto_thrust.pace, auto_thrust.max_depth * 100.0])
 	return auto_on
 
@@ -285,7 +284,7 @@ func auto_panel_tick(delta: float, x_down: bool, keys: Array,
 			"shape_next":
 				auto_cycle_shape()
 	if not actions.is_empty():
-		_log("auto layer %s min=%.0f%% max=%.0f%% pace=%.2f/s" % [
+		LOG.debug("auto layer %s min=%.0f%% max=%.0f%% pace=%.2f/s", [
 			",".join(actions), auto_thrust.min_depth * 100.0, auto_thrust.max_depth * 100.0,
 			auto_thrust.pace])
 	return actions
@@ -301,7 +300,7 @@ func auto_set_shape(name: String) -> void:
 	var before: String = auto_thrust.shape
 	auto_thrust.set_shape(name)
 	if auto_thrust.shape != before:
-		_log("auto shape %s" % auto_thrust.shape)
+		LOG.debug("auto shape %s", [auto_thrust.shape])
 
 
 ## `Z` in the layer: next stroke shape, written to settings so an experiment survives the act.
@@ -321,7 +320,6 @@ func auto_min_depth() -> float:
 
 func auto_max_depth() -> float:
 	return auto_thrust.max_depth
-
 
 
 ## Start a fresh act. The configuration fields set by `configure()` survive.
@@ -380,7 +378,7 @@ func begin_climax(pose_id: String, pony_name: String, climax_seconds: float) -> 
 	pony_climaxes += 1
 	mood = "climax"
 	set_cue_override("She is climaxing.", climax_seconds)
-	_log("pony climax=%d pose=%s pony=%s readiness=%.0f" % [
+	LOG.debug("pony climax=%d pose=%s pony=%s readiness=%.0f", [
 		pony_climaxes, pose_id, pony_name, satisfaction])
 	return pony_climaxes
 
@@ -401,7 +399,7 @@ func end_climax(max_climaxes: int) -> void:
 	last_thrust_score_at = -1000.0
 	receptive_until = 0.0
 	var limit_text := "∞" if max_climaxes <= 0 else str(max_climaxes)
-	_log("pony climax end=%d/%s readiness=0" % [pony_climaxes, limit_text])
+	LOG.debug("pony climax end=%d/%s readiness=0", [pony_climaxes, limit_text])
 
 
 func clear_cues() -> void:
@@ -420,7 +418,7 @@ func add_heat(amount: float) -> void:
 	if satisfaction > peak_satisfaction:
 		peak_satisfaction = satisfaction
 	if int(satisfaction) != before and (int(satisfaction) == 0 or int(satisfaction) % 10 == 0):
-		_log("readiness=%.0f mood=%s" % [satisfaction, mood])
+		LOG.debug("readiness=%.0f mood=%s", [satisfaction, mood])
 
 
 ## The typed reads the host-callback bindings use: the meter, the stroke depth and the climax count.
@@ -485,7 +483,7 @@ func stroke(event: THRUST_STATE.StrokeEvent) -> void:
 	# impact value. Keeping the two axes independent lets the player choose depth and tempo.
 	last_intensity = PREFERENCES.intensity_for_travel(event.travel)
 	last_pattern = PREFERENCES.pattern_for(stroke_window)
-	_log("thrust stroke travel=%.2f speed=%.2f peak=%.2f strength=%.2f intensity=%s pattern=%s readiness=%.0f" % [
+	LOG.debug("thrust stroke travel=%.2f speed=%.2f peak=%.2f strength=%.2f intensity=%s pattern=%s readiness=%.0f", [
 		event.travel, event.speed, event.peak_speed, event.strength,
 		last_intensity, last_pattern, satisfaction])
 	score_thrust()
@@ -523,7 +521,7 @@ func score_thrust() -> void:
 		if heat_cycle.is_valid() and bool(heat_cycle.call()):
 			heat *= HEAT_READINESS
 		add_heat(heat)
-	_log("thrust score intensity=%s pattern=%s both=%s heat=%.2f readiness=%.0f" % [
+	LOG.debug("thrust score intensity=%s pattern=%s both=%s heat=%.2f readiness=%.0f", [
 		last_intensity, last_pattern, str(intensity_match and pattern_match),
 		heat, satisfaction])
 
@@ -591,7 +589,7 @@ func touch(kind: String) -> void:
 		else:
 			set_cue_override("She needs more than your hands.")
 		receptive_until = now + receptive_seconds
-		_log("touch like kind=%s readiness=%.0f" % [kind, satisfaction])
+		LOG.debug("touch like kind=%s readiness=%.0f", [kind, satisfaction])
 	elif kind in preferences.get("dislikes", []):
 		act_dislikes += 1
 		add_heat(-TOUCH_HEAT)
@@ -599,7 +597,7 @@ func touch(kind: String) -> void:
 		if on_face.is_valid():
 			on_face.call("overwhelmed")
 		set_cue_override("She doesn't like that.")
-		_log("touch dislike kind=%s readiness=%.0f" % [kind, satisfaction])
+		LOG.debug("touch dislike kind=%s readiness=%.0f", [kind, satisfaction])
 	# A neutral touch sets no override; the live base cue stays on screen.
 	_queue_tolerance(event)
 
@@ -632,7 +630,7 @@ func talk(text: String) -> void:
 		else:
 			set_cue_override("She needs you to move.")
 		receptive_until = now + receptive_seconds
-		_log("talk like category=%s readiness=%.0f" % [category, satisfaction])
+		LOG.debug("talk like category=%s readiness=%.0f", [category, satisfaction])
 	elif category in preferences.get("dislikes", []):
 		act_dislikes += 1
 		add_heat(-TALK_HEAT)
@@ -640,7 +638,7 @@ func talk(text: String) -> void:
 		if on_face.is_valid():
 			on_face.call("overwhelmed")
 		set_cue_override("She didn't like that.")
-		_log("talk dislike category=%s readiness=%.0f" % [category, satisfaction])
+		LOG.debug("talk dislike category=%s readiness=%.0f", [category, satisfaction])
 	else:
 		set_cue_override("She listens.")
 	_queue_tolerance(event)
@@ -756,6 +754,3 @@ func _now() -> float:
 	return float(clock.call()) if clock.is_valid() else 0.0
 
 
-func _log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

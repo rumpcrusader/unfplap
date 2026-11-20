@@ -4,6 +4,7 @@ extends RefCounted
 ## Pure: reads only the meshes it is given and the shared mare body scene.
 
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const MARE_BODY := "res://world/characters/body_shapes/mare.scn"
 
 ## Hand placement per body-fit key, in her rest space (metres at her own size).
@@ -68,7 +69,7 @@ static func part_map(part: MeshInstance3D, body: MeshInstance3D, profile: Array,
 		shift = shifts[shifts.size() / 2]
 		map.origin.y += shift
 	_maps[key] = map
-	print("[unfplap] %s fitted to a body: size %.3f, belly shift %+.3f m (%d points)" % [
+	LOG.debug("%s fitted to a body: size %.3f, belly shift %+.3f m (%d points)", [
 		part.name, size, shift, shifts.size()])
 	return map
 

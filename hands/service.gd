@@ -47,6 +47,7 @@ const SMACK_HIND_M := 0.10
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Pure palm geometry for tests and the controller.
 static func palm_clearance_for(body_scale: float, distance := 0.02) -> float:
@@ -285,7 +286,7 @@ func _set_reach_hand() -> void:
 	if not _reach_hand_logged:
 		_reach_hand_logged = true
 		var palm_normal: Vector3 = target.basis.x * (1.0 if side == "left" else -1.0)
-		_log("reach hand side=%s target=%s x=%s y=%s z=%s fingers=%s palm=%s" % [
+		LOG.debug("reach hand side=%s target=%s x=%s y=%s z=%s fingers=%s palm=%s", [
 			side, str(target.origin), str(target.basis.x), str(target.basis.y),
 			str(target.basis.z), str(-target.basis.z), str(palm_normal)])
 	driver.call("set_hold_target", side, frame, "rub")
@@ -357,7 +358,7 @@ func _caress_tick(delta: float) -> void:
 			_caress_move_key_down[side] = move_held
 			if move_pressed:
 				_caress_moving[side] = not bool(_caress_moving[side])
-				_log("caress movement side=%s %s" % [
+				LOG.debug("caress movement side=%s %s", [
 					side, "on" if bool(_caress_moving[side]) else "off"])
 		var hand_side := "left" if side == "L" else "right"
 		# The slapping hand owns the hold target during its swing. Keep the oval phase moving
@@ -375,7 +376,7 @@ func _caress_tick(delta: float) -> void:
 				_caress_logged[side] = false
 				_caress_return_started[side] = 0
 				_engine().reset_hand(hand_side)
-				_log("caress start side=%s" % side)
+				LOG.debug("caress start side=%s", [side])
 			_caress_phase[side] = caress_phase_step(
 				float(_caress_phase[side]), bool(_caress_moving[side]), delta)
 			_set_caress_hand(side)
@@ -423,7 +424,7 @@ func _end_caress_side(side: String) -> void:
 	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 		driver.call("clear_hold_target", hand_side)
 	_engine().reset_hand(hand_side)
-	_log("caress stop side=%s" % side)
+	LOG.debug("caress stop side=%s", [side])
 	_caress_active[side] = false
 	_caress_latched[side] = false
 	_caress_phase[side] = 0.0
@@ -1209,11 +1210,6 @@ func hand_on_touch(kind: String) -> void:
 func hand_on_smack_impact(strength: float) -> void:
 	if facts != null:
 		facts.smack_hit(strength)
-
-
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)
 
 
 ## Per-size caress-point offsets, scaled for the "same height" preset.

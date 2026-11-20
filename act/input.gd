@@ -11,6 +11,7 @@ const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
 
@@ -97,7 +98,7 @@ func end_afterglow() -> void:
 ## Cancel/end early. The early summary and its one memory mark, then the one restore and the one
 ## rolled post-act line.
 func cancel() -> void:
-	host.log("cancel state=%d pony=%s" % [session.state, host.pony_name()])
+	LOG.debug("cancel state=%d pony=%s", [session.state, host.pony_name()])
 	if session.state in [State.POSING_IN, State.ACTIVE]:
 		session.ended_early = true
 		session.commit_summary(false)
@@ -125,7 +126,7 @@ func cancel() -> void:
 			if not key.is_empty():
 				var now := session.clock_s()
 				context.dialogue.note_reaction(key, "", now + max_age)
-				host.log("utterance kind=reaction key=%s" % key)
+				LOG.debug("utterance kind=reaction key=%s", [key])
 			# The stopped act gets one post-act beat at most: suppress the later history line
 			# for the same act, even when the roll chose silence. A skipped summary must not
 			# clear an older act's pending reminder.

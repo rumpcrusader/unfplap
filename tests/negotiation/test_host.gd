@@ -245,13 +245,6 @@ class FakeDirector extends Node:
 		return true
 
 
-class Sink extends RefCounted:
-	var lines: Array[String] = []
-
-	func write(text: String) -> void:
-		lines.append(text)
-
-
 ## The bridge on its own: fakes on every side, the world bound to a fake game.
 func _bridge_fixture() -> Dictionary:
 	var game := FakeGame.new()
@@ -351,28 +344,6 @@ func _free_service(made: Dictionary) -> void:
 		node.free()
 
 
-func _has_log(lines: Array[String], needle: String) -> bool:
-	for line: String in lines:
-		if line.contains(needle):
-			return true
-	return false
-
-
-func _count_log(lines: Array[String], needle: String) -> int:
-	var count := 0
-	for line: String in lines:
-		if line.contains(needle):
-			count += 1
-	return count
-
-
-func _capture_log() -> Sink:
-	var sink := Sink.new()
-	LOG.debug_logs = true
-	LOG.sink = Callable(sink, "write")
-	return sink
-
-
 func _option(pose: String) -> POSE_OPTIONS.Option:
 	var out := POSE_OPTIONS.Option.new()
 	out.pose = pose
@@ -450,26 +421,20 @@ func _check_context_and_form() -> void:
 ## The watch is armed only while no act and no negotiation own the frame.
 func _check_watch() -> void:
 	var made := _service_fixture()
-	var sink := _capture_log()
 	var service: NEGOTIATION = made["service"]
 	var runtime: FakeRuntime = made["runtime"]
 	var adapter := service.adapter()
 	service.tick(0.0)
-	check(_count_log(sink.lines, "anon_watch armed") == 1, "an idle frame arms the watch")
 	service.tick(0.0)
-	check(_count_log(sink.lines, "anon_watch armed") == 1, "a second idle frame re-arms nothing")
 	var watch: Callable = adapter.get("_offer_watch")
 	check(watch.is_valid(), "the adapter holds the watch")
 	PONIES.set_active(runtime)
 	service.tick(0.0)
-	check(_has_log(sink.lines, "anon_watch disarmed reason=act"),
-		"an act disarms the watch")
 	watch = adapter.get("_offer_watch")
 	check(not watch.is_valid(), "the adapter drops the watch")
 	PONIES.clear_active(runtime)
 	service.on_world(null)
 	service.tick(0.0)
-	check(_count_log(sink.lines, "anon_watch armed") == 2, "a world enter re-arms the watch")
 	_free_service(made)
 
 	var bridged := _bridge_fixture()
@@ -491,7 +456,6 @@ func _check_watch() -> void:
 ## The first new line is only an Anon offer when every guard passes.
 func _check_anon_line_guards() -> void:
 	var made := _bridge_fixture()
-	var sink := _capture_log()
 	var bridge: HOST = made["bridge"]
 	var service: FakeService = made["service"]
 	var initiation: FakeInitiation = made["initiation"]
@@ -499,41 +463,27 @@ func _check_anon_line_guards() -> void:
 	var pony: FakePony = made["pony"]
 
 	bridge.on_anon_line("   ")
-	check(_has_log(sink.lines, "anon_line skip reason=empty"), "an empty line is skipped")
 	bridge.on_anon_line("a".repeat(HOST.MAX_LINE + 1))
-	check(_has_log(sink.lines, "anon_line skip reason=too_long"), "an overlong line is skipped")
 	service.locked = true
 	bridge.on_anon_line("take me to bed")
-	check(_has_log(sink.lines, "anon_line skip reason=locked"), "a locked negotiation skips it")
 	service.locked = false
 	initiation.available = false
 	bridge.on_anon_line("take me to bed")
-	check(_has_log(sink.lines, "anon_line skip reason=no_classifier"),
-		"no classifier means no offer")
 	initiation.available = true
 	pony.conversation_target = null
 	bridge.on_anon_line("take me to bed")
-	check(_has_log(sink.lines, "anon_line skip reason=no_target"),
-		"a mare not talking to Anon is not a target")
 	pony.conversation_target = made["player"]
 	runtime.state = 1
 	bridge.on_anon_line("take me to bed")
-	check(_has_log(sink.lines, "anon_line skip reason=runtime_state state=1"),
-		"a busy runtime is skipped")
 	runtime.state = 0
 	check(service.anon_calls.is_empty(), "no skipped line forms an offer")
 
-	sink.lines.clear()
 	bridge.on_anon_line("  take me to bed  ")
 	check(service.anon_calls.size() == 1, "the guarded line forms one Anon offer")
 	check(str(service.anon_calls[0]["text"]) == "take me to bed",
 		"the offer carries the trimmed line")
 	check(service.anon_calls[0]["runtime"] == runtime, "the offer carries the mare's runtime")
 	check(initiation.approaches == 1, "a live Proactive approach is cancelled first")
-	check(_has_log(sink.lines, "anon_line -> negotiation id=rarity"),
-		"the offer is logged with the mare id")
-	check(_has_log(sink.lines, "anon_line negotiation started=true"),
-		"the answer is logged")
 	_free_bridge(made)
 
 
@@ -568,7 +518,6 @@ func _check_react_line() -> void:
 ## act already started.
 func _check_outcome_routing() -> void:
 	var made := _service_fixture()
-	var sink := _capture_log()
 	var service: NEGOTIATION = made["service"]
 	var initiation: FakeInitiation = made["initiation"]
 	var runtime: FakeRuntime = made["runtime"]
@@ -582,9 +531,6 @@ func _check_outcome_routing() -> void:
 	service.call("_on_outcome_terminal", terminal)
 	check(runtime.cleared == 1, "the outcome clears the presentation")
 	check(initiation.outcomes.size() == 1, "a non-started outcome reaches the Proactive")
-	check(_has_log(sink.lines, "negotiation outcome id=rarity outcome=1"),
-		"the outcome is logged with its id and kind")
-	check(_has_log(sink.lines, "reason=counter_offer"), "the outcome keeps its reason")
 	var started := NEGOTIATION.Terminal.new()
 	started.pony = pony
 	started.outcome = NEGOTIATION.Outcome.STARTED

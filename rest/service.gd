@@ -11,6 +11,7 @@ const CUDDLE_REJOIN_RETRY_S := 0.5
 const CUDDLE_REJOIN_WINDOW_S := 30.0
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Scene handles. The runtime binds them on every access.
 var pony: Variant = null
@@ -20,7 +21,6 @@ var bed: Variant = null
 ## returns the pre-act player/pony/camera snapshot. A missing callback is a no-op.
 var context := Callable()
 var restore_scene := Callable()
-var log := Callable()
 
 
 func bind(pony_node: Variant, bed_node: Variant) -> void:
@@ -141,28 +141,28 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(player):
 		return
 	if not player.has_method("sit_on") or not player.has_method("toggle_couch_sleep"):
-		write_log("cuddle rejoin skipped reason=no_player_rest")
+		LOG.debug("cuddle rejoin skipped reason=no_player_rest")
 		return
 	var rest: Variant = bed_rest_for(bed_node)
 	if rest == null:
-		write_log("cuddle rejoin skipped reason=no_bed_rest")
+		LOG.debug("cuddle rejoin skipped reason=no_bed_rest")
 		return
 	var seats: Variant = rest.get("seats")
 	if not seats is Array or (seats as Array).size() < 2:
-		write_log("cuddle rejoin skipped reason=no_seats")
+		LOG.debug("cuddle rejoin skipped reason=no_seats")
 		return
 	var player_seat: Variant = (seats as Array)[0]
 	var guest_seat: Variant = (seats as Array)[1]
 	if not player_seat is Node3D or not guest_seat is Node3D:
-		write_log("cuddle rejoin skipped reason=no_seats")
+		LOG.debug("cuddle rejoin skipped reason=no_seats")
 		return
 	if player.get("seat") != player_seat:
 		if not bool(player.call("sit_on", player_seat)):
-			write_log("cuddle rejoin failed reason=sit")
+			LOG.debug("cuddle rejoin failed reason=sit")
 			return
 	if not bool(player.get_meta("couch_sleeping", false)):
 		if not bool(player.call("toggle_couch_sleep")):
-			write_log("cuddle rejoin failed reason=recline")
+			LOG.debug("cuddle rejoin failed reason=recline")
 			return
 	# The front probe won't accept the mattress floor, so move her first.
 	stand_beside_bed(rest, guest_seat)
@@ -175,17 +175,17 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 			return
 		var live := context_values()
 		if int(live.get("serial", -1)) != act_serial or int(live.get("state", -1)) != STATE_IDLE:
-			write_log("cuddle rejoin cancelled reason=act")
+			LOG.debug("cuddle rejoin cancelled reason=act")
 			return
 		if not bool(player.get_meta("couch_sleeping", false)):
-			write_log("cuddle rejoin cancelled reason=stood_up")
+			LOG.debug("cuddle rejoin cancelled reason=stood_up")
 			return
 		if bool(rest.call("open")) and bool(rest.call("invite", pony, guest_seat)):
-			write_log("cuddle rejoin invited bed=%s" % str(bed_node.name))
+			LOG.debug("cuddle rejoin invited bed=%s", [str(bed_node.name)])
 			return
 		note = rejoin_note(rest)
 		await tree.create_timer(CUDDLE_REJOIN_RETRY_S).timeout
-	write_log("cuddle rejoin failed reason=timeout %s" % note)
+	LOG.debug("cuddle rejoin failed reason=timeout %s", [note])
 
 
 ## The game's live rest that owns this bed (`world/relationships/shared_bed.gd`).
@@ -220,7 +220,7 @@ func stand_beside_bed(rest: Node, seat: Node3D) -> void:
 		fallback = front
 	var at: Vector3 = COUCH_EXIT.find_exit(pony, seat, fallback, clearance, radius)
 	if not at.is_finite():
-		write_log("cuddle rejoin floor=no_space")
+		LOG.debug("cuddle rejoin floor=no_space")
 		return
 	var pose: Transform3D = pony.global_transform
 	pose.origin = at
@@ -232,7 +232,7 @@ func stand_beside_bed(rest: Node, seat: Node3D) -> void:
 	if pony.get("velocity") != null:
 		pony.set("velocity", Vector3.ZERO)
 	pony.reset_physics_interpolation()
-	write_log("cuddle rejoin floor=%s" % str(at))
+	LOG.debug("cuddle rejoin floor=%s", [str(at)])
 
 
 ## A compact state dump for the timeout line. Read-only: the stock invite stays the authority.
@@ -296,6 +296,3 @@ func act_state() -> int:
 	return int(context_values().get("state", STATE_IDLE))
 
 
-func write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

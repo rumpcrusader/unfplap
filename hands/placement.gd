@@ -13,6 +13,7 @@ const PALM_CONTACT_SOURCE_HITS := 2
 ## The most path candidates one hand tries in a frame. A candidate beyond the source is
 ## skipped locally, so a long fallback chain cannot fan out into a full-patch query.
 const MAX_CANDIDATES := 3
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: Variant
 
@@ -368,7 +369,7 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 			int(surface.call("face_count")), int(surface.call("patch_face_count")),
 			int(surface.get("build_us")), int(surface.get("query_us")),
 			int(surface.get("ray_hits")), int(surface.get("ray_misses"))]
-	_log("precise caress side=%s mode=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s" % [
+	LOG.debug("precise caress side=%s mode=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s", [
 		hand_side, mode, u, str(frame.origin), str(normal), str(finger), roll_deg, hover, info])
 
 
@@ -377,8 +378,3 @@ func _perf_note(chunk: String, usec: int) -> void:
 		facts.perf(chunk, usec)
 
 
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)
-	else:
-		print("[unfplap] " + text)

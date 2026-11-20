@@ -158,7 +158,7 @@ func close_hint(session: ACT_SESSION, pose_family: String) -> String:
 
 
 func apply_live(session: ACT_SESSION) -> bool:
-	var perf := LOG.debug_logs and LOG.debug_perf
+	var perf := LOG.enabled and LOG.debug_perf
 	var settings: Variant = session.settings
 	# Read the pre-edit mute before the snapshot replaces `features`.
 	var previous_mute: bool = settings.muted()

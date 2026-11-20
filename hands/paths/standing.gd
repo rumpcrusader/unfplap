@@ -8,6 +8,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CARESS_UP_BIAS_M := 0.05
 ## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.
 const CARESS_RUMP_LEAN := 0.5
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var _flank: Node
 var _paths: Dictionary = {}
@@ -165,14 +166,14 @@ func _path_for(hand_side: String) -> Variant:
 		return null
 	_paths[key] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
-		_log("caress path side=%s path=areas anchors=%d build_ms=%.1f" % [hand_side,
+		LOG.debug("caress path side=%s path=areas anchors=%d build_ms=%.1f", [hand_side,
 			(path.get("anchors") as Array).size(),
 			float(Time.get_ticks_usec() - started) / 1000.0])
 		for note: Variant in (path.get("debug_notes") as Array):
-			_log("caress " + str(note))
+			LOG.debug("caress " + str(note))
 		var world: Array = path.call("skinned")
 		for anchor: Dictionary in world:
-			_log("caress anchor %s pos=%s normal=%s" % [anchor["id"],
+			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor["id"],
 				str(anchor["position"]), str(anchor["normal"])])
 	return path
 
@@ -221,6 +222,3 @@ func reset() -> void:
 	_last_normals.clear()
 
 
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)

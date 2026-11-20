@@ -11,6 +11,7 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -36,7 +37,7 @@ func run(setup: String) -> bool:
 		"standing_place":
 			return standing_place()
 		_:
-			host.log("start blocked setup=%s source=%s pony=%s" % [
+			LOG.debug("start blocked setup=%s source=%s pony=%s", [
 				setup if not setup.is_empty() else "missing", session.source, host.pony_name()])
 			return false
 

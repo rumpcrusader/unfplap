@@ -13,6 +13,7 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 ## The largest whole-body fit: past it the offer cone no longer matches her, and the hip offset is
 ## left to carry the rest.
 const FIT_MAX_M := 0.6
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 
 ## The live scene values for one placement pass. The runtime writes them before each call; the
@@ -32,7 +33,6 @@ class Facts:
 	var anatomy: Variant = null
 	var player_pony := false
 	var headset_view := false
-	var log := Callable()
 
 
 ## One call's act values, filled by the act session (their owner) and copied into the reused
@@ -50,14 +50,13 @@ class ActBind:
 	var anatomy: Variant = null
 	var player_pony := false
 	var headset_view := false
-	var log := Callable()
 
 	## Fill from the act's live values. The act session owns them; the start adapter and the body
 	## swap both place Anon from this one record.
 	func fill(pony_node: Node, player_node: Node, bed_node: Node3D, stool_handle: RefCounted,
 			asked_form: Variant, current_form: Variant, id_value: String, gaps_value: Dictionary,
 			camera_handle: Variant, anatomy_handle: Variant, pony_player: bool,
-			headset: bool, log_sink: Callable) -> void:
+			headset: bool) -> void:
 		pony = pony_node
 		player = player_node
 		bed = bed_node
@@ -70,7 +69,6 @@ class ActBind:
 		anatomy = anatomy_handle
 		player_pony = pony_player
 		headset_view = headset
-		log = log_sink
 
 
 ## The one placement record this handle reuses, so a placement pass allocates no facts.
@@ -90,7 +88,6 @@ func bind_act(values: ActBind) -> void:
 	facts.anatomy = values.anatomy
 	facts.player_pony = values.player_pony
 	facts.headset_view = values.headset_view
-	facts.log = values.log
 
 
 ## The start's standing placement from the last `bind_act()` values.
@@ -159,7 +156,7 @@ func begin(facts: Facts) -> Transform3D:
 	# reseeds the penetration from the fitted stance.
 	reset_pelvis(facts)
 	body.reset_physics_interpolation()
-	_write_log(facts, "standing keeps pony at=%s and places Anon at=%s yaw=%.3f fit=%+.3f stool=%s" % [
+	LOG.debug("standing keeps pony at=%s and places Anon at=%s yaw=%.3f fit=%+.3f stool=%s", [
 		str(facts.pony.global_position), str(body.global_position), body.rotation.y,
 		fit.dot(forward), str(_stool_active(facts))])
 	return standing
@@ -286,7 +283,7 @@ func _gap(facts: Facts, form: Variant) -> float:
 	var target_form: Variant = form if form != null else facts.body_form
 	var entrance: Vector2 = ACT_CAMERA.entrance_offset_for(target_form)
 	gap_m += entrance.y
-	_write_log(facts, "standing size=%s gap=%.2f entrance_shift=%+.3f" % [size, gap_m, entrance.y])
+	LOG.debug("standing size=%s gap=%.2f entrance_shift=%+.3f", [size, gap_m, entrance.y])
 	return gap_m
 
 
@@ -303,6 +300,3 @@ func _place_pony(facts: Facts, placed: Transform3D) -> void:
 	facts.pony.reset_physics_interpolation()
 
 
-func _write_log(facts: Facts, text: String) -> void:
-	if facts.log.is_valid():
-		facts.log.call(text)

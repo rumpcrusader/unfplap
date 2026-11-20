@@ -24,6 +24,7 @@ const KISS_RESTART_COOLDOWN_MS := 500
 const STANDING_KISS_LEAN := 0.90
 ## The side lean alone would drag the kiss along, so W is required too.
 const MISSIONARY_KISS_LEAN := 0.90
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: Variant
 var pony: Variant
@@ -99,7 +100,7 @@ func _apply_kiss_forelegs() -> void:
 	settings["rear"] = 0.0
 	settings["hooves"] = 0.0
 	_kiss_forelegs_planted = true
-	_log("kiss forelegs planted")
+	LOG.debug("kiss forelegs planted")
 
 
 func _restore_kiss_forelegs() -> void:
@@ -128,7 +129,7 @@ func _start_kiss_leg_pin() -> void:
 	skeleton.add_child(_kiss_leg_pin)
 	skeleton.move_child(_kiss_leg_pin, skeleton.get_child_count() - 1)
 	_kiss_leg_pin.call("capture")
-	_log("kiss foreleg pin captured")
+	LOG.debug("kiss foreleg pin captured")
 
 
 func _stop_kiss_leg_pin() -> void:
@@ -175,7 +176,7 @@ func _start_base_kiss() -> bool:
 			(sk as Skeleton3D).move_child(_base_kiss_pose, (sk as Skeleton3D).get_child_count() - 1)
 			_pin_base_side()
 	_start_kiss_leg_pin()
-	_log("base kiss start pony=%s" % str(facts.pony_id))
+	LOG.debug("base kiss start pony=%s", [str(facts.pony_id)])
 	return true
 
 
@@ -473,7 +474,7 @@ func _kiss_diag() -> void:
 				var up := head_t.basis.y.normalized()
 				var view_up := view.global_basis.y.normalized()
 				head_roll = rad_to_deg(up.signed_angle_to(view_up, -view.global_basis.z.normalized()))
-	_log("kiss diag base=%s custom=%s amount=%.2f lean=%.2f cam_side=%.2f pony_side=%.2f pose_side=%.2f cam_roll=%.1f head_roll=%.1f skull_lat=%.3f gap=%.3f limited=%.1fdeg miss=%.3fm clear=%s lateral=%.3f" % [
+	LOG.debug("kiss diag base=%s custom=%s amount=%.2f lean=%.2f cam_side=%.2f pony_side=%.2f pose_side=%.2f cam_roll=%.1f head_roll=%.1f skull_lat=%.3f gap=%.3f limited=%.1fdeg miss=%.3fm clear=%s lateral=%.3f", [
 		str(_base_kiss_active), str(_custom_kiss_active),
 		float(affection.get("amount")), _kiss_lean, _kiss_camera_side, _kiss_pony_side,
 		pose_side, cam_roll, head_roll, skull_lateral, mouth_gap,
@@ -507,7 +508,6 @@ func _mouth_view() -> Camera3D:
 		if is_instance_valid(view):
 			return view
 	return facts.camera as Camera3D
-
 
 
 func _release_kiss_face() -> void:
@@ -544,9 +544,7 @@ func end_lean_kiss() -> void:
 	facts.write_forced_glance("")
 	var cam: Variant = facts.standing_camera_controller()
 	cam.clear_glance()
-	_log("standing kiss stop")
-
-
+	LOG.debug("standing kiss stop")
 
 
 ## Read the live scene handles and configs from the typed act view. The runtime rewrites the
@@ -695,12 +693,9 @@ func lean_kiss_tick() -> void:
 		facts.call_value(facts.play_mouth_kiss)
 		_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
 	facts.touch("kiss")
-	_log("lean kiss start pose=%s forward=%.2f side=%.2f pony_side=%.2f lateral=%.3f base=%s" % [
+	LOG.debug("lean kiss start pose=%s forward=%.2f side=%.2f pony_side=%.2f lateral=%.3f base=%s", [
 		phase, float(facts.lean_forward), float(facts.lean_side),
 		_kiss_pony_side, lateral_offset(float(facts.standing_lean_scale)),
 		str(_base_kiss_active)])
 
 
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)

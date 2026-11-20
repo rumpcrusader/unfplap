@@ -124,7 +124,7 @@ func _hold_act_tick(delta: float, runtime: Node) -> void:
 	if _act_hold < HOLD_ACT_SECONDS or _act_hold_fired:
 		return
 	_act_hold_fired = true
-	LOG.debug("hold act key state=%d climaxes=%d" % [
+	LOG.debug("hold act key state=%d climaxes=%d", [
 		state, int(_act_for(runtime).climaxes())])
 	if state == ACT_STATE.State.AFTERGLOW:
 		_act_for(runtime).end_afterglow()

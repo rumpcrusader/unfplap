@@ -12,6 +12,7 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
 
@@ -76,7 +77,7 @@ func warn(level: int) -> void:
 	context.face.ensure_bound(host.pony, host.node)
 	context.face.act_beat("warning", _face_context(), session.feature("face_debug"))
 	queue_warning(level)
-	host.log("neglect warning=%d tier=%s distress=%.1f kind=%s" % [
+	LOG.debug("neglect warning=%d tier=%s distress=%.1f kind=%s", [
 		level, str(session.preferences.get("tolerance", "normal")),
 		context.readiness.distress(), context.readiness.last_dislike()])
 
@@ -158,7 +159,7 @@ func stop_with_her(reason: String) -> void:
 	exit.run(false)
 	exit.finalize(true)
 	finish_stop(strict, not context.summary.summary.is_empty())
-	host.log("stop withdrew tier=%s distress=%.1f reason=%s strict=%s" % [
+	LOG.debug("stop withdrew tier=%s distress=%.1f reason=%s strict=%s", [
 		str(stop.get("tolerance", "normal")), float(stop.get("distress", 0.0)),
 		reason, str(strict)])
 

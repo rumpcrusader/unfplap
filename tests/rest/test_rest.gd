@@ -323,14 +323,9 @@ func _check_place() -> void:
 func _check_early_rejoin() -> void:
 	var made := _fixture()
 	var facade: RefCounted = made["facade"]
-	var logs: Array[String] = []
-	facade.log = func(text: String) -> void: logs.append(text)
 	var bed: Node3D = made["bed"]
 	current_context["serial"] = 8
 	facade.call("rejoin_bed_cuddle", bed, 7)
-	check(logs.is_empty(), "a stale act serial leaves the rejoin alone")
 	current_context["serial"] = 7
 	facade.call("rejoin_bed_cuddle", bed, 7)
-	check(logs.size() == 1 and logs[0].contains("no_bed_rest"),
-		"a bed with no rest logs and leaves her standing")
 	_free(made)

@@ -7,6 +7,7 @@ extends Node
 const CUES := preload("res://mods/unfplap/audio/smack_cues.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 
 class Applied extends RefCounted:
@@ -15,9 +16,6 @@ class Applied extends RefCounted:
 	var volume_db := 0.0
 	var pitch_scale := 1.0
 
-
-## Host boundary. A missing callback is a no-op.
-var log := Callable()
 
 var _enabled := false
 var _ponies: Array = []
@@ -51,10 +49,10 @@ func apply_settings() -> void:
 		_prune()
 		for pony: Variant in _ponies:
 			_install(pony)
-		write_log("pack smack on ponies=%d" % _ponies.size())
+		LOG.debug("pack smack on ponies=%d", [_ponies.size()])
 		return
 	_restore_all()
-	write_log("pack smack off")
+	LOG.debug("pack smack off")
 
 
 ## The act owns this pony's player: give the stock stream back before the act hands install
@@ -81,7 +79,6 @@ func on_world_closed() -> void:
 func shutdown() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
 	on_world_closed()
-	log = Callable()
 
 
 func _install(pony: Variant) -> void:
@@ -181,12 +178,9 @@ func _smack_stream() -> AudioStreamRandomizer:
 		if stream is AudioStream:
 			randomizer.add_stream(-1, stream)
 	if randomizer.streams_count <= 0:
-		write_log("no pack smack stream")
+		LOG.debug("no pack smack stream")
 		return null
 	_randomizer = randomizer
 	return _randomizer
 
 
-func write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

@@ -112,7 +112,6 @@ var pose: Variant = null
 var viewport: Variant = null
 
 # Host callbacks. A missing callback is a no-op.
-var log := Callable()
 var perf_note := Callable()
 var body_coat_smack := Callable()
 var on_touch := Callable()
@@ -158,11 +157,6 @@ var pose_host := Callable()
 func perf(chunk: String, usec: int) -> void:
 	if perf_note.is_valid():
 		perf_note.call(chunk, usec)
-
-
-func write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)
 
 
 func smack_body_coat() -> void:

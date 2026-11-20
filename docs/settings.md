@@ -669,6 +669,7 @@ debug tools, not settings: no declaration, no persisted value. See `docs/perf.md
 | shared | consent | `shared/consent.gd` | consent defaults |
 | shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog and tab rows |
+| shared | log | `shared/log.gd` | log sink and perf entry |
 | shared | participation | `shared/participation.gd` | participation defaults |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
 | shared | preferences | `shared/preferences.gd` | profile schema and math |

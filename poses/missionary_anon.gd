@@ -26,6 +26,7 @@ const MOUTH_OFFSET := Vector3(0.0, -0.07, -0.02)
 ## leaves the hand floating when the act ends.
 const HOLD_BLEND_S := 0.35
 const HOLD_RELEASE_S := 0.35
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The typed act view. Every live value and callback comes through it; the runtime node is never
 ## read directly.
@@ -188,7 +189,7 @@ func remove() -> void:
 		if is_instance_valid(skeleton) and _saved_bones.size() == skeleton.get_bone_count():
 			for i in skeleton.get_bone_count():
 				skeleton.set_bone_pose(i, _saved_bones[i])
-		_log("anon restore transform=%s process=%s leg=%.2f" % [
+		LOG.debug("anon restore transform=%s process=%s leg=%.2f", [
 			str(_avatar_transform.origin), str(_avatar_processing), _leg_hide_influence])
 	_saved_bones.clear()
 	avatar = null
@@ -481,7 +482,7 @@ func _apply_lean(placed: Transform3D) -> void:
 		return
 	if not _lean_logged:
 		_lean_logged = true
-		_log("anon lean fwd=%.2f side=%.2f scale=%.2f pitch=%.1f°" % [
+		LOG.debug("anon lean fwd=%.2f side=%.2f scale=%.2f pitch=%.1f°", [
 			lean_forward, lean_side, lean_scale, rad_to_deg(pitch)])
 	# His body is lying, so the nod and the turn are the bed's own axes: nod along the mattress,
 	# turn about the mattress normal. Both are converted into skeleton space once.
@@ -713,7 +714,7 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 			var state := "ok" if reachable else "clamped"
 			if str(_reach_log_state.get(key, "")) != state:
 				_reach_log_state[key] = state
-				_log("caress arm side=%s %s shoulder=%.3f body=%.3f distance=%.3f max=%.3f stretch=%.2f" % [
+				LOG.debug("caress arm side=%s %s shoulder=%.3f body=%.3f distance=%.3f max=%.3f stretch=%.2f", [
 					key, state, float(plan.get("shoulder_shift", 0.0)),
 					float(plan.get("body_shift", 0.0)), float(plan.get("distance", 0.0)),
 					float(plan.get("max_reach", 0.0)), stretch])
@@ -892,11 +893,6 @@ func diag_row(face: Vector3, vulva: Vector3) -> String:
 		if vulva.is_finite() and at.distance_squared_to(vulva) > 0.0001:
 			row += " eye_vulva=%.0f°" % rad_to_deg(fwd.angle_to((vulva - at).normalized()))
 	return row
-
-
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)
 
 
 func _anatomy_service() -> Variant:

@@ -21,18 +21,12 @@ var cycle_phase := "normal"
 var perf_note := Callable()
 ## No idle perf clock while this is false.
 var perf_on := false
-var log := Callable()
 var body_coat_smack := Callable()
 
 
 func perf(chunk: String, usec: int) -> void:
 	if perf_note.is_valid():
 		perf_note.call(chunk, usec)
-
-
-func write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)
 
 
 func smack_body_coat() -> void:

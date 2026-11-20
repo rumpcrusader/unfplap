@@ -11,8 +11,6 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 var node: Node
 ## The presented body. The runtime's pony setter keeps it in step.
 var pony: Node
-## Named sinks the runtime binds; a missing sink is a no-op.
-var log_sink: Callable = Callable()
 var perf_sink: Callable = Callable()
 ## The tail-tuck node the exit starts and the runtime clears. It needs the runtime node to host
 ## the pose-scope node, so it stays a typed host op rather than a service call.
@@ -54,11 +52,6 @@ func tween() -> Tween:
 func attach_to_world() -> void:
 	if is_instance_valid(node) and is_instance_valid(WORLD.game):
 		node.call("attach_to_body", WORLD.game)
-
-
-func log(text: String) -> void:
-	if log_sink.is_valid():
-		log_sink.call(text)
 
 
 ## The presented body as a value, for a host callback that needs it rather than a field read.

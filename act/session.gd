@@ -173,7 +173,7 @@ func placement_values(form: BODY_FORM.BodyForm = null) -> PLACEMENT.ActBind:
 	values.fill(host.pony, WORLD.player if is_instance_valid(WORLD.player) else null, bed,
 		context.stool, form, context.handover.form(), pony_id,
 		gaps if gaps is Dictionary else {}, context.camera, PONIES.anatomy, player_pony,
-		WORLD.headset_view(), host.log_sink)
+		WORLD.headset_view())
 	return values
 
 func adopt_display_name(form: BODY_FORM.BodyForm, body: Variant) -> void:
@@ -213,7 +213,6 @@ func stool() -> Variant:
 		return null
 	if context.stool == null:
 		context.stool = service.call("new_act")
-		context.stool.call("set_log", host.log_sink)
 	context.stool.call("bind", service, host.pony, WORLD.player, context.anatomy.controller)
 	return context.stool
 
@@ -506,7 +505,7 @@ func commit_afterglow() -> void:
 		display_name, serial, host.pony)
 
 func begin_afterglow() -> void:
-	host.log("afterglow pose=%s pony=%s" % [pose_id, host.pony_name()])
+	LOG.debug("afterglow pose=%s pony=%s", [pose_id, host.pony_name()])
 	context.readiness.stop_auto()
 	context.dialogue.end_act(event_id, true)
 	# Bed afterglow keeps only lean and caress; standing keeps its kiss.

@@ -15,13 +15,12 @@ const BODY_ANAL_REACH := 0.09
 const VULVA_RELIEF_M := 0.002
 const JIGGLE_STILL_MIN_M := 0.05
 const PALETTE_ENTRIES := 32
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D
 var mesh: MeshInstance3D
 var skeleton: Skeleton3D
 var shapes: RefCounted
-## The host debug sink, used only on a body/material change. A missing sink is a no-op.
-var log := Callable()
 var _patch_log := ""
 var _uniform_log_ms := 0
 
@@ -466,9 +465,7 @@ func _log_once(text: String) -> void:
 	if _patch_log == text:
 		return
 	_patch_log = text
-	if log.is_valid():
-		log.call(text)
-	push_warning("[unfplap] " + text)
+	LOG.warning(text)
 
 
 ## A successful patch is a debug line, not a warning.
@@ -476,20 +473,19 @@ func _log_patch(text: String) -> void:
 	if _patch_log == text:
 		return
 	_patch_log = text
-	if log.is_valid():
-		log.call(text)
+	LOG.debug(text)
 
 
 ## One uniform readout per second: the coat's grip target, its spread and both mesh scales.
 ## A cut stuck at the rest spread while the grip target is larger names a break in the mapping.
 func _log_uniforms(lip: float, hole: float, spread: float, reach: float, depth: float,
 		hole_radius: float, hole_vertical: float, local_scale: float) -> void:
-	if not log.is_valid() or not is_instance_valid(mesh):
+	if not LOG.enabled or not is_instance_valid(mesh):
 		return
 	var now := Time.get_ticks_msec()
 	if now - _uniform_log_ms < 1000:
 		return
 	_uniform_log_ms = now
 	var global_scale := maxf(mesh.global_transform.basis.get_scale().x, 0.0001)
-	log.call("body coat lip=%.4f hole=%.4f spread=%.3f reach=%.4f depth=%.5f cut=%.4f cut_h=%.4f local=%.3f global=%.3f" % [
+	LOG.debug("body coat lip=%.4f hole=%.4f spread=%.3f reach=%.4f depth=%.5f cut=%.4f cut_h=%.4f local=%.3f global=%.3f", [
 		lip, hole, spread, reach, depth, hole_radius, hole_vertical, local_scale, global_scale])

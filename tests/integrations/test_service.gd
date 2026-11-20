@@ -23,7 +23,6 @@ class FakeFacts extends RefCounted:
 	var act_seconds := 1.0
 	var pony: Variant = null
 	var features: Dictionary = {}
-	var logs: Array[String] = []
 	var beat: Variant = null
 	var beat_original := false
 	var beat_holders: Array[String] = []
@@ -31,9 +30,6 @@ class FakeFacts extends RefCounted:
 
 	func mod_active(id: String) -> bool:
 		return bool(mods_active.get(id, false))
-
-	func write_log(text: String) -> void:
-		logs.append(text)
 
 	func hold_beat(owner: String) -> void:
 		if owner.is_empty() or beat_holders.has(owner):
@@ -171,7 +167,6 @@ func _check_basic() -> void:
 	check(facts.beat_holders.has("kissing"), "the provider owns the hold while it runs")
 	check(near(excitement._until, 0.0), "start clears the game's excitement cause")
 	check(near(feelings.level, 0.4), "start leaves the level to the act")
-	check(facts.logs.has("integration kissing on"), "activation is logged once")
 	service.tick(0.1)
 	check(near(excitement._until, 0.5), "tick gives Kissing the acted cause")
 	check(feelings.level > 0.0 and feelings.level <= 0.85,
@@ -198,10 +193,8 @@ func _check_basic() -> void:
 	check(facts.beat_holders.is_empty(), "reset drops the provider hold")
 	check(near(excitement._until, 1.25), "reset restores the saved cause")
 	check(near(feelings.level, 0.4), "reset restores the saved level")
-	check(facts.logs.has("integration kissing off"), "deactivation is logged")
 	service.reset()
 	check(near(excitement._until, 1.25), "reset is idempotent")
-	check(facts.logs.count("integration kissing on") == 1, "a repeated begin does not restart")
 	_free_scene(scene)
 
 

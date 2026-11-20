@@ -11,6 +11,7 @@ const ACTION := preload("res://mods/unfplap/integrations/action.gd")
 const KISSING := preload("res://mods/unfplap/integrations/kissing.gd")
 
 const POLICY := {"kissing": KISSING}
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 
 ## One provider's per-act state. The context and action arrays are reused every tick.
@@ -83,7 +84,7 @@ func begin() -> void:
 		if not _ready(provider):
 			continue
 		if _start(provider):
-			_log("integration %s on" % provider.id)
+			LOG.debug("integration %s on", [provider.id])
 
 
 ## Per-tick provider actions. Idempotent and allocation-free after the first tick.
@@ -131,7 +132,7 @@ func apply_live_settings() -> void:
 			_stop(provider, "unavailable")
 		elif not provider.active and ready:
 			if _start(provider):
-				_log("integration %s on" % provider.id)
+				LOG.debug("integration %s on", [provider.id])
 
 
 ## Restore every saved value and forget the act. Idempotent.
@@ -141,7 +142,7 @@ func reset() -> void:
 	for provider: ProviderState in _providers:
 		if provider.active:
 			provider.active = false
-			_log("integration %s off" % provider.id)
+			LOG.debug("integration %s off", [provider.id])
 		_release_excitement(provider)
 		provider.pending.clear()
 		provider.bindings.clear()
@@ -285,7 +286,7 @@ func _stop(provider: ProviderState, reason: String) -> void:
 	_release_excitement(provider)
 	_restore_provider(provider.id)
 	if was_active:
-		_log("integration %s off: %s" % [provider.id, reason])
+		LOG.debug("integration %s off: %s", [provider.id, reason])
 
 
 ## Ask the runtime for the act-level excitement Beat hold. Owners are refcounted, so the kiss
@@ -456,6 +457,3 @@ func _read_reaction_cap(provider: ProviderState) -> float:
 	return clampf(float(value), 0.0, 1.0)
 
 
-func _log(text: String) -> void:
-	if _facts != null and _facts.has_method("write_log"):
-		_facts.call("write_log", text)

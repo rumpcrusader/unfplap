@@ -11,6 +11,7 @@ const CHEST_BACK := preload("res://mods/unfplap/poses/chest_back.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const THRUST_MAX_M := 0.045
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: Variant
 var pony: Variant
@@ -107,7 +108,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 				_lower_left = (left as Node3D).global_transform
 				_lower_right = (right as Node3D).global_transform
 				_lower_captured = true
-				_log("standing lower body pinned")
+				LOG.debug("standing lower body pinned")
 			if _lower_captured:
 				if left is Node3D:
 					(left as Node3D).global_transform = _lower_left
@@ -115,7 +116,7 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 					(right as Node3D).global_transform = _lower_right
 		elif _lower_captured:
 			_lower_captured = false
-			_log("standing lower body released")
+			LOG.debug("standing lower body released")
 
 
 func _anatomy_service() -> Variant:
@@ -187,7 +188,6 @@ func _install_anon_thrust() -> void:
 	_install_palm_scale(avatar)
 
 
-
 func _install_palm_scale(avatar: Node3D) -> void:
 	_remove_palm_scale()
 	if not is_instance_valid(avatar):
@@ -197,7 +197,7 @@ func _install_palm_scale(avatar: Node3D) -> void:
 		return
 	var skeleton := avatar.find_child("Skeleton3D", true, false) as Skeleton3D
 	if not is_instance_valid(skeleton):
-		_log("standing palm scale skipped: no skeleton")
+		LOG.debug("standing palm scale skipped: no skeleton")
 		return
 	_palm_scale = PALM_SCALE.new()
 	_palm_scale.name = "UnfplapPalmScale"
@@ -205,8 +205,7 @@ func _install_palm_scale(avatar: Node3D) -> void:
 	_palm_scale.set("factor", factor)
 	_palm_scale.process_priority = 10
 	skeleton.add_child(_palm_scale)
-	_log("standing palm scale=%.2f size=%s" % [factor, facts.size_name])
-
+	LOG.debug("standing palm scale=%.2f size=%s", [factor, facts.size_name])
 
 
 func _refresh_palm_scale() -> void:
@@ -223,14 +222,12 @@ func _refresh_palm_scale() -> void:
 	_install_palm_scale(_anon_thrust_avatar)
 
 
-
 func _remove_palm_scale() -> void:
 	if is_instance_valid(_palm_scale):
 		_palm_scale.set("active", false)
 		_palm_scale.call("restore")
 		_palm_scale.queue_free()
 	_palm_scale = null
-
 
 
 func _remove_anon_thrust() -> void:
@@ -266,8 +263,6 @@ func _desktop_pose_driver() -> Node:
 		return null
 	var driver: Variant = avatar.get("desktop_pose_driver")
 	return driver as Node if is_instance_valid(driver) else null
-
-
 
 
 ## Read the live scene handles from the typed act view. The runtime rewrites the view before
@@ -312,6 +307,3 @@ func refresh_palm() -> void:
 	_refresh_palm_scale()
 
 
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)

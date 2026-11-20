@@ -185,17 +185,17 @@ func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 		if handle != null:
 			var match: Variant = negotiation.call("hotkey_handle", runtime, _option_for(offer))
 			if match != null:
-				LOG.debug("hotkey exact match id=%s pose=%s" % [id, offer.pose])
+				LOG.debug("hotkey exact match id=%s pose=%s", [id, offer.pose])
 				return _start_agreement_offer(offer, true)
-			LOG.debug("hotkey interrupt agreement id=%s" % id)
+			LOG.debug("hotkey interrupt agreement id=%s", [id])
 			negotiation.call("interrupt_for_hotkey")
 		elif bool(negotiation.call("is_locked")):
-			LOG.debug("hotkey interrupt negotiation id=%s" % id)
+			LOG.debug("hotkey interrupt negotiation id=%s", [id])
 			negotiation.call("interrupt_for_hotkey")
-	LOG.debug("hotkey immediate id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
+	LOG.debug("hotkey immediate id=%s pose=%s source=%s", [id, offer.pose, offer.source])
 	var started := bool(_gate(runtime).start_hotkey(offer.pose, offer.bed, offer.source))
 	if not started:
-		LOG.debug("hotkey start blocked id=%s pose=%s source=%s" % [id, offer.pose, offer.source])
+		LOG.debug("hotkey start blocked id=%s pose=%s source=%s", [id, offer.pose, offer.source])
 		return false
 	_clear_offer_hint()
 	return true
@@ -221,10 +221,10 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 	var result := int(_gate(offer.runtime).start_agreement(handle, skip_presentation))
 	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
 		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
-	LOG.debug("agreement start id=%s pose=%s skip_presentation=%s result=%d" % [
+	LOG.debug("agreement start id=%s pose=%s skip_presentation=%s result=%d", [
 		id, offer.pose, str(skip_presentation), result])
 	if result == AGREEMENT_WAIT:
-		LOG.debug("agreement start waiting pose=%s source=%s" % [offer.pose, offer.source])
+		LOG.debug("agreement start waiting pose=%s source=%s", [offer.pose, offer.source])
 		return false
 	_clear_offer_hint()
 	_report_agreement(handle, result == AGREEMENT_STARTED)
@@ -263,12 +263,12 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	var pony_id := str(handle.pony_id)
 	if pony_id.is_empty() and is_instance_valid(pony):
 		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
-	LOG.debug("agreement auto-start id=%s pose=%s" % [pony_id, typed.pose])
+	LOG.debug("agreement auto-start id=%s pose=%s", [pony_id, typed.pose])
 	if bool(handle.private) and not _agreement_private_now(pony, cuddle):
-		LOG.debug("agreement auto-start privacy lost pony=%s" % str(pony.name))
+		LOG.debug("agreement auto-start privacy lost pony=%s", [str(pony.name)])
 		negotiation.call("cancel", handle, "privacy")
 		return
-	LOG.debug("agreement auto-start pony=%s pose=%s" % [str(pony.name), typed.pose])
+	LOG.debug("agreement auto-start pony=%s pose=%s", [str(pony.name), typed.pose])
 	_start_agreement_offer(typed, false)
 
 
@@ -605,7 +605,7 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 	var gap_text := "n/a" if not (gap is float or gap is int) \
 		or not is_finite(float(gap)) else "%.3f" % float(gap)
 	var have := int(_gate(runtime).stool_case_count())
-	LOG.debug("OFFER blocked pony=%s reason=needs_stool gap=%s need=%d have=%d" % [
+	LOG.debug("OFFER blocked pony=%s reason=needs_stool gap=%s need=%d have=%d", [
 		str(target.name), gap_text, need, have])
 	if not _stool_hint_toast_shown:
 		_stool_hint_toast_shown = true
@@ -648,7 +648,7 @@ func _log_offer() -> void:
 	if key == _last_offer_key:
 		return
 	_last_offer_key = key
-	LOG.debug("OFFER pony=%s pose=%s source=%s bed=%s pending=%s" % [
+	LOG.debug("OFFER pony=%s pose=%s source=%s bed=%s pending=%s", [
 		str(target.name) if is_instance_valid(target) else "?",
 		_offer.pose, _offer.source, str(_offer.bed), str(_offer.pending)])
 

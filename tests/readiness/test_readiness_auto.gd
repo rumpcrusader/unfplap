@@ -43,7 +43,6 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 func _readiness(state: FakeState) -> RefCounted:
 	var readiness: RefCounted = READINESS.new()
 	readiness.state = Callable(state, "state_now")
-	readiness.log = Callable()
 	readiness.configure_auto(1.5, 0.8, "thrust", 0.2)
 	readiness.reset_auto()
 	return readiness

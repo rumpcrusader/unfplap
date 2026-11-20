@@ -10,11 +10,11 @@ const OFFSET_RATE := 9.0
 const PRESS_M := 0.025
 const ROCK_M := 0.012
 const ROCK_RATE := 2.4
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D = null
 var face_point := Callable()
 var opening_point := Callable()
-var log := Callable()
 ## True between `begin()` and `restore()`. The service only ticks it while the view names `face`.
 var active := false
 ## True when `begin()` captured a finite mouth and opening. A missing provider leaves the driver
@@ -36,11 +36,10 @@ var _missing_logged := false
 
 ## Point the driver at the live scene and the host reads. Called on every session access, so a
 ## suite can bind the callbacks after the session was built.
-func bind(pony_node: Node3D, face: Callable, opening: Callable, logger := Callable()) -> void:
+func bind(pony_node: Node3D, face: Callable, opening: Callable) -> void:
 	pony = pony_node
 	face_point = face
 	opening_point = opening
-	log = logger
 
 
 ## Capture the live frame, his mouth and her opening point. A missing frame or point still
@@ -156,8 +155,7 @@ func _log_once(text: String) -> void:
 	if _missing_logged:
 		return
 	_missing_logged = true
-	if log.is_valid():
-		log.call(text)
+	LOG.debug(text)
 
 
 func _point(callback: Callable) -> Vector3:

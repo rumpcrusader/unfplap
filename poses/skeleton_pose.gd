@@ -6,6 +6,7 @@ const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
 const STANDING_ORAL := preload("res://mods/unfplap/poses/standing_oral_recipe.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The typed live mode. `MODE_SINGLE` runs the one-driver fast path; `MODE_BLEND` evaluates both
 ## bases, blends the captured transforms and applies the overlays once.
@@ -27,7 +28,6 @@ var mare: Node3D
 ## Host boundary: the pose writes no scene value back; it only reports a timed chunk and a
 ## debug line. A pose built without a context is silent.
 var perf := Callable()
-var log := Callable()
 ## The live effective mode: typed, with no "afterglow" value.
 var mode := MODE_SINGLE
 ## The resolved pair. Paths are the service's effective driver/delta paths, configs are by
@@ -515,7 +515,4 @@ func _dump_if_needed(sk: Skeleton3D, weight: float) -> void:
 	var text := "MISSIONARY"
 	for row: String in rows:
 		text += "\n\t" + row
-	# The runtime's `log` callback is the one debug gate (Enable debug). A pose without a
-	# context has no console owner and stays silent.
-	if log.is_valid():
-		log.call(text)
+	LOG.debug(text)

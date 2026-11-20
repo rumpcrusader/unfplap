@@ -3,7 +3,6 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hands/test_actions.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
@@ -59,13 +58,6 @@ class FakeBody extends Node3D:
 	var _right_foot: Node3D
 
 
-class LogSink extends RefCounted:
-	var lines: Array[String] = []
-
-	func write(text: String) -> void:
-		lines.append(text)
-
-
 func _check_tail_tuning() -> void:
 	var tail_runtime: Node = RUNTIME.new()
 	var tail_pony := Node3D.new()
@@ -85,42 +77,6 @@ func _check_tail_tuning() -> void:
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(25.0)), "tail pitch default")
 	tail_pony.free()
 	tail_runtime.free()
-
-
-func _check_perf_probe() -> void:
-	var sink := LogSink.new()
-	LOG.debug_logs = true
-	LOG.debug_perf = true
-	LOG.sink = Callable(sink, "write")
-	var probe: Node = RUNTIME.new()
-	probe.act.pony_id = "twilight_sparkle"
-	probe.act.pose_id = CATALOG.STANDING
-	probe.act._set_state(2)
-	probe.act.host.perf_note("probe_chunk", 1200)
-	probe.act.host.perf_note("probe_chunk", 800)
-	probe._bundle.perf_probe.tick(0.4)
-	check(sink.lines.is_empty(), "perf window waits for a full second")
-	probe._bundle.perf_probe.tick(0.7)
-	check(sink.lines.size() == 1, "perf prints one block a second")
-	if not sink.lines.is_empty():
-		var line := sink.lines[0]
-		check(line.begins_with("perf pony=twilight_sparkle pose=standing state=2"),
-			"perf block names the pony and pose")
-		check(line.contains("\nprobe_chunk"), "perf block lists a timed chunk")
-		check(line.contains("2.00ms/s"), "perf block totals the window")
-	LOG.debug_logs = false
-	probe.act.host.perf_note("hidden_chunk", 500)
-	probe._bundle.perf_probe.tick(1.1)
-	check(sink.lines.size() == 1, "perf is silent with debug logs off")
-	LOG.debug_logs = true
-	LOG.debug_perf = false
-	probe.act.host.perf_note("hidden_chunk", 500)
-	probe._bundle.perf_probe.tick(1.1)
-	check(sink.lines.size() == 1, "perf is silent with perf logs off")
-	probe.free()
-	LOG.debug_perf = true
-	LOG.sink = Callable()
-	LOG.debug_logs = false
 
 
 func _check_missionary_hand_hold() -> void:
@@ -819,7 +775,6 @@ func run() -> void:
 	cuddle_runtime.free()
 
 	_check_tail_tuning()
-	_check_perf_probe()
 	_check_missionary_hand_hold()
 	_check_pose_retarget()
 

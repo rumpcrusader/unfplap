@@ -10,6 +10,7 @@ const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const WINKING_REST_OPEN := 0.6
 const WINKING_OPEN_AT := 0.3
@@ -476,7 +477,7 @@ func _aim_debug_tick(delta: float, part: Variant) -> void:
 	var fit := BODY_FORM.default_form(pony).fit_id
 	if is_instance_valid(anatomy) and anatomy.has_method("form_fit_id"):
 		fit = str(anatomy.call("form_fit_id"))
-	_facts.write_log("anatomy aim normal=%s hole=%s rear=%s hips=%s root=%s hip=%s fit=%s scale=%.2f pen=%.3f" % [
+	LOG.debug("anatomy aim normal=%s hole=%s rear=%s hips=%s root=%s hip=%s fit=%s scale=%.2f pen=%.3f", [
 		str(_normal), str(hole_point()), str(hole_rear()), str(_hips_point()), str(root),
 		str(hip), fit, scale, float(_facts.penetration_m)])
 

@@ -23,6 +23,7 @@ const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const MARE_BITS_PATH := ASSET_DIR + "mare_bits_v2.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D
 ## The typed runtime context. The controller never reads the runtime node.
@@ -107,10 +108,8 @@ func _init() -> void:
 	attach.setup(self, null, facts)
 	shapes = SHAPES.new()
 	shapes.setup(null, self)
-	shapes.log = Callable(self, "_log")
 	coat = COAT.new()
 	coat.setup(null, shapes)
-	coat.log = Callable(self, "_log")
 	coat_line = COAT_LINE.new()
 	heat = HEAT.new()
 	heat.setup(shapes)
@@ -291,7 +290,7 @@ func _attach() -> void:
 	if not attach.attach(MARE_BITS_PATH):
 		if not _rig_logged:
 			_rig_logged = true
-			_log("anatomy skipped for %s: %s" % [pony.name, attach.last_error])
+			LOG.debug("anatomy skipped for %s: %s", [pony.name, attach.last_error])
 		return
 	var mesh: MeshInstance3D = attach.mesh
 	var refined := GEOMETRY.refined_winking_mesh(mesh.mesh as ArrayMesh)
@@ -312,13 +311,13 @@ func _attach() -> void:
 	attach.mark_owned()
 	_apply_material()
 	if not coat_line.rebuild():
-		_log("coat line skipped: %s" % str(coat_line.last_error))
+		LOG.debug("coat line skipped: %s", [str(coat_line.last_error)])
 	else:
-		_log("coat line built %s" % str(coat_line.summary()))
+		LOG.debug("coat line built %s", [str(coat_line.summary())])
 	set_process(true)
 	attach.apply_visibility(_act_visible())
 	_apply_body_coat()
-	_log("anatomy attached lift=%.3f" % PLACEMENT.LIFT)
+	LOG.debug("anatomy attached lift=%.3f", [PLACEMENT.LIFT])
 
 
 func _process(delta: float) -> void:
@@ -699,5 +698,3 @@ func _clear_part() -> void:
 	_apply_body_coat()
 
 
-func _log(text: String) -> void:
-	facts.write_log(text)

@@ -18,6 +18,7 @@ const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
 ## The satisfaction meter runs down to zero over this window after every act.
 const SATISFACTION_DECAY_SECONDS := 30.0
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The post-act decision: the tail tuck after a partner stop, or the earned aftercare beat.
 ## The post-act face reads the same values.
@@ -56,8 +57,6 @@ var close_caress_earned := false
 ## True when the summary of the act being held is a positive one.
 var positive := false
 
-## Host boundary. Missing callbacks are no-ops.
-var log := Callable()
 var caress_active := Callable()
 ## The host node the post-act children join. The runtime binds itself (D24: it owns the tree).
 var host: Node = null
@@ -240,7 +239,7 @@ func _finish_close() -> void:
 	close_left = 0.0
 	var caressed := close_caress_seconds >= STAY_CLOSE_CARESS_SECONDS
 	close_caress_earned = caressed
-	_write_log("stay close reward caressed=%s positive=%s caress_seconds=%.1f" % [
+	LOG.debug("stay close reward caressed=%s positive=%s caress_seconds=%.1f", [
 		str(caressed), str(positive), close_caress_seconds])
 	_reward(caressed, positive)
 
@@ -287,6 +286,3 @@ func _truthy(callback: Callable) -> bool:
 	return bool(callback.call()) if callback.is_valid() else false
 
 
-func _write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

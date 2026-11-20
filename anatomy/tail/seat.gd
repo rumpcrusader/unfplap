@@ -26,6 +26,7 @@ const DOCK_SETTLE_S := 0.12
 ## The per-mare placement keys and their defaults, compared in `refresh_all()`.
 const PLACEMENT_KEYS := [["tail_y", 0.0], ["tail_z", 0.0], ["dock_y", 0.0],
 	["dock_scale", 1.0], ["tail_tilt_deg", 0.0]]
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## One mare's seat: the measured anchor and cap, the cached originals and the live placement.
 class SeatRow:
@@ -67,7 +68,6 @@ class SeatRow:
 
 
 var perf_on := Callable()
-var log := Callable()
 ## The anatomy facade's capability answer for this pony (identity + tail participation).
 var eligible := Callable()
 
@@ -209,9 +209,9 @@ func attach(pony: Node, form: BODY_FORM.BodyForm = null) -> void:
 			var arrays: Array = row.dock.mesh.surface_get_arrays(0)
 			if arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array:
 				verts = (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
-		_log("tail perf attach %s prepare=%dus apply=%dus verts=%d" % [
+		LOG.debug("tail perf attach %s prepare=%dus apply=%dus verts=%d", [
 			row.id, prepared - started, done - prepared, verts])
-	_log("tail seat %s anchor=(%.3f,%.3f,%.3f) delta=(%.3f,%.3f,%.3f)" % [
+	LOG.debug("tail seat %s anchor=(%.3f,%.3f,%.3f) delta=(%.3f,%.3f,%.3f)", [
 		row.id, row.anchor.x, row.anchor.y, row.anchor.z,
 		row.applied.x, row.applied.y, row.applied.z])
 
@@ -356,7 +356,7 @@ func refresh_all() -> void:
 			_apply_lift(row)
 		rebuilt += 1
 	if _perf_on() and rebuilt > 0:
-		_log("tail perf refresh checked=%d rebuilt=%d usec=%d" % [
+		LOG.debug("tail perf refresh checked=%d rebuilt=%d usec=%d", [
 			checked, rebuilt, Time.get_ticks_usec() - started])
 	if style_changed:
 		for pony: Variant in _rows.keys():
@@ -386,7 +386,7 @@ func report_all() -> String:
 			exceptions += 1
 	if not lines.is_empty():
 		var base := SETTINGS.anatomy_placement_draft_values()
-		_log("tail seats default %s\n\t%s" % [ANATOMY_PLACEMENT.text(base),
+		LOG.debug("tail seats default %s\n\t%s", [ANATOMY_PLACEMENT.text(base),
 			"\n\t".join(lines)])
 	return "tail seats: %d live, %d exceptions (see log)" % [count, exceptions]
 
@@ -461,17 +461,17 @@ func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
 	var measured: Dictionary = DOCK_TAIL_MOUNT.measure(pony)
 	var raw: Variant = measured.get("anchor")
 	if hips < 0 or not raw is Array or (raw as Array).size() != 3:
-		_log("tail seat: no anchor for %s" % pony.name)
+		LOG.debug("tail seat: no anchor for %s", [pony.name])
 		return null
 	var anchor := Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
 	if not anchor.is_finite():
-		_log("tail seat: non-finite anchor for %s" % pony.name)
+		LOG.debug("tail seat: non-finite anchor for %s", [pony.name])
 		return null
 	# `effective_fit()` adds the game's seat shift for a seated tail; the seat delta below cancels
 	# it, so the dock keeps the player's fit.
 	var fit: Dictionary = HYBRID_DOCK.effective_fit(pony, HYBRID_DOCK.read_fit())
 	if fit.is_empty():
-		_log("tail seat: no dock fit for %s" % pony.name)
+		LOG.debug("tail seat: no dock fit for %s", [pony.name])
 		return null
 	var identity: Variant = pony.get("identity")
 	var id := str(pony.get_meta("relationship_id", ""))
@@ -834,7 +834,7 @@ func _log_perf() -> void:
 			skinned += 1
 		builds += row.builds
 		row.builds = 0
-	_log("tail perf seats=%d skinned=%d builds=%d/s" % [seats, skinned, builds])
+	LOG.debug("tail perf seats=%d skinned=%d builds=%d/s", [seats, skinned, builds])
 
 
 func _source(row: SeatRow) -> String:
@@ -845,6 +845,3 @@ func _source(row: SeatRow) -> String:
 	return "auto"
 
 
-func _log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

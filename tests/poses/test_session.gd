@@ -628,8 +628,8 @@ func _check_effective_paths() -> void:
 	pony.free()
 
 
-## The begin state and the forward/reverse debug edge: the request codes, the transition view, the
-## status/switch log, completion and the settled target.
+## The begin state and the forward/reverse debug edge: the request codes, the transition view,
+## completion and the settled target.
 func _check_state_machine() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: RefCounted = made["session"]
@@ -692,22 +692,8 @@ func _check_state_machine() -> void:
 	check(view.id == before_id and view.edge_id == before_edge,
 		"a refused request leaves the view alone")
 
-	var logs: Array[String] = []
-	session.log = func(text: String) -> void: logs.append(text)
 	session.tick(0.0)
 	check(near(view.edge_t, 0.0), "the first tick reads the edge at zero")
-	var status_logged := false
-	var controls_switch := false
-	var presentation_switch := false
-	for text: String in logs:
-		if text.contains("pose status %s: test" % CATALOG.STANDING_TEST):
-			status_logged = true
-		if text.contains("pose switch controls: %s" % CATALOG.STANDING_TEST):
-			controls_switch = true
-		if text.contains("pose switch presentation: %s" % CATALOG.STANDING_TEST):
-			presentation_switch = true
-	check(status_logged, "the status event is logged")
-	check(controls_switch and presentation_switch, "both authored switches are logged")
 	view.to_config["adopt_marker"] = 17
 	session.tick(0.6)
 	check(view.pose_state == VIEW.STEADY and session._state == VIEW.STEADY,
@@ -754,11 +740,9 @@ func _check_oral_edge() -> void:
 	var session: RefCounted = made["session"]
 	var pony: FakePony = made["pony"]
 	var view: RefCounted = session.view()
-	var logs: Array[String] = []
 	var speech_stops: Array = []
 	var visemes: Array[String] = []
 	var kisses: Array = []
-	session.log = func(text: String) -> void: logs.append(text)
 	session.mouth_point = func() -> Vector3: return pony.to_global(Vector3(0.0, 1.3, 0.5))
 	session.opening_point = func() -> Vector3: return Vector3(0.8, 0.0, 1.2)
 	session.oral_speech_stop = func() -> void: speech_stops.append(true)

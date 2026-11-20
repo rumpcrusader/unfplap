@@ -13,6 +13,7 @@ const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_HOST := preload("res://mods/unfplap/body_change/act_host.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Watcher cadence and the watchdog that gives up on a swap with no new body.
 ## The provider observes its own pack faster, so a longer wait means no body is coming.
@@ -123,12 +124,12 @@ func release(swap: BODY_CHANGE) -> bool:
 	# Another system holding her would keep the old body as the act's owner. Release it before
 	# the flame takes the body; a failed release is logged and the watchdog still decides.
 	if body.has_method("is_held") and bool(body.call("is_held")) and not host.release_carry():
-		host.log("body swap: could not release the held body")
+		LOG.debug("body swap: could not release the held body")
 	begin(swap)
 	# Leave the old body before it is freed. The world keeps the act; the new body adopts the node.
 	host.attach_to_world()
 	var source := change_source(swap)
-	host.log("body swap suspend source=%s target=%s origin=%d form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
+	LOG.debug("body swap suspend source=%s target=%s origin=%d form=%s state=%d pose=%s depth=%.3f climaxes=%d", [
 		source.source_id() if source != null else "?", swap.target_form_id,
 		int(swap.origin), change_form_id(swap), host.state(), pose, host.depth(),
 		host.climaxes()])
@@ -150,7 +151,7 @@ func resume() -> bool:
 	if not suspended:
 		return false
 	if not is_instance_valid(host.pony()):
-		host.log("body swap failed: no body to resume on")
+		LOG.debug("body swap failed: no body to resume on")
 		abort()
 		return false
 	var swap := change
@@ -181,7 +182,7 @@ func resume() -> bool:
 	host.begin_integrations()
 	host.sync_hud()
 	host.resume_auto()
-	host.log("body swap resumed form=%s state=%d pose=%s depth=%.3f climaxes=%d" % [
+	LOG.debug("body swap resumed form=%s state=%d pose=%s depth=%.3f climaxes=%d", [
 		change_form_id(swap), host.state(), pose, host.depth(), host.climaxes()])
 	complete_resume(swap, changed, confirmed)
 	if changed:
@@ -264,7 +265,7 @@ func request(true_form: bool, shape_id: String, by_player: bool) -> Dictionary:
 		return {"ok": false, "reason": "the source refused",
 			"message": "She cannot take that form now."}
 	var label := "her true form" if true_form else host.shape_name(shape_id)
-	host.log("body swap requested target=%s form=%s origin=%d pose=%s depth=%.3f climaxes=%d" % [
+	LOG.debug("body swap requested target=%s form=%s origin=%d pose=%s depth=%.3f climaxes=%d", [
 		shape_id if not shape_id.is_empty() else "self",
 		"true" if true_form else "named", int(origin), host.start_pose_id(),
 		host.depth(), host.climaxes()])
@@ -341,7 +342,7 @@ func _suspended_tick(delta: float) -> int:
 		if _swap_ready(swap, changing):
 			return Action.RESUME
 		if elapsed >= BODY_SWAP_WATCHDOG_S:
-			host.log("body swap watchdog; the new body never reported the shape, resuming")
+			LOG.debug("body swap watchdog; the new body never reported the shape, resuming")
 			return Action.RESUME
 		return Action.NONE
 	if not changing:
@@ -350,12 +351,12 @@ func _suspended_tick(delta: float) -> int:
 				return Action.RESUME
 			return Action.NONE
 		if body != null and body == old_body:
-			host.log("body swap failed; the old body survives, resuming pony=%s" % str(body.name))
+			LOG.debug("body swap failed; the old body survives, resuming pony=%s", [str(body.name)])
 			return Action.RESUME
 		return _fail("the source stopped without a new body")
 	if elapsed >= BODY_SWAP_WATCHDOG_S:
 		if body != null and body == old_body:
-			host.log("body swap watchdog; the old body survives, resuming")
+			LOG.debug("body swap watchdog; the old body survives, resuming")
 			return Action.RESUME
 		return _fail("watchdog expired with no body")
 	return Action.NONE
@@ -409,7 +410,7 @@ func _restore_tick() -> int:
 		return Action.NONE
 	if not change_changing(live):
 		return Action.NONE
-	host.log("body swap during restore; ending through the one exit")
+	LOG.debug("body swap during restore; ending through the one exit")
 	return Action.END_RESTORE
 
 
@@ -501,9 +502,9 @@ func _on_player_line(text: String) -> void:
 			if bool(answer.get("ok", false)):
 				offer_pending = false
 				hint_tick()
-				host.log("form change named by player id=%s shape=%s" % [host.id(), shape])
+				LOG.debug("form change named by player id=%s shape=%s", [host.id(), shape])
 				return
-			host.log("form change named by player refused id=%s shape=%s reason=%s" % [
+			LOG.debug("form change named by player refused id=%s shape=%s reason=%s", [
 				host.id(), shape, str(answer.get("reason", ""))])
 		var note := _source_named_note(provider, text)
 		if not note.is_empty():
@@ -513,9 +514,9 @@ func _on_player_line(text: String) -> void:
 			return
 		var result: Dictionary = request(true, "", true)
 		if bool(result.get("ok", false)):
-			host.log("form reveal requested id=%s" % host.id())
+			LOG.debug("form reveal requested id=%s", [host.id()])
 		else:
-			host.log("form reveal refused id=%s reason=%s" % [
+			LOG.debug("form reveal refused id=%s reason=%s", [
 				host.id(), str(result.get("reason", ""))])
 
 
@@ -542,7 +543,7 @@ func offer_tick() -> void:
 	offer_done = true
 	offer_pending = true
 	hint_tick()
-	host.log("form shape offer id=%s climaxes=%d" % [host.id(), host.climaxes()])
+	LOG.debug("form shape offer id=%s climaxes=%d", [host.id(), host.climaxes()])
 	if not is_instance_valid(WORLD.game):
 		return
 	var act_id := host.event_id()
@@ -553,7 +554,7 @@ func offer_tick() -> void:
 	if key.is_empty():
 		return
 	host.note_reaction(key, host.cue(), host.now() + host.reaction_max_age())
-	host.log("utterance kind=reaction key=%s" % key)
+	LOG.debug("utterance kind=reaction key=%s", [key])
 
 
 ## The form state's debug label. It is never copied to the act facts: the HUD keeps no form row
@@ -571,7 +572,7 @@ func hint_tick() -> void:
 		return
 	form_hint_log = next
 	if not next.is_empty():
-		host.log("form hint suppressed \"%s\"" % next)
+		LOG.debug("form hint suppressed \"%s\"", [next])
 
 
 ## The new body is up; her own form at the player's ask is the exceptional beat.
@@ -592,7 +593,7 @@ func complete_resume(change: BODY_CHANGE, changed: bool, confirmed := false) -> 
 	if not target.is_empty() and shape != target:
 		_restore_shape_offer(target, by_player)
 		hint_tick()
-		host.log("form change failed id=%s target=%s shape=%s exceptional=false" % [
+		LOG.debug("form change failed id=%s target=%s shape=%s exceptional=false", [
 			host.id(), target, shape if not shape.is_empty() else "self"])
 		return
 	if by_player and target.is_empty() and shape.is_empty() and provider != null:
@@ -605,7 +606,7 @@ func complete_resume(change: BODY_CHANGE, changed: bool, confirmed := false) -> 
 		offer_pending = false
 		_apply_offer_accepted(change)
 	hint_tick()
-	host.log("form changed id=%s shape=%s exceptional=false" % [
+	LOG.debug("form changed id=%s shape=%s exceptional=false", [
 		host.id(), shape if not shape.is_empty() else "self"])
 
 
@@ -615,7 +616,7 @@ func _restore_shape_offer(target: String, by_player: bool) -> void:
 	if not offer_done or offer_pending:
 		return
 	offer_pending = true
-	host.log("form change failed; the shape offer stands again id=%s" % host.id())
+	LOG.debug("form change failed; the shape offer stands again id=%s", [host.id()])
 
 
 ## Once per act: the provider's typed effects become the readiness spike, cue and peak.
@@ -629,7 +630,7 @@ func _commit_form_reveal(change: BODY_CHANGE) -> void:
 	host.set_face(0.85)
 	_apply_form_effects(effects)
 	dispatch_event(BODY_CHANGE_POLICY.ActEvent.REVEALED, change)
-	host.log("form reveal id=%s event=%s readiness=%.0f" % [
+	LOG.debug("form reveal id=%s event=%s readiness=%.0f", [
 		host.id(), host.event_id(), host.satisfaction()])
 
 

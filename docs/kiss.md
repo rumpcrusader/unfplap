@@ -122,6 +122,7 @@ matching `player/player_mouth.gd`. See `docs/settings.md` for the settings frame
 |---|---|---|---|
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
+| shared | log | `shared/log.gd` | log sink and perf entry |
 
 ## Tests
 

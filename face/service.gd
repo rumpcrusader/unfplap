@@ -51,6 +51,7 @@ const STATE_POSING_IN := ACT_STATE.State.POSING_IN
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The face the act set. A spoken line face always wins until it ends.
 var act_face := ""
@@ -70,8 +71,6 @@ var pony: Variant = null
 ## The node the mood face and its hold timer are parented under.
 var host: Node = null
 
-## Host boundary. Missing callbacks are no-ops.
-var log := Callable()
 var clock := Callable()
 
 
@@ -299,7 +298,7 @@ func beat(moment: String, context: Dictionary) -> void:
 			end_face()
 		if moment == "climax" and debug_enabled:
 			var empty_debug: Dictionary = _dict(plan.get("style_debug"))
-			_write_log("act face moment=climax style=%s score=%.2f face=wide" % [
+			LOG.debug("act face moment=climax style=%s score=%.2f face=wide", [
 				str(plan.get("style", "wide")), float(empty_debug.get("score", 0.0))])
 		return
 	set_act_face(face, float(plan.get("hold_s", 0.0)))
@@ -313,14 +312,14 @@ func beat(moment: String, context: Dictionary) -> void:
 	if debug_enabled:
 		if moment == "climax":
 			var style_data: Dictionary = _dict(plan.get("style_debug"))
-			_write_log("act face moment=climax style=%s score=%.2f motion=%.2f both=%.2f affection=%.2f engagement=%.2f penalty=%.2f face=%s" % [
+			LOG.debug("act face moment=climax style=%s score=%.2f motion=%.2f both=%.2f affection=%.2f engagement=%.2f penalty=%.2f face=%s", [
 				str(plan.get("style", "")), float(style_data.get("score", 0.0)),
 				float(style_data.get("motion", 0.0)), float(style_data.get("both", 0.0)),
 				float(style_data.get("affection", 0.0)),
 				float(style_data.get("engagement", 0.0)),
 				float(style_data.get("penalty", 0.0)), face])
 		else:
-			_write_log("act face moment=%s face=%s hold=%.1f" % [
+			LOG.debug("act face moment=%s face=%s hold=%.1f", [
 				moment, face, float(plan.get("hold_s", 0.0))])
 
 
@@ -335,14 +334,14 @@ func set_act_face(face: String, hold_s: float) -> bool:
 	var current := dialogue_face()
 	if not current.is_empty() and current != act_face:
 		if debug_enabled:
-			_write_log("act face skip face=%s owner=line current=%s" % [face, current])
+			LOG.debug("act face skip face=%s owner=line current=%s", [face, current])
 		return false
 	expressions.call("set_dialogue", face)
 	if hold_s > 0.0 and expressions.has_method("finish_dialogue"):
 		expressions.call("finish_dialogue", hold_s)
 	act_face = face
 	if debug_enabled:
-		_write_log("act face set face=%s hold=%.1f" % [face, hold_s])
+		LOG.debug("act face set face=%s hold=%.1f", [face, hold_s])
 	return true
 
 
@@ -358,7 +357,7 @@ func end_face() -> void:
 				and dialogue_face() == act_face:
 			expressions.call("clear_dialogue")
 			if debug_enabled:
-				_write_log("act face clear face=%s" % act_face)
+				LOG.debug("act face clear face=%s", [act_face])
 	act_face = ""
 
 
@@ -451,7 +450,6 @@ func start_mood_face(mood: String, face: String, blush: float, warm_note_value: 
 	mood_face = MOOD_FACE.new()
 	mood_face.name = "UnfplapMoodFace"
 	mood_face.set("pony", pony)
-	mood_face.set("log", log)
 	mood_face.set("mood", mood)
 	mood_face.set("face", face)
 	mood_face.set("blush", blush)
@@ -513,6 +511,3 @@ func _now() -> float:
 	return float(clock.call()) if clock.is_valid() else 0.0
 
 
-func _write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

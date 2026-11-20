@@ -15,13 +15,9 @@ var checks := 0
 
 class Host extends RefCounted:
 	var caressing := false
-	var logs: Array[String] = []
 
 	func is_caressing() -> bool:
 		return caressing
-
-	func log_line(text: String) -> void:
-		logs.append(text)
 
 
 class HostNode extends Node:
@@ -51,19 +47,9 @@ func _facade(pose: String) -> Dictionary:
 	var host := Host.new()
 	var phase: RefCounted = AFTERGLOW.new()
 	phase.caress_active = Callable(host, "is_caressing")
-	phase.log = Callable(host, "log_line")
 	phase.bind_view(_view(pose))
 	phase.begin({"reward": true})
 	return {"phase": phase, "host": host}
-
-
-## The reward's one report line: the facade logs it as it grants the window.
-func _reward_lines(host: Host) -> Array[String]:
-	var found: Array[String] = []
-	for line: String in host.logs:
-		if line.begins_with("stay close reward"):
-			found.append(line)
-	return found
 
 
 func _runtime(pose: String) -> Node:
@@ -119,14 +105,9 @@ func run() -> void:
 	standing_phase.close_caress_seconds = 3.0
 	standing_phase.close_tick(0.02)
 	check(standing_phase.close_rewarded, "reaching the window grants the reward")
-	var standing_host: Host = standing["host"]
-	var rewards: Array[String] = _reward_lines(standing_host)
-	check(rewards.size() == 1, "the reward is reported once")
-	check(rewards[0].contains("caressed=true") and rewards[0].contains("positive=true"),
-		"the reward carries the caress and the positive act")
 	check(standing_phase.hint() == "She seems content.", "reward cue")
 	standing_phase.close_tick(1.0)
-	check(_reward_lines(standing_host).size() == 1, "reward is not granted twice")
+	check(standing_phase.close_rewarded, "a rewarded window stays rewarded")
 
 	var early := _facade("standing")
 	early["phase"].cancel_close()

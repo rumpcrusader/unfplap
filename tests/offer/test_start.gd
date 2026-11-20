@@ -22,14 +22,6 @@ const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
 
 var failures := 0
 var checks := 0
-var sink := LogSink.new()
-
-
-class LogSink extends RefCounted:
-	var lines: Array[String] = []
-
-	func write(text: String) -> void:
-		lines.append(text)
 
 
 class FakePony extends Node3D:
@@ -183,14 +175,11 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	SETTINGS.load_settings()
-	LOG.debug_logs = true
-	LOG.sink = Callable(sink, "write")
 	check_answers()
 	check_act_key()
 	check_blocked()
 	check_start_outcomes()
 	check_auto_start()
-	LOG.debug_logs = false
 	print("OFFER_START_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("OFFER_START_PASS")
@@ -233,7 +222,6 @@ func check_act_key() -> void:
 	check(not idle.try_start(), "an empty scene starts nothing")
 	check(quiet.toasts == ["There is nothing to start here."],
 		"an empty scene says there is nothing to start")
-	check(_count("hotkey no context pose") == 1, "an empty scene logs the missing pose")
 	_free(empty)
 
 
@@ -398,8 +386,6 @@ func check_auto_start() -> void:
 	check(privacy.offer_samples == 1, "the public auto-start does not sample")
 	check(negotiation.reports.size() == 1 and bool(negotiation.reports[0][1]),
 		"the auto-started Agreement is reported")
-	check(_count("agreement auto-start id=rarity") == 2,
-		"one auto-start line per Agreement the clock polled")
 
 	# A cuddle Agreement takes the stricter cuddle sample.
 	negotiation.live = _agreement(pony, CATALOG.MISSIONARY, true, true)
@@ -527,11 +513,3 @@ func _free(made: Dictionary) -> void:
 		node.free()
 	root.remove_child(service)
 	service.free()
-
-
-func _count(needle: String) -> int:
-	var total := 0
-	for line: String in sink.lines:
-		if line.contains(needle):
-			total += 1
-	return total

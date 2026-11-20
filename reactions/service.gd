@@ -17,6 +17,7 @@ const RUMP_BLUSH_MIN_STRENGTH := 0.55
 const RUMP_BLUSH_STEP := 0.0525
 const RUMP_BLUSH_MAX := 0.375
 const RUMP_BLUSH_DECAY := 0.006
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Scene handles. The runtime binds them; tests may inject a fake flank and anatomy.
 var pony: Variant = null
@@ -44,9 +45,6 @@ var _heart_elapsed := 0.0
 var _heart_index := 0
 var _heart_times: Array[float] = []
 var _heart_counts: Array[int] = []
-
-## Host boundary. A missing callback is a no-op.
-var log := Callable()
 
 
 ## Bind the act's pony and anatomy; a test may inject its fake flank.
@@ -214,7 +212,7 @@ func thrust(weight: float) -> void:
 	if not _jiggle_logged:
 		_jiggle_logged = true
 		var targets: Variant = flank.get("_jiggle_targets")
-		_write_log("jiggle rump at=%s root=%s normal=%s targets=%d index=%d mark=%s" % [
+		LOG.debug("jiggle rump at=%s root=%s normal=%s targets=%d index=%d mark=%s", [
 			str(at), str(pony.global_position), str(normal),
 			(targets as Array).size() if targets is Array else -1,
 			int(flank.get("_jiggle_index")), str(decal.global_position)])
@@ -288,7 +286,7 @@ func clear_stock_marks() -> void:
 			(mark as Decal).visible = false
 		if ages is Array and i < (ages as Array).size():
 			ages[i] = 1000.0
-	_write_log("stock flank marks cleared count=%d" % (marks as Array).size())
+	LOG.debug("stock flank marks cleared count=%d", [(marks as Array).size()])
 
 
 ## A strong thrust builds the standing rump blush. The decal is created on the first step.
@@ -397,7 +395,7 @@ func hearts_tick(delta: float) -> void:
 		_heart_index += 1
 		for i: int in count:
 			hearts_burst()
-		_write_log("climax hearts pulse t=%.2f count=%d" % [at, count])
+		LOG.debug("climax hearts pulse t=%.2f count=%d", [at, count])
 
 
 ## Same effect as a boop (five drifting hearts, her heart colours) without counting a boop or
@@ -434,7 +432,7 @@ func hearts_burst_at(origin: Vector3) -> void:
 		var sprite: Variant = heart.get("sprite")
 		if sprite is Node3D:
 			(sprite as Node3D).global_position = moved
-	_write_log("climax dock hearts=%d" % (hearts.size() - before))
+	LOG.debug("climax dock hearts=%d", [(hearts.size() - before)])
 
 
 ## Her dock is the tail base on the hair skeleton; fall back to the hips if it is unavailable.
@@ -457,6 +455,3 @@ func dock_point() -> Vector3:
 	return pony.global_position + Vector3.UP * 0.7
 
 
-func _write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

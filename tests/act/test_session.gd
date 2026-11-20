@@ -155,9 +155,8 @@ func run() -> void:
 	var orphan := Node.new()
 	host.add_child(orphan)
 	check(orphan.get_parent() == null, "a node-less host parents nothing")
-	host.log("not a test")
 	host.perf_note("runtime_absent", 1)
-	check(host.log_sink.is_null() and host.perf_sink.is_null(), "nothing binds a log or perf sink")
+	check(host.perf_sink.is_null(), "nothing binds a perf sink")
 	orphan.free()
 
 	print("ACT_SESSION_RESULT checks=%d failures=%d" % [checks, failures])

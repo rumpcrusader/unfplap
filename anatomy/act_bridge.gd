@@ -12,6 +12,7 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The typed host; every callback is optional.
 var host: ACT_HOST = null
@@ -36,7 +37,6 @@ func bind(host_in: ACT_HOST) -> void:
 	host = host_in
 	facts.perf_note = host.perf_note()
 	facts.perf_on = host.perf_enabled()
-	facts.log = host.log()
 	facts.body_coat_smack = host.body_coat_smack()
 
 
@@ -266,15 +266,14 @@ func toggle_oral(pose: Variant, display_name: String, features_block: Dictionary
 	request["features"] = features_block
 	var result: Dictionary = pose.request_pose(target, "oral", request)
 	if bool(result.get("ok", false)):
-		_write_log("oral pose %s -> %s: ok" % [from_id, target])
+		LOG.debug("oral pose %s -> %s: ok", [from_id, target])
 		return
-	_write_log("oral pose %s -> %s refused: %s (%s)" % [
+	LOG.debug("oral pose %s -> %s refused: %s (%s)", [
 		from_id, target, str(result.get("code", "")), str(result.get("reason", ""))])
 	if target == CATALOG.STANDING_ORAL and not consent:
 		status("%s is not into that" % display_name)
 	elif service != null:
 		status(str(result.get("reason", "")))
-
 
 
 ## The stock flank smack reaction on the persistent controller.
@@ -328,11 +327,6 @@ func status(text: String, seconds := 2.0) -> void:
 	var status_cb: Callable = host.status()
 	if status_cb.is_valid():
 		status_cb.call(text, seconds)
-
-
-func _write_log(text: String) -> void:
-	if facts.log.is_valid():
-		facts.log.call(text)
 
 
 ## The missionary Anon body is the act's own body. The host creates it in the camera mode; the

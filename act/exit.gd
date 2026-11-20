@@ -14,6 +14,7 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
 
@@ -191,7 +192,7 @@ func _rejoin_wanted() -> bool:
 func end_afterglow() -> void:
 	if session.state != State.AFTERGLOW:
 		return
-	host.log("afterglow end pony=%s" % host.pony_name())
+	LOG.debug("afterglow end pony=%s", [host.pony_name()])
 	context.afterglow.cancel_close()
 	restore_begin()
 
@@ -205,7 +206,7 @@ func restore_begin() -> void:
 	context.afterglow.cancel_close()
 	context.readiness.stop_auto()
 	context.dialogue.end_act(session.event_id, true)
-	host.log("restore begin from state=%d pony=%s" % [session.state, host.pony_name()])
+	LOG.debug("restore begin from state=%d pony=%s", [session.state, host.pony_name()])
 	session.begin_restore()
 	context.handover.hint_tick()
 	# integration: act-only anatomy hides as soon as the act starts restoring.
@@ -228,9 +229,9 @@ func restore_begin() -> void:
 ## The RESTORE timer's end: the normal act end, then the one finalize.
 func finish_restore() -> void:
 	if is_instance_valid(host.pony):
-		host.log("restore finished pony=%s" % host.pony_name())
+		LOG.debug("restore finished pony=%s", [host.pony_name()])
 	else:
-		host.log("restore finished with invalid pony")
+		LOG.debug("restore finished with invalid pony")
 	run(true)
 	finalize(true)
 
@@ -252,7 +253,7 @@ func force_stop() -> void:
 
 ## A forced stop from a scene verdict. The gate returned the reason; this applies the one stop.
 func stop(reason: String) -> void:
-	host.log("stop reason=%s state=%d pony=%s" % [reason, session.state, host.pony_name()])
+	LOG.debug("stop reason=%s state=%d pony=%s", [reason, session.state, host.pony_name()])
 	if session.state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
 		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, session.pony_id, session.event_id,
 			MEMORY.stop_reason(reason))

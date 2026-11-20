@@ -12,7 +12,6 @@ const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
 var node: Variant = null
 ## The runtime node: the one parent of the audio node and the source of the log sink.
 var host: Node = null
-var log := Callable()
 ## Named holds on the game's excitement Beat, one per owner that asked for it.
 var _holders: Array[String] = []
 var _beat: Timer = null
@@ -33,7 +32,6 @@ func service() -> Variant:
 		return null
 	node = audio_script.new()
 	node.name = "UnfplapActAudio"
-	node.log = log
 	if is_instance_valid(host):
 		host.add_child(node)
 	return node

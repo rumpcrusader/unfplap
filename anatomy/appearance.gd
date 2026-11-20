@@ -29,6 +29,7 @@ const WINKING_SLIT_HALF := 0.06
 const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D
 var dock_refresh := Callable()
@@ -345,7 +346,7 @@ func _skinned_part(path: String, part_name: String) -> MeshInstance3D:
 		return null
 	var scene: PackedScene = load(path)
 	if scene == null:
-		push_error("unfplap anatomy: cannot load " + path)
+		LOG.error("anatomy: cannot load " + path)
 		return null
 	var part: Node = scene.instantiate()
 	var meshes: Array = part.find_children("*", "MeshInstance3D", true, false)

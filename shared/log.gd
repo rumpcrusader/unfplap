@@ -1,15 +1,19 @@
 extends RefCounted
-## The mod's only log sink, and its act and idle perf entry. Static, so printing a line costs a
-## preload and never a host reference. The entry binds the two debug switch reads, because a shared
-## module cannot import a service, and the change notification re-reads them on every edit.
+## Service: log
+## Contract: this header, frozen; edit only with the user's approval
+## Scope: process
+## Import: shared/log.gd
+## The mod's only log sink: one line prefix, one debug gate, warnings and errors always on.
 
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
 const PERF_VIEW := preload("res://mods/unfplap/shared/perf_view.gd")
+## Every physical line carries it, so interleaved game output cannot continue a mod line.
+const PREFIX := "[unfplap] "
 
-## The game setting DEBUG LOGS: every line is silent with it off.
-static var debug_logs := false
-## The game setting PRINT PERF LOGS: needs `debug_logs` too.
+## The game setting ENABLE DEBUG: every debug line is silent while it is off.
+static var enabled := false
+## The game setting PRINT PERF LOGS: the perf gate needs `enabled` too.
 static var debug_perf := false
 ## The switch reads are injected by the entry; a shared file cannot import a service.
 static var debug_read := Callable()
@@ -26,8 +30,6 @@ static var runtime_count := Callable()
 static var mare_count := Callable()
 ## The idle (outside-act) debug perf probe; see `docs/perf.md`.
 static var _probe := _new_probe()
-## The line sink. Empty in game, where every line prints; a suite binds one to read its text.
-static var sink := Callable()
 ## The entry node: it parents the panel and nothing else.
 static var _host: Node = null
 ## The in-game perf panel, created on the first printed window.
@@ -60,27 +62,30 @@ static func detach() -> void:
 
 ## Re-read the two debug switches. A panel that lost either switch closes.
 static func apply_settings() -> void:
-	debug_logs = debug_read.is_valid() and bool(debug_read.call())
+	enabled = debug_read.is_valid() and bool(debug_read.call())
 	debug_perf = perf_read.is_valid() and bool(perf_read.call())
-	if not (debug_logs and debug_perf):
+	if not (enabled and debug_perf):
 		clear_panel()
 
 
-## Each line repeats the mod's id, so interleaved game output cannot claim a block's continuation
-## line.
-static func debug(text: String) -> void:
-	if not debug_logs:
+## One debug line: formatted and prefixed only while the gate is on.
+static func debug(message: String, args: Array = []) -> void:
+	if not enabled:
 		return
-	if sink.is_valid():
-		sink.call(text)
-		return
-	if text.contains("\n"):
-		print(("[unfplap] " + text).replace("\n", "\n[unfplap] "))
-	else:
-		print("[unfplap] " + text)
+	print(_line(message if args.is_empty() else message % args))
 
 
-## One entry per diagnostic action: identification first, then tab-indented rows.
+## A warning always reaches the log: it names a condition the player may have to act on.
+static func warning(message: String, args: Array = []) -> void:
+	push_warning(_line(message if args.is_empty() else message % args))
+
+
+## An error always reaches the log: the feature it names could not do its work.
+static func error(message: String, args: Array = []) -> void:
+	push_error(_line(message if args.is_empty() else message % args))
+
+
+## One diagnostic block: the title, then each non-empty row on its own indented line.
 static func block(title: String, rows: Array) -> void:
 	var text := title
 	for row: Variant in rows:
@@ -89,6 +94,13 @@ static func block(title: String, rows: Array) -> void:
 			continue
 		text += "\n\t" + line
 	debug(text)
+
+
+## The message with the mod's prefix on every physical line it spans.
+static func _line(text: String) -> String:
+	if not text.contains("\n"):
+		return PREFIX + text
+	return PREFIX + text.replace("\n", "\n" + PREFIX)
 
 
 ## Record one idle chunk. Cheap no-op with the probe off.
@@ -119,7 +131,7 @@ static func reset() -> void:
 
 ## One window from either probe, drawn in the corner panel. The text block stays the record.
 static func perf_block(entries: Array, info: Dictionary) -> void:
-	if not debug_logs or not debug_perf:
+	if not enabled or not debug_perf:
 		return
 	if not is_instance_valid(_panel) and is_instance_valid(_host):
 		_panel = PERF_VIEW.new()
@@ -137,12 +149,12 @@ static func clear_panel() -> void:
 
 ## Both debug switches on: an act's perf probe and the idle window read this once at a boundary.
 static func perf_on() -> bool:
-	return debug_logs and debug_perf
+	return enabled and debug_perf
 
 
 ## The idle probe runs only with both switches on and no act live.
 static func _probe_on() -> bool:
-	if not debug_logs or not debug_perf:
+	if not enabled or not debug_perf:
 		return false
 	return not (act_running.is_valid() and bool(act_running.call()))
 

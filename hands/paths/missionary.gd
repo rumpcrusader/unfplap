@@ -8,6 +8,7 @@ const HAND := preload("res://mods/unfplap/hands/palm.gd")
 
 const MISSIONARY_CARESS_LATERAL_M := 0.045
 const MISSIONARY_CARESS_PALM_ROLL_DEG := 30.0
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var _paths: Dictionary = {}
 var _last_world: Dictionary = {}
@@ -142,14 +143,14 @@ func _path_for(hand_side: String) -> Variant:
 		return null
 	_paths[key] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
-		_log("caress path side=%s path=%s anchors=%d build_ms=%.1f" % [hand_side,
+		LOG.debug("caress path side=%s path=%s anchors=%d build_ms=%.1f", [hand_side,
 			path_id, (path.get("anchors") as Array).size(),
 			float(Time.get_ticks_usec() - started) / 1000.0])
 		for note: Variant in (path.get("debug_notes") as Array):
-			_log("caress " + str(note))
+			LOG.debug("caress " + str(note))
 		var world: Array = path.call("skinned")
 		for anchor: Dictionary in world:
-			_log("caress anchor %s pos=%s normal=%s" % [anchor["id"],
+			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor["id"],
 				str(anchor["position"]), str(anchor["normal"])])
 	return path
 
@@ -199,6 +200,3 @@ static func missionary_palm_roll_deg(side: String) -> float:
 		else -MISSIONARY_CARESS_PALM_ROLL_DEG
 
 
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)

@@ -48,9 +48,6 @@ class Host extends RefCounted:
 	func is_heat() -> bool:
 		return heat
 
-	func log_text(_text: String) -> void:
-		pass
-
 
 func _initialize() -> void:
 	run.call_deferred()
@@ -70,7 +67,6 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 func run() -> void:
 	var host := Host.new()
 	var readiness := READINESS.new()
-	readiness.log = Callable(host, "log_text")
 	readiness.clock = Callable(host, "now")
 	readiness.state = Callable(host, "current_state")
 	readiness.on_climax = Callable(host, "on_climax")

@@ -10,6 +10,7 @@ const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 
 const WINKING_CUT_DEPTH := 0.07
 const WINKING_CUT_FILLED := 0.9
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D
 var host: Node
@@ -36,8 +37,6 @@ var _vulva_hug_mm_missionary := 0.0
 var _anal_hug_mm := 0.0
 var _anal_aim_mm := 0.0
 var _anal_scale := 1.0
-## The host debug sink, used by the grip readout. Empty in tests.
-var log := Callable()
 var _grip_log_ms := 0
 
 
@@ -382,13 +381,13 @@ func _measure_lip_radius() -> float:
 ## One grip readout per second: the world shaft radius, the mesh scale, the measured lip and the
 ## local hole target. This separates "the grip was told to open" from "the shader did not move".
 func _log_grip(shaft_radius: float, local: float, scale: float) -> void:
-	if not log.is_valid():
+	if not LOG.enabled:
 		return
 	var now := Time.get_ticks_msec()
 	if now - _grip_log_ms < 1000:
 		return
 	_grip_log_ms = now
-	log.call("anatomy grip shaft=%.4f scale=%.3f lip=%.4f hole=%.4f wide=%.4f" % [
+	LOG.debug("anatomy grip shaft=%.4f scale=%.3f lip=%.4f hole=%.4f wide=%.4f", [
 		shaft_radius, scale, _lip_radius, local, _wide])
 
 

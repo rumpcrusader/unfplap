@@ -141,11 +141,6 @@
       "signature": "func smack_presentation() -> Dictionary:"
     },
     {
-      "service": "hud",
-      "func": "bind",
-      "signature": "func bind(log_sink: Callable) -> void:"
-    },
-    {
       "service": "kiss",
       "func": "pose_changed",
       "signature": "func pose_changed(view: Variant) -> void:"

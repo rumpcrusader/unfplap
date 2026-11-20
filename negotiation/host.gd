@@ -191,7 +191,7 @@ func tick_watch() -> void:
 	if _watching:
 		_watching = false
 		adapter.call("unwatch_player")
-		LOG.debug("anon_watch disarmed reason=%s" % [
+		LOG.debug("anon_watch disarmed reason=%s", [
 			"act" if PONIES.act_running() else "locked"])
 
 
@@ -208,12 +208,12 @@ func disarm() -> void:
 ## intent; a normal line forms nothing and says nothing.
 func on_anon_line(text: String) -> void:
 	var line := text.strip_edges()
-	LOG.debug("anon_line received len=%d" % line.length())
+	LOG.debug("anon_line received len=%d", [line.length()])
 	if line.is_empty():
 		LOG.debug("anon_line skip reason=empty")
 		return
 	if line.length() > MAX_LINE:
-		LOG.debug("anon_line skip reason=too_long len=%d" % line.length())
+		LOG.debug("anon_line skip reason=too_long len=%d", [line.length()])
 		return
 	if not is_instance_valid(service) or bool(service.call("is_locked")):
 		LOG.debug("anon_line skip reason=locked")
@@ -227,15 +227,15 @@ func on_anon_line(text: String) -> void:
 		return
 	var runtime: Variant = PONIES.runtime_for(pony)
 	if not is_instance_valid(runtime) or _state_of(runtime) != 0:
-		LOG.debug("anon_line skip reason=runtime_state state=%s" % [
+		LOG.debug("anon_line skip reason=runtime_state state=%s", [
 			str(_state_of(runtime)) if is_instance_valid(runtime) else "none"])
 		return
 	if is_instance_valid(initiation) and initiation.has_method("cancel_approach"):
 		initiation.call("cancel_approach")
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
-	LOG.debug("anon_line -> negotiation id=%s" % [id if not id.is_empty() else str(pony.name)])
+	LOG.debug("anon_line -> negotiation id=%s", [id if not id.is_empty() else str(pony.name)])
 	var started := bool(service.call("begin_anon_offer", runtime, line))
-	LOG.debug("anon_line negotiation started=%s" % str(started))
+	LOG.debug("anon_line negotiation started=%s", [str(started)])
 
 
 ## A missing classifier means no answer; the Proactive service owns that node.

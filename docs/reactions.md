@@ -106,6 +106,7 @@ already set its own impulse before the facade scales it.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| shared | log | `shared/log.gd` | log sink and perf entry |
 
 ## Lifecycle
 

@@ -25,8 +25,6 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const BODY_SCALE_MIN := 0.25
 const BODY_SCALE_MAX := 4.0
 
-## The log sink. `LOG.debug()` carries the mod id and obeys the debug toggle.
-var _log: Callable = Callable()
 var _sources: Array[BODY_CHANGE_SOURCE] = []
 var _bindings: Array[BODY_BINDING] = []
 ## Presented body -> its form. The default form is cached here too, so a read never rebuilds it.
@@ -40,7 +38,6 @@ var _active_by_body: Dictionary = {}
 
 
 func setup() -> void:
-	_log = Callable(LOG, "debug")
 	CHANGE.on_changed(Callable(self, "apply_settings"))
 
 
@@ -513,7 +510,7 @@ func _notify_refresh(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 
 func _log_apply(body: Node3D, form: BODY_FORM.BodyForm, previous: BODY_FORM.BodyForm,
 		action: String) -> void:
-	if not _log.is_valid():
+	if not LOG.enabled:
 		return
 	var previous_id := "none"
 	if previous != null:
@@ -527,6 +524,6 @@ func _log_apply(body: Node3D, form: BODY_FORM.BodyForm, previous: BODY_FORM.Body
 			var binding_name := binding.binding_id().strip_edges()
 			names.append(binding_name if not binding_name.is_empty() else "?")
 	var bindings := ",".join(names) if not names.is_empty() else "-"
-	_log.call("body change body=%s pony=%s form=%s fit=%s rig=%s marker=%s scale=%.3f revision=%d prev=%s action=%s bindings=%s" % [
+	LOG.debug("body change body=%s pony=%s form=%s fit=%s rig=%s marker=%s scale=%.3f revision=%d prev=%s action=%s bindings=%s", [
 		str(body.name), form.pony_id, form_id, form.fit_id, rig_id, marker, form.body_scale,
 		form.revision, previous_id, action, bindings])

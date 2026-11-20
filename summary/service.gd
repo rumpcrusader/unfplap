@@ -11,6 +11,7 @@ const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The act values one summary records. The session fills one at each commit boundary; the
 ## readiness and dialogue facades supply the action counters and the spoken line.
@@ -52,9 +53,6 @@ class ActInput extends RefCounted:
 var summary: Dictionary = {}
 var summary_done := false
 var peak_recorded := false
-
-## Host boundary. A missing callable is a no-op.
-var log := Callable()
 
 
 ## Start a fresh act: clear the summary and the peak flag.
@@ -131,7 +129,7 @@ func commit_after_act(values: ActInput, readiness: READINESS, dialogue: DIALOGUE
 	if not is_instance_valid(WORLD.game):
 		return
 	for row: MEMORY.Witness in MEMORY.instance.witnesses(values.pony_id, pony_name, serial, pony):
-		_write_log("witness " + str(row.to_dict()))
+		LOG.debug("witness " + str(row.to_dict()))
 
 
 ## One summary per act. It is scored from the action counters, stored in the world's module
@@ -145,7 +143,7 @@ func commit_summary(real_act: bool, context: Dictionary) -> void:
 	var inputs: Dictionary = context.get("inputs", {})
 	var outcome: Dictionary = ACT_SUMMARY.evaluate(inputs, ACT_SUMMARY.rules())
 	if bool(outcome.get("skip", false)):
-		_write_log("summary skip reasons=%s seconds=%.1f thrusts=%d" % [
+		LOG.debug("summary skip reasons=%s seconds=%.1f thrusts=%d", [
 			_reasons(outcome), float(inputs.get("seconds", 0.0)),
 			int(inputs.get("thrusts", 0))])
 		return
@@ -170,7 +168,7 @@ func commit_summary(real_act: bool, context: Dictionary) -> void:
 	if raw_events is Array:
 		for item: Variant in raw_events:
 			events.append(str(item))
-	_write_log("summary grade=%s quality=%.2f checks=%d/%d reasons=%s tier=%s hurt=%d comfort=%d events=%s" % [
+	LOG.debug("summary grade=%s quality=%.2f checks=%d/%d reasons=%s tier=%s hurt=%d comfort=%d events=%s", [
 		str(outcome.get("grade", "neutral")), float(outcome.get("quality", 0.0)),
 		int(outcome.get("right", 0)), int(outcome.get("total", 0)),
 		_reasons(outcome), ACT_HISTORY.tier_name(row),
@@ -230,6 +228,3 @@ func _game_ok() -> bool:
 	return is_instance_valid(WORLD.game)
 
 
-func _write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

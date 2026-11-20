@@ -35,6 +35,7 @@ const TURN_YAW := "yaw"
 const PRESENT_MAX_SECONDS := 75.0
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: Variant
 var pony: Variant
@@ -109,7 +110,7 @@ func present_standing() -> bool:
 	_present_turn_last_yaw = pony.rotation.y
 	_present_turn_still = 0.0
 	_begin_present_turn()
-	_log("present standing target_yaw=%.2f turn=%s" % [_present_target_yaw, _present_turn_mode])
+	LOG.debug("present standing target_yaw=%.2f turn=%s", [_present_target_yaw, _present_turn_mode])
 	return true
 
 
@@ -168,7 +169,6 @@ func _attach_present_pose() -> void:
 	_present_glance_sign_set = false
 	# The ask and turn half-lid gives way to the affectionate face's own sculpted lids.
 	_apply_present_face()
-
 
 
 ## Put the game's own stepping turn in charge of her body, through the navigator's `face_point`.
@@ -259,7 +259,7 @@ func _finish_present_turn() -> void:
 	if is_instance_valid(pony):
 		_present_yaw = pony.rotation.y
 		_present_target_yaw = _present_yaw
-		_log("present standing turn settled mode=%s error=%.2f yaw=%.2f target=%.2f t=%.2f" % [
+		LOG.debug("present standing turn settled mode=%s error=%.2f yaw=%.2f target=%.2f t=%.2f", [
 			mode, error, _present_yaw, target, elapsed])
 	if not _presenting:
 		_attach_present_pose()
@@ -277,11 +277,10 @@ func _abort_present_turn(reason: String) -> void:
 	if is_instance_valid(pony):
 		yaw = pony.rotation.y
 		error = absf(wrapf(yaw - target, -PI, PI))
-	_log("present standing turn aborted mode=%s error=%.2f yaw=%.2f target=%.2f t=%.2f reason=%s" % [
+	LOG.debug("present standing turn aborted mode=%s error=%.2f yaw=%.2f target=%.2f t=%.2f reason=%s", [
 		mode, error, yaw, target, elapsed, reason])
 	_end_present_turn()
 	clear_presentation()
-
 
 
 func presentation_active() -> bool:
@@ -295,7 +294,6 @@ func presentation_settled() -> bool:
 	if not _presenting or _present_turning:
 		return false
 	return absf(wrapf(_present_yaw - _present_target_yaw, -PI, PI)) <= 0.05
-
 
 
 func clear_presentation() -> void:
@@ -317,7 +315,6 @@ func clear_presentation() -> void:
 	_end_presentation_hold()
 	_clear_present_face()
 	facts.restore_face()
-
 
 
 func _presentation_valid() -> bool:
@@ -403,7 +400,6 @@ func _presentation_turn_physics(delta: float) -> void:
 		_abort_present_turn("turn timeout error=%.2f" % error)
 
 
-
 func _presentation_turn_valid() -> bool:
 	if not _present_turning or int(facts.state) != STATE_IDLE:
 		return false
@@ -487,7 +483,6 @@ func _clear_present_face() -> void:
 		expressions.call("clear_dialogue")
 
 
-
 func _present_turn_process() -> void:
 	if not _present_turning or not is_instance_valid(pony):
 		return
@@ -499,7 +494,6 @@ func _present_turn_process() -> void:
 		TURN_FACE:
 			if pony.has_method("face_direction"):
 				pony.call("face_direction", _present_face_direction)
-
 
 
 func _presentation_process() -> void:
@@ -518,7 +512,6 @@ func _presentation_process() -> void:
 	_present_aim_eyes()
 	_sustain_present_blush()
 	_apply_present_face()
-
 
 
 func _present_glance_angles() -> Vector3:
@@ -545,7 +538,6 @@ func _present_glance_angles() -> Vector3:
 	return Vector3(clampf(pitch, -0.35, 0.55), clampf(yaw, -yaw_limit, yaw_limit), 0.0)
 
 
-
 func _present_aim_eyes() -> void:
 	if not is_instance_valid(pony):
 		return
@@ -556,8 +548,6 @@ func _present_aim_eyes() -> void:
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
 	eye_motion.set("target_world", target)
 	eye_motion.set("target_weight", 1.0)
-
-
 
 
 ## Read the live scene handles and pose config from the typed act view. The runtime rewrites
@@ -593,12 +583,9 @@ func physics(delta: float) -> void:
 	if not (_present_turning or _presenting):
 		return
 	if facts.clock() - _present_started >= PRESENT_MAX_SECONDS:
-		_log("present standing expired after %.0f s" % PRESENT_MAX_SECONDS)
+		LOG.debug("present standing expired after %.0f s", [PRESENT_MAX_SECONDS])
 		clear_presentation()
 		return
 	_presentation_physics(delta)
 
 
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)

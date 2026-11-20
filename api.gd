@@ -191,4 +191,4 @@ func _debug(text: String) -> void:
 
 
 func _warn(text: String) -> void:
-	push_warning("[unfplap api] " + text)
+	LOG.warning("api " + text)

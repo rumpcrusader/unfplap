@@ -71,7 +71,7 @@ static func attach(pony: Node) -> void:
 	if runtime.get_parent() != pony:
 		pony.add_child(runtime)
 	_runtimes[pony] = runtime
-	LOG.debug("runtime attached %s id=%s" % [
+	LOG.debug("runtime attached %s id=%s", [
 		str(pony.name), str(pony.get_meta("relationship_id", ""))])
 	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
 

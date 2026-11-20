@@ -26,7 +26,6 @@ var set_face_cb: Callable = Callable()
 var status_cb: Callable = Callable()
 var now_cb: Callable = Callable()
 var reaction_max_age_cb: Callable = Callable()
-var log_cb: Callable = Callable()
 ## The suspend/resume steps the handover executes in order. Each is one act operation; the act
 ## owns the order, this host owns how each reaches the live systems.
 var attach_to_world_cb: Callable = Callable()
@@ -184,11 +183,6 @@ func now() -> float:
 
 func reaction_max_age() -> float:
 	return float(_value(reaction_max_age_cb, 0.0))
-
-
-func log(text: String) -> void:
-	if log_cb.is_valid():
-		log_cb.call(text)
 
 
 ## Move the live runtime under the world before the old body is freed. The runtime owns the

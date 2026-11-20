@@ -102,7 +102,7 @@ func _exit_tree() -> void:
 ## A settings edit: the wheel closes when debug mode goes off, and the skeleton overlay follows its
 ## own switch.
 func apply_settings() -> void:
-	if not LOG.debug_logs:
+	if not LOG.enabled:
 		close_debug_wheel()
 	sync_skeleton_overlay()
 
@@ -148,7 +148,7 @@ func action_anon_offer() -> String:
 	if not is_instance_valid(runtime):
 		return "No runtime for %s." % str(target.name)
 	var formed := negotiation.begin_anon_offer(runtime, "I want you. Come here.")
-	LOG.debug("anon offer button: %s formed=%s" % [str(target.name), str(formed)])
+	LOG.debug("anon offer button: %s formed=%s", [str(target.name), str(formed)])
 	if formed:
 		return "Anon offer started for %s." % str(target.name)
 	return "Anon offer refused for %s." % str(target.name)
@@ -222,7 +222,7 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 	var next := CYCLE.NORMAL if current == phase_name else phase_name
 	CYCLE.set_override(_debug_pony_id(target), next)
 	var verb := "cleared" if next == CYCLE.NORMAL else "forced"
-	LOG.debug("cycle %s %s=%s" % [phase_name, str(target.name), next])
+	LOG.debug("cycle %s %s=%s", [phase_name, str(target.name), next])
 	return "%s %s for %s." % [phase_name.capitalize(), verb, str(target.name)]
 
 
@@ -251,7 +251,7 @@ func _debug_cycle_request(phase_name: String) -> String:
 		return "No runtime for %s." % str(target.name)
 	CYCLE.set_override(_debug_pony_id(target), phase_name)
 	var label := "automatic" if phase_name.is_empty() else phase_name
-	LOG.debug("cycle override %s=%s" % [str(target.name), label])
+	LOG.debug("cycle override %s=%s", [str(target.name), label])
 	return "Cycle for %s: %s." % [str(target.name), label]
 
 
@@ -287,7 +287,7 @@ func _form_change_request(true_form: bool, shape_id: String) -> String:
 			var result: Variant = session.request_form_change(true_form, shape_id)
 			if result is Dictionary:
 				var answer: Dictionary = result
-				LOG.debug("form change %s: %s" % [label, str(answer.get("reason", ""))])
+				LOG.debug("form change %s: %s", [label, str(answer.get("reason", ""))])
 				return str(answer.get("message", answer.get("reason", "")))
 			return "Form change refused."
 	var body := _form_body()
@@ -298,7 +298,7 @@ func _form_change_request(true_form: bool, shape_id: String) -> String:
 		started = body_change.request_own_form(body, BODY_CHANGE.Origin.PROVIDER)
 	else:
 		started = body_change.request_form(body, shape_id, BODY_CHANGE.Origin.PROVIDER)
-	LOG.debug("form change idle %s started=%s" % [label, str(started)])
+	LOG.debug("form change idle %s started=%s", [label, str(started)])
 	if started:
 		return "Changing to %s." % label
 	return "She cannot take that form now."
@@ -340,7 +340,7 @@ func _debug_offer_request(pose := "") -> String:
 		return "No mare under the crosshair."
 	var runtime: Node = _runtime_for(target)
 	if not is_instance_valid(runtime):
-		LOG.debug("request: no runtime for %s" % str(target.name))
+		LOG.debug("request: no runtime for %s", [str(target.name)])
 		return "No runtime for %s." % str(target.name)
 	var result: INITIATION.ForceResult = initiation.force(runtime, pose)
 	var started := result != null and result.ok
@@ -350,12 +350,12 @@ func _debug_offer_request(pose := "") -> String:
 	elif pose == CATALOG.STANDING:
 		label = " (standing)"
 	if started:
-		LOG.debug("request button: %s%s" % [str(target.name), label])
+		LOG.debug("request button: %s%s", [str(target.name), label])
 		return "Offer started for %s%s." % [str(target.name), label]
 	var reason := "unknown"
 	if result != null and not result.reject.is_empty():
 		reason = result.reject
-	LOG.debug("request button reject %s%s reason=%s" % [str(target.name), label, reason])
+	LOG.debug("request button reject %s%s reason=%s", [str(target.name), label, reason])
 	return "Offer rejected for %s%s: %s." % [str(target.name), label, reason]
 
 
@@ -368,7 +368,7 @@ func action_reload_pose() -> String:
 	else:
 		error = _reload_posed_base()
 	if not error.is_empty():
-		LOG.debug("pose reload failed: %s" % error)
+		LOG.debug("pose reload failed: %s", [error])
 		return "Pose reload failed: %s" % error
 	if is_instance_valid(act) and act.has_method("_sync_missionary_pose_config"):
 		act.call("_sync_missionary_pose_config")
@@ -395,7 +395,7 @@ func action_pose_test_variant() -> String:
 	var result: Variant = input.request_pose(target, "debug")
 	if result is Dictionary:
 		var code := str((result as Dictionary).get("code", ""))
-		LOG.debug("pose test variant %s -> %s: %s" % [active, target, code])
+		LOG.debug("pose test variant %s -> %s: %s", [active, target, code])
 		return "Pose %s: %s." % [target, code]
 	return "Pose request failed."
 
@@ -408,7 +408,7 @@ func action_facesit_variant() -> String:
 		return "No act."
 	var error := str(_session(act).face_sit_error())
 	if not error.is_empty():
-		LOG.debug("face-sit refused: %s" % error)
+		LOG.debug("face-sit refused: %s", [error])
 		return "Face-sit refused: %s." % error
 	var view: Variant = _session(act).pose_view()
 	var active := str(view.id) if view != null else ""
@@ -419,7 +419,7 @@ func action_facesit_variant() -> String:
 	var result: Variant = input.request_pose(target, "facesit")
 	if result is Dictionary:
 		var code := str((result as Dictionary).get("code", ""))
-		LOG.debug("pose face-sit %s -> %s: %s" % [active, target, code])
+		LOG.debug("pose face-sit %s -> %s: %s", [active, target, code])
 		return "Pose %s: %s." % [target, code]
 	return "Pose request failed."
 
@@ -569,7 +569,7 @@ func action_force_act_face() -> String:
 		shown = bool(session.force_act_face(face))
 	if not shown:
 		shown = ACT_FACE.react(target, face, 3.0)
-	LOG.debug("act face %s=%s shown=%s" % [str(target.name), face, str(shown)])
+	LOG.debug("act face %s=%s shown=%s", [str(target.name), face, str(shown)])
 	return "Act face %s: %s%s." % [str(target.name), face,
 		"" if shown else " (a spoken line owns the face)"]
 
@@ -582,7 +582,7 @@ func action_clear_cooldown() -> String:
 	var name := str(target.name)
 	if not is_instance_valid(initiation) or not initiation.clear_cooldown(target):
 		return "No request state for %s." % name
-	LOG.debug("request cooldown cleared %s" % name)
+	LOG.debug("request cooldown cleared %s", [name])
 	return "Offer cooldown cleared for %s." % name
 
 
@@ -600,7 +600,7 @@ func action_reset_act_history() -> String:
 	if not ACT_HISTORY.reset(section, id):
 		return "No act history for %s." % str(target.name)
 	ACT_HISTORY.save()
-	LOG.debug("act history reset for %s" % id)
+	LOG.debug("act history reset for %s", [id])
 	return "Act history cleared for %s." % str(target.name)
 
 
@@ -701,7 +701,7 @@ func action_give_stool() -> String:
 	var slot := int(store.call("grant", STOOL.ID, 1))
 	if slot < 0:
 		return "No room in the briefcase."
-	LOG.debug("stool granted slot=%d" % slot)
+	LOG.debug("stool granted slot=%d", [slot])
 	return "Footstool added."
 
 
@@ -838,7 +838,7 @@ func shape_source_active() -> bool:
 
 ## The persisted Anatomy debug flag is the only switch; the overlay is live only while debug is on.
 func sync_skeleton_overlay() -> void:
-	var enabled := LOG.debug_logs and SETTINGS.skeleton_overlay.get_bool()
+	var enabled := LOG.enabled and SETTINGS.skeleton_overlay.get_bool()
 	if enabled:
 		if not is_instance_valid(_debug_skeleton):
 			_debug_skeleton = DEBUG_SKELETON.new()
@@ -854,7 +854,7 @@ func sync_skeleton_overlay() -> void:
 ## debug off from creating the node at all.
 func debug_wheel_input(event: InputEvent) -> bool:
 	if not is_instance_valid(_debug_wheel):
-		if not LOG.debug_logs:
+		if not LOG.enabled:
 			return false
 		if not event is InputEventMouseButton:
 			return false
@@ -895,7 +895,7 @@ func debug_wheel_allowed() -> bool:
 	var tree := get_tree()
 	var viewport: Viewport = get_viewport() if tree != null else null
 	var focus: Control = viewport.gui_get_focus_owner() if viewport != null else null
-	return DEBUG_ACTIONS.wheel_gate(LOG.debug_logs,
+	return DEBUG_ACTIONS.wheel_gate(LOG.enabled,
 		DisplayServer.get_name() == "headless",
 		is_instance_valid(WORLD.player) and is_instance_valid(WORLD.game),
 		tree != null and tree.paused, WORLD.headset_view(), DisplayServer.window_is_focused(),
@@ -928,7 +928,7 @@ func debug_wheel_context() -> Dictionary:
 ## Run a wheel action and show its result as a toast, keeping the block in the log.
 func debug_wheel_action(name: String) -> String:
 	var result := DEBUG_ACTIONS.run_action(name, self)
-	LOG.debug("wheel %s: %s" % [name, result])
+	LOG.debug("wheel %s: %s", [name, result])
 	if not result.is_empty():
 		HUD.toast(result, 3.0)
 	return result

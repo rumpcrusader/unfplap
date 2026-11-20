@@ -47,6 +47,7 @@ const MESH_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part.scn"
 const ALBEDO_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part_albedo.png"
 const AO_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part_ao.png"
 const NRM_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part_nrm.png"
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The Anon body this part binds to. The facade resolves it; the part never reads the main node.
 var player_body: Node3D
@@ -123,7 +124,7 @@ func _ensure() -> bool:
 		return false
 	var scene: PackedScene = load(MESH_PATH)
 	if scene == null:
-		push_error("unfplap anatomy: cannot load " + MESH_PATH)
+		LOG.error("anatomy: cannot load " + MESH_PATH)
 		return false
 	var instance: Node = scene.instantiate()
 	var meshes: Array = instance.find_children("*", "MeshInstance3D", true, false)

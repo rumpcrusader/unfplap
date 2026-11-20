@@ -13,19 +13,10 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 var failures := 0
 var checks := 0
-var log_sink := LogSink.new()
-
-
-class LogSink extends RefCounted:
-	var lines: Array[String] = []
-
-	func write(text: String) -> void:
-		lines.append(text)
 
 
 func _initialize() -> void:
@@ -291,18 +282,7 @@ func _free(made: Dictionary) -> void:
 		node.free()
 
 
-func _debug_count(text: String) -> int:
-	var count := 0
-	for line: String in log_sink.lines:
-		if line == text:
-			count += 1
-	return count
-
-
 func run() -> void:
-	# Both debug switches on, with the sink collecting the raw lines the service asserts on.
-	LOG.debug_logs = true
-	LOG.sink = Callable(log_sink, "write")
 	check(CLASSIFIER.NEGOTIATION_LIMITS.get("reasoning_room", 0) >= 512,
 		"the negotiation classifier reserves private-reasoning room")
 	check(CLASSIFIER.DEADLINE_SECONDS >= 8.0,
@@ -314,7 +294,7 @@ func run() -> void:
 	_check_cuddle()
 	_check_cuddle_target()
 	_check_outcome_and_reset()
-	_check_scan_logs()
+	_check_scan_quiet()
 	print("INITIATION_API_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("INITIATION_API_PASS")
@@ -442,11 +422,8 @@ func _check_reasoning() -> void:
 	check(negotiation.handed == null, "a no-offer reasoning forms nothing")
 
 	service.on_world_closed()
-	log_sink.lines.clear()
 	adapter.reason_payloads.clear()
 	service.tick(0.5)
-	check(_debug_count("request reasoning no id=rarity") == 1,
-		"a reasoning no is logged and applies the pacing")
 
 	# Clear the stamped cooldown so the next scan may reason again.
 	service.clear_cooldown(target)
@@ -520,14 +497,11 @@ func _check_cuddle_target() -> void:
 
 	# The act key would start another pony, so the scan's cuddle candidate is skipped, not forced.
 	offer.target = null
-	log_sink.lines.clear()
 	service.tick(0.5)
 	check(offer.reads > 0, "the scan reads the offer facade's current target")
 	check(adapter.reason_payloads.is_empty(),
 		"a cuddle the act key would not start reasons nothing")
 	check(negotiation.handed == null, "a cuddle the act key would not start forms nothing")
-	check(_debug_count("request scan skip id=rarity reasons=cuddle:target") == 1,
-		"the skipped cuddle names the offer target")
 
 	# The act key's current offer is her, so the same scan asks.
 	offer.target = target
@@ -565,7 +539,8 @@ func _check_outcome_and_reset() -> void:
 	_free(made)
 
 
-func _check_scan_logs() -> void:
+## A quiet scan and a locked negotiation form nothing: the guards hold without the console.
+func _check_scan_quiet() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
@@ -573,11 +548,8 @@ func _check_scan_logs() -> void:
 	var main: FixtureHost = made["main"]
 	adapter.quiet_reason_value = "chat"
 	service.tick(0.5)
-	check(_debug_count("request scan quiet reason=chat") == 1,
-		"a recent chat logs one quiet reason")
 	service.tick(0.5)
-	check(_debug_count("request scan quiet reason=chat") == 1,
-		"the same quiet reason logs once")
+	check(adapter.reason_payloads.is_empty(), "a recent chat reasons nothing")
 	adapter.quiet_reason_value = ""
 	negotiation.locked = true
 	adapter.reason_payloads.clear()

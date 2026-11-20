@@ -12,6 +12,7 @@ const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const DEFAULTS := preload("res://mods/unfplap/shared/defaults_data.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## The shipped settings document: one value per declared setting and the global `default` profile.
@@ -316,7 +317,7 @@ static func _bind(s: Setting, n: String, path: String, label: String, help: Stri
 	s._get = func() -> Variant: return _setting_value(s)
 	s._set = func(value: Variant) -> void: _store(s, value)
 	if _by_path.has(path):
-		push_error("unfplap settings: duplicate path %s" % path)
+		LOG.error("settings: duplicate path %s", [path])
 	_registry.append(s)
 	_by_path[path] = s
 	_by_name[n] = s
@@ -2799,7 +2800,7 @@ static func _load() -> void:
 	# backup is the player's recovery path; hand-editing is still unsupported.
 	if not problem.is_empty():
 		var backup := _preserve_settings_file(path)
-		push_error("unfplap settings: %s %s; preserved as %s and starting from defaults" % [
+		LOG.error("settings: %s %s; preserved as %s and starting from defaults", [
 			path, problem, backup if not backup.is_empty() else "(could not preserve)"])
 		raw = {}
 	var before := raw.duplicate(true)
@@ -2856,12 +2857,10 @@ static func _log_migration(path: String, before: Dictionary, after: Dictionary,
 	if not schema_changed and total == 0:
 		return
 	if schema_changed:
-		print("unfplap settings: migrated %s (schema %d -> %d)" % [
+		LOG.warning("settings: migrated %s (schema %d -> %d)", [
 			path, file_version, SCHEMA_VERSION])
 	if total == 0:
 		return
-	print("unfplap settings: %d migration change%s (%d changed, %d added, %d removed)" % [
-		total, "" if total == 1 else "s", changed.size(), added.size(), removed.size()])
 	var rows: Array = []
 	for key: Variant in changed:
 		rows.append("changed %s: %s -> %s" % [str(key), _short_leaf(before, str(key)),
@@ -2870,10 +2869,14 @@ static func _log_migration(path: String, before: Dictionary, after: Dictionary,
 		rows.append("added %s: %s" % [str(key), _short_leaf(after, str(key))])
 	for key: Variant in removed:
 		rows.append("removed %s: %s" % [str(key), _short_leaf(before, str(key))])
+	var lines := PackedStringArray()
 	for index: int in mini(rows.size(), 12):
-		print("  " + str(rows[index]))
+		lines.append("\t" + str(rows[index]))
 	if rows.size() > 12:
-		print("  … %d more" % (rows.size() - 12))
+		lines.append("\t… %d more" % (rows.size() - 12))
+	LOG.warning("settings: %d migration change%s (%d changed, %d added, %d removed)\n%s", [
+		total, "" if total == 1 else "s", changed.size(), added.size(), removed.size(),
+		"\n".join(lines)])
 
 
 ## A leaf-path diff between two settings documents, sorted and excluding the schema version.
@@ -3006,9 +3009,9 @@ static func _shipped_fail(message: String) -> void:
 	if _shipped_error.is_empty():
 		_shipped_error = message
 	if _shipped_problems <= 8:
-		push_error("unfplap settings: " + message)
+		LOG.error("settings: " + message)
 	elif _shipped_problems == 9:
-		push_error("unfplap settings: further shipped-default problems suppressed")
+		LOG.error("settings: further shipped-default problems suppressed")
 
 
 ## The one block that is code rather than shipped data: the section state.
@@ -3302,9 +3305,9 @@ static func _archive_legacy_placement(path: String) -> void:
 	var source_global := ProjectSettings.globalize_path(path)
 	var target_global := ProjectSettings.globalize_path(target)
 	if DirAccess.rename_absolute(source_global, target_global) != OK:
-		push_warning("unfplap settings: could not archive %s" % path)
+		LOG.warning("settings: could not archive %s", [path])
 		return
-	print("unfplap settings: archived legacy placement file %s" % path)
+	LOG.warning("settings: archived legacy placement file %s", [path])
 
 
 ## The anatomy used to be a master switch plus an "only during acts" switch; both fold into the
@@ -3445,7 +3448,7 @@ static func _write(data: Dictionary) -> void:
 	generation += 1
 	placement_revision += 1
 	if not _write_file(_cache):
-		push_error("unfplap settings: the new value is live in memory but was not saved")
+		LOG.error("settings: the new value is live in memory but was not saved")
 
 
 ## The sparse player document: declared settings stay materialised, the global `default` profile
@@ -3486,7 +3489,7 @@ static func _write_file(data: Dictionary) -> bool:
 		temp_error = FileAccess.get_open_error()
 	var direct := FileAccess.open(path, FileAccess.WRITE)
 	if direct == null:
-		push_error("unfplap settings: could not write %s (temp error %d, direct error %d)" % [
+		LOG.error("settings: could not write %s (temp error %d, direct error %d)", [
 			path, temp_error, FileAccess.get_open_error()])
 		return false
 	direct.store_string(text)

@@ -19,6 +19,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -46,7 +47,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
 			and context.presentation.presentation_active() \
 			and not context.presentation.presentation_settled():
-		host.log("start blocked presentation turn pose=%s source=%s pony=%s" % [
+		LOG.debug("start blocked presentation turn pose=%s source=%s pony=%s", [
 			pose, act_source, host.pony_name()])
 		return false
 	session.reset_stool_state()
@@ -58,7 +59,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 			var stool_act: Variant = session.stool()
 			if stool_act == null or int(stool_act.call("case_count")) < stool_need \
 					or not bool(stool_act.call("take_items", stool_need)):
-				host.log("start blocked stool pose=%s pony=%s need=%d" % [
+				LOG.debug("start blocked stool pose=%s pony=%s need=%d", [
 					pose, host.pony_name(), stool_need])
 				return false
 	context.camera.begin_session(session.start_family())
@@ -186,7 +187,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 		session.sync_hud()
 		HUD.instance.show_act(context.facts)
 		HUD.instance.hide_prompt()
-	host.log("started pose=%s setup=%s source=%s pony=%s eye=%.2f" % [
+	LOG.debug("started pose=%s setup=%s source=%s pony=%s eye=%.2f", [
 		pose, setup_name, act_source, host.pony_name(), context.camera.camera_target_eye])
 	return true
 

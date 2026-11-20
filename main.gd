@@ -83,14 +83,14 @@ func _ready() -> void:
 	# by a suite, the way `runtime.gd` and `api.gd` reach the same node.
 	var mods: Variant = get_node_or_null("/root/Mods")
 	if mods == null:
-		push_error("unfplap: the Mods autoload is missing; the mod is not loading")
+		LOG.error("the Mods autoload is missing; the mod is not loading")
 		set_process(false)
 		return
 	# Load, migrate, merge and write the player file before any getter runs: the hot read path
 	# must never touch the disk. A broken shipped document is a build error, so log it once and
 	# install no hooks; the settings module already named the first offending path.
 	if not SETTINGS.load_settings():
-		push_error("unfplap: shipped settings data is invalid; the mod is not loading")
+		LOG.error("shipped settings data is invalid; the mod is not loading")
 		set_process(false)
 		return
 	add_to_group("pony_prompt_notes")
@@ -138,7 +138,6 @@ func _build_services() -> void:
 	# move and the one-time key notice, and it is the one sink the rest of the mod reaches
 	# through `HUD.toast()`.
 	hud = _add(HUD.new(), "UnfplapHUD")
-	hud.bind(Callable(LOG, "debug"))
 	HUD.instance = hud
 	hud.apply_settings()
 	offer = _add(OFFER.new(), "UnfplapOffer")
@@ -165,7 +164,6 @@ func _build_services() -> void:
 	stool.setup()
 	STOOL.instance = stool
 	stock_smack = _add(STOCK_SMACK.new(), "UnfplapStockSmack")
-	stock_smack.log = Callable(LOG, "debug")
 	body_change.wire(anatomy, pantyhose, stock_smack)
 	changelings = _add(CHANGELINGS.new(), "UnfplapChangelings")
 	changelings.setup()

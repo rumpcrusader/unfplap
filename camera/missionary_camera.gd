@@ -165,7 +165,7 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 	if (absf(look.x) > 0.00001 or absf(look.y) > 0.00001) \
 			and Time.get_ticks_msec() >= _free_look_log_at:
 		_free_look_log_at = Time.get_ticks_msec() + 2000
-		_log("free look eye=%s rotation=%s" % [str(at), str(look)])
+		LOG.debug("free look eye=%s rotation=%s", [str(at), str(look)])
 
 
 ## Blend the five authored transforms by lean; a pure axis extreme is exactly the pose lab's saved
@@ -223,7 +223,7 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	if (absf(look.x) > 0.00001 or absf(look.y) > 0.00001) \
 			and Time.get_ticks_msec() >= _free_look_log_at:
 		_free_look_log_at = Time.get_ticks_msec() + 2000
-		_log("free look shot=%s rotation=%s" % [str(at), str(look)])
+		LOG.debug("free look shot=%s rotation=%s", [str(at), str(look)])
 
 
 ## The authored camera transform at one lean extreme: position and direction exactly as the pose
@@ -308,7 +308,7 @@ func _shot_position(id: String, scale: float) -> Vector3:
 		return start
 	if not _missing_shots_logged.has(id):
 		_missing_shots_logged[id] = true
-		_log("missionary camera: shot '%s' is not authored; using the fixed bed-relative fallback" % id)
+		LOG.debug("missionary camera: shot '%s' is not authored; using the fixed bed-relative fallback", [id])
 	var back := _bed_back_direction()
 	var side := _bed_side_direction()
 	var at: Vector3
@@ -511,7 +511,7 @@ func _make_missionary_view() -> void:
 		_missionary_view.near = _missionary_source_near
 		_missionary_view.far = _missionary_source_far
 		_missionary_view.cull_mask = _missionary_source_cull
-		_log("missionary view setup source_fov=%.1f near=%.3f far=%.0f" % [
+		LOG.debug("missionary view setup source_fov=%.1f near=%.3f far=%.0f", [
 			source.fov, source.near, source.far])
 	pony.add_child(_missionary_view)
 	_missionary_view.current = true
@@ -528,7 +528,7 @@ func _free_missionary_view() -> void:
 		_missionary_prev_camera.far = _missionary_source_far
 		_missionary_prev_camera.cull_mask = _missionary_source_cull
 		_missionary_prev_camera.make_current()
-		_log("missionary view restore fov=%.1f near=%.3f far=%.0f" % [
+		LOG.debug("missionary view restore fov=%.1f near=%.3f far=%.0f", [
 			_missionary_prev_camera.fov, _missionary_prev_camera.near,
 			_missionary_prev_camera.far])
 	_missionary_prev_camera = null
@@ -619,7 +619,7 @@ func _restore_scene() -> void:
 	if is_instance_valid(_missionary_start_camera):
 		_missionary_start_camera.global_transform = delta * _missionary_start_camera_transform
 		_missionary_start_camera.make_current()
-	_log("missionary restore: bed_shift=%.2f scene restored camera=%s player=%s pony=%s" % [
+	LOG.debug("missionary restore: bed_shift=%.2f scene restored camera=%s player=%s pony=%s", [
 		bed_shift, str((delta * _missionary_start_camera_transform).origin),
 		str((delta * _missionary_start_player_transform).origin),
 		str((delta * _missionary_start_pony_transform).origin)])
@@ -627,7 +627,7 @@ func _restore_scene() -> void:
 
 ## One line at act start: the authored shot ends.
 func _log_shot_setup() -> void:
-	if not LOG.debug_logs:
+	if not LOG.enabled:
 		return
 	var scale := _missionary_body_scale()
 	var asset: Variant = facts.call_value(facts.authored_pose_asset) if facts != null else null
@@ -637,9 +637,6 @@ func _log_shot_setup() -> void:
 	var parts: Array[String] = []
 	for id: String in SHOT_IDS:
 		parts.append("%s=%s" % [id, str(_shot_position(id, scale))])
-	_log("missionary camera shots=%s %s" % [source, " ".join(parts)])
+	LOG.debug("missionary camera shots=%s %s", [source, " ".join(parts)])
 
 
-func _log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)

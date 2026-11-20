@@ -21,6 +21,7 @@ const ORAL_KISS_DB := -22.0
 const VOCAL_COOLDOWN_S := 3.0
 ## Her body's own vocal level under the spoken line.
 const VOCAL_DB := -34.0
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The active impact profile, from the pose view's `impact` (`missionary` or `standing`).
 ## `pose_changed()` sets it; the impact and withdraw calls read it instead of the pose id.
@@ -44,9 +45,6 @@ var _vocal_cooldown := 0.0
 var _voice_player: AudioStreamPlayer3D
 var _voice_volume_saved := 0.0
 var _text_only_voice := false
-
-## Host boundary. A missing callback is a no-op.
-var log := Callable()
 
 
 ## Name the act's pony, its stable id and the bed it plays on. Couch, sofa and cloth are the soft
@@ -156,11 +154,11 @@ func apply_voice_policy(mute: bool, pony_in: Node3D, id: String) -> void:
 		return
 	_voice_player = _find_voice_player(pony_in)
 	if not is_instance_valid(_voice_player):
-		write_log("voice text-only: no voice player pony=%s" % id)
+		LOG.debug("voice text-only: no voice player pony=%s", [id])
 		return
 	_voice_volume_saved = _voice_player.volume_db
 	_voice_player.volume_db = -80.0
-	write_log("voice text-only pony=%s %s" % [id, VOICE.describe(info)])
+	LOG.debug("voice text-only pony=%s %s", [id, VOICE.describe(info)])
 
 
 func restore_voice_policy() -> void:
@@ -482,6 +480,3 @@ static func next_index(count: int, last: int, roll: int) -> int:
 	return index
 
 
-func write_log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)

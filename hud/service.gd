@@ -70,8 +70,6 @@ var _captions_on_top := false
 var _act_state := STATE_IDLE
 ## The one "Dance Mod uses Y" note is shown once per world.
 var _dance_hint_shown := false
-## The act's debug logger. Invalid outside an act; the restore message is then dropped.
-var log := Callable()
 ## The act borrowed the game's quick-slot card: what it found, so it can be put back.
 var _inventory_hidden := false
 var _inventory_hud_saved := false
@@ -171,11 +169,6 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
-
-
-## Set by the entry: the act's debug logger. `HUD.instance` stays the entry's explicit one-liner.
-func bind(log_sink: Callable) -> void:
-	log = log_sink
 
 
 ## Refresh the two settings the HUD caches.
@@ -624,10 +617,9 @@ func set_inventory_hidden(hidden: bool) -> void:
 	if inventory.has_method("_place_hotbar"):
 		inventory.call("_place_hotbar")
 	_inventory_hidden = false
-	if log.is_valid():
-		log.call("inventory HUD restored hud_hidden=%s hotbar=%s layer=%s" % [
-			str(_inventory_hud_saved), str(_inventory_hotbar_visible),
-			str(_inventory_hud_layer_visible)])
+	LOG.debug("inventory HUD restored hud_hidden=%s hotbar=%s layer=%s", [
+		str(_inventory_hud_saved), str(_inventory_hotbar_visible),
+		str(_inventory_hud_layer_visible)])
 
 
 ## True while the act has the quick-slot card hidden. The idle safety check reads it.

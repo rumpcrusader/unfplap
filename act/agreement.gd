@@ -10,6 +10,7 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_START := preload("res://mods/unfplap/act/start.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The Agreement start's answer: a transient row or an unsettled presentation keeps waiting; a
 ## technical rollback is a start failure.
@@ -45,22 +46,22 @@ func start_agreement(handle: Variant, skip_presentation := false) -> int:
 	var verdict: Variant = context.gate.scene_only_verdict(pose, act_source, option.bed,
 		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
 	if verdict == null or not bool(verdict.hard_ok):
-		host.log("agreement start blocked pose=%s source=%s pony=%s reasons=%s" % [
+		LOG.debug("agreement start blocked pose=%s source=%s pony=%s reasons=%s", [
 			pose, act_source, host.pony_name(),
 			"none" if verdict == null else ",".join(verdict.reasons)])
 		return AGREEMENT_FAILED
 	if not bool(verdict.ok):
-		host.log("agreement start waiting pose=%s source=%s transient=%s" % [
+		LOG.debug("agreement start waiting pose=%s source=%s transient=%s", [
 			pose, act_source, ",".join(verdict.transient)])
 		return AGREEMENT_WAIT
 	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
 			and context.presentation.presentation_active() \
 			and not context.presentation.presentation_settled():
-		host.log("agreement start waiting pose=%s source=%s presentation" % [pose, act_source])
+		LOG.debug("agreement start waiting pose=%s source=%s presentation", [pose, act_source])
 		return AGREEMENT_WAIT
 	session.clear_aftercare()
 	var started := start.run(pose, option.bed, act_source, skip_presentation)
-	host.log("agreement start %s pose=%s source=%s" % [
+	LOG.debug("agreement start %s pose=%s source=%s", [
 		"started" if started else "failed", pose, act_source])
 	return AGREEMENT_STARTED if started else AGREEMENT_FAILED
 
@@ -111,11 +112,11 @@ func hint_stool() -> Dictionary:
 func start_hotkey(pose: String, bed_in: Variant, act_source: String,
 		skip_presentation := false) -> bool:
 	if not hotkey_ready(pose, act_source, bed_in):
-		host.log("hotkey blocked pose=%s source=%s pony=%s" % [
+		LOG.debug("hotkey blocked pose=%s source=%s pony=%s", [
 			pose, act_source, host.pony_name()])
 		return false
 	session.clear_aftercare()
 	var started := start.run(pose, bed_in, act_source, skip_presentation)
-	host.log("hotkey start %s pose=%s source=%s" % [
+	LOG.debug("hotkey start %s pose=%s source=%s", [
 		"started" if started else "failed", pose, act_source])
 	return started

@@ -349,6 +349,7 @@ selection and starts the swing.
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
+| shared | log | `shared/log.gd` | log sink and perf entry |
 
 ## Tests
 

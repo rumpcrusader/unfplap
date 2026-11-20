@@ -21,10 +21,10 @@ const WING_STANDING_SPREAD := 0.25
 const WING_AFTERGLOW_RETURN_SECONDS := 6.0
 const WING_FLUTTER_COOLDOWN_S := 1.80
 const WING_SWEEP_DEG := 10.0
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The typed act view: her node and the act clock. The perf/log hooks stay callbacks.
 var facts: Variant
-var log := Callable()
 
 var _winged := false
 var _wing_clock := 0.0
@@ -190,7 +190,7 @@ func begin_afterglow() -> void:
 	wings.set_process(false)
 	_wing_hold = false
 	_wing_hold_started = false
-	_log("wing afterglow return %.1fs from tuck=%.2f half=%.2f" % [
+	LOG.debug("wing afterglow return %.1fs from tuck=%.2f half=%.2f", [
 		WING_AFTERGLOW_RETURN_SECONDS, _wing_return_from_tuck, _wing_return_from_half])
 
 
@@ -213,7 +213,7 @@ func _wing_return_tick(delta: float) -> void:
 		_wing_return_done = true
 		# The wing node's own process finalizes the fold: hides the open meshes, shows folded.
 		_wing_return_node.set_process(true)
-		_log("wing afterglow return complete")
+		LOG.debug("wing afterglow return complete")
 
 
 func _ensure_wing_sweep(family: String) -> void:
@@ -231,7 +231,7 @@ func _ensure_wing_sweep(family: String) -> void:
 		skeleton.add_child(sweep)
 		sweep.call("setup", skeleton, WING_SWEEP_DEG)
 		_wing_sweep = sweep as SkeletonModifier3D
-		_log("wing sweep %.0f deg" % WING_SWEEP_DEG)
+		LOG.debug("wing sweep %.0f deg", [WING_SWEEP_DEG])
 	var last := skeleton.get_child_count() - 1
 	if _wing_sweep.get_index() != last:
 		skeleton.move_child(_wing_sweep, last)
@@ -242,11 +242,6 @@ func _clear_wing_sweep() -> void:
 	if is_instance_valid(_wing_sweep):
 		_wing_sweep.queue_free()
 	_wing_sweep = null
-
-
-func _log(text: String) -> void:
-	if log.is_valid():
-		log.call(text)
 
 
 ## The two flags the perf probe prints. The wing state is this controller's, not the node's.

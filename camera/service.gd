@@ -33,6 +33,7 @@ const STATE_IDLE := ACT_STATE.State.IDLE
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The typed act view. Presentation modules read it; the runtime refreshes it once per phase
 ## through `refresh_view()`.
@@ -275,8 +276,6 @@ func finish_act_shot() -> void:
 		standing_anon.reset_phase()
 
 
-
-
 ## Open the shot before the first camera frame; AnonPony and headset/VR never reach `begin_free()`.
 func open_shot() -> void:
 	camera_owned = true
@@ -332,7 +331,7 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 			or paused or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		if not lean_block_logged and int(facts.state) in [STATE_ACTIVE, STATE_CLIMAX]:
 			lean_block_logged = true
-			write_log("lean blocked: free=%s pony=%s headset=%s paused=%s mouse=%d" % [
+			LOG.debug("lean blocked: free=%s pony=%s headset=%s paused=%s mouse=%d", [
 				str(free_camera_active), str(facts.player_pony), str(facts.headset_view),
 				str(paused), Input.mouse_mode])
 		lean_idle(delta)
@@ -526,7 +525,7 @@ func start_lean_action(side: float) -> void:
 			standing_camera.call("hold_glance")
 		if hands != null:
 			hands.call("start_reach", shoulder)
-	write_log("action fire lean=%s side=%.2f kind=%s shoulder=%s" % [
+	LOG.debug("action fire lean=%s side=%.2f kind=%s shoulder=%s", [
 		lean_profile(), side, lean_action_kind, shoulder])
 
 
@@ -710,7 +709,7 @@ func tick_free_look() -> void:
 	free_look_was = active
 	free_look_yaw = 0.0
 	free_look_pitch = 0.0
-	write_log("free look %s" % ("on" if active else "off"))
+	LOG.debug("free look %s", [("on" if active else "off")])
 
 
 ## Recompute the shot for a presented body form. The old eye override is undone before the new
@@ -761,7 +760,7 @@ func apply_eye_override(family: String, player_pony: bool,
 	if absf(entrance.x) > 0.0001:
 		var moved := preset + entrance.x
 		target = minf(moved, maxf(base, preset)) if entrance.x > 0.0 else moved
-		write_log("eye line entrance preset=%.2f shift=%+.3f target=%.2f" % [
+		LOG.debug("eye line entrance preset=%.2f shift=%+.3f target=%.2f", [
 			preset, entrance.x, target])
 	if is_finite(her_eye):
 		# A fitted body (the princesses, a tall modded mare) can be taller than its size preset.
@@ -769,7 +768,7 @@ func apply_eye_override(family: String, player_pony: bool,
 		var raised := maxf(target, minf(base, her_eye))
 		if raised > target + 0.0001:
 			target = raised
-			write_log("eye line raised preset=%.2f her=%.2f target=%.2f" % [
+			LOG.debug("eye line raised preset=%.2f her=%.2f target=%.2f", [
 				preset, her_eye, target])
 	camera_target_eye = target
 	if absf(target - base) < 0.001:
@@ -787,7 +786,7 @@ func apply_eye_override(family: String, player_pony: bool,
 	body.set("_eye_height", target)
 	if body.has_method("_set_eye_y"):
 		body.call("_set_eye_y", target)
-	write_log("eye override standing base=%.2f target=%.2f" % [base, target])
+	LOG.debug("eye override standing base=%.2f target=%.2f", [base, target])
 
 
 func restore_eye_override() -> void:
@@ -844,7 +843,7 @@ func restore_look(family: String) -> void:
 				view.rotation.x = restore_pitch
 				view.rotation.z = 0.0
 	reset_lean_state()
-	write_log("look restored yaw=%.3f (captured %.3f) pitch=%.3f restore=%s" % [
+	LOG.debug("look restored yaw=%.3f (captured %.3f) pitch=%.3f restore=%s", [
 		yaw, restore_yaw, restore_pitch, str(look_restore_yaw)])
 
 
@@ -965,11 +964,6 @@ func settings_node() -> Node:
 func feature(name: String) -> bool:
 	var block: Variant = facts.features if facts != null else null
 	return bool((block as Dictionary).get(name, false)) if block is Dictionary else false
-
-
-func write_log(text: String) -> void:
-	if facts != null:
-		facts.write_log(text)
 
 
 ## The typed handles and reads the host-callback bindings use: the two pose cameras and the live

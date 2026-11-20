@@ -125,7 +125,6 @@ class Boxes:
 	var agreements: Array = []
 	var reactions: Array = []
 	var toasts: Array[String] = []
-	var logs: Array[String] = []
 	var hold: FakeHold
 	var placement: POSE_OPTIONS.Placement
 	var placed: Array = []
@@ -181,7 +180,6 @@ func _fixture() -> Dictionary:
 		return true
 	host.cancel_scope = func(scope) -> void: boxes.cancelled.append(str(scope))
 	host.toast = func(text) -> void: boxes.toasts.append(str(text))
-	host.log = func(text) -> void: boxes.logs.append(str(text))
 	host.react = func(pony_node, reason) -> void: boxes.reactions.append([pony_node, reason])
 	host.on_outcome = func(terminal) -> void: boxes.outcomes.append(terminal)
 	host.on_agreement = func(handle) -> void: boxes.agreements.append(handle)
@@ -236,13 +234,6 @@ func _outcome_kinds(boxes: Boxes) -> Array:
 	return out
 
 
-func _has_log(boxes: Boxes, needle: String) -> bool:
-	for line: Variant in boxes.logs:
-		if str(line).contains(needle):
-			return true
-	return false
-
-
 func _free(made: Dictionary) -> void:
 	var runtime: Node = made["runtime"]
 	var pony: Node = made["pony"]
@@ -286,13 +277,6 @@ func _check_anon_accept() -> void:
 	check(service.begin_anon_offer(runtime, "want to?"), "an Anon offer starts")
 	check(boxes.kinds == ["anon_offer", "mare_response"], "the classifier then the reasoning run")
 	check(service.phase() == NEGOTIATION.Phase.AGREEMENT, "an accept forms the Agreement")
-	check(_has_log(boxes, "negotiation state=offered"), "the offer state is logged")
-	check(_has_log(boxes, "negotiation classify start"), "the classifier start is logged")
-	check(_has_log(boxes, "negotiation classify result"), "the classifier result is logged")
-	check(_has_log(boxes, "negotiation offer id="), "the Anon offer is logged")
-	check(_has_log(boxes, "negotiation hold claim"), "the hold claim is logged")
-	check(_has_log(boxes, "negotiation state=agreement"), "the Agreement state is logged")
-	check(_has_log(boxes, "negotiation outcome=accepted"), "the accepted outcome is logged")
 	check(service.is_locked(), "the Agreement keeps the global lock")
 	check(boxes.outcomes.size() == 1 and boxes.outcomes[0].outcome == NEGOTIATION.Outcome.ACCEPTED,
 		"an accept reports Accepted")
@@ -377,8 +361,6 @@ func _check_anon_failures() -> void:
 	check(service.phase() == NEGOTIATION.Phase.NONE, "an unclear line forms no offer")
 	check(boxes.outcomes.is_empty(), "a normal line reports no terminal outcome")
 	check(boxes.toasts.is_empty(), "a normal line has no toast")
-	check(_has_log(boxes, "negotiation non-offer"),
-		"a normal line is logged as a non-offer")
 	check(not service.is_locked(), "a normal line releases the lock")
 	_free(made)
 

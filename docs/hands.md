@@ -348,9 +348,12 @@ selection and starts the swing.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/game.gd` | base-game hand and flank accessors |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
+| shared | hands_caress | `shared/hands_caress.gd` | typed caress and smack records |
 | shared | log | `shared/log.gd` | log sink |
+| shared | pose_view | `shared/pose_view.gd` | typed pose read model |
 
 ## Tests
 

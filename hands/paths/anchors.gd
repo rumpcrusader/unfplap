@@ -110,10 +110,10 @@ func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bo
 	var areas: Variant = data.get("areas", {})
 	if not areas is Dictionary:
 		return false
-	var body_surface: Variant = SURFACE.new()
+	var body_surface: SURFACE = SURFACE.new()
 	var body_source: Dictionary = {}
 	var body_sk: Skeleton3D = null
-	var head_surface: Variant = SURFACE.new()
+	var head_surface: SURFACE = SURFACE.new()
 	var head_source: Dictionary = {}
 	var head_sk: Skeleton3D = null
 	for slot_value: Variant in (order as Array):
@@ -131,7 +131,7 @@ func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bo
 		var roll := float((entry as Dictionary).get("roll", 1.0))
 		if region == "head":
 			if head_source.is_empty():
-				if not bool(head_surface.call("ensure", pony_node, "head")):
+				if not bool(head_surface.ensure(pony_node, "head")):
 					continue
 				head_source = head_surface.get("source")
 				head_sk = head_surface.get("skeleton")
@@ -144,7 +144,7 @@ func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bo
 			anchors.append(head_anchor)
 		else:
 			if body_source.is_empty():
-				if not bool(body_surface.call("ensure", pony_node, "torso")):
+				if not bool(body_surface.ensure(pony_node, "torso")):
 					continue
 				body_source = body_surface.get("source")
 				body_sk = body_surface.get("skeleton")
@@ -200,8 +200,8 @@ func build_single_area(pony_node: Variant, hand_side: String, area_name: String)
 	var region := str((entry as Dictionary).get("region", "head"))
 	var roll := float((entry as Dictionary).get("roll", 1.0))
 	single_mode = str((entry as Dictionary).get("mode", "palm"))
-	var head_surface: Variant = SURFACE.new()
-	if not bool(head_surface.call("ensure", pony_node, "head")):
+	var head_surface: SURFACE = SURFACE.new()
+	if not bool(head_surface.ensure(pony_node, "head")):
 		debug_notes.append("area %s: no head source" % area_name)
 		return false
 	var head_source: Dictionary = head_surface.get("source")
@@ -423,8 +423,8 @@ func _build_authored(pony: Variant, hand_side: String, path_id: String) -> Array
 	var side_data: Variant = data.get(hand_side)
 	if not side_data is Dictionary:
 		return []
-	var body_surface: Variant = SURFACE.new()
-	if not bool(body_surface.call("ensure", pony, "torso")):
+	var body_surface: SURFACE = SURFACE.new()
+	if not bool(body_surface.ensure(pony, "torso")):
 		return []
 	var body_source: Dictionary = body_surface.get("source")
 	var body_sk: Skeleton3D = body_surface.get("skeleton")
@@ -446,8 +446,8 @@ func _build_authored(pony: Variant, hand_side: String, path_id: String) -> Array
 		if not position.is_finite():
 			return []
 		if region == "head" and head_source.is_empty():
-			var head_surface: Variant = SURFACE.new()
-			if not bool(head_surface.call("ensure", pony, "head")):
+			var head_surface: SURFACE = SURFACE.new()
+			if not bool(head_surface.ensure(pony, "head")):
 				return []
 			head_source = head_surface.get("source")
 			head_sk = head_surface.get("skeleton")
@@ -536,11 +536,11 @@ func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
 	var body_right: Vector3 = pony.global_basis.x.normalized()
 	var hand_side_dir := body_right * side_sign
 	var out: Array = []
-	var body_surface: Variant = SURFACE.new()
-	if not bool(body_surface.call("ensure", pony, "torso")):
+	var body_surface: SURFACE = SURFACE.new()
+	if not bool(body_surface.ensure(pony, "torso")):
 		debug_notes.append("source body missing")
 		return out
-	body_surface.call("update_pose", true)
+	body_surface.update_pose(true)
 	var body_source: Dictionary = body_surface.get("source")
 	debug_notes.append("source body verts=%d idx=%d" % [
 		(body_source.get("vertices", []) as Array).size(),
@@ -572,11 +572,11 @@ func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
 		if head_bone < 0:
 			debug_notes.append("anchor cheek miss: no head bone")
 		else:
-			var head_surface: Variant = SURFACE.new()
-			if not bool(head_surface.call("ensure", pony, "head")):
+			var head_surface: SURFACE = SURFACE.new()
+			if not bool(head_surface.ensure(pony, "head")):
 				debug_notes.append("source head missing")
 			else:
-				head_surface.call("update_pose", true)
+				head_surface.update_pose(true)
 				var head_source: Dictionary = head_surface.get("source")
 				debug_notes.append("source head verts=%d idx=%d" % [
 					(head_source.get("vertices", []) as Array).size(),
@@ -592,13 +592,13 @@ func _build_anchors_camera(pony: Variant, body: Dictionary, head: Dictionary,
 	return out
 
 
-func _posed_ray_anchor(surface: Variant, camera: Vector3, inside_world: Vector3) -> Dictionary:
-	var hit: Variant = surface.call("ray", camera, inside_world)
-	if not hit is Dictionary or (hit as Dictionary).is_empty():
+func _posed_ray_anchor(surface: SURFACE, camera: Vector3, inside_world: Vector3) -> Dictionary:
+	var hit: Dictionary = surface.ray(camera, inside_world)
+	if hit.is_empty():
 		return {}
 	var source: Dictionary = surface.get("source")
 	var indices: PackedInt32Array = source.get("indices", PackedInt32Array())
-	var face := int((hit as Dictionary).get("face_index", -1)) * 3
+	var face := int(hit.get("face_index", -1)) * 3
 	if face < 0 or face + 2 >= indices.size():
 		return {}
 	var posed_faces: PackedVector3Array = surface.get("faces")
@@ -676,8 +676,8 @@ func _build_anchors_rest(pony: Variant, body: Dictionary, head: Dictionary,
 	var out: Array = []
 	var body_source: Dictionary = {}
 	var body_tri: TriangleMesh = null
-	var body_surface: Variant = SURFACE.new()
-	if bool(body_surface.call("ensure", pony, "torso")):
+	var body_surface: SURFACE = SURFACE.new()
+	if bool(body_surface.ensure(pony, "torso")):
 		body_source = body_surface.get("source")
 		debug_notes.append("source body verts=%d idx=%d" % [
 			(body_source.get("vertices", []) as Array).size(),
@@ -752,8 +752,8 @@ func _build_anchors_rest(pony: Variant, body: Dictionary, head: Dictionary,
 		if head_t == null:
 			debug_notes.append("anchor cheek miss: no head bone")
 		else:
-			var head_surface: Variant = SURFACE.new()
-			if not bool(head_surface.call("ensure", pony, "head")):
+			var head_surface: SURFACE = SURFACE.new()
+			if not bool(head_surface.ensure(pony, "head")):
 				debug_notes.append("source head missing")
 			else:
 				var head_source: Dictionary = head_surface.get("source")

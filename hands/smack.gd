@@ -4,6 +4,8 @@ extends RefCounted
 
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/smack_cues.gd")
 const SESSION := preload("res://mods/unfplap/hands/session.gd")
+const CAESS := preload("res://mods/unfplap/shared/hands_caress.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const SMACK_COOLDOWN_MS := 200
 const SMACK_SWING_SECONDS := 0.20
@@ -14,7 +16,6 @@ const SMACK_RAISE_MAX_S := 0.30
 const SMACK_RETURN_SPEED_M_S := 6.0
 const SMACK_STRIKE_MIN_S := 0.06
 const SMACK_STRIKE_MAX_S := 0.20
-const SMACK_PITCH_DEG := 12.0
 const SMACK_RAISE_BACK_M := 0.05
 const SMACK_ARC_M := 0.06
 const SMACK_SWING_DOWN_RATIO := 0.55
@@ -188,7 +189,7 @@ func tick(_delta: float) -> void:
 		/ (SMACK_SWING_SECONDS * 1000.0), 0.0, 1.0)
 	var arc := sin(phase * PI)
 	var frame := _from.interpolate_with(_to, arc)
-	driver.call("set_hold_target", _side, frame, "rub")
+	GAME.set_hold_target(driver, _side, frame, "rub")
 	if not _impact_done and phase >= SMACK_CONTACT_PHASE:
 		_impact_done = true
 		_impact()
@@ -233,22 +234,22 @@ func _phase_tick(driver: Node) -> void:
 		SMACK_PHASE_RAISE:
 			var t := clampf(elapsed / maxf(_raise_seconds, 0.001), 0.0, 1.0)
 			var frame := raise_blend(_from, _raised, _back_dir(), t)
-			driver.call("set_hold_target", _side, frame, "rub")
+			GAME.set_hold_target(driver, _side, frame, "rub")
 			if t >= 1.0:
 				_phase = SMACK_PHASE_STRIKE
 				_phase_started = now
 		SMACK_PHASE_STRIKE:
 			var t := clampf(elapsed / maxf(_strike_seconds, 0.001), 0.0, 1.0)
 			var frame := strike_blend(_raised, _contact, t)
-			driver.call("set_hold_target", _side, frame, "rub")
+			GAME.set_hold_target(driver, _side, frame, "rub")
 			if t >= 1.0:
-				driver.call("set_hold_target", _side, _contact, "rub")
+				GAME.set_hold_target(driver, _side, _contact, "rub")
 				_impact()
 				_impact_done = true
 				_phase = SMACK_PHASE_CONTACT
 				_phase_started = now
 		SMACK_PHASE_CONTACT:
-			driver.call("set_hold_target", _side, _contact, "rub")
+			GAME.set_hold_target(driver, _side, _contact, "rub")
 			if elapsed >= SMACK_CONTACT_HOLD_SECONDS:
 				_phase = SMACK_PHASE_RECOVER
 				_phase_started = now
@@ -259,7 +260,7 @@ func _phase_tick(driver: Node) -> void:
 				if _keep_caress() else SMACK_REST_RETURN_SECONDS
 			var t := clampf(elapsed / maxf(duration, 0.001), 0.0, 1.0)
 			var frame := recover_blend(_contact, target, t)
-			driver.call("set_hold_target", _side, frame, "rub")
+			GAME.set_hold_target(driver, _side, frame, "rub")
 			if t >= 1.0:
 				_finish(driver)
 
@@ -283,7 +284,7 @@ func _finish(driver: Node) -> void:
 	if _keep_caress():
 		hand.caress_finish_keep(caress_side)
 	elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
-		driver.call("clear_hold_target", _side)
+		GAME.clear_hold_target(driver, _side)
 	_active = false
 	_side = ""
 	_at = Vector3.INF
@@ -300,12 +301,12 @@ func _end_swing() -> void:
 		if bool(hand.caress_active(caress_side)):
 			var from := _contact if _phase != SMACK_PHASE_NONE else _to
 			if is_instance_valid(driver) and driver.has_method("hand_frame"):
-				var current: Variant = driver.call("hand_frame", _side)
-				if current is Transform3D and (current as Transform3D).is_finite():
+				var current := GAME.hand_frame(driver, _side)
+				if current.is_finite():
 					from = current
 			hand.caress_begin_return(caress_side, from)
 		elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
-			driver.call("clear_hold_target", _side)
+			GAME.clear_hold_target(driver, _side)
 	_active = false
 	_side = ""
 	_at = Vector3.INF
@@ -329,7 +330,7 @@ func _impact_at(index: int, at: Vector3) -> void:
 	_install_sound()
 	var pony: Variant = hand.smack_pony() if is_instance_valid(hand) else null
 	if not is_instance_valid(pony) or not pony.has_signal("physical_reaction"):
-		flank.call("impact", index, at, SMACK_IMPACT_STRENGTH)
+		GAME.flank_impact(flank, index, at, SMACK_IMPACT_STRENGTH)
 		_notify_jiggle()
 		return
 	var sig: Signal = pony.physical_reaction
@@ -339,7 +340,7 @@ func _impact_at(index: int, at: Vector3) -> void:
 		var callable: Variant = entry.get("callable")
 		if callable is Callable and sig.is_connected(callable):
 			sig.disconnect(callable)
-	flank.call("impact", index, at, SMACK_IMPACT_STRENGTH)
+	GAME.flank_impact(flank, index, at, SMACK_IMPACT_STRENGTH)
 	for link: Variant in links:
 		var entry: Dictionary = link
 		var callable: Variant = entry.get("callable")
@@ -370,26 +371,24 @@ func _back_dir() -> Vector3:
 	return back.normalized()
 
 
-func _setting(name: String, fallback: float) -> float:
-	var cfg: Dictionary = hand.smack_presentation() if is_instance_valid(hand) else {}
-	var smack: Variant = cfg.get("smack", {})
-	return float((smack as Dictionary).get(name, fallback)) if smack is Dictionary else fallback
+func _presentation() -> CAESS.SmackPresentation:
+	return hand.smack_presentation() if is_instance_valid(hand) else CAESS.SmackPresentation.new()
 
 
 func _raise_m() -> float:
-	return maxf(0.0, _setting("raise_m", 0.30)) * float(hand.smack_body_scale())
+	return maxf(0.0, _presentation().raise_m) * float(hand.smack_body_scale())
 
 
 func _pitch_deg() -> float:
-	return _setting("pitch_deg", SMACK_PITCH_DEG)
+	return _presentation().pitch_deg
 
 
 func _raise_speed() -> float:
-	return maxf(0.05, _setting("raise_speed", SMACK_RAISE_SPEED_M_S))
+	return maxf(0.05, _presentation().raise_speed)
 
 
 func _return_speed() -> float:
-	return maxf(0.05, _setting("return_speed", SMACK_RETURN_SPEED_M_S))
+	return maxf(0.05, _presentation().return_speed)
 
 
 func _sound_player() -> AudioStreamPlayer3D:

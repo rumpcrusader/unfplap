@@ -7,6 +7,7 @@ const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const ARM := preload("res://mods/unfplap/shared/hands_reach_plan.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SYSTEM := preload("res://mods/unfplap/hands/placement.gd")
+const PATH_BASE := preload("res://mods/unfplap/hands/path_base.gd")
 const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
 const ORAL := preload("res://mods/unfplap/hands/paths/oral.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
@@ -32,7 +33,7 @@ class NodePony extends Node3D:
 	var body_scale := 1.0
 
 
-class FixedPath extends RefCounted:
+class FixedPath extends PATH_BASE:
 	var point := Vector3.ZERO
 	var normal := Vector3.UP
 	var calls := 0

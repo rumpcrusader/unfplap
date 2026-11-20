@@ -37,7 +37,7 @@ func _precise_candidates(hand_side: String, context: Dictionary) -> Array:
 	var path: Variant = _path_for(hand_side)
 	if path == null:
 		return []
-	var world: Array = path.call("skinned")
+	var world: Array = path.skinned()
 	if world.size() < 3:
 		return []
 	_last_world[hand_side] = world
@@ -49,7 +49,7 @@ func _precise_candidates(hand_side: String, context: Dictionary) -> Array:
 	var body_right: Vector3 = pony.global_basis.x.normalized()
 	var body_axis := _body_axis(skeleton)
 	var length := PATH.path_length(world)
-	var u_wanted: float = PATH.u_for(lean, 0.0, float(path.get("belly_u")))
+	var u_wanted: float = PATH.u_for(lean, 0.0, path.belly_u)
 	var oval: Variant = context.get("oval", Vector2(0.01, 0.02))
 	var radii: Vector2 = oval if oval is Vector2 else Vector2(0.01, 0.02)
 	var hover := float(context.get("hover", 0.0))
@@ -126,29 +126,29 @@ func _precise_candidate(sample: Dictionary, hand_side: String, scale: float,
 	}
 
 
-func _path_for(hand_side: String) -> Variant:
+func _path_for(hand_side: String) -> PATH:
 	var path_id := str(SETTINGS.path_id.get_choice())
 	var pony_id: int = int(pony.get_instance_id()) if is_instance_valid(pony) else 0
 	if pony_id != _path_pony_id:
 		_paths.clear()
 		_path_pony_id = pony_id
 	var key := hand_side + "|" + path_id
-	var path: Variant = _paths.get(key)
-	if path != null and bool(path.get("valid")):
+	var path: PATH = _paths.get(key)
+	if path != null and path.valid:
 		return path
 	PERF.begin("caress_path")
 	path = PATH.new()
-	var built := bool(path.call("build", pony, hand_side, _camera_position(), path_id))
+	var built := path.build(pony, hand_side, _camera_position(), path_id)
 	PERF.end("caress_path")
 	if not built:
 		return null
 	_paths[key] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
 		LOG.debug("caress path side=%s path=%s anchors=%d", [hand_side,
-			path_id, (path.get("anchors") as Array).size()])
-		for note: Variant in (path.get("debug_notes") as Array):
+			path_id, path.anchors.size()])
+		for note: Variant in path.debug_notes:
 			LOG.debug("caress %s", [note])
-		var world: Array = path.call("skinned")
+		var world: Array = path.skinned()
 		for anchor: Dictionary in world:
 			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor["id"],
 				str(anchor["position"]), str(anchor["normal"])])

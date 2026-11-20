@@ -275,20 +275,18 @@ func run() -> void:
 		Vector3.BACK, Vector3.BACK, Vector3.BACK,
 		Vector3.BACK, Vector3.BACK, Vector3.BACK,
 	])
-	var flank_hit: Dictionary = HANDS.closest_flank_hit(
+	var flank_hit: Variant = HANDS.closest_flank_hit(
 		quad_faces, quad_normals, Vector3(0.5, 0.5, 1.0))
-	var flank_point: Vector3 = flank_hit.get("point", Vector3.INF)
-	var flank_normal: Vector3 = flank_hit.get("normal", Vector3.ZERO)
-	check(near(float(flank_hit.get("distance", -1.0)), 1.0), "closest flank distance")
-	check(flank_point.is_equal_approx(Vector3(0.5, 0.5, 0.0)), "closest flank point")
-	check(flank_normal.dot(Vector3.BACK) > 0.99, "closest flank normal")
-	var edge_hit: Dictionary = HANDS.closest_flank_hit(
+	check(flank_hit.hit, "a posed flank face is hit")
+	check(near(flank_hit.distance, 1.0), "closest flank distance")
+	check(flank_hit.point.is_equal_approx(Vector3(0.5, 0.5, 0.0)), "closest flank point")
+	check(flank_hit.normal.dot(Vector3.BACK) > 0.99, "closest flank normal")
+	var edge_hit: Variant = HANDS.closest_flank_hit(
 		quad_faces, quad_normals, Vector3(-1.0, 0.5, 0.0))
-	var edge_point: Vector3 = edge_hit.get("point", Vector3.INF)
-	check(edge_point.is_equal_approx(Vector3(0.0, 0.5, 0.0)),
+	check(edge_hit.point.is_equal_approx(Vector3(0.0, 0.5, 0.0)),
 		"closest flank clamps outside the patch")
-	check(HANDS.closest_flank_hit(PackedVector3Array(), PackedVector3Array(),
-		Vector3.ZERO).is_empty(), "empty flank patch has no hit")
+	check(not HANDS.closest_flank_hit(PackedVector3Array(), PackedVector3Array(),
+		Vector3.ZERO).hit, "empty flank patch has no hit")
 
 	check(near(MOTION.lean_distance(1.0), 0.24), "forward lean distance")
 	check(near(MOTION.lean_distance(-1.0), 0.0), "backward lean has no travel")
@@ -358,14 +356,14 @@ func run() -> void:
 	check(near(HANDS.caress_phase_step(0.5, false, 0.25), 0.5),
 		"caress phase holds while movement is off")
 	check(near(HANDS.CAESS_TOUCH_SECONDS, 5.0), "a caress action is five seconds of contact")
-	var short := HANDS.caress_touch_step(0.0, true, 4.9)
-	check(near(float(short[0]), 4.9) and int(short[1]) == 0, "a short caress scores nothing")
-	var full := HANDS.caress_touch_step(float(short[0]), true, 0.1)
-	check(near(float(full[0]), 0.0) and int(full[1]) == 1, "five seconds of caress score once")
-	var long := HANDS.caress_touch_step(1.0, true, 10.0)
-	check(int(long[1]) == 2 and near(float(long[0]), 1.0), "ten more seconds score twice")
-	var stopped := HANDS.caress_touch_step(3.0, false, 2.0)
-	check(near(float(stopped[0]), 0.0) and int(stopped[1]) == 0,
+	var short: Variant = HANDS.caress_touch_step(0.0, true, 4.9)
+	check(near(short.seconds, 4.9) and short.events == 0, "a short caress scores nothing")
+	var full: Variant = HANDS.caress_touch_step(short.seconds, true, 0.1)
+	check(near(full.seconds, 0.0) and full.events == 1, "five seconds of caress score once")
+	var long: Variant = HANDS.caress_touch_step(1.0, true, 10.0)
+	check(long.events == 2 and near(long.seconds, 1.0), "ten more seconds score twice")
+	var stopped: Variant = HANDS.caress_touch_step(3.0, false, 2.0)
+	check(near(stopped.seconds, 0.0) and stopped.events == 0,
 		"a stopped caress keeps no partial credit")
 	check(near(HANDS.palm_clearance_for(0.66), 0.0132), "Canon palm clearance scales down")
 	check(near(HANDS.palm_clearance_for(1.10), 0.022), "Hoers palm clearance scales up")
@@ -378,11 +376,14 @@ func run() -> void:
 	check(near(rad_to_deg(capped.angle_to(Vector3.UP)), 10.0), "normal rate caps a large turn")
 	check(HAND.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, PI).is_equal_approx(Vector3.RIGHT),
 		"normal rate reaches the target")
-	var canon_caress: Dictionary = HANDS.caress_profile_for("canon")
-	var mounting_caress: Dictionary = HANDS.caress_profile_for("mounting")
-	check(float(canon_caress["up"]) < float(mounting_caress["up"]), "Canon caress sits lower")
-	check(near(float(mounting_caress["out"]) * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
-	check(HANDS.caress_profile_for("") == HANDS.caress_profile_for("mounting"),
+	var canon_caress: Variant = HANDS.caress_profile_for("canon")
+	var mounting_caress: Variant = HANDS.caress_profile_for("mounting")
+	check(canon_caress.up < mounting_caress.up, "Canon caress sits lower")
+	check(near(mounting_caress.out * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
+	var fallback_caress: Variant = HANDS.caress_profile_for("")
+	check(near(fallback_caress.up, mounting_caress.up)
+		and near(fallback_caress.back, mounting_caress.back)
+		and near(fallback_caress.out, mounting_caress.out),
 		"unknown size falls back to JRHNBR caress")
 	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_PALM_ROLL_DEG, 30.0),
 		"missionary caress rolls the palm 30 degrees")

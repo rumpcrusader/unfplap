@@ -51,36 +51,6 @@
       "signature": "func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:"
     },
     {
-      "service": "hands",
-      "func": "caress_profile_for",
-      "signature": "static func caress_profile_for(size_name: String) -> Dictionary:"
-    },
-    {
-      "service": "hands",
-      "func": "caress_touch_step",
-      "signature": "static func caress_touch_step(seconds: float, active: bool, delta: float) -> Array:"
-    },
-    {
-      "service": "hands",
-      "func": "closest_flank_hit",
-      "signature": "static func closest_flank_hit(faces: PackedVector3Array, normals: PackedVector3Array, point: Vector3) -> Dictionary:"
-    },
-    {
-      "service": "hands",
-      "func": "pose_changed",
-      "signature": "func pose_changed(view: Variant) -> void:"
-    },
-    {
-      "service": "hands",
-      "func": "smack_pony",
-      "signature": "func smack_pony() -> Variant:"
-    },
-    {
-      "service": "hands",
-      "func": "smack_presentation",
-      "signature": "func smack_presentation() -> Dictionary:"
-    },
-    {
       "service": "kiss",
       "func": "pose_changed",
       "signature": "func pose_changed(view: Variant) -> void:"

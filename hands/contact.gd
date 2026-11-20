@@ -2,6 +2,8 @@ extends RefCounted
 ## Coat queries shared by every caress mode. This module knows the pony's body, the flank patch
 ## and the touch hulls, but nothing about poses, paths or palms.
 
+const GAME := preload("res://mods/unfplap/world/game.gd")
+
 
 ## PonyTouchBody follows the game's own hands, which the missionary act parks; a stale hull puts
 ## the palm at an old height, so refresh the rig first. A game without the sync is left alone.
@@ -21,7 +23,7 @@ static func sync_touch(pony: Variant) -> void:
 	# that moves up to the cheek sees the act's live pose, not stale standing hulls.
 	for rig in (rigs as Array).size():
 		if is_instance_valid((rigs as Array)[rig]):
-			touch.call("_unprofiled_sync", rig, true)
+			GAME.touch_sync(touch, rig)
 
 
 static func region_ignored(region: String, ignore: Array) -> bool:
@@ -55,7 +57,7 @@ static func nearest_touch(pony: Variant, point: Vector3, ignore: Array,
 	var touch: Variant = pony.get("touch_body") if is_instance_valid(pony) else null
 	if touch == null or not touch.has_method("nearest"):
 		return {}
-	var near: Dictionary = touch.call("nearest", point)
+	var near := GAME._touch_nearest(touch, point)
 	if ignore.is_empty() and allowed.is_empty():
 		return near
 	var entry: Variant = near.get("entry")
@@ -119,9 +121,9 @@ static func contact(pony: Variant, point: Vector3, outward_hint: Vector3,
 				or (bounds as AABB).grow(reach + 0.02).has_point(local_point)
 			if near_flank:
 				if surface.has_method("update_pose") and sk is Skeleton3D:
-					surface.call("update_pose", sk, frame)
+					GAME.flank_surface_update(surface, sk, frame)
 				var local_palm: Vector3 = ((frame as Transform3D).basis.inverse() * -outward).normalized()
-				var hit: Dictionary = surface.call("contact", local_point, local_point, local_palm, reach)
+				var hit := GAME._flank_surface_contact(surface, local_point, local_palm, reach)
 				var hit_local: Variant = hit.get("position")
 				var normal_local: Variant = hit.get("normal")
 				if hit_local is Vector3 and normal_local is Vector3:

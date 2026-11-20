@@ -116,38 +116,6 @@
       "count": 6
     },
     {
-      "file": "hands/contact.gd",
-      "count": 4
-    },
-    {
-      "file": "hands/paths/anchors.gd",
-      "count": 12
-    },
-    {
-      "file": "hands/paths/missionary.gd",
-      "count": 3
-    },
-    {
-      "file": "hands/paths/oral.gd",
-      "count": 3
-    },
-    {
-      "file": "hands/paths/standing.gd",
-      "count": 3
-    },
-    {
-      "file": "hands/placement.gd",
-      "count": 10
-    },
-    {
-      "file": "hands/service.gd",
-      "count": 25
-    },
-    {
-      "file": "hands/smack.gd",
-      "count": 11
-    },
-    {
       "file": "hud/service.gd",
       "count": 10
     },

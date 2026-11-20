@@ -38,12 +38,12 @@ func _authored_candidates(hand_side: String, _context: Dictionary, lean: float) 
 	var path: Variant = _path_for(anchor_hand)
 	if path == null:
 		return []
-	var world: Array = path.call("skinned")
+	var world: Array = path.skinned()
 	if world.size() < 3:
 		return []
 	var body_right: Vector3 = pony.global_basis.x.normalized()
 	var length := PATH.path_length(world)
-	var u: float = PATH.u_for(lean, 0.0, float(path.get("belly_u")))
+	var u: float = PATH.u_for(lean, 0.0, path.belly_u)
 	var sample := PATH.sample_world(world, u, anchor_hand, body_right)
 	if sample.is_empty():
 		return []
@@ -145,7 +145,7 @@ func _procedural_candidate(hand_side: String, context: Dictionary) -> Dictionary
 	}
 
 
-func _path_for(hand_side: String) -> Variant:
+func _path_for(hand_side: String) -> PATH:
 	var pony_id: int = int(pony.get_instance_id()) if is_instance_valid(pony) else 0
 	if pony_id != _path_pony_id:
 		_paths.clear()
@@ -155,12 +155,12 @@ func _path_for(hand_side: String) -> Variant:
 	var key := hand_side + "|areas"
 	if bool(_path_failed.get(key, false)):
 		return null
-	var path: Variant = _paths.get(key)
-	if path != null and bool(path.get("valid")):
+	var path: PATH = _paths.get(key)
+	if path != null and path.valid:
 		return path
 	PERF.begin("caress_path")
 	path = PATH.new()
-	var built := bool(path.call("build_areas", pony, hand_side, "standing"))
+	var built := path.build_areas(pony, hand_side, "standing")
 	PERF.end("caress_path")
 	if not built:
 		_path_failed[key] = true
@@ -168,10 +168,10 @@ func _path_for(hand_side: String) -> Variant:
 	_paths[key] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
 		LOG.debug("caress path side=%s path=areas anchors=%d", [hand_side,
-			(path.get("anchors") as Array).size()])
-		for note: Variant in (path.get("debug_notes") as Array):
+			path.anchors.size()])
+		for note: Variant in path.debug_notes:
 			LOG.debug("caress %s", [note])
-		var world: Array = path.call("skinned")
+		var world: Array = path.skinned()
 		for anchor: Dictionary in world:
 			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor["id"],
 				str(anchor["position"]), str(anchor["normal"])])

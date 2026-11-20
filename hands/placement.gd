@@ -8,6 +8,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")
+const PATH_BASE := preload("res://mods/unfplap/hands/path_base.gd")
 
 const PALM_CONTACT_MAX_STEP_M := 0.06
 const PALM_CONTACT_SOURCE_HITS := 2
@@ -31,13 +32,12 @@ func _init(facts_context: Variant = null) -> void:
 
 ## Build the palm frame for one hand from the path's ordered candidates.
 ## An invalid transform means neither the path nor a last good target is available.
-func frame(pony: Variant, path: Variant, hand_side: String, context: Dictionary) -> Transform3D:
+func frame(pony: Variant, path: PATH_BASE, hand_side: String, context: Dictionary) -> Transform3D:
 	if not is_instance_valid(pony) or path == null:
 		return _last_or_invalid(hand_side)
-	var list: Variant = path.call("candidates", hand_side, context)
-	if not list is Array or (list as Array).is_empty():
+	var candidates: Array = path.candidates(hand_side, context)
+	if candidates.is_empty():
 		return _last_or_invalid(hand_side)
-	var candidates := list as Array
 	for index in mini(candidates.size(), MAX_CANDIDATES):
 		var candidate_value: Variant = candidates[index]
 		if not candidate_value is Dictionary:
@@ -157,16 +157,16 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 		context: Dictionary, intended: Vector3, normal: Vector3, finger: Vector3,
 		mode: String, roll: float, region: String, hover: float) -> Transform3D:
 	PERF.begin("caress_surface")
-	var surface: Variant = _surface(pony, region, hand_side, intended)
+	var surface: SURFACE = _surface(pony, region, hand_side, intended)
 	if not is_instance_valid(surface):
 		PERF.end("caress_surface")
 		return _last_or_invalid(hand_side)
-	var hit: Variant = surface.call("nearest", intended, normal)
-	if not hit is Dictionary or (hit as Dictionary).is_empty():
+	var hit: Dictionary = surface.nearest(intended, normal)
+	if hit.is_empty():
 		PERF.end("caress_surface")
 		return _last_or_invalid(hand_side)
-	var hit_point: Vector3 = (hit as Dictionary).get("point", intended)
-	var hit_normal: Vector3 = (hit as Dictionary).get("normal", normal)
+	var hit_point: Vector3 = hit.get("point", intended)
+	var hit_normal: Vector3 = hit.get("normal", normal)
 	if hit_normal.length_squared() < 0.5:
 		hit_normal = normal
 	hit_normal = hit_normal.normalized()
@@ -175,7 +175,7 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 	var face := int(hit.get("face", -1))
 	var seed := int(hit.get("seed", -1))
 	if blur > 0.0 and face >= 0:
-		var blurred: Vector3 = surface.call("normal_blur", hit_point, blur, hit_normal, seed)
+		var blurred := surface.normal_blur(hit_point, blur, hit_normal, seed)
 		if blurred.length_squared() > 0.5:
 			hit_normal = blurred.normalized()
 	PERF.end("caress_surface")
@@ -197,23 +197,23 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 	return target
 
 
-func _surface(pony: Variant, region: String, hand_side: String, point: Vector3) -> Variant:
+func _surface(pony: Variant, region: String, hand_side: String, point: Vector3) -> SURFACE:
 	# With the local window each hand keeps its own patch: the hands caress opposite flanks, so
 	# one shared window would re-centre on every tick. The stable source cache still shares the
 	# mesh gather. With the window off the hands share one full patch, as before.
 	var local := _local_patch()
 	var key := (region + "|" + hand_side) if local else region
-	var surface: Variant = _surfaces.get(key)
+	var surface: SURFACE = _surfaces.get(key)
 	if not is_instance_valid(surface):
 		surface = SURFACE.new(facts)
 		_surfaces[key] = surface
-	if not bool(surface.call("ensure", pony, region)):
+	if not surface.ensure(pony, region):
 		return null
-	surface.call("set_local", local)
-	surface.call("set_full_fallback", _full_fallback())
-	surface.call("select", point)
-	surface.call("set_quality", _quality())
-	surface.call("update_pose")
+	surface.set_local(local)
+	surface.set_full_fallback(_full_fallback())
+	surface.select(point)
+	surface.set_quality(_quality())
+	surface.update_pose()
 	return surface
 
 
@@ -356,7 +356,7 @@ func _last_or_invalid(hand_side: String) -> Transform3D:
 	return Transform3D(Basis(), Vector3(INF, INF, INF))
 
 
-func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Transform3D,
+func _log_precise(hand_side: String, mode: String, surface: SURFACE, frame: Transform3D,
 		roll_deg: float, hover: float, normal: Vector3, finger: Vector3,
 		u: float) -> void:
 	if not bool(SETTINGS.caress_debug.get_bool()):
@@ -365,9 +365,9 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 		return
 	_logged[hand_side] = true
 	var info := "anchors"
-	if is_instance_valid(surface) and surface is SURFACE:
+	if is_instance_valid(surface):
 		info = "faces=%d/%d ray_hit=%d ray_miss=%d" % [
-			int(surface.call("face_count")), int(surface.call("patch_face_count")),
+			surface.face_count(), surface.patch_face_count(),
 			int(surface.get("ray_hits")), int(surface.get("ray_misses"))]
 	LOG.debug("precise caress side=%s mode=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s", [
 		hand_side, mode, u, str(frame.origin), str(normal), str(finger), roll_deg, hover, info])

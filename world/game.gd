@@ -1077,3 +1077,66 @@ static func bed_of(collider: Object) -> Node3D:
 	if bed is Node3D and is_instance_valid(bed):
 		return bed
 	return null
+
+
+## One PonyTouchBody hull sync for a rig index; a body without the private sync stays stale.
+static func touch_sync(body: Object, rig: int) -> void:
+	if not is_instance_valid(body) or not body.has_method("_unprofiled_sync"):
+		return
+	body.call("_unprofiled_sync", rig, true)
+
+
+## PonyTouchBody's nearest hull; empty when the body has no query.
+static func _touch_nearest(body: Object, point: Vector3) -> Dictionary:
+	if not is_instance_valid(body) or not body.has_method("nearest"):
+		return {}
+	var near: Variant = body.call("nearest", point)
+	return near if near is Dictionary else {}
+
+
+## Skin the flank patch to the current pose; a surface without the op keeps its old skin.
+static func flank_surface_update(surface: Object, skeleton: Skeleton3D, frame: Transform3D) -> void:
+	if not is_instance_valid(surface) or not surface.has_method("update_pose"):
+		return
+	surface.call("update_pose", skeleton, frame)
+
+
+## The flank patch's contact query at a local point; empty when it has no query.
+static func _flank_surface_contact(surface: Object, point: Vector3, palm: Vector3,
+		reach: float) -> Dictionary:
+	if not is_instance_valid(surface) or not surface.has_method("contact"):
+		return {}
+	var hit: Variant = surface.call("contact", point, point, palm, reach)
+	return hit if hit is Dictionary else {}
+
+
+## The native flank decal, blush and jiggle impact; a flank without the op stays still.
+static func flank_impact(flank: Node, index: int, at: Vector3, strength: float) -> void:
+	if not is_instance_valid(flank) or not flank.has_method("impact"):
+		return
+	flank.call("impact", index, at, strength)
+
+
+## Hand the desktop rig one palm target; a rig without the holder is left alone.
+static func set_hold_target(driver: Node, side: String, frame: Transform3D,
+		kind := "hold") -> void:
+	if not is_instance_valid(driver) or not driver.has_method("set_hold_target"):
+		return
+	driver.call("set_hold_target", side, frame, kind)
+
+
+## Release one palm target; a rig without the holder is left alone.
+static func clear_hold_target(driver: Node, side: String) -> void:
+	if not is_instance_valid(driver) or not driver.has_method("clear_hold_target"):
+		return
+	driver.call("clear_hold_target", side)
+
+
+## The rig's live palm frame; an infinite transform when the rig cannot answer.
+static func hand_frame(driver: Node, side: String) -> Transform3D:
+	if not is_instance_valid(driver) or not driver.has_method("hand_frame"):
+		return Transform3D(Basis.IDENTITY, Vector3.INF)
+	var frame: Variant = driver.call("hand_frame", side)
+	if frame is Transform3D:
+		return frame
+	return Transform3D(Basis.IDENTITY, Vector3.INF)

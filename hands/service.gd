@@ -4,13 +4,16 @@ extends "res://mods/unfplap/hands/session.gd"
 ## rubs the flank; missionary rubs her chest, neck and cheek.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
+const PATH_BASE := preload("res://mods/unfplap/hands/path_base.gd")
 const FLANK_PATH := preload("res://mods/unfplap/hands/paths/standing.gd")
 const MISSIONARY_PATH := preload("res://mods/unfplap/hands/paths/missionary.gd")
 const ORAL_PATH := preload("res://mods/unfplap/hands/paths/oral.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")
 const SMACK := preload("res://mods/unfplap/hands/smack.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
 const REACH_HAND_BLEND_S := 0.35
@@ -56,9 +59,10 @@ static func palm_clearance_for(body_scale: float, distance := 0.02) -> float:
 
 
 ## Per-size caress-point offsets. Unknown presets use the JRHNBR reference.
-static func caress_profile_for(size_name: String) -> Dictionary:
+static func caress_profile_for(size_name: String) -> CAESS.CaressProfile:
 	var profile: Dictionary = CARESS_PROFILES.get(size_name, CARESS_PROFILES["mounting"])
-	return profile
+	return CAESS.CaressProfile.new(float(profile["up"]), float(profile["back"]),
+		float(profile["out"]))
 
 
 ## Advance the oval phase only while that hand is moving. Stopping keeps the palm at the
@@ -69,17 +73,17 @@ static func caress_phase_step(phase: float, moving: bool, delta: float) -> float
 	return fmod(phase + CARESS_SPEED_RAD_S * delta, TAU)
 
 
-## One caress tick: accumulate contact time and report `[seconds_left, events]`, where events is
-## how many CAESS_TOUCH_SECONDS actions this tick completed. A stopped caress keeps no credit.
-static func caress_touch_step(seconds: float, active: bool, delta: float) -> Array:
+## One caress tick: accumulate contact time and report the seconds left and the actions completed.
+## A stopped caress keeps no credit.
+static func caress_touch_step(seconds: float, active: bool, delta: float) -> CAESS.TouchStep:
 	if not active:
-		return [0.0, 0]
+		return CAESS.TouchStep.new()
 	var left := maxf(0.0, seconds) + maxf(0.0, delta)
 	var events := 0
 	while left >= CAESS_TOUCH_SECONDS:
 		left -= CAESS_TOUCH_SECONDS
 		events += 1
-	return [left, events]
+	return CAESS.TouchStep.new(left, events)
 
 
 ## Ease a live caress hand from its last contact to the new path target. The hand was already
@@ -116,12 +120,13 @@ static func smack_finger_hint(caressing: bool, forward: Vector3) -> Vector3:
 
 ## Nearest point on the posed flank faces, for the free-hand smack query.
 static func closest_flank_hit(faces: PackedVector3Array, normals: PackedVector3Array,
-		point: Vector3) -> Dictionary:
+		point: Vector3) -> CAESS.FlankHit:
 	if faces.size() < 3:
-		return {}
+		return CAESS.FlankHit.new()
 	var best := INF
 	var best_point := Vector3.ZERO
 	var best_normal := Vector3.ZERO
+	var best_face := -1
 	var triangles := int(faces.size() / 3.0)
 	for triangle: int in triangles:
 		var i := triangle * 3
@@ -133,6 +138,7 @@ static func closest_flank_hit(faces: PackedVector3Array, normals: PackedVector3A
 		if distance >= best:
 			continue
 		best = distance
+		best_face = triangle
 		best_point = closest
 		var barycentric := _triangle_barycentric(a, b, c, closest)
 		var normal := Vector3.ZERO
@@ -142,7 +148,7 @@ static func closest_flank_hit(faces: PackedVector3Array, normals: PackedVector3A
 		if normal.length_squared() < 0.0001:
 			normal = (b - a).cross(c - a)
 		best_normal = normal.normalized()
-	return {"point": best_point, "normal": best_normal, "distance": sqrt(best)}
+	return CAESS.FlankHit.new(true, best_point, best_normal, sqrt(best), best_face)
 
 
 ## Closest point on triangle ABC to P, from Real-Time Collision Detection (Ericson).
@@ -225,11 +231,11 @@ var _caress_touch_seconds := 0.0
 var _caress_logged := {"L": false, "R": false}
 var _caress_return_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
 var _caress_return_started := {"L": 0, "R": 0}
-var _caress_engine: RefCounted
-var _smack_ctl: RefCounted
-var _flank_path: RefCounted
-var _missionary_path: RefCounted
-var _oral_path: RefCounted
+var _caress_engine: PLACEMENT
+var _smack_ctl: SMACK
+var _flank_path: FLANK_PATH
+var _missionary_path: MISSIONARY_PATH
+var _oral_path: ORAL_PATH
 var _caress_oral_was_active := false
 var _caress_oral_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
 var _caress_oral_started := {"L": 0, "R": 0}
@@ -242,10 +248,10 @@ var _debug_immediate: ImmediateMesh = null
 func _shoulder_hand_point(side: String) -> Dictionary:
 	if side.is_empty() or not is_instance_valid(pony):
 		return {}
-	var path: Variant = _path_for_pose()
-	if path == null or not path.has_method("shoulder_point"):
+	var path: PATH_BASE = _path_for_pose()
+	if not (path is FLANK_PATH):
 		return {}
-	return path.call("shoulder_point", "left" if side == "L" else "right")
+	return (path as FLANK_PATH).shoulder_point("left" if side == "L" else "right")
 
 
 ## Approximate phase-1 hand placement: the palm rests on the named shoulder. This uses the
@@ -273,10 +279,9 @@ func _set_reach_hand() -> void:
 	if _reach_hand_started <= 0:
 		_reach_hand_started = Time.get_ticks_msec()
 		_reach_hand_from = Transform3D.IDENTITY
-		if driver.has_method("hand_frame"):
-			var from_frame: Variant = driver.call("hand_frame", side)
-			if from_frame is Transform3D:
-				_reach_hand_from = from_frame
+		var from_frame := GAME.hand_frame(driver, side)
+		if from_frame.is_finite():
+			_reach_hand_from = from_frame
 		_reach_hand_rest = _reach_hand_from
 		_reach_hand_rest_valid = _reach_hand_from.is_finite()
 	var frame := target
@@ -290,7 +295,7 @@ func _set_reach_hand() -> void:
 		LOG.debug("reach hand side=%s target=%s x=%s y=%s z=%s fingers=%s palm=%s", [
 			side, str(target.origin), str(target.basis.x), str(target.basis.y),
 			str(target.basis.z), str(-target.basis.z), str(palm_normal)])
-	driver.call("set_hold_target", side, frame, "rub")
+	GAME.set_hold_target(driver, side, frame, "rub")
 
 
 ## The pose family from the pose view: `bed` for missionary, `standing` for standing.
@@ -305,11 +310,10 @@ func _mouth_contact() -> bool:
 	return view != null and str(view.contact_kind) == "mouth"
 
 
-func pose_changed(view: Variant) -> void:
+func pose_changed(view: POSE_VIEW) -> void:
 	if view == null:
 		return
-	var hands_value: Variant = view.hands
-	var path := str((hands_value as Dictionary).get("path", "")) if hands_value is Dictionary else ""
+	var path := str(view.hands.get("path", ""))
 	var contact := str(view.contact_kind)
 	if _hook_seen and path == _hook_path and contact == _hook_contact:
 		return
@@ -402,8 +406,8 @@ func _caress_oral_tick() -> void:
 		if not bool(_caress_active.get(side, false)):
 			continue
 		var hand_side := "left" if side == "L" else "right"
-		var frame: Variant = driver.call("hand_frame", hand_side)
-		if frame is Transform3D and (frame as Transform3D).is_finite():
+		var frame := GAME.hand_frame(driver, hand_side)
+		if frame.is_finite():
 			_caress_oral_from[side] = frame
 			_caress_oral_started[side] = Time.get_ticks_msec()
 
@@ -412,8 +416,8 @@ func _caress_oral_tick() -> void:
 ## tick. Short taps score nothing; five seconds of rubbing score once.
 func _caress_touch_tick(delta: float) -> void:
 	var step := caress_touch_step(_caress_touch_seconds, any_active(), delta)
-	_caress_touch_seconds = float(step[0])
-	for _index in int(step[1]):
+	_caress_touch_seconds = step.seconds
+	for _index in step.events:
 		facts.touch("caress")
 
 
@@ -423,7 +427,7 @@ func _end_caress_side(side: String) -> void:
 	var hand_side := "left" if side == "L" else "right"
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
-		driver.call("clear_hold_target", hand_side)
+		GAME.clear_hold_target(driver, hand_side)
 	_engine().reset_hand(hand_side)
 	LOG.debug("caress stop side=%s", [side])
 	_caress_active[side] = false
@@ -470,7 +474,7 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 	if not is_instance_valid(pony):
 		return Transform3D.IDENTITY
 	var hand_side := "left" if side == "L" else "right"
-	var path: Variant = _path_for_pose()
+	var path: PATH_BASE = _path_for_pose()
 	if path == null:
 		return Transform3D.IDENTITY
 	PERF.begin("caress_precise")
@@ -501,7 +505,7 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 		_caress_logged[side] = true
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("set_hold_target"):
-		driver.call("set_hold_target", hand_side, target, "rub")
+		GAME.set_hold_target(driver, hand_side, target, "rub")
 	var debug: Dictionary = _engine().debug_state(hand_side)
 	if not debug.is_empty():
 		_draw_caress_debug(path, hand_side, debug, target)
@@ -530,25 +534,25 @@ func _caress_context(side: String, hand_side: String) -> Dictionary:
 	}
 
 
-func _engine() -> RefCounted:
+func _engine() -> PLACEMENT:
 	if _caress_engine == null:
 		_caress_engine = PLACEMENT.new(facts)
 	return _caress_engine
 
 
-func _path_for_pose() -> Variant:
+func _path_for_pose() -> PATH_BASE:
 	if facts == null or not is_instance_valid(pony):
 		return null
 	var view: Variant = facts.pose_view
 	if view == null:
 		return null
-	var path := str((view.hands as Dictionary).get("path", ""))
+	var path := str(view.hands.get("path", ""))
 	if path == "missionary":
 		if _missionary_path == null:
 			_missionary_path = MISSIONARY_PATH.new()
 		if _missionary_path.get("pony") != pony:
-			_missionary_path.call("setup", pony, facts)
-			_missionary_path.call("reset")
+			_missionary_path.setup(pony, facts)
+			_missionary_path.reset()
 		return _missionary_path
 	if path not in ["standing", "oral"]:
 		return null
@@ -556,35 +560,33 @@ func _path_for_pose() -> Variant:
 		if _oral_path == null:
 			_oral_path = ORAL_PATH.new()
 		if _oral_path.get("pony") != pony:
-			_oral_path.call("setup", pony, facts)
-			_oral_path.call("reset")
+			_oral_path.setup(pony, facts)
+			_oral_path.reset()
 		return _oral_path
 	if _flank_path == null:
 		_flank_path = FLANK_PATH.new()
 	if _flank_path.get("pony") != pony:
-		_flank_path.call("setup", pony, facts)
-		_flank_path.call("reset")
+		_flank_path.setup(pony, facts)
+		_flank_path.reset()
 	return _flank_path
 
 
 func _caress_reach(hand_side: String) -> Dictionary:
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("caress_reach"):
-		var value: Variant = driver.call("caress_reach", hand_side)
+		var value: Variant = Callable(driver, "caress_reach").call(hand_side)
 		if value is Dictionary:
 			return value
 	return {}
 
 
-func _draw_caress_debug(path: Variant, hand_side: String, chosen: Dictionary,
+func _draw_caress_debug(path: PATH_BASE, hand_side: String, chosen: Dictionary,
 		target: Transform3D) -> void:
 	if not bool(SETTINGS.caress_debug.get_bool()):
 		return
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
 		return
-	var world: Variant = path.call("debug_world", hand_side)
-	if not world is Array:
-		world = []
+	var world: Array = path.debug_world(hand_side)
 	var tree: SceneTree = pony.get_tree()
 	var scene: Node = tree.current_scene if tree != null else null
 	if scene == null:
@@ -603,7 +605,7 @@ func _draw_caress_debug(path: Variant, hand_side: String, chosen: Dictionary,
 	immediate.surface_begin(Mesh.PRIMITIVE_LINES)
 	var previous := Vector3.ZERO
 	var have_previous := false
-	for anchor_value: Variant in (world as Array):
+	for anchor_value: Variant in world:
 		if not anchor_value is Dictionary:
 			continue
 		var anchor: Dictionary = anchor_value
@@ -629,7 +631,7 @@ func _draw_caress_debug(path: Variant, hand_side: String, chosen: Dictionary,
 	# White is the actual hand palm; gray is the gap between it and the requested target.
 	var driver := _hand_driver()
 	if is_instance_valid(driver) and driver.has_method("hand_frame"):
-		var hand: Transform3D = driver.call("hand_frame", hand_side)
+		var hand := GAME.hand_frame(driver, hand_side)
 		if hand.is_finite() and hand.origin.length_squared() > 0.0001:
 			_debug_cross(immediate, hand.origin, Color.WHITE, 0.045)
 			_debug_segment(immediate, hand.origin, target.origin, Color(0.6, 0.6, 0.6))
@@ -717,8 +719,8 @@ func _begin_reach_release() -> void:
 	var driver: Node = facts.pose_driver()
 	_reach_hand_return_from = _reach_hand_from
 	if is_instance_valid(driver) and driver.has_method("hand_frame"):
-		var current: Variant = driver.call("hand_frame", side)
-		if current is Transform3D and (current as Transform3D).is_finite():
+		var current := GAME.hand_frame(driver, side)
+		if current.is_finite():
 			_reach_hand_return_from = current
 	if not _reach_hand_rest_valid or not _reach_hand_return_from.is_finite():
 		_clear_reach_hand()
@@ -743,14 +745,14 @@ func _reach_hand_return_tick() -> void:
 	if t >= 1.0:
 		_reach_hand_returning = false
 		if driver.has_method("clear_hold_target"):
-			driver.call("clear_hold_target", _reach_hand_return_side)
+			GAME.clear_hold_target(driver, _reach_hand_return_side)
 		_reach_hand_return_side = ""
 		_reach_hand_started = 0
 		_reach_hand_from = Transform3D.IDENTITY
 		return
 	var frame: Transform3D = _reach_hand_return_from.interpolate_with(
 		_reach_hand_rest, smoothstep(0.0, 1.0, t))
-	driver.call("set_hold_target", _reach_hand_return_side, frame, "rub")
+	GAME.set_hold_target(driver, _reach_hand_return_side, frame, "rub")
 
 
 func _clear_reach_hand() -> void:
@@ -769,7 +771,7 @@ func _clear_reach_hand() -> void:
 		return
 	var driver: Node = facts.pose_driver()
 	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
-		driver.call("clear_hold_target", side)
+		GAME.clear_hold_target(driver, side)
 
 
 func _smack_zone_radius() -> float:
@@ -802,7 +804,7 @@ func _closest_flank_contact(point_world: Vector3) -> Dictionary:
 		return {}
 	var sk: Variant = pony.get("skeleton")
 	if sk is Skeleton3D and surface.has_method("update_pose"):
-		surface.call("update_pose", sk, frame)
+		GAME.flank_surface_update(surface, sk, frame)
 	var faces_value: Variant = surface.get("faces")
 	var normals_value: Variant = surface.get("vertex_normals")
 	if not faces_value is PackedVector3Array or not normals_value is PackedVector3Array:
@@ -823,11 +825,10 @@ func _closest_flank_contact(point_world: Vector3) -> Dictionary:
 		var reach := 0.10
 		if radii is Vector3:
 			reach = float((radii as Vector3).z)
-		var raw: Variant = surface.call("contact", local_point, local_point,
-			-local_normal, reach)
-		if raw is Dictionary and not (raw as Dictionary).is_empty():
-			var raw_point: Variant = (raw as Dictionary).get("position")
-			var raw_normal: Variant = (raw as Dictionary).get("normal")
+		var raw := GAME._flank_surface_contact(surface, local_point, -local_normal, reach)
+		if not raw.is_empty():
+			var raw_point: Variant = raw.get("position")
+			var raw_normal: Variant = raw.get("normal")
 			if raw_point is Vector3 and raw_normal is Vector3:
 				var point_v: Vector3 = raw_point
 				var normal_v: Vector3 = raw_normal
@@ -946,8 +947,8 @@ func _smack() -> void:
 	var driver: Node = _hand_driver()
 	var from_frame := Transform3D.IDENTITY
 	if is_instance_valid(driver) and driver.has_method("hand_frame"):
-		var current: Variant = driver.call("hand_frame", hand_side)
-		if current is Transform3D and (current as Transform3D).is_finite():
+		var current := GAME.hand_frame(driver, hand_side)
+		if current.is_finite():
 			from_frame = current
 	var at := Vector3.INF
 	var normal := Vector3.UP
@@ -1005,19 +1006,19 @@ func _smack_finger_hint(caressing: bool) -> Vector3:
 	return smack_finger_hint(caressing, forward)
 
 
-func _smack_setting(name: String, fallback: float) -> float:
+func _smack_config() -> CAESS.SmackPresentation:
 	var smack: Variant = _presentation_cfg.get("smack", {})
 	if smack is Dictionary:
-		return float((smack as Dictionary).get(name, fallback))
-	return fallback
+		return CAESS.SmackPresentation.from_dict(smack)
+	return CAESS.SmackPresentation.new()
 
 
 func _smack_hind_m() -> float:
-	return maxf(0.0, _smack_setting("hind_m", SMACK_HIND_M))
+	return maxf(0.0, _smack_config().hind_m)
 
 
 func _smack_height_m() -> float:
-	return _smack_setting("height_m", SMACK_HEIGHT_M)
+	return _smack_config().height_m
 
 
 ## Read the live scene handles and configs from the typed act view. The runtime rewrites the
@@ -1089,11 +1090,11 @@ func reset() -> void:
 	_reach_holding = false
 	_engine().reset()
 	if _missionary_path != null:
-		_missionary_path.call("reset")
+		_missionary_path.reset()
 	if _flank_path != null:
-		_flank_path.call("reset")
+		_flank_path.reset()
 	if _oral_path != null:
-		_oral_path.call("reset")
+		_oral_path.reset()
 	_caress_oral_was_active = false
 	_caress_oral_from = {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
 	_caress_oral_started = {"L": 0, "R": 0}
@@ -1192,12 +1193,12 @@ func smack_flank() -> Node:
 	return _flank
 
 
-func smack_presentation() -> Dictionary:
-	return _presentation_cfg
+func smack_presentation() -> CAESS.SmackPresentation:
+	return _smack_config()
 
 
-func smack_pony() -> Variant:
-	return pony
+func smack_pony() -> Node3D:
+	return pony if pony is Node3D else null
 
 
 ## One readiness touch event from a smack swing.
@@ -1215,9 +1216,7 @@ func hand_on_smack_impact(strength: float) -> void:
 ## Per-size caress-point offsets, scaled for the "same height" preset.
 func _caress_profile() -> Dictionary:
 	var size := str(facts.size_name)
-	var profile := caress_profile_for(size).duplicate(true)
+	var profile := caress_profile_for(size)
 	if size == "same height":
-		var scale := float(facts.same_height_scale)
-		for key: String in ["up", "back", "out"]:
-			profile[key] = float(profile.get(key, 0.0)) * scale
-	return profile
+		profile = profile.scaled(float(facts.same_height_scale))
+	return {"up": profile.up, "back": profile.back, "out": profile.out}

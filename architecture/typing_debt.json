@@ -584,11 +584,6 @@
       "service": "summary",
       "func": "summary_inputs",
       "signature": "func summary_inputs(context: Dictionary) -> Dictionary:"
-    },
-    {
-      "service": "world",
-      "func": "mares",
-      "signature": "static func mares() -> Array:"
     }
   ]
 }

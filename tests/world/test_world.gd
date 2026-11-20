@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/world/test_world.gd
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 
@@ -27,6 +28,10 @@ class FakePlayer extends Node3D:
 	var camera: Variant = null
 	var controls_locked := false
 	var form_driver: Variant = null
+	var eye_line := 1.5
+
+	func eye_height() -> float:
+		return eye_line
 
 
 class FakeGame extends Node:
@@ -35,11 +40,12 @@ class FakeGame extends Node:
 	var inventory: Variant = null
 	var save_menu: Variant = null
 	var player: Variant = null
+	var found_camera: Variant = null
 	var find_calls := 0
 
 	func _find_camera(_body: Variant) -> Variant:
 		find_calls += 1
-		return null
+		return found_camera
 
 
 ## The same world without `_find_camera`: the viewport camera is the fallback.
@@ -57,6 +63,7 @@ class FakeMare extends Node3D:
 
 class FakePanel extends Node:
 	var opened := false
+	var active := false
 
 
 class FakeCase extends Control:
@@ -65,14 +72,25 @@ class FakeCase extends Control:
 
 class FakeInventory extends Node:
 	var case: Variant = null
+	var customizer: Variant = null
+	var inspector: Variant = null
+
+
+class FakeMapInventory extends FakeInventory:
+	func _map_open() -> bool:
+		return true
 
 
 class FakeChat extends Node:
 	var opened := false
+	var saw_unlocked := false
+	var watcher: Variant = null
 	var _lock_owned := true
 
 	func _open() -> bool:
 		opened = true
+		if watcher != null:
+			saw_unlocked = not bool(watcher.get("controls_locked"))
 		return opened
 
 
@@ -92,9 +110,26 @@ class FakeBody extends Node3D:
 	var head_width_factor := 1.0
 	var near_mesh_enabled := true
 	var near_calls: Array = []
+	var boop_node: Variant = null
+	var eye_y := 0.0
 
 	func set_near_mesh(enabled: bool) -> void:
 		near_calls.append(enabled)
+
+	func _set_eye_y(value: float) -> void:
+		eye_y = value
+
+
+## A body that never grew the eye-line setter: the accessor must leave its field alone.
+class FakePlainBody extends Node3D:
+	var eye_y := 0.0
+
+
+class FakeBoop extends Node:
+	var amount := -1.0
+
+	func sustain_blush(value: float) -> void:
+		amount = value
 
 
 class FakeForm extends RefCounted:
@@ -105,6 +140,7 @@ func run() -> void:
 	_check_unbound()
 	_check_binding()
 	_check_game_player()
+	_check_accessors()
 	_check_camera()
 	_check_player_body()
 	_check_real_bed()
@@ -115,11 +151,31 @@ func run() -> void:
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
+	_check_freed_handles()
 	WORLD.unbind()
 	check(WORLD.game == null and WORLD.player == null, "unbind clears the bound handles")
 
 	print("WORLD_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+
+## A bound handle freed without unbind answers the unbound values, not a dead node's.
+func _check_freed_handles() -> void:
+	var game := FakeGame.new()
+	root.add_child(game)
+	var player := FakePlayer.new()
+	root.add_child(player)
+	WORLD.bind_world(game)
+	WORLD.bind_player(player)
+	game.free()
+	player.free()
+	check(WORLD.headset_view() == false, "a freed world is no headset")
+	check(WORLD.game_player() == null, "a freed world has no game player")
+	check(WORLD.mares().is_empty(), "a freed world has no mares")
+	check(not WORLD.menu_panel_open(), "a freed world has no open panel")
+	check(WORLD.camera() == null, "a freed rig has no camera")
+	check(not WORLD.open_act_chat(), "a freed world opens no chat")
+	WORLD.unbind()
 
 
 func _check_unbound() -> void:
@@ -146,7 +202,8 @@ func _check_binding() -> void:
 	game.mares = list
 	WORLD.bind_world(game)
 	check(WORLD.game == game, "bind_world stores the world root")
-	check(is_same(WORLD.mares(), list), "the mare list is the world's own array")
+	check(not is_same(WORLD.mares(), list), "the facade answers with a copy, not the game array")
+	check(WORLD.mares().size() == list.size(), "the copy holds every mare")
 	WORLD.bind_player(FakePlayer.new())
 	check(WORLD.player != null, "bind_player stores Anon's body")
 	WORLD.bind_world(null)
@@ -157,6 +214,163 @@ func _check_binding() -> void:
 	check(WORLD.game == game and WORLD.player == null, "the player leaves on its own")
 	game.queue_free()
 	WORLD.unbind()
+
+
+## Every base-game accessor: the live answer and the absent one.
+func _check_accessors() -> void:
+	var player := FakePlayer.new()
+	root.add_child(player)
+	var camera := Camera3D.new()
+	player.add_child(camera)
+	player.camera = camera
+	check(GAME.player_camera(player) == camera, "the rig's own camera is read")
+	check(GAME.player_camera(null) == null, "no rig reads no camera")
+	var plain := Node3D.new()
+	root.add_child(plain)
+	check(GAME.player_camera(plain) == null, "a rig without a camera reads null")
+
+	var game := FakeGame.new()
+	root.add_child(game)
+	var found := Camera3D.new()
+	root.add_child(found)
+	game.found_camera = found
+	check(GAME.find_camera(game, player) == found, "the scene's camera search is read")
+	check(GAME.find_camera(plain, player) == null, "a scene without the search finds no camera")
+	check(GAME.find_camera(game, null) == null, "no player finds no camera")
+
+	var mare := FakeMare.new()
+	var stray := Node.new()
+	root.add_child(mare)
+	root.add_child(stray)
+	game.mares = [mare, stray, null]
+	var copy := GAME.mares(game)
+	check(copy.size() == 1 and copy[0] == mare, "the mare copy keeps only live bodies")
+	check(GAME.mares(null).is_empty(), "no world copies no mares")
+
+	var avatar := Node3D.new()
+	player.add_child(avatar)
+	var form := FakeForm.new()
+	form.avatar = avatar
+	player.form_driver = form
+	check(GAME.player_avatar(player) == avatar, "the form driver's avatar is read")
+	check(GAME.player_avatar(plain) == null, "a rig without a form has no avatar")
+	var body := Node3D.new()
+	body.name = "Body"
+	plain.add_child(body)
+	check(GAME.player_body_node(plain) == body, "the rig's Body child is found")
+	check(GAME.player_body_node(null) == null, "no rig has no body child")
+
+	var seat := FakeSeat.new()
+	player.seat = seat
+	check(GAME.seat_of(player) == seat, "the rig's seat is read")
+	check(GAME.seat_of(plain) == null, "a standing rig has no seat")
+
+	player.controls_locked = true
+	check(GAME.controls_locked(player), "a held rig reads locked")
+	GAME.set_controls_locked(player, false)
+	check(not player.controls_locked, "the hold is released")
+	check(not GAME.controls_locked(plain), "an absent hold flag reads unlocked")
+	GAME.set_controls_locked(null, true)
+
+	check(GAME.menu_panel(game, "settings_menu") == null, "an absent panel reads null")
+	var save_menu := FakePanel.new()
+	game.save_menu = save_menu
+	check(GAME.menu_panel(game, "save_menu") == save_menu, "a named panel is read")
+	check(GAME.menu_panel(null, "save_menu") == null, "no world reads no panel")
+
+	var inventory := FakeInventory.new()
+	game.inventory = inventory
+	check(GAME.inventory(game) == inventory, "the inventory is read")
+	check(GAME.inventory(null) == null, "no world has no inventory")
+	check(not GAME.map_open(inventory), "an inventory without a map test is closed")
+	var map_inventory := FakeMapInventory.new()
+	root.add_child(map_inventory)
+	check(GAME.map_open(map_inventory), "the inventory's own map test answers")
+	var briefcase := FakeCase.new()
+	briefcase.visible = true
+	inventory.case = briefcase
+	check(GAME.case_visible(inventory), "a visible briefcase reads open")
+	briefcase.visible = false
+	check(not GAME.case_visible(inventory), "a hidden briefcase reads closed")
+	var customizer := FakePanel.new()
+	customizer.opened = true
+	inventory.customizer = customizer
+	check(GAME.customizer_opened(inventory), "an opened customizer reads open")
+	var inspector := FakePanel.new()
+	inspector.active = true
+	inventory.inspector = inspector
+	check(GAME.inspector_active(inventory), "an active inspector reads active")
+	check(not GAME.inspector_active(null), "no inventory has no inspector")
+
+	var chat := FakeChat.new()
+	chat.name = "ChatBox"
+	chat.watcher = player
+	game.add_child(chat)
+	player.controls_locked = true
+	check(GAME.chat_box(game) == chat, "the chat box is read by name")
+	check(GAME.open_chat(game, player), "the chat opens past the hold")
+	check(chat.saw_unlocked, "the hold is released while the chat opens")
+	check(player.controls_locked, "the hold is restored after the chat opens")
+	check(not GAME.open_chat(null, player), "no world opens no chat")
+
+	var pony := FakeBody.new()
+	root.add_child(pony)
+	check(GAME.identity_of(pony) == pony.identity, "a hybrid identity is read")
+	check(GAME.identity_of(plain) == null, "a plain node has no identity")
+	var boop := FakeBoop.new()
+	pony.boop_node = boop
+	check(GAME.boop_of(pony) == boop, "the blush sustainer is read")
+	check(GAME.boop_of(plain) == null, "a body without a sustainer reads null")
+	GAME.sustain_blush(boop, 0.5)
+	check(boop.amount == 0.5, "the sustainer takes the amount")
+	GAME.sustain_blush(plain, 0.7)
+	check(boop.amount == 0.5, "a node without the method stays silent")
+
+	check(GAME.headset_view(null) == false, "no world is no headset")
+	check(GAME.game_player(null) == null, "no world has no game player")
+	check(GAME.chat_box(null) == null, "no world has no chat box")
+	check(GAME.identity_of(null) == null, "no pony has no identity")
+	check(GAME.boop_of(null) == null, "no pony has no sustainer")
+	check(is_nan(GAME.eye_height(null)), "no rig answers NAN")
+
+	check(GAME.eye_height(player) == player.eye_line, "the rig's eye line is read")
+	check(is_nan(GAME.eye_height(plain)), "a rig without the read answers NAN")
+	GAME.set_eye_y(pony, 1.4)
+	check(pony.eye_y == 1.4, "the eye setter writes the line")
+	var bare := FakePlainBody.new()
+	root.add_child(bare)
+	GAME.set_eye_y(bare, 1.4)
+	check(bare.eye_y == 0.0, "a rig without the setter is left alone")
+
+	var bed := Node3D.new()
+	bed.set_meta("mattress_top", 0.6)
+	root.add_child(bed)
+	var support := Node3D.new()
+	bed.add_child(support)
+	check(GAME.bed_of(support) == bed, "a mattress ancestor is the bed")
+	check(GAME.bed_of(bare) == null, "a plain collider is no bed")
+	check(GAME.bed_of(null) == null, "no collider is no bed")
+
+	var cached := HYBRID_NEAR_MESH.cache.size()
+	GAME.refresh_body_lod(plain)
+	check(HYBRID_NEAR_MESH.cache.size() == cached, "a plain node has no LOD cache to drop")
+
+	chat.queue_free()
+	pony.queue_free()
+	bare.queue_free()
+	bed.queue_free()
+	save_menu.queue_free()
+	inventory.queue_free()
+	map_inventory.queue_free()
+	customizer.queue_free()
+	inspector.queue_free()
+	briefcase.queue_free()
+	stray.queue_free()
+	mare.queue_free()
+	plain.queue_free()
+	player.queue_free()
+	game.queue_free()
+	found.queue_free()
 
 
 ## The game's own player read stays defensive: a missing or renamed property is null, not a crash.

@@ -10,6 +10,7 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -34,9 +35,9 @@ func presentation(delta: float) -> void:
 	if session.pose_family() == "bed":
 		context.anatomy.bind(context.anatomy_host)
 		context.anatomy.aim_eyes()
-	var boop: Variant = host.pony.get("boop_node")
-	if boop != null and boop.has_method("sustain_blush"):
-		boop.call("sustain_blush", ACT_FACE.blush_for(ACT_FACE.phase_for(session.state),
+	var boop := GAME.boop_of(host.pony)
+	if boop != null:
+		GAME.sustain_blush(boop, ACT_FACE.blush_for(ACT_FACE.phase_for(session.state),
 			context.readiness.satisfaction, session.feature("blush_arc")))
 	PERF.begin("wings_tick")
 	context.wings.tick(delta, str(context.pose.view().family), context.readiness.satisfaction,

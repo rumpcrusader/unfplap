@@ -14,6 +14,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Her neck line in the authored standing stance: the closed rule the aim uses when no live bone is
@@ -360,8 +361,9 @@ func stance_eye(rig: Rig) -> float:
 
 
 static func player_base_eye(player: Variant) -> float:
-	if is_instance_valid(player) and player.has_method("eye_height"):
-		return float(player.call("eye_height"))
+	var reported := GAME.eye_height(player as Node3D)
+	if not is_nan(reported):
+		return reported
 	if is_instance_valid(player) and player.get("_stand_eye") != null:
 		return float(player.get("_stand_eye"))
 	return 1.6
@@ -514,8 +516,7 @@ func _write_stance(rig: Rig, eye: float, yaw: float, pitch: float) -> void:
 	if eye > 0.0:
 		body.set("_stand_eye", eye)
 		body.set("_eye_height", eye)
-		if body.has_method("_set_eye_y"):
-			body.call("_set_eye_y", eye)
+		GAME.set_eye_y(body, eye)
 	var view := WORLD.camera()
 	if body.get("form_driver") == null and is_instance_valid(view):
 		view.rotation.x = pitch
@@ -563,8 +564,7 @@ func _restore_player() -> void:
 			_player.set("_stand_eye", _saved_stand_eye)
 		if _player.get("_eye_height") != null:
 			_player.set("_eye_height", _saved_eye_height)
-		if _player.has_method("_set_eye_y"):
-			_player.call("_set_eye_y", _saved_stand_eye)
+		GAME.set_eye_y(_player, _saved_stand_eye)
 	if context != null and context.camera != null:
 		context.camera.reset_lean_state()
 	if _pose != null and _pose.family != "standing" and is_instance_valid(_player):

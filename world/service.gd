@@ -2,12 +2,10 @@ extends RefCounted
 ## Service: world
 ## Contract: docs/world.md
 ## Scope: world
-## Import: world/service.gd only
+## Import: world/service.gd, world/game.gd
 ## The one live-scene reader; it answers where and what, not whether.
 
-const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
-const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
-const MATTRESS := preload("res://world/life/couch/mattress.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 
 ## The live world root; null outside a world.
@@ -61,18 +59,17 @@ static func _root_viewport() -> Viewport:
 static func camera() -> Camera3D:
 	if not is_instance_valid(player):
 		return null
-	var direct: Variant = player.get("camera")
-	if direct is Camera3D and is_instance_valid(direct):
+	var direct := GAME.player_camera(player)
+	if direct != null:
 		return direct
 	var now := Time.get_ticks_msec() * 0.001
 	if is_instance_valid(_camera_cache) and now - _camera_cache_at < 1.0:
 		return _camera_cache
-	if is_instance_valid(game) and game.has_method("_find_camera"):
-		var found: Variant = game.call("_find_camera", player)
-		if found is Camera3D and is_instance_valid(found):
-			_camera_cache = found
-			_camera_cache_at = now
-			return found
+	var found := GAME.find_camera(game, player) if is_instance_valid(game) else null
+	if found != null:
+		_camera_cache = found
+		_camera_cache_at = now
+		return found
 	var viewport := _root_viewport()
 	var current: Camera3D = viewport.get_camera_3d() if viewport != null else null
 	_camera_cache = current
@@ -106,13 +103,11 @@ static func desktop() -> Node:
 static func player_body() -> Node3D:
 	if not is_instance_valid(player):
 		return null
-	var form: Variant = player.get("form_driver")
-	if form != null and is_instance_valid(form):
-		var avatar: Variant = form.get("avatar")
-		if avatar is Node3D and is_instance_valid(avatar):
-			return avatar
-	var body: Variant = player.find_child("Body", true, false)
-	if body is Node3D and is_instance_valid(body):
+	var avatar := GAME.player_avatar(player)
+	if avatar != null:
+		return avatar
+	var body := GAME.player_body_node(player)
+	if body != null:
 		return body
 	return player
 
@@ -122,19 +117,14 @@ static func player_body() -> Node3D:
 static func game_player() -> Node3D:
 	if not is_instance_valid(game):
 		return null
-	var body: Variant = game.get("player")
-	if body is Node3D and is_instance_valid(body):
-		return body
-	return null
+	return GAME.game_player(game)
 
 
-## The world's live mare list, which the game owns and mutates in place.
-static func mares() -> Array:
-	if is_instance_valid(game):
-		var list: Variant = game.get("mares")
-		if list is Array:
-			return list
-	return []
+## The mares as node handles, rebuilt on every read; scan cadence only.
+static func mares() -> Array[Node3D]:
+	if not is_instance_valid(game):
+		return []
+	return GAME.mares(game)
 
 
 ## The bed or couch under a point, from the world's own support collision.
@@ -158,7 +148,7 @@ static func bed_under(point: Vector3, exclude: RID = RID()) -> Node3D:
 		var hit: Dictionary = space.intersect_ray(query)
 		if hit.is_empty():
 			continue
-		var bed: Node3D = MATTRESS.bed_of(hit.get("collider"))
+		var bed := GAME.bed_of(hit.get("collider"))
 		if bed != null:
 			var real := real_bed(bed)
 			if real != null:
@@ -206,7 +196,7 @@ static func bed_for_cradle(pony: Node3D) -> Node3D:
 	var hit: Dictionary = space.intersect_ray(query)
 	if hit.is_empty():
 		return null
-	return real_bed(MATTRESS.bed_of(hit.get("collider")))
+	return real_bed(GAME.bed_of(hit.get("collider")))
 
 
 ## Whether another mare (not the target) already lies on the mattress.
@@ -215,18 +205,17 @@ static func bed_occupied(bed: Node3D, target: Node) -> bool:
 		return false
 	var top := float(bed.get_meta("mattress_top", 0.6))
 	var at := bed.to_global(Vector3(0.0, top, 0.0))
-	for node: Variant in mares():
+	for node: Node3D in mares():
 		if not is_instance_valid(node) or node == target:
 			continue
-		var actor: Node3D = node as Node3D
-		if actor == null or not actor.has_method("posture_status"):
+		if not node.has_method("posture_status"):
 			continue
-		var status: Dictionary = actor.posture_status()
+		var status: Dictionary = node.posture_status()
 		if str(status.get("requested", "")) != "lie_down":
 			continue
-		if absf(actor.global_position.y - at.y) > 0.55:
+		if absf(node.global_position.y - at.y) > 0.55:
 			continue
-		if Vector2(actor.global_position.x - at.x, actor.global_position.z - at.z).length() > 1.3:
+		if Vector2(node.global_position.x - at.x, node.global_position.z - at.z).length() > 1.3:
 			continue
 		return true
 	return false
@@ -236,8 +225,8 @@ static func bed_occupied(bed: Node3D, target: Node) -> bool:
 static func player_beside_bed(bed: Node3D) -> bool:
 	if not is_instance_valid(player):
 		return false
-	var seat: Variant = player.get("seat")
-	if seat == null or not is_instance_valid(seat):
+	var seat := GAME.seat_of(player)
+	if seat == null:
 		return true
 	if not is_instance_valid(bed):
 		return true
@@ -249,7 +238,7 @@ static func player_beside_bed(bed: Node3D) -> bool:
 			var bed_node: Variant = couch.get("_bed") if couch.get("_bed") != null else couch.get("bed_node")
 			if bed_node == bed:
 				return true
-			if is_instance_valid(bed_node) and (bed_node as Node3D).is_ancestor_of(seat as Node):
+			if is_instance_valid(bed_node) and (bed_node as Node3D).is_ancestor_of(seat):
 				return true
 	return false
 
@@ -263,24 +252,19 @@ static func menu_panel_open() -> bool:
 	if not is_instance_valid(game):
 		return false
 	for key: String in ["save_menu", "settings_menu", "pause_menu"]:
-		var panel: Variant = game.get(key)
+		var panel := GAME.menu_panel(game, key)
 		if is_instance_valid(panel) and bool(panel.get("opened")):
 			return true
-	var inventory: Variant = game.get("inventory")
-	if not is_instance_valid(inventory):
+	var inventory := GAME.inventory(game)
+	if inventory == null:
 		return false
-	if inventory.has_method("_map_open") and bool(inventory.call("_map_open")):
+	if GAME.map_open(inventory):
 		return true
-	var case: Variant = inventory.get("case")
-	if is_instance_valid(case) and bool(case.get("visible")):
+	if GAME.case_visible(inventory):
 		return true
-	var customizer: Variant = inventory.get("customizer")
-	if is_instance_valid(customizer) and bool(customizer.get("opened")):
+	if GAME.customizer_opened(inventory):
 		return true
-	var inspector: Variant = inventory.get("inspector")
-	if is_instance_valid(inspector) and bool(inspector.get("active")):
-		return true
-	return false
+	return GAME.inspector_active(inventory)
 
 
 ## True when the player should not interact with the world right now. Adds the mouse state to
@@ -294,43 +278,20 @@ static func menu_open() -> bool:
 ## The eye is in a headset. There is no desktop cursor to capture, and the stock game leaves the
 ## mouse visible, so the "cursor is visible" gates must not read that as a menu owning the input.
 static func headset_view() -> bool:
-	return is_instance_valid(game) and game.get("headset_view") == true
+	if not is_instance_valid(game):
+		return false
+	return GAME.headset_view(game)
 
 
 ## Drop the merged LOD caches for a body whose shape changed and re-arm its near mesh, so the
 ## visible body is rebuilt from the new rig instead of the old shape's gather.
 static func refresh_body_lod(pony: Node) -> void:
-	if not is_instance_valid(pony):
-		return
-	# Only a hybrid body has merged LOD caches; a plain or half-built node has nothing to drop.
-	var identity: Variant = pony.get("identity")
-	if not identity is Resource:
-		return
-	HYBRID_NEAR_MESH.cache.erase(HYBRID_NEAR_MESH.key(pony))
-	var far_key: String = HYBRID_FAR_MESH._id(pony)
-	HYBRID_FAR_MESH.cache.erase(far_key)
-	HYBRID_FAR_MESH.shadow_cache.erase(far_key)
-	HYBRID_FAR_MESH.eyes_cache.erase(far_key)
-	if not pony.has_method("set_near_mesh"):
-		return
-	var enabled: Variant = pony.get("near_mesh_enabled")
-	if enabled != null and not bool(enabled):
-		return
-	pony.call("set_near_mesh", false)
-	pony.call("set_near_mesh", true)
+	if is_instance_valid(pony):
+		GAME.refresh_body_lod(pony)
 
 
 ## The chat box refuses while the act holds the controls; open it past that lock.
 static func open_act_chat() -> bool:
 	if not is_instance_valid(game) or not is_instance_valid(player):
 		return false
-	var chat: Node = game.get_node_or_null("ChatBox")
-	if chat == null or not chat.has_method("_open"):
-		return false
-	var held: Variant = player.get("controls_locked")
-	player.set("controls_locked", false)
-	var opened := bool(chat.call("_open"))
-	player.set("controls_locked", held)
-	if opened:
-		chat.set("_lock_owned", false)
-	return opened
+	return GAME.open_chat(game, player)

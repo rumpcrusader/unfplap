@@ -17,7 +17,7 @@
     },
     {
       "file": "act/frame.gd",
-      "count": 20
+      "count": 17
     },
     {
       "file": "act/gate.gd",
@@ -29,7 +29,7 @@
     },
     {
       "file": "act/phases.gd",
-      "count": 5
+      "count": 4
     },
     {
       "file": "act/session.gd",
@@ -410,10 +410,6 @@
     {
       "file": "vr/service.gd",
       "count": 2
-    },
-    {
-      "file": "world/service.gd",
-      "count": 8
     }
   ]
 }

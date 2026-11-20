@@ -299,8 +299,9 @@ the log sink joins the same list.
   the `CATALOG.POSE_KEYS` pose schema — and excludes it from the declared path set.
 - The old `controls.act_key` choice strings (`o`, `y`) are converted to physical keycodes on load;
   `ACT_KEYS.DEFAULT_CODE` is only the legacy/invalid-code fallback, not the shipped default.
-- `anatomy.placement` is one block with `default.*` (ten debug declarations: anatomy 5, tail 3,
-  dock 2), `anon.*` (the player part) and partial `<mare id>.*` overrides. The shipped per-mare
+- `anatomy.placement` is one block with `default.*` (the global default: its declarations are
+  hidden, and only the Placement actions write them), `anon.*` (the player part's visible
+  Debug rows) and partial `<mare id>.*` overrides. The shipped per-mare
   rows (the tuned tail/dock values) live in `settings/catalogs.json` under `anatomy.placement`;
   `shared/anatomy_placement.gd` owns the schema and resolves override, provider, catalog row, then
   global default. Only a row that differs from that resolved default is stored; schema 10 strips
@@ -606,8 +607,9 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
   `debug/service.gd`; consecutive entries with the same row render on one line.
 - The Anatomy Actions block starts with the **Placement target** pill (`Default` / `Pointed
   mare`), backed by the persisted hidden `anatomy.placement_target` setting. The Placement
-  buttons then edit the selected target; Default stages a preview until Save, and Save writes the
-  ten `anatomy.placement.default.*` settings.
+  buttons then write the selected target immediately: Default persists the
+  `anatomy.placement.default.*` declarations, and Pointed mare writes her override. **Reset**
+  returns the Default block to its shipped values, or drops the pointed mare's override.
 - **A boolean label starts with a verb**: Show, Enable, Move, Allow, Use, Play, Print, Hide, Pin,
   Sway, Twitch, Remember, Mute. Label the action the switch performs, not the noun it controls
   (“Show controls”, “Enable footstool”, “Move captions to top”). Choices and numbers keep
@@ -684,12 +686,11 @@ carries one retired key, with `into()` moving the stored value and `mapped()` re
 | `profile_eligible(id)` | `bool` | the asserted value; read it only after `profile_has_assertion()` |
 | `template_for(id)` | `Rows` | the merged default and per-mare template |
 | `profile_for(base, characters, id)` | `Profile` | the four typed facets of that merge; both documents are views |
-| `anatomy_placement_default(id, use_draft, fit_id)` | `Rows` | the shipped and provider default for that fit |
+| `anatomy_placement_default(id, fit_id)` | `Rows` | the shipped and provider default for that fit |
 | `anatomy_placement(id, fit_id)` | `Rows` | her player override over that default |
 | `anon_placement()` | `Rows` | the player part's one global block |
-| `anatomy_placement_draft_values()` | `Rows` | the unsaved default preview |
-| `save_anatomy_placement(id, values, fit_id)`, `save_anatomy_placement_default(values)` | `void` | store the row, or persist the preview as the default |
-| `set_anatomy_placement_draft(values)` | `void` | stage a default preview without saving it |
+| `save_anatomy_placement(id, values, fit_id)`, `save_anatomy_placement_default(values)` | `void` | store the row, or write the global default |
+| `reset_anatomy_placement_default()` | `void` | write the shipped default block |
 | `deprecated(path)` | `Rule` | one retired key; its converter is a field of the rule, never a public argument |
 
 ## Dependencies

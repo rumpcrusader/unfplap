@@ -27,7 +27,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 |---|---|
 | `anatomy/service.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement delegate |
 | `anatomy/body_binding.gd` | the anatomy body binding: forwards a presented body's form to the facade |
-| `anatomy/placement_editor.gd` | the Anatomy Placement editor: the debug target, the draft/save/reset actions and the report |
+| `anatomy/placement_editor.gd` | the Anatomy Placement editor: the debug target, the placement and reset actions and the report |
 | `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat and appearance forwards, the player-part handle, act lifecycle and the typed-facts boundary |
 | `anatomy/attach.gd` | persistent attachment: mesh/anchor/dock, visibility, dock restore, the fluid node and idle discharge |
 | `anatomy/facts.gd` | typed runtime context: state, pose, depth, bed frame, cycle phase, the contact/family/frame predicates and the host callbacks |
@@ -115,9 +115,9 @@ and the tail seats re-read the switches in one pass.
 The Placement editor is `anatomy/placement_editor.gd`, owned by the facade as `placement_editor`.
 `placement_debug()` and `placement_show()` are one-line delegates. The editor owns
 `placement_target()`, `placement_id()`, `placement_values(id, fit_id)`, `placement_refresh()`, the
-draft/save/reset calls and the report; it calls back into the facade for `can_dock()`,
+placement and reset calls, and the report; it calls back into the facade for `can_dock()`,
 `can_place_tail()`, `apply_settings()` and `tail_report()`, and calls `SETTINGS.apply_live()` when it
-saves the default row.
+writes the default block.
 
 The handles are typed at the facade boundary: `controller_for()` and `controller()` answer the
 `anatomy/controller.gd` handle, `part()` answers `anatomy/player.gd` or null, and
@@ -384,10 +384,12 @@ fade. The hull block is in the copied compatibility shaders under
   move only the anatomy mesh; the body, skeleton and saved placement are untouched.
 - `anatomy.placement_target` is the persisted Default/Pointed-mare selection for every Placement
   action. The Debug actions **Placement**, **Placement tail**, **Placement dock**, **Placement
-  tail tilt** (1° per press) and **Placement file** edit, save, reset or log the selected target.
-  A default edit is staged until Save; a mare override is written directly.
+  tail tilt** (1° per press) and **Placement file** edit, reset or log the selected target.
+  Every action writes immediately: a Default edit persists the `anatomy.placement.default.*`
+  block, and a mare edit writes her override. **Reset** returns the Default block to its shipped
+  values, or drops the pointed mare's override so her resolved row applies.
   `anatomy/placement_editor.gd` owns the target resolution (`WORLD.camera()` →
-  `debug/service.gd`'s `aimed_pony()` → `nearest_pony()`) and the draft/save/reset calls; the
+  `debug/service.gd`'s `aimed_pony()` → `nearest_pony()`) and the placement and reset calls; the
   facade keeps `placement_debug()`/`placement_show()` as one-line delegates. The aim rule is one
   implementation shared with the debug action wheel.
 - `anatomy/placement.gd` and the player part keep only the live placement fields: `load()` and
@@ -914,8 +916,9 @@ stay event-time reads.
 - `anatomy.skin_tone`, `anatomy.vulva_height`, `anatomy.anal_scale`, `anatomy.vulva_inner_color`,
   `anatomy.clitoris_color`: material appearance.
 - `anatomy.reseat_tails`: dock/tail seat and the source-owned tail wrapper.
-- `anatomy.placement.default.*`, `anatomy.placement.anon.*`, `anatomy.placement.<id>.*` and
-  `anatomy.placement_target`: the placement block and editor target.
+- `anatomy.placement.default.*` (hidden: only the Placement actions write it),
+  `anatomy.placement.anon.*` (the player part's visible Debug rows), `anatomy.placement.<id>.*`
+  and `anatomy.placement_target`: the placement block and editor target.
 - `anatomy.anal_aim_mm`, `anatomy.anal_hug_mm`, `anatomy.vulva_hug_mm`,
   `anatomy.lip_vertical`, `anatomy.strip_scale`: shape and grip tuning.
 - `anatomy.coat_spread`, `anatomy.coat_hole`, `anatomy.coat_hole_height`,
@@ -946,10 +949,10 @@ stay event-time reads.
 
 - Anatomy debug actions live in the Anatomy tab's Debug block:
   **Placement** (anatomy), **Placement tail**, **Placement dock**, **Placement tail tilt** and
-  **Placement file**. They edit the selected target; the default is staged until Save, a mare
-  override writes directly. **Placement file Show** logs every live mare's anchor, target,
-  resolved placement, applied delta and source; a source-owned tail logs its applied wrapper
-  offset instead.
+  **Placement file**. They write the selected target immediately; **Reset** returns the Default
+  block to its shipped values, or drops the pointed mare's override. **Placement file Show** logs
+  every live mare's anchor, target, resolved placement, applied delta and source; a source-owned
+  tail logs its applied wrapper offset instead.
 - **Hide tails** is the persisted Debug toggle that collapses every loaded AI character's hair
   and body tail roots through `anatomy/tail/hide.gd`; it touches no other body part. The facade
   pushes the switch to `anatomy/tail/visibility.gd`, which processes only while it is on.
@@ -1112,7 +1115,7 @@ The anatomy migration is complete:
 - `anatomy/service.gd` is the world facade the entry constructs and `ponies` exposes as
   `PONIES.anatomy`. It owns the per-pony
   controllers, the player part, tail seating and the placement editor delegate.
-- `anatomy/placement_editor.gd` owns the Placement target resolution and the draft/save/reset
+- `anatomy/placement_editor.gd` owns the Placement target resolution and the placement and reset
   actions; the facade keeps the debug entry points as delegates.
 - `anatomy/appearance.gd`, `shapes.gd`, `coat.gd`, `heat.gd`, `placement.gd` and `attach.gd` are
   split out. The controller is a thin shell; the attach module owns the mesh, dock, visibility,

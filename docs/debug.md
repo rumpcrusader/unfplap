@@ -74,7 +74,7 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Placement up/down/forward/back/pitch/bigger/smaller | Anatomy | — |
 | Tail placement up/down/forward/back, tilt left/right | Anatomy | — |
 | Dock placement up/down/bigger/smaller | Anatomy | — |
-| Save placement, Reset placement, Show placement | Anatomy | — |
+| Reset placement, Show placement | Anatomy | — |
 
 - **Placement** actions edit the selected target (global default or pointed mare). The Anatomy
   Actions block starts with the **Placement target** pill. See `docs/anatomy.md`.

@@ -87,12 +87,28 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.sustain_blush(boop, amount)` | `sustain_blush` | — | no call |
 | `GAME.eye_height(player)` | `eye_height` | `float` | `NAN` |
 | `GAME.set_eye_y(body, y)` | `_set_eye_y` (private) | — | no write |
+| `GAME.pitch(body)` | the rig's `_pitch` | `float` | `NAN` |
+| `GAME.set_pitch(body, pitch)` | the rig's `_pitch` | — | no write |
+| `GAME.form_of(player)` | the rig's `form_driver` | `Node` | `null` |
+| `GAME.clamp_view(form)` | `clamp_view` | — | no call |
+| `GAME.clear_face_point(pony)` | the navigator's `face_point` | — | no write |
+| `GAME.clear_conversation_target(pony)` | the navigator's `set_conversation_target` | — | no call |
+| `GAME.look_toward(secondary, angles, weight)` | `look_toward` | `bool` | `false` |
+| `GAME.aim_eyes(eye_motion, target)` | `target_world`, `target_weight` | — | no write |
+| `GAME.listen_point(pony)` | `listen_point` | `Vector3` | her root plus `UP` |
+| `GAME.eye_transform(body)` | `eye_transform` | `Transform3D` | infinite origin |
+| `GAME.skull_world(boop)` | `skull_world` | `Vector3` | `Vector3.INF` |
+| `GAME.nose_world(boop)` | `nose_world` | `Vector3` | `Vector3.INF` |
+| `GAME.muzzle_world(boop)` | `muzzle_world` | `Vector3` | `Vector3.INF` |
+| `GAME.set_head_back(pose, value)` | the act pose node's `head_back` | — | no write |
 | `GAME.refresh_body_lod(pony)` | the hybrid near and far LOD caches, `set_near_mesh` | — | no rebuild |
 | `GAME.bed_of(collider)` | the mattress `bed_of` lookup | `Node3D` | `null` |
 
-Only `GAME.mares` and `GAME.refresh_body_lod` allocate or mutate; both are scan-cadence calls, and
-no accessor belongs on the frame path. `GAME` reads properties the game exposes and writes only the
-three members the facade already owned: the rig's control hold, its eye line and the chat lock.
+Only `GAME.mares` and `GAME.refresh_body_lod` allocate, and both are scan-cadence calls; the
+per-frame accessors copy nothing. `GAME` writes the rig's control hold, its eye line and its look
+pitch, the chat lock, her navigator's face point and conversation aim, her gaze and pupils, and the
+act pose's head throw-back. `GAME.set_head_back` is the one row that writes a mod-owned node: the
+camera's glance needs it, and the view carries no string dispatch of its own.
 
 ## Internal API
 

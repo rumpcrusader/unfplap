@@ -46,8 +46,10 @@ The sensor reads the fan every idle frame. A squared eye-to-body distance reject
 reach before the rump math, and the standing fan and the AnonPony lying candidate are collected in
 distance or facing order. The player's seat is read once a frame; a change is the bed branch's
 trigger. The sensor reports a transition when the candidate set, the lying candidate, the offer
-target or a candidate's scene fingerprint changes. Every in-fan candidate and the offer target are
-fingerprinted at `SENSOR_POLL_S` (`offer/fan_sensor.gd`), and the hash covers the runtime state,
+target or a candidate's scene fingerprint changes. A fan transition baselines every candidate at
+once; between transitions the offer target and the lying candidate are fingerprinted at
+`SENSOR_POLL_S` (`offer/fan_sensor.gd`), and the other in-fan candidates rotate through a small
+budget so a crowd cannot stack every hash in one frame. The hash covers the runtime state,
 posture, held, seated, sleeping, aftercare, cuddle, affection, conversation, the navigator owner,
 the player's press guards, the inventory and the player form.
 

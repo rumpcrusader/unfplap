@@ -3,6 +3,7 @@ extends SkeletonModifier3D
 ## Contract: `docs/poses.md`.
 
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
+const DRIVER := preload("res://mods/unfplap/poses/pose_driver.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
@@ -64,10 +65,10 @@ var _rig = RIG.new()
 var _missionary = MISSIONARY.new()
 var _standing = STANDING.new()
 ## The resolved pair: the driver/delta objects for each side and the two config references.
-var _from_driver_obj: Variant = null
-var _to_driver_obj: Variant = null
-var _from_delta_obj: Variant = null
-var _to_delta_obj: Variant = null
+var _from_driver_obj: DRIVER = null
+var _to_driver_obj: DRIVER = null
+var _from_delta_obj: DRIVER = null
+var _to_delta_obj: DRIVER = null
 var _from_config: Dictionary = {}
 var _to_config: Dictionary = {}
 var _blend_weight := 1.0
@@ -144,15 +145,15 @@ func set_weight(weight: float) -> void:
 
 ## The driver object for one effective path. The two shipped drivers are seeded in `_init()`;
 ## another path is instantiated once from `DRIVERS` and cached. An unknown or empty path is null.
-func _driver(path: String) -> Variant:
+func _driver(path: String) -> DRIVER:
 	if path.is_empty():
 		return null
 	if driver_objects.has(path):
-		return driver_objects[path]
+		return driver_objects[path] as DRIVER
 	var script: Variant = DRIVERS.get(path)
 	if script == null:
 		return null
-	var made: Variant = (script as GDScript).new()
+	var made: DRIVER = (script as GDScript).new()
 	driver_objects[path] = made
 	return made
 
@@ -280,22 +281,20 @@ func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 ## carries a delta, in which case the base, the procedural delta and the overlay run in that order.
 func _write_single(sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	state["config"] = _from_config
-	var driver: Variant = _from_driver_obj
+	var driver := _from_driver_obj
 	if driver == null:
 		return
 	if from_delta.is_empty():
-		if driver.has_method("apply"):
-			driver.call("apply", _rig, sk, weight, state)
+		driver.apply(_rig, sk, weight, state)
 	else:
 		var applied := true
-		if driver.has_method("apply_base"):
-			applied = bool(driver.call("apply_base", _rig, sk, weight, state))
-		elif driver.has_method("apply"):
-			driver.call("apply", _rig, sk, weight, state)
+		if driver.splits_base():
+			applied = driver.apply_base(_rig, sk, weight, state)
+		else:
+			driver.apply(_rig, sk, weight, state)
 		if applied:
 			_apply_delta(_from_delta_obj, sk, weight, state)
-		if driver.has_method("apply_overlay"):
-			driver.call("apply_overlay", _rig, sk, weight, state)
+		driver.apply_overlay(_rig, sk, weight, state)
 	if from_driver == MISSIONARY_PATH:
 		_dump_if_needed(sk, weight)
 
@@ -326,29 +325,29 @@ func _write_blend(sk: Skeleton3D, state: Dictionary) -> void:
 	state["authored"] = authored
 
 
-func _apply_base_side(driver: Variant, delta: Variant, sk: Skeleton3D, state: Dictionary) -> void:
+func _apply_base_side(driver: DRIVER, delta: DRIVER, sk: Skeleton3D, state: Dictionary) -> void:
 	if driver == null:
 		return
 	var applied := true
-	if driver.has_method("apply_base"):
-		applied = bool(driver.call("apply_base", _rig, sk, 1.0, state))
-	elif driver.has_method("apply"):
-		driver.call("apply", _rig, sk, 1.0, state)
+	if driver.splits_base():
+		applied = driver.apply_base(_rig, sk, 1.0, state)
+	else:
+		driver.apply(_rig, sk, 1.0, state)
 	if applied:
 		_apply_delta(delta, sk, 1.0, state)
 
 
-func _apply_overlay_side(driver: Variant, weight: float, sk: Skeleton3D,
+func _apply_overlay_side(driver: DRIVER, weight: float, sk: Skeleton3D,
 		state: Dictionary) -> void:
-	if driver == null or not driver.has_method("apply_overlay"):
+	if driver == null:
 		return
-	driver.call("apply_overlay", _rig, sk, weight, state)
+	driver.apply_overlay(_rig, sk, weight, state)
 
 
-func _apply_delta(delta: Variant, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
-	if delta == null or not delta.has_method("apply_delta"):
+func _apply_delta(delta: DRIVER, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
+	if delta == null:
 		return
-	delta.call("apply_delta", _rig, sk, weight, state)
+	delta.apply_delta(_rig, sk, weight, state)
 
 
 ## Blend the two captured local poses at the edge weight. Rotation slerps, scale and origin lerp;

@@ -316,6 +316,57 @@ class FakeWings extends Node:
 		opened = open
 
 
+## The desktop pose driver the Anon body wraps: the torso pose, the rest-hand pair and the holds.
+class FakePoseDriver extends Node3D:
+	var torsos: Array = []
+	var rest: Array = []
+	var clears: Array = []
+	var holds: Array = []
+	var releases: Array = []
+	var palm := Transform3D.IDENTITY
+
+	func apply_torso_pose(hip: Node3D, facing: Basis) -> void:
+		torsos.append([hip, facing])
+
+	func set_rest_hand_targets(left: Node3D, right: Node3D) -> void:
+		rest.append([left, right])
+
+	func clear_rest_hand_targets(left: Node3D, right: Node3D) -> void:
+		clears.append([left, right])
+
+	func set_hold_target(side: String, frame: Transform3D, kind := "hold") -> void:
+		holds.append([side, frame, kind])
+
+	func clear_hold_target(side: String) -> void:
+		releases.append(side)
+
+	func hand_frame(side: String) -> Transform3D:
+		palm.origin = Vector3.ZERO
+		return palm if side == "right" else Transform3D.IDENTITY
+
+
+## A desktop Anon body with only the one nullable member the act parks and restores.
+class FakeAvatar extends Node3D:
+	var desktop_pose_driver: Variant = null
+
+
+## Her own awareness facing, which the gaze fallback reads off the body.
+class FakeAwarePony extends Node3D:
+	var forward := Vector3.FORWARD
+
+	func awareness_forward() -> Vector3:
+		return forward
+
+
+## The pony's joint limits: the clamp the pose rig applies after a rotation.
+class FakeLimits extends RefCounted:
+	var clamps: Array = []
+
+	func constrain(bone: int, basis: Basis) -> Basis:
+		clamps.append([bone, basis])
+		return Basis(Vector3.UP, 0.5)
+
+
 func run() -> void:
 	_check_unbound()
 	_check_binding()
@@ -330,6 +381,7 @@ func run() -> void:
 	_check_open_act_chat()
 	_check_kiss_and_settings()
 	_check_turn_and_wing_accessors()
+	_check_pose_accessors()
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
@@ -1106,3 +1158,92 @@ func _check_turn_and_wing_accessors() -> void:
 	bare.queue_free()
 	nav.queue_free()
 	plain.queue_free()
+
+
+## The pose accessors the Anon body, the pose recipes and the pose rig read: the desktop driver and
+## its ops, her awareness facing and the joint-limit clamp.
+func _check_pose_accessors() -> void:
+	var plain := Node.new()
+	root.add_child(plain)
+	var driver := FakePoseDriver.new()
+	root.add_child(driver)
+	var left := Node3D.new()
+	var right := Node3D.new()
+	root.add_child(left)
+	root.add_child(right)
+
+	GAME.apply_torso_pose(driver, left, Basis.IDENTITY)
+	check(driver.torsos.size() == 1 and driver.torsos[0][0] == left,
+		"the torso pose reaches the body's own driver")
+	GAME.apply_torso_pose(plain, left, Basis.IDENTITY)
+	GAME.apply_torso_pose(null, left, Basis.IDENTITY)
+	check(driver.torsos.size() == 1, "a driver without the torso pose takes no call")
+	GAME.set_rest_hand_targets(driver, left, right)
+	check(driver.rest.size() == 1 and driver.rest[0] == [left, right],
+		"the rest-hand pair reaches the body's own driver")
+	GAME.set_rest_hand_targets(plain, left, right)
+	GAME.set_rest_hand_targets(null, left, right)
+	check(driver.rest.size() == 1, "a driver without the rest-hand pair takes no call")
+	GAME.clear_rest_hand_targets(driver, left, right)
+	check(driver.clears.size() == 1 and driver.clears[0] == [left, right],
+		"the rest-hand release reaches the body's own driver")
+	GAME.clear_rest_hand_targets(plain, left, right)
+	GAME.clear_rest_hand_targets(null, left, right)
+	check(driver.clears.size() == 1, "a driver without the release takes no call")
+
+	var frame := Transform3D(Basis.IDENTITY, Vector3.ONE)
+	GAME.set_hold_target(driver, "left", frame, "rub")
+	check(driver.holds.size() == 1 and driver.holds[0] == ["left", frame, "rub"],
+		"the palm hold reaches the body's own driver")
+	GAME.set_hold_target(plain, "left", frame, "rub")
+	GAME.set_hold_target(null, "left", frame, "rub")
+	check(driver.holds.size() == 1, "a driver without the palm hold takes no call")
+	GAME.clear_hold_target(driver, "left")
+	check(driver.releases == ["left"], "the palm release reaches the body's own driver")
+	GAME.clear_hold_target(plain, "left")
+	GAME.clear_hold_target(null, "left")
+	check(driver.releases.size() == 1, "a driver without the palm release takes no call")
+	check(GAME.hand_frame(driver, "right").origin.is_finite(), "the rig's live palm frame is read")
+	check(not GAME.hand_frame(plain, "right").origin.is_finite(),
+		"a driver without the palm frame answers an infinite origin")
+	check(not GAME.hand_frame(null, "right").origin.is_finite(),
+		"no driver answers no palm frame")
+
+	var avatar := FakeAvatar.new()
+	root.add_child(avatar)
+	check(GAME.desktop_pose_driver(avatar) == null, "a body with no driver answers null")
+	avatar.desktop_pose_driver = driver
+	check(GAME.desktop_pose_driver(avatar) == driver, "the body's own pose driver is read")
+	check(GAME.desktop_pose_driver(null) == null, "no body has no pose driver")
+	GAME.set_desktop_pose_driver(avatar, null)
+	check(GAME.desktop_pose_driver(avatar) == null, "the parked driver write lands on the body")
+	GAME.set_desktop_pose_driver(avatar, driver)
+	check(GAME.desktop_pose_driver(avatar) == driver, "the restore write lands on the body")
+	GAME.set_desktop_pose_driver(plain, driver)
+	GAME.set_desktop_pose_driver(null, driver)
+	check(not "desktop_pose_driver" in plain, "a body without the member takes no write")
+
+	var aware := FakeAwarePony.new()
+	root.add_child(aware)
+	check(GAME.awareness_forward(aware) == Vector3.FORWARD, "her awareness facing is read")
+	check(GAME.awareness_forward(plain) == Vector3.ZERO,
+		"a body without the op has no awareness facing")
+	check(GAME.awareness_forward(null) == Vector3.ZERO, "no body has no awareness facing")
+
+	var limits := FakeLimits.new()
+	var held := GAME.joint_constrain(limits, 2, Basis.IDENTITY)
+	check(held.is_equal_approx(Basis(Vector3.UP, 0.5)), "the pony's own limit clamps the basis")
+	check(limits.clamps.size() == 1 and int(limits.clamps[0][0]) == 2,
+		"the clamp reaches the limits with the bone")
+	check(GAME.joint_constrain(plain, 2, Basis.IDENTITY) == Basis.IDENTITY,
+		"limits without the op answer the input basis")
+	check(GAME.joint_constrain(null, 2, Basis.IDENTITY) == Basis.IDENTITY,
+		"no limits answer the input basis")
+
+	avatar.queue_free()
+	aware.queue_free()
+	driver.queue_free()
+	left.queue_free()
+	right.queue_free()
+	plain.queue_free()
+

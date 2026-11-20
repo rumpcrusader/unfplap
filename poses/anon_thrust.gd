@@ -2,13 +2,14 @@ extends Node3D
 ## Forwards the desktop Anon body's pose driver and adds the act's hip thrust after the body has
 ## placed its IK targets. The original driver still owns all action poses and rest-hand targets.
 
+const GAME := preload("res://mods/unfplap/world/game.gd")
+
 var original: Node
 var runtime: Node
 
 
 func apply_torso_pose(hip: Node3D, facing: Basis) -> void:
-	if is_instance_valid(original) and original.has_method("apply_torso_pose"):
-		original.call("apply_torso_pose", hip, facing)
+	GAME.apply_torso_pose(original, hip, facing)
 	if is_instance_valid(runtime):
 		var session: Variant = runtime.get("act")
 		if session != null:
@@ -19,26 +20,23 @@ func apply_torso_pose(hip: Node3D, facing: Basis) -> void:
 
 
 func set_rest_hand_targets(left: Node3D, right: Node3D) -> void:
-	if is_instance_valid(original) and original.has_method("set_rest_hand_targets"):
-		original.call("set_rest_hand_targets", left, right)
+	GAME.set_rest_hand_targets(original, left, right)
 
 
 func clear_rest_hand_targets(left: Node3D, right: Node3D) -> void:
-	if is_instance_valid(original) and original.has_method("clear_rest_hand_targets"):
-		original.call("clear_rest_hand_targets", left, right)
+	GAME.clear_rest_hand_targets(original, left, right)
 
 
 func set_hold_target(side: String, world: Transform3D, kind: String = "hold") -> void:
-	if is_instance_valid(original) and original.has_method("set_hold_target"):
-		original.call("set_hold_target", side, world, kind)
+	GAME.set_hold_target(original, side, world, kind)
 
 
 func clear_hold_target(side: String) -> void:
-	if is_instance_valid(original) and original.has_method("clear_hold_target"):
-		original.call("clear_hold_target", side)
+	GAME.clear_hold_target(original, side)
 
 
 func hand_frame(side: String = "right") -> Transform3D:
-	if is_instance_valid(original) and original.has_method("hand_frame"):
-		return original.call("hand_frame", side)
-	return Transform3D.IDENTITY
+	var frame := GAME.hand_frame(original, side)
+	if not frame.origin.is_finite():
+		return Transform3D.IDENTITY
+	return frame

@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/poses/pose_driver.gd"
 ## Missionary pose: the hand-authored bed-space base plus the live nuzzle and gaze overlays.
 ## The asset is the pose, with no correction stack and no fallback. The runtime owns the face, so the
 ## base resets the head bone to rest and the gaze solve aims its frame at Anon.
@@ -7,6 +7,11 @@ const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 
 var _config: Dictionary = {}
+
+
+## This recipe splits its base from its overlays, so a pose with a delta keeps base, delta, overlay.
+func splits_base() -> bool:
+	return true
 
 
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
@@ -95,14 +100,11 @@ func _head_gaze_frame(rig, sk: Skeleton3D) -> Dictionary:
 					"up": world.basis.y.normalized()}
 		# A headless/test rig may not have the link. Fall back to the head skeleton's own gaze
 		# from the last update, then to the body bone.
-		if mare.has_method("awareness_forward"):
-			var forward: Variant = mare.call("awareness_forward")
-			var boop: Node = mare.get("boop_node")
-			var origin := GAME.skull_world(boop)
-			if forward is Vector3 and (forward as Vector3).length_squared() > 0.000001 \
-					and origin.is_finite():
-				return {"origin": origin, "forward": (forward as Vector3).normalized(),
-					"up": Vector3.UP}
+		var forward := GAME.awareness_forward(mare)
+		var boop: Node = mare.get("boop_node")
+		var origin := GAME.skull_world(boop)
+		if forward.length_squared() > 0.000001 and origin.is_finite():
+			return {"origin": origin, "forward": forward.normalized(), "up": Vector3.UP}
 	return {"origin": world.origin, "forward": world.basis.z.normalized(),
 		"up": world.basis.y.normalized()}
 

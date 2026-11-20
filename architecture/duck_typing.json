@@ -16,24 +16,8 @@
       "count": 9
     },
     {
-      "file": "poses/anon_thrust.gd",
-      "count": 6
-    },
-    {
       "file": "poses/authored_pose.gd",
       "count": 2
-    },
-    {
-      "file": "poses/missionary_anon.gd",
-      "count": 6
-    },
-    {
-      "file": "poses/missionary_recipe.gd",
-      "count": 1
-    },
-    {
-      "file": "poses/pose_rig.gd",
-      "count": 1
     },
     {
       "file": "poses/pose_spec.gd",
@@ -42,14 +26,6 @@
     {
       "file": "poses/service.gd",
       "count": 1
-    },
-    {
-      "file": "poses/skeleton_pose.gd",
-      "count": 8
-    },
-    {
-      "file": "poses/standing_anon.gd",
-      "count": 5
     },
     {
       "file": "poses/transition_spec.gd",

@@ -6,6 +6,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/poses/test_pose_blend.gd
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
+const DRIVER := preload("res://mods/unfplap/poses/pose_driver.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
@@ -22,10 +23,10 @@ class FakeMare extends Node3D:
 	var body_scale := 1.0
 
 
-## A procedural driver with the four optional methods. `apply` is the whole pose, `apply_base`
+## A procedural driver with the driver protocol. `splits` selects the split form: `apply_base`
 ## writes the base only (and reports whether it owns one) and `apply_overlay` is the moveable
-## head/neck layer.
-class FakeDriver extends RefCounted:
+## head/neck layer; a driver without it writes the whole pose in `apply`.
+class FakeDriver extends "res://mods/unfplap/poses/pose_driver.gd":
 	var log: Array[String] = []
 	var tag := ""
 	var bone := "pony_spine1"
@@ -34,9 +35,13 @@ class FakeDriver extends RefCounted:
 	var base_ok := true
 	var non_finite := false
 	var use_authored := false
+	var splits := true
 	## The pose a bound authored asset stands for in this suite; a shipped asset carries none.
 	var authored_poses: Dictionary = {}
 	var seen_configs: Array[String] = []
+
+	func splits_base() -> bool:
+		return splits
 
 	func apply(_rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 		var pose := asset(state)
@@ -79,7 +84,7 @@ class FakeDriver extends RefCounted:
 
 
 ## The procedural delta for the A5 oral path: it must run after the base and see its write.
-class FakeDelta extends RefCounted:
+class FakeDelta extends "res://mods/unfplap/poses/pose_driver.gd":
 	var log: Array[String] = []
 	var bone := "pony_spine1"
 	var origin := Vector3.ZERO
@@ -112,6 +117,7 @@ func run() -> void:
 	_check_single()
 	_check_modes()
 	_check_base_delta()
+	_check_whole_pose_driver()
 	_check_two_base()
 	_check_two_assets()
 	_check_buffers()
@@ -264,6 +270,35 @@ func _check_base_delta() -> void:
 	pose_node.call("apply_render", sk)
 	check(shared == ["base:a:1.000", "delta:1.000", "overlay:a:1.000"],
 		"the single delta path runs base, delta then overlay")
+	_free_graph(made)
+
+
+## A driver without the split: a pose carrying a delta runs the whole pose and then the delta, so
+## an injected driver that is not a split recipe still lands.
+func _check_whole_pose_driver() -> void:
+	var made := _graph()
+	var sk: Skeleton3D = made["sk"]
+	var pose_node: Node = made["pose_node"]
+	var driver := _fake(FAKE_A, made, "whole", 0.2, Vector3.ZERO)
+	driver.splits = false
+	var delta := FakeDelta.new()
+	delta.origin = Vector3(0.0, 0.2, 0.0)
+	pose_node.driver_objects[FAKE_DELTA] = delta
+	var shared: Array[String] = []
+	driver.log = shared
+	delta.log = shared
+	var config: Dictionary = {"tag": "a"}
+	pose_node.call("set_pose", FAKE_A, FAKE_A, "", FAKE_DELTA, config, config)
+	pose_node.call("set_weight", 1.0)
+	pose_node.amount = 1.0
+	pose_node.target_amount = 1.0
+	pose_node.call("apply_render", sk)
+	check(shared.has("apply:whole:1.000"), "a driver without the split applies the whole pose")
+	check(_last_index(shared, "apply:") < _last_index(shared, "delta:"),
+		"the whole pose runs before the delta")
+	var index := sk.find_bone(BONE)
+	check(sk.get_bone_pose(index).origin.is_equal_approx(delta.origin),
+		"the delta still lands after the whole pose")
 	_free_graph(made)
 
 
@@ -502,8 +537,7 @@ func _check_shipped_driver() -> void:
 	check(pose_node.mode == POSE.MODE_SINGLE, "the standing pair is single")
 	check(pose_node.from_driver == POSE.STANDING_PATH, "the pair names the standing driver")
 	var driver: Variant = pose_node.driver_objects.get(POSE.STANDING_PATH)
-	check(driver != null and driver.has_method("apply_base") and driver.has_method("apply_overlay"),
-		"the shipped standing driver exposes the split")
+	check(driver != null and driver.splits_base(), "the shipped standing driver exposes the split")
 	pose_node.amount = 1.0
 	pose_node.target_amount = 1.0
 	pose_node.call("apply_render", sk)
@@ -530,8 +564,7 @@ func _check_oral_delta() -> void:
 	check(pose_node.from_delta == "" and pose_node.to_delta == POSE.STANDING_ORAL_PATH,
 		"the pair carries the oral delta on the to side")
 	var delta: Variant = pose_node.driver_objects.get(POSE.STANDING_ORAL_PATH)
-	check(delta != null and delta.has_method("apply_delta"),
-		"the shipped oral recipe is loaded from the delta table")
+	check(delta is DRIVER, "the shipped oral recipe is loaded from the delta table")
 	pose_node.amount = 1.0
 	pose_node.target_amount = 1.0
 	pose_node.call("set_weight", 0.0)

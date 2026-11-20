@@ -4,6 +4,8 @@ extends RefCounted
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const ANON_THRUST := preload("res://mods/unfplap/poses/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
 const PALM_SCALE := preload("res://mods/unfplap/shared/hands_scale.gd")
@@ -67,12 +69,12 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	var forward := -facing.z.normalized()
 	# With the anatomy part showing, the part asks for the pelvis to move to her entrance; the
 	# Hips-bone offset carries the pelvis and the part together.
-	var service: Variant = _anatomy_service()
-	if service != null and bool(service.call("player_showing")):
-		var wanted: Vector3 = service.call("player_hip_offset")
+	var service := _anatomy_service()
+	if service != null and service.player_showing():
+		var wanted := service.player_hip_offset()
 		if wanted.is_finite():
 			_hip_thrust.offset_world = wanted
-			service.call("player_note_hip_offset", wanted)
+			service.player_note_hip_offset(wanted)
 			return
 	_hip_thrust.offset_world = forward * hip_offset(_hip_phase, scale, travel)
 
@@ -119,10 +121,10 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 			LOG.debug("standing lower body released")
 
 
-func _anatomy_service() -> Variant:
+func _anatomy_service() -> ANATOMY:
 	if facts == null:
 		return null
-	return PONIES.anatomy
+	return PONIES.anatomy as ANATOMY
 
 
 ## Lower Anon's standing hips; use this when his body sits too high.
@@ -162,7 +164,7 @@ func _install_anon_thrust() -> void:
 	var avatar := WORLD.player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
 		return
-	var original: Variant = avatar.get("desktop_pose_driver")
+	var original := GAME.desktop_pose_driver(avatar)
 	if not is_instance_valid(original):
 		return
 	var driver := ANON_THRUST.new()
@@ -170,7 +172,7 @@ func _install_anon_thrust() -> void:
 	driver.original = original
 	driver.runtime = facts.driver_host()
 	WORLD.player.add_child(driver)
-	avatar.set("desktop_pose_driver", driver)
+	GAME.set_desktop_pose_driver(avatar, driver)
 	_anon_thrust_driver = driver
 	_anon_thrust_original = original
 	_anon_thrust_avatar = avatar
@@ -241,8 +243,8 @@ func _remove_anon_thrust() -> void:
 		_chest_back.queue_free()
 	_chest_back = null
 	if is_instance_valid(_anon_thrust_avatar) and is_instance_valid(_anon_thrust_original) \
-			and _anon_thrust_avatar.get("desktop_pose_driver") == _anon_thrust_driver:
-		_anon_thrust_avatar.set("desktop_pose_driver", _anon_thrust_original)
+			and GAME.desktop_pose_driver(_anon_thrust_avatar) == _anon_thrust_driver:
+		GAME.set_desktop_pose_driver(_anon_thrust_avatar, _anon_thrust_original)
 	if is_instance_valid(_anon_thrust_driver):
 		_anon_thrust_driver.queue_free()
 	_anon_thrust_driver = null
@@ -261,8 +263,7 @@ func _desktop_pose_driver() -> Node:
 	var avatar: Node = WORLD.player.find_child("AnonBody", true, false)
 	if not is_instance_valid(avatar):
 		return null
-	var driver: Variant = avatar.get("desktop_pose_driver")
-	return driver as Node if is_instance_valid(driver) else null
+	return GAME.desktop_pose_driver(avatar)
 
 
 ## Read the live scene handles from the typed act view. The runtime rewrites the view before

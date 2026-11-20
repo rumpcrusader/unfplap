@@ -990,6 +990,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 |---|---|---|---|
 | service | world | `world/service.gd` | player, camera and mares |
 | service | world | `world/game.gd` | the base-game accessors the presentation and the wing control read |
+| service | anatomy | `anatomy/service.gd` | the player's anatomy handle: showing, hip offset and debug scale |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | ponies | `ponies/service.gd` | the eligibility and anatomy handles |
 | service | settings | `settings/service.gd` | settings declarations and live values |

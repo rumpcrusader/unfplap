@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/poses/pose_driver.gd"
 ## Standing skeleton recipe and the baked-base delta.
 ## Contract: `docs/poses.md`.
 
@@ -31,6 +31,11 @@ static func reference_config() -> Dictionary:
 func apply_reference(rig, sk: Skeleton3D, weight: float, config: Dictionary) -> void:
 	_config = config
 	_stance(rig, sk, weight)
+
+
+## This recipe splits its base from its overlays, so a pose with a delta keeps base, delta, overlay.
+func splits_base() -> bool:
+	return true
 
 
 func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:

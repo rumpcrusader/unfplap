@@ -5,6 +5,8 @@ extends Node
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const HIP := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
@@ -50,7 +52,7 @@ var _body_ik: SkeletonModifier3D
 var _body_ik_was_active := true
 var _leg_hide: SkeletonModifier3D
 var _leg_hide_influence := 0.0
-var _driver: Variant
+var _driver: Node
 var _avatar_visible := true
 var _avatar_process := Node.PROCESS_MODE_INHERIT
 var _avatar_processing := true
@@ -124,8 +126,8 @@ func install(context: ACT_FACTS) -> bool:
 	_install_palm_scale()
 	# His own drivers: the desktop pose driver poses the torso and the body IK the limbs. Both are
 	# parked for the act; the pose we write is the only pose.
-	_driver = avatar.get("desktop_pose_driver")
-	avatar.set("desktop_pose_driver", null)
+	_driver = GAME.desktop_pose_driver(avatar)
+	GAME.set_desktop_pose_driver(avatar, null)
 	# Only the body IK is parked: it is the *pose driver* (it builds his body from the player camera
 	# markers, i.e. the standing body). Every hider stays on: they only hide parts.
 	var ik: Variant = avatar.get("_body_ik")
@@ -181,7 +183,7 @@ func remove() -> void:
 	_leg_hide = null
 	_body_ik = null
 	if is_instance_valid(avatar):
-		avatar.set("desktop_pose_driver", _driver)
+		GAME.set_desktop_pose_driver(avatar, _driver)
 		# The act wrote his world placement every frame; put the rig back exactly where the
 		# presentation left it, then hand it back.
 		avatar.transform = _avatar_transform
@@ -881,12 +883,12 @@ func diag_row(face: Vector3, vulva: Vector3) -> String:
 		_leg_hide.influence if is_instance_valid(_leg_hide) else -1.0]
 	if not odd.is_empty():
 		row += " odd=[%s]" % ", ".join(odd)
-	var service: Variant = _anatomy_service()
-	if service != null and bool(service.call("player_showing")):
-		var part_scale: Variant = service.call("player_debug_scale")
-		if part_scale is Vector3:
+	var service := _anatomy_service()
+	if service != null and service.player_showing():
+		var part_scale := service.player_debug_scale()
+		if part_scale.is_finite():
 			row += " part_scale=(%.2f,%.2f,%.2f)" % [
-				(part_scale as Vector3).x, (part_scale as Vector3).y, (part_scale as Vector3).z]
+				part_scale.x, part_scale.y, part_scale.z]
 	var eye: Variant = eye_transform()
 	if eye is Transform3D:
 		var at := (eye as Transform3D).origin
@@ -898,23 +900,23 @@ func diag_row(face: Vector3, vulva: Vector3) -> String:
 	return row
 
 
-func _anatomy_service() -> Variant:
-	return PONIES.anatomy
+func _anatomy_service() -> ANATOMY:
+	return PONIES.anatomy as ANATOMY
 
 
 ## The pelvis offset the attached alignment asked for this frame, in world space.
 func _hip_offset() -> Vector3:
-	var service: Variant = _anatomy_service()
-	if service == null or not service.has_method("player_hip_offset"):
+	var service := _anatomy_service()
+	if service == null:
 		return Vector3.ZERO
-	return service.call("player_hip_offset")
+	return service.player_hip_offset()
 
 
 ## Tell the part the offset was applied, so next frame it measures from the moved body.
 func _note_hip_offset(offset: Vector3) -> void:
-	var service: Variant = _anatomy_service()
-	if service != null and service.has_method("player_note_hip_offset"):
-		service.call("player_note_hip_offset", offset)
+	var service := _anatomy_service()
+	if service != null:
+		service.player_note_hip_offset(offset)
 
 
 ## Bone indices are stable for the life of the skeleton, so resolve the names once per skeleton.

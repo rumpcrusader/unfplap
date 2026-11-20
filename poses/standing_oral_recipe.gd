@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/poses/pose_driver.gd"
 ## Standing oral procedural delta: the neck swing that keeps her muzzle along the shaft.
 ## Contract: `docs/poses.md`.
 

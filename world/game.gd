@@ -2259,3 +2259,50 @@ static func set_wing_tuck(wings: Node, value: float) -> void:
 static func set_wing_half(wings: Node, value: float) -> void:
 	if is_instance_valid(wings):
 		wings.set("half", value)
+
+
+## Forward one desktop torso pose to the body's own driver; a driver without the op is left alone.
+static func apply_torso_pose(driver: Node, hip: Node3D, facing: Basis) -> void:
+	if is_instance_valid(driver) and driver.has_method("apply_torso_pose"):
+		driver.call("apply_torso_pose", hip, facing)
+
+
+## Hand both rest-hand targets to the body's own driver; without the op they keep their own.
+static func set_rest_hand_targets(driver: Node, left: Node3D, right: Node3D) -> void:
+	if is_instance_valid(driver) and driver.has_method("set_rest_hand_targets"):
+		driver.call("set_rest_hand_targets", left, right)
+
+
+## Release both rest-hand targets; a driver without the op is left alone.
+static func clear_rest_hand_targets(driver: Node, left: Node3D, right: Node3D) -> void:
+	if is_instance_valid(driver) and driver.has_method("clear_rest_hand_targets"):
+		driver.call("clear_rest_hand_targets", left, right)
+
+
+## The desktop rig's own pose driver; null when the body has none.
+static func desktop_pose_driver(avatar: Node) -> Node:
+	if not is_instance_valid(avatar):
+		return null
+	return avatar.get("desktop_pose_driver") as Node
+
+
+## Replace the desktop rig's pose driver; a body without the member is left alone.
+static func set_desktop_pose_driver(avatar: Node, driver: Node) -> void:
+	if is_instance_valid(avatar):
+		avatar.set("desktop_pose_driver", driver)
+
+
+## Her awareness facing from the body's own op; a zero vector when the body cannot answer.
+static func awareness_forward(pony: Node) -> Vector3:
+	if not is_instance_valid(pony) or not pony.has_method("awareness_forward"):
+		return Vector3.ZERO
+	var forward: Variant = pony.call("awareness_forward")
+	return forward if forward is Vector3 else Vector3.ZERO
+
+
+## Clamp one local bone basis with the pony's joint limits; the input when they cannot answer.
+static func joint_constrain(limits: Object, bone: int, basis: Basis) -> Basis:
+	if not is_instance_valid(limits) or not limits.has_method("constrain"):
+		return basis
+	var held: Variant = limits.call("constrain", bone, basis)
+	return held if held is Basis else basis

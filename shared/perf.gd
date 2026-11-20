@@ -36,7 +36,7 @@ const VALUE_W := AVG_W + MAX_W + CALLS_W + COL_GAP * 2.0
 const TOTAL_LABEL := "unfplap total"
 ## The debug targets: a column reads red at its target and green at zero.
 const AVG_LIMIT := 100.0
-const MAX_LIMIT := 0.5
+const MAX_LIMIT := 1.0
 const CALLS_BASE := 1.0
 const CALLS_LIMIT := 2.0
 const GREEN := Color("7ee08a")

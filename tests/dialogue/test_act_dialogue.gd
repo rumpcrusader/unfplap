@@ -86,16 +86,8 @@ class Host extends RefCounted:
 		return clock
 
 
-class FakeMods extends Node:
-	var data := {"unfplap": {}}
-	var saves := 0
-
-	func state(id: String) -> Dictionary:
-		var value: Variant = data.get(id, {})
-		return value if value is Dictionary else {}
-
-	func save_changed() -> void:
-		saves += 1
+class FakeMods extends "res://mods/unfplap/tests/support/fakes/fake_mods.gd":
+	pass
 
 
 func _mods() -> FakeMods:

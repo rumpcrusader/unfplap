@@ -34,11 +34,8 @@ class FakeContext extends Node:
 			"subjects": subjects, "id": event_id})
 
 
-class FakeImpressions extends Node:
-	var calls: Array = []
-
-	func commit(id: String, data: Dictionary, event_id: String) -> void:
-		calls.append({"id": id, "data": data.duplicate(true), "event_id": event_id})
+class FakeImpressions extends "res://mods/unfplap/tests/support/fakes/fake_impressions.gd":
+	pass
 
 
 func run() -> void:

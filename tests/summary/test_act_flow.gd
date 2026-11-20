@@ -14,16 +14,8 @@ const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 
 
 
-class FakeMods extends Node:
-	var data := {"unfplap": {}}
-	var saves := 0
-
-	func state(id: String) -> Dictionary:
-		var value: Variant = data.get(id, {})
-		return value if value is Dictionary else {}
-
-	func save_changed() -> void:
-		saves += 1
+class FakeMods extends "res://mods/unfplap/tests/support/fakes/fake_mods.gd":
+	pass
 
 
 class FakeGame extends Node:
@@ -39,11 +31,8 @@ class FakeContext extends Node:
 		events.append({"kind": kind, "text": text, "id": event_id})
 
 
-class FakeImpressions extends Node:
-	var calls: Array = []
-
-	func commit(id: String, data: Dictionary, event_id: String) -> void:
-		calls.append({"id": id, "data": data.duplicate(true), "event_id": event_id})
+class FakeImpressions extends "res://mods/unfplap/tests/support/fakes/fake_impressions.gd":
+	pass
 
 
 class FakePeakSink extends Node:

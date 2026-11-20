@@ -53,6 +53,7 @@ func run() -> void:
 	_check_order_and_focus()
 	_check_lying()
 	_check_fingerprint_and_far_mare()
+	_check_rotation()
 	_check_reset_and_act()
 	print("FAN_SENSOR_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -139,6 +140,30 @@ func _check_fingerprint_and_far_mare() -> void:
 	check(sensor.update(0.2, eye, forward, false), "a held candidate reports a transition")
 	far.held = true
 	check(not sensor.update(0.2, eye, forward, false), "a far mare's change is silent")
+	_free(made, sensor)
+
+
+## A transition baselines every candidate; between polls the budget rotates, so the farthest
+## candidate's change is still caught within a few turns.
+func _check_rotation() -> void:
+	var made := _fixture()
+	var sensor := SENSOR.new()
+	var far: FakeMare = made["mare"]
+	var near := _mare(Vector3(0.0, 0.0, 1.2), "near")
+	var mid := _mare(Vector3(0.0, 0.0, 0.6), "mid")
+	var game: FakeGame = made["game"]
+	game.mares = [far, near, mid]
+	var eye := Vector3(0.0, 1.6, 2.10)
+	var forward := Vector3(0.0, 0.0, -1.0)
+	sensor.update(0.2, eye, forward, false)
+	check(sensor.candidates().size() == 3, "the three fan points are candidates")
+	far.held = true
+	var detected := false
+	for _turn in 3:
+		if sensor.update(0.2, eye, forward, false):
+			detected = true
+			break
+	check(detected, "the rotating budget reaches the farthest candidate")
 	_free(made, sensor)
 
 

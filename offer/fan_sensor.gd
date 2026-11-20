@@ -9,6 +9,8 @@ const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 
 ## The scene fingerprint's cadence while the fan holds a candidate.
 const SENSOR_POLL_S := 0.1
+## How many fan candidates are fingerprinted per poll; the rest rotate through the next polls.
+const FINGERPRINT_BUDGET := 2
 ## The eye-to-body margin over the standing reach before the rump math runs.
 const NEAR_MARGIN_M := 0.5
 const NEAR_SQ := (RUMP_CONE.REACH_M + NEAR_MARGIN_M) * (RUMP_CONE.REACH_M + NEAR_MARGIN_M)
@@ -39,6 +41,8 @@ var _previous_lying: Node3D = null
 ## The pony the offer last offered, so its state is polled even outside the fan.
 var _focus: Node3D = null
 var _clock := 0.0
+## The next candidate the rotating fingerprint budget reads.
+var _cursor := 0
 var _pony_form := false
 ## A world enter or a settings edit: the next update reports a transition.
 var _pending := true
@@ -93,25 +97,47 @@ func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool) -> bo
 					lying_dot = dot
 					_lying = actor
 	var list_changed := not _same_candidates()
-	var changed := _pending or list_changed or _lying != _previous_lying \
-		or pony_form != _pony_form
+	var structural := _pending or list_changed
+	var changed := structural or _lying != _previous_lying or pony_form != _pony_form
 	_pending = false
 	_pony_form = pony_form
 	var poll := false
 	if _clock >= SENSOR_POLL_S:
 		_clock = 0.0
 		poll = true
-	if poll or list_changed:
-		var player_value := _player_hash()
+	var has_state := is_instance_valid(_focus) or is_instance_valid(_lying) \
+		or not _candidates.is_empty()
+	if structural and has_state:
+		# A transition re-evaluates the offer anyway: baseline every sense now, so a candidate
+		# that entered the fan is compared from its current state on its first poll turn.
+		var baseline := _player_hash()
 		for pony: Node3D in _candidates:
-			if _changed(pony, _scene_hash(pony, player_value), poll):
-				changed = true
-		if is_instance_valid(_lying) \
-				and _changed(_lying, _scene_hash(_lying, player_value), poll):
-			changed = true
+			_changed(pony, _scene_hash(pony, baseline), false)
+		if is_instance_valid(_lying):
+			_changed(_lying, _scene_hash(_lying, baseline), false)
+		if is_instance_valid(_focus):
+			_changed(_focus, _scene_hash(_focus, baseline), false)
+		_cursor = 0
+	elif poll and has_state:
+		var player_value := _player_hash()
 		if is_instance_valid(_focus) \
-				and _changed(_focus, _scene_hash(_focus, player_value), poll):
+				and _changed(_focus, _scene_hash(_focus, player_value), true):
 			changed = true
+		if is_instance_valid(_lying) and _lying != _focus \
+				and _changed(_lying, _scene_hash(_lying, player_value), true):
+			changed = true
+		# The budget bounds one poll's cost in a crowd; a candidate's next turn is a few polls
+		# away, and the offer target above is always read.
+		var count := mini(FINGERPRINT_BUDGET, _candidates.size())
+		for step in count:
+			var index := (_cursor + step) % _candidates.size()
+			var pony := _candidates[index]
+			if pony == _focus:
+				continue
+			if _changed(pony, _scene_hash(pony, player_value), true):
+				changed = true
+		if count > 0:
+			_cursor = (_cursor + count) % _candidates.size()
 	return changed
 
 
@@ -142,6 +168,7 @@ func reset() -> void:
 	_previous_lying = null
 	_focus = null
 	_clock = 0.0
+	_cursor = 0
 	_pony_form = false
 	_pending = true
 
@@ -154,6 +181,7 @@ func _clear() -> bool:
 	_lying = null
 	_previous_lying = null
 	_focus = null
+	_cursor = 0
 	_pending = false
 	_pony_form = false
 	return false

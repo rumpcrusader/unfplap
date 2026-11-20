@@ -45,11 +45,11 @@ gate (`docs/scene_gate.md`).
 The sensor reads the fan every idle frame. A squared eye-to-body distance rejects the mares out of
 reach before the rump math, and the standing fan and the AnonPony lying candidate are collected in
 distance or facing order. The player's seat is read once a frame; a change is the bed branch's
-trigger. The sensor reports a transition when the candidate set, the lying candidate or the current
-target's scene fingerprint changes. The fingerprint is sampled at `SENSOR_POLL_S`
-(`offer/fan_sensor.gd`) and covers the runtime state, posture, held, seated, sleeping, aftercare,
-cuddle, affection, conversation, the navigator owner, the player's press guards, the inventory and
-the player form.
+trigger. The sensor reports a transition when the candidate set, the lying candidate, the offer
+target or a candidate's scene fingerprint changes. Every in-fan candidate and the offer target are
+fingerprinted at `SENSOR_POLL_S` (`offer/fan_sensor.gd`), and the hash covers the runtime state,
+posture, held, seated, sleeping, aftercare, cuddle, affection, conversation, the navigator owner,
+the player's press guards, the inventory and the player form.
 
 `reconsider()` then runs one pass: the live Agreement, the bed-side and already-lying candidates,
 and the standing fan candidates nearest first. There is no cached gate verdict and no row list: the
@@ -106,7 +106,7 @@ path that cancels a private Agreement between auto-start polls.
 |---|---|---|
 | Enter or leave a standing fan | the sensor's per-frame loop | `reconsider()` |
 | A lying mare in front for AnonPony | the sensor's lying candidate | `reconsider()` |
-| The current target's scene state | the fingerprint at `SENSOR_POLL_S` | `reconsider()` |
+| A candidate's or the target's scene state | the fingerprints at `SENSOR_POLL_S` | `reconsider()` |
 | The player sits or stands at a bed | the seat read once per frame | `reconsider()` |
 | A settings edit | `shared/settings_change.gd` | `apply_settings()` drops the row and resets the sensor |
 | A world enter or close | `on_world()`/`on_world_closed()` | the sensor reset |

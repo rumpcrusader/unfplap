@@ -22,9 +22,18 @@ func finish() -> void:
 	quit(0 if failures == 0 else 1)
 
 func _result_prefix() -> String:
-	# tests/<dir>/test_<topic>.gd -> <DIR>_<TOPIC>; tests/test_<topic>.gd -> <TOPIC>
+	# Path-derived label, collapsing an overlap between the directory and the topic.
 	var script: Script = get_script()
 	var path: String = script.resource_path.trim_prefix("res://mods/unfplap/tests/")
 	var parts: PackedStringArray = path.trim_suffix(".gd").split("/")
-	parts[parts.size() - 1] = parts[parts.size() - 1].trim_prefix("test_")
-	return "_".join(parts).to_upper()
+	var topic: String = parts[parts.size() - 1].trim_prefix("test_")
+	if parts.size() == 1:
+		return topic.to_upper()
+	var dir: String = parts[0]
+	if topic == dir:
+		return dir.to_upper()
+	if topic.begins_with(dir + "_"):
+		return topic.to_upper()
+	if dir.ends_with("_" + topic):
+		return dir.to_upper()
+	return (dir + "_" + topic).to_upper()

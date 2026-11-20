@@ -247,6 +247,20 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_rest_held(body, held)` | the rig's `_rest_held` | — | no write |
 | `GAME.oral_ready(bridge)` | the anatomy bridge's `oral_ready` | `bool` | `false` |
 | `GAME.caress(touch)` | the VR touch bridge's `caress` event | — | no call |
+| `GAME.set_face_point(nav, point)` | the navigator's `face_point` | — | no write |
+| `GAME.clear_conversation_target(nav)` | the navigator's `set_conversation_target` | — | no call |
+| `GAME.face_direction(pony, direction)` | the body's `face_direction` | — | no call |
+| `GAME.identity_has_wings(identity)` | an identity's `has_wings` | `bool` | `false` |
+| `GAME.wings_of(excitement)` | the Beat's `_wings` (private) | `Node` | `null` |
+| `GAME.wing_hold_at(wings, owner, value)` | the wing node's `hold_at` | `bool` | `false` |
+| `GAME.wing_release_hold(wings, owner)` | the wing node's `release_hold` | — | no call |
+| `GAME.wing_set_open(wings, open)` | the wing node's `set_open` | — | no call |
+| `GAME.wing_spread(excitement, seconds)` | the Beat's `spread` | — | no call |
+| `GAME.wing_flutter(excitement)` | the Beat's `flutter` | — | no call |
+| `GAME.wing_opened(wings)` | the wing node's `opened` | `bool` | `false` |
+| `GAME.set_wing_opened(wings, open)` | the wing node's `opened` | — | no write |
+| `GAME.set_wing_tuck(wings, value)` | the wing node's `tuck` | — | no write |
+| `GAME.set_wing_half(wings, value)` | the wing node's `half` | — | no write |
 
 Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans`,
 `GAME.refresh_body_lod`, `GAME.mods_state`, `GAME.director_lines`, `GAME.llm_config`,
@@ -254,8 +268,9 @@ Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans`,
 cadence and the rest are a saved-mod read, one authored line, one classifier configuration and the
 settings page's own tab button and icon. The per-frame accessors copy nothing. `GAME` writes the
 rig's control hold, its eye line and its look pitch, the chat lock, her navigator's face point,
-conversation aim, owner, wander, speed, pace and destination, her posture request, her face-turn
-rate, the carry flags, the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's
+conversation aim, owner, wander, speed, pace and destination, her own locomotion facing, her
+posture request, her face-turn rate, her wing hold, open switch and fold blends, the carry flags,
+the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's
 latch and side hold, the affection it feeds, the director's authored-line queue, the world-context
 situation record, the mod state section, the settings page's tab icon kind, the briefcase's slot
 writes and world drops, the inventory's quick-slot card and its bar, the HUD's toast line, the

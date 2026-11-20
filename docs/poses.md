@@ -989,7 +989,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | world | `world/service.gd` | player, camera and mares |
-| service | world | `world/game.gd` | the base-game accessors the presentation reads |
+| service | world | `world/game.gd` | the base-game accessors the presentation and the wing control read |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | ponies | `ponies/service.gd` | the eligibility and anatomy handles |
 | service | settings | `settings/service.gd` | settings declarations and live values |
@@ -1100,8 +1100,8 @@ teardown.
 - `tests/poses/test_pose_edge.gd` — the typed validator, the documents' requirement and policy
   rows and the debug, oral and face-sit forward/reverse run proofs.
 - `tests/test_standing_presentation.gd` — the act-owned presentation start, the navigator stepping
-  turn and its away settle, a blocked turn aborting without a snap, the fallback rotation and the
-  presentation's affectionate face.
+  turn and its away settle, a body with only its own locomotion turn, a blocked turn aborting
+  without a snap, the fallback rotation and the presentation's affectionate face.
 - `tests/poses/test_pose_asset.gd` — the missionary asset's v7 version/space/frame, body and Anon
   bone lists, anchor/contact/root and bed reference, and the rig check that reports a missing body
   bone by name.

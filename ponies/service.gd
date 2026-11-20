@@ -132,6 +132,12 @@ static func act_target(pony: Node) -> bool:
 		and eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
 
 
+## The Base clearance relationship row: live relationship, romance and the Promiscuity floor.
+static func relationship_ok(pony: Node) -> bool:
+	return is_instance_valid(pony) and is_instance_valid(eligibility) \
+		and eligibility.relationship_ok(pony)
+
+
 ## The nearest standing mare whose rear fan holds the eye, or null.
 ## One pass over the game's own mare array: no copy, and eligibility only for the winner.
 static func cone_target(eye: Vector3) -> Node3D:

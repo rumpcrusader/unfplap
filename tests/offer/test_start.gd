@@ -37,7 +37,6 @@ class FakePony extends Node3D:
 
 
 class FakeRuntime extends Node:
-	var rump := Vector3.ZERO
 	var gate_ready := true
 	var stool := {"need": 0, "have": 0}
 	var hotkey_starts := 0
@@ -45,17 +44,17 @@ class FakeRuntime extends Node:
 	var agreement_result := 0
 	var agreement_handles: Array = []
 	var agreement_skips: Array = []
-	var agreement_ready := true
 	var gate: Variant = null
 
 	func _init() -> void:
 		gate = self
 
-	func rump_anchor() -> Vector3:
-		return rump
-
-	func hotkey_ready(_pose: String, _source: String, _bed: Variant) -> bool:
+	func hotkey_ready(_pose: String, _source: String, _bed: Variant,
+			_pair := Vector2i(-1, -1)) -> bool:
 		return gate_ready
+
+	func stool_pair(_pose: String) -> Vector2i:
+		return Vector2i(int(stool.get("need", 0)), int(stool.get("have", 0)))
 
 	func hint_stool() -> Dictionary:
 		return stool
@@ -75,20 +74,21 @@ class FakeRuntime extends Node:
 		agreement_skips.append(skip_presentation)
 		return agreement_result
 
-	func agreement_offer_ready(_handle: Variant, _skip_presentation := false) -> bool:
-		return agreement_ready
-
 
 class FakeNegotiation extends NEGOTIATION:
 	var live: NEGOTIATION.AGREEMENT.Handle = null
 	var match: NEGOTIATION.AGREEMENT.Handle = null
 	var locked := false
+	var is_ready := true
 	var interrupts := 0
 	var reports: Array = []
 	var cancels: Array = []
 
 	func handle() -> NEGOTIATION.AGREEMENT.Handle:
 		return live
+
+	func ready_offer() -> bool:
+		return is_ready and live != null
 
 	func hotkey_handle(_runtime: Node, _option: POSE_OPTIONS.Option) -> NEGOTIATION.AGREEMENT.Handle:
 		return match
@@ -148,6 +148,9 @@ class Targets extends ELIGIBILITY:
 
 	func eligible(pony: Node, _target: Target = Target.ACT) -> bool:
 		return allowed.has(pony)
+
+	func relationship_ok(_pony: Node) -> bool:
+		return true
 
 
 class FakeGame extends Node:
@@ -406,12 +409,12 @@ func check_auto_start() -> void:
 
 	# An Agreement the scene does not accept starts nothing.
 	negotiation.live = _agreement(pony)
-	runtime.agreement_ready = false
+	negotiation.is_ready = false
 	starts = runtime.agreement_handles.size()
 	service.tick(OFFER.AGREEMENT_START_S)
 	check(runtime.agreement_handles.size() == starts,
 		"an Agreement the scene does not accept starts nothing")
-	runtime.agreement_ready = true
+	negotiation.is_ready = true
 
 	# The hotkey's exact match starts at once and does not sample the provider.
 	negotiation.match = negotiation.live
@@ -453,7 +456,6 @@ func _fixture(with_world := true) -> Dictionary:
 		root.add_child(player)
 		player.global_position = Vector3(0.0, 0.0, 3.0)
 		pony.global_position = Vector3(0.0, 0.0, 2.2)
-		runtime.rump = pony.global_position
 		world_nodes = [player]
 		WORLD.bind_world(game)
 		WORLD.bind_player(player)
@@ -493,6 +495,7 @@ func _agreement(pony: Node3D, pose := CATALOG.MISSIONARY, cuddle := false,
 	handle.pony_id = "rarity"
 	handle.option = option
 	handle.private = private
+	handle.cancel = func(_reason: String) -> bool: return true
 	return handle
 
 

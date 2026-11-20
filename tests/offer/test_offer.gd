@@ -45,24 +45,23 @@ class FakeMare extends Node3D:
 
 
 class FakeRuntime extends Node:
-	var rump := Vector3.ZERO
 	var gate_ready := true
 	var hotkey_calls := 0
 	var stool := {"need": 0, "have": 0}
 	var gap: Variant = 0.0
 	var case_count := 0
-	var agreement_ready := true
 	var gate: Variant = null
 
 	func _init() -> void:
 		gate = self
 
-	func rump_anchor() -> Vector3:
-		return rump
-
-	func hotkey_ready(_pose: String, _source: String, _bed: Variant) -> bool:
+	func hotkey_ready(_pose: String, _source: String, _bed: Variant,
+			_pair := Vector2i(-1, -1)) -> bool:
 		hotkey_calls += 1
 		return gate_ready
+
+	func stool_pair(_pose: String) -> Vector2i:
+		return Vector2i(int(stool.get("need", 0)), int(stool.get("have", 0)))
 
 	func hint_stool() -> Dictionary:
 		return stool
@@ -73,16 +72,19 @@ class FakeRuntime extends Node:
 	func stool_case_count() -> int:
 		return case_count
 
-	func agreement_offer_ready(_handle: Variant) -> bool:
-		return agreement_ready
-
 
 class FakeNegotiation extends NEGOTIATION:
 	var live: NEGOTIATION.AGREEMENT.Handle = null
+	var is_ready := true
+	var ready_calls := 0
 	var hots: Array = []
 
 	func handle() -> NEGOTIATION.AGREEMENT.Handle:
 		return live
+
+	func ready_offer() -> bool:
+		ready_calls += 1
+		return is_ready and live != null
 
 	func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> NEGOTIATION.AGREEMENT.Handle:
 		hots.append([runtime, option])
@@ -111,6 +113,9 @@ class Targets extends ELIGIBILITY:
 	func eligible(pony: Node, _target: Target = Target.ACT) -> bool:
 		return allowed.has(pony)
 
+	func relationship_ok(_pony: Node) -> bool:
+		return true
+
 
 func _initialize() -> void:
 	run.call_deferred()
@@ -127,6 +132,7 @@ func run() -> void:
 	SETTINGS.load_settings()
 	_check_cadence_and_cone()
 	await _check_gate_reuse()
+	_check_nearer_non_target()
 	_check_blocked_stool()
 	_check_blocked_need_two()
 	_check_hint_row()
@@ -163,8 +169,7 @@ func _check_cadence_and_cone() -> void:
 	_free(made)
 
 
-## The standing gate is reused while the same mare stays the cone target and refreshed after
-## `GATE_REFRESH_S` of real time.
+## Every scan runs the target's scene checks again; the old verdict reuse window is gone.
 func _check_gate_reuse() -> void:
 	var made := _fixture()
 	var service: OFFER = made["service"]
@@ -172,10 +177,19 @@ func _check_gate_reuse() -> void:
 	service.scan()
 	check(runtime.hotkey_calls == 1, "the first scan runs the gate")
 	service.scan()
-	check(runtime.hotkey_calls == 1, "a second scan reuses the gate verdict")
-	await create_timer(OFFER.GATE_REFRESH_S + 0.2).timeout
+	check(runtime.hotkey_calls == 2, "the next scan runs the gate again")
+	_free(made)
+
+
+## The cone is the game's live mare array: a nearer body that is not an act target owns the
+## geometry, so the hint stays away. The press still gates.
+func _check_nearer_non_target() -> void:
+	var made := _fixture()
+	var service: OFFER = made["service"]
+	var stallion: FakeMare = made["stallion"]
+	stallion.rotation_degrees = Vector3.ZERO
 	service.scan()
-	check(runtime.hotkey_calls == 2, "the gate is refreshed after its window")
+	check(service.current() == null, "a nearer non-target in the fan suppresses the hint")
 	_free(made)
 
 
@@ -278,6 +292,9 @@ func _check_agreement_first() -> void:
 	var near: FakeMare = made["near"]
 	var runtime: FakeRuntime = made["near_runtime"]
 	var handle := AGREEMENT.Handle.new()
+	handle.id = 1
+	handle.generation = 1
+	handle.cancel = func(_reason: String) -> bool: return true
 	handle.pony = near
 	var option := POSE_OPTIONS.Option.new()
 	option.pose = CATALOG.MISSIONARY
@@ -287,9 +304,10 @@ func _check_agreement_first() -> void:
 	service.scan()
 	check(service.current() != null and service.current().pony == near,
 		"the live Agreement is offered")
+	check(negotiation.ready_calls == 1, "the Agreement path asks the live readiness")
 	check(service.current().trigger == "agreement", "the Agreement trigger is carried")
 	check(runtime.hotkey_calls == 0, "the Agreement skips the scene gate")
-	runtime.agreement_ready = false
+	negotiation.is_ready = false
 	service.scan()
 	check(service.current() != null and service.current().trigger.is_empty(),
 		"an Agreement that is not ready falls back to the scene scan")
@@ -344,6 +362,9 @@ func _fixture(with_row := true) -> Dictionary:
 	var near := _mare("Near", Vector3(0.0, 0.0, 2.2))
 	var far := _mare("Far", Vector3(0.0, 0.0, 1.2))
 	var stallion := _mare("Stallion", Vector3(0.0, 0.0, 2.6))
+	# He stands nearer but faces away, so he is outside the rear fan. The in-fan case is its own
+	# check.
+	stallion.basis = Basis(Vector3.UP, PI)
 	var outside := _mare("Outside", Vector3(0.0, 0.0, 1.6))
 	# Her backward axis faces away from Anon, so he is outside her rear fan.
 	outside.basis = Basis(Vector3.UP, PI)
@@ -357,7 +378,6 @@ func _fixture(with_row := true) -> Dictionary:
 	for mare: FakeMare in [near, far, stallion, outside]:
 		var runtime := FakeRuntime.new()
 		runtime.name = "UnfplapRuntime"
-		runtime.rump = mare.global_position
 		mare.add_child(runtime)
 		runtime_nodes.append(runtime)
 		if mare == near:

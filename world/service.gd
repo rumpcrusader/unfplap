@@ -6,6 +6,7 @@ extends RefCounted
 ## The one live-scene reader; it answers where and what, not whether.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 
 ## The live world root; null outside a world.
@@ -125,6 +126,23 @@ static func mares() -> Array[Node3D]:
 	if not is_instance_valid(game):
 		return []
 	return GAME.mares(game)
+
+
+## True when an idle scan may run: a live tree that is not paused, and a captured desktop cursor or
+## a headset. The player and game handles are the scan's own guard.
+static func scan_allowed() -> bool:
+	var tree := _tree()
+	if tree == null or tree.paused:
+		return false
+	if DisplayServer.get_name() != "headless" and not headset_view() \
+			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return false
+	return true
+
+
+## True when Anon's live form is a pony. The offer scan reads it once per pass.
+static func player_is_pony() -> bool:
+	return PLAYER_FORM.is_pony(PLAYER_FORM.active(_tree()))
 
 
 ## The bed or couch under a point, from the world's own support collision.

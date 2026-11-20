@@ -238,8 +238,8 @@ func run() -> void:
 		"a missing Agreement handle fails the start")
 	check(runtime.gate.start_agreement(FakeHandle.new()) == ACT_AGREEMENT.AGREEMENT_FAILED,
 		"an Agreement without an option fails the start")
-	check(not runtime.gate.agreement_offer_ready(null),
-		"a missing Agreement is never ready")
+	check(runtime.gate.agreement_ready("missionary", "bed_side", null, null) == false,
+		"a missing Agreement capability is never ready")
 	pony.set_meta("sex_aftercare", true)
 	runtime.act.clear_aftercare()
 	check(not pony.has_meta("sex_aftercare"), "the Agreement start clears aftercare")

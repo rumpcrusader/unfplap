@@ -22,17 +22,12 @@ const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
-const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
 ## The act-key hint in the prompt row. A press taps it like a base prompt, so it never reads as a
 ## hold.
 const OFFER_HINT := "Make love"
 ## The idle offer hint's scan cadence.
 const OFFER_SCAN_S := 1.0
-## The standing gate's refresh cadence for one mare; the full gate is expensive, so the cone scan
-## reuses its verdict between refreshes.
-const GATE_REFRESH_S := 2.0
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
 ## The Agreement auto-start's readiness cadence.
@@ -59,13 +54,6 @@ var hud: Node = null
 var _offer: POSE_OFFER = null
 var _offer_blocked: POSE_OFFER = null
 var _offer_clock := 0.0
-## The standing gate's last verdict and its footstool pair, kept while the same mare holds the
-## cone target.
-var _gate_target: Node
-var _gate_at := 0.0
-var _gate_ready := false
-var _gate_stool_need := 0
-var _gate_stool_have := 0
 var _last_offer_key := ""
 var _last_blocked_key := ""
 var _stool_hint_toast_shown := false
@@ -243,29 +231,30 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	if handle == null:
 		return
 	_agreement_clock = 0.0
-	if WORLD.menu_panel_open():
-		return
-	if DisplayServer.get_name() != "headless" and not WORLD.headset_view() \
-			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if WORLD.menu_panel_open() or not WORLD.scan_allowed():
 		return
 	var pony: Node3D = handle.pony
-	var runtime: Node = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
-	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
-	if gate == null:
-		return
-	var typed: POSE_OFFER = agreement_offer(handle)
-	if typed == null:
+	if not is_instance_valid(pony):
 		return
 	var option := handle.option
-	var cuddle := option != null and option.cuddle
+	if option == null:
+		return
+	var cuddle := bool(option.cuddle)
 	var pony_id := str(handle.pony_id)
-	if pony_id.is_empty() and is_instance_valid(pony):
+	if pony_id.is_empty():
 		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
-	LOG.debug("agreement auto-start id=%s pose=%s", [pony_id, typed.pose])
+	# A private Agreement's lost visibility cancels now, with its own reason; the negotiation's
+	# privacy tick is the steady check behind this one.
 	if bool(handle.private) and not _agreement_private_now(pony, cuddle):
 		LOG.debug("agreement auto-start privacy lost pony=%s", [str(pony.name)])
 		negotiation.cancel(handle, "privacy")
 		return
+	if not negotiation.ready_offer():
+		return
+	var typed: POSE_OFFER = agreement_offer(handle)
+	if typed == null:
+		return
+	LOG.debug("agreement auto-start id=%s pose=%s", [pony_id, typed.pose])
 	LOG.debug("agreement auto-start pony=%s pose=%s", [str(pony.name), typed.pose])
 	_start_agreement_offer(typed, false)
 
@@ -311,99 +300,107 @@ func on_world(_host: Node) -> void:
 		POSES.warm_asset(asset_path)
 
 
-## A world enter or a world close: drop the offer, the gate verdict, the one-shot flags and the
-## hint row of the world that is gone.
+## A world enter or a world close: drop the offer, the one-shot flags and the hint row of the
+## world that is gone.
 func on_world_closed() -> void:
 	_offer = null
 	_offer_blocked = null
 	_offer_clock = 0.0
-	_gate_target = null
-	_gate_at = 0.0
-	_gate_ready = false
-	_gate_stool_need = 0
-	_gate_stool_have = 0
 	_last_offer_key = ""
 	_last_blocked_key = ""
 	_stool_hint_toast_shown = false
 	_clear_native_hint()
 
 
-## The scan order: the Agreement, then the two bed rows, then the standing cone and gate.
+## One idle scan: the Agreement, the two bed candidates, then the standing cone. Each business
+## check is one call, and no row list is built on this path.
 func scan() -> void:
 	_offer = null
 	_offer_blocked = null
 	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
 		return
-	var tree := get_tree()
-	if tree == null or tree.paused:
-		return
-	if DisplayServer.get_name() != "headless" and not WORLD.headset_view() \
-			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if not WORLD.scan_allowed():
 		return
 	var view: Camera3D = WORLD.camera()
 	if view == null:
 		return
-	var form: Dictionary = PLAYER_FORM.active(tree)
-	var pony_form: bool = PLAYER_FORM.is_pony(form)
+	var pony_form: bool = WORLD.player_is_pony()
 
 	# A live Agreement owns the hint while it is ready: it is already a yes. While its rows wait
 	# or the presentation turns, the context scan below still finds a hotkey attempt, so a press
 	# can start the exact match immediately or interrupt a different one.
 	if is_instance_valid(negotiation):
-		var handle := negotiation.handle()
-		if handle != null:
-			var live: POSE_OFFER = agreement_offer(handle)
-			if live != null:
-				_offer = live
-				_log_offer()
-				return
+		PERF.begin("offer_agreement")
+		var live: POSE_OFFER = null
+		if negotiation.ready_offer():
+			live = agreement_offer(negotiation.handle())
+		PERF.end("offer_agreement")
+		if live != null:
+			_offer = live
+			_log_offer()
+			return
 
 	# Missionary now requires Anon to be seated/lying on the bed with a pony lying there. A
 	# standing or cradling Anon has no valid missionary camera, so that entry is not offered.
-	if not pony_form and is_instance_valid(WORLD.player) and WORLD.player.get("seat") != null:
+	if not pony_form and WORLD.player.get("seat") != null:
 		var lying: Node = _bedside_pony(view)
-		if is_instance_valid(lying):
+		if is_instance_valid(lying) and PONIES.relationship_ok(lying):
 			var runtime: Node = PONIES.runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = _gate(runtime).find_bed_under()
-				if bed != null and bool(_gate(runtime).hotkey_ready(CATALOG.MISSIONARY, "bed_side", bed)):
-					_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
-					_log_offer()
-					return
+				if bed != null:
+					PERF.begin("offer_checks")
+					var ready := bool(_gate(runtime).hotkey_ready(CATALOG.MISSIONARY,
+						"bed_side", bed))
+					PERF.end("offer_checks")
+					if ready:
+						_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
+						_log_offer()
+						return
 
 	# Missionary, AnonPony: an awake pony already lying on a bed.
 	if pony_form:
 		var lying: Node = _nearest_lying(view)
-		if is_instance_valid(lying):
+		if is_instance_valid(lying) and PONIES.relationship_ok(lying):
 			var runtime: Node = PONIES.runtime_for(lying)
 			if is_instance_valid(runtime):
 				var bed: Node3D = _gate(runtime).find_bed_under()
-				if bed != null and bool(_gate(runtime).hotkey_ready(CATALOG.MISSIONARY, "already_lying", bed)):
-					_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "already_lying", bed)
-					_log_offer()
-					return
+				if bed != null:
+					PERF.begin("offer_checks")
+					var ready := bool(_gate(runtime).hotkey_ready(CATALOG.MISSIONARY,
+						"already_lying", bed))
+					PERF.end("offer_checks")
+					if ready:
+						_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "already_lying",
+							bed)
+						_log_offer()
+						return
 
-	# Standing: Anon in the cone behind her rump, no crosshair aim. Only clearance and the scene
-	# rows make her ready.
+	# Standing: Anon in the cone behind her rump, no crosshair aim. Only clearance and the small
+	# scene checks make her ready.
 	PERF.begin("offer_cone")
-	var standing: Node = _rump_cone_target(view)
+	var standing: Node3D = PONIES.cone_target(view.global_position)
 	PERF.end("offer_cone")
-	if is_instance_valid(standing):
-		var runtime: Node = PONIES.runtime_for(standing)
-		if is_instance_valid(runtime):
-			PERF.begin("offer_gate")
-			var ready := _standing_ready(standing, runtime)
-			PERF.end("offer_gate")
-			if ready:
-				_offer = _new_offer(runtime, standing, CATALOG.STANDING, "", null)
-				_log_offer()
-			else:
-				var need := _gate_stool_need
-				if need > 0 and _gate_stool_have < need:
-					var blocked_offer := _new_offer(runtime, standing, CATALOG.STANDING, "", null)
-					blocked_offer.blocked = _blocked_record(need, _stool_hint_for(need))
-					_offer_blocked = blocked_offer
-					_log_blocked_offer(runtime, standing, need)
+	if not is_instance_valid(standing) or not PONIES.relationship_ok(standing):
+		return
+	var runtime: Node = PONIES.runtime_for(standing)
+	if not is_instance_valid(runtime):
+		return
+	PERF.begin("offer_stool")
+	var pair: Vector2i = _gate(runtime).stool_pair(CATALOG.STANDING)
+	PERF.end("offer_stool")
+	PERF.begin("offer_checks")
+	var ready := bool(_gate(runtime).hotkey_ready(CATALOG.STANDING, "", null, pair))
+	PERF.end("offer_checks")
+	if ready:
+		_offer = _new_offer(runtime, standing, CATALOG.STANDING, "", null)
+		_log_offer()
+		return
+	if pair.x > 0 and pair.y < pair.x:
+		var blocked_offer := _new_offer(runtime, standing, CATALOG.STANDING, "", null)
+		blocked_offer.blocked = _blocked_record(pair.x, _stool_hint_for(pair.x))
+		_offer_blocked = blocked_offer
+		_log_blocked_offer(runtime, standing, pair.x)
 
 
 ## The prompt-row hint: the offer, else the blocked note, else nothing. With neither, both logged
@@ -417,24 +414,6 @@ func _hint_text() -> String:
 	_last_offer_key = ""
 	_last_blocked_key = ""
 	return ""
-
-
-## The standing gate, with one mare's verdict reused across scans. The act key runs it again on
-## every press, so a stale yes can only hide the hint, never start an act.
-func _standing_ready(target: Node, runtime: Node) -> bool:
-	var now := Time.get_ticks_msec() * 0.001
-	if target == _gate_target and now - _gate_at < GATE_REFRESH_S:
-		return _gate_ready
-	_gate_target = target
-	_gate_at = now
-	_gate_ready = bool(_gate(runtime).hotkey_ready(CATALOG.STANDING, "", null))
-	_gate_stool_need = 0
-	_gate_stool_have = 0
-	if not _gate_ready:
-		var stool: Dictionary = _gate(runtime).hint_stool()
-		_gate_stool_need = int(stool.get("need", 0))
-		_gate_stool_have = int(stool.get("have", 0))
-	return _gate_ready
 
 
 ## Build one typed offer for the idle scan. The idle offers carry no cancel callback because a
@@ -453,46 +432,6 @@ func _new_offer(runtime: Node, pony: Node, pose: String, source: String,
 ## The blocked record: the prompt hint and the toast a press shows.
 func _blocked_record(need: int, hint: String) -> Dictionary:
 	return {"hint": hint, "need": maxi(1, need), "toast": _stool_find_hint(need)}
-
-
-## The standing act-key zone: the nearest standing mare whose rear cone holds Anon. Only the cone
-## decides; the crosshair may point anywhere.
-func _rump_cone_target(view: Camera3D) -> Node:
-	if not is_instance_valid(view):
-		return null
-	var eye: Vector3 = view.global_position
-	# Geometry first: a profile resolve is expensive, so only in-cone candidates pay for it and
-	# only while they beat the nearest eligible find. One pass keeps the scan allocation-free.
-	var best: Node3D = null
-	var best_distance := INF
-	for node: Variant in WORLD.mares():
-		if not is_instance_valid(node):
-			continue
-		var actor: Node3D = node as Node3D
-		if actor == null or not actor.has_method("posture_status"):
-			continue
-		if str(actor.posture_status().get("requested", "")) != "stand":
-			continue
-		var runtime: Node = PONIES.runtime_for(actor)
-		if not is_instance_valid(runtime):
-			continue
-		var anchor: Variant = _gate(runtime).rump_anchor()
-		if not anchor is Vector3:
-			continue
-		var rump: Vector3 = anchor
-		if not rump.is_finite():
-			continue
-		if not RUMP_CONE.contains(actor.global_basis.z, rump, eye):
-			continue
-		var flat := Vector3(eye.x - rump.x, 0.0, eye.z - rump.z)
-		var distance := flat.length()
-		if distance > RUMP_CONE.REACH_M or distance >= best_distance:
-			continue
-		if not PONIES.act_target(actor):
-			continue
-		best_distance = distance
-		best = actor
-	return best
 
 
 func _native_row() -> HBoxContainer:
@@ -610,17 +549,14 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 ## A live Agreement typed as a press offer; no rump fan or policy snapshot is needed.
 ## Null while the world is not ready.
 func agreement_offer(handle: NEGOTIATION.AGREEMENT.Handle) -> POSE_OFFER:
-	if handle == null:
-		return null
-	var pony: Variant = handle.pony
-	var runtime: Node = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
-	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
-	if gate == null:
-		return null
-	if not bool(gate.agreement_offer_ready(handle)):
+	if handle == null or not handle.valid():
 		return null
 	var option: Variant = handle.option
 	if option == null:
+		return null
+	var pony: Variant = handle.pony
+	var runtime: Node = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
+	if not is_instance_valid(runtime):
 		return null
 	var offer := POSE_OFFER.new()
 	offer.runtime = runtime

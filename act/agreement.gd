@@ -6,7 +6,6 @@ extends RefCounted
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_START := preload("res://mods/unfplap/act/start.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
@@ -69,36 +68,14 @@ func start_agreement(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := fal
 	return AGREEMENT_STARTED if started else AGREEMENT_FAILED
 
 
-## True when the scene-only checks pass and, for a standing option, the presentation is settled.
-## The hint's readiness read: the same small checks with the Agreement's frozen pose pair.
-func agreement_offer_ready(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := false) -> bool:
-	if handle == null or not handle.valid():
-		return false
-	var option: POSE_OPTIONS.Option = handle.option
-	if option == null:
-		return false
-	var pose := str(option.pose)
-	if not context.gate.agreement_ready(pose, str(option.source), option.bed,
-			SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok))):
-		return false
-	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
-			and context.presentation.presentation_active() \
-			and not context.presentation.presentation_settled():
-		return false
-	return true
-
-
 ## The act key's readiness check; unlike a policy start it never bucks.
 func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	session.refresh_identity()
 	var stool_act := session.stool()
-	var pair := Vector2i(-1, -1)
+	var pair := SCENE_GATE.NO_STOOL_PAIR
 	if stool_act != null:
 		pair = stool_act.hotkey_pair(pose)
-	PERF.begin("offer_rows")
-	var allowed: bool = context.gate.hotkey_ready(pose, act_source, bed_in, pair)
-	PERF.end("offer_rows")
-	return allowed
+	return bool(context.gate.hotkey_ready(pose, act_source, bed_in, pair))
 
 
 ## The footstool pair this call's gate used, so the blocked standing note does not repeat the

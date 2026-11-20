@@ -86,10 +86,6 @@ func hint_stool() -> Dictionary:
 	return agreement.hint_stool()
 
 
-func agreement_offer_ready(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := false) -> bool:
-	return agreement.agreement_offer_ready(handle, skip_presentation)
-
-
 func start_hotkey(pose: String, bed_in: Variant, act_source: String,
 		skip_presentation := false) -> bool:
 	return agreement.start_hotkey(pose, bed_in, act_source, skip_presentation)

@@ -3,7 +3,7 @@
 The headless gate: what a suite is, how it is discovered, how it is isolated and how to run a
 subset without disagreeing with `scripts/test_all.sh`.
 
-Suites are not services. They have no facade, no contract entry in the service index and no
+Suites are not services. They have no facade, no contract entry in the service index and no service
 lifecycle; this doc owns their shape and their runner.
 
 ## Scope
@@ -22,7 +22,7 @@ lifecycle; this doc owns their shape and their runner.
 | `tests/<service>/test_<topic>.gd` | the suites for one service's facade or internals |
 | `tests/test_<topic>.gd` | a root suite that crosses services, or a shared/pure module's suite |
 | `tests/<topic>/test_<topic>.gd` | a cross-service concern with its own name; `handover/` is the act body swap, `entry/` the entry's service list |
-| `tests/support/suite.gd` | the shared base: counters, `check()`, `_initialize`, the result line and `finish()` |
+| `tests/support/suite.gd` | the shared base: the assertion helpers, the run/finish lifecycle and the result line |
 | `tests/support/fakes/<family>.gd` | shared fakes for byte-identical bodies; a suite keeps a local class when its fake differs |
 
 `tests/act/test_session.gd` covers the runtime's own `act/` modules: the one state writer, the
@@ -65,8 +65,8 @@ table, not a second owner: each rule has exactly one suite.
 
 ## Writing a suite
 
-A suite extends the shared base and implements `run()`; it has no scene and no autoload beyond
-`Mods` and `Settings`:
+A suite extends the shared base and implements `run()`; the base drives the rest of the lifecycle.
+It has no scene and no autoload beyond `Mods` and `Settings`:
 
 ```gdscript
 extends "res://mods/unfplap/tests/support/suite.gd"
@@ -78,17 +78,19 @@ const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 
 func run() -> void:
 	check(CLEARANCE.evaluate(true, true, true).ok(), "Base clearance passes when every row holds")
-	finish()
 ```
 
-The base owns `failures`, `checks`, `_initialize()`, `check(ok, text)`, the
-`…_RESULT checks=%d failures=%d` line and the `quit(0)`/`quit(1)` call; a suite implements `run()`
-and calls `finish()` at its end.
+The base owns the assertion helpers, the run/finish lifecycle and the result line. `_initialize()`
+defers `_run_and_finish()`, which calls `before()`, then `run()`, then `finish()`; `finish()` runs
+`teardown()` once and prints the result.
 
-- The base's `_initialize()` defers `run()` so the tree is up before the checks touch a node.
+- The base defers the run so the tree is up before the checks touch a node.
 - `check(ok, text)` prints only failures; the text names the rule, not the value.
-- `finish()` prints the final `…_RESULT checks=%d failures=%d` line and quits. The runner reads that
-  line as its result input; a suite that never calls `finish()` is reported as `FAIL … (no result)`.
+- Because the base calls `finish()` after `run()` returns, a suite that returns early or never
+  calls `finish()` still reports. `finish()` is idempotent, so the explicit call a suite keeps at
+  the end of `run()` is harmless.
+- `finish()` runs `teardown()` once, fails the suite when no assertion ran, prints the final
+  `…_RESULT checks=%d failures=%d` line and quits. The runner reads that line as its result input.
 - The runner also scans the suite log for `SCRIPT ERROR` and `Parse Error`; a suite that logs one
   fails even when the result line reports `failures=0`, so a script error cannot hide behind a
   passing check count.
@@ -97,13 +99,38 @@ and calls `finish()` at its end.
 - The header comment carries the direct command, so a suite can be run without the runner while
   debugging.
 
+### Assertion helpers
+
+| Helper | Pins |
+|---|---|
+| `check(ok, text)` | a boolean the suite computed |
+| `check_eq(actual, expected, text)` | exact equality |
+| `check_ne(actual, unexpected, text)` | inequality |
+| `check_approx(actual, expected, text, eps := 0.0001)` | floats within a tolerance |
+| `check_contains(haystack, needle, text)` | a key, a member or a substring |
+| `check_empty(value, text)` | an empty string, array or dictionary |
+| `check_size(value, expected, text)` | a string length or a container size |
+| `check_same(actual, expected, text)` | object identity |
+| `check_null(value, text)` | null |
+| `check_not_null(value, text)` | non-null |
+| `fail(text)` | an unconditional failure |
+| `near(a, b, eps := 0.0001)` | a tolerance test the suite combines itself |
+
+The helpers are additions: an existing `check(a == b, …)` call keeps working, and a new or touched
+check uses the helper for its shape. `near` defaults to `0.0001`, and a suite that needs another
+tolerance passes it explicitly: one default does not fit every call site, so a suite using `0.001`
+or `0.00001` states it. A failure line carries the suite label and the suite's source line, and a
+value helper prints the expected and the got value.
+
 ### Result label
 
 The base derives the result label from the suite's path: a top-level `tests/test_<topic>.gd` prints
-`<TOPIC>`, and `tests/<dir>/test_<topic>.gd` prints `<DIR>_<TOPIC>`. When the topic equals the
-directory or one is a prefix or suffix of the other, the overlap collapses once:
-`privacy/privacy` → `PRIVACY`, `act_audio/audio` → `ACT_AUDIO`, `readiness/readiness_auto` →
-`READINESS_AUTO`. The label is cosmetic; the runner only greps `_RESULT checks=`.
+`<TOPIC>`, and `tests/<dir>/test_<topic>.gd` prints `<DIR>_<TOPIC>`. The topic is used alone when it
+equals the directory or begins with `<dir>_`; a topic that is only a suffix keeps the directory
+prefix, so the two act-audio suites stay distinct: `privacy/privacy` → `PRIVACY`,
+`readiness/readiness_auto` → `READINESS_AUTO`, `act_audio/audio` → `ACT_AUDIO_AUDIO`,
+`act_audio/act_audio` → `ACT_AUDIO`. The label is cosmetic; the runner only greps
+`_RESULT checks=`.
 
 ## Isolation
 
@@ -233,8 +260,13 @@ sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
 
 `scripts/architecture.py --check` enforces these rules over `tests/`:
 
-- every discovered `tests/**/test_*.gd` defines a `check(` helper **or** extends
-  `tests/support/suite.gd`, and prints a line containing `_RESULT checks=` either way;
+- every discovered `tests/**/test_*.gd` extends `tests/support/suite.gd`;
+- every suite defines `run()` and contains at least one assertion call (`check(`, `check_eq(`,
+  `check_ne(`, `check_approx(`, `check_contains(`, `check_empty(`, `check_size(`, `check_same(`,
+  `check_null(`, `check_not_null(` or `fail(`);
+- a suite does not define a base-owned helper (`check`, `check_eq`, `check_ne`, `check_approx`,
+  `check_contains`, `check_empty`, `check_size`, `check_same`, `check_null`, `check_not_null`,
+  `fail`, `near`, `_initialize`, `finish`, `_result_prefix`) and does not call `quit(`;
 - no suite calls `check(true, …)`;
 - only `tests/test_settings.gd` and `tests/test_prompts.gd` name a shipped data document
   (`settings.json`, `characters.json`, `prompts.json`, or a loader's path constant); every other
@@ -243,8 +275,8 @@ sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
   allow-listed `tests/poses/test_session.gd` fallback for `SETTINGS.chin_up_deg.default`;
 - `FileAccess.get_file_as_string` is limited to the allow-list below, so no suite scans production
   source or docs for text;
-- the manual labs (`tests/test_lab*.gd`, `tests/test_stress_lab.gd`) are exempt from the helper,
-  result-line and file-read rules.
+- the manual labs (`tests/test_lab*.gd`, `tests/test_stress_lab.gd`) are exempt from the base,
+  `run()`, assertion and file-read rules.
 
 The file-read allow-list, and the document each read is for:
 

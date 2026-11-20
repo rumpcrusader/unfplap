@@ -1,6 +1,6 @@
 extends SceneTree
-## Base for every headless suite: counters, check(), the result line and the quit.
-## A suite extends this file, implements run() and calls finish().
+## Base for every headless suite: the assertion helpers, the run/finish lifecycle and the result line.
+## A suite extends this file, implements run(), and leaves the exit to finish().
 
 var failures := 0
 var checks := 0

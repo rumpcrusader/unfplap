@@ -514,8 +514,7 @@ func neck_midpoint() -> Vector3:
 	return Vector3.INF
 
 
-## Her missionary face point for the shot: the head bone carried forward from the neck by a
-## twelfth of her body scale. A missing head bone falls back to the neck midpoint.
+## Her missionary face point: the head carried forward from the neck, for the kiss lean.
 func missionary_face_point() -> Vector3:
 	var pony: Variant = facts.pony if facts != null else null
 	if not is_instance_valid(pony):
@@ -583,7 +582,8 @@ func apply_motion() -> void:
 		view.tick()
 
 
-## True when the shot owns the view this frame: not idle, not AnonPony/VR, and the camera exists.
+## True when the act view owns the player camera this frame: not idle, not AnonPony/VR, and it
+## exists.
 func motion_ready() -> bool:
 	if int(facts.state) == STATE_IDLE or not free_camera_active:
 		return false

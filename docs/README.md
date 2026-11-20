@@ -61,7 +61,7 @@ the idle block; `act/build.gd` constructs and binds them once per pony.
 | Act dialogue and prompt notes | `dialogue/service.gd` | `docs/dialogue.md` | `tests/dialogue/` |
 | Readiness, strength, auto | `readiness/service.gd` | `docs/readiness.md` | `tests/readiness/` |
 | Poses and skeleton | `poses/service.gd` | `docs/poses.md` | `tests/poses/` |
-| Act camera and shots | `camera/service.gd` | `docs/camera.md` | `tests/act_camera/` |
+| Act camera and live view | `camera/service.gd`, `camera/view.gd` | `docs/camera.md` | `tests/act_camera/` |
 | Kiss | `kiss/service.gd` | `docs/kiss.md` | `tests/act_camera/`, `tests/face/`, `tests/hands/` |
 | Act summary | `summary/service.gd` | `docs/summary.md` | `tests/summary/` |
 | Afterglow | `afterglow/service.gd` | `docs/afterglow.md` | `tests/afterglow/` |

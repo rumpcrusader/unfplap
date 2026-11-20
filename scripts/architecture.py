@@ -97,7 +97,7 @@ POSE_FANOUT_ORDER = (
     "context.audio",
 )
 # The start ledger's recipe, in the order the act depends on: the presentation guard, the stool,
-# the camera session, the borrows, the pose build, the player frame, the camera open, the audio,
+# the borrows, the pose build, the player frame, the camera open, the audio,
 # POSING_IN and the HUD card. `begin_pose_in()` precedes `show_act()` because the HUD reads the
 # live state it sets.
 START_LEDGER_ORDER = (
@@ -649,7 +649,7 @@ LIFECYCLES = {
     "dialogue": ("per-act", "`runtime`", "`setup()`/`configure()`", "`reset()`/act end", "yes"),
     "readiness": ("per-act", "`runtime._init()`", "`configure()`", "`reset()`", "yes"),
     "poses": ("per-act", "`runtime._init()`", "`bind()`/`begin()`", "`release_pose()`", "yes"),
-    "camera": ("per-act", "`runtime._init()`", "`bind()`/`begin_session()`", "act teardown", "yes"),
+    "camera": ("per-act", "`runtime._init()`", "`bind()`/`begin_act()`", "`finish_act()`/act teardown", "yes"),
     "kiss": ("per-act", "`runtime`", "`bind()`", "act teardown", "yes"),
     "integrations": ("per-act", "`runtime._integrations_controller()`", "`begin()`", "`reset()`", "yes"),
     "summary": ("per-act", "`runtime._init()`", "`reset_act()`", "act teardown", "yes"),

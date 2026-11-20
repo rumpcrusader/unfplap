@@ -2,8 +2,9 @@
 
 This is the contract for the act's pose system: the pose document and its static capability table,
 the live session state machine, the authored edges and their per-channel tracks, the v7 authored
-assets and their placement, the per-pose settings and the post-act posture. The act camera and shot
-are `docs/camera.md`; the anatomy part is `docs/anatomy.md`;
+assets and their placement, the per-pose settings and the post-act posture. The player frame is
+this file's `## Player frame`; the act camera and the live view are `docs/camera.md`; the anatomy
+part is `docs/anatomy.md`;
 the caress paths and palm holders are `docs/hands.md`. The pose tuning rows are the **Poses**
 settings tab's Debug block; its two player rows are **Enable Oral** and **Enable Anal**; see
 `docs/settings.md`.
@@ -20,9 +21,10 @@ session and reads its `pose()`, `pose_config` and `bed_frame` for
 the start/teardown and the standing gap, not as the consumer contract. Presentation modules read
 the pose view through `shared/act_facts.gd`.
 
-`poses/placement.gd` owns the standing start's placement math: her forward, the act gap, the floor
-probe, the whole-body fit, the pelvis handshake and the camera-rig transform. The runtime keeps the
-ordered start adapters and the stool handle, fills the live facts and calls one placement method.
+`act/frame.gd` owns the act's player frame: the standing placement, the stance, the controls lock,
+the avatar hold and the one restore, from a pure solve over the pose and the rig. The runtime keeps
+the ordered start adapters and the stool handle; `docs/poses.md` (`## Player frame`) is its
+contract. `camera/service.gd` and `camera/view.gd` own the view and its live offsets.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/tail_chain.gd` resolves the
 visible tail chain: the devkit hair chain `mTail1..mTail6` when present, otherwise the fitted body
@@ -35,7 +37,7 @@ contact driver. `shared/pose_catalog.gd` owns the pose ids
 and the `POSE_KEYS` schema; the shipped per-pose values live under `default.poses` in
 `settings/defaults.json`.
 `poses/service.gd` owns the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action
-math; `camera/service.gd` owns the camera and lean state.
+math; `camera/service.gd` owns the lean state and `camera/view.gd` the act view.
 
 `shared/pose_specs.gd` is the static pose capability table: family, frame, driver, settings group,
 the ten profiles, forms, views, the scene block, the `start` block and the public/offerable flags.
@@ -51,7 +53,42 @@ contact and facing mirrors.
 ## Player frame
 
 `act/frame.gd` owns Anon's placement, his stance and the one restore. Its `begin()`, `refit()` and
-`end()` are the act's only player-placement calls.
+`end()` are the act's only player-placement calls, and no other shipped file writes his root, yaw,
+pitch, eye line, look, controls or the act body's first placement
+(`scripts/architecture.py --check`).
+
+- **`solve(pose, rig)`** is pure with respect to the scene: one `PoseInput` (family, frame, start
+  setup) and one `Rig` record in, one `PlayerPlan` out. The plan carries the player only: the
+  standing root transform, yaw and aim pitch, the captured look, the stance eye and the head
+  clearance, or the missionary act-body transform. No camera transform and no shot.
+- **Inputs**: the pose spec and the authored asset, her rig and body scale, the body form's entrance
+  offset, the act settings snapshot, the size preset, her live eye line, Anon's size and eye, the
+  stool's floor probe, and the bed or ground frame.
+- **The standing placement** puts him at `pony - forward * gap`, on his current floor height,
+  centered behind her. There is no whole-body fit: the start never reads the animated part or her
+  hole, and the per-frame attached aim moves his pelvis to her entrance. The gap is the preset's
+  tuned value, scaled with Anon's own height for Same Height, plus the body's entrance back offset
+  and `presentation.standing.gap_offset_m`.
+- **The base aim** reads her authored target neck in world space, after
+  `poses/service.gd:apply_target_once()` puts her in the target pose; the fallback is her live eye
+  line above his floor. The entered pitch is clamped to `±1` rad.
+- **The stance** is player state: yaw, `_pitch`, `_stand_eye`/`_eye_height` through `_set_eye_y`,
+  and the captured look in the typed view. A player who is a pony, a seated player and a headset rig
+  keep their own stance.
+- **Missionary** places the act `AnonBody` from the pose's `anon` transform; the real player rig is
+  parked and restored on exit. The plan carries the head clearance the live view enforces.
+- **`begin()`** captures the player state and the scene token (player, her and the bed, with the
+  game camera), parks the desktop presentation for a bed act, locks his controls, then places him.
+  A second call while live returns the running plan; a missing pose row is a no-op.
+- **`refit()`** re-solves from the new rig after a body swap or resume, a same-body form revision, a
+  size or anatomy setting or a moving bed. It re-applies the base without replaying the entrance and
+  leaves the live lean to the next tick (`docs/body_change.md`).
+- **`end()`** gives the player back exactly once: the captured stance and eye line, the bed act's
+  captured yaw/pitch, the presentation hold, the controls lock and the view. A forced stop and the
+  failed-start funnel use the same end. The scene token is applied by `restore_scene()` when the bed
+  posture rejoins, so the cuddle starts from the spot the act found (`docs/rest.md`).
+- The act start, the swap and the pose render write call the frame; the frame calls the live view's
+  `begin_facing()` and the pose service's first act-body write, never the reverse.
 
 ## Pose assets
 
@@ -130,8 +167,8 @@ the mattress and her vulva on his mouth, and leans forward over his chest. The `
 `pony_hips` pose, its `contact` is the shin/knee support on the mattress, and `support` is the
 mattress top, so the v7 anchor/contact rule carries the four Pony size presets. The `anon` block is
 the full `Anon3` block: the bed-frame placement and the v7 local-rest bones; the five authored
-shots frame Anon's eye under her and are read by the existing bed camera. There are no variants
-and no `provisional` flag. The asset's `--pose bed_facesit --check` round-trip and the
+shots stay in the asset for the pose lab and the act's eye view does not read them. There are no
+variants and no `provisional` flag. The asset's `--pose bed_facesit --check` round-trip and the
 `pose_runtime_check` face-sit case are the automated proof; the arrangement is authored through
 `tools/pose_lab.gd` and saved as this asset.
 
@@ -537,8 +574,9 @@ owners of the authored asset: `begin()` resolves the start asset, the request ca
 (the live wrapper) and `_target_asset`, and completion adopts the target asset on both sides. The
 settings syncs (`sync_standing_config()`, `sync_missionary_config()`) and `_adopt_target_config()`
 only merge the config, so a live settings edit cannot reset the live asset to a file named by the
-settings group. `live_authored()` and `authored_asset()` return the live rendered wrapper, so the
-shot camera holds the source asset through an edge and reads the target's after completion.
+settings group. `live_authored()` and `authored_asset()` return the live rendered wrapper, so the debug
+diagnostic and the pose lab hold the source asset through an edge and read the target's after
+completion.
 `_config_for_group(group, presentation)` builds the target: the standing group plus the
 presentation chin/neck/tail values (the values `sync_standing_config()` writes), the missionary
 block, or `SETTINGS.pose()` for another group. The group comes from the target spec, never from
@@ -563,7 +601,7 @@ channel; each following owner implements `pose_changed(view)` and caches the las
 family/contact, so an unchanged view is a cheap no-op. The face, dialogue and HUD read the view
 through the facts and have no hook. The fan-out is a retarget seam, not a second teardown: it never
 calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `free_pose()`
-or any act-scope restore. The eye-camera tick stays on the render write, after the pose write.
+or any act-scope restore. The eye view's write stays on the render write, after the pose write.
 
 `refresh_modifiers(feature_flags)` is the live settings edit's entry into the session's reconcile:
 it replaces the session's feature flags and runs the same `pose_changed(view)` pass with the
@@ -671,7 +709,7 @@ Missionary is its own state, not the game's bed rest:
 - **The bed is only a frame**: `bed_frame` (mattress top and axes) plus the offer/eligibility path.
 - **The bed frame follows the bed.** The session's `bed_frame` (`facts.bed_frame` for
   presentation modules) is updated each tick by the bed's rigid delta; a moving bed (the
-  Cloudominium's CloudDrift) carries the authored pose, the act body and the shot instead of
+  Cloudominium's CloudDrift) carries the authored pose, the act body and the eye view instead of
   leaving them at the world transform where the act started. The mattress top is not re-measured.
 - **The end restores the scene relative to the bed** (`restore_scene()`: player, pony and camera
   snapshot plus the bed transform) and stands her. A moving bed applies the same rigid delta to all
@@ -679,9 +717,9 @@ Missionary is its own state, not the game's bed rest:
   to the cuddle: Anon sits on the bed's player seat and lies back, and she is invited into its guest
   seat, where the stock `CuddleSession` picks her up. A forced stop, a bad summary or a stock
   closeness refusal leaves her standing. The snapshot is re-read once the pose settles
-  (`resnapshot()` at ACTIVE): taken at `prepare()` it catches Anon mid stand-up and restores the
-  reclined eye height. `resnapshot()` refreshes only the game camera's transform, never the act's
-  own view.
+  (`act/frame.gd:resnapshot()` at ACTIVE): taken at `begin()` it catches Anon mid stand-up and
+  restores the reclined eye height. `resnapshot()` refreshes the player, her and the game camera,
+  never the act's own view.
 
 ### Base pose
 
@@ -764,11 +802,9 @@ Missionary is its own state, not the game's bed rest:
   their own size, and the four-size lab covers Hoers. An oversized body (the princesses' own) also
   rises by its measured `bed_clearance()` so it rests on the mattress instead of sinking into it;
   the mare's own body measures zero.
-- **The Anon and the shots** use the same rule (`place_origin`): their origins scale about the hips
-  anchor and follow the contact lift; their authored bases are unchanged.
-- **The shots** are authored frame-space transforms; `camera/missionary_camera.gd` reads only their
-  origins through `shot_origin()` and aims them at her live face and vulva. A missing shot falls
-  back to a fixed bed-relative point placed by the same anchor/lift rule.
+- **The Anon** uses the same rule (`place_origin`): his origin scales about the hips anchor and
+  follows the contact lift; his authored base is unchanged. The authored camera `shots` stay in the
+  asset for the pose lab; the act no longer reads them, because the view is his own eye.
 - **Weight** comes from the pose modifier's `amount` ramp: each bone slerps from whatever the game's
   `lie_down` settle left to the authored rotation, and the root blends with `interpolate_with`, so
   POSING_IN still eases her in.
@@ -784,7 +820,8 @@ Missionary is its own state, not the game's bed rest:
 - **Overlays skip the joint-limit clamp** (`rig.rotate_free`). The authored pose can sit outside
   the limits the game derives from its own motion library, and `constrain()` would snap it back on
   the first gaze correction.
-- The shot's camera positions are bed-relative, so the body and the eye move together on any bed.
+- The bed frame carries the body and the eye together on any bed; the authored shot positions are
+  bed-relative lab data and the act does not read them.
 - **No fallback.** There is no second missionary pose. A missing/invalid asset, a version below 6
   or no bed frame (the floating pose preview) means no pose is applied, and the act's `pose_asset`
   gate refuses the start with `missionary pose unavailable: <reason>` in the log.
@@ -793,7 +830,8 @@ Missionary is its own state, not the game's bed rest:
 
 ## Standing
 
-The standing body pose and placement. The camera, lean, glance and shot are `docs/camera.md`.
+The standing body pose and placement. The lean, glance and eye are `docs/camera.md`; the placement
+is `## Player frame`.
 
 - Facing lock every physics tick at priority 100:
   `pony.global_transform.basis = _facing_basis.scaled(scale)`. `stay()` alone does not stop
@@ -801,16 +839,14 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   `face_turn_rate` is held at `0` for the act; locomotion and emotions keep running.
   Conversation attention is not a stop condition: another character addressing Anon can talk
   while `_keep_act_attention()` clears her listener each tick.
-- Act start keeps her where she stands. `poses/placement.gd` owns the placement math;
-  `act/session.gd:placement_values()` fills `PLACEMENT.ActBind` (its `fill()`) and feeds
-  `bind_act()`; `act/setup.gd:standing_place()` calls `begin_act()`. For desktop human
-  Anon it builds the act transform from her current facing and places him at
-  `pony_position - forward * runtime.act.swap.standing_gap()`, then sets his yaw along her forward so a standing
-  act after a missionary restore does not inherit the old view. The 2 m Y cone bounds that
-  correction. The act end leaves him there and leaves his yaw/pitch at the last act aim; it
-  does not snap the pre-act view back. AnonPony and headset/VR still move her in front of the
-  camera rig with `poses/placement.gd:transform()`, because their rig is the camera or another
-  body, and the player is never moved for them.
+- Act start keeps her where she stands. `act/frame.gd` owns the placement math
+  (`## Player frame`): `act/setup.gd:standing_place()` keeps her where she stands and
+  `act/start.gd` calls `context.frame.begin()` next. For desktop human Anon it places him at
+  `pony_position - forward * gap`, then sets his yaw along her forward so a standing act after a
+  missionary restore does not inherit the old view. The act end leaves him there and leaves his
+  yaw/pitch at the last act aim; it does not snap the pre-act view back. AnonPony and headset/VR
+  move her in front of their rig along its view at the gap, because that rig is the camera or
+  another body, and the player is never moved for them.
 - `apply_anon_lean()` pins both foot targets at their live stepping pose while a lean moves the
   hip and camera/head forward, sideways or down, so the torso hinges over her instead of walking
   through the lean. With no lean the game's stepping feet are left alone; the capture clears on
@@ -826,8 +862,9 @@ The standing body pose and placement. The camera, lean, glance and shot are `doc
   Same Height preset follows Anon's `player/height_cm`, so that gap, the lean scale and the
   caress offsets follow `Settings.anon_height_scale()` as described in `docs/hands.md`.
   For desktop human Anon the gap is measured from her root along her backward axis after he is
-  placed behind her. The placement handle keeps no gap table: `act/swap.gd:standing_gap()` reads the pose
-  config's `gaps`, then `SETTINGS.pose(id, "standing")` when the session has none.
+  placed behind her. The frame keeps no gap table: `act/frame.gd:gap_for()` reads the pose
+  config's `gaps`, then `SETTINGS.pose(id, "standing")` when the session has none, and
+  `act/swap.gd:standing_gap()` asks the frame.
 - The idle invitation (`poses/standing_presentation.gd`) builds its own standing config. The
   presentation chin/neck and tail values, the glance keys and the two tail angles are read by key
   from the complete block, with no fallback literals. It keeps that config when the pose session has
@@ -928,16 +965,15 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 ## Timing domains
 
-- `act/tick.gd:render`: the render-time pose write, the climax progress, the shot tick and the
-  breath. `act/view.gd:pose_render()` supplies the body scale, the size name and the eye-camera
-  mode to `poses/service.gd:write_render_frame()`. `render_write()` owns the render-time order:
-  `sync_frame(family)` picks the bed or ground frame; for the bed family it parks the game
-  presentation and places the act's Anon body, writes her pose, replays the prone sway, then ticks
-  the eye-shot camera; for the standing family it writes her pose and replays the body sway after
-  every game writer. It then calls
-  `camera/service.gd`'s
-  `write_look_target()`, which owns the look point (the missionary gaze, the kissing-mouth blend and
-  the authored-Anon fallback) and the pose's kiss and climax weights.
+- `act/tick.gd:render`: the render-time pose write, the climax progress, the surge/bob tick and the
+  breath. `act/view.gd:pose_render()` supplies the body scale and the size name to
+  `poses/service.gd:write_render_frame()`. `render_write()` owns the render-time order:
+  `sync_frame(family)` picks the bed or ground frame; for the bed family it places the act's Anon
+  body, writes her pose, replays the prone sway, then lets `camera/view.gd:write_eye()` read his
+  posed head; for the standing family it writes her pose and replays the body sway after every game
+  writer. It then calls `camera/service.gd`'s `write_look_target()`, which owns the look point (the
+  missionary gaze, the kissing-mouth blend and the authored-Anon fallback) and the pose's kiss and
+  climax weights.
 - `act/tick.gd:_tick`: presentation, timers, facing lock, glances, auto-cuddle suppression.
 - the entry's `_process`: calls `active_runtime.act.apply_camera_motion()` every rendered frame.
   Keep this single owner.
@@ -946,10 +982,10 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | player, camera and mares |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | world | `world/service.gd` | player, camera and mares |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | ponies | `ponies/service.gd` | the eligibility and anatomy handles |
 | service | settings | `settings/service.gd` | settings declarations and live values |
@@ -993,7 +1029,6 @@ leaves the teardown to `free_pose()`.
 | `kiss.reset()` | act service, pose-local sub-state | the kiss |
 | `integrations.reset()` | act | the integrations |
 | `audio.reset_excitement_hold()` | act | the act audio |
-| `release_free_camera_lock` | act | the camera |
 | `standing_anon.remove()` | pose: the standing player-body Anon wrapper | the standing Anon |
 | `leave_pose_body()` | pose: extra modifiers | the pose session |
 | `audio.restore_voice_policy()` | act | the act audio |
@@ -1013,9 +1048,10 @@ the act-scope resets between them. `release_pose()` is called only from `free_po
 `act/exit.gd:run()` (the one act exit), `act/start.gd:_build_pose()` (the new-act prep) and
 `act/swap.gd:release_pose()` (the act-preserving body handover) are the only `free_pose()` callers. A second `release_pose()` is a no-op.
 
-`context.camera.release_act_shot()`/`finish_act_shot()` also end the lean action, reset the hands,
-release the free-camera lock and remove the standing player-body Anon wrapper. That is the act's
-camera restore path, not the pose teardown; it stays unchanged.
+`context.frame.end()` gives the player his stance, look and controls back before the pose teardown;
+`context.camera.finish_act()` then ends the lean action, resets the hands, removes the standing
+player-body Anon wrapper and drops the act view. That is the act's camera restore path, not the pose
+teardown.
 
 ## Tests
 
@@ -1106,14 +1142,14 @@ camera restore path, not the pose teardown; it stays unchanged.
   post-stop tuck. Celestia and Luna use the body chain; a devkit mare keeps the hair chain; Queen
   Chrysalis's `tail_pose_root` spring chain is moved and restored without a body-chain write.
 - Four sizes: repeat the missionary and standing lab at Canon, JRHNBR, Same Height and Hoers. The
-  body, the Anon, the authored shot and the anatomy contact must stay framed at every size; the
-  contact stays on the mattress or the ground and the hips stay at the anchor. The bake/check
+  body, the Anon, the view and the anatomy contact must stay framed at every size; the contact stays
+  on the mattress or the ground and the hips stay at the anchor. The bake/check
   commands are `godot --headless --xr-mode off --path . --script res://mods/unfplap/tools/pose_bake.gd
   -- --check` and the same with `--write`; the exporter round-trip is `pose_export.gd --check`.
 
 ## Related docs
 
-- `docs/camera.md` — shots, lean, glance, standing camera, free look.
+- `docs/camera.md` — the act view, lean, glance, free look and the missionary eye.
 - `docs/hands.md` — caress paths, palm holders, smack.
 - `docs/anatomy.md` — the anatomy part and tail seating.
 - `docs/reactions.md` — jiggle, rump blush, climax hearts.

@@ -444,8 +444,10 @@ pose tuning rows from `presentation.missionary.*` and `presentation.standing.*`,
 and values are unchanged, so a player file carries over without a migration.
 
 - **Missionary**: **Missionary body motion**, **Missionary reach shoulder**, **Anon size match**,
-  **Missionary path** (the authored caress chain), **Disable fold coloring**, Camera (Anon eyes or
-  authored shots), **Third-person views**, **Use free look** and **Cock base inset**.
+  **Missionary path** (the authored caress chain), **Disable fold coloring**, **Use free look** and
+  **Cock base inset**. The retired **Camera** (Anon eyes or authored shots) and **Third-person
+  views** rows are `deprecated()` entries with no value to carry over: the view is always his
+  eye.
 - **Missionary › Size**: the **Size** dropdown over the six per-size values — the three vulva trims,
   **Vulva hug**, head clearance and gaze height — for the selected pony size.
 - **Standing**: **Chin up**, **Neck down**, **Tail lift (pitch)** and **Tail aside (yaw)**.

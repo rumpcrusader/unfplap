@@ -426,9 +426,9 @@ The host is the typed `anatomy/act_host.gd`: named methods over callables `act/b
 Each callback names its owner: the node operations and `vr_scene()` are `act/host.gd`; the live
 state and act values are session accessors (`state_value`, `pose_view`, `cycle_phase`,
 `kiss_service`, `reactions_service`); the anatomical service reads are the `ponies` statics; depth,
-penetration, climaxes and auto pace are readiness; size scale and the two camera controllers are
-the camera session; the bed frame is the pose session; fluid ground, shaft length and the pose
-handles are their modules. A missing callable is a no-op. `act/host.gd:vr_scene()` is the one
+penetration, climaxes and auto pace are readiness; size scale and the act view are the camera
+session; the bed frame is the pose session; fluid ground, shaft length and the pose handles are
+their modules. A missing callable is a no-op. `act/host.gd:vr_scene()` is the one
 scene read: `{player, avatar, camera, origin, hip_target}`, or null when the player or the XR rig is
 absent. The bridge wires `vr/service.gd` from that host and does no `find_child`/`find_children`
 lookup itself.
@@ -750,12 +750,12 @@ sample of the body coat.
   pose. `reset_pelvis()` clears the applied/wanted offset, the aim, the bend and the smoothed
   penetration without touching the mesh, the act's throb or the act state; the body swap's resume
   and the standing start call it through the service.
-- A standing start fits Anon's whole body before the act: `act/setup.gd:standing_place()` binds
-  the act values and `poses/placement.gd:begin_act()` uses the
-  natural pivot, the live opening and the mesh rear to put his pivot one shaft behind her
-  entrance, bounded by `STANDING_FIT_MAX_M` and skipped on a stool. The fit removes the old
-  handshake after measuring, so the first act tick starts from a clean stance; the per-frame aim
-  then moves only his pelvis for the stroke. A shape resume repeats the fit on the new body.
+- A standing start does not fit Anon's whole body. `act/frame.gd:begin()` places him at her gap on
+  her centreline, using the body form's entrance back offset as one of its inputs, and clears the
+  old handshake (`player_reset_pelvis()`) so the first act tick starts from a clean stance. The
+  per-frame aim then moves only his pelvis for the stroke; `refit()` repeats the placement on a new
+  body. The bed view's head clearance is another frame input: the clearance over her skull and
+  muzzle radii comes from the plan, and the live view enforces it.
 - `reset_state()` also clears the offset, aim, bend, squash, shader squish, throb, bed inset and the
   smoothed penetration, so a following act never inherits the previous transform. A closing world
   removes the player body, and the part with it, from the tree before `world_closed` reaches the

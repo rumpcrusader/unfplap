@@ -65,7 +65,9 @@ The node's public surface is exactly:
 | swap record, form offer/reveal/policy | `body_change/act.gd` |
 | suspension flag | `body_change/act.gd`, read through `session.suspended()` |
 | pose, pose view, bones | `poses/service.gd` |
-| camera, lean, shot | `camera/service.gd` |
+| lean, surge/bob, free look | `camera/service.gd` |
+| act view, glance, facing lock, eye | `camera/view.gd` |
+| player placement, stance, restore, scene token | `act/frame.gd` |
 | audio, voice | `audio/act.gd` |
 | aftercare plan, satisfaction decay, close window | `afterglow/service.gd` |
 | face/eyes, reactions, dialogue, hands, kiss, wings, integrations, anatomy | their services |
@@ -128,12 +130,12 @@ through `PONIES.display_name_for()` and refreshes the scene gate. `live_id()` is
 caller.
 
 The act settings snapshot lives in `act/settings.gd`: one `SETTINGS.ActSnapshot`, the feature
-flags, the presentation block, the caress quality, the climax limit and mode, and the eye-camera
-mode. `snapshot_settings()` is the one bulk snapshot at act start and again at the top of
+flags, the presentation block, the caress quality, and the climax limit and mode.
+`snapshot_settings()` is the one bulk snapshot at act start and again at the top of
 `apply_live_settings()`, before the `IDLE` early return. The session exposes typed read-throughs
 (`snapshot`, `features`, `presentation_config`, `caress_quality`, `max_pony_climaxes`,
-`climax_mode`, `eye_camera_mode`); no second per-frame settings read exists, and a zeroed snapshot
-stands in until the first act.
+`climax_mode`); no second per-frame settings read exists, and a zeroed snapshot stands in until the
+first act.
 
 The session dispatches; the owners keep the bodies. `act/view.gd` composes the act values the
 owners read: the face beat and rows, the climax line, the summary input, the prompt note, the debug
@@ -148,11 +150,10 @@ body and id and the act host's pony. There is no second bind pass and no facade 
 `build(pony, node)` constructs, in order:
 
 1. the early modules (`input`, `swap`, `tick`, `phases`, the pose session, the scene gate, rest,
-   the camera session, readiness, summary, face, reactions, the act view, dialogue, afterglow, the
+   the camera facade, readiness, summary, face, reactions, the act view, dialogue, afterglow, the
    scene hold) and the empty typed hosts the bridge and the handover will hold;
-2. `_build_systems()`: the handover, the placement handle and its facts, wings, hands, kiss,
-   integrations, the two camera controllers, the two standing body controllers, the camera and
-   audio bindings;
+2. `_build_systems()`: the handover, wings, hands, kiss, integrations, the one live view, the two
+   standing body controllers, the camera and audio bindings;
 3. `_bind_act_frame()`: `act/host.gd` (node operations), `act/context.gd`, `act/settings.gd`,
    `act/session.gd`, consent, impact, view, idle, exit, input, swap, phases, tick, setup, start,
    agreement and the offer gate, and their sibling handles;
@@ -165,7 +166,7 @@ Every callback names its owner rather than a runtime method:
 
 - act state and act values are session accessors (`b.act.state_value`, `b.act.act_id`, …);
 - a system value is its own service's method (`b.readiness.depth_value`,
-  `b.camera.missionary_controller`, `b.pose._bed_frame_value`, …);
+  `b.camera.view_controller`, `b.pose._bed_frame_value`, …);
 - node and scene operations are `act/host.gd` (`pony_value`, `runtime`, `director`, `mod_enabled`,
   `vr_scene`, `near_mesh`, `tier`);
 - logging is `shared/log.gd` (`debug`, `warning`, `error`, `block`);
@@ -244,17 +245,18 @@ The start sequence:
    rows); `run()` opens with the presentation guard;
 2. bind the act's stool handle through `act/session.gd:stool()` and reset it, then refresh the
    anatomy bridge;
-3. begin the camera session, clear the idle presentation, the mood face and the act face;
+3. clear the idle presentation, the mood face and the act face;
 4. snapshot the settings and preferences, build the profile and prompts;
 5. resolve the bed when the row's `scene.requires_bed` is set (a missing bed fails closed before
-   anything is borrowed), then apply the eye override and the initial face;
+   anything is borrowed), then set the initial face;
 6. allocate the serial/event id, reset readiness, dialogue, history and the thrust state;
 7. release the cradle/cuddle/navigator/player ownership through `scene_hold`;
 8. snapshot the pony bones, mark the act active, build the anatomy act;
 9. dispatch the row's `start.setup` (below) to place the bodies;
-10. build the pose, sync the start settings group, prepare the start camera profile, capture the
-    look, lock the player and the navigator, start the camera, the audio, the HUD and the act face,
-    then arm the act integrations.
+10. build the pose, run the player frame's `begin()` (place him, station his stance, park the
+    avatar, lock his controls and capture the scene), sync the start settings group, mount the
+    view for a bed act, open the act camera, lock the navigator, start the audio, the HUD and the
+    act face, then arm the act integrations.
 
 A failure in any step runs the one partial-start funnel, `act/start.gd:abort()` (the act's end
 lines, the one exit, then finalize as a failed start); it never leaves a partial act.
@@ -268,14 +270,14 @@ passes the name to `act/setup.gd:run()`.
 |---|---|---|
 | `bed_stand_up` | `act/setup.gd:bed_stand_up()` | a human Anon `force_stand_up()`; the cradle or bed rest release already ran in the prelude; `request_posture("stand")`; the bed frame |
 | `bed_keep_lying` | `act/setup.gd:bed_keep_lying()` | no `force_stand_up()`; a `dialogue` source releases managed rest; `request_posture("stand")` so the authored act body owns her pose; the bed frame |
-| `standing_place` | `act/setup.gd:standing_place()` | `act/session.gd:placement_values()` feeds `poses/placement.gd` through `bind_act()`/`begin_act()`; a failed stool aborts; `request_posture("stand")`; the view refresh; `begin_facing()` |
+| `standing_place` | `act/setup.gd:standing_place()` | `request_posture("stand")`; `act/start.gd` then runs `context.frame.begin()`, which places her player-pony/headset rig in front or Anon behind her, checks the stool and writes the view's `begin_facing()` |
 
 A missing bed fails the two bed adapters closed; a failed cradle/bed rest release already aborted
 in the prelude. An unknown or missing setup logs one `start blocked setup=...` line and aborts
 through the partial-start funnel; the gate already passed, so this is a spec/data error.
 
-The start settings-group sync (`sync_start_pose_config()`) and the start camera
-(`prepare_start_camera()`) read the row's `settings_group` and `camera.profile`, not the pose id.
+The start settings-group sync (`sync_start_pose_config()`) reads the row's `settings_group`, not the
+pose id; `act/start.gd` mounts the act view for the `bed` family and opens the camera once.
 
 ### Exit
 
@@ -283,9 +285,10 @@ The start settings-group sync (`sync_start_pose_config()`) and the start camera
 plus `act/consent.gd:stop_with_her()` for a partner stop: `cancel()`, `end_afterglow()`,
 `restore_begin()`, `finish_restore()`, `restore_now()`, `force_stop()` and `stop(reason)`.
 `act/session.gd:force_stop()` is the one-line session delegate `ponies` calls. It gives back, in
-order: the auto stroke, the handover, the inventory HUD, kiss forelegs, face-turn rate, eye
-override, face and wings, player lock, camera, stool, `sex_active`, navigator, player look,
-posture/cuddle, pose, audio, HUD and the active runtime. Every step checks the ownership flag it
+order: the auto stroke, the handover, the inventory HUD, kiss forelegs, face-turn rate, the player
+frame (`frame.end()`: stance, look, controls, avatar hold), the act view (`view.unmount()`), face
+and wings, player lock, camera, stool, `sex_active`, navigator, posture/cuddle, pose, audio, HUD
+and the active runtime. Every step checks the ownership flag it
 restores, so a failed start runs the same body and restores only what it took.
 
 - `act/exit.gd:finalize(real_act)` runs the post-act bookkeeping once and is idempotent;
@@ -298,8 +301,9 @@ restores, so a failed start runs the same body and restores only what it took.
   mod-integration bridge after the base kiss, releases the shared excitement Beat hold and leaves
   every property the act borrowed back in place. `act/start.gd:_build_pose()` calls the same
   ledger as the new-act prep, so a pose left from the offer cannot stack.
-- `context.camera.release_act_shot()`/`finish_act_shot()` is the act's camera ledger: a separate
-  act-level path, not part of the pose teardown.
+- `context.camera.finish_act()` is the act camera's own end: it drops the lean, the Anon wrapper,
+  the palm scale, the smoothed state and the act view after `frame.end()` gave the player back. It
+  is an act-level path, not part of the pose teardown.
 - A forced stop never rejoins the missionary bed cuddle. A normal end of a bed-sourced act that did
   not go badly re-seats Anon on the bed's player seat and re-invites her through `rest/service.gd`.
 
@@ -315,13 +319,13 @@ mechanism, the typed form and the source/binding contracts are `docs/body_change
 `RESUME`, `FAIL` or `END_RESTORE`. `body_change/act.gd:release(change)` stops the act's work and
 records one pending swap. `act/swap.gd` is the typed bridge from the handover's host callbacks to
 the live systems: `tick`, `suspend`, `resume`, the ordered release and resume steps, the adoption
-and revised-form rebinds, the placement fit and `standing_gap()` for the offer and the suites. It
+and revised-form rebinds, the frame refit and `standing_gap()` for the offer and the suites. It
 never reparents the node or resumes by itself.
 
 - one pending swap is recorded in `ponies`; a second change is refused until it clears;
 - the runtime is reparented to the entry before the old body is freed;
-- the pose session, the anatomy act handle, the navigator lease, the face-turn hold, the camera
-  shot, the kiss/hand contact, the wings, the carried body and the act-key hold are released; the
+- the pose session, the anatomy act handle, the navigator lease, the face-turn hold, the act view,
+  the kiss/hand contact, the wings, the carried body and the act-key hold are released; the
   auto stroke is interrupted without resetting its pace, band, shape or on/off state, the bones
   are put back and the breath stops;
 - the outer act state, depth, penetration, climaxes, readiness, satisfaction, summary, event id,
@@ -335,10 +339,10 @@ one resume body and `act/swap.gd:resume()` its only caller; it ends the act thro
 when the resume fails. The resume re-reads the settings and the new body's size, ends the old
 anatomy act and begins a new one at the current depth, rebuilds the live pose at the pose the act
 was in (`poses/service.gd`'s `settle()` skips the entrance ramp), resets the visual frame through
-`body_change/act.gd:rebind()` (restore the true eye, clear the shot, re-anchor a standing Anon at
-the new form's gap, then prepare the camera), restarts auto at its preserved values and state,
-reopens the camera, re-claims the new navigator, pauses the new face-turn rate, rebinds the face,
-voice, wings and integrations, and refreshes the HUD facts.
+`body_change/act.gd:rebind()` (clear the smoothed shot and `frame.refit()` the new form, which
+re-places a standing Anon at the new gap and stance without an entrance), restarts auto at its
+preserved values and state, reopens the camera, re-claims the new navigator, pauses the new
+face-turn rate, rebinds the face, voice, wings and integrations, and refreshes the HUD facts.
 
 Failure paths keep the one exit: a failed handover or a watchdog calls `force_stop()`; an
 ineligible new body ends through `act/swap.gd:end_non_adult()` and `force_stop()`; a world close or
@@ -428,19 +432,17 @@ allowed, otherwise the id must be in the active pose's control profile and the l
 not deny it. `command(id)` runs that check first, then dispatches the discrete `hole` id and `oral`
 to the anatomy bridge; the act-key hold still owns the one exit path.
 
-The standing start/offer gap is `runtime.act.swap.standing_gap(form)`: it binds the placement
-handle and reads `gap_act()`, which reads `context.pose.pose_config["gaps"]` (falling back to
+The standing start/offer gap is `runtime.act.swap.standing_gap(form)`: it asks
+`act/frame.gd:standing_gap()`, which reads `context.pose.pose_config["gaps"]` (falling back to
 `SETTINGS.pose(id, "standing")["gaps"]` in a session without a config) and adds the entrance's
 back offset for a princess body. The shipped values live under `default.poses.standing.gaps`; the
-placement handle keeps no gap table or numeric fallback.
+frame keeps no gap table or numeric fallback.
 
-That gap is the pre-act view, not the contact distance. Before the act, `poses/placement.gd` fits
-Anon's whole body: it takes the part's natural pivot, her live opening and outward rear, and shifts
-his horizontal position so the pivot starts one shaft behind her entrance. The fit is bounded by
-`poses/placement.gd:FIT_MAX_M`, skipped on a stool, and repeated by `act/swap.gd:reanchor()` on a
-body resume or a same-node form revision. It clears the part's old Hips handshake
-(`player_reset_pelvis()`) after measuring. The per-frame aim owns the stroke's pelvis correction; a
-standing start no longer pulls the Hips bone across the gap.
+That gap is the pre-act view, not the contact distance. Before the act, `act/frame.gd:begin()` places
+Anon at the gap on her centreline; there is no whole-body fit and no start measurement of the
+animated part. It clears the part's old Hips handshake (`player_reset_pelvis()`) after placing him,
+and `refit()` repeats the placement on a body resume or a same-node form revision. The per-frame
+aim owns the stroke's pelvis correction.
 
 The cross-mod surface is `docs/api.md`. A new public function or property on the node is a
 regression; everything else reads the session, the gate or the owning service.
@@ -482,8 +484,7 @@ preload a service, and a service that preloads `act/` fails as a host import.
   the typed host/context no-op seam.
 - `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags, the oral edge's
   consent/feature refusals and its abort through the exit, the standing gap's princess entrance
-  shift, and the whole-body fit that rests the shaft at her entrance with a stale Hips offset
-  removed.
+  shift, and the frame placement that leaves Anon at the gap with a stale Hips offset removed.
 - `tests/test_input.gd` — the act-key hold and the input protocol route: `cancel`, the afterglow
   end and request, the auto layer, the mouse thrust and the free look all reach
   `runtime.act.input`, and the shield and capture rules are unchanged.

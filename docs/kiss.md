@@ -2,7 +2,7 @@
 
 This is the contract for the act kiss: the missionary custom head-aim path, the standing base-game
 kiss, the shared mouth and lean values, the foreleg pin, the face release and the cooldown. The
-camera shot is `docs/camera.md`; the face beats are `docs/face.md`; the hands are
+live view is `docs/camera.md`; the face beats are `docs/face.md`; the hands are
 `docs/hands.md`.
 
 ## Ownership
@@ -89,7 +89,8 @@ turns her head across the mattress. Missionary always uses the custom head-aim p
   `_check_running()` treats the act's own `Affection`-driven `kiss` as part of the act, not as an
   interruption.
 - A kiss is not a lean action any more: `lean_action_kind()` only fires the standing shoulder reach.
-- The kiss does not move the authored missionary shot; the `front` shot is the kiss framing.
+- The kiss does not move the view's base: the eye leans in toward her face by `KISS_CLEARANCE_M`,
+  and the head aim blends from her eyes to her mouth.
   `KISS_CLEARANCE_M` (0.45 m × body scale) only keeps the Anon-eyes view out of her face.
 - The mouth kiss sound repeats at `KISS_SOUND_MIN = 2.0`–`KISS_SOUND_MAX = 3.4 s`.
 - The kiss's own lid layer is not overridden by the act stare.
@@ -138,11 +139,11 @@ matching `player/player_mouth.gd`. See `docs/settings.md` for the settings frame
 - Standing: hold `F` at a full side lean, confirm the base-game face, mouth and deep-kiss audio,
   the foreleg pin, the camera yaw, release and the 500 ms cooldown.
 - Missionary: hold `F` + `W` at a full forward lean, confirm the head aim blends from eyes to
-  mouth, the mouth expression and sound, and that the authored shot does not move.
+  mouth, the mouth expression and sound, and that the kiss lean-in stops at her face clearance.
 
 ## Related docs
 
-- `docs/camera.md` — the shot, lean and Anon-eyes view.
+- `docs/camera.md` — the act view, the lean and Anon's eye.
 - `docs/face.md` — the act face owner and the stare release.
 - `docs/hands.md` — caress, reach and smack.
 - `docs/poses.md` — the body pose and the standing stance.

@@ -910,8 +910,8 @@ func live_authored() -> RefCounted:
 	return authored("") as RefCounted
 
 
-## The parsed authored pose for the shot camera and the debug action. With no candidate this is
-## the live rendered asset, not the target of a running edge.
+## The parsed authored pose for the debug action and the pose lab. With no candidate this is the
+## live rendered asset, not the target of a running edge.
 func authored_asset(candidate := "") -> Variant:
 	if str(candidate).is_empty():
 		return live_authored()
@@ -1017,8 +1017,8 @@ func missionary_pose_frame() -> Variant:
 	return Transform3D(basis, Vector3(at.x, top, at.z))
 
 
-## Carry the bed-space pose, act body, shot and anatomy placement with a bed that moves under the
-## act (CloudDrift); the delta is rigid, so the top height is not measured again.
+## Carry the bed-space pose, act body and anatomy placement with a bed that moves under the act
+## (CloudDrift); the delta is rigid, so the top height is not measured again.
 func sync_bed_frame() -> void:
 	if str(_view.frame) != "bed" or not is_instance_valid(bed_node) \
 			or not bed_frame_source_saved or not bed_frame is Transform3D:

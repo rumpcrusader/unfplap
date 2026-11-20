@@ -74,8 +74,8 @@ func bed_keep_lying() -> bool:
 	return true
 
 
-## The standing start: keep her where she stands, place Anon behind her at the act gap, take the
-## stool items and start the facing lock.
+## The standing start: keep her where she stands. The player frame places Anon, takes the stool
+## and begins the facing lock after this adapter returns.
 func standing_place() -> bool:
 	host.pony.request_posture("stand")
 	return true

@@ -164,8 +164,7 @@ func begin(pose_input: PoseInput = null, rig: Rig = null) -> PlayerPlan:
 	return solved
 
 
-## Re-solve the player for a changed rig: a body swap or resume, a form revision, a size or
-## anatomy setting, or a moving bed. No entrance repeats.
+## Re-solve the base for the new rig without replaying the entrance.
 func refit(pose_input: PoseInput = null, form: Variant = null) -> PlayerPlan:
 	var input := pose_input if pose_input != null else pose_input()
 	if input == null or input.family.is_empty():
@@ -227,8 +226,7 @@ static func yaw_for(forward: Vector3) -> float:
 	return atan2(-forward.x, -forward.z)
 
 
-## The act base aim: the authored target neck in world space, never her live neck or the
-## pre-act look. The fallback is her live eye line above the player's floor.
+## The base aim from the authored neck point, never her idle rig.
 static func aim_pitch_for(rig: Rig, target: Vector3, eye: float = NAN) -> float:
 	var at_eye := eye if not is_nan(eye) else (rig.eye if rig.eye > 0.0 else rig.base_eye)
 	var eye_y := target.y + at_eye
@@ -299,8 +297,7 @@ func pose_gaps() -> Dictionary:
 	return shipped if shipped is Dictionary else {}
 
 
-## The gap between her centre and Anon: the preset's tuned gap, scaled with his own height when she
-## is sized to match him, plus the body's entrance back offset.
+## Her centre to Anon: the tuned gap, his height scale and the body's entrance offset.
 static func gap_for(rig: Rig) -> float:
 	var gaps: Dictionary = rig.gaps
 	var size := rig.size_name

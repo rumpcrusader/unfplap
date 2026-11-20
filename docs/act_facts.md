@@ -16,8 +16,9 @@ the runtime orchestrator and the scene adapters.
   camera work, and the entry's `apply_camera_motion()` hand-off. The start, resume, teardown and
   live-edit paths call `refresh_view()` directly. The idle standing invitation, the debug actions
   and the suites therefore read the view the phase boundary just wrote, not a per-getter rebind.
-- The consumers are `poses/missionary_anon.gd`, `camera/missionary_camera.gd`, `poses/standing_anon.gd`,
-  `camera/standing_camera.gd`, `poses/standing_presentation.gd`, `kiss/service.gd`, `hands/service.gd`, the
+- The consumers are `poses/missionary_anon.gd`, `camera/view.gd`, `poses/standing_anon.gd`,
+  `poses/standing_presentation.gd`, `camera/service.gd`, `act/frame.gd`, `kiss/service.gd`,
+  `hands/service.gd`, the
   hands internals (`hands/placement.gd`, `hands/surface.gd`, `hands/path_base.gd` and its paths)
   and the pose modifiers (`poses/skeleton_pose.gd`, plus
   `poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`).
@@ -51,6 +52,7 @@ player_eye_height, anon_torso_forward, anon_torso_drop
 player_pony, headset_view
 free_camera_active, free_look_active
 camera_owned, look_captured, look_yaw, look_pitch
+head_clearance (the bed view's pad over her skull and muzzle radii, in metres)
 lean_forward, lean_side, lean_action_side, lean_view_forward, lean_view_side, lean_sway
 lean, shot_lean_forward
 bob, back, back_target
@@ -72,8 +74,8 @@ presentation module. During an authored transition, `pose_state` is `TRANSITIONI
 `from_id`/`to_id`, `edge_id`, `edge_t`, `weight`, `from_config` and `to_config` carry the two
 sides; the view's identity and profiles are the target. On completion the session adopts the
 target into the live `pose_config`, and both sides point at that same object again; the live
-object is the one `view.pose_config`, the pose node and the standing camera alias. The standing
-camera re-reads it only when the view's settings group or pose id changes. The view stays filled
+object is the one `view.pose_config`, the pose node and the live view alias. The view re-reads it
+only when the view's settings group or pose id changes. The view stays filled
 for the whole act: the pose-scope leave steps (`leave_pose_start()`, `leave_pose_body()`) keep it,
 and only `release_pose()` clears it. The runtime's `pose_id` is only the act's start identity for
 logs and the start/teardown path; `view.id` is the active pose. The pose-owned oral turn writes the
@@ -121,9 +123,9 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `play_mouth_kiss` | the mouth kiss sound |
 | `act_actions_allowed` | the camera's action window |
 | `auto_panel_open` | the hold-X layer |
-| `standing_camera`, `missionary_anon` | the pose bodies |
+| `view`, `missionary_anon` | the live act view and the posed Anon body |
 | `anatomy_normal`, `anatomy_opening` | the anatomy reads |
-| `authored_pose_asset`, `missionary_face_point` | the shot targets |
+| `missionary_face_point` | her face point for the eye view's kiss lean |
 | `gaze_point` | the missionary gaze target the camera's look write uses |
 | `free_look_rotation` | the debug view rotation |
 | `desktop_pose_driver` | the game's pose driver |
@@ -136,7 +138,7 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 Helper methods: `smack_body_coat()`, `touch()`, `smack_hit()`,
 `kiss_controller()`, `neck_midpoint()`, `write_look()`, `write_forced_glance()`,
 `mark_camera_basis_ready()`, `clock()`, `call_value()`, `missionary_body()`, `feature()`,
-`standing_camera_controller()`, `pose_driver()`, `driver_host()`,
+`view_controller()`, `pose_driver()`, `driver_host()`,
 `pause_face()`, `restore_face()`, `hold_beat()`, `release_beat()`, `mod_active()`.
 
 ## Rules

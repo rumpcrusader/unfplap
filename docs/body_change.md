@@ -315,8 +315,9 @@ A change runs as follows:
    runtime to the new body.
 9. An in-place change (same node, new variant) keeps the presented body and bumps the revision;
    bindings refresh instead of rebind. The runtime's refresh path also recomputes the visual frame:
-   it restores the true eye, clears the shot, re-anchors a standing Anon at the revised form's gap
-   and prepares the camera. A bed act re-reads the live body scale in its authored shot.
+   it clears the smoothed shot and calls `act/frame.gd:refit()`, which re-solves Anon's placement and
+   stance for the revised form without replaying the entrance. A bed act re-reads the live body
+   scale in its view.
 
 The service does not own the act's suspension, adoption or resume. A suspended act's runtime
 ignores the runtime binding until the one resume; see `docs/runtime.md` (`## Body swap`).
@@ -333,7 +334,7 @@ the same fan-out, and no binding adds a line to the entry.
 | Binding | Built from | Reads | Refreshes |
 |---|---|---|---|
 | `anatomy/body_binding.gd` | the anatomy facade | `fit_id`, `rig`, `owned_mesh_meta`, `tail_root` | anatomy placement and rig, appearance, owned marker and the tail seat row |
-| `body_change/runtime_binding.gd` | `PONIES.runtime_for()` | body, form | the live runtime's pose, face, hands, kiss, camera, reactions, wings, audio and eye override; a suspended act is left to the one resume |
+| `body_change/runtime_binding.gd` | `PONIES.runtime_for()` | body, form | the live runtime's pose, face, hands, kiss, player frame, view, reactions, wings and audio; a suspended act is left to the one resume |
 | `body_change/lod_binding.gd` | `WORLD.refresh_body_lod()` | body | drops the near/far LOD caches and re-arms the near mesh |
 | `body_change/garment_binding.gd` | the Pantyhose adapter | body | one worn-garment scan; the adapter has no per-pony rebind |
 | `body_change/smack_binding.gd` | the stock smack layer | body | hands the body to the outside-act stock smack layer |
@@ -351,12 +352,12 @@ live placement; a changed rig or fit rebuilds the placement, appearance and mark
 tail. An unbind releases the tail row and detaches the controller, even when the node stays in the
 tree.
 
-The camera has no separate binding: the runtime's rebind calls `camera.reset_for_form()` and
-re-applies the eye override from the presented form, and a standing form change repeats the
-entrance fit before framing. The override is derived from the true base, so a late revision cannot
-compound the previous eye offset. The pose has no separate binding: the runtime's rebind binds the
-session and the resume rebuilds the live pose on the new skeleton. `docs/camera.md` and
-`docs/poses.md` own those behaviors.
+The player frame has no separate binding: the runtime's rebind clears the smoothed shot and calls
+`act/frame.gd:refit(form)`, which re-solves Anon's placement, stance and aim from the presented form
+and re-publishes the head clearance, with no entrance replay. The solve derives the stance from the
+player's true base, so a late revision cannot compound a previous eye offset. The pose has no
+separate binding: the runtime's rebind binds the session and the resume rebuilds the live pose on
+the new skeleton. `docs/camera.md` and `docs/poses.md` own those behaviors.
 
 ## Provider observation
 

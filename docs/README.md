@@ -42,7 +42,7 @@ the idle block; `act/build.gd` constructs and binds them once per pony.
 
 | Service | Facade | Contract | Tests |
 |---|---|---|---|
-| World reads | `world/service.gd` | `docs/world.md` | `tests/world/` |
+| World reads | `world/service.gd`, `world/game.gd` | `docs/world.md` | `tests/world/` |
 | Pony runtimes | `ponies/service.gd` | `docs/ponies.md` | `tests/ponies/` |
 | Eligibility and consent | `eligibility/service.gd` | `docs/eligibility.md` | `tests/eligibility/` |
 | Scene gate and refusal | `scene_gate/service.gd` | `docs/scene_gate.md` | `tests/scene_gate/` |

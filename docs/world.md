@@ -50,6 +50,11 @@ same answer, so a service never names the entry to ask whether the scene is live
 | `refresh_body_lod(pony)` | drop the merged LOD caches and re-arm the near mesh |
 | `open_act_chat()` | open the chat box past the act's controls lock |
 
+## Base-game access
+
+`world/game.gd` is the base-game accessor module. Every base-game object and property read the mod
+makes is named there, and `world/service.gd` delegates its raw reads to it.
+
 ## Internal API
 
 ```gdscript

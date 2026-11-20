@@ -1,0 +1,419 @@
+{
+  "allowed": [
+    "world/game.gd"
+  ],
+  "baseline": [
+    {
+      "file": "act/agreement.gd",
+      "count": 4
+    },
+    {
+      "file": "act/consent.gd",
+      "count": 1
+    },
+    {
+      "file": "act/exit.gd",
+      "count": 2
+    },
+    {
+      "file": "act/frame.gd",
+      "count": 20
+    },
+    {
+      "file": "act/gate.gd",
+      "count": 4
+    },
+    {
+      "file": "act/host.gd",
+      "count": 4
+    },
+    {
+      "file": "act/phases.gd",
+      "count": 5
+    },
+    {
+      "file": "act/session.gd",
+      "count": 4
+    },
+    {
+      "file": "act/setup.gd",
+      "count": 1
+    },
+    {
+      "file": "act/start.gd",
+      "count": 4
+    },
+    {
+      "file": "act/swap.gd",
+      "count": 1
+    },
+    {
+      "file": "act/tick.gd",
+      "count": 1
+    },
+    {
+      "file": "afterglow/aftercare.gd",
+      "count": 16
+    },
+    {
+      "file": "afterglow/service.gd",
+      "count": 2
+    },
+    {
+      "file": "anatomy/act.gd",
+      "count": 52
+    },
+    {
+      "file": "anatomy/act/debug.gd",
+      "count": 5
+    },
+    {
+      "file": "anatomy/act/oral.gd",
+      "count": 5
+    },
+    {
+      "file": "anatomy/act_bridge.gd",
+      "count": 44
+    },
+    {
+      "file": "anatomy/appearance.gd",
+      "count": 5
+    },
+    {
+      "file": "anatomy/attach.gd",
+      "count": 7
+    },
+    {
+      "file": "anatomy/coat.gd",
+      "count": 3
+    },
+    {
+      "file": "anatomy/controller.gd",
+      "count": 9
+    },
+    {
+      "file": "anatomy/placement_editor.gd",
+      "count": 6
+    },
+    {
+      "file": "anatomy/service.gd",
+      "count": 45
+    },
+    {
+      "file": "anatomy/tail/seat.gd",
+      "count": 5
+    },
+    {
+      "file": "anatomy/tail/visibility.gd",
+      "count": 3
+    },
+    {
+      "file": "api.gd",
+      "count": 1
+    },
+    {
+      "file": "audio/service.gd",
+      "count": 9
+    },
+    {
+      "file": "audio/voice_status.gd",
+      "count": 1
+    },
+    {
+      "file": "body_change/act.gd",
+      "count": 2
+    },
+    {
+      "file": "body_change/garment_binding.gd",
+      "count": 1
+    },
+    {
+      "file": "body_change/service.gd",
+      "count": 3
+    },
+    {
+      "file": "body_change/smack_binding.gd",
+      "count": 1
+    },
+    {
+      "file": "body_change/wire.gd",
+      "count": 2
+    },
+    {
+      "file": "camera/service.gd",
+      "count": 22
+    },
+    {
+      "file": "camera/view.gd",
+      "count": 18
+    },
+    {
+      "file": "debug/actions.gd",
+      "count": 17
+    },
+    {
+      "file": "debug/bed.gd",
+      "count": 18
+    },
+    {
+      "file": "debug/idle_stretch.gd",
+      "count": 2
+    },
+    {
+      "file": "debug/pony.gd",
+      "count": 17
+    },
+    {
+      "file": "debug/service.gd",
+      "count": 5
+    },
+    {
+      "file": "debug/wheel.gd",
+      "count": 5
+    },
+    {
+      "file": "dialogue/service.gd",
+      "count": 3
+    },
+    {
+      "file": "eligibility/service.gd",
+      "count": 6
+    },
+    {
+      "file": "face/mood_face.gd",
+      "count": 4
+    },
+    {
+      "file": "face/service.gd",
+      "count": 15
+    },
+    {
+      "file": "hands/contact.gd",
+      "count": 4
+    },
+    {
+      "file": "hands/paths/anchors.gd",
+      "count": 12
+    },
+    {
+      "file": "hands/paths/missionary.gd",
+      "count": 3
+    },
+    {
+      "file": "hands/paths/oral.gd",
+      "count": 3
+    },
+    {
+      "file": "hands/paths/standing.gd",
+      "count": 3
+    },
+    {
+      "file": "hands/placement.gd",
+      "count": 10
+    },
+    {
+      "file": "hands/service.gd",
+      "count": 25
+    },
+    {
+      "file": "hands/smack.gd",
+      "count": 11
+    },
+    {
+      "file": "hud/service.gd",
+      "count": 10
+    },
+    {
+      "file": "initiation/classifier.gd",
+      "count": 1
+    },
+    {
+      "file": "initiation/cooldowns.gd",
+      "count": 5
+    },
+    {
+      "file": "initiation/service.gd",
+      "count": 10
+    },
+    {
+      "file": "initiation/venue.gd",
+      "count": 17
+    },
+    {
+      "file": "input/service.gd",
+      "count": 4
+    },
+    {
+      "file": "integrations/changelings.gd",
+      "count": 8
+    },
+    {
+      "file": "integrations/pantyhose.gd",
+      "count": 13
+    },
+    {
+      "file": "integrations/service.gd",
+      "count": 9
+    },
+    {
+      "file": "kiss/service.gd",
+      "count": 29
+    },
+    {
+      "file": "memory/dialogue.gd",
+      "count": 3
+    },
+    {
+      "file": "memory/store.gd",
+      "count": 3
+    },
+    {
+      "file": "memory/world.gd",
+      "count": 11
+    },
+    {
+      "file": "negotiation/adapter.gd",
+      "count": 10
+    },
+    {
+      "file": "negotiation/host.gd",
+      "count": 14
+    },
+    {
+      "file": "negotiation/service.gd",
+      "count": 4
+    },
+    {
+      "file": "offer/service.gd",
+      "count": 16
+    },
+    {
+      "file": "ponies/service.gd",
+      "count": 16
+    },
+    {
+      "file": "poses/anon_thrust.gd",
+      "count": 6
+    },
+    {
+      "file": "poses/authored_pose.gd",
+      "count": 2
+    },
+    {
+      "file": "poses/face_contact.gd",
+      "count": 7
+    },
+    {
+      "file": "poses/missionary_anon.gd",
+      "count": 23
+    },
+    {
+      "file": "poses/missionary_recipe.gd",
+      "count": 3
+    },
+    {
+      "file": "poses/pose_rig.gd",
+      "count": 1
+    },
+    {
+      "file": "poses/pose_spec.gd",
+      "count": 1
+    },
+    {
+      "file": "poses/service.gd",
+      "count": 46
+    },
+    {
+      "file": "poses/skeleton_pose.gd",
+      "count": 10
+    },
+    {
+      "file": "poses/standing_anon.gd",
+      "count": 15
+    },
+    {
+      "file": "poses/standing_presentation.gd",
+      "count": 21
+    },
+    {
+      "file": "poses/standing_recipe.gd",
+      "count": 1
+    },
+    {
+      "file": "poses/tail_tuck.gd",
+      "count": 10
+    },
+    {
+      "file": "poses/transition_spec.gd",
+      "count": 1
+    },
+    {
+      "file": "poses/wing_control.gd",
+      "count": 16
+    },
+    {
+      "file": "reactions/service.gd",
+      "count": 19
+    },
+    {
+      "file": "readiness/service.gd",
+      "count": 2
+    },
+    {
+      "file": "rest/control.gd",
+      "count": 3
+    },
+    {
+      "file": "rest/service.gd",
+      "count": 6
+    },
+    {
+      "file": "scene_gate/service.gd",
+      "count": 10
+    },
+    {
+      "file": "scene_hold/service.gd",
+      "count": 28
+    },
+    {
+      "file": "settings/service.gd",
+      "count": 2
+    },
+    {
+      "file": "settings/ui.gd",
+      "count": 5
+    },
+    {
+      "file": "shared/act_face.gd",
+      "count": 2
+    },
+    {
+      "file": "shared/act_history.gd",
+      "count": 2
+    },
+    {
+      "file": "stool/act.gd",
+      "count": 27
+    },
+    {
+      "file": "stool/item.gd",
+      "count": 2
+    },
+    {
+      "file": "stool/service.gd",
+      "count": 4
+    },
+    {
+      "file": "stool/supply.gd",
+      "count": 9
+    },
+    {
+      "file": "vr/service.gd",
+      "count": 2
+    },
+    {
+      "file": "world/service.gd",
+      "count": 8
+    }
+  ]
+}

@@ -15,6 +15,7 @@ Usage:
     scripts/architecture.py --write-docs
     scripts/architecture.py --write-exceptions
     scripts/architecture.py --write-debt
+    scripts/architecture.py --write-duck-typing
 """
 from __future__ import annotations
 
@@ -30,6 +31,7 @@ DOCS = ROOT / "docs"
 ARCH = ROOT / "architecture"
 EXCEPTIONS = ARCH / "exceptions.json"
 TYPING_DEBT = ARCH / "typing_debt.json"
+DUCK_TYPING = ARCH / "duck_typing.json"
 
 SOURCE_SKIP_DIRS = {
     ".git", "dist", "assets", "sources", "tests", "tools", "scripts", "docs", ".godot",
@@ -129,7 +131,8 @@ ENTRY_DECLARATION = re.compile(r"^\s*(?:var|const)\s+main\b", re.MULTILINE)
 ENTRY_PRELOAD = re.compile(r'(?:preload|load)\(\s*"[^"]*main\.gd"')
 ENTRY_ARGUMENT = re.compile(r"[(,]\s*main\s*[:,)]")
 # The world facade is the scene read surface: the game, the player rig and the shared modules.
-WORLD_ALLOWED = ("res://world/", "res://player/", "res://mods/unfplap/shared/")
+WORLD_ALLOWED = ("res://world/", "res://player/", "res://mods/unfplap/shared/",
+                 "res://mods/unfplap/world/")
 WORLD_IMPORT = re.compile(r'(?:preload|load)\("(res://[^"]+\.gd)"\)')
 WORLD_EXTENDS = re.compile(r'^extends\s+"(res://[^"]+)"', re.MULTILINE)
 SETTINGS_DECLARATION = re.compile(
@@ -234,7 +237,9 @@ RUNTIME_RAW_INPUT = (
 # Service files another owner may extend or preload as a documented extension point. The source
 # base is a provider contract, not a second facade; the anatomy body binding is the attachment
 # contract the body-change service constructs from the anatomy facade it is handed.
-PUBLIC_SERVICE_FILES = {"body_change/source.gd", "anatomy/body_binding.gd"}
+PUBLIC_SERVICE_FILES = {"body_change/source.gd", "anatomy/body_binding.gd", "world/game.gd"}
+# A public accessor module outside a `service.gd` facade joins the weak-signature scan.
+TYPING_EXTRA = ("world/game.gd",)
 # The five body-bound systems `body_change.wire()` builds and registers. The entry names none of
 # them: a new binding adds a preload to the service, not to the composition root.
 BODY_BINDINGS = (
@@ -702,8 +707,7 @@ def write_docs() -> None:
     print("ARCH_DOCS_WRITTEN services=%d" % len(SERVICES))
 
 
-def public_functions(service: str) -> list[dict[str, str]]:
-    path = ROOT / service / "service.gd"
+def file_public_functions(service: str, path: Path) -> list[dict[str, str]]:
     if not path.exists():
         return []
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -723,6 +727,10 @@ def public_functions(service: str) -> list[dict[str, str]]:
         out.append({"service": service, "func": name, "signature": signature.strip()})
         i += 1
     return out
+
+
+def public_functions(service: str) -> list[dict[str, str]]:
+    return file_public_functions(service, ROOT / service / "service.gd")
 
 
 def weak_signature(signature: str) -> bool:
@@ -756,6 +764,12 @@ def typing_debt() -> list[dict[str, str]]:
         for row in public_functions(sid):
             if weak_signature(row["signature"]):
                 debt.append(row)
+    for name in TYPING_EXTRA:
+        owner = owner_of(name)
+        label = owner.id if owner is not None else name
+        for row in file_public_functions(label, ROOT / name):
+            if weak_signature(row["signature"]):
+                debt.append(row)
     return sorted(debt, key=lambda r: (r["service"], r["func"]))
 
 
@@ -775,6 +789,78 @@ def check_typing(failure: Failure) -> int:
     for key in sorted(saved_keys - current_keys):
         failure.add("stale typing debt (remove it): %s.%s" % (key[0], key[1]))
     return 0
+
+
+DUCK_CALL = re.compile(r'\.call\("[A-Za-z_]')
+DUCK_SET = re.compile(r'\.set\("')
+
+
+def duck_sites(text: str) -> int:
+    """Non-comment lines that dispatch by string: `.call("name"` or `.set("`."""
+    return sum(
+        1 for line in text.splitlines()
+        if not line.lstrip().startswith("#")
+        and (DUCK_CALL.search(line) or DUCK_SET.search(line))
+    )
+
+
+def duck_config() -> dict:
+    return load_json(DUCK_TYPING, {"allowed": [], "baseline": []})
+
+
+def duck_typing() -> list[dict[str, object]]:
+    """The current string-dispatch count per shipped file, with the accessors left out."""
+    allowed = {str(name) for name in duck_config().get("allowed", [])}
+    rows: list[dict[str, object]] = []
+    for path in shipped_sources():
+        name = rel(path)
+        if name in allowed:
+            continue
+        count = duck_sites(path.read_text(encoding="utf-8"))
+        if count:
+            rows.append({"file": name, "count": count})
+    rows.sort(key=lambda row: str(row["file"]))
+    return rows
+
+
+def check_duck_typing(failure: Failure) -> None:
+    """String dispatch may only shrink outside the allowlisted accessor modules.
+
+    A new file, a grown file and a stale baseline row all fail, so a reflection site is either
+    removed, moved into an accessor, or added on purpose with a fresh baseline.
+    """
+    config = duck_config()
+    allowed = {str(name) for name in config.get("allowed", [])}
+    baseline = {
+        str(row.get("file", "")): int(row.get("count", 0))
+        for row in config.get("baseline", [])
+    }
+    current = {str(row["file"]): int(row["count"]) for row in duck_typing()}
+    for name in sorted(current):
+        if name not in baseline:
+            failure.add("%s has new string dispatch (%d sites): use a typed accessor or add a "
+                        "baseline row" % (name, current[name]))
+        elif current[name] > baseline[name]:
+            failure.add("%s grew its string dispatch (%d sites, baseline %d)" % (
+                name, current[name], baseline[name]))
+    for name in sorted(baseline):
+        if name in allowed:
+            failure.add("duck-typing baseline row for an allowlisted accessor: %s" % name)
+        elif name not in current:
+            failure.add("stale duck-typing baseline row (remove it): %s" % name)
+
+
+def write_duck_typing() -> None:
+    ARCH.mkdir(exist_ok=True)
+    config = duck_config()
+    rows = duck_typing()
+    payload = {
+        "allowed": list(config.get("allowed", [])),
+        "baseline": rows,
+    }
+    DUCK_TYPING.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    print("ARCH_DUCK_TYPING_WRITTEN files=%d sites=%d allowed=%d" % (
+        len(rows), sum(int(row["count"]) for row in rows), len(payload["allowed"])))
 
 
 def write_exceptions() -> None:
@@ -1610,6 +1696,7 @@ def check() -> int:
     exceptions = check_exceptions(failure, violations)
     check_docs(failure)
     check_typing(failure)
+    check_duck_typing(failure)
     check_sources(failure)
     check_callable_targets(failure)
     check_boundaries(failure)
@@ -1644,6 +1731,7 @@ def main() -> int:
     parser.add_argument("--write-docs", action="store_true")
     parser.add_argument("--write-exceptions", action="store_true")
     parser.add_argument("--write-debt", action="store_true")
+    parser.add_argument("--write-duck-typing", action="store_true")
     args = parser.parse_args()
     if args.write_docs:
         write_docs()
@@ -1653,6 +1741,9 @@ def main() -> int:
         return 0
     if args.write_debt:
         write_debt()
+        return 0
+    if args.write_duck_typing:
+        write_duck_typing()
         return 0
     if args.graph:
         graph()

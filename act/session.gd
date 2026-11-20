@@ -31,6 +31,8 @@ const CLIMAX_SECONDS := ACT_SETTINGS.CLIMAX_SECONDS
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
 const CHECK_SECONDS := 0.25
+## The cycle phase refresh cadence: the bond day moves once per in-game day.
+const CYCLE_REFRESH_S := 0.5
 const STATE_NAMES: Array[String] = ["IDLE", "POSING_IN", "ACTIVE", "CLIMAX", "AFTERGLOW", "RESTORE"]
 const PHASE_NONE := 0
 const ENTER_ACTIVE := 1
@@ -109,6 +111,9 @@ var _restore_left := 0.0
 var _check_clock := 0.0
 var _climax_progress := 0.0
 var _clock_s := 0.0
+var _cycle_left := 0.0
+var _cycle_cached := "normal"
+var _cycle_dirty := true
 var _act_seconds := 0.0
 func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 	host = host_in
@@ -171,6 +176,7 @@ func adopt_display_name(form: BODY_FORM.BodyForm, body: Variant) -> void:
 	display_name = PONIES.display_name_for(form, body if is_instance_valid(body) else null, pony_id)
 
 func refresh_identity() -> bool:
+	_cycle_dirty = true
 	var identity: PONIES.Identity = PONIES.Identity.new()
 	if is_instance_valid(host.pony):
 		identity = PONIES.identity_of(host.pony)
@@ -237,6 +243,10 @@ func clear_phase() -> void:
 
 func tick_clock(delta: float) -> void:
 	_clock_s += maxf(0.0, delta)
+	_cycle_left -= delta
+	if _cycle_left <= 0.0:
+		_cycle_left = CYCLE_REFRESH_S
+		_cycle_dirty = true
 
 func advance_act_seconds(delta: float) -> void:
 	_act_seconds += delta
@@ -448,7 +458,15 @@ func cycle_phase() -> String:
 	var meta_id := str(host.pony.get_meta("relationship_id", ""))
 	if pony_id.is_empty() or (not meta_id.is_empty() and meta_id != _identity_meta):
 		refresh_identity()
-	return ELIGIBILITY.cycle_phase_for(host.pony, pony_id)
+	var override := CYCLE.override_for(pony_id)
+	if not override.is_empty():
+		return override
+	if not SETTINGS.estrus_cycle.get_bool():
+		return CYCLE.NORMAL
+	if _cycle_dirty:
+		_cycle_cached = ELIGIBILITY.cycle_phase_for(host.pony, pony_id)
+		_cycle_dirty = false
+	return _cycle_cached
 
 
 func cycle_override() -> String:

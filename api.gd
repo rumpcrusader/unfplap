@@ -60,15 +60,16 @@ func supports(capability: String, min_version: int = 1) -> bool:
 func register_mare(owner: Node, descriptor: Dictionary) -> Dictionary:
 	if not is_instance_valid(owner) or not owner.is_inside_tree():
 		return _failure(descriptor, "owner: must be a valid Node inside the scene tree")
-	var result: Dictionary = REGISTRY.register(owner.get_instance_id(), descriptor)
-	if bool(result.get("ok", false)):
+	var result: REGISTRY.Result = REGISTRY.register(owner.get_instance_id(),
+		REGISTRY.Descriptor.from_dict(descriptor))
+	if result.ok:
 		_watch_owner(owner)
 		SETTINGS.bump_placement_revision()
 		_refresh_live()
-		LOG.debug("api registered %s from %s", [str(result.get("id", "")), str(result.get("source", ""))])
+		LOG.debug("api registered %s from %s", [result.id, result.source])
 	else:
-		LOG.warning("api register failed: %s", [", ".join(result.get("errors", []))])
-	return result
+		LOG.warning("api register failed: %s", [", ".join(result.errors)])
+	return result.to_dict()
 
 
 ## Remove one provider layer owned by `owner`. Returns {ok, id, removed}.

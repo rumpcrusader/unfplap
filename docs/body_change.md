@@ -476,6 +476,7 @@ suspension, adoption, resume and failure phases.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | anatomy | `anatomy/body_binding.gd` | the anatomy body binding this service constructs from the anatomy facade |
+| service | dialogue | `dialogue/service.gd` | the reaction line the form offer queues |
 | service | memory | `memory/service.gd` | the reveal impression and peak marks, and the form-offer reaction |
 | service | ponies | `ponies/service.gd` | the runtime binding's per-pony runtime lookup |
 | service | world | `world/service.gd` | the LOD binding's near/far cache refresh |

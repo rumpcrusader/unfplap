@@ -104,10 +104,6 @@
       "count": 5
     },
     {
-      "file": "dialogue/service.gd",
-      "count": 3
-    },
-    {
       "file": "eligibility/service.gd",
       "count": 6
     },
@@ -234,10 +230,6 @@
     {
       "file": "reactions/service.gd",
       "count": 19
-    },
-    {
-      "file": "readiness/service.gd",
-      "count": 2
     },
     {
       "file": "settings/service.gd",

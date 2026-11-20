@@ -161,11 +161,15 @@ func run() -> void:
 
 	var dialogue := DIALOGUE.new(facts)
 	check(dialogue.scheduler() != null, "the facade owns a scheduler")
-	dialogue.configure({
-		"base_stable": 2.0, "override_stable": 0.5, "utterance_gap": 18.0,
-		"demand_gap": 28.0, "demand_repeat": 45.0, "max_age": 20.0,
-		"release_hold": 1.0,
-	})
+	var pacing := DIALOGUE.Pacing.new()
+	pacing.base_stable = 2.0
+	pacing.override_stable = 0.5
+	pacing.utterance_gap = 18.0
+	pacing.demand_gap = 28.0
+	pacing.demand_repeat = 45.0
+	pacing.max_age = 20.0
+	pacing.release_hold = 1.0
+	dialogue.configure(pacing)
 	check(is_equal_approx(dialogue.scheduler().base_stable_s, 2.0),
 		"configure pushes the base stability")
 	check(is_equal_approx(dialogue.scheduler().utterance_gap_s, 18.0),
@@ -201,7 +205,7 @@ func run() -> void:
 	pony.speaking = false
 
 	var reaction := dialogue.reaction_line(MEMORY.Reaction.CLIMAX, "evt1:climax",
-		"The climax line.", Callable())
+		"The climax line.", DIALOGUE.Validity.new())
 	check(reaction == "line:2", "a reaction line is queued through memory")
 	check(main.memory.requests[1].kind == MEMORY.LineKind.REACTION,
 		"the reaction carries its kind")

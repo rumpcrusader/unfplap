@@ -10,6 +10,8 @@ const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
+const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 
 ## The `CLIMAX` length the reaction window and the face beat read.
 const CLIMAX_SECONDS := 5.0
@@ -49,7 +51,8 @@ func snapshot_values(group: String, family: String, preferences: Dictionary,
 	tuning.fill(snapshot.jiggle, family, context.camera.jiggle_size_scale(), CLIMAX_SECONDS)
 	context.reactions.configure(tuning)
 	context.camera.configure(CAMERA_CONFIG.Config.from_dict(snapshot.camera_thrust))
-	context.readiness.configure(preferences, snapshot.cue_override_seconds,
+	context.readiness.configure(READINESS.Profile.from_dict(preferences),
+		snapshot.cue_override_seconds,
 		snapshot.cue_overwhelmed_s, snapshot.touch_cooldown_s, snapshot.talk_cooldown_s,
 		snapshot.receptive_seconds)
 	presentation_config = snapshot.presentation
@@ -112,15 +115,15 @@ func apply_act_live(family: String, pony_id: String, mute_changed: bool) -> void
 
 ## Push the debug talk/cue pacing settings into the pure scheduler.
 func configure_dialogue() -> void:
-	context.dialogue.configure({
-		"base_stable": snapshot.cue_base_stable_s,
-		"override_stable": snapshot.cue_override_stable_s,
-		"utterance_gap": snapshot.cue_utterance_gap_s,
-		"demand_gap": snapshot.cue_demand_gap_s,
-		"demand_repeat": snapshot.cue_demand_repeat_s,
-		"max_age": snapshot.cue_max_age_s,
-		"release_hold": snapshot.cue_release_hold_s,
-	})
+	var pacing := DIALOGUE.Pacing.new()
+	pacing.base_stable = snapshot.cue_base_stable_s
+	pacing.override_stable = snapshot.cue_override_stable_s
+	pacing.utterance_gap = snapshot.cue_utterance_gap_s
+	pacing.demand_gap = snapshot.cue_demand_gap_s
+	pacing.demand_repeat = snapshot.cue_demand_repeat_s
+	pacing.max_age = snapshot.cue_max_age_s
+	pacing.release_hold = snapshot.cue_release_hold_s
+	context.dialogue.configure(pacing)
 
 
 func _refresh_live_modifiers(family: String) -> void:

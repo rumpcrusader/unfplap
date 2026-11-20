@@ -1399,12 +1399,12 @@ func _check_profile_identity() -> void:
 		"the profile facets share the participation block")
 	check(profile.consent.keys().size() == CONSENT.KEYS.size(),
 		"the profile carries the consent keys")
-	SETTINGS.MARE_REGISTRY.register(1, {
+	SETTINGS.MARE_REGISTRY.register(1, SETTINGS.MARE_REGISTRY.Descriptor.from_dict({
 		"id": id,
 		"source": "identity_test",
 		"eligible": true,
 		"profile": {"participation": {"acts": false}},
-	})
+	}))
 	check(SETTINGS.profile_has_assertion(id) and SETTINGS.profile_eligible(id),
 		"a provider assertion is readable")
 	var asserted := SETTINGS.profile_for(base, ROWS.Rows.of({}), id)
@@ -1423,15 +1423,16 @@ func _check_provider_precedence() -> void:
 	var id := "provider_precedence_mare"
 	SETTINGS.MARE_REGISTRY.reset()
 	var base := ROWS.Rows.of(SETTINGS._filled_default())
-	var registered: Dictionary = SETTINGS.MARE_REGISTRY.register(1, {
-		"id": id,
-		"source": "precedence_test",
-		"preferences": {"intensity": "rough", "notes": "Provider note."},
-		"poses": {"standing": {"bow": 9.0}},
-		"act_prompts": {"cue": "Provider cue."},
-		"placement": {"tail_y": 0.09},
-	})
-	check(bool(registered.get("ok", false)), "the precedence provider registers")
+	var registered := SETTINGS.MARE_REGISTRY.register(1,
+		SETTINGS.MARE_REGISTRY.Descriptor.from_dict({
+			"id": id,
+			"source": "precedence_test",
+			"preferences": {"intensity": "rough", "notes": "Provider note."},
+			"poses": {"standing": {"bow": 9.0}},
+			"act_prompts": {"cue": "Provider cue."},
+			"placement": {"tail_y": 0.09},
+		}))
+	check(registered.ok, "the precedence provider registers")
 
 	var profile := SETTINGS.profile_for(base, ROWS.Rows.of({}), id)
 	check(profile.preferences.str_value("intensity", "") == "rough",

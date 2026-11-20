@@ -201,14 +201,14 @@ class FakeDialogue extends ACT_DIALOGUE:
 	func reset(_now: float, _gap: float) -> void:
 		pass
 
-	func configure(_pacing: Dictionary) -> void:
+	func configure(_pacing: ACT_DIALOGUE.Pacing) -> void:
 		pass
 
 	func end_act(event_id: String, keep_speaking := true) -> void:
 		ends.append([event_id, keep_speaking])
 
 	func reaction_line(_reaction: int, _event_id: String, _fallback: String,
-			_validate: Callable) -> String:
+			_validate: ACT_DIALOGUE.Validity) -> String:
 		reaction_calls += 1
 		return "unfplap:test:reaction"
 

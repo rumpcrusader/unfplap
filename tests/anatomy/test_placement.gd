@@ -121,8 +121,8 @@ func run() -> void:
 
 	# A provider placement wins over the catalog/global default; a player's sparse row still wins.
 	var placed_id := "provider_placement_mare"
-	MARE_REGISTRY.register(2, {"id": placed_id, "source": "anatomy_test",
-		"placement": {"tail_y": 0.09}})
+	MARE_REGISTRY.register(2, MARE_REGISTRY.Descriptor.from_dict({
+		"id": placed_id, "source": "anatomy_test", "placement": {"tail_y": 0.09}}))
 	check(near(float(SETTINGS.anatomy_placement(placed_id).raw()["tail_y"]), 0.09),
 		"a provider placement beats the global default")
 	var placement_override := SETTINGS.anatomy_placement(placed_id).raw()
@@ -141,8 +141,9 @@ func run() -> void:
 	# A body fit selects the provider/catalog default while the player override stays on the
 	# stable pony id. A disguise therefore uses the copied pony's fit, not her own.
 	var fit_owner := "chrysalis"
-	MARE_REGISTRY.register(3, {"id": fit_owner, "source": "anatomy_test",
-		"placement": {"offset_y": 0.51, "offset_z": 0.271, "scale": 0.462}})
+	MARE_REGISTRY.register(3, MARE_REGISTRY.Descriptor.from_dict({
+		"id": fit_owner, "source": "anatomy_test",
+		"placement": {"offset_y": 0.51, "offset_z": 0.271, "scale": 0.462}}))
 	var own_fit := SETTINGS.anatomy_placement(fit_owner, fit_owner).raw()
 	check(near(float(own_fit.get("offset_y", 0.0)), 0.51),
 		"the body fit resolves the provider placement")
@@ -269,8 +270,9 @@ func run() -> void:
 
 	# The form's fit selects the row the placement reads.
 	var fit_provider := "form_fit_mare"
-	MARE_REGISTRY.register(5, {"id": fit_provider, "source": "anatomy_test",
-		"placement": {"offset_x": 0.123}})
+	MARE_REGISTRY.register(5, MARE_REGISTRY.Descriptor.from_dict({
+		"id": fit_provider, "source": "anatomy_test",
+		"placement": {"offset_x": 0.123}}))
 	var fit_place := ANATOMY_PLACEMENT.new()
 	fit_place.setup(meta_first)
 	var fit_mesh := MeshInstance3D.new()

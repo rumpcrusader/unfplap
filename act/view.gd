@@ -13,6 +13,7 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
+const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -192,7 +193,7 @@ func apply_live(session: ACT_SESSION) -> void:
 func reset_act_state(session: ACT_SESSION) -> void:
 	context.readiness.reset_thrust()
 	context.readiness.reset_auto()
-	context.readiness.reset(session.preferences)
+	context.readiness.reset(READINESS.Profile.from_dict(session.preferences))
 	context.standing_anon.reset_phase()
 	context.view.reset_depth()
 	context.facts.standing_sway_offset = Vector3.ZERO

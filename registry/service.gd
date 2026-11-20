@@ -33,19 +33,150 @@ static var _next_order := 0
 static var revision := 0
 
 
-## Add one validated provider layer; the same owner and id replaces it in place.
-static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
-	var warnings: Array = []
-	var errors: Array = []
+## A provider descriptor as another mod sent it. The document stays raw and is read field by
+## field, so a wrong type keeps its documented error instead of being coerced.
+class Descriptor extends RefCounted:
+	var values: Dictionary = {}
+
+	static func from_dict(block: Dictionary) -> Descriptor:
+		var out := Descriptor.new()
+		out.values = block
+		return out
+
+
+## The merged provider template for one id. Provider documents are dictionaries by contract; the
+## record names the payload so the facade never returns a bare Dictionary.
+class Profile extends RefCounted:
+	var values: Dictionary = {}
+
+	func is_empty() -> bool:
+		return values.is_empty()
+
+	## The merged layer, read-only: a caller copies it before editing.
+	func to_dict() -> Dictionary:
+		return values
+
+
+## The identity half of one provider layer. An absent half is not applied, so a re-registration
+## keeps the rest of the layer's template.
+class Identity extends RefCounted:
+	var has_eligible := false
+	var eligible := false
+	var has_consent := false
+	var consent: Dictionary = {}
+	var has_profile := false
+	var profile: Dictionary = {}
+
+
+## One merged provider placement block, in the ten schema fields. `present` is false when no
+## provider wrote a key, so a caller can tell "no placement" from "a placement of zeroes".
+class Placement extends RefCounted:
+	var offset_x := 0.0
+	var offset_y := 0.0
+	var offset_z := 0.0
+	var pitch_deg := 0.0
+	var scale := 1.0
+	var tail_y := 0.0
+	var tail_z := 0.0
+	var dock_y := 0.0
+	var dock_scale := 1.0
+	var tail_tilt_deg := 0.0
+	var present := false
+	## The keys a provider actually wrote; a merge only overrides these.
+	var _written: Dictionary = {}
+
+	## Overlay one validated provider block, later layers winning per key.
+	func apply(block: Dictionary) -> void:
+		for key: String in PLACEMENT.KEYS:
+			if not block.has(key):
+				continue
+			_written[key] = true
+			present = true
+			match key:
+				"offset_x":
+					offset_x = float(block[key])
+				"offset_y":
+					offset_y = float(block[key])
+				"offset_z":
+					offset_z = float(block[key])
+				"pitch_deg":
+					pitch_deg = float(block[key])
+				"scale":
+					scale = float(block[key])
+				"tail_y":
+					tail_y = float(block[key])
+				"tail_z":
+					tail_z = float(block[key])
+				"dock_y":
+					dock_y = float(block[key])
+				"dock_scale":
+					dock_scale = float(block[key])
+				"tail_tilt_deg":
+					tail_tilt_deg = float(block[key])
+
+	func is_empty() -> bool:
+		return not present
+
+	## Only the keys that were laid down, so a merge keeps the base's other values.
+	func to_dict() -> Dictionary:
+		var out: Dictionary = {}
+		for key: String in PLACEMENT.KEYS:
+			if not _written.has(key):
+				continue
+			match key:
+				"offset_x":
+					out[key] = offset_x
+				"offset_y":
+					out[key] = offset_y
+				"offset_z":
+					out[key] = offset_z
+				"pitch_deg":
+					out[key] = pitch_deg
+				"scale":
+					out[key] = scale
+				"tail_y":
+					out[key] = tail_y
+				"tail_z":
+					out[key] = tail_z
+				"dock_y":
+					out[key] = dock_y
+				"dock_scale":
+					out[key] = dock_scale
+				"tail_tilt_deg":
+					out[key] = tail_tilt_deg
+		return out
+
+
+## One registration result: the API's documented return shape, built once here.
+class Result extends RefCounted:
+	var ok := false
 	var id := ""
 	var source := ""
-	var raw_id: Variant = descriptor.get("id", "")
+	var replaced := false
+	var warnings: Array[String] = []
+	var errors: Array[String] = []
+
+	func to_dict() -> Dictionary:
+		return {
+			"ok": ok, "id": id, "source": source, "replaced": replaced,
+			"warnings": warnings, "errors": errors,
+		}
+
+
+## Add one validated provider layer; the same owner and id replaces it in place.
+static func register(owner_id: int, descriptor: Descriptor) -> Result:
+	var warnings: Array[String] = []
+	var errors: Array[String] = []
+	var block: Dictionary = descriptor.values if descriptor != null else {}
+	var id := ""
+	var source := ""
+	var raw_id: Variant = block.get("id", "")
 	if raw_id is String:
 		id = str(raw_id).strip_edges()
 		_check_id(id, errors)
 	else:
 		errors.append("id: expected a string")
-	var raw_source: Variant = descriptor.get("source", "")
+	var raw_source: Variant = block.get("source", "")
 	if raw_source is String:
 		source = str(raw_source).strip_edges()
 		_check_source(source, errors)
@@ -53,27 +184,27 @@ static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 		errors.append("source: expected a string")
 	if owner_id == 0:
 		errors.append("owner: must be a valid Node inside the scene tree")
-	var raw_schema: Variant = descriptor.get("schema", SCHEMA)
+	var raw_schema: Variant = block.get("schema", SCHEMA)
 	if not (raw_schema is int or raw_schema is float):
 		errors.append("schema: expected a number")
 	elif int(raw_schema) < 1 or int(raw_schema) > SCHEMA:
 		errors.append("schema: this build understands %d, got %d" % [SCHEMA, int(raw_schema)])
 	var name := ""
-	if descriptor.has("name"):
-		var raw_name: Variant = descriptor["name"]
+	if block.has("name"):
+		var raw_name: Variant = block["name"]
 		if raw_name is String:
 			name = str(raw_name).strip_edges()
 		else:
 			errors.append("name: expected a string")
-	for key: Variant in descriptor.keys():
+	for key: Variant in block.keys():
 		if not str(key) in TOP_KEYS:
 			warnings.append("%s: unknown key" % str(key))
 
 	var template: Dictionary = {}
 	for key: String in TEMPLATE_KEYS:
-		if not descriptor.has(key):
+		if not block.has(key):
 			continue
-		var raw: Variant = descriptor[key]
+		var raw: Variant = block[key]
 		match key:
 			"preferences":
 				var clean := _validate_preferences(raw, warnings, errors)
@@ -111,10 +242,11 @@ static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 				else:
 					template[key] = float(raw) if key != "aftercare_min" else int(raw)
 
-	var result := {
-		"ok": false, "id": id, "source": source, "replaced": false,
-		"warnings": warnings, "errors": errors,
-	}
+	var result := Result.new()
+	result.id = id
+	result.source = source
+	result.warnings = warnings
+	result.errors = errors
 	if not errors.is_empty():
 		return result
 	var layer := {
@@ -136,33 +268,35 @@ static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 		list.append(layer)
 	_layers[id] = list
 	revision += 1
-	result["ok"] = true
-	result["replaced"] = replaced
+	result.ok = true
+	result.replaced = replaced
 	return result
 
 
 ## Write the identity half of one owner's layer, preserving the rest of its template.
 ## A missing layer is created with identity keys only; no `eligible` clears the assertion.
 static func set_profile(owner_id: int, source: String, id: String,
-		identity: Dictionary) -> Dictionary:
-	var warnings: Array = []
-	var errors: Array = []
+		identity: Identity) -> Result:
+	var warnings: Array[String] = []
+	var errors: Array[String] = []
 	var key := id.strip_edges()
 	_check_id(key, errors)
 	_check_source(source, errors)
 	if owner_id == 0:
 		errors.append("owner: must be a valid Node inside the scene tree")
 	var patch: Dictionary = {}
-	if identity.has("eligible"):
-		patch["eligible"] = _validate_eligible(identity["eligible"], errors)
-	if identity.has("consent"):
-		patch["consent"] = _validate_consent(identity["consent"], warnings, errors)
-	if identity.has("profile"):
-		patch["profile"] = _validate_profile(identity["profile"], warnings, errors)
-	var result := {
-		"ok": false, "id": key, "source": source, "replaced": false,
-		"warnings": warnings, "errors": errors,
-	}
+	if identity != null:
+		if identity.has_eligible:
+			patch["eligible"] = _validate_eligible(identity.eligible, errors)
+		if identity.has_consent:
+			patch["consent"] = _validate_consent(identity.consent, warnings, errors)
+		if identity.has_profile:
+			patch["profile"] = _validate_profile(identity.profile, warnings, errors)
+	var result := Result.new()
+	result.id = key
+	result.source = source
+	result.warnings = warnings
+	result.errors = errors
 	if not errors.is_empty():
 		return result
 	var list: Array = _layers.get(key, [])
@@ -196,8 +330,8 @@ static func set_profile(owner_id: int, source: String, id: String,
 		list.append(layer)
 	_layers[key] = list
 	revision += 1
-	result["ok"] = true
-	result["replaced"] = found
+	result.ok = true
+	result.replaced = found
 	return result
 
 
@@ -239,7 +373,7 @@ static func unregister_owner(owner_id: int) -> int:
 
 
 ## The merged provider template for one id. Empty when no provider registered her.
-static func template_for(id: String) -> Dictionary:
+static func template_for(id: String) -> Profile:
 	var out: Dictionary = {}
 	var list: Array = _layers.get(id, [])
 	for layer: Variant in list:
@@ -248,12 +382,14 @@ static func template_for(id: String) -> Dictionary:
 		var raw: Variant = (layer as Dictionary).get("template", {})
 		if raw is Dictionary:
 			out = _merge(out, raw)
-	return out
+	var profile := Profile.new()
+	profile.values = out
+	return profile
 
 
-## The merged provider placement block for one id, or an empty dictionary.
-static func placement(id: String) -> Dictionary:
-	var out: Dictionary = {}
+## The merged provider placement block for one id, or an empty record.
+static func placement(id: String) -> Placement:
+	var out := Placement.new()
 	var list: Array = _layers.get(id, [])
 	for layer: Variant in list:
 		if not layer is Dictionary:
@@ -263,7 +399,7 @@ static func placement(id: String) -> Dictionary:
 			continue
 		var raw: Variant = (template as Dictionary).get("placement", {})
 		if raw is Dictionary:
-			out = _merge(out, raw)
+			out.apply(raw)
 	return out
 
 
@@ -312,7 +448,7 @@ static func reset() -> void:
 	revision += 1
 
 
-static func _check_id(id: String, errors: Array) -> void:
+static func _check_id(id: String, errors: Array[String]) -> void:
 	if id.is_empty():
 		errors.append("id: required")
 		return
@@ -324,7 +460,7 @@ static func _check_id(id: String, errors: Array) -> void:
 		errors.append("id: must not contain '.' or ':'")
 
 
-static func _check_source(source: String, errors: Array) -> void:
+static func _check_source(source: String, errors: Array[String]) -> void:
 	if source.is_empty():
 		errors.append("source: required")
 		return
@@ -334,7 +470,7 @@ static func _check_source(source: String, errors: Array) -> void:
 		errors.append("source: must not contain '.' or ':'")
 
 
-static func _validate_preferences(raw: Variant, warnings: Array, errors: Array) -> Dictionary:
+static func _validate_preferences(raw: Variant, warnings: Array[String], errors: Array[String]) -> Dictionary:
 	var out: Dictionary = {}
 	if not raw is Dictionary:
 		errors.append("preferences: expected an object")
@@ -368,7 +504,7 @@ static func _validate_preferences(raw: Variant, warnings: Array, errors: Array) 
 	return out
 
 
-static func _validate_consent(raw: Variant, warnings: Array, errors: Array) -> Dictionary:
+static func _validate_consent(raw: Variant, warnings: Array[String], errors: Array[String]) -> Dictionary:
 	var out: Dictionary = {}
 	if not raw is Dictionary:
 		errors.append("consent: expected an object")
@@ -388,14 +524,14 @@ static func _validate_consent(raw: Variant, warnings: Array, errors: Array) -> D
 
 ## A provider's `eligible` assertion. It is a tri-state: `true`/`false` is a provider assertion,
 ## and absent means the pony's identity decides. It is never a player field.
-static func _validate_eligible(raw: Variant, errors: Array) -> Variant:
+static func _validate_eligible(raw: Variant, errors: Array[String]) -> Variant:
 	if raw is bool:
 		return raw
 	errors.append("eligible: expected true or false")
 	return null
 
 
-static func _validate_profile(raw: Variant, warnings: Array, errors: Array) -> Dictionary:
+static func _validate_profile(raw: Variant, warnings: Array[String], errors: Array[String]) -> Dictionary:
 	var out: Dictionary = {}
 	if not raw is Dictionary:
 		errors.append("profile: expected an object")
@@ -424,7 +560,7 @@ static func _validate_profile(raw: Variant, warnings: Array, errors: Array) -> D
 	return out
 
 
-static func _validate_placement(raw: Variant, warnings: Array, errors: Array) -> Dictionary:
+static func _validate_placement(raw: Variant, warnings: Array[String], errors: Array[String]) -> Dictionary:
 	var out: Dictionary = {}
 	if not raw is Dictionary:
 		errors.append("placement: expected an object")
@@ -446,7 +582,7 @@ static func _validate_placement(raw: Variant, warnings: Array, errors: Array) ->
 	return out
 
 
-static func _validate_poses(raw: Variant, warnings: Array, errors: Array) -> Dictionary:
+static func _validate_poses(raw: Variant, warnings: Array[String], errors: Array[String]) -> Dictionary:
 	var out: Dictionary = {}
 	if not raw is Dictionary:
 		errors.append("poses: expected an object")
@@ -465,7 +601,7 @@ static func _validate_poses(raw: Variant, warnings: Array, errors: Array) -> Dic
 
 
 static func _validate_prompts(raw: Variant, allowed: Array, label: String,
-		warnings: Array, errors: Array) -> Dictionary:
+		warnings: Array[String], errors: Array[String]) -> Dictionary:
 	var out: Dictionary = {}
 	if not raw is Dictionary:
 		errors.append("%s: expected an object" % label)
@@ -484,7 +620,7 @@ static func _validate_prompts(raw: Variant, allowed: Array, label: String,
 
 
 static func _check_enum(name: String, value: Variant, allowed: Array, out: Dictionary,
-		errors: Array) -> void:
+		errors: Array[String]) -> void:
 	if not value is String:
 		errors.append("preferences.%s: expected a string" % name)
 		return
@@ -496,11 +632,11 @@ static func _check_enum(name: String, value: Variant, allowed: Array, out: Dicti
 
 
 static func _check_list(name: String, value: Variant, allowed: Array, out: Dictionary,
-		warnings: Array, errors: Array) -> void:
+		warnings: Array[String], errors: Array[String]) -> void:
 	if not value is Array:
 		errors.append("preferences.%s: expected an array" % name)
 		return
-	var clean: Array = []
+	var clean: Array[String] = []
 	for item: Variant in value:
 		if not item is String:
 			errors.append("preferences.%s: entries must be strings" % name)

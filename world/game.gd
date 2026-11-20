@@ -777,6 +777,36 @@ static func interruption_reason(pony: Node) -> String:
 	return str(pony.call("action_interruption_reason"))
 
 
+## The conversation director's own interrupt, when the loop still exposes it.
+static func interrupt_director(director: Node) -> void:
+	if not is_instance_valid(director) or not director.has_method("interrupt"):
+		return
+	director.call("interrupt")
+
+
+## True while the conversation director is doing anything but idling.
+static func director_speaking(director: Node) -> bool:
+	if not is_instance_valid(director):
+		return false
+	return str(director.get("state")) != "idle"
+
+
+## True while the pony's own speech loop reports speaking.
+static func pony_speaking(pony: Node) -> bool:
+	if not is_instance_valid(pony) or not pony.has_method("is_speaking"):
+		return false
+	return bool(pony.call("is_speaking"))
+
+
+## Prepare her generated voice cache for the act; absent when the director has no voice loop.
+static func prepare_vocal(director: Node, pony_id: String) -> void:
+	if not is_instance_valid(director):
+		return
+	var vocal: Variant = director.get("vocal")
+	if vocal is Node and is_instance_valid(vocal) and vocal.has_method("prepare"):
+		vocal.call("prepare", pony_id)
+
+
 ## The game's pony kisser; null when the scene has none.
 static func kisser_of(game: Node) -> Node:
 	if not is_instance_valid(game):

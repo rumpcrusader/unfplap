@@ -80,9 +80,9 @@ func run() -> void:
 		"tolerance": "normal",
 	})
 
-	readiness.configure(PREF.resolve({}), 10.0, 1.2, 4.0, 8.0, 8.0)
+	readiness.configure(READINESS.Profile.from_dict(PREF.resolve({})), 10.0, 1.2, 4.0, 8.0, 8.0)
 	check(near(readiness.override_seconds, 10.0), "configure keeps the override lifetime")
-	readiness.reset(preferences)
+	readiness.reset(READINESS.Profile.from_dict(preferences))
 	check(near(readiness.satisfaction, 0.0), "reset clears satisfaction")
 	check(readiness.pony_climaxes == 0, "reset clears the climax count")
 	check(readiness.mood == "warming", "reset leaves the caller's mood alone")
@@ -136,8 +136,8 @@ func run() -> void:
 	readiness.touch("smack")
 	check(readiness.satisfaction < before, "a disliked touch lowers readiness")
 	check(host.faces.has("overwhelmed"), "a disliked touch asks for the overwhelmed face")
-	var warning: Dictionary = readiness.take_tolerance_decision()
-	check(int(warning.get("warning", 0)) == 1, "the first dislike queues a warning")
+	var warning := readiness.take_tolerance_decision()
+	check(warning.warning == 1, "the first dislike queues a warning")
 	check(readiness.take_tolerance_decision().is_empty(), "the decision is consumed once")
 	check(near(readiness.distress(), 1.0), "the meter counts the dislike")
 

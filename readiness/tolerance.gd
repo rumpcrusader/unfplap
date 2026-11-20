@@ -38,8 +38,8 @@ static func rules() -> Dictionary:
 	return out
 
 
-func reset(preferences: Dictionary) -> void:
-	tier = PREFERENCES.tolerance_tier(str(preferences.get("tolerance", "normal")))
+func reset(tolerance: String) -> void:
+	tier = PREFERENCES.tolerance_tier(tolerance)
 	distress = 0.0
 	warning_stage = 0
 	stopped = false

@@ -22,7 +22,7 @@ func check(ok: bool, text: String) -> void:
 
 func make(kind: String) -> RefCounted:
 	var tolerance = TOLERANCE.new()
-	tolerance.reset({"tolerance": kind})
+	tolerance.reset(kind)
 	return tolerance
 
 
@@ -98,7 +98,7 @@ func run() -> void:
 
 	var reset = make("strict")
 	push(reset, 2)
-	reset.reset({"tolerance": "normal"})
+	reset.reset("normal")
 	check(reset.distress == 0.0 and reset.warning_stage == 0 and not reset.stopped,
 		"a new act resets the meter")
 	check(reset.tier == "normal", "a new act reads the new tier")

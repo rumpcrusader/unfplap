@@ -3,6 +3,8 @@ extends RefCounted
 ## callbacks once; the handover reads live values through named methods and never sees a service
 ## locator.
 
+const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
+
 var runtime_cb: Callable = Callable()
 var pony_cb: Callable = Callable()
 var id_cb: Callable = Callable()
@@ -138,11 +140,17 @@ func shape_name(shape_id: String) -> String:
 
 
 ## Queue one reaction through the act's dialogue owner. The handover passes the memory reaction
-## value and the validity closure; the runtime facade owns the line channel.
-func reaction_line(reaction: int, event_id: String, fallback: String, valid: Callable) -> String:
+## value and the validity rule; the runtime facade owns the line channel.
+func reaction_line(reaction: int, event_id: String, fallback: String,
+		valid: DIALOGUE.Validity) -> String:
 	if not reaction_line_cb.is_valid():
 		return ""
 	return str(reaction_line_cb.call(reaction, event_id, fallback, valid))
+
+
+## Wrap one validity rule in the dialogue facade's own record.
+func validity(rule: Callable) -> DIALOGUE.Validity:
+	return DIALOGUE.Validity.of(rule)
 
 
 func note_reaction(key: String, cue_text: String, until: float) -> void:

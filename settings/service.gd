@@ -494,7 +494,7 @@ static func anatomy_placement_default(id: String, use_draft: bool = true,
 	var provided := MARE_REGISTRY.placement(key)
 	if provided.is_empty():
 		return ROWS.Rows.of(placed)
-	return ROWS.Rows.of(PLACEMENT.merge(placed, provided))
+	return ROWS.Rows.of(PLACEMENT.merge(placed, provided.to_dict()))
 
 
 static func _persisted_placement_default_values() -> Dictionary:
@@ -2695,7 +2695,7 @@ static func _profile_merge(base: Dictionary, characters: Dictionary, id: String)
 		selected = _merge(selected, character_default)
 	var provided := MARE_REGISTRY.template_for(id)
 	if not provided.is_empty():
-		selected = _merge(selected, provided)
+		selected = _merge(selected, provided.to_dict())
 	if characters.has(id):
 		var over: Variant = characters[id]
 		if over is Dictionary:
@@ -3246,7 +3246,7 @@ static func _strip_materialized_placement_rows(data: Dictionary) -> Dictionary:
 			DEFAULTS.catalog_block("anatomy.placement." + id))
 		var provided := MARE_REGISTRY.placement(id)
 		if not provided.is_empty():
-			expected = PLACEMENT.merge(expected, provided)
+			expected = PLACEMENT.merge(expected, provided.to_dict())
 		var over := PLACEMENT.diff(PLACEMENT.merge(expected, raw), expected)
 		if not over.is_empty():
 			cleaned[id] = over

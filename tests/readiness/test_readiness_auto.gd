@@ -15,6 +15,8 @@ const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 
 var failures := 0
+## No layer key held; an untyped `[]` cannot cross the typed key array.
+var no_keys: Array[bool] = []
 var checks := 0
 
 
@@ -103,34 +105,34 @@ func _check_panel() -> void:
 	var readiness := _readiness(state)
 	state.value = STATE_ACTIVE
 	# A tap: press and release under HOLD_S returns one toggle.
-	var actions: Array[String] = readiness.auto_panel_tick(0.1, true, [], 0.3)
+	var actions: Array[String] = readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
 	check(actions.is_empty(), "the press alone does not toggle")
-	actions = readiness.auto_panel_tick(0.1, false, [], 0.3)
+	actions = readiness.auto_panel_tick(0.1, false, no_keys, 0.3)
 	check(actions == ["toggle"], "a tap toggles auto")
 	check(readiness.auto_active(), "the tap turned auto on")
 	# A hold opens the layer; a key press inside it is one step.
-	readiness.auto_panel_tick(0.1, true, [], 0.3)
-	readiness.auto_panel_tick(0.1, true, [], 0.3)
-	readiness.auto_panel_tick(0.1, true, [], 0.3)
+	readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
+	readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
+	readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
 	check(readiness.auto_panel_open(), "a hold opens the layer")
 	var before: float = readiness.auto_min_depth()
-	var keys := [true, false, false, false, false, false, false]
+	var keys: Array[bool] = [true, false, false, false, false, false, false]
 	actions = readiness.auto_panel_tick(0.1, true, keys, 0.3)
 	check(actions == ["min_up"], "the top row adds one step")
 	check(near(readiness.auto_min_depth(), before + AUTO_PANEL.DEPTH_STEP),
 		"the min step reaches the generator")
-	readiness.auto_panel_tick(0.1, false, [], 0.3)
+	readiness.auto_panel_tick(0.1, false, no_keys, 0.3)
 	check(readiness.auto_panel_open(), "the layer keeps its grace after release")
-	readiness.auto_panel_tick(0.3, false, [], 0.3)
+	readiness.auto_panel_tick(0.3, false, no_keys, 0.3)
 	check(not readiness.auto_panel_open(), "the layer closes after the grace")
 	# The shape cycle is the layer's own settings write.
 	readiness.auto_set_shape("saw")
 	check(readiness.auto_shape() == "saw", "the shape can be set")
 	var saved_shape := SETTINGS.curve.get_choice()
-	var shape_keys := [false, false, false, false, false, false, true]
-	readiness.auto_panel_tick(0.1, true, [], 0.3)
-	readiness.auto_panel_tick(0.1, true, [], 0.3)
-	readiness.auto_panel_tick(0.1, true, [], 0.3)
+	var shape_keys: Array[bool] = [false, false, false, false, false, false, true]
+	readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
+	readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
+	readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
 	actions = readiness.auto_panel_tick(0.1, true, shape_keys, 0.3)
 	check(actions == ["shape_next"], "Z reports the shape cycle")
 	var next_shape: String = AUTO_THRUST.next_shape("saw")
@@ -139,7 +141,7 @@ func _check_panel() -> void:
 	SETTINGS.curve.set_choice(saved_shape)
 	# Leaving the act closes the layer and clears the keys.
 	state.value = STATE_IDLE
-	readiness.auto_panel_tick(0.1, true, [], 0.3)
+	readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
 	check(not readiness.auto_panel_open(), "the layer closes outside the act")
 
 
@@ -149,15 +151,15 @@ func _check_panel_repeat() -> void:
 	state.value = STATE_ACTIVE
 	# Auto off: a tap toggles, but a held X has nothing to open.
 	for i: int in 4:
-		readiness.auto_panel_tick(0.1, true, [], 0.3)
+		readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
 	check(not readiness.auto_panel_open(), "a hold cannot open the layer while auto is off")
 	readiness.toggle_auto(0.3)
 	for i: int in 4:
-		readiness.auto_panel_tick(0.1, true, [], 0.3)
+		readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
 	check(readiness.auto_panel_open(), "the layer opens for the repeat keys")
 	# A layer key steps on press, then repeats after the delay at the repeat rate.
 	var dt := 1.0 / 60.0
-	var keys := [true, false, false, false, false, false, false]
+	var keys: Array[bool] = [true, false, false, false, false, false, false]
 	var actions: Array[String] = readiness.auto_panel_tick(dt, true, keys, 0.3)
 	check(actions == ["min_up"], "a layer key steps on press")
 	actions = []

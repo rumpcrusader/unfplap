@@ -47,7 +47,7 @@ func reset() -> void:
 
 ## One frame. `x_down` is the hold key, `keys` the layer keys in `ACTIONS` order. `allow_open`
 ## is false while auto is off: the tap still toggles, but there is nothing to adjust.
-func tick(delta: float, x_down: bool, keys: Array, allow_open: bool) -> Array[String]:
+func tick(delta: float, x_down: bool, keys: Array[bool], allow_open: bool) -> Array[String]:
 	var actions: Array[String] = []
 	if x_down:
 		if not _was_down:
@@ -85,9 +85,9 @@ func close() -> void:
 
 
 ## Layer keys: one step on press, then `REPEAT_DELAY_S` and `REPEAT_RATE_S` while held.
-func _collect_repeats(delta: float, keys: Array, actions: Array[String]) -> void:
+func _collect_repeats(delta: float, keys: Array[bool], actions: Array[String]) -> void:
 	for i: int in KEY_COUNT:
-		var held := i < keys.size() and bool(keys[i])
+		var held := i < keys.size() and keys[i]
 		if not held:
 			_key_down[i] = false
 			_key_repeat[i] = 0.0

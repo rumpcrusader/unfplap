@@ -28,6 +28,71 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+## The face moment a disliked touch or talk presents; `shared/act_face.gd` owns the beat itself.
+const FACE_OVERWHELMED := "overwhelmed"
+
+
+## The per-mare preference profile readiness reads, resolved at the act boundary.
+class Profile extends RefCounted:
+	var intensity := "firm"
+	var pattern := "steady"
+	var warmth := "normal"
+	var tolerance := "normal"
+	var touch: Array[String] = []
+	var talk: Array[String] = []
+	var dislikes: Array[String] = []
+
+	## The edge: the player's saved preferences merged over the template arrive as a dictionary.
+	static func from_dict(raw: Dictionary) -> Profile:
+		var out := Profile.new()
+		out.intensity = str(raw.get("intensity", "firm"))
+		out.pattern = str(raw.get("pattern", "steady"))
+		out.warmth = str(raw.get("warmth", "normal"))
+		out.tolerance = str(raw.get("tolerance", "normal"))
+		out.touch = _names(raw.get("touch", []))
+		out.talk = _names(raw.get("talk", []))
+		out.dislikes = _names(raw.get("dislikes", []))
+		return out
+
+	## The dictionary the pure preference and cue modules take.
+	func to_dict() -> Dictionary:
+		return {
+			"intensity": intensity, "pattern": pattern, "warmth": warmth,
+			"tolerance": tolerance, "touch": touch.duplicate(), "talk": talk.duplicate(),
+			"dislikes": dislikes.duplicate(),
+		}
+
+	static func _names(value: Variant) -> Array[String]:
+		var out: Array[String] = []
+		if not value is Array:
+			return out
+		for item: Variant in value:
+			out.append(str(item))
+		return out
+
+
+## One tolerance decision, presented on the runtime's next tick. The empty decision is shared, so
+## a quiet frame allocates nothing.
+class Decision extends RefCounted:
+	var warning := 0
+	var stop := false
+	var distress := 0.0
+	var kind := ""
+
+	## The edge: the pure meter reports a plain document, empty when nothing happened.
+	static func from_dict(event: Dictionary) -> Decision:
+		var out := Decision.new()
+		if event.is_empty():
+			return out
+		out.warning = int(event.get("warning", 0))
+		out.stop = bool(event.get("stop", false))
+		out.distress = float(event.get("distress", 0.0))
+		out.kind = str(event.get("kind", ""))
+		return out
+
+	func is_empty() -> bool:
+		return warning <= 0 and not stop
+
 
 ## Public act state, forwarded by the runtime.
 var satisfaction := 0.0
@@ -36,8 +101,10 @@ var cue := ""
 var pony_climaxes := 0
 
 ## The pure per-act tolerance meter and the decision the runtime presents on its next tick.
-var tolerance
-var _tolerance_pending: Dictionary = {}
+var tolerance: TOLERANCE = null
+var _tolerance_pending: Decision = null
+## Returned while nothing is pending, so the frame path allocates no record.
+var _no_decision := Decision.new()
 ## A paused Debug-panel request, consumed by the runtime on its next tick.
 var debug_request := ""
 
@@ -97,8 +164,8 @@ var on_cue := Callable()
 
 ## Auto thrust and the hold-X layer. The runtime reads the keys and applies the returned depth,
 ## so the stroke still runs through one tracker and scores like the mouse.
-var auto_thrust: RefCounted = AUTO_THRUST.new()
-var auto_panel: RefCounted = AUTO_PANEL.new()
+var auto_thrust: AUTO_THRUST = AUTO_THRUST.new()
+var auto_panel: AUTO_PANEL = AUTO_PANEL.new()
 var auto_on := false
 ## The act's `auto_thrust.*` snapshot, pushed by the runtime.
 var auto_default_pace: float
@@ -108,7 +175,7 @@ var auto_default_shape: String
 
 ## The act's stroke and penetration state. Its tracker is the only stroke authority; the mouse,
 ## auto thrust and the anatomy bridge all feed this one object.
-var _thrust: RefCounted = THRUST_STATE.new()
+var _thrust: THRUST_STATE = THRUST_STATE.new()
 ## Host reads for the depth scale. The runtime supplies his visible shaft length and the live
 ## pose family; a missing callback falls back to the nominal length.
 var shaft_length := Callable()
@@ -262,7 +329,7 @@ func auto_panel_open() -> bool:
 
 ## The hold-X layer: consumes the input service's key states and returns the actions it applied,
 ## so one log line lands per adjustment rather than per frame.
-func auto_panel_tick(delta: float, x_down: bool, keys: Array,
+func auto_panel_tick(delta: float, x_down: bool, keys: Array[bool],
 		current_depth: float) -> Array[String]:
 	if not _state_in([STATE_ACTIVE, STATE_CLIMAX]):
 		auto_panel.reset()
@@ -323,8 +390,8 @@ func auto_max_depth() -> float:
 
 
 ## Start a fresh act. The configuration fields set by `configure()` survive.
-func reset(profile: Dictionary) -> void:
-	preferences = profile
+func reset(profile: Profile) -> void:
+	preferences = profile.to_dict()
 	pony_climaxes = 0
 	last_intensity = ""
 	last_pattern = ""
@@ -357,14 +424,14 @@ func reset(profile: Dictionary) -> void:
 	act_intensity_right = 0
 	act_pattern_total = 0
 	act_pattern_right = 0
-	_tolerance_controller().reset(profile)
-	_tolerance_pending = {}
+	_tolerance_controller().reset(profile.tolerance)
+	_tolerance_pending = null
 	debug_request = ""
 
 
-func configure(profile: Dictionary, override_s: float, overwhelmed_s: float,
+func configure(profile: Profile, override_s: float, overwhelmed_s: float,
 		touch_cd: float, talk_cd: float, receptive_s: float) -> void:
-	preferences = profile
+	preferences = profile.to_dict()
 	override_seconds = override_s
 	overwhelmed_seconds = overwhelmed_s
 	touch_cooldown = touch_cd
@@ -595,7 +662,7 @@ func touch(kind: String) -> void:
 		add_heat(-TOUCH_HEAT)
 		overwhelmed = overwhelmed_seconds
 		if on_face.is_valid():
-			on_face.call("overwhelmed")
+			on_face.call(FACE_OVERWHELMED)
 		set_cue_override("She doesn't like that.")
 		LOG.debug("touch dislike kind=%s readiness=%.0f", [kind, satisfaction])
 	# A neutral touch sets no override; the live base cue stays on screen.
@@ -636,7 +703,7 @@ func talk(text: String) -> void:
 		add_heat(-TALK_HEAT)
 		overwhelmed = overwhelmed_seconds
 		if on_face.is_valid():
-			on_face.call("overwhelmed")
+			on_face.call(FACE_OVERWHELMED)
 		set_cue_override("She didn't like that.")
 		LOG.debug("talk dislike category=%s readiness=%.0f", [category, satisfaction])
 	else:
@@ -686,7 +753,7 @@ func _climax() -> void:
 
 
 ## The meter is created lazily so a suite can build the facade without a profile.
-func _tolerance_controller():
+func _tolerance_controller() -> TOLERANCE:
 	if tolerance == null:
 		tolerance = TOLERANCE.new()
 	return tolerance
@@ -710,9 +777,11 @@ func _observe_like(kind: String) -> void:
 
 
 ## The decision the runtime presents on its next tick, or empty. One decision per frame.
-func take_tolerance_decision() -> Dictionary:
+func take_tolerance_decision() -> Decision:
+	if _tolerance_pending == null:
+		return _no_decision
 	var decision := _tolerance_pending
-	_tolerance_pending = {}
+	_tolerance_pending = null
 	return decision
 
 
@@ -739,7 +808,7 @@ func take_debug() -> String:
 func _queue_tolerance(event: Dictionary) -> void:
 	if event.is_empty():
 		return
-	_tolerance_pending = event
+	_tolerance_pending = Decision.from_dict(event)
 
 
 func _state() -> int:

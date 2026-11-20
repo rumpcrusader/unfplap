@@ -5,6 +5,8 @@ extends RefCounted
 ## See `docs/dialogue.md`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const PROMPTS := preload("res://mods/unfplap/dialogue/prompts.gd")
 const UTTERANCE := preload("res://mods/unfplap/dialogue/utterance.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
@@ -33,6 +35,54 @@ class ActValues extends RefCounted:
 	var form_source := false
 	var form_name := ""
 	var form_borrowed := false
+
+
+## The seven cue-pacing values; the settings snapshot fills one per act and per live edit.
+class Pacing extends RefCounted:
+	var base_stable := 0.0
+	var override_stable := 0.0
+	var utterance_gap := 0.0
+	var demand_gap := 0.0
+	var demand_repeat := 0.0
+	var max_age := 0.0
+	var release_hold := 0.0
+
+
+## The plain values one normal prompt note carries; the act view fills one per note.
+class PromptValues extends RefCounted:
+	var state := 0
+	var warm := false
+	var history := ""
+	var beat := ""
+	var relation := ""
+	var caressing := false
+	var leaning := false
+	var missionary := false
+	var form_source := false
+	var form_name := ""
+	var form_borrowed := false
+
+	## The pure note's own shape; the wording stays in `dialogue/prompts.gd`.
+	func to_dict() -> Dictionary:
+		return {
+			"state": state, "warm": warm, "history": history, "beat": beat,
+			"relation": relation, "caressing": caressing, "leaning": leaning,
+			"missionary": missionary, "form_source": form_source, "form_name": form_name,
+			"form_borrowed": form_borrowed,
+		}
+
+
+## One reaction line's validity window. The memory channel re-asks `test` when it delivers, so the
+## rule stays with the caller and a bare `Callable` never crosses the facade.
+class Validity extends RefCounted:
+	var test: Callable = Callable()
+
+	static func of(rule: Callable) -> Validity:
+		var out := Validity.new()
+		out.test = rule
+		return out
+
+
 const ANGLES_REMEMBERED := 7
 const LINE_ANGLES := [
 	"say something about a thing you two talked about earlier.",
@@ -65,9 +115,9 @@ const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-var facts: Variant
+var facts: ACT_FACTS = null
 
-var _scheduler
+var _scheduler: UTTERANCE_SCHEDULER = null
 var _serial := 0
 var _delivered_key := ""
 var _used_angles: Array[String] = []
@@ -84,23 +134,23 @@ var _last_cue_log_reason := ""
 var _climax_key := ""
 
 
-func _init(facts_context: Variant = null) -> void:
+func _init(facts_context: ACT_FACTS = null) -> void:
 	facts = facts_context
 
 
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these fields.
-func configure(pacing: Dictionary) -> void:
-	var lines = scheduler()
-	lines.base_stable_s = float(pacing["base_stable"])
-	lines.override_stable_s = float(pacing["override_stable"])
-	lines.utterance_gap_s = float(pacing["utterance_gap"])
-	lines.demand_gap_s = float(pacing["demand_gap"])
-	lines.demand_repeat_s = float(pacing["demand_repeat"])
-	lines.max_age_s = float(pacing["max_age"])
-	lines.release_hold_s = float(pacing["release_hold"])
+func configure(pacing: Pacing) -> void:
+	var lines := scheduler()
+	lines.base_stable_s = pacing.base_stable
+	lines.override_stable_s = pacing.override_stable
+	lines.utterance_gap_s = pacing.utterance_gap
+	lines.demand_gap_s = pacing.demand_gap
+	lines.demand_repeat_s = pacing.demand_repeat
+	lines.max_age_s = pacing.max_age
+	lines.release_hold_s = pacing.release_hold
 
 
-func scheduler():
+func scheduler() -> UTTERANCE_SCHEDULER:
 	if _scheduler == null:
 		_scheduler = UTTERANCE_SCHEDULER.new()
 	return _scheduler
@@ -214,10 +264,10 @@ func bystander_tick(delta: float) -> void:
 	var row: MEMORY.Observer = seen.pick_random()
 	var observer: Node3D = row.node
 	var event_id: String = facts.event_id
-	var valid := func() -> bool:
+	var valid := Validity.of(func() -> bool:
 		return is_instance_valid(observer) and is_instance_valid(facts.pony) \
 			and facts.event_id == event_id \
-			and facts.state in [STATE_ACTIVE, STATE_CLIMAX]
+			and facts.state in [STATE_ACTIVE, STATE_CLIMAX])
 	var indoors := false
 	if is_instance_valid(facts.pony) and facts.pony.is_inside_tree():
 		indoors = HOUSE.at(facts.pony.get_tree(), facts.pony.global_position) != null
@@ -274,10 +324,10 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 	if Time.get_unix_time_from_system() - float(current.get("last_at", 0.0)) < 45.0:
 		return
 	var line_event := "history_%s_%d" % [pony_id, Time.get_ticks_usec()]
-	var valid := func() -> bool:
+	var valid := Validity.of(func() -> bool:
 		if not is_instance_valid(pony):
 			return false
-		return facts != null and facts.state == STATE_IDLE
+		return facts != null and facts.state == STATE_IDLE)
 	var reaction := MEMORY.Reaction.HISTORY_REMINDER if kind == "reminder" \
 		else MEMORY.Reaction.HISTORY_COMPLAINT
 	var key: String = reaction_line(reaction, line_event,
@@ -421,7 +471,7 @@ func end_act(event_id: String, keep_speaking := true) -> void:
 
 
 ## Queue one settings-driven reaction line. Returns the director key, or "" when it was not queued.
-func reaction_line(reaction: int, event_id: String, fallback: String, valid: Callable) -> String:
+func reaction_line(reaction: int, event_id: String, fallback: String, valid: Validity) -> String:
 	if facts == null or not _game_ok():
 		return ""
 	var request := MEMORY.LineRequest.new()
@@ -430,7 +480,7 @@ func reaction_line(reaction: int, event_id: String, fallback: String, valid: Cal
 	request.event_id = event_id
 	request.purpose = fallback
 	request.reaction = reaction
-	request.valid = valid
+	request.valid = valid.test if valid != null else Callable()
 	var line: MEMORY.Line = MEMORY.instance.line(request)
 	return line.key if line.queued else ""
 
@@ -447,13 +497,13 @@ func climax_line(mouth_busy: bool, cue: String, act_id: String, count: int, max_
 		return ""
 	var climax_id := "%s:pony_climax:%d" % [act_id, count]
 	var expires := _now() + max_age
-	var valid := func() -> bool:
+	var valid := Validity.of(func() -> bool:
 		if not is_instance_valid(facts.pony) or str(facts.event_id) != act_id \
 				or int(facts.pony_climaxes) != count:
 			return false
 		if _now() <= expires:
 			return true
-		return MEMORY.instance.line_state(_climax_key) == MEMORY.LineState.SPEAKING
+		return MEMORY.instance.line_state(_climax_key) == MEMORY.LineState.SPEAKING)
 	_climax_key = reaction_line(MEMORY.Reaction.CLIMAX, climax_id, CLIMAX_PROMPT, valid)
 	if _climax_key.is_empty():
 		return ""
@@ -471,7 +521,7 @@ func stop_oral_turn(pony_id: String) -> void:
 		return
 	if str(director.get("_current")) != pony_id:
 		return
-	director.call("interrupt")
+	GAME.interrupt_director(director)
 
 
 ## The stored-history note for a hurt pony.
@@ -490,19 +540,19 @@ func relationship_note(pony_id: String, event_id: String) -> String:
 ## The facade entry for the pure note assembly; the wording and precedence stay in the prompts
 ## module.
 func act_prompt(values: ActValues) -> String:
-	return prompt_note({
-		"state": values.state,
-		"warm": values.warm,
-		"history": history_note(values.pony_id),
-		"beat": values.beat,
-		"relation": relationship_note(values.pony_id, values.event_id),
-		"caressing": values.caressing,
-		"leaning": values.leaning,
-		"missionary": values.missionary,
-		"form_source": values.form_source,
-		"form_name": values.form_name,
-		"form_borrowed": values.form_borrowed,
-	})
+	var note := PromptValues.new()
+	note.state = values.state
+	note.warm = values.warm
+	note.history = history_note(values.pony_id)
+	note.beat = values.beat
+	note.relation = relationship_note(values.pony_id, values.event_id)
+	note.caressing = values.caressing
+	note.leaning = values.leaning
+	note.missionary = values.missionary
+	note.form_source = values.form_source
+	note.form_name = values.form_name
+	note.form_borrowed = values.form_borrowed
+	return prompt_note(note)
 
 
 ## Unlike `channel_free`, this ignores our own pending key, so a queued line can tell "still
@@ -518,8 +568,8 @@ func channel_free() -> bool:
 
 ## The normal dialogue prompt note. Every value is plain data, supplied by the runtime, so the
 ## wording and the precedence are testable without a scene.
-func prompt_note(values: Dictionary) -> String:
-	return PROMPTS.note(values)
+func prompt_note(values: PromptValues) -> String:
+	return PROMPTS.note(values.to_dict())
 
 
 func recent_lines() -> String:
@@ -583,7 +633,7 @@ func _utterance_line(event_id: String, suffix: String, purpose: String,
 
 ## Queue one bystander line. The act owns it, so its end cancels it.
 func _bystander_line(id: String, event_id: String, purpose: String,
-		valid: Callable) -> bool:
+		valid: Validity) -> bool:
 	if not _game_ok():
 		return false
 	var request := MEMORY.LineRequest.new()
@@ -591,7 +641,7 @@ func _bystander_line(id: String, event_id: String, purpose: String,
 	request.id = id
 	request.event_id = event_id
 	request.purpose = purpose
-	request.valid = valid
+	request.valid = valid.test
 	return MEMORY.instance.line(request).queued
 
 
@@ -660,10 +710,9 @@ func _director() -> Node:
 
 func _speech_busy() -> bool:
 	var director := _director()
-	if director != null and str(director.get("state")) != "idle":
+	if GAME.director_speaking(director):
 		return true
-	if facts != null and is_instance_valid(facts.pony) and facts.pony.has_method("is_speaking") \
-			and bool(facts.pony.call("is_speaking")):
+	if facts != null and GAME.pony_speaking(facts.pony):
 		return true
 	return false
 
@@ -686,9 +735,4 @@ func _now() -> float:
 
 ## The start's generated-vocal preparation: the director prepares her voice cache for the act.
 func prepare_vocal(pony_id: String) -> void:
-	var director: Node = _director()
-	if director == null:
-		return
-	var vocal: Variant = director.get("vocal")
-	if vocal != null and vocal.has_method("prepare"):
-		vocal.call("prepare", pony_id)
+	GAME.prepare_vocal(_director(), pony_id)

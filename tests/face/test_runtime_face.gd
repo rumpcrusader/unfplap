@@ -6,6 +6,7 @@ extends SceneTree
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
+const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
 var checks := 0
 var failures := 0
 
@@ -56,8 +57,8 @@ class FakePony extends Node3D:
 	var expressions: Variant = null
 
 
-class FakeTolerance:
-	var distress := 0.0
+class FakeTolerance extends TOLERANCE:
+	pass
 
 
 func _initialize() -> void:

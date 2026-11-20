@@ -227,8 +227,10 @@ too-slow.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | memory | `memory/service.gd` | act memory and witness pass |
+| service | world | `world/game.gd` | the base-game director, speech and voice members |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_face | `shared/act_face.gd` | face beat data |
+| read model | act_facts | `shared/act_facts.gd` | the typed act values and clock the note reads |
 | shared | log | `shared/log.gd` | log sink |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |

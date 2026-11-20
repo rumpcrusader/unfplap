@@ -10,6 +10,7 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -42,7 +43,7 @@ func look_motion(relative: Vector2) -> void:
 
 ## One hold-X policy frame. The input service samples the keys; readiness owns the tap, the rows
 ## and the shape write.
-func auto_panel_input(delta: float, x_down: bool, keys: Array) -> void:
+func auto_panel_input(delta: float, x_down: bool, keys: Array[bool]) -> void:
 	context.readiness.auto_panel_tick(delta, x_down, keys, context.readiness.depth)
 
 
@@ -114,12 +115,12 @@ func cancel() -> void:
 			var act_id := session.event_id
 			var max_age := session.snapshot.cue_reaction_max_age_s
 			var expires := session.clock_s() + max_age
-			var valid := func() -> bool:
+			var valid := DIALOGUE.Validity.of(func() -> bool:
 				if not is_instance_valid(host.pony) or session.event_id != act_id:
 					return false
 				if session.clock_s() <= expires:
 					return true
-				return MEMORY.instance.line_state(end_early_key) == MEMORY.LineState.SPEAKING
+				return MEMORY.instance.line_state(end_early_key) == MEMORY.LineState.SPEAKING)
 			var key: String = context.dialogue.reaction_line(MEMORY.Reaction.END_EARLY, act_id,
 				ACT_SUMMARY.early_end_prompt(context.summary.summary), valid)
 			end_early_key = key

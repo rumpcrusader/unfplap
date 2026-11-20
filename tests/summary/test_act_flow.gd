@@ -131,14 +131,14 @@ func run() -> void:
 	probe.act.ended_early = false
 	probe._bundle.readiness.pony_climaxes = 1
 	probe.act._act_seconds = 90.0
-	var inputs: Dictionary = probe._bundle.summary.summary_inputs(
-		probe.act.act_input().as_context(probe._bundle.readiness))
-	check(int(inputs.get("thrusts", 0)) == 5, "snapshot carries real thrusts")
-	check(int((inputs.get("touch_dislikes", {}) as Dictionary).get("smack", 0)) == 2,
+	var inputs: SUMMARY.Inputs = probe._bundle.summary.summary_inputs(
+		probe.act.act_input().as_inputs(probe._bundle.readiness))
+	check(inputs.thrusts == 5, "snapshot carries real thrusts")
+	check(int((inputs.touch_dislikes as Dictionary).get("smack", 0)) == 2,
 		"snapshot carries disliked touch kinds")
-	check(int(inputs.get("talk_dislikes", 0)) == 1, "snapshot carries disliked talk")
-	check(int(inputs.get("player_lines", 0)) == 0, "snapshot carries player lines")
-	check(int(inputs.get("pattern_right", 0)) == 1, "snapshot carries pattern matches")
+	check(inputs.talk_dislikes == 1, "snapshot carries disliked talk")
+	check(inputs.player_lines == 0, "snapshot carries player lines")
+	check(inputs.pattern_right == 1, "snapshot carries pattern matches")
 	probe.free()
 
 	_check_commit()
@@ -174,20 +174,19 @@ func _check_summary_shapes() -> void:
 		"ended_early": false,
 		"stopped_by_her": true,
 	}
-	var built: Dictionary = summary.summary_inputs(gathered)
-	check(is_equal_approx(float(built.get("seconds", 0.0)), 42.5), "the input keeps the act seconds")
-	check(int(built.get("thrusts", 0)) == 7, "the input keeps the real thrusts")
-	check(int((built.get("touch_dislikes", {}) as Dictionary).get("smack", 0)) == 1,
+	var built := summary.summary_inputs(SUMMARY.Inputs.from_dict(gathered))
+	check(is_equal_approx(built.seconds, 42.5), "the input keeps the act seconds")
+	check(built.thrusts == 7, "the input keeps the real thrusts")
+	check(int((built.touch_dislikes as Dictionary).get("smack", 0)) == 1,
 		"the input keeps the disliked touch kinds")
-	check(str(built.get("tolerance", "")) == "forgiving",
+	check(built.tolerance == "forgiving",
 		"the tolerance comes from the gathered preferences")
-	check(bool(built.get("stopped_by_her", false)), "the input keeps the partner stop")
-	check(not bool(built.get("forced", false)), "a missing forced flag reads false")
-	var wrapped: Dictionary = summary.summary_context(gathered)
-	check(str(wrapped.get("pony_id", "")) == "rarity"
-		and str(wrapped.get("event_id", "")) == "intimacy_test",
+	check(built.stopped_by_her, "the input keeps the partner stop")
+	check(not built.forced, "a missing forced flag reads false")
+	var wrapped := summary.summary_context(SUMMARY.Inputs.from_dict(gathered))
+	check(wrapped.pony_id == "rarity" and wrapped.event_id == "intimacy_test",
 		"the context keeps the ids")
-	check((wrapped.get("inputs", {}) as Dictionary).has("touch_dislikes"),
+	check(wrapped.inputs.to_dict().has("touch_dislikes"),
 		"the context wraps the built inputs")
 	main.free()
 
@@ -207,25 +206,25 @@ func _check_peak_commit() -> void:
 	var summary := SUMMARY.new()
 	check(not summary.peak_recorded, "the peak flag starts clear")
 	summary.summary = {"positive": true, "grade": "good"}
-	summary.record_peak_memory({
-		"pony_id": "rarity",
-		"event_id": "intimacy_test",
-		"satisfaction": 95.0,
-		"both_matches": 6,
-		"dislikes": 0,
-		"liked_touch": 1,
-		"liked_talk": 0,
-		"player_talk": "you are perfect",
-		"her_at": 10.0,
-		"her_line": "I know.",
-	}, 5.0)
+	var context := SUMMARY.Context.new()
+	context.pony_id = "rarity"
+	context.event_id = "intimacy_test"
+	context.satisfaction = 95.0
+	context.both_matches = 6
+	context.dislikes = 0
+	context.liked_touch = 1
+	context.liked_talk = 0
+	context.player_talk = "you are perfect"
+	context.her_at = 10.0
+	context.her_line = "I know."
+	summary.record_peak_memory(context, 5.0)
 	check(sink.peaks.size() == 1, "a peak act is stored once")
 	if not sink.peaks.is_empty():
 		var peak: MEMORY.Peak = sink.peaks[0]
 		check(peak.text.contains("you are perfect") and peak.text.contains("I know."),
 			"the peak quotes the act's exchange")
 		check(peak.score > 0.0, "the peak keeps its score")
-	summary.record_peak_memory({"main": main}, 0.0)
+	summary.record_peak_memory(SUMMARY.Context.new(), 0.0)
 	check(sink.peaks.size() == 1, "the peak is stored once per act")
 	main.free()
 	game.free()

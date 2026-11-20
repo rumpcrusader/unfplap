@@ -10,6 +10,7 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -58,15 +59,14 @@ func tick(delta: float) -> int:
 		stop_kind = "debug"
 		return STOP
 	context.readiness.tolerance_tick(delta)
-	var decision: Dictionary = context.readiness.take_tolerance_decision()
+	var decision := context.readiness.take_tolerance_decision()
 	if decision.is_empty() or session.stopped_by_her:
 		return NONE
-	var warning := int(decision.get("warning", 0))
-	if warning > 0:
-		warn(warning)
+	if decision.warning > 0:
+		warn(decision.warning)
 		return WARN
-	if bool(decision.get("stopped", false)) or bool(decision.get("stop", false)):
-		stop_kind = str(decision.get("kind", ""))
+	if decision.stop:
+		stop_kind = decision.kind
 		return STOP
 	return NONE
 
@@ -99,9 +99,9 @@ func queue_warning(level: int) -> void:
 		MEMORY.instance.cancel_line(warning_key)
 	var act_id := session.event_id
 	var event_id := "%s:tolerance_warning:%d" % [session.event_id, Time.get_ticks_usec()]
-	var valid := func() -> bool:
+	var valid := DIALOGUE.Validity.of(func() -> bool:
 		return is_instance_valid(host.pony) and session.state in [State.POSING_IN, State.ACTIVE] \
-			and session.event_id == act_id
+			and session.event_id == act_id)
 	var fallback := ("Don't do that." if level <= 1 else "I said stop that.") \
 		+ " Begin with [annoyed] or [calm]."
 	warning_key = context.dialogue.reaction_line(
@@ -187,8 +187,8 @@ func queue_stop_line(strict: bool) -> void:
 	if strict:
 		fallback = "I told you to stop. Get off me and give me space. Begin with [angry] or [sad]."
 	var event_id := "tolerance_stop_%s_%d" % [session.pony_id, Time.get_ticks_usec()]
-	var valid := func() -> bool:
-		return is_instance_valid(host.pony) and session.state == State.IDLE
+	var valid := DIALOGUE.Validity.of(func() -> bool:
+		return is_instance_valid(host.pony) and session.state == State.IDLE)
 	context.dialogue.reaction_line(MEMORY.Reaction.TOLERANCE_STOP, event_id, fallback, valid)
 
 

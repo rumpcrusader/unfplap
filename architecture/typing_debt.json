@@ -6,26 +6,6 @@
       "signature": "func pose_changed(view: Variant) -> void:"
     },
     {
-      "service": "dialogue",
-      "func": "configure",
-      "signature": "func configure(pacing: Dictionary) -> void:"
-    },
-    {
-      "service": "dialogue",
-      "func": "prompt_note",
-      "signature": "func prompt_note(values: Dictionary) -> String:"
-    },
-    {
-      "service": "dialogue",
-      "func": "reaction_line",
-      "signature": "func reaction_line(reaction: int, event_id: String, fallback: String, valid: Callable) -> String:"
-    },
-    {
-      "service": "dialogue",
-      "func": "scheduler",
-      "signature": "func scheduler():"
-    },
-    {
       "service": "eligibility",
       "func": "set_profile",
       "signature": "func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:"
@@ -84,66 +64,6 @@
       "service": "poses",
       "func": "sync_standing_config",
       "signature": "func sync_standing_config(presentation: Dictionary) -> bool:"
-    },
-    {
-      "service": "readiness",
-      "func": "auto_panel_tick",
-      "signature": "func auto_panel_tick(delta: float, x_down: bool, keys: Array, current_depth: float) -> Array[String]:"
-    },
-    {
-      "service": "readiness",
-      "func": "configure",
-      "signature": "func configure(profile: Dictionary, override_s: float, overwhelmed_s: float, touch_cd: float, talk_cd: float, receptive_s: float) -> void:"
-    },
-    {
-      "service": "readiness",
-      "func": "reset",
-      "signature": "func reset(profile: Dictionary) -> void:"
-    },
-    {
-      "service": "readiness",
-      "func": "take_tolerance_decision",
-      "signature": "func take_tolerance_decision() -> Dictionary:"
-    },
-    {
-      "service": "registry",
-      "func": "placement",
-      "signature": "static func placement(id: String) -> Dictionary:"
-    },
-    {
-      "service": "registry",
-      "func": "register",
-      "signature": "static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:"
-    },
-    {
-      "service": "registry",
-      "func": "set_profile",
-      "signature": "static func set_profile(owner_id: int, source: String, id: String, identity: Dictionary) -> Dictionary:"
-    },
-    {
-      "service": "registry",
-      "func": "template_for",
-      "signature": "static func template_for(id: String) -> Dictionary:"
-    },
-    {
-      "service": "summary",
-      "func": "commit_summary",
-      "signature": "func commit_summary(real_act: bool, context: Dictionary) -> void:"
-    },
-    {
-      "service": "summary",
-      "func": "record_peak_memory",
-      "signature": "func record_peak_memory(context: Dictionary, act_spoken_at: float) -> void:"
-    },
-    {
-      "service": "summary",
-      "func": "summary_context",
-      "signature": "func summary_context(context: Dictionary) -> Dictionary:"
-    },
-    {
-      "service": "summary",
-      "func": "summary_inputs",
-      "signature": "func summary_inputs(context: Dictionary) -> Dictionary:"
     }
   ]
 }

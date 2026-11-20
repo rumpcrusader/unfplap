@@ -544,8 +544,8 @@ func offer_tick() -> void:
 	if not is_instance_valid(WORLD.game):
 		return
 	var act_id := host.event_id()
-	var valid := func() -> bool:
-		return not suspended and host.event_id() == act_id and offer_pending
+	var valid := host.validity(func() -> bool:
+		return not suspended and host.event_id() == act_id and offer_pending)
 	var key: String = host.reaction_line(MEMORY.Reaction.FORM_OFFER,
 		"%s:form_offer" % act_id, prompt, valid)
 	if key.is_empty():

@@ -349,11 +349,11 @@ func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:
 	if profile == null:
 		return _profile_result(mare_id, "", false, ["profile: required"])
 	var source := _owner_source(owner)
-	var result := MARE_REGISTRY.set_profile(owner.get_instance_id(), source, mare_id,
-		_profile_descriptor(profile))
-	if bool(result.get("ok", false)) and _live:
+	var result: MARE_REGISTRY.Result = MARE_REGISTRY.set_profile(owner.get_instance_id(), source,
+		mare_id, _profile_descriptor(profile))
+	if result.ok and _live:
 		SETTINGS.apply_live()
-	return result
+	return result.to_dict()
 
 
 func _facts_data(pony: Node) -> Dictionary:
@@ -605,18 +605,19 @@ func _mode_name(mode: Mode) -> String:
 	return str(MODE_NAMES.get(mode, "start"))
 
 
-func _profile_descriptor(profile: Profile) -> Dictionary:
-	var out := {
-		"consent": profile.consent.to_dict(),
-		"profile": {"participation": profile.participation.to_dict()},
-	}
+func _profile_descriptor(profile: Profile) -> MARE_REGISTRY.Identity:
+	var out := MARE_REGISTRY.Identity.new()
+	out.has_consent = true
+	out.consent = profile.consent.to_dict()
+	out.has_profile = true
+	out.profile = {"participation": profile.participation.to_dict()}
 	match profile.eligible:
 		EligibilityAssertion.ELIGIBLE:
-			out["eligible"] = true
+			out.has_eligible = true
+			out.eligible = true
 		EligibilityAssertion.NOT_ELIGIBLE:
-			out["eligible"] = false
-		_:
-			pass
+			out.has_eligible = true
+			out.eligible = false
 	return out
 
 

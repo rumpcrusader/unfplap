@@ -120,11 +120,12 @@ func run() -> void:
 
 	# A provider's `eligible` assertion overrides the identity's age flag; the participation block
 	# is the anatomy target's veto, and the character target keeps her editable.
-	var registered: Dictionary = MARE_REGISTRY.register(1, {
-		"id": "provider_filly", "source": "test",
-		"eligible": true, "profile": {"participation": {"anatomy": false}},
-	})
-	check(bool(registered.get("ok", false)), "the provider registers")
+	var registered: MARE_REGISTRY.Result = MARE_REGISTRY.register(1,
+		MARE_REGISTRY.Descriptor.from_dict({
+			"id": "provider_filly", "source": "test",
+			"eligible": true, "profile": {"participation": {"anatomy": false}},
+		}))
+	check(registered.ok, "the provider registers")
 	var provider_filly := _pony("provider_filly", true)
 	check(bool(host.eligibility.eligible(provider_filly, ELIGIBILITY.Target.CHARACTER)),
 		"a provider's eligible assertion attaches a filly")

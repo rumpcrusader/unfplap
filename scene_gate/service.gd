@@ -53,13 +53,13 @@ class RunningVerdict extends RefCounted:
 		reason = reason_in
 
 
-## The act's feature switches, copied once per act; the gate reads them by name.
+## The act's feature switches, held as the act's own live block.
 class Features extends RefCounted:
 	var flags: Dictionary = {}
 
 	static func from_dict(block: Dictionary) -> Features:
 		var out := Features.new()
-		out.flags = block.duplicate()
+		out.flags = block
 		return out
 
 

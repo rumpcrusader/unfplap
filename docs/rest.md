@@ -11,11 +11,12 @@ floor beside the bed and the restore posture.
   for support, then request `stand`;
 - `bed_anchor`: the guest-seat transform from the game's own bed rest, or the mattress top on
   Anon's side;
-- `shared_bed_rest` / `bed_rest_for`: the live couch in the `couches` group that owns this bed;
+- `shared_bed_rest` / `bed_rest_for`: a typed `RestState`, either the guest-seat transform the
+  live couch reports or the couch in the `couches` group that owns this bed;
 - `rejoin_bed_cuddle`: the deferred stock recline and guest invite loop;
 - `stand_beside_bed`: the safe floor beside the bed via `exit_space.gd`;
 - `rejoin_note`: the timeout diagnostic;
-- `rejoin_wanted`: the desktop-human, good-act decision;
+- `rejoin_wanted`: the desktop-human, good-act decision over a typed `Context`;
 - `restore_posture`: the bed-frame scene restore and the `stand` request.
 
 The runtime keeps the act state and the one teardown ledger: `act/start.gd` makes the cradle
@@ -25,8 +26,9 @@ release helper for a managed bed/couch rest.
 
 The facade binds the scene (`pony`, the act bed) on every access, and reads the live act
 values through one `context` callback (`serial`, `state`, `player_pony`, `headset`, `summary`,
-`satisfaction`, `aftercare_min`). The async paths re-read that context after every await, so a new
-act, a forced stop or a stood-up player cancels the rejoin instead of acting on stale values.
+`satisfaction`, `aftercare_min`) into a typed `Context` record. The async paths re-read that context
+after every await, so a new act, a forced stop or a stood-up player cancels the rejoin instead of
+acting on stale values.
 
 ## Bed anchor
 

@@ -102,10 +102,53 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.muzzle_world(boop)` | `muzzle_world` | `Vector3` | `Vector3.INF` |
 | `GAME.refresh_body_lod(pony)` | the hybrid near and far LOD caches, `set_near_mesh` | — | no rebuild |
 | `GAME.bed_of(collider)` | the mattress `bed_of` lookup | `Node3D` | `null` |
+| `GAME.navigator_of(pony)` | the `Navigator` child | `Node` | `null` |
+| `GAME.navigator_owner(nav)` | the navigator's `command_owner` | `String` | empty |
+| `GAME.navigator_reserved(nav)` | the navigator's `reserved_by` | `String` | empty |
+| `GAME.navigator_wander(nav)` | the navigator's `wander_enabled` | `bool` | `true` |
+| `GAME.navigator_has_target(nav)` | the navigator's `_has_target` (private) | `bool` | `false` |
+| `GAME.navigator_stay(nav)` | `stay` | — | no call |
+| `GAME.set_navigator_owner(nav, owner)` | the navigator's `command_owner` | — | no write |
+| `GAME.set_navigator_wander(nav, enabled)` | the navigator's `wander_enabled` | — | no write |
+| `GAME.set_conversation_target(pony, target, hold)` | `set_conversation_target` | — | no call |
+| `GAME.face_turn_rate(pony)` | the body's `face_turn_rate` | `float` | `NAN` |
+| `GAME.set_face_turn_rate(pony, value)` | the body's `face_turn_rate` | — | no write |
+| `GAME.is_held(pony)` | `is_held` | `bool` | `false` |
+| `GAME.grounded(pony)` | `grounded` | `bool` | `false` |
+| `GAME.posture_requested(pony)` | `posture_status().requested` | `String` | empty |
+| `GAME.posture_settled(pony)` | `posture_status().settled` | `bool` | `false` |
+| `GAME.interruption_reason(pony)` | `action_interruption_reason` | `String` | empty |
+| `GAME.affection_buck(affection, body)` | `Affection.buck` | `bool` | `false` |
+| `GAME.knockdown_of(body)` | the body's `knockdown` | `Object` | `null` |
+| `GAME.start_knockdown(node, body, direction)` | `knockdown.start` | `bool` | `false` |
+| `GAME.cuddle_end(session)` | the cuddle session's `end(true)` | — | no call |
+| `GAME.hoof_active(hoof)` | the hoof hold's `active` | `bool` | `false` |
+| `GAME.player_sit_on(player, seat)` | the rig's `sit_on` | `bool` | `false` |
+| `GAME.player_toggle_couch_sleep(player)` | the rig's `toggle_couch_sleep` | `bool` | `false` |
+| `GAME.couch_pony_transform(node, seat)` | a couch's `pony_transform` | `Transform3D` | infinite origin |
+| `GAME.couch_seats(node)` | a couch's `seats` | `Array[Node3D]`, a copy | empty |
+| `GAME.couch_open(node)` | a couch's `open` | `bool` | `false` |
+| `GAME.couch_invite(node, pony, seat)` | a couch's `invite` | `bool` | `false` |
+| `GAME.couch_approach(node, seat)` | a couch's `approach` | `Vector3` | `Vector3.INF` |
+| `GAME.couch_mare_fits(node)` | a couch's `_mare_fits` (private) | `bool` | `false` |
+| `GAME.couch_cooldown_until(node, pony)` | a couch's `_cooldowns` (private) | `int` | `0` |
+| `GAME.carry_ours(reach, pony)` | the reach's `held` and `cradled` | `bool` | `false` |
+| `GAME.carry_actions(reach)` | the reach's `desktop_actions` | `Node` | `null` |
+| `GAME.clear_carry(reach)` | the reach's carry flags | — | no write |
+| `GAME.carry_released(actions)` | the desktop actions' `pony_released` | — | no call |
+| `GAME.end_interaction(pony)` | `end_interaction` | — | no call |
+| `GAME.set_velocity(body, velocity)` | the body's `velocity` | — | no write |
+| `GAME.set_q_held(body, held)` | the rig's `_q_held` | — | no write |
+| `GAME.seating_phase(seating, id)` | the seating system's phase entry | `String` | empty |
+| `GAME.seating_release_entry(seating, id)` | the seating system's `_release` (private) | — | no call |
+| `GAME.couch_finish_guest(node)` | a couch's `_finish_guest` (private) | — | no call |
+| `GAME.couch_release_pony(node, id)` | a couch's `_release_pony` (private) | — | no call |
 
-Only `GAME.mares` and `GAME.refresh_body_lod` allocate, and both are scan-cadence calls; the
-per-frame accessors copy nothing. `GAME` writes the rig's control hold, its eye line and its look
-pitch, the chat lock, her navigator's face point and conversation aim, and her gaze and pupils.
+Only `GAME.mares`, `GAME.couch_seats` and `GAME.refresh_body_lod` allocate, and all are
+scan-cadence calls; the per-frame accessors copy nothing. `GAME` writes the rig's control hold,
+its eye line and its look pitch, the chat lock, her navigator's face point, conversation aim,
+owner and wander, her face-turn rate, the carry flags, the seated Q hold, a body's velocity, and
+her gaze and pupils.
 
 ## Internal API
 

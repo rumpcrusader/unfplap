@@ -29,7 +29,7 @@ the negotiation runs before the act.
 
 ## Public API
 
-- `bind(host)` — the host context: `pony`, `pose_family`, `state`.
+- `bind(host)` — the typed host record: the live `pony`, `pose_family` and `state` reads.
 - `claim_nav(owner_id)` — takes the navigator for the act, records the old wander flag, builds the
   `unfplap:<id>` token and returns whether the lease is owned.
 - `claim_negotiation(owner_id)` — claims `unfplap:negotiation:<id>` while the runtime is `IDLE`.
@@ -68,7 +68,8 @@ the negotiation runs before the act.
 The ledger calls the leaves in this order: cuddle/carry at start, navigator claim before the pose,
 then on end the face-turn restore, the player unlock, the carry/stool release, the navigator
 release. The negotiation releases the affection hold before the navigator lease. The host is a
-plain dictionary of callables; the service never reads the runtime's private fields.
+typed `Host` record with the `pony`, `state` and `pose_family` reads; the service never reads the
+runtime's private fields.
 
 ## State and data
 

@@ -33,7 +33,10 @@ handle exposes `find_bed_under`, `free_of_affection`, `cuddle_active`, `hotkey_r
 `docs/face.md`).
 
 The rows carry `ELIGIBILITY.Row` objects with the policy's own keys and reasons. The pure policy
-never sees a bed, a navigator, a pose asset or the player body.
+never sees a bed, a navigator, a pose asset or the player body. The merge answers a typed
+`GateVerdict`: `policy` is the snapshot, `rows` every row, and `show()` / `offer_ok()` the start
+and proactive-offer answers. `bind()` takes the typed pose session and `configure()` the act's
+typed feature snapshot.
 
 The pose half reads `shared/pose_specs.gd`, never a pose-id comparison: `scene()` gives the frame,
 `requires_bed`, `stool`, `standing_free` and the authored act sources; `is_public()` and

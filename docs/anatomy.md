@@ -119,6 +119,13 @@ draft/save/reset calls and the report; it calls back into the facade for `can_do
 `can_place_tail()`, `apply_settings()` and `tail_report()`, and calls `SETTINGS.apply_live()` when it
 saves the default row.
 
+The handles are typed at the facade boundary: `controller_for()` and `controller()` answer the
+`anatomy/controller.gd` handle, `part()` answers `anatomy/player.gd` or null, and
+`player_debug_scale()` answers the part's live world scale as a `Vector3` (infinite when no part is
+shown). `body_profile()` takes the identity `Resource` and answers `Array[float]`;
+`off_roster_ids()` takes two `Array[String]` lists. The missionary Anon body stays an opaque `Node`
+handle because the pose service owns its script.
+
 `PONIES.anatomy.controller(pony)` (per-pony handle):
 
 ```gdscript

@@ -40,7 +40,8 @@ const AGREEMENT_STARTED := 1
 func _gate(runtime: Node) -> Variant:
 	return runtime.get("gate")
 
-## The Negotiation service bound by the entry; its live Agreement is offered before the scan.
+## The Negotiation service bound by the entry; its live Agreement is offered before the scene
+## pass.
 var negotiation: NEGOTIATION = null
 ## Set by the entry's `bind()`: the privacy provider, resampled before a private Agreement
 ## auto-starts.
@@ -54,7 +55,7 @@ var _offer: POSE_OFFER = null
 var _offer_blocked: POSE_OFFER = null
 ## The scene transitions the offer reconsiders on.
 var _sensor := FAN_SENSOR.new()
-## The player's seat the last idle frame saw: a change is the bed branch's trigger.
+## The last seat the idle frame saw; a new one re-reads the bed candidate.
 var _seat: Variant = null
 var _last_offer_key := ""
 var _last_blocked_key := ""
@@ -84,7 +85,7 @@ func bind(negotiation_node: NEGOTIATION, privacy_node: PRIVACY, hud_node: Node) 
 	hud = hud_node
 
 
-## One idle frame: the fan sensor, the hint that follows it and the Agreement auto-start clock.
+## One idle frame: read the fan, sync the prompt row, then run the Agreement clock.
 ## The act key's immediate read is `reconsider()` after a forced sense.
 func tick(delta: float) -> void:
 	PERF.begin("offer_sensor")
@@ -98,8 +99,8 @@ func tick(delta: float) -> void:
 	_tick_agreement_auto_start(delta)
 
 
-## Read the fan once. True when the fan, a candidate's scene state or the player's seat changed.
-## The press forces the read so it never starts a stale offer.
+## One sensor read; true when a transition needs a fresh evaluation.
+## The act key forces it, so the press never uses a stale result.
 func _sense(delta: float, force := false) -> bool:
 	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
 		return false
@@ -118,7 +119,7 @@ func _sense(delta: float, force := false) -> bool:
 
 
 ## The current offer's pony, for the Proactive service's cuddle check; a pure read that never
-## rescans, because the loop owns the cadence.
+## re-evaluates, because the sensor owns the transitions.
 func offer_target() -> Node:
 	if _offer == null:
 		return null
@@ -154,7 +155,7 @@ func hide_hint() -> void:
 func try_start() -> bool:
 	if PONIES.act_running():
 		return false
-	# A paused tree or a loose cursor owns the input: the idle offer is not evaluated.
+	# No idle input: a paused tree or a free cursor refuses the press before any read.
 	if not WORLD.scan_allowed():
 		return false
 	_sense(0.0, true)
@@ -318,7 +319,7 @@ func apply_settings() -> void:
 
 
 ## The world entered: drop the old sensor and parse the two offerable pose assets while the world
-## is still under its loading cover, so the first hint never loads them inside its scan.
+## is still under its loading cover, so the first hint never loads them inside its evaluation.
 func on_world(_host: Node) -> void:
 	on_world_closed()
 	for pose: String in [POSE_SPECS.MISSIONARY, POSE_SPECS.STANDING]:
@@ -355,8 +356,8 @@ func _reconsider() -> void:
 		_offer_blocked = null
 		_sensor.focus(null)
 		return
-	# A menu, a paused tree or a loose cursor holds the last offer: the menu hides the hint and
-	# the next sensor transition re-evaluates it.
+	# Keep the last offer while `scan_allowed()` is false: the menu hides the row, and the next
+	# transition refreshes it.
 	if not WORLD.scan_allowed():
 		return
 	if WORLD.camera() == null:
@@ -370,7 +371,7 @@ func _reconsider() -> void:
 	var pony_form: bool = WORLD.player_is_pony()
 
 	# A live Agreement owns the hint while it is ready: it is already a yes. While its rows wait
-	# or the presentation turns, the scene scan below still finds a hotkey attempt, so a press
+	# or the presentation turns, the scene pass below still finds a hotkey attempt, so a press
 	# can start the exact match immediately or interrupt a different one.
 	if is_instance_valid(negotiation):
 		PERF.begin("offer_agreement")
@@ -489,7 +490,7 @@ func _hint_text() -> String:
 	return ""
 
 
-## Build one typed offer for the idle scan. The idle offers carry no cancel callback because a
+## Build one typed offer for the idle hint. The idle offers carry no cancel callback because a
 ## live Agreement press goes through the scene-only start.
 func _new_offer(runtime: Node, pony: Node, pose: String, source: String,
 		bed: Variant = null) -> POSE_OFFER:
@@ -564,8 +565,8 @@ func _sync_native_hint(text: String) -> void:
 				hud.show_prompt(text, "",
 					_act_key_label() if text == OFFER_HINT else "")
 		return
-	# The scan changes the hint at most once a second; the common frame has nothing to apply, so it
-	# returns before the label checks and the container pokes.
+	# The sensor changes the hint only on a transition; the common frame has nothing to apply, so
+	# it returns before the label checks and the container pokes.
 	if text == _native_hint_text:
 		if text.is_empty():
 			return

@@ -56,7 +56,9 @@ dynamic on a `Node`, so the registry only needs the methods the act contract pub
    not a mare's;
 2. the prepare pass: `body_change.notify_body_ready()` (the provider's form is fitted and mirrored
    before anything binds), then `anatomy.tail_ready()`, then the stock smack layer's
-   `pony_ready()`. Every hook is idempotent, which is what makes `prepare_late()` safe;
+   `pony_ready()`, then `eligibility.warm()` (the identity record and the clearance relationship
+   row, read once at attach so the first offer does not pay it). Every hook is idempotent, which is
+   what makes `prepare_late()` safe;
 3. the pending swap is offered the body, which is the only way a suspended act keeps its runtime;
 4. an already registered body is left alone; otherwise the factory builds the runtime, anatomy
    binds its controller, the runtime enters the body's tree, the registry maps the body and one

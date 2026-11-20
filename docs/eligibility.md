@@ -123,6 +123,7 @@ func clear() -> void
 
 func eligible(pony: Node, target: Target = Target.ACT) -> bool
 func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool
+func warm(pony: Node) -> void
 func relationship_ok(pony: Node) -> bool
 func witness_age(pony: Node) -> Age
 
@@ -134,8 +135,12 @@ func set_profile(owner: Node, id: String, profile: Profile) -> MARE_REGISTRY.Res
 
 `eligible()` is the capability answer. `relationship_ok()` is the Base clearance relationship row
 for the negotiation routes: a live relationship, romance eligibility and the Promiscuity floor.
-Its love level comes from the game's own ladder cache (`world_context.state.bond_levels`, kept
-current by `relationship_runtime._level_check()` on every impression and bond change), and
+`warm(pony)` is the attach-time read: it builds the identity record and reads the relationship row
+once per record era, so the first offer does not pay the cold bond read. It is called from
+`PONIES._prepare()`, keeps the record unmarked until a relationship runtime exists, and is a no-op
+on a second prepare of the same era. The relationship row's love level comes from the game's own
+ladder cache (`world_context.state.bond_levels`, kept current by
+`relationship_runtime._level_check()` on every impression and bond change), and
 `relationship_runtime.ladder()` is the fallback for a pony the game has not recorded yet. The cache
 is the reason the idle hint and the proactive scan do not rebuild her bond facts every pass. It
 cannot see a player-form change, which empties the game's love row without a signal; romance
@@ -147,8 +152,8 @@ what a shape source asks about a player-named body. `witness_age()` is the only 
 and only for witness wording. `get_verdict()` is the typed act gate. `get_profile()` reads the
 resolved provider/player profile for one id;
 `set_profile()` writes the provider layer's eligible assertion, participation and consent. The
-pair is the cross-mod read/write side. The service stores no eligibility state, only the
-shape-identity cache used by `eligible_id()`.
+pair is the cross-mod read/write side. The service stores no eligibility state of its own: only the
+identity-record cache, its per-era warm marks and the shape-identity cache used by `eligible_id()`.
 
 ### Callers
 
@@ -156,9 +161,9 @@ shape-identity cache used by `eligible_id()`.
 |---|---|---|
 | `runtime.gate.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate/service.gd` rows; the debug line |
 | `runtime.gate.hotkey_ready()` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` | Base clearance for the act key; the scene gate's small checks. |
-| `offer/service.gd` `scan()` | a live Agreement through `negotiation.ready_offer()`, else the standing target and `runtime.gate.hotkey_ready()` | candidate discovery; no row list and no policy snapshot |
+| `PONIES._prepare()` | `warm(pony)` | none; the attach-time identity record and clearance read |
+| `offer/service.gd` `reconsider()` | a live Agreement through `negotiation.ready_offer()`, else `PONIES.act_target()` + `relationship_ok(pony)` and the scene gate's small checks | the fan and bed candidates; no row list and no policy snapshot |
 | `offer.try_start()` | `runtime.gate.hotkey_ready()` | the act key; no policy row, no buck |
-| `offer/service.gd` scan | `eligible(pony, Target.ACT)` through the bound `act_target` callback (`PONIES.act_target`) | candidate discovery |
 | `PONIES.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
 | `initiation` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` + the scene-only formation rows | cooldown, approach, bed search, privacy, Mare Initiation Reasoning; see `docs/initiation.md` |
 | `negotiation` bridge | `eligible(pony, Target.ACT)`, `relationship_ok(pony)` and `get_verdict(pony, Mode.OFFER)` for the Context facts | the act target, the Anon-offer mare, Base clearance and the Context both reasoning stages read; see `docs/negotiation.md` |
@@ -181,7 +186,7 @@ A consumer asks about its own target and never inspects identity:
 
 | Target | Veto | Callers |
 |---|---|---|
-| `Target.ACT` | `participation.acts` | act discovery, the standing invitation, the candidate scan |
+| `Target.ACT` | `participation.acts` | act discovery, the standing invitation, the fan candidates |
 | `Target.ANATOMY` | `participation.anatomy` | the anatomy controller and runtime attachment |
 | `Target.TAIL` | `participation.tail` | tail seating |
 | `Target.CHARACTER` | none | the Characters selector, so an opted-out mare stays editable |
@@ -479,10 +484,10 @@ refusal status (`docs/integrations.md`).
   capability targets, the typed participation record, witness age, Promiscuity, willingness,
   history, cycle, public/anal/oral, participation and row effects.
 - `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `eligible_id()`,
-  `witness_age()`, typed facts and verdict, capability targets, the no-stable-id boundary, the
-  typed identity record's reuse and rebuild, the profile consent, the provider layer through
-  `set_profile()`/`get_profile()`, the Promiscuity setting, the cached love level with the ladder
-  fallback, and the clear/setup lifecycle.
+  `warm()`, `witness_age()`, typed facts and verdict, capability targets, the no-stable-id
+  boundary, the typed identity record's reuse and rebuild, the profile consent, the provider layer
+  through `set_profile()`/`get_profile()`, the Promiscuity setting, the cached love level with the
+  ladder fallback, and the clear/setup lifecycle.
 - `tests/test_pony_id.gd`: the stable-id rule (metadata wins, identity fallback, no identity).
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
 - `scripts/architecture.py --check`: the purity and facade-only import boundary.

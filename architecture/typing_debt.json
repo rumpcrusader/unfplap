@@ -1,11 +1,6 @@
 {
   "debt": [
     {
-      "service": "audio",
-      "func": "pose_changed",
-      "signature": "func pose_changed(view: Variant) -> void:"
-    },
-    {
       "service": "eligibility",
       "func": "set_profile",
       "signature": "func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:"

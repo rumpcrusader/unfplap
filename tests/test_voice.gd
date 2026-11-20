@@ -67,6 +67,30 @@ func run() -> void:
 	check(bool(disabled.get("effective_ponese", false)), "disabled TTS forces Ponese")
 	check(not VOICE.describe(generated).is_empty(), "voice description exists")
 
+	# A TTS node without the server probe, and a missing TTS node, both read as no server.
+	var silent_script := GDScript.new()
+	silent_script.source_code = "extends Node\nvar voice_mode := \"auto\"\n"
+	silent_script.reload()
+	var no_server: Node = silent_script.new()
+	root.add_child(no_server)
+	var no_probe: Dictionary = VOICE.classify({
+		"id": "fluttershy",
+		"voice_status": "character voice",
+		"tts_speaker_id": 5,
+	}, no_server, true)
+	check(bool(no_probe.get("effective_ponese", false)),
+		"a TTS node without has_server reads as no server")
+	var absent: Dictionary = VOICE.classify({
+		"id": "fluttershy",
+		"voice_status": "character voice",
+		"tts_speaker_id": 5,
+	}, null, true)
+	check(bool(absent.get("effective_ponese", false)),
+		"a missing TTS node reads as no server")
+	check(str(absent.get("global_mode", "")) == "ponese",
+		"a missing TTS node reads the Ponese mode")
+	no_server.free()
+
 	tts.free()
 	print("VOICE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:

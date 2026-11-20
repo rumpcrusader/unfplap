@@ -7,6 +7,7 @@ const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
 const SMACK := preload("res://mods/unfplap/audio/smack_cues.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
@@ -87,7 +88,9 @@ func run() -> void:
 	root.add_child(parent)
 	parent.add_child(act)
 	act.begin()
-	act.pose_changed({"audio": {"impact": CATALOG.MISSIONARY}})
+	var view := POSE_VIEW.new()
+	view.audio = {"impact": CATALOG.MISSIONARY}
+	act.pose_changed(view)
 	pools = act.get("_pools")
 	check(pools.has("plap_firm"), "begin opens the foley layer")
 	# A slow bottom that touches still stays silent: the tier is the impact speed.

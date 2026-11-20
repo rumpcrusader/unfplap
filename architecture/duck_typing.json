@@ -8,14 +8,6 @@
       "count": 1
     },
     {
-      "file": "audio/service.gd",
-      "count": 9
-    },
-    {
-      "file": "audio/voice_status.gd",
-      "count": 1
-    },
-    {
       "file": "body_change/act.gd",
       "count": 2
     },

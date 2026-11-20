@@ -6,6 +6,8 @@ extends Node
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
 const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
@@ -32,7 +34,7 @@ var _last: Dictionary = {}
 var _ready_at: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 ## The base-game breath and squee players, one child node for the act.
-var _sound: Node
+var _sound: SOUND
 ## The act's pony, id and bed; `bind()` sets them and they resolve every cue position, so the
 ## call sites carry only the stroke facts.
 var _pony: Node3D
@@ -71,14 +73,13 @@ func begin() -> void:
 		_sound = SOUND.new()
 		_sound.name = "UnfplapActSound"
 		add_child(_sound)
-	_sound.call("start")
+	_sound.start()
 
 
 ## One pose-change hook: the impact profile follows the live view, so an internal or oral pose
 ## never inherits the act's start profile; an empty profile falls back to the bed.
-func pose_changed(view: Variant) -> void:
-	var audio: Variant = view.audio if view != null else null
-	_impact_profile = str((audio as Dictionary).get("impact", "")) if audio is Dictionary else ""
+func pose_changed(view: POSE_VIEW) -> void:
+	_impact_profile = str(view.audio.get("impact", "")) if view != null else ""
 	if _impact_profile.is_empty():
 		_impact_profile = "missionary"
 
@@ -87,26 +88,26 @@ func pose_changed(view: Variant) -> void:
 func end() -> void:
 	stop()
 	if is_instance_valid(_sound):
-		_sound.call("stop")
+		_sound.stop()
 		_sound.queue_free()
 		_sound = null
 
 
 func stop_breath() -> void:
 	if is_instance_valid(_sound):
-		_sound.call("stop_breath")
+		_sound.stop_breath()
 
 
 ## The base-game squee climax at her snout.
 func climax() -> void:
 	if is_instance_valid(_sound):
-		_sound.call("play_climax", snout())
+		_sound.play_climax(snout())
 
 
 ## Breath follows the plap rate and the act phase. `phase` is empty outside the act.
 func tick(delta: float, phase: String, rate: float) -> void:
 	if is_instance_valid(_sound):
-		_sound.call("breath_tick", delta, phase, rate, snout())
+		_sound.breath_tick(delta, phase, rate, snout())
 
 
 ## The breath phase for one act state. Posing in and restore are silent; the base-game breath is
@@ -127,9 +128,11 @@ static func phase_for_state(act_state: int) -> String:
 func snout() -> Vector3:
 	if not is_instance_valid(_pony):
 		return Vector3.ZERO
-	var boop: Variant = _pony.get("boop_node")
-	if is_instance_valid(boop) and boop.has_method("nose_world"):
-		return boop.call("nose_world")
+	var boop := GAME.boop_of(_pony)
+	if boop != null:
+		var point := GAME.nose_world(boop)
+		if point.is_finite():
+			return point
 	return _pony.global_position + Vector3.UP * 1.0
 
 
@@ -193,18 +196,11 @@ func _voice_profile(id: String) -> Dictionary:
 
 
 func _tts_node() -> Node:
-	var director := _director()
-	if director == null:
-		return null
-	var tts: Variant = director.get("tts")
-	return tts as Node if is_instance_valid(tts) else null
+	return GAME.tts_of(_director())
 
 
 func _tts_enabled() -> bool:
-	var settings := get_node_or_null("/root/Settings")
-	if settings != null and settings.has_method("tts_enabled"):
-		return bool(settings.call("tts_enabled"))
-	return true
+	return GAME.tts_enabled(get_node_or_null("/root/Settings"))
 
 
 func _director() -> Node:
@@ -385,10 +381,8 @@ func play_vocal() -> void:
 	if not vocal is Node:
 		return
 	var vocal_node: Node = vocal
-	if not vocal_node.has_method("play"):
-		return
 	prune_freed_vocal(vocal_node)
-	if bool(vocal_node.call("play", _id, "m", _pony, VOCAL_DB)):
+	if GAME.vocal_play(vocal_node, _id, "m", _pony, VOCAL_DB):
 		_vocal_cooldown = VOCAL_COOLDOWN_S
 
 
@@ -418,9 +412,7 @@ func prune_freed_vocal(vocal: Node) -> void:
 func oral_kiss() -> void:
 	if not is_instance_valid(_pony):
 		return
-	var boop: Variant = _pony.get("boop_node")
-	if boop != null and boop.has_method("play_kiss"):
-		boop.call("play_kiss", ORAL_KISS_DB, true)
+	GAME.play_kiss(GAME.boop_of(_pony), ORAL_KISS_DB, true)
 
 
 func stop() -> void:

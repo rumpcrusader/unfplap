@@ -8,6 +8,8 @@ extends SceneTree
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const AUDIO := preload("res://mods/unfplap/audio/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
@@ -36,10 +38,6 @@ class FakeBoop extends Node:
 		kisses += 1
 		volumes.append(volume_db)
 		softs.append(soft)
-
-
-class FakeView extends RefCounted:
-	var audio: Dictionary = {}
 
 
 class FakeTts extends Node:
@@ -81,7 +79,10 @@ func run() -> void:
 	root.add_child(audio)
 
 	audio.begin()
-	var view := FakeView.new()
+	audio.pose_changed(null)
+	check(audio.get("_impact_profile") == "missionary",
+		"a missing pose view falls back to the bed profile")
+	var view := POSE_VIEW.new()
 	view.audio = {"impact": CATALOG.MISSIONARY}
 	audio.pose_changed(view)
 	check(audio.get("_impact_profile") == "missionary",
@@ -132,6 +133,14 @@ func run() -> void:
 		+ Vector3.UP * 0.35), "the bed point rides the bound bed")
 	check(audio.snout().is_equal_approx(Vector3(0.5, 1.4, 0.25)),
 		"the snout reads her own kiss point")
+	var plain_boop := Node.new()
+	pony.boop_node = plain_boop
+	pony.add_child(plain_boop)
+	check(audio.snout().is_equal_approx(pony.global_position + Vector3.UP * 1.0),
+		"a boop without a nose point falls back to her head position")
+	audio.oral_kiss()
+	check(boop.kisses == 0, "a boop without a kiss op makes the soft kiss a no-op")
+	pony.boop_node = boop
 
 	# The cached impact profile gates the soft-bed fabric: standing and standing_test play none.
 	var ready: Dictionary = audio.get("_ready_at")
@@ -195,7 +204,19 @@ func run() -> void:
 	audio.tick_vocal(AUDIO.VOCAL_COOLDOWN_S)
 	audio.play_vocal()
 	check(vocal.plays == 2, "a busy director keeps the stroke silent")
+	var plain_vocal := Node.new()
+	director.vocal = plain_vocal
+	audio.tick_vocal(AUDIO.VOCAL_COOLDOWN_S)
+	audio.play_vocal()
+	check(vocal.plays == 2, "a vocal node without a play op keeps the stroke silent")
+	plain_vocal.free()
+	director.vocal = vocal
 	director.state = "idle"
+
+	# The game's TTS switch arrives through the accessor: the shipped autoload answering true leaves
+	# the generated voice alone, and an absent autoload reads as TTS off.
+	var game_settings: Node = root.get_node_or_null("Settings")
+	check(GAME.tts_enabled(game_settings), "the shipped switch leaves the generated voice alone")
 
 	# The Ponese mute keeps the generated line but silences the voice player for the act.
 	audio.apply_voice_policy(true, pony, "rarity")
@@ -216,6 +237,17 @@ func run() -> void:
 	audio.apply_voice_policy(true, pony, "rarity")
 	check(not audio.voice_text_only(), "a generated-voice pony is not muted")
 	check(is_equal_approx(voice.volume_db, -6.0), "a generated voice keeps its volume")
+	if game_settings != null:
+		root.remove_child(game_settings)
+	check(not GAME.tts_enabled(null), "an absent settings autoload reads as TTS off")
+	audio.apply_voice_policy(true, pony, "rarity")
+	check(audio.voice_text_only(),
+		"a missing TTS switch reads as TTS off, so the mute reaches the generated voice")
+	check(is_equal_approx(voice.volume_db, -80.0), "the absent-switch mute silences the player")
+	audio.restore_voice_policy()
+	check(is_equal_approx(voice.volume_db, -6.0), "the absent-switch mute restores the volume")
+	if game_settings != null:
+		root.add_child(game_settings)
 
 	audio.begin()
 	pools = audio.get("_pools")

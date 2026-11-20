@@ -419,6 +419,45 @@ static func request_space(pony: Node, id: String) -> void:
 		bonds.call("request_space", id)
 
 
+## The game's Ponese mute setting; false when the autoload has no such op.
+static func tts_enabled(settings: Node) -> bool:
+	if not is_instance_valid(settings) or not settings.has_method("tts_enabled"):
+		return false
+	return bool(settings.call("tts_enabled"))
+
+
+## The director's TTS node; null when it has none.
+static func tts_of(director: Node) -> Node:
+	if not is_instance_valid(director):
+		return null
+	var tts: Variant = director.get("tts")
+	return tts as Node if is_instance_valid(tts) else null
+
+
+## True while the TTS node reports a running speech server.
+static func tts_has_server(tts: Node) -> bool:
+	if not is_instance_valid(tts) or not tts.has_method("has_server"):
+		return false
+	return bool(tts.call("has_server"))
+
+
+## Play one line through the game's own vocal node; false without the op.
+static func vocal_play(vocal: Node, id: String, gender: String, pony: Node3D,
+		db: float) -> bool:
+	if not is_instance_valid(vocal) or not vocal.has_method("play"):
+		return false
+	return bool(vocal.call("play", id, gender, pony, db))
+
+
+## One kiss sound through her own boop node; false without the op.
+static func play_kiss(boop: Node, db: float, loop: bool) -> bool:
+	if not is_instance_valid(boop) or not boop.has_method("play_kiss"):
+		return false
+	# The game's op returns void, so the cast would fail on its null answer.
+	boop.call("play_kiss", db, loop)
+	return true
+
+
 ## The pony's body scale; an absent member answers the ordinary 1.0.
 static func body_scale_of(pony: Node) -> float:
 	if not is_instance_valid(pony):

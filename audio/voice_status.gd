@@ -4,6 +4,7 @@ extends RefCounted
 ## profile with a character voice still counts as Ponese when the global mode/server says so.
 
 const CHATTER := preload("res://world/ai/chatter_voice.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 
 static func classify(profile: Dictionary, tts: Node, tts_enabled := true) -> Dictionary:
@@ -16,7 +17,7 @@ static func classify(profile: Dictionary, tts: Node, tts_enabled := true) -> Dic
 	var has_character_voice := (speaker >= 0 or not openai.is_empty()) \
 		and not status.begins_with("Ponese") \
 		and not status.begins_with("temporary shared")
-	var server := is_instance_valid(tts) and tts.has_method("has_server") and bool(tts.call("has_server"))
+	var server := GAME.tts_has_server(tts)
 	var effective := not tts_enabled or not server or CHATTER.is_ponese_mode(global_mode)
 	if not effective:
 		effective = CHATTER.use_chatter(profile, global_mode)

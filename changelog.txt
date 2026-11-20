@@ -1,3 +1,13 @@
+v0.7.0
+- Queen Chrysalis — the changelings pack's Queen joins your mares: mid-act she offers to wear any adult mare's shape you name, and she can show you the real her; the anatomy, tail, hands, pose and camera follow whatever body she wears while the act carries on.
+- Reworked: the missionary view is now always seen from Anon's eyes, with the gaze following the authored look path; the Missionary Camera and Third-person rows are retired.
+- New Use pack smack sound in General — the mod's own hand smack replaces the game's flank smack outside acts.
+- New Jiggle the cloth in Integrations — a smack's rump wobble now carries into her worn panties and pantyhose.
+- Standing start — Anon is placed centered behind her at the pose's own gap, and a body change refits him where he stands instead of replaying the entrance.
+- Fixed: the standing offer scan holds still while the mouse is captured.
+- Fixed: a settings edit made during a body change is applied once the change settles.
+- Fixed: less per-frame work in idle and in the act.
+
 v0.6.1
 - Fixed: worn panties and pantyhose now come off through the game's own undress action, so her wardrobe and her conversation stay in step.
 

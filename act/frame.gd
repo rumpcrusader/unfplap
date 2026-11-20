@@ -7,7 +7,6 @@ extends RefCounted
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
-const PLACEMENT := preload("res://mods/unfplap/poses/placement.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
@@ -30,7 +29,6 @@ class PoseInput:
 class PlayerPlan:
 	var family := ""
 	var gap := 0.0
-	var fit := Vector3.ZERO
 	var root_transform := Transform3D.IDENTITY
 	var act_body_transform := Transform3D.IDENTITY
 	var yaw := 0.0
@@ -68,10 +66,7 @@ class Rig:
 	var entrance := Vector2.ZERO
 	var eye := 0.0
 	var neck_height := 0.0
-	var opening := Vector3.INF
-	var rear := Vector3.INF
-	var part_root := Vector3.INF
-	var shaft_length := 0.0
+	var neck_point := Vector3.INF
 	var act_body_transform := Transform3D.IDENTITY
 
 
@@ -182,8 +177,6 @@ func solve(pose_input: PoseInput, rig: Rig) -> PlayerPlan:
 	if rig.player_pony or rig.headset_view:
 		return plan
 	var target := base_target(rig)
-	plan.fit = fit_offset(rig)
-	target += plan.fit
 	plan.root_transform = Transform3D(Basis.looking_at(rig.forward, Vector3.UP), target)
 	plan.aim_pitch = aim_pitch_for(rig, target)
 	plan.look_yaw = plan.yaw
@@ -191,45 +184,40 @@ func solve(pose_input: PoseInput, rig: Rig) -> PlayerPlan:
 	return plan
 
 
-## The act stance's player root before the fit: her gap behind her, on his current floor height.
+## The act stance's player root: her gap behind her, on his current floor height.
 static func base_target(rig: Rig) -> Vector3:
 	var target: Vector3 = rig.pony_position - rig.forward * rig.gap
 	target.y = rig.player_position.y
 	return target
 
 
-## Move Anon so the part's resting pivot meets her opening: one horizontal shaft, clamped, and
-## zero when the readings are unusable.
-static func fit_offset(rig: Rig) -> Vector3:
-	if rig.shaft_length <= 0.001:
-		return Vector3.ZERO
-	if not rig.opening.is_finite() or not rig.rear.is_finite():
-		return Vector3.ZERO
-	if not rig.part_root.is_finite():
-		return Vector3.ZERO
-	var flat := Vector3(rig.rear.x, 0.0, rig.rear.z)
-	if flat.length_squared() < 0.000001:
-		return Vector3.ZERO
-	var pivot_target: Vector3 = rig.opening + flat.normalized() * rig.shaft_length
-	var shift: Vector3 = pivot_target - rig.part_root
-	shift.y = 0.0
-	if not shift.is_finite() or shift.length() > PLACEMENT.FIT_MAX_M:
-		return Vector3.ZERO
-	return shift
-
-
 static func yaw_for(forward: Vector3) -> float:
 	return atan2(-forward.x, -forward.z)
 
 
-## The act base aim: her neck line in the authored stance, never her live neck or the pre-act look.
+## The act base aim: the authored target neck in world space, never her live neck or the
+## pre-act look. The fallback is her live eye line above the player's floor.
 static func aim_pitch_for(rig: Rig, target: Vector3, eye: float = NAN) -> float:
 	var at_eye := eye if not is_nan(eye) else (rig.eye if rig.eye > 0.0 else rig.base_eye)
 	var eye_y := target.y + at_eye
-	var flat := Vector2(rig.pony_position.x - target.x, rig.pony_position.z - target.z).length()
+	var neck := neck_for(rig)
+	if not neck.is_finite():
+		return 0.0
+	var flat := Vector2(neck.x - target.x, neck.z - target.z).length()
 	if flat < 0.001:
 		return 0.0
-	return clampf(atan2(rig.neck_height - eye_y, flat), -1.0, 1.0)
+	return clampf(atan2(neck.y - eye_y, flat), -1.0, 1.0)
+
+
+## Her target neck line, in world space. The authored pose supplies it; a start without a
+## skeleton falls back to her live eye line, which is a world height, never the local constant.
+static func neck_for(rig: Rig) -> Vector3:
+	if rig.neck_point.is_finite():
+		return rig.neck_point
+	var neck_y := rig.pony_position.y + rig.neck_height
+	if is_finite(rig.her_eye):
+		neck_y = rig.player_position.y + rig.her_eye
+	return Vector3(rig.pony_position.x, neck_y, rig.pony_position.z)
 
 
 ## The scene values one live frame reads. The pose and the rig supply the rest.
@@ -255,7 +243,7 @@ func live_rig(pose_input: PoseInput, form: Variant = null) -> Rig:
 	_capture(rig, pose_input.family == "standing")
 	rig.eye = stance_eye(rig)
 	if pose_input.family == "standing" and not rig.player_pony and not rig.headset_view:
-		_measure_standing(rig)
+		_prepare_standing(rig)
 	return rig
 
 
@@ -279,6 +267,25 @@ static func neck_height_for(pony: Variant) -> float:
 	return STANDING_CAMERA.STANDING_HEAD_NECK_HEIGHT_M * scale
 
 
+## The authored target neck midpoint in world space; `INF` when the rig has no neck chain.
+static func _neck_point(pony: Variant) -> Vector3:
+	if not is_instance_valid(pony):
+		return Vector3.INF
+	var sk: Variant = pony.get("skeleton")
+	if not sk is Skeleton3D:
+		return Vector3.INF
+	var skeleton := sk as Skeleton3D
+	var first := skeleton.find_bone("pony_neck1")
+	var second := skeleton.find_bone("pony_neck2")
+	if first >= 0 and second >= 0:
+		var a := skeleton.global_transform * skeleton.get_bone_global_pose(first).origin
+		var b := skeleton.global_transform * skeleton.get_bone_global_pose(second).origin
+		return (a + b) * 0.5
+	if second >= 0:
+		return skeleton.global_transform * skeleton.get_bone_global_pose(second).origin
+	return Vector3.INF
+
+
 ## The standing eye line from the player's true base and the presented form, never from a previous
 ## override.
 func stance_eye(rig: Rig) -> float:
@@ -298,106 +305,15 @@ static func player_base_eye(player: Variant) -> float:
 	return 1.6
 
 
-## The start's one measurement: place him on the act stance's base root, put her in the authored
-## target pose, sync his body once and read the fit from the undeformed opening.
-func _measure_standing(rig: Rig) -> void:
+## The start's one measurement: put her in the authored target pose and read its neck line. The
+## player is placed at the base gap by the placement; nothing on his animated body is read.
+func _prepare_standing(rig: Rig) -> void:
 	if not is_instance_valid(rig.player) or _stool_active(rig):
-		# A stool start never fits: the lifted stance is the scene's, not the shaft's.
 		return
 	rig.eye = stance_eye(rig)
-	var yaw := yaw_for(rig.forward)
-	var target := base_target(rig)
-	rig.player.global_position = target
-	_write_stance(rig, rig.eye, yaw, aim_pitch_for(rig, target, rig.eye))
 	if context.pose != null:
 		context.pose.apply_target_once()
-	var synced := _sync_player_body(rig.player, yaw)
-	var anatomy: Variant = PONIES.anatomy
-	if not _anatomy_ready(anatomy):
-		return
-	rig.shaft_length = float(anatomy.call("player_shaft_length_m"))
-	var controller: Variant = anatomy.call("controller", rig.pony)
-	if not _controller_ready(controller):
-		return
-	rig.opening = _base_hole_point(controller)
-	rig.rear = _base_hole_rear(controller)
-	rig.part_root = anatomy.call("player_root_natural")
-	if not synced:
-		rig.part_root = project_pivot(rig.part_root, rig.player, yaw)
-
-
-func _anatomy_ready(service: Variant) -> bool:
-	if service == null or not service.has_method("player_prepare") \
-			or not service.has_method("player_root_natural") \
-			or not service.has_method("player_shaft_length_m") \
-			or not service.has_method("controller"):
-		return false
-	return bool(service.call("player_prepare"))
-
-
-static func _controller_ready(controller: Variant) -> bool:
-	if not is_instance_valid(controller) or not controller.has_method("hole_point"):
-		return false
-	if controller.has_method("is_attached") and not bool(controller.call("is_attached")):
-		return false
-	return true
-
-
-static func _base_hole_point(controller: Variant) -> Vector3:
-	if controller.has_method("hole_base_point"):
-		return controller.call("hole_base_point", 0.0)
-	return controller.call("hole_point", 0.0)
-
-
-static func _base_hole_rear(controller: Variant) -> Vector3:
-	if controller.has_method("hole_base_rear"):
-		return controller.call("hole_base_rear", 0.0)
-	return controller.call("hole_rear", 0.0)
-
-
-## Sync the desktop body once for the canonical stance, so the fit reads that stance; a failed
-## guarded sync falls back to projecting the measured pivot onto the canonical yaw.
-func _sync_player_body(player: Node3D, yaw: float) -> bool:
-	if not is_instance_valid(player):
-		return false
-	var body: Variant = player.find_child("AnonBody", true, false)
-	if not is_instance_valid(body) or not body.has_method("_process_step"):
-		return false
-	var frame_value: Variant = body.get("_body_physics_frame")
-	if frame_value != null:
-		body.set("_body_physics_frame", -1)
-	if body.get("_body_yaw") != null:
-		body.set("_body_yaw", yaw)
-	if body.get("_yaw_initialized") != null:
-		body.set("_yaw_initialized", true)
-	body.call("_process_step", 0.0)
-	if frame_value != null:
-		body.set("_body_physics_frame", frame_value)
-	var ik: Variant = body.find_child("BodyIK", true, false)
-	if is_instance_valid(ik) and ik.has_method("_modification_step"):
-		ik.call("_modification_step")
-	var skeleton: Variant = body.find_child("Skeleton3D", true, false)
-	if not skeleton is Skeleton3D:
-		return false
-	var sk := skeleton as Skeleton3D
-	sk.force_update_all_bone_transforms()
-	var hips := sk.find_bone("Hips")
-	if hips >= 0:
-		sk.force_update_bone_child_transform(hips)
-	return true
-
-
-## Fallback when the body could not be synced: keep the pivot's distance and height, but put it
-## on the canonical forward so a stale body yaw cannot move him sideways.
-static func project_pivot(root: Vector3, player: Node3D, yaw: float) -> Vector3:
-	if not root.is_finite() or not is_instance_valid(player):
-		return root
-	var offset := root - player.global_position
-	var flat := Vector2(offset.x, offset.z).length()
-	if flat < 0.0001:
-		return root
-	var forward := Vector3(-sin(yaw), 0.0, -cos(yaw))
-	return player.global_position + forward * flat + Vector3.UP * offset.y
+	rig.neck_point = _neck_point(rig.pony)
 
 
 ## The start placement.
@@ -408,7 +324,7 @@ func _apply_start(plan: PlayerPlan, pose_input: PoseInput, rig: Rig) -> void:
 	_place_act_body(plan)
 
 
-## The standing start: Anon at her gap and forward, the whole-body fit included, then his stance.
+## The standing start: Anon at her gap and forward, then his stance.
 func _apply_standing(plan: PlayerPlan, rig: Rig) -> void:
 	var body: Node3D = rig.player
 	if rig.player_pony or rig.headset_view or not is_instance_valid(body):
@@ -431,18 +347,16 @@ func _apply_standing(plan: PlayerPlan, rig: Rig) -> void:
 	if rig.stool != null and bool(rig.stool.get("lifted")) and body.get("velocity") != null:
 		body.set("velocity", Vector3.ZERO)
 	plan.root_transform.origin = target
-	# The fit moved him after the measurement: one more sync keeps the first frame's body on the
-	# stance the plan placed, instead of the previous stance for a frame.
-	_sync_player_body(body, plan.yaw)
 	_reset_pelvis()
 	body.reset_physics_interpolation()
 	_write_look(plan)
 	context.standing_camera.begin_facing(plan.root_transform)
 	_check_stool(plan, rig)
-	LOG.debug("frame places Anon at=(%.4f, %.4f, %.4f) yaw=%.4f pitch=%.4f fit=%+.4f gap=%.3f eye=%.3f pony=(%.4f, %.4f, %.4f) fwd=(%.4f, %.4f, %.4f)", [
-		target.x, target.y, target.z, plan.yaw, plan.aim_pitch, plan.fit.dot(rig.forward),
+	LOG.debug("frame places Anon at=(%.4f, %.4f, %.4f) yaw=%.4f pitch=%.4f gap=%.3f eye=%.3f pony=(%.4f, %.4f, %.4f) fwd=(%.4f, %.4f, %.4f) neck=(%.4f, %.4f, %.4f)", [
+		target.x, target.y, target.z, plan.yaw, plan.aim_pitch,
 		plan.gap, plan.eye, rig.pony_position.x, rig.pony_position.y, rig.pony_position.z,
-		rig.forward.x, rig.forward.y, rig.forward.z])
+		rig.forward.x, rig.forward.y, rig.forward.z,
+		rig.neck_point.x, rig.neck_point.y, rig.neck_point.z])
 
 
 ## The missionary act body's placement for this frame: the pose service owns the body and applies

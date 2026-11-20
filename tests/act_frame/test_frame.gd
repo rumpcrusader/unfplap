@@ -47,7 +47,7 @@ func run() -> void:
 	_check_standing()
 	_check_missionary()
 	_check_canonical_start()
-	_check_projection()
+	_check_world_aim()
 	_check_round_trip()
 	_check_plan_shape()
 	print("ACT_FRAME_RESULT checks=%d failures=%d" % [checks, failures])
@@ -56,9 +56,8 @@ func run() -> void:
 	quit(0 if failures == 0 else 1)
 
 
-## Her forward is -Z, the gap is 0.42 m, and the part's pivot sits 0.32 m behind her root while one
-## shaft puts it 0.14 m past her opening: the fit is a 0.18 m step back, so Anon lands 0.24 m
-## behind her. This pins the start placement the frame is extracting.
+## Her forward is -Z and the gap is 0.42 m: Anon lands exactly on her centreline behind her,
+## with no whole-body fit pulling him into the rump.
 func _check_standing() -> void:
 	var frame := FRAME.new()
 	var pose := FRAME.pose("standing")
@@ -70,34 +69,17 @@ func _check_standing() -> void:
 	rig.gap = 0.42
 	rig.eye = 1.6
 	rig.neck_height = 1.4
-	rig.opening = Vector3(0.0, 0.9, 0.0)
-	rig.rear = Vector3(0.0, 0.0, 1.0)
-	rig.part_root = Vector3(0.0, 0.9, 0.32)
-	rig.shaft_length = 0.14
 	var plan := frame.solve(pose, rig)
 	check(plan.family == "standing", "the standing solve keeps its family")
 	check(near(plan.gap, 0.42), "the solve carries the act gap")
-	check(plan.fit.is_equal_approx(Vector3(0.0, 0.0, -0.18)),
-		"the whole-body fit moves him one shaft behind her entrance")
-	check(plan.root_transform.origin.is_equal_approx(Vector3(0.0, 0.0, 0.24)),
-		"the standing plan places Anon at the gap plus the fit")
+	check(plan.root_transform.origin.is_equal_approx(Vector3(0.0, 0.0, 0.42)),
+		"the standing plan places Anon at the gap, centered behind her")
 	check(near(plan.yaw, 0.0), "the standing plan faces Anon along her forward")
-	check(near(plan.aim_pitch, atan2(1.4 - 1.6, 0.24)),
+	check(near(plan.aim_pitch, atan2(1.4 - 1.6, 0.42)),
 		"the standing plan aims at her neck line from the placed eye")
 	check(near(plan.look_yaw, plan.yaw) and near(plan.look_pitch, plan.aim_pitch),
 		"the plan owns the captured look")
 	check(near(plan.eye, 1.6), "the plan carries the stance eye")
-
-	# A stale or unreadable pivot fits nothing instead of pulling him across the gap.
-	var broken := FRAME.Rig.new()
-	broken.forward = Vector3(0.0, 0.0, -1.0)
-	broken.pony_position = Vector3(0.0, 0.0, 0.0)
-	broken.gap = 0.42
-	broken.shaft_length = 0.14
-	broken.opening = Vector3.INF
-	broken.rear = Vector3.BACK
-	broken.part_root = Vector3.ZERO
-	check(FRAME.fit_offset(broken).is_zero_approx(), "an unreadable opening fits nothing")
 
 
 ## The missionary plan carries the act body's placement only: the player rig stays parked.
@@ -130,22 +112,31 @@ func _check_canonical_start() -> void:
 		"the pre-act look does not move the solved aim")
 	check(near(frame.stance_eye(first), 1.7) and near(frame.stance_eye(second), 1.7),
 		"the standing eye line ignores the pre-act look")
-	check(near(plan_a.fit.z, -0.18), "the canonical measurement keeps the fit")
+	check(near(plan_a.root_transform.origin.z, 0.42),
+		"the canonical placement keeps the base gap")
 	first.player.free()
 	second.player.free()
 
 
-## The guarded fallback for an unsyncable body: the stale yaw is dropped, the distance and height
-## stay, so he still lands on her centreline.
-func _check_projection() -> void:
-	var player := FakePlayer.new()
-	player.global_position = Vector3.ZERO
-	var stale := Vector3(0.3, 1.0, 0.4)
-	var projected := FRAME.project_pivot(stale, player, 0.0)
-	check(near(projected.x, 0.0), "the stale pivot loses its lateral offset")
-	check(near(projected.z, -0.5), "the stale pivot keeps its distance on her forward")
-	check(near(projected.y, 1.0), "the stale pivot keeps its height")
-	player.free()
+## Her authored neck above his eye is a world-space aim: the same stance at a different world
+## height must not change the pitch (the old local/world mix clamped it at 57 degrees).
+func _check_world_aim() -> void:
+	var frame := FRAME.new()
+	var pose := FRAME.pose("standing")
+	var low := _stance_rig(Vector3(0.0, -11.25, 0.42), 0.3, 0.2)
+	low.pony_position = Vector3(0.0, -11.25, 0.0)
+	low.neck_point = Vector3(0.0, -9.9, 0.0)
+	var high := _stance_rig(Vector3(0.0, -1.25, 0.42), 0.3, 0.2)
+	high.pony_position = Vector3(0.0, -1.25, 0.0)
+	high.neck_point = Vector3(0.0, 0.1, 0.0)
+	var plan_low := frame.solve(pose, low)
+	var plan_high := frame.solve(pose, high)
+	check(plan_low.aim_pitch > -1.0 and plan_low.aim_pitch < 0.0,
+		"the world neck aim stays inside the clamp")
+	check(near(plan_low.aim_pitch, plan_high.aim_pitch),
+		"the aim is invariant to a world-height shift")
+	low.player.free()
+	high.player.free()
 
 
 ## A start places the player and a matching end gives him back: the eye line always, the look only
@@ -169,10 +160,6 @@ func _check_round_trip() -> void:
 	rig.gap = 0.42
 	rig.eye = 1.6
 	rig.neck_height = 1.4
-	rig.opening = Vector3(0.0, 0.9, 0.0)
-	rig.rear = Vector3(0.0, 0.0, 1.0)
-	rig.part_root = Vector3(0.0, 0.9, 0.32)
-	rig.shaft_length = 0.14
 	var plan := frame.begin(FRAME.pose("standing"), rig)
 	check(near(player.rotation.y, plan.yaw) and near(player._pitch, plan.aim_pitch),
 		"the start writes the plan's stance on the player")
@@ -203,8 +190,8 @@ func _check_round_trip() -> void:
 	player.free()
 
 
-## One canonical standing rig: her forward and gap, the measured fit taken at the base root, and
-## the pre-act player position and look carried only as the old stance.
+## One canonical standing rig: her forward and gap, and the pre-act player position and look
+## carried only as the old stance.
 func _stance_rig(player_at: Vector3, look_yaw: float, look_pitch: float) -> FRAME.Rig:
 	var rig := FRAME.Rig.new()
 	rig.player = _fake_player(look_yaw, look_pitch)
@@ -214,10 +201,6 @@ func _stance_rig(player_at: Vector3, look_yaw: float, look_pitch: float) -> FRAM
 	rig.gap = 0.42
 	rig.eye = 1.6
 	rig.neck_height = 1.4
-	rig.opening = Vector3(0.0, 0.9, 0.0)
-	rig.rear = Vector3(0.0, 0.0, 1.0)
-	rig.part_root = Vector3(0.0, 0.9, 0.32)
-	rig.shaft_length = 0.14
 	return rig
 
 
@@ -239,5 +222,7 @@ func _check_plan_shape() -> void:
 		"the plan carries the player placement and look")
 	check(names.has("stand_eye") and names.has("eye_height"),
 		"the plan carries the standing stance")
+	check(not names.has("fit"),
+		"the plan carries no whole-body fit")
 	check(not names.has("camera_transform") and not names.has("shot"),
 		"the plan carries no camera transform or shot")

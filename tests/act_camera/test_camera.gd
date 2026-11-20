@@ -83,6 +83,18 @@ class FakeHands extends RefCounted:
 class FakeKiss extends RefCounted:
 	var calls: Array[String] = []
 
+	func lean() -> float:
+		return 0.0
+
+	func lean_drop() -> float:
+		return 0.0
+
+	func lean_distance() -> float:
+		return 0.0
+
+	func lateral_offset(_scale: float) -> float:
+		return 0.0
+
 	func standing_active() -> bool:
 		return false
 
@@ -213,6 +225,7 @@ func run() -> void:
 	_check_facesit_shot_anchor()
 	_check_lean()
 	_check_oral_lean()
+	_check_standing_shot_offsets()
 	_check_retarget()
 	_check_lock_and_eye()
 	_check_eye_line()
@@ -752,6 +765,38 @@ func _standing_config(overrides := {}) -> Dictionary:
 	var config: Dictionary = CATALOG.defaults(CATALOG.STANDING).duplicate(true)
 	config.merge(overrides, true)
 	return config
+
+
+## The live shot moves the player camera with the thrust: the surge is a forward offset and the
+## bob a vertical one, on top of the base local position.
+func _check_standing_shot_offsets() -> void:
+	var made := _fixture()
+	var facts: RefCounted = made["facts"]
+	var main: FakeMain = made["main"]
+	var player: FakePlayer = made["player"]
+	var view: Camera3D = main.view
+	_pose(facts, "standing")
+	facts.camera = view
+	facts.free_camera_active = true
+	facts.player_eye_height = 1.7
+	facts.size_name = "same height"
+	facts.presentation_config = {"camera_forward_m": 0.0, "camera_pitch_deg": 0.0}
+	facts.look_captured = true
+	facts.kiss = func() -> Variant: return made["kiss"]
+	view.position = Vector3(0.0, 1.7, 0.0)
+	var standing: RefCounted = STANDING_CAMERA.new(facts)
+	standing.call("prepare")
+	var base: Vector3 = view.position
+	facts.lean = 0.06
+	facts.bob = 0.02
+	standing.call("tick")
+	check(not view.position.is_equal_approx(base), "the live shot moves the camera")
+	check(near(view.position.z, base.z - 0.06),
+		"the thrust surge moves the camera forward")
+	check(near(view.position.y, base.y + 0.02),
+		"the thrust bob moves the camera vertically")
+	check(near(view.position.x, base.x), "no side lean keeps the camera on its line")
+	main.queue_free()
 
 
 ## The standing camera re-reads the view's config only on a settings-group or pose-id change, so the

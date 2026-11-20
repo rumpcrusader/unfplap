@@ -622,16 +622,6 @@ func hole_rear(mix := 0.0) -> Vector3:
 	return (mesh.global_basis * local).normalized()
 
 
-## The undeformed opening and rear, for a start measurement: the coat line follows the body coat
-## and updates a tick late, which must not move a placement.
-func hole_base_point(mix := 0.0) -> Vector3:
-	return shapes.hole_point(mix)
-
-
-func hole_base_rear(mix := 0.0) -> Vector3:
-	return shapes.hole_rear(mix)
-
-
 func set_closed(value: float) -> void:
 	shapes.set_closed(value)
 

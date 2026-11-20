@@ -140,50 +140,14 @@ class FakeEligibility extends ELIGIBILITY:
 class FakeAnatomyService extends Node:
 	var consents: Array[String] = []
 	var allow := true
-	var part: Variant = null
-	var controller_node: Variant = null
 	var reset_calls := 0
-	var shaft_m := 0.18
 
 	func consent(_pony: Variant, key: String) -> bool:
 		consents.append(key)
 		return allow
 
-	func player_prepare() -> bool:
-		return part != null
-
-	func player_shaft_length_m() -> float:
-		return shaft_m
-
-	func player_root_natural() -> Vector3:
-		if part == null:
-			return Vector3.INF
-		return part.call("root_natural")
-
 	func player_reset_pelvis() -> void:
 		reset_calls += 1
-
-	func controller(_pony: Variant) -> Variant:
-		return controller_node
-
-
-class FakeFitPart extends Node:
-	var natural := Vector3.INF
-	var applied := Vector3.ZERO
-
-	func root_natural() -> Vector3:
-		return natural - applied
-
-
-class FakeFitController extends Node:
-	var opening := Vector3.ZERO
-	var rear := Vector3.BACK
-
-	func hole_point(_mix := 0.0) -> Vector3:
-		return opening
-
-	func hole_rear(_mix := 0.0) -> Vector3:
-		return rear
 
 
 func _initialize() -> void:
@@ -417,41 +381,25 @@ func run() -> void:
 	check(is_equal_approx(player6.rotation.y, placed_yaw6),
 		"standing end leaves Anon's yaw alone")
 
-	# The standing start fits Anon's whole body so the part's natural pivot rests one shaft behind
-	# her entrance. A stale applied offset from an earlier body is removed first, never folded into
-	# the contact distance.
+	# The standing start leaves Anon behind her at the gap and clears the part's old handshake.
+	# The contact is the per-frame pelvis offset's job; the start never measures the animated part.
 	var f6b := _fixture()
 	var runtime6b: Node = f6b["runtime"]
 	root.add_child(runtime6b)
 	var pony6b: FakePony = f6b["pony"]
 	var player6b: FakePlayer = f6b["player"]
-	var main6b: FakeMain = f6b["main"]
 	pony6b.global_position = Vector3(3.0, 0.0, 4.0)
 	pony6b.rotation.y = 0.0
 	player6b.global_position = Vector3(3.0, 0.0, 5.0)
 	var anatomy6b := FakeAnatomyService.new()
-	var controller6b := FakeFitController.new()
-	controller6b.opening = pony6b.global_position + Vector3(0.0, 0.5, 0.3)
-	controller6b.rear = Vector3(0.0, 0.0, 1.0)
-	var part6b := FakeFitPart.new()
-	var gap6b: float = float(runtime6b.act.swap.standing_gap())
-	part6b.natural = pony6b.global_position + Vector3(0.0, 0.8, gap6b + 0.05 + 0.12)
-	part6b.applied = Vector3(0.0, 0.0, 0.12)
-	anatomy6b.part = part6b
-	anatomy6b.controller_node = controller6b
 	PONIES.anatomy = anatomy6b
+	var gap6b: float = float(runtime6b.act.swap.standing_gap())
 	runtime6b._bundle.context.placement.bind_act(runtime6b.act.placement_values())
 	runtime6b._bundle.context.placement.begin_act()
-	var fit_target6b: Vector3 = controller6b.opening + controller6b.rear * anatomy6b.shaft_m
-	var fit_want6b: Vector3 = fit_target6b - part6b.root_natural()
-	fit_want6b.y = 0.0
-	var fit_base6b := Vector3(pony6b.global_position.x, 0.0,
-		pony6b.global_position.z + gap6b)
+	var base6b := Vector3(pony6b.global_position.x, 0.0, pony6b.global_position.z + gap6b)
 	check(anatomy6b.reset_calls >= 1, "a standing start clears the part's old pelvis handshake")
-	check(player6b.global_position.is_equal_approx(fit_base6b + fit_want6b),
-		"the standing start fits Anon's whole body to her entrance")
-	part6b.free()
-	controller6b.free()
+	check(player6b.global_position.is_equal_approx(base6b),
+		"the standing start leaves Anon behind her at the gap")
 
 	# An idle sibling runtime must not take the borrowed quick slots from the act.
 	var f7 := _fixture()

@@ -112,10 +112,6 @@ func toast(text: String) -> void:
 	HUD.toast(text)
 
 
-func log(text: String) -> void:
-	LOG.debug(text)
-
-
 # ------------------------------------------------------------------------- facts
 
 ## The Context facts both Mare reasoning stages and the Negotiation read. One snapshot per call

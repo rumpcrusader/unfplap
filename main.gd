@@ -126,6 +126,8 @@ func _ready() -> void:
 ## the facades it reads.
 func _build_services() -> void:
 	eligibility = _add(ELIGIBILITY.new())
+	# The API can be discovered before the end of the build; `describe_mare` reads this service.
+	PONIES.eligibility = eligibility
 	memory = _add(MEMORY.new())
 	MEMORY.instance = memory
 	privacy = _add(PRIVACY.new())

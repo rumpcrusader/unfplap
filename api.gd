@@ -14,13 +14,13 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const API_MAJOR := 1
-const API_MINOR := 2
-const API_VERSION := "1.2"
+const API_MINOR := 3
+const API_VERSION := "1.3"
 const SCHEMA := 1
-const SCHEMAS := {"mare": 1, "preferences": 1, "placement": 1}
+const SCHEMAS := {"mare": 1}
 const CAPABILITIES := {"registry.mare": 1, "mare.read": 1, "profile.mare": 1}
-## Methods that still work but should be replaced. None in 1.0; the entry shape is part of the
-## contract so a future deprecation is data, not a code change in every consumer.
+## Methods that still work but should be replaced. The entry shape is part of the contract, so a
+## deprecation is data, not a code change in every consumer.
 const DEPRECATIONS := []
 
 ## owner instance id -> true, for the auto-unregister on tree exit.
@@ -73,7 +73,8 @@ func register_mare(owner: Node, descriptor: Dictionary) -> Dictionary:
 	return result.to_dict()
 
 
-## Remove one provider layer owned by `owner`. Returns {ok, id, removed}.
+## Remove one provider layer owned by `owner`. Returns {ok, id, removed}; an invalid owner adds
+## `errors`.
 func unregister_mare(owner: Node, id: String) -> Dictionary:
 	var mare_id := id.strip_edges()
 	if not is_instance_valid(owner):

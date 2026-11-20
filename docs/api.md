@@ -59,9 +59,9 @@ var contract: Dictionary = api.contract()
 ```gdscript
 {
 	"provider": "unfplap",
-	"api_version": "1.2",
+	"api_version": "1.3",
 	"api_major": 1,
-	"api_minor": 2,
+	"api_minor": 3,
 	"mod_version": "0.4.0",
 	"game_version": "0.3.1-maredev",
 	"schemas": {"mare": 1, "preferences": 1, "placement": 1},
@@ -77,7 +77,7 @@ var contract: Dictionary = api.contract()
 `api.supports(capability, min_version := 1)` returns true when this build has the capability at
 least at that version. `contract()` is plain data and may be cached for the process lifetime.
 
-## Methods (API 1.2)
+## Methods (API 1.3)
 
 | Method | Returns | Purpose |
 |---|---|---|

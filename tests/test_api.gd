@@ -111,9 +111,10 @@ func _check_contract() -> void:
 	var contract: Dictionary = api.contract()
 	check(str(contract.get("provider", "")) == "unfplap", "provider id")
 	check(int(contract.get("api_major", 0)) == 1, "api major")
-	check(int(contract.get("api_minor", -1)) == 2, "api minor")
-	check(str(contract.get("api_version", "")) == "1.2", "api version")
+	check(int(contract.get("api_minor", -1)) == 3, "api minor")
+	check(str(contract.get("api_version", "")) == "1.3", "api version")
 	check(int((contract.get("schemas", {}) as Dictionary).get("mare", 0)) == 1, "mare schema")
+	check((contract.get("schemas", {}) as Dictionary).size() == 1, "one schema")
 	var capabilities: Dictionary = contract.get("capabilities", {})
 	check(int(capabilities.get("registry.mare", 0)) == 1, "registry capability")
 	check(int(capabilities.get("mare.read", 0)) == 1, "read capability")
@@ -135,7 +136,7 @@ func _check_docs() -> void:
 		check(text.contains(key), "docs mention descriptor " + key)
 	for key: String in DESCRIPTION_KEYS:
 		check(text.contains(key), "docs mention description " + key)
-	check(text.contains("1.2"), "docs carry the current API version")
+	check(text.contains("1.3"), "docs carry the current API version")
 
 
 func _check_base_description() -> void:
@@ -193,6 +194,7 @@ func _check_custom_mare() -> void:
 			"talk": ["praise"],
 			"warmth": "slow",
 			"tolerance": "strict",
+			"teat_size": "large",
 			"notes": "A test provider mare.",
 		},
 		"consent": {"public": true, "anal": true, "oral": false},
@@ -226,6 +228,7 @@ func _check_custom_mare() -> void:
 	check(str(preferences.get("intensity", "")) == "soft", "provider intensity")
 	check(str(preferences.get("pattern", "")) == "quick", "provider pattern")
 	check(str(preferences.get("tolerance", "")) == "strict", "provider tolerance")
+	check(str(preferences.get("teat_size", "")) == "large", "provider teat size")
 	check((preferences.get("touch", []) as Array).has("kiss"), "provider touch")
 	check(not (preferences.get("touch", []) as Array).has("smack"), "provider touch list is exact")
 	var consent: Dictionary = data.get("consent", {})
@@ -333,6 +336,10 @@ func _check_validation() -> void:
 		"preferences": {"intensity": "wrong"}})
 	check(not bool(bad.get("ok", true)), "an invalid enum is rejected")
 	check(not (bad.get("errors", []) as Array).is_empty(), "an invalid enum reports an error")
+
+	bad = api.register_mare(owner, {"id": "bad_teat", "source": "test",
+		"preferences": {"teat_size": "enormous"}})
+	check(not bool(bad.get("ok", true)), "an invalid teat size is rejected")
 
 	bad = api.register_mare(owner, {"id": "default", "source": "test"})
 	check(not bool(bad.get("ok", true)), "a reserved id is rejected")

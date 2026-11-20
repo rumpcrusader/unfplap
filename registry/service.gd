@@ -479,6 +479,8 @@ static func _validate_preferences(raw: Variant, warnings: Array[String], errors:
 				_check_enum(name, value, PREFERENCES.WARMTHS, out, errors)
 			"tolerance":
 				_check_enum(name, value, PREFERENCES.TOLERANCES, out, errors)
+			"teat_size":
+				_check_enum(name, value, PREFERENCES.TEAT_SIZES, out, errors)
 			"touch":
 				_check_list(name, value, PREFERENCES.TOUCHES, out, warnings, errors)
 			"talk":

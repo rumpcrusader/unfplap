@@ -28,7 +28,7 @@ gate (`docs/scene_gate.md`).
 
 | Member | What it owns |
 |---|---|
-| `tick(delta)` | the fan sensor read, the hint that follows it and the Agreement auto-start clock |
+| `tick(delta)` | the fan sensor tick, the hint that follows it and the Agreement auto-start clock |
 | `reconsider()` | one full evaluation: the live Agreement, the bed-side and already-lying candidates, the standing fan |
 | `current()` | the playable `PoseOffer` the act key would start, or null |
 | `blocked()` | the standing offer with its blocked record, or null |
@@ -42,16 +42,16 @@ gate (`docs/scene_gate.md`).
 | `on_world(host)` | the world entry: close the old world, then warm the two offerable assets |
 | `on_world_closed()` | the world enter and close: no offer, no sensor, no one-shot flag, no hint row |
 
-The sensor reads the fan every idle frame. A squared eye-to-body distance rejects the mares out of
-reach before the rump math, and the standing fan and the AnonPony lying candidate are collected in
-distance or facing order. The player's seat is read once a frame; a change is the bed branch's
-trigger. The sensor reports a transition when the candidate set, the lying candidate, the offer
-target or a candidate's scene fingerprint changes. A fan transition baselines every candidate at
-once; between transitions the offer target and the lying candidate are fingerprinted at
-`SENSOR_POLL_S` (`offer/fan_sensor.gd`), and the other in-fan candidates rotate through a small
-budget so a crowd cannot stack every hash in one frame. The hash covers the runtime state,
-posture, held, seated, sleeping, aftercare, cuddle, affection, conversation, the navigator owner,
-the player's press guards, the inventory and the player form.
+The sensor reads the fan at `SENSOR_POLL_S`; the act key forces a read. A squared eye-to-body
+distance rejects the mares out of reach before the rump math, and the standing fan and the AnonPony
+lying candidate are collected in distance or facing order. The player's seat is read once a frame;
+a change is the bed branch's trigger. The sensor reports a transition when the candidate set, the
+lying candidate, the offer target or a candidate's scene fingerprint changes. Each poll rebuilds
+the fan; a changed set baselines every candidate at once, the offer target and the lying candidate
+are compared every poll, and the other in-fan candidates rotate through a small budget so a crowd
+cannot stack every hash in one frame. The hash covers the runtime state, posture, held, seated,
+sleeping, aftercare, cuddle, affection, conversation, the navigator owner, the player's press
+guards, the inventory and the player form.
 
 `reconsider()` then runs one pass: the live Agreement, the bed-side and already-lying candidates,
 and the standing fan candidates nearest first. There is no cached gate verdict and no row list: the
@@ -106,7 +106,7 @@ path that cancels a private Agreement between auto-start polls.
 
 | Trigger | Detection | Action |
 |---|---|---|
-| Enter or leave a standing fan | the sensor's per-frame loop | `reconsider()` |
+| Enter or leave a standing fan | the sensor's poll | `reconsider()` |
 | A lying mare in front for AnonPony | the sensor's lying candidate | `reconsider()` |
 | A candidate's or the target's scene state | the fingerprints at `SENSOR_POLL_S` | `reconsider()` |
 | The player sits or stands at a bed | the seat read once per frame | `reconsider()` |
@@ -193,7 +193,8 @@ The start path adds `hotkey no context pose`, `hotkey exact match id=<id> pose=<
 `agreement start waiting pose=<pose> source=<source>`,
 `agreement auto-start id=<id> pose=<pose>`, `agreement auto-start privacy lost pony=<name>` and
 `agreement auto-start pony=<name> pose=<pose>`.
-**Enable debug** + **Print perf logs** adds the `offer_sensor` chunk (every idle frame),
+**Enable debug** + **Print perf logs** adds the `offer_sensor` chunk (every idle frame, wrapping
+the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at the poll,
 `offer_reconsider` (one transition, wrapping the `offer_agreement` and `offer_stool` children) and
 `entry_hint` to the profiler's block.
 
@@ -246,8 +247,8 @@ private Agreement does not start on a stale answer.
 ## Tests
 
 - `tests/offer/test_fan_sensor.gd`: the fan boundary and half-plane, the candidate distance order,
-  the lying candidate, a state change inside the fan against a far mare's silence, the reset and
-  the act-inert state.
+  the lying candidate, a state change inside the fan against a far mare's silence, the rotation
+  budget, the poll cadence with its forced press read, the reset and the act-inert state.
 - `tests/offer/test_offer.gd`: the fan transition on the same frame, the nearest act target in the
   fan with a nearer non-target, walking out and back, the scene fingerprint's no-op frames,
   `offer_target()` as a pure read, the footstool block with its one log line and its one toast, the

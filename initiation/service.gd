@@ -206,7 +206,7 @@ func force(runtime: Node, pose := "") -> ForceResult:
 	var candidate := _candidate_for(runtime, true, pose, reasons)
 	out.reject = ",".join(PackedStringArray(reasons))
 	if candidate == null:
-		_debug("request force reject %s pose=%s reasons=%s" % [
+		LOG.debug("request force reject %s pose=%s reasons=%s", [
 			_runtime_name(runtime), "any" if pose.is_empty() else pose, out.reject])
 		return out
 	out.reject = ""
@@ -218,9 +218,9 @@ func force(runtime: Node, pose := "") -> ForceResult:
 	out.id = candidate.id
 	out.pose = candidate.option.pose
 	if out.ok:
-		_debug("request force %s pose=%s" % [candidate.id, candidate.option.pose])
+		LOG.debug("request force %s pose=%s", [candidate.id, candidate.option.pose])
 	else:
-		_debug("request force reject %s pose=%s reasons=%s" % [
+		LOG.debug("request force reject %s pose=%s reasons=%s", [
 			candidate.id, candidate.option.pose, reason])
 	return out
 
@@ -238,9 +238,8 @@ func on_negotiation_outcome(terminal: RefCounted) -> void:
 		_retry_at.erase(id)
 	else:
 		_retry_at[id] = _now() + POLICY.RETRY_S
-	_debug("request outcome id=%s outcome=%d reason=%s cooldown=%.0f" % [
-		id, int(terminal.outcome), _reason_name(str(terminal.reason)),
-		float(terminal.cooldown_s)])
+	LOG.debug("request outcome id=%s outcome=%d reason=%s cooldown=%.0f", [
+		id, int(terminal.outcome), _reason_name(str(terminal.reason)), float(terminal.cooldown_s)])
 
 
 ## An interrupting Anon offer or hotkey ends a live attempt before it forms an offer.
@@ -303,7 +302,7 @@ func _consider_start() -> void:
 	if not quiet.is_empty():
 		if quiet != _quiet_reason:
 			_quiet_reason = quiet
-			_debug("request scan quiet reason=%s" % quiet)
+			LOG.debug("request scan quiet reason=%s", [quiet])
 		return
 	_quiet_reason = ""
 	var player: Node3D = _venue.player()
@@ -431,8 +430,7 @@ func _start_reasoning(candidate: Candidate) -> void:
 	var serial := _reasoning_serial
 	_reasoning_scope = "negotiation:initiation:%d:%d" % [_serial, serial]
 	_reasoning_pending = true
-	_debug("request reasoning start id=%s options=%d" % [
-		candidate.id, candidate.options.size()])
+	LOG.debug("request reasoning start id=%s options=%d", [candidate.id, candidate.options.size()])
 	var payload := REASONING.payload(candidate.context, candidate.options)
 	var started := bool(_adapter.call("complete_raw", REASONING.INSTRUCTION, payload,
 		_reasoning_scope,
@@ -442,7 +440,7 @@ func _start_reasoning(candidate: Candidate) -> void:
 		_reasoning_pending = false
 		_reasoning_scope = ""
 		_retry_at[candidate.id] = _now() + POLICY.RETRY_S
-		_debug("request reasoning unavailable id=%s" % candidate.id)
+		LOG.debug("request reasoning unavailable id=%s", [candidate.id])
 
 
 func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: String) -> void:
@@ -460,20 +458,20 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 	if is_instance_valid(_negotiation) and _negotiation.is_locked():
 		return
 	var decision := REASONING.parse(reply, error, candidate.options.size())
-	_debug("request reasoning result id=%s offer=%s option=%d failed=%s reply=%s error=%s" % [
+	LOG.debug("request reasoning result id=%s offer=%s option=%d failed=%s reply=%s error=%s", [
 		candidate.id, str(decision.offer), decision.option_index, str(decision.failed),
 		_reply_text(reply), "none" if error.is_empty() else error])
 	if decision.failed:
 		_retry_at[candidate.id] = _now() + POLICY.RETRY_S
-		_debug("request reasoning failed id=%s error=%s" % [
+		LOG.debug("request reasoning failed id=%s error=%s", [
 			candidate.id, "none" if error.is_empty() else error])
 		return
 	if not decision.offer:
 		COOLDOWNS.set_last(candidate.id)
-		_debug("request reasoning no id=%s" % candidate.id)
+		LOG.debug("request reasoning no id=%s", [candidate.id])
 		return
 	candidate.option = candidate.options[decision.option_index]
-	_debug("request reasoning yes id=%s pose=%s" % [candidate.id, candidate.option.pose])
+	LOG.debug("request reasoning yes id=%s pose=%s", [candidate.id, candidate.option.pose])
 	_begin_route(candidate)
 
 
@@ -514,7 +512,7 @@ func _log_scan_skip(runtime: Node, reasons: Array) -> void:
 		return
 	_scan_reason[id] = reason
 	_scan_log_at[id] = now
-	_debug("request scan skip id=%s reasons=%s" % [id, reason])
+	LOG.debug("request scan skip id=%s reasons=%s", [id, reason])
 
 
 ## The request state for Show data's REQUEST section. Live-state reads only; no scene write.
@@ -750,7 +748,7 @@ func _start_ask_handoff() -> String:
 	if is_instance_valid(_adapter):
 		_adapter.call("record_situation", PROMPTS.situation_ask(request), [episode.id],
 			"%s:%s:%d:situation" % [KEY_PREFIX, episode.id, episode.serial])
-	_debug("request ask %s pose=%s private=%s cuddle=%s" % [
+	LOG.debug("request ask %s pose=%s private=%s cuddle=%s", [
 		episode.id, option.pose, str(episode.private), str(option.cuddle)])
 	return ""
 
@@ -826,7 +824,7 @@ func _close_episode(reason: String) -> String:
 			_episode.prev_wander, _episode.prev_limit, _episode.prev_pace)
 	if not reason.is_empty():
 		_retry_at[id] = _now() + POLICY.RETRY_S
-		_debug("request end %s phase=%s reason=%s" % [id, phase, reason])
+		LOG.debug("request end %s phase=%s reason=%s", [id, phase, reason])
 	_episode = null
 	return reason
 
@@ -880,8 +878,6 @@ func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
 
-func _debug(text: String) -> void:
-	LOG.debug(text)
 
 
 func _reply_text(reply: String) -> String:

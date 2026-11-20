@@ -65,9 +65,9 @@ func register_mare(owner: Node, descriptor: Dictionary) -> Dictionary:
 		_watch_owner(owner)
 		SETTINGS.bump_placement_revision()
 		_refresh_live()
-		_debug("registered %s from %s" % [str(result.get("id", "")), str(result.get("source", ""))])
+		LOG.debug("api registered %s from %s", [str(result.get("id", "")), str(result.get("source", ""))])
 	else:
-		_warn("register failed: " + ", ".join(result.get("errors", [])))
+		LOG.warning("api register failed: %s", [", ".join(result.get("errors", []))])
 	return result
 
 
@@ -81,7 +81,7 @@ func unregister_mare(owner: Node, id: String) -> Dictionary:
 	if removed:
 		SETTINGS.bump_placement_revision()
 		_refresh_live()
-		_debug("unregistered " + mare_id)
+		LOG.debug("api unregistered %s", [mare_id])
 	return {"ok": true, "id": mare_id, "removed": removed}
 
 
@@ -184,11 +184,3 @@ func _mod_version() -> String:
 			if mod is Dictionary and str((mod as Dictionary).get("id", "")) == "unfplap":
 				return str((mod as Dictionary).get("version", ""))
 	return ""
-
-
-func _debug(text: String) -> void:
-	LOG.debug("api " + text)
-
-
-func _warn(text: String) -> void:
-	LOG.warning("api " + text)

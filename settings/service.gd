@@ -3009,7 +3009,7 @@ static func _shipped_fail(message: String) -> void:
 	if _shipped_error.is_empty():
 		_shipped_error = message
 	if _shipped_problems <= 8:
-		LOG.error("settings: " + message)
+		LOG.error("settings: %s", [message])
 	elif _shipped_problems == 9:
 		LOG.error("settings: further shipped-default problems suppressed")
 

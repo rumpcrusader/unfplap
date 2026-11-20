@@ -337,7 +337,7 @@ func _skinned_part(path: String, part_name: String) -> MeshInstance3D:
 		return null
 	var scene: PackedScene = load(path)
 	if scene == null:
-		LOG.error("anatomy: cannot load " + path)
+		LOG.error("anatomy: cannot load %s", [path])
 		return null
 	var part: Node = scene.instantiate()
 	var meshes: Array = part.find_children("*", "MeshInstance3D", true, false)

@@ -87,7 +87,7 @@ func _tick() -> void:
 	if houses.is_empty():
 		if not _wait_logged:
 			_wait_logged = true
-			_debug("stool supply waiting for a loaded house")
+			LOG.debug("stool supply waiting for a loaded house")
 		return
 	houses.shuffle()
 	for house: Node3D in houses:
@@ -97,7 +97,7 @@ func _tick() -> void:
 			_spawned += 1
 			_started = true
 	if _spawned >= SPAWN_COUNT:
-		_debug("stool supply spawned=%d" % _spawned)
+		LOG.debug("stool supply spawned=%d", [_spawned])
 
 
 func _place_in(house: Node3D, _store: Variant, inventory: Node) -> bool:
@@ -108,12 +108,12 @@ func _place_in(house: Node3D, _store: Variant, inventory: Node) -> bool:
 		var item: Variant = inventory.call("spawn_owned_drop", ITEM.ID, pose)
 		if is_instance_valid(item):
 			_used[str(house.call("place_id"))] = true
-			_debug("stool supply house=%s at=%s" % [
+			LOG.debug("stool supply house=%s at=%s", [
 				str(house.call("place_id")), str((pose as Transform3D).origin)])
 			return true
 		if not _full_logged:
 			_full_logged = true
-			_debug("stool supply blocked reason=briefcase_full")
+			LOG.debug("stool supply blocked reason=briefcase_full")
 		return false
 	return false
 
@@ -169,5 +169,3 @@ func _drop_pose(house: Node3D, point: Vector3) -> Variant:
 	return Transform3D(Basis(Vector3.UP, randf() * TAU), floor + Vector3.UP * 0.03)
 
 
-func _debug(text: String) -> void:
-	LOG.debug(text)

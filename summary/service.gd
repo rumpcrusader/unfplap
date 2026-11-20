@@ -129,7 +129,7 @@ func commit_after_act(values: ActInput, readiness: READINESS, dialogue: DIALOGUE
 	if not is_instance_valid(WORLD.game):
 		return
 	for row: MEMORY.Witness in MEMORY.instance.witnesses(values.pony_id, pony_name, serial, pony):
-		LOG.debug("witness " + str(row.to_dict()))
+		LOG.debug("witness %s", [row.to_dict()])
 
 
 ## One summary per act. It is scored from the action counters, stored in the world's module

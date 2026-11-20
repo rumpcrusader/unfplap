@@ -124,7 +124,7 @@ func _ensure() -> bool:
 		return false
 	var scene: PackedScene = load(MESH_PATH)
 	if scene == null:
-		LOG.error("anatomy: cannot load " + MESH_PATH)
+		LOG.error("anatomy: cannot load %s", [MESH_PATH])
 		return false
 	var instance: Node = scene.instantiate()
 	var meshes: Array = instance.find_children("*", "MeshInstance3D", true, false)

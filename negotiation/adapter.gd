@@ -323,23 +323,21 @@ func _complete(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
 		return false
 	var system := PROMPTS.system_for(request.kind)
 	if system.is_empty():
-		_debug("classifier skip kind=%s reason=unknown_kind" % request.kind)
+		LOG.debug("classifier skip kind=%s reason=unknown_kind", [request.kind])
 		return false
 	var payload := PROMPTS.payload_for(request)
 	var count := request.options.size()
-	_debug("classifier start kind=%s scope=%s options=%d text_len=%d" % [
+	LOG.debug("classifier start kind=%s scope=%s options=%d text_len=%d", [
 		request.kind, scope, count, request.text.length()])
 	return complete_raw(system, payload, scope,
 		func(reply: String, error: String) -> void:
 			var parsed := PROMPTS.parse(request.kind, reply, error, count)
-			_debug("classifier result kind=%s scope=%s answer=%s option=%d failed=%s out_of_range=%s reply=%s error=%s" % [
+			LOG.debug("classifier result kind=%s scope=%s answer=%s option=%d failed=%s out_of_range=%s reply=%s error=%s", [
 				request.kind, scope, parsed.answer, parsed.option_index, str(parsed.failed),
 				str(parsed.out_of_range), _reply_text(reply), error])
 			done.call(parsed))
 
 
-func _debug(text: String) -> void:
-	LOG.debug(text)
 
 
 func _reply_text(reply: String) -> String:

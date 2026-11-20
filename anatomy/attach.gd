@@ -72,7 +72,7 @@ func attach(mesh_path: String) -> bool:
 	var scene: PackedScene = load(mesh_path)
 	if scene == null:
 		last_error = "cannot load " + mesh_path
-		LOG.error("anatomy: " + last_error)
+		LOG.error("anatomy: %s", [last_error])
 		return false
 	var instance: Node = scene.instantiate()
 	var found: MeshInstance3D = instance as MeshInstance3D

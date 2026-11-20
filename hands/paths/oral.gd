@@ -89,7 +89,7 @@ func _path_for(anchor_side: String) -> Variant:
 		_failed[anchor_side] = true
 		LOG.debug("caress oral head_side missing side=%s", [anchor_side])
 		for note: Variant in (path.get("debug_notes") as Array):
-			LOG.debug("caress " + str(note))
+			LOG.debug("caress %s", [note])
 		return null
 	_paths[anchor_side] = path
 	if bool(SETTINGS.caress_debug.get_bool()):

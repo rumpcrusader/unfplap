@@ -170,7 +170,7 @@ func action_bed_cuddle() -> String:
 
 func _bed_cuddle_sequence(target: Node) -> void:
 	var result: String = await DEBUG_BED.invite(self, target)
-	LOG.debug("bed cuddle: " + result)
+	LOG.debug("bed cuddle: %s", [result])
 
 
 ## Wheel-only: play Idle Life's deep stretch on the live act's pony, else the aimed mare. It

@@ -996,7 +996,7 @@ func _register() -> void:
 	var result: Variant = api.call("register_mare", self, DESCRIPTOR.duplicate(true))
 	_registered = result is Dictionary and bool((result as Dictionary).get("ok", false))
 	if not _registered:
-		LOG.debug("[changelings] " + "provider registration failed")
+		LOG.debug("[changelings] provider registration failed")
 
 
 func _unregister() -> void:

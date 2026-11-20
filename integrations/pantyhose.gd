@@ -197,7 +197,7 @@ func rebuild_hull() -> String:
 	anatomy.call("garment_hull_rebuild")
 	scan()
 	PERF.end("garment_hull")
-	LOG.debug("[pantyhose] " + "garment hull rebuilt")
+	LOG.debug("[pantyhose] garment hull rebuilt")
 	return "Garment hull rebuilt."
 
 
@@ -424,7 +424,7 @@ func _compat_material(original: Material) -> ShaderMaterial:
 	if variant.is_empty():
 		if not _mismatch_logged:
 			_mismatch_logged = true
-			LOG.debug("[pantyhose] " + "garment material is not the verified pantyhose shader; cloth left alone")
+			LOG.debug("[pantyhose] garment material is not the verified pantyhose shader; cloth left alone")
 		return null
 	var key := "%d|%s" % [source.get_instance_id(), variant]
 	var cached: Variant = _materials.get(key)
@@ -491,24 +491,24 @@ func _on_act_started(pony: Node3D) -> void:
 	var wardrobe: Node = tree.get_first_node_in_group("pony_wardrobe")
 	if wardrobe == null or not wardrobe.has_method("set_worn") or not wardrobe.has_method("dress") \
 			or not wardrobe.has_method("wanted"):
-		LOG.debug("[pantyhose] " + "undress skipped: no pony wardrobe")
+		LOG.debug("[pantyhose] undress skipped: no pony wardrobe")
 		return
 	var identity: Variant = pony.get("identity")
 	var id := str(identity.get("id")) if identity != null else ""
 	if id.is_empty():
-		LOG.debug("[pantyhose] " + "undress skipped: no pony id")
+		LOG.debug("[pantyhose] undress skipped: no pony id")
 		return
 	var season: String = str(wardrobe.call("_season")) if wardrobe.has_method("_season") else "spring"
 	var kinds := _worn_hosiery(wardrobe.call("wanted", id, season))
 	if kinds.is_empty():
 		return
 	if _take_off_action(tree, id, kinds, wardrobe, season):
-		LOG.debug("[pantyhose] " + "undress %s (%s) through take_off", [id, ", ".join(kinds)])
+		LOG.debug("[pantyhose] undress %s (%s) through take_off", [id, ", ".join(kinds)])
 		return
 	for kind: String in kinds:
 		wardrobe.call("set_worn", id, kind, false)
 	wardrobe.call("dress", pony, id, season)
-	LOG.debug("[pantyhose] " + "undress %s (%s)", [id, ", ".join(kinds)])
+	LOG.debug("[pantyhose] undress %s (%s)", [id, ", ".join(kinds)])
 
 
 ## The worn kinds among `wanted()`'s `{kind: colour}` that are this pack's lower garments.
@@ -546,7 +546,7 @@ func _take_off_action(tree: SceneTree, id: String, kinds: Array[String], wardrob
 		actions.append({"id": "undress_" + kind, "type": "take_off", "kind": kind})
 	var error := str(coordinator.call("commit", id, actions, {}, turn))
 	if not error.is_empty():
-		LOG.debug("[pantyhose] " + "take_off refused: " + error)
+		LOG.debug("[pantyhose] take_off refused: %s", [error])
 		return false
 	return _worn_hosiery(wardrobe.call("wanted", id, season)).is_empty()
 
@@ -635,7 +635,7 @@ func _hide_overlay() -> void:
 	_overlay_texture = null
 	_overlay_parent = null
 	if _overlay_reason.begins_with("shown"):
-		LOG.debug("[pantyhose] " + "hull overlay hidden")
+		LOG.debug("[pantyhose] hull overlay hidden")
 	_overlay_reason = ""
 
 
@@ -653,7 +653,7 @@ func _note_overlay_reason(reason: String) -> void:
 	if _overlay_reason == reason:
 		return
 	_overlay_reason = reason
-	LOG.debug("[pantyhose] " + "hull overlay: " + reason)
+	LOG.debug("[pantyhose] hull overlay: %s", [reason])
 
 
 ## A continuous corner-grid surface coloured from blue (low) to red (high). The mesh is in the

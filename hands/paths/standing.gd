@@ -170,7 +170,7 @@ func _path_for(hand_side: String) -> Variant:
 		LOG.debug("caress path side=%s path=areas anchors=%d", [hand_side,
 			(path.get("anchors") as Array).size()])
 		for note: Variant in (path.get("debug_notes") as Array):
-			LOG.debug("caress " + str(note))
+			LOG.debug("caress %s", [note])
 		var world: Array = path.call("skinned")
 		for anchor: Dictionary in world:
 			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor["id"],

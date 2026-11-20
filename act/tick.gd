@@ -47,8 +47,12 @@ func tick(delta: float) -> void:
 	PERF.begin("runtime_physics")
 	_tick(delta)
 	PERF.begin("runtime_anatomy_sync")
+	PERF.begin("anatomy_bind")
 	context.anatomy.bind(context.anatomy_host)
+	PERF.end("anatomy_bind")
+	PERF.begin("anatomy_sync")
 	context.anatomy.sync_facts()
+	PERF.end("anatomy_sync")
 	PERF.end("runtime_anatomy_sync")
 	PERF.end("runtime_physics")
 

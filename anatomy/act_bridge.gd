@@ -18,6 +18,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The typed host; every callback is optional.
 var host: ACT_HOST = null
@@ -121,11 +122,15 @@ func begin_act() -> void:
 ## Write the live act state the persistent controller polls outside the act. The host supplies
 ## `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`.
 func sync_facts() -> void:
+	PERF.begin("anatomy_facts")
 	facts.state = host.state()
 	facts.pose_view = host.pose_view()
 	facts.depth = host.depth()
 	facts.bed_frame = host.bed_frame()
+	PERF.end("anatomy_facts")
+	PERF.begin("anatomy_cycle")
 	facts.cycle_phase = host.cycle_phase()
+	PERF.end("anatomy_cycle")
 
 
 ## The pose family from the runtime's pose view: `bed` for missionary, `standing` for standing.

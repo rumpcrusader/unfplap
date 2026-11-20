@@ -59,6 +59,9 @@ var bed: Node3D = null
 var event_id := ""
 var serial := 0
 var pony_id := ""
+## The relationship meta the last identity refresh read; a late assignment is caught without an
+## allocation per physics frame.
+var _identity_meta := ""
 var display_name := "the pony"
 var preferences: Dictionary = {}
 var player_pony := false
@@ -171,6 +174,7 @@ func refresh_identity() -> bool:
 	var identity: PONIES.Identity = PONIES.Identity.new()
 	if is_instance_valid(host.pony):
 		identity = PONIES.identity_of(host.pony)
+		_identity_meta = str(host.pony.get_meta("relationship_id", ""))
 	if not identity.id.is_empty():
 		pony_id = identity.id
 	if pony_id.is_empty():
@@ -439,9 +443,11 @@ func apply_anon_align(_hip: Node3D, _facing: Basis) -> void:
 
 ## The cycle reads the entry, prompt notes and debug use.
 func cycle_phase() -> String:
-	refresh_identity()
 	if not is_instance_valid(host.pony):
 		return CYCLE.NORMAL
+	var meta_id := str(host.pony.get_meta("relationship_id", ""))
+	if pony_id.is_empty() or (not meta_id.is_empty() and meta_id != _identity_meta):
+		refresh_identity()
 	return ELIGIBILITY.cycle_phase_for(host.pony, pony_id)
 
 

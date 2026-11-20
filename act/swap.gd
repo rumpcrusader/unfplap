@@ -6,6 +6,7 @@ extends RefCounted
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
@@ -192,7 +193,8 @@ func rebind_reactions() -> void:
 
 
 func set_act_pose_config() -> void:
-	context.pose.set_pose_config(SETTINGS.pose(session.pony_id, session.start_group()).raw())
+	context.pose.set_pose_config(POSE_SESSION.SettingsBlock.from_dict(
+		SETTINGS.pose(session.pony_id, session.start_group()).raw()))
 
 
 ## Rebuild the live pose against the new skeleton, keeping the pose the act was already in; the

@@ -9,6 +9,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
@@ -100,7 +101,7 @@ func apply_act_live(family: String, pony_id: String, mute_changed: bool) -> void
 	context.reactions.apply_radius()
 	if family == "standing":
 		context.kiss.apply_live_settings()
-		context.pose.sync_standing_config(presentation_config)
+		context.pose.sync_standing_config(POSE_SESSION.SettingsBlock.from_dict(presentation_config))
 		context.presentation.apply_live_settings()
 	elif family == "bed":
 		context.pose.sync_missionary_config()
@@ -132,7 +133,7 @@ func _refresh_live_modifiers(family: String) -> void:
 	var skeleton_value: Variant = host.pony.get("skeleton")
 	if not skeleton_value is Skeleton3D:
 		return
-	context.pose.refresh_modifiers(features)
+	context.pose.refresh_modifiers(POSE_SESSION.FeatureFlags.from_dict(features))
 	if family == "standing":
 		context.standing_anon.refresh_palm()
 	elif family == "bed":

@@ -12,6 +12,7 @@ const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const ACT_SETUP := preload("res://mods/unfplap/act/setup.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -73,7 +74,8 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	session.pose_id = pose
 	session.source = act_source
 	session.profile = SETTINGS.template_for(session.pony_id).raw()
-	context.pose.set_pose_config(SETTINGS.pose(session.pony_id, session.start_group()).raw())
+	context.pose.set_pose_config(POSE_SESSION.SettingsBlock.from_dict(
+		SETTINGS.pose(session.pony_id, session.start_group()).raw()))
 	session.preferences = SETTINGS.preferences(session.pony_id).raw()
 	session.act_prompts = session.profile.get("act_prompts", {})
 	session.snapshot_settings()

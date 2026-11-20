@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hands/test_actions.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const POSES := preload("res://mods/unfplap/poses/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
@@ -66,12 +67,12 @@ func _check_tail_tuning() -> void:
 	tail_runtime.act.pose_id = CATALOG.STANDING
 	tail_runtime._bundle.pose._view.settings_group = CATALOG.STANDING
 	tail_runtime.act.presentation_config = {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}}
-	tail_runtime._bundle.context.pose.sync_standing_config(tail_runtime.act.presentation_config)
+	tail_runtime._bundle.context.pose.sync_standing_config(POSES.SettingsBlock.from_dict(tail_runtime.act.presentation_config))
 	var cfg: Dictionary = tail_runtime._bundle.pose.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(40.0)), "tail yaw tunable reaches the pose")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(10.0)), "tail pitch tunable reaches the pose")
 	tail_runtime.act.presentation_config = {}
-	tail_runtime._bundle.context.pose.sync_standing_config(tail_runtime.act.presentation_config)
+	tail_runtime._bundle.context.pose.sync_standing_config(POSES.SettingsBlock.from_dict(tail_runtime.act.presentation_config))
 	cfg = tail_runtime._bundle.pose.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(35.0)), "tail yaw default")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(25.0)), "tail pitch default")

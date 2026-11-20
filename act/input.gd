@@ -6,6 +6,7 @@ extends RefCounted
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
@@ -157,12 +158,14 @@ func free_look_active() -> bool:
 
 ## One pose request. The session supplies the act values; the pose service refuses or starts the
 ## edge.
-func request_pose(target_id: String, trigger := "", request: Dictionary = {}) -> Dictionary:
-	var values := request.duplicate()
-	if not values.has("act_state"):
-		values["act_state"] = session.state
-	if not values.has("features"):
-		values["features"] = session.features
+func request_pose(target_id: String, trigger := "",
+		request: POSE_SESSION.PoseRequest = null) -> POSE_SESSION.PoseResult:
+	var values := request.copy() if request != null else POSE_SESSION.PoseRequest.new()
+	if values.act_state < 0:
+		values.act_state = session.state
+	if not values.features_set:
+		values.features = session.features
+		values.features_set = true
 	return context.pose.request_pose(target_id, trigger, values)
 
 

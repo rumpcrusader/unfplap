@@ -35,7 +35,113 @@ const NO_OWNERS: Array[String] = []
 const NO_CHANNEL := {}
 ## The owner names in install order, matching `shared/pose_specs.gd`'s profile table.
 const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_lay"]
+## The absent pose frame: a real transform whose infinite origin no reader mistakes for space.
+const NO_FRAME := Transform3D(Basis.IDENTITY, Vector3.INF)
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+
+
+## The act's live feature switches, held by reference so the session and the snapshot agree.
+class FeatureFlags extends RefCounted:
+	var flags: Dictionary = {}
+
+	static func from_dict(block: Dictionary) -> FeatureFlags:
+		var out := FeatureFlags.new()
+		out.flags = block
+		return out
+
+	func enabled(name: String) -> bool:
+		return bool(flags.get(name, false))
+
+
+## One pose config or presentation block, wrapped at the boundary and merged in place.
+class SettingsBlock extends RefCounted:
+	var values: Dictionary = {}
+
+	static func from_dict(block: Dictionary) -> SettingsBlock:
+		var out := SettingsBlock.new()
+		out.values = block
+		return out
+
+
+## One pose request's act values; an unset field falls back to the session's live facts.
+class PoseRequest extends RefCounted:
+	var act_state := -1
+	var forms: Array[String] = []
+	var views: Array[String] = []
+	var features: Dictionary = {}
+	var features_set := false
+	var consent := ""
+	var locked := false
+
+	static func from_dict(raw: Dictionary) -> PoseRequest:
+		var out := PoseRequest.new()
+		out.act_state = int(raw.get("act_state", -1))
+		out.forms = _names(raw.get("forms"))
+		out.views = _names(raw.get("views"))
+		var flags: Variant = raw.get("features")
+		if flags is Dictionary:
+			out.features = flags
+			out.features_set = true
+		out.consent = str(raw.get("consent", ""))
+		out.locked = bool(raw.get("locked", false))
+		return out
+
+	static func _names(value: Variant) -> Array[String]:
+		var out: Array[String] = []
+		if value is Array:
+			for item: Variant in value:
+				out.append(str(item))
+		return out
+
+	func copy() -> PoseRequest:
+		var out := PoseRequest.new()
+		out.act_state = act_state
+		out.forms = forms
+		out.views = views
+		out.features = features
+		out.features_set = features_set
+		out.consent = consent
+		out.locked = locked
+		return out
+
+
+## One pose request's verdict; `ok` is true only for the accepted code.
+class PoseResult extends RefCounted:
+	var ok := false
+	var code := ""
+	var edge := ""
+	var reason := ""
+
+	static func make(code_value: String, edge_id := "", reason_text := "") -> PoseResult:
+		var out := PoseResult.new()
+		out.code = code_value
+		out.ok = code_value == "ok"
+		out.edge = edge_id
+		out.reason = reason_text
+		return out
+
+
+## The render-time write's frame, body scale and size name.
+class RenderFrame extends RefCounted:
+	var bed_frame := Transform3D(Basis.IDENTITY, Vector3.INF)
+	var body_scale := 1.0
+	var size_name := ""
+
+	static func of(frame: Transform3D, scale: float, size_name_value: String) -> RenderFrame:
+		var out := RenderFrame.new()
+		out.bed_frame = frame
+		out.body_scale = scale
+		out.size_name = size_name_value
+		return out
+
+
+## The settled line's Anon diagnostic host; an unbound host answers silence.
+class AnonDiag extends RefCounted:
+	var read: Callable = Callable()
+
+	func anon_diag() -> String:
+		return str(read.call()) if read.is_valid() else ""
+
 
 ## The values one act's pose build needs. The act's start ledger and the body swap both fill this
 ## typed record from the same act values; the session never reads a runtime field for it.
@@ -47,21 +153,10 @@ class ActPose extends RefCounted:
 	var presentation: Dictionary = {}
 	var pose_config: Dictionary = {}
 	var look_point := Vector3.ZERO
+	var look_set := false
 	var camera_position := Vector3.INF
 	var size_name := ""
-
-	func as_context() -> Dictionary:
-		return {
-			"pose_id": pose_id,
-			"id": id,
-			"features": features,
-			"bed": bed,
-			"presentation": presentation,
-			"pose_config": pose_config,
-			"look_point": look_point,
-			"camera_position": camera_position,
-			"size_name": size_name,
-		}
+	var size_name_set := false
 
 	## Fill from the act's live values. The session owns them; this record is the one build input
 	## the start ledger and the body-swap rebuild share.
@@ -75,8 +170,39 @@ class ActPose extends RefCounted:
 		presentation = presentation_block
 		pose_config = config
 		look_point = look
+		look_set = true
 		camera_position = camera_at
 		size_name = size_value
+		size_name_set = true
+
+	## The edge: a suite or a host that holds the act values as a plain document.
+	static func from_dict(raw: Dictionary) -> ActPose:
+		var out := ActPose.new()
+		out.pose_id = str(raw.get("pose_id", ""))
+		out.id = str(raw.get("id", ""))
+		var flags_value: Variant = raw.get("features")
+		if flags_value is Dictionary:
+			out.features = flags_value
+		var bed_value: Variant = raw.get("bed")
+		if bed_value is Node3D:
+			out.bed = bed_value
+		var presentation_value: Variant = raw.get("presentation")
+		if presentation_value is Dictionary:
+			out.presentation = presentation_value
+		var config_value: Variant = raw.get("pose_config")
+		if config_value is Dictionary:
+			out.pose_config = config_value
+		var look_value: Variant = raw.get("look_point")
+		if look_value is Vector3:
+			out.look_point = look_value
+			out.look_set = true
+		var camera_value: Variant = raw.get("camera_position")
+		if camera_value is Vector3:
+			out.camera_position = camera_value
+		if raw.has("size_name"):
+			out.size_name = str(raw["size_name"])
+			out.size_name_set = true
+		return out
 
 
 ## The runtime node that parents the debug nodes and receives their `runtime` field. It is the
@@ -86,7 +212,7 @@ var pony: Node3D = null
 
 ## The act's identity and the live view's fields.
 var id := ""
-var features: Dictionary = {}
+var features: FeatureFlags = FeatureFlags.new()
 var bed_node: Node3D = null
 ## True between a successful `begin()` and `release_pose()`. The runtime keeps one session per pony.
 var _started := false
@@ -207,15 +333,16 @@ func view() -> POSE_VIEW:
 
 ## Stage the live pose config in place. The runtime calls this before the standing placement reads
 ## its gaps, and everything that holds `pose_config` sees this same object for the act.
-func set_pose_config(config: Dictionary) -> void:
+func set_pose_config(config: SettingsBlock) -> void:
 	pose_config.clear()
-	pose_config.merge(config, true)
+	if config != null:
+		pose_config.merge(config.values, true)
 
 
 ## Build the pose for a fresh act from the start context. A live pose or a pony with no body skeleton
 ## returns false with nothing installed; the started flag only follows an install.
 func begin_act(values: ActPose) -> bool:
-	return begin(values.as_context())
+	return begin(values)
 
 
 ## Rebuild the live pose on a new skeleton, keeping the pose the act had; the start ramp is skipped
@@ -227,7 +354,7 @@ func rebuild_act(values: ActPose) -> bool:
 	return true
 
 
-func begin(context: Dictionary) -> bool:
+func begin(values: ActPose) -> bool:
 	if _started:
 		LOG.debug("pose session: begin refused, a pose is already live")
 		return false
@@ -241,12 +368,12 @@ func begin(context: Dictionary) -> bool:
 	_bind_face()
 	_face_driver.reset()
 	_state = POSE_STATE.next(_state, "begin")
-	var start_id := str(context.get("pose_id", ""))
-	id = str(context.get("id", ""))
-	features = context.get("features", {})
+	var start_id := values.pose_id
+	id = values.id
+	features = FeatureFlags.from_dict(values.features)
 	# The runtime supplies the live size name; a suite may omit it and fall back to the facts.
-	var size_name := str(context.get("size_name", _size_name()))
-	bed_node = context.get("bed")
+	var size_name := values.size_name if values.size_name_set else _size_name()
+	bed_node = values.bed
 	pose_logged = false
 	pose_trace_frames = 0
 	pose_node = POSE.new()
@@ -260,7 +387,7 @@ func begin(context: Dictionary) -> bool:
 	_view.contact_kind = _spec_contact_kind(start_spec)
 	var group := str(_view.settings_group)
 	if group == CATALOG.STANDING:
-		sync_standing_config(context.get("presentation", {}))
+		sync_standing_config(SettingsBlock.from_dict(values.presentation))
 	elif group == CATALOG.MISSIONARY:
 		sync_missionary_config()
 	pose_node.pose_config = pose_config
@@ -276,19 +403,28 @@ func begin(context: Dictionary) -> bool:
 		_effective_delta(start_spec), _effective_delta(start_spec), pose_config, pose_config,
 		_from_asset, _target_asset)
 	pose_node.set_weight(1.0)
-	var look: Variant = context.get("look_point")
-	pose_node.look_point = look if look is Vector3 else pony.global_position
+	pose_node.look_point = values.look_point if values.look_set else pony.global_position
 	pose_node.amount = 0.0
 	pose_node.target_amount = 1.0
 	if str(_view.frame) == "bed":
-		bed_frame = missionary_pose_frame()
-		bed_frame_source_saved = bed_frame is Transform3D and is_instance_valid(bed_node)
+		var bed := missionary_pose_frame()
+		if has_frame(bed):
+			bed_frame = bed
+			bed_frame_source_saved = is_instance_valid(bed_node)
+		else:
+			bed_frame = null
+			bed_frame_source_saved = false
 		if bed_frame_source_saved:
 			bed_frame_source = (bed_node as Node3D).global_transform
 		pose_node.bed_frame = bed_frame
 	else:
-		ground_frame = ground_pose_frame()
-		ground_frame_source_saved = ground_frame is Transform3D and is_instance_valid(pony)
+		var ground := ground_pose_frame()
+		if has_frame(ground):
+			ground_frame = ground
+			ground_frame_source_saved = is_instance_valid(pony)
+		else:
+			ground_frame = null
+			ground_frame_source_saved = false
 		if ground_frame_source_saved:
 			ground_frame_source = (pony as Node3D).global_transform
 		pose_node.ground_frame = ground_frame
@@ -310,8 +446,7 @@ func begin(context: Dictionary) -> bool:
 	_state = POSE_STATE.next(_state, "entered")
 	_view.pose_state = _state
 	if family == "standing":
-		var anchor: Variant = context.get("camera_position")
-		_tail_anchor = anchor if anchor is Vector3 else Vector3.INF
+		_tail_anchor = values.camera_position
 		_install_tail()
 	# A row whose base contact is already `face` starts the live mouth follow here, only to capture
 	# the residual: the authored asset is already on the bed.
@@ -460,23 +595,24 @@ func _live_spec_id() -> String:
 
 ## Request one authored edge and return the `PoseResult` `{ok, code, edge, reason}`. It leaves the act
 ## running and touches neither the live pose nor the bones.
-func request_pose(target_id: String, trigger: String, context: Dictionary = {}) -> Dictionary:
+func request_pose(target_id: String, trigger: String, request: PoseRequest = null) -> PoseResult:
 	var from_id := str(_view.id)
 	var target_spec: POSE_SPEC = _registry.spec(target_id)
 	var edge_id := from_id + "__" + target_id
 	var edge: TRANSITION_SPEC = _registry.edge(edge_id)
-	var act_state := int(context.get("act_state", facts.state if facts != null else 0))
-	var forms := _request_forms(context)
-	var views := _request_views(context)
-	var features := _request_features(context)
-	var checks := _request_checks(target_spec, edge, context, forms, views, features)
+	var act_state := request.act_state if request != null and request.act_state >= 0 \
+		else (facts.state if facts != null else 0)
+	var forms := _request_forms(request)
+	var views := _request_views(request)
+	var features := _request_features(request)
+	var checks := _request_checks(target_spec, edge, request, forms, views, features)
 	var code := POSE_STATE.request_code(_state, act_state, from_id, target_id,
 		edge != null, checks)
 	if code != "ok":
-		return POSE_STATE.result(code, edge_id, _reason(code, target_id))
+		return PoseResult.make(code, edge_id, _reason(code, target_id))
 	var run: POSE_STATE.Run = POSE_STATE.start_edge(edge.data, from_id, target_id)
 	if run == null:
-		return POSE_STATE.result("missing_asset", edge_id, "the edge did not start")
+		return PoseResult.make("missing_asset", edge_id, "the edge did not start")
 	# Cache the target by settings group, so a row with no blocks of its own (`standing_test`) still
 	# gets the standing pose and presentation.
 	_from_id = from_id
@@ -502,29 +638,30 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 	if _oral_pair(from_id, target_id):
 		_oral_turn.begin(target_id == CATALOG.STANDING_ORAL, _view)
 	LOG.debug("pose request %s -> %s (%s): ok", [from_id, target_id, trigger])
-	return POSE_STATE.result("ok", edge_id, "")
+	return PoseResult.make("ok", edge_id, "")
 
 
 ## The request's form list: the context's own list, or the player's live form.
-func _request_forms(context: Dictionary) -> Array:
-	var value: Variant = context.get("forms")
-	if value is Array and not (value as Array).is_empty():
-		return value as Array
-	return ["pony"] if _player_pony() else ["human"]
+func _request_forms(request: PoseRequest) -> Array[String]:
+	if request != null and not request.forms.is_empty():
+		return request.forms
+	var forms: Array[String] = []
+	forms.append("pony" if _player_pony() else "human")
+	return forms
 
 
 ## The request's view list: the context's own list, or the live display.
-func _request_views(context: Dictionary) -> Array:
-	var value: Variant = context.get("views")
-	if value is Array and not (value as Array).is_empty():
-		return value as Array
-	return ["vr"] if _headset_view() else ["desktop"]
+func _request_views(request: PoseRequest) -> Array[String]:
+	if request != null and not request.views.is_empty():
+		return request.views
+	var views: Array[String] = []
+	views.append("vr" if _headset_view() else "desktop")
+	return views
 
 
-func _request_features(context: Dictionary) -> Dictionary:
-	var value: Variant = context.get("features")
-	if value is Dictionary:
-		return value as Dictionary
+func _request_features(request: PoseRequest) -> FeatureFlags:
+	if request != null and request.features_set:
+		return FeatureFlags.from_dict(request.features)
 	return _facts_features()
 
 
@@ -536,17 +673,17 @@ func _headset_view() -> bool:
 	return facts != null and bool(facts.headset_view)
 
 
-func _facts_features() -> Dictionary:
+func _facts_features() -> FeatureFlags:
 	if facts == null:
-		return {}
+		return FeatureFlags.new()
 	var value: Variant = facts.features
-	return value as Dictionary if value is Dictionary else {}
+	return FeatureFlags.from_dict(value as Dictionary if value is Dictionary else {})
 
 
 ## The target spec and the edge requirements against the live request values, in the order
 ## `pose_state.request_code()` reports them. A missing flag passes.
-func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, context: Dictionary,
-		forms: Array, views: Array, features: Dictionary) -> Dictionary:
+func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, request: PoseRequest,
+		forms: Array[String], views: Array[String], features: FeatureFlags) -> Dictionary:
 	var requires: Dictionary = {}
 	if edge != null:
 		requires = edge.requires
@@ -569,11 +706,11 @@ func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, context: Dic
 	var wanted_features: Variant = requires.get("features", [])
 	if wanted_features is Array:
 		for name_value: Variant in wanted_features as Array:
-			if not bool(features.get(str(name_value), false)):
+			if not features.enabled(str(name_value)):
 				features_ok = false
 				break
 	var wanted_consent := str(requires.get("consent", ""))
-	var consent := str(context.get("consent", ""))
+	var consent := request.consent if request != null else ""
 	var consent_ok := wanted_consent.is_empty() or consent == wanted_consent
 	return {
 		"form_ok": form_ok,
@@ -581,13 +718,13 @@ func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, context: Dic
 		"features_ok": features_ok,
 		"consent_ok": consent_ok,
 		"asset_ok": asset_ok,
-		"locked": bool(context.get("locked", false)),
+		"locked": request != null and request.locked,
 	}
 
 
-func _intersects(declared: Array, live: Array) -> bool:
+func _intersects(declared: Array, live: Array[String]) -> bool:
 	for value: Variant in declared:
-		if value in live:
+		if str(value) in live:
 			return true
 	return false
 
@@ -865,11 +1002,12 @@ func _config_for_group(group: String, presentation: Dictionary) -> Dictionary:
 
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
 ## first keeps the other pose overrides, then the presentation neck/head controls win.
-func sync_standing_config(presentation: Dictionary) -> bool:
+func sync_standing_config(presentation: SettingsBlock) -> bool:
 	if str(_view.settings_group) != CATALOG.STANDING or not is_instance_valid(pony):
 		return false
+	var block: Dictionary = presentation.values if presentation != null else {}
 	pose_config.clear()
-	pose_config.merge(_config_for_group(CATALOG.STANDING, presentation), true)
+	pose_config.merge(_config_for_group(CATALOG.STANDING, block), true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = pose_config
 	if is_instance_valid(tail):
@@ -920,9 +1058,9 @@ func authored_asset(candidate: String = "") -> AUTHORED:
 
 ## Ground space for an authored ground pose, seeded from the pony root. Like the bed frame with its
 ## bed, it is carried by the root from then on.
-func ground_pose_frame() -> Variant:
+func ground_pose_frame() -> Transform3D:
 	if not is_instance_valid(pony):
-		return null
+		return NO_FRAME
 	return Transform3D(pony.global_basis.orthonormalized(), pony.global_position)
 
 
@@ -1003,14 +1141,14 @@ func missionary_origin() -> Vector3:
 
 ## Bed space for the authored pose: the middle of the real mattress top, in the bed's axes, the
 ## pillow end at -Z. `null` when no bed pose is live, so the procedural driver stays in charge.
-func missionary_pose_frame() -> Variant:
+func missionary_pose_frame() -> Transform3D:
 	if str(_view.frame) != "bed" or not is_instance_valid(bed_node):
-		return null
+		return NO_FRAME
 	var fallback: float = float(bed_node.get_meta("mattress_top", 0.6)) + float(bed_node.global_position.y)
 	var points: Array[Vector3] = [bed_node.global_position]
 	var top: float = MATTRESS.visible_top(bed_node, points, fallback)
 	if not is_finite(top):
-		return null
+		return NO_FRAME
 	var at: Vector3 = bed_node.global_position
 	var basis: Basis = bed_node.global_basis.orthonormalized() * Basis(Vector3.UP, PI)
 	return Transform3D(basis, Vector3(at.x, top, at.z))
@@ -1144,7 +1282,7 @@ func release_pose() -> void:
 	tail = null
 	_started = false
 	id = ""
-	features = {}
+	features = FeatureFlags.new()
 	pose_config.clear()
 	rig_checked = false
 	rig_skeleton = 0
@@ -1359,8 +1497,8 @@ func _release_act_body() -> void:
 
 ## The live settings edit's entry: swap the feature flags and run the same `pose_changed(view)` pass
 ## the tick does; the view already carries the active profile.
-func refresh_modifiers(feature_flags: Dictionary) -> void:
-	features = feature_flags
+func refresh_modifiers(feature_flags: FeatureFlags) -> void:
+	features = feature_flags if feature_flags != null else FeatureFlags.new()
 	pose_changed(_view)
 
 
@@ -1490,8 +1628,8 @@ func apply_target_once() -> bool:
 
 ## The whole render-time step for one frame, in order: place the act's own Anon body, write her
 ## pose, replay the sway, then let the live view read his posed head.
-func render_write(context: Dictionary) -> void:
-	if not is_instance_valid(pony):
+func render_write(frame: RenderFrame) -> void:
+	if frame == null or not is_instance_valid(pony):
 		return
 	var family := str(_view.family)
 	if family == "standing":
@@ -1506,9 +1644,8 @@ func render_write(context: Dictionary) -> void:
 		return
 	if family != "bed":
 		return
-	var frame: Variant = context.get("bed_frame")
-	if is_instance_valid(act_body) and frame is Transform3D:
-		act_body.apply(frame as Transform3D, float(context.get("body_scale", 1.0)))
+	if is_instance_valid(act_body) and has_frame(frame.bed_frame):
+		act_body.apply(frame.bed_frame, frame.body_scale)
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(pose_node) and sk is Skeleton3D:
 		apply_render(sk as Skeleton3D)
@@ -1534,11 +1671,8 @@ func sync_frame(family: String) -> void:
 ## The typed entry for the render-time step: the session supplies its own bed frame plus the scale
 ## and size name it read from the act.
 func write_render_frame(body_scale: float, size_name: String) -> void:
-	render_write({
-		"bed_frame": bed_frame,
-		"body_scale": body_scale,
-		"size_name": size_name,
-	})
+	var frame: Transform3D = bed_frame if bed_frame is Transform3D else NO_FRAME
+	render_write(RenderFrame.of(frame, body_scale, size_name))
 
 
 func set_tail_target(value: float) -> void:
@@ -1601,7 +1735,7 @@ func base_info() -> BASE_INFO:
 		info.reason = "pose=%s" % live_id
 	elif not asset.available:
 		info.reason = authored_reason(live_id)
-	elif not info.frame is Transform3D:
+	elif not has_frame(info.frame):
 		info.reason = "no %s frame" % str(_view.frame)
 	elif not asset.usable(str(_view.frame)):
 		info.reason = authored_reason(live_id)
@@ -1611,12 +1745,17 @@ func base_info() -> BASE_INFO:
 
 
 ## The live pose frame: the bed's mattress space or the pony root's ground space.
-func pose_frame() -> Variant:
+func pose_frame() -> Transform3D:
 	if str(_view.frame) == "ground":
-		return ground_frame
+		return ground_frame if ground_frame is Transform3D else NO_FRAME
 	if str(_view.frame) == "bed":
-		return bed_frame
-	return null
+		return bed_frame if bed_frame is Transform3D else NO_FRAME
+	return NO_FRAME
+
+
+## True when a pose frame is real space: the absent frame carries an infinite origin.
+static func has_frame(frame: Transform3D) -> bool:
+	return frame.origin.is_finite()
 
 
 ## The authored body bones the live rig lacks: the pose writes only the bones it holds, so a missing
@@ -1822,7 +1961,7 @@ func face_sit_error(act_state: int) -> String:
 ## the live pose actually put her (world and bed space).
 func state_rows(state: int) -> Array[String]:
 	var info := base_info()
-	var frame: Variant = info.frame
+	var frame: Transform3D = info.frame
 	var rows: Array[String] = []
 	rows.append("pony=%s pose=%s state=%d weight=%.2f" % [
 		str(pony.name) if is_instance_valid(pony) else "?", str(_view.id), state, basis_amount()])
@@ -1835,15 +1974,15 @@ func state_rows(state: int) -> Array[String]:
 	if not target_path.is_empty() and target_path != info.asset_path:
 		rows.append("target=%s" % target_path)
 	rows.append("frame=%s kind=%s scale=%.2f" % [
-		str(frame) if frame is Transform3D else "null", info.frame_kind, body_scale()])
+		str(frame) if has_frame(frame) else "null", info.frame_kind, body_scale()])
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return rows
 	var skeleton := sk as Skeleton3D
 	rows.append_array(diagnostics(skeleton, info))
 	var space := Transform3D.IDENTITY
-	if frame is Transform3D:
-		space = (frame as Transform3D).affine_inverse()
+	if has_frame(frame):
+		space = frame.affine_inverse()
 	for pair: Array in [["hips", "pony_hips"], ["neck", "pony_neck1"], ["neck_mid", "pony_neck2"],
 			["head", "pony_head"], ["hoof_l", "pony_hoof_L"], ["hoof_r", "pony_hoof_R"]]:
 		var bone := skeleton.find_bone(str(pair[1]))
@@ -1859,20 +1998,20 @@ func state_rows(state: int) -> Array[String]:
 ## The base line written once when the act builds its pose.
 func log_base() -> void:
 	var info := base_info()
-	var frame: Variant = info.frame
+	var frame: Transform3D = info.frame
 	var missing := rig_missing()
 	LOG.debug("pose base=%s reason=%s asset=v%d %s path=%s frame=%s variant=%s bones=%d missing=%d shots=%s frame_pose=%s scale=%.2f", [
 		info.base, info.reason, info.version,
 		"ok" if info.available else "error", info.asset_path,
 		info.asset_frame, info.variant, info.bones,
 		missing.size(), "yes" if info.shots else "no",
-		str(frame) if frame is Transform3D else "null", body_scale()])
+		str(frame) if has_frame(frame) else "null", body_scale()])
 	if not missing.is_empty():
 		LOG.debug("pose rig %s", [rig_reason(missing)])
 
 
 ## One line with where the pose actually put her, in world and bed space, once the weight settles.
-func log_settled(state: int, anon_diag: Callable) -> void:
+func log_settled(state: int, anon_diag: AnonDiag) -> void:
 	if pose_logged or str(_view.frame) != "bed" or state == 0:
 		return
 	if basis_amount() < 0.9:
@@ -1901,8 +2040,8 @@ func log_settled(state: int, anon_diag: Callable) -> void:
 		base_info().base, basis_amount(), " ".join(parts)])
 	for row: String in diagnostics(skeleton, base_info()):
 		LOG.debug("missionary diag %s", [str(row)])
-	if anon_diag.is_valid():
-		var text := str(anon_diag.call())
+	if anon_diag != null:
+		var text := anon_diag.anon_diag()
 		if not text.is_empty():
 			LOG.debug("anon diag %s", [text])
 
@@ -1919,7 +2058,7 @@ func _reset_sway_base() -> void:
 
 
 func _feature(name: String) -> bool:
-	return bool(features.get(name, false))
+	return features.enabled(name)
 
 
 ## Numeric read of a Variant property without tripping over a missing one.

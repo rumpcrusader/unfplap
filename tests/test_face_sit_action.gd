@@ -38,7 +38,8 @@ class FakeBridge extends "res://mods/unfplap/anatomy/act_bridge.gd":
 class FakeInput extends RefCounted:
 	var rt: Variant = null
 
-	func request_pose(target_id: String, trigger := "", request: Dictionary = {}) -> Dictionary:
+	func request_pose(target_id: String, trigger := "",
+			request: POSES.PoseRequest = null) -> POSES.PoseResult:
 		return rt.request_pose(target_id, trigger, request)
 
 
@@ -72,10 +73,11 @@ class FakeRuntime extends Node:
 		view.id = view_id
 		return view
 
-	func request_pose(target_id: String, _trigger := "", _context: Dictionary = {}) -> Dictionary:
+	func request_pose(target_id: String, _trigger := "",
+			_request: POSES.PoseRequest = null) -> POSES.PoseResult:
 		requests += 1
 		target = target_id
-		return {"ok": true, "code": "ok", "edge": "", "reason": ""}
+		return POSES.PoseResult.make("ok")
 
 
 func _initialize() -> void:

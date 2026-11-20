@@ -987,6 +987,7 @@ stay event-time reads.
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | hud | `hud/service.gd` | the anatomy status line |
 | service | ponies | `ponies/service.gd` | the eligibility and body-change handles |
+| service | poses | `poses/service.gd` | the pose request record and its verdict |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | vr | `vr/service.gd` | VR act controls |
 | service | world | `world/service.gd` | the player body and the live scene |

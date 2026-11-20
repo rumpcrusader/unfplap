@@ -11,6 +11,7 @@ const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -257,25 +258,27 @@ func toggle_oral(pose: Variant, display_name: String, features_block: Dictionary
 	var live: Variant = pose.view()
 	var from_id := str(live.id) if live != null else ""
 	var target := CATALOG.STANDING_ORAL if from_id == CATALOG.STANDING else CATALOG.STANDING
-	var request := {}
+	var request := POSE_SESSION.PoseRequest.new()
 	var consent := false
 	var service := host.anatomy_service()
 	if service != null and target == CATALOG.STANDING_ORAL:
 		consent = service.consent(host.pony(), "oral")
 		if consent:
-			request["consent"] = "oral"
-	request["act_state"] = host.state()
-	request["features"] = features_block
-	var result: Dictionary = pose.request_pose(target, "oral", request)
-	if bool(result.get("ok", false)):
+			request.consent = "oral"
+	request.act_state = host.state()
+	request.features = features_block
+	request.features_set = true
+	var result: POSE_SESSION.PoseResult = pose.request_pose(target, "oral", request)
+	if result != null and result.ok:
 		LOG.debug("oral pose %s -> %s: ok", [from_id, target])
 		return
 	LOG.debug("oral pose %s -> %s refused: %s (%s)", [
-		from_id, target, str(result.get("code", "")), str(result.get("reason", ""))])
+		from_id, target, str(result.code if result != null else ""),
+		str(result.reason if result != null else "")])
 	if target == CATALOG.STANDING_ORAL and not consent:
 		status("%s is not into that" % display_name)
 	elif service != null:
-		status(str(result.get("reason", "")))
+		status(str(result.reason if result != null else ""))
 
 
 ## The stock flank smack reaction on the persistent controller.

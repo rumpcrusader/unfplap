@@ -396,8 +396,8 @@ func action_pose_test_variant() -> String:
 	if input == null:
 		return "No act."
 	var result: Variant = input.request_pose(target, "debug")
-	if result is Dictionary:
-		var code := str((result as Dictionary).get("code", ""))
+	if result is POSES.PoseResult:
+		var code := str((result as POSES.PoseResult).code)
 		LOG.debug("pose test variant %s -> %s: %s", [active, target, code])
 		return "Pose %s: %s." % [target, code]
 	return "Pose request failed."
@@ -420,8 +420,8 @@ func action_facesit_variant() -> String:
 	if input == null:
 		return "No act."
 	var result: Variant = input.request_pose(target, "facesit")
-	if result is Dictionary:
-		var code := str((result as Dictionary).get("code", ""))
+	if result is POSES.PoseResult:
+		var code := str((result as POSES.PoseResult).code)
 		LOG.debug("pose face-sit %s -> %s: %s", [active, target, code])
 		return "Pose %s: %s." % [target, code]
 	return "Pose request failed."

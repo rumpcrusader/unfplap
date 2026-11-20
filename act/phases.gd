@@ -7,6 +7,7 @@ extends RefCounted
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -17,14 +18,15 @@ var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
 var session: ACT_SESSION = null
 ## The pose-settled diagnostic row, bound once so the per-frame log call allocates no callable.
-var _diag := Callable()
+var _diag: POSE_SESSION.AnonDiag = null
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -> void:
 	host = host_in
 	context = context_in
 	session = session_in
-	_diag = Callable(self, "pose_diag_row")
+	_diag = POSE_SESSION.AnonDiag.new()
+	_diag.read = Callable(self, "pose_diag_row")
 
 
 ## One presentation frame in the live states: the act clock, the blush, the wings and the

@@ -7,6 +7,7 @@ extends RefCounted
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -475,11 +476,8 @@ func _place_act_body(plan: PlayerPlan) -> void:
 	if not frame is Transform3D:
 		return
 	var body_scale: Variant = host.pony.get("body_scale") if is_instance_valid(host.pony) else null
-	context.pose.render_write({
-		"bed_frame": frame,
-		"body_scale": float(body_scale) if body_scale != null else 1.0,
-		"size_name": context.facts.size_name,
-	})
+	context.pose.render_write(POSE_SESSION.RenderFrame.of(frame as Transform3D,
+		float(body_scale) if body_scale != null else 1.0, context.facts.size_name))
 	var body: Variant = context.pose.act_body
 	var avatar: Variant = body.get("avatar") if is_instance_valid(body) else null
 	if is_instance_valid(avatar) and avatar is Node3D:

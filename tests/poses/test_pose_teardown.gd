@@ -55,6 +55,14 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+func _values(raw: Dictionary) -> SESSION.ActPose:
+	return SESSION.ActPose.from_dict(raw)
+
+
+func _request(raw: Dictionary = {}) -> SESSION.PoseRequest:
+	return SESSION.PoseRequest.from_dict(raw)
+
+
 func run() -> void:
 	_check_missionary_scope()
 	_check_standing_scope()
@@ -98,7 +106,7 @@ func _fixture(pose: String, features: Dictionary, body_tail := false) -> Diction
 	root.add_child(bed)
 	var session: RefCounted = SESSION.new()
 	session.bind(null, pony)
-	check(session.begin({
+	check(session.begin(_values({
 		"pose_id": pose,
 		"id": "twilight_sparkle",
 		"features": features,
@@ -107,7 +115,7 @@ func _fixture(pose: String, features: Dictionary, body_tail := false) -> Diction
 		"pose_config": {},
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
-	}), "the %s pose begins" % pose)
+	})), "the %s pose begins" % pose)
 	return {"session": session, "pony": pony, "body": body, "hair": hair, "bed": bed}
 
 
@@ -184,7 +192,7 @@ func _check_missionary_scope() -> void:
 	check(session.pose_node == null and pose_node.get_parent() == null
 		and pose_node.is_queued_for_deletion(),
 		"the final release frees the pose node")
-	check(session.id == "" and session.features.is_empty(),
+	check(session.id == "" and session.features.flags.is_empty(),
 		"the final release clears the act identity and features")
 	check(session.pose_config.is_empty() and config.is_empty(),
 		"the final release clears the live config")
@@ -293,8 +301,8 @@ func _check_transition_path() -> void:
 	session.pose_changed(view)
 	check(session.act_body == act_body and act_body.get_parent() == null,
 		"a pose change keeps the act body")
-	var result: Dictionary = session.request_pose(CATALOG.STANDING_TEST, "test", {"act_state": 2})
-	check(str(result.get("code", "")) == "ok", "the transition path starts the debug edge")
+	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
+	check(result.code == "ok", "the transition path starts the debug edge")
 	check(view.pose_state == VIEW.TRANSITIONING and session._state == VIEW.TRANSITIONING,
 		"the transition path enters the transition state")
 	session.pose_changed(view)
@@ -329,9 +337,9 @@ func _check_facesit_transition() -> void:
 	session.opening_point = Callable(points, "opening_point")
 	var act_body := FakeActBody.new()
 	session.act_body = act_body
-	var forward: Dictionary = session.request_pose(CATALOG.BED_FACESIT, "facesit",
-		{"act_state": 2})
-	check(str(forward.get("code", "")) == "ok", "the face-sit transition starts")
+	var forward: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit",
+		_request({"act_state": 2}))
+	check(forward.code == "ok", "the face-sit transition starts")
 	check(view.pose_state == VIEW.TRANSITIONING and view.id == CATALOG.BED_FACESIT,
 		"the face-sit transition enters the target view")
 	session.tick(0.0)
@@ -348,9 +356,9 @@ func _check_facesit_transition() -> void:
 	check(session._started, "the face-sit forward keeps the session")
 	var held: Vector3 = pose_node.contact_offset
 	check(held.is_finite(), "the face-sit pose node carries the live offset")
-	var reverse: Dictionary = session.request_pose(CATALOG.MISSIONARY, "facesit",
-		{"act_state": 2})
-	check(str(reverse.get("code", "")) == "ok", "the face-sit reverse starts")
+	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit",
+		_request({"act_state": 2}))
+	check(reverse.code == "ok", "the face-sit reverse starts")
 	session.tick(0.0)
 	check(view.contact_kind == "opening", "the reverse restores the opening contact")
 	check(not bool(session._face_driver.get("active")),

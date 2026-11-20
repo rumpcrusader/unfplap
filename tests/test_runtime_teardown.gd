@@ -7,6 +7,7 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
+const POSES := preload("res://mods/unfplap/poses/service.gd")
 const FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
@@ -473,8 +474,8 @@ func run() -> void:
 	runtime8._bundle.pose.act_body = act_body8
 	check(runtime8._bundle.pose.body_sway != null,
 		"the act body test installs the standing body sway")
-	var edge: Dictionary = runtime8.act.input.request_pose(CATALOG_STANDING_TEST, "test")
-	check(str(edge.get("code", "")) == "ok", "the runtime starts the debug edge")
+	var edge: POSES.PoseResult = runtime8.act.input.request_pose(CATALOG_STANDING_TEST, "test")
+	check(edge.code == "ok", "the runtime starts the debug edge")
 	check(runtime8._bundle.pose.view().pose_state == 3,
 		"the running edge puts the view in the transition state")
 	runtime8.act.exit.run(false)

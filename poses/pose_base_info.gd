@@ -11,7 +11,7 @@ var bones := 0
 var available := false
 var error := ""
 ## The live pose frame, or null when the pose owns none.
-var frame: Variant = null
+var frame := Transform3D(Basis.IDENTITY, Vector3.INF)
 var frame_kind := ""
 var shots := false
 var asset: AUTHORED = null

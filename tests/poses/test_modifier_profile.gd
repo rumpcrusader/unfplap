@@ -53,6 +53,14 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+func _values(raw: Dictionary) -> SESSION.ActPose:
+	return SESSION.ActPose.from_dict(raw)
+
+
+func _flags(raw: Dictionary) -> SESSION.FeatureFlags:
+	return SESSION.FeatureFlags.from_dict(raw)
+
+
 func run() -> void:
 	var pony := FakePony.new()
 	root.add_child(pony)
@@ -66,7 +74,7 @@ func run() -> void:
 	root.add_child(bed)
 	var session: RefCounted = SESSION.new()
 	session.bind(null, pony)
-	check(session.begin({
+	check(session.begin(_values({
 		"pose_id": CATALOG.MISSIONARY,
 		"id": "twilight_sparkle",
 		"features": {"missionary_body_motion": true, "standing_body_sway": true},
@@ -75,7 +83,7 @@ func run() -> void:
 		"pose_config": {},
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
-	}), "the missionary pose begins")
+	})), "the missionary pose begins")
 	var view: RefCounted = session.view()
 	var prone: Node = session.prone_sway
 	var tail_lay: Node = session.tail_lay
@@ -111,12 +119,12 @@ func run() -> void:
 	# runtime's `refresh_modifiers()` path. A changed gate removes or installs its owner against
 	# the unchanged view, even on a shared keep.
 	_fill(view, CATALOG.STANDING, CATALOG.STANDING, CATALOG.STANDING, "standing", "standing")
-	session.refresh_modifiers({"standing_body_sway": false})
+	session.refresh_modifiers(_flags({"standing_body_sway": false}))
 	check(session.body_sway == null and sway.is_queued_for_deletion(),
 		"the live feature refresh removes the disabled owner")
-	check(not bool(session.features.get("standing_body_sway", true)),
+	check(not session.features.enabled("standing_body_sway"),
 		"the live feature refresh swaps the session's flags")
-	session.refresh_modifiers({"standing_body_sway": true})
+	session.refresh_modifiers(_flags({"standing_body_sway": true}))
 	sway = session.body_sway
 	check(sway != null and sway.get_parent() == body,
 		"the live feature refresh installs the enabled owner")

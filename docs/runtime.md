@@ -434,9 +434,9 @@ to the anatomy bridge; the act-key hold still owns the one exit path.
 
 The standing start/offer gap is `runtime.act.swap.standing_gap(form)`: it asks
 `act/frame.gd:standing_gap()`, which reads `context.pose.pose_config["gaps"]` (falling back to
-`SETTINGS.pose(id, "standing")["gaps"]` in a session without a config) and adds the entrance's
-back offset for a princess body. The shipped values live under `default.poses.standing.gaps`; the
-frame keeps no gap table or numeric fallback.
+`SETTINGS.pose(id, "standing").rows("gaps").raw()` in a session without a config) and adds the
+entrance's back offset for a princess body. The shipped values live under
+`default.poses.standing.gaps`; the frame keeps no gap table or numeric fallback.
 
 That gap is the pre-act view, not the contact distance. Before the act, `act/frame.gd:begin()` places
 Anon at the gap on her centreline; there is no whole-body fit and no start measurement of the

@@ -226,7 +226,8 @@ func run() -> void:
 	check(dialogue.admit_cue(40.0) == "", "a shipped cue waits for stability")
 	check(dialogue.admit_cue(42.1) != "", "a shipped cue is admitted")
 	var shipped: MEMORY.LineRequest = main.memory.requests[-1]
-	check(not shipped.purpose.is_empty() and shipped.purpose != request.purpose,
+	check(not shipped.purpose.is_empty()
+			and shipped.purpose.strip_edges().length() > facts.cue.length(),
 		"the shipped cue prompt is rendered")
 	check(shipped.purpose.contains("[face:"), "the shipped cue carries the face hint")
 	var climax_key := dialogue.climax_line(false, "She is close.", "evt1", 1, 30.0)

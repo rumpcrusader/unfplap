@@ -102,8 +102,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_pitch(body, pitch)` | the rig's `_pitch` | — | no write |
 | `GAME.form_of(player)` | the rig's `form_driver` | `Node` | `null` |
 | `GAME.clamp_view(form)` | `clamp_view` | — | no call |
-| `GAME.clear_face_point(pony)` | the navigator's `face_point` | — | no write |
-| `GAME.clear_conversation_target(pony)` | the navigator's `set_conversation_target` | — | no call |
+| `GAME.clear_facing(pony)` | the navigator's `face_point` and `set_conversation_target`, one lookup | — | no write |
 | `GAME.look_toward(secondary, angles, weight)` | `look_toward` | `bool` | `false` |
 | `GAME.aim_eyes(eye_motion, target)` | `target_world`, `target_weight` | — | no write |
 | `GAME.listen_point(pony)` | `listen_point` | `Vector3` | her root plus `UP` |
@@ -130,6 +129,20 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.posture_settled(pony)` | `posture_status().settled` | `bool` | `false` |
 | `GAME.interruption_reason(pony)` | `action_interruption_reason` | `String` | empty |
 | `GAME.affection_buck(affection, body)` | `Affection.buck` | `bool` | `false` |
+| `GAME.kisser_of(game)` | the scene's `kisser` | `Node` | `null` |
+| `GAME.begin_from_pony(kisser, pony)` | `pony_kisser.begin_from_pony` | `bool` | `false` |
+| `GAME.clear_kisser(kisser)` | the kisser's `_active`, `_her_kiss`, `_used_hold` (private) | — | no write |
+| `GAME.end_affection(affection)` | `Affection.end` | — | no call |
+| `GAME.cancel_afterglow(affection)` | `Affection.cancel_afterglow` | — | no call |
+| `GAME.feed_affection(affection, target, eye, face)` | the affection's `target`, `eye`, `face` | — | no write |
+| `GAME.mouth_point(node)` | `mouth_point` | `Vector3` | `Vector3.INF` |
+| `GAME.kiss_side_known(pose)` | the stock kiss pose's `_side` (private) | `bool` | `false` |
+| `GAME.pin_kiss_side(pose, side, hold_s)` | the pose's `_side`, `_side_now`, `_side_wait` (private) | — | no write |
+| `GAME.release_kiss_side(pose)` | the pose's `_side_wait` (private) | — | no write |
+| `GAME.settle_excitement(excitement)` | the Beat's `_until` (private) | — | no write |
+| `GAME.set_expression(mouth, name, amount)` | the mouth rig's `set_expression` | — | no call |
+| `GAME.setting_string(settings, key)` | `Settings.get_value` | `String` | empty |
+| `GAME.anon_height(settings)` | `Settings.anon_height_scale` | `float` | `NAN` |
 | `GAME.knockdown_of(body)` | the body's `knockdown` | `Object` | `null` |
 | `GAME.start_knockdown(node, body, direction)` | `knockdown.start` | `bool` | `false` |
 | `GAME.cuddle_end(session)` | the cuddle session's `end(true)` | — | no call |
@@ -167,8 +180,8 @@ Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans` and
 `GAME.refresh_body_lod` allocate, and all are scan-cadence calls; the per-frame accessors copy
 nothing. `GAME` writes the rig's control hold, its eye line and its look pitch, the chat lock, her
 navigator's face point, conversation aim, owner and wander, her face-turn rate, the carry flags,
-the seated Q hold, a body's velocity, her gaze and pupils, and the briefcase's slot writes and
-world drops.
+the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's latch and side hold,
+the affection it feeds, and the briefcase's slot writes and world drops.
 
 ## Internal API
 

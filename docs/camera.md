@@ -7,11 +7,12 @@ authored look path), the head clearance and the debug free look. The player's ow
 
 ## Ownership
 
-`camera/service.gd` is the act camera facade. It owns the lean input and its smoothing, the
-speed-driven surge/bob response and the afterglow back-off, the debug free look, and every
-size/torso helper the view and the hands read. It also owns the scene points the act reads: the
-neck midpoint, her missionary face point and the vulva target. The anatomy opening itself still
-comes from the anatomy bridge.
+`camera/service.gd` is the act camera facade. It holds the hands, kiss and view controllers typed
+and calls them directly, and the `camera_thrust` block arrives as the typed `camera/config.gd`
+record. It owns the lean input and its smoothing, the speed-driven surge/bob response and the
+afterglow back-off, the debug free look, and every size/torso helper the view and the hands read.
+It also owns the scene points the act reads: the neck midpoint, her missionary face point and the
+vulva target. The anatomy opening itself still comes from the anatomy bridge.
 
 `camera/view.gd` is the one live view. In standing it owns the player-camera offsets, the glance,
 the facing lock and the look clamp; in missionary it owns the act's own view node, written each
@@ -25,9 +26,10 @@ calls the frame's `begin()` and the camera's `begin_act()`, `act/exit.gd:run()` 
 
 The look point is the camera's too: `write_look_target()` picks the missionary gaze, blends toward
 the kissing mouth by the kiss's own fade and writes the pose's `look_point`, `kiss` and `climaxing`
-for the rendered frame. The runtime calls it after the pose render write and the eye view's own
-write, so the next frame's head solves against this frame's lean. The gaze target itself comes from
-the anatomy bridge through `facts.gaze_point`.
+for the rendered frame. The pose node arrives as `poses/service.gd`'s `POSE` and the three fields
+are written directly, never by name. The runtime calls it after the pose render write and the eye
+view's own write, so the next frame's head solves against this frame's lean. The gaze target
+itself comes from the anatomy bridge through `facts.gaze_point`.
 
 ## Typed view
 

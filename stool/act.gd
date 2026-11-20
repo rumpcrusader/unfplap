@@ -84,7 +84,7 @@ func gap_m() -> float:
 		return NAN
 	if not service.player_prepare():
 		return NAN
-	var opening := anatomy_ctl.hole_point(0.0)
+	var opening := anatomy_ctl.entrance_point()
 	var part := service.player_root_now()
 	if not opening.is_finite() or not part.is_finite():
 		return NAN

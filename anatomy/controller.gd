@@ -75,6 +75,9 @@ var _anatomy_mode := ""
 var heat: HEAT
 ## The cached `MareBody` for the per-frame garment transform.
 var _garment_body: Node3D
+## The cached local entrance point: the deformed resting hole, reused until the body is rebuilt.
+var _entrance_local := Vector3.ZERO
+var _entrance_ready := false
 ## The cached rest hull and the settings it was built for.
 var _garment_hull: GARMENT_HULL.Hull
 var _hull_width := 48
@@ -142,6 +145,7 @@ func setup(pony_node: Node3D, facts_node: FACTS, service_node: SERVICE = null,
 	appearance.set_form(form())
 	_read_hull_settings()
 	_read_toggles()
+	invalidate_entrance()
 
 
 ## Replace the runtime context. The facade calls this when the controller is created; tests can
@@ -178,6 +182,7 @@ func form_fit_id() -> String:
 func refresh_form(value: BODY_FORM.BodyForm) -> void:
 	var previous := form()
 	set_form(value)
+	invalidate_entrance()
 	if not is_attached():
 		return
 	var current := form()
@@ -321,6 +326,7 @@ func _attach() -> void:
 	set_process(true)
 	attach.apply_visibility(_act_visible())
 	_apply_body_coat()
+	invalidate_entrance()
 	LOG.debug("anatomy attached lift=%.3f", [PLACEMENT.LIFT])
 
 
@@ -492,6 +498,7 @@ func apply_live() -> void:
 
 func detach() -> void:
 	end_act()
+	invalidate_entrance()
 	if is_instance_valid(_line_debug):
 		_line_debug.update({}, false)
 	_line_debug = null
@@ -617,6 +624,25 @@ func hole_point(mix := 0.0) -> Vector3:
 	var local: Vector3 = shapes.hole_local(mix)
 	local = coat_line.deform_point(local)
 	return mesh.global_transform * local
+
+
+## The resting entrance point for the footstool reach: one cached local point and the live mesh
+## transform, so a scan does not re-run the coat line's deformation.
+func entrance_point() -> Vector3:
+	var mesh: MeshInstance3D = shapes.winking_mesh()
+	if not is_instance_valid(mesh):
+		return shapes.hole_point(0.0)
+	if not _entrance_ready:
+		if coat_line == null:
+			return shapes.hole_point(0.0)
+		_entrance_local = coat_line.deform_point(shapes.hole_local(0.0))
+		_entrance_ready = true
+	return mesh.global_transform * _entrance_local
+
+
+## Drop the cached entrance: the mesh or the body was rebuilt.
+func invalidate_entrance() -> void:
+	_entrance_ready = false
 
 
 func hole_rear(mix := 0.0) -> Vector3:

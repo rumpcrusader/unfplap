@@ -23,6 +23,16 @@ class NearCoatPony extends Node3D:
 	var _near: Dictionary = {}
 
 
+## A coat line whose deformation the test drives, so the entrance cache is observable.
+class FakeCoatLine extends "res://mods/unfplap/anatomy/coat_line.gd":
+	var offset := Vector3.ZERO
+	var calls := 0
+
+	func deform_point(local: Vector3) -> Vector3:
+		calls += 1
+		return local + offset
+
+
 class FakeCoatPony extends Node3D:
 	var _model: Node3D
 
@@ -153,6 +163,30 @@ func run() -> void:
 	v2_anatomy.shapes.apply_anal_local(0.080)
 	check(v2_mi.get_blend_shape_value(extreme_i) > 1.5,
 		"an oversized shaft extrapolates the V2 extreme")
+
+	# The cached entrance point: one deformed local point per body revision, mapped by the live
+	# mesh transform. The live hole point keeps deforming on every call.
+	var fake_line := FakeCoatLine.new()
+	v2_anatomy.coat_line = fake_line
+	v2_anatomy.invalidate_entrance()
+	var entrance: Vector3 = v2_anatomy.call("entrance_point")
+	var rest: Vector3 = v2_anatomy.shapes.hole_local(0.0)
+	check(fake_line.calls == 1, "the entrance point deforms its local point once")
+	check(entrance.is_equal_approx(v2_mi.global_transform * (rest + fake_line.offset)),
+		"the entrance point maps the deformed local point through the live transform")
+	var reused: Vector3 = v2_anatomy.call("entrance_point")
+	check(fake_line.calls == 1 and reused.is_equal_approx(entrance),
+		"the entrance point is reused until the body is rebuilt")
+	fake_line.offset = Vector3(0.01, 0.0, 0.0)
+	check(v2_anatomy.call("entrance_point").is_equal_approx(entrance),
+		"a moved coat line waits for the invalidation")
+	v2_anatomy.invalidate_entrance()
+	check(v2_anatomy.call("entrance_point").is_equal_approx(
+		v2_mi.global_transform * (rest + fake_line.offset)),
+		"the body revision recomputes the local point")
+	var live_calls := fake_line.calls
+	v2_anatomy.call("hole_point", 0.0)
+	check(fake_line.calls == live_calls + 1, "the live hole point still deforms every call")
 	v2_anatomy.free()
 	v2_root.free()
 

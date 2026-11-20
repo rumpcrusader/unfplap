@@ -16,6 +16,11 @@ var checks := 0
 
 class FakeController extends "res://mods/unfplap/anatomy/controller.gd":
 	var opening_y := 1.25
+	var entrance_calls := 0
+
+	func entrance_point() -> Vector3:
+		entrance_calls += 1
+		return Vector3(0.0, opening_y, 0.0)
 
 	func hole_point(_mix := 0.0) -> Vector3:
 		return Vector3(0.0, opening_y, 0.0)

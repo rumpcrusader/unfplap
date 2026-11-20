@@ -68,8 +68,15 @@ class FakeFacade extends "res://mods/unfplap/stool/service.gd":
 
 class FakeController extends "res://mods/unfplap/anatomy/controller.gd":
 	var opening_y := 1.30
+	var entrance_calls := 0
+	var hole_calls := 0
+
+	func entrance_point() -> Vector3:
+		entrance_calls += 1
+		return Vector3(0.0, opening_y, 0.0)
 
 	func hole_point(_mix := 0.0) -> Vector3:
+		hole_calls += 1
 		return Vector3(0.0, opening_y, 0.0)
 
 
@@ -176,6 +183,9 @@ func _check_rule() -> void:
 	var act: RefCounted = made["act"]
 	check(bool(act.call("applies")), "the rule applies with anatomy and a human player")
 	check(is_equal_approx(float(act.call("gap_m")), 0.40), "the fake facade gap reaches the handle")
+	var ctl: FakeController = made["ctl"]
+	check(ctl.entrance_calls == 1 and ctl.hole_calls == 0,
+		"the reach reads the cached entrance point, not the live hole")
 	check(int(act.call("needed_count")) == 2, "the facade step count reaches the handle")
 	check(bool(act.call("required")), "a positive step count is required")
 	var text := str(act.call("state_text"))

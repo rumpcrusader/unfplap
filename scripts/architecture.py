@@ -144,6 +144,15 @@ TEST_SUITE_RESULT = re.compile(r"_RESULT checks=")
 TEST_SUITE_BASE = re.compile(
     r'^extends\s+"res://mods/unfplap/tests/support/suite\.gd"', re.MULTILINE)
 TEST_SUITE_BASE_PATH = TESTS / "support" / "suite.gd"
+TEST_SUITE_RUN = re.compile(r"^func run\(", re.MULTILINE)
+TEST_SUITE_ASSERTION = re.compile(
+    r"\b(?:check|check_eq|check_ne|check_approx|check_contains|check_empty|check_size"
+    r"|check_same|check_null|check_not_null|fail)\(")
+TEST_SUITE_LOCAL = re.compile(
+    r"^func (?:check|check_eq|check_ne|check_approx|check_contains|check_empty|check_size"
+    r"|check_same|check_null|check_not_null|fail|near|_initialize|finish|_result_prefix)\(",
+    re.MULTILINE)
+TEST_SUITE_QUIT = re.compile(r"^\s*quit\(", re.MULTILINE)
 TEST_TRUE_CALL = re.compile(r"\bcheck\(\s*true\b")
 TEST_NUMERIC_LITERAL = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])")
 TEST_SETTING_DEFAULT = re.compile(r"[A-Za-z_][\w.]*\.default\b")
@@ -1095,16 +1104,23 @@ def check_calls(text: str) -> list[tuple[int, str]]:
 
 
 def check_tests(failure: Failure) -> None:
-    # The runner contract: a suite defines the check() helper or extends the shared base, and
-    # prints its result line either way.
+    # The base owns the helpers, the lifecycle, the result line and the exit: a suite only
+    # extends it, implements run() and asserts.
     for path in test_suites():
         text = path.read_text(encoding="utf-8")
         name = rel(path)
-        extends_base = bool(TEST_SUITE_BASE.search(text))
-        if not extends_base and not TEST_SUITE_CHECK.search(text):
-            failure.add("%s does not define a check() helper" % name)
-        if not extends_base and not TEST_SUITE_RESULT.search(text):
-            failure.add("%s does not print a _RESULT check summary" % name)
+        if not TEST_SUITE_BASE.search(text):
+            failure.add("%s:1 must extend %s" % (name, rel(TEST_SUITE_BASE_PATH)))
+        if not TEST_SUITE_RUN.search(text):
+            failure.add("%s:1 must implement run()" % name)
+        if not TEST_SUITE_ASSERTION.search(text):
+            failure.add("%s:1 must call an assertion helper" % name)
+        for match in TEST_SUITE_LOCAL.finditer(text):
+            failure.add("%s:%d defines a base-owned helper: %s" % (
+                name, line_of(text, match.start()), match.group(0).removesuffix("(")))
+        for match in TEST_SUITE_QUIT.finditer(text):
+            failure.add("%s:%d calls quit(): the base owns the exit" % (
+                name, line_of(text, match.start())))
 
     # The base carries the helper and the result line for every suite that extends it.
     if not TEST_SUITE_BASE_PATH.exists():

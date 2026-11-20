@@ -43,11 +43,6 @@ class FakePlayer extends Node3D:
 class FakeWorld extends Node:
 	var mares: Array = []
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func _pony(id: String, filly := false, stallion := false) -> FakePony:
 	var pony := FakePony.new()
 	var identity := FakeIdentity.new()

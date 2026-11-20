@@ -6,11 +6,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	# The non-anal, non-oral share is 1 at rest and 0 when either turn owns the mesh.
 	check(near(STATE.front(0.0, 0.0), 1.0), "the vulva owns the shape at rest")

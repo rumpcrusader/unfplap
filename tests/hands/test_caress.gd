@@ -65,11 +65,6 @@ class FakePony extends RefCounted:
 	var head: Variant = null
 
 
-
-func near(a: float, b: float, eps := 0.001) -> bool:
-	return absf(a - b) <= eps
-
-
 func _json_position(areas: Dictionary, area: String, side: String) -> Vector3:
 	var entry: Variant = areas.get(area, {})
 	if not entry is Dictionary:

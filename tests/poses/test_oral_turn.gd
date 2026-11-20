@@ -13,11 +13,6 @@ const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 class FakePony extends Node3D:
 	pass
 
-
-func near(a: float, b: float, eps := 0.001) -> bool:
-	return absf(a - b) <= eps
-
-
 func _live(scale := 1.0) -> Dictionary:
 	var pony := FakePony.new()
 	pony.position = Vector3(1.0, 0.0, 2.0)

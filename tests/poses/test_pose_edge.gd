@@ -18,11 +18,6 @@ const FACESIT_FORWARD_PATH := "res://mods/unfplap/poses/transitions/missionary__
 const FACESIT_REVERSE_PATH := "res://mods/unfplap/poses/transitions/bed_facesit__missionary.json"
 
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	_check_runs()
 	_check_oral_documents()

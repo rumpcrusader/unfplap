@@ -27,11 +27,6 @@ class FakePoints:
 class FakePoseNode extends "res://mods/unfplap/poses/skeleton_pose.gd":
 	pass
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func near_v(a: Vector3, b: Vector3, eps := 0.0001) -> bool:
 	return a.distance_to(b) <= eps
 

@@ -13,11 +13,6 @@ const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 class FakePony extends Node3D:
 	var identity: Variant = null
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	_check_dims()
 	_check_build_guards()

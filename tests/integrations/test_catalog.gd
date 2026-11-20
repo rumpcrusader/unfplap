@@ -24,7 +24,7 @@ func run() -> void:
 		if str(provider.get("mod_name", "")).is_empty() \
 				or str(provider.get("author", "")).is_empty() \
 				or str(provider.get("verified_version", "")).is_empty():
-			check(false, "provider %s has name, author and verified version" % id)
+			fail("provider %s has name, author and verified version" % id)
 		var rows: Variant = provider.get("features", [])
 		check(rows is Array and not (rows as Array).is_empty(),
 			"provider %s declares a feature flag" % id)

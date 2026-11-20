@@ -15,11 +15,6 @@ const RIGHT_HAND := "RightHand"
 const ANON_BONES := [HIPS, SPINE, HEAD, LEFT_HAND, RIGHT_HAND]
 
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	_check_placement()
 	_check_bones()

@@ -109,11 +109,6 @@ class FakeSourceMod extends Node:
 	func bring_out() -> void:
 		brought += 1
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func _identity(id: String, character_id := "") -> FakeIdentity:
 	var identity := FakeIdentity.new()
 	identity.id = id

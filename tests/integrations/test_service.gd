@@ -70,11 +70,6 @@ class FakeFidgets extends Node3D:
 	var _root := 7
 	var _tap_next := 0.25
 
-
-func near(a: float, b: float, eps := 0.00001) -> bool:
-	return absf(a - b) <= eps
-
-
 func _setup(feature := true) -> Dictionary:
 	var pony := FakePony.new()
 	pony.name = "TestPony"

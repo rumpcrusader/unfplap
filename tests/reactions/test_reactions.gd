@@ -78,11 +78,6 @@ class FakePony extends Node3D:
 	var skeleton: Variant = null
 	var hair_skeleton: Variant = null
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 ## The act snapshot the facade takes: the block plus the family, size and climax length.
 func tune(block := {}, family := "", size := 1.0, climax := 5.0) -> RefCounted:
 	var context := REACTIONS.CONTEXT.new()

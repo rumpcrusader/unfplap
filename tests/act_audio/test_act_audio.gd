@@ -12,11 +12,6 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	for value: float in [0.0, 0.1, 0.33, 0.5, 0.66, 0.9, 1.0]:
 		check(ACT.tier_for(value) == PREFERENCES.intensity_for(value),

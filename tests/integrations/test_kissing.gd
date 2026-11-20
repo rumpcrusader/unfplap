@@ -174,7 +174,3 @@ func run() -> void:
 		"afterglow suppresses a climax's fidgets")
 
 	finish()
-
-
-func near(a: float, b: float, eps := 0.00001) -> bool:
-	return absf(a - b) <= eps

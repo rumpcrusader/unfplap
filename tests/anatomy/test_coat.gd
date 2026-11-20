@@ -47,11 +47,6 @@ class FakeAppearanceIdentity extends Resource:
 class FakeAppearancePony extends Node3D:
 	var identity: Resource
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	# The V2 mesh's density walk can collapse to the 4 mm floor; keep the authored band.
 	check(is_equal_approx(GEOMETRY.stable_lip_radius(0.004), GEOMETRY.WINKING_LIP_RADIUS),

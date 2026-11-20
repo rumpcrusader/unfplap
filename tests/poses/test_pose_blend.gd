@@ -95,11 +95,6 @@ class FakeDelta extends "res://mods/unfplap/poses/pose_driver.gd":
 			sk.set_bone_pose(index, Transform3D(Basis.IDENTITY, origin))
 		log.append("delta:%.3f" % weight)
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	_check_single()
 	_check_modes()

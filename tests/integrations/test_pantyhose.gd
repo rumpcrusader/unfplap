@@ -126,11 +126,6 @@ class FakeDirector extends Node:
 	var actions: Node = null
 	var _turn_id := 7
 
-
-func near(a: float, b: float, eps := 0.00001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	_check_hull_fixture()
 	_check_hull_real()

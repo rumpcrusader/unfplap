@@ -283,7 +283,3 @@ class FakeWings extends Node:
 
 	func set_open(value: bool) -> void:
 		opened = value
-
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps

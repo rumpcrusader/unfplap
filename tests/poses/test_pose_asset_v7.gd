@@ -17,11 +17,6 @@ const PONY_BONES := AUTHORED.PONY_BONES
 
 var _scenes: Array[Node] = []
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func near_v(a: Vector3, b: Vector3, eps := 0.0001) -> bool:
 	return a.distance_to(b) <= eps
 

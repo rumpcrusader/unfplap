@@ -35,11 +35,6 @@ class FakePony extends Node3D:
 	var boop_node: Variant
 	var head: Variant = null
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	var pony := FakePony.new()
 	var boop := FakeBoop.new()

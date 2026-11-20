@@ -117,11 +117,6 @@ class FakeMain extends Node:
 	func camera() -> Camera3D:
 		return view
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	var main := FakeMain.new()
 	root.add_child(main)

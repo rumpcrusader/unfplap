@@ -223,11 +223,6 @@ class FakeListener extends Node3D:
 	func listen_point() -> Vector3:
 		return Vector3(0.5, 1.5, 0.5)
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func _fixture() -> Dictionary:
 	var main := FakeMain.new()
 	var player := FakePlayer.new()

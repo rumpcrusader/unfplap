@@ -8,11 +8,6 @@ const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const COAT_LINE := preload("res://mods/unfplap/anatomy/coat_line.gd")
 
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	# The density walk can collapse or overshoot; keep the authored band.
 	check(is_equal_approx(GEOMETRY.stable_lip_radius(0.004),

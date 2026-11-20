@@ -76,11 +76,6 @@ class FakeFacts extends ACT_FACTS:
 class FakeFacePoints extends "res://mods/unfplap/tests/support/fakes/fake_face_points.gd":
 	pass
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 ## The plain-document edges the suite builds its typed records through.
 func _values(raw: Dictionary) -> SESSION.ActPose:
 	return SESSION.ActPose.from_dict(raw)

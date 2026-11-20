@@ -24,11 +24,6 @@ class FakeState extends RefCounted:
 	func state_now() -> int:
 		return value
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func _readiness(state: FakeState) -> RefCounted:
 	var readiness: RefCounted = READINESS.new()
 	readiness.state = Callable(state, "state_now")

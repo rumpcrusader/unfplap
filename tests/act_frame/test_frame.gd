@@ -29,11 +29,6 @@ class FakePlayer extends Node3D:
 		if camera != null:
 			camera.position.y = value
 
-
-func near(a: float, b: float, epsilon := 0.0001) -> bool:
-	return absf(a - b) <= epsilon
-
-
 func run() -> void:
 	_check_standing()
 	_check_missionary()

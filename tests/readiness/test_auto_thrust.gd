@@ -8,11 +8,6 @@ const AUTO := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 ## Drive the real tracker with the generated depth. Returns every tracker event.
 func _simulate(depth: float, pace: float, seconds: float, shape := "cosine",
 		low := 0.0) -> Array:

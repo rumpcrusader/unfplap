@@ -33,11 +33,6 @@ var owner: Node
 class FakeMain extends Node:
 	var eligibility: ELIGIBILITY
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	REGISTRY.reset()
 	var main := FakeMain.new()

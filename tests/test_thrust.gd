@@ -5,11 +5,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 ## Only the events of one kind: `impact` is the bottom of a stroke, `stroke` its close.
 func _only(events: Array, kind: String) -> Array:
 	var out: Array = []

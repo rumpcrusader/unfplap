@@ -8,11 +8,6 @@ const CUES := preload("res://mods/unfplap/audio/smack_cues.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	var before := SETTINGS.pack_smack_sound.get_bool()
 	SETTINGS.pack_smack_sound.set_bool(true)

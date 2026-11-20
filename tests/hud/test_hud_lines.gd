@@ -8,11 +8,6 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 
-
-func near(a: float, b: float) -> bool:
-	return absf(a - b) <= 0.0001
-
-
 func _view() -> RefCounted:
 	var view := ACT_FACTS.new()
 	var pose := POSE_VIEW.new()

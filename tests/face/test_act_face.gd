@@ -28,11 +28,6 @@ class FakeMoodPony extends Node3D:
 	var expressions: Variant = null
 	var boop_node: Variant = null
 
-
-func near(a: float, b: float, eps := 0.001) -> bool:
-	return absf(a - b) <= eps
-
-
 func _quality(overrides := {}) -> Dictionary:
 	var base := {
 		"intensity_total": 6,
@@ -75,7 +70,7 @@ func run() -> void:
 
 	var warm := ACT_FACE.climax_style(_quality({"liked_touch": 1}))
 	check(str(warm.get("style", "")) == "fluster", "warm matched act is flustered")
-	check(near(float(warm.get("score", 0.0)), 0.833), "warm matched score")
+	check_approx(float(warm.get("score", 0.0)), 0.833, "warm matched score", 0.001)
 
 	var poor := ACT_FACE.climax_style(_quality({
 		"intensity_right": 1, "pattern_right": 0, "both_matches": 0,

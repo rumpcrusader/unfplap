@@ -4,11 +4,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const ROT := preload("res://mods/unfplap/poses/rotation.gd")
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	var forward := Vector3(0, 0, -1)
 	var up := Vector3.UP

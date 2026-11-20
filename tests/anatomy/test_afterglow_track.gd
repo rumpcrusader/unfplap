@@ -67,11 +67,6 @@ class FakeAnatomy extends "res://mods/unfplap/anatomy/controller.gd":
 class FakePony extends Node3D:
 	pass
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 ## One afterglow tick on a fake rig. Returns the act, anatomy and part for assertions.
 func _afterglow_tick(pose_id: String) -> Array:
 	var pony := FakePony.new()

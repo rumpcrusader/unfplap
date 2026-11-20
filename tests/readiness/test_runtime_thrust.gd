@@ -8,11 +8,6 @@ const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func _view(runtime: Node) -> RefCounted:
 	runtime.act.refresh_view()
 	runtime.act.sync_hud()

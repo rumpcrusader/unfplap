@@ -9,11 +9,6 @@ const STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	_check_next()
 	_check_request_code()

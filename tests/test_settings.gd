@@ -67,11 +67,6 @@ class FakeSettings extends Node:
 	func get_value(key: String) -> Variant:
 		return "mounting" if key == "ponies/size" else null
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	_check_load()
 	_check_registry()
@@ -264,7 +259,7 @@ func _check_shipped_defaults() -> void:
 		elif setting is SETTINGS.ColorSetting:
 			check(value is String and _is_hex_color(str(value)), "%s is a hex colour" % path)
 		else:
-			check(false, "%s has a known setting kind" % path)
+			fail("%s has a known setting kind" % path)
 	check(_flatten_paths(SETTINGS._shipped()) == leaves,
 		"the settings loader reads the shipped settings document")
 	var copy := SETTINGS.defaults().raw()

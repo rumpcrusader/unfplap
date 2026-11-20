@@ -46,11 +46,6 @@ class Host extends RefCounted:
 	func is_heat() -> bool:
 		return heat
 
-
-func near(a: float, b: float, eps := 0.0001) -> bool:
-	return absf(a - b) <= eps
-
-
 func run() -> void:
 	var host := Host.new()
 	var readiness := READINESS.new()

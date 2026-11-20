@@ -6,6 +6,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const FRAME := preload("res://mods/unfplap/act/frame.gd")
 
 var failures := 0
 var checks := 0
@@ -85,9 +86,8 @@ func run() -> void:
 	var act: Variant = runtime.act.stool()
 	act.set("active", true)
 	act.set("count", 2)
-	runtime._bundle.context.placement.bind_act(runtime.act.placement_values())
-	var standing: Variant = runtime._bundle.context.placement.begin_act()
-	check(standing is Transform3D, "the standing transform is returned")
+	var plan: Variant = runtime._bundle.frame.begin(FRAME.pose("standing"))
+	check(plan is FRAME.PlayerPlan, "the standing plan is returned")
 	var prop: Variant = act.get("node")
 	check(prop is Node3D and is_instance_valid(prop), "the standing stool stack is built")
 	var height := float(act.get("height_m"))

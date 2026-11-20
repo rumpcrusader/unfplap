@@ -131,11 +131,10 @@ var now := Callable()
 var play_mouth_kiss := Callable()
 var act_actions_allowed := Callable()
 var auto_panel_open := Callable()
-var standing_camera := Callable()
+var view := Callable()
 var missionary_anon := Callable()
 var anatomy_normal := Callable()
 var anatomy_opening := Callable()
-var authored_pose_asset := Callable()
 var missionary_face_point := Callable()
 ## The missionary gaze target (the authored Anon's face), owned by the anatomy bridge.
 var gaze_point := Callable()
@@ -204,9 +203,9 @@ func smack_hit(strength: float) -> void:
 		on_smack.call(strength)
 
 
-## The standing camera controller, or null outside a standing act.
-func standing_camera_controller() -> Variant:
-	return standing_camera.call() if standing_camera.is_valid() else null
+## The one live act view, or null outside an act.
+func view_controller() -> Variant:
+	return view.call() if view.is_valid() else null
 
 
 ## The game's desktop pose driver, or null when the avatar has none.

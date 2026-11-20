@@ -33,7 +33,7 @@
     {
       "service": "camera",
       "func": "bind",
-      "signature": "func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant, standing_ctl: Variant, missionary_ctl: Variant) -> void:"
+      "signature": "func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant, view_ctl: Variant) -> void:"
     },
     {
       "service": "camera",
@@ -48,7 +48,7 @@
     {
       "service": "camera",
       "func": "pose_changed",
-      "signature": "func pose_changed(view: Variant) -> void:"
+      "signature": "func pose_changed(pose_view: Variant) -> void:"
     },
     {
       "service": "dialogue",

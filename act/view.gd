@@ -95,9 +95,9 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 		facts.look_yaw = float(frame_plan.look_yaw)
 		facts.look_pitch = float(frame_plan.look_pitch)
 	else:
-		facts.look_captured = cam.look_captured
-		facts.look_yaw = cam.look_yaw
-		facts.look_pitch = cam.look_pitch
+		facts.look_captured = false
+		facts.look_yaw = 0.0
+		facts.look_pitch = 0.0
 	facts.lean_forward = cam.lean_forward
 	facts.lean_side = cam.lean_side
 	facts.lean_action_side = cam.lean_action_side
@@ -194,7 +194,7 @@ func reset_act_state(session: ACT_SESSION) -> void:
 	context.readiness.reset_auto()
 	context.readiness.reset(session.preferences)
 	context.standing_anon.reset_phase()
-	context.standing_camera.reset_depth()
+	context.view.reset_depth()
 	context.facts.standing_sway_offset = Vector3.ZERO
 	context.afterglow.reset()
 	context.dialogue.reset(session.clock_s(), session.cue_gap)

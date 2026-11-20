@@ -9,10 +9,16 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
-const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+
+## Her neck line in the authored standing stance: the closed rule the aim uses when no live bone is
+## available, so a start never reads her idle neck.
+const STANDING_NECK_HEIGHT_M := 1.0
 
 
 ## The pose's part of the frame contract: which asset family the start installs and the closed
@@ -60,9 +66,12 @@ class Rig:
 	var forward := Vector3.FORWARD
 	var pony_position := Vector3.ZERO
 	var player_position := Vector3.ZERO
+	var gaps: Dictionary = {}
 	var gap := 0.0
 	var size_name := ""
 	var size_scale := 1.0
+	## The "same height" preset's scale, the one the gap was tuned against.
+	var anon_scale := 1.0
 	var base_eye := 1.6
 	var her_eye := NAN
 	var entrance := Vector2.ZERO
@@ -243,8 +252,8 @@ static func neck_for(rig: Rig) -> Vector3:
 	return Vector3(rig.pony_position.x, neck_y, rig.pony_position.z)
 
 
-## The scene values one live frame reads. The pose and the rig supply the rest.
-func live_rig(pose_input: PoseInput, form: Variant = null) -> Rig:
+## The scene values one live frame reads, before the stance measurement.
+func scene_rig(_pose_input: PoseInput, form: Variant = null) -> Rig:
 	var rig := Rig.new()
 	rig.pony = host.pony if is_instance_valid(host.pony) else null
 	rig.player = WORLD.player if is_instance_valid(WORLD.player) else null
@@ -256,19 +265,49 @@ func live_rig(pose_input: PoseInput, form: Variant = null) -> Rig:
 	rig.forward = forward_for(rig.pony, rig.player)
 	rig.pony_position = rig.pony.global_position if is_instance_valid(rig.pony) else Vector3.ZERO
 	rig.player_position = rig.player.global_position if is_instance_valid(rig.player) else Vector3.ZERO
-	context.placement.bind_act(session.placement_values(rig.form))
-	rig.gap = context.placement.gap_act()
 	rig.size_name = context.camera.size_name()
 	rig.size_scale = context.camera.size_scale()
+	rig.anon_scale = context.camera.same_height_scale()
 	rig.entrance = context.camera.entrance_offset_for(rig.form)
+	rig.gaps = pose_gaps()
+	rig.gap = gap_for(rig) + SETTINGS.gap_offset_m.get_num()
 	rig.her_eye = context.camera.pony_eye_height()
 	rig.head_clearance = context.camera.head_clearance_m()
 	rig.neck_height = neck_height_for(rig.pony)
+	return rig
+
+
+## The scene values one start measures from: the scene plus the stance and her authored neck line.
+func live_rig(pose_input: PoseInput, form: Variant = null) -> Rig:
+	var rig := scene_rig(pose_input, form)
 	_capture(rig, pose_input.family == "standing")
 	rig.eye = stance_eye(rig)
 	if pose_input.family == "standing" and not rig.player_pony and not rig.headset_view:
 		_prepare_standing(rig)
 	return rig
+
+
+## Her standing gaps, from the pose config the act is running. A start without a built pose falls
+## back to the shipped row.
+func pose_gaps() -> Dictionary:
+	if context != null and context.pose != null:
+		var gaps: Variant = context.pose.pose_config.get("gaps", {})
+		if gaps is Dictionary and not (gaps as Dictionary).is_empty():
+			return gaps
+	var row: Dictionary = SETTINGS.pose(session.pony_id, CATALOG.STANDING)
+	var shipped: Variant = row.get("gaps", {})
+	return shipped if shipped is Dictionary else {}
+
+
+## The gap between her centre and Anon: the preset's tuned gap, scaled with his own height when she
+## is sized to match him, plus the body's entrance back offset.
+static func gap_for(rig: Rig) -> float:
+	var gaps: Dictionary = rig.gaps
+	var size := rig.size_name
+	if not gaps.has(size):
+		size = "same height"
+	var base: float = float(gaps.get(size, 0.0))
+	return base * rig.anon_scale + rig.entrance.y
 
 
 ## Her flat forward, with Anon's own facing as the fallback, exactly as the placement handle reads
@@ -288,7 +327,7 @@ static func neck_height_for(pony: Variant) -> float:
 	var scale := 1.0
 	if is_instance_valid(pony) and pony.get("body_scale") != null:
 		scale = clampf(float(pony.get("body_scale")), 0.5, 2.5)
-	return STANDING_CAMERA.STANDING_HEAD_NECK_HEIGHT_M * scale
+	return STANDING_NECK_HEIGHT_M * scale
 
 
 ## The authored target neck midpoint in world space; `INF` when the rig has no neck chain.
@@ -349,13 +388,14 @@ func _apply_start(plan: PlayerPlan, pose_input: PoseInput, rig: Rig) -> void:
 	_place_act_body(plan)
 
 
-## The standing start: Anon at her gap and forward, then his stance.
+## The standing start: Anon at her gap and forward, then his stance. A player-pony or headset act
+## puts her in front of that rig instead, because she rides it.
 func _apply_standing(plan: PlayerPlan, rig: Rig) -> void:
 	var body: Node3D = rig.player
 	if rig.player_pony or rig.headset_view or not is_instance_valid(body):
-		context.placement.bind_act(session.placement_values(rig.form))
-		var placed: Transform3D = context.placement.begin_act()
-		plan.root_transform = placed
+		var placed: Variant = _place_pony_front(rig)
+		if placed is Transform3D:
+			plan.root_transform = placed
 		_check_stool(plan, rig)
 		return
 	_write_stance(rig, plan.eye, plan.yaw, plan.aim_pitch)
@@ -375,13 +415,57 @@ func _apply_standing(plan: PlayerPlan, rig: Rig) -> void:
 	_reset_pelvis()
 	body.reset_physics_interpolation()
 	_write_look(plan)
-	context.standing_camera.begin_facing(plan.root_transform)
+	context.view.begin_facing(plan.root_transform)
 	_check_stool(plan, rig)
 	LOG.debug("frame places Anon at=(%.4f, %.4f, %.4f) yaw=%.4f pitch=%.4f gap=%.3f eye=%.3f pony=(%.4f, %.4f, %.4f) fwd=(%.4f, %.4f, %.4f) neck=(%.4f, %.4f, %.4f)", [
 		target.x, target.y, target.z, plan.yaw, plan.aim_pitch,
 		plan.gap, plan.eye, rig.pony_position.x, rig.pony_position.y, rig.pony_position.z,
 		rig.forward.x, rig.forward.y, rig.forward.z,
 		rig.neck_point.x, rig.neck_point.y, rig.neck_point.z])
+
+
+## Put her in front of the player along his view, at the act gap.
+func _place_pony_front(rig: Rig) -> Variant:
+	if not is_instance_valid(rig.pony):
+		if _stool_active(rig):
+			rig.stool.set("failed", true)
+		return null
+	var forward := Vector3.FORWARD
+	var view := WORLD.camera()
+	if is_instance_valid(view):
+		forward = -view.global_basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 0.0001 and is_instance_valid(rig.player):
+		forward = -rig.player.global_basis.z
+		forward.y = 0.0
+	forward = forward.normalized()
+	var at := rig.player_position + forward * rig.gap
+	at.y = rig.player_position.y
+	var placed := Transform3D(Basis.looking_at(forward, Vector3.UP), at)
+	rig.pony.reset_motion(placed)
+	rig.pony.reset_physics_interpolation()
+	return placed
+
+
+## The live standing gap for the offer and the suites, at the presented form.
+func standing_gap(form: Variant = null) -> float:
+	return scene_rig(pose("standing"), form).gap
+
+
+## Drop the part's pelvis handshake after a new body or a fresh placement.
+func reset_pelvis() -> void:
+	_reset_pelvis()
+
+
+## The replacement body must still clear the adult-mare gate. A host without the service (a suite
+## or a lab) reads as allowed, so the handover can be driven without the world's eligibility graph.
+func new_body_is_adult() -> bool:
+	if not is_instance_valid(WORLD.game):
+		return true
+	var service: Variant = PONIES.eligibility
+	if service == null or not service.has_method("eligible"):
+		return true
+	return bool(service.call("eligible", host.pony, ELIGIBILITY.Target.ACT))
 
 
 ## The missionary act body's placement for this frame: the pose service owns the body and applies

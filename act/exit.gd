@@ -52,21 +52,20 @@ func run(rejoin_cuddle: bool) -> void:
 	context.anatomy.bind(context.anatomy_host)
 	context.anatomy.end()
 	# The oral turn's facing override must not outlive the act, even on a direct forced stop.
-	context.standing_camera.reset_facing()
+	context.view.reset_facing()
 	if is_instance_valid(HUD.instance):
 		HUD.instance.set_inventory_hidden(false)
 	context.kiss.restore_forelegs()
 	context.hold.restore_face_turn()
 	context.frame.end()
+	context.view.unmount()
 	if is_instance_valid(host.pony):
 		context.face.clear_face()
 		context.face.end_face()
 		context.wings.release()
 	context.hold.unlock_player()
-	if context.camera.camera_owned:
-		context.camera.release_act_shot()
-		session.refresh_view()
-		context.camera.finish_act_shot()
+	session.refresh_view()
+	context.camera.finish_act()
 	if context.stool != null:
 		context.stool.call("release")
 	if is_instance_valid(host.pony):
@@ -218,7 +217,7 @@ func restore_begin() -> void:
 	context.pose.set_tail_target(0.0)
 	context.audio.stop_breath()
 	context.camera.release_back()
-	context.standing_camera.reset_facing()
+	context.view.reset_facing()
 	if is_instance_valid(HUD.instance):
 		HUD.instance.hide_act()
 

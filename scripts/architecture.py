@@ -103,13 +103,13 @@ POSE_FANOUT_ORDER = (
 START_LEDGER_ORDER = (
     'POSE_SPECS.start_setup(pose) == "standing_place"',
     "session.reset_stool_state()",
-    "context.camera.begin_session(",
     "session.posture_owned = false",
     "session.profile = SETTINGS.template_for(",
     "session.bed = context.gate.resolve_bed(",
     "var setup_name := POSE_SPECS.start_setup(pose)",
     "_build_pose()",
     "context.frame.begin(",
+    "context.camera.begin_act(",
     "context.audio.start(",
     "session.begin_pose_in()",
     "HUD.instance.show_act(context.facts)",
@@ -1497,6 +1497,72 @@ def check_runtime_shape(failure: Failure) -> None:
             failure.add("the runtime child-node allow-list row %s is stale (%s)" % (owner, reason))
 
 
+# The act's player frame and its view each have one writer. Each row is a write token and the files
+# allowed to carry it, and the scan is compared both ways: a second writer fails, and a row no file
+# carries any more is stale. The momentary control lock in the world facade and the standing kiss is
+# a base-game hold with his controls released, not the act's frame lock.
+ACT_STATE_WRITES = {
+    'set("_stand_eye"': {"act/frame.gd": "the frame owns Anon's eye line"},
+    'set("_eye_height"': {"act/frame.gd": "the frame owns Anon's eye line"},
+    'call("_set_eye_y"': {"act/frame.gd": "the frame owns Anon's eye line"},
+    'set("controls_locked"': {
+        "act/frame.gd": "the act's one controls lock",
+        "world/service.gd": "a base-game call with his controls released",
+        "kiss/service.gd": "the standing kiss call, restored at once",
+    },
+    'set("_pitch"': {
+        "act/frame.gd": "the base aim",
+        "camera/view.gd": "the live lean pitches his own look",
+    },
+    'body.global_position = ': {"act/frame.gd": "the frame places him"},
+    'body.rotation.y = ': {
+        "act/frame.gd": "the base facing",
+        "camera/view.gd": "the live lean turns his own look",
+    },
+    '_player.rotation.y = ': {"act/frame.gd": "the frame restores his captured look"},
+    'host.pony.global_transform = ': {"act/frame.gd": "the frame restores the scene it found"},
+    'rig.pony.reset_motion(': {"act/frame.gd": "the player-pony start places her"},
+    'context.pose.render_write(': {"act/frame.gd": "the frame places the act body once"},
+    'context.pose.write_render_frame(': {"act/view.gd": "the render-time act body write"},
+    '_missionary_view.global_position = ': {"camera/view.gd": "the one act view"},
+    '_missionary_view.global_basis = ': {"camera/view.gd": "the one act view"},
+    '_missionary_view.current = ': {"camera/view.gd": "the one act view"},
+    'camera.position = ': {"camera/view.gd": "the player camera's live offset"},
+    'camera.position.y = ': {"camera/view.gd": "the player camera's live offset"},
+    'camera.position.z -=': {"camera/view.gd": "the player camera's live offset"},
+    'camera.position.x +=': {"camera/view.gd": "the player camera's live offset"},
+    'camera.rotation.z = ': {"camera/view.gd": "the live lean roll"},
+    'camera.rotation.x = ': {"camera/view.gd": "the live lean pitch"},
+    'view.rotation.x = ': {
+        "act/frame.gd": "the base aim and its restore",
+        "camera/view.gd": "the live lean pitch on the player camera",
+    },
+}
+
+
+def check_act_owners(failure: Failure) -> None:
+    """The act's player frame and its view have one writer each.
+
+    The frame places, stances and restores Anon; the view applies the live look and writes the act
+    view node. One owner per state is the property the scattered camera setup lost, so the write
+    tokens are checked as an allow-list in both directions.
+    """
+    found: dict[str, set[str]] = {token: set() for token in ACT_STATE_WRITES}
+    for path in shipped_sources():
+        text = _code_lines(path.read_text(encoding="utf-8"))
+        for token in ACT_STATE_WRITES:
+            if token in text:
+                found[token].add(rel(path))
+    for token, owners in ACT_STATE_WRITES.items():
+        for name in sorted(found[token] - set(owners)):
+            failure.add(
+                "%s writes the act's player/view state (%s); %s owns it" % (
+                    name, token, ", ".join(sorted(owners))))
+        for name, reason in sorted(owners.items()):
+            if name not in found[token]:
+                failure.add("the act write row %s (%s) is stale for %s" % (token, reason, name))
+
+
 def report_large_files() -> None:
     """Report files over the smell threshold. Size is information, not a gate."""
     for path in sorted(shipped_sources()):
@@ -1550,6 +1616,7 @@ def check() -> int:
     check_runtime_shape(failure)
     check_entry_shape(failure)
     check_log_bleed(failure)
+    check_act_owners(failure)
     check_owners(failure)
     check_tests(failure)
     failures = len(failure.messages)

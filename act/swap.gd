@@ -78,50 +78,33 @@ func rebind_body() -> void:
 			owner.call("pose_changed", view)
 
 
-## The host's revised-form visual pass: the camera frame and the standing placement.
+## The host's revised-form visual pass: the live shot state and the player frame.
 func reset_visual_for_form() -> void:
 	reset_visual(context.handover.form())
 
 
-## Recompute the act's visual frame after a presented-form revision. The camera's old offset is
-## undone before the new form is measured, then the player frame is re-fitted.
+## Recompute the act's visual frame after a presented-form revision: the shot starts from rest and
+## the player frame re-fits the new form.
 func reset_visual(form: BODY_FORM.BodyForm) -> void:
-	context.camera.reset_for_form(session.start_family())
+	context.camera.reset_shot()
+	context.camera.camera_basis_ready = false
 	context.frame.refit(context.frame.pose_input(), form)
 	session.refresh_view()
 
 
-## Bind the placement handle's act values, then place, re-anchor or measure from them. The
-## placement handle owns the math; the act session owns the values.
-func bind_placement(form: BODY_FORM.BodyForm = null) -> void:
-	context.placement.bind_act(session.placement_values(form))
-
-
-## The live standing gap for the offer and the suites. The placement handle owns the value.
+## The live standing gap for the offer and the suites. The frame owns the value.
 func standing_gap(form: BODY_FORM.BodyForm = null) -> float:
-	bind_placement(form)
-	return context.placement.gap_act()
-
-
-## A standing act places Anon at the body's gap. A different body form needs that pass again; the
-## bed act keeps him where he is and its authored shot re-reads the live body scale.
-func reanchor(form: BODY_FORM.BodyForm = null) -> void:
-	bind_placement(form)
-	var standing: Variant = context.placement.reanchor_act(session.pose_family())
-	if standing is Transform3D:
-		context.standing_camera.begin_facing(standing)
+	return context.frame.standing_gap(form)
 
 
 func reset_pelvis() -> void:
-	bind_placement()
-	context.placement.reset_pelvis_act()
+	context.frame.reset_pelvis()
 
 
 ## A new body must still be an adult mare for the act to go on. A missing service reads as allowed,
 ## so a suite can drive the handover without the world's eligibility graph.
 func new_body_is_adult() -> bool:
-	bind_placement()
-	return context.placement.new_body_is_adult_act()
+	return context.frame.new_body_is_adult()
 
 
 ## The adopted body failed the act's adult-mare gate: log it and leave through the one exit.
@@ -168,9 +151,8 @@ func release_pose() -> void:
 
 func restore_camera() -> void:
 	if context.camera.camera_owned:
-		context.camera.release_act_shot()
+		context.camera.finish_act()
 		session.refresh_view()
-		context.camera.finish_act_shot()
 
 
 func stop_breath() -> void:
@@ -238,15 +220,8 @@ func reset_lean() -> void:
 	context.camera.reset_lean_state()
 
 
-func prepare_start_camera() -> void:
-	var camera_row: Variant = session.start_row().get("camera", {})
-	var profile := str((camera_row as Dictionary).get("profile", "")) \
-		if camera_row is Dictionary else ""
-	context.camera.prepare_start(profile)
-
-
 func open_camera() -> void:
-	if context.camera.begin_act_shot(session.pose_family(), session.player_pony,
+	if context.camera.begin_act(session.pose_family(), session.player_pony,
 			WORLD.headset_view()):
 		context.anatomy.bind(context.anatomy_host)
 		context.anatomy.vr_start()
@@ -301,7 +276,3 @@ func resume_auto() -> void:
 		context.readiness.toggle_auto(context.readiness.depth)
 	context.handover.clear_auto()
 
-
-func prepare_standing_camera() -> void:
-	if session.pose_family() == "standing":
-		context.standing_camera.prepare()

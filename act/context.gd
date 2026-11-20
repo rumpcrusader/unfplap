@@ -23,8 +23,7 @@ const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
-const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
-const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.gd")
+const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
 
@@ -51,8 +50,6 @@ var stool: RefCounted = null
 var consent: RefCounted = null
 ## The act's stroke presentation and its one post-move path.
 var impact: RefCounted = null
-## The standing placement handle. The start adapter and the body swap fill its typed values.
-var placement: RefCounted = null
 ## The act's player frame: the start placement, the stance and the one restore.
 var frame: ACT_FRAME = null
 var facts: ACT_FACTS = null
@@ -63,6 +60,6 @@ var standing_anon: STANDING_ANON = null
 var wings: WING = null
 var hands: HANDS = null
 var integrations: INTEGRATIONS = null
-var standing_camera: STANDING_CAMERA = null
-var missionary_camera: MISSIONARY_CAMERA = null
+## The one live act view: the standing offsets, the glance and the missionary eye.
+var view: CAMERA_VIEW = null
 var rest: REST = null

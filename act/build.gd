@@ -5,7 +5,6 @@ extends RefCounted
 ## See `docs/runtime.md`.
 
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
-const PLACEMENT := preload("res://mods/unfplap/poses/placement.gd")
 const REST_REJOIN := preload("res://mods/unfplap/rest/service.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
@@ -14,8 +13,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
-const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.gd")
-const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
+const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
@@ -86,16 +84,13 @@ class Bundle extends RefCounted:
 	var hands: HANDS = null
 	var kiss: KISS = null
 	var integrations: INTEGRATIONS = null
-	var missionary_camera: MISSIONARY_CAMERA = null
-	var standing_camera: STANDING_CAMERA = null
+	var view: CAMERA_VIEW = null
 	var standing_anon: STANDING_ANON = null
 	var presentation: STANDING_PRESENTATION = null
 	var hold: SCENE_HOLD = null
 	var rest: REST_REJOIN = null
-	var placement: PLACEMENT = null
-	var placement_facts: PLACEMENT.Facts = null
 	var facts: ACT_FACTS = null
-	var view: ACT_VIEW = null
+	var act_view: ACT_VIEW = null
 	var idle: ACT_IDLE = null
 	var consent: ACT_CONSENT = null
 	var impact: ACT_IMPACT = null
@@ -163,17 +158,14 @@ static func build(pony: Node, node: Node) -> Bundle:
 static func _build_systems(node: Node, b: Bundle) -> void:
 	b.handover_host = BODY_CHANGE_ACT_HOST.new()
 	b.handover = BODY_CHANGE_ACT.new(b.handover_host)
-	b.placement = PLACEMENT.new()
-	b.placement_facts = PLACEMENT.Facts.new()
 	b.wings = WING.new(b.facts)
 	b.hands = HANDS.new(b.facts)
 	b.kiss = KISS.new(b.facts)
 	b.integrations = INTEGRATIONS.new(b.facts)
-	b.missionary_camera = MISSIONARY_CAMERA.new(b.facts)
-	b.standing_camera = STANDING_CAMERA.new(b.facts)
+	b.view = CAMERA_VIEW.new(b.facts)
 	b.standing_anon = STANDING_ANON.new(b.facts)
 	b.presentation = STANDING_PRESENTATION.new(b.facts)
-	b.camera.bind(b.facts, b.hands, b.kiss, b.standing_camera, b.missionary_camera)
+	b.camera.bind(b.facts, b.hands, b.kiss, b.view)
 	b.camera.standing_anon = b.standing_anon
 	b.audio = AUDIO_ACT.new()
 	b.audio.bind(node)
@@ -196,8 +188,8 @@ static func _bind_act_frame(node: Node, b: Bundle) -> void:
 	b.impact.bind(b.host, b.context, b.act)
 	b.context.impact = b.impact
 	b.context.audio = b.audio
-	b.view = ACT_VIEW.new()
-	b.view.bind(b.host, b.context)
+	b.act_view = ACT_VIEW.new()
+	b.act_view.bind(b.host, b.context)
 	b.idle = ACT_IDLE.new()
 	b.idle.bind(b.host, b.context, b.act)
 	b.exit = ACT_EXIT.new()
@@ -218,13 +210,13 @@ static func _bind_act_frame(node: Node, b: Bundle) -> void:
 	b.tick.phases = b.phases
 	b.act.ticker = b.tick
 	b.start = ACT_START.new()
-	b.start.bind(b.host, b.context, b.act, b.exit, b.view)
+	b.start.bind(b.host, b.context, b.act, b.exit, b.act_view)
 	b.agreement = ACT_AGREEMENT.new()
 	b.agreement.bind(b.host, b.context, b.act, b.start)
 	b.act_gate = ACT_GATE.new()
 	b.act_gate.bind(b.gate, b.agreement, b.act, b.reactions)
 	b.act.start = b.start
-	b.act.view = b.view
+	b.act.view = b.act_view
 	b.exit.start = b.start
 
 
@@ -246,15 +238,13 @@ static func _build_act_context(b: Bundle) -> ACT_CONTEXT:
 	context.summary = b.summary
 	context.presentation = b.presentation
 	context.standing_anon = b.standing_anon
-	context.standing_camera = b.standing_camera
+	context.view = b.view
 	context.wings = b.wings
 	context.hands = b.hands
 	context.integrations = b.integrations
 	context.hold = b.hold
 	context.rest = b.rest
-	context.placement = b.placement
 	context.anatomy_host = b.anatomy_host
-	context.missionary_camera = b.missionary_camera
 	return context
 
 
@@ -263,7 +253,7 @@ static func _bind_pose_hosts(node: Node, b: Bundle) -> void:
 	b.pose.bind(node, b.pony)
 	b.pose.id = b.act.pony_id
 	b.pose.set_act_body = Callable(b.anatomy_bridge, "set_missionary_anon")
-	b.pose.eye_camera = Callable(b.missionary_camera, "tick")
+	b.pose.eye_camera = Callable(b.view, "write_eye")
 	b.pose.facts = b.facts
 	b.pose.mouth_point = Callable(b.anatomy_bridge, "mouth_point")
 	b.pose.opening_point = Callable(b.anatomy_bridge, "opening")
@@ -305,7 +295,7 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.gate.hold_compatible = Callable(b.hold, "accepts_hold")
 	b.gate.debug_context = Callable(b.act, "debug_context")
 	b.rest.context = Callable(b.act, "rest_context")
-	b.rest.restore_scene = Callable(b.missionary_camera, "restore_scene")
+	b.rest.restore_scene = Callable(b.frame, "restore_scene")
 	b.hold.bind({
 		"pony": Callable(b.host, "pony_value"),
 		"state": Callable(b.act, "state_value"),
@@ -314,11 +304,10 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.play_mouth_kiss = Callable(b.audio, "play_mouth_kiss")
 	b.facts.act_actions_allowed = Callable(b.camera, "at_actions_allowed")
 	b.facts.auto_panel_open = Callable(b.input, "auto_panel_open")
-	b.facts.standing_camera = Callable(b.camera, "standing_controller")
+	b.facts.view = Callable(b.camera, "view_controller")
 	b.facts.missionary_anon = Callable(b.act, "missionary_anon_body")
 	b.facts.anatomy_normal = Callable(b.act, "anatomy_normal")
 	b.facts.anatomy_opening = Callable(b.act, "anatomy_opening")
-	b.facts.authored_pose_asset = Callable(b.pose, "authored_asset")
 	b.facts.missionary_face_point = Callable(b.camera, "missionary_face_point")
 	b.facts.gaze_point = Callable(b.anatomy_bridge, "gaze_point")
 	b.facts.free_look_rotation = Callable(b.camera, "free_look_rotation")
@@ -358,7 +347,7 @@ static func _bind_anatomy_host(b: Bundle) -> void:
 	host.body_coat_smack_cb = Callable(b.reactions, "body_coat_target")
 	host.status_cb = Callable(HUD, "anatomy_status")
 	host.command_cb = Callable(b.input, "command")
-	host.missionary_camera_cb = Callable(b.camera, "missionary_controller")
+	host.missionary_camera_cb = Callable(b.camera, "view_controller")
 	host.kiss_controller_cb = Callable(b.act, "kiss_service")
 	host.pose_cb = Callable(b.pose, "self_handle")
 	host.thrust_move_cb = Callable(b.impact, "move")
@@ -414,7 +403,6 @@ static func _bind_handover_host(b: Bundle) -> void:
 	host.reset_visual_for_form_cb = Callable(b.swap, "reset_visual_for_form")
 	host.reset_player_pelvis_cb = Callable(b.swap, "reset_pelvis")
 	host.reset_lean_cb = Callable(b.swap, "reset_lean")
-	host.prepare_start_camera_cb = Callable(b.swap, "prepare_start_camera")
 	host.open_camera_cb = Callable(b.swap, "open_camera")
 	host.reset_wings_cb = Callable(b.swap, "reset_wings")
 	host.claim_nav_cb = Callable(b.swap, "claim_nav")
@@ -427,5 +415,4 @@ static func _bind_handover_host(b: Bundle) -> void:
 	host.sync_hud_cb = Callable(b.swap, "sync_hud")
 	host.resume_auto_cb = Callable(b.swap, "resume_auto")
 	host.rebind_body_cb = Callable(b.swap, "rebind_body")
-	host.prepare_standing_camera_cb = Callable(b.swap, "prepare_standing_camera")
 	host.new_body_adult_cb = Callable(b.swap, "new_body_is_adult")

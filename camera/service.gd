@@ -42,18 +42,13 @@ var facts: Variant = null
 ## The controllers the camera drives and asks. The runtime binds them on every service call.
 var hands: Variant = null
 var kiss: Variant = null
-var standing_camera: Variant = null
-var missionary_camera: Variant = null
-## The standing act's Anon body controller: the shot installs it, the shot removes it, and the
-## standing eye override drives its phase.
+## The one act view. It owns the view node and every live offset; this facade owns the lean.
+var view: Variant = null
+## The standing act's Anon body controller, which the view drives by phase.
 var standing_anon: Variant = null
 
 ## Act-session ownership. Each flag marks external state this act took and must give back.
 var camera_owned := false
-var look_captured := false
-## Standing leaves Anon facing where the act left him; only missionary snaps the pre-act
-## yaw/pitch back.
-var look_restore_yaw := true
 var camera: Camera3D = null
 var free_camera_active := false
 var camera_basis_ready := false
@@ -80,9 +75,8 @@ var lean := 0.0
 var lean_velocity := 0.0
 var back := 0.0
 var back_target := 0.0
-## The last pose-change profile the hook saw, so a steady tick does nothing.
+## The last pose-change family and lean profile the hook saw, so a steady tick does nothing.
 var _hook_family := ""
-var _hook_camera := ""
 var _hook_lean := ""
 var _hook_seen := false
 var camera_surge: float
@@ -102,12 +96,11 @@ var free_look_was := false
 ## Bind the typed act view and the controllers the camera drives. The runtime refreshes these on
 ## every service call, so a suite can build a runtime without entering the tree.
 func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant,
-		standing_ctl: Variant, missionary_ctl: Variant) -> void:
+		view_ctl: Variant) -> void:
 	facts = facts_context
 	hands = hands_ctl
 	kiss = kiss_ctl
-	standing_camera = standing_ctl
-	missionary_camera = missionary_ctl
+	view = view_ctl
 
 
 ## The pose read model. A missing view reads as no family outside an act.
@@ -133,26 +126,17 @@ func lean_profile() -> String:
 	return str((view.presentation as Dictionary).get("lean", "")) if view != null else ""
 
 
-## The pose camera profile, the shot family the row declares.
-func camera_profile() -> String:
-	var view: Variant = _pose_view()
-	return str((view.camera as Dictionary).get("profile", "")) if view != null else ""
-
-
-## Retarget seam: a new family or profile ends the pose-local lean action and aims the next shot
-## afresh; the eye override, the session and the captured look all survive.
-func pose_changed(view: Variant) -> void:
-	if view == null:
+## Retarget seam: a new family ends the pose-local lean action so the next view tick starts afresh.
+func pose_changed(pose_view: Variant) -> void:
+	if pose_view == null:
 		return
-	var family := str(view.family)
-	var profile := str((view.camera as Dictionary).get("profile", ""))
-	var lean := str((view.presentation as Dictionary).get("lean", ""))
-	if _hook_seen and family == _hook_family and profile == _hook_camera and lean == _hook_lean:
+	var family := str(pose_view.family)
+	var lean := str((pose_view.presentation as Dictionary).get("lean", ""))
+	if _hook_seen and family == _hook_family and lean == _hook_lean:
 		return
 	var family_changed := _hook_seen and family != _hook_family
 	_hook_seen = true
 	_hook_family = family
-	_hook_camera = profile
 	_hook_lean = lean
 	if family_changed:
 		end_lean_action()
@@ -166,15 +150,14 @@ func write_look_target(pose: Node) -> void:
 		return
 	if not is_instance_valid(kiss):
 		return
-	var view: Camera3D = WORLD.camera()
-	if camera_profile() == "missionary_shots" and is_instance_valid(missionary_camera) \
-			and is_instance_valid(missionary_camera.view()):
-		view = missionary_camera.view()
+	var eye: Camera3D = WORLD.camera()
+	if pose_family() == "bed" and view != null and is_instance_valid(view.view()):
+		eye = view.view()
 	var custom_kiss: bool = kiss.custom_visible()
 	var kiss_view: Camera3D = kiss.mouth_view()
-	if is_instance_valid(view):
+	if is_instance_valid(eye):
 		if custom_kiss and is_instance_valid(kiss_view):
-			if camera_profile() == "missionary_shots":
+			if pose_family() == "bed":
 				# Fade the mouth in with the kiss; the raw point would snap on the first frame.
 				var mouth: Variant = kiss.target(kiss_view)
 				var gaze := gaze_point()
@@ -184,12 +167,12 @@ func write_look_target(pose: Node) -> void:
 					pose.set("look_point", gaze)
 			else:
 				pose.set("look_point", kiss.target(kiss_view))
-		elif camera_profile() == "missionary_shots":
+		elif pose_family() == "bed":
 			# Look at the authored Anon, not at the game camera: his body is placed by the act,
 			# and the player rig the camera belongs to is standing off the bed.
 			pose.set("look_point", gaze_point())
 		else:
-			pose.set("look_point", view.global_position)
+			pose.set("look_point", eye.global_position)
 	pose.set("kiss", kiss.amount() if custom_kiss else 0.0)
 	pose.set("climaxing", int(facts.state) == STATE_CLIMAX)
 
@@ -208,22 +191,15 @@ func configure(camera_block: Dictionary) -> void:
 	camera_bob = float(camera_block["bob"])
 
 
-## A fresh act: the previous session is dropped and the shot starts from rest. The runtime captures
-## the player look and creates the act's Anon body around this call.
-func begin_session(family: String) -> void:
-	camera_owned = false
-	look_captured = false
-	look_restore_yaw = family != "standing"
-	camera = null
-	free_camera_active = false
+## Begin the act's view. Returns true when the standing VR act must start: the act starts it on the
+## anatomy bridge, because the camera never reaches that system.
+func begin_act(family: String, player_pony: bool, headset: bool) -> bool:
+	camera_owned = true
 	camera_basis_ready = false
+	free_camera_active = false
+	camera = null
+	reset_lean_state()
 	reset_shot()
-
-
-## Begin the act's opening shot in the order it is built. Returns true when the standing VR act
-## must start: the act starts it on the anatomy bridge, because the camera never reaches that system.
-func begin_act_shot(family: String, player_pony: bool, headset: bool) -> bool:
-	open_shot()
 	if standing_anon != null:
 		standing_anon.reset_phase()
 	if headset and not player_pony and family == "standing":
@@ -232,15 +208,18 @@ func begin_act_shot(family: String, player_pony: bool, headset: bool) -> bool:
 		return false
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return false
-	begin_free()
+	free_camera_active = true
+	camera = main_camera()
 	if family == "standing" and is_instance_valid(camera):
-		standing_camera.prepare()
-		standing_anon.install()
+		view.prepare()
+		if standing_anon != null:
+			standing_anon.install()
 	return false
 
 
-## Give the act shot back, first half: the leaves that do not need the act view refreshed.
-func release_act_shot() -> void:
+## Give the act's view back: the live offsets and the act's own view node. The frame has already
+## given the player back, and the pose service removes the act body.
+func finish_act() -> void:
 	if not camera_owned:
 		return
 	camera_owned = false
@@ -249,38 +228,12 @@ func release_act_shot() -> void:
 		hands.reset()
 	if standing_anon != null:
 		standing_anon.remove()
-	if missionary_camera != null:
-		missionary_camera.release()
-
-
-## Give the act shot back, second half: after the act view has been refreshed for the idle frame.
-func finish_act_shot() -> void:
-	if standing_camera != null:
-		standing_camera.restore()
-	close_shot()
-	if standing_anon != null:
-		standing_anon.reset_phase()
-
-
-## Open the shot before the first camera frame; AnonPony and headset/VR never reach `begin_free()`.
-func open_shot() -> void:
-	camera_owned = true
-	camera_basis_ready = false
-	free_camera_active = false
-	reset_lean_state()
-
-
-## Take the desktop free shot: the player camera owns the view from here.
-func begin_free() -> void:
-	free_camera_active = true
-	camera = main_camera()
-
-
-## Release the shot's own state at act end. The runtime runs the cross-system releases around it
-## in the same order they were built.
-func close_shot() -> void:
+	if view != null:
+		view.unmount()
+		view.restore()
 	camera_basis_ready = false
 	camera = null
+	free_camera_active = false
 	reset_shot()
 
 
@@ -504,8 +457,8 @@ func start_lean_action(side: float) -> void:
 		shoulder = "L" if side < 0.0 else "R"
 		if facts != null:
 			facts.write_forced_glance(shoulder)
-		if standing_camera != null:
-			standing_camera.call("hold_glance")
+		if view != null:
+			view.hold_glance()
 		if hands != null:
 			hands.call("start_reach", shoulder)
 	LOG.debug("action fire lean=%s side=%.2f kind=%s shoulder=%s", [
@@ -518,8 +471,8 @@ func end_lean_action() -> void:
 			hands.call("end_reach")
 		if facts != null:
 			facts.write_forced_glance("")
-		if standing_camera != null:
-			standing_camera.call("clear_glance")
+		if view != null:
+			view.clear_glance()
 	lean_action_active = false
 	lean_action_side = 0.0
 	lean_action_kind = ""
@@ -619,17 +572,15 @@ func _body_scale_of(pony: Object) -> float:
 	return float(value) if value != null else 1.0
 
 
-## Dispatch the act shot. Missionary owns its own view; standing applies the player-camera
-## offsets. Debug free look leaves the stock player camera alone.
+## Dispatch the live view. The bed view is written at render time from his posed head; standing
+## applies the player-camera offsets. Debug free look leaves the stock player camera alone.
 func apply_motion() -> void:
-	if camera_profile() == "missionary_shots":
-		if missionary_camera != null:
-			missionary_camera.call("tick")
+	if pose_family() == "bed":
 		return
 	if free_look_active():
 		return
-	if standing_camera != null:
-		standing_camera.call("tick")
+	if view != null:
+		view.tick()
 
 
 ## True when the shot owns the view this frame: not idle, not AnonPony/VR, and the camera exists.
@@ -671,16 +622,6 @@ func tick_free_look() -> void:
 	free_look_yaw = 0.0
 	free_look_pitch = 0.0
 	LOG.debug("free look %s", [("on" if active else "off")])
-
-
-## Recompute the live view for a presented body form: the old shot state is dropped and the frame
-## re-applies the stance for the new form.
-func reset_for_form(family: String) -> void:
-	reset_shot()
-	camera_basis_ready = false
-	if family == "standing":
-		if standing_camera != null and standing_camera.has_method("reset"):
-			standing_camera.call("reset")
 
 
 ## The current body preset name, or "" when no Settings node is reachable (a suite runtime).
@@ -790,8 +731,8 @@ func main_camera() -> Camera3D:
 
 
 func apply_standing_lean_look() -> void:
-	if pose_family() == "standing" and standing_camera != null:
-		standing_camera.call("apply_lean_look")
+	if pose_family() == "standing" and view != null:
+		view.apply_lean_look()
 
 
 func settings_node() -> Node:
@@ -808,17 +749,6 @@ func feature(name: String) -> bool:
 	return bool((block as Dictionary).get(name, false)) if block is Dictionary else false
 
 
-## The typed handles and reads the host-callback bindings use: the two pose cameras.
-func missionary_controller() -> RefCounted:
-	return missionary_camera
-
-
-func standing_controller() -> RefCounted:
-	return standing_camera
-
-
-## Prepare the start pose's camera profile before the look is captured. The bed shot camera reads
-## the authored asset; the standing camera starts in its placement adapter instead.
-func prepare_start(profile: String) -> void:
-	if profile == "missionary_shots" and missionary_camera != null:
-		missionary_camera.prepare()
+## The one act view, for the host callbacks and the anatomy gaze.
+func view_controller() -> RefCounted:
+	return view

@@ -79,7 +79,7 @@ func fluid_ground_y() -> float:
 	var ground: float = host.pony.global_position.y if is_instance_valid(host.pony) else 0.0
 	if session.pose_family() != "bed":
 		return ground
-	var camera: Variant = context.missionary_camera
+	var camera: Variant = context.view
 	if camera != null and camera.has_method("bed_surface_top"):
 		var top: Variant = camera.call("bed_surface_top")
 		if top is float and is_finite(top):

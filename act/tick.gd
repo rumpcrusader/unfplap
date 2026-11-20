@@ -136,11 +136,11 @@ func _tick(delta: float) -> void:
 		context.afterglow.phase_tick(delta, context.anatomy, context.anatomy_host,
 			session.pose_family() == "standing")
 	PERF.begin("runtime_camera")
-	context.standing_camera.lock_facing()
-	context.standing_camera.drive_glance(delta)
+	context.view.lock_facing()
+	context.view.drive_glance(delta)
 	context.gate.suppress_auto_cuddle()
-	context.standing_camera.clamp_look()
-	context.standing_camera.tick_depth(delta)
+	context.view.clamp_look()
+	context.view.tick_depth(delta)
 	context.standing_anon.tick_phase(delta)
 	context.reactions.blush_tick(delta)
 	session.apply_camera_motion()
@@ -200,11 +200,11 @@ func render(delta: float) -> void:
 		context.pose.sync_frame(session.pose_family())
 		session.pose_render_write()
 		context.pose.idle_sample(session.state)
-		context.standing_camera.clamp_look()
+		context.view.clamp_look()
 		context.camera.write_look_target(context.pose.pose())
 		if session.state == State.CLIMAX:
 			session.refresh_climax_progress()
-		context.camera.tick_shot(delta, session.state, context.standing_camera.speed(),
+		context.camera.tick_shot(delta, session.state, context.view.speed(),
 			session.climax_progress())
 		context.audio.tick(delta, session.state, context.readiness.thrusts_per_second())
 	PERF.end("runtime_process")

@@ -542,7 +542,7 @@ func end_lean_kiss() -> void:
 	# Releasing the kiss must not leave the shoulder reach's forced over-the-shoulder glance
 	# latched while F is still held.
 	facts.write_forced_glance("")
-	var cam: Variant = facts.standing_camera_controller()
+	var cam: Variant = facts.view_controller()
 	cam.clear_glance()
 	LOG.debug("standing kiss stop")
 

@@ -47,7 +47,6 @@ var sync_start_config_cb: Callable = Callable()
 var reset_visual_for_form_cb: Callable = Callable()
 var reset_player_pelvis_cb: Callable = Callable()
 var reset_lean_cb: Callable = Callable()
-var prepare_start_camera_cb: Callable = Callable()
 var open_camera_cb: Callable = Callable()
 var reset_wings_cb: Callable = Callable()
 var claim_nav_cb: Callable = Callable()
@@ -61,7 +60,6 @@ var sync_hud_cb: Callable = Callable()
 var resume_auto_cb: Callable = Callable()
 ## The same-node revision: rebind every body-bound system for a revised form, without a resume.
 var rebind_body_cb: Callable = Callable()
-var prepare_standing_camera_cb: Callable = Callable()
 var new_body_adult_cb: Callable = Callable()
 
 
@@ -272,10 +270,6 @@ func reset_lean() -> void:
 	_call(reset_lean_cb)
 
 
-func prepare_start_camera() -> void:
-	_call(prepare_start_camera_cb)
-
-
 ## The act camera open. The runtime starts the VR act when the shot asks for it.
 func open_camera() -> void:
 	_call(open_camera_cb)
@@ -328,8 +322,6 @@ func rebind_body() -> void:
 	_call(rebind_body_cb)
 
 
-func prepare_standing_camera() -> void:
-	_call(prepare_standing_camera_cb)
 
 
 func new_body_adult() -> bool:

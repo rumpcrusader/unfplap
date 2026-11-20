@@ -59,8 +59,7 @@ class FakeBridge extends RefCounted:
 class FakeCamera extends ACT_CAMERA:
 	var ends := 0
 
-	func bind(_facts: Variant, _hands: Variant, _kiss: Variant, _standing: Variant,
-			_missionary: Variant) -> void:
+	func bind(_facts: Variant, _hands: Variant, _kiss: Variant, _view: Variant) -> void:
 		pass
 
 	func end_lean_action() -> void:

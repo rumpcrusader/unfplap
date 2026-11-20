@@ -169,7 +169,6 @@ func resume() -> bool:
 	# The bed path has no placement fit; clear the old body's Hips handshake for every resume.
 	host.reset_player_pelvis()
 	host.reset_lean()
-	host.prepare_start_camera()
 	host.open_camera()
 	host.reset_wings()
 	host.claim_nav()
@@ -196,7 +195,6 @@ func rebind(_form: BODY_FORM.BodyForm) -> void:
 	if not host.act_live():
 		return
 	host.reset_visual_for_form()
-	host.prepare_standing_camera()
 	host.sync_hud()
 
 

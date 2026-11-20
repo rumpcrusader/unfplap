@@ -10,7 +10,6 @@ const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SETTINGS := preload("res://mods/unfplap/act/settings.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
-const PLACEMENT := preload("res://mods/unfplap/poses/placement.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -160,15 +159,6 @@ func pose_values(pose: String, look: Vector3, camera_at: Vector3, size_name: Str
 	var target := pose if not pose.is_empty() else pose_id
 	values.fill(str(POSE_SPECS.spec(target).get("id", "")), pony_id, features, bed,
 		presentation_config, context.pose.pose_config, look, camera_at, size_name)
-	return values
-
-func placement_values(form: BODY_FORM.BodyForm = null) -> PLACEMENT.ActBind:
-	var values := PLACEMENT.ActBind.new()
-	var gaps: Variant = context.pose.pose_config.get("gaps", {})
-	values.fill(host.pony, WORLD.player if is_instance_valid(WORLD.player) else null, bed,
-		context.stool, form, context.handover.form(), pony_id,
-		gaps if gaps is Dictionary else {}, context.camera, PONIES.anatomy, player_pony,
-		WORLD.headset_view())
 	return values
 
 func adopt_display_name(form: BODY_FORM.BodyForm, body: Variant) -> void:

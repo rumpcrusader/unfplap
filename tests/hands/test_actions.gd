@@ -18,7 +18,7 @@ const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
 const MISSIONARY_PATH := preload("res://mods/unfplap/hands/paths/missionary.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
-const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
+const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
@@ -749,7 +749,7 @@ func run() -> void:
 	gate_runtime.free()
 
 	check(near(MOTION.HOLD_SWAY_FORWARD, 0.010), "idle camera sway amplitude")
-	check(near(STANDING_CAMERA.MOUNTING_STANDING_CAMERA_LIFT_M, 0.10), "JRHNBR standing camera raised 10 cm")
+	check(near(CAMERA_VIEW.MOUNTING_STANDING_CAMERA_LIFT_M, 0.10), "JRHNBR standing camera raised 10 cm")
 	check(near(MOTION.LEAN_SIDE_M, 0.18), "side lean travel")
 	check(near(MOTION.LEAN_SIDE_ROLL_DEG, 8.0), "side lean roll stronger")
 	check(near(MOTION.LEAN_FIRE, 0.75) and near(MOTION.LEAN_RELEASE, 0.60),

@@ -131,7 +131,7 @@ func run() -> void:
 	facts.restore_face()
 	check(facts.driver_host() == null, "an absent pose host returns null")
 	check(not facts.mod_active("kissing"), "an absent mod gate reads as inactive")
-	check(facts.standing_camera_controller() == null, "an absent camera callback returns null")
+	check(facts.view_controller() == null, "an absent view callback returns null")
 	check(facts.pose_driver() == null, "an absent pose driver returns null")
 	facts.on_touch = Callable(sink, "touch_event")
 	facts.on_smack = Callable(sink, "impact")

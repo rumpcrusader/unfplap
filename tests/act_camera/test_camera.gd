@@ -1,6 +1,6 @@
 extends SceneTree
-## The act camera facade: the lean and its smoothing, the shot response, the free look, the
-## missionary eye view, the head clearance and the live geometry helpers.
+## The act camera facade and the live view: the lean and its smoothing, the shot response, the free
+## look, the standing offsets, the missionary eye view and the head clearance.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_camera/test_camera.gd
 
@@ -12,8 +12,7 @@ const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
-const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
-const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.gd")
+const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -108,6 +107,9 @@ class FakeKiss extends RefCounted:
 	func lean_distance() -> float:
 		return 0.0
 
+	func side() -> float:
+		return 1.0
+
 	func lateral_offset(_scale: float) -> float:
 		return 0.0
 
@@ -130,7 +132,7 @@ class FakeKiss extends RefCounted:
 		calls.append("reset")
 
 
-class FakeStandingCamera extends RefCounted:
+class FakeView extends RefCounted:
 	var calls: Array[String] = []
 
 	func apply_lean_look() -> void:
@@ -154,6 +156,12 @@ class FakeStandingCamera extends RefCounted:
 	func prepare() -> void:
 		calls.append("prepare")
 
+	func mount() -> void:
+		calls.append("mount")
+
+	func unmount() -> void:
+		calls.append("unmount")
+
 	func begin_facing(_transform: Transform3D) -> void:
 		calls.append("begin_facing")
 
@@ -169,19 +177,6 @@ class FakePony extends Node3D:
 class FakeSecondary extends RefCounted:
 	func look_toward(_angles: Vector3, _seconds: float) -> void:
 		pass
-
-
-class FakeMissionaryCamera extends RefCounted:
-	var calls: Array[String] = []
-
-	func tick() -> void:
-		calls.append("tick")
-
-	func prepare() -> void:
-		calls.append("prepare")
-
-	func release() -> void:
-		calls.append("release")
 
 
 func _initialize() -> void:
@@ -209,6 +204,9 @@ func _fixture() -> Dictionary:
 	main.add_child(main.view)
 	player.camera = main.view
 	root.add_child(main)
+	var game := FakeGame.new()
+	root.add_child(game)
+	WORLD.bind_world(game)
 	var facts: RefCounted = FACTS.new()
 	facts.player_pony = false
 	facts.state = STATE_ACTIVE
@@ -217,12 +215,11 @@ func _fixture() -> Dictionary:
 	var camera: RefCounted = CAMERA.new()
 	var hands := FakeHands.new()
 	var kiss := FakeKiss.new()
-	var standing := FakeStandingCamera.new()
-	var missionary := FakeMissionaryCamera.new()
-	camera.bind(facts, hands, kiss, standing, missionary)
+	var view := FakeView.new()
+	camera.bind(facts, hands, kiss, view)
 	return {
 		"camera": camera, "facts": facts, "main": main, "player": player,
-		"hands": hands, "kiss": kiss, "standing": standing, "missionary": missionary,
+		"hands": hands, "kiss": kiss, "view": view, "game": game,
 	}
 
 
@@ -272,24 +269,35 @@ func _check_session() -> void:
 	camera.lean = 0.2
 	camera.bob = 0.2
 	camera.back = 0.2
-	camera.call("begin_session", "bed")
-	check(not camera.camera_owned and not camera.look_captured, "a fresh session owns nothing")
-	check(camera.look_restore_yaw, "missionary restores the captured yaw")
+	check(not bool(camera.call("begin_act", "bed", false, false)),
+		"a desktop bed act opens the view")
+	check(camera.camera_owned and camera.free_camera_active, "the act takes its view")
+	check(camera.camera == (made["main"] as FakeMain).view,
+		"the act grabs the player camera")
 	check(near(camera.lean, 0.0) and near(camera.bob, 0.0) and near(camera.back, 0.0),
-		"a fresh session starts the shot from rest")
-	camera.call("begin_session", "standing")
-	check(not camera.look_restore_yaw, "standing leaves Anon facing where the act ends")
-	camera.call("open_shot")
-	check(camera.camera_owned and not camera.free_camera_active,
-		"the shot opens before the desktop free camera")
+		"the act starts the shot from rest")
 	camera.lean_view_forward = 0.8
-	camera.call("open_shot")
-	check(near(camera.lean_view_forward, 0.0), "opening the shot resets the lean")
-	camera.call("begin_free")
-	check(camera.free_camera_active, "the free shot takes the camera")
-	check(camera.camera == (made["main"] as FakeMain).view, "the free shot grabs the player camera")
-	camera.call("close_shot")
-	check(camera.camera == null, "closing the shot drops the camera")
+	camera.call("begin_act", "bed", false, false)
+	check(near(camera.lean_view_forward, 0.0), "opening the act resets the lean")
+	camera.call("finish_act")
+	check(not bool(camera.call("begin_act", "standing", false, false)),
+		"a desktop standing act opens the view")
+	check((made["view"] as FakeView).calls.has("prepare"),
+		"a standing act prepares the player camera")
+	camera.call("finish_act")
+	check(not camera.camera_owned and camera.camera == null,
+		"finishing the act drops the camera")
+	check((made["view"] as FakeView).calls.has("unmount")
+		and (made["view"] as FakeView).calls.has("restore"),
+		"finishing the act unmounts and restores the view")
+	camera.call("finish_act")
+	check(not camera.camera_owned, "a second finish is a no-op")
+	# A headset standing act asks the anatomy bridge to start VR; AnonPony keeps the stock view.
+	check(bool(camera.call("begin_act", "standing", false, true)),
+		"a headset standing act starts VR")
+	check(not bool(camera.call("begin_act", "standing", true, false)),
+		"a player-pony act takes no camera")
+	camera.call("finish_act")
 
 
 func _check_shot() -> void:
@@ -337,15 +345,17 @@ func _check_missionary_eye() -> void:
 	var view: Camera3D = camera.call("view")
 	check(is_instance_valid(view) and view.get_parent() == made["pony"],
 		"the act view is mounted once on her")
+	check(camera.has_method("head_look_point_at") and camera.has_method("bed_surface_top"),
+		"the view keeps the gaze and fluid-ground reads")
 	check(not camera.has_method("_tick_authored") and not camera.has_method("_shot_transform"),
 		"the authored shot path is gone")
 	check(not camera.has_method("_blend_shots") and not camera.has_method("_shot_position"),
 		"no shot transform is built")
-	var module: Script = MISSIONARY_CAMERA
+	var module: Script = CAMERA_VIEW
 	check(not module.get_script_constant_map().has("SHOT_IDS"),
 		"the shot ids are gone from the view module")
 	body.eye = Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 2.0, 3.0))
-	camera.call("tick")
+	camera.call("write_eye")
 	check(view.global_position.is_equal_approx(body.eye.origin),
 		"the view sits at the act body's eye")
 	check(view.global_basis.is_equal_approx(body.eye.basis.orthonormalized()),
@@ -353,12 +363,12 @@ func _check_missionary_eye() -> void:
 	# Free look turns the eye where it stands, and nothing else does.
 	made["facts"].free_look_active = true
 	made["facts"].free_look_rotation = func() -> Vector3: return Vector3(0.2, 0.3, 0.0)
-	camera.call("tick")
+	camera.call("write_eye")
 	check(not view.global_basis.is_equal_approx(body.eye.basis.orthonormalized()),
 		"free look turns the eye")
 	made["facts"].free_look_active = false
 	made["facts"].free_look_rotation = Callable()
-	camera.call("release")
+	camera.call("unmount")
 	check(camera.call("view") == null, "the release drops the act view")
 	_free_eye_fixture(made)
 
@@ -378,18 +388,18 @@ func _check_head_clearance() -> void:
 	facts.head_clearance = 0.0
 	body.eye = Transform3D(Basis.IDENTITY, Vector3(1.0, 1.0, 1.0))
 	boop.skull = Vector3(1.0, 1.0, 1.0)
-	camera.call("tick")
+	camera.call("write_eye")
 	check(view.global_position.is_equal_approx(Vector3(1.0, 1.0, 1.0)),
 		"no clearance leaves the eye on the pose")
 
 	# The skull sphere: the pad is the clearance over her own radius, scaled with her body.
 	facts.head_clearance = 0.05
-	camera.call("tick")
+	camera.call("write_eye")
 	var pushed := view.global_position.distance_to(boop.skull)
 	check(near(pushed, 0.09 + 0.05), "the skull pushes the eye out by her radius and the pad")
 	pony.body_scale = 2.0
 	body.eye = Transform3D(Basis.IDENTITY, boop.skull)
-	camera.call("tick")
+	camera.call("write_eye")
 	check(near(view.global_position.distance_to(boop.skull), 0.18 + 0.05),
 		"her body scale scales the skull radius")
 	pony.body_scale = 1.0
@@ -399,7 +409,7 @@ func _check_head_clearance() -> void:
 	boop.muzzle = Vector3(0.0, 0.0, 0.0)
 	boop.nose = Vector3(0.0, 0.0, 0.4)
 	body.eye = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.2))
-	camera.call("tick")
+	camera.call("write_eye")
 	var to_axis := view.global_position.distance_to(Vector3(0.0, 0.0, 0.2))
 	check(near(to_axis, 0.04 + 0.05), "her muzzle pushes the eye off the capsule axis")
 	_free_eye_fixture(made)
@@ -432,8 +442,9 @@ func _eye_fixture() -> Dictionary:
 	facts.missionary_anon = func() -> Variant: return body
 	var kiss := FakeKiss.new()
 	facts.kiss = func() -> Variant: return kiss
-	var camera: RefCounted = MISSIONARY_CAMERA.new(facts)
-	camera.call("prepare")
+	_pose(facts, "bed")
+	var camera: RefCounted = CAMERA_VIEW.new(facts)
+	camera.call("mount")
 	return {
 		"camera": camera, "facts": facts, "body": body, "pony": pony,
 		"main": main, "game": game, "player": player,
@@ -463,8 +474,8 @@ func _check_lean() -> void:
 	var facts: Variant = made["facts"]
 	var hands: FakeHands = made["hands"]
 	var kiss: FakeKiss = made["kiss"]
-	camera.call("open_shot")
-	camera.call("begin_free")
+	camera.free_camera_active = true
+	camera.camera = (made["main"] as FakeMain).view
 	facts.state = STATE_IDLE
 	hands.calls.clear()
 	camera.call("tick_lean", 0.1, false, false)
@@ -497,17 +508,17 @@ func _check_lean() -> void:
 	# Standing fires the shoulder reach with the glance hold and the hand.
 	_pose(facts, "standing")
 	hands.calls.clear()
-	var standing: FakeStandingCamera = made["standing"]
-	standing.calls.clear()
+	var view: FakeView = made["view"]
+	view.calls.clear()
 	camera.lean_side = 0.8
 	camera.call("tick_lean_action")
 	check(camera.lean_action_active and camera.lean_action_kind == "reach",
 		"standing fires the shoulder reach")
 	check(hands.calls.has("start_reach:R"), "the reach starts on the lean side")
-	check(standing.calls.has("hold_glance"), "the reach holds the over-the-shoulder glance")
+	check(view.calls.has("hold_glance"), "the reach holds the over-the-shoulder glance")
 	camera.lean_side = 0.0
 	camera.call("tick_lean_action")
-	check(hands.calls.has("end_reach") and standing.calls.has("clear_glance"),
+	check(hands.calls.has("end_reach") and view.calls.has("clear_glance"),
 		"releasing the reach clears the glance")
 
 	# A fresh lean state drops the hands and the kiss.
@@ -527,7 +538,7 @@ func _check_oral_lean() -> void:
 	var facts: Variant = made["facts"]
 	var hands: FakeHands = made["hands"]
 	var kiss: FakeKiss = made["kiss"]
-	var standing: FakeStandingCamera = made["standing"]
+	var view: FakeView = made["view"]
 	_pose(facts, "standing")
 	facts.pose_view.contact_kind = "mouth"
 	camera.lean_forward = 0.7
@@ -541,11 +552,11 @@ func _check_oral_lean() -> void:
 	camera.lean_action_side = 0.8
 	hands.calls.clear()
 	kiss.calls.clear()
-	standing.calls.clear()
+	view.calls.clear()
 	camera.call("oral_lean_tick", 0.1)
 	check(not camera.lean_action_active, "oral ends an active lean action")
 	check(hands.calls.has("end_reach"), "oral releases an active shoulder reach")
-	check(standing.calls.has("clear_glance"), "oral clears the reach glance")
+	check(view.calls.has("clear_glance"), "oral clears the reach glance")
 	check(camera.lean_forward < 0.7 and camera.lean_side > -0.6,
 		"oral returns the lean toward rest")
 	check(near(camera.lean_sway, 0.0), "oral zeroes the idle sway")
@@ -554,7 +565,7 @@ func _check_oral_lean() -> void:
 	check(not kiss.calls.has("lean_kiss_tick"), "oral never restarts the lean kiss")
 	check(hands.calls.has("tick"), "oral keeps ticking the caress hands")
 	check(not hands.calls.has("stop_inputs"), "oral never stops the caress input")
-	check(standing.calls.has("apply_lean_look"), "oral keeps the standing look response")
+	check(view.calls.has("apply_lean_look"), "oral keeps the standing look response")
 	for _i in 200:
 		camera.call("oral_lean_tick", 0.05)
 	check(near(camera.lean_forward, 0.0) and near(camera.lean_side, 0.0)
@@ -570,11 +581,11 @@ func _check_retarget() -> void:
 	var facts: RefCounted = made["facts"]
 	var view: RefCounted = facts.pose_view
 	camera.call("pose_changed", view)
-	check(str(camera._hook_family) == "bed" and str(camera._hook_camera) == "missionary_shots",
-		"the hook caches the bed shot profile")
+	check(str(camera._hook_family) == "bed", "the hook caches the bed family")
 	camera.lean_action_kind = "reach"
 	camera.camera_basis_ready = true
-	camera.call("begin_free")
+	camera.free_camera_active = true
+	camera.camera = (made["main"] as FakeMain).view
 	_pose(facts, "standing")
 	camera.call("pose_changed", facts.pose_view)
 	check(camera.lean_action_kind == "", "a family change retires the old lean action")
@@ -586,7 +597,6 @@ func _check_retarget() -> void:
 	check(camera.lean_action_kind == "reach", "a steady repeat does not retarget again")
 	check(not is_same(facts.pose_view, view) and str(camera._hook_family) == "standing",
 		"the hook follows the live view")
-	camera.call("close_shot")
 
 
 ## Her live rest head line is read relative to the player root, from the global rest pose. The
@@ -714,24 +724,24 @@ func _check_motion() -> void:
 	var made := _fixture()
 	var camera: Variant = made["camera"]
 	var facts: Variant = made["facts"]
-	var standing: FakeStandingCamera = made["standing"]
-	var missionary: FakeMissionaryCamera = made["missionary"]
+	var view: FakeView = made["view"]
 	facts.state = STATE_IDLE
-	check(not bool(camera.call("motion_ready")), "idle has no act shot")
+	check(not bool(camera.call("motion_ready")), "idle has no act view")
 	facts.state = STATE_ACTIVE
 	camera.free_camera_active = false
-	check(not bool(camera.call("motion_ready")), "no free camera has no act shot")
-	camera.call("begin_free")
-	check(bool(camera.call("motion_ready")), "an active free shot owns the view")
+	check(not bool(camera.call("motion_ready")), "no free camera has no act view")
+	camera.free_camera_active = true
+	camera.camera = (made["main"] as FakeMain).view
+	check(bool(camera.call("motion_ready")), "an active free view owns the view")
 	facts.headset_view = true
 	check(not bool(camera.call("motion_ready")), "a headset keeps the stock camera")
 	facts.headset_view = false
 	_pose(facts, "bed")
 	camera.call("apply_motion")
-	check(missionary.calls.has("tick"), "missionary dispatches its own camera")
+	check(not view.calls.has("tick"), "the bed view is written at render time, not in physics")
 	_pose(facts, "standing")
 	camera.call("apply_motion")
-	check(standing.calls.has("tick"), "standing dispatches the player-camera shot")
+	check(view.calls.has("tick"), "standing dispatches the player-camera view")
 
 
 ## The shipped standing config with the test overrides, so the camera reads the same complete
@@ -759,7 +769,7 @@ func _check_standing_shot_offsets() -> void:
 	facts.look_captured = true
 	facts.kiss = func() -> Variant: return made["kiss"]
 	view.position = Vector3(0.0, 1.7, 0.0)
-	var standing: RefCounted = STANDING_CAMERA.new(facts)
+	var standing: RefCounted = CAMERA_VIEW.new(facts)
 	standing.call("prepare")
 	var base: Vector3 = view.position
 	facts.lean = 0.06
@@ -790,7 +800,7 @@ func _check_standing_cache() -> void:
 	var config_c: Dictionary = _standing_config({"glance_min": 9.0})
 	view.from_config = config_a
 	view.pose_config = config_a
-	var standing: RefCounted = STANDING_CAMERA.new(facts)
+	var standing: RefCounted = CAMERA_VIEW.new(facts)
 	standing.call("_sync")
 	check(is_same(standing._pose_cfg, config_a), "the standing camera reads the view config")
 	check(not is_same(standing._pose_cfg, stale),
@@ -851,7 +861,7 @@ func _check_standing_cache() -> void:
 	root.add_child(early_pony)
 	early_facts.pony = early_pony
 	early_facts.lean_forward = 1.0
-	var early_camera: RefCounted = STANDING_CAMERA.new(early_facts)
+	var early_camera: RefCounted = CAMERA_VIEW.new(early_facts)
 	early_camera.call("begin_facing", Transform3D.IDENTITY)
 	check(float(early_camera._glance_wait) < 0.0,
 		"a start before the pose config arms its first glance later")

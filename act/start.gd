@@ -63,7 +63,6 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 				LOG.debug("start blocked stool pose=%s pony=%s need=%d", [
 					pose, host.pony_name(), stool_need])
 				return false
-	context.camera.begin_session(session.start_family())
 	session.posture_owned = false
 	session.finalized = false
 	# Remove the idle standing presentation and its face before the act builds its own pose.
@@ -81,7 +80,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.reactions.apply_radius()
 	session.aftercare_min = int(session.profile["aftercare_min"])
 	session.cue_gap = SETTINGS.cue_gap_value(float(session.profile["cue_gap"]))
-	context.standing_camera.reset()
+	context.view.reset()
 	session.bed = context.gate.resolve_bed(pose, act_source, bed_in)
 	if bool(POSE_SPECS.scene(pose).get("requires_bed", false)) and session.bed == null:
 		# Nothing else is borrowed yet, but the jiggle radius was just applied.
@@ -161,10 +160,10 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 		context.pose.sync_missionary_config()
 	context.camera.reset_lean_state()
 	if session.start_family() == "bed":
-		context.missionary_camera.prepare()
+		context.view.mount()
 	context.hold.lock_player()
 	context.hold.pause_face_turn(false)
-	if context.camera.begin_act_shot(session.start_family(), session.player_pony, WORLD.headset_view()):
+	if context.camera.begin_act(session.start_family(), session.player_pony, WORLD.headset_view()):
 		context.anatomy.bind(context.anatomy_host)
 		context.anatomy.vr_start()
 	context.audio.start(host.pony, session.pony_id, session.bed)

@@ -180,6 +180,16 @@ func focus(pony: Node) -> void:
 		_changed(_focus, _scene_hash(_focus, _player_hash()), false)
 
 
+## Advance the per-frame poll clock. The offer calls this once before `due()`.
+func advance(delta: float) -> void:
+	_clock += delta
+
+
+## True when this frame should read the fan: a poll, a mode change or a pending reset.
+func due(pony_form: bool) -> bool:
+	return _pending or pony_form != _pony_form or _clock >= SENSOR_POLL_S
+
+
 ## A world enter, a world close or a settings edit: forget every sense and report a transition.
 func reset() -> void:
 	_senses.clear()

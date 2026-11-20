@@ -106,18 +106,22 @@ func _sense(delta: float, force := false) -> bool:
 		return false
 	if not WORLD.scan_allowed():
 		return false
+	var seat: Variant = WORLD.player.get("seat")
+	var seat_changed: bool = seat != _seat
+	if seat_changed:
+		_seat = seat
+	var pony_form := WORLD.player_is_pony()
+	_sensor.advance(delta)
+	if not (force or _sensor.due(pony_form)):
+		return seat_changed
 	var view: Camera3D = WORLD.camera()
 	if view == null:
-		return false
+		return seat_changed
 	PERF.begin("offer_sensor_read")
-	var changed := _sensor.update(delta, view.global_position, -view.global_basis.z,
-		WORLD.player_is_pony(), force)
+	var changed := _sensor.update(0.0, view.global_position, -view.global_basis.z,
+		pony_form, force)
 	PERF.end("offer_sensor_read")
-	var seat: Variant = WORLD.player.get("seat")
-	if seat != _seat:
-		_seat = seat
-		changed = true
-	return changed or force
+	return changed or seat_changed
 
 
 ## The current offer's pony, for the Proactive service's cuddle check; a pure read that never

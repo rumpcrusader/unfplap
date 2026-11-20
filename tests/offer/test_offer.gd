@@ -202,6 +202,8 @@ func _check_fingerprint() -> void:
 	service.tick(0.2)
 	check(runtime.hotkey_calls == calls, "a poll with an unchanged scene runs no check")
 	near.sleeping = true
+	service.tick(0.016)
+	check(service.current() != null, "a frame between polls does not read the fan")
 	service.tick(0.2)
 	check(runtime.hotkey_calls == calls + 1, "a sleeping mare's change runs the check again")
 	check(service.current() == null, "a sleeping target drops the offer")

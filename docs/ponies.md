@@ -111,10 +111,10 @@ identity, not the entry's, which is why it lives here.
 
 `cone_target(eye)` answers the idle hint's standing target. It walks the game's own `mares` array
 without copying it, rejects by squared ground distance to the approximate rump anchor, then checks
-her standing posture and the rear fan (`shared/rump_cone.gd`), and asks `act_target()` only for the
-nearest body it found. A nearer body that is not an act target is therefore the scan's answer, and
-the hint stays away; the act key still runs its own gate. `relationship_ok(pony)` is the mirrored
-facade for the Base clearance relationship row.
+her standing posture and the rear fan (`shared/rump_cone.gd`), collecting the passing candidates in
+distance order. It asks `act_target()` down that order and returns the first one that passes; a
+nearer non-target is skipped, not the answer. The act key still runs its own gate.
+`relationship_ok(pony)` is the mirrored facade for the Base clearance relationship row.
 
 ## Characters
 
@@ -205,7 +205,8 @@ The runtime itself is not a dependency: it is built by the entry's factory and c
 - `tests/ponies/test_service.gd` — attach and detach, the live act pointer and its side effects,
   the serial, the prepare hooks, the adoption order and its duplicate guard, the world close, the
   teardown, the character lists and the standing cone target (its live-array walk, the nearest
-  winner, the posture and fan filters and the single target read).
+  winner, the posture and fan filters and the distance-ordered target read that skips a nearer
+  non-target).
 - `tests/handover/test_body_swap.gd` — suspend, adopt and resume against the real service, with
   only the runtime's host handle and the body-change service faked.
 - `tests/body_change/test_service.gd` — the runtime binding's lookup through the registry.

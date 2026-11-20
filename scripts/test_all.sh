@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run every headless test suite, in parallel, each with its own throwaway data dir.
-# Prints each RESULT line and a final pass/fail line.
+# Prints only the failing suites, then one status line naming them if any failed.
 # Usage: scripts/test_all.sh
 # Godot 4.5 must be on PATH.
 # TEST_JOBS sets the parallelism (default 6).

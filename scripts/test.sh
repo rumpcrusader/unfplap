@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Run headless test suites, in parallel, each with its own throwaway data dir.
-# Prints each RESULT line and a final pass/fail line.
+# Prints only the failing suites, then one status line naming them if any failed.
 # Usage: scripts/test.sh <suite|dir>...   # poses/test_pose_asset | kiss | poses
 #        scripts/test.sh --all            # every suite (what test_all.sh runs)
 #        scripts/test.sh --list           # the discovered suites, then exit
+#        scripts/test.sh --verbose ...    # also print one PASS line per suite
 # Godot 4.5 must be on PATH.
-# TEST_JOBS sets the parallelism (default 6).
+# TEST_JOBS sets the parallelism (default 6). TEST_VERBOSE=1 is --verbose.
 
 set -euo pipefail
 
@@ -13,18 +14,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(cd "$MOD_DIR/../.." && pwd)"
 JOBS="${TEST_JOBS:-6}"
+VERBOSE="${TEST_VERBOSE:-0}"
+ALL=0
+LIST=0
+REQUESTED=()
 
-if [[ "${1:-}" == "" ]]; then
-	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list\n' >&2
+for arg in "$@"; do
+	case "$arg" in
+		--all) ALL=1 ;;
+		--list) LIST=1 ;;
+		-v | --verbose) VERBOSE=1 ;;
+		--*)
+			printf 'Unknown option %s\n' "$arg" >&2
+			printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list [--verbose]\n' >&2
+			exit 2
+			;;
+		*) REQUESTED+=("$arg") ;;
+	esac
+done
+
+if [[ "${#REQUESTED[@]}" -eq 0 && "$ALL" -eq 0 && "$LIST" -eq 0 ]]; then
+	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list [--verbose]\n' >&2
 	exit 2
 fi
-if [[ "$1" == "--all" && "$#" -gt 1 ]]; then
+if [[ "$ALL" -eq 1 && "${#REQUESTED[@]}" -gt 0 ]]; then
 	printf 'Usage: scripts/test.sh --all takes no suite names\n' >&2
-	exit 2
-fi
-if [[ "$1" == --* && "$1" != "--all" && "$1" != "--list" ]]; then
-	printf 'Unknown option %s\n' "$1" >&2
-	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list\n' >&2
 	exit 2
 fi
 
@@ -37,7 +51,7 @@ mapfile -t TESTS < <(
 )
 
 # A listing is not a run: no precheck output on stdout, so the list stays pipeable.
-if [[ "$1" == "--list" ]]; then
+if [[ "$LIST" -eq 1 ]]; then
 	printf '%s\n' "${TESTS[@]}"
 	exit 0
 fi
@@ -56,11 +70,11 @@ if ! python3 "$MOD_DIR/scripts/architecture.py" --check; then
 	exit 1
 fi
 
-if [[ "$1" == "--all" ]]; then
+if [[ "$ALL" -eq 1 ]]; then
 	SELECTED=("${TESTS[@]}")
 else
 	SELECTED=()
-	for arg in "$@"; do
+	for arg in "${REQUESTED[@]}"; do
 		found=0
 		for test_name in "${TESTS[@]}"; do
 			if [[ "$test_name" == "$arg" || "$test_name" == "$arg"/* ]]; then
@@ -112,47 +126,65 @@ export MOD_DIR PROJECT_ROOT work_dir
 printf '%s\n' "${SELECTED[@]}" | xargs -P "$JOBS" -I{} bash -c 'run_one "$@"' _ {}
 
 failed=0
+failed_names=()
+total_checks=0
+total_failures=0
 for test_name in "${SELECTED[@]}"; do
 	safe="${test_name//\//_}"
 	result="$(cat "$work_dir/$safe.result" 2>/dev/null || true)"
+	if [[ "$result" =~ checks=([0-9]+)\ failures=([0-9]+) ]]; then
+		total_checks=$((total_checks + BASH_REMATCH[1]))
+		total_failures=$((total_failures + BASH_REMATCH[2]))
+	fi
 	if [[ "$result" == "MISSING" ]]; then
-		printf 'MISSING %s\n' "$test_name"
+		printf 'FAIL %s (suite file is missing)\n' "$test_name"
+		failed_names+=("$test_name")
 		failed=1
 		continue
 	fi
 	if [[ -z "$result" ]]; then
 		printf 'FAIL %s (no result)\n' "$test_name"
-		tail -n 20 "$work_dir/$safe.out" 2>/dev/null || true
+		tail -n 20 "$work_dir/$safe.out" 2>/dev/null | sed 's/^/  /' || true
+		failed_names+=("$test_name")
 		failed=1
 		continue
 	fi
 	# A suite can print a script error and still report failures=0; the log is part of the gate.
 	if grep -qE 'SCRIPT ERROR|Parse Error' "$work_dir/$safe.out" 2>/dev/null; then
 		printf 'FAIL %s (script error in log)\n' "$test_name"
-		grep -E 'SCRIPT ERROR|Parse Error' "$work_dir/$safe.out" | head -n 10
+		grep -E 'SCRIPT ERROR|Parse Error' "$work_dir/$safe.out" | head -n 10 | sed 's/^/  /'
+		failed_names+=("$test_name")
 		failed=1
 		continue
 	fi
 	if [[ "$result" == *"failures=0"* ]]; then
-		printf 'PASS %s\n' "$result"
-	else
-		printf 'FAIL %s\n' "$result"
-		grep -E '^FAIL|SCRIPT ERROR|Parse Error|Invalid|ERROR' \
-			"$work_dir/$safe.out" 2>/dev/null || true
-		failed=1
+		if [[ "$VERBOSE" -eq 1 ]]; then
+			printf 'PASS %s\n' "$result"
+		fi
+		continue
 	fi
+	printf 'FAIL %s\n' "$result"
+	grep -E '^FAIL|SCRIPT ERROR|Parse Error|Invalid|ERROR' \
+		"$work_dir/$safe.out" 2>/dev/null | head -n 20 | sed 's/^/  /' || true
+	failed_names+=("$test_name")
+	failed=1
 done
 
+# The status line is last and names the failing suites, so `| tail -n 20` cannot hide the verdict
+# even when the details above it are cut.
 if [[ "$failed" -ne 0 ]]; then
-	if [[ "$1" == "--all" ]]; then
-		printf 'TEST_ALL_FAIL\n'
+	printf 'rerun: scripts/test.sh %s\n' "${failed_names[*]}"
+	if [[ "$ALL" -eq 1 ]]; then
+		printf 'TEST_ALL_FAIL %d of %d suites: %s\n' \
+			"${#failed_names[@]}" "${#SELECTED[@]}" "${failed_names[*]}"
 	else
-		printf 'TEST_FAIL %d suites\n' "${#SELECTED[@]}"
+		printf 'TEST_FAIL %d of %d suites: %s\n' \
+			"${#failed_names[@]}" "${#SELECTED[@]}" "${failed_names[*]}"
 	fi
 	exit 1
 fi
-if [[ "$1" == "--all" ]]; then
-	printf 'TEST_ALL_PASS\n'
+if [[ "$ALL" -eq 1 ]]; then
+	printf 'TEST_ALL_PASS %d suites, %d checks\n' "${#SELECTED[@]}" "$total_checks"
 else
-	printf 'TEST_PASS %d suites\n' "${#SELECTED[@]}"
+	printf 'TEST_PASS %d suites, %d checks\n' "${#SELECTED[@]}" "$total_checks"
 fi

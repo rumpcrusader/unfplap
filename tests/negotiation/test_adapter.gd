@@ -77,7 +77,7 @@ class FakeDirector extends Node:
 		cancelled.append(key)
 
 
-class FakeWorldContext extends RefCounted:
+class FakeWorldContext extends Node:
 	var rows: Array = []
 
 	func record(kind: String, text: String, ids: Array, audience: Array, key: String) -> void:

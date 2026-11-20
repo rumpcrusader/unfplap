@@ -183,7 +183,7 @@ func bind(eligibility_service: ELIGIBILITY, memory_service: MEMORY, privacy_serv
 
 
 ## The adapter is this service's; the Proactive service and the model calls reach it here.
-func adapter() -> Node:
+func adapter() -> ADAPTER:
 	return _adapter if is_instance_valid(_adapter) else null
 
 
@@ -228,7 +228,7 @@ func _bind_host() -> void:
 func _classifier() -> Node:
 	if not is_instance_valid(initiation) or not initiation.has_method("classifier_node"):
 		return null
-	var node: Variant = initiation.call("classifier_node")
+	var node: Variant = initiation.classifier_node()
 	return node as Node if is_instance_valid(node) else null
 
 
@@ -475,7 +475,7 @@ func _react_line(pony: Node, reason: String) -> void:
 			purpose = "The offer ended. Say one short, in-character line letting it go, without " \
 				+ "anger. Do not ask again and do not narrate actions."
 	var key := "unfplap:negotiation:react:%d" % Time.get_ticks_usec()
-	_adapter.call("queue", id, purpose,
+	_adapter.queue(id, purpose,
 		key, func() -> bool: return is_instance_valid(pony) and pony.is_inside_tree(), false)
 
 
@@ -496,7 +496,7 @@ func _on_outcome_terminal(terminal: Variant) -> void:
 			gate.clear_presentation()
 	if int(_field(terminal, "outcome", -1)) != Outcome.STARTED \
 			and is_instance_valid(initiation) and initiation.has_method("on_negotiation_outcome"):
-		initiation.call("on_negotiation_outcome", terminal)
+		initiation.on_negotiation_outcome(terminal)
 
 
 ## The Agreement is ready: the target runtime consumes it through its one start path.
@@ -522,7 +522,7 @@ func _on_agreement_handle(handle: Variant) -> void:
 			and not bool(gate.present_standing()):
 		LOG.debug("agreement present failed pony=%s", [str(pony.name)])
 	if is_instance_valid(offer):
-		offer.call("clear_current")
+		offer.clear_current()
 
 
 ## Read a typed field from the production handle/terminal or a test dictionary.

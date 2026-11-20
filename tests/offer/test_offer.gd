@@ -14,6 +14,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
@@ -76,14 +77,14 @@ class FakeRuntime extends Node:
 		return agreement_ready
 
 
-class FakeNegotiation extends Node:
-	var live: Variant = null
+class FakeNegotiation extends NEGOTIATION:
+	var live: NEGOTIATION.AGREEMENT.Handle = null
 	var hots: Array = []
 
-	func handle() -> Variant:
+	func handle() -> NEGOTIATION.AGREEMENT.Handle:
 		return live
 
-	func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> Variant:
+	func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> NEGOTIATION.AGREEMENT.Handle:
 		hots.append([runtime, option])
 		return null
 

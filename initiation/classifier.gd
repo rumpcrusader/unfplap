@@ -4,7 +4,7 @@ extends Node
 ## parses the reply; this only bounds the request and the deadline.
 
 const LLM := preload("res://world/ai/llm_client.gd")
-const AI_CONFIG := preload("res://world/ai/ai_config.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const DEADLINE_SECONDS := 8.0
 const MAX_QUEUE := 4
@@ -50,22 +50,15 @@ func setup(section: Dictionary, status_path: String = "") -> bool:
 func configure_from(director: Node) -> bool:
 	if not is_instance_valid(director):
 		return false
-	var config: Variant = director.get("config")
-	if config == null or not AI_CONFIG.ai_enabled(config):
+	var config := GAME.llm_config(director)
+	if not config.enabled:
 		return false
 	if _director == director and _configured:
 		return true
-	if not director.has_method("_llm_section"):
+	if config.section.is_empty():
 		return false
-	var section: Dictionary = director.call("_llm_section")
-	if section.is_empty():
-		return false
-	var status_path := ""
-	var llm: Variant = director.get("llm")
-	if is_instance_valid(llm):
-		status_path = str(llm.get("status_path"))
 	_director = director
-	return setup(section, status_path)
+	return setup(config.section, config.status_path)
 
 
 ## True when a bounded request can be sent now: a configured director and client. A consumer

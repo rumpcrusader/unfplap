@@ -8,6 +8,7 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -67,7 +68,7 @@ static func attach(pony: Node) -> void:
 	if not is_instance_valid(runtime):
 		return
 	if is_instance_valid(anatomy):
-		anatomy.call("bind", pony, runtime)
+		anatomy.bind(pony, runtime)
 	if runtime.get_parent() != pony:
 		pony.add_child(runtime)
 	_runtimes[pony] = runtime
@@ -100,9 +101,9 @@ static func runtime_for(pony: Node) -> Node:
 static func set_active(runtime: Node) -> void:
 	_active = runtime
 	if is_instance_valid(offer):
-		offer.call("clear_current")
+		offer.clear_current()
 	if is_instance_valid(stock_smack):
-		stock_smack.call("act_start", runtime.get("pony"))
+		stock_smack.act_start(runtime.get("pony"))
 
 
 ## The act ended, or a world close: the frame is free again.
@@ -110,7 +111,7 @@ static func clear_active(runtime: Node) -> void:
 	if _active == runtime:
 		_active = null
 		if is_instance_valid(stock_smack):
-			stock_smack.call("act_end", runtime.get("pony"))
+			stock_smack.act_end(runtime.get("pony"))
 
 
 ## The live act's runtime, or null.
@@ -147,7 +148,7 @@ static func prompt_note(id: String) -> String:
 	for live: Variant in _runtimes.values():
 		if not is_instance_valid(live):
 			continue
-		var runtime_id := str(live.call("live_id"))
+		var runtime_id := str(live.live_id())
 		if runtime_id.is_empty():
 			var target: Variant = live.get("pony")
 			if is_instance_valid(target):
@@ -195,7 +196,7 @@ static func live_character_ids() -> Array[String]:
 static func installed_character_ids() -> Array[String]:
 	if not is_instance_valid(body_change):
 		return []
-	return body_change.call("installed_character_ids")
+	return body_change.installed_character_ids()
 
 
 ## The next serial for a new act, stored under the `unfplap.serial` key.
@@ -204,10 +205,10 @@ static func allocate_serial() -> int:
 	var value: int = _serial_issued + 1
 	var mods := _mods()
 	if mods != null:
-		var section: Dictionary = mods.call("state", "unfplap")
-		value = maxi(int(section.get("serial", 0)), _serial_issued) + 1
-		section["serial"] = value
-		mods.call("save_changed")
+		var section := GAME.mods_state(mods, "unfplap")
+		value = maxi(int(section.rows.get("serial", 0)), _serial_issued) + 1
+		section.rows["serial"] = value
+		GAME.mods_save(mods)
 	_serial_issued = value
 	return value
 
@@ -326,11 +327,11 @@ static func shutdown() -> void:
 ## The provider's form is mirrored before anatomy attaches; every hook is idempotent.
 static func _prepare(pony: Node) -> void:
 	if is_instance_valid(body_change):
-		body_change.call("notify_body_ready", pony)
+		body_change.notify_body_ready(pony)
 	if is_instance_valid(anatomy):
-		anatomy.call("tail_ready", pony)
+		anatomy.tail_ready(pony)
 	if is_instance_valid(stock_smack):
-		stock_smack.call("pony_ready", pony)
+		stock_smack.pony_ready(pony)
 
 
 ## Adopt the suspended act onto a newly spawned body. Runs after the adapter fitted it but before
@@ -347,7 +348,7 @@ static func _adopt_pending(pony: Node) -> bool:
 	if change is BODY_CHANGE and is_instance_valid((change as BODY_CHANGE).source):
 		source = (change as BODY_CHANGE).source
 	var claimed: bool = is_instance_valid(source) and source.has_method("claims_body") \
-		and bool(source.call("claims_body", pony))
+		and bool(source.claims_body(pony))
 	if not claimed:
 		var identity: Variant = pony.get("identity")
 		var new_id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), identity)
@@ -358,7 +359,7 @@ static func _adopt_pending(pony: Node) -> bool:
 		# A runtime created before adoption could only be a race; the suspended act is the owner.
 		# Its anatomy controller holds the duplicate's facts, so drop it before the bind below.
 		if is_instance_valid(anatomy) and anatomy.has_method("detach_controller"):
-			anatomy.call("detach_controller", pony)
+			anatomy.detach_controller(pony)
 		var session: Variant = duplicate.get("act")
 		if session != null:
 			session.force_stop()
@@ -368,12 +369,12 @@ static func _adopt_pending(pony: Node) -> bool:
 		_runtimes.erase(old_pony)
 	_runtimes[pony] = runtime
 	if is_instance_valid(anatomy):
-		anatomy.call("bind", pony, runtime)
+		anatomy.bind(pony, runtime)
 	if runtime.get_parent() != pony:
-		runtime.call("attach_to_body", pony)
+		runtime.attach_to_body(pony)
 	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
 	_swap = {}
-	runtime.call("adopt_body", pony)
+	runtime.adopt_body(pony)
 	return true
 
 

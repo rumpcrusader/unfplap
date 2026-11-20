@@ -4,10 +4,12 @@ extends RefCounted
 ## Builds the typed `Host` the service runs on from the live world, and owns the Anon-offer watch.
 
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
+const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -32,7 +34,7 @@ func _state_of(runtime: Node) -> int:
 ## The negotiation service: the lock read, the Anon answer and the Agreement cancel.
 var service: Node = null
 ## The adapter node the service builds; this bridge only calls into it.
-var adapter: Node = null
+var adapter: ADAPTER = null
 ## The services this bridge reads. `eligibility` alone is handed over again on each world enter,
 ## because the entry constructs a fresh one.
 var eligibility: ELIGIBILITY = null
@@ -68,7 +70,7 @@ func privacy_private(pony: Node, cuddle: bool) -> bool:
 
 func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 	if is_instance_valid(initiation) and initiation.has_method("placement_for"):
-		return initiation.call("placement_for", runtime)
+		return initiation.placement_for(runtime)
 	return POSE_OPTIONS.Placement.new()
 
 
@@ -92,20 +94,20 @@ func hold_for(runtime: Node) -> RefCounted:
 
 
 func classify(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
-	return is_instance_valid(adapter) and bool(adapter.call("classify", request, scope, done))
+	return is_instance_valid(adapter) and adapter.classify(request, scope, done)
 
 
 func reason(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
-	return is_instance_valid(adapter) and bool(adapter.call("reason", request, scope, done))
+	return is_instance_valid(adapter) and adapter.reason(request, scope, done)
 
 
 func await_answer(pony: Node, scope: String, done: Callable) -> bool:
-	return is_instance_valid(adapter) and bool(adapter.call("await_answer", pony, scope, done))
+	return is_instance_valid(adapter) and adapter.await_answer(pony, scope, done)
 
 
 func cancel_scope(scope: String) -> void:
 	if is_instance_valid(adapter):
-		adapter.call("cancel_scope", scope)
+		adapter.cancel_scope(scope)
 
 
 func toast(text: String) -> void:
@@ -148,14 +150,9 @@ func context_facts(pony: Node) -> Dictionary:
 func _world_mood(id: String) -> String:
 	if id.is_empty() or not is_instance_valid(WORLD.game):
 		return ""
-	var ctx: Variant = WORLD.game.get("world_context")
-	if ctx == null or not is_instance_valid(ctx):
-		return ""
-	var impressions: Variant = ctx.get("impressions")
-	if impressions == null or not is_instance_valid(impressions) or not impressions.has_method("profile"):
-		return ""
-	var prof: Variant = impressions.call("profile", id)
-	return str((prof as Dictionary).get("mood", "")) if prof is Dictionary else ""
+	var context := GAME.world_context(WORLD.game)
+	var impressions := GAME.impressions_of(context)
+	return GAME.impression_mood(impressions, id, "")
 
 
 ## The relationship prompt note for one id, or "".
@@ -177,16 +174,16 @@ func _relation_note(id: String) -> String:
 func tick_watch() -> void:
 	if not is_instance_valid(adapter) or not is_instance_valid(service):
 		return
-	var free := not PONIES.act_running() and not bool(service.call("is_locked"))
+	var free: bool = not PONIES.act_running() and not bool(service.is_locked())
 	if free:
 		if not _watching:
 			_watching = true
-			adapter.call("watch_player", Callable(self, "on_anon_line"))
+			adapter.watch_player(Callable(self, "on_anon_line"))
 			LOG.debug("anon_watch armed")
 		return
 	if _watching:
 		_watching = false
-		adapter.call("unwatch_player")
+		adapter.unwatch_player()
 		LOG.debug("anon_watch disarmed reason=%s", [
 			"act" if PONIES.act_running() else "locked"])
 
@@ -197,7 +194,7 @@ func disarm() -> void:
 		return
 	_watching = false
 	if is_instance_valid(adapter):
-		adapter.call("unwatch_player")
+		adapter.unwatch_player()
 
 
 ## The first new player line while he talks to a mare: an Anon offer. The service classifies
@@ -211,7 +208,7 @@ func on_anon_line(text: String) -> void:
 	if line.length() > MAX_LINE:
 		LOG.debug("anon_line skip reason=too_long len=%d", [line.length()])
 		return
-	if not is_instance_valid(service) or bool(service.call("is_locked")):
+	if not is_instance_valid(service) or service.is_locked():
 		LOG.debug("anon_line skip reason=locked")
 		return
 	if not _classifier_ready():
@@ -227,17 +224,17 @@ func on_anon_line(text: String) -> void:
 			str(_state_of(runtime)) if is_instance_valid(runtime) else "none"])
 		return
 	if is_instance_valid(initiation) and initiation.has_method("cancel_approach"):
-		initiation.call("cancel_approach")
+		initiation.cancel_approach()
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	LOG.debug("anon_line -> negotiation id=%s", [id if not id.is_empty() else str(pony.name)])
-	var started := bool(service.call("begin_anon_offer", runtime, line))
+	var started: bool = service.begin_anon_offer(runtime, line)
 	LOG.debug("anon_line negotiation started=%s", [str(started)])
 
 
 ## A missing classifier means no answer; the Proactive service owns that node.
 func _classifier_ready() -> bool:
 	return is_instance_valid(initiation) and initiation.has_method("classifier_available") \
-		and bool(initiation.call("classifier_available"))
+		and initiation.classifier_available()
 
 
 ## The mare whose conversation target is Anon, nearest first. The game's own target decides; the

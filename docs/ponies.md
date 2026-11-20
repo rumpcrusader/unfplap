@@ -179,6 +179,7 @@ The Debug block builds its own `Host` from the `PONIES` facade in `debug/actions
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/service.gd` | live scene reads |
+| service | world | `world/game.gd` | the mod state section and its save |
 | shared | log | `shared/log.gd` | log sink |
 | shared | body_change | `shared/body_change.gd` | typed body swap record |
 | shared | body_form | `shared/body_form.gd` | the presented form's name |

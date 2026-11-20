@@ -327,6 +327,7 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 | shared | pose_options | `shared/pose_options.gd` | the placement and option list |
 | store | act_history | `shared/act_history.gd` | stored history rows and the offer cooldown |
 | service | ponies | `ponies/service.gd` | the runtime of each scanned mare |
+| service | world | `world/game.gd` | navigators, posture and the bed rest |
 
 ## Lifecycle
 

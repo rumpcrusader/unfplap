@@ -3,6 +3,7 @@ extends Node
 ## It returns plain values; the facade owns the reasons and the log.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -71,15 +72,15 @@ func can_approach(pony: Node3D) -> bool:
 	var node := player()
 	if not is_instance_valid(node):
 		return false
-	var nav: Node = pony.get_node_or_null("Navigator")
+	var nav := GAME.navigator_of(pony)
 	if nav == null:
 		return false
-	if str(nav.get("reserved_by")) != "":
+	if not GAME.navigator_reserved(nav).is_empty():
 		return false
-	var owner := str(nav.get("command_owner"))
+	var owner := GAME.navigator_owner(nav)
 	if not (owner.is_empty() or owner.begins_with("life:")):
 		return false
-	if bool(nav.get("_has_target")):
+	if GAME.navigator_has_target(nav):
 		return false
 	if region_of(node.global_position) != region_of(pony.global_position):
 		return false
@@ -92,10 +93,9 @@ func can_approach(pony: Node3D) -> bool:
 func ensure_stand(pony: Node) -> void:
 	if not is_instance_valid(pony) or not pony.has_method("request_posture"):
 		return
-	var status: Variant = pony.call("posture_status")
-	if status is Dictionary and str((status as Dictionary).get("requested", "")) == "stand":
+	if GAME.posture_requested(pony) == "stand":
 		return
-	pony.call("request_posture", "stand")
+	GAME.request_posture(pony, "stand")
 
 
 ## Claim the navigator for a request episode and return its previous state:
@@ -103,50 +103,49 @@ func ensure_stand(pony: Node) -> void:
 func claim_nav(pony: Node3D, token: String) -> Dictionary:
 	if not is_instance_valid(pony):
 		return {}
-	var nav: Node = pony.get_node_or_null("Navigator")
+	var nav := GAME.navigator_of(pony)
 	if nav == null:
 		return {}
 	var before := {
 		"nav": nav,
-		"owner": str(nav.get("command_owner")),
-		"wander": bool(nav.get("wander_enabled")),
-		"limit": nav.get("command_speed_limit"),
-		"pace": nav.get("command_pace_target"),
+		"owner": GAME.navigator_owner(nav),
+		"wander": GAME.navigator_wander(nav),
+		"limit": GAME.navigator_speed_limit(nav),
+		"pace": GAME.navigator_pace_target(nav),
 	}
-	nav.call("stay")
-	nav.set("command_owner", token)
-	nav.set("wander_enabled", false)
-	nav.set("command_speed_limit", INF)
-	nav.set("command_pace_target", -1.0)
+	GAME.navigator_stay(nav)
+	GAME.set_navigator_owner(nav, token)
+	GAME.set_navigator_wander(nav, false)
+	GAME.set_navigator_speed_limit(nav, INF)
+	GAME.set_navigator_pace_target(nav, -1.0)
 	return before
 
 
 func nav_owned(nav: Node, token: String) -> bool:
-	return is_instance_valid(nav) and str(nav.get("command_owner")) == token
+	return is_instance_valid(nav) and GAME.navigator_owner(nav) == token
 
 
 func nav_has_target(nav: Node) -> bool:
-	return is_instance_valid(nav) and bool(nav.get("_has_target"))
+	return GAME.navigator_has_target(nav)
 
 
 func stay(nav: Node) -> void:
-	if is_instance_valid(nav):
-		nav.call("stay")
+	GAME.navigator_stay(nav)
 
 
 ## Hand the navigator back. The owner is restored only when the request still owns it; the
 ## wander, speed and pace values are always restored.
 func release_nav(nav: Node, token: String, prev_owner: String, prev_wander: bool,
-		prev_limit: Variant, prev_pace: Variant) -> void:
+		prev_limit: float, prev_pace: float) -> void:
 	if not is_instance_valid(nav):
 		return
-	if str(nav.get("command_owner")) == token:
-		nav.set("command_owner", prev_owner)
-	nav.set("wander_enabled", prev_wander)
-	if prev_limit != null:
-		nav.set("command_speed_limit", prev_limit)
-	if prev_pace != null:
-		nav.set("command_pace_target", prev_pace)
+	if GAME.navigator_owner(nav) == token:
+		GAME.set_navigator_owner(nav, prev_owner)
+	GAME.set_navigator_wander(nav, prev_wander)
+	if not is_nan(prev_limit):
+		GAME.set_navigator_speed_limit(nav, prev_limit)
+	if not is_nan(prev_pace):
+		GAME.set_navigator_pace_target(nav, prev_pace)
 
 
 ## The nearest free bed within reach, as `{bed, rest, front, distance}` or `{}`.
@@ -173,14 +172,13 @@ func find_bed_for(pony: Node3D) -> Dictionary:
 
 
 func player_bed_node(node: Node3D) -> Node3D:
-	var seat: Variant = node.get("seat")
+	var seat := GAME.seat_of(node)
 	if not is_instance_valid(seat) or not seat.has_meta("couch"):
 		return null
 	var couch: Variant = seat.get_meta("couch")
 	if not is_instance_valid(couch):
 		return null
-	var bed: Variant = couch.get("_bed") if couch.get("_bed") != null else couch.get("bed_node")
-	return bed as Node3D if is_instance_valid(bed) else null
+	return GAME.rest_bed_of(couch)
 
 
 ## Every loaded bed near Anon: the `couches` group beds and the house's mattress tops.
@@ -191,11 +189,11 @@ func beds_near(node: Node3D) -> Array:
 		for item: Variant in get_tree().get_nodes_in_group("couches"):
 			if not is_instance_valid(item) or not (item as Node).has_method("rest_word"):
 				continue
-			if str((item as Node).call("rest_word")) != "bed":
+			if GAME.rest_word(item) != "bed":
 				continue
-			var bed: Variant = item.get("_bed") if item.get("_bed") != null else item.get("bed_node")
-			if is_instance_valid(bed) and not seen.has((bed as Node).get_instance_id()):
-				seen[(bed as Node).get_instance_id()] = true
+			var bed := GAME.rest_bed_of(item)
+			if bed != null and not seen.has(bed.get_instance_id()):
+				seen[bed.get_instance_id()] = true
 				found.append(bed)
 	var house := house_at(node.global_position)
 	if house != null:
@@ -225,33 +223,22 @@ func bed_row(bed: Node3D, pony: Node3D, node: Node3D) -> Dictionary:
 		rest = BED_REST.for_bed(bed)
 	if not is_instance_valid(rest):
 		return {}
-	rest.call("refresh")
-	if not bool(rest.get("_mare_fits")):
+	GAME.bed_rest_refresh(rest)
+	if not GAME.bed_rest_fits(rest):
 		return {}
-	var guest: Variant = rest.get("_guest")
-	if guest is Dictionary and not (guest as Dictionary).is_empty():
+	if GAME.bed_rest_has_guest(rest):
 		return {}
-	if is_instance_valid(rest.get("_sleeper")):
+	if GAME.bed_rest_sleeper(rest) != null:
 		return {}
 	if bool(WORLD.bed_occupied(bed, pony)):
 		return {}
-	var front: Variant = rest_front(rest, pony)
-	if not front is Vector3 or not (front as Vector3).is_finite():
+	var front := GAME.bed_rest_front(rest, pony)
+	if not front.is_finite():
 		return {}
 	return {
 		"bed": bed, "rest": rest, "front": front,
 		"distance": at.distance_to(node.global_position),
 	}
-
-
-## The bed rest's front stand point, or null when the rest cannot report one.
-func rest_front(rest: Node, pony: Node3D) -> Variant:
-	if not is_instance_valid(rest) or not rest.has_method("_front_for"):
-		return null
-	var value: Variant = rest.call("_front_for", pony)
-	if value is Vector3 and (value as Vector3).is_finite():
-		return value
-	return null
 
 
 ## The plain placement facts for one runtime: a cuddle bed under her, a free bed near Anon with
@@ -280,10 +267,10 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 
 ## Restore the request claim's speed and pace overrides before the negotiation takes the lease.
 ## The navigator owner and the wander flag stay with the request episode.
-func restore_limits(nav: Node, limit: Variant, pace: Variant) -> void:
+func restore_limits(nav: Node, limit: float, pace: float) -> void:
 	if not is_instance_valid(nav):
 		return
-	if limit != null:
-		nav.set("command_speed_limit", limit)
-	if pace != null:
-		nav.set("command_pace_target", pace)
+	if not is_nan(limit):
+		GAME.set_navigator_speed_limit(nav, limit)
+	if not is_nan(pace):
+		GAME.set_navigator_pace_target(nav, pace)

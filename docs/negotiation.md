@@ -354,6 +354,7 @@ No setting is read directly. The bridge's `relationship_ok` reads the Promiscuit
 | service | memory | `memory/service.gd` | the relationship note in Context |
 | service | ponies | `ponies/service.gd` | the runtime of the outcome, the Agreement and the mare the watch asks |
 | service | privacy | `privacy/service.gd` | live offer and cuddle privacy |
+| service | world | `world/game.gd` | the director's clock, sub-systems and model configuration |
 | shared | clearance | `shared/clearance.gd` | Base clearance result |
 | shared | context | `shared/context.gd` | typed Context snapshot |
 | shared | log | `shared/log.gd` | log sink |

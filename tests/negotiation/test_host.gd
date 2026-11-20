@@ -8,6 +8,7 @@ extends SceneTree
 
 const HOST := preload("res://mods/unfplap/negotiation/host.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
+const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -87,7 +88,7 @@ class FakeRuntime extends Node:
 		pass
 
 
-class FakeAdapter extends Node:
+class FakeAdapter extends ADAPTER:
 	var watched: Array = []
 	var unwatched := 0
 	var queued: Array = []
@@ -106,7 +107,7 @@ class FakeAdapter extends Node:
 			"priority": priority})
 		return true
 
-	func classify(_request, _scope: String, _done: Callable) -> bool:
+	func classify(_request: PROMPTS.Request, _scope: String, _done: Callable) -> bool:
 		classify_calls += 1
 		return false
 

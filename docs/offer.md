@@ -195,6 +195,7 @@ Agreement does not start on a stale answer.
 | service | privacy | `privacy/service.gd` | the fresh sample before a private Agreement auto-starts |
 | service | settings | `settings/service.gd` | the act key's cap label |
 | service | world | `world/service.gd` | player, camera, mares, headset, menu panel and pause |
+| service | world | `world/game.gd` | the seated couch partner and the player's seat |
 | shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
 | shared | log | `shared/log.gd` | log sink |
 | shared | perf | `shared/perf.gd` | one profiler |

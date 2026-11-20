@@ -4,6 +4,7 @@ extends Node
 ## Contract: docs/initiation.md
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const FACTS := preload("res://mods/unfplap/initiation/facts.gd")
 const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
@@ -67,8 +68,8 @@ class Candidate extends RefCounted:
 	var nav: Node
 	var prev_owner := ""
 	var prev_wander := true
-	var prev_limit: Variant = null
-	var prev_pace: Variant = null
+	var prev_limit := NAN
+	var prev_pace := NAN
 	var player_start := Vector3.ZERO
 	var region := ""
 	var bed_front: Variant = null
@@ -108,7 +109,7 @@ var _offer: OFFER
 var _negotiation: NEGOTIATION = null
 ## The director bridge and model host. The Negotiation service owns it; see
 ## `negotiation/adapter.gd`.
-var _adapter: Node
+var _adapter: NEGOTIATION.ADAPTER = null
 ## This service's bounded classifier: the negotiation model calls and both reasoning stages go
 ## through it.
 var _classifier: CLASSIFIER = null
@@ -123,8 +124,7 @@ func setup(privacy_node: PRIVACY = null, negotiation_node: NEGOTIATION = null,
 		offer_node: OFFER = null) -> void:
 	_privacy = privacy_node if is_instance_valid(privacy_node) else PRIVACY.new()
 	_negotiation = negotiation_node
-	var adapter: Variant = _negotiation.adapter() if is_instance_valid(_negotiation) else null
-	_adapter = adapter as Node if is_instance_valid(adapter) else null
+	_adapter = _negotiation.adapter() if is_instance_valid(_negotiation) else null
 	_offer = offer_node
 	_classifier = CLASSIFIER.new()
 	_classifier.name = "UnfplapClassifier"
@@ -180,7 +180,7 @@ func on_world_closed() -> void:
 	_reasoning_serial += 1
 	_reasoning_pending = false
 	if is_instance_valid(_adapter) and not _reasoning_scope.is_empty():
-		_adapter.call("cancel_scope", _reasoning_scope)
+		_adapter.cancel_scope(_reasoning_scope)
 	_reasoning_scope = ""
 	_cuddle_asked.clear()
 	_retry_at.clear()
@@ -298,7 +298,7 @@ func _consider_start() -> void:
 		return
 	if is_instance_valid(_negotiation) and _negotiation.is_locked():
 		return
-	var quiet := str(_adapter.call("quiet_reason", POLICY.QUIET_CHAT_GAP_S))
+	var quiet := _adapter.quiet_reason(POLICY.QUIET_CHAT_GAP_S)
 	if not quiet.is_empty():
 		if quiet != _quiet_reason:
 			_quiet_reason = quiet
@@ -432,10 +432,10 @@ func _start_reasoning(candidate: Candidate) -> void:
 	_reasoning_pending = true
 	LOG.debug("request reasoning start id=%s options=%d", [candidate.id, candidate.options.size()])
 	var payload := REASONING.payload(candidate.context, candidate.options)
-	var started := bool(_adapter.call("complete_raw", REASONING.INSTRUCTION, payload,
+	var started := _adapter.complete_raw(REASONING.INSTRUCTION, payload,
 		_reasoning_scope,
 		func(reply: String, error: String) -> void:
-			_on_reasoning(candidate, serial, reply, error)))
+			_on_reasoning(candidate, serial, reply, error))
 	if not started:
 		_reasoning_pending = false
 		_reasoning_scope = ""
@@ -564,11 +564,9 @@ func _walk_to_player(player: Node3D) -> String:
 		_arrive()
 		return ""
 	var forward: Vector3 = _venue.camera_forward()
-	var goal: Variant = nav.call("command_support",
-		player.global_position + forward * POLICY.APPROACH_GOAL_M)
-	if goal is Vector3 and (goal as Vector3).is_finite() \
-			and absf((goal as Vector3).y - pony.global_position.y) <= 3.0:
-		if not bool(nav.call("command_destination", goal, "trot")):
+	var goal := GAME.navigator_support(nav, player.global_position + forward * POLICY.APPROACH_GOAL_M)
+	if goal.is_finite() and absf(goal.y - pony.global_position.y) <= 3.0:
+		if not GAME.navigator_destination(nav, goal, "trot"):
 			return _close_episode("approach destination")
 		return ""
 	return _close_episode("approach goal")
@@ -581,7 +579,7 @@ func _tick_approach() -> void:
 		_close_episode("approach lost")
 		return
 	if not _episode.forced and is_instance_valid(_adapter) \
-			and not bool(_adapter.call("quiet", POLICY.QUIET_CHAT_GAP_S)):
+			and not _adapter.quiet(POLICY.QUIET_CHAT_GAP_S):
 		_close_episode("approach quiet")
 		return
 	var player: Node3D = _venue.player()
@@ -652,7 +650,7 @@ func _lead_to_bed() -> String:
 	if _episode.pony.global_position.distance_to(front) <= 1.2:
 		_venue.stay(_episode.nav)
 		return _start_ask_handoff()
-	if not bool(_episode.nav.call("command_destination", front, "trot")):
+	if not GAME.navigator_destination(_episode.nav, front, "trot"):
 		return _close_episode("bed approach destination")
 	return ""
 
@@ -740,13 +738,14 @@ func _start_ask_handoff() -> String:
 		_cuddle_asked[episode.id] = true
 	var started := false
 	if is_instance_valid(_adapter):
-		started = bool(_adapter.call("begin_greeting", episode.id, line))
+		started = _adapter.begin_greeting(episode.id, line)
 	if not started and is_instance_valid(_adapter):
 		var key := "%s:%s:%d:ask" % [KEY_PREFIX, episode.id, episode.serial]
-		_adapter.call("queue", episode.id, PROMPTS.ask_purpose(request), key,
+		_adapter.queue(episode.id, PROMPTS.ask_purpose(request), key,
 			Callable(self, "_line_valid").bind(runtime), true)
 	if is_instance_valid(_adapter):
-		_adapter.call("record_situation", PROMPTS.situation_ask(request), [episode.id],
+		var ids: Array[String] = [episode.id]
+		_adapter.record_situation(PROMPTS.situation_ask(request), ids,
 			"%s:%s:%d:situation" % [KEY_PREFIX, episode.id, episode.serial])
 	LOG.debug("request ask %s pose=%s private=%s cuddle=%s", [
 		episode.id, option.pose, str(episode.private), str(option.cuddle)])
@@ -808,8 +807,8 @@ func _apply_claim(episode: Candidate, claim: Dictionary) -> void:
 	episode.nav = claim.get("nav")
 	episode.prev_owner = str(claim.get("owner", ""))
 	episode.prev_wander = bool(claim.get("wander", true))
-	episode.prev_limit = claim.get("limit")
-	episode.prev_pace = claim.get("pace")
+	episode.prev_limit = float(claim.get("limit", NAN))
+	episode.prev_pace = float(claim.get("pace", NAN))
 
 
 ## The one request close path; it stamps the short retry for a non-empty reason and returns it.

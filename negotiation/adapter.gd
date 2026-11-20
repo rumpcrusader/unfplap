@@ -4,6 +4,7 @@ extends Node
 ## Contract: `docs/negotiation.md` (`## Director and model host`).
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
@@ -125,10 +126,10 @@ func quiet_reason(chat_gap_s: float) -> String:
 	if str(node.get("state")) != "idle":
 		return "director_state"
 	var approaches: Variant = node.get("player_approaches")
-	if approaches != null and approaches.has_method("active") and bool(approaches.call("active")):
+	if approaches != null and approaches.has_method("active") and GAME.subsystem_active(approaches):
 		return "approach"
 	var group: Variant = node.get("group")
-	if group != null and group.has_method("active") and bool(group.call("active")):
+	if group != null and group.has_method("active") and GAME.subsystem_active(group):
 		return "group"
 	var speech: Variant = node.get("speech")
 	if speech != null and is_instance_valid(speech) and str(speech.get("state")) == "hearing":
@@ -136,7 +137,7 @@ func quiet_reason(chat_gap_s: float) -> String:
 	var config: Variant = node.get("config")
 	if config != null and not AI_CONFIG.background_allowed(config):
 		return "ai_usage"
-	var now := float(node.call("_now"))
+	var now := GAME.director_now(node)
 	var characters: Variant = node.get("characters")
 	if characters is Dictionary:
 		for entry: Variant in (characters as Dictionary).values():
@@ -204,32 +205,23 @@ func player_name() -> String:
 
 
 func pony_speaking(pony: Node) -> bool:
-	return is_instance_valid(pony) and pony.has_method("is_speaking") \
-		and bool(pony.call("is_speaking"))
+	return GAME.pony_speaking(pony)
 
 
 func begin_greeting(id: String, context: String) -> bool:
-	var node := director()
-	if node == null or not node.has_method("begin_player_greeting"):
-		return false
-	return bool(node.call("begin_player_greeting", id, context))
+	return GAME.director_lines(director()).greet(id, context)
 
 
 ## Queue one authored line with a validity callback. False when the director is missing or the
 ## queue refuses it.
 func queue(id: String, purpose: String, key: String, valid: Callable, priority: bool) -> bool:
-	var node := director()
-	if node == null or not node.has_method("queue_generated_intent"):
-		return false
-	return bool(node.call("queue_generated_intent", id, purpose, key, valid, Callable(), priority))
+	return GAME.director_lines(director()).queue(id, purpose, key, valid, priority)
 
 
 func cancel_keys(keys: Array) -> void:
-	var node := director()
-	if node == null or not node.has_method("cancel_authored_line"):
-		return
+	var lines := GAME.director_lines(director())
 	for key: Variant in keys:
-		node.call("cancel_authored_line", str(key))
+		lines.cancel(str(key))
 
 
 ## Record a situation event for the director's world context: `ids` is the subject list and `key`
@@ -238,10 +230,9 @@ func record_situation(text: String, ids: Array, key: String) -> void:
 	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return
-	var ctx: Variant = game.get("world_context")
-	if not is_instance_valid(ctx):
-		return
-	ctx.call("record", "situation", text, ids, ids, key)
+	var subjects: Array[String] = []
+	subjects.assign(ids)
+	GAME.record_situation(GAME.world_context(game), text, subjects, key)
 
 
 # --------------------------------------------------------------------------- model calls
@@ -262,7 +253,7 @@ func complete_raw(system: String, payload: Dictionary, scope: String, done: Call
 	var classifier := _classifier()
 	if not is_instance_valid(classifier) or not classifier.has_method("complete_raw"):
 		return false
-	return bool(classifier.call("complete_raw", system, payload, scope, done))
+	return classifier.complete_raw(system, payload, scope, done)
 
 
 ## Watch the first new player line for an Anon offer; the service arms it only while nothing is
@@ -315,7 +306,7 @@ func cancel_scope(scope: String) -> void:
 		_watch = {}
 	var classifier := _classifier()
 	if is_instance_valid(classifier):
-		classifier.call("cancel_scope", scope)
+		classifier.cancel_scope(scope)
 
 
 func _complete(request: PROMPTS.Request, scope: String, done: Callable) -> bool:

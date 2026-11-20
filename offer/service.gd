@@ -8,6 +8,7 @@ extends Node
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
@@ -45,9 +46,8 @@ const AGREEMENT_STARTED := 1
 func _gate(runtime: Node) -> Variant:
 	return runtime.get("gate")
 
-## The Negotiation service bound by the entry; its live Agreement is offered before the scan. It
-## stays a plain handle because only its public reads are used.
-var negotiation: Node = null
+## The Negotiation service bound by the entry; its live Agreement is offered before the scan.
+var negotiation: NEGOTIATION = null
 ## Set by the entry's `bind()`: the privacy provider, resampled before a private Agreement
 ## auto-starts.
 var privacy: PRIVACY = null
@@ -88,7 +88,7 @@ func _exit_tree() -> void:
 
 ## Set by the entry: the Negotiation and privacy facades this offer reads and the HUD its hint
 ## falls back to. The registry and the act reads are the preloaded `PONIES` facade.
-func bind(negotiation_node: Node, privacy_node: PRIVACY, hud_node: Node) -> void:
+func bind(negotiation_node: NEGOTIATION, privacy_node: PRIVACY, hud_node: Node) -> void:
 	negotiation = negotiation_node
 	privacy = privacy_node
 	hud = hud_node
@@ -179,17 +179,17 @@ func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
 		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
 	if is_instance_valid(negotiation):
-		var handle: Variant = negotiation.call("handle")
+		var handle := negotiation.handle()
 		if handle != null:
-			var match: Variant = negotiation.call("hotkey_handle", runtime, _option_for(offer))
+			var match := negotiation.hotkey_handle(runtime, _option_for(offer))
 			if match != null:
 				LOG.debug("hotkey exact match id=%s pose=%s", [id, offer.pose])
 				return _start_agreement_offer(offer, true)
 			LOG.debug("hotkey interrupt agreement id=%s", [id])
-			negotiation.call("interrupt_for_hotkey")
-		elif bool(negotiation.call("is_locked")):
+			negotiation.interrupt_for_hotkey()
+		elif negotiation.is_locked():
 			LOG.debug("hotkey interrupt negotiation id=%s", [id])
-			negotiation.call("interrupt_for_hotkey")
+			negotiation.interrupt_for_hotkey()
 	LOG.debug("hotkey immediate id=%s pose=%s source=%s", [id, offer.pose, offer.source])
 	var started := bool(_gate(runtime).start_hotkey(offer.pose, offer.bed, offer.source))
 	if not started:
@@ -212,7 +212,7 @@ func _option_for(offer: POSE_OFFER) -> POSE_OPTIONS.Option:
 ## Consume a live Agreement through its scene-only start. A wait keeps both for the next press;
 ## started or failed clears the hint and reports the result.
 func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
-	var handle: Variant = negotiation.call("handle") if is_instance_valid(negotiation) else null
+	var handle := negotiation.handle() if is_instance_valid(negotiation) else null
 	if handle == null or not is_instance_valid(offer.runtime):
 		_clear_offer_hint()
 		return false
@@ -239,7 +239,7 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	_agreement_clock += delta
 	if _agreement_clock < AGREEMENT_START_S:
 		return
-	var handle: Variant = negotiation.call("handle")
+	var handle := negotiation.handle()
 	if handle == null:
 		return
 	_agreement_clock = 0.0
@@ -248,7 +248,7 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	if DisplayServer.get_name() != "headless" and not WORLD.headset_view() \
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
-	var pony: Variant = handle.pony
+	var pony: Node3D = handle.pony
 	var runtime: Node = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
 	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
 	if gate == null:
@@ -256,15 +256,15 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	var typed: POSE_OFFER = agreement_offer(handle)
 	if typed == null:
 		return
-	var option: Variant = handle.option
-	var cuddle := option != null and bool(option.cuddle)
+	var option := handle.option
+	var cuddle := option != null and option.cuddle
 	var pony_id := str(handle.pony_id)
 	if pony_id.is_empty() and is_instance_valid(pony):
 		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	LOG.debug("agreement auto-start id=%s pose=%s", [pony_id, typed.pose])
 	if bool(handle.private) and not _agreement_private_now(pony, cuddle):
 		LOG.debug("agreement auto-start privacy lost pony=%s", [str(pony.name)])
-		negotiation.call("cancel", handle, "privacy")
+		negotiation.cancel(handle, "privacy")
 		return
 	LOG.debug("agreement auto-start pony=%s pose=%s", [str(pony.name), typed.pose])
 	_start_agreement_offer(typed, false)
@@ -279,16 +279,16 @@ func _agreement_private_now(pony: Node, cuddle: bool) -> bool:
 
 
 ## The runtime's Agreement start result, forwarded to the Negotiation service.
-func _report_agreement(handle: Variant, started: bool) -> void:
+func _report_agreement(handle: NEGOTIATION.AGREEMENT.Handle, started: bool) -> void:
 	if is_instance_valid(negotiation):
-		negotiation.call("report", handle, started)
+		negotiation.report(handle, started)
 
 
 ## Clear the act-key hint and its cached offer.
 func _clear_offer_hint() -> void:
 	clear_current()
 	if is_instance_valid(hud):
-		hud.call("hide_prompt")
+		hud.hide_prompt()
 
 
 func _toast(text: String) -> void:
@@ -350,7 +350,7 @@ func scan() -> void:
 	# or the presentation turns, the context scan below still finds a hotkey attempt, so a press
 	# can start the exact match immediately or interrupt a different one.
 	if is_instance_valid(negotiation):
-		var handle: Variant = negotiation.call("handle")
+		var handle := negotiation.handle()
 		if handle != null:
 			var live: POSE_OFFER = agreement_offer(handle)
 			if live != null:
@@ -547,9 +547,9 @@ func _sync_native_hint(text: String) -> void:
 	if row == null:
 		if is_instance_valid(hud):
 			if text.is_empty():
-				hud.call("hide_prompt")
+				hud.hide_prompt()
 			else:
-				hud.call("show_prompt", text, "",
+				hud.show_prompt(text, "",
 					_act_key_label() if text == OFFER_HINT else "")
 		return
 	# The scan changes the hint at most once a second; the common frame has nothing to apply, so it
@@ -562,7 +562,7 @@ func _sync_native_hint(text: String) -> void:
 	if text.is_empty():
 		_remove_native_hint(row)
 		if is_instance_valid(hud):
-			hud.call("hide_prompt")
+			hud.hide_prompt()
 		return
 	if not is_instance_valid(_native_hint_label) or _native_hint_label.get_parent() != row \
 			or _native_hint_label.is_queued_for_deletion() or _native_hint_text != text:
@@ -574,7 +574,7 @@ func _sync_native_hint(text: String) -> void:
 	if parent is Control:
 		(parent as Control).visible = true
 	if is_instance_valid(hud):
-		hud.call("hide_prompt")
+		hud.hide_prompt()
 
 
 ## The act key's cap label, resolved once when a hint row is built.
@@ -651,13 +651,14 @@ func _log_offer() -> void:
 func _bedside_pony(_view: Camera3D) -> Node:
 	# The player's bed/couch seat knows exactly who lies beside Anon.
 	if is_instance_valid(WORLD.player):
-		var seat: Variant = WORLD.player.get("seat")
+		var seat := GAME.seat_of(WORLD.player)
 		if is_instance_valid(seat) and seat.has_meta("couch"):
 			var couch: Variant = seat.get_meta("couch")
-			if is_instance_valid(couch) and couch.has_method("partner"):
-				var partner: Variant = couch.call("partner", seat)
-				if partner is Node and is_instance_valid(partner) and PONIES.act_target(partner):
-					return partner
+			if not is_instance_valid(couch):
+				return null
+			var partner := GAME.couch_partner(couch, seat)
+			if partner != null and PONIES.act_target(partner):
+				return partner
 	return null
 
 

@@ -13,6 +13,7 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
+const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 var failures := 0
@@ -61,7 +62,7 @@ class FakeNegotiation extends NEGOTIATION:
 	var locked := false
 	var handed: NEGOTIATION.MareOffer = null
 	var handoff_ok := true
-	var adapter_node: Node = null
+	var adapter_node: ADAPTER = null
 
 	func is_locked() -> bool:
 		return locked
@@ -76,7 +77,7 @@ class FakeNegotiation extends NEGOTIATION:
 		handed = mare_offer
 		return handoff_ok
 
-	func adapter() -> Node:
+	func adapter() -> ADAPTER:
 		return adapter_node
 
 
@@ -167,7 +168,7 @@ class FakePrivacy extends PRIVACY:
 		return private
 
 
-class FakeAdapter extends Node:
+class FakeAdapter extends ADAPTER:
 	var quiet_reason_value := ""
 	var reason_reply := "{\"offer\":false}"
 	var reason_error := ""

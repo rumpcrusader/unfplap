@@ -8,6 +8,7 @@ const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_nea
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 const SHOP_ITEMS := preload("res://world/shop/shop_items.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
+const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 
 
 ## The eye is in a headset; absent reads as false.
@@ -121,6 +122,23 @@ static func anon_height(settings: Node) -> float:
 	if not is_instance_valid(settings) or not settings.has_method("anon_height_scale"):
 		return NAN
 	return float(settings.call("anon_height_scale"))
+
+
+## One mod's live state section, as the registry keeps the reference; empty without the reader.
+static func mods_state(mods: Node, id: String) -> ModState:
+	var out := ModState.new()
+	if not is_instance_valid(mods) or not mods.has_method("state"):
+		return out
+	var state: Variant = mods.call("state", id)
+	if state is Dictionary:
+		out.rows = state
+	return out
+
+
+## Ask the mod registry to persist its state; nothing happens without the writer.
+static func mods_save(mods: Node) -> void:
+	if is_instance_valid(mods) and mods.has_method("save_changed"):
+		mods.call("save_changed")
 
 
 ## One named game panel; the caller decides what an open panel means.
@@ -611,14 +629,14 @@ static func impressions_of(context: Node) -> Node:
 	return null
 
 
-## One pony's committed mood; empty when the impressions store cannot answer.
-static func impression_mood(impressions: Node, id: String) -> String:
+## One pony's committed mood; `absent` when the store has a profile without a mood.
+static func impression_mood(impressions: Node, id: String, absent: String = "neutral") -> String:
 	if not is_instance_valid(impressions) or not impressions.has_method("profile"):
 		return ""
 	var profile: Variant = impressions.call("profile", id)
 	if not profile is Dictionary:
 		return ""
-	return str((profile as Dictionary).get("mood", "neutral"))
+	return str((profile as Dictionary).get("mood", absent))
 
 
 ## The rig's private look pitch; NAN when the rig has no such member.
@@ -718,6 +736,51 @@ static func set_navigator_wander(nav: Node, enabled: bool) -> void:
 		nav.set("wander_enabled", enabled)
 
 
+## The navigator's speed override; NAN when the node has no such member.
+static func navigator_speed_limit(nav: Node) -> float:
+	if not is_instance_valid(nav):
+		return NAN
+	var value: Variant = nav.get("command_speed_limit")
+	return float(value) if value != null else NAN
+
+
+## The navigator's pace override; NAN when the node has no such member.
+static func navigator_pace_target(nav: Node) -> float:
+	if not is_instance_valid(nav):
+		return NAN
+	var value: Variant = nav.get("command_pace_target")
+	return float(value) if value != null else NAN
+
+
+## Write the navigator's speed override; nothing happens without a navigator.
+static func set_navigator_speed_limit(nav: Node, value: float) -> void:
+	if is_instance_valid(nav):
+		nav.set("command_speed_limit", value)
+
+
+## Write the navigator's pace override; nothing happens without a navigator.
+static func set_navigator_pace_target(nav: Node, value: float) -> void:
+	if is_instance_valid(nav):
+		nav.set("command_pace_target", value)
+
+
+## The navigator's own reachable point near `point`; `Vector3.INF` when it cannot answer.
+static func navigator_support(nav: Node, point: Vector3) -> Vector3:
+	if not is_instance_valid(nav) or not nav.has_method("command_support"):
+		return Vector3.INF
+	var goal: Variant = nav.call("command_support", point)
+	if goal is Vector3:
+		return goal
+	return Vector3.INF
+
+
+## Walk the navigator to `point`; false when it has no op or refuses the goal.
+static func navigator_destination(nav: Node, point: Vector3, gait: String) -> bool:
+	if not is_instance_valid(nav) or not nav.has_method("command_destination"):
+		return false
+	return bool(nav.call("command_destination", point, gait))
+
+
 ## Keep Anon as her conversation target; a body without the setter is left alone.
 static func set_conversation_target(pony: Node, target: Node3D, hold: bool) -> void:
 	if is_instance_valid(pony) and pony.has_method("set_conversation_target"):
@@ -770,6 +833,12 @@ static func posture_settled(pony: Node) -> bool:
 	return status is Dictionary and bool((status as Dictionary).get("settled", false))
 
 
+## Ask her to take a posture; a body without the request keeps its own.
+static func request_posture(pony: Node, posture: String) -> void:
+	if is_instance_valid(pony) and pony.has_method("request_posture"):
+		pony.call("request_posture", posture)
+
+
 ## The reason her current action is interrupted; empty when nothing interrupts.
 static func interruption_reason(pony: Node) -> String:
 	if not is_instance_valid(pony) or not pony.has_method("action_interruption_reason"):
@@ -796,6 +865,55 @@ static func pony_speaking(pony: Node) -> bool:
 	if not is_instance_valid(pony) or not pony.has_method("is_speaking"):
 		return false
 	return bool(pony.call("is_speaking"))
+
+
+## The director's own clock, in seconds; NAN when it has no clock.
+static func director_now(director: Node) -> float:
+	if not is_instance_valid(director) or not director.has_method("_now"):
+		return NAN
+	return float(director.call("_now"))
+
+
+## Whether a director sub-system (an approach, a group exchange) reports itself active.
+static func subsystem_active(node: Object) -> bool:
+	if not is_instance_valid(node) or not node.has_method("active"):
+		return false
+	return bool(node.call("active"))
+
+
+## The director's authored-line host: the greeting, the queue and the cancel.
+static func director_lines(director: Node) -> DirectorLines:
+	var out := DirectorLines.new()
+	out.director = director
+	return out
+
+
+## One director's live model configuration, typed for the classifier's own setup.
+static func llm_config(director: Node) -> LlmConfig:
+	var out := LlmConfig.new()
+	if not is_instance_valid(director):
+		return out
+	var config: Variant = director.get("config")
+	if config == null or not AI_CONFIG.ai_enabled(config):
+		return out
+	if not director.has_method("_llm_section"):
+		return out
+	out.enabled = true
+	var section: Variant = director.call("_llm_section")
+	if section is Dictionary:
+		out.section = section
+	var llm: Variant = director.get("llm")
+	if is_instance_valid(llm):
+		out.status_path = str(llm.get("status_path"))
+	return out
+
+
+## Record one world-context event; `ids` is the subject list and `key` the replaceable event key.
+static func record_situation(context: Node, text: String, ids: Array[String],
+		key: String) -> void:
+	if not is_instance_valid(context) or not context.has_method("record"):
+		return
+	context.call("record", "situation", text, ids, ids, key)
 
 
 ## Prepare her generated voice cache for the act; absent when the director has no voice loop.
@@ -1208,6 +1326,72 @@ static func bed_of(collider: Object) -> Node3D:
 	return null
 
 
+## A couch or rest node's `rest_word` answer; empty when it has no op.
+static func rest_word(node: Node) -> String:
+	if not is_instance_valid(node) or not node.has_method("rest_word"):
+		return ""
+	return str(node.call("rest_word"))
+
+
+## The bed a couch or rest node resolves to; null when it has none.
+static func rest_bed_of(node: Node) -> Node3D:
+	if not is_instance_valid(node):
+		return null
+	var bed: Variant = node.get("_bed") if node.get("_bed") != null else node.get("bed_node")
+	if bed is Node3D and is_instance_valid(bed):
+		return bed
+	return null
+
+
+## Let a bed rest re-measure its bed, seats and sleeper; nothing happens without the op.
+static func bed_rest_refresh(rest: Node) -> void:
+	if is_instance_valid(rest) and rest.has_method("refresh"):
+		rest.call("refresh")
+
+
+## Whether the rest measured that this mare fits; false without the member.
+static func bed_rest_fits(rest: Node) -> bool:
+	return is_instance_valid(rest) and rest.get("_mare_fits") == true
+
+
+## Whether the rest already holds a guest row; false without the member.
+static func bed_rest_has_guest(rest: Node) -> bool:
+	if not is_instance_valid(rest):
+		return false
+	var guest: Variant = rest.get("_guest")
+	return guest is Dictionary and not (guest as Dictionary).is_empty()
+
+
+## The rest's current sleeper; null when the bed is free or the member is absent.
+static func bed_rest_sleeper(rest: Node) -> Node3D:
+	if not is_instance_valid(rest):
+		return null
+	var sleeper: Variant = rest.get("_sleeper")
+	if sleeper is Node3D and is_instance_valid(sleeper):
+		return sleeper
+	return null
+
+
+## The rest's front stand point for one pony; `Vector3.INF` when it cannot report one.
+static func bed_rest_front(rest: Node, pony: Node3D) -> Vector3:
+	if not is_instance_valid(rest) or not rest.has_method("_front_for"):
+		return Vector3.INF
+	var front: Variant = rest.call("_front_for", pony)
+	if front is Vector3 and (front as Vector3).is_finite():
+		return front
+	return Vector3.INF
+
+
+## The pony lying beside Anon on one couch seat; null without a partner or a live one.
+static func couch_partner(couch: Node, seat: Node) -> Node:
+	if not is_instance_valid(couch) or not couch.has_method("partner"):
+		return null
+	var partner: Variant = couch.call("partner", seat)
+	if partner is Node and is_instance_valid(partner):
+		return partner
+	return null
+
+
 ## One PonyTouchBody hull sync for a rig index; a body without the private sync stays stale.
 static func touch_sync(body: Object, rig: int) -> void:
 	if not is_instance_valid(body) or not body.has_method("_unprofiled_sync"):
@@ -1269,3 +1453,42 @@ static func hand_frame(driver: Node, side: String) -> Transform3D:
 	if frame is Transform3D:
 		return frame
 	return Transform3D(Basis.IDENTITY, Vector3.INF)
+
+
+## One mod's live state section: the Dictionary the registry keeps, read and written in place.
+class ModState:
+	var rows: Dictionary = {}
+
+
+## The director's authored-line host: the greeting, the generated-intent queue and the cancel.
+class DirectorLines:
+	var director: Node = null
+
+	## Greet in the director's own opening line; false when it refuses or has no op.
+	func greet(id: String, context: String) -> bool:
+		if not is_instance_valid(director) or not director.has_method("begin_player_greeting"):
+			return false
+		return bool(director.call("begin_player_greeting", id, context))
+
+	## Queue one authored line with the game's own validity callback; false when it refuses.
+	func queue(id: String, purpose: String, key: String, valid: Callable,
+			priority: bool) -> bool:
+		if not is_instance_valid(director) or not director.has_method("queue_generated_intent"):
+			return false
+		return bool(director.call("queue_generated_intent", id, purpose, key, valid,
+			Callable(), priority))
+
+	## Cancel one authored line the queue still holds; false when it has no op.
+	func cancel(key: String) -> bool:
+		if not is_instance_valid(director) or not director.has_method("cancel_authored_line"):
+			return false
+		director.call("cancel_authored_line", key)
+		return true
+
+
+## One director's live model configuration: the section a client configures from and its status.
+class LlmConfig:
+	var section: Dictionary = {}
+	var status_path := ""
+	## The game's AI gate allows a model call and the director can hand over its section.
+	var enabled := false

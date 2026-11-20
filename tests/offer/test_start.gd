@@ -19,6 +19,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 
 var failures := 0
 var checks := 0
@@ -78,30 +79,32 @@ class FakeRuntime extends Node:
 		return agreement_ready
 
 
-class FakeNegotiation extends Node:
-	var live: Variant = null
-	var match: Variant = null
+class FakeNegotiation extends NEGOTIATION:
+	var live: NEGOTIATION.AGREEMENT.Handle = null
+	var match: NEGOTIATION.AGREEMENT.Handle = null
 	var locked := false
 	var interrupts := 0
 	var reports: Array = []
 	var cancels: Array = []
 
-	func handle() -> Variant:
+	func handle() -> NEGOTIATION.AGREEMENT.Handle:
 		return live
 
-	func hotkey_handle(_runtime: Node, _option: POSE_OPTIONS.Option) -> Variant:
+	func hotkey_handle(_runtime: Node, _option: POSE_OPTIONS.Option) -> NEGOTIATION.AGREEMENT.Handle:
 		return match
 
-	func interrupt_for_hotkey() -> void:
+	func interrupt_for_hotkey() -> bool:
 		interrupts += 1
+		return true
 
 	func is_locked() -> bool:
 		return locked
 
-	func report(handle: Variant, started: bool) -> void:
+	func report(handle: NEGOTIATION.AGREEMENT.Handle, started: bool) -> bool:
 		reports.append([handle, started])
+		return true
 
-	func cancel(handle: Variant, reason: String) -> bool:
+	func cancel(handle: NEGOTIATION.AGREEMENT.Handle, reason: String) -> bool:
 		cancels.append([handle, reason])
 		live = null
 		return true

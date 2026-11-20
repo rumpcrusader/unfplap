@@ -112,22 +112,6 @@
       "count": 10
     },
     {
-      "file": "initiation/classifier.gd",
-      "count": 1
-    },
-    {
-      "file": "initiation/cooldowns.gd",
-      "count": 5
-    },
-    {
-      "file": "initiation/service.gd",
-      "count": 10
-    },
-    {
-      "file": "initiation/venue.gd",
-      "count": 17
-    },
-    {
       "file": "input/service.gd",
       "count": 4
     },
@@ -158,26 +142,6 @@
     {
       "file": "memory/world.gd",
       "count": 11
-    },
-    {
-      "file": "negotiation/adapter.gd",
-      "count": 10
-    },
-    {
-      "file": "negotiation/host.gd",
-      "count": 14
-    },
-    {
-      "file": "negotiation/service.gd",
-      "count": 4
-    },
-    {
-      "file": "offer/service.gd",
-      "count": 16
-    },
-    {
-      "file": "ponies/service.gd",
-      "count": 16
     },
     {
       "file": "poses/anon_thrust.gd",

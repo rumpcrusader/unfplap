@@ -5,6 +5,7 @@ extends RefCounted
 ## `docs/initiation.md` (`## Data ownership`).
 
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 
 const MOD_ID := "unfplap"
@@ -17,8 +18,7 @@ static func section() -> Dictionary:
 	var mods := _mods()
 	if mods == null:
 		return {}
-	var data: Variant = mods.call("state", MOD_ID)
-	return data if data is Dictionary else {}
+	return GAME.mods_state(mods, MOD_ID).rows
 
 
 ## The stored cooldown clock for one mare, or a very old time so the first offer is ready.
@@ -56,13 +56,13 @@ static func set_last(id: String) -> void:
 	var mods := _mods()
 	if mods == null:
 		return
-	var data: Dictionary = mods.call("state", MOD_ID)
+	var data: Dictionary = GAME.mods_state(mods, MOD_ID).rows
 	var times: Variant = data.get(KEY, {})
 	if not times is Dictionary:
 		times = {}
 	(times as Dictionary)[id] = Time.get_unix_time_from_system()
 	data[KEY] = times
-	mods.call("save_changed")
+	GAME.mods_save(mods)
 
 
 ## Drop one mare's cooldown. A cuddle rising edge does this.
@@ -72,13 +72,13 @@ static func clear(id: String) -> void:
 	var mods := _mods()
 	if mods == null:
 		return
-	var data: Dictionary = mods.call("state", MOD_ID)
+	var data: Dictionary = GAME.mods_state(mods, MOD_ID).rows
 	var times: Variant = data.get(KEY, {})
 	if not times is Dictionary or not (times as Dictionary).has(id):
 		return
 	(times as Dictionary).erase(id)
 	data[KEY] = times
-	mods.call("save_changed")
+	GAME.mods_save(mods)
 
 
 static func _mods() -> Node:

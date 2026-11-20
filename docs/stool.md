@@ -95,14 +95,13 @@ the step it used.
 `ignore` is the partner pony; the stack must not collide with her.
 
 `runtime.gd` supplies the scene values, calls the handle and composes the gate; it does not read
-a controller's private state. The live opening comes from the per-pony anatomy controller, the
-part root from `PONIES.anatomy.player_root_now()`, and `PONIES.anatomy.player_prepare()` builds
-the
-hidden part first. The part is normally warmed when the player part is created, so the first
-standing offer does not load it (`docs/anatomy.md`); `player_prepare()` remains the idempotent
-fallback. The handle reads `STOOL.instance` for the settings/item/measure calls and
-`PONIES.anatomy` for
-the player part.
+a controller's private state. The live opening comes from the per-pony anatomy controller's
+`entrance_point()`: the deformed resting hole point, cached in local space and mapped by the live
+mesh transform, so a scan does not re-run the coat line. The part root comes from
+`PONIES.anatomy.player_root_now()`, and `PONIES.anatomy.player_prepare()` builds the hidden part
+first. The part is normally warmed when the player part is created, so the first standing offer does
+not load it (`docs/anatomy.md`); `player_prepare()` remains the idempotent fallback. The handle reads
+`STOOL.instance` for the settings/item/measure calls and `PONIES.anatomy` for the player part.
 
 ## Rule
 
@@ -148,8 +147,9 @@ idle hint and the act start.
   **Needs N footstools** when the stack is the only missing thing. The blocked note has no act-key
   icon. A one-time toast points at houses.
 - The idle hint reads the reach and case pair once per scan (once per second) through
-  `hotkey_pair()` and hands it to the scene row. The anatomy measurement and the inventory scan are
-  not repeated inside the same scan.
+  `hotkey_pair()` and hands it to the scene row. The reach reads `entrance_point()`, the cached
+  local resting point, and `player_root_now()`; the case count is read once. The anatomy
+  measurement and the inventory scan are not repeated inside the same scan.
 - The blocked hint reads that pair through `hint_pair()` (forwarded by `runtime.gate.hint_stool()`); it
   does not repeat the reach or case reads. Before the first hint the accessor falls back to the live
   pair.
@@ -239,8 +239,8 @@ idle hint and the act start.
 - `tests/stool/test_gate.gd`: the facade's feature read, the act handle's `applies()`/`required()`,
   the runtime forwards' live gap, two-step requirement, case count, the hotkey readiness and the
   blocked hint's reuse of the first gate's pair.
-- `tests/stool/test_act.gd`: the per-act handle's rule, case loans, stack placement/release,
-  reset and the missing-stool-only block.
+- `tests/stool/test_act.gd`: the per-act handle's rule over the cached entrance point, case loans,
+  stack placement/release, reset and the missing-stool-only block.
 - `tests/stool/test_prop.gd`: the stacked visuals, total height, box top and both pony collision
   exceptions.
 - `tests/stool/test_placement.gd`: the player-root raise to the stack top, exception cleanup and

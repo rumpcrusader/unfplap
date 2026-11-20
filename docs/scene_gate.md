@@ -18,7 +18,8 @@ whether the *scene* is ready right now.
 - the structural rows (`invalid_pony`, `no_world` — the missing game root — `no_player`,
   `no_game`), the policy/scene merge, `start_verdict` / `offer_verdict`, the debug status line and
   the reason list;
-- the act key's readiness (`hotkey_ready`) and the policy verdict read (`policy_verdict_for`);
+- the act key's readiness (`hotkey_ready`), the small checks it composes and the policy verdict read
+  (`policy_verdict_for`);
 - the running verdict (`running_verdict()`), a `RunningVerdict` the act session applies through
   the one stop;
 - the physical buck/push (`buck_or_push`), which the tolerance strict stop uses.
@@ -26,8 +27,9 @@ whether the *scene* is ready right now.
 `runtime.gate` is the offer-facing handle. The live scene context comes through the gate's
 `debug_context` callback, bound by `act/build.gd` to `runtime.act.debug_context()`: that gathers
 `debug/pony.gd`'s pony, world, relationship and player facts and adds the session's act values. The
-handle exposes `find_bed_under`, `free_of_affection`, `cuddle_active`, `hotkey_ready`,
-`hint_stool` and the Agreement start. The gate reads
+handle exposes `find_bed_under`, `free_of_affection`, `cuddle_active`, `hotkey_ready`, the small
+checks (`available`, `pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`,
+`agreement_ready`), `stool_pair`, `hint_stool` and the Agreement start. The gate reads
 `PONIES.eligibility` itself for the policy verdict; a suite may still override
 `policy_verdict`. The tolerance stop owns its impression and face (`docs/summary.md`,
 `docs/face.md`).
@@ -44,14 +46,15 @@ The pose half reads `shared/pose_specs.gd`, never a pose-id comparison: `scene()
 against `PLAYER_FORM.active()` and the headset view. An unknown or internal pose fails
 `pose_profile`; an offer of a non-offerable pose also fails `pose`. The gate fails closed.
 
-`start_verdict()` and `offer_verdict()` accept a `verdict_in` policy snapshot. The idle hint no
-longer supplies one: its readiness is `hotkey_ready()` (the scene-only rows plus Base clearance),
-and it runs the scene rows first. `scene_only_verdict()` takes the footstool pair the host read
-for this call as an optional `stool_need`/`stool_have`; `-1` reads the live provider callbacks.
-The blocked standing hint reads the same pair through the stool handle's `hint_pair()`; it never
-reruns the start gate. The live act key is the same scene-only plus Base-clearance path, and an
-accepted proactive offer starts through its Agreement's scene-only rows; the request handoff only
-changes hint discovery (`docs/initiation.md`).
+`start_verdict()` and `offer_verdict()` accept a `verdict_in` policy snapshot. The idle hint never
+runs them: it reads the small checks below, builds no `Row` objects and reads Base clearance only
+after the scene passes. The act key and the hint share `hotkey_ready()`; the matrix suite pins it
+equal to `scene_only_verdict().ok`. `scene_only_verdict()` remains the accepted-Agreement start and
+the debug read: it takes the footstool pair the host read for this call as an optional
+`stool_need`/`stool_have`, where `-1` reads the live provider callbacks. The blocked standing hint
+reads the same pair through the stool handle's `hint_pair()`; it never reruns a gate. An accepted
+proactive offer starts through its Agreement's scene-only rows; the request handoff only changes
+hint discovery (`docs/initiation.md`).
 
 ## Row sets
 
@@ -89,6 +92,25 @@ from the handle's `hotkey_pair()`. The pose rows reach the pose session facade. 
 `pose_rig` are emitted for a bed pose and for a ground pose: the candidate's own `asset` is resolved
 through its `base` chain, and a missing or frame-mismatched asset refuses the start. The ground
 family has no procedural fallback.
+
+## Small checks
+
+`hotkey_ready(pose, source, bed, stool_pair)` is the hint's and the act key's readiness. It calls
+the same helpers as the rows, in this order, and never allocates a row:
+
+| Check | Rows it answers |
+|---|---|
+| `available()` | the structural handles, `state`, `paused`, `conversation`, `sleeping`, `sex_active`, `cuddle`, `affection` |
+| `pose_supported(pose, source)` | `pose_profile`, `pose_source`, `pose_asset`, `pose_rig` |
+| `player_ready(pose, source, bed)` | `player`, `bed`, `bed_occupied`, `bed_gate` |
+| `navigator_allows(pose, source)` | `navigator`, `navigator_reserved`, `nav_owner` |
+| `posture_allows(pose)` | `nav_pose`, `standing_free` |
+| the stool pair | `stool` |
+
+`hotkey_ready()` then reads Base clearance: `eligible(pony, Target.ACT)` and
+`relationship_ok(pony)`. `agreement_ready(pose, source, bed, FrozenPose)` is the same scene
+composition for a formed Agreement: the frozen profile and source rows instead of the live pose
+support, and no clearance read. Its caller is the Negotiation service's `ready_offer()`.
 
 ## Pose options and placement
 
@@ -177,10 +199,10 @@ one stop. It never rereads the start rows or the policy.
 
 ## Standing offer hint
 
-The free-standing act-key hint is discovered by `offer/service.gd` through `shared/rump_cone.gd`:
-a 90 degree half-angle fan to each side of her backward axis, within 2 m of her rump anchor. It is a
-discovery rule for the idle hint, not a scene-gate row; the hotkey and the Agreement start keep
-their own scene-only rows.
+The free-standing act-key hint is discovered by `offer/service.gd` through
+`PONIES.cone_target()`: a 90 degree half-angle fan to each side of her backward axis, within 2 m of
+an approximate rump anchor (`shared/rump_cone.gd`). It is a discovery rule for the idle hint, not a
+scene-gate row; the hotkey and the Agreement start keep their own scene checks.
 
 ## Buck and push
 
@@ -225,8 +247,9 @@ scene row is recomputed twice in different ways.
 `tests/scene_gate/test_scene_gate.gd` covers the conversation, cuddle, affection, navigator,
 player, bed and row sets, the structural rows, the policy/scene merge (including a supplied
 `verdict_in` snapshot), the start/offer verdicts, the scene-only verdict (the aftercare removal,
-the frozen pose rows, the hold exemption and the transient/hard split), the debug line, the
-reason list, the buck/push and the auto-cuddle suppression with fake scene nodes.
+the frozen pose rows, the hold exemption and the transient/hard split), the small checks and the
+matrix that pins `hotkey_ready()` equal to `scene_only_verdict().ok`, the debug line, the reason
+list, the buck/push and the auto-cuddle suppression with fake scene nodes.
 `tests/eligibility/` keeps the pure policy suites. The runtime suite
 (`tests/test_runtime_teardown.gd`) and the stool suite (`tests/stool/test_gate.gd`) drive the
 public forwards and the gate's hotkey readiness; the history stop suite drives the history row.

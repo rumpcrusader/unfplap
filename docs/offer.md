@@ -1,17 +1,17 @@
 # Idle act offer
 
 `offer/service.gd` (Node, world scope) owns the idle act offer and the start it leads to: the
-one-second scene scan, the standing gate behind it, the typed offer the act key would start, the
-footstool block, the "Make love" hint beside the game's prompt row, the live Agreement offer, the
-act key's one press and the Agreement auto-start. It answers what the act key could start here and
-it starts that act.
+one-second scene scan, the standing cone target behind it, the typed offer the act key would start,
+the footstool block, the "Make love" hint beside the game's prompt row, the live Agreement offer,
+the act key's one press and the Agreement auto-start. It answers what the act key could start here
+and it starts that act.
 
 ## Scope
 
 This contract covers:
 
 - the idle scan, its cadence and the standing cone target;
-- the standing gate's reuse window and its footstool block;
+- the single-call business checks the scan and the Agreement readiness run;
 - the typed playable offer, the blocked variant and the `offer_target()` query;
 - the hint unit in the game's prompt row, its HUD fallback and the blocked toasts;
 - the act key's entry, the typed start path, the hotkey attempt and its Agreement exact match;
@@ -29,7 +29,7 @@ gate (`docs/scene_gate.md`).
 | Member | What it owns |
 |---|---|
 | `tick(delta)` | the `OFFER_SCAN_S` cadence, the scan it triggers, the hint that follows and the Agreement auto-start clock |
-| `scan()` | one full scan: the live Agreement, the bed-side and already-lying rows, the standing cone |
+| `scan()` | one full scan: the live Agreement, the bed-side and already-lying candidates, the standing cone |
 | `current()` | the playable `PoseOffer` the act key would start, or null |
 | `blocked()` | the standing offer with its blocked record, or null |
 | `offer_target()` | the current offer's pony, read without a rescan |
@@ -40,14 +40,15 @@ gate (`docs/scene_gate.md`).
 | `hide_hint()` | drop both offers and take the hint away while an act owns the frame |
 | `apply_settings()` | drop the resolved prompt row so the act key's cap is rebuilt |
 | `on_world(host)` | the world entry: close the old world, then warm the two offerable assets |
-| `on_world_closed()` | the world enter and close: no offer, no gate verdict, no one-shot flag, no hint row |
+| `on_world_closed()` | the world enter and close: no offer, no one-shot flag, no hint row |
 
-The scan runs one second apart because the cone geometry and the gate are cheap enough to keep
-live and expensive enough not to pay per frame. The gate behind it is the expensive half and its
-inputs change on a state transition the cone scan cannot see, so its verdict is reused while the
-same mare stays the cone target and refreshed every `GATE_REFRESH_S`; a reused verdict can only
-hold the hint back, never start or block an act. The live Agreement is
-checked first: it is already a yes, so the rump fan and the policy snapshot do not rediscover it.
+The scan runs one second apart. Every pass reads the live scene once: `WORLD.scan_allowed()` for the
+tree, view and cursor, the live Agreement's `ready_offer()`, the two bed candidates and
+`PONIES.cone_target()` for the standing target. There is no cached gate verdict and no row list:
+the standing candidate's stool pair is read once, the scene gate's `hotkey_ready()` answers the
+checks, and `PONIES.relationship_ok()` and the gate's own clearance read are the only eligibility
+calls. A live Agreement is checked first: it is already a yes, so the rump fan and the scene scan do
+not rediscover it.
 
 An offer of either kind keeps its logged key, and no offer at all clears both keys, so the same
 offer logs again when it comes back. The blocked note has one toast per world: `_last_blocked_key`
@@ -66,10 +67,10 @@ trigger, so it never names a pose. It dispatches:
 - `trigger == "agreement"` → the live Agreement start;
 - anything else → the hotkey attempt.
 
-**The hotkey attempt** is `runtime.gate.start_hotkey()`: the scene gate's `hotkey_ready()` (Base
-clearance plus the scene-only rows), with no policy snapshot, no offer cooldown and no buck. A live
-Agreement's exact `(pose, source, bed)` match starts immediately and skips the presentation; any
-other live Agreement or negotiation is interrupted with `Interrupted(hotkey)` and the immediate
+**The hotkey attempt** is `runtime.gate.start_hotkey()`: the scene gate's `hotkey_ready()` (the
+small scene checks plus Base clearance), with no policy snapshot, no offer cooldown and no buck. A
+live Agreement's exact `(pose, source, bed)` match starts immediately and skips the presentation;
+any other live Agreement or negotiation is interrupted with `Interrupted(hotkey)` and the immediate
 attempt still runs. A started attempt clears the hint; a blocked one keeps it.
 
 **The live Agreement start** is `runtime.gate.start_agreement(handle)`: only the scene-only rows with
@@ -83,10 +84,11 @@ never preloads the runtime; `tests/offer/test_start.gd` fails if the two ever di
 runs in the common idle frame, before the handle read, so a handle that appears between polls is
 consumed on the next one, `AGREEMENT_START_S` later at most. A live act holds it and does not
 advance the clock; an open menu panel, a paused tree or a loose desktop cursor holds it after the
-clock was consumed. The runtime's `agreement_offer_ready()` decides whether the scene and the
-settled presentation accept it. A private Agreement takes a fresh privacy sample (the cuddle rule
-for a cuddle option) immediately before it starts and is cancelled with the `privacy` reason when
-the sample is now public; a public one never samples.
+clock was consumed. The Negotiation service's `ready_offer()` decides whether the live scene
+accepts it. A private Agreement takes a fresh privacy sample (the cuddle rule for a cuddle option)
+immediately before it starts and is cancelled with the `privacy` reason when the sample is now
+public; a public one never samples. The steady 0.5 s privacy sample in the Negotiation tick is the
+path that cancels a private Agreement between auto-start polls.
 
 ## Internal API
 
@@ -95,7 +97,6 @@ const OFFER := preload("res://mods/unfplap/offer/service.gd")
 
 const OFFER_HINT := "Make love"
 const OFFER_SCAN_S := 1.0
-const GATE_REFRESH_S := 2.0
 const NEEDS_STOOL_HINT := "Needs a footstool"
 const AGREEMENT_START_S := 0.25
 const AGREEMENT_WAIT := 0
@@ -128,10 +129,10 @@ and an act live in the frame calls `hide_hint()`.
 
 ## Data ownership
 
-Nothing is persisted. The scan result, the gate verdict with its footstool pair, the two logged
-keys, the one-shot toast flag, the resolved hints node and prompt row and the auto-start clock live
-for one world; `on_world_closed()` clears all but the clock, which is a frame timer that
-self-corrects on the next poll.
+Nothing is persisted. The scan result and its footstool pair, the two logged keys, the one-shot
+toast flag, the resolved hints node and prompt row and the auto-start clock live for one world;
+`on_world_closed()` clears all but the clock, which is a frame timer that self-corrects on the next
+poll.
 
 ## Lifecycle
 
@@ -165,14 +166,14 @@ The start path adds `hotkey no context pose`, `hotkey exact match id=<id> pose=<
 `agreement start waiting pose=<pose> source=<source>`,
 `agreement auto-start id=<id> pose=<pose>`, `agreement auto-start privacy lost pony=<name>` and
 `agreement auto-start pony=<name> pose=<pose>`.
-**Enable debug** + **Print perf logs** adds the `offer_scan`, `offer_cone`, `offer_gate` and
-`entry_hint` chunks to the profiler's block.
+**Enable debug** + **Print perf logs** adds the `offer_scan`, `offer_agreement`, `offer_cone`,
+`offer_checks`, `offer_stool` and `entry_hint` chunks to the profiler's block.
 
 ## Host boundary
 
 | Callback | Type | Contract |
 |---|---|---|
-| `negotiation` | `negotiation/service.gd` | the Negotiation service; only its public `handle()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
+| `negotiation` | `negotiation/service.gd` | the Negotiation service; only its public `handle()`, `ready_offer()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
 | `privacy` | `privacy/service.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
 | `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through `HUD.toast()`) |
 
@@ -215,11 +216,11 @@ Agreement does not start on a stale answer.
 
 ## Tests
 
-- `tests/offer/test_offer.gd`: the one-second cadence, the cone target choice with a nearer
-  stallion and a mare outside the fan, `offer_target()` as a pure read, the standing gate's reuse
-  window, the footstool block with its one log line and its one toast, the hint unit in the game's
-  prompt row with the act key's cap, the HUD fallback, the live Agreement offer and the offer
-  cleared while an act is live.
+- `tests/offer/test_offer.gd`: the one-second cadence, the standing cone target with a nearer
+  non-target in the fan, `offer_target()` as a pure read, the scan reading the gate on every pass,
+  the footstool block with its one log line and its one toast, the hint unit in the game's prompt
+  row with the act key's cap, the HUD fallback, the live Agreement offer through `ready_offer()`
+  and the offer cleared while an act is live.
 - `tests/offer/test_start.gd`: the act key's act-live guard, the empty-scene toast, the blocked
   toast, the hotkey attempt and its exact match, the Agreement wait/start/fail answers and the
   report, the interrupted negotiation, the auto-start clock with its act and menu guards, the fresh

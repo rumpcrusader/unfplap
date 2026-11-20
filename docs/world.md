@@ -37,6 +37,7 @@ same answer, so a service never names the entry to ask whether the scene is live
 | `interactor()` | the player rig's reach node, resolved once per body |
 | `desktop()` | the desktop interactions node in the world |
 | `player_body()` | the rig body the game shows for Anon |
+| `player_is_pony()` | Anon's live form is a pony |
 | `game_player()` | the game's own player property, read defensively; null when absent or not a `Node3D` |
 | `mares()` | a typed copy of the world's live mare list |
 | `bed_under(point, exclude)` | the bed a downward probe finds under a point |
@@ -44,6 +45,7 @@ same answer, so a service never names the entry to ask whether the scene is live
 | `bed_for_cradle(pony)` | the bed a cradle looks at, under the pony then ahead of the eye |
 | `bed_occupied(bed, target)` | another mare already lying on the mattress top |
 | `player_beside_bed(bed)` | Anon's seat is the bed or its couch |
+| `scan_allowed()` | the tree is not paused and a desktop cursor is captured or the eye is in a headset |
 | `menu_panel_open()` | a tree pause or a known UI panel owns the mouse |
 | `menu_open()` | the panel test plus "the cursor is visible" |
 | `headset_view()` | the eye is in a headset |
@@ -359,6 +361,7 @@ static func camera() -> Camera3D
 static func interactor() -> Node
 static func desktop() -> Node
 static func player_body() -> Node3D
+static func player_is_pony() -> bool
 static func game_player() -> Node3D
 static func mares() -> Array[Node3D]
 static func bed_under(point: Vector3, exclude: RID = RID()) -> Node3D
@@ -366,6 +369,7 @@ static func real_bed(node: Node) -> Node3D
 static func bed_for_cradle(pony: Node3D) -> Node3D
 static func bed_occupied(bed: Node3D, target: Node) -> bool
 static func player_beside_bed(bed: Node3D) -> bool
+static func scan_allowed() -> bool
 static func menu_panel_open() -> bool
 static func menu_open() -> bool
 static func headset_view() -> bool

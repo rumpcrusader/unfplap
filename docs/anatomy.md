@@ -147,9 +147,15 @@ apply_part_visibility(show, teats_on, strip_on)
 is_attached(), body_coat_refresh()
 body_coat_mesh(), body_coat_material(), body_outline_material()
 fluid(), idle_discharge(count)
+entrance_point(), invalidate_entrance()
 garment_hull(), garment_transform(), garment_visible(), garment_parent()
 garment_transform_for(body, mesh), garment_margin_local(transform, millimetres)
 ```
+
+`entrance_point()` is the resting hole anchor for the footstool reach: the coat line's deformed
+local point is cached and mapped through the live mesh transform. `invalidate_entrance()` drops it
+on a bind/attach, a form refresh, a body change and a world enter; the act's live `hole_point()`
+keeps deforming every call.
 
 The `PONIES.anatomy` `act_started(pony)` signal is emitted by `note_act_started()` when a
 controller builds its per-act handle, before the pose starts. A world integration uses it to take
@@ -1048,7 +1054,8 @@ Current suites:
 - `tests/anatomy/test_coat.gd`: the refined winking mesh, the V2 anal keys, the rig and near-palette
   shader patch, the base/cutout/occlusion hook injection, the drawn coat choice over a hidden game
   body, the vulva cut, the still zones, the material rebuild after a mesh re-set, the form rig/fit
-  appearance refresh and the fold-colour scoping.
+  appearance refresh, the fold-colour scoping and the cached entrance point (one deformation per
+  body revision, the live transform, the live hole point's per-call deformation).
 - `tests/anatomy/test_heat.gd`: the idle heat suppression, phase poll, rest shape and wink
   schedule.
 - `tests/anatomy/test_attach.gd`: the per-mare consent, the identity/profile, the provider

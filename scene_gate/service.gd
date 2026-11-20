@@ -1,7 +1,6 @@
 extends RefCounted
-## The scene half of the act gate: the rows, the bed search, the verdicts and the buck.
-## Eligibility owns the policy.
-## Contract: `docs/scene_gate.md`
+## The scene half of the act gate: the rows, the small checks, the bed search, the verdicts and
+## the buck. Eligibility owns the policy. Contract: `docs/scene_gate.md`
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
@@ -264,8 +263,8 @@ func _scene_only_result(rows_in: Array[ELIGIBILITY.Row]) -> SceneVerdict:
 	return out
 
 
-## The act key's and the hint's readiness: the same helpers the scene-only rows call, composed
-## with Base clearance and no row list. The matrix suite pins it equal to `scene_only_verdict().ok`.
+## One answer for both the hint and the press: helper checks and clearance, no rows.
+## A matrix suite keeps it in step with the row-based verdict.
 func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null,
 		stool_pair: Vector2i = NO_STOOL_PAIR) -> bool:
 	if not available():

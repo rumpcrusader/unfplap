@@ -37,6 +37,8 @@ It does not cover the act itself (`docs/runtime.md`), the attach-time anatomy an
 | `apply_live_settings()` | the live settings pass over every runtime, not only the act's |
 | `prompt_note(id)` | the live act/afterglow note and the cycle line for one stable id |
 | `live_character_ids()` / `installed_character_ids()` | the off-roster mares the Characters tab lists |
+| `cone_target(eye)` | the nearest standing mare in the rear fan, from the game's live mare array |
+| `act_target(pony)` / `relationship_ok(pony)` | the eligibility capability and the Base clearance relationship row |
 | `allocate_serial()` | the `unfplap.serial` key and the last value issued in this process |
 | `reset()` | a world enter: the pending swap belonged to the world that is gone |
 | `close_world()` | a world close: the act ends through its one exit and the swap goes |
@@ -104,6 +106,15 @@ last id across a freed body, adopts the display name and refreshes the scene gat
 process issued is a floor under the stored one, so a store that cannot keep the write (a headless
 suite, a read-only `user://`) never hands the same serial out twice. The serial is the act's
 identity, not the entry's, which is why it lives here.
+
+## The standing cone
+
+`cone_target(eye)` answers the idle hint's standing target. It walks the game's own `mares` array
+without copying it, rejects by squared ground distance to the approximate rump anchor, then checks
+her standing posture and the rear fan (`shared/rump_cone.gd`), and asks `act_target()` only for the
+nearest body it found. A nearer body that is not an act target is therefore the scan's answer, and
+the hint stays away; the act key still runs its own gate. `relationship_ok(pony)` is the mirrored
+facade for the Base clearance relationship row.
 
 ## Characters
 
@@ -193,7 +204,8 @@ The runtime itself is not a dependency: it is built by the entry's factory and c
 
 - `tests/ponies/test_service.gd` — attach and detach, the live act pointer and its side effects,
   the serial, the prepare hooks, the adoption order and its duplicate guard, the world close, the
-  teardown and the character lists.
+  teardown, the character lists and the standing cone target (its live-array walk, the nearest
+  winner, the posture and fan filters and the single target read).
 - `tests/handover/test_body_swap.gd` — suspend, adopt and resume against the real service, with
   only the runtime's host handle and the body-change service faked.
 - `tests/body_change/test_service.gd` — the runtime binding's lookup through the registry.

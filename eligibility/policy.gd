@@ -1,6 +1,6 @@
 extends RefCounted
-## Pure eligibility truth table. It receives a facts dictionary and returns a verdict. No Node,
-## no scene, no Time, no Settings and no file access. See `docs/eligibility.md`.
+## Pure eligibility truth table. It receives a facts dictionary and returns a verdict; the typed
+## identity record has its own capability predicate. No Node, scene, Time, Settings or file access.
 
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")

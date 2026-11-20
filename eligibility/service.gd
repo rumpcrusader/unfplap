@@ -478,8 +478,7 @@ func _record_facts(pony: Node) -> Dictionary:
 	}
 
 
-## One pony's identity record, rebuilt only when its era moves: the relationship meta, the
-## identity resource, the settings generation or the provider revision.
+## One pony's cached identity record; a moved era rebuilds it.
 func _identity_record(pony: Node) -> IDENTITY_RECORD.IdentityRecord:
 	var key := int(pony.get_instance_id())
 	var identity: Variant = pony.get("identity")

@@ -28,7 +28,8 @@ It does not cover act readiness, thrust, tolerance, pose or camera rules. The li
 | File | Role |
 |---|---|
 | `eligibility/service.gd` | public API and the only scene adapter: builds the typed facts and verdict, reads the live relationship runtime, settings profile, history, cycle and consent |
-| `eligibility/policy.gd` | pure truth table: facts dictionary plus mode -> verdict dictionary, capability targets and witness age |
+| `eligibility/identity_record.gd` | the typed per-pony identity record: scalars as fields and the one participation document, reused until its era moves |
+| `eligibility/policy.gd` | pure truth table: facts dictionary plus mode -> verdict dictionary, capability targets, witness age and the typed record's read |
 | `eligibility/facts.gd` | pure fact schema; the one adulthood predicate and the pure age category stay private here |
 | `scene_gate/service.gd` | the live scene rows; contract in `docs/scene_gate.md` |
 | `docs/eligibility.md` | this contract |
@@ -51,13 +52,16 @@ The purity boundary is deliberate:
 
 ## Data ownership
 
-Eligibility stores no eligibility state. Facts are a per-call snapshot and are never saved or
-added to the per-character profile; the only cache is a named shape's scene identity for
-`eligible_id()`. The idle hint scans once per second and runs the scene rows first; only a
-passing scene reads Base clearance. Every scan reads its rows live. `relationship_ok()` uses a
-narrow clearance read of the relationship runtime, romance eligibility, the love level and the
-Promiscuity floor; the level itself comes from the game's ladder cache, so the read does not
-rebuild her bond facts. The full facts snapshot belongs to `get_verdict()`.
+Eligibility stores no eligibility state. The only caches are the typed identity record of a live
+pony and a named shape's scene identity for `eligible_id()`. A pony's record is rebuilt only when
+its era moves: the `relationship_id` metadata, the identity resource, the settings generation or
+the provider revision. The record carries the stable id, the identity flags, the provider assertion
+and the participation block, so a per-frame capability read is a dictionary lookup and a predicate;
+the full facts snapshot belongs to `get_verdict()` and is never stored. The idle hint scans once per
+second and runs the scene checks first; only a passing scene reads Base clearance. Every scan reads
+its rows live. `relationship_ok()` uses a narrow clearance read of the relationship runtime, romance
+eligibility, the love level and the Promiscuity floor; the level itself comes from the game's ladder
+cache, so the read does not rebuild her bond facts.
 
 | Data | Stored where | Owner |
 |---|---|---|
@@ -150,9 +154,9 @@ shape-identity cache used by `eligible_id()`.
 
 | Caller | API | Scene work it keeps |
 |---|---|---|
-| `runtime.gate.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate/service.gd` rows; the hint helper and the debug line |
-| `runtime.gate.hotkey_ready()` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` | Base clearance for the idle hint and the hotkey; the scene-only rows. The hint reads Base clearance live after the scene passes; a press runs the same path. |
-| `offer/service.gd` `scan()` | a live Agreement's scene-only rows, else `runtime.gate.hotkey_ready()` | candidate discovery; the Agreement offer wins, the idle scan uses Base clearance plus the scene-only rows |
+| `runtime.gate.start_verdict()` | `get_verdict(pony, Mode.START)` | structural rows plus `scene_gate/service.gd` rows; the debug line |
+| `runtime.gate.hotkey_ready()` | `eligible(pony, Target.ACT)` + `relationship_ok(pony)` | Base clearance for the act key; the scene gate's small checks. |
+| `offer/service.gd` `scan()` | a live Agreement through `negotiation.ready_offer()`, else the standing target and `runtime.gate.hotkey_ready()` | candidate discovery; no row list and no policy snapshot |
 | `offer.try_start()` | `runtime.gate.hotkey_ready()` | the act key; no policy row, no buck |
 | `offer/service.gd` scan | `eligible(pony, Target.ACT)` through the bound `act_target` callback (`PONIES.act_target`) | candidate discovery |
 | `PONIES.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
@@ -182,10 +186,10 @@ A consumer asks about its own target and never inspects identity:
 | `Target.TAIL` | `participation.tail` | tail seating |
 | `Target.CHARACTER` | none | the Characters selector, so an opted-out mare stays editable |
 
-`eligible()` is cheap by design: stable id, identity, provider assertion, `profile_identity` and
-participation. It never builds the full fact snapshot, because discovery calls it in per-frame
-loops. `witness_age()` returns `Age.YOUNG`, `Age.ADULT` or `Age.NONE`; a provider's `eligible`
-assertion wins over the identity flag in both directions.
+`eligible()` is cheap by design: the cached identity record (stable id, identity, provider
+assertion and participation). It never builds the full fact snapshot, because discovery calls it in
+per-frame loops. `witness_age()` returns `Age.YOUNG`, `Age.ADULT` or `Age.NONE`; a provider's
+`eligible` assertion wins over the identity flag in both directions.
 
 ## Facts
 
@@ -465,19 +469,20 @@ refusal status (`docs/integrations.md`).
 - Scope: world
 - Constructed by: the entry's service list (`_build_services()`)
 - Begin: `on_world(host)`
-- End: `shutdown()`
+- End: `on_world_closed()` on a world enter or close, and `shutdown()` on process exit
 - Idempotent: yes
 
 
 ## Tests
 
 - `tests/eligibility/test_eligibility.gd`: the pure truth table, the one adulthood predicate,
-  capability targets, witness age, Promiscuity, willingness, history, cycle, public/anal/oral,
-  participation and row effects.
+  capability targets, the typed participation record, witness age, Promiscuity, willingness,
+  history, cycle, public/anal/oral, participation and row effects.
 - `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `eligible_id()`,
   `witness_age()`, typed facts and verdict, capability targets, the no-stable-id boundary, the
-  profile consent, the provider layer through `set_profile()`/`get_profile()`, the Promiscuity
-  setting, the cached love level with the ladder fallback, and the clear/setup lifecycle.
+  typed identity record's reuse and rebuild, the profile consent, the provider layer through
+  `set_profile()`/`get_profile()`, the Promiscuity setting, the cached love level with the ladder
+  fallback, and the clear/setup lifecycle.
 - `tests/test_pony_id.gd`: the stable-id rule (metadata wins, identity fallback, no identity).
 - `tests/test_participation.gd`: the pure participation layer, defaults, partial merge and clean.
 - `scripts/architecture.py --check`: the purity and facade-only import boundary.

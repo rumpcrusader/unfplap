@@ -626,8 +626,7 @@ func hole_point(mix := 0.0) -> Vector3:
 	return mesh.global_transform * local
 
 
-## The resting entrance point for the footstool reach: one cached local point and the live mesh
-## transform, so a scan does not re-run the coat line's deformation.
+## The scan's resting entrance anchor: one deformed local point, mapped by the live mesh.
 func entrance_point() -> Vector3:
 	var mesh: MeshInstance3D = shapes.winking_mesh()
 	if not is_instance_valid(mesh):

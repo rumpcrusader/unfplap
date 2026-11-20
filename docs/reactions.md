@@ -66,8 +66,8 @@ already set its own impulse before the facade scales it.
 ## Jiggle and smack
 
 - One shader center on the rump midline so both flanks wobble together. The center is the
-  hind-femur midpoint plus `center_height_m` and `center_back_m`; the fallback is her origin plus
-  `JIGGLE_HEIGHT` and `JIGGLE_BACK` along her back axis.
+  hind-femur midpoint plus `center_height_m` and `center_back_m`; without a skeleton it is
+  `RUMP_CONE.approx_point(pony)`, the shared approximate anchor the standing cone scans.
 - The flank's `wake_tick`, `_start_jiggle`, `_process` and `_jiggle_amount` are reached through the
   `GAME` accessors; the `marks` reads stay direct.
 - `FlankTouch._start_jiggle()` clamps its own impulse to `0.3…1.0`, so the facade passes `1.0`,

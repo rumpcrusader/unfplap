@@ -228,16 +228,16 @@ scene-only rows.
 The live start paths share the one body (`act/start.gd:run()`; `act/session.gd:begin()` is its one
 entry). The three entry points live in `act/agreement.gd`:
 
-- **The hotkey** runs `runtime.gate.start_hotkey()`: the scene gate's `hotkey_ready()` (the
-  scene-only rows plus Base clearance), then `act/start.gd:run()`. No policy row, no offer
+- **The hotkey** runs `runtime.gate.start_hotkey()`: the scene gate's `hotkey_ready()` (the small
+  scene checks plus Base clearance), then `act/start.gd:run()`. No policy row, no offer
   cooldown, no buck and no history refusal.
 - **The Agreement** runs `runtime.gate.start_agreement(handle)`: the scene-only rows with the
   frozen pose capability (`scene_only_verdict`), then `act/start.gd:run()`. It answers
   `AGREEMENT_WAIT`, `AGREEMENT_STARTED` or `AGREEMENT_FAILED`; the offer, its only caller, reports
   `Started` or `StartFailed` to the Negotiation service.
-- **Auto-start** consumes a live Agreement with no key press;
-  `act/agreement.gd:agreement_offer_ready()` decides whether the scene and the settled
-  presentation accept it.
+- **Auto-start** consumes a live Agreement with no key press; `negotiation/service.gd:ready_offer()`
+  decides whether the live scene accepts it, and the offer cancels a private Agreement whose fresh
+  privacy sample is now public.
 
 The start sequence:
 

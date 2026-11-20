@@ -140,7 +140,7 @@ static func scan_allowed() -> bool:
 	return true
 
 
-## True when Anon's live form is a pony. The offer scan reads it once per pass.
+## True when Anon currently presents as a pony; a scan reads it once.
 static func player_is_pony() -> bool:
 	return PLAYER_FORM.is_pony(PLAYER_FORM.active(_tree()))
 

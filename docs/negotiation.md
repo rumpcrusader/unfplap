@@ -69,6 +69,7 @@ phase() -> Phase
 is_locked() -> bool
 handle() -> Agreement.Handle
 agreement() -> Agreement.Package
+ready_offer() -> bool
 begin_mare_offer(offer: MareOffer) -> bool
 begin_anon_offer(runtime: Node, text: String) -> bool
 report(handle: Handle, started: bool) -> bool
@@ -97,6 +98,7 @@ The host callbacks are, in order:
 | `privacy_private` | `(pony, cuddle) -> bool` | the privacy provider |
 | `placement_for` | `(runtime) -> PoseOptions.Placement` | the live placement facts |
 | `pose_placed` | `(runtime, PoseOptions.Option) -> bool` | the live scene-only placement re-check before an Agreement forms |
+| `scene_ready` | `(pony, PoseOptions.Option, pose_profile_ok, pose_source_ok) -> bool` | the live scene check of a formed Agreement, with its frozen pose pair |
 | `form_view` | `() -> FormView` | the player's form and display |
 | `hold_for` | `(runtime) -> RefCounted` | the per-pony `scene_hold/service.gd` ledger |
 | `classify` | `(PROMPTS.Request, scope, done) -> bool` | the dialogue classifier; `done` gets a `PROMPTS.Reply` |
@@ -148,7 +150,7 @@ used to be the entry's assembly:
 
 - the `Host` callbacks that read another service or the scene: `now`, `eligible`,
   `relationship_ok`, `context_facts`, `privacy_private`, `placement_for`, `pose_placed`,
-  `hold_for`, `classify`, `reason`, `await_answer`, `cancel_scope` and `toast`;
+  `scene_ready`, `hold_for`, `classify`, `reason`, `await_answer`, `cancel_scope` and `toast`;
 - the Context facts both reasoning stages read: the eligibility snapshot, the act history, the
   world-context mood and the relationship note;
 - the global Anon-offer watch, the runtime state guard and the mare the game's conversation
@@ -255,6 +257,12 @@ hold unless the Act adopted it on `Started`. The service's Agreement handoff sta
 presentation (act-owned) and clears the shared offer window, so the hint goes with the Agreement;
 the act key and the auto-start consume the handle through `runtime.gate.start_agreement()`; a wait keeps
 the Agreement live. A handle whose runtime is gone is cancelled with `cancelled`.
+
+`ready_offer()` is the one readiness read. It answers false unless the Agreement is formed, its
+handle is valid, it has not expired, its frozen pose pair passes the scene gate's
+`agreement_ready()` and, for a private Agreement, its visibility is still private. It keeps no flag:
+every call asks the live scene and provider. The offer service calls it before it offers the live
+Agreement and before the auto-start consumes it.
 
 Formation runs the live placement re-check (`Host.pose_placed`, the scene-only rows) after the
 positive answer and before the package is built. A moved bed or a lost standing spot is
@@ -379,16 +387,17 @@ No setting is read directly. The bridge's `relationship_ok` reads the Promiscuit
 - `tests/negotiation/test_service.gd`: the Anon offer, the captured option list, the live
   placement re-check, the Anon decision, the Mare response, the silent non-offer, the counter-offer
   line, the failure semantics, the lock, the hold, privacy, `target_left`, the cooldown table, the
-  Agreement handle, `Started`/`StartFailed` and the stale-handle guard, with a fake host and model.
+  Agreement handle, `ready_offer()` and its live scene/privacy/expiry answers,
+  `Started`/`StartFailed` and the stale-handle guard, with a fake host and model.
 - `tests/negotiation/test_prompts.gd`: the payload shape, the request dispatch and the three
   reply parsers, including the Anon offer's out-of-range marker.
 - `tests/negotiation/test_adapter.gd`: the quiet gate, the queue and the situation record, the
   answer watch and its cancel, the three model calls and the raw path, with a fake director and
   classifier source.
 - `tests/negotiation/test_host.gd`: the bridge — the host callbacks resolving to the service, the
-  Context and form view the Proactive reads, the watch arming only while idle and unlocked, the
-  Anon-line guard table, the react purpose per close reason, the outcome routing and the
-  Agreement handoff.
+  scene readiness reaching the runtime gate's small check with the frozen pose pair, the Context
+  and form view the Proactive reads, the watch arming only while idle and unlocked, the Anon-line
+  guard table, the react purpose per close reason, the outcome routing and the Agreement handoff.
 
 ## Known limits
 

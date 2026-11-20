@@ -105,7 +105,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.navigator_of(pony)` | the `Navigator` child | `Node` | `null` |
 | `GAME.navigator_owner(nav)` | the navigator's `command_owner` | `String` | empty |
 | `GAME.navigator_reserved(nav)` | the navigator's `reserved_by` | `String` | empty |
-| `GAME.navigator_wander(nav)` | the navigator's `wander_enabled` | `bool` | `true` |
+| `GAME.navigator_wander(nav)` | the navigator's `wander_enabled` | `bool` | `false` |
 | `GAME.navigator_has_target(nav)` | the navigator's `_has_target` (private) | `bool` | `false` |
 | `GAME.navigator_stay(nav)` | `stay` | — | no call |
 | `GAME.set_navigator_owner(nav, owner)` | the navigator's `command_owner` | — | no write |

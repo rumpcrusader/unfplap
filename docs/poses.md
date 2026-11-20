@@ -18,7 +18,8 @@ follow, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch),
 snapshots, the pose rig check, the pose diagnostics, the retarget hook and the pose-scope teardown
 steps. The runtime owns the act state, the start ordering and the one teardown ledger; it binds the
 session and reads its `pose()`, `pose_config` and `bed_frame` for
-the start/teardown and the standing gap, not as the consumer contract. Presentation modules read
+the start/teardown and the standing gap, not as the consumer contract. The camera's standing glance
+writes the live pose's head throw-back through `set_head_back()`. Presentation modules read
 the pose view through `shared/act_facts.gd`.
 
 `act/frame.gd` owns the act's player frame: the standing placement, the stance, the controls lock,
@@ -176,7 +177,8 @@ variants and no `provisional` flag. The asset's `--pose bed_facesit --check` rou
 The pose session's `face_sit_error(act_state)` owns the Debug action's refusal order — no active
 act, a non-missionary view, a non-active act, a changing pose, a running kiss and missing anatomy —
 and `runtime.act.face_sit_error()` forwards it. `state_rows(state)` owns the pose diagnostic rows the
-Show data action reads, so neither rule is repeated in the runtime.
+Show data action reads, so neither rule is repeated in the runtime. `base_info()` answers in one
+typed record (`poses/pose_base_info.gd`), so the base diagnostics have a single source.
 
 - The bake input is the **body rig's rest pose**, plus `apply_reference()` at the reference config.
   The game's own settled standing pose is `pony_gait_profile.gd`'s `standing`, bound from the same

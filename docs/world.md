@@ -100,15 +100,12 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.skull_world(boop)` | `skull_world` | `Vector3` | `Vector3.INF` |
 | `GAME.nose_world(boop)` | `nose_world` | `Vector3` | `Vector3.INF` |
 | `GAME.muzzle_world(boop)` | `muzzle_world` | `Vector3` | `Vector3.INF` |
-| `GAME.set_head_back(pose, value)` | the act pose node's `head_back` | — | no write |
 | `GAME.refresh_body_lod(pony)` | the hybrid near and far LOD caches, `set_near_mesh` | — | no rebuild |
 | `GAME.bed_of(collider)` | the mattress `bed_of` lookup | `Node3D` | `null` |
 
 Only `GAME.mares` and `GAME.refresh_body_lod` allocate, and both are scan-cadence calls; the
 per-frame accessors copy nothing. `GAME` writes the rig's control hold, its eye line and its look
-pitch, the chat lock, her navigator's face point and conversation aim, her gaze and pupils, and the
-act pose's head throw-back. `GAME.set_head_back` is the one row that writes a mod-owned node: the
-camera's glance needs it, and the view carries no string dispatch of its own.
+pitch, the chat lock, her navigator's face point and conversation aim, and her gaze and pupils.
 
 ## Internal API
 

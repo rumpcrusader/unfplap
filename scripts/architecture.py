@@ -367,6 +367,9 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
     if so.kind == "orchestrator":
         return True, kind, so, to
     if so.kind == "shared":
+        # The accessor module is the game boundary, so a shared module may read it like the scene.
+        if tgt == "world/game.gd":
+            return True, kind, so, to
         if kind in ("shared", "store", "read model", "self", "game"):
             return True, kind, so, to
         # A shared store may read settings; a pure/read-model module may not.

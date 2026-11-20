@@ -5,6 +5,7 @@ extends RefCounted
 const FACE_POSES := preload("res://world/characters/hybrid_mare/face_poses.gd")
 const TAGS := preload("res://world/ai/pony_dialogue_tags.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const FACES := TAGS.NAMES
 
@@ -285,7 +286,7 @@ static func react(pony: Variant, face: String, seconds := 3.0) -> bool:
 		current = value
 	if not current.is_empty() and current != face:
 		return false
-	expressions.call("set_dialogue", face)
+	GAME.set_dialogue(expressions, face)
 	if seconds > 0.0 and expressions.has_method("finish_dialogue"):
-		expressions.call("finish_dialogue", seconds)
+		GAME.finish_dialogue(expressions, seconds)
 	return true

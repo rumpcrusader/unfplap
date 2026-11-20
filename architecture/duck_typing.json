@@ -70,14 +70,6 @@
     {
       "file": "poses/wing_control.gd",
       "count": 14
-    },
-    {
-      "file": "shared/act_face.gd",
-      "count": 2
-    },
-    {
-      "file": "shared/act_history.gd",
-      "count": 2
     }
   ]
 }

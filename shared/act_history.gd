@@ -1,5 +1,6 @@
 extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 ## Durable per-mare act history. Pure policy plus one `Mods.state("unfplap").act_history`
 ## dictionary; no scene access.
 
@@ -66,8 +67,7 @@ static func section() -> Dictionary:
 	var mods := _mods()
 	if mods == null:
 		return {}
-	var state: Variant = mods.call("state", MOD_ID)
-	return state if state is Dictionary else {}
+	return GAME.mods_state(mods, MOD_ID).rows
 
 
 static func records(section: Dictionary) -> Dictionary:
@@ -474,8 +474,8 @@ static func sanitize(raw: Variant) -> Dictionary:
 
 static func save() -> void:
 	var mods := _mods()
-	if mods != null and mods.has_method("save_changed"):
-		mods.call("save_changed")
+	if mods != null:
+		GAME.mods_save(mods)
 
 
 ## In-game day as a float. Tests pass an explicit day instead of calling this.

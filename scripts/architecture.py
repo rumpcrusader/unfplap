@@ -1592,8 +1592,7 @@ def check_runtime_shape(failure: Failure) -> None:
 
 # The act's player frame and its view each have one writer. Each row is a write token and the files
 # allowed to carry it, and the scan is compared both ways: a second writer fails, and a row no file
-# carries any more is stale. The momentary control lock in the base-game accessor and the standing
-# kiss is a base-game hold with his controls released, not the act's frame lock.
+# carries any more is stale. The accessor's momentary control lock is a base-game hold, not the frame.
 ACT_STATE_WRITES = {
     'set("_stand_eye"': {"world/game.gd": "the eye-line accessor writes the frame's stance"},
     'set("_eye_height"': {"world/game.gd": "the eye-line accessor writes the frame's stance"},

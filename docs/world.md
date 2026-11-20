@@ -179,6 +179,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.mods_state(mods, id)` | `Mods.state` | `ModState`, the live section | empty rows |
 | `GAME.mods_save(mods)` | `Mods.save_changed` | — | no save |
 | `GAME.mods_data_folder(mods, id)` | `Mods.data_folder` | `String` | empty |
+| `GAME.mods_list(mods)` | `Mods.list` | `Array[Dictionary]`, the installed rows | empty |
 | `GAME.prepare_vocal(director, pony_id)` | the director's `vocal.prepare` | — | no call |
 | `GAME.affection_buck(affection, body)` | `Affection.buck` | `bool` | `false` |
 | `GAME.kisser_of(game)` | the scene's `kisser` | `Node` | `null` |

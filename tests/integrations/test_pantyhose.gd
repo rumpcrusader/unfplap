@@ -224,15 +224,15 @@ func _check_hull_fixture() -> void:
 		"the domain starts at the outer footprint minus the margin")
 	check(domain.size.x > 0.027 and domain.size.x < 0.029,
 		"the domain is the outer footprint plus the margin")
-	check(near(hull.z_min, -0.02), "the field starts at the lower inner surface")
-	check(near(hull.z_max, 0.03), "the rest closed shape is the field")
+	check(near(hull.z_min, -0.02, 0.00001), "the field starts at the lower inner surface")
+	check(near(hull.z_max, 0.03, 0.00001), "the rest closed shape is the field")
 	check(hull.z_max < 0.05, "the lower inner surface and the act anal shape are ignored")
 	var field := hull.field
 	check(field.size() == 64, "the field is resolution squared")
 	var highest := 0.0
 	for value: float in field:
 		highest = maxf(highest, value)
-	check(near(highest, 1.0), "the shape peak reaches the top of the range")
+	check(near(highest, 1.0, 0.00001), "the shape peak reaches the top of the range")
 	var texture := hull.texture
 	check(texture is ImageTexture and texture.get_width() == 8,
 		"the field texture matches the resolution")
@@ -325,7 +325,7 @@ func _check_transform() -> void:
 	mesh.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.682),
 		Vector3(0.0, 0.505, 0.284))
 	var placed := CONTROLLER.garment_transform_for(body, mesh)
-	check(near(placed.origin.y, 0.505) and near(placed.origin.z, 0.284),
+	check(near(placed.origin.y, 0.505, 0.00001) and near(placed.origin.z, 0.284, 0.00001),
 		"the per-mare placement origin is carried")
 	check(near(CONTROLLER.garment_margin_local(placed, 5.0), 0.005 / 0.682, 0.000001),
 		"the default placement scale converts the margin")
@@ -550,31 +550,31 @@ func _check_bulge() -> void:
 		var compat := override as ShaderMaterial
 		check(compat.shader == CUT_SHADER, "the cut look uses the copied cut shader")
 		check(compat.render_priority == 2, "the original render priority is copied")
-		check(near(float(compat.get_shader_parameter("rough")), 0.31),
+		check(near(float(compat.get_shader_parameter("rough")), 0.31, 0.00001),
 			"the look parameters are copied")
 		check(compat.get_shader_parameter("hull_texture") != null,
 			"the shared hull texture is set")
 	check(garment.mesh.surface_get_material(0) == material, "the shared mesh is not mutated")
-	check(near(float(garment.get_instance_shader_parameter("hull_on")), 1.0),
+	check(near(float(garment.get_instance_shader_parameter("hull_on")), 1.0, 0.00001),
 		"the hull is on")
 	var origin: Variant = garment.get_instance_shader_parameter("hull_origin")
-	check(origin is Vector3 and near((origin as Vector3).y, 1.0),
+	check(origin is Vector3 and near((origin as Vector3).y, 1.0, 0.00001),
 		"the per-mare origin is set")
 	var z_axis: Variant = garment.get_instance_shader_parameter("hull_basis_z")
-	check(z_axis is Vector3 and near((z_axis as Vector3).length(), 0.5),
+	check(z_axis is Vector3 and near((z_axis as Vector3).length(), 0.5, 0.00001),
 		"the basis carries the placement scale")
 	# The shader works in anatomy-local metres, so a margin is divided by the anatomy scale.
 	var margin := float(SETTINGS.pantyhose_hull_margin_mm.default) / 1000.0 / 0.5
-	check(near(float(garment.get_instance_shader_parameter("hull_margin")), margin),
+	check(near(float(garment.get_instance_shader_parameter("hull_margin")), margin, 0.00001),
 		"the outer margin is anatomy-local")
 	var min_margin := float(SETTINGS.pantyhose_hull_min_margin_mm.default) / 1000.0 / 0.5
-	check(near(float(garment.get_instance_shader_parameter("hull_min_margin")), min_margin),
+	check(near(float(garment.get_instance_shader_parameter("hull_min_margin")), min_margin, 0.00001),
 		"the minimum margin is anatomy-local")
 	anatomy.xform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
 		Vector3(0.0, 2.0, 0.0))
 	integration.call("_process", 0.016)
 	var moved: Variant = garment.get_instance_shader_parameter("hull_origin")
-	check(moved is Vector3 and near((moved as Vector3).y, 2.0),
+	check(moved is Vector3 and near((moved as Vector3).y, 2.0, 0.00001),
 		"the hull follows the anatomy every frame")
 	anatomy.xform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.5),
 		Vector3(0.0, 1.0, 2.0))
@@ -582,7 +582,7 @@ func _check_bulge() -> void:
 	integration.call("scan")
 	check(garment.get_surface_override_material(0) == null,
 		"a hidden anatomy restores the override")
-	check(near(float(garment.get_instance_shader_parameter("hull_on")), 0.0),
+	check(near(float(garment.get_instance_shader_parameter("hull_on")), 0.0, 0.00001),
 		"a hidden anatomy turns the hull off")
 	anatomy.visible = true
 	integration.call("scan")
@@ -647,10 +647,10 @@ func _check_two_surfaces() -> void:
 	check(first != null and second != null, "both surfaces get an override")
 	check(first != second, "each source material keeps its own compatibility material")
 	if first != null:
-		check(near(float(first.get_shader_parameter("rough")), 0.2),
+		check(near(float(first.get_shader_parameter("rough")), 0.2, 0.00001),
 			"the main look is copied")
 	if second != null:
-		check(near(float(second.get_shader_parameter("rough")), 0.8),
+		check(near(float(second.get_shader_parameter("rough")), 0.8, 0.00001),
 			"the skirt look is copied")
 	check(mesh.surface_get_material(0) == main_material
 		and mesh.surface_get_material(1) == skirt_material,
@@ -684,7 +684,7 @@ func _check_multi_mare() -> void:
 	anatomy.xform = Transform3D(Basis.IDENTITY, Vector3(0.0, 2.0, 0.0))
 	integration.call("scan")
 	var moved: Variant = second_garment.get_instance_shader_parameter("hull_origin")
-	check(moved is Vector3 and near((moved as Vector3).y, 2.0),
+	check(moved is Vector3 and near((moved as Vector3).y, 2.0, 0.00001),
 		"the instance value follows that mare's transform")
 	first_garment.free()
 	second_garment.free()
@@ -723,7 +723,7 @@ func _check_jiggle() -> void:
 		"the coat amplitude travels through the target/garment scale ratio")
 	check(near(_inst_float(garment, "garment_jiggle_amount") * 0.5, 0.02 * 2.0, 0.0001),
 		"the cloth moves by the coat's own world distance")
-	check(near(_inst_float(garment, "garment_jiggle_time"), 0.25),
+	check(near(_inst_float(garment, "garment_jiggle_time"), 0.25, 0.00001),
 		"the wobble age is the coat material's own age")
 	check(near(_inst_float(garment, "garment_jiggle_radius"), 0.48, 0.0001),
 		"the stock coat radius travels through the scale ratio")
@@ -735,7 +735,7 @@ func _check_jiggle() -> void:
 		"the body's up is mapped through the target and the garment transforms")
 	coat.set_shader_parameter("jiggle_time", 0.5)
 	integration.call("scan")
-	check(near(_inst_float(garment, "garment_jiggle_time"), 0.5),
+	check(near(_inst_float(garment, "garment_jiggle_time"), 0.5, 0.00001),
 		"the wobble follows the coat material every frame")
 	coat.set_shader_parameter("jiggle_radius", 0.3)
 	integration.call("scan")
@@ -751,9 +751,9 @@ func _check_jiggle() -> void:
 		"an unset coat radius falls back to the stock spread")
 	coat.set_shader_parameter("jiggle_amount", null)
 	integration.call("scan")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"the coat's finished wobble clears the cloth")
-	check(near(_inst_float(garment, "hull_on"), 1.0),
+	check(near(_inst_float(garment, "hull_on"), 1.0, 0.00001),
 		"a finished wobble keeps the lift on the worn piece")
 	garment.free()
 	pony.free()
@@ -893,24 +893,24 @@ func _check_jiggle_malformed() -> void:
 		_set_jiggle(flank, body, coat, Vector3(0.0, 0.1, 0.2), Vector3.BACK, 0.02, 0.3)
 		coat.set_shader_parameter("jiggle_" + str(row[0]), row[1])
 		integration.call("scan")
-		check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+		check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 			"a %s of %s is not a wobble" % [str(row[0]), str(row[1])])
-		check(near(_inst_float(garment, "hull_on"), 1.0),
+		check(near(_inst_float(garment, "hull_on"), 1.0, 0.00001),
 			"a broken %s keeps the lift" % str(row[0]))
 	_set_jiggle(flank, body, coat, Vector3(0.0, 0.1, 0.2), Vector3.BACK, 0.02, 0.3)
 	flank._jiggle_targets = []
 	integration.call("scan")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"an ended coat wobble clears the cloth")
 	_set_jiggle(flank, body, coat, Vector3(0.0, 0.1, 0.2), Vector3.BACK, 0.02, 0.3)
 	flank._jiggle_targets = [[StandardMaterial3D.new(), body]]
 	integration.call("scan")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"a target material without the game's uniforms leaves the cloth rigid")
 	_set_jiggle(flank, body, coat, Vector3(0.0, 0.1, 0.2), Vector3.BACK, 0.02, 0.3)
 	flank.set_script(null)
 	integration.call("scan")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"a flank without the fields leaves the cloth rigid")
 	garment.free()
 	pony.free()
@@ -1017,7 +1017,7 @@ func _check_jiggle_two_mares() -> void:
 	first_coat.set_shader_parameter("jiggle_amount", null)
 	first_flank._jiggle_targets = []
 	integration.call("scan")
-	check(near(_inst_float(first_garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(first_garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"a finished wobble clears that mare's cloth")
 	check(first_garment.get_surface_override_material(0) != null,
 		"a finished wobble keeps the lift on the worn piece")
@@ -1051,18 +1051,18 @@ func _check_jiggle_without_lift() -> void:
 	integration.call("scan")
 	check(garment.get_surface_override_material(0) is ShaderMaterial,
 		"a hidden anatomy still carries the cloth jiggle")
-	check(near(_inst_float(garment, "hull_on"), 0.0), "a hidden anatomy leaves the lift off")
+	check(near(_inst_float(garment, "hull_on"), 0.0, 0.00001), "a hidden anatomy leaves the lift off")
 	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
 		"a hidden anatomy keeps the wobble")
 	anatomy.visible = true
 	integration.call("scan")
-	check(near(_inst_float(garment, "hull_on"), 1.0), "the lift returns with the anatomy")
+	check(near(_inst_float(garment, "hull_on"), 1.0, 0.00001), "the lift returns with the anatomy")
 	SETTINGS.pantyhose_jiggle.set_bool(false)
 	integration.call("apply_live_settings")
 	integration.call("scan")
 	check(garment.get_surface_override_material(0) is ShaderMaterial,
 		"turning the jiggle off keeps the lift in place")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"turning the jiggle off clears the cloth wobble")
 	SETTINGS.pantyhose_jiggle.set_bool(true)
 	integration.call("apply_live_settings")
@@ -1074,7 +1074,7 @@ func _check_jiggle_without_lift() -> void:
 	integration.call("scan")
 	check(garment.get_surface_override_material(0) is ShaderMaterial,
 		"turning the lift off keeps the cloth shader for the jiggle")
-	check(near(_inst_float(garment, "hull_on"), 0.0), "turning the lift off sets the hull off")
+	check(near(_inst_float(garment, "hull_on"), 0.0, 0.00001), "turning the lift off sets the hull off")
 	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
 		"turning the lift off keeps the wobble")
 	check(_inst_vec3(garment, "garment_jiggle_up").distance_to(Vector3.UP) < 0.0001,
@@ -1084,7 +1084,7 @@ func _check_jiggle_without_lift() -> void:
 	integration.call("scan")
 	check(garment.get_surface_override_material(0) == null,
 		"both flags off restore the pack material")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"both flags off clear the cloth wobble")
 	check(_inst_vec3(garment, "garment_jiggle_up").is_equal_approx(Vector3.UP),
 		"both flags off restore the up default")
@@ -1110,7 +1110,7 @@ func _check_jiggle_lifecycle() -> void:
 	integration.call("scan")
 	check(garment.get_surface_override_material(0) is ShaderMaterial,
 		"a worn piece without a flank keeps the lift")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"a missing flank is a quiet no-op")
 	var flank := _attach_flank(pony)
 	_set_jiggle(flank, body, coat, Vector3(0.0, 1.0, 0.3), Vector3.BACK, 0.02, 0.1)
@@ -1119,7 +1119,7 @@ func _check_jiggle_lifecycle() -> void:
 		"a flank that appears the next pass jiggles the cloth")
 	game.mares = []
 	integration.call("scan")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"a dropped garment clears the wobble")
 	check(garment.get_surface_override_material(0) == null,
 		"a dropped garment restores the pack material")
@@ -1128,7 +1128,7 @@ func _check_jiggle_lifecycle() -> void:
 	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
 		"the wobble returns with the re-discovered piece")
 	integration.call("on_world_closed")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"a world close clears the cloth wobble")
 	check(garment.get_surface_override_material(0) == null,
 		"a world close restores the pack material")
@@ -1138,7 +1138,7 @@ func _check_jiggle_lifecycle() -> void:
 	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.02, 0.0001),
 		"a new world takes the live wobble again")
 	integration.call("shutdown")
-	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0),
+	check(near(_inst_float(garment, "garment_jiggle_amount"), 0.0, 0.00001),
 		"a shutdown clears the cloth wobble")
 	check(garment.get_surface_override_material(0) == null,
 		"a shutdown restores the pack material")

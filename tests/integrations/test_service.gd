@@ -146,36 +146,36 @@ func _check_basic() -> void:
 	check(service.active_ids().has("kissing"), "the Kissing provider starts")
 	check(beat.paused, "start takes the shared excitement hold")
 	check(facts.beat_holders.has("kissing"), "the provider owns the hold while it runs")
-	check(near(excitement._until, 0.0), "start clears the game's excitement cause")
-	check(near(feelings.level, 0.4), "start leaves the level to the act")
+	check(near(excitement._until, 0.0, 0.00001), "start clears the game's excitement cause")
+	check(near(feelings.level, 0.4, 0.00001), "start leaves the level to the act")
 	service.tick(0.1)
-	check(near(excitement._until, 0.5), "tick gives Kissing the acted cause")
+	check(near(excitement._until, 0.5, 0.00001), "tick gives Kissing the acted cause")
 	check(feelings.level > 0.0 and feelings.level <= 0.85,
 		"the close tick raises the level under the bond cap")
 	affection.kind = "kiss"
 	excitement._until = 0.0
 	var before_kiss := feelings.level
 	service.tick(0.1)
-	check(near(excitement._until, 0.0), "an Affection kiss keeps its own cause")
-	check(near(feelings.level, before_kiss), "an Affection kiss owns the level")
+	check(near(excitement._until, 0.0, 0.00001), "an Affection kiss keeps its own cause")
+	check(near(feelings.level, before_kiss, 0.00001), "an Affection kiss owns the level")
 	affection.kind = ""
 	service.tick(0.1)
-	check(near(excitement._until, 0.5), "the acted cause resumes after the kiss")
+	check(near(excitement._until, 0.5, 0.00001), "the acted cause resumes after the kiss")
 	check(feelings.level > before_kiss, "the level resumes after the kiss")
 	service.afterglow()
-	check(near(excitement._until, 0.0), "afterglow clears the acted cause")
+	check(near(excitement._until, 0.0, 0.00001), "afterglow clears the acted cause")
 	var afterglow_level := feelings.level
 	service.tick(0.1)
-	check(near(excitement._until, 0.0), "afterglow tick does not restart the cause")
-	check(near(feelings.level, afterglow_level), "afterglow leaves the fade to Kissing")
+	check(near(excitement._until, 0.0, 0.00001), "afterglow tick does not restart the cause")
+	check(near(feelings.level, afterglow_level, 0.00001), "afterglow leaves the fade to Kissing")
 	service.reset()
 	check(service.active_ids().is_empty(), "reset stops the provider")
 	check(not beat.paused, "reset releases the shared hold")
 	check(facts.beat_holders.is_empty(), "reset drops the provider hold")
-	check(near(excitement._until, 1.25), "reset restores the saved cause")
-	check(near(feelings.level, 0.4), "reset restores the saved level")
+	check(near(excitement._until, 1.25, 0.00001), "reset restores the saved cause")
+	check(near(feelings.level, 0.4, 0.00001), "reset restores the saved level")
 	service.reset()
-	check(near(excitement._until, 1.25), "reset is idempotent")
+	check(near(excitement._until, 1.25, 0.00001), "reset is idempotent")
 	_free_scene(scene)
 
 
@@ -188,9 +188,9 @@ func _check_feature_off() -> void:
 	service.begin()
 	check(service.active_ids().is_empty(), "the feature flag can keep the provider off")
 	check(not beat.paused, "the beat is untouched when the provider is off")
-	check(near(excitement._until, 1.25), "the cause is untouched when the provider is off")
+	check(near(excitement._until, 1.25, 0.00001), "the cause is untouched when the provider is off")
 	service.reset()
-	check(near(excitement._until, 1.25), "a no-op reset changes nothing")
+	check(near(excitement._until, 1.25, 0.00001), "a no-op reset changes nothing")
 	_free_scene(scene)
 
 
@@ -218,11 +218,11 @@ func _check_optional_late() -> void:
 	var fidgets := _add_fidgets(skeleton)
 	service.tick(0.1)
 	check(int(fidgets._root) == -1, "a late fidget node loses its weight shift")
-	check(near(float(fidgets._tap_next), 1.0e9), "a late fidget node loses its hoof taps")
-	check(near(excitement._until, 0.5), "the rest of the bridge still runs")
+	check(near(float(fidgets._tap_next), 1.0e9, 0.00001), "a late fidget node loses its hoof taps")
+	check(near(excitement._until, 0.5, 0.00001), "the rest of the bridge still runs")
 	service.reset()
 	check(int(fidgets._root) == 7, "reset restores the fidget root")
-	check(near(float(fidgets._tap_next), 0.25), "reset restores the tap clock")
+	check(near(float(fidgets._tap_next), 0.25, 0.00001), "reset restores the tap clock")
 	_free_scene(scene)
 
 
@@ -239,17 +239,17 @@ func _check_live_toggle() -> void:
 	check(service.active_ids().is_empty(), "turning the flag off stops the provider live")
 	check(not beat.paused, "turning the flag off releases the beat")
 	check(facts.beat_holders.is_empty(), "turning the flag off drops the provider hold")
-	check(near(excitement._until, 1.25), "turning the flag off restores the cause")
+	check(near(excitement._until, 1.25, 0.00001), "turning the flag off restores the cause")
 	facts.features = {"kissing_reactions": true}
 	service.apply_live_settings()
 	check(service.active_ids().has("kissing"), "turning the flag on starts the provider live")
 	check(beat.paused, "turning the flag on takes the shared hold")
 	check(facts.beat_holders.has("kissing"), "turning the flag on owns the hold again")
-	check(near(excitement._until, 0.0), "turning the flag on starts from a clean cause")
+	check(near(excitement._until, 0.0, 0.00001), "turning the flag on starts from a clean cause")
 	service.tick(0.1)
-	check(near(excitement._until, 0.5), "the live provider ticks")
+	check(near(excitement._until, 0.5, 0.00001), "the live provider ticks")
 	service.reset()
-	check(near(excitement._until, 1.25), "reset after live edits restores the original")
+	check(near(excitement._until, 1.25, 0.00001), "reset after live edits restores the original")
 	_free_scene(scene)
 
 
@@ -293,7 +293,7 @@ func _check_missing_mid_act() -> void:
 	service.tick(0.1)
 	check(service.active_ids().is_empty(), "losing a required binding stops the provider")
 	check(not beat.paused, "losing a required binding releases the hold")
-	check(near(excitement._until, 1.25), "losing a required binding restores the saved cause")
+	check(near(excitement._until, 1.25, 0.00001), "losing a required binding restores the saved cause")
 	_free_scene(scene)
 
 
@@ -311,21 +311,21 @@ func _check_climax_fidgets() -> void:
 	service.begin()
 	service.tick(0.1)
 	check(int(fidgets._root) == 7, "the climax restores the root sway")
-	check(near(float(fidgets._tap_next), 0.25), "the climax restores the hoof taps")
+	check(near(float(fidgets._tap_next), 0.25, 0.00001), "the climax restores the hoof taps")
 	facts.state = 2
 	facts.mood = "close"
 	service.tick(0.1)
 	check(int(fidgets._root) == -1, "leaving the climax suppresses the root sway")
-	check(near(float(fidgets._tap_next), 1.0e9), "leaving the climax suppresses the hoof taps")
+	check(near(float(fidgets._tap_next), 1.0e9, 0.00001), "leaving the climax suppresses the hoof taps")
 	facts.state = 3
 	facts.mood = "climax"
 	service.tick(0.1)
 	service.afterglow()
 	check(int(fidgets._root) == -1, "afterglow suppresses the climax fidgets")
-	check(near(float(fidgets._tap_next), 1.0e9), "afterglow restores the tap clock")
+	check(near(float(fidgets._tap_next), 1.0e9, 0.00001), "afterglow restores the tap clock")
 	service.reset()
 	check(int(fidgets._root) == 7, "reset restores the act-start root")
-	check(near(float(fidgets._tap_next), 0.25), "reset restores the act-start tap clock")
+	check(near(float(fidgets._tap_next), 0.25, 0.00001), "reset restores the act-start tap clock")
 	_free_scene(scene)
 
 

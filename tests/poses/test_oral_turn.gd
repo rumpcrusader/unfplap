@@ -68,7 +68,7 @@ func _check_forward() -> void:
 	turn.tick(0.4, view, 0.5)
 	check(pony.global_position.distance_to(from) > 0.01,
 		"the turn moves her toward the mirrored anchor")
-	check(near(view.facing_amount, 0.5), "the half weight is the half facing")
+	check(near(view.facing_amount, 0.5, 0.001), "the half weight is the half facing")
 	check(view.facing.is_equal_approx(Basis(Vector3.UP, PI * 0.5) * from_basis),
 		"the facing is the halved UP turn from the capture")
 	check((view.contact_target as Vector3).is_equal_approx(Vector3(3.0, 0.0, 4.0)),
@@ -142,7 +142,7 @@ func _check_reverse() -> void:
 	turn.tick(0.0, view, 0.0)
 	check(pony.global_position.distance_to(turned) < 0.001,
 		"the reverse starts from the turned frame")
-	check(near(view.facing_amount, 1.0), "the reverse starts at full facing")
+	check(near(view.facing_amount, 1.0, 0.001), "the reverse starts at full facing")
 	turn.tick(1.0, view, 1.0)
 	check(pony.global_position.is_equal_approx(from),
 		"the reverse returns the captured root at full weight")

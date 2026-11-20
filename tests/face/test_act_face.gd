@@ -57,16 +57,16 @@ func run() -> void:
 		var face := str(ACT_FACE.MOOD_FACES[mood])
 		check(face.is_empty() or ACT_FACE.valid_face(face), "mood %s maps to a face" % mood)
 
-	check(near(ACT_FACE.blush_for("posing_in", 0.0), 0.60), "posing-in blush")
-	check(near(ACT_FACE.blush_for("active", 0.0), 0.55), "active blush at zero")
-	check(near(ACT_FACE.blush_for("active", 100.0), 1.0), "active blush at full readiness")
-	check(near(ACT_FACE.blush_for("climax", 0.0), 1.0), "climax blush")
-	check(near(ACT_FACE.blush_for("afterglow", 0.0), 0.40), "afterglow blush")
-	check(near(ACT_FACE.blush_for("active", 0.0, false), 1.0), "disabled arc is full blush")
+	check(near(ACT_FACE.blush_for("posing_in", 0.0), 0.60, 0.001), "posing-in blush")
+	check(near(ACT_FACE.blush_for("active", 0.0), 0.55, 0.001), "active blush at zero")
+	check(near(ACT_FACE.blush_for("active", 100.0), 1.0, 0.001), "active blush at full readiness")
+	check(near(ACT_FACE.blush_for("climax", 0.0), 1.0, 0.001), "climax blush")
+	check(near(ACT_FACE.blush_for("afterglow", 0.0), 0.40, 0.001), "afterglow blush")
+	check(near(ACT_FACE.blush_for("active", 0.0, false), 1.0, 0.001), "disabled arc is full blush")
 
 	var perfect := ACT_FACE.climax_style(_quality())
 	check(str(perfect.get("style", "")) == "ooo", "perfect physical act is round-mouthed")
-	check(near(float(perfect.get("score", 0.0)), 0.675), "perfect physical score")
+	check(near(float(perfect.get("score", 0.0)), 0.675, 0.001), "perfect physical score")
 
 	var warm := ACT_FACE.climax_style(_quality({"liked_touch": 1}))
 	check(str(warm.get("style", "")) == "fluster", "warm matched act is flustered")
@@ -99,7 +99,7 @@ func run() -> void:
 
 	var climax_warm := ACT_FACE.plan_for("climax", {"mode": "auto", "quality": _quality({"liked_touch": 1})})
 	check(str(climax_warm.get("face", "")) == "shy", "warm climax uses shy")
-	check(near(float(climax_warm.get("fluster_s", 0.0)), 5.0), "warm climax flusters")
+	check(near(float(climax_warm.get("fluster_s", 0.0)), 5.0, 0.001), "warm climax flusters")
 	check(bool(climax_warm.get("release_stare", false)), "warm climax releases the stare")
 	var climax_ooo := ACT_FACE.plan_for("climax", {"mode": "auto", "quality": _quality()})
 	check(str(climax_ooo.get("face", "")) == "ooo", "physical climax uses ooo")

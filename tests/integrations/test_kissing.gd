@@ -61,10 +61,10 @@ func run() -> void:
 	var until: Variant = _find(start, "excitement", "_until")
 	var root: Variant = _find(start, "fidgets", "_root")
 	var tap: Variant = _find(start, "fidgets", "_tap_next")
-	check(until != null and near(float(until.get("value")), 0.0), "start clears the excitement cause")
+	check(until != null and near(float(until.get("value")), 0.0, 0.00001), "start clears the excitement cause")
 	check(_find(start, "feelings", "level") == null, "start does not drive the level before close")
 	check(root != null and int(root.get("value")) == -1, "fidgets keep no skeleton-root weight shift")
-	check(tap != null and near(float(tap.get("value")), 1.0e9), "fidgets keep no hoof taps")
+	check(tap != null and near(float(tap.get("value")), 1.0e9, 0.00001), "fidgets keep no hoof taps")
 	check(_find(start, "beat", "paused") == null,
 		"the provider leaves the Beat ownership to the act hold")
 	for raw: Variant in start:
@@ -78,9 +78,9 @@ func run() -> void:
 	var warming := _tick(policy, context, 0.1)
 	until = _find(warming, "excitement", "_until")
 	var level: Variant = _find(warming, "feelings", "level")
-	check(until != null and near(float(until.get("value")), 0.0),
+	check(until != null and near(float(until.get("value")), 0.0, 0.00001),
 		"warming clears the acted cause")
-	check(level != null and near(float(level.get("value")), 0.0),
+	check(level != null and near(float(level.get("value")), 0.0, 0.00001),
 		"warming drives no reaction level")
 
 	# Close: the level ramps with readiness under the bond cap.
@@ -93,7 +93,7 @@ func run() -> void:
 	check(float(level.get("value")) <= 0.85 + 0.00001,
 		"the close ramp stays under the bond cap")
 	until = _find(_tick(policy, context, 0.1), "excitement", "_until")
-	check(until != null and near(float(until.get("value")), 0.5),
+	check(until != null and near(float(until.get("value")), 0.5, 0.00001),
 		"the close build keeps Kissing's cause alive")
 
 	context.satisfaction = 100.0
@@ -110,7 +110,7 @@ func run() -> void:
 	until = _find(actions, "excitement", "_until")
 	check(level != null and near(float(level.get("value")), 0.0, 0.01),
 		"a stopped player fades the reaction down")
-	check(until != null and near(float(until.get("value")), 0.0),
+	check(until != null and near(float(until.get("value")), 0.0, 0.00001),
 		"a stopped player releases the acted cause")
 
 	# Climax: full for her bond, even when the stroke is stale.
@@ -124,7 +124,7 @@ func run() -> void:
 	until = _find(actions, "excitement", "_until")
 	check(level != null and near(float(level.get("value")), 0.85, 0.01),
 		"the climax reaches her bond cap")
-	check(until != null and near(float(until.get("value")), 0.5),
+	check(until != null and near(float(until.get("value")), 0.5, 0.00001),
 		"the climax keeps Kissing's cause alive")
 
 	# An Affection kiss owns the build-up; afterglow hands the fade back to Kissing.
@@ -136,7 +136,7 @@ func run() -> void:
 	var after: Array = []
 	policy.afterglow_actions(context, after)
 	var fade: Variant = _find(after, "excitement", "_until")
-	check(fade != null and near(float(fade.get("value")), 0.0),
+	check(fade != null and near(float(fade.get("value")), 0.0, 0.00001),
 		"afterglow lets Kissing's own hold and fade run")
 
 	# Her climax restores the root sway and hoof taps; no switch gates them.
@@ -160,7 +160,7 @@ func run() -> void:
 	var re_tap: Variant = _find(leaving, "fidgets", "_tap_next")
 	check(re_root != null and int(re_root.get("value")) == -1,
 		"leaving the climax suppresses the root sway again")
-	check(re_tap != null and near(float(re_tap.get("value")), 1.0e9),
+	check(re_tap != null and near(float(re_tap.get("value")), 1.0e9, 0.00001),
 		"leaving the climax suppresses the hoof taps again")
 	var settled: Array = []
 	policy.tick_actions(full, 0.1, settled)

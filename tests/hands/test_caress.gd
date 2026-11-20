@@ -178,7 +178,7 @@ func run() -> void:
 	var surface: Variant = _plane()
 	var hit: Dictionary = surface.call("closest", Vector3(0.2, 0.25, 0.1))
 	check(not hit.is_empty(), "the triangle patch answers a closest query")
-	check(near(float(hit.get("point", Vector3.ZERO).y), 0.0), "the patch contact lies on the plane")
+	check(near(float(hit.get("point", Vector3.ZERO).y), 0.0, 0.001), "the patch contact lies on the plane")
 	check((hit.get("normal", Vector3.UP) as Vector3).dot(Vector3.UP) > 0.99,
 		"the patch uses its vertex normal")
 	check(not bool(hit.get("inside", true)), "a point above the plane is outside")
@@ -188,7 +188,7 @@ func run() -> void:
 	check(tri == null, "the ray mesh is built lazily")
 	var ray_hit: Dictionary = surface.call("nearest", Vector3(0.2, 0.1, 0.1), Vector3.UP)
 	check(not ray_hit.is_empty(), "the hand ray finds the plane")
-	check(near(float(ray_hit.get("point", Vector3.ZERO).y), 0.0),
+	check(near(float(ray_hit.get("point", Vector3.ZERO).y), 0.0, 0.001),
 		"the ray contact lies on the plane")
 	check(not bool(ray_hit.get("inside", true)), "the ray point outside the plane is outside")
 	check(surface.get("_tri") != null, "the first ray builds the ray mesh once")
@@ -205,7 +205,7 @@ func run() -> void:
 	exact.call("set_quality", "precise")
 	var exact_miss: Dictionary = exact.call("nearest", Vector3(0.2, 0.5, 0.1), Vector3.UP)
 	var exact_point: Vector3 = exact_miss.get("point", Vector3.ZERO)
-	check(near(exact_point.y, 0.0), "precise still snaps a missed ray to the coat")
+	check(near(exact_point.y, 0.0, 0.001), "precise still snaps a missed ray to the coat")
 	lossy.call("set_quality", "precise")
 	check(int(lossy.get("update_ms")) == 33 and int(lossy.get("blur_depth")) == 2,
 		"precise restores the full patch refresh and blur")
@@ -234,7 +234,7 @@ func run() -> void:
 	var palm := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm", 0.0, 0.0)
 	var hovered := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm",
 		0.0, 0.03)
-	check(near(hovered.origin.y, 0.03), "the single-point palm uses the hover distance")
+	check(near(hovered.origin.y, 0.03, 0.001), "the single-point palm uses the hover distance")
 	var right_basis := HAND.palm_basis("right", Vector3.UP, Vector3.FORWARD, 30.0)
 	var left_basis := HAND.palm_basis("left", Vector3.UP, Vector3.FORWARD, -30.0)
 	check(right_basis.x.dot(Vector3.UP) > 0.99, "the right palm marker faces the coat")
@@ -245,10 +245,10 @@ func run() -> void:
 	check(tip.is_finite() and tip.origin != palm.origin,
 		"the fingertip mode uses its own palm offset")
 
-	check(near(PATH.u_for(-1.0, 0.0), 0.0), "S reaches the lower belly anchor")
-	check(near(PATH.u_for(0.0, 0.0), PATH.BELLY_U), "neutral stays on the belly anchor")
-	check(near(PATH.u_for(1.0, 0.0), 1.0), "W reaches the cheek anchor")
-	check(near(PATH.u_for(0.5, 0.25), 0.875), "along_m shifts the path parameter")
+	check(near(PATH.u_for(-1.0, 0.0), 0.0, 0.001), "S reaches the lower belly anchor")
+	check(near(PATH.u_for(0.0, 0.0), PATH.BELLY_U, 0.001), "neutral stays on the belly anchor")
+	check(near(PATH.u_for(1.0, 0.0), 1.0, 0.001), "W reaches the cheek anchor")
+	check(near(PATH.u_for(0.5, 0.25), 0.875, 0.001), "along_m shifts the path parameter")
 	var world: Array = []
 	for i in 5:
 		world.append({
@@ -261,13 +261,13 @@ func run() -> void:
 	var start: Dictionary = PATH.sample_world(world, 0.0, "right", Vector3.RIGHT)
 	var middle: Dictionary = PATH.sample_world(world, PATH.BELLY_U, "right", Vector3.RIGHT)
 	var end: Dictionary = PATH.sample_world(world, 1.0, "right", Vector3.RIGHT)
-	check(near((start["point"] as Vector3).z, 0.0), "the path starts at the lower anchor")
-	check(near((end["point"] as Vector3).z, -0.8), "the path ends at the cheek anchor")
+	check(near((start["point"] as Vector3).z, 0.0, 0.001), "the path starts at the lower anchor")
+	check(near((end["point"] as Vector3).z, -0.8, 0.001), "the path ends at the cheek anchor")
 	check((middle["point"] as Vector3).z < -0.15 and (middle["point"] as Vector3).z > -0.3,
 		"neutral sits near the belly anchor")
 	check((middle["finger"] as Vector3).dot(Vector3.FORWARD) > 0.9,
 		"the path tangent points toward her head")
-	check(near(float(end["lateral"]), 0.0), "the lateral offset fades at the cheek")
+	check(near(float(end["lateral"]), 0.0, 0.001), "the lateral offset fades at the cheek")
 	check(str(end["region"]) == "head", "the cheek sample uses the head region")
 	var left: Dictionary = PATH.sample_world(world, PATH.BELLY_U, "left", Vector3.RIGHT)
 	check((left["side"] as Vector3).dot(Vector3.RIGHT) < -0.9,
@@ -532,7 +532,7 @@ func run() -> void:
 	var expected_belly_u := 0.0
 	if area_start_index >= 0 and expected_left.size() > 1:
 		expected_belly_u = float(area_start_index) / float(expected_left.size() - 1)
-	check(near(float(area_path.get("belly_u")), expected_belly_u),
+	check(near(float(area_path.get("belly_u")), expected_belly_u, 0.001),
 		"the marked area path starts at the JSON start")
 	var area_neutral: Dictionary = area_path.call("sample", 0.0, 0.0, Vector3.RIGHT)
 	var area_forward: Dictionary = area_path.call("sample", 1.0, 0.0, Vector3.RIGHT)
@@ -676,15 +676,15 @@ func run() -> void:
 		oral_pony.head = head_keep
 	var blend_from := Transform3D(Basis(), Vector3.ZERO)
 	var blend_to := Transform3D(Basis(), Vector3(1.0, 0.0, 0.0))
-	check(near(HANDS.caress_oral_blend(blend_from, blend_to, 0.0).origin.x, 0.0),
+	check(near(HANDS.caress_oral_blend(blend_from, blend_to, 0.0).origin.x, 0.0, 0.001),
 		"the oral contact blend starts at the captured frame")
 	check(near(HANDS.caress_oral_blend(blend_from, blend_to,
-		HANDS.CARESS_ORAL_BLEND_S * 0.5).origin.x, 0.5),
+		HANDS.CARESS_ORAL_BLEND_S * 0.5).origin.x, 0.5, 0.001),
 		"the oral contact blend eases over 0.35 s")
 	check(near(HANDS.caress_oral_blend(blend_from, blend_to,
-		HANDS.CARESS_ORAL_BLEND_S).origin.x, 1.0),
+		HANDS.CARESS_ORAL_BLEND_S).origin.x, 1.0, 0.001),
 		"the oral contact blend reaches the target at the window end")
-	check(near(HANDS.caress_oral_blend(blend_from, blend_to, 1.0).origin.x, 1.0),
+	check(near(HANDS.caress_oral_blend(blend_from, blend_to, 1.0).origin.x, 1.0, 0.001),
 		"the oral contact blend keeps the target after the window")
 	var stand_pony := NodePony.new()
 	stand_pony._model = body_scene as Node3D
@@ -875,9 +875,9 @@ func run() -> void:
 		Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.01, 0.0), Vector3.UP, 0.016)
 	var second_smooth: Dictionary = engine.call("_smooth_precise", state,
 		Vector3(1.0, 0.0, 0.0), Vector3(1.0, 0.02, 0.0), Vector3.UP, 0.016)
-	check(near((first_smooth["point"] as Vector3).y, 0.01),
+	check(near((first_smooth["point"] as Vector3).y, 0.01, 0.001),
 		"the first exact contact starts without smoothing")
-	check(near((second_smooth["point"] as Vector3).x, 1.0),
+	check(near((second_smooth["point"] as Vector3).x, 1.0, 0.001),
 		"contact smoothing never delays the intended caress motion")
 	var offset_y := (second_smooth["point"] as Vector3).y
 	check(offset_y > 0.01 and offset_y < 0.02,
@@ -927,17 +927,17 @@ func run() -> void:
 	var near_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(0.5, 0.0, 0.0),
 		1.0, 0.08, 0.0)
 	check(bool(near_plan.get("reachable", false)), "a short target is reachable")
-	check(near(float(near_plan.get("stretch", 0.0)), 1.0), "a short target needs no stretch")
+	check(near(float(near_plan.get("stretch", 0.0)), 1.0, 0.001), "a short target needs no stretch")
 	var far_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(1.0, 0.0, 0.0),
 		1.0, 0.05, 0.0)
 	check(not bool(far_plan.get("reachable", true)), "a far target is clamped")
 	check((far_plan.get("target", Vector3.ZERO) as Vector3).length() <= 0.65 + 0.001,
 		"the clamped target stays within the arm reach")
-	check(near(float(far_plan.get("shoulder_shift", 0.0)), 0.05),
+	check(near(float(far_plan.get("shoulder_shift", 0.0)), 0.05, 0.001),
 		"the shoulder cap is consumed before the clamp")
 	var body_plan: Dictionary = ARM.plan(Vector3.ZERO, 0.3, 0.3, Vector3(1.0, 0.0, 0.0),
 		1.0, 0.05, 0.15)
-	check(near(float(body_plan.get("body_shift", 0.0)), 0.15),
+	check(near(float(body_plan.get("body_shift", 0.0)), 0.15, 0.001),
 		"the body cap is used after the shoulder cap")
 
 	if failures == 0:

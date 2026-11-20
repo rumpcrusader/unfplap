@@ -17,6 +17,7 @@ const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
+const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 
 ## The longest player line the Anon-offer classifier reads; a longer line is not an ask.
 const MAX_LINE := 600
@@ -83,6 +84,17 @@ func pose_placed(runtime: Node, option: POSE_OPTIONS.Option) -> bool:
 	var verdict: Variant = gate.scene_only_verdict(option.pose, option.source,
 		option.bed, null)
 	return verdict != null and bool(verdict.hard_ok)
+
+
+## The live readiness of a formed Agreement: its small scene checks with the frozen pose pair.
+## The press and auto-start call it through `ready_offer()`; it builds no row list.
+func scene_ready(pony: Node, option: POSE_OPTIONS.Option, profile_ok: bool, source_ok: bool) -> bool:
+	var runtime: Variant = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
+	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
+	if gate == null or option == null or not gate.has_method("agreement_ready"):
+		return false
+	return bool(gate.agreement_ready(option.pose, option.source, option.bed,
+		SCENE_GATE.FrozenPose.new(profile_ok, source_ok)))
 
 
 func hold_for(runtime: Node) -> RefCounted:

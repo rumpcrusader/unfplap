@@ -88,6 +88,9 @@ class Host:
 	## (runtime, PoseOptions.Option) -> bool: the scene-only placement check again, right before
 	## an Agreement forms. A missing callback refuses.
 	var pose_placed: Callable
+	## (pony, PoseOptions.Option, pose_profile_ok, pose_source_ok) -> bool: the live scene-only
+	## readiness of a formed Agreement. A missing callback refuses.
+	var scene_ready: Callable
 	## () -> FormView: the player's live form and display.
 	var form_view: Callable
 	## (runtime) -> RefCounted: the per-pony `scene_hold/service.gd` ledger.
@@ -211,6 +214,7 @@ func _bind_host() -> void:
 	host.privacy_private = Callable(_bridge, "privacy_private")
 	host.placement_for = Callable(_bridge, "placement_for")
 	host.pose_placed = Callable(_bridge, "pose_placed")
+	host.scene_ready = Callable(_bridge, "scene_ready")
 	host.form_view = Callable(self, "_form_view")
 	host.hold_for = Callable(_bridge, "hold_for")
 	host.classify = Callable(_bridge, "classify")
@@ -262,6 +266,24 @@ func handle() -> AGREEMENT.Handle:
 ## The live Agreement package for the debug row. Consumers do not mutate it.
 func agreement() -> AGREEMENT.Package:
 	return _agreement if _phase == Phase.AGREEMENT else null
+
+
+## True while the live Agreement can start: frozen, unexpired, scene-ready and still private.
+## The one readiness read of the press and auto-start; it keeps no flag.
+func ready_offer() -> bool:
+	if _phase != Phase.AGREEMENT or _agreement == null or _handle == null or _host == null:
+		return false
+	if not _handle.valid() or _agreement.expired(_now()):
+		return false
+	var option := _agreement.option
+	if option == null or not is_instance_valid(_agreement.pony):
+		return false
+	if not _host.scene_ready.is_valid():
+		return false
+	if not bool(_host.scene_ready.call(_agreement.pony, option, _agreement.pose_profile_ok,
+			_agreement.pose_source_ok)):
+		return false
+	return not _agreement.private or _private_now(_agreement.pony, _cuddle_flag())
 
 
 ## The entry's idle frame: the TTL and the privacy sample, then the bridge's global watch. The

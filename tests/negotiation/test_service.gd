@@ -110,6 +110,8 @@ class Boxes:
 	var relationship := true
 	var privacy := true
 	var place_ok := true
+	var scene_ready := true
+	var scene_ready_calls := 0
 	var classify_mode := "sync"
 	var reason_mode := "sync"
 	var await_mode := "sync"
@@ -151,6 +153,9 @@ func _fixture() -> Dictionary:
 	host.pose_placed = func(_target: Node, option) -> bool:
 		boxes.placed.append(option)
 		return boxes.place_ok
+	host.scene_ready = func(_target: Node, _option, _profile_ok: bool, _source_ok: bool) -> bool:
+		boxes.scene_ready_calls += 1
+		return boxes.scene_ready
 	host.form_view = func(): return boxes.form_view
 	host.hold_for = func(_target: Node): return boxes.hold
 	host.classify = func(request, scope, done) -> bool:
@@ -263,6 +268,7 @@ func run() -> void:
 	_check_hold_loss()
 	_check_report_and_cancel()
 	_check_lock()
+	_check_ready_offer()
 	print("NEGOTIATION_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 
@@ -309,6 +315,30 @@ func _check_anon_accept() -> void:
 	check(_outcome_kinds(boxes).has(NEGOTIATION.Outcome.EXPIRED), "the Agreement TTL expires")
 	check(not service.is_locked(), "an expiry releases the lock")
 	check(not service.report(handle, true), "a stale handle after expiry is ignored")
+	_free(made)
+
+
+## The live Agreement's readiness: the scene and privacy answer live, and no flag is kept.
+func _check_ready_offer() -> void:
+	var made := _fixture()
+	var boxes: Boxes = made["boxes"]
+	var service = made["service"]
+	check(not service.ready_offer(), "no live Agreement is never ready")
+	_accept_anon(made)
+	check(service.ready_offer(), "a formed Agreement is ready")
+	check(boxes.scene_ready_calls == 1, "the ready path asks the scene once")
+	boxes.scene_ready = false
+	check(not service.ready_offer(), "a changed scene is not ready")
+	check(boxes.scene_ready_calls == 2, "the failed scene was still asked")
+	boxes.scene_ready = true
+	boxes.privacy = false
+	check(not service.ready_offer(), "a lost private view is not ready")
+	boxes.privacy = true
+	check(service.ready_offer(), "the recovered scene and privacy are ready again")
+	boxes.clock += AGREEMENT.AGREEMENT_TTL_S
+	var calls: int = boxes.scene_ready_calls
+	check(not service.ready_offer() and boxes.scene_ready_calls == calls,
+		"an expired Agreement is not ready and asks no scene")
 	_free(made)
 
 

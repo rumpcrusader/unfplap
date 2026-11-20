@@ -69,18 +69,17 @@ func start_agreement(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := fal
 	return AGREEMENT_STARTED if started else AGREEMENT_FAILED
 
 
-## True when the scene-only rows pass and, for a standing option, the presentation is settled.
+## True when the scene-only checks pass and, for a standing option, the presentation is settled.
+## The hint's readiness read: the same small checks with the Agreement's frozen pose pair.
 func agreement_offer_ready(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := false) -> bool:
 	if handle == null or not handle.valid():
 		return false
 	var option: POSE_OPTIONS.Option = handle.option
 	if option == null:
 		return false
-	session.refresh_identity()
 	var pose := str(option.pose)
-	var verdict: Variant = context.gate.scene_only_verdict(pose, str(option.source), option.bed,
-		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
-	if verdict == null or not bool(verdict.ok):
+	if not context.gate.agreement_ready(pose, str(option.source), option.bed,
+			SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok))):
 		return false
 	if not skip_presentation and POSE_SPECS.start_setup(pose) == "standing_place" \
 			and context.presentation.presentation_active() \

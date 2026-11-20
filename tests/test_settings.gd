@@ -109,9 +109,7 @@ func run() -> void:
 	_check_section_folding()
 	_check_migration()
 	_check_migration_diff()
-	_check_default_profile_migration()
 	_check_placement_migration()
-	_check_placement_strip()
 	_check_api_names()
 	_check_change_notification()
 	_check_profiles()
@@ -122,6 +120,8 @@ func run() -> void:
 	_check_base_game_access()
 	_check_participation()
 	_check_player_file_recovery()
+	_check_player_split()
+	_check_player_recovery()
 	print("SETTINGS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("SETTINGS_PASS")
@@ -378,7 +378,7 @@ func _check_characters() -> void:
 		"the settings document has no prompt catalog")
 	check(not settings_document.has("characters"),
 		"the settings document has no character block")
-	check(not SETTINGS._player_document(SETTINGS.data().raw()).has("characters"),
+	check(not SETTINGS._settings_document(SETTINGS.data().raw()).has("characters"),
 		"the player document has no character block")
 	_check_default_profile(characters.get("default"))
 
@@ -463,37 +463,57 @@ func _check_characters() -> void:
 			% str(bad_values))
 
 
-## The player file stores declared settings but only the `default` differences; an untouched
-## profile has no `default` block at all.
+## The player files split by kind: declared settings in `settings.json`, the profile differences
+## and the per-mare rows in `characters.json`. An untouched profile writes no character file.
 func _check_player_document() -> void:
 	var shipped: Dictionary = SETTINGS.defaults().raw()
-	var untouched := SETTINGS._player_document(shipped)
+	var untouched := SETTINGS._settings_document(shipped)
 	check(not untouched.has("default"), "an untouched profile stores no default block")
 	check(int(untouched.get("version", 0)) == SETTINGS.SCHEMA_VERSION,
-		"the player document carries the current schema")
+		"the settings document carries the current schema")
 	check(untouched.has("debug_mode"), "declared settings stay materialised")
-	check(not untouched.has("characters"), "the player document has no character block")
+	check(not untouched.has("characters"), "the settings document has no character block")
+	check(SETTINGS._characters_document(shipped).is_empty(),
+		"an untouched profile writes no character document")
 
 	var changed := shipped.duplicate(true)
 	var profile: Dictionary = changed["default"]
 	(profile["preferences"] as Dictionary)["intensity"] = "rough"
 	(profile["poses"]["standing"] as Dictionary)["bow"] = 3.5
-	var sparse := SETTINGS._player_document(changed)
-	var diff: Dictionary = sparse.get("default", {})
+	var settings_doc := SETTINGS._settings_document(changed)
+	check(not settings_doc.has("default"), "a changed profile stays out of the settings document")
+	var characters := SETTINGS._characters_document(changed)
+	check(int(characters.get("version", 0)) == SETTINGS.SCHEMA_VERSION,
+		"the character document carries the current schema")
+	var diff: Dictionary = characters.get("default", {})
 	var preference: Dictionary = diff.get("preferences", {})
 	check(str(preference.get("intensity", "")) == "rough",
-		"a changed preference is stored")
+		"a changed preference is stored in the character document")
 	check(not preference.has("notes"), "an untouched preference key is not pinned")
 	var standing: Dictionary = (diff.get("poses", {}) as Dictionary).get("standing", {})
 	check(near(float(standing.get("bow", 0.0)), 3.5), "a changed pose value is stored")
 	check(not standing.has("foreleg"), "an untouched pose key is not pinned")
 
-	var resolved := SETTINGS._merge(shipped, sparse)
-	check(near(float((resolved["default"]["poses"]["standing"] as Dictionary)["bow"]), 3.5),
+	var merged := SETTINGS._merge(shipped, SETTINGS._attach_characters(settings_doc, characters))
+	check(near(float((merged["default"]["poses"]["standing"] as Dictionary)["bow"]), 3.5),
 		"the sparse default merges back to the resolved value")
-	check(str((resolved["default"]["preferences"] as Dictionary).get("notes", ""))
+	check(str((merged["default"]["preferences"] as Dictionary).get("notes", ""))
 		== str((shipped["default"]["preferences"] as Dictionary).get("notes", "")),
 		"the sparse default keeps the shipped preference it did not change")
+
+	var placed := changed.duplicate(true)
+	var anatomy: Dictionary = placed["anatomy"]
+	var rows: Dictionary = anatomy["placement"]
+	rows["fluttershy"] = {"tail_y": 0.021}
+	var split_settings := SETTINGS._settings_document(placed)
+	var kept: Dictionary = (split_settings.get("anatomy", {}) as Dictionary).get("placement", {})
+	check(kept.has("default") and kept.has("anon"),
+		"the declared placement rows stay in the settings document")
+	check(not kept.has("fluttershy"), "a per-mare placement row leaves the settings document")
+	var split_characters := SETTINGS._characters_document(placed)
+	var moved: Dictionary = (split_characters.get("anatomy", {}) as Dictionary).get("placement", {})
+	check(moved.has("fluttershy") and not moved.has("default") and not moved.has("anon"),
+		"the character document holds only the per-mare placement rows")
 
 
 ## Every leaf path of a nested settings document.
@@ -626,7 +646,7 @@ func _check_placement_migration() -> void:
 	var anon := FileAccess.open(anon_path, FileAccess.WRITE)
 	anon.store_string(JSON.stringify(_legacy_row(anon_default), "\t"))
 	anon.close()
-	var data := SETTINGS._migrate({}, SETTINGS.SCHEMA_VERSION - 2)
+	var data := SETTINGS._normalize_anatomy_placement({})
 	var placement: Dictionary = (data.get("anatomy", {}) as Dictionary).get("placement", {})
 	check(placement.has("fluttershy"), "a differing mare row imports")
 	check(not placement.has("applejack"), "a row equal to the default collapses")
@@ -657,32 +677,6 @@ func _check_placement_migration() -> void:
 		"a current settings file still imports a late legacy placement")
 	check(not FileAccess.file_exists(mare_path), "the late legacy file is archived")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(mare_path + ".migrated"))
-
-
-## Schema 10 removes the per-mare placement rows an older build materialised, keeping real
-## overrides as differences so a provider layer can still win.
-func _check_placement_strip() -> void:
-	var shipped_row: Dictionary = SETTINGS.DEFAULTS.characters_block(
-		"anatomy.placement.fluttershy")
-	var base := SETTINGS._legacy_placement_default({}, "anatomy.placement.default")
-	var pitch := float(base["pitch_deg"]) + 4.0
-	var data := {"version": SETTINGS.SCHEMA_VERSION - 2, "anatomy": {"placement": {
-		"fluttershy": shipped_row,
-		"rarity": {"pitch_deg": pitch},
-		"anon": {"scale": 1.1},
-	}}}
-	var stripped := SETTINGS._migrate(data, SETTINGS.SCHEMA_VERSION - 2)
-	var placement: Dictionary = (stripped.get("anatomy", {}) as Dictionary).get("placement", {})
-	check(not placement.has("fluttershy"), "a materialised shipped row is stripped")
-	check(placement.has("anon"), "the anon row is not a mare row")
-	check(placement.has("rarity"), "a real placement override survives")
-	check(near(float((placement["rarity"] as Dictionary).get("pitch_deg", 0.0)), pitch),
-		"the surviving override keeps its value")
-
-	var untouched := {"anatomy": {"placement": {"fluttershy": shipped_row}}}
-	var cleared := SETTINGS._strip_materialized_placement_rows(untouched)
-	check(not (cleared.get("anatomy", {}) as Dictionary).has("placement"),
-		"a block that only held shipped rows is removed")
 
 
 ## One row of the old placement file, from a resolved placement block.
@@ -1074,154 +1068,43 @@ func _check_load() -> void:
 	check(not SETTINGS.data().raw().is_empty(), "the player file is merged at load")
 
 
-## A save from an older build migrates once; a retired key maps or is erased.
+## Retired keys and deprecations run on every file; the only version step is the schema-11 split.
 func _check_migration() -> void:
-	var old: Dictionary = SETTINGS._migrate({"version": 0, "anatomy": {
-		"genital_yaw_deg": 1.0, "skin_tone": "dark"}}, 0)
-	var anatomy: Dictionary = old.get("anatomy", {})
-	check(not anatomy.has("genital_yaw_deg"), "a removed anatomy key is erased")
-	check(near(float(anatomy.get("skin_tone", -1.0)), 1.0), "a legacy skin tone maps to its anchor")
-	var current: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"pose1_forward": 0.3}, SETTINGS.SCHEMA_VERSION)
-	check(current.has("pose1_forward"), "a current file skips the structural chain")
-	var retired_bypass: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"relationship": {"ignore_gates": true, "promiscuity": "any"}},
-		SETTINGS.SCHEMA_VERSION)
-	var relationship: Dictionary = retired_bypass.get("relationship", {})
-	check(not relationship.has("ignore_gates"), "the retired plap switch is erased")
+	var current: Dictionary = SETTINGS._migrate({
+		"version": SETTINGS.SCHEMA_VERSION,
+		"pose1_forward": 0.3,
+		"relationship": {"ignore_gates": true, "promiscuity": "any"},
+		"features": {"act_chat": true, "hud_readouts": true},
+		"anatomy": {"genital_yaw_deg": 1.0, "skin_tone": 0.4},
+	}, SETTINGS.SCHEMA_VERSION)
+	check(current.has("pose1_forward"), "a current file skips a dropped pre-0.7 rename")
+	var relationship: Dictionary = current.get("relationship", {})
+	check(not relationship.has("ignore_gates"), "a retired setting is erased on a current file")
 	check(str(relationship.get("promiscuity", "")) == "any",
-		"the retired plap switch leaves the Promiscuity row alone")
+		"a retired setting leaves its neighbour alone")
+	var features: Dictionary = current.get("features", {})
+	check(not features.has("act_chat"), "a retired key is erased on a current file")
+	check(bool(features.get("hud_readouts", false)), "a live key survives the retired-key pass")
+	check(near(float((current.get("anatomy", {}) as Dictionary).get("skin_tone", 0.0)), 0.4),
+		"a stored skin tone is kept as a number")
 
-	# The per-size split seeds Canon from the old flat value.
-	var sized: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"presentation": {"missionary": {"vulva_shift_mm": 42.0}}}, SETTINGS.SCHEMA_VERSION)
-	var sized_missionary: Dictionary = (sized.get("presentation", {}) as Dictionary).get(
-		"missionary", {})
-	check(not sized_missionary.has("vulva_shift_mm"), "the old flat vulva shift is erased")
-	var sized_size: Dictionary = sized_missionary.get("size", {})
-	var sized_canon: Dictionary = sized_size.get("canon", {})
-	check(near(float(sized_canon.get("vulva_shift_mm", 0.0)), 42.0),
-		"the old flat vulva shift seeds Canon")
-
-	# A file that already has the nested block is left alone.
-	var nested: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"presentation": {"missionary": {"size": {"canon": {"vulva_shift_mm": 55.0}}}}},
-		SETTINGS.SCHEMA_VERSION)
-	var nested_missionary: Dictionary = (nested.get("presentation", {}) as Dictionary).get(
-		"missionary", {})
-	var nested_canon: Dictionary = (nested_missionary.get("size", {}) as Dictionary).get(
-		"canon", {})
-	check(near(float(nested_canon.get("vulva_shift_mm", 0.0)), 55.0),
-		"the nested size block survives migration")
-
-	# The anatomy master switch and the act-only switch fold into one pill.
-	var off: Dictionary = SETTINGS._normalize_anatomy_visibility({
-		"features": {"anatomy": false}, "anatomy": {"act_only": true}})
-	check(str(off["anatomy"].get("anatomy_mode", "")) == "never", "anatomy off maps to never")
-	check(not (off["features"] as Dictionary).has("anatomy"), "the old master switch is erased")
-	check(not (off["anatomy"] as Dictionary).has("act_only"), "the old act-only switch is erased")
-	var during: Dictionary = SETTINGS._normalize_anatomy_visibility({
-		"features": {"anatomy": true}, "anatomy": {"act_only": true}})
-	check(str(during["anatomy"].get("anatomy_mode", "")) == "act", "act-only maps to act")
-	var always: Dictionary = SETTINGS._normalize_anatomy_visibility({
-		"features": {"anatomy": true}, "anatomy": {"act_only": false}})
-	check(str(always["anatomy"].get("anatomy_mode", "")) == "always", "on maps to always")
-	# The dock visibility and colour switches fold into one style pill.
-	var dock: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"anatomy": {"hide_dock": true}}, SETTINGS.SCHEMA_VERSION)
-	check(str(dock["anatomy"].get("dock_style", "")) == "hide",
-		"hide_dock true maps to dock style hide")
-	var dock_colour: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"anatomy": {"show_dock": true, "dock_color": "coat"}}, SETTINGS.SCHEMA_VERSION)
-	check(str(dock_colour["anatomy"].get("dock_style", "")) == "coat",
-		"a visible dock keeps its coat colour")
-	var dock_off: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"anatomy": {"show_dock": false, "dock_color": "coat"}}, SETTINGS.SCHEMA_VERSION)
-	check(str(dock_off["anatomy"].get("dock_style", "")) == "hide",
-		"a hidden dock wins over its colour")
-	var dock_none: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION},
-		SETTINGS.SCHEMA_VERSION)
-	check(not (dock_none.get("anatomy", {}) as Dictionary).has("dock_style"),
-		"no old dock keys leaves the genitals default")
-
-	# The old caress shoulder default detached the arm; migrate only the shipped 12 cm value.
-	var reach: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 2,
-		"features": {"caress_reach_shoulder_m": 0.12}}, SETTINGS.SCHEMA_VERSION - 2)
-	check(near(float((reach.get("features", {}) as Dictionary).get(
-		"caress_reach_shoulder_m", 0.0)), 0.02), "the old caress reach default migrates")
-	var reach_tuned: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 2,
-		"features": {"caress_reach_shoulder_m": 0.05}}, SETTINGS.SCHEMA_VERSION - 2)
-	check(near(float((reach_tuned.get("features", {}) as Dictionary).get(
-		"caress_reach_shoulder_m", 0.0)), 0.05), "a tuned caress reach survives migration")
-
-	var caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"presentation": {
-			"missionary": {"caress": {"over_coat_m": 0.03, "normal_blur_m": 0.01,
-				"along_m": 0.1, "oval_scale": 2.0}},
-			"standing": {"caress": {"palm_distance": 0.04, "ignore": ["leg"],
-				"palm_scale": {"canon": 0.8}}},
-		}}, SETTINGS.SCHEMA_VERSION)
-	var caress_moved: Dictionary = caress.get("caress", {})
-	check(near(float(caress_moved.get("hover_m", 0.0)), 0.03),
-		"the old caress hover keys map to the shared block")
-	check(near(float(caress_moved.get("normal_blur_m", 0.0)), 0.01),
-		"the old caress smoothing keys map to the shared block")
-	check((caress_moved.get("ignore", []) as Array).has("leg"),
-		"the old standing caress ignore list maps to the shared block")
-	check(near(float((caress_moved.get("palm_scale", {}) as Dictionary).get("canon", 0.0)), 0.8),
-		"the old palm scale maps to the shared block")
-	check(not caress_moved.has("along_m") and not caress_moved.has("oval_scale"),
-		"the retired caress tuning keys are erased")
-
-	# The precise switch is retired and `balanced` folds into `precise`; a stored `fast` survives.
-	var retired_caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 2,
-		"features": {"caress_surface": false},
-		"caress": {"quality": "balanced"}}, SETTINGS.SCHEMA_VERSION - 2)
-	check(not (retired_caress.get("features", {}) as Dictionary).has("caress_surface"),
-		"the retired precise caress switch is erased")
-	check(str((retired_caress.get("caress", {}) as Dictionary).get("quality", "")) == "precise",
-		"balanced caress quality folds into precise")
-	var fast_caress: Dictionary = SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION - 2,
-		"caress": {"quality": "fast"}}, SETTINGS.SCHEMA_VERSION - 2)
-	check(str((fast_caress.get("caress", {}) as Dictionary).get("quality", "")) == "fast",
-		"a stored fast caress quality survives migration")
-
-	# Retired paths are erased while live neighbours survive, and an emptied sub-block is dropped.
-	var dead: Dictionary = SETTINGS._migrate({"version": 3,
-		"features": {"act_chat": true, "act_vocals": true, "act_history": false,
-			"act_faces": false, "hud_readouts": true, "act_lines": true,
-			"act_line_angles": true, "caress_areas": true,
-			"allow_act_during_cuddle": true, "standing_plant_feet": true,
-			"anatomy_vr": true},
-		"anatomy": {"anal_ring": false, "mare_bits": "original", "strip_width": 1.0},
-		"presentation": {"missionary": {}, "standing": {
-			"kiss": {"forelegs": "planted"}, "smack": {"sound": "pack"},
-			"plant_spread_m": 0.4}},
-		"thrust": {"camera_bob": true, "contact_gap_m": 0.0, "travel": 0.5},
-		"auto_thrust": {"pace_step": 0.25}}, 3)
-	var dead_features: Dictionary = dead.get("features", {})
-	check(not dead_features.has("act_chat"), "a retired feature is erased")
-	check(not dead_features.has("act_vocals"), "the retired audio layer is erased")
-	check(not dead_features.has("act_history"), "the retired act-history switch is erased")
-	check(not dead_features.has("act_faces"), "the retired act-face switch is erased")
-	for name: String in ["act_lines", "act_line_angles", "caress_areas",
-			"allow_act_during_cuddle", "standing_plant_feet", "anatomy_vr"]:
-		check(not dead_features.has(name), "the retired feature %s is erased" % name)
-	check(bool(dead_features.get("hud_readouts", false)), "a live feature is kept")
-	check(not (dead.get("anatomy", {}) as Dictionary).has("anal_ring"),
-		"a retired anatomy key is erased")
-	check(not (dead.get("anatomy", {}) as Dictionary).has("mare_bits"),
-		"the retired mesh choice is erased")
-	check(not (dead.get("thrust", {}) as Dictionary).has("camera_bob"),
-		"a retired thrust key is erased")
-	var dead_standing: Dictionary = (dead.get("presentation", {}) as Dictionary).get("standing", {})
-	check(not dead_standing.has("kiss"), "an emptied retired sub-block is dropped")
-	check(not dead_standing.has("smack"), "an emptied retired smack block is dropped")
-	check(not dead_standing.has("plant_spread_m"), "the retired planted stance is erased")
-	check(not (dead.get("thrust", {}) as Dictionary).has("contact_gap_m"),
-		"the retired contact gap is erased")
-	check(near(float((dead.get("thrust", {}) as Dictionary).get("travel", 0.0)), 0.5),
-		"a live neighbour of a retired key is kept")
+	# The schema-11 step drops the prompt overrides a pre-0.7 file still carries.
+	var older: Dictionary = SETTINGS._migrate({
+		"version": SETTINGS.SCHEMA_VERSION - 1,
+		"default": {"act_prompts": {"cue": ["old"]}, "event_prompts": {"climax": "old"}},
+		"characters": {"fluttershy": {"act_prompts": {"cue": ["old"]},
+			"event_prompts": {"climax": "old"}}},
+	}, SETTINGS.SCHEMA_VERSION - 1)
+	var prompt_paths: Array = []
+	for path: String in _flatten_paths(older):
+		if path.ends_with("act_prompts") or path.ends_with("event_prompts"):
+			prompt_paths.append(path)
+	check(prompt_paths.is_empty(),
+		"no prompt override survives the schema-11 step: %s" % str(prompt_paths))
+	var unchanged: Dictionary = {"version": SETTINGS.SCHEMA_VERSION, "default": {"cue_gap": 15.0},
+		"characters": {"fluttershy": {"cue_gap": 16.0}}}
+	check(SETTINGS._migrate(unchanged.duplicate(true), SETTINGS.SCHEMA_VERSION) == unchanged,
+		"a current file has no structural step")
 
 
 ## The migration log is a leaf-path diff: changed, added and removed paths, with `version` ignored.
@@ -1239,42 +1122,6 @@ func _check_migration_diff() -> void:
 	var empty := SETTINGS._migration_diff({}, {})
 	check((empty["changed"] as Array).is_empty() and (empty["added"] as Array).is_empty()
 		and (empty["removed"] as Array).is_empty(), "an unchanged document has no changes")
-
-
-## Schema 10 reduces a saved full `default` block to the player's differences.
-func _check_default_profile_migration() -> void:
-	var full: Dictionary = SETTINGS.defaults().raw()["default"].duplicate(true)
-	var untouched := {"version": SETTINGS.SCHEMA_VERSION - 2, "default": full}
-	var migrated := SETTINGS._migrate(untouched, SETTINGS.SCHEMA_VERSION - 2)
-	check(not migrated.has("default"), "a full shipped default normalizes away")
-
-	var edited: Dictionary = full.duplicate(true)
-	(edited["preferences"] as Dictionary)["intensity"] = "soft"
-	(edited["poses"]["missionary"] as Dictionary)["nuzzle_scale"] = 0.9
-	var changed := SETTINGS._migrate(
-		{"version": SETTINGS.SCHEMA_VERSION - 2, "default": edited},
-		SETTINGS.SCHEMA_VERSION - 2)
-	var diff: Dictionary = changed.get("default", {})
-	check(str((diff.get("preferences", {}) as Dictionary).get("intensity", "")) == "soft",
-		"a changed default preference survives")
-	check(not (diff.get("preferences", {}) as Dictionary).has("notes"),
-		"an unchanged default preference is dropped")
-	var pose: Dictionary = (diff.get("poses", {}) as Dictionary).get("missionary", {})
-	check(near(float(pose.get("nuzzle_scale", 0.0)), 0.9), "a changed default pose survives")
-
-	# A schema-9 file runs only the schema-10 steps.
-	var nine := SETTINGS._migrate(
-		{"version": 9, "default": full, "features": {"caress_reach_shoulder_m": 0.12}}, 9)
-	check(not nine.has("default"), "a schema-9 default block is reduced")
-	check(near(float((nine.get("features", {}) as Dictionary).get(
-		"caress_reach_shoulder_m", 0.0)), 0.12),
-		"a schema-9 file skips the schema-9 renames")
-
-	var current := SETTINGS._migrate({"version": SETTINGS.SCHEMA_VERSION,
-		"default": {"preferences": {"intensity": "soft"}}}, SETTINGS.SCHEMA_VERSION)
-	var kept: Dictionary = (current.get("default", {}) as Dictionary).get("preferences", {})
-	check(str(kept.get("intensity", "")) == "soft",
-		"a current file keeps its default differences")
 
 
 ## A script constant resolves a built-in before a same-named static function, so an API name that
@@ -1481,43 +1328,40 @@ func _check_character_overrides() -> void:
 		or (normalized["characters"] as Dictionary).is_empty(),
 		"a materialized built-in template normalizes away")
 
-	var old := {"version": SETTINGS.SCHEMA_VERSION - 2, "characters": {"fluttershy": full}}
-	var migrated := SETTINGS._migrate(old, SETTINGS.SCHEMA_VERSION - 2)
-	check(not migrated.has("characters")
-		or (migrated["characters"] as Dictionary).is_empty(),
-		"an older full-template file normalizes once")
-	var current := {"version": SETTINGS.SCHEMA_VERSION, "characters": {"fluttershy": full}}
-	var kept := SETTINGS._migrate(current, SETTINGS.SCHEMA_VERSION)
-	check((kept.get("characters", {}) as Dictionary).has("fluttershy"),
-		"a current file is not normalized twice")
+	# The schema-11 import moves the block into the character document and normalizes it once.
+	var moved: Dictionary = {}
+	var imported := SETTINGS._import_player({"characters": {"fluttershy": full}}, moved, false)
+	check(bool(imported["split"]), "a schema-10 character block imports")
+	check(not moved.has("characters") or (moved["characters"] as Dictionary).is_empty(),
+		"an imported full-template file normalizes once")
+	var current: Dictionary = {"characters": {"fluttershy": full}}
+	var ignored := SETTINGS._import_player({}, current, true)
+	check(not bool(ignored["split"])
+		and (current.get("characters", {}) as Dictionary).has("fluttershy"),
+		"a current character document is not normalized twice")
 
-	var empty := {"version": SETTINGS.SCHEMA_VERSION - 2,
-		"characters": {"fluttershy": {"preferences": {}}}}
-	var empty_migrated := SETTINGS._migrate(empty, SETTINGS.SCHEMA_VERSION - 2)
-	check(not empty_migrated.has("characters"),
+	var empty := {"characters": {"fluttershy": {"preferences": {}}}}
+	var empty_normalized := SETTINGS._normalize_character_overrides(empty)
+	check(not empty_normalized.has("characters"),
 		"an empty saved profile is not a player override")
 
 	var shipped_consent := CONSENT.defaults("fluttershy")
-	var consent_data := {"version": SETTINGS.SCHEMA_VERSION - 2,
-		"characters": {"fluttershy": {"consent": shipped_consent}}}
-	var consent_migrated := SETTINGS._migrate(consent_data, SETTINGS.SCHEMA_VERSION - 2)
-	check(not consent_migrated.has("characters"),
+	var consent_data := {"characters": {"fluttershy": {"consent": shipped_consent}}}
+	var consent_normalized := SETTINGS._normalize_character_overrides(consent_data)
+	check(not consent_normalized.has("characters"),
 		"unchanged consent normalizes away")
 	var changed_consent := shipped_consent.duplicate(true)
 	changed_consent["public"] = not bool(shipped_consent.get("public", false))
-	var changed_data := {"version": SETTINGS.SCHEMA_VERSION - 2,
-		"characters": {"fluttershy": {"consent": changed_consent}}}
-	var changed_migrated := SETTINGS._migrate(changed_data, SETTINGS.SCHEMA_VERSION - 2)
-	var stored_consent: Dictionary = ((changed_migrated.get("characters", {}) as Dictionary)
+	var changed_data := {"characters": {"fluttershy": {"consent": changed_consent}}}
+	var changed_normalized := SETTINGS._normalize_character_overrides(changed_data)
+	var stored_consent: Dictionary = ((changed_normalized.get("characters", {}) as Dictionary)
 		.get("fluttershy", {}) as Dictionary).get("consent", {})
 	check(stored_consent.has("public") and not stored_consent.has("anal")
 		and not stored_consent.has("oral"), "only changed consent is kept")
 	var custom_consent := CONSENT.defaults("a_modded_mare")
-	var custom_consent_data := {"version": SETTINGS.SCHEMA_VERSION - 2,
-		"characters": {"a_modded_mare": {"consent": custom_consent}}}
-	var custom_consent_migrated := SETTINGS._migrate(custom_consent_data,
-		SETTINGS.SCHEMA_VERSION - 2)
-	check(not custom_consent_migrated.has("characters"),
+	var custom_consent_data := {"characters": {"a_modded_mare": {"consent": custom_consent}}}
+	var custom_consent_normalized := SETTINGS._normalize_character_overrides(custom_consent_data)
+	check(not custom_consent_normalized.has("characters"),
 		"a custom mare's unchanged consent also normalizes away")
 
 	var edited := SETTINGS.default_preferences("fluttershy").raw()
@@ -1529,6 +1373,13 @@ func _check_character_overrides() -> void:
 	check(edited_pref.has("intensity") and not edited_pref.has("notes"),
 		"a full saved profile normalizes to the edited key")
 	check(not edited_pref.has("tolerance"), "the untouched defaults are not pinned")
+
+	var sparse := {"characters": {"fluttershy": {"preferences": {"intensity": "soft"}}}}
+	var sparse_norm := SETTINGS._normalize_character_overrides(sparse)
+	var sparse_pref: Dictionary = ((sparse_norm["characters"] as Dictionary)["fluttershy"]
+		as Dictionary).get("preferences", {})
+	check(sparse_pref == {"intensity": "soft"},
+		"a sparse profile keeps only its own key")
 
 	var custom := {"characters": {"a_modded_mare": {"preferences": {"intensity": "soft"}}}}
 	var custom_norm := SETTINGS._normalize_character_overrides(custom)
@@ -1631,7 +1482,10 @@ func _check_player_file_recovery() -> void:
 	var folder := "user://mods/data/unfplap"
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
 	var path := folder.path_join("settings.json")
+	var characters_path := folder.path_join("characters.json")
 	_clear_settings_backups(folder)
+	if FileAccess.file_exists(characters_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(characters_path))
 
 	var broken := FileAccess.open(path, FileAccess.WRITE)
 	broken.store_string("{ broken")
@@ -1664,6 +1518,132 @@ func _check_player_file_recovery() -> void:
 		"a newer player file is replaced by a current document")
 	_clear_settings_backups(folder)
 
+	# A malformed character file is preserved; the settings document still supplies its profile.
+	var partial := {"version": SETTINGS.SCHEMA_VERSION, "debug_mode": true,
+		"characters": {"fluttershy": {"preferences": {"intensity": "soft"}}}}
+	_write_json(path, partial)
+	var broken_characters := FileAccess.open(characters_path, FileAccess.WRITE)
+	broken_characters.store_string("{ broken")
+	broken_characters.close()
+	SETTINGS.reload_file()
+	var character_backups := _character_backups(folder)
+	check(character_backups.size() == 1, "a malformed character file is preserved once")
+	check(SETTINGS.preferences("fluttershy").str_value("intensity", "") == "soft",
+		"the settings profile moves into a fresh character file")
+	var rebuilt := _read_json(characters_path)
+	check(((rebuilt.get("characters", {}) as Dictionary).has("fluttershy")),
+		"the moved profile is written to the character file")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(characters_path))
+	_clear_character_backups(folder)
+
+
+## A schema-10 player document splits once: the profile and the per-mare rows move to
+## characters.json, the prompt overrides go, and the settings file keeps its declared blocks.
+func _check_player_split() -> void:
+	var folder := "user://mods/data/unfplap"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
+	var path := folder.path_join("settings.json")
+	var characters_path := folder.path_join("characters.json")
+	_clear_settings_backups(folder)
+	if FileAccess.file_exists(characters_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(characters_path))
+	var old := {
+		"version": SETTINGS.SCHEMA_VERSION - 1,
+		"debug_mode": true,
+		"default": {
+			"preferences": {"intensity": "rough"},
+			"act_prompts": {"cue": ["old"]},
+			"event_prompts": {"climax": "old"},
+		},
+		"characters": {
+			"fluttershy": {"preferences": {"intensity": "soft"},
+				"act_prompts": {"cue": ["old"]}},
+		},
+		"anatomy": {"placement": {
+			"default": {"offset_x": 0.01},
+			"anon": {"scale": 1.1},
+			"fluttershy": {"tail_y": 0.02},
+		}},
+	}
+	_write_json(path, old)
+	SETTINGS.reload_file()
+	var settings_file := _read_json(path)
+	check(int(settings_file.get("version", 0)) == SETTINGS.SCHEMA_VERSION,
+		"the split writes a current settings document")
+	check(not settings_file.has("default") and not settings_file.has("characters"),
+		"the settings document holds no character blocks after the split")
+	var kept: Dictionary = (settings_file.get("anatomy", {}) as Dictionary).get("placement", {})
+	check(kept.has("default") and kept.has("anon"),
+		"the declared placement rows stay in the settings document")
+	check(not kept.has("fluttershy"), "a per-mare placement row leaves the settings document")
+	var characters_file := _read_json(characters_path)
+	check(int(characters_file.get("version", 0)) == SETTINGS.SCHEMA_VERSION,
+		"the split writes a current character document")
+	var default_block: Dictionary = characters_file.get("default", {})
+	check(not default_block.has("act_prompts") and not default_block.has("event_prompts"),
+		"the default prompt overrides are gone")
+	check(str((default_block.get("preferences", {}) as Dictionary).get("intensity", ""))
+		== "rough", "the default profile difference moves")
+	var roster: Dictionary = characters_file.get("characters", {})
+	check(not (roster.get("fluttershy", {}) as Dictionary).has("act_prompts"),
+		"a character's prompt overrides are gone")
+	var anatomy_block: Dictionary = characters_file.get("anatomy", {})
+	var placement: Dictionary = anatomy_block.get("placement", {})
+	check(placement.has("fluttershy"), "the per-mare placement row moves")
+	check(SETTINGS.preferences("fluttershy").str_value("intensity", "") == "soft",
+		"the moved profile is live")
+	check(near(float(SETTINGS.anatomy_placement("fluttershy").raw()["tail_y"]), 0.02),
+		"the moved placement is live")
+
+	# A current pair reloads with no migration: the second load writes the same bytes.
+	var settings_before := FileAccess.get_file_as_string(path)
+	var characters_before := FileAccess.get_file_as_string(characters_path)
+	SETTINGS.reload_file()
+	check(FileAccess.get_file_as_string(path) == settings_before,
+		"a current settings document reloads unchanged")
+	check(FileAccess.get_file_as_string(characters_path) == characters_before,
+		"a current character document reloads unchanged")
+	var current := _read_json(path)
+	check(SETTINGS._migrate(current.duplicate(true), SETTINGS.SCHEMA_VERSION) == current,
+		"a current file runs no migration step")
+
+
+## Both files present is a recovery: the new character document wins and the old copies in the
+## settings document are erased.
+func _check_player_recovery() -> void:
+	var folder := "user://mods/data/unfplap"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
+	var path := folder.path_join("settings.json")
+	var characters_path := folder.path_join("characters.json")
+	_write_json(path, {"version": SETTINGS.SCHEMA_VERSION, "debug_mode": false,
+		"default": {"preferences": {"intensity": "rough"}},
+		"characters": {"fluttershy": {"preferences": {"intensity": "rough"}}}})
+	_write_json(characters_path, {"version": SETTINGS.SCHEMA_VERSION,
+		"default": {"preferences": {"intensity": "soft"}},
+		"characters": {"fluttershy": {"preferences": {"intensity": "soft"}}}})
+	SETTINGS.reload_file()
+	var settings_file := _read_json(path)
+	check(not settings_file.has("default") and not settings_file.has("characters"),
+		"the recovery erases the old copies from the settings document")
+	check(SETTINGS.preferences("fluttershy").str_value("intensity", "") == "soft",
+		"the new character document wins the recovery")
+	var characters_file := _read_json(characters_path)
+	var roster: Dictionary = characters_file.get("characters", {})
+	var profile: Dictionary = (roster.get("fluttershy", {}) as Dictionary).get("preferences", {})
+	check(str(profile.get("intensity", "")) == "soft",
+		"the recovered character document is kept")
+
+
+func _write_json(path: String, data: Dictionary) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(data, "\t") + "\n")
+	file.close()
+
+
+func _read_json(path: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return parsed if parsed is Dictionary else {}
+
 
 func _settings_backups(folder: String) -> Array:
 	var out: Array = []
@@ -1671,6 +1651,19 @@ func _settings_backups(folder: String) -> Array:
 		if name.begins_with("settings.json.") and name.ends_with(".invalid"):
 			out.append(folder.path_join(name))
 	return out
+
+
+func _character_backups(folder: String) -> Array:
+	var out: Array = []
+	for name: String in DirAccess.get_files_at(ProjectSettings.globalize_path(folder)):
+		if name.begins_with("characters.json.") and name.ends_with(".invalid"):
+			out.append(folder.path_join(name))
+	return out
+
+
+func _clear_character_backups(folder: String) -> void:
+	for path: String in _character_backups(folder):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 func _clear_settings_backups(folder: String) -> void:

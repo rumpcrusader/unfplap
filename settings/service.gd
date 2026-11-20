@@ -19,6 +19,9 @@ const DEPRECATION := preload("res://mods/unfplap/settings/deprecation.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
+## The second player document: the profile differences, the per-mare overrides and their
+## placement rows.
+const CHARACTERS_FILE := "characters.json"
 ## The shipped settings document: one value per declared setting.
 const DEFAULTS_FILE := "res://mods/unfplap/settings/settings.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
@@ -1711,7 +1714,7 @@ static var CHARACTER_TEMPLATES: Dictionary = DEFAULTS.characters_block("characte
 
 ## The settings file's schema version. Bump it when a one-time migration step is added, so an old
 ## file runs that step exactly once.
-const SCHEMA_VERSION := 10
+const SCHEMA_VERSION := 11
 
 ## Retired settings, declared where their replacement lives. `map` turns the stored value into the
 ## dictionary to merge, or drops it; applied before the defaults merge, so no retired key lingers.
@@ -1873,6 +1876,11 @@ static func _path() -> String:
 	return "user://mods/data/%s/%s" % [ID, FILE]
 
 
+## The player's character document sits beside the settings document.
+static func _characters_path() -> String:
+	return _path().get_base_dir().path_join(CHARACTERS_FILE)
+
+
 static func preferences(id: String) -> ROWS.Rows:
 	var template := template_for(id)
 	return ROWS.Rows.of(PREFERENCES.resolve(template.rows("preferences").raw()))
@@ -1915,6 +1923,24 @@ static func _preferences_diff(values: Dictionary, base: Dictionary) -> Dictionar
 	for key: String in ["touch", "talk", "dislikes"]:
 		if not _same_set(left.get(key, []), right.get(key, [])):
 			out[key] = (left.get(key, []) as Array).duplicate()
+	return out
+
+
+## Only the keys a sparse block carries are compared. Resolving the whole block would fill the
+## keys her template owns with the global default and pin them as player values.
+static func _preferences_present_diff(values: Dictionary, base: Dictionary) -> Dictionary:
+	var left := PREFERENCES.resolve(values)
+	var right := PREFERENCES.resolve(base)
+	var out: Dictionary = {}
+	for key: Variant in values.keys():
+		var name := str(key)
+		if not name in PREFERENCES.KEYS:
+			continue
+		if name in ["touch", "talk", "dislikes"]:
+			if not _same_set(left.get(name, []), right.get(name, [])):
+				out[name] = (left.get(name, []) as Array).duplicate()
+		elif str(left.get(name, "")) != str(right.get(name, "")):
+			out[name] = left[name]
 	return out
 
 
@@ -2343,9 +2369,8 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 			if entry.has("preferences"):
 				var saved: Variant = entry["preferences"]
 				if saved is Dictionary and not (saved as Dictionary).is_empty():
-					var diff := _preferences_diff(
-						PREFERENCES.resolve(saved),
-						PREFERENCES.resolve(template.get("preferences", {})))
+					var diff := _preferences_present_diff(
+						saved, template.get("preferences", {}))
 					if diff.is_empty():
 						entry.erase("preferences")
 					else:
@@ -2618,57 +2643,167 @@ static func _load() -> void:
 		_cache = {}
 		return
 	var path := _path()
-	var raw: Dictionary = {}
-	var problem := ""
-	if FileAccess.file_exists(path):
-		var file := FileAccess.open(path, FileAccess.READ)
-		if file == null:
-			problem = "cannot be read"
-		else:
-			var text := file.get_as_text()
-			var read_error := file.get_error()
-			file.close()
-			if read_error != OK:
-				problem = "cannot be read"
-			elif text.strip_edges().is_empty():
-				problem = "is empty"
-			else:
-				var parsed: Variant = JSON.parse_string(text)
-				if not parsed is Dictionary:
-					problem = "is not a valid JSON object"
-				else:
-					raw = parsed
-					var newer := int(raw.get("version", 0))
-					if newer > SCHEMA_VERSION:
-						problem = "has schema %d, newer than this build's %d" % [
-							newer, SCHEMA_VERSION]
-	# An unreadable, malformed or newer profile is preserved before the fresh write below. The
-	# backup is the player's recovery path; hand-editing is still unsupported.
-	if not problem.is_empty():
-		var backup := _preserve_settings_file(path)
-		LOG.error("settings: %s %s; preserved as %s and starting from defaults", [
-			path, problem, backup if not backup.is_empty() else "(could not preserve)"])
-		raw = {}
-	var before := raw.duplicate(true)
-	var file_version := int(raw.get("version", 0))
-	var data := _migrate(raw, file_version)
+	var characters_path := _characters_path()
+	var stored := _read_player_file(path)
+	var stored_characters := _read_player_file(characters_path)
+	var data: Dictionary = stored["data"]
+	var characters: Dictionary = stored_characters["data"]
+	var moved := _import_player(data, characters, bool(stored_characters["present"]))
+	if bool(moved["recovered"]):
+		LOG.warning("settings: kept the character data in %s and erased it from %s", [
+			characters_path, path])
+	var before := _attach_characters(data.duplicate(true), characters)
+	data = _attach_characters(data, characters)
+	var file_version := int(stored["version"])
+	data = _migrate(data, file_version)
 	# A current file still imports a legacy placement file that appeared after the schema bump
 	# (for example a copied profile); the files are archived after the write below.
-	if file_version >= SCHEMA_VERSION:
-		data = _normalize_anatomy_placement(data)
-	data = _normalize_act_key(data)
+	data = _normalize_anatomy_placement(data)
 	_log_migration(path, before, data, file_version)
 	data = _merge(base, data)
 	data["version"] = SCHEMA_VERSION
 	_cache = data
 	placement_revision += 1
-	if _write_file(data):
+	if _write_files(data):
 		_finish_legacy_placement_import()
+
+
+## Read one player document. An unreadable, malformed or newer file is preserved and reported as
+## absent, so a fresh document replaces it without destroying the bytes.
+static func _read_player_file(path: String) -> Dictionary:
+	var out := {"data": {}, "present": false, "version": 0}
+	if not FileAccess.file_exists(path):
+		return out
+	out["present"] = true
+	var problem := ""
+	var parsed_data: Dictionary = {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		problem = "cannot be read"
+	else:
+		var text := file.get_as_text()
+		var read_error := file.get_error()
+		file.close()
+		if read_error != OK:
+			problem = "cannot be read"
+		elif text.strip_edges().is_empty():
+			problem = "is empty"
+		else:
+			var parsed: Variant = JSON.parse_string(text)
+			if not parsed is Dictionary:
+				problem = "is not a valid JSON object"
+			else:
+				parsed_data = parsed
+				var newer := int(parsed_data.get("version", 0))
+				if newer > SCHEMA_VERSION:
+					problem = "has schema %d, newer than this build's %d" % [newer, SCHEMA_VERSION]
+	if not problem.is_empty():
+		var backup := _preserve_player_file(path)
+		LOG.error("settings: %s %s; preserved as %s and starting from defaults", [
+			path, problem, backup if not backup.is_empty() else "(could not preserve)"])
+		out["data"] = {}
+		out["present"] = false
+		return out
+	out["data"] = parsed_data
+	out["version"] = int(parsed_data.get("version", 0))
+	return out
+
+
+## Split a schema-10 document into the settings and character documents. The character blocks and
+## the per-mare placement rows move; a present `characters.json` always wins over the old copies.
+static func _import_player(data: Dictionary, characters: Dictionary,
+		characters_present: bool) -> Dictionary:
+	var split := false
+	var recovered := false
+	var old_default: Variant = data.get("default")
+	var old_characters: Variant = data.get("characters")
+	if old_default is Dictionary or old_characters is Dictionary:
+		if characters_present:
+			recovered = true
+		else:
+			split = true
+			if old_default is Dictionary:
+				characters["default"] = (old_default as Dictionary).duplicate(true)
+			if old_characters is Dictionary:
+				characters["characters"] = (old_characters as Dictionary).duplicate(true)
+		data.erase("default")
+		data.erase("characters")
+	var anatomy: Variant = data.get("anatomy")
+	if anatomy is Dictionary:
+		var placement: Variant = (anatomy as Dictionary).get("placement")
+		if placement is Dictionary:
+			var kept: Dictionary = {}
+			var rows: Dictionary = {}
+			for key: Variant in (placement as Dictionary).keys():
+				var id := str(key)
+				if id == "default" or id == "anon":
+					kept[id] = (placement as Dictionary)[key]
+				else:
+					rows[id] = (placement as Dictionary)[key]
+			if not rows.is_empty():
+				split = true
+				var target: Variant = characters.get("anatomy")
+				var target_block: Dictionary = target if target is Dictionary else {}
+				var target_placement: Variant = target_block.get("placement")
+				var target_rows: Dictionary = target_placement \
+					if target_placement is Dictionary else {}
+				for id: Variant in rows.keys():
+					if not target_rows.has(id):
+						target_rows[id] = rows[id]
+				target_block["placement"] = target_rows
+				characters["anatomy"] = target_block
+			if kept.is_empty():
+				(anatomy as Dictionary).erase("placement")
+			else:
+				(anatomy as Dictionary)["placement"] = kept
+	_drop_prompt_overrides(characters)
+	# A moved block was written by an older build, so its saved overrides are reduced once.
+	if split:
+		_normalize_character_overrides(characters)
+	return {"split": split, "recovered": recovered}
+
+
+## Bring the character document's three blocks into the merged view.
+static func _attach_characters(data: Dictionary, characters: Dictionary) -> Dictionary:
+	var default_block: Variant = characters.get("default")
+	if default_block is Dictionary and not (default_block as Dictionary).is_empty():
+		data["default"] = (default_block as Dictionary).duplicate(true)
+	var roster: Variant = characters.get("characters")
+	if roster is Dictionary and not (roster as Dictionary).is_empty():
+		data["characters"] = (roster as Dictionary).duplicate(true)
+	var anatomy: Variant = characters.get("anatomy")
+	if anatomy is Dictionary:
+		var placement: Variant = (anatomy as Dictionary).get("placement")
+		if placement is Dictionary and not (placement as Dictionary).is_empty():
+			var target: Variant = data.get("anatomy")
+			var target_block: Dictionary = target if target is Dictionary else {}
+			var target_placement: Variant = target_block.get("placement")
+			var rows: Dictionary = target_placement if target_placement is Dictionary else {}
+			for id: Variant in (placement as Dictionary).keys():
+				rows[str(id)] = (placement as Dictionary)[id]
+			target_block["placement"] = rows
+			data["anatomy"] = target_block
+	return data
+
+
+## Prompt overrides are gone; a block that carried them must not reach the new document.
+static func _drop_prompt_overrides(document: Dictionary) -> void:
+	var default_block: Variant = document.get("default")
+	if default_block is Dictionary:
+		(default_block as Dictionary).erase("act_prompts")
+		(default_block as Dictionary).erase("event_prompts")
+	var roster: Variant = document.get("characters")
+	if roster is Dictionary:
+		for id: Variant in (roster as Dictionary).keys():
+			var entry: Variant = (roster as Dictionary)[id]
+			if entry is Dictionary:
+				(entry as Dictionary).erase("act_prompts")
+				(entry as Dictionary).erase("event_prompts")
 
 
 ## Move an unreadable, malformed or newer player file aside so the fresh write cannot destroy it.
 ## Returns the backup path, or "" when both the move and the copy failed.
-static func _preserve_settings_file(path: String) -> String:
+static func _preserve_player_file(path: String) -> String:
 	var stamp := Time.get_datetime_string_from_system().replace("-", "") \
 		.replace(":", "").replace("T", "-")
 	var backup := "%s.%s.invalid" % [path, stamp]
@@ -2897,8 +3032,8 @@ static func _profile_characters(data: Dictionary) -> Dictionary:
 	return value if value is Dictionary else {}
 
 
-## Retired settings, then the version-gated structural steps. The retired entries always run, so a
-## retired key can never linger; each structural step runs once, on an older file.
+## Retired settings, then the single structural step. The retired entries run on every file, so a
+## retired key can never linger; the version gate keeps the split to one run.
 static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	for rule: DEPRECATION.Rule in _deprecated:
 		var value: Variant = _read_path(data, rule.path, null)
@@ -2910,37 +3045,16 @@ static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 		_erase_path(data, rule.path)
 		for key: Variant in mapped.keys():
 			_write_path(data, str(key), mapped[key])
+	data = _normalize_retired_keys(data)
 	if version >= SCHEMA_VERSION:
 		return data
-	if version < 9:
-		data = _migrate_to_9(data)
-	data = _migrate_to_10(data)
-	return data
+	return _migrate_to_11(data)
 
 
-## The structural chain up to schema 9: renames, retired keys and the retired anatomy shape.
-static func _migrate_to_9(data: Dictionary) -> Dictionary:
-	data = _normalize_anatomy_visibility(data)
-	data = _normalize_pose_names(data)
-	data = _normalize_feature_names(data)
-	data = _normalize_line_variety(data)
-	data = _normalize_caress_reach(data)
-	data = _normalize_caress_quality(data)
-	data = _normalize_presentation(data)
-	data = _normalize_tolerance(data)
-	data = _normalize_character_preferences(data)
+## Schema 11: the player's profile moves to the character document and the prompt overrides go.
+static func _migrate_to_11(data: Dictionary) -> Dictionary:
+	_drop_prompt_overrides(data)
 	data = _normalize_character_overrides(data)
-	data = _normalize_anatomy(data)
-	data = _normalize_retired_keys(data)
-	return data
-
-
-## A saved full copy of the global profile or of a placement row is reduced to real differences,
-## because both resolve at read time; an older file imports its legacy rows here.
-static func _migrate_to_10(data: Dictionary) -> Dictionary:
-	data = _normalize_anatomy_placement(data)
-	data = _normalize_default_profile(data)
-	data = _strip_materialized_placement_rows(data)
 	return data
 
 
@@ -3284,33 +3398,85 @@ static func _write(data: Dictionary) -> void:
 	_cache = data
 	generation += 1
 	placement_revision += 1
-	if not _write_file(_cache):
+	if not _write_files(_cache):
 		LOG.error("settings: the new value is live in memory but was not saved")
 
 
-## The sparse player document: declared settings stay materialised, the global `default` profile
-## keeps only the player's differences, and catalog content never reaches the file.
-static func _player_document(data: Dictionary) -> Dictionary:
+## Write both player files. The pair is not atomic; the next write rebuilds both from the one
+## in-memory view, and the character file is absent while the player has no character data.
+static func _write_files(data: Dictionary) -> bool:
+	var ok := _write_file(_path(), _settings_document(data))
+	var characters := _characters_document(data)
+	var path := _characters_path()
+	if characters.is_empty():
+		if FileAccess.file_exists(path) \
+				and DirAccess.remove_absolute(ProjectSettings.globalize_path(path)) != OK:
+			LOG.error("settings: could not remove the stale %s", [path])
+			ok = false
+	elif not _write_file(path, characters):
+		ok = false
+	return ok
+
+
+## The declared values and the section state. The other player file carries the profile.
+static func _settings_document(data: Dictionary) -> Dictionary:
 	var out := data.duplicate(true)
-	var resolved: Variant = out.get("default")
-	var diff: Dictionary = {}
+	out.erase("default")
+	out.erase("characters")
+	var anatomy: Variant = out.get("anatomy")
+	if anatomy is Dictionary:
+		var placement: Variant = (anatomy as Dictionary).get("placement")
+		if placement is Dictionary:
+			var kept: Dictionary = {}
+			for id: String in ["default", "anon"]:
+				if (placement as Dictionary).has(id):
+					kept[id] = (placement as Dictionary)[id]
+			if kept.is_empty():
+				(anatomy as Dictionary).erase("placement")
+			else:
+				(anatomy as Dictionary)["placement"] = kept
+		if (anatomy as Dictionary).is_empty():
+			out.erase("anatomy")
+	out["version"] = SCHEMA_VERSION
+	return out
+
+
+## The player's character document: the global profile difference, the per-mare overrides and the
+## per-mare placement rows. Empty when the player has none, so no file is written.
+static func _characters_document(data: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	var resolved: Variant = data.get("default")
 	if resolved is Dictionary:
-		diff = _default_profile_diff(resolved, DEFAULTS.characters_block("default"))
-	if diff.is_empty():
-		out.erase("default")
-	else:
-		out["default"] = diff
+		var diff := _default_profile_diff(resolved, DEFAULTS.characters_block("default"))
+		if not diff.is_empty():
+			out["default"] = diff
+	var roster: Variant = data.get("characters")
+	if roster is Dictionary and not (roster as Dictionary).is_empty():
+		out["characters"] = (roster as Dictionary).duplicate(true)
+	var anatomy: Variant = data.get("anatomy")
+	if anatomy is Dictionary:
+		var placement: Variant = (anatomy as Dictionary).get("placement")
+		if placement is Dictionary:
+			var rows: Dictionary = {}
+			for key: Variant in (placement as Dictionary).keys():
+				var id := str(key)
+				if id == "default" or id == "anon":
+					continue
+				rows[id] = (placement as Dictionary)[key]
+			if not rows.is_empty():
+				out["anatomy"] = {"placement": rows}
+	if out.is_empty():
+		return {}
 	out["version"] = SCHEMA_VERSION
 	return out
 
 
 ## Write through a temp file and rename, so a save cannot truncate the profile. A failed rename
 ## followed by a direct write is the normal Windows fallback and stays silent; both failing logs.
-static func _write_file(data: Dictionary) -> bool:
-	var path := _path()
+static func _write_file(path: String, document: Dictionary) -> bool:
 	var folder := path.get_base_dir()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
-	var text := JSON.stringify(_player_document(data), "\t") + "\n"
+	var text := JSON.stringify(document, "\t") + "\n"
 	var temp := path + ".tmp"
 	var temp_error := OK
 	var file := FileAccess.open(temp, FileAccess.WRITE)

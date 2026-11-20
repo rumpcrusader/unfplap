@@ -387,11 +387,17 @@ func _sync_player_body(player: Node3D, yaw: float) -> bool:
 	return true
 
 
+## Fallback when the body could not be synced: keep the pivot's distance and height, but put it
+## on the canonical forward so a stale body yaw cannot move him sideways.
 static func project_pivot(root: Vector3, player: Node3D, yaw: float) -> Vector3:
 	if not root.is_finite() or not is_instance_valid(player):
 		return root
-	var local := player.global_basis.inverse() * (root - player.global_position)
-	return player.global_position + Basis(Vector3.UP, yaw) * local
+	var offset := root - player.global_position
+	var flat := Vector2(offset.x, offset.z).length()
+	if flat < 0.0001:
+		return root
+	var forward := Vector3(-sin(yaw), 0.0, -cos(yaw))
+	return player.global_position + forward * flat + Vector3.UP * offset.y
 
 
 ## The start placement.

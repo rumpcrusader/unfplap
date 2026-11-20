@@ -47,6 +47,7 @@ func run() -> void:
 	_check_standing()
 	_check_missionary()
 	_check_canonical_start()
+	_check_projection()
 	_check_round_trip()
 	_check_plan_shape()
 	print("ACT_FRAME_RESULT checks=%d failures=%d" % [checks, failures])
@@ -132,6 +133,19 @@ func _check_canonical_start() -> void:
 	check(near(plan_a.fit.z, -0.18), "the canonical measurement keeps the fit")
 	first.player.free()
 	second.player.free()
+
+
+## The guarded fallback for an unsyncable body: the stale yaw is dropped, the distance and height
+## stay, so he still lands on her centreline.
+func _check_projection() -> void:
+	var player := FakePlayer.new()
+	player.global_position = Vector3.ZERO
+	var stale := Vector3(0.3, 1.0, 0.4)
+	var projected := FRAME.project_pivot(stale, player, 0.0)
+	check(near(projected.x, 0.0), "the stale pivot loses its lateral offset")
+	check(near(projected.z, -0.5), "the stale pivot keeps its distance on her forward")
+	check(near(projected.y, 1.0), "the stale pivot keeps its height")
+	player.free()
 
 
 ## A start places the player and a matching end gives him back: the eye line always, the look only

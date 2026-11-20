@@ -126,6 +126,7 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `view`, `missionary_anon` | the live act view and the posed Anon body |
 | `anatomy_normal`, `anatomy_opening` | the anatomy reads |
 | `missionary_face_point` | her face point for the eye view's kiss lean |
+| `authored_pose_asset` | the live authored asset, read only for the missionary look path |
 | `gaze_point` | the missionary gaze target the camera's look write uses |
 | `free_look_rotation` | the debug view rotation |
 | `desktop_pose_driver` | the game's pose driver |

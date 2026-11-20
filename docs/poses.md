@@ -167,7 +167,8 @@ the mattress and her vulva on his mouth, and leans forward over his chest. The `
 `pony_hips` pose, its `contact` is the shin/knee support on the mattress, and `support` is the
 mattress top, so the v7 anchor/contact rule carries the four Pony size presets. The `anon` block is
 the full `Anon3` block: the bed-frame placement and the v7 local-rest bones; the five authored
-shots stay in the asset for the pose lab and the act's eye view does not read them. There are no
+shots stay in the asset for the pose lab and the act's look path, which reads their bases while the
+view position stays at Anon's eye. There are no
 variants and no `provisional` flag. The asset's `--pose bed_facesit --check` round-trip and the
 `pose_runtime_check` face-sit case are the automated proof; the arrangement is authored through
 `tools/pose_lab.gd` and saved as this asset.
@@ -821,7 +822,7 @@ Missionary is its own state, not the game's bed rest:
   the limits the game derives from its own motion library, and `constrain()` would snap it back on
   the first gaze correction.
 - The bed frame carries the body and the eye together on any bed; the authored shot positions are
-  bed-relative lab data and the act does not read them.
+  bed-relative lab data the act does not use, and its look path reads the shot bases.
 - **No fallback.** There is no second missionary pose. A missing/invalid asset, a version below 6
   or no bed frame (the floating pose preview) means no pose is applied, and the act's `pose_asset`
   gate refuses the start with `missionary pose unavailable: <reason>` in the log.
@@ -1149,7 +1150,7 @@ teardown.
 
 ## Related docs
 
-- `docs/camera.md` — the act view, lean, glance, free look and the missionary eye.
+- `docs/camera.md` — the act view, lean, glance, free look and the missionary eye position and look path.
 - `docs/hands.md` — caress paths, palm holders, smack.
 - `docs/anatomy.md` — the anatomy part and tail seating.
 - `docs/reactions.md` — jiggle, rump blush, climax hearts.

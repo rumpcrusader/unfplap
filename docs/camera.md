@@ -1,9 +1,9 @@
 # Act camera and the live view
 
 This is the contract for the act camera: the lean input and smoothing, the speed-driven surge and
-bob, the live view (the standing look offsets and glance, and the missionary eye), the head
-clearance and the debug free look. The player's own frame is `docs/poses.md`; the kiss itself is
-`docs/kiss.md`; the hands are `docs/hands.md`.
+bob, the live view (the standing look offsets and glance, and the missionary eye position with its
+authored look path), the head clearance and the debug free look. The player's own frame is
+`docs/poses.md`; the kiss itself is `docs/kiss.md`; the hands are `docs/hands.md`.
 
 ## Ownership
 
@@ -15,8 +15,8 @@ comes from the anatomy bridge.
 
 `camera/view.gd` is the one live view. In standing it owns the player-camera offsets, the glance,
 the facing lock and the look clamp; in missionary it owns the act's own view node, written each
-rendered frame from the act body's posed eye. It is also the read point for the anatomy's
-`head_look_point_at()` and for `bed_surface_top()`.
+rendered frame at the act body's posed eye with the authored look path. It is also the read point
+for the anatomy's `head_look_point_at()` and for `bed_surface_top()`.
 
 The player is not the view's: `act/frame.gd` places him, writes his stance and look base, locks his
 controls and restores him. The runtime owns the tick order and the start sequence; `act/start.gd`
@@ -36,7 +36,7 @@ binds the view and refreshes it once per phase (idle, physics after the pose tic
 fan-out, render before the camera work, and `apply_camera_motion()`), and the modules read the
 camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`, `look_*`,
 `head_clearance`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`,
-`missionary_body()` and `mark_camera_basis_ready()` callbacks. The pose family, the contact kind
+`missionary_body()`, `authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The pose family, the contact kind
 (`view.contact_kind`) and the presentation lean profile come from `facts.pose_view`; the camera
 does not read a start pose id or a contact mirror. The field and callback contract is
 `docs/act_facts.md`; a camera module that preloads `runtime.gd` or `main.gd` fails
@@ -124,14 +124,19 @@ and caches it by settings group and pose id, so a held debug pair does not snap.
 
 ## Missionary view
 
-The view is **Anon's eye**. `camera/view.gd` mounts one `Camera3D` on her, copies
-`poses/missionary_anon.gd`'s `eye_transform()` every rendered frame — his posed `Head` bone with the
-game's eye offset, cached by `apply()` for the frame before `HeadHide` collapses the head bone —
-and applies the live offsets there. There is no authored shot and no eye/shot switch. The lean is
-one hinge at the **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit,
-while his hips, thighs and legs stay on the authored pose and keep the thrust. W tips the hinge
-forward/down toward her, S back/up, and Q/E add the side lean. The view is written after the pose
-write in the same frame (`poses/service.gd:render_write()` calls the view's `write_eye()` last).
+The view is **Anon's eye position with the authored look path**. `camera/view.gd` mounts one
+`Camera3D` and copies `poses/missionary_anon.gd`'s `eye_transform()` every rendered frame — his posed
+`Head` bone with the game's eye offset, cached by `apply()` for the frame before `HeadHide` collapses
+the head bone — so the position follows the player. The basis is the five authored shot bases
+`start`/`back`/`front`/`left`/`right` from the pose asset, blended by the same weights the old
+camera used: `start` takes `1 − |forward| − |side|`, forward selects `front`/`back`, side selects
+`left`/`right` (Q/E read opposite the asset's side names), and the quaternions are sign-aligned
+before averaging. A missing asset or shot falls back to the eye's own basis, or to a basis aimed at
+her face from the eye. The camera position is never taken from a shot. The lean is one hinge at the
+**`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his hips,
+thighs and legs stay on the authored pose and keep the thrust. W tips the hinge forward/down toward
+her, S back/up, and Q/E add the side lean. The view is written after the pose write in the same
+frame (`poses/service.gd:render_write()` calls the view's `write_eye()` last).
 
 Her gaze and the kiss target his authored eye and mouth (`eye_point()` / `mouth_point()`), never the
 game camera on his standing player rig; the game's eye modifier is pointed at the same target, with
@@ -266,16 +271,17 @@ effect when the panel closes.
 ## Tests
 
 - `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, the pose-view facing
-  override, the free camera, the missionary eye and its head clearance, the global-rest eye line,
-  the form entrance offsets, size scales and the afterglow back-off.
+  override, the free camera, the missionary eye position, its authored look path and head
+  clearance, the global-rest eye line, the form entrance offsets, size scales and the afterglow
+  back-off.
 - `tests/poses/test_session.gd` — the pose camera targets, the render-time eye write and the bed
   frame the view reads.
 - `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.
 
 ## Verification / lab
 
-- Missionary: the view at Anon's eye, S/W/Q/E lean, the kiss lean-in, head clearance, free look and
-  the restore.
+- Missionary: the view at Anon's eye with the authored look path, S/W/Q/E lean, the kiss lean-in,
+  head clearance, free look and the restore.
 - Standing: lean, torso angle, hip depth, lean-time foot pin, glance, kiss yaw and the afterglow
   back-off.
 

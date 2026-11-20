@@ -1,6 +1,6 @@
 extends RefCounted
-## The act view: the standing look offsets, glance and facing lock, and the missionary eye view.
-## The frame owns the player; this module owns only the view and its live offsets.
+## Live camera: standing side, bed-act sightline.
+## The frame owns the player; this module owns the view and its live offsets.
 ## Contract: `docs/camera.md`, `docs/act_facts.md`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -97,7 +97,8 @@ func tick() -> void:
 			-1.5, 1.5)
 
 
-## The render-time eye write: the act body's posed head, after the pose write and before the draw.
+## The render-time eye write: the act body's posed head for the position, the authored look path
+## for the basis, after the pose write and before the draw.
 func write_eye() -> void:
 	_sync()
 	if _pose_family() != "bed" or not is_instance_valid(pony):
@@ -533,8 +534,8 @@ func _pose_family() -> String:
 	return str(view.family) if view != null else ""
 
 
-## The missionary eye: the camera is his posed head, so the lean (which bends his chest and neck)
-## and the authored body are what move it. The kiss still leans the eye in towards the aim.
+## The missionary view: the position is his posed eye; the basis is the authored look path so the
+## action is framed and the lean follows it. The kiss still leans the eye in towards the aim.
 func _tick_eye(kiss: Variant, look: Vector3) -> void:
 	if not is_instance_valid(_missionary_view):
 		_make_missionary_view()
@@ -573,8 +574,8 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 		LOG.debug("free look eye=%s rotation=%s", [str(at), str(look)])
 
 
-## The authored look path at the live lean: the five shot bases blended by the same weights the
-## old camera used. The position stays at his eye; a missing asset keeps the eye's own basis.
+## Blend the authored look path for this lean; the eye supplies only the position and the
+## fallback when no shot can be read.
 func _shot_basis(at: Vector3, fallback: Basis) -> Basis:
 	if facts == null:
 		return fallback
@@ -594,7 +595,6 @@ func _shot_basis(at: Vector3, fallback: Basis) -> Basis:
 	if tf > 0.0001:
 		_shot_weights[2 if forward > 0.0 else 1] = tf / total
 	if ts > 0.0001:
-		# Q/E read opposite the asset's side names because the lab names them from her side.
 		_shot_weights[4 if side < 0.0 else 3] = ts / total
 	var frame_basis: Basis = (frame as Transform3D).basis
 	var aim: Vector3 = facts.call_value(facts.missionary_face_point, Vector3.INF)

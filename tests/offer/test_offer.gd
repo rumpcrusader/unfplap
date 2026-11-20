@@ -126,30 +126,13 @@ class FakeNegotiation extends NEGOTIATION:
 		return null
 
 
-class FakeHud extends Node:
-	var toasts: Array[String] = []
-	var prompts: Array[String] = []
-	var hides := 0
-
-	func _show_toast(text: String, _seconds := 2.0) -> void:
-		toasts.append(text)
-
-	func show_prompt(text: String, _icon_name := "", _cap := "") -> void:
-		prompts.append(text)
-
-	func hide_prompt() -> void:
-		hides += 1
+class FakeHud extends "res://mods/unfplap/tests/support/fakes/fake_hud.gd":
+	pass
 
 
 ## The act-target rule: the ponies this fixture allows.
-class Targets extends ELIGIBILITY:
-	var allowed: Array = []
-
-	func eligible(pony: Node, _target: Target = Target.ACT) -> bool:
-		return allowed.has(pony)
-
-	func relationship_ok(_pony: Node) -> bool:
-		return true
+class Targets extends "res://mods/unfplap/tests/support/fakes/targets.gd":
+	pass
 
 
 func run() -> void:

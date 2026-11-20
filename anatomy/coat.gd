@@ -487,5 +487,3 @@ func _log_uniforms(lip: float, hole: float, spread: float, reach: float, depth: 
 		return
 	_uniform_log_ms = now
 	var global_scale := maxf(mesh.global_transform.basis.get_scale().x, 0.0001)
-	LOG.debug("body coat lip=%.4f hole=%.4f spread=%.3f reach=%.4f depth=%.5f cut=%.4f cut_h=%.4f local=%.3f global=%.3f", [
-		lip, hole, spread, reach, depth, hole_radius, hole_vertical, local_scale, global_scale])

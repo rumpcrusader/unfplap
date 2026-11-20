@@ -149,6 +149,13 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
 
+## The act snapshot the facade takes: the block plus the family, size and climax length.
+func tune(block := {}, family := "", size := 1.0, climax := 5.0) -> RefCounted:
+	var context := REACTIONS.CONTEXT.new()
+	context.fill(jiggle_block(block), family, size, climax)
+	return context
+
+
 ## The complete `jiggle.*` block the runtime snapshot passes; overrides replace keys.
 func jiggle_block(overrides := {}) -> Dictionary:
 	var block := {
@@ -485,8 +492,7 @@ func run() -> void:
 	live_runtime.free()
 
 	var smack := REACTIONS.new()
-	smack.configure({"pose_family": "standing", "size_scale": 1.0,
-		"jiggle": jiggle_block({"smack_intensity": 0.5})})
+	smack.configure(tune({"smack_intensity": 0.5}, "standing"))
 	var jiggle_pony := Node3D.new()
 	root.add_child(jiggle_pony)
 	var fake_tail := FakeTail.new()
@@ -533,11 +539,11 @@ func run() -> void:
 	radius_flank._jiggle_targets = [[radius_mat, radius_mesh]]
 	var radius := REACTIONS.new()
 	radius.bind_scene(null, null, radius_flank)
-	radius.configure({"jiggle": jiggle_block({"radius": 0.30})})
+	radius.configure(tune({"radius": 0.30}))
 	radius.apply_radius()
 	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), 0.30),
 		"jiggle radius applies to the targets")
-	radius.configure({"jiggle": jiggle_block({"radius": -0.05})})
+	radius.configure(tune({"radius": -0.05}))
 	radius.apply_radius()
 	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), -0.05),
 		"jiggle radius is applied unclamped")
@@ -635,7 +641,7 @@ func run() -> void:
 	var smack_pony := Node3D.new()
 	root.add_child(smack_pony)
 	smack_amount.bind_scene(smack_pony, null, smack_flank)
-	smack_amount.configure({"jiggle": jiggle_block({"smack_intensity": 0.5})})
+	smack_amount.configure(tune({"smack_intensity": 0.5}))
 	smack_amount.smack(0.8)
 	check(near(float(smack_flank._jiggle_amount), 0.04),
 		"smack jiggle intensity scales the amount")

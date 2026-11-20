@@ -4,6 +4,7 @@ extends RefCounted
 ##
 ## Contract: `docs/reactions.md`.
 
+const CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
@@ -20,11 +21,11 @@ const RUMP_BLUSH_DECAY := 0.006
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Scene handles. The runtime binds them; tests may inject a fake flank and anatomy.
-var pony: Variant = null
-var flank: Variant = null
-var anatomy: Variant = null
+var pony: Node3D = null
+var flank: Node = null
+var anatomy: Node = null
 ## The standing tail modifier, null outside a standing act.
-var tail: Variant = null
+var tail: Node = null
 
 ## Per-act configuration. `configure()` receives the runtime's act snapshot.
 var pose_family := ""
@@ -48,7 +49,7 @@ var _heart_counts: Array[int] = []
 
 
 ## Bind the act's pony and anatomy; a test may inject its fake flank.
-func bind_scene(pony_node: Variant, anatomy_ctl: Variant, flank_ctl: Variant = null) -> void:
+func bind_scene(pony_node: Node3D, anatomy_ctl: Node, flank_ctl: Node = null) -> void:
 	pony = pony_node
 	anatomy = anatomy_ctl
 	if flank_ctl != null:
@@ -56,21 +57,20 @@ func bind_scene(pony_node: Variant, anatomy_ctl: Variant, flank_ctl: Variant = n
 
 
 ## The standing tail modifier changes with the pose, so the pose builder binds it.
-func bind_tail(tail_ctl: Variant) -> void:
+func bind_tail(tail_ctl: Node) -> void:
 	tail = tail_ctl
 
 
 ## Take the act's reaction tuning from the runtime's settings snapshot.
-func configure(context: Dictionary) -> void:
-	pose_family = str(context.get("pose_family", ""))
-	size_scale = float(context.get("size_scale", 1.0))
-	climax_seconds = float(context.get("climax_seconds", 5.0))
-	var block: Dictionary = context["jiggle"]
-	jiggle_radius_m = float(block["radius"])
-	jiggle_center_height_m = float(block["center_height_m"])
-	jiggle_center_back_m = float(block["center_back_m"])
-	jiggle_intensity = float(block["intensity"])
-	jiggle_smack_intensity = float(block["smack_intensity"])
+func configure(context: CONTEXT) -> void:
+	pose_family = context.pose_family
+	size_scale = context.size_scale
+	climax_seconds = context.climax_seconds
+	jiggle_radius_m = context.jiggle_radius
+	jiggle_center_height_m = context.jiggle_center_height
+	jiggle_center_back_m = context.jiggle_center_back
+	jiggle_intensity = context.jiggle_intensity
+	jiggle_smack_intensity = context.jiggle_smack_intensity
 
 
 ## Start a fresh act. Clears the per-act visual state; the configuration survives.

@@ -6,6 +6,7 @@ extends RefCounted
 ## See `docs/runtime.md`.
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SETTINGS := preload("res://mods/unfplap/act/settings.gd")
@@ -508,7 +509,9 @@ func begin_afterglow() -> void:
 	context.integrations.afterglow()
 	context.afterglow.set_act(pony_id, event_id)
 	context.afterglow.bind_view(context.pose.view())
-	context.afterglow.begin(context.summary.summary)
+	var summary := AFTERGLOW.SUMMARY.new()
+	summary.fill(context.summary.summary)
+	context.afterglow.begin(summary)
 	context.readiness.clear_cues()
 	context.face.release_stare()
 	context.face.set_face(0.85, context.face.AFTERGLOW_LIDS)
@@ -660,7 +663,7 @@ func refresh_anatomy() -> void:
 ## anatomy and scene gate. It never resumes by itself.
 func bind_adopted_body(body: Node) -> void:
 	context.pose.bind(host.node, body)
-	context.face.bind(body, host.node)
+	context.face.bind(body as Node3D, host.node)
 	context.audio.bind_identity(body, pony_id, bed)
 	adopt_display_name(context.handover.form(), body)
 	refresh_view()

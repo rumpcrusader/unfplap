@@ -4,6 +4,8 @@ extends RefCounted
 
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
+const PRESENTATION := preload("res://mods/unfplap/afterglow/presentation.gd")
+const SUMMARY := preload("res://mods/unfplap/afterglow/summary.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
@@ -34,13 +36,14 @@ class PostAct extends RefCounted:
 
 	## The face facade's context for the post-act face. The summary is carried only when the act
 	## had one.
-	func face_context(summary: Dictionary) -> Dictionary:
-		return {
-			"stopped": stopped,
-			"summary": summary if has_summary else {},
-			"satisfied": satisfied,
-			"aftercare_min": aftercare_min,
-		}
+	func face_context(summary: Dictionary) -> FACE.BEAT:
+		var context := FACE.BEAT.new()
+		context.stopped = stopped
+		context.satisfied = satisfied
+		context.aftercare_min = aftercare_min
+		if has_summary:
+			context.summary = FACE.BEAT.Summary.from_dict(summary)
+		return context
 
 ## The pose view the runtime carries into the next `begin()`; its `afterglow` profile owns the
 ## close-window decision and its family the presentation row.
@@ -72,7 +75,7 @@ var pony_id := ""
 var event_id := ""
 
 ## The live aftercare node the host parented, or null. It frees itself after its beat.
-var aftercare: Node = null
+var aftercare: AFTERCARE = null
 ## The satisfaction decay tween the runtime's node created for the facade.
 var _decay: Tween = null
 
@@ -102,28 +105,27 @@ func bind_view(view_in: RefCounted) -> void:
 
 ## Start a fresh afterglow for the live view. The row's `afterglow.close_window` opens the close
 ## window immediately.
-func begin(summary: Dictionary) -> void:
+func begin(summary: SUMMARY) -> void:
 	var afterglow: Variant = view.afterglow if view != null else null
 	close_window = bool((afterglow as Dictionary).get("close_window", false)) \
 		if afterglow is Dictionary else false
-	beat = ACT_SUMMARY.afterglow_beat(summary, randf())
+	beat = ACT_SUMMARY.afterglow_beat(summary.to_dict(), randf())
 	close_caress_seconds = 0.0
 	close_rewarded = false
 	close_caress_earned = false
-	positive = bool(summary.get("reward", false))
+	positive = summary.reward
 	close_left = STAY_CLOSE_SECONDS if close_window else 0.0
 
 
 ## The afterglow row the runtime applies: tail, flicks, HUD state, wings.
 ## Tail targets follow the active view family, not the act's start pose.
-func presentation() -> Dictionary:
+func presentation() -> PRESENTATION:
 	var standing := view != null and str(view.family) == "standing"
-	return {
-		"tail_target": 0.55 if standing else 0.35,
-		"tail_flicks": 2 if standing else 0,
-		"hud_state": "AFTERGLOW",
-		"wings": true,
-	}
+	var row := PRESENTATION.new()
+	row.tail_target = 0.55 if standing else 0.35
+	row.tail_flicks = 2 if standing else 0
+	row.wings = true
+	return row
 
 
 ## Apply the row in its built order: pose weight, tail, HUD state.
@@ -133,13 +135,12 @@ func apply_presentation(pose: POSE_SESSION) -> bool:
 	if is_instance_valid(pose.pose()):
 		pose.pose().target_amount = 1.0
 		pose.pose().amount = 1.0
-	pose.set_tail_target(float(row.get("tail_target", 0.35)))
-	var flicks := int(row.get("tail_flicks", 0))
-	if flicks > 0:
-		pose.flick_tail(flicks)
+	pose.set_tail_target(row.tail_target)
+	if row.tail_flicks > 0:
+		pose.flick_tail(row.tail_flicks)
 	if is_instance_valid(HUD.instance):
-		HUD.instance.set_state(str(row.get("hud_state", "AFTERGLOW")))
-	return bool(row.get("wings", false))
+		HUD.instance.set_state(row.hud_state)
+	return row.wings
 
 
 ## Clear every value for the next act. The callbacks stay.
@@ -194,8 +195,8 @@ func start_aftercare(pony: Node3D, plan: PostAct) -> bool:
 	if is_instance_valid(aftercare):
 		return false
 	aftercare = AFTERCARE.new()
-	aftercare.set("pony", pony)
-	aftercare.set("body_language", plan.body_language)
+	aftercare.pony = pony
+	aftercare.body_language = plan.body_language
 	host.add_child(aftercare)
 	return true
 

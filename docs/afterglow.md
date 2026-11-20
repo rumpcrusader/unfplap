@@ -140,6 +140,7 @@ Hold the act key:
 | service | readiness | `readiness/service.gd` | the reward's cue clear |
 | service | reactions | `reactions/service.gd` | the reward's heart burst |
 | service | world | `world/service.gd` | the live world root |
+| service | world | `world/game.gd` | the navigator reads the aftercare holds |
 | store | act_history | `shared/act_history.gd` | the bad-act history repair |
 | shared | log | `shared/log.gd` | log sink |
 

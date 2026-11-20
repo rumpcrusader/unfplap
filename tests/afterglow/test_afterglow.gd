@@ -48,7 +48,9 @@ func _facade(pose: String) -> Dictionary:
 	var phase: RefCounted = AFTERGLOW.new()
 	phase.caress_active = Callable(host, "is_caressing")
 	phase.bind_view(_view(pose))
-	phase.begin({"reward": true})
+	var summary := AFTERGLOW.SUMMARY.new()
+	summary.fill({"reward": true})
+	phase.begin(summary)
 	return {"phase": phase, "host": host}
 
 
@@ -87,8 +89,8 @@ func run() -> void:
 	check(not oral_phase.close_window, "the oral afterglow opens no close window")
 	check(is_zero_approx(oral_phase.close_left), "the oral close window never starts")
 	check(oral_phase.hint().is_empty(), "the oral afterglow shows no stay-close cue")
-	var oral_row: Dictionary = oral_phase.presentation()
-	check(near(float(oral_row.get("tail_target", 0.0)), 0.55),
+	var oral_row: AFTERGLOW.PRESENTATION = oral_phase.presentation()
+	check(near(oral_row.tail_target, 0.55),
 		"the oral afterglow keeps the standing tail row")
 
 	var standing := _facade("standing")
@@ -120,7 +122,7 @@ func run() -> void:
 
 	var runtime_hint: Node = _runtime("standing")
 	runtime_hint._bundle.afterglow.bind_view(_view("standing"))
-	runtime_hint._bundle.afterglow.begin({})
+	runtime_hint._bundle.afterglow.begin(AFTERGLOW.SUMMARY.new())
 	check(str(runtime_hint.get("act").close_hint()).contains("Stay close"),
 		"the runtime forwards the close cue")
 	runtime_hint.act.pose_id = "missionary"
@@ -129,30 +131,27 @@ func run() -> void:
 
 	# The facade owns the presentation row; the runtime only applies it. The row names no pose:
 	# the act's current pose holds through the afterglow.
-	var standing_row: Dictionary = _facade("standing")["phase"].presentation()
-	check(not standing_row.has("pose_mode") and not standing_row.has("afterglow_pose"),
+	var standing_row: AFTERGLOW.PRESENTATION = _facade("standing")["phase"].presentation()
+	check(standing_row.get("pose_mode") == null and standing_row.get("afterglow_pose") == null,
 		"a standing afterglow row names no pose mode")
-	check(near(float(standing_row.get("tail_target", 0.0)), 0.55),
-		"a standing afterglow lifts the tail")
-	check(int(standing_row.get("tail_flicks", 0)) == 2, "a standing afterglow flicks the tail")
-	check(str(standing_row.get("hud_state", "")) == "AFTERGLOW", "the row carries the HUD state")
-	check(bool(standing_row.get("wings", false)), "the row asks for the wing return")
-	var missionary_row: Dictionary = _facade("missionary")["phase"].presentation()
-	check(not missionary_row.has("pose_mode") and not missionary_row.has("afterglow_pose"),
+	check(near(standing_row.tail_target, 0.55), "a standing afterglow lifts the tail")
+	check(standing_row.tail_flicks == 2, "a standing afterglow flicks the tail")
+	check(standing_row.hud_state == "AFTERGLOW", "the row carries the HUD state")
+	check(standing_row.wings, "the row asks for the wing return")
+	var missionary_row: AFTERGLOW.PRESENTATION = _facade("missionary")["phase"].presentation()
+	check(missionary_row.get("pose_mode") == null and missionary_row.get("afterglow_pose") == null,
 		"a missionary afterglow row names no pose mode")
-	check(near(float(missionary_row.get("tail_target", 0.0)), 0.35),
-		"a missionary afterglow lowers the tail")
-	check(int(missionary_row.get("tail_flicks", 1)) == 0,
-		"a missionary afterglow does not flick the tail")
+	check(near(missionary_row.tail_target, 0.35), "a missionary afterglow lowers the tail")
+	check(missionary_row.tail_flicks == 0, "a missionary afterglow does not flick the tail")
 
 	# The row follows the active view family only; without a view it falls back to the bed row.
 	var no_view := AFTERGLOW.new()
-	no_view.begin({"reward": true})
-	var no_view_row: Dictionary = no_view.presentation()
-	check(near(float(no_view_row.get("tail_target", 0.0)), 0.35),
-		"an absent view lowers the tail")
-	check(int(no_view_row.get("tail_flicks", 1)) == 0,
-		"an absent view does not flick the tail")
+	var no_view_summary := AFTERGLOW.SUMMARY.new()
+	no_view_summary.fill({"reward": true})
+	no_view.begin(no_view_summary)
+	var no_view_row: AFTERGLOW.PRESENTATION = no_view.presentation()
+	check(near(no_view_row.tail_target, 0.35), "an absent view lowers the tail")
+	check(no_view_row.tail_flicks == 0, "an absent view does not flick the tail")
 
 	# The runtime writes no pose mode: the evaluator pair holds and only the weight is re-asserted.
 	var held: Node = _runtime("standing")

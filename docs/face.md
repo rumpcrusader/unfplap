@@ -125,6 +125,7 @@ the main handle and the `log` callback from the facade; it never reads the runti
 | service | readiness | `readiness/service.gd` | the climax shape's counters |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/service.gd` | the live world root |
+| service | world | `world/game.gd` | base-game expression and impression reads |
 | shared | act_face | `shared/act_face.gd` | face beat data |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | log | `shared/log.gd` | log sink |

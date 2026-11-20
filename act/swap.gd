@@ -66,12 +66,12 @@ func rebind_body() -> void:
 	session.adopt_display_name(form, host.pony)
 	session.refresh_gate()
 	context.pose.bind(host.node, host.pony)
-	context.face.bind(host.pony, host.node)
+	context.face.bind(host.pony as Node3D, host.node)
 	context.audio.bind_identity(host.pony, session.pony_id, session.bed)
 	session.refresh_view()
 	context.anatomy.bind(context.anatomy_host)
 	context.anatomy.refresh()
-	context.reactions.bind_scene(host.pony, context.anatomy.controller)
+	context.reactions.bind_scene(host.pony as Node3D, context.anatomy.controller)
 	var view: Variant = context.pose.view()
 	for owner: Variant in [context.hands, context.kiss, context.audio]:
 		if owner != null and owner.has_method("pose_changed"):
@@ -162,7 +162,7 @@ func stop_breath() -> void:
 ## The adopted body's binding before the resume moves the act onto it.
 func resume_body() -> void:
 	context.pose.bind(host.node, host.pony)
-	context.face.bind(host.pony, host.node)
+	context.face.bind(host.pony as Node3D, host.node)
 	session.adopt_display_name(context.handover.form(), host.pony)
 	session.refresh_view()
 	if not is_instance_valid(host.pony):
@@ -186,7 +186,7 @@ func apply_resume_settings() -> void:
 
 
 func rebind_reactions() -> void:
-	context.reactions.bind_scene(host.pony, context.anatomy.controller)
+	context.reactions.bind_scene(host.pony as Node3D, context.anatomy.controller)
 	context.reactions.apply_radius()
 
 

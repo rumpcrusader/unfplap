@@ -2,6 +2,7 @@ extends Node
 ## The held post-act face node: it yields to a spoken line and ends when the mood's freshness
 ## does. The facade starts it.
 
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -13,7 +14,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 signal finished(reason: String)
 
-var pony: Node3D
+var pony: Node3D = null
 var mood := ""
 var face := ""
 var blush := 0.0
@@ -58,22 +59,20 @@ func _physics_process(delta: float) -> void:
 
 
 func _apply_face() -> void:
-	var expressions: Variant = pony.get("expressions")
+	var expressions := GAME.expressions_of(pony)
 	if expressions == null or not is_instance_valid(expressions):
 		return
 	if not expressions.has_method("set_dialogue"):
 		return
-	if _dialogue_face(expressions).is_empty():
-		expressions.call("set_dialogue", face)
+	if GAME.dialogue_face(expressions).is_empty():
+		GAME.set_dialogue(expressions, face)
 		_applied_face = true
 
 
 func _apply_blush() -> void:
 	if blush <= 0.0:
 		return
-	var boop: Variant = pony.get("boop_node")
-	if boop != null and boop.has_method("sustain_blush"):
-		boop.call("sustain_blush", blush)
+	GAME.sustain_blush(GAME.boop_of(pony), blush)
 
 
 ## Her AI can commit a newer mood in a later reply. The face must not outlive the note it shows.
@@ -83,38 +82,30 @@ func _mood_still_ours() -> bool:
 	var id := str(pony.get_meta("relationship_id", ""))
 	if id.is_empty():
 		return true
-	var game: Variant = WORLD.game
-	if game == null or not is_instance_valid(game):
+	var game := WORLD.game
+	if not is_instance_valid(game):
 		return true
-	var ctx: Variant = game.get("world_context")
-	if ctx == null or not is_instance_valid(ctx):
+	var context := GAME.world_context(game)
+	if not is_instance_valid(context):
 		return true
-	var impressions: Variant = ctx.get("impressions")
-	if impressions == null or not is_instance_valid(impressions) \
-			or not impressions.has_method("profile"):
+	var impressions := GAME.impressions_of(context)
+	if not is_instance_valid(impressions):
 		return true
-	var profile: Variant = impressions.call("profile", id)
-	if not profile is Dictionary:
+	var committed := GAME.impression_mood(impressions, id)
+	if committed.is_empty():
 		return true
-	return str((profile as Dictionary).get("mood", "neutral")) == mood
-
-
-func _dialogue_face(expressions: Variant) -> String:
-	var value: Variant = expressions.get("dialogue_face")
-	if value is String:
-		return value
-	return ""
+	return committed == mood
 
 
 func _clear_face() -> void:
 	if not _applied_face or not is_instance_valid(pony):
 		return
-	var expressions: Variant = pony.get("expressions")
+	var expressions := GAME.expressions_of(pony)
 	if expressions == null or not is_instance_valid(expressions) \
 			or not expressions.has_method("clear_dialogue"):
 		return
-	if _dialogue_face(expressions) == face:
-		expressions.call("clear_dialogue")
+	if GAME.dialogue_face(expressions) == face:
+		GAME.clear_dialogue(expressions)
 
 
 func _finish(reason := "") -> void:

@@ -84,6 +84,15 @@ func _end_mood_face(runtime: Node) -> void:
 	runtime._bundle.face.end_mood_face()
 
 
+## The late-tick lid context, filled from the live act.
+func _eyes(runtime: Node) -> FACE.BEAT:
+	var context := FACE.BEAT.new()
+	context.state = runtime.act.state
+	context.close_rewarded = runtime._bundle.afterglow.close_rewarded
+	context.eyes_active = runtime._bundle.kiss.eyes_active()
+	return context
+
+
 func _fixture() -> Dictionary:
 	var runtime: Node = RUNTIME.new()
 	var pony := FakePony.new()
@@ -186,24 +195,24 @@ func run() -> void:
 	# The lids and the smile live in the facade: the runtime only gathers the state.
 	runtime.act._set_state(2) # ACTIVE
 	expressions.stare_calls = 0
-	runtime._bundle.face.eyes_tick({"state": runtime.act.state, "close_rewarded": runtime._bundle.afterglow.close_rewarded, "eyes_active": runtime._bundle.kiss.eyes_active()})
+	runtime._bundle.face.eyes_tick(_eyes(runtime))
 	check(expressions.stare_on and is_equal_approx(expressions.stare_lids, FACE.ACT_LIDS),
 		"ACTIVE holds the act lids")
 	runtime.act._set_state(3) # CLIMAX
 	expressions.stare_lids = -1.0
-	runtime._bundle.face.eyes_tick({"state": runtime.act.state, "close_rewarded": runtime._bundle.afterglow.close_rewarded, "eyes_active": runtime._bundle.kiss.eyes_active()})
+	runtime._bundle.face.eyes_tick(_eyes(runtime))
 	check(expressions.stare_on and is_equal_approx(expressions.stare_lids, FACE.CLIMAX_LIDS),
 		"CLIMAX opens the lids")
 	runtime.act._set_state(4) # AFTERGLOW
 	runtime._bundle.afterglow.close_rewarded = true
 	expressions.stare_lids = -1.0
-	runtime._bundle.face.eyes_tick({"state": runtime.act.state, "close_rewarded": runtime._bundle.afterglow.close_rewarded, "eyes_active": runtime._bundle.kiss.eyes_active()})
+	runtime._bundle.face.eyes_tick(_eyes(runtime))
 	check(is_equal_approx(expressions.stare_lids, FACE.AFTERGLOW_CLOSE_LIDS),
 		"a rewarded close uses the sleepier afterglow lids")
 	runtime._bundle.afterglow.close_rewarded = false
 	runtime.act._set_state(0) # IDLE
 	expressions.stare_calls = 0
-	runtime._bundle.face.eyes_tick({"state": runtime.act.state, "close_rewarded": runtime._bundle.afterglow.close_rewarded, "eyes_active": runtime._bundle.kiss.eyes_active()})
+	runtime._bundle.face.eyes_tick(_eyes(runtime))
 	check(expressions.stare_calls == 0, "IDLE leaves the lids alone")
 	runtime.act._set_state(2) # ACTIVE
 	expressions.touch_calls = 0
@@ -217,7 +226,7 @@ func run() -> void:
 	check(expressions.released == "unfplap_state", "clearing the face releases the touch")
 
 	# The climax quality shape is the facade's; the runtime only gathers its counters.
-	var quality: FACE.ActQuality = runtime._bundle.face.quality_for(runtime._bundle.readiness)
+	var quality: FACE.BEAT.ClimaxQuality = runtime._bundle.face.quality_for(runtime._bundle.readiness)
 	check(is_equal_approx(quality.intensity_total, 6.0), "climax quality keeps the gathered intensity")
 	check(is_equal_approx(quality.pattern_right, 6.0), "climax quality keeps the pattern matches")
 	check(int(quality.dislikes_total) == 0 and not quality.overwhelmed,

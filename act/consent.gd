@@ -9,6 +9,7 @@ const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const FACE := preload("res://mods/unfplap/face/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -83,11 +84,11 @@ func warn(level: int) -> void:
 
 
 ## The consent beat's act values: the same two the face table reads at every act moment.
-func _face_context() -> Dictionary:
-	return {
-		"first_time": session.first_time,
-		"tolerance": str(session.preferences.get("tolerance", "normal")),
-	}
+func _face_context() -> FACE.BEAT:
+	var values := FACE.BEAT.new()
+	values.first_time = session.first_time
+	values.tolerance = str(session.preferences.get("tolerance", "normal"))
+	return values
 
 
 ## Queue the warning line. A previous one is cancelled first, so one warning owns one line.

@@ -210,7 +210,7 @@ func _face_values(session: ACT_SESSION) -> FACE.ActValues:
 	values.first_time = session.first_time
 	values.tolerance = str(session.preferences.get("tolerance", "normal"))
 	values.climax_mode = session.climax_mode
-	values.summary = context.summary.summary
+	values.summary = FACE.BEAT.Summary.from_dict(context.summary.summary)
 	values.blush_arc = session.feature("blush_arc")
 	return values
 

@@ -90,6 +90,13 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
 
+## The act snapshot the facade takes: the block plus the family, size and climax length.
+func tune(block := {}, family := "", size := 1.0, climax := 5.0) -> RefCounted:
+	var context := REACTIONS.CONTEXT.new()
+	context.fill(jiggle_block(block), family, size, climax)
+	return context
+
+
 ## The complete `jiggle.*` block the runtime snapshot passes; overrides replace keys.
 func jiggle_block(overrides := {}) -> Dictionary:
 	var block := {
@@ -121,18 +128,13 @@ func run() -> void:
 func _check_defaults() -> void:
 	var reactions := REACTIONS.new()
 	check(near(reactions.climax_seconds, 5.0), "climax length starts at the shipped default")
-	reactions.configure({
-		"pose_family": "standing",
-		"size_scale": 0.66,
-		"climax_seconds": 4.0,
-		"jiggle": jiggle_block({
-			"radius": 0.31,
-			"center_height_m": 0.12,
-			"center_back_m": 0.2,
-			"intensity": 0.4,
-			"smack_intensity": 0.6,
-		}),
-	})
+	reactions.configure(tune({
+		"radius": 0.31,
+		"center_height_m": 0.12,
+		"center_back_m": 0.2,
+		"intensity": 0.4,
+		"smack_intensity": 0.6,
+	}, "standing", 0.66, 4.0))
 	check(reactions.pose_family == "standing", "configure takes the pose family")
 	check(near(reactions.size_scale, 0.66), "configure takes the size scale")
 	check(near(reactions.climax_seconds, 4.0), "configure takes the climax length")
@@ -195,11 +197,11 @@ func _check_radius() -> void:
 	flank._jiggle_targets = [[material, mesh]]
 	var reactions := REACTIONS.new()
 	reactions.bind_scene(null, null, flank)
-	reactions.configure({"jiggle": jiggle_block({"radius": 0.30})})
+	reactions.configure(tune({"radius": 0.30}))
 	reactions.apply_radius()
 	check(near(float(material.get_shader_parameter("jiggle_radius")), 0.30),
 		"the jiggle radius applies to the targets")
-	reactions.configure({"jiggle": jiggle_block({"radius": -0.05})})
+	reactions.configure(tune({"radius": -0.05}))
 	reactions.apply_radius()
 	check(near(float(material.get_shader_parameter("jiggle_radius")), -0.05),
 		"a debug jiggle radius is applied unclamped")
@@ -225,8 +227,7 @@ func _check_thrust() -> void:
 	flank.add_child(second_mark)
 	var reactions := REACTIONS.new()
 	reactions.bind_scene(pony, null, flank)
-	reactions.configure({"pose_family": "standing", "size_scale": 0.66,
-		"jiggle": jiggle_block({"intensity": 0.2, "radius": 0.26})})
+	reactions.configure(tune({"intensity": 0.2, "radius": 0.26}, "standing", 0.66))
 	reactions.thrust(0.8)
 	check(flank.jiggle_calls == 1, "a thrust starts one jiggle")
 	check(near(flank._jiggle_amount, 0.8 * REACTIONS.JIGGLE_RUMP_SCALE * 0.66 * 0.2),
@@ -252,18 +253,15 @@ func _check_smack() -> void:
 	var reactions := REACTIONS.new()
 	reactions.bind_scene(pony, null, flank)
 	reactions.bind_tail(tail)
-	reactions.configure({"pose_family": "standing", "size_scale": 1.0,
-		"jiggle": jiggle_block({"smack_intensity": 0.5})})
+	reactions.configure(tune({"smack_intensity": 0.5}, "standing", 1.0))
 	reactions.smack(0.8)
 	check(near(flank._jiggle_amount, 0.04), "the act smack scales the resolved jiggle")
 	check(near(tail.last_strength, 0.5), "the standing smack carries the tail jiggle")
-	reactions.configure({"pose_family": "bed", "size_scale": 0.66,
-		"jiggle": jiggle_block({"smack_intensity": 0.5})})
+	reactions.configure(tune({"smack_intensity": 0.5}, "bed", 0.66))
 	tail.last_strength = 0.0
 	reactions.smack(0.8)
 	check(near(tail.last_strength, 0.0), "the missionary smack does not move the tail")
-	reactions.configure({"pose_family": "standing", "size_scale": 0.66,
-		"jiggle": jiggle_block({"intensity": 0.2})})
+	reactions.configure(tune({"intensity": 0.2}, "standing", 0.66))
 	reactions.tail_thrust(0.4)
 	check(near(tail.last_strength, 0.4 * 0.66 * 0.2),
 		"the thrust tail impulse scales with the stroke and the size")
@@ -282,10 +280,10 @@ func _check_blush() -> void:
 	root.add_child(pony)
 	var reactions := REACTIONS.new()
 	reactions.bind_scene(pony, null)
-	reactions.configure({"pose_family": "bed", "jiggle": jiggle_block()})
+	reactions.configure(tune({}, "bed"))
 	reactions.add_blush(1.0)
 	check(near(reactions.rump_blush, 0.0), "the missionary act has no rump blush")
-	reactions.configure({"pose_family": "standing", "jiggle": jiggle_block()})
+	reactions.configure(tune({}, "standing"))
 	reactions.add_blush(0.4)
 	check(near(reactions.rump_blush, 0.0), "a soft thrust does not start the blush")
 	reactions.add_blush(0.9)
@@ -320,7 +318,7 @@ func _check_hearts() -> void:
 	root.add_child(hair)
 	var reactions := REACTIONS.new()
 	reactions.bind_scene(pony, null)
-	reactions.configure({"climax_seconds": 5.0, "jiggle": jiggle_block()})
+	reactions.configure(tune({}, "", 1.0, 5.0))
 	check(reactions.dock_point().is_equal_approx(Vector3.ZERO), "the dock follows the tail base")
 	hair.position = Vector3(1.0, 2.0, 3.0)
 	check(reactions.dock_point().is_equal_approx(Vector3(1.0, 2.0, 3.0)),

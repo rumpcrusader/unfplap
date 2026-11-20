@@ -6,6 +6,7 @@ extends RefCounted
 ## See `docs/runtime.md` and `docs/settings.md`.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 
@@ -43,12 +44,9 @@ func snapshot_values(group: String, family: String, preferences: Dictionary,
 	max_pony_climaxes = snapshot.max_pony_climaxes
 	context.readiness.configure_auto(snapshot.auto_pace, snapshot.auto_max_depth,
 		snapshot.auto_curve, snapshot.auto_min_depth, preserve_auto_shape)
-	context.reactions.configure({
-		"jiggle": snapshot.jiggle,
-		"pose_family": family,
-		"size_scale": context.camera.jiggle_size_scale(),
-		"climax_seconds": CLIMAX_SECONDS,
-	})
+	var tuning := REACTIONS.CONTEXT.new()
+	tuning.fill(snapshot.jiggle, family, context.camera.jiggle_size_scale(), CLIMAX_SECONDS)
+	context.reactions.configure(tuning)
 	context.camera.configure(snapshot.camera_thrust)
 	context.readiness.configure(preferences, snapshot.cue_override_seconds,
 		snapshot.cue_overwhelmed_s, snapshot.touch_cooldown_s, snapshot.talk_cooldown_s,

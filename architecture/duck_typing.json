@@ -52,14 +52,6 @@
       "count": 1
     },
     {
-      "file": "afterglow/aftercare.gd",
-      "count": 16
-    },
-    {
-      "file": "afterglow/service.gd",
-      "count": 2
-    },
-    {
       "file": "api.gd",
       "count": 1
     },
@@ -126,14 +118,6 @@
     {
       "file": "eligibility/service.gd",
       "count": 6
-    },
-    {
-      "file": "face/mood_face.gd",
-      "count": 4
-    },
-    {
-      "file": "face/service.gd",
-      "count": 15
     },
     {
       "file": "hands/contact.gd",

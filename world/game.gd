@@ -410,6 +410,106 @@ static func sustain_blush(boop: Node, amount: float) -> void:
 	boop.call("sustain_blush", amount)
 
 
+## The pony's expression controller; null when the body has none.
+static func expressions_of(pony: Node) -> Object:
+	if not is_instance_valid(pony):
+		return null
+	var expressions: Variant = pony.get("expressions")
+	return expressions as Object
+
+
+## Feed the expression controller's touch layer; an absent layer is left alone.
+static func touch(expressions: Object, source: String, smile: float, lids: float) -> void:
+	if is_instance_valid(expressions) and expressions.has_method("touch"):
+		expressions.call("touch", source, smile, lids)
+
+
+## Release the expression controller's touch layer.
+static func release_touch(expressions: Object, source: String) -> void:
+	if is_instance_valid(expressions) and expressions.has_method("release_touch"):
+		expressions.call("release_touch", source)
+
+
+## Hold or release the stare; a NAN `lids` leaves the game's own default in place.
+static func stare(expressions: Object, on: bool, lids: float = NAN) -> void:
+	if not is_instance_valid(expressions) or not expressions.has_method("stare"):
+		return
+	if is_nan(lids):
+		expressions.call("stare", on)
+	else:
+		expressions.call("stare", on, lids)
+
+
+## Keep the flustered loop running for `seconds`.
+static func fluster(expressions: Object, seconds: float, peeks := true) -> void:
+	if is_instance_valid(expressions) and expressions.has_method("fluster"):
+		expressions.call("fluster", seconds, peeks)
+
+
+## The live fluster weight; 0.0 when the controller has none.
+static func fluster_amount(expressions: Object) -> float:
+	if not is_instance_valid(expressions):
+		return 0.0
+	var value: Variant = expressions.get("fluster_amount")
+	return float(value) if value is float or value is int else 0.0
+
+
+## The face a spoken line owns right now; empty when the controller has none.
+static func dialogue_face(expressions: Object) -> String:
+	if not is_instance_valid(expressions):
+		return ""
+	var value: Variant = expressions.get("dialogue_face")
+	return value if value is String else ""
+
+
+## Set the spoken line's face on the expression controller.
+static func set_dialogue(expressions: Object, face: String) -> void:
+	if is_instance_valid(expressions) and expressions.has_method("set_dialogue"):
+		expressions.call("set_dialogue", face)
+
+
+## Hold the spoken line's face for `seconds`.
+static func finish_dialogue(expressions: Object, seconds: float) -> void:
+	if is_instance_valid(expressions) and expressions.has_method("finish_dialogue"):
+		expressions.call("finish_dialogue", seconds)
+
+
+## Drop the spoken line's face.
+static func clear_dialogue(expressions: Object) -> void:
+	if is_instance_valid(expressions) and expressions.has_method("clear_dialogue"):
+		expressions.call("clear_dialogue")
+
+
+## The scene's world-context node; null when the scene has none.
+static func world_context(game: Node) -> Node:
+	if not is_instance_valid(game):
+		return null
+	var context: Variant = game.get("world_context")
+	if context is Node and is_instance_valid(context):
+		return context
+	return null
+
+
+## The world context's impressions store; null when it has none.
+static func impressions_of(context: Node) -> Node:
+	if not is_instance_valid(context):
+		return null
+	var impressions: Variant = context.get("impressions")
+	if impressions is Node and is_instance_valid(impressions):
+		return impressions
+	return null
+
+
+## One pony's committed mood; empty when the impressions store cannot answer.
+static func impression_mood(impressions: Node, id: String) -> String:
+	if not is_instance_valid(impressions) or not impressions.has_method("profile"):
+		return ""
+	var profile: Variant = impressions.call("profile", id)
+	if not profile is Dictionary:
+		return ""
+	return str((profile as Dictionary).get("mood", "neutral"))
+
+
 ## The rig's private look pitch; NAN when the rig has no such member.
 static func pitch(body: Node) -> float:
 	if not is_instance_valid(body):

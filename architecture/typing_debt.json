@@ -1,16 +1,6 @@
 {
   "debt": [
     {
-      "service": "afterglow",
-      "func": "begin",
-      "signature": "func begin(summary: Dictionary) -> void:"
-    },
-    {
-      "service": "afterglow",
-      "func": "presentation",
-      "signature": "func presentation() -> Dictionary:"
-    },
-    {
       "service": "audio",
       "func": "pose_changed",
       "signature": "func pose_changed(view: Variant) -> void:"
@@ -59,41 +49,6 @@
       "service": "eligibility",
       "func": "set_profile",
       "signature": "func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:"
-    },
-    {
-      "service": "face",
-      "func": "act_beat",
-      "signature": "func act_beat(moment: String, context: Dictionary, debug: bool) -> void:"
-    },
-    {
-      "service": "face",
-      "func": "beat",
-      "signature": "func beat(moment: String, context: Dictionary) -> void:"
-    },
-    {
-      "service": "face",
-      "func": "bind",
-      "signature": "func bind(pony_in: Variant, host_in: Node) -> void:"
-    },
-    {
-      "service": "face",
-      "func": "climax_quality",
-      "signature": "func climax_quality(context: Dictionary) -> Dictionary:"
-    },
-    {
-      "service": "face",
-      "func": "eyes_tick",
-      "signature": "func eyes_tick(context: Dictionary) -> void:"
-    },
-    {
-      "service": "face",
-      "func": "rows",
-      "signature": "func rows(context: Dictionary) -> Array[String]:"
-    },
-    {
-      "service": "face",
-      "func": "start_post_act",
-      "signature": "func start_post_act(context: Dictionary) -> void:"
     },
     {
       "service": "hands",
@@ -184,21 +139,6 @@
       "service": "poses",
       "func": "sync_standing_config",
       "signature": "func sync_standing_config(presentation: Dictionary) -> bool:"
-    },
-    {
-      "service": "reactions",
-      "func": "bind_scene",
-      "signature": "func bind_scene(pony_node: Variant, anatomy_ctl: Variant, flank_ctl: Variant = null) -> void:"
-    },
-    {
-      "service": "reactions",
-      "func": "bind_tail",
-      "signature": "func bind_tail(tail_ctl: Variant) -> void:"
-    },
-    {
-      "service": "reactions",
-      "func": "configure",
-      "signature": "func configure(context: Dictionary) -> void:"
     },
     {
       "service": "readiness",

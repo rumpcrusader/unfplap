@@ -482,11 +482,11 @@ static func navigator_reserved(nav: Node) -> String:
 	return str(nav.get("reserved_by"))
 
 
-## Whether the navigator may wander; absent reads as enabled.
+## Whether the navigator may wander; an absent member reads as disabled.
 static func navigator_wander(nav: Node) -> bool:
 	if not is_instance_valid(nav):
-		return true
-	return nav.get("wander_enabled") != false
+		return false
+	return nav.get("wander_enabled") == true
 
 
 ## Whether the navigator is walking to a target.

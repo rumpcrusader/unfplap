@@ -977,7 +977,9 @@ stay event-time reads.
 - With **Enable debug** and **Print perf logs** on, the anatomy contributes the
   `anatomy_process`, `anatomy_visibility`, `anatomy_tick`, `anatomy_coat_line` and
   `anatomy_afterglow` chunks to the profiler's block, plus `tail_attach` and `tail_refresh` when
-  the tail seat builds. The seat also prints `tail perf refresh` and a once-per-second
+  the tail seat builds. The act's physics write is `runtime_anatomy_sync`, with `anatomy_bind`,
+  `anatomy_sync`, `anatomy_facts` and `anatomy_cycle` children. The seat also prints
+  `tail perf refresh` and a once-per-second
   `tail perf seats=… skinned=… builds=…/s` line; steady state is `builds=0/s` because the dock
   blend runs on the GPU. The seat's own `_process` returns on the profiler's switch, so it costs
   nothing in a normal session.

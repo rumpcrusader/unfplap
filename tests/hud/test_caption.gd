@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_caption.gd
 
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
@@ -51,6 +52,24 @@ class ToastSink extends Node:
 		shown.append([text, seconds])
 
 
+## The game's quick-slot inventory and its bar, for the HUD's borrowed-card accessors.
+class FakeInventory extends Node:
+	var hud_hidden := false
+	var hotbar: Node = null
+	var place_calls := 0
+
+	func _place_hotbar() -> void:
+		place_calls += 1
+
+
+class FakeHotbar extends Control:
+	var hud_calls: Array[bool] = []
+	var _hud: CanvasLayer = null
+
+	func set_hud_visible(on: bool) -> void:
+		hud_calls.append(on)
+
+
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -66,6 +85,7 @@ func run() -> void:
 	_check_caption_conditions()
 	_check_caption_scale()
 	_check_toast_duration()
+	_check_accessors()
 	await _check_toast_line()
 	_check_dance_notice()
 	_check_live_settings()
@@ -231,6 +251,66 @@ func _check_toast_duration() -> void:
 	check(sink.shown.size() == 4, "a toast with no HUD is a quiet no-op")
 	root.remove_child(sink)
 	sink.free()
+
+
+## The base-game accessors the HUD now routes through: the live answer and the absent one.
+func _check_accessors() -> void:
+	var sink := ToastSink.new()
+	root.add_child(sink)
+	GAME.show_toast(sink, "hello", 1.5)
+	check(sink.shown == [["hello", 1.5]], "the toast accessor reaches the sink")
+	GAME.show_toast(null, "nobody", 1.0)
+	var plain := Node.new()
+	root.add_child(plain)
+	GAME.show_toast(plain, "nobody", 1.0)
+	check(sink.shown.size() == 1, "a null or plain toast target is a quiet no-op")
+
+	var inventory := FakeInventory.new()
+	root.add_child(inventory)
+	check(not GAME.inventory_hud_hidden(inventory), "the inventory's hidden flag reads false")
+	GAME.set_inventory_hud_hidden(inventory, true)
+	check(inventory.hud_hidden, "the inventory's hidden flag is written")
+	check(GAME.hotbar(inventory) == null, "an inventory without a hotbar answers null")
+	var bar := FakeHotbar.new()
+	root.add_child(bar)
+	inventory.hotbar = bar
+	check(GAME.hotbar(inventory) == bar, "the inventory's hotbar is read")
+	check(GAME.hotbar_visible(bar), "the hotbar's visible flag reads true")
+	bar.visible = false
+	check(not GAME.hotbar_visible(bar), "the hotbar's visible flag reads false")
+	GAME.set_hotbar_visible(bar, true)
+	check(bar.visible, "the hotbar's visible flag is written")
+	check(GAME.hotbar_hud_layer(bar) == null, "a hotbar without a layer answers null")
+	var layer := CanvasLayer.new()
+	bar.add_child(layer)
+	bar._hud = layer
+	check(GAME.hotbar_hud_layer(bar) == layer, "the hotbar's HUD layer is read")
+	GAME.set_hotbar_hud_visible(bar, false)
+	check(bar.hud_calls == [false], "the hotbar's own HUD switch is called")
+	GAME.inventory_place_hotbar(inventory)
+	check(inventory.place_calls == 1, "the inventory's own hotbar placement is called")
+
+	# Absent members answer the typed zero and are never created.
+	var plain_inventory := Node.new()
+	root.add_child(plain_inventory)
+	check(not GAME.inventory_hud_hidden(plain_inventory), "a plain inventory answers false")
+	GAME.set_inventory_hud_hidden(plain_inventory, true)
+	check(plain_inventory.get("hud_hidden") == null,
+		"a plain inventory is never given the hidden flag")
+	check(GAME.hotbar(plain_inventory) == null, "a plain inventory answers no hotbar")
+	check(not GAME.hotbar_visible(plain_inventory), "a plain node answers not visible")
+	GAME.set_hotbar_visible(plain_inventory, true)
+	check(plain_inventory.get("visible") == null, "a plain node is never given a visible flag")
+	check(GAME.hotbar_hud_layer(plain_inventory) == null, "a plain node answers no HUD layer")
+	GAME.set_hotbar_hud_visible(plain_inventory, true)
+	GAME.inventory_place_hotbar(plain_inventory)
+
+	plain_inventory.queue_free()
+	plain.queue_free()
+	layer.queue_free()
+	bar.queue_free()
+	inventory.queue_free()
+	sink.queue_free()
 
 
 ## The toast line itself: shown at once and hidden when its own duration runs out.

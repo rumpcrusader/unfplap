@@ -5,6 +5,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_input.gd
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
@@ -54,6 +55,10 @@ class FakePanel extends Node:
 
 class FakePlayer extends Node3D:
 	var controls_locked := false
+	var seat: Variant = null
+	var _q_held := false
+	var _space_hold := 0.0
+	var _rest_held := false
 
 
 ## The input service reads the scene through the world facade: a headset eye, a chat box and the
@@ -196,6 +201,8 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	_check_choices()
+	_check_accessors()
+	await _check_seated_guard()
 	await _check_injection()
 	await _check_action()
 	await _check_shield()
@@ -207,6 +214,64 @@ func run() -> void:
 	if failures == 0:
 		print("INPUT_PASS")
 	quit(0 if failures == 0 else 1)
+
+
+## The base-game accessors the seated guard now routes through: the live answer and the absent one.
+func _check_accessors() -> void:
+	var rig := FakePlayer.new()
+	rig._q_held = true
+	rig._space_hold = 1.0
+	rig._rest_held = false
+	root.add_child(rig)
+	check(GAME.q_held(rig), "the rig's Q hold reads true")
+	GAME.set_q_held(rig, false)
+	check(not rig._q_held, "the rig's Q hold is written")
+	GAME.set_space_hold(rig, 0.25)
+	check(is_equal_approx(rig._space_hold, 0.25), "the rig's space hold is written")
+	GAME.set_rest_held(rig, true)
+	check(rig._rest_held, "the rig's rest hold is written")
+
+	check(not GAME.q_held(null), "no rig has no Q hold")
+	GAME.set_space_hold(null, 0.0)
+	GAME.set_rest_held(null, true)
+
+	var plain := Node3D.new()
+	root.add_child(plain)
+	check(not GAME.q_held(plain), "a plain rig answers no Q hold")
+	GAME.set_space_hold(plain, 0.0)
+	GAME.set_rest_held(plain, true)
+	check(not ("_space_hold" in plain), "an absent space hold is never created")
+	check(not ("_rest_held" in plain), "an absent rest hold is never created")
+	plain.queue_free()
+	rig.queue_free()
+
+
+## The seated guard saves and restores the rig's Q hold through the accessors, and the movement
+## hold clears the body's own holds without inventing absent members.
+func _check_seated_guard() -> void:
+	var rig := FakePlayer.new()
+	rig.seat = "chair"
+	rig._q_held = false
+	rig._space_hold = 1.0
+	rig._rest_held = false
+	root.add_child(rig)
+	WORLD.bind_player(rig)
+	var service := INPUT.new()
+	root.add_child(service)
+	service.set_physics_process(false)
+	service.call("_suppress_seated_q")
+	check(rig._q_held, "the guard holds Q on the seated rig")
+	service.call("_restore_seated_q")
+	check(not rig._q_held, "the guard restores the saved Q hold")
+	check(not bool(service.get("_suppress_q")), "the guard clears its ownership")
+	service.call("_hold_movement")
+	check(is_zero_approx(rig._space_hold), "the movement hold clears the space hold")
+	check(rig._rest_held, "the movement hold sets the rest hold")
+	check(rig.has_meta("kiss_hold"), "the movement hold sets the kiss hold")
+	service.queue_free()
+	rig.queue_free()
+	WORLD.unbind()
+	await process_frame
 
 
 ## The pure module labels and validates captured keys.

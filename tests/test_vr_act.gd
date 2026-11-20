@@ -8,6 +8,7 @@ extends SceneTree
 ## KHR simple controller profile binds only select and menu.
 
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 var failures := 0
 var checks := 0
@@ -66,6 +67,28 @@ func check(ok: bool, text: String) -> void:
 		print("FAIL ", text)
 
 
+## The base-game accessors the controller routes through: the live answer and the absent one.
+func _check_accessors() -> void:
+	var bridge := FakeBridge.new()
+	check(GAME.oral_ready(bridge), "a live bridge answers oral ready")
+	bridge.oral_gate = false
+	check(not GAME.oral_ready(bridge), "a closed bridge gate answers not ready")
+	check(not GAME.oral_ready(null), "no bridge is not oral ready")
+	var plain := RefCounted.new()
+	check(not GAME.oral_ready(plain), "a host without the op is not oral ready")
+
+	var sink := FakeBridge.new()
+	var event := GAME.TouchBridge.new()
+	event.run = Callable(sink, "on_touch")
+	GAME.caress(event)
+	check(_count(sink, "touch:caress") == 1, "the caress accessor reaches the touch event")
+	GAME.caress(null)
+	check(_count(sink, "touch:caress") == 1, "no bridge is a quiet no-op")
+	var invalid := GAME.TouchBridge.new()
+	GAME.caress(invalid)
+	check(_count(sink, "touch:caress") == 1, "an invalid callable is a quiet no-op")
+
+
 func _tracker(name: String, hand: int) -> XRPositionalTracker:
 	var tracker := XRPositionalTracker.new()
 	tracker.name = name
@@ -94,6 +117,7 @@ func _count(bridge: FakeBridge, call: String) -> int:
 
 
 func run() -> void:
+	_check_accessors()
 	# The body tracker is the engine method; the old fork's `get_have_tracking_data` never
 	# returns here, so the controller reads `get_has_tracking_data` on every launch.
 	check(ClassDB.class_has_method("XRBodyTracker", "get_has_tracking_data"),

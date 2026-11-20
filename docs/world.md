@@ -214,6 +214,20 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_hold_target(driver, side, frame, kind)` | the rig's `set_hold_target` | — | no call |
 | `GAME.clear_hold_target(driver, side)` | the rig's `clear_hold_target` | — | no call |
 | `GAME.hand_frame(driver, side)` | the rig's `hand_frame` | `Transform3D` | infinite origin |
+| `GAME.show_toast(instance, text, seconds)` | the HUD's `_show_toast` (private) | — | no call |
+| `GAME.inventory_hud_hidden(inventory)` | the inventory's `hud_hidden` | `bool` | `false` |
+| `GAME.set_inventory_hud_hidden(inventory, hidden)` | the inventory's `hud_hidden` | — | no write |
+| `GAME.hotbar(inventory)` | the inventory's `hotbar` | `Node` | `null` |
+| `GAME.hotbar_visible(bar)` | the hotbar's `visible` | `bool` | `false` |
+| `GAME.set_hotbar_visible(bar, visible)` | the hotbar's `visible` | — | no write |
+| `GAME.hotbar_hud_layer(bar)` | the hotbar's `_hud` (private) | `CanvasLayer` | `null` |
+| `GAME.set_hotbar_hud_visible(bar, visible)` | the hotbar's `set_hud_visible` | — | no call |
+| `GAME.inventory_place_hotbar(inventory)` | the inventory's `_place_hotbar` (private) | — | no call |
+| `GAME.q_held(body)` | the rig's `_q_held` | `bool` | `false` |
+| `GAME.set_space_hold(body, seconds)` | the rig's `_space_hold` | — | no write |
+| `GAME.set_rest_held(body, held)` | the rig's `_rest_held` | — | no write |
+| `GAME.oral_ready(bridge)` | the anatomy bridge's `oral_ready` | `bool` | `false` |
+| `GAME.caress(touch)` | the VR touch bridge's `caress` event | — | no call |
 
 Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans`,
 `GAME.refresh_body_lod`, `GAME.mods_state`, `GAME.director_lines` and `GAME.llm_config` allocate;

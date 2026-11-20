@@ -171,6 +171,7 @@ world enter and never repeats inside one world.
 |---|---|---|---|
 | service | settings | `settings/service.gd` | the caption mode and the act-key label |
 | service | world | `world/service.gd` | the world root |
+| service | world | `world/game.gd` | the inventory, hotbar and toast accessors |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
 | shared | log | `shared/log.gd` | log sink |

@@ -3,6 +3,7 @@ extends Node
 ## The fork's auto-speed controls are deliberately not imported.
 
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const HIP_RANGE_M := 0.16
 const STICK_DEAD := 0.5
@@ -19,6 +20,10 @@ var player: Node3D
 var hip_target: Node3D
 var camera: XRCamera3D
 var origin: Node3D
+
+## The touch callable's typed wrapper, rebuilt only when the anatomy host changes it.
+var _touch_bridge: GAME.TouchBridge = null
+var _touch_source := Callable()
 
 var _left: XRController3D
 var _right: XRController3D
@@ -60,9 +65,7 @@ func _physics_process(_delta: float) -> void:
 
 ## The anatomy side of the oral gate, the same one the desktop `N` key reads.
 func _oral_ready() -> bool:
-	if bridge == null:
-		return false
-	return bool(bridge.call("oral_ready")) if bridge.has_method("oral_ready") else false
+	return GAME.oral_ready(bridge)
 
 
 ## integration: her body tracker's hips, or a positional tracker named for the waist.
@@ -106,4 +109,8 @@ func _read_hands() -> void:
 		return
 	var body: Variant = pony.get("touch_body")
 	if body != null and bool(body.get("petting")) and touch.is_valid():
-		touch.call("caress")
+		if touch != _touch_source:
+			_touch_source = touch
+			_touch_bridge = GAME.TouchBridge.new()
+			_touch_bridge.run = touch
+		GAME.caress(_touch_bridge)

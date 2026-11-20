@@ -4,6 +4,7 @@ extends CanvasLayer
 ## key cap or controller icon beside light words with a dark outline, never a drop shadow.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -216,14 +217,14 @@ func caption_tick(act_state: int) -> void:
 static func toast(text: String, seconds := 4.0) -> void:
 	if text.is_empty() or not is_instance_valid(instance):
 		return
-	instance.call("_show_toast", text, seconds)
+	GAME.show_toast(instance, text, seconds)
 
 
 ## integration: the anatomy status line, two seconds unless the caller says otherwise. The act's
 ## own debug logger carries it when there is no HUD to show it.
 static func anatomy_status(text: String, seconds := 2.0) -> void:
 	if is_instance_valid(instance):
-		instance.call("_show_toast", text, seconds)
+		GAME.show_toast(instance, text, seconds)
 	else:
 		LOG.debug(text)
 
@@ -467,7 +468,7 @@ func _caption_top_enabled() -> bool:
 	var settings := get_node_or_null("/root/Settings")
 	if settings == null:
 		return false
-	return str(settings.call("get_value", "access/speech_text")) == "caption"
+	return GAME.setting_string(settings, "access/speech_text") == "caption"
 
 
 ## Move the game's caption card after its own layout pass. The stock caption keeps its text,
@@ -516,7 +517,7 @@ func _dance_mod_active() -> bool:
 	if loop == null or loop.root == null:
 		return false
 	var mods: Node = loop.root.get_node_or_null("Mods")
-	return is_instance_valid(mods) and bool(mods.call("is_active", "dance_mod"))
+	return is_instance_valid(mods) and GAME.mod_active(mods, "dance_mod")
 
 
 ## The auto shape's display label, from the raw generator value in the act view.
@@ -589,33 +590,32 @@ func set_inventory_hidden(hidden: bool) -> void:
 	var inventory: Variant = game.get("inventory")
 	if not is_instance_valid(inventory):
 		return
-	var bar: Variant = inventory.get("hotbar")
+	var bar: Variant = GAME.hotbar(inventory)
 	if hidden:
 		if _inventory_hidden:
 			return
 		_inventory_hidden = true
-		_inventory_hud_saved = bool(inventory.get("hud_hidden"))
-		inventory.set("hud_hidden", true)
+		_inventory_hud_saved = GAME.inventory_hud_hidden(inventory)
+		GAME.set_inventory_hud_hidden(inventory, true)
 		if is_instance_valid(bar):
-			_inventory_hotbar_visible = bool(bar.get("visible"))
-			var layer: Variant = bar.get("_hud")
-			if layer is CanvasLayer:
-				_inventory_hud_layer_visible = bool((layer as CanvasLayer).visible)
-			bar.call("set_hud_visible", false)
-			bar.set("visible", false)
+			_inventory_hotbar_visible = GAME.hotbar_visible(bar)
+			var layer: CanvasLayer = GAME.hotbar_hud_layer(bar)
+			if layer != null:
+				_inventory_hud_layer_visible = layer.visible
+			GAME.set_hotbar_hud_visible(bar, false)
+			GAME.set_hotbar_visible(bar, false)
 		return
 	if not _inventory_hidden:
 		return
-	inventory.set("hud_hidden", _inventory_hud_saved)
+	GAME.set_inventory_hud_hidden(inventory, _inventory_hud_saved)
 	if is_instance_valid(bar):
-		bar.set("visible", _inventory_hotbar_visible)
-		var layer: Variant = bar.get("_hud")
-		if layer is CanvasLayer:
-			(layer as CanvasLayer).visible = _inventory_hud_layer_visible
+		GAME.set_hotbar_visible(bar, _inventory_hotbar_visible)
+		var layer: CanvasLayer = GAME.hotbar_hud_layer(bar)
+		if layer != null:
+			layer.visible = _inventory_hud_layer_visible
 	# Let the inventory re-evaluate its own HUD state after restoring `hud_hidden`: a stale saved
 	# layer flag from a bed/menu start must not keep the quick slots hidden.
-	if inventory.has_method("_place_hotbar"):
-		inventory.call("_place_hotbar")
+	GAME.inventory_place_hotbar(inventory)
 	_inventory_hidden = false
 	LOG.debug("inventory HUD restored hud_hidden=%s hotbar=%s layer=%s", [
 		str(_inventory_hud_saved), str(_inventory_hotbar_visible),

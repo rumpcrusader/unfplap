@@ -4,6 +4,7 @@ extends Node
 ## game's own stand_up poll from force-standing a seated player.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -217,8 +218,8 @@ func _suppress_seated_q() -> void:
 	if body.get("seat") != null:
 		if not _suppress_q:
 			_suppress_q = true
-			_old_q = bool(body.get("_q_held"))
-		body.set("_q_held", true)
+			_old_q = GAME.q_held(body)
+		GAME.set_q_held(body, true)
 
 
 func _restore_seated_q() -> void:
@@ -226,7 +227,7 @@ func _restore_seated_q() -> void:
 		return
 	var body: Variant = WORLD.player
 	if is_instance_valid(body):
-		body.set("_q_held", _old_q)
+		GAME.set_q_held(body, _old_q)
 	_suppress_q = false
 
 
@@ -238,10 +239,8 @@ func _hold_movement() -> void:
 	if not body.has_meta("kiss_hold"):
 		body.set_meta("kiss_hold", true)
 	Input.action_release("move_jump")
-	if "_space_hold" in body:
-		body.set("_space_hold", 0.0)
-	if "_rest_held" in body:
-		body.set("_rest_held", true)
+	GAME.set_space_hold(body, 0.0)
+	GAME.set_rest_held(body, true)
 
 
 func _input(event: InputEvent) -> void:

@@ -32,14 +32,6 @@
       "count": 6
     },
     {
-      "file": "hud/service.gd",
-      "count": 10
-    },
-    {
-      "file": "input/service.gd",
-      "count": 4
-    },
-    {
       "file": "integrations/changelings.gd",
       "count": 8
     },
@@ -121,10 +113,6 @@
     },
     {
       "file": "shared/act_history.gd",
-      "count": 2
-    },
-    {
-      "file": "vr/service.gd",
       "count": 2
     }
   ]

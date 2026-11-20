@@ -194,6 +194,7 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 | shared | log | `shared/log.gd` | log sink |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 | service | ponies | `ponies/service.gd` | the live act's runtime |
+| service | world | `world/game.gd` | the seated player's Q, space and rest holds |
 
 ## Tests
 

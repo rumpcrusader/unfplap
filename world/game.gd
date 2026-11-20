@@ -1787,6 +1787,113 @@ static func hand_frame(driver: Node, side: String) -> Transform3D:
 	return Transform3D(Basis.IDENTITY, Vector3.INF)
 
 
+## Show one short line in the HUD's toast corner; a node without the sink is left alone.
+static func show_toast(instance: Node, text: String, seconds: float) -> void:
+	if not is_instance_valid(instance) or not instance.has_method("_show_toast"):
+		return
+	instance.call("_show_toast", text, seconds)
+
+
+## The inventory's quick-slot HUD flag; false without the member.
+static func inventory_hud_hidden(inventory: Object) -> bool:
+	if not is_instance_valid(inventory):
+		return false
+	return inventory.get("hud_hidden") == true
+
+
+## Hide or restore the inventory's quick-slot HUD; a node without the member is left alone.
+static func set_inventory_hud_hidden(inventory: Object, hidden: bool) -> void:
+	if is_instance_valid(inventory) and inventory.get("hud_hidden") != null:
+		inventory.set("hud_hidden", hidden)
+
+
+## The inventory's quick-slot bar; null when the inventory has none.
+static func hotbar(inventory: Object) -> Node:
+	if not is_instance_valid(inventory):
+		return null
+	var bar: Variant = inventory.get("hotbar")
+	if bar is Node and is_instance_valid(bar):
+		return bar
+	return null
+
+
+## Whether the quick-slot bar is on screen; false without the member.
+static func hotbar_visible(bar: Node) -> bool:
+	if not is_instance_valid(bar):
+		return false
+	return bar.get("visible") == true
+
+
+## Show or hide the quick-slot bar; a bar without the member is left alone.
+static func set_hotbar_visible(bar: Node, visible: bool) -> void:
+	if is_instance_valid(bar) and bar.get("visible") != null:
+		bar.set("visible", visible)
+
+
+## The CanvasLayer the quick-slot bar draws on; null when the bar has none.
+static func hotbar_hud_layer(bar: Node) -> CanvasLayer:
+	if not is_instance_valid(bar):
+		return null
+	var layer: Variant = bar.get("_hud")
+	if layer is CanvasLayer and is_instance_valid(layer):
+		return layer
+	return null
+
+
+## Show or hide the quick-slot bar's own HUD layer; a bar without the op is left alone.
+static func set_hotbar_hud_visible(bar: Node, visible: bool) -> void:
+	if is_instance_valid(bar) and bar.has_method("set_hud_visible"):
+		bar.call("set_hud_visible", visible)
+
+
+## Re-place the inventory's quick slots after its HUD flag changes; nothing without the op.
+static func inventory_place_hotbar(inventory: Object) -> void:
+	if is_instance_valid(inventory) and inventory.has_method("_place_hotbar"):
+		inventory.call("_place_hotbar")
+
+
+## The seated player's Q hold; false when the rig has no such member.
+static func q_held(body: Node3D) -> bool:
+	if not is_instance_valid(body):
+		return false
+	return body.get("_q_held") == true
+
+
+## Clear the seated player's own space hold; a body without the member is left alone.
+static func set_space_hold(body: Node3D, seconds: float) -> void:
+	if is_instance_valid(body) and "_space_hold" in body:
+		body.set("_space_hold", seconds)
+
+
+## Set the seated player's rest hold; a body without the member is left alone.
+static func set_rest_held(body: Node3D, held: bool) -> void:
+	if is_instance_valid(body) and "_rest_held" in body:
+		body.set("_rest_held", held)
+
+
+## Whether the anatomy bridge's oral gate is open; false without a bridge or its op.
+static func oral_ready(bridge: Object) -> bool:
+	if not is_instance_valid(bridge) or not bridge.has_method("oral_ready"):
+		return false
+	return bool(bridge.call("oral_ready"))
+
+
+## One host callable for the VR touch bridge; the typed wrapper keeps the accessor strong.
+class TouchBridge:
+	var run := Callable()
+
+	## Fire the bridge's `caress` event; an invalid callable stays silent.
+	func caress() -> void:
+		if run.is_valid():
+			run.call("caress")
+
+
+## Fire the touch host's caress event; an absent host is left alone.
+static func caress(touch: TouchBridge) -> void:
+	if touch != null:
+		touch.caress()
+
+
 ## One stored story line as a typed row; `raw` is the game's own row for its text reader.
 class StoryRow:
 	var id := ""

@@ -371,7 +371,7 @@ func report_all() -> String:
 		if source == "override":
 			exceptions += 1
 	if not lines.is_empty():
-		var base := SETTINGS.anatomy_placement_draft_values()
+		var base := SETTINGS.anatomy_placement_default("")
 		LOG.debug("tail seats default %s\n\t%s", [ANATOMY_PLACEMENT.text(base.raw()),
 			"\n\t".join(lines)])
 	return "tail seats: %d live, %d exceptions (see log)" % [count, exceptions]

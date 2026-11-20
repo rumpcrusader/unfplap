@@ -112,7 +112,7 @@ func run() -> void:
 	check(near(meta_place.base_place().origin.x, 0.321),
 		"anatomy placement uses the relationship id")
 	SETTINGS.save_anatomy_placement("relationship_id",
-		SETTINGS.anatomy_placement_default("relationship_id", false))
+		SETTINGS.anatomy_placement_default("relationship_id"))
 	meta_mesh.free()
 
 	var default_place := SETTINGS.anatomy_placement_default("").raw()
@@ -134,7 +134,7 @@ func run() -> void:
 	check(near(float(SETTINGS.anatomy_placement(placed_id).raw()["tail_y"]), 0.11),
 		"the player placement survives the provider leaving")
 	SETTINGS.save_anatomy_placement(placed_id,
-		SETTINGS.anatomy_placement_default(placed_id, false))
+		SETTINGS.anatomy_placement_default(placed_id))
 	check(not SETTINGS.anatomy_placement_has_override(placed_id),
 		"clearing the player placement returns to the global default")
 
@@ -161,7 +161,7 @@ func run() -> void:
 		== SETTINGS.anatomy_placement("fluttershy").raw(),
 		"another mare's fit stays unchanged by the override")
 	SETTINGS.save_anatomy_placement(fit_owner,
-		SETTINGS.anatomy_placement_default(fit_owner, false, fit_owner), fit_owner)
+		SETTINGS.anatomy_placement_default(fit_owner, fit_owner), fit_owner)
 	check(not SETTINGS.anatomy_placement_has_override(fit_owner, fit_owner),
 		"clearing the fit override returns to the provider placement")
 	MARE_REGISTRY.unregister(3, fit_owner)
@@ -334,6 +334,20 @@ func run() -> void:
 		"the editor resolves the pointed mare")
 	check(service.call("placement_debug", "text").begins_with("editor_mare"),
 		"the facade delegates the placement text")
+
+	# The Default target applies on the action itself and Reset restores the shipped block, so the
+	# editor has no save step left.
+	SETTINGS.edit_target.set_choice("default")
+	var shipped_y := float(SETTINGS.offset_y.default)
+	check(str(service.call("placement_debug", "y", 0.01)).begins_with("default"),
+		"the editor nudges the global default")
+	check(near(float(SETTINGS.anatomy_placement_default("").raw()["offset_y"]),
+		shipped_y + 0.01), "a default nudge is applied without a save action")
+	check(str(service.call("placement_debug", "save")) == "Unknown placement action.",
+		"the editor has no save action")
+	service.call("placement_debug", "reset")
+	check(near(float(SETTINGS.anatomy_placement_default("").raw()["offset_y"]), shipped_y),
+		"reset restores the shipped default placement")
 	SETTINGS.edit_target.set_choice(target_before)
 	service.call("shutdown")
 	root.remove_child(service)

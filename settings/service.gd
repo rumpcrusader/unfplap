@@ -448,48 +448,31 @@ static func act_snapshot(pose_id: String) -> ActSnapshot:
 
 
 # ---------------------------------------------------------------- anatomy placement
-## The ten keys of one placement block, complete and validated.
-static func _declared_placement_defaults() -> Dictionary:
+## The ten declared default-placement settings, keyed by block key.
+static func _placement_default_settings() -> Dictionary:
 	return {
-		"offset_x": float(offset_x.default),
-		"offset_y": float(offset_y.default),
-		"offset_z": float(offset_z.default),
-		"pitch_deg": float(pitch_deg.default),
-		"scale": float(scale.default),
-		"tail_y": float(tail_y.default),
-		"tail_z": float(tail_z.default),
-		"dock_y": float(dock_y.default),
-		"dock_scale": float(dock_scale.default),
-		"tail_tilt_deg": float(tail_tilt_deg.default),
+		"offset_x": offset_x, "offset_y": offset_y, "offset_z": offset_z,
+		"pitch_deg": pitch_deg, "scale": scale,
+		"tail_y": tail_y, "tail_z": tail_z,
+		"dock_y": dock_y, "dock_scale": dock_scale, "tail_tilt_deg": tail_tilt_deg,
 	}
 
 
-static func _placement_default_values() -> Dictionary:
-	var declared := _declared_placement_defaults()
-	if not _placement_draft.is_empty():
-		return PLACEMENT.sanitize(_placement_draft, declared)
-	return PLACEMENT.sanitize({
-		"offset_x": offset_x.get_num(),
-		"offset_y": offset_y.get_num(),
-		"offset_z": offset_z.get_num(),
-		"pitch_deg": pitch_deg.get_num(),
-		"scale": scale.get_num(),
-		"tail_y": tail_y.get_num(),
-		"tail_z": tail_z.get_num(),
-		"dock_y": dock_y.get_num(),
-		"dock_scale": dock_scale.get_num(),
-		"tail_tilt_deg": tail_tilt_deg.get_num(),
-	}, declared)
+## The ten keys of one placement block, complete and validated.
+static func _declared_placement_defaults() -> Dictionary:
+	var out := {}
+	var settings := _placement_default_settings()
+	for key: String in settings:
+		var s: Setting = settings[key]
+		out[key] = float(s.default)
+	return out
 
 
 ## The placement a mare gets from the global default and the shipped per-mare table, before any
 ## player override; `fit_id` picks the body-fit row, and an empty value falls back to `id`.
-static func anatomy_placement_default(id: String, use_draft: bool = true,
-		fit_id: String = "") -> ROWS.Rows:
+static func anatomy_placement_default(id: String, fit_id: String = "") -> ROWS.Rows:
 	var key := fit_id if not fit_id.is_empty() else id
 	var base := _persisted_placement_default_values()
-	if use_draft:
-		base = _placement_default_values()
 	var shipped: Variant = DEFAULTS.catalog_block("anatomy.placement." + key)
 	var placed := PLACEMENT.merge(base, shipped)
 	var provided := MARE_REGISTRY.placement(key)
@@ -499,25 +482,18 @@ static func anatomy_placement_default(id: String, use_draft: bool = true,
 
 
 static func _persisted_placement_default_values() -> Dictionary:
-	var declared := _declared_placement_defaults()
-	return PLACEMENT.sanitize({
-		"offset_x": offset_x.get_num(),
-		"offset_y": offset_y.get_num(),
-		"offset_z": offset_z.get_num(),
-		"pitch_deg": pitch_deg.get_num(),
-		"scale": scale.get_num(),
-		"tail_y": tail_y.get_num(),
-		"tail_z": tail_z.get_num(),
-		"dock_y": dock_y.get_num(),
-		"dock_scale": dock_scale.get_num(),
-		"tail_tilt_deg": tail_tilt_deg.get_num(),
-	}, declared)
+	var raw := {}
+	var settings := _placement_default_settings()
+	for key: String in settings:
+		var s: NumSetting = settings[key]
+		raw[key] = s.get_num()
+	return PLACEMENT.sanitize(raw, _declared_placement_defaults())
 
 
 ## The placement a mare actually uses: her player override, then the shipped per-mare default, then
 ## the global default. The override is keyed by her stable id, so a changed body keeps her edit.
 static func anatomy_placement(id: String, fit_id: String = "") -> ROWS.Rows:
-	var base := anatomy_placement_default(id, true, fit_id).raw()
+	var base := anatomy_placement_default(id, fit_id).raw()
 	var data := _read()
 	var anatomy: Variant = data.get("anatomy", {})
 	if not anatomy is Dictionary:
@@ -540,7 +516,7 @@ static func anatomy_placement_has_override(id: String, fit_id: String = "") -> b
 	var over: Variant = (placement as Dictionary).get(id, {})
 	if not over is Dictionary or (over as Dictionary).is_empty():
 		return false
-	var base := anatomy_placement_default(id, false, fit_id).raw()
+	var base := anatomy_placement_default(id, fit_id).raw()
 	return not PLACEMENT.same(PLACEMENT.merge(base, over), base)
 
 
@@ -566,7 +542,7 @@ static func save_anatomy_placement(id: String, values: ROWS.Rows,
 		fit_id: String = "") -> void:
 	if id.is_empty() or id == "default" or id == "anon":
 		return
-	var base := anatomy_placement_default(id, false, fit_id).raw()
+	var base := anatomy_placement_default(id, fit_id).raw()
 	var current := PLACEMENT.sanitize(values.raw(), base)
 	var over := PLACEMENT.diff(current, base)
 	var data := _draft()
@@ -589,47 +565,25 @@ static func save_anatomy_placement(id: String, values: ROWS.Rows,
 	_write(data)
 
 
-## Persist the unsaved default preview.
+## Persist the global default from one placement action.
 static func save_anatomy_placement_default(values: ROWS.Rows) -> void:
+	var settings := _placement_default_settings()
 	var current := PLACEMENT.sanitize(values.raw(), _declared_placement_defaults())
-	_placement_draft = {}
-	offset_x.set_num(float(current["offset_x"]))
-	offset_y.set_num(float(current["offset_y"]))
-	offset_z.set_num(float(current["offset_z"]))
-	pitch_deg.set_num(float(current["pitch_deg"]))
-	scale.set_num(maxf(0.05, float(current["scale"])))
-	tail_y.set_num(float(current["tail_y"]))
-	tail_z.set_num(float(current["tail_z"]))
-	dock_y.set_num(float(current["dock_y"]))
-	dock_scale.set_num(maxf(0.05, float(current["dock_scale"])))
-	tail_tilt_deg.set_num(float(current["tail_tilt_deg"]))
-	placement_revision += 1
+	var data := _draft()
+	for key: String in settings:
+		var s: Setting = settings[key]
+		_write_path(data, s.path, _sanitize(s, current[key]))
+	_write(data)
 
 
-## Preview the shipped placement defaults without saving them.
+## Restore the shipped placement defaults.
 static func reset_anatomy_placement_default() -> void:
-	_placement_draft = _declared_placement_defaults()
-	placement_revision += 1
-
-
-static func set_anatomy_placement_draft(values: ROWS.Rows) -> void:
-	_placement_draft = PLACEMENT.sanitize(values.raw(), _declared_placement_defaults())
-	placement_revision += 1
-
-
-static func clear_anatomy_placement_draft() -> void:
-	if _placement_draft.is_empty():
-		return
-	_placement_draft = {}
-	placement_revision += 1
-
-
-static func has_anatomy_placement_draft() -> bool:
-	return not _placement_draft.is_empty()
-
-
-static func anatomy_placement_draft_values() -> ROWS.Rows:
-	return ROWS.Rows.of(_placement_default_values())
+	var settings := _placement_default_settings()
+	var data := _draft()
+	for key: String in settings:
+		var s: Setting = settings[key]
+		_write_path(data, s.path, s.default)
+	_write(data)
 
 
 ## Settings in one tab, in declaration order.
@@ -1341,34 +1295,34 @@ static var edit_target := choice("edit_target", "anatomy.placement_target",
 	ANATOMY, "Placement").as_debug().as_hidden()
 static var offset_x := num("offset_x", "anatomy.placement.default.offset_x",
 	"Default X", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug().as_hidden()
 static var offset_y := num("offset_y", "anatomy.placement.default.offset_y",
 	"Default Y", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug().as_hidden()
 static var offset_z := num("offset_z", "anatomy.placement.default.offset_z",
 	"Default Z", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug().as_hidden()
 static var pitch_deg := num("pitch_deg", "anatomy.placement.default.pitch_deg",
 	"Default pitch", "Pitch of the anatomy mesh when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("°").with_step(1.0).as_debug()
+	.with_unit("°").with_step(1.0).as_debug().as_hidden()
 static var scale := num("scale", "anatomy.placement.default.scale",
 	"Default scale", "Scale of the anatomy mesh when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("×").with_step(0.01).as_debug()
+	.with_unit("×").with_step(0.01).as_debug().as_hidden()
 static var tail_y := num("tail_y", "anatomy.placement.default.tail_y",
 	"Default tail Y", "Vertical tail-seat offset when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug()
+	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug().as_hidden()
 static var tail_z := num("tail_z", "anatomy.placement.default.tail_z",
 	"Default tail Z", "Forward/back tail-seat offset when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug()
+	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug().as_hidden()
 static var dock_y := num("dock_y", "anatomy.placement.default.dock_y",
 	"Default dock Y", "Dock distance trim when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug()
+	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug().as_hidden()
 static var dock_scale := num("dock_scale", "anatomy.placement.default.dock_scale",
 	"Default dock scale", "Dock scale when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("×").with_step(0.01).as_debug()
+	.with_unit("×").with_step(0.01).as_debug().as_hidden()
 static var tail_tilt_deg := num("tail_tilt_deg", "anatomy.placement.default.tail_tilt_deg",
 	"Default tail tilt", "Side tilt of the tail seat when a mare has no override.", ANATOMY, "Placement") \
-	.with_unit("°").with_step(1.0).as_debug()
+	.with_unit("°").with_step(1.0).as_debug().as_hidden()
 static var anon_offset_x := num("anon_offset_x", "anatomy.placement.anon.offset_x",
 	"Anon X", "Model-space placement of the player part.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
@@ -2623,8 +2577,6 @@ static var placement_revision := 0
 ## when a provider registers or leaves.
 static func bump_placement_revision() -> void:
 	placement_revision += 1
-## Unsaved global-default preview from the Placement actions. Session-only by design.
-static var _placement_draft: Dictionary = {}
 
 
 ## Parse, migrate, merge and write the player file once per process, so the hot read path never

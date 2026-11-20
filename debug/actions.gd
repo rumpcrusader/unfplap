@@ -818,10 +818,6 @@ func action_tail_tilt_right() -> String:
 	return _placement_debug("tail_tilt_right", 1.0)
 
 
-func action_placement_save() -> String:
-	return _placement_debug("save")
-
-
 func action_placement_reset() -> String:
 	return _placement_debug("reset")
 

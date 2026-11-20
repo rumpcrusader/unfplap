@@ -297,7 +297,7 @@ func run() -> void:
 	adapter.call("apply_tail_placement", own)
 	check(near(wrapper.position.y, 0.05), "re-seat on applies the saved keys")
 	SETTINGS.save_anatomy_placement("chrysalis",
-		SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis"), "chrysalis")
+		SETTINGS.anatomy_placement_default("chrysalis", "chrysalis"), "chrysalis")
 	adapter.call("apply_tail_placement", own)
 	check(near(wrapper.position.y, 0.04), "reset returns her tail to the baked default")
 	SETTINGS.reseat_tails.set_bool(reseat_before)
@@ -427,7 +427,7 @@ func run() -> void:
 		"chrysalis custom tail offset=(0.000,0.030,0.000)"),
 		"the service forwards the tail report")
 	SETTINGS.save_anatomy_placement("chrysalis",
-		SETTINGS.anatomy_placement_default("chrysalis", false, "chrysalis"), "chrysalis")
+		SETTINGS.anatomy_placement_default("chrysalis", "chrysalis"), "chrysalis")
 	body_change.call("apply_tail_placement", own)
 
 	# A true-form change: the old body is captured, the new own body is claimed, and completion

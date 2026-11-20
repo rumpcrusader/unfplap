@@ -584,17 +584,20 @@ func _check_placement() -> void:
 	var base := SETTINGS.anatomy_placement_default("").raw()
 	for key: String in SETTINGS.PLACEMENT.KEYS:
 		check(base.has(key), "the placement default carries %s" % key)
-	var draft := base.duplicate(true)
-	draft["offset_y"] = float(base["offset_y"]) + 0.1
-	draft["scale"] = float(base["scale"]) + 0.1
-	SETTINGS.set_anatomy_placement_draft(ROWS.Rows.of(draft))
-	check(near(float(SETTINGS.anatomy_placement_default("").raw()["offset_y"]),
-		float(draft["offset_y"])), "the default draft previews")
-	check(near(float(SETTINGS.anatomy_placement_default("", false).raw()["offset_y"]),
-		float(base["offset_y"])), "the persisted default stays while previewing")
-	SETTINGS.clear_anatomy_placement_draft()
-	check(near(float(SETTINGS.anatomy_placement_default("").raw()["offset_y"]),
-		float(base["offset_y"])), "clearing the draft restores the default")
+	var nudged := base.duplicate(true)
+	nudged["offset_y"] = float(base["offset_y"]) + 0.1
+	nudged["scale"] = float(base["scale"]) + 0.1
+	SETTINGS.save_anatomy_placement_default(ROWS.Rows.of(nudged))
+	var applied := SETTINGS.anatomy_placement_default("").raw()
+	check(near(float(applied["offset_y"]), float(nudged["offset_y"])),
+		"a placement action applies the default immediately")
+	check(near(float(applied["scale"]), float(nudged["scale"])),
+		"a placement action applies the whole default block")
+	SETTINGS.reset_anatomy_placement_default()
+	var restored := SETTINGS.anatomy_placement_default("").raw()
+	check(near(float(restored["offset_y"]), float(base["offset_y"]))
+		and near(float(restored["scale"]), float(base["scale"])),
+		"reset restores the shipped default placement")
 
 	var anon := SETTINGS.anon_placement().raw()
 	for key: String in ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale"]:
@@ -629,7 +632,7 @@ func _check_tail_seat() -> void:
 	check(near(float(SETTINGS.anatomy_placement("maud_pie").raw()["tail_y"]),
 		float(maud_before["tail_y"])), "tail placement overrides are per mare")
 	SETTINGS.save_anatomy_placement("octavia_melody",
-		SETTINGS.anatomy_placement_default("octavia_melody", false))
+		SETTINGS.anatomy_placement_default("octavia_melody"))
 	check(not SETTINGS.anatomy_placement_has_override("octavia_melody"),
 		"returning to the default removes the override")
 	var data := SETTINGS.data().raw()
@@ -645,10 +648,10 @@ func _check_placement_migration() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
 	var mare_path := folder.path_join("anatomy_place.json")
 	var anon_path := folder.path_join("anon_place.json")
-	var fluttershy := SETTINGS.anatomy_placement_default("fluttershy", false).raw()
+	var fluttershy := SETTINGS.anatomy_placement_default("fluttershy").raw()
 	fluttershy["offset_y"] = float(fluttershy["offset_y"]) + 0.005
-	var applejack := SETTINGS.anatomy_placement_default("applejack", false).raw()
-	var dash := SETTINGS.anatomy_placement_default("rainbow_dash", false).raw()
+	var applejack := SETTINGS.anatomy_placement_default("applejack").raw()
+	var dash := SETTINGS.anatomy_placement_default("rainbow_dash").raw()
 	dash["pitch_deg"] = float(dash["pitch_deg"]) + 3.0
 	var mare := FileAccess.open(mare_path, FileAccess.WRITE)
 	mare.store_string(JSON.stringify({"version": SETTINGS.PLACEMENT.LEGACY_VERSION,
@@ -680,7 +683,7 @@ func _check_placement_migration() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(mare_path + ".migrated"))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(anon_path + ".migrated"))
 	# A current schema still imports a legacy file that appears after the bump.
-	var late_values := SETTINGS.anatomy_placement_default("rarity", false).raw()
+	var late_values := SETTINGS.anatomy_placement_default("rarity").raw()
 	late_values["pitch_deg"] = float(late_values["pitch_deg"]) + 3.0
 	var late := FileAccess.open(mare_path, FileAccess.WRITE)
 	late.store_string(JSON.stringify({"version": SETTINGS.PLACEMENT.LEGACY_VERSION,
@@ -1507,7 +1510,7 @@ func _check_provider_precedence() -> void:
 	SETTINGS.MARE_REGISTRY.unregister(1, id)
 	check(near(float(SETTINGS.anatomy_placement(id).raw().get("tail_y", 0.0)), 0.11),
 		"the player placement survives the provider leaving")
-	SETTINGS.save_anatomy_placement(id, SETTINGS.anatomy_placement_default(id, false))
+	SETTINGS.save_anatomy_placement(id, SETTINGS.anatomy_placement_default(id))
 	check(not SETTINGS.anatomy_placement_has_override(id),
 		"removing the player placement returns to the global default")
 	var restored := SETTINGS.profile_for(base, characters, id)

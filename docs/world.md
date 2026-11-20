@@ -76,6 +76,17 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_controls_locked(player, locked)` | the rig's `controls_locked` | — | no write |
 | `GAME.menu_panel(game, key)` | `save_menu`, `settings_menu`, `pause_menu` | `Node` | `null` |
 | `GAME.inventory(game)` | `inventory` | `Node` | `null` |
+| `GAME.case_store(inventory)` | the inventory's `inventory` briefcase store | `Object` | `null` |
+| `GAME.case_slots(store)` | the store's `slots`, one row per slot | `Array[Dictionary]`, a copy | empty |
+| `GAME.case_loans(store)` | the store's `loans` | `Array[Dictionary]`, a copy | empty |
+| `GAME.case_writable(store)` | the store's `writable` | `bool` | `false` |
+| `GAME.case_available(store, slot)` | the store's `available` | `int` | `-1` |
+| `GAME.case_take(store, slot)` | the store's `take` | `String` | empty |
+| `GAME.case_put(store, token, slot)` | the store's `put` | `bool` | `false` |
+| `GAME.case_grant(store, id, count)` | the store's `grant` | `int` | `-1` |
+| `GAME.shop_item_scene(id)` | `shop_items.scene` | `PackedScene` | `null` |
+| `GAME.house_of(node)` | a `house_interior.gd` node | `HOUSE` | `null` |
+| `GAME.spawn_owned_drop(inventory, id, pose)` | the inventory's `spawn_owned_drop` | `Node` | `null` |
 | `GAME.map_open(inventory)` | `_map_open` (private) | `bool` | `false` |
 | `GAME.case_visible(inventory)` | `case.visible` | `bool` | `false` |
 | `GAME.customizer_opened(inventory)` | `customizer.opened` | `bool` | `false` |
@@ -144,11 +155,12 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.couch_finish_guest(node)` | a couch's `_finish_guest` (private) | — | no call |
 | `GAME.couch_release_pony(node, id)` | a couch's `_release_pony` (private) | — | no call |
 
-Only `GAME.mares`, `GAME.couch_seats` and `GAME.refresh_body_lod` allocate, and all are
-scan-cadence calls; the per-frame accessors copy nothing. `GAME` writes the rig's control hold,
-its eye line and its look pitch, the chat lock, her navigator's face point, conversation aim,
-owner and wander, her face-turn rate, the carry flags, the seated Q hold, a body's velocity, and
-her gaze and pupils.
+Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans` and
+`GAME.refresh_body_lod` allocate, and all are scan-cadence calls; the per-frame accessors copy
+nothing. `GAME` writes the rig's control hold, its eye line and its look pitch, the chat lock, her
+navigator's face point, conversation aim, owner and wander, her face-turn rate, the carry flags,
+the seated Q hold, a body's velocity, her gaze and pupils, and the briefcase's slot writes and
+world drops.
 
 ## Internal API
 

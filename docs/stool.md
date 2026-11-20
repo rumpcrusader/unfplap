@@ -26,15 +26,16 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 | `stool/service.gd` | facade: the only other systems preload or call; owns the supply child, `new_act()` and the stateless helpers |
 | `stool/act.gd` | per-act handle: the live rule, case loans, placed stack, player lift, failed flag and the hotkey pair (`hotkey_pair`, `hint_pair`); the runtime owns one per pony, resets it per act and forwards its queries one line each |
 | `stool/measure.gd` | pure reach-gap, threshold and stack-count arithmetic |
-| `stool/item.gd` | pure `goods:footstool` case-slot, case-count, owned-count and free-slot checks |
+| `stool/item.gd` | static `goods:footstool` case-slot, case-count, owned-count and free-slot checks through the base-game accessors |
 | `stool/prop.gd` | scene adapter: builds the stacked static act stool and its pony collision exception |
 | `stool/supply.gd` | scene adapter: finds loaded homes and spawns pickable footstool drops |
 | `docs/stool.md` | this contract |
 | `tests/stool/` | pure measurement/item tests, prop/stack tests and the facade API test |
 
 The facade is the only non-test file outside `stool/` that may preload `stool/*`. `runtime.gd`
-reads it from `STOOL.instance`; the entry's service list creates it. `stool/measure.gd` and `stool/item.gd` stay pure:
-no `Node`, tree, time, file or game-scene access.
+reads it from `STOOL.instance`; the entry's service list creates it. `stool/measure.gd` stays pure:
+no `Node`, tree, time, file or game-scene access. `stool/item.gd` reads the case through the
+`world/game.gd` accessors and owns no scene state.
 
 ## Internal API
 
@@ -51,9 +52,9 @@ case_count(store) -> int
 owned_count(store) -> int
 free_slots(store) -> int
 writable(store) -> bool
-build_prop(host, at, yaw, count, step_height, ignore) -> Dictionary
+build_prop(host, at, yaw, count, step_height, ignore) -> PROP.Stack
 free_prop(prop)
-new_act() -> RefCounted
+new_act() -> ACT
 floor_y_at(at, body) -> float
 ```
 
@@ -89,7 +90,8 @@ owns the hotkey pair: `hotkey_pair(pose)` reads the reach and case counts once a
 each; `applies()` and `required()` stay on the handle. The handle owns the rule, the case reads
 and the failed flag.
 
-`build_prop()` returns `{"node": StaticBody3D, "height": float, "count": int, "step": float}`.
+`build_prop()` returns a `PROP.Stack` record: its `node`, the height it adds, its stool count and
+the step it used.
 `ignore` is the partner pony; the stack must not collide with her.
 
 `runtime.gd` supplies the scene values, calls the handle and composes the gate; it does not read

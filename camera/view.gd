@@ -400,7 +400,7 @@ func _drive_glance(delta: float) -> void:
 	# begin before the pose session builds, so wait for the config instead of indexing an empty one.
 	if _pose_cfg.is_empty():
 		return
-	var secondary: Node = pony.get("secondary")
+	var secondary: Object = pony.get("secondary")
 	if not str(facts.forced_glance).is_empty():
 		_glance_sign_set = true
 		_glance_sign = 1.0 if str(facts.forced_glance) == "L" else -1.0

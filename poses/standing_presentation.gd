@@ -494,7 +494,7 @@ func _presentation_process() -> void:
 		_present_pose.head_back = 0.0
 	if _present_glance_back and facts.clock() >= _present_glance_until:
 		_present_glance_back = false
-	var secondary: Node = pony.get("secondary")
+	var secondary: Object = pony.get("secondary")
 	GAME.look_toward(secondary, _present_glance_angles(), 0.45)
 	_present_aim_eyes()
 	_sustain_present_blush()

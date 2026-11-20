@@ -4,6 +4,7 @@ extends RefCounted
 ## reconsiders on. It reads the scene at the poll cadence and owns no offer.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
@@ -272,7 +273,7 @@ func _scene_hash(pony: Node3D, player_value: int) -> int:
 		if target is Object and is_instance_valid(target) else 0)
 	var hoof: Variant = pony.get("hoof_hold")
 	value = _mix(value, 1 if hoof is Object and is_instance_valid(hoof) \
-		and hoof.get("active") == true else 0)
+		and GAME.hoof_active(hoof as Object) else 0)
 	var affection: Node = pony.get_node_or_null("Affection")
 	value = _mix(value, hash(str(affection.get("kind"))) if affection != null else 0)
 	value = _mix(value, 1 if _cuddle_active(pony) else 0)

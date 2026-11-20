@@ -1631,7 +1631,7 @@ static func couch_release_pony(node: Node3D, id: int) -> void:
 
 
 ## Turn her secondary gaze toward `angles`; false when the body has no gaze controller.
-static func look_toward(secondary: Node, angles: Vector3, weight: float) -> bool:
+static func look_toward(secondary: Object, angles: Vector3, weight: float) -> bool:
 	if not is_instance_valid(secondary) or not secondary.has_method("look_toward"):
 		return false
 	secondary.call("look_toward", angles, weight)

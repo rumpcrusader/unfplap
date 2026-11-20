@@ -10,12 +10,20 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 
 
 
+class FakeHoof extends RefCounted:
+	var active_state := false
+
+	func active() -> bool:
+		return active_state
+
+
 class FakeMare extends Node3D:
 	var requested := "stand"
 	var settled := true
 	var sleeping := false
 	var held := false
 	var speed := 0.0
+	var hoof_hold: Variant = null
 
 	func posture_status() -> Dictionary:
 		return {"requested": requested, "settled": settled}
@@ -125,6 +133,12 @@ func _check_fingerprint_and_far_mare() -> void:
 	check(not sensor.update(0.2, eye, forward, false), "a quiet poll is silent")
 	mare.held = true
 	check(sensor.update(0.2, eye, forward, false), "a held candidate reports a transition")
+	var hoof := FakeHoof.new()
+	mare.hoof_hold = hoof
+	sensor.update(0.2, eye, forward, false)
+	hoof.active_state = true
+	check(sensor.update(0.2, eye, forward, false),
+		"an active hoof hold reports a transition")
 	far.held = true
 	check(not sensor.update(0.2, eye, forward, false), "a far mare's change is silent")
 	_free(made, sensor)

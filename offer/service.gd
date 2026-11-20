@@ -85,7 +85,7 @@ func bind(negotiation_node: NEGOTIATION, privacy_node: PRIVACY, hud_node: Node) 
 	hud = hud_node
 
 
-## One idle frame: read the fan, sync the prompt row, then run the Agreement clock.
+## One idle frame: tick the fan sensor, sync the prompt row, then run the Agreement clock.
 ## The act key's immediate read is `reconsider()` after a forced sense.
 func tick(delta: float) -> void:
 	PERF.begin("offer_sensor")
@@ -99,7 +99,7 @@ func tick(delta: float) -> void:
 	_tick_agreement_auto_start(delta)
 
 
-## One sensor read; true when a transition needs a fresh evaluation.
+## Tick the sensor; true when a transition needs a fresh evaluation.
 ## The act key forces it, so the press never uses a stale result.
 func _sense(delta: float, force := false) -> bool:
 	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
@@ -109,8 +109,10 @@ func _sense(delta: float, force := false) -> bool:
 	var view: Camera3D = WORLD.camera()
 	if view == null:
 		return false
+	PERF.begin("offer_sensor_read")
 	var changed := _sensor.update(delta, view.global_position, -view.global_basis.z,
-		WORLD.player_is_pony())
+		WORLD.player_is_pony(), force)
+	PERF.end("offer_sensor_read")
 	var seat: Variant = WORLD.player.get("seat")
 	if seat != _seat:
 		_seat = seat

@@ -1,13 +1,14 @@
 extends RefCounted
 ## Contract: docs/offer.md
 ## The idle fan sensor: the standing fan and the lying candidate as transitions the offer
-## reconsiders on. It reads the scene once per idle frame and owns no offer.
+## reconsiders on. It reads the scene at the poll cadence and owns no offer.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
-## The scene fingerprint's cadence while the fan holds a candidate.
+## The fan discovery and scene fingerprint cadence.
 const SENSOR_POLL_S := 0.1
 ## How many fan candidates are fingerprinted per poll; the rest rotate through the next polls.
 const FINGERPRINT_BUDGET := 2
@@ -48,12 +49,69 @@ var _pony_form := false
 var _pending := true
 
 
-## One idle frame. True when the fan or one candidate's scene state changed, so the offer must
-## reconsider. The sensor stays inert while an act owns the frame.
-func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool) -> bool:
+## One idle frame; only the poll cadence reads the fan. True when the offer must reconsider.
+## The sensor stays inert while an act owns the frame.
+func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool,
+		force := false) -> bool:
 	_clock += delta
 	if PONIES.act_running() or not is_instance_valid(WORLD.game) or not eye.is_finite():
 		return _clear()
+	var mode_changed := pony_form != _pony_form
+	if not (force or _pending or mode_changed or _clock >= SENSOR_POLL_S):
+		return false
+	_clock = 0.0
+	PERF.begin("fan_discover")
+	_discover(eye, forward, pony_form)
+	PERF.end("fan_discover")
+	var list_changed := not _same_candidates()
+	var structural := _pending or list_changed
+	var changed := structural or _lying != _previous_lying or mode_changed
+	_pending = false
+	_pony_form = pony_form
+	var has_state := is_instance_valid(_focus) or is_instance_valid(_lying) \
+		or not _candidates.is_empty()
+	if structural and has_state:
+		# A transition re-evaluates the offer anyway: baseline every sense now, so a candidate
+		# that entered the fan is compared from its current state on its first poll turn.
+		PERF.begin("fan_hash")
+		var baseline := _player_hash()
+		for pony: Node3D in _candidates:
+			_changed(pony, _scene_hash(pony, baseline), false)
+		if is_instance_valid(_lying):
+			_changed(_lying, _scene_hash(_lying, baseline), false)
+		if is_instance_valid(_focus):
+			_changed(_focus, _scene_hash(_focus, baseline), false)
+		_cursor = 0
+		PERF.end("fan_hash")
+	elif has_state:
+		PERF.begin("fan_hash")
+		var player_value := _player_hash()
+		var lead: Node3D = _focus if is_instance_valid(_focus) else _lead_candidate()
+		if is_instance_valid(lead) \
+				and _changed(lead, _scene_hash(lead, player_value), true):
+			changed = true
+		if is_instance_valid(_lying) and _lying != lead \
+				and _changed(_lying, _scene_hash(_lying, player_value), true):
+			changed = true
+		# The budget bounds one poll's cost in a crowd; a candidate's next turn is a few polls
+		# away, and the offer target above is always read.
+		var count := mini(FINGERPRINT_BUDGET, _candidates.size())
+		for step in count:
+			var index := (_cursor + step) % _candidates.size()
+			var pony := _candidates[index]
+			if pony == lead or pony == _focus:
+				continue
+			if _changed(pony, _scene_hash(pony, player_value), true):
+				changed = true
+		if count > 0:
+			_cursor = (_cursor + count) % _candidates.size()
+		PERF.end("fan_hash")
+	return changed
+
+
+## The full fan read: every mare in the game's array, with the distance reject first. It runs at
+## the poll cadence, so a crowd costs the whole array ten times a second.
+func _discover(eye: Vector3, forward: Vector3, pony_form: bool) -> void:
 	_previous.clear()
 	_previous.assign(_candidates)
 	_previous_lying = _lying
@@ -96,49 +154,12 @@ func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool) -> bo
 				if dot > lying_dot:
 					lying_dot = dot
 					_lying = actor
-	var list_changed := not _same_candidates()
-	var structural := _pending or list_changed
-	var changed := structural or _lying != _previous_lying or pony_form != _pony_form
-	_pending = false
-	_pony_form = pony_form
-	var poll := false
-	if _clock >= SENSOR_POLL_S:
-		_clock = 0.0
-		poll = true
-	var has_state := is_instance_valid(_focus) or is_instance_valid(_lying) \
-		or not _candidates.is_empty()
-	if structural and has_state:
-		# A transition re-evaluates the offer anyway: baseline every sense now, so a candidate
-		# that entered the fan is compared from its current state on its first poll turn.
-		var baseline := _player_hash()
-		for pony: Node3D in _candidates:
-			_changed(pony, _scene_hash(pony, baseline), false)
-		if is_instance_valid(_lying):
-			_changed(_lying, _scene_hash(_lying, baseline), false)
-		if is_instance_valid(_focus):
-			_changed(_focus, _scene_hash(_focus, baseline), false)
-		_cursor = 0
-	elif poll and has_state:
-		var player_value := _player_hash()
-		if is_instance_valid(_focus) \
-				and _changed(_focus, _scene_hash(_focus, player_value), true):
-			changed = true
-		if is_instance_valid(_lying) and _lying != _focus \
-				and _changed(_lying, _scene_hash(_lying, player_value), true):
-			changed = true
-		# The budget bounds one poll's cost in a crowd; a candidate's next turn is a few polls
-		# away, and the offer target above is always read.
-		var count := mini(FINGERPRINT_BUDGET, _candidates.size())
-		for step in count:
-			var index := (_cursor + step) % _candidates.size()
-			var pony := _candidates[index]
-			if pony == _focus:
-				continue
-			if _changed(pony, _scene_hash(pony, player_value), true):
-				changed = true
-		if count > 0:
-			_cursor = (_cursor + count) % _candidates.size()
-	return changed
+
+
+## The first fan point, the one that would win if the offer target is null.
+func _lead_candidate() -> Node3D:
+	return _candidates[0] if not _candidates.is_empty() else null
+
 
 
 ## The standing fan candidates, nearest first. Live until the next update.

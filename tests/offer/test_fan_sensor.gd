@@ -54,6 +54,7 @@ func run() -> void:
 	_check_lying()
 	_check_fingerprint_and_far_mare()
 	_check_rotation()
+	_check_poll_cadence()
 	_check_reset_and_act()
 	print("FAN_SENSOR_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -164,6 +165,26 @@ func _check_rotation() -> void:
 			detected = true
 			break
 	check(detected, "the rotating budget reaches the farthest candidate")
+	_free(made, sensor)
+
+
+## The fan is read at the poll cadence, not every frame; the press forces a read.
+func _check_poll_cadence() -> void:
+	var made := _fixture()
+	var sensor := SENSOR.new()
+	var mare: FakeMare = made["mare"]
+	var eye := Vector3(0.0, 1.6, 2.10)
+	var forward := Vector3(0.0, 0.0, -1.0)
+	sensor.update(0.2, eye, forward, false)
+	mare.requested = "lie_down"
+	check(not sensor.update(0.05, eye, forward, false),
+		"a frame between polls does not read the fan")
+	check(sensor.candidates().size() == 1, "the stale candidate survives until the poll")
+	check(sensor.update(0.06, eye, forward, false), "the poll reads the fan and drops the mare")
+	check(sensor.candidates().is_empty(), "the poll clears the lodged candidate")
+	mare.requested = "stand"
+	check(sensor.update(0.0, eye, forward, false, true), "a forced read skips the cadence")
+	check(sensor.candidates().size() == 1, "the forced read finds the standing mare")
 	_free(made, sensor)
 
 

@@ -2,6 +2,9 @@ extends RefCounted
 ## The typed host boundary for one act's anatomy bridge. The runtime fills the named callbacks
 ## once; the bridge reads them through named methods and never sees a service locator.
 
+const SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+
 var pony_cb: Callable = Callable()
 var runtime_cb: Callable = Callable()
 var reactions_cb: Callable = Callable()
@@ -50,12 +53,14 @@ func reactions() -> Variant:
 	return _value(reactions_cb)
 
 
-func anatomy_service() -> Variant:
-	return _value(anatomy_service_cb)
+func anatomy_service() -> SERVICE:
+	var value: Variant = _value(anatomy_service_cb)
+	return value as SERVICE if is_instance_valid(value) else null
 
 
-func eligibility_service() -> Variant:
-	return _value(eligibility_service_cb)
+func eligibility_service() -> ELIGIBILITY:
+	var value: Variant = _value(eligibility_service_cb)
+	return value as ELIGIBILITY if is_instance_valid(value) else null
 
 
 func state() -> int:

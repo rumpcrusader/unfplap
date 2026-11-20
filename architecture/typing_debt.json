@@ -11,21 +11,6 @@
       "signature": "func presentation() -> Dictionary:"
     },
     {
-      "service": "anatomy",
-      "func": "body_profile",
-      "signature": "static func body_profile(identity: Variant) -> Array:"
-    },
-    {
-      "service": "anatomy",
-      "func": "off_roster_ids",
-      "signature": "static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:"
-    },
-    {
-      "service": "anatomy",
-      "func": "player_debug_scale",
-      "signature": "func player_debug_scale() -> Variant:"
-    },
-    {
       "service": "audio",
       "func": "pose_changed",
       "signature": "func pose_changed(view: Variant) -> void:"

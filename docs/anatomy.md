@@ -975,6 +975,7 @@ stay event-time reads.
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | vr | `vr/service.gd` | VR act controls |
 | service | world | `world/service.gd` | the player body and the live scene |
+| service | world | `world/game.gd` | the base-game members the anatomy reads and writes |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | perf | `shared/perf.gd` | one profiler |
 | shared | pose_catalog | `shared/pose_catalog.gd` | the standing oral edge ids |

@@ -9,11 +9,12 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 
-var service: Node
+var service: SERVICE
 
 
-func setup(service_node: Node) -> void:
+func setup(service_node: SERVICE) -> void:
 	service = service_node
 
 
@@ -42,7 +43,7 @@ func placement_values(id: String, fit_id: String = "") -> Dictionary:
 
 func placement_refresh() -> void:
 	if is_instance_valid(service):
-		service.call("apply_settings")
+		service.apply_settings()
 
 
 func placement_debug(op: String, value := 0.0) -> String:
@@ -54,10 +55,10 @@ func placement_debug(op: String, value := 0.0) -> String:
 	if id != "default" and is_instance_valid(target):
 		fit_id = CONTROLLER.body_fit_id(target)
 	if id != "default" and op.begins_with("dock_"):
-		if not bool(service.call("can_dock", target)):
+		if not service.can_dock(target):
 			return "%s: no dock on this tail." % id
 	if id != "default" and op.begins_with("tail_"):
-		if not bool(service.call("can_place_tail", target)):
+		if not service.can_place_tail(target):
 			return "%s: tail seat unavailable (no hair tail or dock)." % id
 	var rows := (SETTINGS.anatomy_placement_draft_values() if id == "default"
 		else SETTINGS.anatomy_placement(id, fit_id))
@@ -99,21 +100,21 @@ func placement_debug(op: String, value := 0.0) -> String:
 
 func placement_show() -> String:
 	var parts := PackedStringArray([placement_debug("text")])
-	var report := str(service.call("tail_report")) if is_instance_valid(service) else ""
+	var report := service.tail_report() if is_instance_valid(service) else ""
 	if not report.is_empty():
 		parts.append(report)
-	var change: Node = PONIES.body_change
+	var change := PONIES.body_change
 	if is_instance_valid(change):
-		var custom := str(change.call("tail_placement_report"))
+		var custom := str(change.tail_placement_report())
 		if not custom.is_empty():
 			parts.append(custom)
 	return " | ".join(parts)
 
 
 func _apply_custom_tail(target: Node) -> void:
-	var change: Node = PONIES.body_change
+	var change := PONIES.body_change
 	if is_instance_valid(target) and is_instance_valid(change):
-		change.call("apply_tail_placement", target)
+		change.apply_tail_placement(target)
 
 
 static func _nudge_placement(placement: Dictionary, op: String, value: float) -> bool:

@@ -7,6 +7,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const WINKING_REAR_Y := BODY_PROFILE.WINKING_REAR_Y
 const WINKING_REAR_Z := BODY_PROFILE.WINKING_REAR_Z
@@ -142,7 +143,7 @@ func _apply_values(pos: Vector3, pitch: float, scale: float) -> void:
 
 func _pony_id() -> String:
 	return PONY_ID.from(str(pony.get_meta("relationship_id", "")),
-		pony.get("identity")) if is_instance_valid(pony) else ""
+		GAME.identity_of(pony)) if is_instance_valid(pony) else ""
 
 
 func _body_fit_id() -> String:

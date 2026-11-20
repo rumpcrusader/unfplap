@@ -15,6 +15,7 @@ const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
 const DOCK_ATTACH := preload("res://mods/unfplap/anatomy/tail/dock_attach.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 const ANATOMY_PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const DOCK_NAME := "OpenPonyDock"
 const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.json"
@@ -72,7 +73,7 @@ class SeatRow:
 var eligible := Callable()
 
 ## pony -> cached original values, target and live state.
-var _rows: Dictionary = {}
+var _rows: Dictionary[Node, SeatRow] = {}
 ## Last applied values of Anatomy › Re-seat tails and docks, Dock style and the two debug offsets.
 var _enabled: bool
 var _dock_style := ""
@@ -80,7 +81,7 @@ static var _reference := Vector3.INF
 static var _reference_loaded := false
 var _perf_window := 0.0
 ## Rows whose dock mesh is stale after a placement edit; rebuilt when the settle timer fires.
-var _dirty: Array = []
+var _dirty: Array[SeatRow] = []
 var _settle: Timer
 
 
@@ -120,13 +121,11 @@ static func reference(pony: Node = null) -> Vector3:
 						_reference = point
 	if _reference.is_finite():
 		return _reference
-	if is_instance_valid(pony):
-		var skeleton: Variant = pony.get("skeleton")
-		if skeleton is Skeleton3D:
-			var bone := (skeleton as Skeleton3D).find_bone("pony_tail_01")
-			if bone >= 0:
-				return (skeleton as Skeleton3D).get_bone_global_rest(bone).origin \
-					+ FALLBACK_TAIL_OFFSET
+	var skeleton := GAME.skeleton_of(pony)
+	if skeleton != null:
+		var bone := skeleton.find_bone("pony_tail_01")
+		if bone >= 0:
+			return skeleton.get_bone_global_rest(bone).origin + FALLBACK_TAIL_OFFSET
 	return Vector3.INF
 
 
@@ -135,19 +134,17 @@ static func reference(pony: Node = null) -> Vector3:
 static func _tail_cap_centre(pony: Node) -> float:
 	if not is_instance_valid(pony):
 		return NAN
-	var identity: Variant = pony.get("identity")
-	var hair_node: Variant = pony.get("hair")
+	var identity := GAME.identity_of(pony)
+	var hair_node := GAME.hair_of(pony)
 	if identity == null or not is_instance_valid(hair_node):
 		return NAN
-	var body: MeshInstance3D = pony.get("_model").find_child("MareBody", true, false) \
-		as MeshInstance3D
-	var tail: MeshInstance3D = (hair_node as Node).find_child(
+	var body := GAME.body_of(pony)
+	var tail := hair_node.find_child(
 		str(identity.get("hair_prefix")) + "DevkitTail", true, false) as MeshInstance3D
 	if not is_instance_valid(body) or not is_instance_valid(tail):
 		return NAN
-	var link: Variant = pony.get("hair_link")
 	var transform: Transform3D = _bind_for(body, "pony_hips").affine_inverse() \
-		* link.get("pelvis_offset") * _bind_for(tail, "mPelvis")
+		* GAME.hair_link_pelvis(pony) * _bind_for(tail, "mPelvis")
 	var low := INF
 	var high := -INF
 	var count := 0
@@ -284,7 +281,7 @@ func refresh_all() -> void:
 	_dock_style = dock_style
 	var checked := 0
 	var rebuilt := 0
-	for pony: Variant in _rows.keys():
+	for pony: Node in _rows.keys():
 		if not is_instance_valid(pony):
 			_forget(pony)
 			continue
@@ -347,7 +344,7 @@ func refresh_all() -> void:
 	if PERF.enabled and rebuilt > 0:
 		LOG.debug("tail perf refresh checked=%d rebuilt=%d", [checked, rebuilt])
 	if style_changed:
-		for pony: Variant in _rows.keys():
+		for pony: Node in _rows.keys():
 			if is_instance_valid(pony):
 				refresh_dock_color(pony)
 
@@ -356,7 +353,7 @@ func report_all() -> String:
 	var lines := PackedStringArray()
 	var count := 0
 	var exceptions := 0
-	for pony: Variant in _rows.keys():
+	for pony: Node in _rows.keys():
 		if not is_instance_valid(pony):
 			_forget(pony)
 			continue
@@ -380,9 +377,9 @@ func report_all() -> String:
 	return "tail seats: %d live, %d exceptions (see log)" % [count, exceptions]
 
 func _exit_tree() -> void:
-	for pony: Variant in _rows.keys():
+	for pony: Node in _rows.keys():
 		if is_instance_valid(pony):
-			_restore(_rows[pony] as SeatRow)
+			_restore(_rows[pony])
 	_rows.clear()
 	_dirty.clear()
 
@@ -403,10 +400,10 @@ func _seated(row: SeatRow) -> bool:
 
 
 ## Drop a pony from the row set and from the pending settle pass.
-func _forget(pony: Variant) -> void:
+func _forget(pony: Node) -> void:
 	_rows.erase(pony)
 	for index in range(_dirty.size() - 1, -1, -1):
-		var row: SeatRow = _dirty[index] as SeatRow
+		var row := _dirty[index]
 		if row != null and row.pony == pony:
 			_dirty.remove_at(index)
 
@@ -414,12 +411,9 @@ func _forget(pony: Variant) -> void:
 func _eligible(pony: Node) -> bool:
 	if eligible.is_null() or not bool(eligible.call(pony)):
 		return false
-	var hair: Variant = pony.get("hair_skeleton")
-	var skeleton: Variant = pony.get("skeleton")
-	if not hair is Skeleton3D or not skeleton is Skeleton3D:
+	if GAME.hair_skeleton_of(pony) == null or GAME.skeleton_of(pony) == null:
 		return false
-	var link: Variant = pony.get("hair_link")
-	if not is_instance_valid(link) or not link.get("pelvis_offset") is Transform3D:
+	if not GAME.hair_link_ready(pony):
 		return false
 	var dock: Variant = pony.find_child(DOCK_NAME, true, false)
 	return dock is MeshInstance3D and (dock as MeshInstance3D).mesh != null
@@ -427,7 +421,7 @@ func _eligible(pony: Node) -> bool:
 
 ## The mod's stable id for a pony: relationship metadata first, then the identity.
 func _id_for(pony: Node) -> String:
-	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
+	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), GAME.identity_of(pony))
 
 
 ## True when the tail/dock placement can ever move this pony, even while the seat is toggled off.
@@ -443,9 +437,12 @@ func can_dock(pony: Node) -> bool:
 ## Cache every value the controller needs before its first write. Null when the pony cannot be
 ## measured; the controller then leaves her alone.
 func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
-	var link: Node = pony.get("hair_link") as Node
-	var skeleton: Skeleton3D = pony.get("skeleton") as Skeleton3D
-	var dock: MeshInstance3D = pony.find_child(DOCK_NAME, true, false) as MeshInstance3D
+	var link := GAME.hair_link_of(pony)
+	var skeleton := GAME.skeleton_of(pony)
+	var dock := pony.find_child(DOCK_NAME, true, false) as MeshInstance3D
+	if link == null or skeleton == null or dock == null:
+		LOG.debug("tail seat: no body anchor for %s", [pony.name])
+		return null
 	var hips := skeleton.find_bone("pony_hips")
 	var measured: Dictionary = DOCK_TAIL_MOUNT.measure(pony)
 	var raw: Variant = measured.get("anchor")
@@ -462,13 +459,13 @@ func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
 	if fit.is_empty():
 		LOG.debug("tail seat: no dock fit for %s", [pony.name])
 		return null
-	var identity: Variant = pony.get("identity")
+	var identity := GAME.identity_of(pony)
 	var id := str(pony.get_meta("relationship_id", ""))
 	if id.is_empty():
 		id = str(identity.get("id"))
 	var fit_id := _fit_id(pony, form)
 	var placement := SETTINGS.anatomy_placement(id, fit_id)
-	var hair: Skeleton3D = pony.get("hair_skeleton") as Skeleton3D
+	var hair := GAME.hair_skeleton_of(pony)
 	var original_skin: Skin = dock.skin
 	# Far ponies' docks may be parked with an empty skeleton path and the real one in
 	# `parked_skeleton`; cache the resolved path so the restore always puts it back.
@@ -485,7 +482,7 @@ func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
 	row.dock = dock
 	row.body_sk = skeleton
 	row.hair_sk = hair
-	row.original_pelvis = link.get("pelvis_offset") as Transform3D
+	row.original_pelvis = GAME.hair_link_pelvis(pony)
 	row.original_dock = dock.mesh
 	row.original_skin = original_skin
 	row.original_material = dock.get_surface_override_material(0)
@@ -558,17 +555,16 @@ func _apply_tail(row: SeatRow) -> bool:
 		return false
 	var target := row.target(reference_anchor)
 	var delta := target - row.anchor
-	var link := row.link
-	if not is_instance_valid(link) or not link.is_inside_tree():
+	var link := GAME.hair_link_of(pony)
+	if link == null or not link.is_inside_tree():
 		return false
 	var next := row.original_pelvis
 	next.origin += row.hips_rest.basis.inverse() * delta
 	var tilt := deg_to_rad(row.tail_tilt_deg)
 	if absf(tilt) > 0.000001:
 		next.basis = Basis(Vector3.BACK, tilt) * next.basis
-	link.set("pelvis_offset", next)
-	if link.has_method("_body_updated"):
-		link.call("_body_updated")
+	GAME.set_hair_link_pelvis(pony, next)
+	GAME.notify_hair_link(pony)
 	row.applied = delta
 	_invalidate_far(pony)
 	return true
@@ -609,13 +605,12 @@ func _mark_dirty(row: SeatRow) -> void:
 
 
 func _flush_dirty() -> void:
-	var rows: Array = _dirty
+	var rows: Array[SeatRow] = _dirty
 	_dirty = []
-	for value: Variant in rows:
-		var row: SeatRow = value as SeatRow
+	for row: SeatRow in rows:
 		if row == null:
 			continue
-		var pony: Variant = row.pony
+		var pony: Node = row.pony
 		if not is_instance_valid(pony) or not _rows.has(pony) or not is_same(_rows[pony], row):
 			continue
 		if not row.seated or not SETTINGS.reseat_tails.get_bool():
@@ -629,11 +624,10 @@ func _restore(row: SeatRow) -> void:
 	var pony := row.pony
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
 		return
-	var link := row.link
-	if is_instance_valid(link) and link.is_inside_tree():
-		link.set("pelvis_offset", row.original_pelvis)
-		if link.has_method("_body_updated"):
-			link.call("_body_updated")
+	var link := GAME.hair_link_of(pony)
+	if link != null and link.is_inside_tree():
+		GAME.set_hair_link_pelvis(pony, row.original_pelvis)
+		GAME.notify_hair_link(pony)
 	_clear_skin(row)
 	var dock := row.dock
 	if is_instance_valid(dock):
@@ -654,7 +648,7 @@ func _restore(row: SeatRow) -> void:
 		dock.skeleton = row.original_skeleton
 		dock.transform = row.original_transform
 		# Back under the body model; re-hide if the pony is far, so the far-end restore takes it too.
-		if bool(pony.get("_far_mesh_shown")) and dock.visible:
+		if GAME.far_mesh_shown(pony) and dock.visible:
 			dock.set_meta(&"far_hidden", true)
 			dock.visible = false
 		dock.set_surface_override_material(0, row.original_material)
@@ -745,9 +739,9 @@ func _dock_material(row: SeatRow) -> Material:
 	if SETTINGS.dock_style.get_choice() == "genitals":
 		var pony := row.pony
 		if is_instance_valid(pony):
-			var skeleton: Variant = pony.get("skeleton")
-			if skeleton is Skeleton3D:
-				var anatomy := (skeleton as Skeleton3D).find_child(
+			var skeleton := GAME.skeleton_of(pony)
+			if skeleton != null:
+				var anatomy := skeleton.find_child(
 					"UnfplapAnatomy", true, false) as MeshInstance3D
 				if is_instance_valid(anatomy) and not anatomy.is_queued_for_deletion():
 					var base := anatomy.get_active_material(0)
@@ -775,7 +769,7 @@ func _dock_material(row: SeatRow) -> Material:
 func refresh_dock_color(pony: Node) -> void:
 	if not is_instance_valid(pony) or not _rows.has(pony):
 		return
-	var row: SeatRow = _rows[pony] as SeatRow
+	var row: SeatRow = _rows[pony]
 	if not _seated(row):
 		return
 	var dock := row.dock
@@ -799,19 +793,18 @@ func _invalidate_far(pony: Node) -> void:
 	HYBRID_FAR_MESH.cache.erase(key)
 	HYBRID_FAR_MESH.shadow_cache.erase(key)
 	HYBRID_FAR_MESH.eyes_cache.erase(key)
-	if bool(pony.get("_far_mesh_shown")) and pony.is_inside_tree() \
-			and pony.has_method("set_near_mesh"):
-		pony.call("set_near_mesh", true)
+	if GAME.far_mesh_shown(pony) and pony.is_inside_tree():
+		GAME.set_near_mesh(pony, true)
 
 
 func _log_perf() -> void:
 	var seats := 0
 	var skinned := 0
 	var builds := 0
-	for pony: Variant in _rows.keys():
+	for pony: Node in _rows.keys():
 		if not is_instance_valid(pony):
 			continue
-		var row: SeatRow = _rows[pony] as SeatRow
+		var row: SeatRow = _rows[pony]
 		if not _seated(row):
 			continue
 		seats += 1

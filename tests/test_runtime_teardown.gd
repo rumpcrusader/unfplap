@@ -139,12 +139,12 @@ class FakeEligibility extends ELIGIBILITY:
 		return true
 
 
-class FakeAnatomyService extends Node:
+class FakeAnatomyService extends "res://mods/unfplap/anatomy/service.gd":
 	var consents: Array[String] = []
 	var allow := true
 	var reset_calls := 0
 
-	func consent(_pony: Variant, key: String) -> bool:
+	func consent(_pony: Node, key: String) -> bool:
 		consents.append(key)
 		return allow
 

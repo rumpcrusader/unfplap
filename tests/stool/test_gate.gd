@@ -14,7 +14,7 @@ var failures := 0
 var checks := 0
 
 
-class FakeController extends Node:
+class FakeController extends "res://mods/unfplap/anatomy/controller.gd":
 	var opening_y := 1.25
 
 	func hole_point(_mix := 0.0) -> Vector3:

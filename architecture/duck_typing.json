@@ -72,10 +72,6 @@
       "count": 5
     },
     {
-      "file": "anatomy/act_bridge.gd",
-      "count": 44
-    },
-    {
       "file": "anatomy/appearance.gd",
       "count": 5
     },
@@ -85,26 +81,6 @@
     },
     {
       "file": "anatomy/coat.gd",
-      "count": 3
-    },
-    {
-      "file": "anatomy/controller.gd",
-      "count": 9
-    },
-    {
-      "file": "anatomy/placement_editor.gd",
-      "count": 6
-    },
-    {
-      "file": "anatomy/service.gd",
-      "count": 45
-    },
-    {
-      "file": "anatomy/tail/seat.gd",
-      "count": 5
-    },
-    {
-      "file": "anatomy/tail/visibility.gd",
       "count": 3
     },
     {

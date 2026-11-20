@@ -6,6 +6,7 @@ extends Node
 
 const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const GROUP := "ai_characters"
 ## Only the chain root is collapsed; every child bone inherits its scale, so the whole tail
 ## shrinks without stacking tiny scales down the chain.
@@ -16,8 +17,8 @@ var _clock := 0.0
 ## True while the Debug switch is on. The anatomy facade pushes it, so nothing reads Settings
 ## here per frame.
 var _on := false
-## pony -> the modifiers installed on its hair and body skeletons.
-var _pairs: Dictionary = {}
+## pony -> the modifiers installed on its hair and body skeletons (`Array[TAIL_HIDE]`).
+var _pairs: Dictionary[Node, Array] = {}
 
 
 func _ready() -> void:
@@ -47,40 +48,42 @@ func _process(delta: float) -> void:
 
 
 func _sync() -> void:
-	for pony: Variant in get_tree().get_nodes_in_group(GROUP):
+	for pony: Node in get_tree().get_nodes_in_group(GROUP):
 		if not is_instance_valid(pony):
 			continue
-		var pair: Array = _pairs.get(pony, [])
-		_attach(pony, pair, "hair_skeleton", HAIR_BONES)
-		_attach(pony, pair, "skeleton", BODY_BONES)
-		_pairs[pony] = pair
-	for pony: Variant in _pairs.keys():
+		if not _pairs.has(pony):
+			var fresh: Array[TAIL_HIDE] = []
+			_pairs[pony] = fresh
+		var pair: Array[TAIL_HIDE] = _pairs[pony]
+		_attach(pair, GAME.hair_skeleton_of(pony), HAIR_BONES)
+		_attach(pair, GAME.skeleton_of(pony), BODY_BONES)
+	for pony: Node in _pairs.keys():
 		if not is_instance_valid(pony):
 			_pairs.erase(pony)
 
 
-func _attach(pony: Node, pair: Array, property: String, bones: Array[StringName]) -> void:
-	var skeleton: Variant = pony.get(property)
-	if not skeleton is Skeleton3D:
+func _attach(pair: Array[TAIL_HIDE], skeleton: Skeleton3D,
+		bones: Array[StringName]) -> void:
+	if skeleton == null:
 		return
-	for entry: Variant in pair:
-		if is_instance_valid(entry) and (entry as Node).get_parent() == skeleton:
+	for entry: TAIL_HIDE in pair:
+		if is_instance_valid(entry) and entry.get_parent() == skeleton:
 			return
 	var modifier := TAIL_HIDE.new()
 	modifier.name = "UnfplapTailHide"
-	modifier.set("bones", bones)
-	(skeleton as Skeleton3D).add_child(modifier)
-	modifier.call("set_hiding", true)
+	modifier.bones = bones
+	skeleton.add_child(modifier)
+	modifier.set_hiding(true)
 	pair.append(modifier)
 
 
 func _clear() -> void:
-	for pair: Variant in _pairs.values():
-		for entry: Variant in pair:
+	for pair: Array[TAIL_HIDE] in _pairs.values():
+		for entry: TAIL_HIDE in pair:
 			if not is_instance_valid(entry):
 				continue
-			(entry as Node).call("set_hiding", false)
-			(entry as Node).queue_free()
+			entry.set_hiding(false)
+			entry.queue_free()
 	_pairs.clear()
 
 

@@ -6,6 +6,8 @@ extends SceneTree
 
 const BRIDGE := preload("res://mods/unfplap/anatomy/act_bridge.gd")
 const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
+const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -19,17 +21,17 @@ var failures := 0
 var checks := 0
 
 
-class FakeAct extends Node:
+class FakeAct extends "res://mods/unfplap/anatomy/act.gd":
 	var toggles: Array[String] = []
 	var climaxes := 0
 	var afterglow_ticks := 0
 	var ends := 0
 	var teardowns := 0
 	var hold_mouths := 0
-	var normal: Variant = Vector3.ZERO
-	var point: Variant = Vector3.ZERO
-	var rear: Variant = Vector3.ZERO
-	var mouth: Variant = Vector3(0.0, 1.2, 0.4)
+	var normal := Vector3.ZERO
+	var point := Vector3.ZERO
+	var rear := Vector3.ZERO
+	var mouth := Vector3(0.0, 1.2, 0.4)
 	var visemes: Array[String] = []
 
 	func toggle_hole(_state: int) -> void:
@@ -41,22 +43,22 @@ class FakeAct extends Node:
 	func set_oral_viseme(letter: String) -> void:
 		visemes.append(letter)
 
-	func oral_mouth_point() -> Variant:
+	func oral_mouth_point() -> Vector3:
 		return mouth
 
 	func on_climax() -> void:
 		climaxes += 1
 
-	func afterglow_tick(_delta: float, _facts: Variant) -> void:
+	func afterglow_tick(_delta: float, _facts: RefCounted) -> void:
 		afterglow_ticks += 1
 
-	func opening_normal() -> Variant:
+	func opening_normal() -> Vector3:
 		return normal
 
-	func hole_point() -> Variant:
+	func hole_point() -> Vector3:
 		return point
 
-	func hole_rear() -> Variant:
+	func hole_rear() -> Vector3:
 		return rear
 
 	func end() -> void:
@@ -66,7 +68,7 @@ class FakeAct extends Node:
 		teardowns += 1
 
 
-class FakeController extends Node:
+class FakeController extends "res://mods/unfplap/anatomy/controller.gd":
 	var refreshes := 0
 	var live := 0
 	var reacts := 0
@@ -92,20 +94,27 @@ class FakeController extends Node:
 class FakeReactions extends RefCounted:
 	var bindings: Array = []
 
-	func bind_scene(pony_node: Variant, controller: Variant) -> void:
+	func bind_scene(pony_node: Node, controller: Variant) -> void:
 		bindings.append([pony_node, controller])
 
 
-class FakeService extends RefCounted:
+class FakeService extends "res://mods/unfplap/anatomy/service.gd":
 	var detaches := 0
+	var controller_calls := 0
 
-	func detach_controller(_pony: Variant) -> void:
+	func detach_controller(_pony: Node) -> void:
 		detaches += 1
 
-	func controller_for(_pony: Variant, _runtime: Variant) -> Variant:
+	func controller_for(_pony: Node, _runtime: Node) -> CONTROLLER:
+		controller_calls += 1
 		return null
 
-	func eligible(_pony: Variant, _target: int) -> bool:
+
+class FakeEligibility extends "res://mods/unfplap/eligibility/service.gd":
+	var calls := 0
+
+	func eligible(_pony: Node, _target: ELIGIBILITY.Target = ELIGIBILITY.Target.ACT) -> bool:
+		calls += 1
 		return true
 
 
@@ -400,12 +409,12 @@ func _check_vectors() -> void:
 	check(bridge.normal() == Vector3(0.0, 0.0, 1.0), "normal reads the act")
 	check(bridge.opening() == Vector3(1.0, 2.0, 3.0), "opening reads the act")
 	check(bridge.rear() == Vector3(0.0, 0.0, -1.0), "rear reads the act")
-	act.normal = "bad"
-	act.point = "bad"
-	act.rear = "bad"
-	check(bridge.normal() == Vector3.ZERO, "a bad normal is zero")
-	check(bridge.opening() == Vector3.ZERO, "a bad opening is zero")
-	check(bridge.rear() == Vector3.ZERO, "a bad rear is zero")
+	act.normal = Vector3.INF
+	act.point = Vector3.INF
+	act.rear = Vector3.INF
+	check(bridge.normal() == Vector3.ZERO, "a non-finite normal is zero")
+	check(bridge.opening() == Vector3.ZERO, "a non-finite opening is zero")
+	check(bridge.rear() == Vector3.ZERO, "a non-finite rear is zero")
 	act.free()
 	bridge.act = null
 
@@ -450,13 +459,14 @@ func _check_host_callbacks() -> void:
 	var host := FakeHost.new()
 	var reactions := FakeReactions.new()
 	var service := FakeService.new()
+	var eligibility := FakeEligibility.new()
 	var missionary := FakeMissionaryAnon.new()
 	var pony := Node3D.new()
 	root.add_child(pony)
 	host.values["pony"] = pony
 	host.values["reactions"] = reactions
 	host.values["anatomy_service"] = service
-	host.values["eligibility_service"] = service
+	host.values["eligibility_service"] = eligibility
 	var bridge: RefCounted = BRIDGE.new()
 	bridge.bind(_host(host, {
 		"pony": Callable(host, "call_host").bind("pony"),
@@ -464,8 +474,13 @@ func _check_host_callbacks() -> void:
 		"anatomy_service": Callable(host, "call_host").bind("anatomy_service"),
 		"eligibility_service": Callable(host, "call_host").bind("eligibility_service"),
 	}))
+	var mode := SETTINGS.anatomy_mode.get_choice()
+	SETTINGS.anatomy_mode.set_choice("always")
 	bridge.refresh()
+	SETTINGS.anatomy_mode.set_choice(mode)
 	check(reactions.bindings.size() == 1, "the refresh binds the reactions scene")
+	check(service.controller_calls == 1,
+		"the refresh asks the typed anatomy service for the controller")
 	if not reactions.bindings.is_empty():
 		check(reactions.bindings[0][0] == pony, "the reactions facade receives her node")
 	bridge.status("Anatomy", 1.5)

@@ -165,6 +165,13 @@ static func prompt_note(id: String) -> String:
 	return ""
 
 
+## The base roster as the typed array the anatomy id helper takes.
+static func _base_order() -> Array[String]:
+	var order: Array[String] = []
+	order.assign(SETTINGS.CHARACTER_ORDER)
+	return order
+
+
 ## Live adult mares outside the base roster, for the Characters selector.
 ## A despawned mare keeps her saved preset; an installed source still lists hers.
 static func live_character_ids() -> Array[String]:
@@ -173,7 +180,7 @@ static func live_character_ids() -> Array[String]:
 		if pony is Node3D and is_instance_valid(pony) and is_instance_valid(eligibility) \
 				and eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER):
 			ids.append(ANATOMY.pony_id(pony))
-	var out: Array[String] = ANATOMY.off_roster_ids(ids, SETTINGS.CHARACTER_ORDER)
+	var out: Array[String] = ANATOMY.off_roster_ids(ids, _base_order())
 	for id: String in installed_character_ids():
 		if not id in SETTINGS.CHARACTER_ORDER and not out.has(id):
 			out.append(id)

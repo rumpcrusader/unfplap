@@ -163,6 +163,10 @@ func run() -> void:
 	check(ANATOMY.body_profile(ordinary_identity).is_empty(),
 		"an ordinary modded mare uses the normal body profile")
 	check(ANATOMY.body_profile(null).is_empty(), "no identity has no body profile")
+	var facade_profile: Array[float] = ANATOMY_SERVICE.body_profile(princess_copy)
+	check(facade_profile.size() == 3, "the facade keeps the typed body profile")
+	check(ANATOMY_SERVICE.body_profile(null).is_empty(),
+		"the facade answers an empty typed profile without an identity")
 
 	# The anatomy body binding stores the presented form, creates one controller and updates its
 	# facts when the runtime attaches later; a revised form refreshes the same controller.
@@ -230,8 +234,10 @@ func run() -> void:
 	body_main.free()
 
 	# The Characters selector lists only live off-roster mares.
-	var live_ids: Array[String] = ANATOMY.off_roster_ids(
-		["not_a_base_mare", "twilight_sparkle"], SETTINGS.CHARACTER_ORDER)
+	var candidates: Array[String] = ["not_a_base_mare", "twilight_sparkle"]
+	var roster: Array[String] = []
+	roster.assign(SETTINGS.CHARACTER_ORDER)
+	var live_ids: Array[String] = ANATOMY.off_roster_ids(candidates, roster)
 	check(live_ids.size() == 1 and live_ids[0] == "not_a_base_mare",
 		"the Characters selector lists live off-roster mares")
 

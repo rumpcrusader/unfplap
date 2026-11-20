@@ -18,6 +18,9 @@ const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
+const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
+const SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const MARE_BITS_PATH := ASSET_DIR + "mare_bits_v2.scn"
@@ -28,38 +31,38 @@ const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var pony: Node3D
 ## The typed runtime context. The controller never reads the runtime node.
-var facts: RefCounted
+var facts: FACTS
 ## The presented body's form. Null keeps the default own form built from her identity.
 var _form: BODY_FORM.BodyForm = null
 ## The anatomy facade's dock-colour refresh. Called after attach/detach/tone changes.
 var dock_refresh := Callable()
 ## The anatomy facade and its host callbacks for the act handle.
-var service: Node
+var service: SERVICE
 ## The service's player-part handle, pushed on every player rebuild. The act reads this.
-var _part_handle: Node
+var _part_handle: PLAYER
 var consent := Callable()
 var status := Callable()
 ## The anatomy facade's capability answer for this pony (identity + participation).
 var eligible := Callable()
 
 ## The persistent mesh/anchor/dock/fluid/visibility attachment.
-var attach: RefCounted
+var attach: ATTACH
 ## The rig coat's runtime deform and still-zone debug.
-var coat: RefCounted
+var coat: COAT
 ## The anatomy shell's follow of the body coat's line.
-var coat_line: RefCounted
+var coat_line: COAT_LINE
 ## The coat line's debug overlay, parented to the anatomy mesh.
-var _line_debug: Node3D
+var _line_debug: COAT_LINE_DEBUG
 var _line_debug_clock := 0.0
 ## Saved placement and the missionary trims.
-var placement: RefCounted
+var placement: PLACEMENT
 ## Persistent shape state: closing/winking, the grip solve, Anon's shaft mask and the V2 anal
 ## keys. The controller forwards its public shape API.
-var shapes: RefCounted
+var shapes: SHAPES
 ## The current act handle; created here and freed with this controller.
-var _act: Node
+var _act: ACT
 ## Material, skin tones, teats and the skin strip.
-var appearance: RefCounted
+var appearance: APPEARANCE
 var _rig_logged := false
 ## integration: visibility is polled, not rewritten every frame, and act-only can hide it.
 var _visibility_clock := 0.0
@@ -68,7 +71,7 @@ var _coat_line_on := false
 var _draw_coat_line := false
 var _anatomy_mode := ""
 ## Idle heat schedule; the controller supplies state, visibility and the cycle phase.
-var heat: RefCounted
+var heat: HEAT
 ## The cached `MareBody` for the per-frame garment transform.
 var _garment_body: Node3D
 ## The cached rest hull and the settings it was built for.
@@ -84,11 +87,12 @@ var _hull_ponut := 0.0
 static func pony_id(pony_node: Node) -> String:
 	if not is_instance_valid(pony_node):
 		return ""
-	return PONY_ID.from(str(pony_node.get_meta("relationship_id", "")), pony_node.get("identity"))
+	return PONY_ID.from(str(pony_node.get_meta("relationship_id", "")),
+		GAME.identity_of(pony_node))
 
 
 ## The princess body scale and placement anchor for a known character.
-static func body_profile(identity: Variant) -> Array:
+static func body_profile(identity: Resource) -> Array[float]:
 	return IDENTITY.body_profile(identity)
 
 
@@ -99,7 +103,7 @@ static func body_fit_id(pony_node: Node) -> String:
 
 ## Deduplicated ids outside the base roster. The caller owns the eligibility filter and the live
 ## source ordering; this helper only deduplicates.
-static func off_roster_ids(ids: Array[String], base_ids: Array) -> Array[String]:
+static func off_roster_ids(ids: Array[String], base_ids: Array[String]) -> Array[String]:
 	return IDENTITY.off_roster_ids(ids, base_ids)
 
 
@@ -117,7 +121,7 @@ func _init() -> void:
 	placement = PLACEMENT.new()
 
 
-func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
+func setup(pony_node: Node3D, facts_node: FACTS, service_node: SERVICE = null,
 		consent_callable := Callable(), status_callable := Callable(),
 		dock_refresh_callable := Callable(), eligible_callable := Callable()) -> void:
 	pony = pony_node
@@ -141,7 +145,7 @@ func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 
 ## Replace the runtime context. The facade calls this when the controller is created; tests can
 ## build a bare context without a runtime.
-func set_facts(facts_node: RefCounted) -> void:
+func set_facts(facts_node: FACTS) -> void:
 	facts = facts_node if facts_node != null else FACTS.new()
 	if attach != null:
 		attach.facts = facts
@@ -215,32 +219,32 @@ static func _same_rig_and_fit(a: BODY_FORM.BodyForm, b: BODY_FORM.BodyForm) -> b
 
 ## Create the per-act controller, owned here until `end_act()`.
 ## The facade hears about it before the pose starts.
-func begin_act() -> Node:
+func begin_act() -> ACT:
 	end_act()
 	_act = ACT.new()
 	_act.name = "UnfplapAnatomyAct"
 	add_child(_act)
-	_act.call("setup", pony, self, consent, status)
-	if is_instance_valid(service) and service.has_method("note_act_started"):
-		service.call("note_act_started", pony)
+	_act.setup(pony, self, consent, status)
+	if is_instance_valid(service):
+		service.note_act_started(pony)
 	return _act
 
 
 func end_act() -> void:
 	if is_instance_valid(_act):
-		_act.call("end")
-		_act.call("teardown")
+		_act.end()
+		_act.teardown()
 		_act.queue_free()
 	_act = null
 
 
 ## The service owns the player part; this handle is the one seam the act reads. A rebuild pushes
 ## the new node, and an invalid one reads as absent.
-func set_part(node: Node) -> void:
+func set_part(node: PLAYER) -> void:
 	_part_handle = node if is_instance_valid(node) else null
 
 
-func part() -> Node:
+func part() -> PLAYER:
 	return _part_handle if is_instance_valid(_part_handle) else null
 
 
@@ -249,7 +253,7 @@ func player_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool,
 		penetration_m: float, delta: float, mare_anchor: Node3D, attached := true) -> void:
 	var handle := part()
 	if is_instance_valid(handle):
-		handle.call("track", target, rear, up, bed, penetration_m, delta, mare_anchor, attached)
+		handle.track(target, rear, up, bed, penetration_m, delta, mare_anchor, attached)
 
 
 func refresh() -> void:
@@ -409,7 +413,7 @@ func _ensure_line_debug() -> void:
 	_line_debug = COAT_LINE_DEBUG.new()
 	_line_debug.name = "UnfplapCoatLine"
 	attach.mesh.add_child(_line_debug)
-	_line_debug.call("setup")
+	_line_debug.setup()
 	_line_debug_clock = 0.0
 
 
@@ -419,14 +423,14 @@ func _tick_line_debug(delta: float) -> void:
 		return
 	if not _draw_coat_line or not coat_line.is_enabled() \
 			or not is_attached() or not is_instance_valid(attach.mesh) or not attach.visible():
-		_line_debug.call("update", {}, false)
+		_line_debug.update({}, false)
 		_line_debug_clock = 0.0
 		return
 	_line_debug_clock -= delta
 	if _line_debug_clock > 0.0:
 		return
 	_line_debug_clock = 1.0 / 30.0
-	_line_debug.call("update", coat_line.debug_data(), true)
+	_line_debug.update(coat_line.debug_data(), true)
 
 
 ## The attach module computes the mesh/dock visibility; the controller owns the teats and strip
@@ -488,7 +492,7 @@ func apply_live() -> void:
 func detach() -> void:
 	end_act()
 	if is_instance_valid(_line_debug):
-		_line_debug.call("update", {}, false)
+		_line_debug.update({}, false)
 	_line_debug = null
 	_line_debug_clock = 0.0
 	if coat_line != null:
@@ -555,7 +559,7 @@ func garment_transform() -> Transform3D:
 	if not is_instance_valid(_garment_body):
 		_garment_body = null
 		if is_instance_valid(pony):
-			_garment_body = pony.find_child("MareBody", true, false) as Node3D
+			_garment_body = GAME.body_of(pony)
 			if _garment_body == null:
 				_garment_body = pony
 	return garment_transform_for(_garment_body, attach.mesh)

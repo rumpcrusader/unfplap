@@ -112,12 +112,28 @@ class FakeBody extends Node3D:
 	var near_calls: Array = []
 	var boop_node: Variant = null
 	var eye_y := 0.0
+	var skeleton: Skeleton3D
+	var hair_skeleton: Skeleton3D
+	var hair: Node3D
+	var _model: Node
+	var hair_link: Node
+	var _far_mesh_shown := false
+	var eye_motion: Node
 
 	func set_near_mesh(enabled: bool) -> void:
 		near_calls.append(enabled)
 
 	func _set_eye_y(value: float) -> void:
 		eye_y = value
+
+
+## The game's hair link: the pelvis offset the tail seat writes and its private body update.
+class FakeHairLink extends Node:
+	var pelvis_offset := Transform3D(Basis(), Vector3(0.0, 1.0, 2.0))
+	var updates := 0
+
+	func _body_updated() -> void:
+		updates += 1
 
 
 ## A body that never grew the eye-line setter: the accessor must leave its field alone.
@@ -325,6 +341,77 @@ func _check_accessors() -> void:
 	check(boop.amount == 0.5, "the sustainer takes the amount")
 	GAME.sustain_blush(plain, 0.7)
 	check(boop.amount == 0.5, "a node without the method stays silent")
+
+	# The body members the anatomy reads: skeleton, hair, model, dock link, LOD and the eye rig.
+	var rig := FakeBody.new()
+	root.add_child(rig)
+	var body_skeleton := Skeleton3D.new()
+	rig.add_child(body_skeleton)
+	rig.skeleton = body_skeleton
+	var hair_skeleton := Skeleton3D.new()
+	rig.add_child(hair_skeleton)
+	rig.hair_skeleton = hair_skeleton
+	var hair := Node3D.new()
+	rig.add_child(hair)
+	rig.hair = hair
+	var model := Node3D.new()
+	rig.add_child(model)
+	rig._model = model
+	var drawn_body := MeshInstance3D.new()
+	drawn_body.name = "MareBody"
+	model.add_child(drawn_body)
+	var link := FakeHairLink.new()
+	rig.add_child(link)
+	rig.hair_link = link
+	var eye := SkeletonModifier3D.new()
+	rig.add_child(eye)
+	rig.eye_motion = eye
+	check(GAME.skeleton_of(rig) == body_skeleton, "the body skeleton is read")
+	check(GAME.skeleton_of(plain) == null, "a plain node has no body skeleton")
+	check(GAME.hair_skeleton_of(rig) == hair_skeleton, "the hair skeleton is read")
+	check(GAME.hair_skeleton_of(plain) == null, "a plain node has no hair skeleton")
+	check(GAME.hair_of(rig) == hair, "the hair node is read")
+	check(GAME.hair_of(plain) == null, "a plain node has no hair")
+	check(GAME.model_of(rig) == model, "the model root is read")
+	check(GAME.model_of(plain) == null, "a plain node has no model")
+	check(GAME.body_of(rig) == drawn_body, "the drawn MareBody is found under the model")
+	check(GAME.body_of(plain) == null, "a plain node has no drawn body")
+	check(GAME.hair_link_of(rig) == link, "the hair link is read")
+	check(GAME.hair_link_of(plain) == null, "a plain node has no hair link")
+	check(GAME.hair_link_ready(rig), "a link with a pelvis offset is ready")
+	check(GAME.hair_link_pelvis(rig) == link.pelvis_offset, "the pelvis offset is read")
+	check(not GAME.hair_link_ready(plain), "a node without a link is not ready")
+	check(GAME.hair_link_pelvis(plain) == Transform3D.IDENTITY,
+		"an absent link answers the identity")
+	GAME.set_hair_link_pelvis(rig, Transform3D.IDENTITY)
+	check(rig.hair_link.pelvis_offset == Transform3D.IDENTITY, "the pelvis offset is written")
+	GAME.notify_hair_link(rig)
+	check(link.updates == 1, "the link's body update is forwarded")
+	GAME.set_hair_link_pelvis(plain, Transform3D.IDENTITY)
+	GAME.notify_hair_link(plain)
+	check(not GAME.far_mesh_shown(rig), "the near mesh reads as the shown one")
+	rig._far_mesh_shown = true
+	check(GAME.far_mesh_shown(rig), "the far mesh flag is read")
+	check(not GAME.far_mesh_shown(plain), "a plain node is never far")
+	GAME.set_near_mesh(rig, false)
+	check(rig.near_calls == [false], "the near-mesh switch is forwarded")
+	GAME.set_near_mesh(plain, true)
+	check(GAME.eye_motion_of(rig) == eye, "the eye modifier is read")
+	check(GAME.eye_motion_of(plain) == null, "a plain node has no eye modifier")
+	var anon := Node3D.new()
+	anon.name = "AnonBody"
+	player.add_child(anon)
+	check(GAME.anon_body_of(player) == anon, "Anon's body is found under the rig")
+	check(GAME.anon_body_of(plain) == null, "a rig without Anon's body answers null")
+	anon.queue_free()
+	eye.queue_free()
+	link.queue_free()
+	drawn_body.queue_free()
+	model.queue_free()
+	hair.queue_free()
+	hair_skeleton.queue_free()
+	body_skeleton.queue_free()
+	rig.queue_free()
 
 	check(GAME.headset_view(null) == false, "no world is no headset")
 	check(GAME.game_player(null) == null, "no world has no game player")

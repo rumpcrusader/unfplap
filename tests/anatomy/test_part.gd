@@ -7,6 +7,7 @@ extends SceneTree
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
+const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -98,16 +99,12 @@ class FakeFaceAnatomy extends Node:
 
 ## The player part in the face-mode test: the encounter calls are the park/restore proof, and the
 ## aim/inset setters count any write the parked path must never make.
-class FakeFacePart extends Node:
+class FakeFacePart extends "res://mods/unfplap/anatomy/player.gd":
 	var encounters: Array[bool] = []
 	var showing_state := false
 	var aim_normal_writes := 0
 	var aim_opening_writes := 0
 	var inset_writes := 0
-	var aim_pitch_deg := 0.0
-	var aim_normal := Vector3.ZERO
-	var aim_opening := Vector3.ZERO
-	var bed_inset_m := 0.0
 	var tracks: Array = []
 
 	func set_aim(normal: Vector3, opening: Vector3, pitch := 0.0) -> void:
@@ -143,9 +140,6 @@ class FakeFacePart extends Node:
 
 	func tip_center() -> Vector3:
 		return Vector3.INF
-
-	func shaft_radii(_count: int) -> Array:
-		return []
 
 
 func _initialize() -> void:
@@ -449,6 +443,16 @@ func run() -> void:
 	wink_act.call("reset")
 	check(is_zero_approx(wink_act.wink_left()), "reset clears the act wink")
 	wink_act.free()
+
+	# The facade's debug scale is typed: a Vector3, and infinite when no part is showing.
+	var facade: Node = ANATOMY_SERVICE.new()
+	root.add_child(facade)
+	facade.call("setup")
+	var debug_scale: Vector3 = facade.player_debug_scale()
+	check(debug_scale == Vector3.INF, "no player part answers an infinite debug scale")
+	facade.call("shutdown")
+	root.remove_child(facade)
+	facade.free()
 
 	print("ANATOMY_PART_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

@@ -197,6 +197,130 @@ static func identity_of(pony: Node) -> Resource:
 	return null
 
 
+## The pony's body skeleton; null when the body has none.
+static func skeleton_of(pony: Node) -> Skeleton3D:
+	if not is_instance_valid(pony):
+		return null
+	var skeleton: Variant = pony.get("skeleton")
+	if skeleton is Skeleton3D and is_instance_valid(skeleton):
+		return skeleton
+	return null
+
+
+## The pony's hair skeleton; null when the body has none.
+static func hair_skeleton_of(pony: Node) -> Skeleton3D:
+	if not is_instance_valid(pony):
+		return null
+	var skeleton: Variant = pony.get("hair_skeleton")
+	if skeleton is Skeleton3D and is_instance_valid(skeleton):
+		return skeleton
+	return null
+
+
+## The pony's hair node; null when the body has none.
+static func hair_of(pony: Node) -> Node3D:
+	if not is_instance_valid(pony):
+		return null
+	var hair: Variant = pony.get("hair")
+	if hair is Node3D and is_instance_valid(hair):
+		return hair
+	return null
+
+
+## The pony's model root; null when the body has none.
+static func model_of(pony: Node) -> Node:
+	if not is_instance_valid(pony):
+		return null
+	var model: Variant = pony.get("_model")
+	if model is Node and is_instance_valid(model):
+		return model
+	return null
+
+
+## The drawn MareBody mesh under the model; null when the body has none.
+static func body_of(pony: Node) -> MeshInstance3D:
+	var model := model_of(pony)
+	if model == null:
+		return null
+	var body: Variant = model.find_child("MareBody", true, false)
+	if body is MeshInstance3D and is_instance_valid(body):
+		return body
+	return null
+
+
+## The pony's hair link; null when the body has none.
+static func hair_link_of(pony: Node) -> Node:
+	if not is_instance_valid(pony):
+		return null
+	var link: Variant = pony.get("hair_link")
+	if link is Node and is_instance_valid(link):
+		return link
+	return null
+
+
+## True when the pony has the hair link and its pelvis offset; false otherwise.
+static func hair_link_ready(pony: Node) -> bool:
+	var link := hair_link_of(pony)
+	return link != null and link.get("pelvis_offset") is Transform3D
+
+
+## The hair link's pelvis offset; identity when the link is absent.
+static func hair_link_pelvis(pony: Node) -> Transform3D:
+	var link := hair_link_of(pony)
+	if link == null:
+		return Transform3D.IDENTITY
+	var value: Variant = link.get("pelvis_offset")
+	return value if value is Transform3D else Transform3D.IDENTITY
+
+
+## Write the hair link's pelvis offset; nothing happens without a link.
+static func set_hair_link_pelvis(pony: Node, value: Transform3D) -> void:
+	var link := hair_link_of(pony)
+	if link != null:
+		link.set("pelvis_offset", value)
+
+
+## Let the hair link re-read its body after a pelvis write.
+static func notify_hair_link(pony: Node) -> void:
+	var link := hair_link_of(pony)
+	if link != null and link.has_method("_body_updated"):
+		link.call("_body_updated")
+
+
+## True while the far LOD mesh is shown; an absent flag reads false.
+static func far_mesh_shown(pony: Node) -> bool:
+	if not is_instance_valid(pony):
+		return false
+	return pony.get("_far_mesh_shown") == true
+
+
+## Switch the near/far LOD; a body without the switch is left alone.
+static func set_near_mesh(pony: Node, on: bool) -> void:
+	if not is_instance_valid(pony) or not pony.has_method("set_near_mesh"):
+		return
+	pony.call("set_near_mesh", on)
+
+
+## The pony's native eye modifier; null when the body has none.
+static func eye_motion_of(pony: Node) -> Node:
+	if not is_instance_valid(pony):
+		return null
+	var eye: Variant = pony.get("eye_motion")
+	if eye is Node and is_instance_valid(eye):
+		return eye
+	return null
+
+
+## Anon's body under the player rig; null when the rig has none.
+static func anon_body_of(player: Node) -> Node3D:
+	if not is_instance_valid(player):
+		return null
+	var body: Variant = player.find_child("AnonBody", true, false)
+	if body is Node3D and is_instance_valid(body):
+		return body
+	return null
+
+
 ## The pony's blush sustainer node; null when the body has none.
 static func boop_of(pony: Node) -> Node:
 	if not is_instance_valid(pony):
@@ -373,8 +497,8 @@ static func refresh_body_lod(pony: Node) -> void:
 	var enabled: Variant = pony.get("near_mesh_enabled")
 	if enabled != null and not bool(enabled):
 		return
-	pony.call("set_near_mesh", false)
-	pony.call("set_near_mesh", true)
+	set_near_mesh(pony, false)
+	set_near_mesh(pony, true)
 
 
 ## The bed a physics hit belongs to; off a bed it answers null.

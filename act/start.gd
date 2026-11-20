@@ -8,6 +8,7 @@ extends RefCounted
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const ACT_SETUP := preload("res://mods/unfplap/act/setup.gd")
@@ -151,6 +152,10 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 		return false
 
 	_build_pose()
+	var frame_plan: Variant = context.frame.begin(context.frame.pose_input())
+	if frame_plan == null or not bool(frame_plan.valid):
+		abort()
+		return false
 	context.reactions.clear_stock_marks()
 	if session.start_group() == "missionary":
 		context.pose.sync_missionary_config()

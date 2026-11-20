@@ -37,6 +37,7 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const ACT_IDLE := preload("res://mods/unfplap/act/idle.gd")
 const ACT_CONSENT := preload("res://mods/unfplap/act/consent.gd")
@@ -66,6 +67,8 @@ class Bundle extends RefCounted:
 	var act: ACT_SESSION = null
 	## The per-pony scene gate.
 	var gate: SCENE_GATE = null
+	## The act's player frame: placement, stance and restore.
+	var frame: ACT_FRAME = null
 	var pose: POSE_SESSION = null
 	var camera: ACT_CAMERA = null
 	var readiness: READINESS = null
@@ -183,6 +186,9 @@ static func _bind_act_frame(node: Node, b: Bundle) -> void:
 	b.context = _build_act_context(b)
 	b.act = ACT_SESSION.new()
 	b.act.bind(b.host, b.context)
+	b.frame = ACT_FRAME.new()
+	b.frame.bind(b.host, b.context, b.act)
+	b.context.frame = b.frame
 	b.consent = ACT_CONSENT.new()
 	b.consent.bind(b.host, b.context, b.act)
 	b.context.consent = b.consent

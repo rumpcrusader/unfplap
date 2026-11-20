@@ -84,10 +84,10 @@ func reset_visual_for_form() -> void:
 
 
 ## Recompute the act's visual frame after a presented-form revision. The camera's old offset is
-## undone before the new form is measured, then the standing placement is re-fitted.
+## undone before the new form is measured, then the player frame is re-fitted.
 func reset_visual(form: BODY_FORM.BodyForm) -> void:
 	context.camera.reset_for_form(session.start_family(), session.player_pony, form)
-	reanchor(form)
+	context.frame.refit(context.frame.pose_input(), form)
 	session.refresh_view()
 
 

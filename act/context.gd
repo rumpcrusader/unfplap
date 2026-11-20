@@ -26,6 +26,7 @@ const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
 const STANDING_CAMERA := preload("res://mods/unfplap/camera/standing_camera.gd")
 const MISSIONARY_CAMERA := preload("res://mods/unfplap/camera/missionary_camera.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
 
 
 var pose: POSE_SESSION = null
@@ -52,6 +53,8 @@ var consent: RefCounted = null
 var impact: RefCounted = null
 ## The standing placement handle. The start adapter and the body swap fill its typed values.
 var placement: RefCounted = null
+## The act's player frame: the start placement, the stance and the one restore.
+var frame: ACT_FRAME = null
 var facts: ACT_FACTS = null
 var kiss: KISS = null
 var summary: SUMMARY = null

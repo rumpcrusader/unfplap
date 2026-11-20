@@ -57,6 +57,7 @@ func run(rejoin_cuddle: bool) -> void:
 		HUD.instance.set_inventory_hidden(false)
 	context.kiss.restore_forelegs()
 	context.hold.restore_face_turn()
+	context.frame.end()
 	context.camera.restore_eye_override()
 	if is_instance_valid(host.pony):
 		context.face.clear_face()
